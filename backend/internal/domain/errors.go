@@ -1,0 +1,36 @@
+package domain
+
+import "errors"
+
+// Errores de dominio - centralizados para consistencia
+var (
+	// Auth
+	ErrInvalidCredentials = errors.New("credenciales inválidas")
+	ErrEmailAlreadyExists = errors.New("el email ya está registrado")
+	ErrUserBanned         = errors.New("usuario bloqueado")
+
+	// User
+	ErrUserNotFound = errors.New("usuario no encontrado")
+
+	// Pet
+	ErrPetNotFound    = errors.New("mascota no encontrada")
+	ErrNotPetOwner    = errors.New("no eres el dueño de esta mascota")
+	ErrPetAlreadyFound = errors.New("mascota ya fue encontrada")
+
+	// Report
+	ErrReportNotFound = errors.New("reporte no encontrado")
+	ErrInvalidStatus  = errors.New("status inválido")
+
+	// Message
+	ErrUserBlocked    = errors.New("usuario bloqueado, no puedes enviar mensajes")
+	ErrSelfMessage    = errors.New("no puedes enviarte mensajes a ti mismo")
+
+	// Share
+	ErrShareLinkNotFound = errors.New("link de compartir no encontrado")
+	ErrShareLinkExpired  = errors.New("link de compartir expirado")
+
+	// General
+	ErrUnauthorized = errors.New("no autorizado")
+	ErrForbidden    = errors.New("acceso prohibido")
+	ErrInternal     = errors.New("error interno del servidor")
+)
