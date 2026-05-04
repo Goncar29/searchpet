@@ -159,7 +159,7 @@ fabric.properties
 
 # End of https://www.toptal.com/developers/gitignore/api/goland
 
-cursoGO.md/
+cursoGO.md
 
 # Claude Code / AI tools
 .claude/
