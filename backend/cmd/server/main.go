@@ -31,18 +31,21 @@ func main() {
 	// ========================================
 	userRepo := repository.NewUserRepository(db)
 	petRepo := repository.NewPetRepository(db)
+	reportRepo := repository.NewReportRepository(db)
 
 	// ========================================
 	// CAPA 2: Services
 	// ========================================
 	authService := service.NewAuthService(userRepo, cfg.JWTSecret)
 	petService := service.NewPetService(petRepo)
+	reportService := service.NewReportService(reportRepo)
 
 	// ========================================
 	// CAPA 1: Handlers
 	// ========================================
 	authHandler := handler.NewAuthHandler(authService)
 	petHandler := handler.NewPetHandler(petService)
+	reportHandler := handler.NewReportHandler(reportService)
 
 	// ========================================
 	// ROUTER
@@ -61,6 +64,14 @@ func main() {
 	{
 		public.POST("/auth/register", authHandler.Register)
 		public.POST("/auth/login", authHandler.Login)
+
+		// Pets públicos — cualquiera puede ver
+		public.GET("/pets/:id", petHandler.GetPet)
+
+		// Reports públicos — cualquiera puede ver
+		public.GET("/reports/nearby", reportHandler.GetNearbyReports)
+		public.GET("/reports/pet/:petId", reportHandler.GetReportsByPet)
+		public.GET("/reports/:id", reportHandler.GetReport)
 	}
 
 	// ----------------------------------------
@@ -71,12 +82,14 @@ func main() {
 	{
 		protected.GET("/auth/me", authHandler.GetMe)
 
-		// Pets
+		// Pets (requieren auth)
 		protected.POST("/pets", petHandler.CreatePet)
 		protected.GET("/pets/mine", petHandler.GetMyPets)
-		protected.GET("/pets/:id", petHandler.GetPet)
 		protected.PUT("/pets/:id", petHandler.UpdatePet)
 		protected.DELETE("/pets/:id", petHandler.DeletePet)
+
+		// Reports (solo crear requiere auth)
+		protected.POST("/reports", reportHandler.CreateReport)
 	}
 
 	// ========================================
