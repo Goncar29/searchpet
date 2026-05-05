@@ -30,16 +30,19 @@ func main() {
 	// CAPA 3: Repositories
 	// ========================================
 	userRepo := repository.NewUserRepository(db)
+	petRepo := repository.NewPetRepository(db)
 
 	// ========================================
 	// CAPA 2: Services
 	// ========================================
 	authService := service.NewAuthService(userRepo, cfg.JWTSecret)
+	petService := service.NewPetService(petRepo)
 
 	// ========================================
 	// CAPA 1: Handlers
 	// ========================================
 	authHandler := handler.NewAuthHandler(authService)
+	petHandler := handler.NewPetHandler(petService)
 
 	// ========================================
 	// ROUTER
@@ -67,6 +70,13 @@ func main() {
 	protected.Use(middleware.Auth(cfg.JWTSecret))
 	{
 		protected.GET("/auth/me", authHandler.GetMe)
+
+		// Pets
+		protected.POST("/pets", petHandler.CreatePet)
+		protected.GET("/pets/mine", petHandler.GetMyPets)
+		protected.GET("/pets/:id", petHandler.GetPet)
+		protected.PUT("/pets/:id", petHandler.UpdatePet)
+		protected.DELETE("/pets/:id", petHandler.DeletePet)
 	}
 
 	// ========================================

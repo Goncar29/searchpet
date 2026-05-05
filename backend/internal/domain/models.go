@@ -41,7 +41,8 @@ type Pet struct {
 	Breed       string    `gorm:"size:100" json:"breed,omitempty"`
 	Color       string    `gorm:"size:100" json:"color,omitempty"`
 	Description string    `gorm:"type:text" json:"description,omitempty"`
-	MicrochipID string    `gorm:"uniqueIndex;size:50" json:"microchip_id,omitempty"`
+	Gender      string    `gorm:"size:10" json:"gender,omitempty"` // male, female, unknown
+	MicrochipID *string   `gorm:"uniqueIndex;size:50" json:"microchip_id,omitempty"`
 	Status      string    `gorm:"size:50;default:'active';index" json:"status"` // active, found, archived
 	CreatedAt   time.Time `gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt   time.Time `gorm:"autoUpdateTime" json:"updated_at"`

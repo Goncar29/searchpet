@@ -32,5 +32,6 @@ var (
 	// General
 	ErrUnauthorized = errors.New("no autorizado")
 	ErrForbidden    = errors.New("acceso prohibido")
+	ErrInvalidInput = errors.New("datos de entrada inválidos")
 	ErrInternal     = errors.New("error interno del servidor")
 )
