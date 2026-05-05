@@ -73,7 +73,7 @@ func (h *ReportHandler) GetReportsByPet(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"reports": dto.ToReportListResponse(reports)})
+	c.JSON(http.StatusOK, dto.ToReportListResponse(reports))
 }
 
 // GetNearbyReports godoc
@@ -108,5 +108,5 @@ func (h *ReportHandler) GetNearbyReports(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"reports": dto.ToReportListResponse(reports)})
+	c.JSON(http.StatusOK, dto.ToReportListResponse(reports))
 }

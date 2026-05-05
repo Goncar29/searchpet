@@ -46,6 +46,7 @@ func main() {
 	authHandler := handler.NewAuthHandler(authService)
 	petHandler := handler.NewPetHandler(petService)
 	reportHandler := handler.NewReportHandler(reportService)
+	statsHandler := handler.NewStatsHandler(db)
 
 	// ========================================
 	// ROUTER
@@ -64,6 +65,7 @@ func main() {
 	{
 		public.POST("/auth/register", authHandler.Register)
 		public.POST("/auth/login", authHandler.Login)
+		public.GET("/stats", statsHandler.GetStats)
 
 		// Pets públicos — cualquiera puede ver
 		public.GET("/pets/:id", petHandler.GetPet)
