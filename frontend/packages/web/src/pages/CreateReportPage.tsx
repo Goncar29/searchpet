@@ -52,7 +52,7 @@ export function CreateReportPage() {
 
   const validate = (): boolean => {
     const errors: FieldErrors = {};
-    if (!petId) errors.petId = t('common:error');
+    if (!petId) errors.petId = t('common:required');
     if (!coord) errors.coord = t('reports:create.noCoord');
     setFieldErrors(errors);
     return Object.keys(errors).length === 0;
@@ -116,7 +116,7 @@ export function CreateReportPage() {
               ))}
             </select>
             {fieldErrors.petId && (
-              <p className="text-red-500 text-sm mt-1">{fieldErrors.petId}</p>
+              <p className="text-red-500 dark:text-red-400 text-sm mt-1">{fieldErrors.petId}</p>
             )}
           </div>
 
@@ -139,7 +139,7 @@ export function CreateReportPage() {
               </MapContainer>
             </div>
             {fieldErrors.coord && (
-              <p className="text-red-500 text-sm mt-1">{fieldErrors.coord}</p>
+              <p className="text-red-500 dark:text-red-400 text-sm mt-1">{fieldErrors.coord}</p>
             )}
             {coord && (
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">

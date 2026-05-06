@@ -46,8 +46,8 @@ export function CreatePetPage() {
 
   const validate = (): boolean => {
     const errors: FieldErrors = {};
-    if (!form.name.trim()) errors.name = t('common:error');
-    if (!form.type) errors.type = t('common:error');
+    if (!form.name.trim()) errors.name = t('common:required');
+    if (!form.type) errors.type = t('common:required');
     setFieldErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -102,7 +102,7 @@ export function CreatePetPage() {
               className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
             />
             {fieldErrors.name && (
-              <p className="text-red-500 text-sm mt-1">{fieldErrors.name}</p>
+              <p className="text-red-500 dark:text-red-400 text-sm mt-1">{fieldErrors.name}</p>
             )}
           </div>
 
@@ -127,7 +127,7 @@ export function CreatePetPage() {
               <option value="otro">{t('pets:types.other')}</option>
             </select>
             {fieldErrors.type && (
-              <p className="text-red-500 text-sm mt-1">{fieldErrors.type}</p>
+              <p className="text-red-500 dark:text-red-400 text-sm mt-1">{fieldErrors.type}</p>
             )}
           </div>
 

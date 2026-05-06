@@ -16,8 +16,32 @@ export function PetDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-96">
-        <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-lg overflow-hidden animate-pulse">
+          {/* Image placeholder */}
+          <div className="h-72 md:h-96 bg-gray-200 dark:bg-gray-700" />
+          <div className="p-6 md:p-8 space-y-5">
+            {/* Title placeholder */}
+            <div className="h-8 w-1/2 bg-gray-200 dark:bg-gray-700 rounded-lg" />
+            {/* Attribute grid placeholder */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="h-16 bg-gray-100 dark:bg-gray-800 rounded-lg" />
+              <div className="h-16 bg-gray-100 dark:bg-gray-800 rounded-lg" />
+              <div className="h-16 bg-gray-100 dark:bg-gray-800 rounded-lg" />
+            </div>
+            {/* Description placeholder */}
+            <div className="space-y-2">
+              <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-full" />
+              <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-5/6" />
+              <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-4/6" />
+            </div>
+            {/* Buttons placeholder */}
+            <div className="flex gap-3">
+              <div className="h-10 w-28 bg-gray-200 dark:bg-gray-700 rounded-lg" />
+              <div className="h-10 w-28 bg-gray-200 dark:bg-gray-700 rounded-lg" />
+            </div>
+          </div>
+        </div>
       </div>
     );
   }

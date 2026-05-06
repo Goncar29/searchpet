@@ -8,7 +8,9 @@
     "confirm": "Confirm",
     "back": "Back to home",
     "search": "Search",
-    "noResults": "No results found"
+    "noResults": "No results found",
+    "required": "This field is required",
+    "emailInvalid": "Enter a valid email address"
   },
   "layout": {
     "home": "Home",

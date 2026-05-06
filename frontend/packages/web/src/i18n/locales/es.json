@@ -8,7 +8,9 @@
     "confirm": "Confirmar",
     "back": "Volver al inicio",
     "search": "Buscar",
-    "noResults": "No se encontraron resultados"
+    "noResults": "No se encontraron resultados",
+    "required": "Este campo es obligatorio",
+    "emailInvalid": "Ingresá un correo electrónico válido"
   },
   "layout": {
     "home": "Inicio",
