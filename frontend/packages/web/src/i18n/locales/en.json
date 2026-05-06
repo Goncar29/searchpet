@@ -1,0 +1,135 @@
+{
+  "common": {
+    "loading": "Loading...",
+    "error": "An error occurred. Please try again.",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "confirm": "Confirm",
+    "back": "Back",
+    "search": "Search",
+    "noResults": "No results found"
+  },
+  "layout": {
+    "home": "Home",
+    "map": "Map",
+    "shelters": "Shelters",
+    "myPets": "My Pets",
+    "publish": "Post",
+    "login": "Login",
+    "register": "Register",
+    "logout": "Logout",
+    "greeting": "Hello, {{name}}",
+    "darkMode": "Dark mode",
+    "language": "Language",
+    "openMenu": "Open menu",
+    "closeMenu": "Close menu"
+  },
+  "home": {
+    "hero": {
+      "title": "Reuniting lost pets with their families",
+      "subtitle": "Report, search and share. Together we find your companion.",
+      "cta": "See lost pets"
+    },
+    "stats": {
+      "found": "Pets found",
+      "reports": "Reports published",
+      "users": "Registered users"
+    },
+    "cta": {
+      "title": "Lost your pet?",
+      "subtitle": "Post a report now and reach thousands of people in your area.",
+      "button": "Post lost pet"
+    }
+  },
+  "auth": {
+    "login": {
+      "title": "Login",
+      "email": "Email address",
+      "password": "Password",
+      "submit": "Sign in",
+      "noAccount": "Don't have an account? Register"
+    },
+    "register": {
+      "title": "Create account",
+      "name": "Full name",
+      "email": "Email address",
+      "password": "Password",
+      "phone": "Phone (optional)",
+      "submit": "Create account",
+      "hasAccount": "Already have an account? Login"
+    }
+  },
+  "pets": {
+    "create": {
+      "title": "Post a pet",
+      "name": "Name",
+      "species": "Species",
+      "breed": "Breed (optional)",
+      "color": "Color (optional)",
+      "description": "Description (optional)",
+      "status": "Status",
+      "submit": "Post"
+    },
+    "mine": {
+      "title": "My pets",
+      "empty": "You haven't posted any pets yet.",
+      "emptyAction": "Post my first pet",
+      "delete": "Delete",
+      "confirmDelete": "Are you sure you want to delete this pet?"
+    },
+    "detail": {
+      "contact": "Contact",
+      "addReport": "Add report",
+      "share": "Share",
+      "comingSoon": "Coming soon!"
+    },
+    "card": {
+      "lost": "Lost",
+      "found": "Found",
+      "sighting": "Sighting"
+    },
+    "types": {
+      "dog": "Dog",
+      "cat": "Cat",
+      "other": "Other"
+    },
+    "status": {
+      "lost": "Lost",
+      "found": "Found"
+    }
+  },
+  "reports": {
+    "create": {
+      "title": "Add location report",
+      "pet": "Pet",
+      "description": "Description (optional)",
+      "date": "Sighting date",
+      "clickMap": "Click on the map to mark the location",
+      "noCoord": "Select a location on the map before continuing",
+      "submit": "Save report"
+    },
+    "nearby": {
+      "title": "Nearby reports",
+      "empty": "No reports in this area."
+    }
+  },
+  "shelters": {
+    "title": "Verified shelters",
+    "description": "These shelters work tirelessly to care for animals. If you can, consider supporting them.",
+    "donate": "Donate",
+    "verified": "Verified"
+  },
+  "footer": {
+    "description": "SearchPet — helping reunite pets with their families since 2024.",
+    "madeWith": "Made with ❤️ for the pets of Uruguay",
+    "links": "Links",
+    "contact": "Contact"
+  },
+  "map": {
+    "title": "Reports map",
+    "loading": "Loading map...",
+    "error": "Could not load the map.",
+    "clickToReport": "Click on the map to add a report"
+  }
+}

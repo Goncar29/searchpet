@@ -1,0 +1,135 @@
+{
+  "common": {
+    "loading": "Cargando...",
+    "error": "Ocurrió un error. Por favor intentá de nuevo.",
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "delete": "Eliminar",
+    "confirm": "Confirmar",
+    "back": "Volver",
+    "search": "Buscar",
+    "noResults": "No se encontraron resultados"
+  },
+  "layout": {
+    "home": "Inicio",
+    "map": "Mapa",
+    "shelters": "Refugios",
+    "myPets": "Mis Mascotas",
+    "publish": "Publicar",
+    "login": "Iniciar sesión",
+    "register": "Registrarse",
+    "logout": "Cerrar sesión",
+    "greeting": "Hola, {{name}}",
+    "darkMode": "Modo oscuro",
+    "language": "Idioma",
+    "openMenu": "Abrir menú",
+    "closeMenu": "Cerrar menú"
+  },
+  "home": {
+    "hero": {
+      "title": "Reunimos mascotas perdidas con sus familias",
+      "subtitle": "Reportá, buscá y compartí. Juntos encontramos a tu compañero.",
+      "cta": "Ver mascotas perdidas"
+    },
+    "stats": {
+      "found": "Mascotas encontradas",
+      "reports": "Reportes publicados",
+      "users": "Usuarios registrados"
+    },
+    "cta": {
+      "title": "¿Perdiste a tu mascota?",
+      "subtitle": "Publicá un reporte ahora y llegá a miles de personas en tu zona.",
+      "button": "Publicar mascota perdida"
+    }
+  },
+  "auth": {
+    "login": {
+      "title": "Iniciá sesión",
+      "email": "Correo electrónico",
+      "password": "Contraseña",
+      "submit": "Ingresar",
+      "noAccount": "¿No tenés cuenta? Registrate"
+    },
+    "register": {
+      "title": "Crear cuenta",
+      "name": "Nombre completo",
+      "email": "Correo electrónico",
+      "password": "Contraseña",
+      "phone": "Teléfono (opcional)",
+      "submit": "Crear cuenta",
+      "hasAccount": "¿Ya tenés cuenta? Iniciá sesión"
+    }
+  },
+  "pets": {
+    "create": {
+      "title": "Publicar mascota",
+      "name": "Nombre",
+      "species": "Especie",
+      "breed": "Raza (opcional)",
+      "color": "Color (opcional)",
+      "description": "Descripción (opcional)",
+      "status": "Estado",
+      "submit": "Publicar"
+    },
+    "mine": {
+      "title": "Mis mascotas",
+      "empty": "Todavía no publicaste ninguna mascota.",
+      "emptyAction": "Publicar mi primera mascota",
+      "delete": "Eliminar",
+      "confirmDelete": "¿Seguro que querés eliminar esta mascota?"
+    },
+    "detail": {
+      "contact": "Contactar",
+      "addReport": "Agregar reporte",
+      "share": "Compartir",
+      "comingSoon": "¡Próximamente!"
+    },
+    "card": {
+      "lost": "Perdido",
+      "found": "Encontrado",
+      "sighting": "Avistamiento"
+    },
+    "types": {
+      "dog": "Perro",
+      "cat": "Gato",
+      "other": "Otro"
+    },
+    "status": {
+      "lost": "Perdido",
+      "found": "Encontrado"
+    }
+  },
+  "reports": {
+    "create": {
+      "title": "Agregar reporte de ubicación",
+      "pet": "Mascota",
+      "description": "Descripción (opcional)",
+      "date": "Fecha del avistamiento",
+      "clickMap": "Hacé clic en el mapa para marcar la ubicación",
+      "noCoord": "Seleccioná una ubicación en el mapa antes de continuar",
+      "submit": "Guardar reporte"
+    },
+    "nearby": {
+      "title": "Reportes cercanos",
+      "empty": "No hay reportes en esta zona."
+    }
+  },
+  "shelters": {
+    "title": "Refugios verificados",
+    "description": "Estos refugios trabajan incansablemente para cuidar animales. Si podés, considerá apoyarlos.",
+    "donate": "Donar",
+    "verified": "Verificado"
+  },
+  "footer": {
+    "description": "SearchPet — ayudando a reunir mascotas con sus familias desde 2024.",
+    "madeWith": "Hecho con ❤️ para las mascotas de Uruguay",
+    "links": "Enlaces",
+    "contact": "Contacto"
+  },
+  "map": {
+    "title": "Mapa de reportes",
+    "loading": "Cargando mapa...",
+    "error": "No se pudo cargar el mapa.",
+    "clickToReport": "Hacé clic en el mapa para agregar un reporte"
+  }
+}
