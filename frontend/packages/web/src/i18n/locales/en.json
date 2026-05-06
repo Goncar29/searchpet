@@ -124,7 +124,8 @@
     "description": "SearchPet — helping reunite pets with their families since 2024.",
     "madeWith": "Made with ❤️ for the pets of Uruguay",
     "links": "Links",
-    "contact": "Contact"
+    "contact": "Contact",
+    "contactText": "Want to contribute? This is an open source project."
   },
   "map": {
     "title": "Reports map",

@@ -124,7 +124,8 @@
     "description": "SearchPet — ayudando a reunir mascotas con sus familias desde 2024.",
     "madeWith": "Hecho con ❤️ para las mascotas de Uruguay",
     "links": "Enlaces",
-    "contact": "Contacto"
+    "contact": "Contacto",
+    "contactText": "¿Querés contribuir? Este es un proyecto open source."
   },
   "map": {
     "title": "Mapa de reportes",
