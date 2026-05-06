@@ -10,7 +10,14 @@
     "search": "Buscar",
     "noResults": "No se encontraron resultados",
     "required": "Este campo es obligatorio",
-    "emailInvalid": "Ingresá un correo electrónico válido"
+    "emailInvalid": "Ingresá un correo electrónico válido",
+    "errorDescription": "Algo salió mal. Por favor intentá recargar la página.",
+    "reload": "Reintentar",
+    "timeAgo": {
+      "minutesAgo": "hace {{count}} min",
+      "hoursAgo": "hace {{count}}h",
+      "daysAgo": "hace {{count}}d"
+    }
   },
   "layout": {
     "home": "Inicio",

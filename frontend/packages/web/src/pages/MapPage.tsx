@@ -32,7 +32,7 @@ const sightingIcon = new L.Icon({
 });
 
 export function MapPage() {
-  const { t } = useTranslation(['map', 'pets']);
+  const { t } = useTranslation(['map', 'pets', 'reports']);
   const { theme } = useTheme();
   const [userLocation, setUserLocation] = useState<[number, number]>([-34.9011, -56.1645]);
 

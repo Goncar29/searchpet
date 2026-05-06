@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { Link, useNavigate, useSearchParams } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 
@@ -13,6 +13,7 @@ interface FieldErrors {
 export function LoginPage() {
   const { t } = useTranslation(['auth', 'common']);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -41,7 +42,8 @@ export function LoginPage() {
     setLoading(true);
     try {
       await login(email, password);
-      navigate('/');
+      const returnUrl = searchParams.get('returnUrl') || '/';
+      navigate(returnUrl);
     } catch (err: any) {
       setApiError(err.message || t('auth:login.invalidCredentials'));
     } finally {

@@ -17,6 +17,16 @@
   --font-family-sans: 'Inter', system-ui, sans-serif;
 }
 
+/* Dark mode surface tokens — complement utility classes */
+.dark {
+  --color-surface: #111827;       /* gray-900 */
+  --color-surface-raised: #1f2937; /* gray-800 */
+  --color-surface-overlay: #030712; /* gray-950 */
+  --color-border: #374151;         /* gray-700 */
+  --color-text: #f9fafb;           /* gray-50 */
+  --color-text-muted: #9ca3af;     /* gray-400 */
+}
+
 body {
   font-family: 'Inter', system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;

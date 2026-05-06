@@ -8,7 +8,7 @@ import type { Photo, Report } from '@shared/types';
 import { useAuth } from '../context/AuthContext';
 
 export function PetDetailPage() {
-  const { t } = useTranslation(['pets', 'common']);
+  const { t, i18n } = useTranslation(['pets', 'common']);
   const { id } = useParams<{ id: string }>();
   const { isAuthenticated } = useAuth();
   const { data: pet, isLoading } = usePetByID(id || '');
@@ -180,7 +180,7 @@ export function PetDetailPage() {
                         <p className="text-sm text-gray-500 dark:text-gray-400">📍 {report.location_description}</p>
                       )}
                       <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
-                        {new Date(report.created_at).toLocaleDateString('es', {
+                        {new Date(report.created_at).toLocaleDateString(i18n.language, {
                           day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit',
                         })}
                       </p>

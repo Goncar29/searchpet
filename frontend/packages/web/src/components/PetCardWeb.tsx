@@ -7,7 +7,7 @@ interface PetCardWebProps {
 }
 
 export function PetCardWeb({ report }: PetCardWebProps) {
-  const { t } = useTranslation(['pets']);
+  const { t, i18n } = useTranslation(['pets', 'common']);
   const pet = report.pet;
   const primaryPhoto = pet?.photos?.find(p => p.is_primary) || pet?.photos?.[0];
 
@@ -26,10 +26,10 @@ export function PetCardWeb({ report }: PetCardWebProps) {
     const hours = Math.floor(mins / 60);
     const days = Math.floor(hours / 24);
 
-    if (mins < 60) return `hace ${mins} min`;
-    if (hours < 24) return `hace ${hours}h`;
-    if (days < 7) return `hace ${days}d`;
-    return new Date(dateStr).toLocaleDateString('es');
+    if (mins < 60) return t('common:timeAgo.minutesAgo', { count: mins });
+    if (hours < 24) return t('common:timeAgo.hoursAgo', { count: hours });
+    if (days < 7) return t('common:timeAgo.daysAgo', { count: days });
+    return new Date(dateStr).toLocaleDateString(i18n.language);
   };
 
   const status = getStatusConfig(report.status);

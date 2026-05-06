@@ -4,9 +4,12 @@ import { useTranslation } from 'react-i18next';
 import { useCreatePet } from '@shared/hooks';
 import type { PetType } from '@shared/types';
 
+type PetStatus = 'lost' | 'found';
+
 interface FormState {
   name: string;
   type: PetType | '';
+  status: PetStatus | '';
   breed: string;
   color: string;
   description: string;
@@ -15,6 +18,7 @@ interface FormState {
 interface FieldErrors {
   name?: string;
   type?: string;
+  status?: string;
 }
 
 export function CreatePetPage() {
@@ -25,6 +29,7 @@ export function CreatePetPage() {
   const [form, setForm] = useState<FormState>({
     name: '',
     type: '',
+    status: '',
     breed: '',
     color: '',
     description: '',
@@ -48,6 +53,7 @@ export function CreatePetPage() {
     const errors: FieldErrors = {};
     if (!form.name.trim()) errors.name = t('common:required');
     if (!form.type) errors.type = t('common:required');
+    if (!form.status) errors.status = t('common:required');
     setFieldErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -62,6 +68,7 @@ export function CreatePetPage() {
       {
         name: form.name.trim(),
         type: form.type as PetType,
+        status: form.status as PetStatus,
         breed: form.breed.trim() || undefined,
         color: form.color.trim() || undefined,
         description: form.description.trim() || undefined,
@@ -103,6 +110,30 @@ export function CreatePetPage() {
             />
             {fieldErrors.name && (
               <p className="text-red-500 dark:text-red-400 text-sm mt-1">{fieldErrors.name}</p>
+            )}
+          </div>
+
+          {/* Status */}
+          <div>
+            <label
+              htmlFor="status"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+            >
+              {t('pets:create.status')} *
+            </label>
+            <select
+              id="status"
+              name="status"
+              value={form.status}
+              onChange={handleChange}
+              className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
+            >
+              <option value="">—</option>
+              <option value="lost">{t('pets:status.lost')}</option>
+              <option value="found">{t('pets:status.found')}</option>
+            </select>
+            {fieldErrors.status && (
+              <p className="text-red-500 dark:text-red-400 text-sm mt-1">{fieldErrors.status}</p>
             )}
           </div>
 
