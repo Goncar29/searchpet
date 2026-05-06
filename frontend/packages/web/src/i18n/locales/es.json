@@ -6,7 +6,7 @@
     "cancel": "Cancelar",
     "delete": "Eliminar",
     "confirm": "Confirmar",
-    "back": "Volver",
+    "back": "Volver al inicio",
     "search": "Buscar",
     "noResults": "No se encontraron resultados"
   },
@@ -34,8 +34,29 @@
     "stats": {
       "found": "Mascotas encontradas",
       "reports": "Reportes publicados",
-      "users": "Usuarios registrados"
+      "users": "Usuarios registrados",
+      "pets": "Mascotas registradas"
     },
+    "how": {
+      "title": "¿Cómo funciona?",
+      "step1": {
+        "title": "1. Publicá",
+        "description": "Subí fotos, descripción y la última ubicación donde fue vista tu mascota."
+      },
+      "step2": {
+        "title": "2. Buscá en el mapa",
+        "description": "Explorá reportes cercanos en el mapa interactivo. Filtrá por tipo, raza y ubicación."
+      },
+      "step3": {
+        "title": "3. Compartí",
+        "description": "Difundí en WhatsApp, Instagram, Facebook y Twitter para maximizar la búsqueda."
+      }
+    },
+    "recentReports": "Reportes recientes",
+    "noReports": "No hay reportes recientes en tu zona",
+    "viewAll": "Ver todos en el mapa",
+    "viewMap": "Ver mapa",
+    "publish": "Publicar mascota",
     "cta": {
       "title": "¿Perdiste a tu mascota?",
       "subtitle": "Publicá un reporte ahora y llegá a miles de personas en tu zona.",
@@ -45,19 +66,26 @@
   "auth": {
     "login": {
       "title": "Iniciá sesión",
+      "subtitle": "Ayudá a encontrar mascotas perdidas",
       "email": "Correo electrónico",
       "password": "Contraseña",
       "submit": "Ingresar",
-      "noAccount": "¿No tenés cuenta? Registrate"
+      "noAccount": "¿No tenés cuenta? Registrate",
+      "invalidCredentials": "Credenciales inválidas"
     },
     "register": {
       "title": "Crear cuenta",
+      "subtitle": "Unite a la comunidad",
       "name": "Nombre completo",
       "email": "Correo electrónico",
       "password": "Contraseña",
+      "confirm": "Confirmar contraseña",
       "phone": "Teléfono (opcional)",
       "submit": "Crear cuenta",
-      "hasAccount": "¿Ya tenés cuenta? Iniciá sesión"
+      "hasAccount": "¿Ya tenés cuenta? Iniciá sesión",
+      "passwordMin": "La contraseña debe tener al menos 6 caracteres",
+      "passwordMismatch": "Las contraseñas no coinciden",
+      "createError": "No se pudo crear la cuenta"
     }
   },
   "pets": {
@@ -79,15 +107,25 @@
       "confirmDelete": "¿Seguro que querés eliminar esta mascota?"
     },
     "detail": {
-      "contact": "Contactar",
+      "contact": "Contactar por WhatsApp",
       "addReport": "Agregar reporte",
       "share": "Compartir",
-      "comingSoon": "¡Próximamente!"
+      "comingSoon": "¡Próximamente!",
+      "notFound": "Mascota no encontrada",
+      "type": "Tipo",
+      "breed": "Raza",
+      "color": "Color",
+      "description": "Descripción",
+      "owner": "Contacto del dueño",
+      "verified": "Verificado",
+      "whatsappMessage": "Hola, vi tu mascota {{name}} en SearchPet",
+      "timeline": "Historial de reportes ({{count}})"
     },
     "card": {
       "lost": "Perdido",
       "found": "Encontrado",
-      "sighting": "Avistamiento"
+      "sighting": "Avistado",
+      "noName": "Sin nombre"
     },
     "types": {
       "dog": "Perro",
@@ -115,10 +153,17 @@
     }
   },
   "shelters": {
-    "title": "Refugios verificados",
-    "description": "Estos refugios trabajan incansablemente para cuidar animales. Si podés, considerá apoyarlos.",
+    "title": "Refugios y Organizaciones",
+    "description": "Estos son los refugios locales que trabajan rescatando y protegiendo animales. Si querés ayudar, visitá sus páginas para donar directamente a ellos.",
     "donate": "Donar",
-    "verified": "Verificado"
+    "verified": "Verificado",
+    "impact": "Nuestro Impacto",
+    "impactFound": "Mascotas encontradas",
+    "impactUsers": "Usuarios ayudando",
+    "impactReports": "Reportes creados",
+    "impactPets": "Mascotas registradas",
+    "visitWeb": "Visitar web",
+    "contactCta": "¿Sos un refugio y querés aparecer aquí? Contactanos."
   },
   "footer": {
     "description": "SearchPet — ayudando a reunir mascotas con sus familias desde 2024.",
@@ -131,6 +176,9 @@
     "title": "Mapa de reportes",
     "loading": "Cargando mapa...",
     "error": "No se pudo cargar el mapa.",
-    "clickToReport": "Hacé clic en el mapa para agregar un reporte"
+    "clickToReport": "Hacé clic en el mapa para agregar un reporte",
+    "reports": "{{count}} reportes en la zona",
+    "viewDetails": "Ver detalles",
+    "pet": "Mascota"
   }
 }

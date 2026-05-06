@@ -6,7 +6,7 @@
     "cancel": "Cancel",
     "delete": "Delete",
     "confirm": "Confirm",
-    "back": "Back",
+    "back": "Back to home",
     "search": "Search",
     "noResults": "No results found"
   },
@@ -34,8 +34,29 @@
     "stats": {
       "found": "Pets found",
       "reports": "Reports published",
-      "users": "Registered users"
+      "users": "Registered users",
+      "pets": "Registered pets"
     },
+    "how": {
+      "title": "How does it work?",
+      "step1": {
+        "title": "1. Post",
+        "description": "Upload photos, description and the last location where your pet was seen."
+      },
+      "step2": {
+        "title": "2. Search the map",
+        "description": "Explore nearby reports on the interactive map. Filter by type, breed and location."
+      },
+      "step3": {
+        "title": "3. Share",
+        "description": "Share on WhatsApp, Instagram, Facebook and Twitter to maximize the search."
+      }
+    },
+    "recentReports": "Recent reports",
+    "noReports": "No recent reports in your area",
+    "viewAll": "View all on map",
+    "viewMap": "View map",
+    "publish": "Post a pet",
     "cta": {
       "title": "Lost your pet?",
       "subtitle": "Post a report now and reach thousands of people in your area.",
@@ -45,19 +66,26 @@
   "auth": {
     "login": {
       "title": "Login",
+      "subtitle": "Help find lost pets",
       "email": "Email address",
       "password": "Password",
       "submit": "Sign in",
-      "noAccount": "Don't have an account? Register"
+      "noAccount": "Don't have an account? Register",
+      "invalidCredentials": "Invalid credentials"
     },
     "register": {
       "title": "Create account",
+      "subtitle": "Join the community",
       "name": "Full name",
       "email": "Email address",
       "password": "Password",
+      "confirm": "Confirm password",
       "phone": "Phone (optional)",
       "submit": "Create account",
-      "hasAccount": "Already have an account? Login"
+      "hasAccount": "Already have an account? Login",
+      "passwordMin": "Password must be at least 6 characters",
+      "passwordMismatch": "Passwords do not match",
+      "createError": "Could not create account"
     }
   },
   "pets": {
@@ -79,15 +107,25 @@
       "confirmDelete": "Are you sure you want to delete this pet?"
     },
     "detail": {
-      "contact": "Contact",
+      "contact": "Contact via WhatsApp",
       "addReport": "Add report",
       "share": "Share",
-      "comingSoon": "Coming soon!"
+      "comingSoon": "Coming soon!",
+      "notFound": "Pet not found",
+      "type": "Type",
+      "breed": "Breed",
+      "color": "Color",
+      "description": "Description",
+      "owner": "Owner contact",
+      "verified": "Verified",
+      "whatsappMessage": "Hi, I saw your pet {{name}} on SearchPet",
+      "timeline": "Report history ({{count}})"
     },
     "card": {
       "lost": "Lost",
       "found": "Found",
-      "sighting": "Sighting"
+      "sighting": "Sighting",
+      "noName": "No name"
     },
     "types": {
       "dog": "Dog",
@@ -115,10 +153,17 @@
     }
   },
   "shelters": {
-    "title": "Verified shelters",
-    "description": "These shelters work tirelessly to care for animals. If you can, consider supporting them.",
+    "title": "Shelters & Organizations",
+    "description": "These are local shelters working to rescue and protect animals. If you want to help, visit their pages to donate directly to them.",
     "donate": "Donate",
-    "verified": "Verified"
+    "verified": "Verified",
+    "impact": "Our Impact",
+    "impactFound": "Pets found",
+    "impactUsers": "Users helping",
+    "impactReports": "Reports created",
+    "impactPets": "Pets registered",
+    "visitWeb": "Visit website",
+    "contactCta": "Are you a shelter and want to appear here? Contact us."
   },
   "footer": {
     "description": "SearchPet — helping reunite pets with their families since 2024.",
@@ -131,6 +176,9 @@
     "title": "Reports map",
     "loading": "Loading map...",
     "error": "Could not load the map.",
-    "clickToReport": "Click on the map to add a report"
+    "clickToReport": "Click on the map to add a report",
+    "reports": "{{count}} reports in the area",
+    "viewDetails": "View details",
+    "pet": "Pet"
   }
 }
