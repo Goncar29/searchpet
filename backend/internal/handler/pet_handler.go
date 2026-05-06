@@ -69,7 +69,7 @@ func (h *PetHandler) GetMyPets(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"pets": dto.ToPetListResponse(pets)})
+	c.JSON(http.StatusOK, dto.ToPetListResponse(pets))
 }
 
 // UpdatePet godoc
