@@ -146,7 +146,14 @@ class APIClient {
   }
 
   async getNearbyReports(params: NearbySearchParams): Promise<Report[]> {
-    return this.request<Report[]>('GET', '/api/reports/nearby', undefined, params as Record<string, string | number>);
+    // Backend expects radius in meters; frontend uses km for readability
+    const radiusMeters = (params.radius ?? 5) * 1000;
+    return this.request<Report[]>('GET', '/api/reports/nearby', undefined, {
+      lat: params.lat,
+      lng: params.lng,
+      radius: radiusMeters,
+      ...(params.limit !== undefined && { limit: params.limit }),
+    });
   }
 
   async getReportsByPetID(petID: string): Promise<Report[]> {

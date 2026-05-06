@@ -14,6 +14,13 @@ export interface User {
   created_at: string;
 }
 
+export interface PetOwner {
+  id: string;
+  name: string;
+  phone?: string;
+  is_verified: boolean;
+}
+
 export interface Pet {
   id: string;
   owner_id: string;
@@ -22,10 +29,9 @@ export interface Pet {
   breed?: string;
   color?: string;
   description?: string;
-  microchip_id?: string;
   status: PetStatus;
   photos: Photo[];
-  owner?: User;
+  owner?: PetOwner;
   created_at: string;
 }
 
@@ -110,7 +116,6 @@ export interface CreatePetRequest {
   breed?: string;
   color?: string;
   description?: string;
-  microchip_id?: string;
 }
 
 export interface UpdatePetRequest {

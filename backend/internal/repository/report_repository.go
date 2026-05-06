@@ -46,7 +46,7 @@ func (r *PostgresReportRepository) FindByID(id string) (*domain.Report, error) {
 // FindByPetID devuelve todos los reportes de una mascota, del más reciente al más viejo.
 func (r *PostgresReportRepository) FindByPetID(petID string) ([]domain.Report, error) {
 	var reports []domain.Report
-	err := r.db.Preload("Reporter").
+	err := r.db.Preload("Pet").Preload("Reporter").
 		Where("pet_id = ?", petID).
 		Order("created_at DESC").
 		Find(&reports).Error

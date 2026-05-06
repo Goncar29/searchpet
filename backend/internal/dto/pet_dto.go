@@ -7,37 +7,73 @@ import (
 	"lost-pets/internal/domain"
 )
 
+// PetOwnerResponse son los datos del dueño que exponemos dentro de un Pet.
+type PetOwnerResponse struct {
+	ID         uuid.UUID `json:"id"`
+	Name       string    `json:"name"`
+	Phone      string    `json:"phone,omitempty"`
+	IsVerified bool      `json:"is_verified"`
+}
+
+// PetPhotoResponse son los datos de una foto de mascota.
+type PetPhotoResponse struct {
+	ID        uuid.UUID `json:"id"`
+	URL       string    `json:"url"`
+	IsPrimary bool      `json:"is_primary"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
 // PetResponse son los datos de la mascota que retornamos al cliente.
-// Incluye solo el nombre del owner, no el objeto completo.
 type PetResponse struct {
-	ID          uuid.UUID `json:"id"`
-	OwnerID     uuid.UUID `json:"owner_id"`
-	OwnerName   string    `json:"owner_name"`
-	Name        string    `json:"name"`
-	Type        string    `json:"type"`
-	Breed       string    `json:"breed,omitempty"`
-	Gender      string    `json:"gender,omitempty"`
-	Color       string    `json:"color,omitempty"`
-	Description string    `json:"description,omitempty"`
-	Status      string    `json:"status"`
-	CreatedAt   time.Time `json:"created_at"`
+	ID          uuid.UUID          `json:"id"`
+	OwnerID     uuid.UUID          `json:"owner_id"`
+	Name        string             `json:"name"`
+	Type        string             `json:"type"`
+	Breed       string             `json:"breed,omitempty"`
+	Color       string             `json:"color,omitempty"`
+	Description string             `json:"description,omitempty"`
+	Status      string             `json:"status"`
+	Photos      []PetPhotoResponse `json:"photos"`
+	Owner       *PetOwnerResponse  `json:"owner,omitempty"`
+	CreatedAt   time.Time          `json:"created_at"`
 }
 
 // ToPetResponse convierte un domain.Pet en un PetResponse limpio.
 func ToPetResponse(pet *domain.Pet) PetResponse {
-	return PetResponse{
+	photos := make([]PetPhotoResponse, len(pet.Photos))
+	for i, p := range pet.Photos {
+		photos[i] = PetPhotoResponse{
+			ID:        p.ID,
+			URL:       p.URL,
+			IsPrimary: p.IsPrimary,
+			CreatedAt: p.CreatedAt,
+		}
+	}
+
+	resp := PetResponse{
 		ID:          pet.ID,
 		OwnerID:     pet.OwnerID,
-		OwnerName:   pet.Owner.Name,
 		Name:        pet.Name,
 		Type:        pet.Type,
 		Breed:       pet.Breed,
-		Gender:      pet.Gender,
 		Color:       pet.Color,
 		Description: pet.Description,
 		Status:      pet.Status,
+		Photos:      photos,
 		CreatedAt:   pet.CreatedAt,
 	}
+
+	// Owner es opcional — solo lo incluimos si fue cargado (Preload)
+	if pet.Owner.ID != (uuid.UUID{}) {
+		resp.Owner = &PetOwnerResponse{
+			ID:         pet.Owner.ID,
+			Name:       pet.Owner.Name,
+			Phone:      pet.Owner.Phone,
+			IsVerified: pet.Owner.IsVerified,
+		}
+	}
+
+	return resp
 }
 
 // ToPetListResponse convierte un slice de domain.Pet en un slice de PetResponse.

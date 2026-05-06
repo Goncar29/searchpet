@@ -121,5 +121,5 @@ func (h *PetHandler) DeletePet(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "mascota eliminada"})
+	c.Status(http.StatusNoContent)
 }

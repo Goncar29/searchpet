@@ -38,7 +38,7 @@ func (r *PostgresPetRepository) Create(pet *domain.Pet) error {
 // Preload("Owner") hace un segundo SELECT para traer los datos del usuario.
 func (r *PostgresPetRepository) FindByID(id string) (*domain.Pet, error) {
 	var pet domain.Pet
-	err := r.db.Preload("Owner").Where("id = ?", id).First(&pet).Error
+	err := r.db.Preload("Owner").Preload("Photos").Where("id = ?", id).First(&pet).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, domain.ErrPetNotFound
@@ -51,7 +51,7 @@ func (r *PostgresPetRepository) FindByID(id string) (*domain.Pet, error) {
 // FindByOwnerID devuelve todas las mascotas de un usuario con el owner cargado.
 func (r *PostgresPetRepository) FindByOwnerID(ownerID string) ([]domain.Pet, error) {
 	var pets []domain.Pet
-	err := r.db.Preload("Owner").Where("owner_id = ?", ownerID).Order("created_at DESC").Find(&pets).Error
+	err := r.db.Preload("Owner").Preload("Photos").Where("owner_id = ?", ownerID).Order("created_at DESC").Find(&pets).Error
 	return pets, err
 }
 
