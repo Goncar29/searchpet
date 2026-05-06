@@ -1,0 +1,45 @@
+# ============================================
+# Lost Pets - Docker Compose (Desarrollo Local)
+# ============================================
+# Uso: docker-compose up -d
+
+services:
+  # PostgreSQL + PostGIS
+  db:
+    image: postgis/postgis:15-3.4
+    container_name: lostpets-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: lostpets
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Backend Go API
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: lostpets-api
+    environment:
+      PORT: 8080
+      ENVIRONMENT: development
+      DATABASE_URL: postgres://postgres:postgres@db:5432/lostpets?sslmode=disable
+      JWT_SECRET: dev-secret-change-in-production
+      APP_URL: http://localhost:8080
+    ports:
+      - "8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
