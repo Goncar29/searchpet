@@ -1,5 +1,6 @@
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 import { useStats, useNearbyReports } from '@shared/hooks';
+import type { Report } from '@shared/types';
 import { useAuth } from '../context/AuthContext';
 import { PetCardWeb } from '../components/PetCardWeb';
 
@@ -103,7 +104,7 @@ export function HomePage() {
           </div>
         ) : reports && reports.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {reports.slice(0, 6).map((report) => (
+            {reports.slice(0, 6).map((report: Report) => (
               <PetCardWeb key={report.id} report={report} />
             ))}
           </div>
