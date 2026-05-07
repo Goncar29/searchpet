@@ -162,6 +162,7 @@ fabric.properties
 cursoGO.md
 
 # Claude Code / AI tools
+.agents
 .claude/
 .mcp/
 .skills/

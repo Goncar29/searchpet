@@ -85,6 +85,13 @@ export interface AuthResponse {
   user: User;
 }
 
+export interface UploadPhotoResponse {
+  id: string;
+  url: string;
+  is_primary: boolean;
+  created_at: string;
+}
+
 // ============================================================
 // ENUMS / UNION TYPES
 // ============================================================

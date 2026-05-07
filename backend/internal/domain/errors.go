@@ -25,6 +25,11 @@ var (
 	ErrUserBlocked    = errors.New("usuario bloqueado, no puedes enviar mensajes")
 	ErrSelfMessage    = errors.New("no puedes enviarte mensajes a ti mismo")
 
+	// Photo
+	ErrInvalidFileType = errors.New("tipo de archivo no permitido; solo jpeg, png y webp")
+	ErrFileTooLarge    = errors.New("el archivo supera el límite de 5 MB")
+	ErrStorageFailed   = errors.New("error al subir la imagen; intenta nuevamente")
+
 	// Share
 	ErrShareLinkNotFound = errors.New("link de compartir no encontrado")
 	ErrShareLinkExpired  = errors.New("link de compartir expirado")

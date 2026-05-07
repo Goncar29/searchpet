@@ -18,6 +18,7 @@ import type {
   ShareLink,
   GenerateShareRequest,
   Stats,
+  UploadPhotoResponse,
 } from '../types';
 
 // En Vite usamos import.meta.env, en Expo usamos process.env
@@ -135,6 +136,34 @@ class APIClient {
 
   async searchPets(params: PetSearchParams): Promise<Pet[]> {
     return this.request<Pet[]>('GET', '/api/pets/search', undefined, params as Record<string, string | number>);
+  }
+
+  // uploadPhoto usa FormData crudo — NO usa this.request() porque ese método
+  // hardcodea Content-Type: application/json y rompería el boundary de multipart.
+  async uploadPhoto(petId: string, file: File): Promise<UploadPhotoResponse> {
+    const url = `${this.baseURL}/api/pets/${petId}/photos`;
+
+    const formData = new FormData();
+    formData.append('photo', file);
+
+    const headers: Record<string, string> = {};
+    // NO seteamos Content-Type — el browser lo pone con el boundary correcto
+    if (this.token) {
+      headers['Authorization'] = `Bearer ${this.token}`;
+    }
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Error desconocido' }));
+      throw new Error(error.error || `HTTP Error ${response.status}`);
+    }
+
+    return response.json();
   }
 
   // ============================================================

@@ -84,3 +84,23 @@ func ToPetListResponse(pets []domain.Pet) []PetResponse {
 	}
 	return result
 }
+
+// ToPhotoResponse convierte un domain.Photo en un PetPhotoResponse.
+// Reutilizamos el DTO existente — no creamos uno nuevo para evitar duplicación.
+func ToPhotoResponse(photo *domain.Photo) PetPhotoResponse {
+	return PetPhotoResponse{
+		ID:        photo.ID,
+		URL:       photo.URL,
+		IsPrimary: photo.IsPrimary,
+		CreatedAt: photo.CreatedAt,
+	}
+}
+
+// ToPhotoListResponse convierte un slice de domain.Photo en un slice de PetPhotoResponse.
+func ToPhotoListResponse(photos []domain.Photo) []PetPhotoResponse {
+	result := make([]PetPhotoResponse, len(photos))
+	for i, p := range photos {
+		result[i] = ToPhotoResponse(&p)
+	}
+	return result
+}

@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
-import { useCreatePet } from '@shared/hooks';
-import type { PetType } from '@shared/types';
+import { useCreatePet, useUploadPhoto } from '@shared/hooks';
+import type { Pet, PetType } from '@shared/types';
 
 interface FormState {
   name: string;
@@ -21,6 +21,7 @@ export function CreatePetPage() {
   const { t } = useTranslation(['pets', 'common']);
   const navigate = useNavigate();
   const createPet = useCreatePet();
+  const uploadPhoto = useUploadPhoto();
 
   const [form, setForm] = useState<FormState>({
     name: '',
@@ -32,16 +33,37 @@ export function CreatePetPage() {
 
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [apiError, setApiError] = useState<string | null>(null);
+  // Foto seleccionada por el usuario (puede ser null si no eligió ninguna)
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewURL, setPreviewURL] = useState<string | null>(null);
+  // Error no-bloqueante cuando el upload falla DESPUÉS de crear la mascota
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [createdPetId, setCreatedPetId] = useState<number | null>(null);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
-    // Clear field error on change
+    // Limpiar error de campo al editar
     if (name in fieldErrors) {
       setFieldErrors((prev) => ({ ...prev, [name]: undefined }));
     }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] ?? null;
+    if (!file) {
+      setSelectedFile(null);
+      setPreviewURL(null);
+      return;
+    }
+    setSelectedFile(file);
+    // Preview local — no necesitamos hacer ningún request todavía
+    const objectURL = URL.createObjectURL(file);
+    setPreviewURL(objectURL);
   };
 
   const validate = (): boolean => {
@@ -52,9 +74,10 @@ export function CreatePetPage() {
     return Object.keys(errors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setApiError(null);
+    setUploadError(null);
 
     if (!validate()) return;
 
@@ -67,8 +90,21 @@ export function CreatePetPage() {
         description: form.description.trim() || undefined,
       },
       {
-        onSuccess: () => {
-          navigate('/pets/mine');
+        onSuccess: async (pet: Pet) => {
+          // Paso 2: si el usuario eligió una foto, subirla con el petId recién creado
+          if (selectedFile) {
+            try {
+              await uploadPhoto.mutateAsync({ petId: pet.id, file: selectedFile });
+            } catch (err) {
+              // La mascota YA fue creada — no hacemos rollback.
+              // El usuario decide cuándo navegar al perfil.
+              const message = err instanceof Error ? err.message : 'No se pudo subir la foto';
+              setUploadError(message);
+              setCreatedPetId(pet.id);
+              return;
+            }
+          }
+          navigate(`/pets/${pet.id}`);
         },
         onError: (err: Error) => {
           setApiError(err.message);
@@ -76,6 +112,8 @@ export function CreatePetPage() {
       }
     );
   };
+
+  const isPending = createPet.isPending || uploadPhoto.isPending;
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 py-10 px-4">
@@ -185,18 +223,65 @@ export function CreatePetPage() {
             />
           </div>
 
-          {/* API Error */}
+          {/* Photo upload */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              {t('pets:create.photo', 'Foto de la mascota')}
+            </label>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              onChange={handleFileChange}
+              className="block w-full text-sm text-gray-500 dark:text-gray-400
+                file:mr-4 file:py-2 file:px-4
+                file:rounded-lg file:border-0
+                file:text-sm file:font-semibold
+                file:bg-primary file:text-white
+                hover:file:bg-primary-dark
+                cursor-pointer"
+            />
+            {/* Preview local de la imagen seleccionada */}
+            {previewURL && (
+              <div className="mt-3">
+                <img
+                  src={previewURL}
+                  alt="Vista previa"
+                  className="h-40 w-full object-cover rounded-lg border border-gray-200 dark:border-gray-700"
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Error de API (pet creation failed) */}
           {apiError && (
             <p className="text-red-500 text-sm">{apiError}</p>
+          )}
+
+          {/* Error no-bloqueante de upload (la mascota YA fue creada) */}
+          {uploadError && createdPetId && (
+            <div className="rounded-lg border border-yellow-300 bg-yellow-50 dark:bg-yellow-900/20 dark:border-yellow-700 p-3 space-y-2">
+              <p className="text-yellow-800 dark:text-yellow-300 text-sm font-medium">
+                La mascota fue creada correctamente, pero la foto no se pudo subir:
+              </p>
+              <p className="text-yellow-700 dark:text-yellow-400 text-sm">{uploadError}</p>
+              <button
+                type="button"
+                onClick={() => navigate(`/pets/${createdPetId}`)}
+                className="text-sm font-semibold text-yellow-800 dark:text-yellow-300 underline underline-offset-2 hover:text-yellow-900"
+              >
+                Ir al perfil de la mascota →
+              </button>
+            </div>
           )}
 
           {/* Submit */}
           <button
             type="submit"
-            disabled={createPet.isPending}
+            disabled={isPending}
             className="w-full bg-primary hover:bg-primary-dark disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold rounded-lg px-4 py-2 transition-colors"
           >
-            {createPet.isPending ? t('common:loading') : t('pets:create.submit')}
+            {isPending ? t('common:loading') : t('pets:create.submit')}
           </button>
         </form>
       </div>

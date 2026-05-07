@@ -8,13 +8,15 @@ import (
 )
 
 type Config struct {
-	Port          string
-	DatabaseURL   string
-	JWTSecret     string
-	CloudinaryURL string
-	FirebaseKey   string
-	AppURL        string
-	Environment   string
+	Port                string
+	DatabaseURL         string
+	JWTSecret           string
+	CloudinaryCloudName string
+	CloudinaryAPIKey    string
+	CloudinaryAPISecret string
+	FirebaseKey         string
+	AppURL              string
+	Environment         string
 }
 
 func Load() *Config {
@@ -23,13 +25,15 @@ func Load() *Config {
 	}
 
 	return &Config{
-		Port:          getEnv("PORT", "8080"),
-		DatabaseURL:   getEnv("DATABASE_URL", "postgres://postgres:postgres@localhost:5432/lostpets?sslmode=disable"),
-		JWTSecret:     getEnv("JWT_SECRET", "super-secret-key-change-in-production"),
-		CloudinaryURL: getEnv("CLOUDINARY_URL", ""),
-		FirebaseKey:   getEnv("FIREBASE_KEY", ""),
-		AppURL:        getEnv("APP_URL", "http://localhost:8080"),
-		Environment:   getEnv("ENVIRONMENT", "development"),
+		Port:                getEnv("PORT", "8080"),
+		DatabaseURL:         getEnv("DATABASE_URL", "postgres://postgres:postgres@localhost:5432/lostpets?sslmode=disable"),
+		JWTSecret:           getEnv("JWT_SECRET", "super-secret-key-change-in-production"),
+		CloudinaryCloudName: getEnv("CLOUDINARY_CLOUD_NAME", ""),
+		CloudinaryAPIKey:    getEnv("CLOUDINARY_API_KEY", ""),
+		CloudinaryAPISecret: getEnv("CLOUDINARY_API_SECRET", ""),
+		FirebaseKey:         getEnv("FIREBASE_KEY", ""),
+		AppURL:              getEnv("APP_URL", "http://localhost:8080"),
+		Environment:         getEnv("ENVIRONMENT", "development"),
 	}
 }
 

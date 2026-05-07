@@ -24,3 +24,15 @@ type UserRepository interface {
 	// Delete elimina un usuario por su ID
 	Delete(ctx context.Context, id uuid.UUID) error
 }
+
+// PhotoRepository define el contrato para acceder a datos de fotos de mascotas.
+type PhotoRepository interface {
+	// Create persiste una nueva foto en la BD.
+	Create(photo *domain.Photo) error
+
+	// FindByPetID retorna todas las fotos de una mascota, ordenadas por created_at ASC.
+	FindByPetID(petID string) ([]domain.Photo, error)
+
+	// HasPrimaryPhoto informa si la mascota ya tiene una foto marcada como primaria.
+	HasPrimaryPhoto(petID string) (bool, error)
+}

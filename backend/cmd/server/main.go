@@ -10,6 +10,7 @@ import (
 	"lost-pets/internal/repository"
 	"lost-pets/internal/service"
 	"lost-pets/pkg/database"
+	"lost-pets/pkg/storage"
 )
 
 func main() {
@@ -27,11 +28,25 @@ func main() {
 	}
 
 	// ========================================
+	// STORAGE (Cloudinary)
+	// ========================================
+	cloudinaryClient, err := storage.NewCloudinaryClient(
+		cfg.CloudinaryCloudName,
+		cfg.CloudinaryAPIKey,
+		cfg.CloudinaryAPISecret,
+	)
+	if err != nil {
+		log.Printf("Advertencia: Cloudinary no configurado (%v) — uploads de fotos no disponibles", err)
+		cloudinaryClient = nil
+	}
+
+	// ========================================
 	// CAPA 3: Repositories
 	// ========================================
 	userRepo := repository.NewUserRepository(db)
 	petRepo := repository.NewPetRepository(db)
 	reportRepo := repository.NewReportRepository(db)
+	photoRepo := repository.NewPhotoRepository(db)
 
 	// ========================================
 	// CAPA 2: Services
@@ -39,6 +54,7 @@ func main() {
 	authService := service.NewAuthService(userRepo, cfg.JWTSecret)
 	petService := service.NewPetService(petRepo)
 	reportService := service.NewReportService(reportRepo)
+	photoService := service.NewPhotoService(photoRepo, petRepo, cloudinaryClient)
 
 	// ========================================
 	// CAPA 1: Handlers
@@ -46,6 +62,7 @@ func main() {
 	authHandler := handler.NewAuthHandler(authService)
 	petHandler := handler.NewPetHandler(petService)
 	reportHandler := handler.NewReportHandler(reportService)
+	photoHandler := handler.NewPhotoHandler(photoService)
 	statsHandler := handler.NewStatsHandler(db)
 
 	// ========================================
@@ -70,6 +87,9 @@ func main() {
 		// Pets públicos — cualquiera puede ver
 		public.GET("/pets/:id", petHandler.GetPet)
 
+		// Fotos públicas — cualquiera puede listar fotos de una mascota
+		public.GET("/pets/:petId/photos", photoHandler.List)
+
 		// Reports públicos — cualquiera puede ver
 		public.GET("/reports/nearby", reportHandler.GetNearbyReports)
 		public.GET("/reports/pet/:petId", reportHandler.GetReportsByPet)
@@ -92,6 +112,9 @@ func main() {
 
 		// Reports (solo crear requiere auth)
 		protected.POST("/reports", reportHandler.CreateReport)
+
+		// Fotos (subir requiere auth — solo el dueño puede subir)
+		protected.POST("/pets/:petId/photos", photoHandler.Upload)
 	}
 
 	// ========================================

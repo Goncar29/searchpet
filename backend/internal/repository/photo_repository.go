@@ -1,0 +1,38 @@
+package repository
+
+import (
+	"gorm.io/gorm"
+	"lost-pets/internal/domain"
+)
+
+// PostgresPhotoRepository es la implementación concreta del PhotoRepository.
+type PostgresPhotoRepository struct {
+	db *gorm.DB
+}
+
+// NewPhotoRepository construye el repositorio e inyecta la conexión GORM.
+// Devuelve la interfaz, no el struct — Dependency Injection.
+func NewPhotoRepository(db *gorm.DB) PhotoRepository {
+	return &PostgresPhotoRepository{db: db}
+}
+
+// Create inserta una nueva foto en la BD.
+func (r *PostgresPhotoRepository) Create(photo *domain.Photo) error {
+	return r.db.Create(photo).Error
+}
+
+// FindByPetID retorna todas las fotos de una mascota ordenadas cronológicamente.
+func (r *PostgresPhotoRepository) FindByPetID(petID string) ([]domain.Photo, error) {
+	var photos []domain.Photo
+	err := r.db.Where("pet_id = ?", petID).Order("created_at ASC").Find(&photos).Error
+	return photos, err
+}
+
+// HasPrimaryPhoto informa si la mascota ya tiene una foto primaria.
+func (r *PostgresPhotoRepository) HasPrimaryPhoto(petID string) (bool, error) {
+	var count int64
+	err := r.db.Model(&domain.Photo{}).
+		Where("pet_id = ? AND is_primary = true", petID).
+		Count(&count).Error
+	return count > 0, err
+}

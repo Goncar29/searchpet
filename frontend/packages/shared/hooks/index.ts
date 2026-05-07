@@ -13,6 +13,7 @@ import type {
   NearbySearchParams,
   SendMessageRequest,
   GenerateShareRequest,
+  UploadPhotoResponse,
 } from '../types';
 
 // ============================================================
@@ -87,6 +88,17 @@ export const useDeletePet = () => {
     mutationFn: (id: string) => apiClient.deletePet(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pets'] });
+    },
+  });
+};
+
+export const useUploadPhoto = () => {
+  const queryClient = useQueryClient();
+  return useMutation<UploadPhotoResponse, Error, { petId: string; file: File }>({
+    mutationFn: ({ petId, file }) => apiClient.uploadPhoto(petId, file),
+    onSuccess: (_, { petId }) => {
+      // Invalidar el cache de la mascota para que se refresque con la nueva foto
+      queryClient.invalidateQueries({ queryKey: ['pets', petId] });
     },
   });
 };
