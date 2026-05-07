@@ -48,6 +48,17 @@ func main() {
 	reportRepo := repository.NewReportRepository(db)
 	photoRepo := repository.NewPhotoRepository(db)
 
+	// Nuevos repositories (Priority 1+2) — listos para inyección cuando se creen los servicios
+	shelterRepo := repository.NewShelterRepository(db)
+	blockedUserRepo := repository.NewBlockedUserRepository(db)
+	_ = repository.NewMessageRepository(db)
+	_ = repository.NewFavoriteRepository(db)
+	_ = repository.NewShareLinkRepository(db)
+
+	// shelterRepo y blockedUserRepo disponibles para futuros servicios
+	_ = shelterRepo
+	_ = blockedUserRepo
+
 	// ========================================
 	// CAPA 2: Services
 	// ========================================
