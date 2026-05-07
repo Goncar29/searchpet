@@ -7,14 +7,6 @@ import (
 	"lost-pets/internal/domain"
 )
 
-// ReportRepository define el CONTRATO para acceder a datos de reportes.
-type ReportRepository interface {
-	Create(report *domain.Report) error
-	FindByID(id string) (*domain.Report, error)
-	FindByPetID(petID string) ([]domain.Report, error)
-	FindNearby(lat, lng float64, radiusMeters float64) ([]domain.Report, error)
-}
-
 // PostgresReportRepository es la implementación concreta que habla con PostgreSQL.
 type PostgresReportRepository struct {
 	db *gorm.DB

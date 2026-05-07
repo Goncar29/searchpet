@@ -7,16 +7,6 @@ import (
 	"lost-pets/internal/domain"
 )
 
-// PetRepository define el CONTRATO (interfaz) para acceder a datos de mascotas.
-// El Service solo conoce esta interfaz, no sabe nada de PostgreSQL.
-type PetRepository interface {
-	Create(pet *domain.Pet) error
-	FindByID(id string) (*domain.Pet, error)
-	FindByOwnerID(ownerID string) ([]domain.Pet, error)
-	Update(pet *domain.Pet) error
-	Delete(id string) error
-}
-
 // PostgresPetRepository es la IMPLEMENTACIÓN concreta que habla con PostgreSQL.
 // El * en el receiver significa que trabajamos con la referencia real, no una copia.
 type PostgresPetRepository struct {

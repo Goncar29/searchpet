@@ -7,32 +7,86 @@ import (
 	"lost-pets/internal/domain"
 )
 
-// UserRepository define el contrato para acceder a datos de usuarios
-type UserRepository interface {
-	// Create inserta un nuevo usuario en la BD
-	Create(ctx context.Context, user *domain.User) error
+// ============================================================
+// Style B repositories (legado — sin context, string IDs)
+// NO modificar firmas — usadas por servicios existentes.
+// ============================================================
 
-	// GetByID obtiene un usuario por su ID
-	GetByID(ctx context.Context, id uuid.UUID) (*domain.User, error)
+// PetRepository define el contrato para acceder a datos de mascotas.
+type PetRepository interface {
+	Create(pet *domain.Pet) error
+	FindByID(id string) (*domain.Pet, error)
+	FindByOwnerID(ownerID string) ([]domain.Pet, error)
+	Update(pet *domain.Pet) error
+	Delete(id string) error
+}
 
-	// GetByEmail obtiene un usuario por su email (único)
-	GetByEmail(ctx context.Context, email string) (*domain.User, error)
-
-	// Update actualiza los datos de un usuario existente
-	Update(ctx context.Context, user *domain.User) error
-
-	// Delete elimina un usuario por su ID
-	Delete(ctx context.Context, id uuid.UUID) error
+// ReportRepository define el contrato para acceder a datos de reportes.
+type ReportRepository interface {
+	Create(report *domain.Report) error
+	FindByID(id string) (*domain.Report, error)
+	FindByPetID(petID string) ([]domain.Report, error)
+	FindNearby(lat, lng float64, radiusMeters float64) ([]domain.Report, error)
 }
 
 // PhotoRepository define el contrato para acceder a datos de fotos de mascotas.
 type PhotoRepository interface {
-	// Create persiste una nueva foto en la BD.
 	Create(photo *domain.Photo) error
-
-	// FindByPetID retorna todas las fotos de una mascota, ordenadas por created_at ASC.
 	FindByPetID(petID string) ([]domain.Photo, error)
-
-	// HasPrimaryPhoto informa si la mascota ya tiene una foto marcada como primaria.
 	HasPrimaryPhoto(petID string) (bool, error)
+}
+
+// ============================================================
+// Style A repositories (context.Context, uuid.UUID)
+// ============================================================
+
+// UserRepository define el contrato para acceder a datos de usuarios.
+type UserRepository interface {
+	Create(ctx context.Context, user *domain.User) error
+	GetByID(ctx context.Context, id uuid.UUID) (*domain.User, error)
+	GetByEmail(ctx context.Context, email string) (*domain.User, error)
+	Update(ctx context.Context, user *domain.User) error
+	Delete(ctx context.Context, id uuid.UUID) error
+}
+
+// MessageRepository define el contrato para acceder a datos de mensajes.
+type MessageRepository interface {
+	Create(ctx context.Context, message *domain.Message) error
+	GetByID(ctx context.Context, id uuid.UUID) (*domain.Message, error)
+	GetConversation(ctx context.Context, userA, userB uuid.UUID, limit, offset int) ([]domain.Message, error)
+	GetConversations(ctx context.Context, userID uuid.UUID) ([]domain.Message, error)
+	MarkAsRead(ctx context.Context, messageID uuid.UUID) error
+}
+
+// FavoriteRepository define el contrato para acceder a datos de favoritos.
+type FavoriteRepository interface {
+	Create(ctx context.Context, favorite *domain.Favorite) error
+	Delete(ctx context.Context, userID, petID uuid.UUID) error
+	GetByUserID(ctx context.Context, userID uuid.UUID, limit, offset int) ([]domain.Favorite, error)
+	IsFavorited(ctx context.Context, userID, petID uuid.UUID) (bool, error)
+}
+
+// ShareLinkRepository define el contrato para acceder a datos de links compartibles.
+type ShareLinkRepository interface {
+	Create(ctx context.Context, link *domain.ShareLink) error
+	GetByToken(ctx context.Context, token string) (*domain.ShareLink, error)
+	GetByPetID(ctx context.Context, petID uuid.UUID) ([]domain.ShareLink, error)
+	IncrementViewCount(ctx context.Context, id uuid.UUID) error
+	IncrementClickedContact(ctx context.Context, id uuid.UUID) error
+}
+
+// BlockedUserRepository define el contrato para acceder a datos de bloqueos.
+type BlockedUserRepository interface {
+	Create(ctx context.Context, block *domain.BlockedUser) error
+	Delete(ctx context.Context, blockerID, blockedID uuid.UUID) error
+	IsBlocked(ctx context.Context, userA, userB uuid.UUID) (bool, error)
+	GetBlockedByUserID(ctx context.Context, userID uuid.UUID) ([]domain.BlockedUser, error)
+}
+
+// ShelterRepository define el contrato para acceder a datos de refugios.
+type ShelterRepository interface {
+	Create(ctx context.Context, shelter *domain.Shelter) error
+	GetByID(ctx context.Context, id uuid.UUID) (*domain.Shelter, error)
+	GetAll(ctx context.Context, city string, isVerified *bool) ([]domain.Shelter, error)
+	Update(ctx context.Context, shelter *domain.Shelter) error
 }
