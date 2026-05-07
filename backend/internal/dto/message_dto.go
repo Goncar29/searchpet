@@ -8,11 +8,12 @@ import (
 )
 
 // SendMessageRequest son los datos requeridos para enviar un mensaje.
-// ReceiverID viene como string en JSON y se valida en el handler antes de pasar al service.
+// ReceiverID y ReportID son uuid.UUID — Gin los deserializa vía json.Unmarshal,
+// por lo que un UUID inválido retorna 400 antes de llegar al service.
 type SendMessageRequest struct {
-	ReceiverID string  `json:"receiver_id" binding:"required"`
-	Content    string  `json:"content" binding:"required,max=2000"`
-	ReportID   *string `json:"report_id,omitempty"`
+	ReceiverID uuid.UUID  `json:"receiver_id" binding:"required"`
+	Content    string     `json:"content" binding:"required,max=2000"`
+	ReportID   *uuid.UUID `json:"report_id,omitempty"`
 }
 
 // MessageResponse son los datos de un mensaje que retornamos al cliente.

@@ -45,10 +45,8 @@ func (s *messageService) Send(ctx context.Context, senderID string, req dto.Send
 		return nil, domain.ErrInvalidInput
 	}
 
-	receiverUUID, err := uuid.Parse(req.ReceiverID)
-	if err != nil {
-		return nil, domain.ErrInvalidInput
-	}
+	// ReceiverID ya viene como uuid.UUID desde el DTO — sin parse adicional
+	receiverUUID := req.ReceiverID
 
 	// REGLA 1: no auto-mensaje
 	if senderUUID == receiverUUID {
@@ -56,6 +54,7 @@ func (s *messageService) Send(ctx context.Context, senderID string, req dto.Send
 	}
 
 	// REGLA 2: verificar bloqueo bidireccional (A bloqueó B ó B bloqueó A)
+	// IsBlocked ya hace el check en ambas direcciones en una sola query.
 	blocked, err := s.blockedRepo.IsBlocked(ctx, senderUUID, receiverUUID)
 	if err != nil {
 		return nil, err
@@ -70,13 +69,9 @@ func (s *messageService) Send(ctx context.Context, senderID string, req dto.Send
 		Text:       req.Content,
 	}
 
-	// Procesar ReportID opcional
-	if req.ReportID != nil && *req.ReportID != "" {
-		reportUUID, err := uuid.Parse(*req.ReportID)
-		if err != nil {
-			return nil, domain.ErrInvalidInput
-		}
-		msg.ReportID = &reportUUID
+	// ReportID ya viene como *uuid.UUID desde el DTO — asignación directa
+	if req.ReportID != nil {
+		msg.ReportID = req.ReportID
 	}
 
 	if err := s.messageRepo.Create(ctx, msg); err != nil {

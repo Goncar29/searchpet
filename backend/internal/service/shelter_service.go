@@ -10,7 +10,7 @@ import (
 
 // ShelterService define el CONTRATO de la capa de negocio para refugios.
 type ShelterService interface {
-	GetAll(ctx context.Context, city string, isVerified *bool) ([]domain.Shelter, error)
+	GetAll(ctx context.Context, city string) ([]domain.Shelter, error)
 	GetByID(ctx context.Context, id string) (*domain.Shelter, error)
 }
 
@@ -24,11 +24,11 @@ func NewShelterService(repo repository.ShelterRepository) ShelterService {
 	return &shelterService{repo: repo}
 }
 
-// GetAll retorna refugios con filtros opcionales.
+// GetAll retorna refugios filtrados por ciudad (opcional).
 // city == "" → sin filtro por ciudad.
-// isVerified == nil → sin filtro por estado de verificación (MVP pasa nil siempre).
-func (s *shelterService) GetAll(ctx context.Context, city string, isVerified *bool) ([]domain.Shelter, error) {
-	return s.repo.GetAll(ctx, city, isVerified)
+// MVP: no filtra por isVerified — el repo lo soporta, pero no lo exponemos en esta versión.
+func (s *shelterService) GetAll(ctx context.Context, city string) ([]domain.Shelter, error) {
+	return s.repo.GetAll(ctx, city, nil)
 }
 
 // GetByID busca un refugio por su ID string.

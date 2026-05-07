@@ -26,8 +26,7 @@ func NewShelterHandler(shelterService service.ShelterService) *ShelterHandler {
 func (h *ShelterHandler) GetAll(c *gin.Context) {
 	city := c.Query("city")
 
-	// MVP: no filtramos por is_verified → pasamos nil al service
-	shelters, err := h.shelterService.GetAll(c.Request.Context(), city, nil)
+	shelters, err := h.shelterService.GetAll(c.Request.Context(), city)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
 		return
