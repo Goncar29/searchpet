@@ -25,7 +25,9 @@ func (r *postgresFavoriteRepository) Create(ctx context.Context, favorite *domai
 	err := r.db.WithContext(ctx).Create(favorite).Error
 	if err != nil {
 		// Detectar violación de clave única en PostgreSQL (código 23505)
-		if strings.Contains(err.Error(), "23505") || strings.Contains(err.Error(), "idx_user_pet") || strings.Contains(err.Error(), "duplicate key") {
+		// Detectar violación de clave única: código SQLSTATE 23505 (siempre presente en pgx,
+		// independiente del locale del servidor PostgreSQL).
+		if strings.Contains(err.Error(), "23505") {
 			return domain.ErrAlreadyFavorited
 		}
 		return err

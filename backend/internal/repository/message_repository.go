@@ -57,20 +57,30 @@ func (r *postgresMessageRepository) GetConversation(ctx context.Context, userA, 
 }
 
 // GetConversations retorna el último mensaje de cada conversación única del usuario.
-// Usa una subquery para obtener el mensaje más reciente por cada par (sender, receiver).
+// Usa DISTINCT ON para seleccionar el mensaje más reciente por par de usuarios (temporalmente correcto).
 func (r *postgresMessageRepository) GetConversations(ctx context.Context, userID uuid.UUID) ([]domain.Message, error) {
+	// DISTINCT ON selecciona la primera fila de cada grupo según el ORDER BY.
+	// Al ordenar por (conv_key, created_at DESC) obtenemos el mensaje más reciente
+	// por conversación de forma temporalmente correcta, sin depender del ordenamiento de UUIDs.
+	var ids []uuid.UUID
+	err := r.db.WithContext(ctx).Raw(
+		`SELECT DISTINCT ON (LEAST(sender_id, receiver_id), GREATEST(sender_id, receiver_id)) id
+		 FROM messages
+		 WHERE sender_id = ? OR receiver_id = ?
+		 ORDER BY LEAST(sender_id, receiver_id), GREATEST(sender_id, receiver_id), created_at DESC`,
+		userID, userID,
+	).Scan(&ids).Error
+	if err != nil {
+		return nil, err
+	}
+	if len(ids) == 0 {
+		return []domain.Message{}, nil
+	}
+
 	var messages []domain.Message
-
-	// Obtener IDs de los mensajes más recientes por conversación
-	subquery := r.db.WithContext(ctx).
-		Model(&domain.Message{}).
-		Select("MAX(id)").
-		Where("sender_id = ? OR receiver_id = ?", userID, userID).
-		Group("LEAST(sender_id, receiver_id), GREATEST(sender_id, receiver_id)")
-
-	err := r.db.WithContext(ctx).
+	err = r.db.WithContext(ctx).
 		Preload("Sender").Preload("Receiver").
-		Where("id IN (?)", subquery).
+		Where("id IN ?", ids).
 		Order("created_at DESC").
 		Find(&messages).Error
 	return messages, err
