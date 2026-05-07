@@ -22,9 +22,10 @@ var (
 	ErrInvalidStatus  = errors.New("status inválido")
 
 	// Message
-	ErrUserBlocked     = errors.New("usuario bloqueado, no puedes enviar mensajes")
-	ErrSelfMessage     = errors.New("no puedes enviarte mensajes a ti mismo")
-	ErrMessageNotFound = errors.New("mensaje no encontrado")
+	ErrUserBlocked          = errors.New("usuario bloqueado, no puedes enviar mensajes")
+	ErrSelfMessage          = errors.New("no puedes enviarte mensajes a ti mismo")
+	ErrMessageNotFound      = errors.New("mensaje no encontrado")
+	ErrNotMessageReceiver   = errors.New("no eres el destinatario de este mensaje")
 
 	// Favorite
 	ErrAlreadyFavorited = errors.New("la mascota ya está en favoritos")
