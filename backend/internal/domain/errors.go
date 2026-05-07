@@ -22,8 +22,19 @@ var (
 	ErrInvalidStatus  = errors.New("status inválido")
 
 	// Message
-	ErrUserBlocked    = errors.New("usuario bloqueado, no puedes enviar mensajes")
-	ErrSelfMessage    = errors.New("no puedes enviarte mensajes a ti mismo")
+	ErrUserBlocked     = errors.New("usuario bloqueado, no puedes enviar mensajes")
+	ErrSelfMessage     = errors.New("no puedes enviarte mensajes a ti mismo")
+	ErrMessageNotFound = errors.New("mensaje no encontrado")
+
+	// Favorite
+	ErrAlreadyFavorited = errors.New("la mascota ya está en favoritos")
+	ErrFavoriteNotFound = errors.New("favorito no encontrado")
+
+	// Shelter
+	ErrShelterNotFound = errors.New("refugio no encontrado")
+
+	// Block
+	ErrBlockNotFound = errors.New("bloqueo no encontrado")
 
 	// Photo
 	ErrInvalidFileType = errors.New("tipo de archivo no permitido; solo jpeg, png y webp")
