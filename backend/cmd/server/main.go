@@ -48,16 +48,12 @@ func main() {
 	reportRepo := repository.NewReportRepository(db)
 	photoRepo := repository.NewPhotoRepository(db)
 
-	// Nuevos repositories (Priority 1+2) — listos para inyección cuando se creen los servicios
+	// Nuevos repositories (Priority 1+2)
 	shelterRepo := repository.NewShelterRepository(db)
 	blockedUserRepo := repository.NewBlockedUserRepository(db)
-	_ = repository.NewMessageRepository(db)
+	messageRepo := repository.NewMessageRepository(db)
+	shareLinkRepo := repository.NewShareLinkRepository(db)
 	_ = repository.NewFavoriteRepository(db)
-	_ = repository.NewShareLinkRepository(db)
-
-	// shelterRepo y blockedUserRepo disponibles para futuros servicios
-	_ = shelterRepo
-	_ = blockedUserRepo
 
 	// ========================================
 	// CAPA 2: Services
@@ -66,6 +62,9 @@ func main() {
 	petService := service.NewPetService(petRepo)
 	reportService := service.NewReportService(reportRepo)
 	photoService := service.NewPhotoService(photoRepo, petRepo, cloudinaryClient)
+	messageService := service.NewMessageService(messageRepo, blockedUserRepo)
+	shareLinkService := service.NewShareLinkService(shareLinkRepo, petRepo)
+	shelterService := service.NewShelterService(shelterRepo)
 
 	// ========================================
 	// CAPA 1: Handlers
@@ -75,6 +74,9 @@ func main() {
 	reportHandler := handler.NewReportHandler(reportService)
 	photoHandler := handler.NewPhotoHandler(photoService)
 	statsHandler := handler.NewStatsHandler(db)
+	messageHandler := handler.NewMessageHandler(messageService)
+	shareHandler := handler.NewShareHandler(shareLinkService, cfg.AppURL)
+	shelterHandler := handler.NewShelterHandler(shelterService)
 
 	// ========================================
 	// ROUTER
@@ -105,6 +107,14 @@ func main() {
 		public.GET("/reports/nearby", reportHandler.GetNearbyReports)
 		public.GET("/reports/pet/:petId", reportHandler.GetReportsByPet)
 		public.GET("/reports/:id", reportHandler.GetReport)
+
+		// Share links públicos — para landing pages en redes sociales
+		public.GET("/share/:token", shareHandler.GetByToken)
+		public.POST("/share/:token/contact", shareHandler.TrackContact)
+
+		// Refugios — directorio público
+		public.GET("/shelters", shelterHandler.GetAll)
+		public.GET("/shelters/:id", shelterHandler.GetByID)
 	}
 
 	// ----------------------------------------
@@ -126,6 +136,15 @@ func main() {
 
 		// Fotos (subir requiere auth — solo el dueño puede subir)
 		protected.POST("/pets/:petId/photos", photoHandler.Upload)
+
+		// Mensajes (requieren auth)
+		protected.POST("/messages", messageHandler.Send)
+		protected.GET("/messages", messageHandler.GetConversations)
+		protected.GET("/messages/:userId", messageHandler.GetConversation)
+		protected.PATCH("/messages/:id/read", messageHandler.MarkAsRead)
+
+		// Share links protegidos — generar requiere ser el dueño
+		protected.POST("/share/:petId", shareHandler.GenerateShareLink)
 	}
 
 	// ========================================
