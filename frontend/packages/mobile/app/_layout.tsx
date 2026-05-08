@@ -8,6 +8,10 @@ import { StatusBar } from 'expo-status-bar';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useAuthStore } from '../store';
 import { COLORS } from '../constants';
+import { configureNotificationHandler } from '../utils/notifications';
+
+// Configura cómo se muestran las notificaciones en foreground — una vez al arrancar
+configureNotificationHandler();
 
 const queryClient = new QueryClient({
   defaultOptions: {

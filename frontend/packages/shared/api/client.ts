@@ -224,6 +224,14 @@ class APIClient {
   async getStats(): Promise<Stats> {
     return this.request<Stats>('GET', '/api/stats');
   }
+
+  // ============================================================
+  // DEVICES (push notifications)
+  // ============================================================
+
+  async registerDeviceToken(token: string, platform: 'ios' | 'android' | 'web'): Promise<void> {
+    return this.request<void>('POST', '/api/devices/token', { token, platform });
+  }
 }
 
 // Exportar instancia única (singleton)

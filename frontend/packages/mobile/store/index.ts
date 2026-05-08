@@ -6,6 +6,7 @@ import { create } from 'zustand';
 import * as SecureStore from 'expo-secure-store';
 import type { User } from '../../shared/types';
 import { apiClient } from '../../shared/api/client';
+import { registerPushToken } from '../utils/notifications';
 
 // ============================================================
 // AUTH STORE
@@ -42,6 +43,9 @@ export const useAuthStore = create<AuthState>((set) => ({
         token: response.token,
         isAuthenticated: true,
       });
+
+      // Registrar token FCM — falla silenciosamente si el usuario denegó permisos
+      registerPushToken();
     } catch (error) {
       throw error;
     }
@@ -59,6 +63,9 @@ export const useAuthStore = create<AuthState>((set) => ({
         token: response.token,
         isAuthenticated: true,
       });
+
+      // Registrar token FCM — falla silenciosamente si el usuario denegó permisos
+      registerPushToken();
     } catch (error) {
       throw error;
     }
