@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { apiClient } from '@shared/api/client';
+import { registerWebPushToken } from '../utils/notifications';
 
 interface User {
   id: string;
@@ -40,6 +41,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(resp.user);
     localStorage.setItem('token', resp.token);
     localStorage.setItem('user', JSON.stringify(resp.user));
+    // Registrar token FCM — en background, falla silenciosamente
+    registerWebPushToken();
   };
 
   const register = async (email: string, password: string, name: string, phone?: string) => {
@@ -48,6 +51,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(resp.user);
     localStorage.setItem('token', resp.token);
     localStorage.setItem('user', JSON.stringify(resp.user));
+    // Registrar token FCM — en background, falla silenciosamente
+    registerWebPushToken();
   };
 
   const logout = () => {
