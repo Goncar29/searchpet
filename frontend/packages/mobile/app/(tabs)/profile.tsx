@@ -78,7 +78,10 @@ export default function ProfileScreen() {
 
       {/* Menu Items */}
       <View style={styles.menuSection}>
-        <TouchableOpacity style={styles.menuItem}>
+        <TouchableOpacity
+          style={styles.menuItem}
+          onPress={() => router.push('/my-pets')}
+        >
           <Text style={styles.menuIcon}>🐾</Text>
           <Text style={styles.menuText}>Mis mascotas</Text>
           <Text style={styles.menuArrow}>›</Text>

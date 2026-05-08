@@ -62,6 +62,10 @@ export default function RootLayout() {
           name="chat/[userId]"
           options={{ title: 'Chat' }}
         />
+        <Stack.Screen
+          name="my-pets"
+          options={{ title: 'Mis Mascotas' }}
+        />
       </Stack>
     </QueryClientProvider>
   );
