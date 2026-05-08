@@ -112,3 +112,36 @@ jobs:
           vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
           vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
           working-directory: ./frontend/packages/web
+
+  # ============================================
+  # Mobile Build (Expo EAS) — solo en main
+  # Requiere secrets: EXPO_TOKEN
+  # ============================================
+  mobile-build:
+    name: Mobile Build (EAS Production)
+    runs-on: ubuntu-latest
+    needs: [backend-test]
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup Expo
+        uses: expo/expo-github-action@v8
+        with:
+          expo-version: latest
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install dependencies
+        working-directory: ./frontend/packages/mobile
+        run: npm install
+
+      - name: Build (EAS production)
+        working-directory: ./frontend/packages/mobile
+        run: eas build --platform all --profile production --non-interactive
