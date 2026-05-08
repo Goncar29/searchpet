@@ -14,7 +14,8 @@ import {
   RefreshControl,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useMyPets, useDeletePet } from '../../shared/hooks';
+import * as ImagePicker from 'expo-image-picker';
+import { useMyPets, useDeletePet, useUploadPhotoNative } from '../../shared/hooks';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS, PET_TYPES } from '../constants';
 import type { Pet } from '../../shared/types';
 
@@ -22,6 +23,7 @@ export default function MyPetsScreen() {
   const router = useRouter();
   const { data: pets, isLoading, refetch, isRefetching } = useMyPets();
   const deletePet = useDeletePet();
+  const uploadPhoto = useUploadPhotoNative();
 
   const getStatusLabel = (status: string) => {
     switch (status) {
@@ -43,6 +45,23 @@ export default function MyPetsScreen() {
 
   const getPetIcon = (type: string) => {
     return PET_TYPES.find(t => t.value === type)?.icon || '🐾';
+  };
+
+  const handleAddPhoto = async (pet: Pet) => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.8,
+    });
+
+    if (result.canceled || !result.assets[0]) return;
+
+    try {
+      await uploadPhoto.mutateAsync({ petId: pet.id, uri: result.assets[0].uri });
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'No se pudo subir la foto');
+    }
   };
 
   const handleDelete = (pet: Pet) => {
@@ -89,15 +108,24 @@ export default function MyPetsScreen() {
               activeOpacity={0.7}
             >
               {/* Foto */}
-              <View style={styles.photoContainer}>
-                {primaryPhoto ? (
+              <TouchableOpacity
+                style={styles.photoContainer}
+                onPress={() => !primaryPhoto && handleAddPhoto(item)}
+                activeOpacity={primaryPhoto ? 1 : 0.7}
+              >
+                {uploadPhoto.isPending && uploadPhoto.variables?.petId === item.id ? (
+                  <View style={styles.photoPlaceholder}>
+                    <ActivityIndicator color={COLORS.primary} />
+                  </View>
+                ) : primaryPhoto ? (
                   <Image source={{ uri: primaryPhoto.url }} style={styles.photo} />
                 ) : (
                   <View style={styles.photoPlaceholder}>
                     <Text style={styles.photoIcon}>{getPetIcon(item.type)}</Text>
+                    <Text style={styles.photoAddText}>+ Foto</Text>
                   </View>
                 )}
-              </View>
+              </TouchableOpacity>
 
               {/* Info */}
               <View style={styles.info}>
@@ -205,7 +233,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  photoIcon: { fontSize: 32 },
+  photoIcon: { fontSize: 28 },
+  photoAddText: {
+    fontSize: FONTS.sizes.xs,
+    color: COLORS.textMuted,
+    marginTop: 2,
+  },
   info: { flex: 1 },
   nameRow: {
     flexDirection: 'row',

@@ -19,7 +19,7 @@ import {
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
-import { useCreatePet, useCreateReport } from '../../../shared/hooks';
+import { useCreatePet, useCreateReport, useUploadPhotoNative } from '../../../shared/hooks';
 import { useAuthStore, useLocationStore } from '../../store';
 import { COLORS, SPACING, FONTS, RADIUS, PET_TYPES } from '../../constants';
 import type { PetType } from '../../../shared/types';
@@ -30,6 +30,7 @@ export default function PostScreen() {
   const { latitude, longitude } = useLocationStore();
   const createPet = useCreatePet();
   const createReport = useCreateReport();
+  const uploadPhoto = useUploadPhotoNative();
 
   const [name, setName] = useState('');
   const [type, setType] = useState<PetType>('perro');
@@ -130,6 +131,15 @@ export default function PostScreen() {
         longitude: reportLng,
         location_description: locationDesc.trim(),
       });
+
+      // 3. Subir fotos (no bloquea si falla — la mascota ya fue creada)
+      for (const uri of photos) {
+        try {
+          await uploadPhoto.mutateAsync({ petId: pet.id, uri });
+        } catch {
+          // La mascota ya existe — no hacemos rollback, seguimos
+        }
+      }
 
       Alert.alert(
         'Publicado',

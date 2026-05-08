@@ -103,6 +103,18 @@ export const useUploadPhoto = () => {
   });
 };
 
+// Versión React Native — recibe URI local en lugar de File
+export const useUploadPhotoNative = () => {
+  const queryClient = useQueryClient();
+  return useMutation<UploadPhotoResponse, Error, { petId: string; uri: string }>({
+    mutationFn: ({ petId, uri }) => apiClient.uploadPhotoNative(petId, uri),
+    onSuccess: (_, { petId }) => {
+      queryClient.invalidateQueries({ queryKey: ['pets', petId] });
+      queryClient.invalidateQueries({ queryKey: ['pets', 'mine'] });
+    },
+  });
+};
+
 // ============================================================
 // REPORT HOOKS
 // ============================================================
