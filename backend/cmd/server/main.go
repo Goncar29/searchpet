@@ -5,11 +5,13 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"lost-pets/config"
+	"lost-pets/internal/event"
 	"lost-pets/internal/handler"
 	"lost-pets/internal/middleware"
 	"lost-pets/internal/repository"
 	"lost-pets/internal/service"
 	"lost-pets/pkg/database"
+	"lost-pets/pkg/notification"
 	"lost-pets/pkg/storage"
 )
 
@@ -41,6 +43,22 @@ func main() {
 	}
 
 	// ========================================
+	// EVENT BUS
+	// ========================================
+	bus := event.NewEventBus()
+
+	// ========================================
+	// NOTIFICATIONS (Firebase FCM)
+	// ========================================
+	fcmClient, err := notification.NewFirebaseClient(cfg.FirebaseKey)
+	if err != nil {
+		log.Printf("Advertencia: Firebase FCM no configurado (%v) — push notifications no disponibles", err)
+	}
+	if fcmClient == nil && cfg.FirebaseKey != "" {
+		log.Printf("Advertencia: Firebase FCM no configurado — push notifications no disponibles")
+	}
+
+	// ========================================
 	// CAPA 3: Repositories
 	// ========================================
 	userRepo := repository.NewUserRepository(db)
@@ -54,17 +72,21 @@ func main() {
 	messageRepo := repository.NewMessageRepository(db)
 	shareLinkRepo := repository.NewShareLinkRepository(db)
 	_ = repository.NewFavoriteRepository(db)
+	deviceTokenRepo := repository.NewDeviceTokenRepository(db)
 
 	// ========================================
 	// CAPA 2: Services
 	// ========================================
 	authService := service.NewAuthService(userRepo, cfg.JWTSecret)
 	petService := service.NewPetService(petRepo)
-	reportService := service.NewReportService(reportRepo)
+	reportService := service.NewReportService(reportRepo, bus)
 	photoService := service.NewPhotoService(photoRepo, petRepo, cloudinaryClient)
-	messageService := service.NewMessageService(messageRepo, blockedUserRepo)
+	messageService := service.NewMessageService(messageRepo, blockedUserRepo, bus)
 	shareLinkService := service.NewShareLinkService(shareLinkRepo, petRepo)
 	shelterService := service.NewShelterService(shelterRepo)
+
+	notificationService := service.NewNotificationService(fcmClient, deviceTokenRepo)
+	notificationService.RegisterListeners(bus)
 
 	// ========================================
 	// CAPA 1: Handlers
@@ -77,6 +99,7 @@ func main() {
 	messageHandler := handler.NewMessageHandler(messageService)
 	shareHandler := handler.NewShareHandler(shareLinkService, cfg.AppURL)
 	shelterHandler := handler.NewShelterHandler(shelterService)
+	deviceHandler := handler.NewDeviceHandler(deviceTokenRepo)
 
 	// ========================================
 	// ROUTER
@@ -145,6 +168,9 @@ func main() {
 
 		// Share links protegidos — generar requiere ser el dueño
 		protected.POST("/share/:petId", shareHandler.GenerateShareLink)
+
+		// Devices — registrar token FCM (requiere auth)
+		protected.POST("/devices/token", deviceHandler.RegisterToken)
 	}
 
 	// ========================================

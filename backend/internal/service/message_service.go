@@ -2,10 +2,12 @@ package service
 
 import (
 	"context"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 	"lost-pets/internal/domain"
 	"lost-pets/internal/dto"
+	"lost-pets/internal/event"
 	"lost-pets/internal/repository"
 )
 
@@ -22,16 +24,20 @@ type MessageService interface {
 type messageService struct {
 	messageRepo repository.MessageRepository
 	blockedRepo repository.BlockedUserRepository
+	eventBus    *event.EventBus
 }
 
 // NewMessageService construye el MessageService con sus dependencias.
+// eventBus es opcional — si es nil, los eventos no se publican (zero behavior change).
 func NewMessageService(
 	messageRepo repository.MessageRepository,
 	blockedRepo repository.BlockedUserRepository,
+	eventBus *event.EventBus,
 ) MessageService {
 	return &messageService{
 		messageRepo: messageRepo,
 		blockedRepo: blockedRepo,
+		eventBus:    eventBus,
 	}
 }
 
@@ -78,7 +84,29 @@ func (s *messageService) Send(ctx context.Context, senderID string, req dto.Send
 		return nil, err
 	}
 
-	return msg, nil
+	// Recargamos con relaciones para tener Sender.Name disponible para el evento
+	loaded, err := s.messageRepo.GetByID(ctx, msg.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Publicamos el evento de forma secundaria — un fallo aquí no falla el request
+	if s.eventBus != nil {
+		preview := loaded.Text
+		if utf8.RuneCountInString(preview) > 100 {
+			runes := []rune(preview)
+			preview = string(runes[:100])
+		}
+		s.eventBus.Publish("message.sent", event.MessageSentEvent{
+			MessageID:  loaded.ID,
+			SenderID:   loaded.SenderID,
+			ReceiverID: loaded.ReceiverID,
+			SenderName: loaded.Sender.Name,
+			Preview:    preview,
+		})
+	}
+
+	return loaded, nil
 }
 
 // GetConversations retorna el último mensaje de cada conversación única del usuario.

@@ -45,5 +45,6 @@ func migrate(db *gorm.DB) error {
 		&domain.BlockedUser{},
 		&domain.ReportAbuse{},
 		&domain.Shelter{},
+		&domain.DeviceToken{},
 	)
 }

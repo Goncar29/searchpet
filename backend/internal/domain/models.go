@@ -228,6 +228,21 @@ type ReportAbuse struct {
 	CreatedAt   time.Time  `gorm:"autoCreateTime;index" json:"created_at"`
 }
 
+// ============================================================
+// NOTIFICATIONS
+// ============================================================
+
+// DeviceToken almacena el token FCM de un dispositivo para push notifications.
+// Un token físico pertenece exactamente a un usuario en todo momento (uniqueIndex global).
+type DeviceToken struct {
+	ID        uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+	UserID    uuid.UUID `gorm:"type:uuid;not null;index" json:"user_id"`
+	Token     string    `gorm:"uniqueIndex;not null;size:500" json:"token"`
+	Platform  string    `gorm:"not null;size:20" json:"platform"` // ios, android, web
+	CreatedAt time.Time `gorm:"autoCreateTime" json:"created_at"`
+	UpdatedAt time.Time `gorm:"autoUpdateTime" json:"updated_at"`
+}
+
 // Shelter representa un refugio de animales
 type Shelter struct {
 	ID          uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`

@@ -90,3 +90,11 @@ type ShelterRepository interface {
 	GetAll(ctx context.Context, city string, isVerified *bool) ([]domain.Shelter, error)
 	Update(ctx context.Context, shelter *domain.Shelter) error
 }
+
+// DeviceTokenRepository define el contrato para acceder a tokens FCM de dispositivos.
+// Style A: context.Context + uuid.UUID.
+type DeviceTokenRepository interface {
+	Upsert(ctx context.Context, token *domain.DeviceToken) error
+	FindByUserID(ctx context.Context, userID uuid.UUID) ([]domain.DeviceToken, error)
+	DeleteByToken(ctx context.Context, token string) error
+}

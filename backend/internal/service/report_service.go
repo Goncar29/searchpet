@@ -3,6 +3,7 @@ package service
 import (
 	"github.com/google/uuid"
 	"lost-pets/internal/domain"
+	"lost-pets/internal/event"
 	"lost-pets/internal/repository"
 )
 
@@ -25,12 +26,14 @@ type CreateReportRequest struct {
 
 // reportService es la implementación concreta del ReportService.
 type reportService struct {
-	repo repository.ReportRepository
+	repo     repository.ReportRepository
+	eventBus *event.EventBus
 }
 
 // NewReportService es el constructor.
-func NewReportService(repo repository.ReportRepository) ReportService {
-	return &reportService{repo: repo}
+// eventBus es opcional — si es nil, los eventos no se publican (zero behavior change).
+func NewReportService(repo repository.ReportRepository, eventBus *event.EventBus) ReportService {
+	return &reportService{repo: repo, eventBus: eventBus}
 }
 
 // CreateReport crea un nuevo reporte de ubicación.
@@ -65,7 +68,24 @@ func (s *reportService) CreateReport(reporterID string, req CreateReportRequest)
 	}
 
 	// Recargamos con relaciones para tener Pet y Reporter en la respuesta
-	return s.repo.FindByID(report.ID.String())
+	loaded, err := s.repo.FindByID(report.ID.String())
+	if err != nil {
+		return nil, err
+	}
+
+	// Publicamos el evento de forma secundaria — un fallo aquí no falla el request
+	if s.eventBus != nil {
+		s.eventBus.Publish("report.created", event.ReportCreatedEvent{
+			ReportID:   loaded.ID,
+			PetID:      loaded.PetID,
+			ReporterID: loaded.ReporterID,
+			PetOwnerID: loaded.Pet.OwnerID,
+			PetName:    loaded.Pet.Name,
+			Status:     loaded.Status,
+		})
+	}
+
+	return loaded, nil
 }
 
 // GetReportByID busca un reporte por ID.

@@ -1,0 +1,76 @@
+package event
+
+import (
+	"log"
+	"sync"
+
+	"github.com/google/uuid"
+)
+
+// EventBus es un bus de eventos in-process. Permite publicar eventos tipados
+// y suscribirse a ellos sin acoplamiento directo entre componentes.
+// Cada handler se ejecuta en una goroutine separada (fire-and-forget).
+// Los panics en handlers son capturados con recover() — el servidor nunca cae.
+type EventBus struct {
+	subscribers map[string][]func(interface{})
+	mu          sync.RWMutex
+}
+
+// NewEventBus crea un EventBus listo para usar.
+func NewEventBus() *EventBus {
+	return &EventBus{
+		subscribers: make(map[string][]func(interface{})),
+	}
+}
+
+// Subscribe registra un handler para el tipo de evento dado.
+// Múltiples handlers pueden registrarse para el mismo evento.
+func (eb *EventBus) Subscribe(event string, handler func(interface{})) {
+	eb.mu.Lock()
+	defer eb.mu.Unlock()
+	eb.subscribers[event] = append(eb.subscribers[event], handler)
+}
+
+// Publish dispara el evento a todos los handlers registrados.
+// No bloquea al caller — cada handler corre en su propia goroutine.
+// Un panic en un handler es capturado: no propaga y no afecta a los demás.
+func (eb *EventBus) Publish(event string, payload interface{}) {
+	eb.mu.RLock()
+	handlers := eb.subscribers[event]
+	eb.mu.RUnlock()
+
+	for _, h := range handlers {
+		h := h // captura para la goroutine
+		go func() {
+			defer func() {
+				if r := recover(); r != nil {
+					log.Printf("[EventBus] panic recovered in handler for event %q: %v", event, r)
+				}
+			}()
+			h(payload)
+		}()
+	}
+}
+
+// ============================================================
+// Payload structs
+// ============================================================
+
+// ReportCreatedEvent es el payload publicado cuando se crea un reporte de ubicación.
+type ReportCreatedEvent struct {
+	ReportID   uuid.UUID
+	PetID      uuid.UUID
+	ReporterID uuid.UUID
+	PetOwnerID uuid.UUID
+	PetName    string
+	Status     string // lost, found, sighting
+}
+
+// MessageSentEvent es el payload publicado cuando se envía un mensaje.
+type MessageSentEvent struct {
+	MessageID  uuid.UUID
+	SenderID   uuid.UUID
+	ReceiverID uuid.UUID
+	SenderName string
+	Preview    string // primeros 100 chars del mensaje
+}
