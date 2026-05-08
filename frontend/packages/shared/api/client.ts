@@ -201,8 +201,20 @@ class APIClient {
     return this.request<Message>('POST', '/api/messages', data);
   }
 
+  async getConversations(): Promise<Message[]> {
+    return this.request<Message[]>('GET', '/api/messages');
+  }
+
   async getConversation(userID: string, limit = 50, offset = 0): Promise<Message[]> {
     return this.request<Message[]>('GET', `/api/messages/${userID}`, undefined, { limit, offset });
+  }
+
+  async sendMessageTo(receiverID: string, text: string, reportID?: string): Promise<Message> {
+    return this.request<Message>('POST', '/api/messages', {
+      receiver_id: receiverID,
+      text,
+      ...(reportID && { report_id: reportID }),
+    });
   }
 
   // ============================================================

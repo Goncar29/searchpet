@@ -138,12 +138,20 @@ export const useCreateReport = () => {
 // MESSAGE HOOKS
 // ============================================================
 
+export const useConversations = () => {
+  return useQuery({
+    queryKey: ['messages'],
+    queryFn: () => apiClient.getConversations(),
+    refetchInterval: 15000, // Refrescar cada 15 segundos
+  });
+};
+
 export const useConversation = (userID: string) => {
   return useQuery({
     queryKey: ['messages', userID],
     queryFn: () => apiClient.getConversation(userID),
     enabled: !!userID,
-    refetchInterval: 10000, // Refrescar cada 10 segundos
+    refetchInterval: 5000, // Refrescar cada 5 segundos cuando el chat está abierto
   });
 };
 
@@ -152,7 +160,20 @@ export const useSendMessage = () => {
   return useMutation({
     mutationFn: (data: SendMessageRequest) => apiClient.sendMessage(data),
     onSuccess: (_, { receiver_id }) => {
-      queryClient.invalidateQueries({ queryKey: ['messages', receiver_id] });
+      queryClient.invalidateQueries({ queryKey: ['messages', receiver_id.toString()] });
+      queryClient.invalidateQueries({ queryKey: ['messages'] });
+    },
+  });
+};
+
+export const useSendMessageTo = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ receiverID, text, reportID }: { receiverID: string; text: string; reportID?: string }) =>
+      apiClient.sendMessageTo(receiverID, text, reportID),
+    onSuccess: (_, { receiverID }) => {
+      queryClient.invalidateQueries({ queryKey: ['messages', receiverID] });
+      queryClient.invalidateQueries({ queryKey: ['messages'] });
     },
   });
 };

@@ -2,14 +2,25 @@
 // SearchPet - Messages Screen (Lista de conversaciones)
 // ============================================================
 
-import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  TouchableOpacity,
+  ActivityIndicator,
+  RefreshControl,
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '../../store';
-import { COLORS, SPACING, FONTS, RADIUS } from '../../constants';
+import { useConversations } from '../../../shared/hooks';
+import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
+import type { Message } from '../../../shared/types';
 
 export default function MessagesScreen() {
   const router = useRouter();
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, user } = useAuthStore();
+  const { data: conversations, isLoading, refetch, isRefetching } = useConversations();
 
   if (!isAuthenticated) {
     return (
@@ -29,22 +40,109 @@ export default function MessagesScreen() {
     );
   }
 
-  // TODO: Implementar lista de conversaciones real
+  if (isLoading) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator size="large" color={COLORS.primary} />
+      </View>
+    );
+  }
+
+  const getOtherUser = (msg: Message) => {
+    // El "otro" en la conversación es quien no soy yo
+    if (msg.sender_id === user?.id) {
+      return { id: msg.receiver_id, name: 'Usuario' };
+    }
+    return {
+      id: msg.sender_id,
+      name: msg.sender?.name || 'Usuario',
+    };
+  };
+
+  const getTimeAgo = (dateStr: string) => {
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffMins < 1) return 'ahora';
+    if (diffMins < 60) return `${diffMins}m`;
+    if (diffHours < 24) return `${diffHours}h`;
+    return `${diffDays}d`;
+  };
+
   return (
     <View style={styles.container}>
-      <View style={styles.center}>
-        <Text style={{ fontSize: 48, marginBottom: SPACING.md }}>📭</Text>
-        <Text style={styles.title}>Sin mensajes</Text>
-        <Text style={styles.subtitle}>
-          Cuando alguien te contacte sobre una mascota, aparecerá aquí
-        </Text>
-      </View>
+      <FlatList
+        data={conversations}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) => {
+          const other = getOtherUser(item);
+          const isUnread = !item.is_read && item.receiver_id === user?.id;
+
+          return (
+            <TouchableOpacity
+              style={styles.conversationItem}
+              onPress={() => router.push(`/chat/${other.id}`)}
+              activeOpacity={0.7}
+            >
+              {/* Avatar */}
+              <View style={styles.avatar}>
+                <Text style={styles.avatarText}>
+                  {other.name.charAt(0).toUpperCase()}
+                </Text>
+              </View>
+
+              {/* Info */}
+              <View style={styles.conversationInfo}>
+                <View style={styles.conversationHeader}>
+                  <Text style={[styles.userName, isUnread && styles.userNameUnread]}>
+                    {other.name}
+                  </Text>
+                  <Text style={styles.timeText}>{getTimeAgo(item.created_at)}</Text>
+                </View>
+                <View style={styles.messageRow}>
+                  <Text
+                    style={[styles.lastMessage, isUnread && styles.lastMessageUnread]}
+                    numberOfLines={1}
+                  >
+                    {item.sender_id === user?.id ? 'Vos: ' : ''}{item.text}
+                  </Text>
+                  {isUnread && <View style={styles.unreadDot} />}
+                </View>
+              </View>
+            </TouchableOpacity>
+          );
+        }}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefetching}
+            onRefresh={refetch}
+            tintColor={COLORS.primary}
+          />
+        }
+        ItemSeparatorComponent={() => <View style={styles.separator} />}
+        ListEmptyComponent={
+          <View style={styles.center}>
+            <Text style={{ fontSize: 48, marginBottom: SPACING.md }}>📭</Text>
+            <Text style={styles.title}>Sin mensajes</Text>
+            <Text style={styles.subtitle}>
+              Cuando alguien te contacte sobre una mascota, aparecerá aquí
+            </Text>
+          </View>
+        }
+        contentContainerStyle={
+          !conversations?.length ? { flex: 1 } : undefined
+        }
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
+  container: { flex: 1, backgroundColor: COLORS.white },
   center: {
     flex: 1,
     justifyContent: 'center',
@@ -73,5 +171,68 @@ const styles = StyleSheet.create({
     color: COLORS.white,
     fontSize: FONTS.sizes.md,
     fontWeight: '700',
+  },
+  conversationItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.md,
+  },
+  avatar: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: COLORS.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: SPACING.md,
+  },
+  avatarText: {
+    color: COLORS.white,
+    fontSize: FONTS.sizes.xl,
+    fontWeight: '700',
+  },
+  conversationInfo: { flex: 1 },
+  conversationHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  userName: {
+    fontSize: FONTS.sizes.md,
+    fontWeight: '500',
+    color: COLORS.textPrimary,
+  },
+  userNameUnread: { fontWeight: '700' },
+  timeText: {
+    fontSize: FONTS.sizes.xs,
+    color: COLORS.textMuted,
+  },
+  messageRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  lastMessage: {
+    flex: 1,
+    fontSize: FONTS.sizes.sm,
+    color: COLORS.textSecondary,
+  },
+  lastMessageUnread: {
+    color: COLORS.textPrimary,
+    fontWeight: '600',
+  },
+  unreadDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: COLORS.primary,
+    marginLeft: SPACING.sm,
+  },
+  separator: {
+    height: 1,
+    backgroundColor: COLORS.border,
+    marginLeft: 52 + SPACING.lg + SPACING.md,
   },
 });
