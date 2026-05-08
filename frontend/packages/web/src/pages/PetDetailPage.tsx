@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { usePetByID, useReportsByPetID } from '@shared/hooks';
 import type { Photo, Report } from '@shared/types';
 import { useAuth } from '../context/AuthContext';
+import { SharePanel } from '../components/SharePanel';
 
 export function PetDetailPage() {
   const { t, i18n } = useTranslation(['pets', 'common']);
@@ -117,12 +118,11 @@ export function PetDetailPage() {
 
           {/* Action buttons */}
           <div className="flex flex-wrap gap-3 mb-6">
-            <button
-              onClick={() => alert(t('pets:detail.comingSoon'))}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white font-semibold rounded-lg hover:bg-primary-dark transition-colors"
-            >
-              {t('pets:detail.share')}
-            </button>
+            <SharePanel
+              petId={pet.id}
+              petName={pet.name}
+              status={pet.status as 'lost' | 'found' | 'sighting'}
+            />
             {isAuthenticated && (
               <Link
                 to={`/reports/create?petId=${id}`}
