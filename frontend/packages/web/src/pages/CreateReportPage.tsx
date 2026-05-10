@@ -44,6 +44,9 @@ export function CreateReportPage() {
   const createReport = useCreateReport();
 
   const [petId, setPetId] = useState<string>(searchParams.get('petId') ?? '');
+  const [status, setStatus] = useState<ReportStatus>(
+    (searchParams.get('status') as ReportStatus) ?? 'lost'
+  );
   const [description, setDescription] = useState('');
   const [date, setDate] = useState('');
   const [coord, setCoord] = useState<LatLng | null>(null);
@@ -67,7 +70,7 @@ export function CreateReportPage() {
     createReport.mutate(
       {
         pet_id: petId,
-        status: 'sighting' as ReportStatus,
+        status,
         latitude: coord.lat,
         longitude: coord.lng,
         location_description: description.trim() || undefined,
@@ -118,6 +121,33 @@ export function CreateReportPage() {
             {fieldErrors.petId && (
               <p className="text-red-500 dark:text-red-400 text-sm mt-1">{fieldErrors.petId}</p>
             )}
+          </div>
+
+          {/* Status */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              {t('reports:create.status')} *
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              {(['lost', 'found', 'sighting'] as ReportStatus[]).map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => setStatus(s)}
+                  className={`py-2 rounded-lg text-sm font-semibold border transition-colors ${
+                    status === s
+                      ? s === 'lost'
+                        ? 'bg-red-500 border-red-500 text-white'
+                        : s === 'found'
+                        ? 'bg-green-500 border-green-500 text-white'
+                        : 'bg-yellow-400 border-yellow-400 text-white'
+                      : 'border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
+                  }`}
+                >
+                  {t(`pets:card.${s}`)}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Map */}
