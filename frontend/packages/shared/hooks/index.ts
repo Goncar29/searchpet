@@ -13,6 +13,7 @@ import type {
   NearbySearchParams,
   SendMessageRequest,
   GenerateShareRequest,
+  SharedPetResponse,
   UploadPhotoResponse,
 } from '../types';
 
@@ -202,7 +203,7 @@ export const useGenerateShareLink = () => {
 };
 
 export const useSharedPet = (token: string) => {
-  return useQuery({
+  return useQuery<SharedPetResponse>({
     queryKey: ['shared', token],
     queryFn: () => apiClient.getSharedPet(token),
     enabled: !!token,

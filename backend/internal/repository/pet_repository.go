@@ -50,7 +50,28 @@ func (r *PostgresPetRepository) Update(pet *domain.Pet) error {
 	return r.db.Save(pet).Error
 }
 
-// Delete elimina una mascota por su UUID.
+// Delete elimina una mascota y todas sus dependencias dentro de una transacción.
+// El orden importa: primero las tablas hijas, después la pet.
 func (r *PostgresPetRepository) Delete(id string) error {
-	return r.db.Where("id = ?", id).Delete(&domain.Pet{}).Error
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("pet_id = ?", id).Delete(&domain.SuccessStory{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("pet_id = ?", id).Delete(&domain.LocationAlert{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("pet_id = ?", id).Delete(&domain.ShareLink{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("pet_id = ?", id).Delete(&domain.Favorite{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("pet_id = ?", id).Delete(&domain.Report{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("pet_id = ?", id).Delete(&domain.Photo{}).Error; err != nil {
+			return err
+		}
+		return tx.Where("id = ?", id).Delete(&domain.Pet{}).Error
+	})
 }

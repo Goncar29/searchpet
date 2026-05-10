@@ -37,7 +37,7 @@ func NewPhotoHandler(photoService service.PhotoService) *PhotoHandler {
 // Acepta multipart/form-data con campo "photo".
 // Requiere autenticación JWT.
 func (h *PhotoHandler) Upload(c *gin.Context) {
-	petIDStr := c.Param("petId")
+	petIDStr := c.Param("id")
 	if petIDStr == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "petId requerido"})
 		return
@@ -116,7 +116,7 @@ func (h *PhotoHandler) Upload(c *gin.Context) {
 // GET /api/pets/:petId/photos
 // Retorna todas las fotos de una mascota. Endpoint público.
 func (h *PhotoHandler) List(c *gin.Context) {
-	petIDStr := c.Param("petId")
+	petIDStr := c.Param("id")
 
 	photos, err := h.photoService.GetPhotosByPet(petIDStr)
 	if err != nil {

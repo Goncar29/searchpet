@@ -112,8 +112,10 @@
       "title": "My pets",
       "empty": "You haven't posted any pets yet.",
       "emptyAction": "Post my first pet",
+      "add": "Add pet",
       "delete": "Delete",
-      "confirmDelete": "Are you sure you want to delete this pet?"
+      "confirmDelete": "Are you sure you want to delete this pet?",
+      "changeStatus": "Change status"
     },
     "detail": {
       "contact": "Contact via WhatsApp",
@@ -127,6 +129,7 @@
       "description": "Description",
       "owner": "Owner contact",
       "verified": "Verified",
+      "noPhone": "No phone registered",
       "whatsappMessage": "Hi, I saw your pet {{name}} on SearchPet",
       "timeline": "Report history ({{count}})"
     },
@@ -143,7 +146,9 @@
     },
     "status": {
       "lost": "Lost",
-      "found": "Found"
+      "found": "Found",
+      "active": "Active",
+      "archived": "Archived"
     }
   },
   "reports": {

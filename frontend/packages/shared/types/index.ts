@@ -70,7 +70,31 @@ export interface Message {
 export interface ShareLink {
   share_token: string;
   share_url: string;
-  platforms: Record<string, string>;
+  expires_at?: string;
+}
+
+export interface SharedPetOwner {
+  name: string;
+  phone?: string;
+}
+
+export interface SharedPetInfo {
+  id: string;
+  name: string;
+  type: PetType;
+  breed?: string;
+  color?: string;
+  description?: string;
+  status: PetStatus;
+  photos: Photo[];
+}
+
+export interface SharedPetResponse {
+  token: string;
+  pet: SharedPetInfo;
+  owner: SharedPetOwner;
+  expires_at?: string;
+  view_count: number;
 }
 
 export interface Stats {

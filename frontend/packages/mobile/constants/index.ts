@@ -2,7 +2,7 @@
 // SearchPet - Constantes
 // ============================================================
 
-export const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8080';
+export const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8081';
 
 export const COLORS = {
   primary: '#FF6B35',

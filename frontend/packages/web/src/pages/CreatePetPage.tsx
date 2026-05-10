@@ -38,7 +38,7 @@ export function CreatePetPage() {
   const [previewURL, setPreviewURL] = useState<string | null>(null);
   // Error no-bloqueante cuando el upload falla DESPUÉS de crear la mascota
   const [uploadError, setUploadError] = useState<string | null>(null);
-  const [createdPetId, setCreatedPetId] = useState<number | null>(null);
+  const [createdPetId, setCreatedPetId] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -60,8 +60,28 @@ export function CreatePetPage() {
       setPreviewURL(null);
       return;
     }
+
+    const MAX_SIZE = 5 * 1024 * 1024; // 5 MB
+    const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+
+    if (!ALLOWED_TYPES.includes(file.type)) {
+      setUploadError('Formato no permitido. Usá JPG, PNG o WebP.');
+      setSelectedFile(null);
+      setPreviewURL(null);
+      e.target.value = '';
+      return;
+    }
+
+    if (file.size > MAX_SIZE) {
+      setUploadError('La foto no puede superar los 5 MB.');
+      setSelectedFile(null);
+      setPreviewURL(null);
+      e.target.value = '';
+      return;
+    }
+
+    setUploadError(null);
     setSelectedFile(file);
-    // Preview local — no necesitamos hacer ningún request todavía
     const objectURL = URL.createObjectURL(file);
     setPreviewURL(objectURL);
   };
@@ -241,6 +261,9 @@ export function CreatePetPage() {
                 hover:file:bg-primary-dark
                 cursor-pointer"
             />
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              JPG, PNG o WebP · máx. 5 MB
+            </p>
             {/* Preview local de la imagen seleccionada */}
             {previewURL && (
               <div className="mt-3">
@@ -262,9 +285,11 @@ export function CreatePetPage() {
           {uploadError && createdPetId && (
             <div className="rounded-lg border border-yellow-300 bg-yellow-50 dark:bg-yellow-900/20 dark:border-yellow-700 p-3 space-y-2">
               <p className="text-yellow-800 dark:text-yellow-300 text-sm font-medium">
-                La mascota fue creada correctamente, pero la foto no se pudo subir:
+                ✓ La mascota fue registrada, pero la foto no pudo subirse.
               </p>
-              <p className="text-yellow-700 dark:text-yellow-400 text-sm">{uploadError}</p>
+              <p className="text-yellow-700 dark:text-yellow-400 text-sm">
+                {uploadError} — Podés agregarla desde el perfil de la mascota.
+              </p>
               <button
                 type="button"
                 onClick={() => navigate(`/pets/${createdPetId}`)}
@@ -273,6 +298,10 @@ export function CreatePetPage() {
                 Ir al perfil de la mascota →
               </button>
             </div>
+          )}
+          {/* Error de validación client-side de foto (antes de enviar) */}
+          {uploadError && !createdPetId && (
+            <p className="text-red-500 dark:text-red-400 text-sm">{uploadError}</p>
           )}
 
           {/* Submit */}

@@ -1,10 +1,9 @@
 import { useParams } from 'react-router';
 import { useSharedPet } from '@shared/hooks';
-import type { Photo } from '@shared/types';
 
 export function SharedPetPage() {
   const { token } = useParams<{ token: string }>();
-  const { data: pet, isLoading } = useSharedPet(token || '');
+  const { data, isLoading } = useSharedPet(token || '');
 
   if (isLoading) {
     return (
@@ -14,7 +13,7 @@ export function SharedPetPage() {
     );
   }
 
-  if (!pet) {
+  if (!data) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -26,7 +25,9 @@ export function SharedPetPage() {
     );
   }
 
-  const primaryPhoto = pet.photos?.find((p: Photo) => p.is_primary) || pet.photos?.[0];
+  const pet = data.pet;
+  const owner = data.owner;
+  const primaryPhoto = pet.photos?.find((p) => p.is_primary) || pet.photos?.[0];
   const statusLabel = pet.status === 'found' ? 'ENCONTRADO' : 'PERDIDO';
   const statusBg = pet.status === 'found' ? 'bg-green-500' : 'bg-red-500';
 
@@ -90,9 +91,9 @@ export function SharedPetPage() {
             )}
 
             {/* Contact Button */}
-            {pet.owner?.phone && (
+            {owner?.phone && (
               <a
-                href={`https://wa.me/${pet.owner.phone}?text=Vi tu mascota ${pet.name} en SearchPet`}
+                href={`https://wa.me/${owner.phone}?text=Vi tu mascota ${pet.name} en SearchPet`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="block w-full bg-[#25D366] text-white text-center font-bold py-4 rounded-xl hover:opacity-90 transition-opacity mb-3"

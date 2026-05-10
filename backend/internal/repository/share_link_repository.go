@@ -27,7 +27,12 @@ func (r *postgresShareLinkRepository) Create(ctx context.Context, link *domain.S
 // Retorna ErrShareLinkNotFound si no existe.
 func (r *postgresShareLinkRepository) GetByToken(ctx context.Context, token string) (*domain.ShareLink, error) {
 	var link domain.ShareLink
-	result := r.db.WithContext(ctx).Preload("Pet").Where("share_token = ?", token).First(&link)
+	result := r.db.WithContext(ctx).
+		Preload("Pet").
+		Preload("Pet.Owner").
+		Preload("Pet.Photos").
+		Where("share_token = ?", token).
+		First(&link)
 	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 		return nil, domain.ErrShareLinkNotFound
 	}

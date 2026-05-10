@@ -25,14 +25,14 @@ func Load() *Config {
 	}
 
 	return &Config{
-		Port:                getEnv("PORT", "8080"),
+		Port:                getEnv("PORT", "8081"),
 		DatabaseURL:         getEnv("DATABASE_URL", "postgres://postgres:postgres@localhost:5432/lostpets?sslmode=disable"),
 		JWTSecret:           getEnv("JWT_SECRET", "super-secret-key-change-in-production"),
 		CloudinaryCloudName: getEnv("CLOUDINARY_CLOUD_NAME", ""),
 		CloudinaryAPIKey:    getEnv("CLOUDINARY_API_KEY", ""),
 		CloudinaryAPISecret: getEnv("CLOUDINARY_API_SECRET", ""),
 		FirebaseKey:         getEnv("FIREBASE_KEY", ""),
-		AppURL:              getEnv("APP_URL", "http://localhost:8080"),
+		AppURL:              getEnv("APP_URL", "http://localhost:3000"),
 		Environment:         getEnv("ENVIRONMENT", "development"),
 	}
 }

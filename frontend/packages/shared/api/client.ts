@@ -16,6 +16,7 @@ import type {
   Message,
   SendMessageRequest,
   ShareLink,
+  SharedPetResponse,
   GenerateShareRequest,
   Stats,
   UploadPhotoResponse,
@@ -25,10 +26,10 @@ import type {
 // El try/catch maneja el caso donde import.meta no existe (Expo/Node)
 const getAPIBaseURL = (): string => {
   try {
-    return import.meta.env?.VITE_API_URL || 'http://localhost:8080';
+    return import.meta.env?.VITE_API_URL || 'http://localhost:8081';
   } catch {
     return (typeof process !== 'undefined' && process.env?.EXPO_PUBLIC_API_URL)
-      || 'http://localhost:8080';
+      || 'http://localhost:8081';
   }
 };
 
@@ -256,8 +257,8 @@ class APIClient {
     return this.request<ShareLink>('POST', `/api/share/generate/${petID}`, data);
   }
 
-  async getSharedPet(token: string): Promise<Pet> {
-    return this.request<Pet>('GET', `/api/share/pet/${token}`);
+  async getSharedPet(token: string): Promise<SharedPetResponse> {
+    return this.request<SharedPetResponse>('GET', `/api/share/pet/${token}`);
   }
 
   // ============================================================

@@ -1,14 +1,29 @@
 import { useState } from 'react';
 import { Link } from 'react-router';
 import { useTranslation } from 'react-i18next';
-import { useMyPets, useDeletePet } from '@shared/hooks';
-import type { Pet } from '@shared/types';
+import { useMyPets, useDeletePet, useUpdatePet } from '@shared/hooks';
+import type { Pet, PetStatus } from '@shared/types';
 
 function SkeletonCard() {
   return (
     <div className="bg-gray-200 dark:bg-gray-700 rounded-xl h-48 animate-pulse" />
   );
 }
+
+const STATUS_CONFIG: Record<PetStatus, { labelKey: string; className: string }> = {
+  active: {
+    labelKey: 'pets:status.active',
+    className: 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300',
+  },
+  found: {
+    labelKey: 'pets:status.found',
+    className: 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300',
+  },
+  archived: {
+    labelKey: 'pets:status.archived',
+    className: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400',
+  },
+};
 
 function PetCard({
   pet,
@@ -22,14 +37,9 @@ function PetCard({
   onRequestConfirm: (id: string | null) => void;
 }) {
   const { t } = useTranslation(['pets', 'common']);
+  const updatePet = useUpdatePet();
 
-  const statusLabel =
-    pet.status === 'found' ? t('pets:status.found') : t('pets:status.lost');
-
-  const statusClass =
-    pet.status === 'found'
-      ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'
-      : 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300';
+  const statusCfg = STATUS_CONFIG[pet.status] ?? STATUS_CONFIG.active;
 
   const typeLabels: Record<string, string> = {
     perro: t('pets:types.dog'),
@@ -39,6 +49,10 @@ function PetCard({
   };
 
   const isConfirming = confirmingId === pet.id;
+
+  const handleStatusChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    updatePet.mutate({ id: pet.id, data: { status: e.target.value as PetStatus } });
+  };
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-5 flex flex-col gap-3">
@@ -51,8 +65,8 @@ function PetCard({
             {typeLabels[pet.type] ?? pet.type}
           </p>
         </div>
-        <span className={`text-xs font-medium px-2 py-1 rounded-full whitespace-nowrap ${statusClass}`}>
-          {statusLabel}
+        <span className={`text-xs font-medium px-2 py-1 rounded-full whitespace-nowrap ${statusCfg.className}`}>
+          {t(statusCfg.labelKey)}
         </span>
       </div>
 
@@ -62,7 +76,21 @@ function PetCard({
         </p>
       )}
 
-      <div className="mt-auto">
+      <div className="mt-auto space-y-2">
+        {/* Status selector */}
+        <select
+          value={pet.status}
+          onChange={handleStatusChange}
+          disabled={updatePet.isPending}
+          className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-sm px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-60"
+          aria-label={t('pets:mine.changeStatus')}
+        >
+          <option value="active">{t('pets:status.active')}</option>
+          <option value="found">{t('pets:status.found')}</option>
+          <option value="archived">{t('pets:status.archived')}</option>
+        </select>
+
+        {/* Delete / confirm */}
         {isConfirming ? (
           <div className="flex gap-2">
             <button
@@ -96,11 +124,17 @@ export function MyPetsPage() {
   const { data: pets, isLoading } = useMyPets();
   const deletePet = useDeletePet();
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const handleDelete = (id: string) => {
+    setDeleteError(null);
     deletePet.mutate(id, {
       onSuccess: () => {
         setConfirmingId(null);
+      },
+      onError: (err: Error) => {
+        setConfirmingId(null);
+        setDeleteError(err.message);
       },
     });
   };
@@ -108,9 +142,21 @@ export function MyPetsPage() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 py-10 px-4">
       <div className="max-w-4xl mx-auto">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-50 mb-8">
-          {t('pets:mine.title')}
-        </h1>
+        <div className="flex items-center justify-between mb-8">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-50">
+            {t('pets:mine.title')}
+          </h1>
+          <Link
+            to="/pets/create"
+            className="inline-flex items-center gap-2 bg-primary hover:bg-primary-dark text-white font-semibold rounded-lg px-4 py-2 text-sm transition-colors"
+          >
+            + {t('pets:mine.add')}
+          </Link>
+        </div>
+
+        {deleteError && (
+          <p className="text-red-500 dark:text-red-400 text-sm mb-4">{deleteError}</p>
+        )}
 
         {isLoading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">

@@ -124,7 +124,7 @@ func main() {
 		public.GET("/pets/:id", petHandler.GetPet)
 
 		// Fotos públicas — cualquiera puede listar fotos de una mascota
-		public.GET("/pets/:petId/photos", photoHandler.List)
+		public.GET("/pets/:id/photos", photoHandler.List)
 
 		// Reports públicos — cualquiera puede ver
 		public.GET("/reports/nearby", reportHandler.GetNearbyReports)
@@ -132,8 +132,8 @@ func main() {
 		public.GET("/reports/:id", reportHandler.GetReport)
 
 		// Share links públicos — para landing pages en redes sociales
-		public.GET("/share/:token", shareHandler.GetByToken)
-		public.POST("/share/:token/contact", shareHandler.TrackContact)
+		public.GET("/share/pet/:token", shareHandler.GetByToken)
+		public.POST("/share/pet/:token/contact", shareHandler.TrackContact)
 
 		// Refugios — directorio público
 		public.GET("/shelters", shelterHandler.GetAll)
@@ -158,7 +158,7 @@ func main() {
 		protected.POST("/reports", reportHandler.CreateReport)
 
 		// Fotos (subir requiere auth — solo el dueño puede subir)
-		protected.POST("/pets/:petId/photos", photoHandler.Upload)
+		protected.POST("/pets/:id/photos", photoHandler.Upload)
 
 		// Mensajes (requieren auth)
 		protected.POST("/messages", messageHandler.Send)
@@ -167,7 +167,7 @@ func main() {
 		protected.PATCH("/messages/:id/read", messageHandler.MarkAsRead)
 
 		// Share links protegidos — generar requiere ser el dueño
-		protected.POST("/share/:petId", shareHandler.GenerateShareLink)
+		protected.POST("/share/generate/:petId", shareHandler.GenerateShareLink)
 
 		// Devices — registrar token FCM (requiere auth)
 		protected.POST("/devices/token", deviceHandler.RegisterToken)

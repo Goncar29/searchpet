@@ -112,8 +112,10 @@
       "title": "Mis mascotas",
       "empty": "Todavía no publicaste ninguna mascota.",
       "emptyAction": "Publicar mi primera mascota",
+      "add": "Agregar mascota",
       "delete": "Eliminar",
-      "confirmDelete": "¿Seguro que querés eliminar esta mascota?"
+      "confirmDelete": "¿Seguro que querés eliminar esta mascota?",
+      "changeStatus": "Cambiar estado"
     },
     "detail": {
       "contact": "Contactar por WhatsApp",
@@ -127,6 +129,7 @@
       "description": "Descripción",
       "owner": "Contacto del dueño",
       "verified": "Verificado",
+      "noPhone": "Sin teléfono registrado",
       "whatsappMessage": "Hola, vi tu mascota {{name}} en SearchPet",
       "timeline": "Historial de reportes ({{count}})"
     },
@@ -143,7 +146,9 @@
     },
     "status": {
       "lost": "Perdido",
-      "found": "Encontrado"
+      "found": "Encontrado",
+      "active": "Activa",
+      "archived": "Archivada"
     }
   },
   "reports": {

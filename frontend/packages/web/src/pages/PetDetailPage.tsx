@@ -58,8 +58,13 @@ export function PetDetailPage() {
   }
 
   const primaryPhoto = pet.photos?.find((p: Photo) => p.is_primary) || pet.photos?.[0];
-  const statusColor = pet.status === 'found' ? 'bg-green-500' : 'bg-red-500';
-  const statusLabel = pet.status === 'found' ? t('pets:status.found').toUpperCase() : t('pets:status.lost').toUpperCase();
+
+  const statusBadge =
+    pet.status === 'found'
+      ? { color: 'bg-green-500', label: t('pets:status.found').toUpperCase() }
+      : pet.status === 'archived'
+      ? { color: 'bg-gray-500', label: t('pets:status.archived').toUpperCase() }
+      : { color: 'bg-blue-500', label: t('pets:status.active').toUpperCase() };
 
   const getReportStatusLabel = (status: string) => {
     switch (status) {
@@ -76,12 +81,12 @@ export function PetDetailPage() {
         {/* Foto */}
         <div className="relative h-72 md:h-96 bg-gray-100 dark:bg-gray-800">
           {primaryPhoto ? (
-            <img src={primaryPhoto.url} alt={pet.name} className="w-full h-full object-cover" />
+            <img src={primaryPhoto.url} alt={pet.name} className="w-full h-full object-contain" />
           ) : (
             <div className="w-full h-full flex items-center justify-center"><span className="text-7xl">🐾</span></div>
           )}
-          <span className={`absolute top-4 left-4 ${statusColor} text-white text-xs font-bold px-3 py-1 rounded`}>
-            {statusLabel}
+          <span className={`absolute top-4 left-4 ${statusBadge.color} text-white text-xs font-bold px-3 py-1 rounded`}>
+            {statusBadge.label}
           </span>
         </div>
 
@@ -121,7 +126,7 @@ export function PetDetailPage() {
             <SharePanel
               petId={pet.id}
               petName={pet.name}
-              status={pet.status as 'lost' | 'found' | 'sighting'}
+              petStatus={pet.status}
             />
             {isAuthenticated && (
               <Link
@@ -143,6 +148,11 @@ export function PetDetailPage() {
                   <p className="font-semibold text-gray-900 dark:text-gray-100">{pet.owner.name}</p>
                   {pet.owner.is_verified && (
                     <p className="text-xs text-green-600 dark:text-green-400 font-semibold">{t('pets:detail.verified')}</p>
+                  )}
+                  {pet.owner.phone ? (
+                    <p className="text-sm text-gray-600 dark:text-gray-300 mt-0.5">📞 {pet.owner.phone}</p>
+                  ) : (
+                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{t('pets:detail.noPhone')}</p>
                   )}
                 </div>
               </div>

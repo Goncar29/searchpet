@@ -5,12 +5,12 @@
 
 import { useState } from 'react';
 import { useGenerateShareLink } from '@shared/hooks';
-import type { ShareLink } from '@shared/types';
+import type { PetStatus, ShareLink } from '@shared/types';
 
 interface SharePanelProps {
   petId: string;
   petName: string;
-  status: 'lost' | 'found' | 'sighting';
+  petStatus: PetStatus;
 }
 
 const PLATFORMS: {
@@ -53,14 +53,13 @@ const PLATFORMS: {
   },
 ];
 
-export function SharePanel({ petId, petName, status }: SharePanelProps) {
+export function SharePanel({ petId, petName, petStatus }: SharePanelProps) {
   const [open, setOpen] = useState(false);
   const [shareLink, setShareLink] = useState<ShareLink | null>(null);
   const [copied, setCopied] = useState(false);
   const generateLink = useGenerateShareLink();
 
-  const statusText =
-    status === 'lost' ? 'PERDIDA' : status === 'found' ? 'ENCONTRADA' : 'AVISTADA';
+  const statusText = petStatus === 'found' ? 'ENCONTRADA' : 'PERDIDA';
 
   const message = `🚨 ¡MASCOTA ${statusText}! 🚨\nNombre: ${petName}\nPor favor, si tenés información, contactate con su dueño.`;
 

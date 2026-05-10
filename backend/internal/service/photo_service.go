@@ -4,13 +4,30 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
 	"mime/multipart"
+	"path/filepath"
+	"regexp"
+	"strings"
 
 	"github.com/google/uuid"
 	"lost-pets/internal/domain"
 	"lost-pets/internal/repository"
 	"lost-pets/pkg/storage"
 )
+
+// sanitizePublicID convierte un nombre de archivo en un public_id válido para Cloudinary.
+// Elimina la extensión, reemplaza espacios y caracteres especiales por guiones bajos.
+var reInvalidChars = regexp.MustCompile(`[^a-zA-Z0-9_\-]`)
+
+func sanitizePublicID(petID, filename string) string {
+	base := strings.TrimSuffix(filename, filepath.Ext(filename))
+	base = reInvalidChars.ReplaceAllString(base, "_")
+	if base == "" {
+		base = "photo"
+	}
+	return fmt.Sprintf("pets/%s/%s", petID, base)
+}
 
 // PhotoService define el contrato de la capa de negocio para fotos de mascotas.
 type PhotoService interface {
@@ -63,21 +80,22 @@ func (s *photoServiceImpl) UploadPhoto(
 		return nil, domain.ErrNotPetOwner
 	}
 
-	// Delegar el upload a Cloudinary — el service no sabe nada del SDK
-	// Usamos el filename limpio para el public_id en Cloudinary
-	publicID := fmt.Sprintf("%s_%s", petID, filename)
+	if s.storage == nil {
+		log.Println("[photo_service] Cloudinary no configurado — storage es nil")
+		return nil, domain.ErrStorageFailed
+	}
 
 	// Aseguramos leer desde el principio (el handler ya buscó el MIME en los primeros bytes)
 	if seeker, ok := file.(io.Seeker); ok {
 		_, _ = seeker.Seek(0, io.SeekStart)
 	}
 
-	if s.storage == nil {
-		return nil, domain.ErrStorageFailed
-	}
+	publicID := sanitizePublicID(petID, filename)
+	log.Printf("[photo_service] Subiendo imagen a Cloudinary — publicID: %s", publicID)
 
 	secureURL, err := s.storage.UploadImage(ctx, file, publicID)
 	if err != nil {
+		log.Printf("[photo_service] Error en Cloudinary: %v", err)
 		return nil, domain.ErrStorageFailed
 	}
 
