@@ -6,9 +6,11 @@ import type {
   AuthResponse,
   RegisterRequest,
   LoginRequest,
+  User,
   Pet,
   CreatePetRequest,
   UpdatePetRequest,
+  UpdateProfileRequest,
   PetSearchParams,
   Report,
   CreateReportRequest,
@@ -109,6 +111,14 @@ class APIClient {
 
   logout() {
     this.token = null;
+  }
+
+  async getMe(): Promise<User> {
+    return this.request<User>('GET', '/api/auth/me');
+  }
+
+  async updateMe(data: UpdateProfileRequest): Promise<User> {
+    return this.request<User>('PUT', '/api/auth/me', data);
   }
 
   // ============================================================

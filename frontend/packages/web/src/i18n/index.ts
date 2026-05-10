@@ -25,6 +25,7 @@ i18n
         shelters: es.shelters,
         footer: es.footer,
         map: es.map,
+        profile: es.profile,
       },
       en: {
         common: en.common,
@@ -36,6 +37,7 @@ i18n
         shelters: en.shelters,
         footer: en.footer,
         map: en.map,
+        profile: en.profile,
       },
     },
     interpolation: {

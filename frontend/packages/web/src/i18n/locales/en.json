@@ -194,6 +194,19 @@
     "contact": "Contact",
     "contactText": "Want to contribute? This is an open source project."
   },
+  "profile": {
+    "title": "My profile",
+    "editTitle": "Edit information",
+    "email": "Email address",
+    "emailReadOnly": "Email cannot be changed",
+    "name": "Full name",
+    "phone": "Phone",
+    "phonePlaceholder": "+598 99 123 456",
+    "phoneHint": "Visible to people who want to contact you about a pet",
+    "save": "Save changes",
+    "saveSuccess": "Profile updated successfully!",
+    "verified": "Verified"
+  },
   "map": {
     "title": "Reports map",
     "loading": "Loading map...",

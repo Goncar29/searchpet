@@ -70,6 +70,34 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	})
 }
 
+// UpdateMe godoc
+// PUT /api/auth/me
+func (h *AuthHandler) UpdateMe(c *gin.Context) {
+	userID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": domain.ErrUnauthorized.Error()})
+		return
+	}
+
+	var req dto.UpdateProfileRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	user, err := h.authService.UpdateProfile(c.Request.Context(), userID.(uuid.UUID), req.Name, req.Phone)
+	if err != nil {
+		if errors.Is(err, domain.ErrUserNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, dto.ToUserResponse(user))
+}
+
 // GetMe godoc
 // GET /api/auth/me
 func (h *AuthHandler) GetMe(c *gin.Context) {

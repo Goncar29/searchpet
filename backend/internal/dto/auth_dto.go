@@ -38,6 +38,12 @@ type AuthResponse struct {
 	Token string       `json:"token"`
 }
 
+// UpdateProfileRequest son los datos que el cliente manda para actualizar su perfil
+type UpdateProfileRequest struct {
+	Name  string `json:"name"`
+	Phone string `json:"phone"`
+}
+
 // ToUserResponse convierte un domain.User en un UserResponse (DTO)
 func ToUserResponse(user *domain.User) UserResponse {
 	return UserResponse{

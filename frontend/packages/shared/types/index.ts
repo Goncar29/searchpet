@@ -189,3 +189,8 @@ export interface SendMessageRequest {
 export interface GenerateShareRequest {
   platform?: Platform;
 }
+
+export interface UpdateProfileRequest {
+  name?: string;
+  phone?: string;
+}

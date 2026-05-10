@@ -97,3 +97,19 @@ func (s *authService) Login(ctx context.Context, email, password string) (*domai
 func (s *authService) GetUser(ctx context.Context, id uuid.UUID) (*domain.User, error) {
 	return s.userRepo.GetByID(ctx, id)
 }
+
+// UpdateProfile actualiza el nombre y teléfono del usuario
+func (s *authService) UpdateProfile(ctx context.Context, id uuid.UUID, name, phone string) (*domain.User, error) {
+	user, err := s.userRepo.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if name != "" {
+		user.Name = name
+	}
+	user.Phone = phone
+	if err := s.userRepo.Update(ctx, user); err != nil {
+		return nil, err
+	}
+	return user, nil
+}

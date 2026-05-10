@@ -194,6 +194,19 @@
     "contact": "Contacto",
     "contactText": "¿Querés contribuir? Este es un proyecto open source."
   },
+  "profile": {
+    "title": "Mi perfil",
+    "editTitle": "Editar información",
+    "email": "Correo electrónico",
+    "emailReadOnly": "El correo no se puede modificar",
+    "name": "Nombre completo",
+    "phone": "Teléfono",
+    "phonePlaceholder": "+598 99 123 456",
+    "phoneHint": "Visible para quienes quieran contactarte sobre una mascota",
+    "save": "Guardar cambios",
+    "saveSuccess": "¡Perfil actualizado correctamente!",
+    "verified": "Verificado"
+  },
   "map": {
     "title": "Mapa de reportes",
     "loading": "Cargando mapa...",

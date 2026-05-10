@@ -8,6 +8,7 @@ import { apiClient } from '../api/client';
 import type {
   CreatePetRequest,
   UpdatePetRequest,
+  UpdateProfileRequest,
   PetSearchParams,
   CreateReportRequest,
   NearbySearchParams,
@@ -15,11 +16,29 @@ import type {
   GenerateShareRequest,
   SharedPetResponse,
   UploadPhotoResponse,
+  User,
 } from '../types';
 
 // ============================================================
 // AUTH HOOKS
 // ============================================================
+
+export const useGetMe = () => {
+  return useQuery<User>({
+    queryKey: ['me'],
+    queryFn: () => apiClient.getMe(),
+  });
+};
+
+export const useUpdateMe = () => {
+  const queryClient = useQueryClient();
+  return useMutation<User, Error, UpdateProfileRequest>({
+    mutationFn: (data) => apiClient.updateMe(data),
+    onSuccess: (updatedUser) => {
+      queryClient.setQueryData(['me'], updatedUser);
+    },
+  });
+};
 
 export const useLogin = () => {
   return useMutation({

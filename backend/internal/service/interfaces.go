@@ -20,4 +20,7 @@ type AuthService interface {
 	// GetUser obtiene los datos de un usuario por su ID
 	// Retorna error si el usuario no existe
 	GetUser(ctx context.Context, id uuid.UUID) (*domain.User, error)
+
+	// UpdateProfile actualiza el nombre y teléfono del usuario
+	UpdateProfile(ctx context.Context, id uuid.UUID, name, phone string) (*domain.User, error)
 }

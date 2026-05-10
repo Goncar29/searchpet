@@ -10,6 +10,7 @@ import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { CreatePetPage } from './pages/CreatePetPage';
 import { EditPetPage } from './pages/EditPetPage';
+import { ProfilePage } from './pages/ProfilePage';
 import { MyPetsPage } from './pages/MyPetsPage';
 import { CreateReportPage } from './pages/CreateReportPage';
 
@@ -30,6 +31,7 @@ export default function App() {
         <Route element={<ProtectedRoute />}>
           <Route path="/pets/create" element={<CreatePetPage />} />
           <Route path="/pets/:id/edit" element={<EditPetPage />} />
+          <Route path="/profile" element={<ProfilePage />} />
           <Route path="/pets/mine" element={<MyPetsPage />} />
           <Route path="/reports/create" element={<CreateReportPage />} />
         </Route>

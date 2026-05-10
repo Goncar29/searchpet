@@ -93,9 +93,12 @@ export function MainLayout() {
               <div className="hidden min-[960px]:flex items-center gap-3 ml-1">
                 {isAuthenticated ? (
                   <>
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                    <Link
+                      to="/profile"
+                      className="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap hover:text-primary transition-colors"
+                    >
                       {t('greeting', { name: user?.name })}
-                    </span>
+                    </Link>
                     <Link
                       to="/pets/create"
                       className="text-sm font-semibold text-white bg-primary hover:bg-primary-dark px-4 py-2 rounded-lg transition-colors duration-150 whitespace-nowrap"
@@ -203,9 +206,12 @@ export function MainLayout() {
                     {t('publish')}
                   </Link>
                   <div className="border-t border-gray-100 dark:border-gray-800 mt-2 pt-2">
-                    <span className="block text-xs text-gray-400 dark:text-gray-500 px-3 mb-1">
+                    <Link
+                      to="/profile"
+                      className="block text-xs font-medium text-primary px-3 mb-1 hover:underline"
+                    >
                       {t('greeting', { name: user?.name })}
-                    </span>
+                    </Link>
                     <button
                       onClick={handleLogout}
                       className="w-full text-left text-sm font-medium py-2 px-3 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-150"

@@ -147,6 +147,7 @@ func main() {
 	protected.Use(middleware.Auth(cfg.JWTSecret))
 	{
 		protected.GET("/auth/me", authHandler.GetMe)
+		protected.PUT("/auth/me", authHandler.UpdateMe)
 
 		// Pets (requieren auth)
 		protected.POST("/pets", petHandler.CreatePet)

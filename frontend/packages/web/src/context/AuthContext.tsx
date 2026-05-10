@@ -6,6 +6,8 @@ interface User {
   id: string;
   email: string;
   name: string;
+  phone?: string;
+  profile_photo_url?: string;
   is_verified: boolean;
 }
 
@@ -15,6 +17,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, name: string, phone?: string) => Promise<void>;
   logout: () => void;
+  refreshUser: () => Promise<void>;
   isAuthenticated: boolean;
   isLoading: boolean;
 }
@@ -67,8 +70,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem('user');
   };
 
+  const refreshUser = async () => {
+    try {
+      const updated = await apiClient.getMe();
+      setUser(updated);
+      localStorage.setItem('user', JSON.stringify(updated));
+    } catch {
+      // Si falla, mantenemos el usuario actual
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, token, login, register, logout, isAuthenticated: !!token, isLoading }}>
+    <AuthContext.Provider value={{ user, token, login, register, logout, refreshUser, isAuthenticated: !!token, isLoading }}>
       {children}
     </AuthContext.Provider>
   );
