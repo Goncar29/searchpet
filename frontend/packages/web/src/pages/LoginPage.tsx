@@ -14,12 +14,19 @@ export function LoginPage() {
   const { t } = useTranslation(['auth', 'common']);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { login } = useAuth();
+  const { login, isAuthenticated, isLoading } = useAuth();
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [apiError, setApiError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  if (!isLoading && isAuthenticated) {
+    const returnUrl = searchParams.get('returnUrl') || '/';
+    navigate(returnUrl, { replace: true });
+    return null;
+  }
 
   const validate = (): boolean => {
     const errors: FieldErrors = {};

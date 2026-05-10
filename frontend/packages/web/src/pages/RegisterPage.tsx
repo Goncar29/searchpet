@@ -15,7 +15,8 @@ interface FieldErrors {
 export function RegisterPage() {
   const { t } = useTranslation(['auth', 'common']);
   const navigate = useNavigate();
-  const { register } = useAuth();
+  const { register, isAuthenticated, isLoading } = useAuth();
+
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -24,6 +25,11 @@ export function RegisterPage() {
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [apiError, setApiError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  if (!isLoading && isAuthenticated) {
+    navigate('/', { replace: true });
+    return null;
+  }
 
   const validate = (): boolean => {
     const errors: FieldErrors = {};
