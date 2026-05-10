@@ -9,6 +9,7 @@ import { SheltersPage } from './pages/SheltersPage';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { CreatePetPage } from './pages/CreatePetPage';
+import { EditPetPage } from './pages/EditPetPage';
 import { MyPetsPage } from './pages/MyPetsPage';
 import { CreateReportPage } from './pages/CreateReportPage';
 
@@ -28,6 +29,7 @@ export default function App() {
         {/* Rutas protegidas (requieren autenticación) */}
         <Route element={<ProtectedRoute />}>
           <Route path="/pets/create" element={<CreatePetPage />} />
+          <Route path="/pets/:id/edit" element={<EditPetPage />} />
           <Route path="/pets/mine" element={<MyPetsPage />} />
           <Route path="/reports/create" element={<CreateReportPage />} />
         </Route>

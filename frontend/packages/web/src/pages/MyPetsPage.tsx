@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { Link } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { useMyPets, useDeletePet, useUpdatePet } from '@shared/hooks';
-import type { Pet, PetStatus } from '@shared/types';
+import type { Pet, PetStatus, Photo } from '@shared/types';
 
 function SkeletonCard() {
   return (
@@ -37,9 +37,12 @@ function PetCard({
   onRequestConfirm: (id: string | null) => void;
 }) {
   const { t } = useTranslation(['pets', 'common']);
+  const navigate = useNavigate();
   const updatePet = useUpdatePet();
 
   const statusCfg = STATUS_CONFIG[pet.status] ?? STATUS_CONFIG.active;
+  const primaryPhoto: Photo | undefined =
+    pet.photos?.find((p) => p.is_primary) ?? pet.photos?.[0];
 
   const typeLabels: Record<string, string> = {
     perro: t('pets:types.dog'),
@@ -55,65 +58,95 @@ function PetCard({
   };
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-5 flex flex-col gap-3">
-      <div className="flex items-start justify-between gap-2">
+    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 flex flex-col overflow-hidden">
+      {/* Foto */}
+      <div className="h-40 bg-gray-100 dark:bg-gray-700 relative flex-shrink-0">
+        {primaryPhoto ? (
+          <img
+            src={primaryPhoto.url}
+            alt={pet.name}
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-4xl">🐾</div>
+        )}
+        <span className={`absolute top-2 right-2 text-xs font-medium px-2 py-0.5 rounded-full ${statusCfg.className}`}>
+          {t(statusCfg.labelKey)}
+        </span>
+      </div>
+
+      {/* Contenido */}
+      <div className="p-4 flex flex-col gap-3 flex-1">
         <div>
-          <h3 className="font-semibold text-gray-900 dark:text-gray-50 text-lg leading-tight">
+          <h3 className="font-semibold text-gray-900 dark:text-gray-50 text-base leading-tight">
             {pet.name}
           </h3>
           <p className="text-sm text-gray-500 dark:text-gray-400">
             {typeLabels[pet.type] ?? pet.type}
           </p>
         </div>
-        <span className={`text-xs font-medium px-2 py-1 rounded-full whitespace-nowrap ${statusCfg.className}`}>
-          {t(statusCfg.labelKey)}
-        </span>
-      </div>
 
-      {pet.description && (
-        <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2">
-          {pet.description}
-        </p>
-      )}
+        {pet.description && (
+          <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2">
+            {pet.description}
+          </p>
+        )}
 
-      <div className="mt-auto space-y-2">
-        {/* Status selector */}
-        <select
-          value={pet.status}
-          onChange={handleStatusChange}
-          disabled={updatePet.isPending}
-          className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-sm px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-60"
-          aria-label={t('pets:mine.changeStatus')}
-        >
-          <option value="active">{t('pets:status.active')}</option>
-          <option value="found">{t('pets:status.found')}</option>
-          <option value="archived">{t('pets:status.archived')}</option>
-        </select>
-
-        {/* Delete / confirm */}
-        {isConfirming ? (
-          <div className="flex gap-2">
-            <button
-              onClick={() => onDelete(pet.id)}
-              className="flex-1 bg-red-500 hover:bg-red-600 text-white text-sm font-medium rounded-lg px-3 py-2 transition-colors"
+        <div className="mt-auto space-y-2">
+          {/* Acciones principales */}
+          <div className="grid grid-cols-2 gap-2">
+            <Link
+              to={`/pets/${pet.id}/edit`}
+              className="text-center text-sm font-medium rounded-lg px-3 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
             >
-              {t('common:confirm')}
-            </button>
+              {t('pets:mine.edit')}
+            </Link>
             <button
-              onClick={() => onRequestConfirm(null)}
-              className="flex-1 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 text-sm font-medium rounded-lg px-3 py-2 transition-colors"
+              onClick={() => navigate(`/reports/create?petId=${pet.id}&status=lost`)}
+              className="text-sm font-medium rounded-lg px-3 py-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors"
             >
-              {t('common:cancel')}
+              {t('pets:mine.reportLost')}
             </button>
           </div>
-        ) : (
-          <button
-            onClick={() => onRequestConfirm(pet.id)}
-            className="w-full bg-gray-100 dark:bg-gray-700 hover:bg-red-100 dark:hover:bg-red-900/30 text-gray-700 dark:text-gray-300 hover:text-red-600 dark:hover:text-red-400 text-sm font-medium rounded-lg px-3 py-2 transition-colors"
+
+          {/* Cambiar estado */}
+          <select
+            value={pet.status}
+            onChange={handleStatusChange}
+            disabled={updatePet.isPending}
+            className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-sm px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-60"
+            aria-label={t('pets:mine.changeStatus')}
           >
-            {t('pets:mine.delete')}
-          </button>
-        )}
+            <option value="active">{t('pets:status.active')}</option>
+            <option value="found">{t('pets:status.found')}</option>
+            <option value="archived">{t('pets:status.archived')}</option>
+          </select>
+
+          {/* Delete / confirm */}
+          {isConfirming ? (
+            <div className="flex gap-2">
+              <button
+                onClick={() => onDelete(pet.id)}
+                className="flex-1 bg-red-500 hover:bg-red-600 text-white text-sm font-medium rounded-lg px-3 py-2 transition-colors"
+              >
+                {t('common:confirm')}
+              </button>
+              <button
+                onClick={() => onRequestConfirm(null)}
+                className="flex-1 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 text-sm font-medium rounded-lg px-3 py-2 transition-colors"
+              >
+                {t('common:cancel')}
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => onRequestConfirm(pet.id)}
+              className="w-full bg-gray-100 dark:bg-gray-700 hover:bg-red-100 dark:hover:bg-red-900/30 text-gray-700 dark:text-gray-300 hover:text-red-600 dark:hover:text-red-400 text-sm font-medium rounded-lg px-3 py-2 transition-colors"
+            >
+              {t('pets:mine.delete')}
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

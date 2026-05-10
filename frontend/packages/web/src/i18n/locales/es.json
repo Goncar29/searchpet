@@ -113,6 +113,8 @@
       "empty": "Todavía no publicaste ninguna mascota.",
       "emptyAction": "Publicar mi primera mascota",
       "add": "Agregar mascota",
+      "edit": "Editar",
+      "reportLost": "Publicar como perdida",
       "delete": "Eliminar",
       "confirmDelete": "¿Seguro que querés eliminar esta mascota?",
       "changeStatus": "Cambiar estado"
@@ -144,6 +146,11 @@
       "cat": "Gato",
       "other": "Otro"
     },
+    "edit": {
+      "title": "Editar mascota",
+      "submit": "Guardar cambios",
+      "replacePhoto": "Subí una nueva para reemplazar la actual"
+    },
     "status": {
       "lost": "Perdido",
       "found": "Encontrado",
@@ -159,6 +166,7 @@
       "date": "Fecha del avistamiento",
       "clickMap": "Hacé clic en el mapa para marcar la ubicación",
       "noCoord": "Seleccioná una ubicación en el mapa antes de continuar",
+      "status": "Tipo de reporte",
       "submit": "Guardar reporte"
     },
     "nearby": {
