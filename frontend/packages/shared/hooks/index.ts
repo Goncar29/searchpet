@@ -40,6 +40,16 @@ export const useUpdateMe = () => {
   });
 };
 
+export const useUploadProfilePhoto = () => {
+  const queryClient = useQueryClient();
+  return useMutation<User, Error, File>({
+    mutationFn: (file) => apiClient.uploadProfilePhoto(file),
+    onSuccess: (updatedUser) => {
+      queryClient.setQueryData(['me'], updatedUser);
+    },
+  });
+};
+
 export const useLogin = () => {
   return useMutation({
     mutationFn: (data: { email: string; password: string }) =>

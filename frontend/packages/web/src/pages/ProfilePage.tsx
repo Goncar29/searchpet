@@ -1,26 +1,57 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useUpdateMe } from '@shared/hooks';
+import { useUpdateMe, useUploadProfilePhoto } from '@shared/hooks';
 import { useAuth } from '../context/AuthContext';
 
 export function ProfilePage() {
   const { t } = useTranslation(['profile', 'common']);
   const { user, refreshUser } = useAuth();
   const updateMe = useUpdateMe();
+  const uploadPhoto = useUploadProfilePhoto();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [nameError, setNameError] = useState('');
   const [success, setSuccess] = useState(false);
   const [apiError, setApiError] = useState('');
+  const [photoError, setPhotoError] = useState('');
 
-  // Pre-fill form when user data is available
   useEffect(() => {
     if (user) {
       setName(user.name);
       setPhone(user.phone ?? '');
     }
   }, [user]);
+
+  const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const ALLOWED = ['image/jpeg', 'image/png', 'image/webp'];
+    const MAX = 5 * 1024 * 1024;
+
+    if (!ALLOWED.includes(file.type)) {
+      setPhotoError('Formato no permitido. Usá JPG, PNG o WebP.');
+      e.target.value = '';
+      return;
+    }
+    if (file.size > MAX) {
+      setPhotoError('La foto no puede superar los 5 MB.');
+      e.target.value = '';
+      return;
+    }
+
+    setPhotoError('');
+    uploadPhoto.mutate(file, {
+      onSuccess: async () => {
+        await refreshUser();
+      },
+      onError: (err) => {
+        setPhotoError(err.message);
+      },
+    });
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,10 +90,47 @@ export function ProfilePage() {
 
         {/* Avatar + info básica */}
         <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">
-          <div className="flex items-center gap-4">
-            <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center text-2xl font-bold text-primary flex-shrink-0">
-              {user.name.charAt(0).toUpperCase()}
-            </div>
+          <div className="flex items-center gap-5">
+            {/* Avatar clickeable */}
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploadPhoto.isPending}
+              className="relative flex-shrink-0 group"
+              title={t('profile:changePhoto')}
+            >
+              {user.profile_photo_url ? (
+                <img
+                  src={user.profile_photo_url}
+                  alt={user.name}
+                  className="w-20 h-20 rounded-full object-cover border-2 border-gray-200 dark:border-gray-700"
+                />
+              ) : (
+                <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center text-3xl font-bold text-primary">
+                  {user.name.charAt(0).toUpperCase()}
+                </div>
+              )}
+              {/* Overlay al hover */}
+              <div className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 group-disabled:opacity-100 transition-opacity">
+                {uploadPhoto.isPending ? (
+                  <span className="text-white text-xs">...</span>
+                ) : (
+                  <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                )}
+              </div>
+            </button>
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              onChange={handlePhotoChange}
+              className="hidden"
+            />
+
             <div>
               <p className="text-lg font-semibold text-gray-900 dark:text-gray-50">{user.name}</p>
               <p className="text-sm text-gray-500 dark:text-gray-400">{user.email}</p>
@@ -71,8 +139,14 @@ export function ProfilePage() {
                   ✓ {t('profile:verified')}
                 </span>
               )}
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                {t('profile:changePhoto')}
+              </p>
             </div>
           </div>
+          {photoError && (
+            <p className="text-red-500 dark:text-red-400 text-sm mt-3">{photoError}</p>
+          )}
         </div>
 
         {/* Formulario de edición */}

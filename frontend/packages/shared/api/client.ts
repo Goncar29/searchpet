@@ -121,6 +121,22 @@ class APIClient {
     return this.request<User>('PUT', '/api/auth/me', data);
   }
 
+  async uploadProfilePhoto(file: File): Promise<User> {
+    const url = `${this.baseURL}/api/auth/me/photo`;
+    const formData = new FormData();
+    formData.append('photo', file);
+
+    const headers: Record<string, string> = {};
+    if (this.token) headers['Authorization'] = `Bearer ${this.token}`;
+
+    const response = await fetch(url, { method: 'POST', headers, body: formData });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Error desconocido' }));
+      throw new Error(error.error || `HTTP Error ${response.status}`);
+    }
+    return response.json();
+  }
+
   // ============================================================
   // PETS
   // ============================================================

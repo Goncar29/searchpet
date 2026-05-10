@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"mime/multipart"
 
 	"github.com/google/uuid"
 	"lost-pets/internal/domain"
@@ -23,4 +24,7 @@ type AuthService interface {
 
 	// UpdateProfile actualiza el nombre y teléfono del usuario
 	UpdateProfile(ctx context.Context, id uuid.UUID, name, phone string) (*domain.User, error)
+
+	// UpdateProfilePhoto sube la foto de perfil a Cloudinary y actualiza la URL en BD
+	UpdateProfilePhoto(ctx context.Context, id uuid.UUID, file multipart.File, filename string) (*domain.User, error)
 }

@@ -70,6 +70,42 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	})
 }
 
+// UploadProfilePhoto godoc
+// POST /api/auth/me/photo
+func (h *AuthHandler) UploadProfilePhoto(c *gin.Context) {
+	userID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": domain.ErrUnauthorized.Error()})
+		return
+	}
+
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 5*1024*1024+1024)
+	if err := c.Request.ParseMultipartForm(5 * 1024 * 1024); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": domain.ErrFileTooLarge.Error()})
+		return
+	}
+
+	file, header, err := c.Request.FormFile("photo")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "campo 'photo' requerido"})
+		return
+	}
+	defer file.Close()
+
+	user, err := h.authService.UpdateProfilePhoto(c.Request.Context(), userID.(uuid.UUID), file, header.Filename)
+	if err != nil {
+		switch {
+		case errors.Is(err, domain.ErrStorageFailed):
+			c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
+		default:
+			c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
+		}
+		return
+	}
+
+	c.JSON(http.StatusOK, dto.ToUserResponse(user))
+}
+
 // UpdateMe godoc
 // PUT /api/auth/me
 func (h *AuthHandler) UpdateMe(c *gin.Context) {
