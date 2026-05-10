@@ -139,7 +139,8 @@
       "lost": "Perdido",
       "found": "Encontrado",
       "sighting": "Avistado",
-      "noName": "Sin nombre"
+      "noName": "Sin nombre",
+      "reportSighting": "Reportar avistamiento"
     },
     "types": {
       "dog": "Perro",

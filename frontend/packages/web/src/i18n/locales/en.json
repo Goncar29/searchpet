@@ -139,7 +139,8 @@
       "lost": "Lost",
       "found": "Found",
       "sighting": "Sighting",
-      "noName": "No name"
+      "noName": "No name",
+      "reportSighting": "Report sighting"
     },
     "types": {
       "dog": "Dog",
