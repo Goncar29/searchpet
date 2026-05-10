@@ -166,6 +166,8 @@
       "date": "Sighting date",
       "clickMap": "Click on the map to mark the location",
       "noCoord": "Select a location on the map before continuing",
+      "searchPet": "Search by name or breed...",
+      "selectPet": "Select a pet",
       "status": "Report type",
       "submit": "Save report"
     },

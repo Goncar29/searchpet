@@ -166,6 +166,8 @@
       "date": "Fecha del avistamiento",
       "clickMap": "Hacé clic en el mapa para marcar la ubicación",
       "noCoord": "Seleccioná una ubicación en el mapa antes de continuar",
+      "searchPet": "Buscá por nombre o raza...",
+      "selectPet": "Seleccioná una mascota",
       "status": "Tipo de reporte",
       "submit": "Guardar reporte"
     },
