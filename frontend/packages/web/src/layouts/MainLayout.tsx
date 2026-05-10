@@ -41,23 +41,28 @@ export function MainLayout() {
       {/* Navbar */}
       <nav className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-
-            {/* Logo */}
-            <Link to="/" className="flex items-center gap-2 shrink-0">
+          {/* Grid de 3 columnas: logo | nav-links | controles
+              Las columnas laterales tienen ancho natural (auto), la central
+              toma el espacio restante (1fr) y centra el contenido. */}
+          <div
+            className="grid items-center h-16 w-full"
+            style={{ gridTemplateColumns: 'auto 1fr auto' }}
+          >
+            {/* Columna 1 — Logo */}
+            <Link to="/" className="inline-flex items-center gap-2 pr-6">
               <span className="text-2xl">🐾</span>
               <span className="text-xl font-bold text-gray-900 dark:text-gray-50">
                 Search<span className="text-primary">Pet</span>
               </span>
             </Link>
 
-            {/* Desktop nav links (md+) */}
-            <div className="hidden md:flex items-center gap-6">
+            {/* Columna 2 — Nav links centrados (solo desktop) */}
+            <div className="hidden min-[960px]:flex items-center justify-center gap-6">
               {publicNavLinks.map((link) => (
                 <Link
                   key={link.to}
                   to={link.to}
-                  className={`text-sm font-medium ${isActive(link.to) ? activeLinkClass : inactiveLinkClass}`}
+                  className={`text-sm font-medium whitespace-nowrap ${isActive(link.to) ? activeLinkClass : inactiveLinkClass}`}
                 >
                   {link.label}
                 </Link>
@@ -65,66 +70,16 @@ export function MainLayout() {
               {isAuthenticated && (
                 <Link
                   to="/pets/mine"
-                  className={`text-sm font-medium ${isActive('/pets/mine') ? activeLinkClass : inactiveLinkClass}`}
+                  className={`text-sm font-medium whitespace-nowrap ${isActive('/pets/mine') ? activeLinkClass : inactiveLinkClass}`}
                 >
                   {t('myPets')}
                 </Link>
               )}
             </div>
 
-            {/* Desktop right section */}
-            <div className="hidden md:flex items-center gap-3">
-              {/* Dark mode toggle */}
-              <button
-                onClick={toggleTheme}
-                aria-label={t('darkMode')}
-                className="p-1.5 rounded-md text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-150"
-              >
-                {theme === 'dark' ? '☀️' : '🌙'}
-              </button>
-
-              {/* Language switcher */}
-              <LanguageSwitcher />
-
-              {/* Auth section */}
-              {isAuthenticated ? (
-                <>
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    {t('greeting', { name: user?.name })}
-                  </span>
-                  <Link
-                    to="/pets/create"
-                    className="text-sm font-semibold text-white bg-primary hover:bg-primary-dark px-4 py-2 rounded-lg transition-colors duration-150"
-                  >
-                    {t('publish')}
-                  </Link>
-                  <button
-                    onClick={handleLogout}
-                    className="text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-50 transition-colors duration-150"
-                  >
-                    {t('logout')}
-                  </button>
-                </>
-              ) : (
-                <>
-                  <Link
-                    to="/login"
-                    className="text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-50 transition-colors duration-150"
-                  >
-                    {t('login')}
-                  </Link>
-                  <Link
-                    to="/register"
-                    className="text-sm font-semibold text-white bg-primary hover:bg-primary-dark px-4 py-2 rounded-lg transition-colors duration-150"
-                  >
-                    {t('register')}
-                  </Link>
-                </>
-              )}
-            </div>
-
-            {/* Mobile right section: theme toggle + lang + hamburger */}
-            <div className="flex md:hidden items-center gap-2">
+            {/* Columna 3 — Controles + auth, siempre visible a la derecha */}
+            <div className="flex items-center gap-2 pl-4 justify-end">
+              {/* Tema e idioma: siempre visibles */}
               <button
                 onClick={toggleTheme}
                 aria-label={t('darkMode')}
@@ -133,6 +88,47 @@ export function MainLayout() {
                 {theme === 'dark' ? '☀️' : '🌙'}
               </button>
               <LanguageSwitcher />
+
+              {/* Auth section — solo desktop */}
+              <div className="hidden min-[960px]:flex items-center gap-3 ml-1">
+                {isAuthenticated ? (
+                  <>
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                      {t('greeting', { name: user?.name })}
+                    </span>
+                    <Link
+                      to="/pets/create"
+                      className="text-sm font-semibold text-white bg-primary hover:bg-primary-dark px-4 py-2 rounded-lg transition-colors duration-150 whitespace-nowrap"
+                    >
+                      {t('publish')}
+                    </Link>
+                    <button
+                      onClick={handleLogout}
+                      className="text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-50 transition-colors duration-150 whitespace-nowrap"
+                    >
+                      {t('logout')}
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <Link
+                      to="/login"
+                      className="text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-50 transition-colors duration-150"
+                    >
+                      {t('login')}
+                    </Link>
+                    <Link
+                      to="/register"
+                      className="text-sm font-semibold text-white bg-primary hover:bg-primary-dark px-4 py-2 rounded-lg transition-colors duration-150"
+                    >
+                      {t('register')}
+                    </Link>
+                  </>
+                )}
+              </div>
+
+              {/* Hamburger — solo mobile (< 920px) */}
+              <div className="flex min-[960px]:hidden items-center gap-2">
               <button
                 onClick={() => setIsMenuOpen((prev) => !prev)}
                 aria-label={isMenuOpen ? t('closeMenu') : t('openMenu')}
@@ -168,10 +164,11 @@ export function MainLayout() {
             </div>
           </div>
         </div>
+        </div>
 
         {/* Mobile nav panel */}
         {isMenuOpen && (
-          <div className="md:hidden border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
+          <div className="min-[960px]:hidden border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
             <div className="max-w-7xl mx-auto px-4 py-3 flex flex-col gap-1">
               {publicNavLinks.map((link) => (
                 <Link
