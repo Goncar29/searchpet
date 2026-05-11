@@ -82,7 +82,7 @@ export function CreateReportPage() {
         latitude: coord.lat,
         longitude: coord.lng,
         location_description: description.trim() || undefined,
-        occurred_at: date || undefined,
+        occurred_at: date ? `${date}T00:00:00Z` : undefined,
       },
       {
         onSuccess: () => {
