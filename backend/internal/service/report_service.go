@@ -1,6 +1,8 @@
 package service
 
 import (
+	"time"
+
 	"github.com/google/uuid"
 	"lost-pets/internal/domain"
 	"lost-pets/internal/event"
@@ -17,11 +19,12 @@ type ReportService interface {
 
 // CreateReportRequest contiene los datos para crear un reporte.
 type CreateReportRequest struct {
-	PetID               string  `json:"pet_id" binding:"required"`
-	Status              string  `json:"status" binding:"required"` // lost, found, sighting
-	Latitude            float64 `json:"latitude" binding:"required"`
-	Longitude           float64 `json:"longitude" binding:"required"`
-	LocationDescription string  `json:"location_description"`
+	PetID               string     `json:"pet_id" binding:"required"`
+	Status              string     `json:"status" binding:"required"` // lost, found, sighting
+	Latitude            float64    `json:"latitude" binding:"required"`
+	Longitude           float64    `json:"longitude" binding:"required"`
+	LocationDescription string     `json:"location_description"`
+	OccurredAt          *time.Time `json:"occurred_at"` // opcional; si viene no puede ser futuro
 }
 
 // reportService es la implementación concreta del ReportService.
@@ -55,6 +58,11 @@ func (s *reportService) CreateReport(reporterID string, req CreateReportRequest)
 		return nil, domain.ErrInvalidStatus
 	}
 
+	// La fecha del avistamiento no puede ser futura
+	if req.OccurredAt != nil && req.OccurredAt.After(time.Now()) {
+		return nil, domain.ErrInvalidInput
+	}
+
 	report := &domain.Report{
 		PetID:               petUUID,
 		ReporterID:          reporterUUID,
@@ -62,6 +70,7 @@ func (s *reportService) CreateReport(reporterID string, req CreateReportRequest)
 		Latitude:            req.Latitude,
 		Longitude:           req.Longitude,
 		LocationDescription: req.LocationDescription,
+		OccurredAt:          req.OccurredAt,
 	}
 
 	if err := s.repo.Create(report); err != nil {

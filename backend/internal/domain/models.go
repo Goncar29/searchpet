@@ -62,6 +62,7 @@ type Report struct {
 	Latitude            float64    `gorm:"type:decimal(10,8);not null" json:"latitude"`
 	Longitude           float64    `gorm:"type:decimal(11,8);not null" json:"longitude"`
 	LocationDescription string     `gorm:"type:text" json:"location_description,omitempty"`
+	OccurredAt          *time.Time `gorm:"index" json:"occurred_at,omitempty"`
 	IsVerified          bool       `gorm:"default:false;index" json:"is_verified"`
 	VerifiedBy          *uuid.UUID `gorm:"type:uuid" json:"verified_by,omitempty"`
 	VerifiedAt          *time.Time `json:"verified_at,omitempty"`

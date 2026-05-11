@@ -33,6 +33,7 @@ function MapClickHandler({ onCoordPicked }: { onCoordPicked: (coord: LatLng) => 
 interface FieldErrors {
   petId?: string;
   coord?: string;
+  date?: string;
 }
 
 export function CreateReportPage() {
@@ -63,6 +64,7 @@ export function CreateReportPage() {
     const errors: FieldErrors = {};
     if (!petId) errors.petId = t('common:required');
     if (!coord) errors.coord = t('reports:create.noCoord');
+    if (date && new Date(date) > new Date()) errors.date = t('reports:create.noFutureDate');
     setFieldErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -80,6 +82,7 @@ export function CreateReportPage() {
         latitude: coord.lat,
         longitude: coord.lng,
         location_description: description.trim() || undefined,
+        occurred_at: date || undefined,
       },
       {
         onSuccess: () => {
@@ -229,9 +232,16 @@ export function CreateReportPage() {
               id="date"
               type="date"
               value={date}
-              onChange={(e) => setDate(e.target.value)}
+              max={new Date().toISOString().split('T')[0]}
+              onChange={(e) => {
+                setDate(e.target.value);
+                if (fieldErrors.date) setFieldErrors(prev => ({ ...prev, date: undefined }));
+              }}
               className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
             />
+            {fieldErrors.date && (
+              <p className="text-red-500 dark:text-red-400 text-sm mt-1">{fieldErrors.date}</p>
+            )}
           </div>
 
           {apiError && (

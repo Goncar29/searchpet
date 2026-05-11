@@ -170,6 +170,7 @@
       "searchPet": "Search by name or breed...",
       "selectPet": "Select a pet",
       "status": "Report type",
+      "noFutureDate": "Date cannot be in the future",
       "submit": "Save report"
     },
     "nearby": {

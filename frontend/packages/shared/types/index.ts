@@ -163,6 +163,7 @@ export interface CreateReportRequest {
   latitude: number;
   longitude: number;
   location_description?: string;
+  occurred_at?: string; // ISO 8601, opcional; no puede ser fecha futura
 }
 
 export interface NearbySearchParams {

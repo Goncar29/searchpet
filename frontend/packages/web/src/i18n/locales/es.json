@@ -170,6 +170,7 @@
       "searchPet": "Buscá por nombre o raza...",
       "selectPet": "Seleccioná una mascota",
       "status": "Tipo de reporte",
+      "noFutureDate": "La fecha no puede ser futura",
       "submit": "Guardar reporte"
     },
     "nearby": {
