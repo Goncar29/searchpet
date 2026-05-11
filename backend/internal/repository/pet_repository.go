@@ -50,6 +50,11 @@ func (r *PostgresPetRepository) Update(pet *domain.Pet) error {
 	return r.db.Save(pet).Error
 }
 
+// UpdateStatus actualiza solo la columna status de una mascota.
+func (r *PostgresPetRepository) UpdateStatus(id string, status string) error {
+	return r.db.Model(&domain.Pet{}).Where("id = ?", id).Update("status", status).Error
+}
+
 // Delete elimina una mascota y todas sus dependencias dentro de una transacción.
 // El orden importa: primero las tablas hijas, después la pet.
 func (r *PostgresPetRepository) Delete(id string) error {

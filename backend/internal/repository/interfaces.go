@@ -18,6 +18,7 @@ type PetRepository interface {
 	FindByID(id string) (*domain.Pet, error)
 	FindByOwnerID(ownerID string) ([]domain.Pet, error)
 	Update(pet *domain.Pet) error
+	UpdateStatus(id string, status string) error
 	Delete(id string) error
 }
 
