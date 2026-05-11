@@ -74,14 +74,14 @@ func (s *reportService) CreateReport(reporterID string, req CreateReportRequest)
 		return nil, err
 	}
 
-	// Si el reporte indica que la mascota fue encontrada o perdida, sincronizamos
-	// el status del pet para que los stats y el feed reflejen el estado real.
-	// "sighting" es solo un avistamiento — no cambia el status del pet.
-	if req.Status == "found" || req.Status == "lost" {
-		pet := loaded.Pet
-		pet.Status = req.Status
-		// fallo silencioso — el reporte ya fue creado correctamente
-		_ = s.petRepo.Update(&pet)
+	// Solo el reporte "found" cambia el status del pet.
+	// "lost" y "sighting" no lo tocan — pet.Status usa active/found/archived,
+	// y "lost" no es un valor válido en esa columna.
+	if req.Status == "found" {
+		if pet, err := s.petRepo.FindByID(req.PetID); err == nil {
+			pet.Status = "found"
+			_ = s.petRepo.Update(pet) // fallo silencioso
+		}
 	}
 
 	// Publicamos el evento de forma secundaria — un fallo aquí no falla el request

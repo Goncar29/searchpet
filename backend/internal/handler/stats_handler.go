@@ -23,7 +23,8 @@ func (h *StatsHandler) GetStats(c *gin.Context) {
 
 	h.db.Model(&domain.User{}).Count(&totalUsers)
 	h.db.Model(&domain.Pet{}).Count(&totalPets)
-	h.db.Model(&domain.Report{}).Count(&totalReports)
+	// Solo contamos reportes iniciales de pérdida — sightings y found son actualizaciones
+	h.db.Model(&domain.Report{}).Where("status = ?", "lost").Count(&totalReports)
 	h.db.Model(&domain.Pet{}).Where("status = ?", "found").Count(&foundPets)
 
 	c.JSON(http.StatusOK, gin.H{
