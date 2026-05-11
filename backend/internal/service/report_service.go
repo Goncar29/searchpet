@@ -27,13 +27,14 @@ type CreateReportRequest struct {
 // reportService es la implementación concreta del ReportService.
 type reportService struct {
 	repo     repository.ReportRepository
+	petRepo  repository.PetRepository
 	eventBus *event.EventBus
 }
 
 // NewReportService es el constructor.
 // eventBus es opcional — si es nil, los eventos no se publican (zero behavior change).
-func NewReportService(repo repository.ReportRepository, eventBus *event.EventBus) ReportService {
-	return &reportService{repo: repo, eventBus: eventBus}
+func NewReportService(repo repository.ReportRepository, petRepo repository.PetRepository, eventBus *event.EventBus) ReportService {
+	return &reportService{repo: repo, petRepo: petRepo, eventBus: eventBus}
 }
 
 // CreateReport crea un nuevo reporte de ubicación.
@@ -71,6 +72,16 @@ func (s *reportService) CreateReport(reporterID string, req CreateReportRequest)
 	loaded, err := s.repo.FindByID(report.ID.String())
 	if err != nil {
 		return nil, err
+	}
+
+	// Si el reporte indica que la mascota fue encontrada o perdida, sincronizamos
+	// el status del pet para que los stats y el feed reflejen el estado real.
+	// "sighting" es solo un avistamiento — no cambia el status del pet.
+	if req.Status == "found" || req.Status == "lost" {
+		pet := loaded.Pet
+		pet.Status = req.Status
+		// fallo silencioso — el reporte ya fue creado correctamente
+		_ = s.petRepo.Update(&pet)
 	}
 
 	// Publicamos el evento de forma secundaria — un fallo aquí no falla el request

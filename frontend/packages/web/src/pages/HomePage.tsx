@@ -12,6 +12,14 @@ export function HomePage() {
   // Default: Montevideo
   const { data: reports, isLoading } = useNearbyReports(-34.9011, -56.1645, 20, true);
 
+  // Un card por mascota: la API devuelve un Report por cada reporte registrado.
+  // Deduplicamos por pet_id conservando el más reciente (la API ya viene ordenada DESC).
+  const uniqueReports = reports?.reduce((acc: Report[], report: Report) => {
+    const petId = report.pet?.id || report.pet_id;
+    if (!acc.some(r => (r.pet?.id || r.pet_id) === petId)) acc.push(report);
+    return acc;
+  }, []);
+
   return (
     <div className="bg-gray-50 dark:bg-gray-950 min-h-screen">
       {/* Hero Section */}
@@ -103,9 +111,9 @@ export function HomePage() {
             <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
             <p className="text-gray-500 dark:text-gray-400">{t('common:loading')}</p>
           </div>
-        ) : reports && reports.length > 0 ? (
+        ) : uniqueReports && uniqueReports.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {reports.slice(0, 6).map((report: Report) => (
+            {uniqueReports.slice(0, 6).map((report: Report) => (
               <PetCardWeb key={report.id} report={report} />
             ))}
           </div>
