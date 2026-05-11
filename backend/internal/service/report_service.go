@@ -83,10 +83,15 @@ func (s *reportService) CreateReport(reporterID string, req CreateReportRequest)
 		return nil, err
 	}
 
-	// Solo el reporte "found" cambia el status del pet.
-	// "lost" y "sighting" no lo tocan — pet.Status usa active/found/archived.
-	if req.Status == "found" {
+	// Sincronizamos pet.status según el reporte:
+	// "found"   → pet.status = "found"   (aparece en contador de encontrados)
+	// "lost"    → pet.status = "active"  (se volvió a perder, sale del contador)
+	// "sighting" → sin cambio
+	switch req.Status {
+	case "found":
 		_ = s.petRepo.UpdateStatus(req.PetID, "found")
+	case "lost":
+		_ = s.petRepo.UpdateStatus(req.PetID, "active")
 	}
 
 	// Publicamos el evento de forma secundaria — un fallo aquí no falla el request
