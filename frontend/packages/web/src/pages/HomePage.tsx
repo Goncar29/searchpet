@@ -12,13 +12,16 @@ export function HomePage() {
   // Default: Montevideo
   const { data: reports, isLoading } = useNearbyReports(-34.9011, -56.1645, 20, true);
 
-  // Un card por mascota: la API devuelve un Report por cada reporte registrado.
-  // Deduplicamos por pet_id conservando el más reciente (la API ya viene ordenada DESC).
-  const uniqueReports = reports?.reduce((acc: Report[], report: Report) => {
-    const petId = report.pet?.id || report.pet_id;
-    if (!acc.some(r => (r.pet?.id || r.pet_id) === petId)) acc.push(report);
-    return acc;
-  }, []);
+  // Un card por mascota: la API devuelve un Report por cada reporte registrado,
+  // ordenado por distancia. Ordenamos por fecha DESC primero para que el reduce
+  // siempre conserve el reporte más reciente de cada pet.
+  const uniqueReports = [...(reports ?? [])]
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    .reduce((acc: Report[], report: Report) => {
+      const petId = report.pet?.id || report.pet_id;
+      if (!acc.some(r => (r.pet?.id || r.pet_id) === petId)) acc.push(report);
+      return acc;
+    }, []);
 
   return (
     <div className="bg-gray-50 dark:bg-gray-950 min-h-screen">
