@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
-import { usePetByID, useSearchPets, useCreateReport } from '@shared/hooks';
+import { usePetByID, useMyPets, useCreateReport } from '@shared/hooks';
 import type { ReportStatus } from '@shared/types';
 
 // Fix leaflet default icon paths broken by bundlers
@@ -42,10 +42,10 @@ export function CreateReportPage() {
 
   const presetPetId = searchParams.get('petId') ?? '';
 
-  // Si viene petId en la URL lo cargamos directamente; si no, el usuario busca
-  const { data: presetPet } = usePetByID(presetPetId);
-  const [search, setSearch] = useState('');
-  const { data: searchResults } = useSearchPets({ breed: search || undefined, limit: 20 });
+  // Si viene petId en la URL → mascota bloqueada (ajena o propia desde card)
+  // Si no → el usuario elige entre SUS mascotas
+  const { data: presetPet, isLoading: presetLoading } = usePetByID(presetPetId);
+  const { data: myPets } = useMyPets();
 
   const createReport = useCreateReport();
 
@@ -106,41 +106,38 @@ export function CreateReportPage() {
               {t('reports:create.pet')} *
             </label>
 
-            {presetPetId && presetPet ? (
-              /* Mascota pre-seleccionada (viene desde MyPetsPage o PetDetailPage) */
-              <div className="flex items-center gap-3 rounded-lg border border-primary/40 bg-primary/5 dark:bg-primary/10 px-4 py-3">
-                <span className="text-2xl">🐾</span>
-                <div>
-                  <p className="font-semibold text-gray-900 dark:text-gray-100 text-sm">{presetPet.name}</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">{presetPet.type}</p>
+            {presetPetId ? (
+              /* Flujo desde card o detalle: mascota bloqueada, no editable */
+              presetLoading ? (
+                <p className="text-sm text-gray-500 dark:text-gray-400">{t('common:loading')}</p>
+              ) : presetPet ? (
+                <div className="flex items-center gap-3 rounded-lg border border-primary/40 bg-primary/5 dark:bg-primary/10 px-4 py-3">
+                  <span className="text-2xl">🐾</span>
+                  <div>
+                    <p className="font-semibold text-gray-900 dark:text-gray-100 text-sm">{presetPet.name}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{presetPet.type}</p>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <p className="text-sm text-red-500">{t('pets:detail.notFound')}</p>
+              )
             ) : (
-              /* Búsqueda libre entre todas las mascotas */
-              <div className="space-y-2">
-                <input
-                  type="text"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder={t('reports:create.searchPet')}
-                  className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
-                />
-                <select
-                  value={petId}
-                  onChange={(e) => {
-                    setPetId(e.target.value);
-                    if (fieldErrors.petId) setFieldErrors((prev) => ({ ...prev, petId: undefined }));
-                  }}
-                  className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
-                >
-                  <option value="">— {t('reports:create.selectPet')} —</option>
-                  {searchResults?.map((pet) => (
-                    <option key={pet.id} value={pet.id}>
-                      {pet.name} ({pet.type}{pet.breed ? ` · ${pet.breed}` : ''})
-                    </option>
-                  ))}
-                </select>
-              </div>
+              /* Flujo directo: el usuario elige entre SUS mascotas */
+              <select
+                value={petId}
+                onChange={(e) => {
+                  setPetId(e.target.value);
+                  if (fieldErrors.petId) setFieldErrors((prev) => ({ ...prev, petId: undefined }));
+                }}
+                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
+              >
+                <option value="">— {t('reports:create.selectPet')} —</option>
+                {myPets?.map((pet) => (
+                  <option key={pet.id} value={pet.id}>
+                    {pet.name} ({pet.type}{pet.breed ? ` · ${pet.breed}` : ''})
+                  </option>
+                ))}
+              </select>
             )}
 
             {fieldErrors.petId && (
