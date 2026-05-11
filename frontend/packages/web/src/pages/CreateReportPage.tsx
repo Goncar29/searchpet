@@ -232,7 +232,7 @@ export function CreateReportPage() {
               id="date"
               type="date"
               value={date}
-              max={new Date().toISOString().split('T')[0]}
+              max={new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().split('T')[0]}
               onChange={(e) => {
                 setDate(e.target.value);
                 if (fieldErrors.date) setFieldErrors(prev => ({ ...prev, date: undefined }));

@@ -172,6 +172,7 @@ export const useCreateReport = () => {
     mutationFn: (data: CreateReportRequest) => apiClient.createReport(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['reports'] });
+      queryClient.invalidateQueries({ queryKey: ['stats'] });
     },
   });
 };
