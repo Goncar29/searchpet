@@ -46,6 +46,7 @@ export interface Report {
   is_verified: boolean;
   pet?: Pet;
   reporter?: User;
+  occurred_at?: string | null;
   created_at: string;
 }
 

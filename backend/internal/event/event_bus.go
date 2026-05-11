@@ -74,3 +74,10 @@ type MessageSentEvent struct {
 	SenderName string
 	Preview    string // primeros 100 chars del mensaje
 }
+
+// PetFoundEvent es el payload publicado cuando una mascota es marcada como encontrada.
+type PetFoundEvent struct {
+	PetID   uuid.UUID
+	OwnerID uuid.UUID
+	PetName string
+}

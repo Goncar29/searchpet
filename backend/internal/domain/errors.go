@@ -13,9 +13,10 @@ var (
 	ErrUserNotFound = errors.New("usuario no encontrado")
 
 	// Pet
-	ErrPetNotFound    = errors.New("mascota no encontrada")
-	ErrNotPetOwner    = errors.New("no eres el dueño de esta mascota")
+	ErrPetNotFound     = errors.New("mascota no encontrada")
+	ErrNotPetOwner     = errors.New("no eres el dueño de esta mascota")
 	ErrPetAlreadyFound = errors.New("mascota ya fue encontrada")
+	ErrPetArchived     = errors.New("mascota archivada, no se puede marcar como encontrada")
 
 	// Report
 	ErrReportNotFound = errors.New("reporte no encontrado")

@@ -32,6 +32,7 @@ type ReportResponse struct {
 	IsVerified          bool                   `json:"is_verified"`
 	Pet                 ReportPetResponse      `json:"pet"`
 	Reporter            ReportReporterResponse `json:"reporter"`
+	OccurredAt          *time.Time             `json:"occurred_at"`
 	CreatedAt           time.Time              `json:"created_at"`
 }
 
@@ -55,7 +56,8 @@ func ToReportResponse(report *domain.Report) ReportResponse {
 			ID:   report.Reporter.ID,
 			Name: report.Reporter.Name,
 		},
-		CreatedAt: report.CreatedAt,
+		OccurredAt: report.OccurredAt,
+		CreatedAt:  report.CreatedAt,
 	}
 }
 

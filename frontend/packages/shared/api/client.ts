@@ -161,6 +161,10 @@ class APIClient {
     return this.request<void>('DELETE', `/api/pets/${id}`);
   }
 
+  async markPetAsFound(id: string): Promise<Pet> {
+    return this.request<Pet>('PATCH', `/api/pets/${id}/found`);
+  }
+
   async searchPets(params: PetSearchParams): Promise<Pet[]> {
     return this.request<Pet[]>('GET', '/api/pets/search', undefined, params as Record<string, string | number>);
   }

@@ -3,6 +3,7 @@ package service
 import (
 	"github.com/google/uuid"
 	"lost-pets/internal/domain"
+	"lost-pets/internal/event"
 	"lost-pets/internal/repository"
 )
 
@@ -13,6 +14,7 @@ type PetService interface {
 	GetMyPets(ownerID string) ([]domain.Pet, error)
 	UpdatePet(ownerID string, petID string, req UpdatePetRequest) (*domain.Pet, error)
 	DeletePet(ownerID string, petID string) error
+	MarkAsFound(ownerID string, petID string) (*domain.Pet, error)
 }
 
 // CreatePetRequest contiene los datos para crear una mascota.
@@ -38,12 +40,14 @@ type UpdatePetRequest struct {
 
 // petService es la implementación concreta del PetService.
 type petService struct {
-	repo repository.PetRepository
+	repo     repository.PetRepository
+	eventBus *event.EventBus
 }
 
-// NewPetService es el constructor — recibe el repository y devuelve el service.
-func NewPetService(repo repository.PetRepository) PetService {
-	return &petService{repo: repo}
+// NewPetService es el constructor — recibe el repository, el bus de eventos y devuelve el service.
+// eventBus es opcional — si es nil, los eventos no se publican.
+func NewPetService(repo repository.PetRepository, eventBus *event.EventBus) PetService {
+	return &petService{repo: repo, eventBus: eventBus}
 }
 
 // CreatePet crea una nueva mascota para el usuario autenticado.
@@ -137,4 +141,49 @@ func (s *petService) DeletePet(ownerID string, petID string) error {
 	}
 
 	return s.repo.Delete(petID)
+}
+
+// MarkAsFound marca una mascota como encontrada.
+// Solo el dueño puede llamar este método.
+// Si el status ya es "found", es idempotente — retorna 200 sin error.
+// Si el status es "archived", retorna ErrPetAlreadyFound (409).
+func (s *petService) MarkAsFound(ownerID string, petID string) (*domain.Pet, error) {
+	pet, err := s.repo.FindByID(petID)
+	if err != nil {
+		return nil, err
+	}
+
+	// LÓGICA DE NEGOCIO: solo el dueño puede marcar su mascota como encontrada
+	if pet.OwnerID.String() != ownerID {
+		return nil, domain.ErrForbidden
+	}
+
+	// 409: no se puede marcar como encontrada una mascota archivada
+	if pet.Status == "archived" {
+		return nil, domain.ErrPetArchived
+	}
+
+	// Idempotente: si ya está en found, retornamos la mascota sin error
+	if pet.Status == "found" {
+		return pet, nil
+	}
+
+	// Actualizamos el status
+	if err := s.repo.UpdateStatus(petID, "found"); err != nil {
+		return nil, err
+	}
+
+	pet.Status = "found"
+
+	// Publicamos el evento en el bus (fire-and-forget, no bloquea)
+	if s.eventBus != nil {
+		ownerUUID, _ := uuid.Parse(ownerID)
+		s.eventBus.Publish("pet.found", event.PetFoundEvent{
+			PetID:   pet.ID,
+			OwnerID: ownerUUID,
+			PetName: pet.Name,
+		})
+	}
+
+	return pet, nil
 }

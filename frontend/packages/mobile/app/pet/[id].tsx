@@ -12,9 +12,12 @@ import {
   ActivityIndicator,
   Linking,
   Dimensions,
+  Alert,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { usePetByID, useReportsByPetID } from '../../shared/hooks';
+import { usePetByID, useReportsByPetID, useMarkPetAsFound } from '@shared/hooks';
+import { buildWhatsAppContactURL } from '@shared/utils/whatsappTemplates';
+import { useAuthStore } from '../../store';
 import { ShareButton } from '../components/ShareButton';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../constants';
 
@@ -25,6 +28,8 @@ export default function PetDetailScreen() {
   const router = useRouter();
   const { data: pet, isLoading } = usePetByID(id);
   const { data: reports } = useReportsByPetID(id);
+  const markAsFound = useMarkPetAsFound();
+  const { user, isAuthenticated } = useAuthStore();
 
   if (isLoading) {
     return (
@@ -45,14 +50,31 @@ export default function PetDetailScreen() {
 
   const primaryPhoto = pet.photos?.find(p => p.is_primary) || pet.photos?.[0];
   const latestReport = reports?.[0];
+  const isOwner = isAuthenticated && user?.id === pet.owner_id;
 
   const contactOwner = () => {
     if (pet.owner?.phone) {
-      const message = `Hola, vi tu mascota ${pet.name} en SearchPet.`;
-      Linking.openURL(`https://wa.me/${pet.owner.phone}?text=${encodeURIComponent(message)}`);
+      // Usamos la utilidad compartida para construir la URL de WhatsApp
+      const url = buildWhatsAppContactURL(pet.owner.phone, pet);
+      Linking.openURL(url);
     } else {
       router.push(`/chat/${pet.owner_id}`);
     }
+  };
+
+  const handleMarkAsFound = () => {
+    Alert.alert(
+      '¿Marcar como encontrada?',
+      `¿Confirmás que ${pet.name} fue encontrada/o?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Confirmar',
+          style: 'default',
+          onPress: () => markAsFound.mutate(pet.id),
+        },
+      ],
+    );
   };
 
   return (
@@ -66,6 +88,12 @@ export default function PetDetailScreen() {
             <Text style={{ fontSize: 60 }}>🐾</Text>
           </View>
         )}
+        {/* Banner de encontrada */}
+        {pet.status === 'found' && (
+          <View style={styles.foundBanner}>
+            <Text style={styles.foundBannerText}>¡ENCONTRADA!</Text>
+          </View>
+        )}
       </View>
 
       <View style={styles.content}>
@@ -74,10 +102,15 @@ export default function PetDetailScreen() {
           <Text style={styles.petName}>{pet.name}</Text>
           <View style={[
             styles.statusBadge,
-            { backgroundColor: pet.status === 'found' ? COLORS.found : COLORS.lost },
+            {
+              backgroundColor:
+                pet.status === 'found' ? COLORS.found :
+                pet.status === 'archived' ? COLORS.textMuted :
+                COLORS.lost,
+            },
           ]}>
             <Text style={styles.statusText}>
-              {pet.status === 'found' ? 'ENCONTRADO' : 'PERDIDO'}
+              {pet.status === 'found' ? 'ENCONTRADO' : pet.status === 'archived' ? 'ARCHIVADO' : 'PERDIDO'}
             </Text>
           </View>
         </View>
@@ -118,6 +151,22 @@ export default function PetDetailScreen() {
           </View>
         )}
 
+        {/* Botón Marcar como encontrada — solo para el dueño cuando está activa */}
+        {isOwner && pet.status === 'active' && (
+          <TouchableOpacity
+            style={[styles.markFoundButton, markAsFound.isPending && styles.disabledButton]}
+            onPress={handleMarkAsFound}
+            disabled={markAsFound.isPending}
+            activeOpacity={0.8}
+          >
+            {markAsFound.isPending ? (
+              <ActivityIndicator size="small" color={COLORS.white} />
+            ) : (
+              <Text style={styles.markFoundButtonText}>✅ Marcar como encontrada</Text>
+            )}
+          </TouchableOpacity>
+        )}
+
         {/* Dueño */}
         {pet.owner && (
           <View style={styles.ownerCard}>
@@ -153,34 +202,40 @@ export default function PetDetailScreen() {
             <Text style={styles.sectionTitle}>
               Historial de reportes ({reports.length})
             </Text>
-            {reports.map((report, index) => (
-              <View key={report.id} style={styles.timelineItem}>
-                <View style={[
-                  styles.timelineDot,
-                  { backgroundColor: report.status === 'found' ? COLORS.found : report.status === 'sighting' ? COLORS.sighting : COLORS.lost },
-                ]} />
-                {index < reports.length - 1 && <View style={styles.timelineLine} />}
-                <View style={styles.timelineContent}>
-                  <Text style={styles.timelineStatus}>
-                    {report.status === 'lost' ? 'Perdido' : report.status === 'found' ? 'Encontrado' : 'Avistado'}
-                  </Text>
-                  {report.location_description && (
-                    <Text style={styles.timelineLocation}>
-                      📍 {report.location_description}
+            {reports.map((report, index) => {
+              // Fecha efectiva: occurred_at si existe, sino created_at
+              const dateStr = report.occurred_at ?? report.created_at;
+              const displayDate = new Date(dateStr).toLocaleDateString('es', {
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+              });
+
+              return (
+                <View key={report.id} style={styles.timelineItem}>
+                  <View style={[
+                    styles.timelineDot,
+                    { backgroundColor: report.status === 'found' ? COLORS.found : report.status === 'sighting' ? COLORS.sighting : COLORS.lost },
+                  ]} />
+                  {index < reports.length - 1 && <View style={styles.timelineLine} />}
+                  <View style={styles.timelineContent}>
+                    <Text style={styles.timelineStatus}>
+                      {report.status === 'lost' ? 'Perdido' : report.status === 'found' ? 'Encontrado' : 'Avistado'}
                     </Text>
-                  )}
-                  <Text style={styles.timelineDate}>
-                    {new Date(report.created_at).toLocaleDateString('es', {
-                      day: 'numeric',
-                      month: 'long',
-                      year: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
-                  </Text>
+                    {report.location_description && (
+                      <Text style={styles.timelineLocation}>
+                        📍 {report.location_description}
+                      </Text>
+                    )}
+                    <Text style={styles.timelineDate}>
+                      {displayDate}
+                    </Text>
+                  </View>
                 </View>
-              </View>
-            ))}
+              );
+            })}
           </View>
         )}
 
@@ -203,7 +258,7 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     marginTop: SPACING.md,
   },
-  imageContainer: { width, height: 300 },
+  imageContainer: { width, height: 300, position: 'relative' },
   image: { width: '100%', height: '100%', resizeMode: 'cover' },
   imagePlaceholder: {
     width: '100%',
@@ -211,6 +266,21 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  foundBanner: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(34, 197, 94, 0.9)',
+    paddingVertical: 8,
+    alignItems: 'center',
+  },
+  foundBannerText: {
+    color: COLORS.white,
+    fontWeight: '800',
+    fontSize: FONTS.sizes.sm,
+    letterSpacing: 1,
   },
   content: { padding: SPACING.lg },
   headerRow: {
@@ -252,6 +322,22 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.sm,
   },
   descriptionText: { fontSize: FONTS.sizes.sm, color: COLORS.textSecondary, lineHeight: 22 },
+  markFoundButton: {
+    backgroundColor: '#16a34a',
+    paddingVertical: 14,
+    borderRadius: RADIUS.md,
+    alignItems: 'center',
+    marginBottom: SPACING.md,
+    ...SHADOWS.sm,
+  },
+  disabledButton: {
+    opacity: 0.6,
+  },
+  markFoundButtonText: {
+    color: COLORS.white,
+    fontSize: FONTS.sizes.md,
+    fontWeight: '700',
+  },
   ownerCard: {
     backgroundColor: COLORS.white,
     borderRadius: RADIUS.lg,

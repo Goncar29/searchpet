@@ -122,6 +122,18 @@ export const useDeletePet = () => {
   });
 };
 
+export const useMarkPetAsFound = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => apiClient.markPetAsFound(id),
+    onSuccess: (updatedPet) => {
+      // Actualiza el cache de la mascota específica y el listado general
+      queryClient.setQueryData(['pets', updatedPet.id], updatedPet);
+      queryClient.invalidateQueries({ queryKey: ['pets'] });
+    },
+  });
+};
+
 export const useUploadPhoto = () => {
   const queryClient = useQueryClient();
   return useMutation<UploadPhotoResponse, Error, { petId: string; file: File }>({

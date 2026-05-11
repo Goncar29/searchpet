@@ -78,7 +78,7 @@ func main() {
 	// CAPA 2: Services
 	// ========================================
 	authService := service.NewAuthService(userRepo, cfg.JWTSecret, cloudinaryClient)
-	petService := service.NewPetService(petRepo)
+	petService := service.NewPetService(petRepo, bus)
 	reportService := service.NewReportService(reportRepo, petRepo, bus)
 	photoService := service.NewPhotoService(photoRepo, petRepo, cloudinaryClient)
 	messageService := service.NewMessageService(messageRepo, blockedUserRepo, bus)
@@ -155,6 +155,7 @@ func main() {
 		protected.GET("/pets/mine", petHandler.GetMyPets)
 		protected.PUT("/pets/:id", petHandler.UpdatePet)
 		protected.DELETE("/pets/:id", petHandler.DeletePet)
+		protected.PATCH("/pets/:id/found", petHandler.MarkAsFound)
 
 		// Reports (solo crear requiere auth)
 		protected.POST("/reports", reportHandler.CreateReport)

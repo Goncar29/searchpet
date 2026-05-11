@@ -123,3 +123,32 @@ func (h *PetHandler) DeletePet(c *gin.Context) {
 
 	c.Status(http.StatusNoContent)
 }
+
+// MarkAsFound godoc
+// PATCH /api/pets/:id/found
+// Marca una mascota como encontrada. Solo el dueño puede llamarlo.
+// Idempotente si el status ya es "found". 409 si está archivada.
+func (h *PetHandler) MarkAsFound(c *gin.Context) {
+	ownerID := getUserID(c)
+	petID := c.Param("id")
+
+	pet, err := h.petService.MarkAsFound(ownerID, petID)
+	if err != nil {
+		if errors.Is(err, domain.ErrPetNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			return
+		}
+		if errors.Is(err, domain.ErrForbidden) {
+			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+			return
+		}
+		if errors.Is(err, domain.ErrPetAlreadyFound) || errors.Is(err, domain.ErrPetArchived) {
+			c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, dto.ToPetResponse(pet))
+}

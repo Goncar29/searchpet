@@ -1,16 +1,20 @@
 // ============================================================
 // SearchPet - SharePanel (Web)
 // Genera un link compartible y abre la red social elegida.
+// Incluye QR code (qrcode.react) y WhatsApp template compartido.
 // ============================================================
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
+import { QRCodeSVG, QRCodeCanvas } from 'qrcode.react';
 import { useGenerateShareLink } from '@shared/hooks';
-import type { PetStatus, ShareLink } from '@shared/types';
+import type { Pet, PetStatus, ShareLink } from '@shared/types';
+import { buildWhatsAppMessage } from '@shared/utils/whatsappTemplates';
 
 interface SharePanelProps {
   petId: string;
   petName: string;
   petStatus: PetStatus;
+  pet?: Pet;
 }
 
 const PLATFORMS: {
@@ -25,8 +29,8 @@ const PLATFORMS: {
     label: 'WhatsApp',
     icon: '💬',
     bg: 'bg-[#25D366] hover:bg-[#1ebe5d]',
-    getURL: (link, message) =>
-      `https://wa.me/?text=${encodeURIComponent(message + '\n' + link.share_url)}`,
+    getURL: (_, message) =>
+      `https://wa.me/?text=${encodeURIComponent(message)}`,
   },
   {
     key: 'facebook',
@@ -53,15 +57,22 @@ const PLATFORMS: {
   },
 ];
 
-export function SharePanel({ petId, petName, petStatus }: SharePanelProps) {
+export function SharePanel({ petId, petName, petStatus, pet }: SharePanelProps) {
   const [open, setOpen] = useState(false);
   const [shareLink, setShareLink] = useState<ShareLink | null>(null);
   const [copied, setCopied] = useState(false);
   const generateLink = useGenerateShareLink();
 
-  const statusText = petStatus === 'found' ? 'ENCONTRADA' : 'PERDIDA';
+  // Ref al div contenedor del QR canvas oculto (para descarga en alta resolución)
+  const qrContainerRef = useRef<HTMLDivElement | null>(null);
 
-  const message = `🚨 ¡MASCOTA ${statusText}! 🚨\nNombre: ${petName}\nPor favor, si tenés información, contactate con su dueño.`;
+  // Construimos el mensaje usando la utilidad compartida
+  const petForMessage = pet ?? {
+    name: petName,
+    type: '',
+    status: petStatus,
+  };
+  const message = buildWhatsAppMessage(petForMessage, shareLink?.share_url);
 
   const handleOpen = async () => {
     if (open) {
@@ -69,7 +80,6 @@ export function SharePanel({ petId, petName, petStatus }: SharePanelProps) {
       return;
     }
 
-    // Si ya tenemos el link generado lo reutilizamos
     if (shareLink) {
       setOpen(true);
       return;
@@ -80,7 +90,6 @@ export function SharePanel({ petId, petName, petStatus }: SharePanelProps) {
       setShareLink(result);
       setOpen(true);
     } catch {
-      // Si falla, seguimos sin URL de share
       setOpen(true);
     }
   };
@@ -105,6 +114,22 @@ export function SharePanel({ petId, petName, petStatus }: SharePanelProps) {
     navigator.clipboard.writeText(shareLink.share_url).catch(() => {});
     setCopied(true);
     setTimeout(() => setCopied(false), 3000);
+  };
+
+  // Descarga el QR como PNG 512x512
+  // El canvas está dentro del div contenedor oculto
+  const handleDownloadQR = () => {
+    const container = qrContainerRef.current;
+    if (!container) return;
+
+    const canvas = container.querySelector('canvas');
+    if (!canvas) return;
+
+    const dataUrl = canvas.toDataURL('image/png');
+    const a = document.createElement('a');
+    a.href = dataUrl;
+    a.download = `qr-${petName}.png`;
+    a.click();
   };
 
   return (
@@ -135,7 +160,7 @@ export function SharePanel({ petId, petName, petStatus }: SharePanelProps) {
           />
 
           {/* Panel */}
-          <div className="absolute left-0 top-full mt-2 z-20 w-72 bg-white dark:bg-gray-900 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-800 p-4">
+          <div className="absolute left-0 top-full mt-2 z-20 w-80 bg-white dark:bg-gray-900 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-800 p-4">
             <p className="text-sm font-bold text-gray-900 dark:text-gray-100 mb-1">
               Compartir a {petName}
             </p>
@@ -160,7 +185,7 @@ export function SharePanel({ petId, petName, petStatus }: SharePanelProps) {
 
             {/* Copiar link */}
             {shareLink && (
-              <div className="flex items-center gap-2 bg-gray-50 dark:bg-gray-800 rounded-lg px-3 py-2">
+              <div className="flex items-center gap-2 bg-gray-50 dark:bg-gray-800 rounded-lg px-3 py-2 mb-3">
                 <span className="text-xs text-gray-500 dark:text-gray-400 truncate flex-1">
                   {shareLink.share_url}
                 </span>
@@ -170,6 +195,45 @@ export function SharePanel({ petId, petName, petStatus }: SharePanelProps) {
                 >
                   {copied ? '✓ Copiado' : 'Copiar'}
                 </button>
+              </div>
+            )}
+
+            {/* QR Code — solo cuando hay share_token */}
+            {shareLink?.share_url && (
+              <div className="border-t border-gray-100 dark:border-gray-800 pt-3 mt-1">
+                <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                  Código QR
+                </p>
+                <div className="flex items-center gap-3">
+                  {/* QR SVG visible — 150x150 mínimo según spec */}
+                  <div className="flex-shrink-0">
+                    <QRCodeSVG
+                      value={shareLink.share_url}
+                      size={150}
+                      level="M"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      Escanealo para abrir la ficha de {petName}
+                    </p>
+                    <button
+                      onClick={handleDownloadQR}
+                      className="text-xs font-semibold text-primary hover:text-primary-dark text-left"
+                    >
+                      Descargar QR (PNG)
+                    </button>
+                  </div>
+                </div>
+
+                {/* Canvas oculto para descarga en 512x512 */}
+                <div className="hidden" aria-hidden="true" ref={qrContainerRef}>
+                  <QRCodeCanvas
+                    value={shareLink.share_url}
+                    size={512}
+                    level="M"
+                  />
+                </div>
               </div>
             )}
 
