@@ -26,6 +26,10 @@ import type {
   GenerateShareRequest,
   Stats,
   UploadPhotoResponse,
+  LocationAlert,
+  LocationAlertListResponse,
+  CreateLocationAlertRequest,
+  UpdateLocationAlertRequest,
 } from '../types';
 
 // En Vite usamos import.meta.env, en Expo usamos process.env
@@ -331,6 +335,31 @@ class APIClient {
 
   async registerDeviceToken(token: string, platform: 'ios' | 'android' | 'web'): Promise<void> {
     return this.request<void>('POST', '/api/devices/token', { token, platform });
+  }
+
+  // ============================================================
+  // LOCATION ALERTS
+  // ============================================================
+
+  async createAlert(data: CreateLocationAlertRequest): Promise<LocationAlert> {
+    return this.request<LocationAlert>('POST', '/api/alerts', data);
+  }
+
+  async getAlerts(): Promise<LocationAlert[]> {
+    const resp = await this.request<LocationAlertListResponse>('GET', '/api/alerts');
+    return resp.data;
+  }
+
+  async getAlert(id: string): Promise<LocationAlert> {
+    return this.request<LocationAlert>('GET', `/api/alerts/${id}`);
+  }
+
+  async updateAlert(id: string, data: UpdateLocationAlertRequest): Promise<LocationAlert> {
+    return this.request<LocationAlert>('PUT', `/api/alerts/${id}`, data);
+  }
+
+  async deleteAlert(id: string): Promise<void> {
+    return this.request<void>('DELETE', `/api/alerts/${id}`);
   }
 }
 

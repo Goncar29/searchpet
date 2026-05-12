@@ -74,6 +74,9 @@ func main() {
 	_ = repository.NewFavoriteRepository(db)
 	deviceTokenRepo := repository.NewDeviceTokenRepository(db)
 
+	// PR3: Location Alerts
+	locationAlertRepo := repository.NewLocationAlertRepository(db)
+
 	// ========================================
 	// CAPA 2: Services
 	// ========================================
@@ -88,6 +91,9 @@ func main() {
 	notificationService := service.NewNotificationService(fcmClient, deviceTokenRepo)
 	notificationService.RegisterListeners(bus)
 
+	// PR3: Location Alerts
+	locationAlertService := service.NewLocationAlertService(locationAlertRepo)
+
 	// ========================================
 	// CAPA 1: Handlers
 	// ========================================
@@ -100,6 +106,7 @@ func main() {
 	shareHandler := handler.NewShareHandler(shareLinkService, cfg.AppURL)
 	shelterHandler := handler.NewShelterHandler(shelterService)
 	deviceHandler := handler.NewDeviceHandler(deviceTokenRepo)
+	locationAlertHandler := handler.NewLocationAlertHandler(locationAlertService)
 
 	// ========================================
 	// ROUTER
@@ -176,6 +183,13 @@ func main() {
 
 		// Devices — registrar token FCM (requiere auth)
 		protected.POST("/devices/token", deviceHandler.RegisterToken)
+
+		// Alertas de ubicación (requieren auth)
+		protected.POST("/alerts", locationAlertHandler.CreateAlert)
+		protected.GET("/alerts", locationAlertHandler.GetAlerts)
+		protected.GET("/alerts/:id", locationAlertHandler.GetAlert)
+		protected.PUT("/alerts/:id", locationAlertHandler.UpdateAlert)
+		protected.DELETE("/alerts/:id", locationAlertHandler.DeleteAlert)
 	}
 
 	// ========================================

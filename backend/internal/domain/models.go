@@ -130,16 +130,21 @@ type ShareLink struct {
 // ALERTS & NOTIFICATIONS
 // ============================================================
 
-// LocationAlert representa una alerta por ubicación
+// LocationAlert representa una alerta por ubicación.
+// PetID es opcional — las alertas son por zona, no necesariamente por mascota específica.
+// PetType permite filtrar por tipo de mascota (e.g. "perro", "gato"); vacío = cualquier tipo.
 type LocationAlert struct {
-	ID             uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
-	UserID         uuid.UUID `gorm:"type:uuid;not null;index" json:"user_id"`
-	PetID          uuid.UUID `gorm:"type:uuid;not null;index" json:"pet_id"`
-	AlertLatitude  float64   `gorm:"type:decimal(10,8);not null" json:"alert_latitude"`
-	AlertLongitude float64   `gorm:"type:decimal(11,8);not null" json:"alert_longitude"`
-	RadiusKm       int       `gorm:"default:5" json:"radius_km"`
-	IsActive       bool      `gorm:"default:true;index" json:"is_active"`
-	CreatedAt      time.Time `gorm:"autoCreateTime" json:"created_at"`
+	ID             uuid.UUID  `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+	UserID         uuid.UUID  `gorm:"type:uuid;not null;index" json:"user_id"`
+	PetID          *uuid.UUID `gorm:"type:uuid;index" json:"pet_id,omitempty"`
+	PetType        string     `gorm:"size:50" json:"pet_type,omitempty"`
+	Name           string     `gorm:"size:100" json:"name,omitempty"`
+	AlertLatitude  float64    `gorm:"type:decimal(10,8);not null" json:"alert_latitude"`
+	AlertLongitude float64    `gorm:"type:decimal(11,8);not null" json:"alert_longitude"`
+	RadiusKm       float64    `gorm:"type:decimal(5,2);default:5" json:"radius_km"`
+	IsActive       bool       `gorm:"default:true;index" json:"is_active"`
+	CreatedAt      time.Time  `gorm:"autoCreateTime" json:"created_at"`
+	UpdatedAt      time.Time  `gorm:"autoUpdateTime" json:"updated_at"`
 }
 
 // ============================================================

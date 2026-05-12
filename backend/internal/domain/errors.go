@@ -47,6 +47,11 @@ var (
 	ErrShareLinkNotFound = errors.New("link de compartir no encontrado")
 	ErrShareLinkExpired  = errors.New("link de compartir expirado")
 
+	// Alert
+	ErrAlertNotFound    = errors.New("alerta no encontrada")
+	ErrAlertLimitExceeded = errors.New("límite de 10 alertas activas alcanzado")
+	ErrNotAlertOwner    = errors.New("no eres el dueño de esta alerta")
+
 	// General
 	ErrUnauthorized = errors.New("no autorizado")
 	ErrForbidden    = errors.New("acceso prohibido")

@@ -217,6 +217,45 @@ export interface SendMessageRequest {
   text: string;
 }
 
+// ============================================================
+// LOCATION ALERTS
+// ============================================================
+
+export interface LocationAlert {
+  id: string;
+  user_id: string;
+  pet_id?: string;
+  pet_type?: PetType | string;
+  name?: string;
+  alert_latitude: number;
+  alert_longitude: number;
+  radius_km: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateLocationAlertRequest {
+  latitude: number;
+  longitude: number;
+  radius_km?: number;    // default 5 cuando se omite
+  pet_type?: string;     // opcional: "perro", "gato", etc.
+  name?: string;         // etiqueta amigable, opcional
+}
+
+export interface UpdateLocationAlertRequest {
+  latitude?: number;
+  longitude?: number;
+  radius_km?: number;
+  pet_type?: string;
+  name?: string;
+  is_active?: boolean;
+}
+
+export interface LocationAlertListResponse {
+  data: LocationAlert[];
+}
+
 export interface GenerateShareRequest {
   platform?: Platform;
 }
