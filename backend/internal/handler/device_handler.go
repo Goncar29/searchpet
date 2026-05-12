@@ -26,6 +26,24 @@ func NewDeviceHandler(deviceTokenRepo repository.DeviceTokenRepository) *DeviceH
 	return &DeviceHandler{deviceTokenRepo: deviceTokenRepo}
 }
 
+// DeleteToken maneja DELETE /api/devices/:token.
+// Elimina el token FCM del dispositivo — usado al hacer logout.
+// Cualquier usuario autenticado puede eliminar su propio token.
+func (h *DeviceHandler) DeleteToken(c *gin.Context) {
+	token := c.Param("token")
+	if token == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "token requerido"})
+		return
+	}
+
+	if err := h.deviceTokenRepo.DeleteByToken(context.Background(), token); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error al eliminar el token"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"success": true})
+}
+
 // RegisterToken maneja POST /api/devices/token.
 // Registra o actualiza el token FCM del dispositivo del usuario autenticado.
 func (h *DeviceHandler) RegisterToken(c *gin.Context) {

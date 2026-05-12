@@ -3,30 +3,107 @@ package service
 import (
 	"context"
 	"fmt"
+	"log"
 
 	"github.com/google/uuid"
 	"lost-pets/internal/domain"
 	"lost-pets/internal/dto"
+	"lost-pets/internal/event"
 	"lost-pets/internal/repository"
 )
 
-// LocationAlertService expone las operaciones CRUD sobre alertas de ubicación.
-// PR4 añadirá onReportCreated y la lógica de matching PostGIS.
+// LocationAlertService expone las operaciones CRUD sobre alertas de ubicación
+// y el subscriber que realiza el matching PostGIS cuando llega "report.created".
 type LocationAlertService interface {
 	CreateAlert(ctx context.Context, userID uuid.UUID, req dto.CreateLocationAlertRequest) (*dto.LocationAlertResponse, error)
 	GetAlerts(ctx context.Context, userID uuid.UUID) ([]dto.LocationAlertResponse, error)
 	GetAlert(ctx context.Context, userID, alertID uuid.UUID) (*dto.LocationAlertResponse, error)
 	UpdateAlert(ctx context.Context, userID, alertID uuid.UUID, req dto.UpdateLocationAlertRequest) (*dto.LocationAlertResponse, error)
 	DeleteAlert(ctx context.Context, userID, alertID uuid.UUID) error
+	// RegisterListeners suscribe OnReportCreated al EventBus.
+	// Debe llamarse una vez durante el arranque del servidor.
+	RegisterListeners(bus *event.EventBus)
 }
 
 type locationAlertService struct {
-	repo repository.LocationAlertRepository
+	repo            repository.LocationAlertRepository
+	deviceTokenRepo repository.DeviceTokenRepository
+	bus             *event.EventBus
 }
 
 // NewLocationAlertService crea una instancia con sus dependencias.
-func NewLocationAlertService(repo repository.LocationAlertRepository) LocationAlertService {
-	return &locationAlertService{repo: repo}
+// deviceTokenRepo se usa en onReportCreated para obtener los FCM tokens del
+// dueño de cada alerta antes de publicar el evento "alert.triggered".
+// bus es el EventBus compartido — necesario para publicar "alert.triggered".
+func NewLocationAlertService(
+	repo repository.LocationAlertRepository,
+	deviceTokenRepo repository.DeviceTokenRepository,
+	bus *event.EventBus,
+) LocationAlertService {
+	return &locationAlertService{
+		repo:            repo,
+		deviceTokenRepo: deviceTokenRepo,
+		bus:             bus,
+	}
+}
+
+// RegisterListeners suscribe onReportCreated al EventBus para el evento "report.created".
+// Debe llamarse una vez durante el arranque del servidor.
+func (s *locationAlertService) RegisterListeners(bus *event.EventBus) {
+	bus.Subscribe("report.created", s.onReportCreated)
+}
+
+// onReportCreated se invoca cuando el EventBus dispara "report.created".
+// El EventBus lo ejecuta en su propia goroutine (NFR1.3: no bloquea el request).
+//
+// Flujo:
+//  1. Consulta FindMatchingAlerts con PostGIS ST_DWithin — single DB call.
+//  2. Por cada alerta coincidente: obtiene tokens FCM del dueño.
+//  3. Publica "alert.triggered" con AlertTriggeredEvent.
+//
+// Todos los datos del reporte llegan en el payload — no hay lookup adicional.
+func (s *locationAlertService) onReportCreated(payload interface{}) {
+	reportEv, ok := payload.(event.ReportCreatedEvent)
+	if !ok {
+		log.Printf("[LocationAlertService] onReportCreated: payload inesperado: %T", payload)
+		return
+	}
+
+	ctx := context.Background()
+
+	matchingAlerts, err := s.repo.FindMatchingAlerts(ctx, reportEv.Lat, reportEv.Lng, reportEv.PetType)
+	if err != nil {
+		log.Printf("[LocationAlertService] onReportCreated: error buscando alertas: %v", err)
+		return
+	}
+
+	for _, alert := range matchingAlerts {
+		tokens, err := s.deviceTokenRepo.FindByUserID(ctx, alert.UserID)
+		if err != nil {
+			log.Printf("[LocationAlertService] onReportCreated: tokens para user %s: %v", alert.UserID, err)
+			continue
+		}
+		if len(tokens) == 0 {
+			continue
+		}
+
+		fcmTokens := make([]string, 0, len(tokens))
+		for _, t := range tokens {
+			fcmTokens = append(fcmTokens, t.Token)
+		}
+
+		s.bus.Publish("alert.triggered", event.AlertTriggeredEvent{
+			AlertID:   alert.ID,
+			UserID:    alert.UserID,
+			ReportID:  reportEv.ReportID,
+			PetID:     reportEv.PetID,
+			PetName:   reportEv.PetName,
+			PetType:   reportEv.PetType,
+			FCMTokens: fcmTokens,
+		})
+
+		log.Printf("[LocationAlertService] alert.triggered publicado — alerta %s, user %s", alert.ID, alert.UserID)
+	}
 }
 
 // CreateAlert valida y persiste una nueva alerta.

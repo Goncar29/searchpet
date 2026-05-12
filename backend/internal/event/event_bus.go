@@ -57,13 +57,31 @@ func (eb *EventBus) Publish(event string, payload interface{}) {
 // ============================================================
 
 // ReportCreatedEvent es el payload publicado cuando se crea un reporte de ubicación.
+// Incluye PetType, Lat y Lng para que los subscribers de alertas no necesiten
+// un lookup adicional a la base de datos (NFR1.3: subscriber no bloquea el request).
 type ReportCreatedEvent struct {
 	ReportID   uuid.UUID
 	PetID      uuid.UUID
 	ReporterID uuid.UUID
 	PetOwnerID uuid.UUID
 	PetName    string
-	Status     string // lost, found, sighting
+	PetType    string  // perro, gato, pajaro, otro — usado por el subscriber de alertas
+	Status     string  // lost, found, sighting
+	Lat        float64 // latitud del reporte — usado para ST_DWithin
+	Lng        float64 // longitud del reporte — usado para ST_DWithin
+}
+
+// AlertTriggeredEvent es el payload publicado cuando una alerta de ubicación
+// coincide con un nuevo reporte. Lleva los tokens FCM para que NotificationService
+// pueda enviar el push sin conocer el repositorio de alertas.
+type AlertTriggeredEvent struct {
+	AlertID   uuid.UUID
+	UserID    uuid.UUID // dueño de la alerta (receptor del push)
+	ReportID  uuid.UUID
+	PetID     uuid.UUID
+	PetName   string
+	PetType   string
+	FCMTokens []string // tokens del usuario en el momento del evento
 }
 
 // MessageSentEvent es el payload publicado cuando se envía un mensaje.

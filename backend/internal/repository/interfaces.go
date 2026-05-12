@@ -105,7 +105,6 @@ type DeviceTokenRepository interface {
 
 // LocationAlertRepository define el contrato para alertas de ubicación.
 // Style A: context.Context + uuid.UUID.
-// FindMatchingAlerts es un stub en PR3; la implementación PostGIS completa llega en PR4.
 type LocationAlertRepository interface {
 	Create(ctx context.Context, alert *domain.LocationAlert) error
 	GetByID(ctx context.Context, id uuid.UUID) (*domain.LocationAlert, error)
@@ -113,8 +112,9 @@ type LocationAlertRepository interface {
 	Update(ctx context.Context, alert *domain.LocationAlert) error
 	// Delete hace soft-delete: pone IsActive = false en lugar de borrar el registro.
 	Delete(ctx context.Context, id uuid.UUID) error
-	// FindMatchingAlerts (stub PR3) — retorna slice vacío hasta PR4.
-	// PR4 implementará la consulta ST_DWithin con índice espacial.
+	// FindMatchingAlerts retorna todas las alertas activas cuyo radio cubre el punto (lat, lng).
+	// Usa PostGIS ST_DWithin con geography para cálculo geodésico preciso (single DB call).
+	// petType "" coincide con cualquier tipo de mascota.
 	FindMatchingAlerts(ctx context.Context, lat, lng float64, petType string) ([]domain.LocationAlert, error)
 	// CountActiveByUserID retorna cuántas alertas activas tiene el usuario.
 	// Usado para aplicar el cap de 10 alertas por usuario.

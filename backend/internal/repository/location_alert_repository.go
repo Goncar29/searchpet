@@ -8,20 +8,12 @@ import (
 	"lost-pets/internal/domain"
 )
 
-// TODO(PR4): add spatial index on (alert_latitude, alert_longitude) for FindMatchingAlerts.
-// ALTER TABLE location_alerts ADD COLUMN coord geography(Point,4326)
-//   GENERATED ALWAYS AS (ST_SetSRID(ST_MakePoint(alert_longitude, alert_latitude), 4326)) STORED;
-// CREATE INDEX idx_location_alerts_coord ON location_alerts USING GIST(coord);
+// Spatial index recomendado para FindMatchingAlerts (ejecutar una vez, fuera de AutoMigrate):
 //
-// The FindMatchingAlerts full PostGIS query (PR4):
-// SELECT * FROM location_alerts
-// WHERE is_active = true
-//   AND ST_DWithin(
-//     ST_SetSRID(ST_MakePoint(alert_longitude, alert_latitude), 4326)::geography,
-//     ST_SetSRID(ST_MakePoint($lng, $lat), 4326)::geography,
-//     radius_km * 1000
-//   )
-//   AND (pet_type = '' OR pet_type = $petType)
+//	CREATE INDEX IF NOT EXISTS idx_location_alerts_geo
+//	  ON location_alerts USING GIST (
+//	    ST_SetSRID(ST_MakePoint(alert_longitude, alert_latitude), 4326)::geography
+//	  );
 
 type locationAlertRepository struct {
 	db *gorm.DB
@@ -66,10 +58,45 @@ func (r *locationAlertRepository) Delete(ctx context.Context, id uuid.UUID) erro
 		Update("is_active", false).Error
 }
 
-// FindMatchingAlerts — stub en PR3.
-// Retorna slice vacío; la consulta PostGIS ST_DWithin se implementa en PR4.
+// FindMatchingAlerts retorna todas las alertas activas cuyo centro se encuentra
+// dentro del radio de la alerta respecto al punto del reporte.
+//
+// La consulta usa ST_DWithin con tipo geography para cálculo geodésico preciso.
+// El filtro de petType es opcional: si es "" coincide con cualquier tipo de mascota.
+//
+// Semántica: ST_DWithin(alert_point, report_point, radius_km * 1000)
+// — retorna verdadero si la distancia geodésica entre el centro de la alerta
+// y el punto del reporte es <= radius_km km.
+//
+// Requiere índice GIST en (alert_longitude, alert_latitude) para performance.
+// DDL sugerido (ejecutar una vez, fuera de AutoMigrate):
+//
+//	CREATE INDEX IF NOT EXISTS idx_location_alerts_geo
+//	  ON location_alerts USING GIST (
+//	    ST_SetSRID(ST_MakePoint(alert_longitude, alert_latitude), 4326)::geography
+//	  );
 func (r *locationAlertRepository) FindMatchingAlerts(ctx context.Context, lat, lng float64, petType string) ([]domain.LocationAlert, error) {
-	return []domain.LocationAlert{}, nil
+	var alerts []domain.LocationAlert
+
+	query := r.db.WithContext(ctx).
+		Where("is_active = true").
+		Where(
+			"ST_DWithin("+
+				"ST_SetSRID(ST_MakePoint(alert_longitude, alert_latitude), 4326)::geography, "+
+				"ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography, "+
+				"radius_km * 1000"+
+				")",
+			lng, lat,
+		)
+
+	// Si petType está especificado, sólo coincide alertas sin tipo o con el tipo exacto.
+	// pet_type = '' significa "cualquier tipo" — no filtra.
+	if petType != "" {
+		query = query.Where("(pet_type = '' OR pet_type = ?)", petType)
+	}
+
+	err := query.Find(&alerts).Error
+	return alerts, err
 }
 
 // CountActiveByUserID cuenta alertas activas de un usuario.

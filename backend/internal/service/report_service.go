@@ -102,7 +102,10 @@ func (s *reportService) CreateReport(reporterID string, req CreateReportRequest)
 			ReporterID: loaded.ReporterID,
 			PetOwnerID: loaded.Pet.OwnerID,
 			PetName:    loaded.Pet.Name,
+			PetType:    loaded.Pet.Type,
 			Status:     loaded.Status,
+			Lat:        loaded.Latitude,
+			Lng:        loaded.Longitude,
 		})
 	}
 

@@ -14,14 +14,14 @@ import (
 // NotificationService escucha eventos del EventBus y despacha push notifications
 // a los tokens FCM registrados de los usuarios relevantes.
 type NotificationService struct {
-	fcmClient       *notification.FirebaseClient
+	fcmClient       notification.NotificationClient
 	deviceTokenRepo repository.DeviceTokenRepository
 }
 
 // NewNotificationService construye el NotificationService con sus dependencias.
-// fcmClient puede ser nil — en ese caso los métodos retornan sin hacer nada.
+// fcmClient implementa NotificationClient — puede ser el FirebaseClient real o el no-op.
 func NewNotificationService(
-	fcmClient *notification.FirebaseClient,
+	fcmClient notification.NotificationClient,
 	deviceTokenRepo repository.DeviceTokenRepository,
 ) *NotificationService {
 	return &NotificationService{
@@ -35,15 +35,12 @@ func NewNotificationService(
 func (ns *NotificationService) RegisterListeners(bus *event.EventBus) {
 	bus.Subscribe("report.created", ns.onReportCreated)
 	bus.Subscribe("message.sent", ns.onMessageSent)
+	bus.Subscribe("alert.triggered", ns.onAlertTriggered)
 }
 
 // onReportCreated maneja el evento "report.created".
 // Envía push al dueño de la mascota con el nombre del pet y el estado del reporte.
 func (ns *NotificationService) onReportCreated(payload interface{}) {
-	if ns.fcmClient == nil {
-		return
-	}
-
 	ev, ok := payload.(event.ReportCreatedEvent)
 	if !ok {
 		log.Printf("[NotificationService] onReportCreated: tipo de payload inesperado: %T", payload)
@@ -79,13 +76,56 @@ func (ns *NotificationService) onReportCreated(payload interface{}) {
 	}
 }
 
-// onMessageSent maneja el evento "message.sent".
-// Envía push al receptor del mensaje con un preview del texto.
-func (ns *NotificationService) onMessageSent(payload interface{}) {
-	if ns.fcmClient == nil {
+// onAlertTriggered maneja el evento "alert.triggered".
+// Recibe los FCM tokens ya resueltos en el payload — no hace lookups a la DB.
+// Envía un push a cada token indicando que hay un reporte cerca de la zona de alerta.
+// Los envíos son asíncronos entre sí (goroutine por batch o individualmente).
+func (ns *NotificationService) onAlertTriggered(payload interface{}) {
+	ev, ok := payload.(event.AlertTriggeredEvent)
+	if !ok {
+		log.Printf("[NotificationService] onAlertTriggered: payload inesperado: %T", payload)
 		return
 	}
 
+	if len(ev.FCMTokens) == 0 {
+		return
+	}
+
+	ctx := context.Background()
+
+	// Título y cuerpo según spec FR4.5
+	title := "Reporte cerca de tu alerta"
+	body := fmt.Sprintf("Se encontró una mascota %s cerca de tu zona de alerta.", ev.PetType)
+
+	data := map[string]string{
+		"type":      "alert.triggered",
+		"report_id": ev.ReportID.String(),
+		"alert_id":  ev.AlertID.String(),
+		"pet_id":    ev.PetID.String(),
+		"pet_type":  ev.PetType,
+	}
+
+	// Fan-out: envío individual para poder limpiar tokens inválidos
+	for _, token := range ev.FCMTokens {
+		token := token // captura
+		go func() {
+			err := ns.fcmClient.SendPush(ctx, token, title, body, data)
+			if err != nil {
+				if isStaleTokenError(err) {
+					if delErr := ns.deviceTokenRepo.DeleteByToken(ctx, token); delErr != nil {
+						log.Printf("[NotificationService] error eliminando token inválido %q: %v", token, delErr)
+					}
+				} else {
+					log.Printf("[NotificationService] onAlertTriggered: error enviando push a %q: %v", token, err)
+				}
+			}
+		}()
+	}
+}
+
+// onMessageSent maneja el evento "message.sent".
+// Envía push al receptor del mensaje con un preview del texto.
+func (ns *NotificationService) onMessageSent(payload interface{}) {
 	ev, ok := payload.(event.MessageSentEvent)
 	if !ok {
 		log.Printf("[NotificationService] onMessageSent: tipo de payload inesperado: %T", payload)

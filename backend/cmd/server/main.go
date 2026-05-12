@@ -50,12 +50,12 @@ func main() {
 	// ========================================
 	// NOTIFICATIONS (Firebase FCM)
 	// ========================================
+	// NewFirebaseClient siempre retorna un NotificationClient válido:
+	// — FirebaseClient real si FIREBASE_CREDENTIALS_JSON está configurado
+	// — noopNotificationClient si no está configurado (degradación graceful)
 	fcmClient, err := notification.NewFirebaseClient(cfg.FirebaseKey)
 	if err != nil {
 		log.Printf("Advertencia: Firebase FCM no configurado (%v) — push notifications no disponibles", err)
-	}
-	if fcmClient == nil && cfg.FirebaseKey != "" {
-		log.Printf("Advertencia: Firebase FCM no configurado — push notifications no disponibles")
 	}
 
 	// ========================================
@@ -91,8 +91,9 @@ func main() {
 	notificationService := service.NewNotificationService(fcmClient, deviceTokenRepo)
 	notificationService.RegisterListeners(bus)
 
-	// PR3: Location Alerts
-	locationAlertService := service.NewLocationAlertService(locationAlertRepo)
+	// PR4: Location Alerts con matching PostGIS + FCM push
+	locationAlertService := service.NewLocationAlertService(locationAlertRepo, deviceTokenRepo, bus)
+	locationAlertService.RegisterListeners(bus)
 
 	// ========================================
 	// CAPA 1: Handlers
@@ -181,8 +182,12 @@ func main() {
 		// Share links protegidos — generar requiere ser el dueño
 		protected.POST("/share/generate/:petId", shareHandler.GenerateShareLink)
 
-		// Devices — registrar token FCM (requiere auth)
+		// Devices — registrar/eliminar token FCM (requiere auth)
 		protected.POST("/devices/token", deviceHandler.RegisterToken)
+		// FR4.2: alias POST /api/devices acepta el mismo body que /devices/token
+		protected.POST("/devices", deviceHandler.RegisterToken)
+		// FR4.2: DELETE /api/devices/:token — eliminar token al hacer logout
+		protected.DELETE("/devices/:token", deviceHandler.DeleteToken)
 
 		// Alertas de ubicación (requieren auth)
 		protected.POST("/alerts", locationAlertHandler.CreateAlert)
