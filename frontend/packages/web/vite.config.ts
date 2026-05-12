@@ -1,3 +1,4 @@
+/// <reference types="vitest" />
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
@@ -12,6 +13,12 @@ export default defineConfig({
       '@tanstack/react-query': path.resolve(__dirname, 'node_modules/@tanstack/react-query'),
     },
     dedupe: ['react', 'react-dom', '@tanstack/react-query'],
+  },
+  test: {
+    globals: true,
+    environment: 'jsdom',
+    setupFiles: ['./src/test/setup.ts'],
+    css: false,
   },
   server: {
     port: 3000,

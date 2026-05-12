@@ -146,7 +146,7 @@ func (s *petService) DeletePet(ownerID string, petID string) error {
 // MarkAsFound marca una mascota como encontrada.
 // Solo el dueño puede llamar este método.
 // Si el status ya es "found", es idempotente — retorna 200 sin error.
-// Si el status es "archived", retorna ErrPetAlreadyFound (409).
+// Si el status es "archived", retorna ErrPetArchived (409).
 func (s *petService) MarkAsFound(ownerID string, petID string) (*domain.Pet, error) {
 	pet, err := s.repo.FindByID(petID)
 	if err != nil {

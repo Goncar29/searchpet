@@ -120,8 +120,8 @@ func TestMarkAsFound_ArchivedPet_Returns409(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for archived pet, got nil")
 	}
-	if err.Error() != domain.ErrPetAlreadyFound.Error() {
-		t.Errorf("expected ErrPetAlreadyFound, got %v", err)
+	if err != domain.ErrPetArchived {
+		t.Errorf("expected ErrPetArchived, got %v", err)
 	}
 }
 

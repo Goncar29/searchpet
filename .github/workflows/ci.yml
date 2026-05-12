@@ -66,10 +66,20 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/packages/web/package-lock.json
 
       - name: Install dependencies
         working-directory: ./frontend/packages/web
-        run: npm install
+        run: npm ci
+
+      - name: Security audit
+        working-directory: ./frontend/packages/web
+        run: npm audit --audit-level=high
+
+      - name: Test
+        working-directory: ./frontend/packages/web
+        run: npm run test:run
 
       - name: Build
         working-directory: ./frontend/packages/web
@@ -138,6 +148,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/packages/mobile/package-lock.json
 
       - name: Setup Expo
         uses: expo/expo-github-action@v8
@@ -148,7 +160,15 @@ jobs:
 
       - name: Install dependencies
         working-directory: ./frontend/packages/mobile
-        run: npm install
+        run: npm ci
+
+      - name: Security audit
+        working-directory: ./frontend/packages/mobile
+        run: npm audit --audit-level=high
+
+      - name: Test (store — componentes RN pendientes por mismatche de versiones)
+        working-directory: ./frontend/packages/mobile
+        run: npm run test:run
 
       - name: Build (EAS production)
         working-directory: ./frontend/packages/mobile
