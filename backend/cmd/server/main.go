@@ -93,7 +93,7 @@ func main() {
 	// ========================================
 	authHandler := handler.NewAuthHandler(authService)
 	petHandler := handler.NewPetHandler(petService)
-	reportHandler := handler.NewReportHandler(reportService)
+	reportHandler := handler.NewReportHandler(reportService, userRepo)
 	photoHandler := handler.NewPhotoHandler(photoService)
 	statsHandler := handler.NewStatsHandler(db)
 	messageHandler := handler.NewMessageHandler(messageService)
@@ -121,6 +121,7 @@ func main() {
 		public.GET("/stats", statsHandler.GetStats)
 
 		// Pets públicos — cualquiera puede ver
+		public.GET("/pets/search", petHandler.SearchPets)
 		public.GET("/pets/:id", petHandler.GetPet)
 
 		// Fotos públicas — cualquiera puede listar fotos de una mascota
@@ -149,6 +150,7 @@ func main() {
 		protected.GET("/auth/me", authHandler.GetMe)
 		protected.PUT("/auth/me", authHandler.UpdateMe)
 		protected.POST("/auth/me/photo", authHandler.UploadProfilePhoto)
+		protected.PUT("/users/me/preferences", authHandler.UpdatePreferences)
 
 		// Pets (requieren auth)
 		protected.POST("/pets", petHandler.CreatePet)

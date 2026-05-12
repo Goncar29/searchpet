@@ -44,6 +44,16 @@ type UpdateProfileRequest struct {
 	Phone string `json:"phone"`
 }
 
+// UpdatePreferencesRequest son los datos para actualizar las preferencias del usuario
+type UpdatePreferencesRequest struct {
+	SearchRadiusMeters int `json:"search_radius_meters" binding:"required"`
+}
+
+// UserPreferencesResponse son las preferencias actuales del usuario
+type UserPreferencesResponse struct {
+	SearchRadiusMeters int `json:"search_radius_meters"`
+}
+
 // ToUserResponse convierte un domain.User en un UserResponse (DTO)
 func ToUserResponse(user *domain.User) UserResponse {
 	return UserResponse{

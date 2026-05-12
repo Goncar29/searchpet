@@ -3,6 +3,7 @@ package service
 import (
 	"github.com/google/uuid"
 	"lost-pets/internal/domain"
+	"lost-pets/internal/dto"
 	"lost-pets/internal/event"
 	"lost-pets/internal/repository"
 )
@@ -15,6 +16,8 @@ type PetService interface {
 	UpdatePet(ownerID string, petID string, req UpdatePetRequest) (*domain.Pet, error)
 	DeletePet(ownerID string, petID string) error
 	MarkAsFound(ownerID string, petID string) (*domain.Pet, error)
+	// SearchPets aplica filtros opcionales y devuelve resultados paginados.
+	SearchPets(filters dto.PetSearchFilters) (dto.PetSearchResponse, error)
 }
 
 // CreatePetRequest contiene los datos para crear una mascota.
@@ -141,6 +144,36 @@ func (s *petService) DeletePet(ownerID string, petID string) error {
 	}
 
 	return s.repo.Delete(petID)
+}
+
+// SearchPets aplica filtros opcionales y devuelve una respuesta paginada.
+// Llama al repositorio, mapea los resultados a DTOs y construye PetSearchResponse.
+func (s *petService) SearchPets(filters dto.PetSearchFilters) (dto.PetSearchResponse, error) {
+	pets, total, err := s.repo.Search(filters)
+	if err != nil {
+		return dto.PetSearchResponse{}, err
+	}
+
+	page := filters.Page
+	if page < 1 {
+		page = 1
+	}
+	limit := filters.Limit
+	if limit < 1 {
+		limit = 20
+	}
+	if limit > 100 {
+		limit = 100
+	}
+
+	data := dto.ToPetListResponse(pets)
+
+	return dto.PetSearchResponse{
+		Data:  data,
+		Total: total,
+		Page:  page,
+		Limit: limit,
+	}, nil
 }
 
 // MarkAsFound marca una mascota como encontrada.

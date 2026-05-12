@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"lost-pets/internal/domain"
+	"lost-pets/internal/dto"
 )
 
 // AuthService define el contrato para la lógica de autenticación
@@ -27,4 +28,8 @@ type AuthService interface {
 
 	// UpdateProfilePhoto sube la foto de perfil a Cloudinary y actualiza la URL en BD
 	UpdateProfilePhoto(ctx context.Context, id uuid.UUID, file multipart.File, filename string) (*domain.User, error)
+
+	// UpdatePreferences actualiza las preferencias de búsqueda del usuario (radio en metros)
+	// Retorna error si SearchRadiusMeters está fuera del rango 1000–50000
+	UpdatePreferences(ctx context.Context, id uuid.UUID, req dto.UpdatePreferencesRequest) (*dto.UserPreferencesResponse, error)
 }

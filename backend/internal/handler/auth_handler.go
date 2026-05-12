@@ -134,6 +134,38 @@ func (h *AuthHandler) UpdateMe(c *gin.Context) {
 	c.JSON(http.StatusOK, dto.ToUserResponse(user))
 }
 
+// UpdatePreferences godoc
+// PUT /api/users/me/preferences
+func (h *AuthHandler) UpdatePreferences(c *gin.Context) {
+	userID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": domain.ErrUnauthorized.Error()})
+		return
+	}
+
+	var req dto.UpdatePreferencesRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	prefs, err := h.authService.UpdatePreferences(c.Request.Context(), userID.(uuid.UUID), req)
+	if err != nil {
+		if errors.Is(err, domain.ErrInvalidInput) {
+			c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "search_radius_meters debe estar entre 1000 y 50000"})
+			return
+		}
+		if errors.Is(err, domain.ErrUserNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, prefs)
+}
+
 // GetMe godoc
 // GET /api/auth/me
 func (h *AuthHandler) GetMe(c *gin.Context) {

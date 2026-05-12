@@ -120,10 +120,7 @@ func (s *reportService) GetReportsByPet(petID string) ([]domain.Report, error) {
 }
 
 // GetNearbyReports busca reportes cercanos a una ubicación.
-// El radio por defecto es 5000 metros (5km) si no se especifica.
+// El radio debe ser provisto por el caller (ver ReportHandler para la lógica de precedencia).
 func (s *reportService) GetNearbyReports(lat, lng float64, radiusMeters float64) ([]domain.Report, error) {
-	if radiusMeters <= 0 {
-		radiusMeters = 5000
-	}
 	return s.repo.FindNearby(lat, lng, radiusMeters)
 }

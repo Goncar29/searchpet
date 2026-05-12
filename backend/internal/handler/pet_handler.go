@@ -3,6 +3,8 @@ package handler
 import (
 	"errors"
 	"net/http"
+	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"lost-pets/internal/domain"
@@ -122,6 +124,72 @@ func (h *PetHandler) DeletePet(c *gin.Context) {
 	}
 
 	c.Status(http.StatusNoContent)
+}
+
+// SearchPets godoc
+// GET /api/pets/search
+// Parámetros opcionales: type, breed, color, status, from (RFC3339), to (RFC3339), page, limit
+// Ruta pública — no requiere autenticación.
+func (h *PetHandler) SearchPets(c *gin.Context) {
+	filters := dto.PetSearchFilters{}
+
+	filters.Type = c.Query("type")
+	filters.Breed = c.Query("breed")
+	filters.Color = c.Query("color")
+	filters.Status = c.Query("status")
+
+	// Parseo de from/to como RFC3339
+	if fromStr := c.Query("from"); fromStr != "" {
+		t, err := time.Parse(time.RFC3339, fromStr)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "parámetro 'from' debe ser RFC3339 (ej: 2026-01-01T00:00:00Z)"})
+			return
+		}
+		filters.From = &t
+	}
+	if toStr := c.Query("to"); toStr != "" {
+		t, err := time.Parse(time.RFC3339, toStr)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "parámetro 'to' debe ser RFC3339 (ej: 2026-12-31T23:59:59Z)"})
+			return
+		}
+		filters.To = &t
+	}
+
+	// Parseo de page (default 1)
+	if pageStr := c.Query("page"); pageStr != "" {
+		p, err := strconv.Atoi(pageStr)
+		if err != nil || p < 1 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "parámetro 'page' debe ser un entero positivo"})
+			return
+		}
+		filters.Page = p
+	} else {
+		filters.Page = 1
+	}
+
+	// Parseo de limit (default 20, max 100)
+	if limitStr := c.Query("limit"); limitStr != "" {
+		l, err := strconv.Atoi(limitStr)
+		if err != nil || l < 1 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "parámetro 'limit' debe ser un entero positivo"})
+			return
+		}
+		if l > 100 {
+			l = 100
+		}
+		filters.Limit = l
+	} else {
+		filters.Limit = 20
+	}
+
+	result, err := h.petService.SearchPets(filters)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, result)
 }
 
 // MarkAsFound godoc

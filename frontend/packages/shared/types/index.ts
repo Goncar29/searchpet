@@ -11,7 +11,12 @@ export interface User {
   latitude?: number;
   longitude?: number;
   is_verified: boolean;
+  search_radius_meters?: number;
   created_at: string;
+}
+
+export interface UserPreferences {
+  search_radius_meters: number;
 }
 
 export interface PetOwner {
@@ -174,12 +179,36 @@ export interface NearbySearchParams {
   limit?: number;
 }
 
+export interface NearbyReportsResponse {
+  data: Report[];
+  radius_used: number;
+}
+
+export interface PetSearchFilters {
+  type?: PetType;
+  breed?: string;
+  color?: string;
+  status?: PetStatus;
+  from?: string; // RFC3339
+  to?: string;   // RFC3339
+  page?: number;
+  limit?: number;
+}
+
+/** @deprecated Usa PetSearchFilters en su lugar */
 export interface PetSearchParams {
   type?: PetType;
   breed?: string;
   color?: string;
   limit?: number;
   offset?: number;
+}
+
+export interface PetListResponse {
+  data: Pet[];
+  total: number;
+  page: number;
+  limit: number;
 }
 
 export interface SendMessageRequest {

@@ -12,6 +12,7 @@ import type {
   PetSearchParams,
   CreateReportRequest,
   NearbySearchParams,
+  NearbyReportsResponse,
   SendMessageRequest,
   GenerateShareRequest,
   SharedPetResponse,
@@ -161,13 +162,19 @@ export const useUploadPhotoNative = () => {
 // REPORT HOOKS
 // ============================================================
 
+// radius en km (ej: 5 = 5 km). Internamente se convierte a metros para la API.
 export const useNearbyReports = (lat: number, lng: number, radius = 5, enabled = true) => {
-  return useQuery({
+  const query = useQuery<NearbyReportsResponse>({
     queryKey: ['reports', 'nearby', lat, lng, radius],
-    queryFn: () => apiClient.getNearbyReports({ lat, lng, radius }),
+    queryFn: () => apiClient.getNearbyReports({ lat, lng, radius: radius * 1000 }),
     enabled: enabled && !!lat && !!lng,
     staleTime: 5 * 60 * 1000, // 5 minutos
   });
+  return {
+    ...query,
+    data: query.data?.data,         // Report[] | undefined — backward compatible
+    radiusUsed: query.data?.radius_used,
+  };
 };
 
 export const useReportsByPetID = (petID: string) => {

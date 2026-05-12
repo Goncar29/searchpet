@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 	"lost-pets/internal/domain"
+	"lost-pets/internal/dto"
 	"lost-pets/internal/repository"
 	"lost-pets/pkg/jwt"
 	"lost-pets/pkg/storage"
@@ -150,6 +151,28 @@ func (s *authService) UpdateProfilePhoto(ctx context.Context, id uuid.UUID, file
 	}
 
 	return user, nil
+}
+
+// UpdatePreferences actualiza las preferencias de búsqueda del usuario.
+// Valida que SearchRadiusMeters esté en el rango 1000–50000.
+func (s *authService) UpdatePreferences(ctx context.Context, id uuid.UUID, req dto.UpdatePreferencesRequest) (*dto.UserPreferencesResponse, error) {
+	if req.SearchRadiusMeters < 1000 || req.SearchRadiusMeters > 50000 {
+		return nil, domain.ErrInvalidInput
+	}
+
+	user, err := s.userRepo.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	user.SearchRadiusMeters = req.SearchRadiusMeters
+	if err := s.userRepo.Update(ctx, user); err != nil {
+		return nil, err
+	}
+
+	return &dto.UserPreferencesResponse{
+		SearchRadiusMeters: user.SearchRadiusMeters,
+	}, nil
 }
 
 // UpdateProfile actualiza el nombre y teléfono del usuario

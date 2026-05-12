@@ -7,14 +7,18 @@ import type {
   RegisterRequest,
   LoginRequest,
   User,
+  UserPreferences,
   Pet,
   CreatePetRequest,
   UpdatePetRequest,
   UpdateProfileRequest,
   PetSearchParams,
+  PetSearchFilters,
+  PetListResponse,
   Report,
   CreateReportRequest,
   NearbySearchParams,
+  NearbyReportsResponse,
   Message,
   SendMessageRequest,
   ShareLink,
@@ -121,6 +125,10 @@ class APIClient {
     return this.request<User>('PUT', '/api/auth/me', data);
   }
 
+  async updatePreferences(prefs: UserPreferences): Promise<UserPreferences> {
+    return this.request<UserPreferences>('PUT', '/api/users/me/preferences', prefs);
+  }
+
   async uploadProfilePhoto(file: File): Promise<User> {
     const url = `${this.baseURL}/api/auth/me/photo`;
     const formData = new FormData();
@@ -165,8 +173,22 @@ class APIClient {
     return this.request<Pet>('PATCH', `/api/pets/${id}/found`);
   }
 
-  async searchPets(params: PetSearchParams): Promise<Pet[]> {
+  /** @deprecated Usa searchPets(filters: PetSearchFilters) en su lugar */
+  async searchPetsLegacy(params: PetSearchParams): Promise<Pet[]> {
     return this.request<Pet[]>('GET', '/api/pets/search', undefined, params as Record<string, string | number>);
+  }
+
+  async searchPets(filters: PetSearchFilters): Promise<PetListResponse> {
+    const params: Record<string, string | number> = {};
+    if (filters.type) params['type'] = filters.type;
+    if (filters.breed) params['breed'] = filters.breed;
+    if (filters.color) params['color'] = filters.color;
+    if (filters.status) params['status'] = filters.status;
+    if (filters.from) params['from'] = filters.from;
+    if (filters.to) params['to'] = filters.to;
+    if (filters.page !== undefined) params['page'] = filters.page;
+    if (filters.limit !== undefined) params['limit'] = filters.limit;
+    return this.request<PetListResponse>('GET', '/api/pets/search', undefined, params);
   }
 
   // uploadPhoto usa FormData crudo — NO usa this.request() porque ese método
@@ -236,15 +258,19 @@ class APIClient {
     return this.request<Report>('POST', '/api/reports', data);
   }
 
-  async getNearbyReports(params: NearbySearchParams): Promise<Report[]> {
-    // Backend expects radius in meters; frontend uses km for readability
-    const radiusMeters = (params.radius ?? 5) * 1000;
-    return this.request<Report[]>('GET', '/api/reports/nearby', undefined, {
+  async getNearbyReports(params: NearbySearchParams): Promise<NearbyReportsResponse> {
+    const queryParams: Record<string, string | number> = {
       lat: params.lat,
       lng: params.lng,
-      radius: radiusMeters,
-      ...(params.limit !== undefined && { limit: params.limit }),
-    });
+    };
+    // radius is in meters — passed directly to the backend
+    if (params.radius !== undefined) {
+      queryParams['radius'] = params.radius;
+    }
+    if (params.limit !== undefined) {
+      queryParams['limit'] = params.limit;
+    }
+    return this.request<NearbyReportsResponse>('GET', '/api/reports/nearby', undefined, queryParams);
   }
 
   async getReportsByPetID(petID: string): Promise<Report[]> {

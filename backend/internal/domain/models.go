@@ -20,12 +20,13 @@ type User struct {
 	ProfilePhotoURL    string     `gorm:"size:500" json:"profile_photo_url,omitempty"`
 	Latitude           *float64   `gorm:"type:decimal(10,8)" json:"latitude,omitempty"`
 	Longitude          *float64   `gorm:"type:decimal(11,8)" json:"longitude,omitempty"`
-	IsVerified         bool       `gorm:"default:false" json:"is_verified"`
-	VerificationMethod string     `gorm:"size:50" json:"verification_method,omitempty"`
-	IsBanned           bool       `gorm:"default:false" json:"is_banned"`
-	BanReason          string     `gorm:"type:text" json:"ban_reason,omitempty"`
-	CreatedAt          time.Time  `gorm:"autoCreateTime" json:"created_at"`
-	UpdatedAt          time.Time  `gorm:"autoUpdateTime" json:"updated_at"`
+	IsVerified           bool       `gorm:"default:false" json:"is_verified"`
+	VerificationMethod   string     `gorm:"size:50" json:"verification_method,omitempty"`
+	IsBanned             bool       `gorm:"default:false" json:"is_banned"`
+	BanReason            string     `gorm:"type:text" json:"ban_reason,omitempty"`
+	SearchRadiusMeters   int        `gorm:"default:5000" json:"search_radius_meters"`
+	CreatedAt            time.Time  `gorm:"autoCreateTime" json:"created_at"`
+	UpdatedAt            time.Time  `gorm:"autoUpdateTime" json:"updated_at"`
 
 	// Relaciones
 	Pets     []Pet     `gorm:"foreignKey:OwnerID" json:"pets,omitempty"`
@@ -37,13 +38,13 @@ type Pet struct {
 	ID          uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
 	OwnerID     uuid.UUID `gorm:"type:uuid;not null;index" json:"owner_id"`
 	Name        string    `gorm:"not null;size:100" json:"name"`
-	Type        string    `gorm:"not null;size:50" json:"type"` // perro, gato, pajaro, otro
+	Type        string    `gorm:"not null;size:50;index:idx_pets_type_status,composite:type" json:"type"` // perro, gato, pajaro, otro
 	Breed       string    `gorm:"size:100" json:"breed,omitempty"`
 	Color       string    `gorm:"size:100" json:"color,omitempty"`
 	Description string    `gorm:"type:text" json:"description,omitempty"`
 	Gender      string    `gorm:"size:10" json:"gender,omitempty"` // male, female, unknown
 	MicrochipID *string   `gorm:"uniqueIndex;size:50" json:"microchip_id,omitempty"`
-	Status      string    `gorm:"size:50;default:'active';index" json:"status"` // active, found, archived
+	Status      string    `gorm:"size:50;default:'active';index:idx_pets_type_status,composite:status" json:"status"` // active, found, archived
 	CreatedAt   time.Time `gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt   time.Time `gorm:"autoUpdateTime" json:"updated_at"`
 

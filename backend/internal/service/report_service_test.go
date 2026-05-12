@@ -157,17 +157,19 @@ func TestCreateReport_SightingStatus_NoStatusUpdate(t *testing.T) {
 // Tests: GetNearbyReports
 // ============================================================
 
-func TestGetNearbyReports_ZeroRadius_UsesDefault5000(t *testing.T) {
+// El service ya no aplica defaults — el handler resuelve el radio con precedencia.
+// Este test verifica que el service pasa el valor recibido directamente al repo.
+func TestGetNearbyReports_PassesThroughRadius(t *testing.T) {
 	rRepo := &mockReportRepo{reports: []domain.Report{}}
 	svc := newReportSvc(rRepo, &mockPetRepo{})
 
-	_, err := svc.GetNearbyReports(-34.9011, -56.1645, 0)
+	_, err := svc.GetNearbyReports(-34.9011, -56.1645, 5000)
 
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if rRepo.capturedRadius != 5000 {
-		t.Errorf("expected default radius 5000, got %v", rRepo.capturedRadius)
+		t.Errorf("expected radius 5000, got %v", rRepo.capturedRadius)
 	}
 }
 

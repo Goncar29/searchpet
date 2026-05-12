@@ -5,6 +5,7 @@ import (
 
 	"github.com/google/uuid"
 	"lost-pets/internal/domain"
+	"lost-pets/internal/dto"
 )
 
 // ============================================================
@@ -20,6 +21,8 @@ type PetRepository interface {
 	Update(pet *domain.Pet) error
 	UpdateStatus(id string, status string) error
 	Delete(id string) error
+	// Search aplica filtros opcionales, devuelve los resultados paginados y el total.
+	Search(filters dto.PetSearchFilters) ([]domain.Pet, int64, error)
 }
 
 // ReportRepository define el contrato para acceder a datos de reportes.

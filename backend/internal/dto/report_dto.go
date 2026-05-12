@@ -69,3 +69,10 @@ func ToReportListResponse(reports []domain.Report) []ReportResponse {
 	}
 	return result
 }
+
+// NearbyReportsResponse es la respuesta de GET /api/reports/nearby.
+// Incluye radius_used para que el cliente sepa qué radio se aplicó.
+type NearbyReportsResponse struct {
+	Data       []ReportResponse `json:"data"`
+	RadiusUsed int              `json:"radius_used"`
+}
