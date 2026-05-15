@@ -17,6 +17,13 @@ type Config struct {
 	FirebaseKey         string
 	AppURL              string
 	Environment         string
+
+	// V1.3 — User Verification (OTP)
+	SendGridAPIKey           string
+	TwilioAccountSID         string
+	TwilioAuthToken          string
+	TwilioFromNumber         string
+	EnableEmailVerification  bool
 }
 
 func Load() *Config {
@@ -34,6 +41,13 @@ func Load() *Config {
 		FirebaseKey:         getEnv("FIREBASE_KEY", ""),
 		AppURL:              getEnv("APP_URL", "http://localhost:3000"),
 		Environment:         getEnv("ENVIRONMENT", "development"),
+
+		// V1.3 — User Verification (OTP)
+		SendGridAPIKey:          getEnv("SENDGRID_API_KEY", ""),
+		TwilioAccountSID:        getEnv("TWILIO_ACCOUNT_SID", ""),
+		TwilioAuthToken:         getEnv("TWILIO_AUTH_TOKEN", ""),
+		TwilioFromNumber:        getEnv("TWILIO_FROM_NUMBER", ""),
+		EnableEmailVerification: getEnv("ENABLE_EMAIL_VERIFICATION", "false") == "true",
 	}
 }
 

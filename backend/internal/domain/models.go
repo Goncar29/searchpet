@@ -37,8 +37,11 @@ type User struct {
 	ProfilePhotoURL    string     `gorm:"size:500" json:"profile_photo_url,omitempty"`
 	Latitude           *float64   `gorm:"type:decimal(10,8)" json:"latitude,omitempty"`
 	Longitude          *float64   `gorm:"type:decimal(11,8)" json:"longitude,omitempty"`
+	IsAdmin              bool       `gorm:"default:false" json:"is_admin"`
 	IsVerified           bool       `gorm:"default:false" json:"is_verified"`
 	VerificationMethod   string     `gorm:"size:50" json:"verification_method,omitempty"`
+	EmailVerified        bool       `gorm:"default:false" json:"email_verified"`
+	PhoneVerified        bool       `gorm:"default:false" json:"phone_verified"`
 	IsBanned             bool       `gorm:"default:false" json:"is_banned"`
 	BanReason            string     `gorm:"type:text" json:"ban_reason,omitempty"`
 	SearchRadiusMeters   int        `gorm:"default:5000" json:"search_radius_meters"`
@@ -211,20 +214,22 @@ type GroupMember struct {
 
 // SuccessStory representa una historia de éxito (mascota encontrada)
 type SuccessStory struct {
-	ID          uuid.UUID  `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
-	PetID       uuid.UUID  `gorm:"type:uuid;not null" json:"pet_id"`
-	ReportID    uuid.UUID  `gorm:"type:uuid;not null" json:"report_id"`
-	StoryText   string     `gorm:"type:text;not null" json:"story_text"`
-	HeroID      uuid.UUID  `gorm:"type:uuid;not null" json:"hero_id"` // quien encontró
-	PhotoBefore *uuid.UUID `gorm:"type:uuid" json:"photo_before,omitempty"`
-	PhotoAfter  *uuid.UUID `gorm:"type:uuid" json:"photo_after,omitempty"`
-	Likes       int        `gorm:"default:0" json:"likes"`
-	Featured    bool       `gorm:"default:false;index" json:"featured"`
-	CreatedAt   time.Time  `gorm:"autoCreateTime;index" json:"created_at"`
+	ID          uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+	PetID       uuid.UUID `gorm:"type:uuid;not null;index" json:"pet_id"`
+	UserID      uuid.UUID `gorm:"type:uuid;not null;index" json:"user_id"` // quien crea la historia
+	Title       string    `gorm:"not null;size:255" json:"title"`
+	Body        string    `gorm:"type:text;not null" json:"body"`
+	PhotoBefore string    `gorm:"size:500" json:"photo_before,omitempty"` // URL Cloudinary
+	PhotoAfter  string    `gorm:"size:500" json:"photo_after,omitempty"`  // URL Cloudinary
+	LikeCount   int       `gorm:"default:0" json:"like_count"`
+	Featured    bool      `gorm:"default:false;index" json:"featured"`
+	FeaturedBy  *uuid.UUID `gorm:"type:uuid" json:"featured_by,omitempty"` // adminUserID que marcó featured
+	CreatedAt   time.Time `gorm:"autoCreateTime;index" json:"created_at"`
+	DeletedAt   *time.Time `gorm:"index" json:"-"` // soft delete
 
 	// Relaciones
 	Pet  Pet  `gorm:"foreignKey:PetID" json:"pet,omitempty"`
-	Hero User `gorm:"foreignKey:HeroID" json:"hero,omitempty"`
+	User User `gorm:"foreignKey:UserID" json:"user,omitempty"`
 }
 
 // ============================================================
@@ -242,14 +247,15 @@ type BlockedUser struct {
 
 // ReportAbuse representa una denuncia de fraude/abuso
 type ReportAbuse struct {
-	ID          uuid.UUID  `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
-	ReportID    *uuid.UUID `gorm:"type:uuid" json:"report_id,omitempty"`
-	UserID      *uuid.UUID `gorm:"type:uuid" json:"user_id,omitempty"`
-	ReporterID  uuid.UUID  `gorm:"type:uuid;not null" json:"reporter_id"`
-	Reason      string     `gorm:"not null;size:255" json:"reason"`
-	Description string     `gorm:"type:text" json:"description,omitempty"`
-	IsResolved  bool       `gorm:"default:false;index" json:"is_resolved"`
-	CreatedAt   time.Time  `gorm:"autoCreateTime;index" json:"created_at"`
+	ID             uuid.UUID  `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+	TargetReportID *uuid.UUID `gorm:"type:uuid;column:target_report_id" json:"target_report_id,omitempty"`
+	TargetUserID   *uuid.UUID `gorm:"type:uuid;column:target_user_id" json:"target_user_id,omitempty"`
+	ReporterID     uuid.UUID  `gorm:"type:uuid;not null" json:"reporter_id"`
+	Reason         string     `gorm:"not null;size:255" json:"reason"`
+	Status         string     `gorm:"not null;size:50;default:'pending';index" json:"status"` // pending, resolved, dismissed
+	ResolvedBy     *uuid.UUID `gorm:"type:uuid" json:"resolved_by,omitempty"`
+	ResolvedAt     *time.Time `json:"resolved_at,omitempty"`
+	CreatedAt      time.Time  `gorm:"autoCreateTime;index" json:"created_at"`
 }
 
 // ============================================================
@@ -265,6 +271,19 @@ type DeviceToken struct {
 	Platform  string    `gorm:"not null;size:20" json:"platform"` // ios, android, web
 	CreatedAt time.Time `gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt time.Time `gorm:"autoUpdateTime" json:"updated_at"`
+}
+
+// VerificationToken almacena los OTPs de verificación de identidad.
+// CodeHash contiene SHA-256(code) en hex — NUNCA el código en texto plano.
+type VerificationToken struct {
+	ID        uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+	UserID    uuid.UUID `gorm:"type:uuid;not null;index" json:"user_id"`
+	Channel   string    `gorm:"not null;size:10" json:"channel"`   // "email" or "sms"
+	CodeHash  string    `gorm:"not null;size:64" json:"-"`         // SHA-256 hex — never plaintext
+	Attempts  int       `gorm:"default:0" json:"-"`
+	ExpiresAt time.Time `gorm:"not null;index" json:"expires_at"`
+	Used      bool      `gorm:"default:false;index" json:"-"`
+	CreatedAt time.Time `gorm:"autoCreateTime" json:"created_at"`
 }
 
 // Shelter representa un refugio de animales

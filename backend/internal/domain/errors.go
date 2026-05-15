@@ -52,6 +52,18 @@ var (
 	ErrAlertLimitExceeded = errors.New("límite de 10 alertas activas alcanzado")
 	ErrNotAlertOwner    = errors.New("no eres el dueño de esta alerta")
 
+	// Community (V1.3)
+	ErrStoryNotFound       = errors.New("historia no encontrada")
+	ErrGroupNotFound       = errors.New("grupo no encontrado")
+	ErrAlreadyMember       = errors.New("ya eres miembro de este grupo")
+	ErrNotMember           = errors.New("no eres miembro de este grupo")
+	ErrAbuseReportNotFound = errors.New("denuncia no encontrada")
+	ErrNotAdmin            = errors.New("forbidden")
+
+	// Verification (V1.3)
+	ErrOTPExpired = errors.New("otp_expired")
+	ErrOTPInvalid = errors.New("otp_invalid")
+
 	// General
 	ErrUnauthorized = errors.New("no autorizado")
 	ErrForbidden    = errors.New("acceso prohibido")
