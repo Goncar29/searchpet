@@ -92,6 +92,8 @@ func main() {
 	groupRepo := repository.NewLocalGroupRepository(db)
 	groupMemberRepo := repository.NewGroupMemberRepository(db)
 	groupService := service.NewGroupService(groupRepo, groupMemberRepo)
+	abuseReportRepo := repository.NewAbuseReportRepository(db)
+	abuseReportService := service.NewAbuseReportService(abuseReportRepo)
 
 	notificationService := service.NewNotificationService(fcmClient, deviceTokenRepo)
 	notificationService.RegisterListeners(bus)
@@ -116,6 +118,7 @@ func main() {
 	blockHandler := handler.NewBlockHandler(blockService)
 	storyHandler := handler.NewSuccessStoryHandler(storyService)
 	groupHandler := handler.NewGroupHandler(groupService)
+	abuseReportHandler := handler.NewAbuseReportHandler(abuseReportService)
 
 	// ========================================
 	// ROUTER
@@ -221,6 +224,9 @@ func main() {
 		protected.GET("/groups/:id", groupHandler.GetByID)
 		protected.POST("/groups/:id/join", groupHandler.Join)
 		protected.DELETE("/groups/:id/leave", groupHandler.Leave)
+
+		// V1.3 — Abuse Reports (submit protected; read + resolve is admin-only via admin group)
+		protected.POST("/abuse-reports", abuseReportHandler.Submit)
 	}
 
 	// ----------------------------------------
@@ -232,6 +238,9 @@ func main() {
 	{
 		admin.PATCH("/admin/stories/:id/featured", storyHandler.SetFeatured)
 		admin.POST("/groups", groupHandler.Create)
+		admin.GET("/abuse-reports", abuseReportHandler.List)
+		admin.GET("/abuse-reports/:id", abuseReportHandler.GetByID)
+		admin.PATCH("/admin/abuse-reports/:id/resolve", abuseReportHandler.Resolve)
 	}
 
 	// ========================================

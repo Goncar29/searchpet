@@ -102,6 +102,15 @@ type DeviceTokenRepository interface {
 	DeleteByToken(ctx context.Context, token string) error
 }
 
+// AbuseReportRepository define el contrato para denuncias de fraude/abuso.
+// Style A: context.Context + uuid.UUID.
+type AbuseReportRepository interface {
+	Create(ctx context.Context, report *domain.ReportAbuse) error
+	GetByID(ctx context.Context, id uuid.UUID) (*domain.ReportAbuse, error)
+	GetAll(ctx context.Context, resolved *bool, limit, offset int) ([]domain.ReportAbuse, error)
+	Resolve(ctx context.Context, id uuid.UUID, resolvedBy uuid.UUID, status string) error
+}
+
 // LocalGroupRepository define el contrato para grupos locales por ciudad.
 // Style A: context.Context + uuid.UUID.
 type LocalGroupRepository interface {

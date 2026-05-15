@@ -9,6 +9,14 @@ import (
 	"lost-pets/internal/dto"
 )
 
+// AbuseReportService define el contrato para denuncias de fraude/abuso.
+type AbuseReportService interface {
+	Submit(ctx context.Context, reporterID uuid.UUID, req dto.CreateAbuseReportRequest) (*domain.ReportAbuse, error)
+	GetByID(ctx context.Context, id uuid.UUID) (*domain.ReportAbuse, error)
+	List(ctx context.Context, resolved *bool, limit, offset int) ([]domain.ReportAbuse, error)
+	Resolve(ctx context.Context, id uuid.UUID, adminID uuid.UUID, status string) error
+}
+
 // GroupService define el contrato para grupos locales.
 type GroupService interface {
 	CreateGroup(ctx context.Context, creatorID uuid.UUID, req dto.CreateGroupRequest) (*domain.LocalGroup, error)
