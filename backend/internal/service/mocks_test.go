@@ -81,3 +81,7 @@ func (m *mockReportRepo) FindNearby(_, _ float64, radius float64) ([]domain.Repo
 	m.capturedRadius = radius
 	return m.reports, m.findErr
 }
+
+func (m *mockReportRepo) UpdateVerified(_ context.Context, _ uuid.UUID, _ uuid.UUID) error {
+	return nil
+}
