@@ -9,6 +9,13 @@ import (
 	"lost-pets/internal/dto"
 )
 
+// BlockService define el contrato para la lógica de bloqueo de usuarios.
+type BlockService interface {
+	Block(ctx context.Context, blockerID, blockedID uuid.UUID) error
+	Unblock(ctx context.Context, blockerID, blockedID uuid.UUID) error
+	GetBlocked(ctx context.Context, userID uuid.UUID) ([]domain.BlockedUser, error)
+}
+
 // AuthService define el contrato para la lógica de autenticación
 type AuthService interface {
 	// Register crea un nuevo usuario y retorna el usuario + JWT

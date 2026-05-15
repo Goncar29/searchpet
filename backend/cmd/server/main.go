@@ -87,6 +87,7 @@ func main() {
 	messageService := service.NewMessageService(messageRepo, blockedUserRepo, bus)
 	shareLinkService := service.NewShareLinkService(shareLinkRepo, petRepo)
 	shelterService := service.NewShelterService(shelterRepo)
+	blockService := service.NewBlockService(blockedUserRepo)
 
 	notificationService := service.NewNotificationService(fcmClient, deviceTokenRepo)
 	notificationService.RegisterListeners(bus)
@@ -108,6 +109,7 @@ func main() {
 	shelterHandler := handler.NewShelterHandler(shelterService)
 	deviceHandler := handler.NewDeviceHandler(deviceTokenRepo)
 	locationAlertHandler := handler.NewLocationAlertHandler(locationAlertService)
+	blockHandler := handler.NewBlockHandler(blockService)
 
 	// ========================================
 	// ROUTER
@@ -195,6 +197,11 @@ func main() {
 		protected.GET("/alerts/:id", locationAlertHandler.GetAlert)
 		protected.PUT("/alerts/:id", locationAlertHandler.UpdateAlert)
 		protected.DELETE("/alerts/:id", locationAlertHandler.DeleteAlert)
+
+		// V1.3 — User Blocking
+		protected.POST("/users/:id/block", blockHandler.Block)
+		protected.DELETE("/users/:id/block", blockHandler.Unblock)
+		protected.GET("/users/blocked", blockHandler.GetBlocked)
 	}
 
 	// ========================================
