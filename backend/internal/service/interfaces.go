@@ -9,6 +9,16 @@ import (
 	"lost-pets/internal/dto"
 )
 
+// SuccessStoryService define el contrato para historias de éxito.
+type SuccessStoryService interface {
+	Create(ctx context.Context, userID uuid.UUID, req dto.CreateStoryRequest) (*domain.SuccessStory, error)
+	GetByID(ctx context.Context, id uuid.UUID) (*domain.SuccessStory, error)
+	List(ctx context.Context, featured *bool, limit, offset int) ([]domain.SuccessStory, error)
+	Like(ctx context.Context, id uuid.UUID) error
+	SetFeatured(ctx context.Context, id uuid.UUID, featured bool, adminID uuid.UUID) error
+	Delete(ctx context.Context, id uuid.UUID, callerID uuid.UUID, isAdmin bool) error
+}
+
 // BlockService define el contrato para la lógica de bloqueo de usuarios.
 type BlockService interface {
 	Block(ctx context.Context, blockerID, blockedID uuid.UUID) error

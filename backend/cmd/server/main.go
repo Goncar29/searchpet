@@ -88,6 +88,7 @@ func main() {
 	shareLinkService := service.NewShareLinkService(shareLinkRepo, petRepo)
 	shelterService := service.NewShelterService(shelterRepo)
 	blockService := service.NewBlockService(blockedUserRepo)
+	storyService := service.NewSuccessStoryService(repository.NewSuccessStoryRepository(db))
 
 	notificationService := service.NewNotificationService(fcmClient, deviceTokenRepo)
 	notificationService.RegisterListeners(bus)
@@ -110,6 +111,7 @@ func main() {
 	deviceHandler := handler.NewDeviceHandler(deviceTokenRepo)
 	locationAlertHandler := handler.NewLocationAlertHandler(locationAlertService)
 	blockHandler := handler.NewBlockHandler(blockService)
+	storyHandler := handler.NewSuccessStoryHandler(storyService)
 
 	// ========================================
 	// ROUTER
@@ -202,6 +204,23 @@ func main() {
 		protected.POST("/users/:id/block", blockHandler.Block)
 		protected.DELETE("/users/:id/block", blockHandler.Unblock)
 		protected.GET("/users/blocked", blockHandler.GetBlocked)
+
+		// V1.3 — Success Stories
+		protected.POST("/stories", storyHandler.Create)
+		protected.GET("/stories", storyHandler.List)
+		protected.GET("/stories/:id", storyHandler.GetByID)
+		protected.POST("/stories/:id/like", storyHandler.Like)
+		protected.DELETE("/stories/:id", storyHandler.Delete)
+	}
+
+	// ----------------------------------------
+	// RUTAS ADMIN (JWT + IsAdmin=true en BD)
+	// ----------------------------------------
+	admin := router.Group("/api")
+	admin.Use(middleware.Auth(cfg.JWTSecret))
+	admin.Use(middleware.RequireAdmin(userRepo))
+	{
+		admin.PATCH("/admin/stories/:id/featured", storyHandler.SetFeatured)
 	}
 
 	// ========================================
