@@ -75,13 +75,14 @@ type ReportCreatedEvent struct {
 // coincide con un nuevo reporte. Lleva los tokens FCM para que NotificationService
 // pueda enviar el push sin conocer el repositorio de alertas.
 type AlertTriggeredEvent struct {
-	AlertID   uuid.UUID
-	UserID    uuid.UUID // dueño de la alerta (receptor del push)
-	ReportID  uuid.UUID
-	PetID     uuid.UUID
-	PetName   string
-	PetType   string
-	FCMTokens []string // tokens del usuario en el momento del evento
+	AlertID    uuid.UUID
+	UserID     uuid.UUID // dueño de la alerta (receptor del push)
+	ReportID   uuid.UUID
+	PetID      uuid.UUID
+	PetName    string
+	PetType    string
+	FCMTokens  []string // tokens del usuario en el momento del evento
+	DistanceKm float64  // distancia en km entre el reporte y el centro de la alerta
 }
 
 // MessageSentEvent es el payload publicado cuando se envía un mensaje.

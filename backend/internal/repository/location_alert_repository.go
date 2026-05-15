@@ -8,7 +8,7 @@ import (
 	"lost-pets/internal/domain"
 )
 
-// Spatial index recomendado para FindMatchingAlerts (ejecutar una vez, fuera de AutoMigrate):
+// Spatial index recomendado para FindActiveAlertsNear (ejecutar una vez, fuera de AutoMigrate):
 //
 //	CREATE INDEX IF NOT EXISTS idx_location_alerts_geo
 //	  ON location_alerts USING GIST (
@@ -58,7 +58,7 @@ func (r *locationAlertRepository) Delete(ctx context.Context, id uuid.UUID) erro
 		Update("is_active", false).Error
 }
 
-// FindMatchingAlerts retorna todas las alertas activas cuyo centro se encuentra
+// FindActiveAlertsNear retorna todas las alertas activas cuyo centro se encuentra
 // dentro del radio de la alerta respecto al punto del reporte.
 //
 // La consulta usa ST_DWithin con tipo geography para cálculo geodésico preciso.
@@ -75,7 +75,7 @@ func (r *locationAlertRepository) Delete(ctx context.Context, id uuid.UUID) erro
 //	  ON location_alerts USING GIST (
 //	    ST_SetSRID(ST_MakePoint(alert_longitude, alert_latitude), 4326)::geography
 //	  );
-func (r *locationAlertRepository) FindMatchingAlerts(ctx context.Context, lat, lng float64, petType string) ([]domain.LocationAlert, error) {
+func (r *locationAlertRepository) FindActiveAlertsNear(ctx context.Context, lat, lng float64, petType string) ([]domain.LocationAlert, error) {
 	var alerts []domain.LocationAlert
 
 	query := r.db.WithContext(ctx).

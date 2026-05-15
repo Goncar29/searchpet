@@ -5,7 +5,6 @@ import (
 
 	"github.com/google/uuid"
 	"lost-pets/internal/domain"
-	"lost-pets/internal/dto"
 )
 
 // ============================================================
@@ -22,7 +21,7 @@ type PetRepository interface {
 	UpdateStatus(id string, status string) error
 	Delete(id string) error
 	// Search aplica filtros opcionales, devuelve los resultados paginados y el total.
-	Search(filters dto.PetSearchFilters) ([]domain.Pet, int64, error)
+	Search(criteria domain.PetSearchCriteria) ([]domain.Pet, int64, error)
 }
 
 // ReportRepository define el contrato para acceder a datos de reportes.
@@ -112,10 +111,10 @@ type LocationAlertRepository interface {
 	Update(ctx context.Context, alert *domain.LocationAlert) error
 	// Delete hace soft-delete: pone IsActive = false en lugar de borrar el registro.
 	Delete(ctx context.Context, id uuid.UUID) error
-	// FindMatchingAlerts retorna todas las alertas activas cuyo radio cubre el punto (lat, lng).
+	// FindActiveAlertsNear retorna todas las alertas activas cuyo radio cubre el punto (lat, lng).
 	// Usa PostGIS ST_DWithin con geography para cálculo geodésico preciso (single DB call).
 	// petType "" coincide con cualquier tipo de mascota.
-	FindMatchingAlerts(ctx context.Context, lat, lng float64, petType string) ([]domain.LocationAlert, error)
+	FindActiveAlertsNear(ctx context.Context, lat, lng float64, petType string) ([]domain.LocationAlert, error)
 	// CountActiveByUserID retorna cuántas alertas activas tiene el usuario.
 	// Usado para aplicar el cap de 10 alertas por usuario.
 	CountActiveByUserID(ctx context.Context, userID uuid.UUID) (int64, error)

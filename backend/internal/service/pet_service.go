@@ -17,7 +17,7 @@ type PetService interface {
 	DeletePet(ownerID string, petID string) error
 	MarkAsFound(ownerID string, petID string) (*domain.Pet, error)
 	// SearchPets aplica filtros opcionales y devuelve resultados paginados.
-	SearchPets(filters dto.PetSearchFilters) (dto.PetSearchResponse, error)
+	SearchPets(criteria domain.PetSearchCriteria) (dto.PetSearchResponse, error)
 }
 
 // CreatePetRequest contiene los datos para crear una mascota.
@@ -148,17 +148,17 @@ func (s *petService) DeletePet(ownerID string, petID string) error {
 
 // SearchPets aplica filtros opcionales y devuelve una respuesta paginada.
 // Llama al repositorio, mapea los resultados a DTOs y construye PetSearchResponse.
-func (s *petService) SearchPets(filters dto.PetSearchFilters) (dto.PetSearchResponse, error) {
-	pets, total, err := s.repo.Search(filters)
+func (s *petService) SearchPets(criteria domain.PetSearchCriteria) (dto.PetSearchResponse, error) {
+	pets, total, err := s.repo.Search(criteria)
 	if err != nil {
 		return dto.PetSearchResponse{}, err
 	}
 
-	page := filters.Page
+	page := criteria.Page
 	if page < 1 {
 		page = 1
 	}
-	limit := filters.Limit
+	limit := criteria.Limit
 	if limit < 1 {
 		limit = 20
 	}

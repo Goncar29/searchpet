@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"math"
 
 	"github.com/google/uuid"
 	"lost-pets/internal/domain"
@@ -57,7 +58,7 @@ func (s *locationAlertService) RegisterListeners(bus *event.EventBus) {
 // El EventBus lo ejecuta en su propia goroutine (NFR1.3: no bloquea el request).
 //
 // Flujo:
-//  1. Consulta FindMatchingAlerts con PostGIS ST_DWithin — single DB call.
+//  1. Consulta FindActiveAlertsNear con PostGIS ST_DWithin — single DB call.
 //  2. Por cada alerta coincidente: obtiene tokens FCM del dueño.
 //  3. Publica "alert.triggered" con AlertTriggeredEvent.
 //
@@ -71,7 +72,7 @@ func (s *locationAlertService) onReportCreated(payload interface{}) {
 
 	ctx := context.Background()
 
-	matchingAlerts, err := s.repo.FindMatchingAlerts(ctx, reportEv.Lat, reportEv.Lng, reportEv.PetType)
+	matchingAlerts, err := s.repo.FindActiveAlertsNear(ctx, reportEv.Lat, reportEv.Lng, reportEv.PetType)
 	if err != nil {
 		log.Printf("[LocationAlertService] onReportCreated: error buscando alertas: %v", err)
 		return
@@ -92,14 +93,17 @@ func (s *locationAlertService) onReportCreated(payload interface{}) {
 			fcmTokens = append(fcmTokens, t.Token)
 		}
 
+		distKm := haversineKm(reportEv.Lat, reportEv.Lng, alert.AlertLatitude, alert.AlertLongitude)
+
 		s.bus.Publish("alert.triggered", event.AlertTriggeredEvent{
-			AlertID:   alert.ID,
-			UserID:    alert.UserID,
-			ReportID:  reportEv.ReportID,
-			PetID:     reportEv.PetID,
-			PetName:   reportEv.PetName,
-			PetType:   reportEv.PetType,
-			FCMTokens: fcmTokens,
+			AlertID:    alert.ID,
+			UserID:     alert.UserID,
+			ReportID:   reportEv.ReportID,
+			PetID:      reportEv.PetID,
+			PetName:    reportEv.PetName,
+			PetType:    reportEv.PetType,
+			FCMTokens:  fcmTokens,
+			DistanceKm: distKm,
 		})
 
 		log.Printf("[LocationAlertService] alert.triggered publicado — alerta %s, user %s", alert.ID, alert.UserID)
@@ -249,4 +253,16 @@ func validateRadiusKm(r float64) error {
 		return fmt.Errorf("%w: radius_km debe estar entre 1 y 50", domain.ErrInvalidInput)
 	}
 	return nil
+}
+
+// haversineKm calcula la distancia en kilómetros entre dos coordenadas geográficas.
+// Fórmula de Haversine — error < 0.5% en distancias < 500 km.
+func haversineKm(lat1, lng1, lat2, lng2 float64) float64 {
+	const earthRadiusKm = 6371.0
+	dLat := (lat2 - lat1) * math.Pi / 180
+	dLng := (lng2 - lng1) * math.Pi / 180
+	a := math.Sin(dLat/2)*math.Sin(dLat/2) +
+		math.Cos(lat1*math.Pi/180)*math.Cos(lat2*math.Pi/180)*
+			math.Sin(dLng/2)*math.Sin(dLng/2)
+	return earthRadiusKm * 2 * math.Atan2(math.Sqrt(a), math.Sqrt(1-a))
 }

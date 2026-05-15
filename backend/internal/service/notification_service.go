@@ -95,7 +95,7 @@ func (ns *NotificationService) onAlertTriggered(payload interface{}) {
 
 	// Título y cuerpo según spec FR4.5
 	title := "Reporte cerca de tu alerta"
-	body := fmt.Sprintf("Se encontró una mascota %s cerca de tu zona de alerta.", ev.PetType)
+	body := fmt.Sprintf("Se encontró una mascota %s a %.1f km de tu zona de alerta.", ev.PetType, ev.DistanceKm)
 
 	data := map[string]string{
 		"type":      "alert.triggered",

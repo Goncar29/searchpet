@@ -131,12 +131,12 @@ func (h *PetHandler) DeletePet(c *gin.Context) {
 // Parámetros opcionales: type, breed, color, status, from (RFC3339), to (RFC3339), page, limit
 // Ruta pública — no requiere autenticación.
 func (h *PetHandler) SearchPets(c *gin.Context) {
-	filters := dto.PetSearchFilters{}
+	criteria := domain.PetSearchCriteria{}
 
-	filters.Type = c.Query("type")
-	filters.Breed = c.Query("breed")
-	filters.Color = c.Query("color")
-	filters.Status = c.Query("status")
+	criteria.Type = c.Query("type")
+	criteria.Breed = c.Query("breed")
+	criteria.Color = c.Query("color")
+	criteria.Status = c.Query("status")
 
 	// Parseo de from/to como RFC3339
 	if fromStr := c.Query("from"); fromStr != "" {
@@ -145,7 +145,7 @@ func (h *PetHandler) SearchPets(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "parámetro 'from' debe ser RFC3339 (ej: 2026-01-01T00:00:00Z)"})
 			return
 		}
-		filters.From = &t
+		criteria.From = &t
 	}
 	if toStr := c.Query("to"); toStr != "" {
 		t, err := time.Parse(time.RFC3339, toStr)
@@ -153,7 +153,7 @@ func (h *PetHandler) SearchPets(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "parámetro 'to' debe ser RFC3339 (ej: 2026-12-31T23:59:59Z)"})
 			return
 		}
-		filters.To = &t
+		criteria.To = &t
 	}
 
 	// Parseo de page (default 1)
@@ -163,9 +163,9 @@ func (h *PetHandler) SearchPets(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "parámetro 'page' debe ser un entero positivo"})
 			return
 		}
-		filters.Page = p
+		criteria.Page = p
 	} else {
-		filters.Page = 1
+		criteria.Page = 1
 	}
 
 	// Parseo de limit (default 20, max 100)
@@ -178,12 +178,12 @@ func (h *PetHandler) SearchPets(c *gin.Context) {
 		if l > 100 {
 			l = 100
 		}
-		filters.Limit = l
+		criteria.Limit = l
 	} else {
-		filters.Limit = 20
+		criteria.Limit = 20
 	}
 
-	result, err := h.petService.SearchPets(filters)
+	result, err := h.petService.SearchPets(criteria)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
 		return

@@ -7,6 +7,23 @@ import (
 )
 
 // ============================================================
+// QUERY CRITERIA
+// ============================================================
+
+// PetSearchCriteria contiene los parámetros de búsqueda de mascotas.
+// Vive en domain para que repository pueda usarlo sin importar dto.
+type PetSearchCriteria struct {
+	Type   string     // coincidencia exacta con pets.type
+	Breed  string     // coincidencia parcial ILIKE %breed%
+	Color  string     // coincidencia parcial ILIKE %color%
+	Status string     // coincidencia exacta con pets.status (default "active")
+	From   *time.Time // pets cuyo reporte.occurred_at >= From
+	To     *time.Time // pets cuyo reporte.occurred_at <= To
+	Page   int        // página (default 1)
+	Limit  int        // tamaño de página (default 20, max 100)
+}
+
+// ============================================================
 // CORE ENTITIES
 // ============================================================
 

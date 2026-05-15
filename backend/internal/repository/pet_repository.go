@@ -5,7 +5,6 @@ import (
 
 	"gorm.io/gorm"
 	"lost-pets/internal/domain"
-	"lost-pets/internal/dto"
 )
 
 // PostgresPetRepository es la IMPLEMENTACIÓN concreta que habla con PostgreSQL.
@@ -58,7 +57,7 @@ func (r *PostgresPetRepository) UpdateStatus(id string, status string) error {
 
 // Search aplica filtros opcionales y devuelve resultados paginados con el total.
 // Implementa FR1.1 (filtros), FR1.2 (combinables), FR1.5 (date range por report).
-func (r *PostgresPetRepository) Search(filters dto.PetSearchFilters) ([]domain.Pet, int64, error) {
+func (r *PostgresPetRepository) Search(filters domain.PetSearchCriteria) ([]domain.Pet, int64, error) {
 	// Normalizamos paginación
 	page := filters.Page
 	if page < 1 {

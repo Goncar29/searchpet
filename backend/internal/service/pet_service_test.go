@@ -32,6 +32,9 @@ func (m *mockPetRepo) UpdateStatus(_ string, status string) error {
 	return m.updateErr
 }
 func (m *mockPetRepo) Delete(_ string) error { return nil }
+func (m *mockPetRepo) Search(_ domain.PetSearchCriteria) ([]domain.Pet, int64, error) {
+	return nil, 0, nil
+}
 
 // ============================================================
 // Helpers

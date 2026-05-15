@@ -7,19 +7,6 @@ import (
 	"lost-pets/internal/domain"
 )
 
-// PetSearchFilters contiene los filtros opcionales para buscar mascotas.
-// Todos los campos son opcionales — omitir un campo no restringe los resultados.
-type PetSearchFilters struct {
-	Type   string     // coincidencia exacta con pets.type
-	Breed  string     // coincidencia parcial ILIKE %breed%
-	Color  string     // coincidencia parcial ILIKE %color%
-	Status string     // coincidencia exacta con pets.status (default "active")
-	From   *time.Time // pets cuyo último reporte.occurred_at >= From
-	To     *time.Time // pets cuyo último reporte.occurred_at <= To
-	Page   int        // página (default 1)
-	Limit  int        // tamaño de página (default 20, max 100)
-}
-
 // PetSearchResponse es la respuesta paginada del endpoint GET /api/pets/search.
 type PetSearchResponse struct {
 	Data  []PetResponse `json:"data"`
