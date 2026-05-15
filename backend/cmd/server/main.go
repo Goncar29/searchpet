@@ -1,7 +1,9 @@
 package main
 
 import (
+	"context"
 	"log"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"lost-pets/config"
@@ -11,7 +13,9 @@ import (
 	"lost-pets/internal/repository"
 	"lost-pets/internal/service"
 	"lost-pets/pkg/database"
+	"lost-pets/pkg/mailer"
 	"lost-pets/pkg/notification"
+	"lost-pets/pkg/sms"
 	"lost-pets/pkg/storage"
 )
 
@@ -95,6 +99,12 @@ func main() {
 	abuseReportRepo := repository.NewAbuseReportRepository(db)
 	abuseReportService := service.NewAbuseReportService(abuseReportRepo)
 
+	// V1.3 — User Verification (OTP)
+	verificationTokenRepo := repository.NewVerificationTokenRepository(db)
+	mailerClient := mailer.NewSendGridMailer(cfg.SendGridAPIKey)
+	smsSenderClient := sms.NewTwilioSender(cfg.TwilioAccountSID, cfg.TwilioAuthToken, cfg.TwilioFromNumber)
+	verificationService := service.NewVerificationService(verificationTokenRepo, userRepo, mailerClient, smsSenderClient)
+
 	notificationService := service.NewNotificationService(fcmClient, deviceTokenRepo)
 	notificationService.RegisterListeners(bus)
 
@@ -119,6 +129,7 @@ func main() {
 	storyHandler := handler.NewSuccessStoryHandler(storyService)
 	groupHandler := handler.NewGroupHandler(groupService)
 	abuseReportHandler := handler.NewAbuseReportHandler(abuseReportService)
+	verificationHandler := handler.NewVerificationHandler(verificationService, cfg.EnableEmailVerification)
 
 	// ========================================
 	// ROUTER
@@ -227,6 +238,12 @@ func main() {
 
 		// V1.3 — Abuse Reports (submit protected; read + resolve is admin-only via admin group)
 		protected.POST("/abuse-reports", abuseReportHandler.Submit)
+
+		// V1.3 — User Verification (OTP)
+		protected.POST("/verification/send-email", verificationHandler.SendEmail)
+		protected.POST("/verification/send-sms", verificationHandler.SendSMS)
+		protected.POST("/verification/confirm-email", verificationHandler.ConfirmEmail)
+		protected.POST("/verification/confirm-sms", verificationHandler.ConfirmSMS)
 	}
 
 	// ----------------------------------------
@@ -243,6 +260,22 @@ func main() {
 		admin.PATCH("/admin/abuse-reports/:id/resolve", abuseReportHandler.Resolve)
 		admin.PATCH("/admin/reports/:id/verify", reportHandler.VerifyReport)
 	}
+
+	// ========================================
+	// GOROUTINE: LIMPIEZA DE OTP EXPIRADOS
+	// Corre cada hora eliminando tokens vencidos de la BD.
+	// ========================================
+	go func() {
+		ticker := time.NewTicker(1 * time.Hour)
+		defer ticker.Stop()
+		for range ticker.C {
+			if deleted, err := verificationTokenRepo.DeleteExpired(context.Background()); err != nil {
+				log.Printf("OTP cleanup error: %v", err)
+			} else if deleted > 0 {
+				log.Printf("OTP cleanup: %d tokens expirados eliminados", deleted)
+			}
+		}
+	}()
 
 	// ========================================
 	// INICIAR SERVIDOR

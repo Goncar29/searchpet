@@ -105,6 +105,19 @@ type DeviceTokenRepository interface {
 	DeleteByToken(ctx context.Context, token string) error
 }
 
+// VerificationTokenRepository define el contrato para tokens OTP de verificación.
+// Style A: context.Context + uuid.UUID.
+type VerificationTokenRepository interface {
+	Create(ctx context.Context, token *domain.VerificationToken) error
+	// FindActiveByUser retorna un token activo (used=false AND expires_at > NOW()) para el canal dado.
+	FindActiveByUser(ctx context.Context, userID uuid.UUID, channel string) (*domain.VerificationToken, error)
+	MarkUsed(ctx context.Context, id uuid.UUID) error
+	// IncrementAttempts incrementa el contador de intentos de forma atómica y retorna el nuevo valor.
+	IncrementAttempts(ctx context.Context, id uuid.UUID) (int, error)
+	// DeleteExpired elimina tokens expirados y retorna la cantidad eliminada.
+	DeleteExpired(ctx context.Context) (int64, error)
+}
+
 // AbuseReportRepository define el contrato para denuncias de fraude/abuso.
 // Style A: context.Context + uuid.UUID.
 type AbuseReportRepository interface {

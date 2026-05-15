@@ -9,6 +9,49 @@ import (
 	"lost-pets/internal/dto"
 )
 
+// VerificationService define el contrato para verificación de identidad via OTP.
+type VerificationService interface {
+	// SendOTP genera y envía un OTP al usuario por el canal dado ("email" o "sms").
+	// Retorna error rate-limit si ya se envió en el último minuto.
+	// Retorna 422-class error si channel="sms" y el usuario no tiene teléfono.
+	SendOTP(ctx context.Context, userID uuid.UUID, channel string) error
+	// ConfirmOTP verifica el código OTP del usuario.
+	// Retorna ErrOTPExpired si el token expiró, ErrOTPInvalid si el código es incorrecto.
+	// Al superar 5 intentos fallidos, invalida el token.
+	ConfirmOTP(ctx context.Context, userID uuid.UUID, channel, code string) error
+}
+
+// ErrRateLimitOTP es retornado cuando se intenta enviar un OTP dentro del período de rate limit.
+// RetryAfter indica los segundos que el cliente debe esperar.
+type ErrRateLimitOTP struct {
+	RetryAfter int
+}
+
+func (e *ErrRateLimitOTP) Error() string {
+	return "rate limit: espera antes de solicitar otro código"
+}
+
+// ErrNoPhoneOnFile es retornado cuando se solicita SMS pero el usuario no tiene teléfono.
+type ErrNoPhoneOnFile struct{}
+
+func (e *ErrNoPhoneOnFile) Error() string {
+	return "no_phone_on_file"
+}
+
+// ErrExternalService es retornado cuando un proveedor externo (SendGrid, Twilio) falla.
+// El handler lo mapea a 502 Bad Gateway.
+type ErrExternalService struct {
+	Cause error
+}
+
+func (e *ErrExternalService) Error() string {
+	return "error en servicio externo"
+}
+
+func (e *ErrExternalService) Unwrap() error {
+	return e.Cause
+}
+
 // AbuseReportService define el contrato para denuncias de fraude/abuso.
 type AbuseReportService interface {
 	Submit(ctx context.Context, reporterID uuid.UUID, req dto.CreateAbuseReportRequest) (*domain.ReportAbuse, error)
