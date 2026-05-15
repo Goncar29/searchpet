@@ -102,6 +102,25 @@ type DeviceTokenRepository interface {
 	DeleteByToken(ctx context.Context, token string) error
 }
 
+// LocalGroupRepository define el contrato para grupos locales por ciudad.
+// Style A: context.Context + uuid.UUID.
+type LocalGroupRepository interface {
+	Create(ctx context.Context, group *domain.LocalGroup) error
+	GetByID(ctx context.Context, id uuid.UUID) (*domain.LocalGroup, error)
+	GetAll(ctx context.Context, city string, limit, offset int) ([]domain.LocalGroup, error)
+	IncrementMemberCount(ctx context.Context, id uuid.UUID) error
+	DecrementMemberCount(ctx context.Context, id uuid.UUID) error
+}
+
+// GroupMemberRepository define el contrato para miembros de grupos.
+// Style A: context.Context + uuid.UUID.
+type GroupMemberRepository interface {
+	Create(ctx context.Context, member *domain.GroupMember) error
+	Delete(ctx context.Context, groupID, userID uuid.UUID) error
+	IsMember(ctx context.Context, groupID, userID uuid.UUID) (bool, error)
+	GetByGroupID(ctx context.Context, groupID uuid.UUID, limit, offset int) ([]domain.GroupMember, error)
+}
+
 // SuccessStoryRepository define el contrato para acceder a historias de éxito.
 // Style A: context.Context + uuid.UUID.
 type SuccessStoryRepository interface {

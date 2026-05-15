@@ -89,6 +89,9 @@ func main() {
 	shelterService := service.NewShelterService(shelterRepo)
 	blockService := service.NewBlockService(blockedUserRepo)
 	storyService := service.NewSuccessStoryService(repository.NewSuccessStoryRepository(db))
+	groupRepo := repository.NewLocalGroupRepository(db)
+	groupMemberRepo := repository.NewGroupMemberRepository(db)
+	groupService := service.NewGroupService(groupRepo, groupMemberRepo)
 
 	notificationService := service.NewNotificationService(fcmClient, deviceTokenRepo)
 	notificationService.RegisterListeners(bus)
@@ -112,6 +115,7 @@ func main() {
 	locationAlertHandler := handler.NewLocationAlertHandler(locationAlertService)
 	blockHandler := handler.NewBlockHandler(blockService)
 	storyHandler := handler.NewSuccessStoryHandler(storyService)
+	groupHandler := handler.NewGroupHandler(groupService)
 
 	// ========================================
 	// ROUTER
@@ -211,6 +215,12 @@ func main() {
 		protected.GET("/stories/:id", storyHandler.GetByID)
 		protected.POST("/stories/:id/like", storyHandler.Like)
 		protected.DELETE("/stories/:id", storyHandler.Delete)
+
+		// V1.3 — Local Groups (read + join/leave for all; create is admin-only via admin group)
+		protected.GET("/groups", groupHandler.List)
+		protected.GET("/groups/:id", groupHandler.GetByID)
+		protected.POST("/groups/:id/join", groupHandler.Join)
+		protected.DELETE("/groups/:id/leave", groupHandler.Leave)
 	}
 
 	// ----------------------------------------
@@ -221,6 +231,7 @@ func main() {
 	admin.Use(middleware.RequireAdmin(userRepo))
 	{
 		admin.PATCH("/admin/stories/:id/featured", storyHandler.SetFeatured)
+		admin.POST("/groups", groupHandler.Create)
 	}
 
 	// ========================================

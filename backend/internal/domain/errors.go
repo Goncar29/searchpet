@@ -55,6 +55,7 @@ var (
 	// Community (V1.3)
 	ErrStoryNotFound       = errors.New("historia no encontrada")
 	ErrGroupNotFound       = errors.New("grupo no encontrado")
+	ErrCityGroupExists     = errors.New("ya existe un grupo para esta ciudad")
 	ErrAlreadyMember       = errors.New("ya eres miembro de este grupo")
 	ErrNotMember           = errors.New("no eres miembro de este grupo")
 	ErrAbuseReportNotFound = errors.New("denuncia no encontrada")

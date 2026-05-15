@@ -9,6 +9,15 @@ import (
 	"lost-pets/internal/dto"
 )
 
+// GroupService define el contrato para grupos locales.
+type GroupService interface {
+	CreateGroup(ctx context.Context, creatorID uuid.UUID, req dto.CreateGroupRequest) (*domain.LocalGroup, error)
+	GetByID(ctx context.Context, id uuid.UUID) (*domain.LocalGroup, error)
+	List(ctx context.Context, city string, limit, offset int) ([]domain.LocalGroup, error)
+	Join(ctx context.Context, groupID, userID uuid.UUID) error
+	Leave(ctx context.Context, groupID, userID uuid.UUID) error
+}
+
 // SuccessStoryService define el contrato para historias de éxito.
 type SuccessStoryService interface {
 	Create(ctx context.Context, userID uuid.UUID, req dto.CreateStoryRequest) (*domain.SuccessStory, error)
