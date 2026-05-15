@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"strings"
 
 	"github.com/google/uuid"
 	"lost-pets/internal/domain"
@@ -54,7 +55,7 @@ func (s *groupService) Join(ctx context.Context, groupID, userID uuid.UUID) erro
 		return err
 	}
 
-	// Check idempotencia: si ya es miembro, retornar nil (no duplicar, no cambiar counter)
+	// Fast-path: si ya es miembro, retornar ErrAlreadyMember sin tocar el contador.
 	isMember, err := s.memberRepo.IsMember(ctx, groupID, userID)
 	if err != nil {
 		return err
@@ -69,10 +70,15 @@ func (s *groupService) Join(ctx context.Context, groupID, userID uuid.UUID) erro
 	}
 
 	if err := s.memberRepo.Create(ctx, member); err != nil {
+		// Unique constraint → race condition: otro goroutine hizo Join al mismo tiempo.
+		// Tratamos como idempotente: el usuario ya es miembro, no incrementamos el contador.
+		if strings.Contains(err.Error(), "unique") || strings.Contains(err.Error(), "duplicate") {
+			return domain.ErrAlreadyMember
+		}
 		return err
 	}
 
-	// Incrementar contador de forma atómica
+	// Incrementar contador de forma atómica solo si el insert fue exitoso.
 	return s.groupRepo.IncrementMemberCount(ctx, groupID)
 }
 

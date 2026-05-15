@@ -32,6 +32,9 @@ func RequireAdmin(userRepo repository.UserRepository) gin.HandlerFunc {
 			return
 		}
 
+		// Disponible para handlers que necesiten saber si el caller es admin
+		// sin hacer un lookup adicional a la BD.
+		c.Set("isAdmin", true)
 		c.Next()
 	}
 }
