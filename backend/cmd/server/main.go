@@ -241,6 +241,7 @@ func main() {
 		admin.GET("/abuse-reports", abuseReportHandler.List)
 		admin.GET("/abuse-reports/:id", abuseReportHandler.GetByID)
 		admin.PATCH("/admin/abuse-reports/:id/resolve", abuseReportHandler.Resolve)
+		admin.PATCH("/admin/reports/:id/verify", reportHandler.VerifyReport)
 	}
 
 	// ========================================

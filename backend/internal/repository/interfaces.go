@@ -30,6 +30,9 @@ type ReportRepository interface {
 	FindByID(id string) (*domain.Report, error)
 	FindByPetID(petID string) ([]domain.Report, error)
 	FindNearby(lat, lng float64, radiusMeters float64) ([]domain.Report, error)
+	// UpdateVerified marca un reporte como verificado y registra quién lo verificó.
+	// Style A para el nuevo método.
+	UpdateVerified(ctx context.Context, id uuid.UUID, verifiedBy uuid.UUID) error
 }
 
 // PhotoRepository define el contrato para acceder a datos de fotos de mascotas.

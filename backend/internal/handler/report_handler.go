@@ -86,6 +86,36 @@ func (h *ReportHandler) GetReportsByPet(c *gin.Context) {
 	c.JSON(http.StatusOK, dto.ToReportListResponse(reports))
 }
 
+// VerifyReport godoc
+// PATCH /admin/reports/:id/verify  (admin only — gated by RequireAdmin middleware)
+func (h *ReportHandler) VerifyReport(c *gin.Context) {
+	adminID := getUserUUID(c)
+
+	reportID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "id de reporte inválido"})
+		return
+	}
+
+	if err := h.reportService.VerifyReport(c.Request.Context(), reportID, adminID); err != nil {
+		if errors.Is(err, domain.ErrReportNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
+		return
+	}
+
+	// Recargar para devolver el DTO actualizado
+	report, err := h.reportService.GetReportByID(reportID.String())
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{"message": "reporte verificado"})
+		return
+	}
+
+	c.JSON(http.StatusOK, dto.ToReportResponse(report))
+}
+
 // GetNearbyReports godoc
 // GET /api/reports/nearby?lat=-34.9011&lng=-56.1645&radius=5000
 //

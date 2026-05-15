@@ -1,8 +1,11 @@
 package repository
 
 import (
+	"context"
 	"errors"
+	"time"
 
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 	"lost-pets/internal/domain"
 )
@@ -45,6 +48,27 @@ func (r *PostgresReportRepository) FindByPetID(petID string) ([]domain.Report, e
 		Order("COALESCE(occurred_at, created_at) DESC").
 		Find(&reports).Error
 	return reports, err
+}
+
+// UpdateVerified marca un reporte como verificado (admin action).
+// Persiste verified = true, verified_by = verifiedBy, verified_at = now.
+func (r *PostgresReportRepository) UpdateVerified(ctx context.Context, id uuid.UUID, verifiedBy uuid.UUID) error {
+	now := time.Now()
+	result := r.db.WithContext(ctx).
+		Model(&domain.Report{}).
+		Where("id = ?", id).
+		Updates(map[string]interface{}{
+			"is_verified": true,
+			"verified_by": verifiedBy,
+			"verified_at": now,
+		})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return domain.ErrReportNotFound
+	}
+	return nil
 }
 
 // FindNearby busca reportes dentro de un radio usando PostGIS.

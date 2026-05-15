@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"time"
 
 	"github.com/google/uuid"
@@ -15,6 +16,8 @@ type ReportService interface {
 	GetReportByID(id string) (*domain.Report, error)
 	GetReportsByPet(petID string) ([]domain.Report, error)
 	GetNearbyReports(lat, lng float64, radiusMeters float64) ([]domain.Report, error)
+	// VerifyReport marca un reporte como verificado (admin-only, enforced en handler).
+	VerifyReport(ctx context.Context, reportID, adminID uuid.UUID) error
 }
 
 // CreateReportRequest contiene los datos para crear un reporte.
@@ -126,4 +129,10 @@ func (s *reportService) GetReportsByPet(petID string) ([]domain.Report, error) {
 // El radio debe ser provisto por el caller (ver ReportHandler para la lógica de precedencia).
 func (s *reportService) GetNearbyReports(lat, lng float64, radiusMeters float64) ([]domain.Report, error) {
 	return s.repo.FindNearby(lat, lng, radiusMeters)
+}
+
+// VerifyReport marca un reporte como verificado.
+// Admin-only enforcement se hace en el handler mediante RequireAdmin middleware.
+func (s *reportService) VerifyReport(ctx context.Context, reportID, adminID uuid.UUID) error {
+	return s.repo.UpdateVerified(ctx, reportID, adminID)
 }
