@@ -1,13 +1,22 @@
 import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useUpdateMe, useUploadProfilePhoto } from '@shared/hooks';
+import { useUpdateMe, useUploadProfilePhoto, useMyBadges } from '@shared/hooks';
 import { useAuth } from '../context/AuthContext';
+import type { Badge } from '@shared/types';
+
+const BADGE_META: Record<string, { emoji: string; label: string }> = {
+  first_helper: { emoji: '🤝', label: 'Primer Ayudante' },
+  pet_rescuer: { emoji: '🦸', label: 'Rescatador' },
+  social_butterfly: { emoji: '📣', label: 'Social' },
+  verified_finder: { emoji: '✓', label: 'Verificado' },
+};
 
 export function ProfilePage() {
   const { t } = useTranslation(['profile', 'common']);
   const { user, refreshUser } = useAuth();
   const updateMe = useUpdateMe();
   const uploadPhoto = useUploadProfilePhoto();
+  const { data: badges } = useMyBadges();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [name, setName] = useState('');
@@ -228,6 +237,43 @@ export function ProfilePage() {
               {updateMe.isPending ? t('common:loading') : t('profile:save')}
             </button>
           </form>
+        </div>
+
+        {/* Mis logros */}
+        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+          <h2 className="text-base font-semibold text-gray-900 dark:text-gray-50 mb-4">
+            Mis logros
+          </h2>
+          {!badges || badges.length === 0 ? (
+            <div className="text-center py-6">
+              <p className="text-3xl mb-2">🏅</p>
+              <p className="text-sm text-gray-400 dark:text-gray-500">
+                Todavía no tenés logros. ¡Empezá reportando mascotas!
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-2">
+              {badges.map((badge: Badge) => {
+                const meta = BADGE_META[badge.badge_type] ?? { emoji: '🏅', label: badge.badge_type };
+                return (
+                  <div
+                    key={badge.id}
+                    className="flex items-center gap-2 p-3 rounded-xl bg-primary/5 border border-primary/20"
+                  >
+                    <span className="text-xl">{meta.emoji}</span>
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold text-gray-900 dark:text-gray-50 truncate">
+                        {meta.label}
+                      </p>
+                      <p className="text-xs text-gray-400 dark:text-gray-500">
+                        {new Date(badge.earned_at).toLocaleDateString('es-UY', { day: 'numeric', month: 'short' })}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
     </div>

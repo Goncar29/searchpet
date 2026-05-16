@@ -59,13 +59,13 @@ function PetCard({
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 flex flex-col overflow-hidden">
-      {/* Foto */}
-      <div className="h-40 bg-gray-100 dark:bg-gray-700 relative flex-shrink-0">
+      {/* Foto — clickeable al detail */}
+      <Link to={`/pets/${pet.id}`} className="block h-40 bg-gray-100 dark:bg-gray-700 relative flex-shrink-0 group">
         {primaryPhoto ? (
           <img
             src={primaryPhoto.url}
             alt={pet.name}
-            className="w-full h-full object-cover"
+            className="w-full h-full object-cover group-hover:opacity-90 transition-opacity"
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-4xl">🐾</div>
@@ -73,14 +73,16 @@ function PetCard({
         <span className={`absolute top-2 right-2 text-xs font-medium px-2 py-0.5 rounded-full ${statusCfg.className}`}>
           {t(statusCfg.labelKey)}
         </span>
-      </div>
+      </Link>
 
       {/* Contenido */}
       <div className="p-4 flex flex-col gap-3 flex-1">
         <div>
-          <h3 className="font-semibold text-gray-900 dark:text-gray-50 text-base leading-tight">
-            {pet.name}
-          </h3>
+          <Link to={`/pets/${pet.id}`} className="hover:text-primary transition-colors">
+            <h3 className="font-semibold text-gray-900 dark:text-gray-50 text-base leading-tight">
+              {pet.name}
+            </h3>
+          </Link>
           <p className="text-sm text-gray-500 dark:text-gray-400">
             {typeLabels[pet.type] ?? pet.type}
           </p>

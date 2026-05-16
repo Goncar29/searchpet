@@ -270,3 +270,31 @@ export const useStats = () => {
     staleTime: 30 * 60 * 1000, // 30 minutos
   });
 };
+
+// ============================================================
+// GAMIFICATION HOOKS
+// ============================================================
+
+export const usePublicProfile = (userID: string) => {
+  return useQuery({
+    queryKey: ['profile', userID],
+    queryFn: () => apiClient.getPublicProfile(userID),
+    enabled: !!userID,
+  });
+};
+
+export const useLeaderboard = (city: string, limit = 10) => {
+  return useQuery({
+    queryKey: ['leaderboard', city, limit],
+    queryFn: () => apiClient.getLeaderboard(city, limit),
+    enabled: !!city,
+    staleTime: 5 * 60 * 1000, // 5 minutos
+  });
+};
+
+export const useMyBadges = () => {
+  return useQuery({
+    queryKey: ['badges', 'me'],
+    queryFn: () => apiClient.getMyBadges(),
+  });
+};

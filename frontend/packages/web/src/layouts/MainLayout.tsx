@@ -28,6 +28,7 @@ export function MainLayout() {
     { to: '/', label: t('home') },
     { to: '/map', label: t('map') },
     { to: '/shelters', label: t('shelters') },
+    { to: '/leaderboard', label: '🏆 Ranking' },
   ];
 
   const isActive = (path: string) => location.pathname === path;

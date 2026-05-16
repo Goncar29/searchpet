@@ -110,6 +110,36 @@ export interface Stats {
   found_pets: number;
 }
 
+// ============================================================
+// GAMIFICATION
+// ============================================================
+
+export interface Badge {
+  id: string;
+  badge_type: string;
+  earned_at: string;
+}
+
+export interface UserProfile {
+  id: string;
+  name: string;
+  city: string;
+  profile_photo_url?: string;
+  total_points: number;
+  total_reports: number;
+  found_count: number;
+  share_count: number;
+  badges: Badge[];
+}
+
+export interface LeaderboardEntry {
+  user_id: string;
+  name: string;
+  city: string;
+  total_points: number;
+  rank: number;
+}
+
 export interface AuthResponse {
   token: string;
   user: User;

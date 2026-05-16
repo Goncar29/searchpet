@@ -13,6 +13,8 @@ import { EditPetPage } from './pages/EditPetPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { MyPetsPage } from './pages/MyPetsPage';
 import { CreateReportPage } from './pages/CreateReportPage';
+import { LeaderboardPage } from './pages/LeaderboardPage';
+import { UserProfilePage } from './pages/UserProfilePage';
 
 export default function App() {
   return (
@@ -24,6 +26,8 @@ export default function App() {
         <Route path="/map" element={<MapPage />} />
         <Route path="/pets/:id" element={<PetDetailPage />} />
         <Route path="/shelters" element={<SheltersPage />} />
+        <Route path="/leaderboard" element={<LeaderboardPage />} />
+        <Route path="/users/:id" element={<UserProfilePage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
 

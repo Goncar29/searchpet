@@ -30,6 +30,9 @@ import type {
   LocationAlertListResponse,
   CreateLocationAlertRequest,
   UpdateLocationAlertRequest,
+  Badge,
+  UserProfile,
+  LeaderboardEntry,
 } from '../types';
 
 // En Vite usamos import.meta.env, en Expo usamos process.env
@@ -360,6 +363,22 @@ class APIClient {
 
   async deleteAlert(id: string): Promise<void> {
     return this.request<void>('DELETE', `/api/alerts/${id}`);
+  }
+
+  // ============================================================
+  // GAMIFICATION
+  // ============================================================
+
+  async getPublicProfile(userID: string): Promise<UserProfile> {
+    return this.request<UserProfile>('GET', `/api/users/${userID}/profile`);
+  }
+
+  async getLeaderboard(city: string, limit = 10): Promise<LeaderboardEntry[]> {
+    return this.request<LeaderboardEntry[]>('GET', '/api/leaderboard', undefined, { city, limit });
+  }
+
+  async getMyBadges(): Promise<Badge[]> {
+    return this.request<Badge[]>('GET', '/api/users/me/badges');
   }
 }
 
