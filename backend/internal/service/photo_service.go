@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"lost-pets/internal/domain"
@@ -26,7 +27,9 @@ func sanitizePublicID(petID, filename string) string {
 	if base == "" {
 		base = "photo"
 	}
-	return fmt.Sprintf("pets/%s/%s", petID, base)
+	// El timestamp garantiza una URL única por upload, evitando que el browser
+	// sirva la imagen anterior desde cache cuando se reemplaza una foto.
+	return fmt.Sprintf("pets/%s/%s_%d", petID, base, time.Now().UnixMilli())
 }
 
 // PhotoService define el contrato de la capa de negocio para fotos de mascotas.
