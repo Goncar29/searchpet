@@ -40,6 +40,7 @@ type PhotoRepository interface {
 	Create(photo *domain.Photo) error
 	FindByPetID(petID string) ([]domain.Photo, error)
 	HasPrimaryPhoto(petID string) (bool, error)
+	UnsetPrimaryPhotos(petID string) error
 }
 
 // ============================================================

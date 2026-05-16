@@ -99,12 +99,6 @@ func (s *photoServiceImpl) UploadPhoto(
 		return nil, domain.ErrStorageFailed
 	}
 
-	// LÓGICA DE NEGOCIO: primera foto → is_primary = true
-	hasPrimary, err := s.photoRepo.HasPrimaryPhoto(petID)
-	if err != nil {
-		return nil, err
-	}
-
 	uploaderUUID, err := uuid.Parse(uploaderID)
 	if err != nil {
 		return nil, domain.ErrInvalidInput
@@ -115,11 +109,17 @@ func (s *photoServiceImpl) UploadPhoto(
 		return nil, domain.ErrInvalidInput
 	}
 
+	// LÓGICA DE NEGOCIO: la nueva foto siempre se convierte en primary.
+	// Si ya había una primary, la desmarcamos primero.
+	if err := s.photoRepo.UnsetPrimaryPhotos(petID); err != nil {
+		return nil, err
+	}
+
 	photo := &domain.Photo{
 		PetID:      petUUID,
 		URL:        secureURL,
 		UploadedBy: uploaderUUID,
-		IsPrimary:  !hasPrimary,
+		IsPrimary:  true,
 	}
 
 	if err := s.photoRepo.Create(photo); err != nil {

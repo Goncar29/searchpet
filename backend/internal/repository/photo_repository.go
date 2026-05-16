@@ -36,3 +36,11 @@ func (r *PostgresPhotoRepository) HasPrimaryPhoto(petID string) (bool, error) {
 		Count(&count).Error
 	return count > 0, err
 }
+
+// UnsetPrimaryPhotos quita el flag is_primary de todas las fotos de una mascota.
+// Se usa antes de marcar una nueva foto como primary.
+func (r *PostgresPhotoRepository) UnsetPrimaryPhotos(petID string) error {
+	return r.db.Model(&domain.Photo{}).
+		Where("pet_id = ? AND is_primary = true", petID).
+		Update("is_primary", false).Error
+}
