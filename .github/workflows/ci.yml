@@ -94,85 +94,62 @@ jobs:
         run: npx vite build
 
   # ============================================
-  # Deploy Backend (Railway)
+  # Deploy Backend (Railway) — PENDIENTE: configurar RAILWAY_TOKEN
   # ============================================
-  deploy-backend:
-    name: Deploy Backend
-    runs-on: ubuntu-latest
-    needs: [backend-test]
-    if: github.ref == 'refs/heads/main'
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Deploy to Railway
-        uses: bervProject/railway-deploy@main
-        with:
-          railway_token: ${{ secrets.RAILWAY_TOKEN }}
-          service: lost-pets-api
+  # deploy-backend:
+  #   name: Deploy Backend
+  #   runs-on: ubuntu-latest
+  #   needs: [backend-test]
+  #   if: github.ref == 'refs/heads/main'
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - name: Deploy to Railway
+  #       uses: bervProject/railway-deploy@main
+  #       with:
+  #         railway_token: ${{ secrets.RAILWAY_TOKEN }}
+  #         service: lost-pets-api
 
   # ============================================
-  # Deploy Web (Vercel)
+  # Deploy Web (Vercel) — PENDIENTE: configurar VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID
   # ============================================
-  deploy-web:
-    name: Deploy Web
-    runs-on: ubuntu-latest
-    needs: [frontend-web]
-    if: github.ref == 'refs/heads/main'
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Deploy to Vercel
-        uses: amondnet/vercel-action@v25
-        with:
-          vercel-token: ${{ secrets.VERCEL_TOKEN }}
-          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-          working-directory: ./frontend/packages/web
+  # deploy-web:
+  #   name: Deploy Web
+  #   runs-on: ubuntu-latest
+  #   needs: [frontend-web]
+  #   if: github.ref == 'refs/heads/main'
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - name: Deploy to Vercel
+  #       uses: amondnet/vercel-action@v25
+  #       with:
+  #         vercel-token: ${{ secrets.VERCEL_TOKEN }}
+  #         vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+  #         vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+  #         working-directory: ./frontend/packages/web
 
   # ============================================
-  # Mobile Build (Expo EAS) — solo en main
-  # Requiere secrets: EXPO_TOKEN
+  # Mobile Build (EAS) — PENDIENTE: correr `eas init` y linkear proyecto
   # ============================================
-  mobile-build:
-    name: Mobile Build (EAS Production)
-    runs-on: ubuntu-latest
-    needs: [backend-test]
-    if: github.ref == 'refs/heads/main'
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: frontend/packages/mobile/package-lock.json
-
-      - name: Setup Expo
-        uses: expo/expo-github-action@v8
-        with:
-          expo-version: latest
-          eas-version: latest
-          token: ${{ secrets.EXPO_TOKEN }}
-
-      - name: Install dependencies
-        working-directory: ./frontend/packages/mobile
-        run: npm ci
-
-      - name: Security audit
-        working-directory: ./frontend/packages/mobile
-        # expo@52 tiene vulnerabilidades high en su cadena de build tooling (tar, jsdom, postcss
-        # en metro/cli) que requieren bajar expo a 49 para corregir. No afectan código de producción.
-        # Se audita en nivel critical hasta que expo publique un fix.
-        run: npm audit --audit-level=critical
-
-      - name: Test
-        working-directory: ./frontend/packages/mobile
-        run: npm run test:run
-
-      - name: Build (EAS production)
-        working-directory: ./frontend/packages/mobile
-        run: eas build --platform all --profile production --non-interactive
+  # mobile-build:
+  #   name: Mobile Build (EAS Production)
+  #   runs-on: ubuntu-latest
+  #   needs: [backend-test]
+  #   if: github.ref == 'refs/heads/main'
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: actions/setup-node@v4
+  #       with:
+  #         node-version: '20'
+  #         cache: 'npm'
+  #         cache-dependency-path: frontend/packages/mobile/package-lock.json
+  #     - uses: expo/expo-github-action@v8
+  #       with:
+  #         expo-version: latest
+  #         eas-version: latest
+  #         token: ${{ secrets.EXPO_TOKEN }}
+  #     - name: Install dependencies
+  #       working-directory: ./frontend/packages/mobile
+  #       run: npm ci
+  #     - name: Build (EAS production)
+  #       working-directory: ./frontend/packages/mobile
+  #       run: eas build --platform all --profile production --non-interactive
