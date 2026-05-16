@@ -1,0 +1,41 @@
+{
+  "name": "SearchPet - Encuentra mascotas perdidas",
+  "short_name": "SearchPet",
+  "description": "Plataforma gratuita para encontrar mascotas perdidas. Publica, busca en el mapa y comparte en redes sociales.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#FFFFFF",
+  "theme_color": "#FF6B35",
+  "lang": "es",
+  "categories": ["social", "utilities"],
+  "icons": [
+    {
+      "src": "/icons/icon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/icons/icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Ver mapa",
+      "short_name": "Mapa",
+      "url": "/map",
+      "icons": [{ "src": "/icons/icon.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Publicar mascota",
+      "short_name": "Publicar",
+      "url": "/pets/create",
+      "icons": [{ "src": "/icons/icon.png", "sizes": "192x192" }]
+    }
+  ]
+}
