@@ -15,34 +15,40 @@ import { MyPetsPage } from './pages/MyPetsPage';
 import { CreateReportPage } from './pages/CreateReportPage';
 import { LeaderboardPage } from './pages/LeaderboardPage';
 import { UserProfilePage } from './pages/UserProfilePage';
+import { InstallPWA } from './components/InstallPWA';
+import { DownloadPage } from './pages/DownloadPage';
 
 export default function App() {
   return (
-    <Routes>
-      {/* Rutas con layout */}
-      <Route element={<MainLayout />}>
-        {/* Rutas públicas */}
-        <Route path="/" element={<HomePage />} />
-        <Route path="/map" element={<MapPage />} />
-        <Route path="/pets/:id" element={<PetDetailPage />} />
-        <Route path="/shelters" element={<SheltersPage />} />
-        <Route path="/leaderboard" element={<LeaderboardPage />} />
-        <Route path="/users/:id" element={<UserProfilePage />} />
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/register" element={<RegisterPage />} />
+    <>
+      <Routes>
+        {/* Rutas con layout */}
+        <Route element={<MainLayout />}>
+          {/* Rutas públicas */}
+          <Route path="/" element={<HomePage />} />
+          <Route path="/map" element={<MapPage />} />
+          <Route path="/pets/:id" element={<PetDetailPage />} />
+          <Route path="/shelters" element={<SheltersPage />} />
+          <Route path="/leaderboard" element={<LeaderboardPage />} />
+          <Route path="/users/:id" element={<UserProfilePage />} />
+          <Route path="/descargar" element={<DownloadPage />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
 
-        {/* Rutas protegidas (requieren autenticación) */}
-        <Route element={<ProtectedRoute />}>
-          <Route path="/pets/create" element={<CreatePetPage />} />
-          <Route path="/pets/:id/edit" element={<EditPetPage />} />
-          <Route path="/profile" element={<ProfilePage />} />
-          <Route path="/pets/mine" element={<MyPetsPage />} />
-          <Route path="/reports/create" element={<CreateReportPage />} />
+          {/* Rutas protegidas (requieren autenticación) */}
+          <Route element={<ProtectedRoute />}>
+            <Route path="/pets/create" element={<CreatePetPage />} />
+            <Route path="/pets/:id/edit" element={<EditPetPage />} />
+            <Route path="/profile" element={<ProfilePage />} />
+            <Route path="/pets/mine" element={<MyPetsPage />} />
+            <Route path="/reports/create" element={<CreateReportPage />} />
+          </Route>
         </Route>
-      </Route>
 
-      {/* Landing page compartida (sin layout) */}
-      <Route path="/pet/:token" element={<SharedPetPage />} />
-    </Routes>
+        {/* Landing page compartida (sin layout) */}
+        <Route path="/pet/:token" element={<SharedPetPage />} />
+      </Routes>
+      <InstallPWA />
+    </>
   );
 }
