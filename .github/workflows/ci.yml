@@ -46,7 +46,7 @@ jobs:
         env:
           DATABASE_URL: postgres://postgres:postgres@localhost:5432/lostpets_test?sslmode=disable
           JWT_SECRET: test-secret
-        run: go test ./... -v -cover
+        run: go test ./... -v -covermode=atomic
 
       - name: Build
         working-directory: ./backend
@@ -71,7 +71,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: ./frontend/packages/web
-        run: npm ci
+        run: npm ci --legacy-peer-deps
 
       - name: Security audit
         working-directory: ./frontend/packages/web
