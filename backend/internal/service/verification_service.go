@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -26,20 +27,24 @@ type verificationService struct {
 	userRepo   repository.UserRepository
 	mailer     mailer.Mailer
 	smsSender  sms.SMSSender
+	gamSvc     GamificationService
 }
 
 // NewVerificationService construye el VerificationService con sus dependencias.
+// gamSvc puede ser nil si la gamificación no está habilitada (defensivo).
 func NewVerificationService(
 	tokenRepo repository.VerificationTokenRepository,
 	userRepo repository.UserRepository,
 	m mailer.Mailer,
 	s sms.SMSSender,
+	gamSvc GamificationService,
 ) VerificationService {
 	return &verificationService{
 		tokenRepo: tokenRepo,
 		userRepo:  userRepo,
 		mailer:    m,
 		smsSender: s,
+		gamSvc:    gamSvc,
 	}
 }
 
@@ -170,7 +175,19 @@ func (s *verificationService) ConfirmOTP(ctx context.Context, userID uuid.UUID, 
 		user.PhoneVerified = true
 	}
 
-	return s.userRepo.Update(ctx, user)
+	if err := s.userRepo.Update(ctx, user); err != nil {
+		return err
+	}
+
+	// Otorgar badge "verified_finder" por completar la verificación de identidad.
+	// REGLA: el error del badge NO debe fallar el flujo OTP — solo se loguea.
+	if s.gamSvc != nil {
+		if err := s.gamSvc.AwardBadgeIfEligible(ctx, userID, "verified_finder"); err != nil {
+			log.Printf("[VerificationService] gamification: award verified_finder para %s: %v", userID, err)
+		}
+	}
+
+	return nil
 }
 
 // generateOTPCode genera un código numérico de 6 dígitos usando crypto/rand.

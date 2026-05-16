@@ -89,7 +89,7 @@ func main() {
 	reportService := service.NewReportService(reportRepo, petRepo, bus)
 	photoService := service.NewPhotoService(photoRepo, petRepo, cloudinaryClient)
 	messageService := service.NewMessageService(messageRepo, blockedUserRepo, bus)
-	shareLinkService := service.NewShareLinkService(shareLinkRepo, petRepo)
+	shareLinkService := service.NewShareLinkService(shareLinkRepo, petRepo, bus)
 	shelterService := service.NewShelterService(shelterRepo)
 	blockService := service.NewBlockService(blockedUserRepo)
 	storyService := service.NewSuccessStoryService(repository.NewSuccessStoryRepository(db))
@@ -99,11 +99,17 @@ func main() {
 	abuseReportRepo := repository.NewAbuseReportRepository(db)
 	abuseReportService := service.NewAbuseReportService(abuseReportRepo)
 
+	// V1.4 — Gamification (Badges + Points + Leaderboard)
+	badgeRepo := repository.NewBadgeRepository(db)
+	pointsRepo := repository.NewUserPointsRepository(db)
+	gamSvc := service.NewGamificationService(badgeRepo, pointsRepo, userRepo)
+	gamSvc.RegisterListeners(bus)
+
 	// V1.3 — User Verification (OTP)
 	verificationTokenRepo := repository.NewVerificationTokenRepository(db)
 	mailerClient := mailer.NewSendGridMailer(cfg.SendGridAPIKey)
 	smsSenderClient := sms.NewTwilioSender(cfg.TwilioAccountSID, cfg.TwilioAuthToken, cfg.TwilioFromNumber)
-	verificationService := service.NewVerificationService(verificationTokenRepo, userRepo, mailerClient, smsSenderClient)
+	verificationService := service.NewVerificationService(verificationTokenRepo, userRepo, mailerClient, smsSenderClient, gamSvc)
 
 	notificationService := service.NewNotificationService(fcmClient, deviceTokenRepo)
 	notificationService.RegisterListeners(bus)
@@ -130,6 +136,7 @@ func main() {
 	groupHandler := handler.NewGroupHandler(groupService)
 	abuseReportHandler := handler.NewAbuseReportHandler(abuseReportService)
 	verificationHandler := handler.NewVerificationHandler(verificationService, cfg.EnableEmailVerification)
+	gamHandler := handler.NewGamificationHandler(gamSvc)
 
 	// ========================================
 	// ROUTER
@@ -169,6 +176,10 @@ func main() {
 		// Refugios — directorio público
 		public.GET("/shelters", shelterHandler.GetAll)
 		public.GET("/shelters/:id", shelterHandler.GetByID)
+
+		// V1.4 — Gamification (público)
+		public.GET("/users/:id/profile", gamHandler.GetPublicProfile)
+		public.GET("/leaderboard", gamHandler.GetLeaderboard)
 	}
 
 	// ----------------------------------------
@@ -238,6 +249,9 @@ func main() {
 
 		// V1.3 — Abuse Reports (submit protected; read + resolve is admin-only via admin group)
 		protected.POST("/abuse-reports", abuseReportHandler.Submit)
+
+		// V1.4 — Gamification (requiere auth)
+		protected.GET("/users/me/badges", gamHandler.GetMyBadges)
 
 		// V1.3 — User Verification (OTP)
 		protected.POST("/verification/send-email", verificationHandler.SendEmail)

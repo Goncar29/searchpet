@@ -157,6 +157,24 @@ type SuccessStoryRepository interface {
 	Delete(ctx context.Context, id uuid.UUID) error
 }
 
+// BadgeRepository define el contrato para acceder a logros/badges de usuarios.
+// Style A: context.Context + uuid.UUID.
+type BadgeRepository interface {
+	Create(ctx context.Context, badge *domain.Badge) error
+	HasBadge(ctx context.Context, userID uuid.UUID, badgeType string) (bool, error)
+	FindByUserID(ctx context.Context, userID uuid.UUID) ([]domain.Badge, error)
+}
+
+// UserPointsRepository define el contrato para acceder a puntos de gamificación.
+// Style A: context.Context + uuid.UUID.
+type UserPointsRepository interface {
+	// Upsert crea o incrementa puntos para el usuario. pointsDelta se suma a points y al campo field
+	// (total_reports, found_count, share_count). Retorna el registro actualizado.
+	Upsert(ctx context.Context, userID uuid.UUID, pointsDelta int, field string) (*domain.UserPoints, error)
+	GetByUserID(ctx context.Context, userID uuid.UUID) (*domain.UserPoints, error)
+	FindLeaderboard(ctx context.Context, city string, limit int) ([]domain.UserPoints, error)
+}
+
 // LocationAlertRepository define el contrato para alertas de ubicación.
 // Style A: context.Context + uuid.UUID.
 type LocationAlertRepository interface {

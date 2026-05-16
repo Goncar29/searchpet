@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"lost-pets/internal/domain"
 	"lost-pets/internal/dto"
+	"lost-pets/internal/event"
 )
 
 // VerificationService define el contrato para verificación de identidad via OTP.
@@ -84,6 +85,28 @@ type BlockService interface {
 	Block(ctx context.Context, blockerID, blockedID uuid.UUID) error
 	Unblock(ctx context.Context, blockerID, blockedID uuid.UUID) error
 	GetBlocked(ctx context.Context, userID uuid.UUID) ([]domain.BlockedUser, error)
+}
+
+// GamificationService define el contrato para la lógica de gamificación:
+// puntos, badges, leaderboard y perfiles públicos.
+type GamificationService interface {
+	// RegisterListeners suscribe los handlers al EventBus.
+	// Debe llamarse una vez durante el arranque del servidor.
+	RegisterListeners(bus *event.EventBus)
+
+	// AwardBadgeIfEligible otorga un badge al usuario si no lo tiene ya.
+	// Retorna nil tanto si se crea exitosamente como si ya lo tenía (idempotente).
+	AwardBadgeIfEligible(ctx context.Context, userID uuid.UUID, badgeType string) error
+
+	// GetPublicProfile retorna el perfil público del usuario (sin email ni hash).
+	GetPublicProfile(ctx context.Context, userID uuid.UUID) (*dto.UserProfileResponse, error)
+
+	// GetLeaderboard retorna el ranking de usuarios por ciudad, ordenado por puntos DESC.
+	// limit se clampea entre 1 y 50, default 10.
+	GetLeaderboard(ctx context.Context, city string, limit int) ([]dto.LeaderboardEntry, error)
+
+	// GetMyBadges retorna todos los badges del usuario autenticado.
+	GetMyBadges(ctx context.Context, userID uuid.UUID) ([]dto.BadgeResponse, error)
 }
 
 // AuthService define el contrato para la lógica de autenticación

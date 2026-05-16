@@ -42,6 +42,7 @@ type User struct {
 	VerificationMethod   string     `gorm:"size:50" json:"verification_method,omitempty"`
 	EmailVerified        bool       `gorm:"default:false" json:"email_verified"`
 	PhoneVerified        bool       `gorm:"default:false" json:"phone_verified"`
+	City                 string     `gorm:"default:''" json:"city"`
 	IsBanned             bool       `gorm:"default:false" json:"is_banned"`
 	BanReason            string     `gorm:"type:text" json:"ban_reason,omitempty"`
 	SearchRadiusMeters   int        `gorm:"default:5000" json:"search_radius_meters"`
@@ -186,7 +187,11 @@ type UserPoints struct {
 	Points       int       `gorm:"default:0" json:"points"`
 	TotalReports int       `gorm:"default:0" json:"total_reports"`
 	FoundCount   int       `gorm:"default:0" json:"found_count"`
+	ShareCount   int       `gorm:"default:0" json:"-"`
 	UpdatedAt    time.Time `gorm:"autoUpdateTime" json:"updated_at"`
+
+	// Relaciones
+	User User `gorm:"foreignKey:UserID" json:"user,omitempty"`
 }
 
 // ============================================================

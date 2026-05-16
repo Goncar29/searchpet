@@ -100,3 +100,9 @@ type PetFoundEvent struct {
 	OwnerID uuid.UUID
 	PetName string
 }
+
+// ShareCreatedEvent es el payload publicado cuando se genera un link compartible.
+type ShareCreatedEvent struct {
+	UserID uuid.UUID
+	PetID  uuid.UUID
+}

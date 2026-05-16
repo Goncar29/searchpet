@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"lost-pets/internal/domain"
+	"lost-pets/internal/event"
 	"lost-pets/internal/repository"
 )
 
@@ -22,16 +23,20 @@ type ShareLinkService interface {
 type shareLinkService struct {
 	shareLinkRepo repository.ShareLinkRepository
 	petRepo       repository.PetRepository
+	bus           *event.EventBus
 }
 
 // NewShareLinkService construye el ShareLinkService con sus dependencias.
+// bus puede ser nil: si es nil no se publican eventos (defensivo).
 func NewShareLinkService(
 	shareLinkRepo repository.ShareLinkRepository,
 	petRepo repository.PetRepository,
+	bus *event.EventBus,
 ) ShareLinkService {
 	return &shareLinkService{
 		shareLinkRepo: shareLinkRepo,
 		petRepo:       petRepo,
+		bus:           bus,
 	}
 }
 
@@ -74,6 +79,17 @@ func (s *shareLinkService) Generate(ctx context.Context, petID string, ownerID s
 
 	if err := s.shareLinkRepo.Create(ctx, link); err != nil {
 		return nil, err
+	}
+
+	// Publicar evento share.created solo si el bus está disponible y el DB write fue exitoso.
+	if s.bus != nil {
+		ownerUUID, err := uuid.Parse(ownerID)
+		if err == nil {
+			s.bus.Publish("share.created", event.ShareCreatedEvent{
+				UserID: ownerUUID,
+				PetID:  petUUID,
+			})
+		}
 	}
 
 	return link, nil

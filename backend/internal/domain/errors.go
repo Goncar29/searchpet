@@ -65,6 +65,10 @@ var (
 	ErrOTPExpired = errors.New("otp_expired")
 	ErrOTPInvalid = errors.New("otp_invalid")
 
+	// Gamification (V1.4)
+	ErrBadgeAlreadyEarned = errors.New("badge already earned")
+	ErrPointsNotFound     = errors.New("user points not found")
+
 	// General
 	ErrUnauthorized = errors.New("no autorizado")
 	ErrForbidden    = errors.New("acceso prohibido")

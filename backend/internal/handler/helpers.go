@@ -15,6 +15,13 @@ func getUserID(c *gin.Context) string {
 // getUserUUID lee el userID del contexto de Gin y lo retorna directamente como uuid.UUID.
 // Útil para handlers que necesitan pasar el UUID sin conversión a string.
 func getUserUUID(c *gin.Context) uuid.UUID {
-	userID, _ := c.Get("userID")
-	return userID.(uuid.UUID)
+	userID, ok := c.Get("userID")
+	if !ok {
+		return uuid.Nil
+	}
+	id, ok := userID.(uuid.UUID)
+	if !ok {
+		return uuid.Nil
+	}
+	return id
 }
