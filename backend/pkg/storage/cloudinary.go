@@ -29,8 +29,10 @@ func NewCloudinaryClient(cloudName, apiKey, apiSecret string) (*CloudinaryClient
 // Devuelve la SecureURL del recurso subido, o un error si falla.
 func (c *CloudinaryClient) UploadImage(ctx context.Context, file io.Reader, filename string) (string, error) {
 	resp, err := c.cld.Upload.Upload(ctx, file, uploader.UploadParams{
-		Folder:   "searchpet/pets",
-		PublicID: filename,
+		Folder:         "searchpet/pets",
+		PublicID:       filename,
+		Format:         "webp",
+		Transformation: "w_1200,c_limit,q_80",
 	})
 	if err != nil {
 		return "", fmt.Errorf("error subiendo imagen a Cloudinary: %w", err)
