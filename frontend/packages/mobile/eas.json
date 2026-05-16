@@ -8,7 +8,6 @@
       "developmentClient": true,
       "distribution": "internal",
       "android": {
-        "buildType": "apk",
         "gradleCommand": ":app:assembleDebug"
       },
       "env": {
@@ -38,16 +37,6 @@
     }
   },
   "submit": {
-    "production": {
-      "ios": {
-        "appleId": "carlosngonzalez0@gmail.com",
-        "ascAppId": "",
-        "appleTeamId": ""
-      },
-      "android": {
-        "serviceAccountKeyPath": "./google-service-account.json",
-        "track": "internal"
-      }
-    }
+    "production": {}
   }
 }

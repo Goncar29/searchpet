@@ -11,11 +11,17 @@ cd "$(dirname "$0")/.."
 command -v eas >/dev/null 2>&1 || npm install -g eas-cli
 
 # Login
-echo "Iniciando sesión en Expo (abre el browser)..."
-eas login
+if [ -z "$EXPO_TOKEN" ]; then
+  echo "Iniciando sesión en Expo (abre el browser)..."
+  eas login
+else
+  echo "Usando EXPO_TOKEN del entorno..."
+fi
 
 # Configurar proyecto (solo primera vez — linkea con expo.dev)
-eas build:configure
+if ! node -e "const a=JSON.parse(require('fs').readFileSync('app.json','utf8')); process.exit(a.expo.extra?.eas?.projectId ? 0 : 1)" 2>/dev/null; then
+  eas build:configure
+fi
 
 # Generar APK con perfil preview
 echo "Iniciando build en la nube..."
