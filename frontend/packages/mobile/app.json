@@ -29,6 +29,7 @@
         "backgroundColor": "#FF6B35"
       },
       "package": "com.searchpet.app",
+      "versionCode": 1,
       "permissions": [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
