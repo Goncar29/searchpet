@@ -16,6 +16,7 @@ config.watchFolders = [sharedRoot];
 config.resolver.extraNodeModules = {
   '@shared': sharedRoot,
   '@tanstack/react-query': path.resolve(projectRoot, 'node_modules/@tanstack/react-query'),
+  '@babel/runtime': path.resolve(projectRoot, 'node_modules/@babel/runtime'),
 };
 
 module.exports = config;
