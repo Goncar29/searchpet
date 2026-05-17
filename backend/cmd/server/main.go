@@ -149,6 +149,13 @@ func main() {
 	router.Use(middleware.CORS())
 
 	// ----------------------------------------
+	// HEALTH CHECK
+	// ----------------------------------------
+	router.GET("/health", func(c *gin.Context) {
+		c.JSON(200, gin.H{"status": "ok"})
+	})
+
+	// ----------------------------------------
 	// RUTAS PÚBLICAS
 	// ----------------------------------------
 	public := router.Group("/api")

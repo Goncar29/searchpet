@@ -94,23 +94,22 @@ jobs:
         run: npx vite build
 
   # ============================================
-  # Deploy Backend (Railway) — PENDIENTE: configurar RAILWAY_TOKEN
+  # Deploy Backend (Render) — requiere RENDER_DEPLOY_HOOK_URL en GitHub Secrets
+  # Obtenerlo en: Render Dashboard → tu servicio → Settings → Deploy Hook
   # ============================================
-  # deploy-backend:
-  #   name: Deploy Backend
-  #   runs-on: ubuntu-latest
-  #   needs: [backend-test]
-  #   if: github.ref == 'refs/heads/main'
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - name: Deploy to Railway
-  #       uses: bervProject/railway-deploy@main
-  #       with:
-  #         railway_token: ${{ secrets.RAILWAY_TOKEN }}
-  #         service: lost-pets-api
+  deploy-backend:
+    name: Deploy Backend
+    runs-on: ubuntu-latest
+    needs: [backend-test]
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Trigger Render deploy
+        run: curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
 
   # ============================================
-  # Deploy Web (Vercel) — PENDIENTE: configurar VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID
+  # Deploy Web (Vercel) — auto-deploy via GitHub integration
+  # Vercel re-deploya automáticamente en cada push a main si el repo está conectado.
+  # No se necesita job aquí. Si querés deploy manual, descomentar y agregar tokens.
   # ============================================
   # deploy-web:
   #   name: Deploy Web
