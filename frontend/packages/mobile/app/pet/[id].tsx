@@ -18,8 +18,8 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { usePetByID, useReportsByPetID, useMarkPetAsFound } from '@shared/hooks';
 import { buildWhatsAppContactURL } from '@shared/utils/whatsappTemplates';
 import { useAuthStore } from '../../store';
-import { ShareButton } from '../components/ShareButton';
-import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../constants';
+import { ShareButton } from '../../components/ShareButton';
+import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
 
 const { width } = Dimensions.get('window');
 
