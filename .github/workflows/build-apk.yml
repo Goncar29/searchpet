@@ -66,6 +66,9 @@ jobs:
         working-directory: frontend/packages/mobile/android
         run: ./gradlew assembleRelease
         env:
+          # NODE_PATH permite que Node.js encuentre @react-native/js-polyfills,
+          # que está anidado en react-native/node_modules/ (no hoisted al top-level)
+          NODE_PATH: "${{ github.workspace }}/frontend/packages/mobile/node_modules/react-native/node_modules"
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
