@@ -2,22 +2,16 @@ const { getDefaultConfig } = require('expo/metro-config');
 const path = require('path');
 
 const projectRoot = __dirname;
-const packagesRoot = path.resolve(projectRoot, '..');
+const sharedRoot = path.resolve(projectRoot, '../shared');
 
 const config = getDefaultConfig(projectRoot);
 
-// Incluir todos los packages del monorepo en el watch de Metro
-config.watchFolders = [packagesRoot];
+// Permite que Metro acceda a archivos fuera de su project root
+config.watchFolders = [sharedRoot];
 
-// Resolver: buscar node_modules primero en mobile/, luego en packages/
-config.resolver.nodeModulesPaths = [
-  path.resolve(projectRoot, 'node_modules'),
-  path.resolve(packagesRoot, 'node_modules'),
-];
-
-// Alias para @shared/* → packages/shared/*
+// Resuelve el alias @shared/* → packages/shared/*
 config.resolver.extraNodeModules = {
-  '@shared': path.resolve(packagesRoot, 'shared'),
+  '@shared': sharedRoot,
 };
 
 module.exports = config;
