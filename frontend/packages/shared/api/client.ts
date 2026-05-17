@@ -2,6 +2,8 @@
 // Lost Pets - Cliente API compartido (Mobile + Web)
 // ============================================================
 
+import { API_BASE_URL } from './baseURL';
+
 import type {
   AuthResponse,
   RegisterRequest,
@@ -35,18 +37,6 @@ import type {
   LeaderboardEntry,
 } from '../types';
 
-// En Vite usamos import.meta.env, en Expo usamos process.env
-// El try/catch maneja el caso donde import.meta no existe (Expo/Node)
-const getAPIBaseURL = (): string => {
-  try {
-    return import.meta.env?.VITE_API_URL || 'http://localhost:8081';
-  } catch {
-    return (typeof process !== 'undefined' && process.env?.EXPO_PUBLIC_API_URL)
-      || 'http://localhost:8081';
-  }
-};
-
-const API_BASE_URL = getAPIBaseURL();
 
 class APIClient {
   private baseURL: string;
