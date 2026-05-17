@@ -9,16 +9,13 @@ const config = getDefaultConfig(projectRoot);
 // Permite que Metro acceda a archivos fuera de su project root
 config.watchFolders = [sharedRoot];
 
-// Proxy: @shared → shared/, cualquier otro módulo → mobile/node_modules/
-// Necesario porque shared/ no tiene su propio node_modules.
-config.resolver.extraNodeModules = new Proxy(
-  { '@shared': sharedRoot },
-  {
-    get(target, name) {
-      if (name in target) return target[name];
-      return path.join(projectRoot, 'node_modules', name.toString());
-    },
-  }
-);
+// Mapeo explícito de:
+// - @shared → packages/shared/
+// - @tanstack/react-query → la versión instalada en mobile/node_modules
+// (shared/ no tiene su propio node_modules, así que sus deps vienen de acá)
+config.resolver.extraNodeModules = {
+  '@shared': sharedRoot,
+  '@tanstack/react-query': path.resolve(projectRoot, 'node_modules/@tanstack/react-query'),
+};
 
 module.exports = config;
