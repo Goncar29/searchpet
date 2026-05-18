@@ -88,7 +88,27 @@ Si prefieres Supabase en lugar de Railway PostgreSQL:
 2. Crear proyecto
 3. Configurar Cloud Messaging
 4. Descargar `google-services.json` (Android) y `GoogleService-Info.plist` (iOS)
-5. Agregar `FIREBASE_KEY` a las variables
+5. Agregar `FIREBASE_KEY` a las variables del backend
+
+### Secretos de GitHub requeridos para builds móviles
+
+Los archivos de configuración de Firebase NO están commiteados al repo (están en `.gitignore`).
+El workflow de CI los inyecta desde secretos de GitHub en cada build.
+
+**Cómo agregar los secretos:**
+1. Ir a **GitHub repo → Settings → Secrets and variables → Actions → New repository secret**
+
+| Secret | Contenido | Cómo obtenerlo |
+|--------|-----------|----------------|
+| `GOOGLE_SERVICES_JSON` | Contenido completo del archivo `google-services.json` (Android) | Firebase Console → Project Settings → Your apps → Android app → Download google-services.json → copiar todo el contenido del archivo |
+| `GOOGLE_SERVICE_INFO_PLIST` | Contenido completo del archivo `GoogleService-Info.plist` (iOS) | Firebase Console → Project Settings → Your apps → iOS app → Download GoogleService-Info.plist → copiar todo el contenido del archivo |
+
+> **Nota**: `GOOGLE_SERVICE_INFO_PLIST` es para builds iOS vía EAS — está documentado aquí para cuando se agreguen builds de iOS al pipeline. El workflow actual (`build-apk.yml`) solo inyecta `GOOGLE_SERVICES_JSON`.
+
+**Si el secreto no está configurado**, el workflow falla con:
+```
+Error: GOOGLE_SERVICES_JSON secret is not set
+```
 
 ### Costo: $0 (FCM es gratuito)
 

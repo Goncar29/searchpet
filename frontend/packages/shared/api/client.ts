@@ -330,6 +330,10 @@ class APIClient {
     return this.request<void>('POST', '/api/devices/token', { token, platform });
   }
 
+  async deleteDeviceToken(token: string): Promise<void> {
+    return this.request<void>('DELETE', `/api/devices/${encodeURIComponent(token)}`);
+  }
+
   // ============================================================
   // LOCATION ALERTS
   // ============================================================

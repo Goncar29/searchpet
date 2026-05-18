@@ -4,6 +4,7 @@
 
 import { create } from 'zustand';
 import * as SecureStore from 'expo-secure-store';
+import { getDevicePushTokenAsync } from 'expo-notifications';
 import type { User } from '../../shared/types';
 import { apiClient } from '../../shared/api/client';
 import { registerPushToken } from '../utils/notifications';
@@ -72,6 +73,17 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   logout: async () => {
+    // Fire-and-forget: limpiar el token FCM antes de desloguear.
+    // Si falla (sin permisos, simulador, red caída) el logout continúa igual.
+    try {
+      const pushToken = await getDevicePushTokenAsync();
+      if (pushToken?.data) {
+        apiClient.deleteDeviceToken(pushToken.data).catch(() => {});
+      }
+    } catch {
+      // Sin token de dispositivo — saltar el DELETE silenciosamente
+    }
+
     await SecureStore.deleteItemAsync('auth_token');
     await SecureStore.deleteItemAsync('user_data');
     apiClient.setToken(null);

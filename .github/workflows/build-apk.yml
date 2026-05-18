@@ -46,6 +46,15 @@ jobs:
         env:
           EXPO_PUBLIC_API_URL: ${{ secrets.API_URL }}
 
+      - name: Inject Firebase config
+        run: |
+          if [ -z "${{ secrets.GOOGLE_SERVICES_JSON }}" ]; then
+            echo "::error::GOOGLE_SERVICES_JSON secret is not set"
+            exit 1
+          fi
+          echo '${{ secrets.GOOGLE_SERVICES_JSON }}' > frontend/packages/mobile/android/app/google-services.json
+          echo "google-services.json injected"
+
       # Compose Compiler 1.5.15 requiere Kotlin 1.9.25
       # El RN Gradle Plugin resuelve kotlin-gradle-plugin a 1.9.24 vía BOM.
       # Un init script de Gradle fuerza la versión ANTES de que cualquier plugin la pise.

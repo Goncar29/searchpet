@@ -36,6 +36,7 @@ func (ns *NotificationService) RegisterListeners(bus *event.EventBus) {
 	bus.Subscribe("report.created", ns.onReportCreated)
 	bus.Subscribe("message.sent", ns.onMessageSent)
 	bus.Subscribe("alert.triggered", ns.onAlertTriggered)
+	bus.Subscribe("pet.found", ns.onPetFound)
 }
 
 // onReportCreated maneja el evento "report.created".
@@ -67,6 +68,7 @@ func (ns *NotificationService) onReportCreated(payload interface{}) {
 			"type":      "report.created",
 			"report_id": ev.ReportID.String(),
 			"pet_id":    ev.PetID.String(),
+			"entityId":  ev.PetID.String(),
 		})
 		if err != nil && isStaleTokenError(err) {
 			if delErr := ns.deviceTokenRepo.DeleteByToken(ctx, t.Token); delErr != nil {
@@ -103,6 +105,7 @@ func (ns *NotificationService) onAlertTriggered(payload interface{}) {
 		"alert_id":  ev.AlertID.String(),
 		"pet_id":    ev.PetID.String(),
 		"pet_type":  ev.PetType,
+		"entityId":  ev.PetID.String(),
 	}
 
 	// Fan-out: envío individual para poder limpiar tokens inválidos
@@ -152,12 +155,61 @@ func (ns *NotificationService) onMessageSent(payload interface{}) {
 			"type":       "message.sent",
 			"message_id": ev.MessageID.String(),
 			"sender_id":  ev.SenderID.String(),
+			"entityId":   ev.SenderID.String(),
 		})
 		if err != nil && isStaleTokenError(err) {
 			if delErr := ns.deviceTokenRepo.DeleteByToken(ctx, t.Token); delErr != nil {
 				log.Printf("[NotificationService] error eliminando token inválido %q: %v", t.Token, delErr)
 			}
 		}
+	}
+}
+
+// onPetFound maneja el evento "pet.found".
+// Envía push al dueño de la mascota notificándole que su mascota fue encontrada.
+// Los envíos son asíncronos (goroutine fan-out) para no bloquear el EventBus.
+func (ns *NotificationService) onPetFound(payload interface{}) {
+	ev, ok := payload.(event.PetFoundEvent)
+	if !ok {
+		log.Printf("[NotificationService] onPetFound: tipo de payload inesperado: %T", payload)
+		return
+	}
+
+	ctx := context.Background()
+
+	tokens, err := ns.deviceTokenRepo.FindByUserID(ctx, ev.OwnerID)
+	if err != nil {
+		log.Printf("[NotificationService] onPetFound: error obteniendo tokens para owner %s: %v", ev.OwnerID, err)
+		return
+	}
+
+	if len(tokens) == 0 {
+		return
+	}
+
+	title := "¡Tu mascota fue encontrada! 🎉"
+	body := fmt.Sprintf("Tu mascota %s fue encontrada", ev.PetName)
+
+	data := map[string]string{
+		"type":     "pet_found",
+		"entityId": ev.PetID.String(),
+	}
+
+	// Fan-out: envío individual para poder limpiar tokens inválidos
+	for _, t := range tokens {
+		t := t // captura
+		go func() {
+			err := ns.fcmClient.SendPush(ctx, t.Token, title, body, data)
+			if err != nil {
+				if isStaleTokenError(err) {
+					if delErr := ns.deviceTokenRepo.DeleteByToken(ctx, t.Token); delErr != nil {
+						log.Printf("[NotificationService] error eliminando token inválido %q: %v", t.Token, delErr)
+					}
+				} else {
+					log.Printf("[NotificationService] onPetFound: error enviando push a %q: %v", t.Token, err)
+				}
+			}
+		}()
 	}
 }
 
