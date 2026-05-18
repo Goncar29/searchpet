@@ -45,15 +45,27 @@ jobs:
           EXPO_PUBLIC_API_URL: ${{ secrets.API_URL }}
 
       # Compose Compiler 1.5.15 requiere Kotlin 1.9.25
-      # RN 0.76: build.gradle usa findProperty('android.kotlinVersion') — el RN Gradle Plugin
-      # setea esa property en 1.9.24. Sobreescribirla en gradle.properties tiene prioridad.
+      # El RN Gradle Plugin resuelve kotlin-gradle-plugin a 1.9.24 vía BOM.
+      # Un init script de Gradle fuerza la versión ANTES de que cualquier plugin la pise.
       - name: Patch Kotlin version
-        working-directory: frontend/packages/mobile/android
         run: |
-          echo "android.kotlinVersion=1.9.25" >> gradle.properties
-          echo "=== verificación ==="
-          grep -i kotlin gradle.properties
-          grep -i kotlin build.gradle
+          mkdir -p ~/.gradle
+          cat > ~/.gradle/init.gradle << 'EOF'
+          allprojects {
+            buildscript {
+              configurations.all {
+                resolutionStrategy.force 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.25'
+              }
+            }
+            configurations.all {
+              resolutionStrategy.force 'org.jetbrains.kotlin:kotlin-stdlib:1.9.25'
+              resolutionStrategy.force 'org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.9.25'
+              resolutionStrategy.force 'org.jetbrains.kotlin:kotlin-stdlib-common:1.9.25'
+            }
+          }
+          EOF
+          echo "init.gradle aplicado:"
+          cat ~/.gradle/init.gradle
 
       # CRITICAL: inject signing AFTER prebuild (prebuild regenerates android/ from scratch each time)
       - name: Configure signing
