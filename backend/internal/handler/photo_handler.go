@@ -97,6 +97,12 @@ func (h *PhotoHandler) Upload(c *gin.Context) {
 			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 		case errors.Is(err, domain.ErrNotPetOwner):
 			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+		case errors.Is(err, domain.ErrPhotoLimitReached):
+			c.JSON(http.StatusUnprocessableEntity, gin.H{
+				"error":   err.Error(),
+				"code":    "photo_limit_reached",
+				"message": "Las mascotas solo pueden tener hasta 3 fotos",
+			})
 		case errors.Is(err, domain.ErrInvalidFileType):
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		case errors.Is(err, domain.ErrFileTooLarge):

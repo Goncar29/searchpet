@@ -1,6 +1,8 @@
 package service
 
 import (
+	"log"
+
 	"github.com/google/uuid"
 	"lost-pets/internal/domain"
 	"lost-pets/internal/dto"
@@ -43,14 +45,16 @@ type UpdatePetRequest struct {
 
 // petService es la implementación concreta del PetService.
 type petService struct {
-	repo     repository.PetRepository
-	eventBus *event.EventBus
+	repo         repository.PetRepository
+	eventBus     *event.EventBus
+	photoService PhotoService
 }
 
-// NewPetService es el constructor — recibe el repository, el bus de eventos y devuelve el service.
+// NewPetService es el constructor — recibe el repository, el bus de eventos y el servicio de fotos.
 // eventBus es opcional — si es nil, los eventos no se publican.
-func NewPetService(repo repository.PetRepository, eventBus *event.EventBus) PetService {
-	return &petService{repo: repo, eventBus: eventBus}
+// photoService es opcional — si es nil, la eliminación en cascada de fotos se omite.
+func NewPetService(repo repository.PetRepository, eventBus *event.EventBus, photoService PhotoService) PetService {
+	return &petService{repo: repo, eventBus: eventBus, photoService: photoService}
 }
 
 // CreatePet crea una nueva mascota para el usuario autenticado.
@@ -131,6 +135,7 @@ func (s *petService) UpdatePet(ownerID string, petID string, req UpdatePetReques
 }
 
 // DeletePet elimina una mascota — verifica que el usuario sea el dueño.
+// Antes de borrar el registro, elimina los assets de Cloudinary (cascade delete).
 func (s *petService) DeletePet(ownerID string, petID string) error {
 	// Buscamos la mascota primero para verificar ownership
 	pet, err := s.repo.FindByID(petID)
@@ -141,6 +146,14 @@ func (s *petService) DeletePet(ownerID string, petID string) error {
 	// LÓGICA DE NEGOCIO: solo el dueño puede eliminar su mascota
 	if pet.OwnerID.String() != ownerID {
 		return domain.ErrForbidden
+	}
+
+	// Cascade delete: eliminar fotos de Cloudinary antes de borrar el registro.
+	// Los errores son no-fatales — se loguean en photo_service y no bloquean el delete.
+	if s.photoService != nil {
+		if photoErr := s.photoService.DeleteByPetID(petID); photoErr != nil {
+			log.Printf("[pet_service] Error eliminando fotos de mascota %s: %v", petID, photoErr)
+		}
 	}
 
 	return s.repo.Delete(petID)

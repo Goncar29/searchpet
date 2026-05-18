@@ -44,3 +44,16 @@ func (r *PostgresPhotoRepository) UnsetPrimaryPhotos(petID string) error {
 		Where("pet_id = ? AND is_primary = true", petID).
 		Update("is_primary", false).Error
 }
+
+// CountByPetID retorna la cantidad de fotos que tiene una mascota.
+func (r *PostgresPhotoRepository) CountByPetID(petID string) (int64, error) {
+	var count int64
+	err := r.db.Model(&domain.Photo{}).Where("pet_id = ?", petID).Count(&count).Error
+	return count, err
+}
+
+// DeleteByPetID elimina en bulk todas las fotos de una mascota de la BD.
+// Debe llamarse después de haber eliminado los assets de Cloudinary.
+func (r *PostgresPhotoRepository) DeleteByPetID(petID string) error {
+	return r.db.Where("pet_id = ?", petID).Delete(&domain.Photo{}).Error
+}

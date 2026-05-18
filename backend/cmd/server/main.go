@@ -85,9 +85,9 @@ func main() {
 	// CAPA 2: Services
 	// ========================================
 	authService := service.NewAuthService(userRepo, cfg.JWTSecret, cloudinaryClient)
-	petService := service.NewPetService(petRepo, bus)
-	reportService := service.NewReportService(reportRepo, petRepo, bus)
 	photoService := service.NewPhotoService(photoRepo, petRepo, cloudinaryClient)
+	petService := service.NewPetService(petRepo, bus, photoService)
+	reportService := service.NewReportService(reportRepo, petRepo, bus)
 	messageService := service.NewMessageService(messageRepo, blockedUserRepo, bus)
 	shareLinkService := service.NewShareLinkService(shareLinkRepo, petRepo, bus)
 	shelterService := service.NewShelterService(shelterRepo)

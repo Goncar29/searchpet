@@ -26,8 +26,8 @@ func NewCloudinaryClient(cloudName, apiKey, apiSecret string) (*CloudinaryClient
 }
 
 // UploadImage sube un archivo a Cloudinary en la carpeta searchpet/pets.
-// Devuelve la SecureURL del recurso subido, o un error si falla.
-func (c *CloudinaryClient) UploadImage(ctx context.Context, file io.Reader, filename string) (string, error) {
+// Devuelve (secureURL, publicID, error). Ambas cadenas están vacías en caso de error.
+func (c *CloudinaryClient) UploadImage(ctx context.Context, file io.Reader, filename string) (string, string, error) {
 	resp, err := c.cld.Upload.Upload(ctx, file, uploader.UploadParams{
 		Folder:         "searchpet/pets",
 		PublicID:       filename,
@@ -35,12 +35,25 @@ func (c *CloudinaryClient) UploadImage(ctx context.Context, file io.Reader, file
 		Transformation: "w_1200,c_limit,q_80",
 	})
 	if err != nil {
-		return "", fmt.Errorf("error subiendo imagen a Cloudinary: %w", err)
+		return "", "", fmt.Errorf("error subiendo imagen a Cloudinary: %w", err)
 	}
 
 	if resp.Error.Message != "" {
-		return "", fmt.Errorf("cloudinary rechazó la imagen: %s", resp.Error.Message)
+		return "", "", fmt.Errorf("cloudinary rechazó la imagen: %s", resp.Error.Message)
 	}
 
-	return resp.SecureURL, nil
+	return resp.SecureURL, resp.PublicID, nil
+}
+
+// Delete elimina un asset de Cloudinary por su public_id.
+// Retorna error si la API responde con un error; "not found" se trata como no-error.
+func (c *CloudinaryClient) Delete(ctx context.Context, publicID string) error {
+	resp, err := c.cld.Upload.Destroy(ctx, uploader.DestroyParams{PublicID: publicID})
+	if err != nil {
+		return fmt.Errorf("error eliminando imagen de Cloudinary (publicID=%s): %w", publicID, err)
+	}
+	if resp.Error.Message != "" {
+		return fmt.Errorf("cloudinary rechazó el delete (publicID=%s): %s", publicID, resp.Error.Message)
+	}
+	return nil
 }

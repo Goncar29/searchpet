@@ -39,9 +39,10 @@ var (
 	ErrBlockNotFound = errors.New("bloqueo no encontrado")
 
 	// Photo
-	ErrInvalidFileType = errors.New("tipo de archivo no permitido; solo jpeg, png y webp")
-	ErrFileTooLarge    = errors.New("el archivo supera el límite de 5 MB")
-	ErrStorageFailed   = errors.New("error al subir la imagen; intenta nuevamente")
+	ErrInvalidFileType    = errors.New("tipo de archivo no permitido; solo jpeg, png y webp")
+	ErrFileTooLarge       = errors.New("el archivo supera el límite de 5 MB")
+	ErrStorageFailed      = errors.New("error al subir la imagen; intenta nuevamente")
+	ErrPhotoLimitReached  = errors.New("límite de 3 fotos por mascota alcanzado")
 
 	// Share
 	ErrShareLinkNotFound = errors.New("link de compartir no encontrado")

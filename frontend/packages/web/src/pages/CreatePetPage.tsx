@@ -33,9 +33,9 @@ export function CreatePetPage() {
 
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [apiError, setApiError] = useState<string | null>(null);
-  // Foto seleccionada por el usuario (puede ser null si no eligió ninguna)
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [previewURL, setPreviewURL] = useState<string | null>(null);
+  // Fotos seleccionadas (hasta 3)
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [previewURLs, setPreviewURLs] = useState<string[]>([]);
   // Error no-bloqueante cuando el upload falla DESPUÉS de crear la mascota
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [createdPetId, setCreatedPetId] = useState<string | null>(null);
@@ -53,37 +53,49 @@ export function CreatePetPage() {
     }
   };
 
+  const MAX_PHOTOS = 3;
+  const MAX_SIZE = 5 * 1024 * 1024; // 5 MB
+  const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0] ?? null;
-    if (!file) {
-      setSelectedFile(null);
-      setPreviewURL(null);
-      return;
+    const incoming = Array.from(e.target.files ?? []);
+    e.target.value = '';
+
+    if (incoming.length === 0) return;
+
+    const slots = MAX_PHOTOS - selectedFiles.length;
+    if (slots <= 0) return;
+
+    const candidates = incoming.slice(0, slots);
+    const validFiles: File[] = [];
+    const newURLs: string[] = [];
+
+    for (const file of candidates) {
+      if (!ALLOWED_TYPES.includes(file.type)) {
+        setUploadError('Formato no permitido. Usá JPG, PNG o WebP.');
+        continue;
+      }
+      if (file.size > MAX_SIZE) {
+        setUploadError('Cada foto no puede superar los 5 MB.');
+        continue;
+      }
+      validFiles.push(file);
+      newURLs.push(URL.createObjectURL(file));
     }
 
-    const MAX_SIZE = 5 * 1024 * 1024; // 5 MB
-    const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
-
-    if (!ALLOWED_TYPES.includes(file.type)) {
-      setUploadError('Formato no permitido. Usá JPG, PNG o WebP.');
-      setSelectedFile(null);
-      setPreviewURL(null);
-      e.target.value = '';
-      return;
+    if (validFiles.length > 0) {
+      setUploadError(null);
+      setSelectedFiles((prev) => [...prev, ...validFiles]);
+      setPreviewURLs((prev) => [...prev, ...newURLs]);
     }
+  };
 
-    if (file.size > MAX_SIZE) {
-      setUploadError('La foto no puede superar los 5 MB.');
-      setSelectedFile(null);
-      setPreviewURL(null);
-      e.target.value = '';
-      return;
-    }
-
-    setUploadError(null);
-    setSelectedFile(file);
-    const objectURL = URL.createObjectURL(file);
-    setPreviewURL(objectURL);
+  const removeFile = (index: number) => {
+    setPreviewURLs((prev) => {
+      URL.revokeObjectURL(prev[index]);
+      return prev.filter((_, i) => i !== index);
+    });
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
   const validate = (): boolean => {
@@ -111,15 +123,21 @@ export function CreatePetPage() {
       },
       {
         onSuccess: async (pet: Pet) => {
-          // Paso 2: si el usuario eligió una foto, subirla con el petId recién creado
-          if (selectedFile) {
-            try {
-              await uploadPhoto.mutateAsync({ petId: pet.id, file: selectedFile });
-            } catch (err) {
+          // Paso 2: subir cada foto seleccionada (no-blocking si falla alguna)
+          if (selectedFiles.length > 0) {
+            let firstError: string | null = null;
+            for (const file of selectedFiles) {
+              try {
+                await uploadPhoto.mutateAsync({ petId: pet.id, file });
+              } catch (err) {
+                if (!firstError) {
+                  firstError = err instanceof Error ? err.message : 'No se pudo subir una foto';
+                }
+              }
+            }
+            if (firstError) {
               // La mascota YA fue creada — no hacemos rollback.
-              // El usuario decide cuándo navegar al perfil.
-              const message = err instanceof Error ? err.message : 'No se pudo subir la foto';
-              setUploadError(message);
+              setUploadError(firstError);
               setCreatedPetId(pet.id);
               return;
             }
@@ -134,6 +152,7 @@ export function CreatePetPage() {
   };
 
   const isPending = createPet.isPending || uploadPhoto.isPending;
+  const atLimit = selectedFiles.length >= MAX_PHOTOS;
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 py-10 px-4">
@@ -246,12 +265,14 @@ export function CreatePetPage() {
           {/* Photo upload */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              {t('pets:create.photo', 'Foto de la mascota')}
+              {t('pets:create.photo', 'Fotos de la mascota')}
             </label>
             <input
               ref={fileInputRef}
               type="file"
+              multiple
               accept="image/jpeg,image/png,image/webp"
+              disabled={atLimit}
               onChange={handleFileChange}
               className="block w-full text-sm text-gray-500 dark:text-gray-400
                 file:mr-4 file:py-2 file:px-4
@@ -259,19 +280,37 @@ export function CreatePetPage() {
                 file:text-sm file:font-semibold
                 file:bg-primary file:text-white
                 hover:file:bg-primary-dark
+                disabled:opacity-40 disabled:cursor-not-allowed
                 cursor-pointer"
             />
             <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              JPG, PNG o WebP · máx. 5 MB
+              JPG, PNG o WebP · máx. 5 MB por foto · hasta 3 fotos
             </p>
-            {/* Preview local de la imagen seleccionada */}
-            {previewURL && (
-              <div className="mt-3">
-                <img
-                  src={previewURL}
-                  alt="Vista previa"
-                  className="h-40 w-full object-cover rounded-lg border border-gray-200 dark:border-gray-700"
-                />
+            {atLimit && (
+              <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+                Máximo 3 fotos
+              </p>
+            )}
+            {/* Previews de las imágenes seleccionadas */}
+            {previewURLs.length > 0 && (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {previewURLs.map((url, i) => (
+                  <div key={i} className="relative">
+                    <img
+                      src={url}
+                      alt={`Vista previa ${i + 1}`}
+                      className="h-24 w-24 object-cover rounded-lg border border-gray-200 dark:border-gray-700"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeFile(i)}
+                      className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center leading-none hover:bg-red-600"
+                      aria-label="Eliminar foto"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
               </div>
             )}
           </div>

@@ -100,6 +100,7 @@ type Photo struct {
 	ID         uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
 	PetID      uuid.UUID `gorm:"type:uuid;not null;index" json:"pet_id"`
 	URL        string    `gorm:"not null;size:500" json:"url"`
+	PublicID   string    `gorm:"size:500" json:"-"` // Cloudinary public_id, nunca expuesto al cliente
 	UploadedBy uuid.UUID `gorm:"type:uuid;not null" json:"uploaded_by"`
 	IsPrimary  bool      `gorm:"default:false" json:"is_primary"`
 	CreatedAt  time.Time `gorm:"autoCreateTime" json:"created_at"`

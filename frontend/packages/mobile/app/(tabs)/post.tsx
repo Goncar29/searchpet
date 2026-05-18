@@ -62,7 +62,10 @@ export default function PostScreen() {
     );
   }
 
+  const atLimit = photos.length >= 3;
+
   const pickImage = async () => {
+    if (atLimit) return;
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
@@ -76,6 +79,7 @@ export default function PostScreen() {
   };
 
   const takePhoto = async () => {
+    if (atLimit) return;
     const permission = await ImagePicker.requestCameraPermissionsAsync();
     if (!permission.granted) {
       Alert.alert('Permiso requerido', 'Necesitamos acceso a tu cámara');
@@ -184,15 +188,26 @@ export default function PostScreen() {
               </View>
             </TouchableOpacity>
           ))}
-          <TouchableOpacity style={styles.addPhoto} onPress={pickImage}>
+          <TouchableOpacity
+            style={[styles.addPhoto, atLimit && styles.addPhotoDisabled]}
+            onPress={pickImage}
+            disabled={atLimit}
+          >
             <Text style={{ fontSize: 28, color: COLORS.textMuted }}>+</Text>
             <Text style={{ fontSize: 11, color: COLORS.textMuted, marginTop: 2 }}>Galería</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.addPhoto} onPress={takePhoto}>
+          <TouchableOpacity
+            style={[styles.addPhoto, atLimit && styles.addPhotoDisabled]}
+            onPress={takePhoto}
+            disabled={atLimit}
+          >
             <Text style={{ fontSize: 28, color: COLORS.textMuted }}>📷</Text>
             <Text style={{ fontSize: 11, color: COLORS.textMuted, marginTop: 2 }}>Cámara</Text>
           </TouchableOpacity>
         </ScrollView>
+        {atLimit && (
+          <Text style={styles.photoLimitText}>Máximo 3 fotos</Text>
+        )}
 
         {/* Nombre */}
         <Text style={styles.label}>Nombre *</Text>
@@ -352,6 +367,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: SPACING.sm,
+  },
+  addPhotoDisabled: {
+    opacity: 0.4,
+  },
+  photoLimitText: {
+    fontSize: FONTS.sizes.xs,
+    color: COLORS.textMuted,
+    marginTop: SPACING.xs,
+    marginBottom: SPACING.xs,
   },
   typeRow: {
     flexDirection: 'row',

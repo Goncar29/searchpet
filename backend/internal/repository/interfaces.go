@@ -41,6 +41,8 @@ type PhotoRepository interface {
 	FindByPetID(petID string) ([]domain.Photo, error)
 	HasPrimaryPhoto(petID string) (bool, error)
 	UnsetPrimaryPhotos(petID string) error
+	CountByPetID(petID string) (int64, error)
+	DeleteByPetID(petID string) error
 }
 
 // ============================================================

@@ -32,6 +32,10 @@ func sanitizePublicID(petID, filename string) string {
 	return fmt.Sprintf("pets/%s/%s_%d", petID, base, time.Now().UnixMilli())
 }
 
+// maxPhotosPerPet es el límite de fotos permitidas por mascota.
+// Definido aquí como fuente de verdad; referenciado en el handler para el error HTTP.
+const maxPhotosPerPet = 3
+
 // PhotoService define el contrato de la capa de negocio para fotos de mascotas.
 type PhotoService interface {
 	// UploadPhoto valida, sube a Cloudinary y persiste la foto.
@@ -39,6 +43,10 @@ type PhotoService interface {
 
 	// GetPhotosByPet retorna todas las fotos de una mascota.
 	GetPhotosByPet(petID string) ([]domain.Photo, error)
+
+	// DeleteByPetID elimina de Cloudinary y de la BD todas las fotos de una mascota.
+	// Los errores de Cloudinary se loguean y no interrumpen la eliminación de las demás fotos.
+	DeleteByPetID(petID string) error
 }
 
 // photoServiceImpl es la implementación concreta del PhotoService.
@@ -83,6 +91,15 @@ func (s *photoServiceImpl) UploadPhoto(
 		return nil, domain.ErrNotPetOwner
 	}
 
+	// LÓGICA DE NEGOCIO: verificar límite de fotos antes de llamar a Cloudinary
+	count, err := s.photoRepo.CountByPetID(petID)
+	if err != nil {
+		return nil, err
+	}
+	if count >= maxPhotosPerPet {
+		return nil, domain.ErrPhotoLimitReached
+	}
+
 	if s.storage == nil {
 		log.Println("[photo_service] Cloudinary no configurado — storage es nil")
 		return nil, domain.ErrStorageFailed
@@ -93,10 +110,10 @@ func (s *photoServiceImpl) UploadPhoto(
 		_, _ = seeker.Seek(0, io.SeekStart)
 	}
 
-	publicID := sanitizePublicID(petID, filename)
-	log.Printf("[photo_service] Subiendo imagen a Cloudinary — publicID: %s", publicID)
+	cloudinaryPublicID := sanitizePublicID(petID, filename)
+	log.Printf("[photo_service] Subiendo imagen a Cloudinary — publicID: %s", cloudinaryPublicID)
 
-	secureURL, err := s.storage.UploadImage(ctx, file, publicID)
+	secureURL, returnedPublicID, err := s.storage.UploadImage(ctx, file, cloudinaryPublicID)
 	if err != nil {
 		log.Printf("[photo_service] Error en Cloudinary: %v", err)
 		return nil, domain.ErrStorageFailed
@@ -121,6 +138,7 @@ func (s *photoServiceImpl) UploadPhoto(
 	photo := &domain.Photo{
 		PetID:      petUUID,
 		URL:        secureURL,
+		PublicID:   returnedPublicID,
 		UploadedBy: uploaderUUID,
 		IsPrimary:  true,
 	}
@@ -130,6 +148,30 @@ func (s *photoServiceImpl) UploadPhoto(
 	}
 
 	return photo, nil
+}
+
+// DeleteByPetID elimina de Cloudinary todos los assets de la mascota y luego borra las filas de BD.
+// Errores de Cloudinary se loguean individualmente sin interrumpir el loop.
+// La eliminación en BD siempre se ejecuta al final, independientemente de errores de Cloudinary.
+func (s *photoServiceImpl) DeleteByPetID(petID string) error {
+	photos, err := s.photoRepo.FindByPetID(petID)
+	if err != nil {
+		return err
+	}
+
+	for _, p := range photos {
+		if p.PublicID == "" {
+			log.Printf("[photo_service] Foto %s no tiene publicID — saltando delete de Cloudinary", p.ID)
+			continue
+		}
+		if s.storage != nil {
+			if delErr := s.storage.Delete(context.Background(), p.PublicID); delErr != nil {
+				log.Printf("[photo_service] Error eliminando publicID=%s de Cloudinary: %v", p.PublicID, delErr)
+			}
+		}
+	}
+
+	return s.photoRepo.DeleteByPetID(petID)
 }
 
 // GetPhotosByPet delega al repositorio — sin lógica adicional en esta capa.

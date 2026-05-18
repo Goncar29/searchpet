@@ -13,7 +13,9 @@ import {
   Linking,
   Dimensions,
   Alert,
+  FlatList,
 } from 'react-native';
+import { useState, useRef, useCallback } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { usePetByID, useReportsByPetID, useMarkPetAsFound } from '@shared/hooks';
 import { buildWhatsAppContactURL } from '@shared/utils/whatsappTemplates';
@@ -30,6 +32,17 @@ export default function PetDetailScreen() {
   const { data: reports } = useReportsByPetID(id);
   const markAsFound = useMarkPetAsFound();
   const { user, isAuthenticated } = useAuthStore();
+
+  const [activePhotoIndex, setActivePhotoIndex] = useState(0);
+  const viewabilityConfig = useRef({ viewAreaCoveragePercentThreshold: 50 });
+  const onViewableItemsChanged = useCallback(
+    ({ viewableItems }: { viewableItems: Array<{ index: number | null }> }) => {
+      if (viewableItems[0]?.index != null) {
+        setActivePhotoIndex(viewableItems[0].index);
+      }
+    },
+    [],
+  );
 
   if (isLoading) {
     return (
@@ -48,7 +61,7 @@ export default function PetDetailScreen() {
     );
   }
 
-  const primaryPhoto = pet.photos?.find(p => p.is_primary) || pet.photos?.[0];
+  const petPhotos = pet.photos ?? [];
   const latestReport = reports?.[0];
   const isOwner = isAuthenticated && user?.id === pet.owner_id;
 
@@ -79,10 +92,21 @@ export default function PetDetailScreen() {
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      {/* Foto principal */}
-      <View style={styles.imageContainer}>
-        {primaryPhoto ? (
-          <Image source={{ uri: primaryPhoto.url }} style={styles.image} />
+      {/* Carrusel de fotos */}
+      <View style={styles.carouselContainer}>
+        {petPhotos.length > 0 ? (
+          <FlatList
+            data={petPhotos}
+            keyExtractor={(item) => item.id}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            onViewableItemsChanged={onViewableItemsChanged}
+            viewabilityConfig={viewabilityConfig.current}
+            renderItem={({ item }) => (
+              <Image source={{ uri: item.url }} style={styles.carouselImage} />
+            )}
+          />
         ) : (
           <View style={styles.imagePlaceholder}>
             <Text style={{ fontSize: 60 }}>🐾</Text>
@@ -92,6 +116,17 @@ export default function PetDetailScreen() {
         {pet.status === 'found' && (
           <View style={styles.foundBanner}>
             <Text style={styles.foundBannerText}>¡ENCONTRADA!</Text>
+          </View>
+        )}
+        {/* Dots indicator */}
+        {petPhotos.length > 1 && (
+          <View style={styles.dotsRow}>
+            {petPhotos.map((_, i) => (
+              <View
+                key={i}
+                style={[styles.dot, i === activePhotoIndex && styles.activeDot]}
+              />
+            ))}
           </View>
         )}
       </View>
@@ -258,8 +293,30 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     marginTop: SPACING.md,
   },
-  imageContainer: { width, height: 300, position: 'relative' },
-  image: { width: '100%', height: '100%', resizeMode: 'cover' },
+  carouselContainer: { width, height: 300, position: 'relative' },
+  carouselImage: { width, height: 300, resizeMode: 'cover' },
+  dotsRow: {
+    position: 'absolute',
+    bottom: 12,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 6,
+  },
+  dot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.55)',
+  },
+  activeDot: {
+    backgroundColor: '#ffffff',
+    width: 9,
+    height: 9,
+    borderRadius: 5,
+  },
   imagePlaceholder: {
     width: '100%',
     height: '100%',
