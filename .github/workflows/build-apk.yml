@@ -44,22 +44,16 @@ jobs:
         env:
           EXPO_PUBLIC_API_URL: ${{ secrets.API_URL }}
 
-      # Compose Compiler 1.5.15 requiere Kotlin 1.9.25 (prebuild genera 1.9.24)
-      # RN 0.76+ usa Version Catalog (gradle/libs.versions.toml), no build.gradle
+      # Compose Compiler 1.5.15 requiere Kotlin 1.9.25
+      # RN 0.76: build.gradle usa findProperty('android.kotlinVersion') — el RN Gradle Plugin
+      # setea esa property en 1.9.24. Sobreescribirla en gradle.properties tiene prioridad.
       - name: Patch Kotlin version
         working-directory: frontend/packages/mobile/android
         run: |
-          # RN 0.76+: Version Catalog
-          if [ -f gradle/libs.versions.toml ]; then
-            sed -i 's/^kotlin = "1\.9\.24"/kotlin = "1.9.25"/' gradle/libs.versions.toml
-            sed -i 's/^kotlinVersion = "1\.9\.24"/kotlinVersion = "1.9.25"/' gradle/libs.versions.toml
-            echo "=== libs.versions.toml kotlin entries ==="
-            grep -i kotlin gradle/libs.versions.toml || echo "(none)"
-          fi
-          # RN <0.76 / fallback: ext block in build.gradle
-          sed -i 's/kotlinVersion = "1\.9\.24"/kotlinVersion = "1.9.25"/' build.gradle
-          echo "=== build.gradle kotlin entries ==="
-          grep -i kotlin build.gradle || echo "(none)"
+          echo "android.kotlinVersion=1.9.25" >> gradle.properties
+          echo "=== verificación ==="
+          grep -i kotlin gradle.properties
+          grep -i kotlin build.gradle
 
       # CRITICAL: inject signing AFTER prebuild (prebuild regenerates android/ from scratch each time)
       - name: Configure signing
