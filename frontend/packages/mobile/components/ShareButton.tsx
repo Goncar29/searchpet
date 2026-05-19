@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import * as Linking from 'expo-linking';
 import { useGenerateShareLink } from '../../shared/hooks';
+import { buildWhatsAppMessage } from '../../shared/utils/whatsappTemplates';
 import { COLORS, SPACING, FONTS, RADIUS } from '../constants';
 
 interface ShareButtonProps {
@@ -21,6 +22,7 @@ interface ShareButtonProps {
   petName: string;
   petType: string;
   status: 'lost' | 'found' | 'sighting';
+  pet?: import('../../shared/types').Pet;
 }
 
 const PLATFORMS = [
@@ -30,11 +32,10 @@ const PLATFORMS = [
   { key: 'twitter', label: 'Twitter/X', color: COLORS.twitter },
 ] as const;
 
-export function ShareButton({ petId, petName, petType, status }: ShareButtonProps) {
+export function ShareButton({ petId, petName, petType, status, pet }: ShareButtonProps) {
   const [isLoading, setIsLoading] = useState(false);
   const generateLink = useGenerateShareLink();
-
-  const statusText = status === 'lost' ? 'PERDIDA' : status === 'found' ? 'ENCONTRADA' : 'AVISTADA';
+  const statusText = status === 'found' ? 'ENCONTRADA' : 'PERDIDA';
 
   const handleShare = async (platform: string) => {
     setIsLoading(true);
@@ -44,7 +45,8 @@ export function ShareButton({ petId, petName, petType, status }: ShareButtonProp
         data: { platform: platform as any },
       });
 
-      const message = `🚨 ¡MASCOTA ${statusText}! 🚨\n\nNombre: ${petName}\nTipo: ${petType}\n\nPor favor, si tienes información, contáctame.\n\n${result.share_url}`;
+      const petForMessage = pet ?? { name: petName, type: petType, status: status === 'found' ? 'found' as const : 'active' as const };
+      const message = buildWhatsAppMessage(petForMessage, result.share_url);
 
       if (platform === 'whatsapp') {
         const url = `https://wa.me/?text=${encodeURIComponent(message)}`;
@@ -78,7 +80,8 @@ export function ShareButton({ petId, petName, petType, status }: ShareButtonProp
     setIsLoading(true);
     try {
       const result = await generateLink.mutateAsync({ petID: petId });
-      const message = `🚨 ¡MASCOTA ${statusText}! 🚨\nNombre: ${petName}\nTipo: ${petType}\n${result.share_url}`;
+      const petForMessage = pet ?? { name: petName, type: petType, status: status === 'found' ? 'found' as const : 'active' as const };
+      const message = buildWhatsAppMessage(petForMessage, result.share_url);
 
       await Share.share({
         message,
