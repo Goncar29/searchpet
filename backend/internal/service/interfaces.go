@@ -82,7 +82,7 @@ type SuccessStoryService interface {
 
 // BlockService define el contrato para la lógica de bloqueo de usuarios.
 type BlockService interface {
-	Block(ctx context.Context, blockerID, blockedID uuid.UUID) error
+	Block(ctx context.Context, blockerID, blockedID uuid.UUID, reason string) error
 	Unblock(ctx context.Context, blockerID, blockedID uuid.UUID) error
 	GetBlocked(ctx context.Context, userID uuid.UUID) ([]domain.BlockedUser, error)
 }

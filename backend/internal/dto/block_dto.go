@@ -25,6 +25,7 @@ func ToBlockedUserResponse(b *domain.BlockedUser) BlockedUserResponse {
 	return BlockedUserResponse{
 		ID:        b.ID,
 		BlockedID: b.BlockedID,
+		Name:      b.Blocked.Name,
 		BlockedAt: b.CreatedAt,
 	}
 }

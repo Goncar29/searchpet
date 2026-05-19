@@ -14,10 +14,12 @@ import {
   Dimensions,
   Alert,
   FlatList,
+  ActionSheetIOS,
+  Platform,
 } from 'react-native';
 import { useState, useRef, useCallback } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { usePetByID, useReportsByPetID, useMarkPetAsFound } from '@shared/hooks';
+import { usePetByID, useReportsByPetID, useMarkPetAsFound, useBlockUser, useSubmitAbuseReport } from '@shared/hooks';
 import { buildWhatsAppContactURL } from '@shared/utils/whatsappTemplates';
 import { useAuthStore } from '../../store';
 import { ShareButton } from '../../components/ShareButton';
@@ -33,6 +35,9 @@ export default function PetDetailScreen() {
   const { data: reports } = useReportsByPetID(id);
   const markAsFound = useMarkPetAsFound();
   const { user, isAuthenticated } = useAuthStore();
+
+  const blockUser = useBlockUser();
+  const submitAbuseReport = useSubmitAbuseReport();
 
   const [activePhotoIndex, setActivePhotoIndex] = useState(0);
   const viewabilityConfig = useRef({ viewAreaCoveragePercentThreshold: 50 });
@@ -65,6 +70,71 @@ export default function PetDetailScreen() {
   const petPhotos = pet.photos ?? [];
   const latestReport = reports?.[0];
   const isOwner = isAuthenticated && user?.id === pet.owner_id;
+
+  const handleBlock = (ownerUserId: string) => {
+    blockUser.mutate(
+      { userId: ownerUserId },
+      {
+        onSuccess: () => {
+          Alert.alert('Usuario bloqueado', 'Ya no verás su contenido');
+        },
+        onError: () => {
+          Alert.alert('Error', 'No se pudo bloquear al usuario');
+        },
+      },
+    );
+  };
+
+  const handleReport = (ownerUserId: string, petId: string) => {
+    const reasons: Array<{ label: string; value: string }> = [
+      { label: 'Spam', value: 'spam' },
+      { label: 'Publicación falsa', value: 'fake' },
+      { label: 'Abuso', value: 'abuse' },
+      { label: 'Contenido inapropiado', value: 'inappropriate' },
+      { label: 'Otro', value: 'other' },
+    ];
+    Alert.alert(
+      'Motivo de la denuncia',
+      '',
+      [
+        ...reasons.map((r) => ({
+          text: r.label,
+          onPress: () => {
+            submitAbuseReport.mutate(
+              { target_user_id: ownerUserId, reason: r.value as 'spam' | 'fake' | 'abuse' | 'inappropriate' | 'other' },
+              {
+                onSuccess: () => Alert.alert('Denuncia enviada', 'Gracias por reportarlo'),
+                onError: () => Alert.alert('Error', 'No se pudo enviar la denuncia'),
+              },
+            );
+          },
+        })),
+        { text: 'Cancelar', style: 'cancel' },
+      ],
+    );
+  };
+
+  const showKebabSheet = (ownerUserId: string, petId: string) => {
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options: ['Cancelar', 'Bloquear usuario', 'Denunciar publicación'],
+          cancelButtonIndex: 0,
+          destructiveButtonIndex: 1,
+        },
+        (idx) => {
+          if (idx === 1) handleBlock(ownerUserId);
+          if (idx === 2) handleReport(ownerUserId, petId);
+        },
+      );
+    } else {
+      Alert.alert('Opciones', '', [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Bloquear usuario', style: 'destructive', onPress: () => handleBlock(ownerUserId) },
+        { text: 'Denunciar publicación', onPress: () => handleReport(ownerUserId, petId) },
+      ]);
+    }
+  };
 
   const contactOwner = () => {
     if (pet.owner?.phone) {
@@ -217,6 +287,14 @@ export default function PetDetailScreen() {
                   <Text style={styles.verifiedText}>Verificado</Text>
                 )}
               </View>
+              {!isOwner && (
+                <TouchableOpacity
+                  onPress={() => showKebabSheet(pet.owner_id, pet.id)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Text style={styles.kebabIcon}>⋮</Text>
+                </TouchableOpacity>
+              )}
             </View>
             <TouchableOpacity style={styles.contactButton} onPress={contactOwner}>
               <Text style={styles.contactButtonText}>Contactar al dueño</Text>
@@ -426,6 +504,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   contactButtonText: { color: COLORS.white, fontSize: FONTS.sizes.md, fontWeight: '700' },
+  kebabIcon: { fontSize: 22, color: COLORS.textSecondary, paddingHorizontal: 4 },
   timelineCard: {
     backgroundColor: COLORS.white,
     borderRadius: RADIUS.lg,

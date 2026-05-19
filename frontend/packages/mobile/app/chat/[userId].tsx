@@ -13,10 +13,12 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  Alert,
+  ActionSheetIOS,
 } from 'react-native';
 import { useLocalSearchParams, useNavigation } from 'expo-router';
 import { useAuthStore } from '../../store';
-import { useConversation, useSendMessageTo } from '../../../shared/hooks';
+import { useConversation, useSendMessageTo, useBlockUser, useSubmitAbuseReport } from '../../../shared/hooks';
 import { COLORS, SPACING, FONTS, RADIUS } from '../../constants';
 import type { Message } from '../../../shared/types';
 
@@ -29,6 +31,75 @@ export default function ChatScreen() {
 
   const { data: messages, isLoading } = useConversation(userId);
   const { mutate: sendMessage, isPending: isSending } = useSendMessageTo();
+  const blockUser = useBlockUser();
+  const submitAbuseReport = useSubmitAbuseReport();
+  const [isBlocked, setIsBlocked] = useState(false);
+
+  const handleBlockUser = () => {
+    blockUser.mutate(
+      { userId },
+      {
+        onSuccess: () => {
+          setIsBlocked(true);
+          Alert.alert('Usuario bloqueado', 'Ya no podés enviar mensajes a este usuario');
+        },
+        onError: () => {
+          Alert.alert('Error', 'No se pudo bloquear al usuario');
+        },
+      },
+    );
+  };
+
+  const handleReportUser = () => {
+    const reasons: Array<{ label: string; value: string }> = [
+      { label: 'Spam', value: 'spam' },
+      { label: 'Publicación falsa', value: 'fake' },
+      { label: 'Abuso', value: 'abuse' },
+      { label: 'Contenido inapropiado', value: 'inappropriate' },
+      { label: 'Otro', value: 'other' },
+    ];
+    Alert.alert(
+      'Motivo de la denuncia',
+      '',
+      [
+        ...reasons.map((r) => ({
+          text: r.label,
+          onPress: () => {
+            submitAbuseReport.mutate(
+              { target_user_id: userId, reason: r.value as 'spam' | 'fake' | 'abuse' | 'inappropriate' | 'other' },
+              {
+                onSuccess: () => Alert.alert('Denuncia enviada', 'Gracias por reportarlo'),
+                onError: () => Alert.alert('Error', 'No se pudo enviar la denuncia'),
+              },
+            );
+          },
+        })),
+        { text: 'Cancelar', style: 'cancel' },
+      ],
+    );
+  };
+
+  const showKebabSheet = () => {
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options: ['Cancelar', 'Bloquear usuario', 'Denunciar'],
+          cancelButtonIndex: 0,
+          destructiveButtonIndex: 1,
+        },
+        (idx) => {
+          if (idx === 1) handleBlockUser();
+          if (idx === 2) handleReportUser();
+        },
+      );
+    } else {
+      Alert.alert('Opciones', '', [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Bloquear usuario', style: 'destructive', onPress: handleBlockUser },
+        { text: 'Denunciar', onPress: handleReportUser },
+      ]);
+    }
+  };
 
   // Obtener el nombre del otro usuario desde el primer mensaje donde sea sender
   useEffect(() => {
@@ -36,17 +107,49 @@ export default function ChatScreen() {
       // Buscar un mensaje donde el otro usuario sea sender (tiene .sender preloaded)
       const msgFromOther = messages.find((m) => m.sender_id !== user?.id);
       if (msgFromOther?.sender?.name) {
-        navigation.setOptions({ title: msgFromOther.sender.name });
+        navigation.setOptions({
+          title: msgFromOther.sender.name,
+          headerRight: () => (
+            <TouchableOpacity onPress={showKebabSheet}>
+              <Text style={{ paddingRight: 16, fontSize: 22 }}>⋮</Text>
+            </TouchableOpacity>
+          ),
+        });
+      } else {
+        navigation.setOptions({
+          headerRight: () => (
+            <TouchableOpacity onPress={showKebabSheet}>
+              <Text style={{ paddingRight: 16, fontSize: 22 }}>⋮</Text>
+            </TouchableOpacity>
+          ),
+        });
       }
+    } else {
+      navigation.setOptions({
+        headerRight: () => (
+          <TouchableOpacity onPress={showKebabSheet}>
+            <Text style={{ paddingRight: 16, fontSize: 22 }}>⋮</Text>
+          </TouchableOpacity>
+        ),
+      });
     }
   }, [messages]);
 
   const handleSend = () => {
     const trimmed = text.trim();
-    if (!trimmed || isSending) return;
+    if (!trimmed || isSending || isBlocked) return;
 
-    setText('');
-    sendMessage({ receiverID: userId, text: trimmed });
+    sendMessage(
+      { receiverID: userId, text: trimmed },
+      {
+        onSuccess: () => setText(''),
+        onError: (error: any) => {
+          if (error.status === 403 || error.message.includes('blocked')) {
+            setIsBlocked(true);
+          }
+        },
+      },
+    );
   };
 
   if (isLoading) {
@@ -104,10 +207,17 @@ export default function ChatScreen() {
         }
       />
 
+      {/* Blocked banner */}
+      {isBlocked && (
+        <View style={styles.blockedBanner}>
+          <Text style={styles.blockedBannerText}>No podés enviar mensajes a este usuario</Text>
+        </View>
+      )}
+
       {/* Input */}
       <View style={styles.inputBar}>
         <TextInput
-          style={styles.input}
+          style={[styles.input, isBlocked && styles.inputDisabled]}
           value={text}
           onChangeText={setText}
           placeholder="Escribí un mensaje..."
@@ -115,11 +225,12 @@ export default function ChatScreen() {
           multiline
           maxLength={1000}
           returnKeyType="default"
+          editable={!isBlocked}
         />
         <TouchableOpacity
-          style={[styles.sendButton, (!text.trim() || isSending) && styles.sendButtonDisabled]}
+          style={[styles.sendButton, (!text.trim() || isSending || isBlocked) && styles.sendButtonDisabled]}
           onPress={handleSend}
-          disabled={!text.trim() || isSending}
+          disabled={!text.trim() || isSending || isBlocked}
           activeOpacity={0.7}
         >
           {isSending ? (
@@ -247,5 +358,21 @@ const styles = StyleSheet.create({
     color: COLORS.white,
     fontSize: 16,
     marginLeft: 2,
+  },
+  blockedBanner: {
+    backgroundColor: '#fef2f2',
+    borderTopWidth: 1,
+    borderTopColor: '#fecaca',
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+    alignItems: 'center',
+  },
+  blockedBannerText: {
+    fontSize: FONTS.sizes.sm,
+    color: '#dc2626',
+    fontWeight: '500',
+  },
+  inputDisabled: {
+    opacity: 0.5,
   },
 });

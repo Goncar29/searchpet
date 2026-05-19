@@ -21,7 +21,7 @@ func NewBlockService(repo repository.BlockedUserRepository) BlockService {
 // Block bloquea a blockedID por parte de blockerID.
 // Idempotente: si ya existe el bloqueo retorna nil (no duplica el registro).
 // Previene auto-bloqueo: retorna ErrInvalidInput si blockerID == blockedID.
-func (s *blockService) Block(ctx context.Context, blockerID, blockedID uuid.UUID) error {
+func (s *blockService) Block(ctx context.Context, blockerID, blockedID uuid.UUID, reason string) error {
 	if blockerID == blockedID {
 		return domain.ErrInvalidInput
 	}
@@ -29,6 +29,7 @@ func (s *blockService) Block(ctx context.Context, blockerID, blockedID uuid.UUID
 	block := &domain.BlockedUser{
 		BlockerID: blockerID,
 		BlockedID: blockedID,
+		Reason:    reason,
 	}
 
 	err := s.repo.Create(ctx, block)

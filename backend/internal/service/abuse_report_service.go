@@ -25,6 +25,10 @@ func (s *abuseReportService) Submit(ctx context.Context, reporterID uuid.UUID, r
 		return nil, domain.ErrInvalidInput
 	}
 
+	if req.TargetUserID != nil && *req.TargetUserID == reporterID {
+		return nil, domain.ErrInvalidInput
+	}
+
 	report := &domain.ReportAbuse{
 		TargetReportID: req.TargetReportID,
 		TargetUserID:   req.TargetUserID,

@@ -18,6 +18,10 @@ import type {
   SharedPetResponse,
   UploadPhotoResponse,
   User,
+  BlockedUser,
+  AbuseReport,
+  CreateAbuseReportRequest,
+  BlockUserRequest,
 } from '../types';
 
 // ============================================================
@@ -338,5 +342,44 @@ export const useMyBadges = () => {
   return useQuery({
     queryKey: ['badges', 'me'],
     queryFn: () => apiClient.getMyBadges(),
+  });
+};
+
+// ============================================================
+// BLOCKING & ABUSE REPORT HOOKS
+// ============================================================
+
+export const useBlockedUsers = () => {
+  return useQuery<BlockedUser[]>({
+    queryKey: ['blocked-users'],
+    queryFn: () => apiClient.getBlockedUsers(),
+  });
+};
+
+export const useBlockUser = () => {
+  const queryClient = useQueryClient();
+  return useMutation<void, Error, { userId: string; data?: BlockUserRequest }>({
+    mutationFn: ({ userId, data }) => apiClient.blockUser(userId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['blocked-users'] });
+      queryClient.invalidateQueries({ queryKey: ['messages'] });
+    },
+  });
+};
+
+export const useUnblockUser = () => {
+  const queryClient = useQueryClient();
+  return useMutation<void, Error, string>({
+    mutationFn: (userId) => apiClient.unblockUser(userId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['blocked-users'] });
+      queryClient.invalidateQueries({ queryKey: ['messages'] });
+    },
+  });
+};
+
+export const useSubmitAbuseReport = () => {
+  return useMutation<AbuseReport, Error, CreateAbuseReportRequest>({
+    mutationFn: (data) => apiClient.submitAbuseReport(data),
   });
 };

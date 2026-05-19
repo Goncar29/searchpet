@@ -294,3 +294,34 @@ export interface UpdateProfileRequest {
   name?: string;
   phone?: string;
 }
+
+// ============================================================
+// SAFETY — Blocking & Abuse Reports
+// ============================================================
+
+export type AbuseReason = 'spam' | 'fake' | 'abuse' | 'inappropriate' | 'other';
+
+export interface BlockedUser {
+  id: string;
+  blocked_id: string;
+  name: string;
+  blocked_at: string;
+}
+
+export interface AbuseReport {
+  id: string;
+  target_user_id?: string;
+  reporter_id: string;
+  reason: AbuseReason;
+  status: string;
+  created_at: string;
+}
+
+export interface CreateAbuseReportRequest {
+  target_user_id: string;
+  reason: AbuseReason;
+}
+
+export interface BlockUserRequest {
+  reason?: string;
+}

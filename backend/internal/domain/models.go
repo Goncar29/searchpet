@@ -249,6 +249,9 @@ type BlockedUser struct {
 	BlockedID uuid.UUID `gorm:"type:uuid;not null;uniqueIndex:idx_blocker_blocked" json:"blocked_id"`
 	Reason    string    `gorm:"type:text" json:"reason,omitempty"`
 	CreatedAt time.Time `gorm:"autoCreateTime" json:"created_at"`
+
+	// Relaciones
+	Blocked User `gorm:"foreignKey:BlockedID" json:"blocked_user,omitempty"`
 }
 
 // ReportAbuse representa una denuncia de fraude/abuso

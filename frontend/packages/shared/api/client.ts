@@ -35,6 +35,10 @@ import type {
   Badge,
   UserProfile,
   LeaderboardEntry,
+  BlockedUser,
+  AbuseReport,
+  CreateAbuseReportRequest,
+  BlockUserRequest,
 } from '../types';
 
 
@@ -84,7 +88,9 @@ class APIClient {
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({ error: 'Error desconocido' }));
-      throw new Error(error.error || `HTTP Error ${response.status}`);
+      const err = new Error(error.error || `HTTP Error ${response.status}`) as Error & { status: number };
+      err.status = response.status;
+      throw err;
     }
 
     if (response.status === 204) {
@@ -373,6 +379,26 @@ class APIClient {
 
   async getMyBadges(): Promise<Badge[]> {
     return this.request<Badge[]>('GET', '/api/users/me/badges');
+  }
+
+  // ============================================================
+  // BLOCKING & ABUSE REPORTS
+  // ============================================================
+
+  async blockUser(userId: string, data?: BlockUserRequest): Promise<void> {
+    return this.request<void>('POST', `/api/users/${userId}/block`, data);
+  }
+
+  async unblockUser(userId: string): Promise<void> {
+    return this.request<void>('DELETE', `/api/users/${userId}/block`);
+  }
+
+  async getBlockedUsers(): Promise<BlockedUser[]> {
+    return this.request<BlockedUser[]>('GET', '/api/users/blocked');
+  }
+
+  async submitAbuseReport(data: CreateAbuseReportRequest): Promise<AbuseReport> {
+    return this.request<AbuseReport>('POST', '/api/abuse-reports', data);
   }
 }
 

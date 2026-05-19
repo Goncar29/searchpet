@@ -60,6 +60,7 @@ func (r *postgresBlockedUserRepository) GetBlockedByUserID(ctx context.Context, 
 	err := r.db.WithContext(ctx).
 		Where("blocker_id = ?", userID).
 		Order("created_at DESC").
+		Preload("Blocked").
 		Find(&blocks).Error
 	return blocks, err
 }

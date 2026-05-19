@@ -36,7 +36,7 @@ func (h *BlockHandler) Block(c *gin.Context) {
 	// Body es opcional — ignoramos error de bind si no hay body
 	_ = c.ShouldBindJSON(&req)
 
-	err = h.blockService.Block(c.Request.Context(), callerID, targetID)
+	err = h.blockService.Block(c.Request.Context(), callerID, targetID, req.Reason)
 	if err != nil {
 		if errors.Is(err, domain.ErrInvalidInput) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "no podés bloquearte a vos mismo"})
