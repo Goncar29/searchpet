@@ -4,15 +4,24 @@
 
 import { View, Text, Image, StyleSheet, TouchableOpacity } from 'react-native';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../constants';
-import type { Report } from '../../shared/types';
+import type { Report, Pet } from '../../shared/types';
 
 interface PetCardProps {
-  report: Report;
+  /** Modo feed: reporte con mascota anidada (nearby reports) */
+  report?: Report;
+  /** Modo búsqueda: mascota directa (search results) */
+  pet?: Pet;
   onPress: () => void;
 }
 
-export function PetCard({ report, onPress }: PetCardProps) {
-  const pet = report.pet;
+export function PetCard({ report, pet: petProp, onPress }: PetCardProps) {
+  // report tiene prioridad; petProp es para resultados de búsqueda directa
+  const pet = report?.pet ?? petProp;
+
+  // Estado de display: desde report (lost/found/sighting) o desde pet (active→lost, found, archived)
+  const rawStatus = report?.status ?? (petProp?.status === 'found' ? 'found' : 'lost');
+  const dateStr = report?.created_at ?? petProp?.created_at ?? '';
+  const locationDesc = report?.location_description;
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -32,8 +41,9 @@ export function PetCard({ report, onPress }: PetCardProps) {
     }
   };
 
-  const getTimeAgo = (dateStr: string) => {
-    const date = new Date(dateStr);
+  const getTimeAgo = (d: string) => {
+    if (!d) return '';
+    const date = new Date(d);
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
     const diffMins = Math.floor(diffMs / 60000);
@@ -63,10 +73,10 @@ export function PetCard({ report, onPress }: PetCardProps) {
         <View
           style={[
             styles.statusBadge,
-            { backgroundColor: getStatusColor(report.status) },
+            { backgroundColor: getStatusColor(rawStatus) },
           ]}
         >
-          <Text style={styles.statusText}>{getStatusLabel(report.status)}</Text>
+          <Text style={styles.statusText}>{getStatusLabel(rawStatus)}</Text>
         </View>
       </View>
 
@@ -76,7 +86,7 @@ export function PetCard({ report, onPress }: PetCardProps) {
           <Text style={styles.petName} numberOfLines={1}>
             {pet?.name || 'Sin nombre'}
           </Text>
-          <Text style={styles.timeAgo}>{getTimeAgo(report.created_at)}</Text>
+          <Text style={styles.timeAgo}>{getTimeAgo(dateStr)}</Text>
         </View>
 
         <View style={styles.detailsRow}>
@@ -97,9 +107,9 @@ export function PetCard({ report, onPress }: PetCardProps) {
           )}
         </View>
 
-        {report.location_description && (
+        {locationDesc && (
           <Text style={styles.location} numberOfLines={1}>
-            📍 {report.location_description}
+            📍 {locationDesc}
           </Text>
         )}
 

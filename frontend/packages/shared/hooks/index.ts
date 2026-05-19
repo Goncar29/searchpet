@@ -84,7 +84,7 @@ export const usePetByID = (id: string) => {
   });
 };
 
-export const useSearchPets = (params: PetSearchParams) => {
+export const useSearchPets = (params: PetSearchFilters) => {
   return useQuery({
     queryKey: ['pets', 'search', params],
     queryFn: () => apiClient.searchPets(params),

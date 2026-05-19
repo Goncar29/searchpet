@@ -1,20 +1,52 @@
 import { Link } from 'react-router';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useStats, useNearbyReports } from '@shared/hooks';
-import type { Report } from '@shared/types';
+import { useStats, useNearbyReports, useSearchPets } from '@shared/hooks';
+import type { Report, Pet, PetType, PetStatus } from '@shared/types';
 import { useAuth } from '../context/AuthContext';
 import { PetCardWeb } from '../components/PetCardWeb';
+
+const PET_TYPES: { value: PetType; label: string; icon: string }[] = [
+  { value: 'perro', label: 'Perro', icon: '🐕' },
+  { value: 'gato', label: 'Gato', icon: '🐱' },
+  { value: 'pajaro', label: 'Pájaro', icon: '🐦' },
+  { value: 'otro', label: 'Otro', icon: '🐾' },
+];
+
+const PET_STATUSES: { value: PetStatus; label: string }[] = [
+  { value: 'active', label: 'Perdidos' },
+  { value: 'found', label: 'Encontrados' },
+];
 
 export function HomePage() {
   const { t } = useTranslation(['home', 'common']);
   const { isAuthenticated } = useAuth();
   const { data: stats } = useStats();
-  // Default: Montevideo
-  const { data: reports, isLoading } = useNearbyReports(-34.9011, -56.1645, 20, true);
 
-  // Un card por mascota: la API devuelve un Report por cada reporte registrado,
-  // ordenado por distancia. Ordenamos por fecha DESC primero para que el reduce
-  // siempre conserve el reporte más reciente de cada pet.
+  // ── Filtros ──
+  const [filterType, setFilterType] = useState<PetType | ''>('');
+  const [filterColor, setFilterColor] = useState('');
+  const [filterStatus, setFilterStatus] = useState<PetStatus | ''>('');
+
+  const isSearchMode = !!filterType || filterColor.trim().length > 0 || !!filterStatus;
+
+  const clearFilters = () => {
+    setFilterType('');
+    setFilterColor('');
+    setFilterStatus('');
+  };
+
+  // ── Datos ──
+  const { data: reports, isLoading: nearbyLoading } = useNearbyReports(-34.9011, -56.1645, 20, !isSearchMode);
+  const { data: searchResults, isLoading: searchLoading } = useSearchPets({
+    type: filterType || undefined,
+    color: filterColor.trim() || undefined,
+    status: filterStatus || undefined,
+  });
+
+  const isLoading = isSearchMode ? searchLoading : nearbyLoading;
+
+  // Modo nearby: dedup por pet, ordenado por fecha DESC
   const uniqueReports = [...(reports ?? [])]
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
     .reduce((acc: Report[], report: Report) => {
@@ -103,39 +135,154 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* Reportes recientes */}
+      {/* Buscador y filtros */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-5">
+          <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-4">
+            🔍 Buscar mascotas
+          </h2>
+
+          <div className="flex flex-wrap gap-3">
+            {/* Tipo */}
+            <select
+              value={filterType}
+              onChange={(e) => setFilterType(e.target.value as PetType | '')}
+              className="border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-primary"
+            >
+              <option value="">Todos los tipos</option>
+              {PET_TYPES.map((t) => (
+                <option key={t.value} value={t.value}>{t.icon} {t.label}</option>
+              ))}
+            </select>
+
+            {/* Color */}
+            <input
+              type="text"
+              placeholder="Color (ej: negro, marrón...)"
+              value={filterColor}
+              onChange={(e) => setFilterColor(e.target.value)}
+              className="border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-primary min-w-[180px]"
+            />
+
+            {/* Estado */}
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value as PetStatus | '')}
+              className="border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-primary"
+            >
+              <option value="">Perdidos y encontrados</option>
+              {PET_STATUSES.map((s) => (
+                <option key={s.value} value={s.value}>{s.label}</option>
+              ))}
+            </select>
+
+            {/* Limpiar */}
+            {isSearchMode && (
+              <button
+                onClick={clearFilters}
+                className="px-4 py-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 border border-gray-200 dark:border-gray-700 rounded-lg transition-colors"
+              >
+                ✕ Limpiar
+              </button>
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* Resultados */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6">
-          {t('home:recentReports')}
-        </h2>
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+            {isSearchMode
+              ? `${searchResults?.total ?? searchResults?.data?.length ?? 0} resultado${(searchResults?.total ?? 0) !== 1 ? 's' : ''}`
+              : t('home:recentReports')}
+          </h2>
+          {isSearchMode && (
+            <span className="text-sm text-gray-500 dark:text-gray-400">
+              Búsqueda activa
+            </span>
+          )}
+        </div>
 
         {isLoading ? (
           <div className="text-center py-12">
             <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
             <p className="text-gray-500 dark:text-gray-400">{t('common:loading')}</p>
           </div>
-        ) : uniqueReports && uniqueReports.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {uniqueReports.slice(0, 6).map((report: Report) => (
-              <PetCardWeb key={report.id} report={report} />
-            ))}
-          </div>
+        ) : isSearchMode ? (
+          // ── Resultados de búsqueda (Pet[]) ──
+          searchResults?.data && searchResults.data.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {searchResults.data.map((pet: Pet) => (
+                <Link key={pet.id} to={`/pets/${pet.id}`} className="block group">
+                  <div className="bg-white dark:bg-gray-900 rounded-2xl overflow-hidden shadow-sm border border-gray-100 dark:border-gray-800 hover:shadow-md transition-shadow">
+                    {/* Foto */}
+                    <div className="h-48 bg-gray-100 dark:bg-gray-800 relative overflow-hidden">
+                      {pet.photos?.[0]?.url ? (
+                        <img
+                          src={pet.photos[0].url}
+                          alt={pet.name}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-5xl">🐾</div>
+                      )}
+                      <span className={`absolute top-3 left-3 text-xs font-bold text-white px-2 py-1 rounded-md ${pet.status === 'found' ? 'bg-green-500' : 'bg-red-500'}`}>
+                        {pet.status === 'found' ? 'ENCONTRADO' : 'PERDIDO'}
+                      </span>
+                    </div>
+                    {/* Info */}
+                    <div className="p-4">
+                      <h3 className="font-bold text-gray-900 dark:text-gray-100 text-lg mb-1">{pet.name}</h3>
+                      <div className="flex flex-wrap gap-1 mb-2">
+                        {pet.type && <span className="text-xs bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 px-2 py-0.5 rounded-full">{pet.type}</span>}
+                        {pet.breed && <span className="text-xs bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 px-2 py-0.5 rounded-full">{pet.breed}</span>}
+                        {pet.color && <span className="text-xs bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 px-2 py-0.5 rounded-full">{pet.color}</span>}
+                      </div>
+                      {pet.description && (
+                        <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-2">{pet.description}</p>
+                      )}
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <p className="text-5xl mb-4">🔍</p>
+              <p className="text-gray-700 dark:text-gray-300 font-semibold mb-2">Sin resultados</p>
+              <p className="text-gray-500 dark:text-gray-400 mb-4">Probá con otros filtros</p>
+              <button onClick={clearFilters} className="px-5 py-2 bg-primary text-white rounded-lg text-sm font-semibold hover:bg-primary-dark transition-colors">
+                Limpiar filtros
+              </button>
+            </div>
+          )
         ) : (
-          <div className="text-center py-12">
-            <p className="text-5xl mb-4">🐾</p>
-            <p className="text-gray-500 dark:text-gray-400">{t('home:noReports')}</p>
-          </div>
-        )}
-
-        {reports && reports.length > 6 && (
-          <div className="text-center mt-8">
-            <Link
-              to="/map"
-              className="inline-flex items-center px-6 py-3 bg-primary text-white font-semibold rounded-lg hover:bg-primary-dark transition-colors"
-            >
-              {t('home:viewAll')}
-            </Link>
-          </div>
+          // ── Feed nearby (Report[]) ──
+          uniqueReports && uniqueReports.length > 0 ? (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {uniqueReports.slice(0, 6).map((report: Report) => (
+                  <PetCardWeb key={report.id} report={report} />
+                ))}
+              </div>
+              {reports && reports.length > 6 && (
+                <div className="text-center mt-8">
+                  <Link
+                    to="/map"
+                    className="inline-flex items-center px-6 py-3 bg-primary text-white font-semibold rounded-lg hover:bg-primary-dark transition-colors"
+                  >
+                    {t('home:viewAll')}
+                  </Link>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="text-center py-12">
+              <p className="text-5xl mb-4">🐾</p>
+              <p className="text-gray-500 dark:text-gray-400">{t('home:noReports')}</p>
+            </div>
+          )
         )}
       </section>
     </div>
