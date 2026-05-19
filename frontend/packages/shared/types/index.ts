@@ -325,3 +325,31 @@ export interface CreateAbuseReportRequest {
 export interface BlockUserRequest {
   reason?: string;
 }
+
+// ============================================================
+// SUCCESS STORIES
+// ============================================================
+
+export interface SuccessStory {
+  id: string;
+  pet_id: string;
+  user_id: string;
+  title: string;
+  body: string;
+  photo_before?: string;
+  photo_after?: string;
+  like_count: number;
+  featured: boolean;
+  pet_name: string;
+  user_name: string;
+  created_at: string;
+}
+
+export interface CreateStoryRequest {
+  pet_id: string;
+  title?: string;
+  body: string;
+  hero_name?: string;
+}
+
+export type StoryListResponse = SuccessStory[];

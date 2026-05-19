@@ -155,7 +155,22 @@ export default function PetDetailScreen() {
         {
           text: 'Confirmar',
           style: 'default',
-          onPress: () => markAsFound.mutate(pet.id),
+          onPress: () =>
+            markAsFound.mutate(pet.id, {
+              onSuccess: () => {
+                Alert.alert(
+                  '¡Mascota encontrada! 🎉',
+                  '¿Querés compartir la historia del reencuentro?',
+                  [
+                    {
+                      text: 'Compartir historia',
+                      onPress: () => router.push(`/story/create?petId=${pet.id}`),
+                    },
+                    { text: 'Más tarde', style: 'cancel' },
+                  ],
+                );
+              },
+            }),
         },
       ],
     );

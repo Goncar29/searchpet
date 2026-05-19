@@ -10,6 +10,7 @@ import type {
   UpdatePetRequest,
   UpdateProfileRequest,
   PetSearchParams,
+  PetSearchFilters,
   CreateReportRequest,
   NearbySearchParams,
   NearbyReportsResponse,
@@ -22,6 +23,9 @@ import type {
   AbuseReport,
   CreateAbuseReportRequest,
   BlockUserRequest,
+  SuccessStory,
+  CreateStoryRequest,
+  StoryListResponse,
 } from '../types';
 
 // ============================================================
@@ -381,5 +385,69 @@ export const useUnblockUser = () => {
 export const useSubmitAbuseReport = () => {
   return useMutation<AbuseReport, Error, CreateAbuseReportRequest>({
     mutationFn: (data) => apiClient.submitAbuseReport(data),
+  });
+};
+
+// ============================================================
+// SUCCESS STORY HOOKS
+// ============================================================
+
+export const useStories = (params?: { featured?: boolean; limit?: number; offset?: number }) => {
+  return useQuery<StoryListResponse>({
+    queryKey: ['stories', params],
+    queryFn: () => apiClient.getStories(params),
+  });
+};
+
+export const useStory = (id: string) => {
+  return useQuery<SuccessStory>({
+    queryKey: ['stories', id],
+    queryFn: () => apiClient.getStory(id),
+    enabled: !!id,
+  });
+};
+
+export const useCreateStory = () => {
+  const queryClient = useQueryClient();
+  return useMutation<SuccessStory, Error, CreateStoryRequest>({
+    mutationFn: (data) => apiClient.createStory(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['stories'] });
+    },
+  });
+};
+
+export const useLikeStory = () => {
+  const queryClient = useQueryClient();
+  return useMutation<void, Error, string>({
+    mutationFn: (id) => apiClient.likeStory(id),
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: ['stories'] });
+
+      // Snapshot all stories cache entries for rollback
+      const previousEntries = queryClient.getQueriesData<StoryListResponse>({ queryKey: ['stories'] });
+
+      // Optimistically increment like_count in all matching list entries
+      queryClient.setQueriesData<StoryListResponse>({ queryKey: ['stories'] }, (old) => {
+        if (!old) return old;
+        return old.map((story) =>
+          story.id === id ? { ...story, like_count: story.like_count + 1 } : story
+        );
+      });
+
+      return { previousEntries };
+    },
+    onError: (_err, _id, context) => {
+      // Rollback on error
+      const ctx = context as { previousEntries: [unknown, StoryListResponse | undefined][] } | undefined;
+      if (ctx?.previousEntries) {
+        ctx.previousEntries.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey as Parameters<typeof queryClient.setQueryData>[0], data);
+        });
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['stories'] });
+    },
   });
 };

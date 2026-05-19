@@ -154,6 +154,7 @@ type GroupMemberRepository interface {
 type SuccessStoryRepository interface {
 	Create(ctx context.Context, story *domain.SuccessStory) error
 	GetByID(ctx context.Context, id uuid.UUID) (*domain.SuccessStory, error)
+	GetByPetID(ctx context.Context, petID uuid.UUID) (*domain.SuccessStory, error)
 	GetAll(ctx context.Context, featured *bool, limit, offset int) ([]domain.SuccessStory, error)
 	IncrementLikes(ctx context.Context, id uuid.UUID) error
 	SetFeatured(ctx context.Context, id uuid.UUID, featured bool, featuredBy uuid.UUID) error

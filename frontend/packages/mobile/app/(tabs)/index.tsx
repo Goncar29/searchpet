@@ -16,11 +16,11 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Location from 'expo-location';
-import { useNearbyReports, useSearchPets } from '../../../shared/hooks';
+import { useNearbyReports, useSearchPets, useStories } from '../../../shared/hooks';
 import { useLocationStore, useAuthStore } from '../../store';
 import { PetCard } from '../../components/PetCard';
 import { COLORS, SPACING, FONTS, MAP_DEFAULTS, PET_TYPES } from '../../constants';
-import type { PetType } from '../../../shared/types';
+import type { PetType, SuccessStory } from '../../../shared/types';
 
 const RADII = [5, 10, 25, 50] as const;
 
@@ -96,6 +96,24 @@ export default function HomeScreen() {
   const resultCount = isSearchMode
     ? (searchQuery.data?.total ?? data.length)
     : data.length;
+
+  // ── Historias de éxito ───────────────────────────────────
+  const storiesQuery = useStories({ limit: 10 });
+  const stories: SuccessStory[] = storiesQuery.data ?? [];
+
+  const renderStoryCard = ({ item }: { item: SuccessStory }) => {
+    const displayText =
+      item.title ||
+      (item.body.length > 80 ? item.body.slice(0, 80) + '…' : item.body);
+
+    return (
+      <View style={styles.storyCard}>
+        <Text style={styles.storyPetName}>{item.pet_name}</Text>
+        <Text style={styles.storyBody} numberOfLines={2}>{displayText}</Text>
+        <Text style={styles.storyLikes}>❤️ {item.like_count}</Text>
+      </View>
+    );
+  };
 
   return (
     <View style={styles.container}>
@@ -205,6 +223,26 @@ export default function HomeScreen() {
           <Text style={styles.ctaText}>Iniciá sesión para publicar y ayudar</Text>
           <Text style={styles.ctaArrow}>→</Text>
         </TouchableOpacity>
+      )}
+
+      {/* ── Historias de éxito ── */}
+      {storiesQuery.isLoading && (
+        <View style={styles.storiesLoadingRow}>
+          <ActivityIndicator size="small" color={COLORS.primary} />
+        </View>
+      )}
+      {!storiesQuery.isLoading && stories.length > 0 && (
+        <View style={styles.storiesSection}>
+          <Text style={styles.storiesSectionTitle}>Historias de éxito</Text>
+          <FlatList
+            data={stories}
+            keyExtractor={(item) => item.id}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            renderItem={renderStoryCard}
+            contentContainerStyle={styles.storiesList}
+          />
+        </View>
       )}
 
       {/* ── Lista ── */}
@@ -383,4 +421,54 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   clearButtonText: { color: COLORS.white, fontWeight: '700', fontSize: FONTS.sizes.sm },
+
+  // ── Historias de éxito ──
+  storiesLoadingRow: {
+    paddingVertical: SPACING.sm,
+    alignItems: 'center',
+  },
+  storiesSection: {
+    backgroundColor: COLORS.white,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+    paddingTop: SPACING.sm,
+    paddingBottom: SPACING.md,
+  },
+  storiesSectionTitle: {
+    fontSize: FONTS.sizes.md,
+    fontWeight: '700',
+    color: COLORS.textPrimary,
+    paddingHorizontal: SPACING.lg,
+    marginBottom: SPACING.sm,
+  },
+  storiesList: {
+    paddingHorizontal: SPACING.lg,
+    gap: SPACING.md,
+  },
+  storyCard: {
+    width: 180,
+    backgroundColor: COLORS.background,
+    borderRadius: 12,
+    padding: SPACING.md,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  storyPetName: {
+    fontSize: FONTS.sizes.sm,
+    fontWeight: '700',
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.xs,
+  },
+  storyBody: {
+    fontSize: FONTS.sizes.xs,
+    color: COLORS.textSecondary,
+    lineHeight: 18,
+    marginBottom: SPACING.sm,
+    flex: 1,
+  },
+  storyLikes: {
+    fontSize: FONTS.sizes.xs,
+    color: COLORS.textMuted,
+    fontWeight: '500',
+  },
 });

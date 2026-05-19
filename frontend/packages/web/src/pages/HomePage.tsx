@@ -1,8 +1,8 @@
 import { Link } from 'react-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useStats, useNearbyReports, useSearchPets } from '@shared/hooks';
-import type { Report, Pet, PetType, PetStatus } from '@shared/types';
+import { useStats, useNearbyReports, useSearchPets, useStories } from '@shared/hooks';
+import type { Report, Pet, PetType, PetStatus, SuccessStory } from '@shared/types';
 import { useAuth } from '../context/AuthContext';
 import { PetCardWeb } from '../components/PetCardWeb';
 
@@ -22,6 +22,7 @@ export function HomePage() {
   const { t } = useTranslation(['home', 'common']);
   const { isAuthenticated } = useAuth();
   const { data: stats } = useStats();
+  const { data: featuredStories } = useStories({ limit: 3 });
 
   // ── Filtros ──
   const [filterType, setFilterType] = useState<PetType | ''>('');
@@ -134,6 +135,46 @@ export function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* Historias de éxito */}
+      {featuredStories && featuredStories.length > 0 && (
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+              Historias de éxito
+            </h2>
+            <Link
+              to="/stories"
+              className="text-sm font-semibold text-primary hover:text-primary-dark transition-colors"
+            >
+              Ver todas →
+            </Link>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {featuredStories.map((story: SuccessStory) => (
+              <Link
+                key={story.id}
+                to="/stories"
+                className="block bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5 hover:shadow-md transition-shadow"
+              >
+                <p className="text-sm font-bold text-primary mb-1">{story.pet_name}</p>
+                <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-2 line-clamp-1">
+                  {story.title || story.pet_name}
+                </h3>
+                <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2 mb-3">
+                  {story.body}
+                </p>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-gray-400 dark:text-gray-500">
+                    {new Date(story.created_at).toLocaleDateString()}
+                  </span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">❤️ {story.like_count}</span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Buscador y filtros */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">

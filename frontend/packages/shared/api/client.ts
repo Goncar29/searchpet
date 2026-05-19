@@ -39,6 +39,9 @@ import type {
   AbuseReport,
   CreateAbuseReportRequest,
   BlockUserRequest,
+  SuccessStory,
+  CreateStoryRequest,
+  StoryListResponse,
 } from '../types';
 
 
@@ -399,6 +402,38 @@ class APIClient {
 
   async submitAbuseReport(data: CreateAbuseReportRequest): Promise<AbuseReport> {
     return this.request<AbuseReport>('POST', '/api/abuse-reports', data);
+  }
+
+  // ============================================================
+  // SUCCESS STORIES
+  // ============================================================
+
+  async getStories(params?: { featured?: boolean; limit?: number; offset?: number }): Promise<StoryListResponse> {
+    const queryParams: Record<string, string | number> = {};
+    if (params?.featured !== undefined) queryParams['featured'] = String(params.featured);
+    if (params?.limit !== undefined) queryParams['limit'] = params.limit;
+    if (params?.offset !== undefined) queryParams['offset'] = params.offset;
+    return this.request<StoryListResponse>('GET', '/api/stories', undefined, queryParams);
+  }
+
+  async getStory(id: string): Promise<SuccessStory> {
+    return this.request<SuccessStory>('GET', `/api/stories/${id}`);
+  }
+
+  async getStoryByPetID(petId: string): Promise<SuccessStory> {
+    return this.request<SuccessStory>('GET', `/api/stories/pet/${petId}`);
+  }
+
+  async createStory(data: CreateStoryRequest): Promise<SuccessStory> {
+    return this.request<SuccessStory>('POST', '/api/stories', data);
+  }
+
+  async likeStory(id: string): Promise<void> {
+    return this.request<void>('POST', `/api/stories/${id}/like`);
+  }
+
+  async deleteStory(id: string): Promise<void> {
+    return this.request<void>('DELETE', `/api/stories/${id}`);
   }
 }
 

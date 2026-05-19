@@ -74,6 +74,7 @@ type GroupService interface {
 type SuccessStoryService interface {
 	Create(ctx context.Context, userID uuid.UUID, req dto.CreateStoryRequest) (*domain.SuccessStory, error)
 	GetByID(ctx context.Context, id uuid.UUID) (*domain.SuccessStory, error)
+	GetByPetID(ctx context.Context, petID uuid.UUID) (*domain.SuccessStory, error)
 	List(ctx context.Context, featured *bool, limit, offset int) ([]domain.SuccessStory, error)
 	Like(ctx context.Context, id uuid.UUID) error
 	SetFeatured(ctx context.Context, id uuid.UUID, featured bool, adminID uuid.UUID) error

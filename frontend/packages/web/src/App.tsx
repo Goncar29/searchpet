@@ -17,6 +17,7 @@ import { LeaderboardPage } from './pages/LeaderboardPage';
 import { UserProfilePage } from './pages/UserProfilePage';
 import { InstallPWA } from './components/InstallPWA';
 import { DownloadPage } from './pages/DownloadPage';
+import { StoriesPage } from './pages/StoriesPage';
 
 export default function App() {
   return (
@@ -30,6 +31,7 @@ export default function App() {
           <Route path="/pets/:id" element={<PetDetailPage />} />
           <Route path="/shelters" element={<SheltersPage />} />
           <Route path="/leaderboard" element={<LeaderboardPage />} />
+          <Route path="/stories" element={<StoriesPage />} />
           <Route path="/users/:id" element={<UserProfilePage />} />
           <Route path="/descargar" element={<DownloadPage />} />
           <Route path="/login" element={<LoginPage />} />

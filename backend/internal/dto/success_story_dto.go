@@ -10,7 +10,7 @@ import (
 // CreateStoryRequest contiene los datos para crear una historia de éxito.
 type CreateStoryRequest struct {
 	PetID       uuid.UUID `json:"pet_id" binding:"required"`
-	Title       string    `json:"title" binding:"required"`
+	Title       string    `json:"title"`
 	Body        string    `json:"body" binding:"required"`
 	PhotoBefore string    `json:"photo_before"`
 	PhotoAfter  string    `json:"photo_after"`
@@ -33,12 +33,15 @@ type StoryResponse struct {
 	LikeCount   int        `json:"like_count"`
 	Featured    bool       `json:"featured"`
 	FeaturedBy  *uuid.UUID `json:"featured_by,omitempty"`
+	PetName     string     `json:"pet_name,omitempty"`
+	UserName    string     `json:"user_name,omitempty"`
 	CreatedAt   time.Time  `json:"created_at"`
 }
 
 // ToStoryResponse convierte un domain.SuccessStory a StoryResponse.
+// Incluye PetName y UserName desde las relaciones precargadas (Preload Pet + User).
 func ToStoryResponse(s *domain.SuccessStory) StoryResponse {
-	return StoryResponse{
+	resp := StoryResponse{
 		ID:          s.ID,
 		PetID:       s.PetID,
 		UserID:      s.UserID,
@@ -51,6 +54,13 @@ func ToStoryResponse(s *domain.SuccessStory) StoryResponse {
 		FeaturedBy:  s.FeaturedBy,
 		CreatedAt:   s.CreatedAt,
 	}
+	if s.Pet.ID != (uuid.UUID{}) {
+		resp.PetName = s.Pet.Name
+	}
+	if s.User.ID != (uuid.UUID{}) {
+		resp.UserName = s.User.Name
+	}
+	return resp
 }
 
 // ToStoryListResponse convierte una lista de SuccessStory a []StoryResponse.

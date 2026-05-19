@@ -35,6 +35,14 @@ func (h *SuccessStoryHandler) Create(c *gin.Context) {
 
 	story, err := h.storyService.Create(c.Request.Context(), callerID, req)
 	if err != nil {
+		if errors.Is(err, domain.ErrPetNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			return
+		}
+		if errors.Is(err, domain.ErrPetNotFoundStatus) {
+			c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
 		return
 	}
@@ -147,6 +155,37 @@ func (h *SuccessStoryHandler) Delete(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "historia eliminada"})
+}
+
+// GetByPetID godoc
+// GET /api/stories/pet/:petId
+func (h *SuccessStoryHandler) GetByPetID(c *gin.Context) {
+	petID, err := uuid.Parse(c.Param("petId"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "petId inválido"})
+		return
+	}
+
+	story, err := h.storyService.GetByPetID(c.Request.Context(), petID)
+	if err != nil {
+		if errors.Is(err, domain.ErrPetNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			return
+		}
+		if errors.Is(err, domain.ErrPetNotFoundStatus) {
+			c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
+		return
+	}
+
+	if story == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": domain.ErrStoryNotFound.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, dto.ToStoryResponse(story))
 }
 
 // SetFeatured godoc

@@ -39,6 +39,22 @@ func (r *postgresSuccessStoryRepository) GetByID(ctx context.Context, id uuid.UU
 	return &story, nil
 }
 
+func (r *postgresSuccessStoryRepository) GetByPetID(ctx context.Context, petID uuid.UUID) (*domain.SuccessStory, error) {
+	var story domain.SuccessStory
+	err := r.db.WithContext(ctx).
+		Preload("Pet").
+		Preload("User").
+		Where("pet_id = ? AND deleted_at IS NULL", petID).
+		First(&story).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &story, nil
+}
+
 func (r *postgresSuccessStoryRepository) GetAll(ctx context.Context, featured *bool, limit, offset int) ([]domain.SuccessStory, error) {
 	var stories []domain.SuccessStory
 	q := r.db.WithContext(ctx).

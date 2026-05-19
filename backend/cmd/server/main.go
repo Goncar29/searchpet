@@ -92,7 +92,7 @@ func main() {
 	shareLinkService := service.NewShareLinkService(shareLinkRepo, petRepo, bus)
 	shelterService := service.NewShelterService(shelterRepo)
 	blockService := service.NewBlockService(blockedUserRepo)
-	storyService := service.NewSuccessStoryService(repository.NewSuccessStoryRepository(db))
+	storyService := service.NewSuccessStoryService(repository.NewSuccessStoryRepository(db), petRepo)
 	groupRepo := repository.NewLocalGroupRepository(db)
 	groupMemberRepo := repository.NewGroupMemberRepository(db)
 	groupService := service.NewGroupService(groupRepo, groupMemberRepo)
@@ -244,6 +244,7 @@ func main() {
 		// V1.3 — Success Stories
 		protected.POST("/stories", storyHandler.Create)
 		protected.GET("/stories", storyHandler.List)
+		protected.GET("/stories/pet/:petId", storyHandler.GetByPetID)
 		protected.GET("/stories/:id", storyHandler.GetByID)
 		protected.POST("/stories/:id/like", storyHandler.Like)
 		protected.DELETE("/stories/:id", storyHandler.Delete)

@@ -10,16 +10,30 @@ import (
 )
 
 type successStoryService struct {
-	repo repository.SuccessStoryRepository
+	repo    repository.SuccessStoryRepository
+	petRepo repository.PetRepository
 }
 
 // NewSuccessStoryService construye el SuccessStoryService con sus dependencias.
-func NewSuccessStoryService(repo repository.SuccessStoryRepository) SuccessStoryService {
-	return &successStoryService{repo: repo}
+func NewSuccessStoryService(repo repository.SuccessStoryRepository, petRepo repository.PetRepository) SuccessStoryService {
+	return &successStoryService{repo: repo, petRepo: petRepo}
 }
 
 // Create crea una nueva historia de éxito.
+// Verifica que la mascota exista y tenga status "found" antes de crear.
 func (s *successStoryService) Create(ctx context.Context, userID uuid.UUID, req dto.CreateStoryRequest) (*domain.SuccessStory, error) {
+	pet, err := s.petRepo.FindByID(req.PetID.String())
+	if err != nil {
+		if err == domain.ErrPetNotFound {
+			return nil, domain.ErrPetNotFound
+		}
+		return nil, err
+	}
+
+	if pet.Status != "found" {
+		return nil, domain.ErrPetNotFoundStatus
+	}
+
 	story := &domain.SuccessStory{
 		PetID:       req.PetID,
 		UserID:      userID,
@@ -36,6 +50,12 @@ func (s *successStoryService) Create(ctx context.Context, userID uuid.UUID, req 
 	}
 
 	return s.repo.GetByID(ctx, story.ID)
+}
+
+// GetByPetID obtiene la historia de éxito asociada a una mascota.
+// Retorna nil, nil si no existe ninguna historia para esa mascota.
+func (s *successStoryService) GetByPetID(ctx context.Context, petID uuid.UUID) (*domain.SuccessStory, error) {
+	return s.repo.GetByPetID(ctx, petID)
 }
 
 // GetByID obtiene una historia por su ID.
