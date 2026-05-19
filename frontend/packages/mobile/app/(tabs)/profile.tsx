@@ -105,6 +105,15 @@ export default function ProfileScreen() {
           <Text style={styles.menuArrow}>›</Text>
         </TouchableOpacity>
 
+        <TouchableOpacity
+          style={styles.menuItem}
+          onPress={() => router.push('/alerts')}
+        >
+          <Text style={styles.menuIcon}>🔔</Text>
+          <Text style={styles.menuText}>Mis alertas de zona</Text>
+          <Text style={styles.menuArrow}>›</Text>
+        </TouchableOpacity>
+
         <TouchableOpacity style={styles.menuItem}>
           <Text style={styles.menuIcon}>⚙️</Text>
           <Text style={styles.menuText}>Configuración</Text>

@@ -260,6 +260,48 @@ export const useSharedPet = (token: string) => {
 };
 
 // ============================================================
+// LOCATION ALERT HOOKS
+// ============================================================
+
+export const useAlerts = () => {
+  return useQuery({
+    queryKey: ['alerts'],
+    queryFn: () => apiClient.getAlerts(),
+  });
+};
+
+export const useCreateAlert = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: CreateLocationAlertRequest) => apiClient.createAlert(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['alerts'] });
+    },
+  });
+};
+
+export const useUpdateAlert = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: UpdateLocationAlertRequest }) =>
+      apiClient.updateAlert(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['alerts'] });
+    },
+  });
+};
+
+export const useDeleteAlert = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => apiClient.deleteAlert(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['alerts'] });
+    },
+  });
+};
+
+// ============================================================
 // STATS HOOKS
 // ============================================================
 

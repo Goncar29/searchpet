@@ -97,6 +97,10 @@ export default function RootLayout() {
           name="my-pets"
           options={{ title: 'Mis Mascotas' }}
         />
+        <Stack.Screen
+          name="alerts/index"
+          options={{ title: 'Mis Alertas' }}
+        />
       </Stack>
     </QueryClientProvider>
   );
