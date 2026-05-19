@@ -59,7 +59,7 @@ func TestMarkAsFound_HappyPath(t *testing.T) {
 	repo := &mockPetRepo{pet: petWithStatus(ownerID, "active")}
 	bus := event.NewEventBus()
 
-	svc := service.NewPetService(repo, bus)
+	svc := service.NewPetService(repo, bus, nil)
 	pet, err := svc.MarkAsFound(ownerID.String(), repo.pet.ID.String())
 
 	if err != nil {
@@ -79,7 +79,7 @@ func TestMarkAsFound_NonOwner_Returns403(t *testing.T) {
 	repo := &mockPetRepo{pet: petWithStatus(ownerID, "active")}
 	bus := event.NewEventBus()
 
-	svc := service.NewPetService(repo, bus)
+	svc := service.NewPetService(repo, bus, nil)
 	_, err := svc.MarkAsFound(anotherUser.String(), repo.pet.ID.String())
 
 	if err == nil {
@@ -98,7 +98,7 @@ func TestMarkAsFound_AlreadyFound_IsIdempotent(t *testing.T) {
 	repo := &mockPetRepo{pet: petWithStatus(ownerID, "found")}
 	bus := event.NewEventBus()
 
-	svc := service.NewPetService(repo, bus)
+	svc := service.NewPetService(repo, bus, nil)
 	pet, err := svc.MarkAsFound(ownerID.String(), repo.pet.ID.String())
 
 	if err != nil {
@@ -117,7 +117,7 @@ func TestMarkAsFound_ArchivedPet_Returns409(t *testing.T) {
 	repo := &mockPetRepo{pet: petWithStatus(ownerID, "archived")}
 	bus := event.NewEventBus()
 
-	svc := service.NewPetService(repo, bus)
+	svc := service.NewPetService(repo, bus, nil)
 	_, err := svc.MarkAsFound(ownerID.String(), repo.pet.ID.String())
 
 	if err == nil {
@@ -140,7 +140,7 @@ func TestMarkAsFound_PublishesEvent(t *testing.T) {
 		}
 	})
 
-	svc := service.NewPetService(repo, bus)
+	svc := service.NewPetService(repo, bus, nil)
 	_, err := svc.MarkAsFound(ownerID.String(), repo.pet.ID.String())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)

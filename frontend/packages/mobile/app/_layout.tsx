@@ -46,7 +46,6 @@ export default function RootLayout() {
             try { router.push(`/pet/${entityId}` as `/${string}`); } catch { router.push('/(tabs)'); }
             break;
           case 'message.sent':
-            // chat/[userId].tsx no existe aún — el try/catch evita crash
             try { router.push(`/chat/${entityId}` as `/${string}`); } catch { router.push('/(tabs)'); }
             break;
           default:
