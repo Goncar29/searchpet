@@ -5,14 +5,14 @@
 import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '../../store';
-import { useMyPets, useStats } from '../../../shared/hooks';
+import { useMyPets, usePublicProfile } from '../../../shared/hooks';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
 
 export default function ProfileScreen() {
   const router = useRouter();
   const { user, isAuthenticated, logout } = useAuthStore();
   const { data: myPets } = useMyPets();
-  const { data: stats } = useStats();
+  const { data: myProfile } = usePublicProfile(user?.id ?? '');
 
   if (!isAuthenticated) {
     return (
@@ -66,12 +66,12 @@ export default function ProfileScreen() {
         </View>
         <View style={styles.statDivider} />
         <View style={styles.statItem}>
-          <Text style={styles.statNumber}>{stats?.found_pets || 0}</Text>
+          <Text style={styles.statNumber}>{myProfile?.found_count ?? 0}</Text>
           <Text style={styles.statLabel}>Encontradas</Text>
         </View>
         <View style={styles.statDivider} />
         <View style={styles.statItem}>
-          <Text style={styles.statNumber}>{stats?.total_reports || 0}</Text>
+          <Text style={styles.statNumber}>{myProfile?.total_reports ?? 0}</Text>
           <Text style={styles.statLabel}>Reportes</Text>
         </View>
       </View>
@@ -99,9 +99,21 @@ export default function ProfileScreen() {
           <Text style={styles.menuArrow}>›</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.menuItem}>
+        <TouchableOpacity
+          style={styles.menuItem}
+          onPress={() => router.push('/badges')}
+        >
           <Text style={styles.menuIcon}>🏆</Text>
           <Text style={styles.menuText}>Mis badges</Text>
+          <Text style={styles.menuArrow}>›</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.menuItem}
+          onPress={() => router.push('/leaderboard')}
+        >
+          <Text style={styles.menuIcon}>🥇</Text>
+          <Text style={styles.menuText}>Tabla de líderes</Text>
           <Text style={styles.menuArrow}>›</Text>
         </TouchableOpacity>
 
