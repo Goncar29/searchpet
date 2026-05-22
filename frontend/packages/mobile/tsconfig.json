@@ -4,7 +4,9 @@
     "strict": true,
     "paths": {
       "@shared/*": ["../shared/*"],
-      "@/*": ["./*"]
+      "@/*": ["./*"],
+      "@tanstack/react-query": ["./node_modules/@tanstack/react-query"],
+      "@tanstack/react-query/*": ["./node_modules/@tanstack/react-query/*"]
     }
   },
   "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts"]

@@ -66,12 +66,12 @@ export default function ProfileScreen() {
         </View>
         <View style={styles.statDivider} />
         <View style={styles.statItem}>
-          <Text style={styles.statNumber}>{stats?.found_count || 0}</Text>
+          <Text style={styles.statNumber}>{stats?.found_pets || 0}</Text>
           <Text style={styles.statLabel}>Encontradas</Text>
         </View>
         <View style={styles.statDivider} />
         <View style={styles.statItem}>
-          <Text style={styles.statNumber}>{stats?.report_count || 0}</Text>
+          <Text style={styles.statNumber}>{stats?.total_reports || 0}</Text>
           <Text style={styles.statLabel}>Reportes</Text>
         </View>
       </View>

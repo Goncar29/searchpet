@@ -26,6 +26,8 @@ import type {
   SuccessStory,
   CreateStoryRequest,
   StoryListResponse,
+  CreateLocationAlertRequest,
+  UpdateLocationAlertRequest,
 } from '../types';
 
 // ============================================================
