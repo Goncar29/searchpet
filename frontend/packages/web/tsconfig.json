@@ -18,7 +18,9 @@
     "allowArbitraryExtensions": true,
     "paths": {
       "@/*": ["./src/*"],
-      "@shared/*": ["../shared/*"]
+      "@shared/*": ["../shared/*"],
+      "@tanstack/react-query": ["./node_modules/@tanstack/react-query"],
+      "@tanstack/react-query/*": ["./node_modules/@tanstack/react-query/*"]
     }
   },
   "include": ["src"],
