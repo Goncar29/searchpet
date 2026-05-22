@@ -239,6 +239,26 @@ type SuccessStory struct {
 }
 
 // ============================================================
+// REVIEWS (V1.5)
+// ============================================================
+
+// UserReview representa una reseña de un usuario a otro.
+// UniqueIndex en (reviewer_id, reviewee_id) garantiza una sola reseña por par.
+type UserReview struct {
+	ID         uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+	ReviewerID uuid.UUID `gorm:"type:uuid;not null;uniqueIndex:idx_reviewer_reviewee" json:"reviewer_id"`
+	RevieweeID uuid.UUID `gorm:"type:uuid;not null;uniqueIndex:idx_reviewer_reviewee;index" json:"reviewee_id"`
+	Stars      int       `gorm:"column:stars;not null;check:stars >= 1 AND stars <= 5" json:"stars"`
+	Text       string    `gorm:"column:text;type:text;not null" json:"text"`
+	CreatedAt  time.Time `gorm:"autoCreateTime" json:"created_at"`
+	UpdatedAt  time.Time `gorm:"autoUpdateTime" json:"updated_at"`
+
+	// Relaciones
+	Reviewer User `gorm:"foreignKey:ReviewerID" json:"reviewer,omitempty"`
+	Reviewee User `gorm:"foreignKey:RevieweeID" json:"reviewee,omitempty"`
+}
+
+// ============================================================
 // SECURITY
 // ============================================================
 

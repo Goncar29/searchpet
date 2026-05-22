@@ -102,8 +102,16 @@ func main() {
 	// V1.4 — Gamification (Badges + Points + Leaderboard)
 	badgeRepo := repository.NewBadgeRepository(db)
 	pointsRepo := repository.NewUserPointsRepository(db)
-	gamSvc := service.NewGamificationService(badgeRepo, pointsRepo, userRepo)
+
+	// V1.5 — User Reviews
+	reviewRepo := repository.NewUserReviewRepository(db)
+
+	gamSvc := service.NewGamificationService(badgeRepo, pointsRepo, userRepo, reviewRepo)
 	gamSvc.RegisterListeners(bus)
+
+	// V1.5 — Review Service + Handler
+	reviewSvc := service.NewReviewService(reviewRepo, blockedUserRepo, userRepo, bus)
+	reviewHandler := handler.NewReviewHandler(reviewSvc)
 
 	// V1.3 — User Verification (OTP)
 	verificationTokenRepo := repository.NewVerificationTokenRepository(db)
@@ -187,6 +195,9 @@ func main() {
 		// V1.4 — Gamification (público)
 		public.GET("/users/:id/profile", gamHandler.GetPublicProfile)
 		public.GET("/leaderboard", gamHandler.GetLeaderboard)
+
+		// V1.5 — Reviews (público — leer no requiere auth)
+		public.GET("/users/:id/reviews", reviewHandler.GetReviews)
 	}
 
 	// ----------------------------------------
@@ -260,6 +271,10 @@ func main() {
 
 		// V1.4 — Gamification (requiere auth)
 		protected.GET("/users/me/badges", gamHandler.GetMyBadges)
+
+		// V1.5 — Reviews (requieren auth para escribir)
+		protected.POST("/users/:id/reviews", reviewHandler.CreateReview)
+		protected.PUT("/users/:id/reviews", reviewHandler.UpdateReview)
 
 		// V1.3 — User Verification (OTP)
 		protected.POST("/verification/send-email", verificationHandler.SendEmail)

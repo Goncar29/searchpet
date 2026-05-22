@@ -19,6 +19,7 @@ type gamificationService struct {
 	badgeRepo  repository.BadgeRepository
 	pointsRepo repository.UserPointsRepository
 	userRepo   repository.UserRepository
+	reviewRepo repository.UserReviewRepository // V1.5 — para avg_rating en perfiles
 }
 
 // NewGamificationService construye el GamificationService con sus dependencias.
@@ -26,11 +27,13 @@ func NewGamificationService(
 	badgeRepo repository.BadgeRepository,
 	pointsRepo repository.UserPointsRepository,
 	userRepo repository.UserRepository,
+	reviewRepo repository.UserReviewRepository,
 ) *gamificationService {
 	return &gamificationService{
 		badgeRepo:  badgeRepo,
 		pointsRepo: pointsRepo,
 		userRepo:   userRepo,
+		reviewRepo: reviewRepo,
 	}
 }
 
@@ -40,6 +43,7 @@ func (s *gamificationService) RegisterListeners(bus *event.EventBus) {
 	bus.Subscribe("report.created", s.onReportCreated)
 	bus.Subscribe("pet.found", s.onPetFound)
 	bus.Subscribe("share.created", s.onShareCreated)
+	bus.Subscribe("review.created", s.onReviewCreated)
 }
 
 // onReportCreated maneja el evento "report.created".
@@ -111,6 +115,22 @@ func (s *gamificationService) onShareCreated(payload interface{}) {
 	}
 }
 
+// onReviewCreated maneja el evento "review.created".
+// Otorga 10 puntos al reviewee — recibir una reseña es la señal de confianza que se recompensa.
+func (s *gamificationService) onReviewCreated(payload interface{}) {
+	ev, ok := payload.(event.ReviewCreatedEvent)
+	if !ok {
+		log.Printf("[GamificationService] onReviewCreated: payload inesperado: %T", payload)
+		return
+	}
+
+	ctx := context.Background()
+
+	if _, err := s.pointsRepo.Upsert(ctx, ev.RevieweeID, 10, ""); err != nil {
+		log.Printf("[GamificationService] onReviewCreated: upsert points para %s: %v", ev.RevieweeID, err)
+	}
+}
+
 // AwardBadgeIfEligible otorga un badge al usuario si no lo tiene ya.
 // Es idempotente: retorna nil si el badge ya existe.
 func (s *gamificationService) AwardBadgeIfEligible(ctx context.Context, userID uuid.UUID, badgeType string) error {
@@ -175,6 +195,12 @@ func (s *gamificationService) GetPublicProfile(ctx context.Context, userID uuid.
 		})
 	}
 
+	// V1.5 — Obtener promedio y cantidad de reseñas
+	avgRating, reviewCount, err := s.reviewRepo.GetAverageRating(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
 	return &dto.UserProfileResponse{
 		ID:              user.ID,
 		Name:            user.Name,
@@ -184,6 +210,8 @@ func (s *gamificationService) GetPublicProfile(ctx context.Context, userID uuid.
 		TotalReports:    totalReports,
 		FoundCount:      foundCount,
 		ShareCount:      shareCount,
+		AvgRating:       avgRating,
+		ReviewCount:     reviewCount,
 		Badges:          badgeResponses,
 	}, nil
 }

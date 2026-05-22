@@ -110,6 +110,18 @@ type GamificationService interface {
 	GetMyBadges(ctx context.Context, userID uuid.UUID) ([]dto.BadgeResponse, error)
 }
 
+// ReviewService define el contrato para la lógica de reseñas de usuarios.
+type ReviewService interface {
+	// Create crea una reseña del reviewerID al revieweeID.
+	// Guards: self-review, blocked, duplicate, rating range, body vacío.
+	Create(ctx context.Context, reviewerID, revieweeID uuid.UUID, req dto.CreateReviewRequest) (*dto.ReviewResponse, error)
+	// Update actualiza la reseña existente del par (reviewerID, revieweeID).
+	// Solo el reviewer original puede modificar su propia reseña.
+	Update(ctx context.Context, reviewerID, revieweeID uuid.UUID, req dto.UpdateReviewRequest) (*dto.ReviewResponse, error)
+	// GetByReviewee retorna las reseñas paginadas para un usuario con estadísticas agregadas.
+	GetByReviewee(ctx context.Context, revieweeID uuid.UUID, limit, offset int) (*dto.ReviewListResponse, error)
+}
+
 // AuthService define el contrato para la lógica de autenticación
 type AuthService interface {
 	// Register crea un nuevo usuario y retorna el usuario + JWT

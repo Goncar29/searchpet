@@ -106,3 +106,10 @@ type ShareCreatedEvent struct {
 	UserID uuid.UUID
 	PetID  uuid.UUID
 }
+
+// ReviewCreatedEvent es el payload publicado cuando un usuario crea una reseña.
+type ReviewCreatedEvent struct {
+	ReviewID   uuid.UUID
+	ReviewerID uuid.UUID
+	RevieweeID uuid.UUID
+}

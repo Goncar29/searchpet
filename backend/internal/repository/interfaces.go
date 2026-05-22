@@ -179,6 +179,16 @@ type UserPointsRepository interface {
 	FindLeaderboard(ctx context.Context, city string, limit int) ([]domain.UserPoints, error)
 }
 
+// UserReviewRepository define el contrato para acceder a reseñas de usuarios.
+// Style A: context.Context + uuid.UUID.
+type UserReviewRepository interface {
+	Create(ctx context.Context, review *domain.UserReview) error
+	Update(ctx context.Context, review *domain.UserReview) error
+	FindByReviewee(ctx context.Context, revieweeID uuid.UUID, limit, offset int) ([]domain.UserReview, error)
+	FindByReviewerAndReviewee(ctx context.Context, reviewerID, revieweeID uuid.UUID) (*domain.UserReview, error)
+	GetAverageRating(ctx context.Context, revieweeID uuid.UUID) (float64, int, error) // avg, count, err
+}
+
 // LocationAlertRepository define el contrato para alertas de ubicación.
 // Style A: context.Context + uuid.UUID.
 type LocationAlertRepository interface {

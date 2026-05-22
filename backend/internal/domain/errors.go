@@ -71,6 +71,11 @@ var (
 	ErrBadgeAlreadyEarned = errors.New("badge already earned")
 	ErrPointsNotFound     = errors.New("user points not found")
 
+	// Review (V1.5)
+	ErrReviewNotFound  = errors.New("review not found")
+	ErrAlreadyReviewed = errors.New("you have already reviewed this user")
+	ErrSelfReview      = errors.New("you cannot review yourself")
+
 	// General
 	ErrUnauthorized = errors.New("no autorizado")
 	ErrForbidden    = errors.New("acceso prohibido")

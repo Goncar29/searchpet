@@ -24,6 +24,8 @@ type UserProfileResponse struct {
 	TotalReports    int             `json:"total_reports"`
 	FoundCount      int             `json:"found_count"`
 	ShareCount      int             `json:"share_count"`
+	AvgRating       float64         `json:"avg_rating"`    // V1.5 — 0.0 si no tiene reseñas
+	ReviewCount     int             `json:"review_count"`  // V1.5 — 0 si no tiene reseñas
 	Badges          []BadgeResponse `json:"badges"`
 }
 
