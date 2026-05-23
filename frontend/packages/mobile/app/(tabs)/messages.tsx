@@ -85,7 +85,7 @@ export default function MessagesScreen() {
           return (
             <TouchableOpacity
               style={styles.conversationItem}
-              onPress={() => router.push(`/chat/${other.id}`)}
+              onPress={() => router.push(`/chat/${other.id}?userName=${encodeURIComponent(other.name)}` as `/${string}`)}
               activeOpacity={0.7}
             >
               {/* Avatar */}
@@ -108,7 +108,7 @@ export default function MessagesScreen() {
                     style={[styles.lastMessage, isUnread && styles.lastMessageUnread]}
                     numberOfLines={1}
                   >
-                    {item.sender_id === user?.id ? 'Vos: ' : ''}{item.text}
+                    {item.sender_id === user?.id ? 'Vos: ' : ''}{item.content}
                   </Text>
                   {isUnread && <View style={styles.unreadDot} />}
                 </View>

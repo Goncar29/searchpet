@@ -142,7 +142,7 @@ export default function PetDetailScreen() {
       const url = buildWhatsAppContactURL(pet.owner.phone, pet);
       Linking.openURL(url);
     } else {
-      router.push(`/chat/${pet.owner_id}`);
+      router.push(`/chat/${pet.owner_id}?userName=${encodeURIComponent(pet.owner?.name ?? '')}` as `/${string}`);
     }
   };
 

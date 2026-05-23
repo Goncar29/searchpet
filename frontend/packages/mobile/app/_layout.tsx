@@ -46,7 +46,7 @@ export default function RootLayout() {
             try { router.push(`/pet/${entityId}` as `/${string}`); } catch { router.push('/(tabs)'); }
             break;
           case 'message.sent':
-            try { router.push(`/chat/${entityId}` as `/${string}`); } catch { router.push('/(tabs)'); }
+            try { router.push(`/chat/${entityId}${data?.senderName ? `?userName=${encodeURIComponent(data.senderName)}` : ''}` as `/${string}`); } catch { router.push('/(tabs)'); }
             break;
           default:
             router.push('/(tabs)');

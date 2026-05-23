@@ -67,7 +67,7 @@ export interface Message {
   sender_id: string;
   receiver_id: string;
   report_id?: string;
-  text: string;
+  content: string;
   is_read: boolean;
   sender?: User;
   created_at: string;
@@ -246,7 +246,7 @@ export interface PetListResponse {
 export interface SendMessageRequest {
   receiver_id: string;
   report_id?: string;
-  text: string;
+  content: string;
 }
 
 // ============================================================

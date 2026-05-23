@@ -18,12 +18,12 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, useNavigation } from 'expo-router';
 import { useAuthStore } from '../../store';
-import { useConversation, useSendMessageTo, useBlockUser, useSubmitAbuseReport } from '../../../shared/hooks';
+import { useConversation, useSendMessageTo, useMarkAsRead, useBlockUser, useSubmitAbuseReport } from '../../../shared/hooks';
 import { COLORS, SPACING, FONTS, RADIUS } from '../../constants';
 import type { Message } from '../../../shared/types';
 
 export default function ChatScreen() {
-  const { userId } = useLocalSearchParams<{ userId: string }>();
+  const { userId, userName } = useLocalSearchParams<{ userId: string; userName?: string }>();
   const navigation = useNavigation();
   const { user } = useAuthStore();
   const [text, setText] = useState('');
@@ -31,6 +31,7 @@ export default function ChatScreen() {
 
   const { data: messages, isLoading } = useConversation(userId);
   const { mutate: sendMessage, isPending: isSending } = useSendMessageTo();
+  const markAsRead = useMarkAsRead();
   const blockUser = useBlockUser();
   const submitAbuseReport = useSubmitAbuseReport();
   const [isBlocked, setIsBlocked] = useState(false);
@@ -101,38 +102,41 @@ export default function ChatScreen() {
     }
   };
 
-  // Obtener el nombre del otro usuario desde el primer mensaje donde sea sender
+  // Set header title immediately from route param (before messages load)
   useEffect(() => {
+    if (userName) {
+      navigation.setOptions({ title: userName });
+    }
+  }, [userName]);
+
+  // Obtener el nombre del otro usuario desde el primer mensaje donde sea sender
+  // (fallback when userName param is not available)
+  useEffect(() => {
+    const headerRight = () => (
+      <TouchableOpacity onPress={showKebabSheet}>
+        <Text style={{ paddingRight: 16, fontSize: 22 }}>⋮</Text>
+      </TouchableOpacity>
+    );
+
     if (messages && messages.length > 0) {
       // Buscar un mensaje donde el otro usuario sea sender (tiene .sender preloaded)
       const msgFromOther = messages.find((m) => m.sender_id !== user?.id);
-      if (msgFromOther?.sender?.name) {
-        navigation.setOptions({
-          title: msgFromOther.sender.name,
-          headerRight: () => (
-            <TouchableOpacity onPress={showKebabSheet}>
-              <Text style={{ paddingRight: 16, fontSize: 22 }}>⋮</Text>
-            </TouchableOpacity>
-          ),
-        });
+      if (!userName && msgFromOther?.sender?.name) {
+        navigation.setOptions({ title: msgFromOther.sender.name, headerRight });
       } else {
-        navigation.setOptions({
-          headerRight: () => (
-            <TouchableOpacity onPress={showKebabSheet}>
-              <Text style={{ paddingRight: 16, fontSize: 22 }}>⋮</Text>
-            </TouchableOpacity>
-          ),
-        });
+        navigation.setOptions({ headerRight });
       }
     } else {
-      navigation.setOptions({
-        headerRight: () => (
-          <TouchableOpacity onPress={showKebabSheet}>
-            <Text style={{ paddingRight: 16, fontSize: 22 }}>⋮</Text>
-          </TouchableOpacity>
-        ),
-      });
+      navigation.setOptions({ headerRight });
     }
+  }, [messages]);
+
+  // Mark unread received messages as read when conversation loads
+  useEffect(() => {
+    if (!messages || !user) return;
+    messages
+      .filter((m) => m.receiver_id === user.id && !m.is_read)
+      .forEach((m) => markAsRead.mutate(m.id));
   }, [messages]);
 
   const handleSend = () => {
@@ -140,7 +144,7 @@ export default function ChatScreen() {
     if (!trimmed || isSending || isBlocked) return;
 
     sendMessage(
-      { receiverID: userId, text: trimmed },
+      { receiverID: userId, senderID: user?.id ?? '', content: trimmed },
       {
         onSuccess: () => setText(''),
         onError: (error: any) => {
@@ -172,7 +176,7 @@ export default function ChatScreen() {
       >
         <View style={[styles.bubble, isMine ? styles.bubbleMine : styles.bubbleOther]}>
           <Text style={[styles.bubbleText, isMine && styles.bubbleTextMine]}>
-            {item.text}
+            {item.content}
           </Text>
         </View>
         <Text style={[styles.bubbleTime, isMine && styles.bubbleTimeMine]}>

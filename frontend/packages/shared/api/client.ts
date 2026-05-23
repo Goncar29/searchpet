@@ -337,12 +337,16 @@ class APIClient {
     return this.request<Message[]>('GET', `/api/messages/${userID}`, undefined, { limit, offset });
   }
 
-  async sendMessageTo(receiverID: string, text: string, reportID?: string): Promise<Message> {
+  async sendMessageTo(receiverID: string, content: string, reportID?: string): Promise<Message> {
     return this.request<Message>('POST', '/api/messages', {
       receiver_id: receiverID,
-      text,
+      content,
       ...(reportID && { report_id: reportID }),
     });
+  }
+
+  async markAsRead(messageId: string): Promise<void> {
+    return this.request<void>('PATCH', `/api/messages/${messageId}/read`);
   }
 
   // ============================================================

@@ -13,6 +13,7 @@ import type {
   CreateReportRequest,
   NearbyReportsResponse,
   SendMessageRequest,
+  Message,
   GenerateShareRequest,
   SharedPetResponse,
   UploadPhotoResponse,
@@ -251,11 +252,39 @@ export const useSendMessage = () => {
 
 export const useSendMessageTo = () => {
   const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ receiverID, text, reportID }: { receiverID: string; text: string; reportID?: string }) =>
-      apiClient.sendMessageTo(receiverID, text, reportID),
-    onSuccess: (_, { receiverID }) => {
+  return useMutation<Message, Error, { receiverID: string; senderID: string; content: string; reportID?: string }>({
+    mutationFn: ({ receiverID, content, reportID }) =>
+      apiClient.sendMessageTo(receiverID, content, reportID),
+    onMutate: async ({ receiverID, senderID, content }) => {
+      await queryClient.cancelQueries({ queryKey: ['messages', receiverID] });
+      const previous = queryClient.getQueryData<Message[]>(['messages', receiverID]);
+      const optimistic: Message = {
+        id: `temp-${Date.now()}`,
+        sender_id: senderID,
+        receiver_id: receiverID,
+        content,
+        is_read: false,
+        created_at: new Date().toISOString(),
+      };
+      queryClient.setQueryData<Message[]>(['messages', receiverID], (old) => [...(old ?? []), optimistic]);
+      return { previous };
+    },
+    onError: (_err, { receiverID }, context) => {
+      const ctx = context as { previous: Message[] | undefined } | undefined;
+      if (ctx?.previous) queryClient.setQueryData(['messages', receiverID], ctx.previous);
+    },
+    onSettled: (_, __, { receiverID }) => {
       queryClient.invalidateQueries({ queryKey: ['messages', receiverID] });
+      queryClient.invalidateQueries({ queryKey: ['messages'] });
+    },
+  });
+};
+
+export const useMarkAsRead = () => {
+  const queryClient = useQueryClient();
+  return useMutation<void, Error, string>({
+    mutationFn: (messageId) => apiClient.markAsRead(messageId),
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['messages'] });
     },
   });
