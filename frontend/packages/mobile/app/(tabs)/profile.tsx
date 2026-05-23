@@ -2,10 +2,11 @@
 // SearchPet - Profile Screen
 // ============================================================
 
-import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView, Image, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
 import { useAuthStore } from '../../store';
-import { useMyPets, usePublicProfile } from '../../../shared/hooks';
+import { useMyPets, usePublicProfile, useUploadProfilePhotoNative } from '../../../shared/hooks';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
 
 export default function ProfileScreen() {
@@ -13,6 +14,28 @@ export default function ProfileScreen() {
   const { user, isAuthenticated, logout } = useAuthStore();
   const { data: myPets } = useMyPets();
   const { data: myProfile } = usePublicProfile(user?.id ?? '');
+  const uploadProfilePhoto = useUploadProfilePhotoNative();
+
+  const pickAndUploadAvatar = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert('Permiso requerido', 'Necesitamos acceso a tu galería para cambiar la foto');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+    if (!result.canceled && result.assets[0]) {
+      try {
+        await uploadProfilePhoto.mutateAsync(result.assets[0].uri);
+      } catch (err: any) {
+        Alert.alert('Error', err.message || 'No se pudo subir la foto');
+      }
+    }
+  };
 
   if (!isAuthenticated) {
     return (
@@ -46,9 +69,22 @@ export default function ProfileScreen() {
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       {/* User Card */}
       <View style={styles.userCard}>
-        <View style={styles.avatar}>
-          <Text style={{ fontSize: 36 }}>👤</Text>
-        </View>
+        <TouchableOpacity onPress={pickAndUploadAvatar} style={styles.avatarContainer}>
+          {uploadProfilePhoto.isPending ? (
+            <View style={styles.avatar}>
+              <ActivityIndicator color={COLORS.primary} />
+            </View>
+          ) : user?.profile_photo_url ? (
+            <Image source={{ uri: user.profile_photo_url }} style={styles.avatarImage} />
+          ) : (
+            <View style={styles.avatar}>
+              <Text style={{ fontSize: 36 }}>👤</Text>
+            </View>
+          )}
+        </TouchableOpacity>
+        <TouchableOpacity onPress={pickAndUploadAvatar} style={styles.changePhotoButton}>
+          <Text style={styles.changePhotoText}>Cambiar foto</Text>
+        </TouchableOpacity>
         <Text style={styles.userName}>{user?.name}</Text>
         <Text style={styles.userEmail}>{user?.email}</Text>
         {user?.is_verified && (
@@ -189,6 +225,9 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.lg,
     ...SHADOWS.md,
   },
+  avatarContainer: {
+    marginBottom: SPACING.xs,
+  },
   avatar: {
     width: 80,
     height: 80,
@@ -196,7 +235,20 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  avatarImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+  },
+  changePhotoButton: {
     marginBottom: SPACING.md,
+    marginTop: 4,
+  },
+  changePhotoText: {
+    fontSize: FONTS.sizes.xs,
+    color: COLORS.primary,
+    fontWeight: '600',
   },
   userName: {
     fontSize: FONTS.sizes.xl,

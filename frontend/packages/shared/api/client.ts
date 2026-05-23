@@ -229,6 +229,36 @@ class APIClient {
     return response.json();
   }
 
+  // Versión para React Native — sube la foto de perfil del usuario autenticado.
+  // Mismo patrón que uploadPhotoNative: FormData con { uri, name, type }.
+  async uploadProfilePhotoNative(uri: string): Promise<User> {
+    const url = `${this.baseURL}/api/auth/me/photo`;
+
+    const formData = new FormData();
+    const filename = uri.split('/').pop() || 'avatar.jpg';
+    const ext = (filename.split('.').pop() || 'jpg').toLowerCase();
+    const mimeType = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
+    formData.append('photo', { uri, name: filename, type: mimeType } as unknown as Blob);
+
+    const headers: Record<string, string> = {};
+    if (this.token) {
+      headers['Authorization'] = `Bearer ${this.token}`;
+    }
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Error desconocido' }));
+      throw new Error(error.error || `HTTP Error ${response.status}`);
+    }
+
+    return response.json();
+  }
+
   // Versión para React Native — FormData con objeto { uri, name, type }
   // porque RN no tiene la API File del browser.
   async uploadPhotoNative(petId: string, uri: string): Promise<UploadPhotoResponse> {

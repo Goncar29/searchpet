@@ -113,7 +113,7 @@ func (s *photoServiceImpl) UploadPhoto(
 	cloudinaryPublicID := sanitizePublicID(petID, filename)
 	log.Printf("[photo_service] Subiendo imagen a Cloudinary — publicID: %s", cloudinaryPublicID)
 
-	secureURL, returnedPublicID, err := s.storage.UploadImage(ctx, file, cloudinaryPublicID)
+	secureURL, returnedPublicID, err := s.storage.UploadImage(ctx, file, cloudinaryPublicID, "searchpet")
 	if err != nil {
 		log.Printf("[photo_service] Error en Cloudinary: %v", err)
 		return nil, domain.ErrStorageFailed

@@ -25,11 +25,11 @@ func NewCloudinaryClient(cloudName, apiKey, apiSecret string) (*CloudinaryClient
 	return &CloudinaryClient{cld: cld}, nil
 }
 
-// UploadImage sube un archivo a Cloudinary en la carpeta searchpet/pets.
+// UploadImage sube un archivo a Cloudinary en la carpeta indicada.
 // Devuelve (secureURL, publicID, error). Ambas cadenas están vacías en caso de error.
-func (c *CloudinaryClient) UploadImage(ctx context.Context, file io.Reader, filename string) (string, string, error) {
+func (c *CloudinaryClient) UploadImage(ctx context.Context, file io.Reader, filename string, folder string) (string, string, error) {
 	resp, err := c.cld.Upload.Upload(ctx, file, uploader.UploadParams{
-		Folder:         "searchpet/pets",
+		Folder:         folder,
 		PublicID:       filename,
 		Format:         "webp",
 		Transformation: "w_1200,c_limit,q_80",

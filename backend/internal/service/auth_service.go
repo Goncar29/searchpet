@@ -139,7 +139,7 @@ func (s *authService) UpdateProfilePhoto(ctx context.Context, id uuid.UUID, file
 	publicID := sanitizeAvatarPublicID(id.String(), filename)
 	log.Printf("[auth_service] Subiendo foto de perfil a Cloudinary — publicID: %s", publicID)
 
-	secureURL, _, err := s.storage.UploadImage(ctx, file, publicID)
+	secureURL, _, err := s.storage.UploadImage(ctx, file, publicID, "searchpet")
 	if err != nil {
 		log.Printf("[auth_service] Error en Cloudinary: %v", err)
 		return nil, domain.ErrStorageFailed

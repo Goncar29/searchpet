@@ -39,6 +39,7 @@ export default function PostScreen() {
   const [description, setDescription] = useState('');
   const [locationDesc, setLocationDesc] = useState('');
   const [photos, setPhotos] = useState<string[]>([]);
+  const [photoErrors, setPhotoErrors] = useState<Record<number, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (!isAuthenticated) {
@@ -99,6 +100,7 @@ export default function PostScreen() {
 
   const removePhoto = (index: number) => {
     setPhotos(photos.filter((_, i) => i !== index));
+    setPhotoErrors((prev) => { const n = { ...prev }; delete n[index]; return n; });
   };
 
   const handleSubmit = async () => {
@@ -108,6 +110,7 @@ export default function PostScreen() {
     }
 
     setIsSubmitting(true);
+    setPhotoErrors({});
     try {
       // 1. Crear la mascota
       const pet = await createPet.mutateAsync({
@@ -137,17 +140,27 @@ export default function PostScreen() {
       });
 
       // 3. Subir fotos (no bloquea si falla — la mascota ya fue creada)
-      for (const uri of photos) {
+      const errors: Record<number, string> = {};
+      for (let i = 0; i < photos.length; i++) {
         try {
-          await uploadPhoto.mutateAsync({ petId: pet.id, uri });
-        } catch {
-          // La mascota ya existe — no hacemos rollback, seguimos
+          await uploadPhoto.mutateAsync({ petId: pet.id, uri: photos[i] });
+        } catch (err: any) {
+          errors[i] = err.message || 'Error al subir foto';
         }
+      }
+      setPhotoErrors(errors);
+
+      const failCount = Object.keys(errors).length;
+      let alertMessage = `${name} ha sido publicado como perdido. Esperamos encontrarlo pronto.`;
+      if (photos.length > 0 && failCount === photos.length) {
+        alertMessage += '\n\n⚠ No se pudieron subir las fotos. Podés intentarlo desde el detalle.';
+      } else if (failCount > 0) {
+        alertMessage += `\n\n⚠ ${failCount} foto(s) no se pudieron subir.`;
       }
 
       Alert.alert(
         'Publicado',
-        `${name} ha sido publicado como perdido. Esperamos encontrarlo pronto.`,
+        alertMessage,
         [{ text: 'OK', onPress: () => router.back() }]
       );
 
@@ -186,6 +199,11 @@ export default function PostScreen() {
               <View style={styles.photoRemove}>
                 <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>✕</Text>
               </View>
+              {photoErrors[i] && (
+                <View style={styles.photoErrorOverlay}>
+                  <Text style={styles.photoErrorIcon}>⚠</Text>
+                </View>
+              )}
             </TouchableOpacity>
           ))}
           <TouchableOpacity
@@ -356,6 +374,21 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  photoErrorOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    top: 0,
+    borderRadius: RADIUS.md,
+    backgroundColor: 'rgba(200, 0, 0, 0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  photoErrorIcon: {
+    fontSize: 22,
+    color: '#fff',
   },
   addPhoto: {
     width: 80,

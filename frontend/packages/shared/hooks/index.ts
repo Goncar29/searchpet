@@ -62,6 +62,16 @@ export const useUploadProfilePhoto = () => {
   });
 };
 
+export const useUploadProfilePhotoNative = () => {
+  const queryClient = useQueryClient();
+  return useMutation<User, Error, string>({
+    mutationFn: (uri) => apiClient.uploadProfilePhotoNative(uri),
+    onSuccess: (updatedUser) => {
+      queryClient.setQueryData(['me'], updatedUser);
+    },
+  });
+};
+
 export const useLogin = () => {
   return useMutation({
     mutationFn: (data: { email: string; password: string }) =>
