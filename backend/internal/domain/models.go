@@ -223,7 +223,7 @@ type SuccessStory struct {
 	ID          uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
 	PetID       uuid.UUID `gorm:"type:uuid;not null;index" json:"pet_id"`
 	UserID      uuid.UUID `gorm:"type:uuid;not null;index" json:"user_id"` // quien crea la historia
-	Title       string    `gorm:"not null;size:255" json:"title"`
+	Title       string    `gorm:"size:255" json:"title"`
 	Body        string    `gorm:"type:text;not null" json:"body"`
 	PhotoBefore string    `gorm:"size:500" json:"photo_before,omitempty"` // URL Cloudinary
 	PhotoAfter  string    `gorm:"size:500" json:"photo_after,omitempty"`  // URL Cloudinary
