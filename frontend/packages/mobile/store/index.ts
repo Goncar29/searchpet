@@ -108,6 +108,8 @@ export const useAuthStore = create<AuthState>((set) => ({
           isAuthenticated: true,
           isLoading: false,
         });
+        // Refrescar token FCM en cold start — falla silenciosamente
+        registerPushToken().catch(() => {});
       } else {
         set({ isLoading: false });
       }

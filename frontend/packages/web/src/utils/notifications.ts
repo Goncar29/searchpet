@@ -1,8 +1,48 @@
-import { getToken } from 'firebase/messaging';
+import { getToken, onMessage } from 'firebase/messaging';
 import { getFirebaseMessaging } from '../lib/firebase';
 import { apiClient } from '@shared/api/client';
 
 const VAPID_KEY = import.meta.env.VITE_FIREBASE_VAPID_KEY;
+
+// Guard to prevent duplicate listeners across hot-reloads or double calls
+let _foregroundUnsubscribe: (() => void) | null = null;
+
+/**
+ * Registra un listener de mensajes en primer plano (tab activo).
+ *
+ * Cuando llega una notificación mientras el tab está activo, el SDK de FCM
+ * NO muestra la notificación del SO — este handler la muestra manualmente
+ * usando la Notification API del browser.
+ *
+ * Llama al unsubscribe retornado para limpiar el listener (ej: al hacer logout).
+ * Idempotente — llamar más de una vez no registra handlers duplicados.
+ */
+export function listenForegroundMessages(): (() => void) | undefined {
+  const messaging = getFirebaseMessaging();
+  if (!messaging) return undefined;
+
+  // Si ya hay un listener activo, retornarlo sin registrar otro
+  if (_foregroundUnsubscribe) return _foregroundUnsubscribe;
+
+  const unsubscribe = onMessage(messaging, (payload) => {
+    if (!('Notification' in window) || Notification.permission !== 'granted') return;
+
+    const title = payload.notification?.title ?? 'SearchPet';
+    const body = payload.notification?.body ?? '';
+
+    new Notification(title, {
+      body,
+      icon: '/favicon.ico',
+    });
+  });
+
+  _foregroundUnsubscribe = () => {
+    unsubscribe();
+    _foregroundUnsubscribe = null;
+  };
+
+  return _foregroundUnsubscribe;
+}
 
 /**
  * Registra el token FCM del navegador en el backend.

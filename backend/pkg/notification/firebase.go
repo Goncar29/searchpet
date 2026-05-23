@@ -13,7 +13,7 @@ import (
 
 // NotificationClient es el contrato para enviar push notifications.
 // La implementación concreta usa Firebase FCM; el no-op se usa cuando
-// FIREBASE_CREDENTIALS_JSON no está configurado.
+// FIREBASE_KEY no está configurado.
 type NotificationClient interface {
 	// SendPush envía una notificación push a un token FCM específico.
 	// Retorna nil si el cliente no está configurado (degradación graceful).
@@ -52,7 +52,7 @@ type FirebaseClient struct {
 // Esto permite que el servidor arranque y funcione normalmente sin FCM configurado.
 func NewFirebaseClient(credentialsJSON string) (NotificationClient, error) {
 	if strings.TrimSpace(credentialsJSON) == "" {
-		log.Println("[FCM] FIREBASE_CREDENTIALS_JSON no configurado — usando no-op client")
+		log.Println("[FCM] FIREBASE_KEY no configurado — usando no-op client")
 		return &noopNotificationClient{}, nil
 	}
 

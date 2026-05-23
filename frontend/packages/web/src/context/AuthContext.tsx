@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { apiClient } from '@shared/api/client';
-import { registerWebPushToken } from '../utils/notifications';
+import { registerWebPushToken, listenForegroundMessages } from '../utils/notifications';
 
 interface User {
   id: string;
@@ -41,6 +41,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     setIsLoading(false);
   }, []);
+
+  // Escuchar notificaciones en primer plano cuando el usuario está autenticado.
+  // El listener se limpia al hacer logout o desmontar el componente.
+  useEffect(() => {
+    if (!token) return;
+    const unsubscribe = listenForegroundMessages();
+    return () => { unsubscribe?.(); };
+  }, [token]);
 
   const login = async (email: string, password: string) => {
     const resp = await apiClient.login({ email, password });

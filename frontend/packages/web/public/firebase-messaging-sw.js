@@ -33,3 +33,34 @@ messaging.onBackgroundMessage((payload) => {
     data: payload.data,
   });
 });
+
+// Mapa de tipos de notificación a rutas de la app
+const ROUTE_MAP = {
+  'report.created': (entityId) => `/pet/${entityId}`,
+  'pet_found': (entityId) => `/pet/${entityId}`,
+  'alert.triggered': (entityId) => `/pet/${entityId}`,
+  'message.sent': (entityId) => `/messages/${entityId}`,
+};
+
+// Manejar clicks en notificaciones — enfocar tab existente o abrir uno nuevo
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+
+  const data = event.notification.data || {};
+  const type = data.type;
+  const entityId = data.entityId || data.petId || data.senderId;
+  const routeFn = ROUTE_MAP[type];
+  const path = routeFn && entityId ? routeFn(entityId) : '/';
+
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
+        if (client.url.includes(self.location.origin) && 'focus' in client) {
+          client.navigate(path);
+          return client.focus();
+        }
+      }
+      if (clients.openWindow) return clients.openWindow(path);
+    })
+  );
+});
