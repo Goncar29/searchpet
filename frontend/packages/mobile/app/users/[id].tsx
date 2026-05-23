@@ -1,6 +1,6 @@
 // ============================================================
 // SearchPet — Perfil Público
-// Muestra el perfil público de otro usuario: stats + badges.
+// Muestra el perfil público de otro usuario: stats + badges + reseñas.
 // ============================================================
 
 import {
@@ -12,11 +12,19 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   RefreshControl,
+  TextInput,
+  Alert,
 } from 'react-native';
+import { useState } from 'react';
 import { useLocalSearchParams } from 'expo-router';
-import { usePublicProfile } from '../../../shared/hooks';
+import { usePublicProfile, useUserReviews, useCreateReview, useUpdateReview } from '../../../shared/hooks';
+import { useAuthStore } from '../../store';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS, BADGE_META } from '../../constants';
-import type { Badge } from '../../../shared/types';
+import type { Badge, UserReview } from '../../../shared/types';
+
+// ============================================================
+// Helpers
+// ============================================================
 
 function getInitials(name: string): string {
   return name.trim().charAt(0).toUpperCase();
@@ -26,6 +34,10 @@ function formatDate(dateString: string): string {
   const date = new Date(dateString);
   return date.toLocaleDateString('es-UY', { day: 'numeric', month: 'long', year: 'numeric' });
 }
+
+// ============================================================
+// Sub-components
+// ============================================================
 
 function BadgeRow({ badge }: { badge: Badge }) {
   const meta = BADGE_META[badge.badge_type] ?? {
@@ -62,10 +74,132 @@ function StatItem({ value, label }: StatItemProps) {
   );
 }
 
+interface StarDisplayProps {
+  stars: number;
+  size?: number;
+}
+
+function StarDisplay({ stars, size = 14 }: StarDisplayProps) {
+  return (
+    <View style={styles.starRow}>
+      {[1, 2, 3, 4, 5].map((i) => (
+        <Text key={i} style={{ fontSize: size, color: i <= stars ? COLORS.accent : COLORS.placeholder }}>
+          ★
+        </Text>
+      ))}
+    </View>
+  );
+}
+
+interface StarSelectorProps {
+  value: number;
+  onChange: (stars: number) => void;
+}
+
+function StarSelector({ value, onChange }: StarSelectorProps) {
+  return (
+    <View style={styles.starRow}>
+      {[1, 2, 3, 4, 5].map((i) => (
+        <TouchableOpacity key={i} onPress={() => onChange(i)} hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}>
+          <Text style={{ fontSize: 32, color: i <= value ? COLORS.accent : COLORS.placeholder }}>★</Text>
+        </TouchableOpacity>
+      ))}
+    </View>
+  );
+}
+
+interface ReviewCardProps {
+  review: UserReview;
+}
+
+function ReviewCard({ review }: ReviewCardProps) {
+  const initials = review.reviewer_name.trim().charAt(0).toUpperCase();
+
+  return (
+    <View style={styles.reviewCard}>
+      <View style={styles.reviewHeader}>
+        {review.reviewer_photo ? (
+          <Image source={{ uri: review.reviewer_photo }} style={styles.reviewAvatar} />
+        ) : (
+          <View style={styles.reviewAvatarInitials}>
+            <Text style={styles.reviewAvatarText}>{initials}</Text>
+          </View>
+        )}
+        <View style={styles.reviewMeta}>
+          <Text style={styles.reviewerName}>{review.reviewer_name}</Text>
+          <StarDisplay stars={review.stars} />
+        </View>
+        <Text style={styles.reviewDate}>{formatDate(review.created_at)}</Text>
+      </View>
+      {review.text ? (
+        <Text style={styles.reviewText}>{review.text}</Text>
+      ) : null}
+    </View>
+  );
+}
+
+// ============================================================
+// Main screen
+// ============================================================
+
 export default function PublicProfileScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { user, isAuthenticated } = useAuthStore();
 
   const { data: profile, isLoading, isError, refetch, isFetching } = usePublicProfile(id ?? '');
+  const { data: reviewsData, isLoading: reviewsLoading } = useUserReviews(id ?? '');
+
+  const [showForm, setShowForm] = useState(false);
+  const [formStars, setFormStars] = useState(0);
+  const [formText, setFormText] = useState('');
+
+  const createReview = useCreateReview(id ?? '');
+  const updateReview = useUpdateReview(id ?? '');
+
+  const reviews = reviewsData?.reviews ?? [];
+  const isOwnProfile = !!user && user.id === id;
+  const canReview = isAuthenticated && !isOwnProfile;
+
+  // Find existing review by current user (reviewer_id matches user.id)
+  const myReview = canReview
+    ? reviews.find((r) => String(r.reviewer_id) === String(user?.id))
+    : undefined;
+
+  const handleOpenForm = () => {
+    if (myReview) {
+      setFormStars(myReview.stars);
+      setFormText(myReview.text);
+    } else {
+      setFormStars(0);
+      setFormText('');
+    }
+    setShowForm(true);
+  };
+
+  const handleSubmit = () => {
+    if (formStars < 1 || formStars > 5) {
+      Alert.alert('Error', 'Seleccioná entre 1 y 5 estrellas.');
+      return;
+    }
+    if (!formText.trim()) {
+      Alert.alert('Error', 'Escribí un comentario.');
+      return;
+    }
+
+    const payload = { stars: formStars, text: formText.trim() };
+    const action = myReview ? updateReview : createReview;
+
+    action.mutate(payload, {
+      onSuccess: () => {
+        setShowForm(false);
+        setFormStars(0);
+        setFormText('');
+      },
+      onError: (err) => {
+        Alert.alert('Error', err.message || 'No se pudo guardar la reseña.');
+      },
+    });
+  };
 
   if (isLoading) {
     return (
@@ -140,6 +274,21 @@ export default function PublicProfileScreen() {
         </View>
       </View>
 
+      {/* ── Rating summary ── */}
+      <View style={styles.ratingCard}>
+        <View style={styles.ratingRow}>
+          <Text style={styles.ratingValue}>
+            {profile.avg_rating > 0 ? profile.avg_rating.toFixed(1) : '—'}
+          </Text>
+          <StarDisplay stars={Math.round(profile.avg_rating)} size={18} />
+          <Text style={styles.ratingCount}>
+            {profile.review_count === 1
+              ? '1 reseña'
+              : `${profile.review_count} reseñas`}
+          </Text>
+        </View>
+      </View>
+
       {/* ── Badges ── */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>🏆 Logros</Text>
@@ -152,6 +301,79 @@ export default function PublicProfileScreen() {
         ) : (
           profile.badges.map((badge) => (
             <BadgeRow key={badge.id} badge={badge} />
+          ))
+        )}
+      </View>
+
+      {/* ── Reviews section ── */}
+      <View style={styles.section}>
+        <View style={styles.reviewSectionHeader}>
+          <Text style={styles.sectionTitle}>⭐ Reseñas</Text>
+          {canReview && (
+            <TouchableOpacity
+              style={styles.reviewButton}
+              onPress={handleOpenForm}
+            >
+              <Text style={styles.reviewButtonText}>
+                {myReview ? 'Editar reseña' : 'Dejar reseña'}
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* Inline review form */}
+        {showForm && (
+          <View style={styles.reviewForm}>
+            <Text style={styles.formLabel}>Tu calificación</Text>
+            <StarSelector value={formStars} onChange={setFormStars} />
+            <TextInput
+              style={styles.formInput}
+              placeholder="Escribí tu reseña..."
+              placeholderTextColor={COLORS.placeholder}
+              multiline
+              numberOfLines={4}
+              value={formText}
+              onChangeText={setFormText}
+              maxLength={2000}
+            />
+            <View style={styles.formActions}>
+              <TouchableOpacity
+                style={styles.formCancelButton}
+                onPress={() => setShowForm(false)}
+              >
+                <Text style={styles.formCancelText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.formSubmitButton,
+                  (createReview.isPending || updateReview.isPending) && styles.formSubmitDisabled,
+                ]}
+                onPress={handleSubmit}
+                disabled={createReview.isPending || updateReview.isPending}
+              >
+                {createReview.isPending || updateReview.isPending ? (
+                  <ActivityIndicator size="small" color={COLORS.white} />
+                ) : (
+                  <Text style={styles.formSubmitText}>
+                    {myReview ? 'Guardar cambios' : 'Publicar reseña'}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
+        {/* Reviews list */}
+        {reviewsLoading ? (
+          <ActivityIndicator size="small" color={COLORS.primary} style={{ marginTop: SPACING.md }} />
+        ) : reviews.length === 0 ? (
+          <View style={styles.emptyBadges}>
+            <Text style={styles.emptyBadgesIcon}>💬</Text>
+            <Text style={styles.emptyBadgesText}>Aún no hay reseñas</Text>
+          </View>
+        ) : (
+          reviews.map((review) => (
+            <ReviewCard key={review.id} review={review} />
           ))
         )}
       </View>
@@ -227,6 +449,34 @@ const styles = StyleSheet.create({
   statDivider: { width: 1, height: 40, backgroundColor: COLORS.border },
   statRowSeparator: { height: 1, backgroundColor: COLORS.border, marginVertical: SPACING.xs },
 
+  // ── Rating summary ──
+  ratingCard: {
+    backgroundColor: COLORS.white,
+    marginHorizontal: SPACING.lg,
+    marginTop: SPACING.md,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.md,
+    ...SHADOWS.sm,
+  },
+  ratingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+  },
+  ratingValue: {
+    fontSize: FONTS.sizes.lg,
+    fontWeight: '700',
+    color: COLORS.textPrimary,
+  },
+  ratingCount: {
+    fontSize: FONTS.sizes.sm,
+    color: COLORS.textSecondary,
+  },
+  starRow: {
+    flexDirection: 'row',
+    gap: 2,
+  },
+
   // ── Section ──
   section: {
     marginHorizontal: SPACING.lg,
@@ -255,7 +505,7 @@ const styles = StyleSheet.create({
   badgeDescription: { fontSize: FONTS.sizes.sm, color: COLORS.textSecondary, marginTop: 2 },
   badgeDate: { fontSize: FONTS.sizes.xs, color: COLORS.textMuted, marginTop: 4 },
 
-  // ── Empty badges ──
+  // ── Empty ──
   emptyBadges: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -267,4 +517,134 @@ const styles = StyleSheet.create({
   },
   emptyBadgesIcon: { fontSize: 32 },
   emptyBadgesText: { fontSize: FONTS.sizes.sm, color: COLORS.textSecondary },
+
+  // ── Reviews section header ──
+  reviewSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: SPACING.md,
+  },
+  reviewButton: {
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.xs + 2,
+    borderRadius: RADIUS.md,
+  },
+  reviewButtonText: {
+    color: COLORS.white,
+    fontSize: FONTS.sizes.sm,
+    fontWeight: '600',
+  },
+
+  // ── Review form ──
+  reviewForm: {
+    backgroundColor: COLORS.white,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.md,
+    marginBottom: SPACING.md,
+    ...SHADOWS.sm,
+  },
+  formLabel: {
+    fontSize: FONTS.sizes.sm,
+    fontWeight: '600',
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.sm,
+  },
+  formInput: {
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: RADIUS.md,
+    padding: SPACING.sm,
+    minHeight: 88,
+    textAlignVertical: 'top',
+    fontSize: FONTS.sizes.sm,
+    color: COLORS.textPrimary,
+    marginTop: SPACING.sm,
+    marginBottom: SPACING.md,
+  },
+  formActions: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+  },
+  formCancelButton: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: RADIUS.md,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  formCancelText: {
+    fontSize: FONTS.sizes.sm,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
+  },
+  formSubmitButton: {
+    flex: 2,
+    backgroundColor: COLORS.primary,
+    borderRadius: RADIUS.md,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  formSubmitDisabled: {
+    backgroundColor: COLORS.primaryLight,
+  },
+  formSubmitText: {
+    color: COLORS.white,
+    fontSize: FONTS.sizes.sm,
+    fontWeight: '700',
+  },
+
+  // ── Review card ──
+  reviewCard: {
+    backgroundColor: COLORS.white,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.md,
+    marginBottom: SPACING.md,
+    ...SHADOWS.sm,
+  },
+  reviewHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: SPACING.sm,
+    marginBottom: SPACING.xs,
+  },
+  reviewAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+  },
+  reviewAvatarInitials: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: COLORS.secondary + '20',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  reviewAvatarText: {
+    fontSize: FONTS.sizes.sm,
+    fontWeight: '700',
+    color: COLORS.secondary,
+  },
+  reviewMeta: {
+    flex: 1,
+    gap: 2,
+  },
+  reviewerName: {
+    fontSize: FONTS.sizes.sm,
+    fontWeight: '600',
+    color: COLORS.textPrimary,
+  },
+  reviewDate: {
+    fontSize: FONTS.sizes.xs,
+    color: COLORS.textMuted,
+  },
+  reviewText: {
+    fontSize: FONTS.sizes.sm,
+    color: COLORS.textSecondary,
+    lineHeight: 20,
+    marginTop: SPACING.xs,
+  },
 });

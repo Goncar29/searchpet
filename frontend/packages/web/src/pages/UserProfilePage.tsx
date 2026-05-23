@@ -1,6 +1,8 @@
 import { useParams, Link } from 'react-router';
-import { usePublicProfile } from '@shared/hooks';
-import type { Badge } from '@shared/types';
+import { useState } from 'react';
+import { usePublicProfile, useUserReviews, useCreateReview, useUpdateReview } from '@shared/hooks';
+import type { Badge, UserReview } from '@shared/types';
+import { useAuth } from '../context/AuthContext';
 
 const BADGE_META: Record<string, { emoji: string; label: string; description: string; color: string }> = {
   first_helper: {
@@ -53,6 +55,70 @@ function BadgeCard({ badge }: { badge: Badge }) {
   );
 }
 
+function StarDisplay({ stars, size = 'text-sm' }: { stars: number; size?: string }) {
+  return (
+    <span className="flex gap-0.5">
+      {[1, 2, 3, 4, 5].map((i) => (
+        <span key={i} className={`${size} ${i <= stars ? 'text-yellow-400' : 'text-gray-300 dark:text-gray-600'}`}>
+          ★
+        </span>
+      ))}
+    </span>
+  );
+}
+
+function StarSelector({ value, onChange }: { value: number; onChange: (n: number) => void }) {
+  return (
+    <span className="flex gap-1">
+      {[1, 2, 3, 4, 5].map((i) => (
+        <button
+          key={i}
+          type="button"
+          onClick={() => onChange(i)}
+          className={`text-3xl leading-none transition-colors ${i <= value ? 'text-yellow-400' : 'text-gray-300 dark:text-gray-600 hover:text-yellow-300'}`}
+        >
+          ★
+        </button>
+      ))}
+    </span>
+  );
+}
+
+function ReviewCard({ review }: { review: UserReview }) {
+  const initials = review.reviewer_name.trim().charAt(0).toUpperCase();
+  const date = new Date(review.created_at).toLocaleDateString('es-UY', {
+    day: 'numeric', month: 'short', year: 'numeric',
+  });
+
+  return (
+    <div className="flex gap-3 py-4 border-b border-gray-100 dark:border-gray-800 last:border-0">
+      {review.reviewer_photo ? (
+        <img
+          src={review.reviewer_photo}
+          alt={review.reviewer_name}
+          className="w-9 h-9 rounded-full object-cover flex-shrink-0"
+        />
+      ) : (
+        <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-sm font-bold text-primary flex-shrink-0">
+          {initials}
+        </div>
+      )}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-sm font-semibold text-gray-900 dark:text-gray-50 truncate">
+            {review.reviewer_name}
+          </span>
+          <span className="text-xs text-gray-400 dark:text-gray-500 flex-shrink-0">{date}</span>
+        </div>
+        <StarDisplay stars={review.stars} />
+        {review.text && (
+          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1 leading-relaxed">{review.text}</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function StatPill({ label, value }: { label: string; value: number }) {
   return (
     <div className="text-center">
@@ -64,7 +130,59 @@ function StatPill({ label, value }: { label: string; value: number }) {
 
 export function UserProfilePage() {
   const { id } = useParams<{ id: string }>();
+  const { user, isAuthenticated } = useAuth();
   const { data: profile, isLoading, error } = usePublicProfile(id ?? '');
+  const { data: reviewsData, isLoading: reviewsLoading } = useUserReviews(id ?? '');
+
+  const [showForm, setShowForm] = useState(false);
+  const [formStars, setFormStars] = useState(0);
+  const [formText, setFormText] = useState('');
+  const [formError, setFormError] = useState('');
+
+  const createReview = useCreateReview(id ?? '');
+  const updateReview = useUpdateReview(id ?? '');
+
+  const reviews = reviewsData?.reviews ?? [];
+  const isOwnProfile = !!user && user.id === id;
+  const canReview = isAuthenticated && !isOwnProfile;
+  const myReview = canReview ? reviews.find((r) => String(r.reviewer_id) === String(user?.id)) : undefined;
+
+  const handleOpenForm = () => {
+    setFormError('');
+    if (myReview) {
+      setFormStars(myReview.stars);
+      setFormText(myReview.text);
+    } else {
+      setFormStars(0);
+      setFormText('');
+    }
+    setShowForm(true);
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormError('');
+    if (formStars < 1 || formStars > 5) {
+      setFormError('Seleccioná entre 1 y 5 estrellas.');
+      return;
+    }
+    if (!formText.trim()) {
+      setFormError('Escribí un comentario.');
+      return;
+    }
+    const payload = { stars: formStars, text: formText.trim() };
+    const action = myReview ? updateReview : createReview;
+    action.mutate(payload, {
+      onSuccess: () => {
+        setShowForm(false);
+        setFormStars(0);
+        setFormText('');
+      },
+      onError: (err) => {
+        setFormError(err.message || 'No se pudo guardar la reseña.');
+      },
+    });
+  };
 
   if (isLoading) {
     return (
@@ -157,6 +275,97 @@ export function UserProfilePage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {profile.badges.map((badge: Badge) => (
                 <BadgeCard key={badge.id} badge={badge} />
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Rating summary */}
+        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-5">
+          <div className="flex items-center gap-3">
+            <span className="text-3xl font-bold text-gray-900 dark:text-gray-50">
+              {profile.avg_rating > 0 ? profile.avg_rating.toFixed(1) : '—'}
+            </span>
+            <div>
+              <StarDisplay stars={Math.round(profile.avg_rating)} size="text-lg" />
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+                {profile.review_count === 1 ? '1 reseña' : `${profile.review_count} reseñas`}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Reviews */}
+        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+              Reseñas
+            </h2>
+            {canReview && (
+              <button
+                type="button"
+                onClick={handleOpenForm}
+                className="text-sm font-semibold text-primary hover:text-primary-dark transition-colors"
+              >
+                {myReview ? 'Editar reseña' : 'Dejar reseña'}
+              </button>
+            )}
+          </div>
+
+          {/* Inline form */}
+          {showForm && (
+            <form onSubmit={handleSubmit} className="mb-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-xl space-y-3">
+              <div>
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tu calificación</p>
+                <StarSelector value={formStars} onChange={setFormStars} />
+              </div>
+              <textarea
+                value={formText}
+                onChange={(e) => setFormText(e.target.value)}
+                placeholder="Escribí tu reseña..."
+                maxLength={2000}
+                rows={4}
+                className="w-full text-sm border border-gray-200 dark:border-gray-700 rounded-lg p-2.5 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-50 placeholder-gray-400 resize-none focus:outline-none focus:ring-2 focus:ring-primary/30"
+              />
+              {formError && (
+                <p className="text-xs text-red-500">{formError}</p>
+              )}
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowForm(false)}
+                  className="flex-1 py-2 text-sm font-semibold border border-gray-200 dark:border-gray-700 rounded-lg text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={createReview.isPending || updateReview.isPending}
+                  className="flex-[2] py-2 text-sm font-semibold bg-primary text-white rounded-lg hover:bg-primary-dark disabled:opacity-60 transition-colors"
+                >
+                  {createReview.isPending || updateReview.isPending
+                    ? 'Guardando...'
+                    : myReview ? 'Guardar cambios' : 'Publicar reseña'}
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* List */}
+          {reviewsLoading ? (
+            <div className="space-y-3 py-2">
+              {[1, 2].map((i) => (
+                <div key={i} className="h-16 rounded-xl bg-gray-100 dark:bg-gray-800 animate-pulse" />
+              ))}
+            </div>
+          ) : reviews.length === 0 ? (
+            <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-4">
+              Aún no hay reseñas.
+            </p>
+          ) : (
+            <div>
+              {reviews.map((review) => (
+                <ReviewCard key={review.id} review={review} />
               ))}
             </div>
           )}

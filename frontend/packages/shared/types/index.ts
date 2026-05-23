@@ -130,6 +130,8 @@ export interface UserProfile {
   found_count: number;
   share_count: number;
   badges: Badge[];
+  avg_rating: number;
+  review_count: number;
 }
 
 export interface LeaderboardEntry {
@@ -353,3 +355,35 @@ export interface CreateStoryRequest {
 }
 
 export type StoryListResponse = SuccessStory[];
+
+// ============================================================
+// REVIEWS
+// ============================================================
+
+export interface UserReview {
+  id: number;
+  reviewer_id: number;
+  reviewer_name: string;
+  reviewer_photo: string | null;
+  stars: number;
+  text: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateReviewRequest {
+  stars: number;
+  text: string;
+}
+
+export interface UpdateReviewRequest {
+  stars: number;
+  text: string;
+}
+
+export interface ReviewListResponse {
+  reviews: UserReview[];
+  total: number;
+  page: number;
+  page_size: number;
+}

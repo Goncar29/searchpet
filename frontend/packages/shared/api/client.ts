@@ -42,6 +42,10 @@ import type {
   SuccessStory,
   CreateStoryRequest,
   StoryListResponse,
+  UserReview,
+  CreateReviewRequest,
+  UpdateReviewRequest,
+  ReviewListResponse,
 } from '../types';
 
 
@@ -434,6 +438,25 @@ class APIClient {
 
   async deleteStory(id: string): Promise<void> {
     return this.request<void>('DELETE', `/api/stories/${id}`);
+  }
+
+  // ============================================================
+  // REVIEWS
+  // ============================================================
+
+  async getUserReviews(userId: string, page = 1, pageSize = 20): Promise<ReviewListResponse> {
+    return this.request<ReviewListResponse>('GET', `/api/users/${userId}/reviews`, undefined, {
+      page,
+      page_size: pageSize,
+    });
+  }
+
+  async createReview(userId: string, data: CreateReviewRequest): Promise<UserReview> {
+    return this.request<UserReview>('POST', `/api/users/${userId}/reviews`, data);
+  }
+
+  async updateReview(userId: string, data: UpdateReviewRequest): Promise<UserReview> {
+    return this.request<UserReview>('PUT', `/api/users/${userId}/reviews`, data);
   }
 }
 

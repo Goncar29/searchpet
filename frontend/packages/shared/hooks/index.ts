@@ -26,6 +26,9 @@ import type {
   StoryListResponse,
   CreateLocationAlertRequest,
   UpdateLocationAlertRequest,
+  UserReview,
+  CreateReviewRequest,
+  UpdateReviewRequest,
 } from '../types';
 
 // ============================================================
@@ -413,6 +416,40 @@ export const useCreateStory = () => {
     mutationFn: (data) => apiClient.createStory(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['stories'] });
+    },
+  });
+};
+
+// ============================================================
+// REVIEW HOOKS
+// ============================================================
+
+export const useUserReviews = (userId: string, page = 1, pageSize = 20) => {
+  return useQuery({
+    queryKey: ['reviews', userId, page, pageSize],
+    queryFn: () => apiClient.getUserReviews(userId, page, pageSize),
+    enabled: !!userId,
+  });
+};
+
+export const useCreateReview = (userId: string) => {
+  const queryClient = useQueryClient();
+  return useMutation<UserReview, Error, CreateReviewRequest>({
+    mutationFn: (data) => apiClient.createReview(userId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['reviews', userId] });
+      queryClient.invalidateQueries({ queryKey: ['profile', userId] });
+    },
+  });
+};
+
+export const useUpdateReview = (userId: string) => {
+  const queryClient = useQueryClient();
+  return useMutation<UserReview, Error, UpdateReviewRequest>({
+    mutationFn: (data) => apiClient.updateReview(userId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['reviews', userId] });
+      queryClient.invalidateQueries({ queryKey: ['profile', userId] });
     },
   });
 };
