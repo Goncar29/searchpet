@@ -13,6 +13,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import * as Linking from 'expo-linking';
+import QRCode from 'react-native-qrcode-svg';
 import { useGenerateShareLink } from '../../shared/hooks';
 import { buildWhatsAppMessage } from '../../shared/utils/whatsappTemplates';
 import { COLORS, SPACING, FONTS, RADIUS } from '../constants';
@@ -34,6 +35,8 @@ const PLATFORMS = [
 
 export function ShareButton({ petId, petName, petType, status, pet }: ShareButtonProps) {
   const [isLoading, setIsLoading] = useState(false);
+  const [showQR, setShowQR] = useState(false);
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
   const generateLink = useGenerateShareLink();
   const statusText = status === 'found' ? 'ENCONTRADA' : 'PERDIDA';
 
@@ -95,6 +98,24 @@ export function ShareButton({ petId, petName, petType, status, pet }: ShareButto
     }
   };
 
+  const handleToggleQR = async () => {
+    if (showQR) {
+      setShowQR(false);
+      return;
+    }
+    if (shareUrl) {
+      setShowQR(true);
+      return;
+    }
+    try {
+      const link = await generateLink.mutateAsync({ petID: petId, data: {} });
+      setShareUrl(link.share_url);
+      setShowQR(true);
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'No se pudo generar el código QR.');
+    }
+  };
+
   if (isLoading) {
     return (
       <View style={styles.container}>
@@ -122,6 +143,23 @@ export function ShareButton({ petId, petName, petType, status, pet }: ShareButto
           </TouchableOpacity>
         ))}
       </View>
+
+      <TouchableOpacity style={styles.qrToggle} onPress={handleToggleQR} disabled={generateLink.isPending}>
+        <Text style={styles.qrToggleText}>{showQR ? 'Ocultar QR' : 'Ver código QR'}</Text>
+      </TouchableOpacity>
+
+      {showQR && (
+        <View style={styles.qrCard}>
+          {generateLink.isPending ? (
+            <ActivityIndicator size="large" color={COLORS.primary} />
+          ) : shareUrl ? (
+            <>
+              <QRCode value={shareUrl} size={200} color={COLORS.textPrimary} backgroundColor={COLORS.white} />
+              <Text style={styles.qrLabel}>{petName}</Text>
+            </>
+          ) : null}
+        </View>
+      )}
 
       <TouchableOpacity style={styles.moreButton} onPress={handleNativeShare}>
         <Text style={styles.moreText}>Más opciones...</Text>
@@ -180,5 +218,28 @@ const styles = StyleSheet.create({
     color: COLORS.primary,
     fontSize: FONTS.sizes.sm,
     fontWeight: '600',
+  },
+  qrToggle: {
+    alignSelf: 'center',
+    marginTop: SPACING.sm,
+    paddingVertical: SPACING.xs,
+  },
+  qrToggleText: {
+    fontSize: FONTS.sizes.sm,
+    color: COLORS.primary,
+    fontWeight: '600',
+  },
+  qrCard: {
+    alignItems: 'center',
+    marginTop: SPACING.md,
+    paddingTop: SPACING.md,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+  },
+  qrLabel: {
+    marginTop: SPACING.sm,
+    fontSize: FONTS.sizes.sm,
+    color: COLORS.textSecondary,
+    fontWeight: '500',
   },
 });
