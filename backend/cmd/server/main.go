@@ -198,6 +198,11 @@ func main() {
 
 		// V1.5 — Reviews (público — leer no requiere auth)
 		public.GET("/users/:id/reviews", reviewHandler.GetReviews)
+
+		// V1.3 — Local Groups (listar y ver detalle son públicos; join/leave requieren auth)
+		public.GET("/groups", groupHandler.List)
+		public.GET("/groups/:id", groupHandler.GetByID)
+		public.GET("/groups/:id/members", groupHandler.GetMembers)
 	}
 
 	// ----------------------------------------
@@ -260,9 +265,7 @@ func main() {
 		protected.POST("/stories/:id/like", storyHandler.Like)
 		protected.DELETE("/stories/:id", storyHandler.Delete)
 
-		// V1.3 — Local Groups (read + join/leave for all; create is admin-only via admin group)
-		protected.GET("/groups", groupHandler.List)
-		protected.GET("/groups/:id", groupHandler.GetByID)
+		// V1.3 — Local Groups (join/leave requieren auth; read is public — routes in public block)
 		protected.POST("/groups/:id/join", groupHandler.Join)
 		protected.DELETE("/groups/:id/leave", groupHandler.Leave)
 

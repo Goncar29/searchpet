@@ -50,6 +50,7 @@ func (r *postgresGroupMemberRepository) GetByGroupID(ctx context.Context, groupI
 		limit = 20
 	}
 	err := r.db.WithContext(ctx).
+		Preload("User").
 		Where("group_id = ?", groupID).
 		Order("joined_at ASC").
 		Limit(limit).Offset(offset).

@@ -68,6 +68,7 @@ type GroupService interface {
 	List(ctx context.Context, city string, limit, offset int) ([]domain.LocalGroup, error)
 	Join(ctx context.Context, groupID, userID uuid.UUID) error
 	Leave(ctx context.Context, groupID, userID uuid.UUID) error
+	GetMembers(ctx context.Context, groupID uuid.UUID, limit, offset int) ([]domain.GroupMember, error)
 }
 
 // SuccessStoryService define el contrato para historias de éxito.

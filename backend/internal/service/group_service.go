@@ -82,6 +82,16 @@ func (s *groupService) Join(ctx context.Context, groupID, userID uuid.UUID) erro
 	return s.groupRepo.IncrementMemberCount(ctx, groupID)
 }
 
+// GetMembers retorna los miembros de un grupo con datos de usuario precargados.
+// Retorna ErrGroupNotFound si el grupo no existe.
+func (s *groupService) GetMembers(ctx context.Context, groupID uuid.UUID, limit, offset int) ([]domain.GroupMember, error) {
+	// Verificar que el grupo existe antes de listar miembros.
+	if _, err := s.groupRepo.GetByID(ctx, groupID); err != nil {
+		return nil, err
+	}
+	return s.memberRepo.GetByGroupID(ctx, groupID, limit, offset)
+}
+
 // Leave elimina el usuario del grupo.
 // Retorna ErrNotMember si el usuario no pertenece al grupo.
 func (s *groupService) Leave(ctx context.Context, groupID, userID uuid.UUID) error {

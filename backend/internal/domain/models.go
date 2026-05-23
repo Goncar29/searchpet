@@ -216,6 +216,9 @@ type GroupMember struct {
 	GroupID  uuid.UUID `gorm:"type:uuid;not null;uniqueIndex:idx_group_user" json:"group_id"`
 	UserID   uuid.UUID `gorm:"type:uuid;not null;uniqueIndex:idx_group_user" json:"user_id"`
 	JoinedAt time.Time `gorm:"autoCreateTime" json:"joined_at"`
+
+	// Relaciones
+	User User `gorm:"foreignKey:UserID" json:"user,omitempty"`
 }
 
 // SuccessStory representa una historia de éxito (mascota encontrada)

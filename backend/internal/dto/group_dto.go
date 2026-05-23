@@ -27,8 +27,10 @@ type GroupResponse struct {
 
 // MemberResponse es la respuesta de un miembro de grupo.
 type MemberResponse struct {
-	UserID   uuid.UUID `json:"user_id"`
-	JoinedAt time.Time `json:"joined_at"`
+	UserID          uuid.UUID `json:"user_id"`
+	Name            string    `json:"name"`
+	ProfilePhotoURL string    `json:"profile_photo_url,omitempty"`
+	JoinedAt        time.Time `json:"joined_at"`
 }
 
 // ToGroupResponse convierte un domain.LocalGroup a GroupResponse.
@@ -54,9 +56,21 @@ func ToGroupListResponse(groups []domain.LocalGroup) []GroupResponse {
 }
 
 // ToMemberResponse convierte un domain.GroupMember a MemberResponse.
+// Requiere que m.User haya sido precargado con Preload("User").
 func ToMemberResponse(m *domain.GroupMember) MemberResponse {
 	return MemberResponse{
-		UserID:   m.UserID,
-		JoinedAt: m.JoinedAt,
+		UserID:          m.UserID,
+		Name:            m.User.Name,
+		ProfilePhotoURL: m.User.ProfilePhotoURL,
+		JoinedAt:        m.JoinedAt,
 	}
+}
+
+// ToMemberListResponse convierte una lista de GroupMember a []MemberResponse.
+func ToMemberListResponse(members []domain.GroupMember) []MemberResponse {
+	resp := make([]MemberResponse, 0, len(members))
+	for i := range members {
+		resp = append(resp, ToMemberResponse(&members[i]))
+	}
+	return resp
 }

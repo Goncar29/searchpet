@@ -95,6 +95,41 @@ func (h *GroupHandler) GetByID(c *gin.Context) {
 	c.JSON(http.StatusOK, dto.ToGroupResponse(group))
 }
 
+// GetMembers godoc
+// GET /api/groups/:id/members
+func (h *GroupHandler) GetMembers(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "id inválido"})
+		return
+	}
+
+	limit := 20
+	offset := 0
+	if l := c.Query("limit"); l != "" {
+		if v, err := strconv.Atoi(l); err == nil && v > 0 {
+			limit = v
+		}
+	}
+	if o := c.Query("offset"); o != "" {
+		if v, err := strconv.Atoi(o); err == nil && v >= 0 {
+			offset = v
+		}
+	}
+
+	members, err := h.groupService.GetMembers(c.Request.Context(), id, limit, offset)
+	if err != nil {
+		if errors.Is(err, domain.ErrGroupNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "grupo no encontrado"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error interno del servidor"})
+		return
+	}
+
+	c.JSON(http.StatusOK, dto.ToMemberListResponse(members))
+}
+
 // Join godoc
 // POST /api/groups/:id/join
 func (h *GroupHandler) Join(c *gin.Context) {
