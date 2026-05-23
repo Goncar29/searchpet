@@ -30,6 +30,8 @@ import type {
   UserReview,
   CreateReviewRequest,
   UpdateReviewRequest,
+  LocalGroup,
+  GroupMember,
 } from '../types';
 
 // ============================================================
@@ -524,6 +526,55 @@ export const useLikeStory = () => {
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['stories'] });
+    },
+  });
+};
+
+// ============================================================
+// LOCAL GROUP HOOKS
+// ============================================================
+
+export const useGroups = (city?: string) => {
+  return useQuery<LocalGroup[]>({
+    queryKey: city ? ['groups', city] : ['groups'],
+    queryFn: () => apiClient.listGroups(city ? { city } : undefined),
+  });
+};
+
+export const useGroup = (id: string) => {
+  return useQuery<LocalGroup>({
+    queryKey: ['groups', id],
+    queryFn: () => apiClient.getGroup(id),
+    enabled: !!id,
+  });
+};
+
+export const useGroupMembers = (id: string) => {
+  return useQuery<GroupMember[]>({
+    queryKey: ['groups', id, 'members'],
+    queryFn: () => apiClient.getGroupMembers(id),
+    enabled: !!id,
+  });
+};
+
+export const useJoinGroup = (groupId: string) => {
+  const queryClient = useQueryClient();
+  return useMutation<void, Error, void>({
+    mutationFn: () => apiClient.joinGroup(groupId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['groups', groupId] });
+      queryClient.invalidateQueries({ queryKey: ['groups'] });
+    },
+  });
+};
+
+export const useLeaveGroup = (groupId: string) => {
+  const queryClient = useQueryClient();
+  return useMutation<void, Error, void>({
+    mutationFn: () => apiClient.leaveGroup(groupId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['groups', groupId] });
+      queryClient.invalidateQueries({ queryKey: ['groups'] });
     },
   });
 };

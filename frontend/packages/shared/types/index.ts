@@ -387,3 +387,27 @@ export interface ReviewListResponse {
   page: number;
   page_size: number;
 }
+
+// ============================================================
+// LOCAL GROUPS
+// ============================================================
+
+export interface LocalGroup {
+  id: string;
+  city: string;
+  name: string;
+  description?: string;
+  member_count: number;
+  created_by: string;
+  created_at: string;
+  is_member?: boolean;
+}
+
+export interface GroupMember {
+  user_id: string;
+  name: string;
+  profile_photo_url?: string;
+  joined_at: string;
+}
+
+export type GroupListResponse = LocalGroup[];

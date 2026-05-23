@@ -18,6 +18,8 @@ import { UserProfilePage } from './pages/UserProfilePage';
 import { InstallPWA } from './components/InstallPWA';
 import { DownloadPage } from './pages/DownloadPage';
 import { StoriesPage } from './pages/StoriesPage';
+import { GroupsPage } from './pages/GroupsPage';
+import { GroupDetailPage } from './pages/GroupDetailPage';
 
 export default function App() {
   return (
@@ -33,6 +35,8 @@ export default function App() {
           <Route path="/leaderboard" element={<LeaderboardPage />} />
           <Route path="/stories" element={<StoriesPage />} />
           <Route path="/users/:id" element={<UserProfilePage />} />
+          <Route path="/groups" element={<GroupsPage />} />
+          <Route path="/groups/:id" element={<GroupDetailPage />} />
           <Route path="/descargar" element={<DownloadPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />

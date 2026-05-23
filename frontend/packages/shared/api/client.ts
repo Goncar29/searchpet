@@ -46,6 +46,8 @@ import type {
   CreateReviewRequest,
   UpdateReviewRequest,
   ReviewListResponse,
+  LocalGroup,
+  GroupMember,
 } from '../types';
 
 
@@ -491,6 +493,32 @@ class APIClient {
 
   async updateReview(userId: string, data: UpdateReviewRequest): Promise<UserReview> {
     return this.request<UserReview>('PUT', `/api/users/${userId}/reviews`, data);
+  }
+
+  // ============================================================
+  // LOCAL GROUPS
+  // ============================================================
+
+  async listGroups(params?: { city?: string }): Promise<LocalGroup[]> {
+    const queryParams: Record<string, string | number> = {};
+    if (params?.city) queryParams['city'] = params.city;
+    return this.request<LocalGroup[]>('GET', '/api/groups', undefined, queryParams);
+  }
+
+  async getGroup(id: string): Promise<LocalGroup> {
+    return this.request<LocalGroup>('GET', `/api/groups/${id}`);
+  }
+
+  async getGroupMembers(id: string): Promise<GroupMember[]> {
+    return this.request<GroupMember[]>('GET', `/api/groups/${id}/members`);
+  }
+
+  async joinGroup(id: string): Promise<void> {
+    return this.request<void>('POST', `/api/groups/${id}/join`);
+  }
+
+  async leaveGroup(id: string): Promise<void> {
+    return this.request<void>('DELETE', `/api/groups/${id}/leave`);
   }
 }
 
