@@ -20,6 +20,7 @@ import { DownloadPage } from './pages/DownloadPage';
 import { StoriesPage } from './pages/StoriesPage';
 import { GroupsPage } from './pages/GroupsPage';
 import { GroupDetailPage } from './pages/GroupDetailPage';
+import { BlockedUsersPage } from './pages/BlockedUsersPage';
 
 export default function App() {
   return (
@@ -48,6 +49,7 @@ export default function App() {
             <Route path="/profile" element={<ProfilePage />} />
             <Route path="/pets/mine" element={<MyPetsPage />} />
             <Route path="/reports/create" element={<CreateReportPage />} />
+            <Route path="/blocked-users" element={<BlockedUsersPage />} />
           </Route>
         </Route>
 

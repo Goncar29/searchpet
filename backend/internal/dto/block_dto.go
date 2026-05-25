@@ -25,7 +25,12 @@ func ToBlockedUserResponse(b *domain.BlockedUser) BlockedUserResponse {
 	return BlockedUserResponse{
 		ID:        b.ID,
 		BlockedID: b.BlockedID,
-		Name:      b.Blocked.Name,
+		Name: func() string {
+			if b.Blocked.Name != "" {
+				return b.Blocked.Name
+			}
+			return "(Usuario eliminado)"
+		}(),
 		BlockedAt: b.CreatedAt,
 	}
 }

@@ -18,7 +18,7 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, useNavigation } from 'expo-router';
 import { useAuthStore } from '../../store';
-import { useConversation, useSendMessageTo, useMarkAsRead, useBlockUser, useSubmitAbuseReport } from '../../../shared/hooks';
+import { useConversation, useSendMessageTo, useMarkAsRead, useBlockUser, useBlockedUsers, useSubmitAbuseReport } from '../../../shared/hooks';
 import { COLORS, SPACING, FONTS, RADIUS } from '../../constants';
 import type { Message } from '../../../shared/types';
 
@@ -34,14 +34,14 @@ export default function ChatScreen() {
   const markAsRead = useMarkAsRead();
   const blockUser = useBlockUser();
   const submitAbuseReport = useSubmitAbuseReport();
-  const [isBlocked, setIsBlocked] = useState(false);
+  const { data: blockedList } = useBlockedUsers();
+  const isBlocked = blockedList?.some((b) => b.blocked_id === userId) ?? false;
 
   const handleBlockUser = () => {
     blockUser.mutate(
       { userId },
       {
         onSuccess: () => {
-          setIsBlocked(true);
           Alert.alert('Usuario bloqueado', 'Ya no podés enviar mensajes a este usuario');
         },
         onError: () => {
@@ -145,14 +145,7 @@ export default function ChatScreen() {
 
     sendMessage(
       { receiverID: userId, senderID: user?.id ?? '', content: trimmed },
-      {
-        onSuccess: () => setText(''),
-        onError: (error: any) => {
-          if (error.status === 403 || error.message.includes('blocked')) {
-            setIsBlocked(true);
-          }
-        },
-      },
+      { onSuccess: () => setText('') },
     );
   };
 

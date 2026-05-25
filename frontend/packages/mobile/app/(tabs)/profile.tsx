@@ -312,6 +312,15 @@ export default function ProfileScreen() {
           <Text style={styles.menuArrow}>›</Text>
         </TouchableOpacity>
 
+        <TouchableOpacity
+          style={styles.menuItem}
+          onPress={() => router.push('/blocked-users' as any)}
+        >
+          <Text style={styles.menuIcon}>🚫</Text>
+          <Text style={styles.menuText}>Usuarios bloqueados</Text>
+          <Text style={styles.menuArrow}>›</Text>
+        </TouchableOpacity>
+
         <TouchableOpacity style={styles.menuItem}>
           <Text style={styles.menuIcon}>⚙️</Text>
           <Text style={styles.menuText}>Configuración</Text>

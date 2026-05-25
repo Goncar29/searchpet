@@ -1,6 +1,6 @@
 import { useParams, Link } from 'react-router';
 import { useState } from 'react';
-import { usePublicProfile, useUserReviews, useCreateReview, useUpdateReview } from '@shared/hooks';
+import { usePublicProfile, useUserReviews, useCreateReview, useUpdateReview, useBlockUser, useBlockedUsers, useUnblockUser } from '@shared/hooks';
 import type { Badge, UserReview } from '@shared/types';
 import { useAuth } from '../context/AuthContext';
 
@@ -141,10 +141,24 @@ export function UserProfilePage() {
 
   const createReview = useCreateReview(id ?? '');
   const updateReview = useUpdateReview(id ?? '');
+  const blockUser = useBlockUser();
+  const unblockUser = useUnblockUser();
+  const { data: blockedList } = useBlockedUsers();
 
   const reviews = reviewsData?.reviews ?? [];
   const isOwnProfile = !!user && user.id === id;
   const canReview = isAuthenticated && !isOwnProfile;
+  const isBlockedByMe = blockedList?.some((b) => b.blocked_id === id) ?? false;
+
+  const handleBlockToggle = () => {
+    if (isBlockedByMe) {
+      if (!window.confirm(`¿Querés desbloquear a ${profile?.name ?? 'este usuario'}?`)) return;
+      unblockUser.mutate(id ?? '');
+    } else {
+      if (!window.confirm(`¿Querés bloquear a ${profile?.name ?? 'este usuario'}? Ya no podrán enviarse mensajes.`)) return;
+      blockUser.mutate({ userId: id ?? '' });
+    }
+  };
   const myReview = canReview ? reviews.find((r) => String(r.reviewer_id) === String(user?.id)) : undefined;
 
   const handleOpenForm = () => {
@@ -248,6 +262,28 @@ export function UserProfilePage() {
               </div>
             </div>
           </div>
+
+          {/* Block / Unblock — only for authenticated non-self users */}
+          {isAuthenticated && !isOwnProfile && (
+            <div className="mt-4 flex justify-end">
+              <button
+                type="button"
+                onClick={handleBlockToggle}
+                disabled={blockUser.isPending || unblockUser.isPending}
+                className={`text-sm font-semibold px-4 py-2 rounded-lg border transition-colors disabled:opacity-60 ${
+                  isBlockedByMe
+                    ? 'border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
+                    : 'border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950'
+                }`}
+              >
+                {blockUser.isPending || unblockUser.isPending
+                  ? 'Procesando...'
+                  : isBlockedByMe
+                  ? 'Desbloquear usuario'
+                  : 'Bloquear usuario'}
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Stats */}
