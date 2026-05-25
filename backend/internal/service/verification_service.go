@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 	"lost-pets/internal/domain"
+	"lost-pets/internal/dto"
 	"lost-pets/internal/repository"
 	"lost-pets/pkg/mailer"
 	"lost-pets/pkg/sms"
@@ -175,6 +176,18 @@ func (s *verificationService) ConfirmOTP(ctx context.Context, userID uuid.UUID, 
 		user.PhoneVerified = true
 	}
 
+	// Derivar is_verified y verification_method a partir del estado actualizado.
+	// REGLA: email solo es suficiente para is_verified = true (MVP).
+	user.IsVerified = user.EmailVerified || user.PhoneVerified
+	switch {
+	case user.EmailVerified && user.PhoneVerified:
+		user.VerificationMethod = "both"
+	case user.EmailVerified:
+		user.VerificationMethod = "email"
+	case user.PhoneVerified:
+		user.VerificationMethod = "phone"
+	}
+
 	if err := s.userRepo.Update(ctx, user); err != nil {
 		return err
 	}
@@ -188,6 +201,19 @@ func (s *verificationService) ConfirmOTP(ctx context.Context, userID uuid.UUID, 
 	}
 
 	return nil
+}
+
+// GetStatus retorna el estado de verificación del usuario autenticado.
+func (s *verificationService) GetStatus(ctx context.Context, userID uuid.UUID) (*dto.VerificationStatusResponse, error) {
+	user, err := s.userRepo.GetByID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	return &dto.VerificationStatusResponse{
+		EmailVerified: user.EmailVerified,
+		PhoneVerified: user.PhoneVerified,
+		IsVerified:    user.IsVerified,
+	}, nil
 }
 
 // generateOTPCode genera un código numérico de 6 dígitos usando crypto/rand.

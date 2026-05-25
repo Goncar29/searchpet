@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useUpdateMe, useUploadProfilePhoto, useMyBadges } from '@shared/hooks';
+import { useUpdateMe, useUploadProfilePhoto, useMyBadges, useVerificationStatus, useSendEmailOTP, useConfirmEmailOTP } from '@shared/hooks';
 import { useAuth } from '../context/AuthContext';
 import type { Badge } from '@shared/types';
 
@@ -26,12 +26,56 @@ export function ProfilePage() {
   const [apiError, setApiError] = useState('');
   const [photoError, setPhotoError] = useState('');
 
+  // Verification state
+  const { data: verificationStatus, error: verificationError } = useVerificationStatus();
+  const sendEmailOTP = useSendEmailOTP();
+  const confirmEmailOTP = useConfirmEmailOTP();
+  const [accordionOpen, setAccordionOpen] = useState(false);
+  const [otpSent, setOtpSent] = useState(false);
+  const [verifyCode, setVerifyCode] = useState('');
+  const [verifyError, setVerifyError] = useState('');
+  const [resendCountdown, setResendCountdown] = useState(0);
+  const verificationDisabled = (verificationError as any)?.status === 501;
+
   useEffect(() => {
     if (user) {
       setName(user.name);
       setPhone(user.phone ?? '');
     }
   }, [user]);
+
+  useEffect(() => {
+    if (resendCountdown <= 0) return;
+    const timer = setTimeout(() => setResendCountdown((c) => c - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [resendCountdown]);
+
+  const handleSendOTP = async () => {
+    try {
+      await sendEmailOTP.mutateAsync();
+      setOtpSent(true);
+      setResendCountdown(60);
+    } catch (err: any) {
+      setVerifyError(err.message || 'No se pudo enviar el código');
+    }
+  };
+
+  const handleConfirmOTP = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setVerifyError('');
+    if (verifyCode.length !== 6) {
+      setVerifyError('Ingresá el código de 6 dígitos');
+      return;
+    }
+    try {
+      await confirmEmailOTP.mutateAsync(verifyCode);
+      setAccordionOpen(false);
+      setOtpSent(false);
+      setVerifyCode('');
+    } catch (err: any) {
+      setVerifyError(err.message || 'Código incorrecto o expirado');
+    }
+  };
 
   const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -238,6 +282,94 @@ export function ProfilePage() {
             </button>
           </form>
         </div>
+
+        {/* Verificación — oculto si feature flag deshabilitado (501) */}
+        {!verificationDisabled && (
+          <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">
+            <div className="flex items-center justify-between">
+              <h2 className="text-base font-semibold text-gray-900 dark:text-gray-50">
+                Verificación de cuenta
+              </h2>
+              {verificationStatus?.is_verified ? (
+                <span className="inline-flex items-center gap-1 text-xs font-semibold text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/30 px-3 py-1 rounded-full">
+                  Verificado
+                </span>
+              ) : verificationStatus !== undefined ? (
+                <button
+                  type="button"
+                  onClick={() => setAccordionOpen((o) => !o)}
+                  className="text-sm font-medium text-primary flex items-center gap-1"
+                  aria-expanded={accordionOpen}
+                >
+                  Verificar email
+                  <span className={`transition-transform ${accordionOpen ? 'rotate-180' : ''}`}>▾</span>
+                </button>
+              ) : null}
+            </div>
+
+            {accordionOpen && !verificationStatus?.is_verified && (
+              <div className="mt-4 border-t border-gray-100 dark:border-gray-800 pt-4">
+                {!otpSent ? (
+                  <div>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                      Te enviaremos un código a <strong>{user?.email}</strong>.
+                    </p>
+                    {verifyError && (
+                      <p className="text-sm text-red-500 dark:text-red-400 mb-2">{verifyError}</p>
+                    )}
+                    <button
+                      type="button"
+                      onClick={handleSendOTP}
+                      disabled={sendEmailOTP.isPending}
+                      className="bg-primary hover:bg-primary-dark disabled:opacity-60 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
+                    >
+                      {sendEmailOTP.isPending ? 'Enviando...' : 'Enviar código'}
+                    </button>
+                  </div>
+                ) : (
+                  <form onSubmit={handleConfirmOTP} noValidate>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                      Revisá tu correo e ingresá el código de 6 dígitos.
+                    </p>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={6}
+                      value={verifyCode}
+                      onChange={(e) => { setVerifyCode(e.target.value.replace(/\D/g, '').slice(0, 6)); setVerifyError(''); }}
+                      placeholder="000000"
+                      className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-3 py-2 text-center text-xl tracking-widest mb-2 focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                    {verifyError && (
+                      <p className="text-sm text-red-500 dark:text-red-400 mb-2">{verifyError}</p>
+                    )}
+                    <button
+                      type="submit"
+                      disabled={confirmEmailOTP.isPending}
+                      className="w-full bg-primary hover:bg-primary-dark disabled:opacity-60 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors mb-2"
+                    >
+                      {confirmEmailOTP.isPending ? 'Verificando...' : 'Confirmar código'}
+                    </button>
+                    {resendCountdown > 0 ? (
+                      <p className="text-xs text-gray-400 dark:text-gray-500 text-center">
+                        Reenviar en {resendCountdown}s
+                      </p>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={handleSendOTP}
+                        disabled={sendEmailOTP.isPending}
+                        className="w-full text-xs text-primary font-medium text-center disabled:opacity-60"
+                      >
+                        Reenviar código
+                      </button>
+                    )}
+                  </form>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Mis logros */}
         <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">

@@ -6,8 +6,9 @@ type SendOTPRequest struct {
 }
 
 // ConfirmOTPRequest contiene el canal y el código a confirmar.
+// Channel es opcional: los endpoints /email/confirm y /phone/confirm ya conocen el canal implícitamente.
 type ConfirmOTPRequest struct {
-	Channel string `json:"channel" binding:"required"`
+	Channel string `json:"channel"`
 	Code    string `json:"code" binding:"required"`
 }
 
@@ -15,4 +16,5 @@ type ConfirmOTPRequest struct {
 type VerificationStatusResponse struct {
 	EmailVerified bool `json:"email_verified"`
 	PhoneVerified bool `json:"phone_verified"`
+	IsVerified    bool `json:"is_verified"`
 }

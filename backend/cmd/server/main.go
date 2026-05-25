@@ -284,6 +284,7 @@ func main() {
 		protected.POST("/verification/send-sms", verificationHandler.SendSMS)
 		protected.POST("/verification/confirm-email", verificationHandler.ConfirmEmail)
 		protected.POST("/verification/confirm-sms", verificationHandler.ConfirmSMS)
+		protected.GET("/verification/status", verificationHandler.GetStatus)
 	}
 
 	// ----------------------------------------

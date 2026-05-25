@@ -2,11 +2,12 @@
 // SearchPet - Profile Screen
 // ============================================================
 
-import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView, Image, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView, Image, ActivityIndicator, Modal, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuthStore } from '../../store';
-import { useMyPets, usePublicProfile, useUploadProfilePhotoNative } from '../../../shared/hooks';
+import { useMyPets, usePublicProfile, useUploadProfilePhotoNative, useVerificationStatus, useSendEmailOTP, useConfirmEmailOTP } from '../../../shared/hooks';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
 
 export default function ProfileScreen() {
@@ -15,6 +16,27 @@ export default function ProfileScreen() {
   const { data: myPets } = useMyPets();
   const { data: myProfile } = usePublicProfile(user?.id ?? '');
   const uploadProfilePhoto = useUploadProfilePhotoNative();
+
+  // Verification state
+  const { data: verificationStatus, error: verificationError } = useVerificationStatus();
+  const sendEmailOTP = useSendEmailOTP();
+  const confirmEmailOTP = useConfirmEmailOTP();
+
+  const [sheetVisible, setSheetVisible] = useState(false);
+  const [sheetStep, setSheetStep] = useState<'send' | 'confirm'>('send');
+  const [otpCode, setOtpCode] = useState('');
+  const [otpError, setOtpError] = useState('');
+  const [resendCountdown, setResendCountdown] = useState(0);
+
+  // Countdown timer for resend
+  useEffect(() => {
+    if (resendCountdown <= 0) return;
+    const timer = setTimeout(() => setResendCountdown((c) => c - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [resendCountdown]);
+
+  // 501 → feature disabled: verificationError will have status 501
+  const verificationDisabled = (verificationError as any)?.status === 501;
 
   const pickAndUploadAvatar = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -34,6 +56,37 @@ export default function ProfileScreen() {
       } catch (err: any) {
         Alert.alert('Error', err.message || 'No se pudo subir la foto');
       }
+    }
+  };
+
+  const handleOpenSheet = () => {
+    setSheetStep('send');
+    setOtpCode('');
+    setOtpError('');
+    setSheetVisible(true);
+  };
+
+  const handleSendOTP = async () => {
+    try {
+      await sendEmailOTP.mutateAsync();
+      setSheetStep('confirm');
+      setResendCountdown(60);
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'No se pudo enviar el código');
+    }
+  };
+
+  const handleConfirmOTP = async () => {
+    if (otpCode.length !== 6) {
+      setOtpError('Ingresá el código de 6 dígitos');
+      return;
+    }
+    setOtpError('');
+    try {
+      await confirmEmailOTP.mutateAsync(otpCode);
+      setSheetVisible(false);
+    } catch (err: any) {
+      setOtpError(err.message || 'Código incorrecto o expirado');
     }
   };
 
@@ -111,6 +164,94 @@ export default function ProfileScreen() {
           <Text style={styles.statLabel}>Reportes</Text>
         </View>
       </View>
+
+      {/* Verification Row — hidden if feature disabled (501) */}
+      {!verificationDisabled && (
+        <View style={styles.verificationSection}>
+          <Text style={styles.verificationLabel}>Verificación de cuenta</Text>
+          {verificationStatus?.is_verified ? (
+            <View style={styles.verifiedBadgeRow}>
+              <Text style={styles.verifiedBadgeText}>Verificado</Text>
+            </View>
+          ) : verificationStatus !== undefined ? (
+            <TouchableOpacity style={styles.verifyButton} onPress={handleOpenSheet}>
+              <Text style={styles.verifyButtonText}>Verificar email</Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
+      )}
+
+      {/* Verification Bottom Sheet */}
+      <Modal
+        visible={sheetVisible}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setSheetVisible(false)}
+      >
+        <KeyboardAvoidingView
+          style={styles.sheetContainer}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <View style={styles.sheetHandle} />
+          <Text style={styles.sheetTitle}>
+            {sheetStep === 'send' ? 'Verificar email' : 'Ingresá el código'}
+          </Text>
+          <Text style={styles.sheetSubtitle}>
+            {sheetStep === 'send'
+              ? `Te enviaremos un código a ${user?.email}`
+              : 'Revisá tu correo e ingresá el código de 6 dígitos'}
+          </Text>
+
+          {sheetStep === 'send' ? (
+            <TouchableOpacity
+              style={[styles.sheetPrimaryButton, sendEmailOTP.isPending && styles.buttonDisabled]}
+              onPress={handleSendOTP}
+              disabled={sendEmailOTP.isPending}
+            >
+              {sendEmailOTP.isPending ? (
+                <ActivityIndicator color={COLORS.white} />
+              ) : (
+                <Text style={styles.sheetPrimaryButtonText}>Enviar código</Text>
+              )}
+            </TouchableOpacity>
+          ) : (
+            <>
+              <TextInput
+                style={styles.otpInput}
+                value={otpCode}
+                onChangeText={(t) => { setOtpCode(t.replace(/\D/g, '').slice(0, 6)); setOtpError(''); }}
+                placeholder="000000"
+                keyboardType="number-pad"
+                maxLength={6}
+                autoFocus
+              />
+              {otpError ? <Text style={styles.otpError}>{otpError}</Text> : null}
+              <TouchableOpacity
+                style={[styles.sheetPrimaryButton, confirmEmailOTP.isPending && styles.buttonDisabled]}
+                onPress={handleConfirmOTP}
+                disabled={confirmEmailOTP.isPending}
+              >
+                {confirmEmailOTP.isPending ? (
+                  <ActivityIndicator color={COLORS.white} />
+                ) : (
+                  <Text style={styles.sheetPrimaryButtonText}>Confirmar</Text>
+                )}
+              </TouchableOpacity>
+              {resendCountdown > 0 ? (
+                <Text style={styles.resendCountdown}>Reenviar en {resendCountdown}s</Text>
+              ) : (
+                <TouchableOpacity onPress={handleSendOTP} disabled={sendEmailOTP.isPending}>
+                  <Text style={styles.resendLink}>Reenviar código</Text>
+                </TouchableOpacity>
+              )}
+            </>
+          )}
+
+          <TouchableOpacity style={styles.sheetCancelButton} onPress={() => setSheetVisible(false)}>
+            <Text style={styles.sheetCancelText}>Cancelar</Text>
+          </TouchableOpacity>
+        </KeyboardAvoidingView>
+      </Modal>
 
       {/* Menu Items */}
       <View style={styles.menuSection}>
@@ -344,5 +485,121 @@ const styles = StyleSheet.create({
     color: COLORS.danger,
     fontSize: FONTS.sizes.md,
     fontWeight: '600',
+  },
+  verificationSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: COLORS.white,
+    marginHorizontal: SPACING.lg,
+    marginTop: SPACING.md,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.md,
+    ...SHADOWS.sm,
+  },
+  verificationLabel: {
+    fontSize: FONTS.sizes.md,
+    color: COLORS.textPrimary,
+    fontWeight: '500',
+  },
+  verifiedBadgeRow: {
+    backgroundColor: COLORS.success,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: RADIUS.full,
+  },
+  verifiedBadgeText: {
+    color: COLORS.white,
+    fontSize: FONTS.sizes.xs,
+    fontWeight: '700',
+  },
+  verifyButton: {
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: RADIUS.md,
+  },
+  verifyButtonText: {
+    color: COLORS.white,
+    fontSize: FONTS.sizes.sm,
+    fontWeight: '600',
+  },
+  sheetContainer: {
+    flex: 1,
+    backgroundColor: COLORS.white,
+    padding: SPACING.xl,
+    paddingTop: SPACING.lg,
+  },
+  sheetHandle: {
+    width: 40,
+    height: 4,
+    backgroundColor: COLORS.border,
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: SPACING.lg,
+  },
+  sheetTitle: {
+    fontSize: FONTS.sizes.xl,
+    fontWeight: '700',
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.sm,
+  },
+  sheetSubtitle: {
+    fontSize: FONTS.sizes.sm,
+    color: COLORS.textSecondary,
+    marginBottom: SPACING.xl,
+  },
+  otpInput: {
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: RADIUS.md,
+    padding: SPACING.md,
+    fontSize: 24,
+    letterSpacing: 8,
+    textAlign: 'center',
+    marginBottom: SPACING.md,
+    color: COLORS.textPrimary,
+  },
+  otpError: {
+    color: COLORS.danger,
+    fontSize: FONTS.sizes.sm,
+    marginBottom: SPACING.sm,
+    textAlign: 'center',
+  },
+  sheetPrimaryButton: {
+    backgroundColor: COLORS.primary,
+    padding: SPACING.md,
+    borderRadius: RADIUS.md,
+    alignItems: 'center',
+    marginBottom: SPACING.md,
+  },
+  sheetPrimaryButtonText: {
+    color: COLORS.white,
+    fontSize: FONTS.sizes.md,
+    fontWeight: '700',
+  },
+  buttonDisabled: {
+    opacity: 0.6,
+  },
+  resendCountdown: {
+    textAlign: 'center',
+    color: COLORS.textMuted,
+    fontSize: FONTS.sizes.sm,
+    marginBottom: SPACING.sm,
+  },
+  resendLink: {
+    textAlign: 'center',
+    color: COLORS.primary,
+    fontSize: FONTS.sizes.sm,
+    fontWeight: '600',
+    marginBottom: SPACING.sm,
+  },
+  sheetCancelButton: {
+    marginTop: SPACING.sm,
+    alignItems: 'center',
+  },
+  sheetCancelText: {
+    color: COLORS.textMuted,
+    fontSize: FONTS.sizes.sm,
   },
 });

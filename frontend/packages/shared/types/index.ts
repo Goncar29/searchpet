@@ -11,8 +11,16 @@ export interface User {
   latitude?: number;
   longitude?: number;
   is_verified: boolean;
+  email_verified?: boolean;
+  phone_verified?: boolean;
   search_radius_meters?: number;
   created_at: string;
+}
+
+export interface VerificationStatus {
+  email_verified: boolean;
+  phone_verified: boolean;
+  is_verified: boolean;
 }
 
 export interface UserPreferences {

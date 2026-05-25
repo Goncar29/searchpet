@@ -119,6 +119,23 @@ func (h *VerificationHandler) ConfirmSMS(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "teléfono verificado"})
 }
 
+// GetStatus godoc
+// GET /api/verification/status
+func (h *VerificationHandler) GetStatus(c *gin.Context) {
+	if !h.featureEnabled {
+		h.notImplemented(c)
+		return
+	}
+
+	callerID := getUserUUID(c)
+	status, err := h.verificationService.GetStatus(c.Request.Context(), callerID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, status)
+}
+
 // handleSendError centraliza el mapeo de errores para los endpoints de envío.
 func (h *VerificationHandler) handleSendError(c *gin.Context, err error) {
 	var rateLimitErr *service.ErrRateLimitOTP

@@ -32,6 +32,7 @@ import type {
   UpdateReviewRequest,
   LocalGroup,
   GroupMember,
+  VerificationStatus,
 } from '../types';
 
 // ============================================================
@@ -575,6 +576,37 @@ export const useLeaveGroup = (groupId: string) => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['groups', groupId] });
       queryClient.invalidateQueries({ queryKey: ['groups'] });
+    },
+  });
+};
+
+// ============================================================
+// VERIFICATION HOOKS
+// ============================================================
+
+export const useVerificationStatus = () =>
+  useQuery<VerificationStatus>({
+    queryKey: ['verification-status'],
+    queryFn: () => apiClient.getVerificationStatus(),
+  });
+
+export const useSendEmailOTP = () => {
+  const queryClient = useQueryClient();
+  return useMutation<void, Error>({
+    mutationFn: () => apiClient.sendEmailOTP(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['verification-status'] });
+    },
+  });
+};
+
+export const useConfirmEmailOTP = () => {
+  const queryClient = useQueryClient();
+  return useMutation<void, Error, string>({
+    mutationFn: (code) => apiClient.confirmEmailOTP(code),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['verification-status'] });
+      queryClient.invalidateQueries({ queryKey: ['me'] });
     },
   });
 };

@@ -48,6 +48,7 @@ import type {
   ReviewListResponse,
   LocalGroup,
   GroupMember,
+  VerificationStatus,
 } from '../types';
 
 
@@ -519,6 +520,22 @@ class APIClient {
 
   async leaveGroup(id: string): Promise<void> {
     return this.request<void>('DELETE', `/api/groups/${id}/leave`);
+  }
+
+  // ============================================================
+  // VERIFICATION
+  // ============================================================
+
+  async getVerificationStatus(): Promise<VerificationStatus> {
+    return this.request<VerificationStatus>('GET', '/api/verification/status');
+  }
+
+  async sendEmailOTP(): Promise<void> {
+    return this.request<void>('POST', '/api/verification/send-email');
+  }
+
+  async confirmEmailOTP(code: string): Promise<void> {
+    return this.request<void>('POST', '/api/verification/confirm-email', { code });
   }
 }
 

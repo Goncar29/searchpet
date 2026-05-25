@@ -20,6 +20,8 @@ type VerificationService interface {
 	// Retorna ErrOTPExpired si el token expiró, ErrOTPInvalid si el código es incorrecto.
 	// Al superar 5 intentos fallidos, invalida el token.
 	ConfirmOTP(ctx context.Context, userID uuid.UUID, channel, code string) error
+	// GetStatus retorna el estado de verificación del usuario (email_verified, phone_verified, is_verified).
+	GetStatus(ctx context.Context, userID uuid.UUID) (*dto.VerificationStatusResponse, error)
 }
 
 // ErrRateLimitOTP es retornado cuando se intenta enviar un OTP dentro del período de rate limit.
