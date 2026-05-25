@@ -2,10 +2,11 @@
 // PetDetailPage
 // ============================================================
 import { useParams, Link } from 'react-router';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Helmet } from 'react-helmet-async';
-import { usePetByID, useReportsByPetID, useMarkPetAsFound } from '@shared/hooks';
-import type { Photo, Report } from '@shared/types';
+import { usePetByID, useReportsByPetID, useMarkPetAsFound, useSubmitAbuseReport } from '@shared/hooks';
+import type { Photo, Report, AbuseReason } from '@shared/types';
 import { buildWhatsAppContactURL } from '@shared/utils/whatsappTemplates';
 import { useAuth } from '../context/AuthContext';
 import { SharePanel } from '../components/SharePanel';
@@ -18,6 +19,9 @@ export function PetDetailPage() {
   const { data: pet, isLoading } = usePetByID(id || '');
   const { data: reports } = useReportsByPetID(id || '');
   const markAsFound = useMarkPetAsFound();
+  const submitAbuseReport = useSubmitAbuseReport();
+  const [showPetReportMenu, setShowPetReportMenu] = useState(false);
+  const [petReportSuccess, setPetReportSuccess] = useState(false);
 
   if (isLoading) {
     return (
@@ -63,6 +67,22 @@ export function PetDetailPage() {
 
   const primaryPhoto = pet.photos?.find((p: Photo) => p.is_primary) || pet.photos?.[0];
   const isOwner = isAuthenticated && user?.id === pet.owner_id;
+
+  const handlePetReport = (reason: AbuseReason) => {
+    submitAbuseReport.mutate(
+      { target_user_id: pet.owner_id, reason },
+      {
+        onSuccess: () => {
+          setShowPetReportMenu(false);
+          setPetReportSuccess(true);
+          setTimeout(() => setPetReportSuccess(false), 4000);
+        },
+        onError: () => {
+          // keep menu open so user can retry
+        },
+      },
+    );
+  };
 
   const statusBadge =
     pet.status === 'found'
@@ -223,6 +243,54 @@ export function PetDetailPage() {
                   >
                     {t('pets:detail.contact')}
                   </a>
+                )}
+              </div>
+            )}
+
+            {/* Report pet owner — only for authenticated non-owners */}
+            {isAuthenticated && !isOwner && (
+              <div className="mb-6 space-y-2">
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => { setShowPetReportMenu((v) => !v); setPetReportSuccess(false); }}
+                    disabled={submitAbuseReport.isPending}
+                    className="text-sm font-semibold px-4 py-2 rounded-lg border border-orange-300 dark:border-orange-700 text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-950 transition-colors disabled:opacity-60"
+                  >
+                    {submitAbuseReport.isPending ? 'Enviando...' : 'Denunciar publicación'}
+                  </button>
+                </div>
+
+                {/* Reason picker */}
+                {showPetReportMenu && (
+                  <div className="flex flex-col gap-1 p-3 bg-orange-50 dark:bg-orange-950 rounded-xl border border-orange-200 dark:border-orange-800">
+                    <p className="text-xs font-semibold text-orange-700 dark:text-orange-300 mb-1">Motivo de la denuncia:</p>
+                    {(['spam', 'fake', 'abuse', 'inappropriate', 'other'] as AbuseReason[]).map((reason) => (
+                      <button
+                        key={reason}
+                        type="button"
+                        onClick={() => handlePetReport(reason)}
+                        disabled={submitAbuseReport.isPending}
+                        className="text-left text-sm px-3 py-1.5 rounded-lg hover:bg-orange-100 dark:hover:bg-orange-900 text-orange-800 dark:text-orange-200 disabled:opacity-60 transition-colors"
+                      >
+                        {{ spam: 'Spam', fake: 'Publicación falsa', abuse: 'Abuso', inappropriate: 'Contenido inapropiado', other: 'Otro' }[reason]}
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => setShowPetReportMenu(false)}
+                      className="text-left text-xs px-3 py-1 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-400 transition-colors mt-1"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                )}
+
+                {/* Success feedback */}
+                {petReportSuccess && (
+                  <p className="text-xs text-green-600 dark:text-green-400 text-right font-medium">
+                    Denuncia enviada. Gracias por reportarlo.
+                  </p>
                 )}
               </div>
             )}

@@ -321,6 +321,7 @@ export interface BlockedUser {
 export interface AbuseReport {
   id: string;
   target_user_id?: string;
+  target_report_id?: string;
   reporter_id: string;
   reason: AbuseReason;
   status: string;
@@ -328,7 +329,8 @@ export interface AbuseReport {
 }
 
 export interface CreateAbuseReportRequest {
-  target_user_id: string;
+  target_user_id?: string;
+  target_report_id?: string;
   reason: AbuseReason;
 }
 

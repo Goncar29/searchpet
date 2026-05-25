@@ -14,10 +14,12 @@ import {
   RefreshControl,
   TextInput,
   Alert,
+  Platform,
+  ActionSheetIOS,
 } from 'react-native';
-import { useState } from 'react';
-import { useLocalSearchParams } from 'expo-router';
-import { usePublicProfile, useUserReviews, useCreateReview, useUpdateReview } from '../../../shared/hooks';
+import { useState, useEffect } from 'react';
+import { useLocalSearchParams, useNavigation } from 'expo-router';
+import { usePublicProfile, useUserReviews, useCreateReview, useUpdateReview, useBlockUser, useBlockedUsers, useSubmitAbuseReport } from '../../../shared/hooks';
 import { useAuthStore } from '../../store';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS, BADGE_META } from '../../constants';
 import type { Badge, UserReview } from '../../../shared/types';
@@ -145,6 +147,7 @@ function ReviewCard({ review }: ReviewCardProps) {
 export default function PublicProfileScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user, isAuthenticated } = useAuthStore();
+  const navigation = useNavigation();
 
   const { data: profile, isLoading, isError, refetch, isFetching } = usePublicProfile(id ?? '');
   const { data: reviewsData, isLoading: reviewsLoading } = useUserReviews(id ?? '');
@@ -156,9 +159,91 @@ export default function PublicProfileScreen() {
   const createReview = useCreateReview(id ?? '');
   const updateReview = useUpdateReview(id ?? '');
 
+  const blockUser = useBlockUser();
+  const submitAbuseReport = useSubmitAbuseReport();
+  const { data: blockedList } = useBlockedUsers();
+
   const reviews = reviewsData?.reviews ?? [];
   const isOwnProfile = !!user && user.id === id;
   const canReview = isAuthenticated && !isOwnProfile;
+  const isBlocked = blockedList?.some((b) => b.blocked_id === id) ?? false;
+
+  const handleBlockUser = () => {
+    blockUser.mutate(
+      { userId: id ?? '' },
+      {
+        onSuccess: () => {
+          Alert.alert('Usuario bloqueado', 'Este usuario ha sido bloqueado');
+        },
+        onError: () => {
+          Alert.alert('Error', 'No se pudo bloquear al usuario');
+        },
+      },
+    );
+  };
+
+  const handleReportUser = () => {
+    const reasons: Array<{ label: string; value: string }> = [
+      { label: 'Spam', value: 'spam' },
+      { label: 'Publicación falsa', value: 'fake' },
+      { label: 'Abuso', value: 'abuse' },
+      { label: 'Contenido inapropiado', value: 'inappropriate' },
+      { label: 'Otro', value: 'other' },
+    ];
+    Alert.alert(
+      'Motivo de la denuncia',
+      '',
+      [
+        ...reasons.map((r) => ({
+          text: r.label,
+          onPress: () => {
+            submitAbuseReport.mutate(
+              { target_user_id: id ?? '', reason: r.value as 'spam' | 'fake' | 'abuse' | 'inappropriate' | 'other' },
+              {
+                onSuccess: () => Alert.alert('Denuncia enviada', 'Gracias por reportarlo'),
+                onError: () => Alert.alert('Error', 'No se pudo enviar la denuncia'),
+              },
+            );
+          },
+        })),
+        { text: 'Cancelar', style: 'cancel' },
+      ],
+    );
+  };
+
+  const showKebabSheet = () => {
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options: ['Cancelar', 'Bloquear usuario', 'Denunciar'],
+          cancelButtonIndex: 0,
+          destructiveButtonIndex: 1,
+        },
+        (idx) => {
+          if (idx === 1) handleBlockUser();
+          if (idx === 2) handleReportUser();
+        },
+      );
+    } else {
+      Alert.alert('Opciones', '', [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Bloquear usuario', style: 'destructive', onPress: handleBlockUser },
+        { text: 'Denunciar', onPress: handleReportUser },
+      ]);
+    }
+  };
+
+  // Wire kebab into header — only when viewing another user's profile
+  useEffect(() => {
+    if (!isOwnProfile && isAuthenticated) {
+      const headerRight = () => (
+        <TouchableOpacity onPress={showKebabSheet} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <Text style={{ paddingRight: 16, fontSize: 22 }}>⋮</Text>
+        </TouchableOpacity>
+      );
+      navigation.setOptions({ headerRight });
+    }
+  }, [isOwnProfile, isAuthenticated, id]);
 
   // Find existing review by current user (reviewer_id matches user.id)
   const myReview = canReview
@@ -304,6 +389,13 @@ export default function PublicProfileScreen() {
           ))
         )}
       </View>
+
+      {/* ── Blocked banner ── */}
+      {isBlocked && (
+        <View style={styles.blockedBanner}>
+          <Text style={styles.blockedBannerText}>Has bloqueado a este usuario</Text>
+        </View>
+      )}
 
       {/* ── Reviews section ── */}
       <View style={styles.section}>
@@ -646,5 +738,23 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     lineHeight: 20,
     marginTop: SPACING.xs,
+  },
+
+  // ── Blocked banner ──
+  blockedBanner: {
+    backgroundColor: '#fef2f2',
+    borderWidth: 1,
+    borderColor: '#fecaca',
+    marginHorizontal: SPACING.lg,
+    marginTop: SPACING.md,
+    borderRadius: RADIUS.md,
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+    alignItems: 'center',
+  },
+  blockedBannerText: {
+    fontSize: FONTS.sizes.sm,
+    color: '#dc2626',
+    fontWeight: '500',
   },
 });

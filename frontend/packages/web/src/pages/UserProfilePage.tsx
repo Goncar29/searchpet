@@ -1,7 +1,7 @@
 import { useParams, Link } from 'react-router';
 import { useState } from 'react';
-import { usePublicProfile, useUserReviews, useCreateReview, useUpdateReview, useBlockUser, useBlockedUsers, useUnblockUser } from '@shared/hooks';
-import type { Badge, UserReview } from '@shared/types';
+import { usePublicProfile, useUserReviews, useCreateReview, useUpdateReview, useBlockUser, useBlockedUsers, useUnblockUser, useSubmitAbuseReport } from '@shared/hooks';
+import type { Badge, UserReview, AbuseReason } from '@shared/types';
 import { useAuth } from '../context/AuthContext';
 
 const BADGE_META: Record<string, { emoji: string; label: string; description: string; color: string }> = {
@@ -138,11 +138,14 @@ export function UserProfilePage() {
   const [formStars, setFormStars] = useState(0);
   const [formText, setFormText] = useState('');
   const [formError, setFormError] = useState('');
+  const [showReportMenu, setShowReportMenu] = useState(false);
+  const [reportSuccess, setReportSuccess] = useState(false);
 
   const createReview = useCreateReview(id ?? '');
   const updateReview = useUpdateReview(id ?? '');
   const blockUser = useBlockUser();
   const unblockUser = useUnblockUser();
+  const submitAbuseReport = useSubmitAbuseReport();
   const { data: blockedList } = useBlockedUsers();
 
   const reviews = reviewsData?.reviews ?? [];
@@ -159,6 +162,23 @@ export function UserProfilePage() {
       blockUser.mutate({ userId: id ?? '' });
     }
   };
+
+  const handleReport = (reason: AbuseReason) => {
+    submitAbuseReport.mutate(
+      { target_user_id: id ?? '', reason },
+      {
+        onSuccess: () => {
+          setShowReportMenu(false);
+          setReportSuccess(true);
+          setTimeout(() => setReportSuccess(false), 4000);
+        },
+        onError: () => {
+          // keep menu open so user can retry
+        },
+      },
+    );
+  };
+
   const myReview = canReview ? reviews.find((r) => String(r.reviewer_id) === String(user?.id)) : undefined;
 
   const handleOpenForm = () => {
@@ -263,25 +283,67 @@ export function UserProfilePage() {
             </div>
           </div>
 
-          {/* Block / Unblock — only for authenticated non-self users */}
+          {/* Block / Unblock + Report — only for authenticated non-self users */}
           {isAuthenticated && !isOwnProfile && (
-            <div className="mt-4 flex justify-end">
-              <button
-                type="button"
-                onClick={handleBlockToggle}
-                disabled={blockUser.isPending || unblockUser.isPending}
-                className={`text-sm font-semibold px-4 py-2 rounded-lg border transition-colors disabled:opacity-60 ${
-                  isBlockedByMe
-                    ? 'border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
-                    : 'border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950'
-                }`}
-              >
-                {blockUser.isPending || unblockUser.isPending
-                  ? 'Procesando...'
-                  : isBlockedByMe
-                  ? 'Desbloquear usuario'
-                  : 'Bloquear usuario'}
-              </button>
+            <div className="mt-4 space-y-2">
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => { setShowReportMenu((v) => !v); setReportSuccess(false); }}
+                  disabled={submitAbuseReport.isPending}
+                  className="text-sm font-semibold px-4 py-2 rounded-lg border border-orange-300 dark:border-orange-700 text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-950 transition-colors disabled:opacity-60"
+                >
+                  {submitAbuseReport.isPending ? 'Enviando...' : 'Denunciar'}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleBlockToggle}
+                  disabled={blockUser.isPending || unblockUser.isPending}
+                  className={`text-sm font-semibold px-4 py-2 rounded-lg border transition-colors disabled:opacity-60 ${
+                    isBlockedByMe
+                      ? 'border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
+                      : 'border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950'
+                  }`}
+                >
+                  {blockUser.isPending || unblockUser.isPending
+                    ? 'Procesando...'
+                    : isBlockedByMe
+                    ? 'Desbloquear usuario'
+                    : 'Bloquear usuario'}
+                </button>
+              </div>
+
+              {/* Report reason picker */}
+              {showReportMenu && (
+                <div className="flex flex-col gap-1 p-3 bg-orange-50 dark:bg-orange-950 rounded-xl border border-orange-200 dark:border-orange-800">
+                  <p className="text-xs font-semibold text-orange-700 dark:text-orange-300 mb-1">Motivo de la denuncia:</p>
+                  {(['spam', 'fake', 'abuse', 'inappropriate', 'other'] as AbuseReason[]).map((reason) => (
+                    <button
+                      key={reason}
+                      type="button"
+                      onClick={() => handleReport(reason)}
+                      disabled={submitAbuseReport.isPending}
+                      className="text-left text-sm px-3 py-1.5 rounded-lg hover:bg-orange-100 dark:hover:bg-orange-900 text-orange-800 dark:text-orange-200 disabled:opacity-60 transition-colors"
+                    >
+                      {{ spam: 'Spam', fake: 'Publicación falsa', abuse: 'Abuso', inappropriate: 'Contenido inapropiado', other: 'Otro' }[reason]}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => setShowReportMenu(false)}
+                    className="text-left text-xs px-3 py-1 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-400 transition-colors mt-1"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              )}
+
+              {/* Success feedback */}
+              {reportSuccess && (
+                <p className="text-xs text-green-600 dark:text-green-400 text-right font-medium">
+                  Denuncia enviada. Gracias por reportarlo.
+                </p>
+              )}
             </div>
           )}
         </div>
