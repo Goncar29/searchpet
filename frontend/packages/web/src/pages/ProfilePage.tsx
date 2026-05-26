@@ -1,15 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useUpdateMe, useUploadProfilePhoto, useMyBadges, useVerificationStatus, useSendEmailOTP, useConfirmEmailOTP } from '@shared/hooks';
+import { useUpdateMe, useUploadProfilePhoto, useMyBadges, useVerificationStatus, useSendEmailOTP, useConfirmEmailOTP, usePublicProfile } from '@shared/hooks';
 import { useAuth } from '../context/AuthContext';
 import type { Badge } from '@shared/types';
-
-const BADGE_META: Record<string, { emoji: string; label: string }> = {
-  first_helper: { emoji: '🤝', label: 'Primer Ayudante' },
-  pet_rescuer: { emoji: '🦸', label: 'Rescatador' },
-  social_butterfly: { emoji: '📣', label: 'Social' },
-  verified_finder: { emoji: '✓', label: 'Verificado' },
-};
+import { BADGE_META } from '@shared/types';
 
 export function ProfilePage() {
   const { t } = useTranslation(['profile', 'common']);
@@ -17,6 +11,7 @@ export function ProfilePage() {
   const updateMe = useUpdateMe();
   const uploadPhoto = useUploadProfilePhoto();
   const { data: badges } = useMyBadges();
+  const { data: publicProfile, isLoading: statsLoading } = usePublicProfile(user?.id ?? '');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [name, setName] = useState('');
@@ -370,6 +365,39 @@ export function ProfilePage() {
             )}
           </div>
         )}
+
+        {/* Puntos y estadísticas */}
+        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">
+          <h2 className="text-base font-semibold text-gray-900 dark:text-gray-50 mb-4">
+            Mis estadísticas
+          </h2>
+          {statsLoading ? (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="h-14 rounded-xl bg-gray-100 dark:bg-gray-800 animate-pulse" />
+              ))}
+            </div>
+          ) : publicProfile ? (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <div className="text-center p-3 rounded-xl bg-primary/5 border border-primary/20">
+                <p className="text-2xl font-bold text-primary">{publicProfile.total_points}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Puntos</p>
+              </div>
+              <div className="text-center p-3 rounded-xl bg-primary/5 border border-primary/20">
+                <p className="text-2xl font-bold text-primary">{publicProfile.total_reports}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Reportes</p>
+              </div>
+              <div className="text-center p-3 rounded-xl bg-primary/5 border border-primary/20">
+                <p className="text-2xl font-bold text-primary">{publicProfile.found_count}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Encontradas</p>
+              </div>
+              <div className="text-center p-3 rounded-xl bg-primary/5 border border-primary/20">
+                <p className="text-2xl font-bold text-primary">{publicProfile.share_count}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Compartidas</p>
+              </div>
+            </div>
+          ) : null}
+        </div>
 
         {/* Mis logros */}
         <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">

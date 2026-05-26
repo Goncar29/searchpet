@@ -21,8 +21,9 @@ import { useState, useEffect } from 'react';
 import { useLocalSearchParams, useNavigation } from 'expo-router';
 import { usePublicProfile, useUserReviews, useCreateReview, useUpdateReview, useBlockUser, useBlockedUsers, useSubmitAbuseReport } from '../../../shared/hooks';
 import { useAuthStore } from '../../store';
-import { COLORS, SPACING, FONTS, RADIUS, SHADOWS, BADGE_META } from '../../constants';
+import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
 import type { Badge, UserReview } from '../../../shared/types';
+import { BADGE_META } from '../../../shared/types';
 
 // ============================================================
 // Helpers
@@ -247,7 +248,7 @@ export default function PublicProfileScreen() {
 
   // Find existing review by current user (reviewer_id matches user.id)
   const myReview = canReview
-    ? reviews.find((r) => String(r.reviewer_id) === String(user?.id))
+    ? reviews.find((r) => r.reviewer_id === user?.id)
     : undefined;
 
   const handleOpenForm = () => {

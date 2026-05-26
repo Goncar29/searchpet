@@ -14,8 +14,9 @@ import {
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '../../store';
 import { useMyBadges } from '../../../shared/hooks';
-import { COLORS, SPACING, FONTS, RADIUS, SHADOWS, BADGE_META } from '../../constants';
+import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
 import type { Badge } from '../../../shared/types';
+import { BADGE_META } from '../../../shared/types';
 
 function formatDate(dateString: string): string {
   const date = new Date(dateString);

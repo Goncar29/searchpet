@@ -2,45 +2,27 @@ import { useParams, Link } from 'react-router';
 import { useState } from 'react';
 import { usePublicProfile, useUserReviews, useCreateReview, useUpdateReview, useBlockUser, useBlockedUsers, useUnblockUser, useSubmitAbuseReport } from '@shared/hooks';
 import type { Badge, UserReview, AbuseReason } from '@shared/types';
+import { BADGE_META } from '@shared/types';
 import { useAuth } from '../context/AuthContext';
 
-const BADGE_META: Record<string, { emoji: string; label: string; description: string; color: string }> = {
-  first_helper: {
-    emoji: '🤝',
-    label: 'Primer Ayudante',
-    description: 'Creó su primer reporte de avistamiento',
-    color: 'bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300',
-  },
-  pet_rescuer: {
-    emoji: '🦸',
-    label: 'Rescatador',
-    description: 'Ayudó a reunir una mascota con su familia',
-    color: 'bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800 text-green-700 dark:text-green-300',
-  },
-  social_butterfly: {
-    emoji: '📣',
-    label: 'Social',
-    description: 'Compartió reportes en redes sociales',
-    color: 'bg-purple-50 dark:bg-purple-950 border-purple-200 dark:border-purple-800 text-purple-700 dark:text-purple-300',
-  },
-  verified_finder: {
-    emoji: '✓',
-    label: 'Verificado',
-    description: 'Identidad verificada por la plataforma',
-    color: 'bg-orange-50 dark:bg-orange-950 border-orange-200 dark:border-orange-800 text-orange-700 dark:text-orange-300',
-  },
+const BADGE_COLOR: Record<string, string> = {
+  first_helper: 'bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300',
+  pet_rescuer: 'bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800 text-green-700 dark:text-green-300',
+  social_butterfly: 'bg-purple-50 dark:bg-purple-950 border-purple-200 dark:border-purple-800 text-purple-700 dark:text-purple-300',
+  verified_finder: 'bg-orange-50 dark:bg-orange-950 border-orange-200 dark:border-orange-800 text-orange-700 dark:text-orange-300',
 };
+const DEFAULT_BADGE_COLOR = 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300';
 
 function BadgeCard({ badge }: { badge: Badge }) {
   const meta = BADGE_META[badge.badge_type] ?? {
     emoji: '🏅',
     label: badge.badge_type,
     description: '',
-    color: 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300',
   };
+  const color = BADGE_COLOR[badge.badge_type] ?? DEFAULT_BADGE_COLOR;
 
   return (
-    <div className={`flex items-start gap-3 p-3 rounded-xl border ${meta.color}`}>
+    <div className={`flex items-start gap-3 p-3 rounded-xl border ${color}`}>
       <span className="text-2xl flex-shrink-0">{meta.emoji}</span>
       <div>
         <p className="text-sm font-semibold">{meta.label}</p>
@@ -179,7 +161,7 @@ export function UserProfilePage() {
     );
   };
 
-  const myReview = canReview ? reviews.find((r) => String(r.reviewer_id) === String(user?.id)) : undefined;
+  const myReview = canReview ? reviews.find((r) => r.reviewer_id === user?.id) : undefined;
 
   const handleOpenForm = () => {
     setFormError('');

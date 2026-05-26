@@ -14,7 +14,6 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useAuthStore } from '../../store';
 import { useLeaderboard } from '../../../shared/hooks';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
 import type { LeaderboardEntry } from '../../../shared/types';
@@ -62,7 +61,6 @@ function LeaderboardRow({ entry, onPress }: { entry: LeaderboardEntry; onPress: 
 
 export default function LeaderboardScreen() {
   const router = useRouter();
-  const { isAuthenticated } = useAuthStore();
 
   const [city, setCity] = useState('Montevideo');
   const [inputCity, setInputCity] = useState('Montevideo');
@@ -73,23 +71,6 @@ export default function LeaderboardScreen() {
     const trimmed = inputCity.trim();
     if (trimmed) setCity(trimmed);
   };
-
-  // Auth guard
-  if (!isAuthenticated) {
-    return (
-      <View style={styles.center}>
-        <Text style={styles.guardIcon}>🔒</Text>
-        <Text style={styles.guardTitle}>Acceso requerido</Text>
-        <Text style={styles.guardText}>Iniciá sesión para ver la tabla de líderes</Text>
-        <TouchableOpacity
-          style={styles.loginButton}
-          onPress={() => router.push('/login')}
-        >
-          <Text style={styles.loginButtonText}>Iniciar Sesión</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
 
   return (
     <View style={styles.container}>
@@ -163,14 +144,6 @@ const styles = StyleSheet.create({
   guardIcon: { fontSize: 56, marginBottom: SPACING.md },
   guardTitle: { fontSize: FONTS.sizes.lg, fontWeight: '700', color: COLORS.textPrimary, marginBottom: SPACING.sm },
   guardText: { fontSize: FONTS.sizes.sm, color: COLORS.textSecondary, textAlign: 'center', marginBottom: SPACING.lg },
-
-  loginButton: {
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: SPACING.xl,
-    paddingVertical: 14,
-    borderRadius: RADIUS.md,
-  },
-  loginButtonText: { color: COLORS.white, fontSize: FONTS.sizes.md, fontWeight: '700' },
 
   retryButton: {
     borderWidth: 1,

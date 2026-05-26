@@ -371,8 +371,8 @@ export type StoryListResponse = SuccessStory[];
 // ============================================================
 
 export interface UserReview {
-  id: number;
-  reviewer_id: number;
+  id: string;
+  reviewer_id: string;
   reviewer_name: string;
   reviewer_photo: string | null;
   stars: number;
@@ -380,6 +380,15 @@ export interface UserReview {
   created_at: string;
   updated_at: string;
 }
+
+export const BADGE_META: Record<string, { emoji: string; label: string; description: string }> = {
+  first_helper:       { emoji: '🤝', label: 'Primer Ayudante',   description: 'Creó su primer reporte de avistamiento' },
+  pet_rescuer:        { emoji: '🦸', label: 'Rescatador',        description: 'Ayudó a reunir una mascota con su familia' },
+  social_butterfly:   { emoji: '📣', label: 'Social',            description: 'Compartió reportes en redes sociales' },
+  verified_finder:    { emoji: '✅', label: 'Verificado',        description: 'Identidad verificada por la plataforma' },
+  community_guardian: { emoji: '🛡️', label: 'Guardián',          description: 'Contribuyó activamente a la comunidad' },
+  super_finder:       { emoji: '🌟', label: 'Super Finder',      description: 'Encontró múltiples mascotas perdidas' },
+};
 
 export interface CreateReviewRequest {
   stars: number;
