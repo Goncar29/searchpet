@@ -138,9 +138,6 @@ func (r *PostgresPetRepository) Delete(id string) error {
 		if err := tx.Where("pet_id = ?", id).Delete(&domain.ShareLink{}).Error; err != nil {
 			return err
 		}
-		if err := tx.Where("pet_id = ?", id).Delete(&domain.Favorite{}).Error; err != nil {
-			return err
-		}
 		if err := tx.Where("pet_id = ?", id).Delete(&domain.Report{}).Error; err != nil {
 			return err
 		}

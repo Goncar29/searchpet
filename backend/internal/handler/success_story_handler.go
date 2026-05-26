@@ -135,11 +135,11 @@ func (h *SuccessStoryHandler) Delete(c *gin.Context) {
 		return
 	}
 
-	// isAdmin se determina desde el contexto (seteado por RequireAdmin si aplica).
-	// Acá no hay admin middleware — cualquier usuario puede intentar borrar su propia historia.
-	// El service verifica ownership.
-	isAdmin, _ := c.Get("isAdmin")
-	admin, _ := isAdmin.(bool)
+	// isAdmin is set by RequireAdmin middleware on the admin route group.
+	// On the protected (non-admin) route this key is absent; the two-value
+	// type assertion safely yields false in that case.
+	isAdminVal, _ := c.Get("isAdmin")
+	admin, _ := isAdminVal.(bool)
 
 	if err := h.storyService.Delete(c.Request.Context(), id, callerID, admin); err != nil {
 		if errors.Is(err, domain.ErrStoryNotFound) {

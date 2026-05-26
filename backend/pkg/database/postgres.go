@@ -34,7 +34,6 @@ func migrate(db *gorm.DB) error {
 		&domain.Report{},
 		&domain.Photo{},
 		&domain.Message{},
-		&domain.Favorite{},
 		&domain.ShareLink{},
 		&domain.LocationAlert{},
 		&domain.Badge{},

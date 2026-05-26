@@ -67,14 +67,6 @@ type MessageRepository interface {
 	MarkAsRead(ctx context.Context, messageID uuid.UUID) error
 }
 
-// FavoriteRepository define el contrato para acceder a datos de favoritos.
-type FavoriteRepository interface {
-	Create(ctx context.Context, favorite *domain.Favorite) error
-	Delete(ctx context.Context, userID, petID uuid.UUID) error
-	GetByUserID(ctx context.Context, userID uuid.UUID, limit, offset int) ([]domain.Favorite, error)
-	IsFavorited(ctx context.Context, userID, petID uuid.UUID) (bool, error)
-}
-
 // ShareLinkRepository define el contrato para acceder a datos de links compartibles.
 type ShareLinkRepository interface {
 	Create(ctx context.Context, link *domain.ShareLink) error

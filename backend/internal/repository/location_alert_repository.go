@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -32,6 +33,9 @@ func (r *locationAlertRepository) GetByID(ctx context.Context, id uuid.UUID) (*d
 	var alert domain.LocationAlert
 	err := r.db.WithContext(ctx).Where("id = ?", id).First(&alert).Error
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, domain.ErrAlertNotFound
+		}
 		return nil, err
 	}
 	return &alert, nil

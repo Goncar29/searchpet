@@ -75,7 +75,6 @@ func main() {
 	blockedUserRepo := repository.NewBlockedUserRepository(db)
 	messageRepo := repository.NewMessageRepository(db)
 	shareLinkRepo := repository.NewShareLinkRepository(db)
-	_ = repository.NewFavoriteRepository(db)
 	deviceTokenRepo := repository.NewDeviceTokenRepository(db)
 
 	// PR3: Location Alerts
@@ -154,7 +153,7 @@ func main() {
 	}
 
 	router := gin.Default()
-	router.Use(middleware.CORS())
+	router.Use(middleware.CORS(cfg.Environment, cfg.CORSAllowedOrigins))
 
 	// ----------------------------------------
 	// HEALTH CHECK
@@ -168,8 +167,9 @@ func main() {
 	// ----------------------------------------
 	public := router.Group("/api")
 	{
-		public.POST("/auth/register", authHandler.Register)
-		public.POST("/auth/login", authHandler.Login)
+		authRateLimit := middleware.RateLimit(5.0/60.0, 5)
+		public.POST("/auth/register", authRateLimit, authHandler.Register)
+		public.POST("/auth/login", authRateLimit, authHandler.Login)
 		public.GET("/stats", statsHandler.GetStats)
 
 		// Pets públicos — cualquiera puede ver
@@ -280,7 +280,7 @@ func main() {
 		protected.PUT("/users/:id/reviews", reviewHandler.UpdateReview)
 
 		// V1.3 — User Verification (OTP)
-		protected.POST("/verification/send-email", verificationHandler.SendEmail)
+		protected.POST("/verification/send-email", middleware.RateLimit(5.0/60.0, 5), verificationHandler.SendEmail)
 		protected.POST("/verification/send-sms", verificationHandler.SendSMS)
 		protected.POST("/verification/confirm-email", verificationHandler.ConfirmEmail)
 		protected.POST("/verification/confirm-sms", verificationHandler.ConfirmSMS)
@@ -295,6 +295,7 @@ func main() {
 	admin.Use(middleware.RequireAdmin(userRepo))
 	{
 		admin.PATCH("/admin/stories/:id/featured", storyHandler.SetFeatured)
+		admin.DELETE("/admin/stories/:id", storyHandler.Delete)
 		admin.POST("/groups", groupHandler.Create)
 		admin.GET("/abuse-reports", abuseReportHandler.List)
 		admin.GET("/abuse-reports/:id", abuseReportHandler.GetByID)

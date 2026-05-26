@@ -149,10 +149,6 @@ func (s *gamificationService) AwardBadgeIfEligible(ctx context.Context, userID u
 	}
 	err = s.badgeRepo.Create(ctx, badge)
 	if err != nil {
-		// Si la DB lanzó unique constraint (race condition), tratar como ya existente.
-		if errors.Is(err, domain.ErrBadgeAlreadyEarned) {
-			return nil
-		}
 		return err
 	}
 	return nil

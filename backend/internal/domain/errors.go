@@ -29,10 +29,6 @@ var (
 	ErrMessageNotFound      = errors.New("mensaje no encontrado")
 	ErrNotMessageReceiver   = errors.New("no eres el destinatario de este mensaje")
 
-	// Favorite
-	ErrAlreadyFavorited = errors.New("la mascota ya está en favoritos")
-	ErrFavoriteNotFound = errors.New("favorito no encontrado")
-
 	// Shelter
 	ErrShelterNotFound = errors.New("refugio no encontrado")
 
@@ -68,8 +64,7 @@ var (
 	ErrOTPInvalid = errors.New("otp_invalid")
 
 	// Gamification (V1.4)
-	ErrBadgeAlreadyEarned = errors.New("badge already earned")
-	ErrPointsNotFound     = errors.New("user points not found")
+	ErrPointsNotFound = errors.New("user points not found")
 
 	// Review (V1.5)
 	ErrReviewNotFound  = errors.New("review not found")

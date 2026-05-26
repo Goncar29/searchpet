@@ -14,7 +14,6 @@ import type {
   CreatePetRequest,
   UpdatePetRequest,
   UpdateProfileRequest,
-  PetSearchParams,
   PetSearchFilters,
   PetListResponse,
   Report,
@@ -184,11 +183,6 @@ class APIClient {
 
   async markPetAsFound(id: string): Promise<Pet> {
     return this.request<Pet>('PATCH', `/api/pets/${id}/found`);
-  }
-
-  /** @deprecated Usa searchPets(filters: PetSearchFilters) en su lugar */
-  async searchPetsLegacy(params: PetSearchParams): Promise<Pet[]> {
-    return this.request<Pet[]>('GET', '/api/pets/search', undefined, params as Record<string, string | number>);
   }
 
   async searchPets(filters: PetSearchFilters): Promise<PetListResponse> {

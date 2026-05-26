@@ -103,13 +103,6 @@ func setupPetRouter(h *handler.PetHandler, ownerID uuid.UUID) *gin.Engine {
 	return r
 }
 
-// setupPetRouterNoAuth sets up a router without injecting any userID.
-// Used to test 401 scenarios where getUserID would panic if called.
-// We simulate the auth middleware blocking the request before the handler runs.
-func setupPetRouterWithAuth(h *handler.PetHandler, ownerID uuid.UUID) *gin.Engine {
-	return setupPetRouter(h, ownerID)
-}
-
 // ============================================================
 // Test data helpers
 // ============================================================

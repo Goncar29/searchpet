@@ -121,14 +121,6 @@ type Message struct {
 	Receiver User `gorm:"foreignKey:ReceiverID" json:"receiver,omitempty"`
 }
 
-// Favorite representa una mascota marcada como favorita
-type Favorite struct {
-	ID        uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
-	UserID    uuid.UUID `gorm:"type:uuid;not null;uniqueIndex:idx_user_pet" json:"user_id"`
-	PetID     uuid.UUID `gorm:"type:uuid;not null;uniqueIndex:idx_user_pet" json:"pet_id"`
-	CreatedAt time.Time `gorm:"autoCreateTime" json:"created_at"`
-}
-
 // ============================================================
 // SHARING & SOCIAL
 // ============================================================

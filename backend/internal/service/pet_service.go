@@ -25,12 +25,12 @@ type PetService interface {
 // CreatePetRequest contiene los datos para crear una mascota.
 // Es el input que viene del Handler — ya parseado, listo para usar.
 type CreatePetRequest struct {
-	Name        string `json:"name"`
-	Type        string `json:"type"`
-	Breed       string `json:"breed"`
-	Color       string `json:"color"`
-	Description string `json:"description"`
-	Gender      string `json:"gender"`
+	Name        string  `json:"name" binding:"required"`
+	Type        string  `json:"type" binding:"required"`
+	Breed       string  `json:"breed"`
+	Color       string  `json:"color"`
+	Description string  `json:"description"`
+	Gender      string  `json:"gender"`
 	MicrochipID *string `json:"microchip_id"`
 }
 

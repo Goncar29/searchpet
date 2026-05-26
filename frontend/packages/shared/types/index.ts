@@ -235,15 +235,6 @@ export interface PetSearchFilters {
   limit?: number;
 }
 
-/** @deprecated Usa PetSearchFilters en su lugar */
-export interface PetSearchParams {
-  type?: PetType;
-  breed?: string;
-  color?: string;
-  limit?: number;
-  offset?: number;
-}
-
 export interface PetListResponse {
   data: Pet[];
   total: number;

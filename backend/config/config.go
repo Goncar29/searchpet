@@ -17,6 +17,7 @@ type Config struct {
 	FirebaseKey         string
 	AppURL              string
 	Environment         string
+	CORSAllowedOrigins  string
 
 	// V1.3 — User Verification (OTP)
 	SendGridAPIKey           string
@@ -31,16 +32,17 @@ func Load() *Config {
 		log.Println("No .env file found, using system environment variables")
 	}
 
-	return &Config{
+	cfg := &Config{
 		Port:                getEnv("PORT", "8081"),
 		DatabaseURL:         getEnv("DATABASE_URL", "postgres://postgres:postgres@localhost:5432/lostpets?sslmode=disable"),
-		JWTSecret:           getEnv("JWT_SECRET", "super-secret-key-change-in-production"),
+		JWTSecret:           getEnv("JWT_SECRET", ""),
 		CloudinaryCloudName: getEnv("CLOUDINARY_CLOUD_NAME", ""),
 		CloudinaryAPIKey:    getEnv("CLOUDINARY_API_KEY", ""),
 		CloudinaryAPISecret: getEnv("CLOUDINARY_API_SECRET", ""),
 		FirebaseKey:         getEnv("FIREBASE_KEY", ""),
 		AppURL:              getEnv("APP_URL", "http://localhost:3000"),
 		Environment:         getEnv("ENVIRONMENT", "development"),
+		CORSAllowedOrigins:  getEnv("CORS_ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:8081"),
 
 		// V1.3 — User Verification (OTP)
 		SendGridAPIKey:          getEnv("SENDGRID_API_KEY", ""),
@@ -49,6 +51,13 @@ func Load() *Config {
 		TwilioFromNumber:        getEnv("TWILIO_FROM_NUMBER", ""),
 		EnableEmailVerification: getEnv("ENABLE_EMAIL_VERIFICATION", "false") == "true",
 	}
+
+	// Fail-fast: JWT_SECRET is required in all environments.
+	if cfg.JWTSecret == "" {
+		log.Fatal("FATAL: JWT_SECRET environment variable is not set. Generate one with: openssl rand -hex 32")
+	}
+
+	return cfg
 }
 
 func getEnv(key, fallback string) string {
