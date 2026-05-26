@@ -288,6 +288,17 @@ export default function PetDetailScreen() {
           </TouchableOpacity>
         )}
 
+        {/* Botón Contar historia — solo para el dueño cuando ya fue encontrada */}
+        {isOwner && pet.status === 'found' && (
+          <TouchableOpacity
+            style={styles.storyButton}
+            onPress={() => router.push(`/story/create?petId=${pet.id}`)}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.storyButtonText}>🎉 Contar historia</Text>
+          </TouchableOpacity>
+        )}
+
         {/* Dueño */}
         {pet.owner && (
           <View style={styles.ownerCard}>
@@ -489,6 +500,19 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   markFoundButtonText: {
+    color: COLORS.white,
+    fontSize: FONTS.sizes.md,
+    fontWeight: '700',
+  },
+  storyButton: {
+    backgroundColor: '#10b981',
+    paddingVertical: 14,
+    borderRadius: RADIUS.md,
+    alignItems: 'center',
+    marginBottom: SPACING.md,
+    ...SHADOWS.sm,
+  },
+  storyButtonText: {
     color: COLORS.white,
     fontSize: FONTS.sizes.md,
     fontWeight: '700',

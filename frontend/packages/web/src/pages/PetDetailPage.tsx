@@ -212,6 +212,15 @@ export function PetDetailPage() {
                   )}
                 </button>
               )}
+              {/* Contar historia — solo para el dueño cuando la mascota ya fue encontrada */}
+              {isOwner && pet.status === 'found' && (
+                <Link
+                  to={`/stories/create?petId=${id}`}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition-colors"
+                >
+                  🎉 Contar historia
+                </Link>
+              )}
               {/* PDF Flyer */}
               <PdfFlyerButton pet={pet} reports={reports ?? []} />
             </div>
