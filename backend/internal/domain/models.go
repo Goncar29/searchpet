@@ -106,15 +106,18 @@ type Photo struct {
 	CreatedAt  time.Time `gorm:"autoCreateTime" json:"created_at"`
 }
 
-// Message representa un mensaje entre usuarios
+// Message representa un mensaje entre usuarios.
+// Text puede estar vacío cuando el mensaje es solo una foto (PhotoURL present).
 type Message struct {
-	ID         uuid.UUID  `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
-	SenderID   uuid.UUID  `gorm:"type:uuid;not null;index" json:"sender_id"`
-	ReceiverID uuid.UUID  `gorm:"type:uuid;not null;index" json:"receiver_id"`
-	ReportID   *uuid.UUID `gorm:"type:uuid" json:"report_id,omitempty"`
-	Text       string     `gorm:"type:text;not null" json:"text"`
-	IsRead     bool       `gorm:"default:false;index" json:"is_read"`
-	CreatedAt  time.Time  `gorm:"autoCreateTime;index" json:"created_at"`
+	ID             uuid.UUID  `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+	SenderID       uuid.UUID  `gorm:"type:uuid;not null;index" json:"sender_id"`
+	ReceiverID     uuid.UUID  `gorm:"type:uuid;not null;index" json:"receiver_id"`
+	ReportID       *uuid.UUID `gorm:"type:uuid" json:"report_id,omitempty"`
+	Text           string     `gorm:"type:text" json:"text"`
+	ReadAt         *time.Time `gorm:"index" json:"read_at,omitempty"`
+	PhotoPublicID  string     `gorm:"type:text" json:"-"`                    // Cloudinary public_id — NUNCA expuesto al cliente
+	PhotoURL       string     `gorm:"type:text" json:"photo_url,omitempty"`
+	CreatedAt      time.Time  `gorm:"autoCreateTime;index" json:"created_at"`
 
 	// Relaciones
 	Sender   User `gorm:"foreignKey:SenderID" json:"sender,omitempty"`

@@ -86,18 +86,24 @@ func (r *postgresMessageRepository) GetConversations(ctx context.Context, userID
 	return messages, err
 }
 
-// MarkAsRead marca un mensaje como leído.
+// MarkAsRead marca un mensaje como leído estableciendo read_at = NOW().
+// Solo actualiza si read_at IS NULL (idempotente).
 // Retorna ErrMessageNotFound si el mensaje no existe.
 func (r *postgresMessageRepository) MarkAsRead(ctx context.Context, messageID uuid.UUID) error {
 	result := r.db.WithContext(ctx).
 		Model(&domain.Message{}).
-		Where("id = ?", messageID).
-		Update("is_read", true)
+		Where("id = ? AND read_at IS NULL", messageID).
+		Update("read_at", gorm.Expr("NOW()"))
 	if result.Error != nil {
 		return result.Error
 	}
 	if result.RowsAffected == 0 {
-		return domain.ErrMessageNotFound
+		// Could be already read or not found — check existence
+		var count int64
+		r.db.WithContext(ctx).Model(&domain.Message{}).Where("id = ?", messageID).Count(&count)
+		if count == 0 {
+			return domain.ErrMessageNotFound
+		}
 	}
 	return nil
 }
