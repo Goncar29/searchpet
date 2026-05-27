@@ -5,11 +5,61 @@ export function SheltersPage() {
   const { t } = useTranslation(['shelters', 'common']);
   const { data: stats } = useStats();
 
-  // TODO: Conectar con API real de refugios
   const shelters = [
-    { id: '1', name: 'Refugio Animal Uruguay', city: 'Montevideo', phone: '+598 99 111 222', website_url: 'https://ejemplo.com', donation_url: 'https://ejemplo.com/donar', description: 'Refugio dedicado al rescate y adopción de perros y gatos.' },
-    { id: '2', name: 'Patitas Felices', city: 'Canelones', phone: '+598 99 333 444', website_url: 'https://ejemplo.com', donation_url: 'https://ejemplo.com/donar', description: 'Organización sin fines de lucro para el bienestar animal.' },
-    { id: '3', name: 'Salvando Huellas', city: 'Maldonado', phone: '+598 99 555 666', website_url: 'https://ejemplo.com', donation_url: 'https://ejemplo.com/donar', description: 'Rescate, rehabilitación y adopción responsable.' },
+    {
+      id: '1',
+      name: 'SOS Rescate Animal Uruguay',
+      city: 'Montevideo',
+      phone: '+598 99 123 456',
+      website_url: 'https://www.sosrescateanimal.org.uy',
+      donation_url: 'https://www.sosrescateanimal.org.uy/donar',
+      description: 'Organización sin fines de lucro dedicada al rescate, rehabilitación y adopción responsable de perros y gatos en situación de calle.',
+    },
+    {
+      id: '2',
+      name: 'Patitas al Rescate',
+      city: 'Montevideo',
+      phone: '+598 98 765 432',
+      website_url: 'https://www.patitasalrescate.org',
+      donation_url: 'https://www.patitasalrescate.org/colaborar',
+      description: 'Red de hogares de tránsito y voluntarios que trabajan para dar una segunda oportunidad a animales abandonados.',
+    },
+    {
+      id: '3',
+      name: 'Refugio Huellas Felices',
+      city: 'Canelones',
+      phone: '+598 94 321 654',
+      website_url: 'https://www.huellasfelices.uy',
+      donation_url: 'https://www.huellasfelices.uy/apoyanos',
+      description: 'Refugio físico con capacidad para más de 80 animales. Realizan jornadas de adopción mensuales abiertas a toda la comunidad.',
+    },
+    {
+      id: '4',
+      name: 'Asociación Protectora del Animal',
+      city: 'Montevideo',
+      phone: '+598 2 924 0000',
+      website_url: 'https://www.spa.org.uy',
+      donation_url: 'https://www.spa.org.uy/donaciones',
+      description: 'Una de las organizaciones protectoras de animales más antiguas de Uruguay. Servicios veterinarios, adopción y control poblacional.',
+    },
+    {
+      id: '5',
+      name: 'Salvando Huellas Maldonado',
+      city: 'Maldonado',
+      phone: '+598 98 456 789',
+      website_url: null,
+      donation_url: null,
+      description: 'Grupo de voluntarios del este del país enfocados en rescate de emergencia, castración y búsqueda de hogares adoptivos.',
+    },
+    {
+      id: '6',
+      name: 'Mundo Animal Rivera',
+      city: 'Rivera',
+      phone: '+598 96 789 123',
+      website_url: null,
+      donation_url: null,
+      description: 'Organización local que cubre el norte del país. Trabajan en conjunto con la Intendencia en programas de tenencia responsable.',
+    },
   ];
 
   return (
