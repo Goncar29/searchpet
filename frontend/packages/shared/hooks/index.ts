@@ -155,9 +155,10 @@ export const useMarkPetAsFound = () => {
   return useMutation({
     mutationFn: (id: string) => apiClient.markPetAsFound(id),
     onSuccess: (updatedPet) => {
-      // Actualiza el cache de la mascota específica y el listado general
       queryClient.setQueryData(['pets', updatedPet.id], updatedPet);
       queryClient.invalidateQueries({ queryKey: ['pets'] });
+      // Invalidate reports so the map reflects the updated pet status immediately.
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
     },
   });
 };
@@ -217,8 +218,11 @@ export const useCreateReport = () => {
   return useMutation({
     mutationFn: (data: CreateReportRequest) => apiClient.createReport(data),
     onSuccess: () => {
+      // Invalidate all report queries (prefix match covers ['reports', 'nearby', ...]).
       queryClient.invalidateQueries({ queryKey: ['reports'] });
       queryClient.invalidateQueries({ queryKey: ['stats'] });
+      // Creating a report can change the pet's status — invalidate pet cache too.
+      queryClient.invalidateQueries({ queryKey: ['pets'] });
     },
   });
 };
