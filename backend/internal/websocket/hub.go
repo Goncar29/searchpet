@@ -11,7 +11,7 @@ import (
 // MessageServicer defines the minimal message-service contract needed by Hub.
 // Implemented by the service layer (wired in main.go).
 type MessageServicer interface {
-	CountUnread(ctx context.Context, userID string) (int, error)
+	CountUnread(ctx context.Context, userID string) (int64, error)
 	MarkConversationRead(ctx context.Context, userID, senderID string) error
 }
 
@@ -208,7 +208,7 @@ func (h *Hub) scheduleBadgeUpdate(userID string) {
 			log.Printf("[ws] CountUnread err userID=%s: %v", userID, err)
 			return
 		}
-		payload := BadgeUpdate{UserID: userID, UnreadCount: count}
+		payload := BadgeUpdate{UserID: userID, UnreadCount: int(count)}
 		out, _ := json.Marshal(Envelope{Type: TypeBadgeUpdate, Payload: mustMarshal(payload)})
 		h.SendToUser(userID, out)
 	})
