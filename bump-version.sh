@@ -32,11 +32,10 @@ fi
 
 # ── 2. Leer valores actuales ───────────────────────────────────────────────
 CURRENT_VERSION=$(python3 -c "import json; d=json.load(open('$APP_JSON')); print(d['expo']['version'])")
-CURRENT_CODE=$(python3 -c "import json; d=json.load(open('$APP_JSON')); print(d['expo']['android']['versionCode'])")
 
 IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT_VERSION"
 
-# ── 3. Calcular nuevas versiones ───────────────────────────────────────────
+# ── 3. Calcular nueva versión semver ──────────────────────────────────────
 case "$BUMP" in
   major)
     MAJOR=$((MAJOR + 1))
@@ -57,9 +56,10 @@ case "$BUMP" in
 esac
 
 NEW_VERSION="${MAJOR}.${MINOR}.${PATCH}"
-NEW_CODE=$((CURRENT_CODE + 1))
 
-echo "Bumping: $CURRENT_VERSION → $NEW_VERSION (versionCode: $CURRENT_CODE → $NEW_CODE)"
+# Nota: versionCode (Android) es gestionado por EAS autoIncrement: true en eas.json.
+# Este script solo bumpa la versión semver visible al usuario.
+echo "Bumping: $CURRENT_VERSION → $NEW_VERSION"
 
 # ── 4. Escribir app.json actualizado ──────────────────────────────────────
 python3 - <<EOF
@@ -69,7 +69,6 @@ with open('$APP_JSON', 'r', encoding='utf-8') as f:
     data = json.load(f)
 
 data['expo']['version'] = '$NEW_VERSION'
-data['expo']['android']['versionCode'] = $NEW_CODE
 
 with open('$APP_JSON', 'w', encoding='utf-8') as f:
     json.dump(data, f, indent=2, ensure_ascii=False)
@@ -80,6 +79,6 @@ EOF
 
 # ── 5. Git commit con [skip ci] ───────────────────────────────────────────
 git add "$APP_JSON"
-git commit -m "chore(release): bump version to $NEW_VERSION (versionCode $NEW_CODE) [skip ci]"
+git commit -m "chore(release): bump version to $NEW_VERSION [skip ci]"
 
 echo "✓ Commit listo: v$NEW_VERSION"
