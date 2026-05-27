@@ -94,6 +94,30 @@ jobs:
         run: npx vite build
 
   # ============================================
+  # Mobile Tests (Jest + jest-expo)
+  # ============================================
+  mobile-test:
+    name: Mobile Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend/packages/mobile
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/packages/mobile/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm run test:run -- --passWithNoTests
+
+  # ============================================
   # Deploy Backend (Render) — requiere RENDER_DEPLOY_HOOK_URL en GitHub Secrets
   # Obtenerlo en: Render Dashboard → tu servicio → Settings → Deploy Hook
   # ============================================

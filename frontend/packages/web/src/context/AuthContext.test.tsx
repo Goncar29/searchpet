@@ -16,6 +16,7 @@ vi.mock('@shared/api/client', () => ({
 // Mock de Firebase notifications — no disponible en jsdom
 vi.mock('../utils/notifications', () => ({
   registerWebPushToken: vi.fn(),
+  listenForegroundMessages: vi.fn(),
 }));
 
 // Componente auxiliar que expone el contexto
