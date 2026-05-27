@@ -12,35 +12,14 @@ import (
 
 // PetService define el CONTRATO de la capa de negocio para mascotas.
 type PetService interface {
-	CreatePet(ownerID string, req CreatePetRequest) (*domain.Pet, error)
+	CreatePet(ownerID string, req dto.CreatePetRequest) (*domain.Pet, error)
 	GetPetByID(id string) (*domain.Pet, error)
 	GetMyPets(ownerID string) ([]domain.Pet, error)
-	UpdatePet(ownerID string, petID string, req UpdatePetRequest) (*domain.Pet, error)
+	UpdatePet(ownerID string, petID string, req dto.UpdatePetRequest) (*domain.Pet, error)
 	DeletePet(ownerID string, petID string) error
 	MarkAsFound(ownerID string, petID string) (*domain.Pet, error)
 	// SearchPets aplica filtros opcionales y devuelve resultados paginados.
 	SearchPets(criteria domain.PetSearchCriteria) (dto.PetSearchResponse, error)
-}
-
-// CreatePetRequest contiene los datos para crear una mascota.
-// Es el input que viene del Handler — ya parseado, listo para usar.
-type CreatePetRequest struct {
-	Name        string  `json:"name" binding:"required"`
-	Type        string  `json:"type" binding:"required"`
-	Breed       string  `json:"breed"`
-	Color       string  `json:"color"`
-	Description string  `json:"description"`
-	Gender      string  `json:"gender"`
-	MicrochipID *string `json:"microchip_id"`
-}
-
-// UpdatePetRequest contiene los datos para actualizar una mascota.
-type UpdatePetRequest struct {
-	Name        string `json:"name"`
-	Breed       string `json:"breed"`
-	Color       string `json:"color"`
-	Description string `json:"description"`
-	Status      string `json:"status"`
 }
 
 // petService es la implementación concreta del PetService.
@@ -58,7 +37,7 @@ func NewPetService(repo repository.PetRepository, eventBus *event.EventBus, phot
 }
 
 // CreatePet crea una nueva mascota para el usuario autenticado.
-func (s *petService) CreatePet(ownerID string, req CreatePetRequest) (*domain.Pet, error) {
+func (s *petService) CreatePet(ownerID string, req dto.CreatePetRequest) (*domain.Pet, error) {
 	// Parseamos el UUID del owner
 	ownerUUID, err := uuid.Parse(ownerID)
 	if err != nil {
@@ -98,7 +77,7 @@ func (s *petService) GetMyPets(ownerID string) ([]domain.Pet, error) {
 }
 
 // UpdatePet actualiza una mascota — verifica que el usuario sea el dueño.
-func (s *petService) UpdatePet(ownerID string, petID string, req UpdatePetRequest) (*domain.Pet, error) {
+func (s *petService) UpdatePet(ownerID string, petID string, req dto.UpdatePetRequest) (*domain.Pet, error) {
 	// Buscamos la mascota
 	pet, err := s.repo.FindByID(petID)
 	if err != nil {

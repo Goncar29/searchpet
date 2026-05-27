@@ -27,7 +27,7 @@ func (h *PetHandler) CreatePet(c *gin.Context) {
 	// Obtenemos el userID del contexto — lo puso el middleware de auth
 	ownerID := getUserID(c)
 
-	var req service.CreatePetRequest
+	var req dto.CreatePetRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -80,7 +80,7 @@ func (h *PetHandler) UpdatePet(c *gin.Context) {
 	ownerID := getUserID(c)
 	petID := c.Param("id")
 
-	var req service.UpdatePetRequest
+	var req dto.UpdatePetRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
