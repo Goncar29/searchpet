@@ -12,8 +12,8 @@ import (
 	"lost-pets/internal/domain"
 )
 
-// Connect abre la conexión a PostgreSQL y ejecuta AutoMigrate
-// Retorna la instancia de gorm.DB lista para usar
+// Connect abre la conexión a PostgreSQL y retorna la instancia lista para usar.
+// No ejecuta AutoMigrate — llamar RunAutoMigrate(db) después de RunMigrations.
 func Connect(dsn string) (*gorm.DB, error) {
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Info),
@@ -21,12 +21,17 @@ func Connect(dsn string) (*gorm.DB, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error conectando a PostgreSQL: %w", err)
 	}
-
-	if err := migrate(db); err != nil {
-		return nil, fmt.Errorf("error en migraciones: %w", err)
-	}
-
 	return db, nil
+}
+
+// RunAutoMigrate aplica AutoMigrate para todos los modelos de dominio.
+// Debe llamarse DESPUÉS de RunMigrations para respetar el orden correcto:
+// Connect → RunMigrations → RunAutoMigrate.
+func RunAutoMigrate(db *gorm.DB) error {
+	if err := migrate(db); err != nil {
+		return fmt.Errorf("error en AutoMigrate: %w", err)
+	}
+	return nil
 }
 
 // RunMigrations executes SQL migration files from the given migrationsDir path

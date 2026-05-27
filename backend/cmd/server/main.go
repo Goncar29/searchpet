@@ -34,17 +34,23 @@ func main() {
 
 	// ========================================
 	// BASE DE DATOS
+	// Connect → RunMigrations → RunAutoMigrate (orden estricto)
 	// ========================================
 	db, err := database.Connect(cfg.DatabaseURL)
 	if err != nil {
 		log.Fatal("Error conectando a la base de datos", zap.Error(err))
 	}
 
-	// Run SQL migrations before AutoMigrate (fail-fast on schema errors)
+	// 1. SQL migrations primero (DDL explícito, fail-fast)
 	if err := database.RunMigrations(cfg.DatabaseURL, "migrations"); err != nil {
 		log.Fatal("Error ejecutando migraciones SQL", zap.Error(err))
 	}
 	log.Info("Migraciones SQL aplicadas")
+
+	// 2. AutoMigrate después (completa columnas no cubiertas por SQL migrations)
+	if err := database.RunAutoMigrate(db); err != nil {
+		log.Fatal("Error en AutoMigrate", zap.Error(err))
+	}
 
 	// ========================================
 	// STORAGE (Cloudinary)
