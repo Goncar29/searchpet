@@ -12,6 +12,7 @@ import (
 	"lost-pets/internal/middleware"
 	"lost-pets/internal/repository"
 	"lost-pets/internal/service"
+	ws "lost-pets/internal/websocket"
 	"lost-pets/pkg/database"
 	"lost-pets/pkg/logger"
 	"lost-pets/pkg/mailer"
@@ -34,23 +35,23 @@ func main() {
 
 	// ========================================
 	// BASE DE DATOS
-	// Connect → RunMigrations → RunAutoMigrate (orden estricto)
+	// Connect → AutoMigrate (crea tablas base) → RunMigrations (DDL incremental)
 	// ========================================
 	db, err := database.Connect(cfg.DatabaseURL)
 	if err != nil {
 		log.Fatal("Error conectando a la base de datos", zap.Error(err))
 	}
 
-	// 1. SQL migrations primero (DDL explícito, fail-fast)
+	// 1. AutoMigrate primero: crea todas las tablas base en DBs vacías
+	if err := database.RunAutoMigrate(db); err != nil {
+		log.Fatal("Error en AutoMigrate", zap.Error(err))
+	}
+
+	// 2. SQL migrations después: aplica DDL incremental (columnas, índices, tablas auxiliares)
 	if err := database.RunMigrations(cfg.DatabaseURL, "migrations"); err != nil {
 		log.Fatal("Error ejecutando migraciones SQL", zap.Error(err))
 	}
 	log.Info("Migraciones SQL aplicadas")
-
-	// 2. AutoMigrate después (completa columnas no cubiertas por SQL migrations)
-	if err := database.RunAutoMigrate(db); err != nil {
-		log.Fatal("Error en AutoMigrate", zap.Error(err))
-	}
 
 	// ========================================
 	// STORAGE (Cloudinary)
@@ -140,6 +141,22 @@ func main() {
 	notificationService := service.NewNotificationService(fcmClient, deviceTokenRepo)
 	notificationService.RegisterListeners(bus)
 
+	// ========================================
+	// WEBSOCKET — Hub + TicketStore
+	// Hub needs MessageServicer (CountUnread + MarkConversationRead).
+	// NotificationService needs PresenceChecker (IsConnected) to gate FCM.
+	// ========================================
+	wsHub := ws.NewHub(messageService)
+	go wsHub.Run()
+	wsTicketStore := ws.NewTicketStore()
+	go wsTicketStore.CleanupLoop()
+	defer wsHub.Close()
+
+	// T-2-04: wire presence into NotificationService so FCM is skipped for online users.
+	notificationService.SetPresence(wsHub)
+
+	wsHandler := ws.NewHandler(wsHub, wsTicketStore)
+
 	// PR4: Location Alerts con matching PostGIS + FCM push
 	locationAlertService := service.NewLocationAlertService(locationAlertRepo, deviceTokenRepo, bus)
 	locationAlertService.RegisterListeners(bus)
@@ -180,6 +197,11 @@ func main() {
 	router.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "ok"})
 	})
+
+	// ----------------------------------------
+	// WEBSOCKET — upgrade (no auth middleware — ticket is the credential)
+	// ----------------------------------------
+	router.GET("/api/ws", wsHandler.Connect)
 
 	// ----------------------------------------
 	// RUTAS PÚBLICAS
@@ -306,6 +328,9 @@ func main() {
 		protected.POST("/verification/confirm-email", verificationHandler.ConfirmEmail)
 		protected.POST("/verification/confirm-sms", verificationHandler.ConfirmSMS)
 		protected.GET("/verification/status", verificationHandler.GetStatus)
+
+		// WebSocket ticket (JWT required)
+		protected.POST("/ws/ticket", wsHandler.IssueTicket)
 	}
 
 	// ----------------------------------------
