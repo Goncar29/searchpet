@@ -7,6 +7,27 @@ import (
 	"lost-pets/internal/domain"
 )
 
+// CreatePetRequest contiene los datos para crear una mascota.
+// Es el input que viene del Handler — ya parseado, listo para usar.
+type CreatePetRequest struct {
+	Name        string  `json:"name" binding:"required"`
+	Type        string  `json:"type" binding:"required"`
+	Breed       string  `json:"breed"`
+	Color       string  `json:"color"`
+	Description string  `json:"description"`
+	Gender      string  `json:"gender"`
+	MicrochipID *string `json:"microchip_id"`
+}
+
+// UpdatePetRequest contiene los datos para actualizar una mascota.
+type UpdatePetRequest struct {
+	Name        string `json:"name"`
+	Breed       string `json:"breed"`
+	Color       string `json:"color"`
+	Description string `json:"description"`
+	Status      string `json:"status"`
+}
+
 // PetSearchResponse es la respuesta paginada del endpoint GET /api/pets/search.
 type PetSearchResponse struct {
 	Data  []PetResponse `json:"data"`

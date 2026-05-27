@@ -13,7 +13,6 @@ import (
 	"lost-pets/internal/domain"
 	"lost-pets/internal/dto"
 	"lost-pets/internal/handler"
-	"lost-pets/internal/service"
 )
 
 // ============================================================
@@ -21,16 +20,16 @@ import (
 // ============================================================
 
 type mockPetService struct {
-	createPetFn   func(ownerID string, req service.CreatePetRequest) (*domain.Pet, error)
+	createPetFn   func(ownerID string, req dto.CreatePetRequest) (*domain.Pet, error)
 	getPetByIDFn  func(id string) (*domain.Pet, error)
 	getMyPetsFn   func(ownerID string) ([]domain.Pet, error)
-	updatePetFn   func(ownerID, petID string, req service.UpdatePetRequest) (*domain.Pet, error)
+	updatePetFn   func(ownerID, petID string, req dto.UpdatePetRequest) (*domain.Pet, error)
 	deletePetFn   func(ownerID, petID string) error
 	markAsFoundFn func(ownerID, petID string) (*domain.Pet, error)
 	searchPetsFn  func(criteria domain.PetSearchCriteria) (dto.PetSearchResponse, error)
 }
 
-func (m *mockPetService) CreatePet(ownerID string, req service.CreatePetRequest) (*domain.Pet, error) {
+func (m *mockPetService) CreatePet(ownerID string, req dto.CreatePetRequest) (*domain.Pet, error) {
 	if m.createPetFn != nil {
 		return m.createPetFn(ownerID, req)
 	}
@@ -51,7 +50,7 @@ func (m *mockPetService) GetMyPets(ownerID string) ([]domain.Pet, error) {
 	return nil, nil
 }
 
-func (m *mockPetService) UpdatePet(ownerID, petID string, req service.UpdatePetRequest) (*domain.Pet, error) {
+func (m *mockPetService) UpdatePet(ownerID, petID string, req dto.UpdatePetRequest) (*domain.Pet, error) {
 	if m.updatePetFn != nil {
 		return m.updatePetFn(ownerID, petID, req)
 	}
@@ -235,7 +234,7 @@ func TestPetHandler_CreatePet(t *testing.T) {
 			name: "valid body with auth returns 201",
 			body: validBody,
 			setupMock: func(m *mockPetService) {
-				m.createPetFn = func(ownerID string, req service.CreatePetRequest) (*domain.Pet, error) {
+				m.createPetFn = func(ownerID string, req dto.CreatePetRequest) (*domain.Pet, error) {
 					return &domain.Pet{
 						ID:      uuid.New(),
 						OwnerID: uuid.MustParse(ownerID),
@@ -252,7 +251,7 @@ func TestPetHandler_CreatePet(t *testing.T) {
 			name: "internal error returns 500",
 			body: validBody,
 			setupMock: func(m *mockPetService) {
-				m.createPetFn = func(_ string, _ service.CreatePetRequest) (*domain.Pet, error) {
+				m.createPetFn = func(_ string, _ dto.CreatePetRequest) (*domain.Pet, error) {
 					return nil, domain.ErrInternal
 				}
 			},
@@ -331,7 +330,7 @@ func TestPetHandler_UpdatePet(t *testing.T) {
 			petIDStr: petID.String(),
 			body:     validBody,
 			setupMock: func(m *mockPetService) {
-				m.updatePetFn = func(_, _ string, req service.UpdatePetRequest) (*domain.Pet, error) {
+				m.updatePetFn = func(_, _ string, req dto.UpdatePetRequest) (*domain.Pet, error) {
 					return &domain.Pet{
 						ID:      petID,
 						OwnerID: ownerID,
@@ -349,7 +348,7 @@ func TestPetHandler_UpdatePet(t *testing.T) {
 			petIDStr: petID.String(),
 			body:     validBody,
 			setupMock: func(m *mockPetService) {
-				m.updatePetFn = func(_, _ string, _ service.UpdatePetRequest) (*domain.Pet, error) {
+				m.updatePetFn = func(_, _ string, _ dto.UpdatePetRequest) (*domain.Pet, error) {
 					return nil, domain.ErrForbidden
 				}
 			},
@@ -361,7 +360,7 @@ func TestPetHandler_UpdatePet(t *testing.T) {
 			petIDStr: uuid.New().String(),
 			body:     validBody,
 			setupMock: func(m *mockPetService) {
-				m.updatePetFn = func(_, _ string, _ service.UpdatePetRequest) (*domain.Pet, error) {
+				m.updatePetFn = func(_, _ string, _ dto.UpdatePetRequest) (*domain.Pet, error) {
 					return nil, domain.ErrPetNotFound
 				}
 			},

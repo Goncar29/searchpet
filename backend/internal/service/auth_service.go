@@ -47,7 +47,7 @@ func NewAuthService(userRepo repository.UserRepository, secretKey string, storag
 }
 
 // Register crea un nuevo usuario, hashea su password y retorna el usuario + JWT
-func (s *authService) Register(ctx context.Context, email, password, name string) (*domain.User, string, error) {
+func (s *authService) Register(ctx context.Context, email, password, name, city string) (*domain.User, string, error) {
 	// 1. Verificar que el email no esté en uso
 	_, err := s.userRepo.GetByEmail(ctx, email)
 	if err == nil {
@@ -70,6 +70,7 @@ func (s *authService) Register(ctx context.Context, email, password, name string
 		Email:        email,
 		PasswordHash: string(hash),
 		Name:         name,
+		City:         city,
 	}
 	if err := s.userRepo.Create(ctx, user); err != nil {
 		return nil, "", err
@@ -176,7 +177,7 @@ func (s *authService) UpdatePreferences(ctx context.Context, id uuid.UUID, req d
 }
 
 // UpdateProfile actualiza el nombre y teléfono del usuario
-func (s *authService) UpdateProfile(ctx context.Context, id uuid.UUID, name, phone string) (*domain.User, error) {
+func (s *authService) UpdateProfile(ctx context.Context, id uuid.UUID, name, phone, city string) (*domain.User, error) {
 	user, err := s.userRepo.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
@@ -185,6 +186,9 @@ func (s *authService) UpdateProfile(ctx context.Context, id uuid.UUID, name, pho
 		user.Name = name
 	}
 	user.Phone = phone
+	if city != "" {
+		user.City = city
+	}
 	if err := s.userRepo.Update(ctx, user); err != nil {
 		return nil, err
 	}

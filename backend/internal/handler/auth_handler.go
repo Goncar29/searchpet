@@ -29,7 +29,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		return
 	}
 
-	user, token, err := h.authService.Register(c.Request.Context(), req.Email, req.Password, req.Name)
+	user, token, err := h.authService.Register(c.Request.Context(), req.Email, req.Password, req.Name, req.City)
 	if err != nil {
 		if errors.Is(err, domain.ErrEmailAlreadyExists) {
 			c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
@@ -121,7 +121,7 @@ func (h *AuthHandler) UpdateMe(c *gin.Context) {
 		return
 	}
 
-	user, err := h.authService.UpdateProfile(c.Request.Context(), userID.(uuid.UUID), req.Name, req.Phone)
+	user, err := h.authService.UpdateProfile(c.Request.Context(), userID.(uuid.UUID), req.Name, req.Phone, req.City)
 	if err != nil {
 		if errors.Is(err, domain.ErrUserNotFound) {
 			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})

@@ -32,7 +32,7 @@ func TestRegister_HappyPath(t *testing.T) {
 	repo := &mockUserRepo{emailErr: domain.ErrUserNotFound}
 	svc := newAuthSvc(repo)
 
-	user, token, err := svc.Register(context.Background(), "carlos@example.com", "segura123", "Carlos")
+	user, token, err := svc.Register(context.Background(), "carlos@example.com", "segura123", "Carlos", "")
 
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
@@ -54,7 +54,7 @@ func TestRegister_DuplicateEmail(t *testing.T) {
 	repo := &mockUserRepo{user: existing, emailErr: nil}
 	svc := newAuthSvc(repo)
 
-	_, _, err := svc.Register(context.Background(), "carlos@example.com", "segura123", "Carlos")
+	_, _, err := svc.Register(context.Background(), "carlos@example.com", "segura123", "Carlos", "")
 
 	if err != domain.ErrEmailAlreadyExists {
 		t.Errorf("expected ErrEmailAlreadyExists, got %v", err)
@@ -68,7 +68,7 @@ func TestRegister_DBError(t *testing.T) {
 	}
 	svc := newAuthSvc(repo)
 
-	_, _, err := svc.Register(context.Background(), "carlos@example.com", "segura123", "Carlos")
+	_, _, err := svc.Register(context.Background(), "carlos@example.com", "segura123", "Carlos", "")
 
 	if err == nil {
 		t.Fatal("expected error on DB failure, got nil")
@@ -156,7 +156,7 @@ func TestUpdateProfile_HappyPath(t *testing.T) {
 	repo := &mockUserRepo{user: user}
 	svc := newAuthSvc(repo)
 
-	updated, err := svc.UpdateProfile(context.Background(), userID, "Nuevo Nombre", "+59899123456")
+	updated, err := svc.UpdateProfile(context.Background(), userID, "Nuevo Nombre", "+59899123456", "")
 
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
@@ -173,7 +173,7 @@ func TestUpdateProfile_UserNotFound(t *testing.T) {
 	repo := &mockUserRepo{getByIDErr: domain.ErrUserNotFound}
 	svc := newAuthSvc(repo)
 
-	_, err := svc.UpdateProfile(context.Background(), uuid.New(), "Nombre", "")
+	_, err := svc.UpdateProfile(context.Background(), uuid.New(), "Nombre", "", "")
 
 	if err == nil {
 		t.Fatal("expected error for non-existent user, got nil")

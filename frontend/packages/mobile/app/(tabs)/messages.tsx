@@ -11,16 +11,32 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
+import { useCallback } from 'react';
 import { useRouter } from 'expo-router';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '../../store';
-import { useConversations } from '../../../shared/hooks';
+import { useConversations, useWebSocket } from '../../../shared/hooks';
+import type { WsEnvelope } from '../../../shared/hooks';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
 import type { Message } from '../../../shared/types';
 
 export default function MessagesScreen() {
   const router = useRouter();
   const { isAuthenticated, user } = useAuthStore();
+  const queryClient = useQueryClient();
   const { data: conversations, isLoading, refetch, isRefetching } = useConversations();
+
+  // WS subscription: invalidate conversation list on badge_update or new chat_message.
+  const handleWsMessage = useCallback((envelope: WsEnvelope) => {
+    if (envelope.type === 'badge_update' || envelope.type === 'chat_message') {
+      queryClient.invalidateQueries({ queryKey: ['messages'] });
+    }
+  }, [queryClient]);
+
+  useWebSocket({
+    enabled: isAuthenticated,
+    onMessage: handleWsMessage,
+  });
 
   if (!isAuthenticated) {
     return (

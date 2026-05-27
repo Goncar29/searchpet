@@ -90,6 +90,7 @@
       "password": "Password",
       "confirm": "Confirm password",
       "phone": "Phone (optional)",
+      "city": "City (optional)",
       "submit": "Create account",
       "hasAccount": "Already have an account? Login",
       "passwordMin": "Password must be at least 6 characters",

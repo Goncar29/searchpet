@@ -18,11 +18,17 @@ import (
 // ============================================================
 
 type mockMessageRepository struct {
-	createFn          func(ctx context.Context, msg *domain.Message) error
-	getByIDFn         func(ctx context.Context, id uuid.UUID) (*domain.Message, error)
-	getConversationFn func(ctx context.Context, userA, userB uuid.UUID, limit, offset int) ([]domain.Message, error)
-	getConversationsFn func(ctx context.Context, userID uuid.UUID) ([]domain.Message, error)
-	markAsReadFn      func(ctx context.Context, messageID uuid.UUID) error
+	createFn            func(ctx context.Context, msg *domain.Message) error
+	getByIDFn           func(ctx context.Context, id uuid.UUID) (*domain.Message, error)
+	getConversationFn   func(ctx context.Context, userA, userB uuid.UUID, limit, offset int) ([]domain.Message, error)
+	getConversationsFn  func(ctx context.Context, userID uuid.UUID) ([]domain.Message, error)
+	markAsReadFn        func(ctx context.Context, messageID uuid.UUID) error
+	markConvReadFn      func(ctx context.Context, receiverID, senderID uuid.UUID) error
+	countUnreadFn       func(ctx context.Context, userID uuid.UUID) (int64, error)
+	// tracking
+	markConvReadCalled bool
+	markConvReadArgs   [2]uuid.UUID
+	countUnreadUserID  uuid.UUID
 }
 
 func (m *mockMessageRepository) Create(ctx context.Context, msg *domain.Message) error {
@@ -61,10 +67,25 @@ func (m *mockMessageRepository) MarkAsRead(ctx context.Context, messageID uuid.U
 	return nil
 }
 
+func (m *mockMessageRepository) MarkConversationRead(ctx context.Context, receiverID, senderID uuid.UUID) error {
+	m.markConvReadCalled = true
+	m.markConvReadArgs = [2]uuid.UUID{receiverID, senderID}
+	if m.markConvReadFn != nil {
+		return m.markConvReadFn(ctx, receiverID, senderID)
+	}
+	return nil
+}
+
+func (m *mockMessageRepository) CountUnread(ctx context.Context, userID uuid.UUID) (int64, error) {
+	m.countUnreadUserID = userID
+	if m.countUnreadFn != nil {
+		return m.countUnreadFn(ctx, userID)
+	}
+	return 0, nil
+}
+
 // ============================================================
-// Mock: BlockedUserRepository (reused from review_service_test.go,
-// but we need a separate type to avoid redeclaration conflicts — we
-// reuse mockBlockedUserRepository which is already declared there)
+// Mock: BlockedUserRepository
 // ============================================================
 
 // mockBlockedRepoForMsg is a separate type to avoid name collisions across test files.
@@ -72,22 +93,15 @@ type mockBlockedRepoForMsg struct {
 	isBlockedFn func(ctx context.Context, userA, userB uuid.UUID) (bool, error)
 }
 
-func (m *mockBlockedRepoForMsg) Create(ctx context.Context, block *domain.BlockedUser) error {
-	return nil
-}
-
-func (m *mockBlockedRepoForMsg) Delete(ctx context.Context, blockerID, blockedID uuid.UUID) error {
-	return nil
-}
-
+func (m *mockBlockedRepoForMsg) Create(_ context.Context, _ *domain.BlockedUser) error { return nil }
+func (m *mockBlockedRepoForMsg) Delete(_ context.Context, _, _ uuid.UUID) error         { return nil }
 func (m *mockBlockedRepoForMsg) IsBlocked(ctx context.Context, userA, userB uuid.UUID) (bool, error) {
 	if m.isBlockedFn != nil {
 		return m.isBlockedFn(ctx, userA, userB)
 	}
 	return false, nil
 }
-
-func (m *mockBlockedRepoForMsg) GetBlockedByUserID(ctx context.Context, userID uuid.UUID) ([]domain.BlockedUser, error) {
+func (m *mockBlockedRepoForMsg) GetBlockedByUserID(_ context.Context, _ uuid.UUID) ([]domain.BlockedUser, error) {
 	return []domain.BlockedUser{}, nil
 }
 
@@ -104,7 +118,7 @@ func newMessageService(
 }
 
 // ============================================================
-// Send tests
+// Tests: Send
 // ============================================================
 
 func TestMessageService_Send(t *testing.T) {
@@ -155,7 +169,7 @@ func TestMessageService_Send(t *testing.T) {
 			msgRepo:     &mockMessageRepository{},
 			blockedRepo: &mockBlockedRepoForMsg{},
 			req: dto.SendMessageRequest{
-				ReceiverID: senderID, // same as sender
+				ReceiverID: senderID,
 				Content:    "Message to myself",
 			},
 			wantErr: domain.ErrSelfMessage,
@@ -166,27 +180,12 @@ func TestMessageService_Send(t *testing.T) {
 			msgRepo:     &mockMessageRepository{},
 			blockedRepo: &mockBlockedRepoForMsg{
 				isBlockedFn: func(_ context.Context, _, _ uuid.UUID) (bool, error) {
-					return true, nil // A blocked B
+					return true, nil
 				},
 			},
 			req: dto.SendMessageRequest{
 				ReceiverID: receiverID,
 				Content:    "Hello!",
-			},
-			wantErr: domain.ErrUserBlocked,
-		},
-		{
-			name:        "reverse block also returns ErrUserBlocked",
-			senderIDStr: senderID.String(),
-			msgRepo:     &mockMessageRepository{},
-			blockedRepo: &mockBlockedRepoForMsg{
-				isBlockedFn: func(_ context.Context, _, _ uuid.UUID) (bool, error) {
-					return true, nil // B blocked A (bidirectional check in IsBlocked)
-				},
-			},
-			req: dto.SendMessageRequest{
-				ReceiverID: receiverID,
-				Content:    "Hello from blocked user!",
 			},
 			wantErr: domain.ErrUserBlocked,
 		},
@@ -217,10 +216,8 @@ func TestMessageService_Send(t *testing.T) {
 				}
 				return
 			}
-
 			if err != nil {
 				t.Errorf("unexpected error: %v", err)
-				return
 			}
 			if msg == nil {
 				t.Error("expected message, got nil")
@@ -230,7 +227,7 @@ func TestMessageService_Send(t *testing.T) {
 }
 
 // ============================================================
-// GetConversation tests
+// Tests: GetConversation
 // ============================================================
 
 func TestMessageService_GetConversation(t *testing.T) {
@@ -243,12 +240,12 @@ func TestMessageService_GetConversation(t *testing.T) {
 	}
 
 	tests := []struct {
-		name        string
-		userIDStr   string
-		otherIDStr  string
-		msgRepo     *mockMessageRepository
-		wantCount   int
-		wantErr     error
+		name       string
+		userIDStr  string
+		otherIDStr string
+		msgRepo    *mockMessageRepository
+		wantCount  int
+		wantErr    error
 	}{
 		{
 			name:       "returns messages between two users",
@@ -260,14 +257,12 @@ func TestMessageService_GetConversation(t *testing.T) {
 				},
 			},
 			wantCount: 2,
-			wantErr:   nil,
 		},
 		{
 			name:       "invalid userID — ErrInvalidInput",
 			userIDStr:  "bad-uuid",
 			otherIDStr: otherID.String(),
 			msgRepo:    &mockMessageRepository{},
-			wantCount:  0,
 			wantErr:    domain.ErrInvalidInput,
 		},
 		{
@@ -275,7 +270,6 @@ func TestMessageService_GetConversation(t *testing.T) {
 			userIDStr:  userID.String(),
 			otherIDStr: "bad-uuid",
 			msgRepo:    &mockMessageRepository{},
-			wantCount:  0,
 			wantErr:    domain.ErrInvalidInput,
 		},
 	}
@@ -291,12 +285,9 @@ func TestMessageService_GetConversation(t *testing.T) {
 				}
 				return
 			}
-
 			if err != nil {
 				t.Errorf("unexpected error: %v", err)
-				return
 			}
-
 			if len(result) != tc.wantCount {
 				t.Errorf("expected %d messages, got %d", tc.wantCount, len(result))
 			}
@@ -305,7 +296,7 @@ func TestMessageService_GetConversation(t *testing.T) {
 }
 
 // ============================================================
-// MarkAsRead tests
+// Tests: MarkAsRead
 // ============================================================
 
 func TestMessageService_MarkAsRead(t *testing.T) {
@@ -330,27 +321,22 @@ func TestMessageService_MarkAsRead(t *testing.T) {
 						ID:         id,
 						SenderID:   senderID,
 						ReceiverID: receiverID,
-						IsRead:     false,
 						CreatedAt:  time.Now(),
 					}, nil
 				},
-				markAsReadFn: func(_ context.Context, _ uuid.UUID) error {
-					return nil
-				},
+				markAsReadFn: func(_ context.Context, _ uuid.UUID) error { return nil },
 			},
-			wantErr: nil,
 		},
 		{
 			name:      "wrong user — ErrNotMessageReceiver",
-			userID:    senderID.String(), // sender trying to mark as read
+			userID:    senderID.String(),
 			messageID: msgID.String(),
 			msgRepo: &mockMessageRepository{
 				getByIDFn: func(_ context.Context, id uuid.UUID) (*domain.Message, error) {
 					return &domain.Message{
 						ID:         id,
 						SenderID:   senderID,
-						ReceiverID: receiverID, // receiver is different from caller
-						IsRead:     false,
+						ReceiverID: receiverID,
 					}, nil
 				},
 			},
@@ -387,10 +373,115 @@ func TestMessageService_MarkAsRead(t *testing.T) {
 				}
 				return
 			}
-
 			if err != nil {
 				t.Errorf("unexpected error: %v", err)
 			}
 		})
+	}
+}
+
+// ============================================================
+// Tests: MarkConversationRead
+// ============================================================
+
+func TestMarkConversationRead_DelegatesToRepo(t *testing.T) {
+	userID := uuid.New()
+	otherID := uuid.New()
+
+	msgRepo := &mockMessageRepository{}
+	svc := newMessageService(msgRepo, &mockBlockedRepoForMsg{})
+
+	err := svc.MarkConversationRead(context.Background(), userID.String(), otherID.String())
+
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if !msgRepo.markConvReadCalled {
+		t.Fatal("expected MarkConversationRead to be called on repo")
+	}
+	if msgRepo.markConvReadArgs[0] != userID {
+		t.Errorf("expected receiverID %v, got %v", userID, msgRepo.markConvReadArgs[0])
+	}
+	if msgRepo.markConvReadArgs[1] != otherID {
+		t.Errorf("expected senderID %v, got %v", otherID, msgRepo.markConvReadArgs[1])
+	}
+}
+
+func TestMarkConversationRead_InvalidUserID_ReturnsErrInvalidInput(t *testing.T) {
+	svc := newMessageService(&mockMessageRepository{}, &mockBlockedRepoForMsg{})
+	err := svc.MarkConversationRead(context.Background(), "not-a-uuid", uuid.New().String())
+	if !errors.Is(err, domain.ErrInvalidInput) {
+		t.Errorf("expected ErrInvalidInput, got %v", err)
+	}
+}
+
+func TestMarkConversationRead_InvalidOtherID_ReturnsErrInvalidInput(t *testing.T) {
+	svc := newMessageService(&mockMessageRepository{}, &mockBlockedRepoForMsg{})
+	err := svc.MarkConversationRead(context.Background(), uuid.New().String(), "not-a-uuid")
+	if !errors.Is(err, domain.ErrInvalidInput) {
+		t.Errorf("expected ErrInvalidInput, got %v", err)
+	}
+}
+
+// ============================================================
+// Tests: CountUnread
+// ============================================================
+
+func TestCountUnread_DelegatesToRepo(t *testing.T) {
+	userID := uuid.New()
+	msgRepo := &mockMessageRepository{
+		countUnreadFn: func(_ context.Context, _ uuid.UUID) (int64, error) { return 7, nil },
+	}
+	svc := newMessageService(msgRepo, &mockBlockedRepoForMsg{})
+
+	count, err := svc.CountUnread(context.Background(), userID.String())
+
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if count != 7 {
+		t.Errorf("expected count 7, got %d", count)
+	}
+	if msgRepo.countUnreadUserID != userID {
+		t.Errorf("expected userID %v passed to repo, got %v", userID, msgRepo.countUnreadUserID)
+	}
+}
+
+func TestCountUnread_InvalidUserID_ReturnsErrInvalidInput(t *testing.T) {
+	svc := newMessageService(&mockMessageRepository{}, &mockBlockedRepoForMsg{})
+	_, err := svc.CountUnread(context.Background(), "not-a-uuid")
+	if !errors.Is(err, domain.ErrInvalidInput) {
+		t.Errorf("expected ErrInvalidInput, got %v", err)
+	}
+}
+
+// ============================================================
+// Tests: GetConversation — MarkConversationRead is fire-and-forget
+// ============================================================
+
+func TestGetConversation_MarkReadFailure_StillReturnsMessages(t *testing.T) {
+	userID := uuid.New()
+	otherID := uuid.New()
+
+	expected := []domain.Message{
+		{ID: uuid.New(), SenderID: otherID, ReceiverID: userID},
+	}
+	msgRepo := &mockMessageRepository{
+		getConversationFn: func(_ context.Context, _, _ uuid.UUID, _, _ int) ([]domain.Message, error) {
+			return expected, nil
+		},
+		markConvReadFn: func(_ context.Context, _, _ uuid.UUID) error {
+			return errors.New("repo error")
+		},
+	}
+	svc := newMessageService(msgRepo, &mockBlockedRepoForMsg{})
+
+	messages, err := svc.GetConversation(context.Background(), userID.String(), otherID.String(), 20, 0)
+
+	if err != nil {
+		t.Fatalf("expected no error even with MarkConversationRead failure, got %v", err)
+	}
+	if len(messages) != len(expected) {
+		t.Errorf("expected %d messages, got %d", len(expected), len(messages))
 	}
 }

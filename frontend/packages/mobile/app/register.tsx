@@ -26,6 +26,7 @@ export default function RegisterScreen() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
+  const [city, setCity] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -48,7 +49,7 @@ export default function RegisterScreen() {
 
     setIsLoading(true);
     try {
-      await register(email.trim(), password, name.trim(), phone.trim() || undefined);
+      await register(email.trim(), password, name.trim(), phone.trim() || undefined, city.trim() || undefined);
       Alert.alert('Cuenta creada', 'Bienvenido a SearchPet', [
         { text: 'OK', onPress: () => router.back() },
       ]);
@@ -102,6 +103,16 @@ export default function RegisterScreen() {
           onChangeText={setPhone}
           keyboardType="phone-pad"
           autoComplete="tel"
+        />
+
+        <Text style={styles.label}>Ciudad (opcional)</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Ej: Montevideo, Buenos Aires..."
+          placeholderTextColor={COLORS.placeholder}
+          value={city}
+          onChangeText={setCity}
+          autoComplete="address-line1"
         />
 
         <Text style={styles.label}>Contraseña *</Text>

@@ -118,6 +118,29 @@ func (h *PhotoHandler) Upload(c *gin.Context) {
 	c.JSON(http.StatusCreated, dto.ToPhotoResponse(photo))
 }
 
+// Delete godoc
+// DELETE /api/pets/:id/photos/:photoId
+// Elimina una foto específica de una mascota. Solo el dueño puede eliminarla.
+// Requiere autenticación JWT.
+func (h *PhotoHandler) Delete(c *gin.Context) {
+	petID := c.Param("id")
+	photoID := c.Param("photoId")
+	uploaderID := getUserID(c)
+
+	if err := h.photoService.DeletePhoto(c.Request.Context(), petID, photoID, uploaderID); err != nil {
+		switch {
+		case errors.Is(err, domain.ErrPetNotFound), errors.Is(err, domain.ErrPhotoNotFound):
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		case errors.Is(err, domain.ErrNotPetOwner):
+			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+		default:
+			c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
+		}
+		return
+	}
+	c.Status(http.StatusNoContent)
+}
+
 // List godoc
 // GET /api/pets/:petId/photos
 // Retorna todas las fotos de una mascota. Endpoint público.

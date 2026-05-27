@@ -12,6 +12,7 @@ type RegisterRequest struct {
 	Email    string `json:"email" binding:"required,email"`
 	Password string `json:"password" binding:"required,min=6"`
 	Name     string `json:"name" binding:"required"`
+	City     string `json:"city"`
 }
 
 // LoginRequest son los datos que el cliente manda para iniciar sesión
@@ -27,6 +28,7 @@ type UserResponse struct {
 	Email           string    `json:"email"`
 	Name            string    `json:"name"`
 	Phone           string    `json:"phone,omitempty"`
+	City            string    `json:"city,omitempty"`
 	ProfilePhotoURL string    `json:"profile_photo_url,omitempty"`
 	IsVerified      bool      `json:"is_verified"`
 	CreatedAt       time.Time `json:"created_at"`
@@ -42,6 +44,7 @@ type AuthResponse struct {
 type UpdateProfileRequest struct {
 	Name  string `json:"name"`
 	Phone string `json:"phone"`
+	City  string `json:"city"`
 }
 
 // UpdatePreferencesRequest son los datos para actualizar las preferencias del usuario
@@ -61,6 +64,7 @@ func ToUserResponse(user *domain.User) UserResponse {
 		Email:           user.Email,
 		Name:            user.Name,
 		Phone:           user.Phone,
+		City:            user.City,
 		ProfilePhotoURL: user.ProfilePhotoURL,
 		IsVerified:      user.IsVerified,
 		CreatedAt:       user.CreatedAt,

@@ -20,6 +20,7 @@ export function RegisterPage() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
+  const [city, setCity] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
@@ -59,7 +60,7 @@ export function RegisterPage() {
     if (!validate()) return;
     setLoading(true);
     try {
-      await register(email, password, name, phone || undefined);
+      await register(email, password, name, phone || undefined, city || undefined);
       navigate('/');
     } catch (err: any) {
       setApiError(err.message || t('auth:register.createError'));
@@ -131,6 +132,19 @@ export function RegisterPage() {
             type="tel"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
+            className="w-full border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            {t('auth:register.city')}
+          </label>
+          <input
+            type="text"
+            value={city}
+            onChange={(e) => setCity(e.target.value)}
+            placeholder="Ej: Montevideo, Buenos Aires..."
             className="w-full border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
           />
         </div>

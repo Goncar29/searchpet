@@ -3,6 +3,8 @@
 // Requiere: @tanstack/react-query
 // ============================================================
 
+export * from './useWebSocket';
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
 import type {
@@ -153,9 +155,10 @@ export const useMarkPetAsFound = () => {
   return useMutation({
     mutationFn: (id: string) => apiClient.markPetAsFound(id),
     onSuccess: (updatedPet) => {
-      // Actualiza el cache de la mascota específica y el listado general
       queryClient.setQueryData(['pets', updatedPet.id], updatedPet);
       queryClient.invalidateQueries({ queryKey: ['pets'] });
+      // Invalidate reports so the map reflects the updated pet status immediately.
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
     },
   });
 };
@@ -215,8 +218,11 @@ export const useCreateReport = () => {
   return useMutation({
     mutationFn: (data: CreateReportRequest) => apiClient.createReport(data),
     onSuccess: () => {
+      // Invalidate all report queries (prefix match covers ['reports', 'nearby', ...]).
       queryClient.invalidateQueries({ queryKey: ['reports'] });
       queryClient.invalidateQueries({ queryKey: ['stats'] });
+      // Creating a report can change the pet's status — invalidate pet cache too.
+      queryClient.invalidateQueries({ queryKey: ['pets'] });
     },
   });
 };
@@ -233,12 +239,14 @@ export const useConversations = () => {
   });
 };
 
+// useConversation does NOT poll — real-time updates are pushed via useWebSocket.
+// A 30s staleTime ensures we don't hammer the REST API on quick re-mounts.
 export const useConversation = (userID: string) => {
   return useQuery({
     queryKey: ['messages', userID],
     queryFn: () => apiClient.getConversation(userID),
     enabled: !!userID,
-    refetchInterval: 5000, // Refrescar cada 5 segundos cuando el chat está abierto
+    staleTime: 30_000,
   });
 };
 

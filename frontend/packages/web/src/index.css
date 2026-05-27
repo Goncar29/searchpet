@@ -40,4 +40,7 @@ body {
   height: 100%;
   width: 100%;
   border-radius: 12px;
+  /* Create a stacking context so internal Leaflet panes (z-index 200–1000)
+     stay below the sticky navbar (z-50 = 50). */
+  z-index: 0;
 }

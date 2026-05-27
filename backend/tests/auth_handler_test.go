@@ -21,17 +21,17 @@ import (
 // ============================================================
 
 type mockAuthService struct {
-	registerFn           func(ctx context.Context, email, password, name string) (*domain.User, string, error)
+	registerFn           func(ctx context.Context, email, password, name, city string) (*domain.User, string, error)
 	loginFn              func(ctx context.Context, email, password string) (*domain.User, string, error)
 	getUserFn            func(ctx context.Context, id uuid.UUID) (*domain.User, error)
-	updateProfileFn      func(ctx context.Context, id uuid.UUID, name, phone string) (*domain.User, error)
+	updateProfileFn      func(ctx context.Context, id uuid.UUID, name, phone, city string) (*domain.User, error)
 	updateProfilePhotoFn func(ctx context.Context, id uuid.UUID, file multipart.File, filename string) (*domain.User, error)
 	updatePreferencesFn  func(ctx context.Context, id uuid.UUID, req dto.UpdatePreferencesRequest) (*dto.UserPreferencesResponse, error)
 }
 
-func (m *mockAuthService) Register(ctx context.Context, email, password, name string) (*domain.User, string, error) {
+func (m *mockAuthService) Register(ctx context.Context, email, password, name, city string) (*domain.User, string, error) {
 	if m.registerFn != nil {
-		return m.registerFn(ctx, email, password, name)
+		return m.registerFn(ctx, email, password, name, city)
 	}
 	return nil, "", nil
 }
@@ -50,9 +50,9 @@ func (m *mockAuthService) GetUser(ctx context.Context, id uuid.UUID) (*domain.Us
 	return nil, nil
 }
 
-func (m *mockAuthService) UpdateProfile(ctx context.Context, id uuid.UUID, name, phone string) (*domain.User, error) {
+func (m *mockAuthService) UpdateProfile(ctx context.Context, id uuid.UUID, name, phone, city string) (*domain.User, error) {
 	if m.updateProfileFn != nil {
-		return m.updateProfileFn(ctx, id, name, phone)
+		return m.updateProfileFn(ctx, id, name, phone, city)
 	}
 	return nil, nil
 }
@@ -122,7 +122,7 @@ func TestAuthHandler_Register(t *testing.T) {
 				"name":     "Ana",
 			},
 			setupMock: func(m *mockAuthService) {
-				m.registerFn = func(_ context.Context, _, _, _ string) (*domain.User, string, error) {
+				m.registerFn = func(_ context.Context, _, _, _, _ string) (*domain.User, string, error) {
 					return fixedUser, "jwt-token", nil
 				}
 			},
@@ -163,7 +163,7 @@ func TestAuthHandler_Register(t *testing.T) {
 				"name":     "Ana",
 			},
 			setupMock: func(m *mockAuthService) {
-				m.registerFn = func(_ context.Context, _, _, _ string) (*domain.User, string, error) {
+				m.registerFn = func(_ context.Context, _, _, _, _ string) (*domain.User, string, error) {
 					return nil, "", domain.ErrEmailAlreadyExists
 				}
 			},
@@ -197,7 +197,7 @@ func TestAuthHandler_Register(t *testing.T) {
 				"name":     "Ana",
 			},
 			setupMock: func(m *mockAuthService) {
-				m.registerFn = func(_ context.Context, _, _, _ string) (*domain.User, string, error) {
+				m.registerFn = func(_ context.Context, _, _, _, _ string) (*domain.User, string, error) {
 					return nil, "", domain.ErrInternal
 				}
 			},
@@ -229,7 +229,7 @@ func TestAuthHandler_Register(t *testing.T) {
 func TestAuthHandler_Register_ResponseShape(t *testing.T) {
 	fixedID := uuid.New()
 	svc := &mockAuthService{
-		registerFn: func(_ context.Context, _, _, _ string) (*domain.User, string, error) {
+		registerFn: func(_ context.Context, _, _, _, _ string) (*domain.User, string, error) {
 			return &domain.User{ID: fixedID, Email: "ana@test.com", Name: "Ana"}, "my-token", nil
 		},
 	}

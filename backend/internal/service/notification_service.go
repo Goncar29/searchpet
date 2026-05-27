@@ -2,12 +2,15 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"strings"
+	"time"
 
 	"lost-pets/internal/event"
 	"lost-pets/internal/repository"
+	"lost-pets/internal/websocket"
 	"lost-pets/pkg/notification"
 )
 
@@ -16,6 +19,8 @@ import (
 type NotificationService struct {
 	fcmClient       notification.NotificationClient
 	deviceTokenRepo repository.DeviceTokenRepository
+	presence        websocket.PresenceChecker // optional — nil means always send FCM
+	pusher          websocket.Pusher          // optional — push chat_message to online receivers
 }
 
 // NewNotificationService construye el NotificationService con sus dependencias.
@@ -28,6 +33,18 @@ func NewNotificationService(
 		fcmClient:       fcmClient,
 		deviceTokenRepo: deviceTokenRepo,
 	}
+}
+
+// SetPresence wires a PresenceChecker so that FCM pushes are skipped for online users.
+// Call once after Hub is created in main.go. Safe to call from any goroutine before traffic starts.
+func (ns *NotificationService) SetPresence(p websocket.PresenceChecker) {
+	ns.presence = p
+}
+
+// SetPusher wires a Pusher so that chat messages are delivered to online receivers via WebSocket.
+// Call once after Hub is created in main.go, alongside SetPresence.
+func (ns *NotificationService) SetPusher(p websocket.Pusher) {
+	ns.pusher = p
 }
 
 // RegisterListeners suscribe los handlers al EventBus.
@@ -128,10 +145,19 @@ func (ns *NotificationService) onAlertTriggered(payload interface{}) {
 
 // onMessageSent maneja el evento "message.sent".
 // Envía push al receptor del mensaje con un preview del texto.
+// Si el receptor tiene una conexión WebSocket activa (presence.IsConnected), se omite el FCM.
 func (ns *NotificationService) onMessageSent(payload interface{}) {
 	ev, ok := payload.(event.MessageSentEvent)
 	if !ok {
 		log.Printf("[NotificationService] onMessageSent: tipo de payload inesperado: %T", payload)
+		return
+	}
+
+	// REQ-4: if receiver is online, deliver via WS and skip FCM.
+	if ns.presence != nil && ns.presence.IsConnected(ev.ReceiverID.String()) {
+		if ns.pusher != nil {
+			ns.pushChatMessage(ev)
+		}
 		return
 	}
 
@@ -211,6 +237,33 @@ func (ns *NotificationService) onPetFound(payload interface{}) {
 			}
 		}()
 	}
+}
+
+// pushChatMessage builds a WebSocket chat_message envelope and delivers it to the receiver.
+// Only called when the receiver is online (PresenceChecker returned true).
+func (ns *NotificationService) pushChatMessage(ev event.MessageSentEvent) {
+	chatMsg := websocket.ChatMessage{
+		ID:        ev.MessageID.String(),
+		From:      ev.SenderID.String(),
+		To:        ev.ReceiverID.String(),
+		Body:      ev.Body,
+		Timestamp: time.Now().UTC().Format(time.RFC3339),
+	}
+	payloadBytes, err := json.Marshal(chatMsg)
+	if err != nil {
+		log.Printf("[NotificationService] pushChatMessage: marshal error: %v", err)
+		return
+	}
+	env := websocket.Envelope{
+		Type:    websocket.TypeChatMessage,
+		Payload: json.RawMessage(payloadBytes),
+	}
+	envBytes, err := json.Marshal(env)
+	if err != nil {
+		log.Printf("[NotificationService] pushChatMessage: marshal envelope error: %v", err)
+		return
+	}
+	ns.pusher.SendToUser(ev.ReceiverID.String(), envBytes)
 }
 
 // isStaleTokenError retorna true si el error de FCM indica un token inválido o expirado.

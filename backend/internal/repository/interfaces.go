@@ -39,10 +39,12 @@ type ReportRepository interface {
 type PhotoRepository interface {
 	Create(photo *domain.Photo) error
 	FindByPetID(petID string) ([]domain.Photo, error)
+	FindByID(photoID string) (*domain.Photo, error)
 	HasPrimaryPhoto(petID string) (bool, error)
 	UnsetPrimaryPhotos(petID string) error
 	CountByPetID(petID string) (int64, error)
 	DeleteByPetID(petID string) error
+	DeleteByID(photoID string) error
 }
 
 // ============================================================
@@ -65,6 +67,11 @@ type MessageRepository interface {
 	GetConversation(ctx context.Context, userA, userB uuid.UUID, limit, offset int) ([]domain.Message, error)
 	GetConversations(ctx context.Context, userID uuid.UUID) ([]domain.Message, error)
 	MarkAsRead(ctx context.Context, messageID uuid.UUID) error
+	// MarkConversationRead marca como leídos todos los mensajes sin leer de una conversación
+	// donde receiverID es el destinatario y senderID es el remitente.
+	MarkConversationRead(ctx context.Context, receiverID, senderID uuid.UUID) error
+	// CountUnread retorna la cantidad de mensajes no leídos recibidos por userID.
+	CountUnread(ctx context.Context, userID uuid.UUID) (int64, error)
 }
 
 // ShareLinkRepository define el contrato para acceder a datos de links compartibles.

@@ -1,0 +1,2 @@
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS photo_public_id TEXT;
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS photo_url TEXT;

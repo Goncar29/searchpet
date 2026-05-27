@@ -18,6 +18,9 @@ type MessageService interface {
 	GetConversations(ctx context.Context, userID string) ([]domain.Message, error)
 	GetConversation(ctx context.Context, userID string, otherUserID string, limit, offset int) ([]domain.Message, error)
 	MarkAsRead(ctx context.Context, userID string, messageID string) error
+	GetMessageByID(ctx context.Context, messageID uuid.UUID) (*domain.Message, error)
+	MarkConversationRead(ctx context.Context, userID string, otherUserID string) error
+	CountUnread(ctx context.Context, userID string) (int64, error)
 }
 
 // messageService es la implementación concreta del MessageService.
@@ -102,6 +105,7 @@ func (s *messageService) Send(ctx context.Context, senderID string, req dto.Send
 			SenderID:   loaded.SenderID,
 			ReceiverID: loaded.ReceiverID,
 			SenderName: loaded.Sender.Name,
+			Body:       loaded.Text,
 			Preview:    preview,
 		})
 	}
@@ -132,7 +136,43 @@ func (s *messageService) GetConversation(ctx context.Context, userID string, oth
 		return nil, domain.ErrInvalidInput
 	}
 
-	return s.messageRepo.GetConversation(ctx, userUUID, otherUUID, limit, offset)
+	messages, err := s.messageRepo.GetConversation(ctx, userUUID, otherUUID, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+
+	// Marcar la conversación como leída de forma asíncrona — un fallo no interrumpe la respuesta.
+	_ = s.messageRepo.MarkConversationRead(ctx, userUUID, otherUUID) // fire-and-forget
+
+	return messages, nil
+}
+
+// GetMessageByID retorna un mensaje por su ID. Delega directamente al repositorio.
+func (s *messageService) GetMessageByID(ctx context.Context, messageID uuid.UUID) (*domain.Message, error) {
+	return s.messageRepo.GetByID(ctx, messageID)
+}
+
+// MarkConversationRead marca todos los mensajes no leídos de una conversación como leídos.
+// Parsea los IDs string a UUID antes de delegar al repositorio.
+func (s *messageService) MarkConversationRead(ctx context.Context, userID string, otherUserID string) error {
+	receiverUUID, err := uuid.Parse(userID)
+	if err != nil {
+		return domain.ErrInvalidInput
+	}
+	senderUUID, err := uuid.Parse(otherUserID)
+	if err != nil {
+		return domain.ErrInvalidInput
+	}
+	return s.messageRepo.MarkConversationRead(ctx, receiverUUID, senderUUID)
+}
+
+// CountUnread retorna la cantidad de mensajes no leídos para un usuario.
+func (s *messageService) CountUnread(ctx context.Context, userID string) (int64, error) {
+	userUUID, err := uuid.Parse(userID)
+	if err != nil {
+		return 0, domain.ErrInvalidInput
+	}
+	return s.messageRepo.CountUnread(ctx, userUUID)
 }
 
 // MarkAsRead marca un mensaje como leído.

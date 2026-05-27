@@ -26,6 +26,9 @@ type mockMessageService struct {
 	getConversationsFn func(ctx context.Context, userID string) ([]domain.Message, error)
 	getConversationFn  func(ctx context.Context, userID, otherUserID string, limit, offset int) ([]domain.Message, error)
 	markAsReadFn       func(ctx context.Context, userID, messageID string) error
+	getMessageByIDFn   func(ctx context.Context, id uuid.UUID) (*domain.Message, error)
+	markConvReadFn     func(ctx context.Context, userID, otherUserID string) error
+	countUnreadFn      func(ctx context.Context, userID string) (int64, error)
 }
 
 func (m *mockMessageService) Send(ctx context.Context, senderID string, req dto.SendMessageRequest) (*domain.Message, error) {
@@ -56,6 +59,27 @@ func (m *mockMessageService) MarkAsRead(ctx context.Context, userID, messageID s
 	return nil
 }
 
+func (m *mockMessageService) GetMessageByID(ctx context.Context, id uuid.UUID) (*domain.Message, error) {
+	if m.getMessageByIDFn != nil {
+		return m.getMessageByIDFn(ctx, id)
+	}
+	return &domain.Message{ID: id}, nil
+}
+
+func (m *mockMessageService) MarkConversationRead(ctx context.Context, userID, otherUserID string) error {
+	if m.markConvReadFn != nil {
+		return m.markConvReadFn(ctx, userID, otherUserID)
+	}
+	return nil
+}
+
+func (m *mockMessageService) CountUnread(ctx context.Context, userID string) (int64, error) {
+	if m.countUnreadFn != nil {
+		return m.countUnreadFn(ctx, userID)
+	}
+	return 0, nil
+}
+
 // Ensure interface compliance at compile time.
 var _ service.MessageService = (*mockMessageService)(nil)
 
@@ -81,7 +105,6 @@ func newTestMessage(senderID, receiverID uuid.UUID, text string) *domain.Message
 		SenderID:   senderID,
 		ReceiverID: receiverID,
 		Text:       text,
-		IsRead:     false,
 		CreatedAt:  time.Now(),
 	}
 }
@@ -101,7 +124,7 @@ func TestMessageHandler_Send_ValidBody_Returns201(t *testing.T) {
 			return msg, nil
 		},
 	}
-	h := handler.NewMessageHandler(svc)
+	h := handler.NewMessageHandler(svc, nil)
 	r := setupMessageRouter(h, callerID)
 
 	reqBody := dto.SendMessageRequest{
@@ -131,7 +154,7 @@ func TestMessageHandler_Send_MissingReceiverID_Returns400(t *testing.T) {
 	callerID := uuid.New()
 
 	svc := &mockMessageService{}
-	h := handler.NewMessageHandler(svc)
+	h := handler.NewMessageHandler(svc, nil)
 	r := setupMessageRouter(h, callerID)
 
 	// ReceiverID is required — omit it.
@@ -155,7 +178,7 @@ func TestMessageHandler_Send_BlockedUser_Returns403(t *testing.T) {
 			return nil, domain.ErrUserBlocked
 		},
 	}
-	h := handler.NewMessageHandler(svc)
+	h := handler.NewMessageHandler(svc, nil)
 	r := setupMessageRouter(h, callerID)
 
 	reqBody := dto.SendMessageRequest{ReceiverID: receiverID, Content: "hola"}
@@ -178,7 +201,7 @@ func TestMessageHandler_Send_SelfMessage_Returns400(t *testing.T) {
 			return nil, domain.ErrSelfMessage
 		},
 	}
-	h := handler.NewMessageHandler(svc)
+	h := handler.NewMessageHandler(svc, nil)
 	r := setupMessageRouter(h, callerID)
 
 	reqBody := dto.SendMessageRequest{ReceiverID: callerID, Content: "hola"}
@@ -211,7 +234,7 @@ func TestMessageHandler_GetConversation_Returns200WithMessages(t *testing.T) {
 			return messages, nil
 		},
 	}
-	h := handler.NewMessageHandler(svc)
+	h := handler.NewMessageHandler(svc, nil)
 	r := setupMessageRouter(h, callerID)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/messages/"+otherID.String(), nil)
@@ -240,7 +263,7 @@ func TestMessageHandler_GetConversation_NeverReturnsNull(t *testing.T) {
 			return []domain.Message{}, nil
 		},
 	}
-	h := handler.NewMessageHandler(svc)
+	h := handler.NewMessageHandler(svc, nil)
 	r := setupMessageRouter(h, callerID)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/messages/"+otherID.String(), nil)
@@ -270,7 +293,7 @@ func TestMessageHandler_GetConversation_LimitOffsetParsed(t *testing.T) {
 			return []domain.Message{}, nil
 		},
 	}
-	h := handler.NewMessageHandler(svc)
+	h := handler.NewMessageHandler(svc, nil)
 	r := setupMessageRouter(h, callerID)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/messages/"+otherID.String()+"?limit=5&offset=10", nil)
@@ -301,7 +324,7 @@ func TestMessageHandler_GetConversations_Returns200(t *testing.T) {
 			return []domain.Message{*newTestMessage(otherID, callerID, "última")}, nil
 		},
 	}
-	h := handler.NewMessageHandler(svc)
+	h := handler.NewMessageHandler(svc, nil)
 	r := setupMessageRouter(h, callerID)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/messages", nil)
@@ -326,7 +349,7 @@ func TestMessageHandler_MarkAsRead_Returns200(t *testing.T) {
 			return nil
 		},
 	}
-	h := handler.NewMessageHandler(svc)
+	h := handler.NewMessageHandler(svc, nil)
 	r := setupMessageRouter(h, callerID)
 
 	req := httptest.NewRequest(http.MethodPatch, "/api/messages/"+messageID.String()+"/read", nil)
@@ -355,7 +378,7 @@ func TestMessageHandler_MarkAsRead_NotFound_Returns404(t *testing.T) {
 			return domain.ErrMessageNotFound
 		},
 	}
-	h := handler.NewMessageHandler(svc)
+	h := handler.NewMessageHandler(svc, nil)
 	r := setupMessageRouter(h, callerID)
 
 	req := httptest.NewRequest(http.MethodPatch, "/api/messages/"+messageID.String()+"/read", nil)
@@ -376,7 +399,7 @@ func TestMessageHandler_MarkAsRead_NotReceiver_Returns403(t *testing.T) {
 			return domain.ErrNotMessageReceiver
 		},
 	}
-	h := handler.NewMessageHandler(svc)
+	h := handler.NewMessageHandler(svc, nil)
 	r := setupMessageRouter(h, callerID)
 
 	req := httptest.NewRequest(http.MethodPatch, "/api/messages/"+messageID.String()+"/read", nil)

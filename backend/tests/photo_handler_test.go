@@ -24,6 +24,7 @@ type mockPhotoService struct {
 	uploadPhotoFn    func(ctx context.Context, petID string, uploaderID string, file multipart.File, filename string) (*domain.Photo, error)
 	getPhotosByPetFn func(petID string) ([]domain.Photo, error)
 	deleteByPetIDFn  func(petID string) error
+	deletePhotoFn    func(ctx context.Context, petID, photoID, uploaderID string) error
 }
 
 func (m *mockPhotoService) UploadPhoto(ctx context.Context, petID string, uploaderID string, file multipart.File, filename string) (*domain.Photo, error) {
@@ -43,6 +44,13 @@ func (m *mockPhotoService) GetPhotosByPet(petID string) ([]domain.Photo, error) 
 func (m *mockPhotoService) DeleteByPetID(petID string) error {
 	if m.deleteByPetIDFn != nil {
 		return m.deleteByPetIDFn(petID)
+	}
+	return nil
+}
+
+func (m *mockPhotoService) DeletePhoto(ctx context.Context, petID, photoID, uploaderID string) error {
+	if m.deletePhotoFn != nil {
+		return m.deletePhotoFn(ctx, petID, photoID, uploaderID)
 	}
 	return nil
 }

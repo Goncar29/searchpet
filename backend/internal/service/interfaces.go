@@ -129,7 +129,7 @@ type ReviewService interface {
 type AuthService interface {
 	// Register crea un nuevo usuario y retorna el usuario + JWT
 	// Retorna error si el email ya existe o si los datos son inválidos
-	Register(ctx context.Context, email, password, name string) (*domain.User, string, error)
+	Register(ctx context.Context, email, password, name, city string) (*domain.User, string, error)
 
 	// Login verifica las credenciales y retorna el usuario + JWT
 	// Retorna error si las credenciales son inválidas o el usuario está baneado
@@ -140,7 +140,7 @@ type AuthService interface {
 	GetUser(ctx context.Context, id uuid.UUID) (*domain.User, error)
 
 	// UpdateProfile actualiza el nombre y teléfono del usuario
-	UpdateProfile(ctx context.Context, id uuid.UUID, name, phone string) (*domain.User, error)
+	UpdateProfile(ctx context.Context, id uuid.UUID, name, phone, city string) (*domain.User, error)
 
 	// UpdateProfilePhoto sube la foto de perfil a Cloudinary y actualiza la URL en BD
 	UpdateProfilePhoto(ctx context.Context, id uuid.UUID, file multipart.File, filename string) (*domain.User, error)

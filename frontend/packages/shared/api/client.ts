@@ -346,6 +346,10 @@ class APIClient {
     return this.request<void>('PATCH', `/api/messages/${messageId}/read`);
   }
 
+  async issueWsTicket(): Promise<{ ticket: string; expires_in: number }> {
+    return this.request<{ ticket: string; expires_in: number }>('POST', '/api/ws/ticket');
+  }
+
   // ============================================================
   // SHARE
   // ============================================================

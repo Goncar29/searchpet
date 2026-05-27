@@ -15,8 +15,6 @@ jobs:
   build-apk:
     name: Build Android APK
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
 
     steps:
       - uses: actions/checkout@v4
@@ -27,7 +25,7 @@ jobs:
           cache: 'npm'
           cache-dependency-path: frontend/packages/mobile/package-lock.json
 
-      - name: Setup Java 17
+      - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
@@ -38,7 +36,10 @@ jobs:
 
       - name: Install dependencies
         working-directory: frontend/packages/mobile
-        run: npm install
+        run: npm ci
+
+      - name: Install Expo CLI
+        run: npm install -g @expo/cli
 
       - name: Generate native Android project
         working-directory: frontend/packages/mobile
@@ -46,81 +47,25 @@ jobs:
         env:
           EXPO_PUBLIC_API_URL: ${{ secrets.API_URL }}
 
-      - name: Inject Firebase config
-        run: |
-          if [ -z "${{ secrets.GOOGLE_SERVICES_JSON }}" ]; then
-            echo "::error::GOOGLE_SERVICES_JSON secret is not set"
-            exit 1
-          fi
-          echo '${{ secrets.GOOGLE_SERVICES_JSON }}' > frontend/packages/mobile/android/app/google-services.json
-          echo "google-services.json injected"
-
-      # Compose Compiler 1.5.15 requiere Kotlin 1.9.25
-      # El RN Gradle Plugin resuelve kotlin-gradle-plugin a 1.9.24 vía BOM.
-      # Un init script de Gradle fuerza la versión ANTES de que cualquier plugin la pise.
-      - name: Patch Kotlin version
-        run: |
-          mkdir -p ~/.gradle
-          cat > ~/.gradle/init.gradle << 'EOF'
-          allprojects {
-            buildscript {
-              configurations.all {
-                resolutionStrategy.force 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.25'
-              }
-            }
-            configurations.all {
-              resolutionStrategy.force 'org.jetbrains.kotlin:kotlin-stdlib:1.9.25'
-              resolutionStrategy.force 'org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.9.25'
-              resolutionStrategy.force 'org.jetbrains.kotlin:kotlin-stdlib-common:1.9.25'
-            }
-          }
-          EOF
-          echo "init.gradle aplicado:"
-          cat ~/.gradle/init.gradle
-
-      # CRITICAL: inject signing AFTER prebuild (prebuild regenerates android/ from scratch each time)
-      - name: Configure signing
-        working-directory: frontend/packages/mobile/android
-        run: |
-          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > app/searchpet.keystore
-          cat >> app/build.gradle << 'EOF'
-
-          android.signingConfigs {
-            release {
-              storeFile file("searchpet.keystore")
-              storePassword System.getenv("ANDROID_KEYSTORE_PASSWORD")
-              keyAlias System.getenv("ANDROID_KEY_ALIAS")
-              keyPassword System.getenv("ANDROID_KEY_PASSWORD")
-            }
-          }
-          android.buildTypes.release.signingConfig android.signingConfigs.release
-          EOF
-
       - name: Build APK
         working-directory: frontend/packages/mobile/android
         run: ./gradlew assembleRelease
         env:
-          # NODE_PATH permite que Node.js encuentre @react-native/js-polyfills,
-          # que está anidado en react-native/node_modules/ (no hoisted al top-level)
-          NODE_PATH: "${{ github.workspace }}/frontend/packages/mobile/node_modules/react-native/node_modules"
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
 
       - name: Rename APK
         run: |
-          TAG="${{ github.ref_name }}"
-          VERSION="${{ inputs.version }}"
-          LABEL="${TAG:-v${VERSION}}"
           mv frontend/packages/mobile/android/app/build/outputs/apk/release/app-release.apk \
-             "SearchPet-${LABEL}.apk"
+             SearchPet-${{ github.ref_name }}.apk
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: SearchPet-APK
           path: SearchPet-*.apk
-          retention-days: 30
 
       - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
@@ -131,12 +76,11 @@ jobs:
             ## SearchPet ${{ github.ref_name }}
 
             ### Instalar en Android
-            1. Descargar `SearchPet-${{ github.ref_name }}.apk`
+            1. Descargar SearchPet-${{ github.ref_name }}.apk
             2. Abrir el archivo en tu teléfono
             3. Si aparece advertencia, tocar "Instalar de todas formas"
-            4. Si es la primera vez: Ajustes → Seguridad → Activar "Fuentes desconocidas"
 
-            ### Instalar en iOS / Todos los dispositivos
-            Usá la web app: https://searchpet.vercel.app/descargar
+            ### iOS / Todos los dispositivos
+            Instala la web app desde el navegador: agrega a tu pantalla de inicio.
           draft: false
           prerelease: false

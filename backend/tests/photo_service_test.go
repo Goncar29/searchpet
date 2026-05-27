@@ -19,11 +19,20 @@ import (
 
 type mockPhotoRepo struct {
 	createFn          func(photo *domain.Photo) error
+	findByIDFn        func(photoID string) (*domain.Photo, error)
 	findByPetIDFn     func(petID string) ([]domain.Photo, error)
 	deleteByPetIDFn   func(petID string) error
+	deleteByIDFn      func(photoID string) error
 	countByPetIDFn    func(petID string) (int64, error)
 	unsetPrimaryFn    func(petID string) error
 	hasPrimaryPhotoFn func(petID string) (bool, error)
+}
+
+func (m *mockPhotoRepo) FindByID(photoID string) (*domain.Photo, error) {
+	if m.findByIDFn != nil {
+		return m.findByIDFn(photoID)
+	}
+	return &domain.Photo{}, nil
 }
 
 func (m *mockPhotoRepo) Create(photo *domain.Photo) error {
@@ -43,6 +52,13 @@ func (m *mockPhotoRepo) FindByPetID(petID string) ([]domain.Photo, error) {
 func (m *mockPhotoRepo) DeleteByPetID(petID string) error {
 	if m.deleteByPetIDFn != nil {
 		return m.deleteByPetIDFn(petID)
+	}
+	return nil
+}
+
+func (m *mockPhotoRepo) DeleteByID(photoID string) error {
+	if m.deleteByIDFn != nil {
+		return m.deleteByIDFn(photoID)
 	}
 	return nil
 }

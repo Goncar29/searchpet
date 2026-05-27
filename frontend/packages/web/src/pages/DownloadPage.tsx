@@ -25,15 +25,16 @@ export function DownloadPage() {
                 No requiere Google Play.
               </p>
               <a
-                href="/downloads/SearchPet.apk"
-                download
+                href="https://github.com/Goncar29/searchpet/releases/latest"
+                target="_blank"
+                rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 bg-green-500 text-white font-bold px-6 py-3 rounded-lg hover:bg-green-600 transition-colors"
-                aria-label="Descargar APK"
+                aria-label="Descargar APK desde GitHub Releases"
               >
                 Descargar APK
               </a>
               <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">
-                Versión 1.0.0
+                Se descarga desde GitHub Releases — siempre la última versión
               </p>
             </div>
           </div>

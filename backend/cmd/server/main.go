@@ -2,17 +2,19 @@ package main
 
 import (
 	"context"
-	"log"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 	"lost-pets/config"
 	"lost-pets/internal/event"
 	"lost-pets/internal/handler"
 	"lost-pets/internal/middleware"
 	"lost-pets/internal/repository"
 	"lost-pets/internal/service"
+	ws "lost-pets/internal/websocket"
 	"lost-pets/pkg/database"
+	"lost-pets/pkg/logger"
 	"lost-pets/pkg/mailer"
 	"lost-pets/pkg/notification"
 	"lost-pets/pkg/sms"
@@ -26,12 +28,30 @@ func main() {
 	cfg := config.Load()
 
 	// ========================================
+	// LOGGER
+	// ========================================
+	log := logger.Init(cfg.Environment)
+	defer log.Sync() //nolint:errcheck
+
+	// ========================================
 	// BASE DE DATOS
+	// Connect → AutoMigrate (crea tablas base) → RunMigrations (DDL incremental)
 	// ========================================
 	db, err := database.Connect(cfg.DatabaseURL)
 	if err != nil {
-		log.Fatalf("Error conectando a la base de datos: %v", err)
+		log.Fatal("Error conectando a la base de datos", zap.Error(err))
 	}
+
+	// 1. AutoMigrate primero: crea todas las tablas base en DBs vacías
+	if err := database.RunAutoMigrate(db); err != nil {
+		log.Fatal("Error en AutoMigrate", zap.Error(err))
+	}
+
+	// 2. SQL migrations después: aplica DDL incremental (columnas, índices, tablas auxiliares)
+	if err := database.RunMigrations(cfg.DatabaseURL, "migrations"); err != nil {
+		log.Fatal("Error ejecutando migraciones SQL", zap.Error(err))
+	}
+	log.Info("Migraciones SQL aplicadas")
 
 	// ========================================
 	// STORAGE (Cloudinary)
@@ -42,7 +62,7 @@ func main() {
 		cfg.CloudinaryAPISecret,
 	)
 	if err != nil {
-		log.Printf("Advertencia: Cloudinary no configurado (%v) — uploads de fotos no disponibles", err)
+		log.Warn("Cloudinary no configurado — uploads de fotos no disponibles", zap.Error(err))
 		cloudinaryClient = nil
 	}
 
@@ -59,7 +79,7 @@ func main() {
 	// — noopNotificationClient si no está configurado (degradación graceful)
 	fcmClient, err := notification.NewFirebaseClient(cfg.FirebaseKey)
 	if err != nil {
-		log.Printf("Advertencia: Firebase FCM no configurado (%v) — push notifications no disponibles", err)
+		log.Warn("Firebase FCM no configurado — push notifications no disponibles", zap.Error(err))
 	}
 
 	// ========================================
@@ -121,6 +141,25 @@ func main() {
 	notificationService := service.NewNotificationService(fcmClient, deviceTokenRepo)
 	notificationService.RegisterListeners(bus)
 
+	// ========================================
+	// WEBSOCKET — Hub + TicketStore
+	// Hub needs MessageServicer (CountUnread + MarkConversationRead).
+	// NotificationService needs PresenceChecker (IsConnected) to gate FCM.
+	// ========================================
+	wsHub := ws.NewHub(messageService)
+	go wsHub.Run()
+	wsTicketStore := ws.NewTicketStore()
+	go wsTicketStore.CleanupLoop()
+	defer wsHub.Close()
+
+	// T-2-04: wire presence + pusher into NotificationService.
+	// Presence: FCM is skipped when receiver is online via WS.
+	// Pusher: chat_message is delivered via WS when receiver is online.
+	notificationService.SetPresence(wsHub)
+	notificationService.SetPusher(wsHub)
+
+	wsHandler := ws.NewHandler(wsHub, wsTicketStore)
+
 	// PR4: Location Alerts con matching PostGIS + FCM push
 	locationAlertService := service.NewLocationAlertService(locationAlertRepo, deviceTokenRepo, bus)
 	locationAlertService.RegisterListeners(bus)
@@ -133,7 +172,7 @@ func main() {
 	reportHandler := handler.NewReportHandler(reportService, userRepo)
 	photoHandler := handler.NewPhotoHandler(photoService)
 	statsHandler := handler.NewStatsHandler(db)
-	messageHandler := handler.NewMessageHandler(messageService)
+	messageHandler := handler.NewMessageHandler(messageService, cloudinaryClient)
 	shareHandler := handler.NewShareHandler(shareLinkService, cfg.AppURL)
 	shelterHandler := handler.NewShelterHandler(shelterService)
 	deviceHandler := handler.NewDeviceHandler(deviceTokenRepo)
@@ -161,6 +200,11 @@ func main() {
 	router.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "ok"})
 	})
+
+	// ----------------------------------------
+	// WEBSOCKET — upgrade (no auth middleware — ticket is the credential)
+	// ----------------------------------------
+	router.GET("/api/ws", wsHandler.Connect)
 
 	// ----------------------------------------
 	// RUTAS PÚBLICAS
@@ -226,14 +270,16 @@ func main() {
 		// Reports (solo crear requiere auth)
 		protected.POST("/reports", reportHandler.CreateReport)
 
-		// Fotos (subir requiere auth — solo el dueño puede subir)
+		// Fotos (subir y eliminar requieren auth — solo el dueño puede hacerlo)
 		protected.POST("/pets/:id/photos", photoHandler.Upload)
+		protected.DELETE("/pets/:id/photos/:photoId", photoHandler.Delete)
 
 		// Mensajes (requieren auth)
 		protected.POST("/messages", messageHandler.Send)
 		protected.GET("/messages", messageHandler.GetConversations)
 		protected.GET("/messages/:userId", messageHandler.GetConversation)
 		protected.PATCH("/messages/:id/read", messageHandler.MarkAsRead)
+		protected.GET("/messages/photo-url/:messageId", messageHandler.GetPhotoSignedURL)
 
 		// Share links protegidos — generar requiere ser el dueño
 		protected.POST("/share/generate/:petId", shareHandler.GenerateShareLink)
@@ -285,6 +331,9 @@ func main() {
 		protected.POST("/verification/confirm-email", verificationHandler.ConfirmEmail)
 		protected.POST("/verification/confirm-sms", verificationHandler.ConfirmSMS)
 		protected.GET("/verification/status", verificationHandler.GetStatus)
+
+		// WebSocket ticket (JWT required)
+		protected.POST("/ws/ticket", wsHandler.IssueTicket)
 	}
 
 	// ----------------------------------------
@@ -312,9 +361,9 @@ func main() {
 		defer ticker.Stop()
 		for range ticker.C {
 			if deleted, err := verificationTokenRepo.DeleteExpired(context.Background()); err != nil {
-				log.Printf("OTP cleanup error: %v", err)
+				log.Error("OTP cleanup error", zap.Error(err))
 			} else if deleted > 0 {
-				log.Printf("OTP cleanup: %d tokens expirados eliminados", deleted)
+				log.Info("OTP cleanup: tokens expirados eliminados", zap.Int64("count", deleted))
 			}
 		}
 	}()
@@ -322,9 +371,9 @@ func main() {
 	// ========================================
 	// INICIAR SERVIDOR
 	// ========================================
-	log.Printf("SearchPet API corriendo en :%s [%s]", cfg.Port, cfg.Environment)
+	log.Info("SearchPet API corriendo", zap.String("port", cfg.Port), zap.String("env", cfg.Environment))
 
 	if err := router.Run(":" + cfg.Port); err != nil {
-		log.Fatalf("Error al iniciar servidor: %v", err)
+		log.Fatal("Error al iniciar servidor", zap.Error(err))
 	}
 }

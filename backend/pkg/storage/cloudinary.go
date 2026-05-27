@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/cloudinary/cloudinary-go/v2"
 	"github.com/cloudinary/cloudinary-go/v2/api/uploader"
@@ -43,6 +44,25 @@ func (c *CloudinaryClient) UploadImage(ctx context.Context, file io.Reader, file
 	}
 
 	return resp.SecureURL, resp.PublicID, nil
+}
+
+// GenerateSignedURL genera una URL firmada para un asset de Cloudinary.
+// ttl define el período de vigencia rastreado por nuestra app (expires_at en el response).
+// Nota: en el plan gratuito de Cloudinary el firmado es criptográfico (API secret) pero
+// no tiene expiración real en el CDN — la URL puede accederse hasta que el asset sea eliminado.
+// Para expiración real se requiere AuthToken (plan Enterprise). El expires_at que retornamos
+// es meramente indicativo para que el cliente sepa cuándo refrescar.
+func (c *CloudinaryClient) GenerateSignedURL(ctx context.Context, publicID string, ttl time.Duration) (string, time.Time, error) {
+	asset, err := c.cld.Image(publicID)
+	if err != nil {
+		return "", time.Time{}, fmt.Errorf("error creando asset reference: %w", err)
+	}
+	asset.Config.URL.SignURL = true
+	url, err := asset.String()
+	if err != nil {
+		return "", time.Time{}, fmt.Errorf("error generando URL firmada: %w", err)
+	}
+	return url, time.Now().UTC().Add(ttl), nil
 }
 
 // Delete elimina un asset de Cloudinary por su public_id.
