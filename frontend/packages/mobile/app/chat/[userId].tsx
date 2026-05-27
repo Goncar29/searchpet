@@ -2,7 +2,7 @@
 // SearchPet - Chat Screen (Conversación con usuario)
 // ============================================================
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -17,8 +17,18 @@ import {
   ActionSheetIOS,
 } from 'react-native';
 import { useLocalSearchParams, useNavigation } from 'expo-router';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '../../store';
-import { useConversation, useSendMessageTo, useMarkAsRead, useBlockUser, useBlockedUsers, useSubmitAbuseReport } from '../../../shared/hooks';
+import {
+  useConversation,
+  useSendMessageTo,
+  useMarkAsRead,
+  useBlockUser,
+  useBlockedUsers,
+  useSubmitAbuseReport,
+  useWebSocket,
+} from '../../../shared/hooks';
+import type { WsEnvelope, WsChatMessage, WsTypingEvent } from '../../../shared/hooks';
 import { COLORS, SPACING, FONTS, RADIUS } from '../../constants';
 import type { Message } from '../../../shared/types';
 
@@ -26,8 +36,11 @@ export default function ChatScreen() {
   const { userId, userName } = useLocalSearchParams<{ userId: string; userName?: string }>();
   const navigation = useNavigation();
   const { user } = useAuthStore();
+  const queryClient = useQueryClient();
   const [text, setText] = useState('');
+  const [isTyping, setIsTyping] = useState(false); // other user is typing
   const flatListRef = useRef<FlatList>(null);
+  const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { data: messages, isLoading } = useConversation(userId);
   const { mutate: sendMessage, isPending: isSending } = useSendMessageTo();
@@ -36,6 +49,59 @@ export default function ChatScreen() {
   const submitAbuseReport = useSubmitAbuseReport();
   const { data: blockedList } = useBlockedUsers();
   const isBlocked = blockedList?.some((b) => b.blocked_id === userId) ?? false;
+
+  // Handle incoming WS envelopes for this conversation.
+  const handleWsMessage = useCallback((envelope: WsEnvelope) => {
+    if (envelope.type === 'chat_message') {
+      const msg = envelope.payload as WsChatMessage;
+      // Only process messages belonging to this conversation.
+      if (msg.from !== userId && msg.to !== userId) return;
+
+      queryClient.setQueryData<Message[]>(['messages', userId], (old) => {
+        if (!old) return old;
+        if (old.some((m) => m.id === msg.id)) return old; // dedup
+        const newMsg: Message = {
+          id: msg.id,
+          sender_id: msg.from,
+          receiver_id: msg.to,
+          content: msg.body ?? '',
+          is_read: false,
+          created_at: msg.timestamp,
+        };
+        return [...old, newMsg];
+      });
+    }
+
+    if (envelope.type === 'typing_start') {
+      const ev = envelope.payload as WsTypingEvent;
+      if (ev.from === userId) {
+        setIsTyping(true);
+        // Auto-clear after 4s if no typing_stop arrives.
+        if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+        typingTimerRef.current = setTimeout(() => setIsTyping(false), 4000);
+      }
+    }
+
+    if (envelope.type === 'typing_stop') {
+      const ev = envelope.payload as WsTypingEvent;
+      if (ev.from === userId) {
+        setIsTyping(false);
+        if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+      }
+    }
+  }, [userId, queryClient]);
+
+  const { sendEnvelope } = useWebSocket({
+    enabled: !!user,
+    onMessage: handleWsMessage,
+  });
+
+  // Cleanup typing timer on unmount.
+  useEffect(() => {
+    return () => {
+      if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+    };
+  }, []);
 
   const handleBlockUser = () => {
     blockUser.mutate(
@@ -139,9 +205,22 @@ export default function ChatScreen() {
       .forEach((m) => markAsRead.mutate(m.id));
   }, [messages]);
 
+  const handleTyping = useCallback((value: string) => {
+    setText(value);
+    if (!user || !userId) return;
+    if (value.length > 0) {
+      sendEnvelope({ type: 'typing_start', payload: { from: user.id, to: userId } });
+    } else {
+      sendEnvelope({ type: 'typing_stop', payload: { from: user.id, to: userId } });
+    }
+  }, [user, userId, sendEnvelope]);
+
   const handleSend = () => {
     const trimmed = text.trim();
     if (!trimmed || isSending || isBlocked) return;
+
+    // Send typing_stop before the message so the other user's indicator clears.
+    sendEnvelope({ type: 'typing_stop', payload: { from: user?.id ?? '', to: userId } });
 
     sendMessage(
       { receiverID: userId, senderID: user?.id ?? '', content: trimmed },
@@ -204,6 +283,13 @@ export default function ChatScreen() {
         }
       />
 
+      {/* Typing indicator */}
+      {isTyping && (
+        <View style={styles.typingIndicator}>
+          <Text style={styles.typingText}>Escribiendo...</Text>
+        </View>
+      )}
+
       {/* Blocked banner */}
       {isBlocked && (
         <View style={styles.blockedBanner}>
@@ -216,7 +302,7 @@ export default function ChatScreen() {
         <TextInput
           style={[styles.input, isBlocked && styles.inputDisabled]}
           value={text}
-          onChangeText={setText}
+          onChangeText={handleTyping}
           placeholder="Escribí un mensaje..."
           placeholderTextColor={COLORS.textMuted}
           multiline
@@ -355,6 +441,15 @@ const styles = StyleSheet.create({
     color: COLORS.white,
     fontSize: 16,
     marginLeft: 2,
+  },
+  typingIndicator: {
+    paddingHorizontal: SPACING.md,
+    paddingVertical: 4,
+  },
+  typingText: {
+    fontSize: FONTS.sizes.xs,
+    color: COLORS.textMuted,
+    fontStyle: 'italic',
   },
   blockedBanner: {
     backgroundColor: '#fef2f2',
