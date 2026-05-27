@@ -3,6 +3,9 @@ package database
 import (
 	"fmt"
 
+	sqlmigrate "github.com/golang-migrate/migrate/v4"
+	_ "github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -24,6 +27,21 @@ func Connect(dsn string) (*gorm.DB, error) {
 	}
 
 	return db, nil
+}
+
+// RunMigrations executes SQL migration files from the given migrationsDir path
+// using golang-migrate. Returns nil if no changes were needed (ErrNoChange).
+func RunMigrations(dsn, migrationsDir string) error {
+	m, err := sqlmigrate.New("file://"+migrationsDir, dsn)
+	if err != nil {
+		return fmt.Errorf("error creando migrador: %w", err)
+	}
+	defer m.Close()
+
+	if err := m.Up(); err != nil && err != sqlmigrate.ErrNoChange {
+		return fmt.Errorf("error ejecutando migraciones: %w", err)
+	}
+	return nil
 }
 
 // migrate crea o actualiza las tablas en base a los structs de dominio

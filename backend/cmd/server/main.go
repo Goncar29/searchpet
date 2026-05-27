@@ -33,6 +33,12 @@ func main() {
 		log.Fatalf("Error conectando a la base de datos: %v", err)
 	}
 
+	// Run SQL migrations before AutoMigrate (fail-fast on schema errors)
+	if err := database.RunMigrations(cfg.DatabaseURL, "migrations"); err != nil {
+		log.Fatalf("Error ejecutando migraciones SQL: %v", err)
+	}
+	log.Println("Migraciones SQL aplicadas")
+
 	// ========================================
 	// STORAGE (Cloudinary)
 	// ========================================
