@@ -1,6 +1,8 @@
 package repository
 
 import (
+	"errors"
+
 	"gorm.io/gorm"
 	"lost-pets/internal/domain"
 )
@@ -52,8 +54,28 @@ func (r *PostgresPhotoRepository) CountByPetID(petID string) (int64, error) {
 	return count, err
 }
 
+// FindByID busca una foto por su ID de string.
+// Retorna ErrPhotoNotFound si no existe.
+func (r *PostgresPhotoRepository) FindByID(photoID string) (*domain.Photo, error) {
+	var photo domain.Photo
+	result := r.db.Where("id = ?", photoID).First(&photo)
+	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+		return nil, domain.ErrPhotoNotFound
+	}
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return &photo, nil
+}
+
 // DeleteByPetID elimina en bulk todas las fotos de una mascota de la BD.
 // Debe llamarse después de haber eliminado los assets de Cloudinary.
 func (r *PostgresPhotoRepository) DeleteByPetID(petID string) error {
 	return r.db.Where("pet_id = ?", petID).Delete(&domain.Photo{}).Error
+}
+
+// DeleteByID elimina una foto individual de la BD por su ID de string.
+// Debe llamarse después de haber eliminado el asset de Cloudinary.
+func (r *PostgresPhotoRepository) DeleteByID(photoID string) error {
+	return r.db.Where("id = ?", photoID).Delete(&domain.Photo{}).Error
 }

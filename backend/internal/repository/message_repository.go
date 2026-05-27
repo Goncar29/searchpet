@@ -86,20 +86,46 @@ func (r *postgresMessageRepository) GetConversations(ctx context.Context, userID
 	return messages, err
 }
 
-// MarkAsRead marca un mensaje como leído.
+// MarkAsRead marca un mensaje como leído estableciendo read_at = NOW().
+// Solo actualiza si read_at IS NULL (idempotente).
 // Retorna ErrMessageNotFound si el mensaje no existe.
 func (r *postgresMessageRepository) MarkAsRead(ctx context.Context, messageID uuid.UUID) error {
 	result := r.db.WithContext(ctx).
 		Model(&domain.Message{}).
-		Where("id = ?", messageID).
-		Update("is_read", true)
+		Where("id = ? AND read_at IS NULL", messageID).
+		Update("read_at", gorm.Expr("NOW()"))
 	if result.Error != nil {
 		return result.Error
 	}
 	if result.RowsAffected == 0 {
-		return domain.ErrMessageNotFound
+		// Could be already read or not found — check existence
+		var count int64
+		r.db.WithContext(ctx).Model(&domain.Message{}).Where("id = ?", messageID).Count(&count)
+		if count == 0 {
+			return domain.ErrMessageNotFound
+		}
 	}
 	return nil
+}
+
+// MarkConversationRead marca como leídos todos los mensajes no leídos de una conversación
+// donde receiverID es el destinatario y senderID el remitente.
+// Condición WHERE read_at IS NULL garantiza idempotencia.
+func (r *postgresMessageRepository) MarkConversationRead(ctx context.Context, receiverID, senderID uuid.UUID) error {
+	return r.db.WithContext(ctx).
+		Model(&domain.Message{}).
+		Where("receiver_id = ? AND sender_id = ? AND read_at IS NULL", receiverID, senderID).
+		Update("read_at", gorm.Expr("NOW()")).Error
+}
+
+// CountUnread retorna la cantidad de mensajes recibidos por userID que aún no fueron leídos.
+func (r *postgresMessageRepository) CountUnread(ctx context.Context, userID uuid.UUID) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).
+		Model(&domain.Message{}).
+		Where("receiver_id = ? AND read_at IS NULL", userID).
+		Count(&count).Error
+	return count, err
 }
 
 // Verificación estática: postgresMessageRepository satisface MessageRepository.

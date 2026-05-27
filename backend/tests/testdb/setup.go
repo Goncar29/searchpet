@@ -15,6 +15,9 @@ import (
 	"testing"
 	"time"
 
+	sqlmigrate "github.com/golang-migrate/migrate/v4"
+	_ "github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -67,8 +70,9 @@ var allTableNames = []string{
 	"users",
 }
 
-// SetupTestDB connects to the test database, runs AutoMigrate for all domain models,
-// and registers a t.Cleanup that truncates all tables so each test starts clean.
+// SetupTestDB connects to the test database, runs SQL migrations then AutoMigrate
+// for all domain models, and registers a t.Cleanup that truncates all tables so
+// each test starts clean.
 //
 // If DATABASE_URL is not set the test is skipped gracefully (not failed).
 func SetupTestDB(t *testing.T) *gorm.DB {
@@ -103,6 +107,18 @@ func SetupTestDB(t *testing.T) *gorm.DB {
 	}
 	if err != nil {
 		t.Fatalf("testdb: failed to connect after 5 attempts: %v", err)
+	}
+
+	// Run SQL migrations (graceful — warn but don't fail if migrations dir not found).
+	// Path is relative to backend/tests/testdb/ — ../../migrations resolves to backend/migrations/.
+	m, merr := sqlmigrate.New("file://../../migrations", dsn)
+	if merr != nil {
+		t.Logf("WARNING: migrations unavailable (%v) — skipping SQL migrations", merr)
+	} else {
+		if upErr := m.Up(); upErr != nil && upErr != sqlmigrate.ErrNoChange {
+			t.Logf("WARNING: migration Up failed (%v) — continuing with AutoMigrate only", upErr)
+		}
+		m.Close()
 	}
 
 	// AutoMigrate creates or updates tables for all domain models.

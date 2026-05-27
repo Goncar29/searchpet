@@ -40,6 +40,7 @@ var (
 	ErrFileTooLarge       = errors.New("el archivo supera el límite de 5 MB")
 	ErrStorageFailed      = errors.New("error al subir la imagen; intenta nuevamente")
 	ErrPhotoLimitReached  = errors.New("límite de 3 fotos por mascota alcanzado")
+	ErrPhotoNotFound      = errors.New("foto no encontrada")
 
 	// Share
 	ErrShareLinkNotFound = errors.New("link de compartir no encontrado")

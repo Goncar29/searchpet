@@ -47,6 +47,10 @@ type PhotoService interface {
 	// DeleteByPetID elimina de Cloudinary y de la BD todas las fotos de una mascota.
 	// Los errores de Cloudinary se loguean y no interrumpen la eliminación de las demás fotos.
 	DeleteByPetID(petID string) error
+
+	// DeletePhoto elimina una foto específica. Verifica que el caller sea el dueño de la mascota.
+	// El delete de Cloudinary es best-effort — un fallo no interrumpe el delete en BD.
+	DeletePhoto(ctx context.Context, petID, photoID, uploaderID string) error
 }
 
 // photoServiceImpl es la implementación concreta del PhotoService.
@@ -177,4 +181,44 @@ func (s *photoServiceImpl) DeleteByPetID(petID string) error {
 // GetPhotosByPet delega al repositorio — sin lógica adicional en esta capa.
 func (s *photoServiceImpl) GetPhotosByPet(petID string) ([]domain.Photo, error) {
 	return s.photoRepo.FindByPetID(petID)
+}
+
+// DeletePhoto elimina una foto específica de una mascota.
+// REGLAS DE NEGOCIO:
+// 1. La mascota debe existir → ErrPetNotFound
+// 2. El caller debe ser el dueño → ErrNotPetOwner
+// 3. La foto debe existir → ErrPhotoNotFound
+// 4. Delete de Cloudinary es best-effort (loguea fallo, continúa con delete en BD)
+func (s *photoServiceImpl) DeletePhoto(ctx context.Context, petID, photoID, uploaderID string) error {
+	// 1. Verificar ownership de la mascota
+	pet, err := s.petRepo.FindByID(petID)
+	if err != nil {
+		return err // ErrPetNotFound se propaga
+	}
+
+	uploaderUUID, err := uuid.Parse(uploaderID)
+	if err != nil {
+		return domain.ErrInvalidInput
+	}
+
+	if pet.OwnerID != uploaderUUID {
+		return domain.ErrNotPetOwner
+	}
+
+	// 2. Buscar la foto
+	photo, err := s.photoRepo.FindByID(photoID)
+	if err != nil {
+		return err // ErrPhotoNotFound se propaga
+	}
+
+	// 3. Best-effort delete en Cloudinary (Cloudinary tiene recuperación de 30 días en trash)
+	if s.storage != nil && photo.PublicID != "" {
+		if delErr := s.storage.Delete(ctx, photo.PublicID); delErr != nil {
+			log.Printf("[photo_service] Error eliminando publicID=%s de Cloudinary: %v", photo.PublicID, delErr)
+			// Continuamos — el delete en BD debe ejecutarse igual
+		}
+	}
+
+	// 4. Eliminar de BD
+	return s.photoRepo.DeleteByID(photoID)
 }

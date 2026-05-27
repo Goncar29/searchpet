@@ -18,13 +18,15 @@ type SendMessageRequest struct {
 
 // MessageResponse son los datos de un mensaje que retornamos al cliente.
 // CRÍTICO: domain.Message.Text se expone como "content" en JSON — los campos difieren.
+// PhotoPublicID nunca se incluye aquí (json:"-" en el domain model).
 type MessageResponse struct {
 	ID         uuid.UUID  `json:"id"`
 	SenderID   uuid.UUID  `json:"sender_id"`
 	ReceiverID uuid.UUID  `json:"receiver_id"`
 	ReportID   *uuid.UUID `json:"report_id,omitempty"`
 	Content    string     `json:"content"`
-	IsRead     bool       `json:"is_read"`
+	ReadAt     *time.Time `json:"read_at,omitempty"`
+	PhotoURL   string     `json:"photo_url,omitempty"`
 	CreatedAt  time.Time  `json:"created_at"`
 }
 
@@ -37,7 +39,8 @@ func ToMessageResponse(msg *domain.Message) MessageResponse {
 		ReceiverID: msg.ReceiverID,
 		ReportID:   msg.ReportID,
 		Content:    msg.Text,
-		IsRead:     msg.IsRead,
+		ReadAt:     msg.ReadAt,
+		PhotoURL:   msg.PhotoURL,
 		CreatedAt:  msg.CreatedAt,
 	}
 }
