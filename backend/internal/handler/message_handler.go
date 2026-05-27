@@ -4,21 +4,29 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"lost-pets/internal/domain"
 	"lost-pets/internal/dto"
 	"lost-pets/internal/service"
+	"lost-pets/pkg/storage"
 )
 
 // MessageHandler maneja los endpoints HTTP de mensajes.
 type MessageHandler struct {
 	messageService service.MessageService
+	cloudinary     *storage.CloudinaryClient
 }
 
 // NewMessageHandler construye el MessageHandler con sus dependencias.
-func NewMessageHandler(messageService service.MessageService) *MessageHandler {
-	return &MessageHandler{messageService: messageService}
+// cloudinary es opcional — si es nil, el endpoint de foto-url responde 503.
+func NewMessageHandler(messageService service.MessageService, cloudinary *storage.CloudinaryClient) *MessageHandler {
+	return &MessageHandler{
+		messageService: messageService,
+		cloudinary:     cloudinary,
+	}
 }
 
 // Send godoc
@@ -101,6 +109,58 @@ func (h *MessageHandler) GetConversation(c *gin.Context) {
 
 	// Siempre retornar array (nunca null)
 	c.JSON(http.StatusOK, dto.ToMessageListResponse(messages))
+}
+
+// GetPhotoSignedURL godoc
+// GET /api/messages/:messageId/photo-url
+// Genera una URL firmada de Cloudinary para la foto adjunta a un mensaje.
+// Solo el sender o receiver del mensaje puede obtener la URL.
+func (h *MessageHandler) GetPhotoSignedURL(c *gin.Context) {
+	if h.cloudinary == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "servicio de imágenes no disponible"})
+		return
+	}
+
+	callerID := getUserID(c)
+	messageID := c.Param("messageId")
+
+	msgUUID, err := uuid.Parse(messageID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "messageId inválido"})
+		return
+	}
+
+	msg, err := h.messageService.GetMessageByID(c.Request.Context(), msgUUID)
+	if err != nil {
+		if errors.Is(err, domain.ErrMessageNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "mensaje no encontrado"})
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
+		}
+		return
+	}
+
+	callerUUID, _ := uuid.Parse(callerID)
+	if msg.SenderID != callerUUID && msg.ReceiverID != callerUUID {
+		c.JSON(http.StatusForbidden, gin.H{"error": "acceso denegado"})
+		return
+	}
+
+	if msg.PhotoPublicID == "" {
+		c.JSON(http.StatusNotFound, gin.H{"error": "este mensaje no tiene foto"})
+		return
+	}
+
+	url, expiresAt, err := h.cloudinary.GenerateSignedURL(c.Request.Context(), msg.PhotoPublicID, time.Hour)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error generando URL"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"url":        url,
+		"expires_at": expiresAt.Format(time.RFC3339),
+	})
 }
 
 // MarkAsRead godoc

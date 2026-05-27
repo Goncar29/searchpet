@@ -132,7 +132,7 @@ func main() {
 	reportHandler := handler.NewReportHandler(reportService, userRepo)
 	photoHandler := handler.NewPhotoHandler(photoService)
 	statsHandler := handler.NewStatsHandler(db)
-	messageHandler := handler.NewMessageHandler(messageService)
+	messageHandler := handler.NewMessageHandler(messageService, cloudinaryClient)
 	shareHandler := handler.NewShareHandler(shareLinkService, cfg.AppURL)
 	shelterHandler := handler.NewShelterHandler(shelterService)
 	deviceHandler := handler.NewDeviceHandler(deviceTokenRepo)
@@ -225,6 +225,7 @@ func main() {
 		protected.GET("/messages", messageHandler.GetConversations)
 		protected.GET("/messages/:userId", messageHandler.GetConversation)
 		protected.PATCH("/messages/:id/read", messageHandler.MarkAsRead)
+		protected.GET("/messages/:messageId/photo-url", messageHandler.GetPhotoSignedURL)
 
 		// Share links protegidos — generar requiere ser el dueño
 		protected.POST("/share/generate/:petId", shareHandler.GenerateShareLink)
