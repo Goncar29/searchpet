@@ -2,10 +2,10 @@ package main
 
 import (
 	"context"
-	"log"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 	"lost-pets/config"
 	"lost-pets/internal/event"
 	"lost-pets/internal/handler"
@@ -13,6 +13,7 @@ import (
 	"lost-pets/internal/repository"
 	"lost-pets/internal/service"
 	"lost-pets/pkg/database"
+	"lost-pets/pkg/logger"
 	"lost-pets/pkg/mailer"
 	"lost-pets/pkg/notification"
 	"lost-pets/pkg/sms"
@@ -26,18 +27,24 @@ func main() {
 	cfg := config.Load()
 
 	// ========================================
+	// LOGGER
+	// ========================================
+	log := logger.Init(cfg.Environment)
+	defer log.Sync() //nolint:errcheck
+
+	// ========================================
 	// BASE DE DATOS
 	// ========================================
 	db, err := database.Connect(cfg.DatabaseURL)
 	if err != nil {
-		log.Fatalf("Error conectando a la base de datos: %v", err)
+		log.Fatal("Error conectando a la base de datos", zap.Error(err))
 	}
 
 	// Run SQL migrations before AutoMigrate (fail-fast on schema errors)
 	if err := database.RunMigrations(cfg.DatabaseURL, "migrations"); err != nil {
-		log.Fatalf("Error ejecutando migraciones SQL: %v", err)
+		log.Fatal("Error ejecutando migraciones SQL", zap.Error(err))
 	}
-	log.Println("Migraciones SQL aplicadas")
+	log.Info("Migraciones SQL aplicadas")
 
 	// ========================================
 	// STORAGE (Cloudinary)
@@ -48,7 +55,7 @@ func main() {
 		cfg.CloudinaryAPISecret,
 	)
 	if err != nil {
-		log.Printf("Advertencia: Cloudinary no configurado (%v) — uploads de fotos no disponibles", err)
+		log.Warn("Cloudinary no configurado — uploads de fotos no disponibles", zap.Error(err))
 		cloudinaryClient = nil
 	}
 
@@ -65,7 +72,7 @@ func main() {
 	// — noopNotificationClient si no está configurado (degradación graceful)
 	fcmClient, err := notification.NewFirebaseClient(cfg.FirebaseKey)
 	if err != nil {
-		log.Printf("Advertencia: Firebase FCM no configurado (%v) — push notifications no disponibles", err)
+		log.Warn("Firebase FCM no configurado — push notifications no disponibles", zap.Error(err))
 	}
 
 	// ========================================
@@ -300,9 +307,9 @@ func main() {
 		defer ticker.Stop()
 		for range ticker.C {
 			if deleted, err := verificationTokenRepo.DeleteExpired(context.Background()); err != nil {
-				log.Printf("OTP cleanup error: %v", err)
+				log.Error("OTP cleanup error", zap.Error(err))
 			} else if deleted > 0 {
-				log.Printf("OTP cleanup: %d tokens expirados eliminados", deleted)
+				log.Info("OTP cleanup: tokens expirados eliminados", zap.Int64("count", deleted))
 			}
 		}
 	}()
@@ -310,9 +317,9 @@ func main() {
 	// ========================================
 	// INICIAR SERVIDOR
 	// ========================================
-	log.Printf("SearchPet API corriendo en :%s [%s]", cfg.Port, cfg.Environment)
+	log.Info("SearchPet API corriendo", zap.String("port", cfg.Port), zap.String("env", cfg.Environment))
 
 	if err := router.Run(":" + cfg.Port); err != nil {
-		log.Fatalf("Error al iniciar servidor: %v", err)
+		log.Fatal("Error al iniciar servidor", zap.Error(err))
 	}
 }
