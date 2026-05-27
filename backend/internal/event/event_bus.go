@@ -91,7 +91,8 @@ type MessageSentEvent struct {
 	SenderID   uuid.UUID
 	ReceiverID uuid.UUID
 	SenderName string
-	Preview    string // primeros 100 chars del mensaje
+	Body       string // full message text (used for WS delivery)
+	Preview    string // first 100 chars (used for FCM notification body)
 }
 
 // PetFoundEvent es el payload publicado cuando una mascota es marcada como encontrada.

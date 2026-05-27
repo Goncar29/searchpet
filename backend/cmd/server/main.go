@@ -152,8 +152,11 @@ func main() {
 	go wsTicketStore.CleanupLoop()
 	defer wsHub.Close()
 
-	// T-2-04: wire presence into NotificationService so FCM is skipped for online users.
+	// T-2-04: wire presence + pusher into NotificationService.
+	// Presence: FCM is skipped when receiver is online via WS.
+	// Pusher: chat_message is delivered via WS when receiver is online.
 	notificationService.SetPresence(wsHub)
+	notificationService.SetPusher(wsHub)
 
 	wsHandler := ws.NewHandler(wsHub, wsTicketStore)
 

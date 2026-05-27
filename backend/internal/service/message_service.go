@@ -105,6 +105,7 @@ func (s *messageService) Send(ctx context.Context, senderID string, req dto.Send
 			SenderID:   loaded.SenderID,
 			ReceiverID: loaded.ReceiverID,
 			SenderName: loaded.Sender.Name,
+			Body:       loaded.Text,
 			Preview:    preview,
 		})
 	}
