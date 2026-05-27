@@ -216,8 +216,9 @@ func main() {
 		// Reports (solo crear requiere auth)
 		protected.POST("/reports", reportHandler.CreateReport)
 
-		// Fotos (subir requiere auth — solo el dueño puede subir)
+		// Fotos (subir y eliminar requieren auth — solo el dueño puede hacerlo)
 		protected.POST("/pets/:id/photos", photoHandler.Upload)
+		protected.DELETE("/pets/:id/photos/:photoId", photoHandler.Delete)
 
 		// Mensajes (requieren auth)
 		protected.POST("/messages", messageHandler.Send)
