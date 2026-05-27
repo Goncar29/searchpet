@@ -39,10 +39,12 @@ type ReportRepository interface {
 type PhotoRepository interface {
 	Create(photo *domain.Photo) error
 	FindByPetID(petID string) ([]domain.Photo, error)
+	FindByID(photoID string) (*domain.Photo, error)
 	HasPrimaryPhoto(petID string) (bool, error)
 	UnsetPrimaryPhotos(petID string) error
 	CountByPetID(petID string) (int64, error)
 	DeleteByPetID(petID string) error
+	DeleteByID(photoID string) error
 }
 
 // ============================================================
