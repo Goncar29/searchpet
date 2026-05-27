@@ -5,6 +5,8 @@
     "paths": {
       "@shared/*": ["../shared/*"],
       "@/*": ["./*"],
+      "react": ["./node_modules/@types/react", "./node_modules/react"],
+      "react/*": ["./node_modules/@types/react/*", "./node_modules/react/*"],
       "@tanstack/react-query": ["./node_modules/@tanstack/react-query"],
       "@tanstack/react-query/*": ["./node_modules/@tanstack/react-query/*"]
     }
