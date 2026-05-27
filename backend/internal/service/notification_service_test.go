@@ -323,3 +323,128 @@ func TestNotificationService_OnPetFound_PayloadInvalido(t *testing.T) {
 		t.Errorf("payload inválido no debe enviar push, got %d llamadas", len(calls))
 	}
 }
+
+// ============================================================
+// mockPresenceChecker — implementa websocket.PresenceChecker
+// ============================================================
+
+type mockPresenceChecker struct {
+	online bool
+}
+
+func (m *mockPresenceChecker) IsConnected(_ string) bool { return m.online }
+
+// WS-F-1: receiver online → FCM NOT sent.
+func TestNotificationService_OnMessageSent_ReceiverOnline_SkipsFCM(t *testing.T) {
+	bus := event.NewEventBus()
+	repo := newMockDeviceTokenRepo()
+	fcm := newMockFCMClient(1)
+
+	receiverID := uuid.New()
+	senderID := uuid.New()
+	repo.tokens[receiverID] = []domain.DeviceToken{
+		{UserID: receiverID, Token: "receiver-token", Platform: "android"},
+	}
+
+	ns := service.NewNotificationService(fcm, repo)
+	ns.SetPresence(&mockPresenceChecker{online: true})
+	ns.RegisterListeners(bus)
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	bus.Subscribe("message.sent", func(_ interface{}) { wg.Done() })
+
+	bus.Publish("message.sent", event.MessageSentEvent{
+		MessageID:  uuid.New(),
+		SenderID:   senderID,
+		ReceiverID: receiverID,
+		SenderName: "Alice",
+		Preview:    "hola",
+	})
+
+	wg.Wait()
+	time.Sleep(50 * time.Millisecond)
+
+	calls := fcm.getCalls()
+	if len(calls) != 0 {
+		t.Errorf("receiver online → FCM should be skipped, got %d call(s)", len(calls))
+	}
+}
+
+// WS-F-2: receiver offline → FCM sent exactly once.
+func TestNotificationService_OnMessageSent_ReceiverOffline_SendsFCM(t *testing.T) {
+	bus := event.NewEventBus()
+	repo := newMockDeviceTokenRepo()
+	fcm := newMockFCMClient(1)
+
+	receiverID := uuid.New()
+	senderID := uuid.New()
+	repo.tokens[receiverID] = []domain.DeviceToken{
+		{UserID: receiverID, Token: "receiver-token", Platform: "android"},
+	}
+
+	ns := service.NewNotificationService(fcm, repo)
+	ns.SetPresence(&mockPresenceChecker{online: false})
+	ns.RegisterListeners(bus)
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	bus.Subscribe("message.sent", func(_ interface{}) { wg.Done() })
+
+	bus.Publish("message.sent", event.MessageSentEvent{
+		MessageID:  uuid.New(),
+		SenderID:   senderID,
+		ReceiverID: receiverID,
+		SenderName: "Bob",
+		Preview:    "qué tal",
+	})
+
+	wg.Wait()
+	if !fcm.waitCalls(1, 2*time.Second) {
+		t.Fatal("timeout: esperaba 1 llamada a SendPush")
+	}
+
+	calls := fcm.getCalls()
+	if len(calls) != 1 {
+		t.Errorf("receiver offline → FCM should be called once, got %d", len(calls))
+	}
+}
+
+// WS-F-3: nil presence checker → FCM always sent (nil-safe).
+func TestNotificationService_OnMessageSent_NilPresence_SendsFCM(t *testing.T) {
+	bus := event.NewEventBus()
+	repo := newMockDeviceTokenRepo()
+	fcm := newMockFCMClient(1)
+
+	receiverID := uuid.New()
+	senderID := uuid.New()
+	repo.tokens[receiverID] = []domain.DeviceToken{
+		{UserID: receiverID, Token: "receiver-token", Platform: "android"},
+	}
+
+	// No SetPresence call → nil presence → always send FCM
+	ns := service.NewNotificationService(fcm, repo)
+	ns.RegisterListeners(bus)
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	bus.Subscribe("message.sent", func(_ interface{}) { wg.Done() })
+
+	bus.Publish("message.sent", event.MessageSentEvent{
+		MessageID:  uuid.New(),
+		SenderID:   senderID,
+		ReceiverID: receiverID,
+		SenderName: "Carol",
+		Preview:    "salut",
+	})
+
+	wg.Wait()
+	if !fcm.waitCalls(1, 2*time.Second) {
+		t.Fatal("timeout: esperaba 1 llamada a SendPush")
+	}
+
+	calls := fcm.getCalls()
+	if len(calls) != 1 {
+		t.Errorf("nil presence → FCM should be called once, got %d", len(calls))
+	}
+}
