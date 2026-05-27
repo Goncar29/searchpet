@@ -21,7 +21,7 @@ interface AuthState {
 
   // Actions
   login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string, name: string, phone?: string) => Promise<void>;
+  register: (email: string, password: string, name: string, phone?: string, city?: string) => Promise<void>;
   logout: () => Promise<void>;
   loadToken: () => Promise<void>;
 }
@@ -52,9 +52,9 @@ export const useAuthStore = create<AuthState>((set) => ({
     }
   },
 
-  register: async (email, password, name, phone) => {
+  register: async (email, password, name, phone, city) => {
     try {
-      const response = await apiClient.register({ email, password, name, phone });
+      const response = await apiClient.register({ email, password, name, phone, city });
       await SecureStore.setItemAsync('auth_token', response.token);
       await SecureStore.setItemAsync('user_data', JSON.stringify(response.user));
       apiClient.setToken(response.token);

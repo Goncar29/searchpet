@@ -15,7 +15,7 @@ interface AuthContextType {
   user: User | null;
   token: string | null;
   login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string, name: string, phone?: string) => Promise<void>;
+  register: (email: string, password: string, name: string, phone?: string, city?: string) => Promise<void>;
   logout: () => void;
   refreshUser: () => Promise<void>;
   isAuthenticated: boolean;
@@ -60,8 +60,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     registerWebPushToken();
   };
 
-  const register = async (email: string, password: string, name: string, phone?: string) => {
-    const resp = await apiClient.register({ email, password, name, phone });
+  const register = async (email: string, password: string, name: string, phone?: string, city?: string) => {
+    const resp = await apiClient.register({ email, password, name, phone, city });
     setToken(resp.token);
     setUser(resp.user);
     localStorage.setItem('token', resp.token);

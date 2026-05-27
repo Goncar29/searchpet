@@ -180,6 +180,7 @@ export interface RegisterRequest {
   password: string;
   name: string;
   phone?: string;
+  city?: string;
 }
 
 export interface LoginRequest {
