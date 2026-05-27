@@ -238,7 +238,7 @@ func main() {
 		protected.GET("/messages", messageHandler.GetConversations)
 		protected.GET("/messages/:userId", messageHandler.GetConversation)
 		protected.PATCH("/messages/:id/read", messageHandler.MarkAsRead)
-		protected.GET("/messages/:messageId/photo-url", messageHandler.GetPhotoSignedURL)
+		protected.GET("/messages/photo-url/:messageId", messageHandler.GetPhotoSignedURL)
 
 		// Share links protegidos — generar requiere ser el dueño
 		protected.POST("/share/generate/:petId", shareHandler.GenerateShareLink)
