@@ -12,6 +12,8 @@ package testdb
 import (
 	"fmt"
 	"os"
+	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -110,8 +112,11 @@ func SetupTestDB(t *testing.T) *gorm.DB {
 	}
 
 	// Run SQL migrations (graceful — warn but don't fail if migrations dir not found).
-	// Path is relative to backend/tests/testdb/ — ../../migrations resolves to backend/migrations/.
-	m, merr := sqlmigrate.New("file://../../migrations", dsn)
+	// Use runtime.Caller to get an absolute path to this file, then navigate to backend/migrations/.
+	// This is cwd-independent and works both locally and in CI.
+	_, thisFile, _, _ := runtime.Caller(0)
+	migrationsDir := filepath.Join(filepath.Dir(thisFile), "..", "..", "migrations")
+	m, merr := sqlmigrate.New("file://"+migrationsDir, dsn)
 	if merr != nil {
 		t.Logf("WARNING: migrations unavailable (%v) — skipping SQL migrations", merr)
 	} else {

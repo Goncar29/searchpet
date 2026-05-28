@@ -24,7 +24,7 @@ func TestVerificationTokenRepository_CreateAndGetByToken(t *testing.T) {
 		ID:        uuid.New(),
 		UserID:    user.ID,
 		Channel:   "email",
-		CodeHash:  "abc123hashvalue00000000000000000000000000000000000000000000000000",
+		CodeHash:  "abc123hashvalue0000000000000000000000000000000000000000000000000",
 		ExpiresAt: time.Now().Add(30 * time.Minute),
 		Used:      false,
 	}
@@ -61,7 +61,7 @@ func TestVerificationTokenRepository_GetByToken_Expired(t *testing.T) {
 		ID:        uuid.New(),
 		UserID:    user.ID,
 		Channel:   "email",
-		CodeHash:  "expiredhashvalue0000000000000000000000000000000000000000000000000",
+		CodeHash:  "expiredhashvalue000000000000000000000000000000000000000000000000",
 		ExpiresAt: time.Now().Add(-1 * time.Minute), // already expired
 		Used:      false,
 	}
