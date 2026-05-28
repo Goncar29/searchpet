@@ -32,7 +32,7 @@ vi.mock('leaflet', () => ({
 }));
 
 // jsdom doesn't implement geolocation
-Object.defineProperty(global.navigator, 'geolocation', {
+Object.defineProperty(globalThis.navigator, 'geolocation', {
   value: {
     getCurrentPosition: vi.fn((success) =>
       success({ coords: { latitude: -34.9011, longitude: -56.1645 } })

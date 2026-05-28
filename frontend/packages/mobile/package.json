@@ -11,7 +11,7 @@
     "web": "expo start --web",
     "lint": "eslint .",
     "test": "jest --watchAll",
-    "test:run": "jest --watchAll=false"
+    "test:run": "jest --watchAll=false --passWithNoTests"
   },
   "dependencies": {
     "@react-navigation/native": "^6.1.18",

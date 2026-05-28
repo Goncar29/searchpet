@@ -125,7 +125,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Run tests
-        run: pnpm run test:run -- --passWithNoTests
+        run: pnpm run test:run
 
   # ============================================
   # Deploy Backend (Render) — requiere RENDER_DEPLOY_HOOK_URL en GitHub Secrets
