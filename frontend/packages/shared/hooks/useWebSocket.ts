@@ -67,7 +67,7 @@ export type WsConnectionState =
 const MIN_DELAY_MS = 1_000;
 const MAX_DELAY_MS = 30_000;
 
-interface UseWebSocketOptions {
+export interface UseWebSocketOptions {
   /** Set to false to skip connecting (e.g. user not authenticated). Default: true */
   enabled?: boolean;
   /** Called for every incoming envelope. Stable ref — updates without re-connecting. */
