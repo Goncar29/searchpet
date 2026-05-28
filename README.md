@@ -95,7 +95,7 @@ Handler (HTTP/WS) → Service (Lógica) → Repository (BD) → Domain (Entidad)
 
 - Go 1.22+
 - Docker + Docker Compose
-- Node.js 20+
+- Node.js 24+ (LTS)
 - pnpm 10+ (`npm install -g pnpm`)
 
 ### 1. Clonar el repo
