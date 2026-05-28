@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -77,6 +78,14 @@ func (r *PostgresReportRepository) UpdateVerified(ctx context.Context, id uuid.U
 func (r *PostgresReportRepository) FindNearby(lat, lng float64, radiusMeters float64) ([]domain.Report, error) {
 	var reports []domain.Report
 
+	// ORDER BY uses fmt.Sprintf to embed float64 values directly — gorm.Expr with ?
+	// params can silently drop ordering for PostGIS expressions in some GORM versions.
+	// Embedding float64 is safe: no injection risk since the type is not user-controlled text.
+	orderExpr := fmt.Sprintf(
+		"ST_Distance(ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography, ST_SetSRID(ST_MakePoint(%g, %g), 4326)::geography) ASC",
+		lng, lat,
+	)
+
 	err := r.db.Preload("Pet").Preload("Reporter").
 		Where(`
 			ST_DWithin(
@@ -85,12 +94,7 @@ func (r *PostgresReportRepository) FindNearby(lat, lng float64, radiusMeters flo
 				?
 			)
 		`, lng, lat, radiusMeters).
-		Order(gorm.Expr(`
-			ST_Distance(
-				ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography,
-				ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography
-			) ASC
-		`, lng, lat)).
+		Order(orderExpr).
 		Find(&reports).Error
 
 	return reports, err

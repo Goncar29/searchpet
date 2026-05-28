@@ -10,6 +10,7 @@
 package testdb
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -111,6 +112,12 @@ func SetupTestDB(t *testing.T) *gorm.DB {
 		t.Fatalf("testdb: failed to connect after 5 attempts: %v", err)
 	}
 
+	// AutoMigrate first — creates all base tables from domain models.
+	// SQL migrations run after so that ALTER TABLE statements find existing tables.
+	if migrateErr := db.AutoMigrate(allModels...); migrateErr != nil {
+		t.Fatalf("testdb: AutoMigrate failed: %v", migrateErr)
+	}
+
 	// Run SQL migrations (graceful — warn but don't fail if migrations dir not found).
 	// Use runtime.Caller to get an absolute path to this file, then navigate to backend/migrations/.
 	// This is cwd-independent and works both locally and in CI.
@@ -120,15 +127,27 @@ func SetupTestDB(t *testing.T) *gorm.DB {
 	if merr != nil {
 		t.Logf("WARNING: migrations unavailable (%v) — skipping SQL migrations", merr)
 	} else {
-		if upErr := m.Up(); upErr != nil && upErr != sqlmigrate.ErrNoChange {
-			t.Logf("WARNING: migration Up failed (%v) — continuing with AutoMigrate only", upErr)
+		upErr := m.Up()
+		if upErr != nil && upErr != sqlmigrate.ErrNoChange {
+			// Recover from dirty state left by a previous failed run.
+			var dirtyErr *sqlmigrate.ErrDirty
+			if errors.As(upErr, &dirtyErr) {
+				resetTo := dirtyErr.Version - 1
+				if dirtyErr.Version == 0 {
+					resetTo = 0
+				}
+				if forceErr := m.Force(int(resetTo)); forceErr == nil {
+					if retryErr := m.Up(); retryErr != nil && retryErr != sqlmigrate.ErrNoChange {
+						t.Logf("WARNING: migration Up failed after dirty recovery (%v)", retryErr)
+					}
+				} else {
+					t.Logf("WARNING: failed to recover from dirty migration state (%v)", forceErr)
+				}
+			} else {
+				t.Logf("WARNING: migration Up failed (%v)", upErr)
+			}
 		}
 		m.Close()
-	}
-
-	// AutoMigrate creates or updates tables for all domain models.
-	if migrateErr := db.AutoMigrate(allModels...); migrateErr != nil {
-		t.Fatalf("testdb: AutoMigrate failed: %v", migrateErr)
 	}
 
 	// Truncate all tables after each test to ensure isolation.
