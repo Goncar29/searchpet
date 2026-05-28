@@ -27,6 +27,6 @@ describe('SheltersPage', () => {
 
   it('muestra al menos un refugio hardcodeado', () => {
     render(<SheltersPage />, { wrapper });
-    expect(screen.getByText('Refugio Animal Uruguay')).toBeTruthy();
+    expect(screen.getByText('SOS Rescate Animal Uruguay')).toBeTruthy();
   });
 });
