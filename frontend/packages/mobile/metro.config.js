@@ -9,17 +9,31 @@ const config = getDefaultConfig(projectRoot);
 // Permite que Metro acceda a archivos fuera de su project root
 config.watchFolders = [sharedRoot];
 
+// Resuelve la ubicación real de un módulo desde el project root.
+// require.resolve sigue symlinks de pnpm correctamente en cualquier entorno.
+function resolveModule(mod) {
+  try {
+    return path.dirname(require.resolve(`${mod}/package.json`, { paths: [projectRoot] }));
+  } catch {
+    return path.resolve(projectRoot, 'node_modules', mod);
+  }
+}
+
 // Mapeo explícito de módulos críticos.
-// react y react-native DEBEN estar pineados acá para evitar múltiples instancias
-// en el bundle — symptom: "Cannot read property 'useMemo' of null".
-// Con pnpm monorepo, Metro puede resolver react desde rutas distintas al
-// atravesar shared/ o los módulos de expo-router. Forzamos una sola instancia.
+// react y react-native deben apuntar a UNA sola instancia para evitar el crash
+// "Cannot read property 'useMemo' of null" en pnpm monorepo.
 config.resolver.extraNodeModules = {
   '@shared': sharedRoot,
-  'react': path.resolve(projectRoot, 'node_modules/react'),
-  'react-native': path.resolve(projectRoot, 'node_modules/react-native'),
-  '@tanstack/react-query': path.resolve(projectRoot, 'node_modules/@tanstack/react-query'),
-  '@babel/runtime': path.resolve(projectRoot, 'node_modules/@babel/runtime'),
+  'react': resolveModule('react'),
+  'react-native': resolveModule('react-native'),
+  '@tanstack/react-query': resolveModule('@tanstack/react-query'),
+  '@babel/runtime': resolveModule('@babel/runtime'),
 };
+
+// Excluir paquetes de tipos de la resolución de módulos en runtime.
+// @types/* no tienen código ejecutable — Metro no debe usarlos como módulos.
+config.resolver.blockList = [
+  /node_modules\/.*\/node_modules\/@types\/.*/,
+];
 
 module.exports = config;
