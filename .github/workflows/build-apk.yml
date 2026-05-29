@@ -52,6 +52,16 @@ jobs:
         env:
           EXPO_PUBLIC_API_URL: ${{ secrets.API_URL }}
 
+      # Compose Compiler 1.5.15 requiere Kotlin 1.9.25 pero prebuild genera 1.9.24
+      - name: Patch Kotlin version
+        working-directory: frontend/packages/mobile/android
+        run: |
+          if [ -f gradle/libs.versions.toml ]; then
+            sed -i 's/^kotlin = "1\.9\.24"/kotlin = "1.9.25"/' gradle/libs.versions.toml
+            sed -i 's/^kotlinVersion = "1\.9\.24"/kotlinVersion = "1.9.25"/' gradle/libs.versions.toml
+          fi
+          sed -i 's/kotlinVersion = "1\.9\.24"/kotlinVersion = "1.9.25"/' build.gradle 2>/dev/null || true
+
       - name: Build APK
         working-directory: frontend/packages/mobile/android
         run: ./gradlew assembleRelease
