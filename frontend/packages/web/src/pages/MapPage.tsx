@@ -43,7 +43,8 @@ export function MapPage() {
     );
   }, []);
 
-  const { data: reports, isLoading } = useNearbyReports(userLocation[0], userLocation[1], 20, true);
+  const [radius, setRadius] = useState(20);
+  const { data: reports, isLoading } = useNearbyReports(userLocation[0], userLocation[1], radius, true);
 
   const getIcon = (status: string) => {
     switch (status) {
@@ -68,6 +69,18 @@ export function MapPage() {
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{t('map:title')}</h1>
         <div className="flex items-center gap-4 text-sm text-gray-700 dark:text-gray-300">
+          <label className="flex items-center gap-1 font-medium">
+            {t('map:radius')}:
+            <select
+              value={radius}
+              onChange={(e) => setRadius(Number(e.target.value))}
+              className="ml-1 border border-gray-300 dark:border-gray-600 rounded px-2 py-0.5 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+            >
+              {[5, 10, 20, 50].map((km) => (
+                <option key={km} value={km}>{t('map:radiusKm', { km })}</option>
+              ))}
+            </select>
+          </label>
           <span className="flex items-center gap-1">
             <span className="w-3 h-3 rounded-full bg-lost inline-block"></span> {t('pets:status.lost')}
           </span>

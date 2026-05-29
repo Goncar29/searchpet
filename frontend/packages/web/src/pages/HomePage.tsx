@@ -37,8 +37,10 @@ export function HomePage() {
     setFilterStatus('');
   };
 
+  const [nearbyRadius, setNearbyRadius] = useState(20);
+
   // ── Datos ──
-  const { data: reports, isLoading: nearbyLoading } = useNearbyReports(-34.9011, -56.1645, 20, !isSearchMode);
+  const { data: reports, isLoading: nearbyLoading } = useNearbyReports(-34.9011, -56.1645, nearbyRadius, !isSearchMode);
   const { data: searchResults, isLoading: searchLoading } = useSearchPets({
     type: filterType || undefined,
     color: filterColor.trim() || undefined,
@@ -216,6 +218,19 @@ export function HomePage() {
                 <option key={s.value} value={s.value}>{s.label}</option>
               ))}
             </select>
+
+            {/* Radio (solo en modo nearby) */}
+            {!isSearchMode && (
+              <select
+                value={nearbyRadius}
+                onChange={(e) => setNearbyRadius(Number(e.target.value))}
+                className="border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-primary"
+              >
+                {[5, 10, 20, 50].map((km) => (
+                  <option key={km} value={km}>{km} km</option>
+                ))}
+              </select>
+            )}
 
             {/* Limpiar */}
             {isSearchMode && (

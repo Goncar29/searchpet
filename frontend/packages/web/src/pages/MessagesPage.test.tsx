@@ -30,19 +30,19 @@ function wrapper({ children }: { children: React.ReactNode }) {
 
 describe('MessagesPage', () => {
   it('renderiza sin lanzar errores', () => {
-    vi.mocked(useConversations).mockReturnValue({ data: [], isLoading: false } as ReturnType<typeof useConversations>);
+    vi.mocked(useConversations).mockReturnValue({ data: [], isLoading: false } as unknown as ReturnType<typeof useConversations>);
     render(<MessagesPage />, { wrapper });
     expect(document.body).toBeTruthy();
   });
 
   it('muestra indicador de carga cuando isLoading es true', () => {
-    vi.mocked(useConversations).mockReturnValue({ data: undefined, isLoading: true } as ReturnType<typeof useConversations>);
+    vi.mocked(useConversations).mockReturnValue({ data: undefined, isLoading: true } as unknown as ReturnType<typeof useConversations>);
     render(<MessagesPage />, { wrapper });
     expect(screen.getByText('messages:loading')).toBeTruthy();
   });
 
   it('muestra estado vacío cuando no hay conversaciones', () => {
-    vi.mocked(useConversations).mockReturnValue({ data: [], isLoading: false } as ReturnType<typeof useConversations>);
+    vi.mocked(useConversations).mockReturnValue({ data: [], isLoading: false } as unknown as ReturnType<typeof useConversations>);
     render(<MessagesPage />, { wrapper });
     expect(screen.getByText('messages:empty')).toBeTruthy();
   });
@@ -61,7 +61,7 @@ describe('MessagesPage', () => {
         },
       ],
       isLoading: false,
-    } as ReturnType<typeof useConversations>);
+    } as unknown as ReturnType<typeof useConversations>);
 
     render(<MessagesPage />, { wrapper });
 

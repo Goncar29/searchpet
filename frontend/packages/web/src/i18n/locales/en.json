@@ -232,6 +232,8 @@
     "clickToReport": "Click on the map to add a report",
     "reports": "{{count}} reports in the area",
     "viewDetails": "View details",
-    "pet": "Pet"
+    "pet": "Pet",
+    "radius": "Radius",
+    "radiusKm": "{{km}} km"
   }
 }

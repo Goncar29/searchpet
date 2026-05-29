@@ -232,6 +232,8 @@
     "clickToReport": "Hacé clic en el mapa para agregar un reporte",
     "reports": "{{count}} reportes en la zona",
     "viewDetails": "Ver detalles",
-    "pet": "Mascota"
+    "pet": "Mascota",
+    "radius": "Radio",
+    "radiusKm": "{{km}} km"
   }
 }

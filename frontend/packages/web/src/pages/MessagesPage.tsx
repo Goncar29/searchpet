@@ -73,7 +73,7 @@ export function MessagesPage() {
                         {otherUserName}
                       </span>
                       <span className="text-xs text-gray-400 dark:text-gray-500 whitespace-nowrap flex-shrink-0">
-                        {timeAgo(msg.created_at, t)}
+                        {timeAgo(msg.created_at, t as (key: string, opts?: object) => string)}
                       </span>
                     </div>
                     <div className="flex items-center gap-2 mt-0.5">
