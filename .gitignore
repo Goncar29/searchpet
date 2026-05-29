@@ -24,6 +24,9 @@ GoogleService-Info.plist
 firebase-credentials.json
 *firebase-adminsdk*.json
 
+# Firebase SW — generated at build-time from src/firebase-messaging-sw.template.js
+frontend/packages/web/public/firebase-messaging-sw.js
+
 # Node
 node_modules/
 .expo/
