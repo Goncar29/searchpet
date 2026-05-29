@@ -52,29 +52,15 @@ jobs:
         env:
           EXPO_PUBLIC_API_URL: ${{ secrets.API_URL }}
 
-      - name: Diagnose Gradle files
+      # Compose Compiler 1.5.15 requiere Kotlin 1.9.25.
+      # build.gradle define kotlinVersion='1.9.25' pero el classpath no usa esa variable.
+      # Parcheamos el classpath para inyectar la versión explícitamente.
+      - name: Patch Kotlin version in classpath
         working-directory: frontend/packages/mobile/android
         run: |
-          echo "=== build.gradle ==="
-          cat build.gradle
-          echo "=== settings.gradle ==="
-          cat settings.gradle 2>/dev/null || echo "(no settings.gradle)"
-
-      # Compose Compiler 1.5.15 requiere Kotlin 1.9.25 pero prebuild genera 1.9.24
-      - name: Patch Kotlin version
-        working-directory: frontend/packages/mobile/android
-        run: |
-          echo "=== gradle.properties kotlin entries ==="
-          grep -i "kotlin" gradle.properties 2>/dev/null || echo "(none)"
-          sed -i 's/android\.kotlinVersion=1\.9\.24/android.kotlinVersion=1.9.25/g' gradle.properties 2>/dev/null || true
-          echo "=== After gradle.properties patch ==="
-          grep -i "kotlin" gradle.properties 2>/dev/null || echo "(none)"
-
-          if [ -f gradle/libs.versions.toml ]; then
-            sed -i 's/kotlin = "1\.9\.24"/kotlin = "1.9.25"/g' gradle/libs.versions.toml
-            sed -i 's/kotlinVersion = "1\.9\.24"/kotlinVersion = "1.9.25"/g' gradle/libs.versions.toml
-          fi
-          sed -i 's/kotlinVersion = "1\.9\.24"/kotlinVersion = "1.9.25"/g' build.gradle 2>/dev/null || true
+          sed -i "s/classpath('org.jetbrains.kotlin:kotlin-gradle-plugin')/classpath(\"org.jetbrains.kotlin:kotlin-gradle-plugin:\${kotlinVersion}\")/" build.gradle
+          echo "=== Kotlin classpath after patch ==="
+          grep "kotlin-gradle-plugin" build.gradle
 
       - name: Build APK
         working-directory: frontend/packages/mobile/android
