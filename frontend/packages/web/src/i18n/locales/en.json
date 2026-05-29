@@ -24,6 +24,7 @@
     "map": "Map",
     "shelters": "Shelters",
     "myPets": "My Pets",
+    "messages": "Messages",
     "publish": "Post",
     "login": "Login",
     "register": "Register",
@@ -33,6 +34,17 @@
     "language": "Language",
     "openMenu": "Open menu",
     "closeMenu": "Close menu"
+  },
+  "messages": {
+    "title": "Messages",
+    "empty": "No conversations yet",
+    "loading": "Loading conversations..."
+  },
+  "chat": {
+    "inputPlaceholder": "Type a message...",
+    "send": "Send",
+    "typing": "typing...",
+    "loadingMessages": "Loading messages..."
   },
   "home": {
     "hero": {

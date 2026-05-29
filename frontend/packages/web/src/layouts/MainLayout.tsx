@@ -69,12 +69,20 @@ export function MainLayout() {
                 </Link>
               ))}
               {isAuthenticated && (
-                <Link
-                  to="/pets/mine"
-                  className={`text-sm font-medium whitespace-nowrap ${isActive('/pets/mine') ? activeLinkClass : inactiveLinkClass}`}
-                >
-                  {t('myPets')}
-                </Link>
+                <>
+                  <Link
+                    to="/pets/mine"
+                    className={`text-sm font-medium whitespace-nowrap ${isActive('/pets/mine') ? activeLinkClass : inactiveLinkClass}`}
+                  >
+                    {t('myPets')}
+                  </Link>
+                  <Link
+                    to="/messages"
+                    className={`text-sm font-medium whitespace-nowrap ${isActive('/messages') ? activeLinkClass : inactiveLinkClass}`}
+                  >
+                    {t('messages')}
+                  </Link>
+                </>
               )}
             </div>
 
@@ -199,6 +207,16 @@ export function MainLayout() {
                     } transition-colors duration-150`}
                   >
                     {t('myPets')}
+                  </Link>
+                  <Link
+                    to="/messages"
+                    className={`text-sm font-medium py-2 px-3 rounded-md ${
+                      isActive('/messages')
+                        ? 'text-primary bg-orange-50 dark:bg-orange-950'
+                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+                    } transition-colors duration-150`}
+                  >
+                    {t('messages')}
                   </Link>
                   <Link
                     to="/pets/create"

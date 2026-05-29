@@ -22,6 +22,8 @@ import { StoriesPage } from './pages/StoriesPage';
 import { GroupsPage } from './pages/GroupsPage';
 import { GroupDetailPage } from './pages/GroupDetailPage';
 import { BlockedUsersPage } from './pages/BlockedUsersPage';
+import { MessagesPage } from './pages/MessagesPage';
+import { ChatPage } from './pages/ChatPage';
 
 export default function App() {
   return (
@@ -52,6 +54,8 @@ export default function App() {
             <Route path="/reports/create" element={<CreateReportPage />} />
             <Route path="/stories/create" element={<CreateStoryPage />} />
             <Route path="/blocked-users" element={<BlockedUsersPage />} />
+            <Route path="/messages" element={<MessagesPage />} />
+            <Route path="/messages/:userId" element={<ChatPage />} />
           </Route>
         </Route>
 

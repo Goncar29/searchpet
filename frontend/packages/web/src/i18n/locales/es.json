@@ -24,6 +24,7 @@
     "map": "Mapa",
     "shelters": "Refugios",
     "myPets": "Mis Mascotas",
+    "messages": "Mensajes",
     "publish": "Publicar",
     "login": "Iniciar sesión",
     "register": "Registrarse",
@@ -33,6 +34,17 @@
     "language": "Idioma",
     "openMenu": "Abrir menú",
     "closeMenu": "Cerrar menú"
+  },
+  "messages": {
+    "title": "Mensajes",
+    "empty": "Aún no tenés conversaciones",
+    "loading": "Cargando conversaciones..."
+  },
+  "chat": {
+    "inputPlaceholder": "Escribí un mensaje...",
+    "send": "Enviar",
+    "typing": "escribiendo...",
+    "loadingMessages": "Cargando mensajes..."
   },
   "home": {
     "hero": {
