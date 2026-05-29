@@ -57,10 +57,17 @@ jobs:
         working-directory: frontend/packages/mobile/android
         run: |
           if [ -f gradle/libs.versions.toml ]; then
-            sed -i 's/^kotlin = "1\.9\.24"/kotlin = "1.9.25"/' gradle/libs.versions.toml
-            sed -i 's/^kotlinVersion = "1\.9\.24"/kotlinVersion = "1.9.25"/' gradle/libs.versions.toml
+            echo "=== Before patch ==="
+            grep -i "kotlin" gradle/libs.versions.toml || echo "(no kotlin entries)"
+            sed -i 's/kotlin = "1\.9\.24"/kotlin = "1.9.25"/g' gradle/libs.versions.toml
+            sed -i 's/kotlinVersion = "1\.9\.24"/kotlinVersion = "1.9.25"/g' gradle/libs.versions.toml
+            echo "=== After patch ==="
+            grep -i "kotlin" gradle/libs.versions.toml || echo "(no kotlin entries)"
+          else
+            echo "libs.versions.toml not found, patching build.gradle"
+            grep -i "kotlin" build.gradle || echo "(no kotlin entries in build.gradle)"
+            sed -i 's/kotlinVersion = "1\.9\.24"/kotlinVersion = "1.9.25"/g' build.gradle
           fi
-          sed -i 's/kotlinVersion = "1\.9\.24"/kotlinVersion = "1.9.25"/' build.gradle 2>/dev/null || true
 
       - name: Build APK
         working-directory: frontend/packages/mobile/android
