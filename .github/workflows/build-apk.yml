@@ -52,11 +52,13 @@ jobs:
         env:
           EXPO_PUBLIC_API_URL: ${{ secrets.API_URL }}
 
-      - name: Diagnose Gradle Kotlin version sources
+      - name: Diagnose Gradle files
         working-directory: frontend/packages/mobile/android
         run: |
-          echo "=== grep 1.9.24 in all gradle files ==="
-          grep -rn "1\.9\.24" . --include="*.gradle" --include="*.toml" --include="*.kts" --include="*.properties" 2>/dev/null || echo "(not found)"
+          echo "=== build.gradle ==="
+          cat build.gradle
+          echo "=== settings.gradle ==="
+          cat settings.gradle 2>/dev/null || echo "(no settings.gradle)"
 
       # Compose Compiler 1.5.15 requiere Kotlin 1.9.25 pero prebuild genera 1.9.24
       - name: Patch Kotlin version
