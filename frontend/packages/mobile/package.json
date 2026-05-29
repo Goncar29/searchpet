@@ -45,6 +45,7 @@
     "@babel/preset-env": "^7.29.5",
     "@babel/preset-typescript": "^7.28.5",
     "@react-native-community/cli": "14.1.2",
+    "expo-modules-autolinking": "2.0.8",
     "@testing-library/react-native": "^13.3.3",
     "@types/jest": "^29.5.14",
     "@types/react": "18.3.1",

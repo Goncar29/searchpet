@@ -105,6 +105,9 @@ importers:
       '@types/react':
         specifier: 18.3.1
         version: 18.3.1
+      expo-modules-autolinking:
+        specifier: 2.0.8
+        version: 2.0.8
       jest:
         specifier: ^29.7.0
         version: 29.7.0(@types/node@25.9.1)
