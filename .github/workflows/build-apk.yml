@@ -11,6 +11,9 @@ on:
         required: true
         default: '1.0.0'
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build-apk:
     name: Build Android APK
@@ -41,7 +44,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: frontend/packages/mobile
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --no-frozen-lockfile
 
       - name: Generate native Android project
         working-directory: frontend/packages/mobile
