@@ -51,6 +51,7 @@ jobs:
         run: npx expo prebuild --platform android --clean
         env:
           EXPO_PUBLIC_API_URL: ${{ secrets.API_URL }}
+          EXPO_PUBLIC_MAPTILER_KEY: ${{ secrets.MAPTILER_KEY }}
 
       # Compose Compiler 1.5.15 requiere Kotlin 1.9.25.
       # build.gradle define kotlinVersion='1.9.25' pero el classpath no usa esa variable.
