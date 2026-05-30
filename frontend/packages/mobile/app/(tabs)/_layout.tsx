@@ -17,17 +17,7 @@ function TabIcon({ name, focused }: { name: string; focused: boolean }) {
 
   return (
     <View style={{ alignItems: 'center', paddingTop: 4 }}>
-      <Text style={{ fontSize: 22 }}>{icons[name]}</Text>
-      <Text
-        style={{
-          fontSize: 10,
-          marginTop: 2,
-          color: focused ? COLORS.primary : COLORS.textMuted,
-          fontWeight: focused ? '600' : '400',
-        }}
-      >
-        {name}
-      </Text>
+      <Text style={{ fontSize: 24, opacity: focused ? 1 : 0.55 }}>{icons[name]}</Text>
     </View>
   );
 }

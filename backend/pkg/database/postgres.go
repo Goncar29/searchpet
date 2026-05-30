@@ -2,6 +2,7 @@ package database
 
 import (
 	"fmt"
+	"os"
 
 	sqlmigrate "github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
@@ -35,8 +36,12 @@ func RunAutoMigrate(db *gorm.DB) error {
 }
 
 // RunMigrations executes SQL migration files from the given migrationsDir path
-// using golang-migrate. Returns nil if no changes were needed (ErrNoChange).
+// using golang-migrate. Returns nil if the directory doesn't exist or has no files.
 func RunMigrations(dsn, migrationsDir string) error {
+	if _, err := os.Stat(migrationsDir); os.IsNotExist(err) {
+		return nil // no hay migraciones SQL todavía — OK
+	}
+
 	m, err := sqlmigrate.New("file://"+migrationsDir, dsn)
 	if err != nil {
 		return fmt.Errorf("error creando migrador: %w", err)

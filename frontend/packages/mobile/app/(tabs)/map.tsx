@@ -1,17 +1,16 @@
 // ============================================================
-// SearchPet - Map Screen (Mapa interactivo con reportes)
+// SearchPet - Map Screen (MapLibre — OpenStreetMap, gratuito)
 // ============================================================
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, Component, type ReactNode } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
-  Dimensions,
 } from 'react-native';
-import MapView, { Marker, Callout, PROVIDER_DEFAULT } from 'react-native-maps';
+import MapLibreGL from '@maplibre/maplibre-react-native';
 import { useRouter } from 'expo-router';
 import * as Location from 'expo-location';
 import { useNearbyReports } from '../../../shared/hooks';
@@ -19,11 +18,51 @@ import { useLocationStore } from '../../store';
 import { COLORS, SPACING, FONTS, MAP_DEFAULTS } from '../../constants';
 import type { Report } from '../../../shared/types';
 
-const { width, height } = Dimensions.get('window');
+// MapLibre no necesita token de Mapbox
+MapLibreGL.setAccessToken(null);
+
+// Usar MapTiler (gratis, 100k tiles/mes, sin tarjeta).
+// Si EXPO_PUBLIC_MAPTILER_KEY no está seteada, usa los tiles demo de MapLibre.
+const MAPTILER_KEY = process.env.EXPO_PUBLIC_MAPTILER_KEY ?? '';
+const MAP_STYLE = MAPTILER_KEY
+  ? `https://api.maptiler.com/maps/streets-v2/style.json?key=${MAPTILER_KEY}`
+  : 'https://demotiles.maplibre.org/style.json';
+
+// ============================================================
+// Error Boundary — evita que un crash del mapa cierre la app
+// ============================================================
+
+class MapErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
+  constructor(props: { children: ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorIcon}>🗺️</Text>
+          <Text style={styles.errorText}>
+            El mapa no está disponible en este momento.{'\n'}
+            Verificá tu conexión o los permisos de la app.
+          </Text>
+        </View>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+// ============================================================
+// Screen
+// ============================================================
 
 export default function MapScreen() {
   const router = useRouter();
-  const mapRef = useRef<MapView>(null);
+  const cameraRef = useRef<MapLibreGL.Camera>(null);
   const { latitude, longitude, setLocation } = useLocationStore();
   const [selectedReport, setSelectedReport] = useState<Report | null>(null);
 
@@ -43,36 +82,36 @@ export default function MapScreen() {
         const location = await Location.getCurrentPositionAsync({});
         setLocation(location.coords.latitude, location.coords.longitude);
       }
-    } catch (error) {
-      console.log('Error getting location:', error);
+    } catch {
+      // silencioso — el mapa igual carga con la ubicación default
     }
   };
 
   const getMarkerColor = (status: string) => {
     switch (status) {
-      case 'lost': return COLORS.lost;
-      case 'found': return COLORS.found;
+      case 'lost':     return COLORS.lost;
+      case 'found':    return COLORS.found;
       case 'sighting': return COLORS.sighting;
-      default: return COLORS.primary;
+      default:         return COLORS.primary;
     }
   };
 
   const getStatusLabel = (status: string) => {
     switch (status) {
-      case 'lost': return 'PERDIDO';
-      case 'found': return 'ENCONTRADO';
+      case 'lost':     return 'PERDIDO';
+      case 'found':    return 'ENCONTRADO';
       case 'sighting': return 'AVISTAMIENTO';
-      default: return status.toUpperCase();
+      default:         return status.toUpperCase();
     }
   };
 
   const centerOnUser = () => {
-    if (latitude && longitude && mapRef.current) {
-      mapRef.current.animateToRegion({
-        latitude,
-        longitude,
-        latitudeDelta: 0.01,
-        longitudeDelta: 0.01,
+    if (latitude && longitude) {
+      // MapLibre: [longitude, latitude] — orden invertido vs react-native-maps
+      cameraRef.current?.setCamera({
+        centerCoordinate: [longitude, latitude],
+        zoomLevel: 14,
+        animationDuration: 300,
       });
     }
   };
@@ -87,92 +126,105 @@ export default function MapScreen() {
   }
 
   return (
-    <View style={styles.container}>
-      <MapView
-        ref={mapRef}
-        style={styles.map}
-        provider={PROVIDER_DEFAULT}
-        initialRegion={{
-          latitude: lat,
-          longitude: lng,
-          latitudeDelta: MAP_DEFAULTS.latitudeDelta,
-          longitudeDelta: MAP_DEFAULTS.longitudeDelta,
-        }}
-        showsUserLocation
-        showsMyLocationButton={false}
-      >
-        {reports?.map((report) => (
-          <Marker
-            key={report.id}
-            coordinate={{
-              latitude: report.latitude,
-              longitude: report.longitude,
-            }}
-            pinColor={getMarkerColor(report.status)}
-            onPress={() => setSelectedReport(report)}
-          >
-            <Callout
-              onPress={() => router.push(`/pet/${report.pet?.id || report.pet_id}`)}
+    <MapErrorBoundary>
+      <View style={styles.container}>
+        <MapLibreGL.MapView
+          style={styles.map}
+          styleURL={MAP_STYLE}
+          onPress={() => setSelectedReport(null)}
+        >
+          <MapLibreGL.Camera
+            ref={cameraRef}
+            zoomLevel={12}
+            centerCoordinate={[lng, lat]}
+          />
+
+          <MapLibreGL.UserLocation visible />
+
+          {reports?.map((report) => (
+            <MapLibreGL.PointAnnotation
+              key={report.id}
+              id={`marker-${report.id}`}
+              // MapLibre: [longitude, latitude]
+              coordinate={[report.longitude, report.latitude]}
+              onSelected={() => setSelectedReport(report)}
             >
-              <View style={styles.callout}>
-                <Text style={styles.calloutTitle}>
-                  {report.pet?.name || 'Mascota'}
-                </Text>
-                <View
-                  style={[
-                    styles.statusBadge,
-                    { backgroundColor: getMarkerColor(report.status) },
-                  ]}
-                >
-                  <Text style={styles.statusText}>
-                    {getStatusLabel(report.status)}
-                  </Text>
-                </View>
-                {report.location_description && (
-                  <Text style={styles.calloutDesc}>
-                    {report.location_description}
-                  </Text>
-                )}
-                <Text style={styles.calloutAction}>Toca para ver detalles</Text>
-              </View>
-            </Callout>
-          </Marker>
-        ))}
-      </MapView>
+              <View
+                style={[
+                  styles.marker,
+                  { backgroundColor: getMarkerColor(report.status) },
+                ]}
+              />
+            </MapLibreGL.PointAnnotation>
+          ))}
+        </MapLibreGL.MapView>
 
-      {/* Botón centrar en usuario */}
-      <TouchableOpacity style={styles.centerButton} onPress={centerOnUser}>
-        <Text style={styles.centerIcon}>📍</Text>
-      </TouchableOpacity>
+        {/* Botón centrar en usuario */}
+        <TouchableOpacity style={styles.centerButton} onPress={centerOnUser}>
+          <Text style={styles.centerIcon}>📍</Text>
+        </TouchableOpacity>
 
-      {/* Leyenda */}
-      <View style={styles.legend}>
-        <View style={styles.legendItem}>
-          <View style={[styles.legendDot, { backgroundColor: COLORS.lost }]} />
-          <Text style={styles.legendText}>Perdido</Text>
+        {/* Leyenda */}
+        <View style={styles.legend}>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendDot, { backgroundColor: COLORS.lost }]} />
+            <Text style={styles.legendText}>Perdido</Text>
+          </View>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendDot, { backgroundColor: COLORS.found }]} />
+            <Text style={styles.legendText}>Encontrado</Text>
+          </View>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendDot, { backgroundColor: COLORS.sighting }]} />
+            <Text style={styles.legendText}>Avistado</Text>
+          </View>
         </View>
-        <View style={styles.legendItem}>
-          <View style={[styles.legendDot, { backgroundColor: COLORS.found }]} />
-          <Text style={styles.legendText}>Encontrado</Text>
+
+        {/* Contador */}
+        <View style={styles.counter}>
+          <Text style={styles.counterText}>
+            {reports?.length || 0} reportes en la zona
+          </Text>
         </View>
-        <View style={styles.legendItem}>
-          <View style={[styles.legendDot, { backgroundColor: COLORS.sighting }]} />
-          <Text style={styles.legendText}>Avistado</Text>
-        </View>
+
+        {/* Card del reporte seleccionado — mejor UX que callout popup */}
+        {selectedReport && (
+          <TouchableOpacity
+            style={styles.reportCard}
+            onPress={() =>
+              router.push(`/pet/${selectedReport.pet?.id || selectedReport.pet_id}`)
+            }
+            activeOpacity={0.85}
+          >
+            <View
+              style={[
+                styles.statusBadge,
+                { backgroundColor: getMarkerColor(selectedReport.status) },
+              ]}
+            >
+              <Text style={styles.statusText}>
+                {getStatusLabel(selectedReport.status)}
+              </Text>
+            </View>
+            <Text style={styles.reportName}>
+              {selectedReport.pet?.name || 'Mascota'}
+            </Text>
+            {selectedReport.location_description && (
+              <Text style={styles.reportDesc}>
+                {selectedReport.location_description}
+              </Text>
+            )}
+            <Text style={styles.reportAction}>Toca para ver detalles →</Text>
+          </TouchableOpacity>
+        )}
       </View>
-
-      {/* Contador */}
-      <View style={styles.counter}>
-        <Text style={styles.counterText}>
-          {reports?.length || 0} reportes en la zona
-        </Text>
-      </View>
-    </View>
+    </MapErrorBoundary>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  map: { flex: 1 },
   center: {
     flex: 1,
     justifyContent: 'center',
@@ -184,41 +236,25 @@ const styles = StyleSheet.create({
     fontSize: FONTS.sizes.md,
     color: COLORS.textSecondary,
   },
-  map: {
-    width,
-    height: height,
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: SPACING.xl,
   },
-  callout: {
-    width: 200,
-    padding: SPACING.sm,
-  },
-  calloutTitle: {
+  errorIcon: { fontSize: 48, marginBottom: SPACING.md },
+  errorText: {
     fontSize: FONTS.sizes.md,
-    fontWeight: '700',
-    color: COLORS.textPrimary,
-    marginBottom: 4,
-  },
-  statusBadge: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 4,
-    marginBottom: 6,
-  },
-  statusText: {
-    color: COLORS.white,
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  calloutDesc: {
-    fontSize: FONTS.sizes.sm,
     color: COLORS.textSecondary,
-    marginBottom: 4,
+    textAlign: 'center',
+    lineHeight: 24,
   },
-  calloutAction: {
-    fontSize: FONTS.sizes.xs,
-    color: COLORS.primary,
-    fontWeight: '600',
+  marker: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 2,
+    borderColor: COLORS.white,
   },
   centerButton: {
     position: 'absolute',
@@ -254,10 +290,7 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
-  legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
+  legendItem: { flexDirection: 'row', alignItems: 'center' },
   legendDot: {
     width: 10,
     height: 10,
@@ -281,6 +314,44 @@ const styles = StyleSheet.create({
   counterText: {
     color: COLORS.white,
     fontSize: FONTS.sizes.xs,
+    fontWeight: '600',
+  },
+  reportCard: {
+    position: 'absolute',
+    bottom: 140,
+    left: SPACING.lg,
+    right: SPACING.lg,
+    backgroundColor: COLORS.white,
+    borderRadius: 16,
+    padding: SPACING.md,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  statusBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 4,
+    marginBottom: 6,
+  },
+  statusText: { color: COLORS.white, fontSize: 11, fontWeight: '700' },
+  reportName: {
+    fontSize: FONTS.sizes.md,
+    fontWeight: '700',
+    color: COLORS.textPrimary,
+    marginBottom: 2,
+  },
+  reportDesc: {
+    fontSize: FONTS.sizes.sm,
+    color: COLORS.textSecondary,
+    marginBottom: 4,
+  },
+  reportAction: {
+    fontSize: FONTS.sizes.sm,
+    color: COLORS.primary,
     fontWeight: '600',
   },
 });

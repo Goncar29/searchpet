@@ -32,6 +32,9 @@ RUN apk --no-cache add ca-certificates tzdata
 # Copiar binario compilado
 COPY --from=builder /app/main .
 
+# Copiar migraciones SQL (puede estar vacío — RunMigrations lo tolera)
+COPY --from=builder /app/migrations ./migrations
+
 # Copiar .env si existe
 COPY --from=builder /app/.env.example .env.example
 
