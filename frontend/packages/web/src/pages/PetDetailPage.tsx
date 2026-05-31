@@ -11,6 +11,7 @@ import { buildWhatsAppContactURL } from '@shared/utils/whatsappTemplates';
 import { useAuth } from '../context/AuthContext';
 import { SharePanel } from '../components/SharePanel';
 import { PdfFlyerButton } from '../components/PdfFlyerButton';
+import { TimelineMap } from '../components/TimelineMap';
 
 export function PetDetailPage() {
   const { t, i18n } = useTranslation(['pets', 'common']);
@@ -186,7 +187,7 @@ export function PetDetailPage() {
               <SharePanel
                 petId={pet.id}
                 petName={pet.name}
-                petStatus={pet.status}
+                pet={pet}
               />
               {isAuthenticated && (
                 <Link
@@ -365,6 +366,7 @@ export function PetDetailPage() {
                     </div>
                   ))}
                 </div>
+                <TimelineMap reports={reports ?? []} />
               </div>
             )}
           </div>
