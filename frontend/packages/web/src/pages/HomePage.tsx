@@ -28,13 +28,20 @@ export function HomePage() {
   const [filterType, setFilterType] = useState<PetType | ''>('');
   const [filterColor, setFilterColor] = useState('');
   const [filterStatus, setFilterStatus] = useState<PetStatus | ''>('');
+  const [filterBreed, setFilterBreed] = useState('');
+  const [filterFrom, setFilterFrom] = useState('');
+  const [filterTo, setFilterTo] = useState('');
 
-  const isSearchMode = !!filterType || filterColor.trim().length > 0 || !!filterStatus;
+  const isSearchMode = !!filterType || filterColor.trim().length > 0 || !!filterStatus
+    || filterBreed.trim().length > 0 || !!filterFrom || !!filterTo;
 
   const clearFilters = () => {
     setFilterType('');
     setFilterColor('');
     setFilterStatus('');
+    setFilterBreed('');
+    setFilterFrom('');
+    setFilterTo('');
   };
 
   const [nearbyRadius, setNearbyRadius] = useState(20);
@@ -45,6 +52,9 @@ export function HomePage() {
     type: filterType || undefined,
     color: filterColor.trim() || undefined,
     status: filterStatus || undefined,
+    breed: filterBreed.trim() || undefined,
+    from: filterFrom ? new Date(filterFrom).toISOString() : undefined,
+    to: filterTo ? new Date(filterTo).toISOString() : undefined,
   });
 
   const isLoading = isSearchMode ? searchLoading : nearbyLoading;
@@ -218,6 +228,31 @@ export function HomePage() {
                 <option key={s.value} value={s.value}>{s.label}</option>
               ))}
             </select>
+
+            {/* Raza */}
+            <input
+              type="text"
+              placeholder="Raza (ej: Labrador...)"
+              value={filterBreed}
+              onChange={(e) => setFilterBreed(e.target.value)}
+              className="border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-primary min-w-[180px]"
+            />
+
+            {/* Desde */}
+            <input
+              type="date"
+              value={filterFrom}
+              onChange={(e) => setFilterFrom(e.target.value)}
+              className="border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+
+            {/* Hasta */}
+            <input
+              type="date"
+              value={filterTo}
+              onChange={(e) => setFilterTo(e.target.value)}
+              className="border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-primary"
+            />
 
             {/* Radio (solo en modo nearby) */}
             {!isSearchMode && (
