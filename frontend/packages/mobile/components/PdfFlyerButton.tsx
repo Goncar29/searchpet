@@ -2,8 +2,8 @@
 // SearchPet — PdfFlyerButton (Mobile)
 // Genera un PDF flyer con datos de la mascota + QR code.
 // Usa expo-print (HTML → PDF via WebView) + expo-sharing.
-// El QR se carga vía api.qrserver.com dentro del WebView —
-// no requiere dependencias nativas adicionales.
+// El QR se genera localmente con el paquete qrcode (data URI base64),
+// sin dependencias de servicios externos.
 // ============================================================
 
 import { useState } from 'react';
@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
+import QRCode from 'qrcode';
 import { useGenerateShareLink } from '../../shared/hooks';
 import { COLORS, SPACING, FONTS, RADIUS } from '../constants';
 import type { Pet, Report } from '../../shared/types';
@@ -56,8 +57,8 @@ export function PdfFlyerButton({ pet, reports = [] }: PdfFlyerButtonProps) {
       const shareLink = await generateLink.mutateAsync({ petID: pet.id });
       const shareUrl = shareLink.share_url;
 
-      // 2. QR via API — el WebView de expo-print tiene acceso a internet
-      const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(shareUrl)}`;
+      // 2. QR generado localmente como data URI — sin dependencia de red
+      const qrDataUri = await QRCode.toDataURL(shareUrl, { width: 150, margin: 1 });
 
       const statusColor = pet.status === 'found' ? '#22c55e' : '#ef4444';
       const statusText = pet.status === 'found' ? '¡MASCOTA ENCONTRADA!' : '¡MASCOTA PERDIDA!';
@@ -125,7 +126,7 @@ export function PdfFlyerButton({ pet, reports = [] }: PdfFlyerButtonProps) {
   ${descriptionHtml}
 
   <div class="footer">
-    <img src="${qrApiUrl}" class="qr" />
+    <img src="${qrDataUri}" class="qr" />
     <div class="ft-text">
       <p class="ft-label">Escaneá el QR para ver más info y compartir:</p>
       <p class="ft-url">${shareUrl}</p>
