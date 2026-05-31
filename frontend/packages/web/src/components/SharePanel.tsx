@@ -7,14 +7,14 @@
 import { useState, useRef } from 'react';
 import { QRCodeSVG, QRCodeCanvas } from 'qrcode.react';
 import { useGenerateShareLink } from '@shared/hooks';
-import type { Pet, PetStatus, ShareLink } from '@shared/types';
+import type { Pet, ShareLink } from '@shared/types';
 import { buildWhatsAppMessage } from '@shared/utils/whatsappTemplates';
+import { getExpiryInfo } from '@shared/utils/shareExpiry';
 
 interface SharePanelProps {
   petId: string;
   petName: string;
-  petStatus: PetStatus;
-  pet?: Pet;
+  pet: Pet;
 }
 
 const PLATFORMS: {
@@ -57,7 +57,7 @@ const PLATFORMS: {
   },
 ];
 
-export function SharePanel({ petId, petName, petStatus, pet }: SharePanelProps) {
+export function SharePanel({ petId, petName, pet }: SharePanelProps) {
   const [open, setOpen] = useState(false);
   const [shareLink, setShareLink] = useState<ShareLink | null>(null);
   const [copied, setCopied] = useState(false);
@@ -66,13 +66,7 @@ export function SharePanel({ petId, petName, petStatus, pet }: SharePanelProps) 
   // Ref al div contenedor del QR canvas oculto (para descarga en alta resolución)
   const qrContainerRef = useRef<HTMLDivElement | null>(null);
 
-  // Construimos el mensaje usando la utilidad compartida
-  const petForMessage = pet ?? {
-    name: petName,
-    type: '',
-    status: petStatus,
-  };
-  const message = buildWhatsAppMessage(petForMessage, shareLink?.share_url);
+  const message = buildWhatsAppMessage(pet, shareLink?.share_url);
 
   const handleOpen = async () => {
     if (open) {
@@ -197,6 +191,24 @@ export function SharePanel({ petId, petName, petStatus, pet }: SharePanelProps) 
                 </button>
               </div>
             )}
+
+            {/* Expiración del link */}
+            {shareLink?.expires_at && (() => {
+              const expiry = getExpiryInfo(shareLink.expires_at);
+              if (!expiry.hasExpiry) return null;
+              if (expiry.isExpired) {
+                return (
+                  <p className="text-xs mt-1 mb-2 text-red-500 font-semibold">
+                    Link expirado — genera uno nuevo
+                  </p>
+                );
+              }
+              return (
+                <p className={`text-xs mt-1 mb-2 ${expiry.isWarning ? 'text-orange-500 font-semibold' : 'text-gray-500'}`}>
+                  {expiry.label}
+                </p>
+              );
+            })()}
 
             {/* QR Code — solo cuando hay share_token */}
             {shareLink?.share_url && (
