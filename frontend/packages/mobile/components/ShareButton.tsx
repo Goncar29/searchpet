@@ -16,6 +16,7 @@ import * as Linking from 'expo-linking';
 import QRCode from 'react-native-qrcode-svg';
 import { useGenerateShareLink } from '../../shared/hooks';
 import { buildWhatsAppMessage } from '../../shared/utils/whatsappTemplates';
+import { getExpiryInfo } from '../../shared/utils/shareExpiry';
 import { COLORS, SPACING, FONTS, RADIUS } from '../constants';
 
 interface ShareButtonProps {
@@ -37,6 +38,7 @@ export function ShareButton({ petId, petName, petType, status, pet }: ShareButto
   const [isLoading, setIsLoading] = useState(false);
   const [showQR, setShowQR] = useState(false);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [expiresAt, setExpiresAt] = useState<string | undefined>(undefined);
   const generateLink = useGenerateShareLink();
   const statusText = status === 'found' ? 'ENCONTRADA' : 'PERDIDA';
 
@@ -110,6 +112,7 @@ export function ShareButton({ petId, petName, petType, status, pet }: ShareButto
     try {
       const link = await generateLink.mutateAsync({ petID: petId, data: {} });
       setShareUrl(link.share_url);
+      setExpiresAt(link.expires_at);
       setShowQR(true);
     } catch (err: any) {
       Alert.alert('Error', err.message || 'No se pudo generar el código QR.');
@@ -156,6 +159,20 @@ export function ShareButton({ petId, petName, petType, status, pet }: ShareButto
             <>
               <QRCode value={shareUrl} size={200} color={COLORS.textPrimary} backgroundColor={COLORS.white} />
               <Text style={styles.qrLabel}>{petName}</Text>
+              {(() => {
+                const expiry = getExpiryInfo(expiresAt);
+                if (!expiry.hasExpiry) return null;
+                if (expiry.isExpired) {
+                  return (
+                    <Text style={styles.expiryExpired}>Link expirado — genera uno nuevo</Text>
+                  );
+                }
+                return (
+                  <Text style={expiry.isWarning ? styles.expiryWarning : styles.expiryOk}>
+                    {expiry.label}
+                  </Text>
+                );
+              })()}
             </>
           ) : null}
         </View>
@@ -241,5 +258,22 @@ const styles = StyleSheet.create({
     fontSize: FONTS.sizes.sm,
     color: COLORS.textSecondary,
     fontWeight: '500',
+  },
+  expiryOk: {
+    marginTop: SPACING.xs,
+    fontSize: FONTS.sizes.xs,
+    color: COLORS.textSecondary,
+  },
+  expiryWarning: {
+    marginTop: SPACING.xs,
+    fontSize: FONTS.sizes.xs,
+    color: '#f97316',
+    fontWeight: '600',
+  },
+  expiryExpired: {
+    marginTop: SPACING.xs,
+    fontSize: FONTS.sizes.xs,
+    color: '#ef4444',
+    fontWeight: '600',
   },
 });
