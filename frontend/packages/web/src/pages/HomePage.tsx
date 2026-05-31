@@ -1,8 +1,8 @@
 import { Link } from 'react-router';
-import { useState } from 'react';
+import { useState, useRef, type ChangeEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useStats, useNearbyReports, useSearchPets, useStories } from '@shared/hooks';
-import type { Report, Pet, PetType, PetStatus, SuccessStory } from '@shared/types';
+import { useStats, useNearbyReports, useSearchPets, useStories, useImageClassify } from '@shared/hooks';
+import type { Report, Pet, PetType, PetStatus, SuccessStory, ClassifyResult } from '@shared/types';
 import { useAuth } from '../context/AuthContext';
 import { PetCardWeb } from '../components/PetCardWeb';
 
@@ -42,9 +42,31 @@ export function HomePage() {
     setFilterBreed('');
     setFilterFrom('');
     setFilterTo('');
+    setClassifyResult(null);
   };
 
   const [nearbyRadius, setNearbyRadius] = useState(20);
+
+  // ── Búsqueda por foto ──
+  const [classifyResult, setClassifyResult] = useState<ClassifyResult | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { classify, isModelLoading, isClassifying } = useImageClassify();
+
+  const handleImageSearch = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const img = new Image();
+    img.src = URL.createObjectURL(file);
+    await img.decode();
+    const result = await classify(img);
+    URL.revokeObjectURL(img.src);
+    if (result) {
+      setClassifyResult(result);
+      if (result.type) setFilterType(result.type);
+      if (result.breed) setFilterBreed(result.breed);
+    }
+    e.target.value = '';
+  };
 
   // ── Datos ──
   const { data: reports, isLoading: nearbyLoading } = useNearbyReports(-34.9011, -56.1645, nearbyRadius, !isSearchMode);
@@ -275,6 +297,35 @@ export function HomePage() {
               >
                 ✕ Limpiar
               </button>
+            )}
+
+            {/* Buscar por foto */}
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isModelLoading || isClassifying}
+              className="px-4 py-2 text-sm font-semibold text-white bg-primary rounded-lg hover:bg-primary-dark disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {isModelLoading ? '⏳ Cargando modelo...' : isClassifying ? '🔍 Analizando...' : '📷 Buscar por foto'}
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleImageSearch}
+            />
+            {classifyResult?.type && (
+              <span className="inline-flex items-center gap-1 px-3 py-1 text-xs font-semibold bg-primary/10 text-primary border border-primary/20 rounded-full">
+                {classifyResult.breed ?? classifyResult.type} · {Math.round(classifyResult.confidence * 100)}%
+                <button
+                  type="button"
+                  onClick={() => { setClassifyResult(null); clearFilters(); }}
+                  className="ml-1 hover:text-primary-dark"
+                >
+                  ✕
+                </button>
+              </span>
             )}
           </div>
         </div>
