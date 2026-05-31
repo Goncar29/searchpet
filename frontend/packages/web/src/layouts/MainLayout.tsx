@@ -82,6 +82,12 @@ export function MainLayout() {
                   >
                     {t('messages')}
                   </Link>
+                  <Link
+                    to="/alerts"
+                    className={`text-sm font-medium whitespace-nowrap ${isActive('/alerts') ? activeLinkClass : inactiveLinkClass}`}
+                  >
+                    Alertas
+                  </Link>
                 </>
               )}
             </div>
@@ -217,6 +223,16 @@ export function MainLayout() {
                     } transition-colors duration-150`}
                   >
                     {t('messages')}
+                  </Link>
+                  <Link
+                    to="/alerts"
+                    className={`text-sm font-medium py-2 px-3 rounded-md ${
+                      isActive('/alerts')
+                        ? 'text-primary bg-orange-50 dark:bg-orange-950'
+                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+                    } transition-colors duration-150`}
+                  >
+                    Alertas
                   </Link>
                   <Link
                     to="/pets/create"

@@ -24,6 +24,7 @@ import { GroupDetailPage } from './pages/GroupDetailPage';
 import { BlockedUsersPage } from './pages/BlockedUsersPage';
 import { MessagesPage } from './pages/MessagesPage';
 import { ChatPage } from './pages/ChatPage';
+import { AlertsPage } from './pages/AlertsPage';
 
 export default function App() {
   return (
@@ -56,6 +57,7 @@ export default function App() {
             <Route path="/blocked-users" element={<BlockedUsersPage />} />
             <Route path="/messages" element={<MessagesPage />} />
             <Route path="/messages/:userId" element={<ChatPage />} />
+            <Route path="/alerts" element={<AlertsPage />} />
           </Route>
         </Route>
 
