@@ -11,7 +11,6 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import MapLibreGL from '@maplibre/maplibre-react-native';
-import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
 import * as Location from 'expo-location';
 import { useNearbyReports } from '../../../shared/hooks';
@@ -22,12 +21,8 @@ import type { Report } from '../../../shared/types';
 // MapLibre no necesita token de Mapbox
 MapLibreGL.setAccessToken(null);
 
-// Expo Constants es más confiable que process.env en builds nativos
-const MAPTILER_KEY: string =
-  (Constants.expoConfig?.extra?.maptilerKey as string) ||
-  process.env.EXPO_PUBLIC_MAPTILER_KEY ||
-  '';
-
+// EXPO_PUBLIC_* es reemplazado por Metro en build time
+const MAPTILER_KEY = process.env.EXPO_PUBLIC_MAPTILER_KEY || '';
 const MAP_STYLE = MAPTILER_KEY
   ? `https://api.maptiler.com/maps/streets-v2/style.json?key=${MAPTILER_KEY}`
   : 'https://demotiles.maplibre.org/style.json';
