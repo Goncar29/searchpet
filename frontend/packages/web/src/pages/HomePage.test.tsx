@@ -17,6 +17,7 @@ vi.mock('@shared/hooks', () => ({
   useNearbyReports: () => ({ data: [], isLoading: false }),
   useSearchPets: () => ({ data: [], isLoading: false }),
   useStories: () => ({ data: [], isLoading: false }),
+  useImageClassify: () => ({ classify: vi.fn(), isModelLoading: false, isClassifying: false, error: null }),
 }));
 
 function wrapper({ children }: { children: React.ReactNode }) {

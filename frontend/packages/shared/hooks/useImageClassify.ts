@@ -82,16 +82,21 @@ export function useImageClassify(): UseImageClassifyReturn {
 
         if (isWeb) {
           // Web path: standard TF.js
+          // @ts-ignore — resolved from web/node_modules at runtime
           await import('@tensorflow/tfjs');
+          // @ts-ignore
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const mobilenet = await import('@tensorflow-models/mobilenet') as any;
           modelRef = await mobilenet.load();
         } else {
           // React Native path: native TF.js backend
+          // @ts-ignore — resolved from mobile/node_modules at runtime
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const tf = await import('@tensorflow/tfjs') as any;
+          // @ts-ignore
           await import('@tensorflow/tfjs-react-native');
           await tf.ready();
+          // @ts-ignore
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const mobilenet = await import('@tensorflow-models/mobilenet') as any;
           modelRef = await mobilenet.load();
@@ -139,8 +144,7 @@ export function useImageClassify(): UseImageClassifyReturn {
         predictions = await modelRef.classify(input as HTMLImageElement | HTMLCanvasElement | ImageData);
       } else {
         // React Native: decode URI to tensor then run inference
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const tf = await import('@tensorflow/tfjs') as any;
+        // @ts-ignore
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { decodeJpeg } = await import('@tensorflow/tfjs-react-native') as any;
         const uri = input as string;

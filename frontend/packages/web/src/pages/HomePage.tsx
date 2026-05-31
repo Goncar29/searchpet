@@ -43,18 +43,21 @@ export function HomePage() {
     setFilterFrom('');
     setFilterTo('');
     setClassifyResult(null);
+    setPhotoNoMatch(false);
   };
 
   const [nearbyRadius, setNearbyRadius] = useState(20);
 
   // ── Búsqueda por foto ──
   const [classifyResult, setClassifyResult] = useState<ClassifyResult | null>(null);
+  const [photoNoMatch, setPhotoNoMatch] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { classify, isModelLoading, isClassifying } = useImageClassify();
 
   const handleImageSearch = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    setPhotoNoMatch(false);
     const img = new Image();
     img.src = URL.createObjectURL(file);
     await img.decode();
@@ -64,6 +67,8 @@ export function HomePage() {
       setClassifyResult(result);
       if (result.type) setFilterType(result.type);
       if (result.breed) setFilterBreed(result.breed);
+    } else {
+      setPhotoNoMatch(true);
     }
     e.target.value = '';
   };
@@ -325,6 +330,12 @@ export function HomePage() {
                 >
                   ✕
                 </button>
+              </span>
+            )}
+            {photoNoMatch && (
+              <span className="inline-flex items-center gap-1 px-3 py-1 text-xs text-yellow-700 bg-yellow-50 border border-yellow-200 rounded-full">
+                No se detectó ninguna mascota. Probá con una foto más clara.
+                <button type="button" onClick={() => setPhotoNoMatch(false)} className="ml-1">✕</button>
               </span>
             )}
           </div>

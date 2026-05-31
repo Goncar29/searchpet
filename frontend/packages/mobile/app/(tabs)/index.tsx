@@ -13,6 +13,7 @@ import {
   ActivityIndicator,
   TextInput,
   ScrollView,
+  Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Location from 'expo-location';
@@ -44,6 +45,7 @@ export default function HomeScreen() {
 
   // ── Búsqueda por foto ──
   const [classifyResult, setClassifyResult] = useState<ClassifyResult | null>(null);
+  const [photoNoMatch, setPhotoNoMatch] = useState(false);
   const { classify, isModelLoading, isClassifying } = useImageClassify();
 
   // ── Ubicación ────────────────────────────────────────────
@@ -87,13 +89,13 @@ export default function HomeScreen() {
     setFilterFrom('');
     setFilterTo('');
     setClassifyResult(null);
+    setPhotoNoMatch(false);
   };
 
-  const handleImageSearch = async () => {
-    const picked = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      quality: 0.7,
-    });
+  const pickAndClassify = async (useCamera: boolean) => {
+    const picked = useCamera
+      ? await ImagePicker.launchCameraAsync({ quality: 0.7 })
+      : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.7 });
     if (picked.canceled) return;
     const uri = picked.assets[0].uri;
     const result = await classify(uri);
@@ -101,7 +103,17 @@ export default function HomeScreen() {
       setClassifyResult(result);
       if (result.type) setFilterType(result.type);
       if (result.breed) setFilterBreed(result.breed);
+    } else {
+      setPhotoNoMatch(true);
     }
+  };
+
+  const handleImageSearch = () => {
+    Alert.alert('Buscar por foto', 'Elegí una opción', [
+      { text: 'Cámara', onPress: () => pickAndClassify(true) },
+      { text: 'Galería', onPress: () => pickAndClassify(false) },
+      { text: 'Cancelar', style: 'cancel' },
+    ]);
   };
 
   // ── Render items ─────────────────────────────────────────
@@ -207,6 +219,15 @@ export default function HomeScreen() {
               {classifyResult.breed ?? classifyResult.type} · {Math.round(classifyResult.confidence * 100)}%
             </Text>
             <TouchableOpacity onPress={clearFilters}>
+              <Text style={styles.classifyResultClear}>✕</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+        {/* Sin coincidencia */}
+        {photoNoMatch && (
+          <View style={styles.noMatchRow}>
+            <Text style={styles.noMatchText}>No se detectó ninguna mascota. Probá con una foto más clara.</Text>
+            <TouchableOpacity onPress={() => setPhotoNoMatch(false)}>
               <Text style={styles.classifyResultClear}>✕</Text>
             </TouchableOpacity>
           </View>
@@ -579,5 +600,23 @@ const styles = StyleSheet.create({
     fontSize: FONTS.sizes.sm,
     color: COLORS.primary,
     fontWeight: '700',
+  },
+  noMatchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginHorizontal: SPACING.md,
+    marginBottom: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: 6,
+    backgroundColor: '#FFF3CD',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#FFEAA7',
+  },
+  noMatchText: {
+    fontSize: FONTS.sizes.sm,
+    color: '#856404',
+    flex: 1,
   },
 });
