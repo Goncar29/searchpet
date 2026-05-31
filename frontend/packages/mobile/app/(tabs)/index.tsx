@@ -16,11 +16,12 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Location from 'expo-location';
-import { useNearbyReports, useSearchPets, useStories } from '../../../shared/hooks';
+import * as ImagePicker from 'expo-image-picker';
+import { useNearbyReports, useSearchPets, useStories, useImageClassify } from '../../../shared/hooks';
 import { useLocationStore, useAuthStore } from '../../store';
 import { PetCard } from '../../components/PetCard';
 import { COLORS, SPACING, FONTS, MAP_DEFAULTS, PET_TYPES } from '../../constants';
-import type { PetType, SuccessStory } from '../../../shared/types';
+import type { PetType, SuccessStory, ClassifyResult } from '../../../shared/types';
 
 const RADII = [5, 10, 25, 50] as const;
 
@@ -40,6 +41,10 @@ export default function HomeScreen() {
 
   const isSearchMode = !!filterType || filterColor.trim().length > 0
     || filterBreed.trim().length > 0 || !!filterFrom || !!filterTo;
+
+  // ── Búsqueda por foto ──
+  const [classifyResult, setClassifyResult] = useState<ClassifyResult | null>(null);
+  const { classify, isModelLoading, isClassifying } = useImageClassify();
 
   // ── Ubicación ────────────────────────────────────────────
   const lat = latitude || MAP_DEFAULTS.defaultLatitude;
@@ -81,6 +86,22 @@ export default function HomeScreen() {
     setFilterBreed('');
     setFilterFrom('');
     setFilterTo('');
+    setClassifyResult(null);
+  };
+
+  const handleImageSearch = async () => {
+    const picked = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      quality: 0.7,
+    });
+    if (picked.canceled) return;
+    const uri = picked.assets[0].uri;
+    const result = await classify(uri);
+    if (result) {
+      setClassifyResult(result);
+      if (result.type) setFilterType(result.type);
+      if (result.breed) setFilterBreed(result.breed);
+    }
   };
 
   // ── Render items ─────────────────────────────────────────
@@ -166,7 +187,30 @@ export default function HomeScreen() {
               ⚙️ Más
             </Text>
           </TouchableOpacity>
+
+          {/* Buscar por foto */}
+          <TouchableOpacity
+            style={[styles.chip, (isModelLoading || isClassifying) && styles.chipDisabled]}
+            onPress={handleImageSearch}
+            disabled={isModelLoading || isClassifying}
+          >
+            <Text style={styles.chipText}>
+              {isModelLoading ? '⏳ Cargando...' : isClassifying ? '🔍 Analizando...' : '📷 Por foto'}
+            </Text>
+          </TouchableOpacity>
         </ScrollView>
+
+        {/* Chip de resultado de clasificación */}
+        {classifyResult?.type && (
+          <View style={styles.classifyResultRow}>
+            <Text style={styles.classifyResultText}>
+              {classifyResult.breed ?? classifyResult.type} · {Math.round(classifyResult.confidence * 100)}%
+            </Text>
+            <TouchableOpacity onPress={clearFilters}>
+              <Text style={styles.classifyResultClear}>✕</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* Filtros extra: color + radio */}
         {showFilters && (
@@ -507,5 +551,33 @@ const styles = StyleSheet.create({
     fontSize: FONTS.sizes.xs,
     color: COLORS.textMuted,
     fontWeight: '500',
+  },
+
+  // ── Buscar por foto ──
+  chipDisabled: {
+    opacity: 0.5,
+  },
+  classifyResultRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginHorizontal: SPACING.md,
+    marginBottom: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: 6,
+    backgroundColor: COLORS.primary + '1A',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: COLORS.primary + '33',
+  },
+  classifyResultText: {
+    fontSize: FONTS.sizes.sm,
+    fontWeight: '600',
+    color: COLORS.primary,
+  },
+  classifyResultClear: {
+    fontSize: FONTS.sizes.sm,
+    color: COLORS.primary,
+    fontWeight: '700',
   },
 });
