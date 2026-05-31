@@ -15,7 +15,9 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
-import { useMyPets, useDeletePet, useUploadPhotoNative } from '../../shared/hooks';
+import * as Location from 'expo-location';
+import { useMyPets, useDeletePet, useUploadPhotoNative, useCreateReport } from '../../shared/hooks';
+import { useLocationStore } from '../store';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS, PET_TYPES } from '../constants';
 import type { Pet } from '../../shared/types';
 
@@ -24,6 +26,8 @@ export default function MyPetsScreen() {
   const { data: pets, isLoading, refetch, isRefetching } = useMyPets();
   const deletePet = useDeletePet();
   const uploadPhoto = useUploadPhotoNative();
+  const createReport = useCreateReport();
+  const { latitude, longitude } = useLocationStore();
 
   const getStatusLabel = (status: string) => {
     switch (status) {
@@ -61,6 +65,46 @@ export default function MyPetsScreen() {
       await uploadPhoto.mutateAsync({ petId: pet.id, uri: result.assets[0].uri });
     } catch (err: any) {
       Alert.alert('Error', err.message || 'No se pudo subir la foto');
+    }
+  };
+
+  const handleReport = (pet: Pet) => {
+    Alert.alert(
+      `Reportar a ${pet.name}`,
+      '¿Qué querés reportar?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: '🔴 Perdida',
+          onPress: () => submitReport(pet.id, 'lost'),
+        },
+        {
+          text: '🟢 Encontrada',
+          onPress: () => submitReport(pet.id, 'found'),
+        },
+        {
+          text: '🟡 Avistamiento',
+          onPress: () => submitReport(pet.id, 'sighting'),
+        },
+      ]
+    );
+  };
+
+  const submitReport = async (petId: string, status: 'lost' | 'found' | 'sighting') => {
+    let lat = latitude || -34.9011;
+    let lng = longitude || -56.1645;
+
+    try {
+      const loc = await Location.getCurrentPositionAsync({});
+      lat = loc.coords.latitude;
+      lng = loc.coords.longitude;
+    } catch {}
+
+    try {
+      await createReport.mutateAsync({ pet_id: petId, status, latitude: lat, longitude: lng });
+      Alert.alert('Reporte creado', 'El reporte fue publicado y aparecerá en el mapa y el feed.');
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'No se pudo crear el reporte');
     }
   };
 
@@ -149,13 +193,21 @@ export default function MyPetsScreen() {
               </View>
 
               {/* Acciones */}
-              <TouchableOpacity
-                style={styles.deleteButton}
-                onPress={() => handleDelete(item)}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <Text style={styles.deleteIcon}>🗑️</Text>
-              </TouchableOpacity>
+              <View style={styles.actions}>
+                <TouchableOpacity
+                  style={styles.reportButton}
+                  onPress={() => handleReport(item)}
+                >
+                  <Text style={styles.reportButtonText}>Reportar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.deleteButton}
+                  onPress={() => handleDelete(item)}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Text style={styles.deleteIcon}>🗑️</Text>
+                </TouchableOpacity>
+              </View>
             </TouchableOpacity>
           );
         }}
@@ -273,11 +325,25 @@ const styles = StyleSheet.create({
     fontSize: FONTS.sizes.xs,
     color: COLORS.textMuted,
   },
-  deleteButton: {
-    padding: SPACING.sm,
-    marginLeft: SPACING.sm,
+  actions: {
+    alignItems: 'center',
+    gap: SPACING.xs,
   },
-  deleteIcon: { fontSize: 20 },
+  reportButton: {
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 4,
+    borderRadius: RADIUS.sm,
+  },
+  reportButtonText: {
+    color: COLORS.white,
+    fontSize: FONTS.sizes.xs,
+    fontWeight: '700',
+  },
+  deleteButton: {
+    padding: SPACING.xs,
+  },
+  deleteIcon: { fontSize: 18 },
   empty: {
     flex: 1,
     justifyContent: 'center',

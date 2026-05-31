@@ -18,18 +18,15 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
-import * as Location from 'expo-location';
-import { useCreatePet, useCreateReport, useUploadPhotoNative } from '../../../shared/hooks';
-import { useAuthStore, useLocationStore } from '../../store';
+import { useCreatePet, useUploadPhotoNative } from '../../../shared/hooks';
+import { useAuthStore } from '../../store';
 import { COLORS, SPACING, FONTS, RADIUS, PET_TYPES } from '../../constants';
 import type { PetType } from '../../../shared/types';
 
 export default function PostScreen() {
   const router = useRouter();
   const { isAuthenticated } = useAuthStore();
-  const { latitude, longitude } = useLocationStore();
   const createPet = useCreatePet();
-  const createReport = useCreateReport();
   const uploadPhoto = useUploadPhotoNative();
 
   const [name, setName] = useState('');
@@ -37,7 +34,6 @@ export default function PostScreen() {
   const [breed, setBreed] = useState('');
   const [color, setColor] = useState('');
   const [description, setDescription] = useState('');
-  const [locationDesc, setLocationDesc] = useState('');
   const [photos, setPhotos] = useState<string[]>([]);
   const [photoErrors, setPhotoErrors] = useState<Record<number, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -121,25 +117,7 @@ export default function PostScreen() {
         description: description.trim(),
       });
 
-      // 2. Crear el reporte de ubicación
-      let reportLat = latitude || -34.9011;
-      let reportLng = longitude || -56.1645;
-
-      try {
-        const loc = await Location.getCurrentPositionAsync({});
-        reportLat = loc.coords.latitude;
-        reportLng = loc.coords.longitude;
-      } catch {}
-
-      await createReport.mutateAsync({
-        pet_id: pet.id,
-        status: 'lost',
-        latitude: reportLat,
-        longitude: reportLng,
-        location_description: locationDesc.trim(),
-      });
-
-      // 3. Subir fotos (no bloquea si falla — la mascota ya fue creada)
+      // 2. Subir fotos (no bloquea si falla — la mascota ya fue creada)
       const errors: Record<number, string> = {};
       for (let i = 0; i < photos.length; i++) {
         try {
@@ -151,7 +129,7 @@ export default function PostScreen() {
       setPhotoErrors(errors);
 
       const failCount = Object.keys(errors).length;
-      let alertMessage = `${name} ha sido publicado como perdido. Esperamos encontrarlo pronto.`;
+      let alertMessage = `${name} fue registrada. Desde "Mis mascotas" podés reportarla como perdida si es necesario.`;
       if (photos.length > 0 && failCount === photos.length) {
         alertMessage += '\n\n⚠ No se pudieron subir las fotos. Podés intentarlo desde el detalle.';
       } else if (failCount > 0) {
@@ -159,9 +137,9 @@ export default function PostScreen() {
       }
 
       Alert.alert(
-        'Publicado',
+        'Mascota registrada',
         alertMessage,
-        [{ text: 'OK', onPress: () => router.back() }]
+        [{ text: 'OK', onPress: () => router.push('/my-pets') }]
       );
 
       // Reset form
@@ -169,7 +147,6 @@ export default function PostScreen() {
       setBreed('');
       setColor('');
       setDescription('');
-      setLocationDesc('');
       setPhotos([]);
     } catch (error: any) {
       Alert.alert('Error', error.message || 'No se pudo publicar');
@@ -188,7 +165,7 @@ export default function PostScreen() {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.sectionTitle}>Publicar mascota perdida</Text>
+        <Text style={styles.sectionTitle}>Registrar mascota</Text>
 
         {/* Fotos */}
         <Text style={styles.label}>Fotos</Text>
@@ -295,16 +272,6 @@ export default function PostScreen() {
           textAlignVertical="top"
         />
 
-        {/* Última ubicación */}
-        <Text style={styles.label}>Última ubicación conocida</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Ej: Parque Rodó, esquina 21 de Septiembre..."
-          placeholderTextColor={COLORS.placeholder}
-          value={locationDesc}
-          onChangeText={setLocationDesc}
-        />
-
         {/* Submit */}
         <TouchableOpacity
           style={[styles.submitButton, isSubmitting && styles.submitDisabled]}
@@ -314,7 +281,7 @@ export default function PostScreen() {
           {isSubmitting ? (
             <ActivityIndicator color={COLORS.white} />
           ) : (
-            <Text style={styles.submitText}>Publicar mascota</Text>
+            <Text style={styles.submitText}>Registrar mascota</Text>
           )}
         </TouchableOpacity>
 

@@ -21,11 +21,8 @@ import type { Report } from '../../../shared/types';
 // MapLibre no necesita token de Mapbox
 MapLibreGL.setAccessToken(null);
 
-// EXPO_PUBLIC_* es reemplazado por Metro en build time
-const MAPTILER_KEY = process.env.EXPO_PUBLIC_MAPTILER_KEY || '';
-const MAP_STYLE = MAPTILER_KEY
-  ? `https://api.maptiler.com/maps/streets-v2/style.json?key=${MAPTILER_KEY}`
-  : 'https://demotiles.maplibre.org/style.json';
+// OpenFreeMap — calles OSM, gratuito, sin API key, sin registro
+const MAP_STYLE = 'https://tiles.openfreemap.org/styles/liberty';
 
 // ============================================================
 // Error Boundary — evita que un crash del mapa cierre la app
