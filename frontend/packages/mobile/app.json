@@ -50,9 +50,8 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "00000000-0000-0000-0000-000000000000"
-      },
-      "_projectId_note": "TODO (human action): Replace projectId above with the real UUID from `eas project:init` or the Expo dashboard (slug: search-pet). Do NOT ship with the all-zeros placeholder."
+        "projectId": "b5b10d02-5e2b-4245-b34b-bf63f189358e"
+      }
     }
   }
 }
