@@ -422,3 +422,18 @@ export interface GroupMember {
 }
 
 export type GroupListResponse = LocalGroup[];
+
+// ============================================================
+// IMAGE CLASSIFICATION
+// ============================================================
+
+/**
+ * Result returned by useImageClassify after running MobileNet inference.
+ * type and breed are null when no pet is detected above the confidence threshold.
+ */
+export interface ClassifyResult {
+  type: PetType | null;    // SearchPet pet type ('perro', 'gato', etc.) or null if no match
+  breed: string | null;    // breed string or null if no breed mapping
+  confidence: number;      // 0-1, highest confidence score of the matched prediction
+  rawLabels: string[];     // top-5 MobileNet class names returned by the model
+}
