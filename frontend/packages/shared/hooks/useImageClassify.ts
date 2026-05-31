@@ -83,22 +83,22 @@ export function useImageClassify(): UseImageClassifyReturn {
         if (isWeb) {
           // Web path: standard TF.js
           // @ts-ignore — resolved from web/node_modules at runtime
-          await import('@tensorflow/tfjs');
+          await import(/* @vite-ignore */ '@tensorflow/tfjs');
           // @ts-ignore
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const mobilenet = await import('@tensorflow-models/mobilenet') as any;
+          const mobilenet = await import(/* @vite-ignore */ '@tensorflow-models/mobilenet') as any;
           modelRef = await mobilenet.load();
         } else {
           // React Native path: native TF.js backend
           // @ts-ignore — resolved from mobile/node_modules at runtime
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const tf = await import('@tensorflow/tfjs') as any;
+          const tf = await import(/* @vite-ignore */ '@tensorflow/tfjs') as any;
           // @ts-ignore
-          await import('@tensorflow/tfjs-react-native');
+          await import(/* @vite-ignore */ '@tensorflow/tfjs-react-native');
           await tf.ready();
           // @ts-ignore
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const mobilenet = await import('@tensorflow-models/mobilenet') as any;
+          const mobilenet = await import(/* @vite-ignore */ '@tensorflow-models/mobilenet') as any;
           modelRef = await mobilenet.load();
         }
       } catch (err) {
@@ -146,7 +146,7 @@ export function useImageClassify(): UseImageClassifyReturn {
         // React Native: decode URI to tensor then run inference
         // @ts-ignore
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { decodeJpeg } = await import('@tensorflow/tfjs-react-native') as any;
+        const { decodeJpeg } = await import(/* @vite-ignore */ '@tensorflow/tfjs-react-native') as any;
         const uri = input as string;
 
         const response = await fetch(uri);
