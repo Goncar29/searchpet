@@ -32,10 +32,14 @@ export default function HomeScreen() {
   // ── Filtros ──────────────────────────────────────────────
   const [filterType, setFilterType] = useState<PetType | undefined>();
   const [filterColor, setFilterColor] = useState('');
+  const [filterBreed, setFilterBreed] = useState('');
+  const [filterFrom, setFilterFrom] = useState('');
+  const [filterTo, setFilterTo] = useState('');
   const [radius, setRadius] = useState<5 | 10 | 25 | 50>(10);
   const [showFilters, setShowFilters] = useState(false);
 
-  const isSearchMode = !!filterType || filterColor.trim().length > 0;
+  const isSearchMode = !!filterType || filterColor.trim().length > 0
+    || filterBreed.trim().length > 0 || !!filterFrom || !!filterTo;
 
   // ── Ubicación ────────────────────────────────────────────
   const lat = latitude || MAP_DEFAULTS.defaultLatitude;
@@ -59,6 +63,9 @@ export default function HomeScreen() {
     type: filterType,
     color: filterColor.trim() || undefined,
     status: 'active',
+    breed: filterBreed.trim() || undefined,
+    from: filterFrom ? new Date(filterFrom).toISOString() : undefined,
+    to: filterTo ? new Date(filterTo).toISOString() : undefined,
   });
 
   const isLoading = isSearchMode ? searchQuery.isLoading : nearbyQuery.isLoading;
@@ -71,6 +78,9 @@ export default function HomeScreen() {
   const clearFilters = () => {
     setFilterType(undefined);
     setFilterColor('');
+    setFilterBreed('');
+    setFilterFrom('');
+    setFilterTo('');
   };
 
   // ── Render items ─────────────────────────────────────────
@@ -167,6 +177,33 @@ export default function HomeScreen() {
               placeholderTextColor={COLORS.textMuted}
               value={filterColor}
               onChangeText={setFilterColor}
+              returnKeyType="search"
+            />
+
+            <TextInput
+              style={styles.colorInput}
+              placeholder="Raza (ej: Labrador...)"
+              placeholderTextColor={COLORS.textMuted}
+              value={filterBreed}
+              onChangeText={setFilterBreed}
+              returnKeyType="search"
+            />
+
+            <TextInput
+              style={styles.colorInput}
+              placeholder="Desde (YYYY-MM-DD)"
+              placeholderTextColor={COLORS.textMuted}
+              value={filterFrom}
+              onChangeText={setFilterFrom}
+              returnKeyType="next"
+            />
+
+            <TextInput
+              style={styles.colorInput}
+              placeholder="Hasta (YYYY-MM-DD)"
+              placeholderTextColor={COLORS.textMuted}
+              value={filterTo}
+              onChangeText={setFilterTo}
               returnKeyType="search"
             />
 
