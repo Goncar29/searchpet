@@ -24,6 +24,7 @@ import { buildWhatsAppContactURL } from '@shared/utils/whatsappTemplates';
 import { useAuthStore } from '../../store';
 import { ShareButton } from '../../components/ShareButton';
 import { PdfFlyerButton } from '../../components/PdfFlyerButton';
+import { TimelineMap } from '../../components/TimelineMap';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
 
 const { width } = Dimensions.get('window');
@@ -339,6 +340,9 @@ export default function PetDetailScreen() {
 
         {/* Volante PDF */}
         <PdfFlyerButton pet={pet} reports={reports} />
+
+        {/* Mapa de avistamientos */}
+        <TimelineMap reports={reports ?? []} />
 
         {/* Timeline de reportes */}
         {reports && reports.length > 0 && (
