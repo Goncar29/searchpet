@@ -264,15 +264,12 @@ export default function ProfileScreen() {
           <Text style={styles.menuArrow}>›</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.menuItem}>
+        <TouchableOpacity
+          style={styles.menuItem}
+          onPress={() => router.push('/my-pets')}
+        >
           <Text style={styles.menuIcon}>📋</Text>
           <Text style={styles.menuText}>Mis reportes</Text>
-          <Text style={styles.menuArrow}>›</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.menuItem}>
-          <Text style={styles.menuIcon}>❤️</Text>
-          <Text style={styles.menuText}>Favoritos</Text>
           <Text style={styles.menuArrow}>›</Text>
         </TouchableOpacity>
 
@@ -321,7 +318,10 @@ export default function ProfileScreen() {
           <Text style={styles.menuArrow}>›</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.menuItem}>
+        <TouchableOpacity
+          style={styles.menuItem}
+          onPress={() => Alert.alert('Próximamente', 'La configuración estará disponible en la próxima versión.')}
+        >
           <Text style={styles.menuIcon}>⚙️</Text>
           <Text style={styles.menuText}>Configuración</Text>
           <Text style={styles.menuArrow}>›</Text>

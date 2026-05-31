@@ -101,6 +101,34 @@ export default function RootLayout() {
           name="alerts/index"
           options={{ title: 'Mis Alertas' }}
         />
+        <Stack.Screen
+          name="badges/index"
+          options={{ title: 'Mis Badges' }}
+        />
+        <Stack.Screen
+          name="leaderboard/index"
+          options={{ title: 'Tabla de Líderes' }}
+        />
+        <Stack.Screen
+          name="users/[id]"
+          options={{ title: 'Perfil de Usuario' }}
+        />
+        <Stack.Screen
+          name="groups/index"
+          options={{ title: 'Grupos' }}
+        />
+        <Stack.Screen
+          name="groups/[id]"
+          options={{ title: 'Grupo' }}
+        />
+        <Stack.Screen
+          name="blocked-users"
+          options={{ title: 'Usuarios Bloqueados' }}
+        />
+        <Stack.Screen
+          name="story/create"
+          options={{ title: 'Contar Historia', presentation: 'modal' }}
+        />
       </Stack>
     </QueryClientProvider>
   );
