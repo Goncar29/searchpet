@@ -16,7 +16,7 @@ import {
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
-import { useMyPets, useDeletePet, useUploadPhotoNative, useCreateReport } from '../../shared/hooks';
+import { useMyPets, useDeletePet, useUploadPhotoNative, useCreateReport, useMarkPetAsFound } from '../../shared/hooks';
 import { useLocationStore } from '../store';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS, PET_TYPES } from '../constants';
 import type { Pet } from '../../shared/types';
@@ -27,6 +27,7 @@ export default function MyPetsScreen() {
   const deletePet = useDeletePet();
   const uploadPhoto = useUploadPhotoNative();
   const createReport = useCreateReport();
+  const markAsFound = useMarkPetAsFound();
   const { latitude, longitude } = useLocationStore();
 
   const getStatusLabel = (status: string) => {
@@ -106,6 +107,26 @@ export default function MyPetsScreen() {
     } catch (err: any) {
       Alert.alert('Error', err.message || 'No se pudo crear el reporte');
     }
+  };
+
+  const handleMarkAsFound = (pet: Pet) => {
+    Alert.alert(
+      '¿Mascota encontrada?',
+      `¿Confirmás que ${pet.name} fue encontrada? Esta acción no se puede deshacer.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Confirmar',
+          onPress: async () => {
+            try {
+              await markAsFound.mutateAsync(pet.id);
+            } catch {
+              Alert.alert('Error', 'No se pudo actualizar el estado. Intentá de nuevo.');
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handleDelete = (pet: Pet) => {
@@ -200,6 +221,14 @@ export default function MyPetsScreen() {
                 >
                   <Text style={styles.reportButtonText}>Reportar</Text>
                 </TouchableOpacity>
+                {item.status === 'active' && (
+                  <TouchableOpacity
+                    style={styles.foundButton}
+                    onPress={() => handleMarkAsFound(item)}
+                  >
+                    <Text style={styles.foundButtonText}>Encontrada</Text>
+                  </TouchableOpacity>
+                )}
                 <TouchableOpacity
                   style={styles.deleteButton}
                   onPress={() => handleDelete(item)}
@@ -336,6 +365,17 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.sm,
   },
   reportButtonText: {
+    color: COLORS.white,
+    fontSize: FONTS.sizes.xs,
+    fontWeight: '700',
+  },
+  foundButton: {
+    backgroundColor: COLORS.success,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 4,
+    borderRadius: RADIUS.sm,
+  },
+  foundButtonText: {
     color: COLORS.white,
     fontSize: FONTS.sizes.xs,
     fontWeight: '700',

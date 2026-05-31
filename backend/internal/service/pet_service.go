@@ -27,13 +27,15 @@ type petService struct {
 	repo         repository.PetRepository
 	eventBus     *event.EventBus
 	photoService PhotoService
+	reportRepo   repository.ReportRepository
 }
 
-// NewPetService es el constructor — recibe el repository, el bus de eventos y el servicio de fotos.
+// NewPetService es el constructor — recibe el repository, el bus de eventos, el servicio de fotos y el report repository.
 // eventBus es opcional — si es nil, los eventos no se publican.
 // photoService es opcional — si es nil, la eliminación en cascada de fotos se omite.
-func NewPetService(repo repository.PetRepository, eventBus *event.EventBus, photoService PhotoService) PetService {
-	return &petService{repo: repo, eventBus: eventBus, photoService: photoService}
+// reportRepo es opcional — si es nil, el closure report en MarkAsFound se omite.
+func NewPetService(repo repository.PetRepository, eventBus *event.EventBus, photoService PhotoService, reportRepo repository.ReportRepository) PetService {
+	return &petService{repo: repo, eventBus: eventBus, photoService: photoService, reportRepo: reportRepo}
 }
 
 // CreatePet crea una nueva mascota para el usuario autenticado.
@@ -87,6 +89,11 @@ func (s *petService) UpdatePet(ownerID string, petID string, req dto.UpdatePetRe
 	// LÓGICA DE NEGOCIO: solo el dueño puede editar su mascota
 	if pet.OwnerID.String() != ownerID {
 		return nil, domain.ErrForbidden
+	}
+
+	// REQ-01: Status revert guard — found/archived pets cannot have their status changed
+	if (pet.Status == "found" || pet.Status == "archived") && req.Status != "" {
+		return nil, domain.ErrPetStatusLocked
 	}
 
 	// Solo actualizamos los campos que vienen con valor
@@ -200,9 +207,24 @@ func (s *petService) MarkAsFound(ownerID string, petID string) (*domain.Pet, err
 
 	pet.Status = "found"
 
+	// Parseamos el UUID del owner (usado tanto para el closure report como para el evento)
+	ownerUUID, _ := uuid.Parse(ownerID)
+
+	// REQ-02: Auto-create closure report (best-effort — failure does not abort the status flip)
+	if s.reportRepo != nil {
+		closureReport := &domain.Report{
+			PetID:               pet.ID,
+			ReporterID:          ownerUUID,
+			Status:              "found",
+			LocationDescription: "Closure report",
+		}
+		if err := s.reportRepo.Create(closureReport); err != nil {
+			log.Printf("[pet_service] Error creating closure report for pet %s: %v", petID, err)
+		}
+	}
+
 	// Publicamos el evento en el bus (fire-and-forget, no bloquea)
 	if s.eventBus != nil {
-		ownerUUID, _ := uuid.Parse(ownerID)
 		s.eventBus.Publish("pet.found", event.PetFoundEvent{
 			PetID:   pet.ID,
 			OwnerID: ownerUUID,

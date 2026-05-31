@@ -22,6 +22,7 @@ export function PetDetailPage() {
   const submitAbuseReport = useSubmitAbuseReport();
   const [showPetReportMenu, setShowPetReportMenu] = useState(false);
   const [petReportSuccess, setPetReportSuccess] = useState(false);
+  const [showFoundConfirm, setShowFoundConfirm] = useState(false);
 
   if (isLoading) {
     return (
@@ -197,20 +198,46 @@ export function PetDetailPage() {
               )}
               {/* Mark as Found — solo para el dueño cuando la mascota está activa */}
               {isOwner && pet.status === 'active' && (
-                <button
-                  onClick={() => markAsFound.mutate(pet.id)}
-                  disabled={markAsFound.isPending}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
-                >
-                  {markAsFound.isPending ? (
-                    <>
-                      <span className="animate-spin">⏳</span>
-                      Guardando...
-                    </>
-                  ) : (
-                    '✅ Marcar como encontrada'
+                <div className="flex flex-col gap-2">
+                  <button
+                    onClick={() => setShowFoundConfirm(true)}
+                    disabled={markAsFound.isPending}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {markAsFound.isPending ? (
+                      <>
+                        <span className="animate-spin">⏳</span>
+                        Guardando...
+                      </>
+                    ) : (
+                      '✅ Marcar como encontrada'
+                    )}
+                  </button>
+                  {showFoundConfirm && (
+                    <div className="flex flex-col gap-2 p-3 bg-green-50 dark:bg-green-950 rounded-xl border border-green-200 dark:border-green-800">
+                      <p className="text-sm font-semibold text-green-800 dark:text-green-200">
+                        ¿Confirmás que {pet.name} fue encontrada? Esta acción no se puede deshacer.
+                      </p>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => markAsFound.mutate(pet.id, { onSuccess: () => setShowFoundConfirm(false) })}
+                          disabled={markAsFound.isPending}
+                          className="px-4 py-1.5 bg-green-600 text-white text-sm font-semibold rounded-lg hover:bg-green-700 disabled:opacity-60 transition-colors"
+                        >
+                          Confirmar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setShowFoundConfirm(false)}
+                          className="px-4 py-1.5 text-sm font-semibold text-gray-600 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                    </div>
                   )}
-                </button>
+                </div>
               )}
               {/* Contar historia — solo para el dueño cuando la mascota ya fue encontrada */}
               {isOwner && pet.status === 'found' && (

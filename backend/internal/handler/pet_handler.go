@@ -96,6 +96,10 @@ func (h *PetHandler) UpdatePet(c *gin.Context) {
 			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
 			return
 		}
+		if errors.Is(err, domain.ErrPetStatusLocked) {
+			c.JSON(http.StatusConflict, gin.H{"error": "pet_status_locked"})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
 		return
 	}

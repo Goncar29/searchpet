@@ -105,7 +105,7 @@ func main() {
 	// ========================================
 	authService := service.NewAuthService(userRepo, cfg.JWTSecret, cloudinaryClient)
 	photoService := service.NewPhotoService(photoRepo, petRepo, cloudinaryClient)
-	petService := service.NewPetService(petRepo, bus, photoService)
+	petService := service.NewPetService(petRepo, bus, photoService, reportRepo)
 	reportService := service.NewReportService(reportRepo, petRepo, bus)
 	messageService := service.NewMessageService(messageRepo, blockedUserRepo, bus)
 	shareLinkService := service.NewShareLinkService(shareLinkRepo, petRepo, bus)

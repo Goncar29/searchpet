@@ -17,6 +17,7 @@ var (
 	ErrNotPetOwner        = errors.New("no eres el dueño de esta mascota")
 	ErrPetAlreadyFound    = errors.New("mascota ya fue encontrada")
 	ErrPetArchived        = errors.New("mascota archivada, no se puede marcar como encontrada")
+	ErrPetStatusLocked    = errors.New("mascota con status final, no se puede modificar el estado")
 	ErrPetNotFoundStatus  = errors.New("la mascota debe estar marcada como encontrada para crear una historia")
 
 	// Report
