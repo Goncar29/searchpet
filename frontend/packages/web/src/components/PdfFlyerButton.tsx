@@ -6,6 +6,7 @@
 
 import { useRef, useState } from 'react';
 import { QRCodeCanvas } from 'qrcode.react';
+import { useGenerateShareLink } from '@shared/hooks';
 import type { Pet, Report } from '@shared/types';
 
 interface PdfFlyerButtonProps {
@@ -17,11 +18,10 @@ const MAX_DESCRIPTION_CHARS = 300;
 
 export function PdfFlyerButton({ pet, reports = [] }: PdfFlyerButtonProps) {
   const [isGenerating, setIsGenerating] = useState(false);
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [shareError, setShareError] = useState(false);
+  const generateLink = useGenerateShareLink();
   const flyerRef = useRef<HTMLDivElement>(null);
-
-  // La URL del QR es el share URL de la mascota — usamos la misma lógica que SharePanel.
-  // Si no hay share_token disponible en el pet, usamos la URL canónica de la app.
-  const shareUrl = `${window.location.origin}/pet/${pet.id}`;
 
   const primaryPhoto = pet.photos?.find((p) => p.is_primary) || pet.photos?.[0];
 
@@ -45,8 +45,22 @@ export function PdfFlyerButton({ pet, reports = [] }: PdfFlyerButtonProps) {
   const handleGenerate = async () => {
     if (!flyerRef.current || isGenerating) return;
     setIsGenerating(true);
+    setShareError(false);
 
     try {
+      let url = shareUrl;
+      if (!url) {
+        let link;
+        try {
+          link = await generateLink.mutateAsync({ petID: pet.id });
+        } catch {
+          setShareError(true);
+          return;
+        }
+        url = link.share_url;
+        setShareUrl(url);
+      }
+
       // Importaciones dinámicas — evitan que el bundle de mobile incluya estas libs
       const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
         import('html2canvas'),
@@ -116,7 +130,7 @@ export function PdfFlyerButton({ pet, reports = [] }: PdfFlyerButtonProps) {
       {/* Botón visible */}
       <button
         onClick={handleGenerate}
-        disabled={isGenerating}
+        disabled={isGenerating || shareError}
         className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-semibold rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
         title="Descargar volante PDF para imprimir"
       >
@@ -124,6 +138,10 @@ export function PdfFlyerButton({ pet, reports = [] }: PdfFlyerButtonProps) {
           <>
             <span className="animate-spin">⏳</span>
             Generando PDF...
+          </>
+        ) : shareError ? (
+          <>
+            ⚠️ Error al generar link
           </>
         ) : (
           <>
@@ -248,20 +266,24 @@ export function PdfFlyerButton({ pet, reports = [] }: PdfFlyerButtonProps) {
 
         {/* Footer: QR + URL */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '24px', borderTop: '2px solid #e5e7eb', paddingTop: '20px' }}>
-          <div style={{ flexShrink: 0 }}>
-            <QRCodeCanvas
-              value={shareUrl}
-              size={120}
-              level="M"
-            />
-          </div>
+          {shareUrl && (
+            <div style={{ flexShrink: 0 }}>
+              <QRCodeCanvas
+                value={shareUrl}
+                size={120}
+                level="M"
+              />
+            </div>
+          )}
           <div>
             <p style={{ fontSize: '13px', color: '#6b7280', margin: '0 0 6px 0' }}>
               Escaneá el QR para ver más info y compartir:
             </p>
-            <p style={{ fontSize: '13px', color: '#2563eb', fontWeight: '600', margin: '0 0 12px 0', wordBreak: 'break-all' }}>
-              {shareUrl}
-            </p>
+            {shareUrl && (
+              <p style={{ fontSize: '13px', color: '#2563eb', fontWeight: '600', margin: '0 0 12px 0', wordBreak: 'break-all' }}>
+                {shareUrl}
+              </p>
+            )}
             <p style={{ fontSize: '12px', color: '#9ca3af', margin: 0 }}>
               SearchPet — Ayudamos a reunir mascotas con sus familias
             </p>
