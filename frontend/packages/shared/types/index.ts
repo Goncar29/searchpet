@@ -7,6 +7,7 @@ export interface User {
   email: string;
   name: string;
   phone?: string;
+  city?: string;
   profile_photo_url?: string;
   latitude?: number;
   longitude?: number;
@@ -296,6 +297,7 @@ export interface GenerateShareRequest {
 export interface UpdateProfileRequest {
   name?: string;
   phone?: string;
+  city?: string;
 }
 
 // ============================================================

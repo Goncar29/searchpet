@@ -494,6 +494,10 @@ class APIClient {
     return this.request<UserReview>('PUT', `/api/users/${userId}/reviews`, data);
   }
 
+  async deleteReview(userId: string): Promise<void> {
+    return this.request<void>('DELETE', `/api/users/${userId}/reviews`);
+  }
+
   // ============================================================
   // LOCAL GROUPS
   // ============================================================

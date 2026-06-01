@@ -505,6 +505,16 @@ export const useUpdateReview = (userId: string) => {
   });
 };
 
+export const useDeleteReview = () => {
+  const queryClient = useQueryClient();
+  return useMutation<void, Error, string>({
+    mutationFn: (userId) => apiClient.deleteReview(userId),
+    onSuccess: (_, userId) => {
+      queryClient.invalidateQueries({ queryKey: ['reviews', userId] });
+    },
+  });
+};
+
 export const useLikeStory = () => {
   const queryClient = useQueryClient();
   return useMutation<void, Error, string>({
