@@ -31,6 +31,7 @@ type UserResponse struct {
 	City            string    `json:"city,omitempty"`
 	ProfilePhotoURL string    `json:"profile_photo_url,omitempty"`
 	IsVerified      bool      `json:"is_verified"`
+	IsAdmin         bool      `json:"is_admin"`
 	CreatedAt       time.Time `json:"created_at"`
 }
 
@@ -67,6 +68,7 @@ func ToUserResponse(user *domain.User) UserResponse {
 		City:            user.City,
 		ProfilePhotoURL: user.ProfilePhotoURL,
 		IsVerified:      user.IsVerified,
+		IsAdmin:         user.IsAdmin,
 		CreatedAt:       user.CreatedAt,
 	}
 }
