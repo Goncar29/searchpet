@@ -1,0 +1,142 @@
+{
+  "layout": {
+    "home": "Início",
+    "map": "Mapa",
+    "shelters": "Abrigos",
+    "myPets": "Meus Pets",
+    "messages": "Mensagens",
+    "publish": "Publicar",
+    "login": "Entrar",
+    "register": "Cadastrar",
+    "logout": "Sair",
+    "greeting": "Olá, {{name}}",
+    "darkMode": "Modo escuro",
+    "language": "Idioma",
+    "openMenu": "Abrir menu",
+    "closeMenu": "Fechar menu"
+  },
+  "home": {
+    "hero": {
+      "title": "Reunindo pets perdidos com suas famílias",
+      "subtitle": "Reporte, busque e compartilhe. Juntos encontramos o seu companheiro.",
+      "cta": "Ver pets perdidos"
+    },
+    "stats": {
+      "found": "Pets encontrados",
+      "reports": "Reportes publicados",
+      "users": "Usuários cadastrados",
+      "pets": "Pets registrados"
+    },
+    "how": {
+      "title": "Como funciona?",
+      "step1": {
+        "title": "1. Publicar",
+        "description": "Envie fotos, descrição e o último local onde seu pet foi visto."
+      },
+      "step2": {
+        "title": "2. Buscar no mapa",
+        "description": "Explore reportes próximos no mapa interativo. Filtre por tipo, raça e localização."
+      },
+      "step3": {
+        "title": "3. Compartilhar",
+        "description": "Compartilhe no WhatsApp, Instagram, Facebook e Twitter para ampliar a busca."
+      }
+    },
+    "recentReports": "Reportes recentes",
+    "noReports": "Nenhum reporte recente na sua área",
+    "viewAll": "Ver todos no mapa",
+    "viewMap": "Ver mapa",
+    "publish": "Publicar um pet",
+    "cta": {
+      "title": "Perdeu seu pet?",
+      "subtitle": "Publique um reporte agora e alcance milhares de pessoas na sua área.",
+      "button": "Publicar pet perdido"
+    }
+  },
+  "reports": {
+    "create": {
+      "title": "Adicionar reporte de localização",
+      "pet": "Pet",
+      "description": "Descrição (opcional)",
+      "date": "Data do avistamento",
+      "clickMap": "Clique no mapa para marcar a localização",
+      "noCoord": "Selecione uma localização no mapa antes de continuar",
+      "searchPet": "Buscar por nome ou raça...",
+      "selectPet": "Selecione um pet",
+      "status": "Tipo de reporte",
+      "noFutureDate": "A data não pode ser futura",
+      "submit": "Salvar reporte"
+    },
+    "nearby": {
+      "title": "Reportes próximos",
+      "empty": "Nenhum reporte nesta área."
+    }
+  },
+  "shelters": {
+    "title": "Abrigos e Organizações",
+    "description": "Estes são os abrigos locais que trabalham resgatando e protegendo animais. Se quiser ajudar, visite as páginas deles para doar diretamente.",
+    "donate": "Doar",
+    "verified": "Verificado",
+    "impact": "Nosso Impacto",
+    "impactFound": "Pets encontrados",
+    "impactUsers": "Usuários ajudando",
+    "impactReports": "Reportes criados",
+    "impactPets": "Pets registrados",
+    "visitWeb": "Visitar site",
+    "empty": "Nenhum abrigo disponível no momento.",
+    "contactCta": "Você é um abrigo e quer aparecer aqui? Entre em contato."
+  },
+  "footer": {
+    "description": "SearchPet — ajudando a reunir pets com suas famílias desde 2024.",
+    "madeWith": "Feito com ❤️ para os pets do Uruguai",
+    "links": "Links",
+    "contact": "Contato",
+    "contactText": "Quer contribuir? Este é um projeto de código aberto."
+  },
+  "map": {
+    "title": "Mapa de reportes",
+    "loading": "Carregando mapa...",
+    "error": "Não foi possível carregar o mapa.",
+    "clickToReport": "Clique no mapa para adicionar um reporte",
+    "reports": "{{count}} reportes na área",
+    "viewDetails": "Ver detalhes",
+    "pet": "Pet",
+    "radius": "Raio",
+    "radiusKm": "{{km}} km"
+  },
+  "profile": {
+    "title": "Meu perfil",
+    "editTitle": "Editar informações",
+    "email": "Endereço de e-mail",
+    "emailReadOnly": "O e-mail não pode ser alterado",
+    "name": "Nome completo",
+    "phone": "Telefone",
+    "phonePlaceholder": "+55 11 99999-9999",
+    "phoneHint": "Visível para pessoas que queiram entrar em contato sobre um pet",
+    "save": "Salvar alterações",
+    "saveSuccess": "Perfil atualizado com sucesso!",
+    "changePhoto": "Clique para trocar a foto",
+    "verified": "Verificado"
+  },
+  "otp": {
+    "title": "Verificar telefone",
+    "ariaLabel": "Verificação de telefone",
+    "close": "Fechar",
+    "stepPhoneDesc": "Digite seu número de telefone e enviaremos um código SMS.",
+    "stepCodeDesc": "Digite o código de 6 dígitos que enviamos para {{phone}}.",
+    "phoneLabel": "Telefone",
+    "codeLabel": "Código de verificação",
+    "send": "Enviar código",
+    "sending": "Enviando...",
+    "verify": "Verificar",
+    "verifying": "Verificando...",
+    "resendIn": "Reenviar em {{seconds}}s",
+    "resend": "Reenviar código",
+    "changeNumber": "Alterar número",
+    "errorRequired": "Digite seu número de telefone",
+    "errorCodeLength": "O código deve ter 6 dígitos",
+    "errorRateLimit": "Muitas tentativas. Aguarde 60 segundos antes de reenviar.",
+    "errorMaxAttempts": "Você atingiu o limite de 5 tentativas. Solicite um novo código.",
+    "errorUnexpected": "Ocorreu um erro inesperado"
+  }
+}

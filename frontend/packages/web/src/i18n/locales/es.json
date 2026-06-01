@@ -1,24 +1,4 @@
 {
-  "common": {
-    "loading": "Cargando...",
-    "error": "Ocurrió un error. Por favor intentá de nuevo.",
-    "save": "Guardar",
-    "cancel": "Cancelar",
-    "delete": "Eliminar",
-    "confirm": "Confirmar",
-    "back": "Volver al inicio",
-    "search": "Buscar",
-    "noResults": "No se encontraron resultados",
-    "required": "Este campo es obligatorio",
-    "emailInvalid": "Ingresá un correo electrónico válido",
-    "errorDescription": "Algo salió mal. Por favor intentá recargar la página.",
-    "reload": "Reintentar",
-    "timeAgo": {
-      "minutesAgo": "hace {{count}} min",
-      "hoursAgo": "hace {{count}}h",
-      "daysAgo": "hace {{count}}d"
-    }
-  },
   "layout": {
     "home": "Inicio",
     "map": "Mapa",
@@ -34,17 +14,6 @@
     "language": "Idioma",
     "openMenu": "Abrir menú",
     "closeMenu": "Cerrar menú"
-  },
-  "messages": {
-    "title": "Mensajes",
-    "empty": "Aún no tenés conversaciones",
-    "loading": "Cargando conversaciones..."
-  },
-  "chat": {
-    "inputPlaceholder": "Escribí un mensaje...",
-    "send": "Enviar",
-    "typing": "escribiendo...",
-    "loadingMessages": "Cargando mensajes..."
   },
   "home": {
     "hero": {
@@ -84,94 +53,6 @@
       "button": "Publicar mascota perdida"
     }
   },
-  "auth": {
-    "login": {
-      "title": "Iniciá sesión",
-      "subtitle": "Ayudá a encontrar mascotas perdidas",
-      "email": "Correo electrónico",
-      "password": "Contraseña",
-      "submit": "Ingresar",
-      "noAccount": "¿No tenés cuenta? Registrate",
-      "invalidCredentials": "Credenciales inválidas"
-    },
-    "register": {
-      "title": "Crear cuenta",
-      "subtitle": "Unite a la comunidad",
-      "name": "Nombre completo",
-      "email": "Correo electrónico",
-      "password": "Contraseña",
-      "confirm": "Confirmar contraseña",
-      "phone": "Teléfono (opcional)",
-      "city": "Ciudad (opcional)",
-      "submit": "Crear cuenta",
-      "hasAccount": "¿Ya tenés cuenta? Iniciá sesión",
-      "passwordMin": "La contraseña debe tener al menos 6 caracteres",
-      "passwordMismatch": "Las contraseñas no coinciden",
-      "createError": "No se pudo crear la cuenta"
-    }
-  },
-  "pets": {
-    "create": {
-      "title": "Publicar mascota",
-      "name": "Nombre",
-      "species": "Especie",
-      "breed": "Raza (opcional)",
-      "color": "Color (opcional)",
-      "description": "Descripción (opcional)",
-      "status": "Estado",
-      "submit": "Publicar"
-    },
-    "mine": {
-      "title": "Mis mascotas",
-      "empty": "Todavía no publicaste ninguna mascota.",
-      "emptyAction": "Publicar mi primera mascota",
-      "add": "Agregar mascota",
-      "edit": "Editar",
-      "reportLost": "Publicar como perdida",
-      "delete": "Eliminar",
-      "confirmDelete": "¿Seguro que querés eliminar esta mascota?",
-      "changeStatus": "Cambiar estado"
-    },
-    "detail": {
-      "contact": "Contactar por WhatsApp",
-      "addReport": "Agregar reporte",
-      "share": "Compartir",
-      "comingSoon": "¡Próximamente!",
-      "notFound": "Mascota no encontrada",
-      "type": "Tipo",
-      "breed": "Raza",
-      "color": "Color",
-      "description": "Descripción",
-      "owner": "Contacto del dueño",
-      "verified": "Verificado",
-      "noPhone": "Sin teléfono registrado",
-      "whatsappMessage": "Hola, vi tu mascota {{name}} en SearchPet",
-      "timeline": "Historial de reportes ({{count}})"
-    },
-    "card": {
-      "lost": "Perdido",
-      "found": "Encontrado",
-      "sighting": "Avistado",
-      "noName": "Sin nombre",
-      "reportSighting": "Reportar avistamiento"
-    },
-    "types": {
-      "dog": "Perro",
-      "cat": "Gato",
-      "other": "Otro"
-    },
-    "edit": {
-      "title": "Editar mascota",
-      "submit": "Guardar cambios",
-      "replacePhoto": "Subí una nueva para reemplazar la actual"
-    },
-    "status": {
-      "lost": "Perdido",
-      "found": "Encontrado",
-      "active": "Activa",
-      "archived": "Archivada"
-    }
-  },
   "reports": {
     "create": {
       "title": "Agregar reporte de ubicación",
@@ -202,6 +83,7 @@
     "impactReports": "Reportes creados",
     "impactPets": "Mascotas registradas",
     "visitWeb": "Visitar web",
+    "empty": "No hay refugios disponibles en este momento.",
     "contactCta": "¿Sos un refugio y querés aparecer aquí? Contactanos."
   },
   "footer": {
@@ -210,6 +92,17 @@
     "links": "Enlaces",
     "contact": "Contacto",
     "contactText": "¿Querés contribuir? Este es un proyecto open source."
+  },
+  "map": {
+    "title": "Mapa de reportes",
+    "loading": "Cargando mapa...",
+    "error": "No se pudo cargar el mapa.",
+    "clickToReport": "Hacé clic en el mapa para agregar un reporte",
+    "reports": "{{count}} reportes en la zona",
+    "viewDetails": "Ver detalles",
+    "pet": "Mascota",
+    "radius": "Radio",
+    "radiusKm": "{{km}} km"
   },
   "profile": {
     "title": "Mi perfil",
@@ -225,15 +118,25 @@
     "changePhoto": "Clic para cambiar foto",
     "verified": "Verificado"
   },
-  "map": {
-    "title": "Mapa de reportes",
-    "loading": "Cargando mapa...",
-    "error": "No se pudo cargar el mapa.",
-    "clickToReport": "Hacé clic en el mapa para agregar un reporte",
-    "reports": "{{count}} reportes en la zona",
-    "viewDetails": "Ver detalles",
-    "pet": "Mascota",
-    "radius": "Radio",
-    "radiusKm": "{{km}} km"
+  "otp": {
+    "title": "Verificar teléfono",
+    "ariaLabel": "Verificación de teléfono",
+    "close": "Cerrar",
+    "stepPhoneDesc": "Ingresá tu número de teléfono y te enviaremos un código SMS.",
+    "stepCodeDesc": "Ingresá el código de 6 dígitos que enviamos a {{phone}}.",
+    "phoneLabel": "Teléfono",
+    "codeLabel": "Código de verificación",
+    "send": "Enviar código",
+    "sending": "Enviando...",
+    "verify": "Verificar",
+    "verifying": "Verificando...",
+    "resendIn": "Reenviar en {{seconds}}s",
+    "resend": "Reenviar código",
+    "changeNumber": "Cambiar número",
+    "errorRequired": "Ingresá tu número de teléfono",
+    "errorCodeLength": "El código debe tener 6 dígitos",
+    "errorRateLimit": "Demasiados intentos. Esperá 60 segundos antes de reenviar.",
+    "errorMaxAttempts": "Alcanzaste el máximo de 5 intentos. Solicitá un nuevo código.",
+    "errorUnexpected": "Ocurrió un error inesperado"
   }
 }

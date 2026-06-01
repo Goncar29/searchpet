@@ -121,6 +121,25 @@ export interface Stats {
 }
 
 // ============================================================
+// SHELTERS
+// ============================================================
+
+export interface Shelter {
+  id: string;
+  name: string;
+  city: string;
+  latitude?: number;
+  longitude?: number;
+  phone?: string;
+  email?: string;
+  website_url?: string;
+  donation_url?: string;
+  description?: string;
+  is_verified: boolean;
+  created_at: string;
+}
+
+// ============================================================
 // GAMIFICATION
 // ============================================================
 

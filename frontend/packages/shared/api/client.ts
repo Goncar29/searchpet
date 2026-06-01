@@ -48,6 +48,7 @@ import type {
   LocalGroup,
   GroupMember,
   VerificationStatus,
+  Shelter,
 } from '../types';
 
 
@@ -368,6 +369,20 @@ class APIClient {
 
   async getStats(): Promise<Stats> {
     return this.request<Stats>('GET', '/api/stats');
+  }
+
+  // ============================================================
+  // SHELTERS (público)
+  // ============================================================
+
+  async getShelters(city?: string): Promise<Shelter[]> {
+    const params: Record<string, string> = {};
+    if (city) params.city = city;
+    return this.request<Shelter[]>('GET', '/api/shelters', undefined, params);
+  }
+
+  async getShelterByID(id: string): Promise<Shelter> {
+    return this.request<Shelter>('GET', `/api/shelters/${encodeURIComponent(id)}`);
   }
 
   // ============================================================

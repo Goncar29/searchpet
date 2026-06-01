@@ -1,19 +1,28 @@
 import { useTranslation } from 'react-i18next';
 
+const LANGUAGES = [
+  { code: 'es', label: 'Español' },
+  { code: 'en', label: 'English' },
+  { code: 'pt', label: 'Português' },
+] as const;
+
 export function LanguageSwitcher() {
   const { i18n, t } = useTranslation('layout');
 
-  const currentLang = i18n.language?.startsWith('en') ? 'en' : 'es';
-  const nextLang = currentLang === 'es' ? 'en' : 'es';
+  const currentLang = LANGUAGES.some((l) => l.code === i18n.language)
+    ? i18n.language
+    : 'es';
 
-  function handleToggle() {
-    i18n.changeLanguage(nextLang);
-    localStorage.setItem('searchpet-lang', nextLang);
+  function handleChange(e: React.ChangeEvent<HTMLSelectElement>) {
+    const lang = e.target.value;
+    i18n.changeLanguage(lang);
+    localStorage.setItem('searchpet-lang', lang);
   }
 
   return (
-    <button
-      onClick={handleToggle}
+    <select
+      value={currentLang}
+      onChange={handleChange}
       aria-label={t('language')}
       className="
         px-2 py-1 text-xs font-semibold rounded
@@ -22,9 +31,14 @@ export function LanguageSwitcher() {
         bg-white dark:bg-gray-800
         hover:bg-gray-100 dark:hover:bg-gray-700
         transition-colors duration-150
+        cursor-pointer
       "
     >
-      {currentLang.toUpperCase()}
-    </button>
+      {LANGUAGES.map((lang) => (
+        <option key={lang.code} value={lang.code}>
+          {lang.label}
+        </option>
+      ))}
+    </select>
   );
 }

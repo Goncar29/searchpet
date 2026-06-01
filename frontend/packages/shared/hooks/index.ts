@@ -36,6 +36,7 @@ import type {
   LocalGroup,
   GroupMember,
   VerificationStatus,
+  Shelter,
 } from '../types';
 
 // ============================================================
@@ -372,6 +373,26 @@ export const useStats = () => {
     queryKey: ['stats'],
     queryFn: () => apiClient.getStats(),
     staleTime: 30 * 60 * 1000, // 30 minutos
+  });
+};
+
+// ============================================================
+// SHELTER HOOKS
+// ============================================================
+
+export const useShelters = (city?: string) => {
+  return useQuery<Shelter[]>({
+    queryKey: ['shelters', city],
+    queryFn: () => apiClient.getShelters(city),
+    staleTime: 10 * 60 * 1000, // 10 minutos — datos cambian poco
+  });
+};
+
+export const useShelterByID = (id: string) => {
+  return useQuery<Shelter>({
+    queryKey: ['shelter', id],
+    queryFn: () => apiClient.getShelterByID(id),
+    enabled: !!id,
   });
 };
 
