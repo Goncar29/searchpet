@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useUpdateMe, useUploadProfilePhoto, useMyBadges, useVerificationStatus, useSendEmailOTP, useConfirmEmailOTP, usePublicProfile } from '@shared/hooks';
+import { useUpdateMe, useUploadProfilePhoto, useMyBadges, useVerificationStatus, useSendEmailOTP, useConfirmEmailOTP, useSendSmsOTP, useConfirmSmsOTP, usePublicProfile } from '@shared/hooks';
 import { useAuth } from '../context/AuthContext';
 import type { Badge } from '@shared/types';
 import { BADGE_META } from '@shared/types';
@@ -32,6 +32,16 @@ export function ProfilePage() {
   const [resendCountdown, setResendCountdown] = useState(0);
   const verificationDisabled = (verificationError as any)?.status === 501;
 
+  // SMS OTP state
+  const sendSmsOTP = useSendSmsOTP();
+  const confirmSmsOTP = useConfirmSmsOTP();
+  const [smsAccordionOpen, setSmsAccordionOpen] = useState(false);
+  const [smsOtpSent, setSmsOtpSent] = useState(false);
+  const [smsVerifyCode, setSmsVerifyCode] = useState('');
+  const [smsVerifyError, setSmsVerifyError] = useState('');
+  const [smsResendCountdown, setSmsResendCountdown] = useState(0);
+  const [smsUnavailable, setSmsUnavailable] = useState(false);
+
   useEffect(() => {
     if (user) {
       setName(user.name);
@@ -44,6 +54,45 @@ export function ProfilePage() {
     const timer = setTimeout(() => setResendCountdown((c) => c - 1), 1000);
     return () => clearTimeout(timer);
   }, [resendCountdown]);
+
+  useEffect(() => {
+    if (smsResendCountdown <= 0) return;
+    const timer = setTimeout(() => setSmsResendCountdown((c) => c - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [smsResendCountdown]);
+
+  const handleSendSmsOTP = async () => {
+    setSmsVerifyError('');
+    setSmsUnavailable(false);
+    try {
+      await sendSmsOTP.mutateAsync(phone.trim());
+      setSmsOtpSent(true);
+      setSmsResendCountdown(60);
+    } catch (err: any) {
+      if (err.status === 501) {
+        setSmsUnavailable(true);
+      } else {
+        setSmsVerifyError(err.message || 'No se pudo enviar el código SMS');
+      }
+    }
+  };
+
+  const handleConfirmSmsOTP = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSmsVerifyError('');
+    if (smsVerifyCode.length !== 6) {
+      setSmsVerifyError('Ingresá el código de 6 dígitos');
+      return;
+    }
+    try {
+      await confirmSmsOTP.mutateAsync({ phone: phone.trim(), code: smsVerifyCode });
+      setSmsAccordionOpen(false);
+      setSmsOtpSent(false);
+      setSmsVerifyCode('');
+    } catch (err: any) {
+      setSmsVerifyError(err.message || 'Código incorrecto o expirado');
+    }
+  };
 
   const handleSendOTP = async () => {
     try {
@@ -354,6 +403,99 @@ export function ProfilePage() {
                         type="button"
                         onClick={handleSendOTP}
                         disabled={sendEmailOTP.isPending}
+                        className="w-full text-xs text-primary font-medium text-center disabled:opacity-60"
+                      >
+                        Reenviar código
+                      </button>
+                    )}
+                  </form>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Verificación de teléfono (SMS OTP) — solo si teléfono no verificado */}
+        {verificationStatus?.phone_verified === false && (
+          <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">
+            <div className="flex items-center justify-between">
+              <h2 className="text-base font-semibold text-gray-900 dark:text-gray-50">
+                Verificación de teléfono
+              </h2>
+              {smsUnavailable ? (
+                <span className="inline-flex items-center gap-1 text-xs font-semibold text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-gray-800 px-3 py-1 rounded-full">
+                  SMS no disponible
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setSmsAccordionOpen((o) => !o)}
+                  className="text-sm font-medium text-primary flex items-center gap-1"
+                  aria-expanded={smsAccordionOpen}
+                >
+                  Verificar teléfono
+                  <span className={`transition-transform ${smsAccordionOpen ? 'rotate-180' : ''}`}>▾</span>
+                </button>
+              )}
+            </div>
+
+            {smsAccordionOpen && !smsUnavailable && (
+              <div className="mt-4 border-t border-gray-100 dark:border-gray-800 pt-4">
+                {!smsOtpSent ? (
+                  <div>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                      Te enviaremos un código SMS a <strong>{phone || 'tu número de teléfono'}</strong>.
+                    </p>
+                    {smsVerifyError && (
+                      <p className="text-sm text-red-500 dark:text-red-400 mb-2">{smsVerifyError}</p>
+                    )}
+                    <button
+                      type="button"
+                      onClick={handleSendSmsOTP}
+                      disabled={sendSmsOTP.isPending || !phone.trim()}
+                      className="bg-primary hover:bg-primary-dark disabled:opacity-60 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
+                    >
+                      {sendSmsOTP.isPending ? 'Enviando...' : 'Enviar código SMS'}
+                    </button>
+                    {!phone.trim() && (
+                      <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">
+                        Primero agregá un número de teléfono en tu perfil.
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <form onSubmit={handleConfirmSmsOTP} noValidate>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                      Revisá tu teléfono e ingresá el código de 6 dígitos.
+                    </p>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={6}
+                      value={smsVerifyCode}
+                      onChange={(e) => { setSmsVerifyCode(e.target.value.replace(/\D/g, '').slice(0, 6)); setSmsVerifyError(''); }}
+                      placeholder="000000"
+                      className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-3 py-2 text-center text-xl tracking-widest mb-2 focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                    {smsVerifyError && (
+                      <p className="text-sm text-red-500 dark:text-red-400 mb-2">{smsVerifyError}</p>
+                    )}
+                    <button
+                      type="submit"
+                      disabled={confirmSmsOTP.isPending}
+                      className="w-full bg-primary hover:bg-primary-dark disabled:opacity-60 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors mb-2"
+                    >
+                      {confirmSmsOTP.isPending ? 'Verificando...' : 'Confirmar código'}
+                    </button>
+                    {smsResendCountdown > 0 ? (
+                      <p className="text-xs text-gray-400 dark:text-gray-500 text-center">
+                        Reenviar en {smsResendCountdown}s
+                      </p>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={handleSendSmsOTP}
+                        disabled={sendSmsOTP.isPending}
                         className="w-full text-xs text-primary font-medium text-center disabled:opacity-60"
                       >
                         Reenviar código

@@ -7,7 +7,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuthStore } from '../../store';
-import { useMyPets, usePublicProfile, useUploadProfilePhotoNative, useVerificationStatus, useSendEmailOTP, useConfirmEmailOTP } from '../../../shared/hooks';
+import { useMyPets, usePublicProfile, useUploadProfilePhotoNative, useVerificationStatus, useSendEmailOTP, useConfirmEmailOTP, useSendSmsOTP, useConfirmSmsOTP } from '../../../shared/hooks';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
 
 export default function ProfileScreen() {
@@ -21,6 +21,8 @@ export default function ProfileScreen() {
   const { data: verificationStatus, error: verificationError } = useVerificationStatus();
   const sendEmailOTP = useSendEmailOTP();
   const confirmEmailOTP = useConfirmEmailOTP();
+  const sendSmsOTP = useSendSmsOTP();
+  const confirmSmsOTP = useConfirmSmsOTP();
 
   const [sheetVisible, setSheetVisible] = useState(false);
   const [sheetStep, setSheetStep] = useState<'send' | 'confirm'>('send');
@@ -28,12 +30,26 @@ export default function ProfileScreen() {
   const [otpError, setOtpError] = useState('');
   const [resendCountdown, setResendCountdown] = useState(0);
 
+  // SMS OTP state
+  const [smsSheetVisible, setSmsSheetVisible] = useState(false);
+  const [smsSheetStep, setSmsSheetStep] = useState<'send' | 'confirm'>('send');
+  const [smsOtpCode, setSmsOtpCode] = useState('');
+  const [smsOtpError, setSmsOtpError] = useState('');
+  const [smsResendCountdown, setSmsResendCountdown] = useState(0);
+  const [smsUnavailable, setSmsUnavailable] = useState(false);
+
   // Countdown timer for resend
   useEffect(() => {
     if (resendCountdown <= 0) return;
     const timer = setTimeout(() => setResendCountdown((c) => c - 1), 1000);
     return () => clearTimeout(timer);
   }, [resendCountdown]);
+
+  useEffect(() => {
+    if (smsResendCountdown <= 0) return;
+    const timer = setTimeout(() => setSmsResendCountdown((c) => c - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [smsResendCountdown]);
 
   // 501 → feature disabled: verificationError will have status 501
   const verificationDisabled = (verificationError as any)?.status === 501;
@@ -87,6 +103,43 @@ export default function ProfileScreen() {
       setSheetVisible(false);
     } catch (err: any) {
       setOtpError(err.message || 'Código incorrecto o expirado');
+    }
+  };
+
+  const handleOpenSmsSheet = () => {
+    setSmsSheetStep('send');
+    setSmsOtpCode('');
+    setSmsOtpError('');
+    setSmsUnavailable(false);
+    setSmsSheetVisible(true);
+  };
+
+  const handleSendSmsOTP = async () => {
+    const phoneNumber = user?.phone?.trim() ?? '';
+    try {
+      await sendSmsOTP.mutateAsync(phoneNumber);
+      setSmsSheetStep('confirm');
+      setSmsResendCountdown(60);
+    } catch (err: any) {
+      if (err.status === 501) {
+        setSmsUnavailable(true);
+      } else {
+        Alert.alert('Error', err.message || 'No se pudo enviar el código SMS');
+      }
+    }
+  };
+
+  const handleConfirmSmsOTP = async () => {
+    if (smsOtpCode.length !== 6) {
+      setSmsOtpError('Ingresá el código de 6 dígitos');
+      return;
+    }
+    setSmsOtpError('');
+    try {
+      await confirmSmsOTP.mutateAsync({ phone: user?.phone?.trim() ?? '', code: smsOtpCode });
+      setSmsSheetVisible(false);
+    } catch (err: any) {
+      setSmsOtpError(err.message || 'Código incorrecto o expirado');
     }
   };
 
@@ -181,7 +234,101 @@ export default function ProfileScreen() {
         </View>
       )}
 
-      {/* Verification Bottom Sheet */}
+      {/* SMS Verification Row — only if phone not verified */}
+      {!verificationDisabled && verificationStatus?.phone_verified === false && (
+        <View style={styles.verificationSection}>
+          <Text style={styles.verificationLabel}>Verificación de teléfono</Text>
+          {smsUnavailable ? (
+            <View style={[styles.verifiedBadgeRow, { backgroundColor: COLORS.textMuted }]}>
+              <Text style={styles.verifiedBadgeText}>SMS no disponible</Text>
+            </View>
+          ) : (
+            <TouchableOpacity style={styles.verifyButton} onPress={handleOpenSmsSheet}>
+              <Text style={styles.verifyButtonText}>Verificar teléfono</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
+
+      {/* SMS Verification Bottom Sheet */}
+      <Modal
+        visible={smsSheetVisible}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setSmsSheetVisible(false)}
+      >
+        <KeyboardAvoidingView
+          style={styles.sheetContainer}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <View style={styles.sheetHandle} />
+          <Text style={styles.sheetTitle}>
+            {smsSheetStep === 'send' ? 'Verificar teléfono' : 'Ingresá el código SMS'}
+          </Text>
+          <Text style={styles.sheetSubtitle}>
+            {smsUnavailable
+              ? 'El servicio de SMS no está disponible en este momento.'
+              : smsSheetStep === 'send'
+              ? `Te enviaremos un código SMS a ${user?.phone || 'tu teléfono'}`
+              : 'Revisá tu teléfono e ingresá el código de 6 dígitos'}
+          </Text>
+
+          {smsUnavailable ? (
+            <TouchableOpacity style={styles.sheetCancelButton} onPress={() => setSmsSheetVisible(false)}>
+              <Text style={styles.sheetCancelText}>Cerrar</Text>
+            </TouchableOpacity>
+          ) : smsSheetStep === 'send' ? (
+            <TouchableOpacity
+              style={[styles.sheetPrimaryButton, (sendSmsOTP.isPending || !user?.phone) && styles.buttonDisabled]}
+              onPress={handleSendSmsOTP}
+              disabled={sendSmsOTP.isPending || !user?.phone}
+            >
+              {sendSmsOTP.isPending ? (
+                <ActivityIndicator color={COLORS.white} />
+              ) : (
+                <Text style={styles.sheetPrimaryButtonText}>Enviar código SMS</Text>
+              )}
+            </TouchableOpacity>
+          ) : (
+            <>
+              <TextInput
+                style={styles.otpInput}
+                value={smsOtpCode}
+                onChangeText={(t) => { setSmsOtpCode(t.replace(/\D/g, '').slice(0, 6)); setSmsOtpError(''); }}
+                placeholder="000000"
+                keyboardType="number-pad"
+                maxLength={6}
+                autoFocus
+              />
+              {smsOtpError ? <Text style={styles.otpError}>{smsOtpError}</Text> : null}
+              <TouchableOpacity
+                style={[styles.sheetPrimaryButton, confirmSmsOTP.isPending && styles.buttonDisabled]}
+                onPress={handleConfirmSmsOTP}
+                disabled={confirmSmsOTP.isPending}
+              >
+                {confirmSmsOTP.isPending ? (
+                  <ActivityIndicator color={COLORS.white} />
+                ) : (
+                  <Text style={styles.sheetPrimaryButtonText}>Confirmar</Text>
+                )}
+              </TouchableOpacity>
+              {smsResendCountdown > 0 ? (
+                <Text style={styles.resendCountdown}>Reenviar en {smsResendCountdown}s</Text>
+              ) : (
+                <TouchableOpacity onPress={handleSendSmsOTP} disabled={sendSmsOTP.isPending}>
+                  <Text style={styles.resendLink}>Reenviar código</Text>
+                </TouchableOpacity>
+              )}
+            </>
+          )}
+
+          <TouchableOpacity style={styles.sheetCancelButton} onPress={() => setSmsSheetVisible(false)}>
+            <Text style={styles.sheetCancelText}>Cancelar</Text>
+          </TouchableOpacity>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Email Verification Bottom Sheet */}
       <Modal
         visible={sheetVisible}
         animationType="slide"
