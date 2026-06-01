@@ -150,11 +150,15 @@ export default function HomeScreen() {
       (item.body.length > 80 ? item.body.slice(0, 80) + '…' : item.body);
 
     return (
-      <View style={styles.storyCard}>
+      <TouchableOpacity
+        style={styles.storyCard}
+        onPress={() => router.push(`/story/${item.id}` as any)}
+        activeOpacity={0.7}
+      >
         <Text style={styles.storyPetName}>{item.pet_name}</Text>
         <Text style={styles.storyBody} numberOfLines={2}>{displayText}</Text>
         <Text style={styles.storyLikes}>❤️ {item.like_count}</Text>
-      </View>
+      </TouchableOpacity>
     );
   };
 
