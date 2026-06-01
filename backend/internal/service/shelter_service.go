@@ -12,6 +12,8 @@ import (
 type ShelterService interface {
 	GetAll(ctx context.Context, city string) ([]domain.Shelter, error)
 	GetByID(ctx context.Context, id string) (*domain.Shelter, error)
+	Create(ctx context.Context, shelter *domain.Shelter) error
+	Update(ctx context.Context, shelter *domain.Shelter) error
 }
 
 // shelterService es la implementación concreta del ShelterService.
@@ -41,4 +43,16 @@ func (s *shelterService) GetByID(ctx context.Context, id string) (*domain.Shelte
 	}
 
 	return s.repo.GetByID(ctx, shelterUUID)
+}
+
+// Create persiste un nuevo refugio en la base de datos.
+// Delega directamente al repositorio sin lógica de negocio adicional en esta versión.
+func (s *shelterService) Create(ctx context.Context, shelter *domain.Shelter) error {
+	return s.repo.Create(ctx, shelter)
+}
+
+// Update aplica los cambios a un refugio existente.
+// El shelter debe tener un ID válido; el repositorio retorna ErrShelterNotFound si no existe.
+func (s *shelterService) Update(ctx context.Context, shelter *domain.Shelter) error {
+	return s.repo.Update(ctx, shelter)
 }

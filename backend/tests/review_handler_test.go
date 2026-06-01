@@ -22,9 +22,10 @@ import (
 // ============================================================
 
 type mockReviewService struct {
-	createFn       func(ctx context.Context, reviewerID, revieweeID uuid.UUID, req dto.CreateReviewRequest) (*dto.ReviewResponse, error)
-	updateFn       func(ctx context.Context, reviewerID, revieweeID uuid.UUID, req dto.UpdateReviewRequest) (*dto.ReviewResponse, error)
+	createFn        func(ctx context.Context, reviewerID, revieweeID uuid.UUID, req dto.CreateReviewRequest) (*dto.ReviewResponse, error)
+	updateFn        func(ctx context.Context, reviewerID, revieweeID uuid.UUID, req dto.UpdateReviewRequest) (*dto.ReviewResponse, error)
 	getByRevieweeFn func(ctx context.Context, revieweeID uuid.UUID, limit, offset int) (*dto.ReviewListResponse, error)
+	deleteFn        func(ctx context.Context, reviewerID, revieweeID uuid.UUID) error
 }
 
 func (m *mockReviewService) Create(ctx context.Context, reviewerID, revieweeID uuid.UUID, req dto.CreateReviewRequest) (*dto.ReviewResponse, error) {
@@ -46,6 +47,13 @@ func (m *mockReviewService) GetByReviewee(ctx context.Context, revieweeID uuid.U
 		return m.getByRevieweeFn(ctx, revieweeID, limit, offset)
 	}
 	return &dto.ReviewListResponse{Reviews: []dto.ReviewResponse{}, Total: 0, Page: 1, PageSize: 20}, nil
+}
+
+func (m *mockReviewService) Delete(ctx context.Context, reviewerID, revieweeID uuid.UUID) error {
+	if m.deleteFn != nil {
+		return m.deleteFn(ctx, reviewerID, revieweeID)
+	}
+	return nil
 }
 
 // Ensure interface compliance at compile time.

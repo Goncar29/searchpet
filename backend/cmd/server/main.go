@@ -351,6 +351,8 @@ func main() {
 		admin.GET("/abuse-reports/:id", abuseReportHandler.GetByID)
 		admin.PATCH("/admin/abuse-reports/:id/resolve", abuseReportHandler.Resolve)
 		admin.PATCH("/admin/reports/:id/verify", reportHandler.VerifyReport)
+		admin.POST("/admin/shelters", shelterHandler.Create)
+		admin.PUT("/admin/shelters/:id", shelterHandler.Update)
 	}
 
 	// ========================================
