@@ -1,6 +1,6 @@
 import { useParams, Link } from 'react-router';
 import { useState } from 'react';
-import { usePublicProfile, useUserReviews, useCreateReview, useUpdateReview, useBlockUser, useBlockedUsers, useUnblockUser, useSubmitAbuseReport } from '@shared/hooks';
+import { usePublicProfile, useUserReviews, useCreateReview, useUpdateReview, useDeleteReview, useBlockUser, useBlockedUsers, useUnblockUser, useSubmitAbuseReport } from '@shared/hooks';
 import type { Badge, UserReview, AbuseReason } from '@shared/types';
 import { BADGE_META } from '@shared/types';
 import { useAuth } from '../context/AuthContext';
@@ -66,7 +66,7 @@ function StarSelector({ value, onChange }: { value: number; onChange: (n: number
   );
 }
 
-function ReviewCard({ review }: { review: UserReview }) {
+function ReviewCard({ review, onDelete }: { review: UserReview; onDelete?: () => void }) {
   const initials = review.reviewer_name.trim().charAt(0).toUpperCase();
   const date = new Date(review.created_at).toLocaleDateString('es-UY', {
     day: 'numeric', month: 'short', year: 'numeric',
@@ -90,7 +90,18 @@ function ReviewCard({ review }: { review: UserReview }) {
           <span className="text-sm font-semibold text-gray-900 dark:text-gray-50 truncate">
             {review.reviewer_name}
           </span>
-          <span className="text-xs text-gray-400 dark:text-gray-500 flex-shrink-0">{date}</span>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <span className="text-xs text-gray-400 dark:text-gray-500">{date}</span>
+            {onDelete && (
+              <button
+                type="button"
+                onClick={onDelete}
+                className="text-xs text-red-500 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 font-medium transition-colors"
+              >
+                Eliminar
+              </button>
+            )}
+          </div>
         </div>
         <StarDisplay stars={review.stars} />
         {review.text && (
@@ -125,6 +136,7 @@ export function UserProfilePage() {
 
   const createReview = useCreateReview(id ?? '');
   const updateReview = useUpdateReview(id ?? '');
+  const deleteReview = useDeleteReview();
   const blockUser = useBlockUser();
   const unblockUser = useUnblockUser();
   const submitAbuseReport = useSubmitAbuseReport();
@@ -445,7 +457,18 @@ export function UserProfilePage() {
           ) : (
             <div>
               {reviews.map((review) => (
-                <ReviewCard key={review.id} review={review} />
+                <ReviewCard
+                  key={review.id}
+                  review={review}
+                  onDelete={
+                    user && review.reviewer_id === user.id
+                      ? () => {
+                          if (!window.confirm('¿Eliminar tu reseña?')) return;
+                          deleteReview.mutate(id ?? '');
+                        }
+                      : undefined
+                  }
+                />
               ))}
             </div>
           )}

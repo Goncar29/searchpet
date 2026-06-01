@@ -19,7 +19,7 @@ import {
 } from 'react-native';
 import { useState, useEffect } from 'react';
 import { useLocalSearchParams, useNavigation } from 'expo-router';
-import { usePublicProfile, useUserReviews, useCreateReview, useUpdateReview, useBlockUser, useBlockedUsers, useSubmitAbuseReport } from '../../../shared/hooks';
+import { usePublicProfile, useUserReviews, useCreateReview, useUpdateReview, useDeleteReview, useBlockUser, useBlockedUsers, useSubmitAbuseReport } from '../../../shared/hooks';
 import { useAuthStore } from '../../store';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
 import type { Badge, UserReview } from '../../../shared/types';
@@ -113,9 +113,10 @@ function StarSelector({ value, onChange }: StarSelectorProps) {
 
 interface ReviewCardProps {
   review: UserReview;
+  onDelete?: () => void;
 }
 
-function ReviewCard({ review }: ReviewCardProps) {
+function ReviewCard({ review, onDelete }: ReviewCardProps) {
   const initials = review.reviewer_name.trim().charAt(0).toUpperCase();
 
   return (
@@ -132,7 +133,14 @@ function ReviewCard({ review }: ReviewCardProps) {
           <Text style={styles.reviewerName}>{review.reviewer_name}</Text>
           <StarDisplay stars={review.stars} />
         </View>
-        <Text style={styles.reviewDate}>{formatDate(review.created_at)}</Text>
+        <View style={styles.reviewDateCol}>
+          <Text style={styles.reviewDate}>{formatDate(review.created_at)}</Text>
+          {onDelete && (
+            <TouchableOpacity onPress={onDelete} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Text style={styles.deleteReviewText}>Eliminar</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
       {review.text ? (
         <Text style={styles.reviewText}>{review.text}</Text>
@@ -159,6 +167,7 @@ export default function PublicProfileScreen() {
 
   const createReview = useCreateReview(id ?? '');
   const updateReview = useUpdateReview(id ?? '');
+  const deleteReview = useDeleteReview();
 
   const blockUser = useBlockUser();
   const submitAbuseReport = useSubmitAbuseReport();
@@ -168,6 +177,26 @@ export default function PublicProfileScreen() {
   const isOwnProfile = !!user && user.id === id;
   const canReview = isAuthenticated && !isOwnProfile;
   const isBlocked = blockedList?.some((b) => b.blocked_id === id) ?? false;
+
+  const handleDeleteReview = () => {
+    Alert.alert(
+      'Eliminar reseña',
+      '¿Estás seguro de que querés eliminar tu reseña?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: () => {
+            deleteReview.mutate(id ?? '', {
+              onSuccess: () => Alert.alert('Reseña eliminada'),
+              onError: (err) => Alert.alert('Error', err.message || 'No se pudo eliminar la reseña'),
+            });
+          },
+        },
+      ],
+    );
+  };
 
   const handleBlockUser = () => {
     blockUser.mutate(
@@ -466,7 +495,15 @@ export default function PublicProfileScreen() {
           </View>
         ) : (
           reviews.map((review) => (
-            <ReviewCard key={review.id} review={review} />
+            <ReviewCard
+              key={review.id}
+              review={review}
+              onDelete={
+                user && review.reviewer_id === user.id
+                  ? handleDeleteReview
+                  : undefined
+              }
+            />
           ))
         )}
       </View>
@@ -730,9 +767,18 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: COLORS.textPrimary,
   },
+  reviewDateCol: {
+    alignItems: 'flex-end',
+    gap: 4,
+  },
   reviewDate: {
     fontSize: FONTS.sizes.xs,
     color: COLORS.textMuted,
+  },
+  deleteReviewText: {
+    fontSize: FONTS.sizes.xs,
+    color: COLORS.danger,
+    fontWeight: '600',
   },
   reviewText: {
     fontSize: FONTS.sizes.sm,

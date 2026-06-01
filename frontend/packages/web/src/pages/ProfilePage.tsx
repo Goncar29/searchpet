@@ -16,6 +16,7 @@ export function ProfilePage() {
 
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
+  const [city, setCity] = useState('');
   const [nameError, setNameError] = useState('');
   const [success, setSuccess] = useState(false);
   const [apiError, setApiError] = useState('');
@@ -46,6 +47,7 @@ export function ProfilePage() {
     if (user) {
       setName(user.name);
       setPhone(user.phone ?? '');
+      setCity(user.city ?? '');
     }
   }, [user]);
 
@@ -162,7 +164,7 @@ export function ProfilePage() {
     }
 
     updateMe.mutate(
-      { name: name.trim(), phone: phone.trim() },
+      { name: name.trim(), phone: phone.trim(), city: city.trim() || undefined },
       {
         onSuccess: async () => {
           await refreshUser();
@@ -305,6 +307,21 @@ export function ProfilePage() {
               <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
                 {t('profile:phoneHint')}
               </p>
+            </div>
+
+            {/* Ciudad */}
+            <div>
+              <label htmlFor="city" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Ciudad
+              </label>
+              <input
+                id="city"
+                type="text"
+                value={city}
+                onChange={(e) => setCity(e.target.value)}
+                placeholder="Ej: Montevideo"
+                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
+              />
             </div>
 
             {apiError && (

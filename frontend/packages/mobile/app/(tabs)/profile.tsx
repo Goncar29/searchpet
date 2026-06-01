@@ -193,6 +193,9 @@ export default function ProfileScreen() {
         </TouchableOpacity>
         <Text style={styles.userName}>{user?.name}</Text>
         <Text style={styles.userEmail}>{user?.email}</Text>
+        {user?.city ? (
+          <Text style={styles.userCity}>📍 {user.city}</Text>
+        ) : null}
         {user?.is_verified && (
           <View style={styles.verifiedBadge}>
             <Text style={styles.verifiedText}>Verificado</Text>
@@ -557,6 +560,11 @@ const styles = StyleSheet.create({
     fontSize: FONTS.sizes.sm,
     color: COLORS.textSecondary,
     marginTop: 4,
+  },
+  userCity: {
+    fontSize: FONTS.sizes.sm,
+    color: COLORS.textSecondary,
+    marginTop: 2,
   },
   verifiedBadge: {
     backgroundColor: COLORS.success,
