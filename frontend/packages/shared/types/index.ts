@@ -11,6 +11,7 @@ export interface User {
   latitude?: number;
   longitude?: number;
   is_verified: boolean;
+  is_admin?: boolean;
   email_verified?: boolean;
   phone_verified?: boolean;
   search_radius_meters?: number;
@@ -346,6 +347,7 @@ export interface SuccessStory {
   featured: boolean;
   pet_name: string;
   user_name: string;
+  hero_name?: string;
   created_at: string;
 }
 

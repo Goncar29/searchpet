@@ -543,6 +543,42 @@ class APIClient {
   async confirmSmsOtp(phone: string, code: string): Promise<void> {
     return this.request<void>('POST', '/api/verification/confirm-sms', { phone, code });
   }
+
+  // ============================================================
+  // ADMIN
+  // ============================================================
+
+  async listAbuseReports(params?: { resolved?: boolean; limit?: number; offset?: number }): Promise<AbuseReport[]> {
+    const queryParams: Record<string, string | number> = {};
+    if (params?.resolved !== undefined) queryParams['resolved'] = String(params.resolved);
+    if (params?.limit !== undefined) queryParams['limit'] = params.limit;
+    if (params?.offset !== undefined) queryParams['offset'] = params.offset;
+    return this.request<AbuseReport[]>('GET', '/api/abuse-reports', undefined, queryParams);
+  }
+
+  async getAbuseReport(id: string): Promise<AbuseReport> {
+    return this.request<AbuseReport>('GET', `/api/abuse-reports/${id}`);
+  }
+
+  async resolveAbuseReport(id: string, body: { status: 'resolved' | 'dismissed' }): Promise<AbuseReport> {
+    return this.request<AbuseReport>('PATCH', `/api/admin/abuse-reports/${id}/resolve`, body);
+  }
+
+  async verifyReport(id: string): Promise<Report> {
+    return this.request<Report>('PATCH', `/api/admin/reports/${id}/verify`);
+  }
+
+  async setStoryFeatured(id: string, featured: boolean): Promise<SuccessStory> {
+    return this.request<SuccessStory>('PATCH', `/api/admin/stories/${id}/featured`, { featured });
+  }
+
+  async adminDeleteStory(id: string): Promise<void> {
+    return this.request<void>('DELETE', `/api/admin/stories/${id}`);
+  }
+
+  async createGroup(body: { name: string; city: string; description?: string }): Promise<LocalGroup> {
+    return this.request<LocalGroup>('POST', '/api/groups', body);
+  }
 }
 
 // Exportar instancia única (singleton)
