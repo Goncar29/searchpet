@@ -619,3 +619,24 @@ export const useConfirmEmailOTP = () => {
     },
   });
 };
+
+export const useSendSmsOTP = () => {
+  const queryClient = useQueryClient();
+  return useMutation<void, Error, string>({
+    mutationFn: (phone) => apiClient.sendSmsOtp(phone),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['verification-status'] });
+    },
+  });
+};
+
+export const useConfirmSmsOTP = () => {
+  const queryClient = useQueryClient();
+  return useMutation<void, Error, { phone: string; code: string }>({
+    mutationFn: ({ phone, code }) => apiClient.confirmSmsOtp(phone, code),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['verification-status'] });
+      queryClient.invalidateQueries({ queryKey: ['me'] });
+    },
+  });
+};
