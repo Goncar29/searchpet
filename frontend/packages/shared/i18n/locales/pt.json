@@ -1,0 +1,149 @@
+{
+  "common": {
+    "loading": "Carregando...",
+    "error": "Ocorreu um erro. Por favor, tente novamente.",
+    "save": "Salvar",
+    "cancel": "Cancelar",
+    "delete": "Excluir",
+    "confirm": "Confirmar",
+    "back": "Voltar ao início",
+    "search": "Buscar",
+    "noResults": "Nenhum resultado encontrado",
+    "required": "Este campo é obrigatório",
+    "emailInvalid": "Insira um endereço de e-mail válido",
+    "errorDescription": "Algo deu errado. Por favor, tente recarregar a página.",
+    "reload": "Recarregar",
+    "timeAgo": {
+      "minutesAgo": "há {{count}} min",
+      "hoursAgo": "há {{count}}h",
+      "daysAgo": "há {{count}}d"
+    }
+  },
+  "auth": {
+    "login": {
+      "title": "Entrar",
+      "subtitle": "Ajude a encontrar pets perdidos",
+      "email": "Endereço de e-mail",
+      "password": "Senha",
+      "submit": "Entrar",
+      "noAccount": "Não tem conta? Cadastre-se",
+      "invalidCredentials": "Credenciais inválidas"
+    },
+    "register": {
+      "title": "Criar conta",
+      "subtitle": "Junte-se à comunidade",
+      "name": "Nome completo",
+      "email": "Endereço de e-mail",
+      "password": "Senha",
+      "confirm": "Confirmar senha",
+      "phone": "Telefone (opcional)",
+      "city": "Cidade (opcional)",
+      "submit": "Criar conta",
+      "hasAccount": "Já tem uma conta? Entre",
+      "passwordMin": "A senha deve ter pelo menos 6 caracteres",
+      "passwordMismatch": "As senhas não coincidem",
+      "createError": "Não foi possível criar a conta"
+    }
+  },
+  "pets": {
+    "create": {
+      "title": "Publicar um pet",
+      "name": "Nome",
+      "species": "Espécie",
+      "breed": "Raça (opcional)",
+      "color": "Cor (opcional)",
+      "description": "Descrição (opcional)",
+      "status": "Status",
+      "submit": "Publicar"
+    },
+    "mine": {
+      "title": "Meus pets",
+      "empty": "Você ainda não publicou nenhum pet.",
+      "emptyAction": "Publicar meu primeiro pet",
+      "add": "Adicionar pet",
+      "edit": "Editar",
+      "reportLost": "Reportar como perdido",
+      "delete": "Excluir",
+      "confirmDelete": "Tem certeza que deseja excluir este pet?",
+      "changeStatus": "Alterar status"
+    },
+    "detail": {
+      "contact": "Contato via WhatsApp",
+      "addReport": "Adicionar reporte",
+      "share": "Compartilhar",
+      "comingSoon": "Em breve!",
+      "notFound": "Pet não encontrado",
+      "type": "Tipo",
+      "breed": "Raça",
+      "color": "Cor",
+      "description": "Descrição",
+      "owner": "Contato do dono",
+      "verified": "Verificado",
+      "noPhone": "Nenhum telefone cadastrado",
+      "whatsappMessage": "Olá, vi seu pet {{name}} no SearchPet",
+      "timeline": "Histórico de reportes ({{count}})"
+    },
+    "card": {
+      "lost": "Perdido",
+      "found": "Encontrado",
+      "sighting": "Avistamento",
+      "noName": "Sem nome",
+      "reportSighting": "Reportar avistamento"
+    },
+    "types": {
+      "dog": "Cachorro",
+      "cat": "Gato",
+      "other": "Outro"
+    },
+    "edit": {
+      "title": "Editar pet",
+      "submit": "Salvar alterações",
+      "replacePhoto": "Envie uma nova para substituir a foto atual"
+    },
+    "status": {
+      "lost": "Perdido",
+      "found": "Encontrado",
+      "active": "Ativo",
+      "archived": "Arquivado"
+    }
+  },
+  "chat": {
+    "inputPlaceholder": "Digite uma mensagem...",
+    "send": "Enviar",
+    "typing": "digitando...",
+    "loadingMessages": "Carregando mensagens..."
+  },
+  "messages": {
+    "title": "Mensagens",
+    "empty": "Você ainda não tem conversas",
+    "loading": "Carregando conversas..."
+  },
+  "badges": {
+    "title": "Meus Badges",
+    "empty": "Você ainda não tem badges. Participe mais para ganhá-los!",
+    "first_helper": {
+      "label": "Primeiro Ajudante",
+      "description": "Criou seu primeiro reporte de avistamento"
+    },
+    "pet_rescuer": {
+      "label": "Resgatador",
+      "description": "Ajudou a reunir um pet com sua família"
+    },
+    "social_butterfly": {
+      "label": "Social",
+      "description": "Compartilhou reportes nas redes sociais"
+    },
+    "verified_finder": {
+      "label": "Verificado",
+      "description": "Identidade verificada pela plataforma"
+    },
+    "community_guardian": {
+      "label": "Guardião",
+      "description": "Contribuiu ativamente com a comunidade"
+    },
+    "super_finder": {
+      "label": "Super Finder",
+      "description": "Encontrou múltiplos pets perdidos"
+    }
+  }
+}

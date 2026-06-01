@@ -6,9 +6,12 @@ import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView, Image, Act
 import { useState, useEffect } from 'react';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import i18next from 'i18next';
 import { useAuthStore } from '../../store';
 import { useMyPets, usePublicProfile, useUploadProfilePhotoNative, useVerificationStatus, useSendEmailOTP, useConfirmEmailOTP, useSendSmsOTP, useConfirmSmsOTP } from '../../../shared/hooks';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
+import { LANG_KEY } from '../../i18n';
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -168,6 +171,33 @@ export default function ProfileScreen() {
     Alert.alert('Cerrar Sesión', '¿Estás seguro?', [
       { text: 'Cancelar', style: 'cancel' },
       { text: 'Sí, salir', style: 'destructive', onPress: () => logout() },
+    ]);
+  };
+
+  const handleLanguageSwitch = () => {
+    Alert.alert('Idioma', '', [
+      {
+        text: 'Español',
+        onPress: () => {
+          i18next.changeLanguage('es');
+          AsyncStorage.setItem(LANG_KEY, 'es');
+        },
+      },
+      {
+        text: 'English',
+        onPress: () => {
+          i18next.changeLanguage('en');
+          AsyncStorage.setItem(LANG_KEY, 'en');
+        },
+      },
+      {
+        text: 'Português',
+        onPress: () => {
+          i18next.changeLanguage('pt');
+          AsyncStorage.setItem(LANG_KEY, 'pt');
+        },
+      },
+      { text: 'Cancelar', style: 'cancel' },
     ]);
   };
 
@@ -466,6 +496,15 @@ export default function ProfileScreen() {
         >
           <Text style={styles.menuIcon}>⚙️</Text>
           <Text style={styles.menuText}>Configuración</Text>
+          <Text style={styles.menuArrow}>›</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.menuItem}
+          onPress={handleLanguageSwitch}
+        >
+          <Text style={styles.menuIcon}>🌐</Text>
+          <Text style={styles.menuText}>Idioma</Text>
           <Text style={styles.menuArrow}>›</Text>
         </TouchableOpacity>
       </View>

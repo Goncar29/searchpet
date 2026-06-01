@@ -2,6 +2,9 @@
 // SearchPet - Layout principal (Expo Router)
 // ============================================================
 
+// Initialize i18next before any screen renders (synchronous — bundled resources)
+import '../i18n';
+
 import { useEffect } from 'react';
 import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
