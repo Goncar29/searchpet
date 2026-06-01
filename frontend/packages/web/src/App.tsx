@@ -19,6 +19,7 @@ import { UserProfilePage } from './pages/UserProfilePage';
 import { InstallPWA } from './components/InstallPWA';
 import { DownloadPage } from './pages/DownloadPage';
 import { StoriesPage } from './pages/StoriesPage';
+import { StoryDetailPage } from './pages/StoryDetailPage';
 import { GroupsPage } from './pages/GroupsPage';
 import { GroupDetailPage } from './pages/GroupDetailPage';
 import { BlockedUsersPage } from './pages/BlockedUsersPage';
@@ -39,6 +40,7 @@ export default function App() {
           <Route path="/shelters" element={<SheltersPage />} />
           <Route path="/leaderboard" element={<LeaderboardPage />} />
           <Route path="/stories" element={<StoriesPage />} />
+          <Route path="/stories/:id" element={<StoryDetailPage />} />
           <Route path="/users/:id" element={<UserProfilePage />} />
           <Route path="/groups" element={<GroupsPage />} />
           <Route path="/groups/:id" element={<GroupDetailPage />} />

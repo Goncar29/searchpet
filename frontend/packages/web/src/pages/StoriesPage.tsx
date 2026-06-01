@@ -1,3 +1,4 @@
+import { Link } from 'react-router';
 import { useStories, useLikeStory } from '@shared/hooks';
 import type { SuccessStory } from '@shared/types';
 
@@ -29,8 +30,12 @@ export function StoriesPage() {
       ) : stories && stories.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {stories.map((story: SuccessStory) => (
-            <div
+            <Link
               key={story.id}
+              to={`/stories/${story.id}`}
+              className="block cursor-pointer"
+            >
+            <div
               className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 hover:shadow-md transition-shadow flex flex-col"
             >
               {story.featured && (
@@ -54,7 +59,7 @@ export function StoriesPage() {
                   {new Date(story.created_at).toLocaleDateString()}
                 </p>
                 <button
-                  onClick={() => likeStory.mutate(story.id)}
+                  onClick={(e) => { e.preventDefault(); likeStory.mutate(story.id); }}
                   disabled={likeStory.isPending}
                   className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors disabled:opacity-50"
                   aria-label="Me gusta"
@@ -64,6 +69,7 @@ export function StoriesPage() {
                 </button>
               </div>
             </div>
+            </Link>
           ))}
         </div>
       ) : (
