@@ -372,6 +372,9 @@ export default function PetDetailScreen() {
                     <Text style={styles.timelineStatus}>
                       {report.status === 'lost' ? 'Perdido' : report.status === 'found' ? 'Encontrado' : 'Avistado'}
                     </Text>
+                    {report.is_verified && (
+                      <Text style={styles.verifiedBadge}>✓ Verificado</Text>
+                    )}
                     {report.location_description && (
                       <Text style={styles.timelineLocation}>
                         📍 {report.location_description}
@@ -567,6 +570,7 @@ const styles = StyleSheet.create({
   },
   timelineContent: { flex: 1 },
   timelineStatus: { fontSize: FONTS.sizes.sm, fontWeight: '600', color: COLORS.textPrimary },
+  verifiedBadge: { fontSize: 11, color: '#16a34a', fontWeight: '700', marginTop: 2 },
   timelineLocation: { fontSize: FONTS.sizes.xs, color: COLORS.textSecondary, marginTop: 2 },
   timelineDate: { fontSize: FONTS.sizes.xs, color: COLORS.textMuted, marginTop: 2 },
 });
