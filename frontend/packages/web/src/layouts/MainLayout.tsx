@@ -9,7 +9,7 @@ export function MainLayout() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
-  const { isAuthenticated, user, logout } = useAuth();
+  const { isAuthenticated, isAdmin, user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const { t } = useTranslation(['layout', 'footer']);
 
@@ -88,6 +88,14 @@ export function MainLayout() {
                   >
                     Alertas
                   </Link>
+                  {isAdmin && (
+                    <Link
+                      to="/admin/abuse-reports"
+                      className={`text-sm font-medium whitespace-nowrap ${isActive('/admin/abuse-reports') ? activeLinkClass : inactiveLinkClass}`}
+                    >
+                      Admin
+                    </Link>
+                  )}
                 </>
               )}
             </div>
@@ -234,6 +242,18 @@ export function MainLayout() {
                   >
                     Alertas
                   </Link>
+                  {isAdmin && (
+                    <Link
+                      to="/admin/abuse-reports"
+                      className={`text-sm font-medium py-2 px-3 rounded-md ${
+                        location.pathname.startsWith('/admin')
+                          ? 'text-primary bg-orange-50 dark:bg-orange-950'
+                          : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+                      } transition-colors duration-150`}
+                    >
+                      Admin
+                    </Link>
+                  )}
                   <Link
                     to="/pets/create"
                     className="text-sm font-semibold text-white bg-primary hover:bg-primary-dark py-2 px-3 rounded-md mt-1 text-center transition-colors duration-150"

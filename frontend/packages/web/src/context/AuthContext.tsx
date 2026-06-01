@@ -1,15 +1,7 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { apiClient } from '@shared/api/client';
+import type { User } from '@shared/types';
 import { registerWebPushToken, listenForegroundMessages } from '../utils/notifications';
-
-interface User {
-  id: string;
-  email: string;
-  name: string;
-  phone?: string;
-  profile_photo_url?: string;
-  is_verified: boolean;
-}
 
 interface AuthContextType {
   user: User | null;
@@ -19,6 +11,7 @@ interface AuthContextType {
   logout: () => void;
   refreshUser: () => Promise<void>;
   isAuthenticated: boolean;
+  isAdmin: boolean;
   isLoading: boolean;
 }
 
@@ -89,7 +82,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, login, register, logout, refreshUser, isAuthenticated: !!token, isLoading }}>
+    <AuthContext.Provider value={{ user, token, login, register, logout, refreshUser, isAuthenticated: !!token, isAdmin: user?.is_admin ?? false, isLoading }}>
       {children}
     </AuthContext.Provider>
   );

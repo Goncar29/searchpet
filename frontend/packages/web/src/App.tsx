@@ -1,6 +1,11 @@
-import { Routes, Route } from 'react-router';
+import { Routes, Route, Navigate } from 'react-router';
 import { MainLayout } from './layouts/MainLayout';
 import { ProtectedRoute } from './components/ProtectedRoute';
+import { AdminRoute } from './components/AdminRoute';
+import { AdminLayout } from './pages/admin/AdminLayout';
+import { AbuseReportsPage } from './pages/admin/AbuseReportsPage';
+import { StoriesAdminPage } from './pages/admin/StoriesAdminPage';
+import { GroupsAdminPage } from './pages/admin/GroupsAdminPage';
 import { HomePage } from './pages/HomePage';
 import { MapPage } from './pages/MapPage';
 import { PetDetailPage } from './pages/PetDetailPage';
@@ -60,6 +65,15 @@ export default function App() {
             <Route path="/messages" element={<MessagesPage />} />
             <Route path="/messages/:userId" element={<ChatPage />} />
             <Route path="/alerts" element={<AlertsPage />} />
+          </Route>
+          {/* Admin routes — protected by AdminRoute guard */}
+          <Route element={<AdminRoute />}>
+            <Route path="/admin" element={<AdminLayout />}>
+              <Route index element={<Navigate to="/admin/abuse-reports" replace />} />
+              <Route path="abuse-reports" element={<AbuseReportsPage />} />
+              <Route path="stories" element={<StoriesAdminPage />} />
+              <Route path="groups" element={<GroupsAdminPage />} />
+            </Route>
           </Route>
         </Route>
 
