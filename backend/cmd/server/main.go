@@ -321,9 +321,10 @@ func main() {
 		// V1.4 — Gamification (requiere auth)
 		protected.GET("/users/me/badges", gamHandler.GetMyBadges)
 
-		// V1.5 — Reviews (requieren auth para escribir)
+		// V1.5 — Reviews (requieren auth para escribir/actualizar/eliminar)
 		protected.POST("/users/:id/reviews", reviewHandler.CreateReview)
 		protected.PUT("/users/:id/reviews", reviewHandler.UpdateReview)
+		protected.DELETE("/users/:id/reviews", reviewHandler.DeleteReview)
 
 		// V1.3 — User Verification (OTP)
 		protected.POST("/verification/send-email", middleware.RateLimit(5.0/60.0, 5), verificationHandler.SendEmail)

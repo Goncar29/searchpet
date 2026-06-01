@@ -123,6 +123,10 @@ type ReviewService interface {
 	Update(ctx context.Context, reviewerID, revieweeID uuid.UUID, req dto.UpdateReviewRequest) (*dto.ReviewResponse, error)
 	// GetByReviewee retorna las reseñas paginadas para un usuario con estadísticas agregadas.
 	GetByReviewee(ctx context.Context, revieweeID uuid.UUID, limit, offset int) (*dto.ReviewListResponse, error)
+	// Delete elimina la reseña del par (reviewerID, revieweeID).
+	// Solo el reviewer original puede eliminar su propia reseña.
+	// Retorna ErrReviewNotFound si no existe y ErrForbidden si reviewerID no es el autor.
+	Delete(ctx context.Context, reviewerID, revieweeID uuid.UUID) error
 }
 
 // AuthService define el contrato para la lógica de autenticación

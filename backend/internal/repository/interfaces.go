@@ -186,6 +186,9 @@ type UserReviewRepository interface {
 	FindByReviewee(ctx context.Context, revieweeID uuid.UUID, limit, offset int) ([]domain.UserReview, error)
 	FindByReviewerAndReviewee(ctx context.Context, reviewerID, revieweeID uuid.UUID) (*domain.UserReview, error)
 	GetAverageRating(ctx context.Context, revieweeID uuid.UUID) (float64, int, error) // avg, count, err
+	// Delete elimina de forma permanente la reseña del par (reviewerID, revieweeID).
+	// Retorna ErrReviewNotFound si no existe ninguna reseña con ese par.
+	Delete(ctx context.Context, reviewerID, revieweeID uuid.UUID) error
 }
 
 // LocationAlertRepository define el contrato para alertas de ubicación.

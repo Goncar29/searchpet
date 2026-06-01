@@ -105,6 +105,34 @@ func (h *ReviewHandler) CreateReview(c *gin.Context) {
 	c.JSON(http.StatusCreated, review)
 }
 
+// DeleteReview godoc
+// DELETE /api/users/:id/reviews — requiere JWT
+// El usuario autenticado es el reviewer; :id es el reviewee.
+// Solo el reviewer original puede eliminar su propia reseña.
+func (h *ReviewHandler) DeleteReview(c *gin.Context) {
+	reviewerID := getUserUUID(c)
+
+	revieweeID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "id inválido — debe ser un UUID"})
+		return
+	}
+
+	if err := h.svc.Delete(c.Request.Context(), reviewerID, revieweeID); err != nil {
+		switch {
+		case errors.Is(err, domain.ErrReviewNotFound):
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		case errors.Is(err, domain.ErrForbidden):
+			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+		default:
+			c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
+		}
+		return
+	}
+
+	c.Status(http.StatusNoContent)
+}
+
 // UpdateReview godoc
 // PUT /api/users/:id/reviews — requiere JWT
 // Solo el reviewer original puede actualizar su propia reseña sobre el usuario :id.

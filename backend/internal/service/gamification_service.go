@@ -66,9 +66,16 @@ func (s *gamificationService) onReportCreated(payload interface{}) {
 
 	// Otorgar badge "first_helper" si es el primer reporte del usuario.
 	// TotalReports ya fue incrementado a 1 si era el primero.
-	if points.TotalReports >= 1 {
+	if points.TotalReports == 1 {
 		if err := s.AwardBadgeIfEligible(ctx, ev.ReporterID, "first_helper"); err != nil {
 			log.Printf("[GamificationService] onReportCreated: award first_helper para %s: %v", ev.ReporterID, err)
+		}
+	}
+
+	// Otorgar badge "community_guardian" al llegar a 10 reportes.
+	if points.TotalReports >= 10 {
+		if err := s.AwardBadgeIfEligible(ctx, ev.ReporterID, "community_guardian"); err != nil {
+			log.Printf("[GamificationService] onReportCreated: award community_guardian para %s: %v", ev.ReporterID, err)
 		}
 	}
 }
@@ -84,13 +91,21 @@ func (s *gamificationService) onPetFound(payload interface{}) {
 
 	ctx := context.Background()
 
-	if _, err := s.pointsRepo.Upsert(ctx, ev.OwnerID, 100, "found_count"); err != nil {
+	points, err := s.pointsRepo.Upsert(ctx, ev.OwnerID, 100, "found_count")
+	if err != nil {
 		log.Printf("[GamificationService] onPetFound: upsert points para %s: %v", ev.OwnerID, err)
 		return
 	}
 
 	if err := s.AwardBadgeIfEligible(ctx, ev.OwnerID, "pet_rescuer"); err != nil {
 		log.Printf("[GamificationService] onPetFound: award pet_rescuer para %s: %v", ev.OwnerID, err)
+	}
+
+	// Otorgar badge "super_finder" al llegar a 5 mascotas encontradas.
+	if points.FoundCount >= 5 {
+		if err := s.AwardBadgeIfEligible(ctx, ev.OwnerID, "super_finder"); err != nil {
+			log.Printf("[GamificationService] onPetFound: award super_finder para %s: %v", ev.OwnerID, err)
+		}
 	}
 }
 

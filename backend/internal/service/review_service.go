@@ -144,6 +144,22 @@ func (s *reviewService) Update(ctx context.Context, reviewerID, revieweeID uuid.
 	return &resp, nil
 }
 
+// Delete elimina la reseña del par (reviewerID, revieweeID).
+// Guard de propiedad: solo el reviewer original puede eliminar su reseña.
+func (s *reviewService) Delete(ctx context.Context, reviewerID, revieweeID uuid.UUID) error {
+	existing, err := s.reviewRepo.FindByReviewerAndReviewee(ctx, reviewerID, revieweeID)
+	if err != nil {
+		return err // propaga ErrReviewNotFound
+	}
+
+	// Belt-and-suspenders: verificar que el caller es el autor
+	if existing.ReviewerID != reviewerID {
+		return domain.ErrForbidden
+	}
+
+	return s.reviewRepo.Delete(ctx, reviewerID, revieweeID)
+}
+
 // GetByReviewee retorna las reseñas paginadas para un usuario.
 // CRITICAL-2: verifica que el reviewee exista antes de consultar reseñas.
 // CRITICAL-1: retorna Total, Page y PageSize en el response.

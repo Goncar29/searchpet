@@ -86,5 +86,20 @@ func (r *postgresUserReviewRepository) GetAverageRating(ctx context.Context, rev
 	return result.Avg, result.Count, err
 }
 
+// Delete elimina de forma permanente la reseña del par (reviewerID, revieweeID).
+// Retorna ErrReviewNotFound si no existe ninguna fila con ese par.
+func (r *postgresUserReviewRepository) Delete(ctx context.Context, reviewerID, revieweeID uuid.UUID) error {
+	result := r.db.WithContext(ctx).
+		Where("reviewer_id = ? AND reviewee_id = ?", reviewerID, revieweeID).
+		Delete(&domain.UserReview{})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return domain.ErrReviewNotFound
+	}
+	return nil
+}
+
 // Verificación estática: postgresUserReviewRepository satisface UserReviewRepository.
 var _ UserReviewRepository = (*postgresUserReviewRepository)(nil)
