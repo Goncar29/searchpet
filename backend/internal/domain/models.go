@@ -307,10 +307,11 @@ type VerificationToken struct {
 	UserID    uuid.UUID `gorm:"type:uuid;not null;index" json:"user_id"`
 	Channel   string    `gorm:"not null;size:10" json:"channel"`   // "email" or "sms"
 	CodeHash  string    `gorm:"not null;size:64" json:"-"`         // SHA-256 hex — never plaintext
-	Attempts  int       `gorm:"default:0" json:"-"`
-	ExpiresAt time.Time `gorm:"not null;index" json:"expires_at"`
-	Used      bool      `gorm:"default:false;index" json:"-"`
-	CreatedAt time.Time `gorm:"autoCreateTime" json:"created_at"`
+	Attempts    int       `gorm:"default:0" json:"-"`
+	ExpiresAt   time.Time `gorm:"not null;index" json:"expires_at"`
+	Used        bool      `gorm:"default:false;index" json:"-"`
+	TargetPhone string    `gorm:"size:20" json:"-"` // phone number OTP was sent to (sms only)
+	CreatedAt   time.Time `gorm:"autoCreateTime" json:"created_at"`
 }
 
 // Shelter representa un refugio de animales

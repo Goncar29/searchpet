@@ -62,8 +62,9 @@ var (
 	ErrNotAdmin            = errors.New("forbidden")
 
 	// Verification (V1.3)
-	ErrOTPExpired = errors.New("otp_expired")
-	ErrOTPInvalid = errors.New("otp_invalid")
+	ErrOTPExpired     = errors.New("otp_expired")
+	ErrOTPInvalid     = errors.New("otp_invalid")
+	ErrPhoneMismatch  = errors.New("phone_mismatch")
 
 	// Gamification (V1.4)
 	ErrPointsNotFound = errors.New("user points not found")

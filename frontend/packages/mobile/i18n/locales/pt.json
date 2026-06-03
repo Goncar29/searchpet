@@ -36,7 +36,9 @@
     "noResultsText": "Tente outros filtros ou expanda-os",
     "noNearbyText": "Nenhum pet perdido encontrado na sua área. Que ótimo!",
     "clearFiltersButton": "Limpar filtros",
-    "noMatchText": "Nenhum pet detectado. Tente com uma foto mais clara."
+    "noMatchText": "Nenhum pet detectado. Tente com uma foto mais clara.",
+    "verifyNudge": "Verifique seu telefone para ganhar confiança na comunidade",
+    "verifyNudgeCta": "Verificar agora"
   },
   "map": {
     "loading": "Carregando mapa...",

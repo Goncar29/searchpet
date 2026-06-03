@@ -36,7 +36,9 @@
     "noResultsText": "Probá con otros filtros o amplíalos",
     "noNearbyText": "No se encontraron mascotas perdidas en tu zona. ¡Eso es bueno!",
     "clearFiltersButton": "Limpiar filtros",
-    "noMatchText": "No se detectó ninguna mascota. Probá con una foto más clara."
+    "noMatchText": "No se detectó ninguna mascota. Probá con una foto más clara.",
+    "verifyNudge": "Verificá tu teléfono para ganar más confianza en la comunidad",
+    "verifyNudgeCta": "Verificar ahora"
   },
   "map": {
     "loading": "Cargando mapa...",

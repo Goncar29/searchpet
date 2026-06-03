@@ -41,7 +41,7 @@ func (h *VerificationHandler) SendEmail(c *gin.Context) {
 
 	callerID := getUserUUID(c)
 
-	err := h.verificationService.SendOTP(c.Request.Context(), callerID, "email")
+	err := h.verificationService.SendOTP(c.Request.Context(), callerID, "email", "")
 	if err != nil {
 		h.handleSendError(c, err)
 		return
@@ -60,7 +60,13 @@ func (h *VerificationHandler) SendSMS(c *gin.Context) {
 
 	callerID := getUserUUID(c)
 
-	err := h.verificationService.SendOTP(c.Request.Context(), callerID, "sms")
+	var req dto.SendSMSRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	err := h.verificationService.SendOTP(c.Request.Context(), callerID, "sms", req.Phone)
 	if err != nil {
 		h.handleSendError(c, err)
 		return
@@ -85,7 +91,7 @@ func (h *VerificationHandler) ConfirmEmail(c *gin.Context) {
 		return
 	}
 
-	err := h.verificationService.ConfirmOTP(c.Request.Context(), callerID, "email", req.Code)
+	err := h.verificationService.ConfirmOTP(c.Request.Context(), callerID, "email", req.Code, "")
 	if err != nil {
 		h.handleConfirmError(c, err)
 		return
@@ -110,7 +116,12 @@ func (h *VerificationHandler) ConfirmSMS(c *gin.Context) {
 		return
 	}
 
-	err := h.verificationService.ConfirmOTP(c.Request.Context(), callerID, "sms", req.Code)
+	if req.Phone == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "phone es requerido para confirmar SMS"})
+		return
+	}
+
+	err := h.verificationService.ConfirmOTP(c.Request.Context(), callerID, "sms", req.Code, req.Phone)
 	if err != nil {
 		h.handleConfirmError(c, err)
 		return
@@ -174,6 +185,11 @@ func (h *VerificationHandler) handleConfirmError(c *gin.Context, err error) {
 
 	if errors.Is(err, domain.ErrOTPInvalid) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": domain.ErrOTPInvalid.Error()})
+		return
+	}
+
+	if errors.Is(err, domain.ErrPhoneMismatch) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "phone mismatch"})
 		return
 	}
 

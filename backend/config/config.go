@@ -49,7 +49,7 @@ func Load() *Config {
 		TwilioAccountSID:        getEnv("TWILIO_ACCOUNT_SID", ""),
 		TwilioAuthToken:         getEnv("TWILIO_AUTH_TOKEN", ""),
 		TwilioFromNumber:        getEnv("TWILIO_FROM_NUMBER", ""),
-		EnableEmailVerification: getEnv("ENABLE_EMAIL_VERIFICATION", "false") == "true",
+		EnableEmailVerification: getEnv("ENABLE_EMAIL_VERIFICATION", "true") == "true",
 	}
 
 	// Fail-fast: JWT_SECRET is required in all environments.

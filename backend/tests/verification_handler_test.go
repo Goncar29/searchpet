@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -21,21 +22,21 @@ import (
 // ============================================================
 
 type mockVerificationService struct {
-	sendOTPFn    func(ctx context.Context, userID uuid.UUID, channel string) error
-	confirmOTPFn func(ctx context.Context, userID uuid.UUID, channel, code string) error
+	sendOTPFn    func(ctx context.Context, userID uuid.UUID, channel, phone string) error
+	confirmOTPFn func(ctx context.Context, userID uuid.UUID, channel, code, phone string) error
 	getStatusFn  func(ctx context.Context, userID uuid.UUID) (*dto.VerificationStatusResponse, error)
 }
 
-func (m *mockVerificationService) SendOTP(ctx context.Context, userID uuid.UUID, channel string) error {
+func (m *mockVerificationService) SendOTP(ctx context.Context, userID uuid.UUID, channel, phone string) error {
 	if m.sendOTPFn != nil {
-		return m.sendOTPFn(ctx, userID, channel)
+		return m.sendOTPFn(ctx, userID, channel, phone)
 	}
 	return nil
 }
 
-func (m *mockVerificationService) ConfirmOTP(ctx context.Context, userID uuid.UUID, channel, code string) error {
+func (m *mockVerificationService) ConfirmOTP(ctx context.Context, userID uuid.UUID, channel, code, phone string) error {
 	if m.confirmOTPFn != nil {
-		return m.confirmOTPFn(ctx, userID, channel, code)
+		return m.confirmOTPFn(ctx, userID, channel, code, phone)
 	}
 	return nil
 }
@@ -108,7 +109,7 @@ func TestVerificationHandler_SendEmail_OK(t *testing.T) {
 	callerID := uuid.New()
 
 	svc := &mockVerificationService{
-		sendOTPFn: func(_ context.Context, _ uuid.UUID, channel string) error {
+		sendOTPFn: func(_ context.Context, _ uuid.UUID, channel, phone string) error {
 			return nil
 		},
 	}
@@ -128,7 +129,7 @@ func TestVerificationHandler_SendEmail_RateLimit_Returns429(t *testing.T) {
 	callerID := uuid.New()
 
 	svc := &mockVerificationService{
-		sendOTPFn: func(_ context.Context, _ uuid.UUID, _ string) error {
+		sendOTPFn: func(_ context.Context, _ uuid.UUID, _, _ string) error {
 			return &service.ErrRateLimitOTP{RetryAfter: 45}
 		},
 	}
@@ -152,14 +153,18 @@ func TestVerificationHandler_SendSMS_NoPhone_Returns422(t *testing.T) {
 	callerID := uuid.New()
 
 	svc := &mockVerificationService{
-		sendOTPFn: func(_ context.Context, _ uuid.UUID, _ string) error {
+		sendOTPFn: func(_ context.Context, _ uuid.UUID, _, _ string) error {
 			return &service.ErrNoPhoneOnFile{}
 		},
 	}
 	h := handler.NewVerificationHandler(svc, true)
 	r := setupVerificationRouter(h, callerID)
 
-	req := httptest.NewRequest(http.MethodPost, "/api/verification/send-sms", nil)
+	// Now SendSMS requires a phone in the body; omitting it returns 400 (binding failure).
+	// To reach the service (and get 422), we must pass a phone.
+	body, _ := json.Marshal(map[string]string{"phone": "+59812345678"})
+	req := httptest.NewRequest(http.MethodPost, "/api/verification/send-sms", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -172,7 +177,7 @@ func TestVerificationHandler_SendEmail_ExternalError_Returns502(t *testing.T) {
 	callerID := uuid.New()
 
 	svc := &mockVerificationService{
-		sendOTPFn: func(_ context.Context, _ uuid.UUID, _ string) error {
+		sendOTPFn: func(_ context.Context, _ uuid.UUID, _, _ string) error {
 			return &service.ErrExternalService{}
 		},
 	}
@@ -196,7 +201,7 @@ func TestVerificationHandler_ConfirmEmail_ValidCode_Returns200(t *testing.T) {
 	callerID := uuid.New()
 
 	svc := &mockVerificationService{
-		confirmOTPFn: func(_ context.Context, _ uuid.UUID, _, _ string) error {
+		confirmOTPFn: func(_ context.Context, _ uuid.UUID, _, _, _ string) error {
 			return nil
 		},
 	}
@@ -218,7 +223,7 @@ func TestVerificationHandler_ConfirmEmail_InvalidCode_Returns400(t *testing.T) {
 	callerID := uuid.New()
 
 	svc := &mockVerificationService{
-		confirmOTPFn: func(_ context.Context, _ uuid.UUID, _, _ string) error {
+		confirmOTPFn: func(_ context.Context, _ uuid.UUID, _, _, _ string) error {
 			return domain.ErrOTPInvalid
 		},
 	}
@@ -240,7 +245,7 @@ func TestVerificationHandler_ConfirmEmail_ExpiredCode_Returns400(t *testing.T) {
 	callerID := uuid.New()
 
 	svc := &mockVerificationService{
-		confirmOTPFn: func(_ context.Context, _ uuid.UUID, _, _ string) error {
+		confirmOTPFn: func(_ context.Context, _ uuid.UUID, _, _, _ string) error {
 			return domain.ErrOTPExpired
 		},
 	}
@@ -314,5 +319,100 @@ func TestVerificationHandler_GetStatus_Returns200WithFields(t *testing.T) {
 	}
 	if resp.PhoneVerified {
 		t.Error("expected phone_verified=false")
+	}
+}
+
+// ============================================================
+// ConfirmSMS tests (phone atomicity — T07)
+// ============================================================
+
+// Missing phone field in SMS confirm → 400
+func TestVerificationHandler_ConfirmSMS_MissingPhone_Returns400(t *testing.T) {
+	callerID := uuid.New()
+
+	svc := &mockVerificationService{}
+	h := handler.NewVerificationHandler(svc, true)
+	r := setupVerificationRouter(h, callerID)
+
+	// Body has code but no phone field.
+	body, _ := json.Marshal(map[string]string{"code": "123456"})
+	req := httptest.NewRequest(http.MethodPost, "/api/verification/confirm-sms", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected 400 for missing phone, got %d", w.Code)
+	}
+}
+
+// Successful SMS confirm with phone → 200
+func TestVerificationHandler_ConfirmSMS_WithPhone_Returns200(t *testing.T) {
+	callerID := uuid.New()
+
+	svc := &mockVerificationService{
+		confirmOTPFn: func(_ context.Context, _ uuid.UUID, channel, code, phone string) error {
+			if channel != "sms" {
+				return fmt.Errorf("unexpected channel: %s", channel)
+			}
+			if phone != "+59812345678" {
+				return fmt.Errorf("unexpected phone: %s", phone)
+			}
+			return nil
+		},
+	}
+	h := handler.NewVerificationHandler(svc, true)
+	r := setupVerificationRouter(h, callerID)
+
+	body, _ := json.Marshal(dto.ConfirmOTPRequest{Code: "123456", Phone: "+59812345678"})
+	req := httptest.NewRequest(http.MethodPost, "/api/verification/confirm-sms", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+// Phone mismatch from service → 400 (not 500)
+func TestVerificationHandler_ConfirmSMS_PhoneMismatch_Returns400(t *testing.T) {
+	callerID := uuid.New()
+
+	svc := &mockVerificationService{
+		confirmOTPFn: func(_ context.Context, _ uuid.UUID, _, _, _ string) error {
+			return domain.ErrPhoneMismatch
+		},
+	}
+	h := handler.NewVerificationHandler(svc, true)
+	r := setupVerificationRouter(h, callerID)
+
+	body, _ := json.Marshal(dto.ConfirmOTPRequest{Code: "123456", Phone: "+59899999999"})
+	req := httptest.NewRequest(http.MethodPost, "/api/verification/confirm-sms", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected 400 for phone mismatch, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+// SendSMS without phone in body → 400 (binding required)
+func TestVerificationHandler_SendSMS_MissingPhone_Returns400(t *testing.T) {
+	callerID := uuid.New()
+
+	svc := &mockVerificationService{}
+	h := handler.NewVerificationHandler(svc, true)
+	r := setupVerificationRouter(h, callerID)
+
+	// Empty body — binding:"required" on Phone should reject it.
+	req := httptest.NewRequest(http.MethodPost, "/api/verification/send-sms", bytes.NewReader([]byte(`{}`)))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected 400 for missing phone in send-sms, got %d", w.Code)
 	}
 }

@@ -36,7 +36,9 @@
     "noResultsText": "Try different filters or expand them",
     "noNearbyText": "No lost pets found in your area. That's great!",
     "clearFiltersButton": "Clear filters",
-    "noMatchText": "No pet detected. Try with a clearer photo."
+    "noMatchText": "No pet detected. Try with a clearer photo.",
+    "verifyNudge": "Verify your phone to build trust in the community",
+    "verifyNudgeCta": "Verify now"
   },
   "map": {
     "loading": "Loading map...",

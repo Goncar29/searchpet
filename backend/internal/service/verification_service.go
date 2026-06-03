@@ -50,21 +50,22 @@ func NewVerificationService(
 }
 
 // SendOTP genera y envía un OTP al usuario por el canal dado.
+// phone es el número destino cuando channel="sms"; ignorado para channel="email".
 // SECURITY: el código en texto plano NUNCA es logueado.
-func (s *verificationService) SendOTP(ctx context.Context, userID uuid.UUID, channel string) error {
+func (s *verificationService) SendOTP(ctx context.Context, userID uuid.UUID, channel string, phone string) error {
 	// Validar canal
 	if channel != "email" && channel != "sms" {
 		return domain.ErrInvalidInput
 	}
 
-	// Cargar usuario para obtener email/phone
+	// Cargar usuario para obtener email
 	user, err := s.userRepo.GetByID(ctx, userID)
 	if err != nil {
 		return err
 	}
 
-	// Validación SMS: usuario debe tener teléfono
-	if channel == "sms" && strings.TrimSpace(user.Phone) == "" {
+	// Validación SMS: phone debe venir del request (ya validado por el handler)
+	if channel == "sms" && strings.TrimSpace(phone) == "" {
 		return &ErrNoPhoneOnFile{}
 	}
 
@@ -100,6 +101,11 @@ func (s *verificationService) SendOTP(ctx context.Context, userID uuid.UUID, cha
 		Used:      false,
 	}
 
+	// Almacenar el teléfono destino en el token para validarlo en ConfirmOTP
+	if channel == "sms" {
+		token.TargetPhone = phone
+	}
+
 	if err := s.tokenRepo.Create(ctx, token); err != nil {
 		return err
 	}
@@ -111,7 +117,7 @@ func (s *verificationService) SendOTP(ctx context.Context, userID uuid.UUID, cha
 	case "email":
 		sendErr = s.mailer.SendOTP(ctx, user.Email, code)
 	case "sms":
-		sendErr = s.smsSender.SendOTP(ctx, user.Phone, code)
+		sendErr = s.smsSender.SendOTP(ctx, phone, code)
 	}
 
 	if sendErr != nil {
@@ -123,8 +129,9 @@ func (s *verificationService) SendOTP(ctx context.Context, userID uuid.UUID, cha
 }
 
 // ConfirmOTP verifica el código OTP del usuario.
+// phone es el número que el cliente afirma haber recibido el OTP; solo se usa cuando channel="sms".
 // SECURITY: nunca loguea el código recibido.
-func (s *verificationService) ConfirmOTP(ctx context.Context, userID uuid.UUID, channel, code string) error {
+func (s *verificationService) ConfirmOTP(ctx context.Context, userID uuid.UUID, channel, code, phone string) error {
 	// Buscar token activo
 	token, err := s.tokenRepo.FindActiveByUser(ctx, userID, channel)
 	if err != nil {
@@ -137,6 +144,12 @@ func (s *verificationService) ConfirmOTP(ctx context.Context, userID uuid.UUID, 
 	// Verificar expiración (doble check — FindActiveByUser ya filtra por expires_at)
 	if time.Now().After(token.ExpiresAt) {
 		return domain.ErrOTPExpired
+	}
+
+	// Validar que el teléfono del request coincide con el teléfono al que se envió el OTP.
+	// SECURITY: previene ataques de phone-swap — el OTP fue enviado a token.TargetPhone.
+	if channel == "sms" && token.TargetPhone != phone {
+		return domain.ErrPhoneMismatch
 	}
 
 	// Incrementar intentos de forma atómica
@@ -173,6 +186,9 @@ func (s *verificationService) ConfirmOTP(ctx context.Context, userID uuid.UUID, 
 	case "email":
 		user.EmailVerified = true
 	case "sms":
+		// Actualización atómica: guardar el teléfono verificado y marcar como verificado
+		// en una sola operación para evitar inconsistencias.
+		user.Phone = phone
 		user.PhoneVerified = true
 	}
 
