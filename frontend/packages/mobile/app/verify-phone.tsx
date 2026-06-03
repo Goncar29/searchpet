@@ -16,25 +16,28 @@ import {
 } from 'react-native';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
+import i18next from 'i18next';
 import { useSendSmsOTP, useConfirmSmsOTP } from '../../shared/hooks';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../constants';
 
 type Step = 'phone' | 'code';
 
 function getErrorMessage(err: unknown): string {
-  if (!err) return 'Ocurrió un error inesperado';
+  if (!err) return i18next.t('verify:errorUnexpected');
   const e = err as any;
   if (e?.status === 429) {
-    return 'Demasiados intentos. Esperá 60 segundos antes de reenviar.';
+    return i18next.t('verify:errorRateLimit');
   }
   if (e?.status === 422 || e?.message?.toLowerCase().includes('max')) {
-    return 'Alcanzaste el máximo de 5 intentos. Solicitá un nuevo código.';
+    return i18next.t('verify:errorMaxAttempts');
   }
   if (e?.message) return e.message;
-  return 'Ocurrió un error inesperado';
+  return i18next.t('verify:errorUnexpected');
 }
 
 export default function VerifyPhoneScreen() {
+  const { t } = useTranslation('verify');
   const router = useRouter();
   const sendSmsOTP = useSendSmsOTP();
   const confirmSmsOTP = useConfirmSmsOTP();
@@ -55,7 +58,7 @@ export default function VerifyPhoneScreen() {
   const handleSendCode = async () => {
     setPhoneError('');
     if (!phone.trim()) {
-      setPhoneError('Ingresá tu número de teléfono');
+      setPhoneError(i18next.t('verify:errorRequired'));
       return;
     }
     try {
@@ -80,12 +83,12 @@ export default function VerifyPhoneScreen() {
   const handleVerify = async () => {
     setCodeError('');
     if (code.length !== 6) {
-      setCodeError('El código debe tener exactamente 6 dígitos');
+      setCodeError(i18next.t('verify:errorCodeLength'));
       return;
     }
     try {
       await confirmSmsOTP.mutateAsync({ phone: phone.trim(), code });
-      Alert.alert('¡Verificado!', 'Tu teléfono fue verificado exitosamente.', [
+      Alert.alert(i18next.t('verify:verifiedTitle'), i18next.t('verify:verifiedSuccess'), [
         { text: 'OK', onPress: () => router.back() },
       ]);
     } catch (err) {
@@ -107,25 +110,25 @@ export default function VerifyPhoneScreen() {
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <Text style={styles.backButtonText}>‹ Volver</Text>
+            <Text style={styles.backButtonText}>{t('back')}</Text>
           </TouchableOpacity>
-          <Text style={styles.title}>Verificar teléfono</Text>
+          <Text style={styles.title}>{t('title')}</Text>
           <Text style={styles.subtitle}>
             {step === 'phone'
-              ? 'Ingresá tu número de teléfono para recibir un código SMS.'
-              : `Ingresá el código de 6 dígitos que enviamos a ${phone}.`}
+              ? t('stepPhoneDesc')
+              : t('stepCodeDesc', { phone })}
           </Text>
         </View>
 
         {/* Step 1 — Phone input */}
         {step === 'phone' && (
           <View style={styles.card}>
-            <Text style={styles.label}>Número de teléfono</Text>
+            <Text style={styles.label}>{t('phoneLabel')}</Text>
             <TextInput
               style={[styles.input, phoneError ? styles.inputError : null]}
               value={phone}
               onChangeText={(text) => { setPhone(text); setPhoneError(''); }}
-              placeholder="+598 99 000 000"
+              placeholder={t('phonePlaceholder')}
               keyboardType="phone-pad"
               autoComplete="tel"
               autoFocus
@@ -143,7 +146,7 @@ export default function VerifyPhoneScreen() {
               {sendSmsOTP.isPending ? (
                 <ActivityIndicator color={COLORS.white} />
               ) : (
-                <Text style={styles.primaryButtonText}>Enviar código</Text>
+                <Text style={styles.primaryButtonText}>{t('send')}</Text>
               )}
             </TouchableOpacity>
           </View>
@@ -152,7 +155,7 @@ export default function VerifyPhoneScreen() {
         {/* Step 2 — Code input */}
         {step === 'code' && (
           <View style={styles.card}>
-            <Text style={styles.label}>Código de verificación</Text>
+            <Text style={styles.label}>{t('codeLabel')}</Text>
             <TextInput
               style={[styles.otpInput, codeError ? styles.inputError : null]}
               value={code}
@@ -175,12 +178,12 @@ export default function VerifyPhoneScreen() {
               {confirmSmsOTP.isPending ? (
                 <ActivityIndicator color={COLORS.white} />
               ) : (
-                <Text style={styles.primaryButtonText}>Verificar</Text>
+                <Text style={styles.primaryButtonText}>{t('verify')}</Text>
               )}
             </TouchableOpacity>
 
             {resendCountdown > 0 ? (
-              <Text style={styles.resendCountdown}>Reenviar en {resendCountdown}s</Text>
+              <Text style={styles.resendCountdown}>{t('resendIn', { seconds: resendCountdown })}</Text>
             ) : (
               <TouchableOpacity
                 onPress={handleResend}
@@ -188,7 +191,7 @@ export default function VerifyPhoneScreen() {
                 style={styles.resendButton}
               >
                 <Text style={[styles.resendText, sendSmsOTP.isPending && styles.textDisabled]}>
-                  {sendSmsOTP.isPending ? 'Enviando...' : 'Reenviar código'}
+                  {sendSmsOTP.isPending ? t('sending') : t('resend')}
                 </Text>
               </TouchableOpacity>
             )}
@@ -197,7 +200,7 @@ export default function VerifyPhoneScreen() {
               style={styles.changeNumberButton}
               onPress={() => { setStep('phone'); setCode(''); setCodeError(''); }}
             >
-              <Text style={styles.changeNumberText}>Cambiar número</Text>
+              <Text style={styles.changeNumberText}>{t('changeNumber')}</Text>
             </TouchableOpacity>
           </View>
         )}

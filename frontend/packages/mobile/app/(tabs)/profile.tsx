@@ -8,14 +8,17 @@ import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import i18next from 'i18next';
-import { useAuthStore } from '../../store';
+import { useTranslation } from 'react-i18next';
+import { useAuthStore, useLanguageStore } from '../../store';
 import { useMyPets, usePublicProfile, useUploadProfilePhotoNative, useVerificationStatus, useSendEmailOTP, useConfirmEmailOTP, useSendSmsOTP, useConfirmSmsOTP } from '../../../shared/hooks';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
 import { LANG_KEY } from '../../i18n';
 
 export default function ProfileScreen() {
+  const { t } = useTranslation('profile');
   const router = useRouter();
   const { user, isAuthenticated, logout } = useAuthStore();
+  const setLanguage = useLanguageStore((state) => state.setLanguage);
   const { data: myPets } = useMyPets();
   const { data: myProfile } = usePublicProfile(user?.id ?? '');
   const uploadProfilePhoto = useUploadProfilePhotoNative();
@@ -60,7 +63,7 @@ export default function ProfileScreen() {
   const pickAndUploadAvatar = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert('Permiso requerido', 'Necesitamos acceso a tu galería para cambiar la foto');
+      Alert.alert(i18next.t('profile:permissionRequired'), i18next.t('profile:galleryPermission'));
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -73,7 +76,7 @@ export default function ProfileScreen() {
       try {
         await uploadProfilePhoto.mutateAsync(result.assets[0].uri);
       } catch (err: any) {
-        Alert.alert('Error', err.message || 'No se pudo subir la foto');
+        Alert.alert(i18next.t('common:error'), err.message || i18next.t('profile:photoUploadError'));
       }
     }
   };
@@ -91,13 +94,13 @@ export default function ProfileScreen() {
       setSheetStep('confirm');
       setResendCountdown(60);
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'No se pudo enviar el código');
+      Alert.alert(i18next.t('common:error'), err.message || i18next.t('profile:sendOtpError'));
     }
   };
 
   const handleConfirmOTP = async () => {
     if (otpCode.length !== 6) {
-      setOtpError('Ingresá el código de 6 dígitos');
+      setOtpError(i18next.t('profile:otpError'));
       return;
     }
     setOtpError('');
@@ -105,7 +108,7 @@ export default function ProfileScreen() {
       await confirmEmailOTP.mutateAsync(otpCode);
       setSheetVisible(false);
     } catch (err: any) {
-      setOtpError(err.message || 'Código incorrecto o expirado');
+      setOtpError(err.message || i18next.t('profile:otpWrong'));
     }
   };
 
@@ -127,14 +130,14 @@ export default function ProfileScreen() {
       if (err.status === 501) {
         setSmsUnavailable(true);
       } else {
-        Alert.alert('Error', err.message || 'No se pudo enviar el código SMS');
+        Alert.alert(i18next.t('common:error'), err.message || i18next.t('profile:sendSmsOtpError'));
       }
     }
   };
 
   const handleConfirmSmsOTP = async () => {
     if (smsOtpCode.length !== 6) {
-      setSmsOtpError('Ingresá el código de 6 dígitos');
+      setSmsOtpError(i18next.t('profile:otpError'));
       return;
     }
     setSmsOtpError('');
@@ -142,7 +145,7 @@ export default function ProfileScreen() {
       await confirmSmsOTP.mutateAsync({ phone: user?.phone?.trim() ?? '', code: smsOtpCode });
       setSmsSheetVisible(false);
     } catch (err: any) {
-      setSmsOtpError(err.message || 'Código incorrecto o expirado');
+      setSmsOtpError(err.message || i18next.t('profile:otpWrong'));
     }
   };
 
@@ -150,54 +153,55 @@ export default function ProfileScreen() {
     return (
       <View style={styles.center}>
         <Text style={{ fontSize: 48, marginBottom: SPACING.md }}>👤</Text>
-        <Text style={styles.title}>Mi Perfil</Text>
-        <Text style={styles.subtitle}>
-          Inicia sesión para gestionar tu perfil y mascotas
-        </Text>
+        <Text style={styles.title}>{t('title')}</Text>
+        <Text style={styles.subtitle}>{t('subtitle')}</Text>
         <TouchableOpacity
           style={styles.primaryButton}
           onPress={() => router.push('/login')}
         >
-          <Text style={styles.primaryButtonText}>Iniciar Sesión</Text>
+          <Text style={styles.primaryButtonText}>{t('loginButton')}</Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={() => router.push('/register')}>
-          <Text style={styles.linkText}>Crear cuenta nueva</Text>
+          <Text style={styles.linkText}>{t('createAccount')}</Text>
         </TouchableOpacity>
       </View>
     );
   }
 
   const handleLogout = () => {
-    Alert.alert('Cerrar Sesión', '¿Estás seguro?', [
-      { text: 'Cancelar', style: 'cancel' },
-      { text: 'Sí, salir', style: 'destructive', onPress: () => logout() },
+    Alert.alert(i18next.t('profile:logoutConfirmTitle'), i18next.t('profile:logoutConfirmMsg'), [
+      { text: i18next.t('common:cancel'), style: 'cancel' },
+      { text: i18next.t('profile:logoutYes'), style: 'destructive', onPress: () => logout() },
     ]);
   };
 
   const handleLanguageSwitch = () => {
-    Alert.alert('Idioma', '', [
+    Alert.alert(i18next.t('profile:languageTitle'), '', [
       {
-        text: 'Español',
+        text: i18next.t('profile:spanish'),
         onPress: () => {
           i18next.changeLanguage('es');
           AsyncStorage.setItem(LANG_KEY, 'es');
+          setLanguage('es');
         },
       },
       {
-        text: 'English',
+        text: i18next.t('profile:english'),
         onPress: () => {
           i18next.changeLanguage('en');
           AsyncStorage.setItem(LANG_KEY, 'en');
+          setLanguage('en');
         },
       },
       {
-        text: 'Português',
+        text: i18next.t('profile:portuguese'),
         onPress: () => {
           i18next.changeLanguage('pt');
           AsyncStorage.setItem(LANG_KEY, 'pt');
+          setLanguage('pt');
         },
       },
-      { text: 'Cancelar', style: 'cancel' },
+      { text: i18next.t('common:cancel'), style: 'cancel' },
     ]);
   };
 
@@ -219,7 +223,7 @@ export default function ProfileScreen() {
           )}
         </TouchableOpacity>
         <TouchableOpacity onPress={pickAndUploadAvatar} style={styles.changePhotoButton}>
-          <Text style={styles.changePhotoText}>Cambiar foto</Text>
+          <Text style={styles.changePhotoText}>{t('changePhoto')}</Text>
         </TouchableOpacity>
         <Text style={styles.userName}>{user?.name}</Text>
         <Text style={styles.userEmail}>{user?.email}</Text>
@@ -228,7 +232,7 @@ export default function ProfileScreen() {
         ) : null}
         {user?.is_verified && (
           <View style={styles.verifiedBadge}>
-            <Text style={styles.verifiedText}>Verificado</Text>
+            <Text style={styles.verifiedText}>{t('verified')}</Text>
           </View>
         )}
       </View>
@@ -237,31 +241,31 @@ export default function ProfileScreen() {
       <View style={styles.statsRow}>
         <View style={styles.statItem}>
           <Text style={styles.statNumber}>{myPets?.length || 0}</Text>
-          <Text style={styles.statLabel}>Mis mascotas</Text>
+          <Text style={styles.statLabel}>{t('myPets')}</Text>
         </View>
         <View style={styles.statDivider} />
         <View style={styles.statItem}>
           <Text style={styles.statNumber}>{myProfile?.found_count ?? 0}</Text>
-          <Text style={styles.statLabel}>Encontradas</Text>
+          <Text style={styles.statLabel}>{t('found')}</Text>
         </View>
         <View style={styles.statDivider} />
         <View style={styles.statItem}>
           <Text style={styles.statNumber}>{myProfile?.total_reports ?? 0}</Text>
-          <Text style={styles.statLabel}>Reportes</Text>
+          <Text style={styles.statLabel}>{t('reports')}</Text>
         </View>
       </View>
 
       {/* Verification Row — hidden if feature disabled (501) */}
       {!verificationDisabled && (
         <View style={styles.verificationSection}>
-          <Text style={styles.verificationLabel}>Verificación de cuenta</Text>
+          <Text style={styles.verificationLabel}>{t('accountVerification')}</Text>
           {verificationStatus?.is_verified ? (
             <View style={styles.verifiedBadgeRow}>
-              <Text style={styles.verifiedBadgeText}>Verificado</Text>
+              <Text style={styles.verifiedBadgeText}>{t('verified')}</Text>
             </View>
           ) : verificationStatus !== undefined ? (
             <TouchableOpacity style={styles.verifyButton} onPress={handleOpenSheet}>
-              <Text style={styles.verifyButtonText}>Verificar email</Text>
+              <Text style={styles.verifyButtonText}>{t('verifyEmail')}</Text>
             </TouchableOpacity>
           ) : null}
         </View>
@@ -270,14 +274,14 @@ export default function ProfileScreen() {
       {/* SMS Verification Row — only if phone not verified */}
       {!verificationDisabled && verificationStatus?.phone_verified === false && (
         <View style={styles.verificationSection}>
-          <Text style={styles.verificationLabel}>Verificación de teléfono</Text>
+          <Text style={styles.verificationLabel}>{t('phoneVerification')}</Text>
           {smsUnavailable ? (
             <View style={[styles.verifiedBadgeRow, { backgroundColor: COLORS.textMuted }]}>
-              <Text style={styles.verifiedBadgeText}>SMS no disponible</Text>
+              <Text style={styles.verifiedBadgeText}>{t('smsUnavailable')}</Text>
             </View>
           ) : (
             <TouchableOpacity style={styles.verifyButton} onPress={handleOpenSmsSheet}>
-              <Text style={styles.verifyButtonText}>Verificar teléfono</Text>
+              <Text style={styles.verifyButtonText}>{t('verifyPhone')}</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -296,19 +300,19 @@ export default function ProfileScreen() {
         >
           <View style={styles.sheetHandle} />
           <Text style={styles.sheetTitle}>
-            {smsSheetStep === 'send' ? 'Verificar teléfono' : 'Ingresá el código SMS'}
+            {smsSheetStep === 'send' ? t('verifySmsTitle') : t('verifySmsCode')}
           </Text>
           <Text style={styles.sheetSubtitle}>
             {smsUnavailable
-              ? 'El servicio de SMS no está disponible en este momento.'
+              ? t('smsUnavailableText')
               : smsSheetStep === 'send'
-              ? `Te enviaremos un código SMS a ${user?.phone || 'tu teléfono'}`
-              : 'Revisá tu teléfono e ingresá el código de 6 dígitos'}
+              ? t('sendSmsTo', { phone: user?.phone || '' })
+              : t('checkSmsCode')}
           </Text>
 
           {smsUnavailable ? (
             <TouchableOpacity style={styles.sheetCancelButton} onPress={() => setSmsSheetVisible(false)}>
-              <Text style={styles.sheetCancelText}>Cerrar</Text>
+              <Text style={styles.sheetCancelText}>{t('close')}</Text>
             </TouchableOpacity>
           ) : smsSheetStep === 'send' ? (
             <TouchableOpacity
@@ -319,7 +323,7 @@ export default function ProfileScreen() {
               {sendSmsOTP.isPending ? (
                 <ActivityIndicator color={COLORS.white} />
               ) : (
-                <Text style={styles.sheetPrimaryButtonText}>Enviar código SMS</Text>
+                <Text style={styles.sheetPrimaryButtonText}>{t('sendSmsCode')}</Text>
               )}
             </TouchableOpacity>
           ) : (
@@ -342,21 +346,21 @@ export default function ProfileScreen() {
                 {confirmSmsOTP.isPending ? (
                   <ActivityIndicator color={COLORS.white} />
                 ) : (
-                  <Text style={styles.sheetPrimaryButtonText}>Confirmar</Text>
+                  <Text style={styles.sheetPrimaryButtonText}>{t('confirm')}</Text>
                 )}
               </TouchableOpacity>
               {smsResendCountdown > 0 ? (
-                <Text style={styles.resendCountdown}>Reenviar en {smsResendCountdown}s</Text>
+                <Text style={styles.resendCountdown}>{t('resendIn', { seconds: smsResendCountdown })}</Text>
               ) : (
                 <TouchableOpacity onPress={handleSendSmsOTP} disabled={sendSmsOTP.isPending}>
-                  <Text style={styles.resendLink}>Reenviar código</Text>
+                  <Text style={styles.resendLink}>{t('resend')}</Text>
                 </TouchableOpacity>
               )}
             </>
           )}
 
           <TouchableOpacity style={styles.sheetCancelButton} onPress={() => setSmsSheetVisible(false)}>
-            <Text style={styles.sheetCancelText}>Cancelar</Text>
+            <Text style={styles.sheetCancelText}>{t('common:cancel')}</Text>
           </TouchableOpacity>
         </KeyboardAvoidingView>
       </Modal>
@@ -374,12 +378,12 @@ export default function ProfileScreen() {
         >
           <View style={styles.sheetHandle} />
           <Text style={styles.sheetTitle}>
-            {sheetStep === 'send' ? 'Verificar email' : 'Ingresá el código'}
+            {sheetStep === 'send' ? t('verifyEmailTitle') : t('verifyEmailCode')}
           </Text>
           <Text style={styles.sheetSubtitle}>
             {sheetStep === 'send'
-              ? `Te enviaremos un código a ${user?.email}`
-              : 'Revisá tu correo e ingresá el código de 6 dígitos'}
+              ? t('sendCodeTo', { email: user?.email })
+              : t('checkEmailCode')}
           </Text>
 
           {sheetStep === 'send' ? (
@@ -391,7 +395,7 @@ export default function ProfileScreen() {
               {sendEmailOTP.isPending ? (
                 <ActivityIndicator color={COLORS.white} />
               ) : (
-                <Text style={styles.sheetPrimaryButtonText}>Enviar código</Text>
+                <Text style={styles.sheetPrimaryButtonText}>{t('sendCode')}</Text>
               )}
             </TouchableOpacity>
           ) : (
@@ -399,7 +403,7 @@ export default function ProfileScreen() {
               <TextInput
                 style={styles.otpInput}
                 value={otpCode}
-                onChangeText={(t) => { setOtpCode(t.replace(/\D/g, '').slice(0, 6)); setOtpError(''); }}
+                onChangeText={(v) => { setOtpCode(v.replace(/\D/g, '').slice(0, 6)); setOtpError(''); }}
                 placeholder="000000"
                 keyboardType="number-pad"
                 maxLength={6}
@@ -414,21 +418,21 @@ export default function ProfileScreen() {
                 {confirmEmailOTP.isPending ? (
                   <ActivityIndicator color={COLORS.white} />
                 ) : (
-                  <Text style={styles.sheetPrimaryButtonText}>Confirmar</Text>
+                  <Text style={styles.sheetPrimaryButtonText}>{t('confirm')}</Text>
                 )}
               </TouchableOpacity>
               {resendCountdown > 0 ? (
-                <Text style={styles.resendCountdown}>Reenviar en {resendCountdown}s</Text>
+                <Text style={styles.resendCountdown}>{t('resendIn', { seconds: resendCountdown })}</Text>
               ) : (
                 <TouchableOpacity onPress={handleSendOTP} disabled={sendEmailOTP.isPending}>
-                  <Text style={styles.resendLink}>Reenviar código</Text>
+                  <Text style={styles.resendLink}>{t('resend')}</Text>
                 </TouchableOpacity>
               )}
             </>
           )}
 
           <TouchableOpacity style={styles.sheetCancelButton} onPress={() => setSheetVisible(false)}>
-            <Text style={styles.sheetCancelText}>Cancelar</Text>
+            <Text style={styles.sheetCancelText}>{t('common:cancel')}</Text>
           </TouchableOpacity>
         </KeyboardAvoidingView>
       </Modal>
@@ -440,7 +444,7 @@ export default function ProfileScreen() {
           onPress={() => router.push('/my-pets')}
         >
           <Text style={styles.menuIcon}>🐾</Text>
-          <Text style={styles.menuText}>Mis mascotas</Text>
+          <Text style={styles.menuText}>{t('menuMyPets')}</Text>
           <Text style={styles.menuArrow}>›</Text>
         </TouchableOpacity>
 
@@ -450,7 +454,7 @@ export default function ProfileScreen() {
           onPress={() => router.push('/badges')}
         >
           <Text style={styles.menuIcon}>🏆</Text>
-          <Text style={styles.menuText}>Mis badges</Text>
+          <Text style={styles.menuText}>{t('menuBadges')}</Text>
           <Text style={styles.menuArrow}>›</Text>
         </TouchableOpacity>
 
@@ -459,7 +463,7 @@ export default function ProfileScreen() {
           onPress={() => router.push('/leaderboard')}
         >
           <Text style={styles.menuIcon}>🥇</Text>
-          <Text style={styles.menuText}>Tabla de líderes</Text>
+          <Text style={styles.menuText}>{t('menuLeaderboard')}</Text>
           <Text style={styles.menuArrow}>›</Text>
         </TouchableOpacity>
 
@@ -468,7 +472,7 @@ export default function ProfileScreen() {
           onPress={() => router.push('/alerts')}
         >
           <Text style={styles.menuIcon}>🔔</Text>
-          <Text style={styles.menuText}>Mis alertas de zona</Text>
+          <Text style={styles.menuText}>{t('menuAlerts')}</Text>
           <Text style={styles.menuArrow}>›</Text>
         </TouchableOpacity>
 
@@ -477,7 +481,7 @@ export default function ProfileScreen() {
           onPress={() => router.push('/groups' as any)}
         >
           <Text style={styles.menuIcon}>👥</Text>
-          <Text style={styles.menuText}>Mis grupos</Text>
+          <Text style={styles.menuText}>{t('menuGroups')}</Text>
           <Text style={styles.menuArrow}>›</Text>
         </TouchableOpacity>
 
@@ -486,16 +490,16 @@ export default function ProfileScreen() {
           onPress={() => router.push('/blocked-users' as any)}
         >
           <Text style={styles.menuIcon}>🚫</Text>
-          <Text style={styles.menuText}>Usuarios bloqueados</Text>
+          <Text style={styles.menuText}>{t('menuBlockedUsers')}</Text>
           <Text style={styles.menuArrow}>›</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={styles.menuItem}
-          onPress={() => Alert.alert('Próximamente', 'La configuración estará disponible en la próxima versión.')}
+          onPress={() => Alert.alert(i18next.t('profile:comingSoon'), i18next.t('profile:settingsComingSoon'))}
         >
           <Text style={styles.menuIcon}>⚙️</Text>
-          <Text style={styles.menuText}>Configuración</Text>
+          <Text style={styles.menuText}>{t('menuSettings')}</Text>
           <Text style={styles.menuArrow}>›</Text>
         </TouchableOpacity>
 
@@ -504,14 +508,14 @@ export default function ProfileScreen() {
           onPress={handleLanguageSwitch}
         >
           <Text style={styles.menuIcon}>🌐</Text>
-          <Text style={styles.menuText}>Idioma</Text>
+          <Text style={styles.menuText}>{t('menuLanguage')}</Text>
           <Text style={styles.menuArrow}>›</Text>
         </TouchableOpacity>
       </View>
 
       {/* Logout */}
       <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-        <Text style={styles.logoutText}>Cerrar Sesión</Text>
+        <Text style={styles.logoutText}>{t('logout')}</Text>
       </TouchableOpacity>
 
       <View style={{ height: 100 }} />

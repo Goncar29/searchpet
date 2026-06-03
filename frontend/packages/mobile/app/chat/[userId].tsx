@@ -18,6 +18,8 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, useNavigation } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
+import i18next from 'i18next';
 import { useAuthStore } from '../../store';
 import {
   useConversation,
@@ -33,6 +35,7 @@ import { COLORS, SPACING, FONTS, RADIUS } from '../../constants';
 import type { Message } from '../../../shared/types';
 
 export default function ChatScreen() {
+  const { t } = useTranslation(['messages', 'common']);
   const { userId, userName } = useLocalSearchParams<{ userId: string; userName?: string }>();
   const navigation = useNavigation();
   const { user } = useAuthStore();
@@ -108,10 +111,10 @@ export default function ChatScreen() {
       { userId },
       {
         onSuccess: () => {
-          Alert.alert('Usuario bloqueado', 'Ya no podés enviar mensajes a este usuario');
+          Alert.alert(i18next.t('pet_detail:blockedSuccess'), i18next.t('chat:blockedCannotMessage'));
         },
         onError: () => {
-          Alert.alert('Error', 'No se pudo bloquear al usuario');
+          Alert.alert(i18next.t('common:error'), i18next.t('pet_detail:blockError'));
         },
       },
     );
@@ -119,14 +122,14 @@ export default function ChatScreen() {
 
   const handleReportUser = () => {
     const reasons: Array<{ label: string; value: string }> = [
-      { label: 'Spam', value: 'spam' },
-      { label: 'Publicación falsa', value: 'fake' },
-      { label: 'Abuso', value: 'abuse' },
-      { label: 'Contenido inapropiado', value: 'inappropriate' },
-      { label: 'Otro', value: 'other' },
+      { label: i18next.t('pet_detail:spam'), value: 'spam' },
+      { label: i18next.t('pet_detail:fake'), value: 'fake' },
+      { label: i18next.t('pet_detail:abuse'), value: 'abuse' },
+      { label: i18next.t('pet_detail:inappropriate'), value: 'inappropriate' },
+      { label: i18next.t('pet_detail:other'), value: 'other' },
     ];
     Alert.alert(
-      'Motivo de la denuncia',
+      i18next.t('chat:reportReason'),
       '',
       [
         ...reasons.map((r) => ({
@@ -135,13 +138,13 @@ export default function ChatScreen() {
             submitAbuseReport.mutate(
               { target_user_id: userId, reason: r.value as 'spam' | 'fake' | 'abuse' | 'inappropriate' | 'other' },
               {
-                onSuccess: () => Alert.alert('Denuncia enviada', 'Gracias por reportarlo'),
-                onError: () => Alert.alert('Error', 'No se pudo enviar la denuncia'),
+                onSuccess: () => Alert.alert(i18next.t('chat:reportSuccess'), i18next.t('chat:reportSuccessText')),
+                onError: () => Alert.alert(i18next.t('common:error'), i18next.t('chat:reportError')),
               },
             );
           },
         })),
-        { text: 'Cancelar', style: 'cancel' },
+        { text: i18next.t('common:cancel'), style: 'cancel' },
       ],
     );
   };
@@ -150,7 +153,7 @@ export default function ChatScreen() {
     if (Platform.OS === 'ios') {
       ActionSheetIOS.showActionSheetWithOptions(
         {
-          options: ['Cancelar', 'Bloquear usuario', 'Denunciar'],
+          options: [i18next.t('common:cancel'), i18next.t('chat:blockUser'), i18next.t('chat:report')],
           cancelButtonIndex: 0,
           destructiveButtonIndex: 1,
         },
@@ -160,10 +163,10 @@ export default function ChatScreen() {
         },
       );
     } else {
-      Alert.alert('Opciones', '', [
-        { text: 'Cancelar', style: 'cancel' },
-        { text: 'Bloquear usuario', style: 'destructive', onPress: handleBlockUser },
-        { text: 'Denunciar', onPress: handleReportUser },
+      Alert.alert(i18next.t('chat:options'), '', [
+        { text: i18next.t('common:cancel'), style: 'cancel' },
+        { text: i18next.t('chat:blockUser'), style: 'destructive', onPress: handleBlockUser },
+        { text: i18next.t('chat:report'), onPress: handleReportUser },
       ]);
     }
   };
@@ -277,7 +280,7 @@ export default function ChatScreen() {
           <View style={styles.center}>
             <Text style={{ fontSize: 48, marginBottom: SPACING.md }}>💬</Text>
             <Text style={styles.emptyText}>
-              Comenzá la conversación enviando un mensaje
+              {t('chat:startConversation')}
             </Text>
           </View>
         }
@@ -286,14 +289,14 @@ export default function ChatScreen() {
       {/* Typing indicator */}
       {isTyping && (
         <View style={styles.typingIndicator}>
-          <Text style={styles.typingText}>Escribiendo...</Text>
+          <Text style={styles.typingText}>{t('chat:typing_indicator')}</Text>
         </View>
       )}
 
       {/* Blocked banner */}
       {isBlocked && (
         <View style={styles.blockedBanner}>
-          <Text style={styles.blockedBannerText}>No podés enviar mensajes a este usuario</Text>
+          <Text style={styles.blockedBannerText}>{t('chat:blockedBanner')}</Text>
         </View>
       )}
 
@@ -303,7 +306,7 @@ export default function ChatScreen() {
           style={[styles.input, isBlocked && styles.inputDisabled]}
           value={text}
           onChangeText={handleTyping}
-          placeholder="Escribí un mensaje..."
+          placeholder={t('chat:inputPlaceholder')}
           placeholderTextColor={COLORS.textMuted}
           multiline
           maxLength={1000}

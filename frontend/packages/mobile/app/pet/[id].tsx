@@ -19,9 +19,12 @@ import {
 } from 'react-native';
 import { useState, useRef, useCallback } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
+import i18next from 'i18next';
 import { usePetByID, useReportsByPetID, useMarkPetAsFound, useBlockUser, useSubmitAbuseReport } from '@shared/hooks';
 import { buildWhatsAppContactURL } from '@shared/utils/whatsappTemplates';
 import { useAuthStore } from '../../store';
+import { getDateLocale } from '../../i18n/dateLocale';
 import { ShareButton } from '../../components/ShareButton';
 import { PdfFlyerButton } from '../../components/PdfFlyerButton';
 import { TimelineMap } from '../../components/TimelineMap';
@@ -30,6 +33,7 @@ import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
 const { width } = Dimensions.get('window');
 
 export default function PetDetailScreen() {
+  const { t, i18n } = useTranslation(['pet_detail', 'common', 'pets', 'story', 'map']);
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { data: pet, isLoading } = usePetByID(id);
@@ -63,7 +67,7 @@ export default function PetDetailScreen() {
     return (
       <View style={styles.center}>
         <Text style={{ fontSize: 48 }}>🔍</Text>
-        <Text style={styles.notFoundText}>Mascota no encontrada</Text>
+        <Text style={styles.notFoundText}>{t('pet_detail:notFound')}</Text>
       </View>
     );
   }
@@ -77,10 +81,10 @@ export default function PetDetailScreen() {
       { userId: ownerUserId },
       {
         onSuccess: () => {
-          Alert.alert('Usuario bloqueado', 'Ya no verás su contenido');
+          Alert.alert(i18next.t('pet_detail:blockedSuccess'), i18next.t('pet_detail:blockedText'));
         },
         onError: () => {
-          Alert.alert('Error', 'No se pudo bloquear al usuario');
+          Alert.alert(i18next.t('common:error'), i18next.t('pet_detail:blockError'));
         },
       },
     );
@@ -88,14 +92,14 @@ export default function PetDetailScreen() {
 
   const handleReport = (ownerUserId: string, petId: string) => {
     const reasons: Array<{ label: string; value: string }> = [
-      { label: 'Spam', value: 'spam' },
-      { label: 'Publicación falsa', value: 'fake' },
-      { label: 'Abuso', value: 'abuse' },
-      { label: 'Contenido inapropiado', value: 'inappropriate' },
-      { label: 'Otro', value: 'other' },
+      { label: i18next.t('pet_detail:spam'), value: 'spam' },
+      { label: i18next.t('pet_detail:fake'), value: 'fake' },
+      { label: i18next.t('pet_detail:abuse'), value: 'abuse' },
+      { label: i18next.t('pet_detail:inappropriate'), value: 'inappropriate' },
+      { label: i18next.t('pet_detail:other'), value: 'other' },
     ];
     Alert.alert(
-      'Motivo de la denuncia',
+      i18next.t('pet_detail:reportReason'),
       '',
       [
         ...reasons.map((r) => ({
@@ -104,13 +108,13 @@ export default function PetDetailScreen() {
             submitAbuseReport.mutate(
               { target_user_id: ownerUserId, reason: r.value as 'spam' | 'fake' | 'abuse' | 'inappropriate' | 'other' },
               {
-                onSuccess: () => Alert.alert('Denuncia enviada', 'Gracias por reportarlo'),
-                onError: () => Alert.alert('Error', 'No se pudo enviar la denuncia'),
+                onSuccess: () => Alert.alert(i18next.t('pet_detail:reportSuccess'), ''),
+                onError: () => Alert.alert(i18next.t('common:error'), i18next.t('pet_detail:reportError')),
               },
             );
           },
         })),
-        { text: 'Cancelar', style: 'cancel' },
+        { text: i18next.t('common:cancel'), style: 'cancel' },
       ],
     );
   };
@@ -119,7 +123,7 @@ export default function PetDetailScreen() {
     if (Platform.OS === 'ios') {
       ActionSheetIOS.showActionSheetWithOptions(
         {
-          options: ['Cancelar', 'Bloquear usuario', 'Denunciar publicación'],
+          options: [i18next.t('common:cancel'), i18next.t('pet_detail:blockUser'), i18next.t('pet_detail:reportAbuse')],
           cancelButtonIndex: 0,
           destructiveButtonIndex: 1,
         },
@@ -129,10 +133,10 @@ export default function PetDetailScreen() {
         },
       );
     } else {
-      Alert.alert('Opciones', '', [
-        { text: 'Cancelar', style: 'cancel' },
-        { text: 'Bloquear usuario', style: 'destructive', onPress: () => handleBlock(ownerUserId) },
-        { text: 'Denunciar publicación', onPress: () => handleReport(ownerUserId, petId) },
+      Alert.alert(i18next.t('pet_detail:moreOptions'), '', [
+        { text: i18next.t('common:cancel'), style: 'cancel' },
+        { text: i18next.t('pet_detail:blockUser'), style: 'destructive', onPress: () => handleBlock(ownerUserId) },
+        { text: i18next.t('pet_detail:reportAbuse'), onPress: () => handleReport(ownerUserId, petId) },
       ]);
     }
   };
@@ -149,25 +153,25 @@ export default function PetDetailScreen() {
 
   const handleMarkAsFound = () => {
     Alert.alert(
-      '¿Marcar como encontrada?',
-      `¿Confirmás que ${pet.name} fue encontrada/o?`,
+      i18next.t('pet_detail:markAsFound'),
+      i18next.t('pet_detail:foundConfirm', { name: pet.name }),
       [
-        { text: 'Cancelar', style: 'cancel' },
+        { text: i18next.t('common:cancel'), style: 'cancel' },
         {
-          text: 'Confirmar',
+          text: i18next.t('common:confirm'),
           style: 'default',
           onPress: () =>
             markAsFound.mutate(pet.id, {
               onSuccess: () => {
                 Alert.alert(
-                  '¡Mascota encontrada! 🎉',
-                  '¿Querés compartir la historia del reencuentro?',
+                  i18next.t('pet_detail:foundSuccess', { name: pet.name }),
+                  '',
                   [
                     {
-                      text: 'Compartir historia',
+                      text: i18next.t('story:create'),
                       onPress: () => router.push(`/story/create?petId=${pet.id}`),
                     },
-                    { text: 'Más tarde', style: 'cancel' },
+                    { text: i18next.t('common:cancel'), style: 'cancel' },
                   ],
                 );
               },
@@ -202,7 +206,7 @@ export default function PetDetailScreen() {
         {/* Banner de encontrada */}
         {pet.status === 'found' && (
           <View style={styles.foundBanner}>
-            <Text style={styles.foundBannerText}>¡ENCONTRADA!</Text>
+            <Text style={styles.foundBannerText}>{t('map:found')}</Text>
           </View>
         )}
         {/* Dots indicator */}
@@ -232,7 +236,7 @@ export default function PetDetailScreen() {
             },
           ]}>
             <Text style={styles.statusText}>
-              {pet.status === 'found' ? 'ENCONTRADO' : pet.status === 'archived' ? 'ARCHIVADO' : 'PERDIDO'}
+              {pet.status === 'found' ? t('pets:status.found').toUpperCase() : pet.status === 'archived' ? t('pets:status.archived').toUpperCase() : t('pets:status.lost').toUpperCase()}
             </Text>
           </View>
         </View>
@@ -241,25 +245,25 @@ export default function PetDetailScreen() {
         <View style={styles.detailsCard}>
           {pet.type && (
             <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Tipo</Text>
+              <Text style={styles.detailLabel}>{t('pet_detail:type')}</Text>
               <Text style={styles.detailValue}>{pet.type}</Text>
             </View>
           )}
           {pet.breed && (
             <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Raza</Text>
+              <Text style={styles.detailLabel}>{t('pet_detail:breed')}</Text>
               <Text style={styles.detailValue}>{pet.breed}</Text>
             </View>
           )}
           {pet.color && (
             <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Color</Text>
+              <Text style={styles.detailLabel}>{t('pet_detail:color')}</Text>
               <Text style={styles.detailValue}>{pet.color}</Text>
             </View>
           )}
           {latestReport?.location_description && (
             <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Última ubicación</Text>
+              <Text style={styles.detailLabel}>{t('pet_detail:lastLocation')}</Text>
               <Text style={styles.detailValue}>{latestReport.location_description}</Text>
             </View>
           )}
@@ -268,7 +272,7 @@ export default function PetDetailScreen() {
         {/* Descripción */}
         {pet.description && (
           <View style={styles.descriptionCard}>
-            <Text style={styles.sectionTitle}>Descripción</Text>
+            <Text style={styles.sectionTitle}>{t('pet_detail:description')}</Text>
             <Text style={styles.descriptionText}>{pet.description}</Text>
           </View>
         )}
@@ -284,7 +288,7 @@ export default function PetDetailScreen() {
             {markAsFound.isPending ? (
               <ActivityIndicator size="small" color={COLORS.white} />
             ) : (
-              <Text style={styles.markFoundButtonText}>✅ Marcar como encontrada</Text>
+              <Text style={styles.markFoundButtonText}>✅ {t('pet_detail:markAsFound')}</Text>
             )}
           </TouchableOpacity>
         )}
@@ -296,14 +300,14 @@ export default function PetDetailScreen() {
             onPress={() => router.push(`/story/create?petId=${pet.id}`)}
             activeOpacity={0.8}
           >
-            <Text style={styles.storyButtonText}>🎉 Contar historia</Text>
+            <Text style={styles.storyButtonText}>🎉 {t('story:create')}</Text>
           </TouchableOpacity>
         )}
 
         {/* Dueño */}
         {pet.owner && (
           <View style={styles.ownerCard}>
-            <Text style={styles.sectionTitle}>Contacto del dueño</Text>
+            <Text style={styles.sectionTitle}>{t('pet_detail:ownerContact')}</Text>
             <View style={styles.ownerInfo}>
               <View style={styles.ownerAvatar}>
                 <Text style={{ fontSize: 24 }}>👤</Text>
@@ -311,7 +315,7 @@ export default function PetDetailScreen() {
               <View style={{ flex: 1 }}>
                 <Text style={styles.ownerName}>{pet.owner.name}</Text>
                 {pet.owner.is_verified && (
-                  <Text style={styles.verifiedText}>Verificado</Text>
+                  <Text style={styles.verifiedText}>{t('pet_detail:verified')}</Text>
                 )}
               </View>
               {!isOwner && (
@@ -324,7 +328,7 @@ export default function PetDetailScreen() {
               )}
             </View>
             <TouchableOpacity style={styles.contactButton} onPress={contactOwner}>
-              <Text style={styles.contactButtonText}>Contactar al dueño</Text>
+              <Text style={styles.contactButtonText}>{t('pet_detail:contact')}</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -348,12 +352,12 @@ export default function PetDetailScreen() {
         {reports && reports.length > 0 && (
           <View style={styles.timelineCard}>
             <Text style={styles.sectionTitle}>
-              Historial de reportes ({reports.length})
+              {t('pet_detail:timeline', { count: reports.length })}
             </Text>
             {reports.map((report, index) => {
               // Fecha efectiva: occurred_at si existe, sino created_at
               const dateStr = report.occurred_at ?? report.created_at;
-              const displayDate = new Date(dateStr).toLocaleDateString('es', {
+              const displayDate = new Date(dateStr).toLocaleDateString(getDateLocale(i18n.language), {
                 day: 'numeric',
                 month: 'long',
                 year: 'numeric',
@@ -370,10 +374,10 @@ export default function PetDetailScreen() {
                   {index < reports.length - 1 && <View style={styles.timelineLine} />}
                   <View style={styles.timelineContent}>
                     <Text style={styles.timelineStatus}>
-                      {report.status === 'lost' ? 'Perdido' : report.status === 'found' ? 'Encontrado' : 'Avistado'}
+                      {report.status === 'lost' ? t('pets:status.lost') : report.status === 'found' ? t('pets:status.found') : t('map:legendSighting')}
                     </Text>
                     {report.is_verified && (
-                      <Text style={styles.verifiedBadge}>✓ Verificado</Text>
+                      <Text style={styles.verifiedBadge}>✓ {t('pet_detail:verified')}</Text>
                     )}
                     {report.location_description && (
                       <Text style={styles.timelineLocation}>

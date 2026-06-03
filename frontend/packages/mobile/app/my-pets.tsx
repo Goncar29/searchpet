@@ -14,6 +14,8 @@ import {
   RefreshControl,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
+import i18next from 'i18next';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import { useMyPets, useDeletePet, useUploadPhotoNative, useCreateReport, useMarkPetAsFound } from '../../shared/hooks';
@@ -22,6 +24,7 @@ import { COLORS, SPACING, FONTS, RADIUS, SHADOWS, PET_TYPES } from '../constants
 import type { Pet } from '../../shared/types';
 
 export default function MyPetsScreen() {
+  const { t } = useTranslation(['my_pets', 'common']);
   const router = useRouter();
   const { data: pets, isLoading, refetch, isRefetching } = useMyPets();
   const deletePet = useDeletePet();
@@ -32,9 +35,9 @@ export default function MyPetsScreen() {
 
   const getStatusLabel = (status: string) => {
     switch (status) {
-      case 'active': return 'Activa';
-      case 'found': return 'Encontrada';
-      case 'archived': return 'Archivada';
+      case 'active': return t('my_pets:status.active');
+      case 'found': return t('my_pets:status.found');
+      case 'archived': return t('my_pets:status.archived');
       default: return status;
     }
   };
@@ -65,26 +68,26 @@ export default function MyPetsScreen() {
     try {
       await uploadPhoto.mutateAsync({ petId: pet.id, uri: result.assets[0].uri });
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'No se pudo subir la foto');
+      Alert.alert(i18next.t('common:error'), err.message || i18next.t('profile:photoUploadError'));
     }
   };
 
   const handleReport = (pet: Pet) => {
     Alert.alert(
-      `Reportar a ${pet.name}`,
-      '¿Qué querés reportar?',
+      i18next.t('my_pets:reportTitle', { name: pet.name }),
+      i18next.t('my_pets:reportQuestion'),
       [
-        { text: 'Cancelar', style: 'cancel' },
+        { text: i18next.t('common:cancel'), style: 'cancel' },
         {
-          text: '🔴 Perdida',
+          text: i18next.t('my_pets:reportLostOption'),
           onPress: () => submitReport(pet.id, 'lost'),
         },
         {
-          text: '🟢 Encontrada',
+          text: i18next.t('my_pets:reportFoundOption'),
           onPress: () => submitReport(pet.id, 'found'),
         },
         {
-          text: '🟡 Avistamiento',
+          text: i18next.t('my_pets:reportSightingOption'),
           onPress: () => submitReport(pet.id, 'sighting'),
         },
       ]
@@ -103,25 +106,25 @@ export default function MyPetsScreen() {
 
     try {
       await createReport.mutateAsync({ pet_id: petId, status, latitude: lat, longitude: lng });
-      Alert.alert('Reporte creado', 'El reporte fue publicado y aparecerá en el mapa y el feed.');
+      Alert.alert(i18next.t('my_pets:reportCreated'), i18next.t('my_pets:reportCreatedText'));
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'No se pudo crear el reporte');
+      Alert.alert(i18next.t('common:error'), err.message || i18next.t('my_pets:reportError'));
     }
   };
 
   const handleMarkAsFound = (pet: Pet) => {
     Alert.alert(
-      '¿Mascota encontrada?',
-      `¿Confirmás que ${pet.name} fue encontrada? Esta acción no se puede deshacer.`,
+      i18next.t('my_pets:markFoundTitle'),
+      i18next.t('my_pets:markFoundConfirm', { name: pet.name }),
       [
-        { text: 'Cancelar', style: 'cancel' },
+        { text: i18next.t('common:cancel'), style: 'cancel' },
         {
-          text: 'Confirmar',
+          text: i18next.t('common:confirm'),
           onPress: async () => {
             try {
               await markAsFound.mutateAsync(pet.id);
             } catch {
-              Alert.alert('Error', 'No se pudo actualizar el estado. Intentá de nuevo.');
+              Alert.alert(i18next.t('common:error'), i18next.t('my_pets:markFoundError'));
             }
           },
         },
@@ -131,18 +134,18 @@ export default function MyPetsScreen() {
 
   const handleDelete = (pet: Pet) => {
     Alert.alert(
-      'Eliminar mascota',
-      `¿Estás seguro que querés eliminar a ${pet.name}? Esta acción no se puede deshacer.`,
+      i18next.t('my_pets:deleteTitle'),
+      i18next.t('my_pets:deleteConfirmText', { name: pet.name }),
       [
-        { text: 'Cancelar', style: 'cancel' },
+        { text: i18next.t('common:cancel'), style: 'cancel' },
         {
-          text: 'Eliminar',
+          text: i18next.t('common:delete'),
           style: 'destructive',
           onPress: async () => {
             try {
               await deletePet.mutateAsync(pet.id);
             } catch {
-              Alert.alert('Error', 'No se pudo eliminar la mascota. Intentá de nuevo.');
+              Alert.alert(i18next.t('common:error'), i18next.t('my_pets:deletePetError'));
             }
           },
         },
@@ -154,7 +157,7 @@ export default function MyPetsScreen() {
     return (
       <View style={styles.center}>
         <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text style={styles.loadingText}>Cargando tus mascotas...</Text>
+        <Text style={styles.loadingText}>{t('my_pets:loadingPets')}</Text>
       </View>
     );
   }
@@ -187,7 +190,7 @@ export default function MyPetsScreen() {
                 ) : (
                   <View style={styles.photoPlaceholder}>
                     <Text style={styles.photoIcon}>{getPetIcon(item.type)}</Text>
-                    <Text style={styles.photoAddText}>+ Foto</Text>
+                    <Text style={styles.photoAddText}>{t('my_pets:addPhoto')}</Text>
                   </View>
                 )}
               </TouchableOpacity>
@@ -208,7 +211,7 @@ export default function MyPetsScreen() {
 
                 {item.color && (
                   <Text style={styles.petDetail} numberOfLines={1}>
-                    Color: {item.color}
+                    {t('my_pets:colorLabel', { color: item.color })}
                   </Text>
                 )}
               </View>
@@ -219,14 +222,14 @@ export default function MyPetsScreen() {
                   style={styles.reportButton}
                   onPress={() => handleReport(item)}
                 >
-                  <Text style={styles.reportButtonText}>Reportar</Text>
+                  <Text style={styles.reportButtonText}>{t('my_pets:reportButton')}</Text>
                 </TouchableOpacity>
                 {item.status === 'active' && (
                   <TouchableOpacity
                     style={styles.foundButton}
                     onPress={() => handleMarkAsFound(item)}
                   >
-                    <Text style={styles.foundButtonText}>Encontrada</Text>
+                    <Text style={styles.foundButtonText}>{t('my_pets:foundButton')}</Text>
                   </TouchableOpacity>
                 )}
                 <TouchableOpacity
@@ -252,15 +255,13 @@ export default function MyPetsScreen() {
         ListEmptyComponent={
           <View style={styles.empty}>
             <Text style={styles.emptyIcon}>🐾</Text>
-            <Text style={styles.emptyTitle}>No tenés mascotas registradas</Text>
-            <Text style={styles.emptyText}>
-              Registrá a tu mascota para publicar reportes y que la comunidad te ayude a encontrarla.
-            </Text>
+            <Text style={styles.emptyTitle}>{t('my_pets:emptyTitle')}</Text>
+            <Text style={styles.emptyText}>{t('my_pets:emptyText')}</Text>
             <TouchableOpacity
               style={styles.createButton}
               onPress={() => router.push('/(tabs)/post')}
             >
-              <Text style={styles.createButtonText}>Registrar mascota</Text>
+              <Text style={styles.createButtonText}>{t('my_pets:registerPet')}</Text>
             </TouchableOpacity>
           </View>
         }
