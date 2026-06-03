@@ -54,6 +54,11 @@ func (s *blockService) GetBlocked(ctx context.Context, userID uuid.UUID) ([]doma
 	return s.repo.GetBlockedByUserID(ctx, userID)
 }
 
+// IsBlocked verifica si existe un bloqueo en cualquier dirección entre userA y userB.
+func (s *blockService) IsBlocked(ctx context.Context, userA, userB uuid.UUID) (bool, error) {
+	return s.repo.IsBlocked(ctx, userA, userB)
+}
+
 // isUniqueConstraintError detecta errores de violación de restricción única en PostgreSQL.
 func isUniqueConstraintError(err error) bool {
 	if err == nil {

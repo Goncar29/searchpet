@@ -435,13 +435,26 @@ export const useBlockedUsers = () => {
   });
 };
 
+export const useBlockStatus = (userId: string | undefined) => {
+  const query = useQuery<{ is_blocked: boolean }>({
+    queryKey: ['block-status', userId],
+    queryFn: () => apiClient.getBlockStatus(userId!),
+    enabled: !!userId,
+  });
+  return {
+    isBlocked: query.data?.is_blocked ?? false,
+    isLoading: query.isLoading,
+  };
+};
+
 export const useBlockUser = () => {
   const queryClient = useQueryClient();
   return useMutation<void, Error, { userId: string; data?: BlockUserRequest }>({
     mutationFn: ({ userId, data }) => apiClient.blockUser(userId, data),
-    onSuccess: () => {
+    onSuccess: (_, { userId }) => {
       queryClient.invalidateQueries({ queryKey: ['blocked-users'] });
       queryClient.invalidateQueries({ queryKey: ['messages'] });
+      queryClient.invalidateQueries({ queryKey: ['block-status', userId] });
     },
   });
 };
@@ -450,9 +463,10 @@ export const useUnblockUser = () => {
   const queryClient = useQueryClient();
   return useMutation<void, Error, string>({
     mutationFn: (userId) => apiClient.unblockUser(userId),
-    onSuccess: () => {
+    onSuccess: (_, userId) => {
       queryClient.invalidateQueries({ queryKey: ['blocked-users'] });
       queryClient.invalidateQueries({ queryKey: ['messages'] });
+      queryClient.invalidateQueries({ queryKey: ['block-status', userId] });
     },
   });
 };

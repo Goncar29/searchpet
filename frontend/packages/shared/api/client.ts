@@ -454,6 +454,10 @@ class APIClient {
     return this.request<BlockedUser[]>('GET', '/api/users/blocked');
   }
 
+  async getBlockStatus(userId: string): Promise<{ is_blocked: boolean }> {
+    return this.request<{ is_blocked: boolean }>('GET', `/api/users/${userId}/block-status`);
+  }
+
   async submitAbuseReport(data: CreateAbuseReportRequest): Promise<AbuseReport> {
     return this.request<AbuseReport>('POST', '/api/abuse-reports', data);
   }

@@ -302,6 +302,7 @@ func main() {
 		protected.POST("/users/:id/block", blockHandler.Block)
 		protected.DELETE("/users/:id/block", blockHandler.Unblock)
 		protected.GET("/users/blocked", blockHandler.GetBlocked)
+		protected.GET("/users/:id/block-status", blockHandler.GetBlockStatus)
 
 		// V1.3 — Success Stories
 		protected.POST("/stories", storyHandler.Create)

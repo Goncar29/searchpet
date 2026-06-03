@@ -26,7 +26,7 @@ import {
   useSendMessageTo,
   useMarkAsRead,
   useBlockUser,
-  useBlockedUsers,
+  useBlockStatus,
   useSubmitAbuseReport,
   useWebSocket,
 } from '../../../shared/hooks';
@@ -50,8 +50,8 @@ export default function ChatScreen() {
   const markAsRead = useMarkAsRead();
   const blockUser = useBlockUser();
   const submitAbuseReport = useSubmitAbuseReport();
-  const { data: blockedList } = useBlockedUsers();
-  const isBlocked = blockedList?.some((b) => b.blocked_id === userId) ?? false;
+  const { isBlocked: isBidirectionalBlocked } = useBlockStatus(userId);
+  const isBlocked = isBidirectionalBlocked;
 
   // Handle incoming WS envelopes for this conversation.
   const handleWsMessage = useCallback((envelope: WsEnvelope) => {

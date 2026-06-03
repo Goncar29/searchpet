@@ -72,6 +72,31 @@ func (h *BlockHandler) Unblock(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "usuario desbloqueado"})
 }
 
+// GetBlockStatus godoc
+// GET /api/users/:id/block-status
+func (h *BlockHandler) GetBlockStatus(c *gin.Context) {
+	callerID := getUserUUID(c)
+
+	targetID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "id de usuario inválido"})
+		return
+	}
+
+	if callerID == targetID {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "cannot check block status with yourself"})
+		return
+	}
+
+	blocked, err := h.blockService.IsBlocked(c.Request.Context(), callerID, targetID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"is_blocked": blocked})
+}
+
 // GetBlocked godoc
 // GET /api/users/blocked
 func (h *BlockHandler) GetBlocked(c *gin.Context) {

@@ -90,6 +90,8 @@ type BlockService interface {
 	Block(ctx context.Context, blockerID, blockedID uuid.UUID, reason string) error
 	Unblock(ctx context.Context, blockerID, blockedID uuid.UUID) error
 	GetBlocked(ctx context.Context, userID uuid.UUID) ([]domain.BlockedUser, error)
+	// IsBlocked verifica si existe un bloqueo en cualquier dirección entre userA y userB.
+	IsBlocked(ctx context.Context, userA, userB uuid.UUID) (bool, error)
 }
 
 // GamificationService define el contrato para la lógica de gamificación:
