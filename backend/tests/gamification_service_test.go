@@ -99,6 +99,10 @@ func (m *mockGamificationReviewRepository) GetAverageRating(ctx context.Context,
 	return 0, 0, nil
 }
 
+func (m *mockGamificationReviewRepository) Delete(ctx context.Context, reviewerID, revieweeID uuid.UUID) error {
+	return nil
+}
+
 // ============================================================
 // Helpers
 // ============================================================
@@ -254,6 +258,34 @@ func TestGamificationService_OnPetFound_AwardsPetRescuerAndPoints(t *testing.T) 
 	}
 	if !waitForEvent(badgeCreated) {
 		t.Error("expected pet_rescuer badge to be created within 500ms")
+	}
+}
+
+func TestGamificationService_OnUserVerified_AwardsVerifiedFinderBadge(t *testing.T) {
+	userID := uuid.New()
+
+	badgeCreated := make(chan struct{}, 1)
+
+	badgeRepo := &mockBadgeRepository{
+		hasBadgeFn: func(_ context.Context, _ uuid.UUID, _ string) (bool, error) {
+			return false, nil
+		},
+		createFn: func(_ context.Context, b *domain.Badge) error {
+			if b.BadgeType == "verified_finder" {
+				badgeCreated <- struct{}{}
+			}
+			return nil
+		},
+	}
+
+	svc := newTestGamificationService(badgeRepo, &mockUserPointsRepository{}, &mockUserRepository{}, &mockGamificationReviewRepository{})
+	bus := event.NewEventBus()
+	svc.RegisterListeners(bus)
+
+	bus.Publish("user.verified", event.UserVerifiedEvent{UserID: userID})
+
+	if !waitForEvent(badgeCreated) {
+		t.Error("expected verified_finder badge to be created within 500ms")
 	}
 }
 

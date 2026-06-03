@@ -47,6 +47,10 @@ func (m *mockBlockServiceForHandler) GetBlocked(ctx context.Context, userID uuid
 	return []domain.BlockedUser{}, nil
 }
 
+func (m *mockBlockServiceForHandler) IsBlocked(ctx context.Context, userA, userB uuid.UUID) (bool, error) {
+	return false, nil
+}
+
 // Ensure interface compliance at compile time.
 var _ service.BlockService = (*mockBlockServiceForHandler)(nil)
 

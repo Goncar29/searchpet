@@ -44,6 +44,7 @@ func (s *gamificationService) RegisterListeners(bus *event.EventBus) {
 	bus.Subscribe("pet.found", s.onPetFound)
 	bus.Subscribe("share.created", s.onShareCreated)
 	bus.Subscribe("review.created", s.onReviewCreated)
+	bus.Subscribe("user.verified", s.onUserVerified)
 }
 
 // onReportCreated maneja el evento "report.created".
@@ -143,6 +144,22 @@ func (s *gamificationService) onReviewCreated(payload interface{}) {
 
 	if _, err := s.pointsRepo.Upsert(ctx, ev.RevieweeID, 10, ""); err != nil {
 		log.Printf("[GamificationService] onReviewCreated: upsert points para %s: %v", ev.RevieweeID, err)
+	}
+}
+
+// onUserVerified maneja el evento "user.verified".
+// Otorga el badge "verified_finder" al completar la verificación de identidad (OTP).
+func (s *gamificationService) onUserVerified(payload interface{}) {
+	ev, ok := payload.(event.UserVerifiedEvent)
+	if !ok {
+		log.Printf("[GamificationService] onUserVerified: payload inesperado: %T", payload)
+		return
+	}
+
+	ctx := context.Background()
+
+	if err := s.AwardBadgeIfEligible(ctx, ev.UserID, "verified_finder"); err != nil {
+		log.Printf("[GamificationService] onUserVerified: award verified_finder para %s: %v", ev.UserID, err)
 	}
 }
 

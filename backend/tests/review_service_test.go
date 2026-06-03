@@ -60,6 +60,10 @@ func (m *mockUserReviewRepository) GetAverageRating(ctx context.Context, reviewe
 	return 0, 0, nil
 }
 
+func (m *mockUserReviewRepository) Delete(ctx context.Context, reviewerID, revieweeID uuid.UUID) error {
+	return nil
+}
+
 // mockBlockedUserRepository implementa repository.BlockedUserRepository para tests.
 type mockBlockedUserRepository struct {
 	isBlockedFn func(ctx context.Context, userA, userB uuid.UUID) (bool, error)

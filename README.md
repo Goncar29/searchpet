@@ -250,11 +250,13 @@ pnpm start
 - [x] MVP: publicar mascotas, mapa, chat, compartir QR
 - [x] Real-time: WebSocket con ticket de autenticación
 - [x] Infra: SQL migrations, signed URLs, zap logging, FCM gating
-- [ ] V1.1: volantes PDF, plantillas WhatsApp
-- [ ] V1.2: filtros avanzados, alertas geográficas, búsqueda IA
-- [ ] V1.3: verificación usuarios, grupos locales, historias de éxito visibles
-- [ ] V1.4: badges, puntos, leaderboard
-- [ ] V2.0: refugios API, veterinarias, multi-idioma
+- [x] Distribución: APK directo + PWA instalable (sin stores)
+- [x] V1.1: volantes PDF, QR code, plantillas WhatsApp, timeline de reportes
+- [x] V1.2: filtros avanzados, alertas geográficas, push en reporte cercano
+- [x] V1.3: verificación usuarios (email/SMS), grupos locales, historias de éxito, bloqueos
+- [x] V1.4: puntos, leaderboard, perfiles públicos, reseñas
+- [ ] Pending: badges auto-grant, Redis rate limiting, E2E tests, búsqueda IA server-side
+- [ ] V2.0: veterinarias cercanas, multi-SMS alertas, directorio refugios UI
 
 ---
 

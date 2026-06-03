@@ -5,13 +5,13 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"fmt"
-	"log"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"lost-pets/internal/domain"
 	"lost-pets/internal/dto"
+	"lost-pets/internal/event"
 	"lost-pets/internal/repository"
 	"lost-pets/pkg/mailer"
 	"lost-pets/pkg/sms"
@@ -28,24 +28,24 @@ type verificationService struct {
 	userRepo   repository.UserRepository
 	mailer     mailer.Mailer
 	smsSender  sms.SMSSender
-	gamSvc     GamificationService
+	bus        *event.EventBus
 }
 
 // NewVerificationService construye el VerificationService con sus dependencias.
-// gamSvc puede ser nil si la gamificación no está habilitada (defensivo).
+// bus puede ser nil si el EventBus no está disponible (defensivo).
 func NewVerificationService(
 	tokenRepo repository.VerificationTokenRepository,
 	userRepo repository.UserRepository,
 	m mailer.Mailer,
 	s sms.SMSSender,
-	gamSvc GamificationService,
+	bus *event.EventBus,
 ) VerificationService {
 	return &verificationService{
 		tokenRepo: tokenRepo,
 		userRepo:  userRepo,
 		mailer:    m,
 		smsSender: s,
-		gamSvc:    gamSvc,
+		bus:       bus,
 	}
 }
 
@@ -208,12 +208,9 @@ func (s *verificationService) ConfirmOTP(ctx context.Context, userID uuid.UUID, 
 		return err
 	}
 
-	// Otorgar badge "verified_finder" por completar la verificación de identidad.
-	// REGLA: el error del badge NO debe fallar el flujo OTP — solo se loguea.
-	if s.gamSvc != nil {
-		if err := s.gamSvc.AwardBadgeIfEligible(ctx, userID, "verified_finder"); err != nil {
-			log.Printf("[VerificationService] gamification: award verified_finder para %s: %v", userID, err)
-		}
+	// Publicar evento para que GamificationService (y futuros subscribers) reaccionen.
+	if s.bus != nil {
+		s.bus.Publish("user.verified", event.UserVerifiedEvent{UserID: userID})
 	}
 
 	return nil

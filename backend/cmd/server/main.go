@@ -136,7 +136,7 @@ func main() {
 	verificationTokenRepo := repository.NewVerificationTokenRepository(db)
 	mailerClient := mailer.NewSendGridMailer(cfg.SendGridAPIKey)
 	smsSenderClient := sms.NewTwilioSender(cfg.TwilioAccountSID, cfg.TwilioAuthToken, cfg.TwilioFromNumber)
-	verificationService := service.NewVerificationService(verificationTokenRepo, userRepo, mailerClient, smsSenderClient, gamSvc)
+	verificationService := service.NewVerificationService(verificationTokenRepo, userRepo, mailerClient, smsSenderClient, bus)
 
 	notificationService := service.NewNotificationService(fcmClient, deviceTokenRepo)
 	notificationService.RegisterListeners(bus)

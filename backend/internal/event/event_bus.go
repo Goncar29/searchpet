@@ -114,3 +114,8 @@ type ReviewCreatedEvent struct {
 	ReviewerID uuid.UUID
 	RevieweeID uuid.UUID
 }
+
+// UserVerifiedEvent is published when a user completes identity verification (OTP).
+type UserVerifiedEvent struct {
+	UserID uuid.UUID
+}

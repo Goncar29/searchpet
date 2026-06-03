@@ -4,35 +4,40 @@
 
 ---
 
-## 1. Backend (Railway)
+## 1. Backend (Render) ← PRODUCCIÓN ACTUAL
 
 ### Setup
-1. Ir a [railway.app](https://railway.app) y crear cuenta con GitHub
-2. Crear nuevo proyecto → Deploy from GitHub repo
-3. Seleccionar el repo de SearchPet
-4. Railway detecta el Dockerfile automáticamente
+1. Ir a [render.com](https://render.com) y crear cuenta con GitHub
+2. New → Web Service → conectar repo SearchPet
+3. Render detecta el Dockerfile automáticamente
 
-### Variables de entorno en Railway
+### Variables de entorno en Render
 ```
 PORT=8080
 ENVIRONMENT=production
-DATABASE_URL=<se genera automáticamente con PostgreSQL plugin>
+DATABASE_URL=<se genera automáticamente con PostgreSQL de Render>
 JWT_SECRET=<generar un secret fuerte>
-APP_URL=https://tu-app.railway.app
-CLOUDINARY_URL=<tu URL de Cloudinary>
-FIREBASE_KEY=<tu key de Firebase>
+APP_URL=https://searchpet.onrender.com
+CLOUDINARY_CLOUD_NAME=<tu cloud name>
+CLOUDINARY_API_KEY=<tu api key>
+CLOUDINARY_API_SECRET=<tu api secret>
+FIREBASE_KEY=<tu key JSON de Firebase>
+CORS_ALLOWED_ORIGINS=https://searchpet.vercel.app
 ```
 
 ### Agregar PostgreSQL + PostGIS
-1. En Railway dashboard → New → Database → PostgreSQL
-2. Instalar PostGIS:
+1. En Render dashboard → New → PostgreSQL
+2. Conectar a tu Web Service vía `DATABASE_URL`
+3. Instalar PostGIS (solo primera vez):
    ```sql
    CREATE EXTENSION IF NOT EXISTS postgis;
    CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
    ```
-3. Copiar la `DATABASE_URL` a las variables del servicio
 
-### Costo: $0 (plan free $5/mes en créditos)
+### Trigger de deploy manual (CI)
+El workflow `ci.yml` hace trigger automático en Render al pushear a `main` via webhook.
+
+### Costo: $0 (plan free — se duerme tras 15 min de inactividad)
 
 ---
 
@@ -152,9 +157,9 @@ npx eas submit --platform ios
 
 | Servicio | Proveedor | Costo |
 |----------|-----------|-------|
-| Backend | Railway | $0 |
+| Backend | **Render** | $0 |
 | Web | Vercel | $0 |
-| BD | Railway/Supabase | $0 |
+| BD | **Render** PostgreSQL | $0 |
 | Imágenes | Cloudinary | $0 |
 | Push | Firebase | $0 |
 | App builds | Expo EAS | $0 |
