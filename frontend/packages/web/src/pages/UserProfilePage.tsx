@@ -1,5 +1,6 @@
 import { useParams, Link } from 'react-router';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { usePublicProfile, useUserReviews, useCreateReview, useUpdateReview, useDeleteReview, useBlockUser, useBlockedUsers, useUnblockUser, useSubmitAbuseReport } from '@shared/hooks';
 import type { Badge, UserReview, AbuseReason } from '@shared/types';
 import { BADGE_META } from '@shared/types';
@@ -14,10 +15,11 @@ const BADGE_COLOR: Record<string, string> = {
 const DEFAULT_BADGE_COLOR = 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300';
 
 function BadgeCard({ badge }: { badge: Badge }) {
+  const { t } = useTranslation('badges');
   const meta = BADGE_META[badge.badge_type] ?? {
     emoji: '🏅',
-    label: badge.badge_type,
-    description: '',
+    labelKey: badge.badge_type,
+    descriptionKey: '',
   };
   const color = BADGE_COLOR[badge.badge_type] ?? DEFAULT_BADGE_COLOR;
 
@@ -25,9 +27,9 @@ function BadgeCard({ badge }: { badge: Badge }) {
     <div className={`flex items-start gap-3 p-3 rounded-xl border ${color}`}>
       <span className="text-2xl flex-shrink-0">{meta.emoji}</span>
       <div>
-        <p className="text-sm font-semibold">{meta.label}</p>
-        {meta.description && (
-          <p className="text-xs opacity-75 mt-0.5">{meta.description}</p>
+        <p className="text-sm font-semibold">{t(meta.labelKey)}</p>
+        {meta.descriptionKey && (
+          <p className="text-xs opacity-75 mt-0.5">{t(meta.descriptionKey)}</p>
         )}
         <p className="text-xs opacity-50 mt-1">
           {new Date(badge.earned_at).toLocaleDateString('es-UY', { day: 'numeric', month: 'short', year: 'numeric' })}

@@ -14,25 +14,33 @@
     "errorDescription": "Algo salió mal. Por favor intentá recargar la página.",
     "reload": "Reintentar",
     "timeAgo": {
+      "now": "ahora",
       "minutesAgo": "hace {{count}} min",
       "hoursAgo": "hace {{count}}h",
       "daysAgo": "hace {{count}}d"
-    }
+    },
+    "unknownUser": "Usuario"
   },
   "auth": {
     "login": {
       "title": "Iniciá sesión",
+      "welcome": "Bienvenido a SearchPet",
       "subtitle": "Ayudá a encontrar mascotas perdidas",
       "email": "Correo electrónico",
       "password": "Contraseña",
       "submit": "Ingresar",
       "noAccount": "¿No tenés cuenta? Registrate",
-      "invalidCredentials": "Credenciales inválidas"
+      "invalidCredentials": "Credenciales inválidas",
+      "fieldsRequired": "Completá todos los campos"
     },
     "register": {
       "title": "Crear cuenta",
       "subtitle": "Unite a la comunidad",
       "name": "Nombre completo",
+      "nameLabelRequired": "Nombre *",
+      "emailLabelRequired": "Email *",
+      "passwordLabelRequired": "Contraseña *",
+      "confirmLabelRequired": "Confirmar contraseña *",
       "email": "Correo electrónico",
       "password": "Contraseña",
       "confirm": "Confirmar contraseña",
@@ -41,8 +49,15 @@
       "submit": "Crear cuenta",
       "hasAccount": "¿Ya tenés cuenta? Iniciá sesión",
       "passwordMin": "La contraseña debe tener al menos 6 caracteres",
+      "passwordPlaceholder": "Mínimo 6 caracteres",
       "passwordMismatch": "Las contraseñas no coinciden",
-      "createError": "No se pudo crear la cuenta"
+      "createError": "No se pudo crear la cuenta",
+      "requiredFields": "Completá los campos obligatorios",
+      "createdTitle": "Cuenta creada",
+      "createdMessage": "Bienvenido a SearchPet",
+      "emailPlaceholder": "tu@email.com",
+      "phonePlaceholder": "+598 99 123 456",
+      "cityPlaceholder": "Ej: Montevideo, Buenos Aires..."
     }
   },
   "pets": {
@@ -93,7 +108,11 @@
     "types": {
       "dog": "Perro",
       "cat": "Gato",
-      "other": "Otro"
+      "other": "Otro",
+      "perro": "Perro",
+      "gato": "Gato",
+      "pajaro": "Pájaro",
+      "otro": "Otro"
     },
     "edit": {
       "title": "Editar mascota",
@@ -103,6 +122,7 @@
     "status": {
       "lost": "Perdido",
       "found": "Encontrado",
+      "sighting": "Avistamiento",
       "active": "Activa",
       "archived": "Archivada"
     }
@@ -111,16 +131,42 @@
     "inputPlaceholder": "Escribí un mensaje...",
     "send": "Enviar",
     "typing": "escribiendo...",
-    "loadingMessages": "Cargando mensajes..."
+    "loadingMessages": "Cargando mensajes...",
+    "blockedCannotMessage": "Ya no podés enviar mensajes a este usuario",
+    "blockedBanner": "No podés enviar mensajes a este usuario",
+    "startConversation": "Comenzá la conversación enviando un mensaje",
+    "reportReason": "Motivo de la denuncia",
+    "options": "Opciones",
+    "blockUser": "Bloquear usuario",
+    "report": "Denunciar",
+    "reportSuccess": "Denuncia enviada",
+    "reportSuccessText": "Gracias por reportarlo",
+    "reportError": "No se pudo enviar la denuncia",
+    "typing_indicator": "Escribiendo..."
   },
   "messages": {
     "title": "Mensajes",
     "empty": "Aún no tenés conversaciones",
-    "loading": "Cargando conversaciones..."
+    "loading": "Cargando conversaciones...",
+    "loginSubtitle": "Iniciá sesión para ver tus conversaciones",
+    "loginButton": "Iniciar Sesión",
+    "emptyTitle": "Sin mensajes",
+    "emptySubtitle": "Cuando alguien te contacte sobre una mascota, aparecerá aquí",
+    "youPrefix": "Vos: "
   },
   "badges": {
     "title": "Mis Badges",
     "empty": "Todavía no tenés badges. ¡Participá más para ganarlos!",
+    "earnedOn": "Obtenido el",
+    "authRequired": "Acceso requerido",
+    "authText": "Iniciá sesión para ver tus logros",
+    "loginButton": "Iniciar Sesión",
+    "loadError": "Error al cargar",
+    "loadErrorText": "No se pudieron cargar tus logros. Intentá de nuevo.",
+    "myAchievements": "Mis logros",
+    "introText": "Estos son los badges que ganaste ayudando a encontrar mascotas.",
+    "emptyTitle": "Aún no tenés logros",
+    "emptyText": "Creá reportes, compartí mascotas perdidas y ayudá a la comunidad para ganar badges.",
     "first_helper": {
       "label": "Primer Ayudante",
       "description": "Creó su primer reporte de avistamiento"

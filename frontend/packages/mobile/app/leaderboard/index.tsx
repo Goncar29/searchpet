@@ -14,6 +14,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { useLeaderboard } from '../../../shared/hooks';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
 import type { LeaderboardEntry } from '../../../shared/types';
@@ -61,6 +62,7 @@ function LeaderboardRow({ entry, onPress }: { entry: LeaderboardEntry; onPress: 
 
 export default function LeaderboardScreen() {
   const router = useRouter();
+  const { t } = useTranslation('leaderboard');
 
   const [city, setCity] = useState('Montevideo');
   const [inputCity, setInputCity] = useState('Montevideo');
@@ -76,12 +78,12 @@ export default function LeaderboardScreen() {
     <View style={styles.container}>
       {/* City filter */}
       <View style={styles.filterContainer}>
-        <Text style={styles.filterLabel}>Ciudad</Text>
+        <Text style={styles.filterLabel}>{t('leaderboard:cityLabel')}</Text>
         <TextInput
           style={styles.filterInput}
           value={inputCity}
           onChangeText={setInputCity}
-          placeholder="Ej: Montevideo, Buenos Aires..."
+          placeholder={t('leaderboard:cityPlaceholder')}
           placeholderTextColor={COLORS.textMuted}
           returnKeyType="search"
           onSubmitEditing={applyCity}
@@ -96,10 +98,10 @@ export default function LeaderboardScreen() {
       ) : isError ? (
         <View style={styles.center}>
           <Text style={styles.guardIcon}>⚠️</Text>
-          <Text style={styles.guardTitle}>Error al cargar</Text>
-          <Text style={styles.guardText}>No se pudo obtener el ranking. Intentá de nuevo.</Text>
+          <Text style={styles.guardTitle}>{t('leaderboard:loadError')}</Text>
+          <Text style={styles.guardText}>{t('leaderboard:loadErrorText')}</Text>
           <TouchableOpacity style={styles.retryButton} onPress={() => refetch()}>
-            <Text style={styles.retryButtonText}>Reintentar</Text>
+            <Text style={styles.retryButtonText}>{t('leaderboard:retry')}</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -117,10 +119,8 @@ export default function LeaderboardScreen() {
           ListEmptyComponent={
             <View style={styles.empty}>
               <Text style={styles.emptyIcon}>🔍</Text>
-              <Text style={styles.emptyTitle}>Sin resultados</Text>
-              <Text style={styles.emptyText}>
-                No hay usuarios con puntos registrados en {city}.
-              </Text>
+              <Text style={styles.emptyTitle}>{t('leaderboard:emptyTitle')}</Text>
+              <Text style={styles.emptyText}>{t('leaderboard:empty', { city })}</Text>
             </View>
           }
           renderItem={({ item }) => (

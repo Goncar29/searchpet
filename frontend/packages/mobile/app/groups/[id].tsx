@@ -14,7 +14,10 @@ import {
 } from 'react-native';
 import { useEffect } from 'react';
 import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
+import i18next from 'i18next';
 import { useAuthStore } from '../../store';
+import { getDateLocale } from '../../i18n/dateLocale';
 import { useGroup, useGroupMembers, useJoinGroup, useLeaveGroup } from '../../../shared/hooks';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
 import type { GroupMember } from '../../../shared/types';
@@ -27,16 +30,15 @@ function getInitials(name: string): string {
   return name.trim().charAt(0).toUpperCase();
 }
 
-function formatDate(dateString: string): string {
-  const date = new Date(dateString);
-  return date.toLocaleDateString('es-UY', { day: 'numeric', month: 'long', year: 'numeric' });
-}
-
 // ============================================================
 // Member Row
 // ============================================================
 
 function MemberRow({ member }: { member: GroupMember }) {
+  const { t, i18n } = useTranslation('groups');
+  const dateLocale = getDateLocale(i18n.language);
+  const dateStr = new Date(member.joined_at).toLocaleDateString(dateLocale, { day: 'numeric', month: 'long', year: 'numeric' });
+
   return (
     <View style={styles.memberRow}>
       {member.profile_photo_url ? (
@@ -48,7 +50,7 @@ function MemberRow({ member }: { member: GroupMember }) {
       )}
       <View style={styles.memberInfo}>
         <Text style={styles.memberName}>{member.name}</Text>
-        <Text style={styles.memberDate}>Miembro desde {formatDate(member.joined_at)}</Text>
+        <Text style={styles.memberDate}>{t('groups:memberSince', { date: dateStr })}</Text>
       </View>
     </View>
   );
@@ -62,6 +64,7 @@ export default function GroupDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const navigation = useNavigation();
   const router = useRouter();
+  const { t } = useTranslation('groups');
   const { isAuthenticated } = useAuthStore();
 
   const { data: group, isLoading: groupLoading, isError: groupError } = useGroup(id ?? '');
@@ -85,7 +88,7 @@ export default function GroupDetailScreen() {
     joinMutation.mutate(undefined, {
       onError: (err: any) => {
         if (err.message?.includes('ya eres miembro')) return;
-        Alert.alert('Error', err.message || 'No se pudo unirse al grupo');
+        Alert.alert('Error', err.message || i18next.t('groups:joinError'));
       },
     });
   };
@@ -93,7 +96,7 @@ export default function GroupDetailScreen() {
   const handleLeave = () => {
     leaveMutation.mutate(undefined, {
       onError: (err: any) => {
-        Alert.alert('Error', err.message || 'No se pudo salir del grupo');
+        Alert.alert('Error', err.message || i18next.t('groups:leaveError'));
       },
     });
   };
@@ -110,10 +113,10 @@ export default function GroupDetailScreen() {
     return (
       <View style={styles.center}>
         <Text style={styles.stateIcon}>🔍</Text>
-        <Text style={styles.stateTitle}>Grupo no encontrado</Text>
-        <Text style={styles.stateText}>Este grupo no existe o fue eliminado.</Text>
+        <Text style={styles.stateTitle}>{t('groups:notFound')}</Text>
+        <Text style={styles.stateText}>{t('groups:notFoundText')}</Text>
         <TouchableOpacity style={styles.retryButton} onPress={() => router.back()}>
-          <Text style={styles.retryButtonText}>Volver</Text>
+          <Text style={styles.retryButtonText}>{t('groups:back')}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -128,7 +131,7 @@ export default function GroupDetailScreen() {
           <Text style={styles.headerCity}>{group.city}</Text>
           {group.is_member && (
             <View style={styles.memberBadge}>
-              <Text style={styles.memberBadgeText}>Sos miembro</Text>
+              <Text style={styles.memberBadgeText}>{t('groups:isMember')}</Text>
             </View>
           )}
         </View>
@@ -138,7 +141,7 @@ export default function GroupDetailScreen() {
         ) : null}
 
         <Text style={styles.headerMemberCount}>
-          {group.member_count} {group.member_count === 1 ? 'miembro' : 'miembros'}
+          {t('groups:members', { count: group.member_count })}
         </Text>
 
         {/* Join / Leave button */}
@@ -158,7 +161,7 @@ export default function GroupDetailScreen() {
             />
           ) : (
             <Text style={[styles.actionButtonText, group.is_member && styles.leaveButtonText]}>
-              {group.is_member ? 'Salir del grupo' : 'Unirse al grupo'}
+              {group.is_member ? t('groups:leaveGroup') : t('groups:joinGroup')}
             </Text>
           )}
         </TouchableOpacity>
@@ -166,7 +169,7 @@ export default function GroupDetailScreen() {
 
       {/* Members list */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>👥 Miembros</Text>
+        <Text style={styles.sectionTitle}>👥 {t('groups:membersTitle')}</Text>
 
         {membersLoading ? (
           <ActivityIndicator
@@ -177,7 +180,7 @@ export default function GroupDetailScreen() {
         ) : !members || members.length === 0 ? (
           <View style={styles.emptyMembers}>
             <Text style={styles.stateIcon}>🤷</Text>
-            <Text style={styles.stateText}>Este grupo aún no tiene miembros</Text>
+            <Text style={styles.stateText}>{t('groups:noMembers')}</Text>
           </View>
         ) : (
           members.map((member) => (

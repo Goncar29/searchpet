@@ -4,13 +4,17 @@
 
 import { View, Text, FlatList, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { useStories } from '../../../../shared/hooks';
+import { getDateLocale } from '../../i18n/dateLocale';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
 import type { SuccessStory } from '../../../../shared/types';
 
 export default function StoriesScreen() {
   const router = useRouter();
+  const { t, i18n } = useTranslation('story');
   const { data: stories, isLoading, isError, refetch } = useStories({ limit: 20 });
+  const dateLocale = getDateLocale(i18n.language);
 
   const renderItem = ({ item }: { item: SuccessStory }) => (
     <TouchableOpacity
@@ -29,7 +33,7 @@ export default function StoriesScreen() {
         {item.body.length > 100 ? item.body.slice(0, 100) + '…' : item.body}
       </Text>
       <Text style={styles.date}>
-        {new Date(item.created_at).toLocaleDateString('es-UY', { day: 'numeric', month: 'short', year: 'numeric' })}
+        {new Date(item.created_at).toLocaleDateString(dateLocale, { day: 'numeric', month: 'short', year: 'numeric' })}
       </Text>
     </TouchableOpacity>
   );
@@ -38,7 +42,7 @@ export default function StoriesScreen() {
     return (
       <View style={styles.center}>
         <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text style={styles.loadingText}>Cargando historias...</Text>
+        <Text style={styles.loadingText}>{t('story:loading')}</Text>
       </View>
     );
   }
@@ -47,9 +51,9 @@ export default function StoriesScreen() {
     return (
       <View style={styles.center}>
         <Text style={styles.errorIcon}>⚠️</Text>
-        <Text style={styles.errorText}>No se pudieron cargar las historias.</Text>
+        <Text style={styles.errorText}>{t('story:loadError')}</Text>
         <TouchableOpacity style={styles.retryButton} onPress={() => refetch()}>
-          <Text style={styles.retryButtonText}>Reintentar</Text>
+          <Text style={styles.retryButtonText}>{t('story:retry')}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -64,15 +68,13 @@ export default function StoriesScreen() {
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
-          <Text style={styles.sectionTitle}>Historias de éxito</Text>
+          <Text style={styles.sectionTitle}>{t('story:title')}</Text>
         }
         ListEmptyComponent={
           <View style={styles.empty}>
             <Text style={styles.emptyIcon}>🐾</Text>
-            <Text style={styles.emptyTitle}>Sin historias todavía</Text>
-            <Text style={styles.emptyText}>
-              Cuando una mascota es encontrada, su historia aparece aquí.
-            </Text>
+            <Text style={styles.emptyTitle}>{t('story:emptyTitle')}</Text>
+            <Text style={styles.emptyText}>{t('story:emptyText')}</Text>
           </View>
         }
       />

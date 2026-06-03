@@ -14,25 +14,33 @@
     "errorDescription": "Something went wrong. Please try reloading the page.",
     "reload": "Reload",
     "timeAgo": {
+      "now": "now",
       "minutesAgo": "{{count}} min ago",
       "hoursAgo": "{{count}}h ago",
       "daysAgo": "{{count}}d ago"
-    }
+    },
+    "unknownUser": "Unknown user"
   },
   "auth": {
     "login": {
       "title": "Login",
+      "welcome": "Welcome to SearchPet",
       "subtitle": "Help find lost pets",
       "email": "Email address",
       "password": "Password",
       "submit": "Sign in",
       "noAccount": "Don't have an account? Register",
-      "invalidCredentials": "Invalid credentials"
+      "invalidCredentials": "Invalid credentials",
+      "fieldsRequired": "Please fill in all fields"
     },
     "register": {
       "title": "Create account",
       "subtitle": "Join the community",
       "name": "Full name",
+      "nameLabelRequired": "Name *",
+      "emailLabelRequired": "Email *",
+      "passwordLabelRequired": "Password *",
+      "confirmLabelRequired": "Confirm password *",
       "email": "Email address",
       "password": "Password",
       "confirm": "Confirm password",
@@ -41,8 +49,15 @@
       "submit": "Create account",
       "hasAccount": "Already have an account? Login",
       "passwordMin": "Password must be at least 6 characters",
+      "passwordPlaceholder": "At least 6 characters",
       "passwordMismatch": "Passwords do not match",
-      "createError": "Could not create account"
+      "createError": "Could not create account",
+      "requiredFields": "Please fill in required fields",
+      "createdTitle": "Account created",
+      "createdMessage": "Welcome to SearchPet",
+      "emailPlaceholder": "your@email.com",
+      "phonePlaceholder": "+1 555 123 4567",
+      "cityPlaceholder": "Ex: New York, Los Angeles..."
     }
   },
   "pets": {
@@ -93,7 +108,11 @@
     "types": {
       "dog": "Dog",
       "cat": "Cat",
-      "other": "Other"
+      "other": "Other",
+      "perro": "Dog",
+      "gato": "Cat",
+      "pajaro": "Bird",
+      "otro": "Other"
     },
     "edit": {
       "title": "Edit pet",
@@ -103,6 +122,7 @@
     "status": {
       "lost": "Lost",
       "found": "Found",
+      "sighting": "Sighting",
       "active": "Active",
       "archived": "Archived"
     }
@@ -111,16 +131,42 @@
     "inputPlaceholder": "Type a message...",
     "send": "Send",
     "typing": "typing...",
-    "loadingMessages": "Loading messages..."
+    "loadingMessages": "Loading messages...",
+    "blockedCannotMessage": "You can no longer send messages to this user",
+    "blockedBanner": "You can't send messages to this user",
+    "startConversation": "Start the conversation by sending a message",
+    "reportReason": "Reason for report",
+    "options": "Options",
+    "blockUser": "Block user",
+    "report": "Report",
+    "reportSuccess": "Report submitted",
+    "reportSuccessText": "Thank you for reporting",
+    "reportError": "Could not submit report",
+    "typing_indicator": "Typing..."
   },
   "messages": {
     "title": "Messages",
     "empty": "No conversations yet",
-    "loading": "Loading conversations..."
+    "loading": "Loading conversations...",
+    "loginSubtitle": "Sign in to see your conversations",
+    "loginButton": "Sign In",
+    "emptyTitle": "No messages",
+    "emptySubtitle": "When someone contacts you about a pet, it will appear here",
+    "youPrefix": "You: "
   },
   "badges": {
     "title": "My Badges",
     "empty": "No badges yet. Participate more to earn them!",
+    "earnedOn": "Earned on",
+    "authRequired": "Access required",
+    "authText": "Sign in to see your achievements",
+    "loginButton": "Sign In",
+    "loadError": "Error loading",
+    "loadErrorText": "Could not load your achievements. Please try again.",
+    "myAchievements": "My achievements",
+    "introText": "These are the badges you earned by helping find pets.",
+    "emptyTitle": "No achievements yet",
+    "emptyText": "Create reports, share lost pets and help the community to earn badges.",
     "first_helper": {
       "label": "First Helper",
       "description": "Created their first sighting report"

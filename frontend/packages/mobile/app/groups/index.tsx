@@ -14,6 +14,8 @@ import {
 } from 'react-native';
 import { useState } from 'react';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
+import i18next from 'i18next';
 import { useAuthStore } from '../../store';
 import { useGroups, useJoinGroup, useLeaveGroup } from '../../../shared/hooks';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
@@ -31,6 +33,7 @@ interface GroupCardProps {
 }
 
 function GroupCard({ group, isAuthenticated, onPress, onUnauthenticated }: GroupCardProps) {
+  const { t } = useTranslation('groups');
   const joinMutation = useJoinGroup(group.id);
   const leaveMutation = useLeaveGroup(group.id);
   const isPending = joinMutation.isPending || leaveMutation.isPending;
@@ -42,9 +45,8 @@ function GroupCard({ group, isAuthenticated, onPress, onUnauthenticated }: Group
     }
     joinMutation.mutate(undefined, {
       onError: (err: any) => {
-        // idempotent: "ya eres miembro" is treated as success
         if (err.message?.includes('ya eres miembro')) return;
-        Alert.alert('Error', err.message || 'No se pudo unirse al grupo');
+        Alert.alert('Error', err.message || i18next.t('groups:joinError'));
       },
     });
   };
@@ -56,7 +58,7 @@ function GroupCard({ group, isAuthenticated, onPress, onUnauthenticated }: Group
     }
     leaveMutation.mutate(undefined, {
       onError: (err: any) => {
-        Alert.alert('Error', err.message || 'No se pudo salir del grupo');
+        Alert.alert('Error', err.message || i18next.t('groups:leaveError'));
       },
     });
   };
@@ -69,7 +71,7 @@ function GroupCard({ group, isAuthenticated, onPress, onUnauthenticated }: Group
           <Text style={styles.cardCity} numberOfLines={1}>{group.city}</Text>
           {group.is_member && (
             <View style={styles.memberBadge}>
-              <Text style={styles.memberBadgeText}>Miembro</Text>
+              <Text style={styles.memberBadgeText}>{t('groups:member')}</Text>
             </View>
           )}
         </View>
@@ -89,7 +91,7 @@ function GroupCard({ group, isAuthenticated, onPress, onUnauthenticated }: Group
             />
           ) : (
             <Text style={[styles.actionButtonText, group.is_member && styles.leaveButtonText]}>
-              {group.is_member ? 'Salir' : 'Unirse'}
+              {group.is_member ? t('groups:leave') : t('groups:join')}
             </Text>
           )}
         </TouchableOpacity>
@@ -102,7 +104,7 @@ function GroupCard({ group, isAuthenticated, onPress, onUnauthenticated }: Group
       ) : null}
 
       <Text style={styles.cardMemberCount}>
-        {group.member_count} {group.member_count === 1 ? 'miembro' : 'miembros'}
+        {t('groups:members', { count: group.member_count })}
       </Text>
     </TouchableOpacity>
   );
@@ -114,6 +116,7 @@ function GroupCard({ group, isAuthenticated, onPress, onUnauthenticated }: Group
 
 export default function GroupsScreen() {
   const router = useRouter();
+  const { t } = useTranslation('groups');
   const { isAuthenticated } = useAuthStore();
   const [cityFilter, setCityFilter] = useState('');
   const [submittedCity, setSubmittedCity] = useState('');
@@ -140,9 +143,9 @@ export default function GroupsScreen() {
     return (
       <View style={styles.center}>
         <Text style={styles.stateIcon}>⚠️</Text>
-        <Text style={styles.stateTitle}>Error al cargar grupos</Text>
+        <Text style={styles.stateTitle}>{t('groups:loadError')}</Text>
         <TouchableOpacity style={styles.retryButton} onPress={() => refetch()}>
-          <Text style={styles.retryButtonText}>Reintentar</Text>
+          <Text style={styles.retryButtonText}>{t('groups:retry')}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -154,7 +157,7 @@ export default function GroupsScreen() {
       <View style={styles.searchBar}>
         <TextInput
           style={styles.searchInput}
-          placeholder="Filtrar por ciudad..."
+          placeholder={t('groups:searchPlaceholder')}
           placeholderTextColor={COLORS.placeholder}
           value={cityFilter}
           onChangeText={setCityFilter}
@@ -162,7 +165,7 @@ export default function GroupsScreen() {
           returnKeyType="search"
         />
         <TouchableOpacity style={styles.searchButton} onPress={handleSearch}>
-          <Text style={styles.searchButtonText}>Buscar</Text>
+          <Text style={styles.searchButtonText}>{t('groups:search')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -182,11 +185,11 @@ export default function GroupsScreen() {
         ListEmptyComponent={
           <View style={styles.emptyState}>
             <Text style={styles.stateIcon}>👥</Text>
-            <Text style={styles.stateTitle}>No hay grupos disponibles</Text>
+            <Text style={styles.stateTitle}>{t('groups:emptyTitle')}</Text>
             <Text style={styles.stateText}>
               {submittedCity
-                ? `No encontramos grupos en "${submittedCity}" todavía`
-                : 'No hay grupos en tu zona todavía'}
+                ? t('groups:emptyCity', { city: submittedCity })
+                : t('groups:empty')}
             </Text>
           </View>
         }

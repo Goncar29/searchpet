@@ -95,16 +95,16 @@ export const SHADOWS = {
 };
 
 export const PET_TYPES = [
-  { value: 'perro', label: 'Perro', icon: '🐕' },
-  { value: 'gato', label: 'Gato', icon: '🐱' },
-  { value: 'pajaro', label: 'Pájaro', icon: '🐦' },
-  { value: 'otro', label: 'Otro', icon: '🐾' },
+  { value: 'perro', labelKey: 'pets:types.perro', icon: '🐕' },
+  { value: 'gato', labelKey: 'pets:types.gato', icon: '🐱' },
+  { value: 'pajaro', labelKey: 'pets:types.pajaro', icon: '🐦' },
+  { value: 'otro', labelKey: 'pets:types.otro', icon: '🐾' },
 ] as const;
 
 export const REPORT_STATUSES = [
-  { value: 'lost', label: 'Perdido', color: COLORS.lost },
-  { value: 'found', label: 'Encontrado', color: COLORS.found },
-  { value: 'sighting', label: 'Avistamiento', color: COLORS.sighting },
+  { value: 'lost', labelKey: 'pets:status.lost', color: COLORS.lost },
+  { value: 'found', labelKey: 'pets:status.found', color: COLORS.found },
+  { value: 'sighting', labelKey: 'pets:status.sighting', color: COLORS.sighting },
 ] as const;
 
 export const MAP_DEFAULTS = {

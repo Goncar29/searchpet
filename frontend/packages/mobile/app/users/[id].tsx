@@ -19,9 +19,12 @@ import {
 } from 'react-native';
 import { useState, useEffect } from 'react';
 import { useLocalSearchParams, useNavigation } from 'expo-router';
+import { useTranslation } from 'react-i18next';
+import i18next from 'i18next';
 import { usePublicProfile, useUserReviews, useCreateReview, useUpdateReview, useDeleteReview, useBlockUser, useBlockedUsers, useSubmitAbuseReport } from '../../../shared/hooks';
 import { useAuthStore } from '../../store';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
+import { getDateLocale } from '../../i18n/dateLocale';
 import type { Badge, UserReview } from '../../../shared/types';
 import { BADGE_META } from '../../../shared/types';
 
@@ -33,9 +36,9 @@ function getInitials(name: string): string {
   return name.trim().charAt(0).toUpperCase();
 }
 
-function formatDate(dateString: string): string {
+function formatDate(dateString: string, lang: string): string {
   const date = new Date(dateString);
-  return date.toLocaleDateString('es-UY', { day: 'numeric', month: 'long', year: 'numeric' });
+  return date.toLocaleDateString(getDateLocale(lang), { day: 'numeric', month: 'long', year: 'numeric' });
 }
 
 // ============================================================
@@ -43,21 +46,24 @@ function formatDate(dateString: string): string {
 // ============================================================
 
 function BadgeRow({ badge }: { badge: Badge }) {
+  const { t, i18n } = useTranslation(['badges', 'users']);
   const meta = BADGE_META[badge.badge_type] ?? {
     emoji: '🏅',
-    label: badge.badge_type,
-    description: '',
+    labelKey: badge.badge_type,
+    descriptionKey: '',
   };
+  const label = t(meta.labelKey);
+  const description = meta.descriptionKey ? t(meta.descriptionKey) : '';
 
   return (
     <View style={styles.badgeCard}>
       <Text style={styles.badgeEmoji}>{meta.emoji}</Text>
       <View style={styles.badgeInfo}>
-        <Text style={styles.badgeLabel}>{meta.label}</Text>
-        {meta.description ? (
-          <Text style={styles.badgeDescription}>{meta.description}</Text>
+        <Text style={styles.badgeLabel}>{label}</Text>
+        {description ? (
+          <Text style={styles.badgeDescription}>{description}</Text>
         ) : null}
-        <Text style={styles.badgeDate}>Obtenido el {formatDate(badge.earned_at)}</Text>
+        <Text style={styles.badgeDate}>{t('users:earnedOn')}{formatDate(badge.earned_at, i18n.language)}</Text>
       </View>
     </View>
   );
@@ -117,6 +123,7 @@ interface ReviewCardProps {
 }
 
 function ReviewCard({ review, onDelete }: ReviewCardProps) {
+  const { t, i18n } = useTranslation('users');
   const initials = review.reviewer_name.trim().charAt(0).toUpperCase();
 
   return (
@@ -134,10 +141,10 @@ function ReviewCard({ review, onDelete }: ReviewCardProps) {
           <StarDisplay stars={review.stars} />
         </View>
         <View style={styles.reviewDateCol}>
-          <Text style={styles.reviewDate}>{formatDate(review.created_at)}</Text>
+          <Text style={styles.reviewDate}>{formatDate(review.created_at, i18n.language)}</Text>
           {onDelete && (
             <TouchableOpacity onPress={onDelete} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Text style={styles.deleteReviewText}>Eliminar</Text>
+              <Text style={styles.deleteReviewText}>{t('users:deleteReview')}</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -157,6 +164,7 @@ export default function PublicProfileScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user, isAuthenticated } = useAuthStore();
   const navigation = useNavigation();
+  const { t, i18n } = useTranslation(['users', 'badges', 'common']);
 
   const { data: profile, isLoading, isError, refetch, isFetching } = usePublicProfile(id ?? '');
   const { data: reviewsData, isLoading: reviewsLoading } = useUserReviews(id ?? '');
@@ -180,17 +188,17 @@ export default function PublicProfileScreen() {
 
   const handleDeleteReview = () => {
     Alert.alert(
-      'Eliminar reseña',
-      '¿Estás seguro de que querés eliminar tu reseña?',
+      i18next.t('users:deleteReviewTitle'),
+      i18next.t('users:deleteReviewConfirm'),
       [
-        { text: 'Cancelar', style: 'cancel' },
+        { text: i18next.t('users:cancel'), style: 'cancel' },
         {
-          text: 'Eliminar',
+          text: i18next.t('users:deleteReview'),
           style: 'destructive',
           onPress: () => {
             deleteReview.mutate(id ?? '', {
-              onSuccess: () => Alert.alert('Reseña eliminada'),
-              onError: (err) => Alert.alert('Error', err.message || 'No se pudo eliminar la reseña'),
+              onSuccess: () => Alert.alert(i18next.t('users:deleteReviewSuccess')),
+              onError: (err) => Alert.alert('Error', err.message || i18next.t('users:deleteReviewError')),
             });
           },
         },
@@ -203,10 +211,10 @@ export default function PublicProfileScreen() {
       { userId: id ?? '' },
       {
         onSuccess: () => {
-          Alert.alert('Usuario bloqueado', 'Este usuario ha sido bloqueado');
+          Alert.alert(i18next.t('users:blockUserSuccess'), i18next.t('users:blockUserSuccessText'));
         },
         onError: () => {
-          Alert.alert('Error', 'No se pudo bloquear al usuario');
+          Alert.alert('Error', i18next.t('users:blockUserError'));
         },
       },
     );
@@ -215,13 +223,13 @@ export default function PublicProfileScreen() {
   const handleReportUser = () => {
     const reasons: Array<{ label: string; value: string }> = [
       { label: 'Spam', value: 'spam' },
-      { label: 'Publicación falsa', value: 'fake' },
-      { label: 'Abuso', value: 'abuse' },
-      { label: 'Contenido inapropiado', value: 'inappropriate' },
-      { label: 'Otro', value: 'other' },
+      { label: i18next.t('pet_detail:fake'), value: 'fake' },
+      { label: i18next.t('pet_detail:abuse'), value: 'abuse' },
+      { label: i18next.t('pet_detail:inappropriate'), value: 'inappropriate' },
+      { label: i18next.t('pet_detail:other'), value: 'other' },
     ];
     Alert.alert(
-      'Motivo de la denuncia',
+      i18next.t('users:reportReason'),
       '',
       [
         ...reasons.map((r) => ({
@@ -230,13 +238,13 @@ export default function PublicProfileScreen() {
             submitAbuseReport.mutate(
               { target_user_id: id ?? '', reason: r.value as 'spam' | 'fake' | 'abuse' | 'inappropriate' | 'other' },
               {
-                onSuccess: () => Alert.alert('Denuncia enviada', 'Gracias por reportarlo'),
-                onError: () => Alert.alert('Error', 'No se pudo enviar la denuncia'),
+                onSuccess: () => Alert.alert(i18next.t('users:reportSuccess'), i18next.t('users:reportSuccessText')),
+                onError: () => Alert.alert('Error', i18next.t('users:reportError')),
               },
             );
           },
         })),
-        { text: 'Cancelar', style: 'cancel' },
+        { text: i18next.t('users:optionsCancel'), style: 'cancel' },
       ],
     );
   };
@@ -245,7 +253,7 @@ export default function PublicProfileScreen() {
     if (Platform.OS === 'ios') {
       ActionSheetIOS.showActionSheetWithOptions(
         {
-          options: ['Cancelar', 'Bloquear usuario', 'Denunciar'],
+          options: [i18next.t('users:optionsCancel'), i18next.t('users:optionsBlock'), i18next.t('users:optionsReport')],
           cancelButtonIndex: 0,
           destructiveButtonIndex: 1,
         },
@@ -255,10 +263,10 @@ export default function PublicProfileScreen() {
         },
       );
     } else {
-      Alert.alert('Opciones', '', [
-        { text: 'Cancelar', style: 'cancel' },
-        { text: 'Bloquear usuario', style: 'destructive', onPress: handleBlockUser },
-        { text: 'Denunciar', onPress: handleReportUser },
+      Alert.alert(i18next.t('users:options'), '', [
+        { text: i18next.t('users:optionsCancel'), style: 'cancel' },
+        { text: i18next.t('users:optionsBlock'), style: 'destructive', onPress: handleBlockUser },
+        { text: i18next.t('users:optionsReport'), onPress: handleReportUser },
       ]);
     }
   };
@@ -293,11 +301,11 @@ export default function PublicProfileScreen() {
 
   const handleSubmit = () => {
     if (formStars < 1 || formStars > 5) {
-      Alert.alert('Error', 'Seleccioná entre 1 y 5 estrellas.');
+      Alert.alert('Error', i18next.t('users:starError'));
       return;
     }
     if (!formText.trim()) {
-      Alert.alert('Error', 'Escribí un comentario.');
+      Alert.alert('Error', i18next.t('users:commentError'));
       return;
     }
 
@@ -311,7 +319,7 @@ export default function PublicProfileScreen() {
         setFormText('');
       },
       onError: (err) => {
-        Alert.alert('Error', err.message || 'No se pudo guardar la reseña.');
+        Alert.alert('Error', err.message || i18next.t('users:saveError'));
       },
     });
   };
@@ -328,15 +336,15 @@ export default function PublicProfileScreen() {
     return (
       <View style={styles.center}>
         <Text style={styles.stateIcon}>🔍</Text>
-        <Text style={styles.stateTitle}>{isError ? 'Error al cargar' : 'Usuario no encontrado'}</Text>
+        <Text style={styles.stateTitle}>{isError ? t('users:loadError') : t('users:notFound')}</Text>
         <Text style={styles.stateText}>
           {isError
-            ? 'No se pudo cargar el perfil. Intentá de nuevo.'
-            : 'Este perfil no existe o fue eliminado.'}
+            ? t('users:loadErrorText')
+            : t('users:notFoundText')}
         </Text>
         {isError && (
           <TouchableOpacity style={styles.retryButton} onPress={() => refetch()}>
-            <Text style={styles.retryButtonText}>Reintentar</Text>
+            <Text style={styles.retryButtonText}>{t('users:retry')}</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -377,15 +385,15 @@ export default function PublicProfileScreen() {
       {/* ── Stats grid ── */}
       <View style={styles.statsCard}>
         <View style={styles.statsRow}>
-          <StatItem value={profile.total_points} label="Puntos" />
+          <StatItem value={profile.total_points} label={t('users:points')} />
           <View style={styles.statDivider} />
-          <StatItem value={profile.total_reports} label="Reportes" />
+          <StatItem value={profile.total_reports} label={t('users:reports')} />
         </View>
         <View style={styles.statRowSeparator} />
         <View style={styles.statsRow}>
-          <StatItem value={profile.found_count} label="Encontradas" />
+          <StatItem value={profile.found_count} label={t('users:found')} />
           <View style={styles.statDivider} />
-          <StatItem value={profile.share_count} label="Compartidas" />
+          <StatItem value={profile.share_count} label={t('users:shared')} />
         </View>
       </View>
 
@@ -398,20 +406,20 @@ export default function PublicProfileScreen() {
           <StarDisplay stars={Math.round(profile.avg_rating)} size={18} />
           <Text style={styles.ratingCount}>
             {profile.review_count === 1
-              ? '1 reseña'
-              : `${profile.review_count} reseñas`}
+              ? t('users:reviewCount_one')
+              : t('users:reviewCount_other', { count: profile.review_count })}
           </Text>
         </View>
       </View>
 
       {/* ── Badges ── */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>🏆 Logros</Text>
+        <Text style={styles.sectionTitle}>{t('users:achievements')}</Text>
 
         {profile.badges.length === 0 ? (
           <View style={styles.emptyBadges}>
             <Text style={styles.emptyBadgesIcon}>🏅</Text>
-            <Text style={styles.emptyBadgesText}>Este usuario aún no tiene logros</Text>
+            <Text style={styles.emptyBadgesText}>{t('users:noBadges')}</Text>
           </View>
         ) : (
           profile.badges.map((badge) => (
@@ -423,21 +431,21 @@ export default function PublicProfileScreen() {
       {/* ── Blocked banner ── */}
       {isBlocked && (
         <View style={styles.blockedBanner}>
-          <Text style={styles.blockedBannerText}>Has bloqueado a este usuario</Text>
+          <Text style={styles.blockedBannerText}>{t('users:blockedBanner')}</Text>
         </View>
       )}
 
       {/* ── Reviews section ── */}
       <View style={styles.section}>
         <View style={styles.reviewSectionHeader}>
-          <Text style={styles.sectionTitle}>⭐ Reseñas</Text>
+          <Text style={styles.sectionTitle}>{t('users:reviews')}</Text>
           {canReview && (
             <TouchableOpacity
               style={styles.reviewButton}
               onPress={handleOpenForm}
             >
               <Text style={styles.reviewButtonText}>
-                {myReview ? 'Editar reseña' : 'Dejar reseña'}
+                {myReview ? t('users:editReview') : t('users:leaveReview')}
               </Text>
             </TouchableOpacity>
           )}
@@ -446,11 +454,11 @@ export default function PublicProfileScreen() {
         {/* Inline review form */}
         {showForm && (
           <View style={styles.reviewForm}>
-            <Text style={styles.formLabel}>Tu calificación</Text>
+            <Text style={styles.formLabel}>{t('users:yourRating')}</Text>
             <StarSelector value={formStars} onChange={setFormStars} />
             <TextInput
               style={styles.formInput}
-              placeholder="Escribí tu reseña..."
+              placeholder={t('users:writeReview')}
               placeholderTextColor={COLORS.placeholder}
               multiline
               numberOfLines={4}
@@ -463,7 +471,7 @@ export default function PublicProfileScreen() {
                 style={styles.formCancelButton}
                 onPress={() => setShowForm(false)}
               >
-                <Text style={styles.formCancelText}>Cancelar</Text>
+                <Text style={styles.formCancelText}>{t('users:cancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[
@@ -477,7 +485,7 @@ export default function PublicProfileScreen() {
                   <ActivityIndicator size="small" color={COLORS.white} />
                 ) : (
                   <Text style={styles.formSubmitText}>
-                    {myReview ? 'Guardar cambios' : 'Publicar reseña'}
+                    {myReview ? t('users:saveChanges') : t('users:postReview')}
                   </Text>
                 )}
               </TouchableOpacity>
@@ -491,7 +499,7 @@ export default function PublicProfileScreen() {
         ) : reviews.length === 0 ? (
           <View style={styles.emptyBadges}>
             <Text style={styles.emptyBadgesIcon}>💬</Text>
-            <Text style={styles.emptyBadgesText}>Aún no hay reseñas</Text>
+            <Text style={styles.emptyBadgesText}>{t('users:noReviews')}</Text>
           </View>
         ) : (
           reviews.map((review) => (

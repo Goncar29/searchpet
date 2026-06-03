@@ -4,13 +4,16 @@
 
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { useStory, useLikeStory } from '../../../../shared/hooks';
+import { getDateLocale } from '../../i18n/dateLocale';
 import { useAuthStore } from '../../store';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
 
 export default function StoryDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const { t, i18n } = useTranslation('story');
   const { isAuthenticated } = useAuthStore();
   const { data: story, isLoading, isError } = useStory(id ?? '');
   const likeStory = useLikeStory();
@@ -28,7 +31,7 @@ export default function StoryDetailScreen() {
     return (
       <View style={styles.center}>
         <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text style={styles.loadingText}>Cargando historia...</Text>
+        <Text style={styles.loadingText}>{t('story:loadingDetail')}</Text>
       </View>
     );
   }
@@ -37,12 +40,10 @@ export default function StoryDetailScreen() {
     return (
       <View style={styles.center}>
         <Text style={styles.errorIcon}>😢</Text>
-        <Text style={styles.errorTitle}>Historia no encontrada</Text>
-        <Text style={styles.errorText}>
-          Esta historia no existe o fue eliminada.
-        </Text>
+        <Text style={styles.errorTitle}>{t('story:notFound')}</Text>
+        <Text style={styles.errorText}>{t('story:notFoundText')}</Text>
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <Text style={styles.backButtonText}>Volver</Text>
+          <Text style={styles.backButtonText}>{t('story:back')}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -55,7 +56,7 @@ export default function StoryDetailScreen() {
       {/* Back navigation */}
       <TouchableOpacity style={styles.backRow} onPress={() => router.back()}>
         <Text style={styles.backChevron}>‹</Text>
-        <Text style={styles.backLabel}>Historias</Text>
+        <Text style={styles.backLabel}>{t('story:title')}</Text>
       </TouchableOpacity>
 
       <View style={styles.content}>
@@ -72,10 +73,10 @@ export default function StoryDetailScreen() {
         {/* Meta: author + date */}
         <View style={styles.metaRow}>
           {authorName ? (
-            <Text style={styles.metaText}>Por {authorName}</Text>
+            <Text style={styles.metaText}>{t('story:by', { name: authorName })}</Text>
           ) : null}
           <Text style={styles.metaDate}>
-            {new Date(story.created_at).toLocaleDateString('es-UY', {
+            {new Date(story.created_at).toLocaleDateString(getDateLocale(i18n.language), {
               day: 'numeric',
               month: 'long',
               year: 'numeric',
@@ -94,14 +95,12 @@ export default function StoryDetailScreen() {
           activeOpacity={0.7}
         >
           <Text style={styles.likeButtonText}>
-            ❤️ {story.like_count} {story.like_count === 1 ? 'me gusta' : 'me gusta'}
+            ❤️ {t('story:likes', { count: story.like_count })}
           </Text>
         </TouchableOpacity>
 
         {!isAuthenticated && (
-          <Text style={styles.loginHint}>
-            Iniciá sesión para dejar un "me gusta"
-          </Text>
+          <Text style={styles.loginHint}>{t('story:loginHint')}</Text>
         )}
       </View>
 

@@ -18,6 +18,8 @@ import {
   ScrollView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
+import i18next from 'i18next';
 import * as Location from 'expo-location';
 import { useAlerts, useCreateAlert, useUpdateAlert, useDeleteAlert } from '../../../shared/hooks';
 import { useLocationStore } from '../../store';
@@ -28,6 +30,7 @@ const RADIUS_OPTIONS = [1, 2, 5, 10, 25] as const;
 
 export default function AlertsScreen() {
   const router = useRouter();
+  const { t } = useTranslation('alerts');
   const { latitude, longitude } = useLocationStore();
 
   const { data: alerts, isLoading } = useAlerts();
@@ -49,14 +52,14 @@ export default function AlertsScreen() {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Permiso requerido', 'Necesitamos acceso a tu ubicación para crear la alerta');
+        Alert.alert(i18next.t('alerts:locationRequired'), i18next.t('alerts:locationPermission'));
         return;
       }
       const loc = await Location.getCurrentPositionAsync({});
       setFormLat(loc.coords.latitude);
       setFormLng(loc.coords.longitude);
     } catch {
-      Alert.alert('Error', 'No se pudo obtener la ubicación');
+      Alert.alert('Error', i18next.t('alerts:locationError'));
     } finally {
       setLocating(false);
     }
@@ -64,7 +67,7 @@ export default function AlertsScreen() {
 
   const handleCreate = async () => {
     if (!formLat || !formLng) {
-      Alert.alert('Ubicación requerida', 'Usá tu ubicación actual para crear la alerta');
+      Alert.alert(i18next.t('alerts:locationRequired'), i18next.t('alerts:locationRequiredText'));
       return;
     }
 
@@ -82,7 +85,7 @@ export default function AlertsScreen() {
       setRadiusKm(5);
       setPetType('');
     } catch (err: any) {
-      Alert.alert('Error', err?.message || 'No se pudo crear la alerta');
+      Alert.alert('Error', err?.message || i18next.t('alerts:createError'));
     }
   };
 
@@ -93,24 +96,24 @@ export default function AlertsScreen() {
         data: { is_active: !alert.is_active },
       });
     } catch {
-      Alert.alert('Error', 'No se pudo actualizar la alerta');
+      Alert.alert('Error', i18next.t('alerts:updateError'));
     }
   };
 
   const handleDelete = (alert: LocationAlert) => {
     Alert.alert(
-      'Eliminar alerta',
-      `¿Eliminar la alerta "${alert.name || 'Sin nombre'}"?`,
+      i18next.t('alerts:deleteConfirm'),
+      `"${alert.name || i18next.t('alerts:noName')}"?`,
       [
-        { text: 'Cancelar', style: 'cancel' },
+        { text: i18next.t('alerts:cancel'), style: 'cancel' },
         {
-          text: 'Eliminar',
+          text: i18next.t('alerts:delete'),
           style: 'destructive',
           onPress: async () => {
             try {
               await deleteAlert.mutateAsync(alert.id);
             } catch {
-              Alert.alert('Error', 'No se pudo eliminar la alerta');
+              Alert.alert('Error', i18next.t('alerts:deleteError'));
             }
           },
         },
@@ -131,11 +134,8 @@ export default function AlertsScreen() {
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* ── Intro ── */}
         <View style={styles.intro}>
-          <Text style={styles.introTitle}>🔔 Alertas de zona</Text>
-          <Text style={styles.introText}>
-            Te notificamos cuando alguien reporta una mascota cerca de una zona que definís.
-            Máximo 10 alertas activas.
-          </Text>
+          <Text style={styles.introTitle}>🔔 {t('alerts:introTitle')}</Text>
+          <Text style={styles.introText}>{t('alerts:introText')}</Text>
         </View>
 
         {/* ── Botón crear ── */}
@@ -148,20 +148,20 @@ export default function AlertsScreen() {
               setShowForm(true);
             }}
           >
-            <Text style={styles.createButtonText}>+ Nueva alerta</Text>
+            <Text style={styles.createButtonText}>+ {t('alerts:add')}</Text>
           </TouchableOpacity>
         )}
 
         {/* ── Formulario ── */}
         {showForm && (
           <View style={styles.formCard}>
-            <Text style={styles.formTitle}>Nueva alerta</Text>
+            <Text style={styles.formTitle}>{t('alerts:formTitle')}</Text>
 
             {/* Nombre */}
-            <Text style={styles.fieldLabel}>Nombre (opcional)</Text>
+            <Text style={styles.fieldLabel}>{t('alerts:nameLabel')}</Text>
             <TextInput
               style={styles.input}
-              placeholder="Ej: Mi barrio, Plaza central..."
+              placeholder={t('alerts:namePlaceholder')}
               placeholderTextColor={COLORS.textMuted}
               value={name}
               onChangeText={setName}
@@ -169,7 +169,7 @@ export default function AlertsScreen() {
             />
 
             {/* Ubicación */}
-            <Text style={styles.fieldLabel}>Ubicación</Text>
+            <Text style={styles.fieldLabel}>{t('alerts:locationLabel')}</Text>
             <TouchableOpacity
               style={[styles.locationButton, locating && { opacity: 0.6 }]}
               onPress={useCurrentLocation}
@@ -180,14 +180,14 @@ export default function AlertsScreen() {
               ) : (
                 <Text style={styles.locationButtonText}>
                   {formLat && formLng
-                    ? `📍 ${formLat.toFixed(4)}, ${formLng.toFixed(4)}`
-                    : '📍 Usar mi ubicación actual'}
+                    ? `📍 ${t('alerts:locationSet', { lat: formLat.toFixed(4), lng: formLng.toFixed(4) })}`
+                    : `📍 ${t('alerts:useCurrentLocation')}`}
                 </Text>
               )}
             </TouchableOpacity>
 
             {/* Radio */}
-            <Text style={styles.fieldLabel}>Radio de notificación</Text>
+            <Text style={styles.fieldLabel}>{t('alerts:radiusLabel')}</Text>
             <View style={styles.radiusRow}>
               {RADIUS_OPTIONS.map((r) => (
                 <TouchableOpacity
@@ -203,22 +203,22 @@ export default function AlertsScreen() {
             </View>
 
             {/* Tipo de mascota */}
-            <Text style={styles.fieldLabel}>Tipo de mascota (opcional)</Text>
+            <Text style={styles.fieldLabel}>{t('alerts:typeLabel')}</Text>
             <View style={styles.typeRow}>
               <TouchableOpacity
                 style={[styles.typeChip, petType === '' && styles.typeChipActive]}
                 onPress={() => setPetType('')}
               >
-                <Text style={[styles.typeChipText, petType === '' && styles.typeChipTextActive]}>Todos</Text>
+                <Text style={[styles.typeChipText, petType === '' && styles.typeChipTextActive]}>{t('alerts:allTypes')}</Text>
               </TouchableOpacity>
-              {PET_TYPES.map((t) => (
+              {PET_TYPES.map((petTypeOption) => (
                 <TouchableOpacity
-                  key={t.value}
-                  style={[styles.typeChip, petType === t.value && styles.typeChipActive]}
-                  onPress={() => setPetType(petType === t.value ? '' : t.value as PetType)}
+                  key={petTypeOption.value}
+                  style={[styles.typeChip, petType === petTypeOption.value && styles.typeChipActive]}
+                  onPress={() => setPetType(petType === petTypeOption.value ? '' : petTypeOption.value as PetType)}
                 >
-                  <Text style={[styles.typeChipText, petType === t.value && styles.typeChipTextActive]}>
-                    {t.icon} {t.label}
+                  <Text style={[styles.typeChipText, petType === petTypeOption.value && styles.typeChipTextActive]}>
+                    {petTypeOption.icon} {t(petTypeOption.labelKey)}
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -230,7 +230,7 @@ export default function AlertsScreen() {
                 style={styles.cancelButton}
                 onPress={() => setShowForm(false)}
               >
-                <Text style={styles.cancelButtonText}>Cancelar</Text>
+                <Text style={styles.cancelButtonText}>{t('alerts:cancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.saveButton, createAlert.isPending && { opacity: 0.6 }]}
@@ -239,7 +239,7 @@ export default function AlertsScreen() {
               >
                 {createAlert.isPending
                   ? <ActivityIndicator size="small" color={COLORS.white} />
-                  : <Text style={styles.saveButtonText}>Crear alerta</Text>
+                  : <Text style={styles.saveButtonText}>{t('alerts:createButton')}</Text>
                 }
               </TouchableOpacity>
             </View>
@@ -250,14 +250,14 @@ export default function AlertsScreen() {
         {alerts && alerts.length > 0 ? (
           <View style={styles.alertsList}>
             <Text style={styles.sectionTitle}>
-              Mis alertas ({alerts.length}/10)
+              {t('alerts:myAlertsCount', { count: alerts.length })}
             </Text>
             {alerts.map((alert) => (
               <View key={alert.id} style={styles.alertCard}>
                 <View style={styles.alertHeader}>
                   <View style={styles.alertInfo}>
                     <Text style={styles.alertName}>
-                      {alert.name || 'Sin nombre'}
+                      {alert.name || t('alerts:noName')}
                     </Text>
                     <Text style={styles.alertMeta}>
                       📍 {alert.alert_latitude?.toFixed(3)}, {alert.alert_longitude?.toFixed(3)}
@@ -276,7 +276,7 @@ export default function AlertsScreen() {
                   style={styles.deleteButton}
                   onPress={() => handleDelete(alert)}
                 >
-                  <Text style={styles.deleteText}>Eliminar</Text>
+                  <Text style={styles.deleteText}>{t('alerts:delete')}</Text>
                 </TouchableOpacity>
               </View>
             ))}
@@ -284,10 +284,8 @@ export default function AlertsScreen() {
         ) : !showForm ? (
           <View style={styles.empty}>
             <Text style={styles.emptyIcon}>🔕</Text>
-            <Text style={styles.emptyTitle}>Sin alertas</Text>
-            <Text style={styles.emptyText}>
-              Creá una alerta para recibir notificaciones cuando haya mascotas reportadas cerca de tu zona.
-            </Text>
+            <Text style={styles.emptyTitle}>{t('alerts:emptyTitle')}</Text>
+            <Text style={styles.emptyText}>{t('alerts:emptyText')}</Text>
           </View>
         ) : null}
 

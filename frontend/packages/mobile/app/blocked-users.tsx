@@ -13,21 +13,24 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
+import i18next from 'i18next';
 import { useBlockedUsers, useUnblockUser } from '../../shared/hooks';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../constants';
 import type { BlockedUser } from '../../shared/types';
 
 function BlockedUserItem({ item, onUnblock }: { item: BlockedUser; onUnblock: (id: string) => void }) {
+  const { t } = useTranslation(['blocked_users', 'common']);
   const initial = item.name.trim().charAt(0).toUpperCase();
 
   const handleUnblock = () => {
     Alert.alert(
-      'Desbloquear usuario',
-      `¿Querés desbloquear a ${item.name}?`,
+      i18next.t('blocked_users:unblockConfirm'),
+      item.name,
       [
-        { text: 'Cancelar', style: 'cancel' },
+        { text: i18next.t('common:cancel'), style: 'cancel' },
         {
-          text: 'Desbloquear',
+          text: i18next.t('blocked_users:unblock'),
           style: 'default',
           onPress: () => onUnblock(item.blocked_id),
         },
@@ -42,7 +45,7 @@ function BlockedUserItem({ item, onUnblock }: { item: BlockedUser; onUnblock: (i
       </View>
       <Text style={styles.name} numberOfLines={1}>{item.name}</Text>
       <TouchableOpacity style={styles.unblockBtn} onPress={handleUnblock}>
-        <Text style={styles.unblockText}>Desbloquear</Text>
+        <Text style={styles.unblockText}>{t('blocked_users:unblock')}</Text>
       </TouchableOpacity>
     </View>
   );
@@ -50,13 +53,14 @@ function BlockedUserItem({ item, onUnblock }: { item: BlockedUser; onUnblock: (i
 
 export default function BlockedUsersScreen() {
   const router = useRouter();
+  const { t } = useTranslation(['blocked_users', 'common']);
   const { data: blockedUsers, isLoading, isError } = useBlockedUsers();
   const unblockUser = useUnblockUser();
 
   const handleUnblock = (userId: string) => {
     unblockUser.mutate(userId, {
       onError: () => {
-        Alert.alert('Error', 'No se pudo desbloquear al usuario. Intentá de nuevo.');
+        Alert.alert('Error', i18next.t('blocked_users:unblockError'));
       },
     });
   };
@@ -72,9 +76,9 @@ export default function BlockedUsersScreen() {
   if (isError) {
     return (
       <View style={styles.center}>
-        <Text style={styles.errorText}>No se pudo cargar la lista.</Text>
+        <Text style={styles.errorText}>{t('blocked_users:loadError')}</Text>
         <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-          <Text style={styles.backBtnText}>Volver</Text>
+          <Text style={styles.backBtnText}>{t('blocked_users:back')}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -86,7 +90,7 @@ export default function BlockedUsersScreen() {
         <TouchableOpacity onPress={() => router.back()} style={styles.backArrow}>
           <Text style={styles.backArrowText}>‹</Text>
         </TouchableOpacity>
-        <Text style={styles.title}>Usuarios bloqueados</Text>
+        <Text style={styles.title}>{t('blocked_users:title')}</Text>
       </View>
 
       <FlatList
@@ -101,10 +105,8 @@ export default function BlockedUsersScreen() {
         ListEmptyComponent={
           <View style={styles.empty}>
             <Text style={styles.emptyIcon}>✅</Text>
-            <Text style={styles.emptyTitle}>No tenés usuarios bloqueados</Text>
-            <Text style={styles.emptySubtitle}>
-              Cuando bloqueés a alguien, aparecerá aquí.
-            </Text>
+            <Text style={styles.emptyTitle}>{t('blocked_users:empty')}</Text>
+            <Text style={styles.emptySubtitle}>{t('blocked_users:emptySubtitle')}</Text>
           </View>
         }
       />

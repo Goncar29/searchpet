@@ -8,7 +8,7 @@ import { BADGE_META } from '@shared/types';
 import { OtpVerificationModal } from '../components/OtpVerificationModal';
 
 export function ProfilePage() {
-  const { t } = useTranslation(['profile', 'common']);
+  const { t } = useTranslation(['profile', 'common', 'badges']);
   const { user, refreshUser } = useAuth();
   const queryClient = useQueryClient();
   const updateMe = useUpdateMe();
@@ -471,7 +471,7 @@ export function ProfilePage() {
           ) : (
             <div className="grid grid-cols-2 gap-2">
               {badges.map((badge: Badge) => {
-                const meta = BADGE_META[badge.badge_type] ?? { emoji: '🏅', label: badge.badge_type };
+                const meta = BADGE_META[badge.badge_type] ?? { emoji: '🏅', labelKey: badge.badge_type, descriptionKey: '' };
                 return (
                   <div
                     key={badge.id}
@@ -480,7 +480,7 @@ export function ProfilePage() {
                     <span className="text-xl">{meta.emoji}</span>
                     <div className="min-w-0">
                       <p className="text-xs font-semibold text-gray-900 dark:text-gray-50 truncate">
-                        {meta.label}
+                        {t(meta.labelKey)}
                       </p>
                       <p className="text-xs text-gray-400 dark:text-gray-500">
                         {new Date(badge.earned_at).toLocaleDateString('es-UY', { day: 'numeric', month: 'short' })}

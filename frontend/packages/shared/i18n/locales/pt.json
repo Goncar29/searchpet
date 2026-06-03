@@ -14,25 +14,33 @@
     "errorDescription": "Algo deu errado. Por favor, tente recarregar a página.",
     "reload": "Recarregar",
     "timeAgo": {
+      "now": "agora",
       "minutesAgo": "há {{count}} min",
       "hoursAgo": "há {{count}}h",
       "daysAgo": "há {{count}}d"
-    }
+    },
+    "unknownUser": "Usuário"
   },
   "auth": {
     "login": {
       "title": "Entrar",
+      "welcome": "Bem-vindo ao SearchPet",
       "subtitle": "Ajude a encontrar pets perdidos",
       "email": "Endereço de e-mail",
       "password": "Senha",
       "submit": "Entrar",
       "noAccount": "Não tem conta? Cadastre-se",
-      "invalidCredentials": "Credenciais inválidas"
+      "invalidCredentials": "Credenciais inválidas",
+      "fieldsRequired": "Preencha todos os campos"
     },
     "register": {
       "title": "Criar conta",
       "subtitle": "Junte-se à comunidade",
       "name": "Nome completo",
+      "nameLabelRequired": "Nome *",
+      "emailLabelRequired": "E-mail *",
+      "passwordLabelRequired": "Senha *",
+      "confirmLabelRequired": "Confirmar senha *",
       "email": "Endereço de e-mail",
       "password": "Senha",
       "confirm": "Confirmar senha",
@@ -41,8 +49,15 @@
       "submit": "Criar conta",
       "hasAccount": "Já tem uma conta? Entre",
       "passwordMin": "A senha deve ter pelo menos 6 caracteres",
+      "passwordPlaceholder": "Mínimo 6 caracteres",
       "passwordMismatch": "As senhas não coincidem",
-      "createError": "Não foi possível criar a conta"
+      "createError": "Não foi possível criar a conta",
+      "requiredFields": "Preencha os campos obrigatórios",
+      "createdTitle": "Conta criada",
+      "createdMessage": "Bem-vindo ao SearchPet",
+      "emailPlaceholder": "seu@email.com",
+      "phonePlaceholder": "+55 11 91234-5678",
+      "cityPlaceholder": "Ex: São Paulo, Rio de Janeiro..."
     }
   },
   "pets": {
@@ -93,7 +108,11 @@
     "types": {
       "dog": "Cachorro",
       "cat": "Gato",
-      "other": "Outro"
+      "other": "Outro",
+      "perro": "Cachorro",
+      "gato": "Gato",
+      "pajaro": "Pássaro",
+      "otro": "Outro"
     },
     "edit": {
       "title": "Editar pet",
@@ -103,6 +122,7 @@
     "status": {
       "lost": "Perdido",
       "found": "Encontrado",
+      "sighting": "Avistamento",
       "active": "Ativo",
       "archived": "Arquivado"
     }
@@ -111,16 +131,42 @@
     "inputPlaceholder": "Digite uma mensagem...",
     "send": "Enviar",
     "typing": "digitando...",
-    "loadingMessages": "Carregando mensagens..."
+    "loadingMessages": "Carregando mensagens...",
+    "blockedCannotMessage": "Você não pode mais enviar mensagens para este usuário",
+    "blockedBanner": "Você não pode enviar mensagens para este usuário",
+    "startConversation": "Comece a conversa enviando uma mensagem",
+    "reportReason": "Motivo da denúncia",
+    "options": "Opções",
+    "blockUser": "Bloquear usuário",
+    "report": "Denunciar",
+    "reportSuccess": "Denúncia enviada",
+    "reportSuccessText": "Obrigado por reportar",
+    "reportError": "Não foi possível enviar a denúncia",
+    "typing_indicator": "Digitando..."
   },
   "messages": {
     "title": "Mensagens",
     "empty": "Você ainda não tem conversas",
-    "loading": "Carregando conversas..."
+    "loading": "Carregando conversas...",
+    "loginSubtitle": "Entre para ver suas conversas",
+    "loginButton": "Entrar",
+    "emptyTitle": "Sem mensagens",
+    "emptySubtitle": "Quando alguém entrar em contato sobre um pet, aparecerá aqui",
+    "youPrefix": "Você: "
   },
   "badges": {
     "title": "Meus Badges",
     "empty": "Você ainda não tem badges. Participe mais para ganhá-los!",
+    "earnedOn": "Conquistado em",
+    "authRequired": "Acesso necessário",
+    "authText": "Faça login para ver suas conquistas",
+    "loginButton": "Entrar",
+    "loadError": "Erro ao carregar",
+    "loadErrorText": "Não foi possível carregar suas conquistas. Tente novamente.",
+    "myAchievements": "Minhas conquistas",
+    "introText": "Estas são as badges que você ganhou ajudando a encontrar pets.",
+    "emptyTitle": "Nenhuma conquista ainda",
+    "emptyText": "Crie reportes, compartilhe pets perdidos e ajude a comunidade para ganhar badges.",
     "first_helper": {
       "label": "Primeiro Ajudante",
       "description": "Criou seu primeiro reporte de avistamento"

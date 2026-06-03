@@ -16,6 +16,8 @@ import {
   ScrollView,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
+import i18next from 'i18next';
 import { useCreateStory } from '../../../shared/hooks';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
 
@@ -23,6 +25,7 @@ export default function CreateStoryScreen() {
   const router = useRouter();
   const { petId } = useLocalSearchParams<{ petId: string }>();
   const createStory = useCreateStory();
+  const { t } = useTranslation('story');
 
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
@@ -30,7 +33,7 @@ export default function CreateStoryScreen() {
 
   const handleSubmit = () => {
     if (!body.trim()) {
-      setBodyError('La historia es obligatoria');
+      setBodyError(i18next.t('story:bodyRequired'));
       return;
     }
     setBodyError('');
@@ -43,7 +46,7 @@ export default function CreateStoryScreen() {
       },
       {
         onSuccess: () => {
-          Alert.alert('¡Historia publicada!', 'Gracias por compartir este reencuentro.');
+          Alert.alert(i18next.t('story:successTitle'), i18next.t('story:successText'));
           router.back();
         },
         onError: (err: any) => {
@@ -64,17 +67,17 @@ export default function CreateStoryScreen() {
         showsVerticalScrollIndicator={false}
       >
         <Text style={styles.emoji}>🎉</Text>
-        <Text style={styles.title}>Compartí la historia</Text>
+        <Text style={styles.title}>{t('story:createTitle')}</Text>
         <Text style={styles.subtitle}>
-          Contanos cómo fue el reencuentro para inspirar a otros
+          {t('story:createSubtitle')}
         </Text>
 
         {/* Historia (obligatoria) */}
         <View style={styles.fieldGroup}>
-          <Text style={styles.label}>Historia <Text style={styles.required}>*</Text></Text>
+          <Text style={styles.label}>{t('story:historyLabel')} <Text style={styles.required}>*</Text></Text>
           <TextInput
             style={[styles.textarea, bodyError ? styles.inputError : null]}
-            placeholder="¿Cómo fue el reencuentro? ¿Quién ayudó? ¿Cuánto tiempo pasó?"
+            placeholder={t('story:bodyPlaceholder')}
             placeholderTextColor={COLORS.placeholder}
             value={body}
             onChangeText={(text) => {
@@ -90,10 +93,10 @@ export default function CreateStoryScreen() {
 
         {/* Título (opcional) */}
         <View style={styles.fieldGroup}>
-          <Text style={styles.label}>Título <Text style={styles.optional}>(opcional)</Text></Text>
+          <Text style={styles.label}>{t('story:titleLabel')} <Text style={styles.optional}>{t('story:optional')}</Text></Text>
           <TextInput
             style={styles.input}
-            placeholder="Ej: ¡Luna volvió a casa después de 3 semanas!"
+            placeholder={t('story:titlePlaceholder')}
             placeholderTextColor={COLORS.placeholder}
             value={title}
             onChangeText={setTitle}
@@ -105,7 +108,7 @@ export default function CreateStoryScreen() {
         {createStory.isError && (
           <View style={styles.errorBanner}>
             <Text style={styles.errorBannerText}>
-              {(createStory.error as any)?.message || 'No se pudo publicar la historia. Intentá de nuevo.'}
+              {(createStory.error as any)?.message || t('story:submitError')}
             </Text>
           </View>
         )}
@@ -120,7 +123,7 @@ export default function CreateStoryScreen() {
           {createStory.isPending ? (
             <ActivityIndicator color={COLORS.white} />
           ) : (
-            <Text style={styles.buttonText}>Publicar historia</Text>
+            <Text style={styles.buttonText}>{t('story:submit')}</Text>
           )}
         </TouchableOpacity>
 
@@ -129,7 +132,7 @@ export default function CreateStoryScreen() {
           onPress={() => router.back()}
           disabled={createStory.isPending}
         >
-          <Text style={styles.cancelButtonText}>Cancelar</Text>
+          <Text style={styles.cancelButtonText}>{t('common:cancel')}</Text>
         </TouchableOpacity>
 
         <View style={{ height: 40 }} />

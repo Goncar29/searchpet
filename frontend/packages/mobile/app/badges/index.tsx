@@ -12,33 +12,31 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../store';
+import { getDateLocale } from '../../i18n/dateLocale';
 import { useMyBadges } from '../../../shared/hooks';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
 import type { Badge } from '../../../shared/types';
 import { BADGE_META } from '../../../shared/types';
 
-function formatDate(dateString: string): string {
-  const date = new Date(dateString);
-  return date.toLocaleDateString('es-UY', { day: 'numeric', month: 'long', year: 'numeric' });
-}
-
 function BadgeCard({ badge }: { badge: Badge }) {
-  const meta = BADGE_META[badge.badge_type] ?? {
-    emoji: '🏅',
-    label: badge.badge_type,
-    description: '',
-  };
+  const { t, i18n } = useTranslation(['badges', 'common']);
+  const meta = BADGE_META[badge.badge_type];
+  const label = meta ? t(meta.labelKey) : badge.badge_type;
+  const description = meta ? t(meta.descriptionKey) : '';
+  const dateLocale = getDateLocale(i18n.language);
+  const dateStr = new Date(badge.earned_at).toLocaleDateString(dateLocale, { day: 'numeric', month: 'long', year: 'numeric' });
 
   return (
     <View style={styles.badgeCard}>
-      <Text style={styles.badgeEmoji}>{meta.emoji}</Text>
+      <Text style={styles.badgeEmoji}>{meta?.emoji ?? '🏅'}</Text>
       <View style={styles.badgeInfo}>
-        <Text style={styles.badgeLabel}>{meta.label}</Text>
-        {meta.description ? (
-          <Text style={styles.badgeDescription}>{meta.description}</Text>
+        <Text style={styles.badgeLabel}>{label}</Text>
+        {description ? (
+          <Text style={styles.badgeDescription}>{description}</Text>
         ) : null}
-        <Text style={styles.badgeDate}>Obtenido el {formatDate(badge.earned_at)}</Text>
+        <Text style={styles.badgeDate}>{t('badges:earnedOn')} {dateStr}</Text>
       </View>
     </View>
   );
@@ -46,6 +44,7 @@ function BadgeCard({ badge }: { badge: Badge }) {
 
 export default function BadgesScreen() {
   const router = useRouter();
+  const { t } = useTranslation(['badges', 'common']);
   const { isAuthenticated } = useAuthStore();
 
   const { data: badges, isLoading, isError, refetch, isFetching } = useMyBadges();
@@ -55,13 +54,13 @@ export default function BadgesScreen() {
     return (
       <View style={styles.center}>
         <Text style={styles.guardIcon}>🔒</Text>
-        <Text style={styles.guardTitle}>Acceso requerido</Text>
-        <Text style={styles.guardText}>Iniciá sesión para ver tus logros</Text>
+        <Text style={styles.guardTitle}>{t('badges:authRequired')}</Text>
+        <Text style={styles.guardText}>{t('badges:authText')}</Text>
         <TouchableOpacity
           style={styles.loginButton}
           onPress={() => router.push('/login')}
         >
-          <Text style={styles.loginButtonText}>Iniciar Sesión</Text>
+          <Text style={styles.loginButtonText}>{t('badges:loginButton')}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -79,10 +78,10 @@ export default function BadgesScreen() {
     return (
       <View style={styles.center}>
         <Text style={styles.guardIcon}>⚠️</Text>
-        <Text style={styles.guardTitle}>Error al cargar</Text>
-        <Text style={styles.guardText}>No se pudieron cargar tus logros. Intentá de nuevo.</Text>
+        <Text style={styles.guardTitle}>{t('badges:loadError')}</Text>
+        <Text style={styles.guardText}>{t('badges:loadErrorText')}</Text>
         <TouchableOpacity style={styles.retryButton} onPress={() => refetch()}>
-          <Text style={styles.retryButtonText}>Reintentar</Text>
+          <Text style={styles.retryButtonText}>{t('common:reload')}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -98,19 +97,15 @@ export default function BadgesScreen() {
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
           <View style={styles.intro}>
-            <Text style={styles.introTitle}>🏆 Mis logros</Text>
-            <Text style={styles.introText}>
-              Estos son los badges que ganaste ayudando a encontrar mascotas.
-            </Text>
+            <Text style={styles.introTitle}>🏆 {t('badges:myAchievements')}</Text>
+            <Text style={styles.introText}>{t('badges:introText')}</Text>
           </View>
         }
         ListEmptyComponent={
           <View style={styles.empty}>
             <Text style={styles.emptyIcon}>🏅</Text>
-            <Text style={styles.emptyTitle}>Aún no tenés logros</Text>
-            <Text style={styles.emptyText}>
-              Creá reportes, compartí mascotas perdidas y ayudá a la comunidad para ganar badges.
-            </Text>
+            <Text style={styles.emptyTitle}>{t('badges:emptyTitle')}</Text>
+            <Text style={styles.emptyText}>{t('badges:emptyText')}</Text>
           </View>
         }
         renderItem={({ item }) => <BadgeCard badge={item} />}
