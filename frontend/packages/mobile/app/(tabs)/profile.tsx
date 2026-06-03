@@ -441,6 +441,15 @@ export default function ProfileScreen() {
       <View style={styles.menuSection}>
         <TouchableOpacity
           style={styles.menuItem}
+          onPress={() => router.push('/edit-profile')}
+        >
+          <Text style={styles.menuIcon}>✏️</Text>
+          <Text style={styles.menuText}>{t('editProfile.title')}</Text>
+          <Text style={styles.menuArrow}>›</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.menuItem}
           onPress={() => router.push('/my-pets')}
         >
           <Text style={styles.menuIcon}>🐾</Text>

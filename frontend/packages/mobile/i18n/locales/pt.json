@@ -139,7 +139,17 @@
     "comingSoon": "Em breve",
     "close": "Fechar",
     "sendOtpError": "Não foi possível enviar o código",
-    "sendSmsOtpError": "Não foi possível enviar o código SMS"
+    "sendSmsOtpError": "Não foi possível enviar o código SMS",
+    "editProfile": {
+      "title": "Editar perfil",
+      "name": "Nome",
+      "phone": "Telefone",
+      "city": "Cidade",
+      "save": "Salvar alterações",
+      "saving": "Salvando...",
+      "success": "Perfil atualizado com sucesso",
+      "error": "Não foi possível atualizar o perfil. Tente novamente."
+    }
   },
   "pet_detail": {
     "loading": "Carregando...",

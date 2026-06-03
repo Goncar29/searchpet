@@ -139,7 +139,17 @@
     "comingSoon": "Coming soon",
     "close": "Close",
     "sendOtpError": "Could not send code",
-    "sendSmsOtpError": "Could not send SMS code"
+    "sendSmsOtpError": "Could not send SMS code",
+    "editProfile": {
+      "title": "Edit Profile",
+      "name": "Name",
+      "phone": "Phone",
+      "city": "City",
+      "save": "Save changes",
+      "saving": "Saving...",
+      "success": "Profile updated successfully",
+      "error": "Failed to update profile. Please try again."
+    }
   },
   "pet_detail": {
     "loading": "Loading...",

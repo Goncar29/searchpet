@@ -24,6 +24,7 @@ interface AuthState {
   register: (email: string, password: string, name: string, phone?: string, city?: string) => Promise<void>;
   logout: () => Promise<void>;
   loadToken: () => Promise<void>;
+  setUser: (user: User) => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -93,6 +94,11 @@ export const useAuthStore = create<AuthState>((set) => ({
       token: null,
       isAuthenticated: false,
     });
+  },
+
+  setUser: async (user) => {
+    await SecureStore.setItemAsync('user_data', JSON.stringify(user));
+    set({ user });
   },
 
   loadToken: async () => {

@@ -139,7 +139,17 @@
     "comingSoon": "Próximamente",
     "close": "Cerrar",
     "sendOtpError": "No se pudo enviar el código",
-    "sendSmsOtpError": "No se pudo enviar el código SMS"
+    "sendSmsOtpError": "No se pudo enviar el código SMS",
+    "editProfile": {
+      "title": "Editar perfil",
+      "name": "Nombre",
+      "phone": "Teléfono",
+      "city": "Ciudad",
+      "save": "Guardar cambios",
+      "saving": "Guardando...",
+      "success": "Perfil actualizado exitosamente",
+      "error": "No se pudo actualizar el perfil. Intentá de nuevo."
+    }
   },
   "pet_detail": {
     "loading": "Cargando...",
@@ -402,7 +412,7 @@
     "commentError": "Escribí un comentario.",
     "saveError": "No se pudo guardar la reseña.",
     "earnedOn": "Obtenido el "
-  }
+  },
   "verify": {
     "title": "Verificar teléfono",
     "stepPhoneDesc": "Ingresá tu número de teléfono y te enviaremos un código SMS.",
