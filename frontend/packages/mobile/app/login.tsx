@@ -15,11 +15,14 @@ import {
   Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
+import i18next from 'i18next';
 import { useAuthStore } from '../store';
 import { COLORS, SPACING, FONTS, RADIUS } from '../constants';
 
 export default function LoginScreen() {
   const router = useRouter();
+  const { t } = useTranslation('auth');
   const login = useAuthStore((state) => state.login);
 
   const [email, setEmail] = useState('');
@@ -28,7 +31,7 @@ export default function LoginScreen() {
 
   const handleLogin = async () => {
     if (!email.trim() || !password) {
-      Alert.alert('Error', 'Completa todos los campos');
+      Alert.alert(i18next.t('common:error'), i18next.t('auth:login.fieldsRequired'));
       return;
     }
 
@@ -37,7 +40,7 @@ export default function LoginScreen() {
       await login(email.trim(), password);
       router.back();
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Credenciales inválidas');
+      Alert.alert(i18next.t('common:error'), error.message || i18next.t('auth:login.invalidCredentials'));
     } finally {
       setIsLoading(false);
     }
@@ -50,14 +53,12 @@ export default function LoginScreen() {
     >
       <View style={styles.content}>
         <Text style={styles.logo}>🐾</Text>
-        <Text style={styles.title}>Bienvenido a SearchPet</Text>
-        <Text style={styles.subtitle}>
-          Ayuda a encontrar mascotas perdidas
-        </Text>
+        <Text style={styles.title}>{t('login.welcome')}</Text>
+        <Text style={styles.subtitle}>{t('login.subtitle')}</Text>
 
         <TextInput
           style={styles.input}
-          placeholder="Email"
+          placeholder={t('login.email')}
           placeholderTextColor={COLORS.placeholder}
           value={email}
           onChangeText={setEmail}
@@ -68,7 +69,7 @@ export default function LoginScreen() {
 
         <TextInput
           style={styles.input}
-          placeholder="Contraseña"
+          placeholder={t('login.password')}
           placeholderTextColor={COLORS.placeholder}
           value={password}
           onChangeText={setPassword}
@@ -83,7 +84,7 @@ export default function LoginScreen() {
           {isLoading ? (
             <ActivityIndicator color={COLORS.white} />
           ) : (
-            <Text style={styles.buttonText}>Iniciar Sesión</Text>
+            <Text style={styles.buttonText}>{t('login.submit')}</Text>
           )}
         </TouchableOpacity>
 
@@ -94,10 +95,7 @@ export default function LoginScreen() {
             router.push('/register');
           }}
         >
-          <Text style={styles.linkText}>
-            ¿No tienes cuenta?{' '}
-            <Text style={styles.linkBold}>Regístrate</Text>
-          </Text>
+          <Text style={styles.linkText}>{t('login.noAccount')}</Text>
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>

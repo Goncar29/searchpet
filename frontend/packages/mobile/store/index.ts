@@ -120,6 +120,20 @@ export const useAuthStore = create<AuthState>((set) => ({
 }));
 
 // ============================================================
+// LANGUAGE STORE
+// ============================================================
+
+interface LanguageState {
+  language: string;
+  setLanguage: (lang: string) => void;
+}
+
+export const useLanguageStore = create<LanguageState>((set) => ({
+  language: 'es',
+  setLanguage: (lang) => set({ language: lang }),
+}));
+
+// ============================================================
 // LOCATION STORE
 // ============================================================
 

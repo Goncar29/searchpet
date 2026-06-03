@@ -4,25 +4,27 @@
 
 import { Tabs } from 'expo-router';
 import { Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { COLORS } from '../../constants';
 
-function TabIcon({ name, focused }: { name: string; focused: boolean }) {
-  const icons: Record<string, string> = {
-    Inicio: '🏠',
-    Mapa: '🗺️',
-    Publicar: '➕',
-    Mensajes: '💬',
-    Perfil: '👤',
-  };
+const TAB_ICONS: Record<string, string> = {
+  home: '🏠',
+  map: '🗺️',
+  post: '➕',
+  messages: '💬',
+  profile: '👤',
+};
 
+function TabIcon({ tab, focused }: { tab: string; focused: boolean }) {
   return (
     <View style={{ alignItems: 'center', paddingTop: 4 }}>
-      <Text style={{ fontSize: 24, opacity: focused ? 1 : 0.55 }}>{icons[name]}</Text>
+      <Text style={{ fontSize: 24, opacity: focused ? 1 : 0.55 }}>{TAB_ICONS[tab]}</Text>
     </View>
   );
 }
 
 export default function TabsLayout() {
+  const { t } = useTranslation('tabs');
   return (
     <Tabs
       screenOptions={{
@@ -46,35 +48,35 @@ export default function TabsLayout() {
         name="index"
         options={{
           title: 'SearchPet',
-          tabBarIcon: ({ focused }) => <TabIcon name="Inicio" focused={focused} />,
+          tabBarIcon: ({ focused }) => <TabIcon tab="home" focused={focused} />,
         }}
       />
       <Tabs.Screen
         name="map"
         options={{
-          title: 'Mapa',
-          tabBarIcon: ({ focused }) => <TabIcon name="Mapa" focused={focused} />,
+          title: t('map'),
+          tabBarIcon: ({ focused }) => <TabIcon tab="map" focused={focused} />,
         }}
       />
       <Tabs.Screen
         name="post"
         options={{
-          title: 'Publicar',
-          tabBarIcon: ({ focused }) => <TabIcon name="Publicar" focused={focused} />,
+          title: t('post'),
+          tabBarIcon: ({ focused }) => <TabIcon tab="post" focused={focused} />,
         }}
       />
       <Tabs.Screen
         name="messages"
         options={{
-          title: 'Mensajes',
-          tabBarIcon: ({ focused }) => <TabIcon name="Mensajes" focused={focused} />,
+          title: t('messages'),
+          tabBarIcon: ({ focused }) => <TabIcon tab="messages" focused={focused} />,
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
-          title: 'Perfil',
-          tabBarIcon: ({ focused }) => <TabIcon name="Perfil" focused={focused} />,
+          title: t('profile'),
+          tabBarIcon: ({ focused }) => <TabIcon tab="profile" focused={focused} />,
         }}
       />
     </Tabs>

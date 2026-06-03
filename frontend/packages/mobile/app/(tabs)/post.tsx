@@ -17,6 +17,8 @@ import {
   Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
+import i18next from 'i18next';
 import * as ImagePicker from 'expo-image-picker';
 import { useCreatePet, useUploadPhotoNative } from '../../../shared/hooks';
 import { useAuthStore } from '../../store';
@@ -25,6 +27,7 @@ import type { PetType } from '../../../shared/types';
 
 export default function PostScreen() {
   const router = useRouter();
+  const { t } = useTranslation(['post', 'pets', 'common']);
   const { isAuthenticated } = useAuthStore();
   const createPet = useCreatePet();
   const uploadPhoto = useUploadPhotoNative();
@@ -42,18 +45,16 @@ export default function PostScreen() {
     return (
       <View style={styles.authRequired}>
         <Text style={{ fontSize: 48, marginBottom: SPACING.md }}>🔒</Text>
-        <Text style={styles.authTitle}>Inicia sesión</Text>
-        <Text style={styles.authText}>
-          Necesitas una cuenta para publicar mascotas perdidas
-        </Text>
+        <Text style={styles.authTitle}>{t('post:authRequired')}</Text>
+        <Text style={styles.authText}>{t('post:authText')}</Text>
         <TouchableOpacity
           style={styles.authButton}
           onPress={() => router.push('/login')}
         >
-          <Text style={styles.authButtonText}>Iniciar Sesión</Text>
+          <Text style={styles.authButtonText}>{t('post:loginButton')}</Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={() => router.push('/register')}>
-          <Text style={styles.registerLink}>¿No tienes cuenta? Regístrate</Text>
+          <Text style={styles.registerLink}>{t('post:registerLink')}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -79,7 +80,7 @@ export default function PostScreen() {
     if (atLimit) return;
     const permission = await ImagePicker.requestCameraPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert('Permiso requerido', 'Necesitamos acceso a tu cámara');
+      Alert.alert(i18next.t('post:cameraPermission'), i18next.t('post:cameraPermissionText'));
       return;
     }
 
@@ -101,7 +102,7 @@ export default function PostScreen() {
 
   const handleSubmit = async () => {
     if (!name.trim()) {
-      Alert.alert('Error', 'El nombre de la mascota es requerido');
+      Alert.alert(i18next.t('common:error'), i18next.t('post:errorNameRequired'));
       return;
     }
 
@@ -123,21 +124,21 @@ export default function PostScreen() {
         try {
           await uploadPhoto.mutateAsync({ petId: pet.id, uri: photos[i] });
         } catch (err: any) {
-          errors[i] = err.message || 'Error al subir foto';
+          errors[i] = err.message || i18next.t('post:photoUploadSingleFail');
         }
       }
       setPhotoErrors(errors);
 
       const failCount = Object.keys(errors).length;
-      let alertMessage = `${name} fue registrada. Desde "Mis mascotas" podés reportarla como perdida si es necesario.`;
+      let alertMessage = i18next.t('post:successMessage', { name });
       if (photos.length > 0 && failCount === photos.length) {
-        alertMessage += '\n\n⚠ No se pudieron subir las fotos. Podés intentarlo desde el detalle.';
+        alertMessage += i18next.t('post:photoUploadFail');
       } else if (failCount > 0) {
-        alertMessage += `\n\n⚠ ${failCount} foto(s) no se pudieron subir.`;
+        alertMessage += i18next.t('post:photoPartialFail', { count: failCount });
       }
 
       Alert.alert(
-        'Mascota registrada',
+        i18next.t('post:successTitle'),
         alertMessage,
         [{ text: 'OK', onPress: () => router.push('/my-pets') }]
       );
@@ -149,7 +150,7 @@ export default function PostScreen() {
       setDescription('');
       setPhotos([]);
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'No se pudo publicar');
+      Alert.alert(i18next.t('common:error'), error.message || i18next.t('post:errorSubmit'));
     } finally {
       setIsSubmitting(false);
     }
@@ -165,10 +166,10 @@ export default function PostScreen() {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.sectionTitle}>Registrar mascota</Text>
+        <Text style={styles.sectionTitle}>{t('post:title')}</Text>
 
         {/* Fotos */}
-        <Text style={styles.label}>Fotos</Text>
+        <Text style={styles.label}>{t('post:photos')}</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.photoRow}>
           {photos.map((uri, i) => (
             <TouchableOpacity key={i} onPress={() => removePhoto(i)}>
@@ -189,7 +190,7 @@ export default function PostScreen() {
             disabled={atLimit}
           >
             <Text style={{ fontSize: 28, color: COLORS.textMuted }}>+</Text>
-            <Text style={{ fontSize: 11, color: COLORS.textMuted, marginTop: 2 }}>Galería</Text>
+            <Text style={{ fontSize: 11, color: COLORS.textMuted, marginTop: 2 }}>{t('post:gallery')}</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.addPhoto, atLimit && styles.addPhotoDisabled]}
@@ -197,73 +198,73 @@ export default function PostScreen() {
             disabled={atLimit}
           >
             <Text style={{ fontSize: 28, color: COLORS.textMuted }}>📷</Text>
-            <Text style={{ fontSize: 11, color: COLORS.textMuted, marginTop: 2 }}>Cámara</Text>
+            <Text style={{ fontSize: 11, color: COLORS.textMuted, marginTop: 2 }}>{t('post:camera')}</Text>
           </TouchableOpacity>
         </ScrollView>
         {atLimit && (
-          <Text style={styles.photoLimitText}>Máximo 3 fotos</Text>
+          <Text style={styles.photoLimitText}>{t('post:photoLimit')}</Text>
         )}
 
         {/* Nombre */}
-        <Text style={styles.label}>Nombre *</Text>
+        <Text style={styles.label}>{t('post:nameLabel')}</Text>
         <TextInput
           style={styles.input}
-          placeholder="Nombre de la mascota"
+          placeholder={t('post:namePlaceholder')}
           placeholderTextColor={COLORS.placeholder}
           value={name}
           onChangeText={setName}
         />
 
         {/* Tipo */}
-        <Text style={styles.label}>Tipo *</Text>
+        <Text style={styles.label}>{t('post:typeLabel')}</Text>
         <View style={styles.typeRow}>
-          {PET_TYPES.map((pt) => (
+          {PET_TYPES.map((petType) => (
             <TouchableOpacity
-              key={pt.value}
+              key={petType.value}
               style={[
                 styles.typeButton,
-                type === pt.value && styles.typeButtonActive,
+                type === petType.value && styles.typeButtonActive,
               ]}
-              onPress={() => setType(pt.value as PetType)}
+              onPress={() => setType(petType.value as PetType)}
             >
-              <Text style={{ fontSize: 20 }}>{pt.icon}</Text>
+              <Text style={{ fontSize: 20 }}>{petType.icon}</Text>
               <Text
                 style={[
                   styles.typeLabel,
-                  type === pt.value && styles.typeLabelActive,
+                  type === petType.value && styles.typeLabelActive,
                 ]}
               >
-                {pt.label}
+                {t(`pets:types.${petType.value}`)}
               </Text>
             </TouchableOpacity>
           ))}
         </View>
 
         {/* Raza */}
-        <Text style={styles.label}>Raza</Text>
+        <Text style={styles.label}>{t('post:breedLabel')}</Text>
         <TextInput
           style={styles.input}
-          placeholder="Ej: Labrador, Siamés..."
+          placeholder={t('post:breedPlaceholder')}
           placeholderTextColor={COLORS.placeholder}
           value={breed}
           onChangeText={setBreed}
         />
 
         {/* Color */}
-        <Text style={styles.label}>Color</Text>
+        <Text style={styles.label}>{t('post:colorLabel')}</Text>
         <TextInput
           style={styles.input}
-          placeholder="Ej: Dorado, Negro con blanco..."
+          placeholder={t('post:colorPlaceholder')}
           placeholderTextColor={COLORS.placeholder}
           value={color}
           onChangeText={setColor}
         />
 
         {/* Descripción */}
-        <Text style={styles.label}>Descripción</Text>
+        <Text style={styles.label}>{t('post:descriptionLabel')}</Text>
         <TextInput
           style={[styles.input, styles.textArea]}
-          placeholder="Describe a tu mascota: tamaño, señas particulares..."
+          placeholder={t('post:descriptionPlaceholder')}
           placeholderTextColor={COLORS.placeholder}
           value={description}
           onChangeText={setDescription}
@@ -281,7 +282,7 @@ export default function PostScreen() {
           {isSubmitting ? (
             <ActivityIndicator color={COLORS.white} />
           ) : (
-            <Text style={styles.submitText}>Registrar mascota</Text>
+            <Text style={styles.submitText}>{t('post:submit')}</Text>
           )}
         </TouchableOpacity>
 

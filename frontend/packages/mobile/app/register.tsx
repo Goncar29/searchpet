@@ -16,11 +16,14 @@ import {
   ScrollView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
+import i18next from 'i18next';
 import { useAuthStore } from '../store';
 import { COLORS, SPACING, FONTS, RADIUS } from '../constants';
 
 export default function RegisterScreen() {
   const router = useRouter();
+  const { t } = useTranslation('auth');
   const register = useAuthStore((state) => state.register);
 
   const [name, setName] = useState('');
@@ -33,28 +36,28 @@ export default function RegisterScreen() {
 
   const handleRegister = async () => {
     if (!name.trim() || !email.trim() || !password) {
-      Alert.alert('Error', 'Completa los campos obligatorios');
+      Alert.alert(i18next.t('common:error'), i18next.t('auth:register.requiredFields'));
       return;
     }
 
     if (password.length < 6) {
-      Alert.alert('Error', 'La contraseña debe tener al menos 6 caracteres');
+      Alert.alert(i18next.t('common:error'), i18next.t('auth:register.passwordMin'));
       return;
     }
 
     if (password !== confirmPassword) {
-      Alert.alert('Error', 'Las contraseñas no coinciden');
+      Alert.alert(i18next.t('common:error'), i18next.t('auth:register.passwordMismatch'));
       return;
     }
 
     setIsLoading(true);
     try {
       await register(email.trim(), password, name.trim(), phone.trim() || undefined, city.trim() || undefined);
-      Alert.alert('Cuenta creada', 'Bienvenido a SearchPet', [
+      Alert.alert(i18next.t('auth:register.createdTitle'), i18next.t('auth:register.createdMessage'), [
         { text: 'OK', onPress: () => router.back() },
       ]);
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'No se pudo crear la cuenta');
+      Alert.alert(i18next.t('common:error'), error.message || i18next.t('auth:register.createError'));
     } finally {
       setIsLoading(false);
     }
@@ -67,25 +70,23 @@ export default function RegisterScreen() {
     >
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Text style={styles.logo}>🐾</Text>
-        <Text style={styles.title}>Crear Cuenta</Text>
-        <Text style={styles.subtitle}>
-          Únete a la comunidad y ayuda a encontrar mascotas
-        </Text>
+        <Text style={styles.title}>{t('register.title')}</Text>
+        <Text style={styles.subtitle}>{t('register.subtitle')}</Text>
 
-        <Text style={styles.label}>Nombre *</Text>
+        <Text style={styles.label}>{t('register.nameLabelRequired')}</Text>
         <TextInput
           style={styles.input}
-          placeholder="Tu nombre completo"
+          placeholder={t('register.name')}
           placeholderTextColor={COLORS.placeholder}
           value={name}
           onChangeText={setName}
           autoComplete="name"
         />
 
-        <Text style={styles.label}>Email *</Text>
+        <Text style={styles.label}>{t('register.emailLabelRequired')}</Text>
         <TextInput
           style={styles.input}
-          placeholder="tu@email.com"
+          placeholder={t('register.emailPlaceholder')}
           placeholderTextColor={COLORS.placeholder}
           value={email}
           onChangeText={setEmail}
@@ -94,10 +95,10 @@ export default function RegisterScreen() {
           autoComplete="email"
         />
 
-        <Text style={styles.label}>Teléfono (opcional)</Text>
+        <Text style={styles.label}>{t('register.phone')}</Text>
         <TextInput
           style={styles.input}
-          placeholder="+598 99 123 456"
+          placeholder={t('register.phonePlaceholder')}
           placeholderTextColor={COLORS.placeholder}
           value={phone}
           onChangeText={setPhone}
@@ -105,30 +106,30 @@ export default function RegisterScreen() {
           autoComplete="tel"
         />
 
-        <Text style={styles.label}>Ciudad (opcional)</Text>
+        <Text style={styles.label}>{t('register.city')}</Text>
         <TextInput
           style={styles.input}
-          placeholder="Ej: Montevideo, Buenos Aires..."
+          placeholder={t('register.cityPlaceholder')}
           placeholderTextColor={COLORS.placeholder}
           value={city}
           onChangeText={setCity}
           autoComplete="address-line1"
         />
 
-        <Text style={styles.label}>Contraseña *</Text>
+        <Text style={styles.label}>{t('register.passwordLabelRequired')}</Text>
         <TextInput
           style={styles.input}
-          placeholder="Mínimo 6 caracteres"
+          placeholder={t('register.passwordPlaceholder')}
           placeholderTextColor={COLORS.placeholder}
           value={password}
           onChangeText={setPassword}
           secureTextEntry
         />
 
-        <Text style={styles.label}>Confirmar contraseña *</Text>
+        <Text style={styles.label}>{t('register.confirmLabelRequired')}</Text>
         <TextInput
           style={styles.input}
-          placeholder="Repite tu contraseña"
+          placeholder={t('register.confirm')}
           placeholderTextColor={COLORS.placeholder}
           value={confirmPassword}
           onChangeText={setConfirmPassword}
@@ -143,7 +144,7 @@ export default function RegisterScreen() {
           {isLoading ? (
             <ActivityIndicator color={COLORS.white} />
           ) : (
-            <Text style={styles.buttonText}>Crear Cuenta</Text>
+            <Text style={styles.buttonText}>{t('register.submit')}</Text>
           )}
         </TouchableOpacity>
 
@@ -154,10 +155,7 @@ export default function RegisterScreen() {
             router.push('/login');
           }}
         >
-          <Text style={styles.linkText}>
-            ¿Ya tienes cuenta?{' '}
-            <Text style={styles.linkBold}>Inicia Sesión</Text>
-          </Text>
+          <Text style={styles.linkText}>{t('register.hasAccount')}</Text>
         </TouchableOpacity>
 
         <View style={{ height: 60 }} />

@@ -12,6 +12,8 @@ import {
 } from 'react-native';
 import MapLibreGL from '@maplibre/maplibre-react-native';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
+import i18next from 'i18next';
 import * as Location from 'expo-location';
 import { useNearbyReports } from '../../../shared/hooks';
 import { useLocationStore } from '../../store';
@@ -42,8 +44,7 @@ class MapErrorBoundary extends Component<{ children: ReactNode }, { hasError: bo
         <View style={styles.errorContainer}>
           <Text style={styles.errorIcon}>🗺️</Text>
           <Text style={styles.errorText}>
-            El mapa no está disponible en este momento.{'\n'}
-            Verificá tu conexión o los permisos de la app.
+            {i18next.t('map:unavailable')}
           </Text>
         </View>
       );
@@ -58,6 +59,7 @@ class MapErrorBoundary extends Component<{ children: ReactNode }, { hasError: bo
 
 export default function MapScreen() {
   const router = useRouter();
+  const { t } = useTranslation('map');
   const cameraRef = useRef<MapLibreGL.Camera>(null);
   const { latitude, longitude, setLocation } = useLocationStore();
   const [selectedReport, setSelectedReport] = useState<Report | null>(null);
@@ -94,9 +96,9 @@ export default function MapScreen() {
 
   const getStatusLabel = (status: string) => {
     switch (status) {
-      case 'lost':     return 'PERDIDO';
-      case 'found':    return 'ENCONTRADO';
-      case 'sighting': return 'AVISTAMIENTO';
+      case 'lost':     return t('lost');
+      case 'found':    return t('found');
+      case 'sighting': return t('sighting');
       default:         return status.toUpperCase();
     }
   };
@@ -116,7 +118,7 @@ export default function MapScreen() {
     return (
       <View style={styles.center}>
         <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text style={styles.loadingText}>Cargando mapa...</Text>
+        <Text style={styles.loadingText}>{t('loading')}</Text>
       </View>
     );
   }
@@ -164,22 +166,22 @@ export default function MapScreen() {
         <View style={styles.legend}>
           <View style={styles.legendItem}>
             <View style={[styles.legendDot, { backgroundColor: COLORS.lost }]} />
-            <Text style={styles.legendText}>Perdido</Text>
+            <Text style={styles.legendText}>{t('legendLost')}</Text>
           </View>
           <View style={styles.legendItem}>
             <View style={[styles.legendDot, { backgroundColor: COLORS.found }]} />
-            <Text style={styles.legendText}>Encontrado</Text>
+            <Text style={styles.legendText}>{t('legendFound')}</Text>
           </View>
           <View style={styles.legendItem}>
             <View style={[styles.legendDot, { backgroundColor: COLORS.sighting }]} />
-            <Text style={styles.legendText}>Avistado</Text>
+            <Text style={styles.legendText}>{t('legendSighting')}</Text>
           </View>
         </View>
 
         {/* Contador */}
         <View style={styles.counter}>
           <Text style={styles.counterText}>
-            {reports?.length || 0} reportes en la zona
+            {t('counter', { count: reports?.length || 0 })}
           </Text>
         </View>
 
@@ -203,14 +205,14 @@ export default function MapScreen() {
               </Text>
             </View>
             <Text style={styles.reportName}>
-              {selectedReport.pet?.name || 'Mascota'}
+              {selectedReport.pet?.name || t('defaultPetName')}
             </Text>
             {selectedReport.location_description && (
               <Text style={styles.reportDesc}>
                 {selectedReport.location_description}
               </Text>
             )}
-            <Text style={styles.reportAction}>Toca para ver detalles →</Text>
+            <Text style={styles.reportAction}>{t('viewDetails')}</Text>
           </TouchableOpacity>
         )}
       </View>

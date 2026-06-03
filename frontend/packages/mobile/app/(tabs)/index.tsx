@@ -16,6 +16,8 @@ import {
   Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
+import i18next from 'i18next';
 import * as Location from 'expo-location';
 import * as ImagePicker from 'expo-image-picker';
 import { useNearbyReports, useSearchPets, useStories, useImageClassify } from '../../../shared/hooks';
@@ -28,6 +30,7 @@ const RADII = [5, 10, 25, 50] as const;
 
 export default function HomeScreen() {
   const router = useRouter();
+  const { t } = useTranslation(['home', 'common']);
   const { isAuthenticated } = useAuthStore();
   const { latitude, longitude, setLocation } = useLocationStore();
 
@@ -109,10 +112,10 @@ export default function HomeScreen() {
   };
 
   const handleImageSearch = () => {
-    Alert.alert('Buscar por foto', 'Elegí una opción', [
-      { text: 'Cámara', onPress: () => pickAndClassify(true) },
-      { text: 'Galería', onPress: () => pickAndClassify(false) },
-      { text: 'Cancelar', style: 'cancel' },
+    Alert.alert(i18next.t('home:searchByPhoto'), i18next.t('home:pickOption'), [
+      { text: i18next.t('home:camera'), onPress: () => pickAndClassify(true) },
+      { text: i18next.t('home:gallery'), onPress: () => pickAndClassify(false) },
+      { text: i18next.t('common:cancel'), style: 'cancel' },
     ]);
   };
 
@@ -178,18 +181,18 @@ export default function HomeScreen() {
             onPress={() => setFilterType(undefined)}
           >
             <Text style={[styles.chipText, !filterType && styles.chipTextActive]}>
-              🐾 Todos
+              🐾 {t('home:all')}
             </Text>
           </TouchableOpacity>
 
-          {PET_TYPES.map((t) => (
+          {PET_TYPES.map((petType) => (
             <TouchableOpacity
-              key={t.value}
-              style={[styles.chip, filterType === t.value && styles.chipActive]}
-              onPress={() => setFilterType(filterType === t.value ? undefined : t.value as PetType)}
+              key={petType.value}
+              style={[styles.chip, filterType === petType.value && styles.chipActive]}
+              onPress={() => setFilterType(filterType === petType.value ? undefined : petType.value as PetType)}
             >
-              <Text style={[styles.chipText, filterType === t.value && styles.chipTextActive]}>
-                {t.icon} {t.label}
+              <Text style={[styles.chipText, filterType === petType.value && styles.chipTextActive]}>
+                {petType.icon} {t(`pets:types.${petType.value}`)}
               </Text>
             </TouchableOpacity>
           ))}
@@ -200,7 +203,7 @@ export default function HomeScreen() {
             onPress={() => setShowFilters(!showFilters)}
           >
             <Text style={[styles.chipText, showFilters && styles.chipTextActive]}>
-              ⚙️ Más
+              ⚙️ {t('home:more')}
             </Text>
           </TouchableOpacity>
 
@@ -211,7 +214,7 @@ export default function HomeScreen() {
             disabled={isModelLoading || isClassifying}
           >
             <Text style={styles.chipText}>
-              {isModelLoading ? '⏳ Cargando...' : isClassifying ? '🔍 Analizando...' : '📷 Por foto'}
+              {isModelLoading ? `⏳ ${t('home:loadingModel')}` : isClassifying ? `🔍 ${t('home:analyzing')}` : `📷 ${t('home:byPhoto')}`}
             </Text>
           </TouchableOpacity>
         </ScrollView>
@@ -230,7 +233,7 @@ export default function HomeScreen() {
         {/* Sin coincidencia */}
         {photoNoMatch && (
           <View style={styles.noMatchRow}>
-            <Text style={styles.noMatchText}>No se detectó ninguna mascota. Probá con una foto más clara.</Text>
+            <Text style={styles.noMatchText}>{t('home:noMatchText')}</Text>
             <TouchableOpacity onPress={() => setPhotoNoMatch(false)}>
               <Text style={styles.classifyResultClear}>✕</Text>
             </TouchableOpacity>
@@ -242,7 +245,7 @@ export default function HomeScreen() {
           <View style={styles.extraFilters}>
             <TextInput
               style={styles.colorInput}
-              placeholder="Color (ej: negro, blanco...)"
+              placeholder={t('home:colorPlaceholder')}
               placeholderTextColor={COLORS.textMuted}
               value={filterColor}
               onChangeText={setFilterColor}
@@ -251,7 +254,7 @@ export default function HomeScreen() {
 
             <TextInput
               style={styles.colorInput}
-              placeholder="Raza (ej: Labrador...)"
+              placeholder={t('home:breedPlaceholder')}
               placeholderTextColor={COLORS.textMuted}
               value={filterBreed}
               onChangeText={setFilterBreed}
@@ -260,7 +263,7 @@ export default function HomeScreen() {
 
             <TextInput
               style={styles.colorInput}
-              placeholder="Desde (YYYY-MM-DD)"
+              placeholder={t('home:fromPlaceholder')}
               placeholderTextColor={COLORS.textMuted}
               value={filterFrom}
               onChangeText={setFilterFrom}
@@ -269,7 +272,7 @@ export default function HomeScreen() {
 
             <TextInput
               style={styles.colorInput}
-              placeholder="Hasta (YYYY-MM-DD)"
+              placeholder={t('home:toPlaceholder')}
               placeholderTextColor={COLORS.textMuted}
               value={filterTo}
               onChangeText={setFilterTo}
@@ -279,7 +282,7 @@ export default function HomeScreen() {
             {/* Radio (solo en modo nearby) */}
             {!isSearchMode && (
               <View style={styles.radiusRow}>
-                <Text style={styles.radiusLabel}>Radio:</Text>
+                <Text style={styles.radiusLabel}>{t('home:radius')}</Text>
                 {RADII.map((r) => (
                   <TouchableOpacity
                     key={r}
@@ -302,19 +305,19 @@ export default function HomeScreen() {
         {isSearchMode ? (
           <View style={styles.headerRow}>
             <Text style={styles.greeting}>
-              {resultCount} resultado{resultCount !== 1 ? 's' : ''}
+              {t('home:results', { count: resultCount })}
             </Text>
             <TouchableOpacity onPress={clearFilters}>
-              <Text style={styles.clearText}>Limpiar filtros ✕</Text>
+              <Text style={styles.clearText}>{t('home:clearFilters')}</Text>
             </TouchableOpacity>
           </View>
         ) : (
           <>
             <Text style={styles.greeting}>
-              {isAuthenticated ? 'Mascotas cerca de ti' : 'Mascotas perdidas'}
+              {isAuthenticated ? t('home:nearbyTitle') : t('home:lostTitle')}
             </Text>
             <Text style={styles.subtitle}>
-              {data.length} reportes activos · radio {radius} km
+              {t('home:activeReports', { count: data.length, radius })}
             </Text>
           </>
         )}
@@ -326,7 +329,7 @@ export default function HomeScreen() {
           style={styles.ctaBanner}
           onPress={() => router.push('/login')}
         >
-          <Text style={styles.ctaText}>Iniciá sesión para publicar y ayudar</Text>
+          <Text style={styles.ctaText}>{t('home:loginCta')}</Text>
           <Text style={styles.ctaArrow}>→</Text>
         </TouchableOpacity>
       )}
@@ -339,7 +342,7 @@ export default function HomeScreen() {
       )}
       {!storiesQuery.isLoading && stories.length > 0 && (
         <View style={styles.storiesSection}>
-          <Text style={styles.storiesSectionTitle}>Historias de éxito</Text>
+          <Text style={styles.storiesSectionTitle}>{t('home:successStories')}</Text>
           <FlatList
             data={stories}
             keyExtractor={(item) => item.id}
@@ -356,7 +359,7 @@ export default function HomeScreen() {
         <View style={styles.center}>
           <ActivityIndicator size="large" color={COLORS.primary} />
           <Text style={styles.loadingText}>
-            {isSearchMode ? 'Buscando...' : 'Buscando mascotas cerca de ti...'}
+            {isSearchMode ? t('home:searching') : t('home:loading')}
           </Text>
         </View>
       ) : (
@@ -377,16 +380,14 @@ export default function HomeScreen() {
             <View style={styles.empty}>
               <Text style={styles.emptyIcon}>🐾</Text>
               <Text style={styles.emptyTitle}>
-                {isSearchMode ? 'Sin resultados' : 'No hay reportes cercanos'}
+                {isSearchMode ? t('home:noResultsTitle') : t('home:noNearbyTitle')}
               </Text>
               <Text style={styles.emptyText}>
-                {isSearchMode
-                  ? 'Probá con otros filtros o amplíalos'
-                  : 'No se encontraron mascotas perdidas en tu zona. ¡Eso es bueno!'}
+                {isSearchMode ? t('home:noResultsText') : t('home:noNearbyText')}
               </Text>
               {isSearchMode && (
                 <TouchableOpacity style={styles.clearButton} onPress={clearFilters}>
-                  <Text style={styles.clearButtonText}>Limpiar filtros</Text>
+                  <Text style={styles.clearButtonText}>{t('home:clearFiltersButton')}</Text>
                 </TouchableOpacity>
               )}
             </View>

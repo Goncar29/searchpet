@@ -13,6 +13,8 @@ import {
 } from 'react-native';
 import { useCallback } from 'react';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
+import i18next from 'i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '../../store';
 import { useConversations, useWebSocket } from '../../../shared/hooks';
@@ -22,6 +24,7 @@ import type { Message } from '../../../shared/types';
 
 export default function MessagesScreen() {
   const router = useRouter();
+  const { t } = useTranslation(['common', 'messages']);
   const { isAuthenticated, user } = useAuthStore();
   const queryClient = useQueryClient();
   const { data: conversations, isLoading, refetch, isRefetching } = useConversations();
@@ -42,15 +45,13 @@ export default function MessagesScreen() {
     return (
       <View style={styles.center}>
         <Text style={{ fontSize: 48, marginBottom: SPACING.md }}>💬</Text>
-        <Text style={styles.title}>Mensajes</Text>
-        <Text style={styles.subtitle}>
-          Inicia sesión para ver tus conversaciones
-        </Text>
+        <Text style={styles.title}>{t('messages:title')}</Text>
+        <Text style={styles.subtitle}>{t('messages:loginSubtitle')}</Text>
         <TouchableOpacity
           style={styles.loginButton}
           onPress={() => router.push('/login')}
         >
-          <Text style={styles.loginText}>Iniciar Sesión</Text>
+          <Text style={styles.loginText}>{t('messages:loginButton')}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -67,11 +68,11 @@ export default function MessagesScreen() {
   const getOtherUser = (msg: Message) => {
     // El "otro" en la conversación es quien no soy yo
     if (msg.sender_id === user?.id) {
-      return { id: msg.receiver_id, name: 'Usuario' };
+      return { id: msg.receiver_id, name: i18next.t('common:unknownUser') };
     }
     return {
       id: msg.sender_id,
-      name: msg.sender?.name || 'Usuario',
+      name: msg.sender?.name || i18next.t('common:unknownUser'),
     };
   };
 
@@ -83,7 +84,7 @@ export default function MessagesScreen() {
     const diffHours = Math.floor(diffMins / 60);
     const diffDays = Math.floor(diffHours / 24);
 
-    if (diffMins < 1) return 'ahora';
+    if (diffMins < 1) return i18next.t('common:timeAgo.now');
     if (diffMins < 60) return `${diffMins}m`;
     if (diffHours < 24) return `${diffHours}h`;
     return `${diffDays}d`;
@@ -124,7 +125,7 @@ export default function MessagesScreen() {
                     style={[styles.lastMessage, isUnread && styles.lastMessageUnread]}
                     numberOfLines={1}
                   >
-                    {item.sender_id === user?.id ? 'Vos: ' : ''}{item.content}
+                    {item.sender_id === user?.id ? t('messages:youPrefix') : ''}{item.content}
                   </Text>
                   {isUnread && <View style={styles.unreadDot} />}
                 </View>
@@ -143,10 +144,8 @@ export default function MessagesScreen() {
         ListEmptyComponent={
           <View style={styles.center}>
             <Text style={{ fontSize: 48, marginBottom: SPACING.md }}>📭</Text>
-            <Text style={styles.title}>Sin mensajes</Text>
-            <Text style={styles.subtitle}>
-              Cuando alguien te contacte sobre una mascota, aparecerá aquí
-            </Text>
+            <Text style={styles.title}>{t('messages:emptyTitle')}</Text>
+            <Text style={styles.subtitle}>{t('messages:emptySubtitle')}</Text>
           </View>
         }
         contentContainerStyle={
