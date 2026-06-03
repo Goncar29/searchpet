@@ -255,7 +255,7 @@ pnpm start
 - [x] V1.2: filtros avanzados, alertas geográficas, push en reporte cercano
 - [x] V1.3: verificación usuarios (email/SMS), grupos locales, historias de éxito, bloqueos
 - [x] V1.4: puntos, leaderboard, perfiles públicos, reseñas
-- [ ] Pending: badges auto-grant, Redis rate limiting, E2E tests, búsqueda IA server-side
+- [ ] Pending: Redis rate limiting, E2E tests, búsqueda IA server-side, UI refugios
 - [ ] V2.0: veterinarias cercanas, multi-SMS alertas, directorio refugios UI
 
 ---
