@@ -10,7 +10,8 @@
     "lint": "eslint . --ext ts,tsx",
     "test": "vitest",
     "test:run": "vitest run",
-    "coverage": "vitest run --coverage"
+    "coverage": "vitest run --coverage",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@tensorflow-models/mobilenet": "^2.1.1",
@@ -31,6 +32,7 @@
     "zustand": "^5.0.13"
   },
   "devDependencies": {
+    "@playwright/test": "^1.44.0",
     "@tailwindcss/vite": "^4.2.4",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.9.1",
