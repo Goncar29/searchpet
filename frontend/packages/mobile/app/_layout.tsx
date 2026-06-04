@@ -143,6 +143,7 @@ export default function RootLayout() {
           name="story/create"
           options={{ title: i18next.t('story.createTitle'), presentation: 'modal' }}
         />
+        <Stack.Screen name="shelters/index" options={{ headerShown: false }} />
       </Stack>
     </QueryClientProvider>
   );

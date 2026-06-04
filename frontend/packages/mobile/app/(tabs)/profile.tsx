@@ -164,6 +164,12 @@ export default function ProfileScreen() {
         <TouchableOpacity onPress={() => router.push('/register')}>
           <Text style={styles.linkText}>{t('createAccount')}</Text>
         </TouchableOpacity>
+        <TouchableOpacity
+          style={{ marginTop: SPACING.md }}
+          onPress={() => router.push('/shelters' as any)}
+        >
+          <Text style={styles.linkText}>{t('sheltersButton')}</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -491,6 +497,15 @@ export default function ProfileScreen() {
         >
           <Text style={styles.menuIcon}>👥</Text>
           <Text style={styles.menuText}>{t('menuGroups')}</Text>
+          <Text style={styles.menuArrow}>›</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.menuItem}
+          onPress={() => router.push('/shelters' as any)}
+        >
+          <Text style={styles.menuIcon}>🏠</Text>
+          <Text style={styles.menuText}>{t('menuShelters')}</Text>
           <Text style={styles.menuArrow}>›</Text>
         </TouchableOpacity>
 

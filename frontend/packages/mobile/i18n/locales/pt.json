@@ -104,6 +104,8 @@
     "menuLeaderboard": "Ranking",
     "menuAlerts": "Meus alertas de zona",
     "menuGroups": "Meus grupos",
+    "menuShelters": "Abrigos",
+    "sheltersButton": "Ver Abrigos",
     "menuBlockedUsers": "Usuários bloqueados",
     "menuSettings": "Configurações",
     "menuLanguage": "Idioma",
@@ -412,6 +414,20 @@
     "commentError": "Escreva um comentário.",
     "saveError": "Não foi possível salvar a avaliação.",
     "earnedOn": "Obtido em "
+  },
+  "shelters": {
+    "title": "Abrigos",
+    "subtitle": "Organizações que ajudam animais em situação de rua",
+    "filterPlaceholder": "Filtrar por cidade...",
+    "websiteButton": "Site",
+    "donateButton": "Doar",
+    "verifiedBadge": "Verificado",
+    "emptyTitle": "Sem resultados",
+    "emptyMessage": "Nenhum abrigo encontrado para essa cidade.",
+    "errorMessage": "Não foi possível carregar os abrigos.",
+    "retryButton": "Tentar novamente",
+    "contactPhone": "Telefone",
+    "contactEmail": "Email"
   },
   "verify": {
     "title": "Verificar telefone",

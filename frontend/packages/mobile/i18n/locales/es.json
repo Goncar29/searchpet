@@ -104,6 +104,8 @@
     "menuLeaderboard": "Tabla de líderes",
     "menuAlerts": "Mis alertas de zona",
     "menuGroups": "Mis grupos",
+    "menuShelters": "Refugios",
+    "sheltersButton": "Ver Refugios",
     "menuBlockedUsers": "Usuarios bloqueados",
     "menuSettings": "Configuración",
     "menuLanguage": "Idioma",
@@ -412,6 +414,20 @@
     "commentError": "Escribí un comentario.",
     "saveError": "No se pudo guardar la reseña.",
     "earnedOn": "Obtenido el "
+  },
+  "shelters": {
+    "title": "Refugios",
+    "subtitle": "Organizaciones que ayudan a animales en situación de calle",
+    "filterPlaceholder": "Filtrar por ciudad...",
+    "websiteButton": "Sitio web",
+    "donateButton": "Donar",
+    "verifiedBadge": "Verificado",
+    "emptyTitle": "Sin resultados",
+    "emptyMessage": "No encontramos refugios para esa ciudad.",
+    "errorMessage": "No pudimos cargar los refugios.",
+    "retryButton": "Reintentar",
+    "contactPhone": "Teléfono",
+    "contactEmail": "Email"
   },
   "verify": {
     "title": "Verificar teléfono",

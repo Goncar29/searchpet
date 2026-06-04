@@ -104,6 +104,8 @@
     "menuLeaderboard": "Leaderboard",
     "menuAlerts": "My zone alerts",
     "menuGroups": "My groups",
+    "menuShelters": "Shelters",
+    "sheltersButton": "View Shelters",
     "menuBlockedUsers": "Blocked users",
     "menuSettings": "Settings",
     "menuLanguage": "Language",
@@ -412,6 +414,20 @@
     "commentError": "Write a comment.",
     "saveError": "Could not save review.",
     "earnedOn": "Earned on "
+  },
+  "shelters": {
+    "title": "Shelters",
+    "subtitle": "Organizations that help animals in need",
+    "filterPlaceholder": "Filter by city...",
+    "websiteButton": "Website",
+    "donateButton": "Donate",
+    "verifiedBadge": "Verified",
+    "emptyTitle": "No results",
+    "emptyMessage": "No shelters found for that city.",
+    "errorMessage": "Could not load shelters.",
+    "retryButton": "Retry",
+    "contactPhone": "Phone",
+    "contactEmail": "Email"
   },
   "verify": {
     "title": "Verify phone",
