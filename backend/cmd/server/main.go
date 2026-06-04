@@ -17,6 +17,7 @@ import (
 	"lost-pets/pkg/logger"
 	"lost-pets/pkg/mailer"
 	"lost-pets/pkg/notification"
+	"lost-pets/pkg/ratelimit"
 	"lost-pets/pkg/sms"
 	"lost-pets/pkg/storage"
 )
@@ -32,6 +33,25 @@ func main() {
 	// ========================================
 	log := logger.Init(cfg.Environment)
 	defer log.Sync() //nolint:errcheck
+
+	// ========================================
+	// RATE LIMIT STORE
+	// Redis when REDIS_URL is set; in-memory otherwise (single-instance).
+	// ========================================
+	var rateLimitStore ratelimit.Store
+	if cfg.RedisURL != "" {
+		rs, err := ratelimit.NewRedisStore(cfg.RedisURL)
+		if err != nil {
+			log.Warn("Redis unavailable, falling back to InMemoryStore", zap.Error(err))
+			rateLimitStore = ratelimit.NewInMemoryStore()
+		} else {
+			rateLimitStore = rs
+			log.Info("Rate limiter: Redis")
+		}
+	} else {
+		rateLimitStore = ratelimit.NewInMemoryStore()
+		log.Info("Rate limiter: in-memory")
+	}
 
 	// ========================================
 	// BASE DE DATOS
@@ -211,7 +231,7 @@ func main() {
 	// ----------------------------------------
 	public := router.Group("/api")
 	{
-		authRateLimit := middleware.RateLimit(5.0/60.0, 5)
+		authRateLimit := middleware.RateLimit(rateLimitStore, 5, 1*time.Minute)
 		public.POST("/auth/register", authRateLimit, authHandler.Register)
 		public.POST("/auth/login", authRateLimit, authHandler.Login)
 		public.GET("/stats", statsHandler.GetStats)
@@ -328,7 +348,7 @@ func main() {
 		protected.DELETE("/users/:id/reviews", reviewHandler.DeleteReview)
 
 		// V1.3 — User Verification (OTP)
-		protected.POST("/verification/send-email", middleware.RateLimit(5.0/60.0, 5), verificationHandler.SendEmail)
+		protected.POST("/verification/send-email", middleware.RateLimit(rateLimitStore, 5, 1*time.Minute), verificationHandler.SendEmail)
 		protected.POST("/verification/send-sms", verificationHandler.SendSMS)
 		protected.POST("/verification/confirm-email", verificationHandler.ConfirmEmail)
 		protected.POST("/verification/confirm-sms", verificationHandler.ConfirmSMS)

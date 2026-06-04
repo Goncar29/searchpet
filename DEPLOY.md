@@ -153,6 +153,45 @@ npx eas submit --platform ios
 
 ---
 
+## 8. Redis — Rate Limiting Distribuido (opcional)
+
+Por defecto el backend usa un rate limiter in-memory, que funciona correctamente
+en instancias únicas. Si desplegás múltiples instancias, configurá Redis para
+compartir el estado del rate limit.
+
+### Render (plan gratuito)
+
+1. En Render dashboard → New → Redis
+2. Seleccionar plan **Free** (25 MB, suficiente para rate limiting)
+3. Copiar la **Internal Redis URL** (formato `redis://red-xxx:6379`)
+4. Agregar a las variables de entorno del Web Service:
+
+```
+REDIS_URL=redis://red-xxx:6379
+```
+
+### Alternativas gratuitas
+
+| Proveedor | Plan gratuito | Límite |
+|-----------|---------------|--------|
+| **Upstash** | Free | 10.000 req/día, 256 MB |
+| **Railway** | Hobby | $5 créditos/mes |
+
+### Comportamiento sin Redis
+
+Cuando `REDIS_URL` no está configurado, el servidor arranca con el store
+in-memory y loguea:
+
+```
+Rate limiter: in-memory
+```
+
+Esto es comportamiento esperado y seguro para instancias únicas.
+
+### Costo: $0 (Render free Redis)
+
+---
+
 ## Resumen de Costos
 
 | Servicio | Proveedor | Costo |

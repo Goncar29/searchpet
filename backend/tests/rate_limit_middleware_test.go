@@ -4,24 +4,24 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"lost-pets/internal/middleware"
+	"lost-pets/pkg/ratelimit"
 )
 
 // TestRateLimitMiddleware_BurstExceeded verifies that after exhausting the token
 // bucket burst capacity, the middleware returns 429 Too Many Requests.
 //
-// RateLimit(10, 2): 10 rps sustained rate, burst of 2.
-// The first 2 requests consume the initial bucket tokens.
+// limit=2, window=1s: allows 2 requests per second (burst of 2).
 // The 3rd request (burst+1) should be rejected with 429.
 func TestRateLimitMiddleware_BurstExceeded(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
 
-	// Low rate to ensure tokens aren't replenished between requests:
-	// 10 rps = 1 token every 100ms, burst = 2.
-	r.GET("/test", middleware.RateLimit(10, 2), func(c *gin.Context) {
+	// 2 requests per 1 second window, burst = 2.
+	r.GET("/test", middleware.RateLimit(ratelimit.NewInMemoryStore(), 2, 1*time.Second), func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"ok": true})
 	})
 
@@ -50,7 +50,7 @@ func TestRateLimitMiddleware_BurstExceeded(t *testing.T) {
 func TestRateLimitMiddleware_WithinBurst(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
-	r.GET("/test2", middleware.RateLimit(10, 5), func(c *gin.Context) {
+	r.GET("/test2", middleware.RateLimit(ratelimit.NewInMemoryStore(), 5, 1*time.Second), func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"ok": true})
 	})
 
@@ -70,7 +70,7 @@ func TestRateLimitMiddleware_WithinBurst(t *testing.T) {
 func TestRateLimitMiddleware_DifferentIPs(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
-	r.GET("/test3", middleware.RateLimit(10, 1), func(c *gin.Context) {
+	r.GET("/test3", middleware.RateLimit(ratelimit.NewInMemoryStore(), 1, 1*time.Second), func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"ok": true})
 	})
 

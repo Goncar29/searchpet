@@ -25,6 +25,9 @@ type Config struct {
 	TwilioAuthToken          string
 	TwilioFromNumber         string
 	EnableEmailVerification  bool
+
+	// V2.0 — Distributed Rate Limiting (Redis)
+	RedisURL string
 }
 
 func Load() *Config {
@@ -50,6 +53,9 @@ func Load() *Config {
 		TwilioAuthToken:         getEnv("TWILIO_AUTH_TOKEN", ""),
 		TwilioFromNumber:        getEnv("TWILIO_FROM_NUMBER", ""),
 		EnableEmailVerification: getEnv("ENABLE_EMAIL_VERIFICATION", "true") == "true",
+
+		// V2.0 — Distributed Rate Limiting (Redis)
+		RedisURL: getEnv("REDIS_URL", ""),
 	}
 
 	// Fail-fast: JWT_SECRET is required in all environments.
