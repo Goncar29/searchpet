@@ -24,7 +24,7 @@ import type { Report } from '../../../shared/types';
 MapLibreGL.setAccessToken(null);
 
 // Genera un polígono GeoJSON que aproxima un círculo dado un centro y radio en km.
-function createCircleGeoJSON(lng: number, lat: number, radiusKm: number, points = 64) {
+export function createCircleGeoJSON(lng: number, lat: number, radiusKm: number, points = 64) {
   const latRad = (lat * Math.PI) / 180;
   const coords: [number, number][] = [];
   for (let i = 0; i <= points; i++) {
