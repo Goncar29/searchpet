@@ -28,6 +28,9 @@ type Config struct {
 
 	// V2.0 — Distributed Rate Limiting (Redis)
 	RedisURL string
+
+	// V1.2 — Image Search (HuggingFace CLIP embeddings + pgvector)
+	HuggingFaceAPIKey string
 }
 
 func Load() *Config {
@@ -56,6 +59,9 @@ func Load() *Config {
 
 		// V2.0 — Distributed Rate Limiting (Redis)
 		RedisURL: getEnv("REDIS_URL", ""),
+
+		// V1.2 — Image Search (HuggingFace CLIP)
+		HuggingFaceAPIKey: getEnv("HF_API_KEY", ""),
 	}
 
 	// Fail-fast: JWT_SECRET is required in all environments.

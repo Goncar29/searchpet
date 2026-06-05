@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/pgvector/pgvector-go"
 )
 
 // ============================================================
@@ -328,4 +329,33 @@ type Shelter struct {
 	Description string    `gorm:"type:text" json:"description,omitempty"`
 	IsVerified  bool      `gorm:"default:false;index" json:"is_verified"`
 	CreatedAt   time.Time `gorm:"autoCreateTime" json:"created_at"`
+}
+
+// ============================================================
+// IMAGE SEARCH (pgvector + CLIP embeddings)
+// ============================================================
+
+// PetEmbedding stores the CLIP vector embedding for a pet photo.
+// IMPORTANT: this model is NOT registered in AutoMigrate — the table is
+// created exclusively via migration 000009_add_pgvector_embeddings.
+type PetEmbedding struct {
+	ID        uuid.UUID       `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
+	PetID     uuid.UUID       `gorm:"type:uuid;not null;index"`
+	PhotoID   uuid.UUID       `gorm:"type:uuid;not null;uniqueIndex"`
+	Embedding pgvector.Vector `gorm:"type:vector(512);not null"`
+	ModelVer  string          `gorm:"size:50;not null;default:'clip-vit-base-patch32'"`
+	CreatedAt time.Time       `gorm:"autoCreateTime"`
+}
+
+// ImageSearchResult is the read model returned by PetEmbeddingRepository.FindSimilar.
+// It is not a database entity — it is populated via a raw SQL query that joins
+// pet_embeddings, pets and photos.
+type ImageSearchResult struct {
+	PetID      uuid.UUID
+	PetName    string
+	PetType    string
+	Status     string
+	PrimaryURL string  // URL of the best-matching photo
+	Similarity float64 // 1 - cosine_distance (higher = more similar)
+	OwnerID    uuid.UUID
 }

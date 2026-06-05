@@ -163,7 +163,7 @@ func TestPhotoService_GetPhotosByPet_ReturnsPhotos(t *testing.T) {
 	}
 	petRepo := &mockPetRepoForService{}
 
-	svc := service.NewPhotoService(photoRepo, petRepo, nil)
+	svc := service.NewPhotoService(photoRepo, petRepo, nil, nil)
 
 	photos, err := svc.GetPhotosByPet(petID.String())
 	if err != nil {
@@ -185,7 +185,7 @@ func TestPhotoService_GetPhotosByPet_Empty(t *testing.T) {
 	}
 	petRepo := &mockPetRepoForService{}
 
-	svc := service.NewPhotoService(photoRepo, petRepo, nil)
+	svc := service.NewPhotoService(photoRepo, petRepo, nil, nil)
 
 	photos, err := svc.GetPhotosByPet(uuid.New().String())
 	if err != nil {
@@ -208,7 +208,7 @@ func TestPhotoService_UploadPhoto_PetNotFound(t *testing.T) {
 		},
 	}
 
-	svc := service.NewPhotoService(photoRepo, petRepo, nil)
+	svc := service.NewPhotoService(photoRepo, petRepo, nil, nil)
 
 	f := newStringFile("fake-image-data")
 	_, err := svc.UploadPhoto(context.Background(), uuid.New().String(), uuid.New().String(), f, "photo.jpg")
@@ -229,7 +229,7 @@ func TestPhotoService_UploadPhoto_NotOwner_Returns403Error(t *testing.T) {
 		},
 	}
 
-	svc := service.NewPhotoService(photoRepo, petRepo, nil)
+	svc := service.NewPhotoService(photoRepo, petRepo, nil, nil)
 
 	f := newStringFile("fake-image-data")
 	_, err := svc.UploadPhoto(context.Background(), petID.String(), uploaderID.String(), f, "photo.jpg")
@@ -253,7 +253,7 @@ func TestPhotoService_UploadPhoto_LimitReached(t *testing.T) {
 		},
 	}
 
-	svc := service.NewPhotoService(photoRepo, petRepo, nil)
+	svc := service.NewPhotoService(photoRepo, petRepo, nil, nil)
 
 	f := newStringFile("fake-image-data")
 	_, err := svc.UploadPhoto(context.Background(), petID.String(), ownerID.String(), f, "photo.jpg")
@@ -279,7 +279,7 @@ func TestPhotoService_UploadPhoto_StorageNil_ReturnsStorageFailed(t *testing.T) 
 	}
 
 	// storage = nil → should return ErrStorageFailed
-	svc := service.NewPhotoService(photoRepo, petRepo, nil)
+	svc := service.NewPhotoService(photoRepo, petRepo, nil, nil)
 
 	f := newStringFile("fake-image-data")
 	_, err := svc.UploadPhoto(context.Background(), petID.String(), ownerID.String(), f, "photo.jpg")

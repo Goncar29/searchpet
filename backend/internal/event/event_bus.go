@@ -119,3 +119,18 @@ type ReviewCreatedEvent struct {
 type UserVerifiedEvent struct {
 	UserID uuid.UUID
 }
+
+// PhotoUploadedEvent is published by PhotoService after a photo is successfully
+// persisted to Cloudinary and stored in the database.
+// EmbeddingService subscribes to this event to generate CLIP embeddings for lost pets.
+type PhotoUploadedEvent struct {
+	PetID     uuid.UUID
+	PhotoID   uuid.UUID
+	SecureURL string // Cloudinary secure URL
+}
+
+// PetLostEvent is published by PetService when a pet's status transitions to "lost".
+// EmbeddingService subscribes to backfill embeddings for all existing photos.
+type PetLostEvent struct {
+	PetID uuid.UUID
+}

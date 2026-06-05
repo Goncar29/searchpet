@@ -96,6 +96,9 @@ func (s *petService) UpdatePet(ownerID string, petID string, req dto.UpdatePetRe
 		return nil, domain.ErrPetStatusLocked
 	}
 
+	// Capturamos el estado anterior antes de aplicar cambios (necesario para publicar pet.lost)
+	oldStatus := pet.Status
+
 	// Solo actualizamos los campos que vienen con valor
 	if req.Name != "" {
 		pet.Name = req.Name
@@ -115,6 +118,11 @@ func (s *petService) UpdatePet(ownerID string, petID string, req dto.UpdatePetRe
 
 	if err := s.repo.Update(pet); err != nil {
 		return nil, err
+	}
+
+	// Publicamos pet.lost cuando la transición es desde cualquier estado != "lost" a "lost"
+	if s.eventBus != nil && oldStatus != "lost" && req.Status == "lost" {
+		s.eventBus.Publish("pet.lost", event.PetLostEvent{PetID: pet.ID})
 	}
 
 	return pet, nil

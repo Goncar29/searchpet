@@ -447,6 +447,23 @@ export interface GroupMember {
 export type GroupListResponse = LocalGroup[];
 
 // ============================================================
+// IMAGE SEARCH (server-side CLIP similarity)
+// ============================================================
+
+/**
+ * A single result from POST /api/pets/search/image.
+ * The search photo is never persisted — embeddings are generated on the fly.
+ */
+export interface ImageSearchResult {
+  pet_id: string;
+  name: string;
+  type: string;
+  photo_url: string;
+  similarity: number;
+  owner_id: string;
+}
+
+// ============================================================
 // IMAGE CLASSIFICATION
 // ============================================================
 

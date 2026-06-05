@@ -191,6 +191,20 @@ type UserReviewRepository interface {
 	Delete(ctx context.Context, reviewerID, revieweeID uuid.UUID) error
 }
 
+// PetEmbeddingRepository stores and queries CLIP vector embeddings for pet photos.
+// Style A: context.Context + uuid.UUID.
+// NOTE: The backing table (pet_embeddings) is managed exclusively via SQL migration
+// 000009_add_pgvector_embeddings — it is NOT included in GORM AutoMigrate.
+type PetEmbeddingRepository interface {
+	// Upsert inserts or updates the embedding row keyed by photo_id.
+	Upsert(ctx context.Context, emb *domain.PetEmbedding) error
+	// FindSimilar returns up to limit lost pets ranked by cosine similarity to queryVec.
+	// Results are deduplicated by pet_id (best-matching photo per pet wins).
+	FindSimilar(ctx context.Context, queryVec []float32, limit int) ([]domain.ImageSearchResult, error)
+	// DeleteByPetID removes all embedding rows for the given pet (called on pet.found).
+	DeleteByPetID(ctx context.Context, petID uuid.UUID) error
+}
+
 // LocationAlertRepository define el contrato para alertas de ubicación.
 // Style A: context.Context + uuid.UUID.
 type LocationAlertRepository interface {

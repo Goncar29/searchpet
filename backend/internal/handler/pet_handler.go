@@ -2,6 +2,7 @@ package handler
 
 import (
 	"errors"
+	"io"
 	"net/http"
 	"strconv"
 	"time"
@@ -13,12 +14,16 @@ import (
 )
 
 type PetHandler struct {
-	petService service.PetService
+	petService       service.PetService
+	embeddingService *service.EmbeddingService
 }
 
 // NewPetHandler crea una instancia del handler con sus dependencias.
-func NewPetHandler(petService service.PetService) *PetHandler {
-	return &PetHandler{petService: petService}
+func NewPetHandler(petService service.PetService, embeddingService *service.EmbeddingService) *PetHandler {
+	return &PetHandler{
+		petService:       petService,
+		embeddingService: embeddingService,
+	}
 }
 
 // CreatePet godoc
@@ -223,4 +228,50 @@ func (h *PetHandler) MarkAsFound(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, dto.ToPetResponse(pet))
+}
+
+// SearchByImage godoc
+// POST /api/pets/search/image
+// Recibe una foto por multipart (campo "image"), genera un embedding CLIP y retorna
+// las mascotas perdidas más similares. La foto NUNCA se persiste en Cloudinary ni en BD.
+func (h *PetHandler) SearchByImage(c *gin.Context) {
+	// Limitar tamaño del form a 10 MB
+	if err := c.Request.ParseMultipartForm(10 << 20); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "multipart form inválido o demasiado grande"})
+		return
+	}
+
+	file, _, err := c.Request.FormFile("image")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "campo 'image' requerido"})
+		return
+	}
+	defer file.Close()
+
+	imageBytes, err := io.ReadAll(file)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
+		return
+	}
+
+	// Generar embedding y buscar similares — si HF falla retornamos 503
+	results, err := h.embeddingService.SearchSimilar(c.Request.Context(), imageBytes, 10)
+	if err != nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "servicio de búsqueda por imagen no disponible temporalmente"})
+		return
+	}
+
+	items := make([]dto.ImageSearchResultDTO, 0, len(results))
+	for _, r := range results {
+		items = append(items, dto.ImageSearchResultDTO{
+			PetID:      r.PetID.String(),
+			Name:       r.PetName,
+			Type:       r.PetType,
+			PhotoURL:   r.PrimaryURL,
+			Similarity: r.Similarity,
+			OwnerID:    r.OwnerID.String(),
+		})
+	}
+
+	c.JSON(http.StatusOK, dto.ImageSearchResponse{Results: items})
 }

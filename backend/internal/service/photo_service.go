@@ -13,6 +13,7 @@ import (
 
 	"github.com/google/uuid"
 	"lost-pets/internal/domain"
+	"lost-pets/internal/event"
 	"lost-pets/internal/repository"
 	"lost-pets/pkg/storage"
 )
@@ -58,6 +59,7 @@ type photoServiceImpl struct {
 	photoRepo repository.PhotoRepository
 	petRepo   repository.PetRepository
 	storage   *storage.CloudinaryClient
+	bus       *event.EventBus
 }
 
 // NewPhotoService construye el PhotoService con todas sus dependencias.
@@ -65,11 +67,13 @@ func NewPhotoService(
 	photoRepo repository.PhotoRepository,
 	petRepo repository.PetRepository,
 	storage *storage.CloudinaryClient,
+	bus *event.EventBus,
 ) PhotoService {
 	return &photoServiceImpl{
 		photoRepo: photoRepo,
 		petRepo:   petRepo,
 		storage:   storage,
+		bus:       bus,
 	}
 }
 
@@ -149,6 +153,15 @@ func (s *photoServiceImpl) UploadPhoto(
 
 	if err := s.photoRepo.Create(photo); err != nil {
 		return nil, err
+	}
+
+	// Publicamos el evento para que EmbeddingService genere el vector CLIP (async, fire-and-forget).
+	if s.bus != nil {
+		s.bus.Publish("photo.uploaded", event.PhotoUploadedEvent{
+			PetID:     photo.PetID,
+			PhotoID:   photo.ID,
+			SecureURL: photo.URL,
+		})
 	}
 
 	return photo, nil

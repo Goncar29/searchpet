@@ -91,7 +91,7 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 	// CAPA 2: Services
 	// ========================================
 	authService := service.NewAuthService(userRepo, cfg.JWTSecret, cloudinaryClient)
-	photoService := service.NewPhotoService(photoRepo, petRepo, cloudinaryClient)
+	photoService := service.NewPhotoService(photoRepo, petRepo, cloudinaryClient, bus)
 	petService := service.NewPetService(petRepo, bus, photoService, reportRepo)
 	reportService := service.NewReportService(reportRepo, petRepo, bus)
 	messageService := service.NewMessageService(messageRepo, blockedUserRepo, bus)
@@ -109,6 +109,11 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 	pointsRepo := repository.NewUserPointsRepository(db)
 
 	reviewRepo := repository.NewUserReviewRepository(db)
+
+	// IMAGE SEARCH (pgvector + CLIP)
+	embeddingRepo := repository.NewPetEmbeddingRepository(db)
+	embeddingService := service.NewEmbeddingService(embeddingRepo, petRepo, photoRepo, cfg.HuggingFaceAPIKey)
+	embeddingService.RegisterListeners(bus)
 
 	gamSvc := service.NewGamificationService(badgeRepo, pointsRepo, userRepo, reviewRepo)
 	gamSvc.RegisterListeners(bus)
@@ -160,7 +165,7 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 	// CAPA 1: Handlers
 	// ========================================
 	authHandler := handler.NewAuthHandler(authService)
-	petHandler := handler.NewPetHandler(petService)
+	petHandler := handler.NewPetHandler(petService, embeddingService)
 	reportHandler := handler.NewReportHandler(reportService, userRepo)
 	photoHandler := handler.NewPhotoHandler(photoService)
 	statsHandler := handler.NewStatsHandler(db)
@@ -249,6 +254,8 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 		protected.PUT("/pets/:id", petHandler.UpdatePet)
 		protected.DELETE("/pets/:id", petHandler.DeletePet)
 		protected.PATCH("/pets/:id/found", petHandler.MarkAsFound)
+
+		protected.POST("/pets/search/image", petHandler.SearchByImage)
 
 		protected.POST("/reports", reportHandler.CreateReport)
 

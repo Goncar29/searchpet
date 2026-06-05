@@ -169,7 +169,7 @@ func TestPetHandler_GetPet(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			svc := &mockPetService{}
 			tc.setupMock(svc)
-			r := setupPetRouter(handler.NewPetHandler(svc), ownerID)
+			r := setupPetRouter(handler.NewPetHandler(svc, nil), ownerID)
 
 			req := httptest.NewRequest(http.MethodGet, "/api/pets/"+tc.petID, nil)
 			w := httptest.NewRecorder()
@@ -189,7 +189,7 @@ func TestPetHandler_GetPet_ResponseShape(t *testing.T) {
 	svc := &mockPetService{
 		getPetByIDFn: func(_ string) (*domain.Pet, error) { return pet, nil },
 	}
-	r := setupPetRouter(handler.NewPetHandler(svc), ownerID)
+	r := setupPetRouter(handler.NewPetHandler(svc, nil), ownerID)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/pets/"+pet.ID.String(), nil)
 	w := httptest.NewRecorder()
@@ -263,7 +263,7 @@ func TestPetHandler_CreatePet(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			svc := &mockPetService{}
 			tc.setupMock(svc)
-			r := setupPetRouter(handler.NewPetHandler(svc), ownerID)
+			r := setupPetRouter(handler.NewPetHandler(svc, nil), ownerID)
 
 			body, _ := json.Marshal(tc.body)
 			req := httptest.NewRequest(http.MethodPost, "/api/pets", bytes.NewReader(body))
@@ -372,7 +372,7 @@ func TestPetHandler_UpdatePet(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			svc := &mockPetService{}
 			tc.setupMock(svc)
-			r := setupPetRouter(handler.NewPetHandler(svc), tc.ownerID)
+			r := setupPetRouter(handler.NewPetHandler(svc, nil), tc.ownerID)
 
 			body, _ := json.Marshal(tc.body)
 			req := httptest.NewRequest(http.MethodPut, "/api/pets/"+tc.petIDStr, bytes.NewReader(body))
@@ -436,7 +436,7 @@ func TestPetHandler_DeletePet(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			svc := &mockPetService{}
 			tc.setupMock(svc)
-			r := setupPetRouter(handler.NewPetHandler(svc), tc.ownerID)
+			r := setupPetRouter(handler.NewPetHandler(svc, nil), tc.ownerID)
 
 			req := httptest.NewRequest(http.MethodDelete, "/api/pets/"+tc.petIDStr, nil)
 			w := httptest.NewRecorder()
@@ -501,7 +501,7 @@ func TestPetHandler_GetMyPets(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			svc := &mockPetService{}
 			tc.setupMock(svc)
-			r := setupPetRouter(handler.NewPetHandler(svc), ownerID)
+			r := setupPetRouter(handler.NewPetHandler(svc, nil), ownerID)
 
 			req := httptest.NewRequest(http.MethodGet, "/api/pets/mine", nil)
 			w := httptest.NewRecorder()
