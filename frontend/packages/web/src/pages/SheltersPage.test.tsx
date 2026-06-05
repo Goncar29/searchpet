@@ -9,6 +9,7 @@ vi.mock('react-i18next', () => ({
 
 vi.mock('@shared/hooks', () => ({
   useStats: () => ({ data: { total_pets: 10, total_found: 5, total_users: 20, total_reports: 30 } }),
+  useShelters: () => ({ data: [], isLoading: false }),
 }));
 
 function wrapper({ children }: { children: React.ReactNode }) {
@@ -25,8 +26,8 @@ describe('SheltersPage', () => {
     expect(document.body).toBeTruthy();
   });
 
-  it('muestra al menos un refugio hardcodeado', () => {
+  it('muestra mensaje vacío cuando no hay refugios', () => {
     render(<SheltersPage />, { wrapper });
-    expect(screen.getByText('SOS Rescate Animal Uruguay')).toBeTruthy();
+    expect(screen.getByText('shelters:empty')).toBeTruthy();
   });
 });

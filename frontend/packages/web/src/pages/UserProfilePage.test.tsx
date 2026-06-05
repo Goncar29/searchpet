@@ -18,6 +18,7 @@ vi.mock('@shared/hooks', () => ({
   useUserReviews: () => ({ data: [] }),
   useCreateReview: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useUpdateReview: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useDeleteReview: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useBlockUser: () => ({ mutate: vi.fn(), isPending: false }),
   useBlockedUsers: () => ({ data: [] }),
   useUnblockUser: () => ({ mutate: vi.fn(), isPending: false }),
