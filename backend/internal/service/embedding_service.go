@@ -53,6 +53,13 @@ func NewEmbeddingService(
 	}
 }
 
+// SetHTTPClientAndEndpoint replaces the HTTP client and HF endpoint used by this
+// service. Intended for testing only — allows injecting a mock HTTP server.
+func (s *EmbeddingService) SetHTTPClientAndEndpoint(client *http.Client, endpoint string) {
+	s.httpClient = client
+	s.hfEndpoint = endpoint
+}
+
 // RegisterListeners suscribe el servicio a los eventos relevantes del EventBus.
 func (s *EmbeddingService) RegisterListeners(bus *event.EventBus) {
 	bus.Subscribe("photo.uploaded", func(payload interface{}) {

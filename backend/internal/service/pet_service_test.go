@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"lost-pets/internal/domain"
+	"lost-pets/internal/dto"
 	"lost-pets/internal/event"
 	"lost-pets/internal/service"
 )
@@ -157,5 +158,97 @@ func TestMarkAsFound_PublishesEvent(t *testing.T) {
 		}
 	case <-time.After(500 * time.Millisecond):
 		t.Error("timeout waiting for pet.found event")
+	}
+}
+
+// ============================================================
+// Tests: UpdatePet → pet.lost event
+// ============================================================
+
+func TestUpdatePet_PublishesPetLostEvent(t *testing.T) {
+	ownerID := uuid.New()
+	repo := &mockPetRepo{pet: petWithStatus(ownerID, "registered")}
+	bus := event.NewEventBus()
+
+	eventReceived := make(chan event.PetLostEvent, 1)
+	bus.Subscribe("pet.lost", func(payload interface{}) {
+		if e, ok := payload.(event.PetLostEvent); ok {
+			eventReceived <- e
+		}
+	})
+
+	svc := service.NewPetService(repo, bus, nil, nil)
+	petID := repo.pet.ID
+
+	_, err := svc.UpdatePet(ownerID.String(), petID.String(), dto.UpdatePetRequest{Status: "lost"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	select {
+	case e := <-eventReceived:
+		if e.PetID != petID {
+			t.Errorf("event PetID mismatch: got %v, want %v", e.PetID, petID)
+		}
+	case <-time.After(500 * time.Millisecond):
+		t.Error("timeout: pet.lost event was not published after status transition to 'lost'")
+	}
+}
+
+func TestUpdatePet_DoesNotPublishPetLostWhenAlreadyLost(t *testing.T) {
+	ownerID := uuid.New()
+	// Pet is already lost — updating to "lost" again should NOT re-publish the event.
+	repo := &mockPetRepo{pet: petWithStatus(ownerID, "lost")}
+	bus := event.NewEventBus()
+
+	eventPublished := make(chan struct{}, 1)
+	bus.Subscribe("pet.lost", func(_ interface{}) {
+		eventPublished <- struct{}{}
+	})
+
+	svc := service.NewPetService(repo, bus, nil, nil)
+	petID := repo.pet.ID
+
+	_, err := svc.UpdatePet(ownerID.String(), petID.String(), dto.UpdatePetRequest{Status: "lost"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	select {
+	case <-eventPublished:
+		t.Error("pet.lost event should NOT be published when status was already 'lost'")
+	case <-time.After(200 * time.Millisecond):
+		// Expected: no event fired within 200ms.
+	}
+}
+
+func TestUpdatePet_DoesNotPublishPetLostForOtherTransitions(t *testing.T) {
+	ownerID := uuid.New()
+	// Status is "lost" — transitioning to "found" must NOT fire pet.lost again.
+	// Note: UpdatePet will hit ErrPetStatusLocked (found/archived guard) if we try
+	// to change status on a "lost" pet to "found" via UpdatePet.
+	// Instead test a transition that is NOT "→ lost": "active" → "active" (name-only update).
+	repo := &mockPetRepo{pet: petWithStatus(ownerID, "active")}
+	bus := event.NewEventBus()
+
+	eventPublished := make(chan struct{}, 1)
+	bus.Subscribe("pet.lost", func(_ interface{}) {
+		eventPublished <- struct{}{}
+	})
+
+	svc := service.NewPetService(repo, bus, nil, nil)
+	petID := repo.pet.ID
+
+	// Update name only — status stays "active", no pet.lost event.
+	_, err := svc.UpdatePet(ownerID.String(), petID.String(), dto.UpdatePetRequest{Name: "Rex Updated"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	select {
+	case <-eventPublished:
+		t.Error("pet.lost event should NOT be published for non-lost status transitions")
+	case <-time.After(200 * time.Millisecond):
+		// Expected: no event fired.
 	}
 }
