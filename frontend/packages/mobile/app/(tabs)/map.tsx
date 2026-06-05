@@ -40,8 +40,9 @@ function createCircleGeoJSON(lng: number, lat: number, radiusKm: number, points 
   };
 }
 
-// OpenFreeMap — calles OSM, gratuito, sin API key, sin registro
-const MAP_STYLE = 'https://tiles.openfreemap.org/styles/liberty';
+// Maptiler streets-v2 — calidad similar a Google Maps, key configurada en app.config.js
+const MAPTILER_KEY = process.env.EXPO_PUBLIC_MAPTILER_KEY;
+const MAP_STYLE = `https://api.maptiler.com/maps/streets-v2/style.json?key=${MAPTILER_KEY}`;
 
 // ============================================================
 // Error Boundary — evita que un crash del mapa cierre la app
