@@ -73,5 +73,6 @@ func migrate(db *gorm.DB) error {
 		&domain.ReportAbuse{},
 		&domain.Shelter{},
 		&domain.DeviceToken{},
+		&domain.UserReview{},
 	)
 }
