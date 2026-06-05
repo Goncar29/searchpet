@@ -42,7 +42,7 @@ function createCircleGeoJSON(lng: number, lat: number, radiusKm: number, points 
 
 // Maptiler streets-v2 — calidad similar a Google Maps, key configurada en app.config.js
 const MAPTILER_KEY = process.env.EXPO_PUBLIC_MAPTILER_KEY;
-const MAP_STYLE = `https://api.maptiler.com/maps/streets-v2/style.json?key=${MAPTILER_KEY}`;
+const MAP_STYLE = `https://api.maptiler.com/maps/streets-v4/style.json?key=${MAPTILER_KEY}`;
 
 // ============================================================
 // Error Boundary — evita que un crash del mapa cierre la app
