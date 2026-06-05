@@ -23,6 +23,23 @@ import type { Report } from '../../../shared/types';
 // MapLibre no necesita token de Mapbox
 MapLibreGL.setAccessToken(null);
 
+// Genera un polígono GeoJSON que aproxima un círculo dado un centro y radio en km.
+function createCircleGeoJSON(lng: number, lat: number, radiusKm: number, points = 64) {
+  const latRad = (lat * Math.PI) / 180;
+  const coords: [number, number][] = [];
+  for (let i = 0; i <= points; i++) {
+    const angle = (i / points) * 2 * Math.PI;
+    const dLat = (radiusKm / 111.32) * Math.sin(angle);
+    const dLng = (radiusKm / (111.32 * Math.cos(latRad))) * Math.cos(angle);
+    coords.push([lng + dLng, lat + dLat]);
+  }
+  return {
+    type: 'Feature' as const,
+    geometry: { type: 'Polygon' as const, coordinates: [coords] },
+    properties: {},
+  };
+}
+
 // OpenFreeMap — calles OSM, gratuito, sin API key, sin registro
 const MAP_STYLE = 'https://tiles.openfreemap.org/styles/liberty';
 
@@ -67,7 +84,10 @@ export default function MapScreen() {
   const lat = latitude || MAP_DEFAULTS.defaultLatitude;
   const lng = longitude || MAP_DEFAULTS.defaultLongitude;
 
-  const { data: reports, isLoading } = useNearbyReports(lat, lng, 15, true);
+  const [radius, setRadius] = useState(3);
+  const { data: reports, isLoading } = useNearbyReports(lat, lng, radius, true);
+
+  const circleGeoJSON = createCircleGeoJSON(lng, lat, radius);
 
   useEffect(() => {
     requestLocation();
@@ -139,6 +159,17 @@ export default function MapScreen() {
 
           <MapLibreGL.UserLocation visible />
 
+          <MapLibreGL.ShapeSource id="radiusCircle" shape={circleGeoJSON}>
+            <MapLibreGL.FillLayer
+              id="radiusFill"
+              style={{ fillColor: '#6366f1', fillOpacity: 0.08 }}
+            />
+            <MapLibreGL.LineLayer
+              id="radiusLine"
+              style={{ lineColor: '#6366f1', lineWidth: 2, lineDasharray: [6, 4] }}
+            />
+          </MapLibreGL.ShapeSource>
+
           {reports?.map((report) => (
             <MapLibreGL.PointAnnotation
               key={report.id}
@@ -156,6 +187,21 @@ export default function MapScreen() {
             </MapLibreGL.PointAnnotation>
           ))}
         </MapLibreGL.MapView>
+
+        {/* Selector de radio */}
+        <View style={styles.radiusSelector}>
+          {[1, 3, 5, 10].map((km) => (
+            <TouchableOpacity
+              key={km}
+              style={[styles.radiusButton, radius === km && styles.radiusButtonActive]}
+              onPress={() => setRadius(km)}
+            >
+              <Text style={[styles.radiusButtonText, radius === km && styles.radiusButtonTextActive]}>
+                {km}km
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
 
         {/* Botón centrar en usuario */}
         <TouchableOpacity style={styles.centerButton} onPress={centerOnUser}>
@@ -351,5 +397,32 @@ const styles = StyleSheet.create({
     fontSize: FONTS.sizes.sm,
     color: COLORS.primary,
     fontWeight: '600',
+  },
+  radiusSelector: {
+    position: 'absolute',
+    bottom: 240,
+    left: SPACING.lg,
+    flexDirection: 'row',
+    gap: 8,
+  },
+  radiusButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    borderWidth: 1.5,
+    borderColor: COLORS.border || '#e5e7eb',
+  },
+  radiusButtonActive: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  radiusButtonText: {
+    fontSize: FONTS.sizes.xs,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
+  },
+  radiusButtonTextActive: {
+    color: COLORS.white,
   },
 });
