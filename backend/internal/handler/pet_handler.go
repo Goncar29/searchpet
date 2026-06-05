@@ -241,7 +241,7 @@ func (h *PetHandler) SearchByImage(c *gin.Context) {
 		return
 	}
 
-	file, _, err := c.Request.FormFile("image")
+	file, _, err := c.Request.FormFile("photo")
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "campo 'image' requerido"})
 		return
