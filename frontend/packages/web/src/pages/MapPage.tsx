@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Circle } from 'react-leaflet';
 import { Link } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import L from 'leaflet';
@@ -43,7 +43,7 @@ export function MapPage() {
     );
   }, []);
 
-  const [radius, setRadius] = useState(20);
+  const [radius, setRadius] = useState(3);
   const { data: reports, isLoading } = useNearbyReports(userLocation[0], userLocation[1], radius, true);
 
   const getIcon = (status: string) => {
@@ -76,7 +76,7 @@ export function MapPage() {
               onChange={(e) => setRadius(Number(e.target.value))}
               className="ml-1 border border-gray-300 dark:border-gray-600 rounded px-2 py-0.5 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
             >
-              {[5, 10, 20, 50].map((km) => (
+              {[1, 3, 5, 10].map((km) => (
                 <option key={km} value={km}>{t('map:radiusKm', { km })}</option>
               ))}
             </select>
@@ -110,6 +110,17 @@ export function MapPage() {
             {theme === 'dark' && (
               <style>{`.leaflet-tile { filter: invert(100%) hue-rotate(180deg) !important; }`}</style>
             )}
+            <Circle
+              center={userLocation}
+              radius={radius * 1000}
+              pathOptions={{
+                color: '#6366f1',
+                fillColor: '#6366f1',
+                fillOpacity: 0.08,
+                weight: 2,
+                dashArray: '6 4',
+              }}
+            />
             {reports?.map((report: Report) => (
               <Marker
                 key={report.id}
