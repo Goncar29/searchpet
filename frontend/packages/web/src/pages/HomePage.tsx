@@ -27,7 +27,7 @@ export function HomePage() {
   // ── Filtros ──
   const [filterType, setFilterType] = useState<PetType | ''>('');
   const [filterColor, setFilterColor] = useState('');
-  const [filterStatus, setFilterStatus] = useState<PetStatus | ''>('');
+  const [filterStatus, setFilterStatus] = useState<PetStatus | ''>('lost');
   const [filterBreed, setFilterBreed] = useState('');
   const [filterFrom, setFilterFrom] = useState('');
   const [filterTo, setFilterTo] = useState('');
