@@ -44,6 +44,7 @@ func startTestServer(t *testing.T) (baseURL string, cleanup func()) {
 		CORSAllowedOrigins:      "*",
 		AppURL:                  "http://localhost",
 		EnableEmailVerification: false,
+		AuthRateLimitMax:        1000,
 	}
 
 	log := logger.Init("test")
