@@ -4,6 +4,19 @@
 
 import { API_BASE_URL } from './baseURL';
 
+// Typed error class — carries the machine-readable `code` from the backend
+// ErrorResponse (`{code, message}`). UI layers use `code` to drive i18n lookups.
+export class ApiError extends Error {
+  code: string;
+  status: number;
+  constructor(code: string, status: number, message: string) {
+    super(message);
+    this.name = 'ApiError';
+    this.code = code;
+    this.status = status;
+  }
+}
+
 import type {
   AuthResponse,
   RegisterRequest,
@@ -97,10 +110,10 @@ class APIClient {
     });
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: 'Error desconocido' }));
-      const err = new Error(error.error || `HTTP Error ${response.status}`) as Error & { status: number };
-      err.status = response.status;
-      throw err;
+      const body = await response.json().catch(() => ({}));
+      const code = body.code ?? 'unknown_error';
+      const message = body.message ?? `HTTP Error ${response.status}`;
+      throw new ApiError(code, response.status, message);
     }
 
     if (response.status === 204) {
@@ -152,8 +165,10 @@ class APIClient {
 
     const response = await fetch(url, { method: 'POST', headers, body: formData });
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: 'Error desconocido' }));
-      throw new Error(error.error || `HTTP Error ${response.status}`);
+      const body = await response.json().catch(() => ({}));
+      const code = body.code ?? 'unknown_error';
+      const message = body.message ?? `HTTP Error ${response.status}`;
+      throw new ApiError(code, response.status, message);
     }
     return response.json();
   }
@@ -220,8 +235,10 @@ class APIClient {
     });
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: 'Error desconocido' }));
-      throw new Error(error.error || `HTTP Error ${response.status}`);
+      const body = await response.json().catch(() => ({}));
+      const code = body.code ?? 'unknown_error';
+      const message = body.message ?? `HTTP Error ${response.status}`;
+      throw new ApiError(code, response.status, message);
     }
 
     return response.json();
@@ -250,8 +267,10 @@ class APIClient {
     });
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: 'Error desconocido' }));
-      throw new Error(error.error || `HTTP Error ${response.status}`);
+      const body = await response.json().catch(() => ({}));
+      const code = body.code ?? 'unknown_error';
+      const message = body.message ?? `HTTP Error ${response.status}`;
+      throw new ApiError(code, response.status, message);
     }
 
     return response.json();
@@ -281,8 +300,10 @@ class APIClient {
     });
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: 'Error desconocido' }));
-      throw new Error(error.error || `HTTP Error ${response.status}`);
+      const body = await response.json().catch(() => ({}));
+      const code = body.code ?? 'unknown_error';
+      const message = body.message ?? `HTTP Error ${response.status}`;
+      throw new ApiError(code, response.status, message);
     }
 
     return response.json();
