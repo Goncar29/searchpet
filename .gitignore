@@ -29,6 +29,7 @@ frontend/packages/web/public/firebase-messaging-sw.js
 
 # Node
 node_modules/
+frontend/packages/*/pnpm-workspace.yaml
 .expo/
 dist/
 build/
