@@ -429,6 +429,14 @@
     "contactPhone": "Telefone",
     "contactEmail": "Email"
   },
+  "messages": {
+    "title": "Mensagens",
+    "emptyTitle": "Sem mensagens",
+    "emptySubtitle": "Quando você entrar em contato sobre um pet, a conversa aparecerá aqui.",
+    "loginSubtitle": "Entre para ver e enviar mensagens.",
+    "loginButton": "Entrar",
+    "youPrefix": "Você: "
+  },
   "verify": {
     "title": "Verificar telefone",
     "stepPhoneDesc": "Digite seu número de telefone e enviaremos um código SMS.",
