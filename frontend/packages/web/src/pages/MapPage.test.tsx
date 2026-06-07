@@ -16,7 +16,8 @@ vi.mock('../context/ThemeContext', () => ({
 const mockUseNearbyReports = vi.fn(() => ({ data: [], isLoading: false }));
 
 vi.mock('@shared/hooks', () => ({
-  useNearbyReports: (...args: unknown[]) => mockUseNearbyReports(...args),
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  useNearbyReports: (...args: any[]) => mockUseNearbyReports(...args),
 }));
 
 // leaflet uses DOM APIs not available in jsdom
@@ -83,7 +84,7 @@ describe('MapPage', () => {
     await userEvent.selectOptions(select, '10');
 
     // The last call to useNearbyReports (after radius change) should use radius=10
-    const calls = mockUseNearbyReports.mock.calls;
+    const calls = mockUseNearbyReports.mock.calls as unknown[][];
     const lastCall = calls[calls.length - 1];
     expect(lastCall[2]).toBe(10);
   });

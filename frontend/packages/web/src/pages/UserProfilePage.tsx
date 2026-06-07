@@ -126,6 +126,7 @@ function StatPill({ label, value }: { label: string; value: number }) {
 
 export function UserProfilePage() {
   const { id } = useParams<{ id: string }>();
+  const { t } = useTranslation();
   const { user, isAuthenticated } = useAuth();
   const { data: profile, isLoading, error } = usePublicProfile(id ?? '');
   const { data: reviewsData, isLoading: reviewsLoading } = useUserReviews(id ?? '');
