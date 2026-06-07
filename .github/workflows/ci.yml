@@ -185,10 +185,12 @@ jobs:
 
       - name: Start backend
         working-directory: ./backend
-        run: ./bin/server &
+        run: ./bin/server > /tmp/backend.log 2>&1 &
 
       - name: Wait for backend
-        run: timeout 60 bash -c 'until curl -sf http://localhost:8080/api/stats; do sleep 2; done'
+        run: |
+          timeout 90 bash -c 'until curl -sf http://localhost:8080/api/stats; do sleep 2; done' || \
+          (echo "=== BACKEND LOGS ===" && cat /tmp/backend.log && exit 1)
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
