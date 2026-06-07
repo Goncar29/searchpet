@@ -36,25 +36,25 @@ func (h *MessageHandler) Send(c *gin.Context) {
 
 	var req dto.SendMessageRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		writeError(c, http.StatusBadRequest, err)
 		return
 	}
 
 	msg, err := h.messageService.Send(c.Request.Context(), senderID, req)
 	if err != nil {
 		if errors.Is(err, domain.ErrSelfMessage) {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			writeError(c, http.StatusBadRequest, err)
 			return
 		}
 		if errors.Is(err, domain.ErrUserBlocked) {
-			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+			writeError(c, http.StatusForbidden, err)
 			return
 		}
 		if errors.Is(err, domain.ErrInvalidInput) {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			writeError(c, http.StatusBadRequest, err)
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
+		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		return
 	}
 
@@ -68,7 +68,7 @@ func (h *MessageHandler) GetConversations(c *gin.Context) {
 
 	messages, err := h.messageService.GetConversations(c.Request.Context(), userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
+		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		return
 	}
 
@@ -100,10 +100,10 @@ func (h *MessageHandler) GetConversation(c *gin.Context) {
 	messages, err := h.messageService.GetConversation(c.Request.Context(), userID, otherUserID, limit, offset)
 	if err != nil {
 		if errors.Is(err, domain.ErrInvalidInput) {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			writeError(c, http.StatusBadRequest, err)
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
+		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		return
 	}
 
@@ -117,7 +117,7 @@ func (h *MessageHandler) GetConversation(c *gin.Context) {
 // Solo el sender o receiver del mensaje puede obtener la URL.
 func (h *MessageHandler) GetPhotoSignedURL(c *gin.Context) {
 	if h.cloudinary == nil {
-		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "servicio de imágenes no disponible"})
+		writeError(c, http.StatusServiceUnavailable, domain.ErrImageSearchUnavailable)
 		return
 	}
 
@@ -126,34 +126,34 @@ func (h *MessageHandler) GetPhotoSignedURL(c *gin.Context) {
 
 	msgUUID, err := uuid.Parse(messageID)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "messageId inválido"})
+		writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
 		return
 	}
 
 	msg, err := h.messageService.GetMessageByID(c.Request.Context(), msgUUID)
 	if err != nil {
 		if errors.Is(err, domain.ErrMessageNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"error": "mensaje no encontrado"})
+			writeError(c, http.StatusNotFound, domain.ErrMessageNotFound)
 		} else {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
+			writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		}
 		return
 	}
 
 	callerUUID, _ := uuid.Parse(callerID)
 	if msg.SenderID != callerUUID && msg.ReceiverID != callerUUID {
-		c.JSON(http.StatusForbidden, gin.H{"error": "acceso denegado"})
+		writeError(c, http.StatusForbidden, domain.ErrForbidden)
 		return
 	}
 
 	if msg.PhotoPublicID == "" {
-		c.JSON(http.StatusNotFound, gin.H{"error": "este mensaje no tiene foto"})
+		writeError(c, http.StatusNotFound, domain.ErrPhotoNotFound)
 		return
 	}
 
 	url, expiresAt, err := h.cloudinary.GenerateSignedURL(c.Request.Context(), msg.PhotoPublicID, time.Hour)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "error generando URL"})
+		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		return
 	}
 
@@ -172,18 +172,18 @@ func (h *MessageHandler) MarkAsRead(c *gin.Context) {
 	err := h.messageService.MarkAsRead(c.Request.Context(), userID, messageID)
 	if err != nil {
 		if errors.Is(err, domain.ErrMessageNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			writeError(c, http.StatusNotFound, err)
 			return
 		}
 		if errors.Is(err, domain.ErrNotMessageReceiver) {
-			c.JSON(http.StatusForbidden, gin.H{"error": domain.ErrForbidden.Error()})
+			writeError(c, http.StatusForbidden, domain.ErrForbidden)
 			return
 		}
 		if errors.Is(err, domain.ErrInvalidInput) {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			writeError(c, http.StatusBadRequest, err)
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
+		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		return
 	}
 

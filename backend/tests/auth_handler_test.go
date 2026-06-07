@@ -317,7 +317,7 @@ func TestAuthHandler_Login(t *testing.T) {
 			wantStatus: http.StatusUnauthorized,
 		},
 		{
-			name: "banned user returns 401",
+			name: "banned user returns 403",
 			body: map[string]interface{}{
 				"email":    "banned@test.com",
 				"password": "pass123",
@@ -327,7 +327,7 @@ func TestAuthHandler_Login(t *testing.T) {
 					return nil, "", domain.ErrUserBanned
 				}
 			},
-			wantStatus: http.StatusUnauthorized,
+			wantStatus: http.StatusForbidden,
 		},
 		{
 			name: "missing email returns 400",

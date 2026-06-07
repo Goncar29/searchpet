@@ -33,14 +33,14 @@ func (h *ShareHandler) GenerateShareLink(c *gin.Context) {
 	link, err := h.shareLinkService.Generate(c.Request.Context(), petID, ownerID)
 	if err != nil {
 		if errors.Is(err, domain.ErrPetNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			writeError(c, http.StatusNotFound, err)
 			return
 		}
 		if errors.Is(err, domain.ErrNotPetOwner) {
-			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+			writeError(c, http.StatusForbidden, err)
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
+		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		return
 	}
 
@@ -56,14 +56,14 @@ func (h *ShareHandler) GetByToken(c *gin.Context) {
 	link, err := h.shareLinkService.GetByToken(c.Request.Context(), token)
 	if err != nil {
 		if errors.Is(err, domain.ErrShareLinkNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			writeError(c, http.StatusNotFound, err)
 			return
 		}
 		if errors.Is(err, domain.ErrShareLinkExpired) {
-			c.JSON(http.StatusGone, gin.H{"error": err.Error()})
+			writeError(c, http.StatusGone, err)
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
+		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		return
 	}
 
@@ -78,10 +78,10 @@ func (h *ShareHandler) TrackContact(c *gin.Context) {
 	err := h.shareLinkService.TrackContact(c.Request.Context(), token)
 	if err != nil {
 		if errors.Is(err, domain.ErrShareLinkNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			writeError(c, http.StatusNotFound, err)
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
+		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		return
 	}
 

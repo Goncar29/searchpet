@@ -39,7 +39,7 @@ func NewPhotoHandler(photoService service.PhotoService) *PhotoHandler {
 func (h *PhotoHandler) Upload(c *gin.Context) {
 	petIDStr := c.Param("id")
 	if petIDStr == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "petId requerido"})
+		writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
 		return
 	}
 
@@ -48,20 +48,20 @@ func (h *PhotoHandler) Upload(c *gin.Context) {
 
 	// Parsear multipart — si el body supera el límite, ParseMultipartForm devuelve error
 	if err := c.Request.ParseMultipartForm(maxUploadSize); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": domain.ErrFileTooLarge.Error()})
+		writeError(c, http.StatusBadRequest, domain.ErrFileTooLarge)
 		return
 	}
 
 	file, header, err := c.Request.FormFile("photo")
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "campo 'photo' requerido"})
+		writeError(c, http.StatusBadRequest, domain.ErrPhotoFieldRequired)
 		return
 	}
 	defer file.Close()
 
 	// Validar tamaño explícito (por si ParseMultipartForm no lo cortó a tiempo)
 	if header.Size > maxUploadSize {
-		c.JSON(http.StatusBadRequest, gin.H{"error": domain.ErrFileTooLarge.Error()})
+		writeError(c, http.StatusBadRequest, domain.ErrFileTooLarge)
 		return
 	}
 
@@ -69,7 +69,7 @@ func (h *PhotoHandler) Upload(c *gin.Context) {
 	buf := make([]byte, 512)
 	n, err := file.Read(buf)
 	if err != nil && n == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "no se pudo leer el archivo"})
+		writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
 		return
 	}
 	detectedMIME := http.DetectContentType(buf[:n])
@@ -78,13 +78,13 @@ func (h *PhotoHandler) Upload(c *gin.Context) {
 	mimeBase := strings.Split(detectedMIME, ";")[0]
 
 	if !allowedMIMETypes[mimeBase] {
-		c.JSON(http.StatusBadRequest, gin.H{"error": domain.ErrInvalidFileType.Error()})
+		writeError(c, http.StatusBadRequest, domain.ErrInvalidFileType)
 		return
 	}
 
 	// Volver al inicio del archivo para que el service pueda leerlo completo
 	if _, err := file.Seek(0, 0); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
+		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		return
 	}
 
@@ -94,23 +94,19 @@ func (h *PhotoHandler) Upload(c *gin.Context) {
 	if err != nil {
 		switch {
 		case errors.Is(err, domain.ErrPetNotFound):
-			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			writeError(c, http.StatusNotFound, err)
 		case errors.Is(err, domain.ErrNotPetOwner):
-			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+			writeError(c, http.StatusForbidden, err)
 		case errors.Is(err, domain.ErrPhotoLimitReached):
-			c.JSON(http.StatusUnprocessableEntity, gin.H{
-				"error":   err.Error(),
-				"code":    "photo_limit_reached",
-				"message": "Las mascotas solo pueden tener hasta 3 fotos",
-			})
+			writeError(c, http.StatusUnprocessableEntity, err)
 		case errors.Is(err, domain.ErrInvalidFileType):
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			writeError(c, http.StatusBadRequest, err)
 		case errors.Is(err, domain.ErrFileTooLarge):
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			writeError(c, http.StatusBadRequest, err)
 		case errors.Is(err, domain.ErrStorageFailed):
-			c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
+			writeError(c, http.StatusBadGateway, err)
 		default:
-			c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
+			writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		}
 		return
 	}
@@ -130,11 +126,11 @@ func (h *PhotoHandler) Delete(c *gin.Context) {
 	if err := h.photoService.DeletePhoto(c.Request.Context(), petID, photoID, uploaderID); err != nil {
 		switch {
 		case errors.Is(err, domain.ErrPetNotFound), errors.Is(err, domain.ErrPhotoNotFound):
-			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			writeError(c, http.StatusNotFound, err)
 		case errors.Is(err, domain.ErrNotPetOwner):
-			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+			writeError(c, http.StatusForbidden, err)
 		default:
-			c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
+			writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		}
 		return
 	}
@@ -149,7 +145,7 @@ func (h *PhotoHandler) List(c *gin.Context) {
 
 	photos, err := h.photoService.GetPhotosByPet(petIDStr)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
+		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		return
 	}
 

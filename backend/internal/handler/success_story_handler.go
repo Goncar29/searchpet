@@ -29,21 +29,21 @@ func (h *SuccessStoryHandler) Create(c *gin.Context) {
 
 	var req dto.CreateStoryRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		writeError(c, http.StatusBadRequest, err)
 		return
 	}
 
 	story, err := h.storyService.Create(c.Request.Context(), callerID, req)
 	if err != nil {
 		if errors.Is(err, domain.ErrPetNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			writeError(c, http.StatusNotFound, err)
 			return
 		}
 		if errors.Is(err, domain.ErrPetNotFoundStatus) {
-			c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
+			writeError(c, http.StatusUnprocessableEntity, err)
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
+		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		return
 	}
 
@@ -74,7 +74,7 @@ func (h *SuccessStoryHandler) List(c *gin.Context) {
 
 	stories, err := h.storyService.List(c.Request.Context(), featured, limit, offset)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
+		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		return
 	}
 
@@ -86,17 +86,17 @@ func (h *SuccessStoryHandler) List(c *gin.Context) {
 func (h *SuccessStoryHandler) GetByID(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "id inválido"})
+		writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
 		return
 	}
 
 	story, err := h.storyService.GetByID(c.Request.Context(), id)
 	if err != nil {
 		if errors.Is(err, domain.ErrStoryNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			writeError(c, http.StatusNotFound, err)
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
+		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		return
 	}
 
@@ -108,16 +108,16 @@ func (h *SuccessStoryHandler) GetByID(c *gin.Context) {
 func (h *SuccessStoryHandler) Like(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "id inválido"})
+		writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
 		return
 	}
 
 	if err := h.storyService.Like(c.Request.Context(), id); err != nil {
 		if errors.Is(err, domain.ErrStoryNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			writeError(c, http.StatusNotFound, err)
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
+		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		return
 	}
 
@@ -131,7 +131,7 @@ func (h *SuccessStoryHandler) Delete(c *gin.Context) {
 
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "id inválido"})
+		writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
 		return
 	}
 
@@ -143,14 +143,14 @@ func (h *SuccessStoryHandler) Delete(c *gin.Context) {
 
 	if err := h.storyService.Delete(c.Request.Context(), id, callerID, admin); err != nil {
 		if errors.Is(err, domain.ErrStoryNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			writeError(c, http.StatusNotFound, err)
 			return
 		}
 		if errors.Is(err, domain.ErrForbidden) {
-			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+			writeError(c, http.StatusForbidden, err)
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
+		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		return
 	}
 
@@ -162,26 +162,26 @@ func (h *SuccessStoryHandler) Delete(c *gin.Context) {
 func (h *SuccessStoryHandler) GetByPetID(c *gin.Context) {
 	petID, err := uuid.Parse(c.Param("petId"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "petId inválido"})
+		writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
 		return
 	}
 
 	story, err := h.storyService.GetByPetID(c.Request.Context(), petID)
 	if err != nil {
 		if errors.Is(err, domain.ErrPetNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			writeError(c, http.StatusNotFound, err)
 			return
 		}
 		if errors.Is(err, domain.ErrPetNotFoundStatus) {
-			c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
+			writeError(c, http.StatusUnprocessableEntity, err)
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
+		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		return
 	}
 
 	if story == nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": domain.ErrStoryNotFound.Error()})
+		writeError(c, http.StatusNotFound, domain.ErrStoryNotFound)
 		return
 	}
 
@@ -195,22 +195,22 @@ func (h *SuccessStoryHandler) SetFeatured(c *gin.Context) {
 
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "id inválido"})
+		writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
 		return
 	}
 
 	var req dto.SetFeaturedRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		writeError(c, http.StatusBadRequest, err)
 		return
 	}
 
 	if err := h.storyService.SetFeatured(c.Request.Context(), id, req.Featured, adminID); err != nil {
 		if errors.Is(err, domain.ErrStoryNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			writeError(c, http.StatusNotFound, err)
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
+		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		return
 	}
 

@@ -29,17 +29,17 @@ func (h *AbuseReportHandler) Submit(c *gin.Context) {
 
 	var req dto.CreateAbuseReportRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		writeError(c, http.StatusBadRequest, err)
 		return
 	}
 
 	report, err := h.abuseService.Submit(c.Request.Context(), reporterID, req)
 	if err != nil {
 		if errors.Is(err, domain.ErrInvalidInput) {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "se requiere target_user_id o target_report_id"})
+			writeError(c, http.StatusBadRequest, err)
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
+		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		return
 	}
 
@@ -70,7 +70,7 @@ func (h *AbuseReportHandler) List(c *gin.Context) {
 
 	reports, err := h.abuseService.List(c.Request.Context(), resolved, limit, offset)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
+		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		return
 	}
 
@@ -82,17 +82,17 @@ func (h *AbuseReportHandler) List(c *gin.Context) {
 func (h *AbuseReportHandler) GetByID(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "id inválido"})
+		writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
 		return
 	}
 
 	report, err := h.abuseService.GetByID(c.Request.Context(), id)
 	if err != nil {
 		if errors.Is(err, domain.ErrAbuseReportNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			writeError(c, http.StatusNotFound, err)
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
+		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		return
 	}
 
@@ -106,26 +106,26 @@ func (h *AbuseReportHandler) Resolve(c *gin.Context) {
 
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "id inválido"})
+		writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
 		return
 	}
 
 	var req dto.ResolveAbuseReportRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		writeError(c, http.StatusBadRequest, err)
 		return
 	}
 
 	if err := h.abuseService.Resolve(c.Request.Context(), id, adminID, req.Status); err != nil {
 		if errors.Is(err, domain.ErrAbuseReportNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			writeError(c, http.StatusNotFound, err)
 			return
 		}
 		if errors.Is(err, domain.ErrInvalidInput) {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "status debe ser 'resolved' o 'dismissed'"})
+			writeError(c, http.StatusBadRequest, err)
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
+		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		return
 	}
 

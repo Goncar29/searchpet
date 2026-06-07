@@ -22,24 +22,24 @@ func (h *StatsHandler) GetStats(c *gin.Context) {
 	var totalUsers, totalPets, totalReports, foundPets int64
 
 	if err := h.db.Model(&domain.User{}).Count(&totalUsers).Error; err != nil {
-		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "service unavailable"})
+		writeError(c, http.StatusServiceUnavailable, domain.ErrInternal)
 		return
 	}
 
 	if err := h.db.Model(&domain.Pet{}).Count(&totalPets).Error; err != nil {
-		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "service unavailable"})
+		writeError(c, http.StatusServiceUnavailable, domain.ErrInternal)
 		return
 	}
 
 	// Contamos mascotas únicas que han sido reportadas — un mismo animal
 	// perdido y encontrado varias veces sigue siendo 1 reporte publicado.
 	if err := h.db.Model(&domain.Report{}).Distinct("pet_id").Count(&totalReports).Error; err != nil {
-		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "service unavailable"})
+		writeError(c, http.StatusServiceUnavailable, domain.ErrInternal)
 		return
 	}
 
 	if err := h.db.Model(&domain.Pet{}).Where("status = ?", "found").Count(&foundPets).Error; err != nil {
-		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "service unavailable"})
+		writeError(c, http.StatusServiceUnavailable, domain.ErrInternal)
 		return
 	}
 

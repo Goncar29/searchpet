@@ -28,7 +28,7 @@ func (h *BlockHandler) Block(c *gin.Context) {
 
 	targetID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "id de usuario inválido"})
+		writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
 		return
 	}
 
@@ -39,10 +39,10 @@ func (h *BlockHandler) Block(c *gin.Context) {
 	err = h.blockService.Block(c.Request.Context(), callerID, targetID, req.Reason)
 	if err != nil {
 		if errors.Is(err, domain.ErrInvalidInput) {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "no podés bloquearte a vos mismo"})
+			writeError(c, http.StatusBadRequest, err)
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
+		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		return
 	}
 
@@ -56,16 +56,16 @@ func (h *BlockHandler) Unblock(c *gin.Context) {
 
 	targetID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "id de usuario inválido"})
+		writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
 		return
 	}
 
 	if err := h.blockService.Unblock(c.Request.Context(), callerID, targetID); err != nil {
 		if errors.Is(err, domain.ErrBlockNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			writeError(c, http.StatusNotFound, err)
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
+		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		return
 	}
 
@@ -79,18 +79,18 @@ func (h *BlockHandler) GetBlockStatus(c *gin.Context) {
 
 	targetID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "id de usuario inválido"})
+		writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
 		return
 	}
 
 	if callerID == targetID {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "cannot check block status with yourself"})
+		writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
 		return
 	}
 
 	blocked, err := h.blockService.IsBlocked(c.Request.Context(), callerID, targetID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
+		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		return
 	}
 
@@ -104,7 +104,7 @@ func (h *BlockHandler) GetBlocked(c *gin.Context) {
 
 	blocked, err := h.blockService.GetBlocked(c.Request.Context(), callerID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
+		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		return
 	}
 

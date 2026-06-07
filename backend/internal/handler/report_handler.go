@@ -37,17 +37,17 @@ func (h *ReportHandler) CreateReport(c *gin.Context) {
 
 	var req service.CreateReportRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		writeError(c, http.StatusBadRequest, err)
 		return
 	}
 
 	report, err := h.reportService.CreateReport(reporterID, req)
 	if err != nil {
 		if errors.Is(err, domain.ErrInvalidInput) || errors.Is(err, domain.ErrInvalidStatus) {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			writeError(c, http.StatusBadRequest, err)
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
+		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		return
 	}
 
@@ -62,10 +62,10 @@ func (h *ReportHandler) GetReport(c *gin.Context) {
 	report, err := h.reportService.GetReportByID(id)
 	if err != nil {
 		if errors.Is(err, domain.ErrReportNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			writeError(c, http.StatusNotFound, err)
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
+		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		return
 	}
 
@@ -79,7 +79,7 @@ func (h *ReportHandler) GetReportsByPet(c *gin.Context) {
 
 	reports, err := h.reportService.GetReportsByPet(petID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
+		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		return
 	}
 
@@ -93,16 +93,16 @@ func (h *ReportHandler) VerifyReport(c *gin.Context) {
 
 	reportID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "id de reporte inválido"})
+		writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
 		return
 	}
 
 	if err := h.reportService.VerifyReport(c.Request.Context(), reportID, adminID); err != nil {
 		if errors.Is(err, domain.ErrReportNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			writeError(c, http.StatusNotFound, err)
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
+		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		return
 	}
 
@@ -126,13 +126,13 @@ func (h *ReportHandler) VerifyReport(c *gin.Context) {
 func (h *ReportHandler) GetNearbyReports(c *gin.Context) {
 	lat, err := strconv.ParseFloat(c.Query("lat"), 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "lat inválido"})
+		writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
 		return
 	}
 
 	lng, err := strconv.ParseFloat(c.Query("lng"), 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "lng inválido"})
+		writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
 		return
 	}
 
@@ -143,13 +143,11 @@ func (h *ReportHandler) GetNearbyReports(c *gin.Context) {
 		// Parámetro explícito presente — validar rango
 		explicit, parseErr := strconv.Atoi(r)
 		if parseErr != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "radius inválido"})
+			writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
 			return
 		}
 		if explicit < minSearchRadius || explicit > maxSearchRadius {
-			c.JSON(http.StatusUnprocessableEntity, gin.H{
-				"error": "radius debe estar entre 1000 y 50000 metros",
-			})
+			writeError(c, http.StatusUnprocessableEntity, domain.ErrInvalidSearchRadius)
 			return
 		}
 		radiusMeters = explicit
@@ -167,7 +165,7 @@ func (h *ReportHandler) GetNearbyReports(c *gin.Context) {
 
 	reports, err := h.reportService.GetNearbyReports(lat, lng, float64(radiusMeters))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
+		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		return
 	}
 

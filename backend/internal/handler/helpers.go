@@ -3,7 +3,17 @@ package handler
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"lost-pets/internal/domain"
+	"lost-pets/internal/dto"
 )
+
+// writeError looks up the error code from the domain ErrorCodes map and writes
+// a standardized ErrorResponse JSON body. Falls back to "internal_error" when
+// the error is not mapped.
+func writeError(c *gin.Context, status int, err error) {
+	code := domain.CodeFor(err)
+	c.JSON(status, dto.ErrorResponse{Code: code, Message: err.Error()})
+}
 
 // getUserID lee el userID que el middleware de auth dejó en el contexto de Gin.
 // El middleware lo puso como uuid.UUID, acá lo convertimos a string para usar en los services.

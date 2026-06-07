@@ -28,7 +28,7 @@ func NewReviewHandler(svc service.ReviewService) *ReviewHandler {
 func (h *ReviewHandler) GetReviews(c *gin.Context) {
 	revieweeID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "id inválido — debe ser un UUID"})
+		writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
 		return
 	}
 
@@ -55,9 +55,9 @@ func (h *ReviewHandler) GetReviews(c *gin.Context) {
 	if err != nil {
 		switch {
 		case errors.Is(err, domain.ErrUserNotFound):
-			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			writeError(c, http.StatusNotFound, err)
 		default:
-			c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
+			writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		}
 		return
 	}
@@ -73,13 +73,13 @@ func (h *ReviewHandler) CreateReview(c *gin.Context) {
 
 	revieweeID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "id inválido — debe ser un UUID"})
+		writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
 		return
 	}
 
 	var req dto.CreateReviewRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		writeError(c, http.StatusBadRequest, err)
 		return
 	}
 
@@ -87,17 +87,17 @@ func (h *ReviewHandler) CreateReview(c *gin.Context) {
 	if err != nil {
 		switch {
 		case errors.Is(err, domain.ErrSelfReview):
-			c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
+			writeError(c, http.StatusUnprocessableEntity, err)
 		case errors.Is(err, domain.ErrAlreadyReviewed):
-			c.JSON(http.StatusConflict, gin.H{"error": err.Error(), "hint": "usa PUT para actualizar tu reseña existente"})
+			writeError(c, http.StatusConflict, err)
 		case errors.Is(err, domain.ErrUserBlocked):
-			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+			writeError(c, http.StatusForbidden, err)
 		case errors.Is(err, domain.ErrUserNotFound):
-			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			writeError(c, http.StatusNotFound, err)
 		case errors.Is(err, domain.ErrInvalidInput):
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			writeError(c, http.StatusBadRequest, err)
 		default:
-			c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
+			writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		}
 		return
 	}
@@ -114,18 +114,18 @@ func (h *ReviewHandler) DeleteReview(c *gin.Context) {
 
 	revieweeID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "id inválido — debe ser un UUID"})
+		writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
 		return
 	}
 
 	if err := h.svc.Delete(c.Request.Context(), reviewerID, revieweeID); err != nil {
 		switch {
 		case errors.Is(err, domain.ErrReviewNotFound):
-			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			writeError(c, http.StatusNotFound, err)
 		case errors.Is(err, domain.ErrForbidden):
-			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+			writeError(c, http.StatusForbidden, err)
 		default:
-			c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
+			writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		}
 		return
 	}
@@ -141,13 +141,13 @@ func (h *ReviewHandler) UpdateReview(c *gin.Context) {
 
 	revieweeID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "id inválido — debe ser un UUID"})
+		writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
 		return
 	}
 
 	var req dto.UpdateReviewRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		writeError(c, http.StatusBadRequest, err)
 		return
 	}
 
@@ -155,13 +155,13 @@ func (h *ReviewHandler) UpdateReview(c *gin.Context) {
 	if err != nil {
 		switch {
 		case errors.Is(err, domain.ErrReviewNotFound):
-			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			writeError(c, http.StatusNotFound, err)
 		case errors.Is(err, domain.ErrForbidden):
-			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+			writeError(c, http.StatusForbidden, err)
 		case errors.Is(err, domain.ErrInvalidInput):
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			writeError(c, http.StatusBadRequest, err)
 		default:
-			c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
+			writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		}
 		return
 	}

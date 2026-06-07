@@ -28,7 +28,7 @@ func NewVerificationHandler(verificationService service.VerificationService, fea
 
 // notImplemented retorna 501 cuando el feature flag está deshabilitado.
 func (h *VerificationHandler) notImplemented(c *gin.Context) {
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "verificación no habilitada"})
+	writeError(c, http.StatusNotImplemented, domain.ErrInternal)
 }
 
 // SendEmail godoc
@@ -62,7 +62,7 @@ func (h *VerificationHandler) SendSMS(c *gin.Context) {
 
 	var req dto.SendSMSRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		writeError(c, http.StatusBadRequest, err)
 		return
 	}
 
@@ -87,7 +87,7 @@ func (h *VerificationHandler) ConfirmEmail(c *gin.Context) {
 
 	var req dto.ConfirmOTPRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		writeError(c, http.StatusBadRequest, err)
 		return
 	}
 
@@ -112,12 +112,12 @@ func (h *VerificationHandler) ConfirmSMS(c *gin.Context) {
 
 	var req dto.ConfirmOTPRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		writeError(c, http.StatusBadRequest, err)
 		return
 	}
 
 	if req.Phone == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "phone es requerido para confirmar SMS"})
+		writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
 		return
 	}
 
@@ -141,7 +141,7 @@ func (h *VerificationHandler) GetStatus(c *gin.Context) {
 	callerID := getUserUUID(c)
 	status, err := h.verificationService.GetStatus(c.Request.Context(), callerID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
+		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		return
 	}
 	c.JSON(http.StatusOK, status)
@@ -162,36 +162,36 @@ func (h *VerificationHandler) handleSendError(c *gin.Context, err error) {
 
 	var noPhoneErr *service.ErrNoPhoneOnFile
 	if errors.As(err, &noPhoneErr) {
-		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": noPhoneErr.Error()})
+		writeError(c, http.StatusUnprocessableEntity, noPhoneErr)
 		return
 	}
 
 	var extErr *service.ErrExternalService
 	if errors.As(err, &extErr) {
 		// 502 Bad Gateway para fallos de proveedores externos
-		c.JSON(http.StatusBadGateway, gin.H{"error": "error en servicio externo"})
+		writeError(c, http.StatusBadGateway, domain.ErrInternal)
 		return
 	}
 
-	c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
+	writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 }
 
 // handleConfirmError centraliza el mapeo de errores para los endpoints de confirmación.
 func (h *VerificationHandler) handleConfirmError(c *gin.Context, err error) {
 	if errors.Is(err, domain.ErrOTPExpired) {
-		c.JSON(http.StatusBadRequest, gin.H{"error": domain.ErrOTPExpired.Error()})
+		writeError(c, http.StatusBadRequest, err)
 		return
 	}
 
 	if errors.Is(err, domain.ErrOTPInvalid) {
-		c.JSON(http.StatusBadRequest, gin.H{"error": domain.ErrOTPInvalid.Error()})
+		writeError(c, http.StatusBadRequest, err)
 		return
 	}
 
 	if errors.Is(err, domain.ErrPhoneMismatch) {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "phone mismatch"})
+		writeError(c, http.StatusBadRequest, err)
 		return
 	}
 
-	c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
+	writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 }

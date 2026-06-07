@@ -62,7 +62,7 @@ func TestStatsHandler_GetStats_DBError(t *testing.T) {
 	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}
-	if _, ok := body["error"]; !ok {
-		t.Error("expected 'error' key in 503 response body")
+	if _, ok := body["code"]; !ok {
+		t.Error("expected 'code' key in 503 response body")
 	}
 }

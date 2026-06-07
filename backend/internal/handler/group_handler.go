@@ -29,17 +29,17 @@ func (h *GroupHandler) Create(c *gin.Context) {
 
 	var req dto.CreateGroupRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		writeError(c, http.StatusBadRequest, err)
 		return
 	}
 
 	group, err := h.groupService.CreateGroup(c.Request.Context(), callerID, req)
 	if err != nil {
 		if errors.Is(err, domain.ErrCityGroupExists) {
-			c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+			writeError(c, http.StatusConflict, err)
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
+		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		return
 	}
 
@@ -66,7 +66,7 @@ func (h *GroupHandler) List(c *gin.Context) {
 
 	groups, err := h.groupService.List(c.Request.Context(), city, limit, offset)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
+		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		return
 	}
 
@@ -78,17 +78,17 @@ func (h *GroupHandler) List(c *gin.Context) {
 func (h *GroupHandler) GetByID(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "id inválido"})
+		writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
 		return
 	}
 
 	group, err := h.groupService.GetByID(c.Request.Context(), id)
 	if err != nil {
 		if errors.Is(err, domain.ErrGroupNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			writeError(c, http.StatusNotFound, err)
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
+		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		return
 	}
 
@@ -100,7 +100,7 @@ func (h *GroupHandler) GetByID(c *gin.Context) {
 func (h *GroupHandler) GetMembers(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "id inválido"})
+		writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
 		return
 	}
 
@@ -120,10 +120,10 @@ func (h *GroupHandler) GetMembers(c *gin.Context) {
 	members, err := h.groupService.GetMembers(c.Request.Context(), id, limit, offset)
 	if err != nil {
 		if errors.Is(err, domain.ErrGroupNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"error": "grupo no encontrado"})
+			writeError(c, http.StatusNotFound, err)
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "error interno del servidor"})
+		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		return
 	}
 
@@ -137,14 +137,14 @@ func (h *GroupHandler) Join(c *gin.Context) {
 
 	groupID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "id inválido"})
+		writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
 		return
 	}
 
 	err = h.groupService.Join(c.Request.Context(), groupID, callerID)
 	if err != nil {
 		if errors.Is(err, domain.ErrGroupNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			writeError(c, http.StatusNotFound, err)
 			return
 		}
 		if errors.Is(err, domain.ErrAlreadyMember) {
@@ -152,7 +152,7 @@ func (h *GroupHandler) Join(c *gin.Context) {
 			c.JSON(http.StatusOK, gin.H{"message": "ya eres miembro de este grupo"})
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
+		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		return
 	}
 
@@ -166,17 +166,17 @@ func (h *GroupHandler) Leave(c *gin.Context) {
 
 	groupID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "id inválido"})
+		writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
 		return
 	}
 
 	err = h.groupService.Leave(c.Request.Context(), groupID, callerID)
 	if err != nil {
 		if errors.Is(err, domain.ErrGroupNotFound) || errors.Is(err, domain.ErrNotMember) {
-			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			writeError(c, http.StatusNotFound, err)
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
+		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		return
 	}
 

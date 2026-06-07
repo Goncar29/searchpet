@@ -34,13 +34,13 @@ func (h *PetHandler) CreatePet(c *gin.Context) {
 
 	var req dto.CreatePetRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		writeError(c, http.StatusBadRequest, err)
 		return
 	}
 
 	pet, err := h.petService.CreatePet(ownerID, req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
+		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		return
 	}
 
@@ -55,10 +55,10 @@ func (h *PetHandler) GetPet(c *gin.Context) {
 	pet, err := h.petService.GetPetByID(id)
 	if err != nil {
 		if errors.Is(err, domain.ErrPetNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			writeError(c, http.StatusNotFound, err)
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
+		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		return
 	}
 
@@ -72,7 +72,7 @@ func (h *PetHandler) GetMyPets(c *gin.Context) {
 
 	pets, err := h.petService.GetMyPets(ownerID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
+		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		return
 	}
 
@@ -87,25 +87,25 @@ func (h *PetHandler) UpdatePet(c *gin.Context) {
 
 	var req dto.UpdatePetRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		writeError(c, http.StatusBadRequest, err)
 		return
 	}
 
 	pet, err := h.petService.UpdatePet(ownerID, petID, req)
 	if err != nil {
 		if errors.Is(err, domain.ErrPetNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			writeError(c, http.StatusNotFound, err)
 			return
 		}
 		if errors.Is(err, domain.ErrForbidden) {
-			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+			writeError(c, http.StatusForbidden, err)
 			return
 		}
 		if errors.Is(err, domain.ErrPetStatusLocked) {
-			c.JSON(http.StatusConflict, gin.H{"error": "pet_status_locked"})
+			writeError(c, http.StatusConflict, err)
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
+		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		return
 	}
 
@@ -121,14 +121,14 @@ func (h *PetHandler) DeletePet(c *gin.Context) {
 	err := h.petService.DeletePet(ownerID, petID)
 	if err != nil {
 		if errors.Is(err, domain.ErrPetNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			writeError(c, http.StatusNotFound, err)
 			return
 		}
 		if errors.Is(err, domain.ErrForbidden) {
-			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+			writeError(c, http.StatusForbidden, err)
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
+		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		return
 	}
 
@@ -151,7 +151,7 @@ func (h *PetHandler) SearchPets(c *gin.Context) {
 	if fromStr := c.Query("from"); fromStr != "" {
 		t, err := time.Parse(time.RFC3339, fromStr)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "parámetro 'from' debe ser RFC3339 (ej: 2026-01-01T00:00:00Z)"})
+			writeError(c, http.StatusBadRequest, domain.ErrInvalidDateParam)
 			return
 		}
 		criteria.From = &t
@@ -159,7 +159,7 @@ func (h *PetHandler) SearchPets(c *gin.Context) {
 	if toStr := c.Query("to"); toStr != "" {
 		t, err := time.Parse(time.RFC3339, toStr)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "parámetro 'to' debe ser RFC3339 (ej: 2026-12-31T23:59:59Z)"})
+			writeError(c, http.StatusBadRequest, domain.ErrInvalidDateParam)
 			return
 		}
 		criteria.To = &t
@@ -169,7 +169,7 @@ func (h *PetHandler) SearchPets(c *gin.Context) {
 	if pageStr := c.Query("page"); pageStr != "" {
 		p, err := strconv.Atoi(pageStr)
 		if err != nil || p < 1 {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "parámetro 'page' debe ser un entero positivo"})
+			writeError(c, http.StatusBadRequest, domain.ErrInvalidPageParam)
 			return
 		}
 		criteria.Page = p
@@ -181,7 +181,7 @@ func (h *PetHandler) SearchPets(c *gin.Context) {
 	if limitStr := c.Query("limit"); limitStr != "" {
 		l, err := strconv.Atoi(limitStr)
 		if err != nil || l < 1 {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "parámetro 'limit' debe ser un entero positivo"})
+			writeError(c, http.StatusBadRequest, domain.ErrInvalidLimitParam)
 			return
 		}
 		if l > 100 {
@@ -194,7 +194,7 @@ func (h *PetHandler) SearchPets(c *gin.Context) {
 
 	result, err := h.petService.SearchPets(criteria)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
+		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		return
 	}
 
@@ -212,18 +212,18 @@ func (h *PetHandler) MarkAsFound(c *gin.Context) {
 	pet, err := h.petService.MarkAsFound(ownerID, petID)
 	if err != nil {
 		if errors.Is(err, domain.ErrPetNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			writeError(c, http.StatusNotFound, err)
 			return
 		}
 		if errors.Is(err, domain.ErrForbidden) {
-			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+			writeError(c, http.StatusForbidden, err)
 			return
 		}
 		if errors.Is(err, domain.ErrPetAlreadyFound) || errors.Is(err, domain.ErrPetArchived) {
-			c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+			writeError(c, http.StatusConflict, err)
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
+		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		return
 	}
 
@@ -237,27 +237,27 @@ func (h *PetHandler) MarkAsFound(c *gin.Context) {
 func (h *PetHandler) SearchByImage(c *gin.Context) {
 	// Limitar tamaño del form a 10 MB
 	if err := c.Request.ParseMultipartForm(10 << 20); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "multipart form inválido o demasiado grande"})
+		writeError(c, http.StatusBadRequest, domain.ErrInvalidMultipart)
 		return
 	}
 
 	file, _, err := c.Request.FormFile("photo")
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "campo 'image' requerido"})
+		writeError(c, http.StatusBadRequest, domain.ErrImageFieldRequired)
 		return
 	}
 	defer file.Close()
 
 	imageBytes, err := io.ReadAll(file)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
+		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		return
 	}
 
 	// Generar embedding y buscar similares — si HF falla retornamos 503
 	results, err := h.embeddingService.SearchSimilar(c.Request.Context(), imageBytes, 10)
 	if err != nil {
-		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "servicio de búsqueda por imagen no disponible temporalmente"})
+		writeError(c, http.StatusServiceUnavailable, domain.ErrImageSearchUnavailable)
 		return
 	}
 

@@ -32,12 +32,12 @@ func NewDeviceHandler(deviceTokenRepo repository.DeviceTokenRepository) *DeviceH
 func (h *DeviceHandler) DeleteToken(c *gin.Context) {
 	token := c.Param("token")
 	if token == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "token requerido"})
+		writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
 		return
 	}
 
 	if err := h.deviceTokenRepo.DeleteByToken(context.Background(), token); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "error al eliminar el token"})
+		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		return
 	}
 
@@ -49,17 +49,17 @@ func (h *DeviceHandler) DeleteToken(c *gin.Context) {
 func (h *DeviceHandler) RegisterToken(c *gin.Context) {
 	var req dto.RegisterDeviceTokenRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "token y platform son requeridos"})
+		writeError(c, http.StatusBadRequest, err)
 		return
 	}
 
 	if req.Token == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "token no puede estar vacío"})
+		writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
 		return
 	}
 
 	if !allowedPlatforms[req.Platform] {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "platform debe ser ios, android o web"})
+		writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
 		return
 	}
 
@@ -72,7 +72,7 @@ func (h *DeviceHandler) RegisterToken(c *gin.Context) {
 	}
 
 	if err := h.deviceTokenRepo.Upsert(context.Background(), token); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "error al registrar el token"})
+		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		return
 	}
 

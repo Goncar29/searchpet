@@ -25,17 +25,17 @@ func NewAuthHandler(authService service.AuthService) *AuthHandler {
 func (h *AuthHandler) Register(c *gin.Context) {
 	var req dto.RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		writeError(c, http.StatusBadRequest, err)
 		return
 	}
 
 	user, token, err := h.authService.Register(c.Request.Context(), req.Email, req.Password, req.Name, req.City)
 	if err != nil {
 		if errors.Is(err, domain.ErrEmailAlreadyExists) {
-			c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+			writeError(c, http.StatusConflict, err)
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
+		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		return
 	}
 
@@ -50,17 +50,21 @@ func (h *AuthHandler) Register(c *gin.Context) {
 func (h *AuthHandler) Login(c *gin.Context) {
 	var req dto.LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		writeError(c, http.StatusBadRequest, err)
 		return
 	}
 
 	user, token, err := h.authService.Login(c.Request.Context(), req.Email, req.Password)
 	if err != nil {
-		if errors.Is(err, domain.ErrInvalidCredentials) || errors.Is(err, domain.ErrUserBanned) {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		if errors.Is(err, domain.ErrInvalidCredentials) {
+			writeError(c, http.StatusUnauthorized, err)
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
+		if errors.Is(err, domain.ErrUserBanned) {
+			writeError(c, http.StatusForbidden, err)
+			return
+		}
+		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		return
 	}
 
@@ -75,19 +79,19 @@ func (h *AuthHandler) Login(c *gin.Context) {
 func (h *AuthHandler) UploadProfilePhoto(c *gin.Context) {
 	userID, exists := c.Get("userID")
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": domain.ErrUnauthorized.Error()})
+		writeError(c, http.StatusUnauthorized, domain.ErrUnauthorized)
 		return
 	}
 
 	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 5*1024*1024+1024)
 	if err := c.Request.ParseMultipartForm(5 * 1024 * 1024); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": domain.ErrFileTooLarge.Error()})
+		writeError(c, http.StatusBadRequest, domain.ErrFileTooLarge)
 		return
 	}
 
 	file, header, err := c.Request.FormFile("photo")
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "campo 'photo' requerido"})
+		writeError(c, http.StatusBadRequest, domain.ErrPhotoFieldRequired)
 		return
 	}
 	defer file.Close()
@@ -96,9 +100,9 @@ func (h *AuthHandler) UploadProfilePhoto(c *gin.Context) {
 	if err != nil {
 		switch {
 		case errors.Is(err, domain.ErrStorageFailed):
-			c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
+			writeError(c, http.StatusBadGateway, err)
 		default:
-			c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
+			writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		}
 		return
 	}
@@ -111,23 +115,23 @@ func (h *AuthHandler) UploadProfilePhoto(c *gin.Context) {
 func (h *AuthHandler) UpdateMe(c *gin.Context) {
 	userID, exists := c.Get("userID")
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": domain.ErrUnauthorized.Error()})
+		writeError(c, http.StatusUnauthorized, domain.ErrUnauthorized)
 		return
 	}
 
 	var req dto.UpdateProfileRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		writeError(c, http.StatusBadRequest, err)
 		return
 	}
 
 	user, err := h.authService.UpdateProfile(c.Request.Context(), userID.(uuid.UUID), req.Name, req.Phone, req.City)
 	if err != nil {
 		if errors.Is(err, domain.ErrUserNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			writeError(c, http.StatusNotFound, err)
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
+		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		return
 	}
 
@@ -139,27 +143,27 @@ func (h *AuthHandler) UpdateMe(c *gin.Context) {
 func (h *AuthHandler) UpdatePreferences(c *gin.Context) {
 	userID, exists := c.Get("userID")
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": domain.ErrUnauthorized.Error()})
+		writeError(c, http.StatusUnauthorized, domain.ErrUnauthorized)
 		return
 	}
 
 	var req dto.UpdatePreferencesRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		writeError(c, http.StatusBadRequest, err)
 		return
 	}
 
 	prefs, err := h.authService.UpdatePreferences(c.Request.Context(), userID.(uuid.UUID), req)
 	if err != nil {
 		if errors.Is(err, domain.ErrInvalidInput) {
-			c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "search_radius_meters debe estar entre 1000 y 50000"})
+			writeError(c, http.StatusUnprocessableEntity, domain.ErrInvalidSearchRadius)
 			return
 		}
 		if errors.Is(err, domain.ErrUserNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			writeError(c, http.StatusNotFound, err)
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
+		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		return
 	}
 
@@ -171,17 +175,17 @@ func (h *AuthHandler) UpdatePreferences(c *gin.Context) {
 func (h *AuthHandler) GetMe(c *gin.Context) {
 	userID, exists := c.Get("userID")
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": domain.ErrUnauthorized.Error()})
+		writeError(c, http.StatusUnauthorized, domain.ErrUnauthorized)
 		return
 	}
 
 	user, err := h.authService.GetUser(c.Request.Context(), userID.(uuid.UUID))
 	if err != nil {
 		if errors.Is(err, domain.ErrUserNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			writeError(c, http.StatusNotFound, err)
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
+		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		return
 	}
 

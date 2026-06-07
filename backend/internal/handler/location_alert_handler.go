@@ -28,7 +28,7 @@ func (h *LocationAlertHandler) CreateAlert(c *gin.Context) {
 
 	var req dto.CreateLocationAlertRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		writeError(c, http.StatusBadRequest, err)
 		return
 	}
 
@@ -36,11 +36,11 @@ func (h *LocationAlertHandler) CreateAlert(c *gin.Context) {
 	if err != nil {
 		switch {
 		case errors.Is(err, domain.ErrAlertLimitExceeded):
-			c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
+			writeError(c, http.StatusUnprocessableEntity, err)
 		case errors.Is(err, domain.ErrInvalidInput):
-			c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
+			writeError(c, http.StatusUnprocessableEntity, err)
 		default:
-			c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
+			writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		}
 		return
 	}
@@ -55,7 +55,7 @@ func (h *LocationAlertHandler) GetAlerts(c *gin.Context) {
 
 	alerts, err := h.alertService.GetAlerts(c.Request.Context(), userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
+		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		return
 	}
 
@@ -69,7 +69,7 @@ func (h *LocationAlertHandler) GetAlert(c *gin.Context) {
 
 	alertID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "id de alerta inválido"})
+		writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
 		return
 	}
 
@@ -77,11 +77,11 @@ func (h *LocationAlertHandler) GetAlert(c *gin.Context) {
 	if err != nil {
 		switch {
 		case errors.Is(err, domain.ErrAlertNotFound):
-			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			writeError(c, http.StatusNotFound, err)
 		case errors.Is(err, domain.ErrNotAlertOwner):
-			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+			writeError(c, http.StatusForbidden, err)
 		default:
-			c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
+			writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		}
 		return
 	}
@@ -96,13 +96,13 @@ func (h *LocationAlertHandler) UpdateAlert(c *gin.Context) {
 
 	alertID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "id de alerta inválido"})
+		writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
 		return
 	}
 
 	var req dto.UpdateLocationAlertRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		writeError(c, http.StatusBadRequest, err)
 		return
 	}
 
@@ -110,13 +110,13 @@ func (h *LocationAlertHandler) UpdateAlert(c *gin.Context) {
 	if err != nil {
 		switch {
 		case errors.Is(err, domain.ErrAlertNotFound):
-			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			writeError(c, http.StatusNotFound, err)
 		case errors.Is(err, domain.ErrNotAlertOwner):
-			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+			writeError(c, http.StatusForbidden, err)
 		case errors.Is(err, domain.ErrInvalidInput):
-			c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
+			writeError(c, http.StatusUnprocessableEntity, err)
 		default:
-			c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
+			writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		}
 		return
 	}
@@ -131,21 +131,21 @@ func (h *LocationAlertHandler) DeleteAlert(c *gin.Context) {
 
 	alertID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "id de alerta inválido"})
+		writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
 		return
 	}
 
 	if err := h.alertService.DeleteAlert(c.Request.Context(), userID, alertID); err != nil {
 		switch {
 		case errors.Is(err, domain.ErrAlertNotFound):
-			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			writeError(c, http.StatusNotFound, err)
 		case errors.Is(err, domain.ErrNotAlertOwner):
-			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+			writeError(c, http.StatusForbidden, err)
 		default:
-			c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
+			writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		}
 		return
 	}
 
-	c.JSON(http.StatusNoContent, nil)
+	c.Status(http.StatusNoContent)
 }

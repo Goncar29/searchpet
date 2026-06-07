@@ -30,17 +30,17 @@ func (h *GamificationHandler) GetPublicProfile(c *gin.Context) {
 	idStr := c.Param("id")
 	userID, err := uuid.Parse(idStr)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "id inválido — debe ser un UUID"})
+		writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
 		return
 	}
 
 	profile, err := h.svc.GetPublicProfile(c.Request.Context(), userID)
 	if err != nil {
 		if errors.Is(err, domain.ErrUserNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			writeError(c, http.StatusNotFound, err)
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
+		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		return
 	}
 
@@ -55,7 +55,7 @@ func (h *GamificationHandler) GetPublicProfile(c *gin.Context) {
 func (h *GamificationHandler) GetLeaderboard(c *gin.Context) {
 	city := c.Query("city")
 	if city == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "parámetro 'city' es requerido"})
+		writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
 		return
 	}
 
@@ -63,7 +63,7 @@ func (h *GamificationHandler) GetLeaderboard(c *gin.Context) {
 	if limitStr := c.Query("limit"); limitStr != "" {
 		l, err := strconv.Atoi(limitStr)
 		if err != nil || l < 1 {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "parámetro 'limit' debe ser un entero positivo"})
+			writeError(c, http.StatusBadRequest, domain.ErrInvalidLimitParam)
 			return
 		}
 		if l > 50 {
@@ -74,7 +74,7 @@ func (h *GamificationHandler) GetLeaderboard(c *gin.Context) {
 
 	entries, err := h.svc.GetLeaderboard(c.Request.Context(), city, limit)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
+		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		return
 	}
 
@@ -89,7 +89,7 @@ func (h *GamificationHandler) GetMyBadges(c *gin.Context) {
 
 	badges, err := h.svc.GetMyBadges(c.Request.Context(), userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
+		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		return
 	}
 

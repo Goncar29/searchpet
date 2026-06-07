@@ -28,7 +28,7 @@ func (h *ShelterHandler) GetAll(c *gin.Context) {
 
 	shelters, err := h.shelterService.GetAll(c.Request.Context(), city)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
+		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		return
 	}
 
@@ -44,14 +44,14 @@ func (h *ShelterHandler) GetByID(c *gin.Context) {
 	shelter, err := h.shelterService.GetByID(c.Request.Context(), id)
 	if err != nil {
 		if errors.Is(err, domain.ErrShelterNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			writeError(c, http.StatusNotFound, err)
 			return
 		}
 		if errors.Is(err, domain.ErrInvalidInput) {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			writeError(c, http.StatusBadRequest, err)
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
+		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		return
 	}
 
@@ -64,14 +64,14 @@ func (h *ShelterHandler) GetByID(c *gin.Context) {
 func (h *ShelterHandler) Create(c *gin.Context) {
 	var req dto.CreateShelterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		writeError(c, http.StatusBadRequest, err)
 		return
 	}
 
 	shelter := dto.ToCreateShelterDomain(&req)
 
 	if err := h.shelterService.Create(c.Request.Context(), shelter); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
+		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		return
 	}
 
@@ -87,27 +87,27 @@ func (h *ShelterHandler) Update(c *gin.Context) {
 	existing, err := h.shelterService.GetByID(c.Request.Context(), id)
 	if err != nil {
 		if errors.Is(err, domain.ErrShelterNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			writeError(c, http.StatusNotFound, err)
 			return
 		}
 		if errors.Is(err, domain.ErrInvalidInput) {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			writeError(c, http.StatusBadRequest, err)
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
+		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		return
 	}
 
 	var req dto.UpdateShelterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		writeError(c, http.StatusBadRequest, err)
 		return
 	}
 
 	dto.ToUpdateShelterDomain(existing, &req)
 
 	if err := h.shelterService.Update(c.Request.Context(), existing); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": domain.ErrInternal.Error()})
+		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		return
 	}
 
