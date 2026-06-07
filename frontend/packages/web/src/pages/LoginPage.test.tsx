@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { LoginPage } from './LoginPage';
+import { ApiError } from '@shared/api/client';
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -90,13 +91,14 @@ describe('LoginPage — validación de formulario', () => {
 
   it('muestra error de API cuando login() falla', async () => {
     const user = userEvent.setup();
-    mockLogin.mockRejectedValue(new Error('Credenciales inválidas'));
+    mockLogin.mockRejectedValue(new ApiError('invalid_credentials', 401, 'Credenciales inválidas'));
     renderLoginPage();
 
     await user.type(screen.getByLabelText('auth:login.email'), 'carlos@example.com');
     await user.type(screen.getByLabelText('auth:login.password'), 'incorrecta');
     await user.click(screen.getByRole('button', { name: 'auth:login.submit' }));
 
-    expect(await screen.findByText('Credenciales inválidas')).toBeInTheDocument();
+    // t mock returns key as-is; getErrorMessage maps ApiError.code → i18n key
+    expect(await screen.findByText('errors.invalid_credentials')).toBeInTheDocument();
   });
 });

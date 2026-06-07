@@ -29,7 +29,7 @@ frontend/packages/web/public/firebase-messaging-sw.js
 
 # Node
 node_modules/
-frontend/packages/*/pnpm-workspace.yaml
+# pnpm-workspace.yaml intentionally committed in packages — stores allowBuilds decisions
 .expo/
 dist/
 build/
