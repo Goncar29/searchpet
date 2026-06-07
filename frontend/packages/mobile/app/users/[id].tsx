@@ -22,6 +22,7 @@ import { useLocalSearchParams, useNavigation } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import i18next from 'i18next';
 import { usePublicProfile, useUserReviews, useCreateReview, useUpdateReview, useDeleteReview, useBlockUser, useBlockedUsers, useSubmitAbuseReport } from '../../../shared/hooks';
+import { getErrorMessage } from '../../../shared/utils/apiErrors';
 import { useAuthStore } from '../../store';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
 import { getDateLocale } from '../../i18n/dateLocale';
@@ -198,7 +199,7 @@ export default function PublicProfileScreen() {
           onPress: () => {
             deleteReview.mutate(id ?? '', {
               onSuccess: () => Alert.alert(i18next.t('users:deleteReviewSuccess')),
-              onError: (err) => Alert.alert('Error', err.message || i18next.t('users:deleteReviewError')),
+              onError: (err) => Alert.alert(i18next.t('common:error'), getErrorMessage(err, (key) => i18next.t(key))),
             });
           },
         },
@@ -319,7 +320,7 @@ export default function PublicProfileScreen() {
         setFormText('');
       },
       onError: (err) => {
-        Alert.alert('Error', err.message || i18next.t('users:saveError'));
+        Alert.alert(i18next.t('common:error'), getErrorMessage(err, (key) => i18next.t(key)));
       },
     });
   };

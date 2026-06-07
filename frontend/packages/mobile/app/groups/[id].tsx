@@ -19,6 +19,7 @@ import i18next from 'i18next';
 import { useAuthStore } from '../../store';
 import { getDateLocale } from '../../i18n/dateLocale';
 import { useGroup, useGroupMembers, useJoinGroup, useLeaveGroup } from '../../../shared/hooks';
+import { getErrorMessage } from '../../../shared/utils/apiErrors';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
 import type { GroupMember } from '../../../shared/types';
 
@@ -86,17 +87,17 @@ export default function GroupDetailScreen() {
       return;
     }
     joinMutation.mutate(undefined, {
-      onError: (err: any) => {
-        if (err.message?.includes('ya eres miembro')) return;
-        Alert.alert('Error', err.message || i18next.t('groups:joinError'));
+      onError: (err) => {
+        if ((err as any).message?.includes('ya eres miembro')) return;
+        Alert.alert(i18next.t('common:error'), getErrorMessage(err, (key) => i18next.t(key)));
       },
     });
   };
 
   const handleLeave = () => {
     leaveMutation.mutate(undefined, {
-      onError: (err: any) => {
-        Alert.alert('Error', err.message || i18next.t('groups:leaveError'));
+      onError: (err) => {
+        Alert.alert(i18next.t('common:error'), getErrorMessage(err, (key) => i18next.t(key)));
       },
     });
   };

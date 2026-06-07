@@ -5,6 +5,7 @@ import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import { usePetByID, useMyPets, useCreateReport } from '@shared/hooks';
 import type { ReportStatus } from '@shared/types';
+import { getErrorMessage } from '@shared/utils/apiErrors';
 
 // Fix leaflet default icon paths broken by bundlers
 delete (L.Icon.Default.prototype as { _getIconUrl?: unknown })._getIconUrl;
@@ -88,8 +89,8 @@ export function CreateReportPage() {
         onSuccess: () => {
           navigate('/pets/mine');
         },
-        onError: (err: Error) => {
-          setApiError(err.message);
+        onError: (err) => {
+          setApiError(getErrorMessage(err, t));
         },
       }
     );

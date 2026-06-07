@@ -19,6 +19,7 @@ import i18next from 'i18next';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import { useMyPets, useDeletePet, useUploadPhotoNative, useCreateReport, useMarkPetAsFound } from '../../shared/hooks';
+import { getErrorMessage } from '../../shared/utils/apiErrors';
 import { useLocationStore } from '../store';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS, PET_TYPES } from '../constants';
 import type { Pet } from '../../shared/types';
@@ -67,8 +68,8 @@ export default function MyPetsScreen() {
 
     try {
       await uploadPhoto.mutateAsync({ petId: pet.id, uri: result.assets[0].uri });
-    } catch (err: any) {
-      Alert.alert(i18next.t('common:error'), err.message || i18next.t('profile:photoUploadError'));
+    } catch (err) {
+      Alert.alert(i18next.t('common:error'), getErrorMessage(err, (key) => i18next.t(key)));
     }
   };
 
@@ -107,8 +108,8 @@ export default function MyPetsScreen() {
     try {
       await createReport.mutateAsync({ pet_id: petId, status, latitude: lat, longitude: lng });
       Alert.alert(i18next.t('my_pets:reportCreated'), i18next.t('my_pets:reportCreatedText'));
-    } catch (err: any) {
-      Alert.alert(i18next.t('common:error'), err.message || i18next.t('my_pets:reportError'));
+    } catch (err) {
+      Alert.alert(i18next.t('common:error'), getErrorMessage(err, (key) => i18next.t(key)));
     }
   };
 

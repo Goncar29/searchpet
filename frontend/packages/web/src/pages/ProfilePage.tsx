@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import { useUpdateMe, useUploadProfilePhoto, useMyBadges, useVerificationStatus, useSendEmailOTP, useConfirmEmailOTP, usePublicProfile } from '@shared/hooks';
+import { getErrorMessage } from '@shared/utils/apiErrors';
 import { useAuth } from '../context/AuthContext';
 import type { Badge } from '@shared/types';
 import { BADGE_META } from '@shared/types';
@@ -64,8 +65,8 @@ export function ProfilePage() {
       await sendEmailOTP.mutateAsync();
       setOtpSent(true);
       setResendCountdown(60);
-    } catch (err: any) {
-      setVerifyError(err.message || 'No se pudo enviar el código');
+    } catch (err) {
+      setVerifyError(getErrorMessage(err, t));
     }
   };
 
@@ -81,8 +82,8 @@ export function ProfilePage() {
       setAccordionOpen(false);
       setOtpSent(false);
       setVerifyCode('');
-    } catch (err: any) {
-      setVerifyError(err.message || 'Código incorrecto o expirado');
+    } catch (err) {
+      setVerifyError(getErrorMessage(err, t));
     }
   };
 
@@ -110,7 +111,7 @@ export function ProfilePage() {
         await refreshUser();
       },
       onError: (err) => {
-        setPhotoError(err.message);
+        setPhotoError(getErrorMessage(err, t));
       },
     });
   };
@@ -135,7 +136,7 @@ export function ProfilePage() {
           setTimeout(() => setSuccess(false), 3000);
         },
         onError: (err) => {
-          setApiError(err.message);
+          setApiError(getErrorMessage(err, t));
         },
       }
     );

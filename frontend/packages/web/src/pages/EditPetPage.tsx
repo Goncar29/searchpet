@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { usePetByID, useUpdatePet, useUploadPhoto } from '@shared/hooks';
 import type { PetType } from '@shared/types';
+import { getErrorMessage } from '@shared/utils/apiErrors';
 
 interface FormState {
   name: string;
@@ -123,15 +124,14 @@ export function EditPetPage() {
             try {
               await uploadPhoto.mutateAsync({ petId: id, file: selectedFile });
             } catch (err) {
-              const message = err instanceof Error ? err.message : 'No se pudo subir la foto';
-              setUploadError(message);
+              setUploadError(getErrorMessage(err, t));
               return;
             }
           }
           navigate('/pets/mine');
         },
-        onError: (err: Error) => {
-          setApiError(err.message);
+        onError: (err) => {
+          setApiError(getErrorMessage(err, t));
         },
       }
     );

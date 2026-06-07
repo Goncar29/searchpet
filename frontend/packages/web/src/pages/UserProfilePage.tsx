@@ -5,6 +5,7 @@ import { usePublicProfile, useUserReviews, useCreateReview, useUpdateReview, use
 import type { Badge, UserReview, AbuseReason } from '@shared/types';
 import { BADGE_META } from '@shared/types';
 import { useAuth } from '../context/AuthContext';
+import { getErrorMessage } from '@shared/utils/apiErrors';
 
 const BADGE_COLOR: Record<string, string> = {
   first_helper: 'bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300',
@@ -209,7 +210,7 @@ export function UserProfilePage() {
         setFormText('');
       },
       onError: (err) => {
-        setFormError(err.message || 'No se pudo guardar la reseña.');
+        setFormError(getErrorMessage(err, t));
       },
     });
   };

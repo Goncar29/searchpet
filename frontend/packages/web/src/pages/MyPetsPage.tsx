@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { useMyPets, useDeletePet, useUpdatePet } from '@shared/hooks';
 import type { Pet, PetStatus, Photo } from '@shared/types';
+import { getErrorMessage } from '@shared/utils/apiErrors';
 
 function SkeletonCard() {
   return (
@@ -167,9 +168,9 @@ export function MyPetsPage() {
       onSuccess: () => {
         setConfirmingId(null);
       },
-      onError: (err: Error) => {
+      onError: (err) => {
         setConfirmingId(null);
-        setDeleteError(err.message);
+        setDeleteError(getErrorMessage(err, t));
       },
     });
   };
