@@ -3,6 +3,7 @@ package config
 import (
 	"log"
 	"os"
+	"strconv"
 
 	"github.com/joho/godotenv"
 )
@@ -28,6 +29,10 @@ type Config struct {
 
 	// V2.0 — Distributed Rate Limiting (Redis)
 	RedisURL string
+
+	// Auth rate limit: max requests per minute per IP for /auth/register and /auth/login.
+	// Set to a higher value (e.g. 100) in E2E/test environments.
+	AuthRateLimitMax int
 
 	// V1.2 — Image Search (HuggingFace CLIP embeddings + pgvector)
 	HuggingFaceAPIKey string
@@ -60,6 +65,8 @@ func Load() *Config {
 		// V2.0 — Distributed Rate Limiting (Redis)
 		RedisURL: getEnv("REDIS_URL", ""),
 
+		AuthRateLimitMax: getEnvInt("RATE_LIMIT_AUTH_MAX", 5),
+
 		// V1.2 — Image Search (HuggingFace CLIP)
 		HuggingFaceAPIKey: getEnv("HF_API_KEY", ""),
 	}
@@ -75,6 +82,15 @@ func Load() *Config {
 func getEnv(key, fallback string) string {
 	if value, exists := os.LookupEnv(key); exists {
 		return value
+	}
+	return fallback
+}
+
+func getEnvInt(key string, fallback int) int {
+	if value, exists := os.LookupEnv(key); exists {
+		if n, err := strconv.Atoi(value); err == nil {
+			return n
+		}
 	}
 	return fallback
 }

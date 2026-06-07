@@ -208,7 +208,7 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 	// ----------------------------------------
 	public := router.Group("/api")
 	{
-		authRateLimit := middleware.RateLimit(rateLimitStore, 5, 1*time.Minute)
+		authRateLimit := middleware.RateLimit(rateLimitStore, cfg.AuthRateLimitMax, 1*time.Minute)
 		public.POST("/auth/register", authRateLimit, authHandler.Register)
 		public.POST("/auth/login", authRateLimit, authHandler.Login)
 		public.GET("/stats", statsHandler.GetStats)
