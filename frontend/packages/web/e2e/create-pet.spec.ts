@@ -22,8 +22,8 @@ test.describe('Create pet page', () => {
     // Select species (id="type") — use the Spanish value the form uses
     await page.locator('#type').selectOption('perro');
 
-    // Submit the form
-    await page.getByRole('button', { name: /publicar|crear|registrar|submit/i }).click();
+    // Submit the form — use type-based selector to avoid i18n issues
+    await page.locator('form button[type="submit"]').click();
 
     // After creation the app navigates to the pet detail page — assert pet name is visible
     await expect(page.getByText('PlaywrightPet')).toBeVisible({ timeout: 10_000 });

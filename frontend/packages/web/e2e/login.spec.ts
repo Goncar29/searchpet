@@ -16,9 +16,9 @@ test.describe('Login page', () => {
     await seedUser(email, password);
 
     await page.goto('/login');
-    await page.getByLabel(/email/i).fill(email);
-    await page.getByLabel(/password|contraseña/i).fill('wrongpassword');
-    await page.getByRole('button', { name: /login|iniciar/i }).click();
+    await page.locator('input[type="email"]').fill(email);
+    await page.locator('input[type="password"]').fill('wrongpassword');
+    await page.locator('form button[type="submit"]').click();
 
     // Error message should appear — does not redirect
     await expect(page).not.toHaveURL('/');

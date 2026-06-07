@@ -20,8 +20,8 @@ export async function seedUser(email: string, password: string): Promise<void> {
 
 export async function loginAs(page: Page, email: string, password: string): Promise<void> {
   await page.goto('/login');
-  await page.getByLabel(/email/i).fill(email);
-  await page.getByLabel(/password|contraseña/i).fill(password);
-  await page.getByRole('button', { name: /login|iniciar/i }).click();
+  await page.locator('input[type="email"]').fill(email);
+  await page.locator('input[type="password"]').fill(password);
+  await page.locator('form button[type="submit"]').click();
   await page.waitForURL('/');
 }
