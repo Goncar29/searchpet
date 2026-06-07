@@ -21,6 +21,7 @@ import { useTranslation } from 'react-i18next';
 import i18next from 'i18next';
 import * as ImagePicker from 'expo-image-picker';
 import { useCreatePet, useUploadPhotoNative } from '../../../shared/hooks';
+import { getErrorMessage } from '@shared/utils/apiErrors';
 import { useAuthStore } from '../../store';
 import { COLORS, SPACING, FONTS, RADIUS, PET_TYPES } from '../../constants';
 import type { PetType } from '../../../shared/types';
@@ -123,8 +124,8 @@ export default function PostScreen() {
       for (let i = 0; i < photos.length; i++) {
         try {
           await uploadPhoto.mutateAsync({ petId: pet.id, uri: photos[i] });
-        } catch (err: any) {
-          errors[i] = err.message || i18next.t('post:photoUploadSingleFail');
+        } catch (err) {
+          errors[i] = getErrorMessage(err, (key) => i18next.t(key));
         }
       }
       setPhotoErrors(errors);
@@ -149,8 +150,8 @@ export default function PostScreen() {
       setColor('');
       setDescription('');
       setPhotos([]);
-    } catch (error: any) {
-      Alert.alert(i18next.t('common:error'), error.message || i18next.t('post:errorSubmit'));
+    } catch (error) {
+      Alert.alert(i18next.t('common:error'), getErrorMessage(error, (key) => i18next.t(key)));
     } finally {
       setIsSubmitting(false);
     }

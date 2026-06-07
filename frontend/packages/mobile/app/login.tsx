@@ -18,6 +18,7 @@ import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import i18next from 'i18next';
 import { useAuthStore } from '../store';
+import { getErrorMessage } from '@shared/utils/apiErrors';
 import { COLORS, SPACING, FONTS, RADIUS } from '../constants';
 
 export default function LoginScreen() {
@@ -39,8 +40,8 @@ export default function LoginScreen() {
     try {
       await login(email.trim(), password);
       router.back();
-    } catch (error: any) {
-      Alert.alert(i18next.t('common:error'), error.message || i18next.t('auth:login.invalidCredentials'));
+    } catch (error) {
+      Alert.alert(i18next.t('common:error'), getErrorMessage(error, (key) => i18next.t(key)));
     } finally {
       setIsLoading(false);
     }

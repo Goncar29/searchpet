@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
+import { getErrorMessage } from '@shared/utils/apiErrors';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -62,8 +63,8 @@ export function RegisterPage() {
     try {
       await register(email, password, name, phone || undefined, city || undefined);
       navigate('/');
-    } catch (err: any) {
-      setApiError(err.message || t('auth:register.createError'));
+    } catch (err) {
+      setApiError(getErrorMessage(err, t));
     } finally {
       setLoading(false);
     }

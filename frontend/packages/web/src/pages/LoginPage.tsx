@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
+import { getErrorMessage } from '@shared/utils/apiErrors';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -51,8 +52,8 @@ export function LoginPage() {
       await login(email, password);
       const returnUrl = searchParams.get('returnUrl') || '/';
       navigate(returnUrl);
-    } catch (err: any) {
-      setApiError(err.message || t('auth:login.invalidCredentials'));
+    } catch (err) {
+      setApiError(getErrorMessage(err, t));
     } finally {
       setLoading(false);
     }

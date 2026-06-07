@@ -10,6 +10,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import i18next from 'i18next';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore, useLanguageStore } from '../../store';
+import { getErrorMessage } from '@shared/utils/apiErrors';
 import { useMyPets, usePublicProfile, useUploadProfilePhotoNative, useVerificationStatus, useSendEmailOTP, useConfirmEmailOTP, useSendSmsOTP, useConfirmSmsOTP } from '../../../shared/hooks';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
 import { LANG_KEY } from '../../i18n';
@@ -75,8 +76,8 @@ export default function ProfileScreen() {
     if (!result.canceled && result.assets[0]) {
       try {
         await uploadProfilePhoto.mutateAsync(result.assets[0].uri);
-      } catch (err: any) {
-        Alert.alert(i18next.t('common:error'), err.message || i18next.t('profile:photoUploadError'));
+      } catch (err) {
+        Alert.alert(i18next.t('common:error'), getErrorMessage(err, (key) => i18next.t(key)));
       }
     }
   };
@@ -93,8 +94,8 @@ export default function ProfileScreen() {
       await sendEmailOTP.mutateAsync();
       setSheetStep('confirm');
       setResendCountdown(60);
-    } catch (err: any) {
-      Alert.alert(i18next.t('common:error'), err.message || i18next.t('profile:sendOtpError'));
+    } catch (err) {
+      Alert.alert(i18next.t('common:error'), getErrorMessage(err, (key) => i18next.t(key)));
     }
   };
 
@@ -107,8 +108,8 @@ export default function ProfileScreen() {
     try {
       await confirmEmailOTP.mutateAsync(otpCode);
       setSheetVisible(false);
-    } catch (err: any) {
-      setOtpError(err.message || i18next.t('profile:otpWrong'));
+    } catch (err) {
+      setOtpError(getErrorMessage(err, (key) => i18next.t(key)));
     }
   };
 
@@ -130,7 +131,7 @@ export default function ProfileScreen() {
       if (err.status === 501) {
         setSmsUnavailable(true);
       } else {
-        Alert.alert(i18next.t('common:error'), err.message || i18next.t('profile:sendSmsOtpError'));
+        Alert.alert(i18next.t('common:error'), getErrorMessage(err, (key) => i18next.t(key)));
       }
     }
   };
@@ -144,8 +145,8 @@ export default function ProfileScreen() {
     try {
       await confirmSmsOTP.mutateAsync({ phone: user?.phone?.trim() ?? '', code: smsOtpCode });
       setSmsSheetVisible(false);
-    } catch (err: any) {
-      setSmsOtpError(err.message || i18next.t('profile:otpWrong'));
+    } catch (err) {
+      setSmsOtpError(getErrorMessage(err, (key) => i18next.t(key)));
     }
   };
 

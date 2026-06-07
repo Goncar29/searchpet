@@ -19,6 +19,7 @@ import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import i18next from 'i18next';
 import { useAuthStore } from '../store';
+import { getErrorMessage } from '@shared/utils/apiErrors';
 import { COLORS, SPACING, FONTS, RADIUS } from '../constants';
 
 export default function RegisterScreen() {
@@ -56,8 +57,8 @@ export default function RegisterScreen() {
       Alert.alert(i18next.t('auth:register.createdTitle'), i18next.t('auth:register.createdMessage'), [
         { text: 'OK', onPress: () => router.back() },
       ]);
-    } catch (error: any) {
-      Alert.alert(i18next.t('common:error'), error.message || i18next.t('auth:register.createError'));
+    } catch (error) {
+      Alert.alert(i18next.t('common:error'), getErrorMessage(error, (key) => i18next.t(key)));
     } finally {
       setIsLoading(false);
     }

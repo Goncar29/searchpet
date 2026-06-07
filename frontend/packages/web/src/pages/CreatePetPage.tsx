@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { useCreatePet, useUploadPhoto } from '@shared/hooks';
 import type { Pet, PetType } from '@shared/types';
+import { getErrorMessage } from '@shared/utils/apiErrors';
 
 interface FormState {
   name: string;
@@ -72,11 +73,11 @@ export function CreatePetPage() {
 
     for (const file of candidates) {
       if (!ALLOWED_TYPES.includes(file.type)) {
-        setUploadError('Formato no permitido. Usá JPG, PNG o WebP.');
+        setUploadError(t('pets:create.photoFormatError'));
         continue;
       }
       if (file.size > MAX_SIZE) {
-        setUploadError('Cada foto no puede superar los 5 MB.');
+        setUploadError(t('pets:create.photoSizeError'));
         continue;
       }
       validFiles.push(file);
@@ -131,7 +132,7 @@ export function CreatePetPage() {
                 await uploadPhoto.mutateAsync({ petId: pet.id, file });
               } catch (err) {
                 if (!firstError) {
-                  firstError = err instanceof Error ? err.message : 'No se pudo subir una foto';
+                  firstError = getErrorMessage(err, t);
                 }
               }
             }
@@ -144,8 +145,8 @@ export function CreatePetPage() {
           }
           navigate(`/pets/${pet.id}`);
         },
-        onError: (err: Error) => {
-          setApiError(err.message);
+        onError: (err: unknown) => {
+          setApiError(getErrorMessage(err, t));
         },
       }
     );
