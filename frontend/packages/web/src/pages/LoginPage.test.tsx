@@ -5,9 +5,14 @@ import { MemoryRouter } from 'react-router';
 import { LoginPage } from './LoginPage';
 import { ApiError } from '@shared/api/client';
 
+const errorTranslations: Record<string, string> = {
+  'errors.invalid_credentials': 'Credenciales inválidas',
+  'errors.unknown_error': 'Ocurrió un error inesperado',
+};
+
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (key: string) => key,
+    t: (key: string) => errorTranslations[key] ?? key,
     i18n: { language: 'es' },
   }),
 }));
@@ -98,7 +103,6 @@ describe('LoginPage — validación de formulario', () => {
     await user.type(screen.getByLabelText('auth:login.password'), 'incorrecta');
     await user.click(screen.getByRole('button', { name: 'auth:login.submit' }));
 
-    // t mock returns key as-is; getErrorMessage maps ApiError.code → i18n key
-    expect(await screen.findByText('errors.invalid_credentials')).toBeInTheDocument();
+    expect(await screen.findByText('Credenciales inválidas')).toBeInTheDocument();
   });
 });

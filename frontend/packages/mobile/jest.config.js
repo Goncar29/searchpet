@@ -12,6 +12,7 @@ module.exports = {
   setupFilesAfterEnv: ['./jest.setup.js'],
   moduleNameMapper: {
     '^../../shared/api/client$': '<rootDir>/__mocks__/shared-api-client.js',
+    '^@shared/utils/apiErrors$': '<rootDir>/__mocks__/shared-api-errors.js',
     '^../utils/notifications$': '<rootDir>/__mocks__/notifications.js',
     '^expo-location$': '<rootDir>/__mocks__/expo-location.js',
     '^expo-image-picker$': '<rootDir>/__mocks__/expo-image-picker.js',
