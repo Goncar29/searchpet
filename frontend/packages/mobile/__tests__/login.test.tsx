@@ -4,6 +4,14 @@ import LoginScreen from '../app/login';
 
 // expo-router is mocked in jest.setup.js
 
+jest.mock('react-i18next', () => ({
+  useTranslation: () => ({
+    t: (key: string) => key,
+    i18n: { language: 'es', changeLanguage: jest.fn() },
+  }),
+  initReactI18next: { type: '3rdParty', init: jest.fn() },
+}));
+
 // Zustand auth store mock
 jest.mock('../store', () => ({
   useAuthStore: (selector) => {
@@ -25,11 +33,11 @@ jest.mock('../store', () => ({
 describe('LoginScreen', () => {
   it('renderiza el formulario de login sin errores', () => {
     render(<LoginScreen />);
-    expect(screen.getByPlaceholderText('Email')).toBeTruthy();
+    expect(screen.getByPlaceholderText('login.email')).toBeTruthy();
   });
 
   it('muestra el botón de iniciar sesión', () => {
     render(<LoginScreen />);
-    expect(screen.getByText('Iniciar Sesión')).toBeTruthy();
+    expect(screen.getByText('login.submit')).toBeTruthy();
   });
 });

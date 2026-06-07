@@ -4,6 +4,14 @@ import RegisterScreen from '../app/register';
 
 // expo-router is mocked in jest.setup.js
 
+jest.mock('react-i18next', () => ({
+  useTranslation: () => ({
+    t: (key: string) => key,
+    i18n: { language: 'es', changeLanguage: jest.fn() },
+  }),
+  initReactI18next: { type: '3rdParty', init: jest.fn() },
+}));
+
 jest.mock('../store', () => ({
   useAuthStore: (selector) => {
     const state = {
@@ -24,12 +32,11 @@ jest.mock('../store', () => ({
 describe('RegisterScreen', () => {
   it('renderiza el formulario de registro sin errores', () => {
     render(<RegisterScreen />);
-    expect(screen.getByPlaceholderText('tu@email.com')).toBeTruthy();
+    expect(screen.getByPlaceholderText('register.emailPlaceholder')).toBeTruthy();
   });
 
   it('muestra el botón de crear cuenta', () => {
     render(<RegisterScreen />);
-    // getAllByText because "Crear Cuenta" may appear in both title and button
-    expect(screen.getAllByText('Crear Cuenta').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('register.submit').length).toBeGreaterThan(0);
   });
 });
