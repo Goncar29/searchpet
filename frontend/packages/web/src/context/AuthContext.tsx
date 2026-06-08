@@ -43,6 +43,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => { unsubscribe?.(); };
   }, [token]);
 
+  // Limpiar sesión cuando el API client detecta un 401 (token expirado o inválido).
+  useEffect(() => {
+    const handleSessionExpired = () => {
+      setToken(null);
+      setUser(null);
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+    };
+    window.addEventListener('auth:session-expired', handleSessionExpired);
+    return () => window.removeEventListener('auth:session-expired', handleSessionExpired);
+  }, []);
+
   const login = async (email: string, password: string) => {
     const resp = await apiClient.login({ email, password });
     setToken(resp.token);

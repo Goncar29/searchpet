@@ -113,6 +113,12 @@ class APIClient {
       const body = await response.json().catch(() => ({}));
       const code = body.code ?? 'unknown_error';
       const message = body.message ?? `HTTP Error ${response.status}`;
+      if (response.status === 401) {
+        this.token = null;
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('auth:session-expired'));
+        }
+      }
       throw new ApiError(code, response.status, message);
     }
 
@@ -168,6 +174,12 @@ class APIClient {
       const body = await response.json().catch(() => ({}));
       const code = body.code ?? 'unknown_error';
       const message = body.message ?? `HTTP Error ${response.status}`;
+      if (response.status === 401) {
+        this.token = null;
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('auth:session-expired'));
+        }
+      }
       throw new ApiError(code, response.status, message);
     }
     return response.json();
@@ -238,6 +250,12 @@ class APIClient {
       const body = await response.json().catch(() => ({}));
       const code = body.code ?? 'unknown_error';
       const message = body.message ?? `HTTP Error ${response.status}`;
+      if (response.status === 401) {
+        this.token = null;
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('auth:session-expired'));
+        }
+      }
       throw new ApiError(code, response.status, message);
     }
 
@@ -270,6 +288,12 @@ class APIClient {
       const body = await response.json().catch(() => ({}));
       const code = body.code ?? 'unknown_error';
       const message = body.message ?? `HTTP Error ${response.status}`;
+      if (response.status === 401) {
+        this.token = null;
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('auth:session-expired'));
+        }
+      }
       throw new ApiError(code, response.status, message);
     }
 
@@ -303,6 +327,12 @@ class APIClient {
       const body = await response.json().catch(() => ({}));
       const code = body.code ?? 'unknown_error';
       const message = body.message ?? `HTTP Error ${response.status}`;
+      if (response.status === 401) {
+        this.token = null;
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('auth:session-expired'));
+        }
+      }
       throw new ApiError(code, response.status, message);
     }
 
