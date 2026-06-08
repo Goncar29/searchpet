@@ -19,7 +19,7 @@ const PET_STATUSES: { value: PetStatus; label: string }[] = [
 ];
 
 export function HomePage() {
-  const { t } = useTranslation(['home', 'common']);
+  const { t } = useTranslation(['home', 'common', 'pets']);
   const { isAuthenticated } = useAuth();
   const { data: stats } = useStats();
   const { data: featuredStories } = useStories({ limit: 3 });
@@ -35,7 +35,7 @@ export function HomePage() {
   // ── Applied filters (sent to the API — only updated on explicit search) ──
   const [filterType, setFilterType] = useState<PetType | ''>('');
   const [filterColor, setFilterColor] = useState('');
-  const [filterStatus, setFilterStatus] = useState<PetStatus | ''>('');
+  const [filterStatus, setFilterStatus] = useState<PetStatus | ''>('active');
   const [filterBreed, setFilterBreed] = useState('');
   const [filterFrom, setFilterFrom] = useState('');
   const [filterTo, setFilterTo] = useState('');
@@ -55,7 +55,7 @@ export function HomePage() {
   const clearFilters = () => {
     setFilterType('');
     setFilterColor('');
-    setFilterStatus('');
+    setFilterStatus('active');
     setFilterBreed('');
     setFilterFrom('');
     setFilterTo('');
@@ -436,8 +436,12 @@ export function HomePage() {
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-5xl">🐾</div>
                       )}
-                      <span className={`absolute top-3 left-3 text-xs font-bold text-white px-2 py-1 rounded-md ${pet.status === 'found' ? 'bg-green-500' : 'bg-red-500'}`}>
-                        {pet.status === 'found' ? 'ENCONTRADO' : 'PERDIDO'}
+                      <span className={`absolute top-3 left-3 text-xs font-bold text-white px-2 py-1 rounded-md ${pet.status === 'found' ? 'bg-green-500' : pet.status === 'archived' ? 'bg-gray-500' : 'bg-blue-500'}`}>
+                        {pet.status === 'found'
+                          ? t('pets:status.found').toUpperCase()
+                          : pet.status === 'archived'
+                          ? t('pets:status.archived').toUpperCase()
+                          : t('pets:status.active').toUpperCase()}
                       </span>
                     </div>
                     {/* Info */}
