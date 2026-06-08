@@ -6,8 +6,8 @@ import { LoginPage } from './LoginPage';
 import { ApiError } from '@shared/api/client';
 
 const errorTranslations: Record<string, string> = {
-  'errors.invalid_credentials': 'Credenciales inválidas',
-  'errors.unknown_error': 'Ocurrió un error inesperado',
+  'errors:invalid_credentials': 'Credenciales inválidas',
+  'errors:unknown_error': 'Ocurrió un error inesperado',
 };
 
 vi.mock('react-i18next', () => ({

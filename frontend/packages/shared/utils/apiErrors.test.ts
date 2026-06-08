@@ -8,9 +8,9 @@ const tIdentity = (key: string) => key;
 // Mock TFunction that always translates (simulates a real i18n lookup)
 const tTranslate = (key: string) => {
   const map: Record<string, string> = {
-    'errors.pet_not_found': 'Pet not found',
-    'errors.invalid_credentials': 'Invalid email or password',
-    'errors.unknown_error': 'An unexpected error occurred',
+    'errors:pet_not_found': 'Pet not found',
+    'errors:invalid_credentials': 'Invalid email or password',
+    'errors:unknown_error': 'An unexpected error occurred',
   };
   return map[key] ?? key;
 };
@@ -40,25 +40,25 @@ describe('getErrorMessage', () => {
     expect(getErrorMessage(null, tTranslate)).toBe('An unexpected error occurred');
   });
 
-  it('calls t with the correct errors.{code} key for a known ApiError', () => {
+  it('calls t with the correct errors:{code} key for a known ApiError', () => {
     const t = vi.fn().mockImplementation((key: string) => {
-      if (key === 'errors.invalid_credentials') return 'Invalid email or password';
+      if (key === 'errors:invalid_credentials') return 'Invalid email or password';
       return key;
     });
     const err = new ApiError('invalid_credentials', 401, 'credenciales inválidas');
     const result = getErrorMessage(err, t);
-    expect(t).toHaveBeenCalledWith('errors.invalid_credentials');
+    expect(t).toHaveBeenCalledWith('errors:invalid_credentials');
     expect(result).toBe('Invalid email or password');
   });
 
-  it('calls t with errors.unknown_error when tIdentity returns key unchanged', () => {
+  it('calls t with errors:unknown_error when tIdentity returns key unchanged', () => {
     const t = vi.fn().mockImplementation(tIdentity);
     const err = new ApiError('pet_not_found', 404, 'mascota no encontrada');
-    // tIdentity returns 'errors.pet_not_found' unchanged → falls back
+    // tIdentity returns 'errors:pet_not_found' unchanged → falls back
     const result = getErrorMessage(err, t);
-    expect(t).toHaveBeenCalledWith('errors.pet_not_found');
-    expect(t).toHaveBeenCalledWith('errors.unknown_error');
-    expect(result).toBe('errors.unknown_error');
+    expect(t).toHaveBeenCalledWith('errors:pet_not_found');
+    expect(t).toHaveBeenCalledWith('errors:unknown_error');
+    expect(result).toBe('errors:unknown_error');
   });
 });
 

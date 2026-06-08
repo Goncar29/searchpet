@@ -34,7 +34,7 @@ func (h *PetHandler) CreatePet(c *gin.Context) {
 
 	var req dto.CreatePetRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		writeError(c, http.StatusBadRequest, err)
+		writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
 		return
 	}
 
@@ -87,7 +87,7 @@ func (h *PetHandler) UpdatePet(c *gin.Context) {
 
 	var req dto.UpdatePetRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		writeError(c, http.StatusBadRequest, err)
+		writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
 		return
 	}
 

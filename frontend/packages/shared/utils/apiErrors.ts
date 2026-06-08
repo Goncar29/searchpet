@@ -16,10 +16,10 @@ type TFunction = (key: string) => string;
  */
 export function getErrorMessage(err: unknown, t: TFunction): string {
   if (err instanceof ApiError) {
-    const key = `errors.${err.code}`;
+    const key = `errors:${err.code}`;
     const translated = t(key);
     // i18next returns the key string unchanged when no translation is found.
     if (translated !== key) return translated;
   }
-  return t('errors.unknown_error');
+  return t('errors:unknown_error');
 }
