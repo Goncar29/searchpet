@@ -75,10 +75,11 @@ var (
 	ErrSelfReview      = errors.New("you cannot review yourself")
 
 	// General
-	ErrUnauthorized = errors.New("no autorizado")
-	ErrForbidden    = errors.New("acceso prohibido")
-	ErrInvalidInput = errors.New("datos de entrada inválidos")
-	ErrInternal     = errors.New("error interno del servidor")
+	ErrUnauthorized      = errors.New("no autorizado")
+	ErrForbidden         = errors.New("acceso prohibido")
+	ErrInvalidInput      = errors.New("datos de entrada inválidos")
+	ErrInternal          = errors.New("error interno del servidor")
+	ErrRateLimitExceeded = errors.New("rate limit exceeded")
 
 	// Validation sentinel errors for handler-level input checks
 	ErrPhotoFieldRequired      = errors.New("campo 'photo' requerido")
@@ -166,10 +167,11 @@ var ErrorCodes = map[error]string{
 	ErrSelfReview:      "self_review",
 
 	// General
-	ErrUnauthorized: "unauthorized",
-	ErrForbidden:    "forbidden",
-	ErrInvalidInput: "invalid_input",
-	ErrInternal:     "internal_error",
+	ErrUnauthorized:      "unauthorized",
+	ErrForbidden:         "forbidden",
+	ErrInvalidInput:      "invalid_input",
+	ErrInternal:          "internal_error",
+	ErrRateLimitExceeded: "rate_limit_exceeded",
 
 	// Validation sentinel errors
 	ErrPhotoFieldRequired:     "photo_field_required",

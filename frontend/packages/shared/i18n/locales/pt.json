@@ -232,6 +232,7 @@
     "not_admin": "Você não tem permissão para realizar esta ação",
     "otp_expired": "O código de verificação expirou. Solicite um novo",
     "otp_invalid": "Código de verificação incorreto",
+    "rate_limit_exceeded": "Muitas tentativas. Aguarde um momento e tente novamente.",
     "phone_mismatch": "O número de telefone não coincide",
     "points_not_found": "Pontos do usuário não encontrados",
     "review_not_found": "Avaliação não encontrada",

@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"lost-pets/internal/domain"
 	"lost-pets/pkg/ratelimit"
 )
 
@@ -13,7 +14,7 @@ import (
 //
 // On limit exceeded the middleware responds HTTP 429 with:
 //
-//	{"error": "rate limit exceeded"}
+//	{"code": "rate_limit_exceeded", "message": "rate limit exceeded"}
 //
 // Example:
 //
@@ -23,7 +24,10 @@ func RateLimit(store ratelimit.Store, limit int, window time.Duration) gin.Handl
 	return func(c *gin.Context) {
 		key := "ratelimit:" + c.ClientIP()
 		if !store.Allow(key, limit, window) {
-			c.JSON(http.StatusTooManyRequests, gin.H{"error": "rate limit exceeded"})
+			c.JSON(http.StatusTooManyRequests, gin.H{
+				"code":    domain.CodeFor(domain.ErrRateLimitExceeded),
+				"message": domain.ErrRateLimitExceeded.Error(),
+			})
 			c.Abort()
 			return
 		}
