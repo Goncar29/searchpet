@@ -5,7 +5,7 @@
 import { View, Text, FlatList, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { useStories } from '../../../../shared/hooks';
+import { useStories } from '../../../shared/hooks';
 import { getDateLocale } from '../../i18n/dateLocale';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
 import type { SuccessStory } from '../../../../shared/types';
