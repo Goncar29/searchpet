@@ -22,6 +22,7 @@ import { useTranslation } from 'react-i18next';
 import i18next from 'i18next';
 import * as Location from 'expo-location';
 import { useAlerts, useCreateAlert, useUpdateAlert, useDeleteAlert } from '../../../shared/hooks';
+import { getErrorMessage } from '../../../shared/utils/apiErrors';
 import { useLocationStore } from '../../store';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS, PET_TYPES } from '../../constants';
 import type { LocationAlert, PetType } from '../../../shared/types';
@@ -58,8 +59,8 @@ export default function AlertsScreen() {
       const loc = await Location.getCurrentPositionAsync({});
       setFormLat(loc.coords.latitude);
       setFormLng(loc.coords.longitude);
-    } catch {
-      Alert.alert('Error', i18next.t('alerts:locationError'));
+    } catch (err: unknown) {
+      Alert.alert(i18next.t('common:error'), getErrorMessage(err, i18next.t));
     } finally {
       setLocating(false);
     }
@@ -84,8 +85,8 @@ export default function AlertsScreen() {
       setName('');
       setRadiusKm(5);
       setPetType('');
-    } catch (err: any) {
-      Alert.alert('Error', err?.message || i18next.t('alerts:createError'));
+    } catch (err: unknown) {
+      Alert.alert(i18next.t('common:error'), getErrorMessage(err, i18next.t));
     }
   };
 
@@ -95,8 +96,8 @@ export default function AlertsScreen() {
         id: alert.id,
         data: { is_active: !alert.is_active },
       });
-    } catch {
-      Alert.alert('Error', i18next.t('alerts:updateError'));
+    } catch (err: unknown) {
+      Alert.alert(i18next.t('common:error'), getErrorMessage(err, i18next.t));
     }
   };
 
@@ -112,8 +113,8 @@ export default function AlertsScreen() {
           onPress: async () => {
             try {
               await deleteAlert.mutateAsync(alert.id);
-            } catch {
-              Alert.alert('Error', i18next.t('alerts:deleteError'));
+            } catch (err: unknown) {
+              Alert.alert(i18next.t('common:error'), getErrorMessage(err, i18next.t));
             }
           },
         },

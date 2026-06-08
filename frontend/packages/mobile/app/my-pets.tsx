@@ -124,8 +124,8 @@ export default function MyPetsScreen() {
           onPress: async () => {
             try {
               await markAsFound.mutateAsync(pet.id);
-            } catch {
-              Alert.alert(i18next.t('common:error'), i18next.t('my_pets:markFoundError'));
+            } catch (err: unknown) {
+              Alert.alert(i18next.t('common:error'), getErrorMessage(err, (key) => i18next.t(key)));
             }
           },
         },
@@ -145,8 +145,8 @@ export default function MyPetsScreen() {
           onPress: async () => {
             try {
               await deletePet.mutateAsync(pet.id);
-            } catch {
-              Alert.alert(i18next.t('common:error'), i18next.t('my_pets:deletePetError'));
+            } catch (err: unknown) {
+              Alert.alert(i18next.t('common:error'), getErrorMessage(err, (key) => i18next.t(key)));
             }
           },
         },

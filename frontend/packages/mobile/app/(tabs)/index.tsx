@@ -37,17 +37,24 @@ export default function HomeScreen() {
   // ── Nudge de verificación (session-only, no persiste) ────
   const [verifyDismissed, setVerifyDismissed] = useState(false);
 
-  // ── Filtros ──────────────────────────────────────────────
-  const [filterType, setFilterType] = useState<PetType | undefined>();
-  const [filterColor, setFilterColor] = useState('');
-  const [filterBreed, setFilterBreed] = useState('');
-  const [filterFrom, setFilterFrom] = useState('');
-  const [filterTo, setFilterTo] = useState('');
+  // ── Filtros (draft state — updated on every keystroke/tap) ──
+  const [draftType, setDraftType] = useState<PetType | undefined>();
+  const [draftColor, setDraftColor] = useState('');
+  const [draftBreed, setDraftBreed] = useState('');
+  const [draftFrom, setDraftFrom] = useState('');
+  const [draftTo, setDraftTo] = useState('');
   const [radius, setRadius] = useState<5 | 10 | 25 | 50>(10);
   const [showFilters, setShowFilters] = useState(false);
 
-  const isSearchMode = !!filterType || filterColor.trim().length > 0
-    || filterBreed.trim().length > 0 || !!filterFrom || !!filterTo;
+  // ── Applied state — drives the actual API calls ──────────
+  const [appliedType, setAppliedType] = useState<PetType | undefined>();
+  const [appliedColor, setAppliedColor] = useState('');
+  const [appliedBreed, setAppliedBreed] = useState('');
+  const [appliedFrom, setAppliedFrom] = useState('');
+  const [appliedTo, setAppliedTo] = useState('');
+
+  const isSearchMode = !!appliedType || appliedColor.trim().length > 0
+    || appliedBreed.trim().length > 0 || !!appliedFrom || !!appliedTo;
 
   // ── Búsqueda por foto ──
   const [classifyResult, setClassifyResult] = useState<ClassifyResult | null>(null);
@@ -73,12 +80,12 @@ export default function HomeScreen() {
   // ── Datos ────────────────────────────────────────────────
   const nearbyQuery = useNearbyReports(lat, lng, radius, !isSearchMode);
   const searchQuery = useSearchPets({
-    type: filterType,
-    color: filterColor.trim() || undefined,
+    type: appliedType,
+    color: appliedColor.trim() || undefined,
     status: 'active',
-    breed: filterBreed.trim() || undefined,
-    from: filterFrom ? new Date(filterFrom).toISOString() : undefined,
-    to: filterTo ? new Date(filterTo).toISOString() : undefined,
+    breed: appliedBreed.trim() || undefined,
+    from: appliedFrom ? new Date(appliedFrom).toISOString() : undefined,
+    to: appliedTo ? new Date(appliedTo).toISOString() : undefined,
   });
 
   const isLoading = isSearchMode ? searchQuery.isLoading : nearbyQuery.isLoading;
@@ -88,12 +95,25 @@ export default function HomeScreen() {
 
   const handlePetPress = (petId: string) => router.push(`/pet/${petId}`);
 
+  const applyFilters = () => {
+    setAppliedType(draftType);
+    setAppliedColor(draftColor);
+    setAppliedBreed(draftBreed);
+    setAppliedFrom(draftFrom);
+    setAppliedTo(draftTo);
+  };
+
   const clearFilters = () => {
-    setFilterType(undefined);
-    setFilterColor('');
-    setFilterBreed('');
-    setFilterFrom('');
-    setFilterTo('');
+    setDraftType(undefined);
+    setDraftColor('');
+    setDraftBreed('');
+    setDraftFrom('');
+    setDraftTo('');
+    setAppliedType(undefined);
+    setAppliedColor('');
+    setAppliedBreed('');
+    setAppliedFrom('');
+    setAppliedTo('');
     setClassifyResult(null);
     setPhotoNoMatch(false);
   };
@@ -107,8 +127,14 @@ export default function HomeScreen() {
     const result = await classify(uri);
     if (result) {
       setClassifyResult(result);
-      if (result.type) setFilterType(result.type);
-      if (result.breed) setFilterBreed(result.breed);
+      if (result.type) {
+        setDraftType(result.type);
+        setAppliedType(result.type);
+      }
+      if (result.breed) {
+        setDraftBreed(result.breed);
+        setAppliedBreed(result.breed);
+      }
     } else {
       setPhotoNoMatch(true);
     }
@@ -180,10 +206,10 @@ export default function HomeScreen() {
         >
           {/* Chip "Todos" */}
           <TouchableOpacity
-            style={[styles.chip, !filterType && styles.chipActive]}
-            onPress={() => setFilterType(undefined)}
+            style={[styles.chip, !draftType && styles.chipActive]}
+            onPress={() => { setDraftType(undefined); setAppliedType(undefined); }}
           >
-            <Text style={[styles.chipText, !filterType && styles.chipTextActive]}>
+            <Text style={[styles.chipText, !draftType && styles.chipTextActive]}>
               🐾 {t('home:all')}
             </Text>
           </TouchableOpacity>
@@ -191,10 +217,14 @@ export default function HomeScreen() {
           {PET_TYPES.map((petType) => (
             <TouchableOpacity
               key={petType.value}
-              style={[styles.chip, filterType === petType.value && styles.chipActive]}
-              onPress={() => setFilterType(filterType === petType.value ? undefined : petType.value as PetType)}
+              style={[styles.chip, draftType === petType.value && styles.chipActive]}
+              onPress={() => {
+                const next = draftType === petType.value ? undefined : petType.value as PetType;
+                setDraftType(next);
+                setAppliedType(next);
+              }}
             >
-              <Text style={[styles.chipText, filterType === petType.value && styles.chipTextActive]}>
+              <Text style={[styles.chipText, draftType === petType.value && styles.chipTextActive]}>
                 {petType.icon} {t(`pets:types.${petType.value}`)}
               </Text>
             </TouchableOpacity>
@@ -250,8 +280,8 @@ export default function HomeScreen() {
               style={styles.colorInput}
               placeholder={t('home:colorPlaceholder')}
               placeholderTextColor={COLORS.textMuted}
-              value={filterColor}
-              onChangeText={setFilterColor}
+              value={draftColor}
+              onChangeText={setDraftColor}
               returnKeyType="search"
             />
 
@@ -259,8 +289,8 @@ export default function HomeScreen() {
               style={styles.colorInput}
               placeholder={t('home:breedPlaceholder')}
               placeholderTextColor={COLORS.textMuted}
-              value={filterBreed}
-              onChangeText={setFilterBreed}
+              value={draftBreed}
+              onChangeText={setDraftBreed}
               returnKeyType="search"
             />
 
@@ -268,8 +298,8 @@ export default function HomeScreen() {
               style={styles.colorInput}
               placeholder={t('home:fromPlaceholder')}
               placeholderTextColor={COLORS.textMuted}
-              value={filterFrom}
-              onChangeText={setFilterFrom}
+              value={draftFrom}
+              onChangeText={setDraftFrom}
               returnKeyType="next"
             />
 
@@ -277,10 +307,15 @@ export default function HomeScreen() {
               style={styles.colorInput}
               placeholder={t('home:toPlaceholder')}
               placeholderTextColor={COLORS.textMuted}
-              value={filterTo}
-              onChangeText={setFilterTo}
+              value={draftTo}
+              onChangeText={setDraftTo}
               returnKeyType="search"
             />
+
+            {/* Apply filters button — triggers the API call */}
+            <TouchableOpacity style={styles.applyButton} onPress={applyFilters}>
+              <Text style={styles.applyButtonText}>{t('common:search')}</Text>
+            </TouchableOpacity>
 
             {/* Radio (solo en modo nearby) */}
             {!isSearchMode && (
@@ -570,6 +605,15 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   clearButtonText: { color: COLORS.white, fontWeight: '700', fontSize: FONTS.sizes.sm },
+
+  // ── Apply filters button ──
+  applyButton: {
+    backgroundColor: COLORS.primary,
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  applyButtonText: { color: COLORS.white, fontWeight: '700', fontSize: FONTS.sizes.sm },
 
   // ── Historias de éxito ──
   storiesLoadingRow: {

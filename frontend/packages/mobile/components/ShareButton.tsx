@@ -13,10 +13,12 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import * as Linking from 'expo-linking';
+import i18next from 'i18next';
 import QRCode from 'react-native-qrcode-svg';
 import { useGenerateShareLink } from '../../shared/hooks';
 import { buildWhatsAppMessage } from '../../shared/utils/whatsappTemplates';
 import { getExpiryInfo } from '../../shared/utils/shareExpiry';
+import { getErrorMessage } from '../../shared/utils/apiErrors';
 import { COLORS, SPACING, FONTS, RADIUS } from '../constants';
 
 interface ShareButtonProps {
@@ -74,8 +76,8 @@ export function ShareButton({ petId, petName, petType, status, pet }: ShareButto
           title: `${petName} - ${statusText}`,
         });
       }
-    } catch (error: any) {
-      Alert.alert('Error', 'No se pudo generar el link para compartir');
+    } catch (error: unknown) {
+      Alert.alert(i18next.t('common:error'), getErrorMessage(error, i18next.t));
     } finally {
       setIsLoading(false);
     }
@@ -93,8 +95,8 @@ export function ShareButton({ petId, petName, petType, status, pet }: ShareButto
         url: result.share_url,
         title: `${petName} - ${statusText}`,
       });
-    } catch {
-      Alert.alert('Error', 'No se pudo compartir');
+    } catch (error: unknown) {
+      Alert.alert(i18next.t('common:error'), getErrorMessage(error, i18next.t));
     } finally {
       setIsLoading(false);
     }
@@ -114,8 +116,8 @@ export function ShareButton({ petId, petName, petType, status, pet }: ShareButto
       setShareUrl(link.share_url);
       setExpiresAt(link.expires_at);
       setShowQR(true);
-    } catch (err: any) {
-      Alert.alert('Error', err.message || 'No se pudo generar el código QR.');
+    } catch (err: unknown) {
+      Alert.alert(i18next.t('common:error'), getErrorMessage(err, i18next.t));
     }
   };
 

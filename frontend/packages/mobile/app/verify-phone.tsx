@@ -19,22 +19,10 @@ import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import i18next from 'i18next';
 import { useSendSmsOTP, useConfirmSmsOTP } from '../../shared/hooks';
+import { getErrorMessage } from '../../shared/utils/apiErrors';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../constants';
 
 type Step = 'phone' | 'code';
-
-function getErrorMessage(err: unknown): string {
-  if (!err) return i18next.t('verify:errorUnexpected');
-  const e = err as any;
-  if (e?.status === 429) {
-    return i18next.t('verify:errorRateLimit');
-  }
-  if (e?.status === 422 || e?.message?.toLowerCase().includes('max')) {
-    return i18next.t('verify:errorMaxAttempts');
-  }
-  if (e?.message) return e.message;
-  return i18next.t('verify:errorUnexpected');
-}
 
 export default function VerifyPhoneScreen() {
   const { t } = useTranslation('verify');
@@ -66,7 +54,7 @@ export default function VerifyPhoneScreen() {
       setStep('code');
       setResendCountdown(60);
     } catch (err) {
-      setPhoneError(getErrorMessage(err));
+      setPhoneError(getErrorMessage(err, i18next.t));
     }
   };
 
@@ -76,7 +64,7 @@ export default function VerifyPhoneScreen() {
       await sendSmsOTP.mutateAsync(phone.trim());
       setResendCountdown(60);
     } catch (err) {
-      setCodeError(getErrorMessage(err));
+      setCodeError(getErrorMessage(err, i18next.t));
     }
   };
 
@@ -92,7 +80,7 @@ export default function VerifyPhoneScreen() {
         { text: 'OK', onPress: () => router.back() },
       ]);
     } catch (err) {
-      setCodeError(getErrorMessage(err));
+      setCodeError(getErrorMessage(err, i18next.t));
     }
   };
 

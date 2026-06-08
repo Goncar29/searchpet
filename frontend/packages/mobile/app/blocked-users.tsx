@@ -16,6 +16,7 @@ import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import i18next from 'i18next';
 import { useBlockedUsers, useUnblockUser } from '../../shared/hooks';
+import { getErrorMessage } from '../../shared/utils/apiErrors';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../constants';
 import type { BlockedUser } from '../../shared/types';
 
@@ -59,8 +60,8 @@ export default function BlockedUsersScreen() {
 
   const handleUnblock = (userId: string) => {
     unblockUser.mutate(userId, {
-      onError: () => {
-        Alert.alert('Error', i18next.t('blocked_users:unblockError'));
+      onError: (err: unknown) => {
+        Alert.alert(i18next.t('common:error'), getErrorMessage(err, i18next.t));
       },
     });
   };

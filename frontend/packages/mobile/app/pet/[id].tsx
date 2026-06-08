@@ -23,6 +23,7 @@ import { useTranslation } from 'react-i18next';
 import i18next from 'i18next';
 import { usePetByID, useReportsByPetID, useMarkPetAsFound, useBlockUser, useSubmitAbuseReport } from '@shared/hooks';
 import { buildWhatsAppContactURL } from '@shared/utils/whatsappTemplates';
+import { getErrorMessage } from '@shared/utils/apiErrors';
 import { useAuthStore } from '../../store';
 import { getDateLocale } from '../../i18n/dateLocale';
 import { ShareButton } from '../../components/ShareButton';
@@ -83,8 +84,8 @@ export default function PetDetailScreen() {
         onSuccess: () => {
           Alert.alert(i18next.t('pet_detail:blockedSuccess'), i18next.t('pet_detail:blockedText'));
         },
-        onError: () => {
-          Alert.alert(i18next.t('common:error'), i18next.t('pet_detail:blockError'));
+        onError: (err: unknown) => {
+          Alert.alert(i18next.t('common:error'), getErrorMessage(err, i18next.t));
         },
       },
     );
@@ -109,7 +110,7 @@ export default function PetDetailScreen() {
               { target_user_id: ownerUserId, reason: r.value as 'spam' | 'fake' | 'abuse' | 'inappropriate' | 'other' },
               {
                 onSuccess: () => Alert.alert(i18next.t('pet_detail:reportSuccess'), ''),
-                onError: () => Alert.alert(i18next.t('common:error'), i18next.t('pet_detail:reportError')),
+                onError: (err: unknown) => Alert.alert(i18next.t('common:error'), getErrorMessage(err, i18next.t)),
               },
             );
           },

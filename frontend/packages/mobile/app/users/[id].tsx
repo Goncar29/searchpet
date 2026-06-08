@@ -214,8 +214,8 @@ export default function PublicProfileScreen() {
         onSuccess: () => {
           Alert.alert(i18next.t('users:blockUserSuccess'), i18next.t('users:blockUserSuccessText'));
         },
-        onError: () => {
-          Alert.alert('Error', i18next.t('users:blockUserError'));
+        onError: (err: unknown) => {
+          Alert.alert(i18next.t('common:error'), getErrorMessage(err, i18next.t));
         },
       },
     );
@@ -240,7 +240,7 @@ export default function PublicProfileScreen() {
               { target_user_id: id ?? '', reason: r.value as 'spam' | 'fake' | 'abuse' | 'inappropriate' | 'other' },
               {
                 onSuccess: () => Alert.alert(i18next.t('users:reportSuccess'), i18next.t('users:reportSuccessText')),
-                onError: () => Alert.alert('Error', i18next.t('users:reportError')),
+                onError: (err: unknown) => Alert.alert(i18next.t('common:error'), getErrorMessage(err, i18next.t)),
               },
             );
           },
@@ -302,11 +302,11 @@ export default function PublicProfileScreen() {
 
   const handleSubmit = () => {
     if (formStars < 1 || formStars > 5) {
-      Alert.alert('Error', i18next.t('users:starError'));
+      Alert.alert(i18next.t('common:error'), i18next.t('users:starError'));
       return;
     }
     if (!formText.trim()) {
-      Alert.alert('Error', i18next.t('users:commentError'));
+      Alert.alert(i18next.t('common:error'), i18next.t('users:commentError'));
       return;
     }
 
