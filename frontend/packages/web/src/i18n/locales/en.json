@@ -87,11 +87,12 @@
     "contactCta": "Are you a shelter and want to appear here? Contact us."
   },
   "footer": {
-    "description": "SearchPet — helping reunite pets with their families since 2024.",
+    "description": "SearchPet — helping reunite pets with their families.",
     "madeWith": "Made with ❤️ for the pets of Uruguay",
     "links": "Links",
     "contact": "Contact",
-    "contactText": "Want to contribute? This is an open source project."
+    "contactText": "Want to contribute? This is an open source project.",
+    "contactRepo": "View repository on GitHub"
   },
   "map": {
     "title": "Reports map",

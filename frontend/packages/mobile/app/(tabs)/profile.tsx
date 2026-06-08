@@ -2,7 +2,7 @@
 // SearchPet - Profile Screen
 // ============================================================
 
-import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView, Image, ActivityIndicator, Modal, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView, Image, ActivityIndicator, Modal, TextInput, KeyboardAvoidingView, Platform, Linking } from 'react-native';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
@@ -534,6 +534,15 @@ export default function ProfileScreen() {
         >
           <Text style={styles.menuIcon}>🌐</Text>
           <Text style={styles.menuText}>{t('menuLanguage')}</Text>
+          <Text style={styles.menuArrow}>›</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.menuItem}
+          onPress={() => Linking.openURL('https://github.com/Goncar29/searchpet')}
+        >
+          <Text style={styles.menuIcon}>🔗</Text>
+          <Text style={styles.menuText}>{t('menuGitHub')}</Text>
           <Text style={styles.menuArrow}>›</Text>
         </TouchableOpacity>
       </View>

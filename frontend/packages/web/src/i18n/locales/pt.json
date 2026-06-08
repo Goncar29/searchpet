@@ -87,11 +87,12 @@
     "contactCta": "Você é um abrigo e quer aparecer aqui? Entre em contato."
   },
   "footer": {
-    "description": "SearchPet — ajudando a reunir pets com suas famílias desde 2024.",
+    "description": "SearchPet — ajudando a reunir pets com suas famílias.",
     "madeWith": "Feito com ❤️ para os pets do Uruguai",
     "links": "Links",
     "contact": "Contato",
-    "contactText": "Quer contribuir? Este é um projeto de código aberto."
+    "contactText": "Quer contribuir? Este é um projeto de código aberto.",
+    "contactRepo": "Ver repositório no GitHub"
   },
   "map": {
     "title": "Mapa de reportes",

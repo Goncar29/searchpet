@@ -334,6 +334,14 @@ export function MainLayout() {
               <p className="text-sm text-gray-500 dark:text-gray-400">
                 {t('footer:contactText')}
               </p>
+              <a
+                href="https://github.com/Goncar29/searchpet"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-primary hover:underline mt-1 inline-block"
+              >
+                {t('footer:contactRepo')}
+              </a>
             </div>
           </div>
           <div className="border-t border-gray-200 dark:border-gray-700 mt-8 pt-6">
