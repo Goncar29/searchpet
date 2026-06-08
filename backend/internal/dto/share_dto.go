@@ -1,6 +1,7 @@
 package dto
 
 import (
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -45,7 +46,7 @@ type ShareLinkPublicResponse struct {
 func ToGenerateShareLinkResponse(token string, baseURL string, expiresAt time.Time) GenerateShareLinkResponse {
 	return GenerateShareLinkResponse{
 		ShareToken: token,
-		ShareURL:   baseURL + "/pet/" + token,
+		ShareURL:   strings.TrimRight(baseURL, "/") + "/pet/" + token,
 		ExpiresAt:  expiresAt,
 	}
 }

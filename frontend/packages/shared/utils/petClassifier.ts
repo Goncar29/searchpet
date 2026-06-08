@@ -106,11 +106,12 @@ const CAT_GENERIC_CLASSES = [
  * the full top-K scan.
  */
 export function mapLabelToPet(label: string): { type: PetType; breed: string | null } | null {
-  const normalized = label.toLowerCase();
+  // Normalize: lowercase + replace spaces with underscores (MobileNet may return either)
+  const normalized = label.toLowerCase().replace(/\s+/g, '_');
 
-  // Exact map lookup (case-insensitive key matching)
+  // Exact map lookup (case-insensitive, space/underscore-agnostic)
   for (const key of Object.keys(PET_CLASSIFIER_MAP)) {
-    if (key.toLowerCase() === normalized) {
+    if (key.toLowerCase().replace(/\s+/g, '_') === normalized) {
       return PET_CLASSIFIER_MAP[key];
     }
   }
@@ -156,9 +157,9 @@ export function lookupPet(
   for (const prediction of predictions.slice(0, 5)) {
     if (prediction.probability < minConfidence) continue;
 
-    const normalized = prediction.className.toLowerCase();
+    const normalized = prediction.className.toLowerCase().replace(/\s+/g, '_');
     for (const key of Object.keys(PET_CLASSIFIER_MAP)) {
-      if (key.toLowerCase() === normalized) {
+      if (key.toLowerCase().replace(/\s+/g, '_') === normalized) {
         const mapping = PET_CLASSIFIER_MAP[key];
         return {
           type: mapping.type,
