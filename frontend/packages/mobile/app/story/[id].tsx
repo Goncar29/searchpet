@@ -5,7 +5,7 @@
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { useStory, useLikeStory } from '../../../../shared/hooks';
+import { useStory, useLikeStory } from '../../../shared/hooks';
 import { getDateLocale } from '../../i18n/dateLocale';
 import { useAuthStore } from '../../store';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
