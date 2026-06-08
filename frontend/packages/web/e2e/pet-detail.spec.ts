@@ -43,8 +43,9 @@ test.describe('Pet detail page', () => {
 
   test('pet name and type are visible on detail page', async ({ page }) => {
     await page.goto(`/pets/${petId}`);
-    await expect(page.getByText(petName)).toBeVisible({ timeout: 10_000 });
-    await expect(page.getByText(/perro/i)).toBeVisible({ timeout: 10_000 });
+    // Use .first() because PdfFlyerButton renders a hidden off-screen h1 + table with the same text
+    await expect(page.getByText(petName).first()).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText(/perro/i).first()).toBeVisible({ timeout: 10_000 });
   });
 
   test('contact button is present and click does not cause unhandled JS error', async ({ page }) => {

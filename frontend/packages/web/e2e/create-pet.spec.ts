@@ -26,6 +26,7 @@ test.describe('Create pet page', () => {
     await page.locator('form button[type="submit"]').click();
 
     // After creation the app navigates to the pet detail page — assert pet name is visible
-    await expect(page.getByText('PlaywrightPet')).toBeVisible({ timeout: 10_000 });
+    // Use .first() because PdfFlyerButton renders a hidden off-screen h1 with the same text
+    await expect(page.getByText('PlaywrightPet').first()).toBeVisible({ timeout: 10_000 });
   });
 });
