@@ -24,16 +24,33 @@ export function HomePage() {
   const { data: stats } = useStats();
   const { data: featuredStories } = useStories({ limit: 3 });
 
-  // ── Filtros ──
+  // ── Draft filters (what the user is typing — not yet applied) ──
+  const [draftType, setDraftType] = useState<PetType | ''>('');
+  const [draftColor, setDraftColor] = useState('');
+  const [draftStatus, setDraftStatus] = useState<PetStatus | ''>('active');
+  const [draftBreed, setDraftBreed] = useState('');
+  const [draftFrom, setDraftFrom] = useState('');
+  const [draftTo, setDraftTo] = useState('');
+
+  // ── Applied filters (sent to the API — only updated on explicit search) ──
   const [filterType, setFilterType] = useState<PetType | ''>('');
   const [filterColor, setFilterColor] = useState('');
-  const [filterStatus, setFilterStatus] = useState<PetStatus | ''>('active');
+  const [filterStatus, setFilterStatus] = useState<PetStatus | ''>('');
   const [filterBreed, setFilterBreed] = useState('');
   const [filterFrom, setFilterFrom] = useState('');
   const [filterTo, setFilterTo] = useState('');
 
   const isSearchMode = !!filterType || filterColor.trim().length > 0 || !!filterStatus
     || filterBreed.trim().length > 0 || !!filterFrom || !!filterTo;
+
+  const handleSearch = () => {
+    setFilterType(draftType);
+    setFilterColor(draftColor);
+    setFilterStatus(draftStatus);
+    setFilterBreed(draftBreed);
+    setFilterFrom(draftFrom);
+    setFilterTo(draftTo);
+  };
 
   const clearFilters = () => {
     setFilterType('');
@@ -42,6 +59,12 @@ export function HomePage() {
     setFilterBreed('');
     setFilterFrom('');
     setFilterTo('');
+    setDraftType('');
+    setDraftColor('');
+    setDraftStatus('active');
+    setDraftBreed('');
+    setDraftFrom('');
+    setDraftTo('');
     setClassifyResult(null);
     setPhotoNoMatch(false);
   };
@@ -65,8 +88,9 @@ export function HomePage() {
     URL.revokeObjectURL(img.src);
     if (result) {
       setClassifyResult(result);
-      if (result.type) setFilterType(result.type);
-      if (result.breed) setFilterBreed(result.breed);
+      // Photo search auto-applies immediately — uploading IS the explicit action
+      if (result.type) { setDraftType(result.type); setFilterType(result.type); }
+      if (result.breed) { setDraftBreed(result.breed); setFilterBreed(result.breed); }
     } else {
       setPhotoNoMatch(true);
     }
@@ -215,18 +239,76 @@ export function HomePage() {
         </section>
       )}
 
-      {/* Buscador y filtros */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {/* Buscar por foto */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
+        <div className="bg-gradient-to-r from-primary/5 to-blue-50 dark:from-primary/10 dark:to-gray-900 rounded-2xl border border-primary/20 dark:border-primary/30 p-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-2xl">📷</span>
+                <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">
+                  Buscar por foto
+                </h2>
+                <span className="text-xs font-bold bg-primary/15 text-primary px-2 py-0.5 rounded-full">IA</span>
+                <span className="text-xs font-semibold bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 px-2 py-0.5 rounded-full">Beta</span>
+              </div>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Subí una foto y detectamos automáticamente la raza y el tipo de mascota.
+              </p>
+              {classifyResult?.type && (
+                <div className="mt-3 flex items-center gap-2 flex-wrap">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 text-sm font-semibold bg-primary/10 text-primary border border-primary/20 rounded-full">
+                    ✓ {classifyResult.breed ?? classifyResult.type} · {Math.round(classifyResult.confidence * 100)}%
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => { setClassifyResult(null); clearFilters(); }}
+                    className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
+                  >
+                    Limpiar ✕
+                  </button>
+                </div>
+              )}
+              {photoNoMatch && (
+                <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 text-xs text-yellow-700 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-full">
+                  No se detectó ninguna mascota. Probá con una foto más clara.
+                  <button type="button" onClick={() => setPhotoNoMatch(false)} className="ml-0.5 hover:opacity-70">✕</button>
+                </div>
+              )}
+            </div>
+            <div className="flex-shrink-0">
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isModelLoading || isClassifying}
+                className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-white bg-primary rounded-xl hover:bg-primary-dark disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
+              >
+                {isModelLoading ? '⏳ Cargando...' : isClassifying ? '🔍 Analizando...' : '📷 Subir foto'}
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleImageSearch}
+              />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Filtros */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
         <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-5">
           <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-4">
-            🔍 Buscar mascotas
+            🔍 Filtrar mascotas
           </h2>
 
           <div className="flex flex-wrap gap-3">
             {/* Tipo */}
             <select
-              value={filterType}
-              onChange={(e) => setFilterType(e.target.value as PetType | '')}
+              value={draftType}
+              onChange={(e) => setDraftType(e.target.value as PetType | '')}
               className="border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-primary"
             >
               <option value="">Todos los tipos</option>
@@ -239,15 +321,16 @@ export function HomePage() {
             <input
               type="text"
               placeholder="Color (ej: negro, marrón...)"
-              value={filterColor}
-              onChange={(e) => setFilterColor(e.target.value)}
+              value={draftColor}
+              onChange={(e) => setDraftColor(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
               className="border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-primary min-w-[180px]"
             />
 
             {/* Estado */}
             <select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value as PetStatus | '')}
+              value={draftStatus}
+              onChange={(e) => setDraftStatus(e.target.value as PetStatus | '')}
               className="border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-primary"
             >
               <option value="">Perdidos y encontrados</option>
@@ -260,24 +343,25 @@ export function HomePage() {
             <input
               type="text"
               placeholder="Raza (ej: Labrador...)"
-              value={filterBreed}
-              onChange={(e) => setFilterBreed(e.target.value)}
+              value={draftBreed}
+              onChange={(e) => setDraftBreed(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
               className="border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-primary min-w-[180px]"
             />
 
             {/* Desde */}
             <input
               type="date"
-              value={filterFrom}
-              onChange={(e) => setFilterFrom(e.target.value)}
+              value={draftFrom}
+              onChange={(e) => setDraftFrom(e.target.value)}
               className="border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-primary"
             />
 
             {/* Hasta */}
             <input
               type="date"
-              value={filterTo}
-              onChange={(e) => setFilterTo(e.target.value)}
+              value={draftTo}
+              onChange={(e) => setDraftTo(e.target.value)}
               className="border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-primary"
             />
 
@@ -293,8 +377,15 @@ export function HomePage() {
                 ))}
               </select>
             )}
+          </div>
 
-            {/* Limpiar */}
+          <div className="flex gap-2 mt-4">
+            <button
+              onClick={handleSearch}
+              className="px-5 py-2 text-sm font-semibold text-white bg-primary rounded-lg hover:bg-primary-dark transition-colors"
+            >
+              Buscar
+            </button>
             {isSearchMode && (
               <button
                 onClick={clearFilters}
@@ -302,41 +393,6 @@ export function HomePage() {
               >
                 ✕ Limpiar
               </button>
-            )}
-
-            {/* Buscar por foto */}
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isModelLoading || isClassifying}
-              className="px-4 py-2 text-sm font-semibold text-white bg-primary rounded-lg hover:bg-primary-dark disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              {isModelLoading ? '⏳ Cargando modelo...' : isClassifying ? '🔍 Analizando...' : '📷 Buscar por foto'}
-            </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={handleImageSearch}
-            />
-            {classifyResult?.type && (
-              <span className="inline-flex items-center gap-1 px-3 py-1 text-xs font-semibold bg-primary/10 text-primary border border-primary/20 rounded-full">
-                {classifyResult.breed ?? classifyResult.type} · {Math.round(classifyResult.confidence * 100)}%
-                <button
-                  type="button"
-                  onClick={() => { setClassifyResult(null); clearFilters(); }}
-                  className="ml-1 hover:text-primary-dark"
-                >
-                  ✕
-                </button>
-              </span>
-            )}
-            {photoNoMatch && (
-              <span className="inline-flex items-center gap-1 px-3 py-1 text-xs text-yellow-700 bg-yellow-50 border border-yellow-200 rounded-full">
-                No se detectó ninguna mascota. Probá con una foto más clara.
-                <button type="button" onClick={() => setPhotoNoMatch(false)} className="ml-1">✕</button>
-              </span>
             )}
           </div>
         </div>
