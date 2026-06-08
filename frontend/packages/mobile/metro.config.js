@@ -28,6 +28,11 @@ config.resolver.extraNodeModules = {
   'react-native': resolveModule('react-native'),
   '@tanstack/react-query': resolveModule('@tanstack/react-query'),
   '@babel/runtime': resolveModule('@babel/runtime'),
+  // TF.js is declared in mobile but imported via shared/hooks/useImageClassify.ts —
+  // pin resolution to the mobile project so Metro finds it in any workspace layout.
+  '@tensorflow/tfjs': resolveModule('@tensorflow/tfjs'),
+  '@tensorflow/tfjs-react-native': resolveModule('@tensorflow/tfjs-react-native'),
+  '@tensorflow-models/mobilenet': resolveModule('@tensorflow-models/mobilenet'),
 };
 
 // Excluir paquetes de tipos de la resolución de módulos en runtime.
