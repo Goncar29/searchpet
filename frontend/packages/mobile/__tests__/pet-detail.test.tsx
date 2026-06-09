@@ -74,23 +74,21 @@ describe('PetDetailScreen', () => {
     expect(toJSON()).toBeTruthy();
   });
 
-  it('muestra el badge ACTIVO (no PERDIDO) para mascotas con status active', () => {
+  it('muestra el badge REGISTRADA para mascotas con status registered', () => {
     mockUsePetByID.mockReturnValue({
-      data: { ...mockPetBase, status: 'active' },
+      data: { ...mockPetBase, status: 'registered' },
       isLoading: false,
     });
     const { queryByText } = render(<PetDetailScreen />);
-    // After the fix: active pets must NOT show "PERDIDO" in their badge
     expect(queryByText(/perdido/i)).toBeNull();
   });
 
-  it('no muestra el badge ACTIVO para mascotas con status found', () => {
+  it('no muestra el badge de status lost para mascotas con status found', () => {
     mockUsePetByID.mockReturnValue({
       data: { ...mockPetBase, status: 'found' },
       isLoading: false,
     });
     const { queryByText } = render(<PetDetailScreen />);
-    // i18n mocked as passthrough: key 'pets:status.active' must NOT appear on found pets
-    expect(queryByText(/pets:status\.active/i)).toBeNull();
+    expect(queryByText(/pets:status\.lost/i)).toBeNull();
   });
 });

@@ -231,20 +231,15 @@ export default function PetDetailScreen() {
             styles.statusBadge,
             {
               backgroundColor:
-                pet.status === 'found' ? COLORS.found :
-                pet.status === 'archived' ? COLORS.textMuted :
-                pet.status === 'active' ? COLORS.primary :
+                pet.status === 'found'      ? COLORS.found :
+                pet.status === 'archived'   ? COLORS.textMuted :
+                pet.status === 'registered' ? COLORS.textSecondary :
+                pet.status === 'stray'      ? COLORS.warning :
                 COLORS.lost,
             },
           ]}>
             <Text style={styles.statusText}>
-              {pet.status === 'found'
-                ? t('pets:status.found').toUpperCase()
-                : pet.status === 'archived'
-                ? t('pets:status.archived').toUpperCase()
-                : pet.status === 'active'
-                ? t('pets:status.active').toUpperCase()
-                : t('pets:status.lost').toUpperCase()}
+              {t(`pets:status.${pet.status}`).toUpperCase()}
             </Text>
           </View>
         </View>
@@ -285,8 +280,8 @@ export default function PetDetailScreen() {
           </View>
         )}
 
-        {/* Botón Marcar como encontrada — solo para el dueño cuando está activa */}
-        {isOwner && pet.status === 'active' && (
+        {/* Botón Marcar como encontrada — owner cuando está lost, reporter cuando es stray */}
+        {isOwner && (pet.status === 'lost' || pet.status === 'stray') && (
           <TouchableOpacity
             style={[styles.markFoundButton, markAsFound.isPending && styles.disabledButton]}
             onPress={handleMarkAsFound}

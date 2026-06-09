@@ -12,9 +12,17 @@ function SkeletonCard() {
 }
 
 const STATUS_CONFIG: Record<PetStatus, { labelKey: string; className: string }> = {
-  active: {
-    labelKey: 'pets:status.active',
-    className: 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300',
+  registered: {
+    labelKey: 'pets:status.registered',
+    className: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400',
+  },
+  lost: {
+    labelKey: 'pets:status.lost',
+    className: 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300',
+  },
+  stray: {
+    labelKey: 'pets:status.stray',
+    className: 'bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300',
   },
   found: {
     labelKey: 'pets:status.found',
@@ -22,7 +30,7 @@ const STATUS_CONFIG: Record<PetStatus, { labelKey: string; className: string }> 
   },
   archived: {
     labelKey: 'pets:status.archived',
-    className: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400',
+    className: 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-500',
   },
 };
 
@@ -41,7 +49,7 @@ function PetCard({
   const navigate = useNavigate();
   const updatePet = useUpdatePet();
 
-  const statusCfg = STATUS_CONFIG[pet.status] ?? STATUS_CONFIG.active;
+  const statusCfg = STATUS_CONFIG[pet.status] ?? STATUS_CONFIG.registered;
   const primaryPhoto: Photo | undefined =
     pet.photos?.find((p) => p.is_primary) ?? pet.photos?.[0];
 
@@ -53,9 +61,19 @@ function PetCard({
   };
 
   const isConfirming = confirmingId === pet.id;
+  const [pendingStatus, setPendingStatus] = useState<PetStatus | null>(null);
 
   const handleStatusChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    updatePet.mutate({ id: pet.id, data: { status: e.target.value as PetStatus } });
+    const next = e.target.value as PetStatus;
+    if (next !== pet.status) setPendingStatus(next);
+  };
+
+  const confirmStatusChange = () => {
+    if (!pendingStatus) return;
+    updatePet.mutate(
+      { id: pet.id, data: { status: pendingStatus } },
+      { onSettled: () => setPendingStatus(null) },
+    );
   };
 
   return (
@@ -114,16 +132,37 @@ function PetCard({
 
           {/* Cambiar estado */}
           <select
-            value={pet.status}
+            value={pendingStatus ?? pet.status}
             onChange={handleStatusChange}
             disabled={updatePet.isPending}
             className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-sm px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-60"
             aria-label={t('pets:mine.changeStatus')}
           >
-            <option value="active">{t('pets:status.active')}</option>
+            <option value="registered">{t('pets:status.registered')}</option>
+            <option value="lost">{t('pets:status.lost')}</option>
+            <option value="stray">{t('pets:status.stray')}</option>
             <option value="found">{t('pets:status.found')}</option>
             <option value="archived">{t('pets:status.archived')}</option>
           </select>
+
+          {/* Status change confirmation */}
+          {pendingStatus && (
+            <div className="flex gap-2 p-2 bg-amber-50 dark:bg-amber-950 rounded-lg border border-amber-200 dark:border-amber-800">
+              <button
+                onClick={confirmStatusChange}
+                disabled={updatePet.isPending}
+                className="flex-1 bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold rounded-md px-2 py-1.5 transition-colors disabled:opacity-60"
+              >
+                {t('common:confirm')}
+              </button>
+              <button
+                onClick={() => setPendingStatus(null)}
+                className="flex-1 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 text-xs font-semibold rounded-md px-2 py-1.5 transition-colors"
+              >
+                {t('common:cancel')}
+              </button>
+            </div>
+          )}
 
           {/* Delete / confirm */}
           {isConfirming ? (

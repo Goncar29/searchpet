@@ -52,7 +52,7 @@ export function ShareButton({ petId, petName, petType, status, pet }: ShareButto
         data: { platform: platform as any },
       });
 
-      const petForMessage = pet ?? { name: petName, type: petType, status: status === 'found' ? 'found' as const : 'active' as const };
+      const petForMessage = pet ?? { name: petName, type: petType, status: status === 'found' ? 'found' as const : 'lost' as const };
       const message = buildWhatsAppMessage(petForMessage, result.share_url);
 
       if (platform === 'whatsapp') {
@@ -87,7 +87,7 @@ export function ShareButton({ petId, petName, petType, status, pet }: ShareButto
     setIsLoading(true);
     try {
       const result = await generateLink.mutateAsync({ petID: petId });
-      const petForMessage = pet ?? { name: petName, type: petType, status: status === 'found' ? 'found' as const : 'active' as const };
+      const petForMessage = pet ?? { name: petName, type: petType, status: status === 'found' ? 'found' as const : 'lost' as const };
       const message = buildWhatsAppMessage(petForMessage, result.share_url);
 
       await Share.share({

@@ -11,7 +11,7 @@ const basePet = {
   type: 'perro',
   breed: 'Labrador',
   color: 'dorado',
-  status: 'active' as PetStatus,
+  status: 'lost' as PetStatus,
 };
 
 // ============================================================

@@ -98,7 +98,10 @@
       "verified": "Verified",
       "noPhone": "No phone registered",
       "whatsappMessage": "Hi, I saw your pet {{name}} on SearchPet",
-      "timeline": "Report history ({{count}})"
+      "timeline": "Report history ({{count}})",
+      "reporter": "Who found it",
+      "reporterDescription": "This stray pet was reported by a community member.",
+      "contactReporter": "Contact reporter"
     },
     "card": {
       "lost": "Lost",
@@ -122,11 +125,13 @@
       "replacePhoto": "Upload a new one to replace the current photo"
     },
     "status": {
+      "registered": "Registered",
       "lost": "Lost",
+      "stray": "Stray",
       "found": "Found",
+      "archived": "Archived",
       "sighting": "Sighting",
-      "active": "Active",
-      "archived": "Archived"
+      "active": "Active"
     }
   },
   "chat": {

@@ -36,19 +36,23 @@ export default function MyPetsScreen() {
 
   const getStatusLabel = (status: string) => {
     switch (status) {
-      case 'active': return t('my_pets:status.active');
-      case 'found': return t('my_pets:status.found');
-      case 'archived': return t('my_pets:status.archived');
+      case 'registered': return t('pets:status.registered');
+      case 'lost':       return t('pets:status.lost');
+      case 'stray':      return t('pets:status.stray');
+      case 'found':      return t('pets:status.found');
+      case 'archived':   return t('pets:status.archived');
       default: return status;
     }
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'active': return COLORS.primary;
-      case 'found': return COLORS.success;
-      case 'archived': return COLORS.textMuted;
-      default: return COLORS.primary;
+      case 'registered': return COLORS.textSecondary;
+      case 'lost':       return COLORS.lost;
+      case 'stray':      return COLORS.warning;
+      case 'found':      return COLORS.success;
+      case 'archived':   return COLORS.textMuted;
+      default: return COLORS.textSecondary;
     }
   };
 
@@ -225,7 +229,7 @@ export default function MyPetsScreen() {
                 >
                   <Text style={styles.reportButtonText}>{t('my_pets:reportButton')}</Text>
                 </TouchableOpacity>
-                {item.status === 'active' && (
+                {(item.status === 'lost' || item.status === 'stray') && (
                   <TouchableOpacity
                     style={styles.foundButton}
                     onPress={() => handleMarkAsFound(item)}

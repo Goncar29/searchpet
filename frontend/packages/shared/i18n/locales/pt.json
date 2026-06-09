@@ -98,7 +98,10 @@
       "verified": "Verificado",
       "noPhone": "Nenhum telefone cadastrado",
       "whatsappMessage": "Olá, vi seu pet {{name}} no SearchPet",
-      "timeline": "Histórico de reportes ({{count}})"
+      "timeline": "Histórico de reportes ({{count}})",
+      "reporter": "Quem encontrou",
+      "reporterDescription": "Este pet errante foi reportado por um membro da comunidade.",
+      "contactReporter": "Contatar reportador"
     },
     "card": {
       "lost": "Perdido",
@@ -122,11 +125,13 @@
       "replacePhoto": "Envie uma nova para substituir a foto atual"
     },
     "status": {
+      "registered": "Registrado",
       "lost": "Perdido",
+      "stray": "Errante",
       "found": "Encontrado",
+      "archived": "Arquivado",
       "sighting": "Avistamento",
-      "active": "Ativo",
-      "archived": "Arquivado"
+      "active": "Ativo"
     }
   },
   "chat": {
