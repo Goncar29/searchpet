@@ -82,7 +82,6 @@ export default function HomeScreen() {
   const searchQuery = useSearchPets({
     type: appliedType,
     color: appliedColor.trim() || undefined,
-    status: 'active',
     breed: appliedBreed.trim() || undefined,
     from: appliedFrom ? new Date(appliedFrom).toISOString() : undefined,
     to: appliedTo ? new Date(appliedTo).toISOString() : undefined,

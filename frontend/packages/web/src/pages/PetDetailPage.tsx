@@ -86,12 +86,15 @@ export function PetDetailPage() {
     );
   };
 
-  const statusBadge =
-    pet.status === 'found'
-      ? { color: 'bg-green-500', label: t('pets:status.found').toUpperCase() }
-      : pet.status === 'archived'
-      ? { color: 'bg-gray-500', label: t('pets:status.archived').toUpperCase() }
-      : { color: 'bg-blue-500', label: t('pets:status.active').toUpperCase() };
+  const statusBadge = {
+    color:
+      pet.status === 'lost' ? 'bg-red-500' :
+      pet.status === 'stray' ? 'bg-amber-500' :
+      pet.status === 'found' ? 'bg-green-500' :
+      pet.status === 'archived' ? 'bg-gray-400' :
+      'bg-gray-500',
+    label: t(`pets:status.${pet.status}`).toUpperCase(),
+  };
 
   const getReportStatusLabel = (status: string) => {
     switch (status) {
@@ -198,7 +201,7 @@ export function PetDetailPage() {
                 </Link>
               )}
               {/* Mark as Found — solo para el dueño cuando la mascota está activa */}
-              {isOwner && pet.status === 'active' && (
+              {isOwner && (pet.status === 'lost' || pet.status === 'stray') && (
                 <div className="flex flex-col gap-2">
                   <button
                     onClick={() => setShowFoundConfirm(true)}
@@ -281,6 +284,20 @@ export function PetDetailPage() {
                     {t('pets:detail.contact')}
                   </a>
                 )}
+              </div>
+            )}
+
+            {/* Reporter contact — stray pets with no owner */}
+            {pet.status === 'stray' && !pet.owner && pet.reporter_id && isAuthenticated && (
+              <div className="bg-amber-50 dark:bg-amber-950 rounded-xl p-4 mb-6 border border-amber-200 dark:border-amber-800">
+                <h3 className="font-bold text-gray-900 dark:text-gray-100 mb-2">{t('pets:detail.reporter')}</h3>
+                <p className="text-sm text-gray-600 dark:text-gray-300 mb-3">{t('pets:detail.reporterDescription')}</p>
+                <Link
+                  to={`/messages/${pet.reporter_id}`}
+                  className="w-full inline-flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-600 text-white font-bold py-3 rounded-lg transition-colors"
+                >
+                  💬 {t('pets:detail.contactReporter')}
+                </Link>
               </div>
             )}
 

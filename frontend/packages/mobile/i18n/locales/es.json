@@ -198,10 +198,12 @@
     "add": "Agregar",
     "addPhoto": "+ Foto",
     "status": {
-      "active": "Activa",
+      "registered": "Registrada",
       "lost": "Perdida",
+      "stray": "Callejera",
       "found": "Encontrada",
-      "archived": "Archivada"
+      "archived": "Archivada",
+      "active": "Activa"
     },
     "actions": {
       "view": "Ver",

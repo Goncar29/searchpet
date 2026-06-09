@@ -198,10 +198,12 @@
     "add": "Add",
     "addPhoto": "+ Photo",
     "status": {
-      "active": "Active",
+      "registered": "Registered",
       "lost": "Lost",
+      "stray": "Stray",
       "found": "Found",
-      "archived": "Archived"
+      "archived": "Archived",
+      "active": "Active"
     },
     "actions": {
       "view": "View",

@@ -14,8 +14,10 @@ const PET_TYPES: { value: PetType; label: string; icon: string }[] = [
 ];
 
 const PET_STATUSES: { value: PetStatus; label: string }[] = [
-  { value: 'active', label: 'Perdidos' },
+  { value: 'lost', label: 'Perdidos' },
+  { value: 'stray', label: 'Callejeros' },
   { value: 'found', label: 'Encontrados' },
+  { value: 'registered', label: 'Registrados' },
 ];
 
 export function HomePage() {
@@ -27,7 +29,7 @@ export function HomePage() {
   // ── Draft filters (what the user is typing — not yet applied) ──
   const [draftType, setDraftType] = useState<PetType | ''>('');
   const [draftColor, setDraftColor] = useState('');
-  const [draftStatus, setDraftStatus] = useState<PetStatus | ''>('active');
+  const [draftStatus, setDraftStatus] = useState<PetStatus | ''>('');
   const [draftBreed, setDraftBreed] = useState('');
   const [draftFrom, setDraftFrom] = useState('');
   const [draftTo, setDraftTo] = useState('');
@@ -35,15 +37,18 @@ export function HomePage() {
   // ── Applied filters (sent to the API — only updated on explicit search) ──
   const [filterType, setFilterType] = useState<PetType | ''>('');
   const [filterColor, setFilterColor] = useState('');
-  const [filterStatus, setFilterStatus] = useState<PetStatus | ''>('active');
+  const [filterStatus, setFilterStatus] = useState<PetStatus | ''>('');
   const [filterBreed, setFilterBreed] = useState('');
   const [filterFrom, setFilterFrom] = useState('');
   const [filterTo, setFilterTo] = useState('');
 
-  const isSearchMode = !!filterType || filterColor.trim().length > 0 || !!filterStatus
+  // Feed is always shown on load; nearby-reports mode activates only after explicit clear.
+  const [showFeed, setShowFeed] = useState(true);
+  const isSearchMode = showFeed || !!filterType || filterColor.trim().length > 0 || !!filterStatus
     || filterBreed.trim().length > 0 || !!filterFrom || !!filterTo;
 
   const handleSearch = () => {
+    setShowFeed(true);
     setFilterType(draftType);
     setFilterColor(draftColor);
     setFilterStatus(draftStatus);
@@ -53,15 +58,16 @@ export function HomePage() {
   };
 
   const clearFilters = () => {
+    setShowFeed(false);
     setFilterType('');
     setFilterColor('');
-    setFilterStatus('active');
+    setFilterStatus('');
     setFilterBreed('');
     setFilterFrom('');
     setFilterTo('');
     setDraftType('');
     setDraftColor('');
-    setDraftStatus('active');
+    setDraftStatus('');
     setDraftBreed('');
     setDraftFrom('');
     setDraftTo('');
@@ -436,12 +442,14 @@ export function HomePage() {
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-5xl">🐾</div>
                       )}
-                      <span className={`absolute top-3 left-3 text-xs font-bold text-white px-2 py-1 rounded-md ${pet.status === 'found' ? 'bg-green-500' : pet.status === 'archived' ? 'bg-gray-500' : 'bg-blue-500'}`}>
-                        {pet.status === 'found'
-                          ? t('pets:status.found').toUpperCase()
-                          : pet.status === 'archived'
-                          ? t('pets:status.archived').toUpperCase()
-                          : t('pets:status.active').toUpperCase()}
+                      <span className={`absolute top-3 left-3 text-xs font-bold text-white px-2 py-1 rounded-md ${
+                        pet.status === 'lost' ? 'bg-red-500' :
+                        pet.status === 'stray' ? 'bg-amber-500' :
+                        pet.status === 'found' ? 'bg-green-500' :
+                        pet.status === 'archived' ? 'bg-gray-400' :
+                        'bg-gray-500'
+                      }`}>
+                        {t(`pets:status.${pet.status}`).toUpperCase()}
                       </span>
                     </div>
                     {/* Info */}

@@ -38,7 +38,9 @@ export interface PetOwner {
 
 export interface Pet {
   id: string;
-  owner_id: string;
+  owner_id?: string;
+  reporter_id?: string;
+  version?: number;
   name: string;
   type: PetType;
   breed?: string;
@@ -188,7 +190,7 @@ export interface UploadPhotoResponse {
 // ============================================================
 
 export type PetType = 'perro' | 'gato' | 'pajaro' | 'otro';
-export type PetStatus = 'active' | 'found' | 'archived';
+export type PetStatus = 'registered' | 'lost' | 'stray' | 'found' | 'archived';
 export type ReportStatus = 'lost' | 'found' | 'sighting';
 export type Platform = 'instagram' | 'facebook' | 'whatsapp' | 'twitter';
 
@@ -460,7 +462,7 @@ export interface ImageSearchResult {
   type: string;
   photo_url: string;
   similarity: number;
-  owner_id: string;
+  owner_id?: string;
 }
 
 // ============================================================

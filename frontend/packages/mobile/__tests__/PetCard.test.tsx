@@ -19,7 +19,7 @@ const baseReport: Report = {
     type: 'perro',
     breed: 'Labrador',
     color: 'amarillo',
-    status: 'active',
+    status: 'lost',
     photos: [],
     created_at: new Date().toISOString(),
   },
