@@ -115,10 +115,10 @@ func TestCreateReport_FoundStatus_UpdatesPetToFound(t *testing.T) {
 	}
 }
 
-func TestCreateReport_LostStatus_UpdatesPetToActive(t *testing.T) {
+func TestCreateReport_LostStatus_UpdatesPetToLost(t *testing.T) {
 	petID := uuid.New()
 	rRepo := &mockReportRepo{}
-	pRepo := &mockPetRepo{pet: petWithStatus(uuid.New(), "found")}
+	pRepo := &mockPetRepo{pet: petWithStatus(uuid.New(), domain.PetStatusFound)}
 	svc := newReportSvc(rRepo, pRepo)
 
 	req := validReportReq(petID.String())
@@ -129,8 +129,8 @@ func TestCreateReport_LostStatus_UpdatesPetToActive(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if len(pRepo.statusCalls) != 1 || pRepo.statusCalls[0] != "active" {
-		t.Errorf("expected UpdateStatus('active'), got %v", pRepo.statusCalls)
+	if len(pRepo.statusCalls) != 1 || pRepo.statusCalls[0] != domain.PetStatusLost {
+		t.Errorf("expected UpdateStatus(%q), got %v", domain.PetStatusLost, pRepo.statusCalls)
 	}
 }
 

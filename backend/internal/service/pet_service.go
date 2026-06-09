@@ -39,16 +39,39 @@ func NewPetService(repo repository.PetRepository, eventBus *event.EventBus, phot
 }
 
 // CreatePet crea una nueva mascota para el usuario autenticado.
+// Status defaults to PetStatusRegistered.
+// If req.Status == PetStatusStray, OwnerID is nil (stray pet with no owner).
+// Creating with lost/found/archived is rejected with ErrInvalidStatusTransition.
 func (s *petService) CreatePet(ownerID string, req dto.CreatePetRequest) (*domain.Pet, error) {
-	// Parseamos el UUID del owner
 	ownerUUID, err := uuid.Parse(ownerID)
 	if err != nil {
 		return nil, domain.ErrInvalidInput
 	}
 
-	// Construimos la entidad Pet
+	// Determine status — default to registered
+	status := domain.PetStatusRegistered
+	if req.Status != "" {
+		status = req.Status
+	}
+
+	// Only registered and stray are valid at creation
+	if status != domain.PetStatusRegistered && status != domain.PetStatusStray {
+		return nil, domain.ErrInvalidStatusTransition
+	}
+
+	// Stray pets have no owner; registered pets always have an owner
+	var ownerPtr *uuid.UUID
+	var reporterPtr *uuid.UUID
+	if status == domain.PetStatusStray {
+		// OwnerID stays nil; the authenticated user becomes the reporter
+		reporterPtr = &ownerUUID
+	} else {
+		ownerPtr = &ownerUUID
+	}
+
 	pet := &domain.Pet{
-		OwnerID:     ownerUUID,
+		OwnerID:     ownerPtr,
+		ReporterID:  reporterPtr,
 		Name:        req.Name,
 		Type:        req.Type,
 		Breed:       req.Breed,
@@ -56,15 +79,14 @@ func (s *petService) CreatePet(ownerID string, req dto.CreatePetRequest) (*domai
 		Description: req.Description,
 		Gender:      req.Gender,
 		MicrochipID: req.MicrochipID,
-		Status:      "active",
+		Status:      status,
+		Version:     1,
 	}
 
-	// Delegamos al repository — el service no sabe nada de SQL
 	if err := s.repo.Create(pet); err != nil {
 		return nil, err
 	}
 
-	// Recargamos la mascota con el owner para que el DTO tenga owner_name
 	return s.repo.FindByID(pet.ID.String())
 }
 
@@ -79,25 +101,32 @@ func (s *petService) GetMyPets(ownerID string) ([]domain.Pet, error) {
 }
 
 // UpdatePet actualiza una mascota — verifica que el usuario sea el dueño.
+// Enforces state machine transitions and optimistic concurrency via Version field.
 func (s *petService) UpdatePet(ownerID string, petID string, req dto.UpdatePetRequest) (*domain.Pet, error) {
-	// Buscamos la mascota
 	pet, err := s.repo.FindByID(petID)
 	if err != nil {
 		return nil, err
 	}
 
 	// LÓGICA DE NEGOCIO: solo el dueño puede editar su mascota
-	if pet.OwnerID.String() != ownerID {
+	if pet.OwnerID == nil || pet.OwnerID.String() != ownerID {
 		return nil, domain.ErrForbidden
 	}
 
-	// REQ-01: Status revert guard — found/archived pets cannot have their status changed
-	if (pet.Status == "found" || pet.Status == "archived") && req.Status != "" {
-		return nil, domain.ErrPetStatusLocked
+	// Optimistic concurrency — reject if version has changed since the caller last read
+	if req.Version != 0 && pet.Version != req.Version {
+		return nil, domain.ErrConflict
 	}
 
 	// Capturamos el estado anterior antes de aplicar cambios (necesario para publicar pet.lost)
 	oldStatus := pet.Status
+
+	// State machine guard — validate transition before applying any changes
+	if req.Status != "" && req.Status != pet.Status {
+		if err := domain.ValidateTransition(pet.Status, req.Status); err != nil {
+			return nil, err
+		}
+	}
 
 	// Solo actualizamos los campos que vienen con valor
 	if req.Name != "" {
@@ -114,14 +143,16 @@ func (s *petService) UpdatePet(ownerID string, petID string, req dto.UpdatePetRe
 	}
 	if req.Status != "" {
 		pet.Status = req.Status
+		// Increment version on status change
+		pet.Version++
 	}
 
 	if err := s.repo.Update(pet); err != nil {
 		return nil, err
 	}
 
-	// Publicamos pet.lost cuando la transición es desde cualquier estado != "lost" a "lost"
-	if s.eventBus != nil && oldStatus != "lost" && req.Status == "lost" {
+	// Publicamos pet.lost cuando la transición es hacia "lost"
+	if s.eventBus != nil && oldStatus != domain.PetStatusLost && pet.Status == domain.PetStatusLost {
 		s.eventBus.Publish("pet.lost", event.PetLostEvent{PetID: pet.ID})
 	}
 
@@ -131,19 +162,17 @@ func (s *petService) UpdatePet(ownerID string, petID string, req dto.UpdatePetRe
 // DeletePet elimina una mascota — verifica que el usuario sea el dueño.
 // Antes de borrar el registro, elimina los assets de Cloudinary (cascade delete).
 func (s *petService) DeletePet(ownerID string, petID string) error {
-	// Buscamos la mascota primero para verificar ownership
 	pet, err := s.repo.FindByID(petID)
 	if err != nil {
 		return err
 	}
 
 	// LÓGICA DE NEGOCIO: solo el dueño puede eliminar su mascota
-	if pet.OwnerID.String() != ownerID {
+	if pet.OwnerID == nil || pet.OwnerID.String() != ownerID {
 		return domain.ErrForbidden
 	}
 
 	// Cascade delete: eliminar fotos de Cloudinary antes de borrar el registro.
-	// Los errores son no-fatales — se loguean en photo_service y no bloquean el delete.
 	if s.photoService != nil {
 		if photoErr := s.photoService.DeleteByPetID(petID); photoErr != nil {
 			log.Printf("[pet_service] Error eliminando fotos de mascota %s: %v", petID, photoErr)
@@ -154,7 +183,6 @@ func (s *petService) DeletePet(ownerID string, petID string) error {
 }
 
 // SearchPets aplica filtros opcionales y devuelve una respuesta paginada.
-// Llama al repositorio, mapea los resultados a DTOs y construye PetSearchResponse.
 func (s *petService) SearchPets(criteria domain.PetSearchCriteria) (dto.PetSearchResponse, error) {
 	pets, total, err := s.repo.Search(criteria)
 	if err != nil {
@@ -183,39 +211,46 @@ func (s *petService) SearchPets(criteria domain.PetSearchCriteria) (dto.PetSearc
 	}, nil
 }
 
-// MarkAsFound marca una mascota como encontrada.
-// Solo el dueño puede llamar este método.
-// Si el status ya es "found", es idempotente — retorna 200 sin error.
-// Si el status es "archived", retorna ErrPetArchived (409).
+// MarkAsFound marca una mascota como encontrada usando el state machine.
+// For owned pets: only the owner may call this.
+// For stray pets: only the user who reported the stray (ReporterID) may call this.
 func (s *petService) MarkAsFound(ownerID string, petID string) (*domain.Pet, error) {
 	pet, err := s.repo.FindByID(petID)
 	if err != nil {
 		return nil, err
 	}
 
-	// LÓGICA DE NEGOCIO: solo el dueño puede marcar su mascota como encontrada
-	if pet.OwnerID.String() != ownerID {
-		return nil, domain.ErrForbidden
+	// Authorization check — differs for owned vs stray pets
+	if pet.Status == domain.PetStatusStray {
+		// Stray: only the reporter may mark as found
+		if pet.ReporterID == nil || pet.ReporterID.String() != ownerID {
+			return nil, domain.ErrForbidden
+		}
+	} else {
+		// Owned pet: only the owner may mark as found
+		if pet.OwnerID == nil || pet.OwnerID.String() != ownerID {
+			return nil, domain.ErrForbidden
+		}
 	}
 
-	// 409: no se puede marcar como encontrada una mascota archivada
-	if pet.Status == "archived" {
-		return nil, domain.ErrPetArchived
-	}
-
-	// Idempotente: si ya está en found, retornamos la mascota sin error
-	if pet.Status == "found" {
-		return pet, nil
-	}
-
-	// Actualizamos el status
-	if err := s.repo.UpdateStatus(petID, "found"); err != nil {
+	// Validate state machine transition
+	if err := domain.ValidateTransition(pet.Status, domain.PetStatusFound); err != nil {
 		return nil, err
 	}
 
-	pet.Status = "found"
+	// Idempotent: if already found, return without error
+	if pet.Status == domain.PetStatusFound {
+		return pet, nil
+	}
 
-	// Parseamos el UUID del owner (usado tanto para el closure report como para el evento)
+	if err := s.repo.UpdateStatus(petID, domain.PetStatusFound); err != nil {
+		return nil, err
+	}
+
+	pet.Status = domain.PetStatusFound
+	pet.Version++
+
+	// Parseamos el UUID del owner para el closure report y el evento
 	ownerUUID, _ := uuid.Parse(ownerID)
 
 	// REQ-02: Auto-create closure report (best-effort — failure does not abort the status flip)
@@ -231,11 +266,16 @@ func (s *petService) MarkAsFound(ownerID string, petID string) (*domain.Pet, err
 		}
 	}
 
-	// Publicamos el evento en el bus (fire-and-forget, no bloquea)
+	// Publicamos el evento en el bus
 	if s.eventBus != nil {
+		// Determine the actual owner UUID for the event — for stray it may be nil
+		var eventOwnerID uuid.UUID
+		if pet.OwnerID != nil {
+			eventOwnerID = *pet.OwnerID
+		}
 		s.eventBus.Publish("pet.found", event.PetFoundEvent{
 			PetID:   pet.ID,
-			OwnerID: ownerUUID,
+			OwnerID: eventOwnerID,
 			PetName: pet.Name,
 		})
 	}

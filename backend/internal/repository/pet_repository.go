@@ -57,6 +57,8 @@ func (r *PostgresPetRepository) UpdateStatus(id string, status string) error {
 
 // Search aplica filtros opcionales y devuelve resultados paginados con el total.
 // Implementa FR1.1 (filtros), FR1.2 (combinables), FR1.5 (date range por report).
+// When Statuses is empty, defaults to FeedVisibleStatuses (lost, stray).
+// When Statuses is non-empty, uses an IN clause with the provided values.
 func (r *PostgresPetRepository) Search(filters domain.PetSearchCriteria) ([]domain.Pet, int64, error) {
 	// Normalizamos paginación
 	page := filters.Page
@@ -71,17 +73,17 @@ func (r *PostgresPetRepository) Search(filters domain.PetSearchCriteria) ([]doma
 		limit = 100
 	}
 
-	// Status por defecto "active" cuando no se especifica
-	status := filters.Status
-	if status == "" {
-		status = "active"
+	// Determine the status filter — default to feed-visible statuses (lost, stray)
+	statuses := filters.Statuses
+	if len(statuses) == 0 {
+		statuses = domain.FeedVisibleStatuses
 	}
 
 	// Construimos la query base con Preload
 	q := r.db.Model(&domain.Pet{}).
 		Preload("Owner").
 		Preload("Photos").
-		Where("pets.status = ?", status)
+		Where("pets.status IN (?)", statuses)
 
 	// Filtros exactos / parciales
 	if filters.Type != "" {
@@ -105,7 +107,7 @@ func (r *PostgresPetRepository) Search(filters domain.PetSearchCriteria) ([]doma
 			q = q.Where("reports.occurred_at <= ?", filters.To)
 		}
 		// Evitamos duplicados si hay múltiples reports en el rango
-		q = q.Distinct("pets.id, pets.owner_id, pets.name, pets.type, pets.breed, pets.color, pets.description, pets.gender, pets.microchip_id, pets.status, pets.created_at, pets.updated_at")
+		q = q.Distinct("pets.id, pets.owner_id, pets.reporter_id, pets.name, pets.type, pets.breed, pets.color, pets.description, pets.gender, pets.microchip_id, pets.status, pets.version, pets.created_at, pets.updated_at")
 	}
 
 	// Count total ANTES de paginar

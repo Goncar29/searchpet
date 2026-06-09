@@ -87,23 +87,28 @@ func (s *reportService) CreateReport(reporterID string, req CreateReportRequest)
 	}
 
 	// Sincronizamos pet.status según el reporte:
-	// "found"   → pet.status = "found"   (aparece en contador de encontrados)
-	// "lost"    → pet.status = "active"  (se volvió a perder, sale del contador)
+	// "found"    → pet.status = "found"      (aparece en contador de encontrados)
+	// "lost"     → pet.status = "lost"       (se volvió a perder, aparece en el feed)
 	// "sighting" → sin cambio
 	switch req.Status {
 	case "found":
-		_ = s.petRepo.UpdateStatus(req.PetID, "found")
+		_ = s.petRepo.UpdateStatus(req.PetID, domain.PetStatusFound)
 	case "lost":
-		_ = s.petRepo.UpdateStatus(req.PetID, "active")
+		_ = s.petRepo.UpdateStatus(req.PetID, domain.PetStatusLost)
 	}
 
 	// Publicamos el evento de forma secundaria — un fallo aquí no falla el request
 	if s.eventBus != nil {
+		// Pet.OwnerID is a pointer (nil for stray pets) — dereference safely
+		var petOwnerID uuid.UUID
+		if loaded.Pet.OwnerID != nil {
+			petOwnerID = *loaded.Pet.OwnerID
+		}
 		s.eventBus.Publish("report.created", event.ReportCreatedEvent{
 			ReportID:   loaded.ID,
 			PetID:      loaded.PetID,
 			ReporterID: loaded.ReporterID,
-			PetOwnerID: loaded.Pet.OwnerID,
+			PetOwnerID: petOwnerID,
 			PetName:    loaded.Pet.Name,
 			PetType:    loaded.Pet.Type,
 			Status:     loaded.Status,

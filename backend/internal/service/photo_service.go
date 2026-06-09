@@ -214,7 +214,7 @@ func (s *photoServiceImpl) DeletePhoto(ctx context.Context, petID, photoID, uplo
 		return domain.ErrInvalidInput
 	}
 
-	if pet.OwnerID != uploaderUUID {
+	if pet.OwnerID == nil || *pet.OwnerID != uploaderUUID {
 		return domain.ErrNotPetOwner
 	}
 

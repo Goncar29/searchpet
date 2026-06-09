@@ -91,7 +91,7 @@ func (s *EmbeddingService) RegisterListeners(bus *event.EventBus) {
 }
 
 // HandlePhotoUploaded genera y persiste el embedding de una foto recién subida,
-// pero solo si la mascota tiene status = "lost". Si el status es otro, retorna silenciosamente.
+// pero solo si la mascota tiene status = "lost" o "stray". Si el status es otro, retorna silenciosamente.
 func (s *EmbeddingService) HandlePhotoUploaded(ev event.PhotoUploadedEvent) {
 	ctx := context.Background()
 
@@ -104,8 +104,8 @@ func (s *EmbeddingService) HandlePhotoUploaded(ev event.PhotoUploadedEvent) {
 		return
 	}
 
-	if pet.Status != "lost" {
-		return // No indexamos fotos de mascotas que no están perdidas
+	if pet.Status != domain.PetStatusLost && pet.Status != domain.PetStatusStray {
+		return // Only index photos for lost or stray pets
 	}
 
 	vector, err := s.GenerateEmbeddingFromURL(ctx, ev.SecureURL)

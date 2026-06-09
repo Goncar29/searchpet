@@ -107,9 +107,9 @@ func TestShareService_GenerateLink(t *testing.T) {
 
 	ownedPet := &domain.Pet{
 		ID:      petID,
-		OwnerID: ownerID,
+		OwnerID: ptrUUID(ownerID),
 		Name:    "Buddy",
-		Status:  "active",
+		Status:  domain.PetStatusRegistered,
 	}
 
 	tests := []struct {

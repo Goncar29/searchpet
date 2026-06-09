@@ -225,7 +225,7 @@ func TestPhotoService_UploadPhoto_NotOwner_Returns403Error(t *testing.T) {
 	photoRepo := &mockPhotoRepo{}
 	petRepo := &mockPetRepoForService{
 		findByIDFn: func(_ string) (*domain.Pet, error) {
-			return &domain.Pet{ID: petID, OwnerID: ownerID}, nil
+			return &domain.Pet{ID: petID, OwnerID: &ownerID}, nil
 		},
 	}
 
@@ -249,7 +249,7 @@ func TestPhotoService_UploadPhoto_LimitReached(t *testing.T) {
 	}
 	petRepo := &mockPetRepoForService{
 		findByIDFn: func(_ string) (*domain.Pet, error) {
-			return &domain.Pet{ID: petID, OwnerID: ownerID}, nil
+			return &domain.Pet{ID: petID, OwnerID: &ownerID}, nil
 		},
 	}
 
@@ -274,7 +274,7 @@ func TestPhotoService_UploadPhoto_StorageNil_ReturnsStorageFailed(t *testing.T) 
 	}
 	petRepo := &mockPetRepoForService{
 		findByIDFn: func(_ string) (*domain.Pet, error) {
-			return &domain.Pet{ID: petID, OwnerID: ownerID}, nil
+			return &domain.Pet{ID: petID, OwnerID: &ownerID}, nil
 		},
 	}
 

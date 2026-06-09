@@ -25,7 +25,7 @@ func TestReportRepository_CreateAndGetByID(t *testing.T) {
 	reportRepo := repository.NewReportRepository(gormDB)
 
 	owner := newTestUser(t, userRepo)
-	pet := &domain.Pet{ID: uuid.New(), OwnerID: owner.ID, Name: "Lost Dog", Type: "perro", Status: "active"}
+	pet := &domain.Pet{ID: uuid.New(), OwnerID: ptrUUID(owner.ID), Name: "Lost Dog", Type: "perro", Status: domain.PetStatusRegistered}
 	if err := petRepo.Create(pet); err != nil {
 		t.Fatalf("Create pet: %v", err)
 	}
@@ -71,7 +71,7 @@ func TestReportRepository_FindNearby_Found(t *testing.T) {
 	reportRepo := repository.NewReportRepository(gormDB)
 
 	owner := newTestUser(t, userRepo)
-	pet := &domain.Pet{ID: uuid.New(), OwnerID: owner.ID, Name: "Nearby Dog", Type: "perro", Status: "active"}
+	pet := &domain.Pet{ID: uuid.New(), OwnerID: ptrUUID(owner.ID), Name: "Nearby Dog", Type: "perro", Status: domain.PetStatusRegistered}
 	if err := petRepo.Create(pet); err != nil {
 		t.Fatalf("Create pet: %v", err)
 	}
@@ -114,7 +114,7 @@ func TestReportRepository_FindNearby_NotFound_OutsideRadius(t *testing.T) {
 	reportRepo := repository.NewReportRepository(gormDB)
 
 	owner := newTestUser(t, userRepo)
-	pet := &domain.Pet{ID: uuid.New(), OwnerID: owner.ID, Name: "Far Dog", Type: "perro", Status: "active"}
+	pet := &domain.Pet{ID: uuid.New(), OwnerID: ptrUUID(owner.ID), Name: "Far Dog", Type: "perro", Status: domain.PetStatusRegistered}
 	if err := petRepo.Create(pet); err != nil {
 		t.Fatalf("Create pet: %v", err)
 	}
@@ -152,7 +152,7 @@ func TestReportRepository_FindByPetID(t *testing.T) {
 	reportRepo := repository.NewReportRepository(gormDB)
 
 	owner := newTestUser(t, userRepo)
-	pet := &domain.Pet{ID: uuid.New(), OwnerID: owner.ID, Name: fmt.Sprintf("Pet-%s", uuid.New().String()[:6]), Type: "perro", Status: "active"}
+	pet := &domain.Pet{ID: uuid.New(), OwnerID: ptrUUID(owner.ID), Name: fmt.Sprintf("Pet-%s", uuid.New().String()[:6]), Type: "perro", Status: domain.PetStatusRegistered}
 	if err := petRepo.Create(pet); err != nil {
 		t.Fatalf("Create pet: %v", err)
 	}
@@ -182,8 +182,8 @@ func TestReportRepository_FindNearby_OrderedByDistance(t *testing.T) {
 
 	owner := newTestUser(t, userRepo)
 
-	pet1 := &domain.Pet{ID: uuid.New(), OwnerID: owner.ID, Name: "Close Dog", Type: "perro", Status: "active"}
-	pet2 := &domain.Pet{ID: uuid.New(), OwnerID: owner.ID, Name: "Far Dog", Type: "perro", Status: "active"}
+	pet1 := &domain.Pet{ID: uuid.New(), OwnerID: ptrUUID(owner.ID), Name: "Close Dog", Type: "perro", Status: domain.PetStatusRegistered}
+	pet2 := &domain.Pet{ID: uuid.New(), OwnerID: ptrUUID(owner.ID), Name: "Far Dog", Type: "perro", Status: domain.PetStatusRegistered}
 	for _, p := range []*domain.Pet{pet1, pet2} {
 		if err := petRepo.Create(p); err != nil {
 			t.Fatalf("Create pet: %v", err)
@@ -231,7 +231,7 @@ func TestReportRepository_UpdateVerified(t *testing.T) {
 	ctx := context.Background()
 
 	owner := newTestUser(t, userRepo)
-	pet := &domain.Pet{ID: uuid.New(), OwnerID: owner.ID, Name: "Verify Pet", Type: "perro", Status: "active"}
+	pet := &domain.Pet{ID: uuid.New(), OwnerID: ptrUUID(owner.ID), Name: "Verify Pet", Type: "perro", Status: domain.PetStatusRegistered}
 	if err := petRepo.Create(pet); err != nil {
 		t.Fatalf("Create pet: %v", err)
 	}

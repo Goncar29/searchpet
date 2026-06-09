@@ -218,6 +218,33 @@ func TestEmbeddingService_HandlePhotoUploaded_NonLostPet_SkipsSilently(t *testin
 	}
 }
 
+func TestEmbeddingService_HandlePhotoUploaded_StrayPet_GeneratesAndUpserts(t *testing.T) {
+	petID := uuid.New()
+	photoID := uuid.New()
+
+	hfSrv := newHFTestServer(t, http.StatusOK)
+	defer hfSrv.Close()
+
+	embRepo := &mockEmbeddingRepo{}
+	petRepo := &mockPetRepoForEmbedding{
+		findByIDFn: func(_ string) (*domain.Pet, error) {
+			return &domain.Pet{ID: petID, Status: domain.PetStatusStray}, nil
+		},
+	}
+	photoRepo := &mockPhotoRepoForEmbedding{}
+
+	svc := newTestEmbeddingService(embRepo, petRepo, photoRepo, hfSrv)
+	svc.HandlePhotoUploaded(event.PhotoUploadedEvent{
+		PetID:     petID,
+		PhotoID:   photoID,
+		SecureURL: "https://cdn.example.com/stray.jpg",
+	})
+
+	if len(embRepo.upsertCalls) != 1 {
+		t.Errorf("expected 1 upsert call for stray pet, got %d", len(embRepo.upsertCalls))
+	}
+}
+
 func TestEmbeddingService_HandlePhotoUploaded_HFError_NoUpsert(t *testing.T) {
 	petID := uuid.New()
 

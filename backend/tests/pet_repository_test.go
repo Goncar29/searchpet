@@ -27,6 +27,7 @@ func newTestUser(t *testing.T, db interface{ Create(context.Context, *domain.Use
 	return u
 }
 
+
 func TestPetRepository_CreateAndGetByID(t *testing.T) {
 	gormDB := testdb.SetupTestDB(t)
 	userRepo := repository.NewUserRepository(gormDB)
@@ -36,10 +37,10 @@ func TestPetRepository_CreateAndGetByID(t *testing.T) {
 
 	pet := &domain.Pet{
 		ID:      uuid.New(),
-		OwnerID: owner.ID,
+		OwnerID: ptrUUID(owner.ID),
 		Name:    "Firulais",
 		Type:    "perro",
-		Status:  "active",
+		Status:  domain.PetStatusRegistered,
 	}
 	if err := petRepo.Create(pet); err != nil {
 		t.Fatalf("Create: %v", err)
@@ -74,15 +75,16 @@ func TestPetRepository_Search_ByType(t *testing.T) {
 
 	owner := newTestUser(t, userRepo)
 
-	// Insert two pets of different types
-	dog := &domain.Pet{ID: uuid.New(), OwnerID: owner.ID, Name: "Rex", Type: "perro", Status: "active"}
-	cat := &domain.Pet{ID: uuid.New(), OwnerID: owner.ID, Name: "Michi", Type: "gato", Status: "active"}
+	// Insert two pets of different types with lost status (visible in feed)
+	dog := &domain.Pet{ID: uuid.New(), OwnerID: ptrUUID(owner.ID), Name: "Rex", Type: "perro", Status: domain.PetStatusLost}
+	cat := &domain.Pet{ID: uuid.New(), OwnerID: ptrUUID(owner.ID), Name: "Michi", Type: "gato", Status: domain.PetStatusLost}
 	for _, p := range []*domain.Pet{dog, cat} {
 		if err := petRepo.Create(p); err != nil {
 			t.Fatalf("Create %s: %v", p.Name, err)
 		}
 	}
 
+	// Search by type — no status filter → defaults to lost+stray feed
 	results, total, err := petRepo.Search(domain.PetSearchCriteria{Type: "perro", Page: 1, Limit: 20})
 	if err != nil {
 		t.Fatalf("Search: %v", err)
@@ -104,22 +106,68 @@ func TestPetRepository_Search_ByStatus(t *testing.T) {
 
 	owner := newTestUser(t, userRepo)
 
-	active := &domain.Pet{ID: uuid.New(), OwnerID: owner.ID, Name: "Active", Type: "perro", Status: "active"}
-	found := &domain.Pet{ID: uuid.New(), OwnerID: owner.ID, Name: "Found", Type: "perro", Status: "found"}
-	for _, p := range []*domain.Pet{active, found} {
+	registered := &domain.Pet{ID: uuid.New(), OwnerID: ptrUUID(owner.ID), Name: "Registered", Type: "perro", Status: domain.PetStatusRegistered}
+	found := &domain.Pet{ID: uuid.New(), OwnerID: ptrUUID(owner.ID), Name: "Found", Type: "perro", Status: domain.PetStatusFound}
+	for _, p := range []*domain.Pet{registered, found} {
 		if err := petRepo.Create(p); err != nil {
 			t.Fatalf("Create %s: %v", p.Name, err)
 		}
 	}
 
-	results, _, err := petRepo.Search(domain.PetSearchCriteria{Status: "found", Page: 1, Limit: 20})
+	results, _, err := petRepo.Search(domain.PetSearchCriteria{Statuses: []string{domain.PetStatusFound}, Page: 1, Limit: 20})
 	if err != nil {
 		t.Fatalf("Search by status: %v", err)
 	}
 	for _, p := range results {
-		if p.Status != "found" {
+		if p.Status != domain.PetStatusFound {
 			t.Errorf("unexpected status %q in found search", p.Status)
 		}
+	}
+}
+
+func TestPetRepository_Search_DefaultFeedStatuses(t *testing.T) {
+	gormDB := testdb.SetupTestDB(t)
+	userRepo := repository.NewUserRepository(gormDB)
+	petRepo := repository.NewPetRepository(gormDB)
+
+	owner := newTestUser(t, userRepo)
+
+	// Create one pet for each status
+	lostID := ptrUUID(owner.ID)
+	strayPetReporter := owner.ID
+	lost := &domain.Pet{ID: uuid.New(), OwnerID: lostID, Name: "Lost", Type: "perro", Status: domain.PetStatusLost}
+	stray := &domain.Pet{ID: uuid.New(), ReporterID: ptrUUID(strayPetReporter), Name: "Stray", Type: "perro", Status: domain.PetStatusStray}
+	registered := &domain.Pet{ID: uuid.New(), OwnerID: ptrUUID(owner.ID), Name: "Registered", Type: "perro", Status: domain.PetStatusRegistered}
+	for _, p := range []*domain.Pet{lost, stray, registered} {
+		if err := petRepo.Create(p); err != nil {
+			t.Fatalf("Create %s: %v", p.Name, err)
+		}
+	}
+
+	// Empty Statuses → defaults to lost+stray
+	results, _, err := petRepo.Search(domain.PetSearchCriteria{Page: 1, Limit: 100})
+	if err != nil {
+		t.Fatalf("Search default: %v", err)
+	}
+	for _, p := range results {
+		if p.Status != domain.PetStatusLost && p.Status != domain.PetStatusStray {
+			t.Errorf("feed returned non-feed pet with status %q", p.Status)
+		}
+	}
+}
+
+func TestPetRepository_Search_ActiveReturnsEmpty(t *testing.T) {
+	gormDB := testdb.SetupTestDB(t)
+	petRepo := repository.NewPetRepository(gormDB)
+
+	// Querying for "active" (legacy/invalid) should return 0 results since
+	// the migration maps active→registered and there are no "active" rows.
+	results, _, err := petRepo.Search(domain.PetSearchCriteria{Statuses: []string{"active"}, Page: 1, Limit: 20})
+	if err != nil {
+		t.Fatalf("Search active: %v", err)
+	}
+	if len(results) != 0 {
+		t.Errorf("expected 0 results for status=active, got %d", len(results))
 	}
 }
 
@@ -131,8 +179,8 @@ func TestPetRepository_FindByOwnerID(t *testing.T) {
 	owner := newTestUser(t, userRepo)
 	other := newTestUser(t, userRepo)
 
-	myPet := &domain.Pet{ID: uuid.New(), OwnerID: owner.ID, Name: "Mine", Type: "gato", Status: "active"}
-	theirPet := &domain.Pet{ID: uuid.New(), OwnerID: other.ID, Name: "Theirs", Type: "gato", Status: "active"}
+	myPet := &domain.Pet{ID: uuid.New(), OwnerID: ptrUUID(owner.ID), Name: "Mine", Type: "gato", Status: domain.PetStatusRegistered}
+	theirPet := &domain.Pet{ID: uuid.New(), OwnerID: ptrUUID(other.ID), Name: "Theirs", Type: "gato", Status: domain.PetStatusRegistered}
 	for _, p := range []*domain.Pet{myPet, theirPet} {
 		if err := petRepo.Create(p); err != nil {
 			t.Fatalf("Create: %v", err)
@@ -147,8 +195,8 @@ func TestPetRepository_FindByOwnerID(t *testing.T) {
 		t.Fatal("expected at least 1 pet for owner")
 	}
 	for _, p := range pets {
-		if p.OwnerID != owner.ID {
-			t.Errorf("unexpected owner_id %s in results", p.OwnerID)
+		if p.OwnerID == nil || *p.OwnerID != owner.ID {
+			t.Errorf("unexpected owner_id in results")
 		}
 	}
 }
@@ -159,12 +207,12 @@ func TestPetRepository_UpdateStatus(t *testing.T) {
 	petRepo := repository.NewPetRepository(gormDB)
 
 	owner := newTestUser(t, userRepo)
-	pet := &domain.Pet{ID: uuid.New(), OwnerID: owner.ID, Name: "Status Pet", Type: "perro", Status: "active"}
+	pet := &domain.Pet{ID: uuid.New(), OwnerID: ptrUUID(owner.ID), Name: "Status Pet", Type: "perro", Status: domain.PetStatusRegistered}
 	if err := petRepo.Create(pet); err != nil {
 		t.Fatalf("Create: %v", err)
 	}
 
-	if err := petRepo.UpdateStatus(pet.ID.String(), "found"); err != nil {
+	if err := petRepo.UpdateStatus(pet.ID.String(), domain.PetStatusFound); err != nil {
 		t.Fatalf("UpdateStatus: %v", err)
 	}
 
@@ -172,7 +220,7 @@ func TestPetRepository_UpdateStatus(t *testing.T) {
 	if err != nil {
 		t.Fatalf("FindByID: %v", err)
 	}
-	if got.Status != "found" {
+	if got.Status != domain.PetStatusFound {
 		t.Errorf("want status 'found', got %q", got.Status)
 	}
 }
@@ -184,7 +232,7 @@ func TestPetRepository_Delete_Cascade(t *testing.T) {
 	photoRepo := repository.NewPhotoRepository(gormDB)
 
 	owner := newTestUser(t, userRepo)
-	pet := &domain.Pet{ID: uuid.New(), OwnerID: owner.ID, Name: "Delete Me", Type: "perro", Status: "active"}
+	pet := &domain.Pet{ID: uuid.New(), OwnerID: ptrUUID(owner.ID), Name: "Delete Me", Type: "perro", Status: domain.PetStatusRegistered}
 	if err := petRepo.Create(pet); err != nil {
 		t.Fatalf("Create pet: %v", err)
 	}

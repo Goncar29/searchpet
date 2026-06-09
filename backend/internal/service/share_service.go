@@ -52,8 +52,8 @@ func (s *shareLinkService) Generate(ctx context.Context, petID string, ownerID s
 		return nil, err
 	}
 
-	// REGLA: solo el dueño puede generar un share link
-	if pet.OwnerID.String() != ownerID {
+	// REGLA: solo el dueño puede generar un share link (stray pets have no owner)
+	if pet.OwnerID == nil || pet.OwnerID.String() != ownerID {
 		return nil, domain.ErrNotPetOwner
 	}
 

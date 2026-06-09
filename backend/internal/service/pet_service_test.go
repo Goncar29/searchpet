@@ -44,7 +44,7 @@ func (m *mockPetRepo) Search(_ domain.PetSearchCriteria) ([]domain.Pet, int64, e
 func petWithStatus(ownerID uuid.UUID, status string) *domain.Pet {
 	return &domain.Pet{
 		ID:      uuid.New(),
-		OwnerID: ownerID,
+		OwnerID: &ownerID,
 		Name:    "Rex",
 		Type:    "perro",
 		Status:  status,
@@ -57,7 +57,7 @@ func petWithStatus(ownerID uuid.UUID, status string) *domain.Pet {
 
 func TestMarkAsFound_HappyPath(t *testing.T) {
 	ownerID := uuid.New()
-	repo := &mockPetRepo{pet: petWithStatus(ownerID, "active")}
+	repo := &mockPetRepo{pet: petWithStatus(ownerID, domain.PetStatusLost)}
 	bus := event.NewEventBus()
 
 	svc := service.NewPetService(repo, bus, nil, nil)
@@ -66,18 +66,18 @@ func TestMarkAsFound_HappyPath(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
-	if pet.Status != "found" {
-		t.Errorf("expected status 'found', got %q", pet.Status)
+	if pet.Status != domain.PetStatusFound {
+		t.Errorf("expected status %q, got %q", domain.PetStatusFound, pet.Status)
 	}
-	if len(repo.statusCalls) != 1 || repo.statusCalls[0] != "found" {
-		t.Errorf("expected UpdateStatus called with 'found', got %v", repo.statusCalls)
+	if len(repo.statusCalls) != 1 || repo.statusCalls[0] != domain.PetStatusFound {
+		t.Errorf("expected UpdateStatus called with %q, got %v", domain.PetStatusFound, repo.statusCalls)
 	}
 }
 
 func TestMarkAsFound_NonOwner_Returns403(t *testing.T) {
 	ownerID := uuid.New()
 	anotherUser := uuid.New()
-	repo := &mockPetRepo{pet: petWithStatus(ownerID, "active")}
+	repo := &mockPetRepo{pet: petWithStatus(ownerID, domain.PetStatusLost)}
 	bus := event.NewEventBus()
 
 	svc := service.NewPetService(repo, bus, nil, nil)
@@ -113,9 +113,9 @@ func TestMarkAsFound_AlreadyFound_IsIdempotent(t *testing.T) {
 	}
 }
 
-func TestMarkAsFound_ArchivedPet_Returns409(t *testing.T) {
+func TestMarkAsFound_ArchivedPet_ReturnsInvalidTransition(t *testing.T) {
 	ownerID := uuid.New()
-	repo := &mockPetRepo{pet: petWithStatus(ownerID, "archived")}
+	repo := &mockPetRepo{pet: petWithStatus(ownerID, domain.PetStatusArchived)}
 	bus := event.NewEventBus()
 
 	svc := service.NewPetService(repo, bus, nil, nil)
@@ -124,14 +124,14 @@ func TestMarkAsFound_ArchivedPet_Returns409(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for archived pet, got nil")
 	}
-	if err != domain.ErrPetArchived {
-		t.Errorf("expected ErrPetArchived, got %v", err)
+	if err != domain.ErrInvalidStatusTransition {
+		t.Errorf("expected ErrInvalidStatusTransition, got %v", err)
 	}
 }
 
 func TestMarkAsFound_PublishesEvent(t *testing.T) {
 	ownerID := uuid.New()
-	repo := &mockPetRepo{pet: petWithStatus(ownerID, "active")}
+	repo := &mockPetRepo{pet: petWithStatus(ownerID, domain.PetStatusLost)}
 	bus := event.NewEventBus()
 
 	eventReceived := make(chan event.PetFoundEvent, 1)
@@ -225,10 +225,8 @@ func TestUpdatePet_DoesNotPublishPetLostWhenAlreadyLost(t *testing.T) {
 func TestUpdatePet_DoesNotPublishPetLostForOtherTransitions(t *testing.T) {
 	ownerID := uuid.New()
 	// Status is "lost" — transitioning to "found" must NOT fire pet.lost again.
-	// Note: UpdatePet will hit ErrPetStatusLocked (found/archived guard) if we try
-	// to change status on a "lost" pet to "found" via UpdatePet.
-	// Instead test a transition that is NOT "→ lost": "active" → "active" (name-only update).
-	repo := &mockPetRepo{pet: petWithStatus(ownerID, "active")}
+	// Instead test a name-only update on a registered pet — no status change, no pet.lost event.
+	repo := &mockPetRepo{pet: petWithStatus(ownerID, domain.PetStatusRegistered)}
 	bus := event.NewEventBus()
 
 	eventPublished := make(chan struct{}, 1)
@@ -239,7 +237,7 @@ func TestUpdatePet_DoesNotPublishPetLostForOtherTransitions(t *testing.T) {
 	svc := service.NewPetService(repo, bus, nil, nil)
 	petID := repo.pet.ID
 
-	// Update name only — status stays "active", no pet.lost event.
+	// Update name only — status stays "registered", no pet.lost event.
 	_, err := svc.UpdatePet(ownerID.String(), petID.String(), dto.UpdatePetRequest{Name: "Rex Updated"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -250,5 +248,211 @@ func TestUpdatePet_DoesNotPublishPetLostForOtherTransitions(t *testing.T) {
 		t.Error("pet.lost event should NOT be published for non-lost status transitions")
 	case <-time.After(200 * time.Millisecond):
 		// Expected: no event fired.
+	}
+}
+
+// ============================================================
+// Phase 6.2 — CreatePet, UpdatePet, stray auth, concurrency
+// ============================================================
+
+// capturingPetRepo extends mockPetRepo so Create stores the pet and FindByID can return it.
+type capturingPetRepo struct {
+	mockPetRepo
+	createdPet *domain.Pet
+}
+
+func (m *capturingPetRepo) Create(pet *domain.Pet) error {
+	m.createdPet = pet
+	m.mockPetRepo.pet = pet
+	return nil
+}
+
+func TestCreatePet_DefaultsToRegistered(t *testing.T) {
+	ownerID := uuid.New()
+	repo := &capturingPetRepo{}
+	svc := service.NewPetService(repo, nil, nil, nil)
+
+	_, err := svc.CreatePet(ownerID.String(), dto.CreatePetRequest{Name: "Rex", Type: "perro"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if repo.createdPet.Status != domain.PetStatusRegistered {
+		t.Errorf("expected status %q, got %q", domain.PetStatusRegistered, repo.createdPet.Status)
+	}
+	if repo.createdPet.OwnerID == nil || *repo.createdPet.OwnerID != ownerID {
+		t.Errorf("expected OwnerID %v, got %v", ownerID, repo.createdPet.OwnerID)
+	}
+	if repo.createdPet.Version != 1 {
+		t.Errorf("expected Version=1, got %d", repo.createdPet.Version)
+	}
+}
+
+func TestCreatePet_StrayHasNilOwnerAndReporter(t *testing.T) {
+	reporterID := uuid.New()
+	repo := &capturingPetRepo{}
+	svc := service.NewPetService(repo, nil, nil, nil)
+
+	_, err := svc.CreatePet(reporterID.String(), dto.CreatePetRequest{Name: "Stray Cat", Type: "gato", Status: domain.PetStatusStray})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if repo.createdPet.OwnerID != nil {
+		t.Errorf("stray pet OwnerID should be nil, got %v", repo.createdPet.OwnerID)
+	}
+	if repo.createdPet.ReporterID == nil || *repo.createdPet.ReporterID != reporterID {
+		t.Errorf("expected ReporterID %v, got %v", reporterID, repo.createdPet.ReporterID)
+	}
+	if repo.createdPet.Status != domain.PetStatusStray {
+		t.Errorf("expected status %q, got %q", domain.PetStatusStray, repo.createdPet.Status)
+	}
+}
+
+func TestCreatePet_RejectsInvalidCreationStatuses(t *testing.T) {
+	ownerID := uuid.New()
+	svc := service.NewPetService(&capturingPetRepo{}, nil, nil, nil)
+
+	for _, status := range []string{domain.PetStatusLost, domain.PetStatusFound, domain.PetStatusArchived} {
+		t.Run(status, func(t *testing.T) {
+			_, err := svc.CreatePet(ownerID.String(), dto.CreatePetRequest{
+				Name: "Rex", Type: "perro", Status: status,
+			})
+			if err == nil {
+				t.Errorf("expected error for creation with status %q, got nil", status)
+			}
+		})
+	}
+}
+
+func TestUpdatePet_RejectsInvalidTransition(t *testing.T) {
+	ownerID := uuid.New()
+	// registered → found is not an allowed edge
+	repo := &mockPetRepo{pet: petWithStatus(ownerID, domain.PetStatusRegistered)}
+	svc := service.NewPetService(repo, nil, nil, nil)
+
+	_, err := svc.UpdatePet(ownerID.String(), repo.pet.ID.String(), dto.UpdatePetRequest{Status: domain.PetStatusFound})
+	if err != domain.ErrInvalidStatusTransition {
+		t.Errorf("expected ErrInvalidStatusTransition, got %v", err)
+	}
+}
+
+func TestUpdatePet_VersionIncrementsOnStatusChange(t *testing.T) {
+	ownerID := uuid.New()
+	pet := petWithStatus(ownerID, domain.PetStatusRegistered)
+	pet.Version = 1
+	repo := &mockPetRepo{pet: pet}
+	svc := service.NewPetService(repo, nil, nil, nil)
+
+	updated, err := svc.UpdatePet(ownerID.String(), pet.ID.String(), dto.UpdatePetRequest{Status: domain.PetStatusLost})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if updated.Version != 2 {
+		t.Errorf("expected Version=2 after status change, got %d", updated.Version)
+	}
+}
+
+func TestUpdatePet_VersionNotIncrementedOnNameOnlyChange(t *testing.T) {
+	ownerID := uuid.New()
+	pet := petWithStatus(ownerID, domain.PetStatusRegistered)
+	pet.Version = 3
+	repo := &mockPetRepo{pet: pet}
+	svc := service.NewPetService(repo, nil, nil, nil)
+
+	updated, err := svc.UpdatePet(ownerID.String(), pet.ID.String(), dto.UpdatePetRequest{Name: "New Name"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if updated.Version != 3 {
+		t.Errorf("expected Version to remain 3 on name-only update, got %d", updated.Version)
+	}
+}
+
+func TestUpdatePet_ConcurrentVersionMismatch_ReturnsConflict(t *testing.T) {
+	ownerID := uuid.New()
+	pet := petWithStatus(ownerID, domain.PetStatusRegistered)
+	pet.Version = 5
+	repo := &mockPetRepo{pet: pet}
+	svc := service.NewPetService(repo, nil, nil, nil)
+
+	// Client sends Version=3 but server is at Version=5 — conflict
+	_, err := svc.UpdatePet(ownerID.String(), pet.ID.String(), dto.UpdatePetRequest{
+		Status:  domain.PetStatusLost,
+		Version: 3,
+	})
+	if err != domain.ErrConflict {
+		t.Errorf("expected ErrConflict on version mismatch, got %v", err)
+	}
+}
+
+func TestUpdatePet_ZeroVersionBypassesConcurrencyCheck(t *testing.T) {
+	ownerID := uuid.New()
+	pet := petWithStatus(ownerID, domain.PetStatusRegistered)
+	pet.Version = 5
+	repo := &mockPetRepo{pet: pet}
+	svc := service.NewPetService(repo, nil, nil, nil)
+
+	// Version=0 means "don't check" — should succeed regardless of server version
+	_, err := svc.UpdatePet(ownerID.String(), pet.ID.String(), dto.UpdatePetRequest{
+		Status:  domain.PetStatusLost,
+		Version: 0,
+	})
+	if err != nil {
+		t.Errorf("expected no error when Version=0, got %v", err)
+	}
+}
+
+func TestMarkAsFound_StrayReporterCanMarkFound(t *testing.T) {
+	reporterID := uuid.New()
+	pet := &domain.Pet{
+		ID:         uuid.New(),
+		ReporterID: &reporterID,
+		Status:     domain.PetStatusStray,
+		Name:       "Stray",
+		Version:    1,
+	}
+	repo := &mockPetRepo{pet: pet}
+	svc := service.NewPetService(repo, nil, nil, nil)
+
+	result, err := svc.MarkAsFound(reporterID.String(), pet.ID.String())
+	if err != nil {
+		t.Fatalf("reporter should be allowed to mark stray as found, got: %v", err)
+	}
+	if result.Status != domain.PetStatusFound {
+		t.Errorf("expected status %q, got %q", domain.PetStatusFound, result.Status)
+	}
+}
+
+func TestMarkAsFound_NonReporterCannotMarkStrayFound(t *testing.T) {
+	reporterID := uuid.New()
+	otherUser := uuid.New()
+	pet := &domain.Pet{
+		ID:         uuid.New(),
+		ReporterID: &reporterID,
+		Status:     domain.PetStatusStray,
+		Name:       "Stray",
+	}
+	repo := &mockPetRepo{pet: pet}
+	svc := service.NewPetService(repo, nil, nil, nil)
+
+	_, err := svc.MarkAsFound(otherUser.String(), pet.ID.String())
+	if err != domain.ErrForbidden {
+		t.Errorf("expected ErrForbidden for non-reporter, got %v", err)
+	}
+}
+
+func TestDeletePet_NilOwnerNosPanic(t *testing.T) {
+	// Stray pet has nil OwnerID — delete should return ErrForbidden (not panic)
+	anyUser := uuid.New()
+	pet := &domain.Pet{
+		ID:     uuid.New(),
+		Status: domain.PetStatusStray,
+		Name:   "Stray",
+	}
+	repo := &mockPetRepo{pet: pet}
+	svc := service.NewPetService(repo, nil, nil, nil)
+
+	err := svc.DeletePet(anyUser.String(), pet.ID.String())
+	if err != domain.ErrForbidden {
+		t.Errorf("expected ErrForbidden when deleting stray (nil owner), got %v", err)
 	}
 }

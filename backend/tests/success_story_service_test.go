@@ -121,16 +121,16 @@ func TestSuccessStoryService_Create(t *testing.T) {
 
 	foundPet := &domain.Pet{
 		ID:      petID,
-		OwnerID: userID,
+		OwnerID: ptrUUID(userID),
 		Name:    "Max",
-		Status:  "found",
+		Status:  domain.PetStatusFound,
 	}
 
 	activePet := &domain.Pet{
 		ID:      petID,
-		OwnerID: userID,
+		OwnerID: ptrUUID(userID),
 		Name:    "Max",
-		Status:  "active", // not "found"
+		Status:  domain.PetStatusRegistered, // not "found"
 	}
 
 	tests := []struct {

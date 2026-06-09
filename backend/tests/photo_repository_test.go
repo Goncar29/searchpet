@@ -16,7 +16,7 @@ func TestPhotoRepository_CreateAndGetByPetID(t *testing.T) {
 	photoRepo := repository.NewPhotoRepository(gormDB)
 
 	owner := newTestUser(t, userRepo)
-	pet := &domain.Pet{ID: uuid.New(), OwnerID: owner.ID, Name: "Photo Pet", Type: "gato", Status: "active"}
+	pet := &domain.Pet{ID: uuid.New(), OwnerID: ptrUUID(owner.ID), Name: "Photo Pet", Type: "gato", Status: domain.PetStatusRegistered}
 	if err := petRepo.Create(pet); err != nil {
 		t.Fatalf("Create pet: %v", err)
 	}
@@ -52,7 +52,7 @@ func TestPhotoRepository_Delete(t *testing.T) {
 	photoRepo := repository.NewPhotoRepository(gormDB)
 
 	owner := newTestUser(t, userRepo)
-	pet := &domain.Pet{ID: uuid.New(), OwnerID: owner.ID, Name: "Del Photo Pet", Type: "gato", Status: "active"}
+	pet := &domain.Pet{ID: uuid.New(), OwnerID: ptrUUID(owner.ID), Name: "Del Photo Pet", Type: "gato", Status: domain.PetStatusRegistered}
 	if err := petRepo.Create(pet); err != nil {
 		t.Fatalf("Create pet: %v", err)
 	}
@@ -89,7 +89,7 @@ func TestPhotoRepository_SetPrimary(t *testing.T) {
 	photoRepo := repository.NewPhotoRepository(gormDB)
 
 	owner := newTestUser(t, userRepo)
-	pet := &domain.Pet{ID: uuid.New(), OwnerID: owner.ID, Name: "Primary Pet", Type: "perro", Status: "active"}
+	pet := &domain.Pet{ID: uuid.New(), OwnerID: ptrUUID(owner.ID), Name: "Primary Pet", Type: "perro", Status: domain.PetStatusRegistered}
 	if err := petRepo.Create(pet); err != nil {
 		t.Fatalf("Create pet: %v", err)
 	}
@@ -132,7 +132,7 @@ func TestPhotoRepository_CountByPetID(t *testing.T) {
 	photoRepo := repository.NewPhotoRepository(gormDB)
 
 	owner := newTestUser(t, userRepo)
-	pet := &domain.Pet{ID: uuid.New(), OwnerID: owner.ID, Name: "Count Pet", Type: "perro", Status: "active"}
+	pet := &domain.Pet{ID: uuid.New(), OwnerID: ptrUUID(owner.ID), Name: "Count Pet", Type: "perro", Status: domain.PetStatusRegistered}
 	if err := petRepo.Create(pet); err != nil {
 		t.Fatalf("Create pet: %v", err)
 	}

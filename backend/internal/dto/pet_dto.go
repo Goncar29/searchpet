@@ -17,6 +17,9 @@ type CreatePetRequest struct {
 	Description string  `json:"description"`
 	Gender      string  `json:"gender"`
 	MicrochipID *string `json:"microchip_id"`
+	// Status is optional. Accepted values: "registered" (default) and "stray".
+	// Any other value is rejected by the service layer.
+	Status string `json:"status"`
 }
 
 // UpdatePetRequest contiene los datos para actualizar una mascota.
@@ -26,6 +29,9 @@ type UpdatePetRequest struct {
 	Color       string `json:"color"`
 	Description string `json:"description"`
 	Status      string `json:"status"`
+	// Version is used for optimistic concurrency. Send the value received from the
+	// last GET response; the server rejects the update with 409 if it has changed.
+	Version int `json:"version"`
 }
 
 // PetSearchResponse es la respuesta paginada del endpoint GET /api/pets/search.
@@ -55,13 +61,15 @@ type PetPhotoResponse struct {
 // PetResponse son los datos de la mascota que retornamos al cliente.
 type PetResponse struct {
 	ID          uuid.UUID          `json:"id"`
-	OwnerID     uuid.UUID          `json:"owner_id"`
+	OwnerID     *uuid.UUID         `json:"owner_id,omitempty"`
+	ReporterID  *uuid.UUID         `json:"reporter_id,omitempty"`
 	Name        string             `json:"name"`
 	Type        string             `json:"type"`
 	Breed       string             `json:"breed,omitempty"`
 	Color       string             `json:"color,omitempty"`
 	Description string             `json:"description,omitempty"`
 	Status      string             `json:"status"`
+	Version     int                `json:"version"`
 	Photos      []PetPhotoResponse `json:"photos"`
 	Owner       *PetOwnerResponse  `json:"owner,omitempty"`
 	CreatedAt   time.Time          `json:"created_at"`
@@ -82,12 +90,14 @@ func ToPetResponse(pet *domain.Pet) PetResponse {
 	resp := PetResponse{
 		ID:          pet.ID,
 		OwnerID:     pet.OwnerID,
+		ReporterID:  pet.ReporterID,
 		Name:        pet.Name,
 		Type:        pet.Type,
 		Breed:       pet.Breed,
 		Color:       pet.Color,
 		Description: pet.Description,
 		Status:      pet.Status,
+		Version:     pet.Version,
 		Photos:      photos,
 		CreatedAt:   pet.CreatedAt,
 	}
