@@ -60,13 +60,8 @@ const PLATFORMS: {
 export function SharePanel({ petId, petName, pet }: SharePanelProps) {
   const [open, setOpen] = useState(false);
   const [shareLink, setShareLink] = useState<ShareLink | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
   const generateLink = useGenerateShareLink();
-
-  const showToast = (msg: string) => {
-    setToast(msg);
-    setTimeout(() => setToast(null), 3000);
-  };
 
   // Ref al div contenedor del QR canvas oculto (para descarga en alta resolución)
   const qrContainerRef = useRef<HTMLDivElement | null>(null);
@@ -96,21 +91,26 @@ export function SharePanel({ petId, petName, pet }: SharePanelProps) {
   const handlePlatform = (platform: (typeof PLATFORMS)[0]) => {
     if (!shareLink) return;
 
-    const url = platform.getURL(shareLink, message);
-
     if (platform.key === 'instagram') {
-      navigator.clipboard.writeText(shareLink.share_url).catch(() => {});
-      showToast('📸 Link copiado. Abrí Instagram y pegalo en tu historia o publicación.');
+      // Instagram has no web share URL — use the Web Share API (shows native
+      // share sheet on mobile, which includes Instagram if installed).
+      if (navigator.share) {
+        navigator.share({ url: shareLink.share_url, text: message }).catch(() => {});
+      } else {
+        window.open('https://www.instagram.com/', '_blank', 'noopener,noreferrer');
+      }
       return;
     }
 
+    const url = platform.getURL(shareLink, message);
     if (url) window.open(url, '_blank', 'noopener,noreferrer');
   };
 
   const handleCopy = () => {
     if (!shareLink) return;
     navigator.clipboard.writeText(shareLink.share_url).catch(() => {});
-    showToast('✓ Link copiado al portapapeles');
+    setCopied(true);
+    setTimeout(() => setCopied(false), 3000);
   };
 
   // Descarga el QR como PNG 512x512
@@ -190,7 +190,7 @@ export function SharePanel({ petId, petName, pet }: SharePanelProps) {
                   onClick={handleCopy}
                   className="text-xs font-semibold text-primary hover:text-primary-dark flex-shrink-0"
                 >
-                  Copiar
+                  {copied ? '✓ Copiado' : 'Copiar'}
                 </button>
               </div>
             )}
@@ -252,9 +252,9 @@ export function SharePanel({ petId, petName, pet }: SharePanelProps) {
               </div>
             )}
 
-            {toast && (
+            {copied && (
               <p className="text-xs text-green-600 dark:text-green-400 mt-2 text-center">
-                {toast}
+                Link copiado al portapapeles
               </p>
             )}
           </div>
