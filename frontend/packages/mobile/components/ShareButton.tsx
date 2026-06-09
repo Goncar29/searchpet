@@ -44,37 +44,35 @@ export function ShareButton({ petId, petName, petType, status, pet }: ShareButto
   const generateLink = useGenerateShareLink();
   const statusText = status === 'found' ? 'ENCONTRADA' : 'PERDIDA';
 
+  // Generate the link once and cache it in state — all channels reuse the same token.
+  const getOrGenerateLink = async (): Promise<string> => {
+    if (shareUrl) return shareUrl;
+    const result = await generateLink.mutateAsync({ petID: petId, data: {} });
+    setShareUrl(result.share_url);
+    setExpiresAt(result.expires_at);
+    return result.share_url;
+  };
+
   const handleShare = async (platform: string) => {
     setIsLoading(true);
     try {
-      const result = await generateLink.mutateAsync({
-        petID: petId,
-        data: { platform: platform as any },
-      });
-
+      const url = await getOrGenerateLink();
       const petForMessage = pet ?? { name: petName, type: petType, status: status === 'found' ? 'found' as const : 'lost' as const };
-      const message = buildWhatsAppMessage(petForMessage, result.share_url);
+      const message = buildWhatsAppMessage(petForMessage, url);
 
       if (platform === 'whatsapp') {
-        const url = `https://wa.me/?text=${encodeURIComponent(message)}`;
-        await Linking.openURL(url);
+        await Linking.openURL(`https://wa.me/?text=${encodeURIComponent(message)}`);
       } else if (platform === 'facebook') {
-        const url = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(result.share_url)}`;
-        await Linking.openURL(url);
+        await Linking.openURL(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`);
       } else if (platform === 'twitter') {
-        const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(message)}`;
-        await Linking.openURL(url);
+        await Linking.openURL(`https://twitter.com/intent/tweet?text=${encodeURIComponent(message)}`);
       } else if (platform === 'instagram') {
         Alert.alert(
           'Compartir en Instagram',
           'El link fue copiado. Abre Instagram y pégalo en tu historia o publicación.',
         );
       } else {
-        await Share.share({
-          message,
-          url: result.share_url,
-          title: `${petName} - ${statusText}`,
-        });
+        await Share.share({ message, url, title: `${petName} - ${statusText}` });
       }
     } catch (error: unknown) {
       Alert.alert(i18next.t('common:error'), getErrorMessage(error, i18next.t));
@@ -86,15 +84,10 @@ export function ShareButton({ petId, petName, petType, status, pet }: ShareButto
   const handleNativeShare = async () => {
     setIsLoading(true);
     try {
-      const result = await generateLink.mutateAsync({ petID: petId });
+      const url = await getOrGenerateLink();
       const petForMessage = pet ?? { name: petName, type: petType, status: status === 'found' ? 'found' as const : 'lost' as const };
-      const message = buildWhatsAppMessage(petForMessage, result.share_url);
-
-      await Share.share({
-        message,
-        url: result.share_url,
-        title: `${petName} - ${statusText}`,
-      });
+      const message = buildWhatsAppMessage(petForMessage, url);
+      await Share.share({ message, url, title: `${petName} - ${statusText}` });
     } catch (error: unknown) {
       Alert.alert(i18next.t('common:error'), getErrorMessage(error, i18next.t));
     } finally {
@@ -103,18 +96,9 @@ export function ShareButton({ petId, petName, petType, status, pet }: ShareButto
   };
 
   const handleToggleQR = async () => {
-    if (showQR) {
-      setShowQR(false);
-      return;
-    }
-    if (shareUrl) {
-      setShowQR(true);
-      return;
-    }
+    if (showQR) { setShowQR(false); return; }
     try {
-      const link = await generateLink.mutateAsync({ petID: petId, data: {} });
-      setShareUrl(link.share_url);
-      setExpiresAt(link.expires_at);
+      await getOrGenerateLink();
       setShowQR(true);
     } catch (err: unknown) {
       Alert.alert(i18next.t('common:error'), getErrorMessage(err, i18next.t));
