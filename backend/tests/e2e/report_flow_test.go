@@ -17,7 +17,7 @@ func createPet(t *testing.T, baseURL, token, name string) string {
 
 	body, _ := json.Marshal(map[string]interface{}{
 		"name": name,
-		"type": "dog",
+		"type": "perro",
 	})
 	req, _ := http.NewRequest(http.MethodPost, baseURL+"/api/pets", bytes.NewReader(body))
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))

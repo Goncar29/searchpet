@@ -18,9 +18,8 @@ func TestPetFlow_FullCRUD(t *testing.T) {
 
 	// ── POST /api/pets ────────────────────────────────────────────
 	createBody, _ := json.Marshal(map[string]interface{}{
-		"name":   "TestPet",
-		"type":   "dog",
-		"status": "lost",
+		"name": "TestPet",
+		"type": "perro",
 	})
 	req, _ := http.NewRequest(http.MethodPost, baseURL+"/api/pets", bytes.NewReader(createBody))
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
@@ -118,9 +117,8 @@ func TestPetFlow_UnauthenticatedCreate(t *testing.T) {
 	defer cleanup()
 
 	body, _ := json.Marshal(map[string]interface{}{
-		"name":   "TestPet",
-		"type":   "dog",
-		"status": "lost",
+		"name": "TestPet",
+		"type": "perro",
 	})
 	resp, err := http.Post(baseURL+"/api/pets", "application/json", bytes.NewReader(body))
 	if err != nil {
