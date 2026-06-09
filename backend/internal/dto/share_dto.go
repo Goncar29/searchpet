@@ -46,7 +46,7 @@ type ShareLinkPublicResponse struct {
 func ToGenerateShareLinkResponse(token string, baseURL string, expiresAt time.Time) GenerateShareLinkResponse {
 	return GenerateShareLinkResponse{
 		ShareToken: token,
-		ShareURL:   strings.TrimRight(baseURL, "/") + "/pet/" + token,
+		ShareURL:   strings.TrimRight(baseURL, "/") + "/share/" + token,
 		ExpiresAt:  expiresAt,
 	}
 }

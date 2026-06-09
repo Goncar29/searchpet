@@ -1,5 +1,8 @@
 {
   "buildCommand": "vite build",
   "outputDirectory": "dist",
-  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+  "rewrites": [
+    { "source": "/share/:token", "destination": "/api/share/:token" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
 }
