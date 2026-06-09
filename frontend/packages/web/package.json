@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "lint": "eslint . --ext ts,tsx",
     "test": "vitest",
-    "test:run": "vitest run",
+    "test:run": "vitest run && vitest run --config vitest.shared.config.ts",
     "coverage": "vitest run --coverage",
     "test:e2e": "playwright test"
   },

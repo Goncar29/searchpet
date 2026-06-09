@@ -19,7 +19,7 @@ func TestSuccessStoryRepository_CreateAndGetByID(t *testing.T) {
 	ctx := context.Background()
 
 	owner := newTestUser(t, userRepo)
-	pet := &domain.Pet{ID: uuid.New(), OwnerID: owner.ID, Name: "Story Pet", Type: "perro", Status: "found"}
+	pet := &domain.Pet{ID: uuid.New(), OwnerID: ptrUUID(owner.ID), Name: "Story Pet", Type: "perro", Status: domain.PetStatusFound}
 	if err := petRepo.Create(pet); err != nil {
 		t.Fatalf("Create pet: %v", err)
 	}
@@ -65,8 +65,8 @@ func TestSuccessStoryRepository_GetAll_FeaturedFilter(t *testing.T) {
 	owner := newTestUser(t, userRepo)
 
 	// Create two pets and their stories
-	p1 := &domain.Pet{ID: uuid.New(), OwnerID: owner.ID, Name: "Pet1", Type: "perro", Status: "found"}
-	p2 := &domain.Pet{ID: uuid.New(), OwnerID: owner.ID, Name: "Pet2", Type: "gato", Status: "found"}
+	p1 := &domain.Pet{ID: uuid.New(), OwnerID: ptrUUID(owner.ID), Name: "Pet1", Type: "perro", Status: domain.PetStatusFound}
+	p2 := &domain.Pet{ID: uuid.New(), OwnerID: ptrUUID(owner.ID), Name: "Pet2", Type: "gato", Status: domain.PetStatusFound}
 	for _, p := range []*domain.Pet{p1, p2} {
 		if err := petRepo.Create(p); err != nil {
 			t.Fatalf("Create pet: %v", err)
@@ -112,7 +112,7 @@ func TestSuccessStoryRepository_GetByPetID(t *testing.T) {
 	ctx := context.Background()
 
 	owner := newTestUser(t, userRepo)
-	pet := &domain.Pet{ID: uuid.New(), OwnerID: owner.ID, Name: "PetByID", Type: "gato", Status: "found"}
+	pet := &domain.Pet{ID: uuid.New(), OwnerID: ptrUUID(owner.ID), Name: "PetByID", Type: "gato", Status: domain.PetStatusFound}
 	if err := petRepo.Create(pet); err != nil {
 		t.Fatalf("Create pet: %v", err)
 	}
@@ -142,7 +142,7 @@ func TestSuccessStoryRepository_Like(t *testing.T) {
 	ctx := context.Background()
 
 	owner := newTestUser(t, userRepo)
-	pet := &domain.Pet{ID: uuid.New(), OwnerID: owner.ID, Name: "Like Pet", Type: "perro", Status: "found"}
+	pet := &domain.Pet{ID: uuid.New(), OwnerID: ptrUUID(owner.ID), Name: "Like Pet", Type: "perro", Status: domain.PetStatusFound}
 	if err := petRepo.Create(pet); err != nil {
 		t.Fatalf("Create pet: %v", err)
 	}
@@ -174,7 +174,7 @@ func TestSuccessStoryRepository_Delete(t *testing.T) {
 	ctx := context.Background()
 
 	owner := newTestUser(t, userRepo)
-	pet := &domain.Pet{ID: uuid.New(), OwnerID: owner.ID, Name: "Del Story Pet", Type: "perro", Status: "found"}
+	pet := &domain.Pet{ID: uuid.New(), OwnerID: ptrUUID(owner.ID), Name: "Del Story Pet", Type: "perro", Status: domain.PetStatusFound}
 	if err := petRepo.Create(pet); err != nil {
 		t.Fatalf("Create pet: %v", err)
 	}
@@ -201,7 +201,7 @@ func TestSuccessStoryRepository_SetFeatured(t *testing.T) {
 	ctx := context.Background()
 
 	owner := newTestUser(t, userRepo)
-	pet := &domain.Pet{ID: uuid.New(), OwnerID: owner.ID, Name: "Featured Pet", Type: "perro", Status: "found"}
+	pet := &domain.Pet{ID: uuid.New(), OwnerID: ptrUUID(owner.ID), Name: "Featured Pet", Type: "perro", Status: domain.PetStatusFound}
 	if err := petRepo.Create(pet); err != nil {
 		t.Fatalf("Create pet: %v", err)
 	}

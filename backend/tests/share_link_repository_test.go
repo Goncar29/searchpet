@@ -19,7 +19,7 @@ func TestShareLinkRepository_CreateAndGetByToken(t *testing.T) {
 	ctx := context.Background()
 
 	owner := newTestUser(t, userRepo)
-	pet := &domain.Pet{ID: uuid.New(), OwnerID: owner.ID, Name: "Share Pet", Type: "gato", Status: "active"}
+	pet := &domain.Pet{ID: uuid.New(), OwnerID: ptrUUID(owner.ID), Name: "Share Pet", Type: "gato", Status: domain.PetStatusRegistered}
 	if err := petRepo.Create(pet); err != nil {
 		t.Fatalf("Create pet: %v", err)
 	}
@@ -66,7 +66,7 @@ func TestShareLinkRepository_IncrementViews(t *testing.T) {
 	ctx := context.Background()
 
 	owner := newTestUser(t, userRepo)
-	pet := &domain.Pet{ID: uuid.New(), OwnerID: owner.ID, Name: "Views Pet", Type: "perro", Status: "active"}
+	pet := &domain.Pet{ID: uuid.New(), OwnerID: ptrUUID(owner.ID), Name: "Views Pet", Type: "perro", Status: domain.PetStatusRegistered}
 	if err := petRepo.Create(pet); err != nil {
 		t.Fatalf("Create pet: %v", err)
 	}
@@ -100,7 +100,7 @@ func TestShareLinkRepository_TrackContact(t *testing.T) {
 	ctx := context.Background()
 
 	owner := newTestUser(t, userRepo)
-	pet := &domain.Pet{ID: uuid.New(), OwnerID: owner.ID, Name: "Contact Pet", Type: "perro", Status: "active"}
+	pet := &domain.Pet{ID: uuid.New(), OwnerID: ptrUUID(owner.ID), Name: "Contact Pet", Type: "perro", Status: domain.PetStatusRegistered}
 	if err := petRepo.Create(pet); err != nil {
 		t.Fatalf("Create pet: %v", err)
 	}

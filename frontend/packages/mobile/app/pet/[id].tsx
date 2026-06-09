@@ -233,11 +233,18 @@ export default function PetDetailScreen() {
               backgroundColor:
                 pet.status === 'found' ? COLORS.found :
                 pet.status === 'archived' ? COLORS.textMuted :
+                pet.status === 'active' ? COLORS.primary :
                 COLORS.lost,
             },
           ]}>
             <Text style={styles.statusText}>
-              {pet.status === 'found' ? t('pets:status.found').toUpperCase() : pet.status === 'archived' ? t('pets:status.archived').toUpperCase() : t('pets:status.lost').toUpperCase()}
+              {pet.status === 'found'
+                ? t('pets:status.found').toUpperCase()
+                : pet.status === 'archived'
+                ? t('pets:status.archived').toUpperCase()
+                : pet.status === 'active'
+                ? t('pets:status.active').toUpperCase()
+                : t('pets:status.lost').toUpperCase()}
             </Text>
           </View>
         </View>

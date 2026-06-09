@@ -14,14 +14,14 @@ import (
 // PetSearchCriteria contiene los parámetros de búsqueda de mascotas.
 // Vive en domain para que repository pueda usarlo sin importar dto.
 type PetSearchCriteria struct {
-	Type   string     // coincidencia exacta con pets.type
-	Breed  string     // coincidencia parcial ILIKE %breed%
-	Color  string     // coincidencia parcial ILIKE %color%
-	Status string     // coincidencia exacta con pets.status (default "active")
-	From   *time.Time // pets cuyo reporte.occurred_at >= From
-	To     *time.Time // pets cuyo reporte.occurred_at <= To
-	Page   int        // página (default 1)
-	Limit  int        // tamaño de página (default 20, max 100)
+	Type     string     // coincidencia exacta con pets.type
+	Breed    string     // coincidencia parcial ILIKE %breed%
+	Color    string     // coincidencia parcial ILIKE %color%
+	Statuses []string   // IN clause on pets.status; empty defaults to FeedVisibleStatuses (lost, stray)
+	From     *time.Time // pets cuyo reporte.occurred_at >= From
+	To       *time.Time // pets cuyo reporte.occurred_at <= To
+	Page     int        // página (default 1)
+	Limit    int        // tamaño de página (default 20, max 100)
 }
 
 // ============================================================
@@ -57,18 +57,20 @@ type User struct {
 
 // Pet representa una mascota registrada
 type Pet struct {
-	ID          uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
-	OwnerID     uuid.UUID `gorm:"type:uuid;not null;index" json:"owner_id"`
-	Name        string    `gorm:"not null;size:100" json:"name"`
-	Type        string    `gorm:"not null;size:50;index:idx_pets_type_status,composite:type" json:"type"` // perro, gato, pajaro, otro
-	Breed       string    `gorm:"size:100" json:"breed,omitempty"`
-	Color       string    `gorm:"size:100" json:"color,omitempty"`
-	Description string    `gorm:"type:text" json:"description,omitempty"`
-	Gender      string    `gorm:"size:10" json:"gender,omitempty"` // male, female, unknown
-	MicrochipID *string   `gorm:"uniqueIndex;size:50" json:"microchip_id,omitempty"`
-	Status      string    `gorm:"size:50;default:'active';index:idx_pets_type_status,composite:status" json:"status"` // active, found, archived
-	CreatedAt   time.Time `gorm:"autoCreateTime" json:"created_at"`
-	UpdatedAt   time.Time `gorm:"autoUpdateTime" json:"updated_at"`
+	ID          uuid.UUID  `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+	OwnerID     *uuid.UUID `gorm:"type:uuid;index" json:"owner_id,omitempty"`             // nullable — nil for stray pets
+	ReporterID  *uuid.UUID `gorm:"type:uuid;index" json:"reporter_id,omitempty"`          // populated for stray pets (the user who reported it)
+	Name        string     `gorm:"not null;size:100" json:"name"`
+	Type        string     `gorm:"not null;size:50;index:idx_pets_type_status,composite:type" json:"type"` // perro, gato, pajaro, otro
+	Breed       string     `gorm:"size:100" json:"breed,omitempty"`
+	Color       string     `gorm:"size:100" json:"color,omitempty"`
+	Description string     `gorm:"type:text" json:"description,omitempty"`
+	Gender      string     `gorm:"size:10" json:"gender,omitempty"` // male, female, unknown
+	MicrochipID *string    `gorm:"uniqueIndex;size:50" json:"microchip_id,omitempty"`
+	Status      string     `gorm:"size:50;default:'registered';index:idx_pets_type_status,composite:status" json:"status"` // registered, lost, stray, found, archived
+	Version     int        `gorm:"default:1" json:"version"` // optimistic concurrency — increment on each status change
+	CreatedAt   time.Time  `gorm:"autoCreateTime" json:"created_at"`
+	UpdatedAt   time.Time  `gorm:"autoUpdateTime" json:"updated_at"`
 
 	// Relaciones
 	Owner   User     `gorm:"foreignKey:OwnerID" json:"owner,omitempty"`

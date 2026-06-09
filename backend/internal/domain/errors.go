@@ -13,12 +13,15 @@ var (
 	ErrUserNotFound = errors.New("usuario no encontrado")
 
 	// Pet
-	ErrPetNotFound        = errors.New("mascota no encontrada")
-	ErrNotPetOwner        = errors.New("no eres el dueño de esta mascota")
-	ErrPetAlreadyFound    = errors.New("mascota ya fue encontrada")
-	ErrPetArchived        = errors.New("mascota archivada, no se puede marcar como encontrada")
-	ErrPetStatusLocked    = errors.New("mascota con status final, no se puede modificar el estado")
-	ErrPetNotFoundStatus  = errors.New("la mascota debe estar marcada como encontrada para crear una historia")
+	ErrPetNotFound               = errors.New("mascota no encontrada")
+	ErrNotPetOwner               = errors.New("no eres el dueño de esta mascota")
+	ErrPetAlreadyFound           = errors.New("mascota ya fue encontrada")
+	ErrPetArchived               = errors.New("mascota archivada, no se puede marcar como encontrada")
+	ErrPetStatusLocked           = errors.New("mascota con status final, no se puede modificar el estado")
+	ErrPetNotFoundStatus         = errors.New("la mascota debe estar marcada como encontrada para crear una historia")
+	ErrInvalidStatusTransition   = errors.New("invalid_status_transition")
+	ErrConflict                  = errors.New("conflict")
+	ErrOwnerRequiredForStatus    = errors.New("owner_required_for_status")
 
 	// Report
 	ErrReportNotFound = errors.New("reporte no encontrado")
@@ -105,12 +108,15 @@ var ErrorCodes = map[error]string{
 	ErrUserNotFound: "user_not_found",
 
 	// Pet
-	ErrPetNotFound:       "pet_not_found",
-	ErrNotPetOwner:       "not_pet_owner",
-	ErrPetAlreadyFound:   "pet_already_found",
-	ErrPetArchived:       "pet_archived",
-	ErrPetStatusLocked:   "pet_status_locked",
-	ErrPetNotFoundStatus: "pet_not_found_status",
+	ErrPetNotFound:             "pet_not_found",
+	ErrNotPetOwner:             "not_pet_owner",
+	ErrPetAlreadyFound:         "pet_already_found",
+	ErrPetArchived:             "pet_archived",
+	ErrPetStatusLocked:         "pet_status_locked",
+	ErrPetNotFoundStatus:       "pet_not_found_status",
+	ErrInvalidStatusTransition: "invalid_status_transition",
+	ErrConflict:                "conflict",
+	ErrOwnerRequiredForStatus:  "owner_required_for_status",
 
 	// Report
 	ErrReportNotFound: "report_not_found",

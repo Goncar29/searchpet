@@ -93,6 +93,21 @@ describe('mapLabelToPet', () => {
     expect(mapLabelToPet('acoustic_guitar')).toBeNull();
   });
 
+  it('normalises space-separated MobileNet labels to underscore before lookup', () => {
+    // MobileNet returns "golden retriever" (space), map key is "golden_retriever"
+    const result = mapLabelToPet('golden retriever');
+    expect(result).not.toBeNull();
+    expect(result!.type).toBe('perro');
+    expect(result!.breed).toBe('Golden Retriever');
+  });
+
+  it('normalises mixed-case space-separated label', () => {
+    const result = mapLabelToPet('Persian cat');
+    expect(result).not.toBeNull();
+    expect(result!.type).toBe('gato');
+    expect(result!.breed).toBe('Persa');
+  });
+
   it('is case-insensitive for the input label', () => {
     // Map key is 'golden_retriever' — all-uppercase input should still match
     const result = mapLabelToPet('GOLDEN_RETRIEVER');
@@ -233,6 +248,14 @@ describe('lookupPet', () => {
     expect(result.type).toBeNull();
     expect(result.confidence).toBe(0);
     expect(result.rawLabels).toHaveLength(0);
+  });
+
+  it('matches when MobileNet returns space-separated className', () => {
+    // Real MobileNet output uses spaces: "golden retriever", not "golden_retriever"
+    const result = lookupPet([{ className: 'golden retriever', probability: 0.82 }]);
+    expect(result.type).toBe('perro');
+    expect(result.breed).toBe('Golden Retriever');
+    expect(result.confidence).toBeCloseTo(0.82);
   });
 
   it('respects a custom minConfidence override', () => {

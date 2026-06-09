@@ -107,14 +107,15 @@ func setupPetRouter(h *handler.PetHandler, ownerID uuid.UUID) *gin.Engine {
 // ============================================================
 
 func newTestPet(ownerID uuid.UUID) *domain.Pet {
+	ownerPtr := ownerID
 	return &domain.Pet{
 		ID:        uuid.New(),
-		OwnerID:   ownerID,
+		OwnerID:   &ownerPtr,
 		Name:      "Buddy",
 		Type:      "perro",
 		Breed:     "Labrador",
 		Color:     "Dorado",
-		Status:    "active",
+		Status:    domain.PetStatusRegistered,
 		CreatedAt: time.Now(),
 	}
 }
@@ -235,13 +236,14 @@ func TestPetHandler_CreatePet(t *testing.T) {
 			body: validBody,
 			setupMock: func(m *mockPetService) {
 				m.createPetFn = func(ownerID string, req dto.CreatePetRequest) (*domain.Pet, error) {
+					id := uuid.MustParse(ownerID)
 					return &domain.Pet{
 						ID:      uuid.New(),
-						OwnerID: uuid.MustParse(ownerID),
+						OwnerID: &id,
 						Name:    req.Name,
 						Type:    req.Type,
 						Color:   req.Color,
-						Status:  "active",
+						Status:  domain.PetStatusRegistered,
 					}, nil
 				}
 			},
@@ -333,10 +335,10 @@ func TestPetHandler_UpdatePet(t *testing.T) {
 				m.updatePetFn = func(_, _ string, req dto.UpdatePetRequest) (*domain.Pet, error) {
 					return &domain.Pet{
 						ID:      petID,
-						OwnerID: ownerID,
+						OwnerID: &ownerID,
 						Name:    req.Name,
 						Color:   req.Color,
-						Status:  "active",
+						Status:  domain.PetStatusRegistered,
 					}, nil
 				}
 			},
@@ -365,6 +367,40 @@ func TestPetHandler_UpdatePet(t *testing.T) {
 				}
 			},
 			wantStatus: http.StatusNotFound,
+		},
+		{
+			name:     "unknown status returns 400",
+			ownerID:  ownerID,
+			petIDStr: petID.String(),
+			body:     map[string]interface{}{"status": "flying"},
+			setupMock: func(m *mockPetService) {
+				// service should NOT be called — handler rejects before reaching service
+			},
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:     "invalid transition returns 422",
+			ownerID:  ownerID,
+			petIDStr: petID.String(),
+			body:     map[string]interface{}{"status": domain.PetStatusFound},
+			setupMock: func(m *mockPetService) {
+				m.updatePetFn = func(_, _ string, _ dto.UpdatePetRequest) (*domain.Pet, error) {
+					return nil, domain.ErrInvalidStatusTransition
+				}
+			},
+			wantStatus: http.StatusUnprocessableEntity,
+		},
+		{
+			name:     "version conflict returns 409",
+			ownerID:  ownerID,
+			petIDStr: petID.String(),
+			body:     map[string]interface{}{"status": domain.PetStatusLost, "version": 2},
+			setupMock: func(m *mockPetService) {
+				m.updatePetFn = func(_, _ string, _ dto.UpdatePetRequest) (*domain.Pet, error) {
+					return nil, domain.ErrConflict
+				}
+			},
+			wantStatus: http.StatusConflict,
 		},
 	}
 

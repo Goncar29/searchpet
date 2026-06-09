@@ -91,6 +91,12 @@ func (h *PetHandler) UpdatePet(c *gin.Context) {
 		return
 	}
 
+	// Reject unknown status values before hitting the service layer (400, not 422)
+	if req.Status != "" && !domain.ValidPetStatuses[req.Status] {
+		writeError(c, http.StatusBadRequest, domain.ErrInvalidStatus)
+		return
+	}
+
 	pet, err := h.petService.UpdatePet(ownerID, petID, req)
 	if err != nil {
 		if errors.Is(err, domain.ErrPetNotFound) {
@@ -102,6 +108,14 @@ func (h *PetHandler) UpdatePet(c *gin.Context) {
 			return
 		}
 		if errors.Is(err, domain.ErrPetStatusLocked) {
+			writeError(c, http.StatusConflict, err)
+			return
+		}
+		if errors.Is(err, domain.ErrInvalidStatusTransition) {
+			writeError(c, http.StatusUnprocessableEntity, err)
+			return
+		}
+		if errors.Is(err, domain.ErrConflict) {
 			writeError(c, http.StatusConflict, err)
 			return
 		}
@@ -145,7 +159,9 @@ func (h *PetHandler) SearchPets(c *gin.Context) {
 	criteria.Type = c.Query("type")
 	criteria.Breed = c.Query("breed")
 	criteria.Color = c.Query("color")
-	criteria.Status = c.Query("status")
+	if s := c.Query("status"); s != "" {
+		criteria.Statuses = []string{s}
+	}
 
 	// Parseo de from/to como RFC3339
 	if fromStr := c.Query("from"); fromStr != "" {

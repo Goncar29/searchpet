@@ -85,7 +85,7 @@ func TestPhotoService_UploadPhotoEventPayload_EndToEndBoundary(t *testing.T) {
 	photoRepo := &mockPhotoRepoForEmbedding{}
 	petRepo := &mockPetRepoForEmbedding{
 		findByIDFn: func(_ string) (*domain.Pet, error) {
-			return &domain.Pet{ID: petID, OwnerID: ownerID}, nil
+			return &domain.Pet{ID: petID, OwnerID: &ownerID}, nil
 		},
 	}
 

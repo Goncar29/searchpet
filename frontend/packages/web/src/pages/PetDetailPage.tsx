@@ -127,9 +127,9 @@ export function PetDetailPage() {
       </Helmet>
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-lg overflow-hidden">
+        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-lg">
           {/* Foto */}
-          <div className="relative h-72 md:h-96 bg-gray-100 dark:bg-gray-800">
+          <div className="relative h-72 md:h-96 bg-gray-100 dark:bg-gray-800 overflow-hidden rounded-t-2xl">
             {primaryPhoto ? (
               <img
                 src={primaryPhoto.url}
