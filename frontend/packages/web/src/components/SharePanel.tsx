@@ -60,8 +60,13 @@ const PLATFORMS: {
 export function SharePanel({ petId, petName, pet }: SharePanelProps) {
   const [open, setOpen] = useState(false);
   const [shareLink, setShareLink] = useState<ShareLink | null>(null);
-  const [copied, setCopied] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
   const generateLink = useGenerateShareLink();
+
+  const showToast = (msg: string) => {
+    setToast(msg);
+    setTimeout(() => setToast(null), 3000);
+  };
 
   // Ref al div contenedor del QR canvas oculto (para descarga en alta resolución)
   const qrContainerRef = useRef<HTMLDivElement | null>(null);
@@ -95,8 +100,7 @@ export function SharePanel({ petId, petName, pet }: SharePanelProps) {
 
     if (platform.key === 'instagram') {
       navigator.clipboard.writeText(shareLink.share_url).catch(() => {});
-      setCopied(true);
-      setTimeout(() => setCopied(false), 3000);
+      showToast('📸 Link copiado. Abrí Instagram y pegalo en tu historia o publicación.');
       return;
     }
 
@@ -106,8 +110,7 @@ export function SharePanel({ petId, petName, pet }: SharePanelProps) {
   const handleCopy = () => {
     if (!shareLink) return;
     navigator.clipboard.writeText(shareLink.share_url).catch(() => {});
-    setCopied(true);
-    setTimeout(() => setCopied(false), 3000);
+    showToast('✓ Link copiado al portapapeles');
   };
 
   // Descarga el QR como PNG 512x512
@@ -187,7 +190,7 @@ export function SharePanel({ petId, petName, pet }: SharePanelProps) {
                   onClick={handleCopy}
                   className="text-xs font-semibold text-primary hover:text-primary-dark flex-shrink-0"
                 >
-                  {copied ? '✓ Copiado' : 'Copiar'}
+                  Copiar
                 </button>
               </div>
             )}
@@ -249,9 +252,9 @@ export function SharePanel({ petId, petName, pet }: SharePanelProps) {
               </div>
             )}
 
-            {copied && (
+            {toast && (
               <p className="text-xs text-green-600 dark:text-green-400 mt-2 text-center">
-                Link copiado al portapapeles
+                {toast}
               </p>
             )}
           </div>
