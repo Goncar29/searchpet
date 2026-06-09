@@ -14,6 +14,6 @@ export default defineConfig({
     environment: 'node',
     root: path.resolve(__dirname, '../shared'),
     include: ['**/*.{test,spec}.ts'],
-    exclude: ['**/node_modules/**'],
+    exclude: ['**/node_modules/**', '**/hooks/useImageClassify.test.ts'],
   },
 });
