@@ -186,3 +186,7 @@ openspec/
 .atl/
 memory/
 CLAUDE.md
+
+# Superpowers — worktrees + brainstorming companion artifacts
+.worktrees/
+.superpowers/
