@@ -122,7 +122,7 @@ export function PetDetailPage() {
   return (
     <>
       <Helmet>
-        <title>{pet.name} — SearchPet</title>
+        <title>{`${pet.name} — SearchPet`}</title>
         <meta property="og:title" content={`${pet.name} — SearchPet`} />
         <meta property="og:description" content={ogDescription} />
         {ogImage && <meta property="og:image" content={ogImage} />}
