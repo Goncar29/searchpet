@@ -8,6 +8,7 @@ import { useRef, useState } from 'react';
 import { QRCodeCanvas } from 'qrcode.react';
 import { useGenerateShareLink } from '@shared/hooks';
 import type { Pet, Report } from '@shared/types';
+import { PhotoBanner } from './PhotoBanner';
 
 interface PdfFlyerButtonProps {
   pet: Pet;
@@ -185,76 +186,45 @@ export function PdfFlyerButton({ pet, reports = [] }: PdfFlyerButtonProps) {
           </div>
         </div>
 
-        {/* Contenido principal — foto a la izquierda, datos a la derecha */}
-        <div style={{ display: 'flex', gap: '24px', marginBottom: '24px' }}>
-          {/* Foto */}
-          <div style={{ flexShrink: 0 }}>
-            {primaryPhoto?.url ? (
-              <img
-                src={primaryPhoto.url}
-                alt={pet.name}
-                crossOrigin="anonymous"
-                style={{
-                  width: '220px',
-                  height: '220px',
-                  objectFit: 'cover',
-                  borderRadius: '8px',
-                  border: '2px solid #e5e7eb',
-                }}
-              />
-            ) : (
-              <div
-                style={{
-                  width: '220px',
-                  height: '220px',
-                  backgroundColor: '#f3f4f6',
-                  borderRadius: '8px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '80px',
-                }}
-              >
-                🐾
-              </div>
-            )}
-          </div>
+        {/* Foto banner — ancho completo, 4:3, object-fit: contain (no recorta la mascota) */}
+        <div style={{ marginBottom: '24px' }}>
+          <PhotoBanner photoUrl={primaryPhoto?.url} petName={pet.name} heightPx={536} />
+        </div>
 
-          {/* Datos */}
-          <div style={{ flex: 1 }}>
-            <h1 style={{ fontSize: '32px', fontWeight: '800', color: '#111827', marginBottom: '16px', margin: '0 0 16px 0' }}>
-              {pet.name}
-            </h1>
+        {/* Título + datos */}
+        <div style={{ marginBottom: '24px' }}>
+          <h1 style={{ fontSize: '32px', fontWeight: '800', color: '#111827', margin: '0 0 16px 0' }}>
+            {pet.name}
+          </h1>
 
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '15px' }}>
-              <tbody>
-                {pet.type && (
-                  <tr>
-                    <td style={{ color: '#6b7280', paddingBottom: '8px', paddingRight: '12px', width: '100px' }}>Tipo:</td>
-                    <td style={{ fontWeight: '600', color: '#111827', paddingBottom: '8px' }}>{pet.type}</td>
-                  </tr>
-                )}
-                {pet.breed && (
-                  <tr>
-                    <td style={{ color: '#6b7280', paddingBottom: '8px', paddingRight: '12px' }}>Raza:</td>
-                    <td style={{ fontWeight: '600', color: '#111827', paddingBottom: '8px' }}>{pet.breed}</td>
-                  </tr>
-                )}
-                {pet.color && (
-                  <tr>
-                    <td style={{ color: '#6b7280', paddingBottom: '8px', paddingRight: '12px' }}>Color:</td>
-                    <td style={{ fontWeight: '600', color: '#111827', paddingBottom: '8px' }}>{pet.color}</td>
-                  </tr>
-                )}
-                {lastSeenDate && (
-                  <tr>
-                    <td style={{ color: '#6b7280', paddingBottom: '8px', paddingRight: '12px' }}>Visto:</td>
-                    <td style={{ fontWeight: '600', color: '#111827', paddingBottom: '8px' }}>{lastSeenDate}</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '15px' }}>
+            <tbody>
+              {pet.type && (
+                <tr>
+                  <td style={{ color: '#6b7280', paddingBottom: '8px', paddingRight: '12px', width: '100px' }}>Tipo:</td>
+                  <td style={{ fontWeight: '600', color: '#111827', paddingBottom: '8px' }}>{pet.type}</td>
+                </tr>
+              )}
+              {pet.breed && (
+                <tr>
+                  <td style={{ color: '#6b7280', paddingBottom: '8px', paddingRight: '12px' }}>Raza:</td>
+                  <td style={{ fontWeight: '600', color: '#111827', paddingBottom: '8px' }}>{pet.breed}</td>
+                </tr>
+              )}
+              {pet.color && (
+                <tr>
+                  <td style={{ color: '#6b7280', paddingBottom: '8px', paddingRight: '12px' }}>Color:</td>
+                  <td style={{ fontWeight: '600', color: '#111827', paddingBottom: '8px' }}>{pet.color}</td>
+                </tr>
+              )}
+              {lastSeenDate && (
+                <tr>
+                  <td style={{ color: '#6b7280', paddingBottom: '8px', paddingRight: '12px' }}>Visto:</td>
+                  <td style={{ fontWeight: '600', color: '#111827', paddingBottom: '8px' }}>{lastSeenDate}</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
 
         {/* Descripción */}
