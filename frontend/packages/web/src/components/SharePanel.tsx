@@ -115,11 +115,11 @@ export function SharePanel({ petId, petName, pet }: SharePanelProps) {
     }
   }
 
-  function downloadStoryImage(blob: Blob) {
+  function downloadStoryImage(blob: Blob, filename: string) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `story-${petName}.png`;
+    a.download = filename;
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -141,18 +141,19 @@ export function SharePanel({ petId, petName, pet }: SharePanelProps) {
         return;
       }
 
-      const file = new File([blob], `story-${petName}.png`, { type: 'image/png' });
+      const storyFilename = `story-${petName}.png`;
+      const file = new File([blob], storyFilename, { type: 'image/png' });
 
       if (navigator.canShare?.({ files: [file] })) {
         try {
           await navigator.share({ files: [file], text: message });
           return;
         } catch (err) {
-          if ((err as DOMException).name === 'AbortError') return;
+          if ((err as Error)?.name === 'AbortError') return;
         }
       }
 
-      downloadStoryImage(blob);
+      downloadStoryImage(blob, storyFilename);
       setStoryMessage('Imagen descargada — subila como Historia desde tu celular 📲');
       setTimeout(() => setStoryMessage(null), 4000);
     } finally {
