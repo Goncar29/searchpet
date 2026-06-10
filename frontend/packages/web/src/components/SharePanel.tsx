@@ -62,6 +62,7 @@ export function SharePanel({ petId, petName, pet }: SharePanelProps) {
   const [open, setOpen] = useState(false);
   const [shareLink, setShareLink] = useState<ShareLink | null>(null);
   const [copied, setCopied] = useState(false);
+  const [isSharingStory, setIsSharingStory] = useState(false);
   const generateLink = useGenerateShareLink();
 
   // Ref al div contenedor del QR canvas oculto (para descarga en alta resolución)
@@ -94,17 +95,58 @@ export function SharePanel({ petId, petName, pet }: SharePanelProps) {
     }
   };
 
+  // Genera la imagen de Story (PNG) a partir del template oculto
+  async function generateStoryBlob(): Promise<Blob | null> {
+    if (!storyRef.current) return null;
+    try {
+      const { default: html2canvas } = await import('html2canvas');
+      const canvas = await html2canvas(storyRef.current, {
+        useCORS: true,
+        allowTaint: false,
+        scale: 2,
+        logging: false,
+      });
+      return await new Promise<Blob | null>((resolve) =>
+        canvas.toBlob((blob) => resolve(blob), 'image/png')
+      );
+    } catch {
+      return null;
+    }
+  }
+
+  const handleInstagramStory = async () => {
+    if (!shareLink || isSharingStory) return;
+    setIsSharingStory(true);
+
+    try {
+      const blob = await generateStoryBlob();
+
+      if (!blob) {
+        // No se pudo generar la imagen — compartimos el link como antes
+        if (navigator.share) {
+          await navigator.share({ url: shareLink.share_url, text: message }).catch(() => {});
+        } else {
+          window.open('https://www.instagram.com/', '_blank', 'noopener,noreferrer');
+        }
+        return;
+      }
+
+      const file = new File([blob], `story-${petName}.png`, { type: 'image/png' });
+
+      if (navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file], text: message });
+        return;
+      }
+    } finally {
+      setIsSharingStory(false);
+    }
+  };
+
   const handlePlatform = (platform: (typeof PLATFORMS)[0]) => {
     if (!shareLink) return;
 
     if (platform.key === 'instagram') {
-      // Instagram has no web share URL — use the Web Share API (shows native
-      // share sheet on mobile, which includes Instagram if installed).
-      if (navigator.share) {
-        navigator.share({ url: shareLink.share_url, text: message }).catch(() => {});
-      } else {
-        window.open('https://www.instagram.com/', '_blank', 'noopener,noreferrer');
-      }
+      handleInstagramStory();
       return;
     }
 

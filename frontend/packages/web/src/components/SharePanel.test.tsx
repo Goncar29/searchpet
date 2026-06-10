@@ -47,3 +47,54 @@ describe('SharePanel — Story template', () => {
     });
   });
 });
+
+function mockHtml2Canvas() {
+  vi.doMock('html2canvas', () => ({
+    default: vi.fn().mockResolvedValue({
+      toBlob: (cb: (blob: Blob | null) => void) =>
+        cb(new Blob(['fake-png'], { type: 'image/png' })),
+    }),
+  }));
+}
+
+function stubShareApis(overrides: { share?: typeof navigator.share; canShare?: typeof navigator.canShare }) {
+  if (overrides.share !== undefined) {
+    Object.defineProperty(navigator, 'share', { value: overrides.share, configurable: true });
+  }
+  if (overrides.canShare !== undefined) {
+    Object.defineProperty(navigator, 'canShare', { value: overrides.canShare, configurable: true });
+  }
+}
+
+describe('SharePanel — Instagram Story share (mobile, file sharing supported)', () => {
+  afterEach(() => {
+    vi.doUnmock('html2canvas');
+    stubShareApis({ share: undefined, canShare: undefined });
+    vi.restoreAllMocks();
+  });
+
+  it('shares the generated image as a file via the Web Share API', async () => {
+    mockHtml2Canvas();
+    const shareMock = vi.fn().mockResolvedValue(undefined);
+    stubShareApis({ share: shareMock, canShare: vi.fn().mockReturnValue(true) });
+
+    const { getByRole, getAllByRole } = render(
+      <SharePanel petId="pet-1" petName="Firulais" pet={basePet} />
+    );
+
+    await userEvent.click(getByRole('button', { name: /compartir/i }));
+    await waitFor(() => expect(mutateAsync).toHaveBeenCalled());
+
+    const instagramButton = getAllByRole('button', { name: /instagram/i })[0];
+    await userEvent.click(instagramButton);
+
+    await waitFor(() => {
+      expect(shareMock).toHaveBeenCalledTimes(1);
+      const arg = shareMock.mock.calls[0][0];
+      expect(arg.files).toHaveLength(1);
+      expect(arg.files[0]).toBeInstanceOf(File);
+      expect(arg.files[0].name).toBe('story-Firulais.png');
+      expect(typeof arg.text).toBe('string');
+    });
+  });
+});
