@@ -82,11 +82,15 @@
       "reportLost": "Reportar como perdido",
       "delete": "Excluir",
       "confirmDelete": "Tem certeza que deseja excluir este pet?",
-      "changeStatus": "Alterar status"
+      "changeStatus": "Alterar status",
+      "photoCount": "{{current}}/3 fotos"
     },
     "detail": {
       "contact": "Contato via WhatsApp",
       "addReport": "Adicionar reporte",
+      "prevPhoto": "Foto anterior",
+      "nextPhoto": "Próxima foto",
+      "goToPhoto": "Ir para a foto {{number}}",
       "share": "Compartilhar",
       "comingSoon": "Em breve!",
       "notFound": "Pet não encontrado",

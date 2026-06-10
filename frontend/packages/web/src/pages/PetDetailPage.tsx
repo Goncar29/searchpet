@@ -24,6 +24,7 @@ export function PetDetailPage() {
   const [showPetReportMenu, setShowPetReportMenu] = useState(false);
   const [petReportSuccess, setPetReportSuccess] = useState(false);
   const [showFoundConfirm, setShowFoundConfirm] = useState(false);
+  const [activePhotoIndex, setActivePhotoIndex] = useState(0);
 
   if (isLoading) {
     return (
@@ -67,8 +68,18 @@ export function PetDetailPage() {
     );
   }
 
-  const primaryPhoto = pet.photos?.find((p: Photo) => p.is_primary) || pet.photos?.[0];
+  // Primary photo first, then the rest in original order
+  const photos: Photo[] = [...(pet.photos ?? [])].sort(
+    (a, b) => Number(b.is_primary ?? false) - Number(a.is_primary ?? false),
+  );
+  const safePhotoIndex = photos.length > 0 ? Math.min(activePhotoIndex, photos.length - 1) : 0;
+  const activePhoto: Photo | undefined = photos[safePhotoIndex];
+  const primaryPhoto = photos[0];
   const isOwner = isAuthenticated && user?.id === pet.owner_id;
+
+  const goToPhoto = (delta: number) => {
+    setActivePhotoIndex((safePhotoIndex + delta + photos.length) % photos.length);
+  };
 
   const handlePetReport = (reason: AbuseReason) => {
     submitAbuseReport.mutate(
@@ -131,17 +142,53 @@ export function PetDetailPage() {
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-lg">
-          {/* Foto */}
+          {/* Photo gallery */}
           <div className="relative h-72 md:h-96 bg-gray-100 dark:bg-gray-800 overflow-hidden rounded-t-2xl">
-            {primaryPhoto ? (
+            {activePhoto ? (
               <img
-                src={primaryPhoto.url}
+                src={activePhoto.url}
                 alt={pet.name}
                 className="w-full h-full object-contain"
                 crossOrigin="anonymous"
               />
             ) : (
               <div className="w-full h-full flex items-center justify-center"><span className="text-7xl">🐾</span></div>
+            )}
+            {photos.length > 1 && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => goToPhoto(-1)}
+                  aria-label={t('pets:detail.prevPhoto')}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
+                >
+                  ‹
+                </button>
+                <button
+                  type="button"
+                  onClick={() => goToPhoto(1)}
+                  aria-label={t('pets:detail.nextPhoto')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
+                >
+                  ›
+                </button>
+                <span className="absolute bottom-3 right-3 text-xs font-medium px-2 py-0.5 rounded-full bg-black/60 text-white">
+                  📷 {safePhotoIndex + 1}/{photos.length}
+                </span>
+                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
+                  {photos.map((p, i) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => setActivePhotoIndex(i)}
+                      aria-label={t('pets:detail.goToPhoto', { number: i + 1 })}
+                      className={`w-2 h-2 rounded-full transition-colors ${
+                        i === safePhotoIndex ? 'bg-white' : 'bg-white/40 hover:bg-white/70'
+                      }`}
+                    />
+                  ))}
+                </div>
+              </>
             )}
             <span className={`absolute top-4 left-4 ${statusBadge.color} text-white text-xs font-bold px-3 py-1 rounded`}>
               {statusBadge.label}

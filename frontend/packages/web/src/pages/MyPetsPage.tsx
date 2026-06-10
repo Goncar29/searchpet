@@ -92,6 +92,9 @@ function PetCard({
         <span className={`absolute top-2 right-2 text-xs font-medium px-2 py-0.5 rounded-full ${statusCfg.className}`}>
           {t(statusCfg.labelKey)}
         </span>
+        <span className="absolute bottom-2 left-2 text-xs font-medium px-2 py-0.5 rounded-full bg-black/60 text-white">
+          📷 {t('pets:mine.photoCount', { current: pet.photos?.length ?? 0 })}
+        </span>
       </Link>
 
       {/* Contenido */}

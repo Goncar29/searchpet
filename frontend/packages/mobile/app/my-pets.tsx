@@ -219,6 +219,10 @@ export default function MyPetsScreen() {
                     {t('my_pets:colorLabel', { color: item.color })}
                   </Text>
                 )}
+
+                <Text style={styles.petDetail}>
+                  📷 {t('my_pets:photoCount', { current: item.photos?.length ?? 0 })}
+                </Text>
               </View>
 
               {/* Acciones */}

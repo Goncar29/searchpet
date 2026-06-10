@@ -170,7 +170,7 @@ export default function PostScreen() {
         <Text style={styles.sectionTitle}>{t('post:title')}</Text>
 
         {/* Fotos */}
-        <Text style={styles.label}>{t('post:photos')}</Text>
+        <Text style={styles.label}>{t('post:photos')} ({photos.length}/3)</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.photoRow}>
           {photos.map((uri, i) => (
             <TouchableOpacity key={i} onPress={() => removePhoto(i)}>

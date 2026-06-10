@@ -236,7 +236,8 @@
     "registerPet": "Registrar mascota",
     "reportButton": "Reportar",
     "foundButton": "Encontrada",
-    "colorLabel": "Color: {{color}}"
+    "colorLabel": "Color: {{color}}",
+    "photoCount": "{{current}}/3 fotos"
   },
   "groups": {
     "title": "Grupos Locales",

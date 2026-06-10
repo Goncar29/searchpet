@@ -82,11 +82,15 @@
       "reportLost": "Publicar como perdida",
       "delete": "Eliminar",
       "confirmDelete": "¿Seguro que querés eliminar esta mascota?",
-      "changeStatus": "Cambiar estado"
+      "changeStatus": "Cambiar estado",
+      "photoCount": "{{current}}/3 fotos"
     },
     "detail": {
       "contact": "Contactar por WhatsApp",
       "addReport": "Agregar reporte",
+      "prevPhoto": "Foto anterior",
+      "nextPhoto": "Foto siguiente",
+      "goToPhoto": "Ir a la foto {{number}}",
       "share": "Compartir",
       "comingSoon": "¡Próximamente!",
       "notFound": "Mascota no encontrada",
