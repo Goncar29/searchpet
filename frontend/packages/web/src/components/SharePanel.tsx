@@ -10,6 +10,7 @@ import { useGenerateShareLink } from '@shared/hooks';
 import type { Pet, ShareLink } from '@shared/types';
 import { buildWhatsAppMessage } from '@shared/utils/whatsappTemplates';
 import { getExpiryInfo } from '@shared/utils/shareExpiry';
+import { PhotoBanner } from './PhotoBanner';
 
 interface SharePanelProps {
   petId: string;
@@ -65,6 +66,11 @@ export function SharePanel({ petId, petName, pet }: SharePanelProps) {
 
   // Ref al div contenedor del QR canvas oculto (para descarga en alta resolución)
   const qrContainerRef = useRef<HTMLDivElement | null>(null);
+
+  // Ref al div oculto con el template de la imagen para Instagram Story
+  const storyRef = useRef<HTMLDivElement | null>(null);
+
+  const primaryPhoto = pet.photos?.find((p) => p.is_primary) || pet.photos?.[0];
 
   const message = buildWhatsAppMessage(pet, shareLink?.share_url);
 
@@ -260,6 +266,95 @@ export function SharePanel({ petId, petName, pet }: SharePanelProps) {
           </div>
         </>
       )}
+
+      {/* Plantilla oculta para generar la imagen de Instagram Story (9:16) */}
+      <div
+        ref={storyRef}
+        data-testid="story-template"
+        style={{
+          position: 'fixed',
+          top: '-9999px',
+          left: '-9999px',
+          width: '540px',
+          height: '960px',
+          backgroundColor: '#ffffff',
+          fontFamily: 'Arial, sans-serif',
+          padding: '24px',
+          boxSizing: 'border-box',
+          display: 'flex',
+          flexDirection: 'column',
+        }}
+        aria-hidden="true"
+      >
+        {/* Header */}
+        <div style={{ textAlign: 'center', marginBottom: '16px' }}>
+          <div
+            style={{
+              backgroundColor: pet.status === 'found' ? '#22c55e' : '#ef4444',
+              color: '#ffffff',
+              padding: '10px 20px',
+              borderRadius: '8px',
+              fontSize: '22px',
+              fontWeight: '800',
+              letterSpacing: '2px',
+              display: 'inline-block',
+            }}
+          >
+            {pet.status === 'found' ? '¡MASCOTA ENCONTRADA!' : '¡MASCOTA PERDIDA!'}
+          </div>
+        </div>
+
+        {/* Foto banner — mismo formato 4:3 contain del flyer */}
+        <div style={{ marginBottom: '16px' }}>
+          <PhotoBanner photoUrl={primaryPhoto?.url} petName={pet.name} heightPx={369} />
+        </div>
+
+        {/* Título + datos clave */}
+        <h1 style={{ fontSize: '36px', fontWeight: '800', color: '#111827', margin: '0 0 12px 0', textAlign: 'center' }}>
+          {pet.name}
+        </h1>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '20px' }}>
+          <tbody>
+            {pet.type && (
+              <tr>
+                <td style={{ color: '#6b7280', paddingBottom: '6px', paddingRight: '12px', width: '140px' }}>Tipo:</td>
+                <td style={{ fontWeight: '600', color: '#111827', paddingBottom: '6px' }}>{pet.type}</td>
+              </tr>
+            )}
+            {pet.breed && (
+              <tr>
+                <td style={{ color: '#6b7280', paddingBottom: '6px', paddingRight: '12px' }}>Raza:</td>
+                <td style={{ fontWeight: '600', color: '#111827', paddingBottom: '6px' }}>{pet.breed}</td>
+              </tr>
+            )}
+            {pet.color && (
+              <tr>
+                <td style={{ color: '#6b7280', paddingBottom: '6px', paddingRight: '12px' }}>Color:</td>
+                <td style={{ fontWeight: '600', color: '#111827', paddingBottom: '6px' }}>{pet.color}</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+
+        <div style={{ flex: 1 }} />
+
+        {/* Footer QR */}
+        {shareLink?.share_url && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', borderTop: '2px solid #e5e7eb', paddingTop: '16px' }}>
+            <div style={{ flexShrink: 0 }}>
+              <QRCodeCanvas value={shareLink.share_url} size={100} level="M" />
+            </div>
+            <div>
+              <p style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: '0 0 4px 0' }}>
+                Escaneá para ayudar
+              </p>
+              <p style={{ fontSize: '16px', color: '#6b7280', margin: 0 }}>
+                searchpet.app · Reuniendo familias
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
