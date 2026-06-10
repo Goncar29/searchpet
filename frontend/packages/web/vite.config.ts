@@ -52,6 +52,13 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
       '@shared': path.resolve(__dirname, '../shared'),
       '@tanstack/react-query': path.resolve(__dirname, 'node_modules/@tanstack/react-query'),
+      // TF.js packages imported dynamically from shared/hooks/useImageClassify.ts:
+      // vite resolves them from the importer (shared/, outside this package root),
+      // so they need explicit aliases — same reason as @tanstack/react-query above.
+      // tfjs-react-native is mobile-only; web stubs it (the RN branch never runs on web).
+      '@tensorflow/tfjs-react-native': path.resolve(__dirname, 'src/stubs/tfjs-react-native-stub.js'),
+      '@tensorflow/tfjs': path.resolve(__dirname, 'node_modules/@tensorflow/tfjs'),
+      '@tensorflow-models/mobilenet': path.resolve(__dirname, 'node_modules/@tensorflow-models/mobilenet'),
     },
     dedupe: ['react', 'react-dom', '@tanstack/react-query'],
   },
