@@ -98,3 +98,66 @@ describe('SharePanel — Instagram Story share (mobile, file sharing supported)'
     });
   });
 });
+
+describe('SharePanel — Instagram Story share (desktop, no file sharing)', () => {
+  afterEach(() => {
+    vi.doUnmock('html2canvas');
+    stubShareApis({ share: undefined, canShare: undefined });
+    vi.restoreAllMocks();
+  });
+
+  it('downloads the generated image and shows an inline hint', async () => {
+    mockHtml2Canvas();
+    Object.defineProperty(navigator, 'share', { value: undefined, configurable: true });
+    Object.defineProperty(navigator, 'canShare', { value: undefined, configurable: true });
+
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:mock-url');
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+
+    const { getByRole, getAllByRole, findByText } = render(
+      <SharePanel petId="pet-1" petName="Firulais" pet={basePet} />
+    );
+
+    await userEvent.click(getByRole('button', { name: /compartir/i }));
+    await waitFor(() => expect(mutateAsync).toHaveBeenCalled());
+
+    const instagramButton = getAllByRole('button', { name: /instagram/i })[0];
+    await userEvent.click(instagramButton);
+
+    expect(await findByText(/Imagen descargada/i)).toBeTruthy();
+    expect(clickSpy).toHaveBeenCalled();
+    expect(URL.createObjectURL).toHaveBeenCalled();
+  });
+});
+
+describe('SharePanel — Instagram Story share (user cancels share sheet)', () => {
+  afterEach(() => {
+    vi.doUnmock('html2canvas');
+    stubShareApis({ share: undefined, canShare: undefined });
+    vi.restoreAllMocks();
+  });
+
+  it('does not fall back to download when the user cancels the share sheet', async () => {
+    mockHtml2Canvas();
+    const shareMock = vi.fn().mockRejectedValue(Object.assign(new Error('cancelled'), { name: 'AbortError' }));
+    stubShareApis({ share: shareMock, canShare: vi.fn().mockReturnValue(true) });
+
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+
+    const { getByRole, getAllByRole, queryByText } = render(
+      <SharePanel petId="pet-1" petName="Firulais" pet={basePet} />
+    );
+
+    await userEvent.click(getByRole('button', { name: /compartir/i }));
+    await waitFor(() => expect(mutateAsync).toHaveBeenCalled());
+
+    const instagramButton = getAllByRole('button', { name: /instagram/i })[0];
+    await userEvent.click(instagramButton);
+
+    await waitFor(() => expect(shareMock).toHaveBeenCalledTimes(1));
+
+    expect(clickSpy).not.toHaveBeenCalled();
+    expect(queryByText(/Imagen descargada/i)).toBeNull();
+  });
+});

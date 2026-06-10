@@ -63,6 +63,7 @@ export function SharePanel({ petId, petName, pet }: SharePanelProps) {
   const [shareLink, setShareLink] = useState<ShareLink | null>(null);
   const [copied, setCopied] = useState(false);
   const [isSharingStory, setIsSharingStory] = useState(false);
+  const [storyMessage, setStoryMessage] = useState<string | null>(null);
   const generateLink = useGenerateShareLink();
 
   // Ref al div contenedor del QR canvas oculto (para descarga en alta resolución)
@@ -114,6 +115,15 @@ export function SharePanel({ petId, petName, pet }: SharePanelProps) {
     }
   }
 
+  function downloadStoryImage(blob: Blob) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `story-${petName}.png`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   const handleInstagramStory = async () => {
     if (!shareLink || isSharingStory) return;
     setIsSharingStory(true);
@@ -134,9 +144,17 @@ export function SharePanel({ petId, petName, pet }: SharePanelProps) {
       const file = new File([blob], `story-${petName}.png`, { type: 'image/png' });
 
       if (navigator.canShare?.({ files: [file] })) {
-        await navigator.share({ files: [file], text: message });
-        return;
+        try {
+          await navigator.share({ files: [file], text: message });
+          return;
+        } catch (err) {
+          if ((err as DOMException).name === 'AbortError') return;
+        }
       }
+
+      downloadStoryImage(blob);
+      setStoryMessage('Imagen descargada — subila como Historia desde tu celular 📲');
+      setTimeout(() => setStoryMessage(null), 4000);
     } finally {
       setIsSharingStory(false);
     }
@@ -219,7 +237,7 @@ export function SharePanel({ petId, petName, pet }: SharePanelProps) {
                 <button
                   key={p.key}
                   onClick={() => handlePlatform(p)}
-                  disabled={!shareLink}
+                  disabled={!shareLink || (p.key === 'instagram' && isSharingStory)}
                   className={`flex items-center gap-2 px-3 py-2 rounded-lg text-white text-sm font-semibold transition-opacity disabled:opacity-40 ${p.bg}`}
                 >
                   <span>{p.icon}</span>
@@ -303,6 +321,12 @@ export function SharePanel({ petId, petName, pet }: SharePanelProps) {
             {copied && (
               <p className="text-xs text-green-600 dark:text-green-400 mt-2 text-center">
                 Link copiado al portapapeles
+              </p>
+            )}
+
+            {storyMessage && (
+              <p className="text-xs text-green-600 dark:text-green-400 mt-2 text-center">
+                {storyMessage}
               </p>
             )}
           </div>
