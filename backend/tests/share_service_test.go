@@ -221,6 +221,27 @@ func TestShareService_GetByToken(t *testing.T) {
 		ShareToken: "expired-token-xyz",
 		ViewCount:  2,
 		ExpiresAt:  &pastExpiry,
+		Pet:        domain.Pet{Status: domain.PetStatusFound},
+	}
+
+	// Link vencido pero la mascota sigue perdida: la expiración no aplica
+	// mientras la búsqueda esté activa (QR impresos en volantes).
+	expiredLinkLostPet := &domain.ShareLink{
+		ID:         linkID,
+		PetID:      petID,
+		ShareToken: "expired-lost-token",
+		ViewCount:  2,
+		ExpiresAt:  &pastExpiry,
+		Pet:        domain.Pet{Status: domain.PetStatusLost},
+	}
+
+	expiredLinkStrayPet := &domain.ShareLink{
+		ID:         linkID,
+		PetID:      petID,
+		ShareToken: "expired-stray-token",
+		ViewCount:  2,
+		ExpiresAt:  &pastExpiry,
+		Pet:        domain.Pet{Status: domain.PetStatusStray},
 	}
 
 	tests := []struct {
@@ -246,7 +267,7 @@ func TestShareService_GetByToken(t *testing.T) {
 			wantErr:       nil,
 		},
 		{
-			name:  "expired link — ErrShareLinkExpired",
+			name:  "expired link, search resolved — ErrShareLinkExpired",
 			token: "expired-token-xyz",
 			shareLinkRepo: &mockShareLinkRepository{
 				getByTokenFn: func(_ context.Context, _ string) (*domain.ShareLink, error) {
@@ -254,6 +275,36 @@ func TestShareService_GetByToken(t *testing.T) {
 				},
 			},
 			wantErr: domain.ErrShareLinkExpired,
+		},
+		{
+			name:  "expired link but pet still lost — expiry does not apply",
+			token: "expired-lost-token",
+			shareLinkRepo: &mockShareLinkRepository{
+				getByTokenFn: func(_ context.Context, _ string) (*domain.ShareLink, error) {
+					copy := *expiredLinkLostPet
+					return &copy, nil
+				},
+				incrementViewCountFn: func(_ context.Context, _ uuid.UUID) error {
+					return nil
+				},
+			},
+			wantViewCount: 3, // 2 + 1
+			wantErr:       nil,
+		},
+		{
+			name:  "expired link but pet still stray — expiry does not apply",
+			token: "expired-stray-token",
+			shareLinkRepo: &mockShareLinkRepository{
+				getByTokenFn: func(_ context.Context, _ string) (*domain.ShareLink, error) {
+					copy := *expiredLinkStrayPet
+					return &copy, nil
+				},
+				incrementViewCountFn: func(_ context.Context, _ uuid.UUID) error {
+					return nil
+				},
+			},
+			wantViewCount: 3, // 2 + 1
+			wantErr:       nil,
 		},
 		{
 			name:  "token not found — ErrShareLinkNotFound",

@@ -146,7 +146,7 @@ export function ShareButton({ petId, petName, petType, status, pet }: ShareButto
               <QRCode value={shareUrl} size={200} color={COLORS.textPrimary} backgroundColor={COLORS.white} />
               <Text style={styles.qrLabel}>{petName}</Text>
               {(() => {
-                const expiry = getExpiryInfo(expiresAt);
+                const expiry = getExpiryInfo(expiresAt, pet?.status);
                 if (!expiry.hasExpiry) return null;
                 if (expiry.isExpired) {
                   return (

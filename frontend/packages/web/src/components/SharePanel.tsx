@@ -264,7 +264,7 @@ export function SharePanel({ petId, petName, pet }: SharePanelProps) {
 
             {/* Expiración del link */}
             {shareLink?.expires_at && (() => {
-              const expiry = getExpiryInfo(shareLink.expires_at);
+              const expiry = getExpiryInfo(shareLink.expires_at, pet.status);
               if (!expiry.hasExpiry) return null;
               if (expiry.isExpired) {
                 return (

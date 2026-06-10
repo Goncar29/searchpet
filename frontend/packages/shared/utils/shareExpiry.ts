@@ -1,3 +1,5 @@
+import type { PetStatus } from '../types';
+
 export interface ExpiryInfo {
   label: string;
   daysRemaining: number;
@@ -6,26 +8,29 @@ export interface ExpiryInfo {
   hasExpiry: boolean;
 }
 
-export function getExpiryInfo(expiresAt: string | undefined): ExpiryInfo {
+const NO_EXPIRY: ExpiryInfo = {
+  label: '',
+  daysRemaining: Infinity,
+  isWarning: false,
+  isExpired: false,
+  hasExpiry: false,
+};
+
+// Mientras la mascota siga en búsqueda activa (lost/stray) el backend ignora
+// la expiración del link, así que la UI tampoco la muestra. La fecha solo
+// aplica una vez resuelta la búsqueda (found/archived/registered).
+export function getExpiryInfo(expiresAt: string | undefined, petStatus?: PetStatus): ExpiryInfo {
+  if (petStatus === 'lost' || petStatus === 'stray') {
+    return NO_EXPIRY;
+  }
+
   if (!expiresAt) {
-    return {
-      label: '',
-      daysRemaining: Infinity,
-      isWarning: false,
-      isExpired: false,
-      hasExpiry: false,
-    };
+    return NO_EXPIRY;
   }
 
   const expiry = new Date(expiresAt);
   if (isNaN(expiry.getTime())) {
-    return {
-      label: '',
-      daysRemaining: Infinity,
-      isWarning: false,
-      isExpired: false,
-      hasExpiry: false,
-    };
+    return NO_EXPIRY;
   }
 
   const diffMs = expiry.getTime() - Date.now();

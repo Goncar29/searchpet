@@ -98,7 +98,9 @@ func (s *shareLinkService) Generate(ctx context.Context, petID string, ownerID s
 // GetByToken obtiene un share link por su token.
 // REGLAS:
 // 1. Incrementa view_count antes de retornar
-// 2. Si ExpiresAt != nil y ya pasó → ErrShareLinkExpired (410)
+// 2. Mientras la mascota siga en búsqueda activa (lost/stray) el link NO vence:
+//    los QR impresos en volantes deben funcionar durante toda la búsqueda
+// 3. Si la búsqueda terminó y ExpiresAt ya pasó → ErrShareLinkExpired (410)
 func (s *shareLinkService) GetByToken(ctx context.Context, token string) (*domain.ShareLink, error) {
 	// Primero obtenemos el link para tener su ID
 	link, err := s.shareLinkRepo.GetByToken(ctx, token)
@@ -107,7 +109,8 @@ func (s *shareLinkService) GetByToken(ctx context.Context, token string) (*domai
 	}
 
 	// Verificar expiración antes de incrementar (no contamos vistas a links expirados)
-	if link.ExpiresAt != nil && time.Now().After(*link.ExpiresAt) {
+	activeSearch := link.Pet.Status == domain.PetStatusLost || link.Pet.Status == domain.PetStatusStray
+	if !activeSearch && link.ExpiresAt != nil && time.Now().After(*link.ExpiresAt) {
 		return nil, domain.ErrShareLinkExpired
 	}
 
