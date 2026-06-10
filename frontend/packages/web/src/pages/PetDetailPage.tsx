@@ -97,6 +97,9 @@ export function PetDetailPage() {
     );
   };
 
+  // Lift gallery counter and dots above the "found" banner when it is shown
+  const galleryControlsBottom = pet.status === 'found' ? 'bottom-12' : 'bottom-3';
+
   const statusBadge = {
     color:
       pet.status === 'lost' ? 'bg-red-500' :
@@ -172,10 +175,10 @@ export function PetDetailPage() {
                 >
                   ›
                 </button>
-                <span className="absolute bottom-3 right-3 text-xs font-medium px-2 py-0.5 rounded-full bg-black/60 text-white">
+                <span className={`absolute ${galleryControlsBottom} right-3 text-xs font-medium px-2 py-0.5 rounded-full bg-black/60 text-white`}>
                   📷 {safePhotoIndex + 1}/{photos.length}
                 </span>
-                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
+                <div className={`absolute ${galleryControlsBottom} left-1/2 -translate-x-1/2 flex gap-1.5`}>
                   {photos.map((p, i) => (
                     <button
                       key={p.id}
