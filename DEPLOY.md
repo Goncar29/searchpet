@@ -49,12 +49,12 @@ El workflow `ci.yml` hace trigger automático en Render al pushear a `main` via 
 3. Configurar:
    - **Framework Preset**: Vite
    - **Root Directory**: `frontend/packages/web`
-   - **Build Command**: `npm run build`
+   - **Build Command**: `pnpm build`
    - **Output Directory**: `dist`
 
 ### Variables de entorno en Vercel
 ```
-VITE_API_URL=https://tu-backend.railway.app
+VITE_API_URL=https://tu-backend.onrender.com
 ```
 
 ### Costo: $0 (plan Hobby gratuito)
@@ -63,7 +63,7 @@ VITE_API_URL=https://tu-backend.railway.app
 
 ## 3. Base de Datos (Supabase - alternativa)
 
-Si prefieres Supabase en lugar de Railway PostgreSQL:
+Si prefieres Supabase en lugar de Render PostgreSQL:
 
 1. Ir a [supabase.com](https://supabase.com)
 2. Crear proyecto → Obtener connection string
@@ -143,13 +143,13 @@ npx eas submit --platform ios
 
 ## 7. Dominio (opcional)
 
-- **Gratuito**: usar subdominios de Railway/Vercel
-  - `searchpet.railway.app`
+- **Gratuito**: usar subdominios de Render/Vercel
+  - `searchpet.onrender.com`
   - `searchpet.vercel.app`
 
 - **Propio** (~$10/año):
   - Comprar en Namecheap/Cloudflare
-  - Configurar DNS en Vercel/Railway
+  - Configurar DNS en Vercel/Render
 
 ---
 

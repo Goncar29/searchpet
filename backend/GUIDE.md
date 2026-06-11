@@ -2,6 +2,8 @@
 
 Una guía práctica y pedagógica de cómo funciona Go en este proyecto. Diseñada para alguien que viene de JavaScript y quiere entender Go de verdad, no solo copiar código.
 
+> **Nota de vigencia**: algunos snippets reflejan versiones anteriores del código (por ejemplo el status de mascotas `'active'`, hoy reemplazado por el ciclo `registered|lost|stray|found|archived` con default `'registered'`, o `FavoriteRepository`, que ya no existe). Los conceptos de Go que se enseñan siguen siendo válidos, pero la fuente de verdad del código actual es siempre `internal/domain/models.go` y el resto del código fuente, no esta guía.
+
 ---
 
 ## Tabla de contenidos — Parte 1: Arquitectura
@@ -1997,7 +1999,7 @@ import (
 ```
 module lost-pets       ← nombre del módulo (usado en los imports internos)
 
-go 1.23                ← versión mínima de Go
+go 1.25.0              ← versión mínima de Go (ver go.mod actual)
 
 require (
     github.com/gin-gonic/gin v1.9.1
