@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/pgvector/pgvector-go"
 	"go.uber.org/zap"
 	"lost-pets/internal/domain"
@@ -18,12 +19,16 @@ import (
 )
 
 const (
-	hfCLIPEndpoint = "https://api-inference.huggingface.co/pipeline/feature-extraction/openai/clip-vit-base-patch32"
-	hfTimeout      = 30 * time.Second
+	// DefaultHFCLIPEndpoint is the HuggingFace router endpoint for the CLIP
+	// feature-extraction pipeline. HuggingFace migrated away from the legacy
+	// api-inference.huggingface.co domain (no longer resolves) to the router.
+	// Override via config.Config.HFEndpoint / SetEndpoint if HF migrates again.
+	DefaultHFCLIPEndpoint = "https://router.huggingface.co/hf-inference/models/openai/clip-vit-base-patch32/pipeline/feature-extraction"
+	hfTimeout             = 30 * time.Second
 )
 
-// EmbeddingService genera y gestiona los vectores CLIP para las fotos de mascotas perdidas.
-// Se suscribe a tres eventos del EventBus: photo.uploaded, pet.lost, pet.found.
+// EmbeddingService genera y gestiona los vectores CLIP para las fotos de mascotas perdidas o callejeras.
+// Se suscribe a cuatro eventos del EventBus: photo.uploaded, pet.lost, pet.stray, pet.found.
 type EmbeddingService struct {
 	embeddingRepo repository.PetEmbeddingRepository
 	petRepo       repository.PetRepository
@@ -47,10 +52,17 @@ func NewEmbeddingService(
 		petRepo:       petRepo,
 		photoRepo:     photoRepo,
 		hfAPIKey:      apiKey,
-		hfEndpoint:    hfCLIPEndpoint,
+		hfEndpoint:    DefaultHFCLIPEndpoint,
 		httpClient:    &http.Client{Timeout: hfTimeout},
 		logger:        logger,
 	}
+}
+
+// SetEndpoint overrides the HuggingFace CLIP endpoint used by this service.
+// Intended for production wiring only — call from router setup when
+// config.Config.HFEndpoint is set (e.g. after a future HF API migration).
+func (s *EmbeddingService) SetEndpoint(endpoint string) {
+	s.hfEndpoint = endpoint
 }
 
 // SetHTTPClientAndEndpoint replaces the HTTP client and HF endpoint used by this
@@ -78,6 +90,15 @@ func (s *EmbeddingService) RegisterListeners(bus *event.EventBus) {
 			return
 		}
 		s.HandlePetLost(ev)
+	})
+
+	bus.Subscribe("pet.stray", func(payload interface{}) {
+		ev, ok := payload.(event.PetStrayEvent)
+		if !ok {
+			s.logger.Warn("[embedding] payload inesperado en pet.stray")
+			return
+		}
+		s.HandlePetStray(ev)
 	})
 
 	bus.Subscribe("pet.found", func(payload interface{}) {
@@ -136,12 +157,28 @@ func (s *EmbeddingService) HandlePhotoUploaded(ev event.PhotoUploadedEvent) {
 // HandlePetLost genera embeddings para TODAS las fotos existentes de una mascota
 // que acaba de cambiar su status a "lost".
 func (s *EmbeddingService) HandlePetLost(ev event.PetLostEvent) {
+	s.backfillEmbeddingsForPet(ev.PetID, "HandlePetLost")
+}
+
+// HandlePetStray genera embeddings para TODAS las fotos existentes de una mascota
+// callejera recién creada (pet.stray, publicado desde CreatePet). En la práctica
+// suele ser un no-op porque la mascota todavía no tiene fotos en ese momento;
+// las fotos subidas después se indexan vía HandlePhotoUploaded.
+func (s *EmbeddingService) HandlePetStray(ev event.PetStrayEvent) {
+	s.backfillEmbeddingsForPet(ev.PetID, "HandlePetStray")
+}
+
+// backfillEmbeddingsForPet generates and upserts embeddings for every existing
+// photo of the given pet. Shared by HandlePetLost and HandlePetStray — both
+// transitions make a pet eligible for image search and require backfilling
+// embeddings for photos uploaded before the transition.
+func (s *EmbeddingService) backfillEmbeddingsForPet(petID uuid.UUID, callerName string) {
 	ctx := context.Background()
 
-	photos, err := s.photoRepo.FindByPetID(ev.PetID.String())
+	photos, err := s.photoRepo.FindByPetID(petID.String())
 	if err != nil {
-		s.logger.Warn("[embedding] HandlePetLost: no se pudieron obtener las fotos",
-			zap.String("pet_id", ev.PetID.String()),
+		s.logger.Warn(fmt.Sprintf("[embedding] %s: no se pudieron obtener las fotos", callerName),
+			zap.String("pet_id", petID.String()),
 			zap.Error(err),
 		)
 		return
@@ -150,8 +187,8 @@ func (s *EmbeddingService) HandlePetLost(ev event.PetLostEvent) {
 	for _, photo := range photos {
 		vector, err := s.GenerateEmbeddingFromURL(ctx, photo.URL)
 		if err != nil {
-			s.logger.Warn("[embedding] HandlePetLost: fallo al generar embedding para foto",
-				zap.String("pet_id", ev.PetID.String()),
+			s.logger.Warn(fmt.Sprintf("[embedding] %s: fallo al generar embedding para foto", callerName),
+				zap.String("pet_id", petID.String()),
 				zap.String("photo_id", photo.ID.String()),
 				zap.Error(err),
 			)
@@ -159,15 +196,15 @@ func (s *EmbeddingService) HandlePetLost(ev event.PetLostEvent) {
 		}
 
 		emb := &domain.PetEmbedding{
-			PetID:     ev.PetID,
+			PetID:     petID,
 			PhotoID:   photo.ID,
 			ModelVer:  "clip-vit-base-patch32",
 			Embedding: pgvector.NewVector(vector),
 		}
 
 		if err := s.embeddingRepo.Upsert(ctx, emb); err != nil {
-			s.logger.Warn("[embedding] HandlePetLost: fallo al persistir embedding",
-				zap.String("pet_id", ev.PetID.String()),
+			s.logger.Warn(fmt.Sprintf("[embedding] %s: fallo al persistir embedding", callerName),
+				zap.String("pet_id", petID.String()),
 				zap.String("photo_id", photo.ID.String()),
 				zap.Error(err),
 			)

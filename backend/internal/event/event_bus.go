@@ -134,3 +134,12 @@ type PhotoUploadedEvent struct {
 type PetLostEvent struct {
 	PetID uuid.UUID
 }
+
+// PetStrayEvent is published by PetService when a stray pet is created (CreatePet
+// with status="stray"). EmbeddingService subscribes to backfill embeddings for any
+// existing photos, mirroring PetLostEvent — both statuses make a pet eligible for
+// image search. Note: the status machine does not allow transitioning an existing
+// pet INTO "stray" via UpdatePet, so this only fires at creation time.
+type PetStrayEvent struct {
+	PetID uuid.UUID
+}

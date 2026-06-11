@@ -36,6 +36,11 @@ type Config struct {
 
 	// V1.2 — Image Search (HuggingFace CLIP embeddings + pgvector)
 	HuggingFaceAPIKey string
+	// HFEndpoint optionally overrides the default HuggingFace CLIP feature-extraction
+	// endpoint (service.DefaultHFCLIPEndpoint). Empty means "use the default" — set this
+	// only when HuggingFace migrates the inference API again, so it's a config change
+	// instead of a deploy.
+	HFEndpoint string
 }
 
 func Load() *Config {
@@ -69,6 +74,7 @@ func Load() *Config {
 
 		// V1.2 — Image Search (HuggingFace CLIP)
 		HuggingFaceAPIKey: getEnv("HF_API_KEY", ""),
+		HFEndpoint:        getEnv("HF_ENDPOINT", ""),
 	}
 
 	// Fail-fast: JWT_SECRET is required in all environments.

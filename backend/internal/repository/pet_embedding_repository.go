@@ -41,7 +41,7 @@ ON CONFLICT (photo_id) DO UPDATE
 	).Error
 }
 
-// FindSimilar returns up to limit lost pets ranked by cosine similarity to queryVec.
+// FindSimilar returns up to limit lost or stray pets ranked by cosine similarity to queryVec.
 // Results are deduplicated by pet_id — only the embedding with the smallest cosine
 // distance per pet is considered. The outer query then sorts by similarity DESC
 // (1 - distance, so higher = more similar).
@@ -76,7 +76,7 @@ FROM (
     FROM pet_embeddings pe
     JOIN pets p ON p.id = pe.pet_id
     LEFT JOIN photos ph ON ph.pet_id = p.id AND ph.is_primary = true
-    WHERE p.status = 'lost'
+    WHERE p.status IN ('lost', 'stray')
     ORDER BY p.id, pe.embedding <=> ? ASC
 ) inner_q
 ORDER BY inner_q.distance ASC

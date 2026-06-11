@@ -307,6 +307,60 @@ func TestCreatePet_StrayHasNilOwnerAndReporter(t *testing.T) {
 	}
 }
 
+func TestCreatePet_StrayPublishesPetStrayEvent(t *testing.T) {
+	reporterID := uuid.New()
+	repo := &capturingPetRepo{}
+	bus := event.NewEventBus()
+
+	eventReceived := make(chan event.PetStrayEvent, 1)
+	bus.Subscribe("pet.stray", func(payload interface{}) {
+		if e, ok := payload.(event.PetStrayEvent); ok {
+			eventReceived <- e
+		}
+	})
+
+	svc := service.NewPetService(repo, bus, nil, nil)
+
+	_, err := svc.CreatePet(reporterID.String(), dto.CreatePetRequest{Name: "Stray Cat", Type: "gato", Status: domain.PetStatusStray})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	select {
+	case e := <-eventReceived:
+		if e.PetID != repo.createdPet.ID {
+			t.Errorf("event PetID mismatch: got %v, want %v", e.PetID, repo.createdPet.ID)
+		}
+	case <-time.After(500 * time.Millisecond):
+		t.Error("timeout: pet.stray event was not published after creating a stray pet")
+	}
+}
+
+func TestCreatePet_RegisteredDoesNotPublishPetStrayEvent(t *testing.T) {
+	ownerID := uuid.New()
+	repo := &capturingPetRepo{}
+	bus := event.NewEventBus()
+
+	eventPublished := make(chan struct{}, 1)
+	bus.Subscribe("pet.stray", func(_ interface{}) {
+		eventPublished <- struct{}{}
+	})
+
+	svc := service.NewPetService(repo, bus, nil, nil)
+
+	_, err := svc.CreatePet(ownerID.String(), dto.CreatePetRequest{Name: "Rex", Type: "perro"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	select {
+	case <-eventPublished:
+		t.Error("pet.stray event should NOT be published when creating a registered pet")
+	case <-time.After(200 * time.Millisecond):
+		// Expected: no event fired within 200ms.
+	}
+}
+
 func TestCreatePet_RejectsInvalidCreationStatuses(t *testing.T) {
 	ownerID := uuid.New()
 	svc := service.NewPetService(&capturingPetRepo{}, nil, nil, nil)

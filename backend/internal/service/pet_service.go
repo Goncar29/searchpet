@@ -87,6 +87,12 @@ func (s *petService) CreatePet(ownerID string, req dto.CreatePetRequest) (*domai
 		return nil, err
 	}
 
+	// Publicamos pet.stray cuando se crea una mascota callejera — EmbeddingService
+	// se suscribe para backfillear embeddings (no-op si todavía no tiene fotos).
+	if s.eventBus != nil && status == domain.PetStatusStray {
+		s.eventBus.Publish("pet.stray", event.PetStrayEvent{PetID: pet.ID})
+	}
+
 	return s.repo.FindByID(pet.ID.String())
 }
 
@@ -155,6 +161,11 @@ func (s *petService) UpdatePet(ownerID string, petID string, req dto.UpdatePetRe
 	if s.eventBus != nil && oldStatus != domain.PetStatusLost && pet.Status == domain.PetStatusLost {
 		s.eventBus.Publish("pet.lost", event.PetLostEvent{PetID: pet.ID})
 	}
+
+	// NOTE: there is no "pet.stray" publish here — the status machine (status_machine.go)
+	// does not allow any transition INTO "stray" via UpdatePet (stray pets are only
+	// created directly with status="stray", see CreatePet). The pet.stray event is
+	// published from CreatePet instead.
 
 	return pet, nil
 }

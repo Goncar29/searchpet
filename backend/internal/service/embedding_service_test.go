@@ -337,6 +337,109 @@ func TestEmbeddingService_HandlePetLost_OnePhotoFails_ContinuesWithRest(t *testi
 }
 
 // ============================================================
+// HandlePetStray tests
+// ============================================================
+
+func TestEmbeddingService_HandlePetStray_FetchesPhotosAndUpsertsEach(t *testing.T) {
+	petID := uuid.New()
+	photo1 := domain.Photo{ID: uuid.New(), PetID: petID, URL: "https://cdn.example.com/p1.jpg"}
+	photo2 := domain.Photo{ID: uuid.New(), PetID: petID, URL: "https://cdn.example.com/p2.jpg"}
+
+	hfSrv := newHFTestServer(t, http.StatusOK)
+	defer hfSrv.Close()
+
+	embRepo := &mockEmbeddingRepo{}
+	petRepo := &mockPetRepoForEmbedding{}
+	photoRepo := &mockPhotoRepoForEmbedding{
+		findByPetIDFn: func(_ string) ([]domain.Photo, error) {
+			return []domain.Photo{photo1, photo2}, nil
+		},
+	}
+
+	svc := newTestEmbeddingService(embRepo, petRepo, photoRepo, hfSrv)
+	svc.HandlePetStray(event.PetStrayEvent{PetID: petID})
+
+	if len(embRepo.upsertCalls) != 2 {
+		t.Errorf("expected 2 upsert calls (one per photo), got %d", len(embRepo.upsertCalls))
+	}
+}
+
+func TestEmbeddingService_HandlePetStray_OnePhotoFails_ContinuesWithRest(t *testing.T) {
+	petID := uuid.New()
+	photo1 := domain.Photo{ID: uuid.New(), PetID: petID, URL: "https://cdn.example.com/p1.jpg"}
+	photo2 := domain.Photo{ID: uuid.New(), PetID: petID, URL: "https://cdn.example.com/p2.jpg"}
+
+	callCount := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		callCount++
+		if callCount == 1 {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			fmt.Fprintf(w, `{"error":"overloaded"}`)
+			return
+		}
+		nested := [][]float32{make512Floats()}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(nested)
+	}))
+	defer srv.Close()
+
+	embRepo := &mockEmbeddingRepo{}
+	petRepo := &mockPetRepoForEmbedding{}
+	photoRepo := &mockPhotoRepoForEmbedding{
+		findByPetIDFn: func(_ string) ([]domain.Photo, error) {
+			return []domain.Photo{photo1, photo2}, nil
+		},
+	}
+
+	svc := newTestEmbeddingService(embRepo, petRepo, photoRepo, srv)
+	svc.HandlePetStray(event.PetStrayEvent{PetID: petID})
+
+	// First photo's HF call failed — only the second should be upserted.
+	if len(embRepo.upsertCalls) != 1 {
+		t.Errorf("expected 1 upsert call (continuing after partial failure), got %d", len(embRepo.upsertCalls))
+	}
+}
+
+func TestEmbeddingService_RegisterListeners_PetStrayEvent_BackfillsPhotos(t *testing.T) {
+	petID := uuid.New()
+	photo := domain.Photo{ID: uuid.New(), PetID: petID, URL: "https://cdn.example.com/p1.jpg"}
+
+	hfSrv := newHFTestServer(t, http.StatusOK)
+	defer hfSrv.Close()
+
+	embRepo := &mockEmbeddingRepo{}
+	photoRepo := &mockPhotoRepoForEmbedding{
+		findByPetIDFn: func(_ string) ([]domain.Photo, error) {
+			return []domain.Photo{photo}, nil
+		},
+	}
+
+	svc := newTestEmbeddingService(embRepo, &mockPetRepoForEmbedding{}, photoRepo, hfSrv)
+
+	bus := event.NewEventBus()
+	svc.RegisterListeners(bus)
+
+	bus.Publish("pet.stray", event.PetStrayEvent{PetID: petID})
+
+	// EventBus fires handlers in goroutines — wait up to 500ms.
+	deadline := time.After(500 * time.Millisecond)
+	for {
+		select {
+		case <-deadline:
+			t.Fatal("timeout: embedding was not upserted after pet.stray event")
+		default:
+			if len(embRepo.upsertCalls) > 0 {
+				if embRepo.upsertCalls[0].PetID != petID {
+					t.Errorf("upsert PetID got %v, want %v", embRepo.upsertCalls[0].PetID, petID)
+				}
+				return
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
+	}
+}
+
+// ============================================================
 // HandlePetFound tests
 // ============================================================
 
@@ -412,6 +515,28 @@ func TestEmbeddingService_SearchSimilar_HFError_ReturnsError(t *testing.T) {
 	_, err := svc.SearchSimilar(context.Background(), []byte("fake-image-data"), 10)
 	if err == nil {
 		t.Fatal("expected error when HF is down, got nil")
+	}
+}
+
+// ============================================================
+// SetEndpoint test
+// ============================================================
+
+func TestEmbeddingService_SetEndpoint_OverridesHFEndpoint(t *testing.T) {
+	hfSrv := newHFTestServer(t, http.StatusOK)
+	defer hfSrv.Close()
+
+	embRepo := &mockEmbeddingRepo{}
+	svc := service.NewEmbeddingService(embRepo, &mockPetRepoForEmbedding{}, &mockPhotoRepoForEmbedding{}, "test-api-key")
+	svc.SetEndpoint(hfSrv.URL)
+	svc.SetHTTPClientAndEndpoint(hfSrv.Client(), hfSrv.URL)
+
+	vector, err := svc.GenerateEmbedding(context.Background(), []byte("fake-image-data"))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(vector) != 512 {
+		t.Errorf("expected 512-dim vector, got %d", len(vector))
 	}
 }
 
