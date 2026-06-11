@@ -28,19 +28,28 @@ type petService struct {
 	eventBus     *event.EventBus
 	photoService PhotoService
 	reportRepo   repository.ReportRepository
+	uow          repository.UnitOfWork
 }
 
-// NewPetService es el constructor — recibe el repository, el bus de eventos, el servicio de fotos y el report repository.
+// NewPetService es el constructor — recibe el repository, el bus de eventos, el servicio de fotos,
+// el report repository y el UnitOfWork (para operaciones transaccionales pet+report).
 // eventBus es opcional — si es nil, los eventos no se publican.
 // photoService es opcional — si es nil, la eliminación en cascada de fotos se omite.
 // reportRepo es opcional — si es nil, el closure report en MarkAsFound se omite.
-func NewPetService(repo repository.PetRepository, eventBus *event.EventBus, photoService PhotoService, reportRepo repository.ReportRepository) PetService {
-	return &petService{repo: repo, eventBus: eventBus, photoService: photoService, reportRepo: reportRepo}
+// uow es opcional en tests unitarios que no ejercitan el camino stray/publish-lost,
+// pero requerido en producción para crear strays con initial_report (ver router.go).
+func NewPetService(repo repository.PetRepository, eventBus *event.EventBus, photoService PhotoService, reportRepo repository.ReportRepository, uow repository.UnitOfWork) PetService {
+	return &petService{repo: repo, eventBus: eventBus, photoService: photoService, reportRepo: reportRepo, uow: uow}
 }
 
 // CreatePet crea una nueva mascota para el usuario autenticado.
 // Status defaults to PetStatusRegistered.
-// If req.Status == PetStatusStray, OwnerID is nil (stray pet with no owner).
+// If req.Status == PetStatusStray, OwnerID is nil (stray pet with no owner) and
+// req.InitialReport is REQUIRED — a "sighting" report is created in the same
+// transaction (400 initial_report_required if absent).
+// If req.Status == PetStatusRegistered (or omitted), req.InitialReport is
+// FORBIDDEN (400 initial_report_not_allowed if present) — registered pets are
+// not published and therefore carry no location report.
 // Creating with lost/found/archived is rejected with ErrInvalidStatusTransition.
 func (s *petService) CreatePet(ownerID string, req dto.CreatePetRequest) (*domain.Pet, error) {
 	ownerUUID, err := uuid.Parse(ownerID)
@@ -57,6 +66,14 @@ func (s *petService) CreatePet(ownerID string, req dto.CreatePetRequest) (*domai
 	// Only registered and stray are valid at creation
 	if status != domain.PetStatusRegistered && status != domain.PetStatusStray {
 		return nil, domain.ErrInvalidStatusTransition
+	}
+
+	// initial_report rules: required for stray, forbidden for registered
+	if status == domain.PetStatusStray && req.InitialReport == nil {
+		return nil, domain.ErrInitialReportRequired
+	}
+	if status == domain.PetStatusRegistered && req.InitialReport != nil {
+		return nil, domain.ErrInitialReportNotAllowed
 	}
 
 	// Stray pets have no owner; registered pets always have an owner
@@ -83,14 +100,55 @@ func (s *petService) CreatePet(ownerID string, req dto.CreatePetRequest) (*domai
 		Version:     1,
 	}
 
-	if err := s.repo.Create(pet); err != nil {
-		return nil, err
+	var report *domain.Report
+
+	if status == domain.PetStatusStray {
+		// Pet + initial report must be created atomically — a stray visible in
+		// the public feed without a location report is corrupt data for a
+		// map-centric product.
+		if s.uow == nil {
+			return nil, domain.ErrInternal
+		}
+		report = &domain.Report{
+			PetID:               pet.ID,
+			ReporterID:          ownerUUID,
+			Status:              "sighting",
+			Latitude:            req.InitialReport.Latitude,
+			Longitude:           req.InitialReport.Longitude,
+			LocationDescription: req.InitialReport.Note,
+		}
+		err := s.uow.Execute(func(tx repository.UnitOfWorkRepos) error {
+			if err := tx.Pets.Create(pet); err != nil {
+				return err
+			}
+			report.PetID = pet.ID
+			return tx.Reports.Create(report)
+		})
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		if err := s.repo.Create(pet); err != nil {
+			return nil, err
+		}
 	}
 
 	// Publicamos pet.stray cuando se crea una mascota callejera — EmbeddingService
 	// se suscribe para backfillear embeddings (no-op si todavía no tiene fotos).
 	if s.eventBus != nil && status == domain.PetStatusStray {
 		s.eventBus.Publish("pet.stray", event.PetStrayEvent{PetID: pet.ID})
+
+		// report.created — triggers nearby push notifications via NotificationService
+		s.eventBus.Publish("report.created", event.ReportCreatedEvent{
+			ReportID:   report.ID,
+			PetID:      pet.ID,
+			ReporterID: ownerUUID,
+			PetName:    pet.Name,
+			PetType:    pet.Type,
+			Status:     "sighting",
+			Lat:        req.InitialReport.Latitude,
+			Lng:        req.InitialReport.Longitude,
+		})
 	}
 
 	return s.repo.FindByID(pet.ID.String())

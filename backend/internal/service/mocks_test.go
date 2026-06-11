@@ -48,14 +48,18 @@ func (m *mockUserRepo) Delete(_ context.Context, _ uuid.UUID) error {
 // ============================================================
 
 type mockReportRepo struct {
-	preloaded     *domain.Report  // lo que FindByID devuelve (simula JOIN con Pet)
-	reports       []domain.Report // lo que FindByPetID y FindNearby devuelven
-	createErr     error
-	findErr       error
-	capturedRadius float64 // para verificar el radio usado en FindNearby
+	preloaded      *domain.Report  // lo que FindByID devuelve (simula JOIN con Pet)
+	reports        []domain.Report // lo que FindByPetID y FindNearby devuelven
+	createErr      error
+	findErr        error
+	capturedRadius float64        // para verificar el radio usado en FindNearby
+	createdCount   int            // cuántas veces se llamó a Create
+	lastReport     *domain.Report // último reporte pasado a Create
 }
 
 func (m *mockReportRepo) Create(report *domain.Report) error {
+	m.createdCount++
+	m.lastReport = report
 	if m.createErr != nil {
 		return m.createErr
 	}

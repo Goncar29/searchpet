@@ -8,6 +8,7 @@ import (
 	"lost-pets/internal/domain"
 	"lost-pets/internal/dto"
 	"lost-pets/internal/event"
+	"lost-pets/internal/repository"
 	"lost-pets/internal/service"
 )
 
@@ -60,7 +61,7 @@ func TestMarkAsFound_HappyPath(t *testing.T) {
 	repo := &mockPetRepo{pet: petWithStatus(ownerID, domain.PetStatusLost)}
 	bus := event.NewEventBus()
 
-	svc := service.NewPetService(repo, bus, nil, nil)
+	svc := service.NewPetService(repo, bus, nil, nil, nil)
 	pet, err := svc.MarkAsFound(ownerID.String(), repo.pet.ID.String())
 
 	if err != nil {
@@ -80,7 +81,7 @@ func TestMarkAsFound_NonOwner_Returns403(t *testing.T) {
 	repo := &mockPetRepo{pet: petWithStatus(ownerID, domain.PetStatusLost)}
 	bus := event.NewEventBus()
 
-	svc := service.NewPetService(repo, bus, nil, nil)
+	svc := service.NewPetService(repo, bus, nil, nil, nil)
 	_, err := svc.MarkAsFound(anotherUser.String(), repo.pet.ID.String())
 
 	if err == nil {
@@ -99,7 +100,7 @@ func TestMarkAsFound_AlreadyFound_IsIdempotent(t *testing.T) {
 	repo := &mockPetRepo{pet: petWithStatus(ownerID, "found")}
 	bus := event.NewEventBus()
 
-	svc := service.NewPetService(repo, bus, nil, nil)
+	svc := service.NewPetService(repo, bus, nil, nil, nil)
 	pet, err := svc.MarkAsFound(ownerID.String(), repo.pet.ID.String())
 
 	if err != nil {
@@ -118,7 +119,7 @@ func TestMarkAsFound_ArchivedPet_ReturnsInvalidTransition(t *testing.T) {
 	repo := &mockPetRepo{pet: petWithStatus(ownerID, domain.PetStatusArchived)}
 	bus := event.NewEventBus()
 
-	svc := service.NewPetService(repo, bus, nil, nil)
+	svc := service.NewPetService(repo, bus, nil, nil, nil)
 	_, err := svc.MarkAsFound(ownerID.String(), repo.pet.ID.String())
 
 	if err == nil {
@@ -141,7 +142,7 @@ func TestMarkAsFound_PublishesEvent(t *testing.T) {
 		}
 	})
 
-	svc := service.NewPetService(repo, bus, nil, nil)
+	svc := service.NewPetService(repo, bus, nil, nil, nil)
 	_, err := svc.MarkAsFound(ownerID.String(), repo.pet.ID.String())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -177,7 +178,7 @@ func TestUpdatePet_PublishesPetLostEvent(t *testing.T) {
 		}
 	})
 
-	svc := service.NewPetService(repo, bus, nil, nil)
+	svc := service.NewPetService(repo, bus, nil, nil, nil)
 	petID := repo.pet.ID
 
 	_, err := svc.UpdatePet(ownerID.String(), petID.String(), dto.UpdatePetRequest{Status: "lost"})
@@ -206,7 +207,7 @@ func TestUpdatePet_DoesNotPublishPetLostWhenAlreadyLost(t *testing.T) {
 		eventPublished <- struct{}{}
 	})
 
-	svc := service.NewPetService(repo, bus, nil, nil)
+	svc := service.NewPetService(repo, bus, nil, nil, nil)
 	petID := repo.pet.ID
 
 	_, err := svc.UpdatePet(ownerID.String(), petID.String(), dto.UpdatePetRequest{Status: "lost"})
@@ -234,7 +235,7 @@ func TestUpdatePet_DoesNotPublishPetLostForOtherTransitions(t *testing.T) {
 		eventPublished <- struct{}{}
 	})
 
-	svc := service.NewPetService(repo, bus, nil, nil)
+	svc := service.NewPetService(repo, bus, nil, nil, nil)
 	petID := repo.pet.ID
 
 	// Update name only — status stays "registered", no pet.lost event.
@@ -270,7 +271,7 @@ func (m *capturingPetRepo) Create(pet *domain.Pet) error {
 func TestCreatePet_DefaultsToRegistered(t *testing.T) {
 	ownerID := uuid.New()
 	repo := &capturingPetRepo{}
-	svc := service.NewPetService(repo, nil, nil, nil)
+	svc := service.NewPetService(repo, nil, nil, nil, nil)
 
 	_, err := svc.CreatePet(ownerID.String(), dto.CreatePetRequest{Name: "Rex", Type: "perro"})
 	if err != nil {
@@ -290,9 +291,14 @@ func TestCreatePet_DefaultsToRegistered(t *testing.T) {
 func TestCreatePet_StrayHasNilOwnerAndReporter(t *testing.T) {
 	reporterID := uuid.New()
 	repo := &capturingPetRepo{}
-	svc := service.NewPetService(repo, nil, nil, nil)
+	reportRepo := &mockReportRepo{}
+	uow := &mockUnitOfWork{repos: repository.UnitOfWorkRepos{Pets: repo, Reports: reportRepo}}
+	svc := service.NewPetService(repo, nil, nil, reportRepo, uow)
 
-	_, err := svc.CreatePet(reporterID.String(), dto.CreatePetRequest{Name: "Stray Cat", Type: "gato", Status: domain.PetStatusStray})
+	_, err := svc.CreatePet(reporterID.String(), dto.CreatePetRequest{
+		Name: "Stray Cat", Type: "gato", Status: domain.PetStatusStray,
+		InitialReport: &dto.InitialReportRequest{Latitude: -34.9011, Longitude: -56.1645},
+	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -319,9 +325,14 @@ func TestCreatePet_StrayPublishesPetStrayEvent(t *testing.T) {
 		}
 	})
 
-	svc := service.NewPetService(repo, bus, nil, nil)
+	reportRepo := &mockReportRepo{}
+	uow := &mockUnitOfWork{repos: repository.UnitOfWorkRepos{Pets: repo, Reports: reportRepo}}
+	svc := service.NewPetService(repo, bus, nil, reportRepo, uow)
 
-	_, err := svc.CreatePet(reporterID.String(), dto.CreatePetRequest{Name: "Stray Cat", Type: "gato", Status: domain.PetStatusStray})
+	_, err := svc.CreatePet(reporterID.String(), dto.CreatePetRequest{
+		Name: "Stray Cat", Type: "gato", Status: domain.PetStatusStray,
+		InitialReport: &dto.InitialReportRequest{Latitude: -34.9011, Longitude: -56.1645},
+	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -346,7 +357,7 @@ func TestCreatePet_RegisteredDoesNotPublishPetStrayEvent(t *testing.T) {
 		eventPublished <- struct{}{}
 	})
 
-	svc := service.NewPetService(repo, bus, nil, nil)
+	svc := service.NewPetService(repo, bus, nil, nil, nil)
 
 	_, err := svc.CreatePet(ownerID.String(), dto.CreatePetRequest{Name: "Rex", Type: "perro"})
 	if err != nil {
@@ -363,7 +374,7 @@ func TestCreatePet_RegisteredDoesNotPublishPetStrayEvent(t *testing.T) {
 
 func TestCreatePet_RejectsInvalidCreationStatuses(t *testing.T) {
 	ownerID := uuid.New()
-	svc := service.NewPetService(&capturingPetRepo{}, nil, nil, nil)
+	svc := service.NewPetService(&capturingPetRepo{}, nil, nil, nil, nil)
 
 	for _, status := range []string{domain.PetStatusLost, domain.PetStatusFound, domain.PetStatusArchived} {
 		t.Run(status, func(t *testing.T) {
@@ -381,7 +392,7 @@ func TestUpdatePet_RejectsInvalidTransition(t *testing.T) {
 	ownerID := uuid.New()
 	// registered → found is not an allowed edge
 	repo := &mockPetRepo{pet: petWithStatus(ownerID, domain.PetStatusRegistered)}
-	svc := service.NewPetService(repo, nil, nil, nil)
+	svc := service.NewPetService(repo, nil, nil, nil, nil)
 
 	_, err := svc.UpdatePet(ownerID.String(), repo.pet.ID.String(), dto.UpdatePetRequest{Status: domain.PetStatusFound})
 	if err != domain.ErrInvalidStatusTransition {
@@ -394,7 +405,7 @@ func TestUpdatePet_VersionIncrementsOnStatusChange(t *testing.T) {
 	pet := petWithStatus(ownerID, domain.PetStatusRegistered)
 	pet.Version = 1
 	repo := &mockPetRepo{pet: pet}
-	svc := service.NewPetService(repo, nil, nil, nil)
+	svc := service.NewPetService(repo, nil, nil, nil, nil)
 
 	updated, err := svc.UpdatePet(ownerID.String(), pet.ID.String(), dto.UpdatePetRequest{Status: domain.PetStatusLost})
 	if err != nil {
@@ -410,7 +421,7 @@ func TestUpdatePet_VersionNotIncrementedOnNameOnlyChange(t *testing.T) {
 	pet := petWithStatus(ownerID, domain.PetStatusRegistered)
 	pet.Version = 3
 	repo := &mockPetRepo{pet: pet}
-	svc := service.NewPetService(repo, nil, nil, nil)
+	svc := service.NewPetService(repo, nil, nil, nil, nil)
 
 	updated, err := svc.UpdatePet(ownerID.String(), pet.ID.String(), dto.UpdatePetRequest{Name: "New Name"})
 	if err != nil {
@@ -426,7 +437,7 @@ func TestUpdatePet_ConcurrentVersionMismatch_ReturnsConflict(t *testing.T) {
 	pet := petWithStatus(ownerID, domain.PetStatusRegistered)
 	pet.Version = 5
 	repo := &mockPetRepo{pet: pet}
-	svc := service.NewPetService(repo, nil, nil, nil)
+	svc := service.NewPetService(repo, nil, nil, nil, nil)
 
 	// Client sends Version=3 but server is at Version=5 — conflict
 	_, err := svc.UpdatePet(ownerID.String(), pet.ID.String(), dto.UpdatePetRequest{
@@ -443,7 +454,7 @@ func TestUpdatePet_ZeroVersionBypassesConcurrencyCheck(t *testing.T) {
 	pet := petWithStatus(ownerID, domain.PetStatusRegistered)
 	pet.Version = 5
 	repo := &mockPetRepo{pet: pet}
-	svc := service.NewPetService(repo, nil, nil, nil)
+	svc := service.NewPetService(repo, nil, nil, nil, nil)
 
 	// Version=0 means "don't check" — should succeed regardless of server version
 	_, err := svc.UpdatePet(ownerID.String(), pet.ID.String(), dto.UpdatePetRequest{
@@ -465,7 +476,7 @@ func TestMarkAsFound_StrayReporterCanMarkFound(t *testing.T) {
 		Version:    1,
 	}
 	repo := &mockPetRepo{pet: pet}
-	svc := service.NewPetService(repo, nil, nil, nil)
+	svc := service.NewPetService(repo, nil, nil, nil, nil)
 
 	result, err := svc.MarkAsFound(reporterID.String(), pet.ID.String())
 	if err != nil {
@@ -486,7 +497,7 @@ func TestMarkAsFound_NonReporterCannotMarkStrayFound(t *testing.T) {
 		Name:       "Stray",
 	}
 	repo := &mockPetRepo{pet: pet}
-	svc := service.NewPetService(repo, nil, nil, nil)
+	svc := service.NewPetService(repo, nil, nil, nil, nil)
 
 	_, err := svc.MarkAsFound(otherUser.String(), pet.ID.String())
 	if err != domain.ErrForbidden {
@@ -503,10 +514,176 @@ func TestDeletePet_NilOwnerNosPanic(t *testing.T) {
 		Name:   "Stray",
 	}
 	repo := &mockPetRepo{pet: pet}
-	svc := service.NewPetService(repo, nil, nil, nil)
+	svc := service.NewPetService(repo, nil, nil, nil, nil)
 
 	err := svc.DeletePet(anyUser.String(), pet.ID.String())
 	if err != domain.ErrForbidden {
 		t.Errorf("expected ErrForbidden when deleting stray (nil owner), got %v", err)
+	}
+}
+
+// ============================================================
+// Mock: UnitOfWork
+// ============================================================
+
+// mockUnitOfWork is an in-memory UnitOfWork — it invokes fn with the given
+// transaction-scoped repos (typically mocks) without any real database or
+// rollback semantics. If fn returns an error, mockUnitOfWork additionally
+// resets the pet repo's captured state to simulate a rollback, mirroring the
+// "pet creation rolled back" guarantee that the real GORM-backed UnitOfWork
+// provides via db.Transaction.
+type mockUnitOfWork struct {
+	repos repository.UnitOfWorkRepos
+}
+
+func (m *mockUnitOfWork) Execute(fn func(repos repository.UnitOfWorkRepos) error) error {
+	err := fn(m.repos)
+	if err != nil {
+		// Simulate rollback: undo whatever the pet repo captured.
+		if cap, ok := m.repos.Pets.(*capturingPetRepo); ok {
+			cap.createdPet = nil
+			cap.mockPetRepo.pet = nil
+		}
+	}
+	return err
+}
+
+// ============================================================
+// Tests: CreatePet — initial_report validation (stray)
+// ============================================================
+
+func TestCreatePet_Stray_RequiresInitialReport(t *testing.T) {
+	repo := &mockPetRepo{}
+	bus := event.NewEventBus()
+	svc := service.NewPetService(repo, bus, nil, &mockReportRepo{}, nil)
+
+	ownerID := uuid.New()
+	req := dto.CreatePetRequest{
+		Name:   "Callejero",
+		Type:   "perro",
+		Status: domain.PetStatusStray,
+		// InitialReport intentionally omitted
+	}
+
+	_, err := svc.CreatePet(ownerID.String(), req)
+	if err == nil {
+		t.Fatal("expected error for stray without initial_report, got nil")
+	}
+	if err.Error() != domain.ErrInitialReportRequired.Error() {
+		t.Errorf("expected ErrInitialReportRequired, got %v", err)
+	}
+}
+
+func TestCreatePet_Stray_WithInitialReport_CreatesPetAndReport(t *testing.T) {
+	petRepo := &capturingPetRepo{}
+	reportRepo := &mockReportRepo{}
+	uow := &mockUnitOfWork{repos: repository.UnitOfWorkRepos{Pets: petRepo, Reports: reportRepo}}
+	bus := event.NewEventBus()
+	svc := service.NewPetService(petRepo, bus, nil, reportRepo, uow)
+
+	ownerID := uuid.New()
+	req := dto.CreatePetRequest{
+		Name:   "Callejero",
+		Type:   "perro",
+		Status: domain.PetStatusStray,
+		InitialReport: &dto.InitialReportRequest{
+			Latitude:  -34.9011,
+			Longitude: -56.1645,
+			Note:      "Visto cerca de la plaza",
+		},
+	}
+
+	pet, err := svc.CreatePet(ownerID.String(), req)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if pet.Status != domain.PetStatusStray {
+		t.Errorf("expected status %q, got %q", domain.PetStatusStray, pet.Status)
+	}
+	if reportRepo.createdCount != 1 {
+		t.Fatalf("expected 1 report created, got %d", reportRepo.createdCount)
+	}
+	if reportRepo.lastReport.Status != "sighting" {
+		t.Errorf("expected report status 'sighting', got %q", reportRepo.lastReport.Status)
+	}
+	if reportRepo.lastReport.LocationDescription != "Visto cerca de la plaza" {
+		t.Errorf("expected location_description to carry the note, got %q", reportRepo.lastReport.LocationDescription)
+	}
+	if reportRepo.lastReport.PetID != pet.ID {
+		t.Errorf("expected report.pet_id == pet.id")
+	}
+}
+
+func TestCreatePet_Registered_RejectsInitialReport(t *testing.T) {
+	repo := &mockPetRepo{}
+	bus := event.NewEventBus()
+	svc := service.NewPetService(repo, bus, nil, &mockReportRepo{}, nil)
+
+	ownerID := uuid.New()
+	req := dto.CreatePetRequest{
+		Name:   "Rex",
+		Type:   "perro",
+		Status: domain.PetStatusRegistered,
+		InitialReport: &dto.InitialReportRequest{
+			Latitude:  -34.9011,
+			Longitude: -56.1645,
+		},
+	}
+
+	_, err := svc.CreatePet(ownerID.String(), req)
+	if err == nil {
+		t.Fatal("expected error for registered pet with initial_report, got nil")
+	}
+	if err.Error() != domain.ErrInitialReportNotAllowed.Error() {
+		t.Errorf("expected ErrInitialReportNotAllowed, got %v", err)
+	}
+}
+
+func TestCreatePet_Stray_ReportCreationFails_RollsBackPet(t *testing.T) {
+	petRepo := &capturingPetRepo{}
+	reportRepo := &mockReportRepo{createErr: domain.ErrInternal}
+	uow := &mockUnitOfWork{repos: repository.UnitOfWorkRepos{Pets: petRepo, Reports: reportRepo}}
+	bus := event.NewEventBus()
+	svc := service.NewPetService(petRepo, bus, nil, reportRepo, uow)
+
+	ownerID := uuid.New()
+	req := dto.CreatePetRequest{
+		Name:   "Callejero",
+		Type:   "perro",
+		Status: domain.PetStatusStray,
+		InitialReport: &dto.InitialReportRequest{
+			Latitude:  -34.9011,
+			Longitude: -56.1645,
+		},
+	}
+
+	_, err := svc.CreatePet(ownerID.String(), req)
+	if err == nil {
+		t.Fatal("expected error when report creation fails, got nil")
+	}
+	if petRepo.mockPetRepo.pet != nil {
+		t.Error("expected pet creation to be rolled back when report creation fails")
+	}
+}
+
+func TestCreatePet_Stray_NoUnitOfWork_ReturnsInternalError(t *testing.T) {
+	repo := &capturingPetRepo{}
+	bus := event.NewEventBus()
+	svc := service.NewPetService(repo, bus, nil, &mockReportRepo{}, nil)
+
+	ownerID := uuid.New()
+	req := dto.CreatePetRequest{
+		Name:   "Callejero",
+		Type:   "perro",
+		Status: domain.PetStatusStray,
+		InitialReport: &dto.InitialReportRequest{
+			Latitude:  -34.9011,
+			Longitude: -56.1645,
+		},
+	}
+
+	_, err := svc.CreatePet(ownerID.String(), req)
+	if err != domain.ErrInternal {
+		t.Errorf("expected ErrInternal when uow is nil, got %v", err)
 	}
 }
