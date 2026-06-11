@@ -27,7 +27,7 @@ backend: ## Iniciar backend Go
 	cd backend && go run ./cmd/server
 
 web: ## Iniciar web React
-	cd frontend/packages/web && npm run dev
+	cd frontend/packages/web && pnpm dev
 
 mobile: ## Iniciar app React Native
 	cd frontend/packages/mobile && npx expo start
@@ -50,7 +50,7 @@ build-backend: ## Compilar backend
 	cd backend && CGO_ENABLED=0 GOOS=linux go build -a -o bin/server ./cmd/server
 
 build-web: ## Build de la web
-	cd frontend/packages/web && npm run build
+	cd frontend/packages/web && pnpm build
 
 build-docker: ## Build Docker image
 	docker build -t lost-pets-api ./backend
@@ -74,9 +74,12 @@ db-shell: ## Conectar a la BD
 # DEPLOY
 # ============================================
 
-deploy-backend: build-backend ## Deploy backend a Railway
-	@echo "Deploy a Railway..."
-	railway up
+deploy-backend: ## Deploy backend a Render (manual; el push a main ya deploya via CI)
+	@test -n "$(RENDER_DEPLOY_HOOK_URL)" || \
+		(echo "RENDER_DEPLOY_HOOK_URL no definido."; \
+		 echo "El deploy normal es automatico: push a main dispara el job deploy-backend en CI."; \
+		 exit 1)
+	curl -X POST "$(RENDER_DEPLOY_HOOK_URL)"
 
 deploy-web: build-web ## Deploy web a Vercel
 	@echo "Deploy a Vercel..."
@@ -93,12 +96,12 @@ clean: ## Limpiar archivos generados
 
 lint: ## Ejecutar linters
 	cd backend && golangci-lint run
-	cd frontend/packages/web && npm run lint
+	cd frontend/packages/web && pnpm lint
 
 setup: ## Configurar proyecto (primera vez)
 	cp backend/.env.example backend/.env
-	cd frontend/packages/web && npm install
-	cd frontend/packages/mobile && npm install
+	cd frontend/packages/web && pnpm install
+	cd frontend/packages/mobile && pnpm install
 	docker-compose up -d
 	@echo ""
 	@echo "Proyecto configurado. Ejecuta: make dev"
