@@ -13,25 +13,27 @@ var (
 	ErrUserNotFound = errors.New("usuario no encontrado")
 
 	// Pet
-	ErrPetNotFound               = errors.New("mascota no encontrada")
-	ErrNotPetOwner               = errors.New("no eres el dueño de esta mascota")
-	ErrPetAlreadyFound           = errors.New("mascota ya fue encontrada")
-	ErrPetArchived               = errors.New("mascota archivada, no se puede marcar como encontrada")
-	ErrPetStatusLocked           = errors.New("mascota con status final, no se puede modificar el estado")
-	ErrPetNotFoundStatus         = errors.New("la mascota debe estar marcada como encontrada para crear una historia")
-	ErrInvalidStatusTransition   = errors.New("invalid_status_transition")
-	ErrConflict                  = errors.New("conflict")
-	ErrOwnerRequiredForStatus    = errors.New("owner_required_for_status")
+	ErrPetNotFound             = errors.New("mascota no encontrada")
+	ErrNotPetOwner             = errors.New("no eres el dueño de esta mascota")
+	ErrPetAlreadyFound         = errors.New("mascota ya fue encontrada")
+	ErrPetArchived             = errors.New("mascota archivada, no se puede marcar como encontrada")
+	ErrPetStatusLocked         = errors.New("mascota con status final, no se puede modificar el estado")
+	ErrPetNotFoundStatus       = errors.New("la mascota debe estar marcada como encontrada para crear una historia")
+	ErrInvalidStatusTransition = errors.New("invalid_status_transition")
+	ErrConflict                = errors.New("conflict")
+	ErrOwnerRequiredForStatus  = errors.New("owner_required_for_status")
+	ErrInitialReportRequired   = errors.New("initial_report_required")
+	ErrInitialReportNotAllowed = errors.New("initial_report_not_allowed")
 
 	// Report
 	ErrReportNotFound = errors.New("reporte no encontrado")
 	ErrInvalidStatus  = errors.New("status inválido")
 
 	// Message
-	ErrUserBlocked          = errors.New("usuario bloqueado, no puedes enviar mensajes")
-	ErrSelfMessage          = errors.New("no puedes enviarte mensajes a ti mismo")
-	ErrMessageNotFound      = errors.New("mensaje no encontrado")
-	ErrNotMessageReceiver   = errors.New("no eres el destinatario de este mensaje")
+	ErrUserBlocked        = errors.New("usuario bloqueado, no puedes enviar mensajes")
+	ErrSelfMessage        = errors.New("no puedes enviarte mensajes a ti mismo")
+	ErrMessageNotFound    = errors.New("mensaje no encontrado")
+	ErrNotMessageReceiver = errors.New("no eres el destinatario de este mensaje")
 
 	// Shelter
 	ErrShelterNotFound = errors.New("refugio no encontrado")
@@ -40,11 +42,11 @@ var (
 	ErrBlockNotFound = errors.New("bloqueo no encontrado")
 
 	// Photo
-	ErrInvalidFileType    = errors.New("tipo de archivo no permitido; solo jpeg, png y webp")
-	ErrFileTooLarge       = errors.New("el archivo supera el límite de 5 MB")
-	ErrStorageFailed      = errors.New("error al subir la imagen; intenta nuevamente")
-	ErrPhotoLimitReached  = errors.New("límite de 3 fotos por mascota alcanzado")
-	ErrPhotoNotFound      = errors.New("foto no encontrada")
+	ErrInvalidFileType   = errors.New("tipo de archivo no permitido; solo jpeg, png y webp")
+	ErrFileTooLarge      = errors.New("el archivo supera el límite de 5 MB")
+	ErrStorageFailed     = errors.New("error al subir la imagen; intenta nuevamente")
+	ErrPhotoLimitReached = errors.New("límite de 3 fotos por mascota alcanzado")
+	ErrPhotoNotFound     = errors.New("foto no encontrada")
 
 	// Share
 	ErrShareLinkNotFound = errors.New("link de compartir no encontrado")
@@ -85,15 +87,15 @@ var (
 	ErrRateLimitExceeded = errors.New("rate limit exceeded")
 
 	// Validation sentinel errors for handler-level input checks
-	ErrPhotoFieldRequired      = errors.New("campo 'photo' requerido")
-	ErrInvalidSearchRadius     = errors.New("radius debe estar entre 1000 y 50000 metros")
-	ErrInvalidDateParam        = errors.New("parámetro de fecha debe ser RFC3339")
-	ErrInvalidPageParam        = errors.New("parámetro 'page' debe ser un entero positivo")
-	ErrInvalidLimitParam       = errors.New("parámetro 'limit' debe ser un entero positivo")
-	ErrInvalidMultipart        = errors.New("multipart form inválido o demasiado grande")
-	ErrImageFieldRequired      = errors.New("campo 'image' requerido")
-	ErrImageSearchUnavailable  = errors.New("servicio de búsqueda por imagen no disponible temporalmente")
-	ErrBindingFailed           = errors.New("datos de entrada inválidos")
+	ErrPhotoFieldRequired     = errors.New("campo 'photo' requerido")
+	ErrInvalidSearchRadius    = errors.New("radius debe estar entre 1000 y 50000 metros")
+	ErrInvalidDateParam       = errors.New("parámetro de fecha debe ser RFC3339")
+	ErrInvalidPageParam       = errors.New("parámetro 'page' debe ser un entero positivo")
+	ErrInvalidLimitParam      = errors.New("parámetro 'limit' debe ser un entero positivo")
+	ErrInvalidMultipart       = errors.New("multipart form inválido o demasiado grande")
+	ErrImageFieldRequired     = errors.New("campo 'image' requerido")
+	ErrImageSearchUnavailable = errors.New("servicio de búsqueda por imagen no disponible temporalmente")
+	ErrBindingFailed          = errors.New("datos de entrada inválidos")
 )
 
 // ErrorCodes maps every sentinel error to its machine-readable snake_case code.
@@ -117,6 +119,8 @@ var ErrorCodes = map[error]string{
 	ErrInvalidStatusTransition: "invalid_status_transition",
 	ErrConflict:                "conflict",
 	ErrOwnerRequiredForStatus:  "owner_required_for_status",
+	ErrInitialReportRequired:   "initial_report_required",
+	ErrInitialReportNotAllowed: "initial_report_not_allowed",
 
 	// Report
 	ErrReportNotFound: "report_not_found",
