@@ -42,6 +42,11 @@
         "description": "Compartilhe no WhatsApp, Instagram, Facebook e Twitter para ampliar a busca."
       }
     },
+    "photoSearch": {
+      "resultsTitle": "Resultados por foto",
+      "noResults": "Nenhum pet semelhante encontrado",
+      "clear": "Limpar busca por foto"
+    },
     "recentReports": "Reportes recentes",
     "noReports": "Nenhum reporte recente na sua área",
     "viewAll": "Ver todos no mapa",

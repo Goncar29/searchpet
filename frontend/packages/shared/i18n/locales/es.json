@@ -112,7 +112,8 @@
       "found": "Encontrado",
       "sighting": "Avistado",
       "noName": "Sin nombre",
-      "reportSighting": "Reportar avistamiento"
+      "reportSighting": "Reportar avistamiento",
+      "similarityMatch": "{{percent}}% de coincidencia"
     },
     "types": {
       "dog": "Perro",

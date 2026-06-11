@@ -37,6 +37,10 @@
     "noNearbyText": "No se encontraron mascotas perdidas en tu zona. ¡Eso es bueno!",
     "clearFiltersButton": "Limpiar filtros",
     "noMatchText": "No se detectó ninguna mascota. Probá con una foto más clara.",
+    "photoResultsTitle": "Resultados por foto",
+    "photoNoResults": "No se encontraron mascotas similares",
+    "clearPhotoResults": "Limpiar búsqueda por foto",
+    "photoSearchError": "La búsqueda por foto no está disponible ahora. Usando el clasificador habitual.",
     "verifyNudge": "Verificá tu teléfono para ganar más confianza en la comunidad",
     "verifyNudgeCta": "Verificar ahora"
   },

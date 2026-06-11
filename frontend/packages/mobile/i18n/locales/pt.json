@@ -37,6 +37,10 @@
     "noNearbyText": "Nenhum pet perdido encontrado na sua área. Que ótimo!",
     "clearFiltersButton": "Limpar filtros",
     "noMatchText": "Nenhum pet detectado. Tente com uma foto mais clara.",
+    "photoResultsTitle": "Resultados por foto",
+    "photoNoResults": "Nenhum pet semelhante encontrado",
+    "clearPhotoResults": "Limpar busca por foto",
+    "photoSearchError": "A busca por foto não está disponível agora. Usando o classificador padrão.",
     "verifyNudge": "Verifique seu telefone para ganhar confiança na comunidade",
     "verifyNudgeCta": "Verificar agora"
   },

@@ -40,6 +40,7 @@ import type {
   GenerateShareRequest,
   Stats,
   UploadPhotoResponse,
+  ImageSearchResponse,
   LocationAlert,
   LocationAlertListResponse,
   CreateLocationAlertRequest,
@@ -245,6 +246,72 @@ class APIClient {
       headers,
       body: formData,
     });
+
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      const code = body.code ?? 'unknown_error';
+      const message = body.message ?? `HTTP Error ${response.status}`;
+      if (response.status === 401) {
+        this.token = null;
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('auth:session-expired'));
+        }
+      }
+      throw new ApiError(code, response.status, message);
+    }
+
+    return response.json();
+  }
+
+  // searchPetsByImage envía una foto por multipart (campo "photo") a
+  // POST /api/pets/search/image y retorna las mascotas perdidas/callejeras más
+  // similares ordenadas por similitud. La foto NUNCA se persiste — requiere auth.
+  async searchPetsByImage(file: File): Promise<ImageSearchResponse> {
+    const url = `${this.baseURL}/api/pets/search/image`;
+
+    const formData = new FormData();
+    formData.append('photo', file);
+
+    const headers: Record<string, string> = {};
+    if (this.token) {
+      headers['Authorization'] = `Bearer ${this.token}`;
+    }
+
+    const response = await fetch(url, { method: 'POST', headers, body: formData });
+
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      const code = body.code ?? 'unknown_error';
+      const message = body.message ?? `HTTP Error ${response.status}`;
+      if (response.status === 401) {
+        this.token = null;
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('auth:session-expired'));
+        }
+      }
+      throw new ApiError(code, response.status, message);
+    }
+
+    return response.json();
+  }
+
+  // Versión para React Native — mismo endpoint que searchPetsByImage pero con
+  // FormData { uri, name, type } porque RN no tiene la API File del browser.
+  async searchPetsByImageNative(uri: string): Promise<ImageSearchResponse> {
+    const url = `${this.baseURL}/api/pets/search/image`;
+
+    const formData = new FormData();
+    const filename = uri.split('/').pop() || 'photo.jpg';
+    const ext = (filename.split('.').pop() || 'jpg').toLowerCase();
+    const mimeType = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
+    formData.append('photo', { uri, name: filename, type: mimeType } as unknown as Blob);
+
+    const headers: Record<string, string> = {};
+    if (this.token) {
+      headers['Authorization'] = `Bearer ${this.token}`;
+    }
+
+    const response = await fetch(url, { method: 'POST', headers, body: formData });
 
     if (!response.ok) {
       const body = await response.json().catch(() => ({}));

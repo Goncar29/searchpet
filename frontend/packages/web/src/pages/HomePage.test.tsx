@@ -18,6 +18,7 @@ vi.mock('@shared/hooks', () => ({
   useSearchPets: () => ({ data: [], isLoading: false }),
   useStories: () => ({ data: [], isLoading: false }),
   useImageClassify: () => ({ classify: vi.fn(), isModelLoading: false, isClassifying: false, error: null }),
+  useImageSearch: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
 
 function wrapper({ children }: { children: React.ReactNode }) {

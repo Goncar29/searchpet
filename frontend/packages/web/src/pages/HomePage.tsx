@@ -1,8 +1,10 @@
 import { Link } from 'react-router';
 import { useState, useRef, type ChangeEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useStats, useNearbyReports, useSearchPets, useStories, useImageClassify } from '@shared/hooks';
-import type { Report, Pet, PetType, PetStatus, SuccessStory, ClassifyResult } from '@shared/types';
+import { useStats, useNearbyReports, useSearchPets, useStories, useImageClassify, useImageSearch } from '@shared/hooks';
+import type { Report, Pet, PetType, PetStatus, SuccessStory, ClassifyResult, ImageSearchResult } from '@shared/types';
+import { getErrorMessage } from '@shared/utils/apiErrors';
+import { ApiError } from '@shared/api/client';
 import { useAuth } from '../context/AuthContext';
 import { PetCardWeb } from '../components/PetCardWeb';
 
@@ -48,6 +50,9 @@ export function HomePage() {
     || filterBreed.trim().length > 0 || !!filterFrom || !!filterTo;
 
   const handleSearch = () => {
+    // A new filter search replaces any active photo-search results
+    setImageResults(null);
+    setImageSearchError(null);
     setShowFeed(true);
     setFilterType(draftType);
     setFilterColor(draftColor);
@@ -73,6 +78,8 @@ export function HomePage() {
     setDraftTo('');
     setClassifyResult(null);
     setPhotoNoMatch(false);
+    setImageResults(null);
+    setImageSearchError(null);
   };
 
   const [nearbyRadius, setNearbyRadius] = useState(20);
@@ -82,11 +89,19 @@ export function HomePage() {
   const [photoNoMatch, setPhotoNoMatch] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { classify, isModelLoading, isClassifying } = useImageClassify();
+  const imageSearchMutation = useImageSearch();
 
-  const handleImageSearch = async (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setPhotoNoMatch(false);
+  // Server-side image search results (CLIP similarity) — only populated when
+  // the user is authenticated and the backend call succeeds.
+  const [imageResults, setImageResults] = useState<ImageSearchResult[] | null>(null);
+  const [imageSearchError, setImageSearchError] = useState<string | null>(null);
+
+  const clearImageResults = () => {
+    setImageResults(null);
+    setImageSearchError(null);
+  };
+
+  const runClassifierFallback = async (file: File) => {
     const img = new Image();
     img.src = URL.createObjectURL(file);
     await img.decode();
@@ -100,6 +115,32 @@ export function HomePage() {
     } else {
       setPhotoNoMatch(true);
     }
+  };
+
+  const handleImageSearch = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setPhotoNoMatch(false);
+    setImageSearchError(null);
+
+    if (isAuthenticated) {
+      try {
+        const response = await imageSearchMutation.mutateAsync(file);
+        setImageResults(response.results);
+        setClassifyResult(null);
+        e.target.value = '';
+        return;
+      } catch (err) {
+        // image_search_unavailable (503, e.g. HuggingFace down) falls back silently —
+        // any other error (network, 4xx) is surfaced to the user.
+        const isUnavailable = err instanceof ApiError && err.code === 'image_search_unavailable';
+        if (!isUnavailable) {
+          setImageSearchError(getErrorMessage(err, t));
+        }
+      }
+    }
+
+    await runClassifierFallback(file);
     e.target.value = '';
   };
 
@@ -281,15 +322,35 @@ export function HomePage() {
                   <button type="button" onClick={() => setPhotoNoMatch(false)} className="ml-0.5 hover:opacity-70">✕</button>
                 </div>
               )}
+              {imageResults && (
+                <div className="mt-3 flex items-center gap-2 flex-wrap">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 text-sm font-semibold bg-primary/10 text-primary border border-primary/20 rounded-full">
+                    ✓ {t('home:photoSearch.resultsTitle')} ({imageResults.length})
+                  </span>
+                  <button
+                    type="button"
+                    onClick={clearImageResults}
+                    className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
+                  >
+                    {t('home:photoSearch.clear')} ✕
+                  </button>
+                </div>
+              )}
+              {imageSearchError && (
+                <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 text-xs text-yellow-700 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-full">
+                  {imageSearchError}
+                  <button type="button" onClick={() => setImageSearchError(null)} className="ml-0.5 hover:opacity-70">✕</button>
+                </div>
+              )}
             </div>
             <div className="flex-shrink-0">
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                disabled={isModelLoading || isClassifying}
+                disabled={isModelLoading || isClassifying || imageSearchMutation.isPending}
                 className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-white bg-primary rounded-xl hover:bg-primary-dark disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
               >
-                {isModelLoading ? '⏳ Cargando...' : isClassifying ? '🔍 Analizando...' : '📷 Subir foto'}
+                {imageSearchMutation.isPending ? '🔍 Analizando...' : isModelLoading ? '⏳ Cargando...' : isClassifying ? '🔍 Analizando...' : '📷 Subir foto'}
               </button>
               <input
                 ref={fileInputRef}
@@ -408,18 +469,67 @@ export function HomePage() {
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-            {isSearchMode
+            {imageResults
+              ? `${t('home:photoSearch.resultsTitle')} (${imageResults.length})`
+              : isSearchMode
               ? `${searchResults?.total ?? searchResults?.data?.length ?? 0} resultado${(searchResults?.total ?? 0) !== 1 ? 's' : ''}`
               : t('home:recentReports')}
           </h2>
-          {isSearchMode && (
+          {imageResults ? (
+            <button
+              onClick={clearImageResults}
+              className="px-4 py-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 border border-gray-200 dark:border-gray-700 rounded-lg transition-colors"
+            >
+              {t('home:photoSearch.clear')} ✕
+            </button>
+          ) : isSearchMode && (
             <span className="text-sm text-gray-500 dark:text-gray-400">
               Búsqueda activa
             </span>
           )}
         </div>
 
-        {isLoading ? (
+        {imageResults ? (
+          // ── Resultados de búsqueda por foto (ImageSearchResult[]) ──
+          imageResults.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {imageResults.map((result) => (
+                <Link key={result.pet_id} to={`/pets/${result.pet_id}`} className="block group">
+                  <div className="bg-white dark:bg-gray-900 rounded-2xl overflow-hidden shadow-sm border border-gray-100 dark:border-gray-800 hover:shadow-md transition-shadow">
+                    <div className="h-48 bg-gray-100 dark:bg-gray-800 relative overflow-hidden">
+                      {result.photo_url ? (
+                        <img
+                          src={result.photo_url}
+                          alt={result.name}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-5xl">🐾</div>
+                      )}
+                      <span className="absolute top-3 right-3 text-xs font-bold text-white bg-primary px-2 py-1 rounded-md">
+                        {t('pets:card.similarityMatch', { percent: Math.round(result.similarity * 100) })}
+                      </span>
+                    </div>
+                    <div className="p-4">
+                      <h3 className="font-bold text-gray-900 dark:text-gray-100 text-lg mb-1">{result.name}</h3>
+                      {result.type && (
+                        <span className="text-xs bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 px-2 py-0.5 rounded-full">{result.type}</span>
+                      )}
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <p className="text-5xl mb-4">🔍</p>
+              <p className="text-gray-700 dark:text-gray-300 font-semibold mb-2">{t('home:photoSearch.noResults')}</p>
+              <button onClick={clearImageResults} className="px-5 py-2 bg-primary text-white rounded-lg text-sm font-semibold hover:bg-primary-dark transition-colors">
+                {t('home:photoSearch.clear')}
+              </button>
+            </div>
+          )
+        ) : isLoading ? (
           <div className="text-center py-12">
             <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
             <p className="text-gray-500 dark:text-gray-400">{t('common:loading')}</p>

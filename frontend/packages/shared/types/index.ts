@@ -462,7 +462,12 @@ export interface ImageSearchResult {
   type: string;
   photo_url: string;
   similarity: number;
-  owner_id?: string;
+  owner_id: string;
+}
+
+/** Response body of POST /api/pets/search/image. */
+export interface ImageSearchResponse {
+  results: ImageSearchResult[];
 }
 
 // ============================================================

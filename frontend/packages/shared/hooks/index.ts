@@ -20,6 +20,7 @@ import type {
   GenerateShareRequest,
   SharedPetResponse,
   UploadPhotoResponse,
+  ImageSearchResponse,
   User,
   BlockedUser,
   AbuseReport,
@@ -185,6 +186,22 @@ export const useUploadPhotoNative = () => {
       queryClient.invalidateQueries({ queryKey: ['pets', petId] });
       queryClient.invalidateQueries({ queryKey: ['pets', 'mine'] });
     },
+  });
+};
+
+// useImageSearch — POST /api/pets/search/image (server-side CLIP similarity).
+// Requires auth; the photo is never persisted. Mutation so the caller
+// triggers it explicitly when the user picks a photo.
+export const useImageSearch = () => {
+  return useMutation<ImageSearchResponse, Error, File>({
+    mutationFn: (file) => apiClient.searchPetsByImage(file),
+  });
+};
+
+// Versión React Native de useImageSearch — recibe una URI local en lugar de File.
+export const useImageSearchNative = () => {
+  return useMutation<ImageSearchResponse, Error, string>({
+    mutationFn: (uri) => apiClient.searchPetsByImageNative(uri),
   });
 };
 

@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import {
   View,
   Text,
+  Image,
   FlatList,
   StyleSheet,
   RefreshControl,
@@ -20,17 +21,18 @@ import { useTranslation } from 'react-i18next';
 import i18next from 'i18next';
 import * as Location from 'expo-location';
 import * as ImagePicker from 'expo-image-picker';
-import { useNearbyReports, useSearchPets, useStories, useImageClassify } from '../../../shared/hooks';
+import { useNearbyReports, useSearchPets, useStories, useImageClassify, useImageSearchNative } from '../../../shared/hooks';
 import { useLocationStore, useAuthStore } from '../../store';
 import { PetCard } from '../../components/PetCard';
-import { COLORS, SPACING, FONTS, MAP_DEFAULTS, PET_TYPES } from '../../constants';
-import type { PetType, SuccessStory, ClassifyResult } from '../../../shared/types';
+import { COLORS, SPACING, FONTS, RADIUS, SHADOWS, MAP_DEFAULTS, PET_TYPES } from '../../constants';
+import type { PetType, SuccessStory, ClassifyResult, ImageSearchResult } from '../../../shared/types';
+import { ApiError } from '../../../shared/api/client';
 
 const RADII = [5, 10, 25, 50] as const;
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { t } = useTranslation(['home', 'common']);
+  const { t } = useTranslation(['home', 'common', 'pets']);
   const { isAuthenticated, user } = useAuthStore();
   const { latitude, longitude, setLocation } = useLocationStore();
 
@@ -60,6 +62,11 @@ export default function HomeScreen() {
   const [classifyResult, setClassifyResult] = useState<ClassifyResult | null>(null);
   const [photoNoMatch, setPhotoNoMatch] = useState(false);
   const { classify, isModelLoading, isClassifying } = useImageClassify();
+  const imageSearchMutation = useImageSearchNative();
+
+  // Server-side image search results (CLIP similarity) — only populated when
+  // the user is authenticated and the backend call succeeds.
+  const [imageResults, setImageResults] = useState<ImageSearchResult[] | null>(null);
 
   // ── Ubicación ────────────────────────────────────────────
   const lat = latitude || MAP_DEFAULTS.defaultLatitude;
@@ -95,6 +102,8 @@ export default function HomeScreen() {
   const handlePetPress = (petId: string) => router.push(`/pet/${petId}`);
 
   const applyFilters = () => {
+    // A new filter search replaces any active photo-search results
+    setImageResults(null);
     setAppliedType(draftType);
     setAppliedColor(draftColor);
     setAppliedBreed(draftBreed);
@@ -115,14 +124,12 @@ export default function HomeScreen() {
     setAppliedTo('');
     setClassifyResult(null);
     setPhotoNoMatch(false);
+    setImageResults(null);
   };
 
-  const pickAndClassify = async (useCamera: boolean) => {
-    const picked = useCamera
-      ? await ImagePicker.launchCameraAsync({ quality: 0.7 })
-      : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.7 });
-    if (picked.canceled) return;
-    const uri = picked.assets[0].uri;
+  const clearImageResults = () => setImageResults(null);
+
+  const classifyPhoto = async (uri: string) => {
     const result = await classify(uri);
     if (result) {
       setClassifyResult(result);
@@ -139,6 +146,32 @@ export default function HomeScreen() {
     }
   };
 
+  const pickAndClassify = async (useCamera: boolean) => {
+    const picked = useCamera
+      ? await ImagePicker.launchCameraAsync({ quality: 0.7 })
+      : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.7 });
+    if (picked.canceled) return;
+    const uri = picked.assets[0].uri;
+    setPhotoNoMatch(false);
+
+    if (isAuthenticated) {
+      try {
+        const response = await imageSearchMutation.mutateAsync(uri);
+        setImageResults(response.results);
+        setClassifyResult(null);
+        return;
+      } catch (err) {
+        // image_search_unavailable (503) falls back silently — any other error
+        // (network, 4xx) also falls back to the local classifier without blocking the user.
+        if (!(err instanceof ApiError && err.code === 'image_search_unavailable')) {
+          Alert.alert(i18next.t('common:error'), i18next.t('home:photoSearchError'));
+        }
+      }
+    }
+
+    await classifyPhoto(uri);
+  };
+
   const handleImageSearch = () => {
     Alert.alert(i18next.t('home:searchByPhoto'), i18next.t('home:pickOption'), [
       { text: i18next.t('home:camera'), onPress: () => pickAndClassify(true) },
@@ -148,7 +181,28 @@ export default function HomeScreen() {
   };
 
   // ── Render items ─────────────────────────────────────────
-  // Modo búsqueda → Pet[]; modo nearby → Report[]
+  // Modo foto → ImageSearchResult[]; modo búsqueda → Pet[]; modo nearby → Report[]
+  const isImageResultsMode = !!imageResults;
+
+  const renderImageResult = ({ item }: { item: ImageSearchResult }) => (
+    <TouchableOpacity style={styles.imageResultRow} onPress={() => handlePetPress(item.pet_id)} activeOpacity={0.7}>
+      {item.photo_url ? (
+        <Image source={{ uri: item.photo_url }} style={styles.imageResultPhoto} />
+      ) : (
+        <View style={[styles.imageResultPhoto, styles.imageResultPhotoPlaceholder]}>
+          <Text style={{ fontSize: 24 }}>🐾</Text>
+        </View>
+      )}
+      <View style={styles.imageResultInfo}>
+        <Text style={styles.imageResultName} numberOfLines={1}>{item.name}</Text>
+        {item.type && <Text style={styles.imageResultType}>{item.type}</Text>}
+      </View>
+      <Text style={styles.imageResultSimilarity}>
+        {t('pets:card.similarityMatch', { percent: Math.round(item.similarity * 100) })}
+      </Text>
+    </TouchableOpacity>
+  );
+
   const renderItem = isSearchMode
     ? ({ item }: { item: any }) => (
         <PetCard
@@ -163,11 +217,15 @@ export default function HomeScreen() {
         />
       );
 
-  const data: any[] = isSearchMode
+  const data: any[] = isImageResultsMode
+    ? (imageResults ?? [])
+    : isSearchMode
     ? (searchQuery.data?.data ?? [])
     : (nearbyQuery.data ?? []);
 
-  const resultCount = isSearchMode
+  const resultCount = isImageResultsMode
+    ? data.length
+    : isSearchMode
     ? (searchQuery.data?.total ?? data.length)
     : data.length;
 
@@ -241,12 +299,16 @@ export default function HomeScreen() {
 
           {/* Buscar por foto */}
           <TouchableOpacity
-            style={[styles.chip, (isModelLoading || isClassifying) && styles.chipDisabled]}
+            style={[styles.chip, (isModelLoading || isClassifying || imageSearchMutation.isPending) && styles.chipDisabled]}
             onPress={handleImageSearch}
-            disabled={isModelLoading || isClassifying}
+            disabled={isModelLoading || isClassifying || imageSearchMutation.isPending}
           >
             <Text style={styles.chipText}>
-              {isModelLoading ? `⏳ ${t('home:loadingModel')}` : isClassifying ? `🔍 ${t('home:analyzing')}` : `📷 ${t('home:byPhoto')}`}
+              {imageSearchMutation.isPending || isClassifying
+                ? `🔍 ${t('home:analyzing')}`
+                : isModelLoading
+                ? `⏳ ${t('home:loadingModel')}`
+                : `📷 ${t('home:byPhoto')}`}
             </Text>
           </TouchableOpacity>
         </ScrollView>
@@ -339,7 +401,16 @@ export default function HomeScreen() {
 
       {/* ── Header info ── */}
       <View style={styles.header}>
-        {isSearchMode ? (
+        {isImageResultsMode ? (
+          <View style={styles.headerRow}>
+            <Text style={styles.greeting}>
+              {t('home:photoResultsTitle')} ({resultCount})
+            </Text>
+            <TouchableOpacity onPress={clearImageResults}>
+              <Text style={styles.clearText}>{t('home:clearPhotoResults')}</Text>
+            </TouchableOpacity>
+          </View>
+        ) : isSearchMode ? (
           <View style={styles.headerRow}>
             <Text style={styles.greeting}>
               {t('home:results', { count: resultCount })}
@@ -410,13 +481,30 @@ export default function HomeScreen() {
       )}
 
       {/* ── Lista ── */}
-      {isLoading ? (
+      {!isImageResultsMode && isLoading ? (
         <View style={styles.center}>
           <ActivityIndicator size="large" color={COLORS.primary} />
           <Text style={styles.loadingText}>
             {isSearchMode ? t('home:searching') : t('home:loading')}
           </Text>
         </View>
+      ) : isImageResultsMode ? (
+        <FlatList
+          data={data}
+          keyExtractor={(item: ImageSearchResult) => item.pet_id}
+          renderItem={renderImageResult}
+          contentContainerStyle={styles.list}
+          showsVerticalScrollIndicator={false}
+          ListEmptyComponent={
+            <View style={styles.empty}>
+              <Text style={styles.emptyIcon}>🔍</Text>
+              <Text style={styles.emptyTitle}>{t('home:photoNoResults')}</Text>
+              <TouchableOpacity style={styles.clearButton} onPress={clearImageResults}>
+                <Text style={styles.clearButtonText}>{t('home:clearPhotoResults')}</Text>
+              </TouchableOpacity>
+            </View>
+          }
+        />
       ) : (
         <FlatList
           data={data}
@@ -708,5 +796,46 @@ const styles = StyleSheet.create({
     fontSize: FONTS.sizes.sm,
     color: '#856404',
     flex: 1,
+  },
+
+  // ── Resultados de búsqueda por foto (server-side image search) ──
+  imageResultRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.white,
+    borderRadius: RADIUS.lg,
+    marginBottom: SPACING.md,
+    padding: SPACING.sm,
+    ...SHADOWS.md,
+  },
+  imageResultPhoto: {
+    width: 56,
+    height: 56,
+    borderRadius: RADIUS.sm,
+  },
+  imageResultPhotoPlaceholder: {
+    backgroundColor: COLORS.background,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  imageResultInfo: {
+    flex: 1,
+    marginLeft: SPACING.md,
+  },
+  imageResultName: {
+    fontSize: FONTS.sizes.md,
+    fontWeight: '700',
+    color: COLORS.textPrimary,
+  },
+  imageResultType: {
+    fontSize: FONTS.sizes.sm,
+    color: COLORS.textSecondary,
+    marginTop: 2,
+  },
+  imageResultSimilarity: {
+    fontSize: FONTS.sizes.sm,
+    fontWeight: '700',
+    color: COLORS.primary,
+    marginLeft: SPACING.sm,
   },
 });

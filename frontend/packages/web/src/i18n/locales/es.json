@@ -42,6 +42,11 @@
         "description": "Difundí en WhatsApp, Instagram, Facebook y Twitter para maximizar la búsqueda."
       }
     },
+    "photoSearch": {
+      "resultsTitle": "Resultados por foto",
+      "noResults": "No se encontraron mascotas similares",
+      "clear": "Limpiar búsqueda por foto"
+    },
     "recentReports": "Reportes recientes",
     "noReports": "No hay reportes recientes en tu zona",
     "viewAll": "Ver todos en el mapa",

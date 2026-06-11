@@ -27,6 +27,7 @@ jest.mock('@shared/hooks', () => ({
   useSearchPets: () => ({ data: [], isLoading: false }),
   useStories: () => ({ data: [], isLoading: false }),
   useImageClassify: () => ({ classify: jest.fn(), isModelLoading: false, isClassifying: false, error: null }),
+  useImageSearchNative: () => ({ mutateAsync: jest.fn(), isPending: false }),
 }));
 
 // expo-location is mocked via moduleNameMapper → __mocks__/expo-location.js
