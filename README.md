@@ -11,7 +11,7 @@ Aplicación de causa social para ayudar a encontrar mascotas perdidas.
 |------|-----------|
 | **Mobile** | React Native + Expo 52 |
 | **Web** | React + Vite + Tailwind CSS |
-| **Backend** | Go 1.22 + Gin |
+| **Backend** | Go 1.25 + Gin |
 | **Base de datos** | PostgreSQL 15 + PostGIS |
 | **Migraciones** | golang-migrate (SQL) + GORM AutoMigrate |
 | **Imágenes** | Cloudinary (signed URLs) |
@@ -19,7 +19,7 @@ Aplicación de causa social para ayudar a encontrar mascotas perdidas.
 | **Auth** | JWT |
 | **Real-time** | WebSocket (Hub propio) |
 | **Logging** | Zap (structured) |
-| **Package manager** | pnpm 10 |
+| **Package manager** | pnpm 11 |
 
 ---
 
@@ -62,7 +62,7 @@ searchpet/
 │           └── utils/               # Utilidades
 │
 ├── .github/workflows/
-│   ├── ci.yml                       # CI: backend tests + web build + mobile tests
+│   ├── ci.yml                       # CI: backend + web + mobile tests, e2e, deploy Render
 │   └── build-apk.yml               # APK build + GitHub Release (tags v*)
 │
 └── docker-compose.yml               # Dev environment (PostgreSQL + PostGIS)
@@ -93,10 +93,10 @@ Handler (HTTP/WS) → Service (Lógica) → Repository (BD) → Domain (Entidad)
 
 ### Prerrequisitos
 
-- Go 1.22+
+- Go 1.25+ (ver `backend/go.mod`)
 - Docker + Docker Compose
 - Node.js 24+ (LTS)
-- pnpm 10+ (`npm install -g pnpm`)
+- pnpm 11+ (`npm install -g pnpm`)
 
 ### 1. Clonar el repo
 
@@ -222,14 +222,15 @@ pnpm start
 
 ---
 
-## Base de Datos (16 tablas)
+## Base de Datos (18 tablas)
 
-**Core:** `users`, `pets`, `reports`, `photos`, `messages`, `favorites`  
-**Social:** `share_links`, `local_groups`, `group_members`, `success_stories`  
-**Alerts:** `location_alerts`  
+**Core:** `users`, `pets`, `reports`, `photos`, `messages`  
+**Social:** `share_links`, `local_groups`, `group_members`, `success_stories`, `user_reviews`  
+**Alerts:** `location_alerts`, `device_tokens`  
 **Gamification:** `badges`, `user_points`  
 **Security:** `blocked_users`, `abuse_reports`  
-**Infra:** `shelters`
+**Infra:** `shelters`  
+**IA:** `pet_embeddings` (pgvector, solo via migración SQL — no AutoMigrate)
 
 ---
 
@@ -240,6 +241,7 @@ pnpm start
 | `backend-test` | push/PR | `go test ./...` + `go build` con PostgreSQL real |
 | `frontend-web` | push/PR | `pnpm audit` + `vitest` + `tsc && vite build` |
 | `mobile-test` | push/PR | `jest` con `jest-expo` |
+| `e2e-web` | push a main | Playwright + Go flow tests contra backend real |
 | `deploy-backend` | push a main | Trigger deploy en Render |
 | `build-apk` | tag `v*` | Gradle build → GitHub Release |
 
@@ -255,8 +257,9 @@ pnpm start
 - [x] V1.2: filtros avanzados, alertas geográficas, push en reporte cercano
 - [x] V1.3: verificación usuarios (email/SMS), grupos locales, historias de éxito, bloqueos
 - [x] V1.4: puntos, leaderboard, perfiles públicos, reseñas
-- [ ] Pending: Redis rate limiting, E2E tests, búsqueda IA server-side, UI refugios
-- [ ] V2.0: veterinarias cercanas, multi-SMS alertas, directorio refugios UI
+- [x] Redis rate limiting, E2E tests (Playwright + Go), búsqueda IA server-side (pgvector + CLIP), UI refugios
+- [x] Multi-idioma (es, en, pt) en mobile + web
+- [ ] V2.0: veterinarias cercanas, multi-SMS alertas, analytics dashboard público
 
 ---
 
