@@ -16,6 +16,7 @@ The backend domain model is already correct: `stray` pets have `owner_id = NULL`
 3. **Photo is mandatory for strays** (min 1, max 3). Needed for identification and CLIP image-search indexing.
 4. **Web and mobile ship together** in this change; shared types/hooks are touched once.
 5. **Composite transactional backend endpoints** (chosen over frontend orchestration): a lost/stray pet visible in the public feed without a location report is corrupt data for a map-centric product, so the invariant "publishing requires a location" lives in the domain layer.
+6. **Stray reporting is open to visitors, publishing still requires an account.** The stray wizard path (photo, form, map) works without a session; at the PUBLICAR action an inline register/login step appears, preserving all wizard state. Fully anonymous publishing was rejected: a sighting needs a contactable reporter (chat is user-to-user), unauthenticated photo uploads expose the 25-credit/month Cloudinary quota to abuse, `reports_abuse`/blocking only target users, and the reporter could never be notified (`pet.found`) nor earn badges.
 
 ## UX Flow — 4-step wizard
 
@@ -24,7 +25,7 @@ All publish entry points (web nav "Publicar", home "Publicar mascota", mobile Po
 1. **Intent** — two cards: "Mi mascota se perdió" / "Vi una mascota callejera".
 2. **A (lost): pick your pet** — list of the user's registered pets eligible for the `lost` transition. Empty state: "No tenés mascotas registradas" + button to the existing registration flow, returning here afterwards.
    **B (stray): minimal form** — photo picker (required, 1–3), type (required), color/breed/description (optional). No name field; strays render with a "Sin nombre"/type label.
-3. **Last-seen location** (both paths) — map with draggable pin (Leaflet on web, react-native-maps on mobile), "use my location" button (browser geolocation / device GPS), default center Montevideo (-34.9011, -56.1645), optional sighting note. PUBLICAR button.
+3. **Last-seen location** (both paths) — map with draggable pin (Leaflet on web, react-native-maps on mobile), "use my location" button (browser geolocation / device GPS), default center Montevideo (-34.9011, -56.1645), optional sighting note. PUBLICAR button. If the user has no session (stray path only — the lost path requires owned pets and therefore a session from step 2A), PUBLICAR opens an inline register/login step; wizard state is preserved and publishing continues right after authentication. The `/publish` route and mobile Post tab are therefore public, with the auth gate at the publish action, not at entry.
 4. **Success** — confirmation screen offering social sharing via the existing SharePanel (web) / ShareButton (mobile).
 
 Wireframes from the brainstorming session: `.superpowers/brainstorm/15503-1781199994/content/publish-wizard-flow.html` (local only, not committed).
@@ -93,7 +94,7 @@ Photos upload in a separate call after pet creation (the upload endpoint needs `
 
 - **Backend (Go, table-driven with repo mocks):** publish-lost happy path, non-owner 403, invalid transition, report-failure rollback (status must remain unchanged); create-stray with/without `initial_report`, `registered`+`initial_report` rejection, transactional pairing. New error codes appended to `write_error_test.go`. One httptest flow test covering the full publish sequence (register → publish-lost → nearby), alongside the existing 3 flows.
 - **Shared (Vitest via `vitest.shared.config.ts` from web — project rule 14):** `publishPetLost` client method; `usePublishStray` chaining and retry behavior.
-- **Web (Vitest):** wizard tests — intent selection, lost empty state, stray photo requirement, map-step validation, successful publish.
+- **Web (Vitest):** wizard tests — intent selection, lost empty state, stray photo requirement, map-step validation, successful publish, and the unauthenticated stray path: inline auth appears at PUBLICAR and wizard state survives registration.
 - **Mobile (Jest `test:run` — project rule 17):** wizard smoke tests; new hooks added to the `@shared/hooks` screen mocks.
 - **E2E (Playwright):** one new spec — publish a stray end-to-end.
 
