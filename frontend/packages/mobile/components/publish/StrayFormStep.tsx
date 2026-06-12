@@ -83,7 +83,7 @@ export function StrayFormStep({ value, onChange, onNext }: StrayFormStepProps) {
         </View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.photoRow}>
           {value.photos.map((uri, i) => (
-            <TouchableOpacity key={i} onPress={() => removePhoto(i)} accessibilityRole="button" accessibilityLabel="Remove photo">
+            <TouchableOpacity key={`${uri}-${i}`} onPress={() => removePhoto(i)} accessibilityRole="button" accessibilityLabel={t('publish:strayForm.removePhoto')}>
               <Image source={{ uri }} style={styles.photoThumb} />
               <View style={styles.photoRemove}>
                 <Text style={styles.photoRemoveText}>✕</Text>

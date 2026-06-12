@@ -296,7 +296,8 @@
       "gallery": "Gallery",
       "camera": "Camera",
       "cameraPermission": "Permission required",
-      "cameraPermissionText": "We need access to your camera"
+      "cameraPermissionText": "We need access to your camera",
+      "removePhoto": "Remove photo"
     },
     "location": {
       "title": "Where did you last see it?",
