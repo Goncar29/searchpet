@@ -11,7 +11,10 @@ module.exports = {
   testMatch: ['**/__tests__/**/*.test.(ts|tsx|js)'],
   setupFilesAfterEnv: ['./jest.setup.js'],
   moduleNameMapper: {
-    '^../../shared/api/client$': '<rootDir>/__mocks__/shared-api-client.js',
+    // Match any relative depth (../../, ../../../, ...) so the real client never
+    // loads in tests — its transform requires @babel/runtime helpers that don't
+    // resolve from shared/, which is not a real pnpm package.
+    '^(\\.\\./)+shared/api/client$': '<rootDir>/__mocks__/shared-api-client.js',
     '^@shared/utils/apiErrors$': '<rootDir>/__mocks__/shared-api-errors.js',
     '^../utils/notifications$': '<rootDir>/__mocks__/notifications.js',
     '^expo-location$': '<rootDir>/__mocks__/expo-location.js',
