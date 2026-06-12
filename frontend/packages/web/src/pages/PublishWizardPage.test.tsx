@@ -3,7 +3,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { QueryClientProvider, QueryClient } from '@tanstack/react-query';
 import { PublishWizardPage } from './PublishWizardPage';
-import { useMyPets } from '@shared/hooks';
+import { useMyPets, usePublishLost } from '@shared/hooks';
 
 vi.mock('react-i18next', () => ({
   useTranslation: (ns?: string | string[]) => ({
@@ -18,8 +18,13 @@ vi.mock('../context/AuthContext', () => ({
 
 vi.mock('@shared/hooks', () => ({
   useMyPets: vi.fn(() => ({ data: [], isLoading: false })),
-  usePublishLost: () => ({ mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false }),
-  usePublishStray: () => ({ mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false }),
+  usePublishLost: vi.fn(() => ({ mutateAsync: vi.fn().mockResolvedValue({ id: 'pet-1', name: 'Firulais', type: 'perro', status: 'lost', photos: [] }), isPending: false })),
+  usePublishStray: vi.fn(() => ({ mutateAsync: vi.fn().mockResolvedValue({ pet: { id: 'pet-2', name: 'Sin nombre', type: 'perro', status: 'stray', photos: [] }, failedPhotoIndexes: [] }), isPending: false })),
+  useUploadPhoto: vi.fn(() => ({ mutateAsync: vi.fn(), isPending: false })),
+}));
+
+vi.mock('../components/SharePanel', () => ({
+  SharePanel: () => <div data-testid="share-panel" />,
 }));
 
 vi.mock('react-leaflet', () => ({
@@ -146,5 +151,22 @@ describe('PublishWizardPage — location step', () => {
 
     // Authenticated lost path publishes immediately — no auth step.
     expect(screen.queryByText('publish:auth.title')).not.toBeInTheDocument();
+  });
+});
+
+describe('PublishWizardPage — success step', () => {
+  it('publishes the lost pet and shows the success step with SharePanel', async () => {
+    vi.mocked(useMyPets).mockReturnValue({
+      data: [{ id: 'pet-1', name: 'Firulais', type: 'perro', status: 'registered', photos: [] }],
+      isLoading: false,
+    } as unknown as ReturnType<typeof useMyPets>);
+
+    render(<PublishWizardPage />, { wrapper });
+    fireEvent.click(screen.getByText('publish:intent.lostTitle'));
+    fireEvent.click(screen.getByText('Firulais'));
+    fireEvent.click(screen.getByText('publish:location.publish'));
+
+    expect(await screen.findByText('publish:success.lostTitle')).toBeInTheDocument();
+    expect(usePublishLost).toHaveBeenCalled();
   });
 });
