@@ -386,11 +386,12 @@ func (s *petService) PublishLost(ownerID string, petID string, req dto.PublishLo
 		return nil, domain.ErrInvalidInput
 	}
 
+	var report *domain.Report
 	err = s.uow.Execute(func(tx repository.UnitOfWorkRepos) error {
 		if err := tx.Pets.UpdateStatus(petID, domain.PetStatusLost); err != nil {
 			return err
 		}
-		report := &domain.Report{
+		report = &domain.Report{
 			PetID:               pet.ID,
 			ReporterID:          ownerUUID,
 			Status:              "lost",
@@ -411,6 +412,7 @@ func (s *petService) PublishLost(ownerID string, petID string, req dto.PublishLo
 	if s.eventBus != nil {
 		s.eventBus.Publish("pet.lost", event.PetLostEvent{PetID: pet.ID})
 		s.eventBus.Publish("report.created", event.ReportCreatedEvent{
+			ReportID:   report.ID,
 			PetID:      pet.ID,
 			ReporterID: ownerUUID,
 			PetOwnerID: ownerUUID,

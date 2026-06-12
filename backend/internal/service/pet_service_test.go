@@ -864,3 +864,73 @@ func TestCreatePet_StrayPublishesReportCreatedEventWithCorrectPayload(t *testing
 		t.Error("timeout: report.created event was not published after creating a stray pet")
 	}
 }
+
+// ============================================================
+// Follow-up: event payload assertions for PublishLost
+// ============================================================
+
+func TestPublishLost_PublishesEventsWithCorrectPayload(t *testing.T) {
+	ownerID := uuid.New()
+	repo := &mockPetRepo{pet: petWithStatus(ownerID, domain.PetStatusRegistered)}
+	reportRepo := &mockReportRepo{}
+	uow := &mockUnitOfWork{repos: repository.UnitOfWorkRepos{Pets: repo, Reports: reportRepo}}
+	bus := event.NewEventBus()
+	svc := service.NewPetService(repo, bus, nil, reportRepo, uow)
+
+	petLostReceived := make(chan event.PetLostEvent, 1)
+	bus.Subscribe("pet.lost", func(payload interface{}) {
+		if e, ok := payload.(event.PetLostEvent); ok {
+			petLostReceived <- e
+		}
+	})
+
+	reportCreatedReceived := make(chan event.ReportCreatedEvent, 1)
+	bus.Subscribe("report.created", func(payload interface{}) {
+		if e, ok := payload.(event.ReportCreatedEvent); ok {
+			reportCreatedReceived <- e
+		}
+	})
+
+	req := dto.PublishLostRequest{Latitude: -34.9011, Longitude: -56.1645, Note: "Se escapó del jardín"}
+
+	updated, err := svc.PublishLost(ownerID.String(), repo.pet.ID.String(), req)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	select {
+	case e := <-petLostReceived:
+		if e.PetID != updated.ID {
+			t.Errorf("pet.lost PetID mismatch: got %v, want %v", e.PetID, updated.ID)
+		}
+	case <-time.After(500 * time.Millisecond):
+		t.Error("timeout: pet.lost event was not published after PublishLost")
+	}
+
+	select {
+	case e := <-reportCreatedReceived:
+		if e.PetID != updated.ID {
+			t.Errorf("report.created PetID mismatch: got %v, want %v", e.PetID, updated.ID)
+		}
+		if e.ReportID == uuid.Nil {
+			t.Error("report.created ReportID is zero, expected a generated UUID")
+		}
+		if e.ReporterID != ownerID {
+			t.Errorf("report.created ReporterID mismatch: got %v, want %v", e.ReporterID, ownerID)
+		}
+		if e.PetOwnerID != ownerID {
+			t.Errorf("report.created PetOwnerID mismatch: got %v, want %v", e.PetOwnerID, ownerID)
+		}
+		if e.Lat != req.Latitude {
+			t.Errorf("report.created Lat mismatch: got %v, want %v", e.Lat, req.Latitude)
+		}
+		if e.Lng != req.Longitude {
+			t.Errorf("report.created Lng mismatch: got %v, want %v", e.Lng, req.Longitude)
+		}
+		if e.Status != "lost" {
+			t.Errorf("report.created Status mismatch: got %q, want %q", e.Status, "lost")
+		}
+	case <-time.After(500 * time.Millisecond):
+		t.Error("timeout: report.created event was not published after PublishLost")
+	}
+}
