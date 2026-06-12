@@ -7,6 +7,7 @@ import { LocationStep } from '../components/publish/LocationStep';
 import { SuccessStep } from '../components/publish/SuccessStep';
 import { useAuth } from '../context/AuthContext';
 import { usePublishLost, usePublishStray, useUploadPhoto } from '@shared/hooks';
+import { apiClient } from '@shared/api/client';
 import { getErrorMessage } from '@shared/utils/apiErrors';
 import type { Pet, CreatePetRequest, InitialReportRequest } from '@shared/types';
 
@@ -59,7 +60,7 @@ export function PublishWizardPage() {
   const uploadPhoto = useUploadPhoto();
 
   const buildStrayPayload = (location: NonNullable<typeof wizard.location>): CreatePetRequest => ({
-    name: t('lostPet.title') ? 'Sin nombre' : 'Sin nombre', // see Task 13: localized via t('strayForm.unnamedPet')
+    name: 'Sin nombre', // TODO(Task 13): localize via t('strayForm.unnamedPet')
     type: wizard.strayForm.type as CreatePetRequest['type'],
     breed: wizard.strayForm.breed.trim() || undefined,
     color: wizard.strayForm.color.trim() || undefined,
@@ -71,9 +72,18 @@ export function PublishWizardPage() {
   const submitStray = async (location: NonNullable<typeof wizard.location>) => {
     try {
       const result = await publishStray.mutateAsync({ pet: buildStrayPayload(location), photos: wizard.strayForm.photos });
-      setPublishedPet(result.pet);
       setFailedPhotoIndexes(result.failedPhotoIndexes);
       setStep('success');
+      // Photo uploads happen after pet creation inside the mutation, so
+      // `result.pet` has stale `photos: []`. Refetch so SuccessStep/SharePanel
+      // get the uploaded photos. A refetch failure never blocks the success
+      // step — the publish itself already succeeded.
+      try {
+        const freshPet = await apiClient.getPetByID(result.pet.id);
+        setPublishedPet(freshPet);
+      } catch {
+        setPublishedPet(result.pet);
+      }
     } catch (err) {
       setPublishError(getErrorMessage(err, t));
     }
@@ -107,16 +117,27 @@ export function PublishWizardPage() {
   const handleRetryPhotos = async () => {
     if (!publishedPet) return;
     const stillFailed: number[] = [];
+    let retriedAny = false;
     for (const index of failedPhotoIndexes) {
       const file = wizard.strayForm.photos[index];
       if (!file) continue;
       try {
         await uploadPhoto.mutateAsync({ petId: publishedPet.id, file });
+        retriedAny = true;
       } catch {
         stillFailed.push(index);
       }
     }
     setFailedPhotoIndexes(stillFailed);
+
+    if (retriedAny) {
+      try {
+        const freshPet = await apiClient.getPetByID(publishedPet.id);
+        setPublishedPet(freshPet);
+      } catch {
+        // Keep the existing publishedPet — retry already succeeded.
+      }
+    }
   };
 
   return (

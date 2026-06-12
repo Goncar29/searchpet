@@ -4,6 +4,7 @@ import { MemoryRouter } from 'react-router';
 import { QueryClientProvider, QueryClient } from '@tanstack/react-query';
 import { PublishWizardPage } from './PublishWizardPage';
 import { useMyPets, usePublishLost } from '@shared/hooks';
+import { apiClient } from '@shared/api/client';
 
 vi.mock('react-i18next', () => ({
   useTranslation: (ns?: string | string[]) => ({
@@ -23,8 +24,16 @@ vi.mock('@shared/hooks', () => ({
   useUploadPhoto: vi.fn(() => ({ mutateAsync: vi.fn(), isPending: false })),
 }));
 
+vi.mock('@shared/api/client', () => ({
+  apiClient: {
+    getPetByID: vi.fn().mockResolvedValue({ id: 'pet-1', name: 'Firulais', type: 'perro', status: 'lost', photos: [] }),
+  },
+}));
+
 vi.mock('../components/SharePanel', () => ({
-  SharePanel: () => <div data-testid="share-panel" />,
+  SharePanel: ({ pet }: { pet: { photos?: unknown[] } }) => (
+    <div data-testid="share-panel" data-photo-count={pet.photos?.length ?? 0} />
+  ),
 }));
 
 vi.mock('react-leaflet', () => ({
@@ -168,5 +177,30 @@ describe('PublishWizardPage — success step', () => {
 
     expect(await screen.findByText('publish:success.lostTitle')).toBeInTheDocument();
     expect(usePublishLost).toHaveBeenCalled();
+  });
+
+  it('refetches the published stray pet so SharePanel gets the uploaded photos', async () => {
+    vi.mocked(apiClient.getPetByID).mockResolvedValue({
+      id: 'pet-2',
+      name: 'Sin nombre',
+      type: 'perro',
+      status: 'stray',
+      photos: [{ id: 'photo-1', url: 'https://example.com/photo.jpg' }],
+    } as unknown as Awaited<ReturnType<typeof apiClient.getPetByID>>);
+
+    render(<PublishWizardPage />, { wrapper });
+    fireEvent.click(screen.getByText('publish:intent.strayTitle'));
+
+    const file = new File(['fake'], 'stray.jpg', { type: 'image/jpeg' });
+    const fileInput = screen.getByLabelText('publish:strayForm.photoLabel') as HTMLInputElement;
+    fireEvent.change(fileInput, { target: { files: [file] } });
+    fireEvent.change(screen.getByLabelText('publish:strayForm.typeLabel'), { target: { value: 'perro' } });
+    fireEvent.click(screen.getByText('publish:strayForm.next'));
+
+    fireEvent.click(screen.getByText('publish:location.publish'));
+
+    expect(await screen.findByText('publish:success.strayTitle')).toBeInTheDocument();
+    expect(apiClient.getPetByID).toHaveBeenCalledWith('pet-2');
+    expect(screen.getByTestId('share-panel')).toHaveAttribute('data-photo-count', '1');
   });
 });
