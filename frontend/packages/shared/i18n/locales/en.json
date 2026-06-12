@@ -291,6 +291,7 @@
       "breedLabel": "Breed",
       "colorLabel": "Color",
       "descriptionLabel": "Description",
+      "unnamedPet": "No name",
       "next": "Continue"
     },
     "location": {

@@ -61,7 +61,7 @@ export function PublishWizardPage() {
   const uploadPhoto = useUploadPhoto();
 
   const buildStrayPayload = (location: NonNullable<typeof wizard.location>): CreatePetRequest => ({
-    name: 'Sin nombre', // TODO(Task 13): localize via t('strayForm.unnamedPet')
+    name: t('strayForm.unnamedPet'),
     type: wizard.strayForm.type as CreatePetRequest['type'],
     breed: wizard.strayForm.breed.trim() || undefined,
     color: wizard.strayForm.color.trim() || undefined,
