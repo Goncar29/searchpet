@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { StrayFormState } from '../../pages/PublishWizardPage';
 import type { PetType } from '@shared/types';
@@ -23,6 +23,14 @@ export function StrayFormStep({ value, onChange, onNext }: StrayFormStepProps) {
   const [errors, setErrors] = useState<FieldErrors>({});
   const [previewURLs, setPreviewURLs] = useState<string[]>(() => value.photos.map((f) => URL.createObjectURL(f)));
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const previewURLsRef = useRef(previewURLs);
+  previewURLsRef.current = previewURLs;
+
+  useEffect(() => {
+    return () => {
+      previewURLsRef.current.forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, []);
 
   const atLimit = value.photos.length >= MAX_PHOTOS;
 
