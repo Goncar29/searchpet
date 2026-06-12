@@ -38,6 +38,8 @@ import type {
   GroupMember,
   VerificationStatus,
   Shelter,
+  Pet,
+  PublishLostRequest,
 } from '../types';
 
 // ============================================================
@@ -185,6 +187,80 @@ export const useUploadPhotoNative = () => {
     onSuccess: (_, { petId }) => {
       queryClient.invalidateQueries({ queryKey: ['pets', petId] });
       queryClient.invalidateQueries({ queryKey: ['pets', 'mine'] });
+    },
+  });
+};
+
+// ============================================================
+// PUBLISH HOOKS
+// ============================================================
+
+// usePublishLost — POST /api/pets/:id/publish-lost. Transitions an owned
+// registered pet to `lost` and creates its initial location report
+// (single backend transaction). Invalidates feed, my-pets, and the pet detail.
+export const usePublishLost = () => {
+  const queryClient = useQueryClient();
+  return useMutation<Pet, Error, { id: string; data: PublishLostRequest }>({
+    mutationFn: ({ id, data }) => apiClient.publishPetLost(id, data),
+    onSuccess: (pet) => {
+      queryClient.invalidateQueries({ queryKey: ['pets'] });
+      queryClient.invalidateQueries({ queryKey: ['pets', pet.id] });
+      queryClient.invalidateQueries({ queryKey: ['pets', 'mine'] });
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
+    },
+  });
+};
+
+export interface PublishStrayResult {
+  pet: Pet;
+  failedPhotoIndexes: number[];
+}
+
+// usePublishStray — chains createPet({ status: 'stray', initial_report }) with
+// sequential photo uploads (web File[]). If a photo upload fails the pet is
+// already created — we resolve with `failedPhotoIndexes` instead of throwing,
+// so the wizard can show a one-tap retry screen (design: "photo atomicity").
+export const usePublishStray = () => {
+  const queryClient = useQueryClient();
+  return useMutation<PublishStrayResult, Error, { pet: CreatePetRequest; photos: File[] }>({
+    mutationFn: async ({ pet, photos }) => {
+      const created = await apiClient.createPet(pet);
+      const failedPhotoIndexes: number[] = [];
+      for (let i = 0; i < photos.length; i++) {
+        try {
+          await apiClient.uploadPhoto(created.id, photos[i]);
+        } catch {
+          failedPhotoIndexes.push(i);
+        }
+      }
+      return { pet: created, failedPhotoIndexes };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pets'] });
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
+    },
+  });
+};
+
+// Versión React Native de usePublishStray — recibe URIs locales en lugar de File.
+export const usePublishStrayNative = () => {
+  const queryClient = useQueryClient();
+  return useMutation<PublishStrayResult, Error, { pet: CreatePetRequest; photoUris: string[] }>({
+    mutationFn: async ({ pet, photoUris }) => {
+      const created = await apiClient.createPet(pet);
+      const failedPhotoIndexes: number[] = [];
+      for (let i = 0; i < photoUris.length; i++) {
+        try {
+          await apiClient.uploadPhotoNative(created.id, photoUris[i]);
+        } catch {
+          failedPhotoIndexes.push(i);
+        }
+      }
+      return { pet: created, failedPhotoIndexes };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pets'] });
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
     },
   });
 };
