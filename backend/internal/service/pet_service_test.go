@@ -687,3 +687,180 @@ func TestCreatePet_Stray_NoUnitOfWork_ReturnsInternalError(t *testing.T) {
 		t.Errorf("expected ErrInternal when uow is nil, got %v", err)
 	}
 }
+
+// ============================================================
+// Tests: PublishLost
+// ============================================================
+
+func TestPublishLost_HappyPath_TransitionsAndCreatesReport(t *testing.T) {
+	ownerID := uuid.New()
+	repo := &mockPetRepo{pet: petWithStatus(ownerID, domain.PetStatusRegistered)}
+	repo.pet.Version = 1
+	reportRepo := &mockReportRepo{}
+	uow := &mockUnitOfWork{repos: repository.UnitOfWorkRepos{Pets: repo, Reports: reportRepo}}
+	bus := event.NewEventBus()
+	svc := service.NewPetService(repo, bus, nil, reportRepo, uow)
+
+	req := dto.PublishLostRequest{Latitude: -34.9011, Longitude: -56.1645, Note: "Se escapó del jardín"}
+
+	updated, err := svc.PublishLost(ownerID.String(), repo.pet.ID.String(), req)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if updated.Status != domain.PetStatusLost {
+		t.Errorf("expected status %q, got %q", domain.PetStatusLost, updated.Status)
+	}
+	if len(repo.statusCalls) != 1 || repo.statusCalls[0] != domain.PetStatusLost {
+		t.Errorf("expected UpdateStatus called with %q, got %v", domain.PetStatusLost, repo.statusCalls)
+	}
+	if reportRepo.createdCount != 1 {
+		t.Fatalf("expected 1 report created, got %d", reportRepo.createdCount)
+	}
+	if reportRepo.lastReport.Status != "lost" {
+		t.Errorf("expected report status 'lost', got %q", reportRepo.lastReport.Status)
+	}
+	if reportRepo.lastReport.LocationDescription != "Se escapó del jardín" {
+		t.Errorf("expected location_description to carry the note, got %q", reportRepo.lastReport.LocationDescription)
+	}
+	if reportRepo.lastReport.PetID != repo.pet.ID {
+		t.Errorf("expected report.pet_id == pet.id")
+	}
+}
+
+func TestPublishLost_NonOwner_Returns403(t *testing.T) {
+	ownerID := uuid.New()
+	otherUserID := uuid.New()
+	repo := &mockPetRepo{pet: petWithStatus(ownerID, domain.PetStatusRegistered)}
+	reportRepo := &mockReportRepo{}
+	uow := &mockUnitOfWork{repos: repository.UnitOfWorkRepos{Pets: repo, Reports: reportRepo}}
+	bus := event.NewEventBus()
+	svc := service.NewPetService(repo, bus, nil, reportRepo, uow)
+
+	req := dto.PublishLostRequest{Latitude: -34.9011, Longitude: -56.1645}
+
+	_, err := svc.PublishLost(otherUserID.String(), repo.pet.ID.String(), req)
+	if err == nil {
+		t.Fatal("expected error for non-owner, got nil")
+	}
+	if err.Error() != domain.ErrForbidden.Error() {
+		t.Errorf("expected ErrForbidden, got %v", err)
+	}
+	if reportRepo.createdCount != 0 {
+		t.Error("expected no report to be created for a forbidden publish-lost")
+	}
+	if len(repo.statusCalls) != 0 {
+		t.Error("UpdateStatus should NOT have been called for non-owner")
+	}
+}
+
+func TestPublishLost_InvalidTransition_Returns422(t *testing.T) {
+	ownerID := uuid.New()
+	// "found" -> "lost" is not in AllowedTransitions for PetStatusFound
+	repo := &mockPetRepo{pet: petWithStatus(ownerID, domain.PetStatusFound)}
+	reportRepo := &mockReportRepo{}
+	uow := &mockUnitOfWork{repos: repository.UnitOfWorkRepos{Pets: repo, Reports: reportRepo}}
+	bus := event.NewEventBus()
+	svc := service.NewPetService(repo, bus, nil, reportRepo, uow)
+
+	req := dto.PublishLostRequest{Latitude: -34.9011, Longitude: -56.1645}
+
+	_, err := svc.PublishLost(ownerID.String(), repo.pet.ID.String(), req)
+	if err == nil {
+		t.Fatal("expected error for invalid transition, got nil")
+	}
+	if err.Error() != domain.ErrInvalidStatusTransition.Error() {
+		t.Errorf("expected ErrInvalidStatusTransition, got %v", err)
+	}
+	if reportRepo.createdCount != 0 {
+		t.Error("expected no report to be created for an invalid transition")
+	}
+}
+
+func TestPublishLost_ReportCreationFails_StatusUnchanged(t *testing.T) {
+	ownerID := uuid.New()
+	pet := petWithStatus(ownerID, domain.PetStatusRegistered)
+	pet.Version = 1
+	repo := &mockPetRepo{pet: pet}
+	reportRepo := &mockReportRepo{createErr: domain.ErrInternal}
+	uow := &mockUnitOfWork{repos: repository.UnitOfWorkRepos{Pets: repo, Reports: reportRepo}}
+	bus := event.NewEventBus()
+	svc := service.NewPetService(repo, bus, nil, reportRepo, uow)
+
+	req := dto.PublishLostRequest{Latitude: -34.9011, Longitude: -56.1645}
+
+	_, err := svc.PublishLost(ownerID.String(), pet.ID.String(), req)
+	if err == nil {
+		t.Fatal("expected error when report creation fails, got nil")
+	}
+
+	// The pet's in-memory status is only mutated by the service after a
+	// successful uow.Execute — on error it must remain unchanged, mirroring
+	// the rollback guarantee the real GORM-backed UnitOfWork provides.
+	if pet.Status != domain.PetStatusRegistered {
+		t.Errorf("expected status to remain %q after rollback, got %q", domain.PetStatusRegistered, pet.Status)
+	}
+}
+
+func TestPublishLost_NoUnitOfWork_ReturnsInternalError(t *testing.T) {
+	ownerID := uuid.New()
+	repo := &mockPetRepo{pet: petWithStatus(ownerID, domain.PetStatusRegistered)}
+	bus := event.NewEventBus()
+	svc := service.NewPetService(repo, bus, nil, &mockReportRepo{}, nil)
+
+	req := dto.PublishLostRequest{Latitude: -34.9011, Longitude: -56.1645}
+
+	_, err := svc.PublishLost(ownerID.String(), repo.pet.ID.String(), req)
+	if err != domain.ErrInternal {
+		t.Errorf("expected ErrInternal when uow is nil, got %v", err)
+	}
+}
+
+// ============================================================
+// Follow-up: report.created payload assertion for CreatePet stray path
+// ============================================================
+
+func TestCreatePet_StrayPublishesReportCreatedEventWithCorrectPayload(t *testing.T) {
+	reporterID := uuid.New()
+	repo := &capturingPetRepo{}
+	bus := event.NewEventBus()
+
+	eventReceived := make(chan event.ReportCreatedEvent, 1)
+	bus.Subscribe("report.created", func(payload interface{}) {
+		if e, ok := payload.(event.ReportCreatedEvent); ok {
+			eventReceived <- e
+		}
+	})
+
+	reportRepo := &mockReportRepo{}
+	uow := &mockUnitOfWork{repos: repository.UnitOfWorkRepos{Pets: repo, Reports: reportRepo}}
+	svc := service.NewPetService(repo, bus, nil, reportRepo, uow)
+
+	_, err := svc.CreatePet(reporterID.String(), dto.CreatePetRequest{
+		Name: "Stray Cat", Type: "gato", Status: domain.PetStatusStray,
+		InitialReport: &dto.InitialReportRequest{Latitude: -34.9011, Longitude: -56.1645},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	select {
+	case e := <-eventReceived:
+		if e.Lat != -34.9011 {
+			t.Errorf("event Lat mismatch: got %v, want %v", e.Lat, -34.9011)
+		}
+		if e.Lng != -56.1645 {
+			t.Errorf("event Lng mismatch: got %v, want %v", e.Lng, -56.1645)
+		}
+		if e.PetID != repo.createdPet.ID {
+			t.Errorf("event PetID mismatch: got %v, want %v", e.PetID, repo.createdPet.ID)
+		}
+		if e.ReporterID != reporterID {
+			t.Errorf("event ReporterID mismatch: got %v, want %v", e.ReporterID, reporterID)
+		}
+		if e.Status != "sighting" {
+			t.Errorf("event Status mismatch: got %q, want %q", e.Status, "sighting")
+		}
+	case <-time.After(500 * time.Millisecond):
+		t.Error("timeout: report.created event was not published after creating a stray pet")
+	}
+}

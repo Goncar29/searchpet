@@ -34,6 +34,15 @@ type InitialReportRequest struct {
 	Note      string  `json:"note"`
 }
 
+// PublishLostRequest contains the location data for transitioning an owned,
+// registered pet to "lost" with its initial location report — used by
+// POST /api/pets/:id/publish-lost.
+type PublishLostRequest struct {
+	Latitude  float64 `json:"latitude" binding:"required"`
+	Longitude float64 `json:"longitude" binding:"required"`
+	Note      string  `json:"note"`
+}
+
 // UpdatePetRequest contiene los datos para actualizar una mascota.
 type UpdatePetRequest struct {
 	Name        string `json:"name"`

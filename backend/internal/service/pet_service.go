@@ -18,6 +18,11 @@ type PetService interface {
 	UpdatePet(ownerID string, petID string, req dto.UpdatePetRequest) (*domain.Pet, error)
 	DeletePet(ownerID string, petID string) error
 	MarkAsFound(ownerID string, petID string) (*domain.Pet, error)
+	// PublishLost transitions an owned pet to "lost" and creates its initial
+	// location report atomically. Returns ErrForbidden if the caller does not
+	// own the pet, ErrInvalidStatusTransition if the pet's current status
+	// cannot transition to "lost".
+	PublishLost(ownerID string, petID string, req dto.PublishLostRequest) (*domain.Pet, error)
 	// SearchPets aplica filtros opcionales y devuelve resultados paginados.
 	SearchPets(criteria domain.PetSearchCriteria) (dto.PetSearchResponse, error)
 }
@@ -138,7 +143,8 @@ func (s *petService) CreatePet(ownerID string, req dto.CreatePetRequest) (*domai
 	if s.eventBus != nil && status == domain.PetStatusStray {
 		s.eventBus.Publish("pet.stray", event.PetStrayEvent{PetID: pet.ID})
 
-		// report.created — triggers nearby push notifications via NotificationService
+		// report.created — triggers nearby push notifications via NotificationService.
+		// PetOwnerID is intentionally left as zero value: stray pets have no owner to notify.
 		s.eventBus.Publish("report.created", event.ReportCreatedEvent{
 			ReportID:   report.ID,
 			PetID:      pet.ID,
@@ -346,6 +352,73 @@ func (s *petService) MarkAsFound(ownerID string, petID string) (*domain.Pet, err
 			PetID:   pet.ID,
 			OwnerID: eventOwnerID,
 			PetName: pet.Name,
+		})
+	}
+
+	return pet, nil
+}
+
+// PublishLost transitions an owned, registered pet to "lost" and creates its
+// initial location report in a single transaction. After commit, publishes
+// pet.lost (CLIP embedding backfill) and report.created (nearby push notifications).
+func (s *petService) PublishLost(ownerID string, petID string, req dto.PublishLostRequest) (*domain.Pet, error) {
+	pet, err := s.repo.FindByID(petID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Solo el dueño puede publicar su mascota como perdida
+	if pet.OwnerID == nil || pet.OwnerID.String() != ownerID {
+		return nil, domain.ErrForbidden
+	}
+
+	// Validar que la transición a "lost" sea permitida desde el status actual
+	if err := domain.ValidateTransition(pet.Status, domain.PetStatusLost); err != nil {
+		return nil, err
+	}
+
+	if s.uow == nil {
+		return nil, domain.ErrInternal
+	}
+
+	ownerUUID, err := uuid.Parse(ownerID)
+	if err != nil {
+		return nil, domain.ErrInvalidInput
+	}
+
+	err = s.uow.Execute(func(tx repository.UnitOfWorkRepos) error {
+		if err := tx.Pets.UpdateStatus(petID, domain.PetStatusLost); err != nil {
+			return err
+		}
+		report := &domain.Report{
+			PetID:               pet.ID,
+			ReporterID:          ownerUUID,
+			Status:              "lost",
+			Latitude:            req.Latitude,
+			Longitude:           req.Longitude,
+			LocationDescription: req.Note,
+		}
+		return tx.Reports.Create(report)
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	pet.Status = domain.PetStatusLost
+	pet.Version++
+
+	// Publicamos los eventos DESPUÉS del commit — fallos aquí no afectan la transacción ya confirmada
+	if s.eventBus != nil {
+		s.eventBus.Publish("pet.lost", event.PetLostEvent{PetID: pet.ID})
+		s.eventBus.Publish("report.created", event.ReportCreatedEvent{
+			PetID:      pet.ID,
+			ReporterID: ownerUUID,
+			PetOwnerID: ownerUUID,
+			PetName:    pet.Name,
+			PetType:    pet.Type,
+			Status:     "lost",
+			Lat:        req.Latitude,
+			Lng:        req.Longitude,
 		})
 	}
 
