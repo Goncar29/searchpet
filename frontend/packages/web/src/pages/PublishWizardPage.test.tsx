@@ -78,3 +78,23 @@ describe('PublishWizardPage — lost path', () => {
     expect(screen.getByText('publish:location.title')).toBeInTheDocument();
   });
 });
+
+describe('PublishWizardPage — stray path', () => {
+  it('blocks continuing without a photo or type, then advances to location once both are set', () => {
+    render(<PublishWizardPage />, { wrapper });
+    fireEvent.click(screen.getByText('publish:intent.strayTitle'));
+
+    fireEvent.click(screen.getByText('publish:strayForm.next'));
+    expect(screen.getByText('publish:strayForm.photoRequired')).toBeInTheDocument();
+    expect(screen.getByText('publish:strayForm.typeRequired')).toBeInTheDocument();
+
+    const file = new File(['fake'], 'stray.jpg', { type: 'image/jpeg' });
+    const fileInput = screen.getByLabelText('publish:strayForm.photoLabel') as HTMLInputElement;
+    fireEvent.change(fileInput, { target: { files: [file] } });
+
+    fireEvent.change(screen.getByLabelText('publish:strayForm.typeLabel'), { target: { value: 'perro' } });
+
+    fireEvent.click(screen.getByText('publish:strayForm.next'));
+    expect(screen.getByText('publish:location.title')).toBeInTheDocument();
+  });
+});

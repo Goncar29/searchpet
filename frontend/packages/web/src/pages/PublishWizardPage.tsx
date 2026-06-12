@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { IntentStep } from '../components/publish/IntentStep';
 import { LostPetStep } from '../components/publish/LostPetStep';
+import { StrayFormStep } from '../components/publish/StrayFormStep';
 import type { Pet, CreatePetRequest, InitialReportRequest } from '@shared/types';
 
 export type PublishStep = 'intent' | 'lost-pet' | 'stray-form' | 'location' | 'auth' | 'success';
@@ -32,7 +33,7 @@ export const initialWizardState: PublishWizardState = {
 export function PublishWizardPage() {
   const { t } = useTranslation('publish');
   const [step, setStep] = useState<PublishStep>('intent');
-  const [_wizard, setWizard] = useState<PublishWizardState>(initialWizardState);
+  const [wizard, setWizard] = useState<PublishWizardState>(initialWizardState);
 
   const handleIntentSelect = (intent: PublishIntent) => {
     setWizard((prev) => ({ ...prev, intent }));
@@ -51,7 +52,13 @@ export function PublishWizardPage() {
             }}
           />
         )}
-        {step === 'stray-form' && <p>{t('strayForm.title')}</p>}
+        {step === 'stray-form' && (
+          <StrayFormStep
+            value={wizard.strayForm}
+            onChange={(strayForm) => setWizard((prev) => ({ ...prev, strayForm }))}
+            onNext={() => setStep('location')}
+          />
+        )}
         {step === 'location' && <p>{t('location.title')}</p>}
       </div>
     </div>
