@@ -1,7 +1,7 @@
 import { Link } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { useMyPets } from '@shared/hooks';
-import type { Pet } from '@shared/types';
+import type { Pet, Photo } from '@shared/types';
 
 interface LostPetStepProps {
   onSelect: (pet: Pet) => void;
@@ -14,7 +14,7 @@ export function LostPetStep({ onSelect }: LostPetStepProps) {
   const eligiblePets = (pets ?? []).filter((pet) => pet.status === 'registered');
 
   if (isLoading) {
-    return <p className="text-center text-gray-500 dark:text-gray-400">{t('common:loading', { ns: 'common' })}</p>;
+    return <p className="text-center text-gray-500 dark:text-gray-400">{t('common:loading')}</p>;
   }
 
   if (eligiblePets.length === 0) {
@@ -37,16 +37,20 @@ export function LostPetStep({ onSelect }: LostPetStepProps) {
         {t('lostPet.title')}
       </h1>
       <ul className="space-y-3">
-        {eligiblePets.map((pet) => (
+        {eligiblePets.map((pet) => {
+          const primaryPhoto: Photo | undefined =
+            pet.photos?.find((p) => p.is_primary) ?? pet.photos?.[0];
+
+          return (
           <li key={pet.id}>
             <button
               type="button"
               onClick={() => onSelect(pet)}
               className="w-full flex items-center gap-4 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-primary p-4 bg-white dark:bg-gray-900 transition-colors text-left"
             >
-              {pet.photos[0] ? (
+              {primaryPhoto ? (
                 <img
-                  src={pet.photos[0].url}
+                  src={primaryPhoto.url}
                   alt={pet.name}
                   className="h-14 w-14 rounded-lg object-cover flex-shrink-0"
                 />
@@ -62,7 +66,8 @@ export function LostPetStep({ onSelect }: LostPetStepProps) {
               <span className="text-primary font-semibold text-sm whitespace-nowrap">{t('lostPet.select')}</span>
             </button>
           </li>
-        ))}
+          );
+        })}
       </ul>
     </div>
   );
