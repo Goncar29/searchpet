@@ -72,6 +72,9 @@ export function PublishWizardPage() {
   const submitStray = async (location: NonNullable<typeof wizard.location>) => {
     try {
       const result = await publishStray.mutateAsync({ pet: buildStrayPayload(location), photos: wizard.strayForm.photos });
+      // Set the stale pet first so the success step renders immediately —
+      // the render guard requires publishedPet, and the refetch below is async.
+      setPublishedPet(result.pet);
       setFailedPhotoIndexes(result.failedPhotoIndexes);
       setStep('success');
       // Photo uploads happen after pet creation inside the mutation, so
@@ -82,7 +85,7 @@ export function PublishWizardPage() {
         const freshPet = await apiClient.getPetByID(result.pet.id);
         setPublishedPet(freshPet);
       } catch {
-        setPublishedPet(result.pet);
+        // Keep result.pet — already set above.
       }
     } catch (err) {
       setPublishError(getErrorMessage(err, t));
