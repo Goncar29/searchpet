@@ -22,6 +22,18 @@ vi.mock('@shared/hooks', () => ({
   usePublishStray: () => ({ mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false }),
 }));
 
+vi.mock('react-leaflet', () => ({
+  MapContainer: ({ children }: { children: React.ReactNode }) => <div data-testid="map">{children}</div>,
+  TileLayer: () => null,
+  Marker: ({ eventHandlers }: { eventHandlers?: { dragend?: () => void } }) => (
+    <button data-testid="marker" onClick={() => eventHandlers?.dragend?.()}>marker</button>
+  ),
+}));
+
+vi.mock('leaflet', () => ({
+  default: { Icon: class { constructor() {} } },
+}));
+
 function wrapper({ children }: { children: React.ReactNode }) {
   return (
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
@@ -96,5 +108,27 @@ describe('PublishWizardPage — stray path', () => {
 
     fireEvent.click(screen.getByText('publish:strayForm.next'));
     expect(screen.getByText('publish:location.title')).toBeInTheDocument();
+  });
+});
+
+describe('PublishWizardPage — location step', () => {
+  it('renders the map with a default center and publishes with the selected location', () => {
+    vi.mocked(useMyPets).mockReturnValue({
+      data: [{ id: 'pet-1', name: 'Firulais', type: 'perro', status: 'registered', photos: [] }],
+      isLoading: false,
+    } as unknown as ReturnType<typeof useMyPets>);
+
+    render(<PublishWizardPage />, { wrapper });
+    fireEvent.click(screen.getByText('publish:intent.lostTitle'));
+    fireEvent.click(screen.getByText('Firulais'));
+
+    expect(screen.getByText('publish:location.title')).toBeInTheDocument();
+    expect(screen.getByTestId('map')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('publish:location.noteLabel'), { target: { value: 'Cerca de la plaza' } });
+    fireEvent.click(screen.getByText('publish:location.publish'));
+
+    // Authenticated lost path publishes immediately — no auth step.
+    expect(screen.queryByText('publish:auth.title')).not.toBeInTheDocument();
   });
 });

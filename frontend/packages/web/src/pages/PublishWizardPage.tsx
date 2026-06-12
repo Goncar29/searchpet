@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { IntentStep } from '../components/publish/IntentStep';
 import { LostPetStep } from '../components/publish/LostPetStep';
 import { StrayFormStep } from '../components/publish/StrayFormStep';
+import { LocationStep } from '../components/publish/LocationStep';
+import { useAuth } from '../context/AuthContext';
 import type { Pet, CreatePetRequest, InitialReportRequest } from '@shared/types';
 
 export type PublishStep = 'intent' | 'lost-pet' | 'stray-form' | 'location' | 'auth' | 'success';
@@ -32,12 +34,26 @@ export const initialWizardState: PublishWizardState = {
 
 export function PublishWizardPage() {
   const { t } = useTranslation('publish');
+  const { isAuthenticated } = useAuth();
   const [step, setStep] = useState<PublishStep>('intent');
   const [wizard, setWizard] = useState<PublishWizardState>(initialWizardState);
 
   const handleIntentSelect = (intent: PublishIntent) => {
     setWizard((prev) => ({ ...prev, intent }));
     setStep(intent === 'lost' ? 'lost-pet' : 'stray-form');
+  };
+
+  const handleBackFromLocation = () => {
+    setStep(wizard.intent === 'lost' ? 'lost-pet' : 'stray-form');
+  };
+
+  const handlePublish = (location: typeof wizard.location) => {
+    setWizard((prev) => ({ ...prev, location }));
+    if (!isAuthenticated && wizard.intent === 'stray') {
+      setStep('auth');
+      return;
+    }
+    setStep('success');
   };
 
   return (
@@ -59,7 +75,16 @@ export function PublishWizardPage() {
             onNext={() => setStep('location')}
           />
         )}
-        {step === 'location' && <p>{t('location.title')}</p>}
+        {step === 'location' && (
+          <LocationStep
+            value={wizard.location}
+            onPublish={handlePublish}
+            onBack={handleBackFromLocation}
+            isPending={false}
+          />
+        )}
+        {step === 'auth' && <p>{t('auth.title')}</p>}
+        {step === 'success' && <p>publish:success placeholder</p>}
       </div>
     </div>
   );
