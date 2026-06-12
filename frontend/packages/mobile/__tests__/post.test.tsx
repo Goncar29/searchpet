@@ -4,6 +4,26 @@ import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
 import * as ImagePicker from 'expo-image-picker';
 import PostScreen from '../app/(tabs)/post';
 
+jest.mock('@maplibre/maplibre-react-native', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+  return {
+    __esModule: true,
+    default: {
+      MapView: ({ children, ...props }: any) => React.createElement(View, { testID: 'map', ...props }, children),
+      Camera: () => null,
+      UserLocation: () => null,
+      PointAnnotation: ({ children, onDragEnd, ...props }: any) =>
+        React.createElement(View, { testID: 'pin', onTouchEnd: () => onDragEnd?.({ geometry: { coordinates: [-56.2, -34.95] } }), ...props }, children),
+    },
+  };
+});
+
+jest.mock('expo-location', () => ({
+  requestForegroundPermissionsAsync: jest.fn().mockResolvedValue({ status: 'granted' }),
+  getCurrentPositionAsync: jest.fn().mockResolvedValue({ coords: { latitude: -34.95, longitude: -56.2 } }),
+}));
+
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
     t: (key: string) => key,
@@ -32,9 +52,9 @@ jest.mock('../store', () => ({
 
 jest.mock('@shared/hooks', () => ({
   useMyPets: jest.fn(() => ({ data: [], isLoading: false })),
-  usePublishLost: () => ({ mutateAsync: jest.fn(), isPending: false }),
-  usePublishStrayNative: () => ({ mutateAsync: jest.fn(), isPending: false }),
-  useUploadPhotoNative: () => ({ mutateAsync: jest.fn(), isPending: false }),
+  usePublishLost: jest.fn(() => ({ mutateAsync: jest.fn(), isPending: false })),
+  usePublishStrayNative: jest.fn(() => ({ mutateAsync: jest.fn(), isPending: false })),
+  useUploadPhotoNative: jest.fn(() => ({ mutateAsync: jest.fn(), isPending: false })),
 }));
 
 const { useMyPets } = jest.requireMock('@shared/hooks');
@@ -110,5 +130,27 @@ describe('PostScreen — stray path', () => {
     fireEvent.press(getByText('pets:types.perro'));
     fireEvent.press(getByText('publish:strayForm.next'));
     expect(getByText('publish:location.title')).toBeTruthy();
+  });
+});
+
+describe('PostScreen — location step', () => {
+  it('renders the map and publishes with the default Montevideo location', async () => {
+    useMyPets.mockReturnValue({
+      data: [{ id: 'pet-1', name: 'Firulais', type: 'perro', status: 'registered', photos: [] }],
+      isLoading: false,
+    });
+    const { getByText, getByTestId } = render(<PostScreen />);
+    fireEvent.press(getByText('publish:intent.lostTitle'));
+    fireEvent.press(getByText('Firulais'));
+
+    expect(getByText('publish:location.title')).toBeTruthy();
+    expect(getByTestId('map')).toBeTruthy();
+
+    fireEvent.changeText(getByTestId('location-note-input'), 'Cerca de la plaza');
+    await act(async () => {
+      fireEvent.press(getByText('publish:location.publish'));
+    });
+
+    expect(getByText('publish:success.lostTitle')).toBeTruthy();
   });
 });
