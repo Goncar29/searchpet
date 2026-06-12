@@ -261,6 +261,64 @@
     "image_field_required": "O campo 'imagem' é obrigatório",
     "image_search_unavailable": "O serviço de busca por imagem está temporariamente indisponível",
     "binding_failed": "Os dados de entrada fornecidos não são válidos",
+    "initial_report_required": "Para publicar um avistamento você precisa informar o último local onde o animal foi visto",
     "unknown_error": "Ocorreu um erro inesperado. Por favor, tente novamente"
+  },
+  "publish": {
+    "intent": {
+      "title": "O que você quer publicar?",
+      "lostTitle": "Meu animal se perdeu",
+      "lostDescription": "Marque um animal cadastrado como perdido e adicione o último local onde foi visto.",
+      "strayTitle": "Vi um animal de rua",
+      "strayDescription": "Envie uma foto e o local onde você o viu para ajudar a encontrar sua família.",
+      "next": "Continuar"
+    },
+    "lostPet": {
+      "title": "Escolha o animal perdido",
+      "empty": "Você ainda não tem animais cadastrados.",
+      "emptyAction": "Cadastrar um animal",
+      "select": "Selecionar"
+    },
+    "strayForm": {
+      "title": "Conte sobre o animal que você viu",
+      "photoLabel": "Fotos (1 a 3, obrigatório)",
+      "photoRequired": "Adicione pelo menos uma foto",
+      "photoFormatError": "Formato não suportado. Use JPG, PNG ou WebP",
+      "photoSizeError": "Cada foto deve ter menos de 5 MB",
+      "photoLimit": "Máximo de 3 fotos",
+      "typeLabel": "Tipo *",
+      "typeRequired": "Selecione o tipo de animal",
+      "breedLabel": "Raça",
+      "colorLabel": "Cor",
+      "descriptionLabel": "Descrição",
+      "next": "Continuar"
+    },
+    "location": {
+      "title": "Onde você o viu pela última vez?",
+      "instructions": "Arraste o marcador até o local exato ou use sua localização atual.",
+      "useMyLocation": "Usar minha localização",
+      "locationDenied": "Não conseguimos acessar sua localização. Mova o marcador manualmente.",
+      "noteLabel": "Nota (opcional)",
+      "notePlaceholder": "Ex.: perto da praça, com coleira vermelha...",
+      "publish": "Publicar",
+      "back": "Voltar"
+    },
+    "auth": {
+      "title": "Entre para publicar",
+      "description": "Para publicar um avistamento precisamos poder contatar você. Seu progresso não será perdido.",
+      "loginTab": "Entrar",
+      "registerTab": "Criar conta",
+      "continue": "Continuar e publicar"
+    },
+    "success": {
+      "lostTitle": "Pronto! Seu animal está marcado como perdido",
+      "strayTitle": "Obrigado por avisar!",
+      "lostDescription": "Compartilhe o aviso para que mais pessoas ajudem na busca.",
+      "strayDescription": "Compartilhe o aviso para ajudar a encontrar a família dele.",
+      "photoRetryTitle": "O animal foi publicado, mas {{count}} foto(s) não puderam ser enviadas",
+      "photoRetryAction": "Tentar novamente",
+      "viewPet": "Ver animal",
+      "publishAnother": "Publicar outro aviso"
+    }
   }
 }

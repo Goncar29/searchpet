@@ -261,6 +261,64 @@
     "image_field_required": "El campo 'imagen' es obligatorio",
     "image_search_unavailable": "El servicio de búsqueda por imagen no está disponible temporalmente",
     "binding_failed": "Los datos de entrada no son válidos",
+    "initial_report_required": "Para publicar un avistamiento necesitás indicar la última ubicación donde fue vista la mascota",
     "unknown_error": "Ocurrió un error inesperado. Por favor intentá de nuevo"
+  },
+  "publish": {
+    "intent": {
+      "title": "¿Qué querés publicar?",
+      "lostTitle": "Mi mascota se perdió",
+      "lostDescription": "Marcá una mascota registrada como perdida y agregá la última ubicación donde la viste.",
+      "strayTitle": "Vi una mascota callejera",
+      "strayDescription": "Subí una foto y la ubicación donde la viste para ayudar a encontrar a su familia.",
+      "next": "Continuar"
+    },
+    "lostPet": {
+      "title": "Elegí la mascota perdida",
+      "empty": "No tenés mascotas registradas todavía.",
+      "emptyAction": "Registrar una mascota",
+      "select": "Seleccionar"
+    },
+    "strayForm": {
+      "title": "Contanos sobre la mascota que viste",
+      "photoLabel": "Fotos (1 a 3, obligatorio)",
+      "photoRequired": "Agregá al menos una foto",
+      "photoFormatError": "Formato no soportado. Usá JPG, PNG o WebP",
+      "photoSizeError": "Cada foto debe pesar menos de 5 MB",
+      "photoLimit": "Máximo 3 fotos",
+      "typeLabel": "Tipo *",
+      "typeRequired": "Seleccioná el tipo de animal",
+      "breedLabel": "Raza",
+      "colorLabel": "Color",
+      "descriptionLabel": "Descripción",
+      "next": "Continuar"
+    },
+    "location": {
+      "title": "¿Dónde la viste por última vez?",
+      "instructions": "Arrastrá el pin al lugar exacto o usá tu ubicación actual.",
+      "useMyLocation": "Usar mi ubicación",
+      "locationDenied": "No pudimos acceder a tu ubicación. Mové el pin manualmente.",
+      "noteLabel": "Nota (opcional)",
+      "notePlaceholder": "Ej: cerca de la plaza, con collar rojo...",
+      "publish": "Publicar",
+      "back": "Atrás"
+    },
+    "auth": {
+      "title": "Iniciá sesión para publicar",
+      "description": "Para publicar un avistamiento necesitamos poder contactarte. Tu progreso no se va a perder.",
+      "loginTab": "Iniciar sesión",
+      "registerTab": "Crear cuenta",
+      "continue": "Continuar y publicar"
+    },
+    "success": {
+      "lostTitle": "¡Listo! Tu mascota está marcada como perdida",
+      "strayTitle": "¡Gracias por reportar!",
+      "lostDescription": "Compartí el aviso para que más personas ayuden a buscarla.",
+      "strayDescription": "Compartí el aviso para ayudar a encontrar a su familia.",
+      "photoRetryTitle": "La mascota se publicó, pero {{count}} foto(s) no se pudieron subir",
+      "photoRetryAction": "Reintentar subida",
+      "viewPet": "Ver mascota",
+      "publishAnother": "Publicar otro aviso"
+    }
   }
 }
