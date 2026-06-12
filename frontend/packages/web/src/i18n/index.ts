@@ -31,6 +31,7 @@ i18n
         messages: sharedEs.messages,
         badges: sharedEs.badges,
         errors: sharedEs.errors,
+        publish: sharedEs.publish,
         // Web-only namespaces
         layout: es.layout,
         home: es.home,
@@ -50,6 +51,7 @@ i18n
         messages: sharedEn.messages,
         badges: sharedEn.badges,
         errors: sharedEn.errors,
+        publish: sharedEn.publish,
         // Web-only namespaces
         layout: en.layout,
         home: en.home,
@@ -69,6 +71,7 @@ i18n
         messages: sharedPt.messages,
         badges: sharedPt.badges,
         errors: sharedPt.errors,
+        publish: sharedPt.publish,
         // Web-only namespaces
         layout: pt.layout,
         home: pt.home,
