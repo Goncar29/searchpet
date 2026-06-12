@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { QueryClientProvider, QueryClient } from '@tanstack/react-query';
@@ -213,6 +213,20 @@ describe('PublishWizardPage — success step', () => {
 });
 
 describe('PublishWizardPage — unauthenticated stray path', () => {
+  const initialAuthState = {
+    isAuthenticated: authState.isAuthenticated,
+    user: authState.user,
+    login: authState.login,
+    register: authState.register,
+  };
+
+  afterEach(() => {
+    authState.isAuthenticated = initialAuthState.isAuthenticated;
+    authState.user = initialAuthState.user;
+    authState.login = initialAuthState.login;
+    authState.register = initialAuthState.register;
+  });
+
   it('shows inline auth at PUBLICAR, preserves wizard state, and publishes after registration', async () => {
     authState.isAuthenticated = false;
     authState.user = null;

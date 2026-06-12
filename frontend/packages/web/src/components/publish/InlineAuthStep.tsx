@@ -15,6 +15,8 @@ interface FieldErrors {
 
 export function InlineAuthStep({ onAuthenticated }: InlineAuthStepProps) {
   const { t } = useTranslation(['publish', 'common']);
+  // Separate hook (not an extra namespace on `t`) so the test's i18n mock,
+  // which prefixes keys with the hook's first namespace, resolves register.* as auth:register.*.
   const { t: tAuth } = useTranslation(['auth']);
   const { login, register } = useAuth();
   const [tab, setTab] = useState<'login' | 'register'>('login');
