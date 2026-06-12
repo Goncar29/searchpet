@@ -26,6 +26,7 @@ import type {
   Pet,
   CreatePetRequest,
   UpdatePetRequest,
+  PublishLostRequest,
   UpdateProfileRequest,
   PetSearchFilters,
   PetListResponse,
@@ -192,6 +193,10 @@ class APIClient {
 
   async createPet(data: CreatePetRequest): Promise<Pet> {
     return this.request<Pet>('POST', '/api/pets', data);
+  }
+
+  async publishPetLost(petId: string, data: PublishLostRequest): Promise<Pet> {
+    return this.request<Pet>('POST', `/api/pets/${petId}/publish-lost`, data);
   }
 
   async getPetByID(id: string): Promise<Pet> {
