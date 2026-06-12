@@ -31,6 +31,7 @@ import { BlockedUsersPage } from './pages/BlockedUsersPage';
 import { MessagesPage } from './pages/MessagesPage';
 import { ChatPage } from './pages/ChatPage';
 import { AlertsPage } from './pages/AlertsPage';
+import { PublishWizardPage } from './pages/PublishWizardPage';
 
 export default function App() {
   return (
@@ -41,6 +42,7 @@ export default function App() {
           {/* Rutas públicas */}
           <Route path="/" element={<HomePage />} />
           <Route path="/map" element={<MapPage />} />
+          <Route path="/publish" element={<PublishWizardPage />} />
           <Route path="/pets/:id" element={<PetDetailPage />} />
           <Route path="/shelters" element={<SheltersPage />} />
           <Route path="/leaderboard" element={<LeaderboardPage />} />
