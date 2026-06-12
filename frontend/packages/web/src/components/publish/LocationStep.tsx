@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { MapContainer, TileLayer, Marker } from 'react-leaflet';
+import { useEffect, useState } from 'react';
+import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
 import { useTranslation } from 'react-i18next';
 import L from 'leaflet';
 import type { InitialReportRequest } from '@shared/types';
@@ -13,6 +13,14 @@ const pinIcon = new L.Icon({
   iconAnchor: [12, 41],
   popupAnchor: [1, -34],
 });
+
+function RecenterOnChange({ position }: { position: [number, number] }) {
+  const map = useMap();
+  useEffect(() => {
+    map.setView(position);
+  }, [map, position]);
+  return null;
+}
 
 interface LocationStepProps {
   value: InitialReportRequest | null;
@@ -66,6 +74,7 @@ export function LocationStep({ value, onPublish, onBack, isPending }: LocationSt
               },
             }}
           />
+          <RecenterOnChange position={position} />
         </MapContainer>
       </div>
 
@@ -76,7 +85,11 @@ export function LocationStep({ value, onPublish, onBack, isPending }: LocationSt
       >
         {t('location.useMyLocation')}
       </button>
-      {locationError && <p className="text-yellow-600 dark:text-yellow-400 text-sm text-center">{locationError}</p>}
+      {locationError && (
+        <p role="alert" className="text-yellow-600 dark:text-yellow-400 text-sm text-center">
+          {locationError}
+        </p>
+      )}
 
       <div>
         <label htmlFor="location-note" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">

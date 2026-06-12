@@ -25,9 +25,25 @@ vi.mock('@shared/hooks', () => ({
 vi.mock('react-leaflet', () => ({
   MapContainer: ({ children }: { children: React.ReactNode }) => <div data-testid="map">{children}</div>,
   TileLayer: () => null,
-  Marker: ({ eventHandlers }: { eventHandlers?: { dragend?: () => void } }) => (
-    <button data-testid="marker" onClick={() => eventHandlers?.dragend?.()}>marker</button>
+  Marker: ({
+    position,
+    eventHandlers,
+  }: {
+    position: [number, number];
+    eventHandlers?: { dragend?: (e: { target: { getLatLng: () => { lat: number; lng: number } } }) => void };
+  }) => (
+    <button
+      data-testid="marker"
+      onClick={() =>
+        eventHandlers?.dragend?.({
+          target: { getLatLng: () => ({ lat: position[0], lng: position[1] }) },
+        })
+      }
+    >
+      marker
+    </button>
   ),
+  useMap: () => ({ setView: vi.fn() }),
 }));
 
 vi.mock('leaflet', () => ({
