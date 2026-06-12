@@ -567,3 +567,110 @@ func TestPetHandler_GetMyPets(t *testing.T) {
 		})
 	}
 }
+
+// ============================================================
+// POST /api/pets/:id/publish-lost
+// ============================================================
+
+func TestPublishLostHandler_HappyPath_Returns200(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	ownerID := uuid.New()
+	petID := uuid.New()
+	svc := &mockPetService{
+		publishLostFn: func(_, _ string, _ dto.PublishLostRequest) (*domain.Pet, error) {
+			return &domain.Pet{ID: petID, OwnerID: &ownerID, Name: "Rex", Type: "perro", Status: domain.PetStatusLost, Version: 2}, nil
+		},
+	}
+	h := handler.NewPetHandler(svc, nil)
+
+	r := gin.New()
+	r.POST("/api/pets/:id/publish-lost", func(c *gin.Context) {
+		c.Set("userID", ownerID.String())
+		h.PublishLost(c)
+	})
+
+	body, _ := json.Marshal(map[string]interface{}{"latitude": -34.9011, "longitude": -56.1645, "note": "cerca de casa"})
+	req := httptest.NewRequest(http.MethodPost, "/api/pets/"+petID.String()+"/publish-lost", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestPublishLostHandler_Forbidden_Returns403(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	svc := &mockPetService{
+		publishLostFn: func(_, _ string, _ dto.PublishLostRequest) (*domain.Pet, error) {
+			return nil, domain.ErrForbidden
+		},
+	}
+	h := handler.NewPetHandler(svc, nil)
+
+	r := gin.New()
+	r.POST("/api/pets/:id/publish-lost", func(c *gin.Context) {
+		c.Set("userID", uuid.New().String())
+		h.PublishLost(c)
+	})
+
+	body, _ := json.Marshal(map[string]interface{}{"latitude": -34.9011, "longitude": -56.1645})
+	req := httptest.NewRequest(http.MethodPost, "/api/pets/"+uuid.New().String()+"/publish-lost", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("expected 403, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestPublishLostHandler_InvalidTransition_Returns422(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	svc := &mockPetService{
+		publishLostFn: func(_, _ string, _ dto.PublishLostRequest) (*domain.Pet, error) {
+			return nil, domain.ErrInvalidStatusTransition
+		},
+	}
+	h := handler.NewPetHandler(svc, nil)
+
+	r := gin.New()
+	r.POST("/api/pets/:id/publish-lost", func(c *gin.Context) {
+		c.Set("userID", uuid.New().String())
+		h.PublishLost(c)
+	})
+
+	body, _ := json.Marshal(map[string]interface{}{"latitude": -34.9011, "longitude": -56.1645})
+	req := httptest.NewRequest(http.MethodPost, "/api/pets/"+uuid.New().String()+"/publish-lost", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("expected 422, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestPublishLostHandler_InvalidLatitude_Returns400(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	svc := &mockPetService{}
+	h := handler.NewPetHandler(svc, nil)
+
+	r := gin.New()
+	r.POST("/api/pets/:id/publish-lost", func(c *gin.Context) {
+		c.Set("userID", uuid.New().String())
+		h.PublishLost(c)
+	})
+
+	// latitude out of range [-90, 90]
+	body, _ := json.Marshal(map[string]interface{}{"latitude": 120.0, "longitude": -56.1645})
+	req := httptest.NewRequest(http.MethodPost, "/api/pets/"+uuid.New().String()+"/publish-lost", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d: %s", w.Code, w.Body.String())
+	}
+}

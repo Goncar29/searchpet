@@ -246,6 +246,46 @@ func (h *PetHandler) MarkAsFound(c *gin.Context) {
 	c.JSON(http.StatusOK, dto.ToPetResponse(pet))
 }
 
+// PublishLost godoc
+// POST /api/pets/:id/publish-lost
+// Transiciona una mascota propia a "lost" y crea su reporte de ubicación inicial
+// en una sola transacción. Solo el dueño puede llamarlo.
+func (h *PetHandler) PublishLost(c *gin.Context) {
+	ownerID := getUserID(c)
+	petID := c.Param("id")
+
+	var req dto.PublishLostRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
+		return
+	}
+
+	if req.Latitude < -90 || req.Latitude > 90 || req.Longitude < -180 || req.Longitude > 180 {
+		writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
+		return
+	}
+
+	pet, err := h.petService.PublishLost(ownerID, petID, req)
+	if err != nil {
+		if errors.Is(err, domain.ErrPetNotFound) {
+			writeError(c, http.StatusNotFound, err)
+			return
+		}
+		if errors.Is(err, domain.ErrForbidden) {
+			writeError(c, http.StatusForbidden, err)
+			return
+		}
+		if errors.Is(err, domain.ErrInvalidStatusTransition) {
+			writeError(c, http.StatusUnprocessableEntity, err)
+			return
+		}
+		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
+		return
+	}
+
+	c.JSON(http.StatusOK, dto.ToPetResponse(pet))
+}
+
 // SearchByImage godoc
 // POST /api/pets/search/image
 // Recibe una foto por multipart (campo "image"), genera un embedding CLIP y retorna
