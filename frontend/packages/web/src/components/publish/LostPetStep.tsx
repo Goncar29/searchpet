@@ -13,13 +13,6 @@ export function LostPetStep({ onSelect }: LostPetStepProps) {
 
   const eligiblePets = (pets ?? []).filter((pet) => pet.status === 'registered');
 
-  const typeLabels: Record<string, string> = {
-    perro: t('pets:types.dog'),
-    gato: t('pets:types.cat'),
-    otro: t('pets:types.other'),
-    pajaro: t('pets:types.other'),
-  };
-
   if (isLoading) {
     return <p className="text-center text-gray-500 dark:text-gray-400">{t('common:loading', { ns: 'common' })}</p>;
   }
@@ -64,7 +57,7 @@ export function LostPetStep({ onSelect }: LostPetStepProps) {
               )}
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-gray-900 dark:text-gray-50 truncate">{pet.name}</p>
-                <p className="text-sm text-gray-500 dark:text-gray-400">{typeLabels[pet.type] ?? pet.type}</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">{t(`pets:types.${pet.type}`)}</p>
               </div>
               <span className="text-primary font-semibold text-sm whitespace-nowrap">{t('lostPet.select')}</span>
             </button>
