@@ -38,8 +38,17 @@ func (h *PetHandler) CreatePet(c *gin.Context) {
 		return
 	}
 
+	if req.InitialReport != nil && !validCoordinates(req.InitialReport.Latitude, req.InitialReport.Longitude) {
+		writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
+		return
+	}
+
 	pet, err := h.petService.CreatePet(ownerID, req)
 	if err != nil {
+		if errors.Is(err, domain.ErrInitialReportRequired) || errors.Is(err, domain.ErrInitialReportNotAllowed) || errors.Is(err, domain.ErrInvalidStatusTransition) {
+			writeError(c, http.StatusBadRequest, err)
+			return
+		}
 		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		return
 	}
@@ -260,7 +269,7 @@ func (h *PetHandler) PublishLost(c *gin.Context) {
 		return
 	}
 
-	if req.Latitude < -90 || req.Latitude > 90 || req.Longitude < -180 || req.Longitude > 180 {
+	if !validCoordinates(req.Latitude, req.Longitude) {
 		writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
 		return
 	}

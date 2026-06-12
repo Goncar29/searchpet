@@ -598,6 +598,14 @@ func TestPublishLostHandler_HappyPath_Returns200(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
 	}
+
+	var resp dto.PetResponse
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if resp.Status != domain.PetStatusLost {
+		t.Errorf("want status %q, got %q", domain.PetStatusLost, resp.Status)
+	}
 }
 
 func TestPublishLostHandler_Forbidden_Returns403(t *testing.T) {
@@ -666,6 +674,126 @@ func TestPublishLostHandler_InvalidLatitude_Returns400(t *testing.T) {
 	// latitude out of range [-90, 90]
 	body, _ := json.Marshal(map[string]interface{}{"latitude": 120.0, "longitude": -56.1645})
 	req := httptest.NewRequest(http.MethodPost, "/api/pets/"+uuid.New().String()+"/publish-lost", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestPublishLostHandler_InvalidLongitude_Returns400(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	svc := &mockPetService{}
+	h := handler.NewPetHandler(svc, nil)
+
+	r := gin.New()
+	r.POST("/api/pets/:id/publish-lost", func(c *gin.Context) {
+		c.Set("userID", uuid.New().String())
+		h.PublishLost(c)
+	})
+
+	// longitude out of range [-180, 180]
+	body, _ := json.Marshal(map[string]interface{}{"latitude": -34.9011, "longitude": 200.0})
+	req := httptest.NewRequest(http.MethodPost, "/api/pets/"+uuid.New().String()+"/publish-lost", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+// ============================================================
+// POST /api/pets — initial_report validation
+// ============================================================
+
+func TestCreatePetHandler_InvalidInitialReportLatitude_Returns400(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	ownerID := uuid.New()
+	svc := &mockPetService{}
+	h := handler.NewPetHandler(svc, nil)
+
+	r := gin.New()
+	r.POST("/api/pets", func(c *gin.Context) {
+		c.Set("userID", ownerID.String())
+		h.CreatePet(c)
+	})
+
+	body, _ := json.Marshal(map[string]interface{}{
+		"name":   "Callejero",
+		"type":   "perro",
+		"status": "stray",
+		"initial_report": map[string]interface{}{
+			"latitude":  200.0, // out of range
+			"longitude": -56.1645,
+		},
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/pets", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestCreatePetHandler_InitialReportRequired_Returns400(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	ownerID := uuid.New()
+	svc := &mockPetService{
+		createPetFn: func(_ string, _ dto.CreatePetRequest) (*domain.Pet, error) {
+			return nil, domain.ErrInitialReportRequired
+		},
+	}
+	h := handler.NewPetHandler(svc, nil)
+
+	r := gin.New()
+	r.POST("/api/pets", func(c *gin.Context) {
+		c.Set("userID", ownerID.String())
+		h.CreatePet(c)
+	})
+
+	body, _ := json.Marshal(map[string]interface{}{"name": "Callejero", "type": "perro", "status": "stray"})
+	req := httptest.NewRequest(http.MethodPost, "/api/pets", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestCreatePetHandler_InitialReportNotAllowed_Returns400(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	ownerID := uuid.New()
+	svc := &mockPetService{
+		createPetFn: func(_ string, _ dto.CreatePetRequest) (*domain.Pet, error) {
+			return nil, domain.ErrInitialReportNotAllowed
+		},
+	}
+	h := handler.NewPetHandler(svc, nil)
+
+	r := gin.New()
+	r.POST("/api/pets", func(c *gin.Context) {
+		c.Set("userID", ownerID.String())
+		h.CreatePet(c)
+	})
+
+	body, _ := json.Marshal(map[string]interface{}{
+		"name":   "Luna",
+		"type":   "gato",
+		"status": "registered",
+		"initial_report": map[string]interface{}{
+			"latitude":  -34.9011,
+			"longitude": -56.1645,
+		},
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/pets", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)

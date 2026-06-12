@@ -27,6 +27,12 @@ func getUserID(c *gin.Context) string {
 	return id.String()
 }
 
+// validCoordinates reports whether lat/lng fall within valid geographic bounds:
+// latitude in [-90, 90] and longitude in [-180, 180].
+func validCoordinates(lat, lng float64) bool {
+	return lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180
+}
+
 // getUserUUID lee el userID del contexto de Gin y lo retorna directamente como uuid.UUID.
 // Útil para handlers que necesitan pasar el UUID sin conversión a string.
 func getUserUUID(c *gin.Context) uuid.UUID {
