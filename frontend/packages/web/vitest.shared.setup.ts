@@ -1,5 +1,9 @@
 // Minimal DOM polyfill for the shared test suite (environment: 'node').
 //
+// TODO: remove this file once Vitest 4 fixes the jsdom + custom-root +
+// Windows path-resolution bug described below, and `environment: 'jsdom'`
+// can be used directly.
+//
 // `environment: 'jsdom'` is broken in this config (custom `root` outside the
 // package directory triggers a Vitest/jsdom path-resolution bug on Windows:
 // "Cannot find module '/<file>.test.ts'"). Instead we stay in `environment:

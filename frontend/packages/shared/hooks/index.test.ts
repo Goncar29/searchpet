@@ -18,6 +18,15 @@ function wrapper({ children }: { children: ReactNode }) {
   return createElement(QueryClientProvider, { client: queryClient }, children);
 }
 
+// Variant of `wrapper` that exposes the QueryClient instance so tests can spy
+// on `invalidateQueries` and assert the exact query keys used.
+function createWrapperWithClient() {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const wrapperWithClient = ({ children }: { children: ReactNode }) =>
+    createElement(QueryClientProvider, { client: queryClient }, children);
+  return { queryClient, wrapper: wrapperWithClient };
+}
+
 const mockPet: Pet = {
   id: 'pet-1',
   name: 'Sin nombre',
@@ -41,6 +50,25 @@ describe('usePublishLost', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(apiClient.publishPetLost).toHaveBeenCalledWith('pet-1', { latitude: -34.9, longitude: -56.1 });
     expect(result.current.data?.status).toBe('lost');
+  });
+
+  it('invalidates pets, pets/:id, pets/mine, and reports queries on success', async () => {
+    vi.spyOn(apiClient, 'publishPetLost').mockResolvedValue({ ...mockPet, status: 'lost' });
+
+    const { queryClient, wrapper: wrapperWithClient } = createWrapperWithClient();
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
+
+    const { result } = renderHook(() => usePublishLost(), { wrapper: wrapperWithClient });
+
+    result.current.mutate({ id: 'pet-1', data: { latitude: -34.9, longitude: -56.1 } });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    const invalidatedKeys = invalidateSpy.mock.calls.map((call) => call[0]?.queryKey);
+    expect(invalidatedKeys).toEqual(
+      expect.arrayContaining([['pets'], ['pets', 'pet-1'], ['pets', 'mine'], ['reports']])
+    );
+    expect(invalidatedKeys).toHaveLength(4);
   });
 });
 
@@ -96,6 +124,53 @@ describe('usePublishStray', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
     expect(result.current.data).toEqual({ pet: mockPet, failedPhotoIndexes: [1] });
+  });
+
+  it('returns failedPhotoIndexes [0, 2] when the first and third of three uploads fail', async () => {
+    vi.spyOn(apiClient, 'createPet').mockResolvedValue(mockPet);
+    vi.spyOn(apiClient, 'uploadPhoto')
+      .mockRejectedValueOnce(new Error('upload failed'))
+      .mockResolvedValueOnce({ id: 'photo-2', url: 'https://x/photo-2.jpg' })
+      .mockRejectedValueOnce(new Error('upload failed'));
+
+    const file1 = new File(['a'], 'a.jpg', { type: 'image/jpeg' });
+    const file2 = new File(['b'], 'b.jpg', { type: 'image/jpeg' });
+    const file3 = new File(['c'], 'c.jpg', { type: 'image/jpeg' });
+
+    const { result } = renderHook(() => usePublishStray(), { wrapper });
+
+    result.current.mutate({
+      pet: { name: 'Sin nombre', type: 'perro', status: 'stray', initial_report: { latitude: -34.9, longitude: -56.1 } },
+      photos: [file1, file2, file3],
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    expect(apiClient.uploadPhoto).toHaveBeenCalledTimes(3);
+    expect(result.current.data).toEqual({ pet: mockPet, failedPhotoIndexes: [0, 2] });
+  });
+
+  it('invalidates pets, pets/:id, pets/mine, and reports queries on success', async () => {
+    vi.spyOn(apiClient, 'createPet').mockResolvedValue(mockPet);
+    vi.spyOn(apiClient, 'uploadPhoto').mockResolvedValue({ id: 'photo-1', url: 'https://x/photo-1.jpg' });
+
+    const { queryClient, wrapper: wrapperWithClient } = createWrapperWithClient();
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
+
+    const { result } = renderHook(() => usePublishStray(), { wrapper: wrapperWithClient });
+
+    result.current.mutate({
+      pet: { name: 'Sin nombre', type: 'perro', status: 'stray', initial_report: { latitude: -34.9, longitude: -56.1 } },
+      photos: [],
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    const invalidatedKeys = invalidateSpy.mock.calls.map((call) => call[0]?.queryKey);
+    expect(invalidatedKeys).toEqual(
+      expect.arrayContaining([['pets'], ['pets', 'mine'], ['pets', mockPet.id], ['reports']])
+    );
+    expect(invalidatedKeys).toHaveLength(4);
   });
 
   it('does not call uploadPhoto and rejects if createPet fails', async () => {
