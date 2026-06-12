@@ -13,8 +13,15 @@ vi.mock('react-i18next', () => ({
   }),
 }));
 
+const authState = {
+  isAuthenticated: true,
+  user: { id: 'user-1', name: 'Carlos' } as { id: string; name: string } | null,
+  login: vi.fn(),
+  register: vi.fn(),
+};
+
 vi.mock('../context/AuthContext', () => ({
-  useAuth: () => ({ isAuthenticated: true, user: { id: 'user-1', name: 'Carlos' }, login: vi.fn(), register: vi.fn() }),
+  useAuth: () => authState,
 }));
 
 vi.mock('@shared/hooks', () => ({
@@ -202,5 +209,41 @@ describe('PublishWizardPage — success step', () => {
     expect(await screen.findByText('publish:success.strayTitle')).toBeInTheDocument();
     expect(apiClient.getPetByID).toHaveBeenCalledWith('pet-2');
     expect(screen.getByTestId('share-panel')).toHaveAttribute('data-photo-count', '1');
+  });
+});
+
+describe('PublishWizardPage — unauthenticated stray path', () => {
+  it('shows inline auth at PUBLICAR, preserves wizard state, and publishes after registration', async () => {
+    authState.isAuthenticated = false;
+    authState.user = null;
+    const registerMock = vi.fn().mockImplementation(async () => {
+      authState.isAuthenticated = true;
+      authState.user = { id: 'user-2', name: 'Carlos' };
+    });
+    authState.register = registerMock;
+
+    render(<PublishWizardPage />, { wrapper });
+
+    // Stray path: select intent, fill form, fill location.
+    fireEvent.click(screen.getByText('publish:intent.strayTitle'));
+    const file = new File(['fake'], 'stray.jpg', { type: 'image/jpeg' });
+    fireEvent.change(screen.getByLabelText('publish:strayForm.photoLabel'), { target: { files: [file] } });
+    fireEvent.change(screen.getByLabelText('publish:strayForm.typeLabel'), { target: { value: 'gato' } });
+    fireEvent.click(screen.getByText('publish:strayForm.next'));
+    fireEvent.change(screen.getByLabelText('publish:location.noteLabel'), { target: { value: 'Plaza central' } });
+    fireEvent.click(screen.getByText('publish:location.publish'));
+
+    // Inline auth appears — wizard state (note) is preserved in memory.
+    expect(await screen.findByText('publish:auth.title')).toBeInTheDocument();
+
+    // Switch to register tab, fill fields, submit.
+    fireEvent.click(screen.getByText('publish:auth.registerTab'));
+    fireEvent.change(screen.getByLabelText('auth:register.name'), { target: { value: 'Carlos' } });
+    fireEvent.change(screen.getByLabelText('auth:register.email'), { target: { value: 'carlos@test.com' } });
+    fireEvent.change(screen.getByLabelText('auth:register.password'), { target: { value: 'password123' } });
+    fireEvent.click(screen.getByText('publish:auth.continue'));
+
+    expect(await screen.findByText('publish:success.strayTitle')).toBeInTheDocument();
+    expect(registerMock).toHaveBeenCalledWith('carlos@test.com', 'password123', 'Carlos', undefined, undefined);
   });
 });

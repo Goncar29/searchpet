@@ -5,6 +5,7 @@ import { LostPetStep } from '../components/publish/LostPetStep';
 import { StrayFormStep } from '../components/publish/StrayFormStep';
 import { LocationStep } from '../components/publish/LocationStep';
 import { SuccessStep } from '../components/publish/SuccessStep';
+import { InlineAuthStep } from '../components/publish/InlineAuthStep';
 import { useAuth } from '../context/AuthContext';
 import { usePublishLost, usePublishStray, useUploadPhoto } from '@shared/hooks';
 import { apiClient } from '@shared/api/client';
@@ -173,7 +174,13 @@ export function PublishWizardPage() {
             isPending={publishLost.isPending || publishStray.isPending}
           />
         )}
-        {step === 'auth' && <p>{t('auth.title')}</p>}
+        {step === 'auth' && (
+          <InlineAuthStep
+            onAuthenticated={() => {
+              if (wizard.location) submitStray(wizard.location);
+            }}
+          />
+        )}
         {step === 'success' && publishedPet && wizard.intent && (
           <SuccessStep
             pet={publishedPet}
