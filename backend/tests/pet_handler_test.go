@@ -739,6 +739,14 @@ func TestCreatePetHandler_InvalidInitialReportLatitude_Returns400(t *testing.T) 
 	if w.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400, got %d: %s", w.Code, w.Body.String())
 	}
+
+	var resp dto.ErrorResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to decode error response: %v", err)
+	}
+	if resp.Code != "invalid_input" {
+		t.Errorf("expected code 'invalid_input', got %q", resp.Code)
+	}
 }
 
 func TestCreatePetHandler_InitialReportRequired_Returns400(t *testing.T) {
@@ -765,6 +773,14 @@ func TestCreatePetHandler_InitialReportRequired_Returns400(t *testing.T) {
 
 	if w.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var resp dto.ErrorResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to decode error response: %v", err)
+	}
+	if resp.Code != "initial_report_required" {
+		t.Errorf("expected code 'initial_report_required', got %q", resp.Code)
 	}
 }
 
@@ -800,5 +816,13 @@ func TestCreatePetHandler_InitialReportNotAllowed_Returns400(t *testing.T) {
 
 	if w.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var resp dto.ErrorResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to decode error response: %v", err)
+	}
+	if resp.Code != "initial_report_not_allowed" {
+		t.Errorf("expected code 'initial_report_not_allowed', got %q", resp.Code)
 	}
 }

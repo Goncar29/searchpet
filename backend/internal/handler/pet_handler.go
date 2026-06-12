@@ -45,6 +45,10 @@ func (h *PetHandler) CreatePet(c *gin.Context) {
 
 	pet, err := h.petService.CreatePet(ownerID, req)
 	if err != nil {
+		// ErrInvalidStatusTransition here means the requested *initial* status itself is
+		// not a valid creation status — i.e. malformed request input, hence 400.
+		// Contrast with PublishLost, where the same error means an existing resource's
+		// current status forbids the transition — a state-machine violation, hence 422.
 		if errors.Is(err, domain.ErrInitialReportRequired) || errors.Is(err, domain.ErrInitialReportNotAllowed) || errors.Is(err, domain.ErrInvalidStatusTransition) {
 			writeError(c, http.StatusBadRequest, err)
 			return
