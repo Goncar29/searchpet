@@ -123,7 +123,7 @@ export function MainLayout() {
                       {t('greeting', { name: user?.name })}
                     </Link>
                     <Link
-                      to="/pets/create"
+                      to="/publish"
                       className="text-sm font-semibold text-white bg-primary hover:bg-primary-dark px-4 py-2 rounded-lg transition-colors duration-150 whitespace-nowrap"
                     >
                       {t('publish')}
@@ -255,7 +255,7 @@ export function MainLayout() {
                     </Link>
                   )}
                   <Link
-                    to="/pets/create"
+                    to="/publish"
                     className="text-sm font-semibold text-white bg-primary hover:bg-primary-dark py-2 px-3 rounded-md mt-1 text-center transition-colors duration-150"
                   >
                     {t('publish')}
