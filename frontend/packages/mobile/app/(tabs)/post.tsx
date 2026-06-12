@@ -6,6 +6,8 @@ import { useState } from 'react';
 import { View, ScrollView, Text, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { IntentStep } from '../../components/publish/IntentStep';
+import { LostPetStep } from '../../components/publish/LostPetStep';
+import { StrayFormStep } from '../../components/publish/StrayFormStep';
 import { COLORS, SPACING } from '../../constants';
 import type { Pet, CreatePetRequest, InitialReportRequest, PetType } from '../../../shared/types';
 
@@ -48,8 +50,22 @@ export default function PostScreen() {
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View>
         {step === 'intent' && <IntentStep onSelect={handleIntentSelect} />}
-        {step === 'lost-pet' && <Text>{t('publish:lostPet.title')}</Text>}
-        {step === 'stray-form' && <Text>{t('publish:strayForm.title')}</Text>}
+        {step === 'lost-pet' && (
+          <LostPetStep
+            onSelect={(pet) => {
+              setWizard((prev) => ({ ...prev, selectedPet: pet }));
+              setStep('location');
+            }}
+          />
+        )}
+        {step === 'stray-form' && (
+          <StrayFormStep
+            value={wizard.strayForm}
+            onChange={(strayForm) => setWizard((prev) => ({ ...prev, strayForm }))}
+            onNext={() => setStep('location')}
+          />
+        )}
+        {step === 'location' && <Text>{t('publish:location.title')}</Text>}
       </View>
     </ScrollView>
   );

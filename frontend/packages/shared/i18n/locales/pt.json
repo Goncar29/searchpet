@@ -292,7 +292,11 @@
       "colorLabel": "Cor",
       "descriptionLabel": "Descrição",
       "unnamedPet": "Sem nome",
-      "next": "Continuar"
+      "next": "Continuar",
+      "gallery": "Galeria",
+      "camera": "Câmera",
+      "cameraPermission": "Permissão necessária",
+      "cameraPermissionText": "Precisamos de acesso à sua câmera"
     },
     "location": {
       "title": "Onde você o viu pela última vez?",
