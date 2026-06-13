@@ -585,7 +585,7 @@ func TestPublishLostHandler_HappyPath_Returns200(t *testing.T) {
 
 	r := gin.New()
 	r.POST("/api/pets/:id/publish-lost", func(c *gin.Context) {
-		c.Set("userID", ownerID.String())
+		c.Set("userID", ownerID)
 		h.PublishLost(c)
 	})
 
