@@ -112,6 +112,10 @@ export default function RootLayout() {
           options={{ title: i18next.t('my_pets.title') }}
         />
         <Stack.Screen
+          name="pets/register"
+          options={{ title: i18next.t('post:title') }}
+        />
+        <Stack.Screen
           name="alerts/index"
           options={{ title: i18next.t('alerts.title') }}
         />
