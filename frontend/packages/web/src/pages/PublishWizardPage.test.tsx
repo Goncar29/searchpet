@@ -261,3 +261,72 @@ describe('PublishWizardPage — unauthenticated stray path', () => {
     expect(registerMock).toHaveBeenCalledWith('carlos@test.com', 'password123', 'Carlos', undefined, undefined);
   });
 });
+
+describe('PublishWizardPage — unauthenticated lost path', () => {
+  const initialAuthState = {
+    isAuthenticated: authState.isAuthenticated,
+    user: authState.user,
+    login: authState.login,
+    register: authState.register,
+  };
+
+  afterEach(() => {
+    authState.isAuthenticated = initialAuthState.isAuthenticated;
+    authState.user = initialAuthState.user;
+    authState.login = initialAuthState.login;
+    authState.register = initialAuthState.register;
+  });
+
+  it('routes a guest selecting "lost" to inline auth instead of the dead-end empty state', async () => {
+    authState.isAuthenticated = false;
+    authState.user = null;
+    const loginMock = vi.fn().mockImplementation(async () => {
+      authState.isAuthenticated = true;
+      authState.user = { id: 'user-3', name: 'Carlos' };
+    });
+    authState.login = loginMock;
+
+    vi.mocked(useMyPets).mockReturnValue({
+      data: [{ id: 'pet-1', name: 'Firulais', type: 'perro', status: 'registered', photos: [] }],
+      isLoading: false,
+    } as unknown as ReturnType<typeof useMyPets>);
+
+    render(<PublishWizardPage />, { wrapper });
+
+    fireEvent.click(screen.getByText('publish:intent.lostTitle'));
+
+    // Guest must see inline auth, never the empty-state dead-end.
+    expect(await screen.findByText('publish:auth.title')).toBeInTheDocument();
+    expect(screen.queryByText('publish:lostPet.empty')).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('auth:register.email'), { target: { value: 'carlos@test.com' } });
+    fireEvent.change(screen.getByLabelText('auth:register.password'), { target: { value: 'password123' } });
+    fireEvent.click(screen.getByText('publish:auth.continue'));
+
+    // After auth, lost flow advances to lost-pet selection (not auto-submit).
+    expect(await screen.findByText('Firulais')).toBeInTheDocument();
+    expect(loginMock).toHaveBeenCalledWith('carlos@test.com', 'password123');
+  });
+});
+
+describe('PublishWizardPage — publish another', () => {
+  it('resets the wizard to the intent step when clicking "publish another"', async () => {
+    vi.mocked(useMyPets).mockReturnValue({
+      data: [{ id: 'pet-1', name: 'Firulais', type: 'perro', status: 'registered', photos: [] }],
+      isLoading: false,
+    } as unknown as ReturnType<typeof useMyPets>);
+
+    render(<PublishWizardPage />, { wrapper });
+    fireEvent.click(screen.getByText('publish:intent.lostTitle'));
+    fireEvent.click(screen.getByText('Firulais'));
+    fireEvent.click(screen.getByText('publish:location.publish'));
+
+    expect(await screen.findByText('publish:success.lostTitle')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('publish:success.publishAnother'));
+
+    expect(screen.getByText('publish:intent.lostTitle')).toBeInTheDocument();
+    expect(screen.getByText('publish:intent.strayTitle')).toBeInTheDocument();
+    expect(screen.queryByText('publish:success.lostTitle')).not.toBeInTheDocument();
+  });
+});

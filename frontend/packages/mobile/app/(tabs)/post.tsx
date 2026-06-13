@@ -58,6 +58,10 @@ export default function PostScreen() {
 
   const handleIntentSelect = (intent: PublishIntent) => {
     setWizard((prev) => ({ ...prev, intent }));
+    if (intent === 'lost' && !isAuthenticated) {
+      setStep('auth');
+      return;
+    }
     setStep(intent === 'lost' ? 'lost-pet' : 'stray-form');
   };
 
@@ -152,6 +156,10 @@ export default function PostScreen() {
         {step === 'auth' && (
           <InlineAuthStep
             onAuthenticated={() => {
+              if (wizard.intent === 'lost') {
+                setStep('lost-pet');
+                return;
+              }
               if (wizard.location) submitStray(wizard.location);
             }}
           />

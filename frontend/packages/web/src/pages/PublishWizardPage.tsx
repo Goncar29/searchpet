@@ -45,6 +45,10 @@ export function PublishWizardPage() {
 
   const handleIntentSelect = (intent: PublishIntent) => {
     setWizard((prev) => ({ ...prev, intent }));
+    if (intent === 'lost' && !isAuthenticated) {
+      setStep('auth');
+      return;
+    }
     setStep(intent === 'lost' ? 'lost-pet' : 'stray-form');
   };
 
@@ -118,6 +122,14 @@ export function PublishWizardPage() {
     await submitStray(location);
   };
 
+  const handlePublishAnother = () => {
+    setStep('intent');
+    setWizard(initialWizardState);
+    setPublishedPet(null);
+    setFailedPhotoIndexes([]);
+    setPublishError(null);
+  };
+
   const handleRetryPhotos = async () => {
     if (!publishedPet) return;
     const stillFailed: number[] = [];
@@ -177,6 +189,10 @@ export function PublishWizardPage() {
         {step === 'auth' && (
           <InlineAuthStep
             onAuthenticated={() => {
+              if (wizard.intent === 'lost') {
+                setStep('lost-pet');
+                return;
+              }
               if (wizard.location) submitStray(wizard.location);
             }}
           />
@@ -188,6 +204,7 @@ export function PublishWizardPage() {
             failedPhotoCount={failedPhotoIndexes.length}
             onRetryPhotos={handleRetryPhotos}
             isRetrying={uploadPhoto.isPending}
+            onPublishAnother={handlePublishAnother}
           />
         )}
       </div>

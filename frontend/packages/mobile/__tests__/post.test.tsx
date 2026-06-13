@@ -37,17 +37,18 @@ jest.mock('../components/ShareButton', () => ({
   ShareButton: () => null,
 }));
 
+const mockAuthState = {
+  user: { id: 'user-1', name: 'Carlos' } as { id: string; name: string } | null,
+  token: 'jwt-token' as string | null,
+  isAuthenticated: true,
+  isLoading: false,
+  login: jest.fn(),
+  register: jest.fn(),
+};
+
 jest.mock('../store', () => ({
   useAuthStore: (selector: (state: unknown) => unknown) => {
-    const state = {
-      user: { id: 'user-1', name: 'Carlos' },
-      token: 'jwt-token',
-      isAuthenticated: true,
-      isLoading: false,
-      login: jest.fn(),
-      register: jest.fn(),
-    };
-    return typeof selector === 'function' ? selector(state) : state;
+    return typeof selector === 'function' ? selector(mockAuthState) : mockAuthState;
   },
   useLocationStore: (selector: (state: unknown) => unknown) => {
     const state = { latitude: -34.9011, longitude: -56.1645, setLocation: jest.fn() };
@@ -70,6 +71,10 @@ beforeEach(() => {
   useMyPets.mockReturnValue({ data: [], isLoading: false });
   mockPublishLostMutateAsync.mockReset();
   mockPublishLostMutateAsync.mockResolvedValue({ id: 'pet-1', status: 'lost' });
+  mockAuthState.isAuthenticated = true;
+  mockAuthState.user = { id: 'user-1', name: 'Carlos' };
+  mockAuthState.login = jest.fn();
+  mockAuthState.register = jest.fn();
 });
 
 describe('PostScreen (Publish wizard)', () => {
@@ -165,5 +170,39 @@ describe('PostScreen — location step', () => {
       data: { latitude: -34.9011, longitude: -56.1645, note: 'Cerca de la plaza' },
     });
     expect(getByText('publish:success.lostTitle')).toBeTruthy();
+  });
+});
+
+describe('PostScreen — unauthenticated lost path', () => {
+  it('routes a guest selecting "lost" to inline auth instead of the dead-end empty state', async () => {
+    mockAuthState.isAuthenticated = false;
+    mockAuthState.user = null;
+    mockAuthState.login = jest.fn().mockImplementation(async () => {
+      mockAuthState.isAuthenticated = true;
+      mockAuthState.user = { id: 'user-3', name: 'Carlos' };
+    });
+
+    useMyPets.mockReturnValue({
+      data: [{ id: 'pet-1', name: 'Firulais', type: 'perro', status: 'registered', photos: [] }],
+      isLoading: false,
+    });
+
+    const { getByText, queryByText, getByPlaceholderText } = render(<PostScreen />);
+    fireEvent.press(getByText('publish:intent.lostTitle'));
+
+    // Guest must see inline auth, never the empty-state dead-end.
+    expect(getByText('publish:auth.title')).toBeTruthy();
+    expect(queryByText('publish:lostPet.empty')).toBeNull();
+
+    fireEvent.changeText(getByPlaceholderText('auth:login.email'), 'carlos@test.com');
+    fireEvent.changeText(getByPlaceholderText('auth:login.password'), 'password123');
+
+    await act(async () => {
+      fireEvent.press(getByText('publish:auth.continue'));
+    });
+
+    // After auth, lost flow advances to lost-pet selection (not auto-submit).
+    expect(getByText('Firulais')).toBeTruthy();
+    expect(mockAuthState.login).toHaveBeenCalledWith('carlos@test.com', 'password123');
   });
 });

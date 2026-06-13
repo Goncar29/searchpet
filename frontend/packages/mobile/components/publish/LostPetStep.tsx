@@ -2,6 +2,7 @@ import { View, Text, TouchableOpacity, Image, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useMyPets } from '@shared/hooks';
+import { useAuthStore } from '../../store';
 import type { Pet, Photo } from '../../../shared/types';
 import { COLORS, SPACING, FONTS, RADIUS } from '../../constants';
 
@@ -12,7 +13,8 @@ interface LostPetStepProps {
 export function LostPetStep({ onSelect }: LostPetStepProps) {
   const { t } = useTranslation();
   const router = useRouter();
-  const { data: pets, isLoading } = useMyPets();
+  const { isAuthenticated } = useAuthStore();
+  const { data: pets, isLoading } = useMyPets(isAuthenticated);
 
   const eligiblePets = (pets ?? []).filter((pet: Pet) => pet.status === 'registered');
 

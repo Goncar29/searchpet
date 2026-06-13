@@ -9,9 +9,10 @@ interface SuccessStepProps {
   failedPhotoCount: number;
   onRetryPhotos: () => void;
   isRetrying: boolean;
+  onPublishAnother: () => void;
 }
 
-export function SuccessStep({ pet, intent, failedPhotoCount, onRetryPhotos, isRetrying }: SuccessStepProps) {
+export function SuccessStep({ pet, intent, failedPhotoCount, onRetryPhotos, isRetrying, onPublishAnother }: SuccessStepProps) {
   const { t } = useTranslation('publish');
 
   return (
@@ -49,12 +50,13 @@ export function SuccessStep({ pet, intent, failedPhotoCount, onRetryPhotos, isRe
         >
           {t('success.viewPet')}
         </Link>
-        <Link
-          to="/publish"
+        <button
+          type="button"
+          onClick={onPublishAnother}
           className="flex-1 bg-primary hover:bg-primary-dark text-white font-semibold rounded-lg px-4 py-2 transition-colors"
         >
           {t('success.publishAnother')}
-        </Link>
+        </button>
       </div>
     </div>
   );

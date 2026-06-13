@@ -101,10 +101,11 @@ export const useRegister = () => {
 // PET HOOKS
 // ============================================================
 
-export const useMyPets = () => {
+export const useMyPets = (enabled: boolean = true) => {
   return useQuery({
     queryKey: ['pets', 'mine'],
     queryFn: () => apiClient.getMyPets(),
+    enabled,
   });
 };
 

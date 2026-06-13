@@ -1,6 +1,7 @@
 import { Link } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { useMyPets } from '@shared/hooks';
+import { useAuth } from '../../context/AuthContext';
 import type { Pet, Photo } from '@shared/types';
 
 interface LostPetStepProps {
@@ -9,7 +10,8 @@ interface LostPetStepProps {
 
 export function LostPetStep({ onSelect }: LostPetStepProps) {
   const { t } = useTranslation(['publish', 'pets']);
-  const { data: pets, isLoading } = useMyPets();
+  const { isAuthenticated } = useAuth();
+  const { data: pets, isLoading } = useMyPets(isAuthenticated);
 
   const eligiblePets = (pets ?? []).filter((pet) => pet.status === 'registered');
 
