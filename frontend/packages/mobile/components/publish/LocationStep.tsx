@@ -6,6 +6,9 @@ import * as Location from 'expo-location';
 import { COLORS, SPACING, FONTS, RADIUS, MAP_DEFAULTS } from '../../constants';
 import type { InitialReportRequest } from '../../../shared/types';
 
+// MapLibre no necesita token de Mapbox
+MapLibreGL.setAccessToken(null);
+
 const MAP_STYLE = 'https://tiles.openfreemap.org/styles/liberty';
 
 interface LocationStepProps {
@@ -62,7 +65,7 @@ export function LocationStep({ value, onPublish, onBack, isPending }: LocationSt
         </MapLibreGL.MapView>
       </View>
 
-      <TouchableOpacity style={styles.locationButton} onPress={useMyLocation}>
+      <TouchableOpacity style={styles.locationButton} onPress={useMyLocation} accessibilityRole="button">
         <Text style={styles.locationButtonText}>{t('publish:location.useMyLocation')}</Text>
       </TouchableOpacity>
       {locationError && <Text style={styles.error}>{locationError}</Text>}
@@ -80,10 +83,10 @@ export function LocationStep({ value, onPublish, onBack, isPending }: LocationSt
       />
 
       <View style={styles.actions}>
-        <TouchableOpacity style={styles.backButton} onPress={onBack}>
+        <TouchableOpacity style={styles.backButton} onPress={onBack} accessibilityRole="button">
           <Text style={styles.backButtonText}>{t('publish:location.back')}</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={[styles.publishButton, isPending && styles.disabled]} onPress={handlePublish} disabled={isPending}>
+        <TouchableOpacity style={[styles.publishButton, isPending && styles.disabled]} onPress={handlePublish} disabled={isPending} accessibilityRole="button">
           <Text style={styles.publishButtonText}>{t('publish:location.publish')}</Text>
         </TouchableOpacity>
       </View>

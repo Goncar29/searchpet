@@ -10,6 +10,7 @@ jest.mock('@maplibre/maplibre-react-native', () => {
   return {
     __esModule: true,
     default: {
+      setAccessToken: jest.fn(),
       MapView: ({ children, ...props }: any) => React.createElement(View, { testID: 'map', ...props }, children),
       Camera: () => null,
       UserLocation: () => null,
@@ -50,9 +51,11 @@ jest.mock('../store', () => ({
   },
 }));
 
+const mockPublishLostMutateAsync = jest.fn();
+
 jest.mock('@shared/hooks', () => ({
   useMyPets: jest.fn(() => ({ data: [], isLoading: false })),
-  usePublishLost: jest.fn(() => ({ mutateAsync: jest.fn(), isPending: false })),
+  usePublishLost: jest.fn(() => ({ mutateAsync: mockPublishLostMutateAsync, isPending: false })),
   usePublishStrayNative: jest.fn(() => ({ mutateAsync: jest.fn(), isPending: false })),
   useUploadPhotoNative: jest.fn(() => ({ mutateAsync: jest.fn(), isPending: false })),
 }));
@@ -61,6 +64,8 @@ const { useMyPets } = jest.requireMock('@shared/hooks');
 
 beforeEach(() => {
   useMyPets.mockReturnValue({ data: [], isLoading: false });
+  mockPublishLostMutateAsync.mockReset();
+  mockPublishLostMutateAsync.mockResolvedValue({ id: 'pet-1', status: 'lost' });
 });
 
 describe('PostScreen (Publish wizard)', () => {
@@ -151,6 +156,10 @@ describe('PostScreen — location step', () => {
       fireEvent.press(getByText('publish:location.publish'));
     });
 
+    expect(mockPublishLostMutateAsync).toHaveBeenCalledWith({
+      id: 'pet-1',
+      data: { latitude: -34.9011, longitude: -56.1645, note: 'Cerca de la plaza' },
+    });
     expect(getByText('publish:success.lostTitle')).toBeTruthy();
   });
 });

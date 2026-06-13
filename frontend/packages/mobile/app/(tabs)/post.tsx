@@ -58,6 +58,7 @@ export default function PostScreen() {
   };
 
   const handleBackFromLocation = () => {
+    setPublishError(null);
     setStep(wizard.intent === 'lost' ? 'lost-pet' : 'stray-form');
   };
 
