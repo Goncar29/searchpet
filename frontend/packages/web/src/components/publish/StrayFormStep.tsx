@@ -105,6 +105,7 @@ export function StrayFormStep({ value, onChange, onNext }: StrayFormStepProps) {
         <input
           ref={fileInputRef}
           id="stray-photo"
+          data-testid="stray-photo-input"
           type="file"
           multiple
           accept="image/jpeg,image/png,image/webp"
@@ -147,6 +148,7 @@ export function StrayFormStep({ value, onChange, onNext }: StrayFormStepProps) {
         </label>
         <select
           id="stray-type"
+          data-testid="stray-type-select"
           value={value.type}
           onChange={(e) => onChange({ ...value, type: e.target.value as PetType })}
           className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"

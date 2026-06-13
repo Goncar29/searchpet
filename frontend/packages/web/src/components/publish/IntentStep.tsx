@@ -28,6 +28,7 @@ export function IntentStep({ onSelect }: IntentStepProps) {
         </button>
         <button
           type="button"
+          data-testid="intent-stray"
           onClick={() => onSelect('stray')}
           className="text-left rounded-2xl border-2 border-gray-200 dark:border-gray-700 hover:border-primary p-6 transition-colors bg-white dark:bg-gray-900"
         >

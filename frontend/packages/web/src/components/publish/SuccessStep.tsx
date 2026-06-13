@@ -15,7 +15,7 @@ export function SuccessStep({ pet, intent, failedPhotoCount, onRetryPhotos, isRe
   const { t } = useTranslation('publish');
 
   return (
-    <div className="bg-white dark:bg-gray-900 rounded-2xl p-8 space-y-5 text-center">
+    <div data-testid="publish-success" className="bg-white dark:bg-gray-900 rounded-2xl p-8 space-y-5 text-center">
       <span className="text-4xl">✅</span>
       <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-50">
         {t(intent === 'lost' ? 'success.lostTitle' : 'success.strayTitle')}
