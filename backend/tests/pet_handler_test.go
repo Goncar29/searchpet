@@ -619,7 +619,7 @@ func TestPublishLostHandler_Forbidden_Returns403(t *testing.T) {
 
 	r := gin.New()
 	r.POST("/api/pets/:id/publish-lost", func(c *gin.Context) {
-		c.Set("userID", uuid.New().String())
+		c.Set("userID", uuid.New())
 		h.PublishLost(c)
 	})
 
@@ -645,7 +645,7 @@ func TestPublishLostHandler_InvalidTransition_Returns422(t *testing.T) {
 
 	r := gin.New()
 	r.POST("/api/pets/:id/publish-lost", func(c *gin.Context) {
-		c.Set("userID", uuid.New().String())
+		c.Set("userID", uuid.New())
 		h.PublishLost(c)
 	})
 
@@ -667,7 +667,7 @@ func TestPublishLostHandler_InvalidLatitude_Returns400(t *testing.T) {
 
 	r := gin.New()
 	r.POST("/api/pets/:id/publish-lost", func(c *gin.Context) {
-		c.Set("userID", uuid.New().String())
+		c.Set("userID", uuid.New())
 		h.PublishLost(c)
 	})
 
@@ -690,7 +690,7 @@ func TestPublishLostHandler_InvalidLongitude_Returns400(t *testing.T) {
 
 	r := gin.New()
 	r.POST("/api/pets/:id/publish-lost", func(c *gin.Context) {
-		c.Set("userID", uuid.New().String())
+		c.Set("userID", uuid.New())
 		h.PublishLost(c)
 	})
 

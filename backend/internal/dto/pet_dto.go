@@ -29,8 +29,8 @@ type CreatePetRequest struct {
 // InitialReportRequest contains the location data for the initial report that
 // must accompany a stray pet creation or a publish-lost transition.
 type InitialReportRequest struct {
-	Latitude  float64 `json:"latitude" binding:"required"`
-	Longitude float64 `json:"longitude" binding:"required"`
+	Latitude  float64 `json:"latitude"`
+	Longitude float64 `json:"longitude"`
 	Note      string  `json:"note"`
 }
 
@@ -38,8 +38,8 @@ type InitialReportRequest struct {
 // registered pet to "lost" with its initial location report — used by
 // POST /api/pets/:id/publish-lost.
 type PublishLostRequest struct {
-	Latitude  float64 `json:"latitude" binding:"required"`
-	Longitude float64 `json:"longitude" binding:"required"`
+	Latitude  float64 `json:"latitude"`
+	Longitude float64 `json:"longitude"`
 	Note      string  `json:"note"`
 }
 
