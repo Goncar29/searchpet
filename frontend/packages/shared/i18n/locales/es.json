@@ -324,7 +324,8 @@
       "photoRetryTitle": "La mascota se publicó, pero {{count}} foto(s) no se pudieron subir",
       "photoRetryAction": "Reintentar subida",
       "viewPet": "Ver mascota",
-      "publishAnother": "Publicar otro aviso"
+      "publishAnother": "Publicar otro aviso",
+      "goToFeed": "Volver al feed"
     }
   }
 }

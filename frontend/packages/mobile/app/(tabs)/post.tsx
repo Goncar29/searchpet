@@ -9,6 +9,8 @@ import { IntentStep } from '../../components/publish/IntentStep';
 import { LostPetStep } from '../../components/publish/LostPetStep';
 import { StrayFormStep } from '../../components/publish/StrayFormStep';
 import { LocationStep } from '../../components/publish/LocationStep';
+import { InlineAuthStep } from '../../components/publish/InlineAuthStep';
+import { SuccessStep } from '../../components/publish/SuccessStep';
 import { usePublishLost, usePublishStrayNative } from '@shared/hooks';
 import { useAuthStore } from '../../store';
 import { getErrorMessage } from '@shared/utils/apiErrors';
@@ -136,8 +138,22 @@ export default function PostScreen() {
             isPending={publishLost.isPending || publishStray.isPending}
           />
         )}
-        {step === 'auth' && <Text>{t('publish:auth.title')}</Text>}
-        {step === 'success' && <Text>{t(wizard.intent === 'lost' ? 'publish:success.lostTitle' : 'publish:success.strayTitle')}</Text>}
+        {step === 'auth' && (
+          <InlineAuthStep
+            onAuthenticated={() => {
+              if (wizard.location) submitStray(wizard.location);
+            }}
+          />
+        )}
+        {step === 'success' && publishedPet && wizard.intent && (
+          <SuccessStep
+            pet={publishedPet}
+            intent={wizard.intent}
+            failedPhotoIndexes={failedPhotoIndexes}
+            photoUris={wizard.strayForm.photos}
+            onRetryComplete={setFailedPhotoIndexes}
+          />
+        )}
       </View>
     </ScrollView>
   );
