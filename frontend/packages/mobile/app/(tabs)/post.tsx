@@ -5,6 +5,7 @@
 import { useState } from 'react';
 import { View, ScrollView, Text, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import { useRouter } from 'expo-router';
 import { IntentStep } from '../../components/publish/IntentStep';
 import { LostPetStep } from '../../components/publish/LostPetStep';
 import { StrayFormStep } from '../../components/publish/StrayFormStep';
@@ -44,6 +45,7 @@ export const initialWizardState: PublishWizardState = {
 
 export default function PostScreen() {
   const { t } = useTranslation();
+  const router = useRouter();
   const [step, setStep] = useState<PublishStep>('intent');
   const [wizard, setWizard] = useState<PublishWizardState>(initialWizardState);
   const { isAuthenticated } = useAuthStore();
@@ -110,6 +112,15 @@ export default function PostScreen() {
     await submitStray(location);
   };
 
+  const handleGoToFeed = () => {
+    setStep('intent');
+    setWizard(initialWizardState);
+    setPublishedPet(null);
+    setFailedPhotoIndexes([]);
+    setPublishError(null);
+    router.replace('/(tabs)');
+  };
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View>
@@ -152,6 +163,7 @@ export default function PostScreen() {
             failedPhotoIndexes={failedPhotoIndexes}
             photoUris={wizard.strayForm.photos}
             onRetryComplete={setFailedPhotoIndexes}
+            onGoToFeed={handleGoToFeed}
           />
         )}
       </View>

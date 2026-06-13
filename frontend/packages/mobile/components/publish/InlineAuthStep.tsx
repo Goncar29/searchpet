@@ -68,6 +68,8 @@ export function InlineAuthStep({ onAuthenticated }: InlineAuthStepProps) {
         <TouchableOpacity
           style={[styles.tab, tab === 'login' && styles.tabActive]}
           onPress={() => setTab('login')}
+          disabled={isLoading}
+          accessibilityRole="button"
         >
           <Text style={[styles.tabText, tab === 'login' && styles.tabTextActive]}>
             {t('publish:auth.loginTab')}
@@ -76,6 +78,8 @@ export function InlineAuthStep({ onAuthenticated }: InlineAuthStepProps) {
         <TouchableOpacity
           style={[styles.tab, tab === 'register' && styles.tabActive]}
           onPress={() => setTab('register')}
+          disabled={isLoading}
+          accessibilityRole="button"
         >
           <Text style={[styles.tabText, tab === 'register' && styles.tabTextActive]}>
             {t('publish:auth.registerTab')}
@@ -120,6 +124,7 @@ export function InlineAuthStep({ onAuthenticated }: InlineAuthStepProps) {
         style={[styles.button, isLoading && styles.buttonDisabled]}
         onPress={handleSubmit}
         disabled={isLoading}
+        accessibilityRole="button"
       >
         {isLoading ? (
           <ActivityIndicator color={COLORS.white} />

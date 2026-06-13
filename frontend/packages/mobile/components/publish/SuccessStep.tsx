@@ -5,7 +5,6 @@
 import { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { useRouter } from 'expo-router';
 import { ShareButton } from '../ShareButton';
 import { useUploadPhotoNative } from '@shared/hooks';
 import { COLORS, SPACING, FONTS, RADIUS } from '../../constants';
@@ -17,11 +16,11 @@ interface SuccessStepProps {
   failedPhotoIndexes: number[];
   photoUris: string[];
   onRetryComplete: (stillFailedIndexes: number[]) => void;
+  onGoToFeed: () => void;
 }
 
-export function SuccessStep({ pet, intent, failedPhotoIndexes, photoUris, onRetryComplete }: SuccessStepProps) {
+export function SuccessStep({ pet, intent, failedPhotoIndexes, photoUris, onRetryComplete, onGoToFeed }: SuccessStepProps) {
   const { t } = useTranslation();
-  const router = useRouter();
   const uploadPhoto = useUploadPhotoNative();
   const [isRetrying, setIsRetrying] = useState(false);
 
@@ -57,7 +56,12 @@ export function SuccessStep({ pet, intent, failedPhotoIndexes, photoUris, onRetr
           <Text style={styles.retryTitle}>
             {t('publish:success.photoRetryTitle', { count: failedPhotoIndexes.length })}
           </Text>
-          <TouchableOpacity onPress={handleRetryPhotos} disabled={isRetrying} style={styles.retryButton}>
+          <TouchableOpacity
+            onPress={handleRetryPhotos}
+            disabled={isRetrying}
+            style={styles.retryButton}
+            accessibilityRole="button"
+          >
             {isRetrying ? (
               <ActivityIndicator color={COLORS.primary} />
             ) : (
@@ -75,7 +79,7 @@ export function SuccessStep({ pet, intent, failedPhotoIndexes, photoUris, onRetr
         pet={pet}
       />
 
-      <TouchableOpacity style={styles.feedButton} onPress={() => router.replace('/(tabs)')}>
+      <TouchableOpacity style={styles.feedButton} onPress={onGoToFeed} accessibilityRole="button">
         <Text style={styles.feedButtonText}>{t('publish:success.goToFeed')}</Text>
       </TouchableOpacity>
     </View>

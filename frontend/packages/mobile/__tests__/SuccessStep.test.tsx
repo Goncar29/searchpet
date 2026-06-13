@@ -1,6 +1,6 @@
 // SuccessStep smoke test
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react-native';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react-native';
 import { SuccessStep } from '../components/publish/SuccessStep';
 import type { Pet } from '../../shared/types';
 
@@ -25,18 +25,16 @@ jest.mock('../components/ShareButton', () => ({
   ShareButton: () => null,
 }));
 
-const mockReplace = jest.fn();
-jest.mock('expo-router', () => ({
-  useRouter: () => ({ replace: mockReplace }),
-}));
+const mockMutateAsync = jest.fn().mockResolvedValue({ id: 'photo-1', url: 'https://x/photo-1.jpg' });
 
 jest.mock('@shared/hooks', () => ({
-  useUploadPhotoNative: () => ({ mutateAsync: jest.fn().mockResolvedValue({ id: 'photo-1', url: 'https://x/photo-1.jpg' }), isPending: false }),
+  useUploadPhotoNative: () => ({ mutateAsync: mockMutateAsync, isPending: false }),
 }));
 
 describe('SuccessStep', () => {
   beforeEach(() => {
-    mockReplace.mockClear();
+    mockMutateAsync.mockClear();
+    mockMutateAsync.mockResolvedValue({ id: 'photo-1', url: 'https://x/photo-1.jpg' });
   });
 
   it('shows the lost success title and pet name', () => {
@@ -47,6 +45,7 @@ describe('SuccessStep', () => {
         failedPhotoIndexes={[]}
         photoUris={[]}
         onRetryComplete={jest.fn()}
+        onGoToFeed={jest.fn()}
       />,
     );
 
@@ -62,6 +61,7 @@ describe('SuccessStep', () => {
         failedPhotoIndexes={[1]}
         photoUris={['file:///a.jpg', 'file:///b.jpg']}
         onRetryComplete={jest.fn()}
+        onGoToFeed={jest.fn()}
       />,
     );
 
@@ -69,7 +69,8 @@ describe('SuccessStep', () => {
     expect(screen.getByText('publish:success.photoRetryAction')).toBeTruthy();
   });
 
-  it('navigates to the feed when "go to feed" is pressed', () => {
+  it('calls onGoToFeed when "go to feed" is pressed', () => {
+    const onGoToFeed = jest.fn();
     render(
       <SuccessStep
         pet={mockPet}
@@ -77,10 +78,40 @@ describe('SuccessStep', () => {
         failedPhotoIndexes={[]}
         photoUris={[]}
         onRetryComplete={jest.fn()}
+        onGoToFeed={onGoToFeed}
       />,
     );
 
     fireEvent.press(screen.getByText('publish:success.goToFeed'));
-    expect(mockReplace).toHaveBeenCalledWith('/(tabs)');
+    expect(onGoToFeed).toHaveBeenCalled();
+  });
+
+  it('retries failed photo uploads and reports the still-failed indexes', async () => {
+    mockMutateAsync.mockImplementation(({ uri }: { petId: string; uri: string }) => {
+      if (uri === 'file:///a.jpg') return Promise.resolve({ id: 'photo-a', url: 'https://x/a.jpg' });
+      return Promise.reject(new Error('upload failed'));
+    });
+
+    const onRetryComplete = jest.fn();
+    render(
+      <SuccessStep
+        pet={mockPet}
+        intent="stray"
+        failedPhotoIndexes={[0, 1]}
+        photoUris={['file:///a.jpg', 'file:///b.jpg']}
+        onRetryComplete={onRetryComplete}
+        onGoToFeed={jest.fn()}
+      />,
+    );
+
+    await act(async () => {
+      fireEvent.press(screen.getByText('publish:success.photoRetryAction'));
+    });
+
+    await waitFor(() => expect(onRetryComplete).toHaveBeenCalledWith([1]));
+
+    expect(mockMutateAsync).toHaveBeenCalledWith({ petId: mockPet.id, uri: 'file:///a.jpg' });
+    expect(mockMutateAsync).toHaveBeenCalledWith({ petId: mockPet.id, uri: 'file:///b.jpg' });
+    expect(mockMutateAsync).toHaveBeenCalledTimes(2);
   });
 });
