@@ -10,8 +10,10 @@ jest.mock('../store', () => ({
   },
 }));
 
+const mockCreatePetMutateAsync = jest.fn();
+
 jest.mock('@shared/hooks', () => ({
-  useCreatePet: () => ({ mutateAsync: jest.fn(), isPending: false }),
+  useCreatePet: () => ({ mutateAsync: mockCreatePetMutateAsync, isPending: false }),
   useUploadPhotoNative: () => ({ mutateAsync: jest.fn(), isPending: false }),
 }));
 
@@ -24,7 +26,8 @@ describe('RegisterPetScreen', () => {
   it('shows a validation error when submitting without a name', () => {
     const { getByText } = render(<RegisterPetScreen />);
     fireEvent.press(getByText('post:submit'));
-    // Alert.alert is mocked globally in jest.setup.js — assert the screen didn't crash and is still showing the form.
+    // Alert is a no-op under the jest-expo preset — assert the validation guard blocked the submit.
+    expect(mockCreatePetMutateAsync).not.toHaveBeenCalled();
     expect(getByText('post:title')).toBeTruthy();
   });
 });
