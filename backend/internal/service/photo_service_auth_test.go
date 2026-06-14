@@ -84,3 +84,59 @@ func TestPhotoService_UploadPhoto_Authorization(t *testing.T) {
 		})
 	}
 }
+
+func TestPhotoService_DeletePhoto_Authorization(t *testing.T) {
+	owner := uuid.New()
+	reporter := uuid.New()
+	stranger := uuid.New()
+	petID := uuid.New()
+	photoID := uuid.New()
+
+	tests := []struct {
+		name       string
+		pet        *domain.Pet
+		uploaderID string
+		// nil means authorization passed and the delete completed.
+		wantErr error
+	}{
+		{
+			name:       "stray reporter can delete",
+			pet:        &domain.Pet{ID: petID, OwnerID: nil, ReporterID: &reporter, Status: domain.PetStatusStray},
+			uploaderID: reporter.String(),
+			wantErr:    nil,
+		},
+		{
+			name:       "stray non-reporter denied",
+			pet:        &domain.Pet{ID: petID, OwnerID: nil, ReporterID: &reporter, Status: domain.PetStatusStray},
+			uploaderID: stranger.String(),
+			wantErr:    domain.ErrNotPetOwner,
+		},
+		{
+			name:       "owned pet owner can delete",
+			pet:        &domain.Pet{ID: petID, OwnerID: &owner, ReporterID: nil, Status: domain.PetStatusLost},
+			uploaderID: owner.String(),
+			wantErr:    nil,
+		},
+		{
+			name:       "owned pet non-owner denied",
+			pet:        &domain.Pet{ID: petID, OwnerID: &owner, ReporterID: nil, Status: domain.PetStatusLost},
+			uploaderID: stranger.String(),
+			wantErr:    domain.ErrNotPetOwner,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			petRepo := &mockPetRepoForEmbedding{
+				findByIDFn: func(_ string) (*domain.Pet, error) { return tt.pet, nil },
+			}
+			photoRepo := &mockPhotoRepoForEmbedding{}
+			svc := service.NewPhotoService(photoRepo, petRepo, nil, nil)
+
+			err := svc.DeletePhoto(context.Background(), petID.String(), photoID.String(), tt.uploaderID)
+			if err != tt.wantErr {
+				t.Errorf("DeletePhoto() error = %v, want %v", err, tt.wantErr)
+			}
+		})
+	}
+}

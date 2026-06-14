@@ -178,8 +178,8 @@ func (s *petService) UpdatePet(ownerID string, petID string, req dto.UpdatePetRe
 		return nil, err
 	}
 
-	// LÓGICA DE NEGOCIO: solo el dueño puede editar su mascota
-	if pet.OwnerID == nil || pet.OwnerID.String() != ownerID {
+	// LÓGICA DE NEGOCIO: el dueño (o el reporter, si es un stray) puede editar.
+	if !canManagePet(pet, ownerID) {
 		return nil, domain.ErrForbidden
 	}
 
@@ -242,8 +242,8 @@ func (s *petService) DeletePet(ownerID string, petID string) error {
 		return err
 	}
 
-	// LÓGICA DE NEGOCIO: solo el dueño puede eliminar su mascota
-	if pet.OwnerID == nil || pet.OwnerID.String() != ownerID {
+	// LÓGICA DE NEGOCIO: el dueño (o el reporter, si es un stray) puede eliminar.
+	if !canManagePet(pet, ownerID) {
 		return domain.ErrForbidden
 	}
 

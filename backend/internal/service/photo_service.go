@@ -89,24 +89,13 @@ func (s *photoServiceImpl) UploadPhoto(
 	file multipart.File,
 	filename string,
 ) (*domain.Photo, error) {
-	// LÓGICA DE NEGOCIO: autorización para subir fotos.
-	// - Mascota con dueño  -> solo el dueño puede subir.
-	// - Mascota callejera (stray, sin dueño) -> solo quien la reportó.
-	// Un stray tiene OwnerID nil, por eso NO se puede llamar OwnerID.String()
-	// sin chequear nil (paniquearía) y la regla cae sobre ReporterID.
+	// LÓGICA DE NEGOCIO: el dueño (o el reporter, si es un stray) puede subir fotos.
 	pet, err := s.petRepo.FindByID(petID)
 	if err != nil {
 		return nil, err
 	}
 
-	var authorized bool
-	switch {
-	case pet.OwnerID != nil:
-		authorized = pet.OwnerID.String() == uploaderID
-	case pet.ReporterID != nil:
-		authorized = pet.ReporterID.String() == uploaderID
-	}
-	if !authorized {
+	if !canManagePet(pet, uploaderID) {
 		return nil, domain.ErrNotPetOwner
 	}
 
@@ -220,12 +209,8 @@ func (s *photoServiceImpl) DeletePhoto(ctx context.Context, petID, photoID, uplo
 		return err // ErrPetNotFound se propaga
 	}
 
-	uploaderUUID, err := uuid.Parse(uploaderID)
-	if err != nil {
-		return domain.ErrInvalidInput
-	}
-
-	if pet.OwnerID == nil || *pet.OwnerID != uploaderUUID {
+	// El dueño (o el reporter, si es un stray) puede eliminar fotos.
+	if !canManagePet(pet, uploaderID) {
 		return domain.ErrNotPetOwner
 	}
 
