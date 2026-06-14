@@ -298,8 +298,9 @@ export default function PetDetailScreen() {
           </TouchableOpacity>
         )}
 
-        {/* Botón Contar historia — solo para el dueño cuando ya fue encontrada */}
-        {isOwner && pet.status === 'found' && (
+        {/* Botón Contar historia — para quien gestiona la mascota (dueño o, en
+            un stray, el reporter) cuando ya fue encontrada */}
+        {canManage && pet.status === 'found' && (
           <TouchableOpacity
             style={styles.storyButton}
             onPress={() => router.push(`/story/create?petId=${pet.id}`)}

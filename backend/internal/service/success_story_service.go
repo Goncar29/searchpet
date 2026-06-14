@@ -30,6 +30,12 @@ func (s *successStoryService) Create(ctx context.Context, userID uuid.UUID, req 
 		return nil, err
 	}
 
+	// Authorization — only the user who manages the pet may write its story:
+	// the owner for owned pets, the reporter for strays (which have no owner).
+	if !canManagePet(pet, userID.String()) {
+		return nil, domain.ErrForbidden
+	}
+
 	if pet.Status != "found" {
 		return nil, domain.ErrPetNotFoundStatus
 	}

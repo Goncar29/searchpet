@@ -227,6 +227,59 @@ func TestSuccessStoryService_Create(t *testing.T) {
 	}
 }
 
+// Create authorization: only the user who manages the pet (owner for owned pets,
+// reporter for strays) may write its success story — not any authenticated user.
+
+func TestSuccessStoryService_Create_StrayReporterAllowed(t *testing.T) {
+	reporterID := uuid.New()
+	petID := uuid.New()
+	strayFound := &domain.Pet{
+		ID:         petID,
+		OwnerID:    nil,
+		ReporterID: ptrUUID(reporterID),
+		Name:       "Callejero",
+		Status:     domain.PetStatusFound,
+	}
+	storyRepo := &mockSuccessStoryRepository{
+		createFn: func(_ context.Context, s *domain.SuccessStory) error { s.ID = uuid.New(); return nil },
+		getByIDFn: func(_ context.Context, id uuid.UUID) (*domain.SuccessStory, error) {
+			return &domain.SuccessStory{ID: id, PetID: petID, UserID: reporterID}, nil
+		},
+	}
+	petRepo := &mockPetRepoForStory{findByIDFn: func(_ string) (*domain.Pet, error) { return strayFound, nil }}
+	svc := newSuccessStoryService(storyRepo, petRepo)
+
+	story, err := svc.Create(context.Background(), reporterID, dto.CreateStoryRequest{PetID: petID, Body: "Rescatado!"})
+	if err != nil {
+		t.Fatalf("stray reporter should be allowed to create a story, got %v", err)
+	}
+	if story == nil {
+		t.Error("expected story, got nil")
+	}
+}
+
+func TestSuccessStoryService_Create_NonManagerForbidden(t *testing.T) {
+	ownerID := uuid.New()
+	stranger := uuid.New()
+	petID := uuid.New()
+	foundPet := &domain.Pet{
+		ID:      petID,
+		OwnerID: ptrUUID(ownerID),
+		Name:    "Max",
+		Status:  domain.PetStatusFound,
+	}
+	petRepo := &mockPetRepoForStory{findByIDFn: func(_ string) (*domain.Pet, error) { return foundPet, nil }}
+	svc := newSuccessStoryService(&mockSuccessStoryRepository{}, petRepo)
+
+	story, err := svc.Create(context.Background(), stranger, dto.CreateStoryRequest{PetID: petID, Body: "ajeno"})
+	if !errors.Is(err, domain.ErrForbidden) {
+		t.Errorf("expected ErrForbidden for a non-manager, got %v", err)
+	}
+	if story != nil {
+		t.Errorf("expected nil story on forbidden, got %+v", story)
+	}
+}
+
 // ============================================================
 // GetAll tests
 // ============================================================

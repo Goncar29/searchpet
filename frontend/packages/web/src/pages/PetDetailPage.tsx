@@ -75,9 +75,8 @@ export function PetDetailPage() {
   const safePhotoIndex = photos.length > 0 ? Math.min(activePhotoIndex, photos.length - 1) : 0;
   const activePhoto: Photo | undefined = photos[safePhotoIndex];
   const primaryPhoto = photos[0];
-  const isOwner = isAuthenticated && user?.id === pet.owner_id;
   // canManage: the owner (owned pets) or the reporter (stray pets, which have no
-  // owner) may manage the pet — mark found, share, edit, delete.
+  // owner) may manage the pet — mark found, share, edit, delete, tell its story.
   const canManage = isAuthenticated && (user?.id === pet.owner_id || user?.id === pet.reporter_id);
 
   const goToPhoto = (delta: number) => {
@@ -296,8 +295,9 @@ export function PetDetailPage() {
                   )}
                 </div>
               )}
-              {/* Contar historia — solo para el dueño cuando la mascota ya fue encontrada */}
-              {isOwner && pet.status === 'found' && (
+              {/* Contar historia — para quien gestiona la mascota (dueño o, en
+                  un stray, el reporter) cuando ya fue encontrada */}
+              {canManage && pet.status === 'found' && (
                 <Link
                   to={`/stories/create?petId=${id}`}
                   className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition-colors"
