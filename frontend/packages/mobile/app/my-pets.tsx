@@ -13,12 +13,13 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
+import { useState } from 'react';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import i18next from 'i18next';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
-import { useMyPets, useDeletePet, useUploadPhotoNative, useCreateReport, useMarkPetAsFound } from '../../shared/hooks';
+import { useMyPets, useReportedPets, useDeletePet, useUploadPhotoNative, useCreateReport, useMarkPetAsFound } from '../../shared/hooks';
 import { getErrorMessage } from '../../shared/utils/apiErrors';
 import { useLocationStore } from '../store';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS, PET_TYPES } from '../constants';
@@ -27,7 +28,10 @@ import type { Pet } from '../../shared/types';
 export default function MyPetsScreen() {
   const { t } = useTranslation(['my_pets', 'common']);
   const router = useRouter();
-  const { data: pets, isLoading, refetch, isRefetching } = useMyPets();
+  const [tab, setTab] = useState<'owned' | 'reported'>('owned');
+  const owned = useMyPets();
+  const reported = useReportedPets();
+  const { data: pets, isLoading, refetch, isRefetching } = tab === 'owned' ? owned : reported;
   const deletePet = useDeletePet();
   const uploadPhoto = useUploadPhotoNative();
   const createReport = useCreateReport();
@@ -158,17 +162,31 @@ export default function MyPetsScreen() {
     );
   };
 
-  if (isLoading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text style={styles.loadingText}>{t('my_pets:loadingPets')}</Text>
-      </View>
-    );
-  }
+  const renderTab = (key: 'owned' | 'reported', label: string) => (
+    <TouchableOpacity
+      onPress={() => setTab(key)}
+      style={[styles.tab, tab === key && styles.tabActive]}
+      activeOpacity={0.7}
+      accessibilityRole="tab"
+      accessibilityState={{ selected: tab === key }}
+    >
+      <Text style={[styles.tabText, tab === key && styles.tabTextActive]}>{label}</Text>
+    </TouchableOpacity>
+  );
 
   return (
     <View style={styles.container}>
+      <View style={styles.tabBar}>
+        {renderTab('owned', t('pets:reports.tabOwned'))}
+        {renderTab('reported', t('pets:reports.tabReported'))}
+      </View>
+
+      {isLoading ? (
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color={COLORS.primary} />
+          <Text style={styles.loadingText}>{t('my_pets:loadingPets')}</Text>
+        </View>
+      ) : (
       <FlatList
         data={pets}
         keyExtractor={(item) => item.id}
@@ -262,25 +280,57 @@ export default function MyPetsScreen() {
         contentContainerStyle={pets?.length === 0 ? styles.emptyContainer : styles.list}
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
-          <View style={styles.empty}>
-            <Text style={styles.emptyIcon}>🐾</Text>
-            <Text style={styles.emptyTitle}>{t('my_pets:emptyTitle')}</Text>
-            <Text style={styles.emptyText}>{t('my_pets:emptyText')}</Text>
-            <TouchableOpacity
-              style={styles.createButton}
-              onPress={() => router.push('/pets/register')}
-            >
-              <Text style={styles.createButtonText}>{t('my_pets:registerPet')}</Text>
-            </TouchableOpacity>
-          </View>
+          tab === 'reported' ? (
+            <View style={styles.empty}>
+              <Text style={styles.emptyIcon}>🐾</Text>
+              <Text style={styles.emptyText}>{t('pets:reports.empty')}</Text>
+            </View>
+          ) : (
+            <View style={styles.empty}>
+              <Text style={styles.emptyIcon}>🐾</Text>
+              <Text style={styles.emptyTitle}>{t('my_pets:emptyTitle')}</Text>
+              <Text style={styles.emptyText}>{t('my_pets:emptyText')}</Text>
+              <TouchableOpacity
+                style={styles.createButton}
+                onPress={() => router.push('/pets/register')}
+              >
+                <Text style={styles.createButtonText}>{t('my_pets:registerPet')}</Text>
+              </TouchableOpacity>
+            </View>
+          )
         }
       />
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
+  tabBar: {
+    flexDirection: 'row',
+    backgroundColor: COLORS.white,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.background,
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: SPACING.md,
+    alignItems: 'center',
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
+  },
+  tabActive: {
+    borderBottomColor: COLORS.primary,
+  },
+  tabText: {
+    fontSize: FONTS.sizes.sm,
+    fontWeight: '700',
+    color: COLORS.textSecondary,
+  },
+  tabTextActive: {
+    color: COLORS.primary,
+  },
   center: {
     flex: 1,
     justifyContent: 'center',
