@@ -6,31 +6,43 @@ import { uniqueEmail, seedUser, loginAs, getToken, seedStray, markFound } from '
 //   1. the status dropdown only offers transitions the backend accepts
 //      (a stray may only become "found"), and
 //   2. once the stray is found, its reporter can tell its success story.
+//
+// Each test uses its OWN reporter so the "My reports" tab holds exactly one
+// pet — keeping the dropdown assertion unambiguous.
 test.describe('Stray management', () => {
-  let email: string;
   const password = 'password123';
-  let token: string;
-  let strayId: string;       // stays "stray" — for the dropdown test
-  let foundStrayId: string;  // marked found — for the success-story test
+
+  // Reporter A — owns a single still-stray report (dropdown test).
+  let emailA: string;
+  let strayId: string;
+
+  // Reporter B — owns a single report that has been marked found (story test).
+  let emailB: string;
+  let foundStrayId: string;
 
   test.beforeAll(async () => {
-    email = uniqueEmail();
-    await seedUser(email, password);
-    token = await getToken(email, password);
-    strayId = await seedStray(token, `Stray-${Date.now()}`);
-    foundStrayId = await seedStray(token, `FoundStray-${Date.now()}`);
-    await markFound(token, foundStrayId);
+    emailA = uniqueEmail();
+    await seedUser(emailA, password);
+    const tokenA = await getToken(emailA, password);
+    strayId = await seedStray(tokenA, `Stray-${Date.now()}`);
+
+    emailB = `b-${uniqueEmail()}`;
+    await seedUser(emailB, password);
+    const tokenB = await getToken(emailB, password);
+    foundStrayId = await seedStray(tokenB, `FoundStray-${Date.now()}`);
+    await markFound(tokenB, foundStrayId);
   });
 
   test('stray status dropdown offers only the valid transition (found)', async ({ page }) => {
-    await loginAs(page, email, password);
+    await loginAs(page, emailA, password);
     await page.goto('/pets/mine');
 
     // Switch to the "My reports" tab — strays the user reported live here.
     await page.getByRole('button', { name: /mis reportes|my reports|meus relatos/i }).click();
 
-    // The reported stray's card carries the status <select> (targeted by
-    // test id so we don't accidentally match the navbar language switcher).
+    // The reported stray's card carries the status <select> (targeted by test id
+    // so we don't match the navbar language switcher). Reporter A has exactly
+    // one reported pet, so .first() is unambiguous.
     const statusSelect = page.getByTestId('status-select').first();
     await expect(statusSelect).toBeVisible({ timeout: 10_000 });
 
@@ -44,7 +56,7 @@ test.describe('Stray management', () => {
   });
 
   test('reporter can tell the success story once the stray is found', async ({ page }) => {
-    await loginAs(page, email, password);
+    await loginAs(page, emailB, password);
     await page.goto(`/pets/${foundStrayId}`);
 
     // canManage (reporter) + status "found" → the "Contar historia" link shows,
