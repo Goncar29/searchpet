@@ -25,3 +25,40 @@ export async function loginAs(page: Page, email: string, password: string): Prom
   await page.locator('form button[type="submit"]').click();
   await page.waitForURL('/');
 }
+
+export async function getToken(email: string, password: string): Promise<string> {
+  const res = await fetch(`${API_URL}/api/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  });
+  if (!res.ok) throw new Error(`getToken login failed: ${res.status}`);
+  const data = await res.json();
+  return data.token as string;
+}
+
+// Seeds a stray pet (no owner; the caller becomes its reporter) with the
+// required initial sighting report. Returns the new pet id.
+export async function seedStray(token: string, name: string): Promise<string> {
+  const res = await fetch(`${API_URL}/api/pets`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({
+      name,
+      type: 'perro',
+      status: 'stray',
+      initial_report: { latitude: -34.9011, longitude: -56.1645 },
+    }),
+  });
+  if (!res.ok) throw new Error(`seedStray failed: ${res.status} — ${await res.text()}`);
+  const data = await res.json();
+  return data.id as string;
+}
+
+export async function markFound(token: string, petId: string): Promise<void> {
+  const res = await fetch(`${API_URL}/api/pets/${petId}/found`, {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error(`markFound failed: ${res.status} — ${await res.text()}`);
+}
