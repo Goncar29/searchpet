@@ -2,6 +2,7 @@ package handler
 
 import (
 	"errors"
+	"log"
 	"net/http"
 	"strconv"
 
@@ -83,7 +84,10 @@ func (h *SuccessStoryHandler) List(c *gin.Context) {
 	for i := range stories {
 		ids = append(ids, stories[i].ID)
 	}
-	liked, _ := h.storyService.LikedStoryIDs(c.Request.Context(), viewerID, ids)
+	liked, err := h.storyService.LikedStoryIDs(c.Request.Context(), viewerID, ids)
+	if err != nil {
+		log.Printf("[success_story_handler] List: LikedStoryIDs err viewerID=%s: %v", viewerID, err)
+	}
 
 	c.JSON(http.StatusOK, dto.ToStoryListResponseWithLikes(stories, liked))
 }
@@ -108,7 +112,10 @@ func (h *SuccessStoryHandler) GetByID(c *gin.Context) {
 	}
 
 	viewerID := getUserUUID(c)
-	liked, _ := h.storyService.LikedStoryIDs(c.Request.Context(), viewerID, []uuid.UUID{story.ID})
+	liked, err := h.storyService.LikedStoryIDs(c.Request.Context(), viewerID, []uuid.UUID{story.ID})
+	if err != nil {
+		log.Printf("[success_story_handler] GetByID: LikedStoryIDs err viewerID=%s storyID=%s: %v", viewerID, story.ID, err)
+	}
 
 	c.JSON(http.StatusOK, dto.ToStoryResponseWithLike(story, liked[story.ID]))
 }
@@ -223,7 +230,10 @@ func (h *SuccessStoryHandler) GetByPetID(c *gin.Context) {
 	}
 
 	viewerID := getUserUUID(c)
-	liked, _ := h.storyService.LikedStoryIDs(c.Request.Context(), viewerID, []uuid.UUID{story.ID})
+	liked, err := h.storyService.LikedStoryIDs(c.Request.Context(), viewerID, []uuid.UUID{story.ID})
+	if err != nil {
+		log.Printf("[success_story_handler] GetByPetID: LikedStoryIDs err viewerID=%s storyID=%s: %v", viewerID, story.ID, err)
+	}
 
 	c.JSON(http.StatusOK, dto.ToStoryResponseWithLike(story, liked[story.ID]))
 }

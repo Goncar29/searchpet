@@ -325,6 +325,26 @@ func TestSuccessStoryRepository_RemoveLike_SoftDeletedStory_ErrStoryNotFound(t *
 	}
 }
 
+func TestSuccessStoryRepository_AddLike_SoftDeletedStory_ErrStoryNotFound(t *testing.T) {
+	gormDB := testdb.SetupTestDB(t)
+	storyRepo := repository.NewSuccessStoryRepository(gormDB)
+	ctx := context.Background()
+
+	story, owner := newTestStoryForLikes(t, gormDB, "AddLike soft-deleted")
+
+	if err := storyRepo.Delete(ctx, story.ID); err != nil {
+		t.Fatalf("Delete: %v", err)
+	}
+
+	added, count, err := storyRepo.AddLike(ctx, story.ID, owner.ID)
+	if !errors.Is(err, domain.ErrStoryNotFound) {
+		t.Errorf("want ErrStoryNotFound for soft-deleted story, got %v", err)
+	}
+	if added || count != 0 {
+		t.Errorf("want added=false, count=0 on soft-deleted story, got added=%v count=%d", added, count)
+	}
+}
+
 func TestSuccessStoryRepository_LikedStoryIDs_OnlyLikedByUser(t *testing.T) {
 	gormDB := testdb.SetupTestDB(t)
 	storyRepo := repository.NewSuccessStoryRepository(gormDB)
