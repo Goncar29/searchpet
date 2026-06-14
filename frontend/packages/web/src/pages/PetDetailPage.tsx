@@ -76,6 +76,9 @@ export function PetDetailPage() {
   const activePhoto: Photo | undefined = photos[safePhotoIndex];
   const primaryPhoto = photos[0];
   const isOwner = isAuthenticated && user?.id === pet.owner_id;
+  // canManage: the owner (owned pets) or the reporter (stray pets, which have no
+  // owner) may manage the pet — mark found, share, edit, delete.
+  const canManage = isAuthenticated && (user?.id === pet.owner_id || user?.id === pet.reporter_id);
 
   const goToPhoto = (delta: number) => {
     setActivePhotoIndex((safePhotoIndex + delta + photos.length) % photos.length);
@@ -83,7 +86,7 @@ export function PetDetailPage() {
 
   const handlePetReport = (reason: AbuseReason) => {
     submitAbuseReport.mutate(
-      { target_user_id: pet.owner_id, reason },
+      { target_user_id: pet.owner_id ?? pet.reporter_id, reason },
       {
         onSuccess: () => {
           setShowPetReportMenu(false);
@@ -250,8 +253,8 @@ export function PetDetailPage() {
                   {t('pets:detail.addReport')}
                 </Link>
               )}
-              {/* Mark as Found — solo para el dueño cuando la mascota está activa */}
-              {isOwner && (pet.status === 'lost' || pet.status === 'stray') && (
+              {/* Mark as Found — dueño u (si es stray) reporter, mientras está activa */}
+              {canManage && (pet.status === 'lost' || pet.status === 'stray') && (
                 <div className="flex flex-col gap-2">
                   <button
                     onClick={() => setShowFoundConfirm(true)}
@@ -338,7 +341,7 @@ export function PetDetailPage() {
             )}
 
             {/* Reporter contact — stray pets with no owner */}
-            {pet.status === 'stray' && !pet.owner && pet.reporter_id && isAuthenticated && (
+            {pet.status === 'stray' && !pet.owner && pet.reporter_id && isAuthenticated && user?.id !== pet.reporter_id && (
               <div className="bg-amber-50 dark:bg-amber-950 rounded-xl p-4 mb-6 border border-amber-200 dark:border-amber-800">
                 <h3 className="font-bold text-gray-900 dark:text-gray-100 mb-2">{t('pets:detail.reporter')}</h3>
                 <p className="text-sm text-gray-600 dark:text-gray-300 mb-3">{t('pets:detail.reporterDescription')}</p>
@@ -351,8 +354,8 @@ export function PetDetailPage() {
               </div>
             )}
 
-            {/* Report pet owner — only for authenticated non-owners */}
-            {isAuthenticated && !isOwner && (
+            {/* Report pet — only for authenticated users who don't manage it */}
+            {isAuthenticated && !canManage && (
               <div className="mb-6 space-y-2">
                 <div className="flex justify-end">
                   <button

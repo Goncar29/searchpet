@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
-import { useMyPets, useDeletePet, useUpdatePet } from '@shared/hooks';
+import { useMyPets, useReportedPets, useDeletePet, useUpdatePet } from '@shared/hooks';
 import type { Pet, PetStatus, Photo } from '@shared/types';
 import { getErrorMessage } from '@shared/utils/apiErrors';
 
@@ -199,10 +199,16 @@ function PetCard({
 
 export function MyPetsPage() {
   const { t } = useTranslation(['pets', 'common']);
-  const { data: pets, isLoading } = useMyPets();
+  const [tab, setTab] = useState<'owned' | 'reported'>('owned');
+  const { data: ownedPets, isLoading: loadingOwned } = useMyPets();
+  const { data: reportedPets, isLoading: loadingReported } = useReportedPets();
   const deletePet = useDeletePet();
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const pets = tab === 'owned' ? ownedPets : reportedPets;
+  const isLoading = tab === 'owned' ? loadingOwned : loadingReported;
+  const emptyText = tab === 'owned' ? t('pets:mine.empty') : t('pets:reports.empty');
 
   const handleDelete = (id: string) => {
     setDeleteError(null);
@@ -217,10 +223,28 @@ export function MyPetsPage() {
     });
   };
 
+  const renderTab = (key: 'owned' | 'reported', label: string) => (
+    <button
+      type="button"
+      onClick={() => {
+        setTab(key);
+        setConfirmingId(null);
+      }}
+      aria-current={tab === key ? 'page' : undefined}
+      className={`px-4 py-2 text-sm font-semibold border-b-2 transition-colors ${
+        tab === key
+          ? 'border-primary text-primary'
+          : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+      }`}
+    >
+      {label}
+    </button>
+  );
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 py-10 px-4">
       <div className="max-w-4xl mx-auto">
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-50">
             {t('pets:mine.title')}
           </h1>
@@ -230,6 +254,12 @@ export function MyPetsPage() {
           >
             + {t('pets:mine.add')}
           </Link>
+        </div>
+
+        {/* Tabs: owned pets vs reported strays */}
+        <div className="flex gap-2 border-b border-gray-200 dark:border-gray-700 mb-6">
+          {renderTab('owned', t('pets:reports.tabOwned'))}
+          {renderTab('reported', t('pets:reports.tabReported'))}
         </div>
 
         {deleteError && (
@@ -244,15 +274,15 @@ export function MyPetsPage() {
           </div>
         ) : !pets || pets.length === 0 ? (
           <div className="text-center py-20">
-            <p className="text-gray-500 dark:text-gray-400 mb-4">
-              {t('pets:mine.empty')}
-            </p>
-            <Link
-              to="/pets/create"
-              className="inline-block bg-primary hover:bg-primary-dark text-white font-semibold rounded-lg px-6 py-2 transition-colors"
-            >
-              {t('pets:mine.emptyAction')}
-            </Link>
+            <p className="text-gray-500 dark:text-gray-400 mb-4">{emptyText}</p>
+            {tab === 'owned' && (
+              <Link
+                to="/pets/create"
+                className="inline-block bg-primary hover:bg-primary-dark text-white font-semibold rounded-lg px-6 py-2 transition-colors"
+              >
+                {t('pets:mine.emptyAction')}
+              </Link>
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">

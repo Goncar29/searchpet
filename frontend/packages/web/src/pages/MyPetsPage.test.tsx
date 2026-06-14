@@ -15,6 +15,7 @@ vi.mock('react-router', async (importOriginal) => {
 
 vi.mock('@shared/hooks', () => ({
   useMyPets: () => ({ data: [], isLoading: false }),
+  useReportedPets: () => ({ data: [], isLoading: false }),
   useDeletePet: () => ({ mutate: vi.fn(), isPending: false }),
   useUpdatePet: () => ({ mutate: vi.fn(), isPending: false }),
 }));
