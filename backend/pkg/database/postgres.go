@@ -69,6 +69,7 @@ func migrate(db *gorm.DB) error {
 		&domain.LocalGroup{},
 		&domain.GroupMember{},
 		&domain.SuccessStory{},
+		&domain.StoryLike{},
 		&domain.BlockedUser{},
 		&domain.ReportAbuse{},
 		&domain.Shelter{},

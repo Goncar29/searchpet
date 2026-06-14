@@ -1,0 +1,5 @@
+-- Migration 000011 DOWN: intentionally a no-op.
+-- The historical like_count values reset by the up migration cannot be
+-- restored — there is no per-user like history to recompute them from
+-- before the story_likes table existed. This down migration exists only
+-- to satisfy golang-migrate's file pairing requirement.
