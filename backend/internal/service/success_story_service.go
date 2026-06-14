@@ -74,9 +74,29 @@ func (s *successStoryService) List(ctx context.Context, featured *bool, limit, o
 	return s.repo.GetAll(ctx, featured, limit, offset)
 }
 
-// Like incrementa el like_count de forma atómica.
-func (s *successStoryService) Like(ctx context.Context, id uuid.UUID) error {
-	return s.repo.IncrementLikes(ctx, id)
+// Like asegura que el usuario tenga un like en la historia (idempotente).
+// Siempre retorna liked=true en éxito, sin importar si ya existía el like.
+func (s *successStoryService) Like(ctx context.Context, storyID, userID uuid.UUID) (int, bool, error) {
+	_, count, err := s.repo.AddLike(ctx, storyID, userID)
+	if err != nil {
+		return 0, false, err
+	}
+	return count, true, nil
+}
+
+// Unlike asegura que el usuario no tenga un like en la historia (idempotente).
+// Siempre retorna liked=false en éxito, sin importar si el like existía.
+func (s *successStoryService) Unlike(ctx context.Context, storyID, userID uuid.UUID) (int, bool, error) {
+	_, count, err := s.repo.RemoveLike(ctx, storyID, userID)
+	if err != nil {
+		return 0, false, err
+	}
+	return count, false, nil
+}
+
+// LikedStoryIDs retorna el subconjunto de storyIDs que userID likeó.
+func (s *successStoryService) LikedStoryIDs(ctx context.Context, userID uuid.UUID, storyIDs []uuid.UUID) (map[uuid.UUID]bool, error) {
+	return s.repo.LikedStoryIDs(ctx, userID, storyIDs)
 }
 
 // SetFeatured marca o desmarca la historia como featured (solo admin — enforced en handler).

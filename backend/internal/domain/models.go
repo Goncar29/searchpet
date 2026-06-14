@@ -239,6 +239,15 @@ type SuccessStory struct {
 	User User `gorm:"foreignKey:UserID" json:"user,omitempty"`
 }
 
+// StoryLike representa el like de un usuario a una historia de éxito.
+// UniqueIndex en (story_id, user_id) garantiza un solo like por usuario por historia.
+type StoryLike struct {
+	ID        uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+	StoryID   uuid.UUID `gorm:"type:uuid;not null;uniqueIndex:idx_story_likes_story_user;index" json:"story_id"`
+	UserID    uuid.UUID `gorm:"type:uuid;not null;uniqueIndex:idx_story_likes_story_user" json:"user_id"`
+	CreatedAt time.Time `gorm:"autoCreateTime" json:"created_at"`
+}
+
 // ============================================================
 // REVIEWS (V1.5)
 // ============================================================

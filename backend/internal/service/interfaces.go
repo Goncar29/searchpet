@@ -80,7 +80,14 @@ type SuccessStoryService interface {
 	GetByID(ctx context.Context, id uuid.UUID) (*domain.SuccessStory, error)
 	GetByPetID(ctx context.Context, petID uuid.UUID) (*domain.SuccessStory, error)
 	List(ctx context.Context, featured *bool, limit, offset int) ([]domain.SuccessStory, error)
-	Like(ctx context.Context, id uuid.UUID) error
+	// Like ensures the user likes the story (idempotent). Returns the fresh
+	// like_count and liked=true on success.
+	Like(ctx context.Context, storyID, userID uuid.UUID) (likeCount int, liked bool, err error)
+	// Unlike ensures the user does not like the story (idempotent). Returns
+	// the fresh like_count and liked=false on success.
+	Unlike(ctx context.Context, storyID, userID uuid.UUID) (likeCount int, liked bool, err error)
+	// LikedStoryIDs returns the subset of storyIDs that userID has liked.
+	LikedStoryIDs(ctx context.Context, userID uuid.UUID, storyIDs []uuid.UUID) (map[uuid.UUID]bool, error)
 	SetFeatured(ctx context.Context, id uuid.UUID, featured bool, adminID uuid.UUID) error
 	Delete(ctx context.Context, id uuid.UUID, callerID uuid.UUID, isAdmin bool) error
 }

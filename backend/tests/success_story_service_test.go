@@ -16,13 +16,15 @@ import (
 // ============================================================
 
 type mockSuccessStoryRepository struct {
-	createFn          func(ctx context.Context, story *domain.SuccessStory) error
-	getByIDFn         func(ctx context.Context, id uuid.UUID) (*domain.SuccessStory, error)
-	getByPetIDFn      func(ctx context.Context, petID uuid.UUID) (*domain.SuccessStory, error)
-	getAllFn           func(ctx context.Context, featured *bool, limit, offset int) ([]domain.SuccessStory, error)
-	incrementLikesFn  func(ctx context.Context, id uuid.UUID) error
-	setFeaturedFn     func(ctx context.Context, id uuid.UUID, featured bool, featuredBy uuid.UUID) error
-	deleteFn          func(ctx context.Context, id uuid.UUID) error
+	createFn        func(ctx context.Context, story *domain.SuccessStory) error
+	getByIDFn       func(ctx context.Context, id uuid.UUID) (*domain.SuccessStory, error)
+	getByPetIDFn    func(ctx context.Context, petID uuid.UUID) (*domain.SuccessStory, error)
+	getAllFn        func(ctx context.Context, featured *bool, limit, offset int) ([]domain.SuccessStory, error)
+	addLikeFn       func(ctx context.Context, storyID, userID uuid.UUID) (bool, int, error)
+	removeLikeFn    func(ctx context.Context, storyID, userID uuid.UUID) (bool, int, error)
+	likedStoryIDsFn func(ctx context.Context, userID uuid.UUID, storyIDs []uuid.UUID) (map[uuid.UUID]bool, error)
+	setFeaturedFn   func(ctx context.Context, id uuid.UUID, featured bool, featuredBy uuid.UUID) error
+	deleteFn        func(ctx context.Context, id uuid.UUID) error
 }
 
 func (m *mockSuccessStoryRepository) Create(ctx context.Context, story *domain.SuccessStory) error {
@@ -54,11 +56,25 @@ func (m *mockSuccessStoryRepository) GetAll(ctx context.Context, featured *bool,
 	return []domain.SuccessStory{}, nil
 }
 
-func (m *mockSuccessStoryRepository) IncrementLikes(ctx context.Context, id uuid.UUID) error {
-	if m.incrementLikesFn != nil {
-		return m.incrementLikesFn(ctx, id)
+func (m *mockSuccessStoryRepository) AddLike(ctx context.Context, storyID, userID uuid.UUID) (bool, int, error) {
+	if m.addLikeFn != nil {
+		return m.addLikeFn(ctx, storyID, userID)
 	}
-	return nil
+	return true, 1, nil
+}
+
+func (m *mockSuccessStoryRepository) RemoveLike(ctx context.Context, storyID, userID uuid.UUID) (bool, int, error) {
+	if m.removeLikeFn != nil {
+		return m.removeLikeFn(ctx, storyID, userID)
+	}
+	return true, 0, nil
+}
+
+func (m *mockSuccessStoryRepository) LikedStoryIDs(ctx context.Context, userID uuid.UUID, storyIDs []uuid.UUID) (map[uuid.UUID]bool, error) {
+	if m.likedStoryIDsFn != nil {
+		return m.likedStoryIDsFn(ctx, userID, storyIDs)
+	}
+	return map[uuid.UUID]bool{}, nil
 }
 
 func (m *mockSuccessStoryRepository) SetFeatured(ctx context.Context, id uuid.UUID, featured bool, featuredBy uuid.UUID) error {
@@ -411,26 +427,42 @@ func TestSuccessStoryService_GetByPetID(t *testing.T) {
 
 func TestSuccessStoryService_Like(t *testing.T) {
 	storyID := uuid.New()
+	userID := uuid.New()
 
 	tests := []struct {
 		name      string
 		storyRepo *mockSuccessStoryRepository
+		wantCount int
+		wantLiked bool
 		wantErr   error
 	}{
 		{
-			name: "increments like count",
+			name: "first like — added=true",
 			storyRepo: &mockSuccessStoryRepository{
-				incrementLikesFn: func(_ context.Context, id uuid.UUID) error {
-					return nil
+				addLikeFn: func(_ context.Context, _, _ uuid.UUID) (bool, int, error) {
+					return true, 1, nil
 				},
 			},
-			wantErr: nil,
+			wantCount: 1,
+			wantLiked: true,
+			wantErr:   nil,
+		},
+		{
+			name: "repeat like — added=false, still liked=true",
+			storyRepo: &mockSuccessStoryRepository{
+				addLikeFn: func(_ context.Context, _, _ uuid.UUID) (bool, int, error) {
+					return false, 1, nil
+				},
+			},
+			wantCount: 1,
+			wantLiked: true,
+			wantErr:   nil,
 		},
 		{
 			name: "story not found — returns error",
 			storyRepo: &mockSuccessStoryRepository{
-				incrementLikesFn: func(_ context.Context, _ uuid.UUID) error {
-					return domain.ErrStoryNotFound
+				addLikeFn: func(_ context.Context, _, _ uuid.UUID) (bool, int, error) {
+					return false, 0, domain.ErrStoryNotFound
 				},
 			},
 			wantErr: domain.ErrStoryNotFound,
@@ -440,7 +472,80 @@ func TestSuccessStoryService_Like(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			svc := newSuccessStoryService(tc.storyRepo, &mockPetRepoForStory{})
-			err := svc.Like(context.Background(), storyID)
+			count, liked, err := svc.Like(context.Background(), storyID, userID)
+
+			if tc.wantErr != nil {
+				if !errors.Is(err, tc.wantErr) {
+					t.Errorf("expected error %v, got %v", tc.wantErr, err)
+				}
+				if liked {
+					t.Error("expected liked=false on error")
+				}
+				return
+			}
+
+			if err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+			if count != tc.wantCount {
+				t.Errorf("expected count=%d, got %d", tc.wantCount, count)
+			}
+			if liked != tc.wantLiked {
+				t.Errorf("expected liked=%v, got %v", tc.wantLiked, liked)
+			}
+		})
+	}
+}
+
+// ============================================================
+// Unlike tests
+// ============================================================
+
+func TestSuccessStoryService_Unlike(t *testing.T) {
+	storyID := uuid.New()
+	userID := uuid.New()
+
+	tests := []struct {
+		name      string
+		storyRepo *mockSuccessStoryRepository
+		wantCount int
+		wantErr   error
+	}{
+		{
+			name: "was liked — removed=true, count decremented",
+			storyRepo: &mockSuccessStoryRepository{
+				removeLikeFn: func(_ context.Context, _, _ uuid.UUID) (bool, int, error) {
+					return true, 0, nil
+				},
+			},
+			wantCount: 0,
+			wantErr:   nil,
+		},
+		{
+			name: "not liked — removed=false, no-op",
+			storyRepo: &mockSuccessStoryRepository{
+				removeLikeFn: func(_ context.Context, _, _ uuid.UUID) (bool, int, error) {
+					return false, 0, nil
+				},
+			},
+			wantCount: 0,
+			wantErr:   nil,
+		},
+		{
+			name: "story not found — returns error",
+			storyRepo: &mockSuccessStoryRepository{
+				removeLikeFn: func(_ context.Context, _, _ uuid.UUID) (bool, int, error) {
+					return false, 0, domain.ErrStoryNotFound
+				},
+			},
+			wantErr: domain.ErrStoryNotFound,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			svc := newSuccessStoryService(tc.storyRepo, &mockPetRepoForStory{})
+			count, liked, err := svc.Unlike(context.Background(), storyID, userID)
 
 			if tc.wantErr != nil {
 				if !errors.Is(err, tc.wantErr) {
@@ -452,7 +557,41 @@ func TestSuccessStoryService_Like(t *testing.T) {
 			if err != nil {
 				t.Errorf("unexpected error: %v", err)
 			}
+			if count != tc.wantCount {
+				t.Errorf("expected count=%d, got %d", tc.wantCount, count)
+			}
+			if liked {
+				t.Error("expected liked=false after Unlike")
+			}
 		})
+	}
+}
+
+// ============================================================
+// LikedStoryIDs tests
+// ============================================================
+
+func TestSuccessStoryService_LikedStoryIDs(t *testing.T) {
+	userID := uuid.New()
+	storyA := uuid.New()
+	storyB := uuid.New()
+
+	storyRepo := &mockSuccessStoryRepository{
+		likedStoryIDsFn: func(_ context.Context, _ uuid.UUID, _ []uuid.UUID) (map[uuid.UUID]bool, error) {
+			return map[uuid.UUID]bool{storyA: true}, nil
+		},
+	}
+	svc := newSuccessStoryService(storyRepo, &mockPetRepoForStory{})
+
+	result, err := svc.LikedStoryIDs(context.Background(), userID, []uuid.UUID{storyA, storyB})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !result[storyA] {
+		t.Error("expected storyA to be liked")
+	}
+	if result[storyB] {
+		t.Error("expected storyB to be NOT liked")
 	}
 }
 

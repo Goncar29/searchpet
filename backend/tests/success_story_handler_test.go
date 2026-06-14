@@ -21,13 +21,15 @@ import (
 // ============================================================
 
 type mockSuccessStoryService struct {
-	createFn      func(ctx context.Context, userID uuid.UUID, req dto.CreateStoryRequest) (*domain.SuccessStory, error)
-	getByIDFn     func(ctx context.Context, id uuid.UUID) (*domain.SuccessStory, error)
-	getByPetIDFn  func(ctx context.Context, petID uuid.UUID) (*domain.SuccessStory, error)
-	listFn        func(ctx context.Context, featured *bool, limit, offset int) ([]domain.SuccessStory, error)
-	likeFn        func(ctx context.Context, id uuid.UUID) error
-	setFeaturedFn func(ctx context.Context, id uuid.UUID, featured bool, adminID uuid.UUID) error
-	deleteFn      func(ctx context.Context, id uuid.UUID, callerID uuid.UUID, isAdmin bool) error
+	createFn        func(ctx context.Context, userID uuid.UUID, req dto.CreateStoryRequest) (*domain.SuccessStory, error)
+	getByIDFn       func(ctx context.Context, id uuid.UUID) (*domain.SuccessStory, error)
+	getByPetIDFn    func(ctx context.Context, petID uuid.UUID) (*domain.SuccessStory, error)
+	listFn          func(ctx context.Context, featured *bool, limit, offset int) ([]domain.SuccessStory, error)
+	likeFn          func(ctx context.Context, storyID, userID uuid.UUID) (int, bool, error)
+	unlikeFn        func(ctx context.Context, storyID, userID uuid.UUID) (int, bool, error)
+	likedStoryIDsFn func(ctx context.Context, userID uuid.UUID, storyIDs []uuid.UUID) (map[uuid.UUID]bool, error)
+	setFeaturedFn   func(ctx context.Context, id uuid.UUID, featured bool, adminID uuid.UUID) error
+	deleteFn        func(ctx context.Context, id uuid.UUID, callerID uuid.UUID, isAdmin bool) error
 }
 
 func (m *mockSuccessStoryService) Create(ctx context.Context, userID uuid.UUID, req dto.CreateStoryRequest) (*domain.SuccessStory, error) {
@@ -58,11 +60,25 @@ func (m *mockSuccessStoryService) List(ctx context.Context, featured *bool, limi
 	return []domain.SuccessStory{}, nil
 }
 
-func (m *mockSuccessStoryService) Like(ctx context.Context, id uuid.UUID) error {
+func (m *mockSuccessStoryService) Like(ctx context.Context, storyID, userID uuid.UUID) (int, bool, error) {
 	if m.likeFn != nil {
-		return m.likeFn(ctx, id)
+		return m.likeFn(ctx, storyID, userID)
 	}
-	return nil
+	return 1, true, nil
+}
+
+func (m *mockSuccessStoryService) Unlike(ctx context.Context, storyID, userID uuid.UUID) (int, bool, error) {
+	if m.unlikeFn != nil {
+		return m.unlikeFn(ctx, storyID, userID)
+	}
+	return 0, false, nil
+}
+
+func (m *mockSuccessStoryService) LikedStoryIDs(ctx context.Context, userID uuid.UUID, storyIDs []uuid.UUID) (map[uuid.UUID]bool, error) {
+	if m.likedStoryIDsFn != nil {
+		return m.likedStoryIDsFn(ctx, userID, storyIDs)
+	}
+	return map[uuid.UUID]bool{}, nil
 }
 
 func (m *mockSuccessStoryService) SetFeatured(ctx context.Context, id uuid.UUID, featured bool, adminID uuid.UUID) error {
@@ -90,9 +106,11 @@ func setupStoryRouter(h *handler.SuccessStoryHandler, callerID uuid.UUID) *gin.E
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
 	r.POST("/api/stories", injectUserID(callerID), h.Create)
-	r.GET("/api/stories", h.List)
-	r.GET("/api/stories/:id", h.GetByID)
+	r.GET("/api/stories", injectUserID(callerID), h.List)
+	r.GET("/api/stories/pet/:petId", injectUserID(callerID), h.GetByPetID)
+	r.GET("/api/stories/:id", injectUserID(callerID), h.GetByID)
 	r.POST("/api/stories/:id/like", injectUserID(callerID), h.Like)
+	r.DELETE("/api/stories/:id/like", injectUserID(callerID), h.Unlike)
 	r.DELETE("/api/stories/:id", injectUserID(callerID), h.Delete)
 	return r
 }
@@ -244,8 +262,8 @@ func TestStoryHandler_Like_OK(t *testing.T) {
 	storyID := uuid.New()
 
 	svc := &mockSuccessStoryService{
-		likeFn: func(_ context.Context, id uuid.UUID) error {
-			return nil
+		likeFn: func(_ context.Context, id, userID uuid.UUID) (int, bool, error) {
+			return 1, true, nil
 		},
 	}
 	h := handler.NewSuccessStoryHandler(svc)
@@ -258,27 +276,280 @@ func TestStoryHandler_Like_OK(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Errorf("expected 200, got %d: %s", w.Code, w.Body.String())
 	}
+
+	var resp map[string]interface{}
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if resp["like_count"] != float64(1) {
+		t.Errorf("expected like_count=1, got %v", resp["like_count"])
+	}
+	if resp["liked"] != true {
+		t.Errorf("expected liked=true, got %v", resp["liked"])
+	}
 }
 
-func TestStoryHandler_Like_NoAuth_StillWorks(t *testing.T) {
-	// Like handler uses the story ID, not the callerID — it's callable without auth.
-	// The route in production may or may not require JWT. We test behavior directly.
+func TestStoryHandler_Like_RepeatLike_Idempotent(t *testing.T) {
+	callerID := uuid.New()
 	storyID := uuid.New()
+
 	svc := &mockSuccessStoryService{
-		likeFn: func(_ context.Context, _ uuid.UUID) error { return nil },
+		likeFn: func(_ context.Context, id, userID uuid.UUID) (int, bool, error) {
+			// Repeated like: count stays at 1, liked remains true.
+			return 1, true, nil
+		},
 	}
 	h := handler.NewSuccessStoryHandler(svc)
+	r := setupStoryRouter(h, callerID)
 
-	gin.SetMode(gin.TestMode)
-	r := gin.New()
-	r.POST("/api/stories/:id/like", h.Like)
+	for i := 0; i < 3; i++ {
+		req := httptest.NewRequest(http.MethodPost, "/api/stories/"+storyID.String()+"/like", nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Fatalf("like #%d: expected 200, got %d: %s", i+1, w.Code, w.Body.String())
+		}
+
+		var resp map[string]interface{}
+		if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+			t.Fatalf("failed to decode response: %v", err)
+		}
+		if resp["like_count"] != float64(1) {
+			t.Errorf("like #%d: expected like_count=1, got %v", i+1, resp["like_count"])
+		}
+		if resp["liked"] != true {
+			t.Errorf("like #%d: expected liked=true, got %v", i+1, resp["liked"])
+		}
+	}
+}
+
+func TestStoryHandler_Like_StoryNotFound_Returns404(t *testing.T) {
+	callerID := uuid.New()
+	storyID := uuid.New()
+
+	svc := &mockSuccessStoryService{
+		likeFn: func(_ context.Context, _, _ uuid.UUID) (int, bool, error) {
+			return 0, false, domain.ErrStoryNotFound
+		},
+	}
+	h := handler.NewSuccessStoryHandler(svc)
+	r := setupStoryRouter(h, callerID)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/stories/"+storyID.String()+"/like", nil)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
+	if w.Code != http.StatusNotFound {
+		t.Errorf("expected 404, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+// ============================================================
+// Unlike tests
+// ============================================================
+
+func TestStoryHandler_Unlike_WasLiked_OK(t *testing.T) {
+	callerID := uuid.New()
+	storyID := uuid.New()
+
+	svc := &mockSuccessStoryService{
+		unlikeFn: func(_ context.Context, _, _ uuid.UUID) (int, bool, error) {
+			return 0, false, nil
+		},
+	}
+	h := handler.NewSuccessStoryHandler(svc)
+	r := setupStoryRouter(h, callerID)
+
+	req := httptest.NewRequest(http.MethodDelete, "/api/stories/"+storyID.String()+"/like", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
 	if w.Code != http.StatusOK {
 		t.Errorf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var resp map[string]interface{}
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if resp["like_count"] != float64(0) {
+		t.Errorf("expected like_count=0, got %v", resp["like_count"])
+	}
+	if resp["liked"] != false {
+		t.Errorf("expected liked=false, got %v", resp["liked"])
+	}
+}
+
+func TestStoryHandler_Unlike_NotLiked_NoOp(t *testing.T) {
+	callerID := uuid.New()
+	storyID := uuid.New()
+
+	svc := &mockSuccessStoryService{
+		unlikeFn: func(_ context.Context, _, _ uuid.UUID) (int, bool, error) {
+			return 5, false, nil
+		},
+	}
+	h := handler.NewSuccessStoryHandler(svc)
+	r := setupStoryRouter(h, callerID)
+
+	req := httptest.NewRequest(http.MethodDelete, "/api/stories/"+storyID.String()+"/like", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var resp map[string]interface{}
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if resp["like_count"] != float64(5) {
+		t.Errorf("expected like_count=5 (unchanged), got %v", resp["like_count"])
+	}
+	if resp["liked"] != false {
+		t.Errorf("expected liked=false, got %v", resp["liked"])
+	}
+}
+
+func TestStoryHandler_Unlike_StoryNotFound_Returns404(t *testing.T) {
+	callerID := uuid.New()
+	storyID := uuid.New()
+
+	svc := &mockSuccessStoryService{
+		unlikeFn: func(_ context.Context, _, _ uuid.UUID) (int, bool, error) {
+			return 0, false, domain.ErrStoryNotFound
+		},
+	}
+	h := handler.NewSuccessStoryHandler(svc)
+	r := setupStoryRouter(h, callerID)
+
+	req := httptest.NewRequest(http.MethodDelete, "/api/stories/"+storyID.String()+"/like", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Errorf("expected 404, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+// ============================================================
+// liked_by_me enrichment tests
+// ============================================================
+
+func TestStoryHandler_List_EnrichesLikedByMe(t *testing.T) {
+	callerID := uuid.New()
+	likedStoryID := uuid.New()
+	notLikedStoryID := uuid.New()
+
+	stories := []domain.SuccessStory{
+		{ID: likedStoryID, Body: "Liked story"},
+		{ID: notLikedStoryID, Body: "Not liked story"},
+	}
+
+	svc := &mockSuccessStoryService{
+		listFn: func(_ context.Context, _ *bool, _, _ int) ([]domain.SuccessStory, error) {
+			return stories, nil
+		},
+		likedStoryIDsFn: func(_ context.Context, _ uuid.UUID, _ []uuid.UUID) (map[uuid.UUID]bool, error) {
+			return map[uuid.UUID]bool{likedStoryID: true}, nil
+		},
+	}
+	h := handler.NewSuccessStoryHandler(svc)
+	r := setupStoryRouter(h, callerID)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/stories", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var resp []dto.StoryResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if len(resp) != 2 {
+		t.Fatalf("expected 2 stories, got %d", len(resp))
+	}
+	for _, s := range resp {
+		switch s.ID {
+		case likedStoryID:
+			if !s.LikedByMe {
+				t.Error("expected liked_by_me=true for likedStoryID")
+			}
+		case notLikedStoryID:
+			if s.LikedByMe {
+				t.Error("expected liked_by_me=false for notLikedStoryID")
+			}
+		}
+	}
+}
+
+func TestStoryHandler_GetByID_EnrichesLikedByMe(t *testing.T) {
+	callerID := uuid.New()
+	storyID := uuid.New()
+
+	svc := &mockSuccessStoryService{
+		getByIDFn: func(_ context.Context, id uuid.UUID) (*domain.SuccessStory, error) {
+			return &domain.SuccessStory{ID: id, Body: "Story"}, nil
+		},
+		likedStoryIDsFn: func(_ context.Context, _ uuid.UUID, ids []uuid.UUID) (map[uuid.UUID]bool, error) {
+			return map[uuid.UUID]bool{ids[0]: true}, nil
+		},
+	}
+	h := handler.NewSuccessStoryHandler(svc)
+	r := setupStoryRouter(h, callerID)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/stories/"+storyID.String(), nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var resp dto.StoryResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if !resp.LikedByMe {
+		t.Error("expected liked_by_me=true")
+	}
+}
+
+func TestStoryHandler_GetByPetID_EnrichesLikedByMe(t *testing.T) {
+	callerID := uuid.New()
+	petID := uuid.New()
+	storyID := uuid.New()
+
+	svc := &mockSuccessStoryService{
+		getByPetIDFn: func(_ context.Context, pid uuid.UUID) (*domain.SuccessStory, error) {
+			return &domain.SuccessStory{ID: storyID, PetID: pid, Body: "Story"}, nil
+		},
+		likedStoryIDsFn: func(_ context.Context, _ uuid.UUID, _ []uuid.UUID) (map[uuid.UUID]bool, error) {
+			return map[uuid.UUID]bool{}, nil
+		},
+	}
+	h := handler.NewSuccessStoryHandler(svc)
+	r := setupStoryRouter(h, callerID)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/stories/pet/"+petID.String(), nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var resp dto.StoryResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if resp.LikedByMe {
+		t.Error("expected liked_by_me=false")
 	}
 }
 
