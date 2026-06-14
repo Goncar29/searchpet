@@ -296,6 +296,7 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 		protected.GET("/stories/pet/:petId", storyHandler.GetByPetID)
 		protected.GET("/stories/:id", storyHandler.GetByID)
 		protected.POST("/stories/:id/like", storyHandler.Like)
+		protected.DELETE("/stories/:id/like", storyHandler.Unlike)
 		protected.DELETE("/stories/:id", storyHandler.Delete)
 
 		protected.POST("/groups/:id/join", groupHandler.Join)

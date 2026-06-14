@@ -78,7 +78,14 @@ func (h *SuccessStoryHandler) List(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, dto.ToStoryListResponse(stories))
+	viewerID := getUserUUID(c)
+	ids := make([]uuid.UUID, 0, len(stories))
+	for i := range stories {
+		ids = append(ids, stories[i].ID)
+	}
+	liked, _ := h.storyService.LikedStoryIDs(c.Request.Context(), viewerID, ids)
+
+	c.JSON(http.StatusOK, dto.ToStoryListResponseWithLikes(stories, liked))
 }
 
 // GetByID godoc
@@ -100,19 +107,25 @@ func (h *SuccessStoryHandler) GetByID(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, dto.ToStoryResponse(story))
+	viewerID := getUserUUID(c)
+	liked, _ := h.storyService.LikedStoryIDs(c.Request.Context(), viewerID, []uuid.UUID{story.ID})
+
+	c.JSON(http.StatusOK, dto.ToStoryResponseWithLike(story, liked[story.ID]))
 }
 
 // Like godoc
 // POST /api/stories/:id/like
 func (h *SuccessStoryHandler) Like(c *gin.Context) {
+	viewerID := getUserUUID(c)
+
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
 		return
 	}
 
-	if err := h.storyService.Like(c.Request.Context(), id); err != nil {
+	count, liked, err := h.storyService.Like(c.Request.Context(), id, viewerID)
+	if err != nil {
 		if errors.Is(err, domain.ErrStoryNotFound) {
 			writeError(c, http.StatusNotFound, err)
 			return
@@ -121,7 +134,31 @@ func (h *SuccessStoryHandler) Like(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "like registrado"})
+	c.JSON(http.StatusOK, gin.H{"like_count": count, "liked": liked})
+}
+
+// Unlike godoc
+// DELETE /api/stories/:id/like
+func (h *SuccessStoryHandler) Unlike(c *gin.Context) {
+	viewerID := getUserUUID(c)
+
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
+		return
+	}
+
+	count, liked, err := h.storyService.Unlike(c.Request.Context(), id, viewerID)
+	if err != nil {
+		if errors.Is(err, domain.ErrStoryNotFound) {
+			writeError(c, http.StatusNotFound, err)
+			return
+		}
+		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"like_count": count, "liked": liked})
 }
 
 // Delete godoc
@@ -185,7 +222,10 @@ func (h *SuccessStoryHandler) GetByPetID(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, dto.ToStoryResponse(story))
+	viewerID := getUserUUID(c)
+	liked, _ := h.storyService.LikedStoryIDs(c.Request.Context(), viewerID, []uuid.UUID{story.ID})
+
+	c.JSON(http.StatusOK, dto.ToStoryResponseWithLike(story, liked[story.ID]))
 }
 
 // SetFeatured godoc
