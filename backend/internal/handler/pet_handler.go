@@ -38,8 +38,21 @@ func (h *PetHandler) CreatePet(c *gin.Context) {
 		return
 	}
 
+	if req.InitialReport != nil && !validCoordinates(req.InitialReport.Latitude, req.InitialReport.Longitude) {
+		writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
+		return
+	}
+
 	pet, err := h.petService.CreatePet(ownerID, req)
 	if err != nil {
+		// ErrInvalidStatusTransition here means the requested *initial* status itself is
+		// not a valid creation status — i.e. malformed request input, hence 400.
+		// Contrast with PublishLost, where the same error means an existing resource's
+		// current status forbids the transition — a state-machine violation, hence 422.
+		if errors.Is(err, domain.ErrInitialReportRequired) || errors.Is(err, domain.ErrInitialReportNotAllowed) || errors.Is(err, domain.ErrInvalidStatusTransition) {
+			writeError(c, http.StatusBadRequest, err)
+			return
+		}
 		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		return
 	}
@@ -237,6 +250,46 @@ func (h *PetHandler) MarkAsFound(c *gin.Context) {
 		}
 		if errors.Is(err, domain.ErrPetAlreadyFound) || errors.Is(err, domain.ErrPetArchived) {
 			writeError(c, http.StatusConflict, err)
+			return
+		}
+		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
+		return
+	}
+
+	c.JSON(http.StatusOK, dto.ToPetResponse(pet))
+}
+
+// PublishLost godoc
+// POST /api/pets/:id/publish-lost
+// Transiciona una mascota propia a "lost" y crea su reporte de ubicación inicial
+// en una sola transacción. Solo el dueño puede llamarlo.
+func (h *PetHandler) PublishLost(c *gin.Context) {
+	ownerID := getUserID(c)
+	petID := c.Param("id")
+
+	var req dto.PublishLostRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
+		return
+	}
+
+	if !validCoordinates(req.Latitude, req.Longitude) {
+		writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
+		return
+	}
+
+	pet, err := h.petService.PublishLost(ownerID, petID, req)
+	if err != nil {
+		if errors.Is(err, domain.ErrPetNotFound) {
+			writeError(c, http.StatusNotFound, err)
+			return
+		}
+		if errors.Is(err, domain.ErrForbidden) {
+			writeError(c, http.StatusForbidden, err)
+			return
+		}
+		if errors.Is(err, domain.ErrInvalidStatusTransition) {
+			writeError(c, http.StatusUnprocessableEntity, err)
 			return
 		}
 		writeError(c, http.StatusInternalServerError, domain.ErrInternal)

@@ -48,6 +48,8 @@ func TestCodeFor_KnownError(t *testing.T) {
 		{domain.ErrPetArchived, "pet_archived"},
 		{domain.ErrPetStatusLocked, "pet_status_locked"},
 		{domain.ErrPetNotFoundStatus, "pet_not_found_status"},
+		{domain.ErrInitialReportRequired, "initial_report_required"},
+		{domain.ErrInitialReportNotAllowed, "initial_report_not_allowed"},
 		{domain.ErrReportNotFound, "report_not_found"},
 		{domain.ErrInvalidStatus, "invalid_status"},
 		{domain.ErrUserBlocked, "user_blocked"},

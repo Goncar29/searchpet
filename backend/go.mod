@@ -4,6 +4,7 @@ go 1.25.0
 
 require (
 	firebase.google.com/go/v4 v4.19.0
+	github.com/DATA-DOG/go-sqlmock v1.5.2
 	github.com/alicebob/miniredis/v2 v2.38.0
 	github.com/cloudinary/cloudinary-go/v2 v2.15.0
 	github.com/gin-gonic/gin v1.9.1

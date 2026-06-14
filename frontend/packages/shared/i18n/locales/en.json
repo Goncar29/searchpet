@@ -261,6 +261,71 @@
     "image_field_required": "The 'image' field is required",
     "image_search_unavailable": "The image search service is temporarily unavailable",
     "binding_failed": "The provided input data is not valid",
+    "initial_report_required": "To publish a sighting you need to provide the last seen location",
     "unknown_error": "An unexpected error occurred. Please try again"
+  },
+  "publish": {
+    "intent": {
+      "title": "What do you want to publish?",
+      "lostTitle": "My pet is lost",
+      "lostDescription": "Mark a registered pet as lost and add the last place you saw it.",
+      "strayTitle": "I saw a stray pet",
+      "strayDescription": "Upload a photo and the location where you saw it to help find its family.",
+      "next": "Continue"
+    },
+    "lostPet": {
+      "title": "Pick the lost pet",
+      "empty": "You don't have any registered pets yet.",
+      "emptyAction": "Register a pet",
+      "select": "Select"
+    },
+    "strayForm": {
+      "title": "Tell us about the pet you saw",
+      "photoLabel": "Photos (1 to 3, required)",
+      "photoRequired": "Add at least one photo",
+      "photoFormatError": "Unsupported format. Use JPG, PNG, or WebP",
+      "photoSizeError": "Each photo must be under 5 MB",
+      "photoLimit": "Maximum 3 photos",
+      "typeLabel": "Type *",
+      "typeRequired": "Select the animal type",
+      "breedLabel": "Breed",
+      "colorLabel": "Color",
+      "descriptionLabel": "Description",
+      "unnamedPet": "No name",
+      "next": "Continue",
+      "gallery": "Gallery",
+      "camera": "Camera",
+      "cameraPermission": "Permission required",
+      "cameraPermissionText": "We need access to your camera",
+      "removePhoto": "Remove photo"
+    },
+    "location": {
+      "title": "Where did you last see it?",
+      "instructions": "Drag the pin to the exact spot or use your current location.",
+      "useMyLocation": "Use my location",
+      "locationDenied": "We couldn't access your location. Move the pin manually.",
+      "noteLabel": "Note (optional)",
+      "notePlaceholder": "E.g.: near the square, wearing a red collar...",
+      "publish": "Publish",
+      "back": "Back"
+    },
+    "auth": {
+      "title": "Sign in to publish",
+      "description": "To publish a sighting we need to be able to contact you. Your progress won't be lost.",
+      "loginTab": "Sign in",
+      "registerTab": "Create account",
+      "continue": "Continue and publish"
+    },
+    "success": {
+      "lostTitle": "Done! Your pet is marked as lost",
+      "strayTitle": "Thanks for reporting!",
+      "lostDescription": "Share the alert so more people can help search for it.",
+      "strayDescription": "Share the alert to help find its family.",
+      "photoRetryTitle": "The pet was published, but {{count}} photo(s) failed to upload",
+      "photoRetryAction": "Retry upload",
+      "viewPet": "View pet",
+      "publishAnother": "Publish another alert",
+      "goToFeed": "Back to feed"
+    }
   }
 }

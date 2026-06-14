@@ -140,3 +140,56 @@ describe('APIClient image search', () => {
     });
   });
 });
+
+describe('APIClient.publishPetLost', () => {
+  let client: APIClient;
+  let fetchMock: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    client = new APIClient('http://api.test');
+    fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('POSTs to /api/pets/:id/publish-lost with lat/lng/note and returns the updated pet', async () => {
+    const mockPet = { id: 'pet-1', status: 'lost' };
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => mockPet,
+    });
+
+    const result = await client.publishPetLost('pet-1', {
+      latitude: -34.9011,
+      longitude: -56.1645,
+      note: 'Visto cerca de la plaza',
+    });
+
+    expect(result).toEqual(mockPet);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe('http://api.test/api/pets/pet-1/publish-lost');
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(init.body)).toEqual({
+      latitude: -34.9011,
+      longitude: -56.1645,
+      note: 'Visto cerca de la plaza',
+    });
+  });
+
+  it('throws ApiError with {code,message} on 403 (non-owner)', async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: false,
+      status: 403,
+      json: async () => ({ code: 'forbidden', message: 'No sos el dueño de esta mascota' }),
+    });
+
+    await expect(
+      client.publishPetLost('pet-1', { latitude: -34.9, longitude: -56.1 })
+    ).rejects.toMatchObject({ code: 'forbidden', status: 403 });
+  });
+});

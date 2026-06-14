@@ -185,7 +185,7 @@ export function HomePage() {
               {t('home:viewMap')}
             </Link>
             <Link
-              to={isAuthenticated ? '/pets/create' : '/register'}
+              to="/publish"
               className="inline-flex items-center justify-center px-8 py-3 border-2 border-white text-white font-bold rounded-lg hover:bg-white/10 transition-colors"
             >
               {t('home:publish')}

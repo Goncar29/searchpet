@@ -38,6 +38,8 @@ import type {
   GroupMember,
   VerificationStatus,
   Shelter,
+  Pet,
+  PublishLostRequest,
 } from '../types';
 
 // ============================================================
@@ -99,10 +101,11 @@ export const useRegister = () => {
 // PET HOOKS
 // ============================================================
 
-export const useMyPets = () => {
+export const useMyPets = (enabled: boolean = true) => {
   return useQuery({
     queryKey: ['pets', 'mine'],
     queryFn: () => apiClient.getMyPets(),
+    enabled,
   });
 };
 
@@ -186,6 +189,83 @@ export const useUploadPhotoNative = () => {
       queryClient.invalidateQueries({ queryKey: ['pets', petId] });
       queryClient.invalidateQueries({ queryKey: ['pets', 'mine'] });
     },
+  });
+};
+
+// ============================================================
+// PUBLISH HOOKS
+// ============================================================
+
+// usePublishLost — POST /api/pets/:id/publish-lost. Transitions an owned
+// registered pet to `lost` and creates its initial location report
+// (single backend transaction). Invalidates feed, my-pets, and the pet detail.
+export const usePublishLost = () => {
+  const queryClient = useQueryClient();
+  return useMutation<Pet, Error, { id: string; data: PublishLostRequest }>({
+    mutationFn: ({ id, data }) => apiClient.publishPetLost(id, data),
+    onSuccess: (pet) => {
+      queryClient.invalidateQueries({ queryKey: ['pets'] });
+      queryClient.invalidateQueries({ queryKey: ['pets', pet.id] });
+      queryClient.invalidateQueries({ queryKey: ['pets', 'mine'] });
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
+    },
+  });
+};
+
+export interface PublishStrayResult {
+  pet: Pet;
+  failedPhotoIndexes: number[];
+}
+
+// Shared chain logic for usePublishStray / usePublishStrayNative:
+// createPet({ status: 'stray', initial_report }) followed by sequential photo
+// uploads. If a photo upload fails the pet is already created — we resolve
+// with `failedPhotoIndexes` instead of throwing, so the wizard can show a
+// one-tap retry screen (design: "photo atomicity"). Generic over the photo
+// type (`File` for web, `string` URI for React Native).
+const createPublishStrayMutationFn = <TPhoto>(uploadFn: (petId: string, photo: TPhoto) => Promise<unknown>) => {
+  return async ({ pet, photos }: { pet: CreatePetRequest; photos: TPhoto[] }): Promise<PublishStrayResult> => {
+    const created = await apiClient.createPet(pet);
+    const failedPhotoIndexes: number[] = [];
+    for (let i = 0; i < photos.length; i++) {
+      try {
+        await uploadFn(created.id, photos[i]);
+      } catch {
+        failedPhotoIndexes.push(i);
+      }
+    }
+    return { pet: created, failedPhotoIndexes };
+  };
+};
+
+// Shared onSuccess invalidation set for usePublishStray / usePublishStrayNative,
+// matching sibling usePublishLost's invalidation set.
+const invalidatePublishStrayQueries = (queryClient: ReturnType<typeof useQueryClient>, result: PublishStrayResult) => {
+  queryClient.invalidateQueries({ queryKey: ['pets'] });
+  queryClient.invalidateQueries({ queryKey: ['pets', 'mine'] });
+  queryClient.invalidateQueries({ queryKey: ['pets', result.pet.id] });
+  queryClient.invalidateQueries({ queryKey: ['reports'] });
+};
+
+// usePublishStray — chains createPet({ status: 'stray', initial_report }) with
+// sequential photo uploads (web File[]). See createPublishStrayMutationFn for
+// the shared chain logic.
+export const usePublishStray = () => {
+  const queryClient = useQueryClient();
+  const mutationFn = createPublishStrayMutationFn<File>((petId, photo) => apiClient.uploadPhoto(petId, photo));
+  return useMutation<PublishStrayResult, Error, { pet: CreatePetRequest; photos: File[] }>({
+    mutationFn,
+    onSuccess: (result) => invalidatePublishStrayQueries(queryClient, result),
+  });
+};
+
+// Versión React Native de usePublishStray — recibe URIs locales en lugar de File.
+export const usePublishStrayNative = () => {
+  const queryClient = useQueryClient();
+  const mutationFn = createPublishStrayMutationFn<string>((petId, uri) => apiClient.uploadPhotoNative(petId, uri));
+  return useMutation<PublishStrayResult, Error, { pet: CreatePetRequest; photoUris: string[] }>({
+    mutationFn: ({ pet, photoUris }) => mutationFn({ pet, photos: photoUris }),
+    onSuccess: (result) => invalidatePublishStrayQueries(queryClient, result),
   });
 };
 

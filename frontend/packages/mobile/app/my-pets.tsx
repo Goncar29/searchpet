@@ -268,7 +268,7 @@ export default function MyPetsScreen() {
             <Text style={styles.emptyText}>{t('my_pets:emptyText')}</Text>
             <TouchableOpacity
               style={styles.createButton}
-              onPress={() => router.push('/(tabs)/post')}
+              onPress={() => router.push('/pets/register')}
             >
               <Text style={styles.createButtonText}>{t('my_pets:registerPet')}</Text>
             </TouchableOpacity>

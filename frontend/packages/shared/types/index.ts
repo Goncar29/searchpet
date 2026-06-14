@@ -211,12 +211,26 @@ export interface LoginRequest {
   password: string;
 }
 
+export interface InitialReportRequest {
+  latitude: number;
+  longitude: number;
+  note?: string;
+}
+
 export interface CreatePetRequest {
   name: string;
   type: PetType;
   breed?: string;
   color?: string;
   description?: string;
+  status?: 'registered' | 'stray';
+  initial_report?: InitialReportRequest;
+}
+
+export interface PublishLostRequest {
+  latitude: number;
+  longitude: number;
+  note?: string;
 }
 
 export interface UpdatePetRequest {

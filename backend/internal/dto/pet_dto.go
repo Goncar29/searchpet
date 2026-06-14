@@ -20,6 +20,27 @@ type CreatePetRequest struct {
 	// Status is optional. Accepted values: "registered" (default) and "stray".
 	// Any other value is rejected by the service layer.
 	Status string `json:"status"`
+	// InitialReport is required when Status == "stray" (400 initial_report_required
+	// otherwise) and forbidden when Status == "registered" or omitted
+	// (400 initial_report_not_allowed otherwise).
+	InitialReport *InitialReportRequest `json:"initial_report"`
+}
+
+// InitialReportRequest contains the location data for the initial report that
+// must accompany a stray pet creation or a publish-lost transition.
+type InitialReportRequest struct {
+	Latitude  float64 `json:"latitude"`
+	Longitude float64 `json:"longitude"`
+	Note      string  `json:"note"`
+}
+
+// PublishLostRequest contains the location data for transitioning an owned,
+// registered pet to "lost" with its initial location report — used by
+// POST /api/pets/:id/publish-lost.
+type PublishLostRequest struct {
+	Latitude  float64 `json:"latitude"`
+	Longitude float64 `json:"longitude"`
+	Note      string  `json:"note"`
 }
 
 // UpdatePetRequest contiene los datos para actualizar una mascota.

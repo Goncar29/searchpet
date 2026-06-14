@@ -77,6 +77,7 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 	userRepo := repository.NewUserRepository(db)
 	petRepo := repository.NewPetRepository(db)
 	reportRepo := repository.NewReportRepository(db)
+	petUow := repository.NewUnitOfWork(db)
 	photoRepo := repository.NewPhotoRepository(db)
 
 	shelterRepo := repository.NewShelterRepository(db)
@@ -92,7 +93,7 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 	// ========================================
 	authService := service.NewAuthService(userRepo, cfg.JWTSecret, cloudinaryClient)
 	photoService := service.NewPhotoService(photoRepo, petRepo, cloudinaryClient, bus)
-	petService := service.NewPetService(petRepo, bus, photoService, reportRepo)
+	petService := service.NewPetService(petRepo, bus, photoService, reportRepo, petUow)
 	reportService := service.NewReportService(reportRepo, petRepo, bus)
 	messageService := service.NewMessageService(messageRepo, blockedUserRepo, bus)
 	shareLinkService := service.NewShareLinkService(shareLinkRepo, petRepo, bus)
@@ -257,6 +258,7 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 		protected.PUT("/pets/:id", petHandler.UpdatePet)
 		protected.DELETE("/pets/:id", petHandler.DeletePet)
 		protected.PATCH("/pets/:id/found", petHandler.MarkAsFound)
+		protected.POST("/pets/:id/publish-lost", petHandler.PublishLost)
 
 		protected.POST("/pets/search/image", petHandler.SearchByImage)
 
