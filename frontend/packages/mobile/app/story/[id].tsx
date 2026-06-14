@@ -5,7 +5,7 @@
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { useStory, useLikeStory } from '../../../shared/hooks';
+import { useStory, useLikeStory, useUnlikeStory } from '../../../shared/hooks';
 import { getDateLocale } from '../../i18n/dateLocale';
 import { useAuthStore } from '../../store';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
@@ -17,6 +17,8 @@ export default function StoryDetailScreen() {
   const { isAuthenticated } = useAuthStore();
   const { data: story, isLoading, isError } = useStory(id ?? '');
   const likeStory = useLikeStory();
+  const unlikeStory = useUnlikeStory();
+  const isToggling = likeStory.isPending || unlikeStory.isPending;
 
   const handleLike = () => {
     if (!isAuthenticated) {
@@ -24,7 +26,11 @@ export default function StoryDetailScreen() {
       return;
     }
     if (!story?.id) return;
-    likeStory.mutate(story.id);
+    if (story.liked_by_me) {
+      unlikeStory.mutate(story.id);
+    } else {
+      likeStory.mutate(story.id);
+    }
   };
 
   if (isLoading) {
@@ -89,13 +95,14 @@ export default function StoryDetailScreen() {
 
         {/* Like button */}
         <TouchableOpacity
-          style={[styles.likeButton, likeStory.isPending && styles.likeButtonDisabled]}
+          testID="story-like-button"
+          style={[styles.likeButton, isToggling && styles.likeButtonDisabled]}
           onPress={handleLike}
-          disabled={likeStory.isPending}
+          disabled={isToggling}
           activeOpacity={0.7}
         >
           <Text style={styles.likeButtonText}>
-            ❤️ {t('story:likes', { count: story.like_count })}
+            {story.liked_by_me ? '❤️' : '🤍'} {t('story:likes', { count: story.like_count })}
           </Text>
         </TouchableOpacity>
 
