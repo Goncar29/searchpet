@@ -381,6 +381,7 @@ export interface SuccessStory {
   photo_before?: string;
   photo_after?: string;
   like_count: number;
+  liked_by_me: boolean;
   featured: boolean;
   pet_name: string;
   user_name: string;

@@ -613,8 +613,12 @@ class APIClient {
     return this.request<SuccessStory>('POST', '/api/stories', data);
   }
 
-  async likeStory(id: string): Promise<void> {
-    return this.request<void>('POST', `/api/stories/${id}/like`);
+  async likeStory(id: string): Promise<{ like_count: number; liked: boolean }> {
+    return this.request<{ like_count: number; liked: boolean }>('POST', `/api/stories/${id}/like`);
+  }
+
+  async unlikeStory(id: string): Promise<{ like_count: number; liked: boolean }> {
+    return this.request<{ like_count: number; liked: boolean }>('DELETE', `/api/stories/${id}/like`);
   }
 
   async deleteStory(id: string): Promise<void> {
