@@ -89,13 +89,24 @@ func (s *photoServiceImpl) UploadPhoto(
 	file multipart.File,
 	filename string,
 ) (*domain.Photo, error) {
-	// LÓGICA DE NEGOCIO: solo el dueño puede subir fotos
+	// LÓGICA DE NEGOCIO: autorización para subir fotos.
+	// - Mascota con dueño  -> solo el dueño puede subir.
+	// - Mascota callejera (stray, sin dueño) -> solo quien la reportó.
+	// Un stray tiene OwnerID nil, por eso NO se puede llamar OwnerID.String()
+	// sin chequear nil (paniquearía) y la regla cae sobre ReporterID.
 	pet, err := s.petRepo.FindByID(petID)
 	if err != nil {
 		return nil, err
 	}
 
-	if pet.OwnerID.String() != uploaderID {
+	var authorized bool
+	switch {
+	case pet.OwnerID != nil:
+		authorized = pet.OwnerID.String() == uploaderID
+	case pet.ReporterID != nil:
+		authorized = pet.ReporterID.String() == uploaderID
+	}
+	if !authorized {
 		return nil, domain.ErrNotPetOwner
 	}
 
