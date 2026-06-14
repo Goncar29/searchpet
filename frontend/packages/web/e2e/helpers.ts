@@ -62,3 +62,21 @@ export async function markFound(token: string, petId: string): Promise<void> {
   });
   if (!res.ok) throw new Error(`markFound failed: ${res.status} — ${await res.text()}`);
 }
+
+// Creates a success story for a found pet (caller must be its owner/reporter).
+// Returns the new story id.
+export async function seedStory(
+  token: string,
+  petId: string,
+  title: string,
+  body: string,
+): Promise<string> {
+  const res = await fetch(`${API_URL}/api/stories`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ pet_id: petId, title, body }),
+  });
+  if (!res.ok) throw new Error(`seedStory failed: ${res.status} — ${await res.text()}`);
+  const data = await res.json();
+  return data.id as string;
+}
