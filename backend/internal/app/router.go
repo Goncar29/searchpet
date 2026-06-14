@@ -255,6 +255,7 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 
 		protected.POST("/pets", petHandler.CreatePet)
 		protected.GET("/pets/mine", petHandler.GetMyPets)
+		protected.GET("/pets/reported", petHandler.GetReportedPets)
 		protected.PUT("/pets/:id", petHandler.UpdatePet)
 		protected.DELETE("/pets/:id", petHandler.DeletePet)
 		protected.PATCH("/pets/:id/found", petHandler.MarkAsFound)

@@ -45,6 +45,13 @@ func (r *PostgresPetRepository) FindByOwnerID(ownerID string) ([]domain.Pet, err
 	return pets, err
 }
 
+// FindByReporterID devuelve las mascotas callejeras (stray) que reportó un usuario.
+func (r *PostgresPetRepository) FindByReporterID(reporterID string) ([]domain.Pet, error) {
+	var pets []domain.Pet
+	err := r.db.Preload("Photos").Where("reporter_id = ?", reporterID).Order("created_at DESC").Find(&pets).Error
+	return pets, err
+}
+
 // Update guarda los cambios de una mascota existente.
 func (r *PostgresPetRepository) Update(pet *domain.Pet) error {
 	return r.db.Save(pet).Error

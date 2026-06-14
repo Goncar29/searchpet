@@ -207,6 +207,10 @@ class APIClient {
     return this.request<Pet[]>('GET', '/api/pets/mine');
   }
 
+  async getReportedPets(): Promise<Pet[]> {
+    return this.request<Pet[]>('GET', '/api/pets/reported');
+  }
+
   async updatePet(id: string, data: UpdatePetRequest): Promise<Pet> {
     return this.request<Pet>('PUT', `/api/pets/${id}`, data);
   }

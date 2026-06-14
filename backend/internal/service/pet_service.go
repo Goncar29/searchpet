@@ -15,6 +15,8 @@ type PetService interface {
 	CreatePet(ownerID string, req dto.CreatePetRequest) (*domain.Pet, error)
 	GetPetByID(id string) (*domain.Pet, error)
 	GetMyPets(ownerID string) ([]domain.Pet, error)
+	// GetReportedPets returns the stray pets the user reported.
+	GetReportedPets(reporterID string) ([]domain.Pet, error)
 	UpdatePet(ownerID string, petID string, req dto.UpdatePetRequest) (*domain.Pet, error)
 	DeletePet(ownerID string, petID string) error
 	MarkAsFound(ownerID string, petID string) (*domain.Pet, error)
@@ -170,6 +172,11 @@ func (s *petService) GetMyPets(ownerID string) ([]domain.Pet, error) {
 	return s.repo.FindByOwnerID(ownerID)
 }
 
+// GetReportedPets devuelve las mascotas callejeras (stray) que reportó el usuario.
+func (s *petService) GetReportedPets(reporterID string) ([]domain.Pet, error) {
+	return s.repo.FindByReporterID(reporterID)
+}
+
 // UpdatePet actualiza una mascota — verifica que el usuario sea el dueño.
 // Enforces state machine transitions and optimistic concurrency via Version field.
 func (s *petService) UpdatePet(ownerID string, petID string, req dto.UpdatePetRequest) (*domain.Pet, error) {
@@ -178,8 +185,8 @@ func (s *petService) UpdatePet(ownerID string, petID string, req dto.UpdatePetRe
 		return nil, err
 	}
 
-	// LÓGICA DE NEGOCIO: solo el dueño puede editar su mascota
-	if pet.OwnerID == nil || pet.OwnerID.String() != ownerID {
+	// LÓGICA DE NEGOCIO: el dueño (o el reporter, si es un stray) puede editar.
+	if !canManagePet(pet, ownerID) {
 		return nil, domain.ErrForbidden
 	}
 
@@ -226,6 +233,23 @@ func (s *petService) UpdatePet(ownerID string, petID string, req dto.UpdatePetRe
 		s.eventBus.Publish("pet.lost", event.PetLostEvent{PetID: pet.ID})
 	}
 
+	// Publicamos pet.found cuando la transición es hacia "found".
+	// La UI marca "encontrada" desde el dropdown de estado del PetCard, que usa
+	// UpdatePet (no MarkAsFound) — sin este publish se saltaría la gamificación
+	// y la limpieza del embedding CLIP. Espeja la construcción del evento de
+	// MarkAsFound: OwnerID es nil-safe (los strays no tienen dueño).
+	if s.eventBus != nil && oldStatus != domain.PetStatusFound && pet.Status == domain.PetStatusFound {
+		var eventOwnerID uuid.UUID
+		if pet.OwnerID != nil {
+			eventOwnerID = *pet.OwnerID
+		}
+		s.eventBus.Publish("pet.found", event.PetFoundEvent{
+			PetID:   pet.ID,
+			OwnerID: eventOwnerID,
+			PetName: pet.Name,
+		})
+	}
+
 	// NOTE: there is no "pet.stray" publish here — the status machine (status_machine.go)
 	// does not allow any transition INTO "stray" via UpdatePet (stray pets are only
 	// created directly with status="stray", see CreatePet). The pet.stray event is
@@ -242,8 +266,8 @@ func (s *petService) DeletePet(ownerID string, petID string) error {
 		return err
 	}
 
-	// LÓGICA DE NEGOCIO: solo el dueño puede eliminar su mascota
-	if pet.OwnerID == nil || pet.OwnerID.String() != ownerID {
+	// LÓGICA DE NEGOCIO: el dueño (o el reporter, si es un stray) puede eliminar.
+	if !canManagePet(pet, ownerID) {
 		return domain.ErrForbidden
 	}
 

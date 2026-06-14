@@ -76,6 +76,8 @@ export default function PetDetailScreen() {
   const petPhotos = pet.photos ?? [];
   const latestReport = reports?.[0];
   const isOwner = isAuthenticated && user?.id === pet.owner_id;
+  // canManage: owner (owned pets) or reporter (stray pets, no owner) may manage.
+  const canManage = isAuthenticated && (user?.id === pet.owner_id || user?.id === pet.reporter_id);
 
   const handleBlock = (ownerUserId: string) => {
     blockUser.mutate(
@@ -281,7 +283,7 @@ export default function PetDetailScreen() {
         )}
 
         {/* Botón Marcar como encontrada — owner cuando está lost, reporter cuando es stray */}
-        {isOwner && (pet.status === 'lost' || pet.status === 'stray') && (
+        {canManage && (pet.status === 'lost' || pet.status === 'stray') && (
           <TouchableOpacity
             style={[styles.markFoundButton, markAsFound.isPending && styles.disabledButton]}
             onPress={handleMarkAsFound}

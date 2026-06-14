@@ -85,6 +85,11 @@
       "changeStatus": "Cambiar estado",
       "photoCount": "{{current}}/3 fotos"
     },
+    "reports": {
+      "tabOwned": "Mis mascotas",
+      "tabReported": "Mis reportes",
+      "empty": "Todavía no reportaste ninguna mascota callejera."
+    },
     "detail": {
       "contact": "Contactar por WhatsApp",
       "addReport": "Agregar reporte",
