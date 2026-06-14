@@ -85,6 +85,13 @@
       "changeStatus": "Change status",
       "photoCount": "{{current}}/3 photos"
     },
+    "reports": {
+      "title": "My reports",
+      "tabOwned": "My pets",
+      "tabReported": "My reports",
+      "empty": "You haven't reported any stray pets yet.",
+      "emptyAction": "Report a stray pet"
+    },
     "detail": {
       "contact": "Contact via WhatsApp",
       "addReport": "Add report",

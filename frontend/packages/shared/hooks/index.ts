@@ -109,6 +109,15 @@ export const useMyPets = (enabled: boolean = true) => {
   });
 };
 
+// useReportedPets — stray pets the authenticated user reported (GET /api/pets/reported).
+export const useReportedPets = (enabled: boolean = true) => {
+  return useQuery({
+    queryKey: ['pets', 'reported'],
+    queryFn: () => apiClient.getReportedPets(),
+    enabled,
+  });
+};
+
 export const usePetByID = (id: string) => {
   return useQuery({
     queryKey: ['pets', id],
