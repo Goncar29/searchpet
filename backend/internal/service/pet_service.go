@@ -319,17 +319,12 @@ func (s *petService) MarkAsFound(ownerID string, petID string) (*domain.Pet, err
 		return nil, err
 	}
 
-	// Authorization check — differs for owned vs stray pets
-	if pet.Status == domain.PetStatusStray {
-		// Stray: only the reporter may mark as found
-		if pet.ReporterID == nil || pet.ReporterID.String() != ownerID {
-			return nil, domain.ErrForbidden
-		}
-	} else {
-		// Owned pet: only the owner may mark as found
-		if pet.OwnerID == nil || pet.OwnerID.String() != ownerID {
-			return nil, domain.ErrForbidden
-		}
+	// Authorization — owner (owned pets) or reporter (stray pets). canManagePet is
+	// the single source of truth: it keys off whether the pet has an owner, so it
+	// also covers an already-found stray (status no longer "stray") whose reporter
+	// retries — a case the previous status-based branch locked out.
+	if !canManagePet(pet, ownerID) {
+		return nil, domain.ErrForbidden
 	}
 
 	// Validate state machine transition

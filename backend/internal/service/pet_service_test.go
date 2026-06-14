@@ -506,6 +506,32 @@ func TestMarkAsFound_NonReporterCannotMarkStrayFound(t *testing.T) {
 	}
 }
 
+// A stray that was already marked found (status no longer "stray", owner still
+// nil) must remain manageable by its reporter — the idempotent retry should not
+// be locked out. Regression guard for the canManagePet refactor of MarkAsFound.
+func TestMarkAsFound_AlreadyFoundStray_ReporterIdempotent(t *testing.T) {
+	reporterID := uuid.New()
+	pet := &domain.Pet{
+		ID:         uuid.New(),
+		ReporterID: &reporterID,
+		Status:     domain.PetStatusFound, // already found, no owner
+		Name:       "Stray",
+	}
+	repo := &mockPetRepo{pet: pet}
+	svc := service.NewPetService(repo, nil, nil, nil, nil)
+
+	result, err := svc.MarkAsFound(reporterID.String(), pet.ID.String())
+	if err != nil {
+		t.Fatalf("reporter should be allowed to retry on an already-found stray, got: %v", err)
+	}
+	if result.Status != domain.PetStatusFound {
+		t.Errorf("expected status %q, got %q", domain.PetStatusFound, result.Status)
+	}
+	if len(repo.statusCalls) != 0 {
+		t.Error("UpdateStatus should NOT be called when already found (idempotent)")
+	}
+}
+
 func TestDeletePet_NilOwnerNosPanic(t *testing.T) {
 	// Stray pet has nil OwnerID — delete should return ErrForbidden (not panic)
 	anyUser := uuid.New()
