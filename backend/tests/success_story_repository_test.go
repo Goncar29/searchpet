@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 	"lost-pets/internal/domain"
 	"lost-pets/internal/repository"
 	"lost-pets/tests/testdb"
@@ -134,35 +135,234 @@ func TestSuccessStoryRepository_GetByPetID(t *testing.T) {
 	}
 }
 
-func TestSuccessStoryRepository_Like(t *testing.T) {
-	gormDB := testdb.SetupTestDB(t)
+// newTestStoryForLikes creates an owner, a found pet, and a success story
+// with like_count=0, returning the story and the owner user.
+func newTestStoryForLikes(t *testing.T, gormDB *gorm.DB, label string) (*domain.SuccessStory, *domain.User) {
+	t.Helper()
 	userRepo := repository.NewUserRepository(gormDB)
 	petRepo := repository.NewPetRepository(gormDB)
 	storyRepo := repository.NewSuccessStoryRepository(gormDB)
 	ctx := context.Background()
 
 	owner := newTestUser(t, userRepo)
-	pet := &domain.Pet{ID: uuid.New(), OwnerID: ptrUUID(owner.ID), Name: "Like Pet", Type: "perro", Status: domain.PetStatusFound}
+	pet := &domain.Pet{ID: uuid.New(), OwnerID: ptrUUID(owner.ID), Name: label, Type: "perro", Status: domain.PetStatusFound}
 	if err := petRepo.Create(pet); err != nil {
 		t.Fatalf("Create pet: %v", err)
 	}
-	story := &domain.SuccessStory{ID: uuid.New(), PetID: pet.ID, UserID: owner.ID, Body: "Like test"}
+	story := &domain.SuccessStory{ID: uuid.New(), PetID: pet.ID, UserID: owner.ID, Body: label}
 	if err := storyRepo.Create(ctx, story); err != nil {
 		t.Fatalf("Create story: %v", err)
 	}
+	return story, owner
+}
 
-	for i := 0; i < 3; i++ {
-		if err := storyRepo.IncrementLikes(ctx, story.ID); err != nil {
-			t.Fatalf("IncrementLikes (%d): %v", i+1, err)
-		}
+func TestSuccessStoryRepository_AddLike_TwiceSameUser_OneRowAndCountOne(t *testing.T) {
+	gormDB := testdb.SetupTestDB(t)
+	storyRepo := repository.NewSuccessStoryRepository(gormDB)
+	ctx := context.Background()
+
+	story, owner := newTestStoryForLikes(t, gormDB, "AddLike twice")
+
+	added1, count1, err := storyRepo.AddLike(ctx, story.ID, owner.ID)
+	if err != nil {
+		t.Fatalf("AddLike (1st): %v", err)
+	}
+	if !added1 {
+		t.Error("want added=true on first like")
+	}
+	if count1 != 1 {
+		t.Errorf("want like_count=1 after first like, got %d", count1)
+	}
+
+	added2, count2, err := storyRepo.AddLike(ctx, story.ID, owner.ID)
+	if err != nil {
+		t.Fatalf("AddLike (2nd): %v", err)
+	}
+	if added2 {
+		t.Error("want added=false on duplicate like (idempotent no-op)")
+	}
+	if count2 != 1 {
+		t.Errorf("want like_count to stay 1 after duplicate like, got %d", count2)
 	}
 
 	got, err := storyRepo.GetByID(ctx, story.ID)
 	if err != nil {
-		t.Fatalf("GetByID after likes: %v", err)
+		t.Fatalf("GetByID: %v", err)
 	}
-	if got.LikeCount != 3 {
-		t.Errorf("want LikeCount=3, got %d", got.LikeCount)
+	if got.LikeCount != 1 {
+		t.Errorf("want persisted like_count=1, got %d", got.LikeCount)
+	}
+}
+
+func TestSuccessStoryRepository_AddLike_TwoDifferentUsers_CountTwo(t *testing.T) {
+	gormDB := testdb.SetupTestDB(t)
+	userRepo := repository.NewUserRepository(gormDB)
+	storyRepo := repository.NewSuccessStoryRepository(gormDB)
+	ctx := context.Background()
+
+	story, owner := newTestStoryForLikes(t, gormDB, "AddLike two users")
+	other := newTestUser(t, userRepo)
+
+	if _, _, err := storyRepo.AddLike(ctx, story.ID, owner.ID); err != nil {
+		t.Fatalf("AddLike (owner): %v", err)
+	}
+	added, count, err := storyRepo.AddLike(ctx, story.ID, other.ID)
+	if err != nil {
+		t.Fatalf("AddLike (other): %v", err)
+	}
+	if !added {
+		t.Error("want added=true for a different user's first like")
+	}
+	if count != 2 {
+		t.Errorf("want like_count=2 after two distinct likes, got %d", count)
+	}
+}
+
+func TestSuccessStoryRepository_RemoveLike_ForLiker_RowGoneAndCountDecremented(t *testing.T) {
+	gormDB := testdb.SetupTestDB(t)
+	storyRepo := repository.NewSuccessStoryRepository(gormDB)
+	ctx := context.Background()
+
+	story, owner := newTestStoryForLikes(t, gormDB, "RemoveLike for liker")
+
+	if _, _, err := storyRepo.AddLike(ctx, story.ID, owner.ID); err != nil {
+		t.Fatalf("AddLike: %v", err)
+	}
+
+	removed, count, err := storyRepo.RemoveLike(ctx, story.ID, owner.ID)
+	if err != nil {
+		t.Fatalf("RemoveLike: %v", err)
+	}
+	if !removed {
+		t.Error("want removed=true when the user had liked the story")
+	}
+	if count != 0 {
+		t.Errorf("want like_count=0 after removing the only like, got %d", count)
+	}
+
+	likedSet, err := storyRepo.LikedStoryIDs(ctx, owner.ID, []uuid.UUID{story.ID})
+	if err != nil {
+		t.Fatalf("LikedStoryIDs: %v", err)
+	}
+	if likedSet[story.ID] {
+		t.Error("want story not in liked set after RemoveLike")
+	}
+}
+
+func TestSuccessStoryRepository_RemoveLike_WhenNotLiked_NoOp(t *testing.T) {
+	gormDB := testdb.SetupTestDB(t)
+	storyRepo := repository.NewSuccessStoryRepository(gormDB)
+	ctx := context.Background()
+
+	story, owner := newTestStoryForLikes(t, gormDB, "RemoveLike not liked")
+
+	removed, count, err := storyRepo.RemoveLike(ctx, story.ID, owner.ID)
+	if err != nil {
+		t.Fatalf("RemoveLike: %v", err)
+	}
+	if removed {
+		t.Error("want removed=false when the user never liked the story")
+	}
+	if count != 0 {
+		t.Errorf("want like_count to stay 0, got %d", count)
+	}
+}
+
+func TestSuccessStoryRepository_RemoveLike_NeverGoesNegative(t *testing.T) {
+	gormDB := testdb.SetupTestDB(t)
+	storyRepo := repository.NewSuccessStoryRepository(gormDB)
+	ctx := context.Background()
+
+	story, owner := newTestStoryForLikes(t, gormDB, "RemoveLike never negative")
+
+	// Repeated RemoveLike on a story that was never liked must keep the
+	// counter at 0 (recompute = COUNT(*) = 0), never going negative.
+	for i := 0; i < 2; i++ {
+		_, count, err := storyRepo.RemoveLike(ctx, story.ID, owner.ID)
+		if err != nil {
+			t.Fatalf("RemoveLike (%d): %v", i+1, err)
+		}
+		if count != 0 {
+			t.Errorf("want like_count=0 on RemoveLike #%d, got %d", i+1, count)
+		}
+	}
+}
+
+func TestSuccessStoryRepository_AddLike_MissingStory_ErrStoryNotFound(t *testing.T) {
+	gormDB := testdb.SetupTestDB(t)
+	userRepo := repository.NewUserRepository(gormDB)
+	storyRepo := repository.NewSuccessStoryRepository(gormDB)
+	ctx := context.Background()
+
+	user := newTestUser(t, userRepo)
+
+	added, count, err := storyRepo.AddLike(ctx, uuid.New(), user.ID)
+	if !errors.Is(err, domain.ErrStoryNotFound) {
+		t.Errorf("want ErrStoryNotFound, got %v", err)
+	}
+	if added || count != 0 {
+		t.Errorf("want added=false, count=0 on missing story, got added=%v count=%d", added, count)
+	}
+}
+
+func TestSuccessStoryRepository_RemoveLike_SoftDeletedStory_ErrStoryNotFound(t *testing.T) {
+	gormDB := testdb.SetupTestDB(t)
+	storyRepo := repository.NewSuccessStoryRepository(gormDB)
+	ctx := context.Background()
+
+	story, owner := newTestStoryForLikes(t, gormDB, "RemoveLike soft-deleted")
+
+	if err := storyRepo.Delete(ctx, story.ID); err != nil {
+		t.Fatalf("Delete: %v", err)
+	}
+
+	removed, count, err := storyRepo.RemoveLike(ctx, story.ID, owner.ID)
+	if !errors.Is(err, domain.ErrStoryNotFound) {
+		t.Errorf("want ErrStoryNotFound for soft-deleted story, got %v", err)
+	}
+	if removed || count != 0 {
+		t.Errorf("want removed=false, count=0 on soft-deleted story, got removed=%v count=%d", removed, count)
+	}
+}
+
+func TestSuccessStoryRepository_LikedStoryIDs_OnlyLikedByUser(t *testing.T) {
+	gormDB := testdb.SetupTestDB(t)
+	storyRepo := repository.NewSuccessStoryRepository(gormDB)
+	ctx := context.Background()
+
+	story1, owner := newTestStoryForLikes(t, gormDB, "LikedStoryIDs story1")
+	story2, _ := newTestStoryForLikes(t, gormDB, "LikedStoryIDs story2")
+
+	if _, _, err := storyRepo.AddLike(ctx, story1.ID, owner.ID); err != nil {
+		t.Fatalf("AddLike: %v", err)
+	}
+
+	likedSet, err := storyRepo.LikedStoryIDs(ctx, owner.ID, []uuid.UUID{story1.ID, story2.ID})
+	if err != nil {
+		t.Fatalf("LikedStoryIDs: %v", err)
+	}
+	if !likedSet[story1.ID] {
+		t.Error("want story1 in liked set")
+	}
+	if likedSet[story2.ID] {
+		t.Error("want story2 NOT in liked set")
+	}
+}
+
+func TestSuccessStoryRepository_LikedStoryIDs_EmptyInput(t *testing.T) {
+	gormDB := testdb.SetupTestDB(t)
+	userRepo := repository.NewUserRepository(gormDB)
+	storyRepo := repository.NewSuccessStoryRepository(gormDB)
+	ctx := context.Background()
+
+	user := newTestUser(t, userRepo)
+
+	likedSet, err := storyRepo.LikedStoryIDs(ctx, user.ID, []uuid.UUID{})
+	if err != nil {
+		t.Fatalf("LikedStoryIDs: %v", err)
+	}
+	if len(likedSet) != 0 {
+		t.Errorf("want empty map for empty input, got %+v", likedSet)
 	}
 }
 

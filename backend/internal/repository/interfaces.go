@@ -158,7 +158,9 @@ type SuccessStoryRepository interface {
 	GetByID(ctx context.Context, id uuid.UUID) (*domain.SuccessStory, error)
 	GetByPetID(ctx context.Context, petID uuid.UUID) (*domain.SuccessStory, error)
 	GetAll(ctx context.Context, featured *bool, limit, offset int) ([]domain.SuccessStory, error)
-	IncrementLikes(ctx context.Context, id uuid.UUID) error
+	AddLike(ctx context.Context, storyID, userID uuid.UUID) (added bool, newCount int, err error)
+	RemoveLike(ctx context.Context, storyID, userID uuid.UUID) (removed bool, newCount int, err error)
+	LikedStoryIDs(ctx context.Context, userID uuid.UUID, storyIDs []uuid.UUID) (map[uuid.UUID]bool, error)
 	SetFeatured(ctx context.Context, id uuid.UUID, featured bool, featuredBy uuid.UUID) error
 	Delete(ctx context.Context, id uuid.UUID) error
 }
