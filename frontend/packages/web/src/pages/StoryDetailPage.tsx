@@ -2,7 +2,7 @@
 // StoryDetailPage — /stories/:id
 // ============================================================
 import { useParams, Link } from 'react-router';
-import { useStory, useLikeStory } from '@shared/hooks';
+import { useStory, useLikeStory, useUnlikeStory } from '@shared/hooks';
 import { useAuth } from '../context/AuthContext';
 
 export function StoryDetailPage() {
@@ -10,6 +10,8 @@ export function StoryDetailPage() {
   const { isAuthenticated } = useAuth();
   const { data: story, isLoading, isError } = useStory(id ?? '');
   const likeStory = useLikeStory();
+  const unlikeStory = useUnlikeStory();
+  const isToggling = likeStory.isPending || unlikeStory.isPending;
 
   if (isLoading) {
     return (
@@ -53,7 +55,11 @@ export function StoryDetailPage() {
       window.location.href = '/login';
       return;
     }
-    likeStory.mutate(story.id);
+    if (story.liked_by_me) {
+      unlikeStory.mutate(story.id);
+    } else {
+      likeStory.mutate(story.id);
+    }
   };
 
   return (
@@ -138,11 +144,12 @@ export function StoryDetailPage() {
         <div className="flex items-center justify-between border-t border-gray-100 dark:border-gray-800 pt-4">
           <button
             onClick={handleLike}
-            disabled={likeStory.isPending}
+            disabled={isToggling}
+            aria-pressed={story.liked_by_me}
             title={isAuthenticated ? 'Me gusta' : 'Inicia sesión para dar me gusta'}
             className="flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 text-sm font-semibold text-gray-600 dark:text-gray-300 hover:border-red-300 dark:hover:border-red-700 hover:text-red-500 dark:hover:text-red-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <span>❤️</span>
+            <span>{story.liked_by_me ? '❤️' : '🤍'}</span>
             <span>{story.like_count}</span>
             <span className="hidden sm:inline">
               {isAuthenticated ? 'Me gusta' : 'Iniciá sesión para dar me gusta'}

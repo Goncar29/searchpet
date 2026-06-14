@@ -1,5 +1,5 @@
 import { Link } from 'react-router';
-import { useStories, useLikeStory } from '@shared/hooks';
+import { useStories, useLikeStory, useUnlikeStory } from '@shared/hooks';
 import type { SuccessStory } from '@shared/types';
 
 function truncate(text: string, max: number): string {
@@ -10,6 +10,17 @@ function truncate(text: string, max: number): string {
 export function StoriesPage() {
   const { data: stories, isLoading } = useStories({ limit: 20 });
   const likeStory = useLikeStory();
+  const unlikeStory = useUnlikeStory();
+  const isToggling = likeStory.isPending || unlikeStory.isPending;
+
+  const toggleLike = (e: React.MouseEvent, story: SuccessStory) => {
+    e.preventDefault();
+    if (story.liked_by_me) {
+      unlikeStory.mutate(story.id);
+    } else {
+      likeStory.mutate(story.id);
+    }
+  };
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 bg-gray-50 dark:bg-gray-950 min-h-screen">
@@ -59,12 +70,13 @@ export function StoriesPage() {
                   {new Date(story.created_at).toLocaleDateString()}
                 </p>
                 <button
-                  onClick={(e) => { e.preventDefault(); likeStory.mutate(story.id); }}
-                  disabled={likeStory.isPending}
+                  onClick={(e) => toggleLike(e, story)}
+                  disabled={isToggling}
+                  aria-pressed={story.liked_by_me}
+                  aria-label={story.liked_by_me ? 'Quitar me gusta' : 'Me gusta'}
                   className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors disabled:opacity-50"
-                  aria-label="Me gusta"
                 >
-                  <span>❤️</span>
+                  <span>{story.liked_by_me ? '❤️' : '🤍'}</span>
                   <span className="font-semibold">{story.like_count}</span>
                 </button>
               </div>
