@@ -136,6 +136,7 @@ function PetCard({
 
           {/* Cambiar estado */}
           <select
+            data-testid="status-select"
             value={pendingStatus ?? pet.status}
             onChange={handleStatusChange}
             disabled={updatePet.isPending}

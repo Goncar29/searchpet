@@ -29,9 +29,9 @@ test.describe('Stray management', () => {
     // Switch to the "My reports" tab — strays the user reported live here.
     await page.getByRole('button', { name: /mis reportes|my reports|meus relatos/i }).click();
 
-    // The reported stray's card carries the status <select>. With a single
-    // reported stray there is exactly one such control on the tab.
-    const statusSelect = page.locator('select').first();
+    // The reported stray's card carries the status <select> (targeted by
+    // test id so we don't accidentally match the navbar language switcher).
+    const statusSelect = page.getByTestId('status-select').first();
     await expect(statusSelect).toBeVisible({ timeout: 10_000 });
 
     const optionValues = await statusSelect
