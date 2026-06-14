@@ -92,6 +92,21 @@ func (h *PetHandler) GetMyPets(c *gin.Context) {
 	c.JSON(http.StatusOK, dto.ToPetListResponse(pets))
 }
 
+// GetReportedPets godoc
+// GET /api/pets/reported
+// Returns the stray pets the authenticated user reported.
+func (h *PetHandler) GetReportedPets(c *gin.Context) {
+	reporterID := getUserID(c)
+
+	pets, err := h.petService.GetReportedPets(reporterID)
+	if err != nil {
+		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
+		return
+	}
+
+	c.JSON(http.StatusOK, dto.ToPetListResponse(pets))
+}
+
 // UpdatePet godoc
 // PUT /api/pets/:id
 func (h *PetHandler) UpdatePet(c *gin.Context) {

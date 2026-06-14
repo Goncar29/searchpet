@@ -70,6 +70,9 @@ type mockPetRepoForShare struct {
 
 func (m *mockPetRepoForShare) Create(pet *domain.Pet) error                                   { return nil }
 func (m *mockPetRepoForShare) FindByOwnerID(ownerID string) ([]domain.Pet, error)             { return nil, nil }
+func (m *mockPetRepoForShare) FindByReporterID(reporterID string) ([]domain.Pet, error) {
+	return nil, nil
+}
 func (m *mockPetRepoForShare) Update(pet *domain.Pet) error                                   { return nil }
 func (m *mockPetRepoForShare) UpdateStatus(id string, status string) error                    { return nil }
 func (m *mockPetRepoForShare) Delete(id string) error                                         { return nil }

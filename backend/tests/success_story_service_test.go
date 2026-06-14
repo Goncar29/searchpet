@@ -85,6 +85,9 @@ type mockPetRepoForStory struct {
 
 func (m *mockPetRepoForStory) Create(pet *domain.Pet) error                                   { return nil }
 func (m *mockPetRepoForStory) FindByOwnerID(ownerID string) ([]domain.Pet, error)             { return nil, nil }
+func (m *mockPetRepoForStory) FindByReporterID(reporterID string) ([]domain.Pet, error) {
+	return nil, nil
+}
 func (m *mockPetRepoForStory) Update(pet *domain.Pet) error                                   { return nil }
 func (m *mockPetRepoForStory) UpdateStatus(id string, status string) error                    { return nil }
 func (m *mockPetRepoForStory) Delete(id string) error                                         { return nil }

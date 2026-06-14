@@ -73,6 +73,7 @@ func (m *mockPetRepoForEmbedding) FindByID(id string) (*domain.Pet, error) {
 
 func (m *mockPetRepoForEmbedding) Create(_ *domain.Pet) error                         { return nil }
 func (m *mockPetRepoForEmbedding) FindByOwnerID(_ string) ([]domain.Pet, error)       { return nil, nil }
+func (m *mockPetRepoForEmbedding) FindByReporterID(_ string) ([]domain.Pet, error)    { return nil, nil }
 func (m *mockPetRepoForEmbedding) Update(_ *domain.Pet) error                         { return nil }
 func (m *mockPetRepoForEmbedding) UpdateStatus(_ string, _ string) error              { return nil }
 func (m *mockPetRepoForEmbedding) Delete(_ string) error                              { return nil }

@@ -22,7 +22,8 @@ import (
 type mockPetService struct {
 	createPetFn   func(ownerID string, req dto.CreatePetRequest) (*domain.Pet, error)
 	getPetByIDFn  func(id string) (*domain.Pet, error)
-	getMyPetsFn   func(ownerID string) ([]domain.Pet, error)
+	getMyPetsFn       func(ownerID string) ([]domain.Pet, error)
+	getReportedPetsFn func(reporterID string) ([]domain.Pet, error)
 	updatePetFn   func(ownerID, petID string, req dto.UpdatePetRequest) (*domain.Pet, error)
 	deletePetFn   func(ownerID, petID string) error
 	markAsFoundFn func(ownerID, petID string) (*domain.Pet, error)
@@ -47,6 +48,13 @@ func (m *mockPetService) GetPetByID(id string) (*domain.Pet, error) {
 func (m *mockPetService) GetMyPets(ownerID string) ([]domain.Pet, error) {
 	if m.getMyPetsFn != nil {
 		return m.getMyPetsFn(ownerID)
+	}
+	return nil, nil
+}
+
+func (m *mockPetService) GetReportedPets(reporterID string) ([]domain.Pet, error) {
+	if m.getReportedPetsFn != nil {
+		return m.getReportedPetsFn(reporterID)
 	}
 	return nil, nil
 }
@@ -100,6 +108,7 @@ func setupPetRouter(h *handler.PetHandler, ownerID uuid.UUID) *gin.Engine {
 	{
 		auth.POST("", h.CreatePet)
 		auth.GET("/mine", h.GetMyPets)
+		auth.GET("/reported", h.GetReportedPets)
 		auth.PUT("/:id", h.UpdatePet)
 		auth.DELETE("/:id", h.DeletePet)
 	}
@@ -566,6 +575,55 @@ func TestPetHandler_GetMyPets(t *testing.T) {
 			}
 		})
 	}
+}
+
+// ============================================================
+// GET /api/pets/reported
+// ============================================================
+
+func TestPetHandler_GetReportedPets(t *testing.T) {
+	reporterID := uuid.New()
+
+	t.Run("returns reported stray pets array", func(t *testing.T) {
+		svc := &mockPetService{
+			getReportedPetsFn: func(_ string) ([]domain.Pet, error) {
+				return []domain.Pet{*newTestPet(reporterID), *newTestPet(reporterID)}, nil
+			},
+		}
+		r := setupPetRouter(handler.NewPetHandler(svc, nil), reporterID)
+
+		req := httptest.NewRequest(http.MethodGet, "/api/pets/reported", nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Fatalf("want 200, got %d: %s", w.Code, w.Body.String())
+		}
+		var resp []dto.PetResponse
+		if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+			t.Fatalf("failed to decode response: %v", err)
+		}
+		if len(resp) != 2 {
+			t.Errorf("want 2 reported pets, got %d", len(resp))
+		}
+	})
+
+	t.Run("internal error returns 500", func(t *testing.T) {
+		svc := &mockPetService{
+			getReportedPetsFn: func(_ string) ([]domain.Pet, error) {
+				return nil, domain.ErrInternal
+			},
+		}
+		r := setupPetRouter(handler.NewPetHandler(svc, nil), reporterID)
+
+		req := httptest.NewRequest(http.MethodGet, "/api/pets/reported", nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+
+		if w.Code != http.StatusInternalServerError {
+			t.Errorf("want 500, got %d", w.Code)
+		}
+	})
 }
 
 // ============================================================

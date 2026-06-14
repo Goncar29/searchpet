@@ -109,6 +109,9 @@ func (m *mockPetRepoForService) FindByID(id string) (*domain.Pet, error) {
 // Partial implementation — remaining methods are no-ops for service tests.
 func (m *mockPetRepoForService) Create(pet *domain.Pet) error                        { return nil }
 func (m *mockPetRepoForService) FindByOwnerID(ownerID string) ([]domain.Pet, error)  { return nil, nil }
+func (m *mockPetRepoForService) FindByReporterID(reporterID string) ([]domain.Pet, error) {
+	return nil, nil
+}
 func (m *mockPetRepoForService) Search(c domain.PetSearchCriteria) ([]domain.Pet, int64, error) {
 	return nil, 0, nil
 }

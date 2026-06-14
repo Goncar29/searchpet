@@ -15,6 +15,8 @@ type PetService interface {
 	CreatePet(ownerID string, req dto.CreatePetRequest) (*domain.Pet, error)
 	GetPetByID(id string) (*domain.Pet, error)
 	GetMyPets(ownerID string) ([]domain.Pet, error)
+	// GetReportedPets returns the stray pets the user reported.
+	GetReportedPets(reporterID string) ([]domain.Pet, error)
 	UpdatePet(ownerID string, petID string, req dto.UpdatePetRequest) (*domain.Pet, error)
 	DeletePet(ownerID string, petID string) error
 	MarkAsFound(ownerID string, petID string) (*domain.Pet, error)
@@ -168,6 +170,11 @@ func (s *petService) GetPetByID(id string) (*domain.Pet, error) {
 // GetMyPets devuelve todas las mascotas del usuario autenticado.
 func (s *petService) GetMyPets(ownerID string) ([]domain.Pet, error) {
 	return s.repo.FindByOwnerID(ownerID)
+}
+
+// GetReportedPets devuelve las mascotas callejeras (stray) que reportó el usuario.
+func (s *petService) GetReportedPets(reporterID string) ([]domain.Pet, error) {
+	return s.repo.FindByReporterID(reporterID)
 }
 
 // UpdatePet actualiza una mascota — verifica que el usuario sea el dueño.
