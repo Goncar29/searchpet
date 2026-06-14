@@ -354,8 +354,10 @@ export function PetDetailPage() {
               </div>
             )}
 
-            {/* Report pet — only for authenticated users who don't manage it */}
-            {isAuthenticated && !canManage && (
+            {/* Report pet — only for authenticated users who don't manage it,
+                and only when there is a valid target (owner or reporter) to
+                avoid submitting target_user_id: undefined. */}
+            {isAuthenticated && !canManage && (pet.owner_id || pet.reporter_id) && (
               <div className="mb-6 space-y-2">
                 <div className="flex justify-end">
                   <button

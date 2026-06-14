@@ -86,11 +86,9 @@
       "photoCount": "{{current}}/3 fotos"
     },
     "reports": {
-      "title": "Meus relatos",
       "tabOwned": "Meus pets",
       "tabReported": "Meus relatos",
-      "empty": "Você ainda não relatou nenhum animal de rua.",
-      "emptyAction": "Relatar um animal de rua"
+      "empty": "Você ainda não relatou nenhum animal de rua."
     },
     "detail": {
       "contact": "Contato via WhatsApp",

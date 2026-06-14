@@ -183,8 +183,11 @@ export const useUploadPhoto = () => {
   return useMutation<UploadPhotoResponse, Error, { petId: string; file: File }>({
     mutationFn: ({ petId, file }) => apiClient.uploadPhoto(petId, file),
     onSuccess: (_, { petId }) => {
-      // Invalidar el cache de la mascota para que se refresque con la nueva foto
+      // Invalidar el cache de la mascota para que se refresque con la nueva foto,
+      // y las listas donde puede aparecer: "Mis mascotas" y "Mis reportes" (strays).
       queryClient.invalidateQueries({ queryKey: ['pets', petId] });
+      queryClient.invalidateQueries({ queryKey: ['pets', 'mine'] });
+      queryClient.invalidateQueries({ queryKey: ['pets', 'reported'] });
     },
   });
 };
@@ -197,6 +200,7 @@ export const useUploadPhotoNative = () => {
     onSuccess: (_, { petId }) => {
       queryClient.invalidateQueries({ queryKey: ['pets', petId] });
       queryClient.invalidateQueries({ queryKey: ['pets', 'mine'] });
+      queryClient.invalidateQueries({ queryKey: ['pets', 'reported'] });
     },
   });
 };

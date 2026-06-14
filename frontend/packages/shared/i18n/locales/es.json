@@ -86,11 +86,9 @@
       "photoCount": "{{current}}/3 fotos"
     },
     "reports": {
-      "title": "Mis reportes",
       "tabOwned": "Mis mascotas",
       "tabReported": "Mis reportes",
-      "empty": "Todavía no reportaste ninguna mascota callejera.",
-      "emptyAction": "Reportar una mascota callejera"
+      "empty": "Todavía no reportaste ninguna mascota callejera."
     },
     "detail": {
       "contact": "Contactar por WhatsApp",

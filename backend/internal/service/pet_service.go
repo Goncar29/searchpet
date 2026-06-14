@@ -233,6 +233,23 @@ func (s *petService) UpdatePet(ownerID string, petID string, req dto.UpdatePetRe
 		s.eventBus.Publish("pet.lost", event.PetLostEvent{PetID: pet.ID})
 	}
 
+	// Publicamos pet.found cuando la transición es hacia "found".
+	// La UI marca "encontrada" desde el dropdown de estado del PetCard, que usa
+	// UpdatePet (no MarkAsFound) — sin este publish se saltaría la gamificación
+	// y la limpieza del embedding CLIP. Espeja la construcción del evento de
+	// MarkAsFound: OwnerID es nil-safe (los strays no tienen dueño).
+	if s.eventBus != nil && oldStatus != domain.PetStatusFound && pet.Status == domain.PetStatusFound {
+		var eventOwnerID uuid.UUID
+		if pet.OwnerID != nil {
+			eventOwnerID = *pet.OwnerID
+		}
+		s.eventBus.Publish("pet.found", event.PetFoundEvent{
+			PetID:   pet.ID,
+			OwnerID: eventOwnerID,
+			PetName: pet.Name,
+		})
+	}
+
 	// NOTE: there is no "pet.stray" publish here — the status machine (status_machine.go)
 	// does not allow any transition INTO "stray" via UpdatePet (stray pets are only
 	// created directly with status="stray", see CreatePet). The pet.stray event is
