@@ -7,9 +7,22 @@ import { HelmetProvider } from 'react-helmet-async';
 import { ThemeProvider } from './context/ThemeContext';
 import { AuthProvider } from './context/AuthContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { apiClient } from '@shared/api/client';
 import App from './App';
 import 'leaflet/dist/leaflet.css';
 import './index.css';
+
+// Bootstrap the auth token synchronously BEFORE the first render. The apiClient
+// is a singleton whose token lives in memory and is reset on every full page
+// load. AuthContext restores it from localStorage, but only in a post-render
+// effect — so the very first queries on a fresh load (e.g. StoriesPage, a public
+// route that still enriches liked_by_me per viewer) would otherwise fire without
+// the Authorization header. Setting it here closes that hydration race; the
+// AuthProvider re-applies the same token for React state.
+const savedToken = localStorage.getItem('token');
+if (savedToken) {
+  apiClient.setToken(savedToken);
+}
 
 const queryClient = new QueryClient({
   defaultOptions: {

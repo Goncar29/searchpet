@@ -193,3 +193,54 @@ describe('APIClient.publishPetLost', () => {
     ).rejects.toMatchObject({ code: 'forbidden', status: 403 });
   });
 });
+
+describe('APIClient story likes', () => {
+  let client: APIClient;
+  let fetchMock: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    client = new APIClient('http://api.test');
+    fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  describe('likeStory', () => {
+    it('POSTs to /api/stories/:id/like and returns { like_count, liked }', async () => {
+      fetchMock.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ like_count: 1, liked: true }),
+      });
+
+      const result = await client.likeStory('story-1');
+
+      expect(result).toEqual({ like_count: 1, liked: true });
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      const [url, init] = fetchMock.mock.calls[0];
+      expect(url).toBe('http://api.test/api/stories/story-1/like');
+      expect(init.method).toBe('POST');
+    });
+  });
+
+  describe('unlikeStory', () => {
+    it('DELETEs /api/stories/:id/like and returns { like_count, liked }', async () => {
+      fetchMock.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ like_count: 0, liked: false }),
+      });
+
+      const result = await client.unlikeStory('story-1');
+
+      expect(result).toEqual({ like_count: 0, liked: false });
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      const [url, init] = fetchMock.mock.calls[0];
+      expect(url).toBe('http://api.test/api/stories/story-1/like');
+      expect(init.method).toBe('DELETE');
+    });
+  });
+});

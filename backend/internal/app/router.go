@@ -243,6 +243,18 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 	}
 
 	// ----------------------------------------
+	// LECTURAS DE STORIES — vitrina pública con auth opcional
+	// (anónimo lee igual; logueado recibe liked_by_me por viewer)
+	// ----------------------------------------
+	storiesPublic := router.Group("/api")
+	storiesPublic.Use(middleware.OptionalAuth(cfg.JWTSecret))
+	{
+		storiesPublic.GET("/stories", storyHandler.List)
+		storiesPublic.GET("/stories/pet/:petId", storyHandler.GetByPetID)
+		storiesPublic.GET("/stories/:id", storyHandler.GetByID)
+	}
+
+	// ----------------------------------------
 	// RUTAS PROTEGIDAS
 	// ----------------------------------------
 	protected := router.Group("/api")
@@ -292,9 +304,6 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 		protected.GET("/users/:id/block-status", blockHandler.GetBlockStatus)
 
 		protected.POST("/stories", storyHandler.Create)
-		protected.GET("/stories", storyHandler.List)
-		protected.GET("/stories/pet/:petId", storyHandler.GetByPetID)
-		protected.GET("/stories/:id", storyHandler.GetByID)
 		protected.POST("/stories/:id/like", storyHandler.Like)
 		protected.DELETE("/stories/:id/like", storyHandler.Unlike)
 		protected.DELETE("/stories/:id", storyHandler.Delete)

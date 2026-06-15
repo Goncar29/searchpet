@@ -660,29 +660,110 @@ export const useDeleteReview = () => {
   });
 };
 
+// Shared cache reconciliation for useLikeStory / useUnlikeStory: overwrites
+// like_count and liked_by_me in every ['stories'] list entry (and any
+// single-story entry) from the server-returned { like_count, liked } payload,
+// so a double-click can never inflate the count beyond server truth.
+function reconcileStoryLikeCache(
+  queryClient: ReturnType<typeof useQueryClient>,
+  id: string,
+  response: { like_count: number; liked: boolean }
+) {
+  queryClient.setQueriesData<StoryListResponse>({ queryKey: ['stories'] }, (old) => {
+    if (!old) return old;
+    if (Array.isArray(old)) {
+      return old.map((story) =>
+        story.id === id ? { ...story, like_count: response.like_count, liked_by_me: response.liked } : story
+      );
+    }
+    return old;
+  });
+  queryClient.setQueriesData<SuccessStory>({ queryKey: ['stories', id] }, (old) => {
+    if (!old) return old;
+    return { ...old, like_count: response.like_count, liked_by_me: response.liked };
+  });
+}
+
+// Shared optimistic toggle for useLikeStory / useUnlikeStory: bumps like_count
+// by `delta` and sets liked_by_me to `optimisticLiked` in every cached
+// ['stories'] list entry (and single-story entry) before the request resolves.
+function optimisticToggleStoryLike(
+  queryClient: ReturnType<typeof useQueryClient>,
+  id: string,
+  delta: number,
+  optimisticLiked: boolean
+) {
+  queryClient.setQueriesData<StoryListResponse>({ queryKey: ['stories'] }, (old) => {
+    if (!old) return old;
+    if (Array.isArray(old)) {
+      return old.map((story) =>
+        story.id === id
+          ? { ...story, like_count: Math.max(0, story.like_count + delta), liked_by_me: optimisticLiked }
+          : story
+      );
+    }
+    return old;
+  });
+  queryClient.setQueriesData<SuccessStory>({ queryKey: ['stories', id] }, (old) => {
+    if (!old) return old;
+    return { ...old, like_count: Math.max(0, old.like_count + delta), liked_by_me: optimisticLiked };
+  });
+}
+
 export const useLikeStory = () => {
   const queryClient = useQueryClient();
-  return useMutation<void, Error, string>({
+  return useMutation<{ like_count: number; liked: boolean }, Error, string>({
     mutationFn: (id) => apiClient.likeStory(id),
     onMutate: async (id) => {
       await queryClient.cancelQueries({ queryKey: ['stories'] });
 
       // Snapshot all stories cache entries for rollback
-      const previousEntries = queryClient.getQueriesData<StoryListResponse>({ queryKey: ['stories'] });
+      const previousEntries = queryClient.getQueriesData({ queryKey: ['stories'] });
 
-      // Optimistically increment like_count in all matching list entries
-      queryClient.setQueriesData<StoryListResponse>({ queryKey: ['stories'] }, (old) => {
-        if (!old) return old;
-        return old.map((story) =>
-          story.id === id ? { ...story, like_count: story.like_count + 1 } : story
-        );
-      });
+      // Optimistically mark as liked + bump like_count for snappy UX
+      optimisticToggleStoryLike(queryClient, id, 1, true);
 
       return { previousEntries };
     },
+    onSuccess: (data, id) => {
+      // Server truth wins — overwrite like_count/liked_by_me from the response
+      // so repeated/double clicks never drift from the recompute-based counter.
+      reconcileStoryLikeCache(queryClient, id, data);
+    },
     onError: (_err, _id, context) => {
       // Rollback on error
-      const ctx = context as { previousEntries: [unknown, StoryListResponse | undefined][] } | undefined;
+      const ctx = context as { previousEntries: [unknown, StoryListResponse | SuccessStory | undefined][] } | undefined;
+      if (ctx?.previousEntries) {
+        ctx.previousEntries.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey as Parameters<typeof queryClient.setQueryData>[0], data);
+        });
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['stories'] });
+    },
+  });
+};
+
+export const useUnlikeStory = () => {
+  const queryClient = useQueryClient();
+  return useMutation<{ like_count: number; liked: boolean }, Error, string>({
+    mutationFn: (id) => apiClient.unlikeStory(id),
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: ['stories'] });
+
+      const previousEntries = queryClient.getQueriesData({ queryKey: ['stories'] });
+
+      // Optimistically mark as not liked + decrement like_count for snappy UX
+      optimisticToggleStoryLike(queryClient, id, -1, false);
+
+      return { previousEntries };
+    },
+    onSuccess: (data, id) => {
+      reconcileStoryLikeCache(queryClient, id, data);
+    },
+    onError: (_err, _id, context) => {
+      const ctx = context as { previousEntries: [unknown, StoryListResponse | SuccessStory | undefined][] } | undefined;
       if (ctx?.previousEntries) {
         ctx.previousEntries.forEach(([queryKey, data]) => {
           queryClient.setQueryData(queryKey as Parameters<typeof queryClient.setQueryData>[0], data);

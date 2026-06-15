@@ -16,8 +16,10 @@ import {
   usePublishStrayNative,
   useUploadPhoto,
   useUploadPhotoNative,
+  useLikeStory,
+  useUnlikeStory,
 } from './index';
-import type { Pet } from '../types';
+import type { Pet, SuccessStory, StoryListResponse } from '../types';
 
 function wrapper({ children }: { children: ReactNode }) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -267,5 +269,103 @@ describe('usePublishStrayNative', () => {
     expect(apiClient.uploadPhotoNative).toHaveBeenCalledTimes(2);
     expect(apiClient.uploadPhotoNative).toHaveBeenNthCalledWith(1, 'pet-1', 'file:///a.jpg');
     expect(result.current.data).toEqual({ pet: mockPet, failedPhotoIndexes: [] });
+  });
+});
+
+const mockStory: SuccessStory = {
+  id: 'story-1',
+  pet_id: 'pet-1',
+  user_id: 'user-1',
+  title: 'Volvió a casa',
+  body: 'Después de una semana...',
+  like_count: 0,
+  liked_by_me: false,
+  featured: false,
+  pet_name: 'Firulais',
+  user_name: 'Ana',
+  created_at: '2026-01-01T00:00:00Z',
+};
+
+describe('useLikeStory', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('reconciles like_count and liked_by_me from the server response on success', async () => {
+    vi.spyOn(apiClient, 'likeStory').mockResolvedValue({ like_count: 5, liked: true });
+
+    const { queryClient, wrapper: wrapperWithClient } = createWrapperWithClient();
+    queryClient.setQueryData<StoryListResponse>(['stories', undefined], [mockStory]);
+
+    const { result } = renderHook(() => useLikeStory(), { wrapper: wrapperWithClient });
+
+    result.current.mutate('story-1');
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    const cached = queryClient.getQueryData<StoryListResponse>(['stories', undefined]);
+    expect(cached?.[0].like_count).toBe(5);
+    expect(cached?.[0].liked_by_me).toBe(true);
+  });
+
+  it('rolls back the optimistic update on error', async () => {
+    vi.spyOn(apiClient, 'likeStory').mockRejectedValue(new Error('boom'));
+
+    const { queryClient, wrapper: wrapperWithClient } = createWrapperWithClient();
+    queryClient.setQueryData<StoryListResponse>(['stories', undefined], [mockStory]);
+
+    const { result } = renderHook(() => useLikeStory(), { wrapper: wrapperWithClient });
+
+    result.current.mutate('story-1');
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+
+    const cached = queryClient.getQueryData<StoryListResponse>(['stories', undefined]);
+    expect(cached?.[0].like_count).toBe(0);
+    expect(cached?.[0].liked_by_me).toBe(false);
+  });
+});
+
+describe('useUnlikeStory', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('reconciles like_count and liked_by_me from the server response on success', async () => {
+    vi.spyOn(apiClient, 'unlikeStory').mockResolvedValue({ like_count: 0, liked: false });
+
+    const { queryClient, wrapper: wrapperWithClient } = createWrapperWithClient();
+    queryClient.setQueryData<StoryListResponse>(['stories', undefined], [
+      { ...mockStory, like_count: 1, liked_by_me: true },
+    ]);
+
+    const { result } = renderHook(() => useUnlikeStory(), { wrapper: wrapperWithClient });
+
+    result.current.mutate('story-1');
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    const cached = queryClient.getQueryData<StoryListResponse>(['stories', undefined]);
+    expect(cached?.[0].like_count).toBe(0);
+    expect(cached?.[0].liked_by_me).toBe(false);
+  });
+
+  it('rolls back the optimistic update on error', async () => {
+    vi.spyOn(apiClient, 'unlikeStory').mockRejectedValue(new Error('boom'));
+
+    const { queryClient, wrapper: wrapperWithClient } = createWrapperWithClient();
+    queryClient.setQueryData<StoryListResponse>(['stories', undefined], [
+      { ...mockStory, like_count: 1, liked_by_me: true },
+    ]);
+
+    const { result } = renderHook(() => useUnlikeStory(), { wrapper: wrapperWithClient });
+
+    result.current.mutate('story-1');
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+
+    const cached = queryClient.getQueryData<StoryListResponse>(['stories', undefined]);
+    expect(cached?.[0].like_count).toBe(1);
+    expect(cached?.[0].liked_by_me).toBe(true);
   });
 });
