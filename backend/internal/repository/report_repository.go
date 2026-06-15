@@ -82,14 +82,23 @@ func (r *PostgresReportRepository) FindNearby(lat, lng float64, radiusMeters flo
 	// params can silently drop ordering for PostGIS expressions in some GORM versions.
 	// Embedding float64 is safe: no injection risk since the type is not user-controlled text.
 	orderExpr := fmt.Sprintf(
-		"ST_Distance(ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography, ST_SetSRID(ST_MakePoint(%g, %g), 4326)::geography) ASC",
+		"ST_Distance(ST_SetSRID(ST_MakePoint(reports.longitude, reports.latitude), 4326)::geography, ST_SetSRID(ST_MakePoint(%g, %g), 4326)::geography) ASC",
 		lng, lat,
 	)
 
+	// JOIN pets and filter on the pet's CURRENT status (MapVisibleStatuses:
+	// lost, stray, found). A report belongs to the nearby feed only while its
+	// pet is an active search OR was just recovered (found) — without this,
+	// stale reports of re-registered/archived pets would keep surfacing,
+	// leaking closed cases and others' now-private pets. The JOIN assumes the
+	// pets table has no soft-delete scope (it currently doesn't); if Pet ever
+	// gains gorm.DeletedAt, this needs an explicit deleted_at IS NULL guard.
 	err := r.db.Preload("Pet").Preload("Reporter").
+		Joins("JOIN pets ON pets.id = reports.pet_id").
+		Where("pets.status IN (?)", domain.MapVisibleStatuses).
 		Where(`
 			ST_DWithin(
-				ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography,
+				ST_SetSRID(ST_MakePoint(reports.longitude, reports.latitude), 4326)::geography,
 				ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography,
 				?
 			)
