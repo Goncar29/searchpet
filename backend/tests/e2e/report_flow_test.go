@@ -48,10 +48,11 @@ func TestReportFlow_NearbySearch(t *testing.T) {
 	token, _ := registerAndLogin(t, baseURL)
 	petID := createPet(t, baseURL, token, "NearbyPet")
 
-	// POST /api/reports — Montevideo coordinates
+	// POST /api/reports — Montevideo coordinates. A "lost" report transitions
+	// the pet to lost (a feed-visible status), so it shows on the nearby map.
 	reportBody, _ := json.Marshal(map[string]interface{}{
 		"pet_id":    petID,
-		"status":    "sighting",
+		"status":    "lost",
 		"latitude":  -34.9011,
 		"longitude": -56.1645,
 	})
@@ -118,10 +119,11 @@ func TestReportFlow_OutOfRadius(t *testing.T) {
 	token, _ := registerAndLogin(t, baseURL)
 	petID := createPet(t, baseURL, token, "FarPet")
 
-	// Create report at Montevideo (-34.9011, -56.1645)
+	// Create report at Montevideo (-34.9011, -56.1645). "lost" makes the pet
+	// feed-visible so the only reason it's absent below is the distance filter.
 	reportBody, _ := json.Marshal(map[string]interface{}{
 		"pet_id":    petID,
-		"status":    "sighting",
+		"status":    "lost",
 		"latitude":  -34.9011,
 		"longitude": -56.1645,
 	})
