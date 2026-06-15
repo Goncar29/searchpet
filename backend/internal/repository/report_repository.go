@@ -86,13 +86,16 @@ func (r *PostgresReportRepository) FindNearby(lat, lng float64, radiusMeters flo
 		lng, lat,
 	)
 
-	// JOIN pets and filter on the pet's CURRENT status: a report belongs to the
-	// nearby feed only while its pet is still an active search (lost/stray).
-	// Without this, stale reports of pets that were found/re-registered/archived
-	// would keep surfacing — leaking closed cases and others' private pets.
+	// JOIN pets and filter on the pet's CURRENT status (MapVisibleStatuses:
+	// lost, stray, found). A report belongs to the nearby feed only while its
+	// pet is an active search OR was just recovered (found) — without this,
+	// stale reports of re-registered/archived pets would keep surfacing,
+	// leaking closed cases and others' now-private pets. The JOIN assumes the
+	// pets table has no soft-delete scope (it currently doesn't); if Pet ever
+	// gains gorm.DeletedAt, this needs an explicit deleted_at IS NULL guard.
 	err := r.db.Preload("Pet").Preload("Reporter").
 		Joins("JOIN pets ON pets.id = reports.pet_id").
-		Where("pets.status IN (?)", domain.FeedVisibleStatuses).
+		Where("pets.status IN (?)", domain.MapVisibleStatuses).
 		Where(`
 			ST_DWithin(
 				ST_SetSRID(ST_MakePoint(reports.longitude, reports.latitude), 4326)::geography,

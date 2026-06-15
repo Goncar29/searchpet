@@ -35,3 +35,11 @@ var PublicSearchableStatuses = map[string]bool{
 	PetStatusStray: true,
 	PetStatusFound: true,
 }
+
+// MapVisibleStatuses are the pet statuses whose reports show on the nearby/map
+// feed (FindNearby). It includes found — a fresh "found here" marker tells the
+// people who were tracking the pet that it was recovered — but excludes
+// registered/archived so stale reports of re-privatized or closed cases don't
+// leak. Kept distinct from FeedVisibleStatuses on purpose: the map and the
+// default pet-browse feed are different surfaces and may diverge.
+var MapVisibleStatuses = []string{PetStatusLost, PetStatusStray, PetStatusFound}
