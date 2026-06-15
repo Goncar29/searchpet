@@ -18,8 +18,12 @@ import {
   useUploadPhotoNative,
   useLikeStory,
   useUnlikeStory,
+  useSendMessageTo,
+  useNearbyReports,
+  useBlockStatus,
+  useMarkPetAsFound,
 } from './index';
-import type { Pet, SuccessStory, StoryListResponse } from '../types';
+import type { Pet, SuccessStory, StoryListResponse, Message, Report } from '../types';
 
 function wrapper({ children }: { children: ReactNode }) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -367,5 +371,201 @@ describe('useUnlikeStory', () => {
     const cached = queryClient.getQueryData<StoryListResponse>(['stories', undefined]);
     expect(cached?.[0].like_count).toBe(1);
     expect(cached?.[0].liked_by_me).toBe(true);
+  });
+});
+
+// ============================================================
+// useSendMessageTo — optimistic insert + rollback + onSettled.
+// Mirrors the useLikeStory optimistic pattern but for the messages cache.
+// ============================================================
+describe('useSendMessageTo', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  const serverMessage: Message = {
+    id: 'msg-real-1',
+    sender_id: 'me',
+    receiver_id: 'them',
+    content: 'hola',
+    is_read: false,
+    created_at: '2026-01-01T00:00:00Z',
+  };
+
+  it('optimistically appends a temp message to the conversation before the request resolves', async () => {
+    // Never resolves during the assertion window so we observe the optimistic state.
+    vi.spyOn(apiClient, 'sendMessageTo').mockReturnValue(new Promise(() => {}));
+
+    const { queryClient, wrapper: wrapperWithClient } = createWrapperWithClient();
+    queryClient.setQueryData<Message[]>(['messages', 'them'], []);
+
+    const { result } = renderHook(() => useSendMessageTo(), { wrapper: wrapperWithClient });
+
+    result.current.mutate({ receiverID: 'them', senderID: 'me', content: 'hola' });
+
+    await waitFor(() => {
+      const cached = queryClient.getQueryData<Message[]>(['messages', 'them']);
+      expect(cached).toHaveLength(1);
+    });
+    const cached = queryClient.getQueryData<Message[]>(['messages', 'them']);
+    expect(cached?.[0].content).toBe('hola');
+    expect(cached?.[0].sender_id).toBe('me');
+    expect(cached?.[0].id).toMatch(/^temp-/);
+  });
+
+  it('rolls back to the previous conversation on error', async () => {
+    vi.spyOn(apiClient, 'sendMessageTo').mockRejectedValue(new Error('boom'));
+
+    const existing: Message = { ...serverMessage, id: 'msg-existing', content: 'previo' };
+    const { queryClient, wrapper: wrapperWithClient } = createWrapperWithClient();
+    queryClient.setQueryData<Message[]>(['messages', 'them'], [existing]);
+
+    const { result } = renderHook(() => useSendMessageTo(), { wrapper: wrapperWithClient });
+
+    result.current.mutate({ receiverID: 'them', senderID: 'me', content: 'hola' });
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+
+    const cached = queryClient.getQueryData<Message[]>(['messages', 'them']);
+    expect(cached).toEqual([existing]);
+  });
+
+  it('invalidates the conversation and the conversation list on settle', async () => {
+    vi.spyOn(apiClient, 'sendMessageTo').mockResolvedValue(serverMessage);
+
+    const { queryClient, wrapper: wrapperWithClient } = createWrapperWithClient();
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
+
+    const { result } = renderHook(() => useSendMessageTo(), { wrapper: wrapperWithClient });
+
+    result.current.mutate({ receiverID: 'them', senderID: 'me', content: 'hola' });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    const invalidatedKeys = invalidateSpy.mock.calls.map((call) => call[0]?.queryKey);
+    expect(invalidatedKeys).toEqual(expect.arrayContaining([['messages', 'them'], ['messages']]));
+  });
+});
+
+// ============================================================
+// useNearbyReports — km->m radius conversion + response reshaping.
+// ============================================================
+describe('useNearbyReports', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  const mockReport: Report = {
+    id: 'rep-1',
+    pet_id: 'pet-1',
+    reporter_id: 'me',
+    status: 'sighting',
+    latitude: -34.9,
+    longitude: -56.1,
+    is_verified: false,
+    created_at: '2026-01-01T00:00:00Z',
+  } as Report;
+
+  it('converts the radius from km to meters when calling the API', async () => {
+    const spy = vi.spyOn(apiClient, 'getNearbyReports').mockResolvedValue({ data: [], radius_used: 5000 });
+
+    const { result } = renderHook(() => useNearbyReports(-34.9, -56.1, 5), { wrapper });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(spy).toHaveBeenCalledWith({ lat: -34.9, lng: -56.1, radius: 5000 });
+  });
+
+  it('unwraps response.data into data and exposes radiusUsed', async () => {
+    vi.spyOn(apiClient, 'getNearbyReports').mockResolvedValue({ data: [mockReport], radius_used: 5000 });
+
+    const { result } = renderHook(() => useNearbyReports(-34.9, -56.1, 5), { wrapper });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data).toEqual([mockReport]);
+    expect(result.current.radiusUsed).toBe(5000);
+  });
+
+  it('does not fire the query when lat/lng are falsy', async () => {
+    const spy = vi.spyOn(apiClient, 'getNearbyReports').mockResolvedValue({ data: [], radius_used: 0 });
+
+    const { result } = renderHook(() => useNearbyReports(0, 0, 5), { wrapper });
+
+    // enabled is false -> query stays idle, queryFn never runs.
+    expect(result.current.fetchStatus).toBe('idle');
+    expect(spy).not.toHaveBeenCalled();
+  });
+});
+
+// ============================================================
+// useBlockStatus — reshaping with a safe default.
+// ============================================================
+describe('useBlockStatus', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns is_blocked from the server response', async () => {
+    vi.spyOn(apiClient, 'getBlockStatus').mockResolvedValue({ is_blocked: true });
+
+    const { result } = renderHook(() => useBlockStatus('user-1'), { wrapper });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.isBlocked).toBe(true);
+  });
+
+  it('defaults isBlocked to false while no data is available', () => {
+    vi.spyOn(apiClient, 'getBlockStatus').mockReturnValue(new Promise(() => {}));
+
+    const { result } = renderHook(() => useBlockStatus('user-1'), { wrapper });
+
+    expect(result.current.isBlocked).toBe(false);
+  });
+
+  it('stays disabled (and defaults to false) when userId is undefined', () => {
+    const spy = vi.spyOn(apiClient, 'getBlockStatus').mockResolvedValue({ is_blocked: true });
+
+    const { result } = renderHook(() => useBlockStatus(undefined), { wrapper });
+
+    expect(result.current.isBlocked).toBe(false);
+    expect(spy).not.toHaveBeenCalled();
+  });
+});
+
+// ============================================================
+// useMarkPetAsFound — seeds the pet detail cache + cross-entity invalidation.
+// ============================================================
+describe('useMarkPetAsFound', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  const foundPet: Pet = { ...mockPet, id: 'pet-9', status: 'found' } as Pet;
+
+  it('writes the updated pet into the pet-detail cache on success', async () => {
+    vi.spyOn(apiClient, 'markPetAsFound').mockResolvedValue(foundPet);
+
+    const { queryClient, wrapper: wrapperWithClient } = createWrapperWithClient();
+    const { result } = renderHook(() => useMarkPetAsFound(), { wrapper: wrapperWithClient });
+
+    result.current.mutate('pet-9');
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(queryClient.getQueryData<Pet>(['pets', 'pet-9'])).toEqual(foundPet);
+  });
+
+  it('invalidates the pets list and reports so the map reflects the new status', async () => {
+    vi.spyOn(apiClient, 'markPetAsFound').mockResolvedValue(foundPet);
+
+    const { queryClient, wrapper: wrapperWithClient } = createWrapperWithClient();
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
+
+    const { result } = renderHook(() => useMarkPetAsFound(), { wrapper: wrapperWithClient });
+
+    result.current.mutate('pet-9');
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    const invalidatedKeys = invalidateSpy.mock.calls.map((call) => call[0]?.queryKey);
+    expect(invalidatedKeys).toEqual(expect.arrayContaining([['pets'], ['reports']]));
   });
 });
