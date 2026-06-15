@@ -75,14 +75,20 @@ func (r *postgresSuccessStoryRepository) GetAll(ctx context.Context, featured *b
 	return stories, err
 }
 
-// recomputeLikeCount sets like_count = COUNT(*) from story_likes for the
-// given story, inside the provided transaction. It does not check existence —
-// callers must verify the story exists first.
-func recomputeLikeCount(tx *gorm.DB, storyID uuid.UUID) error {
-	return tx.Model(&domain.SuccessStory{}).
-		Where("id = ?", storyID).
-		UpdateColumn("like_count", gorm.Expr("(SELECT COUNT(*) FROM story_likes WHERE story_id = ?)", storyID)).
-		Error
+// recomputeAndReadLikeCount sets like_count = COUNT(*) from story_likes for the
+// given story and returns the fresh value in a single round-trip via
+// UPDATE ... RETURNING. It does not check existence — callers must verify the
+// story exists first.
+func recomputeAndReadLikeCount(tx *gorm.DB, storyID uuid.UUID) (int, error) {
+	var newCount int
+	err := tx.Raw(
+		`UPDATE success_stories
+		 SET like_count = (SELECT COUNT(*) FROM story_likes WHERE story_id = ?)
+		 WHERE id = ?
+		 RETURNING like_count`,
+		storyID, storyID,
+	).Scan(&newCount).Error
+	return newCount, err
 }
 
 // storyExists checks that the story exists and is not soft-deleted.
@@ -95,15 +101,6 @@ func storyExists(tx *gorm.DB, storyID uuid.UUID) (bool, error) {
 		return false, err
 	}
 	return count > 0, nil
-}
-
-// readLikeCount returns the current like_count for a story.
-func readLikeCount(tx *gorm.DB, storyID uuid.UUID) (int, error) {
-	var story domain.SuccessStory
-	if err := tx.Select("like_count").Where("id = ?", storyID).First(&story).Error; err != nil {
-		return 0, err
-	}
-	return story.LikeCount, nil
 }
 
 // AddLike inserts a story_likes row for (storyID, userID) if it doesn't
@@ -131,11 +128,7 @@ func (r *postgresSuccessStoryRepository) AddLike(ctx context.Context, storyID, u
 		}
 		added = result.RowsAffected == 1
 
-		if err := recomputeLikeCount(tx, storyID); err != nil {
-			return err
-		}
-
-		newCount, err = readLikeCount(tx, storyID)
+		newCount, err = recomputeAndReadLikeCount(tx, storyID)
 		return err
 	})
 	if err != nil {
@@ -165,11 +158,7 @@ func (r *postgresSuccessStoryRepository) RemoveLike(ctx context.Context, storyID
 		}
 		removed = result.RowsAffected == 1
 
-		if err := recomputeLikeCount(tx, storyID); err != nil {
-			return err
-		}
-
-		newCount, err = readLikeCount(tx, storyID)
+		newCount, err = recomputeAndReadLikeCount(tx, storyID)
 		return err
 	})
 	if err != nil {

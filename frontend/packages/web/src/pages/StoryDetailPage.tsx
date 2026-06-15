@@ -1,12 +1,13 @@
 // ============================================================
 // StoryDetailPage — /stories/:id
 // ============================================================
-import { useParams, Link } from 'react-router';
+import { useParams, useNavigate, Link } from 'react-router';
 import { useStory, useLikeStory, useUnlikeStory } from '@shared/hooks';
 import { useAuth } from '../context/AuthContext';
 
 export function StoryDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
   const { data: story, isLoading, isError } = useStory(id ?? '');
   const likeStory = useLikeStory();
@@ -52,7 +53,7 @@ export function StoryDetailPage() {
 
   const handleLike = () => {
     if (!isAuthenticated) {
-      window.location.href = '/login';
+      navigate('/login');
       return;
     }
     if (story.liked_by_me) {
