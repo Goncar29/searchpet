@@ -627,6 +627,68 @@ func TestPetHandler_GetReportedPets(t *testing.T) {
 }
 
 // ============================================================
+// GET /api/pets/search — public status allowlist
+// ============================================================
+
+func setupPetSearchRouter(h *handler.PetHandler) *gin.Engine {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.GET("/api/pets/search", h.SearchPets)
+	return r
+}
+
+// The public search endpoint must only accept feed-visible statuses
+// (lost, stray, found). Accepting registered/archived would let any
+// anonymous visitor enumerate private pets via ?status=registered.
+func TestPetHandler_SearchPets_StatusAllowlist(t *testing.T) {
+	var captured domain.PetSearchCriteria
+	svc := &mockPetService{
+		searchPetsFn: func(criteria domain.PetSearchCriteria) (dto.PetSearchResponse, error) {
+			captured = criteria
+			return dto.PetSearchResponse{}, nil
+		},
+	}
+	r := setupPetSearchRouter(handler.NewPetHandler(svc, nil))
+
+	cases := []struct {
+		name       string
+		status     string
+		wantStatus int
+	}{
+		{"lost is public", domain.PetStatusLost, http.StatusOK},
+		{"stray is public", domain.PetStatusStray, http.StatusOK},
+		{"found is public", domain.PetStatusFound, http.StatusOK},
+		{"registered is rejected", domain.PetStatusRegistered, http.StatusBadRequest},
+		{"archived is rejected", domain.PetStatusArchived, http.StatusBadRequest},
+		{"unknown is rejected", "flying", http.StatusBadRequest},
+		{"empty status is allowed", "", http.StatusOK},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			url := "/api/pets/search"
+			if tc.status != "" {
+				url += "?status=" + tc.status
+			}
+			req := httptest.NewRequest(http.MethodGet, url, nil)
+			w := httptest.NewRecorder()
+			r.ServeHTTP(w, req)
+			if w.Code != tc.wantStatus {
+				t.Errorf("status %q: want %d, got %d: %s", tc.status, tc.wantStatus, w.Code, w.Body.String())
+			}
+		})
+	}
+
+	// An allowlisted explicit status must still reach the service as a filter.
+	captured = domain.PetSearchCriteria{}
+	req := httptest.NewRequest(http.MethodGet, "/api/pets/search?status="+domain.PetStatusFound, nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if len(captured.Statuses) != 1 || captured.Statuses[0] != domain.PetStatusFound {
+		t.Errorf("expected status=found to flow through as [found], got %v", captured.Statuses)
+	}
+}
+
+// ============================================================
 // POST /api/pets/:id/publish-lost
 // ============================================================
 

@@ -187,7 +187,14 @@ func (h *PetHandler) SearchPets(c *gin.Context) {
 	criteria.Type = c.Query("type")
 	criteria.Breed = c.Query("breed")
 	criteria.Color = c.Query("color")
+	// The search endpoint is public — only feed-visible statuses (lost, stray,
+	// found) may be requested explicitly. registered/archived are private and
+	// rejected so they can't be enumerated by anonymous visitors.
 	if s := c.Query("status"); s != "" {
+		if !domain.PublicSearchableStatuses[s] {
+			writeError(c, http.StatusBadRequest, domain.ErrInvalidStatus)
+			return
+		}
 		criteria.Statuses = []string{s}
 	}
 

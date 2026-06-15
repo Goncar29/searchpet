@@ -20,6 +20,18 @@ var ValidPetStatuses = map[string]bool{
 	PetStatusArchived:   true,
 }
 
-// FeedVisibleStatuses are the statuses returned in the public feed by default.
-// Only lost and stray pets are publicly searchable.
+// FeedVisibleStatuses are the statuses returned in the public feed by default
+// (when no explicit status filter is provided). Only lost and stray pets —
+// active searches — show up by default.
 var FeedVisibleStatuses = []string{PetStatusLost, PetStatusStray}
+
+// PublicSearchableStatuses is the allowlist of statuses an unauthenticated
+// visitor may request explicitly on the public search endpoint. found is
+// included so people tracking a pet learn it was recovered. registered and
+// archived are private/closed and must NEVER be enumerable via ?status=,
+// otherwise anyone could list every user's private pets.
+var PublicSearchableStatuses = map[string]bool{
+	PetStatusLost:  true,
+	PetStatusStray: true,
+	PetStatusFound: true,
+}
