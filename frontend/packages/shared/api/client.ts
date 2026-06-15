@@ -231,6 +231,13 @@ class APIClient {
     if (filters.status) params['status'] = filters.status;
     if (filters.from) params['from'] = filters.from;
     if (filters.to) params['to'] = filters.to;
+    // Geo filter — only sent when all three are present (the backend requires
+    // lat+lng+radius together; partial params are rejected with 400).
+    if (filters.lat !== undefined && filters.lng !== undefined && filters.radiusMeters !== undefined) {
+      params['lat'] = filters.lat;
+      params['lng'] = filters.lng;
+      params['radius'] = filters.radiusMeters;
+    }
     if (filters.page !== undefined) params['page'] = filters.page;
     if (filters.limit !== undefined) params['limit'] = filters.limit;
     return this.request<PetListResponse>('GET', '/api/pets/search', undefined, params);

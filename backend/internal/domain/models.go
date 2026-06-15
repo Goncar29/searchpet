@@ -20,8 +20,13 @@ type PetSearchCriteria struct {
 	Statuses []string   // IN clause on pets.status; empty defaults to FeedVisibleStatuses (lost, stray)
 	From     *time.Time // pets cuyo reporte.occurred_at >= From
 	To       *time.Time // pets cuyo reporte.occurred_at <= To
-	Page     int        // página (default 1)
-	Limit    int        // tamaño de página (default 20, max 100)
+	// Optional geo filter: when all three are set, only pets with at least one
+	// report within RadiusMeters of (Lat, Lng) match. nil = no distance filter.
+	Lat          *float64
+	Lng          *float64
+	RadiusMeters *float64
+	Page         int // página (default 1)
+	Limit        int // tamaño de página (default 20, max 100)
 }
 
 // ============================================================

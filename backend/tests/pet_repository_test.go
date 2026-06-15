@@ -99,6 +99,54 @@ func TestPetRepository_Search_ByType(t *testing.T) {
 	}
 }
 
+// The optional geo filter matches pets that have at least one report within
+// the given radius, and excludes pets whose reports are all outside it.
+func TestPetRepository_Search_GeoRadius(t *testing.T) {
+	gormDB := testdb.SetupTestDB(t)
+	userRepo := repository.NewUserRepository(gormDB)
+	petRepo := repository.NewPetRepository(gormDB)
+	reportRepo := repository.NewReportRepository(gormDB)
+
+	owner := newTestUser(t, userRepo)
+
+	nearDog := &domain.Pet{ID: uuid.New(), OwnerID: ptrUUID(owner.ID), Name: "Near Dog", Type: "perro", Status: domain.PetStatusLost}
+	farDog := &domain.Pet{ID: uuid.New(), OwnerID: ptrUUID(owner.ID), Name: "Far Dog", Type: "perro", Status: domain.PetStatusLost}
+	for _, p := range []*domain.Pet{nearDog, farDog} {
+		if err := petRepo.Create(p); err != nil {
+			t.Fatalf("Create pet: %v", err)
+		}
+	}
+
+	near := &domain.Report{ID: uuid.New(), PetID: nearDog.ID, ReporterID: owner.ID, Status: "lost", Latitude: mvdLat, Longitude: mvdLng}
+	far := &domain.Report{ID: uuid.New(), PetID: farDog.ID, ReporterID: owner.ID, Status: "lost", Latitude: mvdLat + 1.0, Longitude: mvdLng} // ~111 km north
+	for _, r := range []*domain.Report{near, far} {
+		if err := reportRepo.Create(r); err != nil {
+			t.Fatalf("Create report: %v", err)
+		}
+	}
+
+	lat, lng, radius := mvdLat, mvdLng, 1000.0
+	results, _, err := petRepo.Search(domain.PetSearchCriteria{Lat: &lat, Lng: &lng, RadiusMeters: &radius, Page: 1, Limit: 100})
+	if err != nil {
+		t.Fatalf("Search geo: %v", err)
+	}
+
+	has := func(id uuid.UUID) bool {
+		for _, p := range results {
+			if p.ID == id {
+				return true
+			}
+		}
+		return false
+	}
+	if !has(nearDog.ID) {
+		t.Error("a pet with a report inside the radius must match")
+	}
+	if has(farDog.ID) {
+		t.Error("a pet whose only report is outside the radius must NOT match")
+	}
+}
+
 func TestPetRepository_Search_ByStatus(t *testing.T) {
 	gormDB := testdb.SetupTestDB(t)
 	userRepo := repository.NewUserRepository(gormDB)

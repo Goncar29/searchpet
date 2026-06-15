@@ -269,6 +269,11 @@ export interface PetSearchFilters {
   status?: PetStatus;
   from?: string; // RFC3339
   to?: string;   // RFC3339
+  // Optional distance filter — all three together restrict results to pets
+  // with a report within `radiusMeters` of (lat, lng). Omit for no geo filter.
+  lat?: number;
+  lng?: number;
+  radiusMeters?: number; // meters
   page?: number;
   limit?: number;
 }
