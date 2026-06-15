@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useStats, useNearbyReports, useSearchPets, useStories, useImageClassify, useImageSearch } from '@shared/hooks';
 import type { Report, Pet, PetType, PetStatus, SuccessStory, ClassifyResult, ImageSearchResult } from '@shared/types';
 import { getErrorMessage } from '@shared/utils/apiErrors';
+import { startOfDayISO, endOfDayISO } from '@shared/utils/dateFilters';
 import { ApiError } from '@shared/api/client';
 import { useAuth } from '../context/AuthContext';
 import { PetCardWeb } from '../components/PetCardWeb';
@@ -15,11 +16,12 @@ const PET_TYPES: { value: PetType; label: string; icon: string }[] = [
   { value: 'otro', label: 'Otro', icon: '🐾' },
 ];
 
+// Only feed-visible statuses are offered. `registered`/`archived` are private
+// and are rejected by the public search endpoint, so they must not be options.
 const PET_STATUSES: { value: PetStatus; label: string }[] = [
   { value: 'lost', label: 'Perdidos' },
   { value: 'stray', label: 'Callejeros' },
   { value: 'found', label: 'Encontrados' },
-  { value: 'registered', label: 'Registrados' },
 ];
 
 export function HomePage() {
@@ -151,8 +153,8 @@ export function HomePage() {
     color: filterColor.trim() || undefined,
     status: filterStatus || undefined,
     breed: filterBreed.trim() || undefined,
-    from: filterFrom ? new Date(filterFrom).toISOString() : undefined,
-    to: filterTo ? new Date(filterTo).toISOString() : undefined,
+    from: filterFrom ? startOfDayISO(filterFrom) : undefined,
+    to: filterTo ? endOfDayISO(filterTo) : undefined,
   });
 
   const isLoading = isSearchMode ? searchLoading : nearbyLoading;
@@ -400,7 +402,7 @@ export function HomePage() {
               onChange={(e) => setDraftStatus(e.target.value as PetStatus | '')}
               className="border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-primary"
             >
-              <option value="">Perdidos y encontrados</option>
+              <option value="">Perdidos y callejeros</option>
               {PET_STATUSES.map((s) => (
                 <option key={s.value} value={s.value}>{s.label}</option>
               ))}
