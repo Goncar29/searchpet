@@ -1,13 +1,16 @@
 import { Link } from 'react-router';
 import { useState, useRef, type ChangeEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useStats, useNearbyReports, useSearchPets, useStories, useImageClassify, useImageSearch } from '@shared/hooks';
-import type { Report, Pet, PetType, PetStatus, SuccessStory, ClassifyResult, ImageSearchResult } from '@shared/types';
+import { useStats, useSearchPets, useStories, useImageClassify, useImageSearch } from '@shared/hooks';
+import type { Pet, PetType, PetStatus, SuccessStory, ClassifyResult, ImageSearchResult } from '@shared/types';
 import { getErrorMessage } from '@shared/utils/apiErrors';
 import { startOfDayISO, endOfDayISO } from '@shared/utils/dateFilters';
 import { ApiError } from '@shared/api/client';
 import { useAuth } from '../context/AuthContext';
-import { PetCardWeb } from '../components/PetCardWeb';
+
+// Montevideo default center for the optional distance filter.
+const DEFAULT_LAT = -34.9011;
+const DEFAULT_LNG = -56.1645;
 
 const PET_TYPES: { value: PetType; label: string; icon: string }[] = [
   { value: 'perro', label: 'Perro', icon: '🐕' },
@@ -37,6 +40,7 @@ export function HomePage() {
   const [draftBreed, setDraftBreed] = useState('');
   const [draftFrom, setDraftFrom] = useState('');
   const [draftTo, setDraftTo] = useState('');
+  const [draftRadius, setDraftRadius] = useState(''); // km, '' = cualquier distancia
 
   // ── Applied filters (sent to the API — only updated on explicit search) ──
   const [filterType, setFilterType] = useState<PetType | ''>('');
@@ -45,46 +49,46 @@ export function HomePage() {
   const [filterBreed, setFilterBreed] = useState('');
   const [filterFrom, setFilterFrom] = useState('');
   const [filterTo, setFilterTo] = useState('');
+  const [filterRadius, setFilterRadius] = useState(''); // km, '' = cualquier distancia
 
-  // Feed is always shown on load; nearby-reports mode activates only after explicit clear.
-  const [showFeed, setShowFeed] = useState(true);
-  const isSearchMode = showFeed || !!filterType || filterColor.trim().length > 0 || !!filterStatus
-    || filterBreed.trim().length > 0 || !!filterFrom || !!filterTo;
+  // The home always shows the search feed (lost+stray by default). Filters —
+  // including the optional distance — layer on top. No separate "nearby" mode.
+  const hasActiveFilters = !!filterType || filterColor.trim().length > 0 || !!filterStatus
+    || filterBreed.trim().length > 0 || !!filterFrom || !!filterTo || !!filterRadius;
 
   const handleSearch = () => {
     // A new filter search replaces any active photo-search results
     setImageResults(null);
     setImageSearchError(null);
-    setShowFeed(true);
     setFilterType(draftType);
     setFilterColor(draftColor);
     setFilterStatus(draftStatus);
     setFilterBreed(draftBreed);
     setFilterFrom(draftFrom);
     setFilterTo(draftTo);
+    setFilterRadius(draftRadius);
   };
 
   const clearFilters = () => {
-    setShowFeed(false);
     setFilterType('');
     setFilterColor('');
     setFilterStatus('');
     setFilterBreed('');
     setFilterFrom('');
     setFilterTo('');
+    setFilterRadius('');
     setDraftType('');
     setDraftColor('');
     setDraftStatus('');
     setDraftBreed('');
     setDraftFrom('');
     setDraftTo('');
+    setDraftRadius('');
     setClassifyResult(null);
     setPhotoNoMatch(false);
     setImageResults(null);
     setImageSearchError(null);
   };
-
-  const [nearbyRadius, setNearbyRadius] = useState(20);
 
   // ── Búsqueda por foto ──
   const [classifyResult, setClassifyResult] = useState<ClassifyResult | null>(null);
@@ -147,26 +151,20 @@ export function HomePage() {
   };
 
   // ── Datos ──
-  const { data: reports, isLoading: nearbyLoading } = useNearbyReports(-34.9011, -56.1645, nearbyRadius, !isSearchMode);
-  const { data: searchResults, isLoading: searchLoading } = useSearchPets({
+  // Single unified feed: /pets/search (lost+stray by default). The optional
+  // distance filter adds lat/lng/radius; results are ordered by recency.
+  const radiusKm = Number(filterRadius);
+  const { data: searchResults, isLoading } = useSearchPets({
     type: filterType || undefined,
     color: filterColor.trim() || undefined,
     status: filterStatus || undefined,
     breed: filterBreed.trim() || undefined,
     from: filterFrom ? startOfDayISO(filterFrom) : undefined,
     to: filterTo ? endOfDayISO(filterTo) : undefined,
+    lat: filterRadius ? DEFAULT_LAT : undefined,
+    lng: filterRadius ? DEFAULT_LNG : undefined,
+    radiusMeters: filterRadius ? radiusKm * 1000 : undefined,
   });
-
-  const isLoading = isSearchMode ? searchLoading : nearbyLoading;
-
-  // Modo nearby: dedup por pet, ordenado por fecha DESC
-  const uniqueReports = [...(reports ?? [])]
-    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-    .reduce((acc: Report[], report: Report) => {
-      const petId = report.pet?.id || report.pet_id;
-      if (!acc.some(r => (r.pet?.id || r.pet_id) === petId)) acc.push(report);
-      return acc;
-    }, []);
 
   return (
     <div className="bg-gray-50 dark:bg-gray-950 min-h-screen">
@@ -434,18 +432,17 @@ export function HomePage() {
               className="border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-primary"
             />
 
-            {/* Radio (solo en modo nearby) */}
-            {!isSearchMode && (
-              <select
-                value={nearbyRadius}
-                onChange={(e) => setNearbyRadius(Number(e.target.value))}
-                className="border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-primary"
-              >
-                {[5, 10, 20, 50].map((km) => (
-                  <option key={km} value={km}>{km} km</option>
-                ))}
-              </select>
-            )}
+            {/* Distancia (opcional) */}
+            <select
+              value={draftRadius}
+              onChange={(e) => setDraftRadius(e.target.value)}
+              className="border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-primary"
+            >
+              <option value="">Cualquier distancia</option>
+              {[5, 10, 20, 50].map((km) => (
+                <option key={km} value={km}>Hasta {km} km</option>
+              ))}
+            </select>
           </div>
 
           <div className="flex gap-2 mt-4">
@@ -455,7 +452,7 @@ export function HomePage() {
             >
               Buscar
             </button>
-            {isSearchMode && (
+            {hasActiveFilters && (
               <button
                 onClick={clearFilters}
                 className="px-4 py-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 border border-gray-200 dark:border-gray-700 rounded-lg transition-colors"
@@ -473,7 +470,7 @@ export function HomePage() {
           <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
             {imageResults
               ? `${t('home:photoSearch.resultsTitle')} (${imageResults.length})`
-              : isSearchMode
+              : hasActiveFilters
               ? `${searchResults?.total ?? searchResults?.data?.length ?? 0} resultado${(searchResults?.total ?? 0) !== 1 ? 's' : ''}`
               : t('home:recentReports')}
           </h2>
@@ -484,7 +481,7 @@ export function HomePage() {
             >
               {t('home:photoSearch.clear')} ✕
             </button>
-          ) : isSearchMode && (
+          ) : hasActiveFilters && (
             <span className="text-sm text-gray-500 dark:text-gray-400">
               Búsqueda activa
             </span>
@@ -536,7 +533,7 @@ export function HomePage() {
             <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
             <p className="text-gray-500 dark:text-gray-400">{t('common:loading')}</p>
           </div>
-        ) : isSearchMode ? (
+        ) : (
           // ── Resultados de búsqueda (Pet[]) ──
           searchResults?.data && searchResults.data.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -588,32 +585,6 @@ export function HomePage() {
               <button onClick={clearFilters} className="px-5 py-2 bg-primary text-white rounded-lg text-sm font-semibold hover:bg-primary-dark transition-colors">
                 Limpiar filtros
               </button>
-            </div>
-          )
-        ) : (
-          // ── Feed nearby (Report[]) ──
-          uniqueReports && uniqueReports.length > 0 ? (
-            <>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {uniqueReports.slice(0, 6).map((report: Report) => (
-                  <PetCardWeb key={report.id} report={report} />
-                ))}
-              </div>
-              {reports && reports.length > 6 && (
-                <div className="text-center mt-8">
-                  <Link
-                    to="/map"
-                    className="inline-flex items-center px-6 py-3 bg-primary text-white font-semibold rounded-lg hover:bg-primary-dark transition-colors"
-                  >
-                    {t('home:viewAll')}
-                  </Link>
-                </div>
-              )}
-            </>
-          ) : (
-            <div className="text-center py-12">
-              <p className="text-5xl mb-4">🐾</p>
-              <p className="text-gray-500 dark:text-gray-400">{t('home:noReports')}</p>
             </div>
           )
         )}
