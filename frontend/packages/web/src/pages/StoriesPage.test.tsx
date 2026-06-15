@@ -6,13 +6,24 @@ import { StoriesPage } from './StoriesPage';
 
 const likeMutate = vi.fn();
 const unlikeMutate = vi.fn();
+const mockNavigate = vi.fn();
 let mockStories: unknown[] = [];
+let mockIsAuthenticated = true;
 
 vi.mock('@shared/hooks', () => ({
   useStories: () => ({ data: mockStories, isLoading: false }),
   useLikeStory: () => ({ mutate: likeMutate, isPending: false }),
   useUnlikeStory: () => ({ mutate: unlikeMutate, isPending: false }),
 }));
+
+vi.mock('../context/AuthContext', () => ({
+  useAuth: () => ({ isAuthenticated: mockIsAuthenticated }),
+}));
+
+vi.mock('react-router', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('react-router')>();
+  return { ...actual, useNavigate: () => mockNavigate };
+});
 
 function makeStory(overrides: Record<string, unknown> = {}) {
   return {
@@ -41,7 +52,9 @@ describe('StoriesPage', () => {
   beforeEach(() => {
     likeMutate.mockClear();
     unlikeMutate.mockClear();
+    mockNavigate.mockClear();
     mockStories = [];
+    mockIsAuthenticated = true;
   });
 
   it('renderiza el estado vacío cuando no hay historias', () => {
@@ -73,5 +86,18 @@ describe('StoriesPage', () => {
     fireEvent.click(button);
     expect(unlikeMutate).toHaveBeenCalledWith('s1');
     expect(likeMutate).not.toHaveBeenCalled();
+  });
+
+  it('redirige a login y no mutea cuando el usuario no está autenticado', () => {
+    mockIsAuthenticated = false;
+    mockStories = [makeStory({ liked_by_me: false })];
+    render(<StoriesPage />, { wrapper });
+
+    const button = screen.getByRole('button', { name: /me gusta/i });
+    fireEvent.click(button);
+
+    expect(mockNavigate).toHaveBeenCalledWith('/login');
+    expect(likeMutate).not.toHaveBeenCalled();
+    expect(unlikeMutate).not.toHaveBeenCalled();
   });
 });

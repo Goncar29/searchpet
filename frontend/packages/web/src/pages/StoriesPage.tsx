@@ -1,5 +1,6 @@
-import { Link } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 import { useStories, useLikeStory, useUnlikeStory } from '@shared/hooks';
+import { useAuth } from '../context/AuthContext';
 import type { SuccessStory } from '@shared/types';
 
 function truncate(text: string, max: number): string {
@@ -8,6 +9,8 @@ function truncate(text: string, max: number): string {
 }
 
 export function StoriesPage() {
+  const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
   const { data: stories, isLoading } = useStories({ limit: 20 });
   const likeStory = useLikeStory();
   const unlikeStory = useUnlikeStory();
@@ -15,6 +18,10 @@ export function StoriesPage() {
 
   const toggleLike = (e: React.MouseEvent, story: SuccessStory) => {
     e.preventDefault();
+    if (!isAuthenticated) {
+      navigate('/login');
+      return;
+    }
     if (story.liked_by_me) {
       unlikeStory.mutate(story.id);
     } else {
