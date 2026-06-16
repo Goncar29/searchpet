@@ -1,4 +1,4 @@
-import { useParams } from 'react-router';
+import { useParams, Link } from 'react-router';
 import { Helmet } from 'react-helmet-async';
 import { useSharedPet } from '@shared/hooks';
 import { buildWhatsAppContactURL } from '@shared/utils/whatsappTemplates';
@@ -59,11 +59,13 @@ export function SharedPetPage() {
       <div className="min-h-screen bg-gradient-to-b from-primary/5 to-gray-50">
         {/* Header */}
         <div className="bg-white border-b border-gray-200 py-4">
-          <div className="max-w-lg mx-auto px-4 flex items-center gap-2">
-            <span className="text-2xl">🐾</span>
-            <span className="text-xl font-bold text-gray-900">
-              Search<span className="text-primary">Pet</span>
-            </span>
+          <div className="max-w-lg mx-auto px-4">
+            <Link to="/" className="inline-flex items-center gap-2 hover:opacity-80 transition-opacity">
+              <span className="text-2xl">🐾</span>
+              <span className="text-xl font-bold text-gray-900">
+                Search<span className="text-primary">Pet</span>
+              </span>
+            </Link>
           </div>
         </div>
 
@@ -126,13 +128,22 @@ export function SharedPetPage() {
                 </a>
               )}
 
-              {/* Download app CTA */}
+              {/* Explore web + download app CTA */}
               <div className="bg-primary/5 rounded-xl p-4 text-center mt-4">
-                <p className="text-sm text-gray-600 mb-2">
+                <p className="text-sm text-gray-600 mb-3">
                   ¿Quieres ayudar a encontrar más mascotas?
                 </p>
-                <p className="text-sm font-bold text-primary">
-                  Descarga SearchPet — 100% gratuita
+                <Link
+                  to="/"
+                  className="block w-full bg-primary text-white text-center font-bold py-3 rounded-xl hover:bg-primary-dark transition-colors"
+                >
+                  Explorar SearchPet →
+                </Link>
+                <p className="text-xs text-gray-500 mt-3">
+                  o{' '}
+                  <Link to="/descargar" className="font-semibold text-primary hover:text-primary-dark">
+                    descargá la app móvil
+                  </Link>
                 </p>
               </div>
             </div>
