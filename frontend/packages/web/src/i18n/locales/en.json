@@ -57,6 +57,7 @@
       "locating": "Locating..."
     },
     "searchButton": "Search",
+    "searchActive": "Active search",
     "recentReports": "Recent reports",
     "noReports": "No recent reports in your area",
     "viewAll": "View all on map",

@@ -607,7 +607,7 @@ export function HomePage() {
             </button>
           ) : hasActiveFilters && (
             <span className="text-sm text-gray-500 dark:text-gray-400">
-              Búsqueda activa
+              {t('home:searchActive')}
             </span>
           )}
         </div>
