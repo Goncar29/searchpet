@@ -20,6 +20,12 @@ vi.mock('@shared/utils/whatsappTemplates', () => ({
   buildWhatsAppContactURL: () => 'https://wa.me/',
 }));
 
+// Mirror the rest of the web tests: t returns the key, so assertions key off
+// hrefs / the literal brand rather than translated copy.
+vi.mock('react-i18next', () => ({
+  useTranslation: () => ({ t: (key: string) => key, i18n: { language: 'es' } }),
+}));
+
 function wrapper({ children }: { children: React.ReactNode }) {
   return (
     <HelmetProvider>
@@ -52,23 +58,18 @@ describe('SharedPetPage', () => {
       });
     });
 
-    it('el logo del header lleva a la home', () => {
+    it('el logo del header (marca SearchPet) lleva a la home', () => {
       render(<SharedPetPage />, { wrapper });
-      // El logo contiene "SearchPet" pero NO "Explorar" — distingue del botón CTA.
-      const logo = screen.getByRole('link', {
-        name: (n) => /SearchPet/i.test(n) && !/Explorar/i.test(n),
-      });
+      // El brand "SearchPet" es literal (no se traduce) — único link con ese texto.
+      const logo = screen.getByRole('link', { name: /SearchPet/i });
       expect(logo.getAttribute('href')).toBe('/');
     });
 
     it('ofrece un acceso a la web (home) y otro a la descarga de la app', () => {
       render(<SharedPetPage />, { wrapper });
-      expect(
-        screen.getByRole('link', { name: /Explorar SearchPet/i }).getAttribute('href'),
-      ).toBe('/');
-      expect(
-        screen.getByRole('link', { name: /descargá la app móvil/i }).getAttribute('href'),
-      ).toBe('/descargar');
+      const hrefs = screen.getAllByRole('link').map((l) => l.getAttribute('href'));
+      expect(hrefs).toContain('/');          // logo + botón "Explorar"
+      expect(hrefs).toContain('/descargar'); // link de descarga
     });
   });
 });

@@ -1,9 +1,11 @@
 import { useParams, Link } from 'react-router';
 import { Helmet } from 'react-helmet-async';
+import { useTranslation } from 'react-i18next';
 import { useSharedPet } from '@shared/hooks';
 import { buildWhatsAppContactURL } from '@shared/utils/whatsappTemplates';
 
 export function SharedPetPage() {
+  const { t } = useTranslation(['sharedPet', 'pets']);
   const { token } = useParams<{ token: string }>();
   const { data, isLoading } = useSharedPet(token || '');
 
@@ -20,8 +22,8 @@ export function SharedPetPage() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <p className="text-6xl mb-4">🔍</p>
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Mascota no encontrada</h1>
-          <p className="text-gray-500">Este link puede haber expirado</p>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">{t('sharedPet:notFoundTitle')}</h1>
+          <p className="text-gray-500">{t('sharedPet:notFoundSubtitle')}</p>
         </div>
       </div>
     );
@@ -30,14 +32,16 @@ export function SharedPetPage() {
   const pet = data.pet;
   const owner = data.owner;
   const primaryPhoto = pet.photos?.find((p) => p.is_primary) || pet.photos?.[0];
-  const statusLabel = pet.status === 'found' ? 'ENCONTRADO' : 'PERDIDO';
+  const statusLabel = pet.status === 'found' ? t('pets:card.found') : t('pets:card.lost');
   const statusBg = pet.status === 'found' ? 'bg-green-500' : 'bg-red-500';
 
   // SEO
-  const pageTitle = `${pet.name} — ${pet.status === 'found' ? 'Encontrado' : 'Mascota Perdida'} | SearchPet`;
+  const pageTitle = pet.status === 'found'
+    ? t('sharedPet:seoTitleFound', { name: pet.name })
+    : t('sharedPet:seoTitleLost', { name: pet.name });
   const ogDescription = pet.description
     ? pet.description.slice(0, 160) + (pet.description.length > 160 ? '...' : '')
-    : `Ayudanos a encontrar a ${pet.name}`;
+    : t('sharedPet:seoDescriptionFallback', { name: pet.name });
   const shareUrl = `${window.location.origin}/pet/${token}`;
 
   // WhatsApp contact URL usando la utilidad compartida
@@ -74,7 +78,7 @@ export function SharedPetPage() {
           <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
             {/* Alert */}
             <div className={`${statusBg} text-white text-center py-3`}>
-              <p className="text-sm font-bold tracking-wider">{statusLabel}</p>
+              <p className="text-sm font-bold tracking-wider uppercase">{statusLabel}</p>
             </div>
 
             {/* Foto */}
@@ -94,19 +98,19 @@ export function SharedPetPage() {
               <div className="space-y-2 mb-6">
                 {pet.type && (
                   <div className="flex justify-between py-2 border-b border-gray-100">
-                    <span className="text-gray-500 text-sm">Tipo</span>
+                    <span className="text-gray-500 text-sm">{t('pets:detail.type')}</span>
                     <span className="font-semibold text-sm">{pet.type}</span>
                   </div>
                 )}
                 {pet.breed && (
                   <div className="flex justify-between py-2 border-b border-gray-100">
-                    <span className="text-gray-500 text-sm">Raza</span>
+                    <span className="text-gray-500 text-sm">{t('pets:detail.breed')}</span>
                     <span className="font-semibold text-sm">{pet.breed}</span>
                   </div>
                 )}
                 {pet.color && (
                   <div className="flex justify-between py-2 border-b border-gray-100">
-                    <span className="text-gray-500 text-sm">Color</span>
+                    <span className="text-gray-500 text-sm">{t('pets:detail.color')}</span>
                     <span className="font-semibold text-sm">{pet.color}</span>
                   </div>
                 )}
@@ -124,25 +128,25 @@ export function SharedPetPage() {
                   rel="noopener noreferrer"
                   className="block w-full bg-[#25D366] text-white text-center font-bold py-4 rounded-xl hover:opacity-90 transition-opacity mb-3"
                 >
-                  Contactar al dueño por WhatsApp
+                  {t('sharedPet:contactOwner')}
                 </a>
               )}
 
               {/* Explore web + download app CTA */}
               <div className="bg-primary/5 rounded-xl p-4 text-center mt-4">
                 <p className="text-sm text-gray-600 mb-3">
-                  ¿Quieres ayudar a encontrar más mascotas?
+                  {t('sharedPet:helpTitle')}
                 </p>
                 <Link
                   to="/"
                   className="block w-full bg-primary text-white text-center font-bold py-3 rounded-xl hover:bg-primary-dark transition-colors"
                 >
-                  Explorar SearchPet →
+                  {t('sharedPet:exploreApp')}
                 </Link>
                 <p className="text-xs text-gray-500 mt-3">
-                  o{' '}
+                  {t('sharedPet:or')}{' '}
                   <Link to="/descargar" className="font-semibold text-primary hover:text-primary-dark">
-                    descargá la app móvil
+                    {t('sharedPet:downloadApp')}
                   </Link>
                 </p>
               </div>

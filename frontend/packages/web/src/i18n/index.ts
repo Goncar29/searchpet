@@ -41,6 +41,7 @@ i18n
         map: es.map,
         profile: es.profile,
         otp: es.otp,
+        sharedPet: es.sharedPet,
       },
       en: {
         // Shared namespaces
@@ -61,6 +62,7 @@ i18n
         map: en.map,
         profile: en.profile,
         otp: en.otp,
+        sharedPet: en.sharedPet,
       },
       pt: {
         // Shared namespaces
@@ -81,6 +83,7 @@ i18n
         map: pt.map,
         profile: pt.profile,
         otp: pt.otp,
+        sharedPet: pt.sharedPet,
       },
     },
     interpolation: {

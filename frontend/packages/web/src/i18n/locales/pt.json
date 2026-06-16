@@ -155,5 +155,17 @@
     "errorRateLimit": "Muitas tentativas. Aguarde 60 segundos antes de reenviar.",
     "errorMaxAttempts": "Você atingiu o limite de 5 tentativas. Solicite um novo código.",
     "errorUnexpected": "Ocorreu um erro inesperado"
+  },
+  "sharedPet": {
+    "notFoundTitle": "Pet não encontrado",
+    "notFoundSubtitle": "Este link pode ter expirado",
+    "contactOwner": "Contatar o dono pelo WhatsApp",
+    "helpTitle": "Quer ajudar a encontrar mais pets?",
+    "exploreApp": "Explorar SearchPet →",
+    "or": "ou",
+    "downloadApp": "baixe o app",
+    "seoTitleLost": "{{name}} — Pet Perdido | SearchPet",
+    "seoTitleFound": "{{name}} — Encontrado | SearchPet",
+    "seoDescriptionFallback": "Ajude-nos a encontrar {{name}}"
   }
 }
