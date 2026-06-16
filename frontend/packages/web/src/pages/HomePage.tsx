@@ -154,8 +154,8 @@ export function HomePage() {
             { timeout: 5000 }
           );
         } catch {
-          // Synchronous throw in restrictive environments (e.g. certain WebViews)
-          if (gen !== geoGenRef.current) return;
+          // Synchronous throw in restrictive environments (e.g. certain WebViews).
+          // No gen check: nothing can run between arming gen and a synchronous throw.
           if (geoTimerRef.current) { clearTimeout(geoTimerRef.current); geoTimerRef.current = null; }
           commitFiltersRef.current(null);
         }
@@ -550,7 +550,8 @@ export function HomePage() {
               <select
                 value={draftRadius}
                 onChange={(e) => setDraftRadius(e.target.value)}
-                className="border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-primary"
+                disabled={isLocating}
+                className="border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <option value="">{t('home:distance.any')}</option>
                 {[5, 10, 20, 50].map((km) => (
