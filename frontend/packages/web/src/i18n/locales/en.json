@@ -47,6 +47,16 @@
       "noResults": "No similar pets found",
       "clear": "Clear photo search"
     },
+    "distanceCenter": {
+      "gps": "Near your location",
+      "fallback": "Near Montevideo"
+    },
+    "distance": {
+      "any": "Any distance",
+      "upToKm": "Up to {{km}} km",
+      "locating": "Locating..."
+    },
+    "searchButton": "Search",
     "recentReports": "Recent reports",
     "noReports": "No recent reports in your area",
     "viewAll": "View all on map",

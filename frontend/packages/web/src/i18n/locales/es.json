@@ -47,6 +47,16 @@
       "noResults": "No se encontraron mascotas similares",
       "clear": "Limpiar búsqueda por foto"
     },
+    "distanceCenter": {
+      "gps": "Cerca de tu ubicación",
+      "fallback": "Cerca de Montevideo"
+    },
+    "distance": {
+      "any": "Cualquier distancia",
+      "upToKm": "Hasta {{km}} km",
+      "locating": "Ubicando..."
+    },
+    "searchButton": "Buscar",
     "recentReports": "Reportes recientes",
     "noReports": "No hay reportes recientes en tu zona",
     "viewAll": "Ver todos en el mapa",
