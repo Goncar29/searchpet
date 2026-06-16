@@ -67,6 +67,43 @@ import type {
 } from '../types';
 
 
+// Default ceiling for normal API requests. Generous on purpose: the backend
+// runs on Render's free tier, which sleeps after inactivity and can take
+// ~30-50s to cold-start. A tighter ceiling would fail every first request
+// after the service idles. This bounds failure (a down/hung backend surfaces
+// an error instead of an infinite spinner) — it does NOT make requests "fast".
+const REQUEST_TIMEOUT_MS = 45000;
+// Wider ceiling for multipart uploads and CLIP image search, which legitimately
+// take longer (large request bodies, HuggingFace inference latency).
+const UPLOAD_TIMEOUT_MS = 90000;
+
+// fetch() has no built-in timeout: if the server accepts the connection but
+// never responds, the promise hangs forever. AbortController gives the request
+// a deadline so the UI can show an error instead of spinning indefinitely.
+// On timeout we throw a typed ApiError with the `request_timeout` code so the
+// existing getErrorMessage()/i18n path renders a translated message.
+async function fetchWithTimeout(
+  input: string,
+  init: RequestInit,
+  timeoutMs: number
+): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } catch (err) {
+    // AbortController.abort() rejects fetch with an AbortError. Translate it
+    // into our typed error; re-throw anything else (real network failures).
+    if (err instanceof Error && err.name === 'AbortError') {
+      throw new ApiError('request_timeout', 0, `Request timed out after ${timeoutMs}ms`);
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+
 class APIClient {
   private baseURL: string;
   private token: string | null = null;
@@ -105,11 +142,11 @@ class APIClient {
       headers['Authorization'] = `Bearer ${this.token}`;
     }
 
-    const response = await fetch(url.toString(), {
+    const response = await fetchWithTimeout(url.toString(), {
       method,
       headers,
       body: body ? JSON.stringify(body) : undefined,
-    });
+    }, REQUEST_TIMEOUT_MS);
 
     if (!response.ok) {
       const body = await response.json().catch(() => ({}));
@@ -171,7 +208,7 @@ class APIClient {
     const headers: Record<string, string> = {};
     if (this.token) headers['Authorization'] = `Bearer ${this.token}`;
 
-    const response = await fetch(url, { method: 'POST', headers, body: formData });
+    const response = await fetchWithTimeout(url, { method: 'POST', headers, body: formData }, UPLOAD_TIMEOUT_MS);
     if (!response.ok) {
       const body = await response.json().catch(() => ({}));
       const code = body.code ?? 'unknown_error';
@@ -257,11 +294,11 @@ class APIClient {
       headers['Authorization'] = `Bearer ${this.token}`;
     }
 
-    const response = await fetch(url, {
+    const response = await fetchWithTimeout(url, {
       method: 'POST',
       headers,
       body: formData,
-    });
+    }, UPLOAD_TIMEOUT_MS);
 
     if (!response.ok) {
       const body = await response.json().catch(() => ({}));
@@ -293,7 +330,7 @@ class APIClient {
       headers['Authorization'] = `Bearer ${this.token}`;
     }
 
-    const response = await fetch(url, { method: 'POST', headers, body: formData });
+    const response = await fetchWithTimeout(url, { method: 'POST', headers, body: formData }, UPLOAD_TIMEOUT_MS);
 
     if (!response.ok) {
       const body = await response.json().catch(() => ({}));
@@ -327,7 +364,7 @@ class APIClient {
       headers['Authorization'] = `Bearer ${this.token}`;
     }
 
-    const response = await fetch(url, { method: 'POST', headers, body: formData });
+    const response = await fetchWithTimeout(url, { method: 'POST', headers, body: formData }, UPLOAD_TIMEOUT_MS);
 
     if (!response.ok) {
       const body = await response.json().catch(() => ({}));
@@ -361,11 +398,11 @@ class APIClient {
       headers['Authorization'] = `Bearer ${this.token}`;
     }
 
-    const response = await fetch(url, {
+    const response = await fetchWithTimeout(url, {
       method: 'POST',
       headers,
       body: formData,
-    });
+    }, UPLOAD_TIMEOUT_MS);
 
     if (!response.ok) {
       const body = await response.json().catch(() => ({}));
@@ -400,11 +437,11 @@ class APIClient {
       headers['Authorization'] = `Bearer ${this.token}`;
     }
 
-    const response = await fetch(url, {
+    const response = await fetchWithTimeout(url, {
       method: 'POST',
       headers,
       body: formData,
-    });
+    }, UPLOAD_TIMEOUT_MS);
 
     if (!response.ok) {
       const body = await response.json().catch(() => ({}));

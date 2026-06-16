@@ -244,3 +244,72 @@ describe('APIClient story likes', () => {
     });
   });
 });
+
+describe('APIClient request timeout', () => {
+  let client: APIClient;
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    client = new APIClient('http://test.local');
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  it('throws ApiError(request_timeout) when the request exceeds the ceiling', async () => {
+    // fetch never settles on its own — it only rejects when the signal aborts,
+    // mirroring a real hung connection.
+    const fetchMock = vi.fn(
+      (_input: string, init: RequestInit) =>
+        new Promise<Response>((_resolve, reject) => {
+          init.signal?.addEventListener('abort', () => {
+            const err = new Error('aborted');
+            err.name = 'AbortError';
+            reject(err);
+          });
+        }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const promise = client.getStats();
+    const assertion = expect(promise).rejects.toMatchObject({
+      name: 'ApiError',
+      code: 'request_timeout',
+      status: 0,
+    });
+
+    // Fast-forward past the 45s ceiling → setTimeout fires → controller.abort()
+    // → fetch rejects with AbortError → wrapper throws ApiError.
+    await vi.advanceTimersByTimeAsync(45000);
+    await assertion;
+  });
+
+  it('resolves normally when fetch responds before the ceiling', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(JSON.stringify({ total_pets: 0 }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+      ),
+    );
+
+    await expect(client.getStats()).resolves.toEqual({ total_pets: 0 });
+  });
+
+  it('re-throws a non-abort fetch error unchanged', async () => {
+    const netErr = new TypeError('Failed to fetch');
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        throw netErr;
+      }),
+    );
+
+    await expect(client.getStats()).rejects.toBe(netErr);
+  });
+});

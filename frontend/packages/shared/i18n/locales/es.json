@@ -267,6 +267,7 @@
     "image_search_unavailable": "El servicio de búsqueda por imagen no está disponible temporalmente",
     "binding_failed": "Los datos de entrada no son válidos",
     "initial_report_required": "Para publicar un avistamiento necesitás indicar la última ubicación donde fue vista la mascota",
+    "request_timeout": "El servidor tardó demasiado en responder. Revisá tu conexión e intentá de nuevo.",
     "unknown_error": "Ocurrió un error inesperado. Por favor intentá de nuevo"
   },
   "publish": {

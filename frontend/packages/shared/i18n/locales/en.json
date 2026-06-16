@@ -267,6 +267,7 @@
     "image_search_unavailable": "The image search service is temporarily unavailable",
     "binding_failed": "The provided input data is not valid",
     "initial_report_required": "To publish a sighting you need to provide the last seen location",
+    "request_timeout": "The server took too long to respond. Check your connection and try again.",
     "unknown_error": "An unexpected error occurred. Please try again"
   },
   "publish": {
