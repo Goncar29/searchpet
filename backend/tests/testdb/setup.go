@@ -152,9 +152,15 @@ func SetupTestDB(t *testing.T) *gorm.DB {
 		m.Close()
 	}
 
-	// Truncate all tables after each test to ensure isolation.
+	// Truncate all tables after each test to ensure isolation, then close the
+	// connection pool. Each test opens its own pool; without closing it the
+	// idle connections accumulate across the suite and eventually exhaust
+	// Postgres' max_connections ("too many clients already").
 	t.Cleanup(func() {
 		truncateAll(t, db)
+		if sqlDB, err := db.DB(); err == nil {
+			sqlDB.Close()
+		}
 	})
 
 	return db
