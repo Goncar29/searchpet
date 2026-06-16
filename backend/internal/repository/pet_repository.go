@@ -121,11 +121,30 @@ func (r *PostgresPetRepository) Search(filters domain.PetSearchCriteria) ([]doma
 				*filters.Lng, *filters.Lat, *filters.RadiusMeters,
 			)
 		}
+
+		// Count distinct pets using a fresh Session so the single-column Distinct
+		// below does not bleed into the Find query. GORM emits
+		// COUNT(DISTINCT(pets.id)) for a single-column Distinct; the multi-column
+		// string variant (used for Find) falls back to count(*) on GORM v1.25.
+		var total int64
+		if err := q.Session(&gorm.Session{}).Distinct("pets.id").Count(&total).Error; err != nil {
+			return nil, 0, err
+		}
+
 		// Evitamos duplicados si hay múltiples reports que matchean
 		q = q.Distinct("pets.id, pets.owner_id, pets.reporter_id, pets.name, pets.type, pets.breed, pets.color, pets.description, pets.gender, pets.microchip_id, pets.status, pets.version, pets.created_at, pets.updated_at")
+
+		// Paginación
+		var pets []domain.Pet
+		offset := (page - 1) * limit
+		err := q.Order("pets.created_at DESC").Offset(offset).Limit(limit).Find(&pets).Error
+		if err != nil {
+			return nil, 0, err
+		}
+		return pets, total, nil
 	}
 
-	// Count total ANTES de paginar
+	// Count total ANTES de paginar (no JOIN path — no deduplication needed)
 	var total int64
 	if err := q.Count(&total).Error; err != nil {
 		return nil, 0, err

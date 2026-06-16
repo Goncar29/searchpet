@@ -102,6 +102,9 @@ func TestPetRepository_Search_ByType(t *testing.T) {
 // The optional geo filter matches pets that have at least one report within
 // the given radius, and excludes pets whose reports are all outside it.
 func TestPetRepository_Search_GeoRadius(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration test — requires PostGIS")
+	}
 	gormDB := testdb.SetupTestDB(t)
 	userRepo := repository.NewUserRepository(gormDB)
 	petRepo := repository.NewPetRepository(gormDB)
@@ -126,7 +129,7 @@ func TestPetRepository_Search_GeoRadius(t *testing.T) {
 	}
 
 	lat, lng, radius := mvdLat, mvdLng, 1000.0
-	results, _, err := petRepo.Search(domain.PetSearchCriteria{Lat: &lat, Lng: &lng, RadiusMeters: &radius, Page: 1, Limit: 100})
+	results, total, err := petRepo.Search(domain.PetSearchCriteria{Lat: &lat, Lng: &lng, RadiusMeters: &radius, Page: 1, Limit: 100})
 	if err != nil {
 		t.Fatalf("Search geo: %v", err)
 	}
@@ -144,6 +147,54 @@ func TestPetRepository_Search_GeoRadius(t *testing.T) {
 	}
 	if has(farDog.ID) {
 		t.Error("a pet whose only report is outside the radius must NOT match")
+	}
+	if total != 1 {
+		t.Errorf("expected total=1 (one pet inside radius), got total=%d", total)
+	}
+}
+
+// TestPetRepository_Search_GeoRadius_DistinctCount guards against total being
+// inflated when a single pet has multiple reports that all fall inside the radius.
+// Before the fix, GORM's COUNT over a multi-column DISTINCT string produced
+// count(*) which counted each matching row — so two reports → total=2 for one pet.
+func TestPetRepository_Search_GeoRadius_DistinctCount(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration test — requires PostGIS")
+	}
+	gormDB := testdb.SetupTestDB(t)
+	userRepo := repository.NewUserRepository(gormDB)
+	petRepo := repository.NewPetRepository(gormDB)
+	reportRepo := repository.NewReportRepository(gormDB)
+
+	owner := newTestUser(t, userRepo)
+
+	// One pet with TWO reports, both inside the 1 km radius around Montevideo.
+	dog := &domain.Pet{ID: uuid.New(), OwnerID: ptrUUID(owner.ID), Name: "Multi-Report Dog", Type: "perro", Status: domain.PetStatusLost}
+	if err := petRepo.Create(dog); err != nil {
+		t.Fatalf("Create pet: %v", err)
+	}
+
+	report1 := &domain.Report{ID: uuid.New(), PetID: dog.ID, ReporterID: owner.ID, Status: "lost", Latitude: mvdLat, Longitude: mvdLng}
+	report2 := &domain.Report{ID: uuid.New(), PetID: dog.ID, ReporterID: owner.ID, Status: "lost", Latitude: mvdLat + 0.001, Longitude: mvdLng} // ~111 m north, still inside 1 km
+	for _, r := range []*domain.Report{report1, report2} {
+		if err := reportRepo.Create(r); err != nil {
+			t.Fatalf("Create report: %v", err)
+		}
+	}
+
+	lat, lng, radius := mvdLat, mvdLng, 1000.0
+	results, total, err := petRepo.Search(domain.PetSearchCriteria{Lat: &lat, Lng: &lng, RadiusMeters: &radius, Page: 1, Limit: 100})
+	if err != nil {
+		t.Fatalf("Search geo: %v", err)
+	}
+
+	if len(results) != 1 {
+		t.Errorf("expected exactly 1 pet in results slice, got %d", len(results))
+	}
+	if total != 1 {
+		// If total != 1 the COUNT bug is present: GORM used count(*) instead of
+		// COUNT(DISTINCT pets.id), counting each matching report row separately.
+		t.Errorf("expected total=1 (one distinct pet), got total=%d — COUNT(*) bug still present", total)
 	}
 }
 
