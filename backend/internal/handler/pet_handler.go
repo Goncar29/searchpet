@@ -216,6 +216,33 @@ func (h *PetHandler) SearchPets(c *gin.Context) {
 		criteria.To = &t
 	}
 
+	// Optional geo filter — lat, lng and radius (meters) must all be present
+	// and valid together, or none at all. Activates a distance filter on the
+	// pets' reports. radius must be within [1000, 50000] to match /reports/nearby.
+	latStr, lngStr, radiusStr := c.Query("lat"), c.Query("lng"), c.Query("radius")
+	if latStr != "" || lngStr != "" || radiusStr != "" {
+		lat, errLat := strconv.ParseFloat(latStr, 64)
+		lng, errLng := strconv.ParseFloat(lngStr, 64)
+		radius, errRadius := strconv.ParseFloat(radiusStr, 64)
+		if errLat != nil || errLng != nil || errRadius != nil || radius <= 0 {
+			writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
+			return
+		}
+		// FIX 2: validate coordinate ranges to prevent PostGIS cast errors on public endpoint
+		if !validCoordinates(lat, lng) {
+			writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
+			return
+		}
+		// FIX 3: enforce radius bounds consistent with /reports/nearby (1000–50000 m)
+		if radius < 1000 || radius > 50000 {
+			writeError(c, http.StatusUnprocessableEntity, domain.ErrInvalidSearchRadius)
+			return
+		}
+		criteria.Lat = &lat
+		criteria.Lng = &lng
+		criteria.RadiusMeters = &radius
+	}
+
 	// Parseo de page (default 1)
 	if pageStr := c.Query("page"); pageStr != "" {
 		p, err := strconv.Atoi(pageStr)

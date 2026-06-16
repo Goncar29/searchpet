@@ -688,6 +688,152 @@ func TestPetHandler_SearchPets_StatusAllowlist(t *testing.T) {
 	}
 }
 
+// The optional geo filter (lat/lng/radius) must flow through to the criteria
+// only when all three are present and valid; partial/garbage params are 400.
+func TestPetHandler_SearchPets_GeoParams(t *testing.T) {
+	var captured domain.PetSearchCriteria
+	svc := &mockPetService{
+		searchPetsFn: func(criteria domain.PetSearchCriteria) (dto.PetSearchResponse, error) {
+			captured = criteria
+			return dto.PetSearchResponse{}, nil
+		},
+	}
+	r := setupPetSearchRouter(handler.NewPetHandler(svc, nil))
+
+	doGet := func(query string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest(http.MethodGet, "/api/pets/search"+query, nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		return w
+	}
+
+	t.Run("all three valid → flows into criteria", func(t *testing.T) {
+		captured = domain.PetSearchCriteria{}
+		w := doGet("?lat=-34.9011&lng=-56.1645&radius=5000")
+		if w.Code != http.StatusOK {
+			t.Fatalf("want 200, got %d: %s", w.Code, w.Body.String())
+		}
+		if captured.Lat == nil || captured.Lng == nil || captured.RadiusMeters == nil {
+			t.Fatalf("expected geo criteria to be set, got lat=%v lng=%v radius=%v", captured.Lat, captured.Lng, captured.RadiusMeters)
+		}
+		if *captured.Lat != -34.9011 || *captured.Lng != -56.1645 || *captured.RadiusMeters != 5000 {
+			t.Errorf("geo values mismatch: lat=%v lng=%v radius=%v", *captured.Lat, *captured.Lng, *captured.RadiusMeters)
+		}
+	})
+
+	t.Run("no geo params → criteria geo stays nil", func(t *testing.T) {
+		captured = domain.PetSearchCriteria{}
+		w := doGet("")
+		if w.Code != http.StatusOK {
+			t.Fatalf("want 200, got %d", w.Code)
+		}
+		if captured.Lat != nil || captured.Lng != nil || captured.RadiusMeters != nil {
+			t.Errorf("expected no geo criteria, got lat=%v lng=%v radius=%v", captured.Lat, captured.Lng, captured.RadiusMeters)
+		}
+	})
+
+	t.Run("partial geo (only lat) → 400", func(t *testing.T) {
+		if w := doGet("?lat=-34.9"); w.Code != http.StatusBadRequest {
+			t.Errorf("want 400, got %d", w.Code)
+		}
+	})
+
+	t.Run("garbage radius → 400", func(t *testing.T) {
+		if w := doGet("?lat=-34.9&lng=-56.1&radius=abc"); w.Code != http.StatusBadRequest {
+			t.Errorf("want 400, got %d", w.Code)
+		}
+	})
+
+	t.Run("non-positive radius → 400", func(t *testing.T) {
+		if w := doGet("?lat=-34.9&lng=-56.1&radius=0"); w.Code != http.StatusBadRequest {
+			t.Errorf("want 400, got %d", w.Code)
+		}
+	})
+
+	// FIX 2: lat/lng range validation — out-of-range coords must be rejected 400
+	t.Run("out-of-range lat/lng → 400", func(t *testing.T) {
+		w := doGet("?lat=999&lng=999&radius=5000")
+		if w.Code != http.StatusBadRequest {
+			t.Errorf("want 400 for lat=999 lng=999, got %d: %s", w.Code, w.Body.String())
+		}
+		var resp dto.ErrorResponse
+		if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+			t.Fatalf("failed to decode error body: %v", err)
+		}
+		if resp.Code != "invalid_input" {
+			t.Errorf("want code 'invalid_input', got %q", resp.Code)
+		}
+	})
+
+	t.Run("zero lat/lng (valid equator) → 200", func(t *testing.T) {
+		captured = domain.PetSearchCriteria{}
+		w := doGet("?lat=0&lng=0&radius=5000")
+		if w.Code != http.StatusOK {
+			t.Errorf("want 200 for lat=0 lng=0, got %d: %s", w.Code, w.Body.String())
+		}
+		if captured.Lat == nil || *captured.Lat != 0 {
+			t.Errorf("expected lat=0 to flow through, got %v", captured.Lat)
+		}
+	})
+
+	// FIX 3: radius upper bound — must match /reports/nearby (1000-50000 m), status 422
+	t.Run("radius too small → 422", func(t *testing.T) {
+		w := doGet("?lat=-34.9&lng=-56.1&radius=999")
+		if w.Code != http.StatusUnprocessableEntity {
+			t.Errorf("want 422 for radius=999, got %d: %s", w.Code, w.Body.String())
+		}
+		var resp dto.ErrorResponse
+		if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+			t.Fatalf("failed to decode error body: %v", err)
+		}
+		if resp.Code != "invalid_search_radius" {
+			t.Errorf("want code 'invalid_search_radius', got %q", resp.Code)
+		}
+	})
+
+	t.Run("radius too large → 422", func(t *testing.T) {
+		w := doGet("?lat=-34.9&lng=-56.1&radius=99999")
+		if w.Code != http.StatusUnprocessableEntity {
+			t.Errorf("want 422 for radius=99999, got %d: %s", w.Code, w.Body.String())
+		}
+		var resp dto.ErrorResponse
+		if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+			t.Fatalf("failed to decode error body: %v", err)
+		}
+		if resp.Code != "invalid_search_radius" {
+			t.Errorf("want code 'invalid_search_radius', got %q", resp.Code)
+		}
+	})
+
+	t.Run("radius at exact min boundary (1000) → 200", func(t *testing.T) {
+		if w := doGet("?lat=-34.9&lng=-56.1&radius=1000"); w.Code != http.StatusOK {
+			t.Errorf("want 200 for radius=1000, got %d", w.Code)
+		}
+	})
+
+	t.Run("radius at exact max boundary (50000) → 200", func(t *testing.T) {
+		if w := doGet("?lat=-34.9&lng=-56.1&radius=50000"); w.Code != http.StatusOK {
+			t.Errorf("want 200 for radius=50000, got %d", w.Code)
+		}
+	})
+
+	// Geo params combined with a private status must still be rejected by the
+	// public allowlist — the presence of lat/lng/radius must not bypass it.
+	t.Run("geo params + restricted status=registered → 400 invalid_status", func(t *testing.T) {
+		w := doGet("?lat=-34.9&lng=-56.1&radius=5000&status=registered")
+		if w.Code != http.StatusBadRequest {
+			t.Errorf("want 400, got %d: %s", w.Code, w.Body.String())
+		}
+		var resp dto.ErrorResponse
+		if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+			t.Fatalf("failed to decode error body: %v", err)
+		}
+		if resp.Code != "invalid_status" {
+			t.Errorf("want code 'invalid_status', got %q", resp.Code)
+		}
+	})
+}
+
 // ============================================================
 // POST /api/pets/:id/publish-lost
 // ============================================================

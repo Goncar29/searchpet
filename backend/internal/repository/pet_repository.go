@@ -103,9 +103,11 @@ func (r *PostgresPetRepository) Search(filters domain.PetSearchCriteria) ([]doma
 		q = q.Where("pets.color ILIKE ?", "%"+filters.Color+"%")
 	}
 
-	// Filtro de rango de fechas usando JOIN a reports (FR1.5)
-	// Cuando se especifica from/to, solo aparecen mascotas con al menos un reporte en ese rango.
-	if filters.From != nil || filters.To != nil {
+	// Filtros que requieren JOIN a reports: rango de fechas (FR1.5) y/o
+	// distancia geográfica opcional. Una mascota matchea si tiene AL MENOS un
+	// reporte que cumple todas las condiciones de reporte simultáneamente.
+	hasGeo := filters.Lat != nil && filters.Lng != nil && filters.RadiusMeters != nil
+	if filters.From != nil || filters.To != nil || hasGeo {
 		q = q.Joins("JOIN reports ON reports.pet_id = pets.id")
 		if filters.From != nil {
 			q = q.Where("reports.occurred_at >= ?", filters.From)
@@ -113,11 +115,36 @@ func (r *PostgresPetRepository) Search(filters domain.PetSearchCriteria) ([]doma
 		if filters.To != nil {
 			q = q.Where("reports.occurred_at <= ?", filters.To)
 		}
-		// Evitamos duplicados si hay múltiples reports en el rango
+		if hasGeo {
+			q = q.Where(
+				"ST_DWithin(ST_SetSRID(ST_MakePoint(reports.longitude, reports.latitude), 4326)::geography, ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography, ?)",
+				*filters.Lng, *filters.Lat, *filters.RadiusMeters,
+			)
+		}
+
+		// Count distinct pets using a fresh Session so the single-column Distinct
+		// below does not bleed into the Find query. GORM emits
+		// COUNT(DISTINCT(pets.id)) for a single-column Distinct; the multi-column
+		// string variant (used for Find) falls back to count(*) on GORM v1.25.
+		var total int64
+		if err := q.Session(&gorm.Session{}).Distinct("pets.id").Count(&total).Error; err != nil {
+			return nil, 0, err
+		}
+
+		// Evitamos duplicados si hay múltiples reports que matchean
 		q = q.Distinct("pets.id, pets.owner_id, pets.reporter_id, pets.name, pets.type, pets.breed, pets.color, pets.description, pets.gender, pets.microchip_id, pets.status, pets.version, pets.created_at, pets.updated_at")
+
+		// Paginación
+		var pets []domain.Pet
+		offset := (page - 1) * limit
+		err := q.Order("pets.created_at DESC").Offset(offset).Limit(limit).Find(&pets).Error
+		if err != nil {
+			return nil, 0, err
+		}
+		return pets, total, nil
 	}
 
-	// Count total ANTES de paginar
+	// Count total ANTES de paginar (no JOIN path — no deduplication needed)
 	var total int64
 	if err := q.Count(&total).Error; err != nil {
 		return nil, 0, err

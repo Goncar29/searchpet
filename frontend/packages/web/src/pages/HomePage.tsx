@@ -1,13 +1,16 @@
 import { Link } from 'react-router';
-import { useState, useRef, type ChangeEvent } from 'react';
+import { useState, useRef, useCallback, useEffect, type ChangeEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useStats, useNearbyReports, useSearchPets, useStories, useImageClassify, useImageSearch } from '@shared/hooks';
-import type { Report, Pet, PetType, PetStatus, SuccessStory, ClassifyResult, ImageSearchResult } from '@shared/types';
+import { useStats, useSearchPets, useStories, useImageClassify, useImageSearch } from '@shared/hooks';
+import type { Pet, PetType, PetStatus, SuccessStory, ClassifyResult, ImageSearchResult } from '@shared/types';
 import { getErrorMessage } from '@shared/utils/apiErrors';
 import { startOfDayISO, endOfDayISO } from '@shared/utils/dateFilters';
 import { ApiError } from '@shared/api/client';
 import { useAuth } from '../context/AuthContext';
-import { PetCardWeb } from '../components/PetCardWeb';
+
+// Montevideo default center for the optional distance filter.
+const DEFAULT_LAT = -34.9011;
+const DEFAULT_LNG = -56.1645;
 
 const PET_TYPES: { value: PetType; label: string; icon: string }[] = [
   { value: 'perro', label: 'Perro', icon: '🐕' },
@@ -37,6 +40,7 @@ export function HomePage() {
   const [draftBreed, setDraftBreed] = useState('');
   const [draftFrom, setDraftFrom] = useState('');
   const [draftTo, setDraftTo] = useState('');
+  const [draftRadius, setDraftRadius] = useState(''); // km, '' = cualquier distancia
 
   // ── Applied filters (sent to the API — only updated on explicit search) ──
   const [filterType, setFilterType] = useState<PetType | ''>('');
@@ -45,46 +49,155 @@ export function HomePage() {
   const [filterBreed, setFilterBreed] = useState('');
   const [filterFrom, setFilterFrom] = useState('');
   const [filterTo, setFilterTo] = useState('');
+  const [filterRadius, setFilterRadius] = useState(''); // km, '' = cualquier distancia
+  // Resolved center for the distance filter. null = fallback to Montevideo.
+  const [filterGeoCenter, setFilterGeoCenter] = useState<{ lat: number; lng: number } | null>(null);
+  // True while we are waiting for GPS to resolve (prevents a double-fetch).
+  const [isLocating, setIsLocating] = useState(false);
+  // Synchronous mirror of isLocating for the re-entrancy guard — React state is
+  // stale within the same synchronous batch, a ref is not.
+  const isLocatingRef = useRef(false);
 
-  // Feed is always shown on load; nearby-reports mode activates only after explicit clear.
-  const [showFeed, setShowFeed] = useState(true);
-  const isSearchMode = showFeed || !!filterType || filterColor.trim().length > 0 || !!filterStatus
-    || filterBreed.trim().length > 0 || !!filterFrom || !!filterTo;
+  // The home always shows the search feed (lost+stray by default). Filters —
+  // including the optional distance — layer on top. No separate "nearby" mode.
+  const hasActiveFilters = !!filterType || filterColor.trim().length > 0 || !!filterStatus
+    || filterBreed.trim().length > 0 || !!filterFrom || !!filterTo || !!filterRadius;
 
-  const handleSearch = () => {
-    // A new filter search replaces any active photo-search results
-    setImageResults(null);
-    setImageSearchError(null);
-    setShowFeed(true);
+  // Commit all applied filters at once so exactly one query fires.
+  // center may be a real GPS position or null (Montevideo fallback).
+  // draftXxx values are captured at call time (closure over current render's
+  // draft state). The timer callback and geo callbacks always call the latest
+  // version of this function via commitFiltersRef (kept in sync below), so
+  // drafts reflect the state at the time the timer fires, not at arm time.
+  const commitFilters = useCallback((center: { lat: number; lng: number } | null) => {
     setFilterType(draftType);
     setFilterColor(draftColor);
     setFilterStatus(draftStatus);
     setFilterBreed(draftBreed);
     setFilterFrom(draftFrom);
     setFilterTo(draftTo);
+    setFilterRadius(draftRadius);
+    setFilterGeoCenter(center);
+    setIsLocating(false);
+    isLocatingRef.current = false;
+  }, [draftType, draftColor, draftStatus, draftBreed, draftFrom, draftTo, draftRadius]);
+
+  // Ref holding the outer 8-second safety-net timer id so it can be cancelled
+  // by clearFilters or on unmount, preventing stale-state writes after reset.
+  const geoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Ref that always holds the latest commitFilters. Assigned synchronously
+  // during render (canonical "latest ref" pattern) — no useEffect needed,
+  // which eliminates the 1-render-stale window the effect had.
+  const commitFiltersRef = useRef(commitFilters);
+  commitFiltersRef.current = commitFilters;
+
+  // Generation counter: incremented each time a new geo request is started or
+  // cancelled. Every in-flight callback captures its own gen at arm time and
+  // bails out early if the counter has moved — cancelling the uncancellable.
+  const geoGenRef = useRef(0);
+
+  // Cancel the geo safety-net timer on unmount to prevent setState-after-unmount.
+  // Also bump the generation counter so any in-flight geo callbacks bail out.
+  useEffect(() => () => {
+    geoGenRef.current++;
+    if (geoTimerRef.current) clearTimeout(geoTimerRef.current);
+  }, []);
+
+  const handleSearch = () => {
+    // Re-entrancy guard: if geolocation is already in-flight, ignore the call.
+    // Uses the ref (not state) so rapid synchronous re-entry is also blocked.
+    if (isLocatingRef.current) return;
+
+    // A new filter search replaces any active photo-search results
+    setImageResults(null);
+    setImageSearchError(null);
+
+    // When the user picks a distance radius, resolve their real location FIRST,
+    // then commit center + radius together — so the query fires exactly once
+    // with the correct center (no Montevideo-first flash, no double-fetch).
+    // On denial / unsupported / timeout we fall back to Montevideo silently.
+    if (draftRadius) {
+      if (typeof navigator !== 'undefined' && navigator.geolocation) {
+        setIsLocating(true);
+        isLocatingRef.current = true;
+        // Cancel any previous safety-net timer before arming a new one so a
+        // prior pending timer cannot fire and overwrite state after a clear/reset.
+        if (geoTimerRef.current) clearTimeout(geoTimerRef.current);
+        // Increment the generation counter and capture the current value.
+        // Every callback for THIS request uses this gen; if the counter moves
+        // (clearFilters or unmount) before the callback fires, the callback bails.
+        const gen = ++geoGenRef.current;
+        // Outer safety net: if the browser never fires either callback (e.g.
+        // the permission prompt is ignored/dismissed), resolve after 8 s with
+        // the Montevideo fallback so the button never stays disabled forever.
+        // Uses commitFiltersRef so the latest commitFilters closure is called,
+        // not the one captured at the time the timer was armed.
+        geoTimerRef.current = setTimeout(() => {
+          if (gen !== geoGenRef.current) return;
+          geoTimerRef.current = null;
+          commitFiltersRef.current(null);
+        }, 8000);
+        try {
+          navigator.geolocation.getCurrentPosition(
+            (pos) => {
+              if (gen !== geoGenRef.current) return;
+              if (geoTimerRef.current) { clearTimeout(geoTimerRef.current); geoTimerRef.current = null; }
+              commitFiltersRef.current({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+            },
+            () => {
+              // permission denied, unavailable, or inner timeout → Montevideo fallback
+              if (gen !== geoGenRef.current) return;
+              if (geoTimerRef.current) { clearTimeout(geoTimerRef.current); geoTimerRef.current = null; }
+              commitFiltersRef.current(null);
+            },
+            { timeout: 5000 }
+          );
+        } catch {
+          // Synchronous throw in restrictive environments (e.g. certain WebViews).
+          // No gen check: nothing can run between arming gen and a synchronous throw.
+          if (geoTimerRef.current) { clearTimeout(geoTimerRef.current); geoTimerRef.current = null; }
+          commitFiltersRef.current(null);
+        }
+      } else {
+        // Geolocation not supported → commit immediately with Montevideo fallback
+        commitFiltersRef.current(null);
+      }
+    } else {
+      // No distance filter → commit immediately, no geolocation needed
+      commitFiltersRef.current(null);
+    }
   };
 
   const clearFilters = () => {
-    setShowFeed(false);
+    // Bump the generation counter first — invalidates any in-flight GPS
+    // success/error/timer callbacks so they bail out before touching state.
+    geoGenRef.current++;
+    // Cancel any in-flight geo safety-net timer so it cannot fire and overwrite
+    // state after the user has already cleared the filters.
+    if (geoTimerRef.current) { clearTimeout(geoTimerRef.current); geoTimerRef.current = null; }
     setFilterType('');
     setFilterColor('');
     setFilterStatus('');
     setFilterBreed('');
     setFilterFrom('');
     setFilterTo('');
+    setFilterRadius('');
+    setFilterGeoCenter(null);
+    setIsLocating(false);
+    isLocatingRef.current = false;
     setDraftType('');
     setDraftColor('');
     setDraftStatus('');
     setDraftBreed('');
     setDraftFrom('');
     setDraftTo('');
+    setDraftRadius('');
     setClassifyResult(null);
     setPhotoNoMatch(false);
     setImageResults(null);
     setImageSearchError(null);
   };
-
-  const [nearbyRadius, setNearbyRadius] = useState(20);
 
   // ── Búsqueda por foto ──
   const [classifyResult, setClassifyResult] = useState<ClassifyResult | null>(null);
@@ -147,26 +260,24 @@ export function HomePage() {
   };
 
   // ── Datos ──
-  const { data: reports, isLoading: nearbyLoading } = useNearbyReports(-34.9011, -56.1645, nearbyRadius, !isSearchMode);
-  const { data: searchResults, isLoading: searchLoading } = useSearchPets({
+  // Single unified feed: /pets/search (lost+stray by default). The optional
+  // distance filter adds lat/lng/radius; results are ordered by recency.
+  // When the user applies a distance filter we use their GPS location as the
+  // center; on denial / unsupported we fall back to Montevideo (DEFAULT_LAT/LNG).
+  const radiusKm = Number(filterRadius);
+  const geoLat = filterRadius ? (filterGeoCenter?.lat ?? DEFAULT_LAT) : undefined;
+  const geoLng = filterRadius ? (filterGeoCenter?.lng ?? DEFAULT_LNG) : undefined;
+  const { data: searchResults, isLoading } = useSearchPets({
     type: filterType || undefined,
     color: filterColor.trim() || undefined,
     status: filterStatus || undefined,
     breed: filterBreed.trim() || undefined,
     from: filterFrom ? startOfDayISO(filterFrom) : undefined,
     to: filterTo ? endOfDayISO(filterTo) : undefined,
+    lat: geoLat,
+    lng: geoLng,
+    radiusMeters: filterRadius ? radiusKm * 1000 : undefined,
   });
-
-  const isLoading = isSearchMode ? searchLoading : nearbyLoading;
-
-  // Modo nearby: dedup por pet, ordenado por fecha DESC
-  const uniqueReports = [...(reports ?? [])]
-    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-    .reduce((acc: Report[], report: Report) => {
-      const petId = report.pet?.id || report.pet_id;
-      if (!acc.some(r => (r.pet?.id || r.pet_id) === petId)) acc.push(report);
-      return acc;
-    }, []);
 
   return (
     <div className="bg-gray-50 dark:bg-gray-950 min-h-screen">
@@ -392,7 +503,7 @@ export function HomePage() {
               placeholder="Color (ej: negro, marrón...)"
               value={draftColor}
               onChange={(e) => setDraftColor(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+              onKeyDown={(e) => e.key === 'Enter' && !isLocating && handleSearch()}
               className="border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-primary min-w-[180px]"
             />
 
@@ -414,7 +525,7 @@ export function HomePage() {
               placeholder="Raza (ej: Labrador...)"
               value={draftBreed}
               onChange={(e) => setDraftBreed(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+              onKeyDown={(e) => e.key === 'Enter' && !isLocating && handleSearch()}
               className="border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-primary min-w-[180px]"
             />
 
@@ -434,28 +545,38 @@ export function HomePage() {
               className="border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-primary"
             />
 
-            {/* Radio (solo en modo nearby) */}
-            {!isSearchMode && (
+            {/* Distancia (opcional) */}
+            <div className="flex flex-col gap-1">
               <select
-                value={nearbyRadius}
-                onChange={(e) => setNearbyRadius(Number(e.target.value))}
-                className="border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-primary"
+                value={draftRadius}
+                onChange={(e) => setDraftRadius(e.target.value)}
+                disabled={isLocating}
+                className="border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
               >
+                <option value="">{t('home:distance.any')}</option>
                 {[5, 10, 20, 50].map((km) => (
-                  <option key={km} value={km}>{km} km</option>
+                  <option key={km} value={km}>{t('home:distance.upToKm', { km })}</option>
                 ))}
               </select>
-            )}
+              {filterRadius && (
+                <span className="text-xs text-gray-400 dark:text-gray-500 px-1">
+                  {filterGeoCenter
+                    ? t('home:distanceCenter.gps')
+                    : t('home:distanceCenter.fallback')}
+                </span>
+              )}
+            </div>
           </div>
 
           <div className="flex gap-2 mt-4">
             <button
               onClick={handleSearch}
-              className="px-5 py-2 text-sm font-semibold text-white bg-primary rounded-lg hover:bg-primary-dark transition-colors"
+              disabled={isLocating}
+              className="px-5 py-2 text-sm font-semibold text-white bg-primary rounded-lg hover:bg-primary-dark disabled:opacity-60 disabled:cursor-wait transition-colors"
             >
-              Buscar
+              {isLocating ? t('home:distance.locating') : t('home:searchButton')}
             </button>
-            {isSearchMode && (
+            {(hasActiveFilters || isLocating) && (
               <button
                 onClick={clearFilters}
                 className="px-4 py-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 border border-gray-200 dark:border-gray-700 rounded-lg transition-colors"
@@ -473,7 +594,7 @@ export function HomePage() {
           <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
             {imageResults
               ? `${t('home:photoSearch.resultsTitle')} (${imageResults.length})`
-              : isSearchMode
+              : hasActiveFilters
               ? `${searchResults?.total ?? searchResults?.data?.length ?? 0} resultado${(searchResults?.total ?? 0) !== 1 ? 's' : ''}`
               : t('home:recentReports')}
           </h2>
@@ -484,7 +605,7 @@ export function HomePage() {
             >
               {t('home:photoSearch.clear')} ✕
             </button>
-          ) : isSearchMode && (
+          ) : hasActiveFilters && (
             <span className="text-sm text-gray-500 dark:text-gray-400">
               Búsqueda activa
             </span>
@@ -536,7 +657,7 @@ export function HomePage() {
             <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
             <p className="text-gray-500 dark:text-gray-400">{t('common:loading')}</p>
           </div>
-        ) : isSearchMode ? (
+        ) : (
           // ── Resultados de búsqueda (Pet[]) ──
           searchResults?.data && searchResults.data.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -588,32 +709,6 @@ export function HomePage() {
               <button onClick={clearFilters} className="px-5 py-2 bg-primary text-white rounded-lg text-sm font-semibold hover:bg-primary-dark transition-colors">
                 Limpiar filtros
               </button>
-            </div>
-          )
-        ) : (
-          // ── Feed nearby (Report[]) ──
-          uniqueReports && uniqueReports.length > 0 ? (
-            <>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {uniqueReports.slice(0, 6).map((report: Report) => (
-                  <PetCardWeb key={report.id} report={report} />
-                ))}
-              </div>
-              {reports && reports.length > 6 && (
-                <div className="text-center mt-8">
-                  <Link
-                    to="/map"
-                    className="inline-flex items-center px-6 py-3 bg-primary text-white font-semibold rounded-lg hover:bg-primary-dark transition-colors"
-                  >
-                    {t('home:viewAll')}
-                  </Link>
-                </div>
-              )}
-            </>
-          ) : (
-            <div className="text-center py-12">
-              <p className="text-5xl mb-4">🐾</p>
-              <p className="text-gray-500 dark:text-gray-400">{t('home:noReports')}</p>
             </div>
           )
         )}

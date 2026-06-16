@@ -47,6 +47,16 @@
       "noResults": "Nenhum pet semelhante encontrado",
       "clear": "Limpar busca por foto"
     },
+    "distanceCenter": {
+      "gps": "Perto da sua localização",
+      "fallback": "Perto de Montevidéu"
+    },
+    "distance": {
+      "any": "Qualquer distância",
+      "upToKm": "Até {{km}} km",
+      "locating": "Localizando..."
+    },
+    "searchButton": "Buscar",
     "recentReports": "Reportes recentes",
     "noReports": "Nenhum reporte recente na sua área",
     "viewAll": "Ver todos no mapa",
