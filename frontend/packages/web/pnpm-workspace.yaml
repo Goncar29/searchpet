@@ -2,3 +2,8 @@ allowBuilds:
   '@firebase/util': false
   core-js: false
   protobufjs: false
+
+# Force the patched form-data across transitive paths (CRLF injection,
+# GHSA-hmw2-7cc7-3qxx) — pulled in via @tensorflow/tfjs.
+overrides:
+  form-data: '>=4.0.6'
