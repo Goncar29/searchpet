@@ -56,7 +56,11 @@ func Connect(dsn string) (*gorm.DB, error) {
 func openIPv4(dsn string) (*sql.DB, error) {
 	config, err := pgx.ParseConfig(dsn)
 	if err != nil {
-		return nil, fmt.Errorf("error parseando DATABASE_URL: %w", err)
+		// No propagamos err: el mensaje de pgx embebe el DSN completo (con la
+		// contraseña), y termina en los logs. Devolvemos un error genérico para
+		// no filtrar credenciales. Formato esperado:
+		// postgresql://user:password@host/db?sslmode=require
+		return nil, fmt.Errorf("DATABASE_URL con formato inválido (revisar usuario:password@host/db?sslmode=require)")
 	}
 	config.DialFunc = func(ctx context.Context, _ string, addr string) (net.Conn, error) {
 		d := net.Dialer{Timeout: 10 * time.Second}
