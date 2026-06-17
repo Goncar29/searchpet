@@ -34,7 +34,7 @@ func main() {
 	}
 
 	// 2. SQL migrations después: aplica DDL incremental (columnas, índices, tablas auxiliares)
-	if err := database.RunMigrations(cfg.DatabaseURL, "migrations"); err != nil {
+	if err := database.RunMigrations(db, "migrations"); err != nil {
 		log.Fatal("Error ejecutando migraciones SQL", zap.Error(err))
 	}
 	log.Info("Migraciones SQL aplicadas")
