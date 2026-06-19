@@ -15,5 +15,6 @@ module.exports = {
     register: jest.fn(),
     setToken: jest.fn(),
     logout: jest.fn(),
+    registerDeviceToken: jest.fn(),
   },
 };
