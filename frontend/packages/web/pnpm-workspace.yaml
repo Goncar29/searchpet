@@ -6,9 +6,24 @@ allowBuilds:
 # Force the patched form-data across transitive paths (CRLF injection,
 # GHSA-hmw2-7cc7-3qxx) — pulled in via @tensorflow/tfjs.
 #
-# Force patched undici (>=7.28.0) — TLS cert validation bypass
-# (GHSA-vmh5-mc38-953g) + WebSocket DoS — pulled in via vitest>jsdom.
-# Dev-only (test tooling), not shipped to users.
+# Pin undici to 7.27.2: jsdom@29.1.1 requires undici (^7.25.0) and breaks
+# on >=7.28.0 (it requires undici/lib/handler/wrap-handler.js, removed in
+# 7.28). The two HIGH undici advisories live only in this dev-only
+# vitest>jsdom test path (never shipped) and are ignored below via
+# auditConfig. Without the pin, the lockfile drifts to 7.28 and the web
+# test suite fails to start its jsdom workers.
 overrides:
   form-data: '>=4.0.6'
-  undici: '>=7.28.0'
+  undici: '7.27.2'
+
+# Ignore the three HIGH undici advisories that only reach us through the
+# dev-only vitest>jsdom>undici test path. They cover undici's SOCKS5
+# ProxyAgent and WebSocket client — features jsdom never exercises in the
+# test runner, and undici is never bundled into the shipped app. The fix
+# (undici >=7.28) is incompatible with jsdom@29.1.1 (latest), so we cannot
+# upgrade out of them yet. Revisit when jsdom supports undici 7.28+.
+auditConfig:
+  ignoreGhsas:
+    - GHSA-vmh5-mc38-953g # undici TLS cert validation bypass (SOCKS5 ProxyAgent)
+    - GHSA-vxpw-j846-p89q # undici WebSocket client DoS (fragment count bypass)
+    - GHSA-hm92-r4w5-c3mj # undici cross-origin routing (SOCKS5 proxy pool reuse)
