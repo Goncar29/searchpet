@@ -5,5 +5,10 @@ allowBuilds:
 
 # Force the patched form-data across transitive paths (CRLF injection,
 # GHSA-hmw2-7cc7-3qxx) — pulled in via @tensorflow/tfjs.
+#
+# Force patched undici (>=7.28.0) — TLS cert validation bypass
+# (GHSA-vmh5-mc38-953g) + WebSocket DoS — pulled in via vitest>jsdom.
+# Dev-only (test tooling), not shipped to users.
 overrides:
   form-data: '>=4.0.6'
+  undici: '>=7.28.0'
