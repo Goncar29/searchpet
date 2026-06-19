@@ -113,9 +113,9 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 
 	// IMAGE SEARCH (pgvector + CLIP)
 	embeddingRepo := repository.NewPetEmbeddingRepository(db)
-	embeddingService := service.NewEmbeddingService(embeddingRepo, petRepo, photoRepo, cfg.HuggingFaceAPIKey)
-	if cfg.HFEndpoint != "" {
-		embeddingService.SetEndpoint(cfg.HFEndpoint)
+	embeddingService := service.NewEmbeddingService(embeddingRepo, petRepo, photoRepo, cfg.JinaAPIKey)
+	if cfg.JinaEndpoint != "" {
+		embeddingService.SetEndpoint(cfg.JinaEndpoint)
 	}
 	embeddingService.RegisterListeners(bus)
 

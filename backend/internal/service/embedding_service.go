@@ -19,12 +19,20 @@ import (
 )
 
 const (
-	// DefaultHFCLIPEndpoint is the HuggingFace router endpoint for the CLIP
-	// feature-extraction pipeline. HuggingFace migrated away from the legacy
-	// api-inference.huggingface.co domain (no longer resolves) to the router.
-	// Override via config.Config.HFEndpoint / SetEndpoint if HF migrates again.
-	DefaultHFCLIPEndpoint = "https://router.huggingface.co/hf-inference/models/openai/clip-vit-base-patch32/pipeline/feature-extraction"
-	hfTimeout             = 30 * time.Second
+	// DefaultJinaEndpoint is the Jina AI embeddings endpoint. We migrated off
+	// HuggingFace serverless because it dropped CLIP image embeddings entirely
+	// (every model returned 400 "Model not supported by provider hf-inference").
+	// Override via config.Config.JinaEndpoint / SetEndpoint if Jina migrates.
+	DefaultJinaEndpoint = "https://api.jina.ai/v1/embeddings"
+
+	// jinaModel is the multimodal CLIP model. jinaDimensions uses Matryoshka
+	// truncation to 512 so the output matches the existing pgvector(512) column
+	// (no schema migration vs the previous openai/clip-vit-base-patch32).
+	jinaModel      = "jina-clip-v2"
+	jinaDimensions = 512
+	embeddingModelVer = "jina-clip-v2"
+
+	embeddingTimeout = 30 * time.Second
 )
 
 // EmbeddingService genera y gestiona los vectores CLIP para las fotos de mascotas perdidas o callejeras.
@@ -33,8 +41,8 @@ type EmbeddingService struct {
 	embeddingRepo repository.PetEmbeddingRepository
 	petRepo       repository.PetRepository
 	photoRepo     repository.PhotoRepository
-	hfAPIKey      string
-	hfEndpoint    string
+	apiKey        string
+	endpoint      string
 	httpClient    *http.Client
 	logger        *zap.Logger
 }
@@ -51,25 +59,25 @@ func NewEmbeddingService(
 		embeddingRepo: embeddingRepo,
 		petRepo:       petRepo,
 		photoRepo:     photoRepo,
-		hfAPIKey:      apiKey,
-		hfEndpoint:    DefaultHFCLIPEndpoint,
-		httpClient:    &http.Client{Timeout: hfTimeout},
+		apiKey:        apiKey,
+		endpoint:      DefaultJinaEndpoint,
+		httpClient:    &http.Client{Timeout: embeddingTimeout},
 		logger:        logger,
 	}
 }
 
-// SetEndpoint overrides the HuggingFace CLIP endpoint used by this service.
+// SetEndpoint overrides the embeddings endpoint used by this service.
 // Intended for production wiring only — call from router setup when
-// config.Config.HFEndpoint is set (e.g. after a future HF API migration).
+// config.Config.JinaEndpoint is set (e.g. after a future Jina API migration).
 func (s *EmbeddingService) SetEndpoint(endpoint string) {
-	s.hfEndpoint = endpoint
+	s.endpoint = endpoint
 }
 
-// SetHTTPClientAndEndpoint replaces the HTTP client and HF endpoint used by this
+// SetHTTPClientAndEndpoint replaces the HTTP client and endpoint used by this
 // service. Intended for testing only — allows injecting a mock HTTP server.
 func (s *EmbeddingService) SetHTTPClientAndEndpoint(client *http.Client, endpoint string) {
 	s.httpClient = client
-	s.hfEndpoint = endpoint
+	s.endpoint = endpoint
 }
 
 // RegisterListeners suscribe el servicio a los eventos relevantes del EventBus.
@@ -142,7 +150,7 @@ func (s *EmbeddingService) HandlePhotoUploaded(ev event.PhotoUploadedEvent) {
 	emb := &domain.PetEmbedding{
 		PetID:     ev.PetID,
 		PhotoID:   ev.PhotoID,
-		ModelVer:  "clip-vit-base-patch32",
+		ModelVer:  embeddingModelVer,
 		Embedding: pgvector.NewVector(vector),
 	}
 
@@ -198,7 +206,7 @@ func (s *EmbeddingService) backfillEmbeddingsForPet(petID uuid.UUID, callerName 
 		emb := &domain.PetEmbedding{
 			PetID:     petID,
 			PhotoID:   photo.ID,
-			ModelVer:  "clip-vit-base-patch32",
+			ModelVer:  embeddingModelVer,
 			Embedding: pgvector.NewVector(vector),
 		}
 
@@ -225,19 +233,19 @@ func (s *EmbeddingService) HandlePetFound(ev event.PetFoundEvent) {
 }
 
 // GenerateEmbedding genera un vector CLIP de 512 dimensiones a partir de bytes de imagen.
-// Retorna error en caso de fallo de red o respuesta no-2xx de HuggingFace.
-// Los callers async (handlers de eventos) suprimen el error. El caller sync (SearchByImage)
+// Retorna error en caso de fallo de red o respuesta no-2xx de Jina.
+// Los callers async (handlers de eventos) suprimen el error. El caller sync (SearchSimilar)
 // debe surfacearlo como HTTP 503.
 func (s *EmbeddingService) GenerateEmbedding(ctx context.Context, imageBytes []byte) ([]float32, error) {
 	mime := http.DetectContentType(imageBytes)
 	encoded := base64.StdEncoding.EncodeToString(imageBytes)
 	dataURI := fmt.Sprintf("data:%s;base64,%s", mime, encoded)
-	return s.callHFEmbedding(ctx, dataURI)
+	return s.callEmbedding(ctx, dataURI)
 }
 
 // GenerateEmbeddingFromURL genera un vector CLIP desde una URL pública (ej: Cloudinary).
 func (s *EmbeddingService) GenerateEmbeddingFromURL(ctx context.Context, imageURL string) ([]float32, error) {
-	return s.callHFEmbedding(ctx, imageURL)
+	return s.callEmbedding(ctx, imageURL)
 }
 
 // SearchSimilar genera un embedding a partir de bytes de imagen y retorna las mascotas
@@ -245,35 +253,60 @@ func (s *EmbeddingService) GenerateEmbeddingFromURL(ctx context.Context, imageUR
 func (s *EmbeddingService) SearchSimilar(ctx context.Context, imageBytes []byte, limit int) ([]domain.ImageSearchResult, error) {
 	vector, err := s.GenerateEmbedding(ctx, imageBytes)
 	if err != nil {
+		// Sync path: surface the underlying provider error in the logs before the
+		// handler maps it to a generic 503. Without this the real cause is lost.
+		s.logger.Warn("[embedding] SearchSimilar: fallo al generar embedding de la query", zap.Error(err))
 		return nil, err
 	}
 	return s.embeddingRepo.FindSimilar(ctx, vector, limit)
 }
 
-// callHFEmbedding llama a la HF Inference API con el valor dado como "inputs".
-// Acepta tanto URLs públicas como data URIs base64.
-func (s *EmbeddingService) callHFEmbedding(ctx context.Context, inputs string) ([]float32, error) {
-	body, err := json.Marshal(map[string]string{"inputs": inputs})
+// jinaImageInput is one element of the Jina embeddings "input" array.
+// The "image" value accepts a public URL, raw base64, or a data URI.
+type jinaImageInput struct {
+	Image string `json:"image"`
+}
+
+type jinaEmbeddingRequest struct {
+	Model      string           `json:"model"`
+	Dimensions int              `json:"dimensions"`
+	Input      []jinaImageInput `json:"input"`
+}
+
+type jinaEmbeddingResponse struct {
+	Data []struct {
+		Embedding []float32 `json:"embedding"`
+	} `json:"data"`
+}
+
+// callEmbedding llama a la API de embeddings de Jina (jina-clip-v2) con el valor dado
+// como imagen. Acepta tanto URLs públicas como data URIs / base64.
+func (s *EmbeddingService) callEmbedding(ctx context.Context, image string) ([]float32, error) {
+	body, err := json.Marshal(jinaEmbeddingRequest{
+		Model:      jinaModel,
+		Dimensions: jinaDimensions,
+		Input:      []jinaImageInput{{Image: image}},
+	})
 	if err != nil {
 		return nil, fmt.Errorf("embedding: marshal request: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.hfEndpoint, bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.endpoint, bytes.NewReader(body))
 	if err != nil {
 		return nil, fmt.Errorf("embedding: build request: %w", err)
 	}
-	req.Header.Set("Authorization", "Bearer "+s.hfAPIKey)
+	req.Header.Set("Authorization", "Bearer "+s.apiKey)
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := s.httpClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("embedding: HF request failed: %w", err)
+		return nil, fmt.Errorf("embedding: Jina request failed: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		bodyBytes, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("embedding: HF returned %d: %s", resp.StatusCode, string(bodyBytes))
+		return nil, fmt.Errorf("embedding: Jina returned %d: %s", resp.StatusCode, string(bodyBytes))
 	}
 
 	respBytes, err := io.ReadAll(resp.Body)
@@ -281,16 +314,12 @@ func (s *EmbeddingService) callHFEmbedding(ctx context.Context, inputs string) (
 		return nil, fmt.Errorf("embedding: read response: %w", err)
 	}
 
-	// HF feature-extraction devuelve [][]float32 — tomamos response[0]
-	var nested [][]float32
-	if err := json.Unmarshal(respBytes, &nested); err == nil && len(nested) > 0 {
-		return nested[0], nil
-	}
-
-	// Algunas versiones del pipeline devuelven []float32 directamente
-	var flat []float32
-	if err := json.Unmarshal(respBytes, &flat); err != nil {
+	var parsed jinaEmbeddingResponse
+	if err := json.Unmarshal(respBytes, &parsed); err != nil {
 		return nil, fmt.Errorf("embedding: parse response body: %w", err)
 	}
-	return flat, nil
+	if len(parsed.Data) == 0 || len(parsed.Data[0].Embedding) == 0 {
+		return nil, fmt.Errorf("embedding: empty embedding in Jina response")
+	}
+	return parsed.Data[0].Embedding, nil
 }

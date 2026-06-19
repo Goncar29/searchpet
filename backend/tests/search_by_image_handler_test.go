@@ -73,7 +73,7 @@ func (n *nopPhotoRepoForHandler) DeleteByID(_ string) error                     
 var _ repository.PhotoRepository = (*nopPhotoRepoForHandler)(nil)
 
 // ============================================================
-// HF server helpers
+// Jina embeddings server helpers
 // ============================================================
 
 func make512FloatsForSearchTest() []float32 {
@@ -84,7 +84,7 @@ func make512FloatsForSearchTest() []float32 {
 	return v
 }
 
-func newHFServerForSearchTest(t *testing.T, statusCode int) *httptest.Server {
+func newJinaServerForSearchTest(t *testing.T, statusCode int) *httptest.Server {
 	t.Helper()
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if statusCode != http.StatusOK {
@@ -92,9 +92,10 @@ func newHFServerForSearchTest(t *testing.T, statusCode int) *httptest.Server {
 			fmt.Fprintf(w, `{"error":"service unavailable"}`)
 			return
 		}
-		nested := [][]float32{make512FloatsForSearchTest()}
+		// Jina embeddings response shape: {"data":[{"embedding":[...]}]}
+		resp := map[string]any{"data": []map[string]any{{"embedding": make512FloatsForSearchTest()}}}
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(nested)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 }
 
@@ -152,7 +153,7 @@ func TestSearchByImage_HappyPath(t *testing.T) {
 	petID := uuid.New()
 	ownerID := uuid.New()
 
-	hfSrv := newHFServerForSearchTest(t, http.StatusOK)
+	hfSrv := newJinaServerForSearchTest(t, http.StatusOK)
 	defer hfSrv.Close()
 
 	embRepo := &mockEmbeddingRepoForHandler{
@@ -200,7 +201,7 @@ func TestSearchByImage_HappyPath(t *testing.T) {
 // TestSearchByImage_MissingField_Returns400 verifies that a multipart POST
 // WITHOUT the "photo" field returns HTTP 400.
 func TestSearchByImage_MissingField_Returns400(t *testing.T) {
-	hfSrv := newHFServerForSearchTest(t, http.StatusOK)
+	hfSrv := newJinaServerForSearchTest(t, http.StatusOK)
 	defer hfSrv.Close()
 
 	h := buildSearchByImageHandler(&mockEmbeddingRepoForHandler{}, hfSrv)
@@ -216,10 +217,10 @@ func TestSearchByImage_MissingField_Returns400(t *testing.T) {
 	}
 }
 
-// TestSearchByImage_HFDown_Returns503 verifies that when the HuggingFace API
-// returns an error, the handler responds with HTTP 503.
-func TestSearchByImage_HFDown_Returns503(t *testing.T) {
-	hfSrv := newHFServerForSearchTest(t, http.StatusServiceUnavailable)
+// TestSearchByImage_ProviderDown_Returns503 verifies that when the embeddings
+// provider (Jina) returns an error, the handler responds with HTTP 503.
+func TestSearchByImage_ProviderDown_Returns503(t *testing.T) {
+	hfSrv := newJinaServerForSearchTest(t, http.StatusServiceUnavailable)
 	defer hfSrv.Close()
 
 	h := buildSearchByImageHandler(&mockEmbeddingRepoForHandler{}, hfSrv)

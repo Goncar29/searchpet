@@ -121,9 +121,11 @@ func make512Floats() []float32 {
 	return v
 }
 
-// newHFTestServer creates an httptest.Server simulating the HuggingFace
-// feature-extraction pipeline. statusCode != 200 simulates an API error.
-func newHFTestServer(t *testing.T, statusCode int) *httptest.Server {
+// newJinaTestServer creates an httptest.Server simulating the Jina embeddings
+// endpoint. statusCode != 200 simulates an API error. On success it asserts the
+// request matches the empirically verified jina-clip-v2 contract, then returns a
+// Jina-shaped response body.
+func newJinaTestServer(t *testing.T, statusCode int) *httptest.Server {
 	t.Helper()
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if statusCode != http.StatusOK {
@@ -131,11 +133,47 @@ func newHFTestServer(t *testing.T, statusCode int) *httptest.Server {
 			fmt.Fprintf(w, `{"error":"service unavailable"}`)
 			return
 		}
-		// HF feature-extraction returns nested [[float32...]]
-		nested := [][]float32{make512Floats()}
+		assertJinaRequest(t, r)
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(nested)
+		_ = json.NewEncoder(w).Encode(jinaResponseBody())
 	}))
+}
+
+// assertJinaRequest verifies the outgoing request matches the verified
+// jina-clip-v2 contract: model, 512 dimensions, a non-empty image input, and an
+// Authorization header.
+func assertJinaRequest(t *testing.T, r *http.Request) {
+	t.Helper()
+	var req struct {
+		Model      string `json:"model"`
+		Dimensions int    `json:"dimensions"`
+		Input      []struct {
+			Image string `json:"image"`
+		} `json:"input"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		t.Errorf("could not decode Jina request body: %v", err)
+		return
+	}
+	if req.Model != "jina-clip-v2" {
+		t.Errorf("Jina request model = %q, want jina-clip-v2", req.Model)
+	}
+	if req.Dimensions != 512 {
+		t.Errorf("Jina request dimensions = %d, want 512", req.Dimensions)
+	}
+	if len(req.Input) != 1 || req.Input[0].Image == "" {
+		t.Errorf("Jina request input = %+v, want exactly one non-empty image", req.Input)
+	}
+	if r.Header.Get("Authorization") == "" {
+		t.Errorf("Jina request missing Authorization header")
+	}
+}
+
+// jinaResponseBody returns a Jina-shaped embeddings response with one 512-dim vector.
+func jinaResponseBody() map[string]any {
+	return map[string]any{
+		"data": []map[string]any{{"embedding": make512Floats()}},
+	}
 }
 
 // newTestEmbeddingService builds an EmbeddingService and points its HTTP
@@ -159,7 +197,7 @@ func TestEmbeddingService_HandlePhotoUploaded_LostPet_GeneratesAndUpserts(t *tes
 	petID := uuid.New()
 	photoID := uuid.New()
 
-	hfSrv := newHFTestServer(t, http.StatusOK)
+	hfSrv := newJinaTestServer(t, http.StatusOK)
 	defer hfSrv.Close()
 
 	embRepo := &mockEmbeddingRepo{}
@@ -194,7 +232,7 @@ func TestEmbeddingService_HandlePhotoUploaded_LostPet_GeneratesAndUpserts(t *tes
 func TestEmbeddingService_HandlePhotoUploaded_NonLostPet_SkipsSilently(t *testing.T) {
 	petID := uuid.New()
 
-	hfSrv := newHFTestServer(t, http.StatusOK)
+	hfSrv := newJinaTestServer(t, http.StatusOK)
 	defer hfSrv.Close()
 
 	embRepo := &mockEmbeddingRepo{}
@@ -223,7 +261,7 @@ func TestEmbeddingService_HandlePhotoUploaded_StrayPet_GeneratesAndUpserts(t *te
 	petID := uuid.New()
 	photoID := uuid.New()
 
-	hfSrv := newHFTestServer(t, http.StatusOK)
+	hfSrv := newJinaTestServer(t, http.StatusOK)
 	defer hfSrv.Close()
 
 	embRepo := &mockEmbeddingRepo{}
@@ -249,7 +287,7 @@ func TestEmbeddingService_HandlePhotoUploaded_StrayPet_GeneratesAndUpserts(t *te
 func TestEmbeddingService_HandlePhotoUploaded_HFError_NoUpsert(t *testing.T) {
 	petID := uuid.New()
 
-	hfSrv := newHFTestServer(t, http.StatusServiceUnavailable)
+	hfSrv := newJinaTestServer(t, http.StatusServiceUnavailable)
 	defer hfSrv.Close()
 
 	embRepo := &mockEmbeddingRepo{}
@@ -282,7 +320,7 @@ func TestEmbeddingService_HandlePetLost_FetchesPhotosAndUpsertsEach(t *testing.T
 	photo1 := domain.Photo{ID: uuid.New(), PetID: petID, URL: "https://cdn.example.com/p1.jpg"}
 	photo2 := domain.Photo{ID: uuid.New(), PetID: petID, URL: "https://cdn.example.com/p2.jpg"}
 
-	hfSrv := newHFTestServer(t, http.StatusOK)
+	hfSrv := newJinaTestServer(t, http.StatusOK)
 	defer hfSrv.Close()
 
 	embRepo := &mockEmbeddingRepo{}
@@ -314,9 +352,8 @@ func TestEmbeddingService_HandlePetLost_OnePhotoFails_ContinuesWithRest(t *testi
 			fmt.Fprintf(w, `{"error":"overloaded"}`)
 			return
 		}
-		nested := [][]float32{make512Floats()}
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(nested)
+		_ = json.NewEncoder(w).Encode(jinaResponseBody())
 	}))
 	defer srv.Close()
 
@@ -346,7 +383,7 @@ func TestEmbeddingService_HandlePetStray_FetchesPhotosAndUpsertsEach(t *testing.
 	photo1 := domain.Photo{ID: uuid.New(), PetID: petID, URL: "https://cdn.example.com/p1.jpg"}
 	photo2 := domain.Photo{ID: uuid.New(), PetID: petID, URL: "https://cdn.example.com/p2.jpg"}
 
-	hfSrv := newHFTestServer(t, http.StatusOK)
+	hfSrv := newJinaTestServer(t, http.StatusOK)
 	defer hfSrv.Close()
 
 	embRepo := &mockEmbeddingRepo{}
@@ -378,9 +415,8 @@ func TestEmbeddingService_HandlePetStray_OnePhotoFails_ContinuesWithRest(t *test
 			fmt.Fprintf(w, `{"error":"overloaded"}`)
 			return
 		}
-		nested := [][]float32{make512Floats()}
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(nested)
+		_ = json.NewEncoder(w).Encode(jinaResponseBody())
 	}))
 	defer srv.Close()
 
@@ -405,7 +441,7 @@ func TestEmbeddingService_RegisterListeners_PetStrayEvent_BackfillsPhotos(t *tes
 	petID := uuid.New()
 	photo := domain.Photo{ID: uuid.New(), PetID: petID, URL: "https://cdn.example.com/p1.jpg"}
 
-	hfSrv := newHFTestServer(t, http.StatusOK)
+	hfSrv := newJinaTestServer(t, http.StatusOK)
 	defer hfSrv.Close()
 
 	embRepo := &mockEmbeddingRepo{}
@@ -447,7 +483,7 @@ func TestEmbeddingService_RegisterListeners_PetStrayEvent_BackfillsPhotos(t *tes
 func TestEmbeddingService_HandlePetFound_DeletesByPetID(t *testing.T) {
 	petID := uuid.New()
 
-	hfSrv := newHFTestServer(t, http.StatusOK)
+	hfSrv := newJinaTestServer(t, http.StatusOK)
 	defer hfSrv.Close()
 
 	embRepo := &mockEmbeddingRepo{}
@@ -471,7 +507,7 @@ func TestEmbeddingService_SearchSimilar_HappyPath(t *testing.T) {
 	petID := uuid.New()
 	ownerID := uuid.New()
 
-	hfSrv := newHFTestServer(t, http.StatusOK)
+	hfSrv := newJinaTestServer(t, http.StatusOK)
 	defer hfSrv.Close()
 
 	expectedResult := domain.ImageSearchResult{
@@ -507,7 +543,7 @@ func TestEmbeddingService_SearchSimilar_HappyPath(t *testing.T) {
 }
 
 func TestEmbeddingService_SearchSimilar_HFError_ReturnsError(t *testing.T) {
-	hfSrv := newHFTestServer(t, http.StatusServiceUnavailable)
+	hfSrv := newJinaTestServer(t, http.StatusServiceUnavailable)
 	defer hfSrv.Close()
 
 	embRepo := &mockEmbeddingRepo{}
@@ -523,8 +559,8 @@ func TestEmbeddingService_SearchSimilar_HFError_ReturnsError(t *testing.T) {
 // SetEndpoint test
 // ============================================================
 
-func TestEmbeddingService_SetEndpoint_OverridesHFEndpoint(t *testing.T) {
-	hfSrv := newHFTestServer(t, http.StatusOK)
+func TestEmbeddingService_SetEndpoint_OverridesEndpoint(t *testing.T) {
+	hfSrv := newJinaTestServer(t, http.StatusOK)
 	defer hfSrv.Close()
 
 	embRepo := &mockEmbeddingRepo{}
@@ -548,7 +584,7 @@ func TestEmbeddingService_SetEndpoint_OverridesHFEndpoint(t *testing.T) {
 func TestEmbeddingService_RegisterListeners_PetFoundEvent_CallsDeleteByPetID(t *testing.T) {
 	petID := uuid.New()
 
-	hfSrv := newHFTestServer(t, http.StatusOK)
+	hfSrv := newJinaTestServer(t, http.StatusOK)
 	defer hfSrv.Close()
 
 	embRepo := &mockEmbeddingRepo{}

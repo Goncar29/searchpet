@@ -34,13 +34,13 @@ type Config struct {
 	// Set to a higher value (e.g. 100) in E2E/test environments.
 	AuthRateLimitMax int
 
-	// V1.2 — Image Search (HuggingFace CLIP embeddings + pgvector)
-	HuggingFaceAPIKey string
-	// HFEndpoint optionally overrides the default HuggingFace CLIP feature-extraction
-	// endpoint (service.DefaultHFCLIPEndpoint). Empty means "use the default" — set this
-	// only when HuggingFace migrates the inference API again, so it's a config change
-	// instead of a deploy.
-	HFEndpoint string
+	// V1.2 — Image Search (Jina CLIP embeddings + pgvector). Migrated off
+	// HuggingFace serverless, which dropped CLIP image embeddings.
+	JinaAPIKey string
+	// JinaEndpoint optionally overrides the default Jina embeddings endpoint
+	// (service.DefaultJinaEndpoint). Empty means "use the default" — set this
+	// only if Jina migrates its API, so it's a config change instead of a deploy.
+	JinaEndpoint string
 }
 
 func Load() *Config {
@@ -72,9 +72,9 @@ func Load() *Config {
 
 		AuthRateLimitMax: getEnvInt("RATE_LIMIT_AUTH_MAX", 5),
 
-		// V1.2 — Image Search (HuggingFace CLIP)
-		HuggingFaceAPIKey: getEnv("HF_API_KEY", ""),
-		HFEndpoint:        getEnv("HF_ENDPOINT", ""),
+		// V1.2 — Image Search (Jina CLIP)
+		JinaAPIKey:   getEnv("JINA_API_KEY", ""),
+		JinaEndpoint: getEnv("JINA_ENDPOINT", ""),
 	}
 
 	// Fail-fast: JWT_SECRET is required in all environments.
