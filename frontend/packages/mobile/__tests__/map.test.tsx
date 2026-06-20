@@ -57,8 +57,11 @@ jest.mock('../store', () => ({
   },
 }));
 
+// Named with the `mock` prefix so jest's hoisting allows referencing it inside the factory.
+const mockUseNearbyReports = jest.fn(() => ({ data: [], isLoading: false }));
+
 jest.mock('@shared/hooks', () => ({
-  useNearbyReports: () => ({ data: [], isLoading: false }),
+  useNearbyReports: (...args: unknown[]) => mockUseNearbyReports(...args),
   useNearbyVets: jest.fn(() => ({ data: [], isLoading: false })),
 }));
 
@@ -144,6 +147,23 @@ describe('MapScreen', () => {
     });
 
     expect(screen.getByText('searchHere')).toBeTruthy();
+  });
+
+  it('pressing "search this area" re-fetches at the new center', () => {
+    mockUseNearbyReports.mockClear();
+    render(<MapScreen />);
+
+    const mapView = screen.getByTestId('map-view');
+    act(() => {
+      mapView.props.onRegionDidChange({
+        geometry: { coordinates: [-56.1645, -34.8511] },
+      });
+    });
+    fireEvent.press(screen.getByText('searchHere'));
+
+    const calls = mockUseNearbyReports.mock.calls as unknown[][];
+    const lastCall = calls[calls.length - 1];
+    expect(lastCall[0]).toBeCloseTo(-34.8511, 3); // new search lat
   });
 
   it('shows the empty-state when vets are enabled but none are nearby', () => {

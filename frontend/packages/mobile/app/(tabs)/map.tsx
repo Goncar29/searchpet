@@ -2,7 +2,7 @@
 // SearchPet - Map Screen (MapLibre — OpenStreetMap, gratuito)
 // ============================================================
 
-import { useEffect, useState, useRef, Component, type ReactNode } from 'react';
+import { useEffect, useState, useRef, useMemo, Component, type ReactNode } from 'react';
 import {
   View,
   Text,
@@ -86,6 +86,11 @@ export default function MapScreen() {
 
   const lat = latitude || MAP_DEFAULTS.defaultLatitude;
   const lng = longitude || MAP_DEFAULTS.defaultLongitude;
+
+  // Stable reference so the declarative Camera only re-centers when the GPS
+  // coords actually change — NOT on every render caused by onRegionDidChange,
+  // which would otherwise snap the camera back and fight the user's pan.
+  const cameraCoord = useMemo<[number, number]>(() => [lng, lat], [lng, lat]);
 
   const [searchCenter, setSearchCenter] = useState<[number, number]>([lat, lng]);
   const [mapCenter, setMapCenter] = useState<[number, number]>([lat, lng]);
@@ -177,7 +182,7 @@ export default function MapScreen() {
           <MapLibreGL.Camera
             ref={cameraRef}
             zoomLevel={12}
-            centerCoordinate={[lng, lat]}
+            centerCoordinate={cameraCoord}
           />
 
           <MapLibreGL.UserLocation visible />
@@ -537,9 +542,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: SPACING.lg + 48,
     alignSelf: 'center',
-    left: 0,
-    right: 0,
-    marginHorizontal: 'auto',
     backgroundColor: COLORS.primary,
     paddingVertical: SPACING.sm,
     paddingHorizontal: SPACING.lg,
