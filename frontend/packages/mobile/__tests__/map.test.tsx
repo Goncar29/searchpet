@@ -59,6 +59,7 @@ jest.mock('../store', () => ({
 
 jest.mock('@shared/hooks', () => ({
   useNearbyReports: () => ({ data: [], isLoading: false }),
+  useNearbyVets: jest.fn(() => ({ data: [], isLoading: false })),
 }));
 
 jest.mock('react-i18next', () => ({

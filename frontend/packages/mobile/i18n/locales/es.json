@@ -55,7 +55,13 @@
     "legendSighting": "Avistado",
     "counter": "{{count}} reportes en la zona",
     "defaultPetName": "Mascota",
-    "viewDetails": "Toca para ver detalles →"
+    "viewDetails": "Toca para ver detalles →",
+    "vetsToggle": "Veterinarias",
+    "vetDirections": "Cómo llegar",
+    "vetCall": "Llamar",
+    "vetEmpty": "No hay veterinarias en esta zona",
+    "vetDefaultName": "Veterinaria",
+    "vetAttribution": "© colaboradores de OpenStreetMap"
   },
   "post": {
     "title": "Registrar mascota",

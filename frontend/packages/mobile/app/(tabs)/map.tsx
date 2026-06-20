@@ -9,16 +9,17 @@ import {
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
+  Linking,
 } from 'react-native';
 import MapLibreGL from '@maplibre/maplibre-react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import i18next from 'i18next';
 import * as Location from 'expo-location';
-import { useNearbyReports } from '../../../shared/hooks';
+import { useNearbyReports, useNearbyVets } from '../../../shared/hooks';
 import { useLocationStore } from '../../store';
 import { COLORS, SPACING, FONTS, MAP_DEFAULTS } from '../../constants';
-import type { Report } from '../../../shared/types';
+import type { Report, Vet } from '../../../shared/types';
 
 // MapLibre no necesita token de Mapbox
 MapLibreGL.setAccessToken(null);
@@ -88,6 +89,10 @@ export default function MapScreen() {
   const [radius, setRadius] = useState(3);
   const { data: reports, isLoading } = useNearbyReports(lat, lng, radius, true);
 
+  const [showVets, setShowVets] = useState(false);
+  const [selectedVet, setSelectedVet] = useState<Vet | null>(null);
+  const { data: vets } = useNearbyVets(lat, lng, 5000, showVets);
+
   const circleGeoJSON = createCircleGeoJSON(lng, lat, radius);
 
   useEffect(() => {
@@ -150,7 +155,7 @@ export default function MapScreen() {
         <MapLibreGL.MapView
           style={styles.map}
           styleURL={MAP_STYLE}
-          onPress={() => setSelectedReport(null)}
+          onPress={() => { setSelectedReport(null); setSelectedVet(null); }}
         >
           <MapLibreGL.Camera
             ref={cameraRef}
@@ -187,6 +192,17 @@ export default function MapScreen() {
               />
             </MapLibreGL.PointAnnotation>
           ))}
+
+          {showVets && vets?.map((vet) => (
+            <MapLibreGL.PointAnnotation
+              key={`vet-${vet.id}`}
+              id={`vet-${vet.id}`}
+              coordinate={[vet.longitude, vet.latitude]}
+              onSelected={() => { setSelectedVet(vet); setSelectedReport(null); }}
+            >
+              <View style={[styles.marker, { backgroundColor: COLORS.primary }]} />
+            </MapLibreGL.PointAnnotation>
+          ))}
         </MapLibreGL.MapView>
 
         {/* Selector de radio */}
@@ -203,6 +219,15 @@ export default function MapScreen() {
             </TouchableOpacity>
           ))}
         </View>
+
+        <TouchableOpacity
+          style={[styles.vetToggle, showVets && styles.vetToggleActive]}
+          onPress={() => setShowVets((v) => !v)}
+        >
+          <Text style={[styles.vetToggleText, showVets && styles.vetToggleTextActive]}>
+            🏥 {t('vetsToggle')}
+          </Text>
+        </TouchableOpacity>
 
         {/* Botón centrar en usuario */}
         <TouchableOpacity style={styles.centerButton} onPress={centerOnUser}>
@@ -261,6 +286,28 @@ export default function MapScreen() {
             )}
             <Text style={styles.reportAction}>{t('viewDetails')}</Text>
           </TouchableOpacity>
+        )}
+
+        {selectedVet && (
+          <View style={styles.reportCard}>
+            <Text style={styles.reportName}>{selectedVet.name || t('vetDefaultName')}</Text>
+            {selectedVet.address ? <Text style={styles.reportDesc}>{selectedVet.address}</Text> : null}
+            <View style={{ flexDirection: 'row', gap: SPACING.md }}>
+              <TouchableOpacity
+                onPress={() =>
+                  Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${selectedVet.latitude},${selectedVet.longitude}`)
+                }
+              >
+                <Text style={styles.reportAction}>{t('vetDirections')}</Text>
+              </TouchableOpacity>
+              {selectedVet.phone ? (
+                <TouchableOpacity onPress={() => Linking.openURL(`tel:${selectedVet.phone}`)}>
+                  <Text style={styles.reportAction}>{t('vetCall')}</Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
+            <Text style={{ fontSize: 10, color: COLORS.textSecondary, marginTop: 6 }}>{t('vetAttribution')}</Text>
+          </View>
         )}
       </View>
     </MapErrorBoundary>
@@ -426,4 +473,18 @@ const styles = StyleSheet.create({
   radiusButtonTextActive: {
     color: COLORS.white,
   },
+  vetToggle: {
+    position: 'absolute',
+    bottom: 290,
+    left: SPACING.lg,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    borderWidth: 1.5,
+    borderColor: COLORS.border || '#e5e7eb',
+  },
+  vetToggleActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
+  vetToggleText: { fontSize: FONTS.sizes.xs, fontWeight: '600', color: COLORS.textSecondary },
+  vetToggleTextActive: { color: COLORS.white },
 });
