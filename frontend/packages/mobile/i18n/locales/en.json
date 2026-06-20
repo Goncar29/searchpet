@@ -61,7 +61,8 @@
     "vetCall": "Call",
     "vetEmpty": "No veterinaries in this area",
     "vetDefaultName": "Veterinary",
-    "vetAttribution": "© OpenStreetMap contributors"
+    "vetAttribution": "© OpenStreetMap contributors",
+    "searchHere": "Search this area"
   },
   "post": {
     "title": "Register pet",
