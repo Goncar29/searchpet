@@ -1,6 +1,6 @@
 // Map screen tests — createCircleGeoJSON unit tests + MapScreen smoke test
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react-native';
+import { render, screen, fireEvent, act } from '@testing-library/react-native';
 import { createCircleGeoJSON } from '../app/(tabs)/map';
 
 // Mock @maplibre/maplibre-react-native — native module not available in Jest
@@ -127,6 +127,23 @@ describe('MapScreen', () => {
     expect(screen.getByText('3km')).toBeTruthy();
     expect(screen.getByText('5km')).toBeTruthy();
     expect(screen.getByText('10km')).toBeTruthy();
+  });
+
+  it('shows the "search this area" button after panning beyond the threshold', () => {
+    render(<MapScreen />);
+    // not panned yet
+    expect(screen.queryByText('searchHere')).toBeNull();
+
+    // MapLibre onRegionDidChange feature: geometry.coordinates = [lng, lat] center
+    // Pan ~5.5 km north of the default (-34.9011): lat -34.8511
+    const mapView = screen.getByTestId('map-view');
+    act(() => {
+      mapView.props.onRegionDidChange({
+        geometry: { coordinates: [-56.1645, -34.8511] },
+      });
+    });
+
+    expect(screen.getByText('searchHere')).toBeTruthy();
   });
 
   it('shows the empty-state when vets are enabled but none are nearby', () => {

@@ -17,6 +17,7 @@ import { useTranslation } from 'react-i18next';
 import i18next from 'i18next';
 import * as Location from 'expo-location';
 import { useNearbyReports, useNearbyVets } from '../../../shared/hooks';
+import { shouldShowSearchHere } from '../../../shared/utils/searchArea';
 import { useLocationStore } from '../../store';
 import { COLORS, SPACING, FONTS, MAP_DEFAULTS } from '../../constants';
 import type { Report, Vet } from '../../../shared/types';
@@ -86,14 +87,23 @@ export default function MapScreen() {
   const lat = latitude || MAP_DEFAULTS.defaultLatitude;
   const lng = longitude || MAP_DEFAULTS.defaultLongitude;
 
+  const [searchCenter, setSearchCenter] = useState<[number, number]>([lat, lng]);
+  const [mapCenter, setMapCenter] = useState<[number, number]>([lat, lng]);
+
   const [radius, setRadius] = useState(3);
-  const { data: reports, isLoading } = useNearbyReports(lat, lng, radius, true);
+  const { data: reports, isLoading } = useNearbyReports(searchCenter[0], searchCenter[1], radius, true);
 
   const [showVets, setShowVets] = useState(false);
   const [selectedVet, setSelectedVet] = useState<Vet | null>(null);
-  const { data: vets } = useNearbyVets(lat, lng, 5000, showVets);
+  const { data: vets } = useNearbyVets(searchCenter[0], searchCenter[1], 5000, showVets);
 
-  const circleGeoJSON = createCircleGeoJSON(lng, lat, radius);
+  const circleGeoJSON = createCircleGeoJSON(searchCenter[1], searchCenter[0], radius);
+
+  const canSearchHere = shouldShowSearchHere(
+    { lat: mapCenter[0], lng: mapCenter[1] },
+    { lat: searchCenter[0], lng: searchCenter[1] },
+    radius * 1000,
+  );
 
   useEffect(() => {
     requestLocation();
@@ -104,7 +114,10 @@ export default function MapScreen() {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status === 'granted') {
         const location = await Location.getCurrentPositionAsync({});
-        setLocation(location.coords.latitude, location.coords.longitude);
+        const here: [number, number] = [location.coords.latitude, location.coords.longitude];
+        setLocation(here[0], here[1]);
+        setSearchCenter(here);
+        setMapCenter(here);
       }
     } catch {
       // silencioso — el mapa igual carga con la ubicación default
@@ -156,6 +169,10 @@ export default function MapScreen() {
           style={styles.map}
           styleURL={MAP_STYLE}
           onPress={() => { setSelectedReport(null); setSelectedVet(null); }}
+          onRegionDidChange={(feature: { geometry: { coordinates: [number, number] } }) => {
+            const [regionLng, regionLat] = feature.geometry.coordinates;
+            setMapCenter([regionLat, regionLng]);
+          }}
         >
           <MapLibreGL.Camera
             ref={cameraRef}
@@ -233,6 +250,12 @@ export default function MapScreen() {
           <View style={styles.vetEmptyBanner}>
             <Text style={styles.vetEmptyText}>{t('vetEmpty')}</Text>
           </View>
+        )}
+
+        {canSearchHere && (
+          <TouchableOpacity style={styles.searchHereButton} onPress={() => setSearchCenter(mapCenter)}>
+            <Text style={styles.searchHereText}>{t('searchHere')}</Text>
+          </TouchableOpacity>
         )}
 
         {/* Botón centrar en usuario */}
@@ -509,5 +532,28 @@ const styles = StyleSheet.create({
     fontSize: FONTS.sizes.xs,
     fontWeight: '600',
     textAlign: 'center',
+  },
+  searchHereButton: {
+    position: 'absolute',
+    top: SPACING.lg + 48,
+    alignSelf: 'center',
+    left: 0,
+    right: 0,
+    marginHorizontal: 'auto',
+    backgroundColor: COLORS.primary,
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.lg,
+    borderRadius: 20,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  searchHereText: {
+    color: COLORS.white,
+    fontSize: FONTS.sizes.sm,
+    fontWeight: '700',
   },
 });
