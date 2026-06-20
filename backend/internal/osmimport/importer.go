@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -111,12 +112,20 @@ func (i *Importer) Run(ctx context.Context) (Result, error) {
 }
 
 // fetch POSTs the Overpass QL query and returns the raw response body.
+// The query must be sent URL-encoded as the "data" form field; sending it raw
+// makes Overpass reject the request with 406 Not Acceptable.
 func (i *Importer) fetch(ctx context.Context) ([]byte, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, i.endpoint, strings.NewReader("data="+uruguayVetQuery))
+	form := url.Values{}
+	form.Set("data", uruguayVetQuery)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, i.endpoint, strings.NewReader(form.Encode()))
 	if err != nil {
 		return nil, fmt.Errorf("osmimport: build request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	// Overpass/Apache rejects the default Go user agent (Go-http-client) with
+	// 406; it also asks for an identifying UA by etiquette.
+	req.Header.Set("User-Agent", "SearchPet/1.0 (lost-pets app; OSM veterinary import; +https://github.com/Goncar29/searchpet)")
 
 	resp, err := i.httpClient.Do(req)
 	if err != nil {
