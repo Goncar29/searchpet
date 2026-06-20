@@ -167,5 +167,14 @@
     "seoTitleLost": "{{name}} — Lost Pet | SearchPet",
     "seoTitleFound": "{{name}} — Found | SearchPet",
     "seoDescriptionFallback": "Help us find {{name}}"
+  },
+  "vets": {
+    "toggle": "Veterinaries",
+    "searchArea": "Search this area",
+    "directions": "Directions",
+    "call": "Call",
+    "empty": "No veterinaries in this area",
+    "defaultName": "Veterinary",
+    "attribution": "Veterinary data © OpenStreetMap contributors"
   }
 }
