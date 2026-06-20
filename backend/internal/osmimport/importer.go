@@ -67,13 +67,12 @@ type Importer struct {
 }
 
 // New builds an Importer. Pass DefaultOverpassEndpoint unless overriding for tests.
-func New(db *gorm.DB, client *http.Client, endpoint string) *Importer {
-	logger, _ := zap.NewProduction()
+func New(db *gorm.DB, client *http.Client, endpoint string, log *zap.Logger) *Importer {
 	return &Importer{
 		repo:       repository.NewVetRepository(db),
 		httpClient: client,
 		endpoint:   endpoint,
-		logger:     logger,
+		logger:     log,
 	}
 }
 
@@ -94,6 +93,8 @@ func (i *Importer) Run(ctx context.Context) (Result, error) {
 		res.Scanned++
 		vet, ok := mapElement(el)
 		if !ok {
+			i.logger.Warn("[osmimport] skipping element without usable coords",
+				zap.String("type", el.Type), zap.Int64("id", el.ID))
 			res.Skipped++
 			continue
 		}
@@ -134,10 +135,12 @@ func (i *Importer) fetch(ctx context.Context) ([]byte, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		b, _ := io.ReadAll(resp.Body)
+		b, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 		return nil, fmt.Errorf("osmimport: overpass returned %d: %s", resp.StatusCode, string(b))
 	}
-	return io.ReadAll(resp.Body)
+	// Defensive ceiling: Uruguay's payload is a few hundred KB; cap at 50 MB
+	// so a wrong endpoint / malformed response can't exhaust memory.
+	return io.ReadAll(io.LimitReader(resp.Body, 50<<20))
 }
 
 func parseOverpass(body []byte) ([]overpassElement, error) {

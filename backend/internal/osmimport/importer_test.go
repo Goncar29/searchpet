@@ -2,6 +2,7 @@ package osmimport
 
 import (
 	"context"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -18,8 +19,7 @@ func TestFetch_SendsURLEncodedQueryWithUserAgent(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotUA = r.Header.Get("User-Agent")
 		gotContentType = r.Header.Get("Content-Type")
-		buf := make([]byte, r.ContentLength)
-		_, _ = r.Body.Read(buf)
+		buf, _ := io.ReadAll(r.Body)
 		gotBody = string(buf)
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"elements":[]}`))
