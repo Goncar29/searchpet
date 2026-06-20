@@ -229,6 +229,12 @@ export default function MapScreen() {
           </Text>
         </TouchableOpacity>
 
+        {showVets && vets && vets.length === 0 && (
+          <View style={styles.vetEmptyBanner}>
+            <Text style={styles.vetEmptyText}>{t('vetEmpty')}</Text>
+          </View>
+        )}
+
         {/* Botón centrar en usuario */}
         <TouchableOpacity style={styles.centerButton} onPress={centerOnUser}>
           <Text style={styles.centerIcon}>📍</Text>
@@ -487,4 +493,21 @@ const styles = StyleSheet.create({
   vetToggleActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
   vetToggleText: { fontSize: FONTS.sizes.xs, fontWeight: '600', color: COLORS.textSecondary },
   vetToggleTextActive: { color: COLORS.white },
+  vetEmptyBanner: {
+    position: 'absolute',
+    bottom: 80,
+    left: SPACING.lg,
+    right: SPACING.lg,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+    borderRadius: 20,
+    alignItems: 'center',
+  },
+  vetEmptyText: {
+    color: COLORS.white,
+    fontSize: FONTS.sizes.xs,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
 });

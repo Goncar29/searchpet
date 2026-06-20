@@ -1,6 +1,6 @@
 // Map screen tests — createCircleGeoJSON unit tests + MapScreen smoke test
 import React from 'react';
-import { render, screen } from '@testing-library/react-native';
+import { render, screen, fireEvent } from '@testing-library/react-native';
 import { createCircleGeoJSON } from '../app/(tabs)/map';
 
 // Mock @maplibre/maplibre-react-native — native module not available in Jest
@@ -127,5 +127,14 @@ describe('MapScreen', () => {
     expect(screen.getByText('3km')).toBeTruthy();
     expect(screen.getByText('5km')).toBeTruthy();
     expect(screen.getByText('10km')).toBeTruthy();
+  });
+
+  it('shows the empty-state when vets are enabled but none are nearby', () => {
+    render(<MapScreen />);
+    // vets are off by default — no empty message yet
+    expect(screen.queryByText('vetEmpty')).toBeNull();
+    // enable the vets layer (useNearbyVets mock returns an empty list)
+    fireEvent.press(screen.getByText('🏥 vetsToggle'));
+    expect(screen.getByText('vetEmpty')).toBeTruthy();
   });
 });
