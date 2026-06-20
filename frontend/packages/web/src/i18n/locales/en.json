@@ -119,7 +119,8 @@
     "viewDetails": "View details",
     "pet": "Pet",
     "radius": "Radius",
-    "radiusKm": "{{km}} km"
+    "radiusKm": "{{km}} km",
+    "searchHere": "Search this area"
   },
   "profile": {
     "title": "My profile",
