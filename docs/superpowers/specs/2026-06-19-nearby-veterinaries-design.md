@@ -37,7 +37,8 @@ This is roadmap item **V2.0 — Veterinarias cercanas**.
    nearby query pattern. This also lets us enrich/curate data later (fill missing
    phones, flag 24 h emergency vets).
 4. **UX: a layer toggle on the existing map** (not a new tab, not contextual-only).
-   Reuses `map.tsx` (mobile, react-native-maps) and `MapPage.tsx` (web, Leaflet).
+   Reuses `map.tsx` (mobile, **MapLibreGL** — the CLAUDE.md "react-native-maps"
+   reference is stale) and `MapPage.tsx` (web, Leaflet).
 5. **Refresh is manual / on-demand** via an idempotent import command. Vets churn
    slowly; no cron for the MVP. The same command can later be wrapped in a
    scheduled GitHub Action with zero rework.
