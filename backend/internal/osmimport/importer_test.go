@@ -1,8 +1,47 @@
 package osmimport
 
 import (
+	"context"
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
+
+	"go.uber.org/zap"
 )
+
+// TestFetch_SendsURLEncodedQueryWithUserAgent locks in the fix for the Overpass
+// 406 Not Acceptable: the QL query must be URL-encoded in the "data" form field,
+// and a non-default User-Agent must be set (Overpass rejects Go-http-client).
+func TestFetch_SendsURLEncodedQueryWithUserAgent(t *testing.T) {
+	var gotUA, gotContentType, gotBody string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotUA = r.Header.Get("User-Agent")
+		gotContentType = r.Header.Get("Content-Type")
+		buf := make([]byte, r.ContentLength)
+		_, _ = r.Body.Read(buf)
+		gotBody = string(buf)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"elements":[]}`))
+	}))
+	defer srv.Close()
+
+	imp := &Importer{httpClient: srv.Client(), endpoint: srv.URL, logger: zap.NewNop()}
+	if _, err := imp.fetch(context.Background()); err != nil {
+		t.Fatalf("fetch returned error: %v", err)
+	}
+
+	if gotContentType != "application/x-www-form-urlencoded" {
+		t.Errorf("Content-Type = %q", gotContentType)
+	}
+	if gotUA == "" || strings.HasPrefix(gotUA, "Go-http-client") {
+		t.Errorf("User-Agent must be a non-default identifying UA, got %q", gotUA)
+	}
+	// URL-encoded form body: starts with data= and the QL brackets are percent-encoded.
+	if !strings.HasPrefix(gotBody, "data=") || !strings.Contains(gotBody, "%5Bout%3Ajson%5D") {
+		t.Errorf("body is not URL-encoded form data: %q", gotBody)
+	}
+}
 
 func TestMapElement_NodeWithTags(t *testing.T) {
 	el := overpassElement{
