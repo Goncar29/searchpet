@@ -257,6 +257,24 @@ export interface NearbySearchParams {
   limit?: number;
 }
 
+export interface Vet {
+  id: string;
+  name: string;
+  latitude: number;
+  longitude: number;
+  address?: string;
+  phone?: string;
+  website?: string;
+  opening_hours?: string;
+  distance_meters: number;
+}
+
+export interface VetsNearbyParams {
+  lat: number;
+  lng: number;
+  radius?: number; // meters
+}
+
 export interface NearbyReportsResponse {
   data: Report[];
   radius_used: number;
