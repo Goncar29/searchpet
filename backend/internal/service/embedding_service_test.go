@@ -62,6 +62,7 @@ var _ repository.PetEmbeddingRepository = (*mockEmbeddingRepo)(nil)
 
 type mockPetRepoForEmbedding struct {
 	findByIDFn func(id string) (*domain.Pet, error)
+	searchFn   func(criteria domain.PetSearchCriteria) ([]domain.Pet, int64, error)
 }
 
 func (m *mockPetRepoForEmbedding) FindByID(id string) (*domain.Pet, error) {
@@ -77,7 +78,10 @@ func (m *mockPetRepoForEmbedding) FindByReporterID(_ string) ([]domain.Pet, erro
 func (m *mockPetRepoForEmbedding) Update(_ *domain.Pet) error                         { return nil }
 func (m *mockPetRepoForEmbedding) UpdateStatus(_ string, _ string) error              { return nil }
 func (m *mockPetRepoForEmbedding) Delete(_ string) error                              { return nil }
-func (m *mockPetRepoForEmbedding) Search(_ domain.PetSearchCriteria) ([]domain.Pet, int64, error) {
+func (m *mockPetRepoForEmbedding) Search(criteria domain.PetSearchCriteria) ([]domain.Pet, int64, error) {
+	if m.searchFn != nil {
+		return m.searchFn(criteria)
+	}
 	return nil, 0, nil
 }
 
@@ -473,6 +477,95 @@ func TestEmbeddingService_RegisterListeners_PetStrayEvent_BackfillsPhotos(t *tes
 			}
 			time.Sleep(10 * time.Millisecond)
 		}
+	}
+}
+
+// ============================================================
+// BackfillAll tests
+// ============================================================
+
+func TestEmbeddingService_BackfillAll_IndexesAllEligiblePetsAndAggregates(t *testing.T) {
+	pet1 := domain.Pet{ID: uuid.New(), Status: domain.PetStatusLost}
+	pet2 := domain.Pet{ID: uuid.New(), Status: domain.PetStatusStray}
+
+	hfSrv := newJinaTestServer(t, http.StatusOK)
+	defer hfSrv.Close()
+
+	embRepo := &mockEmbeddingRepo{}
+	petRepo := &mockPetRepoForEmbedding{
+		searchFn: func(c domain.PetSearchCriteria) ([]domain.Pet, int64, error) {
+			if c.Page == 1 {
+				return []domain.Pet{pet1, pet2}, 2, nil
+			}
+			return nil, 2, nil // page 2 empty → stop
+		},
+	}
+	// Two photos for pet1, one for pet2.
+	photoRepo := &mockPhotoRepoForEmbedding{
+		findByPetIDFn: func(petID string) ([]domain.Photo, error) {
+			if petID == pet1.ID.String() {
+				return []domain.Photo{
+					{ID: uuid.New(), URL: "https://cdn.example.com/a.jpg"},
+					{ID: uuid.New(), URL: "https://cdn.example.com/b.jpg"},
+				}, nil
+			}
+			return []domain.Photo{{ID: uuid.New(), URL: "https://cdn.example.com/c.jpg"}}, nil
+		},
+	}
+
+	svc := newTestEmbeddingService(embRepo, petRepo, photoRepo, hfSrv)
+	res := svc.BackfillAll(context.Background())
+
+	if res.PetsScanned != 2 {
+		t.Errorf("PetsScanned = %d, want 2", res.PetsScanned)
+	}
+	if res.PhotosIndexed != 3 {
+		t.Errorf("PhotosIndexed = %d, want 3", res.PhotosIndexed)
+	}
+	if res.PhotosFailed != 0 {
+		t.Errorf("PhotosFailed = %d, want 0", res.PhotosFailed)
+	}
+	if len(embRepo.upsertCalls) != 3 {
+		t.Errorf("upsert calls = %d, want 3", len(embRepo.upsertCalls))
+	}
+}
+
+func TestEmbeddingService_BackfillAll_CountsFailures(t *testing.T) {
+	pet := domain.Pet{ID: uuid.New(), Status: domain.PetStatusLost}
+
+	// Jina always 503 → every photo fails.
+	hfSrv := newJinaTestServer(t, http.StatusServiceUnavailable)
+	defer hfSrv.Close()
+
+	embRepo := &mockEmbeddingRepo{}
+	petRepo := &mockPetRepoForEmbedding{
+		searchFn: func(c domain.PetSearchCriteria) ([]domain.Pet, int64, error) {
+			if c.Page == 1 {
+				return []domain.Pet{pet}, 1, nil
+			}
+			return nil, 1, nil
+		},
+	}
+	photoRepo := &mockPhotoRepoForEmbedding{
+		findByPetIDFn: func(_ string) ([]domain.Photo, error) {
+			return []domain.Photo{{ID: uuid.New(), URL: "https://cdn.example.com/x.jpg"}}, nil
+		},
+	}
+
+	svc := newTestEmbeddingService(embRepo, petRepo, photoRepo, hfSrv)
+	res := svc.BackfillAll(context.Background())
+
+	if res.PetsScanned != 1 {
+		t.Errorf("PetsScanned = %d, want 1", res.PetsScanned)
+	}
+	if res.PhotosIndexed != 0 {
+		t.Errorf("PhotosIndexed = %d, want 0", res.PhotosIndexed)
+	}
+	if res.PhotosFailed != 1 {
+		t.Errorf("PhotosFailed = %d, want 1", res.PhotosFailed)
+	}
+	if len(embRepo.upsertCalls) != 0 {
+		t.Errorf("upsert calls = %d, want 0 (provider down)", len(embRepo.upsertCalls))
 	}
 }
 

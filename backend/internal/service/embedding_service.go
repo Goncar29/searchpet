@@ -165,7 +165,7 @@ func (s *EmbeddingService) HandlePhotoUploaded(ev event.PhotoUploadedEvent) {
 // HandlePetLost genera embeddings para TODAS las fotos existentes de una mascota
 // que acaba de cambiar su status a "lost".
 func (s *EmbeddingService) HandlePetLost(ev event.PetLostEvent) {
-	s.backfillEmbeddingsForPet(ev.PetID, "HandlePetLost")
+	s.backfillEmbeddingsForPet(context.Background(), ev.PetID, "HandlePetLost")
 }
 
 // HandlePetStray genera embeddings para TODAS las fotos existentes de una mascota
@@ -173,23 +173,25 @@ func (s *EmbeddingService) HandlePetLost(ev event.PetLostEvent) {
 // suele ser un no-op porque la mascota todavía no tiene fotos en ese momento;
 // las fotos subidas después se indexan vía HandlePhotoUploaded.
 func (s *EmbeddingService) HandlePetStray(ev event.PetStrayEvent) {
-	s.backfillEmbeddingsForPet(ev.PetID, "HandlePetStray")
+	s.backfillEmbeddingsForPet(context.Background(), ev.PetID, "HandlePetStray")
 }
 
 // backfillEmbeddingsForPet generates and upserts embeddings for every existing
 // photo of the given pet. Shared by HandlePetLost and HandlePetStray — both
 // transitions make a pet eligible for image search and require backfilling
 // embeddings for photos uploaded before the transition.
-func (s *EmbeddingService) backfillEmbeddingsForPet(petID uuid.UUID, callerName string) {
-	ctx := context.Background()
-
+//
+// Returns the number of photos successfully indexed and the number that failed
+// (either the embedding call or the upsert). The async event handlers ignore
+// the counts; BackfillAll aggregates them.
+func (s *EmbeddingService) backfillEmbeddingsForPet(ctx context.Context, petID uuid.UUID, callerName string) (indexed, failed int) {
 	photos, err := s.photoRepo.FindByPetID(petID.String())
 	if err != nil {
 		s.logger.Warn(fmt.Sprintf("[embedding] %s: no se pudieron obtener las fotos", callerName),
 			zap.String("pet_id", petID.String()),
 			zap.Error(err),
 		)
-		return
+		return 0, 0
 	}
 
 	for _, photo := range photos {
@@ -200,6 +202,7 @@ func (s *EmbeddingService) backfillEmbeddingsForPet(petID uuid.UUID, callerName 
 				zap.String("photo_id", photo.ID.String()),
 				zap.Error(err),
 			)
+			failed++
 			continue // el resto de las fotos deben procesarse igual
 		}
 
@@ -216,8 +219,69 @@ func (s *EmbeddingService) backfillEmbeddingsForPet(petID uuid.UUID, callerName 
 				zap.String("photo_id", photo.ID.String()),
 				zap.Error(err),
 			)
+			failed++
+			continue
+		}
+		indexed++
+	}
+	return indexed, failed
+}
+
+// BackfillResult summarizes a full embeddings backfill run.
+type BackfillResult struct {
+	PetsScanned   int `json:"pets_scanned"`
+	PhotosIndexed int `json:"photos_indexed"`
+	PhotosFailed  int `json:"photos_failed"`
+}
+
+// BackfillAll re-generates embeddings for every image-search-eligible pet
+// (status lost or stray) and all of their photos. It exists because pre-existing
+// pets were never indexed: their backfill ran under the dead HuggingFace provider
+// (every call 400'd) and the events that trigger indexing (pet.lost, pet.stray,
+// photo.uploaded) only fire on new transitions, never retroactively.
+//
+// This is a one-off, idempotent maintenance operation (Upsert overwrites by
+// pet_id + photo_id), exposed via a token-gated admin endpoint. It runs
+// synchronously and paginates through all eligible pets.
+func (s *EmbeddingService) BackfillAll(ctx context.Context) BackfillResult {
+	var result BackfillResult
+	const pageSize = 100
+
+	for page := 1; ; page++ {
+		pets, _, err := s.petRepo.Search(domain.PetSearchCriteria{
+			Statuses: domain.FeedVisibleStatuses, // lost + stray
+			Page:     page,
+			Limit:    pageSize,
+		})
+		if err != nil {
+			s.logger.Error("[embedding] BackfillAll: fallo al enumerar mascotas",
+				zap.Int("page", page),
+				zap.Error(err),
+			)
+			break
+		}
+		if len(pets) == 0 {
+			break
+		}
+
+		for _, pet := range pets {
+			indexed, failed := s.backfillEmbeddingsForPet(ctx, pet.ID, "BackfillAll")
+			result.PetsScanned++
+			result.PhotosIndexed += indexed
+			result.PhotosFailed += failed
+		}
+
+		if len(pets) < pageSize {
+			break // last page
 		}
 	}
+
+	s.logger.Info("[embedding] BackfillAll: completado",
+		zap.Int("pets_scanned", result.PetsScanned),
+		zap.Int("photos_indexed", result.PhotosIndexed),
+		zap.Int("photos_failed", result.PhotosFailed),
+	)
+	return result
 }
 
 // HandlePetFound elimina todos los embeddings de la mascota cuando es marcada como encontrada.
