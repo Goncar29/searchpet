@@ -61,7 +61,8 @@
     "vetCall": "Llamar",
     "vetEmpty": "No hay veterinarias en esta zona",
     "vetDefaultName": "Veterinaria",
-    "vetAttribution": "© colaboradores de OpenStreetMap"
+    "vetAttribution": "© colaboradores de OpenStreetMap",
+    "searchHere": "Buscar en esta zona"
   },
   "post": {
     "title": "Registrar mascota",
