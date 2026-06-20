@@ -32,7 +32,7 @@ func main() {
 		log.Fatal("import-vets: AutoMigrate failed", zap.Error(err))
 	}
 
-	imp := osmimport.New(db, &http.Client{Timeout: 150 * time.Second}, osmimport.DefaultOverpassEndpoint)
+	imp := osmimport.New(db, &http.Client{Timeout: 150 * time.Second}, osmimport.DefaultOverpassEndpoint, log)
 
 	res, err := imp.Run(context.Background())
 	if err != nil {
