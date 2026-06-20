@@ -147,6 +147,8 @@ export function MapPage() {
           </div>
         ) : (
           <>
+            {/* `center` is mount-only in react-leaflet; later searchCenter changes move the
+                markers/circle but not the viewport (panning is user-driven via the button). */}
             <MapContainer center={searchCenter} zoom={13} style={{ height: '100%', width: '100%' }}>
               <MapPanTracker onCenterChange={setMapCenter} />
               <TileLayer

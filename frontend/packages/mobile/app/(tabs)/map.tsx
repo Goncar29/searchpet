@@ -155,6 +155,9 @@ export default function MapScreen() {
         zoomLevel: 14,
         animationDuration: 300,
       });
+      // Keep mapCenter in sync eagerly instead of waiting for onRegionDidChange,
+      // so a follow-up "search this area" press uses the correct center.
+      setMapCenter([latitude, longitude]);
     }
   };
 
