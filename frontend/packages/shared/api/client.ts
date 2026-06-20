@@ -34,6 +34,8 @@ import type {
   CreateReportRequest,
   NearbySearchParams,
   NearbyReportsResponse,
+  Vet,
+  VetsNearbyParams,
   Message,
   SendMessageRequest,
   ShareLink,
@@ -480,6 +482,17 @@ class APIClient {
       queryParams['limit'] = params.limit;
     }
     return this.request<NearbyReportsResponse>('GET', '/api/reports/nearby', undefined, queryParams);
+  }
+
+  async getNearbyVets(params: VetsNearbyParams): Promise<Vet[]> {
+    const queryParams: Record<string, string | number> = {
+      lat: params.lat,
+      lng: params.lng,
+    };
+    if (params.radius) {
+      queryParams['radius'] = params.radius;
+    }
+    return this.request<Vet[]>('GET', '/api/vets/nearby', undefined, queryParams);
   }
 
   async getReportsByPetID(petID: string): Promise<Report[]> {

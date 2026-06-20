@@ -167,5 +167,14 @@
     "seoTitleLost": "{{name}} — Mascota Perdida | SearchPet",
     "seoTitleFound": "{{name}} — Encontrado | SearchPet",
     "seoDescriptionFallback": "Ayudanos a encontrar a {{name}}"
+  },
+  "vets": {
+    "toggle": "Veterinarias",
+    "searchArea": "Buscar en esta zona",
+    "directions": "Cómo llegar",
+    "call": "Llamar",
+    "empty": "No hay veterinarias en esta zona",
+    "defaultName": "Veterinaria",
+    "attribution": "Datos de veterinarias © colaboradores de OpenStreetMap"
   }
 }

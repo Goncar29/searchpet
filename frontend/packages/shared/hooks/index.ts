@@ -40,6 +40,7 @@ import type {
   Shelter,
   Pet,
   PublishLostRequest,
+  Vet,
 } from '../types';
 
 // ============================================================
@@ -315,6 +316,17 @@ export const useNearbyReports = (lat: number, lng: number, radius = 5, enabled =
     data: query.data?.data,         // Report[] | undefined — backward compatible
     radiusUsed: query.data?.radius_used,
   };
+};
+
+// radiusMeters en metros (default 5000). enabled=false por defecto: la query
+// solo dispara cuando la UI lo activa ("buscar en esta zona" / toggle de capa).
+export const useNearbyVets = (lat: number, lng: number, radiusMeters = 5000, enabled = false) => {
+  return useQuery<Vet[]>({
+    queryKey: ['vets', 'nearby', lat, lng, radiusMeters],
+    queryFn: () => apiClient.getNearbyVets({ lat, lng, radius: radiusMeters }),
+    enabled: enabled && !!lat && !!lng,
+    staleTime: 30 * 60 * 1000, // 30 min — los vets casi no cambian
+  });
 };
 
 export const useReportsByPetID = (petID: string) => {

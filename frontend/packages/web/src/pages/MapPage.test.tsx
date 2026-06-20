@@ -18,6 +18,7 @@ const mockUseNearbyReports = vi.fn(() => ({ data: [], isLoading: false }));
 vi.mock('@shared/hooks', () => ({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   useNearbyReports: (...args: any[]) => (mockUseNearbyReports as any)(...args),
+  useNearbyVets: () => ({ data: [], isLoading: false }),
 }));
 
 // leaflet uses DOM APIs not available in jsdom
