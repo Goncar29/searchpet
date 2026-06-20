@@ -81,6 +81,7 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 	photoRepo := repository.NewPhotoRepository(db)
 
 	shelterRepo := repository.NewShelterRepository(db)
+	vetRepo := repository.NewVetRepository(db)
 	blockedUserRepo := repository.NewBlockedUserRepository(db)
 	messageRepo := repository.NewMessageRepository(db)
 	shareLinkRepo := repository.NewShareLinkRepository(db)
@@ -98,6 +99,7 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 	messageService := service.NewMessageService(messageRepo, blockedUserRepo, bus)
 	shareLinkService := service.NewShareLinkService(shareLinkRepo, petRepo, bus)
 	shelterService := service.NewShelterService(shelterRepo)
+	vetService := service.NewVetService(vetRepo)
 	blockService := service.NewBlockService(blockedUserRepo)
 	storyService := service.NewSuccessStoryService(repository.NewSuccessStoryRepository(db), petRepo)
 	groupRepo := repository.NewLocalGroupRepository(db)
@@ -176,6 +178,7 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 	messageHandler := handler.NewMessageHandler(messageService, cloudinaryClient)
 	shareHandler := handler.NewShareHandler(shareLinkService, cfg.AppURL)
 	shelterHandler := handler.NewShelterHandler(shelterService)
+	vetHandler := handler.NewVetHandler(vetService)
 	deviceHandler := handler.NewDeviceHandler(deviceTokenRepo)
 	locationAlertHandler := handler.NewLocationAlertHandler(locationAlertService)
 	blockHandler := handler.NewBlockHandler(blockService)
@@ -231,6 +234,8 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 
 		public.GET("/shelters", shelterHandler.GetAll)
 		public.GET("/shelters/:id", shelterHandler.GetByID)
+
+		public.GET("/vets/nearby", vetHandler.GetNearby)
 
 		public.GET("/users/:id/profile", gamHandler.GetPublicProfile)
 		public.GET("/leaderboard", gamHandler.GetLeaderboard)

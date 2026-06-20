@@ -210,6 +210,12 @@ type PetEmbeddingRepository interface {
 	DeleteByPetID(ctx context.Context, petID uuid.UUID) error
 }
 
+// VetRepository persiste y consulta veterinarias importadas de OSM.
+type VetRepository interface {
+	Upsert(ctx context.Context, vet *domain.Vet) error
+	FindNearby(ctx context.Context, lat, lng, radiusMeters float64, limit int) ([]domain.VetNearbyResult, error)
+}
+
 // LocationAlertRepository define el contrato para alertas de ubicación.
 // Style A: context.Context + uuid.UUID.
 type LocationAlertRepository interface {
