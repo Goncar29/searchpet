@@ -49,6 +49,7 @@ var allModels = []interface{}{
 	&domain.DeviceToken{},
 	&domain.VerificationToken{},
 	&domain.UserReview{},
+	&domain.Vet{},
 }
 
 // allTableNames lists table names matching allModels for truncation.
