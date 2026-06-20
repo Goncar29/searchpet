@@ -82,3 +82,35 @@ func TestVetHandler_GetNearby_MissingParams(t *testing.T) {
 		t.Fatalf("expected 400 for missing lat/lng, got %d", w.Code)
 	}
 }
+
+func TestVetHandler_GetNearby_NonNumericRadius(t *testing.T) {
+	svc := &stubVetService{}
+	r := setupVetRouter(svc)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/vets/nearby?lat=-34.9&lng=-56.1&radius=abc", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for non-numeric radius, got %d", w.Code)
+	}
+	if svc.called {
+		t.Error("service should not be called on non-numeric radius")
+	}
+}
+
+func TestVetHandler_GetNearby_NonPositiveRadius(t *testing.T) {
+	svc := &stubVetService{}
+	r := setupVetRouter(svc)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/vets/nearby?lat=-34.9&lng=-56.1&radius=-5", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("expected 422 for non-positive radius, got %d", w.Code)
+	}
+	if svc.called {
+		t.Error("service should not be called on non-positive radius")
+	}
+}

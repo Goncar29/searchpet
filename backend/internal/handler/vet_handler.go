@@ -32,9 +32,16 @@ func (h *VetHandler) GetNearby(c *gin.Context) {
 
 	radius := 0
 	if rs := c.Query("radius"); rs != "" {
-		if r, err := strconv.Atoi(rs); err == nil {
-			radius = r
+		r, err := strconv.Atoi(rs)
+		if err != nil {
+			writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
+			return
 		}
+		if r <= 0 {
+			writeError(c, http.StatusUnprocessableEntity, domain.ErrInvalidSearchRadius)
+			return
+		}
+		radius = r
 	}
 
 	vets, err := h.vetService.FindNearby(c.Request.Context(), lat, lng, radius)
