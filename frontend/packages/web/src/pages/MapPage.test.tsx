@@ -1,4 +1,5 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { act } from 'react';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
@@ -66,6 +67,10 @@ function wrapper({ children }: { children: React.ReactNode }) {
 }
 
 describe('MapPage', () => {
+  beforeEach(() => {
+    capturedMoveend = undefined;
+  });
+
   it('renderiza sin lanzar errores', () => {
     render(<MapPage />, { wrapper });
     expect(document.body).toBeTruthy();
@@ -98,8 +103,7 @@ describe('MapPage', () => {
     expect(lastCall[2]).toBe(10);
   });
 
-  it('shows the "search this area" button after panning beyond the threshold', async () => {
-    const { act } = await import('react');
+  it('shows the "search this area" button after panning beyond the threshold', () => {
     fakeMap.getCenter.mockReturnValue({ lat: -34.9011, lng: -56.1645 });
     render(<MapPage />, { wrapper });
 
@@ -119,7 +123,6 @@ describe('MapPage', () => {
     render(<MapPage />, { wrapper });
 
     fakeMap.getCenter.mockReturnValue({ lat: -34.8511, lng: -56.1645 });
-    const { act } = await import('react');
     act(() => { capturedMoveend?.(); });
 
     await userEvent.click(screen.getByText('map:searchHere'));
