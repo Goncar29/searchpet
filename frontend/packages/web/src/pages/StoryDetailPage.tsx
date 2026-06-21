@@ -76,7 +76,7 @@ export function StoryDetailPage() {
       <article className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 md:p-8">
         {/* Featured badge */}
         {story.featured && (
-          <span className="inline-block text-xs font-bold text-white bg-yellow-500 px-2 py-0.5 rounded-full mb-4">
+          <span className="inline-block text-xs font-bold text-yellow-950 bg-yellow-400 px-2 py-0.5 rounded-full mb-4">
             Destacada
           </span>
         )}

@@ -1,6 +1,7 @@
 import { Link } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import type { Report } from '@shared/types';
+import { statusBadgeBg } from '../utils/statusBadge';
 
 interface PetCardWebProps {
   report: Report;
@@ -13,11 +14,12 @@ export function PetCardWeb({ report }: PetCardWebProps) {
   const primaryPhoto = pet?.photos?.find(p => p.is_primary) || pet?.photos?.[0];
 
   const getStatusConfig = (status: string) => {
+    const bg = statusBadgeBg(status);
     switch (status) {
-      case 'lost': return { label: t('pets:card.lost').toUpperCase(), bg: 'bg-red-500' };
-      case 'found': return { label: t('pets:card.found').toUpperCase(), bg: 'bg-green-500' };
-      case 'sighting': return { label: t('pets:card.sighting').toUpperCase(), bg: 'bg-yellow-500' };
-      default: return { label: status.toUpperCase(), bg: 'bg-gray-500' };
+      case 'lost': return { label: t('pets:card.lost').toUpperCase(), bg };
+      case 'found': return { label: t('pets:card.found').toUpperCase(), bg };
+      case 'sighting': return { label: t('pets:card.sighting').toUpperCase(), bg };
+      default: return { label: status.toUpperCase(), bg };
     }
   };
 

@@ -4,6 +4,7 @@ import { shouldShowSearchHere } from '@shared/utils/searchArea';
 import { Link } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import L from 'leaflet';
+import { statusBadgeBg } from '../utils/statusBadge';
 import { useNearbyReports, useNearbyVets } from '@shared/hooks';
 import type { Report, Vet } from '@shared/types';
 import { useTheme } from '../context/ThemeContext';
@@ -183,10 +184,7 @@ export function MapPage() {
                   <Popup>
                     <div className="min-w-48">
                       <h3 className="font-bold text-base">{report.pet?.name || t('map:pet')}</h3>
-                      <span className={`inline-block text-xs font-bold text-white px-2 py-0.5 rounded mt-1 ${
-                        report.status === 'lost' ? 'bg-red-500' :
-                        report.status === 'found' ? 'bg-green-500' : 'bg-yellow-500'
-                      }`}>
+                      <span className={`inline-block text-xs font-bold text-white px-2 py-0.5 rounded mt-1 ${statusBadgeBg(report.status)}`}>
                         {getStatusLabel(report.status)}
                       </span>
                       {report.location_description && (

@@ -61,6 +61,8 @@
       "status": "Filtrar por estado",
       "dateFrom": "Data de",
       "dateTo": "Data até",
+      "color": "Filtrar por cor",
+      "breed": "Filtrar por raça",
       "distance": "Filtrar por distância"
     },
     "searchButton": "Buscar",
