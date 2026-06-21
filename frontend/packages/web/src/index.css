@@ -4,8 +4,10 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  --color-primary: #FF6B35;
-  --color-primary-dark: #E5551F;
+  /* primary tuned for WCAG AA: white text on --color-primary = 4.77:1,
+     on --color-primary-dark (hover) = 6.41:1. Both clear the 4.5:1 threshold. */
+  --color-primary: #C24E1A;
+  --color-primary-dark: #A33F12;
   --color-primary-light: #FF8F66;
   --color-secondary: #004E89;
   --color-secondary-light: #1A6BAF;

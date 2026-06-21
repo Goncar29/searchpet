@@ -56,6 +56,13 @@
       "upToKm": "Hasta {{km}} km",
       "locating": "Ubicando..."
     },
+    "filters": {
+      "type": "Filtrar por tipo de mascota",
+      "status": "Filtrar por estado",
+      "dateFrom": "Fecha desde",
+      "dateTo": "Fecha hasta",
+      "distance": "Filtrar por distancia"
+    },
     "searchButton": "Buscar",
     "searchActive": "Búsqueda activa",
     "recentReports": "Reportes recientes",

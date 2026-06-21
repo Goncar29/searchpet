@@ -56,6 +56,13 @@
       "upToKm": "Até {{km}} km",
       "locating": "Localizando..."
     },
+    "filters": {
+      "type": "Filtrar por tipo de animal",
+      "status": "Filtrar por estado",
+      "dateFrom": "Data de",
+      "dateTo": "Data até",
+      "distance": "Filtrar por distância"
+    },
     "searchButton": "Buscar",
     "searchActive": "Busca ativa",
     "recentReports": "Reportes recentes",

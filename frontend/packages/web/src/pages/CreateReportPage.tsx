@@ -129,6 +129,7 @@ export function CreateReportPage() {
               /* Flujo directo: el usuario elige entre SUS mascotas */
               <select
                 value={petId}
+                aria-label={t('reports:create.selectPet')}
                 onChange={(e) => {
                   setPetId(e.target.value);
                   if (fieldErrors.petId) setFieldErrors((prev) => ({ ...prev, petId: undefined }));
