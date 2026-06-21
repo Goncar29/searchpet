@@ -684,7 +684,6 @@ export function HomePage() {
                         pet.status === 'lost' ? 'bg-red-600' :
                         pet.status === 'stray' ? 'bg-amber-700' :
                         pet.status === 'found' ? 'bg-green-700' :
-                        pet.status === 'archived' ? 'bg-gray-600' :
                         'bg-gray-600'
                       }`}>
                         {t(`pets:status.${pet.status}`).toUpperCase()}
