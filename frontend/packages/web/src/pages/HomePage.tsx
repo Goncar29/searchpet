@@ -237,7 +237,10 @@ export function HomePage() {
     const file = e.target.files?.[0];
     if (!file) return;
     setPhotoNoMatch(false);
-    setImageSearchError(null);
+    // Clear any previous photo-search results too: otherwise a later failure
+    // (e.g. 503) leaves stale cards from the prior photo on screen, which the
+    // user would read as matches for the new one.
+    clearImageResults();
 
     if (isAuthenticated) {
       try {
