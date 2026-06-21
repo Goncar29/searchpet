@@ -41,6 +41,12 @@ type Config struct {
 	// (service.DefaultJinaEndpoint). Empty means "use the default" — set this
 	// only if Jina migrates its API, so it's a config change instead of a deploy.
 	JinaEndpoint string
+
+	// ReindexToken gates the one-off admin embeddings backfill endpoint
+	// (POST /api/admin/reindex-embeddings). Empty (the default) DISABLES the
+	// endpoint entirely — it returns 404 and exposes no surface. Set it
+	// temporarily to run the backfill, then unset it again.
+	ReindexToken string
 }
 
 func Load() *Config {
@@ -75,6 +81,9 @@ func Load() *Config {
 		// V1.2 — Image Search (Jina CLIP)
 		JinaAPIKey:   getEnv("JINA_API_KEY", ""),
 		JinaEndpoint: getEnv("JINA_ENDPOINT", ""),
+
+		// One-off admin embeddings backfill (disabled unless set)
+		ReindexToken: getEnv("REINDEX_TOKEN", ""),
 	}
 
 	// Fail-fast: JWT_SECRET is required in all environments.

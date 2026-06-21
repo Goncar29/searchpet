@@ -187,6 +187,7 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 	abuseReportHandler := handler.NewAbuseReportHandler(abuseReportService)
 	verificationHandler := handler.NewVerificationHandler(verificationService, cfg.EnableEmailVerification)
 	gamHandler := handler.NewGamificationHandler(gamSvc)
+	reindexHandler := handler.NewReindexHandler(embeddingService, cfg.ReindexToken)
 
 	// ========================================
 	// ROUTER
@@ -209,6 +210,14 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 	// WEBSOCKET
 	// ----------------------------------------
 	router.GET("/api/ws", wsHandler.Connect)
+
+	// ----------------------------------------
+	// ONE-OFF MAINTENANCE — embeddings backfill
+	// Token-gated (X-Reindex-Token); returns 404 unless REINDEX_TOKEN is set.
+	// Run once after the Jina migration to index pre-existing lost/stray pets,
+	// then unset REINDEX_TOKEN to disable it again.
+	// ----------------------------------------
+	router.POST("/api/admin/reindex-embeddings", reindexHandler.BackfillEmbeddings)
 
 	// ----------------------------------------
 	// RUTAS PÚBLICAS
