@@ -138,10 +138,11 @@ export function AlertsPage() {
 
           {/* Name */}
           <div className="mb-3">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label htmlFor="alert-name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Nombre (opcional)
             </label>
             <input
+              id="alert-name"
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -163,6 +164,7 @@ export function AlertsPage() {
                 value={formLat ?? ''}
                 onChange={(e) => setFormLat(e.target.value ? Number(e.target.value) : null)}
                 placeholder="Latitud"
+                aria-label="Latitud"
                 className={INPUT_CLASS}
               />
               <input
@@ -171,6 +173,7 @@ export function AlertsPage() {
                 value={formLng ?? ''}
                 onChange={(e) => setFormLng(e.target.value ? Number(e.target.value) : null)}
                 placeholder="Longitud"
+                aria-label="Longitud"
                 className={INPUT_CLASS}
               />
               <button
@@ -189,14 +192,16 @@ export function AlertsPage() {
 
           {/* Radius chips */}
           <div className="mb-3 mt-3">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label id="alert-radius-label" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Radio
             </label>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2" role="radiogroup" aria-labelledby="alert-radius-label">
               {RADIUS_OPTIONS.map((r) => (
                 <button
                   key={r}
                   type="button"
+                  role="radio"
+                  aria-checked={radiusKm === r}
                   onClick={() => setRadiusKm(r)}
                   className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${
                     radiusKm === r
@@ -212,10 +217,11 @@ export function AlertsPage() {
 
           {/* Pet type */}
           <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label htmlFor="alert-pet-type" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Tipo de mascota
             </label>
             <select
+              id="alert-pet-type"
               value={petType}
               onChange={(e) => setPetType(e.target.value)}
               className={INPUT_CLASS}

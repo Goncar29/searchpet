@@ -6,6 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"lost-pets/internal/domain"
 	"nhooyr.io/websocket"
 )
 
@@ -27,7 +28,10 @@ func NewHandler(hub *Hub, store *TicketStore) *Handler {
 func (h *Handler) IssueTicket(c *gin.Context) {
 	userID := getUserUUID(c)
 	if userID == uuid.Nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"code":    domain.CodeFor(domain.ErrUnauthorized),
+			"message": domain.ErrUnauthorized.Error(),
+		})
 		return
 	}
 
@@ -43,13 +47,19 @@ func (h *Handler) IssueTicket(c *gin.Context) {
 func (h *Handler) Connect(c *gin.Context) {
 	ticketID := c.Query("ticket")
 	if ticketID == "" {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "ticket required"})
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"code":    domain.CodeFor(domain.ErrTicketRequired),
+			"message": domain.ErrTicketRequired.Error(),
+		})
 		return
 	}
 
 	userID, ok := h.store.Consume(ticketID)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid or expired ticket"})
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"code":    domain.CodeFor(domain.ErrTicketInvalid),
+			"message": domain.ErrTicketInvalid.Error(),
+		})
 		return
 	}
 

@@ -56,6 +56,15 @@
       "upToKm": "Up to {{km}} km",
       "locating": "Locating..."
     },
+    "filters": {
+      "type": "Filter by pet type",
+      "status": "Filter by status",
+      "dateFrom": "Date from",
+      "dateTo": "Date to",
+      "color": "Filter by color",
+      "breed": "Filter by breed",
+      "distance": "Filter by distance"
+    },
     "searchButton": "Search",
     "searchActive": "Active search",
     "recentReports": "Recent reports",
@@ -119,7 +128,8 @@
     "viewDetails": "View details",
     "pet": "Pet",
     "radius": "Radius",
-    "radiusKm": "{{km}} km"
+    "radiusKm": "{{km}} km",
+    "searchHere": "Search this area"
   },
   "profile": {
     "title": "My profile",
@@ -167,5 +177,14 @@
     "seoTitleLost": "{{name}} — Lost Pet | SearchPet",
     "seoTitleFound": "{{name}} — Found | SearchPet",
     "seoDescriptionFallback": "Help us find {{name}}"
+  },
+  "vets": {
+    "toggle": "Veterinaries",
+    "searchArea": "Search this area",
+    "directions": "Directions",
+    "call": "Call",
+    "empty": "No veterinaries in this area",
+    "defaultName": "Veterinary",
+    "attribution": "Veterinary data © OpenStreetMap contributors"
   }
 }

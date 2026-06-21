@@ -129,6 +129,7 @@ export function CreateReportPage() {
               /* Flujo directo: el usuario elige entre SUS mascotas */
               <select
                 value={petId}
+                aria-label={t('reports:create.selectPet')}
                 onChange={(e) => {
                   setPetId(e.target.value);
                   if (fieldErrors.petId) setFieldErrors((prev) => ({ ...prev, petId: undefined }));
@@ -163,10 +164,10 @@ export function CreateReportPage() {
                   className={`py-2 rounded-lg text-sm font-semibold border transition-colors ${
                     status === s
                       ? s === 'lost'
-                        ? 'bg-red-500 border-red-500 text-white'
+                        ? 'bg-red-600 border-red-600 text-white'
                         : s === 'found'
-                        ? 'bg-green-500 border-green-500 text-white'
-                        : 'bg-yellow-400 border-yellow-400 text-white'
+                        ? 'bg-green-700 border-green-700 text-white'
+                        : 'bg-amber-700 border-amber-700 text-white'
                       : 'border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
                   }`}
                 >

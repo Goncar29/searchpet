@@ -2,6 +2,7 @@ import { Link } from 'react-router';
 import { useState, useRef, useCallback, useEffect, type ChangeEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useStats, useSearchPets, useStories, useImageClassify, useImageSearch } from '@shared/hooks';
+import { statusBadgeBg } from '../utils/statusBadge';
 import type { Pet, PetType, PetStatus, SuccessStory, ClassifyResult, ImageSearchResult } from '@shared/types';
 import { getErrorMessage } from '@shared/utils/apiErrors';
 import { startOfDayISO, endOfDayISO } from '@shared/utils/dateFilters';
@@ -489,6 +490,7 @@ export function HomePage() {
             <select
               value={draftType}
               onChange={(e) => setDraftType(e.target.value as PetType | '')}
+              aria-label={t('home:filters.type')}
               className="border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-primary"
             >
               <option value="">Todos los tipos</option>
@@ -501,6 +503,7 @@ export function HomePage() {
             <input
               type="text"
               placeholder="Color (ej: negro, marrón...)"
+              aria-label={t('home:filters.color')}
               value={draftColor}
               onChange={(e) => setDraftColor(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && !isLocating && handleSearch()}
@@ -511,6 +514,7 @@ export function HomePage() {
             <select
               value={draftStatus}
               onChange={(e) => setDraftStatus(e.target.value as PetStatus | '')}
+              aria-label={t('home:filters.status')}
               className="border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-primary"
             >
               <option value="">Perdidos y callejeros</option>
@@ -523,6 +527,7 @@ export function HomePage() {
             <input
               type="text"
               placeholder="Raza (ej: Labrador...)"
+              aria-label={t('home:filters.breed')}
               value={draftBreed}
               onChange={(e) => setDraftBreed(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && !isLocating && handleSearch()}
@@ -534,6 +539,7 @@ export function HomePage() {
               type="date"
               value={draftFrom}
               onChange={(e) => setDraftFrom(e.target.value)}
+              aria-label={t('home:filters.dateFrom')}
               className="border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-primary"
             />
 
@@ -542,6 +548,7 @@ export function HomePage() {
               type="date"
               value={draftTo}
               onChange={(e) => setDraftTo(e.target.value)}
+              aria-label={t('home:filters.dateTo')}
               className="border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-primary"
             />
 
@@ -551,6 +558,7 @@ export function HomePage() {
                 value={draftRadius}
                 onChange={(e) => setDraftRadius(e.target.value)}
                 disabled={isLocating}
+                aria-label={t('home:filters.distance')}
                 className="border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <option value="">{t('home:distance.any')}</option>
@@ -675,13 +683,7 @@ export function HomePage() {
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-5xl">🐾</div>
                       )}
-                      <span className={`absolute top-3 left-3 text-xs font-bold text-white px-2 py-1 rounded-md ${
-                        pet.status === 'lost' ? 'bg-red-500' :
-                        pet.status === 'stray' ? 'bg-amber-500' :
-                        pet.status === 'found' ? 'bg-green-500' :
-                        pet.status === 'archived' ? 'bg-gray-400' :
-                        'bg-gray-500'
-                      }`}>
+                      <span className={`absolute top-3 left-3 text-xs font-bold text-white px-2 py-1 rounded-md ${statusBadgeBg(pet.status)}`}>
                         {t(`pets:status.${pet.status}`).toUpperCase()}
                       </span>
                     </div>

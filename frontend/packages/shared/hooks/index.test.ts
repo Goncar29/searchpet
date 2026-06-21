@@ -22,6 +22,7 @@ import {
   useNearbyReports,
   useBlockStatus,
   useMarkPetAsFound,
+  useNearbyVets,
 } from './index';
 import type { Pet, SuccessStory, StoryListResponse, Message, Report } from '../types';
 
@@ -567,5 +568,36 @@ describe('useMarkPetAsFound', () => {
 
     const invalidatedKeys = invalidateSpy.mock.calls.map((call) => call[0]?.queryKey);
     expect(invalidatedKeys).toEqual(expect.arrayContaining([['pets'], ['reports']]));
+  });
+});
+
+// ============================================================
+// useNearbyVets — passes radius in meters, gated by enabled.
+// ============================================================
+describe('useNearbyVets', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('calls getNearbyVets with lat/lng/radius and exposes the array', async () => {
+    const mockVet = {
+      id: 'v1', name: 'Puntovet', latitude: -34.9, longitude: -56.1, distance_meters: 120,
+    };
+    const spy = vi.spyOn(apiClient, 'getNearbyVets').mockResolvedValue([mockVet]);
+
+    const { result } = renderHook(() => useNearbyVets(-34.9, -56.1, 5000, true), { wrapper });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(spy).toHaveBeenCalledWith({ lat: -34.9, lng: -56.1, radius: 5000 });
+    expect(result.current.data).toEqual([mockVet]);
+  });
+
+  it('does not fire when disabled', async () => {
+    const spy = vi.spyOn(apiClient, 'getNearbyVets').mockResolvedValue([]);
+
+    renderHook(() => useNearbyVets(-34.9, -56.1, 5000, false), { wrapper });
+
+    await new Promise((r) => setTimeout(r, 50));
+    expect(spy).not.toHaveBeenCalled();
   });
 });

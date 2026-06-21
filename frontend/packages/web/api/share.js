@@ -8,6 +8,14 @@ const STATUS_LABEL = {
   archived: 'ARCHIVADA',
 };
 
+const DEFAULT_OG_IMAGE = 'https://searchpet.vercel.app/og/og-cover.png';
+
+// Share tokens are 32 hex chars (backend: 16 bytes crypto/rand → hex). Anything
+// else is rejected so attacker-controlled input is never reflected into the
+// inline <script>/<meta> below — that would be a reflected XSS on this origin,
+// where the JWT lives in localStorage.
+const TOKEN_RE = /^[a-f0-9]{32}$/;
+
 function esc(str) {
   return String(str ?? '')
     .replace(/&/g, '&amp;')
@@ -16,9 +24,17 @@ function esc(str) {
     .replace(/>/g, '&gt;');
 }
 
+// Cloudinary photos come in their original aspect ratio. The OG card is 1200x630,
+// so we inject a fill transform to crop/resize the photo to that frame (g_auto keeps
+// the subject centered). Non-Cloudinary URLs are returned untouched.
+function toOgCard(url) {
+  if (typeof url !== 'string' || !url.includes('/image/upload/')) return url;
+  return url.replace('/image/upload/', '/image/upload/c_fill,w_1200,h_630,g_auto,f_auto,q_auto/');
+}
+
 function buildHTML(token, pet) {
   const photo = pet.photos?.find((p) => p.is_primary) ?? pet.photos?.[0];
-  const imageUrl = photo?.url ?? 'https://searchpet.vercel.app/icons/icon.png';
+  const imageUrl = photo?.url ? toOgCard(photo.url) : DEFAULT_OG_IMAGE;
   const statusText = STATUS_LABEL[pet.status] ?? pet.status?.toUpperCase() ?? '';
   const title = `${esc(pet.name)} — ${statusText} | SearchPet`;
 
@@ -59,16 +75,29 @@ function buildHTML(token, pet) {
 </html>`;
 }
 
+// token is always a validated hex token or null (invalid → redirect home).
 function fallbackHTML(token) {
-  const spaUrl = `/pet/${token}`;
+  const spaUrl = token ? `/pet/${token}` : '/';
+  const shareUrl = token
+    ? `https://searchpet.vercel.app/share/${token}`
+    : 'https://searchpet.vercel.app/';
   return `<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
   <title>SearchPet - Encuentra mascotas perdidas</title>
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="SearchPet" />
+  <meta property="og:url" content="${shareUrl}" />
   <meta property="og:title" content="SearchPet - Encuentra mascotas perdidas" />
   <meta property="og:description" content="Plataforma gratuita para ayudar a encontrar mascotas perdidas." />
-  <meta property="og:image" content="https://searchpet.vercel.app/icons/icon.png" />
+  <meta property="og:image" content="${DEFAULT_OG_IMAGE}" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="SearchPet - Encuentra mascotas perdidas" />
+  <meta name="twitter:description" content="Plataforma gratuita para ayudar a encontrar mascotas perdidas." />
+  <meta name="twitter:image" content="${DEFAULT_OG_IMAGE}" />
   <meta http-equiv="refresh" content="0; url=${spaUrl}" />
   <script>window.location.replace('${spaUrl}');</script>
 </head>
@@ -77,10 +106,15 @@ function fallbackHTML(token) {
 }
 
 export default async function handler(req, res) {
-  const token = req.query.token;
+  const token = typeof req.query.token === 'string' ? req.query.token : '';
 
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=60');
+
+  // Reject malformed tokens before they reach any HTML/JS context (XSS guard).
+  if (!TOKEN_RE.test(token)) {
+    return res.end(fallbackHTML(null));
+  }
 
   try {
     const upstream = await fetch(`${BACKEND_URL}/api/share/pet/${token}`);

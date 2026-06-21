@@ -2,23 +2,25 @@
 // SearchPet - Map Screen (MapLibre — OpenStreetMap, gratuito)
 // ============================================================
 
-import { useEffect, useState, useRef, Component, type ReactNode } from 'react';
+import { useEffect, useState, useRef, useMemo, Component, type ReactNode } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
+  Linking,
 } from 'react-native';
 import MapLibreGL from '@maplibre/maplibre-react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import i18next from 'i18next';
 import * as Location from 'expo-location';
-import { useNearbyReports } from '../../../shared/hooks';
+import { useNearbyReports, useNearbyVets } from '../../../shared/hooks';
+import { shouldShowSearchHere } from '../../../shared/utils/searchArea';
 import { useLocationStore } from '../../store';
 import { COLORS, SPACING, FONTS, MAP_DEFAULTS } from '../../constants';
-import type { Report } from '../../../shared/types';
+import type { Report, Vet } from '../../../shared/types';
 
 // MapLibre no necesita token de Mapbox
 MapLibreGL.setAccessToken(null);
@@ -85,10 +87,28 @@ export default function MapScreen() {
   const lat = latitude || MAP_DEFAULTS.defaultLatitude;
   const lng = longitude || MAP_DEFAULTS.defaultLongitude;
 
-  const [radius, setRadius] = useState(3);
-  const { data: reports, isLoading } = useNearbyReports(lat, lng, radius, true);
+  // Stable reference so the declarative Camera only re-centers when the GPS
+  // coords actually change — NOT on every render caused by onRegionDidChange,
+  // which would otherwise snap the camera back and fight the user's pan.
+  const cameraCoord = useMemo<[number, number]>(() => [lng, lat], [lng, lat]);
 
-  const circleGeoJSON = createCircleGeoJSON(lng, lat, radius);
+  const [searchCenter, setSearchCenter] = useState<[number, number]>([lat, lng]);
+  const [mapCenter, setMapCenter] = useState<[number, number]>([lat, lng]);
+
+  const [radius, setRadius] = useState(3);
+  const { data: reports, isLoading } = useNearbyReports(searchCenter[0], searchCenter[1], radius, true);
+
+  const [showVets, setShowVets] = useState(false);
+  const [selectedVet, setSelectedVet] = useState<Vet | null>(null);
+  const { data: vets } = useNearbyVets(searchCenter[0], searchCenter[1], 5000, showVets);
+
+  const circleGeoJSON = createCircleGeoJSON(searchCenter[1], searchCenter[0], radius);
+
+  const canSearchHere = shouldShowSearchHere(
+    { lat: mapCenter[0], lng: mapCenter[1] },
+    { lat: searchCenter[0], lng: searchCenter[1] },
+    radius * 1000,
+  );
 
   useEffect(() => {
     requestLocation();
@@ -99,7 +119,10 @@ export default function MapScreen() {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status === 'granted') {
         const location = await Location.getCurrentPositionAsync({});
-        setLocation(location.coords.latitude, location.coords.longitude);
+        const here: [number, number] = [location.coords.latitude, location.coords.longitude];
+        setLocation(here[0], here[1]);
+        setSearchCenter(here);
+        setMapCenter(here);
       }
     } catch {
       // silencioso — el mapa igual carga con la ubicación default
@@ -132,6 +155,9 @@ export default function MapScreen() {
         zoomLevel: 14,
         animationDuration: 300,
       });
+      // Keep mapCenter in sync eagerly instead of waiting for onRegionDidChange,
+      // so a follow-up "search this area" press uses the correct center.
+      setMapCenter([latitude, longitude]);
     }
   };
 
@@ -150,12 +176,16 @@ export default function MapScreen() {
         <MapLibreGL.MapView
           style={styles.map}
           styleURL={MAP_STYLE}
-          onPress={() => setSelectedReport(null)}
+          onPress={() => { setSelectedReport(null); setSelectedVet(null); }}
+          onRegionDidChange={(feature: { geometry: { coordinates: [number, number] } }) => {
+            const [regionLng, regionLat] = feature.geometry.coordinates;
+            setMapCenter([regionLat, regionLng]);
+          }}
         >
           <MapLibreGL.Camera
             ref={cameraRef}
             zoomLevel={12}
-            centerCoordinate={[lng, lat]}
+            centerCoordinate={cameraCoord}
           />
 
           <MapLibreGL.UserLocation visible />
@@ -187,6 +217,17 @@ export default function MapScreen() {
               />
             </MapLibreGL.PointAnnotation>
           ))}
+
+          {showVets && vets?.map((vet) => (
+            <MapLibreGL.PointAnnotation
+              key={`vet-${vet.id}`}
+              id={`vet-${vet.id}`}
+              coordinate={[vet.longitude, vet.latitude]}
+              onSelected={() => { setSelectedVet(vet); setSelectedReport(null); }}
+            >
+              <View style={[styles.marker, { backgroundColor: COLORS.primary }]} />
+            </MapLibreGL.PointAnnotation>
+          ))}
         </MapLibreGL.MapView>
 
         {/* Selector de radio */}
@@ -203,6 +244,27 @@ export default function MapScreen() {
             </TouchableOpacity>
           ))}
         </View>
+
+        <TouchableOpacity
+          style={[styles.vetToggle, showVets && styles.vetToggleActive]}
+          onPress={() => setShowVets((v) => !v)}
+        >
+          <Text style={[styles.vetToggleText, showVets && styles.vetToggleTextActive]}>
+            🏥 {t('vetsToggle')}
+          </Text>
+        </TouchableOpacity>
+
+        {showVets && vets && vets.length === 0 && (
+          <View style={styles.vetEmptyBanner}>
+            <Text style={styles.vetEmptyText}>{t('vetEmpty')}</Text>
+          </View>
+        )}
+
+        {canSearchHere && (
+          <TouchableOpacity style={styles.searchHereButton} onPress={() => setSearchCenter(mapCenter)}>
+            <Text style={styles.searchHereText}>{t('searchHere')}</Text>
+          </TouchableOpacity>
+        )}
 
         {/* Botón centrar en usuario */}
         <TouchableOpacity style={styles.centerButton} onPress={centerOnUser}>
@@ -261,6 +323,28 @@ export default function MapScreen() {
             )}
             <Text style={styles.reportAction}>{t('viewDetails')}</Text>
           </TouchableOpacity>
+        )}
+
+        {selectedVet && (
+          <View style={styles.reportCard}>
+            <Text style={styles.reportName}>{selectedVet.name || t('vetDefaultName')}</Text>
+            {selectedVet.address ? <Text style={styles.reportDesc}>{selectedVet.address}</Text> : null}
+            <View style={{ flexDirection: 'row', gap: SPACING.md }}>
+              <TouchableOpacity
+                onPress={() =>
+                  Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${selectedVet.latitude},${selectedVet.longitude}`)
+                }
+              >
+                <Text style={styles.reportAction}>{t('vetDirections')}</Text>
+              </TouchableOpacity>
+              {selectedVet.phone ? (
+                <TouchableOpacity onPress={() => Linking.openURL(`tel:${selectedVet.phone}`)}>
+                  <Text style={styles.reportAction}>{t('vetCall')}</Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
+            <Text style={{ fontSize: 10, color: COLORS.textSecondary, marginTop: 6 }}>{t('vetAttribution')}</Text>
+          </View>
         )}
       </View>
     </MapErrorBoundary>
@@ -425,5 +509,56 @@ const styles = StyleSheet.create({
   },
   radiusButtonTextActive: {
     color: COLORS.white,
+  },
+  vetToggle: {
+    position: 'absolute',
+    bottom: 290,
+    left: SPACING.lg,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    borderWidth: 1.5,
+    borderColor: COLORS.border || '#e5e7eb',
+  },
+  vetToggleActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
+  vetToggleText: { fontSize: FONTS.sizes.xs, fontWeight: '600', color: COLORS.textSecondary },
+  vetToggleTextActive: { color: COLORS.white },
+  vetEmptyBanner: {
+    position: 'absolute',
+    bottom: 80,
+    left: SPACING.lg,
+    right: SPACING.lg,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+    borderRadius: 20,
+    alignItems: 'center',
+  },
+  vetEmptyText: {
+    color: COLORS.white,
+    fontSize: FONTS.sizes.xs,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  searchHereButton: {
+    position: 'absolute',
+    top: SPACING.lg + 48,
+    alignSelf: 'center',
+    backgroundColor: COLORS.primary,
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.lg,
+    borderRadius: 20,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  searchHereText: {
+    color: COLORS.white,
+    fontSize: FONTS.sizes.sm,
+    fontWeight: '700',
   },
 });

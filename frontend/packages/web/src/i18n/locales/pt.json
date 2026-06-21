@@ -56,6 +56,15 @@
       "upToKm": "Até {{km}} km",
       "locating": "Localizando..."
     },
+    "filters": {
+      "type": "Filtrar por tipo de animal",
+      "status": "Filtrar por estado",
+      "dateFrom": "Data de",
+      "dateTo": "Data até",
+      "color": "Filtrar por cor",
+      "breed": "Filtrar por raça",
+      "distance": "Filtrar por distância"
+    },
     "searchButton": "Buscar",
     "searchActive": "Busca ativa",
     "recentReports": "Reportes recentes",
@@ -119,7 +128,8 @@
     "viewDetails": "Ver detalhes",
     "pet": "Pet",
     "radius": "Raio",
-    "radiusKm": "{{km}} km"
+    "radiusKm": "{{km}} km",
+    "searchHere": "Buscar nesta área"
   },
   "profile": {
     "title": "Meu perfil",
@@ -167,5 +177,14 @@
     "seoTitleLost": "{{name}} — Pet Perdido | SearchPet",
     "seoTitleFound": "{{name}} — Encontrado | SearchPet",
     "seoDescriptionFallback": "Ajude-nos a encontrar {{name}}"
+  },
+  "vets": {
+    "toggle": "Veterinárias",
+    "searchArea": "Buscar nesta área",
+    "directions": "Como chegar",
+    "call": "Ligar",
+    "empty": "Não há veterinárias nesta área",
+    "defaultName": "Veterinária",
+    "attribution": "Dados de veterinárias © colaboradores do OpenStreetMap"
   }
 }

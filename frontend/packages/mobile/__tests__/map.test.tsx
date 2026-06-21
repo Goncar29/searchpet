@@ -1,6 +1,6 @@
 // Map screen tests — createCircleGeoJSON unit tests + MapScreen smoke test
 import React from 'react';
-import { render, screen } from '@testing-library/react-native';
+import { render, screen, fireEvent, act } from '@testing-library/react-native';
 import { createCircleGeoJSON } from '../app/(tabs)/map';
 
 // Mock @maplibre/maplibre-react-native — native module not available in Jest
@@ -57,8 +57,12 @@ jest.mock('../store', () => ({
   },
 }));
 
+// Named with the `mock` prefix so jest's hoisting allows referencing it inside the factory.
+const mockUseNearbyReports = jest.fn(() => ({ data: [], isLoading: false }));
+
 jest.mock('@shared/hooks', () => ({
-  useNearbyReports: () => ({ data: [], isLoading: false }),
+  useNearbyReports: (...args: unknown[]) => mockUseNearbyReports(...args),
+  useNearbyVets: jest.fn(() => ({ data: [], isLoading: false })),
 }));
 
 jest.mock('react-i18next', () => ({
@@ -126,5 +130,48 @@ describe('MapScreen', () => {
     expect(screen.getByText('3km')).toBeTruthy();
     expect(screen.getByText('5km')).toBeTruthy();
     expect(screen.getByText('10km')).toBeTruthy();
+  });
+
+  it('shows the "search this area" button after panning beyond the threshold', () => {
+    render(<MapScreen />);
+    // not panned yet
+    expect(screen.queryByText('searchHere')).toBeNull();
+
+    // MapLibre onRegionDidChange feature: geometry.coordinates = [lng, lat] center
+    // Pan ~5.5 km north of the default (-34.9011): lat -34.8511
+    const mapView = screen.getByTestId('map-view');
+    act(() => {
+      mapView.props.onRegionDidChange({
+        geometry: { coordinates: [-56.1645, -34.8511] },
+      });
+    });
+
+    expect(screen.getByText('searchHere')).toBeTruthy();
+  });
+
+  it('pressing "search this area" re-fetches at the new center', () => {
+    mockUseNearbyReports.mockClear();
+    render(<MapScreen />);
+
+    const mapView = screen.getByTestId('map-view');
+    act(() => {
+      mapView.props.onRegionDidChange({
+        geometry: { coordinates: [-56.1645, -34.8511] },
+      });
+    });
+    fireEvent.press(screen.getByText('searchHere'));
+
+    const calls = mockUseNearbyReports.mock.calls as unknown[][];
+    const lastCall = calls[calls.length - 1];
+    expect(lastCall[0]).toBeCloseTo(-34.8511, 3); // new search lat
+  });
+
+  it('shows the empty-state when vets are enabled but none are nearby', () => {
+    render(<MapScreen />);
+    // vets are off by default — no empty message yet
+    expect(screen.queryByText('vetEmpty')).toBeNull();
+    // enable the vets layer (useNearbyVets mock returns an empty list)
+    fireEvent.press(screen.getByText('🏥 vetsToggle'));
+    expect(screen.getByText('vetEmpty')).toBeTruthy();
   });
 });

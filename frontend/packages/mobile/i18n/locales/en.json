@@ -55,7 +55,14 @@
     "legendSighting": "Sighted",
     "counter": "{{count}} reports in the area",
     "defaultPetName": "Pet",
-    "viewDetails": "Tap to see details →"
+    "viewDetails": "Tap to see details →",
+    "vetsToggle": "Veterinaries",
+    "vetDirections": "Directions",
+    "vetCall": "Call",
+    "vetEmpty": "No veterinaries in this area",
+    "vetDefaultName": "Veterinary",
+    "vetAttribution": "© OpenStreetMap contributors",
+    "searchHere": "Search this area"
   },
   "post": {
     "title": "Register pet",
