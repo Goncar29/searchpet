@@ -79,6 +79,10 @@ var (
 	ErrAlreadyReviewed = errors.New("you have already reviewed this user")
 	ErrSelfReview      = errors.New("you cannot review yourself")
 
+	// WebSocket
+	ErrTicketRequired = errors.New("ticket requerido")
+	ErrTicketInvalid  = errors.New("ticket inválido o expirado")
+
 	// General
 	ErrUnauthorized      = errors.New("no autorizado")
 	ErrForbidden         = errors.New("acceso prohibido")
@@ -175,6 +179,10 @@ var ErrorCodes = map[error]string{
 	ErrReviewNotFound:  "review_not_found",
 	ErrAlreadyReviewed: "already_reviewed",
 	ErrSelfReview:      "self_review",
+
+	// WebSocket
+	ErrTicketRequired: "ticket_required",
+	ErrTicketInvalid:  "ticket_invalid",
 
 	// General
 	ErrUnauthorized:      "unauthorized",

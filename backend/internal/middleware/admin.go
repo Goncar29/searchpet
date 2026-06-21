@@ -16,19 +16,28 @@ func RequireAdmin(userRepo repository.UserRepository) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		val, exists := c.Get("userID")
 		if !exists {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "no autorizado"})
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+				"code":    domain.CodeFor(domain.ErrUnauthorized),
+				"message": domain.ErrUnauthorized.Error(),
+			})
 			return
 		}
 
 		userUUID, ok := val.(uuid.UUID)
 		if !ok {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "no autorizado"})
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+				"code":    domain.CodeFor(domain.ErrUnauthorized),
+				"message": domain.ErrUnauthorized.Error(),
+			})
 			return
 		}
 
 		user, err := userRepo.GetByID(c.Request.Context(), userUUID)
 		if err != nil || !user.IsAdmin {
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": domain.ErrNotAdmin.Error()})
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
+				"code":    domain.CodeFor(domain.ErrNotAdmin),
+				"message": domain.ErrNotAdmin.Error(),
+			})
 			return
 		}
 

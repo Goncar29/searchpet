@@ -60,13 +60,11 @@ export function listenForegroundMessages(): (() => void) | undefined {
 export async function registerWebPushToken(): Promise<void> {
   // Verificar soporte básico del browser
   if (!('Notification' in window) || !('serviceWorker' in navigator)) {
-    console.log('[Notifications] Browser no soporta notificaciones push');
     return;
   }
 
   const messaging = getFirebaseMessaging();
   if (!messaging) {
-    console.log('[Notifications] Firebase no configurado — push notifications desactivadas');
     return;
   }
 
@@ -79,7 +77,6 @@ export async function registerWebPushToken(): Promise<void> {
     // Pedir permiso al usuario
     const permission = await Notification.requestPermission();
     if (permission !== 'granted') {
-      console.log('[Notifications] Permiso denegado');
       return;
     }
 
@@ -101,7 +98,6 @@ export async function registerWebPushToken(): Promise<void> {
     }
 
     await apiClient.registerDeviceToken(token, 'web');
-    console.log('[Notifications] Token FCM web registrado correctamente');
   } catch (error) {
     // No propagamos el error — las notificaciones son secundarias
     console.warn('[Notifications] Error al registrar token web:', error);
