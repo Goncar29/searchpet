@@ -57,7 +57,7 @@ export function StoriesPage() {
               className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 hover:shadow-md transition-shadow flex flex-col"
             >
               {story.featured && (
-                <span className="self-start text-xs font-bold text-white bg-yellow-500 px-2 py-0.5 rounded-full mb-3">
+                <span className="self-start text-xs font-bold text-yellow-950 bg-yellow-400 px-2 py-0.5 rounded-full mb-3">
                   Destacada
                 </span>
               )}

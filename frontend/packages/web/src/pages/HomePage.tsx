@@ -2,6 +2,7 @@ import { Link } from 'react-router';
 import { useState, useRef, useCallback, useEffect, type ChangeEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useStats, useSearchPets, useStories, useImageClassify, useImageSearch } from '@shared/hooks';
+import { statusBadgeBg } from '../utils/statusBadge';
 import type { Pet, PetType, PetStatus, SuccessStory, ClassifyResult, ImageSearchResult } from '@shared/types';
 import { getErrorMessage } from '@shared/utils/apiErrors';
 import { startOfDayISO, endOfDayISO } from '@shared/utils/dateFilters';
@@ -502,6 +503,7 @@ export function HomePage() {
             <input
               type="text"
               placeholder="Color (ej: negro, marrón...)"
+              aria-label={t('home:filters.color')}
               value={draftColor}
               onChange={(e) => setDraftColor(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && !isLocating && handleSearch()}
@@ -525,6 +527,7 @@ export function HomePage() {
             <input
               type="text"
               placeholder="Raza (ej: Labrador...)"
+              aria-label={t('home:filters.breed')}
               value={draftBreed}
               onChange={(e) => setDraftBreed(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && !isLocating && handleSearch()}
@@ -680,12 +683,7 @@ export function HomePage() {
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-5xl">🐾</div>
                       )}
-                      <span className={`absolute top-3 left-3 text-xs font-bold text-white px-2 py-1 rounded-md ${
-                        pet.status === 'lost' ? 'bg-red-600' :
-                        pet.status === 'stray' ? 'bg-amber-700' :
-                        pet.status === 'found' ? 'bg-green-700' :
-                        'bg-gray-600'
-                      }`}>
+                      <span className={`absolute top-3 left-3 text-xs font-bold text-white px-2 py-1 rounded-md ${statusBadgeBg(pet.status)}`}>
                         {t(`pets:status.${pet.status}`).toUpperCase()}
                       </span>
                     </div>

@@ -2,6 +2,7 @@ import { useParams, Link } from 'react-router';
 import { Helmet } from 'react-helmet-async';
 import { useTranslation } from 'react-i18next';
 import { useSharedPet } from '@shared/hooks';
+import { statusBadgeBg } from '../utils/statusBadge';
 import { buildWhatsAppContactURL } from '@shared/utils/whatsappTemplates';
 
 export function SharedPetPage() {
@@ -33,7 +34,7 @@ export function SharedPetPage() {
   const owner = data.owner;
   const primaryPhoto = pet.photos?.find((p) => p.is_primary) || pet.photos?.[0];
   const statusLabel = pet.status === 'found' ? t('pets:card.found') : t('pets:card.lost');
-  const statusBg = pet.status === 'found' ? 'bg-green-500' : 'bg-red-500';
+  const statusBg = statusBadgeBg(pet.status);
 
   // SEO
   const pageTitle = pet.status === 'found'

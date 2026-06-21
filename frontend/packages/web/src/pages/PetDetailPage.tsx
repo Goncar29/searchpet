@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Helmet } from 'react-helmet-async';
 import { usePetByID, useReportsByPetID, useMarkPetAsFound, useSubmitAbuseReport } from '@shared/hooks';
+import { statusBadgeBg } from '../utils/statusBadge';
 import type { Photo, Report, AbuseReason } from '@shared/types';
 import { buildWhatsAppContactURL } from '@shared/utils/whatsappTemplates';
 import { useAuth } from '../context/AuthContext';
@@ -103,12 +104,7 @@ export function PetDetailPage() {
   const galleryControlsBottom = pet.status === 'found' ? 'bottom-12' : 'bottom-3';
 
   const statusBadge = {
-    color:
-      pet.status === 'lost' ? 'bg-red-500' :
-      pet.status === 'stray' ? 'bg-amber-500' :
-      pet.status === 'found' ? 'bg-green-500' :
-      pet.status === 'archived' ? 'bg-gray-400' :
-      'bg-gray-500',
+    color: statusBadgeBg(pet.status),
     label: t(`pets:status.${pet.status}`).toUpperCase(),
   };
 
@@ -200,7 +196,7 @@ export function PetDetailPage() {
             </span>
             {/* Banner de encontrada sobre la imagen */}
             {pet.status === 'found' && (
-              <div className="absolute bottom-0 left-0 right-0 bg-green-500/90 text-white text-center py-2 font-bold text-sm">
+              <div className="absolute bottom-0 left-0 right-0 bg-green-700/95 text-white text-center py-2 font-bold text-sm">
                 ¡Esta mascota fue encontrada!
               </div>
             )}

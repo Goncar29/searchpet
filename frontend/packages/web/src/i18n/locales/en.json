@@ -61,6 +61,8 @@
       "status": "Filter by status",
       "dateFrom": "Date from",
       "dateTo": "Date to",
+      "color": "Filter by color",
+      "breed": "Filter by breed",
       "distance": "Filter by distance"
     },
     "searchButton": "Search",
