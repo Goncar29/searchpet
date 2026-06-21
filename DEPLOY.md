@@ -17,7 +17,12 @@ PORT=8080
 ENVIRONMENT=production
 DATABASE_URL=<se genera automáticamente con PostgreSQL de Render>
 JWT_SECRET=<generar un secret fuerte>
-APP_URL=https://searchpet.onrender.com
+# APP_URL debe ser el dominio del FRONTEND (Vercel), NO el del backend.
+# Los share links se arman como APP_URL/share/:token y ese path lo sirve la
+# función serverless de Vercel (api/share.js), que emite los OG tags (preview
+# con foto de la mascota). Si apunta a onrender.com, el crawler recibe un 404
+# sin OG tags y el preview sale vacío.
+APP_URL=https://searchpet.vercel.app
 CLOUDINARY_CLOUD_NAME=<tu cloud name>
 CLOUDINARY_API_KEY=<tu api key>
 CLOUDINARY_API_SECRET=<tu api secret>
