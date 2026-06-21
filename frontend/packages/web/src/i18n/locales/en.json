@@ -45,7 +45,8 @@
     "photoSearch": {
       "resultsTitle": "Results by photo",
       "noResults": "No similar pets found",
-      "clear": "Clear photo search"
+      "clear": "Clear photo search",
+      "unavailable": "Photo search is busy right now. Please try again in a few seconds."
     },
     "distanceCenter": {
       "gps": "Near your location",
