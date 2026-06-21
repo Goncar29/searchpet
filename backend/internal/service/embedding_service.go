@@ -6,6 +6,9 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"image"
+	"image/jpeg"
+	_ "image/png" // register PNG decoder for image.Decode
 	"io"
 	"net/http"
 	"time"
@@ -13,6 +16,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/pgvector/pgvector-go"
 	"go.uber.org/zap"
+	xdraw "golang.org/x/image/draw"
 	"lost-pets/internal/domain"
 	"lost-pets/internal/event"
 	"lost-pets/internal/repository"
@@ -301,10 +305,52 @@ func (s *EmbeddingService) HandlePetFound(ev event.PetFoundEvent) {
 // Los callers async (handlers de eventos) suprimen el error. El caller sync (SearchSimilar)
 // debe surfacearlo como HTTP 503.
 func (s *EmbeddingService) GenerateEmbedding(ctx context.Context, imageBytes []byte) ([]float32, error) {
-	mime := http.DetectContentType(imageBytes)
-	encoded := base64.StdEncoding.EncodeToString(imageBytes)
+	data, mime := downscaleForEmbedding(imageBytes)
+	encoded := base64.StdEncoding.EncodeToString(data)
 	dataURI := fmt.Sprintf("data:%s;base64,%s", mime, encoded)
 	return s.callEmbedding(ctx, dataURI)
+}
+
+// maxEmbeddingImageDim caps the longest side of an image before it is sent to
+// Jina. CLIP runs at low resolution (jina-clip-v2's native size), so a full
+// multi-megapixel phone photo wastes an enormous number of image tokens — enough
+// that two searches within a minute trip Jina's free-tier per-minute token cap
+// (429 RATE_TOKEN_LIMIT_EXCEEDED). Capping the longest side keeps each request
+// cheap without hurting match quality.
+const maxEmbeddingImageDim = 512
+
+// downscaleForEmbedding decodes the image and, when its longest side exceeds
+// maxEmbeddingImageDim, scales it down (preserving aspect ratio) and re-encodes
+// it as JPEG. It returns the bytes to send and their MIME type. On any decode or
+// encode failure it falls back to the original bytes so resizing never becomes a
+// new failure mode.
+func downscaleForEmbedding(imageBytes []byte) (data []byte, mime string) {
+	src, _, err := image.Decode(bytes.NewReader(imageBytes))
+	if err != nil {
+		return imageBytes, http.DetectContentType(imageBytes)
+	}
+
+	b := src.Bounds()
+	w, h := b.Dx(), b.Dy()
+	longest := w
+	if h > longest {
+		longest = h
+	}
+	if longest <= maxEmbeddingImageDim {
+		return imageBytes, http.DetectContentType(imageBytes)
+	}
+
+	// Integer math keeps the scaled dimensions exact and aspect-preserving.
+	nw := w * maxEmbeddingImageDim / longest
+	nh := h * maxEmbeddingImageDim / longest
+	dst := image.NewRGBA(image.Rect(0, 0, nw, nh))
+	xdraw.CatmullRom.Scale(dst, dst.Bounds(), src, b, xdraw.Over, nil)
+
+	var buf bytes.Buffer
+	if err := jpeg.Encode(&buf, dst, &jpeg.Options{Quality: 85}); err != nil {
+		return imageBytes, http.DetectContentType(imageBytes)
+	}
+	return buf.Bytes(), "image/jpeg"
 }
 
 // GenerateEmbeddingFromURL genera un vector CLIP desde una URL pública (ej: Cloudinary).
