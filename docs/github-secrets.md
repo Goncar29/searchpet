@@ -4,7 +4,7 @@ Configurar en: **GitHub repo → Settings → Secrets and variables → Actions 
 
 | Secret | Descripción |
 |--------|-------------|
-| `API_URL` | URL del backend en Railway (ej: `https://searchpet.railway.app`) |
+| `API_URL` | URL del backend en Render (ej: `https://searchpet.onrender.com`) |
 | `ANDROID_KEYSTORE_BASE64` | Keystore en base64 (ver paso de generación abajo) |
 | `ANDROID_KEYSTORE_PASSWORD` | Contraseña del keystore |
 | `ANDROID_KEY_ALIAS` | Alias de la signing key |

@@ -212,10 +212,11 @@ export function AlertsPage() {
 
           {/* Pet type */}
           <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label htmlFor="alert-pet-type" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Tipo de mascota
             </label>
             <select
+              id="alert-pet-type"
               value={petType}
               onChange={(e) => setPetType(e.target.value)}
               className={INPUT_CLASS}

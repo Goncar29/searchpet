@@ -56,6 +56,13 @@
       "upToKm": "Up to {{km}} km",
       "locating": "Locating..."
     },
+    "filters": {
+      "type": "Filter by pet type",
+      "status": "Filter by status",
+      "dateFrom": "Date from",
+      "dateTo": "Date to",
+      "distance": "Filter by distance"
+    },
     "searchButton": "Search",
     "searchActive": "Active search",
     "recentReports": "Recent reports",

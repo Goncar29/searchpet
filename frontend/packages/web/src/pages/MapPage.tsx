@@ -63,7 +63,9 @@ export function MapPage() {
         setSearchCenter(here);
         setMapCenter(here);
       },
-      () => console.log('Location denied, using default')
+      () => {
+        /* keep the default center when geolocation is denied */
+      }
     );
   }, []);
 
