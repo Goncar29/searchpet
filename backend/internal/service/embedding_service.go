@@ -17,6 +17,7 @@ import (
 	"github.com/pgvector/pgvector-go"
 	"go.uber.org/zap"
 	xdraw "golang.org/x/image/draw"
+	_ "golang.org/x/image/webp" // register WebP decoder (Android share-sheet format)
 	"lost-pets/internal/domain"
 	"lost-pets/internal/event"
 	"lost-pets/internal/repository"
@@ -319,12 +320,35 @@ func (s *EmbeddingService) GenerateEmbedding(ctx context.Context, imageBytes []b
 // cheap without hurting match quality.
 const maxEmbeddingImageDim = 512
 
+// maxEmbeddingPixels caps the total pixels we are willing to decode. image.Decode
+// allocates W*H*4 bytes up front from the header-declared dimensions BEFORE
+// decompressing pixel data, so a tiny but malicious file declaring e.g.
+// 20000x20000 would OOM the process (Render free tier is 512 MB). ~32 MP covers
+// every realistic phone photo while bounding the allocation to ~128 MB.
+const maxEmbeddingPixels = 32 * 1024 * 1024
+
+// exceedsPixelCap reports whether an image of these declared dimensions is too
+// large to safely decode (or has invalid dimensions).
+func exceedsPixelCap(w, h int) bool {
+	if w <= 0 || h <= 0 {
+		return true
+	}
+	return int64(w)*int64(h) > maxEmbeddingPixels
+}
+
 // downscaleForEmbedding decodes the image and, when its longest side exceeds
 // maxEmbeddingImageDim, scales it down (preserving aspect ratio) and re-encodes
 // it as JPEG. It returns the bytes to send and their MIME type. On any decode or
-// encode failure it falls back to the original bytes so resizing never becomes a
-// new failure mode.
+// encode failure — or when the declared size is too large to decode safely — it
+// falls back to the original bytes so resizing never becomes a new failure mode.
 func downscaleForEmbedding(imageBytes []byte) (data []byte, mime string) {
+	// Read only the header first; reject decompression-bomb dimensions before any
+	// large pixel-buffer allocation.
+	cfg, _, err := image.DecodeConfig(bytes.NewReader(imageBytes))
+	if err != nil || exceedsPixelCap(cfg.Width, cfg.Height) {
+		return imageBytes, http.DetectContentType(imageBytes)
+	}
+
 	src, _, err := image.Decode(bytes.NewReader(imageBytes))
 	if err != nil {
 		return imageBytes, http.DetectContentType(imageBytes)
@@ -341,9 +365,21 @@ func downscaleForEmbedding(imageBytes []byte) (data []byte, mime string) {
 	}
 
 	// Integer math keeps the scaled dimensions exact and aspect-preserving.
+	// Clamp to >= 1 so an extreme aspect ratio (> 512:1) can't round a side to 0
+	// and produce a degenerate, unusable image.
 	nw := w * maxEmbeddingImageDim / longest
 	nh := h * maxEmbeddingImageDim / longest
+	if nw < 1 {
+		nw = 1
+	}
+	if nh < 1 {
+		nh = 1
+	}
+
 	dst := image.NewRGBA(image.Rect(0, 0, nw, nh))
+	// Fill white first: JPEG has no alpha, so transparent source regions would
+	// otherwise be encoded as black. Compositing over white preserves them.
+	xdraw.Draw(dst, dst.Bounds(), image.White, image.Point{}, xdraw.Src)
 	xdraw.CatmullRom.Scale(dst, dst.Bounds(), src, b, xdraw.Over, nil)
 
 	var buf bytes.Buffer
