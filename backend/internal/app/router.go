@@ -241,6 +241,14 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 		public.GET("/share/pet/:token", shareHandler.GetByToken)
 		public.POST("/share/pet/:token/contact", shareHandler.TrackContact)
 
+		// Generación pública e idempotente de share link (solo lost/stray).
+		// Permite que un finder deslogueado comparta y descargue el volante.
+		// Rate-limited por IP: la idempotencia ya acota el spam de filas, pero
+		// limitamos igual por ser superficie pública anónima.
+		public.POST("/pets/:id/share-link",
+			middleware.RateLimit(rateLimitStore, 20, 1*time.Minute),
+			shareHandler.GeneratePublicShareLink)
+
 		public.GET("/shelters", shelterHandler.GetAll)
 		public.GET("/shelters/:id", shelterHandler.GetByID)
 
