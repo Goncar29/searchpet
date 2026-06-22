@@ -336,19 +336,42 @@ export function PetDetailPage() {
               </div>
             )}
 
-            {/* Reporter contact — stray pets with no owner */}
-            {pet.status === 'stray' && !pet.owner && pet.reporter_id && isAuthenticated && user?.id !== pet.reporter_id && (
-              <div className="bg-amber-50 dark:bg-amber-950 rounded-xl p-4 mb-6 border border-amber-200 dark:border-amber-800">
-                <h3 className="font-bold text-gray-900 dark:text-gray-100 mb-2">{t('pets:detail.reporter')}</h3>
-                <p className="text-sm text-gray-600 dark:text-gray-300 mb-3">{t('pets:detail.reporterDescription')}</p>
-                <Link
-                  to={`/messages/${pet.reporter_id}`}
-                  className="w-full inline-flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-600 text-white font-bold py-3 rounded-lg transition-colors"
-                >
-                  💬 {t('pets:detail.contactReporter')}
-                </Link>
-              </div>
-            )}
+            {/* Reporter contact — stray pets with no owner.
+                - Public WhatsApp (no login) when the reporter opted in and has a
+                  phone — the friction-free path for finders/owners.
+                - Otherwise fall back to in-app messaging (login required).
+                The reporter never sees a contact button for their own report. */}
+            {pet.status === 'stray' && !pet.owner && pet.reporter_id && (() => {
+              const isReporter = isAuthenticated && user?.id === pet.reporter_id;
+              const reporterPhone = pet.reporter?.phone;
+              const publicContact = !!(pet.reporter_contact_public && reporterPhone && !isReporter);
+              const inAppContact = isAuthenticated && !isReporter;
+              if (!publicContact && !inAppContact) return null;
+
+              return (
+                <div className="bg-amber-50 dark:bg-amber-950 rounded-xl p-4 mb-6 border border-amber-200 dark:border-amber-800">
+                  <h3 className="font-bold text-gray-900 dark:text-gray-100 mb-2">{t('pets:detail.reporter')}</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-300 mb-3">{t('pets:detail.reporterDescription')}</p>
+                  {publicContact ? (
+                    <a
+                      href={buildWhatsAppContactURL(reporterPhone!, pet)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full inline-flex items-center justify-center gap-2 bg-[#25D366] text-white font-bold py-3 rounded-lg hover:opacity-90 transition-opacity"
+                    >
+                      💬 {t('pets:detail.contactReporterWhatsapp')}
+                    </a>
+                  ) : (
+                    <Link
+                      to={`/messages/${pet.reporter_id}`}
+                      className="w-full inline-flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-600 text-white font-bold py-3 rounded-lg transition-colors"
+                    >
+                      💬 {t('pets:detail.contactReporter')}
+                    </Link>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* Report pet — only for authenticated users who don't manage it,
                 and only when there is a valid target (owner or reporter) to

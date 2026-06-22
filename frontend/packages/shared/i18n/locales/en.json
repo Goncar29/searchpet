@@ -110,7 +110,8 @@
       "timeline": "Report history ({{count}})",
       "reporter": "Who found it",
       "reporterDescription": "This stray pet was reported by a community member.",
-      "contactReporter": "Contact reporter"
+      "contactReporter": "Contact reporter",
+      "contactReporterWhatsapp": "Contact via WhatsApp"
     },
     "card": {
       "lost": "Lost",
@@ -297,6 +298,7 @@
       "breedLabel": "Breed",
       "colorLabel": "Color",
       "descriptionLabel": "Description",
+      "contactPublicLabel": "Show my WhatsApp so people can reach me about this animal (your number will be visible)",
       "unnamedPet": "No name",
       "next": "Continue",
       "gallery": "Gallery",

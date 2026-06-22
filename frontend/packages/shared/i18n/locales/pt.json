@@ -110,7 +110,8 @@
       "timeline": "Histórico de reportes ({{count}})",
       "reporter": "Quem encontrou",
       "reporterDescription": "Este pet errante foi reportado por um membro da comunidade.",
-      "contactReporter": "Contatar reportador"
+      "contactReporter": "Contatar reportador",
+      "contactReporterWhatsapp": "Contatar por WhatsApp"
     },
     "card": {
       "lost": "Perdido",
@@ -297,6 +298,7 @@
       "breedLabel": "Raça",
       "colorLabel": "Cor",
       "descriptionLabel": "Descrição",
+      "contactPublicLabel": "Mostrar meu WhatsApp para que possam me contatar sobre este animal (seu número ficará visível)",
       "unnamedPet": "Sem nome",
       "next": "Continuar",
       "gallery": "Galeria",
