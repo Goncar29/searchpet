@@ -111,7 +111,10 @@
       "reporter": "Who found it",
       "reporterDescription": "This stray pet was reported by a community member.",
       "contactReporter": "Contact reporter",
-      "contactReporterWhatsapp": "Contact via WhatsApp"
+      "contactReporterWhatsapp": "Contact via WhatsApp",
+      "revealPhone": "Show phone",
+      "loginToContact": "Log in to contact",
+      "loginToShare": "Log in to share"
     },
     "card": {
       "lost": "Lost",

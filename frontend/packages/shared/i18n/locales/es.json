@@ -111,7 +111,10 @@
       "reporter": "Quién lo encontró",
       "reporterDescription": "Esta mascota callejera fue reportada por un miembro de la comunidad.",
       "contactReporter": "Contactar al reportero",
-      "contactReporterWhatsapp": "Contactar por WhatsApp"
+      "contactReporterWhatsapp": "Contactar por WhatsApp",
+      "revealPhone": "Ver teléfono",
+      "loginToContact": "Iniciá sesión para contactar",
+      "loginToShare": "Iniciá sesión para compartir"
     },
     "card": {
       "lost": "Perdido",
