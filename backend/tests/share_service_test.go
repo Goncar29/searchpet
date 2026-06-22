@@ -46,6 +46,10 @@ func (m *mockShareLinkRepository) GetByPetID(ctx context.Context, petID uuid.UUI
 	return []domain.ShareLink{}, nil
 }
 
+func (m *mockShareLinkRepository) GetOrCreateForPet(_ context.Context, _ uuid.UUID, build func() (*domain.ShareLink, error)) (*domain.ShareLink, error) {
+	return build()
+}
+
 func (m *mockShareLinkRepository) IncrementViewCount(ctx context.Context, id uuid.UUID) error {
 	if m.incrementViewCountFn != nil {
 		return m.incrementViewCountFn(ctx, id)

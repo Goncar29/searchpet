@@ -22,7 +22,12 @@ import (
 //	r.POST("/auth/login", middleware.RateLimit(store, 5, time.Minute), handler)
 func RateLimit(store ratelimit.Store, limit int, window time.Duration) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		key := "ratelimit:" + c.ClientIP()
+		// Key by route + IP so each endpoint keeps an independent bucket. Keying
+		// by IP alone lets a generous endpoint (e.g. a public 20/min route) share
+		// a counter with a strict one (e.g. /auth/login at 5/min), so whichever
+		// an IP hits first dictates the cap for the other. c.FullPath() is the
+		// route pattern (e.g. "/api/pets/:id/share-link"), not the raw URL.
+		key := "ratelimit:" + c.FullPath() + ":" + c.ClientIP()
 		if !store.Allow(key, limit, window) {
 			c.JSON(http.StatusTooManyRequests, gin.H{
 				"code":    domain.CodeFor(domain.ErrRateLimitExceeded),

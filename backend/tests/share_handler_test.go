@@ -19,14 +19,22 @@ import (
 // ============================================================
 
 type mockShareLinkService struct {
-	generateFn     func(ctx context.Context, petID string, ownerID string) (*domain.ShareLink, error)
-	getByTokenFn   func(ctx context.Context, token string) (*domain.ShareLink, error)
-	trackContactFn func(ctx context.Context, token string) error
+	generateFn       func(ctx context.Context, petID string, ownerID string) (*domain.ShareLink, error)
+	getOrCreatePubFn func(ctx context.Context, petID string) (*domain.ShareLink, error)
+	getByTokenFn     func(ctx context.Context, token string) (*domain.ShareLink, error)
+	trackContactFn   func(ctx context.Context, token string) error
 }
 
 func (m *mockShareLinkService) Generate(ctx context.Context, petID string, ownerID string) (*domain.ShareLink, error) {
 	if m.generateFn != nil {
 		return m.generateFn(ctx, petID, ownerID)
+	}
+	return nil, nil
+}
+
+func (m *mockShareLinkService) GetOrCreatePublicLink(ctx context.Context, petID string) (*domain.ShareLink, error) {
+	if m.getOrCreatePubFn != nil {
+		return m.getOrCreatePubFn(ctx, petID)
 	}
 	return nil, nil
 }
@@ -134,6 +142,69 @@ func TestShareHandler_GenerateShareLink_PetNotFound(t *testing.T) {
 
 	if w.Code != http.StatusNotFound {
 		t.Errorf("expected 404, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+// ============================================================
+// GeneratePublicShareLink tests (public, no auth — lost/stray only)
+// ============================================================
+
+func setupPublicShareLinkRouter(h *handler.ShareHandler) *gin.Engine {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.POST("/api/pets/:id/share-link", h.GeneratePublicShareLink)
+	return r
+}
+
+func TestShareHandler_GeneratePublicShareLink_OK(t *testing.T) {
+	petID := uuid.New()
+	expiresAt := time.Now().Add(30 * 24 * time.Hour)
+
+	svc := &mockShareLinkService{
+		getOrCreatePubFn: func(_ context.Context, _ string) (*domain.ShareLink, error) {
+			return &domain.ShareLink{
+				ID:         uuid.New(),
+				PetID:      petID,
+				ShareToken: "publictoken",
+				ExpiresAt:  &expiresAt,
+			}, nil
+		},
+	}
+	h := handler.NewShareHandler(svc, "https://lostpets.app")
+	r := setupPublicShareLinkRouter(h)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/pets/"+petID.String()+"/share-link", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var resp map[string]interface{}
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if _, ok := resp["share_url"]; !ok {
+		t.Errorf("expected share_url in response, got %v", resp)
+	}
+}
+
+func TestShareHandler_GeneratePublicShareLink_NonShareable_NotFound(t *testing.T) {
+	svc := &mockShareLinkService{
+		getOrCreatePubFn: func(_ context.Context, _ string) (*domain.ShareLink, error) {
+			return nil, domain.ErrPetNotFound
+		},
+	}
+	h := handler.NewShareHandler(svc, "https://lostpets.app")
+	r := setupPublicShareLinkRouter(h)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/pets/"+uuid.New().String()+"/share-link", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Errorf("expected 404 for non-lost/stray pet, got %d: %s", w.Code, w.Body.String())
 	}
 }
 

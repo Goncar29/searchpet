@@ -65,6 +65,37 @@ func TestRateLimitMiddleware_WithinBurst(t *testing.T) {
 	}
 }
 
+// TestRateLimitMiddleware_PerEndpointIsolation verifies that two different
+// routes hit by the SAME IP keep independent buckets. Without per-route keying,
+// a generous public endpoint (e.g. 20/min) would share a counter with a strict
+// one (e.g. /auth/login at 5/min), letting either contaminate the other.
+func TestRateLimitMiddleware_PerEndpointIsolation(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	store := ratelimit.NewInMemoryStore()
+	ok := func(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"ok": true}) }
+	r.GET("/a", middleware.RateLimit(store, 1, 1*time.Second), ok)
+	r.GET("/b", middleware.RateLimit(store, 1, 1*time.Second), ok)
+
+	hit := func(path string) int {
+		req := httptest.NewRequest(http.MethodGet, path, nil)
+		req.RemoteAddr = "10.0.3.1:5555"
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		return w.Code
+	}
+
+	// Same IP exhausts /a's burst of 1.
+	hit("/a")
+	if code := hit("/a"); code != http.StatusTooManyRequests {
+		t.Fatalf("expected /a to be limited on the 2nd request, got %d", code)
+	}
+	// The first hit to /b from the same IP must NOT inherit /a's exhausted bucket.
+	if code := hit("/b"); code != http.StatusOK {
+		t.Errorf("endpoints must have independent per-IP buckets, got %d for first /b hit", code)
+	}
+}
+
 // TestRateLimitMiddleware_DifferentIPs verifies that different IPs have
 // independent rate limit buckets.
 func TestRateLimitMiddleware_DifferentIPs(t *testing.T) {

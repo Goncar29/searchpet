@@ -6,7 +6,7 @@
 
 import { useRef, useState } from 'react';
 import { QRCodeCanvas } from 'qrcode.react';
-import { useGenerateShareLink } from '@shared/hooks';
+import { useShareLink } from '@shared/hooks';
 import type { Pet, Report } from '@shared/types';
 import { PhotoBanner } from './PhotoBanner';
 
@@ -21,7 +21,7 @@ export function PdfFlyerButton({ pet, reports = [] }: PdfFlyerButtonProps) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [shareError, setShareError] = useState(false);
-  const generateLink = useGenerateShareLink();
+  const generateLink = useShareLink();
   const flyerRef = useRef<HTMLDivElement>(null);
 
   const primaryPhoto = pet.photos?.find((p) => p.is_primary) || pet.photos?.[0];

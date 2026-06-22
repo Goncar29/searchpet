@@ -436,6 +436,16 @@ export const useGenerateShareLink = () => {
   });
 };
 
+// Auth-aware share link for the pet-detail share/flyer controls. Works for
+// logged-out finders on lost/stray pets (public endpoint) and keeps the owner's
+// protected flow when authenticated. See apiClient.getOrCreateShareLink.
+export const useShareLink = () => {
+  return useMutation({
+    mutationFn: ({ petID, data }: { petID: string; data?: GenerateShareRequest }) =>
+      apiClient.getOrCreateShareLink(petID, data),
+  });
+};
+
 export const useSharedPet = (token: string) => {
   return useQuery<SharedPetResponse>({
     queryKey: ['shared', token],

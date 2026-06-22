@@ -48,6 +48,34 @@ func (h *ShareHandler) GenerateShareLink(c *gin.Context) {
 	c.JSON(http.StatusCreated, dto.ToGenerateShareLinkResponse(link.ShareToken, h.appURL, expiresAt))
 }
 
+// GeneratePublicShareLink godoc
+// POST /api/pets/:id/share-link  (público, sin auth — solo lost/stray)
+//
+// Devuelve el share link de una mascota lost/stray creándolo si no existe.
+// Es idempotente: repetir la llamada NO genera filas nuevas. Responde 200
+// (no 201) porque puede devolver un link ya existente. Para cualquier status
+// no compartible o mascota inexistente responde 404 sin filtrar cuál es el caso.
+func (h *ShareHandler) GeneratePublicShareLink(c *gin.Context) {
+	petID := c.Param("id")
+
+	link, err := h.shareLinkService.GetOrCreatePublicLink(c.Request.Context(), petID)
+	if err != nil {
+		if errors.Is(err, domain.ErrPetNotFound) {
+			writeError(c, http.StatusNotFound, err)
+			return
+		}
+		if errors.Is(err, domain.ErrInvalidInput) {
+			writeError(c, http.StatusBadRequest, err)
+			return
+		}
+		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
+		return
+	}
+
+	expiresAt := *link.ExpiresAt
+	c.JSON(http.StatusOK, dto.ToGenerateShareLinkResponse(link.ShareToken, h.appURL, expiresAt))
+}
+
 // GetByToken godoc
 // GET /api/share/:token
 func (h *ShareHandler) GetByToken(c *gin.Context) {

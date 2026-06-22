@@ -15,6 +15,7 @@ import (
 // ShareLinkService define el CONTRATO de la capa de negocio para links compartibles.
 type ShareLinkService interface {
 	Generate(ctx context.Context, petID string, ownerID string) (*domain.ShareLink, error)
+	GetOrCreatePublicLink(ctx context.Context, petID string) (*domain.ShareLink, error)
 	GetByToken(ctx context.Context, token string) (*domain.ShareLink, error)
 	TrackContact(ctx context.Context, token string) error
 }
@@ -59,11 +60,10 @@ func (s *shareLinkService) Generate(ctx context.Context, petID string, ownerID s
 	}
 
 	// Generar token criptográficamente seguro
-	tokenBytes := make([]byte, 16)
-	if _, err := rand.Read(tokenBytes); err != nil {
-		return nil, domain.ErrInternal
+	token, err := newShareToken()
+	if err != nil {
+		return nil, err
 	}
-	token := hex.EncodeToString(tokenBytes)
 
 	petUUID, err := uuid.Parse(petID)
 	if err != nil {
@@ -94,6 +94,62 @@ func (s *shareLinkService) Generate(ctx context.Context, petID string, ownerID s
 	}
 
 	return link, nil
+}
+
+// GetOrCreatePublicLink devuelve el share link de una mascota lost/stray sin
+// requerir autenticación, creándolo si todavía no existe.
+//
+// REGLAS DE NEGOCIO:
+//  1. La mascota debe existir → ErrPetNotFound
+//  2. Guarda de status: solo lost/stray son compartibles públicamente (son las
+//     que están en búsqueda activa). Para cualquier otro status devolvemos
+//     ErrPetNotFound (404) — no filtramos si la mascota existe.
+//  3. IDEMPOTENTE: si ya hay un link, se devuelve el más reciente en vez de
+//     crear otra fila. Esto acota el spam de links por usuarios anónimos.
+//     Para lost/stray los links no vencen (ver GetByToken), así que cualquier
+//     link existente sigue siendo válido.
+func (s *shareLinkService) GetOrCreatePublicLink(ctx context.Context, petID string) (*domain.ShareLink, error) {
+	// Validate the UUID FIRST: a non-UUID :id must never reach FindByID, where
+	// the DB would reject it with a syntax error (→ 500). Parsing up front turns
+	// garbage input from anonymous callers into a clean 400.
+	petUUID, err := uuid.Parse(petID)
+	if err != nil {
+		return nil, domain.ErrInvalidInput
+	}
+
+	pet, err := s.petRepo.FindByID(petUUID.String())
+	if err != nil {
+		return nil, err
+	}
+
+	if pet.Status != domain.PetStatusLost && pet.Status != domain.PetStatusStray {
+		return nil, domain.ErrPetNotFound
+	}
+
+	// Atomic get-or-create: the repository serializes concurrent first-time
+	// creates for this pet (advisory lock in a transaction) so two simultaneous
+	// anonymous requests can't both insert a row, preserving idempotency.
+	return s.shareLinkRepo.GetOrCreateForPet(ctx, petUUID, func() (*domain.ShareLink, error) {
+		token, err := newShareToken()
+		if err != nil {
+			return nil, err
+		}
+		expiresAt := time.Now().Add(30 * 24 * time.Hour)
+		return &domain.ShareLink{
+			PetID:      petUUID,
+			ShareToken: token,
+			ExpiresAt:  &expiresAt,
+		}, nil
+	})
+}
+
+// newShareToken genera un token criptográficamente seguro (16 bytes → 32 hex chars).
+func newShareToken() (string, error) {
+	tokenBytes := make([]byte, 16)
+	if _, err := rand.Read(tokenBytes); err != nil {
+		return "", domain.ErrInternal
+	}
+	return hex.EncodeToString(tokenBytes), nil
 }
 
 // GetByToken obtiene un share link por su token.
