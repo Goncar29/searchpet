@@ -93,18 +93,23 @@ func (s *petService) CreatePet(ownerID string, req dto.CreatePetRequest) (*domai
 		ownerPtr = &ownerUUID
 	}
 
+	// The reporter-contact opt-in only applies to strays (the only pets with a
+	// reporter). For registered pets it stays false regardless of the request.
+	reporterContactPublic := status == domain.PetStatusStray && req.ReporterContactPublic
+
 	pet := &domain.Pet{
-		OwnerID:     ownerPtr,
-		ReporterID:  reporterPtr,
-		Name:        req.Name,
-		Type:        req.Type,
-		Breed:       req.Breed,
-		Color:       req.Color,
-		Description: req.Description,
-		Gender:      req.Gender,
-		MicrochipID: req.MicrochipID,
-		Status:      status,
-		Version:     1,
+		OwnerID:               ownerPtr,
+		ReporterID:            reporterPtr,
+		Name:                  req.Name,
+		Type:                  req.Type,
+		Breed:                 req.Breed,
+		Color:                 req.Color,
+		Description:           req.Description,
+		Gender:                req.Gender,
+		MicrochipID:           req.MicrochipID,
+		Status:                status,
+		ReporterContactPublic: reporterContactPublic,
+		Version:               1,
 	}
 
 	var report *domain.Report

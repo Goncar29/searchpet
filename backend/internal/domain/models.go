@@ -35,25 +35,25 @@ type PetSearchCriteria struct {
 
 // User representa un usuario de la plataforma
 type User struct {
-	ID                 uuid.UUID  `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
-	Email              string     `gorm:"uniqueIndex;not null;size:255" json:"email"`
-	PasswordHash       string     `gorm:"not null;size:255" json:"-"`
-	Name               string     `gorm:"size:100" json:"name"`
-	Phone              string     `gorm:"size:20" json:"phone,omitempty"`
-	ProfilePhotoURL    string     `gorm:"size:500" json:"profile_photo_url,omitempty"`
-	Latitude           *float64   `gorm:"type:decimal(10,8)" json:"latitude,omitempty"`
-	Longitude          *float64   `gorm:"type:decimal(11,8)" json:"longitude,omitempty"`
-	IsAdmin              bool       `gorm:"default:false" json:"is_admin"`
-	IsVerified           bool       `gorm:"default:false" json:"is_verified"`
-	VerificationMethod   string     `gorm:"size:50" json:"verification_method,omitempty"`
-	EmailVerified        bool       `gorm:"default:false" json:"email_verified"`
-	PhoneVerified        bool       `gorm:"default:false" json:"phone_verified"`
-	City                 string     `gorm:"default:''" json:"city"`
-	IsBanned             bool       `gorm:"default:false" json:"is_banned"`
-	BanReason            string     `gorm:"type:text" json:"ban_reason,omitempty"`
-	SearchRadiusMeters   int        `gorm:"default:5000" json:"search_radius_meters"`
-	CreatedAt            time.Time  `gorm:"autoCreateTime" json:"created_at"`
-	UpdatedAt            time.Time  `gorm:"autoUpdateTime" json:"updated_at"`
+	ID                 uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+	Email              string    `gorm:"uniqueIndex;not null;size:255" json:"email"`
+	PasswordHash       string    `gorm:"not null;size:255" json:"-"`
+	Name               string    `gorm:"size:100" json:"name"`
+	Phone              string    `gorm:"size:20" json:"phone,omitempty"`
+	ProfilePhotoURL    string    `gorm:"size:500" json:"profile_photo_url,omitempty"`
+	Latitude           *float64  `gorm:"type:decimal(10,8)" json:"latitude,omitempty"`
+	Longitude          *float64  `gorm:"type:decimal(11,8)" json:"longitude,omitempty"`
+	IsAdmin            bool      `gorm:"default:false" json:"is_admin"`
+	IsVerified         bool      `gorm:"default:false" json:"is_verified"`
+	VerificationMethod string    `gorm:"size:50" json:"verification_method,omitempty"`
+	EmailVerified      bool      `gorm:"default:false" json:"email_verified"`
+	PhoneVerified      bool      `gorm:"default:false" json:"phone_verified"`
+	City               string    `gorm:"default:''" json:"city"`
+	IsBanned           bool      `gorm:"default:false" json:"is_banned"`
+	BanReason          string    `gorm:"type:text" json:"ban_reason,omitempty"`
+	SearchRadiusMeters int       `gorm:"default:5000" json:"search_radius_meters"`
+	CreatedAt          time.Time `gorm:"autoCreateTime" json:"created_at"`
+	UpdatedAt          time.Time `gorm:"autoUpdateTime" json:"updated_at"`
 
 	// Relaciones
 	Pets     []Pet     `gorm:"foreignKey:OwnerID" json:"pets,omitempty"`
@@ -63,8 +63,8 @@ type User struct {
 // Pet representa una mascota registrada
 type Pet struct {
 	ID          uuid.UUID  `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
-	OwnerID     *uuid.UUID `gorm:"type:uuid;index" json:"owner_id,omitempty"`             // nullable — nil for stray pets
-	ReporterID  *uuid.UUID `gorm:"type:uuid;index" json:"reporter_id,omitempty"`          // populated for stray pets (the user who reported it)
+	OwnerID     *uuid.UUID `gorm:"type:uuid;index" json:"owner_id,omitempty"`    // nullable — nil for stray pets
+	ReporterID  *uuid.UUID `gorm:"type:uuid;index" json:"reporter_id,omitempty"` // populated for stray pets (the user who reported it)
 	Name        string     `gorm:"not null;size:100" json:"name"`
 	Type        string     `gorm:"not null;size:50;index:idx_pets_type_status,composite:type" json:"type"` // perro, gato, pajaro, otro
 	Breed       string     `gorm:"size:100" json:"breed,omitempty"`
@@ -73,14 +73,20 @@ type Pet struct {
 	Gender      string     `gorm:"size:10" json:"gender,omitempty"` // male, female, unknown
 	MicrochipID *string    `gorm:"uniqueIndex;size:50" json:"microchip_id,omitempty"`
 	Status      string     `gorm:"size:50;default:'registered';index:idx_pets_type_status,composite:status" json:"status"` // registered, lost, stray, found, archived
-	Version     int        `gorm:"default:1" json:"version"` // optimistic concurrency — increment on each status change
-	CreatedAt   time.Time  `gorm:"autoCreateTime" json:"created_at"`
-	UpdatedAt   time.Time  `gorm:"autoUpdateTime" json:"updated_at"`
+	Version     int        `gorm:"default:1" json:"version"`                                                               // optimistic concurrency — increment on each status change
+	// ReporterContactPublic is an opt-in (stray pets only): when true, the
+	// reporter's profile phone is exposed publicly so logged-out finders can
+	// reach them. Defaults false — a good-samaritan's number is never published
+	// without explicit consent.
+	ReporterContactPublic bool      `gorm:"default:false" json:"reporter_contact_public"`
+	CreatedAt             time.Time `gorm:"autoCreateTime" json:"created_at"`
+	UpdatedAt             time.Time `gorm:"autoUpdateTime" json:"updated_at"`
 
 	// Relaciones
-	Owner   User     `gorm:"foreignKey:OwnerID" json:"owner,omitempty"`
-	Photos  []Photo  `gorm:"foreignKey:PetID" json:"photos,omitempty"`
-	Reports []Report `gorm:"foreignKey:PetID" json:"reports,omitempty"`
+	Owner    User     `gorm:"foreignKey:OwnerID" json:"owner,omitempty"`
+	Reporter User     `gorm:"foreignKey:ReporterID" json:"reporter,omitempty"` // populated for stray pets
+	Photos   []Photo  `gorm:"foreignKey:PetID" json:"photos,omitempty"`
+	Reports  []Report `gorm:"foreignKey:PetID" json:"reports,omitempty"`
 }
 
 // Report representa un reporte de ubicación de una mascota
@@ -117,15 +123,15 @@ type Photo struct {
 // Message representa un mensaje entre usuarios.
 // Text puede estar vacío cuando el mensaje es solo una foto (PhotoURL present).
 type Message struct {
-	ID             uuid.UUID  `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
-	SenderID       uuid.UUID  `gorm:"type:uuid;not null;index" json:"sender_id"`
-	ReceiverID     uuid.UUID  `gorm:"type:uuid;not null;index" json:"receiver_id"`
-	ReportID       *uuid.UUID `gorm:"type:uuid" json:"report_id,omitempty"`
-	Text           string     `gorm:"type:text" json:"text"`
-	ReadAt         *time.Time `gorm:"index" json:"read_at,omitempty"`
-	PhotoPublicID  string     `gorm:"type:text" json:"-"`                    // Cloudinary public_id — NUNCA expuesto al cliente
-	PhotoURL       string     `gorm:"type:text" json:"photo_url,omitempty"`
-	CreatedAt      time.Time  `gorm:"autoCreateTime;index" json:"created_at"`
+	ID            uuid.UUID  `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+	SenderID      uuid.UUID  `gorm:"type:uuid;not null;index" json:"sender_id"`
+	ReceiverID    uuid.UUID  `gorm:"type:uuid;not null;index" json:"receiver_id"`
+	ReportID      *uuid.UUID `gorm:"type:uuid" json:"report_id,omitempty"`
+	Text          string     `gorm:"type:text" json:"text"`
+	ReadAt        *time.Time `gorm:"index" json:"read_at,omitempty"`
+	PhotoPublicID string     `gorm:"type:text" json:"-"` // Cloudinary public_id — NUNCA expuesto al cliente
+	PhotoURL      string     `gorm:"type:text" json:"photo_url,omitempty"`
+	CreatedAt     time.Time  `gorm:"autoCreateTime;index" json:"created_at"`
 
 	// Relaciones
 	Sender   User `gorm:"foreignKey:SenderID" json:"sender,omitempty"`
@@ -138,13 +144,13 @@ type Message struct {
 
 // ShareLink representa un link compartible en redes sociales
 type ShareLink struct {
-	ID             uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
-	PetID          uuid.UUID `gorm:"type:uuid;not null;index" json:"pet_id"`
-	ShareToken     string    `gorm:"uniqueIndex;not null;size:50" json:"share_token"`
-	Platform       string    `gorm:"size:50" json:"platform,omitempty"` // instagram, facebook, whatsapp, twitter
-	ViewCount      int       `gorm:"default:0" json:"view_count"`
-	ClickedContact int       `gorm:"default:0" json:"clicked_contact"`
-	CreatedAt      time.Time `gorm:"autoCreateTime" json:"created_at"`
+	ID             uuid.UUID  `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+	PetID          uuid.UUID  `gorm:"type:uuid;not null;index" json:"pet_id"`
+	ShareToken     string     `gorm:"uniqueIndex;not null;size:50" json:"share_token"`
+	Platform       string     `gorm:"size:50" json:"platform,omitempty"` // instagram, facebook, whatsapp, twitter
+	ViewCount      int        `gorm:"default:0" json:"view_count"`
+	ClickedContact int        `gorm:"default:0" json:"clicked_contact"`
+	CreatedAt      time.Time  `gorm:"autoCreateTime" json:"created_at"`
 	ExpiresAt      *time.Time `json:"expires_at,omitempty"`
 
 	// Relaciones
@@ -226,17 +232,17 @@ type GroupMember struct {
 
 // SuccessStory representa una historia de éxito (mascota encontrada)
 type SuccessStory struct {
-	ID          uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
-	PetID       uuid.UUID `gorm:"type:uuid;not null;index" json:"pet_id"`
-	UserID      uuid.UUID `gorm:"type:uuid;not null;index" json:"user_id"` // quien crea la historia
-	Title       string    `gorm:"size:255" json:"title"`
-	Body        string    `gorm:"type:text;not null" json:"body"`
-	PhotoBefore string    `gorm:"size:500" json:"photo_before,omitempty"` // URL Cloudinary
-	PhotoAfter  string    `gorm:"size:500" json:"photo_after,omitempty"`  // URL Cloudinary
-	LikeCount   int       `gorm:"default:0" json:"like_count"`
-	Featured    bool      `gorm:"default:false;index" json:"featured"`
+	ID          uuid.UUID  `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+	PetID       uuid.UUID  `gorm:"type:uuid;not null;index" json:"pet_id"`
+	UserID      uuid.UUID  `gorm:"type:uuid;not null;index" json:"user_id"` // quien crea la historia
+	Title       string     `gorm:"size:255" json:"title"`
+	Body        string     `gorm:"type:text;not null" json:"body"`
+	PhotoBefore string     `gorm:"size:500" json:"photo_before,omitempty"` // URL Cloudinary
+	PhotoAfter  string     `gorm:"size:500" json:"photo_after,omitempty"`  // URL Cloudinary
+	LikeCount   int        `gorm:"default:0" json:"like_count"`
+	Featured    bool       `gorm:"default:false;index" json:"featured"`
 	FeaturedBy  *uuid.UUID `gorm:"type:uuid" json:"featured_by,omitempty"` // adminUserID que marcó featured
-	CreatedAt   time.Time `gorm:"autoCreateTime;index" json:"created_at"`
+	CreatedAt   time.Time  `gorm:"autoCreateTime;index" json:"created_at"`
 	DeletedAt   *time.Time `gorm:"index" json:"-"` // soft delete
 
 	// Relaciones
@@ -320,10 +326,10 @@ type DeviceToken struct {
 // VerificationToken almacena los OTPs de verificación de identidad.
 // CodeHash contiene SHA-256(code) en hex — NUNCA el código en texto plano.
 type VerificationToken struct {
-	ID        uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
-	UserID    uuid.UUID `gorm:"type:uuid;not null;index" json:"user_id"`
-	Channel   string    `gorm:"not null;size:10" json:"channel"`   // "email" or "sms"
-	CodeHash  string    `gorm:"not null;size:64" json:"-"`         // SHA-256 hex — never plaintext
+	ID          uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+	UserID      uuid.UUID `gorm:"type:uuid;not null;index" json:"user_id"`
+	Channel     string    `gorm:"not null;size:10" json:"channel"` // "email" or "sms"
+	CodeHash    string    `gorm:"not null;size:64" json:"-"`       // SHA-256 hex — never plaintext
 	Attempts    int       `gorm:"default:0" json:"-"`
 	ExpiresAt   time.Time `gorm:"not null;index" json:"expires_at"`
 	Used        bool      `gorm:"default:false;index" json:"-"`
