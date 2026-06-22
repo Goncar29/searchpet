@@ -109,7 +109,15 @@ func (s *shareLinkService) Generate(ctx context.Context, petID string, ownerID s
 //     Para lost/stray los links no vencen (ver GetByToken), así que cualquier
 //     link existente sigue siendo válido.
 func (s *shareLinkService) GetOrCreatePublicLink(ctx context.Context, petID string) (*domain.ShareLink, error) {
-	pet, err := s.petRepo.FindByID(petID)
+	// Validate the UUID FIRST: a non-UUID :id must never reach FindByID, where
+	// the DB would reject it with a syntax error (→ 500). Parsing up front turns
+	// garbage input from anonymous callers into a clean 400.
+	petUUID, err := uuid.Parse(petID)
+	if err != nil {
+		return nil, domain.ErrInvalidInput
+	}
+
+	pet, err := s.petRepo.FindByID(petUUID.String())
 	if err != nil {
 		return nil, err
 	}
@@ -118,35 +126,21 @@ func (s *shareLinkService) GetOrCreatePublicLink(ctx context.Context, petID stri
 		return nil, domain.ErrPetNotFound
 	}
 
-	petUUID, err := uuid.Parse(petID)
-	if err != nil {
-		return nil, domain.ErrInvalidInput
-	}
-
-	existing, err := s.shareLinkRepo.GetByPetID(ctx, petUUID)
-	if err != nil {
-		return nil, err
-	}
-	if len(existing) > 0 {
-		return &existing[0], nil
-	}
-
-	token, err := newShareToken()
-	if err != nil {
-		return nil, err
-	}
-
-	expiresAt := time.Now().Add(30 * 24 * time.Hour)
-	link := &domain.ShareLink{
-		PetID:      petUUID,
-		ShareToken: token,
-		ExpiresAt:  &expiresAt,
-	}
-	if err := s.shareLinkRepo.Create(ctx, link); err != nil {
-		return nil, err
-	}
-
-	return link, nil
+	// Atomic get-or-create: the repository serializes concurrent first-time
+	// creates for this pet (advisory lock in a transaction) so two simultaneous
+	// anonymous requests can't both insert a row, preserving idempotency.
+	return s.shareLinkRepo.GetOrCreateForPet(ctx, petUUID, func() (*domain.ShareLink, error) {
+		token, err := newShareToken()
+		if err != nil {
+			return nil, err
+		}
+		expiresAt := time.Now().Add(30 * 24 * time.Hour)
+		return &domain.ShareLink{
+			PetID:      petUUID,
+			ShareToken: token,
+			ExpiresAt:  &expiresAt,
+		}, nil
+	})
 }
 
 // newShareToken genera un token criptográficamente seguro (16 bytes → 32 hex chars).

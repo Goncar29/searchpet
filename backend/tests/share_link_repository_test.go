@@ -47,6 +47,45 @@ func TestShareLinkRepository_CreateAndGetByToken(t *testing.T) {
 	}
 }
 
+func TestShareLinkRepository_GetOrCreateForPet_Idempotent(t *testing.T) {
+	gormDB := testdb.SetupTestDB(t)
+	userRepo := repository.NewUserRepository(gormDB)
+	petRepo := repository.NewPetRepository(gormDB)
+	linkRepo := repository.NewShareLinkRepository(gormDB)
+	ctx := context.Background()
+
+	owner := newTestUser(t, userRepo)
+	pet := &domain.Pet{ID: uuid.New(), OwnerID: ptrUUID(owner.ID), Name: "Idem Pet", Type: "perro", Status: domain.PetStatusLost}
+	if err := petRepo.Create(pet); err != nil {
+		t.Fatalf("Create pet: %v", err)
+	}
+
+	build := func() (*domain.ShareLink, error) {
+		return &domain.ShareLink{PetID: pet.ID, ShareToken: uuid.New().String()[:16]}, nil
+	}
+
+	first, err := linkRepo.GetOrCreateForPet(ctx, pet.ID, build)
+	if err != nil {
+		t.Fatalf("first GetOrCreateForPet: %v", err)
+	}
+	second, err := linkRepo.GetOrCreateForPet(ctx, pet.ID, build)
+	if err != nil {
+		t.Fatalf("second GetOrCreateForPet: %v", err)
+	}
+
+	// Repeat calls must return the same link and never create a second row.
+	if first.ShareToken != second.ShareToken {
+		t.Errorf("expected the same link on repeat calls, got %q then %q", first.ShareToken, second.ShareToken)
+	}
+	links, err := linkRepo.GetByPetID(ctx, pet.ID)
+	if err != nil {
+		t.Fatalf("GetByPetID: %v", err)
+	}
+	if len(links) != 1 {
+		t.Errorf("expected exactly 1 share link row for the pet, got %d", len(links))
+	}
+}
+
 func TestShareLinkRepository_GetByToken_NotFound(t *testing.T) {
 	gormDB := testdb.SetupTestDB(t)
 	linkRepo := repository.NewShareLinkRepository(gormDB)

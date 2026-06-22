@@ -82,6 +82,10 @@ type ShareLinkRepository interface {
 	Create(ctx context.Context, link *domain.ShareLink) error
 	GetByToken(ctx context.Context, token string) (*domain.ShareLink, error)
 	GetByPetID(ctx context.Context, petID uuid.UUID) ([]domain.ShareLink, error)
+	// GetOrCreateForPet atomically returns the pet's most recent share link or,
+	// if none exists, creates one via build(). Concurrent first-time creates for
+	// the same pet are serialized so anonymous callers can't insert duplicates.
+	GetOrCreateForPet(ctx context.Context, petID uuid.UUID, build func() (*domain.ShareLink, error)) (*domain.ShareLink, error)
 	IncrementViewCount(ctx context.Context, id uuid.UUID) error
 	IncrementClickedContact(ctx context.Context, id uuid.UUID) error
 }

@@ -22,6 +22,9 @@ func (m *mockShareLinkRepo) GetByToken(_ context.Context, _ string) (*domain.Sha
 func (m *mockShareLinkRepo) GetByPetID(_ context.Context, _ uuid.UUID) ([]domain.ShareLink, error) {
 	return nil, nil
 }
+func (m *mockShareLinkRepo) GetOrCreateForPet(_ context.Context, _ uuid.UUID, build func() (*domain.ShareLink, error)) (*domain.ShareLink, error) {
+	return build()
+}
 func (m *mockShareLinkRepo) IncrementViewCount(_ context.Context, _ uuid.UUID) error     { return nil }
 func (m *mockShareLinkRepo) IncrementClickedContact(_ context.Context, _ uuid.UUID) error { return nil }
 

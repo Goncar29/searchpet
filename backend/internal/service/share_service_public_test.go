@@ -31,8 +31,47 @@ func (r *recordingShareRepo) GetByToken(_ context.Context, _ string) (*domain.Sh
 func (r *recordingShareRepo) GetByPetID(_ context.Context, _ uuid.UUID) ([]domain.ShareLink, error) {
 	return r.existing, nil
 }
+
+// GetOrCreateForPet mirrors the real atomic behavior: return the existing link
+// if present (no create), otherwise build + record one create.
+func (r *recordingShareRepo) GetOrCreateForPet(_ context.Context, _ uuid.UUID, build func() (*domain.ShareLink, error)) (*domain.ShareLink, error) {
+	if len(r.existing) > 0 {
+		return &r.existing[0], nil
+	}
+	link, err := build()
+	if err != nil {
+		return nil, err
+	}
+	r.createCalls++
+	return link, nil
+}
 func (r *recordingShareRepo) IncrementViewCount(_ context.Context, _ uuid.UUID) error      { return nil }
 func (r *recordingShareRepo) IncrementClickedContact(_ context.Context, _ uuid.UUID) error { return nil }
+
+// findTrackingPetRepo records whether FindByID ran, so we can assert that a
+// malformed UUID is rejected BEFORE any repository (DB) lookup.
+type findTrackingPetRepo struct {
+	mockPetRepo
+	findCalled bool
+}
+
+func (m *findTrackingPetRepo) FindByID(id string) (*domain.Pet, error) {
+	m.findCalled = true
+	return m.mockPetRepo.FindByID(id)
+}
+
+func TestGetOrCreatePublicLink_MalformedID_RejectedBeforeLookup(t *testing.T) {
+	petRepo := &findTrackingPetRepo{mockPetRepo: mockPetRepo{pet: petWithStatus(uuid.New(), domain.PetStatusLost)}}
+	svc := service.NewShareLinkService(&recordingShareRepo{}, petRepo, nil)
+
+	_, err := svc.GetOrCreatePublicLink(context.Background(), "not-a-uuid")
+	if err != domain.ErrInvalidInput {
+		t.Errorf("expected ErrInvalidInput for a malformed pet id, got %v", err)
+	}
+	if petRepo.findCalled {
+		t.Error("FindByID must not run for a malformed UUID — parse first so a non-UUID never reaches the DB (which would 500)")
+	}
+}
 
 func TestGetOrCreatePublicLink_LostNoExisting_Creates(t *testing.T) {
 	owner := uuid.New()
