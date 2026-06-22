@@ -111,7 +111,10 @@
       "reporter": "Quem encontrou",
       "reporterDescription": "Este pet errante foi reportado por um membro da comunidade.",
       "contactReporter": "Contatar reportador",
-      "contactReporterWhatsapp": "Contatar por WhatsApp"
+      "contactReporterWhatsapp": "Contatar por WhatsApp",
+      "revealPhone": "Ver telefone",
+      "loginToContact": "Entre para contatar",
+      "loginToShare": "Entre para compartilhar"
     },
     "card": {
       "lost": "Perdido",

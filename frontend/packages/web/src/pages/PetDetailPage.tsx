@@ -8,10 +8,10 @@ import { Helmet } from 'react-helmet-async';
 import { usePetByID, useReportsByPetID, useMarkPetAsFound, useSubmitAbuseReport } from '@shared/hooks';
 import { statusBadgeBg } from '../utils/statusBadge';
 import type { Photo, Report, AbuseReason } from '@shared/types';
-import { buildWhatsAppContactURL } from '@shared/utils/whatsappTemplates';
 import { useAuth } from '../context/AuthContext';
 import { SharePanel } from '../components/SharePanel';
 import { PdfFlyerButton } from '../components/PdfFlyerButton';
+import { RevealContact } from '../components/RevealContact';
 import { TimelineMap } from '../components/TimelineMap';
 
 export function PetDetailPage() {
@@ -79,6 +79,10 @@ export function PetDetailPage() {
   // canManage: the owner (owned pets) or the reporter (stray pets, which have no
   // owner) may manage the pet — mark found, share, edit, delete, tell its story.
   const canManage = isAuthenticated && (user?.id === pet.owner_id || user?.id === pet.reporter_id);
+
+  // Sharing is friction-free for active searches (lost/stray use the public
+  // endpoint); for any other status it requires a session.
+  const shareAvailable = pet.status === 'lost' || pet.status === 'stray' || isAuthenticated;
 
   const goToPhoto = (delta: number) => {
     setActivePhotoIndex((safePhotoIndex + delta + photos.length) % photos.length);
@@ -233,13 +237,25 @@ export function PetDetailPage() {
               </div>
             )}
 
-            {/* Action buttons */}
+            {/* Action buttons.
+                Sharing works logged-out for lost/stray (public endpoint); for any
+                other status it needs a session. Where it's gated we show an honest
+                login prompt instead of a silently disabled button. */}
             <div className="flex flex-wrap gap-3 mb-6">
-              <SharePanel
-                petId={pet.id}
-                petName={pet.name}
-                pet={pet}
-              />
+              {shareAvailable ? (
+                <SharePanel
+                  petId={pet.id}
+                  petName={pet.name}
+                  pet={pet}
+                />
+              ) : (
+                <Link
+                  to="/login"
+                  className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 font-semibold rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                >
+                  🔒 {t('pets:detail.loginToShare')}
+                </Link>
+              )}
               {isAuthenticated && (
                 <Link
                   to={`/reports/create?petId=${id}`}
@@ -301,8 +317,8 @@ export function PetDetailPage() {
                   🎉 Contar historia
                 </Link>
               )}
-              {/* PDF Flyer */}
-              <PdfFlyerButton pet={pet} reports={reports ?? []} />
+              {/* PDF Flyer — same gating as share (it embeds the share-link QR) */}
+              {shareAvailable && <PdfFlyerButton pet={pet} reports={reports ?? []} />}
             </div>
 
             {/* Dueño */}
@@ -316,22 +332,19 @@ export function PetDetailPage() {
                     {pet.owner.is_verified && (
                       <p className="text-xs text-green-600 dark:text-green-400 font-semibold">{t('pets:detail.verified')}</p>
                     )}
-                    {pet.owner.phone ? (
-                      <p className="text-sm text-gray-600 dark:text-gray-300 mt-0.5">📞 {pet.owner.phone}</p>
-                    ) : (
+                    {!pet.owner.phone && (
                       <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{t('pets:detail.noPhone')}</p>
                     )}
                   </div>
                 </div>
+                {/* Reveal-on-click: the number stays out of the DOM until clicked. */}
                 {pet.owner.phone && (
-                  <a
-                    href={buildWhatsAppContactURL(pet.owner.phone, pet)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-4 w-full inline-flex items-center justify-center bg-[#25D366] text-white font-bold py-3 rounded-lg hover:opacity-90 transition-opacity"
-                  >
-                    {t('pets:detail.contact')}
-                  </a>
+                  <RevealContact
+                    phone={pet.owner.phone}
+                    pet={pet}
+                    revealLabel={t('pets:detail.revealPhone')}
+                    contactLabel={t('pets:detail.contact')}
+                  />
                 )}
               </div>
             )}
@@ -343,30 +356,39 @@ export function PetDetailPage() {
                 The reporter never sees a contact button for their own report. */}
             {pet.status === 'stray' && !pet.owner && pet.reporter_id && (() => {
               const isReporter = isAuthenticated && user?.id === pet.reporter_id;
+              // The reporter never needs a contact button for their own report.
+              if (isReporter) return null;
+
               const reporterPhone = pet.reporter?.phone;
-              const publicContact = !!(pet.reporter_contact_public && reporterPhone && !isReporter);
-              const inAppContact = isAuthenticated && !isReporter;
-              if (!publicContact && !inAppContact) return null;
+              const publicContact = !!(pet.reporter_contact_public && reporterPhone);
 
               return (
                 <div className="bg-amber-50 dark:bg-amber-950 rounded-xl p-4 mb-6 border border-amber-200 dark:border-amber-800">
                   <h3 className="font-bold text-gray-900 dark:text-gray-100 mb-2">{t('pets:detail.reporter')}</h3>
                   <p className="text-sm text-gray-600 dark:text-gray-300 mb-3">{t('pets:detail.reporterDescription')}</p>
                   {publicContact ? (
-                    <a
-                      href={buildWhatsAppContactURL(reporterPhone!, pet)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="w-full inline-flex items-center justify-center gap-2 bg-[#25D366] text-white font-bold py-3 rounded-lg hover:opacity-90 transition-opacity"
-                    >
-                      💬 {t('pets:detail.contactReporterWhatsapp')}
-                    </a>
-                  ) : (
+                    // Public WhatsApp (no login), behind a reveal-on-click guard.
+                    <RevealContact
+                      phone={reporterPhone!}
+                      pet={pet}
+                      revealLabel={t('pets:detail.revealPhone')}
+                      contactLabel={t('pets:detail.contactReporterWhatsapp')}
+                    />
+                  ) : isAuthenticated ? (
+                    // In-app messaging fallback (login required).
                     <Link
                       to={`/messages/${pet.reporter_id}`}
                       className="w-full inline-flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-600 text-white font-bold py-3 rounded-lg transition-colors"
                     >
                       💬 {t('pets:detail.contactReporter')}
+                    </Link>
+                  ) : (
+                    // Honest gated state: tell the logged-out finder how to contact.
+                    <Link
+                      to="/login"
+                      className="w-full inline-flex items-center justify-center gap-2 border border-amber-400 dark:border-amber-700 text-amber-700 dark:text-amber-300 font-semibold py-3 rounded-lg hover:bg-amber-100 dark:hover:bg-amber-900 transition-colors"
+                    >
+                      🔒 {t('pets:detail.loginToContact')}
                     </Link>
                   )}
                 </div>
