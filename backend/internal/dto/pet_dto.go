@@ -24,6 +24,9 @@ type CreatePetRequest struct {
 	// otherwise) and forbidden when Status == "registered" or omitted
 	// (400 initial_report_not_allowed otherwise).
 	InitialReport *InitialReportRequest `json:"initial_report"`
+	// ReporterContactPublic is the stray opt-in: when true, the reporter agrees
+	// to expose their profile phone publicly. Only honored for stray creations.
+	ReporterContactPublic bool `json:"reporter_contact_public"`
 }
 
 // InitialReportRequest contains the location data for the initial report that
@@ -71,6 +74,15 @@ type PetOwnerResponse struct {
 	IsVerified bool      `json:"is_verified"`
 }
 
+// PetReporterResponse son los datos del reporter de un stray que exponemos
+// públicamente — solo cuando el reporter hizo opt-in (ReporterContactPublic).
+type PetReporterResponse struct {
+	ID         uuid.UUID `json:"id"`
+	Name       string    `json:"name"`
+	Phone      string    `json:"phone,omitempty"`
+	IsVerified bool      `json:"is_verified"`
+}
+
 // PetPhotoResponse son los datos de una foto de mascota.
 type PetPhotoResponse struct {
 	ID        uuid.UUID `json:"id"`
@@ -93,7 +105,12 @@ type PetResponse struct {
 	Version     int                `json:"version"`
 	Photos      []PetPhotoResponse `json:"photos"`
 	Owner       *PetOwnerResponse  `json:"owner,omitempty"`
-	CreatedAt   time.Time          `json:"created_at"`
+	// ReporterContactPublic mirrors the pet flag so the UI knows whether the
+	// public reporter-contact channel is available. Reporter is only populated
+	// (with the phone) when the opt-in is on AND a phone exists.
+	ReporterContactPublic bool                 `json:"reporter_contact_public"`
+	Reporter              *PetReporterResponse `json:"reporter,omitempty"`
+	CreatedAt             time.Time            `json:"created_at"`
 }
 
 // ToPetResponse convierte un domain.Pet en un PetResponse limpio.
@@ -109,18 +126,19 @@ func ToPetResponse(pet *domain.Pet) PetResponse {
 	}
 
 	resp := PetResponse{
-		ID:          pet.ID,
-		OwnerID:     pet.OwnerID,
-		ReporterID:  pet.ReporterID,
-		Name:        pet.Name,
-		Type:        pet.Type,
-		Breed:       pet.Breed,
-		Color:       pet.Color,
-		Description: pet.Description,
-		Status:      pet.Status,
-		Version:     pet.Version,
-		Photos:      photos,
-		CreatedAt:   pet.CreatedAt,
+		ID:                    pet.ID,
+		OwnerID:               pet.OwnerID,
+		ReporterID:            pet.ReporterID,
+		Name:                  pet.Name,
+		Type:                  pet.Type,
+		Breed:                 pet.Breed,
+		Color:                 pet.Color,
+		Description:           pet.Description,
+		Status:                pet.Status,
+		Version:               pet.Version,
+		Photos:                photos,
+		ReporterContactPublic: pet.ReporterContactPublic,
+		CreatedAt:             pet.CreatedAt,
 	}
 
 	// Owner es opcional — solo lo incluimos si fue cargado (Preload)
@@ -130,6 +148,18 @@ func ToPetResponse(pet *domain.Pet) PetResponse {
 			Name:       pet.Owner.Name,
 			Phone:      pet.Owner.Phone,
 			IsVerified: pet.Owner.IsVerified,
+		}
+	}
+
+	// Reporter (stray) — privacidad: solo exponemos el teléfono cuando el
+	// reporter hizo opt-in Y efectivamente tiene un teléfono cargado. Sin
+	// opt-in o sin teléfono, no incluimos el bloque (la UI cae a chat in-app).
+	if pet.ReporterContactPublic && pet.Reporter.ID != (uuid.UUID{}) && pet.Reporter.Phone != "" {
+		resp.Reporter = &PetReporterResponse{
+			ID:         pet.Reporter.ID,
+			Name:       pet.Reporter.Name,
+			Phone:      pet.Reporter.Phone,
+			IsVerified: pet.Reporter.IsVerified,
 		}
 	}
 

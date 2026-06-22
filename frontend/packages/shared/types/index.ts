@@ -36,6 +36,15 @@ export interface PetOwner {
   is_verified: boolean;
 }
 
+// Reporter of a stray pet, exposed publicly ONLY when reporter_contact_public is
+// true and the reporter has a phone (the backend omits it otherwise).
+export interface PetReporter {
+  id: string;
+  name: string;
+  phone?: string;
+  is_verified: boolean;
+}
+
 export interface Pet {
   id: string;
   owner_id?: string;
@@ -49,6 +58,9 @@ export interface Pet {
   status: PetStatus;
   photos: Photo[];
   owner?: PetOwner;
+  // Stray opt-in: true when the reporter agreed to expose their WhatsApp.
+  reporter_contact_public?: boolean;
+  reporter?: PetReporter;
   created_at: string;
 }
 
@@ -225,6 +237,9 @@ export interface CreatePetRequest {
   description?: string;
   status?: 'registered' | 'stray';
   initial_report?: InitialReportRequest;
+  // Stray opt-in: expose the reporter's profile phone publicly. Only honored by
+  // the backend for stray creations.
+  reporter_contact_public?: boolean;
 }
 
 export interface PublishLostRequest {

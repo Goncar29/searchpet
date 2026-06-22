@@ -21,6 +21,8 @@ export interface StrayFormState {
   color: string;
   description: string;
   photos: File[];
+  // Opt-in: expose the reporter's WhatsApp publicly so logged-out finders can reach them.
+  contactPublic: boolean;
 }
 
 export interface PublishWizardState {
@@ -33,7 +35,7 @@ export interface PublishWizardState {
 export const initialWizardState: PublishWizardState = {
   intent: null,
   selectedPet: null,
-  strayForm: { type: '', breed: '', color: '', description: '', photos: [] },
+  strayForm: { type: '', breed: '', color: '', description: '', photos: [], contactPublic: false },
   location: null,
 };
 
@@ -72,6 +74,7 @@ export function PublishWizardPage() {
     description: wizard.strayForm.description.trim() || undefined,
     status: 'stray',
     initial_report: location,
+    reporter_contact_public: wizard.strayForm.contactPublic,
   });
 
   const submitStray = async (location: NonNullable<typeof wizard.location>) => {

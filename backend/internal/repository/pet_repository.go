@@ -28,7 +28,7 @@ func (r *PostgresPetRepository) Create(pet *domain.Pet) error {
 // Preload("Owner") hace un segundo SELECT para traer los datos del usuario.
 func (r *PostgresPetRepository) FindByID(id string) (*domain.Pet, error) {
 	var pet domain.Pet
-	err := r.db.Preload("Owner").Preload("Photos").Where("id = ?", id).First(&pet).Error
+	err := r.db.Preload("Owner").Preload("Reporter").Preload("Photos").Where("id = ?", id).First(&pet).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, domain.ErrPetNotFound

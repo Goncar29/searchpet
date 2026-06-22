@@ -314,6 +314,43 @@ func TestCreatePet_StrayHasNilOwnerAndReporter(t *testing.T) {
 	}
 }
 
+func TestCreatePet_StrayPersistsReporterContactPublicFlag(t *testing.T) {
+	reporterID := uuid.New()
+	repo := &capturingPetRepo{}
+	reportRepo := &mockReportRepo{}
+	uow := &mockUnitOfWork{repos: repository.UnitOfWorkRepos{Pets: repo, Reports: reportRepo}}
+	svc := service.NewPetService(repo, nil, nil, reportRepo, uow)
+
+	_, err := svc.CreatePet(reporterID.String(), dto.CreatePetRequest{
+		Name: "Stray Cat", Type: "gato", Status: domain.PetStatusStray,
+		ReporterContactPublic: true,
+		InitialReport:         &dto.InitialReportRequest{Latitude: -34.9011, Longitude: -56.1645},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !repo.createdPet.ReporterContactPublic {
+		t.Error("expected ReporterContactPublic=true to be persisted on the stray pet")
+	}
+}
+
+func TestCreatePet_RegisteredIgnoresReporterContactPublicFlag(t *testing.T) {
+	ownerID := uuid.New()
+	repo := &capturingPetRepo{}
+	svc := service.NewPetService(repo, nil, nil, nil, nil)
+
+	// A registered (owned) pet has no reporter; the opt-in must never leak onto it.
+	_, err := svc.CreatePet(ownerID.String(), dto.CreatePetRequest{
+		Name: "Rex", Type: "perro", ReporterContactPublic: true,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if repo.createdPet.ReporterContactPublic {
+		t.Error("registered pet must not carry ReporterContactPublic=true")
+	}
+}
+
 func TestCreatePet_StrayPublishesPetStrayEvent(t *testing.T) {
 	reporterID := uuid.New()
 	repo := &capturingPetRepo{}

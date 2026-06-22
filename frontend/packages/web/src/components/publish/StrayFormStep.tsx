@@ -204,6 +204,21 @@ export function StrayFormStep({ value, onChange, onNext }: StrayFormStepProps) {
         />
       </div>
 
+      {/* Reporter contact opt-in — exposes the reporter's WhatsApp publicly so
+          logged-out finders can reach them. Off by default (privacy). */}
+      <div className="flex items-start gap-3 rounded-lg bg-gray-50 dark:bg-gray-800 p-3">
+        <input
+          id="stray-contact-public"
+          type="checkbox"
+          checked={value.contactPublic}
+          onChange={(e) => onChange({ ...value, contactPublic: e.target.checked })}
+          className="mt-0.5 h-4 w-4 flex-shrink-0 rounded border-gray-300 text-primary focus:ring-primary"
+        />
+        <label htmlFor="stray-contact-public" className="text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
+          {t('strayForm.contactPublicLabel')}
+        </label>
+      </div>
+
       <button
         type="button"
         onClick={handleNext}

@@ -110,7 +110,8 @@
       "timeline": "Historial de reportes ({{count}})",
       "reporter": "Quién lo encontró",
       "reporterDescription": "Esta mascota callejera fue reportada por un miembro de la comunidad.",
-      "contactReporter": "Contactar al reportero"
+      "contactReporter": "Contactar al reportero",
+      "contactReporterWhatsapp": "Contactar por WhatsApp"
     },
     "card": {
       "lost": "Perdido",
@@ -297,6 +298,7 @@
       "breedLabel": "Raza",
       "colorLabel": "Color",
       "descriptionLabel": "Descripción",
+      "contactPublicLabel": "Mostrar mi WhatsApp para que puedan contactarme por este animal (tu número será visible)",
       "unnamedPet": "Sin nombre",
       "next": "Continuar",
       "gallery": "Galería",
