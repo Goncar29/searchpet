@@ -12,7 +12,7 @@ const shareLink: ShareLink = {
 const mutateAsync = vi.fn().mockResolvedValue(shareLink);
 
 vi.mock('@shared/hooks', () => ({
-  useGenerateShareLink: () => ({ mutateAsync, isPending: false }),
+  useShareLink: () => ({ mutateAsync, isPending: false }),
 }));
 
 const basePet: Pet = {

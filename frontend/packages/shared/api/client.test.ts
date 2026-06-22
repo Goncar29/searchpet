@@ -245,6 +245,61 @@ describe('APIClient story likes', () => {
   });
 });
 
+describe('APIClient.getOrCreateShareLink (auth-aware share for finders)', () => {
+  let client: APIClient;
+  let fetchMock: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    client = new APIClient('http://api.test');
+    fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  const link = { share_token: 'tok', share_url: 'http://api.test/share/tok' };
+
+  it('uses the PUBLIC endpoint when logged out (no token)', async () => {
+    fetchMock.mockResolvedValueOnce({ ok: true, status: 200, json: async () => link });
+
+    const result = await client.getOrCreateShareLink('pet-1');
+
+    expect(result).toEqual(link);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe('http://api.test/api/pets/pet-1/share-link');
+    expect(init.method).toBe('POST');
+  });
+
+  it('uses the PROTECTED endpoint first when authenticated (owner keeps share.created)', async () => {
+    client.setToken('jwt');
+    fetchMock.mockResolvedValueOnce({ ok: true, status: 201, json: async () => link });
+
+    const result = await client.getOrCreateShareLink('pet-1');
+
+    expect(result).toEqual(link);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url] = fetchMock.mock.calls[0];
+    expect(url).toBe('http://api.test/api/share/generate/pet-1');
+  });
+
+  it('falls back to the PUBLIC endpoint when the protected call is forbidden (logged-in non-owner)', async () => {
+    client.setToken('jwt');
+    fetchMock
+      .mockResolvedValueOnce({ ok: false, status: 403, json: async () => ({ code: 'not_pet_owner', message: 'no' }) })
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => link });
+
+    const result = await client.getOrCreateShareLink('pet-1');
+
+    expect(result).toEqual(link);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[0][0]).toBe('http://api.test/api/share/generate/pet-1');
+    expect(fetchMock.mock.calls[1][0]).toBe('http://api.test/api/pets/pet-1/share-link');
+  });
+});
+
 describe('APIClient request timeout', () => {
   let client: APIClient;
 

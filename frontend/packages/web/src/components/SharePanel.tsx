@@ -6,7 +6,7 @@
 
 import { useState, useRef } from 'react';
 import { QRCodeSVG, QRCodeCanvas } from 'qrcode.react';
-import { useGenerateShareLink } from '@shared/hooks';
+import { useShareLink } from '@shared/hooks';
 import type { Pet, ShareLink } from '@shared/types';
 import { buildWhatsAppMessage } from '@shared/utils/whatsappTemplates';
 import { getExpiryInfo } from '@shared/utils/shareExpiry';
@@ -64,7 +64,7 @@ export function SharePanel({ petId, petName, pet }: SharePanelProps) {
   const [copied, setCopied] = useState(false);
   const [isSharingStory, setIsSharingStory] = useState(false);
   const [storyMessage, setStoryMessage] = useState<string | null>(null);
-  const generateLink = useGenerateShareLink();
+  const generateLink = useShareLink();
 
   // Ref al div contenedor del QR canvas oculto (para descarga en alta resolución)
   const qrContainerRef = useRef<HTMLDivElement | null>(null);

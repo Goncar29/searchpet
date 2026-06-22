@@ -543,6 +543,36 @@ class APIClient {
     return this.request<ShareLink>('POST', `/api/share/generate/${petID}`, data);
   }
 
+  // Public, idempotent share link for lost/stray pets. No auth required: returns
+  // the pet's existing active link or creates one. The backend enforces the
+  // lost/stray status guard (404 for anything else), so a finder can share even
+  // when logged out. Repeating the call does NOT create new rows.
+  async getOrCreatePublicShareLink(petID: string): Promise<ShareLink> {
+    return this.request<ShareLink>('POST', `/api/pets/${petID}/share-link`);
+  }
+
+  // Auth-aware resolver used by the pet-detail share/flyer controls so EVERY
+  // finder can share a lost/stray pet:
+  //  - Logged out → public endpoint directly.
+  //  - Logged in  → protected endpoint first (the owner earns share.created
+  //    points), falling back to the public endpoint on 401/403 (e.g. a
+  //    logged-in neighbor who is not the owner/reporter).
+  // Non-lost/stray pets surface the public endpoint's 404 to the caller, which
+  // the UI turns into an "iniciá sesión / no disponible" message.
+  async getOrCreateShareLink(petID: string, data?: GenerateShareRequest): Promise<ShareLink> {
+    if (!this.token) {
+      return this.getOrCreatePublicShareLink(petID);
+    }
+    try {
+      return await this.generateShareLink(petID, data);
+    } catch (err) {
+      if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
+        return this.getOrCreatePublicShareLink(petID);
+      }
+      throw err;
+    }
+  }
+
   async getSharedPet(token: string): Promise<SharedPetResponse> {
     return this.request<SharedPetResponse>('GET', `/api/share/pet/${token}`);
   }

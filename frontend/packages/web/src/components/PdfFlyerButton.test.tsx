@@ -4,7 +4,7 @@ import { PdfFlyerButton } from './PdfFlyerButton';
 import type { Pet } from '@shared/types';
 
 vi.mock('@shared/hooks', () => ({
-  useGenerateShareLink: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useShareLink: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
 
 const basePet: Pet = {
