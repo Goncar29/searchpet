@@ -48,8 +48,9 @@ Non-goals: opening these for non-lost/stray statuses; removing login for pet
 ### 1. Public, idempotent share-link generation (lost/stray only)
 
 - Make share-link generation reachable without auth **for lost/stray pets**.
-  Preferred shape: a public endpoint (e.g. `POST /api/share/pet/:petId/link`)
-  that:
+  Shipped shape: a public endpoint `POST /api/pets/:id/share-link` (this final
+  path was chosen over `/api/share/pet/:petId/link` to avoid a gin wildcard
+  collision with the existing `/share/pet/:token/contact` route) that:
   - returns the pet's existing active share link if one exists, else creates one
     (**idempotent** — prevents anonymous row spam);
   - 404s / refuses for non-lost/stray status (status guard);
