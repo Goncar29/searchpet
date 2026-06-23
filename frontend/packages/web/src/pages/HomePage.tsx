@@ -211,6 +211,9 @@ export function HomePage() {
   // the user is authenticated and the backend call succeeds.
   const [imageResults, setImageResults] = useState<ImageSearchResult[] | null>(null);
   const [imageSearchError, setImageSearchError] = useState<string | null>(null);
+  // Photo search needs the backend (CLIP), which requires auth. When logged out
+  // we prompt for login instead of running the local classifier (which can't search).
+  const [photoLoginPrompt, setPhotoLoginPrompt] = useState(false);
 
   const clearImageResults = () => {
     setImageResults(null);
@@ -237,32 +240,40 @@ export function HomePage() {
     const file = e.target.files?.[0];
     if (!file) return;
     setPhotoNoMatch(false);
+    setPhotoLoginPrompt(false);
     // Clear any previous photo-search results too: otherwise a later failure
     // (e.g. 503) leaves stale cards from the prior photo on screen, which the
     // user would read as matches for the new one.
     clearImageResults();
 
-    if (isAuthenticated) {
-      try {
-        const response = await imageSearchMutation.mutateAsync(file);
-        setImageResults(response.results);
-        setClassifyResult(null);
+    // Photo search is a backend (CLIP) feature gated by auth. Logged out, the
+    // on-device classifier can't actually search (it only reports "no pet
+    // detected"), so we prompt for login instead of running it.
+    if (!isAuthenticated) {
+      setPhotoLoginPrompt(true);
+      e.target.value = '';
+      return;
+    }
+
+    try {
+      const response = await imageSearchMutation.mutateAsync(file);
+      setImageResults(response.results);
+      setClassifyResult(null);
+      e.target.value = '';
+      return;
+    } catch (err) {
+      // image_search_unavailable (503 — e.g. Jina rate-limited / down): tell the
+      // user honestly and STOP. Falling back to the much weaker on-device
+      // classifier here only reports "no pet detected", masking the real cause.
+      const isUnavailable = err instanceof ApiError && err.code === 'image_search_unavailable';
+      if (isUnavailable) {
+        setImageSearchError(t('home:photoSearch.unavailable'));
         e.target.value = '';
         return;
-      } catch (err) {
-        // image_search_unavailable (503 — e.g. Jina rate-limited / down): tell the
-        // user honestly and STOP. Falling back to the much weaker on-device
-        // classifier here only reports "no pet detected", masking the real cause.
-        const isUnavailable = err instanceof ApiError && err.code === 'image_search_unavailable';
-        if (isUnavailable) {
-          setImageSearchError(t('home:photoSearch.unavailable'));
-          e.target.value = '';
-          return;
-        }
-        // Any other error (network, 4xx): surface it, then still try the local
-        // classifier as a best-effort fallback.
-        setImageSearchError(getErrorMessage(err, t));
       }
+      // Any other error (network, 4xx): surface it, then still try the local
+      // classifier as a best-effort fallback.
+      setImageSearchError(getErrorMessage(err, t));
     }
 
     await runClassifierFallback(file);
@@ -464,6 +475,14 @@ export function HomePage() {
                   {imageSearchError}
                   <button type="button" onClick={() => setImageSearchError(null)} className="ml-0.5 hover:opacity-70">✕</button>
                 </div>
+              )}
+              {photoLoginPrompt && (
+                <Link
+                  to="/login"
+                  className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-primary bg-primary/10 border border-primary/20 rounded-full hover:bg-primary/15 transition-colors"
+                >
+                  🔒 {t('home:photoSearch.loginRequired')}
+                </Link>
               )}
             </div>
             <div className="flex-shrink-0">

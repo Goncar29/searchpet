@@ -45,6 +45,7 @@
     "photoSearch": {
       "resultsTitle": "Results by photo",
       "noResults": "No similar pets found",
+      "loginRequired": "Log in to search by photo",
       "clear": "Clear photo search",
       "unavailable": "Photo search is busy right now. Please try again in a few seconds."
     },
