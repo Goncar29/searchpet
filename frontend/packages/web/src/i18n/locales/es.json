@@ -181,10 +181,12 @@
     "seoDescriptionFallback": "Ayudanos a encontrar a {{name}}"
   },
   "vets": {
-    "toggle": "Veterinarias",
+    "toggle": "Mostrar veterinarias",
+    "hide": "Ocultar veterinarias",
     "searchArea": "Buscar en esta zona",
     "directions": "Cómo llegar",
     "call": "Llamar",
+    "website": "Sitio web",
     "empty": "No hay veterinarias en esta zona",
     "defaultName": "Veterinaria",
     "attribution": "Datos de veterinarias © colaboradores de OpenStreetMap"

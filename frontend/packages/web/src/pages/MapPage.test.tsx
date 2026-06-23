@@ -14,12 +14,16 @@ vi.mock('../context/ThemeContext', () => ({
   useTheme: () => ({ theme: 'light' }),
 }));
 
-const mockUseNearbyReports = vi.fn(() => ({ data: [], isLoading: false }));
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const mockUseNearbyReports = vi.fn((): { data: any[]; isLoading: boolean } => ({ data: [], isLoading: false }));
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const mockUseNearbyVets = vi.fn((): { data: any[]; isLoading: boolean } => ({ data: [], isLoading: false }));
 
 vi.mock('@shared/hooks', () => ({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   useNearbyReports: (...args: any[]) => (mockUseNearbyReports as any)(...args),
-  useNearbyVets: () => ({ data: [], isLoading: false }),
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  useNearbyVets: (...args: any[]) => (mockUseNearbyVets as any)(...args),
 }));
 
 // Captured so the test can simulate a pan (moveend).
@@ -69,6 +73,10 @@ function wrapper({ children }: { children: React.ReactNode }) {
 describe('MapPage', () => {
   beforeEach(() => {
     capturedMoveend = undefined;
+    mockUseNearbyReports.mockReset();
+    mockUseNearbyReports.mockReturnValue({ data: [], isLoading: false });
+    mockUseNearbyVets.mockReset();
+    mockUseNearbyVets.mockReturnValue({ data: [], isLoading: false });
   });
 
   it('renderiza sin lanzar errores', () => {
@@ -115,6 +123,65 @@ describe('MapPage', () => {
     act(() => { capturedMoveend?.(); });
 
     expect(screen.getByText('map:searchHere')).toBeTruthy();
+  });
+
+  it('vets toggle button switches its label between show and hide', async () => {
+    render(<MapPage />, { wrapper });
+
+    // Inactive: shows the "show veterinaries" label (vets:toggle).
+    const showBtn = screen.getByRole('button', { name: /toggle/ });
+    expect(showBtn).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /hide/ })).toBeNull();
+
+    // Active: label flips to "hide veterinaries" (vets:hide).
+    await userEvent.click(showBtn);
+    expect(screen.getByRole('button', { name: /hide/ })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /toggle/ })).toBeNull();
+  });
+
+  it('pet popup shows the photo, subtitle (type · breed · color) and details link', () => {
+    mockUseNearbyReports.mockReturnValue({
+      data: [
+        {
+          id: 'r1', pet_id: 'p1', reporter_id: 'u1', status: 'lost',
+          latitude: -34.9011, longitude: -56.1645, is_verified: false,
+          created_at: '2026-06-23T10:00:00Z',
+          pet: {
+            id: 'p1', name: 'Rex', type: 'perro', breed: 'Labrador', color: 'Negro',
+            status: 'lost', created_at: '2026-06-23T10:00:00Z',
+            photos: [{ id: 'ph1', url: 'https://img/rex.jpg', is_primary: true }],
+          },
+        },
+      ],
+      isLoading: false,
+    });
+
+    render(<MapPage />, { wrapper });
+
+    expect(screen.getByAltText('Rex')).toHaveAttribute('src', 'https://img/rex.jpg');
+    // t() mock echoes the key, so the type renders as the raw key joined with breed/color.
+    expect(screen.getByText('pets:types.perro · Labrador · Negro')).toBeInTheDocument();
+    expect(screen.getByText(/map:viewDetails/)).toBeInTheDocument();
+  });
+
+  it('vet popup shows the distance and a website link', async () => {
+    mockUseNearbyVets.mockReturnValue({
+      data: [
+        {
+          id: 'v1', name: 'VetCare', latitude: -34.9011, longitude: -56.1645,
+          address: 'Calle 1', phone: '+59899000000',
+          website: 'https://vet.example', opening_hours: 'Mo-Fr 09-18',
+          distance_meters: 1200,
+        },
+      ],
+      isLoading: false,
+    });
+
+    render(<MapPage />, { wrapper });
+    await userEvent.click(screen.getByRole('button', { name: /toggle/ }));
+
+    expect(screen.getByText('📍 1.2 km')).toBeInTheDocument();
+    expect(screen.getByText('website')).toHaveAttribute('href', 'https://vet.example');
   });
 
   it('clicking "search this area" re-fetches reports at the new center', async () => {
