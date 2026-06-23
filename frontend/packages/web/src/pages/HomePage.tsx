@@ -237,7 +237,10 @@ export function HomePage() {
     const file = e.target.files?.[0];
     if (!file) return;
     setPhotoNoMatch(false);
-    setImageSearchError(null);
+    // Clear any previous photo-search results too: otherwise a later failure
+    // (e.g. 503) leaves stale cards from the prior photo on screen, which the
+    // user would read as matches for the new one.
+    clearImageResults();
 
     if (isAuthenticated) {
       try {
@@ -247,12 +250,18 @@ export function HomePage() {
         e.target.value = '';
         return;
       } catch (err) {
-        // image_search_unavailable (503, e.g. HuggingFace down) falls back silently —
-        // any other error (network, 4xx) is surfaced to the user.
+        // image_search_unavailable (503 — e.g. Jina rate-limited / down): tell the
+        // user honestly and STOP. Falling back to the much weaker on-device
+        // classifier here only reports "no pet detected", masking the real cause.
         const isUnavailable = err instanceof ApiError && err.code === 'image_search_unavailable';
-        if (!isUnavailable) {
-          setImageSearchError(getErrorMessage(err, t));
+        if (isUnavailable) {
+          setImageSearchError(t('home:photoSearch.unavailable'));
+          e.target.value = '';
+          return;
         }
+        // Any other error (network, 4xx): surface it, then still try the local
+        // classifier as a best-effort fallback.
+        setImageSearchError(getErrorMessage(err, t));
       }
     }
 

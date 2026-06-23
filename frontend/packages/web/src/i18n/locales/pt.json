@@ -45,7 +45,8 @@
     "photoSearch": {
       "resultsTitle": "Resultados por foto",
       "noResults": "Nenhum pet semelhante encontrado",
-      "clear": "Limpar busca por foto"
+      "clear": "Limpar busca por foto",
+      "unavailable": "A busca por foto está ocupada no momento. Tente novamente em alguns segundos."
     },
     "distanceCenter": {
       "gps": "Perto da sua localização",
