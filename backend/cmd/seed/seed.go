@@ -96,7 +96,7 @@ func Seed(ctx context.Context, db *gorm.DB, embedder *service.EmbeddingService, 
 	}
 	opts.Logger.Info("seed: core records upserted")
 
-	return seedEmbeddings(ctx, embedder, opts)
+	return seedEmbeddings(ctx, db, embedder, opts)
 }
 
 // upsert inserts or updates by primary key (records carry fixed UUIDs).
@@ -125,8 +125,37 @@ func resetSeedData(db *gorm.DB) error {
 	return nil
 }
 
-// seedEmbeddings is a stub — replaced in Task 7 with the opt-in Jina logic.
-func seedEmbeddings(ctx context.Context, embedder *service.EmbeddingService, opts SeedOptions) error {
-	opts.Logger.Info("seed: embeddings stub (real logic added in a later task)")
+// seedEmbeddings indexes the lost/stray pets' photos using the SAME production
+// path as the reindex endpoint (EmbeddingService.BackfillAll). OPT-IN only:
+// Jina's free tier is tied to a single shared key (also used in prod), so a
+// normal seed must never call Jina. Runs only with --with-embeddings.
+func seedEmbeddings(ctx context.Context, db *gorm.DB, embedder *service.EmbeddingService, opts SeedOptions) error {
+	if !opts.WithEmbeddings {
+		opts.Logger.Info("seed: skipping image-search embeddings",
+			zap.String("hint", "pass --with-embeddings to generate them (uses the shared Jina key)"))
+		return nil
+	}
+
+	// Ensure pgvector + the embeddings table exist locally (prod creates these via
+	// SQL migration; the seed makes itself self-sufficient for local testing).
+	if err := db.Exec("CREATE EXTENSION IF NOT EXISTS vector").Error; err != nil {
+		return err
+	}
+	if err := db.AutoMigrate(&domain.PetEmbedding{}); err != nil {
+		return err
+	}
+
+	if opts.JinaAPIKey == "" {
+		opts.Logger.Warn("seed: --with-embeddings set but JINA_API_KEY is empty — table ready, skipping fill",
+			zap.String("hint", "set JINA_API_KEY (the shared free-tier key) to enable photo search locally"))
+		return nil
+	}
+
+	res := embedder.BackfillAll(ctx)
+	opts.Logger.Info("seed: embeddings backfilled",
+		zap.Int("pets_scanned", res.PetsScanned),
+		zap.Int("photos_indexed", res.PhotosIndexed),
+		zap.Int("photos_failed", res.PhotosFailed),
+	)
 	return nil
 }
