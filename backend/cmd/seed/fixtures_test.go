@@ -92,3 +92,15 @@ func TestSeedReports_coordsAndDescriptionMix(t *testing.T) {
 		t.Errorf("expected reports with and without description (with=%v without=%v)", withDesc, withoutDesc)
 	}
 }
+
+func TestSeedCommunity_allKindsPresent(t *testing.T) {
+	c := SeedCommunity()
+	if len(c.Blocks) == 0 || len(c.Abuse) == 0 || len(c.Groups) == 0 ||
+		len(c.Members) == 0 || len(c.Stories) == 0 || len(c.Points) == 0 || len(c.Badges) == 0 {
+		t.Fatalf("community fixtures incomplete: %+v counts", c)
+	}
+	// The blocked pair must reference the two known users.
+	if c.Blocks[0].BlockerID != userAID || c.Blocks[0].BlockedID != userBID {
+		t.Errorf("expected block A->B, got %v->%v", c.Blocks[0].BlockerID, c.Blocks[0].BlockedID)
+	}
+}

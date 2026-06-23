@@ -97,6 +97,55 @@ func SeedReports() []domain.Report {
 	}
 }
 
+// CommunityData groups the community-layer fixtures: blocks, abuse reports,
+// local groups, group memberships, success stories, points, and badges.
+type CommunityData struct {
+	Blocks  []domain.BlockedUser
+	Abuse   []domain.ReportAbuse
+	Groups  []domain.LocalGroup
+	Members []domain.GroupMember
+	Stories []domain.SuccessStory
+	Points  []domain.UserPoints
+	Badges  []domain.Badge
+}
+
+// SeedCommunity returns one representative fixture per community entity type.
+func SeedCommunity() CommunityData {
+	groupID := uuid.MustParse("00000000-0000-0000-0000-0000000000d1")
+	return CommunityData{
+		Blocks: []domain.BlockedUser{
+			{ID: uuid.MustParse("00000000-0000-0000-0000-0000000000e1"),
+				BlockerID: userAID, BlockedID: userBID, Reason: "spam"},
+		},
+		Abuse: []domain.ReportAbuse{
+			{ID: uuid.MustParse("00000000-0000-0000-0000-0000000000e2"),
+				ReporterID: userBID, TargetUserID: ptrUUID(userCID),
+				Reason: "Perfil sospechoso", Status: "pending"},
+		},
+		Groups: []domain.LocalGroup{
+			{ID: groupID, Name: "Rescatistas Montevideo", City: "Montevideo",
+				Description: "Grupo de prueba", CreatedBy: adminID, MemberCount: 1},
+		},
+		Members: []domain.GroupMember{
+			{ID: uuid.MustParse("00000000-0000-0000-0000-0000000000e3"),
+				GroupID: groupID, UserID: userAID},
+		},
+		Stories: []domain.SuccessStory{
+			{ID: uuid.MustParse("00000000-0000-0000-0000-0000000000e4"),
+				PetID: petFoundID, UserID: userBID, Title: "¡Rex volvió a casa!",
+				Body: "Gracias a la comunidad.", LikeCount: 3},
+		},
+		Points: []domain.UserPoints{
+			{ID: uuid.MustParse("00000000-0000-0000-0000-0000000000e5"),
+				UserID: userAID, Points: 120, TotalReports: 5, FoundCount: 1},
+		},
+		Badges: []domain.Badge{
+			{ID: uuid.MustParse("00000000-0000-0000-0000-0000000000e6"),
+				UserID: userAID, BadgeType: "first_helper"},
+		},
+	}
+}
+
 // SeedUsers returns the fixed set of users: an admin, two verified normals
 // (a blocked pair), and one unverified user.
 func SeedUsers() []SeedUser {
