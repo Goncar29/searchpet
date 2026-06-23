@@ -58,6 +58,15 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 		cloudinaryClient = nil
 	}
 
+	// Expose Cloudinary as the ImageUploader interface for the photo service,
+	// guarding the typed-nil trap: assigning a nil *CloudinaryClient straight into
+	// an interface yields a NON-nil interface, which would defeat the service's
+	// `storage == nil` guard and panic on upload. Keep it a true nil interface.
+	var photoStorage service.ImageUploader
+	if cloudinaryClient != nil {
+		photoStorage = cloudinaryClient
+	}
+
 	// ========================================
 	// EVENT BUS
 	// ========================================
@@ -93,7 +102,7 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 	// CAPA 2: Services
 	// ========================================
 	authService := service.NewAuthService(userRepo, cfg.JWTSecret, cloudinaryClient)
-	photoService := service.NewPhotoService(photoRepo, petRepo, cloudinaryClient, bus)
+	photoService := service.NewPhotoService(photoRepo, petRepo, photoStorage, bus)
 	petService := service.NewPetService(petRepo, bus, photoService, reportRepo, petUow)
 	reportService := service.NewReportService(reportRepo, petRepo, bus)
 	messageService := service.NewMessageService(messageRepo, blockedUserRepo, bus)

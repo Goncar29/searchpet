@@ -30,7 +30,7 @@ func (r *postgresShareLinkRepository) GetByToken(ctx context.Context, token stri
 	result := r.db.WithContext(ctx).
 		Preload("Pet").
 		Preload("Pet.Owner").
-		Preload("Pet.Photos").
+		Preload("Pet.Photos", orderedPhotos).
 		Where("share_token = ?", token).
 		First(&link)
 	if errors.Is(result.Error, gorm.ErrRecordNotFound) {

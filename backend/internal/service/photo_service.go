@@ -15,8 +15,17 @@ import (
 	"lost-pets/internal/domain"
 	"lost-pets/internal/event"
 	"lost-pets/internal/repository"
-	"lost-pets/pkg/storage"
 )
+
+// ImageUploader is the image-storage abstraction the photo service depends on.
+// It is satisfied by *storage.CloudinaryClient; depending on this interface
+// (instead of the concrete client) follows the project's "behind an interface for
+// testability" rule and lets the upload/primary logic be unit-tested without a
+// real Cloudinary account.
+type ImageUploader interface {
+	UploadImage(ctx context.Context, file io.Reader, filename, folder string) (string, string, error)
+	Delete(ctx context.Context, publicID string) error
+}
 
 // sanitizePublicID convierte un nombre de archivo en un public_id válido para Cloudinary.
 // Elimina la extensión, reemplaza espacios y caracteres especiales por guiones bajos.
@@ -58,7 +67,7 @@ type PhotoService interface {
 type photoServiceImpl struct {
 	photoRepo repository.PhotoRepository
 	petRepo   repository.PetRepository
-	storage   *storage.CloudinaryClient
+	storage   ImageUploader
 	bus       *event.EventBus
 }
 
@@ -66,7 +75,7 @@ type photoServiceImpl struct {
 func NewPhotoService(
 	photoRepo repository.PhotoRepository,
 	petRepo repository.PetRepository,
-	storage *storage.CloudinaryClient,
+	storage ImageUploader,
 	bus *event.EventBus,
 ) PhotoService {
 	return &photoServiceImpl{
@@ -137,9 +146,12 @@ func (s *photoServiceImpl) UploadPhoto(
 		return nil, domain.ErrInvalidInput
 	}
 
-	// LÓGICA DE NEGOCIO: la nueva foto siempre se convierte en primary.
-	// Si ya había una primary, la desmarcamos primero.
-	if err := s.photoRepo.UnsetPrimaryPhotos(petID); err != nil {
+	// LÓGICA DE NEGOCIO: la PRIMERA foto de una mascota es su primary — la foto
+	// canónica que se muestra en feed, detalle, reportes, PDF y links compartidos.
+	// Los uploads posteriores NO le roban el primary, así la foto representativa
+	// queda estable. Si la primary fue borrada, el siguiente upload la reasigna.
+	hasPrimary, err := s.photoRepo.HasPrimaryPhoto(petID)
+	if err != nil {
 		return nil, err
 	}
 
@@ -148,7 +160,7 @@ func (s *photoServiceImpl) UploadPhoto(
 		URL:        secureURL,
 		PublicID:   returnedPublicID,
 		UploadedBy: uploaderUUID,
-		IsPrimary:  true,
+		IsPrimary:  !hasPrimary,
 	}
 
 	if err := s.photoRepo.Create(photo); err != nil {
