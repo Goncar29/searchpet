@@ -75,6 +75,9 @@ import (
 func main() {
 	reset := flag.Bool("reset", false, "delete seed-managed rows before inserting")
 	force := flag.Bool("force", false, "allow running against a non-local DATABASE_URL")
+	// Embeddings are OPT-IN: Jina's free tier is tied to a single shared key (also
+	// used in prod), so a normal seed must never touch Jina. Only this flag does.
+	withEmbeddings := flag.Bool("with-embeddings", false, "generate image-search embeddings via Jina (uses the shared JINA_API_KEY)")
 	flag.Parse()
 
 	cfg := config.Load()
@@ -111,9 +114,10 @@ func main() {
 	}
 
 	if err := Seed(context.Background(), db, embedder, SeedOptions{
-		Reset:        *reset,
-		JinaAPIKey:   cfg.JinaAPIKey,
-		Logger:       log,
+		Reset:          *reset,
+		WithEmbeddings: *withEmbeddings,
+		JinaAPIKey:     cfg.JinaAPIKey,
+		Logger:         log,
 	}); err != nil {
 		log.Fatal("seed: failed", zap.Error(err))
 	}
@@ -147,9 +151,10 @@ import (
 )
 
 type SeedOptions struct {
-	Reset      bool
-	JinaAPIKey string
-	Logger     *zap.Logger
+	Reset          bool
+	WithEmbeddings bool
+	JinaAPIKey     string
+	Logger         *zap.Logger
 }
 
 func Seed(ctx context.Context, db *gorm.DB, embedder *service.EmbeddingService, opts SeedOptions) error {
@@ -616,9 +621,10 @@ import (
 )
 
 type SeedOptions struct {
-	Reset      bool
-	JinaAPIKey string
-	Logger     *zap.Logger
+	Reset          bool
+	WithEmbeddings bool
+	JinaAPIKey     string
+	Logger         *zap.Logger
 }
 
 func Seed(ctx context.Context, db *gorm.DB, embedder *service.EmbeddingService, opts SeedOptions) error {
@@ -759,12 +765,18 @@ Append to `seed.go`:
 
 ```go
 // seedEmbeddings indexes the lost/stray pets' photos using the SAME production
-// path as the reindex endpoint (EmbeddingService.BackfillAll). Skipped with a
-// warning when JINA_API_KEY is unset, so the rest of the seed works offline.
+// path as the reindex endpoint (EmbeddingService.BackfillAll). OPT-IN only:
+// Jina's free tier is tied to a single shared key (also used in prod), so a
+// normal seed must never call Jina. Runs only with --with-embeddings AND a key.
 func seedEmbeddings(ctx context.Context, embedder *service.EmbeddingService, opts SeedOptions) error {
+	if !opts.WithEmbeddings {
+		opts.Logger.Info("seed: skipping image-search embeddings",
+			zap.String("hint", "pass --with-embeddings to generate them (uses the shared Jina key)"))
+		return nil
+	}
 	if opts.JinaAPIKey == "" {
-		opts.Logger.Warn("seed: JINA_API_KEY not set — skipping image-search embeddings",
-			zap.String("hint", "set JINA_API_KEY and re-run to enable photo search locally"))
+		opts.Logger.Warn("seed: --with-embeddings set but JINA_API_KEY is empty — skipping",
+			zap.String("hint", "set JINA_API_KEY (the shared free-tier key) to enable photo search locally"))
 		return nil
 	}
 	res := embedder.BackfillAll(ctx)
@@ -785,11 +797,12 @@ with fields `PetsScanned`, `PhotosIndexed`, `PhotosFailed` (all `int`).
 Run: `cd backend && go build ./cmd/seed`
 Expected: build ok.
 
-- [ ] **Step 3: Run with Jina enabled and verify embeddings**
+- [ ] **Step 3: Run with the opt-in flag + Jina key and verify embeddings**
 
-Run: `cd backend && JINA_API_KEY=<key> DATABASE_URL=<local> go run ./cmd/seed`
+Run: `cd backend && JINA_API_KEY=<shared-key> DATABASE_URL=<local> go run ./cmd/seed --with-embeddings`
 Then `make db-shell` → `SELECT count(*) FROM pet_embeddings;`
-Expected: ≥ 2 rows (the dog + cat photos). Logs show `indexed >= 2`.
+Expected: ≥ 2 rows (the dog + cat photos). Logs show `photos_indexed >= 2`.
+Also confirm a plain `go run ./cmd/seed` (no flag) logs `skipping image-search embeddings` and writes 0 embedding rows.
 
 - [ ] **Step 4: Commit**
 
@@ -816,13 +829,17 @@ Refuses to run against a non-local `DATABASE_URL` unless `--force`.
 ## Run
 
 ```bash
-make seed                 # idempotent upsert
-make seed ARGS=--reset    # wipe seed-managed rows first
+make seed                              # idempotent upsert (NO Jina calls)
+make seed ARGS=--reset                 # wipe seed-managed rows first
+make seed ARGS=--with-embeddings       # also generate image-search embeddings (opt-in)
 ```
 
-Requires the local Postgres+PostGIS container (`make db-up`). For image search,
-set `JINA_API_KEY` before running; without it, everything else is seeded and
-embeddings are skipped.
+Requires the local Postgres+PostGIS container (`make db-up`).
+
+**Image search is opt-in.** Jina's free tier is tied to a single shared key (the
+same one used in prod — a new key is not free). A normal `make seed` never calls
+Jina. Only `--with-embeddings` does, and only when `JINA_API_KEY` is set. The seed
+indexes just 2 photos, so the token draw on the shared quota is negligible.
 
 ## Accounts
 
@@ -837,7 +854,7 @@ embeddings are skipped.
 
 ## Image-search self-match test (#2)
 
-1. Seed with `JINA_API_KEY` set so embeddings exist.
+1. Seed with `make seed ARGS=--with-embeddings` and `JINA_API_KEY` set so embeddings exist.
 2. Download the exact photo of a seeded lost/stray pet from its URL (see
    `dogPhotoURL` / `catPhotoURL` in `fixtures.go`).
 3. Upload that downloaded file via the app's photo search.
@@ -862,7 +879,7 @@ git commit -m "docs(seed): document accounts, run instructions and self-match te
 - Image search `#2` (real embeddings, public URLs, self-match doc) → Tasks 3, 7, 8. ✅
 - Admin role → Task 2 (admin user) + Task 8 (creds). ✅
 - Idempotency + `--reset` + Makefile → Tasks 1, 6. ✅
-- `JINA_API_KEY` optional / skip-with-warning → Task 7. ✅
+- Embeddings opt-in (`--with-embeddings`) + `JINA_API_KEY`-gated, single shared key → Tasks 1, 7. ✅
 - Local-only guard → Task 1. ✅
 
 **Placeholder scan:** None. `BackfillResult` field names were verified against source (`PetsScanned`/`PhotosIndexed`/`PhotosFailed`).

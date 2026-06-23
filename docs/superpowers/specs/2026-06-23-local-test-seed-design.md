@@ -79,9 +79,9 @@ Coverage across every `PetStatus` (`registered`, `lost`, `stray`, `found`,
 ### Image-search data (`#2`)
 - A few `lost`/`stray` pets whose photos point to **stable public image URLs**
   (constants in the command).
-- The seed generates their embeddings by calling
-  `EmbeddingService.GenerateEmbeddingFromURL` (the production index path) and
-  storing them in `pet_embeddings`.
+- When run with `--with-embeddings`, the seed generates their embeddings via
+  `EmbeddingService.BackfillAll` (the same production index path the reindex
+  endpoint uses) and stores them in `pet_embeddings`.
 - **Self-match test procedure (documented, manual):** download the image from the
   same URL and upload it via the app's photo search — it must return that pet at a
   high similarity. A low score points at the byte-divergence hypothesis above.
@@ -99,15 +99,21 @@ Coverage across every `PetStatus` (`registered`, `lost`, `stray`, `found`,
   converges to the same dataset.
 - **`--reset` flag** (optional): deletes the seed-managed rows before inserting, for
   a clean slate.
-- **Makefile target** `make seed` runs `go run ./backend/cmd/seed`.
+- **`--with-embeddings` flag** (optional): the only path that calls Jina (see
+  Dependencies). A normal seed never touches the network.
+- **Makefile target** `make seed` (pass `ARGS=--reset` / `ARGS=--with-embeddings`)
+  runs `go run ./backend/cmd/seed`.
 - Reads `DATABASE_URL` (falls back to the local docker-compose default for
   `lostpets`).
 
 ## Dependencies & constraints
 
-- **`JINA_API_KEY`** must be set locally for the embedding step. If it is missing,
-  the seed still creates everything else and **skips** embedding generation with a
-  clear warning (so the general/edge-case seed works offline).
+- **Embeddings are opt-in.** Jina's free tier is tied to a **single shared key**
+  (the same one used in prod — a newly created key is not free). So a normal seed
+  must never call Jina: embedding generation runs only behind a `--with-embeddings`
+  flag **and** only when `JINA_API_KEY` is set; otherwise it is skipped (the
+  general/edge-case seed always works offline). The seed indexes just 2 photos, so
+  the draw on the shared quota is negligible.
 - Requires the local Postgres+PostGIS container running (docker-compose), with
   `AutoMigrate` already applied (i.e. run the server once, or rely on the seed
   connecting after migrations).
