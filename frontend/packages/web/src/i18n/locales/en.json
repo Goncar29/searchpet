@@ -180,10 +180,12 @@
     "seoDescriptionFallback": "Help us find {{name}}"
   },
   "vets": {
-    "toggle": "Veterinaries",
+    "toggle": "Show veterinaries",
+    "hide": "Hide veterinaries",
     "searchArea": "Search this area",
     "directions": "Directions",
     "call": "Call",
+    "website": "Website",
     "empty": "No veterinaries in this area",
     "defaultName": "Veterinary",
     "attribution": "Veterinary data © OpenStreetMap contributors"
