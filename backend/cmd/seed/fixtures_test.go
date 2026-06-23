@@ -71,3 +71,24 @@ func TestSeedPets_coversAllStatusesAndEdges(t *testing.T) {
 			hasNoDescription, hasNoPhoto, hasStrayOwnerless)
 	}
 }
+
+func TestSeedReports_coordsAndDescriptionMix(t *testing.T) {
+	reports := SeedReports()
+	if len(reports) < 3 {
+		t.Fatalf("expected >=3 reports, got %d", len(reports))
+	}
+	var withDesc, withoutDesc bool
+	for _, r := range reports {
+		if r.Latitude == 0 || r.Longitude == 0 {
+			t.Errorf("report %s has zero coordinates", r.ID)
+		}
+		if r.LocationDescription == "" {
+			withoutDesc = true
+		} else {
+			withDesc = true
+		}
+	}
+	if !withDesc || !withoutDesc {
+		t.Errorf("expected reports with and without description (with=%v without=%v)", withDesc, withoutDesc)
+	}
+}

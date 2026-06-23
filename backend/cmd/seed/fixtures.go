@@ -1,6 +1,8 @@
 package main
 
 import (
+	"time"
+
 	"github.com/google/uuid"
 	"lost-pets/internal/domain"
 )
@@ -11,8 +13,8 @@ var (
 	userBID = uuid.MustParse("00000000-0000-0000-0000-000000000003")
 	userCID = uuid.MustParse("00000000-0000-0000-0000-000000000004")
 
-	montevideoLat = -34.9011 //nolint:unused
-	montevideoLng = -56.1645 //nolint:unused
+	montevideoLat = -34.9011
+	montevideoLng = -56.1645
 )
 
 // SeedUser carries a plaintext password; seed.go hashes it at insert time.
@@ -68,6 +70,30 @@ func SeedPhotos() []domain.Photo {
 	return []domain.Photo{
 		{ID: photoLost1ID, PetID: petLost1ID, URL: dogPhotoURL, UploadedBy: userAID, IsPrimary: true},
 		{ID: photoStray1ID, PetID: petStray1ID, URL: catPhotoURL, UploadedBy: userAID, IsPrimary: true},
+	}
+}
+
+func offset(base, d float64) float64 { return base + d }
+
+// SeedReports returns a set of reports with varied PostGIS coordinates and
+// occurrence dates. Includes both reports with and without LocationDescription
+// to exercise optional-field code paths.
+func SeedReports() []domain.Report {
+	now := time.Now()
+	older := now.Add(-72 * time.Hour)
+	return []domain.Report{
+		{ID: uuid.MustParse("00000000-0000-0000-0000-0000000000c1"),
+			PetID: petLost1ID, ReporterID: userAID, Status: "lost",
+			Latitude: offset(montevideoLat, 0.004), Longitude: offset(montevideoLng, 0.004),
+			LocationDescription: "Última vez en Pocitos.", OccurredAt: &older},
+		{ID: uuid.MustParse("00000000-0000-0000-0000-0000000000c2"),
+			PetID: petLost1ID, ReporterID: userBID, Status: "sighting",
+			Latitude: offset(montevideoLat, -0.006), Longitude: offset(montevideoLng, 0.002),
+			OccurredAt: &now}, // no description
+		{ID: uuid.MustParse("00000000-0000-0000-0000-0000000000c3"),
+			PetID: petStray1ID, ReporterID: userAID, Status: "lost",
+			Latitude: offset(montevideoLat, 0.001), Longitude: offset(montevideoLng, -0.003),
+			LocationDescription: "Cerca del Parque Rodó."},
 	}
 }
 
