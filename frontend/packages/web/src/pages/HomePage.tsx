@@ -398,10 +398,10 @@ export function HomePage() {
                   {story.body}
                 </p>
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-gray-400 dark:text-gray-500">
+                  <span className="text-xs text-gray-600 dark:text-gray-400">
                     {new Date(story.created_at).toLocaleDateString()}
                   </span>
-                  <span className="text-xs text-gray-500 dark:text-gray-400">❤️ {story.like_count}</span>
+                  <span className="text-xs text-gray-600 dark:text-gray-400">❤️ {story.like_count}</span>
                 </div>
               </Link>
             ))}
@@ -420,7 +420,7 @@ export function HomePage() {
                   Buscar por foto
                 </h2>
                 <span className="text-xs font-bold bg-primary/15 text-primary px-2 py-0.5 rounded-full">IA</span>
-                <span className="text-xs font-semibold bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 px-2 py-0.5 rounded-full">Beta</span>
+                <span className="text-xs font-semibold bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 px-2 py-0.5 rounded-full">Beta</span>
               </div>
               <p className="text-sm text-gray-500 dark:text-gray-400">
                 Subí una foto y detectamos automáticamente la raza y el tipo de mascota.
