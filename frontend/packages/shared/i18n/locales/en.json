@@ -113,6 +113,9 @@
       "contactReporter": "Contact reporter",
       "contactReporterWhatsapp": "Contact via WhatsApp",
       "revealPhone": "Show phone",
+      "callPhone": "Call",
+      "copyNumber": "Copy number",
+      "copied": "Copied!",
       "loginToContact": "Log in to contact",
       "loginToShare": "Log in to share"
     },

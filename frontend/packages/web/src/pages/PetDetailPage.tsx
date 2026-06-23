@@ -344,6 +344,9 @@ export function PetDetailPage() {
                     pet={pet}
                     revealLabel={t('pets:detail.revealPhone')}
                     contactLabel={t('pets:detail.contact')}
+                    callLabel={t('pets:detail.callPhone')}
+                    copyLabel={t('pets:detail.copyNumber')}
+                    copiedLabel={t('pets:detail.copied')}
                   />
                 )}
               </div>
@@ -373,6 +376,9 @@ export function PetDetailPage() {
                       pet={pet}
                       revealLabel={t('pets:detail.revealPhone')}
                       contactLabel={t('pets:detail.contactReporterWhatsapp')}
+                      callLabel={t('pets:detail.callPhone')}
+                      copyLabel={t('pets:detail.copyNumber')}
+                      copiedLabel={t('pets:detail.copied')}
                     />
                   ) : isAuthenticated ? (
                     // In-app messaging fallback (login required).
