@@ -2,11 +2,12 @@ import './i18n/index';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClientProvider } from '@tanstack/react-query';
 import { HelmetProvider } from 'react-helmet-async';
 import { ThemeProvider } from './context/ThemeContext';
 import { AuthProvider } from './context/AuthContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { createQueryClient } from './lib/queryClient';
 import { apiClient } from '@shared/api/client';
 import App from './App';
 import 'leaflet/dist/leaflet.css';
@@ -24,11 +25,7 @@ if (savedToken) {
   apiClient.setToken(savedToken);
 }
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: { retry: 2, staleTime: 5 * 60 * 1000 },
-  },
-});
+const queryClient = createQueryClient();
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
