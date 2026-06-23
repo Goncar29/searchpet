@@ -19,6 +19,13 @@ vi.mock('../utils/notifications', () => ({
   listenForegroundMessages: vi.fn(),
 }));
 
+// Builds an unsigned JWT-shaped string with the given payload (base64url).
+function makeJwt(payload: object): string {
+  const enc = (obj: object) =>
+    btoa(JSON.stringify(obj)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  return `${enc({ alg: 'HS256', typ: 'JWT' })}.${enc(payload)}.signature`;
+}
+
 // Componente auxiliar que expone el contexto
 function AuthConsumer() {
   const { user, isAuthenticated, isLoading } = useAuth();
@@ -119,5 +126,38 @@ describe('AuthContext', () => {
     expect(localStorage.getItem('token')).toBeNull();
     expect(localStorage.getItem('user')).toBeNull();
     expect(screen.getByTestId('auth').textContent).toBe('false');
+  });
+
+  it('no restaura una sesión con token JWT expirado y limpia localStorage', async () => {
+    const expired = makeJwt({ exp: Math.floor(Date.now() / 1000) - 100 });
+    localStorage.setItem('token', expired);
+    localStorage.setItem('user', JSON.stringify({ id: '1', name: 'Carlos' }));
+
+    render(
+      <AuthProvider>
+        <AuthConsumer />
+      </AuthProvider>
+    );
+    await act(async () => {});
+
+    expect(screen.getByTestId('auth').textContent).toBe('false');
+    expect(localStorage.getItem('token')).toBeNull();
+    expect(localStorage.getItem('user')).toBeNull();
+  });
+
+  it('restaura una sesión con token JWT vigente', async () => {
+    const valid = makeJwt({ exp: Math.floor(Date.now() / 1000) + 3600 });
+    localStorage.setItem('token', valid);
+    localStorage.setItem('user', JSON.stringify({ id: '1', email: 'a@a.com', name: 'Carlos', is_verified: false, created_at: '' }));
+
+    render(
+      <AuthProvider>
+        <AuthConsumer />
+      </AuthProvider>
+    );
+    await act(async () => {});
+
+    expect(screen.getByTestId('auth').textContent).toBe('true');
+    expect(screen.getByTestId('user').textContent).toBe('Carlos');
   });
 });
