@@ -36,6 +36,8 @@ type ReportRepository interface {
 	// UpdateVerified marca un reporte como verificado y registra quién lo verificó.
 	// Style A para el nuevo método.
 	UpdateVerified(ctx context.Context, id uuid.UUID, verifiedBy uuid.UUID) error
+	// Delete removes a report by id (admin moderation). Returns ErrReportNotFound if absent.
+	Delete(ctx context.Context, id uuid.UUID) error
 }
 
 // PhotoRepository define el contrato para acceder a datos de fotos de mascotas.

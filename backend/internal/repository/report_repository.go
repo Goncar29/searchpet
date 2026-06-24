@@ -72,6 +72,20 @@ func (r *PostgresReportRepository) UpdateVerified(ctx context.Context, id uuid.U
 	return nil
 }
 
+// Delete elimina un reporte por id (acción de moderación admin).
+// Hard delete: el report es una fila casi-hoja (las fotos cuelgan del Pet y
+// Message.ReportID es un puntero nullable sin FK que bloquee).
+func (r *PostgresReportRepository) Delete(ctx context.Context, id uuid.UUID) error {
+	result := r.db.WithContext(ctx).Where("id = ?", id).Delete(&domain.Report{})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return domain.ErrReportNotFound
+	}
+	return nil
+}
+
 // FindNearby busca reportes dentro de un radio usando PostGIS.
 // ST_DWithin verifica si dos puntos están dentro del radio en metros.
 // ST_Distance calcula la distancia exacta para ordenar los resultados del más cercano al más lejano.

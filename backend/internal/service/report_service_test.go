@@ -1,6 +1,8 @@
 package service_test
 
 import (
+	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -207,5 +209,37 @@ func TestGetReportsByPet_ReturnsAll(t *testing.T) {
 	}
 	if len(reports) != len(expected) {
 		t.Errorf("expected %d reports, got %d", len(expected), len(reports))
+	}
+}
+
+// ============================================================
+// Tests: Delete
+// ============================================================
+
+func TestReportService_Delete_DelegatesToRepo(t *testing.T) {
+	var deletedID uuid.UUID
+	repo := &mockReportRepo{
+		deleteFn: func(_ context.Context, id uuid.UUID) error { deletedID = id; return nil },
+	}
+	svc := service.NewReportService(repo, nil, nil)
+
+	id := uuid.New()
+	if err := svc.Delete(context.Background(), id); err != nil {
+		t.Fatalf("Delete: %v", err)
+	}
+	if deletedID != id {
+		t.Errorf("want repo.Delete called with %s, got %s", id, deletedID)
+	}
+}
+
+func TestReportService_Delete_PropagatesNotFound(t *testing.T) {
+	repo := &mockReportRepo{
+		deleteFn: func(_ context.Context, _ uuid.UUID) error { return domain.ErrReportNotFound },
+	}
+	svc := service.NewReportService(repo, nil, nil)
+
+	err := svc.Delete(context.Background(), uuid.New())
+	if !errors.Is(err, domain.ErrReportNotFound) {
+		t.Errorf("want ErrReportNotFound, got %v", err)
 	}
 }

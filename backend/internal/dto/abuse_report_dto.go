@@ -9,8 +9,9 @@ import (
 
 // AbuseUserRef is a minimal user reference for admin enrichment.
 type AbuseUserRef struct {
-	ID   uuid.UUID `json:"id"`
-	Name string    `json:"name"`
+	ID       uuid.UUID `json:"id"`
+	Name     string    `json:"name"`
+	IsBanned bool      `json:"is_banned"`
 }
 
 // AbuseTargetReportRef is a minimal report reference (with its pet) for admin enrichment.
@@ -63,10 +64,10 @@ func ToAbuseReportResponse(r *domain.ReportAbuse) AbuseReportResponse {
 		CreatedAt:      r.CreatedAt,
 	}
 	if r.Reporter.ID != (uuid.UUID{}) {
-		resp.Reporter = &AbuseUserRef{ID: r.Reporter.ID, Name: r.Reporter.Name}
+		resp.Reporter = &AbuseUserRef{ID: r.Reporter.ID, Name: r.Reporter.Name, IsBanned: r.Reporter.IsBanned}
 	}
 	if r.TargetUser != nil && r.TargetUser.ID != (uuid.UUID{}) {
-		resp.TargetUser = &AbuseUserRef{ID: r.TargetUser.ID, Name: r.TargetUser.Name}
+		resp.TargetUser = &AbuseUserRef{ID: r.TargetUser.ID, Name: r.TargetUser.Name, IsBanned: r.TargetUser.IsBanned}
 	}
 	// Only expose target_report when its pet is also resolvable; otherwise the
 	// frontend would render a link with a blank label. Omitting it lets the UI

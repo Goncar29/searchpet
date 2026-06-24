@@ -18,6 +18,8 @@ type ReportService interface {
 	GetNearbyReports(lat, lng float64, radiusMeters float64) ([]domain.Report, error)
 	// VerifyReport marca un reporte como verificado (admin-only, enforced en handler).
 	VerifyReport(ctx context.Context, reportID, adminID uuid.UUID) error
+	// Delete removes a report (admin moderation; admin enforcement is in the handler).
+	Delete(ctx context.Context, id uuid.UUID) error
 }
 
 // CreateReportRequest contiene los datos para crear un reporte.
@@ -140,4 +142,10 @@ func (s *reportService) GetNearbyReports(lat, lng float64, radiusMeters float64)
 // Admin-only enforcement se hace en el handler mediante RequireAdmin middleware.
 func (s *reportService) VerifyReport(ctx context.Context, reportID, adminID uuid.UUID) error {
 	return s.repo.UpdateVerified(ctx, reportID, adminID)
+}
+
+// Delete elimina un reporte (acción de moderación admin).
+// Admin-only enforcement se hace en el handler mediante RequireAdmin.
+func (s *reportService) Delete(ctx context.Context, id uuid.UUID) error {
+	return s.repo.Delete(ctx, id)
 }
