@@ -2,6 +2,7 @@ package handler
 
 import (
 	"errors"
+	"io"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -30,9 +31,11 @@ func (h *ModerationHandler) BanUser(c *gin.Context) {
 		return
 	}
 
+	// reason is optional: an absent/empty body (io.EOF) is valid and leaves it "".
+	// Any other bind error (malformed JSON, reason over the max) is a 400.
 	var req dto.BanUserRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		writeError(c, http.StatusBadRequest, err)
+	if err := c.ShouldBindJSON(&req); err != nil && !errors.Is(err, io.EOF) {
+		writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
 		return
 	}
 

@@ -20,10 +20,16 @@ type mockModerationService struct {
 }
 
 func (m *mockModerationService) BanUser(ctx context.Context, id uuid.UUID, reason string) error {
-	return m.banFn(ctx, id, reason)
+	if m.banFn != nil {
+		return m.banFn(ctx, id, reason)
+	}
+	return nil
 }
 func (m *mockModerationService) UnbanUser(ctx context.Context, id uuid.UUID) error {
-	return m.unbanFn(ctx, id)
+	if m.unbanFn != nil {
+		return m.unbanFn(ctx, id)
+	}
+	return nil
 }
 
 var _ service.ModerationService = (*mockModerationService)(nil)
@@ -124,6 +130,67 @@ func TestModerationHandler_BanUser_BadID(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPatch, "/api/admin/users/not-a-uuid/ban",
 		strings.NewReader(`{}`))
 	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("want 400, got %d", w.Code)
+	}
+}
+
+func TestModerationHandler_BanUser_NoBody_Succeeds(t *testing.T) {
+	// reason is optional, so a ban with no request body must succeed (empty reason).
+	gin.SetMode(gin.TestMode)
+	var gotReason = "unset"
+	svc := &mockModerationService{banFn: func(_ context.Context, _ uuid.UUID, reason string) error {
+		gotReason = reason
+		return nil
+	}}
+	h := handler.NewModerationHandler(svc)
+
+	r := gin.New()
+	r.PATCH("/api/admin/users/:id/ban", h.BanUser)
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPatch, "/api/admin/users/"+uuid.New().String()+"/ban", nil)
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("want 200 for no-body ban, got %d (%s)", w.Code, w.Body.String())
+	}
+	if gotReason != "" {
+		t.Errorf("want empty reason, got %q", gotReason)
+	}
+}
+
+func TestModerationHandler_BanUser_TooLongReason_Returns400(t *testing.T) {
+	// reason is capped at 500 chars; over-long input must be rejected as invalid_input.
+	gin.SetMode(gin.TestMode)
+	h := handler.NewModerationHandler(&mockModerationService{})
+
+	r := gin.New()
+	r.PATCH("/api/admin/users/:id/ban", h.BanUser)
+
+	body := `{"reason":"` + strings.Repeat("a", 501) + `"}`
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPatch, "/api/admin/users/"+uuid.New().String()+"/ban",
+		strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest || !strings.Contains(w.Body.String(), "invalid_input") {
+		t.Fatalf("want 400 invalid_input, got %d (%s)", w.Code, w.Body.String())
+	}
+}
+
+func TestModerationHandler_UnbanUser_BadID(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	h := handler.NewModerationHandler(&mockModerationService{})
+
+	r := gin.New()
+	r.PATCH("/api/admin/users/:id/unban", h.UnbanUser)
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPatch, "/api/admin/users/not-a-uuid/unban", nil)
 	r.ServeHTTP(w, req)
 
 	if w.Code != http.StatusBadRequest {
