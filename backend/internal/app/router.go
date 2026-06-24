@@ -373,6 +373,7 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 		admin.GET("/abuse-reports/:id", abuseReportHandler.GetByID)
 		admin.PATCH("/admin/abuse-reports/:id/resolve", abuseReportHandler.Resolve)
 		admin.PATCH("/admin/reports/:id/verify", reportHandler.VerifyReport)
+		admin.DELETE("/admin/reports/:id", reportHandler.DeleteReport)
 		admin.POST("/admin/shelters", shelterHandler.Create)
 		admin.PUT("/admin/shelters/:id", shelterHandler.Update)
 	}
