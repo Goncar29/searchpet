@@ -306,6 +306,11 @@ type ReportAbuse struct {
 	ResolvedBy     *uuid.UUID `gorm:"type:uuid" json:"resolved_by,omitempty"`
 	ResolvedAt     *time.Time `json:"resolved_at,omitempty"`
 	CreatedAt      time.Time  `gorm:"autoCreateTime;index" json:"created_at"`
+
+	// Associations (admin enrichment) — not serialized raw; exposed via DTO refs.
+	Reporter     User    `gorm:"foreignKey:ReporterID" json:"-"`
+	TargetUser   *User   `gorm:"foreignKey:TargetUserID" json:"-"`
+	TargetReport *Report `gorm:"foreignKey:TargetReportID" json:"-"`
 }
 
 // ============================================================

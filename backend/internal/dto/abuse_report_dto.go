@@ -7,6 +7,19 @@ import (
 	"lost-pets/internal/domain"
 )
 
+// AbuseUserRef is a minimal user reference for admin enrichment.
+type AbuseUserRef struct {
+	ID   uuid.UUID `json:"id"`
+	Name string    `json:"name"`
+}
+
+// AbuseTargetReportRef is a minimal report reference (with its pet) for admin enrichment.
+type AbuseTargetReportRef struct {
+	ID      uuid.UUID `json:"id"`
+	PetID   uuid.UUID `json:"pet_id"`
+	PetName string    `json:"pet_name"`
+}
+
 // CreateAbuseReportRequest contiene los datos para enviar una denuncia.
 // Al menos uno de TargetUserID o TargetReportID debe estar presente.
 type CreateAbuseReportRequest struct {
@@ -31,11 +44,14 @@ type AbuseReportResponse struct {
 	ResolvedBy     *uuid.UUID `json:"resolved_by,omitempty"`
 	ResolvedAt     *time.Time `json:"resolved_at,omitempty"`
 	CreatedAt      time.Time  `json:"created_at"`
+	Reporter       *AbuseUserRef         `json:"reporter,omitempty"`
+	TargetUser     *AbuseUserRef         `json:"target_user,omitempty"`
+	TargetReport   *AbuseTargetReportRef `json:"target_report,omitempty"`
 }
 
 // ToAbuseReportResponse convierte un domain.ReportAbuse a AbuseReportResponse.
 func ToAbuseReportResponse(r *domain.ReportAbuse) AbuseReportResponse {
-	return AbuseReportResponse{
+	resp := AbuseReportResponse{
 		ID:             r.ID,
 		TargetReportID: r.TargetReportID,
 		TargetUserID:   r.TargetUserID,
@@ -46,6 +62,20 @@ func ToAbuseReportResponse(r *domain.ReportAbuse) AbuseReportResponse {
 		ResolvedAt:     r.ResolvedAt,
 		CreatedAt:      r.CreatedAt,
 	}
+	if r.Reporter.ID != (uuid.UUID{}) {
+		resp.Reporter = &AbuseUserRef{ID: r.Reporter.ID, Name: r.Reporter.Name}
+	}
+	if r.TargetUser != nil && r.TargetUser.ID != (uuid.UUID{}) {
+		resp.TargetUser = &AbuseUserRef{ID: r.TargetUser.ID, Name: r.TargetUser.Name}
+	}
+	if r.TargetReport != nil && r.TargetReport.ID != (uuid.UUID{}) {
+		resp.TargetReport = &AbuseTargetReportRef{
+			ID:      r.TargetReport.ID,
+			PetID:   r.TargetReport.PetID,
+			PetName: r.TargetReport.Pet.Name,
+		}
+	}
+	return resp
 }
 
 // ToAbuseReportListResponse convierte una lista a []AbuseReportResponse.
