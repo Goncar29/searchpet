@@ -394,6 +394,9 @@ export interface AbuseReport {
   reason: AbuseReason;
   status: string;
   created_at: string;
+  reporter?: { id: string; name: string };
+  target_user?: { id: string; name: string };
+  target_report?: { id: string; pet_id: string; pet_name: string };
 }
 
 export interface CreateAbuseReportRequest {
