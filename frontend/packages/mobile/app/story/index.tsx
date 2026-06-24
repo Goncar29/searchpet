@@ -2,7 +2,7 @@
 // SearchPet - Stories List Screen
 // ============================================================
 
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, FlatList, StyleSheet, TouchableOpacity, ActivityIndicator, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useStories } from '../../../shared/hooks';
@@ -22,6 +22,9 @@ export default function StoriesScreen() {
       onPress={() => router.push(`/story/${item.id}` as any)}
       activeOpacity={0.7}
     >
+      {item.pet_photo ? (
+        <Image source={{ uri: item.pet_photo }} style={styles.cardImage} resizeMode="cover" />
+      ) : null}
       <View style={styles.cardHeader}>
         <Text style={styles.petName}>{item.pet_name}</Text>
         <Text style={styles.likes}>❤️ {item.like_count}</Text>
@@ -111,6 +114,12 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.lg,
     padding: SPACING.md,
     ...SHADOWS.sm,
+  },
+  cardImage: {
+    width: '100%',
+    height: 160,
+    borderRadius: RADIUS.md,
+    marginBottom: SPACING.sm,
   },
   cardHeader: {
     flexDirection: 'row',

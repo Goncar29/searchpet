@@ -418,6 +418,7 @@ export interface SuccessStory {
   body: string;
   photo_before?: string;
   photo_after?: string;
+  pet_photo?: string;
   like_count: number;
   liked_by_me: boolean;
   featured: boolean;

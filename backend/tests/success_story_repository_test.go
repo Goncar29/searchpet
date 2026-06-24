@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -457,5 +458,47 @@ func TestSuccessStoryRepository_SetFeatured(t *testing.T) {
 	}
 	if got2.Featured {
 		t.Error("want Featured=false after SetFeatured(false)")
+	}
+}
+
+func TestSuccessStoryRepository_GetByID_PreloadsPhotosOrdered(t *testing.T) {
+	gormDB := testdb.SetupTestDB(t)
+	userRepo := repository.NewUserRepository(gormDB)
+	petRepo := repository.NewPetRepository(gormDB)
+	photoRepo := repository.NewPhotoRepository(gormDB)
+	storyRepo := repository.NewSuccessStoryRepository(gormDB)
+	ctx := context.Background()
+
+	owner := newTestUser(t, userRepo)
+	pet := &domain.Pet{ID: uuid.New(), OwnerID: ptrUUID(owner.ID), Name: "PhotoPet", Type: "perro", Status: domain.PetStatusFound}
+	if err := petRepo.Create(pet); err != nil {
+		t.Fatalf("Create pet: %v", err)
+	}
+
+	// Earliest photo is NOT primary; latest IS primary — proves we pick by
+	// created_at order, ignoring the is_primary flag.
+	base := time.Now().Add(-2 * time.Hour)
+	early := &domain.Photo{ID: uuid.New(), PetID: pet.ID, URL: "https://cdn/early.jpg", UploadedBy: owner.ID, IsPrimary: false, CreatedAt: base}
+	late := &domain.Photo{ID: uuid.New(), PetID: pet.ID, URL: "https://cdn/late.jpg", UploadedBy: owner.ID, IsPrimary: true, CreatedAt: base.Add(time.Hour)}
+	for _, p := range []*domain.Photo{late, early} { // insert out of order on purpose
+		if err := photoRepo.Create(p); err != nil {
+			t.Fatalf("Create photo: %v", err)
+		}
+	}
+
+	story := &domain.SuccessStory{ID: uuid.New(), PetID: pet.ID, UserID: owner.ID, Body: "Reunited"}
+	if err := storyRepo.Create(ctx, story); err != nil {
+		t.Fatalf("Create story: %v", err)
+	}
+
+	got, err := storyRepo.GetByID(ctx, story.ID)
+	if err != nil {
+		t.Fatalf("GetByID: %v", err)
+	}
+	if len(got.Pet.Photos) == 0 {
+		t.Fatal("want pet photos preloaded, got none")
+	}
+	if got.Pet.Photos[0].URL != "https://cdn/early.jpg" {
+		t.Errorf("want first photo early.jpg (canonical order), got %q", got.Pet.Photos[0].URL)
 	}
 }

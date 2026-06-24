@@ -30,6 +30,7 @@ type StoryResponse struct {
 	Body        string     `json:"body"`
 	PhotoBefore string     `json:"photo_before,omitempty"`
 	PhotoAfter  string     `json:"photo_after,omitempty"`
+	PetPhoto    string     `json:"pet_photo,omitempty"`
 	LikeCount   int        `json:"like_count"`
 	Featured    bool       `json:"featured"`
 	FeaturedBy  *uuid.UUID `json:"featured_by,omitempty"`
@@ -57,6 +58,9 @@ func ToStoryResponse(s *domain.SuccessStory) StoryResponse {
 	}
 	if s.Pet.ID != (uuid.UUID{}) {
 		resp.PetName = s.Pet.Name
+		if len(s.Pet.Photos) > 0 {
+			resp.PetPhoto = s.Pet.Photos[0].URL
+		}
 	}
 	if s.User.ID != (uuid.UUID{}) {
 		resp.UserName = s.User.Name

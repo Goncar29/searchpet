@@ -56,6 +56,13 @@ export function StoriesPage() {
             <div
               className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 hover:shadow-md transition-shadow flex flex-col"
             >
+              {story.pet_photo && (
+                <img
+                  src={story.pet_photo}
+                  alt={story.pet_name}
+                  className="w-full h-40 object-cover rounded-lg mb-4"
+                />
+              )}
               {story.featured && (
                 <span className="self-start text-xs font-bold text-yellow-950 bg-yellow-400 px-2 py-0.5 rounded-full mb-3">
                   Destacada

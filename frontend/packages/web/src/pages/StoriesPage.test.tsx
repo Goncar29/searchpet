@@ -100,4 +100,19 @@ describe('StoriesPage', () => {
     expect(likeMutate).not.toHaveBeenCalled();
     expect(unlikeMutate).not.toHaveBeenCalled();
   });
+
+  it('muestra la foto de la mascota cuando pet_photo está presente', () => {
+    mockStories = [makeStory({ pet_photo: 'https://cdn/toby.jpg' })];
+    render(<StoriesPage />, { wrapper });
+
+    const img = screen.getByRole('img', { name: 'Toby' });
+    expect(img.getAttribute('src')).toBe('https://cdn/toby.jpg');
+  });
+
+  it('no muestra imagen cuando pet_photo está ausente', () => {
+    mockStories = [makeStory()];
+    render(<StoriesPage />, { wrapper });
+
+    expect(screen.queryByRole('img')).toBeNull();
+  });
 });
