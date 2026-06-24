@@ -20,6 +20,12 @@ func NewSuccessStoryRepository(db *gorm.DB) SuccessStoryRepository {
 	return &postgresSuccessStoryRepository{db: db}
 }
 
+// preloadOrderedPhotos preloads the pet's photos in canonical primary order
+// (first by created_at ASC, id ASC) so Pet.Photos[0] is the canonical primary.
+func preloadOrderedPhotos(db *gorm.DB) *gorm.DB {
+	return db.Order("created_at ASC, id ASC")
+}
+
 func (r *postgresSuccessStoryRepository) Create(ctx context.Context, story *domain.SuccessStory) error {
 	return r.db.WithContext(ctx).Create(story).Error
 }
@@ -28,6 +34,7 @@ func (r *postgresSuccessStoryRepository) GetByID(ctx context.Context, id uuid.UU
 	var story domain.SuccessStory
 	err := r.db.WithContext(ctx).
 		Preload("Pet").
+		Preload("Pet.Photos", preloadOrderedPhotos).
 		Preload("User").
 		Where("id = ? AND deleted_at IS NULL", id).
 		First(&story).Error
@@ -44,6 +51,7 @@ func (r *postgresSuccessStoryRepository) GetByPetID(ctx context.Context, petID u
 	var story domain.SuccessStory
 	err := r.db.WithContext(ctx).
 		Preload("Pet").
+		Preload("Pet.Photos", preloadOrderedPhotos).
 		Preload("User").
 		Where("pet_id = ? AND deleted_at IS NULL", petID).
 		First(&story).Error
@@ -60,6 +68,7 @@ func (r *postgresSuccessStoryRepository) GetAll(ctx context.Context, featured *b
 	var stories []domain.SuccessStory
 	q := r.db.WithContext(ctx).
 		Preload("Pet").
+		Preload("Pet.Photos", preloadOrderedPhotos).
 		Preload("User").
 		Where("deleted_at IS NULL")
 
