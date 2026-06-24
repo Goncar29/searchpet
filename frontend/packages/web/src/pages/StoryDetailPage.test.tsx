@@ -82,4 +82,19 @@ describe('StoryDetailPage', () => {
     expect(unlikeMutate).toHaveBeenCalledWith('s1');
     expect(likeMutate).not.toHaveBeenCalled();
   });
+
+  it('muestra la foto de la mascota como hero cuando pet_photo está presente', () => {
+    mockStory = makeStory({ pet_photo: 'https://cdn/toby.jpg' });
+    render(<StoryDetailPage />, { wrapper });
+
+    const img = screen.getByRole('img', { name: 'Toby' });
+    expect(img.getAttribute('src')).toBe('https://cdn/toby.jpg');
+  });
+
+  it('no muestra hero cuando pet_photo está ausente', () => {
+    mockStory = makeStory();
+    render(<StoryDetailPage />, { wrapper });
+
+    expect(screen.queryByRole('img')).toBeNull();
+  });
 });

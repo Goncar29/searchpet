@@ -81,6 +81,15 @@ export function StoryDetailPage() {
           </span>
         )}
 
+        {/* Pet photo hero */}
+        {story.pet_photo && (
+          <img
+            src={story.pet_photo}
+            alt={story.pet_name}
+            className="w-full h-64 object-cover rounded-lg mb-6"
+          />
+        )}
+
         {/* Title */}
         <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">
           {story.title || story.pet_name}
