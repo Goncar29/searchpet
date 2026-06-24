@@ -73,6 +73,9 @@ func (m *mockReportService) Delete(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
+// Compile-time guard: the mock must stay in sync with the ReportService interface.
+var _ service.ReportService = (*mockReportService)(nil)
+
 // ============================================================
 // Router helpers
 // ============================================================

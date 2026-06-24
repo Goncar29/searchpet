@@ -5,6 +5,7 @@ import (
 
 	"github.com/google/uuid"
 	"lost-pets/internal/domain"
+	"lost-pets/internal/repository"
 )
 
 // ============================================================
@@ -97,3 +98,6 @@ func (m *mockReportRepo) Delete(ctx context.Context, id uuid.UUID) error {
 	}
 	return nil
 }
+
+// Compile-time guard: the mock must stay in sync with the ReportRepository interface.
+var _ repository.ReportRepository = (*mockReportRepo)(nil)

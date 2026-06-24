@@ -98,3 +98,17 @@ func TestModerationService_UnbanUser_ClearsBan(t *testing.T) {
 		t.Errorf("want unbanned with cleared reason, got %+v", saved)
 	}
 }
+
+func TestModerationService_UnbanUser_PropagatesNotFound(t *testing.T) {
+	repo := &mockUserRepoForMod{
+		getByIDFn: func(_ context.Context, _ uuid.UUID) (*domain.User, error) {
+			return nil, domain.ErrUserNotFound
+		},
+	}
+	svc := NewModerationService(repo)
+
+	err := svc.UnbanUser(context.Background(), uuid.New())
+	if !errors.Is(err, domain.ErrUserNotFound) {
+		t.Errorf("want ErrUserNotFound, got %v", err)
+	}
+}

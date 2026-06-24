@@ -182,6 +182,25 @@ func TestModerationHandler_BanUser_TooLongReason_Returns400(t *testing.T) {
 	}
 }
 
+func TestModerationHandler_UnbanUser_NotFound(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	svc := &mockModerationService{unbanFn: func(_ context.Context, _ uuid.UUID) error {
+		return domain.ErrUserNotFound
+	}}
+	h := handler.NewModerationHandler(svc)
+
+	r := gin.New()
+	r.PATCH("/api/admin/users/:id/unban", h.UnbanUser)
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPatch, "/api/admin/users/"+uuid.New().String()+"/unban", nil)
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusNotFound || !strings.Contains(w.Body.String(), "user_not_found") {
+		t.Fatalf("want 404 user_not_found, got %d (%s)", w.Code, w.Body.String())
+	}
+}
+
 func TestModerationHandler_UnbanUser_BadID(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	h := handler.NewModerationHandler(&mockModerationService{})
