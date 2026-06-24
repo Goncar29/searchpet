@@ -116,6 +116,7 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 	groupService := service.NewGroupService(groupRepo, groupMemberRepo)
 	abuseReportRepo := repository.NewAbuseReportRepository(db)
 	abuseReportService := service.NewAbuseReportService(abuseReportRepo)
+	moderationService := service.NewModerationService(userRepo)
 
 	badgeRepo := repository.NewBadgeRepository(db)
 	pointsRepo := repository.NewUserPointsRepository(db)
@@ -194,6 +195,7 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 	storyHandler := handler.NewSuccessStoryHandler(storyService)
 	groupHandler := handler.NewGroupHandler(groupService)
 	abuseReportHandler := handler.NewAbuseReportHandler(abuseReportService)
+	moderationHandler := handler.NewModerationHandler(moderationService)
 	verificationHandler := handler.NewVerificationHandler(verificationService, cfg.EnableEmailVerification)
 	gamHandler := handler.NewGamificationHandler(gamSvc)
 	reindexHandler := handler.NewReindexHandler(embeddingService, cfg.ReindexToken)
@@ -374,6 +376,8 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 		admin.PATCH("/admin/abuse-reports/:id/resolve", abuseReportHandler.Resolve)
 		admin.PATCH("/admin/reports/:id/verify", reportHandler.VerifyReport)
 		admin.DELETE("/admin/reports/:id", reportHandler.DeleteReport)
+		admin.PATCH("/admin/users/:id/ban", moderationHandler.BanUser)
+		admin.PATCH("/admin/users/:id/unban", moderationHandler.UnbanUser)
 		admin.POST("/admin/shelters", shelterHandler.Create)
 		admin.PUT("/admin/shelters/:id", shelterHandler.Update)
 	}
