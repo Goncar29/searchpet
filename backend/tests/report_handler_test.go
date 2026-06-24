@@ -489,6 +489,9 @@ func TestReportHandler_DeleteReport_Success(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Fatalf("want 200, got %d (%s)", w.Code, w.Body.String())
 	}
+	if !strings.Contains(w.Body.String(), "message") {
+		t.Errorf("want a message body on success, got %s", w.Body.String())
+	}
 }
 
 func TestReportHandler_DeleteReport_NotFound(t *testing.T) {
@@ -524,5 +527,8 @@ func TestReportHandler_DeleteReport_BadID(t *testing.T) {
 
 	if w.Code != http.StatusBadRequest {
 		t.Fatalf("want 400, got %d", w.Code)
+	}
+	if !strings.Contains(w.Body.String(), "invalid_input") {
+		t.Errorf("want invalid_input code, got %s", w.Body.String())
 	}
 }
