@@ -68,7 +68,10 @@ func ToAbuseReportResponse(r *domain.ReportAbuse) AbuseReportResponse {
 	if r.TargetUser != nil && r.TargetUser.ID != (uuid.UUID{}) {
 		resp.TargetUser = &AbuseUserRef{ID: r.TargetUser.ID, Name: r.TargetUser.Name}
 	}
-	if r.TargetReport != nil && r.TargetReport.ID != (uuid.UUID{}) {
+	// Only expose target_report when its pet is also resolvable; otherwise the
+	// frontend would render a link with a blank label. Omitting it lets the UI
+	// fall back to the raw target_report_id (same as a deleted user/report).
+	if r.TargetReport != nil && r.TargetReport.ID != (uuid.UUID{}) && r.TargetReport.Pet.ID != (uuid.UUID{}) {
 		resp.TargetReport = &AbuseTargetReportRef{
 			ID:      r.TargetReport.ID,
 			PetID:   r.TargetReport.PetID,

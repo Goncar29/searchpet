@@ -80,3 +80,22 @@ func TestToAbuseReportResponse_OmitsUnloadedAssociations(t *testing.T) {
 		t.Errorf("want nil target_user when association not loaded, got %+v", resp.TargetUser)
 	}
 }
+
+func TestToAbuseReportResponse_OmitsReportRefWhenPetMissing(t *testing.T) {
+	reportID := uuid.New()
+	r := &domain.ReportAbuse{
+		ID:             uuid.New(),
+		ReporterID:     uuid.New(),
+		TargetReportID: &reportID,
+		Reason:         "fake",
+		Status:         "pending",
+		// Report loaded but its Pet was deleted / not resolvable (zero-value Pet).
+		TargetReport: &domain.Report{ID: reportID, PetID: uuid.New()},
+	}
+
+	resp := dto.ToAbuseReportResponse(r)
+
+	if resp.TargetReport != nil {
+		t.Errorf("want nil target_report when pet is unresolvable, got %+v", resp.TargetReport)
+	}
+}
