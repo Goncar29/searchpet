@@ -395,7 +395,7 @@ export interface AbuseReport {
   status: string;
   created_at: string;
   reporter?: { id: string; name: string };
-  target_user?: { id: string; name: string };
+  target_user?: { id: string; name: string; is_banned?: boolean };
   target_report?: { id: string; pet_id: string; pet_name: string };
 }
 

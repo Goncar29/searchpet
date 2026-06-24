@@ -805,6 +805,25 @@ class APIClient {
     return this.request<AbuseReport>('PATCH', `/api/admin/abuse-reports/${id}/resolve`, body);
   }
 
+  // Admin moderation actions. `id` is the REPORT id for deleteReport and the
+  // USER id for ban/unban. An empty reason is sent as no body (backend treats it
+  // as "no reason"). All return the backend's { message } acknowledgement.
+  async deleteReport(id: string): Promise<{ message: string }> {
+    return this.request<{ message: string }>('DELETE', `/api/admin/reports/${id}`);
+  }
+
+  async banUser(id: string, reason?: string): Promise<{ message: string }> {
+    return this.request<{ message: string }>(
+      'PATCH',
+      `/api/admin/users/${id}/ban`,
+      reason ? { reason } : undefined
+    );
+  }
+
+  async unbanUser(id: string): Promise<{ message: string }> {
+    return this.request<{ message: string }>('PATCH', `/api/admin/users/${id}/unban`);
+  }
+
   async verifyReport(id: string): Promise<Report> {
     return this.request<Report>('PATCH', `/api/admin/reports/${id}/verify`);
   }
