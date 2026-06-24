@@ -284,6 +284,42 @@ func TestReportRepository_FindNearby_FiltersByPetStatus(t *testing.T) {
 	}
 }
 
+func TestReportRepository_Delete_RemovesRow(t *testing.T) {
+	gormDB := testdb.SetupTestDB(t)
+	userRepo := repository.NewUserRepository(gormDB)
+	petRepo := repository.NewPetRepository(gormDB)
+	reportRepo := repository.NewReportRepository(gormDB)
+	ctx := context.Background()
+
+	owner := newTestUser(t, userRepo)
+	pet := &domain.Pet{ID: uuid.New(), OwnerID: ptrUUID(owner.ID), Name: "Toby", Type: "perro", Status: domain.PetStatusLost}
+	if err := petRepo.Create(pet); err != nil {
+		t.Fatalf("Create pet: %v", err)
+	}
+	rep := &domain.Report{ID: uuid.New(), PetID: pet.ID, ReporterID: owner.ID, Status: "lost", Latitude: -34.9, Longitude: -56.16}
+	if err := reportRepo.Create(rep); err != nil {
+		t.Fatalf("Create report: %v", err)
+	}
+
+	if err := reportRepo.Delete(ctx, rep.ID); err != nil {
+		t.Fatalf("Delete: %v", err)
+	}
+
+	if _, err := reportRepo.FindByID(rep.ID.String()); !errors.Is(err, domain.ErrReportNotFound) {
+		t.Errorf("want ErrReportNotFound after delete, got %v", err)
+	}
+}
+
+func TestReportRepository_Delete_MissingReturnsNotFound(t *testing.T) {
+	gormDB := testdb.SetupTestDB(t)
+	reportRepo := repository.NewReportRepository(gormDB)
+
+	err := reportRepo.Delete(context.Background(), uuid.New())
+	if !errors.Is(err, domain.ErrReportNotFound) {
+		t.Errorf("want ErrReportNotFound for missing report, got %v", err)
+	}
+}
+
 func TestReportRepository_UpdateVerified(t *testing.T) {
 	gormDB := testdb.SetupTestDB(t)
 	userRepo := repository.NewUserRepository(gormDB)
