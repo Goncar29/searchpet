@@ -130,6 +130,16 @@ export const useAuthStore = create<AuthState>((set) => ({
         set({ isLoading: false });
       }
     } catch {
+      // Sesión persistida corrupta (p. ej. user_data con JSON inválido) — la
+      // descartamos para no quedar trabados re-explotando el parse en cada
+      // cold start. El cleanup es best-effort: si el error vino de la lectura
+      // de SecureStore, el delete puede fallar también y lo ignoramos.
+      try {
+        await SecureStore.deleteItemAsync('auth_token');
+        await SecureStore.deleteItemAsync('user_data');
+      } catch {
+        // ignore
+      }
       set({ isLoading: false });
     }
   },
