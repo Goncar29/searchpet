@@ -25,7 +25,12 @@ func (r *postgresAbuseReportRepository) Create(ctx context.Context, report *doma
 
 func (r *postgresAbuseReportRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.ReportAbuse, error) {
 	var report domain.ReportAbuse
-	err := r.db.WithContext(ctx).Where("id = ?", id).First(&report).Error
+	err := r.db.WithContext(ctx).
+		Preload("Reporter").
+		Preload("TargetUser").
+		Preload("TargetReport.Pet").
+		Where("id = ?", id).
+		First(&report).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, domain.ErrAbuseReportNotFound
@@ -37,7 +42,10 @@ func (r *postgresAbuseReportRepository) GetByID(ctx context.Context, id uuid.UUI
 
 func (r *postgresAbuseReportRepository) GetAll(ctx context.Context, resolved *bool, limit, offset int) ([]domain.ReportAbuse, error) {
 	var reports []domain.ReportAbuse
-	q := r.db.WithContext(ctx)
+	q := r.db.WithContext(ctx).
+		Preload("Reporter").
+		Preload("TargetUser").
+		Preload("TargetReport.Pet")
 
 	if resolved != nil {
 		if *resolved {

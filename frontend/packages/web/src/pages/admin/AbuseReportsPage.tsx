@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@shared/api/client';
 import type { AbuseReport } from '@shared/types';
@@ -61,6 +62,7 @@ export function AbuseReportsPage() {
             <thead>
               <tr className="border-b border-gray-200 dark:border-gray-700 text-left">
                 <th className="py-2 px-3 font-semibold text-gray-600 dark:text-gray-400">ID</th>
+                <th className="py-2 px-3 font-semibold text-gray-600 dark:text-gray-400">Reporter</th>
                 <th className="py-2 px-3 font-semibold text-gray-600 dark:text-gray-400">Reason</th>
                 <th className="py-2 px-3 font-semibold text-gray-600 dark:text-gray-400">Status</th>
                 <th className="py-2 px-3 font-semibold text-gray-600 dark:text-gray-400">Target</th>
@@ -76,6 +78,17 @@ export function AbuseReportsPage() {
                 >
                   <td className="py-2 px-3 font-mono text-xs text-gray-500 dark:text-gray-400">
                     {report.id.slice(0, 8)}
+                  </td>
+                  <td className="py-2 px-3">
+                    {report.reporter ? (
+                      <Link to={`/users/${report.reporter.id}`} className="text-primary hover:underline">
+                        {report.reporter.name}
+                      </Link>
+                    ) : (
+                      <span className="font-mono text-xs text-gray-500 dark:text-gray-400">
+                        {report.reporter_id.slice(0, 8)}
+                      </span>
+                    )}
                   </td>
                   <td className="py-2 px-3 text-gray-900 dark:text-gray-100 capitalize">
                     {report.reason}
@@ -93,12 +106,24 @@ export function AbuseReportsPage() {
                       {report.status}
                     </span>
                   </td>
-                  <td className="py-2 px-3 font-mono text-xs text-gray-500 dark:text-gray-400">
-                    {report.target_user_id
-                      ? `user: ${report.target_user_id.slice(0, 8)}`
-                      : report.target_report_id
-                      ? `report: ${report.target_report_id.slice(0, 8)}`
-                      : '—'}
+                  <td className="py-2 px-3">
+                    {report.target_user ? (
+                      <Link to={`/users/${report.target_user.id}`} className="text-primary hover:underline">
+                        {report.target_user.name}
+                      </Link>
+                    ) : report.target_report ? (
+                      <Link to={`/pets/${report.target_report.pet_id}`} className="text-primary hover:underline">
+                        {report.target_report.pet_name}
+                      </Link>
+                    ) : (
+                      <span className="font-mono text-xs text-gray-500 dark:text-gray-400">
+                        {report.target_user_id
+                          ? `user: ${report.target_user_id.slice(0, 8)}`
+                          : report.target_report_id
+                          ? `report: ${report.target_report_id.slice(0, 8)}`
+                          : '—'}
+                      </span>
+                    )}
                   </td>
                   <td className="py-2 px-3 text-gray-500 dark:text-gray-400">
                     {new Date(report.created_at).toLocaleDateString()}
