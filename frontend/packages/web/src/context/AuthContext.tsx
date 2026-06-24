@@ -28,14 +28,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const savedToken = localStorage.getItem('token');
     const savedUser = localStorage.getItem('user');
-    // Only restore a session whose token has NOT already expired — otherwise the
-    // UI would show the user as logged in until the first request gets a 401.
-    if (savedToken && savedUser && !isJwtExpired(savedToken)) {
-      setToken(savedToken);
-      setUser(JSON.parse(savedUser));
-      apiClient.setToken(savedToken);
-    } else if (savedToken || savedUser) {
-      // Expired or partial session — drop it so it never appears active.
+    try {
+      // Only restore a session whose token has NOT already expired — otherwise the
+      // UI would show the user as logged in until the first request gets a 401.
+      // Parse the user BEFORE any setState so a corrupt value can't leave the
+      // context half-initialized (token set, user missing).
+      if (savedToken && savedUser && !isJwtExpired(savedToken)) {
+        const parsedUser: User = JSON.parse(savedUser);
+        setToken(savedToken);
+        setUser(parsedUser);
+        apiClient.setToken(savedToken);
+      } else if (savedToken || savedUser) {
+        // Expired or partial session — drop it so it never appears active.
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+      }
+    } catch {
+      // Corrupt persisted session (e.g. invalid user JSON) — drop it so the app
+      // never hangs on load; the user simply logs in again.
       localStorage.removeItem('token');
       localStorage.removeItem('user');
     }

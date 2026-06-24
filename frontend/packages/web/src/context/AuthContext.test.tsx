@@ -160,4 +160,22 @@ describe('AuthContext', () => {
     expect(screen.getByTestId('auth').textContent).toBe('true');
     expect(screen.getByTestId('user').textContent).toBe('Carlos');
   });
+
+  it('descarta una sesión con user corrupto sin colgar la carga', async () => {
+    const valid = makeJwt({ exp: Math.floor(Date.now() / 1000) + 3600 });
+    localStorage.setItem('token', valid);
+    localStorage.setItem('user', '{ broken json');
+
+    render(
+      <AuthProvider>
+        <AuthConsumer />
+      </AuthProvider>
+    );
+    await act(async () => {});
+
+    expect(screen.getByTestId('loading').textContent).toBe('false');
+    expect(screen.getByTestId('auth').textContent).toBe('false');
+    expect(localStorage.getItem('token')).toBeNull();
+    expect(localStorage.getItem('user')).toBeNull();
+  });
 });
