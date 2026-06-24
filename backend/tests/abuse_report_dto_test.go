@@ -99,3 +99,21 @@ func TestToAbuseReportResponse_OmitsReportRefWhenPetMissing(t *testing.T) {
 		t.Errorf("want nil target_report when pet is unresolvable, got %+v", resp.TargetReport)
 	}
 }
+
+func TestToAbuseReportResponse_TargetUserIsBanned(t *testing.T) {
+	targetUserID := uuid.New()
+	r := &domain.ReportAbuse{
+		ID:           uuid.New(),
+		ReporterID:   uuid.New(),
+		TargetUserID: &targetUserID,
+		Reason:       "spam",
+		Status:       "pending",
+		TargetUser:   &domain.User{ID: targetUserID, Name: "Bob", IsBanned: true},
+	}
+
+	resp := dto.ToAbuseReportResponse(r)
+
+	if resp.TargetUser == nil || !resp.TargetUser.IsBanned {
+		t.Errorf("want target_user.is_banned=true, got %+v", resp.TargetUser)
+	}
+}
