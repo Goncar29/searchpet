@@ -8,6 +8,10 @@ import (
 	"lost-pets/internal/dto"
 )
 
+// TestToStoryResponse_PetPhoto_UsesFirstPhoto verifies the DTO maps the first
+// element of the preloaded Photos slice. Canonical ordering of that slice
+// (created_at ASC, id ASC, ignoring is_primary) is the repository's
+// responsibility — see success_story_repository_test.go.
 func TestToStoryResponse_PetPhoto_UsesFirstPhoto(t *testing.T) {
 	petID := uuid.New()
 	story := &domain.SuccessStory{
