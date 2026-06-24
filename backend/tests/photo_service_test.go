@@ -123,6 +123,32 @@ func (m *mockPetRepoForService) UpdateStatus(id, status string) error { return n
 var _ repository.PetRepository = (*mockPetRepoForService)(nil)
 
 // ============================================================
+// Mock: ImageUploader (storage abstraction for service tests)
+// ============================================================
+
+type mockImageUploader struct {
+	uploadFn func(ctx context.Context, file io.Reader, filename, folder string) (string, string, error)
+	deleteFn func(ctx context.Context, publicID string) error
+}
+
+func (m *mockImageUploader) UploadImage(ctx context.Context, file io.Reader, filename, folder string) (string, string, error) {
+	if m.uploadFn != nil {
+		return m.uploadFn(ctx, file, filename, folder)
+	}
+	return "https://cdn.example.com/uploaded.jpg", "public-id", nil
+}
+
+func (m *mockImageUploader) Delete(ctx context.Context, publicID string) error {
+	if m.deleteFn != nil {
+		return m.deleteFn(ctx, publicID)
+	}
+	return nil
+}
+
+// Ensure interface compliance at compile time.
+var _ service.ImageUploader = (*mockImageUploader)(nil)
+
+// ============================================================
 // stringReadCloser wraps a string as a multipart.File
 // ============================================================
 
@@ -262,6 +288,74 @@ func TestPhotoService_UploadPhoto_LimitReached(t *testing.T) {
 	_, err := svc.UploadPhoto(context.Background(), petID.String(), ownerID.String(), f, "photo.jpg")
 	if err != domain.ErrPhotoLimitReached {
 		t.Errorf("expected ErrPhotoLimitReached, got %v", err)
+	}
+}
+
+func TestPhotoService_UploadPhoto_FirstPhotoBecomesPrimary(t *testing.T) {
+	// The first photo a pet gets becomes its primary (canonical photo). Backlog #17.
+	ownerID := uuid.New()
+	petID := uuid.New()
+
+	var created *domain.Photo
+	photoRepo := &mockPhotoRepo{
+		countByPetIDFn:    func(_ string) (int64, error) { return 0, nil },
+		hasPrimaryPhotoFn: func(_ string) (bool, error) { return false, nil },
+		createFn:          func(p *domain.Photo) error { created = p; return nil },
+	}
+	petRepo := &mockPetRepoForService{
+		findByIDFn: func(_ string) (*domain.Pet, error) {
+			return &domain.Pet{ID: petID, OwnerID: &ownerID}, nil
+		},
+	}
+
+	svc := service.NewPhotoService(photoRepo, petRepo, &mockImageUploader{}, nil)
+
+	f := newStringFile("fake-image-data")
+	if _, err := svc.UploadPhoto(context.Background(), petID.String(), ownerID.String(), f, "photo.jpg"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if created == nil {
+		t.Fatal("expected a photo to be created")
+	}
+	if !created.IsPrimary {
+		t.Error("the first photo of a pet should be primary")
+	}
+}
+
+func TestPhotoService_UploadPhoto_SubsequentPhotoDoesNotStealPrimary(t *testing.T) {
+	// Later uploads must NOT steal primary, so the representative photo stays
+	// stable on the first one. Backlog #17.
+	ownerID := uuid.New()
+	petID := uuid.New()
+
+	var created *domain.Photo
+	unsetCalled := false
+	photoRepo := &mockPhotoRepo{
+		countByPetIDFn:    func(_ string) (int64, error) { return 1, nil },
+		hasPrimaryPhotoFn: func(_ string) (bool, error) { return true, nil },
+		createFn:          func(p *domain.Photo) error { created = p; return nil },
+		unsetPrimaryFn:    func(_ string) error { unsetCalled = true; return nil },
+	}
+	petRepo := &mockPetRepoForService{
+		findByIDFn: func(_ string) (*domain.Pet, error) {
+			return &domain.Pet{ID: petID, OwnerID: &ownerID}, nil
+		},
+	}
+
+	svc := service.NewPhotoService(photoRepo, petRepo, &mockImageUploader{}, nil)
+
+	f := newStringFile("fake-image-data")
+	if _, err := svc.UploadPhoto(context.Background(), petID.String(), ownerID.String(), f, "photo.jpg"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if created == nil {
+		t.Fatal("expected a photo to be created")
+	}
+	if created.IsPrimary {
+		t.Error("a subsequent photo must not become primary")
+	}
+	if unsetCalled {
+		t.Error("subsequent upload must not unset the existing primary")
 	}
 }
 

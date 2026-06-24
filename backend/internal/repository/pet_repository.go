@@ -19,6 +19,14 @@ func NewPetRepository(db *gorm.DB) PetRepository {
 	return &PostgresPetRepository{db: db}
 }
 
+// orderedPhotos is a GORM preload scope that loads a pet's photos oldest-first.
+// The first uploaded photo is the canonical/primary one shown everywhere (feed,
+// detail, my pets, share landing, PDF), so the order must be deterministic and
+// not depend on Postgres heap order. Backlog #17.
+func orderedPhotos(db *gorm.DB) *gorm.DB {
+	return db.Order("photos.created_at ASC, photos.id ASC")
+}
+
 // Create inserta una nueva mascota en la BD.
 func (r *PostgresPetRepository) Create(pet *domain.Pet) error {
 	return r.db.Create(pet).Error
@@ -28,7 +36,7 @@ func (r *PostgresPetRepository) Create(pet *domain.Pet) error {
 // Preload("Owner") hace un segundo SELECT para traer los datos del usuario.
 func (r *PostgresPetRepository) FindByID(id string) (*domain.Pet, error) {
 	var pet domain.Pet
-	err := r.db.Preload("Owner").Preload("Reporter").Preload("Photos").Where("id = ?", id).First(&pet).Error
+	err := r.db.Preload("Owner").Preload("Reporter").Preload("Photos", orderedPhotos).Where("id = ?", id).First(&pet).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, domain.ErrPetNotFound
@@ -41,14 +49,14 @@ func (r *PostgresPetRepository) FindByID(id string) (*domain.Pet, error) {
 // FindByOwnerID devuelve todas las mascotas de un usuario con el owner cargado.
 func (r *PostgresPetRepository) FindByOwnerID(ownerID string) ([]domain.Pet, error) {
 	var pets []domain.Pet
-	err := r.db.Preload("Owner").Preload("Photos").Where("owner_id = ?", ownerID).Order("created_at DESC").Find(&pets).Error
+	err := r.db.Preload("Owner").Preload("Photos", orderedPhotos).Where("owner_id = ?", ownerID).Order("created_at DESC").Find(&pets).Error
 	return pets, err
 }
 
 // FindByReporterID devuelve las mascotas callejeras (stray) que reportó un usuario.
 func (r *PostgresPetRepository) FindByReporterID(reporterID string) ([]domain.Pet, error) {
 	var pets []domain.Pet
-	err := r.db.Preload("Photos").Where("reporter_id = ?", reporterID).Order("created_at DESC").Find(&pets).Error
+	err := r.db.Preload("Photos", orderedPhotos).Where("reporter_id = ?", reporterID).Order("created_at DESC").Find(&pets).Error
 	return pets, err
 }
 
@@ -89,7 +97,7 @@ func (r *PostgresPetRepository) Search(filters domain.PetSearchCriteria) ([]doma
 	// Construimos la query base con Preload
 	q := r.db.Model(&domain.Pet{}).
 		Preload("Owner").
-		Preload("Photos").
+		Preload("Photos", orderedPhotos).
 		Where("pets.status IN (?)", statuses)
 
 	// Filtros exactos / parciales
