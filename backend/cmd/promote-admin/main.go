@@ -35,11 +35,9 @@ func main() {
 	if err != nil {
 		log.Fatal("promote-admin: DB connect failed", zap.Error(err))
 	}
-	// Self-sufficient when run against a fresh DB (the server normally creates
-	// the users table via AutoMigrate, but the command must stand alone).
-	if err := db.AutoMigrate(&domain.User{}); err != nil {
-		log.Fatal("promote-admin: AutoMigrate failed", zap.Error(err))
-	}
+	// No AutoMigrate: promote-admin only ever targets an already-registered
+	// user, so the users table is guaranteed to exist (the server created it).
+	// Running a migration against prod just to flip one flag is avoidable risk.
 
 	userRepo := repository.NewUserRepository(db)
 	res, err := admintool.SetAdmin(context.Background(), userRepo, *email, !*revoke)
