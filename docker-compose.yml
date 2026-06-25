@@ -4,9 +4,11 @@
 # Uso: docker-compose up -d
 
 services:
-  # PostgreSQL + PostGIS
+  # PostgreSQL + PostGIS + pgvector
   db:
-    image: postgis/postgis:15-3.4
+    build:
+      context: .
+      dockerfile: docker/postgis-pgvector.Dockerfile
     container_name: lostpets-db
     environment:
       POSTGRES_USER: postgres

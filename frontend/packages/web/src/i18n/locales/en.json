@@ -45,6 +45,7 @@
     "photoSearch": {
       "resultsTitle": "Results by photo",
       "noResults": "No similar pets found",
+      "loginRequired": "Log in to search by photo",
       "clear": "Clear photo search",
       "unavailable": "Photo search is busy right now. Please try again in a few seconds."
     },
@@ -180,10 +181,12 @@
     "seoDescriptionFallback": "Help us find {{name}}"
   },
   "vets": {
-    "toggle": "Veterinaries",
+    "toggle": "Show veterinaries",
+    "hide": "Hide veterinaries",
     "searchArea": "Search this area",
     "directions": "Directions",
     "call": "Call",
+    "website": "Website",
     "empty": "No veterinaries in this area",
     "defaultName": "Veterinary",
     "attribution": "Veterinary data © OpenStreetMap contributors"

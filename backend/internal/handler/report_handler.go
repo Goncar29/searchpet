@@ -116,6 +116,28 @@ func (h *ReportHandler) VerifyReport(c *gin.Context) {
 	c.JSON(http.StatusOK, dto.ToReportResponse(report))
 }
 
+// DeleteReport godoc
+// DELETE /api/admin/reports/:id  (admin only — gated by RequireAdmin)
+// Deletes the reported location report as a moderation action.
+func (h *ReportHandler) DeleteReport(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
+		return
+	}
+
+	if err := h.reportService.Delete(c.Request.Context(), id); err != nil {
+		if errors.Is(err, domain.ErrReportNotFound) {
+			writeError(c, http.StatusNotFound, err)
+			return
+		}
+		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "report deleted"})
+}
+
 // GetNearbyReports godoc
 // GET /api/reports/nearby?lat=-34.9011&lng=-56.1645&radius=5000
 //

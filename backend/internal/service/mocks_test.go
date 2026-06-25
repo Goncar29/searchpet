@@ -5,6 +5,7 @@ import (
 
 	"github.com/google/uuid"
 	"lost-pets/internal/domain"
+	"lost-pets/internal/repository"
 )
 
 // ============================================================
@@ -55,6 +56,7 @@ type mockReportRepo struct {
 	capturedRadius float64        // para verificar el radio usado en FindNearby
 	createdCount   int            // cuántas veces se llamó a Create
 	lastReport     *domain.Report // último reporte pasado a Create
+	deleteFn       func(context.Context, uuid.UUID) error
 }
 
 func (m *mockReportRepo) Create(report *domain.Report) error {
@@ -89,3 +91,13 @@ func (m *mockReportRepo) FindNearby(_, _ float64, radius float64) ([]domain.Repo
 func (m *mockReportRepo) UpdateVerified(_ context.Context, _ uuid.UUID, _ uuid.UUID) error {
 	return nil
 }
+
+func (m *mockReportRepo) Delete(ctx context.Context, id uuid.UUID) error {
+	if m.deleteFn != nil {
+		return m.deleteFn(ctx, id)
+	}
+	return nil
+}
+
+// Compile-time guard: the mock must stay in sync with the ReportRepository interface.
+var _ repository.ReportRepository = (*mockReportRepo)(nil)

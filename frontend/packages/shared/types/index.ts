@@ -394,6 +394,9 @@ export interface AbuseReport {
   reason: AbuseReason;
   status: string;
   created_at: string;
+  reporter?: { id: string; name: string };
+  target_user?: { id: string; name: string; is_banned?: boolean };
+  target_report?: { id: string; pet_id: string; pet_name: string };
 }
 
 export interface CreateAbuseReportRequest {
@@ -418,6 +421,7 @@ export interface SuccessStory {
   body: string;
   photo_before?: string;
   photo_after?: string;
+  pet_photo?: string;
   like_count: number;
   liked_by_me: boolean;
   featured: boolean;

@@ -45,6 +45,7 @@
     "photoSearch": {
       "resultsTitle": "Resultados por foto",
       "noResults": "No se encontraron mascotas similares",
+      "loginRequired": "Iniciá sesión para buscar por foto",
       "clear": "Limpiar búsqueda por foto",
       "unavailable": "El buscador por foto está ocupado en este momento. Probá de nuevo en unos segundos."
     },
@@ -180,10 +181,12 @@
     "seoDescriptionFallback": "Ayudanos a encontrar a {{name}}"
   },
   "vets": {
-    "toggle": "Veterinarias",
+    "toggle": "Mostrar veterinarias",
+    "hide": "Ocultar veterinarias",
     "searchArea": "Buscar en esta zona",
     "directions": "Cómo llegar",
     "call": "Llamar",
+    "website": "Sitio web",
     "empty": "No hay veterinarias en esta zona",
     "defaultName": "Veterinaria",
     "attribution": "Datos de veterinarias © colaboradores de OpenStreetMap"

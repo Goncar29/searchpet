@@ -65,12 +65,14 @@ export function PetCardWeb({ report }: PetCardWebProps) {
             <h3 className="font-bold text-gray-900 dark:text-gray-100 text-lg truncate">
               {pet?.name || t('pets:card.noName')}
             </h3>
-            <span className="text-xs text-gray-400 dark:text-gray-500 flex-shrink-0 ml-2">
+            <span className="text-xs text-gray-600 dark:text-gray-400 flex-shrink-0 ml-2">
               {getTimeAgo(report.created_at)}
             </span>
           </div>
 
-          <div className="flex flex-wrap gap-1.5 mb-2">
+          {/* Reserved min-heights keep every card the same height regardless of
+              whether the pet has tags or the report has a description (#9). */}
+          <div className="flex flex-wrap gap-1.5 mb-2 min-h-[1.75rem]">
             {pet?.type && (
               <span className="bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 text-xs font-medium px-2 py-0.5 rounded">{pet.type}</span>
             )}
@@ -82,9 +84,9 @@ export function PetCardWeb({ report }: PetCardWebProps) {
             )}
           </div>
 
-          {report.location_description && (
-            <p className="text-sm text-gray-500 dark:text-gray-400 truncate">📍 {report.location_description}</p>
-          )}
+          <p className="text-sm text-gray-500 dark:text-gray-400 truncate min-h-[1.25rem]">
+            {report.location_description ? `📍 ${report.location_description}` : ' '}
+          </p>
         </div>
       </Link>
 

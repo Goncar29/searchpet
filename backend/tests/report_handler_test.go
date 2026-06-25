@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -27,6 +28,7 @@ type mockReportService struct {
 	getReportsByPetFn func(petID string) ([]domain.Report, error)
 	getNearbyFn       func(lat, lng, radius float64) ([]domain.Report, error)
 	verifyReportFn    func(ctx context.Context, reportID, adminID uuid.UUID) error
+	deleteFn          func(ctx context.Context, id uuid.UUID) error
 }
 
 func (m *mockReportService) CreateReport(reporterID string, req service.CreateReportRequest) (*domain.Report, error) {
@@ -63,6 +65,16 @@ func (m *mockReportService) VerifyReport(ctx context.Context, reportID, adminID 
 	}
 	return nil
 }
+
+func (m *mockReportService) Delete(ctx context.Context, id uuid.UUID) error {
+	if m.deleteFn != nil {
+		return m.deleteFn(ctx, id)
+	}
+	return nil
+}
+
+// Compile-time guard: the mock must stay in sync with the ReportService interface.
+var _ service.ReportService = (*mockReportService)(nil)
 
 // ============================================================
 // Router helpers
@@ -458,5 +470,68 @@ func TestReportHandler_GetReportsByPet(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// ============================================================
+// DELETE /api/admin/reports/:id
+// ============================================================
+
+func TestReportHandler_DeleteReport_Success(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	svc := &mockReportService{deleteFn: func(_ context.Context, _ uuid.UUID) error { return nil }}
+	h := handler.NewReportHandler(svc, nil)
+
+	r := gin.New()
+	r.DELETE("/api/admin/reports/:id", h.DeleteReport)
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodDelete, "/api/admin/reports/"+uuid.New().String(), nil)
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("want 200, got %d (%s)", w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "message") {
+		t.Errorf("want a message body on success, got %s", w.Body.String())
+	}
+}
+
+func TestReportHandler_DeleteReport_NotFound(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	svc := &mockReportService{deleteFn: func(_ context.Context, _ uuid.UUID) error { return domain.ErrReportNotFound }}
+	h := handler.NewReportHandler(svc, nil)
+
+	r := gin.New()
+	r.DELETE("/api/admin/reports/:id", h.DeleteReport)
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodDelete, "/api/admin/reports/"+uuid.New().String(), nil)
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("want 404, got %d", w.Code)
+	}
+	if !strings.Contains(w.Body.String(), "report_not_found") {
+		t.Errorf("want report_not_found code, got %s", w.Body.String())
+	}
+}
+
+func TestReportHandler_DeleteReport_BadID(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	h := handler.NewReportHandler(&mockReportService{}, nil)
+
+	r := gin.New()
+	r.DELETE("/api/admin/reports/:id", h.DeleteReport)
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodDelete, "/api/admin/reports/not-a-uuid", nil)
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("want 400, got %d", w.Code)
+	}
+	if !strings.Contains(w.Body.String(), "invalid_input") {
+		t.Errorf("want invalid_input code, got %s", w.Body.String())
 	}
 }

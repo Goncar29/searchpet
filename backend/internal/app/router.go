@@ -58,6 +58,15 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 		cloudinaryClient = nil
 	}
 
+	// Expose Cloudinary as the ImageUploader interface for the photo service,
+	// guarding the typed-nil trap: assigning a nil *CloudinaryClient straight into
+	// an interface yields a NON-nil interface, which would defeat the service's
+	// `storage == nil` guard and panic on upload. Keep it a true nil interface.
+	var photoStorage service.ImageUploader
+	if cloudinaryClient != nil {
+		photoStorage = cloudinaryClient
+	}
+
 	// ========================================
 	// EVENT BUS
 	// ========================================
@@ -93,7 +102,7 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 	// CAPA 2: Services
 	// ========================================
 	authService := service.NewAuthService(userRepo, cfg.JWTSecret, cloudinaryClient)
-	photoService := service.NewPhotoService(photoRepo, petRepo, cloudinaryClient, bus)
+	photoService := service.NewPhotoService(photoRepo, petRepo, photoStorage, bus)
 	petService := service.NewPetService(petRepo, bus, photoService, reportRepo, petUow)
 	reportService := service.NewReportService(reportRepo, petRepo, bus)
 	messageService := service.NewMessageService(messageRepo, blockedUserRepo, bus)
@@ -107,6 +116,7 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 	groupService := service.NewGroupService(groupRepo, groupMemberRepo)
 	abuseReportRepo := repository.NewAbuseReportRepository(db)
 	abuseReportService := service.NewAbuseReportService(abuseReportRepo)
+	moderationService := service.NewModerationService(userRepo)
 
 	badgeRepo := repository.NewBadgeRepository(db)
 	pointsRepo := repository.NewUserPointsRepository(db)
@@ -185,6 +195,7 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 	storyHandler := handler.NewSuccessStoryHandler(storyService)
 	groupHandler := handler.NewGroupHandler(groupService)
 	abuseReportHandler := handler.NewAbuseReportHandler(abuseReportService)
+	moderationHandler := handler.NewModerationHandler(moderationService)
 	verificationHandler := handler.NewVerificationHandler(verificationService, cfg.EnableEmailVerification)
 	gamHandler := handler.NewGamificationHandler(gamSvc)
 	reindexHandler := handler.NewReindexHandler(embeddingService, cfg.ReindexToken)
@@ -364,6 +375,9 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 		admin.GET("/abuse-reports/:id", abuseReportHandler.GetByID)
 		admin.PATCH("/admin/abuse-reports/:id/resolve", abuseReportHandler.Resolve)
 		admin.PATCH("/admin/reports/:id/verify", reportHandler.VerifyReport)
+		admin.DELETE("/admin/reports/:id", reportHandler.DeleteReport)
+		admin.PATCH("/admin/users/:id/ban", moderationHandler.BanUser)
+		admin.PATCH("/admin/users/:id/unban", moderationHandler.UnbanUser)
 		admin.POST("/admin/shelters", shelterHandler.Create)
 		admin.PUT("/admin/shelters/:id", shelterHandler.Update)
 	}

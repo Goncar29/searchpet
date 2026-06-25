@@ -145,8 +145,14 @@ function PetCard({
           >
             {/* Only valid transitions from the current status (plus the current
                 status itself) — mirrors the backend state machine so we never
-                offer an option the API rejects with 422. */}
-            {selectableStatuses(pet.status).map((s) => (
+                offer an option the API rejects with 422.
+                'lost' is intentionally excluded as a transition target: marking a
+                pet as lost must go through "Report lost" (the button above), which
+                guides the owner to pin the location on the map. We still keep it
+                when it's the current status so a lost pet can transition out of it. */}
+            {selectableStatuses(pet.status)
+              .filter((s) => s === pet.status || s !== 'lost')
+              .map((s) => (
               <option key={s} value={s}>
                 {t(`pets:status.${s}`)}
               </option>

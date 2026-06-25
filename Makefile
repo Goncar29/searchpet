@@ -2,7 +2,7 @@
 # SearchPet - Makefile
 # ============================================
 
-.PHONY: help dev stop backend web mobile test deploy clean
+.PHONY: help dev stop backend web mobile test deploy clean seed
 
 help: ## Mostrar ayuda
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
@@ -69,6 +69,9 @@ db-reset: ## Resetear la BD (borra todo)
 
 db-shell: ## Conectar a la BD
 	docker exec -it lostpets-db psql -U postgres -d lostpets
+
+seed: ## Poblar la BD local con datos de prueba (idempotente). Usa ARGS=--reset o ARGS=--with-embeddings.
+	cd backend && go run ./cmd/seed $(ARGS)
 
 # ============================================
 # DEPLOY
