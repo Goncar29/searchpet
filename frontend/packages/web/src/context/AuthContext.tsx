@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { apiClient } from '@shared/api/client';
+import { isJwtExpired } from '@shared/utils/jwt';
 import type { User } from '@shared/types';
 import { registerWebPushToken, listenForegroundMessages } from '../utils/notifications';
 
@@ -27,10 +28,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const savedToken = localStorage.getItem('token');
     const savedUser = localStorage.getItem('user');
-    if (savedToken && savedUser) {
-      setToken(savedToken);
-      setUser(JSON.parse(savedUser));
-      apiClient.setToken(savedToken);
+    try {
+      // Only restore a session whose token has NOT already expired — otherwise the
+      // UI would show the user as logged in until the first request gets a 401.
+      // Parse the user BEFORE any setState so a corrupt value can't leave the
+      // context half-initialized (token set, user missing).
+      if (savedToken && savedUser && !isJwtExpired(savedToken)) {
+        const parsedUser: User = JSON.parse(savedUser);
+        setToken(savedToken);
+        setUser(parsedUser);
+        apiClient.setToken(savedToken);
+      } else if (savedToken || savedUser) {
+        // Expired or partial session — drop it so it never appears active.
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+      }
+    } catch {
+      // Corrupt persisted session (e.g. invalid user JSON) — drop it so the app
+      // never hangs on load; the user simply logs in again.
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
     }
     setIsLoading(false);
   }, []);
@@ -54,6 +71,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     window.addEventListener('auth:session-expired', handleSessionExpired);
     return () => window.removeEventListener('auth:session-expired', handleSessionExpired);
   }, []);
+
+  // When the tab regains focus/visibility after sitting idle, proactively drop a
+  // token that expired while away — so returning to the app never shows a stale
+  // logged-in state that only fails (spinning) on the next request.
+  useEffect(() => {
+    if (!token) return;
+    const dropIfExpired = () => {
+      if (isJwtExpired(token)) {
+        setToken(null);
+        setUser(null);
+        apiClient.setToken(null);
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+      }
+    };
+    window.addEventListener('focus', dropIfExpired);
+    document.addEventListener('visibilitychange', dropIfExpired);
+    return () => {
+      window.removeEventListener('focus', dropIfExpired);
+      document.removeEventListener('visibilitychange', dropIfExpired);
+    };
+  }, [token]);
 
   const login = async (email: string, password: string) => {
     const resp = await apiClient.login({ email, password });

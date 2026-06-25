@@ -30,6 +30,12 @@ const resetAuthStore = () =>
     isAuthenticated: false,
   });
 
+// Builds an unsigned JWT-shaped string with the given payload (base64url).
+function makeJwt(payload: object): string {
+  const enc = (obj: object) => Buffer.from(JSON.stringify(obj)).toString('base64url');
+  return `${enc({ alg: 'HS256', typ: 'JWT' })}.${enc(payload)}.signature`;
+}
+
 // ============================================================
 // Tests: useAuthStore — login
 // ============================================================
@@ -135,6 +141,57 @@ describe('useAuthStore — loadToken', () => {
     const state = useAuthStore.getState();
     expect(state.isAuthenticated).toBe(false);
     expect(state.isLoading).toBe(false);
+  });
+
+  it('no rehidrata una sesión con token expirado y limpia SecureStore', async () => {
+    const expired = makeJwt({ exp: Math.floor(Date.now() / 1000) - 100 });
+    mockSecureStore.getItemAsync.mockImplementation((key: string) => {
+      if (key === 'auth_token') return Promise.resolve(expired);
+      if (key === 'user_data') return Promise.resolve(JSON.stringify(mockUser));
+      return Promise.resolve(null);
+    });
+
+    await useAuthStore.getState().loadToken();
+
+    const state = useAuthStore.getState();
+    expect(state.isAuthenticated).toBe(false);
+    expect(state.token).toBeNull();
+    expect(state.isLoading).toBe(false);
+    expect(mockSecureStore.deleteItemAsync).toHaveBeenCalledWith('auth_token');
+    expect(mockSecureStore.deleteItemAsync).toHaveBeenCalledWith('user_data');
+  });
+
+  it('rehidrata una sesión con token JWT vigente', async () => {
+    const valid = makeJwt({ exp: Math.floor(Date.now() / 1000) + 3600 });
+    mockSecureStore.getItemAsync.mockImplementation((key: string) => {
+      if (key === 'auth_token') return Promise.resolve(valid);
+      if (key === 'user_data') return Promise.resolve(JSON.stringify(mockUser));
+      return Promise.resolve(null);
+    });
+
+    await useAuthStore.getState().loadToken();
+
+    const state = useAuthStore.getState();
+    expect(state.isAuthenticated).toBe(true);
+    expect(state.token).toBe(valid);
+    expect(state.isLoading).toBe(false);
+  });
+
+  it('descarta una sesión con user_data corrupto sin colgar la carga y limpia SecureStore', async () => {
+    const valid = makeJwt({ exp: Math.floor(Date.now() / 1000) + 3600 });
+    mockSecureStore.getItemAsync.mockImplementation((key: string) => {
+      if (key === 'auth_token') return Promise.resolve(valid);
+      if (key === 'user_data') return Promise.resolve('{ broken json');
+      return Promise.resolve(null);
+    });
+
+    await useAuthStore.getState().loadToken();
+
+    const state = useAuthStore.getState();
+    expect(state.isAuthenticated).toBe(false);
+    expect(state.isLoading).toBe(false);
+    expect(mockSecureStore.deleteItemAsync).toHaveBeenCalledWith('auth_token');
+    expect(mockSecureStore.deleteItemAsync).toHaveBeenCalledWith('user_data');
   });
 });
 

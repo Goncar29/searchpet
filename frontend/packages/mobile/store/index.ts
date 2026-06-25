@@ -7,6 +7,7 @@ import * as SecureStore from 'expo-secure-store';
 import { getDevicePushTokenAsync } from 'expo-notifications';
 import type { User } from '../../shared/types';
 import { apiClient } from '../../shared/api/client';
+import { isJwtExpired } from '../../shared/utils/jwt';
 import { registerPushToken } from '../utils/notifications';
 
 // ============================================================
@@ -106,7 +107,10 @@ export const useAuthStore = create<AuthState>((set) => ({
       const token = await SecureStore.getItemAsync('auth_token');
       const userData = await SecureStore.getItemAsync('user_data');
 
-      if (token && userData) {
+      // Solo rehidratamos una sesión cuyo token NO haya expirado — de lo
+      // contrario la app arrancaría mostrando al usuario logueado hasta que el
+      // primer request reciba un 401. El backend valida la firma igual.
+      if (token && userData && !isJwtExpired(token)) {
         apiClient.setToken(token);
         set({
           token,
@@ -117,9 +121,25 @@ export const useAuthStore = create<AuthState>((set) => ({
         // Refrescar token FCM en cold start — falla silenciosamente
         registerPushToken().catch(() => {});
       } else {
+        // Sin sesión, o una expirada/parcial — limpiamos cualquier token viejo
+        // para que un token muerto nunca aparezca activo, y terminamos la carga.
+        if (token || userData) {
+          await SecureStore.deleteItemAsync('auth_token');
+          await SecureStore.deleteItemAsync('user_data');
+        }
         set({ isLoading: false });
       }
     } catch {
+      // Sesión persistida corrupta (p. ej. user_data con JSON inválido) — la
+      // descartamos para no quedar trabados re-explotando el parse en cada
+      // cold start. El cleanup es best-effort: si el error vino de la lectura
+      // de SecureStore, el delete puede fallar también y lo ignoramos.
+      try {
+        await SecureStore.deleteItemAsync('auth_token');
+        await SecureStore.deleteItemAsync('user_data');
+      } catch {
+        // ignore
+      }
       set({ isLoading: false });
     }
   },
