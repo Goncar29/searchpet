@@ -2,7 +2,7 @@
 # SearchPet - Makefile
 # ============================================
 
-.PHONY: help dev stop backend web mobile test deploy clean seed
+.PHONY: help dev stop backend web mobile test deploy clean seed promote-admin
 
 help: ## Mostrar ayuda
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
@@ -72,6 +72,9 @@ db-shell: ## Conectar a la BD
 
 seed: ## Poblar la BD local con datos de prueba (idempotente). Usa ARGS=--reset o ARGS=--with-embeddings.
 	cd backend && go run ./cmd/seed $(ARGS)
+
+promote-admin: ## Otorgar admin a un usuario por email. Uso: make promote-admin EMAIL=tu@email.com (ARGS=-revoke para quitar).
+	cd backend && go run ./cmd/promote-admin -email $(EMAIL) $(ARGS)
 
 # ============================================
 # DEPLOY
