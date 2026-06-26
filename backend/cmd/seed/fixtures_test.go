@@ -104,3 +104,44 @@ func TestSeedCommunity_allKindsPresent(t *testing.T) {
 		t.Errorf("expected block A->B, got %v->%v", c.Blocks[0].BlockerID, c.Blocks[0].BlockedID)
 	}
 }
+
+// TestSeedCommunity_storyLikeCountMatchesSeededLikes guards the invariant that a
+// story's LikeCount equals the number of StoryLike rows the seed creates for it.
+// A mismatch (a magic LikeCount with no backing rows) reproduces the bug where a
+// seeded story showed 3 likes but dropped to 1 on the first real like, because
+// the Like endpoint recounts real rows (see migration 000011).
+func TestSeedCommunity_storyLikeCountMatchesSeededLikes(t *testing.T) {
+	c := SeedCommunity()
+
+	likesByStory := map[uuid.UUID]int{}
+	for _, l := range c.Likes {
+		likesByStory[l.StoryID]++
+	}
+
+	for _, s := range c.Stories {
+		if s.LikeCount != likesByStory[s.ID] {
+			t.Errorf("story %s has LikeCount=%d but %d StoryLike rows seeded — breaks the like_count==rows invariant",
+				s.ID, s.LikeCount, likesByStory[s.ID])
+		}
+	}
+
+	// Every seeded like must point at a seeded story and a user that SeedUsers
+	// actually creates — otherwise the seed would fail with an FK violation at
+	// runtime even though the fixture looks valid.
+	storyIDs := map[uuid.UUID]bool{}
+	for _, s := range c.Stories {
+		storyIDs[s.ID] = true
+	}
+	knownUsers := map[uuid.UUID]bool{}
+	for _, su := range SeedUsers() {
+		knownUsers[su.User.ID] = true
+	}
+	for _, l := range c.Likes {
+		if !storyIDs[l.StoryID] {
+			t.Errorf("like %s references unknown story %s", l.ID, l.StoryID)
+		}
+		if !knownUsers[l.UserID] {
+			t.Errorf("like %s references unknown user %s", l.ID, l.UserID)
+		}
+	}
+}
