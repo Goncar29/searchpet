@@ -125,17 +125,23 @@ func TestSeedCommunity_storyLikeCountMatchesSeededLikes(t *testing.T) {
 		}
 	}
 
-	// Every seeded like must point at a seeded story and a known user.
+	// Every seeded like must point at a seeded story and a user that SeedUsers
+	// actually creates — otherwise the seed would fail with an FK violation at
+	// runtime even though the fixture looks valid.
 	storyIDs := map[uuid.UUID]bool{}
 	for _, s := range c.Stories {
 		storyIDs[s.ID] = true
+	}
+	knownUsers := map[uuid.UUID]bool{}
+	for _, su := range SeedUsers() {
+		knownUsers[su.User.ID] = true
 	}
 	for _, l := range c.Likes {
 		if !storyIDs[l.StoryID] {
 			t.Errorf("like %s references unknown story %s", l.ID, l.StoryID)
 		}
-		if l.UserID == uuid.Nil {
-			t.Errorf("like %s has no user", l.ID)
+		if !knownUsers[l.UserID] {
+			t.Errorf("like %s references unknown user %s", l.ID, l.UserID)
 		}
 	}
 }

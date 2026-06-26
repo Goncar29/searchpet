@@ -85,6 +85,15 @@ func Seed(ctx context.Context, db *gorm.DB, embedder *service.EmbeddingService, 
 		}
 	}
 	for i := range c.Likes {
+		// A developer may have liked this story through the UI, creating a row with
+		// a different UUID but the same (story_id, user_id). upsert resolves the
+		// conflict on the primary key, so that row would collide with the
+		// idx_story_likes_story_user unique index. Clear any such row first.
+		if err := db.Where("story_id = ? AND user_id = ? AND id <> ?",
+			c.Likes[i].StoryID, c.Likes[i].UserID, c.Likes[i].ID).
+			Delete(&domain.StoryLike{}).Error; err != nil {
+			return err
+		}
 		if err := upsert(db, &c.Likes[i]); err != nil {
 			return err
 		}
