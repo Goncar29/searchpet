@@ -108,7 +108,7 @@
       "noPhone": "Sin teléfono registrado",
       "whatsappMessage": "Hola, vi tu mascota {{name}} en SearchPet",
       "timeline": "Historial de reportes ({{count}})",
-      "reporter": "Quién lo encontró",
+      "reporter": "Quién lo reportó",
       "reporterDescription": "Esta mascota callejera fue reportada por un miembro de la comunidad.",
       "contactReporter": "Contactar al reportero",
       "contactReporterWhatsapp": "Contactar por WhatsApp",

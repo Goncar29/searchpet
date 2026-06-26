@@ -108,7 +108,7 @@
       "noPhone": "No phone registered",
       "whatsappMessage": "Hi, I saw your pet {{name}} on SearchPet",
       "timeline": "Report history ({{count}})",
-      "reporter": "Who found it",
+      "reporter": "Who reported it",
       "reporterDescription": "This stray pet was reported by a community member.",
       "contactReporter": "Contact reporter",
       "contactReporterWhatsapp": "Contact via WhatsApp",
