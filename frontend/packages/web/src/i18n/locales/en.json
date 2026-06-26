@@ -1,4 +1,60 @@
 {
+  "admin": {
+    "panel": {
+      "title": "Admin Panel",
+      "subtitle": "Moderation tools"
+    },
+    "nav": {
+      "abuseReports": "Abuse Reports",
+      "stories": "Stories",
+      "groups": "Groups"
+    },
+    "abuse": {
+      "title": "Abuse Reports",
+      "loading": "Loading reports...",
+      "empty": "No abuse reports found.",
+      "filter": { "all": "All", "pending": "Pending", "resolved": "Resolved" },
+      "col": { "id": "ID", "reporter": "Reporter", "reason": "Reason", "status": "Status", "target": "Target", "created": "Created", "actions": "Actions" },
+      "action": { "resolve": "Resolve", "dismiss": "Dismiss", "deleteContent": "Delete content", "ban": "Ban", "unban": "Unban" },
+      "targetUser": "user: {{id}}",
+      "targetReport": "report: {{id}}",
+      "modal": {
+        "deleteTitle": "Delete content",
+        "deleteMessage": "Delete the reported content \"{{name}}\"? This cannot be undone.",
+        "deleteConfirm": "Delete",
+        "banTitle": "Ban user",
+        "banMessage": "Ban {{name}}? They won't be able to log in.",
+        "banConfirm": "Ban",
+        "reasonLabel": "Reason (optional)",
+        "unbanTitle": "Unban user",
+        "unbanMessage": "Unban {{name}}? They will be able to log in again.",
+        "unbanConfirm": "Unban"
+      }
+    },
+    "stories": {
+      "title": "Stories",
+      "loading": "Loading stories...",
+      "empty": "No stories found.",
+      "col": { "title": "Title", "author": "Author", "featured": "Featured", "created": "Created", "actions": "Actions" },
+      "badge": { "featured": "Featured", "normal": "Normal" },
+      "action": { "feature": "Feature", "unfeature": "Unfeature", "delete": "Delete" },
+      "confirmDelete": "Delete story \"{{name}}\"? This cannot be undone."
+    },
+    "groups": {
+      "title": "Create Local Group",
+      "name": "Name",
+      "city": "City",
+      "description": "Description",
+      "optional": "(optional)",
+      "namePlaceholder": "e.g. Montevideo Pet Rescue",
+      "cityPlaceholder": "e.g. Montevideo",
+      "descPlaceholder": "Brief description of the group...",
+      "error": "Failed to create group. Please try again.",
+      "success": "Group \"{{name}}\" created successfully in {{city}}.",
+      "creating": "Creating...",
+      "submit": "Create Group"
+    }
+  },
   "layout": {
     "home": "Home",
     "map": "Map",

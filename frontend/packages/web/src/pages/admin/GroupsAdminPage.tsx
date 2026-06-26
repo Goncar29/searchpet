@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { apiClient } from '@shared/api/client';
 
 export function GroupsAdminPage() {
+  const { t } = useTranslation('admin');
   const [name, setName] = useState('');
   const [city, setCity] = useState('');
   const [description, setDescription] = useState('');
@@ -16,7 +18,7 @@ export function GroupsAdminPage() {
         ...(description.trim() ? { description: description.trim() } : {}),
       }),
     onSuccess: (group) => {
-      setSuccessMessage(`Group "${group.name}" created successfully in ${group.city}.`);
+      setSuccessMessage(t('groups.success', { name: group.name, city: group.city }));
       setName('');
       setCity('');
       setDescription('');
@@ -32,7 +34,7 @@ export function GroupsAdminPage() {
 
   return (
     <div>
-      <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-6">Create Local Group</h2>
+      <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-6">{t('groups.title')}</h2>
 
       <div className="max-w-md">
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -41,14 +43,14 @@ export function GroupsAdminPage() {
               htmlFor="group-name"
               className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
             >
-              Name <span className="text-red-500">*</span>
+              {t('groups.name')} <span className="text-red-500">*</span>
             </label>
             <input
               id="group-name"
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Montevideo Pet Rescue"
+              placeholder={t('groups.namePlaceholder')}
               required
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
             />
@@ -59,14 +61,14 @@ export function GroupsAdminPage() {
               htmlFor="group-city"
               className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
             >
-              City <span className="text-red-500">*</span>
+              {t('groups.city')} <span className="text-red-500">*</span>
             </label>
             <input
               id="group-city"
               type="text"
               value={city}
               onChange={(e) => setCity(e.target.value)}
-              placeholder="e.g. Montevideo"
+              placeholder={t('groups.cityPlaceholder')}
               required
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
             />
@@ -77,13 +79,13 @@ export function GroupsAdminPage() {
               htmlFor="group-description"
               className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
             >
-              Description <span className="text-gray-400 font-normal">(optional)</span>
+              {t('groups.description')} <span className="text-gray-400 font-normal">{t('groups.optional')}</span>
             </label>
             <textarea
               id="group-description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Brief description of the group..."
+              placeholder={t('groups.descPlaceholder')}
               rows={3}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent resize-none"
             />
@@ -91,7 +93,7 @@ export function GroupsAdminPage() {
 
           {createMutation.isError && (
             <p className="text-sm text-red-600 dark:text-red-400">
-              Failed to create group. Please try again.
+              {t('groups.error')}
             </p>
           )}
 
@@ -106,7 +108,7 @@ export function GroupsAdminPage() {
             disabled={createMutation.isPending || !name.trim() || !city.trim()}
             className="w-full py-2 px-4 bg-primary hover:bg-primary-dark text-white text-sm font-semibold rounded-lg transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {createMutation.isPending ? 'Creating...' : 'Create Group'}
+            {createMutation.isPending ? t('groups.creating') : t('groups.submit')}
           </button>
         </form>
       </div>

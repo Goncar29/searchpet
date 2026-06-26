@@ -1,4 +1,60 @@
 {
+  "admin": {
+    "panel": {
+      "title": "Painel de administração",
+      "subtitle": "Ferramentas de moderação"
+    },
+    "nav": {
+      "abuseReports": "Denúncias",
+      "stories": "Histórias",
+      "groups": "Grupos"
+    },
+    "abuse": {
+      "title": "Denúncias de abuso",
+      "loading": "Carregando denúncias...",
+      "empty": "Nenhuma denúncia encontrada.",
+      "filter": { "all": "Todas", "pending": "Pendentes", "resolved": "Resolvidas" },
+      "col": { "id": "ID", "reporter": "Denunciante", "reason": "Motivo", "status": "Status", "target": "Alvo", "created": "Data", "actions": "Ações" },
+      "action": { "resolve": "Resolver", "dismiss": "Descartar", "deleteContent": "Excluir conteúdo", "ban": "Banir", "unban": "Desbanir" },
+      "targetUser": "usuário: {{id}}",
+      "targetReport": "reporte: {{id}}",
+      "modal": {
+        "deleteTitle": "Excluir conteúdo",
+        "deleteMessage": "Excluir o conteúdo denunciado \"{{name}}\"? Esta ação não pode ser desfeita.",
+        "deleteConfirm": "Excluir",
+        "banTitle": "Banir usuário",
+        "banMessage": "Banir {{name}}? A pessoa não poderá entrar.",
+        "banConfirm": "Banir",
+        "reasonLabel": "Motivo (opcional)",
+        "unbanTitle": "Desbanir usuário",
+        "unbanMessage": "Desbanir {{name}}? A pessoa poderá entrar novamente.",
+        "unbanConfirm": "Desbanir"
+      }
+    },
+    "stories": {
+      "title": "Histórias",
+      "loading": "Carregando histórias...",
+      "empty": "Nenhuma história encontrada.",
+      "col": { "title": "Título", "author": "Autor", "featured": "Destacada", "created": "Data", "actions": "Ações" },
+      "badge": { "featured": "Destacada", "normal": "Normal" },
+      "action": { "feature": "Destacar", "unfeature": "Remover destaque", "delete": "Excluir" },
+      "confirmDelete": "Excluir a história \"{{name}}\"? Esta ação não pode ser desfeita."
+    },
+    "groups": {
+      "title": "Criar grupo local",
+      "name": "Nome",
+      "city": "Cidade",
+      "description": "Descrição",
+      "optional": "(opcional)",
+      "namePlaceholder": "Ex: Resgatistas Montevidéu",
+      "cityPlaceholder": "Ex: Montevidéu",
+      "descPlaceholder": "Breve descrição do grupo...",
+      "error": "Não foi possível criar o grupo. Tente novamente.",
+      "success": "Grupo \"{{name}}\" criado com sucesso em {{city}}.",
+      "creating": "Criando...",
+      "submit": "Criar grupo"
+    }
+  },
   "layout": {
     "home": "Início",
     "map": "Mapa",
