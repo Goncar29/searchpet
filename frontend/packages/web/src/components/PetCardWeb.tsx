@@ -84,8 +84,17 @@ export function PetCardWeb({ report }: PetCardWebProps) {
             )}
           </div>
 
-          <p className="text-sm text-gray-500 dark:text-gray-400 truncate min-h-[1.25rem]">
-            {report.location_description ? `📍 ${report.location_description}` : ' '}
+          {/* Clamp the comment to 2 lines with an ellipsis and reserve that
+              height (#19). With no location description, show an italic
+              placeholder so every card stays the same height. */}
+          <p
+            className={`text-sm line-clamp-2 min-h-[2.5rem] ${
+              report.location_description
+                ? 'text-gray-500 dark:text-gray-400'
+                : 'italic text-gray-400 dark:text-gray-500'
+            }`}
+          >
+            {report.location_description ? `📍 ${report.location_description}` : t('pets:card.noComment')}
           </p>
         </div>
       </Link>
