@@ -84,6 +84,11 @@ func Seed(ctx context.Context, db *gorm.DB, embedder *service.EmbeddingService, 
 			return err
 		}
 	}
+	for i := range c.Likes {
+		if err := upsert(db, &c.Likes[i]); err != nil {
+			return err
+		}
+	}
 	for i := range c.Points {
 		if err := upsert(db, &c.Points[i]); err != nil {
 			return err
@@ -114,7 +119,7 @@ func resetSeedData(db *gorm.DB) error {
 	}
 	for _, m := range []interface{}{
 		&domain.Report{}, &domain.Photo{},
-		&domain.Badge{}, &domain.UserPoints{}, &domain.SuccessStory{},
+		&domain.Badge{}, &domain.UserPoints{}, &domain.StoryLike{}, &domain.SuccessStory{},
 		&domain.GroupMember{}, &domain.LocalGroup{}, &domain.ReportAbuse{},
 		&domain.BlockedUser{}, &domain.Pet{}, &domain.User{},
 	} {

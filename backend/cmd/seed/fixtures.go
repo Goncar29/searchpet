@@ -105,6 +105,7 @@ type CommunityData struct {
 	Groups  []domain.LocalGroup
 	Members []domain.GroupMember
 	Stories []domain.SuccessStory
+	Likes   []domain.StoryLike
 	Points  []domain.UserPoints
 	Badges  []domain.Badge
 }
@@ -112,6 +113,7 @@ type CommunityData struct {
 // SeedCommunity returns one representative fixture per community entity type.
 func SeedCommunity() CommunityData {
 	groupID := uuid.MustParse("00000000-0000-0000-0000-0000000000d1")
+	storyID := uuid.MustParse("00000000-0000-0000-0000-0000000000e4")
 	return CommunityData{
 		Blocks: []domain.BlockedUser{
 			{ID: uuid.MustParse("00000000-0000-0000-0000-0000000000e1"),
@@ -131,9 +133,16 @@ func SeedCommunity() CommunityData {
 				GroupID: groupID, UserID: userAID},
 		},
 		Stories: []domain.SuccessStory{
-			{ID: uuid.MustParse("00000000-0000-0000-0000-0000000000e4"),
+			{ID: storyID,
 				PetID: petFoundID, UserID: userBID, Title: "¡Rex volvió a casa!",
-				Body: "Gracias a la comunidad.", LikeCount: 3},
+				Body: "Gracias a la comunidad.", LikeCount: 2},
+		},
+		// Real likes backing LikeCount (invariant: like_count == row count, see
+		// migration 000011). Liked by Ana and Caro; the author (Bruno) and the
+		// admin are left out so they can exercise the like→increment path.
+		Likes: []domain.StoryLike{
+			{ID: uuid.MustParse("00000000-0000-0000-0000-0000000000e7"), StoryID: storyID, UserID: userAID},
+			{ID: uuid.MustParse("00000000-0000-0000-0000-0000000000e8"), StoryID: storyID, UserID: userCID},
 		},
 		Points: []domain.UserPoints{
 			{ID: uuid.MustParse("00000000-0000-0000-0000-0000000000e5"),
