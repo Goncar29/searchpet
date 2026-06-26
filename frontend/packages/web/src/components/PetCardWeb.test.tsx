@@ -88,6 +88,11 @@ describe('PetCardWeb', () => {
     expect(screen.getByText(/Parque Rodó/)).toBeInTheDocument();
   });
 
+  it('muestra el placeholder "sin comentarios" cuando no hay descripción de ubicación', () => {
+    renderCard(baseReport); // sin location_description
+    expect(screen.getByText('pets:card.noComment')).toBeInTheDocument();
+  });
+
   it('el card linkea al detalle de la mascota', () => {
     renderCard(baseReport);
     const links = screen.getAllByRole('link');

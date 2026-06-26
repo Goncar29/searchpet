@@ -125,7 +125,8 @@
       "sighting": "Sighting",
       "noName": "No name",
       "reportSighting": "Report sighting",
-      "similarityMatch": "{{percent}}% match"
+      "similarityMatch": "{{percent}}% match",
+      "noComment": "No comments"
     },
     "types": {
       "dog": "Dog",
