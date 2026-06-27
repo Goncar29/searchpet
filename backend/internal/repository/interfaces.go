@@ -224,6 +224,18 @@ type VetRepository interface {
 	FindNearby(ctx context.Context, lat, lng, radiusMeters float64, limit int) ([]domain.VetNearbyResult, error)
 }
 
+// AdminRepository owns admin-role mutations that must be atomic with their audit
+// trail, plus the admin count used for the last-admin guard. Style A.
+type AdminRepository interface {
+	// SetAdminWithAudit flips users.is_admin for targetID and inserts the audit
+	// row in the same transaction. Either both happen or neither does.
+	SetAdminWithAudit(ctx context.Context, targetID uuid.UUID, grant bool, entry *domain.AdminAuditLog) error
+	// CountAdmins returns how many users currently have is_admin = true.
+	CountAdmins(ctx context.Context) (int64, error)
+	// ListRoleChanges returns the most recent audit rows, newest first.
+	ListRoleChanges(ctx context.Context, limit int) ([]domain.AdminAuditLog, error)
+}
+
 // LocationAlertRepository define el contrato para alertas de ubicación.
 // Style A: context.Context + uuid.UUID.
 type LocationAlertRepository interface {
