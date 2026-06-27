@@ -44,6 +44,7 @@ func (s *gamificationService) RegisterListeners(bus *event.EventBus) {
 	bus.Subscribe("pet.found", s.onPetFound)
 	bus.Subscribe("share.created", s.onShareCreated)
 	bus.Subscribe("review.created", s.onReviewCreated)
+	bus.Subscribe("review.deleted", s.onReviewDeleted)
 	bus.Subscribe("user.verified", s.onUserVerified)
 }
 
@@ -144,6 +145,24 @@ func (s *gamificationService) onReviewCreated(payload interface{}) {
 
 	if _, err := s.pointsRepo.Upsert(ctx, ev.RevieweeID, 10, ""); err != nil {
 		log.Printf("[GamificationService] onReviewCreated: upsert points para %s: %v", ev.RevieweeID, err)
+	}
+}
+
+// onReviewDeleted maneja el evento "review.deleted".
+// Revierte los 10 puntos otorgados al reviewee al crearse la reseña, para que
+// los puntos reflejen solo las reseñas vigentes (evita farmear creando y
+// borrando reseñas repetidamente). El repositorio hace clamp a 0.
+func (s *gamificationService) onReviewDeleted(payload interface{}) {
+	ev, ok := payload.(event.ReviewDeletedEvent)
+	if !ok {
+		log.Printf("[GamificationService] onReviewDeleted: payload inesperado: %T", payload)
+		return
+	}
+
+	ctx := context.Background()
+
+	if _, err := s.pointsRepo.Upsert(ctx, ev.RevieweeID, -10, ""); err != nil {
+		log.Printf("[GamificationService] onReviewDeleted: upsert points para %s: %v", ev.RevieweeID, err)
 	}
 }
 

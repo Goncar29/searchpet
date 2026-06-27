@@ -157,7 +157,19 @@ func (s *reviewService) Delete(ctx context.Context, reviewerID, revieweeID uuid.
 		return domain.ErrForbidden
 	}
 
-	return s.reviewRepo.Delete(ctx, reviewerID, revieweeID)
+	if err := s.reviewRepo.Delete(ctx, reviewerID, revieweeID); err != nil {
+		return err
+	}
+
+	// Publicar evento para que GamificationService revierta los 10 puntos
+	// otorgados al reviewee al crearse la reseña.
+	s.bus.Publish("review.deleted", event.ReviewDeletedEvent{
+		ReviewID:   existing.ID,
+		ReviewerID: reviewerID,
+		RevieweeID: revieweeID,
+	})
+
+	return nil
 }
 
 // GetByReviewee retorna las reseñas paginadas para un usuario.

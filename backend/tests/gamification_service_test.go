@@ -332,6 +332,36 @@ func TestGamificationService_OnShareCreated_AwardsSocialButterfly(t *testing.T) 
 	}
 }
 
+func TestGamificationService_OnReviewDeleted_DeductsPoints(t *testing.T) {
+	revieweeID := uuid.New()
+
+	pointsDeducted := make(chan struct{}, 1)
+
+	pointsRepo := &mockUserPointsRepository{
+		upsertFn: func(_ context.Context, userID uuid.UUID, delta int, field string) (*domain.UserPoints, error) {
+			// Deleting a review reverts the 10 points granted on creation.
+			if userID == revieweeID && delta == -10 && field == "" {
+				pointsDeducted <- struct{}{}
+			}
+			return &domain.UserPoints{UserID: userID, Points: 0}, nil
+		},
+	}
+
+	svc := newTestGamificationService(&mockBadgeRepository{}, pointsRepo, &mockUserRepository{}, &mockGamificationReviewRepository{})
+	bus := event.NewEventBus()
+	svc.RegisterListeners(bus)
+
+	bus.Publish("review.deleted", event.ReviewDeletedEvent{
+		ReviewID:   uuid.New(),
+		ReviewerID: uuid.New(),
+		RevieweeID: revieweeID,
+	})
+
+	if !waitForEvent(pointsDeducted) {
+		t.Error("expected -10 points upsert (deduction) within 500ms")
+	}
+}
+
 // ============================================================
 // Synchronous service method tests
 // ============================================================
