@@ -183,6 +183,7 @@ export interface LeaderboardEntry {
   city: string;
   total_points: number;
   rank: number;
+  badges?: string[];
 }
 
 export interface AuthResponse {

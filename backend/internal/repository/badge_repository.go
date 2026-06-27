@@ -60,6 +60,21 @@ func (r *postgresBadgeRepository) FindByUserID(ctx context.Context, userID uuid.
 	return badges, nil
 }
 
+// FindByUserIDs retorna los badges de varios usuarios en una sola query (evita N+1).
+func (r *postgresBadgeRepository) FindByUserIDs(ctx context.Context, userIDs []uuid.UUID) ([]domain.Badge, error) {
+	if len(userIDs) == 0 {
+		return []domain.Badge{}, nil
+	}
+	var badges []domain.Badge
+	if err := r.db.WithContext(ctx).
+		Where("user_id IN ?", userIDs).
+		Order("earned_at DESC").
+		Find(&badges).Error; err != nil {
+		return nil, err
+	}
+	return badges, nil
+}
+
 // isUniqueConstraintError detecta violaciones de constraint único en PostgreSQL.
 // PostgreSQL retorna error code 23505 para unique_violation.
 func isUniqueConstraintError(err error) bool {

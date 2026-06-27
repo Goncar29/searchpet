@@ -18,9 +18,10 @@ import (
 // ============================================================
 
 type mockBadgeRepository struct {
-	createFn      func(ctx context.Context, badge *domain.Badge) error
-	hasBadgeFn    func(ctx context.Context, userID uuid.UUID, badgeType string) (bool, error)
-	findByUserIDFn func(ctx context.Context, userID uuid.UUID) ([]domain.Badge, error)
+	createFn          func(ctx context.Context, badge *domain.Badge) error
+	hasBadgeFn        func(ctx context.Context, userID uuid.UUID, badgeType string) (bool, error)
+	findByUserIDFn    func(ctx context.Context, userID uuid.UUID) ([]domain.Badge, error)
+	findByUserIDsFn   func(ctx context.Context, userIDs []uuid.UUID) ([]domain.Badge, error)
 }
 
 func (m *mockBadgeRepository) Create(ctx context.Context, badge *domain.Badge) error {
@@ -40,6 +41,13 @@ func (m *mockBadgeRepository) HasBadge(ctx context.Context, userID uuid.UUID, ba
 func (m *mockBadgeRepository) FindByUserID(ctx context.Context, userID uuid.UUID) ([]domain.Badge, error) {
 	if m.findByUserIDFn != nil {
 		return m.findByUserIDFn(ctx, userID)
+	}
+	return []domain.Badge{}, nil
+}
+
+func (m *mockBadgeRepository) FindByUserIDs(ctx context.Context, userIDs []uuid.UUID) ([]domain.Badge, error) {
+	if m.findByUserIDsFn != nil {
+		return m.findByUserIDsFn(ctx, userIDs)
 	}
 	return []domain.Badge{}, nil
 }
@@ -562,6 +570,63 @@ func TestGamificationService_GetLeaderboard(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestGamificationService_GetLeaderboard_BadgesPopulated(t *testing.T) {
+	userA := uuid.New()
+	userB := uuid.New()
+
+	pointsRepo := &mockUserPointsRepository{
+		findLeaderboardFn: func(_ context.Context, _ string, _ int) ([]domain.UserPoints, error) {
+			return []domain.UserPoints{
+				{UserID: userA, Points: 100, User: domain.User{ID: userA, Name: "Alice", City: "Montevideo"}},
+				{UserID: userB, Points: 50, User: domain.User{ID: userB, Name: "Bob", City: "Montevideo"}},
+			}, nil
+		},
+	}
+
+	badgeRepo := &mockBadgeRepository{
+		findByUserIDsFn: func(_ context.Context, userIDs []uuid.UUID) ([]domain.Badge, error) {
+			if len(userIDs) != 2 {
+				return nil, errors.New("expected exactly 2 userIDs in batch query")
+			}
+			return []domain.Badge{
+				{UserID: userA, BadgeType: "first_helper"},
+				{UserID: userA, BadgeType: "pet_rescuer"},
+				{UserID: userB, BadgeType: "verified_finder"},
+			}, nil
+		},
+	}
+
+	svc := newTestGamificationService(badgeRepo, pointsRepo, &mockUserRepository{}, &mockGamificationReviewRepository{})
+	entries, err := svc.GetLeaderboard(context.Background(), "Montevideo", 10)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(entries) != 2 {
+		t.Fatalf("expected 2 entries, got %d", len(entries))
+	}
+
+	// userA should have 2 badges
+	entryA := entries[0]
+	if entryA.UserID != userA {
+		t.Errorf("expected first entry to be userA")
+	}
+	if len(entryA.Badges) != 2 {
+		t.Errorf("expected 2 badges for userA, got %d: %v", len(entryA.Badges), entryA.Badges)
+	}
+
+	// userB should have 1 badge
+	entryB := entries[1]
+	if entryB.UserID != userB {
+		t.Errorf("expected second entry to be userB")
+	}
+	if len(entryB.Badges) != 1 {
+		t.Errorf("expected 1 badge for userB, got %d: %v", len(entryB.Badges), entryB.Badges)
+	}
+	if entryB.Badges[0] != "verified_finder" {
+		t.Errorf("expected verified_finder badge for userB, got %s", entryB.Badges[0])
 	}
 }
 
