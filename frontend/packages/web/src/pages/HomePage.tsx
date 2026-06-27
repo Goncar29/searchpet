@@ -723,9 +723,17 @@ export function HomePage() {
                         {pet.breed && <span className="text-xs bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 px-2 py-0.5 rounded-full">{pet.breed}</span>}
                         {pet.color && <span className="text-xs bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 px-2 py-0.5 rounded-full">{pet.color}</span>}
                       </div>
-                      {pet.description && (
-                        <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-2">{pet.description}</p>
-                      )}
+                      {/* Always reserve the comment height (2 lines) and show a
+                          placeholder when empty so every card stays the same height (#19). */}
+                      <p
+                        className={`text-sm line-clamp-2 min-h-[2.5rem] ${
+                          pet.description
+                            ? 'text-gray-500 dark:text-gray-400'
+                            : 'italic text-gray-400 dark:text-gray-500'
+                        }`}
+                      >
+                        {pet.description || t('pets:card.noComment')}
+                      </p>
                     </div>
                   </div>
                 </Link>
