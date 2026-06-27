@@ -117,7 +117,11 @@
       "copyNumber": "Copy number",
       "copied": "Copied!",
       "loginToContact": "Log in to contact",
-      "loginToShare": "Log in to share"
+      "loginToShare": "Log in to share",
+      "foundNudgeTitle": "You found them! 🎉",
+      "foundNudgeText": "Want to share how it happened? Success stories inspire the whole community.",
+      "foundNudgeCta": "Tell the story",
+      "foundNudgeDismiss": "Not now"
     },
     "card": {
       "lost": "Lost",
