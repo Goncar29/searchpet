@@ -127,6 +127,10 @@ func resetSeedData(db *gorm.DB) error {
 		}
 	}
 	for _, m := range []interface{}{
+		// Rows with FKs to reports/pets/users must be deleted before their parents,
+		// otherwise the User/Pet/Report deletes below fail with a FK violation when
+		// these tables hold app-created data (chat, share links, alerts, reviews).
+		&domain.Message{}, &domain.ShareLink{}, &domain.LocationAlert{}, &domain.UserReview{},
 		&domain.Report{}, &domain.Photo{},
 		&domain.Badge{}, &domain.UserPoints{}, &domain.StoryLike{}, &domain.SuccessStory{},
 		&domain.GroupMember{}, &domain.LocalGroup{}, &domain.ReportAbuse{},
