@@ -168,7 +168,7 @@ export default function PetDetailScreen() {
               onSuccess: () => {
                 Alert.alert(
                   i18next.t('pet_detail:foundSuccess', { name: pet.name }),
-                  '',
+                  i18next.t('pets:detail.foundNudgeText'),
                   [
                     {
                       text: i18next.t('story:create'),
