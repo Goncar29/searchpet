@@ -19,8 +19,12 @@ func NewAdminRepository(db *gorm.DB) AdminRepository {
 
 func (r *postgresAdminRepository) SetAdminWithAudit(ctx context.Context, targetID uuid.UUID, grant bool, entry *domain.AdminAuditLog) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Model(&domain.User{}).Where("id = ?", targetID).Update("is_admin", grant).Error; err != nil {
-			return err
+		result := tx.Model(&domain.User{}).Where("id = ?", targetID).Update("is_admin", grant)
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected == 0 {
+			return domain.ErrUserNotFound
 		}
 		return tx.Create(entry).Error
 	})

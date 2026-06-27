@@ -4,7 +4,6 @@ import (
 	"context"
 	"testing"
 
-	"github.com/google/uuid"
 	"lost-pets/internal/domain"
 	"lost-pets/internal/repository"
 	"lost-pets/tests/testdb"
@@ -60,5 +59,4 @@ func TestAdminRepository_CountAdmins(t *testing.T) {
 	if n, _ := adminRepo.CountAdmins(context.Background()); n != 1 {
 		t.Errorf("expected 1 admin, got %d", n)
 	}
-	_ = uuid.Nil
 }
