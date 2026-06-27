@@ -115,6 +115,14 @@ type ReviewCreatedEvent struct {
 	RevieweeID uuid.UUID
 }
 
+// ReviewDeletedEvent es el payload publicado cuando un usuario borra su reseña.
+// Permite revertir los puntos otorgados al reviewee al crearse la reseña.
+type ReviewDeletedEvent struct {
+	ReviewID   uuid.UUID
+	ReviewerID uuid.UUID
+	RevieweeID uuid.UUID
+}
+
 // UserVerifiedEvent is published when a user completes identity verification (OTP).
 type UserVerifiedEvent struct {
 	UserID uuid.UUID

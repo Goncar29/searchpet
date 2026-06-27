@@ -37,7 +37,7 @@ func (r *postgresUserPointsRepository) Upsert(ctx context.Context, userID uuid.U
 
 	// Construir el mapa de actualizaciones: siempre sumamos puntos + el campo específico.
 	updates := map[string]interface{}{
-		"points": gorm.Expr("points + ?", pointsDelta),
+		"points": gorm.Expr("GREATEST(points + ?, 0)", pointsDelta),
 	}
 
 	// Solo incrementamos el campo del contador si es uno de los válidos.
