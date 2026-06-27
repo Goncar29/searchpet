@@ -32,7 +32,8 @@ func TestUpdatePet_StrayReporter_Allowed(t *testing.T) {
 	repo := &mockPetRepo{pet: pet}
 	svc := service.NewPetService(repo, event.NewEventBus(), nil, nil, nil)
 
-	updated, err := svc.UpdatePet(reporterID.String(), pet.ID.String(), dto.UpdatePetRequest{Color: "marrón"})
+	marron := "marrón"
+	updated, err := svc.UpdatePet(reporterID.String(), pet.ID.String(), dto.UpdatePetRequest{Color: &marron})
 	if err != nil {
 		t.Fatalf("stray reporter should be allowed to update, got %v", err)
 	}
@@ -48,7 +49,8 @@ func TestUpdatePet_StrayNonReporter_Forbidden(t *testing.T) {
 	repo := &mockPetRepo{pet: pet}
 	svc := service.NewPetService(repo, event.NewEventBus(), nil, nil, nil)
 
-	if _, err := svc.UpdatePet(stranger.String(), pet.ID.String(), dto.UpdatePetRequest{Color: "marrón"}); err != domain.ErrForbidden {
+	marron := "marrón"
+	if _, err := svc.UpdatePet(stranger.String(), pet.ID.String(), dto.UpdatePetRequest{Color: &marron}); err != domain.ErrForbidden {
 		t.Errorf("expected ErrForbidden for non-reporter, got %v", err)
 	}
 }

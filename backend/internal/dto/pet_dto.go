@@ -48,11 +48,14 @@ type PublishLostRequest struct {
 
 // UpdatePetRequest contiene los datos para actualizar una mascota.
 type UpdatePetRequest struct {
-	Name        string `json:"name"`
-	Breed       string `json:"breed"`
-	Color       string `json:"color"`
-	Description string `json:"description"`
-	Status      string `json:"status"`
+	Name string `json:"name"`
+	// Optional fields use pointers so the server can tell "field omitted" (nil →
+	// leave as-is, e.g. a status-only update) apart from "field cleared" (&"" →
+	// blank it). Without this, a user could never empty an optional field.
+	Breed       *string `json:"breed"`
+	Color       *string `json:"color"`
+	Description *string `json:"description"`
+	Status      string  `json:"status"`
 	// Version is used for optimistic concurrency. Send the value received from the
 	// last GET response; the server rejects the update with 409 if it has changed.
 	Version int `json:"version"`

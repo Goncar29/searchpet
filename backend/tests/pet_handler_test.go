@@ -350,11 +350,15 @@ func TestPetHandler_UpdatePet(t *testing.T) {
 			body:     validBody,
 			setupMock: func(m *mockPetService) {
 				m.updatePetFn = func(_, _ string, req dto.UpdatePetRequest) (*domain.Pet, error) {
+					color := ""
+					if req.Color != nil {
+						color = *req.Color
+					}
 					return &domain.Pet{
 						ID:      petID,
 						OwnerID: &ownerID,
 						Name:    req.Name,
-						Color:   req.Color,
+						Color:   color,
 						Status:  domain.PetStatusRegistered,
 					}, nil
 				}
