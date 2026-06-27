@@ -25,6 +25,7 @@ export function PetDetailPage() {
   const [showPetReportMenu, setShowPetReportMenu] = useState(false);
   const [petReportSuccess, setPetReportSuccess] = useState(false);
   const [showFoundConfirm, setShowFoundConfirm] = useState(false);
+  const [showStoryNudge, setShowStoryNudge] = useState(false);
   const [activePhotoIndex, setActivePhotoIndex] = useState(0);
 
   if (isLoading) {
@@ -289,7 +290,7 @@ export function PetDetailPage() {
                       <div className="flex gap-2">
                         <button
                           type="button"
-                          onClick={() => markAsFound.mutate(pet.id, { onSuccess: () => setShowFoundConfirm(false) })}
+                          onClick={() => markAsFound.mutate(pet.id, { onSuccess: () => { setShowFoundConfirm(false); setShowStoryNudge(true); } })}
                           disabled={markAsFound.isPending}
                           className="px-4 py-1.5 bg-green-600 text-white text-sm font-semibold rounded-lg hover:bg-green-700 disabled:opacity-60 transition-colors"
                         >
@@ -305,6 +306,33 @@ export function PetDetailPage() {
                       </div>
                     </div>
                   )}
+                </div>
+              )}
+              {/* Story nudge — shown right after marking the pet found, to catch
+                  the peak-emotion moment and offer telling the success story. */}
+              {showStoryNudge && (
+                <div className="flex flex-col gap-2 p-4 bg-green-50 dark:bg-green-950 rounded-xl border border-green-200 dark:border-green-800">
+                  <p className="text-sm font-bold text-green-800 dark:text-green-200">
+                    {t('pets:detail.foundNudgeTitle')}
+                  </p>
+                  <p className="text-sm text-green-700 dark:text-green-300">
+                    {t('pets:detail.foundNudgeText')}
+                  </p>
+                  <div className="flex flex-wrap gap-2 mt-1">
+                    <Link
+                      to={`/stories/create?petId=${id}`}
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white text-sm font-semibold rounded-lg hover:bg-green-700 transition-colors"
+                    >
+                      🎉 {t('pets:detail.foundNudgeCta')}
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={() => setShowStoryNudge(false)}
+                      className="px-4 py-2 text-sm font-semibold text-gray-600 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                    >
+                      {t('pets:detail.foundNudgeDismiss')}
+                    </button>
+                  </div>
                 </div>
               )}
               {/* Contar historia — para quien gestiona la mascota (dueño o, en

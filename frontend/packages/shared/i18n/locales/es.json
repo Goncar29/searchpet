@@ -117,7 +117,11 @@
       "copyNumber": "Copiar número",
       "copied": "¡Copiado!",
       "loginToContact": "Iniciá sesión para contactar",
-      "loginToShare": "Iniciá sesión para compartir"
+      "loginToShare": "Iniciá sesión para compartir",
+      "foundNudgeTitle": "¡La encontraste! 🎉",
+      "foundNudgeText": "¿Querés contar cómo fue? Las historias de éxito motivan a toda la comunidad.",
+      "foundNudgeCta": "Contar la historia",
+      "foundNudgeDismiss": "Ahora no"
     },
     "card": {
       "lost": "Perdido",

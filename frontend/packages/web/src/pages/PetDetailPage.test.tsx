@@ -30,7 +30,7 @@ vi.mock('react-router', async (importOriginal) => {
 vi.mock('@shared/hooks', () => ({
   usePetByID: () => petResult,
   useReportsByPetID: () => ({ data: [] }),
-  useMarkPetAsFound: () => ({ mutate: vi.fn() }),
+  useMarkPetAsFound: () => ({ mutate: (_id: string, opts?: { onSuccess?: () => void }) => opts?.onSuccess?.() }),
   useSubmitAbuseReport: () => ({ mutate: vi.fn() }),
 }));
 
@@ -147,6 +147,44 @@ describe('PetDetailPage — owner contact reveal-on-click', () => {
     fireEvent.click(screen.getByRole('button', { name: /revealPhone/i }));
 
     expect(screen.getByText(/\+59899111222/)).toBeInTheDocument();
+  });
+});
+
+describe('PetDetailPage — found story nudge', () => {
+  beforeEach(() => {
+    authState.isAuthenticated = true;
+    authState.user = { id: 'owner-1' };
+  });
+
+  it('ofrece contar la historia justo después de marcar la mascota como encontrada', () => {
+    petResult = { data: lostPetWithOwner({ status: 'lost' }), isLoading: false };
+
+    render(<PetDetailPage />, { wrapper });
+
+    // El nudge no está antes de marcar encontrada
+    expect(screen.queryByText('pets:detail.foundNudgeTitle')).toBeNull();
+
+    // Abrir el confirm y confirmar
+    fireEvent.click(screen.getByRole('button', { name: /Marcar como encontrada/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirmar' }));
+
+    // Aparece el nudge con el CTA que lleva a crear la historia de esta mascota
+    expect(screen.getByText('pets:detail.foundNudgeTitle')).toBeInTheDocument();
+    const cta = screen.getByRole('link', { name: /foundNudgeCta/i });
+    expect(cta.getAttribute('href')).toBe('/stories/create?petId=pet-123');
+  });
+
+  it('descarta el nudge al tocar "ahora no"', () => {
+    petResult = { data: lostPetWithOwner({ status: 'lost' }), isLoading: false };
+
+    render(<PetDetailPage />, { wrapper });
+
+    fireEvent.click(screen.getByRole('button', { name: /Marcar como encontrada/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirmar' }));
+    expect(screen.getByText('pets:detail.foundNudgeTitle')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /foundNudgeDismiss/i }));
+    expect(screen.queryByText('pets:detail.foundNudgeTitle')).toBeNull();
   });
 });
 
