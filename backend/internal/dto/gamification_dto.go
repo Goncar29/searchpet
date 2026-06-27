@@ -31,9 +31,10 @@ type UserProfileResponse struct {
 
 // LeaderboardEntry es una entrada del ranking de usuarios por ciudad.
 type LeaderboardEntry struct {
-	UserID uuid.UUID `json:"user_id"`
-	Name   string    `json:"name"`
-	City   string    `json:"city"`
+	UserID      uuid.UUID `json:"user_id"`
+	Name        string    `json:"name"`
+	City        string    `json:"city"`
 	TotalPoints int       `json:"total_points"`
 	Rank        int       `json:"rank"`
+	Badges      []string  `json:"badges"`
 }

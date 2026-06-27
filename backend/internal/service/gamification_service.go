@@ -259,12 +259,30 @@ func (s *gamificationService) GetLeaderboard(ctx context.Context, city string, l
 		return nil, err
 	}
 
+	// Cargar los badges de todos los usuarios del ranking en una sola query
+	// (evita N+1) y agruparlos por usuario.
+	userIDs := make([]uuid.UUID, 0, len(rows))
+	for _, row := range rows {
+		userIDs = append(userIDs, row.UserID)
+	}
+	badgesByUser := make(map[uuid.UUID][]string)
+	if len(userIDs) > 0 {
+		badges, err := s.badgeRepo.FindByUserIDs(ctx, userIDs)
+		if err != nil {
+			return nil, err
+		}
+		for _, b := range badges {
+			badgesByUser[b.UserID] = append(badgesByUser[b.UserID], b.BadgeType)
+		}
+	}
+
 	entries := make([]dto.LeaderboardEntry, 0, len(rows))
 	for i, row := range rows {
 		entry := dto.LeaderboardEntry{
 			UserID:      row.UserID,
 			TotalPoints: row.Points,
 			Rank:        i + 1, // 1-based
+			Badges:      badgesByUser[row.UserID],
 		}
 		// Incluir nombre y ciudad del usuario si la relación fue cargada.
 		if row.User.ID != uuid.Nil {

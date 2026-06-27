@@ -41,6 +41,21 @@ function LeaderboardRow({ entry }: { entry: LeaderboardEntry }) {
         )}
       </div>
 
+      {/* Badges */}
+      {entry.badges && entry.badges.length > 0 && (
+        <div className="flex items-center gap-0.5 flex-shrink-0">
+          {entry.badges.map((badgeType) => {
+            const meta = BADGE_LABELS[badgeType];
+            if (!meta) return null;
+            return (
+              <span key={badgeType} title={meta.label} className="text-base leading-none">
+                {meta.emoji}
+              </span>
+            );
+          })}
+        </div>
+      )}
+
       {/* Points */}
       <div className="flex-shrink-0 text-right">
         <p className="text-sm font-bold text-primary">{entry.total_points}</p>

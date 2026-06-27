@@ -177,6 +177,8 @@ type BadgeRepository interface {
 	Create(ctx context.Context, badge *domain.Badge) error
 	HasBadge(ctx context.Context, userID uuid.UUID, badgeType string) (bool, error)
 	FindByUserID(ctx context.Context, userID uuid.UUID) ([]domain.Badge, error)
+	// FindByUserIDs retorna los badges de varios usuarios en una sola query (evita N+1).
+	FindByUserIDs(ctx context.Context, userIDs []uuid.UUID) ([]domain.Badge, error)
 }
 
 // UserPointsRepository define el contrato para acceder a puntos de gamificación.
