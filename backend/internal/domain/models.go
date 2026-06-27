@@ -386,3 +386,20 @@ type ImageSearchResult struct {
 	Similarity float64 // 1 - cosine_distance (higher = more similar)
 	OwnerID    uuid.UUID
 }
+
+// ============================================================
+// ADMIN AUDIT
+// ============================================================
+
+// AdminAuditLog records every admin-role change made through the app (not the CLI).
+// Actor/target emails are snapshotted so the log stays readable even if a user is
+// later deleted.
+type AdminAuditLog struct {
+	ID          uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+	ActorID     uuid.UUID `gorm:"type:uuid;not null;index" json:"actor_id"`
+	TargetID    uuid.UUID `gorm:"type:uuid;not null;index" json:"target_id"`
+	ActorEmail  string    `gorm:"size:255" json:"actor_email"`
+	TargetEmail string    `gorm:"size:255" json:"target_email"`
+	Action      string    `gorm:"size:20;not null" json:"action"` // "grant" | "revoke"
+	CreatedAt   time.Time `gorm:"autoCreateTime" json:"created_at"`
+}
