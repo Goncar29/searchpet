@@ -33,6 +33,7 @@ i18n
         errors: sharedEs.errors,
         publish: sharedEs.publish,
         // Web-only namespaces
+        admin: es.admin,
         layout: es.layout,
         home: es.home,
         reports: es.reports,
@@ -54,6 +55,7 @@ i18n
         errors: sharedEn.errors,
         publish: sharedEn.publish,
         // Web-only namespaces
+        admin: en.admin,
         layout: en.layout,
         home: en.home,
         reports: en.reports,
@@ -75,6 +77,7 @@ i18n
         errors: sharedPt.errors,
         publish: sharedPt.publish,
         // Web-only namespaces
+        admin: pt.admin,
         layout: pt.layout,
         home: pt.home,
         reports: pt.reports,

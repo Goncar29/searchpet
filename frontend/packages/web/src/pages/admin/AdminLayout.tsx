@@ -1,17 +1,20 @@
 import { NavLink, Outlet } from 'react-router';
+import { useTranslation } from 'react-i18next';
 
 const navLinks = [
-  { to: '/admin/abuse-reports', label: 'Abuse Reports' },
-  { to: '/admin/stories', label: 'Stories' },
-  { to: '/admin/groups', label: 'Groups' },
+  { to: '/admin/abuse-reports', labelKey: 'nav.abuseReports' },
+  { to: '/admin/stories', labelKey: 'nav.stories' },
+  { to: '/admin/groups', labelKey: 'nav.groups' },
 ];
 
 export function AdminLayout() {
+  const { t } = useTranslation('admin');
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Admin Panel</h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Moderation tools</p>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{t('panel.title')}</h1>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{t('panel.subtitle')}</p>
       </div>
 
       {/* Nav tabs — horizontal on all screens, sidebar on md+ */}
@@ -29,7 +32,7 @@ export function AdminLayout() {
                 }`
               }
             >
-              {link.label}
+              {t(link.labelKey)}
             </NavLink>
           ))}
         </nav>

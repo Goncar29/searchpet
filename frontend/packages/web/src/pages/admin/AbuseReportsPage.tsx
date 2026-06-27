@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router';
+import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@shared/api/client';
 import type { AbuseReport } from '@shared/types';
@@ -14,6 +15,7 @@ type PendingAction =
   | { type: 'unban'; userId: string; userName: string };
 
 export function AbuseReportsPage() {
+  const { t } = useTranslation('admin');
   const [filter, setFilter] = useState<FilterMode>('all');
   const queryClient = useQueryClient();
 
@@ -55,14 +57,14 @@ export function AbuseReportsPage() {
   });
 
   const filterTabs: { key: FilterMode; label: string }[] = [
-    { key: 'all', label: 'All' },
-    { key: 'pending', label: 'Pending' },
-    { key: 'resolved', label: 'Resolved' },
+    { key: 'all', label: t('abuse.filter.all') },
+    { key: 'pending', label: t('abuse.filter.pending') },
+    { key: 'resolved', label: t('abuse.filter.resolved') },
   ];
 
   return (
     <div>
-      <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">Abuse Reports</h2>
+      <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">{t('abuse.title')}</h2>
 
       {/* Filter tabs */}
       <div className="flex gap-2 mb-6">
@@ -84,20 +86,20 @@ export function AbuseReportsPage() {
       {isLoading ? (
         <div className="text-center py-12">
           <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
-          <p className="text-gray-500 dark:text-gray-400">Loading reports...</p>
+          <p className="text-gray-500 dark:text-gray-400">{t('abuse.loading')}</p>
         </div>
       ) : reports && reports.length > 0 ? (
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-200 dark:border-gray-700 text-left">
-                <th className="py-2 px-3 font-semibold text-gray-600 dark:text-gray-400">ID</th>
-                <th className="py-2 px-3 font-semibold text-gray-600 dark:text-gray-400">Reporter</th>
-                <th className="py-2 px-3 font-semibold text-gray-600 dark:text-gray-400">Reason</th>
-                <th className="py-2 px-3 font-semibold text-gray-600 dark:text-gray-400">Status</th>
-                <th className="py-2 px-3 font-semibold text-gray-600 dark:text-gray-400">Target</th>
-                <th className="py-2 px-3 font-semibold text-gray-600 dark:text-gray-400">Created</th>
-                <th className="py-2 px-3 font-semibold text-gray-600 dark:text-gray-400">Actions</th>
+                <th className="py-2 px-3 font-semibold text-gray-600 dark:text-gray-400">{t('abuse.col.id')}</th>
+                <th className="py-2 px-3 font-semibold text-gray-600 dark:text-gray-400">{t('abuse.col.reporter')}</th>
+                <th className="py-2 px-3 font-semibold text-gray-600 dark:text-gray-400">{t('abuse.col.reason')}</th>
+                <th className="py-2 px-3 font-semibold text-gray-600 dark:text-gray-400">{t('abuse.col.status')}</th>
+                <th className="py-2 px-3 font-semibold text-gray-600 dark:text-gray-400">{t('abuse.col.target')}</th>
+                <th className="py-2 px-3 font-semibold text-gray-600 dark:text-gray-400">{t('abuse.col.created')}</th>
+                <th className="py-2 px-3 font-semibold text-gray-600 dark:text-gray-400">{t('abuse.col.actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -148,9 +150,9 @@ export function AbuseReportsPage() {
                     ) : (
                       <span className="font-mono text-xs text-gray-500 dark:text-gray-400">
                         {report.target_user_id
-                          ? `user: ${report.target_user_id.slice(0, 8)}`
+                          ? t('abuse.targetUser', { id: report.target_user_id.slice(0, 8) })
                           : report.target_report_id
-                          ? `report: ${report.target_report_id.slice(0, 8)}`
+                          ? t('abuse.targetReport', { id: report.target_report_id.slice(0, 8) })
                           : '—'}
                       </span>
                     )}
@@ -172,7 +174,7 @@ export function AbuseReportsPage() {
                             disabled={resolveMutation.isPending}
                             className="text-xs font-medium px-2 py-1 rounded bg-green-100 text-green-800 hover:bg-green-200 dark:bg-green-900/40 dark:text-green-300 dark:hover:bg-green-900/60 transition-colors disabled:opacity-50"
                           >
-                            Resolve
+                            {t('abuse.action.resolve')}
                           </button>
                           <button
                             onClick={() =>
@@ -184,7 +186,7 @@ export function AbuseReportsPage() {
                             disabled={resolveMutation.isPending}
                             className="text-xs font-medium px-2 py-1 rounded bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 transition-colors disabled:opacity-50"
                           >
-                            Dismiss
+                            {t('abuse.action.dismiss')}
                           </button>
                         </>
                       )}
@@ -200,7 +202,7 @@ export function AbuseReportsPage() {
                           }
                           className="text-xs font-medium px-2 py-1 rounded bg-red-100 text-red-800 hover:bg-red-200 dark:bg-red-900/40 dark:text-red-300 dark:hover:bg-red-900/60 transition-colors"
                         >
-                          Delete content
+                          {t('abuse.action.deleteContent')}
                         </button>
                       )}
 
@@ -216,7 +218,7 @@ export function AbuseReportsPage() {
                             }
                             className="text-xs font-medium px-2 py-1 rounded bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 transition-colors"
                           >
-                            Unban
+                            {t('abuse.action.unban')}
                           </button>
                         ) : (
                           <button
@@ -230,7 +232,7 @@ export function AbuseReportsPage() {
                             }}
                             className="text-xs font-medium px-2 py-1 rounded bg-red-100 text-red-800 hover:bg-red-200 dark:bg-red-900/40 dark:text-red-300 dark:hover:bg-red-900/60 transition-colors"
                           >
-                            Ban
+                            {t('abuse.action.ban')}
                           </button>
                         ))}
                     </div>
@@ -242,15 +244,15 @@ export function AbuseReportsPage() {
         </div>
       ) : (
         <div className="text-center py-12 text-gray-400 dark:text-gray-500">
-          No abuse reports found.
+          {t('abuse.empty')}
         </div>
       )}
 
       {pending?.type === 'delete' && (
         <ConfirmModal
-          title="Delete content"
-          message={`Delete the reported content "${pending.petName}"? This cannot be undone.`}
-          confirmLabel="Delete"
+          title={t('abuse.modal.deleteTitle')}
+          message={t('abuse.modal.deleteMessage', { name: pending.petName })}
+          confirmLabel={t('abuse.modal.deleteConfirm')}
           destructive
           loading={deleteMutation.isPending}
           onConfirm={() => deleteMutation.mutate(pending.reportId)}
@@ -260,18 +262,18 @@ export function AbuseReportsPage() {
 
       {pending?.type === 'ban' && (
         <ConfirmModal
-          title="Ban user"
-          message={`Ban ${pending.userName}? They won't be able to log in.`}
-          confirmLabel="Ban"
+          title={t('abuse.modal.banTitle')}
+          message={t('abuse.modal.banMessage', { name: pending.userName })}
+          confirmLabel={t('abuse.modal.banConfirm')}
           destructive
           loading={banMutation.isPending}
           onConfirm={() => banMutation.mutate({ userId: pending.userId, reason })}
           onCancel={closeModal}
         >
           <label className="block text-sm">
-            <span className="text-gray-600 dark:text-gray-300">Reason (optional)</span>
+            <span className="text-gray-600 dark:text-gray-300">{t('abuse.modal.reasonLabel')}</span>
             <input
-              aria-label="reason"
+              aria-label={t('abuse.modal.reasonLabel')}
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               maxLength={500}
@@ -283,9 +285,9 @@ export function AbuseReportsPage() {
 
       {pending?.type === 'unban' && (
         <ConfirmModal
-          title="Unban user"
-          message={`Unban ${pending.userName}? They will be able to log in again.`}
-          confirmLabel="Unban"
+          title={t('abuse.modal.unbanTitle')}
+          message={t('abuse.modal.unbanMessage', { name: pending.userName })}
+          confirmLabel={t('abuse.modal.unbanConfirm')}
           loading={unbanMutation.isPending}
           onConfirm={() => unbanMutation.mutate(pending.userId)}
           onCancel={closeModal}

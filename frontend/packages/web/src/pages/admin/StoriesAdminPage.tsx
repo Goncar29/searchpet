@@ -1,8 +1,10 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { apiClient } from '@shared/api/client';
 import type { SuccessStory } from '@shared/types';
 
 export function StoriesAdminPage() {
+  const { t } = useTranslation('admin');
   const queryClient = useQueryClient();
 
   const { data: stories, isLoading } = useQuery({
@@ -22,30 +24,30 @@ export function StoriesAdminPage() {
   });
 
   const handleDelete = (story: SuccessStory) => {
-    if (window.confirm(`Delete story "${story.title || story.pet_name}"? This cannot be undone.`)) {
+    if (window.confirm(t('stories.confirmDelete', { name: story.title || story.pet_name }))) {
       deleteMutation.mutate(story.id);
     }
   };
 
   return (
     <div>
-      <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-6">Stories</h2>
+      <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-6">{t('stories.title')}</h2>
 
       {isLoading ? (
         <div className="text-center py-12">
           <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
-          <p className="text-gray-500 dark:text-gray-400">Loading stories...</p>
+          <p className="text-gray-500 dark:text-gray-400">{t('stories.loading')}</p>
         </div>
       ) : stories && stories.length > 0 ? (
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-200 dark:border-gray-700 text-left">
-                <th className="py-2 px-3 font-semibold text-gray-600 dark:text-gray-400">Title</th>
-                <th className="py-2 px-3 font-semibold text-gray-600 dark:text-gray-400">Author</th>
-                <th className="py-2 px-3 font-semibold text-gray-600 dark:text-gray-400">Featured</th>
-                <th className="py-2 px-3 font-semibold text-gray-600 dark:text-gray-400">Created</th>
-                <th className="py-2 px-3 font-semibold text-gray-600 dark:text-gray-400">Actions</th>
+                <th className="py-2 px-3 font-semibold text-gray-600 dark:text-gray-400">{t('stories.col.title')}</th>
+                <th className="py-2 px-3 font-semibold text-gray-600 dark:text-gray-400">{t('stories.col.author')}</th>
+                <th className="py-2 px-3 font-semibold text-gray-600 dark:text-gray-400">{t('stories.col.featured')}</th>
+                <th className="py-2 px-3 font-semibold text-gray-600 dark:text-gray-400">{t('stories.col.created')}</th>
+                <th className="py-2 px-3 font-semibold text-gray-600 dark:text-gray-400">{t('stories.col.actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -68,7 +70,7 @@ export function StoriesAdminPage() {
                           : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
                       }`}
                     >
-                      {story.featured ? 'Featured' : 'Normal'}
+                      {story.featured ? t('stories.badge.featured') : t('stories.badge.normal')}
                     </span>
                   </td>
                   <td className="py-2 px-3 text-gray-500 dark:text-gray-400">
@@ -86,14 +88,14 @@ export function StoriesAdminPage() {
                         disabled={featureMutation.isPending}
                         className="text-xs font-medium px-2 py-1 rounded bg-yellow-100 text-yellow-800 hover:bg-yellow-200 dark:bg-yellow-900/40 dark:text-yellow-300 dark:hover:bg-yellow-900/60 transition-colors disabled:opacity-50"
                       >
-                        {story.featured ? 'Unfeature' : 'Feature'}
+                        {story.featured ? t('stories.action.unfeature') : t('stories.action.feature')}
                       </button>
                       <button
                         onClick={() => handleDelete(story)}
                         disabled={deleteMutation.isPending}
                         className="text-xs font-medium px-2 py-1 rounded bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900/40 dark:text-red-300 dark:hover:bg-red-900/60 transition-colors disabled:opacity-50"
                       >
-                        Delete
+                        {t('stories.action.delete')}
                       </button>
                     </div>
                   </td>
@@ -104,7 +106,7 @@ export function StoriesAdminPage() {
         </div>
       ) : (
         <div className="text-center py-12 text-gray-400 dark:text-gray-500">
-          No stories found.
+          {t('stories.empty')}
         </div>
       )}
     </div>
