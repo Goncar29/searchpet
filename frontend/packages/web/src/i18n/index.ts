@@ -43,6 +43,7 @@ i18n
         profile: es.profile,
         otp: es.otp,
         sharedPet: es.sharedPet,
+        vets: es.vets,
       },
       en: {
         // Shared namespaces
@@ -65,6 +66,7 @@ i18n
         profile: en.profile,
         otp: en.otp,
         sharedPet: en.sharedPet,
+        vets: en.vets,
       },
       pt: {
         // Shared namespaces
@@ -87,6 +89,7 @@ i18n
         profile: pt.profile,
         otp: pt.otp,
         sharedPet: pt.sharedPet,
+        vets: pt.vets,
       },
     },
     interpolation: {
