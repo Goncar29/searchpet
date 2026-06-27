@@ -53,6 +53,49 @@ func petWithStatus(ownerID uuid.UUID, status string) *domain.Pet {
 	}
 }
 
+// Editing must be able to CLEAR an optional field: sending a pointer to "" blanks it.
+func TestUpdatePet_ClearsOptionalFieldsWhenEmptyStringSent(t *testing.T) {
+	ownerID := uuid.New()
+	pet := petWithStatus(ownerID, domain.PetStatusRegistered)
+	pet.Breed = "Labrador"
+	pet.Color = "Negro"
+	pet.Description = "Muy amigable"
+	repo := &mockPetRepo{pet: pet}
+	svc := service.NewPetService(repo, nil, nil, nil, nil)
+
+	empty := ""
+	_, err := svc.UpdatePet(ownerID.String(), pet.ID.String(), dto.UpdatePetRequest{
+		Breed:       &empty,
+		Color:       &empty,
+		Description: &empty,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if repo.pet.Breed != "" || repo.pet.Color != "" || repo.pet.Description != "" {
+		t.Errorf("expected optional fields cleared, got breed=%q color=%q desc=%q",
+			repo.pet.Breed, repo.pet.Color, repo.pet.Description)
+	}
+}
+
+// A partial update (e.g. the My Pets status dropdown) omits the optional fields
+// (nil) — they must be preserved, not blanked.
+func TestUpdatePet_PreservesOmittedOptionalFields(t *testing.T) {
+	ownerID := uuid.New()
+	pet := petWithStatus(ownerID, domain.PetStatusRegistered)
+	pet.Breed = "Labrador"
+	repo := &mockPetRepo{pet: pet}
+	svc := service.NewPetService(repo, nil, nil, nil, nil)
+
+	_, err := svc.UpdatePet(ownerID.String(), pet.ID.String(), dto.UpdatePetRequest{Status: domain.PetStatusLost})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if repo.pet.Breed != "Labrador" {
+		t.Errorf("expected breed preserved on status-only update, got %q", repo.pet.Breed)
+	}
+}
+
 // ============================================================
 // Tests: MarkAsFound
 // ============================================================

@@ -113,9 +113,12 @@ export function EditPetPage() {
         id,
         data: {
           name: form.name.trim(),
-          breed: form.breed.trim() || undefined,
-          color: form.color.trim() || undefined,
-          description: form.description.trim() || undefined,
+          // Send the trimmed value (even ""), not undefined: the backend uses a
+          // pointer to tell "omitted" from "cleared", so "" empties the field —
+          // letting the user actually clear an optional field when editing.
+          breed: form.breed.trim(),
+          color: form.color.trim(),
+          description: form.description.trim(),
         },
       },
       {

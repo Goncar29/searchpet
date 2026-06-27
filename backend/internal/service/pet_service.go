@@ -210,18 +210,20 @@ func (s *petService) UpdatePet(ownerID string, petID string, req dto.UpdatePetRe
 		}
 	}
 
-	// Solo actualizamos los campos que vienen con valor
+	// Name is required, so only overwrite it when a value is sent. Optional fields
+	// are pointers: nil means "not sent" (leave as-is), a non-nil pointer — even to
+	// an empty string — means "set to this", which lets the user clear the field.
 	if req.Name != "" {
 		pet.Name = req.Name
 	}
-	if req.Breed != "" {
-		pet.Breed = req.Breed
+	if req.Breed != nil {
+		pet.Breed = *req.Breed
 	}
-	if req.Color != "" {
-		pet.Color = req.Color
+	if req.Color != nil {
+		pet.Color = *req.Color
 	}
-	if req.Description != "" {
-		pet.Description = req.Description
+	if req.Description != nil {
+		pet.Description = *req.Description
 	}
 	if req.Status != "" {
 		pet.Status = req.Status
