@@ -542,3 +542,18 @@ export interface ClassifyResult {
   confidence: number;      // 0-1, highest confidence score of the matched prediction
   rawLabels: string[];     // top-5 MobileNet class names returned by the model
 }
+
+export interface AdminAuditEntry {
+  actor_email: string;
+  target_email: string;
+  action: 'grant' | 'revoke';
+  created_at: string;
+}
+
+export interface AdminRoleResult {
+  target_id: string;
+  email: string;
+  name: string;
+  is_admin: boolean;
+  no_change: boolean;
+}
