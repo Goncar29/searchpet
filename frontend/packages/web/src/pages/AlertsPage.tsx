@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   useAlerts,
   useCreateAlert,
@@ -8,12 +9,7 @@ import {
 import type { LocationAlert } from '@shared/types';
 import type { PetType } from '@shared/types';
 
-const PET_TYPES: { value: PetType; label: string }[] = [
-  { value: 'perro', label: 'Perro' },
-  { value: 'gato', label: 'Gato' },
-  { value: 'pajaro', label: 'Pájaro' },
-  { value: 'otro', label: 'Otro' },
-];
+const PET_TYPES: PetType[] = ['perro', 'gato', 'pajaro', 'otro'];
 
 const RADIUS_OPTIONS = [1, 2, 5, 10, 25] as const;
 type RadiusKm = (typeof RADIUS_OPTIONS)[number];
@@ -24,6 +20,7 @@ const INPUT_CLASS =
 const MAX_ALERTS = 10;
 
 export function AlertsPage() {
+  const { t } = useTranslation('alerts');
   const { data, isLoading } = useAlerts();
   const createAlert = useCreateAlert();
   const updateAlert = useUpdateAlert();
@@ -85,7 +82,7 @@ export function AlertsPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (formLat === null || formLng === null) {
-      setCoordError('Necesitamos tu ubicación para crear una alerta. Ingresá las coordenadas o usá tu ubicación actual.');
+      setCoordError(t('coordError'));
       return;
     }
     setCoordError('');
@@ -104,8 +101,8 @@ export function AlertsPage() {
   };
 
   const handleDelete = (alert: LocationAlert) => {
-    const label = alert.name ?? 'esta alerta';
-    if (window.confirm(`¿Eliminar "${label}"?`)) {
+    const label = alert.name ?? t('thisAlert');
+    if (window.confirm(t('confirmDelete', { name: label }))) {
       deleteAlert.mutate(alert.id);
     }
   };
@@ -115,7 +112,7 @@ export function AlertsPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-          Mis alertas ({alerts.length}/{MAX_ALERTS})
+          {t('title', { count: alerts.length, max: MAX_ALERTS })}
         </h1>
         {!showForm && (
           <button
@@ -123,7 +120,7 @@ export function AlertsPage() {
             disabled={alerts.length >= MAX_ALERTS}
             className="px-4 py-2 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            + Nueva alerta
+            {t('newAlert')}
           </button>
         )}
       </div>
@@ -134,12 +131,12 @@ export function AlertsPage() {
           onSubmit={handleSubmit}
           className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-5 mb-6"
         >
-          <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-4">Nueva alerta</h2>
+          <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-4">{t('formTitle')}</h2>
 
           {/* Name */}
           <div className="mb-3">
             <label htmlFor="alert-name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Nombre (opcional)
+              {t('nameLabel')}
             </label>
             <input
               id="alert-name"
@@ -147,7 +144,7 @@ export function AlertsPage() {
               value={name}
               onChange={(e) => setName(e.target.value)}
               maxLength={60}
-              placeholder="ej: Mi barrio"
+              placeholder={t('namePlaceholder')}
               className={INPUT_CLASS}
             />
           </div>
@@ -155,7 +152,7 @@ export function AlertsPage() {
           {/* Coordinates */}
           <div className="mb-1">
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Coordenadas
+              {t('coordsLabel')}
             </label>
             <div className="flex gap-2 items-center">
               <input
@@ -163,8 +160,8 @@ export function AlertsPage() {
                 step="any"
                 value={formLat ?? ''}
                 onChange={(e) => setFormLat(e.target.value ? Number(e.target.value) : null)}
-                placeholder="Latitud"
-                aria-label="Latitud"
+                placeholder={t('latPlaceholder')}
+                aria-label={t('latPlaceholder')}
                 className={INPUT_CLASS}
               />
               <input
@@ -172,8 +169,8 @@ export function AlertsPage() {
                 step="any"
                 value={formLng ?? ''}
                 onChange={(e) => setFormLng(e.target.value ? Number(e.target.value) : null)}
-                placeholder="Longitud"
-                aria-label="Longitud"
+                placeholder={t('lngPlaceholder')}
+                aria-label={t('lngPlaceholder')}
                 className={INPUT_CLASS}
               />
               <button
@@ -182,7 +179,7 @@ export function AlertsPage() {
                 disabled={locating}
                 className="shrink-0 px-3 py-2 text-xs font-semibold text-primary border border-primary rounded-lg hover:bg-orange-50 dark:hover:bg-orange-950 transition-colors disabled:opacity-50"
               >
-                {locating ? '...' : 'Usar mi ubicación'}
+                {locating ? '...' : t('useMyLocation')}
               </button>
             </div>
           </div>
@@ -193,7 +190,7 @@ export function AlertsPage() {
           {/* Radius chips */}
           <div className="mb-3 mt-3">
             <label id="alert-radius-label" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Radio
+              {t('radiusLabel')}
             </label>
             <div className="flex flex-wrap gap-2" role="radiogroup" aria-labelledby="alert-radius-label">
               {RADIUS_OPTIONS.map((r) => (
@@ -218,7 +215,7 @@ export function AlertsPage() {
           {/* Pet type */}
           <div className="mb-4">
             <label htmlFor="alert-pet-type" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Tipo de mascota
+              {t('petTypeLabel')}
             </label>
             <select
               id="alert-pet-type"
@@ -226,10 +223,10 @@ export function AlertsPage() {
               onChange={(e) => setPetType(e.target.value)}
               className={INPUT_CLASS}
             >
-              <option value="">Todos</option>
+              <option value="">{t('allTypes')}</option>
               {PET_TYPES.map((pt) => (
-                <option key={pt.value} value={pt.value}>
-                  {pt.label}
+                <option key={pt} value={pt}>
+                  {t(`pets:types.${pt}`)}
                 </option>
               ))}
             </select>
@@ -242,14 +239,14 @@ export function AlertsPage() {
               disabled={createAlert.isPending}
               className="px-5 py-2 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary-dark transition-colors disabled:opacity-50"
             >
-              {createAlert.isPending ? 'Creando...' : 'Crear alerta'}
+              {createAlert.isPending ? t('creating') : t('createButton')}
             </button>
             <button
               type="button"
               onClick={resetForm}
               className="px-5 py-2 text-sm text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
             >
-              Cancelar
+              {t('cancel')}
             </button>
           </div>
         </form>
@@ -259,7 +256,7 @@ export function AlertsPage() {
       {isLoading && (
         <div className="text-center py-12">
           <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
-          <p className="text-gray-500 dark:text-gray-400">Cargando alertas...</p>
+          <p className="text-gray-500 dark:text-gray-400">{t('loading')}</p>
         </div>
       )}
 
@@ -267,15 +264,15 @@ export function AlertsPage() {
       {!isLoading && alerts.length === 0 && !showForm && (
         <div className="text-center py-16">
           <p className="text-5xl mb-4">🔔</p>
-          <p className="text-gray-700 dark:text-gray-300 font-semibold mb-2">Sin alertas</p>
+          <p className="text-gray-700 dark:text-gray-300 font-semibold mb-2">{t('emptyTitle')}</p>
           <p className="text-gray-500 dark:text-gray-400 mb-4 text-sm">
-            Creá una alerta para recibir notificaciones cuando haya mascotas reportadas cerca de tu zona.
+            {t('emptyText')}
           </p>
           <button
             onClick={() => setShowForm(true)}
             className="px-5 py-2 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary-dark transition-colors"
           >
-            Crear primera alerta
+            {t('createFirst')}
           </button>
         </div>
       )}
@@ -290,12 +287,12 @@ export function AlertsPage() {
             >
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-gray-900 dark:text-gray-100 truncate">
-                  {alert.name ?? 'Sin nombre'}
+                  {alert.name ?? t('unnamed')}
                 </p>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                   {alert.alert_latitude.toFixed(3)}, {alert.alert_longitude.toFixed(3)}
                   {' · '}{alert.radius_km} km
-                  {alert.pet_type ? ` · ${alert.pet_type}` : ''}
+                  {alert.pet_type ? ` · ${t(`pets:types.${alert.pet_type}`)}` : ''}
                 </p>
               </div>
               <div className="flex items-center gap-3 shrink-0">
@@ -307,14 +304,14 @@ export function AlertsPage() {
                     className="w-4 h-4 accent-primary"
                   />
                   <span className="text-xs text-gray-600 dark:text-gray-400">
-                    {alert.is_active ? 'Activa' : 'Inactiva'}
+                    {alert.is_active ? t('active') : t('inactive')}
                   </span>
                 </label>
                 <button
                   onClick={() => handleDelete(alert)}
                   className="text-xs font-medium text-red-500 hover:text-red-700 dark:hover:text-red-400 transition-colors"
                 >
-                  Eliminar
+                  {t('delete')}
                 </button>
               </div>
             </div>
