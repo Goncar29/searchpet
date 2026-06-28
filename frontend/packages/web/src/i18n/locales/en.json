@@ -7,7 +7,8 @@
     "nav": {
       "abuseReports": "Abuse Reports",
       "stories": "Stories",
-      "groups": "Groups"
+      "groups": "Groups",
+      "admins": "Administrators"
     },
     "abuse": {
       "title": "Abuse Reports",
@@ -53,6 +54,25 @@
       "success": "Group \"{{name}}\" created successfully in {{city}}.",
       "creating": "Creating...",
       "submit": "Create Group"
+    },
+    "admins": {
+      "navLabel": "Administrators",
+      "title": "Administrators",
+      "emailLabel": "User email",
+      "emailPlaceholder": "user@example.com",
+      "grant": "Grant admin",
+      "revoke": "Revoke admin",
+      "granted": "Granted admin to {{email}}",
+      "revoked": "Revoked admin from {{email}}",
+      "noChange": "{{email}} was already in that state",
+      "recentTitle": "Recent changes",
+      "recentEmpty": "No changes yet",
+      "colActor": "By",
+      "colTarget": "User",
+      "colAction": "Action",
+      "colDate": "Date",
+      "actionGrant": "Granted",
+      "actionRevoke": "Revoked"
     }
   },
   "layout": {

@@ -222,6 +222,8 @@
     }
   },
   "errors": {
+    "cannot_revoke_self": "No podés quitarte el admin a vos mismo",
+    "cannot_revoke_last_admin": "No se puede revocar al último administrador",
     "invalid_credentials": "Email o contraseña incorrectos",
     "email_already_exists": "Este email ya está registrado",
     "user_banned": "Tu cuenta fue suspendida",

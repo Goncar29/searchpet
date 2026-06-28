@@ -222,6 +222,8 @@
     }
   },
   "errors": {
+    "cannot_revoke_self": "You can't remove your own admin role",
+    "cannot_revoke_last_admin": "You can't revoke the last administrator",
     "invalid_credentials": "Invalid email or password",
     "email_already_exists": "This email is already registered",
     "user_banned": "Your account has been suspended",
