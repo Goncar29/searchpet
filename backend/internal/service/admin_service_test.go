@@ -70,6 +70,9 @@ func TestAdminService_Grant_WritesAuditAndFlips(t *testing.T) {
 	if res.NoChange {
 		t.Errorf("expected a change")
 	}
+	if !res.IsAdmin {
+		t.Errorf("expected res.IsAdmin=true after grant (maps to the API's is_admin)")
+	}
 	if !adminRepo.setCalled || adminRepo.lastEntry.Action != "grant" {
 		t.Errorf("expected a grant audit write, got %+v", adminRepo.lastEntry)
 	}
@@ -96,6 +99,11 @@ func TestAdminService_RevokeSelf_Rejected(t *testing.T) {
 	}
 }
 
+// This exercises the service's EARLY (fast-error) last-admin check by forcing the
+// mock count to 1 — a synthetic state that doesn't arise sequentially (a distinct
+// admin target implies count>=2). The authoritative, race-free guard is enforced
+// inside the repository transaction; see
+// TestAdminRepository_SetAdminWithAudit_RejectsLastAdmin.
 func TestAdminService_RevokeLastAdmin_Rejected(t *testing.T) {
 	actor := &domain.User{ID: uuid.New(), Email: "actor@x.test", IsAdmin: true}
 	target := &domain.User{ID: uuid.New(), Email: "target@x.test", IsAdmin: true}

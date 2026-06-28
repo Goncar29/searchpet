@@ -225,7 +225,8 @@ type VetRepository interface {
 }
 
 // AdminRepository owns admin-role mutations that must be atomic with their audit
-// trail, plus the admin count used for the last-admin guard. Style A.
+// trail, plus the admin count used for the last-admin guard.
+// Style A: context.Context + uuid.UUID.
 type AdminRepository interface {
 	// SetAdminWithAudit flips users.is_admin for targetID and inserts the audit
 	// row in the same transaction. Either both happen or neither does.

@@ -5,8 +5,10 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"go.uber.org/zap"
 	"lost-pets/internal/domain"
 	"lost-pets/internal/repository"
+	"lost-pets/pkg/logger"
 )
 
 // AdminRoleResult describes the outcome of a SetUserAdmin call.
@@ -61,6 +63,9 @@ func (s *adminService) SetUserAdmin(ctx context.Context, actorID uuid.UUID, emai
 		if target.ID == actorID {
 			return AdminRoleResult{}, domain.ErrCannotRevokeSelf
 		}
+		// Early count for a fast, friendly error. This is NOT the authoritative
+		// guarantee — it races with the write. SetAdminWithAudit re-checks the count
+		// inside the transaction (FOR UPDATE) and is the real anti-lockout invariant.
 		count, err := s.adminRepo.CountAdmins(ctx)
 		if err != nil {
 			return AdminRoleResult{}, err
@@ -75,9 +80,9 @@ func (s *adminService) SetUserAdmin(ctx context.Context, actorID uuid.UUID, emai
 		return AdminRoleResult{}, err
 	}
 
-	action := "revoke"
+	action := domain.AdminActionRevoke
 	if grant {
-		action = "grant"
+		action = domain.AdminActionGrant
 	}
 	entry := &domain.AdminAuditLog{
 		ActorID:     actorID,
@@ -89,6 +94,16 @@ func (s *adminService) SetUserAdmin(ctx context.Context, actorID uuid.UUID, emai
 	if err := s.adminRepo.SetAdminWithAudit(ctx, target.ID, grant, entry); err != nil {
 		return AdminRoleResult{}, err
 	}
+
+	// Independent record of the privilege change, separate from the audit table, so
+	// a forensic trail survives even if the table is lost. Goes to the log drain.
+	logger.Get().Info("admin role change",
+		zap.String("action", action),
+		zap.String("actor_id", actorID.String()),
+		zap.String("actor_email", actor.Email),
+		zap.String("target_id", target.ID.String()),
+		zap.String("target_email", target.Email),
+	)
 
 	return AdminRoleResult{
 		TargetID: target.ID, TargetEmail: target.Email, TargetName: target.Name,

@@ -25,6 +25,7 @@ type AdminRoleResponse struct {
 
 // AdminAuditLogResponse is a single audit-trail entry for the UI.
 type AdminAuditLogResponse struct {
+	ID          string `json:"id"`
 	ActorEmail  string `json:"actor_email"`
 	TargetEmail string `json:"target_email"`
 	Action      string `json:"action"`
@@ -36,6 +37,7 @@ func ToAdminAuditLogResponses(entries []domain.AdminAuditLog) []AdminAuditLogRes
 	out := make([]AdminAuditLogResponse, 0, len(entries))
 	for _, e := range entries {
 		out = append(out, AdminAuditLogResponse{
+			ID:          e.ID.String(),
 			ActorEmail:  e.ActorEmail,
 			TargetEmail: e.TargetEmail,
 			Action:      e.Action,

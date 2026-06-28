@@ -56,7 +56,7 @@ func (h *AdminHandler) SetUserAdmin(c *gin.Context) {
 // RecentRoleChanges godoc
 // GET /api/admin/role-changes  (admin only)
 func (h *AdminHandler) RecentRoleChanges(c *gin.Context) {
-	entries, err := h.adminService.RecentRoleChanges(c.Request.Context(), 50)
+	entries, err := h.adminService.RecentRoleChanges(c.Request.Context(), domain.DefaultRoleChangeLimit)
 	if err != nil {
 		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		return

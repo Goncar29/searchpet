@@ -60,3 +60,73 @@ func TestAdminRepository_CountAdmins(t *testing.T) {
 		t.Errorf("expected 1 admin, got %d", n)
 	}
 }
+
+// The authoritative anti-lockout guard lives INSIDE the transaction (FOR UPDATE),
+// not just in the service. Revoking the only admin must fail atomically: no flip,
+// no audit row.
+func TestAdminRepository_SetAdminWithAudit_RejectsLastAdmin(t *testing.T) {
+	ctx := context.Background()
+	db := testdb.SetupTestDB(t)
+	userRepo := repository.NewUserRepository(db)
+	adminRepo := repository.NewAdminRepository(db)
+
+	only := newTestUser(t, userRepo)
+	only.IsAdmin = true
+	if err := userRepo.Update(ctx, only); err != nil {
+		t.Fatalf("Update: %v", err)
+	}
+
+	entry := &domain.AdminAuditLog{
+		ActorID: only.ID, TargetID: only.ID,
+		ActorEmail: only.Email, TargetEmail: only.Email, Action: domain.AdminActionRevoke,
+	}
+	err := adminRepo.SetAdminWithAudit(ctx, only.ID, false, entry)
+	if err != domain.ErrCannotRevokeLastAdmin {
+		t.Fatalf("want ErrCannotRevokeLastAdmin, got %v", err)
+	}
+
+	got, _ := userRepo.GetByID(ctx, only.ID)
+	if !got.IsAdmin {
+		t.Errorf("last admin must stay admin after a rejected revoke")
+	}
+	if changes, _ := adminRepo.ListRoleChanges(ctx, 10); len(changes) != 0 {
+		t.Errorf("no audit row should be written on a rejected revoke, got %+v", changes)
+	}
+}
+
+// Revoking one of several admins is allowed and writes its audit row.
+func TestAdminRepository_SetAdminWithAudit_RevokeWithMultipleAdmins(t *testing.T) {
+	ctx := context.Background()
+	db := testdb.SetupTestDB(t)
+	userRepo := repository.NewUserRepository(db)
+	adminRepo := repository.NewAdminRepository(db)
+
+	a := newTestUser(t, userRepo)
+	b := newTestUser(t, userRepo)
+	for _, u := range []*domain.User{a, b} {
+		u.IsAdmin = true
+		if err := userRepo.Update(ctx, u); err != nil {
+			t.Fatalf("Update: %v", err)
+		}
+	}
+
+	entry := &domain.AdminAuditLog{
+		ActorID: a.ID, TargetID: b.ID,
+		ActorEmail: a.Email, TargetEmail: b.Email, Action: domain.AdminActionRevoke,
+	}
+	if err := adminRepo.SetAdminWithAudit(ctx, b.ID, false, entry); err != nil {
+		t.Fatalf("revoke with 2 admins should succeed, got %v", err)
+	}
+
+	gotB, _ := userRepo.GetByID(ctx, b.ID)
+	gotA, _ := userRepo.GetByID(ctx, a.ID)
+	if gotB.IsAdmin {
+		t.Errorf("target b should no longer be admin")
+	}
+	if !gotA.IsAdmin {
+		t.Errorf("other admin a must be untouched")
+	}
+	if changes, _ := adminRepo.ListRoleChanges(ctx, 10); len(changes) != 1 || changes[0].Action != domain.AdminActionRevoke {
+		t.Errorf("expected 1 revoke audit row, got %+v", changes)
+	}
+}

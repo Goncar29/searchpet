@@ -400,6 +400,20 @@ type AdminAuditLog struct {
 	TargetID    uuid.UUID `gorm:"type:uuid;not null;index" json:"target_id"`
 	ActorEmail  string    `gorm:"size:255" json:"actor_email"`
 	TargetEmail string    `gorm:"size:255" json:"target_email"`
-	Action      string    `gorm:"size:20;not null" json:"action"` // "grant" | "revoke"
+	Action      string    `gorm:"size:20;not null;check:action IN ('grant','revoke')" json:"action"`
 	CreatedAt   time.Time `gorm:"autoCreateTime" json:"created_at"`
 }
+
+// Admin-role audit actions. The DB enforces these via the CHECK constraint on
+// AdminAuditLog.Action above; keep both in sync.
+const (
+	AdminActionGrant  = "grant"
+	AdminActionRevoke = "revoke"
+)
+
+// Role-change listing bounds, shared by the handler (page size) and the
+// repository (clamp). Single source of truth so the two layers can't drift.
+const (
+	DefaultRoleChangeLimit = 50
+	MaxRoleChangeLimit     = 200
+)
