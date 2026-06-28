@@ -66,7 +66,7 @@ import type {
   GroupMember,
   VerificationStatus,
   Shelter,
-  AdminAuditEntry,
+  AdminAuditListResponse,
   AdminRoleResult,
 } from '../types';
 
@@ -846,8 +846,8 @@ class APIClient {
     return this.request<AdminRoleResult>('POST', '/api/admin/users/admin-role', { email, grant });
   }
 
-  async getRoleChanges(): Promise<AdminAuditEntry[]> {
-    return this.request<AdminAuditEntry[]>('GET', '/api/admin/role-changes');
+  async getRoleChanges(page = 1, limit = 50): Promise<AdminAuditListResponse> {
+    return this.request<AdminAuditListResponse>('GET', `/api/admin/role-changes?page=${page}&limit=${limit}`);
   }
 }
 

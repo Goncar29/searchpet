@@ -233,8 +233,10 @@ type AdminRepository interface {
 	SetAdminWithAudit(ctx context.Context, targetID uuid.UUID, grant bool, entry *domain.AdminAuditLog) error
 	// CountAdmins returns how many users currently have is_admin = true.
 	CountAdmins(ctx context.Context) (int64, error)
-	// ListRoleChanges returns the most recent audit rows, newest first.
-	ListRoleChanges(ctx context.Context, limit int) ([]domain.AdminAuditLog, error)
+	// ListRoleChanges returns a page of audit rows, newest first.
+	ListRoleChanges(ctx context.Context, limit, offset int) ([]domain.AdminAuditLog, error)
+	// CountRoleChanges returns the total number of audit rows.
+	CountRoleChanges(ctx context.Context) (int64, error)
 }
 
 // LocationAlertRepository define el contrato para alertas de ubicación.

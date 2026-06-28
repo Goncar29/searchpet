@@ -73,7 +73,10 @@
       "colAction": "Ação",
       "colDate": "Data",
       "actionGrant": "Concedeu",
-      "actionRevoke": "Revogou"
+      "actionRevoke": "Revogou",
+      "prevPage": "Anterior",
+      "nextPage": "Próxima",
+      "pageOf": "Página {{page}} de {{pages}}"
     }
   },
   "layout": {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/google/uuid"
 	"lost-pets/internal/domain"
 	"lost-pets/internal/repository"
 	"lost-pets/tests/testdb"
@@ -33,7 +34,7 @@ func TestAdminRepository_SetAdminWithAudit_FlipsFlagAndWritesAudit(t *testing.T)
 		t.Errorf("expected target IsAdmin=true after grant")
 	}
 
-	changes, err := adminRepo.ListRoleChanges(context.Background(), 10)
+	changes, err := adminRepo.ListRoleChanges(context.Background(), 10, 0)
 	if err != nil {
 		t.Fatalf("ListRoleChanges: %v", err)
 	}
@@ -89,7 +90,7 @@ func TestAdminRepository_SetAdminWithAudit_RejectsLastAdmin(t *testing.T) {
 	if !got.IsAdmin {
 		t.Errorf("last admin must stay admin after a rejected revoke")
 	}
-	if changes, _ := adminRepo.ListRoleChanges(ctx, 10); len(changes) != 0 {
+	if changes, _ := adminRepo.ListRoleChanges(ctx, 10, 0); len(changes) != 0 {
 		t.Errorf("no audit row should be written on a rejected revoke, got %+v", changes)
 	}
 }
@@ -126,7 +127,36 @@ func TestAdminRepository_SetAdminWithAudit_RevokeWithMultipleAdmins(t *testing.T
 	if !gotA.IsAdmin {
 		t.Errorf("other admin a must be untouched")
 	}
-	if changes, _ := adminRepo.ListRoleChanges(ctx, 10); len(changes) != 1 || changes[0].Action != domain.AdminActionRevoke {
+	if changes, _ := adminRepo.ListRoleChanges(ctx, 10, 0); len(changes) != 1 || changes[0].Action != domain.AdminActionRevoke {
 		t.Errorf("expected 1 revoke audit row, got %+v", changes)
+	}
+}
+
+// ListRoleChanges pages via limit+offset, and CountRoleChanges reports the total.
+func TestAdminRepository_ListRoleChanges_Paginates(t *testing.T) {
+	ctx := context.Background()
+	db := testdb.SetupTestDB(t)
+	adminRepo := repository.NewAdminRepository(db)
+
+	for i := 0; i < 3; i++ {
+		row := &domain.AdminAuditLog{
+			ActorID: uuid.New(), TargetID: uuid.New(),
+			ActorEmail: "a@x.test", TargetEmail: "t@x.test", Action: domain.AdminActionGrant,
+		}
+		if err := db.Create(row).Error; err != nil {
+			t.Fatalf("seed audit row: %v", err)
+		}
+	}
+
+	total, err := adminRepo.CountRoleChanges(ctx)
+	if err != nil || total != 3 {
+		t.Fatalf("CountRoleChanges: want 3, got %d (err %v)", total, err)
+	}
+
+	if page1, _ := adminRepo.ListRoleChanges(ctx, 2, 0); len(page1) != 2 {
+		t.Errorf("page 1 (limit 2, offset 0): want 2 rows, got %d", len(page1))
+	}
+	if page2, _ := adminRepo.ListRoleChanges(ctx, 2, 2); len(page2) != 1 {
+		t.Errorf("page 2 (limit 2, offset 2): want 1 row, got %d", len(page2))
 	}
 }

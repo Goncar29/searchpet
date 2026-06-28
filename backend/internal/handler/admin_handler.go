@@ -3,12 +3,22 @@ package handler
 import (
 	"errors"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"lost-pets/internal/domain"
 	"lost-pets/internal/dto"
 	"lost-pets/internal/service"
 )
+
+// queryIntDefault parses a query param as int, falling back to def when absent or
+// invalid.
+func queryIntDefault(c *gin.Context, key string, def int) int {
+	if v, err := strconv.Atoi(c.Query(key)); err == nil {
+		return v
+	}
+	return def
+}
 
 // AdminHandler handles in-app admin-role management (admin only — RequireAdmin).
 type AdminHandler struct {
@@ -56,10 +66,19 @@ func (h *AdminHandler) SetUserAdmin(c *gin.Context) {
 // RecentRoleChanges godoc
 // GET /api/admin/role-changes  (admin only)
 func (h *AdminHandler) RecentRoleChanges(c *gin.Context) {
-	entries, err := h.adminService.RecentRoleChanges(c.Request.Context(), domain.DefaultRoleChangeLimit)
+	// Clamp here so the echoed page/limit match what the query actually used.
+	page := queryIntDefault(c, "page", 1)
+	limit := queryIntDefault(c, "limit", domain.DefaultRoleChangeLimit)
+	if page < 1 {
+		page = 1
+	}
+	if limit <= 0 || limit > domain.MaxRoleChangeLimit {
+		limit = domain.DefaultRoleChangeLimit
+	}
+	entries, total, err := h.adminService.RecentRoleChanges(c.Request.Context(), page, limit)
 	if err != nil {
 		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		return
 	}
-	c.JSON(http.StatusOK, dto.ToAdminAuditLogResponses(entries))
+	c.JSON(http.StatusOK, dto.ToAdminAuditLogListResponse(entries, total, page, limit))
 }

@@ -551,6 +551,13 @@ export interface AdminAuditEntry {
   created_at: string;
 }
 
+export interface AdminAuditListResponse {
+  data: AdminAuditEntry[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
 export interface AdminRoleResult {
   target_id: string;
   email: string;

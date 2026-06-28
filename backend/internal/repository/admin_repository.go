@@ -55,11 +55,20 @@ func (r *postgresAdminRepository) CountAdmins(ctx context.Context) (int64, error
 	return n, err
 }
 
-func (r *postgresAdminRepository) ListRoleChanges(ctx context.Context, limit int) ([]domain.AdminAuditLog, error) {
+func (r *postgresAdminRepository) ListRoleChanges(ctx context.Context, limit, offset int) ([]domain.AdminAuditLog, error) {
 	if limit <= 0 || limit > domain.MaxRoleChangeLimit {
 		limit = domain.DefaultRoleChangeLimit
 	}
+	if offset < 0 {
+		offset = 0
+	}
 	var entries []domain.AdminAuditLog
-	err := r.db.WithContext(ctx).Order("created_at DESC").Limit(limit).Find(&entries).Error
+	err := r.db.WithContext(ctx).Order("created_at DESC").Limit(limit).Offset(offset).Find(&entries).Error
 	return entries, err
+}
+
+func (r *postgresAdminRepository) CountRoleChanges(ctx context.Context) (int64, error) {
+	var n int64
+	err := r.db.WithContext(ctx).Model(&domain.AdminAuditLog{}).Count(&n).Error
+	return n, err
 }

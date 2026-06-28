@@ -16,14 +16,14 @@ import (
 
 type mockAdminService struct {
 	setFn  func(ctx context.Context, actorID uuid.UUID, email string, grant bool) (service.AdminRoleResult, error)
-	listFn func(ctx context.Context, limit int) ([]domain.AdminAuditLog, error)
+	listFn func(ctx context.Context, page, limit int) ([]domain.AdminAuditLog, int64, error)
 }
 
 func (m *mockAdminService) SetUserAdmin(ctx context.Context, actorID uuid.UUID, email string, grant bool) (service.AdminRoleResult, error) {
 	return m.setFn(ctx, actorID, email, grant)
 }
-func (m *mockAdminService) RecentRoleChanges(ctx context.Context, limit int) ([]domain.AdminAuditLog, error) {
-	return m.listFn(ctx, limit)
+func (m *mockAdminService) RecentRoleChanges(ctx context.Context, page, limit int) ([]domain.AdminAuditLog, int64, error) {
+	return m.listFn(ctx, page, limit)
 }
 
 var _ service.AdminService = (*mockAdminService)(nil)
@@ -148,24 +148,32 @@ func TestAdminHandler_InternalError_500(t *testing.T) {
 }
 
 func TestAdminHandler_RoleChanges_Success(t *testing.T) {
-	svc := &mockAdminService{listFn: func(_ context.Context, _ int) ([]domain.AdminAuditLog, error) {
-		return []domain.AdminAuditLog{{ID: uuid.New(), ActorEmail: "a@x.test", TargetEmail: "t@x.test", Action: domain.AdminActionGrant}}, nil
+	var gotPage, gotLimit int
+	svc := &mockAdminService{listFn: func(_ context.Context, page, limit int) ([]domain.AdminAuditLog, int64, error) {
+		gotPage, gotLimit = page, limit
+		return []domain.AdminAuditLog{{ID: uuid.New(), ActorEmail: "a@x.test", TargetEmail: "t@x.test", Action: domain.AdminActionGrant}}, 7, nil
 	}}
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/api/admin/role-changes", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/admin/role-changes?page=2&limit=5", nil)
 	adminRouter(svc, uuid.New()).ServeHTTP(w, req)
 	if w.Code != http.StatusOK {
 		t.Fatalf("want 200, got %d", w.Code)
+	}
+	if gotPage != 2 || gotLimit != 5 {
+		t.Errorf("page/limit query not threaded: got page=%d limit=%d", gotPage, gotLimit)
 	}
 	body := w.Body.String()
 	if !strings.Contains(body, `"action":"grant"`) || !strings.Contains(body, `"id":`) {
 		t.Errorf("unexpected role-changes body: %s", body)
 	}
+	if !strings.Contains(body, `"total":7`) || !strings.Contains(body, `"page":2`) || !strings.Contains(body, `"data":`) {
+		t.Errorf("expected paginated envelope, got: %s", body)
+	}
 }
 
 func TestAdminHandler_RoleChanges_Error_500(t *testing.T) {
-	svc := &mockAdminService{listFn: func(_ context.Context, _ int) ([]domain.AdminAuditLog, error) {
-		return nil, context.DeadlineExceeded
+	svc := &mockAdminService{listFn: func(_ context.Context, _, _ int) ([]domain.AdminAuditLog, int64, error) {
+		return nil, 0, context.DeadlineExceeded
 	}}
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/api/admin/role-changes", nil)

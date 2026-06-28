@@ -42,9 +42,10 @@ func (m *mockAdminRepo) SetAdminWithAudit(_ context.Context, _ uuid.UUID, _ bool
 	return m.setErr
 }
 func (m *mockAdminRepo) CountAdmins(context.Context) (int64, error) { return m.count, nil }
-func (m *mockAdminRepo) ListRoleChanges(context.Context, int) ([]domain.AdminAuditLog, error) {
+func (m *mockAdminRepo) ListRoleChanges(context.Context, int, int) ([]domain.AdminAuditLog, error) {
 	return nil, nil
 }
+func (m *mockAdminRepo) CountRoleChanges(context.Context) (int64, error) { return 0, nil }
 
 var _ repository.AdminRepository = (*mockAdminRepo)(nil)
 

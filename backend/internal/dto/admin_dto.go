@@ -32,6 +32,24 @@ type AdminAuditLogResponse struct {
 	CreatedAt   string `json:"created_at"`
 }
 
+// AdminAuditLogListResponse is a page of audit entries with paging metadata.
+type AdminAuditLogListResponse struct {
+	Data  []AdminAuditLogResponse `json:"data"`
+	Total int64                   `json:"total"`
+	Page  int                     `json:"page"`
+	Limit int                     `json:"limit"`
+}
+
+// ToAdminAuditLogListResponse wraps a page of audit rows with paging metadata.
+func ToAdminAuditLogListResponse(entries []domain.AdminAuditLog, total int64, page, limit int) AdminAuditLogListResponse {
+	return AdminAuditLogListResponse{
+		Data:  ToAdminAuditLogResponses(entries),
+		Total: total,
+		Page:  page,
+		Limit: limit,
+	}
+}
+
 // ToAdminAuditLogResponses maps audit rows to their HTTP DTOs.
 func ToAdminAuditLogResponses(entries []domain.AdminAuditLog) []AdminAuditLogResponse {
 	out := make([]AdminAuditLogResponse, 0, len(entries))

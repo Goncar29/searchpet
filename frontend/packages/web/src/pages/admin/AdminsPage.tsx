@@ -1,9 +1,11 @@
 import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { apiClient } from '@shared/api/client';
 import { getErrorMessage } from '@shared/utils/apiErrors';
 import type { AdminAuditEntry, AdminRoleResult } from '@shared/types';
+
+const PAGE_SIZE = 10;
 
 export function AdminsPage() {
   const { t, i18n } = useTranslation('admin');
@@ -11,11 +13,17 @@ export function AdminsPage() {
   const [email, setEmail] = useState('');
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
 
   const { data: changes, isLoading, isError } = useQuery({
-    queryKey: ['admin-role-changes'],
-    queryFn: () => apiClient.getRoleChanges(),
+    queryKey: ['admin-role-changes', page],
+    queryFn: () => apiClient.getRoleChanges(page, PAGE_SIZE),
+    placeholderData: keepPreviousData,
   });
+
+  const entries: AdminAuditEntry[] = changes?.data ?? [];
+  const total = changes?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   const mutation = useMutation({
     mutationFn: ({ targetEmail, grant }: { targetEmail: string; grant: boolean }) =>
@@ -28,6 +36,8 @@ export function AdminsPage() {
         setNotice(t(vars.grant ? 'admins.granted' : 'admins.revoked', { email: res.email }));
       }
       setEmail('');
+      // A new audit row lands on page 1 (newest first), so jump there and refetch.
+      setPage(1);
       queryClient.invalidateQueries({ queryKey: ['admin-role-changes'] });
     },
     onError: (err: unknown) => {
@@ -86,33 +96,57 @@ export function AdminsPage() {
         <p className="text-gray-500 dark:text-gray-400">{t('admins.recentLoading')}</p>
       ) : isError ? (
         <p className="text-red-600 dark:text-red-400">{t('admins.recentError')}</p>
-      ) : changes && changes.length > 0 ? (
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-200 dark:border-gray-700 text-left">
-                <th className="py-2 px-3 font-semibold text-gray-600 dark:text-gray-400">{t('admins.colDate')}</th>
-                <th className="py-2 px-3 font-semibold text-gray-600 dark:text-gray-400">{t('admins.colActor')}</th>
-                <th className="py-2 px-3 font-semibold text-gray-600 dark:text-gray-400">{t('admins.colAction')}</th>
-                <th className="py-2 px-3 font-semibold text-gray-600 dark:text-gray-400">{t('admins.colTarget')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {changes.map((c: AdminAuditEntry) => (
-                <tr key={c.id} className="border-b border-gray-100 dark:border-gray-800">
-                  <td className="py-2 px-3 text-gray-500 dark:text-gray-400">
-                    {new Date(c.created_at).toLocaleString(i18n.language)}
-                  </td>
-                  <td className="py-2 px-3 text-gray-600 dark:text-gray-400">{c.actor_email}</td>
-                  <td className="py-2 px-3 text-gray-900 dark:text-gray-100">
-                    {t(c.action === 'grant' ? 'admins.actionGrant' : 'admins.actionRevoke')}
-                  </td>
-                  <td className="py-2 px-3 text-gray-900 dark:text-gray-100">{c.target_email}</td>
+      ) : entries.length > 0 ? (
+        <>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-200 dark:border-gray-700 text-left">
+                  <th className="py-2 px-3 font-semibold text-gray-600 dark:text-gray-400">{t('admins.colDate')}</th>
+                  <th className="py-2 px-3 font-semibold text-gray-600 dark:text-gray-400">{t('admins.colActor')}</th>
+                  <th className="py-2 px-3 font-semibold text-gray-600 dark:text-gray-400">{t('admins.colAction')}</th>
+                  <th className="py-2 px-3 font-semibold text-gray-600 dark:text-gray-400">{t('admins.colTarget')}</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {entries.map((c: AdminAuditEntry) => (
+                  <tr key={c.id} className="border-b border-gray-100 dark:border-gray-800">
+                    <td className="py-2 px-3 text-gray-500 dark:text-gray-400">
+                      {new Date(c.created_at).toLocaleString(i18n.language)}
+                    </td>
+                    <td className="py-2 px-3 text-gray-600 dark:text-gray-400">{c.actor_email}</td>
+                    <td className="py-2 px-3 text-gray-900 dark:text-gray-100">
+                      {t(c.action === 'grant' ? 'admins.actionGrant' : 'admins.actionRevoke')}
+                    </td>
+                    <td className="py-2 px-3 text-gray-900 dark:text-gray-100">{c.target_email}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between mt-4">
+              <button
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page <= 1}
+                className="text-sm font-medium px-3 py-1.5 rounded border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {t('admins.prevPage')}
+              </button>
+              <span className="text-sm text-gray-500 dark:text-gray-400">
+                {t('admins.pageOf', { page, pages: totalPages })}
+              </span>
+              <button
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page >= totalPages}
+                className="text-sm font-medium px-3 py-1.5 rounded border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {t('admins.nextPage')}
+              </button>
+            </div>
+          )}
+        </>
       ) : (
         <p className="text-gray-400 dark:text-gray-500">{t('admins.recentEmpty')}</p>
       )}

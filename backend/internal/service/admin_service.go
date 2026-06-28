@@ -26,7 +26,9 @@ type AdminRoleResult struct {
 // Admin-only enforcement is done at the route level via RequireAdmin.
 type AdminService interface {
 	SetUserAdmin(ctx context.Context, actorID uuid.UUID, email string, grant bool) (AdminRoleResult, error)
-	RecentRoleChanges(ctx context.Context, limit int) ([]domain.AdminAuditLog, error)
+	// RecentRoleChanges returns one page of audit rows (newest first) and the total
+	// row count, so callers can render pagination. page is 1-based.
+	RecentRoleChanges(ctx context.Context, page, limit int) ([]domain.AdminAuditLog, int64, error)
 }
 
 type adminService struct {
@@ -111,6 +113,20 @@ func (s *adminService) SetUserAdmin(ctx context.Context, actorID uuid.UUID, emai
 	}, nil
 }
 
-func (s *adminService) RecentRoleChanges(ctx context.Context, limit int) ([]domain.AdminAuditLog, error) {
-	return s.adminRepo.ListRoleChanges(ctx, limit)
+func (s *adminService) RecentRoleChanges(ctx context.Context, page, limit int) ([]domain.AdminAuditLog, int64, error) {
+	if page < 1 {
+		page = 1
+	}
+	if limit <= 0 || limit > domain.MaxRoleChangeLimit {
+		limit = domain.DefaultRoleChangeLimit
+	}
+	total, err := s.adminRepo.CountRoleChanges(ctx)
+	if err != nil {
+		return nil, 0, err
+	}
+	entries, err := s.adminRepo.ListRoleChanges(ctx, limit, (page-1)*limit)
+	if err != nil {
+		return nil, 0, err
+	}
+	return entries, total, nil
 }
