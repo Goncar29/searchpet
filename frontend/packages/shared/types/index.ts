@@ -544,6 +544,7 @@ export interface ClassifyResult {
 }
 
 export interface AdminAuditEntry {
+  id: string;
   actor_email: string;
   target_email: string;
   action: 'grant' | 'revoke';

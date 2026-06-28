@@ -56,7 +56,6 @@
       "submit": "Criar grupo"
     },
     "admins": {
-      "navLabel": "Administradores",
       "title": "Administradores",
       "emailLabel": "Email do usuário",
       "emailPlaceholder": "usuario@exemplo.com",
@@ -67,6 +66,8 @@
       "noChange": "{{email}} já estava nesse estado",
       "recentTitle": "Mudanças recentes",
       "recentEmpty": "Nenhuma mudança ainda",
+      "recentLoading": "Carregando mudanças...",
+      "recentError": "Não foi possível carregar as mudanças",
       "colActor": "Por",
       "colTarget": "Usuário",
       "colAction": "Ação",

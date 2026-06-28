@@ -6,13 +6,13 @@ import { getErrorMessage } from '@shared/utils/apiErrors';
 import type { AdminAuditEntry, AdminRoleResult } from '@shared/types';
 
 export function AdminsPage() {
-  const { t } = useTranslation('admin');
+  const { t, i18n } = useTranslation('admin');
   const queryClient = useQueryClient();
   const [email, setEmail] = useState('');
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const { data: changes } = useQuery({
+  const { data: changes, isLoading, isError } = useQuery({
     queryKey: ['admin-role-changes'],
     queryFn: () => apiClient.getRoleChanges(),
   });
@@ -39,6 +39,8 @@ export function AdminsPage() {
   const submit = (grant: boolean) => {
     const trimmed = email.trim();
     if (!trimmed) return;
+    setNotice(null);
+    setError(null);
     mutation.mutate({ targetEmail: trimmed, grant });
   };
 
@@ -80,7 +82,11 @@ export function AdminsPage() {
       <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mt-10 mb-4">
         {t('admins.recentTitle')}
       </h3>
-      {changes && changes.length > 0 ? (
+      {isLoading ? (
+        <p className="text-gray-500 dark:text-gray-400">{t('admins.recentLoading')}</p>
+      ) : isError ? (
+        <p className="text-red-600 dark:text-red-400">{t('admins.recentError')}</p>
+      ) : changes && changes.length > 0 ? (
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -92,10 +98,10 @@ export function AdminsPage() {
               </tr>
             </thead>
             <tbody>
-              {changes.map((c: AdminAuditEntry, i: number) => (
-                <tr key={i} className="border-b border-gray-100 dark:border-gray-800">
+              {changes.map((c: AdminAuditEntry) => (
+                <tr key={c.id} className="border-b border-gray-100 dark:border-gray-800">
                   <td className="py-2 px-3 text-gray-500 dark:text-gray-400">
-                    {new Date(c.created_at).toLocaleString()}
+                    {new Date(c.created_at).toLocaleString(i18n.language)}
                   </td>
                   <td className="py-2 px-3 text-gray-600 dark:text-gray-400">{c.actor_email}</td>
                   <td className="py-2 px-3 text-gray-900 dark:text-gray-100">
