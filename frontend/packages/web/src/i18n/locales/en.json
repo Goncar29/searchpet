@@ -55,6 +55,17 @@
       "submit": "Create Group"
     }
   },
+  "leaderboard": {
+    "title": "Leaderboard",
+    "subtitle": "The top helpers in your city",
+    "searchPlaceholder": "Enter your city (e.g. Montevideo)",
+    "searchButton": "Search",
+    "enterCity": "Enter a city to see the ranking",
+    "empty": "No users in {{city}} yet.",
+    "emptyHint": "Be the first to report pets there!",
+    "loadError": "Couldn't load the leaderboard.",
+    "pts": "pts"
+  },
   "layout": {
     "home": "Home",
     "map": "Map",

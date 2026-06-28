@@ -55,6 +55,17 @@
       "submit": "Crear grupo"
     }
   },
+  "leaderboard": {
+    "title": "Leaderboard",
+    "subtitle": "Los mejores helpers de tu ciudad",
+    "searchPlaceholder": "Ingresá tu ciudad (ej: Montevideo)",
+    "searchButton": "Buscar",
+    "enterCity": "Ingresá una ciudad para ver el ranking",
+    "empty": "No hay usuarios en {{city}} todavía.",
+    "emptyHint": "¡Sé el primero en reportar mascotas ahí!",
+    "loadError": "No se pudo cargar el leaderboard.",
+    "pts": "pts"
+  },
   "layout": {
     "home": "Inicio",
     "map": "Mapa",

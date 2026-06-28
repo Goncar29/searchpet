@@ -456,13 +456,13 @@ export interface UserReview {
   updated_at: string;
 }
 
-export const BADGE_META: Record<string, { emoji: string; labelKey: string; descriptionKey: string }> = {
-  first_helper:       { emoji: '🤝', labelKey: 'badges:first_helper.label',       descriptionKey: 'badges:first_helper.description' },
-  pet_rescuer:        { emoji: '🦸', labelKey: 'badges:pet_rescuer.label',        descriptionKey: 'badges:pet_rescuer.description' },
-  social_butterfly:   { emoji: '📣', labelKey: 'badges:social_butterfly.label',   descriptionKey: 'badges:social_butterfly.description' },
-  verified_finder:    { emoji: '✅', labelKey: 'badges:verified_finder.label',    descriptionKey: 'badges:verified_finder.description' },
-  community_guardian: { emoji: '🛡️', labelKey: 'badges:community_guardian.label', descriptionKey: 'badges:community_guardian.description' },
-  super_finder:       { emoji: '🌟', labelKey: 'badges:super_finder.label',       descriptionKey: 'badges:super_finder.description' },
+export const BADGE_META: Record<string, { emoji: string; labelKey: string; descriptionKey: string; howToEarnKey: string }> = {
+  first_helper:       { emoji: '🤝', labelKey: 'badges:first_helper.label',       descriptionKey: 'badges:first_helper.description',       howToEarnKey: 'badges:first_helper.howToEarn' },
+  pet_rescuer:        { emoji: '🦸', labelKey: 'badges:pet_rescuer.label',        descriptionKey: 'badges:pet_rescuer.description',        howToEarnKey: 'badges:pet_rescuer.howToEarn' },
+  social_butterfly:   { emoji: '📣', labelKey: 'badges:social_butterfly.label',   descriptionKey: 'badges:social_butterfly.description',   howToEarnKey: 'badges:social_butterfly.howToEarn' },
+  verified_finder:    { emoji: '✅', labelKey: 'badges:verified_finder.label',    descriptionKey: 'badges:verified_finder.description',    howToEarnKey: 'badges:verified_finder.howToEarn' },
+  community_guardian: { emoji: '🛡️', labelKey: 'badges:community_guardian.label', descriptionKey: 'badges:community_guardian.description', howToEarnKey: 'badges:community_guardian.howToEarn' },
+  super_finder:       { emoji: '🌟', labelKey: 'badges:super_finder.label',       descriptionKey: 'badges:super_finder.description',       howToEarnKey: 'badges:super_finder.howToEarn' },
 };
 
 export interface CreateReviewRequest {

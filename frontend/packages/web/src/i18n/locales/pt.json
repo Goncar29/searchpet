@@ -55,6 +55,17 @@
       "submit": "Criar grupo"
     }
   },
+  "leaderboard": {
+    "title": "Leaderboard",
+    "subtitle": "Os melhores helpers da sua cidade",
+    "searchPlaceholder": "Digite sua cidade (ex: Montevidéu)",
+    "searchButton": "Buscar",
+    "enterCity": "Digite uma cidade para ver o ranking",
+    "empty": "Ainda não há usuários em {{city}}.",
+    "emptyHint": "Seja o primeiro a reportar pets aí!",
+    "loadError": "Não foi possível carregar o leaderboard.",
+    "pts": "pts"
+  },
   "layout": {
     "home": "Início",
     "map": "Mapa",

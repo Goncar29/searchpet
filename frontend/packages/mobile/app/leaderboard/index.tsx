@@ -17,6 +17,7 @@ import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useLeaderboard } from '../../../shared/hooks';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
+import { BADGE_META } from '../../../shared/types';
 import type { LeaderboardEntry } from '../../../shared/types';
 
 const MEDAL: Record<number, string> = {
@@ -27,6 +28,26 @@ const MEDAL: Record<number, string> = {
 
 function getInitials(name: string): string {
   return name.trim().charAt(0).toUpperCase();
+}
+
+// Achievements legend: explains what each badge is and how a user earns it.
+function AchievementsLegend() {
+  const { t } = useTranslation('leaderboard');
+  return (
+    <View style={styles.achievements}>
+      <Text style={styles.achievementsTitle}>🏅 {t('badges:achievementsTitle')}</Text>
+      <Text style={styles.achievementsSubtitle}>{t('badges:achievementsSubtitle')}</Text>
+      {Object.entries(BADGE_META).map(([key, meta]) => (
+        <View key={key} style={styles.achievementRow}>
+          <Text style={styles.achievementEmoji}>{meta.emoji}</Text>
+          <View style={styles.achievementTextWrap}>
+            <Text style={styles.achievementName}>{t(meta.labelKey)}</Text>
+            <Text style={styles.achievementHow}>{t(meta.howToEarnKey)}</Text>
+          </View>
+        </View>
+      ))}
+    </View>
+  );
 }
 
 function LeaderboardRow({ entry, onPress }: { entry: LeaderboardEntry; onPress: () => void }) {
@@ -112,9 +133,12 @@ export default function LeaderboardScreen() {
           onRefresh={refetch}
           showsVerticalScrollIndicator={false}
           ListHeaderComponent={
-            <Text style={styles.sectionTitle}>
-              🏙️ {city}
-            </Text>
+            <>
+              <AchievementsLegend />
+              <Text style={styles.sectionTitle}>
+                🏙️ {city}
+              </Text>
+            </>
           }
           ListEmptyComponent={
             <View style={styles.empty}>
@@ -180,6 +204,36 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border,
   },
+
+  // ── Achievements legend ──
+  achievements: {
+    backgroundColor: COLORS.white,
+    marginHorizontal: SPACING.lg,
+    marginTop: SPACING.lg,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.md,
+    ...SHADOWS.sm,
+  },
+  achievementsTitle: {
+    fontSize: FONTS.sizes.md,
+    fontWeight: '700',
+    color: COLORS.textPrimary,
+    marginBottom: 2,
+  },
+  achievementsSubtitle: {
+    fontSize: FONTS.sizes.xs,
+    color: COLORS.textSecondary,
+    marginBottom: SPACING.md,
+  },
+  achievementRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: SPACING.sm,
+  },
+  achievementEmoji: { fontSize: 20, marginRight: SPACING.sm, marginTop: 1 },
+  achievementTextWrap: { flex: 1 },
+  achievementName: { fontSize: FONTS.sizes.sm, fontWeight: '600', color: COLORS.textPrimary },
+  achievementHow: { fontSize: FONTS.sizes.xs, color: COLORS.textSecondary },
 
   // ── List ──
   listContent: { paddingBottom: 80 },
