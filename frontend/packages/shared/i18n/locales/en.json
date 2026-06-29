@@ -196,29 +196,37 @@
     "introText": "These are the badges you earned by helping find pets.",
     "emptyTitle": "No achievements yet",
     "emptyText": "Create reports, share lost pets and help the community to earn badges.",
+    "achievementsTitle": "Achievements",
+    "achievementsSubtitle": "Unlock achievements by helping reunite pets with their families",
     "first_helper": {
       "label": "First Helper",
-      "description": "Created their first sighting report"
+      "description": "Created their first sighting report",
+      "howToEarn": "Create your first report"
     },
     "pet_rescuer": {
       "label": "Rescuer",
-      "description": "Helped reunite a pet with their family"
+      "description": "Helped reunite a pet with their family",
+      "howToEarn": "One of your pets came home"
     },
     "social_butterfly": {
       "label": "Social Butterfly",
-      "description": "Shared reports on social media"
+      "description": "Shared reports on social media",
+      "howToEarn": "Share your first report"
     },
     "verified_finder": {
       "label": "Verified",
-      "description": "Identity verified by the platform"
+      "description": "Identity verified by the platform",
+      "howToEarn": "Verify your identity"
     },
     "community_guardian": {
-      "label": "Guardian",
-      "description": "Actively contributed to the community"
+      "label": "Community Guardian",
+      "description": "Actively contributed to the community",
+      "howToEarn": "Reach 10 reports"
     },
     "super_finder": {
       "label": "Super Finder",
-      "description": "Found multiple lost pets"
+      "description": "Found multiple lost pets",
+      "howToEarn": "5 pets came home"
     }
   },
   "errors": {
