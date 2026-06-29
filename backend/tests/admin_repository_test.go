@@ -3,6 +3,7 @@ package tests
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"lost-pets/internal/domain"
@@ -158,5 +159,53 @@ func TestAdminRepository_ListRoleChanges_Paginates(t *testing.T) {
 	}
 	if page2, _ := adminRepo.ListRoleChanges(ctx, 2, 2); len(page2) != 1 {
 		t.Errorf("page 2 (limit 2, offset 2): want 1 row, got %d", len(page2))
+	}
+}
+
+// When rows share the exact same created_at, paging must still be stable (a row
+// appears on exactly one page) thanks to the id tiebreaker — no duplicates, no
+// skips across page boundaries.
+func TestAdminRepository_ListRoleChanges_StableOrderOnTiedTimestamps(t *testing.T) {
+	ctx := context.Background()
+	db := testdb.SetupTestDB(t)
+	adminRepo := repository.NewAdminRepository(db)
+
+	ts := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
+	seeded := map[string]bool{}
+	for i := 0; i < 4; i++ {
+		row := &domain.AdminAuditLog{
+			ID: uuid.New(), ActorID: uuid.New(), TargetID: uuid.New(),
+			ActorEmail: "a@x.test", TargetEmail: "t@x.test",
+			Action: domain.AdminActionGrant, CreatedAt: ts,
+		}
+		if err := db.Create(row).Error; err != nil {
+			t.Fatalf("seed row %d: %v", i, err)
+		}
+		seeded[row.ID.String()] = true
+	}
+
+	page1, err := adminRepo.ListRoleChanges(ctx, 2, 0)
+	if err != nil {
+		t.Fatalf("page 1: %v", err)
+	}
+	page2, err := adminRepo.ListRoleChanges(ctx, 2, 2)
+	if err != nil {
+		t.Fatalf("page 2: %v", err)
+	}
+
+	seen := map[string]int{}
+	for _, e := range append(page1, page2...) {
+		seen[e.ID.String()]++
+	}
+	if len(seen) != 4 {
+		t.Errorf("want 4 distinct rows across both pages, got %d", len(seen))
+	}
+	for id, n := range seen {
+		if n != 1 {
+			t.Errorf("row %s appeared %d times across pages, want exactly 1", id, n)
+		}
+		if !seeded[id] {
+			t.Errorf("unexpected row id %s in results", id)
+		}
 	}
 }

@@ -63,7 +63,9 @@ func (r *postgresAdminRepository) ListRoleChanges(ctx context.Context, limit, of
 		offset = 0
 	}
 	var entries []domain.AdminAuditLog
-	err := r.db.WithContext(ctx).Order("created_at DESC").Limit(limit).Offset(offset).Find(&entries).Error
+	// Tiebreak on id so paging stays stable when rows share created_at — otherwise
+	// OFFSET can duplicate or skip rows across page boundaries.
+	err := r.db.WithContext(ctx).Order("created_at DESC, id DESC").Limit(limit).Offset(offset).Find(&entries).Error
 	return entries, err
 }
 
