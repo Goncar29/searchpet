@@ -90,9 +90,13 @@ func (h *SuccessStoryHandler) List(c *gin.Context) {
 	}
 
 	// Total count in a header keeps the body a plain array (public feed unchanged);
-	// the admin page reads X-Total-Count for "page X of Y". Best-effort.
-	if total, err := h.storyService.Count(c.Request.Context(), featured); err == nil {
-		c.Header("X-Total-Count", strconv.FormatInt(total, 10))
+	// the admin page reads X-Total-Count for "page X of Y". The COUNT query runs only
+	// when the caller opts in with ?count=true, so the public feed (homepage, mobile)
+	// never pays for an extra query it doesn't read. Best-effort.
+	if c.Query("count") == "true" {
+		if total, err := h.storyService.Count(c.Request.Context(), featured); err == nil {
+			c.Header("X-Total-Count", strconv.FormatInt(total, 10))
+		}
 	}
 
 	c.JSON(http.StatusOK, dto.ToStoryListResponseWithLikes(stories, liked))

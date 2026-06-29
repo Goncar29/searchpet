@@ -188,7 +188,10 @@ class APIClient {
     params?: Record<string, string | number>
   ): Promise<{ data: T; total: number }> {
     const response = await this.doFetch(method, path, undefined, params);
-    const total = Number(response.headers.get('X-Total-Count') ?? '0');
+    // Guard against a missing OR garbage header (proxy/CDN): a non-numeric value would
+    // become NaN and break the pager (Next never disables, page sticks at NaN).
+    const raw = Number(response.headers.get('X-Total-Count') ?? '0');
+    const total = Number.isFinite(raw) ? raw : 0;
     const data = response.status === 204 ? ([] as unknown as T) : await response.json();
     return { data, total };
   }
@@ -714,7 +717,9 @@ class APIClient {
   // Admin variant of the stories list: same endpoint, but reads X-Total-Count so
   // the admin table can paginate. The public getStories() stays a plain array.
   async getStoriesAdmin(params?: { featured?: boolean; limit?: number; offset?: number }): Promise<Paged<SuccessStory>> {
-    const queryParams: Record<string, string | number> = {};
+    // count=true opts in to the X-Total-Count header; the public getStories() omits
+    // it so the shared /api/stories endpoint skips the COUNT query for public callers.
+    const queryParams: Record<string, string | number> = { count: 'true' };
     if (params?.featured !== undefined) queryParams['featured'] = String(params.featured);
     if (params?.limit !== undefined) queryParams['limit'] = params.limit;
     if (params?.offset !== undefined) queryParams['offset'] = params.offset;

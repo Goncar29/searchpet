@@ -16,10 +16,15 @@ vi.mock('react-i18next', () => ({
 }));
 
 let mockReports: unknown[] = [];
+// When set, overrides the reported total so pagination can be exercised
+// independently of how many rows the mock returns for the current page.
+let mockTotal: number | null = null;
 
 vi.mock('@shared/api/client', () => ({
   apiClient: {
-    listAbuseReports: () => Promise.resolve({ data: mockReports, total: mockReports.length }),
+    listAbuseReports: vi.fn(() =>
+      Promise.resolve({ data: mockReports, total: mockTotal ?? mockReports.length })
+    ),
     resolveAbuseReport: vi.fn(() => Promise.resolve({})),
     deleteReport: vi.fn(() => Promise.resolve({ message: 'report deleted' })),
     banUser: vi.fn(() => Promise.resolve({ message: 'user banned' })),
@@ -49,6 +54,7 @@ function wrapper({ children }: { children: React.ReactNode }) {
 describe('AbuseReportsPage', () => {
   beforeEach(() => {
     mockReports = [];
+    mockTotal = null;
     vi.clearAllMocks();
   });
 
@@ -145,5 +151,41 @@ describe('AbuseReportsPage', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: 'abuse.modal.deleteConfirm' }));
 
     await waitFor(() => expect(apiClient.deleteReport).toHaveBeenCalledWith('rep-1'));
+  });
+
+  it('navega a la página siguiente pidiendo el offset correcto', async () => {
+    mockReports = [makeReport({ reporter: { id: 'u-rep', name: 'Alice' } })];
+    mockTotal = 50; // 3 pages of 20
+    render(<AbuseReportsPage />, { wrapper });
+
+    fireEvent.click(await screen.findByRole('button', { name: 'next' }));
+
+    await waitFor(() =>
+      expect(apiClient.listAbuseReports).toHaveBeenCalledWith(
+        expect.objectContaining({ limit: 20, offset: 20 })
+      )
+    );
+  });
+
+  it('resetea a la página 1 al cambiar de filtro', async () => {
+    mockReports = [makeReport({ reporter: { id: 'u-rep', name: 'Alice' } })];
+    mockTotal = 50;
+    render(<AbuseReportsPage />, { wrapper });
+
+    // Go to page 2 first.
+    fireEvent.click(await screen.findByRole('button', { name: 'next' }));
+    await waitFor(() =>
+      expect(apiClient.listAbuseReports).toHaveBeenCalledWith(
+        expect.objectContaining({ offset: 20 })
+      )
+    );
+
+    // Switching filter must reset paging back to offset 0.
+    fireEvent.click(screen.getByRole('button', { name: 'abuse.filter.pending' }));
+    await waitFor(() =>
+      expect(apiClient.listAbuseReports).toHaveBeenCalledWith(
+        expect.objectContaining({ resolved: false, offset: 0 })
+      )
+    );
   });
 });
