@@ -74,6 +74,10 @@ func (s *successStoryService) List(ctx context.Context, featured *bool, limit, o
 	return s.repo.GetAll(ctx, featured, limit, offset)
 }
 
+func (s *successStoryService) Count(ctx context.Context, featured *bool) (int64, error) {
+	return s.repo.CountAll(ctx, featured)
+}
+
 // Like asegura que el usuario tenga un like en la historia (idempotente).
 // Siempre retorna liked=true en éxito, sin importar si ya existía el like.
 func (s *successStoryService) Like(ctx context.Context, storyID, userID uuid.UUID) (int, bool, error) {

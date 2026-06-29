@@ -60,8 +60,24 @@ func (r *postgresAbuseReportRepository) GetAll(ctx context.Context, resolved *bo
 		limit = 20
 	}
 
-	err := q.Order("created_at DESC").Limit(limit).Offset(offset).Find(&reports).Error
+	// Tiebreak on id so OFFSET paging is stable when rows share created_at.
+	err := q.Order("created_at DESC, id DESC").Limit(limit).Offset(offset).Find(&reports).Error
 	return reports, err
+}
+
+// CountAll returns the total number of abuse reports matching the resolved filter.
+func (r *postgresAbuseReportRepository) CountAll(ctx context.Context, resolved *bool) (int64, error) {
+	var n int64
+	q := r.db.WithContext(ctx).Model(&domain.ReportAbuse{})
+	if resolved != nil {
+		if *resolved {
+			q = q.Where("status != ?", "pending")
+		} else {
+			q = q.Where("status = ?", "pending")
+		}
+	}
+	err := q.Count(&n).Error
+	return n, err
 }
 
 // Resolve actualiza el status de la denuncia y persiste quién la resolvió (audit).

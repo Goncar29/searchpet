@@ -80,8 +80,20 @@ func (r *postgresSuccessStoryRepository) GetAll(ctx context.Context, featured *b
 		limit = 20
 	}
 
-	err := q.Order("created_at DESC").Limit(limit).Offset(offset).Find(&stories).Error
+	// Tiebreak on id so OFFSET paging is stable when rows share created_at.
+	err := q.Order("created_at DESC, id DESC").Limit(limit).Offset(offset).Find(&stories).Error
 	return stories, err
+}
+
+// CountAll returns the number of (non-deleted) stories matching the featured filter.
+func (r *postgresSuccessStoryRepository) CountAll(ctx context.Context, featured *bool) (int64, error) {
+	var n int64
+	q := r.db.WithContext(ctx).Model(&domain.SuccessStory{}).Where("deleted_at IS NULL")
+	if featured != nil {
+		q = q.Where("featured = ?", *featured)
+	}
+	err := q.Count(&n).Error
+	return n, err
 }
 
 // recomputeAndReadLikeCount sets like_count = COUNT(*) from story_likes for the

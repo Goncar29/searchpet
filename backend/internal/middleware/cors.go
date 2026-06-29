@@ -29,6 +29,8 @@ func CORS(environment string, allowedOrigins string) gin.HandlerFunc {
 		}
 		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
 		c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Authorization")
+		// Expose the pagination total so the browser can read it cross-origin.
+		c.Header("Access-Control-Expose-Headers", "X-Total-Count")
 
 		if c.Request.Method == "OPTIONS" {
 			c.AbortWithStatus(204)

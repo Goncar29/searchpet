@@ -89,6 +89,12 @@ func (h *SuccessStoryHandler) List(c *gin.Context) {
 		log.Printf("[success_story_handler] List: LikedStoryIDs err viewerID=%s: %v", viewerID, err)
 	}
 
+	// Total count in a header keeps the body a plain array (public feed unchanged);
+	// the admin page reads X-Total-Count for "page X of Y". Best-effort.
+	if total, err := h.storyService.Count(c.Request.Context(), featured); err == nil {
+		c.Header("X-Total-Count", strconv.FormatInt(total, 10))
+	}
+
 	c.JSON(http.StatusOK, dto.ToStoryListResponseWithLikes(stories, liked))
 }
 

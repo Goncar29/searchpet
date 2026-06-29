@@ -135,6 +135,7 @@ type AbuseReportRepository interface {
 	Create(ctx context.Context, report *domain.ReportAbuse) error
 	GetByID(ctx context.Context, id uuid.UUID) (*domain.ReportAbuse, error)
 	GetAll(ctx context.Context, resolved *bool, limit, offset int) ([]domain.ReportAbuse, error)
+	CountAll(ctx context.Context, resolved *bool) (int64, error)
 	Resolve(ctx context.Context, id uuid.UUID, resolvedBy uuid.UUID, status string) error
 }
 
@@ -164,6 +165,7 @@ type SuccessStoryRepository interface {
 	GetByID(ctx context.Context, id uuid.UUID) (*domain.SuccessStory, error)
 	GetByPetID(ctx context.Context, petID uuid.UUID) (*domain.SuccessStory, error)
 	GetAll(ctx context.Context, featured *bool, limit, offset int) ([]domain.SuccessStory, error)
+	CountAll(ctx context.Context, featured *bool) (int64, error)
 	AddLike(ctx context.Context, storyID, userID uuid.UUID) (added bool, newCount int, err error)
 	RemoveLike(ctx context.Context, storyID, userID uuid.UUID) (removed bool, newCount int, err error)
 	LikedStoryIDs(ctx context.Context, userID uuid.UUID, storyIDs []uuid.UUID) (map[uuid.UUID]bool, error)

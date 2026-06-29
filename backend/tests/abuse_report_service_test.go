@@ -45,6 +45,10 @@ func (m *mockAbuseReportRepository) GetAll(ctx context.Context, resolved *bool, 
 	return []domain.ReportAbuse{}, nil
 }
 
+func (m *mockAbuseReportRepository) CountAll(ctx context.Context, resolved *bool) (int64, error) {
+	return 0, nil
+}
+
 func (m *mockAbuseReportRepository) Resolve(ctx context.Context, id uuid.UUID, resolvedBy uuid.UUID, status string) error {
 	if m.resolveFn != nil {
 		return m.resolveFn(ctx, id, resolvedBy, status)

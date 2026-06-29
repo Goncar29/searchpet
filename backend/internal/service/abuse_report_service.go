@@ -54,6 +54,10 @@ func (s *abuseReportService) List(ctx context.Context, resolved *bool, limit, of
 	return s.repo.GetAll(ctx, resolved, limit, offset)
 }
 
+func (s *abuseReportService) Count(ctx context.Context, resolved *bool) (int64, error) {
+	return s.repo.CountAll(ctx, resolved)
+}
+
 // Resolve actualiza el status de una denuncia (admin-only — enforced en handler).
 // Status válidos: "resolved" o "dismissed".
 func (s *abuseReportService) Resolve(ctx context.Context, id uuid.UUID, adminID uuid.UUID, status string) error {
