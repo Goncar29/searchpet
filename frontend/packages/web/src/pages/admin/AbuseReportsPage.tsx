@@ -1,10 +1,13 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { useTranslation } from 'react-i18next';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { apiClient } from '@shared/api/client';
 import type { AbuseReport } from '@shared/types';
 import { ConfirmModal } from '../../components/ConfirmModal';
+import { Pagination } from '../../components/Pagination';
+
+const PAGE_SIZE = 20;
 
 type FilterMode = 'all' | 'pending' | 'resolved';
 
@@ -17,15 +20,37 @@ type PendingAction =
 export function AbuseReportsPage() {
   const { t } = useTranslation('admin');
   const [filter, setFilter] = useState<FilterMode>('all');
+  const [page, setPage] = useState(1);
   const queryClient = useQueryClient();
 
   const resolvedParam =
     filter === 'pending' ? false : filter === 'resolved' ? true : undefined;
 
-  const { data: reports, isLoading } = useQuery({
-    queryKey: ['abuseReports', filter],
-    queryFn: () => apiClient.listAbuseReports({ resolved: resolvedParam, limit: 50 }),
+  const { data: result, isLoading } = useQuery({
+    queryKey: ['abuseReports', filter, page],
+    queryFn: () =>
+      apiClient.listAbuseReports({
+        resolved: resolvedParam,
+        limit: PAGE_SIZE,
+        offset: (page - 1) * PAGE_SIZE,
+      }),
+    placeholderData: keepPreviousData,
   });
+
+  const reports = result?.data ?? [];
+  const total = result?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+  // Mutations (resolve/delete/ban) can shrink the current filter — clamp the page
+  // so we never sit on an empty page past the end.
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [totalPages, page]);
+
+  const changeFilter = (f: FilterMode) => {
+    setFilter(f);
+    setPage(1);
+  };
 
   const resolveMutation = useMutation({
     mutationFn: ({ id, status }: { id: string; status: 'resolved' | 'dismissed' }) =>
@@ -71,7 +96,7 @@ export function AbuseReportsPage() {
         {filterTabs.map((tab) => (
           <button
             key={tab.key}
-            onClick={() => setFilter(tab.key)}
+            onClick={() => changeFilter(tab.key)}
             className={`text-sm font-medium py-1.5 px-4 rounded-lg transition-colors duration-150 ${
               filter === tab.key
                 ? 'bg-primary text-white'
@@ -88,7 +113,7 @@ export function AbuseReportsPage() {
           <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
           <p className="text-gray-500 dark:text-gray-400">{t('abuse.loading')}</p>
         </div>
-      ) : reports && reports.length > 0 ? (
+      ) : reports.length > 0 ? (
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -241,6 +266,7 @@ export function AbuseReportsPage() {
               ))}
             </tbody>
           </table>
+          <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
         </div>
       ) : (
         <div className="text-center py-12 text-gray-400 dark:text-gray-500">

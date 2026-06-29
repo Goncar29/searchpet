@@ -61,6 +61,7 @@ type AbuseReportService interface {
 	Submit(ctx context.Context, reporterID uuid.UUID, req dto.CreateAbuseReportRequest) (*domain.ReportAbuse, error)
 	GetByID(ctx context.Context, id uuid.UUID) (*domain.ReportAbuse, error)
 	List(ctx context.Context, resolved *bool, limit, offset int) ([]domain.ReportAbuse, error)
+	Count(ctx context.Context, resolved *bool) (int64, error)
 	Resolve(ctx context.Context, id uuid.UUID, adminID uuid.UUID, status string) error
 }
 
@@ -80,6 +81,7 @@ type SuccessStoryService interface {
 	GetByID(ctx context.Context, id uuid.UUID) (*domain.SuccessStory, error)
 	GetByPetID(ctx context.Context, petID uuid.UUID) (*domain.SuccessStory, error)
 	List(ctx context.Context, featured *bool, limit, offset int) ([]domain.SuccessStory, error)
+	Count(ctx context.Context, featured *bool) (int64, error)
 	// Like ensures the user likes the story (idempotent). Returns the fresh
 	// like_count and liked=true on success.
 	Like(ctx context.Context, storyID, userID uuid.UUID) (likeCount int, liked bool, err error)

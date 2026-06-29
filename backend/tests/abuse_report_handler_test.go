@@ -24,7 +24,12 @@ type mockAbuseReportService struct {
 	submitFn   func(ctx context.Context, reporterID uuid.UUID, req dto.CreateAbuseReportRequest) (*domain.ReportAbuse, error)
 	getByIDFn  func(ctx context.Context, id uuid.UUID) (*domain.ReportAbuse, error)
 	listFn     func(ctx context.Context, resolved *bool, limit, offset int) ([]domain.ReportAbuse, error)
+	countVal   int64
 	resolveFn  func(ctx context.Context, id uuid.UUID, adminID uuid.UUID, status string) error
+}
+
+func (m *mockAbuseReportService) Count(ctx context.Context, resolved *bool) (int64, error) {
+	return m.countVal, nil
 }
 
 func (m *mockAbuseReportService) Submit(ctx context.Context, reporterID uuid.UUID, req dto.CreateAbuseReportRequest) (*domain.ReportAbuse, error) {
@@ -166,6 +171,28 @@ func TestAbuseReportHandler_List_OK(t *testing.T) {
 	}
 	if len(resp) != 2 {
 		t.Errorf("expected 2 reports, got %d", len(resp))
+	}
+}
+
+func TestAbuseReportHandler_List_SetsTotalCountHeader(t *testing.T) {
+	svc := &mockAbuseReportService{
+		listFn: func(_ context.Context, _ *bool, _, _ int) ([]domain.ReportAbuse, error) {
+			return []domain.ReportAbuse{{ID: uuid.New(), Status: "pending"}}, nil
+		},
+		countVal: 42,
+	}
+	h := handler.NewAbuseReportHandler(svc)
+	r := setupAbuseReportRouter(h, uuid.New())
+
+	req := httptest.NewRequest(http.MethodGet, "/api/abuse-reports?limit=20&offset=0", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+	if got := w.Header().Get("X-Total-Count"); got != "42" {
+		t.Errorf("expected X-Total-Count=42, got %q", got)
 	}
 }
 

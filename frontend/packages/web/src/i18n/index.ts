@@ -34,6 +34,7 @@ i18n
         publish: sharedEs.publish,
         // Web-only namespaces
         admin: es.admin,
+        pagination: es.pagination,
         alerts: es.alerts,
         leaderboard: es.leaderboard,
         layout: es.layout,
@@ -59,6 +60,7 @@ i18n
         publish: sharedEn.publish,
         // Web-only namespaces
         admin: en.admin,
+        pagination: en.pagination,
         alerts: en.alerts,
         leaderboard: en.leaderboard,
         layout: en.layout,
@@ -84,6 +86,7 @@ i18n
         publish: sharedPt.publish,
         // Web-only namespaces
         admin: pt.admin,
+        pagination: pt.pagination,
         alerts: pt.alerts,
         leaderboard: pt.leaderboard,
         layout: pt.layout,

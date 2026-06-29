@@ -74,6 +74,13 @@ func (h *AbuseReportHandler) List(c *gin.Context) {
 		return
 	}
 
+	// Total count goes in a header so the body stays a plain array (the page UI
+	// reads X-Total-Count for "page X of Y"). Best-effort: a count error must not
+	// fail the list.
+	if total, err := h.abuseService.Count(c.Request.Context(), resolved); err == nil {
+		c.Header("X-Total-Count", strconv.FormatInt(total, 10))
+	}
+
 	c.JSON(http.StatusOK, dto.ToAbuseReportListResponse(reports))
 }
 

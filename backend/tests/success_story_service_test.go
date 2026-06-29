@@ -56,6 +56,10 @@ func (m *mockSuccessStoryRepository) GetAll(ctx context.Context, featured *bool,
 	return []domain.SuccessStory{}, nil
 }
 
+func (m *mockSuccessStoryRepository) CountAll(ctx context.Context, featured *bool) (int64, error) {
+	return 0, nil
+}
+
 func (m *mockSuccessStoryRepository) AddLike(ctx context.Context, storyID, userID uuid.UUID) (bool, int, error) {
 	if m.addLikeFn != nil {
 		return m.addLikeFn(ctx, storyID, userID)

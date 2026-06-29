@@ -79,6 +79,11 @@
       "pageOf": "Página {{page}} de {{pages}}"
     }
   },
+  "pagination": {
+    "prev": "Anterior",
+    "next": "Siguiente",
+    "pageOf": "Página {{page}} de {{pages}}"
+  },
   "alerts": {
     "title": "Mis alertas ({{count}}/{{max}})",
     "newAlert": "+ Nueva alerta",

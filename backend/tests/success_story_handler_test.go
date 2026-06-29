@@ -25,6 +25,8 @@ type mockSuccessStoryService struct {
 	getByIDFn       func(ctx context.Context, id uuid.UUID) (*domain.SuccessStory, error)
 	getByPetIDFn    func(ctx context.Context, petID uuid.UUID) (*domain.SuccessStory, error)
 	listFn          func(ctx context.Context, featured *bool, limit, offset int) ([]domain.SuccessStory, error)
+	countVal        int64
+	countFn         func(ctx context.Context, featured *bool) (int64, error)
 	likeFn          func(ctx context.Context, storyID, userID uuid.UUID) (int, bool, error)
 	unlikeFn        func(ctx context.Context, storyID, userID uuid.UUID) (int, bool, error)
 	likedStoryIDsFn func(ctx context.Context, userID uuid.UUID, storyIDs []uuid.UUID) (map[uuid.UUID]bool, error)
@@ -58,6 +60,13 @@ func (m *mockSuccessStoryService) List(ctx context.Context, featured *bool, limi
 		return m.listFn(ctx, featured, limit, offset)
 	}
 	return []domain.SuccessStory{}, nil
+}
+
+func (m *mockSuccessStoryService) Count(ctx context.Context, featured *bool) (int64, error) {
+	if m.countFn != nil {
+		return m.countFn(ctx, featured)
+	}
+	return m.countVal, nil
 }
 
 func (m *mockSuccessStoryService) Like(ctx context.Context, storyID, userID uuid.UUID) (int, bool, error) {
@@ -152,6 +161,59 @@ func TestStoryHandler_Create_OK(t *testing.T) {
 
 	if w.Code != http.StatusCreated {
 		t.Errorf("expected 201, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestStoryHandler_List_SetsTotalCountHeader(t *testing.T) {
+	svc := &mockSuccessStoryService{
+		listFn: func(_ context.Context, _ *bool, _, _ int) ([]domain.SuccessStory, error) {
+			return []domain.SuccessStory{{ID: uuid.New()}}, nil
+		},
+		countVal: 17,
+	}
+	h := handler.NewSuccessStoryHandler(svc)
+	r := setupStoryRouter(h, uuid.New())
+
+	req := httptest.NewRequest(http.MethodGet, "/api/stories?limit=20&offset=0&count=true", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	if got := w.Header().Get("X-Total-Count"); got != "17" {
+		t.Errorf("expected X-Total-Count=17, got %q", got)
+	}
+}
+
+// Without ?count=true (the public feed path) the handler must skip the COUNT query
+// and omit the header, so homepage/mobile callers don't pay for it.
+func TestStoryHandler_List_OmitsTotalCountWithoutOptIn(t *testing.T) {
+	counted := false
+	svc := &mockSuccessStoryService{
+		listFn: func(_ context.Context, _ *bool, _, _ int) ([]domain.SuccessStory, error) {
+			return []domain.SuccessStory{{ID: uuid.New()}}, nil
+		},
+		countFn: func(_ context.Context, _ *bool) (int64, error) {
+			counted = true
+			return 17, nil
+		},
+	}
+	h := handler.NewSuccessStoryHandler(svc)
+	r := setupStoryRouter(h, uuid.New())
+
+	req := httptest.NewRequest(http.MethodGet, "/api/stories?limit=20&offset=0", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	if got := w.Header().Get("X-Total-Count"); got != "" {
+		t.Errorf("expected no X-Total-Count header, got %q", got)
+	}
+	if counted {
+		t.Error("Count should not run without ?count=true")
 	}
 }
 

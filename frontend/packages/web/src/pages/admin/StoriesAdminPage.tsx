@@ -1,26 +1,46 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { apiClient } from '@shared/api/client';
 import type { SuccessStory } from '@shared/types';
+import { Pagination } from '../../components/Pagination';
+
+const PAGE_SIZE = 20;
 
 export function StoriesAdminPage() {
   const { t } = useTranslation('admin');
   const queryClient = useQueryClient();
+  const [page, setPage] = useState(1);
 
-  const { data: stories, isLoading } = useQuery({
-    queryKey: ['stories'],
-    queryFn: () => apiClient.getStories({ limit: 50 }),
+  const { data: result, isLoading } = useQuery({
+    queryKey: ['stories-admin', page],
+    queryFn: () => apiClient.getStoriesAdmin({ limit: PAGE_SIZE, offset: (page - 1) * PAGE_SIZE }),
+    placeholderData: keepPreviousData,
   });
+
+  const stories = result?.data ?? [];
+  const total = result?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+  // Deleting a story can shrink the list — never sit on an empty page past the end.
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [totalPages, page]);
+
+  const invalidateStories = () => {
+    queryClient.invalidateQueries({ queryKey: ['stories-admin'] });
+    queryClient.invalidateQueries({ queryKey: ['stories'] }); // public feed
+  };
 
   const featureMutation = useMutation({
     mutationFn: ({ id, featured }: { id: string; featured: boolean }) =>
       apiClient.setStoryFeatured(id, featured),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['stories'] }),
+    onSuccess: invalidateStories,
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => apiClient.adminDeleteStory(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['stories'] }),
+    onSuccess: invalidateStories,
   });
 
   const handleDelete = (story: SuccessStory) => {
@@ -38,7 +58,7 @@ export function StoriesAdminPage() {
           <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
           <p className="text-gray-500 dark:text-gray-400">{t('stories.loading')}</p>
         </div>
-      ) : stories && stories.length > 0 ? (
+      ) : stories.length > 0 ? (
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -103,6 +123,7 @@ export function StoriesAdminPage() {
               ))}
             </tbody>
           </table>
+          <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
         </div>
       ) : (
         <div className="text-center py-12 text-gray-400 dark:text-gray-500">
