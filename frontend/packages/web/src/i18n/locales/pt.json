@@ -7,7 +7,8 @@
     "nav": {
       "abuseReports": "Denúncias",
       "stories": "Histórias",
-      "groups": "Grupos"
+      "groups": "Grupos",
+      "admins": "Administradores"
     },
     "abuse": {
       "title": "Denúncias de abuso",
@@ -53,6 +54,29 @@
       "success": "Grupo \"{{name}}\" criado com sucesso em {{city}}.",
       "creating": "Criando...",
       "submit": "Criar grupo"
+    },
+    "admins": {
+      "title": "Administradores",
+      "emailLabel": "Email do usuário",
+      "emailPlaceholder": "usuario@exemplo.com",
+      "grant": "Conceder admin",
+      "revoke": "Revogar admin",
+      "granted": "Admin concedido a {{email}}",
+      "revoked": "Admin revogado de {{email}}",
+      "noChange": "{{email}} já estava nesse estado",
+      "recentTitle": "Mudanças recentes",
+      "recentEmpty": "Nenhuma mudança ainda",
+      "recentLoading": "Carregando mudanças...",
+      "recentError": "Não foi possível carregar as mudanças",
+      "colActor": "Por",
+      "colTarget": "Usuário",
+      "colAction": "Ação",
+      "colDate": "Data",
+      "actionGrant": "Concedeu",
+      "actionRevoke": "Revogou",
+      "prevPage": "Anterior",
+      "nextPage": "Próxima",
+      "pageOf": "Página {{page}} de {{pages}}"
     }
   },
   "layout": {

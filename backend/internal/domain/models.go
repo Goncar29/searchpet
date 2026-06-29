@@ -386,3 +386,34 @@ type ImageSearchResult struct {
 	Similarity float64 // 1 - cosine_distance (higher = more similar)
 	OwnerID    uuid.UUID
 }
+
+// ============================================================
+// ADMIN AUDIT
+// ============================================================
+
+// AdminAuditLog records every admin-role change made through the app (not the CLI).
+// Actor/target emails are snapshotted so the log stays readable even if a user is
+// later deleted.
+type AdminAuditLog struct {
+	ID          uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+	ActorID     uuid.UUID `gorm:"type:uuid;not null;index" json:"actor_id"`
+	TargetID    uuid.UUID `gorm:"type:uuid;not null;index" json:"target_id"`
+	ActorEmail  string    `gorm:"size:255" json:"actor_email"`
+	TargetEmail string    `gorm:"size:255" json:"target_email"`
+	Action      string    `gorm:"size:20;not null;check:action IN ('grant','revoke')" json:"action"`
+	CreatedAt   time.Time `gorm:"autoCreateTime" json:"created_at"`
+}
+
+// Admin-role audit actions. The DB enforces these via the CHECK constraint on
+// AdminAuditLog.Action above; keep both in sync.
+const (
+	AdminActionGrant  = "grant"
+	AdminActionRevoke = "revoke"
+)
+
+// Role-change listing bounds, shared by the handler (page size) and the
+// repository (clamp). Single source of truth so the two layers can't drift.
+const (
+	DefaultRoleChangeLimit = 50
+	MaxRoleChangeLimit     = 200
+)
