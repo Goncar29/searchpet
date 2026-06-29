@@ -7,7 +7,8 @@
     "nav": {
       "abuseReports": "Abuse Reports",
       "stories": "Stories",
-      "groups": "Groups"
+      "groups": "Groups",
+      "admins": "Administrators"
     },
     "abuse": {
       "title": "Abuse Reports",
@@ -53,12 +54,74 @@
       "success": "Group \"{{name}}\" created successfully in {{city}}.",
       "creating": "Creating...",
       "submit": "Create Group"
+    },
+    "admins": {
+      "title": "Administrators",
+      "emailLabel": "User email",
+      "emailPlaceholder": "user@example.com",
+      "grant": "Grant admin",
+      "revoke": "Revoke admin",
+      "granted": "Granted admin to {{email}}",
+      "revoked": "Revoked admin from {{email}}",
+      "noChange": "{{email}} was already in that state",
+      "recentTitle": "Recent changes",
+      "recentEmpty": "No changes yet",
+      "recentLoading": "Loading changes...",
+      "recentError": "Couldn't load changes",
+      "colActor": "By",
+      "colTarget": "User",
+      "colAction": "Action",
+      "colDate": "Date",
+      "actionGrant": "Granted",
+      "actionRevoke": "Revoked",
+      "prevPage": "Previous",
+      "nextPage": "Next",
+      "pageOf": "Page {{page}} of {{pages}}"
     }
   },
   "pagination": {
     "prev": "Previous",
     "next": "Next",
     "pageOf": "Page {{page}} of {{pages}}"
+  },
+  "alerts": {
+    "title": "My alerts ({{count}}/{{max}})",
+    "newAlert": "+ New alert",
+    "formTitle": "New alert",
+    "nameLabel": "Name (optional)",
+    "namePlaceholder": "e.g. My neighborhood",
+    "coordsLabel": "Coordinates",
+    "latPlaceholder": "Latitude",
+    "lngPlaceholder": "Longitude",
+    "useMyLocation": "Use my location",
+    "coordError": "We need your location to create an alert. Enter the coordinates or use your current location.",
+    "radiusLabel": "Radius",
+    "petTypeLabel": "Pet type",
+    "allTypes": "All",
+    "creating": "Creating...",
+    "createButton": "Create alert",
+    "cancel": "Cancel",
+    "loading": "Loading alerts...",
+    "emptyTitle": "No alerts",
+    "emptyText": "Create an alert to get notified when pets are reported near your area.",
+    "createFirst": "Create first alert",
+    "unnamed": "Unnamed",
+    "active": "Active",
+    "inactive": "Inactive",
+    "delete": "Delete",
+    "confirmDelete": "Delete \"{{name}}\"?",
+    "thisAlert": "this alert"
+  },
+  "leaderboard": {
+    "title": "Leaderboard",
+    "subtitle": "The top helpers in your city",
+    "searchPlaceholder": "Enter your city (e.g. Montevideo)",
+    "searchButton": "Search",
+    "enterCity": "Enter a city to see the ranking",
+    "empty": "No users in {{city}} yet.",
+    "emptyHint": "Be the first to report pets there!",
+    "loadError": "Couldn't load the leaderboard.",
+    "pts": "pts"
   },
   "layout": {
     "home": "Home",

@@ -117,6 +117,8 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 	abuseReportRepo := repository.NewAbuseReportRepository(db)
 	abuseReportService := service.NewAbuseReportService(abuseReportRepo)
 	moderationService := service.NewModerationService(userRepo)
+	adminRepo := repository.NewAdminRepository(db)
+	adminService := service.NewAdminService(userRepo, adminRepo)
 
 	badgeRepo := repository.NewBadgeRepository(db)
 	pointsRepo := repository.NewUserPointsRepository(db)
@@ -196,6 +198,7 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 	groupHandler := handler.NewGroupHandler(groupService)
 	abuseReportHandler := handler.NewAbuseReportHandler(abuseReportService)
 	moderationHandler := handler.NewModerationHandler(moderationService)
+	adminHandler := handler.NewAdminHandler(adminService)
 	verificationHandler := handler.NewVerificationHandler(verificationService, cfg.EnableEmailVerification)
 	gamHandler := handler.NewGamificationHandler(gamSvc)
 	reindexHandler := handler.NewReindexHandler(embeddingService, cfg.ReindexToken)
@@ -378,6 +381,8 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 		admin.DELETE("/admin/reports/:id", reportHandler.DeleteReport)
 		admin.PATCH("/admin/users/:id/ban", moderationHandler.BanUser)
 		admin.PATCH("/admin/users/:id/unban", moderationHandler.UnbanUser)
+		admin.POST("/admin/users/admin-role", adminHandler.SetUserAdmin)
+		admin.GET("/admin/role-changes", adminHandler.RecentRoleChanges)
 		admin.POST("/admin/shelters", shelterHandler.Create)
 		admin.PUT("/admin/shelters/:id", shelterHandler.Update)
 	}

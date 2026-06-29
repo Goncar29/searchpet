@@ -196,32 +196,42 @@
     "introText": "Estas são as badges que você ganhou ajudando a encontrar pets.",
     "emptyTitle": "Nenhuma conquista ainda",
     "emptyText": "Crie reportes, compartilhe pets perdidos e ajude a comunidade para ganhar badges.",
+    "achievementsTitle": "Conquistas",
+    "achievementsSubtitle": "Desbloqueie conquistas ajudando a reunir pets com suas famílias",
     "first_helper": {
       "label": "Primeiro Ajudante",
-      "description": "Criou seu primeiro reporte de avistamento"
+      "description": "Criou seu primeiro reporte de avistamento",
+      "howToEarn": "Crie seu primeiro reporte"
     },
     "pet_rescuer": {
       "label": "Resgatador",
-      "description": "Ajudou a reunir um pet com sua família"
+      "description": "Ajudou a reunir um pet com sua família",
+      "howToEarn": "Um pet seu voltou para casa"
     },
     "social_butterfly": {
-      "label": "Social",
-      "description": "Compartilhou reportes nas redes sociais"
+      "label": "Alma Social",
+      "description": "Compartilhou reportes nas redes sociais",
+      "howToEarn": "Compartilhe seu primeiro reporte"
     },
     "verified_finder": {
       "label": "Verificado",
-      "description": "Identidade verificada pela plataforma"
+      "description": "Identidade verificada pela plataforma",
+      "howToEarn": "Verifique sua identidade"
     },
     "community_guardian": {
-      "label": "Guardião",
-      "description": "Contribuiu ativamente com a comunidade"
+      "label": "Guardião da Comunidade",
+      "description": "Contribuiu ativamente com a comunidade",
+      "howToEarn": "Chegue a 10 reportes"
     },
     "super_finder": {
-      "label": "Super Finder",
-      "description": "Encontrou múltiplos pets perdidos"
+      "label": "Super Buscador",
+      "description": "Encontrou múltiplos pets perdidos",
+      "howToEarn": "5 pets voltaram para casa"
     }
   },
   "errors": {
+    "cannot_revoke_self": "Você não pode remover seu próprio admin",
+    "cannot_revoke_last_admin": "Não é possível revogar o último administrador",
     "invalid_credentials": "E-mail ou senha incorretos",
     "email_already_exists": "Este e-mail já está cadastrado",
     "user_banned": "Sua conta foi suspensa",

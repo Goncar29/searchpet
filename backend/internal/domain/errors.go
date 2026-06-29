@@ -10,8 +10,10 @@ var (
 	ErrUserBanned         = errors.New("usuario bloqueado")
 
 	// User
-	ErrUserNotFound            = errors.New("usuario no encontrado")
-	ErrCannotModerateAdmin     = errors.New("no se puede moderar a un administrador")
+	ErrUserNotFound             = errors.New("usuario no encontrado")
+	ErrCannotModerateAdmin      = errors.New("no se puede moderar a un administrador")
+	ErrCannotRevokeSelf         = errors.New("no puedes quitarte el admin a ti mismo")
+	ErrCannotRevokeLastAdmin    = errors.New("no se puede revocar al último administrador")
 
 	// Pet
 	ErrPetNotFound             = errors.New("mascota no encontrada")
@@ -112,8 +114,10 @@ var ErrorCodes = map[error]string{
 	ErrUserBanned:         "user_banned",
 
 	// User
-	ErrUserNotFound:        "user_not_found",
-	ErrCannotModerateAdmin: "cannot_moderate_admin",
+	ErrUserNotFound:          "user_not_found",
+	ErrCannotModerateAdmin:   "cannot_moderate_admin",
+	ErrCannotRevokeSelf:      "cannot_revoke_self",
+	ErrCannotRevokeLastAdmin: "cannot_revoke_last_admin",
 
 	// Pet
 	ErrPetNotFound:             "pet_not_found",

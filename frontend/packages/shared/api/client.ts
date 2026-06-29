@@ -67,6 +67,8 @@ import type {
   GroupMember,
   VerificationStatus,
   Shelter,
+  AdminAuditListResponse,
+  AdminRoleResult,
 } from '../types';
 
 
@@ -876,6 +878,14 @@ class APIClient {
 
   async createGroup(body: { name: string; city: string; description?: string }): Promise<LocalGroup> {
     return this.request<LocalGroup>('POST', '/api/groups', body);
+  }
+
+  async setUserAdmin(email: string, grant: boolean): Promise<AdminRoleResult> {
+    return this.request<AdminRoleResult>('POST', '/api/admin/users/admin-role', { email, grant });
+  }
+
+  async getRoleChanges(page = 1, limit = 50): Promise<AdminAuditListResponse> {
+    return this.request<AdminAuditListResponse>('GET', `/api/admin/role-changes?page=${page}&limit=${limit}`);
   }
 }
 

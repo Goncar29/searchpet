@@ -196,32 +196,42 @@
     "introText": "Estos son los badges que ganaste ayudando a encontrar mascotas.",
     "emptyTitle": "Aún no tenés logros",
     "emptyText": "Creá reportes, compartí mascotas perdidas y ayudá a la comunidad para ganar badges.",
+    "achievementsTitle": "Logros",
+    "achievementsSubtitle": "Desbloqueá logros ayudando a reunir mascotas con sus familias",
     "first_helper": {
       "label": "Primer Ayudante",
-      "description": "Creó su primer reporte de avistamiento"
+      "description": "Creó su primer reporte de avistamiento",
+      "howToEarn": "Creá tu primer reporte"
     },
     "pet_rescuer": {
       "label": "Rescatador",
-      "description": "Ayudó a reunir una mascota con su familia"
+      "description": "Ayudó a reunir una mascota con su familia",
+      "howToEarn": "Una mascota tuya volvió a casa"
     },
     "social_butterfly": {
-      "label": "Social",
-      "description": "Compartió reportes en redes sociales"
+      "label": "Alma Social",
+      "description": "Compartió reportes en redes sociales",
+      "howToEarn": "Compartí tu primer reporte"
     },
     "verified_finder": {
       "label": "Verificado",
-      "description": "Identidad verificada por la plataforma"
+      "description": "Identidad verificada por la plataforma",
+      "howToEarn": "Verificá tu identidad"
     },
     "community_guardian": {
-      "label": "Guardián",
-      "description": "Contribuyó activamente a la comunidad"
+      "label": "Guardián de la Comunidad",
+      "description": "Contribuyó activamente a la comunidad",
+      "howToEarn": "Llegá a 10 reportes"
     },
     "super_finder": {
-      "label": "Super Finder",
-      "description": "Encontró múltiples mascotas perdidas"
+      "label": "Súper Buscador",
+      "description": "Encontró múltiples mascotas perdidas",
+      "howToEarn": "5 mascotas volvieron a casa"
     }
   },
   "errors": {
+    "cannot_revoke_self": "No podés quitarte el admin a vos mismo",
+    "cannot_revoke_last_admin": "No se puede revocar al último administrador",
     "invalid_credentials": "Email o contraseña incorrectos",
     "email_already_exists": "Este email ya está registrado",
     "user_banned": "Tu cuenta fue suspendida",
