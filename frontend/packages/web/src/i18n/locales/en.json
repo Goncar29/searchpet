@@ -55,6 +55,11 @@
       "submit": "Create Group"
     }
   },
+  "pagination": {
+    "prev": "Previous",
+    "next": "Next",
+    "pageOf": "Page {{page}} of {{pages}}"
+  },
   "layout": {
     "home": "Home",
     "map": "Map",

@@ -19,7 +19,7 @@ let mockReports: unknown[] = [];
 
 vi.mock('@shared/api/client', () => ({
   apiClient: {
-    listAbuseReports: () => Promise.resolve(mockReports),
+    listAbuseReports: () => Promise.resolve({ data: mockReports, total: mockReports.length }),
     resolveAbuseReport: vi.fn(() => Promise.resolve({})),
     deleteReport: vi.fn(() => Promise.resolve({ message: 'report deleted' })),
     banUser: vi.fn(() => Promise.resolve({ message: 'user banned' })),

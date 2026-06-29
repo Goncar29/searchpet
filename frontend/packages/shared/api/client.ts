@@ -58,6 +58,7 @@ import type {
   SuccessStory,
   CreateStoryRequest,
   StoryListResponse,
+  Paged,
   UserReview,
   CreateReviewRequest,
   UpdateReviewRequest,
@@ -119,13 +120,13 @@ class APIClient {
     this.token = token;
   }
 
-  // Método base para requests
-  private async request<T>(
+  // Fetch + error handling shared by request() and requestWithTotal().
+  private async doFetch(
     method: string,
     path: string,
     body?: unknown,
     params?: Record<string, string | number>
-  ): Promise<T> {
+  ): Promise<Response> {
     const url = new URL(`${this.baseURL}${path}`);
 
     if (params) {
@@ -151,9 +152,9 @@ class APIClient {
     }, REQUEST_TIMEOUT_MS);
 
     if (!response.ok) {
-      const body = await response.json().catch(() => ({}));
-      const code = body.code ?? 'unknown_error';
-      const message = body.message ?? `HTTP Error ${response.status}`;
+      const errBody = await response.json().catch(() => ({}));
+      const code = errBody.code ?? 'unknown_error';
+      const message = errBody.message ?? `HTTP Error ${response.status}`;
       if (response.status === 401) {
         this.token = null;
         if (typeof window !== 'undefined') {
@@ -163,11 +164,33 @@ class APIClient {
       throw new ApiError(code, response.status, message);
     }
 
+    return response;
+  }
+
+  // Método base para requests
+  private async request<T>(
+    method: string,
+    path: string,
+    body?: unknown,
+    params?: Record<string, string | number>
+  ): Promise<T> {
+    const response = await this.doFetch(method, path, body, params);
     if (response.status === 204) {
       return {} as T;
     }
-
     return response.json();
+  }
+
+  // Like request(), but also reads the X-Total-Count header for paginated lists.
+  private async requestWithTotal<T>(
+    method: string,
+    path: string,
+    params?: Record<string, string | number>
+  ): Promise<{ data: T; total: number }> {
+    const response = await this.doFetch(method, path, undefined, params);
+    const total = Number(response.headers.get('X-Total-Count') ?? '0');
+    const data = response.status === 204 ? ([] as unknown as T) : await response.json();
+    return { data, total };
   }
 
   // ============================================================
@@ -688,6 +711,16 @@ class APIClient {
     return this.request<StoryListResponse>('GET', '/api/stories', undefined, queryParams);
   }
 
+  // Admin variant of the stories list: same endpoint, but reads X-Total-Count so
+  // the admin table can paginate. The public getStories() stays a plain array.
+  async getStoriesAdmin(params?: { featured?: boolean; limit?: number; offset?: number }): Promise<Paged<SuccessStory>> {
+    const queryParams: Record<string, string | number> = {};
+    if (params?.featured !== undefined) queryParams['featured'] = String(params.featured);
+    if (params?.limit !== undefined) queryParams['limit'] = params.limit;
+    if (params?.offset !== undefined) queryParams['offset'] = params.offset;
+    return this.requestWithTotal<SuccessStory[]>('GET', '/api/stories', queryParams);
+  }
+
   async getStory(id: string): Promise<SuccessStory> {
     return this.request<SuccessStory>('GET', `/api/stories/${id}`);
   }
@@ -789,12 +822,12 @@ class APIClient {
   // ADMIN
   // ============================================================
 
-  async listAbuseReports(params?: { resolved?: boolean; limit?: number; offset?: number }): Promise<AbuseReport[]> {
+  async listAbuseReports(params?: { resolved?: boolean; limit?: number; offset?: number }): Promise<Paged<AbuseReport>> {
     const queryParams: Record<string, string | number> = {};
     if (params?.resolved !== undefined) queryParams['resolved'] = String(params.resolved);
     if (params?.limit !== undefined) queryParams['limit'] = params.limit;
     if (params?.offset !== undefined) queryParams['offset'] = params.offset;
-    return this.request<AbuseReport[]>('GET', '/api/abuse-reports', undefined, queryParams);
+    return this.requestWithTotal<AbuseReport[]>('GET', '/api/abuse-reports', queryParams);
   }
 
   async getAbuseReport(id: string): Promise<AbuseReport> {

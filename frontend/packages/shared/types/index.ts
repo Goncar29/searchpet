@@ -441,6 +441,13 @@ export interface CreateStoryRequest {
 
 export type StoryListResponse = SuccessStory[];
 
+// Paginated list payload: a page of items plus the total count (read from the
+// X-Total-Count response header by the API client).
+export interface Paged<T> {
+  data: T[];
+  total: number;
+}
+
 // ============================================================
 // REVIEWS
 // ============================================================
