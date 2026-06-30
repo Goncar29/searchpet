@@ -109,29 +109,43 @@ func RunMigrations(db *gorm.DB, migrationsDir string) error {
 	return nil
 }
 
+// Models is the canonical list of domain models managed by GORM AutoMigrate.
+// It is the SINGLE SOURCE OF TRUTH for the schema: production (migrate, below)
+// and the integration test DB (tests/testdb) both AutoMigrate from THIS slice,
+// so the two can never drift. A model missing here is a table that never gets
+// created in production — exactly the bug that left verification_tokens absent
+// in prod (every OTP op failing with 42P01) while the tests, using their own
+// separate copy of the list that DID include it, passed.
+//
+// Order matters for FK constraints: parent tables first.
+// NOTE: PetEmbedding is intentionally NOT here — its table (pgvector) is created
+// exclusively by migration 000009_add_pgvector_embeddings.
+var Models = []interface{}{
+	&domain.User{},
+	&domain.Pet{},
+	&domain.Report{},
+	&domain.PlatformEvent{},
+	&domain.Photo{},
+	&domain.Message{},
+	&domain.ShareLink{},
+	&domain.LocationAlert{},
+	&domain.Badge{},
+	&domain.UserPoints{},
+	&domain.LocalGroup{},
+	&domain.GroupMember{},
+	&domain.SuccessStory{},
+	&domain.StoryLike{},
+	&domain.BlockedUser{},
+	&domain.ReportAbuse{},
+	&domain.Shelter{},
+	&domain.DeviceToken{},
+	&domain.VerificationToken{},
+	&domain.UserReview{},
+	&domain.Vet{},
+	&domain.AdminAuditLog{},
+}
+
 // migrate crea o actualiza las tablas en base a los structs de dominio
 func migrate(db *gorm.DB) error {
-	return db.AutoMigrate(
-		&domain.User{},
-		&domain.Pet{},
-		&domain.Report{},
-		&domain.PlatformEvent{},
-		&domain.Photo{},
-		&domain.Message{},
-		&domain.ShareLink{},
-		&domain.LocationAlert{},
-		&domain.Badge{},
-		&domain.UserPoints{},
-		&domain.LocalGroup{},
-		&domain.GroupMember{},
-		&domain.SuccessStory{},
-		&domain.StoryLike{},
-		&domain.BlockedUser{},
-		&domain.ReportAbuse{},
-		&domain.Shelter{},
-		&domain.DeviceToken{},
-		&domain.UserReview{},
-		&domain.Vet{},
-		&domain.AdminAuditLog{},
-	)
+	return db.AutoMigrate(Models...)
 }
