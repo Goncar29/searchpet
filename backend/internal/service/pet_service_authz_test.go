@@ -30,7 +30,7 @@ func TestUpdatePet_StrayReporter_Allowed(t *testing.T) {
 	reporterID := uuid.New()
 	pet := strayPet(reporterID, domain.PetStatusStray)
 	repo := &mockPetRepo{pet: pet}
-	svc := service.NewPetService(repo, event.NewEventBus(), nil, nil, nil)
+	svc := service.NewPetService(repo, event.NewEventBus(), nil, nil, nil, nil)
 
 	marron := "marrón"
 	updated, err := svc.UpdatePet(reporterID.String(), pet.ID.String(), dto.UpdatePetRequest{Color: &marron})
@@ -47,7 +47,7 @@ func TestUpdatePet_StrayNonReporter_Forbidden(t *testing.T) {
 	stranger := uuid.New()
 	pet := strayPet(reporterID, domain.PetStatusStray)
 	repo := &mockPetRepo{pet: pet}
-	svc := service.NewPetService(repo, event.NewEventBus(), nil, nil, nil)
+	svc := service.NewPetService(repo, event.NewEventBus(), nil, nil, nil, nil)
 
 	marron := "marrón"
 	if _, err := svc.UpdatePet(stranger.String(), pet.ID.String(), dto.UpdatePetRequest{Color: &marron}); err != domain.ErrForbidden {
@@ -59,7 +59,7 @@ func TestDeletePet_StrayReporter_Allowed(t *testing.T) {
 	reporterID := uuid.New()
 	pet := strayPet(reporterID, domain.PetStatusStray)
 	repo := &mockPetRepo{pet: pet}
-	svc := service.NewPetService(repo, event.NewEventBus(), nil, nil, nil)
+	svc := service.NewPetService(repo, event.NewEventBus(), nil, nil, nil, nil)
 
 	if err := svc.DeletePet(reporterID.String(), pet.ID.String()); err != nil {
 		t.Fatalf("stray reporter should be allowed to delete, got %v", err)
@@ -71,7 +71,7 @@ func TestDeletePet_StrayNonReporter_Forbidden(t *testing.T) {
 	stranger := uuid.New()
 	pet := strayPet(reporterID, domain.PetStatusStray)
 	repo := &mockPetRepo{pet: pet}
-	svc := service.NewPetService(repo, event.NewEventBus(), nil, nil, nil)
+	svc := service.NewPetService(repo, event.NewEventBus(), nil, nil, nil, nil)
 
 	if err := svc.DeletePet(stranger.String(), pet.ID.String()); err != domain.ErrForbidden {
 		t.Errorf("expected ErrForbidden for non-reporter, got %v", err)

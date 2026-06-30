@@ -61,7 +61,7 @@ func TestUpdatePet_ClearsOptionalFieldsWhenEmptyStringSent(t *testing.T) {
 	pet.Color = "Negro"
 	pet.Description = "Muy amigable"
 	repo := &mockPetRepo{pet: pet}
-	svc := service.NewPetService(repo, nil, nil, nil, nil)
+	svc := service.NewPetService(repo, nil, nil, nil, nil, nil)
 
 	empty := ""
 	_, err := svc.UpdatePet(ownerID.String(), pet.ID.String(), dto.UpdatePetRequest{
@@ -85,7 +85,7 @@ func TestUpdatePet_PreservesOmittedOptionalFields(t *testing.T) {
 	pet := petWithStatus(ownerID, domain.PetStatusRegistered)
 	pet.Breed = "Labrador"
 	repo := &mockPetRepo{pet: pet}
-	svc := service.NewPetService(repo, nil, nil, nil, nil)
+	svc := service.NewPetService(repo, nil, nil, nil, nil, nil)
 
 	_, err := svc.UpdatePet(ownerID.String(), pet.ID.String(), dto.UpdatePetRequest{Status: domain.PetStatusLost})
 	if err != nil {
@@ -105,7 +105,7 @@ func TestMarkAsFound_HappyPath(t *testing.T) {
 	repo := &mockPetRepo{pet: petWithStatus(ownerID, domain.PetStatusLost)}
 	bus := event.NewEventBus()
 
-	svc := service.NewPetService(repo, bus, nil, nil, nil)
+	svc := service.NewPetService(repo, bus, nil, nil, nil, nil)
 	pet, err := svc.MarkAsFound(ownerID.String(), repo.pet.ID.String())
 
 	if err != nil {
@@ -125,7 +125,7 @@ func TestMarkAsFound_NonOwner_Returns403(t *testing.T) {
 	repo := &mockPetRepo{pet: petWithStatus(ownerID, domain.PetStatusLost)}
 	bus := event.NewEventBus()
 
-	svc := service.NewPetService(repo, bus, nil, nil, nil)
+	svc := service.NewPetService(repo, bus, nil, nil, nil, nil)
 	_, err := svc.MarkAsFound(anotherUser.String(), repo.pet.ID.String())
 
 	if err == nil {
@@ -144,7 +144,7 @@ func TestMarkAsFound_AlreadyFound_IsIdempotent(t *testing.T) {
 	repo := &mockPetRepo{pet: petWithStatus(ownerID, "found")}
 	bus := event.NewEventBus()
 
-	svc := service.NewPetService(repo, bus, nil, nil, nil)
+	svc := service.NewPetService(repo, bus, nil, nil, nil, nil)
 	pet, err := svc.MarkAsFound(ownerID.String(), repo.pet.ID.String())
 
 	if err != nil {
@@ -163,7 +163,7 @@ func TestMarkAsFound_ArchivedPet_ReturnsInvalidTransition(t *testing.T) {
 	repo := &mockPetRepo{pet: petWithStatus(ownerID, domain.PetStatusArchived)}
 	bus := event.NewEventBus()
 
-	svc := service.NewPetService(repo, bus, nil, nil, nil)
+	svc := service.NewPetService(repo, bus, nil, nil, nil, nil)
 	_, err := svc.MarkAsFound(ownerID.String(), repo.pet.ID.String())
 
 	if err == nil {
@@ -186,7 +186,7 @@ func TestMarkAsFound_PublishesEvent(t *testing.T) {
 		}
 	})
 
-	svc := service.NewPetService(repo, bus, nil, nil, nil)
+	svc := service.NewPetService(repo, bus, nil, nil, nil, nil)
 	_, err := svc.MarkAsFound(ownerID.String(), repo.pet.ID.String())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -222,7 +222,7 @@ func TestUpdatePet_PublishesPetLostEvent(t *testing.T) {
 		}
 	})
 
-	svc := service.NewPetService(repo, bus, nil, nil, nil)
+	svc := service.NewPetService(repo, bus, nil, nil, nil, nil)
 	petID := repo.pet.ID
 
 	_, err := svc.UpdatePet(ownerID.String(), petID.String(), dto.UpdatePetRequest{Status: "lost"})
@@ -251,7 +251,7 @@ func TestUpdatePet_DoesNotPublishPetLostWhenAlreadyLost(t *testing.T) {
 		eventPublished <- struct{}{}
 	})
 
-	svc := service.NewPetService(repo, bus, nil, nil, nil)
+	svc := service.NewPetService(repo, bus, nil, nil, nil, nil)
 	petID := repo.pet.ID
 
 	_, err := svc.UpdatePet(ownerID.String(), petID.String(), dto.UpdatePetRequest{Status: "lost"})
@@ -279,7 +279,7 @@ func TestUpdatePet_DoesNotPublishPetLostForOtherTransitions(t *testing.T) {
 		eventPublished <- struct{}{}
 	})
 
-	svc := service.NewPetService(repo, bus, nil, nil, nil)
+	svc := service.NewPetService(repo, bus, nil, nil, nil, nil)
 	petID := repo.pet.ID
 
 	// Update name only — status stays "registered", no pet.lost event.
@@ -315,7 +315,7 @@ func (m *capturingPetRepo) Create(pet *domain.Pet) error {
 func TestCreatePet_DefaultsToRegistered(t *testing.T) {
 	ownerID := uuid.New()
 	repo := &capturingPetRepo{}
-	svc := service.NewPetService(repo, nil, nil, nil, nil)
+	svc := service.NewPetService(repo, nil, nil, nil, nil, nil)
 
 	_, err := svc.CreatePet(ownerID.String(), dto.CreatePetRequest{Name: "Rex", Type: "perro"})
 	if err != nil {
@@ -337,7 +337,7 @@ func TestCreatePet_StrayHasNilOwnerAndReporter(t *testing.T) {
 	repo := &capturingPetRepo{}
 	reportRepo := &mockReportRepo{}
 	uow := &mockUnitOfWork{repos: repository.UnitOfWorkRepos{Pets: repo, Reports: reportRepo}}
-	svc := service.NewPetService(repo, nil, nil, reportRepo, uow)
+	svc := service.NewPetService(repo, nil, nil, reportRepo, uow, nil)
 
 	_, err := svc.CreatePet(reporterID.String(), dto.CreatePetRequest{
 		Name: "Stray Cat", Type: "gato", Status: domain.PetStatusStray,
@@ -362,7 +362,7 @@ func TestCreatePet_StrayPersistsReporterContactPublicFlag(t *testing.T) {
 	repo := &capturingPetRepo{}
 	reportRepo := &mockReportRepo{}
 	uow := &mockUnitOfWork{repos: repository.UnitOfWorkRepos{Pets: repo, Reports: reportRepo}}
-	svc := service.NewPetService(repo, nil, nil, reportRepo, uow)
+	svc := service.NewPetService(repo, nil, nil, reportRepo, uow, nil)
 
 	_, err := svc.CreatePet(reporterID.String(), dto.CreatePetRequest{
 		Name: "Stray Cat", Type: "gato", Status: domain.PetStatusStray,
@@ -380,7 +380,7 @@ func TestCreatePet_StrayPersistsReporterContactPublicFlag(t *testing.T) {
 func TestCreatePet_RegisteredIgnoresReporterContactPublicFlag(t *testing.T) {
 	ownerID := uuid.New()
 	repo := &capturingPetRepo{}
-	svc := service.NewPetService(repo, nil, nil, nil, nil)
+	svc := service.NewPetService(repo, nil, nil, nil, nil, nil)
 
 	// A registered (owned) pet has no reporter; the opt-in must never leak onto it.
 	_, err := svc.CreatePet(ownerID.String(), dto.CreatePetRequest{
@@ -408,7 +408,7 @@ func TestCreatePet_StrayPublishesPetStrayEvent(t *testing.T) {
 
 	reportRepo := &mockReportRepo{}
 	uow := &mockUnitOfWork{repos: repository.UnitOfWorkRepos{Pets: repo, Reports: reportRepo}}
-	svc := service.NewPetService(repo, bus, nil, reportRepo, uow)
+	svc := service.NewPetService(repo, bus, nil, reportRepo, uow, nil)
 
 	_, err := svc.CreatePet(reporterID.String(), dto.CreatePetRequest{
 		Name: "Stray Cat", Type: "gato", Status: domain.PetStatusStray,
@@ -438,7 +438,7 @@ func TestCreatePet_RegisteredDoesNotPublishPetStrayEvent(t *testing.T) {
 		eventPublished <- struct{}{}
 	})
 
-	svc := service.NewPetService(repo, bus, nil, nil, nil)
+	svc := service.NewPetService(repo, bus, nil, nil, nil, nil)
 
 	_, err := svc.CreatePet(ownerID.String(), dto.CreatePetRequest{Name: "Rex", Type: "perro"})
 	if err != nil {
@@ -455,7 +455,7 @@ func TestCreatePet_RegisteredDoesNotPublishPetStrayEvent(t *testing.T) {
 
 func TestCreatePet_RejectsInvalidCreationStatuses(t *testing.T) {
 	ownerID := uuid.New()
-	svc := service.NewPetService(&capturingPetRepo{}, nil, nil, nil, nil)
+	svc := service.NewPetService(&capturingPetRepo{}, nil, nil, nil, nil, nil)
 
 	for _, status := range []string{domain.PetStatusLost, domain.PetStatusFound, domain.PetStatusArchived} {
 		t.Run(status, func(t *testing.T) {
@@ -473,7 +473,7 @@ func TestUpdatePet_RejectsInvalidTransition(t *testing.T) {
 	ownerID := uuid.New()
 	// registered → found is not an allowed edge
 	repo := &mockPetRepo{pet: petWithStatus(ownerID, domain.PetStatusRegistered)}
-	svc := service.NewPetService(repo, nil, nil, nil, nil)
+	svc := service.NewPetService(repo, nil, nil, nil, nil, nil)
 
 	_, err := svc.UpdatePet(ownerID.String(), repo.pet.ID.String(), dto.UpdatePetRequest{Status: domain.PetStatusFound})
 	if err != domain.ErrInvalidStatusTransition {
@@ -486,7 +486,7 @@ func TestUpdatePet_VersionIncrementsOnStatusChange(t *testing.T) {
 	pet := petWithStatus(ownerID, domain.PetStatusRegistered)
 	pet.Version = 1
 	repo := &mockPetRepo{pet: pet}
-	svc := service.NewPetService(repo, nil, nil, nil, nil)
+	svc := service.NewPetService(repo, nil, nil, nil, nil, nil)
 
 	updated, err := svc.UpdatePet(ownerID.String(), pet.ID.String(), dto.UpdatePetRequest{Status: domain.PetStatusLost})
 	if err != nil {
@@ -502,7 +502,7 @@ func TestUpdatePet_VersionNotIncrementedOnNameOnlyChange(t *testing.T) {
 	pet := petWithStatus(ownerID, domain.PetStatusRegistered)
 	pet.Version = 3
 	repo := &mockPetRepo{pet: pet}
-	svc := service.NewPetService(repo, nil, nil, nil, nil)
+	svc := service.NewPetService(repo, nil, nil, nil, nil, nil)
 
 	updated, err := svc.UpdatePet(ownerID.String(), pet.ID.String(), dto.UpdatePetRequest{Name: "New Name"})
 	if err != nil {
@@ -518,7 +518,7 @@ func TestUpdatePet_ConcurrentVersionMismatch_ReturnsConflict(t *testing.T) {
 	pet := petWithStatus(ownerID, domain.PetStatusRegistered)
 	pet.Version = 5
 	repo := &mockPetRepo{pet: pet}
-	svc := service.NewPetService(repo, nil, nil, nil, nil)
+	svc := service.NewPetService(repo, nil, nil, nil, nil, nil)
 
 	// Client sends Version=3 but server is at Version=5 — conflict
 	_, err := svc.UpdatePet(ownerID.String(), pet.ID.String(), dto.UpdatePetRequest{
@@ -535,7 +535,7 @@ func TestUpdatePet_ZeroVersionBypassesConcurrencyCheck(t *testing.T) {
 	pet := petWithStatus(ownerID, domain.PetStatusRegistered)
 	pet.Version = 5
 	repo := &mockPetRepo{pet: pet}
-	svc := service.NewPetService(repo, nil, nil, nil, nil)
+	svc := service.NewPetService(repo, nil, nil, nil, nil, nil)
 
 	// Version=0 means "don't check" — should succeed regardless of server version
 	_, err := svc.UpdatePet(ownerID.String(), pet.ID.String(), dto.UpdatePetRequest{
@@ -557,7 +557,7 @@ func TestMarkAsFound_StrayReporterCanMarkFound(t *testing.T) {
 		Version:    1,
 	}
 	repo := &mockPetRepo{pet: pet}
-	svc := service.NewPetService(repo, nil, nil, nil, nil)
+	svc := service.NewPetService(repo, nil, nil, nil, nil, nil)
 
 	result, err := svc.MarkAsFound(reporterID.String(), pet.ID.String())
 	if err != nil {
@@ -578,7 +578,7 @@ func TestMarkAsFound_NonReporterCannotMarkStrayFound(t *testing.T) {
 		Name:       "Stray",
 	}
 	repo := &mockPetRepo{pet: pet}
-	svc := service.NewPetService(repo, nil, nil, nil, nil)
+	svc := service.NewPetService(repo, nil, nil, nil, nil, nil)
 
 	_, err := svc.MarkAsFound(otherUser.String(), pet.ID.String())
 	if err != domain.ErrForbidden {
@@ -598,7 +598,7 @@ func TestMarkAsFound_AlreadyFoundStray_ReporterIdempotent(t *testing.T) {
 		Name:       "Stray",
 	}
 	repo := &mockPetRepo{pet: pet}
-	svc := service.NewPetService(repo, nil, nil, nil, nil)
+	svc := service.NewPetService(repo, nil, nil, nil, nil, nil)
 
 	result, err := svc.MarkAsFound(reporterID.String(), pet.ID.String())
 	if err != nil {
@@ -621,7 +621,7 @@ func TestDeletePet_NilOwnerNosPanic(t *testing.T) {
 		Name:   "Stray",
 	}
 	repo := &mockPetRepo{pet: pet}
-	svc := service.NewPetService(repo, nil, nil, nil, nil)
+	svc := service.NewPetService(repo, nil, nil, nil, nil, nil)
 
 	err := svc.DeletePet(anyUser.String(), pet.ID.String())
 	if err != domain.ErrForbidden {
@@ -662,7 +662,7 @@ func (m *mockUnitOfWork) Execute(fn func(repos repository.UnitOfWorkRepos) error
 func TestCreatePet_Stray_RequiresInitialReport(t *testing.T) {
 	repo := &mockPetRepo{}
 	bus := event.NewEventBus()
-	svc := service.NewPetService(repo, bus, nil, &mockReportRepo{}, nil)
+	svc := service.NewPetService(repo, bus, nil, &mockReportRepo{}, nil, nil)
 
 	ownerID := uuid.New()
 	req := dto.CreatePetRequest{
@@ -686,7 +686,7 @@ func TestCreatePet_Stray_WithInitialReport_CreatesPetAndReport(t *testing.T) {
 	reportRepo := &mockReportRepo{}
 	uow := &mockUnitOfWork{repos: repository.UnitOfWorkRepos{Pets: petRepo, Reports: reportRepo}}
 	bus := event.NewEventBus()
-	svc := service.NewPetService(petRepo, bus, nil, reportRepo, uow)
+	svc := service.NewPetService(petRepo, bus, nil, reportRepo, uow, nil)
 
 	ownerID := uuid.New()
 	req := dto.CreatePetRequest{
@@ -724,7 +724,7 @@ func TestCreatePet_Stray_WithInitialReport_CreatesPetAndReport(t *testing.T) {
 func TestCreatePet_Registered_RejectsInitialReport(t *testing.T) {
 	repo := &mockPetRepo{}
 	bus := event.NewEventBus()
-	svc := service.NewPetService(repo, bus, nil, &mockReportRepo{}, nil)
+	svc := service.NewPetService(repo, bus, nil, &mockReportRepo{}, nil, nil)
 
 	ownerID := uuid.New()
 	req := dto.CreatePetRequest{
@@ -751,7 +751,7 @@ func TestCreatePet_Stray_ReportCreationFails_RollsBackPet(t *testing.T) {
 	reportRepo := &mockReportRepo{createErr: domain.ErrInternal}
 	uow := &mockUnitOfWork{repos: repository.UnitOfWorkRepos{Pets: petRepo, Reports: reportRepo}}
 	bus := event.NewEventBus()
-	svc := service.NewPetService(petRepo, bus, nil, reportRepo, uow)
+	svc := service.NewPetService(petRepo, bus, nil, reportRepo, uow, nil)
 
 	ownerID := uuid.New()
 	req := dto.CreatePetRequest{
@@ -776,7 +776,7 @@ func TestCreatePet_Stray_ReportCreationFails_RollsBackPet(t *testing.T) {
 func TestCreatePet_Stray_NoUnitOfWork_ReturnsInternalError(t *testing.T) {
 	repo := &capturingPetRepo{}
 	bus := event.NewEventBus()
-	svc := service.NewPetService(repo, bus, nil, &mockReportRepo{}, nil)
+	svc := service.NewPetService(repo, bus, nil, &mockReportRepo{}, nil, nil)
 
 	ownerID := uuid.New()
 	req := dto.CreatePetRequest{
@@ -806,7 +806,7 @@ func TestPublishLost_HappyPath_TransitionsAndCreatesReport(t *testing.T) {
 	reportRepo := &mockReportRepo{}
 	uow := &mockUnitOfWork{repos: repository.UnitOfWorkRepos{Pets: repo, Reports: reportRepo}}
 	bus := event.NewEventBus()
-	svc := service.NewPetService(repo, bus, nil, reportRepo, uow)
+	svc := service.NewPetService(repo, bus, nil, reportRepo, uow, nil)
 
 	req := dto.PublishLostRequest{Latitude: -34.9011, Longitude: -56.1645, Note: "Se escapó del jardín"}
 
@@ -841,7 +841,7 @@ func TestPublishLost_NonOwner_Returns403(t *testing.T) {
 	reportRepo := &mockReportRepo{}
 	uow := &mockUnitOfWork{repos: repository.UnitOfWorkRepos{Pets: repo, Reports: reportRepo}}
 	bus := event.NewEventBus()
-	svc := service.NewPetService(repo, bus, nil, reportRepo, uow)
+	svc := service.NewPetService(repo, bus, nil, reportRepo, uow, nil)
 
 	req := dto.PublishLostRequest{Latitude: -34.9011, Longitude: -56.1645}
 
@@ -867,7 +867,7 @@ func TestPublishLost_InvalidTransition_Returns422(t *testing.T) {
 	reportRepo := &mockReportRepo{}
 	uow := &mockUnitOfWork{repos: repository.UnitOfWorkRepos{Pets: repo, Reports: reportRepo}}
 	bus := event.NewEventBus()
-	svc := service.NewPetService(repo, bus, nil, reportRepo, uow)
+	svc := service.NewPetService(repo, bus, nil, reportRepo, uow, nil)
 
 	req := dto.PublishLostRequest{Latitude: -34.9011, Longitude: -56.1645}
 
@@ -891,7 +891,7 @@ func TestPublishLost_ReportCreationFails_StatusUnchanged(t *testing.T) {
 	reportRepo := &mockReportRepo{createErr: domain.ErrInternal}
 	uow := &mockUnitOfWork{repos: repository.UnitOfWorkRepos{Pets: repo, Reports: reportRepo}}
 	bus := event.NewEventBus()
-	svc := service.NewPetService(repo, bus, nil, reportRepo, uow)
+	svc := service.NewPetService(repo, bus, nil, reportRepo, uow, nil)
 
 	req := dto.PublishLostRequest{Latitude: -34.9011, Longitude: -56.1645}
 
@@ -912,7 +912,7 @@ func TestPublishLost_NoUnitOfWork_ReturnsInternalError(t *testing.T) {
 	ownerID := uuid.New()
 	repo := &mockPetRepo{pet: petWithStatus(ownerID, domain.PetStatusRegistered)}
 	bus := event.NewEventBus()
-	svc := service.NewPetService(repo, bus, nil, &mockReportRepo{}, nil)
+	svc := service.NewPetService(repo, bus, nil, &mockReportRepo{}, nil, nil)
 
 	req := dto.PublishLostRequest{Latitude: -34.9011, Longitude: -56.1645}
 
@@ -940,7 +940,7 @@ func TestCreatePet_StrayPublishesReportCreatedEventWithCorrectPayload(t *testing
 
 	reportRepo := &mockReportRepo{}
 	uow := &mockUnitOfWork{repos: repository.UnitOfWorkRepos{Pets: repo, Reports: reportRepo}}
-	svc := service.NewPetService(repo, bus, nil, reportRepo, uow)
+	svc := service.NewPetService(repo, bus, nil, reportRepo, uow, nil)
 
 	_, err := svc.CreatePet(reporterID.String(), dto.CreatePetRequest{
 		Name: "Stray Cat", Type: "gato", Status: domain.PetStatusStray,
@@ -982,7 +982,7 @@ func TestPublishLost_PublishesEventsWithCorrectPayload(t *testing.T) {
 	reportRepo := &mockReportRepo{}
 	uow := &mockUnitOfWork{repos: repository.UnitOfWorkRepos{Pets: repo, Reports: reportRepo}}
 	bus := event.NewEventBus()
-	svc := service.NewPetService(repo, bus, nil, reportRepo, uow)
+	svc := service.NewPetService(repo, bus, nil, reportRepo, uow, nil)
 
 	petLostReceived := make(chan event.PetLostEvent, 1)
 	bus.Subscribe("pet.lost", func(payload interface{}) {

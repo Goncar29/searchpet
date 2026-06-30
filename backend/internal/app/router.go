@@ -87,6 +87,7 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 	petRepo := repository.NewPetRepository(db)
 	reportRepo := repository.NewReportRepository(db)
 	petUow := repository.NewUnitOfWork(db)
+	statEventRepo := repository.NewStatEventRepository(db)
 	photoRepo := repository.NewPhotoRepository(db)
 
 	shelterRepo := repository.NewShelterRepository(db)
@@ -103,7 +104,7 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 	// ========================================
 	authService := service.NewAuthService(userRepo, cfg.JWTSecret, cloudinaryClient)
 	photoService := service.NewPhotoService(photoRepo, petRepo, photoStorage, bus)
-	petService := service.NewPetService(petRepo, bus, photoService, reportRepo, petUow)
+	petService := service.NewPetService(petRepo, bus, photoService, reportRepo, petUow, statEventRepo)
 	reportService := service.NewReportService(reportRepo, petRepo, bus)
 	messageService := service.NewMessageService(messageRepo, blockedUserRepo, bus)
 	shareLinkService := service.NewShareLinkService(shareLinkRepo, petRepo, bus)
