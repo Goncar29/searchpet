@@ -24,37 +24,10 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
-	"lost-pets/internal/domain"
+	"lost-pets/pkg/database"
 )
 
-// allModels lists every domain model that must exist in the test schema.
-// Order matters for FK constraints: parent tables first.
-var allModels = []interface{}{
-	&domain.User{},
-	&domain.Pet{},
-	&domain.Report{},
-	&domain.PlatformEvent{},
-	&domain.Photo{},
-	&domain.Message{},
-	&domain.ShareLink{},
-	&domain.LocationAlert{},
-	&domain.Badge{},
-	&domain.UserPoints{},
-	&domain.LocalGroup{},
-	&domain.GroupMember{},
-	&domain.SuccessStory{},
-	&domain.StoryLike{},
-	&domain.BlockedUser{},
-	&domain.ReportAbuse{},
-	&domain.Shelter{},
-	&domain.DeviceToken{},
-	&domain.VerificationToken{},
-	&domain.UserReview{},
-	&domain.Vet{},
-	&domain.AdminAuditLog{},
-}
-
-// allTableNames lists table names matching allModels for truncation.
+// allTableNames lists table names matching database.Models for truncation.
 // Must be in reverse FK dependency order (children first).
 var allTableNames = []string{
 	"platform_events",
@@ -122,7 +95,10 @@ func SetupTestDB(t *testing.T) *gorm.DB {
 
 	// AutoMigrate first — creates all base tables from domain models.
 	// SQL migrations run after so that ALTER TABLE statements find existing tables.
-	if migrateErr := db.AutoMigrate(allModels...); migrateErr != nil {
+	// Uses database.Models (the SAME canonical list production migrates) so the
+	// test schema can never drift from prod — the drift that hid verification_tokens
+	// being absent in prod.
+	if migrateErr := db.AutoMigrate(database.Models...); migrateErr != nil {
 		t.Fatalf("testdb: AutoMigrate failed: %v", migrateErr)
 	}
 
