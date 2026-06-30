@@ -65,7 +65,7 @@ describe('usePublishLost', () => {
     expect(result.current.data?.status).toBe('lost');
   });
 
-  it('invalidates pets, pets/:id, pets/mine, and reports queries on success', async () => {
+  it('invalidates pets, pets/:id, pets/mine, reports, and stats queries on success', async () => {
     vi.spyOn(apiClient, 'publishPetLost').mockResolvedValue({ ...mockPet, status: 'lost' });
 
     const { queryClient, wrapper: wrapperWithClient } = createWrapperWithClient();
@@ -78,10 +78,11 @@ describe('usePublishLost', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
     const invalidatedKeys = invalidateSpy.mock.calls.map((call) => call[0]?.queryKey);
+    // ['stats'] refreshes the home "searches started" lifetime counter.
     expect(invalidatedKeys).toEqual(
-      expect.arrayContaining([['pets'], ['pets', 'pet-1'], ['pets', 'mine'], ['reports']])
+      expect.arrayContaining([['pets'], ['pets', 'pet-1'], ['pets', 'mine'], ['reports'], ['stats']])
     );
-    expect(invalidatedKeys).toHaveLength(4);
+    expect(invalidatedKeys).toHaveLength(5);
   });
 });
 
@@ -163,7 +164,7 @@ describe('usePublishStray', () => {
     expect(result.current.data).toEqual({ pet: mockPet, failedPhotoIndexes: [0, 2] });
   });
 
-  it('invalidates pets, pets/:id, pets/mine, and reports queries on success', async () => {
+  it('invalidates pets, pets/:id, pets/mine, reports, and stats queries on success', async () => {
     vi.spyOn(apiClient, 'createPet').mockResolvedValue(mockPet);
     vi.spyOn(apiClient, 'uploadPhoto').mockResolvedValue({ id: 'photo-1', url: 'https://x/photo-1.jpg' });
 
@@ -180,10 +181,11 @@ describe('usePublishStray', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
     const invalidatedKeys = invalidateSpy.mock.calls.map((call) => call[0]?.queryKey);
+    // ['stats'] refreshes the home "searches started" lifetime counter.
     expect(invalidatedKeys).toEqual(
-      expect.arrayContaining([['pets'], ['pets', 'mine'], ['pets', mockPet.id], ['reports']])
+      expect.arrayContaining([['pets'], ['pets', 'mine'], ['pets', mockPet.id], ['reports'], ['stats']])
     );
-    expect(invalidatedKeys).toHaveLength(4);
+    expect(invalidatedKeys).toHaveLength(5);
   });
 
   it('does not call uploadPhoto and rejects if createPet fails', async () => {
@@ -554,7 +556,7 @@ describe('useMarkPetAsFound', () => {
     expect(queryClient.getQueryData<Pet>(['pets', 'pet-9'])).toEqual(foundPet);
   });
 
-  it('invalidates the pets list and reports so the map reflects the new status', async () => {
+  it('invalidates the pets list, reports, and stats so the map and home counter reflect the new status', async () => {
     vi.spyOn(apiClient, 'markPetAsFound').mockResolvedValue(foundPet);
 
     const { queryClient, wrapper: wrapperWithClient } = createWrapperWithClient();
@@ -567,7 +569,8 @@ describe('useMarkPetAsFound', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
     const invalidatedKeys = invalidateSpy.mock.calls.map((call) => call[0]?.queryKey);
-    expect(invalidatedKeys).toEqual(expect.arrayContaining([['pets'], ['reports']]));
+    // ['stats'] refreshes the home "pets reunited" lifetime counter.
+    expect(invalidatedKeys).toEqual(expect.arrayContaining([['pets'], ['reports'], ['stats']]));
   });
 });
 
