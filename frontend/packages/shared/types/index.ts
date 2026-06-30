@@ -130,8 +130,8 @@ export interface SharedPetResponse {
 export interface Stats {
   total_users: number;
   total_pets: number;
-  total_reports: number;
-  found_pets: number;
+  pets_reunited: number;
+  searches_started: number;
 }
 
 // ============================================================

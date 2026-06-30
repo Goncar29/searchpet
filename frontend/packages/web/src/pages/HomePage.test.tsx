@@ -15,8 +15,10 @@ vi.mock('../context/AuthContext', () => ({
 const mockMutateAsync = vi.fn();
 const mockClassify = vi.fn();
 
+let mockStats = { total_users: 100, total_pets: 42, pets_reunited: 10, searches_started: 50 };
+
 vi.mock('@shared/hooks', () => ({
-  useStats: () => ({ data: { total_pets: 42, total_found: 10, total_users: 100, total_reports: 50 } }),
+  useStats: () => ({ data: mockStats }),
   useNearbyReports: () => ({ data: [], isLoading: false }),
   useSearchPets: () => ({ data: [], isLoading: false }),
   useStories: () => ({ data: [], isLoading: false }),
@@ -43,6 +45,20 @@ describe('HomePage', () => {
     render(<HomePage />, { wrapper });
     // Page renders with filter/search area
     expect(document.body.innerHTML).toBeTruthy();
+  });
+
+  it('renders the four stat counters (lifetime + snapshot) with their values', () => {
+    mockStats = { total_users: 150, total_pets: 320, pets_reunited: 42, searches_started: 88 };
+    render(<HomePage />, { wrapper });
+
+    expect(screen.getByText('home:stats.reunited')).toBeInTheDocument();
+    expect(screen.getByText('42')).toBeInTheDocument();
+    expect(screen.getByText('home:stats.searches')).toBeInTheDocument();
+    expect(screen.getByText('88')).toBeInTheDocument();
+    expect(screen.getByText('home:stats.members')).toBeInTheDocument();
+    expect(screen.getByText('150')).toBeInTheDocument();
+    expect(screen.getByText('home:stats.registered')).toBeInTheDocument();
+    expect(screen.getByText('320')).toBeInTheDocument();
   });
 
   it('logged out: selecting a photo shows the login prompt and does not search/classify', async () => {

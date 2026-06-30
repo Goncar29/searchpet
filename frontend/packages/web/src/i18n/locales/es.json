@@ -146,10 +146,10 @@
       "cta": "Ver mascotas perdidas"
     },
     "stats": {
-      "found": "Mascotas encontradas",
-      "reports": "Reportes publicados",
-      "users": "Usuarios registrados",
-      "pets": "Mascotas registradas"
+      "reunited": "Mascotas reencontradas",
+      "searches": "Búsquedas iniciadas",
+      "members": "Miembros de la comunidad",
+      "registered": "Mascotas registradas"
     },
     "how": {
       "title": "¿Cómo funciona?",
