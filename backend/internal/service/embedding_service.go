@@ -33,8 +33,8 @@ const (
 	// jinaModel is the multimodal CLIP model. jinaDimensions uses Matryoshka
 	// truncation to 512 so the output matches the existing pgvector(512) column
 	// (no schema migration vs the previous openai/clip-vit-base-patch32).
-	jinaModel      = "jina-clip-v2"
-	jinaDimensions = 512
+	jinaModel         = "jina-clip-v2"
+	jinaDimensions    = 512
 	embeddingModelVer = "jina-clip-v2"
 
 	embeddingTimeout = 30 * time.Second
@@ -86,8 +86,20 @@ func (s *EmbeddingService) SetHTTPClientAndEndpoint(client *http.Client, endpoin
 }
 
 // RegisterListeners suscribe el servicio a los eventos relevantes del EventBus.
+//
+// Los tres eventos de INDEXADO (photo.uploaded, pet.lost, pet.stray) se
+// suscriben SINCRÓNICAMENTE (SubscribeSync): corren inline dentro del request
+// que los publica. Esto es deliberado — en el free tier de Render el instance se
+// suspende tras el response y mata las goroutines fire-and-forget, dejando el
+// embedding sin generar (sin INSERT y sin log). Corriendo dentro del request, el
+// trabajo termina mientras el instance sigue vivo. Cada handler es best-effort:
+// loguea el fallo y nunca rompe la operación que lo dispara.
+//
+// pet.found (borrado de embeddings) queda ASÍNCRONO: si falla, lo único que pasa
+// es que una mascota encontrada sigue apareciendo en la búsqueda hasta el próximo
+// reindex — benigno, no justifica bloquear el request.
 func (s *EmbeddingService) RegisterListeners(bus *event.EventBus) {
-	bus.Subscribe("photo.uploaded", func(payload interface{}) {
+	bus.SubscribeSync("photo.uploaded", func(payload interface{}) {
 		ev, ok := payload.(event.PhotoUploadedEvent)
 		if !ok {
 			s.logger.Warn("[embedding] payload inesperado en photo.uploaded")
@@ -96,7 +108,7 @@ func (s *EmbeddingService) RegisterListeners(bus *event.EventBus) {
 		s.HandlePhotoUploaded(ev)
 	})
 
-	bus.Subscribe("pet.lost", func(payload interface{}) {
+	bus.SubscribeSync("pet.lost", func(payload interface{}) {
 		ev, ok := payload.(event.PetLostEvent)
 		if !ok {
 			s.logger.Warn("[embedding] payload inesperado en pet.lost")
@@ -105,7 +117,7 @@ func (s *EmbeddingService) RegisterListeners(bus *event.EventBus) {
 		s.HandlePetLost(ev)
 	})
 
-	bus.Subscribe("pet.stray", func(payload interface{}) {
+	bus.SubscribeSync("pet.stray", func(payload interface{}) {
 		ev, ok := payload.(event.PetStrayEvent)
 		if !ok {
 			s.logger.Warn("[embedding] payload inesperado en pet.stray")

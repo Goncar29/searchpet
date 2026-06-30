@@ -72,12 +72,12 @@ func (m *mockPetRepoForEmbedding) FindByID(id string) (*domain.Pet, error) {
 	return nil, domain.ErrPetNotFound
 }
 
-func (m *mockPetRepoForEmbedding) Create(_ *domain.Pet) error                         { return nil }
-func (m *mockPetRepoForEmbedding) FindByOwnerID(_ string) ([]domain.Pet, error)       { return nil, nil }
-func (m *mockPetRepoForEmbedding) FindByReporterID(_ string) ([]domain.Pet, error)    { return nil, nil }
-func (m *mockPetRepoForEmbedding) Update(_ *domain.Pet) error                         { return nil }
-func (m *mockPetRepoForEmbedding) UpdateStatus(_ string, _ string) error              { return nil }
-func (m *mockPetRepoForEmbedding) Delete(_ string) error                              { return nil }
+func (m *mockPetRepoForEmbedding) Create(_ *domain.Pet) error                      { return nil }
+func (m *mockPetRepoForEmbedding) FindByOwnerID(_ string) ([]domain.Pet, error)    { return nil, nil }
+func (m *mockPetRepoForEmbedding) FindByReporterID(_ string) ([]domain.Pet, error) { return nil, nil }
+func (m *mockPetRepoForEmbedding) Update(_ *domain.Pet) error                      { return nil }
+func (m *mockPetRepoForEmbedding) UpdateStatus(_ string, _ string) error           { return nil }
+func (m *mockPetRepoForEmbedding) Delete(_ string) error                           { return nil }
 func (m *mockPetRepoForEmbedding) Search(criteria domain.PetSearchCriteria) ([]domain.Pet, int64, error) {
 	if m.searchFn != nil {
 		return m.searchFn(criteria)
@@ -102,13 +102,15 @@ func (m *mockPhotoRepoForEmbedding) FindByPetID(petID string) ([]domain.Photo, e
 	return []domain.Photo{}, nil
 }
 
-func (m *mockPhotoRepoForEmbedding) Create(_ *domain.Photo) error             { return nil }
-func (m *mockPhotoRepoForEmbedding) FindByID(_ string) (*domain.Photo, error) { return &domain.Photo{}, nil }
-func (m *mockPhotoRepoForEmbedding) HasPrimaryPhoto(_ string) (bool, error)   { return false, nil }
-func (m *mockPhotoRepoForEmbedding) UnsetPrimaryPhotos(_ string) error        { return nil }
-func (m *mockPhotoRepoForEmbedding) CountByPetID(_ string) (int64, error)     { return 0, nil }
-func (m *mockPhotoRepoForEmbedding) DeleteByPetID(_ string) error             { return nil }
-func (m *mockPhotoRepoForEmbedding) DeleteByID(_ string) error                { return nil }
+func (m *mockPhotoRepoForEmbedding) Create(_ *domain.Photo) error { return nil }
+func (m *mockPhotoRepoForEmbedding) FindByID(_ string) (*domain.Photo, error) {
+	return &domain.Photo{}, nil
+}
+func (m *mockPhotoRepoForEmbedding) HasPrimaryPhoto(_ string) (bool, error) { return false, nil }
+func (m *mockPhotoRepoForEmbedding) UnsetPrimaryPhotos(_ string) error      { return nil }
+func (m *mockPhotoRepoForEmbedding) CountByPetID(_ string) (int64, error)   { return 0, nil }
+func (m *mockPhotoRepoForEmbedding) DeleteByPetID(_ string) error           { return nil }
+func (m *mockPhotoRepoForEmbedding) DeleteByID(_ string) error              { return nil }
 
 var _ repository.PhotoRepository = (*mockPhotoRepoForEmbedding)(nil)
 
@@ -477,6 +479,73 @@ func TestEmbeddingService_RegisterListeners_PetStrayEvent_BackfillsPhotos(t *tes
 			}
 			time.Sleep(10 * time.Millisecond)
 		}
+	}
+}
+
+// TestEmbeddingService_RegisterListeners_PetLost_IndexesSynchronously asserts
+// that pet.lost is wired as a SYNCHRONOUS subscriber: after Publish returns, the
+// embedding must already be upserted WITHOUT any polling/sleep. This is the
+// reliability fix — on Render free the async goroutine was killed by instance
+// suspension before it could persist, so indexing must complete in-request.
+func TestEmbeddingService_RegisterListeners_PetLost_IndexesSynchronously(t *testing.T) {
+	petID := uuid.New()
+	photo := domain.Photo{ID: uuid.New(), PetID: petID, URL: "https://cdn.example.com/p1.jpg"}
+
+	hfSrv := newJinaTestServer(t, http.StatusOK)
+	defer hfSrv.Close()
+
+	embRepo := &mockEmbeddingRepo{}
+	photoRepo := &mockPhotoRepoForEmbedding{
+		findByPetIDFn: func(_ string) ([]domain.Photo, error) {
+			return []domain.Photo{photo}, nil
+		},
+	}
+
+	svc := newTestEmbeddingService(embRepo, &mockPetRepoForEmbedding{}, photoRepo, hfSrv)
+
+	bus := event.NewEventBus()
+	svc.RegisterListeners(bus)
+
+	bus.Publish("pet.lost", event.PetLostEvent{PetID: petID})
+
+	// No deadline, no poll: a synchronous subscriber must have finished inline.
+	if len(embRepo.upsertCalls) != 1 {
+		t.Fatalf("expected synchronous upsert after pet.lost, got %d", len(embRepo.upsertCalls))
+	}
+	if embRepo.upsertCalls[0].PetID != petID {
+		t.Errorf("upsert PetID got %v, want %v", embRepo.upsertCalls[0].PetID, petID)
+	}
+}
+
+// TestEmbeddingService_RegisterListeners_PhotoUploaded_IndexesSynchronously is
+// the photo.uploaded counterpart of the pet.lost sync test.
+func TestEmbeddingService_RegisterListeners_PhotoUploaded_IndexesSynchronously(t *testing.T) {
+	petID := uuid.New()
+	photoID := uuid.New()
+
+	hfSrv := newJinaTestServer(t, http.StatusOK)
+	defer hfSrv.Close()
+
+	embRepo := &mockEmbeddingRepo{}
+	petRepo := &mockPetRepoForEmbedding{
+		findByIDFn: func(_ string) (*domain.Pet, error) {
+			return &domain.Pet{ID: petID, Status: domain.PetStatusLost}, nil
+		},
+	}
+
+	svc := newTestEmbeddingService(embRepo, petRepo, &mockPhotoRepoForEmbedding{}, hfSrv)
+
+	bus := event.NewEventBus()
+	svc.RegisterListeners(bus)
+
+	bus.Publish("photo.uploaded", event.PhotoUploadedEvent{
+		PetID:     petID,
+		PhotoID:   photoID,
+		SecureURL: "https://cdn.example.com/photo.jpg",
+	})
+
+	if len(embRepo.upsertCalls) != 1 {
+		t.Fatalf("expected synchronous upsert after photo.uploaded, got %d", len(embRepo.upsertCalls))
 	}
 }
 
