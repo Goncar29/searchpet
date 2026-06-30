@@ -11,6 +11,7 @@ import (
 	_ "image/png" // register PNG decoder for image.Decode
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -33,8 +34,8 @@ const (
 	// jinaModel is the multimodal CLIP model. jinaDimensions uses Matryoshka
 	// truncation to 512 so the output matches the existing pgvector(512) column
 	// (no schema migration vs the previous openai/clip-vit-base-patch32).
-	jinaModel      = "jina-clip-v2"
-	jinaDimensions = 512
+	jinaModel         = "jina-clip-v2"
+	jinaDimensions    = 512
 	embeddingModelVer = "jina-clip-v2"
 
 	embeddingTimeout = 30 * time.Second
@@ -86,8 +87,20 @@ func (s *EmbeddingService) SetHTTPClientAndEndpoint(client *http.Client, endpoin
 }
 
 // RegisterListeners suscribe el servicio a los eventos relevantes del EventBus.
+//
+// Los tres eventos de INDEXADO (photo.uploaded, pet.lost, pet.stray) se
+// suscriben SINCRÓNICAMENTE (SubscribeSync): corren inline dentro del request
+// que los publica. Esto es deliberado — en el free tier de Render el instance se
+// suspende tras el response y mata las goroutines fire-and-forget, dejando el
+// embedding sin generar (sin INSERT y sin log). Corriendo dentro del request, el
+// trabajo termina mientras el instance sigue vivo. Cada handler es best-effort:
+// loguea el fallo y nunca rompe la operación que lo dispara.
+//
+// pet.found (borrado de embeddings) queda ASÍNCRONO: si falla, lo único que pasa
+// es que una mascota encontrada sigue apareciendo en la búsqueda hasta el próximo
+// reindex — benigno, no justifica bloquear el request.
 func (s *EmbeddingService) RegisterListeners(bus *event.EventBus) {
-	bus.Subscribe("photo.uploaded", func(payload interface{}) {
+	bus.SubscribeSync("photo.uploaded", func(payload interface{}) {
 		ev, ok := payload.(event.PhotoUploadedEvent)
 		if !ok {
 			s.logger.Warn("[embedding] payload inesperado en photo.uploaded")
@@ -96,7 +109,7 @@ func (s *EmbeddingService) RegisterListeners(bus *event.EventBus) {
 		s.HandlePhotoUploaded(ev)
 	})
 
-	bus.Subscribe("pet.lost", func(payload interface{}) {
+	bus.SubscribeSync("pet.lost", func(payload interface{}) {
 		ev, ok := payload.(event.PetLostEvent)
 		if !ok {
 			s.logger.Warn("[embedding] payload inesperado en pet.lost")
@@ -105,7 +118,7 @@ func (s *EmbeddingService) RegisterListeners(bus *event.EventBus) {
 		s.HandlePetLost(ev)
 	})
 
-	bus.Subscribe("pet.stray", func(payload interface{}) {
+	bus.SubscribeSync("pet.stray", func(payload interface{}) {
 		ev, ok := payload.(event.PetStrayEvent)
 		if !ok {
 			s.logger.Warn("[embedding] payload inesperado en pet.stray")
@@ -390,8 +403,57 @@ func downscaleForEmbedding(imageBytes []byte) (data []byte, mime string) {
 }
 
 // GenerateEmbeddingFromURL genera un vector CLIP desde una URL pública (ej: Cloudinary).
+// La URL se pasa por cloudinaryDownscaleURL para que Jina reciba una imagen acotada
+// a 512px en vez del original full-res (ver cloudinaryDownscaleURL).
 func (s *EmbeddingService) GenerateEmbeddingFromURL(ctx context.Context, imageURL string) ([]float32, error) {
-	return s.callEmbedding(ctx, imageURL)
+	return s.callEmbedding(ctx, cloudinaryDownscaleURL(imageURL))
+}
+
+// cloudinaryTransform downscales the indexed image to a 512px-bounded, quality-
+// optimized image. The search path already downscales the uploaded query bytes
+// to 512px; this keeps the INDEX path symmetric AND small.
+const cloudinaryTransform = "c_limit,w_512,h_512,q_auto"
+
+// cloudinaryUploadSegment marks where Cloudinary delivery transformations go in a
+// delivery URL: .../image/upload/<transforms>/v123/path.
+const cloudinaryUploadSegment = "/image/upload/"
+
+// cloudinaryDownscaleURL inserts a downscale transformation into a Cloudinary
+// delivery URL so the image Jina fetches is small. The index path sends a URL
+// straight to Jina, which would otherwise fetch the full-resolution original —
+// token-heavy enough that a burst (e.g. publishing several photos in a minute,
+// now that indexing runs synchronously) can trip Jina's free-tier per-minute
+// token cap (429 RATE_TOKEN_LIMIT_EXCEEDED). Cloudinary applies the resize on its
+// side (cached), so our backend adds no fetch or CPU.
+//
+// It only rewrites URLs of the exact shape PhotoService produces
+// (.../image/upload/v<digits>/...): a version segment guarantees no transformation
+// is present yet, so we never double-transform or corrupt a hand-built URL. Any
+// other URL (non-Cloudinary, or already transformed) is returned unchanged.
+func cloudinaryDownscaleURL(imageURL string) string {
+	idx := strings.Index(imageURL, cloudinaryUploadSegment)
+	if idx == -1 {
+		return imageURL
+	}
+	insertAt := idx + len(cloudinaryUploadSegment)
+	rest := imageURL[insertAt:]
+	if !isCloudinaryVersionSegment(rest) {
+		return imageURL
+	}
+	return imageURL[:insertAt] + cloudinaryTransform + "/" + rest
+}
+
+// isCloudinaryVersionSegment reports whether rest starts with a Cloudinary
+// version segment: "v" + one or more digits + "/".
+func isCloudinaryVersionSegment(rest string) bool {
+	if len(rest) < 2 || rest[0] != 'v' {
+		return false
+	}
+	i := 1
+	for i < len(rest) && rest[i] >= '0' && rest[i] <= '9' {
+		i++
+	}
+	return i > 1 && i < len(rest) && rest[i] == '/'
 }
 
 // SearchSimilar genera un embedding a partir de bytes de imagen y retorna las mascotas

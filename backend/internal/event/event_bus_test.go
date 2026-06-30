@@ -74,3 +74,58 @@ func TestEventBus_PanicEnListenerNoPropaganAlCaller(t *testing.T) {
 		t.Error("el segundo handler no se ejecutó después del panic del primero")
 	}
 }
+
+func TestEventBus_SubscribeSync_CorreInlineAntesDeQuePublishRetorne(t *testing.T) {
+	bus := event.NewEventBus()
+
+	// Sin WaitGroup ni sleep a propósito: un handler síncrono DEBE haber corrido
+	// inline, antes de que Publish retorne. Si fuera async, ran seguiría false.
+	ran := false
+	bus.SubscribeSync("pet.lost", func(_ interface{}) {
+		ran = true
+	})
+
+	bus.Publish("pet.lost", event.PetLostEvent{})
+
+	if !ran {
+		t.Fatal("el handler SubscribeSync no corrió sincrónicamente antes de retornar Publish")
+	}
+}
+
+func TestEventBus_SubscribeSync_PanicNoPropaganAlCaller(t *testing.T) {
+	bus := event.NewEventBus()
+
+	bus.SubscribeSync("pet.lost", func(_ interface{}) {
+		panic("boom")
+	})
+
+	// El panic de un handler síncrono no debe propagar al caller (request).
+	bus.Publish("pet.lost", event.PetLostEvent{})
+}
+
+func TestEventBus_SubscribeSync_YAsyncCoexisten(t *testing.T) {
+	bus := event.NewEventBus()
+
+	syncRan := false
+	bus.SubscribeSync("pet.lost", func(_ interface{}) { syncRan = true })
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	asyncRan := false
+	bus.Subscribe("pet.lost", func(_ interface{}) {
+		defer wg.Done()
+		asyncRan = true
+	})
+
+	bus.Publish("pet.lost", event.PetLostEvent{})
+
+	// El síncrono ya corrió inline.
+	if !syncRan {
+		t.Error("el handler síncrono no corrió inline")
+	}
+	// El async corre en goroutine — esperamos.
+	wg.Wait()
+	if !asyncRan {
+		t.Error("el handler asíncrono no corrió")
+	}
+}
