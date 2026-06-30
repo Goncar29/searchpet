@@ -11,6 +11,7 @@ import (
 	_ "image/png" // register PNG decoder for image.Decode
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -402,8 +403,57 @@ func downscaleForEmbedding(imageBytes []byte) (data []byte, mime string) {
 }
 
 // GenerateEmbeddingFromURL genera un vector CLIP desde una URL pública (ej: Cloudinary).
+// La URL se pasa por cloudinaryDownscaleURL para que Jina reciba una imagen acotada
+// a 512px en vez del original full-res (ver cloudinaryDownscaleURL).
 func (s *EmbeddingService) GenerateEmbeddingFromURL(ctx context.Context, imageURL string) ([]float32, error) {
-	return s.callEmbedding(ctx, imageURL)
+	return s.callEmbedding(ctx, cloudinaryDownscaleURL(imageURL))
+}
+
+// cloudinaryTransform downscales the indexed image to a 512px-bounded, quality-
+// optimized image. The search path already downscales the uploaded query bytes
+// to 512px; this keeps the INDEX path symmetric AND small.
+const cloudinaryTransform = "c_limit,w_512,h_512,q_auto"
+
+// cloudinaryUploadSegment marks where Cloudinary delivery transformations go in a
+// delivery URL: .../image/upload/<transforms>/v123/path.
+const cloudinaryUploadSegment = "/image/upload/"
+
+// cloudinaryDownscaleURL inserts a downscale transformation into a Cloudinary
+// delivery URL so the image Jina fetches is small. The index path sends a URL
+// straight to Jina, which would otherwise fetch the full-resolution original —
+// token-heavy enough that a burst (e.g. publishing several photos in a minute,
+// now that indexing runs synchronously) can trip Jina's free-tier per-minute
+// token cap (429 RATE_TOKEN_LIMIT_EXCEEDED). Cloudinary applies the resize on its
+// side (cached), so our backend adds no fetch or CPU.
+//
+// It only rewrites URLs of the exact shape PhotoService produces
+// (.../image/upload/v<digits>/...): a version segment guarantees no transformation
+// is present yet, so we never double-transform or corrupt a hand-built URL. Any
+// other URL (non-Cloudinary, or already transformed) is returned unchanged.
+func cloudinaryDownscaleURL(imageURL string) string {
+	idx := strings.Index(imageURL, cloudinaryUploadSegment)
+	if idx == -1 {
+		return imageURL
+	}
+	insertAt := idx + len(cloudinaryUploadSegment)
+	rest := imageURL[insertAt:]
+	if !isCloudinaryVersionSegment(rest) {
+		return imageURL
+	}
+	return imageURL[:insertAt] + cloudinaryTransform + "/" + rest
+}
+
+// isCloudinaryVersionSegment reports whether rest starts with a Cloudinary
+// version segment: "v" + one or more digits + "/".
+func isCloudinaryVersionSegment(rest string) bool {
+	if len(rest) < 2 || rest[0] != 'v' {
+		return false
+	}
+	i := 1
+	for i < len(rest) && rest[i] >= '0' && rest[i] <= '9' {
+		i++
+	}
+	return i > 1 && i < len(rest) && rest[i] == '/'
 }
 
 // SearchSimilar genera un embedding a partir de bytes de imagen y retorna las mascotas
