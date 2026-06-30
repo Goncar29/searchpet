@@ -20,7 +20,7 @@ import (
 
 	sqlmigrate "github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
-	_ "github.com/golang-migrate/migrate/v4/source/file"
+	"github.com/golang-migrate/migrate/v4/source/iofs"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -127,10 +127,18 @@ func SetupTestDB(t *testing.T) *gorm.DB {
 	// Run SQL migrations (graceful — warn but don't fail if migrations dir not found).
 	// Use runtime.Caller to get an absolute path to this file, then navigate to backend/migrations/.
 	// This is cwd-independent and works both locally and in CI.
+	//
+	// The source is loaded via the iofs driver over os.DirFS rather than a
+	// "file://" URL: golang-migrate's file source mangles Windows drive paths
+	// ("file://C:\..." parses "C:" as the host; "file:///C:/..." yields the
+	// invalid OS path "/C:/..."), which silently skipped EVERY migration locally
+	// on Windows. iofs takes a real fs.FS, so it is path-syntax agnostic.
 	_, thisFile, _, _ := runtime.Caller(0)
 	migrationsDir := filepath.Join(filepath.Dir(thisFile), "..", "..", "migrations")
-	m, merr := sqlmigrate.New("file://"+migrationsDir, dsn)
-	if merr != nil {
+	src, srcErr := iofs.New(os.DirFS(migrationsDir), ".")
+	if srcErr != nil {
+		t.Logf("WARNING: migrations unavailable (%v) — skipping SQL migrations", srcErr)
+	} else if m, merr := sqlmigrate.NewWithSourceInstance("iofs", src, dsn); merr != nil {
 		t.Logf("WARNING: migrations unavailable (%v) — skipping SQL migrations", merr)
 	} else {
 		upErr := m.Up()
