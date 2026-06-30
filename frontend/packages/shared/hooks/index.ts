@@ -152,6 +152,9 @@ export const useUpdatePet = () => {
     onSuccess: (_, { id }) => {
       queryClient.invalidateQueries({ queryKey: ['pets'] });
       queryClient.invalidateQueries({ queryKey: ['pets', id] });
+      // A status change (e.g. lost/found via the PetCard selector) moves the home
+      // lifetime impact counters — refresh them so they don't show a stale value.
+      queryClient.invalidateQueries({ queryKey: ['stats'] });
     },
   });
 };
@@ -175,6 +178,8 @@ export const useMarkPetAsFound = () => {
       queryClient.invalidateQueries({ queryKey: ['pets'] });
       // Invalidate reports so the map reflects the updated pet status immediately.
       queryClient.invalidateQueries({ queryKey: ['reports'] });
+      // Marking found bumps the "pets reunited" home counter.
+      queryClient.invalidateQueries({ queryKey: ['stats'] });
     },
   });
 };
@@ -222,6 +227,8 @@ export const usePublishLost = () => {
       queryClient.invalidateQueries({ queryKey: ['pets', pet.id] });
       queryClient.invalidateQueries({ queryKey: ['pets', 'mine'] });
       queryClient.invalidateQueries({ queryKey: ['reports'] });
+      // Publishing as lost opens a search episode → "searches started" counter.
+      queryClient.invalidateQueries({ queryKey: ['stats'] });
     },
   });
 };
@@ -259,6 +266,8 @@ const invalidatePublishStrayQueries = (queryClient: ReturnType<typeof useQueryCl
   queryClient.invalidateQueries({ queryKey: ['pets', 'mine'] });
   queryClient.invalidateQueries({ queryKey: ['pets', result.pet.id] });
   queryClient.invalidateQueries({ queryKey: ['reports'] });
+  // A stray sighting opens a search episode → "searches started" counter.
+  queryClient.invalidateQueries({ queryKey: ['stats'] });
 };
 
 // usePublishStray — chains createPet({ status: 'stray', initial_report }) with
