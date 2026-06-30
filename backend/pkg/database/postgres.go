@@ -115,6 +115,7 @@ func migrate(db *gorm.DB) error {
 		&domain.User{},
 		&domain.Pet{},
 		&domain.Report{},
+		&domain.PlatformEvent{},
 		&domain.Photo{},
 		&domain.Message{},
 		&domain.ShareLink{},

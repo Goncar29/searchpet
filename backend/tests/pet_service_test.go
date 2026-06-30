@@ -39,7 +39,7 @@ func TestUpdatePet_TransitionToFound_PublishesPetFound(t *testing.T) {
 		}
 	})
 
-	svc := service.NewPetService(repo, bus, nil, nil, nil)
+	svc := service.NewPetService(repo, bus, nil, nil, nil, nil)
 
 	_, err := svc.UpdatePet(reporterID.String(), petID.String(), dto.UpdatePetRequest{
 		Status: domain.PetStatusFound,

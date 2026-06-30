@@ -146,10 +146,10 @@
       "cta": "See lost pets"
     },
     "stats": {
-      "found": "Pets found",
-      "reports": "Reports published",
-      "users": "Registered users",
-      "pets": "Registered pets"
+      "reunited": "Pets reunited",
+      "searches": "Searches started",
+      "members": "Community members",
+      "registered": "Pets registered"
     },
     "how": {
       "title": "How does it work?",

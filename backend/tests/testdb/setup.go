@@ -33,6 +33,7 @@ var allModels = []interface{}{
 	&domain.User{},
 	&domain.Pet{},
 	&domain.Report{},
+	&domain.PlatformEvent{},
 	&domain.Photo{},
 	&domain.Message{},
 	&domain.ShareLink{},
@@ -56,6 +57,7 @@ var allModels = []interface{}{
 // allTableNames lists table names matching allModels for truncation.
 // Must be in reverse FK dependency order (children first).
 var allTableNames = []string{
+	"platform_events",
 	"admin_audit_logs",
 	"vets",
 	"user_reviews",

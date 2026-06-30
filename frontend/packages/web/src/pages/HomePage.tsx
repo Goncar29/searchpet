@@ -332,20 +332,20 @@ export function HomePage() {
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-10">
         <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-lg p-6 grid grid-cols-2 md:grid-cols-4 gap-6">
           <div className="text-center">
-            <p className="text-3xl font-bold text-primary">{stats?.found_pets || 0}</p>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{t('home:stats.found')}</p>
+            <p className="text-3xl font-bold text-primary">{stats?.pets_reunited || 0}</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{t('home:stats.reunited')}</p>
+          </div>
+          <div className="text-center">
+            <p className="text-3xl font-bold text-primary">{stats?.searches_started || 0}</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{t('home:stats.searches')}</p>
           </div>
           <div className="text-center">
             <p className="text-3xl font-bold text-primary">{stats?.total_users || 0}</p>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{t('home:stats.users')}</p>
-          </div>
-          <div className="text-center">
-            <p className="text-3xl font-bold text-primary">{stats?.total_reports || 0}</p>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{t('home:stats.reports')}</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{t('home:stats.members')}</p>
           </div>
           <div className="text-center">
             <p className="text-3xl font-bold text-primary">{stats?.total_pets || 0}</p>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{t('home:stats.pets')}</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{t('home:stats.registered')}</p>
           </div>
         </div>
       </section>

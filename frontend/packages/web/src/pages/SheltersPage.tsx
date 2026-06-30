@@ -20,7 +20,7 @@ export function SheltersPage() {
         <h2 className="text-xl font-bold mb-4 text-center">{t('shelters:impact')}</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="text-center">
-            <p className="text-3xl font-bold">{stats?.found_pets || 0}</p>
+            <p className="text-3xl font-bold">{stats?.pets_reunited || 0}</p>
             <p className="text-sm text-white/70">{t('shelters:impactFound')}</p>
           </div>
           <div className="text-center">
@@ -28,7 +28,7 @@ export function SheltersPage() {
             <p className="text-sm text-white/70">{t('shelters:impactUsers')}</p>
           </div>
           <div className="text-center">
-            <p className="text-3xl font-bold">{stats?.total_reports || 0}</p>
+            <p className="text-3xl font-bold">{stats?.searches_started || 0}</p>
             <p className="text-sm text-white/70">{t('shelters:impactReports')}</p>
           </div>
           <div className="text-center">

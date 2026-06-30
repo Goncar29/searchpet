@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"log"
 
 	"github.com/google/uuid"
@@ -36,6 +37,7 @@ type petService struct {
 	photoService PhotoService
 	reportRepo   repository.ReportRepository
 	uow          repository.UnitOfWork
+	statEvents   repository.StatEventRepository
 }
 
 // NewPetService es el constructor — recibe el repository, el bus de eventos, el servicio de fotos,
@@ -45,8 +47,22 @@ type petService struct {
 // reportRepo es opcional — si es nil, el closure report en MarkAsFound se omite.
 // uow es opcional en tests unitarios que no ejercitan el camino stray/publish-lost,
 // pero requerido en producción para crear strays con initial_report (ver router.go).
-func NewPetService(repo repository.PetRepository, eventBus *event.EventBus, photoService PhotoService, reportRepo repository.ReportRepository, uow repository.UnitOfWork) PetService {
-	return &petService{repo: repo, eventBus: eventBus, photoService: photoService, reportRepo: reportRepo, uow: uow}
+func NewPetService(repo repository.PetRepository, eventBus *event.EventBus, photoService PhotoService, reportRepo repository.ReportRepository, uow repository.UnitOfWork, statEvents repository.StatEventRepository) PetService {
+	return &petService{repo: repo, eventBus: eventBus, photoService: photoService, reportRepo: reportRepo, uow: uow, statEvents: statEvents}
+}
+
+// recordStat appends a lifetime impact event synchronously, in-request.
+// Best-effort: a failure is logged but never aborts the operation the event
+// describes (the status change already succeeded). It deliberately does NOT go
+// through the EventBus, whose fire-and-forget handlers drop failures silently.
+func (s *petService) recordStat(eventType string, petID uuid.UUID) {
+	if s.statEvents == nil {
+		return
+	}
+	id := petID
+	if err := s.statEvents.Record(context.Background(), eventType, &id); err != nil {
+		log.Printf("[pet_service] recordStat %s pet=%s: %v", eventType, petID, err)
+	}
 }
 
 // CreatePet crea una nueva mascota para el usuario autenticado.
@@ -139,6 +155,8 @@ func (s *petService) CreatePet(ownerID string, req dto.CreatePetRequest) (*domai
 		if err != nil {
 			return nil, err
 		}
+		// A new stray sighting opens a search episode.
+		s.recordStat(domain.StatEventSearchStarted, pet.ID)
 	} else {
 		if err := s.repo.Create(pet); err != nil {
 			return nil, err
@@ -240,6 +258,11 @@ func (s *petService) UpdatePet(ownerID string, petID string, req dto.UpdatePetRe
 		s.eventBus.Publish("pet.lost", event.PetLostEvent{PetID: pet.ID})
 	}
 
+	// Lifetime ledger: a registered->lost edit opens a new search episode.
+	if oldStatus != domain.PetStatusLost && pet.Status == domain.PetStatusLost {
+		s.recordStat(domain.StatEventSearchStarted, pet.ID)
+	}
+
 	// Publicamos pet.found cuando la transición es hacia "found".
 	// La UI marca "encontrada" desde el dropdown de estado del PetCard, que usa
 	// UpdatePet (no MarkAsFound) — sin este publish se saltaría la gamificación
@@ -255,6 +278,11 @@ func (s *petService) UpdatePet(ownerID string, petID string, req dto.UpdatePetRe
 			OwnerID: eventOwnerID,
 			PetName: pet.Name,
 		})
+	}
+
+	// Lifetime ledger: a transition into "found" reunites a pet.
+	if oldStatus != domain.PetStatusFound && pet.Status == domain.PetStatusFound {
+		s.recordStat(domain.StatEventPetFound, pet.ID)
 	}
 
 	// NOTE: there is no "pet.stray" publish here — the status machine (status_machine.go)
@@ -381,6 +409,9 @@ func (s *petService) MarkAsFound(ownerID string, petID string) (*domain.Pet, err
 		})
 	}
 
+	// Lifetime ledger: this pet was reunited with its family.
+	s.recordStat(domain.StatEventPetFound, pet.ID)
+
 	return pet, nil
 }
 
@@ -449,6 +480,9 @@ func (s *petService) PublishLost(ownerID string, petID string, req dto.PublishLo
 			Lng:        req.Longitude,
 		})
 	}
+
+	// Lifetime ledger: publishing as lost opens a new search episode.
+	s.recordStat(domain.StatEventSearchStarted, pet.ID)
 
 	return pet, nil
 }
