@@ -73,7 +73,8 @@ type Pet struct {
 	Gender      string     `gorm:"size:10" json:"gender,omitempty"` // male, female, unknown
 	MicrochipID *string    `gorm:"uniqueIndex;size:50" json:"microchip_id,omitempty"`
 	Status      string     `gorm:"size:50;default:'registered';index:idx_pets_type_status,composite:status" json:"status"` // registered, lost, stray, found, archived
-	Version     int        `gorm:"default:1" json:"version"`                                                               // optimistic concurrency — increment on each status change
+	Version          int        `gorm:"default:1" json:"version"`                                                               // optimistic concurrency — increment on each status change
+	CurrentEpisodeID *uuid.UUID `gorm:"type:uuid;index" json:"current_episode_id,omitempty"`
 	// ReporterContactPublic is an opt-in (stray pets only): when true, the
 	// reporter's profile phone is exposed publicly so logged-out finders can
 	// reach them. Defaults false — a good-samaritan's number is never published
@@ -93,6 +94,7 @@ type Pet struct {
 type Report struct {
 	ID                  uuid.UUID  `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
 	PetID               uuid.UUID  `gorm:"type:uuid;not null;index" json:"pet_id"`
+	EpisodeID           *uuid.UUID `gorm:"type:uuid;index" json:"episode_id,omitempty"`
 	ReporterID          uuid.UUID  `gorm:"type:uuid;not null;index" json:"reporter_id"`
 	Status              string     `gorm:"not null;size:50;index" json:"status"` // lost, found, sighting
 	Latitude            float64    `gorm:"type:decimal(10,8);not null" json:"latitude"`
@@ -107,6 +109,18 @@ type Report struct {
 	// Relaciones
 	Pet      Pet  `gorm:"foreignKey:PetID" json:"pet,omitempty"`
 	Reporter User `gorm:"foreignKey:ReporterID" json:"reporter,omitempty"`
+}
+
+// SearchEpisode is one continuous search for a pet: it opens when the pet
+// transitions into lost/stray and closes (ended_at + resolution) when it
+// leaves that state. Reports created while an episode is open belong to it.
+// The global map shows only the pet's CURRENT episode (pets.current_episode_id).
+type SearchEpisode struct {
+	ID         uuid.UUID  `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+	PetID      uuid.UUID  `gorm:"type:uuid;not null;index" json:"pet_id"`
+	StartedAt  time.Time  `gorm:"autoCreateTime;index" json:"started_at"`
+	EndedAt    *time.Time `json:"ended_at,omitempty"`
+	Resolution *string    `gorm:"size:50" json:"resolution,omitempty"`
 }
 
 // Photo representa una foto de mascota
