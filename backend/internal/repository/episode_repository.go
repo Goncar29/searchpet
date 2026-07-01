@@ -23,7 +23,9 @@ func (r *PostgresEpisodeRepository) Open(petID string) (*domain.SearchEpisode, e
 	if err != nil {
 		return nil, err
 	}
-	ep := &domain.SearchEpisode{PetID: pid}
+	// Pre-generate the ID so we never depend on GORM scanning RETURNING to know
+	// ep.ID — that ID is used immediately as a FK stamp on reports (see service layer).
+	ep := &domain.SearchEpisode{ID: uuid.New(), PetID: pid}
 	err = r.db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(ep).Error; err != nil {
 			return err
@@ -50,7 +52,7 @@ func (r *PostgresEpisodeRepository) CloseCurrent(petID string, resolution string
 func (r *PostgresEpisodeRepository) FindCurrent(petID string) (*domain.SearchEpisode, error) {
 	var ep domain.SearchEpisode
 	err := r.db.Where("pet_id = ?", petID).
-		Order("started_at DESC").
+		Order("started_at DESC, id DESC").
 		First(&ep).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil

@@ -22,6 +22,11 @@ func TestEpisodeRepository_OpenSetsCurrentAndCloseResolves(t *testing.T) {
 		t.Fatalf("create pet: %v", err)
 	}
 
+	// A pet with no episode yet: FindCurrent must return (nil, nil), not an error.
+	if noEp, err := epRepo.FindCurrent(pet.ID.String()); err != nil || noEp != nil {
+		t.Fatalf("expected (nil, nil) for a pet with no episode, got (%v, %v)", noEp, err)
+	}
+
 	ep, err := epRepo.Open(pet.ID.String())
 	if err != nil {
 		t.Fatalf("open episode: %v", err)
