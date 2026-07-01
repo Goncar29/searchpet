@@ -23,7 +23,7 @@ func TestPublishLostThenFound_RecordsLifetimeEvents_SurvivesDelete(t *testing.T)
 	reportRepo := repository.NewReportRepository(db)
 	statRepo := repository.NewStatEventRepository(db)
 	uow := repository.NewUnitOfWork(db)
-	svc := service.NewPetService(petRepo, nil, nil, reportRepo, uow, statRepo)
+	svc := service.NewPetService(petRepo, nil, nil, reportRepo, uow, statRepo, nil, nil)
 
 	owner := newTestUser(t, userRepo)
 	pet := &domain.Pet{

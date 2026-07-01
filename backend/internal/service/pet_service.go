@@ -38,6 +38,8 @@ type petService struct {
 	reportRepo   repository.ReportRepository
 	uow          repository.UnitOfWork
 	statEvents   repository.StatEventRepository
+	episodes     EpisodeService
+	episodeRepo  repository.EpisodeRepository
 }
 
 // NewPetService es el constructor — recibe el repository, el bus de eventos, el servicio de fotos,
@@ -47,8 +49,9 @@ type petService struct {
 // reportRepo es opcional — si es nil, el closure report en MarkAsFound se omite.
 // uow es opcional en tests unitarios que no ejercitan el camino stray/publish-lost,
 // pero requerido en producción para crear strays con initial_report (ver router.go).
-func NewPetService(repo repository.PetRepository, eventBus *event.EventBus, photoService PhotoService, reportRepo repository.ReportRepository, uow repository.UnitOfWork, statEvents repository.StatEventRepository) PetService {
-	return &petService{repo: repo, eventBus: eventBus, photoService: photoService, reportRepo: reportRepo, uow: uow, statEvents: statEvents}
+// episodes y episodeRepo son opcionales — si son nil, el manejo de episodios se omite.
+func NewPetService(repo repository.PetRepository, eventBus *event.EventBus, photoService PhotoService, reportRepo repository.ReportRepository, uow repository.UnitOfWork, statEvents repository.StatEventRepository, episodes EpisodeService, episodeRepo repository.EpisodeRepository) PetService {
+	return &petService{repo: repo, eventBus: eventBus, photoService: photoService, reportRepo: reportRepo, uow: uow, statEvents: statEvents, episodes: episodes, episodeRepo: episodeRepo}
 }
 
 // recordStat appends a lifetime impact event synchronously, in-request.
@@ -150,6 +153,14 @@ func (s *petService) CreatePet(ownerID string, req dto.CreatePetRequest) (*domai
 				return err
 			}
 			report.PetID = pet.ID
+			// Open a search episode for the new stray pet and stamp the initial report.
+			if tx.Episodes != nil {
+				ep, err := tx.Episodes.Open(pet.ID.String())
+				if err != nil {
+					return err
+				}
+				report.EpisodeID = &ep.ID
+			}
 			return tx.Reports.Create(report)
 		})
 		if err != nil {
@@ -251,6 +262,13 @@ func (s *petService) UpdatePet(ownerID string, petID string, req dto.UpdatePetRe
 
 	if err := s.repo.Update(pet); err != nil {
 		return nil, err
+	}
+
+	// Open or close a search episode for status transitions.
+	if req.Status != "" && req.Status != oldStatus && s.episodes != nil {
+		if err := s.episodes.HandleTransition(pet.ID.String(), oldStatus, pet.Status); err != nil {
+			return nil, err
+		}
 	}
 
 	// Publicamos pet.lost cuando la transición es hacia "lost"
@@ -372,6 +390,8 @@ func (s *petService) MarkAsFound(ownerID string, petID string) (*domain.Pet, err
 		return pet, nil
 	}
 
+	oldStatus := pet.Status
+
 	if err := s.repo.UpdateStatus(petID, domain.PetStatusFound); err != nil {
 		return nil, err
 	}
@@ -390,8 +410,21 @@ func (s *petService) MarkAsFound(ownerID string, petID string) (*domain.Pet, err
 			Status:              "found",
 			LocationDescription: "Closure report",
 		}
+		// Stamp the closure report with the pet's current episode BEFORE closing it.
+		if s.episodeRepo != nil {
+			if cur, err := s.episodeRepo.FindCurrent(petID); err == nil && cur != nil {
+				closureReport.EpisodeID = &cur.ID
+			}
+		}
 		if err := s.reportRepo.Create(closureReport); err != nil {
 			log.Printf("[pet_service] Error creating closure report for pet %s: %v", petID, err)
+		}
+	}
+
+	// Close the search episode for this pet.
+	if s.episodes != nil {
+		if err := s.episodes.HandleTransition(petID, oldStatus, domain.PetStatusFound); err != nil {
+			return nil, err
 		}
 	}
 
@@ -455,6 +488,14 @@ func (s *petService) PublishLost(ownerID string, petID string, req dto.PublishLo
 			Latitude:            req.Latitude,
 			Longitude:           req.Longitude,
 			LocationDescription: req.Note,
+		}
+		// Open a search episode and stamp the initial location report.
+		if tx.Episodes != nil {
+			ep, err := tx.Episodes.Open(petID)
+			if err != nil {
+				return err
+			}
+			report.EpisodeID = &ep.ID
 		}
 		return tx.Reports.Create(report)
 	})
