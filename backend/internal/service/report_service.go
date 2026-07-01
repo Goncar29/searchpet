@@ -119,17 +119,37 @@ func (s *reportService) CreateReport(reporterID string, req CreateReportRequest)
 	switch req.Status {
 	case "found":
 		_ = s.petRepo.UpdateStatus(req.PetID, domain.PetStatusFound)
-		// Cada transición hacia "found" es un reencuentro (cuenta el episodio).
+		// Cada transición hacia "found" es un reencuentro: cuenta el episodio y
+		// publica pet.found — el MISMO evento de dominio que emite PetService, para
+		// que este camino (botón "Reportar encontrado") no se saltee la gamificación
+		// (badge al héroe), la notificación al dueño ni la limpieza del embedding CLIP.
 		if oldStatus != domain.PetStatusFound {
 			s.recordStat(domain.StatEventPetFound, loaded.PetID)
+			if s.eventBus != nil {
+				// OwnerID es nil-safe: los strays no tienen dueño.
+				var eventOwnerID uuid.UUID
+				if loaded.Pet.OwnerID != nil {
+					eventOwnerID = *loaded.Pet.OwnerID
+				}
+				s.eventBus.Publish("pet.found", event.PetFoundEvent{
+					PetID:   loaded.PetID,
+					OwnerID: eventOwnerID,
+					PetName: loaded.Pet.Name,
+				})
+			}
 		}
 	case "lost":
 		_ = s.petRepo.UpdateStatus(req.PetID, domain.PetStatusLost)
 		// Transición hacia "lost" abre una nueva búsqueda. Excluimos lost/stray
 		// previos: ya son una búsqueda activa, no un episodio nuevo (re-pérdida
-		// found→lost sí cuenta).
+		// found→lost sí cuenta). Publica pet.lost para RE-INDEXAR los embeddings
+		// CLIP: una mascota encontrada tiene sus embeddings borrados (HandlePetFound),
+		// así que sin esto una re-pérdida quedaría invisible en la búsqueda por imagen.
 		if oldStatus != domain.PetStatusLost && oldStatus != domain.PetStatusStray {
 			s.recordStat(domain.StatEventSearchStarted, loaded.PetID)
+			if s.eventBus != nil {
+				s.eventBus.Publish("pet.lost", event.PetLostEvent{PetID: loaded.PetID})
+			}
 		}
 	}
 

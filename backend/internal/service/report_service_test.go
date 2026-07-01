@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"lost-pets/internal/domain"
+	"lost-pets/internal/event"
 	"lost-pets/internal/service"
 )
 
@@ -246,6 +247,100 @@ func TestCreateReport_Sighting_RecordsNothing(t *testing.T) {
 	}
 	if len(stats.recorded) != 0 {
 		t.Errorf("expected no ledger events for sighting, got %v", stats.recorded)
+	}
+}
+
+// ============================================================
+// Tests: CreateReport — domain events (pet.found / pet.lost)
+// ============================================================
+//
+// El botón "Reportar encontrado/perdido" pasa por CreateReport, no por
+// PetService. Sin publicar los eventos de dominio, este camino se saltea la
+// gamificación, la notificación al dueño (pet.found) y el re-indexado de
+// embeddings CLIP (pet.lost) — el mismo contrato que cumple PetService.
+
+func TestCreateReport_FoundTransition_PublishesPetFound(t *testing.T) {
+	petID := uuid.New()
+	// lost → found = reencuentro.
+	rRepo := &mockReportRepo{preloaded: preloadedReport(petID, domain.PetStatusLost)}
+	bus := event.NewEventBus()
+	got := make(chan event.PetFoundEvent, 1)
+	bus.Subscribe("pet.found", func(p interface{}) {
+		if e, ok := p.(event.PetFoundEvent); ok {
+			got <- e
+		}
+	})
+	svc := service.NewReportService(rRepo, &mockPetRepo{pet: petWithStatus(uuid.New(), domain.PetStatusLost)}, bus, nil)
+
+	req := validReportReq(petID.String())
+	req.Status = "found"
+	if _, err := svc.CreateReport(uuid.New().String(), req); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	select {
+	case e := <-got:
+		if e.PetID != petID {
+			t.Errorf("pet.found PetID: got %v, want %v", e.PetID, petID)
+		}
+	case <-time.After(500 * time.Millisecond):
+		t.Error("timeout waiting for pet.found event")
+	}
+}
+
+func TestCreateReport_LostTransition_PublishesPetLost(t *testing.T) {
+	petID := uuid.New()
+	// found → lost = re-pérdida: debe re-indexar embeddings.
+	rRepo := &mockReportRepo{preloaded: preloadedReport(petID, domain.PetStatusFound)}
+	bus := event.NewEventBus()
+	got := make(chan event.PetLostEvent, 1)
+	bus.Subscribe("pet.lost", func(p interface{}) {
+		if e, ok := p.(event.PetLostEvent); ok {
+			got <- e
+		}
+	})
+	svc := service.NewReportService(rRepo, &mockPetRepo{pet: petWithStatus(uuid.New(), domain.PetStatusFound)}, bus, nil)
+
+	req := validReportReq(petID.String())
+	req.Status = "lost"
+	if _, err := svc.CreateReport(uuid.New().String(), req); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	select {
+	case e := <-got:
+		if e.PetID != petID {
+			t.Errorf("pet.lost PetID: got %v, want %v", e.PetID, petID)
+		}
+	case <-time.After(500 * time.Millisecond):
+		t.Error("timeout waiting for pet.lost event")
+	}
+}
+
+func TestCreateReport_AlreadyLost_DoesNotPublishPetLost(t *testing.T) {
+	petID := uuid.New()
+	// lost → lost: la búsqueda ya está activa, no re-publica pet.lost.
+	rRepo := &mockReportRepo{preloaded: preloadedReport(petID, domain.PetStatusLost)}
+	bus := event.NewEventBus()
+	got := make(chan event.PetLostEvent, 1)
+	bus.Subscribe("pet.lost", func(p interface{}) {
+		if e, ok := p.(event.PetLostEvent); ok {
+			got <- e
+		}
+	})
+	svc := service.NewReportService(rRepo, &mockPetRepo{pet: petWithStatus(uuid.New(), domain.PetStatusLost)}, bus, nil)
+
+	req := validReportReq(petID.String())
+	req.Status = "lost"
+	if _, err := svc.CreateReport(uuid.New().String(), req); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	select {
+	case <-got:
+		t.Error("pet.lost should NOT be published when pet was already lost")
+	case <-time.After(200 * time.Millisecond):
+		// esperado: sin transición, sin evento
 	}
 }
 
