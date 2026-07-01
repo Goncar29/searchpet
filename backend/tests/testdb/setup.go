@@ -49,6 +49,7 @@ var allTableNames = []string{
 	"messages",
 	"photos",
 	"reports",
+	"search_episodes",
 	"pets",
 	"shelters",
 	"users",
