@@ -62,17 +62,17 @@ type User struct {
 
 // Pet representa una mascota registrada
 type Pet struct {
-	ID          uuid.UUID  `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
-	OwnerID     *uuid.UUID `gorm:"type:uuid;index" json:"owner_id,omitempty"`    // nullable — nil for stray pets
-	ReporterID  *uuid.UUID `gorm:"type:uuid;index" json:"reporter_id,omitempty"` // populated for stray pets (the user who reported it)
-	Name        string     `gorm:"not null;size:100" json:"name"`
-	Type        string     `gorm:"not null;size:50;index:idx_pets_type_status,composite:type" json:"type"` // perro, gato, pajaro, otro
-	Breed       string     `gorm:"size:100" json:"breed,omitempty"`
-	Color       string     `gorm:"size:100" json:"color,omitempty"`
-	Description string     `gorm:"type:text" json:"description,omitempty"`
-	Gender      string     `gorm:"size:10" json:"gender,omitempty"` // male, female, unknown
-	MicrochipID *string    `gorm:"uniqueIndex;size:50" json:"microchip_id,omitempty"`
-	Status      string     `gorm:"size:50;default:'registered';index:idx_pets_type_status,composite:status" json:"status"` // registered, lost, stray, found, archived
+	ID               uuid.UUID  `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+	OwnerID          *uuid.UUID `gorm:"type:uuid;index" json:"owner_id,omitempty"`    // nullable — nil for stray pets
+	ReporterID       *uuid.UUID `gorm:"type:uuid;index" json:"reporter_id,omitempty"` // populated for stray pets (the user who reported it)
+	Name             string     `gorm:"not null;size:100" json:"name"`
+	Type             string     `gorm:"not null;size:50;index:idx_pets_type_status,composite:type" json:"type"` // perro, gato, pajaro, otro
+	Breed            string     `gorm:"size:100" json:"breed,omitempty"`
+	Color            string     `gorm:"size:100" json:"color,omitempty"`
+	Description      string     `gorm:"type:text" json:"description,omitempty"`
+	Gender           string     `gorm:"size:10" json:"gender,omitempty"` // male, female, unknown
+	MicrochipID      *string    `gorm:"uniqueIndex;size:50" json:"microchip_id,omitempty"`
+	Status           string     `gorm:"size:50;default:'registered';index:idx_pets_type_status,composite:status" json:"status"` // registered, lost, stray, found, archived
 	Version          int        `gorm:"default:1" json:"version"`                                                               // optimistic concurrency — increment on each status change
 	CurrentEpisodeID *uuid.UUID `gorm:"type:uuid;index" json:"current_episode_id,omitempty"`
 	// ReporterContactPublic is an opt-in (stray pets only): when true, the
