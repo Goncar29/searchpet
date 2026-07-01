@@ -34,11 +34,12 @@ func (h *StatsHandler) GetStats(c *gin.Context) {
 
 	// Lifetime impact numbers come from the append-only platform_events ledger,
 	// NOT from COUNT() over pets/reports — those decrease on status changes and
-	// hard deletes. pets_reunited counts distinct pets ever marked found;
+	// hard deletes. Both counters count EPISODES, not distinct pets: pets_reunited
+	// counts every reunification (a pet lost & found again adds +1 each time);
 	// searches_started counts every lost/stray search opened.
 	if err := h.db.Model(&domain.PlatformEvent{}).
-		Where("event_type = ? AND pet_id IS NOT NULL", domain.StatEventPetFound).
-		Distinct("pet_id").Count(&petsReunited).Error; err != nil {
+		Where("event_type = ?", domain.StatEventPetFound).
+		Count(&petsReunited).Error; err != nil {
 		writeError(c, http.StatusServiceUnavailable, domain.ErrInternal)
 		return
 	}

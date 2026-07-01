@@ -13,7 +13,13 @@ import (
 
 func newReportSvc(rRepo *mockReportRepo, pRepo *mockPetRepo) service.ReportService {
 	// eventBus nil → los eventos no se publican, sin side-effects en unit tests
-	return service.NewReportService(rRepo, pRepo, nil)
+	// statEvents nil → el lifetime ledger no se registra (los tests que lo verifican
+	// usan newReportSvcWithStats)
+	return service.NewReportService(rRepo, pRepo, nil, nil)
+}
+
+func newReportSvcWithStats(rRepo *mockReportRepo, pRepo *mockPetRepo, stats *mockStatEventRepo) service.ReportService {
+	return service.NewReportService(rRepo, pRepo, nil, stats)
 }
 
 func validReportReq(petID string) service.CreateReportRequest {
@@ -156,6 +162,94 @@ func TestCreateReport_SightingStatus_NoStatusUpdate(t *testing.T) {
 }
 
 // ============================================================
+// Tests: CreateReport — lifetime impact ledger (home counters)
+// ============================================================
+//
+// El botón "Reportar perdido" de MyPets es el ÚNICO camino normal para marcar
+// una mascota como perdida y pasa por CreateReport (no por PetService). Por eso
+// CreateReport debe registrar search_started/pet_found en el ledger, gateado por
+// transición para contar EPISODIOS y no re-registrar búsquedas ya activas.
+
+// preloadedReport arma el reporte que FindByID devuelve, con el Pet en su estado
+// ANTERIOR al UpdateStatus (loaded.Pet.Status = oldStatus).
+func preloadedReport(petID uuid.UUID, oldStatus string) *domain.Report {
+	pet := petWithStatus(uuid.New(), oldStatus)
+	pet.ID = petID
+	return &domain.Report{ID: uuid.New(), PetID: petID, Pet: *pet}
+}
+
+func TestCreateReport_LostReport_RecordsSearchStarted(t *testing.T) {
+	petID := uuid.New()
+	// found → lost = re-pérdida: debe abrir una nueva búsqueda.
+	rRepo := &mockReportRepo{preloaded: preloadedReport(petID, domain.PetStatusFound)}
+	stats := &mockStatEventRepo{}
+	svc := newReportSvcWithStats(rRepo, &mockPetRepo{pet: petWithStatus(uuid.New(), domain.PetStatusFound)}, stats)
+
+	req := validReportReq(petID.String())
+	req.Status = "lost"
+
+	if _, err := svc.CreateReport(uuid.New().String(), req); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(stats.recorded) != 1 || stats.recorded[0] != domain.StatEventSearchStarted {
+		t.Errorf("expected [%s], got %v", domain.StatEventSearchStarted, stats.recorded)
+	}
+}
+
+func TestCreateReport_LostReport_AlreadyLost_RecordsNothing(t *testing.T) {
+	petID := uuid.New()
+	// lost → lost: la búsqueda ya está activa, no es un episodio nuevo.
+	rRepo := &mockReportRepo{preloaded: preloadedReport(petID, domain.PetStatusLost)}
+	stats := &mockStatEventRepo{}
+	svc := newReportSvcWithStats(rRepo, &mockPetRepo{pet: petWithStatus(uuid.New(), domain.PetStatusLost)}, stats)
+
+	req := validReportReq(petID.String())
+	req.Status = "lost"
+
+	if _, err := svc.CreateReport(uuid.New().String(), req); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(stats.recorded) != 0 {
+		t.Errorf("expected no ledger events for already-lost pet, got %v", stats.recorded)
+	}
+}
+
+func TestCreateReport_FoundReport_RecordsPetFound(t *testing.T) {
+	petID := uuid.New()
+	// lost → found = reencuentro.
+	rRepo := &mockReportRepo{preloaded: preloadedReport(petID, domain.PetStatusLost)}
+	stats := &mockStatEventRepo{}
+	svc := newReportSvcWithStats(rRepo, &mockPetRepo{pet: petWithStatus(uuid.New(), domain.PetStatusLost)}, stats)
+
+	req := validReportReq(petID.String())
+	req.Status = "found"
+
+	if _, err := svc.CreateReport(uuid.New().String(), req); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(stats.recorded) != 1 || stats.recorded[0] != domain.StatEventPetFound {
+		t.Errorf("expected [%s], got %v", domain.StatEventPetFound, stats.recorded)
+	}
+}
+
+func TestCreateReport_Sighting_RecordsNothing(t *testing.T) {
+	petID := uuid.New()
+	rRepo := &mockReportRepo{preloaded: preloadedReport(petID, domain.PetStatusLost)}
+	stats := &mockStatEventRepo{}
+	svc := newReportSvcWithStats(rRepo, &mockPetRepo{pet: petWithStatus(uuid.New(), domain.PetStatusLost)}, stats)
+
+	req := validReportReq(petID.String())
+	req.Status = "sighting"
+
+	if _, err := svc.CreateReport(uuid.New().String(), req); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(stats.recorded) != 0 {
+		t.Errorf("expected no ledger events for sighting, got %v", stats.recorded)
+	}
+}
+
+// ============================================================
 // Tests: GetNearbyReports
 // ============================================================
 
@@ -221,7 +315,7 @@ func TestReportService_Delete_DelegatesToRepo(t *testing.T) {
 	repo := &mockReportRepo{
 		deleteFn: func(_ context.Context, id uuid.UUID) error { deletedID = id; return nil },
 	}
-	svc := service.NewReportService(repo, nil, nil)
+	svc := service.NewReportService(repo, nil, nil, nil)
 
 	id := uuid.New()
 	if err := svc.Delete(context.Background(), id); err != nil {
@@ -236,7 +330,7 @@ func TestReportService_Delete_PropagatesNotFound(t *testing.T) {
 	repo := &mockReportRepo{
 		deleteFn: func(_ context.Context, _ uuid.UUID) error { return domain.ErrReportNotFound },
 	}
-	svc := service.NewReportService(repo, nil, nil)
+	svc := service.NewReportService(repo, nil, nil, nil)
 
 	err := svc.Delete(context.Background(), uuid.New())
 	if !errors.Is(err, domain.ErrReportNotFound) {

@@ -101,3 +101,31 @@ func (m *mockReportRepo) Delete(ctx context.Context, id uuid.UUID) error {
 
 // Compile-time guard: the mock must stay in sync with the ReportRepository interface.
 var _ repository.ReportRepository = (*mockReportRepo)(nil)
+
+// ============================================================
+// Mock: StatEventRepository (append-only lifetime ledger)
+// ============================================================
+
+type mockStatEventRepo struct {
+	recorded []string      // event types passed to Record, in order
+	recordErr error        // if set, Record returns it (best-effort path)
+}
+
+func (m *mockStatEventRepo) Record(_ context.Context, eventType string, _ *uuid.UUID) error {
+	if m.recordErr != nil {
+		return m.recordErr
+	}
+	m.recorded = append(m.recorded, eventType)
+	return nil
+}
+
+func (m *mockStatEventRepo) CountByType(_ context.Context, _ string) (int64, error) {
+	return 0, nil
+}
+
+func (m *mockStatEventRepo) CountDistinctPets(_ context.Context, _ string) (int64, error) {
+	return 0, nil
+}
+
+// Compile-time guard: the mock must stay in sync with the StatEventRepository interface.
+var _ repository.StatEventRepository = (*mockStatEventRepo)(nil)
