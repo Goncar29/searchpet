@@ -20,20 +20,34 @@ func TestEpisodeService_HandleTransition_OpensAndCloses(t *testing.T) {
 	owner := newTestUser(t, userRepo)
 	pet := &domain.Pet{ID: uuid.New(), OwnerID: ptrUUID(owner.ID), Name: "Fido",
 		Type: "perro", Status: domain.PetStatusRegistered}
-	petRepo.Create(pet)
+	if err := petRepo.Create(pet); err != nil {
+		t.Fatalf("create pet: %v", err)
+	}
 
 	// registered -> lost : opens
 	if err := svc.HandleTransition(pet.ID.String(), domain.PetStatusRegistered, domain.PetStatusLost); err != nil {
 		t.Fatalf("open transition: %v", err)
 	}
-	cur, _ := epRepo.FindCurrent(pet.ID.String())
+	cur, err := epRepo.FindCurrent(pet.ID.String())
+	if err != nil {
+		t.Fatalf("find current: %v", err)
+	}
 	if cur == nil || cur.EndedAt != nil {
 		t.Fatalf("expected one open episode, got %#v", cur)
 	}
 	firstEpisode := cur.ID
 
-	// lost -> found : closes with resolution=found
-	if err := svc.HandleTransition(pet.ID.String(), domain.PetStatusLost, domain.PetStatusFound); err != nil {
+	// lost -> stray : active -> active, no-op (same open episode, not split)
+	if err := svc.HandleTransition(pet.ID.String(), domain.PetStatusLost, domain.PetStatusStray); err != nil {
+		t.Fatalf("active->active transition: %v", err)
+	}
+	cur, _ = epRepo.FindCurrent(pet.ID.String())
+	if cur.ID != firstEpisode || cur.EndedAt != nil {
+		t.Fatalf("lost->stray must keep the same OPEN episode, got %#v", cur)
+	}
+
+	// stray -> found : closes with resolution=found
+	if err := svc.HandleTransition(pet.ID.String(), domain.PetStatusStray, domain.PetStatusFound); err != nil {
 		t.Fatalf("close transition: %v", err)
 	}
 	cur, _ = epRepo.FindCurrent(pet.ID.String())
@@ -41,13 +55,13 @@ func TestEpisodeService_HandleTransition_OpensAndCloses(t *testing.T) {
 		t.Fatalf("expected closed found episode, got %#v", cur)
 	}
 
-	// found -> archived : no-op (no new episode, still same closed one)
+	// found -> archived : no-op (no new episode, episode stays closed)
 	if err := svc.HandleTransition(pet.ID.String(), domain.PetStatusFound, domain.PetStatusArchived); err != nil {
 		t.Fatalf("noop transition: %v", err)
 	}
 	cur, _ = epRepo.FindCurrent(pet.ID.String())
-	if cur.ID != firstEpisode {
-		t.Fatalf("found->archived must not create a new episode")
+	if cur.ID != firstEpisode || cur.EndedAt == nil {
+		t.Fatalf("found->archived must keep the same CLOSED episode, got %#v", cur)
 	}
 
 	// archived -> lost (re-lost) : opens a SECOND episode
