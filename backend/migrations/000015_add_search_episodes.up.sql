@@ -10,6 +10,22 @@ CREATE TABLE IF NOT EXISTS search_episodes (
 CREATE INDEX IF NOT EXISTS idx_search_episodes_pet_started
     ON search_episodes (pet_id, started_at DESC);
 
+-- AutoMigrate runs BEFORE this SQL migration and creates search_episodes from the
+-- struct WITHOUT the pet_id FK or the started_at default (so the inline CREATE TABLE
+-- clauses above are a no-op on any real deploy). Apply them idempotently here.
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'fk_search_episodes_pet'
+    ) THEN
+        ALTER TABLE search_episodes
+            ADD CONSTRAINT fk_search_episodes_pet
+            FOREIGN KEY (pet_id) REFERENCES pets (id) ON DELETE CASCADE;
+    END IF;
+END $$;
+
+ALTER TABLE search_episodes ALTER COLUMN started_at SET DEFAULT now();
+
 -- reports.episode_id: which episode a report belongs to. SET NULL on episode delete
 -- so reports survive (consistent with the report_abuses FK pattern in 000014).
 ALTER TABLE reports
