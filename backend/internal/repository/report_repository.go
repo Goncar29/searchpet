@@ -86,6 +86,12 @@ func (r *PostgresReportRepository) Delete(ctx context.Context, id uuid.UUID) err
 	return nil
 }
 
+// SetEpisodeID stamps an existing report with its search episode ID.
+func (r *PostgresReportRepository) SetEpisodeID(reportID string, episodeID uuid.UUID) error {
+	return r.db.Model(&domain.Report{}).Where("id = ?", reportID).
+		Update("episode_id", episodeID).Error
+}
+
 // FindNearby busca reportes dentro de un radio usando PostGIS.
 // ST_DWithin verifica si dos puntos están dentro del radio en metros.
 // ST_Distance calcula la distancia exacta para ordenar los resultados del más cercano al más lejano.

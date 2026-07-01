@@ -38,6 +38,8 @@ type ReportRepository interface {
 	UpdateVerified(ctx context.Context, id uuid.UUID, verifiedBy uuid.UUID) error
 	// Delete removes a report by id (admin moderation). Returns ErrReportNotFound if absent.
 	Delete(ctx context.Context, id uuid.UUID) error
+	// SetEpisodeID stamps an existing report with its search episode ID.
+	SetEpisodeID(reportID string, episodeID uuid.UUID) error
 }
 
 // PhotoRepository define el contrato para acceder a datos de fotos de mascotas.
