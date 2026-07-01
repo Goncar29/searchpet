@@ -69,6 +69,7 @@ func TestReportRepository_FindNearby_Found(t *testing.T) {
 	userRepo := repository.NewUserRepository(gormDB)
 	petRepo := repository.NewPetRepository(gormDB)
 	reportRepo := repository.NewReportRepository(gormDB)
+	epRepo := repository.NewEpisodeRepository(gormDB)
 
 	owner := newTestUser(t, userRepo)
 	pet := &domain.Pet{ID: uuid.New(), OwnerID: ptrUUID(owner.ID), Name: "Nearby Dog", Type: "perro", Status: domain.PetStatusLost}
@@ -76,7 +77,12 @@ func TestReportRepository_FindNearby_Found(t *testing.T) {
 		t.Fatalf("Create pet: %v", err)
 	}
 
-	// Place report exactly at Montevideo center
+	ep, err := epRepo.Open(pet.ID.String())
+	if err != nil {
+		t.Fatalf("Open episode: %v", err)
+	}
+
+	// Place report exactly at Montevideo center, stamped with current episode.
 	report := &domain.Report{
 		ID:         uuid.New(),
 		PetID:      pet.ID,
@@ -84,6 +90,7 @@ func TestReportRepository_FindNearby_Found(t *testing.T) {
 		Status:     "lost",
 		Latitude:   mvdLat,
 		Longitude:  mvdLng,
+		EpisodeID:  &ep.ID,
 	}
 	if err := reportRepo.Create(report); err != nil {
 		t.Fatalf("Create report: %v", err)
@@ -179,6 +186,7 @@ func TestReportRepository_FindNearby_OrderedByDistance(t *testing.T) {
 	userRepo := repository.NewUserRepository(gormDB)
 	petRepo := repository.NewPetRepository(gormDB)
 	reportRepo := repository.NewReportRepository(gormDB)
+	epRepo := repository.NewEpisodeRepository(gormDB)
 
 	owner := newTestUser(t, userRepo)
 
@@ -190,10 +198,19 @@ func TestReportRepository_FindNearby_OrderedByDistance(t *testing.T) {
 		}
 	}
 
+	ep1, err := epRepo.Open(pet1.ID.String())
+	if err != nil {
+		t.Fatalf("Open episode pet1: %v", err)
+	}
+	ep2, err := epRepo.Open(pet2.ID.String())
+	if err != nil {
+		t.Fatalf("Open episode pet2: %v", err)
+	}
+
 	// close: ~111 m north of center
-	close := &domain.Report{ID: uuid.New(), PetID: pet1.ID, ReporterID: owner.ID, Status: "lost", Latitude: mvdLat + 0.001, Longitude: mvdLng}
+	close := &domain.Report{ID: uuid.New(), PetID: pet1.ID, ReporterID: owner.ID, Status: "lost", Latitude: mvdLat + 0.001, Longitude: mvdLng, EpisodeID: &ep1.ID}
 	// far: ~555 m north of center
-	far := &domain.Report{ID: uuid.New(), PetID: pet2.ID, ReporterID: owner.ID, Status: "lost", Latitude: mvdLat + 0.005, Longitude: mvdLng}
+	far := &domain.Report{ID: uuid.New(), PetID: pet2.ID, ReporterID: owner.ID, Status: "lost", Latitude: mvdLat + 0.005, Longitude: mvdLng, EpisodeID: &ep2.ID}
 	for _, r := range []*domain.Report{far, close} { // insert far first to rule out insertion order
 		if err := reportRepo.Create(r); err != nil {
 			t.Fatalf("Create report: %v", err)
@@ -232,6 +249,7 @@ func TestReportRepository_FindNearby_FiltersByPetStatus(t *testing.T) {
 	userRepo := repository.NewUserRepository(gormDB)
 	petRepo := repository.NewPetRepository(gormDB)
 	reportRepo := repository.NewReportRepository(gormDB)
+	epRepo := repository.NewEpisodeRepository(gormDB)
 
 	owner := newTestUser(t, userRepo)
 
@@ -245,12 +263,24 @@ func TestReportRepository_FindNearby_FiltersByPetStatus(t *testing.T) {
 		}
 	}
 
+	// Open episodes for the two visible pets so their reports satisfy the
+	// episode-scope filter (reports.episode_id = pets.current_episode_id).
+	// registeredPet and archivedPet are excluded by status filter regardless.
+	epFound, err := epRepo.Open(foundPet.ID.String())
+	if err != nil {
+		t.Fatalf("Open episode foundPet: %v", err)
+	}
+	epLost, err := epRepo.Open(lostPet.ID.String())
+	if err != nil {
+		t.Fatalf("Open episode lostPet: %v", err)
+	}
+
 	// All reports sit at the exact same point — only the pet's current status
-	// should determine visibility.
+	// (and episode scope) determines visibility.
 	hiddenRegistered := &domain.Report{ID: uuid.New(), PetID: registeredPet.ID, ReporterID: owner.ID, Status: "lost", Latitude: mvdLat, Longitude: mvdLng}
 	hiddenArchived := &domain.Report{ID: uuid.New(), PetID: archivedPet.ID, ReporterID: owner.ID, Status: "lost", Latitude: mvdLat, Longitude: mvdLng}
-	visibleFound := &domain.Report{ID: uuid.New(), PetID: foundPet.ID, ReporterID: owner.ID, Status: "found", Latitude: mvdLat, Longitude: mvdLng}
-	visibleLost := &domain.Report{ID: uuid.New(), PetID: lostPet.ID, ReporterID: owner.ID, Status: "lost", Latitude: mvdLat, Longitude: mvdLng}
+	visibleFound := &domain.Report{ID: uuid.New(), PetID: foundPet.ID, ReporterID: owner.ID, Status: "found", Latitude: mvdLat, Longitude: mvdLng, EpisodeID: &epFound.ID}
+	visibleLost := &domain.Report{ID: uuid.New(), PetID: lostPet.ID, ReporterID: owner.ID, Status: "lost", Latitude: mvdLat, Longitude: mvdLng, EpisodeID: &epLost.ID}
 	for _, r := range []*domain.Report{hiddenRegistered, hiddenArchived, visibleFound, visibleLost} {
 		if err := reportRepo.Create(r); err != nil {
 			t.Fatalf("Create report: %v", err)
@@ -363,6 +393,53 @@ func TestReportRepository_Delete_NullsReferencingAbuseReport(t *testing.T) {
 	}
 	if got.TargetReportID != nil {
 		t.Errorf("want target_report_id NULL after report delete, got %v", *got.TargetReportID)
+	}
+}
+
+// A re-lost pet must show ONLY its current episode's reports on the map,
+// not pins from a previous, resolved search episode.
+func TestReportRepository_FindNearby_ScopesToCurrentEpisode(t *testing.T) {
+	db := testdb.SetupTestDB(t)
+	userRepo := repository.NewUserRepository(db)
+	petRepo := repository.NewPetRepository(db)
+	reportRepo := repository.NewReportRepository(db)
+	epRepo := repository.NewEpisodeRepository(db)
+
+	owner := newTestUser(t, userRepo)
+	pet := &domain.Pet{ID: uuid.New(), OwnerID: ptrUUID(owner.ID), Name: "Rex",
+		Type: "perro", Status: domain.PetStatusLost}
+	petRepo.Create(pet)
+
+	// Episode 1 (old) with a pin, then closed.
+	ep1, _ := epRepo.Open(pet.ID.String())
+	oldReport := &domain.Report{ID: uuid.New(), PetID: pet.ID, ReporterID: owner.ID,
+		Status: "lost", Latitude: mvdLat, Longitude: mvdLng, EpisodeID: &ep1.ID}
+	reportRepo.Create(oldReport)
+	epRepo.CloseCurrent(pet.ID.String(), domain.PetStatusFound)
+
+	// Episode 2 (current) with its own pin. Pet is lost again.
+	ep2, _ := epRepo.Open(pet.ID.String())
+	newReport := &domain.Report{ID: uuid.New(), PetID: pet.ID, ReporterID: owner.ID,
+		Status: "lost", Latitude: mvdLat, Longitude: mvdLng, EpisodeID: &ep2.ID}
+	reportRepo.Create(newReport)
+
+	got, err := reportRepo.FindNearby(mvdLat, mvdLng, 50000)
+	if err != nil {
+		t.Fatalf("find nearby: %v", err)
+	}
+	for _, r := range got {
+		if r.ID == oldReport.ID {
+			t.Errorf("old-episode report must NOT appear on the map")
+		}
+	}
+	foundNew := false
+	for _, r := range got {
+		if r.ID == newReport.ID {
+			foundNew = true
+		}
+	}
+	if !foundNew {
+		t.Errorf("current-episode report must appear on the map")
 	}
 }
 
