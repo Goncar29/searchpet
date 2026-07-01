@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"log"
 	"time"
 
 	"github.com/google/uuid"
@@ -34,15 +35,31 @@ type CreateReportRequest struct {
 
 // reportService es la implementación concreta del ReportService.
 type reportService struct {
-	repo     repository.ReportRepository
-	petRepo  repository.PetRepository
-	eventBus *event.EventBus
+	repo       repository.ReportRepository
+	petRepo    repository.PetRepository
+	eventBus   *event.EventBus
+	statEvents repository.StatEventRepository
 }
 
 // NewReportService es el constructor.
 // eventBus es opcional — si es nil, los eventos no se publican (zero behavior change).
-func NewReportService(repo repository.ReportRepository, petRepo repository.PetRepository, eventBus *event.EventBus) ReportService {
-	return &reportService{repo: repo, petRepo: petRepo, eventBus: eventBus}
+// statEvents es opcional — si es nil, los eventos de impacto (lifetime ledger) no se registran.
+func NewReportService(repo repository.ReportRepository, petRepo repository.PetRepository, eventBus *event.EventBus, statEvents repository.StatEventRepository) ReportService {
+	return &reportService{repo: repo, petRepo: petRepo, eventBus: eventBus, statEvents: statEvents}
+}
+
+// recordStat appends a lifetime impact event synchronously, in-request.
+// Best-effort: a failure is logged but never aborts the report the event
+// describes. Mirrors petService.recordStat so both status-change entry points
+// feed the same append-only ledger consistently (see stats_handler.go).
+func (s *reportService) recordStat(eventType string, petID uuid.UUID) {
+	if s.statEvents == nil {
+		return
+	}
+	id := petID
+	if err := s.statEvents.Record(context.Background(), eventType, &id); err != nil {
+		log.Printf("[report_service] recordStat %s pet=%s: %v", eventType, petID, err)
+	}
 }
 
 // CreateReport crea un nuevo reporte de ubicación.
@@ -92,11 +109,28 @@ func (s *reportService) CreateReport(reporterID string, req CreateReportRequest)
 	// "found"    → pet.status = "found"      (aparece en contador de encontrados)
 	// "lost"     → pet.status = "lost"       (se volvió a perder, aparece en el feed)
 	// "sighting" → sin cambio
+	//
+	// loaded refleja el estado ANTERIOR al UpdateStatus (se cargó arriba), así que
+	// oldStatus permite gatear el lifetime ledger por TRANSICIÓN — igual que PetService.
+	// Este es el único camino normal para marcar perdido (el botón "Reportar perdido"
+	// de MyPets pasa por acá, no por PetService), por eso debe registrar el evento.
+	// Un "sighting" NO cuenta: es la misma búsqueda ya iniciada.
+	oldStatus := loaded.Pet.Status
 	switch req.Status {
 	case "found":
 		_ = s.petRepo.UpdateStatus(req.PetID, domain.PetStatusFound)
+		// Cada transición hacia "found" es un reencuentro (cuenta el episodio).
+		if oldStatus != domain.PetStatusFound {
+			s.recordStat(domain.StatEventPetFound, loaded.PetID)
+		}
 	case "lost":
 		_ = s.petRepo.UpdateStatus(req.PetID, domain.PetStatusLost)
+		// Transición hacia "lost" abre una nueva búsqueda. Excluimos lost/stray
+		// previos: ya son una búsqueda activa, no un episodio nuevo (re-pérdida
+		// found→lost sí cuenta).
+		if oldStatus != domain.PetStatusLost && oldStatus != domain.PetStatusStray {
+			s.recordStat(domain.StatEventSearchStarted, loaded.PetID)
+		}
 	}
 
 	// Publicamos el evento de forma secundaria — un fallo aquí no falla el request

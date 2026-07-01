@@ -73,9 +73,9 @@ func TestStatsHandler_GetStats_DBError(t *testing.T) {
 }
 
 // TestStatsHandler_GetStats_LifetimeAndSnapshot validates the JSON shape:
-// lifetime keys (pets_reunited DISTINCT, searches_started per-row) come from the
-// ledger; snapshot keys (total_users, total_pets) are live counts; the legacy
-// keys (total_reports, found_pets) are gone.
+// lifetime keys (pets_reunited and searches_started, both counting EPISODES
+// per-row) come from the ledger; snapshot keys (total_users, total_pets) are
+// live counts; the legacy keys (total_reports, found_pets) are gone.
 func TestStatsHandler_GetStats_LifetimeAndSnapshot(t *testing.T) {
 	db := testdb.SetupTestDB(t)
 	ctx := context.Background()
@@ -90,7 +90,8 @@ func TestStatsHandler_GetStats_LifetimeAndSnapshot(t *testing.T) {
 		t.Fatalf("seed pet: %v", err)
 	}
 
-	// petA found twice -> distinct reunited = 1; one search opened.
+	// petA found twice -> reunited = 2 (every reunification episode counts, even
+	// for the same pet lost & found again); one search opened.
 	petA := uuid.New()
 	_ = statRepo.Record(ctx, domain.StatEventPetFound, &petA)
 	_ = statRepo.Record(ctx, domain.StatEventPetFound, &petA)
@@ -113,7 +114,7 @@ func TestStatsHandler_GetStats_LifetimeAndSnapshot(t *testing.T) {
 	want := map[string]float64{
 		"total_users":      1,
 		"total_pets":       1,
-		"pets_reunited":    1,
+		"pets_reunited":    2,
 		"searches_started": 1,
 	}
 	for k, v := range want {
