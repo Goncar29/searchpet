@@ -220,6 +220,17 @@ type PetEmbeddingRepository interface {
 	DeleteByPetID(ctx context.Context, petID uuid.UUID) error
 }
 
+// EpisodeRepository manages search episodes (one continuous search per pet).
+type EpisodeRepository interface {
+	// Open inserts a new open episode and points pets.current_episode_id at it.
+	Open(petID string) (*domain.SearchEpisode, error)
+	// CloseCurrent sets ended_at=now and resolution on the pet's OPEN episode
+	// (ended_at IS NULL). No-op if the pet has no open episode.
+	CloseCurrent(petID string, resolution string) error
+	// FindCurrent returns the pet's most-recently-started episode, or nil.
+	FindCurrent(petID string) (*domain.SearchEpisode, error)
+}
+
 // VetRepository persiste y consulta veterinarias importadas de OSM.
 type VetRepository interface {
 	Upsert(ctx context.Context, vet *domain.Vet) error

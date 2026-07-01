@@ -5,11 +5,11 @@ import (
 )
 
 // UnitOfWorkRepos bundles the repositories that must share a single GORM
-// transaction. Add fields here as new composite operations need them —
-// today only Pets + Reports are required by the publish flow.
+// transaction. Add fields here as new composite operations need them.
 type UnitOfWorkRepos struct {
-	Pets    PetRepository
-	Reports ReportRepository
+	Pets     PetRepository
+	Reports  ReportRepository
+	Episodes EpisodeRepository
 }
 
 // UnitOfWork runs a function within a single database transaction, giving it
@@ -31,8 +31,9 @@ func NewUnitOfWork(db *gorm.DB) UnitOfWork {
 func (u *gormUnitOfWork) Execute(fn func(repos UnitOfWorkRepos) error) error {
 	return u.db.Transaction(func(tx *gorm.DB) error {
 		repos := UnitOfWorkRepos{
-			Pets:    NewPetRepository(tx),
-			Reports: NewReportRepository(tx),
+			Pets:     NewPetRepository(tx),
+			Reports:  NewReportRepository(tx),
+			Episodes: NewEpisodeRepository(tx),
 		}
 		return fn(repos)
 	})
