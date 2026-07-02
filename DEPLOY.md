@@ -62,6 +62,11 @@ El workflow `ci.yml` hace trigger automático en Render al pushear a `main` via 
 VITE_API_URL=https://tu-backend.onrender.com
 ```
 
+### Security headers (CSP)
+Los headers de seguridad (CSP, X-Frame-Options, nosniff, Referrer-Policy, Permissions-Policy) se sirven desde el bloque `headers` de `frontend/packages/web/vercel.json` — no hay nada que configurar en el dashboard de Vercel.
+
+**Importante:** el `connect-src` de la CSP tiene hardcodeado el host del backend. Si cambiás `VITE_API_URL`, actualizá también `vercel.json` (las entradas `https://` y `wss://` del backend) o los fetch y el WebSocket quedan bloqueados en prod. Ver regla #23 de `CLAUDE.md`.
+
 ### Costo: $0 (plan Hobby gratuito)
 
 ---
