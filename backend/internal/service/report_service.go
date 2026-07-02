@@ -35,17 +35,21 @@ type CreateReportRequest struct {
 
 // reportService es la implementación concreta del ReportService.
 type reportService struct {
-	repo       repository.ReportRepository
-	petRepo    repository.PetRepository
-	eventBus   *event.EventBus
-	statEvents repository.StatEventRepository
+	repo        repository.ReportRepository
+	petRepo     repository.PetRepository
+	eventBus    *event.EventBus
+	statEvents  repository.StatEventRepository
+	episodes    EpisodeService
+	episodeRepo repository.EpisodeRepository
+	uow         repository.UnitOfWork
 }
 
 // NewReportService es el constructor.
 // eventBus es opcional — si es nil, los eventos no se publican (zero behavior change).
 // statEvents es opcional — si es nil, los eventos de impacto (lifetime ledger) no se registran.
-func NewReportService(repo repository.ReportRepository, petRepo repository.PetRepository, eventBus *event.EventBus, statEvents repository.StatEventRepository) ReportService {
-	return &reportService{repo: repo, petRepo: petRepo, eventBus: eventBus, statEvents: statEvents}
+// episodes, episodeRepo, uow son opcionales — si son nil, el manejo de episodios se omite.
+func NewReportService(repo repository.ReportRepository, petRepo repository.PetRepository, eventBus *event.EventBus, statEvents repository.StatEventRepository, episodes EpisodeService, episodeRepo repository.EpisodeRepository, uow repository.UnitOfWork) ReportService {
+	return &reportService{repo: repo, petRepo: petRepo, eventBus: eventBus, statEvents: statEvents, episodes: episodes, episodeRepo: episodeRepo, uow: uow}
 }
 
 // recordStat appends a lifetime impact event synchronously, in-request.
@@ -105,25 +109,90 @@ func (s *reportService) CreateReport(reporterID string, req CreateReportRequest)
 		return nil, err
 	}
 
-	// Sincronizamos pet.status según el reporte:
+	// Sincronizamos pet.status según el reporte, pero SOLO para transiciones válidas
+	// según la máquina de estados. Transiciones inválidas (e.g. found→lost) dejan
+	// el pet intacto pero igualmente persisten el reporte como registro.
+	//
 	// "found"    → pet.status = "found"      (aparece en contador de encontrados)
 	// "lost"     → pet.status = "lost"       (se volvió a perder, aparece en el feed)
 	// "sighting" → sin cambio
 	//
 	// loaded refleja el estado ANTERIOR al UpdateStatus (se cargó arriba), así que
 	// oldStatus permite gatear el lifetime ledger por TRANSICIÓN — igual que PetService.
-	// Este es el único camino normal para marcar perdido (el botón "Reportar perdido"
-	// de MyPets pasa por acá, no por PetService), por eso debe registrar el evento.
-	// Un "sighting" NO cuenta: es la misma búsqueda ya iniciada.
 	oldStatus := loaded.Pet.Status
+
+	// Determine the target pet status implied by the report, if any.
+	var target string
 	switch req.Status {
 	case "found":
-		_ = s.petRepo.UpdateStatus(req.PetID, domain.PetStatusFound)
-		// Cada transición hacia "found" es un reencuentro: cuenta el episodio y
-		// publica pet.found — el MISMO evento de dominio que emite PetService, para
-		// que este camino (botón "Reportar encontrado") no se saltee la gamificación
-		// (badge al héroe), la notificación al dueño ni la limpieza del embedding CLIP.
-		if oldStatus != domain.PetStatusFound {
+		target = domain.PetStatusFound
+	case "lost":
+		target = domain.PetStatusLost
+	}
+
+	// A status flip only happens for a VALID state-machine transition. Invalid
+	// forced transitions (e.g. found→lost) leave the pet untouched but still keep
+	// the report as a record.
+	shouldTransition := target != "" && target != oldStatus && domain.ValidateTransition(oldStatus, target) == nil
+
+	// Mutate pet status, open/close the episode, and stamp the report's episode_id
+	// ATOMICALLY. Splitting these across separate writes risks a partial failure
+	// that flips the status but never opens/closes the episode (pet permanently
+	// invisible on the map) or leaves the report unstamped. The report row itself
+	// was created above; we stamp it here, inside the same tx as its episode.
+	if s.uow != nil {
+		if err := s.uow.Execute(func(tx repository.UnitOfWorkRepos) error {
+			if shouldTransition {
+				if err := tx.Pets.UpdateStatus(req.PetID, target); err != nil {
+					return err
+				}
+				if s.episodes != nil {
+					if err := s.episodes.HandleTransition(tx.Episodes, req.PetID, oldStatus, target); err != nil {
+						return err
+					}
+				}
+			}
+			// Stamp with the pet's current episode: the freshly opened one when this
+			// report just opened a search, the closed one on found, or the existing
+			// open one for a sighting during an active search.
+			cur, err := tx.Episodes.FindCurrent(req.PetID)
+			if err != nil {
+				return err
+			}
+			if cur != nil {
+				if err := tx.Reports.SetEpisodeID(report.ID.String(), cur.ID); err != nil {
+					return err
+				}
+				loaded.EpisodeID = &cur.ID
+			}
+			return nil
+		}); err != nil {
+			return nil, err
+		}
+	} else {
+		// Non-transactional fallback (unit tests with mocks and no UoW).
+		if shouldTransition && s.petRepo != nil {
+			_ = s.petRepo.UpdateStatus(req.PetID, target)
+		}
+		if shouldTransition && s.episodes != nil && s.episodeRepo != nil {
+			if err := s.episodes.HandleTransition(s.episodeRepo, req.PetID, oldStatus, target); err != nil {
+				return nil, err
+			}
+		}
+		if s.episodeRepo != nil {
+			if cur, err := s.episodeRepo.FindCurrent(req.PetID); err == nil && cur != nil {
+				if err := s.repo.SetEpisodeID(report.ID.String(), cur.ID); err != nil {
+					return nil, err
+				}
+				loaded.EpisodeID = &cur.ID
+			}
+		}
+	}
+
+	// Lifetime ledger + domain events — side effects fired AFTER a successful
+	// commit, gated by the same transition guards as before.
+	if shouldTransition {
+		if target == domain.PetStatusFound && oldStatus != domain.PetStatusFound {
 			s.recordStat(domain.StatEventPetFound, loaded.PetID)
 			if s.eventBus != nil {
 				// OwnerID es nil-safe: los strays no tienen dueño.
@@ -138,16 +207,10 @@ func (s *reportService) CreateReport(reporterID string, req CreateReportRequest)
 				})
 			}
 		}
-	case "lost":
-		_ = s.petRepo.UpdateStatus(req.PetID, domain.PetStatusLost)
-		// Transición hacia "lost" abre una nueva búsqueda. Excluimos lost/stray
-		// previos: ya son una búsqueda activa, no un episodio nuevo (re-pérdida
-		// found→lost sí cuenta). Publica pet.lost para RE-INDEXAR los embeddings
-		// CLIP: una mascota encontrada tiene sus embeddings borrados (HandlePetFound),
-		// así que sin esto una re-pérdida quedaría invisible en la búsqueda por imagen.
-		if oldStatus != domain.PetStatusLost && oldStatus != domain.PetStatusStray {
+		if target == domain.PetStatusLost && oldStatus != domain.PetStatusLost && oldStatus != domain.PetStatusStray {
 			s.recordStat(domain.StatEventSearchStarted, loaded.PetID)
 			if s.eventBus != nil {
+				// Publica pet.lost para RE-INDEXAR los embeddings CLIP.
 				s.eventBus.Publish("pet.lost", event.PetLostEvent{PetID: loaded.PetID})
 			}
 		}

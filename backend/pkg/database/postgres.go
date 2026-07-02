@@ -123,6 +123,7 @@ func RunMigrations(db *gorm.DB, migrationsDir string) error {
 var Models = []interface{}{
 	&domain.User{},
 	&domain.Pet{},
+	&domain.SearchEpisode{},
 	&domain.Report{},
 	&domain.PlatformEvent{},
 	&domain.Photo{},

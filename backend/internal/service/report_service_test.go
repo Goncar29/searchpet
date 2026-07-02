@@ -16,11 +16,12 @@ func newReportSvc(rRepo *mockReportRepo, pRepo *mockPetRepo) service.ReportServi
 	// eventBus nil → los eventos no se publican, sin side-effects en unit tests
 	// statEvents nil → el lifetime ledger no se registra (los tests que lo verifican
 	// usan newReportSvcWithStats)
-	return service.NewReportService(rRepo, pRepo, nil, nil)
+	// episodes/episodeRepo/uow nil → episode handling skipped in unit tests
+	return service.NewReportService(rRepo, pRepo, nil, nil, nil, nil, nil)
 }
 
 func newReportSvcWithStats(rRepo *mockReportRepo, pRepo *mockPetRepo, stats *mockStatEventRepo) service.ReportService {
-	return service.NewReportService(rRepo, pRepo, nil, stats)
+	return service.NewReportService(rRepo, pRepo, nil, stats, nil, nil, nil)
 }
 
 func validReportReq(petID string) service.CreateReportRequest {
@@ -107,8 +108,9 @@ func TestCreateReport_FutureDate(t *testing.T) {
 
 func TestCreateReport_FoundStatus_UpdatesPetToFound(t *testing.T) {
 	petID := uuid.New()
-	rRepo := &mockReportRepo{}
-	pRepo := &mockPetRepo{pet: petWithStatus(uuid.New(), "active")}
+	// lost → found is a valid transition: the pet's status must be updated.
+	rRepo := &mockReportRepo{preloaded: preloadedReport(petID, domain.PetStatusLost)}
+	pRepo := &mockPetRepo{pet: petWithStatus(uuid.New(), domain.PetStatusLost)}
 	svc := newReportSvc(rRepo, pRepo)
 
 	req := validReportReq(petID.String())
@@ -126,8 +128,10 @@ func TestCreateReport_FoundStatus_UpdatesPetToFound(t *testing.T) {
 
 func TestCreateReport_LostStatus_UpdatesPetToLost(t *testing.T) {
 	petID := uuid.New()
-	rRepo := &mockReportRepo{}
-	pRepo := &mockPetRepo{pet: petWithStatus(uuid.New(), domain.PetStatusFound)}
+	// registered → lost is a valid transition: the pet's status must be updated.
+	// (found → lost is not valid per the state machine.)
+	rRepo := &mockReportRepo{preloaded: preloadedReport(petID, domain.PetStatusRegistered)}
+	pRepo := &mockPetRepo{pet: petWithStatus(uuid.New(), domain.PetStatusRegistered)}
 	svc := newReportSvc(rRepo, pRepo)
 
 	req := validReportReq(petID.String())
@@ -140,6 +144,48 @@ func TestCreateReport_LostStatus_UpdatesPetToLost(t *testing.T) {
 
 	if len(pRepo.statusCalls) != 1 || pRepo.statusCalls[0] != domain.PetStatusLost {
 		t.Errorf("expected UpdateStatus(%q), got %v", domain.PetStatusLost, pRepo.statusCalls)
+	}
+}
+
+func TestCreateReport_InvalidTransition_FoundToLost_NoStatusFlipNoLedger(t *testing.T) {
+	petID := uuid.New()
+	// found → lost is NOT a valid state-machine transition. The report is still
+	// persisted as a record, but the pet must stay found: no UpdateStatus, no
+	// search_started ledger event, no pet.lost. This is the whole point of the
+	// ValidateTransition guard in CreateReport.
+	rRepo := &mockReportRepo{preloaded: preloadedReport(petID, domain.PetStatusFound)}
+	stats := &mockStatEventRepo{}
+	pRepo := &mockPetRepo{pet: petWithStatus(uuid.New(), domain.PetStatusFound)}
+	bus := event.NewEventBus()
+	published := make(chan event.PetLostEvent, 1)
+	bus.Subscribe("pet.lost", func(p interface{}) {
+		if e, ok := p.(event.PetLostEvent); ok {
+			published <- e
+		}
+	})
+	svc := service.NewReportService(rRepo, pRepo, bus, stats, nil, nil, nil)
+
+	req := validReportReq(petID.String())
+	req.Status = "lost"
+
+	rep, err := svc.CreateReport(uuid.New().String(), req)
+	if err != nil {
+		t.Fatalf("report should still be created on an invalid transition, got error: %v", err)
+	}
+	if rep == nil {
+		t.Fatal("expected the report record to be created")
+	}
+	if len(pRepo.statusCalls) != 0 {
+		t.Errorf("found→lost is invalid: expected NO UpdateStatus, got %v", pRepo.statusCalls)
+	}
+	if len(stats.recorded) != 0 {
+		t.Errorf("expected no ledger events for an invalid transition, got %v", stats.recorded)
+	}
+	select {
+	case <-published:
+		t.Error("pet.lost must NOT be published for an invalid found→lost transition")
+	case <-time.After(150 * time.Millisecond):
+		// expected: no event fired
 	}
 }
 
@@ -181,10 +227,11 @@ func preloadedReport(petID uuid.UUID, oldStatus string) *domain.Report {
 
 func TestCreateReport_LostReport_RecordsSearchStarted(t *testing.T) {
 	petID := uuid.New()
-	// found → lost = re-pérdida: debe abrir una nueva búsqueda.
-	rRepo := &mockReportRepo{preloaded: preloadedReport(petID, domain.PetStatusFound)}
+	// registered → lost = nueva búsqueda: debe registrar search_started.
+	// (found → lost no es válido según la máquina de estados.)
+	rRepo := &mockReportRepo{preloaded: preloadedReport(petID, domain.PetStatusRegistered)}
 	stats := &mockStatEventRepo{}
-	svc := newReportSvcWithStats(rRepo, &mockPetRepo{pet: petWithStatus(uuid.New(), domain.PetStatusFound)}, stats)
+	svc := newReportSvcWithStats(rRepo, &mockPetRepo{pet: petWithStatus(uuid.New(), domain.PetStatusRegistered)}, stats)
 
 	req := validReportReq(petID.String())
 	req.Status = "lost"
@@ -270,7 +317,7 @@ func TestCreateReport_FoundTransition_PublishesPetFound(t *testing.T) {
 			got <- e
 		}
 	})
-	svc := service.NewReportService(rRepo, &mockPetRepo{pet: petWithStatus(uuid.New(), domain.PetStatusLost)}, bus, nil)
+	svc := service.NewReportService(rRepo, &mockPetRepo{pet: petWithStatus(uuid.New(), domain.PetStatusLost)}, bus, nil, nil, nil, nil)
 
 	req := validReportReq(petID.String())
 	req.Status = "found"
@@ -290,8 +337,9 @@ func TestCreateReport_FoundTransition_PublishesPetFound(t *testing.T) {
 
 func TestCreateReport_LostTransition_PublishesPetLost(t *testing.T) {
 	petID := uuid.New()
-	// found → lost = re-pérdida: debe re-indexar embeddings.
-	rRepo := &mockReportRepo{preloaded: preloadedReport(petID, domain.PetStatusFound)}
+	// registered → lost = nueva búsqueda: debe publicar pet.lost y re-indexar embeddings.
+	// (found → lost no es una transición válida según la máquina de estados.)
+	rRepo := &mockReportRepo{preloaded: preloadedReport(petID, domain.PetStatusRegistered)}
 	bus := event.NewEventBus()
 	got := make(chan event.PetLostEvent, 1)
 	bus.Subscribe("pet.lost", func(p interface{}) {
@@ -299,7 +347,7 @@ func TestCreateReport_LostTransition_PublishesPetLost(t *testing.T) {
 			got <- e
 		}
 	})
-	svc := service.NewReportService(rRepo, &mockPetRepo{pet: petWithStatus(uuid.New(), domain.PetStatusFound)}, bus, nil)
+	svc := service.NewReportService(rRepo, &mockPetRepo{pet: petWithStatus(uuid.New(), domain.PetStatusRegistered)}, bus, nil, nil, nil, nil)
 
 	req := validReportReq(petID.String())
 	req.Status = "lost"
@@ -328,7 +376,7 @@ func TestCreateReport_AlreadyLost_DoesNotPublishPetLost(t *testing.T) {
 			got <- e
 		}
 	})
-	svc := service.NewReportService(rRepo, &mockPetRepo{pet: petWithStatus(uuid.New(), domain.PetStatusLost)}, bus, nil)
+	svc := service.NewReportService(rRepo, &mockPetRepo{pet: petWithStatus(uuid.New(), domain.PetStatusLost)}, bus, nil, nil, nil, nil)
 
 	req := validReportReq(petID.String())
 	req.Status = "lost"
@@ -410,7 +458,7 @@ func TestReportService_Delete_DelegatesToRepo(t *testing.T) {
 	repo := &mockReportRepo{
 		deleteFn: func(_ context.Context, id uuid.UUID) error { deletedID = id; return nil },
 	}
-	svc := service.NewReportService(repo, nil, nil, nil)
+	svc := service.NewReportService(repo, nil, nil, nil, nil, nil, nil)
 
 	id := uuid.New()
 	if err := svc.Delete(context.Background(), id); err != nil {
@@ -425,7 +473,7 @@ func TestReportService_Delete_PropagatesNotFound(t *testing.T) {
 	repo := &mockReportRepo{
 		deleteFn: func(_ context.Context, _ uuid.UUID) error { return domain.ErrReportNotFound },
 	}
-	svc := service.NewReportService(repo, nil, nil, nil)
+	svc := service.NewReportService(repo, nil, nil, nil, nil, nil, nil)
 
 	err := svc.Delete(context.Background(), uuid.New())
 	if !errors.Is(err, domain.ErrReportNotFound) {

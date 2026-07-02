@@ -38,6 +38,8 @@ type petService struct {
 	reportRepo   repository.ReportRepository
 	uow          repository.UnitOfWork
 	statEvents   repository.StatEventRepository
+	episodes     EpisodeService
+	episodeRepo  repository.EpisodeRepository
 }
 
 // NewPetService es el constructor — recibe el repository, el bus de eventos, el servicio de fotos,
@@ -47,8 +49,9 @@ type petService struct {
 // reportRepo es opcional — si es nil, el closure report en MarkAsFound se omite.
 // uow es opcional en tests unitarios que no ejercitan el camino stray/publish-lost,
 // pero requerido en producción para crear strays con initial_report (ver router.go).
-func NewPetService(repo repository.PetRepository, eventBus *event.EventBus, photoService PhotoService, reportRepo repository.ReportRepository, uow repository.UnitOfWork, statEvents repository.StatEventRepository) PetService {
-	return &petService{repo: repo, eventBus: eventBus, photoService: photoService, reportRepo: reportRepo, uow: uow, statEvents: statEvents}
+// episodes y episodeRepo son opcionales — si son nil, el manejo de episodios se omite.
+func NewPetService(repo repository.PetRepository, eventBus *event.EventBus, photoService PhotoService, reportRepo repository.ReportRepository, uow repository.UnitOfWork, statEvents repository.StatEventRepository, episodes EpisodeService, episodeRepo repository.EpisodeRepository) PetService {
+	return &petService{repo: repo, eventBus: eventBus, photoService: photoService, reportRepo: reportRepo, uow: uow, statEvents: statEvents, episodes: episodes, episodeRepo: episodeRepo}
 }
 
 // recordStat appends a lifetime impact event synchronously, in-request.
@@ -150,6 +153,14 @@ func (s *petService) CreatePet(ownerID string, req dto.CreatePetRequest) (*domai
 				return err
 			}
 			report.PetID = pet.ID
+			// Open a search episode for the new stray pet and stamp the initial report.
+			if tx.Episodes != nil {
+				ep, err := tx.Episodes.Open(pet.ID.String())
+				if err != nil {
+					return err
+				}
+				report.EpisodeID = &ep.ID
+			}
 			return tx.Reports.Create(report)
 		})
 		if err != nil {
@@ -249,8 +260,25 @@ func (s *petService) UpdatePet(ownerID string, petID string, req dto.UpdatePetRe
 		pet.Version++
 	}
 
-	if err := s.repo.Update(pet); err != nil {
-		return nil, err
+	// Persist the pet and open/close its search episode ATOMICALLY when the status
+	// changes. If these were two separate writes and the episode step failed, the
+	// pet would keep the new status with no current episode — permanently invisible
+	// on the map, and unrecoverable on retry (oldStatus would already equal the new
+	// status). Mirrors the transactional pattern in PublishLost/CreatePet.
+	statusChanged := req.Status != "" && req.Status != oldStatus
+	if statusChanged && s.episodes != nil && s.uow != nil {
+		if err := s.uow.Execute(func(tx repository.UnitOfWorkRepos) error {
+			if err := tx.Pets.Update(pet); err != nil {
+				return err
+			}
+			return s.episodes.HandleTransition(tx.Episodes, pet.ID.String(), oldStatus, pet.Status)
+		}); err != nil {
+			return nil, err
+		}
+	} else {
+		if err := s.repo.Update(pet); err != nil {
+			return nil, err
+		}
 	}
 
 	// Publicamos pet.lost cuando la transición es hacia "lost"
@@ -372,8 +400,24 @@ func (s *petService) MarkAsFound(ownerID string, petID string) (*domain.Pet, err
 		return pet, nil
 	}
 
-	if err := s.repo.UpdateStatus(petID, domain.PetStatusFound); err != nil {
-		return nil, err
+	oldStatus := pet.Status
+
+	// Flip the status and close the search episode ATOMICALLY (same rationale as
+	// UpdatePet: a committed status with a still-open episode leaves a dangling
+	// open episode that the next re-lost cycle would orphan).
+	if s.episodes != nil && s.uow != nil {
+		if err := s.uow.Execute(func(tx repository.UnitOfWorkRepos) error {
+			if err := tx.Pets.UpdateStatus(petID, domain.PetStatusFound); err != nil {
+				return err
+			}
+			return s.episodes.HandleTransition(tx.Episodes, petID, oldStatus, domain.PetStatusFound)
+		}); err != nil {
+			return nil, err
+		}
+	} else {
+		if err := s.repo.UpdateStatus(petID, domain.PetStatusFound); err != nil {
+			return nil, err
+		}
 	}
 
 	pet.Status = domain.PetStatusFound
@@ -382,13 +426,20 @@ func (s *petService) MarkAsFound(ownerID string, petID string) (*domain.Pet, err
 	// Parseamos el UUID del owner para el closure report y el evento
 	ownerUUID, _ := uuid.Parse(ownerID)
 
-	// REQ-02: Auto-create closure report (best-effort — failure does not abort the status flip)
+	// REQ-02: Auto-create closure report (best-effort — failure does not abort the status flip).
+	// CloseCurrent leaves pets.current_episode_id pointing at the just-closed episode,
+	// so FindCurrent still returns it for the stamp.
 	if s.reportRepo != nil {
 		closureReport := &domain.Report{
 			PetID:               pet.ID,
 			ReporterID:          ownerUUID,
 			Status:              "found",
 			LocationDescription: "Closure report",
+		}
+		if s.episodeRepo != nil {
+			if cur, err := s.episodeRepo.FindCurrent(petID); err == nil && cur != nil {
+				closureReport.EpisodeID = &cur.ID
+			}
 		}
 		if err := s.reportRepo.Create(closureReport); err != nil {
 			log.Printf("[pet_service] Error creating closure report for pet %s: %v", petID, err)
@@ -455,6 +506,14 @@ func (s *petService) PublishLost(ownerID string, petID string, req dto.PublishLo
 			Latitude:            req.Latitude,
 			Longitude:           req.Longitude,
 			LocationDescription: req.Note,
+		}
+		// Open a search episode and stamp the initial location report.
+		if tx.Episodes != nil {
+			ep, err := tx.Episodes.Open(petID)
+			if err != nil {
+				return err
+			}
+			report.EpisodeID = &ep.ID
 		}
 		return tx.Reports.Create(report)
 	})
