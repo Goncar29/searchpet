@@ -61,3 +61,40 @@ BEGIN
 END $$;
 
 CREATE INDEX IF NOT EXISTS idx_pets_current_episode_id ON pets (current_episode_id);
+
+-- ── Backfill for pre-existing data ──────────────────────────────────────────
+-- FindNearby now filters `reports.episode_id = pets.current_episode_id`, and in
+-- SQL `NULL = NULL` is never true. Without this backfill every pet that existed
+-- before this migration — and all of its reports — would silently disappear from
+-- the map. Create one episode per currently map-visible pet, point
+-- current_episode_id at it, and stamp that pet's reports. Every statement is
+-- guarded (current_episode_id IS NULL / episode_id IS NULL) so the backfill is
+-- idempotent and never disturbs pets that already have an episode.
+
+-- Open episodes for pets in an active search (lost/stray).
+INSERT INTO search_episodes (id, pet_id, started_at)
+SELECT gen_random_uuid(), p.id, COALESCE(p.updated_at, p.created_at, now())
+FROM pets p
+WHERE p.status IN ('lost', 'stray') AND p.current_episode_id IS NULL;
+
+-- Closed episodes for found pets (still map-visible; their search is resolved).
+INSERT INTO search_episodes (id, pet_id, started_at, ended_at, resolution)
+SELECT gen_random_uuid(), p.id, COALESCE(p.created_at, now()), COALESCE(p.updated_at, now()), 'found'
+FROM pets p
+WHERE p.status = 'found' AND p.current_episode_id IS NULL;
+
+-- Point each backfilled pet at its (single) freshly created episode.
+UPDATE pets p
+SET current_episode_id = se.id
+FROM search_episodes se
+WHERE se.pet_id = p.id
+  AND p.status IN ('lost', 'stray', 'found')
+  AND p.current_episode_id IS NULL;
+
+-- Stamp existing reports with their pet's current episode.
+UPDATE reports r
+SET episode_id = p.current_episode_id
+FROM pets p
+WHERE p.id = r.pet_id
+  AND p.current_episode_id IS NOT NULL
+  AND r.episode_id IS NULL;

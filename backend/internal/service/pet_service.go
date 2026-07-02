@@ -260,13 +260,23 @@ func (s *petService) UpdatePet(ownerID string, petID string, req dto.UpdatePetRe
 		pet.Version++
 	}
 
-	if err := s.repo.Update(pet); err != nil {
-		return nil, err
-	}
-
-	// Open or close a search episode for status transitions.
-	if req.Status != "" && req.Status != oldStatus && s.episodes != nil {
-		if err := s.episodes.HandleTransition(pet.ID.String(), oldStatus, pet.Status); err != nil {
+	// Persist the pet and open/close its search episode ATOMICALLY when the status
+	// changes. If these were two separate writes and the episode step failed, the
+	// pet would keep the new status with no current episode — permanently invisible
+	// on the map, and unrecoverable on retry (oldStatus would already equal the new
+	// status). Mirrors the transactional pattern in PublishLost/CreatePet.
+	statusChanged := req.Status != "" && req.Status != oldStatus
+	if statusChanged && s.episodes != nil && s.uow != nil {
+		if err := s.uow.Execute(func(tx repository.UnitOfWorkRepos) error {
+			if err := tx.Pets.Update(pet); err != nil {
+				return err
+			}
+			return s.episodes.HandleTransition(tx.Episodes, pet.ID.String(), oldStatus, pet.Status)
+		}); err != nil {
+			return nil, err
+		}
+	} else {
+		if err := s.repo.Update(pet); err != nil {
 			return nil, err
 		}
 	}
@@ -392,8 +402,22 @@ func (s *petService) MarkAsFound(ownerID string, petID string) (*domain.Pet, err
 
 	oldStatus := pet.Status
 
-	if err := s.repo.UpdateStatus(petID, domain.PetStatusFound); err != nil {
-		return nil, err
+	// Flip the status and close the search episode ATOMICALLY (same rationale as
+	// UpdatePet: a committed status with a still-open episode leaves a dangling
+	// open episode that the next re-lost cycle would orphan).
+	if s.episodes != nil && s.uow != nil {
+		if err := s.uow.Execute(func(tx repository.UnitOfWorkRepos) error {
+			if err := tx.Pets.UpdateStatus(petID, domain.PetStatusFound); err != nil {
+				return err
+			}
+			return s.episodes.HandleTransition(tx.Episodes, petID, oldStatus, domain.PetStatusFound)
+		}); err != nil {
+			return nil, err
+		}
+	} else {
+		if err := s.repo.UpdateStatus(petID, domain.PetStatusFound); err != nil {
+			return nil, err
+		}
 	}
 
 	pet.Status = domain.PetStatusFound
@@ -402,7 +426,9 @@ func (s *petService) MarkAsFound(ownerID string, petID string) (*domain.Pet, err
 	// Parseamos el UUID del owner para el closure report y el evento
 	ownerUUID, _ := uuid.Parse(ownerID)
 
-	// REQ-02: Auto-create closure report (best-effort — failure does not abort the status flip)
+	// REQ-02: Auto-create closure report (best-effort — failure does not abort the status flip).
+	// CloseCurrent leaves pets.current_episode_id pointing at the just-closed episode,
+	// so FindCurrent still returns it for the stamp.
 	if s.reportRepo != nil {
 		closureReport := &domain.Report{
 			PetID:               pet.ID,
@@ -410,7 +436,6 @@ func (s *petService) MarkAsFound(ownerID string, petID string) (*domain.Pet, err
 			Status:              "found",
 			LocationDescription: "Closure report",
 		}
-		// Stamp the closure report with the pet's current episode BEFORE closing it.
 		if s.episodeRepo != nil {
 			if cur, err := s.episodeRepo.FindCurrent(petID); err == nil && cur != nil {
 				closureReport.EpisodeID = &cur.ID
@@ -418,13 +443,6 @@ func (s *petService) MarkAsFound(ownerID string, petID string) (*domain.Pet, err
 		}
 		if err := s.reportRepo.Create(closureReport); err != nil {
 			log.Printf("[pet_service] Error creating closure report for pet %s: %v", petID, err)
-		}
-	}
-
-	// Close the search episode for this pet.
-	if s.episodes != nil {
-		if err := s.episodes.HandleTransition(petID, oldStatus, domain.PetStatusFound); err != nil {
-			return nil, err
 		}
 	}
 

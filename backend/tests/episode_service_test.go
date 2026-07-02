@@ -15,7 +15,7 @@ func TestEpisodeService_HandleTransition_OpensAndCloses(t *testing.T) {
 	userRepo := repository.NewUserRepository(db)
 	petRepo := repository.NewPetRepository(db)
 	epRepo := repository.NewEpisodeRepository(db)
-	svc := service.NewEpisodeService(epRepo)
+	svc := service.NewEpisodeService()
 
 	owner := newTestUser(t, userRepo)
 	pet := &domain.Pet{ID: uuid.New(), OwnerID: ptrUUID(owner.ID), Name: "Fido",
@@ -25,7 +25,7 @@ func TestEpisodeService_HandleTransition_OpensAndCloses(t *testing.T) {
 	}
 
 	// registered -> lost : opens
-	if err := svc.HandleTransition(pet.ID.String(), domain.PetStatusRegistered, domain.PetStatusLost); err != nil {
+	if err := svc.HandleTransition(epRepo, pet.ID.String(), domain.PetStatusRegistered, domain.PetStatusLost); err != nil {
 		t.Fatalf("open transition: %v", err)
 	}
 	cur, err := epRepo.FindCurrent(pet.ID.String())
@@ -38,7 +38,7 @@ func TestEpisodeService_HandleTransition_OpensAndCloses(t *testing.T) {
 	firstEpisode := cur.ID
 
 	// lost -> stray : active -> active, no-op (same open episode, not split)
-	if err := svc.HandleTransition(pet.ID.String(), domain.PetStatusLost, domain.PetStatusStray); err != nil {
+	if err := svc.HandleTransition(epRepo, pet.ID.String(), domain.PetStatusLost, domain.PetStatusStray); err != nil {
 		t.Fatalf("active->active transition: %v", err)
 	}
 	cur, _ = epRepo.FindCurrent(pet.ID.String())
@@ -47,7 +47,7 @@ func TestEpisodeService_HandleTransition_OpensAndCloses(t *testing.T) {
 	}
 
 	// stray -> found : closes with resolution=found
-	if err := svc.HandleTransition(pet.ID.String(), domain.PetStatusStray, domain.PetStatusFound); err != nil {
+	if err := svc.HandleTransition(epRepo, pet.ID.String(), domain.PetStatusStray, domain.PetStatusFound); err != nil {
 		t.Fatalf("close transition: %v", err)
 	}
 	cur, _ = epRepo.FindCurrent(pet.ID.String())
@@ -56,7 +56,7 @@ func TestEpisodeService_HandleTransition_OpensAndCloses(t *testing.T) {
 	}
 
 	// found -> archived : no-op (no new episode, episode stays closed)
-	if err := svc.HandleTransition(pet.ID.String(), domain.PetStatusFound, domain.PetStatusArchived); err != nil {
+	if err := svc.HandleTransition(epRepo, pet.ID.String(), domain.PetStatusFound, domain.PetStatusArchived); err != nil {
 		t.Fatalf("noop transition: %v", err)
 	}
 	cur, _ = epRepo.FindCurrent(pet.ID.String())
@@ -65,7 +65,7 @@ func TestEpisodeService_HandleTransition_OpensAndCloses(t *testing.T) {
 	}
 
 	// archived -> lost (re-lost) : opens a SECOND episode
-	if err := svc.HandleTransition(pet.ID.String(), domain.PetStatusArchived, domain.PetStatusLost); err != nil {
+	if err := svc.HandleTransition(epRepo, pet.ID.String(), domain.PetStatusArchived, domain.PetStatusLost); err != nil {
 		t.Fatalf("re-lost transition: %v", err)
 	}
 	cur, _ = epRepo.FindCurrent(pet.ID.String())

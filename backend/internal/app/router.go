@@ -91,7 +91,7 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 	photoRepo := repository.NewPhotoRepository(db)
 
 	episodeRepo := repository.NewEpisodeRepository(db)
-	episodeService := service.NewEpisodeService(episodeRepo)
+	episodeService := service.NewEpisodeService()
 
 	shelterRepo := repository.NewShelterRepository(db)
 	vetRepo := repository.NewVetRepository(db)

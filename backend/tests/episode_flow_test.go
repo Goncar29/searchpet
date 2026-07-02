@@ -32,7 +32,7 @@ func newEpisodeTestDeps(t *testing.T, db *gorm.DB) episodeTestDeps {
 	uow := repository.NewUnitOfWork(db)
 	statRepo := repository.NewStatEventRepository(db)
 	bus := event.NewEventBus()
-	episodeSvc := service.NewEpisodeService(episodeRepo)
+	episodeSvc := service.NewEpisodeService()
 	// photoService is nil — episode flow tests don't exercise photo deletion.
 	petSvc := service.NewPetService(petRepo, bus, nil, reportRepo, uow, statRepo, episodeSvc, episodeRepo)
 	reportSvc := service.NewReportService(reportRepo, petRepo, bus, statRepo, episodeSvc, episodeRepo, uow)

@@ -40,11 +40,18 @@ func (r *PostgresEpisodeRepository) Open(petID string) (*domain.SearchEpisode, e
 	return ep, nil
 }
 
-// CloseCurrent resolves the pet's currently-open episode.
+// CloseCurrent resolves the pet's currently-open episode — the one pointed at by
+// pets.current_episode_id. Scoping to that single episode (rather than every row
+// with ended_at IS NULL) guarantees a stray dangling-open episode left by a prior
+// partial failure is never batch-closed in one UPDATE. No-op if none is open.
 func (r *PostgresEpisodeRepository) CloseCurrent(petID string, resolution string) error {
 	now := time.Now()
+	currentEpisode := r.db.Model(&domain.Pet{}).
+		Select("current_episode_id").
+		Where("id = ?", petID)
 	return r.db.Model(&domain.SearchEpisode{}).
 		Where("pet_id = ? AND ended_at IS NULL", petID).
+		Where("id = (?)", currentEpisode).
 		Updates(map[string]interface{}{"ended_at": now, "resolution": resolution}).Error
 }
 

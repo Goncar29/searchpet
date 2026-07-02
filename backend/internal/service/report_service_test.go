@@ -147,6 +147,48 @@ func TestCreateReport_LostStatus_UpdatesPetToLost(t *testing.T) {
 	}
 }
 
+func TestCreateReport_InvalidTransition_FoundToLost_NoStatusFlipNoLedger(t *testing.T) {
+	petID := uuid.New()
+	// found → lost is NOT a valid state-machine transition. The report is still
+	// persisted as a record, but the pet must stay found: no UpdateStatus, no
+	// search_started ledger event, no pet.lost. This is the whole point of the
+	// ValidateTransition guard in CreateReport.
+	rRepo := &mockReportRepo{preloaded: preloadedReport(petID, domain.PetStatusFound)}
+	stats := &mockStatEventRepo{}
+	pRepo := &mockPetRepo{pet: petWithStatus(uuid.New(), domain.PetStatusFound)}
+	bus := event.NewEventBus()
+	published := make(chan event.PetLostEvent, 1)
+	bus.Subscribe("pet.lost", func(p interface{}) {
+		if e, ok := p.(event.PetLostEvent); ok {
+			published <- e
+		}
+	})
+	svc := service.NewReportService(rRepo, pRepo, bus, stats, nil, nil, nil)
+
+	req := validReportReq(petID.String())
+	req.Status = "lost"
+
+	rep, err := svc.CreateReport(uuid.New().String(), req)
+	if err != nil {
+		t.Fatalf("report should still be created on an invalid transition, got error: %v", err)
+	}
+	if rep == nil {
+		t.Fatal("expected the report record to be created")
+	}
+	if len(pRepo.statusCalls) != 0 {
+		t.Errorf("found→lost is invalid: expected NO UpdateStatus, got %v", pRepo.statusCalls)
+	}
+	if len(stats.recorded) != 0 {
+		t.Errorf("expected no ledger events for an invalid transition, got %v", stats.recorded)
+	}
+	select {
+	case <-published:
+		t.Error("pet.lost must NOT be published for an invalid found→lost transition")
+	case <-time.After(150 * time.Millisecond):
+		// expected: no event fired
+	}
+}
+
 func TestCreateReport_SightingStatus_NoStatusUpdate(t *testing.T) {
 	petID := uuid.New()
 	rRepo := &mockReportRepo{}
