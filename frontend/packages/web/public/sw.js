@@ -35,6 +35,10 @@ self.addEventListener('fetch', (event) => {
   // Solo cachear GET
   if (event.request.method !== 'GET') return;
 
+  // Solo interceptar requests same-origin: los fetch cross-origin dentro del SW
+  // se rigen por connect-src de la CSP, y los CDNs ya tienen su propio cache HTTP
+  if (new URL(event.request.url).origin !== self.location.origin) return;
+
   event.respondWith(
     fetch(event.request)
       .then((response) => {
