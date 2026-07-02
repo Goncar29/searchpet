@@ -99,6 +99,8 @@ func (m *mockReportRepo) Delete(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
+func (m *mockReportRepo) SetEpisodeID(_ string, _ uuid.UUID) error { return nil }
+
 // Compile-time guard: the mock must stay in sync with the ReportRepository interface.
 var _ repository.ReportRepository = (*mockReportRepo)(nil)
 

@@ -86,6 +86,12 @@ func (r *PostgresReportRepository) Delete(ctx context.Context, id uuid.UUID) err
 	return nil
 }
 
+// SetEpisodeID stamps an existing report with its search episode ID.
+func (r *PostgresReportRepository) SetEpisodeID(reportID string, episodeID uuid.UUID) error {
+	return r.db.Model(&domain.Report{}).Where("id = ?", reportID).
+		Update("episode_id", episodeID).Error
+}
+
 // FindNearby busca reportes dentro de un radio usando PostGIS.
 // ST_DWithin verifica si dos puntos están dentro del radio en metros.
 // ST_Distance calcula la distancia exacta para ordenar los resultados del más cercano al más lejano.
@@ -107,9 +113,16 @@ func (r *PostgresReportRepository) FindNearby(lat, lng float64, radiusMeters flo
 	// leaking closed cases and others' now-private pets. The JOIN assumes the
 	// pets table has no soft-delete scope (it currently doesn't); if Pet ever
 	// gains gorm.DeletedAt, this needs an explicit deleted_at IS NULL guard.
+	//
+	// The episode scope ensures that when a pet is re-lost, only the NEW
+	// episode's pins appear on the map. Reports with a NULL episode_id (or
+	// whose episode_id differs from pets.current_episode_id) are excluded.
+	// CloseCurrent intentionally leaves current_episode_id intact so that a
+	// just-found pet's "recovered here" marker remains visible.
 	err := r.db.Preload("Pet").Preload("Reporter").
 		Joins("JOIN pets ON pets.id = reports.pet_id").
 		Where("pets.status IN (?)", domain.MapVisibleStatuses).
+		Where("reports.episode_id = pets.current_episode_id").
 		Where(`
 			ST_DWithin(
 				ST_SetSRID(ST_MakePoint(reports.longitude, reports.latitude), 4326)::geography,

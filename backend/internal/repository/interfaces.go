@@ -38,6 +38,8 @@ type ReportRepository interface {
 	UpdateVerified(ctx context.Context, id uuid.UUID, verifiedBy uuid.UUID) error
 	// Delete removes a report by id (admin moderation). Returns ErrReportNotFound if absent.
 	Delete(ctx context.Context, id uuid.UUID) error
+	// SetEpisodeID stamps an existing report with its search episode ID.
+	SetEpisodeID(reportID string, episodeID uuid.UUID) error
 }
 
 // PhotoRepository define el contrato para acceder a datos de fotos de mascotas.
@@ -218,6 +220,17 @@ type PetEmbeddingRepository interface {
 	FindSimilar(ctx context.Context, queryVec []float32, limit int) ([]domain.ImageSearchResult, error)
 	// DeleteByPetID removes all embedding rows for the given pet (called on pet.found).
 	DeleteByPetID(ctx context.Context, petID uuid.UUID) error
+}
+
+// EpisodeRepository manages search episodes (one continuous search per pet).
+type EpisodeRepository interface {
+	// Open inserts a new open episode and points pets.current_episode_id at it.
+	Open(petID string) (*domain.SearchEpisode, error)
+	// CloseCurrent sets ended_at=now and resolution on the pet's OPEN episode
+	// (ended_at IS NULL). No-op if the pet has no open episode.
+	CloseCurrent(petID string, resolution string) error
+	// FindCurrent returns the pet's most-recently-started episode, or nil.
+	FindCurrent(petID string) (*domain.SearchEpisode, error)
 }
 
 // VetRepository persiste y consulta veterinarias importadas de OSM.
