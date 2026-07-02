@@ -78,8 +78,13 @@ FROM pets p
 WHERE p.status IN ('lost', 'stray') AND p.current_episode_id IS NULL;
 
 -- Closed episodes for found pets (still map-visible; their search is resolved).
+-- GREATEST keeps ended_at >= started_at even if updated_at is clock-skewed below created_at.
 INSERT INTO search_episodes (id, pet_id, started_at, ended_at, resolution)
-SELECT gen_random_uuid(), p.id, COALESCE(p.created_at, now()), COALESCE(p.updated_at, now()), 'found'
+SELECT gen_random_uuid(),
+       p.id,
+       COALESCE(p.created_at, now()),
+       GREATEST(COALESCE(p.created_at, now()), COALESCE(p.updated_at, now())),
+       'found'
 FROM pets p
 WHERE p.status = 'found' AND p.current_episode_id IS NULL;
 

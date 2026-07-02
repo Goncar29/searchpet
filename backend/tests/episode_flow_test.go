@@ -146,3 +146,92 @@ func TestEpisodeFlow_ReLostPet_MapShowsOnlyCurrentEpisode(t *testing.T) {
 		}
 	}
 }
+
+// TestEpisodeFlow_UpdatePet_TransitionsManageEpisode exercises the PRODUCTION
+// (UoW) path of UpdatePet — the branch that runs on PUT /api/pets/:id with a
+// status change and is skipped by every unit test (which pass nil episodes/uow).
+// It asserts that a status transition opens and later closes the episode atomically.
+func TestEpisodeFlow_UpdatePet_TransitionsManageEpisode(t *testing.T) {
+	db := testdb.SetupTestDB(t)
+	deps := newEpisodeTestDeps(t, db)
+	owner := newTestUser(t, deps.userRepo)
+
+	pet := &domain.Pet{ID: uuid.New(), OwnerID: ptrUUID(owner.ID), Name: "Rex",
+		Type: "perro", Status: domain.PetStatusRegistered}
+	if err := deps.petRepo.Create(pet); err != nil {
+		t.Fatalf("create pet: %v", err)
+	}
+
+	// registered -> lost via UpdatePet opens an episode and points current_episode_id at it.
+	if _, err := deps.petService.UpdatePet(owner.ID.String(), pet.ID.String(),
+		dto.UpdatePetRequest{Status: domain.PetStatusLost}); err != nil {
+		t.Fatalf("update to lost: %v", err)
+	}
+	cur, err := deps.episodeRepo.FindCurrent(pet.ID.String())
+	if err != nil {
+		t.Fatalf("find current: %v", err)
+	}
+	if cur == nil || cur.EndedAt != nil {
+		t.Fatalf("expected an OPEN episode after UpdatePet->lost, got %#v", cur)
+	}
+	reloaded, _ := deps.petRepo.FindByID(pet.ID.String())
+	if reloaded.CurrentEpisodeID == nil || *reloaded.CurrentEpisodeID != cur.ID {
+		t.Fatalf("pet.CurrentEpisodeID = %v, want %s", reloaded.CurrentEpisodeID, cur.ID)
+	}
+
+	// lost -> found via UpdatePet closes the same episode with resolution=found.
+	if _, err := deps.petService.UpdatePet(owner.ID.String(), pet.ID.String(),
+		dto.UpdatePetRequest{Status: domain.PetStatusFound}); err != nil {
+		t.Fatalf("update to found: %v", err)
+	}
+	closed, _ := deps.episodeRepo.FindCurrent(pet.ID.String())
+	if closed == nil || closed.ID != cur.ID || closed.EndedAt == nil ||
+		closed.Resolution == nil || *closed.Resolution != domain.PetStatusFound {
+		t.Fatalf("expected the SAME episode closed with resolution=found, got %#v", closed)
+	}
+}
+
+// TestEpisodeFlow_MarkAsFound_StampsClosureReport pins the invariant that the
+// auto-created closure report is stamped with the (just-closed) current episode,
+// so the "recovered here" pin stays visible on the map. If FindCurrent were ever
+// changed to exclude closed episodes, this would catch the silent regression.
+func TestEpisodeFlow_MarkAsFound_StampsClosureReport(t *testing.T) {
+	db := testdb.SetupTestDB(t)
+	deps := newEpisodeTestDeps(t, db)
+	owner := newTestUser(t, deps.userRepo)
+
+	pet := &domain.Pet{ID: uuid.New(), OwnerID: ptrUUID(owner.ID), Name: "Rex",
+		Type: "perro", Status: domain.PetStatusRegistered}
+	if err := deps.petRepo.Create(pet); err != nil {
+		t.Fatalf("create pet: %v", err)
+	}
+	if _, err := deps.petService.PublishLost(owner.ID.String(), pet.ID.String(),
+		dto.PublishLostRequest{Latitude: mvdLat, Longitude: mvdLng}); err != nil {
+		t.Fatalf("publish lost: %v", err)
+	}
+	if _, err := deps.petService.MarkAsFound(owner.ID.String(), pet.ID.String()); err != nil {
+		t.Fatalf("mark found: %v", err)
+	}
+
+	cur, _ := deps.episodeRepo.FindCurrent(pet.ID.String())
+	if cur == nil || cur.EndedAt == nil {
+		t.Fatalf("episode should be closed after MarkAsFound, got %#v", cur)
+	}
+
+	reports, err := deps.reportRepo.FindByPetID(pet.ID.String())
+	if err != nil {
+		t.Fatalf("find reports: %v", err)
+	}
+	var closure *domain.Report
+	for i := range reports {
+		if reports[i].Status == "found" {
+			closure = &reports[i]
+		}
+	}
+	if closure == nil {
+		t.Fatal("expected a closure report with status 'found'")
+	}
+	if closure.EpisodeID == nil || *closure.EpisodeID != cur.ID {
+		t.Fatalf("closure report episode = %v, want current episode %s", closure.EpisodeID, cur.ID)
+	}
+}

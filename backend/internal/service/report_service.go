@@ -99,29 +99,11 @@ func (s *reportService) CreateReport(reporterID string, req CreateReportRequest)
 		OccurredAt:          req.OccurredAt,
 	}
 
-	if err := s.repo.Create(report); err != nil {
-		return nil, err
-	}
-
-	// Recargamos con relaciones para tener Pet y Reporter en la respuesta
-	loaded, err := s.repo.FindByID(report.ID.String())
-	if err != nil {
-		return nil, err
-	}
-
-	// Sincronizamos pet.status según el reporte, pero SOLO para transiciones válidas
-	// según la máquina de estados. Transiciones inválidas (e.g. found→lost) dejan
-	// el pet intacto pero igualmente persisten el reporte como registro.
-	//
-	// "found"    → pet.status = "found"      (aparece en contador de encontrados)
-	// "lost"     → pet.status = "lost"       (se volvió a perder, aparece en el feed)
-	// "sighting" → sin cambio
-	//
-	// loaded refleja el estado ANTERIOR al UpdateStatus (se cargó arriba), así que
-	// oldStatus permite gatear el lifetime ledger por TRANSICIÓN — igual que PetService.
-	oldStatus := loaded.Pet.Status
-
-	// Determine the target pet status implied by the report, if any.
+	// Determine the target pet status implied by the report, if any. This depends
+	// only on the report's status, not on the pet's current state.
+	//   "found"    → pet.status = "found"   (aparece en contador de encontrados)
+	//   "lost"     → pet.status = "lost"    (se volvió a perder, aparece en el feed)
+	//   "sighting" → sin cambio
 	var target string
 	switch req.Status {
 	case "found":
@@ -130,18 +112,30 @@ func (s *reportService) CreateReport(reporterID string, req CreateReportRequest)
 		target = domain.PetStatusLost
 	}
 
-	// A status flip only happens for a VALID state-machine transition. Invalid
-	// forced transitions (e.g. found→lost) leave the pet untouched but still keep
-	// the report as a record.
-	shouldTransition := target != "" && target != oldStatus && domain.ValidateTransition(oldStatus, target) == nil
+	var (
+		loaded           *domain.Report
+		oldStatus        string
+		shouldTransition bool
+	)
 
-	// Mutate pet status, open/close the episode, and stamp the report's episode_id
-	// ATOMICALLY. Splitting these across separate writes risks a partial failure
-	// that flips the status but never opens/closes the episode (pet permanently
-	// invisible on the map) or leaves the report unstamped. The report row itself
-	// was created above; we stamp it here, inside the same tx as its episode.
 	if s.uow != nil {
+		// Create the report, flip pet status, open/close the episode, and stamp the
+		// report's episode_id ALL in one transaction. Doing the report INSERT inside
+		// the same tx means a partial failure never leaves an orphan report
+		// (episode_id NULL → invisible on the map forever) nor a status flipped
+		// without its episode. shouldTransition gates the flip: an invalid forced
+		// transition (e.g. found→lost) still persists the report but leaves the pet.
 		if err := s.uow.Execute(func(tx repository.UnitOfWorkRepos) error {
+			pet, err := tx.Pets.FindByID(req.PetID)
+			if err != nil {
+				return err
+			}
+			oldStatus = pet.Status
+			shouldTransition = target != "" && target != oldStatus && domain.ValidateTransition(oldStatus, target) == nil
+
+			if err := tx.Reports.Create(report); err != nil {
+				return err
+			}
 			if shouldTransition {
 				if err := tx.Pets.UpdateStatus(req.PetID, target); err != nil {
 					return err
@@ -163,15 +157,30 @@ func (s *reportService) CreateReport(reporterID string, req CreateReportRequest)
 				if err := tx.Reports.SetEpisodeID(report.ID.String(), cur.ID); err != nil {
 					return err
 				}
-				loaded.EpisodeID = &cur.ID
 			}
 			return nil
 		}); err != nil {
 			return nil, err
 		}
+		// Reload with relations for the response (Pet + Reporter + persisted episode_id).
+		loaded, err = s.repo.FindByID(report.ID.String())
+		if err != nil {
+			return nil, err
+		}
 	} else {
 		// Non-transactional fallback (unit tests with mocks and no UoW).
+		if err := s.repo.Create(report); err != nil {
+			return nil, err
+		}
+		loaded, err = s.repo.FindByID(report.ID.String())
+		if err != nil {
+			return nil, err
+		}
+		oldStatus = loaded.Pet.Status
+		shouldTransition = target != "" && target != oldStatus && domain.ValidateTransition(oldStatus, target) == nil
 		if shouldTransition && s.petRepo != nil {
+			// Best-effort here — mirrors the pre-existing switch; the tx path above is
+			// the source of truth in production (where uow is always wired).
 			_ = s.petRepo.UpdateStatus(req.PetID, target)
 		}
 		if shouldTransition && s.episodes != nil && s.episodeRepo != nil {

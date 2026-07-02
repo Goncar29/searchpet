@@ -44,6 +44,11 @@ func (r *PostgresEpisodeRepository) Open(petID string) (*domain.SearchEpisode, e
 // pets.current_episode_id. Scoping to that single episode (rather than every row
 // with ended_at IS NULL) guarantees a stray dangling-open episode left by a prior
 // partial failure is never batch-closed in one UPDATE. No-op if none is open.
+//
+// It INTENTIONALLY does not clear pets.current_episode_id: callers that stamp a
+// closure report (MarkAsFound) call FindCurrent right after and need the pointer
+// intact, and FindNearby keeps a found pet's "recovered here" pin visible via
+// reports.episode_id = pets.current_episode_id. Do not "tidy up" by nulling it.
 func (r *PostgresEpisodeRepository) CloseCurrent(petID string, resolution string) error {
 	now := time.Now()
 	currentEpisode := r.db.Model(&domain.Pet{}).
