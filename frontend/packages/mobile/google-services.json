@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "436771110102",
+    "project_id": "searchpet-566f0",
+    "storage_bucket": "searchpet-566f0.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:436771110102:android:f79767566d1eca4b935d77",
+        "android_client_info": {
+          "package_name": "com.searchpet.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBWsdOHBPhpheG3Ug8XZSE6iyyYxPxPvAE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

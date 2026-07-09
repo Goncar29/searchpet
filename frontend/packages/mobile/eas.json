@@ -23,7 +23,7 @@
         "simulator": true
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://your-railway-api.railway.app"
+        "EXPO_PUBLIC_API_URL": "https://searchpet.onrender.com"
       }
     },
     "production": {
@@ -32,7 +32,7 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://your-railway-api.railway.app"
+        "EXPO_PUBLIC_API_URL": "https://searchpet.onrender.com"
       }
     }
   },

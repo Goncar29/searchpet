@@ -18,11 +18,12 @@ backend/main
 *.keystore
 *.jks
 
-# Firebase credentials
-google-services.json
-GoogleService-Info.plist
+# Firebase credentials (server-side — real secrets)
 firebase-credentials.json
 *firebase-adminsdk*.json
+# NOTE: google-services.json / GoogleService-Info.plist are client config
+# (shipped inside every APK/IPA, extractable by anyone — not secrets) and
+# MUST be committed so EAS/CI builds can bundle them.
 
 # Firebase SW — generated at build-time from src/firebase-messaging-sw.template.js
 frontend/packages/web/public/firebase-messaging-sw.js

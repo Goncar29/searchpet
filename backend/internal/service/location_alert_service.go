@@ -85,6 +85,7 @@ func (s *locationAlertService) onReportCreated(payload interface{}) {
 			continue
 		}
 		if len(tokens) == 0 {
+			log.Printf("[LocationAlertService] alerta %s coincide pero el user %s no tiene device tokens registrados — push omitido", alert.ID, alert.UserID)
 			continue
 		}
 
