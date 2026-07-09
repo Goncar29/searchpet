@@ -198,5 +198,6 @@ apk-download/
 docs/superpowers/plans/2026-05-27-track1-infra-wiring.md
 # AI tooling state (local only — not project documentation)
 .engram/
+.codegraph/
 skills-lock.json
 web-check-results.json
