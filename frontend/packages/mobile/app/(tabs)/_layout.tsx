@@ -6,6 +6,8 @@ import { Tabs } from 'expo-router';
 import { Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { COLORS } from '../../constants';
+import { useAuthStore } from '../../store';
+import { useUnreadCount } from '@shared/hooks';
 
 const TAB_ICONS: Record<string, string> = {
   home: '🏠',
@@ -25,6 +27,13 @@ function TabIcon({ tab, focused }: { tab: string; focused: boolean }) {
 
 export default function TabsLayout() {
   const { t } = useTranslation('tabs');
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+
+  // Badge de mensajes sin leer en el tab. REST con poll de 30s; la screen de
+  // mensajes invalida ['messages'] vía WebSocket, lo que refresca este count.
+  const { data: unreadData } = useUnreadCount(isAuthenticated);
+  const unreadCount = unreadData?.count ?? 0;
+
   return (
     <Tabs
       screenOptions={{
@@ -70,6 +79,8 @@ export default function TabsLayout() {
         options={{
           title: t('messages'),
           tabBarIcon: ({ focused }) => <TabIcon tab="messages" focused={focused} />,
+          tabBarBadge: unreadCount > 0 ? (unreadCount > 9 ? '9+' : unreadCount) : undefined,
+          tabBarBadgeStyle: { backgroundColor: COLORS.primary, color: COLORS.white },
         }}
       />
       <Tabs.Screen

@@ -4,6 +4,9 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { LanguageSwitcher } from '../components/LanguageSwitcher';
+import { useQueryClient } from '@tanstack/react-query';
+import { useUnreadCount, useWebSocket } from '@shared/hooks';
+import type { WsEnvelope, WsBadgeUpdate } from '@shared/hooks';
 
 export function MainLayout() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -12,6 +15,33 @@ export function MainLayout() {
   const { isAuthenticated, isAdmin, user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const { t } = useTranslation(['layout', 'footer']);
+  const queryClient = useQueryClient();
+
+  // Badge de mensajes sin leer: REST para el valor inicial, WebSocket
+  // (badge_update) para tiempo real. El Hub soporta múltiples conexiones
+  // por usuario, así que esta conexión app-wide convive con la del chat.
+  const { data: unreadData } = useUnreadCount(isAuthenticated);
+  const unreadCount = unreadData?.count ?? 0;
+  const unreadLabel = unreadCount > 9 ? '9+' : String(unreadCount);
+
+  useWebSocket({
+    enabled: isAuthenticated,
+    onMessage: (envelope: WsEnvelope) => {
+      if (envelope.type === 'badge_update') {
+        const payload = envelope.payload as WsBadgeUpdate;
+        queryClient.setQueryData(['messages', 'unread-count'], { count: payload.unread_count });
+      } else if (envelope.type === 'chat_message') {
+        queryClient.invalidateQueries({ queryKey: ['messages'] });
+      }
+    },
+  });
+
+  const unreadBadge =
+    unreadCount > 0 ? (
+      <span className="ml-1.5 inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1 rounded-full bg-primary text-white text-xs font-bold">
+        {unreadLabel}
+      </span>
+    ) : null;
 
   // Auto-close mobile menu on route change
   useEffect(() => {
@@ -78,9 +108,10 @@ export function MainLayout() {
                   </Link>
                   <Link
                     to="/messages"
-                    className={`text-sm font-medium whitespace-nowrap ${isActive('/messages') ? activeLinkClass : inactiveLinkClass}`}
+                    className={`text-sm font-medium whitespace-nowrap inline-flex items-center ${isActive('/messages') ? activeLinkClass : inactiveLinkClass}`}
                   >
                     {t('messages')}
+                    {unreadBadge}
                   </Link>
                   <Link
                     to="/alerts"
@@ -224,13 +255,14 @@ export function MainLayout() {
                   </Link>
                   <Link
                     to="/messages"
-                    className={`text-sm font-medium py-2 px-3 rounded-md ${
+                    className={`text-sm font-medium py-2 px-3 rounded-md flex items-center ${
                       isActive('/messages')
                         ? 'text-primary bg-orange-50 dark:bg-orange-950'
                         : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
                     } transition-colors duration-150`}
                   >
                     {t('messages')}
+                    {unreadBadge}
                   </Link>
                   <Link
                     to="/alerts"

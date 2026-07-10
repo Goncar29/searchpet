@@ -372,6 +372,19 @@ export const useConversations = () => {
   });
 };
 
+// Unread badge count. Initial value comes from REST; while connected, the
+// WebSocket badge_update envelope overwrites the cache via setQueryData.
+// The 30s poll is the fallback for when the socket is down. The key lives
+// under the ['messages'] prefix so existing invalidations refresh it too.
+export const useUnreadCount = (enabled = true) => {
+  return useQuery({
+    queryKey: ['messages', 'unread-count'],
+    queryFn: () => apiClient.getUnreadCount(),
+    enabled,
+    refetchInterval: 30_000,
+  });
+};
+
 // useConversation does NOT poll — real-time updates are pushed via useWebSocket.
 // A 30s staleTime ensures we don't hammer the REST API on quick re-mounts.
 export const useConversation = (userID: string) => {

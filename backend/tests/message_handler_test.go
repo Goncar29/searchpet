@@ -93,6 +93,7 @@ func setupMessageRouter(h *handler.MessageHandler, callerID uuid.UUID) *gin.Engi
 	auth := r.Group("/api/messages", injectUserID(callerID))
 	auth.POST("", h.Send)
 	auth.GET("", h.GetConversations)
+	auth.GET("/unread-count", h.GetUnreadCount)
 	auth.GET("/:userId", h.GetConversation)
 	auth.PATCH("/:id/read", h.MarkAsRead)
 	return r
@@ -408,5 +409,62 @@ func TestMessageHandler_MarkAsRead_NotReceiver_Returns403(t *testing.T) {
 
 	if w.Code != http.StatusForbidden {
 		t.Errorf("expected 403 for non-receiver, got %d", w.Code)
+	}
+}
+
+// ============================================================
+// GET /api/messages/unread-count
+// ============================================================
+
+func TestMessageHandler_GetUnreadCount_ReturnsCount(t *testing.T) {
+	callerID := uuid.New()
+
+	var gotUserID string
+	svc := &mockMessageService{
+		countUnreadFn: func(_ context.Context, userID string) (int64, error) {
+			gotUserID = userID
+			return 7, nil
+		},
+	}
+	h := handler.NewMessageHandler(svc, nil)
+	r := setupMessageRouter(h, callerID)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/messages/unread-count", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	if gotUserID != callerID.String() {
+		t.Errorf("expected count for caller %s, got %s", callerID, gotUserID)
+	}
+
+	var body struct {
+		Count int64 `json:"count"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
+		t.Fatalf("invalid JSON response: %v", err)
+	}
+	if body.Count != 7 {
+		t.Errorf("expected count 7, got %d", body.Count)
+	}
+}
+
+func TestMessageHandler_GetUnreadCount_ServiceError_Returns500(t *testing.T) {
+	svc := &mockMessageService{
+		countUnreadFn: func(_ context.Context, _ string) (int64, error) {
+			return 0, domain.ErrInternal
+		},
+	}
+	h := handler.NewMessageHandler(svc, nil)
+	r := setupMessageRouter(h, uuid.New())
+
+	req := httptest.NewRequest(http.MethodGet, "/api/messages/unread-count", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("expected 500, got %d", w.Code)
 	}
 }
