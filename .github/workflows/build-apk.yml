@@ -62,21 +62,63 @@ jobs:
           echo "=== Kotlin classpath after patch ==="
           grep "kotlin-gradle-plugin" build.gradle
 
+      # expo prebuild genera un build.gradle que firma release con la debug key
+      # publica del template de React Native (extraible por cualquiera). Se
+      # inyecta la firma real: keystore desde secrets (base64) + signingConfig
+      # que lee las credenciales de env en build time.
+      - name: Configure release signing
+        working-directory: frontend/packages/mobile/android
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > app/release.keystore
+          cat >> app/build.gradle <<'EOF'
+
+          android {
+              signingConfigs {
+                  release {
+                      storeFile file('release.keystore')
+                      storePassword System.getenv('ANDROID_KEYSTORE_PASSWORD')
+                      keyAlias System.getenv('ANDROID_KEY_ALIAS')
+                      keyPassword System.getenv('ANDROID_KEY_PASSWORD')
+                  }
+              }
+              buildTypes {
+                  release {
+                      signingConfig signingConfigs.release
+                  }
+              }
+          }
+          EOF
+
       - name: Build APK
         working-directory: frontend/packages/mobile/android
         run: ./gradlew assembleRelease
         env:
-          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
           EXPO_PUBLIC_API_URL: ${{ secrets.API_URL }}
           EXPO_PUBLIC_MAPTILER_KEY: ${{ secrets.MAPTILER_KEY }}
 
+      # Guard: el build falla si el APK quedo firmado con la debug key.
+      # Evita volver a distribuir releases debug-signed sin darnos cuenta.
+      - name: Verify release signature
+        run: |
+          APK=frontend/packages/mobile/android/app/build/outputs/apk/release/app-release.apk
+          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner | sort | tail -1)
+          CERTS=$("$APKSIGNER" verify --print-certs "$APK")
+          echo "$CERTS"
+          if echo "$CERTS" | grep -q "Android Debug"; then
+            echo "::error::APK is signed with the public debug key — release signing did not apply"
+            exit 1
+          fi
+
       - name: Rename APK
         run: |
+          SAFE_REF="${GITHUB_REF_NAME//\//-}"
           mv frontend/packages/mobile/android/app/build/outputs/apk/release/app-release.apk \
-             SearchPet-${{ github.ref_name }}.apk
+             "SearchPet-${SAFE_REF}.apk"
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v7

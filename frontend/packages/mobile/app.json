@@ -32,7 +32,7 @@
         "backgroundColor": "#FF6B35"
       },
       "package": "com.searchpet.app",
-      "versionCode": 2,
+      "versionCode": 3,
       "googleServicesFile": "./google-services.json",
       "permissions": [
         "ACCESS_FINE_LOCATION",

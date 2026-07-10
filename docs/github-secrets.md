@@ -38,3 +38,14 @@ Copiar el output → GitHub Secret `ANDROID_KEYSTORE_BASE64`.
 
 Guardar `searchpet.keystore` en lugar seguro fuera del repo.
 Si se pierde, no se puede actualizar el APK con el mismo certificado.
+
+## Historial de firma
+
+Hasta v1.0.6 inclusive, `build-apk.yml` recibía estos secrets pero ningún paso
+los consumía: los APKs salían firmados con la **debug key pública del template
+de React Native** (la que genera `expo prebuild` por defecto). Desde el fix de
+firma, el workflow decodifica el keystore real e inyecta el `signingConfig`
+release, y un guard hace fallar el build si el APK queda debug-signed.
+
+Consecuencia one-off: la primera actualización con la firma nueva NO instala
+sobre una versión debug-signed — hay que desinstalar y reinstalar la app.
