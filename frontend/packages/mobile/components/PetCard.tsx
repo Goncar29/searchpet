@@ -3,6 +3,7 @@
 // ============================================================
 
 import { View, Text, Image, StyleSheet, TouchableOpacity } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../constants';
 import type { Report, Pet } from '../../shared/types';
 
@@ -15,11 +16,15 @@ interface PetCardProps {
 }
 
 export function PetCard({ report, pet: petProp, onPress }: PetCardProps) {
+  const { t } = useTranslation('pets');
+
   // report tiene prioridad; petProp es para resultados de búsqueda directa
   const pet = report?.pet ?? petProp;
 
-  // Estado de display: desde report (lost/found/sighting) o desde pet (active→lost, found, archived)
-  const rawStatus = report?.status ?? (petProp?.status === 'found' ? 'found' : 'lost');
+  // Estado de display: desde report (lost/found/sighting) o desde pet
+  // (registered/lost/stray/found/archived) — nunca colapsar a lost/found:
+  // una callejera con badge PERDIDO es información falsa para quien ayuda.
+  const rawStatus = report?.status ?? petProp?.status ?? 'lost';
   const dateStr = report?.created_at ?? petProp?.created_at ?? '';
   const locationDesc = report?.location_description;
 
@@ -27,19 +32,15 @@ export function PetCard({ report, pet: petProp, onPress }: PetCardProps) {
     switch (status) {
       case 'lost': return COLORS.lost;
       case 'found': return COLORS.found;
+      // stray comparte el ámbar de sighting — mismo criterio que la web (statusBadgeBg)
+      case 'stray':
       case 'sighting': return COLORS.sighting;
       default: return COLORS.primary;
     }
   };
 
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case 'lost': return 'PERDIDO';
-      case 'found': return 'ENCONTRADO';
-      case 'sighting': return 'AVISTADO';
-      default: return status.toUpperCase();
-    }
-  };
+  // Badges vía i18n (pets:status.*) — regla #13 del proyecto, nunca hardcodear
+  const getStatusLabel = (status: string) => t(`status.${status}`);
 
   const getTimeAgo = (d: string) => {
     if (!d) return '';
@@ -84,7 +85,7 @@ export function PetCard({ report, pet: petProp, onPress }: PetCardProps) {
       <View style={styles.info}>
         <View style={styles.infoHeader}>
           <Text style={styles.petName} numberOfLines={1}>
-            {pet?.name || 'Sin nombre'}
+            {pet?.name || t('card.noName')}
           </Text>
           <Text style={styles.timeAgo}>{getTimeAgo(dateStr)}</Text>
         </View>
@@ -160,6 +161,8 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '800',
     letterSpacing: 0.5,
+    // Las labels i18n vienen en Title Case ("Perdida") — el badge mantiene el look en mayúsculas
+    textTransform: 'uppercase',
   },
   info: {
     padding: SPACING.md,
