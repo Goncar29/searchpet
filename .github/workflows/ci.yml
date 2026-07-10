@@ -162,7 +162,8 @@ jobs:
       CLOUDINARY_API_KEY: test
       CLOUDINARY_API_SECRET: test
       FIREBASE_KEY: ""
-      SENDGRID_API_KEY: ""
+      BREVO_API_KEY: ""
+      MAIL_FROM_EMAIL: ""
       TWILIO_ACCOUNT_SID: ""
       TWILIO_AUTH_TOKEN: ""
       TWILIO_FROM_NUMBER: ""
