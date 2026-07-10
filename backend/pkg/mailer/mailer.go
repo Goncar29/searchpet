@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"html"
 	"io"
 	"net/http"
 	"strings"
@@ -54,9 +55,60 @@ func (m *brevoMailer) SetEndpoint(endpoint string) {
 	m.endpoint = endpoint
 }
 
+// otpHTMLTemplate es el cuerpo HTML del email de verificación. Email-safe:
+// tablas + estilos inline (Gmail/Outlook no soportan CSS moderno). El único
+// placeholder (%s) es el código OTP.
+const otpHTMLTemplate = `<!DOCTYPE html>
+<html lang="es">
+<body style="margin:0;padding:0;background-color:#f4f5f7;">
+  <table role="presentation" width="100%%" cellpadding="0" cellspacing="0" style="background-color:#f4f5f7;padding:32px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%%" cellpadding="0" cellspacing="0" style="max-width:440px;background-color:#ffffff;border-radius:12px;overflow:hidden;">
+          <tr>
+            <td style="background-color:#FF6B35;padding:20px 32px;text-align:center;">
+              <span style="font-family:Helvetica,Arial,sans-serif;font-size:22px;font-weight:bold;color:#ffffff;">&#128062; SearchPet</span>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:32px;">
+              <p style="margin:0 0 8px;font-family:Helvetica,Arial,sans-serif;font-size:18px;font-weight:bold;color:#1f2937;text-align:center;">
+                Tu c&oacute;digo de verificaci&oacute;n
+              </p>
+              <p style="margin:0 0 24px;font-family:Helvetica,Arial,sans-serif;font-size:14px;color:#6b7280;text-align:center;">
+                Ingresalo en la app para verificar tu cuenta.
+              </p>
+              <table role="presentation" width="100%%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td align="center" style="background-color:#FFF1EB;border-radius:8px;padding:20px;">
+                    <span style="font-family:Courier,monospace;font-size:34px;font-weight:bold;letter-spacing:8px;color:#E5551F;">%s</span>
+                  </td>
+                </tr>
+              </table>
+              <p style="margin:24px 0 0;font-family:Helvetica,Arial,sans-serif;font-size:13px;color:#6b7280;text-align:center;">
+                Expira en 10 minutos. No lo compartas con nadie.
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:16px 32px 24px;border-top:1px solid #f0f0f0;">
+              <p style="margin:0;font-family:Helvetica,Arial,sans-serif;font-size:12px;color:#9ca3af;text-align:center;">
+                Recibiste este email porque se pidi&oacute; verificar esta direcci&oacute;n en SearchPet.<br>
+                Si no fuiste vos, pod&eacute;s ignorarlo.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`
+
 // SendOTP envía un OTP por email al destinatario.
 // SECURITY: el código se incluye en el cuerpo del email pero NUNCA en los logs.
 func (m *brevoMailer) SendOTP(ctx context.Context, to, code string) error {
+	escapedCode := html.EscapeString(code)
 	payload := map[string]interface{}{
 		"sender": map[string]string{
 			"email": m.fromEmail,
@@ -67,6 +119,7 @@ func (m *brevoMailer) SendOTP(ctx context.Context, to, code string) error {
 		},
 		"subject":     "Tu código de verificación — SearchPet",
 		"textContent": fmt.Sprintf("Tu código de verificación es: %s\n\nExpira en 10 minutos. No lo compartas con nadie.", code),
+		"htmlContent": fmt.Sprintf(otpHTMLTemplate, escapedCode),
 	}
 
 	body, err := json.Marshal(payload)
