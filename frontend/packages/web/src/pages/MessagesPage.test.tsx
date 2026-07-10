@@ -68,4 +68,51 @@ describe('MessagesPage', () => {
     expect(screen.getByText('Juan')).toBeTruthy();
     expect(screen.getByText('Hola, encontré tu perro')).toBeTruthy();
   });
+
+  it('muestra el nombre del receptor cuando el usuario actual envió el último mensaje', () => {
+    vi.mocked(useConversations).mockReturnValue({
+      data: [
+        {
+          id: 'msg-1',
+          sender_id: 'user-1',
+          receiver_id: 'user-2',
+          content: 'Hola, vi a tu gata',
+          is_read: true,
+          created_at: new Date().toISOString(),
+          sender: { id: 'user-1', name: 'Me' },
+          receiver: { id: 'user-2', name: 'Carla' },
+        },
+      ],
+      isLoading: false,
+    } as unknown as ReturnType<typeof useConversations>);
+
+    render(<MessagesPage />, { wrapper });
+
+    // The counterpart is the receiver — never the current user's own name,
+    // and never the raw UUID.
+    expect(screen.getByText('Carla')).toBeTruthy();
+    expect(screen.queryByText('Me')).toBeNull();
+    expect(screen.queryByText('user-2')).toBeNull();
+  });
+
+  it('cae a common:unknownUser si el backend no trae el usuario', () => {
+    vi.mocked(useConversations).mockReturnValue({
+      data: [
+        {
+          id: 'msg-1',
+          sender_id: 'user-2',
+          receiver_id: 'user-1',
+          content: 'Hola',
+          is_read: true,
+          created_at: new Date().toISOString(),
+        },
+      ],
+      isLoading: false,
+    } as unknown as ReturnType<typeof useConversations>);
+
+    render(<MessagesPage />, { wrapper });
+
+    expect(screen.getByText('common:unknownUser')).toBeTruthy();
+    expect(screen.queryByText('user-2')).toBeNull();
+  });
 });

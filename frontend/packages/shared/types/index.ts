@@ -86,6 +86,13 @@ export interface Photo {
   created_at: string;
 }
 
+// Minimal user info embedded in messages. The API only exposes id + name
+// here (privacy: never email/phone).
+export interface MessageUser {
+  id: string;
+  name: string;
+}
+
 export interface Message {
   id: string;
   sender_id: string;
@@ -93,7 +100,8 @@ export interface Message {
   report_id?: string;
   content: string;
   is_read: boolean;
-  sender?: User;
+  sender?: MessageUser;
+  receiver?: MessageUser;
   created_at: string;
 }
 
