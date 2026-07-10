@@ -50,9 +50,10 @@ export function MessagesPage() {
       ) : (
         <ul className="flex flex-col gap-2">
           {conversations.map((msg: Message) => {
-            const otherUserId =
-              msg.sender_id === user?.id ? msg.receiver_id : msg.sender_id;
-            const otherUserName = msg.sender?.name ?? otherUserId;
+            const iAmSender = msg.sender_id === user?.id;
+            const otherUserId = iAmSender ? msg.receiver_id : msg.sender_id;
+            const otherUser = iAmSender ? msg.receiver : msg.sender;
+            const otherUserName = otherUser?.name ?? t('common:unknownUser');
             const unread = !msg.is_read && msg.receiver_id === user?.id;
 
             return (

@@ -79,4 +79,27 @@ describe('MessagesScreen', () => {
     expect(queryByText('Alice')).toBeTruthy();
     expect(queryByText('Encontré a tu perro')).toBeTruthy();
   });
+
+  it('muestra el nombre del receptor cuando el usuario actual envió el último mensaje', () => {
+    mockUseConversations.mockReturnValue({
+      data: [
+        {
+          id: 'msg-2',
+          sender_id: 'user-1',
+          receiver_id: 'user-3',
+          content: 'Vi a tu gata cerca del parque',
+          is_read: true,
+          created_at: '2024-01-01T10:30:00Z',
+          sender: { id: 'user-1', name: 'Me' },
+          receiver: { id: 'user-3', name: 'Carla' },
+        },
+      ],
+      isLoading: false,
+      refetch: jest.fn(),
+      isRefetching: false,
+    });
+    const { queryByText } = render(<MessagesScreen />);
+    expect(queryByText('Carla')).toBeTruthy();
+    expect(queryByText(/unknownUser/)).toBeNull();
+  });
 });

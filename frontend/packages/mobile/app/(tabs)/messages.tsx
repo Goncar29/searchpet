@@ -68,7 +68,10 @@ export default function MessagesScreen() {
   const getOtherUser = (msg: Message) => {
     // El "otro" en la conversación es quien no soy yo
     if (msg.sender_id === user?.id) {
-      return { id: msg.receiver_id, name: i18next.t('common:unknownUser') };
+      return {
+        id: msg.receiver_id,
+        name: msg.receiver?.name || i18next.t('common:unknownUser'),
+      };
     }
     return {
       id: msg.sender_id,
