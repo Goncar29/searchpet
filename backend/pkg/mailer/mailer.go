@@ -5,7 +5,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
+	"strings"
 )
 
 // DefaultBrevoEndpoint is the Brevo transactional email API endpoint.
@@ -88,7 +90,11 @@ func (m *brevoMailer) SendOTP(ctx context.Context, to, code string) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= 400 {
-		return fmt.Errorf("mailer: brevo returned status %d", resp.StatusCode)
+		// El body de error de Brevo distingue la causa ("Key not found",
+		// "unrecognised IP address", sender no verificado) — sin él un 401
+		// es indiagnosticable. Nunca contiene secretos ni el código OTP.
+		errBody, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+		return fmt.Errorf("mailer: brevo returned status %d: %s", resp.StatusCode, strings.TrimSpace(string(errBody)))
 	}
 
 	return nil
