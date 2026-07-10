@@ -21,7 +21,7 @@ import { useTranslation } from 'react-i18next';
 import i18next from 'i18next';
 import * as Location from 'expo-location';
 import * as ImagePicker from 'expo-image-picker';
-import { useNearbyReports, useSearchPets, useStories, useImageClassify, useImageSearchNative } from '../../../shared/hooks';
+import { useSearchPets, useStories, useImageClassify, useImageSearchNative } from '../../../shared/hooks';
 import { useLocationStore, useAuthStore } from '../../store';
 import { PetCard } from '../../components/PetCard';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS, MAP_DEFAULTS, PET_TYPES } from '../../constants';
@@ -45,7 +45,8 @@ export default function HomeScreen() {
   const [draftBreed, setDraftBreed] = useState('');
   const [draftFrom, setDraftFrom] = useState('');
   const [draftTo, setDraftTo] = useState('');
-  const [radius, setRadius] = useState<5 | 10 | 25 | 50>(10);
+  // Filtro de distancia OPCIONAL (como en web): undefined = feed global sin radio
+  const [radius, setRadius] = useState<5 | 10 | 25 | 50 | undefined>(undefined);
   const [showFilters, setShowFilters] = useState(false);
 
   // ── Applied state — drives the actual API calls ──────────
@@ -55,8 +56,8 @@ export default function HomeScreen() {
   const [appliedFrom, setAppliedFrom] = useState('');
   const [appliedTo, setAppliedTo] = useState('');
 
-  const isSearchMode = !!appliedType || appliedColor.trim().length > 0
-    || appliedBreed.trim().length > 0 || !!appliedFrom || !!appliedTo;
+  const hasActiveFilters = !!appliedType || appliedColor.trim().length > 0
+    || appliedBreed.trim().length > 0 || !!appliedFrom || !!appliedTo || !!radius;
 
   // ── Búsqueda por foto ──
   const [classifyResult, setClassifyResult] = useState<ClassifyResult | null>(null);
@@ -85,19 +86,24 @@ export default function HomeScreen() {
   };
 
   // ── Datos ────────────────────────────────────────────────
-  const nearbyQuery = useNearbyReports(lat, lng, radius, !isSearchMode);
+  // Feed único unificado (como en web): /pets/search (lost+stray por defecto,
+  // orden por recencia). El filtro de distancia es opcional y se suma encima:
+  // centro = GPS del usuario, fallback Montevideo (MAP_DEFAULTS).
   const searchQuery = useSearchPets({
     type: appliedType,
     color: appliedColor.trim() || undefined,
     breed: appliedBreed.trim() || undefined,
     from: appliedFrom ? new Date(appliedFrom).toISOString() : undefined,
     to: appliedTo ? new Date(appliedTo).toISOString() : undefined,
+    lat: radius ? lat : undefined,
+    lng: radius ? lng : undefined,
+    radiusMeters: radius ? radius * 1000 : undefined,
   });
 
-  const isLoading = isSearchMode ? searchQuery.isLoading : nearbyQuery.isLoading;
-  const isRefetching = isSearchMode ? false : nearbyQuery.isRefetching;
+  const isLoading = searchQuery.isLoading;
+  const isRefetching = searchQuery.isRefetching;
 
-  const handleRefetch = () => { if (!isSearchMode) nearbyQuery.refetch(); };
+  const handleRefetch = () => { searchQuery.refetch(); };
 
   const handlePetPress = (petId: string) => router.push(`/pet/${petId}`);
 
@@ -122,6 +128,7 @@ export default function HomeScreen() {
     setAppliedBreed('');
     setAppliedFrom('');
     setAppliedTo('');
+    setRadius(undefined);
     setClassifyResult(null);
     setPhotoNoMatch(false);
     setImageResults(null);
@@ -181,7 +188,7 @@ export default function HomeScreen() {
   };
 
   // ── Render items ─────────────────────────────────────────
-  // Modo foto → ImageSearchResult[]; modo búsqueda → Pet[]; modo nearby → Report[]
+  // Modo foto → ImageSearchResult[]; feed/búsqueda → Pet[]
   const isImageResultsMode = !!imageResults;
 
   const renderImageResult = ({ item }: { item: ImageSearchResult }) => (
@@ -203,31 +210,20 @@ export default function HomeScreen() {
     </TouchableOpacity>
   );
 
-  const renderItem = isSearchMode
-    ? ({ item }: { item: any }) => (
-        <PetCard
-          pet={item}
-          onPress={() => handlePetPress(item.id)}
-        />
-      )
-    : ({ item }: { item: any }) => (
-        <PetCard
-          report={item}
-          onPress={() => handlePetPress(item.pet?.id || item.pet_id)}
-        />
-      );
+  const renderItem = ({ item }: { item: any }) => (
+    <PetCard
+      pet={item}
+      onPress={() => handlePetPress(item.id)}
+    />
+  );
 
   const data: any[] = isImageResultsMode
     ? (imageResults ?? [])
-    : isSearchMode
-    ? (searchQuery.data?.data ?? [])
-    : (nearbyQuery.data ?? []);
+    : (searchQuery.data?.data ?? []);
 
   const resultCount = isImageResultsMode
     ? data.length
-    : isSearchMode
-    ? (searchQuery.data?.total ?? data.length)
-    : data.length;
+    : (searchQuery.data?.total ?? data.length);
 
   // ── Historias de éxito ───────────────────────────────────
   const storiesQuery = useStories({ limit: 10 });
@@ -378,23 +374,21 @@ export default function HomeScreen() {
               <Text style={styles.applyButtonText}>{t('common:search')}</Text>
             </TouchableOpacity>
 
-            {/* Radio (solo en modo nearby) */}
-            {!isSearchMode && (
-              <View style={styles.radiusRow}>
-                <Text style={styles.radiusLabel}>{t('home:radius')}</Text>
-                {RADII.map((r) => (
-                  <TouchableOpacity
-                    key={r}
-                    style={[styles.radiusChip, radius === r && styles.radiusChipActive]}
-                    onPress={() => setRadius(r)}
-                  >
-                    <Text style={[styles.radiusChipText, radius === r && styles.radiusChipTextActive]}>
-                      {r} km
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
+            {/* Filtro de distancia opcional — tap en el chip activo lo deselecciona */}
+            <View style={styles.radiusRow}>
+              <Text style={styles.radiusLabel}>{t('home:distanceLabel')}</Text>
+              {RADII.map((r) => (
+                <TouchableOpacity
+                  key={r}
+                  style={[styles.radiusChip, radius === r && styles.radiusChipActive]}
+                  onPress={() => setRadius(radius === r ? undefined : r)}
+                >
+                  <Text style={[styles.radiusChipText, radius === r && styles.radiusChipTextActive]}>
+                    {r} km
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
         )}
       </View>
@@ -410,7 +404,7 @@ export default function HomeScreen() {
               <Text style={styles.clearText}>{t('home:clearPhotoResults')}</Text>
             </TouchableOpacity>
           </View>
-        ) : isSearchMode ? (
+        ) : hasActiveFilters ? (
           <View style={styles.headerRow}>
             <Text style={styles.greeting}>
               {t('home:results', { count: resultCount })}
@@ -421,18 +415,16 @@ export default function HomeScreen() {
           </View>
         ) : (
           <>
-            <Text style={styles.greeting}>
-              {isAuthenticated ? t('home:nearbyTitle') : t('home:lostTitle')}
-            </Text>
+            <Text style={styles.greeting}>{t('home:feedTitle')}</Text>
             <Text style={styles.subtitle}>
-              {t('home:activeReports', { count: data.length, radius })}
+              {t('home:feedCount', { count: resultCount })}
             </Text>
           </>
         )}
       </View>
 
       {/* ── CTA para no autenticados ── */}
-      {!isAuthenticated && !isSearchMode && (
+      {!isAuthenticated && !hasActiveFilters && (
         <TouchableOpacity
           style={styles.ctaBanner}
           onPress={() => router.push('/login')}
@@ -485,7 +477,7 @@ export default function HomeScreen() {
         <View style={styles.center}>
           <ActivityIndicator size="large" color={COLORS.primary} />
           <Text style={styles.loadingText}>
-            {isSearchMode ? t('home:searching') : t('home:loading')}
+            {hasActiveFilters ? t('home:searching') : t('home:loading')}
           </Text>
         </View>
       ) : isImageResultsMode ? (
@@ -523,12 +515,12 @@ export default function HomeScreen() {
             <View style={styles.empty}>
               <Text style={styles.emptyIcon}>🐾</Text>
               <Text style={styles.emptyTitle}>
-                {isSearchMode ? t('home:noResultsTitle') : t('home:noNearbyTitle')}
+                {hasActiveFilters ? t('home:noResultsTitle') : t('home:emptyFeedTitle')}
               </Text>
               <Text style={styles.emptyText}>
-                {isSearchMode ? t('home:noResultsText') : t('home:noNearbyText')}
+                {hasActiveFilters ? t('home:noResultsText') : t('home:emptyFeedText')}
               </Text>
-              {isSearchMode && (
+              {hasActiveFilters && (
                 <TouchableOpacity style={styles.clearButton} onPress={clearFilters}>
                   <Text style={styles.clearButtonText}>{t('home:clearFiltersButton')}</Text>
                 </TouchableOpacity>
