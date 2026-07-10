@@ -94,6 +94,7 @@ func TestBrevoMailer_SendOTP_SendsCorrectRequest(t *testing.T) {
 func TestBrevoMailer_SendOTP_UpstreamErrorStatus(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
+		_, _ = w.Write([]byte(`{"message":"unrecognised IP address 1.2.3.4","code":"unauthorized"}`))
 	}))
 	defer server.Close()
 
@@ -103,6 +104,30 @@ func TestBrevoMailer_SendOTP_UpstreamErrorStatus(t *testing.T) {
 	err := m.SendOTP(context.Background(), "user@example.com", "111111")
 	if err == nil {
 		t.Fatal("expected error on 401 response, got nil")
+	}
+	// The Brevo error body distinguishes "Key not found" from
+	// "unrecognised IP address" — without it a 401 is undiagnosable.
+	if !strings.Contains(err.Error(), "unrecognised IP address") {
+		t.Errorf("expected error to include the Brevo response body, got: %v", err)
+	}
+}
+
+func TestBrevoMailer_SendOTP_UpstreamErrorBodyTruncated(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(strings.Repeat("x", 5000)))
+	}))
+	defer server.Close()
+
+	m := NewBrevoMailer("key", "sender@example.com")
+	m.(*brevoMailer).endpoint = server.URL
+
+	err := m.SendOTP(context.Background(), "user@example.com", "111111")
+	if err == nil {
+		t.Fatal("expected error on 400 response, got nil")
+	}
+	if len(err.Error()) > 600 {
+		t.Errorf("expected upstream body to be truncated in error, got %d chars", len(err.Error()))
 	}
 }
 
