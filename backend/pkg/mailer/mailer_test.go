@@ -89,6 +89,19 @@ func TestBrevoMailer_SendOTP_SendsCorrectRequest(t *testing.T) {
 	if !strings.Contains(textContent, "654321") {
 		t.Errorf("expected textContent to contain the OTP code, got %q", textContent)
 	}
+
+	// htmlContent is the styled version; textContent stays as the fallback
+	// for clients that don't render HTML.
+	htmlContent, _ := gotBody["htmlContent"].(string)
+	if !strings.Contains(htmlContent, "654321") {
+		t.Errorf("expected htmlContent to contain the OTP code, got %q", htmlContent)
+	}
+	if !strings.Contains(htmlContent, "SearchPet") {
+		t.Error("expected htmlContent to carry SearchPet branding")
+	}
+	if !strings.Contains(htmlContent, "<") {
+		t.Error("expected htmlContent to be HTML markup")
+	}
 }
 
 func TestBrevoMailer_SendOTP_UpstreamErrorStatus(t *testing.T) {
