@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -121,6 +122,15 @@ func (s *verificationService) SendOTP(ctx context.Context, userID uuid.UUID, cha
 	}
 
 	if sendErr != nil {
+		// SECURITY: sendErr solo contiene el status del proveedor, nunca el código OTP.
+		log.Printf("[verification] %s send failed for user %s: %v", channel, userID, sendErr)
+
+		// Invalidar el token fallido: si queda activo, el cooldown de 60s
+		// bloquea el reintento aunque el usuario nunca recibió nada.
+		if muErr := s.tokenRepo.MarkUsed(ctx, token.ID); muErr != nil {
+			log.Printf("[verification] failed to invalidate token after send failure: %v", muErr)
+		}
+
 		// Falló el proveedor externo → envolver para que el handler retorne 502
 		return &ErrExternalService{Cause: sendErr}
 	}

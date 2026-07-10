@@ -1,10 +1,14 @@
 package tests
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"log"
+	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -351,6 +355,45 @@ func (c *captureTokenRepo) IncrementAttempts(ctx context.Context, id uuid.UUID) 
 func (c *captureTokenRepo) DeleteExpired(ctx context.Context) (int64, error) {
 	return c.mockTokenRepo.DeleteExpired(ctx)
 }
+
+// SendOTP with a failing mailer returns ErrExternalService, invalidates the
+// pending token (so the 60s cooldown does not block an immediate retry after
+// a provider failure), and logs the upstream cause for diagnosis.
+func TestSendOTP_MailerFails_InvalidatesTokenAndLogsCause(t *testing.T) {
+	ctx := context.Background()
+	userID := uuid.New()
+
+	userRepo := &mockUserRepo{user: &domain.User{ID: userID, Email: "test@example.com"}}
+	tokenRepo := &mockTokenRepo{}
+
+	svc := service.NewVerificationService(tokenRepo, userRepo, &failingMailer{}, &noopSMS{}, nil)
+
+	var logBuf bytes.Buffer
+	log.SetOutput(&logBuf)
+	defer log.SetOutput(os.Stderr)
+
+	err := svc.SendOTP(ctx, userID, "email", "")
+
+	var extErr *service.ErrExternalService
+	if !errors.As(err, &extErr) {
+		t.Fatalf("expected ErrExternalService, got %v", err)
+	}
+	if !tokenRepo.markUsedCalled {
+		t.Error("expected failed-send token to be invalidated (MarkUsed) so retry is not cooldown-blocked")
+	}
+	if !strings.Contains(logBuf.String(), "brevo returned status 401") {
+		t.Errorf("expected upstream cause in logs, got: %q", logBuf.String())
+	}
+}
+
+// failingMailer simulates a provider rejection (e.g. Brevo 401).
+type failingMailer struct{}
+
+func (f *failingMailer) SendOTP(ctx context.Context, to, code string) error {
+	return fmt.Errorf("mailer: brevo returned status 401")
+}
+
+var _ mailer.Mailer = (*failingMailer)(nil)
 
 // noopMailer implements mailer.Mailer with no side-effects.
 type noopMailer struct{}
