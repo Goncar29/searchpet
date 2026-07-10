@@ -163,6 +163,23 @@ func (h *MessageHandler) GetPhotoSignedURL(c *gin.Context) {
 	})
 }
 
+// GetUnreadCount godoc
+// GET /api/messages/unread-count
+// Retorna la cantidad de mensajes no leídos del usuario autenticado.
+// Valor inicial para el badge de mensajes; el WebSocket (badge_update)
+// lo mantiene actualizado después.
+func (h *MessageHandler) GetUnreadCount(c *gin.Context) {
+	userID := getUserID(c)
+
+	count, err := h.messageService.CountUnread(c.Request.Context(), userID)
+	if err != nil {
+		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"count": count})
+}
+
 // MarkAsRead godoc
 // PATCH /api/messages/:id/read
 func (h *MessageHandler) MarkAsRead(c *gin.Context) {

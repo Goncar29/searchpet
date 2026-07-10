@@ -559,6 +559,10 @@ class APIClient {
     return this.request<void>('PATCH', `/api/messages/${messageId}/read`);
   }
 
+  async getUnreadCount(): Promise<{ count: number }> {
+    return this.request<{ count: number }>('GET', '/api/messages/unread-count');
+  }
+
   async issueWsTicket(): Promise<{ ticket: string; expires_in: number }> {
     return this.request<{ ticket: string; expires_in: number }>('POST', '/api/ws/ticket');
   }

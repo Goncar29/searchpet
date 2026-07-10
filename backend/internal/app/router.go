@@ -328,6 +328,8 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 
 		protected.POST("/messages", messageHandler.Send)
 		protected.GET("/messages", messageHandler.GetConversations)
+		// Estática antes que :userId — Gin prioriza rutas estáticas en el mismo segmento.
+		protected.GET("/messages/unread-count", messageHandler.GetUnreadCount)
 		protected.GET("/messages/:userId", messageHandler.GetConversation)
 		protected.PATCH("/messages/:id/read", messageHandler.MarkAsRead)
 		protected.GET("/messages/photo-url/:messageId", messageHandler.GetPhotoSignedURL)
