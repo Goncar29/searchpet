@@ -20,8 +20,17 @@ type Config struct {
 	Environment         string
 	CORSAllowedOrigins  string
 
-	// V1.3 — User Verification (OTP)
-	SendGridAPIKey           string
+	// V1.3 — User Verification (OTP). Email migrated from SendGrid to Brevo
+	// (SendGrid retired its free-forever plan; Brevo: 300 emails/day free,
+	// single-sender verification works without owning a domain).
+	BrevoAPIKey string
+	// MailFromEmail is the verified single sender in Brevo. Empty disables
+	// email sending (noop mailer) — Brevo rejects unverified senders.
+	MailFromEmail string
+	// BrevoEndpoint optionally overrides the default Brevo API endpoint
+	// (mailer.DefaultBrevoEndpoint). Empty means "use the default" — set this
+	// only if Brevo migrates its API, so it's a config change instead of a deploy.
+	BrevoEndpoint            string
 	TwilioAccountSID         string
 	TwilioAuthToken          string
 	TwilioFromNumber         string
@@ -67,7 +76,9 @@ func Load() *Config {
 		CORSAllowedOrigins:  getEnv("CORS_ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:8081"),
 
 		// V1.3 — User Verification (OTP)
-		SendGridAPIKey:          getEnv("SENDGRID_API_KEY", ""),
+		BrevoAPIKey:             getEnv("BREVO_API_KEY", ""),
+		MailFromEmail:           getEnv("MAIL_FROM_EMAIL", ""),
+		BrevoEndpoint:           getEnv("BREVO_ENDPOINT", ""),
 		TwilioAccountSID:        getEnv("TWILIO_ACCOUNT_SID", ""),
 		TwilioAuthToken:         getEnv("TWILIO_AUTH_TOKEN", ""),
 		TwilioFromNumber:        getEnv("TWILIO_FROM_NUMBER", ""),

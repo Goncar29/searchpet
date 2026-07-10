@@ -144,7 +144,13 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 	reviewHandler := handler.NewReviewHandler(reviewSvc)
 
 	verificationTokenRepo := repository.NewVerificationTokenRepository(db)
-	mailerClient := mailer.NewSendGridMailer(cfg.SendGridAPIKey)
+	mailerClient := mailer.NewBrevoMailer(cfg.BrevoAPIKey, cfg.MailFromEmail)
+	if cfg.BrevoEndpoint != "" {
+		// Noop mailer (missing key/sender) doesn't implement SetEndpoint.
+		if bm, ok := mailerClient.(interface{ SetEndpoint(string) }); ok {
+			bm.SetEndpoint(cfg.BrevoEndpoint)
+		}
+	}
 	smsSenderClient := sms.NewTwilioSender(cfg.TwilioAccountSID, cfg.TwilioAuthToken, cfg.TwilioFromNumber)
 	verificationService := service.NewVerificationService(verificationTokenRepo, userRepo, mailerClient, smsSenderClient, bus)
 

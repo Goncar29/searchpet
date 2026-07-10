@@ -42,7 +42,7 @@ func (e *ErrNoPhoneOnFile) Error() string {
 	return "no_phone_on_file"
 }
 
-// ErrExternalService es retornado cuando un proveedor externo (SendGrid, Twilio) falla.
+// ErrExternalService es retornado cuando un proveedor externo (Brevo, Twilio) falla.
 // El handler lo mapea a 502 Bad Gateway.
 type ErrExternalService struct {
 	Cause error
