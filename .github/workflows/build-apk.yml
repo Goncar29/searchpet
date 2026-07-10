@@ -106,7 +106,7 @@ jobs:
       - name: Verify release signature
         run: |
           APK=frontend/packages/mobile/android/app/build/outputs/apk/release/app-release.apk
-          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner | sort | tail -1)
+          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -1)
           CERTS=$("$APKSIGNER" verify --print-certs "$APK")
           echo "$CERTS"
           if echo "$CERTS" | grep -q "Android Debug"; then
