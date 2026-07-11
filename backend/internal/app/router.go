@@ -335,6 +335,10 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 		protected.PATCH("/messages/:id/read", messageHandler.MarkAsRead)
 		protected.GET("/messages/photo-url/:messageId", messageHandler.GetPhotoSignedURL)
 
+		// CONVERSATION-LEVEL ACTIONS (hide / mark unread)
+		protected.DELETE("/conversations/:userId", messageHandler.HideConversation)
+		protected.PATCH("/conversations/:userId/unread", messageHandler.MarkConversationUnread)
+
 		protected.POST("/share/generate/:petId", shareHandler.GenerateShareLink)
 
 		protected.POST("/devices/token", deviceHandler.RegisterToken)

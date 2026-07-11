@@ -206,3 +206,41 @@ func (h *MessageHandler) MarkAsRead(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"success": true})
 }
+
+// HideConversation godoc
+// DELETE /api/conversations/:userId
+// Oculta la conversación con :userId solo para el usuario autenticado.
+func (h *MessageHandler) HideConversation(c *gin.Context) {
+	userID := getUserID(c)
+	otherUserID := c.Param("userId")
+
+	if err := h.messageService.HideConversation(c.Request.Context(), userID, otherUserID); err != nil {
+		if errors.Is(err, domain.ErrInvalidInput) {
+			writeError(c, http.StatusBadRequest, err)
+			return
+		}
+		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
+		return
+	}
+
+	c.Status(http.StatusNoContent)
+}
+
+// MarkConversationUnread godoc
+// PATCH /api/conversations/:userId/unread
+// Marca la conversación con :userId como no leída (último mensaje recibido).
+func (h *MessageHandler) MarkConversationUnread(c *gin.Context) {
+	userID := getUserID(c)
+	otherUserID := c.Param("userId")
+
+	if err := h.messageService.MarkConversationUnread(c.Request.Context(), userID, otherUserID); err != nil {
+		if errors.Is(err, domain.ErrInvalidInput) {
+			writeError(c, http.StatusBadRequest, err)
+			return
+		}
+		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
+		return
+	}
+
+	c.Status(http.StatusNoContent)
+}
