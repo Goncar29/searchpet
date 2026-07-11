@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { act, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -25,10 +25,19 @@ vi.mock('react-router', async (importOriginal) => {
   };
 });
 
+const usePublicProfileMock = vi.fn();
+const useBlockStatusMock = vi.fn();
+
 vi.mock('@shared/hooks', () => ({
   useConversation: vi.fn(),
   useSendMessageTo: () => ({ mutate: vi.fn(), isPending: false }),
   useWebSocket: vi.fn(() => ({ connectionState: 'connected' as WsConnectionState, sendEnvelope: vi.fn() })),
+  usePublicProfile: (...args: unknown[]) => usePublicProfileMock(...args),
+  useBlockStatus: (...args: unknown[]) => useBlockStatusMock(...args),
+}));
+
+vi.mock('../components/ConversationActionsMenu', () => ({
+  ConversationActionsMenu: () => <button aria-label="chat:actions.menuLabel">menu</button>,
 }));
 
 import { useConversation, useWebSocket } from '@shared/hooks';
@@ -48,6 +57,11 @@ function wrapper({ children }: { children: React.ReactNode }) {
 }
 
 describe('ChatPage', () => {
+  beforeEach(() => {
+    usePublicProfileMock.mockReturnValue({ data: { id: 'user-2', name: 'Alice' } });
+    useBlockStatusMock.mockReturnValue({ isBlocked: false, isLoading: false });
+  });
+
   it('renderiza sin lanzar errores', () => {
     vi.mocked(useConversation).mockReturnValue(mockConversation([], false));
     render(<ChatPage />, { wrapper });
@@ -103,5 +117,33 @@ describe('ChatPage', () => {
     });
 
     expect(screen.getByText('chat:typing')).toBeTruthy();
+  });
+
+  it('muestra el nombre de la contraparte como link al perfil publico', () => {
+    vi.mocked(useConversation).mockReturnValue(mockConversation([], false));
+
+    render(<ChatPage />, { wrapper });
+
+    const link = screen.getByText('Alice').closest('a');
+    expect(link).toBeTruthy();
+    expect(link?.getAttribute('href')).toBe('/users/user-2');
+  });
+
+  it('muestra el boton del menu de acciones de la conversacion', () => {
+    vi.mocked(useConversation).mockReturnValue(mockConversation([], false));
+
+    render(<ChatPage />, { wrapper });
+
+    expect(screen.getByLabelText('chat:actions.menuLabel')).toBeTruthy();
+  });
+
+  it('oculta el input y muestra el banner de bloqueo cuando useBlockStatus indica isBlocked true', () => {
+    useBlockStatusMock.mockReturnValue({ isBlocked: true, isLoading: false });
+    vi.mocked(useConversation).mockReturnValue(mockConversation([], false));
+
+    render(<ChatPage />, { wrapper });
+
+    expect(screen.queryByPlaceholderText('chat:inputPlaceholder')).toBeNull();
+    expect(screen.getByText('chat:actions.blockedBanner')).toBeTruthy();
   });
 });
