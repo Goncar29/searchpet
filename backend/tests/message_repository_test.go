@@ -243,3 +243,46 @@ func TestMessageRepository_GetConversations_HiddenReappearsOnNewMessage(t *testi
 		t.Fatalf("want conversation to reappear, got %d", len(convs))
 	}
 }
+
+func TestMessageRepository_MarkConversationUnread(t *testing.T) {
+	gormDB := testdb.SetupTestDB(t)
+	userRepo := repository.NewUserRepository(gormDB)
+	msgRepo := repository.NewMessageRepository(gormDB)
+	ctx := context.Background()
+
+	me := newTestUser(t, userRepo)
+	alice := newTestUser(t, userRepo)
+
+	m1 := seedMessage(t, msgRepo, alice.ID, me.ID, "primero")
+	m2 := seedMessage(t, msgRepo, alice.ID, me.ID, "último")
+
+	// Mark everything read first (existing behavior)
+	if err := msgRepo.MarkConversationRead(ctx, me.ID, alice.ID); err != nil {
+		t.Fatalf("MarkConversationRead: %v", err)
+	}
+
+	// Act: mark unread → only the LATEST received message flips back
+	if err := msgRepo.MarkConversationUnread(ctx, me.ID, alice.ID); err != nil {
+		t.Fatalf("MarkConversationUnread: %v", err)
+	}
+
+	reload := func(id uuid.UUID) *domain.Message {
+		msg, err := msgRepo.GetByID(ctx, id)
+		if err != nil {
+			t.Fatalf("GetByID: %v", err)
+		}
+		return msg
+	}
+	if reload(m1.ID).ReadAt == nil {
+		t.Error("first message should STAY read")
+	}
+	if reload(m2.ID).ReadAt != nil {
+		t.Error("latest message should be unread again")
+	}
+
+	// Idempotent no-op when there are no received messages
+	stranger := newTestUser(t, userRepo)
+	if err := msgRepo.MarkConversationUnread(ctx, me.ID, stranger.ID); err != nil {
+		t.Errorf("MarkConversationUnread with no messages should be a no-op, got %v", err)
+	}
+}

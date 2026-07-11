@@ -127,6 +127,22 @@ func (r *postgresMessageRepository) MarkConversationRead(ctx context.Context, re
 		Update("read_at", gorm.Expr("NOW()")).Error
 }
 
+// MarkConversationUnread revierte el read_at del último mensaje recibido de una
+// conversación ("marcar como no leída"). Solo el más reciente: alcanza para que
+// la conversación muestre el punto de no-leído y cuente en el badge.
+func (r *postgresMessageRepository) MarkConversationUnread(ctx context.Context, receiverID, senderID uuid.UUID) error {
+	return r.db.WithContext(ctx).Exec(
+		`UPDATE messages SET read_at = NULL
+		 WHERE id = (
+			SELECT id FROM messages
+			WHERE receiver_id = ? AND sender_id = ?
+			ORDER BY created_at DESC
+			LIMIT 1
+		 )`,
+		receiverID, senderID,
+	).Error
+}
+
 // CountUnread retorna la cantidad de mensajes recibidos por userID que aún no fueron
 // leídos, excluyendo los de conversaciones ocultas (el badge no debe contar lo que
 // el usuario no puede ver). Un mensaje posterior a hidden_at vuelve a contar.

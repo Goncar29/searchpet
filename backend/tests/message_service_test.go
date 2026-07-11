@@ -29,6 +29,10 @@ type mockMessageRepository struct {
 	markConvReadCalled bool
 	markConvReadArgs   [2]uuid.UUID
 	countUnreadUserID  uuid.UUID
+
+	markConvUnreadFn     func(ctx context.Context, receiverID, senderID uuid.UUID) error
+	markConvUnreadCalled bool
+	markConvUnreadArgs   [2]uuid.UUID
 }
 
 func (m *mockMessageRepository) Create(ctx context.Context, msg *domain.Message) error {
@@ -72,6 +76,15 @@ func (m *mockMessageRepository) MarkConversationRead(ctx context.Context, receiv
 	m.markConvReadArgs = [2]uuid.UUID{receiverID, senderID}
 	if m.markConvReadFn != nil {
 		return m.markConvReadFn(ctx, receiverID, senderID)
+	}
+	return nil
+}
+
+func (m *mockMessageRepository) MarkConversationUnread(ctx context.Context, receiverID, senderID uuid.UUID) error {
+	m.markConvUnreadCalled = true
+	m.markConvUnreadArgs = [2]uuid.UUID{receiverID, senderID}
+	if m.markConvUnreadFn != nil {
+		return m.markConvUnreadFn(ctx, receiverID, senderID)
 	}
 	return nil
 }
