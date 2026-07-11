@@ -46,6 +46,7 @@ var allTableNames = []string{
 	"badges",
 	"location_alerts",
 	"share_links",
+	"conversation_hides",
 	"messages",
 	"photos",
 	"reports",
