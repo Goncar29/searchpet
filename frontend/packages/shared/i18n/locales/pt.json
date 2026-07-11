@@ -171,7 +171,29 @@
     "reportSuccess": "Denúncia enviada",
     "reportSuccessText": "Obrigado por reportar",
     "reportError": "Não foi possível enviar a denúncia",
-    "typing_indicator": "Digitando..."
+    "typing_indicator": "Digitando...",
+    "actions": {
+      "menuLabel": "Opções da conversa",
+      "viewProfile": "Ver perfil",
+      "markUnread": "Marcar como não lida",
+      "block": "Bloquear usuário",
+      "unblock": "Desbloquear usuário",
+      "report": "Denunciar usuário",
+      "delete": "Apagar conversa",
+      "deleteConfirmTitle": "Apagar esta conversa?",
+      "deleteConfirmBody": "Ela desaparecerá da sua lista. Se você receber uma nova mensagem, ela voltará a aparecer.",
+      "blockConfirmTitle": "Bloquear {{name}}?",
+      "blockConfirmBody": "Vocês não poderão trocar mensagens.",
+      "confirm": "Confirmar",
+      "cancel": "Cancelar",
+      "reportTitle": "Denunciar {{name}}",
+      "reportReasonLabel": "Motivo da denúncia",
+      "reportReasonPlaceholder": "Conte o que aconteceu…",
+      "reportSubmit": "Enviar denúncia",
+      "reportSuccess": "Denúncia enviada. Obrigado por ajudar a cuidar da comunidade.",
+      "blockedBanner": "Você não pode enviar mensagens nesta conversa.",
+      "unblockCta": "Desbloquear"
+    }
   },
   "messages": {
     "title": "Mensagens",
