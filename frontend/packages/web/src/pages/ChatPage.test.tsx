@@ -16,12 +16,14 @@ vi.mock('../context/AuthContext', () => ({
   }),
 }));
 
+const navigateMock = vi.fn();
+
 vi.mock('react-router', async (importOriginal) => {
   const actual = await importOriginal<typeof import('react-router')>();
   return {
     ...actual,
     useParams: () => ({ userId: 'user-2' }),
-    useNavigate: () => vi.fn(),
+    useNavigate: () => navigateMock,
   };
 });
 
@@ -36,8 +38,21 @@ vi.mock('@shared/hooks', () => ({
   useBlockStatus: (...args: unknown[]) => useBlockStatusMock(...args),
 }));
 
+// Stub that captures the props ChatPage passes to the menu, so tests can
+// assert the integration (ids, onHidden wiring) without re-testing the
+// menu's internals (covered in ConversationActionsMenu.test.tsx).
+interface CapturedMenuProps {
+  otherUserId: string;
+  otherUserName: string;
+  onHidden?: () => void;
+}
+let capturedMenuProps: CapturedMenuProps | null = null;
+
 vi.mock('../components/ConversationActionsMenu', () => ({
-  ConversationActionsMenu: () => <button aria-label="chat:actions.menuLabel">menu</button>,
+  ConversationActionsMenu: (props: CapturedMenuProps) => {
+    capturedMenuProps = props;
+    return <button aria-label="chat:actions.menuLabel">menu</button>;
+  },
 }));
 
 import { useConversation, useWebSocket } from '@shared/hooks';
@@ -58,6 +73,8 @@ function wrapper({ children }: { children: React.ReactNode }) {
 
 describe('ChatPage', () => {
   beforeEach(() => {
+    navigateMock.mockClear();
+    capturedMenuProps = null;
     usePublicProfileMock.mockReturnValue({ data: { id: 'user-2', name: 'Alice' } });
     useBlockStatusMock.mockReturnValue({ isBlocked: false, isLoading: false });
   });
@@ -129,12 +146,17 @@ describe('ChatPage', () => {
     expect(link?.getAttribute('href')).toBe('/users/user-2');
   });
 
-  it('muestra el boton del menu de acciones de la conversacion', () => {
+  it('muestra el boton del menu de acciones con las props de la conversacion; onHidden navega a /messages', () => {
     vi.mocked(useConversation).mockReturnValue(mockConversation([], false));
 
     render(<ChatPage />, { wrapper });
 
     expect(screen.getByLabelText('chat:actions.menuLabel')).toBeTruthy();
+    expect(capturedMenuProps?.otherUserId).toBe('user-2');
+    expect(capturedMenuProps?.otherUserName).toBe('Alice');
+
+    capturedMenuProps?.onHidden?.();
+    expect(navigateMock).toHaveBeenCalledWith('/messages');
   });
 
   it('oculta el input y muestra el banner de bloqueo cuando useBlockStatus indica isBlocked true', () => {
@@ -145,5 +167,15 @@ describe('ChatPage', () => {
 
     expect(screen.queryByPlaceholderText('chat:inputPlaceholder')).toBeNull();
     expect(screen.getByText('chat:actions.blockedBanner')).toBeTruthy();
+  });
+
+  it('no muestra ni el input ni el banner mientras el estado de bloqueo carga', () => {
+    useBlockStatusMock.mockReturnValue({ isBlocked: false, isLoading: true });
+    vi.mocked(useConversation).mockReturnValue(mockConversation([], false));
+
+    render(<ChatPage />, { wrapper });
+
+    expect(screen.queryByPlaceholderText('chat:inputPlaceholder')).toBeNull();
+    expect(screen.queryByText('chat:actions.blockedBanner')).toBeNull();
   });
 });

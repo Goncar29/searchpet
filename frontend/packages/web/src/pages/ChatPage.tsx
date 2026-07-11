@@ -26,7 +26,7 @@ export function ChatPage() {
   const { data: messages, isLoading } = useConversation(userId!);
   const sendMessageTo = useSendMessageTo();
   const { data: profile } = usePublicProfile(userId!);
-  const { isBlocked } = useBlockStatus(userId);
+  const { isBlocked, isLoading: isBlockStatusLoading } = useBlockStatus(userId);
   const otherName = profile?.name ?? t('common:unknownUser');
 
   const [input, setInput] = useState('');
@@ -126,7 +126,10 @@ export function ChatPage() {
       {/* Conversation header */}
       <div className="flex items-center justify-between gap-3 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-4 py-3">
         <Link to={`/users/${userId}`} className="flex items-center gap-3 min-w-0">
-          <div className="flex-shrink-0 h-9 w-9 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold uppercase">
+          <div
+            aria-hidden="true"
+            className="flex-shrink-0 h-9 w-9 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold uppercase"
+          >
             {otherName.charAt(0)}
           </div>
           <span className="font-semibold text-gray-900 dark:text-gray-100 truncate">{otherName}</span>
@@ -184,8 +187,9 @@ export function ChatPage() {
         )}
       </div>
 
-      {/* Send form (or blocked banner) */}
-      {isBlocked ? (
+      {/* Send form (or blocked banner). While the block status loads we
+          render neither, to avoid flashing the form at a blocked user. */}
+      {isBlockStatusLoading ? null : isBlocked ? (
         <div className="border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-4 py-4 text-center text-sm text-gray-500 dark:text-gray-400">
           {t('chat:actions.blockedBanner')}
         </div>
