@@ -559,6 +559,17 @@ class APIClient {
     return this.request<void>('PATCH', `/api/messages/${messageId}/read`);
   }
 
+  // Hides the conversation for the current user only; a new incoming message
+  // from the other party resurfaces it.
+  async hideConversation(userId: string): Promise<void> {
+    return this.request<void>('DELETE', `/api/conversations/${userId}`);
+  }
+
+  // Marks the latest received message in the conversation unread.
+  async markConversationUnread(userId: string): Promise<void> {
+    return this.request<void>('PATCH', `/api/conversations/${userId}/unread`);
+  }
+
   async getUnreadCount(): Promise<{ count: number }> {
     return this.request<{ count: number }>('GET', '/api/messages/unread-count');
   }
