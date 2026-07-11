@@ -5,10 +5,21 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 	"lost-pets/internal/domain"
 	"lost-pets/internal/repository"
 	"lost-pets/tests/testdb"
 )
+
+// seedMessage inserts a message directly through the repository.
+func seedMessage(t *testing.T, msgRepo repository.MessageRepository, senderID, receiverID uuid.UUID, text string) *domain.Message {
+	t.Helper()
+	msg := &domain.Message{SenderID: senderID, ReceiverID: receiverID, Text: text}
+	if err := msgRepo.Create(context.Background(), msg); err != nil {
+		t.Fatalf("seedMessage: %v", err)
+	}
+	return msg
+}
 
 func TestMessageRepository_Create(t *testing.T) {
 	gormDB := testdb.SetupTestDB(t)
@@ -108,5 +119,92 @@ func TestMessageRepository_GetConversation_BidirectionalIsolation(t *testing.T) 
 	}
 	if conversation[0].Text != "AB" {
 		t.Errorf("want text 'AB', got %q", conversation[0].Text)
+	}
+}
+
+func TestMessageRepository_GetConversations_ExcludesHidden(t *testing.T) {
+	gormDB := testdb.SetupTestDB(t)
+	userRepo := repository.NewUserRepository(gormDB)
+	msgRepo := repository.NewMessageRepository(gormDB)
+	hideRepo := repository.NewConversationHideRepository(gormDB)
+	ctx := context.Background()
+
+	me := newTestUser(t, userRepo)
+	alice := newTestUser(t, userRepo)
+	bob := newTestUser(t, userRepo)
+
+	seedMessage(t, msgRepo, alice.ID, me.ID, "hola de alice")
+	seedMessage(t, msgRepo, bob.ID, me.ID, "hola de bob")
+
+	// Before hiding: both conversations visible
+	convs, err := msgRepo.GetConversations(ctx, me.ID)
+	if err != nil {
+		t.Fatalf("GetConversations: %v", err)
+	}
+	if len(convs) != 2 {
+		t.Fatalf("want 2 conversations before hide, got %d", len(convs))
+	}
+
+	// Hide the conversation with alice
+	if err := hideRepo.Upsert(ctx, me.ID, alice.ID); err != nil {
+		t.Fatalf("Upsert: %v", err)
+	}
+
+	convs, err = msgRepo.GetConversations(ctx, me.ID)
+	if err != nil {
+		t.Fatalf("GetConversations after hide: %v", err)
+	}
+	if len(convs) != 1 {
+		t.Fatalf("want 1 conversation after hide, got %d", len(convs))
+	}
+	if convs[0].SenderID != bob.ID {
+		t.Errorf("want bob's conversation to remain, got sender %s", convs[0].SenderID)
+	}
+
+	// Alice still sees the conversation (hide is one-sided)
+	aliceConvs, err := msgRepo.GetConversations(ctx, alice.ID)
+	if err != nil {
+		t.Fatalf("GetConversations for alice: %v", err)
+	}
+	if len(aliceConvs) != 1 {
+		t.Errorf("want alice to still see 1 conversation, got %d", len(aliceConvs))
+	}
+}
+
+func TestMessageRepository_GetConversations_HiddenReappearsOnNewMessage(t *testing.T) {
+	gormDB := testdb.SetupTestDB(t)
+	userRepo := repository.NewUserRepository(gormDB)
+	msgRepo := repository.NewMessageRepository(gormDB)
+	hideRepo := repository.NewConversationHideRepository(gormDB)
+	ctx := context.Background()
+
+	me := newTestUser(t, userRepo)
+	alice := newTestUser(t, userRepo)
+
+	seedMessage(t, msgRepo, alice.ID, me.ID, "mensaje viejo")
+	if err := hideRepo.Upsert(ctx, me.ID, alice.ID); err != nil {
+		t.Fatalf("Upsert: %v", err)
+	}
+
+	convs, err := msgRepo.GetConversations(ctx, me.ID)
+	if err != nil {
+		t.Fatalf("GetConversations: %v", err)
+	}
+	if len(convs) != 0 {
+		t.Fatalf("want 0 conversations while hidden, got %d", len(convs))
+	}
+
+	// A NEW message (strictly after hidden_at) resurfaces the conversation.
+	// NOW() has microsecond resolution; guarantee ordering explicitly:
+	newMsg := seedMessage(t, msgRepo, alice.ID, me.ID, "mensaje nuevo")
+	gormDB.Model(&domain.Message{}).Where("id = ?", newMsg.ID).
+		Update("created_at", gorm.Expr("NOW() + interval '1 second'"))
+
+	convs, err = msgRepo.GetConversations(ctx, me.ID)
+	if err != nil {
+		t.Fatalf("GetConversations after new message: %v", err)
+	}
+	if len(convs) != 1 {
+		t.Fatalf("want conversation to reappear, got %d", len(convs))
 	}
 }

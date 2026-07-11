@@ -59,16 +59,25 @@ func (r *postgresMessageRepository) GetConversation(ctx context.Context, userA, 
 // GetConversations retorna el último mensaje de cada conversación única del usuario.
 // Usa DISTINCT ON para seleccionar el mensaje más reciente por par de usuarios (temporalmente correcto).
 func (r *postgresMessageRepository) GetConversations(ctx context.Context, userID uuid.UUID) ([]domain.Message, error) {
-	// DISTINCT ON selecciona la primera fila de cada grupo según el ORDER BY.
-	// Al ordenar por (conv_key, created_at DESC) obtenemos el mensaje más reciente
-	// por conversación de forma temporalmente correcta, sin depender del ordenamiento de UUIDs.
+	// DISTINCT ON selecciona el mensaje más reciente por conversación; el NOT EXISTS
+	// excluye conversaciones que el usuario ocultó DESPUÉS de ese último mensaje.
+	// Un mensaje nuevo (created_at > hidden_at) hace reaparecer la conversación.
 	var ids []uuid.UUID
 	err := r.db.WithContext(ctx).Raw(
-		`SELECT DISTINCT ON (LEAST(sender_id, receiver_id), GREATEST(sender_id, receiver_id)) id
-		 FROM messages
-		 WHERE sender_id = ? OR receiver_id = ?
-		 ORDER BY LEAST(sender_id, receiver_id), GREATEST(sender_id, receiver_id), created_at DESC`,
-		userID, userID,
+		`SELECT id FROM (
+			SELECT DISTINCT ON (LEAST(sender_id, receiver_id), GREATEST(sender_id, receiver_id))
+			       id, created_at,
+			       CASE WHEN sender_id = ? THEN receiver_id ELSE sender_id END AS other_id
+			FROM messages
+			WHERE sender_id = ? OR receiver_id = ?
+			ORDER BY LEAST(sender_id, receiver_id), GREATEST(sender_id, receiver_id), created_at DESC
+		) latest
+		WHERE NOT EXISTS (
+			SELECT 1 FROM conversation_hides ch
+			WHERE ch.user_id = ? AND ch.other_user_id = latest.other_id
+			  AND ch.hidden_at >= latest.created_at
+		)`,
+		userID, userID, userID, userID,
 	).Scan(&ids).Error
 	if err != nil {
 		return nil, err
