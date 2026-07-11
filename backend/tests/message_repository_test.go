@@ -171,6 +171,41 @@ func TestMessageRepository_GetConversations_ExcludesHidden(t *testing.T) {
 	}
 }
 
+func TestMessageRepository_CountUnread_ExcludesHidden(t *testing.T) {
+	gormDB := testdb.SetupTestDB(t)
+	userRepo := repository.NewUserRepository(gormDB)
+	msgRepo := repository.NewMessageRepository(gormDB)
+	hideRepo := repository.NewConversationHideRepository(gormDB)
+	ctx := context.Background()
+
+	me := newTestUser(t, userRepo)
+	alice := newTestUser(t, userRepo)
+	bob := newTestUser(t, userRepo)
+
+	seedMessage(t, msgRepo, alice.ID, me.ID, "no leído de alice")
+	seedMessage(t, msgRepo, bob.ID, me.ID, "no leído de bob")
+
+	count, err := msgRepo.CountUnread(ctx, me.ID)
+	if err != nil {
+		t.Fatalf("CountUnread: %v", err)
+	}
+	if count != 2 {
+		t.Fatalf("want 2 unread before hide, got %d", count)
+	}
+
+	if err := hideRepo.Upsert(ctx, me.ID, alice.ID); err != nil {
+		t.Fatalf("Upsert: %v", err)
+	}
+
+	count, err = msgRepo.CountUnread(ctx, me.ID)
+	if err != nil {
+		t.Fatalf("CountUnread after hide: %v", err)
+	}
+	if count != 1 {
+		t.Errorf("want 1 unread after hiding alice, got %d", count)
+	}
+}
+
 func TestMessageRepository_GetConversations_HiddenReappearsOnNewMessage(t *testing.T) {
 	gormDB := testdb.SetupTestDB(t)
 	userRepo := repository.NewUserRepository(gormDB)

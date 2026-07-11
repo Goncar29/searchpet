@@ -127,13 +127,21 @@ func (r *postgresMessageRepository) MarkConversationRead(ctx context.Context, re
 		Update("read_at", gorm.Expr("NOW()")).Error
 }
 
-// CountUnread retorna la cantidad de mensajes recibidos por userID que aún no fueron leídos.
+// CountUnread retorna la cantidad de mensajes recibidos por userID que aún no fueron
+// leídos, excluyendo los de conversaciones ocultas (el badge no debe contar lo que
+// el usuario no puede ver). Un mensaje posterior a hidden_at vuelve a contar.
 func (r *postgresMessageRepository) CountUnread(ctx context.Context, userID uuid.UUID) (int64, error) {
 	var count int64
-	err := r.db.WithContext(ctx).
-		Model(&domain.Message{}).
-		Where("receiver_id = ? AND read_at IS NULL", userID).
-		Count(&count).Error
+	err := r.db.WithContext(ctx).Raw(
+		`SELECT COUNT(*) FROM messages m
+		 WHERE m.receiver_id = ? AND m.read_at IS NULL
+		 AND NOT EXISTS (
+			SELECT 1 FROM conversation_hides ch
+			WHERE ch.user_id = ? AND ch.other_user_id = m.sender_id
+			  AND ch.hidden_at >= m.created_at
+		 )`,
+		userID, userID,
+	).Scan(&count).Error
 	return count, err
 }
 
