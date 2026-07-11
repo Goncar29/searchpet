@@ -78,7 +78,10 @@ git commit -m "feat(messages): ConversationHide domain model + automigrate"
 **Files:**
 - Modify: `backend/internal/repository/interfaces.go` (add interface after `MessageRepository`, ~line 82)
 - Create: `backend/internal/repository/conversation_hide_repository.go`
+- Modify: `backend/tests/testdb/setup.go` (add `"conversation_hides"` to `allTableNames`, BEFORE `"users"` — children first; put it next to `"messages"`)
 - Test: `backend/tests/conversation_hide_repository_test.go`
+
+Integration tests skip gracefully when `DATABASE_URL` is unset. To actually run them locally: `DATABASE_URL='postgres://postgres:postgres@localhost:5433/lostpets_test?sslmode=disable' go test ./tests/ -run <Name> -v` (host port 5433 per docker-compose; create the `lostpets_test` database first if missing). A skipped test does NOT count as the TDD red/green cycle — if the DB is unavailable, report it instead of treating skips as passes.
 
 - [ ] **Step 1: Write the failing test**
 
