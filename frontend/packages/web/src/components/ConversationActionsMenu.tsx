@@ -152,7 +152,7 @@ export function ConversationActionsMenu({
     <div className="relative">
       <button
         type="button"
-        aria-label={t('chat:actions.menuLabel')}
+        aria-label={t('chat:actions.menuLabel', { name: otherUserName })}
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}

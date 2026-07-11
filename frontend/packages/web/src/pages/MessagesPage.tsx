@@ -58,8 +58,14 @@ export function MessagesPage() {
             const unread = !msg.is_read && msg.receiver_id === user?.id;
 
             return (
+              /* Keyed by counterpart, not msg.id: the conversations query
+                 refetches (poll + WS) and msg.id changes with every new
+                 message, which would remount the row and silently destroy the
+                 actions menu's state (open menu, dialogs, half-typed report).
+                 The endpoint returns one message per counterpart, so
+                 otherUserId is unique per row. */
               <li
-                key={msg.id}
+                key={otherUserId}
                 className="flex items-center gap-1 bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 pr-2 hover:shadow-md transition-shadow"
               >
                 <Link

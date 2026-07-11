@@ -54,7 +54,9 @@ beforeEach(() => {
 });
 
 function openMenu() {
-  fireEvent.click(screen.getByLabelText('chat:actions.menuLabel'));
+  // The t mock appends interpolation values (`key:values`); the label now
+  // interpolates the counterpart's name so each row's kebab is distinguishable.
+  fireEvent.click(screen.getByLabelText('chat:actions.menuLabel:Alice'));
 }
 
 function openReportDialogAndType(text: string) {

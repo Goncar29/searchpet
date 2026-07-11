@@ -173,7 +173,7 @@
     "reportError": "No se pudo enviar la denuncia",
     "typing_indicator": "Escribiendo...",
     "actions": {
-      "menuLabel": "Opciones de conversación",
+      "menuLabel": "Opciones de conversación con {{name}}",
       "viewProfile": "Ver perfil",
       "markUnread": "Marcar como no leída",
       "block": "Bloquear usuario",

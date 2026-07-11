@@ -173,7 +173,7 @@
     "reportError": "Could not submit report",
     "typing_indicator": "Typing...",
     "actions": {
-      "menuLabel": "Conversation options",
+      "menuLabel": "Conversation options with {{name}}",
       "viewProfile": "View profile",
       "markUnread": "Mark as unread",
       "block": "Block user",

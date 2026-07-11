@@ -173,7 +173,7 @@
     "reportError": "Não foi possível enviar a denúncia",
     "typing_indicator": "Digitando...",
     "actions": {
-      "menuLabel": "Opções da conversa",
+      "menuLabel": "Opções da conversa com {{name}}",
       "viewProfile": "Ver perfil",
       "markUnread": "Marcar como não lida",
       "block": "Bloquear usuário",

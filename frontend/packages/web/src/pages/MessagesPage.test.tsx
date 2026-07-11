@@ -28,11 +28,13 @@ interface CapturedMenuProps {
   otherUserId: string;
   otherUserName: string;
 }
-let capturedMenuProps: CapturedMenuProps[] = [];
+// Keyed by otherUserId (last render wins) so extra re-renders never break
+// the assertions — pushing to an array would.
+let capturedMenuProps: Record<string, CapturedMenuProps> = {};
 
 vi.mock('../components/ConversationActionsMenu', () => ({
   ConversationActionsMenu: (props: CapturedMenuProps) => {
-    capturedMenuProps.push(props);
+    capturedMenuProps[props.otherUserId] = props;
     return <button aria-label={`chat:actions.menuLabel-${props.otherUserId}`}>menu</button>;
   },
 }));
@@ -54,7 +56,7 @@ function wrapper({ children }: { children: React.ReactNode }) {
 }
 
 beforeEach(() => {
-  capturedMenuProps = [];
+  capturedMenuProps = {};
 });
 
 describe('MessagesPage', () => {
@@ -173,10 +175,10 @@ describe('MessagesPage', () => {
 
     render(<MessagesPage />, { wrapper });
 
-    expect(capturedMenuProps).toEqual([
-      { otherUserId: 'user-2', otherUserName: 'Juan' },
-      { otherUserId: 'user-3', otherUserName: 'Carla' },
-    ]);
+    expect(capturedMenuProps).toEqual({
+      'user-2': { otherUserId: 'user-2', otherUserName: 'Juan' },
+      'user-3': { otherUserId: 'user-3', otherUserName: 'Carla' },
+    });
     expect(screen.getByLabelText('chat:actions.menuLabel-user-2')).toBeTruthy();
     expect(screen.getByLabelText('chat:actions.menuLabel-user-3')).toBeTruthy();
   });
