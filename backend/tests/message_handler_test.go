@@ -29,6 +29,8 @@ type mockMessageService struct {
 	getMessageByIDFn   func(ctx context.Context, id uuid.UUID) (*domain.Message, error)
 	markConvReadFn     func(ctx context.Context, userID, otherUserID string) error
 	countUnreadFn      func(ctx context.Context, userID string) (int64, error)
+	hideConversationFn func(ctx context.Context, userID, otherUserID string) error
+	markConvUnreadFn   func(ctx context.Context, userID, otherUserID string) error
 }
 
 func (m *mockMessageService) Send(ctx context.Context, senderID string, req dto.SendMessageRequest) (*domain.Message, error) {
@@ -78,6 +80,20 @@ func (m *mockMessageService) CountUnread(ctx context.Context, userID string) (in
 		return m.countUnreadFn(ctx, userID)
 	}
 	return 0, nil
+}
+
+func (m *mockMessageService) HideConversation(ctx context.Context, userID, otherUserID string) error {
+	if m.hideConversationFn != nil {
+		return m.hideConversationFn(ctx, userID, otherUserID)
+	}
+	return nil
+}
+
+func (m *mockMessageService) MarkConversationUnread(ctx context.Context, userID, otherUserID string) error {
+	if m.markConvUnreadFn != nil {
+		return m.markConvUnreadFn(ctx, userID, otherUserID)
+	}
+	return nil
 }
 
 // Ensure interface compliance at compile time.
