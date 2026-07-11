@@ -152,6 +152,16 @@ type Message struct {
 	Receiver User `gorm:"foreignKey:ReceiverID" json:"receiver,omitempty"`
 }
 
+// ConversationHide registra que un usuario ocultó su conversación con otro
+// usuario ("borrar conversación" estilo WhatsApp: solo desaparece para quien
+// la borra). Los mensajes NUNCA se borran — un mensaje nuevo posterior a
+// HiddenAt hace reaparecer la conversación.
+type ConversationHide struct {
+	UserID      uuid.UUID `gorm:"type:uuid;primaryKey" json:"user_id"`
+	OtherUserID uuid.UUID `gorm:"type:uuid;primaryKey" json:"other_user_id"`
+	HiddenAt    time.Time `gorm:"not null;default:now()" json:"hidden_at"`
+}
+
 // ============================================================
 // SHARING & SOCIAL
 // ============================================================
