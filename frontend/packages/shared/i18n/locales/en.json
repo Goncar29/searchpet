@@ -191,8 +191,7 @@
       "reportReasonPlaceholder": "Tell us what happened…",
       "reportSubmit": "Submit report",
       "reportSuccess": "Report submitted. Thanks for helping keep the community safe.",
-      "blockedBanner": "You cannot send messages in this conversation.",
-      "unblockCta": "Unblock"
+      "blockedBanner": "You cannot send messages in this conversation."
     }
   },
   "messages": {

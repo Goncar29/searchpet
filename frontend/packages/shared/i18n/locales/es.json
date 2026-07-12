@@ -191,8 +191,7 @@
       "reportReasonPlaceholder": "Contanos qué pasó…",
       "reportSubmit": "Enviar denuncia",
       "reportSuccess": "Denuncia enviada. Gracias por ayudar a cuidar la comunidad.",
-      "blockedBanner": "No podés enviar mensajes en esta conversación.",
-      "unblockCta": "Desbloquear"
+      "blockedBanner": "No podés enviar mensajes en esta conversación."
     }
   },
   "messages": {
