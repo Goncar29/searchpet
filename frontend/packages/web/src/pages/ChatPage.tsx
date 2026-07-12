@@ -256,7 +256,9 @@ export function ChatPage() {
       {sendError && (
         <div
           role="status"
-          className="fixed bottom-4 left-1/2 -translate-x-1/2 z-30 rounded-xl bg-red-600 text-white text-sm px-4 py-2 shadow-lg"
+          // bottom-16: ConversationActionsMenu's toast owns the bottom-4 slot;
+          // both can be visible within the same 3s window and must not overlap.
+          className="fixed bottom-16 left-1/2 -translate-x-1/2 z-30 rounded-xl bg-red-600 text-white text-sm px-4 py-2 shadow-lg"
         >
           {sendError}
         </div>
