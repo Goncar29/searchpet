@@ -437,6 +437,30 @@ export const useSendMessageTo = () => {
   });
 };
 
+// useHideConversation — DELETE /api/conversations/:userId. Hides the conversation
+// for the current user only; a new incoming message resurfaces it.
+export const useHideConversation = () => {
+  const queryClient = useQueryClient();
+  return useMutation<void, Error, string>({
+    mutationFn: (userId) => apiClient.hideConversation(userId),
+    onSuccess: () => {
+      // Covers ['messages'] (list) and ['messages', 'unread-count'] (badge).
+      queryClient.invalidateQueries({ queryKey: ['messages'] });
+    },
+  });
+};
+
+// useMarkConversationUnread — PATCH /api/conversations/:userId/unread.
+export const useMarkConversationUnread = () => {
+  const queryClient = useQueryClient();
+  return useMutation<void, Error, string>({
+    mutationFn: (userId) => apiClient.markConversationUnread(userId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['messages'] });
+    },
+  });
+};
+
 export const useMarkAsRead = () => {
   const queryClient = useQueryClient();
   return useMutation<void, Error, string>({

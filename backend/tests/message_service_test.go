@@ -29,6 +29,10 @@ type mockMessageRepository struct {
 	markConvReadCalled bool
 	markConvReadArgs   [2]uuid.UUID
 	countUnreadUserID  uuid.UUID
+
+	markConvUnreadFn     func(ctx context.Context, receiverID, senderID uuid.UUID) error
+	markConvUnreadCalled bool
+	markConvUnreadArgs   [2]uuid.UUID
 }
 
 func (m *mockMessageRepository) Create(ctx context.Context, msg *domain.Message) error {
@@ -76,6 +80,15 @@ func (m *mockMessageRepository) MarkConversationRead(ctx context.Context, receiv
 	return nil
 }
 
+func (m *mockMessageRepository) MarkConversationUnread(ctx context.Context, receiverID, senderID uuid.UUID) error {
+	m.markConvUnreadCalled = true
+	m.markConvUnreadArgs = [2]uuid.UUID{receiverID, senderID}
+	if m.markConvUnreadFn != nil {
+		return m.markConvUnreadFn(ctx, receiverID, senderID)
+	}
+	return nil
+}
+
 func (m *mockMessageRepository) CountUnread(ctx context.Context, userID uuid.UUID) (int64, error) {
 	m.countUnreadUserID = userID
 	if m.countUnreadFn != nil {
@@ -112,9 +125,10 @@ func (m *mockBlockedRepoForMsg) GetBlockedByUserID(_ context.Context, _ uuid.UUI
 func newMessageService(
 	msgRepo *mockMessageRepository,
 	blockedRepo *mockBlockedRepoForMsg,
+	hideRepo *mockConversationHideRepository,
 ) service.MessageService {
 	bus := event.NewEventBus()
-	return service.NewMessageService(msgRepo, blockedRepo, bus)
+	return service.NewMessageService(msgRepo, blockedRepo, hideRepo, bus)
 }
 
 // ============================================================
@@ -204,7 +218,7 @@ func TestMessageService_Send(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			svc := newMessageService(tc.msgRepo, tc.blockedRepo)
+			svc := newMessageService(tc.msgRepo, tc.blockedRepo, &mockConversationHideRepository{})
 			msg, err := svc.Send(context.Background(), tc.senderIDStr, tc.req)
 
 			if tc.wantErr != nil {
@@ -276,7 +290,7 @@ func TestMessageService_GetConversation(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			svc := newMessageService(tc.msgRepo, &mockBlockedRepoForMsg{})
+			svc := newMessageService(tc.msgRepo, &mockBlockedRepoForMsg{}, &mockConversationHideRepository{})
 			result, err := svc.GetConversation(context.Background(), tc.userIDStr, tc.otherIDStr, 20, 0)
 
 			if tc.wantErr != nil {
@@ -364,7 +378,7 @@ func TestMessageService_MarkAsRead(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			svc := newMessageService(tc.msgRepo, &mockBlockedRepoForMsg{})
+			svc := newMessageService(tc.msgRepo, &mockBlockedRepoForMsg{}, &mockConversationHideRepository{})
 			err := svc.MarkAsRead(context.Background(), tc.userID, tc.messageID)
 
 			if tc.wantErr != nil {
@@ -389,7 +403,7 @@ func TestMarkConversationRead_DelegatesToRepo(t *testing.T) {
 	otherID := uuid.New()
 
 	msgRepo := &mockMessageRepository{}
-	svc := newMessageService(msgRepo, &mockBlockedRepoForMsg{})
+	svc := newMessageService(msgRepo, &mockBlockedRepoForMsg{}, &mockConversationHideRepository{})
 
 	err := svc.MarkConversationRead(context.Background(), userID.String(), otherID.String())
 
@@ -408,7 +422,7 @@ func TestMarkConversationRead_DelegatesToRepo(t *testing.T) {
 }
 
 func TestMarkConversationRead_InvalidUserID_ReturnsErrInvalidInput(t *testing.T) {
-	svc := newMessageService(&mockMessageRepository{}, &mockBlockedRepoForMsg{})
+	svc := newMessageService(&mockMessageRepository{}, &mockBlockedRepoForMsg{}, &mockConversationHideRepository{})
 	err := svc.MarkConversationRead(context.Background(), "not-a-uuid", uuid.New().String())
 	if !errors.Is(err, domain.ErrInvalidInput) {
 		t.Errorf("expected ErrInvalidInput, got %v", err)
@@ -416,7 +430,7 @@ func TestMarkConversationRead_InvalidUserID_ReturnsErrInvalidInput(t *testing.T)
 }
 
 func TestMarkConversationRead_InvalidOtherID_ReturnsErrInvalidInput(t *testing.T) {
-	svc := newMessageService(&mockMessageRepository{}, &mockBlockedRepoForMsg{})
+	svc := newMessageService(&mockMessageRepository{}, &mockBlockedRepoForMsg{}, &mockConversationHideRepository{})
 	err := svc.MarkConversationRead(context.Background(), uuid.New().String(), "not-a-uuid")
 	if !errors.Is(err, domain.ErrInvalidInput) {
 		t.Errorf("expected ErrInvalidInput, got %v", err)
@@ -432,7 +446,7 @@ func TestCountUnread_DelegatesToRepo(t *testing.T) {
 	msgRepo := &mockMessageRepository{
 		countUnreadFn: func(_ context.Context, _ uuid.UUID) (int64, error) { return 7, nil },
 	}
-	svc := newMessageService(msgRepo, &mockBlockedRepoForMsg{})
+	svc := newMessageService(msgRepo, &mockBlockedRepoForMsg{}, &mockConversationHideRepository{})
 
 	count, err := svc.CountUnread(context.Background(), userID.String())
 
@@ -448,7 +462,7 @@ func TestCountUnread_DelegatesToRepo(t *testing.T) {
 }
 
 func TestCountUnread_InvalidUserID_ReturnsErrInvalidInput(t *testing.T) {
-	svc := newMessageService(&mockMessageRepository{}, &mockBlockedRepoForMsg{})
+	svc := newMessageService(&mockMessageRepository{}, &mockBlockedRepoForMsg{}, &mockConversationHideRepository{})
 	_, err := svc.CountUnread(context.Background(), "not-a-uuid")
 	if !errors.Is(err, domain.ErrInvalidInput) {
 		t.Errorf("expected ErrInvalidInput, got %v", err)
@@ -474,7 +488,7 @@ func TestGetConversation_MarkReadFailure_StillReturnsMessages(t *testing.T) {
 			return errors.New("repo error")
 		},
 	}
-	svc := newMessageService(msgRepo, &mockBlockedRepoForMsg{})
+	svc := newMessageService(msgRepo, &mockBlockedRepoForMsg{}, &mockConversationHideRepository{})
 
 	messages, err := svc.GetConversation(context.Background(), userID.String(), otherID.String(), 20, 0)
 
@@ -483,5 +497,84 @@ func TestGetConversation_MarkReadFailure_StillReturnsMessages(t *testing.T) {
 	}
 	if len(messages) != len(expected) {
 		t.Errorf("expected %d messages, got %d", len(expected), len(messages))
+	}
+}
+
+// ============================================================
+// Mock: ConversationHideRepository
+// ============================================================
+
+type mockConversationHideRepository struct {
+	upsertFn     func(ctx context.Context, userID, otherUserID uuid.UUID) error
+	upsertCalled bool
+	upsertArgs   [2]uuid.UUID
+}
+
+func (m *mockConversationHideRepository) Upsert(ctx context.Context, userID, otherUserID uuid.UUID) error {
+	m.upsertCalled = true
+	m.upsertArgs = [2]uuid.UUID{userID, otherUserID}
+	if m.upsertFn != nil {
+		return m.upsertFn(ctx, userID, otherUserID)
+	}
+	return nil
+}
+
+// ============================================================
+// HideConversation / MarkConversationUnread tests
+// ============================================================
+
+func TestMessageService_HideConversation_CallsUpsert(t *testing.T) {
+	msgRepo := &mockMessageRepository{}
+	hideRepo := &mockConversationHideRepository{}
+	svc := newMessageService(msgRepo, &mockBlockedRepoForMsg{}, hideRepo)
+
+	me := uuid.New()
+	other := uuid.New()
+
+	if err := svc.HideConversation(context.Background(), me.String(), other.String()); err != nil {
+		t.Fatalf("HideConversation: %v", err)
+	}
+	if !hideRepo.upsertCalled {
+		t.Fatal("want Upsert called")
+	}
+	if hideRepo.upsertArgs != [2]uuid.UUID{me, other} {
+		t.Errorf("want Upsert(%s, %s), got %v", me, other, hideRepo.upsertArgs)
+	}
+}
+
+func TestMessageService_HideConversation_InvalidIDs(t *testing.T) {
+	svc := newMessageService(&mockMessageRepository{}, &mockBlockedRepoForMsg{}, &mockConversationHideRepository{})
+
+	if err := svc.HideConversation(context.Background(), "not-a-uuid", uuid.New().String()); !errors.Is(err, domain.ErrInvalidInput) {
+		t.Errorf("want ErrInvalidInput for bad userID, got %v", err)
+	}
+	if err := svc.HideConversation(context.Background(), uuid.New().String(), "not-a-uuid"); !errors.Is(err, domain.ErrInvalidInput) {
+		t.Errorf("want ErrInvalidInput for bad otherUserID, got %v", err)
+	}
+}
+
+func TestMessageService_MarkConversationUnread_CallsRepo(t *testing.T) {
+	msgRepo := &mockMessageRepository{}
+	svc := newMessageService(msgRepo, &mockBlockedRepoForMsg{}, &mockConversationHideRepository{})
+
+	me := uuid.New()
+	other := uuid.New()
+
+	if err := svc.MarkConversationUnread(context.Background(), me.String(), other.String()); err != nil {
+		t.Fatalf("MarkConversationUnread: %v", err)
+	}
+	if !msgRepo.markConvUnreadCalled {
+		t.Fatal("want MarkConversationUnread called on repo")
+	}
+	if msgRepo.markConvUnreadArgs != [2]uuid.UUID{me, other} {
+		t.Errorf("want (receiver=%s, sender=%s), got %v", me, other, msgRepo.markConvUnreadArgs)
+	}
+}
+
+func TestMessageService_MarkConversationUnread_InvalidIDs(t *testing.T) {
+	svc := newMessageService(&mockMessageRepository{}, &mockBlockedRepoForMsg{}, &mockConversationHideRepository{})
+
+	if err := svc.MarkConversationUnread(context.Background(), "nope", uuid.New().String()); !errors.Is(err, domain.ErrInvalidInput) {
+		t.Errorf("want ErrInvalidInput, got %v", err)
 	}
 }

@@ -77,8 +77,18 @@ type MessageRepository interface {
 	// MarkConversationRead marca como leídos todos los mensajes sin leer de una conversación
 	// donde receiverID es el destinatario y senderID es el remitente.
 	MarkConversationRead(ctx context.Context, receiverID, senderID uuid.UUID) error
+	// MarkConversationUnread marca como NO leído el último mensaje recibido por
+	// receiverID desde senderID. No-op silencioso si no hay mensajes recibidos.
+	MarkConversationUnread(ctx context.Context, receiverID, senderID uuid.UUID) error
 	// CountUnread retorna la cantidad de mensajes no leídos recibidos por userID.
 	CountUnread(ctx context.Context, userID uuid.UUID) (int64, error)
+}
+
+// ConversationHideRepository define el contrato para ocultamientos de conversación.
+type ConversationHideRepository interface {
+	// Upsert crea el ocultamiento (userID oculta su conversación con otherUserID)
+	// o refresca hidden_at si ya existía.
+	Upsert(ctx context.Context, userID, otherUserID uuid.UUID) error
 }
 
 // ShareLinkRepository define el contrato para acceder a datos de links compartibles.

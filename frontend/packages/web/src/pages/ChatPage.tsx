@@ -1,11 +1,18 @@
 import { useEffect, useRef, useState } from 'react';
-import { useParams } from 'react-router';
+import { Link, useNavigate, useParams } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
-import { useConversation, useSendMessageTo, useWebSocket } from '@shared/hooks';
+import {
+  useConversation,
+  useSendMessageTo,
+  useWebSocket,
+  usePublicProfile,
+  useBlockStatus,
+} from '@shared/hooks';
 import type { WsEnvelope, WsChatMessage, WsTypingEvent } from '@shared/hooks';
 import type { Message } from '@shared/types';
 import { useAuth } from '../context/AuthContext';
+import { ConversationActionsMenu } from '../components/ConversationActionsMenu';
 
 const TYPING_IDLE_MS = 2_000;
 
@@ -14,9 +21,13 @@ export function ChatPage() {
   const { userId } = useParams<{ userId: string }>();
   const { user, isAuthenticated } = useAuth();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   const { data: messages, isLoading } = useConversation(userId!);
   const sendMessageTo = useSendMessageTo();
+  const { data: profile } = usePublicProfile(userId!);
+  const { isBlocked, isLoading: isBlockStatusLoading } = useBlockStatus(userId);
+  const otherName = profile?.name ?? t('common:unknownUser');
 
   const [input, setInput] = useState('');
   const [remoteTyping, setRemoteTyping] = useState(false);
@@ -112,6 +123,27 @@ export function ChatPage() {
 
   return (
     <div className="max-w-2xl mx-auto flex flex-col h-[calc(100vh-4rem)]">
+      {/* Conversation header */}
+      <div className="flex items-center justify-between gap-3 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-4 py-3">
+        <Link to={`/users/${userId}`} className="flex items-center gap-3 min-w-0">
+          <div
+            aria-hidden="true"
+            className="flex-shrink-0 h-9 w-9 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold uppercase"
+          >
+            {otherName.charAt(0)}
+          </div>
+          <span className="font-semibold text-gray-900 dark:text-gray-100 truncate">{otherName}</span>
+        </Link>
+        {/* Mark-unread is hidden here: viewing this page re-marks the
+            conversation read on every refetch, which would silently undo it. */}
+        <ConversationActionsMenu
+          otherUserId={userId!}
+          otherUserName={otherName}
+          showMarkUnread={false}
+          onHidden={() => navigate('/messages')}
+        />
+      </div>
+
       {/* Message list */}
       <div
         ref={scrollRef}
@@ -158,32 +190,39 @@ export function ChatPage() {
         )}
       </div>
 
-      {/* Send form */}
-      <form
-        onSubmit={handleSubmit}
-        className="border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-4 py-3 flex gap-3 items-end"
-      >
-        <textarea
-          value={input}
-          onChange={handleInputChange}
-          placeholder={t('chat:inputPlaceholder')}
-          rows={1}
-          className="flex-1 resize-none rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary"
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault();
-              handleSubmit(e as unknown as React.FormEvent);
-            }
-          }}
-        />
-        <button
-          type="submit"
-          disabled={!input.trim() || sendMessageTo.isPending}
-          className="px-4 py-2 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-primary-dark disabled:opacity-50 transition-colors"
+      {/* Send form (or blocked banner). While the block status loads we
+          render neither, to avoid flashing the form at a blocked user. */}
+      {isBlockStatusLoading ? null : isBlocked ? (
+        <div className="border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-4 py-4 text-center text-sm text-gray-500 dark:text-gray-400">
+          {t('chat:actions.blockedBanner')}
+        </div>
+      ) : (
+        <form
+          onSubmit={handleSubmit}
+          className="border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-4 py-3 flex gap-3 items-end"
         >
-          {t('chat:send')}
-        </button>
-      </form>
+          <textarea
+            value={input}
+            onChange={handleInputChange}
+            placeholder={t('chat:inputPlaceholder')}
+            rows={1}
+            className="flex-1 resize-none rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSubmit(e as unknown as React.FormEvent);
+              }
+            }}
+          />
+          <button
+            type="submit"
+            disabled={!input.trim() || sendMessageTo.isPending}
+            className="px-4 py-2 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-primary-dark disabled:opacity-50 transition-colors"
+          >
+            {t('chat:send')}
+          </button>
+        </form>
+      )}
     </div>
   );
 }

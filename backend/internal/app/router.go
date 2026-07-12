@@ -96,6 +96,7 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 	shelterRepo := repository.NewShelterRepository(db)
 	vetRepo := repository.NewVetRepository(db)
 	blockedUserRepo := repository.NewBlockedUserRepository(db)
+	conversationHideRepo := repository.NewConversationHideRepository(db)
 	messageRepo := repository.NewMessageRepository(db)
 	shareLinkRepo := repository.NewShareLinkRepository(db)
 	deviceTokenRepo := repository.NewDeviceTokenRepository(db)
@@ -109,7 +110,7 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 	photoService := service.NewPhotoService(photoRepo, petRepo, photoStorage, bus)
 	petService := service.NewPetService(petRepo, bus, photoService, reportRepo, petUow, statEventRepo, episodeService, episodeRepo)
 	reportService := service.NewReportService(reportRepo, petRepo, bus, statEventRepo, episodeService, episodeRepo, petUow)
-	messageService := service.NewMessageService(messageRepo, blockedUserRepo, bus)
+	messageService := service.NewMessageService(messageRepo, blockedUserRepo, conversationHideRepo, bus)
 	shareLinkService := service.NewShareLinkService(shareLinkRepo, petRepo, bus)
 	shelterService := service.NewShelterService(shelterRepo)
 	vetService := service.NewVetService(vetRepo)
@@ -333,6 +334,10 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 		protected.GET("/messages/:userId", messageHandler.GetConversation)
 		protected.PATCH("/messages/:id/read", messageHandler.MarkAsRead)
 		protected.GET("/messages/photo-url/:messageId", messageHandler.GetPhotoSignedURL)
+
+		// CONVERSATION-LEVEL ACTIONS (hide / mark unread)
+		protected.DELETE("/conversations/:userId", messageHandler.HideConversation)
+		protected.PATCH("/conversations/:userId/unread", messageHandler.MarkConversationUnread)
 
 		protected.POST("/share/generate/:petId", shareHandler.GenerateShareLink)
 

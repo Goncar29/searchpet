@@ -21,12 +21,17 @@ type MessageService interface {
 	GetMessageByID(ctx context.Context, messageID uuid.UUID) (*domain.Message, error)
 	MarkConversationRead(ctx context.Context, userID string, otherUserID string) error
 	CountUnread(ctx context.Context, userID string) (int64, error)
+	// HideConversation oculta la conversación con otherUserID SOLO para userID.
+	HideConversation(ctx context.Context, userID string, otherUserID string) error
+	// MarkConversationUnread marca la conversación como no leída para userID.
+	MarkConversationUnread(ctx context.Context, userID string, otherUserID string) error
 }
 
 // messageService es la implementación concreta del MessageService.
 type messageService struct {
 	messageRepo repository.MessageRepository
 	blockedRepo repository.BlockedUserRepository
+	hideRepo    repository.ConversationHideRepository
 	eventBus    *event.EventBus
 }
 
@@ -35,11 +40,13 @@ type messageService struct {
 func NewMessageService(
 	messageRepo repository.MessageRepository,
 	blockedRepo repository.BlockedUserRepository,
+	hideRepo repository.ConversationHideRepository,
 	eventBus *event.EventBus,
 ) MessageService {
 	return &messageService{
 		messageRepo: messageRepo,
 		blockedRepo: blockedRepo,
+		hideRepo:    hideRepo,
 		eventBus:    eventBus,
 	}
 }
@@ -173,6 +180,34 @@ func (s *messageService) CountUnread(ctx context.Context, userID string) (int64,
 		return 0, domain.ErrInvalidInput
 	}
 	return s.messageRepo.CountUnread(ctx, userUUID)
+}
+
+// HideConversation oculta la conversación de userID con otherUserID (estilo WhatsApp:
+// solo desaparece para quien la oculta; un mensaje nuevo la hace reaparecer).
+func (s *messageService) HideConversation(ctx context.Context, userID string, otherUserID string) error {
+	userUUID, err := uuid.Parse(userID)
+	if err != nil {
+		return domain.ErrInvalidInput
+	}
+	otherUUID, err := uuid.Parse(otherUserID)
+	if err != nil {
+		return domain.ErrInvalidInput
+	}
+	return s.hideRepo.Upsert(ctx, userUUID, otherUUID)
+}
+
+// MarkConversationUnread marca como no leído el último mensaje recibido de la
+// conversación. Idempotente; no-op si no hay mensajes recibidos.
+func (s *messageService) MarkConversationUnread(ctx context.Context, userID string, otherUserID string) error {
+	receiverUUID, err := uuid.Parse(userID)
+	if err != nil {
+		return domain.ErrInvalidInput
+	}
+	senderUUID, err := uuid.Parse(otherUserID)
+	if err != nil {
+		return domain.ErrInvalidInput
+	}
+	return s.messageRepo.MarkConversationUnread(ctx, receiverUUID, senderUUID)
 }
 
 // MarkAsRead marca un mensaje como leído.

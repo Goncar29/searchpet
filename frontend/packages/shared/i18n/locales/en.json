@@ -171,7 +171,28 @@
     "reportSuccess": "Report submitted",
     "reportSuccessText": "Thank you for reporting",
     "reportError": "Could not submit report",
-    "typing_indicator": "Typing..."
+    "typing_indicator": "Typing...",
+    "actions": {
+      "menuLabel": "Conversation options with {{name}}",
+      "viewProfile": "View profile",
+      "markUnread": "Mark as unread",
+      "block": "Block user",
+      "unblock": "Unblock user",
+      "report": "Report user",
+      "delete": "Delete conversation",
+      "deleteConfirmTitle": "Delete this conversation?",
+      "deleteConfirmBody": "It will disappear from your list. If you receive a new message, it will come back.",
+      "blockConfirmTitle": "Block {{name}}?",
+      "blockConfirmBody": "You will not be able to message each other.",
+      "confirm": "Confirm",
+      "cancel": "Cancel",
+      "reportTitle": "Report {{name}}",
+      "reportReasonLabel": "Reason for the report",
+      "reportReasonPlaceholder": "Tell us what happened…",
+      "reportSubmit": "Submit report",
+      "reportSuccess": "Report submitted. Thanks for helping keep the community safe.",
+      "blockedBanner": "You cannot send messages in this conversation."
+    }
   },
   "messages": {
     "title": "Messages",

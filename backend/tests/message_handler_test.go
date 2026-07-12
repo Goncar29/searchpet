@@ -29,6 +29,8 @@ type mockMessageService struct {
 	getMessageByIDFn   func(ctx context.Context, id uuid.UUID) (*domain.Message, error)
 	markConvReadFn     func(ctx context.Context, userID, otherUserID string) error
 	countUnreadFn      func(ctx context.Context, userID string) (int64, error)
+	hideConversationFn func(ctx context.Context, userID, otherUserID string) error
+	markConvUnreadFn   func(ctx context.Context, userID, otherUserID string) error
 }
 
 func (m *mockMessageService) Send(ctx context.Context, senderID string, req dto.SendMessageRequest) (*domain.Message, error) {
@@ -80,6 +82,20 @@ func (m *mockMessageService) CountUnread(ctx context.Context, userID string) (in
 	return 0, nil
 }
 
+func (m *mockMessageService) HideConversation(ctx context.Context, userID, otherUserID string) error {
+	if m.hideConversationFn != nil {
+		return m.hideConversationFn(ctx, userID, otherUserID)
+	}
+	return nil
+}
+
+func (m *mockMessageService) MarkConversationUnread(ctx context.Context, userID, otherUserID string) error {
+	if m.markConvUnreadFn != nil {
+		return m.markConvUnreadFn(ctx, userID, otherUserID)
+	}
+	return nil
+}
+
 // Ensure interface compliance at compile time.
 var _ service.MessageService = (*mockMessageService)(nil)
 
@@ -96,6 +112,10 @@ func setupMessageRouter(h *handler.MessageHandler, callerID uuid.UUID) *gin.Engi
 	auth.GET("/unread-count", h.GetUnreadCount)
 	auth.GET("/:userId", h.GetConversation)
 	auth.PATCH("/:id/read", h.MarkAsRead)
+
+	conversations := r.Group("/api/conversations", injectUserID(callerID))
+	conversations.DELETE("/:userId", h.HideConversation)
+	conversations.PATCH("/:userId/unread", h.MarkConversationUnread)
 	return r
 }
 
@@ -466,5 +486,92 @@ func TestMessageHandler_GetUnreadCount_ServiceError_Returns500(t *testing.T) {
 
 	if w.Code != http.StatusInternalServerError {
 		t.Errorf("expected 500, got %d", w.Code)
+	}
+}
+
+// ============================================================
+// DELETE /api/conversations/:userId (HideConversation)
+// ============================================================
+
+func TestMessageHandler_HideConversation_Returns204(t *testing.T) {
+	callerID := uuid.New()
+	otherID := uuid.New()
+
+	var gotUser, gotOther string
+	svc := &mockMessageService{
+		hideConversationFn: func(_ context.Context, userID, otherUserID string) error {
+			gotUser, gotOther = userID, otherUserID
+			return nil
+		},
+	}
+	h := handler.NewMessageHandler(svc, nil)
+	r := setupMessageRouter(h, callerID)
+
+	req := httptest.NewRequest(http.MethodDelete, "/api/conversations/"+otherID.String(), nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusNoContent {
+		t.Fatalf("want 204, got %d — body: %s", w.Code, w.Body.String())
+	}
+	if gotUser != callerID.String() || gotOther != otherID.String() {
+		t.Errorf("service called with (%s, %s)", gotUser, gotOther)
+	}
+}
+
+func TestMessageHandler_HideConversation_InvalidID_Returns400(t *testing.T) {
+	svc := &mockMessageService{
+		hideConversationFn: func(_ context.Context, _, _ string) error {
+			return domain.ErrInvalidInput
+		},
+	}
+	h := handler.NewMessageHandler(svc, nil)
+	r := setupMessageRouter(h, uuid.New())
+
+	req := httptest.NewRequest(http.MethodDelete, "/api/conversations/not-a-uuid", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("want 400, got %d", w.Code)
+	}
+}
+
+// ============================================================
+// PATCH /api/conversations/:userId/unread (MarkConversationUnread)
+// ============================================================
+
+func TestMessageHandler_MarkConversationUnread_Returns204(t *testing.T) {
+	callerID := uuid.New()
+	otherID := uuid.New()
+
+	svc := &mockMessageService{}
+	h := handler.NewMessageHandler(svc, nil)
+	r := setupMessageRouter(h, callerID)
+
+	req := httptest.NewRequest(http.MethodPatch, "/api/conversations/"+otherID.String()+"/unread", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusNoContent {
+		t.Fatalf("want 204, got %d — body: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestMessageHandler_MarkConversationUnread_InvalidID_Returns400(t *testing.T) {
+	svc := &mockMessageService{
+		markConvUnreadFn: func(_ context.Context, _, _ string) error {
+			return domain.ErrInvalidInput
+		},
+	}
+	h := handler.NewMessageHandler(svc, nil)
+	r := setupMessageRouter(h, uuid.New())
+
+	req := httptest.NewRequest(http.MethodPatch, "/api/conversations/not-a-uuid/unread", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("want 400, got %d", w.Code)
 	}
 }
