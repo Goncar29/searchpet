@@ -61,8 +61,10 @@ import { useConversation, useWebSocket } from '@shared/hooks';
 // Helper to build a minimal mock return value for useConversation
 // Cast through unknown to satisfy TS6's stricter overlap checks.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const mockConversation = (data: any[], isLoading: boolean) =>
-  ({ data, isLoading }) as unknown as ReturnType<typeof useConversation>;
+const mockConversation = (data: any[], isLoading: boolean, extra: object = {}) =>
+  ({ data, isLoading, isError: false, refetch: vi.fn(), ...extra }) as unknown as ReturnType<
+    typeof useConversation
+  >;
 
 function wrapper({ children }: { children: React.ReactNode }) {
   return (
@@ -159,6 +161,22 @@ describe('ChatPage', () => {
 
     capturedMenuProps?.onHidden?.();
     expect(navigateMock).toHaveBeenCalledWith('/messages');
+  });
+
+  it('muestra estado de error con botón de reintento cuando la conversación no carga', () => {
+    const refetchMock = vi.fn();
+    vi.mocked(useConversation).mockReturnValue(
+      mockConversation([], false, { data: undefined, isError: true, refetch: refetchMock })
+    );
+
+    render(<ChatPage />, { wrapper });
+
+    expect(screen.getByText('chat:loadError')).toBeTruthy();
+    // The error state must not masquerade as an empty thread.
+    expect(screen.queryByText('chat:empty')).toBeNull();
+
+    fireEvent.click(screen.getByText('chat:retry'));
+    expect(refetchMock).toHaveBeenCalled();
   });
 
   it('muestra un toast de error y restaura el texto escrito cuando el envío falla', () => {
