@@ -68,6 +68,49 @@ function openReportDialogAndType(text: string) {
 }
 
 describe('ConversationActionsMenu', () => {
+  it('closes the menu on pointerdown outside the component', () => {
+    render(<ConversationActionsMenu otherUserId="u2" otherUserName="Alice" />, { wrapper });
+
+    openMenu();
+    expect(screen.getByRole('menu')).toBeTruthy();
+
+    fireEvent.pointerDown(document.body);
+
+    expect(screen.queryByRole('menu')).toBeNull();
+    expect(screen.queryByText('chat:actions.viewProfile')).toBeNull();
+  });
+
+  it('does not close the menu on pointerdown inside it', () => {
+    render(<ConversationActionsMenu otherUserId="u2" otherUserName="Alice" />, { wrapper });
+
+    openMenu();
+    fireEvent.pointerDown(screen.getByText('chat:actions.viewProfile'));
+
+    expect(screen.getByRole('menu')).toBeTruthy();
+  });
+
+  it('closes the menu on Escape', () => {
+    render(<ConversationActionsMenu otherUserId="u2" otherUserName="Alice" />, { wrapper });
+
+    openMenu();
+    fireEvent.keyDown(document, { key: 'Escape' });
+
+    expect(screen.queryByRole('menu')).toBeNull();
+  });
+
+  it('the toggle button still toggles: open then close on consecutive clicks', () => {
+    render(<ConversationActionsMenu otherUserId="u2" otherUserName="Alice" />, { wrapper });
+
+    openMenu();
+    expect(screen.getByRole('menu')).toBeTruthy();
+
+    // The button lives inside the root ref, so the outside-pointerdown
+    // listener must not interfere and the click must close the menu once.
+    fireEvent.pointerDown(screen.getByLabelText('chat:actions.menuLabel:Alice'));
+    openMenu();
+    expect(screen.queryByRole('menu')).toBeNull();
+  });
+
   it('opens the menu and shows the five actions', () => {
     render(<ConversationActionsMenu otherUserId="u2" otherUserName="Alice" />, { wrapper });
 

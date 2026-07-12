@@ -50,6 +50,7 @@ export function ConversationActionsMenu({
   const [toast, setToast] = useState<Toast | null>(null);
   const [error, setError] = useState<string | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
 
   const hideConversation = useHideConversation();
   const markUnread = useMarkConversationUnread();
@@ -65,6 +66,28 @@ export function ConversationActionsMenu({
       if (toastTimer.current) clearTimeout(toastTimer.current);
     };
   }, []);
+
+  // Close the dropdown on outside interaction or Escape. Listeners exist only
+  // while the menu is open. This closes ONLY the dropdown: the confirm/report
+  // dialogs render inside rootRef, so `contains` keeps them unaffected, and
+  // they manage their own dismissal.
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (e: PointerEvent) => {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('pointerdown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [open]);
 
   const showToast = (text: string, kind: Toast['kind']) => {
     if (toastTimer.current) clearTimeout(toastTimer.current);
@@ -149,7 +172,7 @@ export function ConversationActionsMenu({
   };
 
   return (
-    <div className="relative">
+    <div ref={rootRef} className="relative">
       <button
         type="button"
         aria-label={t('chat:actions.menuLabel', { name: otherUserName })}
