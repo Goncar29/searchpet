@@ -161,6 +161,7 @@
     "send": "Enviar",
     "typing": "escribiendo...",
     "loadingMessages": "Cargando mensajes...",
+    "empty": "Todavía no hay mensajes. ¡Escribí el primero!",
     "loadError": "No se pudieron cargar los mensajes.",
     "retry": "Reintentar",
     "blockedCannotMessage": "Ya no podés enviar mensajes a este usuario",

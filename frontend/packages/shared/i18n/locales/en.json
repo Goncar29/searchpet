@@ -161,6 +161,7 @@
     "send": "Send",
     "typing": "typing...",
     "loadingMessages": "Loading messages...",
+    "empty": "No messages yet. Send the first one!",
     "loadError": "Couldn't load messages.",
     "retry": "Retry",
     "blockedCannotMessage": "You can no longer send messages to this user",
