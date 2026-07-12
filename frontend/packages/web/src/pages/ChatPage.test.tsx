@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { act, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ChatPage } from './ChatPage';
@@ -29,10 +29,11 @@ vi.mock('react-router', async (importOriginal) => {
 
 const usePublicProfileMock = vi.fn();
 const useBlockStatusMock = vi.fn();
+const sendMessageToMutateMock = vi.fn();
 
 vi.mock('@shared/hooks', () => ({
   useConversation: vi.fn(),
-  useSendMessageTo: () => ({ mutate: vi.fn(), isPending: false }),
+  useSendMessageTo: () => ({ mutate: sendMessageToMutateMock, isPending: false }),
   useWebSocket: vi.fn(() => ({ connectionState: 'connected' as WsConnectionState, sendEnvelope: vi.fn() })),
   usePublicProfile: (...args: unknown[]) => usePublicProfileMock(...args),
   useBlockStatus: (...args: unknown[]) => useBlockStatusMock(...args),
@@ -74,6 +75,7 @@ function wrapper({ children }: { children: React.ReactNode }) {
 describe('ChatPage', () => {
   beforeEach(() => {
     navigateMock.mockClear();
+    sendMessageToMutateMock.mockReset();
     capturedMenuProps = null;
     usePublicProfileMock.mockReturnValue({ data: { id: 'user-2', name: 'Alice' } });
     useBlockStatusMock.mockReturnValue({ isBlocked: false, isLoading: false });
@@ -157,6 +159,45 @@ describe('ChatPage', () => {
 
     capturedMenuProps?.onHidden?.();
     expect(navigateMock).toHaveBeenCalledWith('/messages');
+  });
+
+  it('muestra un toast de error y restaura el texto escrito cuando el envío falla', () => {
+    sendMessageToMutateMock.mockImplementation(
+      (_data: unknown, opts?: { onError?: (err: Error) => void }) =>
+        opts?.onError?.(new Error('boom'))
+    );
+    vi.mocked(useConversation).mockReturnValue(mockConversation([], false));
+
+    render(<ChatPage />, { wrapper });
+
+    const textarea = screen.getByPlaceholderText('chat:inputPlaceholder') as HTMLTextAreaElement;
+    fireEvent.change(textarea, { target: { value: 'Hola' } });
+    fireEvent.submit(textarea.closest('form')!);
+
+    // getErrorMessage falls back to errors:unknown_error for plain Errors.
+    expect(screen.getByRole('status').textContent).toBe('errors:unknown_error');
+    // The typed text is restored so the user can retry.
+    expect(textarea.value).toBe('Hola');
+  });
+
+  it('no muestra toast de error cuando el envío es exitoso', () => {
+    sendMessageToMutateMock.mockImplementation(
+      (_data: unknown, opts?: { onSuccess?: () => void }) => opts?.onSuccess?.()
+    );
+    vi.mocked(useConversation).mockReturnValue(mockConversation([], false));
+
+    render(<ChatPage />, { wrapper });
+
+    const textarea = screen.getByPlaceholderText('chat:inputPlaceholder') as HTMLTextAreaElement;
+    fireEvent.change(textarea, { target: { value: 'Hola' } });
+    fireEvent.submit(textarea.closest('form')!);
+
+    expect(sendMessageToMutateMock).toHaveBeenCalledWith(
+      { receiverID: 'user-2', senderID: 'user-1', content: 'Hola' },
+      expect.anything()
+    );
+    expect(screen.queryByRole('status')).toBeNull();
+    expect(textarea.value).toBe('');
   });
 
   it('oculta el input y muestra el banner de bloqueo cuando useBlockStatus indica isBlocked true', () => {

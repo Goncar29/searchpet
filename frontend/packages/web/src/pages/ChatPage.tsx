@@ -11,13 +11,15 @@ import {
 } from '@shared/hooks';
 import type { WsEnvelope, WsChatMessage, WsTypingEvent } from '@shared/hooks';
 import type { Message } from '@shared/types';
+import { getErrorMessage } from '@shared/utils/apiErrors';
 import { useAuth } from '../context/AuthContext';
 import { ConversationActionsMenu } from '../components/ConversationActionsMenu';
 
 const TYPING_IDLE_MS = 2_000;
+const SEND_ERROR_TOAST_MS = 3000;
 
 export function ChatPage() {
-  const { t } = useTranslation(['chat', 'common']);
+  const { t } = useTranslation(['chat', 'common', 'errors']);
   const { userId } = useParams<{ userId: string }>();
   const { user, isAuthenticated } = useAuth();
   const queryClient = useQueryClient();
@@ -31,10 +33,25 @@ export function ChatPage() {
 
   const [input, setInput] = useState('');
   const [remoteTyping, setRemoteTyping] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
   const inputSnapshotRef = useRef('');
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isTypingRef = useRef(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const sendErrorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Clear any pending send-error toast timer on unmount.
+  useEffect(() => {
+    return () => {
+      if (sendErrorTimerRef.current) clearTimeout(sendErrorTimerRef.current);
+    };
+  }, []);
+
+  const showSendError = (text: string) => {
+    if (sendErrorTimerRef.current) clearTimeout(sendErrorTimerRef.current);
+    setSendError(text);
+    sendErrorTimerRef.current = setTimeout(() => setSendError(null), SEND_ERROR_TOAST_MS);
+  };
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -105,8 +122,9 @@ export function ChatPage() {
     sendMessageTo.mutate(
       { receiverID: userId, senderID: user.id, content },
       {
-        onError: () => {
+        onError: (err: Error) => {
           setInput(inputSnapshotRef.current);
+          showSendError(getErrorMessage(err, t));
         },
       }
     );
@@ -222,6 +240,15 @@ export function ChatPage() {
             {t('chat:send')}
           </button>
         </form>
+      )}
+
+      {sendError && (
+        <div
+          role="status"
+          className="fixed bottom-4 left-1/2 -translate-x-1/2 z-30 rounded-xl bg-red-600 text-white text-sm px-4 py-2 shadow-lg"
+        >
+          {sendError}
+        </div>
       )}
     </div>
   );
