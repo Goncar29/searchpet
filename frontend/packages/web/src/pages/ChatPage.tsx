@@ -134,9 +134,12 @@ export function ChatPage() {
           </div>
           <span className="font-semibold text-gray-900 dark:text-gray-100 truncate">{otherName}</span>
         </Link>
+        {/* Mark-unread is hidden here: viewing this page re-marks the
+            conversation read on every refetch, which would silently undo it. */}
         <ConversationActionsMenu
           otherUserId={userId!}
           otherUserName={otherName}
+          showMarkUnread={false}
           onHidden={() => navigate('/messages')}
         />
       </div>
