@@ -532,6 +532,17 @@ describe('useBlockStatus', () => {
     expect(result.current.isBlocked).toBe(false);
     expect(spy).not.toHaveBeenCalled();
   });
+
+  it('exposes isError when the fetch fails, with isBlocked still defaulting to false', async () => {
+    vi.spyOn(apiClient, 'getBlockStatus').mockRejectedValue(new Error('network down'));
+
+    const { result } = renderHook(() => useBlockStatus('user-1'), { wrapper });
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    // A failed check never pretends the user is blocked.
+    expect(result.current.isBlocked).toBe(false);
+    expect(result.current.isLoading).toBe(false);
+  });
 });
 
 // ============================================================

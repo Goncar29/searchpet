@@ -210,6 +210,19 @@ describe('ChatPage', () => {
     expect(screen.getByText('chat:actions.blockedBanner')).toBeTruthy();
   });
 
+  it('cuando el chequeo de bloqueo falla, el formulario se muestra y no aparece el banner de bloqueo', () => {
+    // Contract: on block-status error the check must not pretend it
+    // succeeded. The form still renders (the backend enforces blocking with
+    // 403, surfaced by the send-error toast) and no blocked banner shows.
+    useBlockStatusMock.mockReturnValue({ isBlocked: false, isLoading: false, isError: true });
+    vi.mocked(useConversation).mockReturnValue(mockConversation([], false));
+
+    render(<ChatPage />, { wrapper });
+
+    expect(screen.getByPlaceholderText('chat:inputPlaceholder')).toBeTruthy();
+    expect(screen.queryByText('chat:actions.blockedBanner')).toBeNull();
+  });
+
   it('no muestra ni el input ni el banner mientras el estado de bloqueo carga', () => {
     useBlockStatusMock.mockReturnValue({ isBlocked: false, isLoading: true });
     vi.mocked(useConversation).mockReturnValue(mockConversation([], false));
