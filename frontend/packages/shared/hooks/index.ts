@@ -622,6 +622,11 @@ export const useBlockStatus = (userId: string | undefined) => {
   return {
     isBlocked: query.data?.is_blocked ?? false,
     isLoading: query.isLoading,
+    // On fetch failure isBlocked stays false and the form renders: the
+    // backend still enforces blocking (403 on send), which the send-error
+    // toast surfaces. Consumers use isError to avoid claiming the check
+    // succeeded (e.g. never show a "blocked" banner off a failed check).
+    isError: query.isError,
   };
 };
 

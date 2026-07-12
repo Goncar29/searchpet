@@ -78,6 +78,25 @@ describe('MessagesPage', () => {
     expect(screen.getByText('messages:empty')).toBeTruthy();
   });
 
+  it('muestra estado de error con botón de reintento cuando la query falla', () => {
+    const refetchMock = vi.fn();
+    vi.mocked(useConversations).mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: true,
+      refetch: refetchMock,
+    } as unknown as ReturnType<typeof useConversations>);
+
+    render(<MessagesPage />, { wrapper });
+
+    expect(screen.getByText('messages:loadError')).toBeTruthy();
+    // The error state must not masquerade as an empty inbox.
+    expect(screen.queryByText('messages:empty')).toBeNull();
+
+    fireEvent.click(screen.getByText('messages:retry'));
+    expect(refetchMock).toHaveBeenCalled();
+  });
+
   it('renderiza filas de conversaciones cuando hay datos', () => {
     vi.mocked(useConversations).mockReturnValue({
       data: [

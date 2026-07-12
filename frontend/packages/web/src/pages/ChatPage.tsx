@@ -11,19 +11,21 @@ import {
 } from '@shared/hooks';
 import type { WsEnvelope, WsChatMessage, WsTypingEvent } from '@shared/hooks';
 import type { Message } from '@shared/types';
+import { getErrorMessage } from '@shared/utils/apiErrors';
 import { useAuth } from '../context/AuthContext';
 import { ConversationActionsMenu } from '../components/ConversationActionsMenu';
 
 const TYPING_IDLE_MS = 2_000;
+const SEND_ERROR_TOAST_MS = 3000;
 
 export function ChatPage() {
-  const { t } = useTranslation(['chat', 'common']);
+  const { t } = useTranslation(['chat', 'common', 'errors']);
   const { userId } = useParams<{ userId: string }>();
   const { user, isAuthenticated } = useAuth();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
-  const { data: messages, isLoading } = useConversation(userId!);
+  const { data: messages, isLoading, isError, refetch } = useConversation(userId!);
   const sendMessageTo = useSendMessageTo();
   const { data: profile } = usePublicProfile(userId!);
   const { isBlocked, isLoading: isBlockStatusLoading } = useBlockStatus(userId);
@@ -31,10 +33,25 @@ export function ChatPage() {
 
   const [input, setInput] = useState('');
   const [remoteTyping, setRemoteTyping] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
   const inputSnapshotRef = useRef('');
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isTypingRef = useRef(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const sendErrorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Clear any pending send-error toast timer on unmount.
+  useEffect(() => {
+    return () => {
+      if (sendErrorTimerRef.current) clearTimeout(sendErrorTimerRef.current);
+    };
+  }, []);
+
+  const showSendError = (text: string) => {
+    if (sendErrorTimerRef.current) clearTimeout(sendErrorTimerRef.current);
+    setSendError(text);
+    sendErrorTimerRef.current = setTimeout(() => setSendError(null), SEND_ERROR_TOAST_MS);
+  };
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -105,8 +122,9 @@ export function ChatPage() {
     sendMessageTo.mutate(
       { receiverID: userId, senderID: user.id, content },
       {
-        onError: () => {
+        onError: (err: Error) => {
           setInput(inputSnapshotRef.current);
+          showSendError(getErrorMessage(err, t));
         },
       }
     );
@@ -153,6 +171,17 @@ export function ChatPage() {
           <div className="text-center py-12">
             <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4" />
             <p className="text-gray-500 dark:text-gray-400">{t('chat:loadingMessages')}</p>
+          </div>
+        ) : isError ? (
+          <div className="text-center py-12">
+            <p className="text-gray-500 dark:text-gray-400 text-sm mb-4">{t('chat:loadError')}</p>
+            <button
+              type="button"
+              onClick={() => refetch()}
+              className="px-4 py-2 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-primary-dark transition-colors"
+            >
+              {t('chat:retry')}
+            </button>
           </div>
         ) : !messages?.length ? (
           <div className="text-center py-12 text-gray-500 dark:text-gray-400 text-sm">
@@ -222,6 +251,17 @@ export function ChatPage() {
             {t('chat:send')}
           </button>
         </form>
+      )}
+
+      {sendError && (
+        <div
+          role="status"
+          // bottom-16: ConversationActionsMenu's toast owns the bottom-4 slot;
+          // both can be visible within the same 3s window and must not overlap.
+          className="fixed bottom-16 left-1/2 -translate-x-1/2 z-30 rounded-xl bg-red-600 text-white text-sm px-4 py-2 shadow-lg"
+        >
+          {sendError}
+        </div>
       )}
     </div>
   );

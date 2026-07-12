@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { act, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ChatPage } from './ChatPage';
@@ -29,10 +29,11 @@ vi.mock('react-router', async (importOriginal) => {
 
 const usePublicProfileMock = vi.fn();
 const useBlockStatusMock = vi.fn();
+const sendMessageToMutateMock = vi.fn();
 
 vi.mock('@shared/hooks', () => ({
   useConversation: vi.fn(),
-  useSendMessageTo: () => ({ mutate: vi.fn(), isPending: false }),
+  useSendMessageTo: () => ({ mutate: sendMessageToMutateMock, isPending: false }),
   useWebSocket: vi.fn(() => ({ connectionState: 'connected' as WsConnectionState, sendEnvelope: vi.fn() })),
   usePublicProfile: (...args: unknown[]) => usePublicProfileMock(...args),
   useBlockStatus: (...args: unknown[]) => useBlockStatusMock(...args),
@@ -60,8 +61,10 @@ import { useConversation, useWebSocket } from '@shared/hooks';
 // Helper to build a minimal mock return value for useConversation
 // Cast through unknown to satisfy TS6's stricter overlap checks.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const mockConversation = (data: any[], isLoading: boolean) =>
-  ({ data, isLoading }) as unknown as ReturnType<typeof useConversation>;
+const mockConversation = (data: any[], isLoading: boolean, extra: object = {}) =>
+  ({ data, isLoading, isError: false, refetch: vi.fn(), ...extra }) as unknown as ReturnType<
+    typeof useConversation
+  >;
 
 function wrapper({ children }: { children: React.ReactNode }) {
   return (
@@ -74,6 +77,7 @@ function wrapper({ children }: { children: React.ReactNode }) {
 describe('ChatPage', () => {
   beforeEach(() => {
     navigateMock.mockClear();
+    sendMessageToMutateMock.mockReset();
     capturedMenuProps = null;
     usePublicProfileMock.mockReturnValue({ data: { id: 'user-2', name: 'Alice' } });
     useBlockStatusMock.mockReturnValue({ isBlocked: false, isLoading: false });
@@ -159,6 +163,61 @@ describe('ChatPage', () => {
     expect(navigateMock).toHaveBeenCalledWith('/messages');
   });
 
+  it('muestra estado de error con botón de reintento cuando la conversación no carga', () => {
+    const refetchMock = vi.fn();
+    vi.mocked(useConversation).mockReturnValue(
+      mockConversation([], false, { data: undefined, isError: true, refetch: refetchMock })
+    );
+
+    render(<ChatPage />, { wrapper });
+
+    expect(screen.getByText('chat:loadError')).toBeTruthy();
+    // The error state must not masquerade as an empty thread.
+    expect(screen.queryByText('chat:empty')).toBeNull();
+
+    fireEvent.click(screen.getByText('chat:retry'));
+    expect(refetchMock).toHaveBeenCalled();
+  });
+
+  it('muestra un toast de error y restaura el texto escrito cuando el envío falla', () => {
+    sendMessageToMutateMock.mockImplementation(
+      (_data: unknown, opts?: { onError?: (err: Error) => void }) =>
+        opts?.onError?.(new Error('boom'))
+    );
+    vi.mocked(useConversation).mockReturnValue(mockConversation([], false));
+
+    render(<ChatPage />, { wrapper });
+
+    const textarea = screen.getByPlaceholderText('chat:inputPlaceholder') as HTMLTextAreaElement;
+    fireEvent.change(textarea, { target: { value: 'Hola' } });
+    fireEvent.submit(textarea.closest('form')!);
+
+    // getErrorMessage falls back to errors:unknown_error for plain Errors.
+    expect(screen.getByRole('status').textContent).toBe('errors:unknown_error');
+    // The typed text is restored so the user can retry.
+    expect(textarea.value).toBe('Hola');
+  });
+
+  it('no muestra toast de error cuando el envío es exitoso', () => {
+    sendMessageToMutateMock.mockImplementation(
+      (_data: unknown, opts?: { onSuccess?: () => void }) => opts?.onSuccess?.()
+    );
+    vi.mocked(useConversation).mockReturnValue(mockConversation([], false));
+
+    render(<ChatPage />, { wrapper });
+
+    const textarea = screen.getByPlaceholderText('chat:inputPlaceholder') as HTMLTextAreaElement;
+    fireEvent.change(textarea, { target: { value: 'Hola' } });
+    fireEvent.submit(textarea.closest('form')!);
+
+    expect(sendMessageToMutateMock).toHaveBeenCalledWith(
+      { receiverID: 'user-2', senderID: 'user-1', content: 'Hola' },
+      expect.anything()
+    );
+    expect(screen.queryByRole('status')).toBeNull();
+    expect(textarea.value).toBe('');
+  });
+
   it('oculta el input y muestra el banner de bloqueo cuando useBlockStatus indica isBlocked true', () => {
     useBlockStatusMock.mockReturnValue({ isBlocked: true, isLoading: false });
     vi.mocked(useConversation).mockReturnValue(mockConversation([], false));
@@ -167,6 +226,19 @@ describe('ChatPage', () => {
 
     expect(screen.queryByPlaceholderText('chat:inputPlaceholder')).toBeNull();
     expect(screen.getByText('chat:actions.blockedBanner')).toBeTruthy();
+  });
+
+  it('cuando el chequeo de bloqueo falla, el formulario se muestra y no aparece el banner de bloqueo', () => {
+    // Contract: on block-status error the check must not pretend it
+    // succeeded. The form still renders (the backend enforces blocking with
+    // 403, surfaced by the send-error toast) and no blocked banner shows.
+    useBlockStatusMock.mockReturnValue({ isBlocked: false, isLoading: false, isError: true });
+    vi.mocked(useConversation).mockReturnValue(mockConversation([], false));
+
+    render(<ChatPage />, { wrapper });
+
+    expect(screen.getByPlaceholderText('chat:inputPlaceholder')).toBeTruthy();
+    expect(screen.queryByText('chat:actions.blockedBanner')).toBeNull();
   });
 
   it('no muestra ni el input ni el banner mientras el estado de bloqueo carga', () => {

@@ -22,7 +22,7 @@ export function MessagesPage() {
   const { user, isAuthenticated } = useAuth();
   const queryClient = useQueryClient();
 
-  const { data: conversations, isLoading } = useConversations();
+  const { data: conversations, isLoading, isError, refetch } = useConversations();
 
   const onMessage = (envelope: WsEnvelope) => {
     if (envelope.type === 'chat_message' || envelope.type === 'badge_update') {
@@ -42,6 +42,17 @@ export function MessagesPage() {
         <div className="text-center py-12">
           <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4" />
           <p className="text-gray-500 dark:text-gray-400">{t('messages:loading')}</p>
+        </div>
+      ) : isError ? (
+        <div className="text-center py-12">
+          <p className="text-gray-600 dark:text-gray-400 mb-4">{t('messages:loadError')}</p>
+          <button
+            type="button"
+            onClick={() => refetch()}
+            className="px-4 py-2 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-primary-dark transition-colors"
+          >
+            {t('messages:retry')}
+          </button>
         </div>
       ) : !conversations || conversations.length === 0 ? (
         <div className="text-center py-12">
