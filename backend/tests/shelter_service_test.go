@@ -15,10 +15,12 @@ import (
 // ============================================================
 
 type mockShelterRepository struct {
-	createFn   func(ctx context.Context, shelter *domain.Shelter) error
-	getByIDFn  func(ctx context.Context, id uuid.UUID) (*domain.Shelter, error)
-	getAllFn    func(ctx context.Context, city string, isVerified *bool) ([]domain.Shelter, error)
-	updateFn   func(ctx context.Context, shelter *domain.Shelter) error
+	createFn          func(ctx context.Context, shelter *domain.Shelter) error
+	getByIDFn         func(ctx context.Context, id uuid.UUID) (*domain.Shelter, error)
+	getAllFn          func(ctx context.Context, city string, isVerified *bool) ([]domain.Shelter, error)
+	updateFn          func(ctx context.Context, shelter *domain.Shelter) error
+	getByOwnerFn      func(ctx context.Context, ownerID uuid.UUID) (*domain.Shelter, error)
+	getPendingQueueFn func(ctx context.Context) ([]domain.Shelter, error)
 }
 
 func (m *mockShelterRepository) Create(ctx context.Context, shelter *domain.Shelter) error {
@@ -48,6 +50,20 @@ func (m *mockShelterRepository) Update(ctx context.Context, shelter *domain.Shel
 		return m.updateFn(ctx, shelter)
 	}
 	return nil
+}
+
+func (m *mockShelterRepository) GetByOwner(ctx context.Context, ownerID uuid.UUID) (*domain.Shelter, error) {
+	if m.getByOwnerFn != nil {
+		return m.getByOwnerFn(ctx, ownerID)
+	}
+	return nil, domain.ErrShelterNotFound
+}
+
+func (m *mockShelterRepository) GetPendingQueue(ctx context.Context) ([]domain.Shelter, error) {
+	if m.getPendingQueueFn != nil {
+		return m.getPendingQueueFn(ctx)
+	}
+	return []domain.Shelter{}, nil
 }
 
 // ============================================================

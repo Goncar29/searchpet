@@ -42,7 +42,8 @@ func (r *postgresShelterRepository) GetByID(ctx context.Context, id uuid.UUID) (
 // isVerified == nil → sin filtro por verificación.
 func (r *postgresShelterRepository) GetAll(ctx context.Context, city string, isVerified *bool) ([]domain.Shelter, error) {
 	var shelters []domain.Shelter
-	query := r.db.WithContext(ctx).Model(&domain.Shelter{})
+	query := r.db.WithContext(ctx).Model(&domain.Shelter{}).
+		Where("status = ?", domain.ShelterStatusApproved)
 
 	if city != "" {
 		query = query.Where("city = ?", city)
@@ -58,6 +59,32 @@ func (r *postgresShelterRepository) GetAll(ctx context.Context, city string, isV
 // Update guarda los cambios de un refugio existente.
 func (r *postgresShelterRepository) Update(ctx context.Context, shelter *domain.Shelter) error {
 	return r.db.WithContext(ctx).Save(shelter).Error
+}
+
+// GetByOwner busca el refugio cuyo owner_user_id es ownerID.
+// Retorna ErrShelterNotFound si el usuario no tiene refugio.
+func (r *postgresShelterRepository) GetByOwner(ctx context.Context, ownerID uuid.UUID) (*domain.Shelter, error) {
+	var shelter domain.Shelter
+	result := r.db.WithContext(ctx).First(&shelter, "owner_user_id = ?", ownerID)
+	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+		return nil, domain.ErrShelterNotFound
+	}
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return &shelter, nil
+}
+
+// GetPendingQueue retorna los refugios que requieren revisión admin:
+// registros nuevos (pending) y approved con Pending* staged. FIFO por created_at.
+func (r *postgresShelterRepository) GetPendingQueue(ctx context.Context) ([]domain.Shelter, error) {
+	var shelters []domain.Shelter
+	err := r.db.WithContext(ctx).
+		Where("status = ? OR (status = ? AND (pending_donation_url IS NOT NULL OR pending_website_url IS NOT NULL))",
+			domain.ShelterStatusPending, domain.ShelterStatusApproved).
+		Order("created_at ASC").
+		Find(&shelters).Error
+	return shelters, err
 }
 
 // Verificación estática: postgresShelterRepository satisface ShelterRepository.

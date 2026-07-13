@@ -17,10 +17,12 @@ func TestShelterRepository_GetAll(t *testing.T) {
 	shelterRepo := repository.NewShelterRepository(gormDB)
 	ctx := context.Background()
 
+	// GetAll es el directorio público: solo lista refugios approved (Task 3),
+	// así que las fixtures deben crearse approved para ser visibles.
 	shelters := []*domain.Shelter{
-		{ID: uuid.New(), Name: "Refugio A", City: "Montevideo", IsVerified: true},
-		{ID: uuid.New(), Name: "Refugio B", City: "Montevideo", IsVerified: false},
-		{ID: uuid.New(), Name: "Refugio C", City: "Buenos Aires", IsVerified: true},
+		{ID: uuid.New(), Name: "Refugio A", City: "Montevideo", IsVerified: true, Status: domain.ShelterStatusApproved},
+		{ID: uuid.New(), Name: "Refugio B", City: "Montevideo", IsVerified: false, Status: domain.ShelterStatusApproved},
+		{ID: uuid.New(), Name: "Refugio C", City: "Buenos Aires", IsVerified: true, Status: domain.ShelterStatusApproved},
 	}
 	for _, s := range shelters {
 		if err := shelterRepo.Create(ctx, s); err != nil {
@@ -144,5 +146,105 @@ func TestShelterMigration_OwnerPartialUniqueIndex(t *testing.T) {
 	}
 	if err := shelterRepo.Create(ctx, newTestShelterWithOwner(nil, "Sin Dueño B", domain.ShelterStatusApproved)); err != nil {
 		t.Fatalf("ownerless B: %v", err)
+	}
+}
+
+func TestShelterRepository_GetAll_OnlyApproved(t *testing.T) {
+	gormDB := testdb.SetupTestDB(t)
+	userRepo := repository.NewUserRepository(gormDB)
+	shelterRepo := repository.NewShelterRepository(gormDB)
+	ctx := context.Background()
+
+	owner := newTestUser(t, userRepo)
+
+	if err := shelterRepo.Create(ctx, newTestShelterWithOwner(&owner.ID, "Pendiente", domain.ShelterStatusPending)); err != nil {
+		t.Fatalf("create pending: %v", err)
+	}
+	if err := shelterRepo.Create(ctx, newTestShelterWithOwner(nil, "Aprobado", domain.ShelterStatusApproved)); err != nil {
+		t.Fatalf("create approved: %v", err)
+	}
+	rejected := newTestShelterWithOwner(nil, "Rechazado", domain.ShelterStatusRejected)
+	if err := shelterRepo.Create(ctx, rejected); err != nil {
+		t.Fatalf("create rejected: %v", err)
+	}
+
+	shelters, err := shelterRepo.GetAll(ctx, "", nil)
+	if err != nil {
+		t.Fatalf("GetAll: %v", err)
+	}
+	if len(shelters) != 1 {
+		t.Fatalf("want only the approved shelter, got %d", len(shelters))
+	}
+	if shelters[0].Name != "Aprobado" {
+		t.Errorf("want 'Aprobado', got %q", shelters[0].Name)
+	}
+}
+
+func TestShelterRepository_GetByOwner(t *testing.T) {
+	gormDB := testdb.SetupTestDB(t)
+	userRepo := repository.NewUserRepository(gormDB)
+	shelterRepo := repository.NewShelterRepository(gormDB)
+	ctx := context.Background()
+
+	owner := newTestUser(t, userRepo)
+	stranger := newTestUser(t, userRepo)
+
+	created := newTestShelterWithOwner(&owner.ID, "Mi Refugio", domain.ShelterStatusPending)
+	if err := shelterRepo.Create(ctx, created); err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	got, err := shelterRepo.GetByOwner(ctx, owner.ID)
+	if err != nil {
+		t.Fatalf("GetByOwner: %v", err)
+	}
+	if got.ID != created.ID {
+		t.Errorf("want shelter %s, got %s", created.ID, got.ID)
+	}
+
+	if _, err := shelterRepo.GetByOwner(ctx, stranger.ID); err != domain.ErrShelterNotFound {
+		t.Errorf("want ErrShelterNotFound for user without shelter, got %v", err)
+	}
+}
+
+func TestShelterRepository_GetPendingQueue(t *testing.T) {
+	gormDB := testdb.SetupTestDB(t)
+	userRepo := repository.NewUserRepository(gormDB)
+	shelterRepo := repository.NewShelterRepository(gormDB)
+	ctx := context.Background()
+
+	ownerA := newTestUser(t, userRepo)
+	ownerB := newTestUser(t, userRepo)
+
+	// In the queue: a pending registration...
+	pending := newTestShelterWithOwner(&ownerA.ID, "Pendiente", domain.ShelterStatusPending)
+	if err := shelterRepo.Create(ctx, pending); err != nil {
+		t.Fatalf("create pending: %v", err)
+	}
+	// ...and an approved shelter with a staged link change.
+	staged := newTestShelterWithOwner(&ownerB.ID, "Con Cambio", domain.ShelterStatusApproved)
+	newURL := "https://nuevo.example.org/donar"
+	staged.PendingDonationURL = &newURL
+	if err := shelterRepo.Create(ctx, staged); err != nil {
+		t.Fatalf("create staged: %v", err)
+	}
+	// NOT in the queue: a plain approved shelter and a rejected one.
+	if err := shelterRepo.Create(ctx, newTestShelterWithOwner(nil, "Tranquilo", domain.ShelterStatusApproved)); err != nil {
+		t.Fatalf("create approved: %v", err)
+	}
+	if err := shelterRepo.Create(ctx, newTestShelterWithOwner(nil, "Rechazado", domain.ShelterStatusRejected)); err != nil {
+		t.Fatalf("create rejected: %v", err)
+	}
+
+	queue, err := shelterRepo.GetPendingQueue(ctx)
+	if err != nil {
+		t.Fatalf("GetPendingQueue: %v", err)
+	}
+	if len(queue) != 2 {
+		t.Fatalf("want 2 shelters in queue, got %d", len(queue))
+	}
+	names := map[string]bool{queue[0].Name: true, queue[1].Name: true}
+	if !names["Pendiente"] || !names["Con Cambio"] {
+		t.Errorf("want {Pendiente, Con Cambio} in queue, got %v", names)
 	}
 }
