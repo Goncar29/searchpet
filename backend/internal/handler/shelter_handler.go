@@ -199,3 +199,80 @@ func (h *ShelterHandler) UpdateMine(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, dto.ToMyShelterResponse(shelter))
 }
+
+// writeShelterTransitionError mapea los errores comunes de las transiciones admin.
+func writeShelterTransitionError(c *gin.Context, err error) {
+	switch {
+	case errors.Is(err, domain.ErrShelterNotFound):
+		writeError(c, http.StatusNotFound, err)
+	case errors.Is(err, domain.ErrInvalidShelterStatus):
+		writeError(c, http.StatusConflict, err)
+	case errors.Is(err, domain.ErrRejectionReasonRequired):
+		writeError(c, http.StatusBadRequest, err)
+	case errors.Is(err, domain.ErrInvalidInput):
+		writeError(c, http.StatusBadRequest, err)
+	default:
+		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
+	}
+}
+
+// PendingQueue godoc
+// GET /api/admin/shelters/pending (JWT + RequireAdmin)
+// Cola de revisión: registros pending + approved con cambios de links staged.
+func (h *ShelterHandler) PendingQueue(c *gin.Context) {
+	shelters, err := h.shelterService.GetPendingQueue(c.Request.Context())
+	if err != nil {
+		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
+		return
+	}
+	c.JSON(http.StatusOK, dto.ToAdminShelterListResponse(shelters))
+}
+
+// Approve godoc
+// POST /api/admin/shelters/:id/approve (JWT + RequireAdmin)
+func (h *ShelterHandler) Approve(c *gin.Context) {
+	shelter, err := h.shelterService.Approve(c.Request.Context(), c.Param("id"))
+	if err != nil {
+		writeShelterTransitionError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, dto.ToAdminShelterResponse(shelter))
+}
+
+// Reject godoc
+// POST /api/admin/shelters/:id/reject (JWT + RequireAdmin), body {"reason": "..."} requerido.
+func (h *ShelterHandler) Reject(c *gin.Context) {
+	var req dto.RejectShelterRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		writeError(c, http.StatusBadRequest, domain.ErrRejectionReasonRequired)
+		return
+	}
+	shelter, err := h.shelterService.Reject(c.Request.Context(), c.Param("id"), req.Reason)
+	if err != nil {
+		writeShelterTransitionError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, dto.ToAdminShelterResponse(shelter))
+}
+
+// ApproveLinks godoc
+// POST /api/admin/shelters/:id/links/approve (JWT + RequireAdmin)
+func (h *ShelterHandler) ApproveLinks(c *gin.Context) {
+	shelter, err := h.shelterService.ApproveLinks(c.Request.Context(), c.Param("id"))
+	if err != nil {
+		writeShelterTransitionError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, dto.ToAdminShelterResponse(shelter))
+}
+
+// RejectLinks godoc
+// POST /api/admin/shelters/:id/links/reject (JWT + RequireAdmin)
+func (h *ShelterHandler) RejectLinks(c *gin.Context) {
+	shelter, err := h.shelterService.RejectLinks(c.Request.Context(), c.Param("id"))
+	if err != nil {
+		writeShelterTransitionError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, dto.ToAdminShelterResponse(shelter))
+}

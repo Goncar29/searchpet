@@ -284,11 +284,11 @@ func setupOwnerShelterRouter(h *handler.ShelterHandler, userID uuid.UUID) *gin.E
 	r.POST("/api/shelters", h.RegisterOwn)
 	r.GET("/api/shelters/mine", h.GetMine)
 	r.PUT("/api/shelters/mine", h.UpdateMine)
-	// Task 10: r.GET("/api/admin/shelters/pending", h.PendingQueue)
-	// Task 10: r.POST("/api/admin/shelters/:id/approve", h.Approve)
-	// Task 10: r.POST("/api/admin/shelters/:id/reject", h.Reject)
-	// Task 10: r.POST("/api/admin/shelters/:id/links/approve", h.ApproveLinks)
-	// Task 10: r.POST("/api/admin/shelters/:id/links/reject", h.RejectLinks)
+	r.GET("/api/admin/shelters/pending", h.PendingQueue)
+	r.POST("/api/admin/shelters/:id/approve", h.Approve)
+	r.POST("/api/admin/shelters/:id/reject", h.Reject)
+	r.POST("/api/admin/shelters/:id/links/approve", h.ApproveLinks)
+	r.POST("/api/admin/shelters/:id/links/reject", h.RejectLinks)
 	return r
 }
 
@@ -507,5 +507,176 @@ func TestShelterHandler_GetAll_NeverLeaksReviewFields(t *testing.T) {
 		if strings.Contains(body, leaked) {
 			t.Errorf("public GET /api/shelters leaks %q: %s", leaked, body)
 		}
+	}
+}
+
+// ============================================================
+// Admin queue + transition tests
+// ============================================================
+
+func TestShelterHandler_PendingQueue_ReturnsAdminView(t *testing.T) {
+	ownerID := uuid.New()
+	pendingURL := "https://nuevo.org/donar"
+	svc := &mockShelterService{
+		getPendingQueueFn: func(_ context.Context) ([]domain.Shelter, error) {
+			return []domain.Shelter{{
+				ID: uuid.New(), OwnerUserID: &ownerID, Name: "En Cola", City: "Montevideo",
+				Status: domain.ShelterStatusApproved, PendingDonationURL: &pendingURL,
+			}}, nil
+		},
+	}
+	h := handler.NewShelterHandler(svc)
+	r := setupOwnerShelterRouter(h, uuid.New())
+
+	req := httptest.NewRequest(http.MethodGet, "/api/admin/shelters/pending", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("want 200, got %d — body: %s", w.Code, w.Body.String())
+	}
+	var resp []dto.AdminShelterResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if len(resp) != 1 {
+		t.Fatalf("want 1 queue item, got %d", len(resp))
+	}
+	if resp[0].OwnerUserID == nil || *resp[0].OwnerUserID != ownerID {
+		t.Errorf("admin view must include owner_user_id, got %v", resp[0].OwnerUserID)
+	}
+	if resp[0].PendingDonationURL == nil || *resp[0].PendingDonationURL != pendingURL {
+		t.Errorf("admin view must include pending_donation_url, got %v", resp[0].PendingDonationURL)
+	}
+}
+
+func TestShelterHandler_PendingQueue_EmptyIsArray(t *testing.T) {
+	h := handler.NewShelterHandler(&mockShelterService{})
+	r := setupOwnerShelterRouter(h, uuid.New())
+
+	req := httptest.NewRequest(http.MethodGet, "/api/admin/shelters/pending", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("want 200, got %d", w.Code)
+	}
+	if body := strings.TrimSpace(w.Body.String()); body != "[]" {
+		t.Errorf("want [] for empty queue, got %s", body)
+	}
+}
+
+func TestShelterHandler_Approve(t *testing.T) {
+	shelterID := uuid.New()
+	svc := &mockShelterService{
+		approveFn: func(_ context.Context, id string) (*domain.Shelter, error) {
+			return &domain.Shelter{ID: shelterID, Name: "R", City: "M", Status: domain.ShelterStatusApproved}, nil
+		},
+	}
+	h := handler.NewShelterHandler(svc)
+	r := setupOwnerShelterRouter(h, uuid.New())
+
+	req := httptest.NewRequest(http.MethodPost, "/api/admin/shelters/"+shelterID.String()+"/approve", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("want 200, got %d — body: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestShelterHandler_Approve_InvalidTransition_Returns409(t *testing.T) {
+	svc := &mockShelterService{
+		approveFn: func(_ context.Context, _ string) (*domain.Shelter, error) {
+			return nil, domain.ErrInvalidShelterStatus
+		},
+	}
+	h := handler.NewShelterHandler(svc)
+	r := setupOwnerShelterRouter(h, uuid.New())
+
+	req := httptest.NewRequest(http.MethodPost, "/api/admin/shelters/"+uuid.New().String()+"/approve", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusConflict {
+		t.Fatalf("want 409, got %d", w.Code)
+	}
+	if resp := decodeErrorResponse(t, w); resp.Code != "invalid_shelter_status" {
+		t.Errorf("code: want invalid_shelter_status, got %q", resp.Code)
+	}
+}
+
+func TestShelterHandler_Reject_RequiresReason(t *testing.T) {
+	h := handler.NewShelterHandler(&mockShelterService{})
+	r := setupOwnerShelterRouter(h, uuid.New())
+
+	// Body sin reason → binding required falla → 400 rejection_reason_required.
+	req := httptest.NewRequest(http.MethodPost, "/api/admin/shelters/"+uuid.New().String()+"/reject", strings.NewReader(`{}`))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("want 400, got %d — body: %s", w.Code, w.Body.String())
+	}
+	if resp := decodeErrorResponse(t, w); resp.Code != "rejection_reason_required" {
+		t.Errorf("code: want rejection_reason_required, got %q", resp.Code)
+	}
+}
+
+func TestShelterHandler_Reject_PassesReason(t *testing.T) {
+	var gotReason string
+	svc := &mockShelterService{
+		rejectFn: func(_ context.Context, _ string, reason string) (*domain.Shelter, error) {
+			gotReason = reason
+			return &domain.Shelter{ID: uuid.New(), Name: "R", City: "M", Status: domain.ShelterStatusRejected, RejectionReason: reason}, nil
+		},
+	}
+	h := handler.NewShelterHandler(svc)
+	r := setupOwnerShelterRouter(h, uuid.New())
+
+	req := httptest.NewRequest(http.MethodPost, "/api/admin/shelters/"+uuid.New().String()+"/reject",
+		strings.NewReader(`{"reason":"link de donación sospechoso"}`))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("want 200, got %d — body: %s", w.Code, w.Body.String())
+	}
+	if gotReason != "link de donación sospechoso" {
+		t.Errorf("reason: want forwarded to service, got %q", gotReason)
+	}
+}
+
+func TestShelterHandler_LinksEndpoints(t *testing.T) {
+	shelterID := uuid.New()
+	approveCalled := false
+	rejectCalled := false
+	svc := &mockShelterService{
+		approveLinksFn: func(_ context.Context, id string) (*domain.Shelter, error) {
+			approveCalled = true
+			return &domain.Shelter{ID: shelterID, Name: "R", City: "M", Status: domain.ShelterStatusApproved}, nil
+		},
+		rejectLinksFn: func(_ context.Context, id string) (*domain.Shelter, error) {
+			rejectCalled = true
+			return &domain.Shelter{ID: shelterID, Name: "R", City: "M", Status: domain.ShelterStatusApproved}, nil
+		},
+	}
+	h := handler.NewShelterHandler(svc)
+	r := setupOwnerShelterRouter(h, uuid.New())
+
+	reqA := httptest.NewRequest(http.MethodPost, "/api/admin/shelters/"+shelterID.String()+"/links/approve", nil)
+	wA := httptest.NewRecorder()
+	r.ServeHTTP(wA, reqA)
+	if wA.Code != http.StatusOK || !approveCalled {
+		t.Errorf("links/approve: want 200 + service call, got %d (called=%v)", wA.Code, approveCalled)
+	}
+
+	reqR := httptest.NewRequest(http.MethodPost, "/api/admin/shelters/"+shelterID.String()+"/links/reject", nil)
+	wR := httptest.NewRecorder()
+	r.ServeHTTP(wR, reqR)
+	if wR.Code != http.StatusOK || !rejectCalled {
+		t.Errorf("links/reject: want 200 + service call, got %d (called=%v)", wR.Code, rejectCalled)
 	}
 }
