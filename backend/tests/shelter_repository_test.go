@@ -96,3 +96,42 @@ func TestShelterRepository_GetByID_NotFound(t *testing.T) {
 		t.Errorf("want ErrShelterNotFound, got %v", err)
 	}
 }
+
+// newShelterWithOwner builds an unsaved shelter owned by ownerID.
+func newShelterWithOwner(ownerID *uuid.UUID, name, status string) *domain.Shelter {
+	return &domain.Shelter{
+		OwnerUserID: ownerID,
+		Name:        name,
+		City:        "Montevideo",
+		Status:      status,
+	}
+}
+
+func TestShelterMigration_OwnerPartialUniqueIndex(t *testing.T) {
+	gormDB := testdb.SetupTestDB(t)
+	userRepo := repository.NewUserRepository(gormDB)
+	shelterRepo := repository.NewShelterRepository(gormDB)
+	ctx := context.Background()
+
+	owner := newTestUser(t, userRepo)
+
+	// First shelter for the owner persists fine.
+	first := newShelterWithOwner(&owner.ID, "Refugio Uno", domain.ShelterStatusPending)
+	if err := shelterRepo.Create(ctx, first); err != nil {
+		t.Fatalf("first Create: %v", err)
+	}
+
+	// Second shelter for the SAME owner violates the partial unique index.
+	second := newShelterWithOwner(&owner.ID, "Refugio Dos", domain.ShelterStatusPending)
+	if err := shelterRepo.Create(ctx, second); err == nil {
+		t.Fatal("want unique violation for second shelter with same owner, got nil")
+	}
+
+	// Multiple ownerless shelters (admin/seed-created) are allowed — the index is partial.
+	if err := shelterRepo.Create(ctx, newShelterWithOwner(nil, "Sin Dueño A", domain.ShelterStatusApproved)); err != nil {
+		t.Fatalf("ownerless A: %v", err)
+	}
+	if err := shelterRepo.Create(ctx, newShelterWithOwner(nil, "Sin Dueño B", domain.ShelterStatusApproved)); err != nil {
+		t.Fatalf("ownerless B: %v", err)
+	}
+}
