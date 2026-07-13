@@ -677,3 +677,155 @@ func buildBusRejecting(t *testing.T, eventName string) *event.EventBus {
 	})
 	return bus
 }
+
+// ============================================================
+// Admin transition tests
+// ============================================================
+
+// shelterByIDRepo returns a repo whose GetByID serves the given shelter and
+// whose Update captures the saved value.
+func shelterByIDRepo(shelter *domain.Shelter) (*mockShelterRepository, **domain.Shelter) {
+	var saved *domain.Shelter
+	repo := &mockShelterRepository{
+		getByIDFn: func(_ context.Context, id uuid.UUID) (*domain.Shelter, error) {
+			if id == shelter.ID {
+				return shelter, nil
+			}
+			return nil, domain.ErrShelterNotFound
+		},
+		updateFn: func(_ context.Context, s *domain.Shelter) error {
+			saved = s
+			return nil
+		},
+	}
+	return repo, &saved
+}
+
+func TestShelterService_Approve(t *testing.T) {
+	ownerID := uuid.New()
+	shelter := &domain.Shelter{ID: uuid.New(), OwnerUserID: &ownerID, Name: "Refugio", City: "Montevideo", Status: domain.ShelterStatusPending}
+	repo, saved := shelterByIDRepo(shelter)
+	svc := newTestShelterServiceFull(repo, &mockUserRepository{}, buildBusExpecting(t, "shelter.approved"))
+
+	got, err := svc.Approve(context.Background(), shelter.ID.String())
+	if err != nil {
+		t.Fatalf("Approve: %v", err)
+	}
+	if got.Status != domain.ShelterStatusApproved {
+		t.Errorf("Status: want approved, got %q", got.Status)
+	}
+	if *saved == nil {
+		t.Fatal("want repo.Update called")
+	}
+}
+
+func TestShelterService_Approve_InvalidTransition(t *testing.T) {
+	shelter := &domain.Shelter{ID: uuid.New(), Name: "R", City: "M", Status: domain.ShelterStatusApproved}
+	repo, _ := shelterByIDRepo(shelter)
+	svc := newTestShelterService(repo)
+
+	if _, err := svc.Approve(context.Background(), shelter.ID.String()); !errors.Is(err, domain.ErrInvalidShelterStatus) {
+		t.Errorf("approve on approved: want ErrInvalidShelterStatus, got %v", err)
+	}
+}
+
+func TestShelterService_Reject(t *testing.T) {
+	ownerID := uuid.New()
+	shelter := &domain.Shelter{ID: uuid.New(), OwnerUserID: &ownerID, Name: "Refugio", City: "Montevideo", Status: domain.ShelterStatusPending}
+	repo, _ := shelterByIDRepo(shelter)
+	svc := newTestShelterServiceFull(repo, &mockUserRepository{}, buildBusExpecting(t, "shelter.rejected"))
+
+	got, err := svc.Reject(context.Background(), shelter.ID.String(), "  link de donación sospechoso  ")
+	if err != nil {
+		t.Fatalf("Reject: %v", err)
+	}
+	if got.Status != domain.ShelterStatusRejected {
+		t.Errorf("Status: want rejected, got %q", got.Status)
+	}
+	if got.RejectionReason != "link de donación sospechoso" {
+		t.Errorf("RejectionReason: want trimmed reason, got %q", got.RejectionReason)
+	}
+}
+
+func TestShelterService_Reject_Guards(t *testing.T) {
+	shelter := &domain.Shelter{ID: uuid.New(), Name: "R", City: "M", Status: domain.ShelterStatusPending}
+	repo, _ := shelterByIDRepo(shelter)
+	svc := newTestShelterService(repo)
+
+	if _, err := svc.Reject(context.Background(), shelter.ID.String(), "   "); !errors.Is(err, domain.ErrRejectionReasonRequired) {
+		t.Errorf("blank reason: want ErrRejectionReasonRequired, got %v", err)
+	}
+
+	approved := &domain.Shelter{ID: uuid.New(), Name: "R", City: "M", Status: domain.ShelterStatusApproved}
+	repoB, _ := shelterByIDRepo(approved)
+	svcB := newTestShelterService(repoB)
+	if _, err := svcB.Reject(context.Background(), approved.ID.String(), "motivo"); !errors.Is(err, domain.ErrInvalidShelterStatus) {
+		t.Errorf("reject on approved: want ErrInvalidShelterStatus, got %v", err)
+	}
+}
+
+func TestShelterService_ApproveLinks(t *testing.T) {
+	shelter := &domain.Shelter{
+		ID:                 uuid.New(),
+		Name:               "Refugio",
+		City:               "Montevideo",
+		Status:             domain.ShelterStatusApproved,
+		WebsiteURL:         "https://vieja.org",
+		DonationURL:        "https://vieja.org/donar",
+		PendingWebsiteURL:  strPtr(""), // staged CLEAR
+		PendingDonationURL: strPtr("https://nueva.org/donar"),
+	}
+	repo, _ := shelterByIDRepo(shelter)
+	svc := newTestShelterService(repo)
+
+	got, err := svc.ApproveLinks(context.Background(), shelter.ID.String())
+	if err != nil {
+		t.Fatalf("ApproveLinks: %v", err)
+	}
+	if got.DonationURL != "https://nueva.org/donar" {
+		t.Errorf("DonationURL: want pending applied, got %q", got.DonationURL)
+	}
+	if got.WebsiteURL != "" {
+		t.Errorf("WebsiteURL: want cleared (staged \"\"), got %q", got.WebsiteURL)
+	}
+	if got.PendingDonationURL != nil || got.PendingWebsiteURL != nil {
+		t.Errorf("Pending*: want both nil after apply, got %v / %v", got.PendingDonationURL, got.PendingWebsiteURL)
+	}
+}
+
+func TestShelterService_RejectLinks(t *testing.T) {
+	shelter := &domain.Shelter{
+		ID:                 uuid.New(),
+		Name:               "Refugio",
+		City:               "Montevideo",
+		Status:             domain.ShelterStatusApproved,
+		DonationURL:        "https://vieja.org/donar",
+		PendingDonationURL: strPtr("https://scam.org/donar"),
+	}
+	repo, _ := shelterByIDRepo(shelter)
+	svc := newTestShelterService(repo)
+
+	got, err := svc.RejectLinks(context.Background(), shelter.ID.String())
+	if err != nil {
+		t.Fatalf("RejectLinks: %v", err)
+	}
+	if got.DonationURL != "https://vieja.org/donar" {
+		t.Errorf("DonationURL: want live value untouched, got %q", got.DonationURL)
+	}
+	if got.PendingDonationURL != nil {
+		t.Errorf("PendingDonationURL: want discarded, got %v", got.PendingDonationURL)
+	}
+}
+
+func TestShelterService_Links_NothingStaged(t *testing.T) {
+	shelter := &domain.Shelter{ID: uuid.New(), Name: "R", City: "M", Status: domain.ShelterStatusApproved}
+	repo, _ := shelterByIDRepo(shelter)
+	svc := newTestShelterService(repo)
+
+	if _, err := svc.ApproveLinks(context.Background(), shelter.ID.String()); !errors.Is(err, domain.ErrInvalidShelterStatus) {
+		t.Errorf("approve links with nothing staged: want ErrInvalidShelterStatus, got %v", err)
+	}
+	if _, err := svc.RejectLinks(context.Background(), shelter.ID.String()); !errors.Is(err, domain.ErrInvalidShelterStatus) {
+		t.Errorf("reject links with nothing staged: want ErrInvalidShelterStatus, got %v", err)
+	}
+}

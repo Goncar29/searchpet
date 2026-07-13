@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"strings"
 
 	"github.com/google/uuid"
 	"lost-pets/internal/domain"
@@ -218,22 +219,105 @@ func (s *shelterService) GetPendingQueue(ctx context.Context) ([]domain.Shelter,
 	return s.repo.GetPendingQueue(ctx)
 }
 
-// Approve — lógica real en Task 7.
+// Approve pasa un refugio pending → approved y notifica al dueño.
 func (s *shelterService) Approve(ctx context.Context, id string) (*domain.Shelter, error) {
-	return nil, domain.ErrInternal
+	shelter, err := s.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if shelter.Status != domain.ShelterStatusPending {
+		return nil, domain.ErrInvalidShelterStatus
+	}
+	shelter.Status = domain.ShelterStatusApproved
+	shelter.RejectionReason = ""
+	if err := s.repo.Update(ctx, shelter); err != nil {
+		return nil, err
+	}
+	if s.bus != nil && shelter.OwnerUserID != nil {
+		s.bus.Publish("shelter.approved", event.ShelterApprovedEvent{
+			ShelterID:   shelter.ID,
+			OwnerUserID: *shelter.OwnerUserID,
+			ShelterName: shelter.Name,
+		})
+	}
+	return shelter, nil
 }
 
-// Reject — lógica real en Task 7.
+// Reject pasa un refugio pending → rejected con motivo obligatorio.
+// rejected NO es terminal: el dueño edita y reenvía (UpdateMine).
 func (s *shelterService) Reject(ctx context.Context, id string, reason string) (*domain.Shelter, error) {
-	return nil, domain.ErrInternal
+	reason = strings.TrimSpace(reason)
+	if reason == "" {
+		return nil, domain.ErrRejectionReasonRequired
+	}
+	shelter, err := s.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if shelter.Status != domain.ShelterStatusPending {
+		return nil, domain.ErrInvalidShelterStatus
+	}
+	shelter.Status = domain.ShelterStatusRejected
+	shelter.RejectionReason = reason
+	if err := s.repo.Update(ctx, shelter); err != nil {
+		return nil, err
+	}
+	if s.bus != nil && shelter.OwnerUserID != nil {
+		s.bus.Publish("shelter.rejected", event.ShelterRejectedEvent{
+			ShelterID:   shelter.ID,
+			OwnerUserID: *shelter.OwnerUserID,
+			ShelterName: shelter.Name,
+			Reason:      reason,
+		})
+	}
+	return shelter, nil
 }
 
-// ApproveLinks — lógica real en Task 7.
+// getWithStagedLinks carga el refugio y valida que esté approved con al menos
+// un cambio de link staged — guard compartido de ApproveLinks/RejectLinks.
+func (s *shelterService) getWithStagedLinks(ctx context.Context, id string) (*domain.Shelter, error) {
+	shelter, err := s.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if shelter.Status != domain.ShelterStatusApproved ||
+		(shelter.PendingDonationURL == nil && shelter.PendingWebsiteURL == nil) {
+		return nil, domain.ErrInvalidShelterStatus
+	}
+	return shelter, nil
+}
+
+// ApproveLinks copia los Pending* a los campos vivos y los limpia.
+// Un staged clear (&"") deja el campo vivo vacío — el link desaparece del listado.
 func (s *shelterService) ApproveLinks(ctx context.Context, id string) (*domain.Shelter, error) {
-	return nil, domain.ErrInternal
+	shelter, err := s.getWithStagedLinks(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if shelter.PendingDonationURL != nil {
+		shelter.DonationURL = *shelter.PendingDonationURL
+		shelter.PendingDonationURL = nil
+	}
+	if shelter.PendingWebsiteURL != nil {
+		shelter.WebsiteURL = *shelter.PendingWebsiteURL
+		shelter.PendingWebsiteURL = nil
+	}
+	if err := s.repo.Update(ctx, shelter); err != nil {
+		return nil, err
+	}
+	return shelter, nil
 }
 
-// RejectLinks — lógica real en Task 7.
+// RejectLinks descarta los Pending* sin tocar los campos vivos.
 func (s *shelterService) RejectLinks(ctx context.Context, id string) (*domain.Shelter, error) {
-	return nil, domain.ErrInternal
+	shelter, err := s.getWithStagedLinks(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	shelter.PendingDonationURL = nil
+	shelter.PendingWebsiteURL = nil
+	if err := s.repo.Update(ctx, shelter); err != nil {
+		return nil, err
+	}
+	return shelter, nil
 }
