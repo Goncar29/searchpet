@@ -341,6 +341,12 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 
 		protected.POST("/share/generate/:petId", shareHandler.GenerateShareLink)
 
+		// SHELTER SELF-REGISTRATION (owner). Estáticas /shelters/mine conviven
+		// con la pública /shelters/:id — Gin prioriza segmentos estáticos.
+		protected.POST("/shelters", shelterHandler.RegisterOwn)
+		protected.GET("/shelters/mine", shelterHandler.GetMine)
+		protected.PUT("/shelters/mine", shelterHandler.UpdateMine)
+
 		protected.POST("/devices/token", deviceHandler.RegisterToken)
 		protected.POST("/devices", deviceHandler.RegisterToken)
 		protected.DELETE("/devices/:token", deviceHandler.DeleteToken)

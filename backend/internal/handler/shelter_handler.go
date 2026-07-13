@@ -113,3 +113,88 @@ func (h *ShelterHandler) Update(c *gin.Context) {
 
 	c.JSON(http.StatusOK, dto.ToShelterResponse(existing))
 }
+
+// RegisterOwn godoc
+// POST /api/shelters (JWT)
+// Auto-registro del refugio del usuario autenticado. Nace pending.
+// 201 | 400 invalid_input/binding_failed | 403 email_not_verified | 409 shelter_already_owned
+func (h *ShelterHandler) RegisterOwn(c *gin.Context) {
+	var req dto.RegisterShelterRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		writeError(c, http.StatusBadRequest, domain.ErrBindingFailed)
+		return
+	}
+	if err := req.Validate(); err != nil {
+		writeError(c, http.StatusBadRequest, err)
+		return
+	}
+
+	shelter := dto.ToRegisterShelterDomain(&req)
+	if err := h.shelterService.RegisterOwn(c.Request.Context(), getUserID(c), shelter); err != nil {
+		switch {
+		case errors.Is(err, domain.ErrEmailNotVerified):
+			writeError(c, http.StatusForbidden, err)
+		case errors.Is(err, domain.ErrShelterAlreadyOwned):
+			writeError(c, http.StatusConflict, err)
+		case errors.Is(err, domain.ErrUserNotFound):
+			writeError(c, http.StatusNotFound, err)
+		case errors.Is(err, domain.ErrInvalidInput):
+			writeError(c, http.StatusBadRequest, err)
+		default:
+			writeError(c, http.StatusInternalServerError, domain.ErrInternal)
+		}
+		return
+	}
+
+	c.JSON(http.StatusCreated, dto.ToMyShelterResponse(shelter))
+}
+
+// GetMine godoc
+// GET /api/shelters/mine (JWT)
+// Vista completa del dueño: status, rejection_reason y links staged incluidos.
+func (h *ShelterHandler) GetMine(c *gin.Context) {
+	shelter, err := h.shelterService.GetMine(c.Request.Context(), getUserID(c))
+	if err != nil {
+		if errors.Is(err, domain.ErrShelterNotFound) {
+			writeError(c, http.StatusNotFound, err)
+			return
+		}
+		if errors.Is(err, domain.ErrInvalidInput) {
+			writeError(c, http.StatusBadRequest, err)
+			return
+		}
+		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
+		return
+	}
+	c.JSON(http.StatusOK, dto.ToMyShelterResponse(shelter))
+}
+
+// UpdateMine godoc
+// PUT /api/shelters/mine (JWT)
+// Edición del dueño. El service decide staging vs aplicación directa según estado.
+func (h *ShelterHandler) UpdateMine(c *gin.Context) {
+	var req dto.UpdateMyShelterRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		writeError(c, http.StatusBadRequest, domain.ErrBindingFailed)
+		return
+	}
+	if err := req.Validate(); err != nil {
+		writeError(c, http.StatusBadRequest, err)
+		return
+	}
+
+	shelter, err := h.shelterService.UpdateMine(c.Request.Context(), getUserID(c), &req)
+	if err != nil {
+		if errors.Is(err, domain.ErrShelterNotFound) {
+			writeError(c, http.StatusNotFound, err)
+			return
+		}
+		if errors.Is(err, domain.ErrInvalidInput) {
+			writeError(c, http.StatusBadRequest, err)
+			return
+		}
+		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
+		return
+	}
+	c.JSON(http.StatusOK, dto.ToMyShelterResponse(shelter))
+}
