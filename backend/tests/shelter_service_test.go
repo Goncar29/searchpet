@@ -776,7 +776,7 @@ func TestShelterService_ApproveLinks(t *testing.T) {
 		PendingDonationURL: strPtr("https://nueva.org/donar"),
 	}
 	repo, _ := shelterByIDRepo(shelter)
-	svc := newTestShelterService(repo)
+	svc := newTestShelterServiceFull(repo, &mockUserRepository{}, buildBusRejecting(t, "shelter.approved"))
 
 	got, err := svc.ApproveLinks(context.Background(), shelter.ID.String())
 	if err != nil {
@@ -803,7 +803,7 @@ func TestShelterService_RejectLinks(t *testing.T) {
 		PendingDonationURL: strPtr("https://scam.org/donar"),
 	}
 	repo, _ := shelterByIDRepo(shelter)
-	svc := newTestShelterService(repo)
+	svc := newTestShelterServiceFull(repo, &mockUserRepository{}, buildBusRejecting(t, "shelter.rejected"))
 
 	got, err := svc.RejectLinks(context.Background(), shelter.ID.String())
 	if err != nil {
