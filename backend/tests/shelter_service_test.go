@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"lost-pets/internal/domain"
+	"lost-pets/internal/dto"
 	"lost-pets/internal/event"
 	"lost-pets/internal/service"
 )
@@ -440,4 +441,184 @@ func TestShelterService_Create_AdminShelterBornApproved(t *testing.T) {
 	if created.OwnerUserID != nil {
 		t.Errorf("admin-created shelter: want no owner, got %v", created.OwnerUserID)
 	}
+}
+
+// ============================================================
+// UpdateMine tests
+// ============================================================
+
+// ownedShelter builds a persisted-looking shelter owned by ownerID, and a mock
+// repo that returns it from GetByOwner and captures Update calls.
+func ownedShelter(ownerID uuid.UUID, status string) (*domain.Shelter, *mockShelterRepository) {
+	shelter := &domain.Shelter{
+		ID:          uuid.New(),
+		OwnerUserID: &ownerID,
+		Name:        "Refugio Original",
+		City:        "Montevideo",
+		WebsiteURL:  "https://original.org",
+		DonationURL: "https://original.org/donar",
+		Status:      status,
+	}
+	repo := &mockShelterRepository{
+		getByOwnerFn: func(_ context.Context, id uuid.UUID) (*domain.Shelter, error) {
+			if id == ownerID {
+				return shelter, nil
+			}
+			return nil, domain.ErrShelterNotFound
+		},
+	}
+	return shelter, repo
+}
+
+func strPtr(s string) *string { return &s }
+
+func TestShelterService_UpdateMine_ApprovedStagesLinkChanges(t *testing.T) {
+	ownerID := uuid.New()
+	shelter, repo := ownedShelter(ownerID, domain.ShelterStatusApproved)
+	var saved *domain.Shelter
+	repo.updateFn = func(_ context.Context, s *domain.Shelter) error {
+		saved = s
+		return nil
+	}
+	svc := newTestShelterServiceFull(repo, &mockUserRepository{}, event.NewEventBus())
+
+	got, err := svc.UpdateMine(context.Background(), ownerID.String(), &dto.UpdateMyShelterRequest{
+		Name:        strPtr("Refugio Renombrado"),
+		DonationURL: strPtr("https://nuevo.org/donar"),
+	})
+	if err != nil {
+		t.Fatalf("UpdateMine: %v", err)
+	}
+	if saved == nil {
+		t.Fatal("want repo.Update called")
+	}
+	// Normal field applies immediately.
+	if got.Name != "Refugio Renombrado" {
+		t.Errorf("Name: want applied, got %q", got.Name)
+	}
+	// Link change is STAGED: live value untouched, pending set.
+	if got.DonationURL != "https://original.org/donar" {
+		t.Errorf("DonationURL: want live value untouched, got %q", got.DonationURL)
+	}
+	if got.PendingDonationURL == nil || *got.PendingDonationURL != "https://nuevo.org/donar" {
+		t.Errorf("PendingDonationURL: want staged, got %v", got.PendingDonationURL)
+	}
+	// Untouched link stays unstaged.
+	if got.PendingWebsiteURL != nil {
+		t.Errorf("PendingWebsiteURL: want nil, got %v", got.PendingWebsiteURL)
+	}
+	if got.Status != domain.ShelterStatusApproved {
+		t.Errorf("Status: want approved unchanged, got %q", got.Status)
+	}
+	_ = shelter
+}
+
+func TestShelterService_UpdateMine_ApprovedStagesLinkClear(t *testing.T) {
+	ownerID := uuid.New()
+	_, repo := ownedShelter(ownerID, domain.ShelterStatusApproved)
+	svc := newTestShelterServiceFull(repo, &mockUserRepository{}, event.NewEventBus())
+
+	got, err := svc.UpdateMine(context.Background(), ownerID.String(), &dto.UpdateMyShelterRequest{
+		WebsiteURL: strPtr(""), // regla #22: "" explícito = vaciar → staged clear
+	})
+	if err != nil {
+		t.Fatalf("UpdateMine: %v", err)
+	}
+	if got.WebsiteURL != "https://original.org" {
+		t.Errorf("WebsiteURL: want live value untouched, got %q", got.WebsiteURL)
+	}
+	if got.PendingWebsiteURL == nil || *got.PendingWebsiteURL != "" {
+		t.Errorf("PendingWebsiteURL: want staged clear (&\"\"), got %v", got.PendingWebsiteURL)
+	}
+}
+
+func TestShelterService_UpdateMine_ApprovedSameValueNotStaged(t *testing.T) {
+	ownerID := uuid.New()
+	_, repo := ownedShelter(ownerID, domain.ShelterStatusApproved)
+	svc := newTestShelterServiceFull(repo, &mockUserRepository{}, event.NewEventBus())
+
+	got, err := svc.UpdateMine(context.Background(), ownerID.String(), &dto.UpdateMyShelterRequest{
+		DonationURL: strPtr("https://original.org/donar"), // same as live → no-op
+	})
+	if err != nil {
+		t.Fatalf("UpdateMine: %v", err)
+	}
+	if got.PendingDonationURL != nil {
+		t.Errorf("PendingDonationURL: want nil for unchanged value, got %v", got.PendingDonationURL)
+	}
+}
+
+func TestShelterService_UpdateMine_RejectedResubmits(t *testing.T) {
+	ownerID := uuid.New()
+	shelter, repo := ownedShelter(ownerID, domain.ShelterStatusRejected)
+	shelter.RejectionReason = "link roto"
+	svc := newTestShelterServiceFull(repo, &mockUserRepository{}, buildBusExpecting(t, "shelter.submitted"))
+
+	got, err := svc.UpdateMine(context.Background(), ownerID.String(), &dto.UpdateMyShelterRequest{
+		DonationURL: strPtr("https://arreglado.org/donar"),
+	})
+	if err != nil {
+		t.Fatalf("UpdateMine: %v", err)
+	}
+	// rejected edits apply DIRECTLY (no staging) and resubmit.
+	if got.DonationURL != "https://arreglado.org/donar" {
+		t.Errorf("DonationURL: want applied directly, got %q", got.DonationURL)
+	}
+	if got.PendingDonationURL != nil {
+		t.Errorf("PendingDonationURL: want nil in rejected, got %v", got.PendingDonationURL)
+	}
+	if got.Status != domain.ShelterStatusPending {
+		t.Errorf("Status: want pending (resubmitted), got %q", got.Status)
+	}
+	if got.RejectionReason != "" {
+		t.Errorf("RejectionReason: want cleared, got %q", got.RejectionReason)
+	}
+}
+
+func TestShelterService_UpdateMine_PendingEditsFreely(t *testing.T) {
+	ownerID := uuid.New()
+	_, repo := ownedShelter(ownerID, domain.ShelterStatusPending)
+	svc := newTestShelterServiceFull(repo, &mockUserRepository{}, event.NewEventBus())
+
+	got, err := svc.UpdateMine(context.Background(), ownerID.String(), &dto.UpdateMyShelterRequest{
+		WebsiteURL: strPtr("https://cambiada.org"),
+	})
+	if err != nil {
+		t.Fatalf("UpdateMine: %v", err)
+	}
+	if got.WebsiteURL != "https://cambiada.org" {
+		t.Errorf("WebsiteURL: want applied directly, got %q", got.WebsiteURL)
+	}
+	if got.Status != domain.ShelterStatusPending {
+		t.Errorf("Status: want pending unchanged, got %q", got.Status)
+	}
+}
+
+func TestShelterService_UpdateMine_NoShelter(t *testing.T) {
+	svc := newTestShelterService(&mockShelterRepository{})
+	if _, err := svc.UpdateMine(context.Background(), uuid.New().String(), &dto.UpdateMyShelterRequest{}); !errors.Is(err, domain.ErrShelterNotFound) {
+		t.Errorf("want ErrShelterNotFound, got %v", err)
+	}
+	if _, err := svc.UpdateMine(context.Background(), "nope", &dto.UpdateMyShelterRequest{}); !errors.Is(err, domain.ErrInvalidInput) {
+		t.Errorf("want ErrInvalidInput, got %v", err)
+	}
+}
+
+// buildBusExpecting returns a bus that FAILS the test if eventName is NOT
+// published within 2s. Cleanup asserts on test end.
+func buildBusExpecting(t *testing.T, eventName string) *event.EventBus {
+	t.Helper()
+	bus := event.NewEventBus()
+	received := make(chan struct{}, 1)
+	bus.Subscribe(eventName, func(_ interface{}) {
+		received <- struct{}{}
+	})
+	t.Cleanup(func() {
+		select {
+		case <-received:
+		case <-time.After(2 * time.Second):
+			t.Errorf("timeout: %s not published", eventName)
+		}
+	})
+	return bus
 }

@@ -126,9 +126,82 @@ func (s *shelterService) GetMine(ctx context.Context, userID string) (*domain.Sh
 	return s.repo.GetByOwner(ctx, ownerUUID)
 }
 
-// UpdateMine — lógica real en la siguiente iteración del plan (Task 6).
+// UpdateMine aplica la edición del dueño según el estado del refugio:
+//   - approved: los campos normales aplican al instante; un cambio de
+//     website/donation queda STAGED en Pending* (revisión admin) y el listado
+//     público sigue sirviendo el valor vivo mientras tanto.
+//   - pending: todo edita libre, sigue pending.
+//   - rejected: todo edita libre y el guardado REENVÍA (→ pending, limpia el
+//     motivo, publica shelter.submitted).
 func (s *shelterService) UpdateMine(ctx context.Context, userID string, req *dto.UpdateMyShelterRequest) (*domain.Shelter, error) {
-	return nil, domain.ErrInternal
+	ownerUUID, err := uuid.Parse(userID)
+	if err != nil {
+		return nil, domain.ErrInvalidInput
+	}
+	shelter, err := s.repo.GetByOwner(ctx, ownerUUID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Campos "normales": aplican en cualquier estado.
+	if req.Name != nil {
+		shelter.Name = *req.Name
+	}
+	if req.City != nil {
+		shelter.City = *req.City
+	}
+	if req.Phone != nil {
+		shelter.Phone = *req.Phone
+	}
+	if req.Email != nil {
+		shelter.Email = *req.Email
+	}
+	if req.Description != nil {
+		shelter.Description = *req.Description
+	}
+	if req.Latitude != nil {
+		shelter.Latitude = req.Latitude
+	}
+	if req.Longitude != nil {
+		shelter.Longitude = req.Longitude
+	}
+
+	resubmitted := false
+	if shelter.Status == domain.ShelterStatusApproved {
+		// Links sensibles → staging. Solo si el valor realmente cambia.
+		if req.WebsiteURL != nil && *req.WebsiteURL != shelter.WebsiteURL {
+			shelter.PendingWebsiteURL = req.WebsiteURL
+		}
+		if req.DonationURL != nil && *req.DonationURL != shelter.DonationURL {
+			shelter.PendingDonationURL = req.DonationURL
+		}
+	} else {
+		// pending/rejected: los links editan libre (todavía no hay nada publicado).
+		if req.WebsiteURL != nil {
+			shelter.WebsiteURL = *req.WebsiteURL
+		}
+		if req.DonationURL != nil {
+			shelter.DonationURL = *req.DonationURL
+		}
+		if shelter.Status == domain.ShelterStatusRejected {
+			shelter.Status = domain.ShelterStatusPending
+			shelter.RejectionReason = ""
+			resubmitted = true
+		}
+	}
+
+	if err := s.repo.Update(ctx, shelter); err != nil {
+		return nil, err
+	}
+
+	if resubmitted && s.bus != nil && shelter.OwnerUserID != nil {
+		s.bus.Publish("shelter.submitted", event.ShelterSubmittedEvent{
+			ShelterID:   shelter.ID,
+			OwnerUserID: *shelter.OwnerUserID,
+			ShelterName: shelter.Name,
+		})
+	}
+	return shelter, nil
 }
 
 // GetPendingQueue delega al repositorio.
