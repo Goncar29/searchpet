@@ -329,7 +329,13 @@ func TestShelterService_RegisterOwn_Guards(t *testing.T) {
 				return &domain.User{ID: id, EmailVerified: false}, nil
 			},
 		}
-		svc := newTestShelterServiceFull(&mockShelterRepository{}, userRepo, event.NewEventBus())
+		repo := &mockShelterRepository{
+			createFn: func(_ context.Context, _ *domain.Shelter) error {
+				t.Error("repo.Create must not be called when the guard fails")
+				return nil
+			},
+		}
+		svc := newTestShelterServiceFull(repo, userRepo, event.NewEventBus())
 		err := svc.RegisterOwn(context.Background(), ownerID.String(), &domain.Shelter{Name: "R", City: "M"})
 		if !errors.Is(err, domain.ErrEmailNotVerified) {
 			t.Errorf("want ErrEmailNotVerified, got %v", err)
@@ -340,6 +346,10 @@ func TestShelterService_RegisterOwn_Guards(t *testing.T) {
 		repo := &mockShelterRepository{
 			getByOwnerFn: func(_ context.Context, _ uuid.UUID) (*domain.Shelter, error) {
 				return &domain.Shelter{ID: uuid.New()}, nil
+			},
+			createFn: func(_ context.Context, _ *domain.Shelter) error {
+				t.Error("repo.Create must not be called when the guard fails")
+				return nil
 			},
 		}
 		userRepo := &mockUserRepository{
@@ -355,7 +365,12 @@ func TestShelterService_RegisterOwn_Guards(t *testing.T) {
 	})
 
 	t.Run("invalid userID → ErrInvalidInput", func(t *testing.T) {
-		svc := newTestShelterService(&mockShelterRepository{})
+		svc := newTestShelterService(&mockShelterRepository{
+			createFn: func(_ context.Context, _ *domain.Shelter) error {
+				t.Error("repo.Create must not be called when the guard fails")
+				return nil
+			},
+		})
 		err := svc.RegisterOwn(context.Background(), "not-a-uuid", &domain.Shelter{Name: "R", City: "M"})
 		if !errors.Is(err, domain.ErrInvalidInput) {
 			t.Errorf("want ErrInvalidInput, got %v", err)
@@ -415,6 +430,9 @@ func TestShelterService_Create_AdminShelterBornApproved(t *testing.T) {
 
 	if err := svc.Create(context.Background(), &domain.Shelter{Name: "Admin Refugio", City: "Montevideo"}); err != nil {
 		t.Fatalf("Create: %v", err)
+	}
+	if created == nil {
+		t.Fatal("want repo.Create called")
 	}
 	if created.Status != domain.ShelterStatusApproved {
 		t.Errorf("admin-created shelter: want approved, got %q", created.Status)
