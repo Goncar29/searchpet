@@ -15,7 +15,12 @@ import (
 // ShelterService define el CONTRATO de la capa de negocio para refugios.
 type ShelterService interface {
 	GetAll(ctx context.Context, city string) ([]domain.Shelter, error)
+	// GetByID es el contrato del directorio PÚBLICO: solo sirve refugios
+	// approved; pending/rejected responden ErrShelterNotFound.
 	GetByID(ctx context.Context, id string) (*domain.Shelter, error)
+	// GetByIDAnyStatus es la vía ADMIN: carga el refugio sin filtrar estado
+	// (la usa el handler admin de update y las transiciones approve/reject).
+	GetByIDAnyStatus(ctx context.Context, id string) (*domain.Shelter, error)
 	// Create es la vía ADMIN: refugio sin dueño, nace approved.
 	Create(ctx context.Context, shelter *domain.Shelter) error
 	Update(ctx context.Context, shelter *domain.Shelter) error
@@ -58,13 +63,33 @@ func (s *shelterService) GetAll(ctx context.Context, city string) ([]domain.Shel
 	return s.repo.GetAll(ctx, city, nil)
 }
 
-// GetByID busca un refugio por su ID string.
-func (s *shelterService) GetByID(ctx context.Context, id string) (*domain.Shelter, error) {
+// getByIDAnyStatus busca un refugio por su ID string sin filtrar estado.
+// Helper interno compartido por la vía pública (que filtra) y la admin.
+func (s *shelterService) getByIDAnyStatus(ctx context.Context, id string) (*domain.Shelter, error) {
 	shelterUUID, err := uuid.Parse(id)
 	if err != nil {
 		return nil, domain.ErrInvalidInput
 	}
 	return s.repo.GetByID(ctx, shelterUUID)
+}
+
+// GetByID es el contrato del directorio público: un refugio no approved
+// responde ErrShelterNotFound — nunca filtramos datos sin moderar (y un 404
+// no revela la existencia de un pending/rejected).
+func (s *shelterService) GetByID(ctx context.Context, id string) (*domain.Shelter, error) {
+	shelter, err := s.getByIDAnyStatus(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if shelter.Status != domain.ShelterStatusApproved {
+		return nil, domain.ErrShelterNotFound
+	}
+	return shelter, nil
+}
+
+// GetByIDAnyStatus expone la carga sin filtro para los flujos admin.
+func (s *shelterService) GetByIDAnyStatus(ctx context.Context, id string) (*domain.Shelter, error) {
+	return s.getByIDAnyStatus(ctx, id)
 }
 
 // Create persiste un refugio creado por un admin: sin dueño y nace approved
@@ -221,7 +246,7 @@ func (s *shelterService) GetPendingQueue(ctx context.Context) ([]domain.Shelter,
 
 // Approve pasa un refugio pending → approved y notifica al dueño.
 func (s *shelterService) Approve(ctx context.Context, id string) (*domain.Shelter, error) {
-	shelter, err := s.GetByID(ctx, id)
+	shelter, err := s.getByIDAnyStatus(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -250,7 +275,7 @@ func (s *shelterService) Reject(ctx context.Context, id string, reason string) (
 	if reason == "" {
 		return nil, domain.ErrRejectionReasonRequired
 	}
-	shelter, err := s.GetByID(ctx, id)
+	shelter, err := s.getByIDAnyStatus(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -276,7 +301,7 @@ func (s *shelterService) Reject(ctx context.Context, id string, reason string) (
 // getWithStagedLinks carga el refugio y valida que esté approved con al menos
 // un cambio de link staged — guard compartido de ApproveLinks/RejectLinks.
 func (s *shelterService) getWithStagedLinks(ctx context.Context, id string) (*domain.Shelter, error) {
-	shelter, err := s.GetByID(ctx, id)
+	shelter, err := s.getByIDAnyStatus(ctx, id)
 	if err != nil {
 		return nil, err
 	}

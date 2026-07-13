@@ -84,7 +84,8 @@ func (h *ShelterHandler) Create(c *gin.Context) {
 func (h *ShelterHandler) Update(c *gin.Context) {
 	id := c.Param("id")
 
-	existing, err := h.shelterService.GetByID(c.Request.Context(), id)
+	// Vía admin: carga sin filtro de estado (un admin edita también pending/rejected).
+	existing, err := h.shelterService.GetByIDAnyStatus(c.Request.Context(), id)
 	if err != nil {
 		if errors.Is(err, domain.ErrShelterNotFound) {
 			writeError(c, http.StatusNotFound, err)

@@ -20,9 +20,10 @@ import (
 // ============================================================
 
 type mockShelterService struct {
-	getAllFn          func(ctx context.Context, city string) ([]domain.Shelter, error)
-	getByIDFn         func(ctx context.Context, id string) (*domain.Shelter, error)
-	createFn          func(ctx context.Context, shelter *domain.Shelter) error
+	getAllFn           func(ctx context.Context, city string) ([]domain.Shelter, error)
+	getByIDFn          func(ctx context.Context, id string) (*domain.Shelter, error)
+	getByIDAnyStatusFn func(ctx context.Context, id string) (*domain.Shelter, error)
+	createFn           func(ctx context.Context, shelter *domain.Shelter) error
 	updateFn          func(ctx context.Context, shelter *domain.Shelter) error
 	registerOwnFn     func(ctx context.Context, userID string, shelter *domain.Shelter) error
 	getMineFn         func(ctx context.Context, userID string) (*domain.Shelter, error)
@@ -46,6 +47,13 @@ func (m *mockShelterService) GetByID(ctx context.Context, id string) (*domain.Sh
 		return m.getByIDFn(ctx, id)
 	}
 	return nil, nil
+}
+
+func (m *mockShelterService) GetByIDAnyStatus(ctx context.Context, id string) (*domain.Shelter, error) {
+	if m.getByIDAnyStatusFn != nil {
+		return m.getByIDAnyStatusFn(ctx, id)
+	}
+	return nil, domain.ErrShelterNotFound
 }
 
 func (m *mockShelterService) Create(ctx context.Context, shelter *domain.Shelter) error {

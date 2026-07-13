@@ -179,6 +179,7 @@ func TestShelterService_GetAll(t *testing.T) {
 func TestShelterService_GetByID(t *testing.T) {
 	shelterID := uuid.New()
 	shelter := makeShelter(shelterID, "Refugio Test", "Montevideo")
+	shelter.Status = domain.ShelterStatusApproved // el contrato público solo sirve approved
 
 	tests := []struct {
 		name    string
@@ -248,6 +249,60 @@ func TestShelterService_GetByID(t *testing.T) {
 				t.Errorf("ID: want %v, got %v", shelterID, result.ID)
 			}
 		})
+	}
+}
+
+// TestShelterService_GetByID_HidesNonApproved pinnea el invariante del
+// directorio público: solo refugios approved se sirven por GET /shelters/:id.
+// pending/rejected deben responder ErrShelterNotFound (no filtrar existencia).
+func TestShelterService_GetByID_HidesNonApproved(t *testing.T) {
+	for _, status := range []string{domain.ShelterStatusPending, domain.ShelterStatusRejected} {
+		t.Run(status, func(t *testing.T) {
+			shelterID := uuid.New()
+			shelter := makeShelter(shelterID, "Refugio No Publicado", "Montevideo")
+			shelter.Status = status
+			repo := &mockShelterRepository{
+				getByIDFn: func(_ context.Context, _ uuid.UUID) (*domain.Shelter, error) {
+					return &shelter, nil
+				},
+			}
+			svc := newTestShelterService(repo)
+
+			result, err := svc.GetByID(context.Background(), shelterID.String())
+			if !errors.Is(err, domain.ErrShelterNotFound) {
+				t.Errorf("public GetByID on %s shelter: want ErrShelterNotFound, got %v", status, err)
+			}
+			if result != nil {
+				t.Error("expected nil result for non-approved shelter")
+			}
+		})
+	}
+}
+
+// TestShelterService_GetByIDAnyStatus_ServesAdminFlows pinnea la vía admin:
+// carga refugios en cualquier estado (la usan el handler admin y las
+// transiciones approve/reject internamente).
+func TestShelterService_GetByIDAnyStatus_ServesAdminFlows(t *testing.T) {
+	shelterID := uuid.New()
+	shelter := makeShelter(shelterID, "Refugio Pendiente", "Montevideo")
+	shelter.Status = domain.ShelterStatusPending
+	repo := &mockShelterRepository{
+		getByIDFn: func(_ context.Context, _ uuid.UUID) (*domain.Shelter, error) {
+			return &shelter, nil
+		},
+	}
+	svc := newTestShelterService(repo)
+
+	result, err := svc.GetByIDAnyStatus(context.Background(), shelterID.String())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result == nil || result.ID != shelterID {
+		t.Fatalf("want pending shelter %v, got %+v", shelterID, result)
+	}
+
+	if _, err := svc.GetByIDAnyStatus(context.Background(), "not-a-uuid"); !errors.Is(err, domain.ErrInvalidInput) {
+		t.Errorf("invalid UUID: want ErrInvalidInput, got %v", err)
 	}
 }
 
