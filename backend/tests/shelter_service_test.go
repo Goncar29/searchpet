@@ -548,6 +548,46 @@ func TestShelterService_UpdateMine_ApprovedSameValueNotStaged(t *testing.T) {
 	}
 }
 
+func TestShelterService_UpdateMine_ApprovedResubmitLiveValueCancelsStage(t *testing.T) {
+	ownerID := uuid.New()
+	shelter, repo := ownedShelter(ownerID, domain.ShelterStatusApproved)
+	shelter.PendingDonationURL = strPtr("https://nuevo.org/donar") // staged previo
+	svc := newTestShelterServiceFull(repo, &mockUserRepository{}, event.NewEventBus())
+
+	got, err := svc.UpdateMine(context.Background(), ownerID.String(), &dto.UpdateMyShelterRequest{
+		DonationURL: strPtr("https://original.org/donar"), // reenviar el valor vivo
+	})
+	if err != nil {
+		t.Fatalf("UpdateMine: %v", err)
+	}
+	if got.PendingDonationURL != nil {
+		t.Errorf("PendingDonationURL: want staged change cancelled (nil), got %v", got.PendingDonationURL)
+	}
+	if got.DonationURL != "https://original.org/donar" {
+		t.Errorf("DonationURL: want live value untouched, got %q", got.DonationURL)
+	}
+}
+
+func TestShelterService_UpdateMine_UpdateErrorPropagates(t *testing.T) {
+	ownerID := uuid.New()
+	_, repo := ownedShelter(ownerID, domain.ShelterStatusApproved)
+	sentinel := errors.New("boom: update failed")
+	repo.updateFn = func(_ context.Context, _ *domain.Shelter) error {
+		return sentinel
+	}
+	svc := newTestShelterServiceFull(repo, &mockUserRepository{}, event.NewEventBus())
+
+	got, err := svc.UpdateMine(context.Background(), ownerID.String(), &dto.UpdateMyShelterRequest{
+		Name: strPtr("Refugio X"),
+	})
+	if !errors.Is(err, sentinel) {
+		t.Errorf("want sentinel error propagated, got %v", err)
+	}
+	if got != nil {
+		t.Errorf("want nil shelter on update error, got %v", got)
+	}
+}
+
 func TestShelterService_UpdateMine_RejectedResubmits(t *testing.T) {
 	ownerID := uuid.New()
 	shelter, repo := ownedShelter(ownerID, domain.ShelterStatusRejected)
@@ -578,7 +618,7 @@ func TestShelterService_UpdateMine_RejectedResubmits(t *testing.T) {
 func TestShelterService_UpdateMine_PendingEditsFreely(t *testing.T) {
 	ownerID := uuid.New()
 	_, repo := ownedShelter(ownerID, domain.ShelterStatusPending)
-	svc := newTestShelterServiceFull(repo, &mockUserRepository{}, event.NewEventBus())
+	svc := newTestShelterServiceFull(repo, &mockUserRepository{}, buildBusRejecting(t, "shelter.submitted"))
 
 	got, err := svc.UpdateMine(context.Background(), ownerID.String(), &dto.UpdateMyShelterRequest{
 		WebsiteURL: strPtr("https://cambiada.org"),
@@ -619,6 +659,21 @@ func buildBusExpecting(t *testing.T, eventName string) *event.EventBus {
 		case <-time.After(2 * time.Second):
 			t.Errorf("timeout: %s not published", eventName)
 		}
+	})
+	return bus
+}
+
+// buildBusRejecting returns a bus that FAILS the test if eventName IS
+// published. Cleanup waits briefly so the async bus has a chance to deliver
+// before the test ends.
+func buildBusRejecting(t *testing.T, eventName string) *event.EventBus {
+	t.Helper()
+	bus := event.NewEventBus()
+	bus.Subscribe(eventName, func(_ interface{}) {
+		t.Errorf("unexpected publish of %s", eventName)
+	})
+	t.Cleanup(func() {
+		time.Sleep(100 * time.Millisecond)
 	})
 	return bus
 }

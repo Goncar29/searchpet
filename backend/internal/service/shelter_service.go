@@ -168,12 +168,21 @@ func (s *shelterService) UpdateMine(ctx context.Context, userID string, req *dto
 
 	resubmitted := false
 	if shelter.Status == domain.ShelterStatusApproved {
-		// Links sensibles → staging. Solo si el valor realmente cambia.
-		if req.WebsiteURL != nil && *req.WebsiteURL != shelter.WebsiteURL {
-			shelter.PendingWebsiteURL = req.WebsiteURL
+		// Links sensibles → staging. Solo si el valor realmente cambia;
+		// reenviar el valor vivo CANCELA un staged previo.
+		if req.WebsiteURL != nil {
+			if *req.WebsiteURL != shelter.WebsiteURL {
+				shelter.PendingWebsiteURL = req.WebsiteURL
+			} else {
+				shelter.PendingWebsiteURL = nil // reenviar el valor vivo cancela el staged
+			}
 		}
-		if req.DonationURL != nil && *req.DonationURL != shelter.DonationURL {
-			shelter.PendingDonationURL = req.DonationURL
+		if req.DonationURL != nil {
+			if *req.DonationURL != shelter.DonationURL {
+				shelter.PendingDonationURL = req.DonationURL
+			} else {
+				shelter.PendingDonationURL = nil
+			}
 		}
 	} else {
 		// pending/rejected: los links editan libre (todavía no hay nada publicado).
