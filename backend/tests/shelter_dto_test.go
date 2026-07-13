@@ -52,6 +52,32 @@ func TestUpdateMyShelterRequest_Validate(t *testing.T) {
 	if err := bad.Validate(); err != domain.ErrInvalidInput {
 		t.Errorf("http URL: want ErrInvalidInput, got %v", err)
 	}
+
+	// Name/City son REQUERIDOS: vaciar (&"") o mandar solo espacios es inválido
+	// (regla #22: el clear con &"" es solo para campos OPCIONALES).
+	blankName := dto.UpdateMyShelterRequest{Name: &emptyStr}
+	if err := blankName.Validate(); err != domain.ErrInvalidInput {
+		t.Errorf("blank name: want ErrInvalidInput, got %v", err)
+	}
+
+	spacesCity := "  "
+	blankCity := dto.UpdateMyShelterRequest{City: &spacesCity}
+	if err := blankCity.Validate(); err != domain.ErrInvalidInput {
+		t.Errorf("whitespace city: want ErrInvalidInput, got %v", err)
+	}
+
+	// Los opcionales SÍ se pueden vaciar.
+	clearOptional := dto.UpdateMyShelterRequest{Phone: &emptyStr, Email: &emptyStr, Description: &emptyStr}
+	if err := clearOptional.Validate(); err != nil {
+		t.Errorf("clearing optional fields: want nil, got %v", err)
+	}
+
+	// Y un Name/City no vacío sigue siendo válido.
+	newName := "Refugio Renombrado"
+	renamed := dto.UpdateMyShelterRequest{Name: &newName}
+	if err := renamed.Validate(); err != nil {
+		t.Errorf("non-empty name: want nil, got %v", err)
+	}
 }
 
 func TestToMyShelterResponse_IncludesReviewState(t *testing.T) {

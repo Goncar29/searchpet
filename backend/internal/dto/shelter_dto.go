@@ -2,6 +2,7 @@ package dto
 
 import (
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -199,8 +200,16 @@ type UpdateMyShelterRequest struct {
 	Longitude   *float64 `json:"longitude"`
 }
 
-// Validate exige https:// en los links presentes ("" explícito = limpiar, válido).
+// Validate exige https:// en los links presentes ("" explícito = limpiar, válido)
+// y que Name/City, si llegan, no queden en blanco: son REQUERIDOS — el clear
+// con &"" es solo para campos opcionales (regla #22, mismo contrato que UpdatePet).
 func (r *UpdateMyShelterRequest) Validate() error {
+	if r.Name != nil && strings.TrimSpace(*r.Name) == "" {
+		return domain.ErrInvalidInput
+	}
+	if r.City != nil && strings.TrimSpace(*r.City) == "" {
+		return domain.ErrInvalidInput
+	}
 	if r.WebsiteURL != nil && !validOptionalHTTPSURL(*r.WebsiteURL) {
 		return domain.ErrInvalidInput
 	}
