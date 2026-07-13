@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"lost-pets/internal/event"
 	"lost-pets/internal/repository"
 	"lost-pets/internal/websocket"
@@ -54,6 +55,8 @@ func (ns *NotificationService) RegisterListeners(bus *event.EventBus) {
 	bus.Subscribe("message.sent", ns.onMessageSent)
 	bus.Subscribe("alert.triggered", ns.onAlertTriggered)
 	bus.Subscribe("pet.found", ns.onPetFound)
+	bus.Subscribe("shelter.approved", ns.onShelterApproved)
+	bus.Subscribe("shelter.rejected", ns.onShelterRejected)
 }
 
 // onReportCreated maneja el evento "report.created".
@@ -233,6 +236,70 @@ func (ns *NotificationService) onPetFound(payload interface{}) {
 					}
 				} else {
 					log.Printf("[NotificationService] onPetFound: error enviando push a %q: %v", t.Token, err)
+				}
+			}
+		}()
+	}
+}
+
+// onShelterApproved maneja "shelter.approved": push al dueño del refugio.
+// Mismo patrón fan-out que onPetFound (goroutine por token + limpieza de stale).
+func (ns *NotificationService) onShelterApproved(payload interface{}) {
+	ev, ok := payload.(event.ShelterApprovedEvent)
+	if !ok {
+		log.Printf("[NotificationService] onShelterApproved: tipo de payload inesperado: %T", payload)
+		return
+	}
+	title := "¡Tu refugio fue aprobado! 🎉"
+	body := fmt.Sprintf("%s ya aparece en el directorio de refugios", ev.ShelterName)
+	ns.pushToUser(ev.OwnerUserID, title, body, map[string]string{
+		"type":       "shelter.approved",
+		"shelter_id": ev.ShelterID.String(),
+		"entityId":   ev.ShelterID.String(),
+	})
+}
+
+// onShelterRejected maneja "shelter.rejected": push al dueño con el motivo.
+func (ns *NotificationService) onShelterRejected(payload interface{}) {
+	ev, ok := payload.(event.ShelterRejectedEvent)
+	if !ok {
+		log.Printf("[NotificationService] onShelterRejected: tipo de payload inesperado: %T", payload)
+		return
+	}
+	title := fmt.Sprintf("Tu refugio %s necesita cambios", ev.ShelterName)
+	body := fmt.Sprintf("Motivo: %s. Corregí los datos y reenvialo desde la app.", ev.Reason)
+	ns.pushToUser(ev.OwnerUserID, title, body, map[string]string{
+		"type":       "shelter.rejected",
+		"shelter_id": ev.ShelterID.String(),
+		"entityId":   ev.ShelterID.String(),
+	})
+}
+
+// pushToUser resuelve los tokens del usuario y hace el fan-out con limpieza de
+// tokens inválidos — el cuerpo común de onShelterApproved/onShelterRejected.
+func (ns *NotificationService) pushToUser(userID uuid.UUID, title, body string, data map[string]string) {
+	ctx := context.Background()
+
+	tokens, err := ns.deviceTokenRepo.FindByUserID(ctx, userID)
+	if err != nil {
+		log.Printf("[NotificationService] pushToUser: error obteniendo tokens para %s: %v", userID, err)
+		return
+	}
+	if len(tokens) == 0 {
+		return
+	}
+
+	for _, t := range tokens {
+		t := t // captura
+		go func() {
+			err := ns.fcmClient.SendPush(ctx, t.Token, title, body, data)
+			if err != nil {
+				if isStaleTokenError(err) {
+					if delErr := ns.deviceTokenRepo.DeleteByToken(ctx, t.Token); delErr != nil {
+						log.Printf("[NotificationService] error eliminando token inválido %q: %v", t.Token, delErr)
+					}
+				} else {
+					log.Printf("[NotificationService] pushToUser: error enviando push a %q: %v", t.Token, err)
 				}
 			}
 		}()

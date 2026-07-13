@@ -3,6 +3,7 @@ package service_test
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -446,5 +447,78 @@ func TestNotificationService_OnMessageSent_NilPresence_SendsFCM(t *testing.T) {
 	calls := fcm.getCalls()
 	if len(calls) != 1 {
 		t.Errorf("nil presence → FCM should be called once, got %d", len(calls))
+	}
+}
+
+// ============================================================
+// Tests: onShelterApproved / onShelterRejected
+// ============================================================
+
+func TestNotificationService_ShelterApproved_PushesOwner(t *testing.T) {
+	bus := event.NewEventBus()
+	repo := newMockDeviceTokenRepo()
+	ownerID := uuid.New()
+	repo.tokens[ownerID] = []domain.DeviceToken{
+		{UserID: ownerID, Token: "owner-token", Platform: "android"},
+	}
+	fcm := newMockFCMClient(1)
+
+	ns := service.NewNotificationService(fcm, repo)
+	ns.RegisterListeners(bus)
+
+	shelterID := uuid.New()
+	bus.Publish("shelter.approved", event.ShelterApprovedEvent{
+		ShelterID:   shelterID,
+		OwnerUserID: ownerID,
+		ShelterName: "Refugio Test",
+	})
+
+	if !fcm.waitCalls(1, 2*time.Second) {
+		t.Fatal("timeout: SendPush not called after shelter.approved")
+	}
+	fcm.mu.Lock()
+	defer fcm.mu.Unlock()
+	call := fcm.calls[0]
+	if call.token != "owner-token" {
+		t.Errorf("token: want owner-token, got %q", call.token)
+	}
+	if call.data["type"] != "shelter.approved" {
+		t.Errorf("data.type: want shelter.approved, got %q", call.data["type"])
+	}
+	if call.data["shelter_id"] != shelterID.String() {
+		t.Errorf("data.shelter_id: want %s, got %q", shelterID, call.data["shelter_id"])
+	}
+}
+
+func TestNotificationService_ShelterRejected_PushesOwnerWithReason(t *testing.T) {
+	bus := event.NewEventBus()
+	repo := newMockDeviceTokenRepo()
+	ownerID := uuid.New()
+	repo.tokens[ownerID] = []domain.DeviceToken{
+		{UserID: ownerID, Token: "owner-token", Platform: "android"},
+	}
+	fcm := newMockFCMClient(1)
+
+	ns := service.NewNotificationService(fcm, repo)
+	ns.RegisterListeners(bus)
+
+	bus.Publish("shelter.rejected", event.ShelterRejectedEvent{
+		ShelterID:   uuid.New(),
+		OwnerUserID: ownerID,
+		ShelterName: "Refugio Test",
+		Reason:      "link de donación roto",
+	})
+
+	if !fcm.waitCalls(1, 2*time.Second) {
+		t.Fatal("timeout: SendPush not called after shelter.rejected")
+	}
+	fcm.mu.Lock()
+	defer fcm.mu.Unlock()
+	call := fcm.calls[0]
+	if call.data["type"] != "shelter.rejected" {
+		t.Errorf("data.type: want shelter.rejected, got %q", call.data["type"])
+	}
+	if !strings.Contains(call.body, "link de donación roto") {
+		t.Errorf("body should include the rejection reason, got %q", call.body)
 	}
 }
