@@ -19,10 +19,18 @@ import (
 // ============================================================
 
 type mockShelterService struct {
-	getAllFn   func(ctx context.Context, city string) ([]domain.Shelter, error)
-	getByIDFn func(ctx context.Context, id string) (*domain.Shelter, error)
-	createFn  func(ctx context.Context, shelter *domain.Shelter) error
-	updateFn  func(ctx context.Context, shelter *domain.Shelter) error
+	getAllFn          func(ctx context.Context, city string) ([]domain.Shelter, error)
+	getByIDFn         func(ctx context.Context, id string) (*domain.Shelter, error)
+	createFn          func(ctx context.Context, shelter *domain.Shelter) error
+	updateFn          func(ctx context.Context, shelter *domain.Shelter) error
+	registerOwnFn     func(ctx context.Context, userID string, shelter *domain.Shelter) error
+	getMineFn         func(ctx context.Context, userID string) (*domain.Shelter, error)
+	updateMineFn      func(ctx context.Context, userID string, req *dto.UpdateMyShelterRequest) (*domain.Shelter, error)
+	getPendingQueueFn func(ctx context.Context) ([]domain.Shelter, error)
+	approveFn         func(ctx context.Context, id string) (*domain.Shelter, error)
+	rejectFn          func(ctx context.Context, id string, reason string) (*domain.Shelter, error)
+	approveLinksFn    func(ctx context.Context, id string) (*domain.Shelter, error)
+	rejectLinksFn     func(ctx context.Context, id string) (*domain.Shelter, error)
 }
 
 func (m *mockShelterService) GetAll(ctx context.Context, city string) ([]domain.Shelter, error) {
@@ -51,6 +59,62 @@ func (m *mockShelterService) Update(ctx context.Context, shelter *domain.Shelter
 		return m.updateFn(ctx, shelter)
 	}
 	return nil
+}
+
+func (m *mockShelterService) RegisterOwn(ctx context.Context, userID string, shelter *domain.Shelter) error {
+	if m.registerOwnFn != nil {
+		return m.registerOwnFn(ctx, userID, shelter)
+	}
+	return nil
+}
+
+func (m *mockShelterService) GetMine(ctx context.Context, userID string) (*domain.Shelter, error) {
+	if m.getMineFn != nil {
+		return m.getMineFn(ctx, userID)
+	}
+	return nil, domain.ErrShelterNotFound
+}
+
+func (m *mockShelterService) UpdateMine(ctx context.Context, userID string, req *dto.UpdateMyShelterRequest) (*domain.Shelter, error) {
+	if m.updateMineFn != nil {
+		return m.updateMineFn(ctx, userID, req)
+	}
+	return nil, domain.ErrShelterNotFound
+}
+
+func (m *mockShelterService) GetPendingQueue(ctx context.Context) ([]domain.Shelter, error) {
+	if m.getPendingQueueFn != nil {
+		return m.getPendingQueueFn(ctx)
+	}
+	return []domain.Shelter{}, nil
+}
+
+func (m *mockShelterService) Approve(ctx context.Context, id string) (*domain.Shelter, error) {
+	if m.approveFn != nil {
+		return m.approveFn(ctx, id)
+	}
+	return nil, domain.ErrShelterNotFound
+}
+
+func (m *mockShelterService) Reject(ctx context.Context, id string, reason string) (*domain.Shelter, error) {
+	if m.rejectFn != nil {
+		return m.rejectFn(ctx, id, reason)
+	}
+	return nil, domain.ErrShelterNotFound
+}
+
+func (m *mockShelterService) ApproveLinks(ctx context.Context, id string) (*domain.Shelter, error) {
+	if m.approveLinksFn != nil {
+		return m.approveLinksFn(ctx, id)
+	}
+	return nil, domain.ErrShelterNotFound
+}
+
+func (m *mockShelterService) RejectLinks(ctx context.Context, id string) (*domain.Shelter, error) {
+	if m.rejectLinksFn != nil {
+		return m.rejectLinksFn(ctx, id)
+	}
+	return nil, domain.ErrShelterNotFound
 }
 
 // ============================================================

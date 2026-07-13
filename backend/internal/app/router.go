@@ -112,7 +112,7 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 	reportService := service.NewReportService(reportRepo, petRepo, bus, statEventRepo, episodeService, episodeRepo, petUow)
 	messageService := service.NewMessageService(messageRepo, blockedUserRepo, conversationHideRepo, bus)
 	shareLinkService := service.NewShareLinkService(shareLinkRepo, petRepo, bus)
-	shelterService := service.NewShelterService(shelterRepo)
+	shelterService := service.NewShelterService(shelterRepo, userRepo, bus)
 	vetService := service.NewVetService(vetRepo)
 	blockService := service.NewBlockService(blockedUserRepo)
 	storyService := service.NewSuccessStoryService(repository.NewSuccessStoryRepository(db), petRepo)
