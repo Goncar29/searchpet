@@ -3,6 +3,7 @@ package tests
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -97,8 +98,8 @@ func TestShelterRepository_GetByID_NotFound(t *testing.T) {
 	}
 }
 
-// newShelterWithOwner builds an unsaved shelter owned by ownerID.
-func newShelterWithOwner(ownerID *uuid.UUID, name, status string) *domain.Shelter {
+// newTestShelterWithOwner builds an unsaved shelter owned by ownerID.
+func newTestShelterWithOwner(ownerID *uuid.UUID, name, status string) *domain.Shelter {
 	return &domain.Shelter{
 		OwnerUserID: ownerID,
 		Name:        name,
@@ -116,22 +117,32 @@ func TestShelterMigration_OwnerPartialUniqueIndex(t *testing.T) {
 	owner := newTestUser(t, userRepo)
 
 	// First shelter for the owner persists fine.
-	first := newShelterWithOwner(&owner.ID, "Refugio Uno", domain.ShelterStatusPending)
+	first := newTestShelterWithOwner(&owner.ID, "Refugio Uno", domain.ShelterStatusPending)
 	if err := shelterRepo.Create(ctx, first); err != nil {
 		t.Fatalf("first Create: %v", err)
 	}
 
 	// Second shelter for the SAME owner violates the partial unique index.
-	second := newShelterWithOwner(&owner.ID, "Refugio Dos", domain.ShelterStatusPending)
-	if err := shelterRepo.Create(ctx, second); err == nil {
+	// Same detection pattern the codebase uses for PostgreSQL unique_violation
+	// (badge_repository.go isUniqueViolation, block_service.go): match on
+	// "23505", "duplicate key" or "unique constraint" in the error string.
+	second := newTestShelterWithOwner(&owner.ID, "Refugio Dos", domain.ShelterStatusPending)
+	err := shelterRepo.Create(ctx, second)
+	if err == nil {
 		t.Fatal("want unique violation for second shelter with same owner, got nil")
+	}
+	msg := err.Error()
+	if !strings.Contains(msg, "23505") &&
+		!strings.Contains(msg, "duplicate key") &&
+		!strings.Contains(msg, "unique constraint") {
+		t.Fatalf("want unique-constraint violation for second shelter with same owner, got: %v", err)
 	}
 
 	// Multiple ownerless shelters (admin/seed-created) are allowed — the index is partial.
-	if err := shelterRepo.Create(ctx, newShelterWithOwner(nil, "Sin Dueño A", domain.ShelterStatusApproved)); err != nil {
+	if err := shelterRepo.Create(ctx, newTestShelterWithOwner(nil, "Sin Dueño A", domain.ShelterStatusApproved)); err != nil {
 		t.Fatalf("ownerless A: %v", err)
 	}
-	if err := shelterRepo.Create(ctx, newShelterWithOwner(nil, "Sin Dueño B", domain.ShelterStatusApproved)); err != nil {
+	if err := shelterRepo.Create(ctx, newTestShelterWithOwner(nil, "Sin Dueño B", domain.ShelterStatusApproved)); err != nil {
 		t.Fatalf("ownerless B: %v", err)
 	}
 }
