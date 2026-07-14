@@ -263,6 +263,7 @@
     "empty": "Nenhum abrigo disponível no momento.",
     "registerCta": "Você é um abrigo e quer aparecer aqui?",
     "registerButton": "Registrar meu abrigo",
+    "manageButton": "Gerenciar meu abrigo",
     "register": {
       "title": "Registre seu abrigo",
       "step1Title": "Preencha os dados",

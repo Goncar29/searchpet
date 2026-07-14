@@ -1,13 +1,16 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
-import { useStats, useShelters } from '@shared/hooks';
+import { useStats, useShelters, useMyShelter } from '@shared/hooks';
 import type { Shelter } from '@shared/types';
 
 export function SheltersPage() {
   const { t } = useTranslation(['shelters', 'common']);
   const { data: stats } = useStats();
   const { data: shelters, isLoading, isError } = useShelters();
+  // Owner-aware CTA: has a shelter → manage it; otherwise → register.
+  // A 404/401 (no shelter or logged out) leaves myShelter undefined.
+  const { data: myShelter } = useMyShelter();
   const [detail, setDetail] = useState<Shelter | null>(null);
 
   return (
@@ -131,13 +134,24 @@ export function SheltersPage() {
       )}
 
       <div className="text-center mt-10">
-        <p className="text-sm text-gray-400 dark:text-gray-500 mb-3">{t('shelters:registerCta')}</p>
-        <Link
-          to="/shelters/register"
-          className="inline-block bg-primary text-white text-sm font-semibold px-6 py-2.5 rounded-lg hover:bg-primary-dark transition-colors"
-        >
-          {t('shelters:registerButton')}
-        </Link>
+        {myShelter ? (
+          <Link
+            to="/shelters/mine"
+            className="inline-block bg-primary text-white text-sm font-semibold px-6 py-2.5 rounded-lg hover:bg-primary-dark transition-colors"
+          >
+            {t('shelters:manageButton')}
+          </Link>
+        ) : (
+          <>
+            <p className="text-sm text-gray-400 dark:text-gray-500 mb-3">{t('shelters:registerCta')}</p>
+            <Link
+              to="/shelters/register"
+              className="inline-block bg-primary text-white text-sm font-semibold px-6 py-2.5 rounded-lg hover:bg-primary-dark transition-colors"
+            >
+              {t('shelters:registerButton')}
+            </Link>
+          </>
+        )}
       </div>
 
       {detail && (

@@ -8,11 +8,13 @@ vi.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (key: string) => key, i18n: { language: 'es' } }),
 }));
 
-// Mutable so each test can inject its own shelter list.
+// Mutable so each test can inject its own shelter list / ownership state.
 let sheltersData: unknown[] = [];
+let myShelterData: unknown = undefined;
 vi.mock('@shared/hooks', () => ({
   useStats: () => ({ data: { total_pets: 10, total_found: 5, total_users: 20, total_reports: 30 } }),
   useShelters: () => ({ data: sheltersData, isLoading: false, isError: false }),
+  useMyShelter: () => ({ data: myShelterData, isLoading: false, error: null }),
 }));
 
 const longDescription =
@@ -42,6 +44,7 @@ function wrapper({ children }: { children: React.ReactNode }) {
 describe('SheltersPage', () => {
   beforeEach(() => {
     sheltersData = [];
+    myShelterData = undefined;
   });
 
   it('renderiza sin lanzar errores', () => {
@@ -54,11 +57,23 @@ describe('SheltersPage', () => {
     expect(screen.getByText('shelters:empty')).toBeTruthy();
   });
 
-  it('muestra el CTA de registro apuntando a /shelters/register', () => {
+  it('muestra el CTA de registro (sin refugio) apuntando a /shelters/register', () => {
     render(<SheltersPage />, { wrapper });
     const cta = screen.getByText('shelters:registerButton');
     expect(cta.closest('a')?.getAttribute('href')).toBe('/shelters/register');
+    expect(screen.getByText('shelters:registerCta')).toBeTruthy();
     expect(screen.queryByText('shelters:contactCta')).toBeNull();
+  });
+
+  it('si el usuario ya tiene refugio, el CTA pasa a "gestionar" apuntando a /shelters/mine', () => {
+    myShelterData = { id: 'mine-1', name: 'Mi Refugio', city: 'Montevideo', status: 'approved' };
+    render(<SheltersPage />, { wrapper });
+
+    const manage = screen.getByText('shelters:manageButton');
+    expect(manage.closest('a')?.getAttribute('href')).toBe('/shelters/mine');
+    // Ya no invita a registrarse.
+    expect(screen.queryByText('shelters:registerButton')).toBeNull();
+    expect(screen.queryByText('shelters:registerCta')).toBeNull();
   });
 
   it('recorta la descripción con line-clamp y ofrece "Ver más"', () => {

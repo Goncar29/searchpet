@@ -263,6 +263,7 @@
     "empty": "No shelters available at the moment.",
     "registerCta": "Are you a shelter and want to be listed here?",
     "registerButton": "Register my shelter",
+    "manageButton": "Manage my shelter",
     "register": {
       "title": "Register your shelter",
       "step1Title": "Fill in your data",

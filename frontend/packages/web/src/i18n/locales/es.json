@@ -263,6 +263,7 @@
     "empty": "No hay refugios disponibles en este momento.",
     "registerCta": "¿Sos un refugio y querés aparecer acá?",
     "registerButton": "Registrar mi refugio",
+    "manageButton": "Gestionar mi refugio",
     "register": {
       "title": "Registrá tu refugio",
       "step1Title": "Completá los datos",
