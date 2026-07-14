@@ -1,0 +1,103 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen, fireEvent } from '@testing-library/react';
+import { MemoryRouter } from 'react-router';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { RegisterShelterPage } from './RegisterShelterPage';
+
+const mutateMock = vi.fn();
+let verificationData: { email_verified: boolean } | undefined = { email_verified: true };
+let myShelterData: unknown = undefined;
+
+vi.mock('react-i18next', () => ({
+  useTranslation: () => ({ t: (key: string) => key, i18n: { language: 'es' } }),
+}));
+
+vi.mock('@shared/hooks', () => ({
+  useVerificationStatus: () => ({ data: verificationData }),
+  useMyShelter: () => ({ data: myShelterData, isLoading: false, isError: false, error: null, refetch: vi.fn() }),
+  useRegisterShelter: () => ({ mutate: mutateMock, isPending: false }),
+}));
+
+vi.mock('@shared/utils/apiErrors', () => ({
+  getErrorMessage: () => 'api-error-message',
+}));
+
+function renderPage() {
+  return render(
+    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+      <MemoryRouter>
+        <RegisterShelterPage />
+      </MemoryRouter>
+    </QueryClientProvider>
+  );
+}
+
+describe('RegisterShelterPage', () => {
+  beforeEach(() => {
+    mutateMock.mockReset();
+    verificationData = { email_verified: true };
+    myShelterData = undefined;
+  });
+
+  it('shows the 3 process steps and the honest notes on the intro screen', () => {
+    renderPage();
+    expect(screen.getByText('shelters:register.step1Title')).toBeTruthy();
+    expect(screen.getByText('shelters:register.step2Title')).toBeTruthy();
+    expect(screen.getByText('shelters:register.step3Title')).toBeTruthy();
+    expect(screen.getByText('shelters:register.reviewNote')).toBeTruthy();
+    expect(screen.getByText('shelters:register.noMoneyNote')).toBeTruthy();
+  });
+
+  it('blocks unverified users with a link to verification instead of the start button', () => {
+    verificationData = { email_verified: false };
+    renderPage();
+    expect(screen.getByText('shelters:register.emailUnverified')).toBeTruthy();
+    const verifyLink = screen.getByText('shelters:register.verifyEmailLink');
+    expect(verifyLink.closest('a')?.getAttribute('href')).toBe('/profile');
+    expect(screen.queryByText('shelters:register.start')).toBeNull();
+  });
+
+  it('validates required fields and https URLs before submitting', () => {
+    renderPage();
+    fireEvent.click(screen.getByText('shelters:register.start'));
+    fireEvent.change(screen.getByLabelText('shelters:register.donationUrl'), {
+      target: { value: 'http://sin-tls.org' },
+    });
+    fireEvent.click(screen.getByText('shelters:register.submit'));
+
+    expect(screen.getByText('shelters:register.nameRequired')).toBeTruthy();
+    expect(screen.getByText('shelters:register.cityRequired')).toBeTruthy();
+    expect(screen.getByText('shelters:register.invalidUrl')).toBeTruthy();
+    expect(mutateMock).not.toHaveBeenCalled();
+  });
+
+  it('submits trimmed data and shows the confirmation on success', () => {
+    mutateMock.mockImplementation((_data, opts) => opts?.onSuccess?.());
+    renderPage();
+    fireEvent.click(screen.getByText('shelters:register.start'));
+    fireEvent.change(screen.getByLabelText('shelters:register.name'), { target: { value: '  Mi Refugio  ' } });
+    fireEvent.change(screen.getByLabelText('shelters:register.city'), { target: { value: 'Montevideo' } });
+    fireEvent.change(screen.getByLabelText('shelters:register.donationUrl'), {
+      target: { value: 'https://mi.org/donar' },
+    });
+    fireEvent.click(screen.getByText('shelters:register.submit'));
+
+    expect(mutateMock).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'Mi Refugio', city: 'Montevideo', donation_url: 'https://mi.org/donar' }),
+      expect.anything()
+    );
+    expect(screen.getByText('shelters:register.successTitle')).toBeTruthy();
+  });
+
+  it('shows the API error and stays on the form on failure', () => {
+    mutateMock.mockImplementation((_data, opts) => opts?.onError?.(new Error('boom')));
+    renderPage();
+    fireEvent.click(screen.getByText('shelters:register.start'));
+    fireEvent.change(screen.getByLabelText('shelters:register.name'), { target: { value: 'Mi Refugio' } });
+    fireEvent.change(screen.getByLabelText('shelters:register.city'), { target: { value: 'Montevideo' } });
+    fireEvent.click(screen.getByText('shelters:register.submit'));
+
+    expect(screen.getByText('api-error-message')).toBeTruthy();
+    expect(screen.queryByText('shelters:register.successTitle')).toBeNull();
+  });
+});

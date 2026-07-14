@@ -33,6 +33,7 @@ import { MessagesPage } from './pages/MessagesPage';
 import { ChatPage } from './pages/ChatPage';
 import { AlertsPage } from './pages/AlertsPage';
 import { PublishWizardPage } from './pages/PublishWizardPage';
+import { RegisterShelterPage } from './pages/RegisterShelterPage';
 
 export default function App() {
   return (
@@ -68,6 +69,7 @@ export default function App() {
             <Route path="/messages" element={<MessagesPage />} />
             <Route path="/messages/:userId" element={<ChatPage />} />
             <Route path="/alerts" element={<AlertsPage />} />
+            <Route path="/shelters/register" element={<RegisterShelterPage />} />
           </Route>
           {/* Admin routes — protected by AdminRoute guard */}
           <Route element={<AdminRoute />}>
