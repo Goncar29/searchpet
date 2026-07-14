@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SheltersPage } from './SheltersPage';
 
@@ -15,7 +16,7 @@ vi.mock('@shared/hooks', () => ({
 function wrapper({ children }: { children: React.ReactNode }) {
   return (
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-      {children}
+      <MemoryRouter>{children}</MemoryRouter>
     </QueryClientProvider>
   );
 }
@@ -29,5 +30,12 @@ describe('SheltersPage', () => {
   it('muestra mensaje vacío cuando no hay refugios', () => {
     render(<SheltersPage />, { wrapper });
     expect(screen.getByText('shelters:empty')).toBeTruthy();
+  });
+
+  it('muestra el CTA de registro apuntando a /shelters/register', () => {
+    render(<SheltersPage />, { wrapper });
+    const cta = screen.getByText('shelters:registerButton');
+    expect(cta.closest('a')?.getAttribute('href')).toBe('/shelters/register');
+    expect(screen.queryByText('shelters:contactCta')).toBeNull();
   });
 });

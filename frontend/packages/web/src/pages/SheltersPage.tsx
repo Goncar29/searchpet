@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router';
 import { useStats, useShelters } from '@shared/hooks';
 
 export function SheltersPage() {
@@ -114,9 +115,13 @@ export function SheltersPage() {
       )}
 
       <div className="text-center mt-10">
-        <p className="text-sm text-gray-400 dark:text-gray-500">
-          {t('shelters:contactCta')}
-        </p>
+        <p className="text-sm text-gray-400 dark:text-gray-500 mb-3">{t('shelters:registerCta')}</p>
+        <Link
+          to="/shelters/register"
+          className="inline-block bg-primary text-white text-sm font-semibold px-6 py-2.5 rounded-lg hover:bg-primary-dark transition-colors"
+        >
+          {t('shelters:registerButton')}
+        </Link>
       </div>
     </div>
   );
