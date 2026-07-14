@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { MemoryRouter } from 'react-router';
+import { MemoryRouter, Routes, Route } from 'react-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RegisterShelterPage } from './RegisterShelterPage';
 
@@ -22,14 +22,24 @@ vi.mock('@shared/utils/apiErrors', () => ({
   getErrorMessage: () => 'api-error-message',
 }));
 
-function renderPage() {
-  return render(
-    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+function renderPage({ withMineRoute = false }: { withMineRoute?: boolean } = {}) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const tree = () => (
+    <QueryClientProvider client={client}>
       <MemoryRouter>
-        <RegisterShelterPage />
+        {withMineRoute ? (
+          <Routes>
+            <Route path="/" element={<RegisterShelterPage />} />
+            <Route path="/shelters/mine" element={<div>mine-page-stub</div>} />
+          </Routes>
+        ) : (
+          <RegisterShelterPage />
+        )}
       </MemoryRouter>
     </QueryClientProvider>
   );
+  const result = render(tree());
+  return { ...result, rerenderPage: () => result.rerender(tree()) };
 }
 
 describe('RegisterShelterPage', () => {
@@ -99,5 +109,28 @@ describe('RegisterShelterPage', () => {
 
     expect(screen.getByText('api-error-message')).toBeTruthy();
     expect(screen.queryByText('shelters:register.successTitle')).toBeNull();
+  });
+
+  it('redirects to /shelters/mine when the user already has a shelter', () => {
+    myShelterData = { id: 's1', status: 'pending' };
+    renderPage({ withMineRoute: true });
+    expect(screen.getByText('mine-page-stub')).toBeTruthy();
+    expect(screen.queryByText('shelters:register.step1Title')).toBeNull();
+  });
+
+  it('keeps the confirmation visible when the invalidation repopulates useMyShelter', () => {
+    mutateMock.mockImplementation((_data, opts) => opts?.onSuccess?.());
+    const { rerenderPage } = renderPage();
+    fireEvent.click(screen.getByText('shelters:register.start'));
+    fireEvent.change(screen.getByLabelText('shelters:register.name'), { target: { value: 'Mi Refugio' } });
+    fireEvent.change(screen.getByLabelText('shelters:register.city'), { target: { value: 'Montevideo' } });
+    fireEvent.click(screen.getByText('shelters:register.submit'));
+    expect(screen.getByText('shelters:register.successTitle')).toBeTruthy();
+
+    // La invalidación del submit repuebla useMyShelter — el guard de 'done'
+    // debe impedir que el redirect se coma la pantalla de confirmación.
+    myShelterData = { id: 's1', status: 'pending' };
+    rerenderPage();
+    expect(screen.getByText('shelters:register.successTitle')).toBeTruthy();
   });
 });

@@ -54,16 +54,18 @@ export function RegisterShelterPage() {
     const errs: Partial<Record<keyof FormState, string>> = {};
     if (!form.name.trim()) errs.name = t('shelters:register.nameRequired');
     if (!form.city.trim()) errs.city = t('shelters:register.cityRequired');
-    if (form.website_url && !HTTPS_RE.test(form.website_url)) errs.website_url = t('shelters:register.invalidUrl');
-    if (form.donation_url && !HTTPS_RE.test(form.donation_url)) errs.donation_url = t('shelters:register.invalidUrl');
+    const website = form.website_url.trim();
+    if (website && !HTTPS_RE.test(website)) errs.website_url = t('shelters:register.invalidUrl');
+    const donation = form.donation_url.trim();
+    if (donation && !HTTPS_RE.test(donation)) errs.donation_url = t('shelters:register.invalidUrl');
     setFieldErrors(errs);
     return Object.keys(errs).length === 0;
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!validate()) return;
     setApiError(null);
+    if (!validate()) return;
     registerShelter.mutate(
       {
         name: form.name.trim(),
