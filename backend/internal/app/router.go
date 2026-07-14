@@ -112,7 +112,7 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 	reportService := service.NewReportService(reportRepo, petRepo, bus, statEventRepo, episodeService, episodeRepo, petUow)
 	messageService := service.NewMessageService(messageRepo, blockedUserRepo, conversationHideRepo, bus)
 	shareLinkService := service.NewShareLinkService(shareLinkRepo, petRepo, bus)
-	shelterService := service.NewShelterService(shelterRepo)
+	shelterService := service.NewShelterService(shelterRepo, userRepo, bus)
 	vetService := service.NewVetService(vetRepo)
 	blockService := service.NewBlockService(blockedUserRepo)
 	storyService := service.NewSuccessStoryService(repository.NewSuccessStoryRepository(db), petRepo)
@@ -341,6 +341,12 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 
 		protected.POST("/share/generate/:petId", shareHandler.GenerateShareLink)
 
+		// SHELTER SELF-REGISTRATION (owner). Estáticas /shelters/mine conviven
+		// con la pública /shelters/:id — Gin prioriza segmentos estáticos.
+		protected.POST("/shelters", shelterHandler.RegisterOwn)
+		protected.GET("/shelters/mine", shelterHandler.GetMine)
+		protected.PUT("/shelters/mine", shelterHandler.UpdateMine)
+
 		protected.POST("/devices/token", deviceHandler.RegisterToken)
 		protected.POST("/devices", deviceHandler.RegisterToken)
 		protected.DELETE("/devices/:token", deviceHandler.DeleteToken)
@@ -402,6 +408,13 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 		admin.GET("/admin/role-changes", adminHandler.RecentRoleChanges)
 		admin.POST("/admin/shelters", shelterHandler.Create)
 		admin.PUT("/admin/shelters/:id", shelterHandler.Update)
+
+		// SHELTER APPROVAL QUEUE
+		admin.GET("/admin/shelters/pending", shelterHandler.PendingQueue)
+		admin.POST("/admin/shelters/:id/approve", shelterHandler.Approve)
+		admin.POST("/admin/shelters/:id/reject", shelterHandler.Reject)
+		admin.POST("/admin/shelters/:id/links/approve", shelterHandler.ApproveLinks)
+		admin.POST("/admin/shelters/:id/links/reject", shelterHandler.RejectLinks)
 	}
 
 	return router

@@ -7,6 +7,7 @@ import { AbuseReportsPage } from './pages/admin/AbuseReportsPage';
 import { StoriesAdminPage } from './pages/admin/StoriesAdminPage';
 import { GroupsAdminPage } from './pages/admin/GroupsAdminPage';
 import { AdminsPage } from './pages/admin/AdminsPage';
+import { SheltersAdminPage } from './pages/admin/SheltersAdminPage';
 import { HomePage } from './pages/HomePage';
 import { MapPage } from './pages/MapPage';
 import { PetDetailPage } from './pages/PetDetailPage';
@@ -33,6 +34,8 @@ import { MessagesPage } from './pages/MessagesPage';
 import { ChatPage } from './pages/ChatPage';
 import { AlertsPage } from './pages/AlertsPage';
 import { PublishWizardPage } from './pages/PublishWizardPage';
+import { RegisterShelterPage } from './pages/RegisterShelterPage';
+import { MyShelterPage } from './pages/MyShelterPage';
 
 export default function App() {
   return (
@@ -68,6 +71,8 @@ export default function App() {
             <Route path="/messages" element={<MessagesPage />} />
             <Route path="/messages/:userId" element={<ChatPage />} />
             <Route path="/alerts" element={<AlertsPage />} />
+            <Route path="/shelters/register" element={<RegisterShelterPage />} />
+            <Route path="/shelters/mine" element={<MyShelterPage />} />
           </Route>
           {/* Admin routes — protected by AdminRoute guard */}
           <Route element={<AdminRoute />}>
@@ -77,6 +82,7 @@ export default function App() {
               <Route path="stories" element={<StoriesAdminPage />} />
               <Route path="groups" element={<GroupsAdminPage />} />
               <Route path="admins" element={<AdminsPage />} />
+              <Route path="shelters" element={<SheltersAdminPage />} />
             </Route>
           </Route>
         </Route>

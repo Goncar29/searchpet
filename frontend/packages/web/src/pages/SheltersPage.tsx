@@ -1,10 +1,17 @@
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useStats, useShelters } from '@shared/hooks';
+import { Link } from 'react-router';
+import { useStats, useShelters, useMyShelter } from '@shared/hooks';
+import type { Shelter } from '@shared/types';
 
 export function SheltersPage() {
   const { t } = useTranslation(['shelters', 'common']);
   const { data: stats } = useStats();
   const { data: shelters, isLoading, isError } = useShelters();
+  // Owner-aware CTA: has a shelter → manage it; otherwise → register.
+  // A 404/401 (no shelter or logged out) leaves myShelter undefined.
+  const { data: myShelter } = useMyShelter();
+  const [detail, setDetail] = useState<Shelter | null>(null);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 bg-gray-50 dark:bg-gray-950 min-h-screen">
@@ -72,24 +79,119 @@ export function SheltersPage() {
           {shelters.map((shelter) => (
             <div
               key={shelter.id}
-              className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 hover:shadow-md transition-shadow"
+              className="flex flex-col h-full bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 hover:shadow-md transition-shadow"
             >
               <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-1">{shelter.name}</h3>
               <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">📍 {shelter.city}</p>
               {shelter.description && (
-                <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">{shelter.description}</p>
+                <>
+                  <p className="text-sm text-gray-600 dark:text-gray-300 mb-2 line-clamp-3">
+                    {shelter.description}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setDetail(shelter)}
+                    className="self-start text-sm font-semibold text-primary hover:underline mb-4"
+                  >
+                    {t('shelters:seeMore')}
+                  </button>
+                </>
               )}
 
-              {shelter.phone && (
-                <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">
-                  📱 <a href={`tel:${shelter.phone}`} className="text-primary hover:underline">{shelter.phone}</a>
+              <div className="mt-auto pt-4">
+                {shelter.phone && (
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
+                    📱 <a href={`tel:${shelter.phone}`} className="text-primary hover:underline">{shelter.phone}</a>
+                  </p>
+                )}
+
+                <div className="flex gap-2">
+                  {shelter.website_url && (
+                    <a
+                      href={shelter.website_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-1 text-center text-sm font-semibold text-primary border border-primary py-2 rounded-lg hover:bg-primary/5 transition-colors"
+                    >
+                      {t('shelters:visitWeb')}
+                    </a>
+                  )}
+                  {shelter.donation_url && (
+                    <a
+                      href={shelter.donation_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-1 text-center text-sm font-semibold text-white bg-green-500 dark:bg-green-600 py-2 rounded-lg hover:bg-green-600 dark:hover:bg-green-700 transition-colors"
+                    >
+                      {t('shelters:donate')}
+                    </a>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="text-center mt-10">
+        {myShelter ? (
+          <Link
+            to="/shelters/mine"
+            className="inline-block bg-primary text-white text-sm font-semibold px-6 py-2.5 rounded-lg hover:bg-primary-dark transition-colors"
+          >
+            {t('shelters:manageButton')}
+          </Link>
+        ) : (
+          <>
+            <p className="text-sm text-gray-400 dark:text-gray-500 mb-3">{t('shelters:registerCta')}</p>
+            <Link
+              to="/shelters/register"
+              className="inline-block bg-primary text-white text-sm font-semibold px-6 py-2.5 rounded-lg hover:bg-primary-dark transition-colors"
+            >
+              {t('shelters:registerButton')}
+            </Link>
+          </>
+        )}
+      </div>
+
+      {detail && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-30 flex items-center justify-center bg-black/40 px-4"
+          onClick={() => setDetail(null)}
+        >
+          <div
+            className="w-full max-w-lg rounded-2xl bg-white dark:bg-gray-900 p-6 max-h-[85vh] overflow-y-auto shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-1">{detail.name}</h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">📍 {detail.city}</p>
+
+            {detail.description && (
+              <p className="text-sm text-gray-600 dark:text-gray-300 mb-5 whitespace-pre-line">
+                {detail.description}
+              </p>
+            )}
+
+            <div className="text-sm text-gray-500 dark:text-gray-400 space-y-1 mb-5">
+              {detail.phone && (
+                <p>
+                  📱 <a href={`tel:${detail.phone}`} className="text-primary hover:underline">{detail.phone}</a>
                 </p>
               )}
+              {detail.email && (
+                <p>
+                  ✉️ <a href={`mailto:${detail.email}`} className="text-primary hover:underline break-all">{detail.email}</a>
+                </p>
+              )}
+            </div>
 
-              <div className="flex gap-2 mt-4">
-                {shelter.website_url && (
+            {(detail.website_url || detail.donation_url) && (
+              <div className="flex gap-2 mb-5">
+                {detail.website_url && (
                   <a
-                    href={shelter.website_url}
+                    href={detail.website_url}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex-1 text-center text-sm font-semibold text-primary border border-primary py-2 rounded-lg hover:bg-primary/5 transition-colors"
@@ -97,9 +199,9 @@ export function SheltersPage() {
                     {t('shelters:visitWeb')}
                   </a>
                 )}
-                {shelter.donation_url && (
+                {detail.donation_url && (
                   <a
-                    href={shelter.donation_url}
+                    href={detail.donation_url}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex-1 text-center text-sm font-semibold text-white bg-green-500 dark:bg-green-600 py-2 rounded-lg hover:bg-green-600 dark:hover:bg-green-700 transition-colors"
@@ -108,16 +210,18 @@ export function SheltersPage() {
                   </a>
                 )}
               </div>
-            </div>
-          ))}
+            )}
+
+            <button
+              type="button"
+              onClick={() => setDetail(null)}
+              className="w-full text-sm font-semibold text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+            >
+              {t('shelters:close')}
+            </button>
+          </div>
         </div>
       )}
-
-      <div className="text-center mt-10">
-        <p className="text-sm text-gray-400 dark:text-gray-500">
-          {t('shelters:contactCta')}
-        </p>
-      </div>
     </div>
   );
 }

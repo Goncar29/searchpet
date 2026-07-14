@@ -116,7 +116,13 @@ type BlockedUserRepository interface {
 type ShelterRepository interface {
 	Create(ctx context.Context, shelter *domain.Shelter) error
 	GetByID(ctx context.Context, id uuid.UUID) (*domain.Shelter, error)
+	// GetAll retorna SOLO refugios approved — es el listado del directorio público.
 	GetAll(ctx context.Context, city string, isVerified *bool) ([]domain.Shelter, error)
+	// GetByOwner retorna el refugio del usuario. ErrShelterNotFound si no tiene.
+	GetByOwner(ctx context.Context, ownerID uuid.UUID) (*domain.Shelter, error)
+	// GetPendingQueue retorna la cola de revisión admin: registros pending +
+	// approved con cambios de links staged. Más viejos primero (FIFO).
+	GetPendingQueue(ctx context.Context) ([]domain.Shelter, error)
 	Update(ctx context.Context, shelter *domain.Shelter) error
 }
 

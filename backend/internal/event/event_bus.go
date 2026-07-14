@@ -182,3 +182,28 @@ type PetLostEvent struct {
 type PetStrayEvent struct {
 	PetID uuid.UUID
 }
+
+// ShelterSubmittedEvent se publica cuando un usuario envía el registro de su
+// refugio (primer envío Y reenvío tras rechazo). Sin listener aún — reservado
+// para alertas/analytics admin futuras.
+type ShelterSubmittedEvent struct {
+	ShelterID   uuid.UUID
+	OwnerUserID uuid.UUID
+	ShelterName string
+}
+
+// ShelterApprovedEvent se publica cuando un admin aprueba un refugio pending.
+// NotificationService le hace push al dueño (mismo patrón que pet.found).
+type ShelterApprovedEvent struct {
+	ShelterID   uuid.UUID
+	OwnerUserID uuid.UUID
+	ShelterName string
+}
+
+// ShelterRejectedEvent se publica cuando un admin rechaza un refugio pending.
+type ShelterRejectedEvent struct {
+	ShelterID   uuid.UUID
+	OwnerUserID uuid.UUID
+	ShelterName string
+	Reason      string
+}

@@ -39,7 +39,11 @@ var (
 	ErrNotMessageReceiver = errors.New("no eres el destinatario de este mensaje")
 
 	// Shelter
-	ErrShelterNotFound = errors.New("refugio no encontrado")
+	ErrShelterNotFound         = errors.New("refugio no encontrado")
+	ErrShelterAlreadyOwned     = errors.New("shelter_already_owned")
+	ErrEmailNotVerified        = errors.New("email_not_verified")
+	ErrInvalidShelterStatus    = errors.New("invalid_shelter_status")
+	ErrRejectionReasonRequired = errors.New("rejection_reason_required")
 
 	// Block
 	ErrBlockNotFound = errors.New("bloqueo no encontrado")
@@ -143,7 +147,11 @@ var ErrorCodes = map[error]string{
 	ErrNotMessageReceiver: "not_message_receiver",
 
 	// Shelter
-	ErrShelterNotFound: "shelter_not_found",
+	ErrShelterNotFound:         "shelter_not_found",
+	ErrShelterAlreadyOwned:     "shelter_already_owned",
+	ErrEmailNotVerified:        "email_not_verified",
+	ErrInvalidShelterStatus:    "invalid_shelter_status",
+	ErrRejectionReasonRequired: "rejection_reason_required",
 
 	// Block
 	ErrBlockNotFound: "block_not_found",

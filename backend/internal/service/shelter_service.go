@@ -2,57 +2,347 @@ package service
 
 import (
 	"context"
+	"errors"
+	"strings"
 
 	"github.com/google/uuid"
 	"lost-pets/internal/domain"
+	"lost-pets/internal/dto"
+	"lost-pets/internal/event"
 	"lost-pets/internal/repository"
 )
 
 // ShelterService define el CONTRATO de la capa de negocio para refugios.
 type ShelterService interface {
 	GetAll(ctx context.Context, city string) ([]domain.Shelter, error)
+	// GetByID es el contrato del directorio PÚBLICO: solo sirve refugios
+	// approved; pending/rejected responden ErrShelterNotFound.
 	GetByID(ctx context.Context, id string) (*domain.Shelter, error)
+	// GetByIDAnyStatus es la vía ADMIN: carga el refugio sin filtrar estado
+	// (la usa el handler admin de update y las transiciones approve/reject).
+	GetByIDAnyStatus(ctx context.Context, id string) (*domain.Shelter, error)
+	// Create es la vía ADMIN: refugio sin dueño, nace approved.
 	Create(ctx context.Context, shelter *domain.Shelter) error
 	Update(ctx context.Context, shelter *domain.Shelter) error
+	// RegisterOwn es el auto-registro: exige email verificado y máximo un
+	// refugio por cuenta; el refugio nace pending y publica shelter.submitted.
+	RegisterOwn(ctx context.Context, userID string, shelter *domain.Shelter) error
+	// GetMine retorna el refugio del usuario. ErrShelterNotFound si no tiene.
+	GetMine(ctx context.Context, userID string) (*domain.Shelter, error)
+	// UpdateMine aplica la edición del dueño según el estado (staging de links
+	// en approved; edición libre + resubmit en pending/rejected).
+	UpdateMine(ctx context.Context, userID string, req *dto.UpdateMyShelterRequest) (*domain.Shelter, error)
+	// GetPendingQueue retorna la cola de revisión admin.
+	GetPendingQueue(ctx context.Context) ([]domain.Shelter, error)
+	// Approve pasa pending → approved y publica shelter.approved.
+	Approve(ctx context.Context, id string) (*domain.Shelter, error)
+	// Reject pasa pending → rejected con motivo y publica shelter.rejected.
+	Reject(ctx context.Context, id string, reason string) (*domain.Shelter, error)
+	// ApproveLinks copia Pending* a los campos vivos y los limpia.
+	ApproveLinks(ctx context.Context, id string) (*domain.Shelter, error)
+	// RejectLinks descarta Pending* sin tocar los campos vivos.
+	RejectLinks(ctx context.Context, id string) (*domain.Shelter, error)
 }
 
 // shelterService es la implementación concreta del ShelterService.
 type shelterService struct {
-	repo repository.ShelterRepository
+	repo     repository.ShelterRepository
+	userRepo repository.UserRepository
+	bus      *event.EventBus
 }
 
 // NewShelterService construye el ShelterService con sus dependencias.
-func NewShelterService(repo repository.ShelterRepository) ShelterService {
-	return &shelterService{repo: repo}
+// bus puede ser nil (los eventos simplemente no se publican).
+func NewShelterService(repo repository.ShelterRepository, userRepo repository.UserRepository, bus *event.EventBus) ShelterService {
+	return &shelterService{repo: repo, userRepo: userRepo, bus: bus}
 }
 
-// GetAll retorna refugios filtrados por ciudad (opcional).
+// GetAll retorna refugios del directorio público (el repo filtra approved).
 // city == "" → sin filtro por ciudad.
-// MVP: no filtra por isVerified — el repo lo soporta, pero no lo exponemos en esta versión.
 func (s *shelterService) GetAll(ctx context.Context, city string) ([]domain.Shelter, error) {
 	return s.repo.GetAll(ctx, city, nil)
 }
 
-// GetByID busca un refugio por su ID string.
-// Parsea el string a uuid.UUID y delega al repositorio.
-// Retorna ErrShelterNotFound si no existe.
-func (s *shelterService) GetByID(ctx context.Context, id string) (*domain.Shelter, error) {
+// getByIDAnyStatus busca un refugio por su ID string sin filtrar estado.
+// Helper interno compartido por la vía pública (que filtra) y la admin.
+func (s *shelterService) getByIDAnyStatus(ctx context.Context, id string) (*domain.Shelter, error) {
 	shelterUUID, err := uuid.Parse(id)
 	if err != nil {
 		return nil, domain.ErrInvalidInput
 	}
-
 	return s.repo.GetByID(ctx, shelterUUID)
 }
 
-// Create persiste un nuevo refugio en la base de datos.
-// Delega directamente al repositorio sin lógica de negocio adicional en esta versión.
+// GetByID es el contrato del directorio público: un refugio no approved
+// responde ErrShelterNotFound — nunca filtramos datos sin moderar (y un 404
+// no revela la existencia de un pending/rejected).
+func (s *shelterService) GetByID(ctx context.Context, id string) (*domain.Shelter, error) {
+	shelter, err := s.getByIDAnyStatus(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if shelter.Status != domain.ShelterStatusApproved {
+		return nil, domain.ErrShelterNotFound
+	}
+	return shelter, nil
+}
+
+// GetByIDAnyStatus expone la carga sin filtro para los flujos admin.
+func (s *shelterService) GetByIDAnyStatus(ctx context.Context, id string) (*domain.Shelter, error) {
+	return s.getByIDAnyStatus(ctx, id)
+}
+
+// Create persiste un refugio creado por un admin: sin dueño y nace approved
+// (los admins ya vetaron los datos — no pasan por la cola).
 func (s *shelterService) Create(ctx context.Context, shelter *domain.Shelter) error {
+	shelter.Status = domain.ShelterStatusApproved
 	return s.repo.Create(ctx, shelter)
 }
 
-// Update aplica los cambios a un refugio existente.
-// El shelter debe tener un ID válido; el repositorio retorna ErrShelterNotFound si no existe.
+// Update aplica los cambios de un refugio existente (vía admin).
 func (s *shelterService) Update(ctx context.Context, shelter *domain.Shelter) error {
 	return s.repo.Update(ctx, shelter)
+}
+
+// RegisterOwn registra el refugio del usuario autenticado.
+func (s *shelterService) RegisterOwn(ctx context.Context, userID string, shelter *domain.Shelter) error {
+	ownerUUID, err := uuid.Parse(userID)
+	if err != nil {
+		return domain.ErrInvalidInput
+	}
+
+	user, err := s.userRepo.GetByID(ctx, ownerUUID)
+	if err != nil {
+		return err
+	}
+	if !user.EmailVerified {
+		return domain.ErrEmailNotVerified
+	}
+
+	// Pre-check amable (409 con code claro); el índice único parcial de la
+	// migración 000016 es la garantía real contra la carrera.
+	if _, err := s.repo.GetByOwner(ctx, ownerUUID); err == nil {
+		return domain.ErrShelterAlreadyOwned
+	} else if !errors.Is(err, domain.ErrShelterNotFound) {
+		return err
+	}
+
+	shelter.OwnerUserID = &ownerUUID
+	shelter.Status = domain.ShelterStatusPending
+	if err := s.repo.Create(ctx, shelter); err != nil {
+		return err
+	}
+
+	if s.bus != nil {
+		s.bus.Publish("shelter.submitted", event.ShelterSubmittedEvent{
+			ShelterID:   shelter.ID,
+			OwnerUserID: ownerUUID,
+			ShelterName: shelter.Name,
+		})
+	}
+	return nil
+}
+
+// GetMine retorna el refugio del usuario autenticado.
+func (s *shelterService) GetMine(ctx context.Context, userID string) (*domain.Shelter, error) {
+	ownerUUID, err := uuid.Parse(userID)
+	if err != nil {
+		return nil, domain.ErrInvalidInput
+	}
+	return s.repo.GetByOwner(ctx, ownerUUID)
+}
+
+// UpdateMine aplica la edición del dueño según el estado del refugio:
+//   - approved: los campos normales aplican al instante; un cambio de
+//     website/donation queda STAGED en Pending* (revisión admin) y el listado
+//     público sigue sirviendo el valor vivo mientras tanto.
+//   - pending: todo edita libre, sigue pending.
+//   - rejected: todo edita libre y el guardado REENVÍA (→ pending, limpia el
+//     motivo, publica shelter.submitted).
+func (s *shelterService) UpdateMine(ctx context.Context, userID string, req *dto.UpdateMyShelterRequest) (*domain.Shelter, error) {
+	ownerUUID, err := uuid.Parse(userID)
+	if err != nil {
+		return nil, domain.ErrInvalidInput
+	}
+	shelter, err := s.repo.GetByOwner(ctx, ownerUUID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Campos "normales": aplican en cualquier estado.
+	if req.Name != nil {
+		shelter.Name = *req.Name
+	}
+	if req.City != nil {
+		shelter.City = *req.City
+	}
+	if req.Phone != nil {
+		shelter.Phone = *req.Phone
+	}
+	if req.Email != nil {
+		shelter.Email = *req.Email
+	}
+	if req.Description != nil {
+		shelter.Description = *req.Description
+	}
+	if req.Latitude != nil {
+		shelter.Latitude = req.Latitude
+	}
+	if req.Longitude != nil {
+		shelter.Longitude = req.Longitude
+	}
+
+	resubmitted := false
+	if shelter.Status == domain.ShelterStatusApproved {
+		// Links sensibles → staging. Solo si el valor realmente cambia;
+		// reenviar el valor vivo CANCELA un staged previo.
+		if req.WebsiteURL != nil {
+			if *req.WebsiteURL != shelter.WebsiteURL {
+				shelter.PendingWebsiteURL = req.WebsiteURL
+			} else {
+				shelter.PendingWebsiteURL = nil // reenviar el valor vivo cancela el staged
+			}
+		}
+		if req.DonationURL != nil {
+			if *req.DonationURL != shelter.DonationURL {
+				shelter.PendingDonationURL = req.DonationURL
+			} else {
+				shelter.PendingDonationURL = nil
+			}
+		}
+	} else {
+		// pending/rejected: los links editan libre (todavía no hay nada publicado).
+		if req.WebsiteURL != nil {
+			shelter.WebsiteURL = *req.WebsiteURL
+		}
+		if req.DonationURL != nil {
+			shelter.DonationURL = *req.DonationURL
+		}
+		if shelter.Status == domain.ShelterStatusRejected {
+			shelter.Status = domain.ShelterStatusPending
+			shelter.RejectionReason = ""
+			resubmitted = true
+		}
+	}
+
+	if err := s.repo.Update(ctx, shelter); err != nil {
+		return nil, err
+	}
+
+	if resubmitted && s.bus != nil && shelter.OwnerUserID != nil {
+		s.bus.Publish("shelter.submitted", event.ShelterSubmittedEvent{
+			ShelterID:   shelter.ID,
+			OwnerUserID: *shelter.OwnerUserID,
+			ShelterName: shelter.Name,
+		})
+	}
+	return shelter, nil
+}
+
+// GetPendingQueue delega al repositorio.
+func (s *shelterService) GetPendingQueue(ctx context.Context) ([]domain.Shelter, error) {
+	return s.repo.GetPendingQueue(ctx)
+}
+
+// Approve pasa un refugio pending → approved y notifica al dueño.
+func (s *shelterService) Approve(ctx context.Context, id string) (*domain.Shelter, error) {
+	shelter, err := s.getByIDAnyStatus(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if shelter.Status != domain.ShelterStatusPending {
+		return nil, domain.ErrInvalidShelterStatus
+	}
+	shelter.Status = domain.ShelterStatusApproved
+	shelter.RejectionReason = ""
+	if err := s.repo.Update(ctx, shelter); err != nil {
+		return nil, err
+	}
+	if s.bus != nil && shelter.OwnerUserID != nil {
+		s.bus.Publish("shelter.approved", event.ShelterApprovedEvent{
+			ShelterID:   shelter.ID,
+			OwnerUserID: *shelter.OwnerUserID,
+			ShelterName: shelter.Name,
+		})
+	}
+	return shelter, nil
+}
+
+// Reject pasa un refugio pending → rejected con motivo obligatorio.
+// rejected NO es terminal: el dueño edita y reenvía (UpdateMine).
+func (s *shelterService) Reject(ctx context.Context, id string, reason string) (*domain.Shelter, error) {
+	reason = strings.TrimSpace(reason)
+	if reason == "" {
+		return nil, domain.ErrRejectionReasonRequired
+	}
+	shelter, err := s.getByIDAnyStatus(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if shelter.Status != domain.ShelterStatusPending {
+		return nil, domain.ErrInvalidShelterStatus
+	}
+	shelter.Status = domain.ShelterStatusRejected
+	shelter.RejectionReason = reason
+	if err := s.repo.Update(ctx, shelter); err != nil {
+		return nil, err
+	}
+	if s.bus != nil && shelter.OwnerUserID != nil {
+		s.bus.Publish("shelter.rejected", event.ShelterRejectedEvent{
+			ShelterID:   shelter.ID,
+			OwnerUserID: *shelter.OwnerUserID,
+			ShelterName: shelter.Name,
+			Reason:      reason,
+		})
+	}
+	return shelter, nil
+}
+
+// getWithStagedLinks carga el refugio y valida que esté approved con al menos
+// un cambio de link staged — guard compartido de ApproveLinks/RejectLinks.
+func (s *shelterService) getWithStagedLinks(ctx context.Context, id string) (*domain.Shelter, error) {
+	shelter, err := s.getByIDAnyStatus(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if shelter.Status != domain.ShelterStatusApproved ||
+		(shelter.PendingDonationURL == nil && shelter.PendingWebsiteURL == nil) {
+		return nil, domain.ErrInvalidShelterStatus
+	}
+	return shelter, nil
+}
+
+// ApproveLinks copia los Pending* a los campos vivos y los limpia.
+// Un staged clear (&"") deja el campo vivo vacío — el link desaparece del listado.
+func (s *shelterService) ApproveLinks(ctx context.Context, id string) (*domain.Shelter, error) {
+	shelter, err := s.getWithStagedLinks(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if shelter.PendingDonationURL != nil {
+		shelter.DonationURL = *shelter.PendingDonationURL
+		shelter.PendingDonationURL = nil
+	}
+	if shelter.PendingWebsiteURL != nil {
+		shelter.WebsiteURL = *shelter.PendingWebsiteURL
+		shelter.PendingWebsiteURL = nil
+	}
+	if err := s.repo.Update(ctx, shelter); err != nil {
+		return nil, err
+	}
+	return shelter, nil
+}
+
+// RejectLinks descarta los Pending* sin tocar los campos vivos.
+func (s *shelterService) RejectLinks(ctx context.Context, id string) (*domain.Shelter, error) {
+	shelter, err := s.getWithStagedLinks(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	shelter.PendingDonationURL = nil
+	shelter.PendingWebsiteURL = nil
+	if err := s.repo.Update(ctx, shelter); err != nil {
+		return nil, err
+	}
+	return shelter, nil
 }

@@ -366,20 +366,40 @@ type VerificationToken struct {
 	CreatedAt   time.Time `gorm:"autoCreateTime" json:"created_at"`
 }
 
+// Estados del flujo de auto-registro de refugios.
+// pending → en cola de aprobación admin; approved → visible en el directorio
+// público; rejected → devuelto al dueño con motivo (editable + reenviable).
+const (
+	ShelterStatusPending  = "pending"
+	ShelterStatusApproved = "approved"
+	ShelterStatusRejected = "rejected"
+)
+
 // Shelter representa un refugio de animales
 type Shelter struct {
-	ID          uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
-	Name        string    `gorm:"not null;size:255" json:"name"`
-	City        string    `gorm:"not null;size:100;index" json:"city"`
-	Latitude    *float64  `gorm:"type:decimal(10,8)" json:"latitude,omitempty"`
-	Longitude   *float64  `gorm:"type:decimal(11,8)" json:"longitude,omitempty"`
-	Phone       string    `gorm:"size:20" json:"phone,omitempty"`
-	Email       string    `gorm:"size:255" json:"email,omitempty"`
-	WebsiteURL  string    `gorm:"size:500" json:"website_url,omitempty"`
-	DonationURL string    `gorm:"size:500" json:"donation_url,omitempty"`
-	Description string    `gorm:"type:text" json:"description,omitempty"`
-	IsVerified  bool      `gorm:"default:false;index" json:"is_verified"`
-	CreatedAt   time.Time `gorm:"autoCreateTime" json:"created_at"`
+	ID          uuid.UUID  `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+	OwnerUserID *uuid.UUID `gorm:"type:uuid" json:"owner_user_id,omitempty"`
+	Name        string     `gorm:"not null;size:255" json:"name"`
+	City        string     `gorm:"not null;size:100;index" json:"city"`
+	Latitude    *float64   `gorm:"type:decimal(10,8)" json:"latitude,omitempty"`
+	Longitude   *float64   `gorm:"type:decimal(11,8)" json:"longitude,omitempty"`
+	Phone       string     `gorm:"size:20" json:"phone,omitempty"`
+	Email       string     `gorm:"size:255" json:"email,omitempty"`
+	WebsiteURL  string     `gorm:"size:500" json:"website_url,omitempty"`
+	DonationURL string     `gorm:"size:500" json:"donation_url,omitempty"`
+	Description string     `gorm:"type:text" json:"description,omitempty"`
+	IsVerified  bool       `gorm:"default:false;index" json:"is_verified"`
+	// Status del flujo de aprobación. El índice único parcial sobre
+	// owner_user_id y el backfill de filas viejas viven en la migración 000016
+	// (AutoMigrate no puede crear índices únicos parciales).
+	Status          string `gorm:"size:20;not null;default:'pending';index" json:"status"`
+	RejectionReason string `gorm:"type:text" json:"rejection_reason,omitempty"`
+	// Cambios de links staged (regla #22): nil = sin cambio pendiente,
+	// &"" = borrado pendiente, &"https://..." = reemplazo pendiente.
+	PendingDonationURL *string   `gorm:"size:500" json:"pending_donation_url,omitempty"`
+	PendingWebsiteURL  *string   `gorm:"size:500" json:"pending_website_url,omitempty"`
+	CreatedAt          time.Time `gorm:"autoCreateTime" json:"created_at"`
+	UpdatedAt          time.Time `gorm:"autoUpdateTime" json:"updated_at"`
 }
 
 // ============================================================
