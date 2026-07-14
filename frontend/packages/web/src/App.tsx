@@ -7,6 +7,7 @@ import { AbuseReportsPage } from './pages/admin/AbuseReportsPage';
 import { StoriesAdminPage } from './pages/admin/StoriesAdminPage';
 import { GroupsAdminPage } from './pages/admin/GroupsAdminPage';
 import { AdminsPage } from './pages/admin/AdminsPage';
+import { SheltersAdminPage } from './pages/admin/SheltersAdminPage';
 import { HomePage } from './pages/HomePage';
 import { MapPage } from './pages/MapPage';
 import { PetDetailPage } from './pages/PetDetailPage';
@@ -81,6 +82,7 @@ export default function App() {
               <Route path="stories" element={<StoriesAdminPage />} />
               <Route path="groups" element={<GroupsAdminPage />} />
               <Route path="admins" element={<AdminsPage />} />
+              <Route path="shelters" element={<SheltersAdminPage />} />
             </Route>
           </Route>
         </Route>
