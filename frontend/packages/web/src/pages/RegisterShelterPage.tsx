@@ -95,6 +95,7 @@ export function RegisterShelterPage() {
           <div className="mt-6 space-y-2 text-sm text-gray-500 dark:text-gray-400">
             <p>{t('shelters:register.reviewNote')}</p>
             <p>{t('shelters:register.noMoneyNote')}</p>
+            <p>{t('shelters:register.oneShelterNote')}</p>
           </div>
           {emailVerified ? (
             <button

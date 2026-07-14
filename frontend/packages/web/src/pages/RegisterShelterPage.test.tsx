@@ -56,6 +56,7 @@ describe('RegisterShelterPage', () => {
     expect(screen.getByText('shelters:register.step3Title')).toBeTruthy();
     expect(screen.getByText('shelters:register.reviewNote')).toBeTruthy();
     expect(screen.getByText('shelters:register.noMoneyNote')).toBeTruthy();
+    expect(screen.getByText('shelters:register.oneShelterNote')).toBeTruthy();
   });
 
   it('blocks unverified users with a link to verification instead of the start button', () => {
