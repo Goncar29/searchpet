@@ -38,6 +38,9 @@ import type {
   GroupMember,
   VerificationStatus,
   Shelter,
+  MyShelter,
+  RegisterShelterRequest,
+  UpdateMyShelterRequest,
   Pet,
   PublishLostRequest,
   Vet,
@@ -571,6 +574,42 @@ export const useShelterByID = (id: string) => {
     queryKey: ['shelter', id],
     queryFn: () => apiClient.getShelterByID(id),
     enabled: !!id,
+  });
+};
+
+// useMyShelter — GET /api/shelters/mine. A 404 (shelter_not_found) means the
+// user has no shelter yet: surfaces as an error whose .code the pages check.
+// retry:false so the expected 404 doesn't burn 3 retries before settling.
+export const useMyShelter = () => {
+  return useQuery<MyShelter, Error & { code?: string }>({
+    queryKey: ['shelter', 'mine'],
+    queryFn: () => apiClient.getMyShelter(),
+    retry: false,
+  });
+};
+
+// useRegisterShelter — POST /api/shelters. Invalidates the owner view; the
+// public list is untouched on purpose (a pending shelter is not listed yet).
+export const useRegisterShelter = () => {
+  const queryClient = useQueryClient();
+  return useMutation<MyShelter, Error, RegisterShelterRequest>({
+    mutationFn: (data) => apiClient.registerShelter(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['shelter', 'mine'] });
+    },
+  });
+};
+
+// useUpdateMyShelter — PUT /api/shelters/mine. Invalidates owner view AND the
+// public directory (non-link fields apply immediately on approved shelters).
+export const useUpdateMyShelter = () => {
+  const queryClient = useQueryClient();
+  return useMutation<MyShelter, Error, UpdateMyShelterRequest>({
+    mutationFn: (data) => apiClient.updateMyShelter(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['shelter', 'mine'] });
+      queryClient.invalidateQueries({ queryKey: ['shelters'] });
+    },
   });
 };
 

@@ -67,6 +67,10 @@ import type {
   GroupMember,
   VerificationStatus,
   Shelter,
+  MyShelter,
+  AdminShelter,
+  RegisterShelterRequest,
+  UpdateMyShelterRequest,
   AdminAuditListResponse,
   AdminRoleResult,
 } from '../types';
@@ -640,6 +644,38 @@ class APIClient {
 
   async getShelterByID(id: string): Promise<Shelter> {
     return this.request<Shelter>('GET', `/api/shelters/${encodeURIComponent(id)}`);
+  }
+
+  async registerShelter(data: RegisterShelterRequest): Promise<MyShelter> {
+    return this.request<MyShelter>('POST', '/api/shelters', data);
+  }
+
+  async getMyShelter(): Promise<MyShelter> {
+    return this.request<MyShelter>('GET', '/api/shelters/mine');
+  }
+
+  async updateMyShelter(data: UpdateMyShelterRequest): Promise<MyShelter> {
+    return this.request<MyShelter>('PUT', '/api/shelters/mine', data);
+  }
+
+  async getPendingShelters(): Promise<AdminShelter[]> {
+    return this.request<AdminShelter[]>('GET', '/api/admin/shelters/pending');
+  }
+
+  async approveShelter(id: string): Promise<AdminShelter> {
+    return this.request<AdminShelter>('POST', `/api/admin/shelters/${encodeURIComponent(id)}/approve`);
+  }
+
+  async rejectShelter(id: string, reason: string): Promise<AdminShelter> {
+    return this.request<AdminShelter>('POST', `/api/admin/shelters/${encodeURIComponent(id)}/reject`, { reason });
+  }
+
+  async approveShelterLinks(id: string): Promise<AdminShelter> {
+    return this.request<AdminShelter>('POST', `/api/admin/shelters/${encodeURIComponent(id)}/links/approve`);
+  }
+
+  async rejectShelterLinks(id: string): Promise<AdminShelter> {
+    return this.request<AdminShelter>('POST', `/api/admin/shelters/${encodeURIComponent(id)}/links/reject`);
   }
 
   // ============================================================

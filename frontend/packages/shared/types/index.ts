@@ -161,6 +161,50 @@ export interface Shelter {
   created_at: string;
 }
 
+export type ShelterStatus = 'pending' | 'approved' | 'rejected';
+
+// Owner view of their shelter (GET /api/shelters/mine).
+// GOTCHA: pending_* use Go *string omitempty semantics — a staged CLEAR arrives
+// as "" (present), no staged change arrives as undefined (absent). Check with
+// `!== undefined`, never truthiness.
+export interface MyShelter extends Shelter {
+  status: ShelterStatus;
+  rejection_reason?: string;
+  pending_donation_url?: string;
+  pending_website_url?: string;
+}
+
+// Admin queue view: owner view + who owns it.
+export interface AdminShelter extends MyShelter {
+  owner_user_id?: string;
+}
+
+export interface RegisterShelterRequest {
+  name: string;
+  city: string;
+  phone?: string;
+  email?: string;
+  website_url?: string;
+  donation_url?: string;
+  description?: string;
+  latitude?: number;
+  longitude?: number;
+}
+
+// PUT /api/shelters/mine — send "" to clear a field (backend *string pattern,
+// rule #22); omit (undefined) to leave it untouched.
+export interface UpdateMyShelterRequest {
+  name?: string;
+  city?: string;
+  phone?: string;
+  email?: string;
+  description?: string;
+  website_url?: string;
+  donation_url?: string;
+  latitude?: number;
+  longitude?: number;
+}
+
 // ============================================================
 // GAMIFICATION
 // ============================================================
