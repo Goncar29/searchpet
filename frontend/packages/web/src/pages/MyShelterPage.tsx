@@ -125,6 +125,7 @@ export function MyShelterPage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setApiError(null);
+    setSaved(false);
     if (!validate()) return;
     // Regla #22: mandamos TODOS los campos, incluso "" (vaciar). El backend
     // distingue nil (no enviado) de "" (limpiar) con punteros.
