@@ -1,7 +1,9 @@
 import type { PetStatus } from '../types';
 
 export interface ExpiryInfo {
-  label: string;
+  // Parsed expiry date so callers can format it in the user's locale.
+  // null when there is no applicable expiry (hasExpiry === false).
+  expiresAt: Date | null;
   daysRemaining: number;
   isWarning: boolean;
   isExpired: boolean;
@@ -9,7 +11,7 @@ export interface ExpiryInfo {
 }
 
 const NO_EXPIRY: ExpiryInfo = {
-  label: '',
+  expiresAt: null,
   daysRemaining: Infinity,
   isWarning: false,
   isExpired: false,
@@ -39,14 +41,8 @@ export function getExpiryInfo(expiresAt: string | undefined, petStatus?: PetStat
   const isExpired = daysRemaining <= 0;
   const isWarning = daysRemaining > 0 && daysRemaining < 7;
 
-  const label = expiry.toLocaleDateString('es', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  });
-
   return {
-    label: `Vence ${label}`,
+    expiresAt: expiry,
     daysRemaining,
     isWarning,
     isExpired,

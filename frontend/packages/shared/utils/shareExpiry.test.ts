@@ -21,7 +21,7 @@ describe('getExpiryInfo', () => {
     expect(info.isExpired).toBe(false);
     expect(info.isWarning).toBe(false);
     expect(info.daysRemaining).toBe(20);
-    expect(info.label).toMatch(/^Vence /);
+    expect(info.expiresAt).toBeInstanceOf(Date);
   });
 
   it('warns when fewer than 7 days remain', () => {

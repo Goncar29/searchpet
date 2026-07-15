@@ -58,7 +58,7 @@ function PetCard({
     perro: t('pets:types.dog'),
     gato: t('pets:types.cat'),
     otro: t('pets:types.other'),
-    pajaro: t('pets:types.other'),
+    pajaro: t('pets:types.pajaro'),
   };
 
   const isConfirming = confirmingId === pet.id;

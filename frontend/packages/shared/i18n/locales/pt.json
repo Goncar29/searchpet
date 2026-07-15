@@ -164,6 +164,7 @@
       "copied": "✓ Copiado",
       "copiedToast": "Link copiado para a área de transferência",
       "linkExpired": "Link expirado — gere um novo",
+      "expiresOn": "Expira {{date}}",
       "qrTitle": "Código QR",
       "qrHint": "Escaneie para abrir a ficha de {{name}}",
       "qrDownload": "Baixar QR (PNG)",
