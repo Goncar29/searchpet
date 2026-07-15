@@ -5,6 +5,7 @@
 // ============================================================
 
 import { useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { QRCodeCanvas } from 'qrcode.react';
 import { useShareLink } from '@shared/hooks';
 import type { Pet, Report } from '@shared/types';
@@ -18,6 +19,7 @@ interface PdfFlyerButtonProps {
 const MAX_DESCRIPTION_CHARS = 300;
 
 export function PdfFlyerButton({ pet, reports = [] }: PdfFlyerButtonProps) {
+  const { t } = useTranslation();
   const [isGenerating, setIsGenerating] = useState(false);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [shareError, setShareError] = useState(false);
@@ -133,12 +135,12 @@ export function PdfFlyerButton({ pet, reports = [] }: PdfFlyerButtonProps) {
         onClick={handleGenerate}
         disabled={isGenerating || shareError}
         className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-semibold rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
-        title="Descargar volante PDF para imprimir"
+        title={t('pets:flyer.title')}
       >
         {isGenerating ? (
           <>
             <span className="animate-spin">⏳</span>
-            Generando PDF...
+            {t('pets:flyer.generating')}
           </>
         ) : shareError ? (
           <>
@@ -146,7 +148,7 @@ export function PdfFlyerButton({ pet, reports = [] }: PdfFlyerButtonProps) {
           </>
         ) : (
           <>
-            📄 Descargar volante
+            📄 {t('pets:flyer.button')}
           </>
         )}
       </button>

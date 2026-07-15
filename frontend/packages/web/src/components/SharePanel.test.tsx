@@ -11,6 +11,13 @@ const shareLink: ShareLink = {
 
 const mutateAsync = vi.fn().mockResolvedValue(shareLink);
 
+vi.mock('react-i18next', () => ({
+  useTranslation: () => ({
+    t: (key: string, opts?: Record<string, unknown>) => (opts?.name ? `${key}:${opts.name}` : key),
+    i18n: { language: 'es' },
+  }),
+}));
+
 vi.mock('@shared/hooks', () => ({
   useShareLink: () => ({ mutateAsync, isPending: false }),
 }));
@@ -36,7 +43,7 @@ describe('SharePanel — Story template', () => {
       <SharePanel petId="pet-1" petName="Firulais" pet={basePet} />
     );
 
-    await userEvent.click(getByRole('button', { name: /compartir/i }));
+    await userEvent.click(getByRole('button', { name: /pets:share.button/i }));
 
     await waitFor(() => {
       const story = container.querySelector('[data-testid="story-template"]') as HTMLElement;
@@ -82,7 +89,7 @@ describe('SharePanel — Instagram Story share (mobile, file sharing supported)'
       <SharePanel petId="pet-1" petName="Firulais" pet={basePet} />
     );
 
-    await userEvent.click(getByRole('button', { name: /compartir/i }));
+    await userEvent.click(getByRole('button', { name: /pets:share.button/i }));
     await waitFor(() => expect(mutateAsync).toHaveBeenCalled());
 
     const instagramButton = getAllByRole('button', { name: /instagram/i })[0];
@@ -119,13 +126,13 @@ describe('SharePanel — Instagram Story share (desktop, no file sharing)', () =
       <SharePanel petId="pet-1" petName="Firulais" pet={basePet} />
     );
 
-    await userEvent.click(getByRole('button', { name: /compartir/i }));
+    await userEvent.click(getByRole('button', { name: /pets:share.button/i }));
     await waitFor(() => expect(mutateAsync).toHaveBeenCalled());
 
     const instagramButton = getAllByRole('button', { name: /instagram/i })[0];
     await userEvent.click(instagramButton);
 
-    expect(await findByText(/Imagen descargada/i)).toBeTruthy();
+    expect(await findByText(/pets:share.storyDownloaded/i)).toBeTruthy();
     expect(clickSpy).toHaveBeenCalled();
     expect(URL.createObjectURL).toHaveBeenCalled();
   });
@@ -149,7 +156,7 @@ describe('SharePanel — Instagram Story share (user cancels share sheet)', () =
       <SharePanel petId="pet-1" petName="Firulais" pet={basePet} />
     );
 
-    await userEvent.click(getByRole('button', { name: /compartir/i }));
+    await userEvent.click(getByRole('button', { name: /pets:share.button/i }));
     await waitFor(() => expect(mutateAsync).toHaveBeenCalled());
 
     const instagramButton = getAllByRole('button', { name: /instagram/i })[0];
@@ -158,6 +165,6 @@ describe('SharePanel — Instagram Story share (user cancels share sheet)', () =
     await waitFor(() => expect(shareMock).toHaveBeenCalledTimes(1));
 
     expect(clickSpy).not.toHaveBeenCalled();
-    expect(queryByText(/Imagen descargada/i)).toBeNull();
+    expect(queryByText(/pets:share.storyDownloaded/i)).toBeNull();
   });
 });

@@ -5,6 +5,7 @@
 // ============================================================
 
 import { useState, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { QRCodeSVG, QRCodeCanvas } from 'qrcode.react';
 import { useShareLink } from '@shared/hooks';
 import type { Pet, ShareLink } from '@shared/types';
@@ -59,6 +60,7 @@ const PLATFORMS: {
 ];
 
 export function SharePanel({ petId, petName, pet }: SharePanelProps) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [shareLink, setShareLink] = useState<ShareLink | null>(null);
   const [copied, setCopied] = useState(false);
@@ -154,7 +156,7 @@ export function SharePanel({ petId, petName, pet }: SharePanelProps) {
       }
 
       downloadStoryImage(blob, storyFilename);
-      setStoryMessage('Imagen descargada — subila como Historia desde tu celular 📲');
+      setStoryMessage(t('pets:share.storyDownloaded'));
       setTimeout(() => setStoryMessage(null), 4000);
     } finally {
       setIsSharingStory(false);
@@ -206,11 +208,11 @@ export function SharePanel({ petId, petName, pet }: SharePanelProps) {
         {generateLink.isPending ? (
           <>
             <span className="animate-spin">⏳</span>
-            Generando...
+            {t('pets:share.generating')}
           </>
         ) : (
           <>
-            🔗 Compartir
+            🔗 {t('pets:share.button')}
           </>
         )}
       </button>
@@ -226,10 +228,10 @@ export function SharePanel({ petId, petName, pet }: SharePanelProps) {
           {/* Panel */}
           <div className="absolute left-0 top-full mt-2 z-20 w-80 bg-white dark:bg-gray-900 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-800 p-4">
             <p className="text-sm font-bold text-gray-900 dark:text-gray-100 mb-1">
-              Compartir a {petName}
+              {t('pets:share.title', { name: petName })}
             </p>
             <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
-              Compartir aumenta las chances de encontrarlo/a
+              {t('pets:share.subtitle')}
             </p>
 
             {/* Plataformas */}
@@ -257,7 +259,7 @@ export function SharePanel({ petId, petName, pet }: SharePanelProps) {
                   onClick={handleCopy}
                   className="text-xs font-semibold text-primary hover:text-primary-dark flex-shrink-0"
                 >
-                  {copied ? '✓ Copiado' : 'Copiar'}
+                  {copied ? t('pets:share.copied') : t('pets:share.copy')}
                 </button>
               </div>
             )}
@@ -269,7 +271,7 @@ export function SharePanel({ petId, petName, pet }: SharePanelProps) {
               if (expiry.isExpired) {
                 return (
                   <p className="text-xs mt-1 mb-2 text-red-500 font-semibold">
-                    Link expirado — genera uno nuevo
+                    {t('pets:share.linkExpired')}
                   </p>
                 );
               }
@@ -284,7 +286,7 @@ export function SharePanel({ petId, petName, pet }: SharePanelProps) {
             {shareLink?.share_url && (
               <div className="border-t border-gray-100 dark:border-gray-800 pt-3 mt-1">
                 <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                  Código QR
+                  {t('pets:share.qrTitle')}
                 </p>
                 <div className="flex items-center gap-3">
                   {/* QR SVG visible — 150x150 mínimo según spec */}
@@ -297,13 +299,13 @@ export function SharePanel({ petId, petName, pet }: SharePanelProps) {
                   </div>
                   <div className="flex flex-col gap-2">
                     <p className="text-xs text-gray-500 dark:text-gray-400">
-                      Escanealo para abrir la ficha de {petName}
+                      {t('pets:share.qrHint', { name: petName })}
                     </p>
                     <button
                       onClick={handleDownloadQR}
                       className="text-xs font-semibold text-primary hover:text-primary-dark text-left"
                     >
-                      Descargar QR (PNG)
+                      {t('pets:share.qrDownload')}
                     </button>
                   </div>
                 </div>
@@ -321,7 +323,7 @@ export function SharePanel({ petId, petName, pet }: SharePanelProps) {
 
             {copied && (
               <p className="text-xs text-green-600 dark:text-green-400 mt-2 text-center">
-                Link copiado al portapapeles
+                {t('pets:share.copiedToast')}
               </p>
             )}
 

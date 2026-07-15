@@ -154,6 +154,44 @@
       "archived": "Arquivado",
       "sighting": "Avistamento",
       "active": "Ativo"
+    },
+    "share": {
+      "button": "Compartilhar",
+      "generating": "Gerando...",
+      "title": "Compartilhar {{name}}",
+      "subtitle": "Compartilhar aumenta as chances de encontrá-lo(a)",
+      "copy": "Copiar",
+      "copied": "✓ Copiado",
+      "copiedToast": "Link copiado para a área de transferência",
+      "linkExpired": "Link expirado — gere um novo",
+      "qrTitle": "Código QR",
+      "qrHint": "Escaneie para abrir a ficha de {{name}}",
+      "qrDownload": "Baixar QR (PNG)",
+      "storyDownloaded": "Imagem baixada — publique como Story pelo seu celular 📲"
+    },
+    "report": {
+      "button": "Denunciar publicação",
+      "sending": "Enviando...",
+      "reasonLabel": "Motivo da denúncia:",
+      "cancel": "Cancelar",
+      "success": "Denúncia enviada. Obrigado por reportar.",
+      "reasons": {
+        "spam": "Spam",
+        "fake": "Publicação falsa",
+        "abuse": "Abuso",
+        "inappropriate": "Conteúdo inapropriado",
+        "other": "Outro"
+      }
+    },
+    "map": {
+      "show": "Mostrar mapa",
+      "hide": "Ocultar mapa",
+      "loading": "Carregando mapa..."
+    },
+    "flyer": {
+      "button": "Baixar cartaz",
+      "generating": "Gerando PDF...",
+      "title": "Baixar cartaz PDF para imprimir"
     }
   },
   "chat": {
