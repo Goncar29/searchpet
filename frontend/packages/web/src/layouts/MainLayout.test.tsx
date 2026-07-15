@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MainLayout } from './MainLayout';
@@ -28,6 +28,7 @@ vi.mock('../components/LanguageSwitcher', () => ({
 vi.mock('@shared/hooks', () => ({
   useUnreadCount: vi.fn(),
   useWebSocket: () => ({ connectionState: 'connected', sendEnvelope: vi.fn() }),
+  useMyShelter: () => ({ data: undefined }),
 }));
 
 import { useUnreadCount } from '@shared/hooks';
@@ -72,5 +73,31 @@ describe('MainLayout — badge de mensajes sin leer', () => {
     renderLayout();
 
     expect(screen.queryByText('0')).toBeNull();
+  });
+});
+
+describe('MainLayout — menú de perfil', () => {
+  it('mantiene los privados fuera del nav hasta abrir el menú de perfil', () => {
+    vi.mocked(useUnreadCount).mockReturnValue({ data: { count: 0 } } as unknown as ReturnType<
+      typeof useUnreadCount
+    >);
+
+    renderLayout();
+
+    // Cerrado por defecto: los privados no están en el DOM.
+    expect(screen.queryByText('myPets')).toBeNull();
+    expect(screen.queryByText('alerts')).toBeNull();
+    expect(screen.queryByText('logout')).toBeNull();
+
+    // Abrir el menú de perfil.
+    fireEvent.click(screen.getByLabelText('userMenu'));
+
+    expect(screen.getByText('profile')).toBeTruthy();
+    expect(screen.getByText('myPets')).toBeTruthy();
+    expect(screen.getByText('alerts')).toBeTruthy();
+    expect(screen.getByText('logout')).toBeTruthy();
+    // isAdmin=false y sin refugio → esas opciones no aparecen.
+    expect(screen.queryByText('admin')).toBeNull();
+    expect(screen.queryByText('myShelter')).toBeNull();
   });
 });

@@ -1,21 +1,27 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { LanguageSwitcher } from '../components/LanguageSwitcher';
 import { useQueryClient } from '@tanstack/react-query';
-import { useUnreadCount, useWebSocket } from '@shared/hooks';
+import { useUnreadCount, useWebSocket, useMyShelter } from '@shared/hooks';
 import type { WsEnvelope, WsBadgeUpdate } from '@shared/hooks';
 
 export function MainLayout() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement>(null);
   const location = useLocation();
   const navigate = useNavigate();
   const { isAuthenticated, isAdmin, user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const { t } = useTranslation(['layout', 'footer']);
   const queryClient = useQueryClient();
+
+  // "Mi refugio" solo aparece si el usuario tiene uno (dueño). enabled ligado a
+  // la sesión para no pegarle a /shelters/mine deslogueado.
+  const { data: myShelter } = useMyShelter(isAuthenticated);
 
   // Badge de mensajes sin leer: REST para el valor inicial, WebSocket
   // (badge_update) para tiempo real. El Hub soporta múltiples conexiones
@@ -43,10 +49,30 @@ export function MainLayout() {
       </span>
     ) : null;
 
-  // Auto-close mobile menu on route change
+  // Auto-close both menus on route change
   useEffect(() => {
     setIsMenuOpen(false);
+    setIsUserMenuOpen(false);
   }, [location.pathname]);
+
+  // Close the profile dropdown on outside click or Escape
+  useEffect(() => {
+    if (!isUserMenuOpen) return;
+    const onPointerDown = (e: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setIsUserMenuOpen(false);
+      }
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsUserMenuOpen(false);
+    };
+    document.addEventListener('mousedown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [isUserMenuOpen]);
 
   const handleLogout = () => {
     logout();
@@ -59,6 +85,17 @@ export function MainLayout() {
     { to: '/map', label: t('map') },
     { to: '/shelters', label: t('shelters') },
     { to: '/leaderboard', label: '🏆 Ranking' },
+  ];
+
+  // Private links: only for authenticated users. Moved out of the main nav
+  // into the profile dropdown to keep the navbar uncluttered.
+  const userMenuLinks: { to: string; label: string; badge?: boolean }[] = [
+    { to: '/profile', label: t('profile') },
+    { to: '/pets/mine', label: t('myPets') },
+    { to: '/messages', label: t('messages'), badge: true },
+    { to: '/alerts', label: t('alerts') },
+    ...(myShelter ? [{ to: '/shelters/mine', label: t('myShelter') }] : []),
+    ...(isAdmin ? [{ to: '/admin/abuse-reports', label: t('admin') }] : []),
   ];
 
   const isActive = (path: string) => location.pathname === path;
@@ -98,37 +135,6 @@ export function MainLayout() {
                   {link.label}
                 </Link>
               ))}
-              {isAuthenticated && (
-                <>
-                  <Link
-                    to="/pets/mine"
-                    className={`text-sm font-medium whitespace-nowrap ${isActive('/pets/mine') ? activeLinkClass : inactiveLinkClass}`}
-                  >
-                    {t('myPets')}
-                  </Link>
-                  <Link
-                    to="/messages"
-                    className={`text-sm font-medium whitespace-nowrap inline-flex items-center ${isActive('/messages') ? activeLinkClass : inactiveLinkClass}`}
-                  >
-                    {t('messages')}
-                    {unreadBadge}
-                  </Link>
-                  <Link
-                    to="/alerts"
-                    className={`text-sm font-medium whitespace-nowrap ${isActive('/alerts') ? activeLinkClass : inactiveLinkClass}`}
-                  >
-                    Alertas
-                  </Link>
-                  {isAdmin && (
-                    <Link
-                      to="/admin/abuse-reports"
-                      className={`text-sm font-medium whitespace-nowrap ${isActive('/admin/abuse-reports') ? activeLinkClass : inactiveLinkClass}`}
-                    >
-                      Admin
-                    </Link>
-                  )}
-                </>
-              )}
             </div>
 
             {/* Columna 3 — Controles + auth, siempre visible a la derecha */}
@@ -148,23 +154,83 @@ export function MainLayout() {
                 {isAuthenticated ? (
                   <>
                     <Link
-                      to="/profile"
-                      className="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap hover:text-primary transition-colors"
-                    >
-                      {t('greeting', { name: user?.name })}
-                    </Link>
-                    <Link
                       to="/publish"
                       className="text-sm font-semibold text-white bg-primary hover:bg-primary-dark px-4 py-2 rounded-lg transition-colors duration-150 whitespace-nowrap"
                     >
                       {t('publish')}
                     </Link>
-                    <button
-                      onClick={handleLogout}
-                      className="text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-50 transition-colors duration-150 whitespace-nowrap"
+                    <div
+                      className="relative"
+                      ref={userMenuRef}
+                      onMouseEnter={() => setIsUserMenuOpen(true)}
+                      onMouseLeave={() => setIsUserMenuOpen(false)}
                     >
-                      {t('logout')}
-                    </button>
+                      <button
+                        type="button"
+                        onClick={() => setIsUserMenuOpen((prev) => !prev)}
+                        aria-haspopup="menu"
+                        aria-expanded={isUserMenuOpen}
+                        aria-label={t('userMenu')}
+                        className="relative flex items-center gap-2 rounded-full pl-1 pr-2 py-1 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                      >
+                        <span className="flex items-center justify-center w-8 h-8 rounded-full bg-primary text-white text-sm font-bold">
+                          {user?.name?.charAt(0).toUpperCase() ?? '?'}
+                        </span>
+                        <span className="hidden lg:inline text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap max-w-[8rem] truncate">
+                          {user?.name}
+                        </span>
+                        <svg
+                          className={`h-4 w-4 text-gray-400 transition-transform ${isUserMenuOpen ? 'rotate-180' : ''}`}
+                          viewBox="0 0 20 20"
+                          fill="currentColor"
+                          aria-hidden="true"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                        {unreadCount > 0 && (
+                          <span className="absolute -top-0.5 left-6 inline-flex items-center justify-center min-w-[1.1rem] h-[1.1rem] px-1 rounded-full bg-primary text-white text-[0.65rem] font-bold ring-2 ring-white dark:ring-gray-900">
+                            {unreadLabel}
+                          </span>
+                        )}
+                      </button>
+
+                      {isUserMenuOpen && (
+                        <div className="absolute right-0 top-full pt-2 z-50">
+                          <div
+                            role="menu"
+                            className="w-56 rounded-xl bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-700 shadow-lg py-1"
+                          >
+                          {userMenuLinks.map((link) => (
+                            <Link
+                              key={link.to}
+                              to={link.to}
+                              role="menuitem"
+                              className={`flex items-center justify-between px-4 py-2 text-sm ${
+                                isActive(link.to)
+                                  ? 'text-primary font-semibold bg-orange-50 dark:bg-orange-950'
+                                  : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+                              } transition-colors`}
+                            >
+                              <span>{link.label}</span>
+                              {link.badge && unreadBadge}
+                            </Link>
+                          ))}
+                          <div className="border-t border-gray-100 dark:border-gray-800 my-1" />
+                          <button
+                            onClick={handleLogout}
+                            role="menuitem"
+                            className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                          >
+                            {t('logout')}
+                          </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </>
                 ) : (
                   <>
@@ -272,8 +338,20 @@ export function MainLayout() {
                         : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
                     } transition-colors duration-150`}
                   >
-                    Alertas
+                    {t('alerts')}
                   </Link>
+                  {myShelter && (
+                    <Link
+                      to="/shelters/mine"
+                      className={`text-sm font-medium py-2 px-3 rounded-md ${
+                        isActive('/shelters/mine')
+                          ? 'text-primary bg-orange-50 dark:bg-orange-950'
+                          : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+                      } transition-colors duration-150`}
+                    >
+                      {t('myShelter')}
+                    </Link>
+                  )}
                   {isAdmin && (
                     <Link
                       to="/admin/abuse-reports"
@@ -283,7 +361,7 @@ export function MainLayout() {
                           : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
                       } transition-colors duration-150`}
                     >
-                      Admin
+                      {t('admin')}
                     </Link>
                   )}
                   <Link
