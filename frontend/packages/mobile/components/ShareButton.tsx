@@ -150,12 +150,18 @@ export function ShareButton({ petId, petName, petType, status, pet }: ShareButto
                 if (!expiry.hasExpiry) return null;
                 if (expiry.isExpired) {
                   return (
-                    <Text style={styles.expiryExpired}>Link expirado — genera uno nuevo</Text>
+                    <Text style={styles.expiryExpired}>{i18next.t('pets:share.linkExpired')}</Text>
                   );
                 }
                 return (
                   <Text style={expiry.isWarning ? styles.expiryWarning : styles.expiryOk}>
-                    {expiry.label}
+                    {i18next.t('pets:share.expiresOn', {
+                      date: expiry.expiresAt!.toLocaleDateString(i18next.language, {
+                        day: 'numeric',
+                        month: 'short',
+                        year: 'numeric',
+                      }),
+                    })}
                   </Text>
                 );
               })()}

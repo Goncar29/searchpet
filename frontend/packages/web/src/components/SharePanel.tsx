@@ -60,7 +60,7 @@ const PLATFORMS: {
 ];
 
 export function SharePanel({ petId, petName, pet }: SharePanelProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [open, setOpen] = useState(false);
   const [shareLink, setShareLink] = useState<ShareLink | null>(null);
   const [copied, setCopied] = useState(false);
@@ -277,7 +277,13 @@ export function SharePanel({ petId, petName, pet }: SharePanelProps) {
               }
               return (
                 <p className={`text-xs mt-1 mb-2 ${expiry.isWarning ? 'text-orange-500 font-semibold' : 'text-gray-500'}`}>
-                  {expiry.label}
+                  {t('pets:share.expiresOn', {
+                    date: expiry.expiresAt!.toLocaleDateString(i18n.language, {
+                      day: 'numeric',
+                      month: 'short',
+                      year: 'numeric',
+                    }),
+                  })}
                 </p>
               );
             })()}

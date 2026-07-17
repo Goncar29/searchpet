@@ -164,6 +164,7 @@
       "copied": "✓ Copied",
       "copiedToast": "Link copied to clipboard",
       "linkExpired": "Link expired — generate a new one",
+      "expiresOn": "Expires {{date}}",
       "qrTitle": "QR code",
       "qrHint": "Scan to open {{name}}'s page",
       "qrDownload": "Download QR (PNG)",
