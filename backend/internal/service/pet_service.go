@@ -89,16 +89,16 @@ func (s *petService) CreatePet(ownerID string, req dto.CreatePetRequest) (*domai
 		status = req.Status
 	}
 
-	// Only registered and stray are valid at creation
-	if status != domain.PetStatusRegistered && status != domain.PetStatusStray {
+	// Only registered, stray and adoption are valid at creation
+	if status != domain.PetStatusRegistered && status != domain.PetStatusStray && status != domain.PetStatusAdoption {
 		return nil, domain.ErrInvalidStatusTransition
 	}
 
-	// initial_report rules: required for stray, forbidden for registered
+	// initial_report rules: required for stray, forbidden for every other status
 	if status == domain.PetStatusStray && req.InitialReport == nil {
 		return nil, domain.ErrInitialReportRequired
 	}
-	if status == domain.PetStatusRegistered && req.InitialReport != nil {
+	if status != domain.PetStatusStray && req.InitialReport != nil {
 		return nil, domain.ErrInitialReportNotAllowed
 	}
 
@@ -126,6 +126,7 @@ func (s *petService) CreatePet(ownerID string, req dto.CreatePetRequest) (*domai
 		Description:           req.Description,
 		Gender:                req.Gender,
 		MicrochipID:           req.MicrochipID,
+		City:                  req.City,
 		Status:                status,
 		ReporterContactPublic: reporterContactPublic,
 		Version:               1,
@@ -253,6 +254,9 @@ func (s *petService) UpdatePet(ownerID string, petID string, req dto.UpdatePetRe
 	}
 	if req.Description != nil {
 		pet.Description = *req.Description
+	}
+	if req.City != nil {
+		pet.City = *req.City
 	}
 	if req.Status != "" {
 		pet.Status = req.Status
