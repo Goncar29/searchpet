@@ -33,6 +33,14 @@ const STATUS_CONFIG: Record<PetStatus, { labelKey: string; className: string }> 
     labelKey: 'pets:status.archived',
     className: 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-500',
   },
+  adoption: {
+    labelKey: 'pets:status.adoption',
+    className: 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300',
+  },
+  adopted: {
+    labelKey: 'pets:status.adopted',
+    className: 'bg-teal-100 text-teal-700 dark:bg-teal-900 dark:text-teal-300',
+  },
 };
 
 function PetCard({
