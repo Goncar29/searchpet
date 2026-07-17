@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useTranslation } from 'react-i18next';
+import { useTranslation, Trans } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import { useUpdateMe, useUploadProfilePhoto, useMyBadges, useVerificationStatus, useSendEmailOTP, useConfirmEmailOTP, usePublicProfile } from '@shared/hooks';
 import { getErrorMessage } from '@shared/utils/apiErrors';
@@ -9,7 +9,7 @@ import { BADGE_META } from '@shared/types';
 import { OtpVerificationModal } from '../components/OtpVerificationModal';
 
 export function ProfilePage() {
-  const { t } = useTranslation(['profile', 'common', 'badges']);
+  const { t, i18n } = useTranslation(['profile', 'common', 'badges']);
   const { user, refreshUser } = useAuth();
   const queryClient = useQueryClient();
   const updateMe = useUpdateMe();
@@ -74,7 +74,7 @@ export function ProfilePage() {
     e.preventDefault();
     setVerifyError('');
     if (verifyCode.length !== 6) {
-      setVerifyError('Ingresá el código de 6 dígitos');
+      setVerifyError(t('profile:otpLengthError'));
       return;
     }
     try {
@@ -95,12 +95,12 @@ export function ProfilePage() {
     const MAX = 5 * 1024 * 1024;
 
     if (!ALLOWED.includes(file.type)) {
-      setPhotoError('Formato no permitido. Usá JPG, PNG o WebP.');
+      setPhotoError(t('profile:photoFormatError'));
       e.target.value = '';
       return;
     }
     if (file.size > MAX) {
-      setPhotoError('La foto no puede superar los 5 MB.');
+      setPhotoError(t('profile:photoSizeError'));
       e.target.value = '';
       return;
     }
@@ -276,14 +276,14 @@ export function ProfilePage() {
             {/* Ciudad */}
             <div>
               <label htmlFor="city" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Ciudad
+                {t('profile:city')}
               </label>
               <input
                 id="city"
                 type="text"
                 value={city}
                 onChange={(e) => setCity(e.target.value)}
-                placeholder="Ej: Montevideo"
+                placeholder={t('profile:cityPlaceholder')}
                 className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </div>
@@ -313,11 +313,11 @@ export function ProfilePage() {
           <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">
             <div className="flex items-center justify-between">
               <h2 className="text-base font-semibold text-gray-900 dark:text-gray-50">
-                Verificación de cuenta
+                {t('profile:accountVerification')}
               </h2>
               {verificationStatus?.is_verified ? (
                 <span className="inline-flex items-center gap-1 text-xs font-semibold text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/30 px-3 py-1 rounded-full">
-                  Verificado
+                  {t('profile:verified')}
                 </span>
               ) : verificationStatus !== undefined ? (
                 <button
@@ -326,7 +326,7 @@ export function ProfilePage() {
                   className="text-sm font-medium text-primary flex items-center gap-1"
                   aria-expanded={accordionOpen}
                 >
-                  Verificar email
+                  {t('profile:verifyEmail')}
                   <span className={`transition-transform ${accordionOpen ? 'rotate-180' : ''}`}>▾</span>
                 </button>
               ) : null}
@@ -337,7 +337,11 @@ export function ProfilePage() {
                 {!otpSent ? (
                   <div>
                     <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-                      Te enviaremos un código a <strong>{user?.email}</strong>.
+                      <Trans
+                        i18nKey="profile:otpWillSend"
+                        values={{ email: user?.email }}
+                        components={{ 1: <strong /> }}
+                      />
                     </p>
                     {verifyError && (
                       <p className="text-sm text-red-500 dark:text-red-400 mb-2">{verifyError}</p>
@@ -348,13 +352,13 @@ export function ProfilePage() {
                       disabled={sendEmailOTP.isPending}
                       className="bg-primary hover:bg-primary-dark disabled:opacity-60 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
                     >
-                      {sendEmailOTP.isPending ? 'Enviando...' : 'Enviar código'}
+                      {sendEmailOTP.isPending ? t('profile:sending') : t('profile:sendCode')}
                     </button>
                   </div>
                 ) : (
                   <form onSubmit={handleConfirmOTP} noValidate>
                     <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-                      Revisá tu correo e ingresá el código de 6 dígitos.
+                      {t('profile:checkEmail')}
                     </p>
                     <input
                       type="text"
@@ -373,11 +377,11 @@ export function ProfilePage() {
                       disabled={confirmEmailOTP.isPending}
                       className="w-full bg-primary hover:bg-primary-dark disabled:opacity-60 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors mb-2"
                     >
-                      {confirmEmailOTP.isPending ? 'Verificando...' : 'Confirmar código'}
+                      {confirmEmailOTP.isPending ? t('profile:verifying') : t('profile:confirmCode')}
                     </button>
                     {resendCountdown > 0 ? (
                       <p className="text-xs text-gray-400 dark:text-gray-500 text-center">
-                        Reenviar en {resendCountdown}s
+                        {t('profile:resendIn', { seconds: resendCountdown })}
                       </p>
                     ) : (
                       <button
@@ -386,7 +390,7 @@ export function ProfilePage() {
                         disabled={sendEmailOTP.isPending}
                         className="w-full text-xs text-primary font-medium text-center disabled:opacity-60"
                       >
-                        Reenviar código
+                        {t('profile:resendCode')}
                       </button>
                     )}
                   </form>
@@ -401,18 +405,18 @@ export function ProfilePage() {
           <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">
             <div className="flex items-center justify-between">
               <h2 className="text-base font-semibold text-gray-900 dark:text-gray-50">
-                Verificación de teléfono
+                {t('profile:phoneVerification')}
               </h2>
               <button
                 type="button"
                 onClick={() => setOtpModalOpen(true)}
                 className="text-sm font-medium text-primary flex items-center gap-1"
               >
-                Verificar teléfono
+                {t('profile:verifyPhone')}
               </button>
             </div>
             <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-              Verificá tu número para aumentar la confianza en tu perfil.
+              {t('profile:phoneVerificationHint')}
             </p>
           </div>
         )}
@@ -427,7 +431,7 @@ export function ProfilePage() {
         {/* Puntos y estadísticas */}
         <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">
           <h2 className="text-base font-semibold text-gray-900 dark:text-gray-50 mb-4">
-            Mis estadísticas
+            {t('profile:statsTitle')}
           </h2>
           {statsLoading ? (
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -439,19 +443,19 @@ export function ProfilePage() {
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               <div className="text-center p-3 rounded-xl bg-primary/5 border border-primary/20">
                 <p className="text-2xl font-bold text-primary">{publicProfile.total_points}</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Puntos</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{t('profile:statsPoints')}</p>
               </div>
               <div className="text-center p-3 rounded-xl bg-primary/5 border border-primary/20">
                 <p className="text-2xl font-bold text-primary">{publicProfile.total_reports}</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Reportes</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{t('profile:statsReports')}</p>
               </div>
               <div className="text-center p-3 rounded-xl bg-primary/5 border border-primary/20">
                 <p className="text-2xl font-bold text-primary">{publicProfile.found_count}</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Encontradas</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{t('profile:statsFound')}</p>
               </div>
               <div className="text-center p-3 rounded-xl bg-primary/5 border border-primary/20">
                 <p className="text-2xl font-bold text-primary">{publicProfile.share_count}</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Compartidas</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{t('profile:statsShared')}</p>
               </div>
             </div>
           ) : null}
@@ -460,13 +464,13 @@ export function ProfilePage() {
         {/* Mis logros */}
         <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
           <h2 className="text-base font-semibold text-gray-900 dark:text-gray-50 mb-4">
-            Mis logros
+            {t('profile:achievementsTitle')}
           </h2>
           {!badges || badges.length === 0 ? (
             <div className="text-center py-6">
               <p className="text-3xl mb-2">🏅</p>
               <p className="text-sm text-gray-400 dark:text-gray-500">
-                Todavía no tenés logros. ¡Empezá reportando mascotas!
+                {t('profile:noAchievements')}
               </p>
             </div>
           ) : (
@@ -484,7 +488,7 @@ export function ProfilePage() {
                         {t(meta.labelKey)}
                       </p>
                       <p className="text-xs text-gray-400 dark:text-gray-500">
-                        {new Date(badge.earned_at).toLocaleDateString('es-UY', { day: 'numeric', month: 'short' })}
+                        {new Date(badge.earned_at).toLocaleDateString(i18n.language, { day: 'numeric', month: 'short' })}
                       </p>
                     </div>
                   </div>

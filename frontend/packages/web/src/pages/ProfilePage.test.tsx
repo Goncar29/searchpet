@@ -5,6 +5,7 @@ import { ProfilePage } from './ProfilePage';
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (key: string) => key, i18n: { language: 'es' } }),
+  Trans: ({ i18nKey }: { i18nKey: string }) => i18nKey,
 }));
 
 vi.mock('../context/AuthContext', () => ({
