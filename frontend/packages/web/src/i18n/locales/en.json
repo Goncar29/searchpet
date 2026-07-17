@@ -453,5 +453,35 @@
     "empty": "No veterinaries in this area",
     "defaultName": "Veterinary",
     "attribution": "Veterinary data © OpenStreetMap contributors"
+  },
+  "adoption": {
+    "section": {
+      "title": "Adopt",
+      "subtitle": "Pets looking for a home",
+      "empty": "No pets up for adoption right now",
+      "cityFilter": "City",
+      "cityPlaceholder": "Filter by city",
+      "typeFilter": "Type",
+      "allTypes": "All",
+      "apply": "Apply",
+      "badge": "For adoption",
+      "resultCount_one": "{{count}} pet",
+      "resultCount_other": "{{count}} pets"
+    },
+    "publish": {
+      "intentOption": "Give for adoption",
+      "intentHelp": "Post a pet looking for a home",
+      "cityLabel": "City",
+      "cityPlaceholder": "e.g. Montevideo",
+      "submit": "Publish for adoption",
+      "cityRequired": "Enter a city"
+    },
+    "profile": {
+      "tab": "For adoption",
+      "empty": "You have no pets up for adoption",
+      "markAdopted": "Mark adopted",
+      "markAdoptedConfirm": "Confirm this pet was adopted?",
+      "archive": "Archive"
+    }
   }
 }

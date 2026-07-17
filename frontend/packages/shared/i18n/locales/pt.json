@@ -153,7 +153,9 @@
       "found": "Encontrado",
       "archived": "Arquivado",
       "sighting": "Avistamento",
-      "active": "Ativo"
+      "active": "Ativo",
+      "adoption": "Para adoção",
+      "adopted": "Adotado"
     },
     "share": {
       "button": "Compartilhar",

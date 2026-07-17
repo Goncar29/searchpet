@@ -453,5 +453,35 @@
     "empty": "No hay veterinarias en esta zona",
     "defaultName": "Veterinaria",
     "attribution": "Datos de veterinarias © colaboradores de OpenStreetMap"
+  },
+  "adoption": {
+    "section": {
+      "title": "Adoptar",
+      "subtitle": "Mascotas que buscan un hogar",
+      "empty": "No hay mascotas en adopción por ahora",
+      "cityFilter": "Ciudad",
+      "cityPlaceholder": "Filtrar por ciudad",
+      "typeFilter": "Tipo",
+      "allTypes": "Todos",
+      "apply": "Aplicar",
+      "badge": "En adopción",
+      "resultCount_one": "{{count}} mascota",
+      "resultCount_other": "{{count}} mascotas"
+    },
+    "publish": {
+      "intentOption": "Doy en adopción",
+      "intentHelp": "Publicá una mascota que busca un hogar",
+      "cityLabel": "Ciudad",
+      "cityPlaceholder": "Ej: Montevideo",
+      "submit": "Publicar en adopción",
+      "cityRequired": "Ingresá una ciudad"
+    },
+    "profile": {
+      "tab": "En adopción",
+      "empty": "No tenés mascotas en adopción",
+      "markAdopted": "Marcar adoptado",
+      "markAdoptedConfirm": "¿Confirmás que esta mascota fue adoptada?",
+      "archive": "Archivar"
+    }
   }
 }

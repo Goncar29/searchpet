@@ -453,5 +453,35 @@
     "empty": "Não há veterinárias nesta área",
     "defaultName": "Veterinária",
     "attribution": "Dados de veterinárias © colaboradores do OpenStreetMap"
+  },
+  "adoption": {
+    "section": {
+      "title": "Adotar",
+      "subtitle": "Animais à procura de um lar",
+      "empty": "Não há animais para adoção no momento",
+      "cityFilter": "Cidade",
+      "cityPlaceholder": "Filtrar por cidade",
+      "typeFilter": "Tipo",
+      "allTypes": "Todos",
+      "apply": "Aplicar",
+      "badge": "Para adoção",
+      "resultCount_one": "{{count}} animal",
+      "resultCount_other": "{{count}} animais"
+    },
+    "publish": {
+      "intentOption": "Doar para adoção",
+      "intentHelp": "Publique um animal à procura de um lar",
+      "cityLabel": "Cidade",
+      "cityPlaceholder": "Ex: Montevidéu",
+      "submit": "Publicar para adoção",
+      "cityRequired": "Informe uma cidade"
+    },
+    "profile": {
+      "tab": "Para adoção",
+      "empty": "Você não tem animais para adoção",
+      "markAdopted": "Marcar como adotado",
+      "markAdoptedConfirm": "Confirma que este animal foi adotado?",
+      "archive": "Arquivar"
+    }
   }
 }
