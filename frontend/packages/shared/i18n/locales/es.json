@@ -419,8 +419,10 @@
     "success": {
       "lostTitle": "¡Listo! Tu mascota está marcada como perdida",
       "strayTitle": "¡Gracias por reportar!",
+      "adoptionTitle": "¡Tu mascota ya está en adopción!",
       "lostDescription": "Compartí el aviso para que más personas ayuden a buscarla.",
       "strayDescription": "Compartí el aviso para ayudar a encontrar a su familia.",
+      "adoptionDescription": "Compartí el aviso para ayudar a encontrarle un nuevo hogar.",
       "photoRetryTitle": "La mascota se publicó, pero {{count}} foto(s) no se pudieron subir",
       "photoRetryAction": "Reintentar subida",
       "viewPet": "Ver mascota",

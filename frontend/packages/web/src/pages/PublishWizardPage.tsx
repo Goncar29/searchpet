@@ -3,17 +3,18 @@ import { useTranslation } from 'react-i18next';
 import { IntentStep } from '../components/publish/IntentStep';
 import { LostPetStep } from '../components/publish/LostPetStep';
 import { StrayFormStep } from '../components/publish/StrayFormStep';
+import { AdoptionFormStep } from '../components/publish/AdoptionFormStep';
 import { LocationStep } from '../components/publish/LocationStep';
 import { SuccessStep } from '../components/publish/SuccessStep';
 import { InlineAuthStep } from '../components/publish/InlineAuthStep';
 import { useAuth } from '../context/AuthContext';
-import { usePublishLost, usePublishStray, useUploadPhoto } from '@shared/hooks';
+import { useCreatePet, usePublishLost, usePublishStray, useUploadPhoto } from '@shared/hooks';
 import { apiClient } from '@shared/api/client';
 import { getErrorMessage } from '@shared/utils/apiErrors';
 import type { Pet, CreatePetRequest, InitialReportRequest } from '@shared/types';
 
-export type PublishStep = 'intent' | 'lost-pet' | 'stray-form' | 'location' | 'auth' | 'success';
-export type PublishIntent = 'lost' | 'stray';
+export type PublishStep = 'intent' | 'lost-pet' | 'stray-form' | 'adoption-form' | 'location' | 'auth' | 'success';
+export type PublishIntent = 'lost' | 'stray' | 'adoption';
 
 export interface StrayFormState {
   type: CreatePetRequest['type'] | '';
@@ -25,10 +26,20 @@ export interface StrayFormState {
   contactPublic: boolean;
 }
 
+export interface AdoptionFormState {
+  type: CreatePetRequest['type'] | '';
+  breed: string;
+  color: string;
+  description: string;
+  city: string;
+  photos: File[];
+}
+
 export interface PublishWizardState {
   intent: PublishIntent | null;
   selectedPet: Pet | null;
   strayForm: StrayFormState;
+  adoptionForm: AdoptionFormState;
   location: InitialReportRequest | null;
 }
 
@@ -36,6 +47,7 @@ export const initialWizardState: PublishWizardState = {
   intent: null,
   selectedPet: null,
   strayForm: { type: '', breed: '', color: '', description: '', photos: [], contactPublic: false },
+  adoptionForm: { type: '', breed: '', color: '', description: '', city: '', photos: [] },
   location: null,
 };
 
@@ -51,7 +63,15 @@ export function PublishWizardPage() {
       setStep('auth');
       return;
     }
-    setStep(intent === 'lost' ? 'lost-pet' : 'stray-form');
+    if (intent === 'lost') {
+      setStep('lost-pet');
+      return;
+    }
+    if (intent === 'adoption') {
+      setStep('adoption-form');
+      return;
+    }
+    setStep('stray-form');
   };
 
   const handleBackFromLocation = () => {
@@ -64,7 +84,55 @@ export function PublishWizardPage() {
 
   const publishLost = usePublishLost();
   const publishStray = usePublishStray();
+  const createPet = useCreatePet();
   const uploadPhoto = useUploadPhoto();
+
+  const buildAdoptionPayload = (): CreatePetRequest => ({
+    name: t('strayForm.unnamedPet'),
+    type: wizard.adoptionForm.type as CreatePetRequest['type'],
+    breed: wizard.adoptionForm.breed.trim() || undefined,
+    color: wizard.adoptionForm.color.trim() || undefined,
+    description: wizard.adoptionForm.description.trim() || undefined,
+    city: wizard.adoptionForm.city.trim(),
+    status: 'adoption',
+  });
+
+  // Mirrors submitStray's chain: createPet then sequential (non-blocking) photo
+  // uploads via the same useUploadPhoto hook, collecting failedPhotoIndexes for
+  // the success step's one-tap retry. No location/report step for adoption.
+  const submitAdoption = async () => {
+    try {
+      const created = await createPet.mutateAsync(buildAdoptionPayload());
+      const failed: number[] = [];
+      for (let i = 0; i < wizard.adoptionForm.photos.length; i++) {
+        try {
+          await uploadPhoto.mutateAsync({ petId: created.id, file: wizard.adoptionForm.photos[i] });
+        } catch {
+          failed.push(i);
+        }
+      }
+      setPublishedPet(created);
+      setFailedPhotoIndexes(failed);
+      setStep('success');
+      try {
+        const freshPet = await apiClient.getPetByID(created.id);
+        setPublishedPet(freshPet);
+      } catch {
+        // Keep `created` — already set above.
+      }
+    } catch (err) {
+      setPublishError(getErrorMessage(err, t));
+    }
+  };
+
+  const handleAdoptionSubmit = async () => {
+    setPublishError(null);
+    if (!isAuthenticated) {
+      setStep('auth');
+      return;
+    }
+    await submitAdoption();
+  };
 
   const buildStrayPayload = (location: NonNullable<typeof wizard.location>): CreatePetRequest => ({
     name: t('strayForm.unnamedPet'),
@@ -135,10 +203,11 @@ export function PublishWizardPage() {
 
   const handleRetryPhotos = async () => {
     if (!publishedPet) return;
+    const sourcePhotos = wizard.intent === 'adoption' ? wizard.adoptionForm.photos : wizard.strayForm.photos;
     const stillFailed: number[] = [];
     let retriedAny = false;
     for (const index of failedPhotoIndexes) {
-      const file = wizard.strayForm.photos[index];
+      const file = sourcePhotos[index];
       if (!file) continue;
       try {
         await uploadPhoto.mutateAsync({ petId: publishedPet.id, file });
@@ -181,6 +250,14 @@ export function PublishWizardPage() {
             onNext={() => setStep('location')}
           />
         )}
+        {step === 'adoption-form' && (
+          <AdoptionFormStep
+            value={wizard.adoptionForm}
+            onChange={(adoptionForm) => setWizard((prev) => ({ ...prev, adoptionForm }))}
+            onSubmit={handleAdoptionSubmit}
+            isPending={createPet.isPending || uploadPhoto.isPending}
+          />
+        )}
         {step === 'location' && (
           <LocationStep
             value={wizard.location}
@@ -194,6 +271,10 @@ export function PublishWizardPage() {
             onAuthenticated={() => {
               if (wizard.intent === 'lost') {
                 setStep('lost-pet');
+                return;
+              }
+              if (wizard.intent === 'adoption') {
+                submitAdoption();
                 return;
               }
               if (wizard.location) submitStray(wizard.location);

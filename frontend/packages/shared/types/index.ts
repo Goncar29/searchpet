@@ -290,7 +290,7 @@ export interface CreatePetRequest {
   color?: string;
   description?: string;
   city?: string;
-  status?: 'registered' | 'stray';
+  status?: 'registered' | 'stray' | 'adoption';
   initial_report?: InitialReportRequest;
   // Stray opt-in: expose the reporter's profile phone publicly. Only honored by
   // the backend for stray creations.

@@ -3,7 +3,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { QueryClientProvider, QueryClient } from '@tanstack/react-query';
 import { PublishWizardPage } from './PublishWizardPage';
-import { useMyPets, usePublishLost } from '@shared/hooks';
+import { useMyPets, usePublishLost, useCreatePet } from '@shared/hooks';
 import { apiClient } from '@shared/api/client';
 
 vi.mock('react-i18next', () => ({
@@ -24,10 +24,17 @@ vi.mock('../context/AuthContext', () => ({
   useAuth: () => authState,
 }));
 
+// Prefixed with `mock` so Vitest allows referencing it inside the hoisted
+// vi.mock factory below — a stable reference (unlike a fresh vi.fn() built
+// inside the factory) so assertions can inspect the exact call it received,
+// since PublishWizardPage re-renders (and re-invokes useCreatePet) many times.
+const mockCreatePetMutateAsync = vi.fn().mockResolvedValue({ id: 'pet-3', name: 'Sin nombre', type: 'perro', status: 'adoption', city: 'Montevideo', photos: [] });
+
 vi.mock('@shared/hooks', () => ({
   useMyPets: vi.fn(() => ({ data: [], isLoading: false })),
   usePublishLost: vi.fn(() => ({ mutateAsync: vi.fn().mockResolvedValue({ id: 'pet-1', name: 'Firulais', type: 'perro', status: 'lost', photos: [] }), isPending: false })),
   usePublishStray: vi.fn(() => ({ mutateAsync: vi.fn().mockResolvedValue({ pet: { id: 'pet-2', name: 'Sin nombre', type: 'perro', status: 'stray', photos: [] }, failedPhotoIndexes: [] }), isPending: false })),
+  useCreatePet: vi.fn(() => ({ mutateAsync: mockCreatePetMutateAsync, isPending: false })),
   useUploadPhoto: vi.fn(() => ({ mutateAsync: vi.fn(), isPending: false })),
 }));
 
@@ -80,10 +87,11 @@ function wrapper({ children }: { children: React.ReactNode }) {
 }
 
 describe('PublishWizardPage', () => {
-  it('renders the intent step first with two cards', () => {
+  it('renders the intent step first with three cards', () => {
     render(<PublishWizardPage />, { wrapper });
     expect(screen.getByText('publish:intent.lostTitle')).toBeInTheDocument();
     expect(screen.getByText('publish:intent.strayTitle')).toBeInTheDocument();
+    expect(screen.getByText('adoption:publish.intentOption')).toBeInTheDocument();
   });
 
   it('selecting the lost intent advances to the lost-pet step', () => {
@@ -96,6 +104,13 @@ describe('PublishWizardPage', () => {
     render(<PublishWizardPage />, { wrapper });
     fireEvent.click(screen.getByText('publish:intent.strayTitle'));
     expect(screen.getByText('publish:strayForm.title')).toBeInTheDocument();
+  });
+
+  it('selecting the adoption intent advances to the adoption-form step with a city field', () => {
+    render(<PublishWizardPage />, { wrapper });
+    fireEvent.click(screen.getByText('adoption:publish.intentOption'));
+    expect(screen.getByText('publish:strayForm.title')).toBeInTheDocument();
+    expect(screen.getByLabelText('adoption:publish.cityLabel')).toBeInTheDocument();
   });
 });
 
@@ -145,6 +160,31 @@ describe('PublishWizardPage — stray path', () => {
 
     fireEvent.click(screen.getByText('publish:strayForm.next'));
     expect(screen.getByText('publish:location.title')).toBeInTheDocument();
+  });
+});
+
+describe('PublishWizardPage — adoption path', () => {
+  it('blocks submitting without a photo, type or city, then publishes with status "adoption" and the entered city', async () => {
+    render(<PublishWizardPage />, { wrapper });
+    fireEvent.click(screen.getByText('adoption:publish.intentOption'));
+
+    fireEvent.click(screen.getByText('adoption:publish.submit'));
+    expect(screen.getByText('publish:strayForm.photoRequired')).toBeInTheDocument();
+    expect(screen.getByText('publish:strayForm.typeRequired')).toBeInTheDocument();
+    expect(screen.getByText('adoption:publish.cityRequired')).toBeInTheDocument();
+
+    const file = new File(['fake'], 'adoption.jpg', { type: 'image/jpeg' });
+    fireEvent.change(screen.getByLabelText('publish:strayForm.photoLabel'), { target: { files: [file] } });
+    fireEvent.change(screen.getByLabelText('publish:strayForm.typeLabel'), { target: { value: 'gato' } });
+    fireEvent.change(screen.getByLabelText('adoption:publish.cityLabel'), { target: { value: 'Montevideo' } });
+
+    fireEvent.click(screen.getByText('adoption:publish.submit'));
+
+    expect(await screen.findByText('publish:success.adoptionTitle')).toBeInTheDocument();
+    expect(useCreatePet).toHaveBeenCalled();
+    expect(mockCreatePetMutateAsync).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'adoption', city: 'Montevideo', type: 'gato' })
+    );
   });
 });
 
