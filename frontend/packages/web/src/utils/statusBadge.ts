@@ -9,6 +9,8 @@ const STATUS_BADGE_BG: Record<string, string> = {
   found: 'bg-green-700',
   archived: 'bg-gray-600',
   registered: 'bg-gray-600',
+  adoption: 'bg-purple-700',
+  adopted: 'bg-teal-700',
 };
 
 export function statusBadgeBg(status: string): string {
