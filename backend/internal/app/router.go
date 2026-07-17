@@ -257,6 +257,8 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 		public.GET("/pets/search", petHandler.SearchPets)
 		public.GET("/pets/:id", petHandler.GetPet)
 
+		public.GET("/adoptions", petHandler.ListAdoptions)
+
 		public.GET("/pets/:id/photos", photoHandler.List)
 
 		public.GET("/reports/nearby", reportHandler.GetNearbyReports)
