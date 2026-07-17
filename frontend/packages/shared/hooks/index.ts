@@ -580,11 +580,12 @@ export const useShelterByID = (id: string) => {
 // useMyShelter — GET /api/shelters/mine. A 404 (shelter_not_found) means the
 // user has no shelter yet: surfaces as an error whose .code the pages check.
 // retry:false so the expected 404 doesn't burn 3 retries before settling.
-export const useMyShelter = () => {
+export const useMyShelter = (enabled = true) => {
   return useQuery<MyShelter, Error & { code?: string }>({
     queryKey: ['shelter', 'mine'],
     queryFn: () => apiClient.getMyShelter(),
     retry: false,
+    enabled,
   });
 };
 

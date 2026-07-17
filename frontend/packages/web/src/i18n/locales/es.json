@@ -161,7 +161,12 @@
     "darkMode": "Modo oscuro",
     "language": "Idioma",
     "openMenu": "Abrir menú",
-    "closeMenu": "Cerrar menú"
+    "closeMenu": "Cerrar menú",
+    "profile": "Mi perfil",
+    "alerts": "Alertas",
+    "admin": "Admin",
+    "myShelter": "Mi refugio",
+    "userMenu": "Menú de usuario"
   },
   "home": {
     "hero": {
