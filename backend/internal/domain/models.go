@@ -17,6 +17,7 @@ type PetSearchCriteria struct {
 	Type     string     // coincidencia exacta con pets.type
 	Breed    string     // coincidencia parcial ILIKE %breed%
 	Color    string     // coincidencia parcial ILIKE %color%
+	City     string     // coincidencia parcial ILIKE %city%
 	Statuses []string   // IN clause on pets.status; empty defaults to FeedVisibleStatuses (lost, stray)
 	From     *time.Time // pets cuyo reporte.occurred_at >= From
 	To       *time.Time // pets cuyo reporte.occurred_at <= To

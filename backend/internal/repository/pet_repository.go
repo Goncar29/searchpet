@@ -110,6 +110,9 @@ func (r *PostgresPetRepository) Search(filters domain.PetSearchCriteria) ([]doma
 	if filters.Color != "" {
 		q = q.Where("pets.color ILIKE ?", "%"+filters.Color+"%")
 	}
+	if filters.City != "" {
+		q = q.Where("pets.city ILIKE ?", "%"+filters.City+"%")
+	}
 
 	// Filtros que requieren JOIN a reports: rango de fechas (FR1.5) y/o
 	// distancia geográfica opcional. Una mascota matchea si tiene AL MENOS un
@@ -140,7 +143,7 @@ func (r *PostgresPetRepository) Search(filters domain.PetSearchCriteria) ([]doma
 		}
 
 		// Evitamos duplicados si hay múltiples reports que matchean
-		q = q.Distinct("pets.id, pets.owner_id, pets.reporter_id, pets.name, pets.type, pets.breed, pets.color, pets.description, pets.gender, pets.microchip_id, pets.status, pets.version, pets.created_at, pets.updated_at")
+		q = q.Distinct("pets.id, pets.owner_id, pets.reporter_id, pets.name, pets.type, pets.breed, pets.color, pets.description, pets.gender, pets.microchip_id, pets.status, pets.version, pets.city, pets.created_at, pets.updated_at")
 
 		// Paginación
 		var pets []domain.Pet
