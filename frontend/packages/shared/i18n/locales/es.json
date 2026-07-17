@@ -154,6 +154,44 @@
       "archived": "Archivada",
       "sighting": "Avistamiento",
       "active": "Activa"
+    },
+    "share": {
+      "button": "Compartir",
+      "generating": "Generando...",
+      "title": "Compartir a {{name}}",
+      "subtitle": "Compartir aumenta las chances de encontrarlo/a",
+      "copy": "Copiar",
+      "copied": "✓ Copiado",
+      "copiedToast": "Link copiado al portapapeles",
+      "linkExpired": "Link expirado — generá uno nuevo",
+      "qrTitle": "Código QR",
+      "qrHint": "Escaneá para abrir la ficha de {{name}}",
+      "qrDownload": "Descargar QR (PNG)",
+      "storyDownloaded": "Imagen descargada — subila como Historia desde tu celular 📲"
+    },
+    "report": {
+      "button": "Denunciar publicación",
+      "sending": "Enviando...",
+      "reasonLabel": "Motivo de la denuncia:",
+      "cancel": "Cancelar",
+      "success": "Denuncia enviada. Gracias por reportarlo.",
+      "reasons": {
+        "spam": "Spam",
+        "fake": "Publicación falsa",
+        "abuse": "Abuso",
+        "inappropriate": "Contenido inapropiado",
+        "other": "Otro"
+      }
+    },
+    "map": {
+      "show": "Mostrar mapa",
+      "hide": "Ocultar mapa",
+      "loading": "Cargando mapa..."
+    },
+    "flyer": {
+      "button": "Descargar volante",
+      "generating": "Generando PDF...",
+      "title": "Descargar volante PDF para imprimir"
     }
   },
   "chat": {

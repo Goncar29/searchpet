@@ -214,7 +214,7 @@ export function PetDetailPage() {
               {pet.type && (
                 <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3">
                   <p className="text-xs text-gray-500 dark:text-gray-400">{t('pets:detail.type')}</p>
-                  <p className="font-semibold text-gray-900 dark:text-gray-100">{pet.type}</p>
+                  <p className="font-semibold text-gray-900 dark:text-gray-100">{t(`pets:types.${pet.type}`)}</p>
                 </div>
               )}
               {pet.breed && (
@@ -441,14 +441,14 @@ export function PetDetailPage() {
                     disabled={submitAbuseReport.isPending}
                     className="text-sm font-semibold px-4 py-2 rounded-lg border border-orange-300 dark:border-orange-700 text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-950 transition-colors disabled:opacity-60"
                   >
-                    {submitAbuseReport.isPending ? 'Enviando...' : 'Denunciar publicación'}
+                    {submitAbuseReport.isPending ? t('pets:report.sending') : t('pets:report.button')}
                   </button>
                 </div>
 
                 {/* Reason picker */}
                 {showPetReportMenu && (
                   <div className="flex flex-col gap-1 p-3 bg-orange-50 dark:bg-orange-950 rounded-xl border border-orange-200 dark:border-orange-800">
-                    <p className="text-xs font-semibold text-orange-700 dark:text-orange-300 mb-1">Motivo de la denuncia:</p>
+                    <p className="text-xs font-semibold text-orange-700 dark:text-orange-300 mb-1">{t('pets:report.reasonLabel')}</p>
                     {(['spam', 'fake', 'abuse', 'inappropriate', 'other'] as AbuseReason[]).map((reason) => (
                       <button
                         key={reason}
@@ -457,7 +457,7 @@ export function PetDetailPage() {
                         disabled={submitAbuseReport.isPending}
                         className="text-left text-sm px-3 py-1.5 rounded-lg hover:bg-orange-100 dark:hover:bg-orange-900 text-orange-800 dark:text-orange-200 disabled:opacity-60 transition-colors"
                       >
-                        {{ spam: 'Spam', fake: 'Publicación falsa', abuse: 'Abuso', inappropriate: 'Contenido inapropiado', other: 'Otro' }[reason]}
+                        {t(`pets:report.reasons.${reason}`)}
                       </button>
                     ))}
                     <button
@@ -465,7 +465,7 @@ export function PetDetailPage() {
                       onClick={() => setShowPetReportMenu(false)}
                       className="text-left text-xs px-3 py-1 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-400 transition-colors mt-1"
                     >
-                      Cancelar
+                      {t('pets:report.cancel')}
                     </button>
                   </div>
                 )}
@@ -473,7 +473,7 @@ export function PetDetailPage() {
                 {/* Success feedback */}
                 {petReportSuccess && (
                   <p className="text-xs text-green-600 dark:text-green-400 text-right font-medium">
-                    Denuncia enviada. Gracias por reportarlo.
+                    {t('pets:report.success')}
                   </p>
                 )}
               </div>

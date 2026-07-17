@@ -1,4 +1,5 @@
 import { useState, Suspense, lazy } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { Report } from '@shared/types';
 
 interface TimelineMapProps {
@@ -17,6 +18,7 @@ interface ValidReport {
 const LazyMapInner = lazy(() => import('./TimelineMapInner'));
 
 export function TimelineMap({ reports }: TimelineMapProps) {
+  const { t } = useTranslation();
   const [showMap, setShowMap] = useState(false);
 
   const validReports: ValidReport[] = reports
@@ -38,7 +40,7 @@ export function TimelineMap({ reports }: TimelineMapProps) {
         onClick={() => setShowMap((v) => !v)}
         className="text-sm font-semibold text-primary hover:text-primary-dark transition-colors"
       >
-        {showMap ? 'Ocultar mapa' : 'Mostrar mapa'}
+        {showMap ? t('pets:map.hide') : t('pets:map.show')}
       </button>
 
       {showMap && (
@@ -46,7 +48,7 @@ export function TimelineMap({ reports }: TimelineMapProps) {
           <Suspense
             fallback={
               <div className="h-64 flex items-center justify-center bg-gray-50 dark:bg-gray-800">
-                <span className="text-sm text-gray-500 dark:text-gray-400">Cargando mapa...</span>
+                <span className="text-sm text-gray-500 dark:text-gray-400">{t('pets:map.loading')}</span>
               </div>
             }
           >

@@ -200,7 +200,14 @@
       "noResults": "No se encontraron mascotas similares",
       "loginRequired": "Iniciá sesión para buscar por foto",
       "clear": "Limpiar búsqueda por foto",
-      "unavailable": "El buscador por foto está ocupado en este momento. Probá de nuevo en unos segundos."
+      "unavailable": "El buscador por foto está ocupado en este momento. Probá de nuevo en unos segundos.",
+      "title": "Buscar por foto",
+      "aiBadge": "IA",
+      "description": "Subí una foto y detectamos automáticamente la raza y el tipo de mascota.",
+      "noPetDetected": "No se detectó ninguna mascota. Probá con una foto más clara.",
+      "analyzing": "Analizando...",
+      "loadingModel": "Cargando...",
+      "uploadPhoto": "Subir foto"
     },
     "distanceCenter": {
       "gps": "Cerca de tu ubicación",
@@ -218,8 +225,35 @@
       "dateTo": "Fecha hasta",
       "color": "Filtrar por color",
       "breed": "Filtrar por raza",
-      "distance": "Filtrar por distancia"
+      "distance": "Filtrar por distancia",
+      "title": "Filtrar mascotas",
+      "allTypes": "Todos los tipos",
+      "colorPlaceholder": "Color (ej: negro, marrón...)",
+      "defaultStatus": "Perdidos y callejeros",
+      "breedPlaceholder": "Raza (ej: Labrador...)",
+      "clear": "Limpiar"
     },
+    "petTypes": {
+      "perro": "Perro",
+      "gato": "Gato",
+      "pajaro": "Pájaro",
+      "otro": "Otro"
+    },
+    "petStatuses": {
+      "lost": "Perdidos",
+      "stray": "Callejeros",
+      "found": "Encontrados"
+    },
+    "successStories": {
+      "title": "Historias de éxito",
+      "viewAll": "Ver todas"
+    },
+    "noResults": {
+      "title": "Sin resultados",
+      "hint": "Probá con otros filtros"
+    },
+    "result": "resultado",
+    "results": "resultados",
     "searchButton": "Buscar",
     "searchActive": "Búsqueda activa",
     "recentReports": "Reportes recientes",

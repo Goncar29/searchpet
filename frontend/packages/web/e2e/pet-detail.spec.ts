@@ -29,6 +29,11 @@ async function getToken(email: string, password: string): Promise<string> {
 }
 
 test.describe('Pet detail page', () => {
+  // Pin the browser locale to Spanish so the pet type renders as "Perro".
+  // The detail page localizes the type via t(`pets:types.${pet.type}`), which
+  // resolves to "Dog"/"Cachorro" under the CI runner's default (en) locale.
+  test.use({ locale: 'es-ES' });
+
   let petId: string;
   let petName: string;
 

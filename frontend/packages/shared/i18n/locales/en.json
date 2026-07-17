@@ -154,6 +154,44 @@
       "archived": "Archived",
       "sighting": "Sighting",
       "active": "Active"
+    },
+    "share": {
+      "button": "Share",
+      "generating": "Generating...",
+      "title": "Share {{name}}",
+      "subtitle": "Sharing increases the chances of finding them",
+      "copy": "Copy",
+      "copied": "✓ Copied",
+      "copiedToast": "Link copied to clipboard",
+      "linkExpired": "Link expired — generate a new one",
+      "qrTitle": "QR code",
+      "qrHint": "Scan to open {{name}}'s page",
+      "qrDownload": "Download QR (PNG)",
+      "storyDownloaded": "Image downloaded — post it as a Story from your phone 📲"
+    },
+    "report": {
+      "button": "Report post",
+      "sending": "Sending...",
+      "reasonLabel": "Reason for the report:",
+      "cancel": "Cancel",
+      "success": "Report sent. Thanks for flagging it.",
+      "reasons": {
+        "spam": "Spam",
+        "fake": "Fake post",
+        "abuse": "Abuse",
+        "inappropriate": "Inappropriate content",
+        "other": "Other"
+      }
+    },
+    "map": {
+      "show": "Show map",
+      "hide": "Hide map",
+      "loading": "Loading map..."
+    },
+    "flyer": {
+      "button": "Download flyer",
+      "generating": "Generating PDF...",
+      "title": "Download PDF flyer to print"
     }
   },
   "chat": {

@@ -13,23 +13,26 @@ import { useAuth } from '../context/AuthContext';
 const DEFAULT_LAT = -34.9011;
 const DEFAULT_LNG = -56.1645;
 
-const PET_TYPES: { value: PetType; label: string; icon: string }[] = [
-  { value: 'perro', label: 'Perro', icon: '🐕' },
-  { value: 'gato', label: 'Gato', icon: '🐱' },
-  { value: 'pajaro', label: 'Pájaro', icon: '🐦' },
-  { value: 'otro', label: 'Otro', icon: '🐾' },
+const PET_TYPES: { value: PetType; labelKey: string; icon: string }[] = [
+  { value: 'perro', labelKey: 'home:petTypes.perro', icon: '🐕' },
+  { value: 'gato', labelKey: 'home:petTypes.gato', icon: '🐱' },
+  { value: 'pajaro', labelKey: 'home:petTypes.pajaro', icon: '🐦' },
+  { value: 'otro', labelKey: 'home:petTypes.otro', icon: '🐾' },
 ];
 
 // Only feed-visible statuses are offered. `registered`/`archived` are private
 // and are rejected by the public search endpoint, so they must not be options.
-const PET_STATUSES: { value: PetStatus; label: string }[] = [
-  { value: 'lost', label: 'Perdidos' },
-  { value: 'stray', label: 'Callejeros' },
-  { value: 'found', label: 'Encontrados' },
+const PET_STATUSES: { value: PetStatus; labelKey: string }[] = [
+  { value: 'lost', labelKey: 'home:petStatuses.lost' },
+  { value: 'stray', labelKey: 'home:petStatuses.stray' },
+  { value: 'found', labelKey: 'home:petStatuses.found' },
 ];
 
 export function HomePage() {
   const { t } = useTranslation(['home', 'common', 'pets']);
+  // Local "today" as YYYY-MM-DD (en-CA yields that format) to cap date filters:
+  // no future dates, and the range endpoints can't cross each other.
+  const todayStr = new Date().toLocaleDateString('en-CA');
   const { isAuthenticated } = useAuth();
   const { data: stats } = useStats();
   const { data: featuredStories } = useStories({ limit: 3 });
@@ -385,13 +388,13 @@ export function HomePage() {
         <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-              Historias de éxito
+              {t('home:successStories.title')}
             </h2>
             <Link
               to="/stories"
               className="text-sm font-semibold text-primary hover:text-primary-dark transition-colors"
             >
-              Ver todas →
+              {t('home:successStories.viewAll')} →
             </Link>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -428,13 +431,13 @@ export function HomePage() {
               <div className="flex items-center gap-2 mb-1">
                 <span className="text-2xl">📷</span>
                 <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">
-                  Buscar por foto
+                  {t('home:photoSearch.title')}
                 </h2>
-                <span className="text-xs font-bold bg-primary/15 text-primary px-2 py-0.5 rounded-full">IA</span>
+                <span className="text-xs font-bold bg-primary/15 text-primary px-2 py-0.5 rounded-full">{t('home:photoSearch.aiBadge')}</span>
                 <span className="text-xs font-semibold bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 px-2 py-0.5 rounded-full">Beta</span>
               </div>
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                Subí una foto y detectamos automáticamente la raza y el tipo de mascota.
+                {t('home:photoSearch.description')}
               </p>
               {classifyResult?.type && (
                 <div className="mt-3 flex items-center gap-2 flex-wrap">
@@ -446,13 +449,13 @@ export function HomePage() {
                     onClick={() => { setClassifyResult(null); clearFilters(); }}
                     className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
                   >
-                    Limpiar ✕
+                    {t('home:filters.clear')} ✕
                   </button>
                 </div>
               )}
               {photoNoMatch && (
                 <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 text-xs text-yellow-700 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-full">
-                  No se detectó ninguna mascota. Probá con una foto más clara.
+                  {t('home:photoSearch.noPetDetected')}
                   <button type="button" onClick={() => setPhotoNoMatch(false)} className="ml-0.5 hover:opacity-70">✕</button>
                 </div>
               )}
@@ -492,7 +495,13 @@ export function HomePage() {
                 disabled={isModelLoading || isClassifying || imageSearchMutation.isPending}
                 className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-white bg-primary rounded-xl hover:bg-primary-dark disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
               >
-                {imageSearchMutation.isPending ? '🔍 Analizando...' : isModelLoading ? '⏳ Cargando...' : isClassifying ? '🔍 Analizando...' : '📷 Subir foto'}
+                {imageSearchMutation.isPending
+                  ? `🔍 ${t('home:photoSearch.analyzing')}`
+                  : isModelLoading
+                  ? `⏳ ${t('home:photoSearch.loadingModel')}`
+                  : isClassifying
+                  ? `🔍 ${t('home:photoSearch.analyzing')}`
+                  : `📷 ${t('home:photoSearch.uploadPhoto')}`}
               </button>
               <input
                 ref={fileInputRef}
@@ -510,7 +519,7 @@ export function HomePage() {
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
         <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-5">
           <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-4">
-            🔍 Filtrar mascotas
+            🔍 {t('home:filters.title')}
           </h2>
 
           <div className="flex flex-wrap gap-3">
@@ -521,16 +530,16 @@ export function HomePage() {
               aria-label={t('home:filters.type')}
               className="border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-primary"
             >
-              <option value="">Todos los tipos</option>
-              {PET_TYPES.map((t) => (
-                <option key={t.value} value={t.value}>{t.icon} {t.label}</option>
+              <option value="">{t('home:filters.allTypes')}</option>
+              {PET_TYPES.map((pt) => (
+                <option key={pt.value} value={pt.value}>{pt.icon} {t(pt.labelKey)}</option>
               ))}
             </select>
 
             {/* Color */}
             <input
               type="text"
-              placeholder="Color (ej: negro, marrón...)"
+              placeholder={t('home:filters.colorPlaceholder')}
               aria-label={t('home:filters.color')}
               value={draftColor}
               onChange={(e) => setDraftColor(e.target.value)}
@@ -545,16 +554,16 @@ export function HomePage() {
               aria-label={t('home:filters.status')}
               className="border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-primary"
             >
-              <option value="">Perdidos y callejeros</option>
+              <option value="">{t('home:filters.defaultStatus')}</option>
               {PET_STATUSES.map((s) => (
-                <option key={s.value} value={s.value}>{s.label}</option>
+                <option key={s.value} value={s.value}>{t(s.labelKey)}</option>
               ))}
             </select>
 
             {/* Raza */}
             <input
               type="text"
-              placeholder="Raza (ej: Labrador...)"
+              placeholder={t('home:filters.breedPlaceholder')}
               aria-label={t('home:filters.breed')}
               value={draftBreed}
               onChange={(e) => setDraftBreed(e.target.value)}
@@ -567,6 +576,7 @@ export function HomePage() {
               type="date"
               value={draftFrom}
               onChange={(e) => setDraftFrom(e.target.value)}
+              max={draftTo || todayStr}
               aria-label={t('home:filters.dateFrom')}
               className="border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-primary"
             />
@@ -576,6 +586,8 @@ export function HomePage() {
               type="date"
               value={draftTo}
               onChange={(e) => setDraftTo(e.target.value)}
+              min={draftFrom || undefined}
+              max={todayStr}
               aria-label={t('home:filters.dateTo')}
               className="border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-primary"
             />
@@ -617,7 +629,7 @@ export function HomePage() {
                 onClick={clearFilters}
                 className="px-4 py-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 border border-gray-200 dark:border-gray-700 rounded-lg transition-colors"
               >
-                ✕ Limpiar
+                ✕ {t('home:filters.clear')}
               </button>
             )}
           </div>
@@ -631,7 +643,11 @@ export function HomePage() {
             {imageResults
               ? `${t('home:photoSearch.resultsTitle')} (${imageResults.length})`
               : hasActiveFilters
-              ? `${searchResults?.total ?? searchResults?.data?.length ?? 0} resultado${(searchResults?.total ?? 0) !== 1 ? 's' : ''}`
+              ? `${searchResults?.total ?? searchResults?.data?.length ?? 0} ${
+                  (searchResults?.total ?? searchResults?.data?.length ?? 0) !== 1
+                    ? t('home:results')
+                    : t('home:result')
+                }`
               : t('home:recentReports')}
           </h2>
           {imageResults ? (
@@ -672,7 +688,7 @@ export function HomePage() {
                     <div className="p-4">
                       <h3 className="font-bold text-gray-900 dark:text-gray-100 text-lg mb-1">{result.name}</h3>
                       {result.type && (
-                        <span className="text-xs bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 px-2 py-0.5 rounded-full">{result.type}</span>
+                        <span className="text-xs bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 px-2 py-0.5 rounded-full">{t(`pets:types.${result.type}`)}</span>
                       )}
                     </div>
                   </div>
@@ -719,7 +735,7 @@ export function HomePage() {
                     <div className="p-4">
                       <h3 className="font-bold text-gray-900 dark:text-gray-100 text-lg mb-1">{pet.name}</h3>
                       <div className="flex flex-wrap gap-1 mb-2">
-                        {pet.type && <span className="text-xs bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 px-2 py-0.5 rounded-full">{pet.type}</span>}
+                        {pet.type && <span className="text-xs bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 px-2 py-0.5 rounded-full">{t(`pets:types.${pet.type}`)}</span>}
                         {pet.breed && <span className="text-xs bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 px-2 py-0.5 rounded-full">{pet.breed}</span>}
                         {pet.color && <span className="text-xs bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 px-2 py-0.5 rounded-full">{pet.color}</span>}
                       </div>
@@ -742,8 +758,8 @@ export function HomePage() {
           ) : (
             <div className="text-center py-12">
               <p className="text-5xl mb-4">🔍</p>
-              <p className="text-gray-700 dark:text-gray-300 font-semibold mb-2">Sin resultados</p>
-              <p className="text-gray-500 dark:text-gray-400 mb-4">Probá con otros filtros</p>
+              <p className="text-gray-700 dark:text-gray-300 font-semibold mb-2">{t('home:noResults.title')}</p>
+              <p className="text-gray-500 dark:text-gray-400 mb-4">{t('home:noResults.hint')}</p>
               <button onClick={clearFilters} className="px-5 py-2 bg-primary text-white rounded-lg text-sm font-semibold hover:bg-primary-dark transition-colors">
                 Limpiar filtros
               </button>

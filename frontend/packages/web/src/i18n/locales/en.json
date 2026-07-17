@@ -200,7 +200,14 @@
       "noResults": "No similar pets found",
       "loginRequired": "Log in to search by photo",
       "clear": "Clear photo search",
-      "unavailable": "Photo search is busy right now. Please try again in a few seconds."
+      "unavailable": "Photo search is busy right now. Please try again in a few seconds.",
+      "title": "Search by photo",
+      "aiBadge": "AI",
+      "description": "Upload a photo and we'll automatically detect the pet's breed and type.",
+      "noPetDetected": "No pet detected. Try a clearer photo.",
+      "analyzing": "Analyzing...",
+      "loadingModel": "Loading...",
+      "uploadPhoto": "Upload photo"
     },
     "distanceCenter": {
       "gps": "Near your location",
@@ -218,8 +225,35 @@
       "dateTo": "Date to",
       "color": "Filter by color",
       "breed": "Filter by breed",
-      "distance": "Filter by distance"
+      "distance": "Filter by distance",
+      "title": "Filter pets",
+      "allTypes": "All types",
+      "colorPlaceholder": "Color (e.g. black, brown...)",
+      "defaultStatus": "Lost and stray",
+      "breedPlaceholder": "Breed (e.g. Labrador...)",
+      "clear": "Clear"
     },
+    "petTypes": {
+      "perro": "Dog",
+      "gato": "Cat",
+      "pajaro": "Bird",
+      "otro": "Other"
+    },
+    "petStatuses": {
+      "lost": "Lost",
+      "stray": "Stray",
+      "found": "Found"
+    },
+    "successStories": {
+      "title": "Success stories",
+      "viewAll": "View all"
+    },
+    "noResults": {
+      "title": "No results",
+      "hint": "Try other filters"
+    },
+    "result": "result",
+    "results": "results",
     "searchButton": "Search",
     "searchActive": "Active search",
     "recentReports": "Recent reports",

@@ -106,4 +106,12 @@ i18n
     },
   });
 
+// Keep <html lang> in sync with the active language so native widgets
+// (date pickers), screen readers and SEO reflect the selected language
+// instead of the hardcoded "es" in index.html.
+document.documentElement.lang = detectedLang;
+i18n.on('languageChanged', (lng) => {
+  document.documentElement.lang = lng;
+});
+
 export default i18n;
