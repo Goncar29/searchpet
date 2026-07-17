@@ -15,6 +15,7 @@ type CreatePetRequest struct {
 	Breed       string  `json:"breed"`
 	Color       string  `json:"color"`
 	Description string  `json:"description"`
+	City        string  `json:"city"`
 	Gender      string  `json:"gender"`
 	MicrochipID *string `json:"microchip_id"`
 	// Status is optional. Accepted values: "registered" (default) and "stray".
@@ -55,6 +56,7 @@ type UpdatePetRequest struct {
 	Breed       *string `json:"breed"`
 	Color       *string `json:"color"`
 	Description *string `json:"description"`
+	City        *string `json:"city"`
 	Status      string  `json:"status"`
 	// Version is used for optimistic concurrency. Send the value received from the
 	// last GET response; the server rejects the update with 409 if it has changed.
@@ -104,6 +106,7 @@ type PetResponse struct {
 	Breed       string             `json:"breed,omitempty"`
 	Color       string             `json:"color,omitempty"`
 	Description string             `json:"description,omitempty"`
+	City        string             `json:"city,omitempty"`
 	Status      string             `json:"status"`
 	Version     int                `json:"version"`
 	Photos      []PetPhotoResponse `json:"photos"`
@@ -137,6 +140,7 @@ func ToPetResponse(pet *domain.Pet) PetResponse {
 		Breed:                 pet.Breed,
 		Color:                 pet.Color,
 		Description:           pet.Description,
+		City:                  pet.City,
 		Status:                pet.Status,
 		Version:               pet.Version,
 		Photos:                photos,

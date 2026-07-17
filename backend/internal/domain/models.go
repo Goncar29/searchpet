@@ -70,6 +70,7 @@ type Pet struct {
 	Breed            string     `gorm:"size:100" json:"breed,omitempty"`
 	Color            string     `gorm:"size:100" json:"color,omitempty"`
 	Description      string     `gorm:"type:text" json:"description,omitempty"`
+	City             string     `gorm:"size:120" json:"city,omitempty"` // free-text city/zone; used by adoption listings for filtering
 	Gender           string     `gorm:"size:10" json:"gender,omitempty"` // male, female, unknown
 	MicrochipID      *string    `gorm:"uniqueIndex;size:50" json:"microchip_id,omitempty"`
 	Status           string     `gorm:"size:50;default:'registered';index:idx_pets_type_status,composite:status" json:"status"` // registered, lost, stray, found, archived
