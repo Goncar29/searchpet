@@ -18,12 +18,12 @@ type CreatePetRequest struct {
 	City        string  `json:"city"`
 	Gender      string  `json:"gender"`
 	MicrochipID *string `json:"microchip_id"`
-	// Status is optional. Accepted values: "registered" (default) and "stray".
-	// Any other value is rejected by the service layer.
+	// Status is optional. Accepted values: "registered" (default), "stray", and
+	// "adoption". Any other value is rejected by the service layer.
 	Status string `json:"status"`
 	// InitialReport is required when Status == "stray" (400 initial_report_required
-	// otherwise) and forbidden when Status == "registered" or omitted
-	// (400 initial_report_not_allowed otherwise).
+	// otherwise) and forbidden for any non-stray status — "registered", "adoption",
+	// or omitted (400 initial_report_not_allowed otherwise).
 	InitialReport *InitialReportRequest `json:"initial_report"`
 	// ReporterContactPublic is the stray opt-in: when true, the reporter agrees
 	// to expose their profile phone publicly. Only honored for stray creations.

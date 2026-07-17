@@ -48,9 +48,10 @@ var PublicSearchableStatuses = map[string]bool{
 // default pet-browse feed are different surfaces and may diverge.
 var MapVisibleStatuses = []string{PetStatusLost, PetStatusStray, PetStatusFound}
 
-// AdoptionVisibleStatuses is the allowlist for the public "Adoptar" section.
-// Only pets *available* for adoption are public; adopted pets are visible only
-// to their owner (their profile tab). Deliberately kept OUT of
-// FeedVisibleStatuses / MapVisibleStatuses / PublicSearchableStatuses so
-// adoption never leaks into the lost-pet feed, map, or public search.
+// AdoptionVisibleStatuses is the allowlist for the public "Adoptar" section
+// (GET /api/adoptions). Only pets *available* for adoption are listed here;
+// adopted pets are not (they surface only in their owner's profile tab).
+// Deliberately kept OUT of FeedVisibleStatuses / MapVisibleStatuses /
+// PublicSearchableStatuses so adoption never leaks into the lost-pet feed,
+// map, or public search.
 var AdoptionVisibleStatuses = []string{PetStatusAdoption}

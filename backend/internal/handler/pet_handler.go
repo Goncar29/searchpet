@@ -286,7 +286,7 @@ func (h *PetHandler) SearchPets(c *gin.Context) {
 // or any lost-cluster status.
 func (h *PetHandler) ListAdoptions(c *gin.Context) {
 	criteria := domain.PetSearchCriteria{
-		Statuses: []string{domain.PetStatusAdoption},
+		Statuses: domain.AdoptionVisibleStatuses,
 		Type:     c.Query("type"),
 		City:     c.Query("city"),
 	}

@@ -73,10 +73,12 @@ func (s *petService) recordStat(eventType string, petID uuid.UUID) {
 // If req.Status == PetStatusStray, OwnerID is nil (stray pet with no owner) and
 // req.InitialReport is REQUIRED — a "sighting" report is created in the same
 // transaction (400 initial_report_required if absent).
-// If req.Status == PetStatusRegistered (or omitted), req.InitialReport is
-// FORBIDDEN (400 initial_report_not_allowed if present) — registered pets are
-// not published and therefore carry no location report.
-// Creating with lost/found/archived is rejected with ErrInvalidStatusTransition.
+// If req.Status == PetStatusRegistered (or omitted) or PetStatusAdoption, the
+// caller becomes OwnerID and req.InitialReport is FORBIDDEN (400
+// initial_report_not_allowed if present) — these pets carry no location report.
+// An adoption pet is an owner-published listing; it takes no report and emits no
+// events. Creating with lost/found/archived is rejected with
+// ErrInvalidStatusTransition.
 func (s *petService) CreatePet(ownerID string, req dto.CreatePetRequest) (*domain.Pet, error) {
 	ownerUUID, err := uuid.Parse(ownerID)
 	if err != nil {

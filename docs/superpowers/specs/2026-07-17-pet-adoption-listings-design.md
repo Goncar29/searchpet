@@ -74,10 +74,17 @@ adoption  → adopted, archived
 adopted   → adoption, archived      (revert if the adoption falls through)
 ```
 
-- **Zero edges** connect this cluster to `registered / lost / stray / found`. A
-  lost pet can never become an adoption and vice versa.
+- **Zero *direct* edges** connect this cluster to `registered / lost / stray /
+  found`. A lost pet can never become an adoption in one step, and vice versa.
 - Adoption pets are **created directly** as `adoption` (no transition into it).
-- `archived → registered` already exists; unchanged.
+- `archived → registered` already exists and is **unchanged**. This means an
+  owner *can* deliberately walk their own listing back to an owned pet via
+  `adoption/adopted → archived → registered` (and from there to `lost`). This is
+  intentional and legitimate: adoption pets are **owner-owned** (unlike strays,
+  which have no owner and are sandboxed to `stray → found`), so reclaiming a pet
+  you were rehoming is a valid multi-step action by its owner. What the isolation
+  guarantees is that no adoption listing appears in the lost surfaces *while it is
+  a listing*, and that there is no one-step flip between the clusters.
 
 ## Backend
 
@@ -179,7 +186,10 @@ web and mobile.
 1. `adoption` / `adopted` are absent from `FeedVisibleStatuses`,
    `MapVisibleStatuses`, `PublicSearchableStatuses` → never leak into the lost
    feed, map, or public search.
-2. State machine has no edges between the adoption cluster and the lost cluster.
+2. State machine has no *direct* edges between the adoption cluster and the lost
+   cluster (a one-step flip is impossible). The only bridge is the deliberate,
+   owner-driven `archived → registered` path shared by all owned pets — see the
+   State machine section for why that is intentional, not a leak.
 3. Public `GET /api/adoptions` only ever returns `adoption` (never `adopted`, never
    lost statuses).
 4. The lost publish flow and the adoption publish flow are separate steps.
