@@ -83,6 +83,7 @@ export function MainLayout() {
   const publicNavLinks = [
     { to: '/', label: t('home') },
     { to: '/map', label: t('map') },
+    { to: '/adoptar', label: t('adopt') },
     { to: '/shelters', label: t('shelters') },
     { to: '/leaderboard', label: '🏆 Ranking' },
   ];
