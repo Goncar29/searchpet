@@ -59,3 +59,11 @@ func TestToPetResponse_OmitsReporterBlock_WhenOptedInButNoPhone(t *testing.T) {
 		t.Errorf("reporter block must be omitted when there is no phone, got %+v", resp.Reporter)
 	}
 }
+
+func TestToPetResponseIncludesCity(t *testing.T) {
+	pet := &domain.Pet{Name: "Firulais", Type: "perro", Status: domain.PetStatusAdoption, City: "Montevideo"}
+	resp := ToPetResponse(pet)
+	if resp.City != "Montevideo" {
+		t.Errorf("expected city Montevideo, got %q", resp.City)
+	}
+}

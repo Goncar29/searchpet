@@ -8,6 +8,8 @@ var AllowedTransitions = map[string][]string{
 	PetStatusFound:      {PetStatusRegistered, PetStatusArchived},
 	PetStatusArchived:   {PetStatusRegistered},
 	PetStatusStray:      {PetStatusFound},
+	PetStatusAdoption:   {PetStatusAdopted, PetStatusArchived},
+	PetStatusAdopted:    {PetStatusAdoption, PetStatusArchived},
 }
 
 // ValidateTransition returns nil if the transition from → to is allowed,

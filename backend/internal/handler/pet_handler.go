@@ -279,6 +279,51 @@ func (h *PetHandler) SearchPets(c *gin.Context) {
 	c.JSON(http.StatusOK, result)
 }
 
+// ListAdoptions godoc
+// GET /api/adoptions
+// Public — lists pets available for adoption (status "adoption" only).
+// Optional query params: type, city, page, limit. Never returns adopted pets
+// or any lost-cluster status.
+func (h *PetHandler) ListAdoptions(c *gin.Context) {
+	criteria := domain.PetSearchCriteria{
+		Statuses: domain.AdoptionVisibleStatuses,
+		Type:     c.Query("type"),
+		City:     c.Query("city"),
+	}
+
+	if pageStr := c.Query("page"); pageStr != "" {
+		p, err := strconv.Atoi(pageStr)
+		if err != nil || p < 1 {
+			writeError(c, http.StatusBadRequest, domain.ErrInvalidPageParam)
+			return
+		}
+		criteria.Page = p
+	} else {
+		criteria.Page = 1
+	}
+
+	if limitStr := c.Query("limit"); limitStr != "" {
+		l, err := strconv.Atoi(limitStr)
+		if err != nil || l < 1 {
+			writeError(c, http.StatusBadRequest, domain.ErrInvalidLimitParam)
+			return
+		}
+		if l > 100 {
+			l = 100
+		}
+		criteria.Limit = l
+	} else {
+		criteria.Limit = 20
+	}
+
+	result, err := h.petService.SearchPets(criteria)
+	if err != nil {
+		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
+		return
+	}
+	c.JSON(http.StatusOK, result)
+}
+
 // MarkAsFound godoc
 // PATCH /api/pets/:id/found
 // Marca una mascota como encontrada. Solo el dueño puede llamarlo.
