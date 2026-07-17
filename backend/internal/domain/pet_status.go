@@ -8,6 +8,8 @@ const (
 	PetStatusStray      = "stray"
 	PetStatusFound      = "found"
 	PetStatusArchived   = "archived"
+	PetStatusAdoption   = "adoption"
+	PetStatusAdopted    = "adopted"
 )
 
 // ValidPetStatuses is the authoritative set of allowed status values.
@@ -18,6 +20,8 @@ var ValidPetStatuses = map[string]bool{
 	PetStatusStray:      true,
 	PetStatusFound:      true,
 	PetStatusArchived:   true,
+	PetStatusAdoption:   true,
+	PetStatusAdopted:    true,
 }
 
 // FeedVisibleStatuses are the statuses returned in the public feed by default
@@ -43,3 +47,10 @@ var PublicSearchableStatuses = map[string]bool{
 // leak. Kept distinct from FeedVisibleStatuses on purpose: the map and the
 // default pet-browse feed are different surfaces and may diverge.
 var MapVisibleStatuses = []string{PetStatusLost, PetStatusStray, PetStatusFound}
+
+// AdoptionVisibleStatuses is the allowlist for the public "Adoptar" section.
+// Only pets *available* for adoption are public; adopted pets are visible only
+// to their owner (their profile tab). Deliberately kept OUT of
+// FeedVisibleStatuses / MapVisibleStatuses / PublicSearchableStatuses so
+// adoption never leaks into the lost-pet feed, map, or public search.
+var AdoptionVisibleStatuses = []string{PetStatusAdoption}

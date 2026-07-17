@@ -81,3 +81,40 @@ func TestValidateTransition_DisallowedEdges(t *testing.T) {
 		})
 	}
 }
+
+func TestAdoptionClusterTransitions(t *testing.T) {
+	allowed := [][2]string{
+		{domain.PetStatusAdoption, domain.PetStatusAdopted},
+		{domain.PetStatusAdopted, domain.PetStatusAdoption},
+		{domain.PetStatusAdoption, domain.PetStatusArchived},
+		{domain.PetStatusAdopted, domain.PetStatusArchived},
+	}
+	for _, tc := range allowed {
+		if err := domain.ValidateTransition(tc[0], tc[1]); err != nil {
+			t.Errorf("expected %s->%s allowed, got %v", tc[0], tc[1], err)
+		}
+	}
+
+	// Isolation: no edges between the adoption cluster and the lost cluster.
+	forbidden := [][2]string{
+		{domain.PetStatusLost, domain.PetStatusAdoption},
+		{domain.PetStatusAdoption, domain.PetStatusLost},
+		{domain.PetStatusRegistered, domain.PetStatusAdoption},
+		{domain.PetStatusAdoption, domain.PetStatusFound},
+		{domain.PetStatusStray, domain.PetStatusAdoption},
+		{domain.PetStatusFound, domain.PetStatusAdopted},
+	}
+	for _, tc := range forbidden {
+		if err := domain.ValidateTransition(tc[0], tc[1]); err == nil {
+			t.Errorf("expected %s->%s rejected, got nil", tc[0], tc[1])
+		}
+	}
+
+	if !domain.ValidPetStatuses[domain.PetStatusAdoption] || !domain.ValidPetStatuses[domain.PetStatusAdopted] {
+		t.Error("adoption statuses must be in ValidPetStatuses")
+	}
+	// Isolation: adoption statuses must NOT be publicly searchable via ?status=.
+	if domain.PublicSearchableStatuses[domain.PetStatusAdoption] || domain.PublicSearchableStatuses[domain.PetStatusAdopted] {
+		t.Error("adoption statuses must NOT be in PublicSearchableStatuses")
+	}
+}
