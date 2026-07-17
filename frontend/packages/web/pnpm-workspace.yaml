@@ -12,9 +12,15 @@ allowBuilds:
 # vitest>jsdom test path (never shipped) and are ignored below via
 # auditConfig. Without the pin, the lockfile drifts to 7.28 and the web
 # test suite fails to start its jsdom workers.
+# Force patched websocket-driver (>=0.7.5) across transitive paths. The
+# <0.7.5 range has a critical message-corruption advisory
+# (GHSA-xv26-6w52-cph6); it reaches us via firebase > @firebase/database >
+# faye-websocket. websocket-driver is a Node server-side lib the web app
+# never runs, but it still trips `pnpm audit --audit-level=high`.
 overrides:
   form-data: '>=4.0.6'
   undici: '7.27.2'
+  websocket-driver: '>=0.7.5'
 
 # Ignore the three HIGH undici advisories that only reach us through the
 # dev-only vitest>jsdom>undici test path. They cover undici's SOCKS5
