@@ -257,7 +257,9 @@ export function PetDetailPage() {
                   🔒 {t('pets:detail.loginToShare')}
                 </Link>
               )}
-              {isAuthenticated && (
+              {/* Location reports only make sense while a pet is actively being
+                  searched (lost/stray). Hide for adoption/adopted/found/registered. */}
+              {isAuthenticated && (pet.status === 'lost' || pet.status === 'stray') && (
                 <Link
                   to={`/reports/create?petId=${id}`}
                   className="inline-flex items-center gap-2 px-4 py-2 border border-primary text-primary font-semibold rounded-lg hover:bg-primary/5 transition-colors"
