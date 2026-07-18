@@ -78,6 +78,12 @@ export function SharePanel({ petId, petName, pet }: SharePanelProps) {
 
   const message = buildWhatsAppMessage(pet, shareLink?.share_url);
 
+  const isAdoption = pet.status === 'adoption';
+  const posterColor = isAdoption ? '#7c3aed' : pet.status === 'found' ? '#22c55e' : '#ef4444';
+  const posterHeader = isAdoption
+    ? '¡EN ADOPCIÓN!'
+    : pet.status === 'found' ? '¡MASCOTA ENCONTRADA!' : '¡MASCOTA PERDIDA!';
+
   const handleOpen = async () => {
     if (open) {
       setOpen(false);
@@ -365,7 +371,7 @@ export function SharePanel({ petId, petName, pet }: SharePanelProps) {
         <div style={{ textAlign: 'center', marginBottom: '16px' }}>
           <div
             style={{
-              backgroundColor: pet.status === 'found' ? '#22c55e' : '#ef4444',
+              backgroundColor: posterColor,
               color: '#ffffff',
               padding: '10px 20px',
               borderRadius: '8px',
@@ -375,7 +381,7 @@ export function SharePanel({ petId, petName, pet }: SharePanelProps) {
               display: 'inline-block',
             }}
           >
-            {pet.status === 'found' ? '¡MASCOTA ENCONTRADA!' : '¡MASCOTA PERDIDA!'}
+            {posterHeader}
           </div>
         </div>
 
