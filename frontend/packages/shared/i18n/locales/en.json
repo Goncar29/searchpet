@@ -111,6 +111,7 @@
       "reporter": "Who reported it",
       "reporterDescription": "This stray pet was reported by a community member.",
       "contactReporter": "Contact reporter",
+      "sendMessage": "Send message",
       "contactReporterWhatsapp": "Contact via WhatsApp",
       "revealPhone": "Show phone",
       "callPhone": "Call",
