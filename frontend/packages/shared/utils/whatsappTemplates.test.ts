@@ -73,6 +73,17 @@ describe('buildWhatsAppMessage', () => {
     expect(msg.length).toBeLessThanOrEqual(500);
   });
 
+  it('frames a lost pet as PERDIDA (exact)', () => {
+    const msg = buildWhatsAppMessage({ name: 'Firu', type: 'perro', status: 'lost' });
+    expect(msg).toContain('¡MASCOTA PERDIDA!');
+    expect(msg).toContain('Nombre: Firu');
+  });
+
+  it('frames a found pet as ENCONTRADA (exact)', () => {
+    const msg = buildWhatsAppMessage({ name: 'Firu', type: 'perro', status: 'found' });
+    expect(msg).toContain('¡MASCOTA ENCONTRADA!');
+  });
+
   it('frames an adoption pet as EN ADOPCIÓN and never as PERDIDA', () => {
     const msg = buildWhatsAppMessage(
       { name: 'Michi', type: 'gato', status: 'adoption', city: 'Montevideo' },
