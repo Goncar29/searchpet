@@ -13,6 +13,7 @@ interface PetForMessage {
   breed?: string;
   color?: string;
   description?: string;
+  city?: string;
   status: PetStatus;
 }
 
@@ -31,19 +32,23 @@ export function buildWhatsAppMessage(
   pet: PetForMessage,
   shareUrl?: string,
 ): string {
-  const statusText = pet.status === 'found' ? 'ENCONTRADA' : 'PERDIDA';
+  const isAdoption = pet.status === 'adoption';
 
-  // Líneas fijas — siempre presentes
-  const header = `🚨 ¡MASCOTA ${statusText}! 🚨`;
-  const nameLine = `Nombre: ${pet.name}`;
+  const header = isAdoption
+    ? '🏠 ¡EN ADOPCIÓN! 🏠'
+    : `🚨 ¡MASCOTA ${pet.status === 'found' ? 'ENCONTRADA' : 'PERDIDA'}! 🚨`;
+  const nameLine = isAdoption ? `${pet.name} busca un hogar` : `Nombre: ${pet.name}`;
   const typeLine = `Tipo: ${pet.type}`;
   const breedLine = pet.breed ? `Raza: ${pet.breed}` : '';
   const colorLine = pet.color ? `Color: ${pet.color}` : '';
+  const cityLine = isAdoption && pet.city ? `📍 ${pet.city}` : '';
   const urlLine = shareUrl ? `Ver más: ${shareUrl}` : '';
-  const footer = 'Por favor, compartí si podés. 🙏';
+  const footer = isAdoption
+    ? 'Compartí para ayudarlo a encontrar un hogar. 🙏'
+    : 'Por favor, compartí si podés. 🙏';
 
   // Construimos sin descripción primero para saber el presupuesto disponible
-  const fixedParts = [header, nameLine, typeLine, breedLine, colorLine, urlLine, footer]
+  const fixedParts = [header, nameLine, typeLine, breedLine, colorLine, cityLine, urlLine, footer]
     .filter(Boolean)
     .join('\n');
 
@@ -66,7 +71,7 @@ export function buildWhatsAppMessage(
       ? pet.description
       : pet.description.slice(0, budget - 3) + '...';
 
-  const allParts = [header, nameLine, typeLine, breedLine, colorLine, description, urlLine, footer]
+  const allParts = [header, nameLine, typeLine, breedLine, colorLine, cityLine, description, urlLine, footer]
     .filter(Boolean)
     .join('\n');
 

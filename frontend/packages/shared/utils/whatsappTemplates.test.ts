@@ -72,6 +72,24 @@ describe('buildWhatsAppMessage', () => {
     const msg = buildWhatsAppMessage(basePet, longUrl);
     expect(msg.length).toBeLessThanOrEqual(500);
   });
+
+  it('frames an adoption pet as EN ADOPCIÓN and never as PERDIDA', () => {
+    const msg = buildWhatsAppMessage(
+      { name: 'Michi', type: 'gato', status: 'adoption', city: 'Montevideo' },
+      'https://searchpet.app/pet/tok',
+    );
+    expect(msg).toContain('¡EN ADOPCIÓN!');
+    expect(msg).toContain('busca un hogar');
+    expect(msg).toContain('📍 Montevideo');
+    expect(msg).toContain('https://searchpet.app/pet/tok');
+    expect(msg).not.toContain('PERDIDA');
+  });
+
+  it('omits the city line when no city is given for adoption', () => {
+    const msg = buildWhatsAppMessage({ name: 'Michi', type: 'gato', status: 'adoption' });
+    expect(msg).toContain('¡EN ADOPCIÓN!');
+    expect(msg).not.toContain('📍');
+  });
 });
 
 // ============================================================
