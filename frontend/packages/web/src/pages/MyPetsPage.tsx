@@ -299,7 +299,7 @@ export function MyPetsPage() {
         <div className="flex gap-2 border-b border-gray-200 dark:border-gray-700 mb-6">
           {renderTab('owned', t('pets:reports.tabOwned'))}
           {renderTab('reported', t('pets:reports.tabReported'))}
-          {renderTab('adoption', t('adoption:section.title'))}
+          {renderTab('adoption', t('adoption:profile.tab'))}
         </div>
 
         {deleteError && (

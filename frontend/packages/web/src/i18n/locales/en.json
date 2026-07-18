@@ -465,13 +465,13 @@
       "typeFilter": "Type",
       "allTypes": "All",
       "apply": "Apply",
-      "badge": "For adoption",
       "resultCount_one": "{{count}} pet",
       "resultCount_other": "{{count}} pets"
     },
     "publish": {
       "intentOption": "Give for adoption",
       "intentHelp": "Post a pet looking for a home",
+      "title": "Tell us about the pet up for adoption",
       "cityLabel": "City",
       "cityPlaceholder": "e.g. Montevideo",
       "submit": "Publish for adoption",
@@ -479,10 +479,7 @@
     },
     "profile": {
       "tab": "For adoption",
-      "empty": "You have no pets up for adoption",
-      "markAdopted": "Mark adopted",
-      "markAdoptedConfirm": "Confirm this pet was adopted?",
-      "archive": "Archive"
+      "empty": "You have no pets up for adoption"
     }
   }
 }

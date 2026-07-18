@@ -109,7 +109,7 @@ describe('PublishWizardPage', () => {
   it('selecting the adoption intent advances to the adoption-form step with a city field', () => {
     render(<PublishWizardPage />, { wrapper });
     fireEvent.click(screen.getByText('adoption:publish.intentOption'));
-    expect(screen.getByText('publish:strayForm.title')).toBeInTheDocument();
+    expect(screen.getByText('adoption:publish.title')).toBeInTheDocument();
     expect(screen.getByLabelText('adoption:publish.cityLabel')).toBeInTheDocument();
   });
 });

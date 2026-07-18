@@ -465,13 +465,13 @@
       "typeFilter": "Tipo",
       "allTypes": "Todos",
       "apply": "Aplicar",
-      "badge": "Para adoção",
       "resultCount_one": "{{count}} animal",
       "resultCount_other": "{{count}} animais"
     },
     "publish": {
       "intentOption": "Doar para adoção",
       "intentHelp": "Publique um animal à procura de um lar",
+      "title": "Conte sobre o animal para adoção",
       "cityLabel": "Cidade",
       "cityPlaceholder": "Ex: Montevidéu",
       "submit": "Publicar para adoção",
@@ -479,10 +479,7 @@
     },
     "profile": {
       "tab": "Para adoção",
-      "empty": "Você não tem animais para adoção",
-      "markAdopted": "Marcar como adotado",
-      "markAdoptedConfirm": "Confirma que este animal foi adotado?",
-      "archive": "Arquivar"
+      "empty": "Você não tem animais para adoção"
     }
   }
 }

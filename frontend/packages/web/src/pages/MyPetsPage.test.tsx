@@ -76,7 +76,7 @@ describe('MyPetsPage', () => {
     expect(values).toContain('registered');
   });
 
-  it('una mascota en adopción aparece en la tab "adoption:section.title" y no en "owned"', () => {
+  it('una mascota en adopción aparece en la tab "adoption:profile.tab" y no en "owned"', () => {
     state.owned = [makePet('adoption')];
     render(<MyPetsPage />, { wrapper });
 
@@ -84,7 +84,7 @@ describe('MyPetsPage', () => {
     expect(screen.queryByText('Pet adoption')).not.toBeInTheDocument();
 
     // Cambiar a la tab de adopción.
-    fireEvent.click(screen.getByRole('button', { name: 'adoption:section.title' }));
+    fireEvent.click(screen.getByRole('button', { name: 'adoption:profile.tab' }));
     expect(screen.getByText('Pet adoption')).toBeInTheDocument();
 
     // El botón "Reportar perdida" no debe estar disponible para una mascota en adopción.

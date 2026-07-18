@@ -98,7 +98,7 @@ export function AdoptionFormStep({ value, onChange, onSubmit, isPending }: Adopt
   return (
     <div className="bg-white dark:bg-gray-900 rounded-2xl p-8 space-y-5">
       <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-50 text-center">
-        {t('strayForm.title')}
+        {tAdoption('publish.title')}
       </h1>
 
       {/* Photos */}
