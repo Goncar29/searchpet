@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { COLORS, SPACING, FONTS, RADIUS } from '../../constants';
 
 interface IntentStepProps {
-  onSelect: (intent: 'lost' | 'stray') => void;
+  onSelect: (intent: 'lost' | 'stray' | 'adoption') => void;
 }
 
 export function IntentStep({ onSelect }: IntentStepProps) {
@@ -21,6 +21,11 @@ export function IntentStep({ onSelect }: IntentStepProps) {
         <Text style={styles.icon}>📍</Text>
         <Text style={styles.cardTitle}>{t('publish:intent.strayTitle')}</Text>
         <Text style={styles.cardDescription}>{t('publish:intent.strayDescription')}</Text>
+      </TouchableOpacity>
+      <TouchableOpacity style={styles.card} onPress={() => onSelect('adoption')}>
+        <Text style={styles.icon}>🏠</Text>
+        <Text style={styles.cardTitle}>{t('adoption:publish.intentOption')}</Text>
+        <Text style={styles.cardDescription}>{t('adoption:publish.intentHelp')}</Text>
       </TouchableOpacity>
     </View>
   );
