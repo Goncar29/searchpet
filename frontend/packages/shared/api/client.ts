@@ -29,6 +29,7 @@ import type {
   PublishLostRequest,
   UpdateProfileRequest,
   PetSearchFilters,
+  AdoptionFilters,
   PetListResponse,
   Report,
   CreateReportRequest,
@@ -312,6 +313,15 @@ class APIClient {
     if (filters.page !== undefined) params['page'] = filters.page;
     if (filters.limit !== undefined) params['limit'] = filters.limit;
     return this.request<PetListResponse>('GET', '/api/pets/search', undefined, params);
+  }
+
+  async getAdoptions(filters: AdoptionFilters): Promise<PetListResponse> {
+    const params: Record<string, string | number> = {};
+    if (filters.type) params['type'] = filters.type;
+    if (filters.city) params['city'] = filters.city;
+    if (filters.page !== undefined) params['page'] = filters.page;
+    if (filters.limit !== undefined) params['limit'] = filters.limit;
+    return this.request<PetListResponse>('GET', '/api/adoptions', undefined, params);
   }
 
   // uploadPhoto usa FormData crudo — NO usa this.request() porque ese método

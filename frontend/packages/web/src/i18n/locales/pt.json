@@ -150,6 +150,7 @@
   "layout": {
     "home": "Início",
     "map": "Mapa",
+    "adopt": "Adotar",
     "shelters": "Abrigos",
     "myPets": "Meus Pets",
     "messages": "Mensagens",
@@ -453,5 +454,32 @@
     "empty": "Não há veterinárias nesta área",
     "defaultName": "Veterinária",
     "attribution": "Dados de veterinárias © colaboradores do OpenStreetMap"
+  },
+  "adoption": {
+    "section": {
+      "title": "Adotar",
+      "subtitle": "Animais à procura de um lar",
+      "empty": "Não há animais para adoção no momento",
+      "cityFilter": "Cidade",
+      "cityPlaceholder": "Filtrar por cidade",
+      "typeFilter": "Tipo",
+      "allTypes": "Todos",
+      "apply": "Aplicar",
+      "resultCount_one": "{{count}} animal",
+      "resultCount_other": "{{count}} animais"
+    },
+    "publish": {
+      "intentOption": "Doar para adoção",
+      "intentHelp": "Publique um animal à procura de um lar",
+      "title": "Conte sobre o animal para adoção",
+      "cityLabel": "Cidade",
+      "cityPlaceholder": "Ex: Montevidéu",
+      "submit": "Publicar para adoção",
+      "cityRequired": "Informe uma cidade"
+    },
+    "profile": {
+      "tab": "Para adoção",
+      "empty": "Você não tem animais para adoção"
+    }
   }
 }

@@ -153,7 +153,9 @@
       "found": "Encontrado",
       "archived": "Arquivado",
       "sighting": "Avistamento",
-      "active": "Ativo"
+      "active": "Ativo",
+      "adoption": "Para adoção",
+      "adopted": "Adotado"
     },
     "share": {
       "button": "Compartilhar",
@@ -417,8 +419,10 @@
     "success": {
       "lostTitle": "Pronto! Seu animal está marcado como perdido",
       "strayTitle": "Obrigado por avisar!",
+      "adoptionTitle": "Seu animal já está disponível para adoção!",
       "lostDescription": "Compartilhe o aviso para que mais pessoas ajudem na busca.",
       "strayDescription": "Compartilhe o aviso para ajudar a encontrar a família dele.",
+      "adoptionDescription": "Compartilhe o aviso para ajudar a encontrar um novo lar.",
       "photoRetryTitle": "O animal foi publicado, mas {{count}} foto(s) não puderam ser enviadas",
       "photoRetryAction": "Tentar novamente",
       "viewPet": "Ver animal",

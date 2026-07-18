@@ -55,6 +55,7 @@ export interface Pet {
   breed?: string;
   color?: string;
   description?: string;
+  city?: string;
   status: PetStatus;
   photos: Photo[];
   owner?: PetOwner;
@@ -255,7 +256,7 @@ export interface UploadPhotoResponse {
 // ============================================================
 
 export type PetType = 'perro' | 'gato' | 'pajaro' | 'otro';
-export type PetStatus = 'registered' | 'lost' | 'stray' | 'found' | 'archived';
+export type PetStatus = 'registered' | 'lost' | 'stray' | 'found' | 'archived' | 'adoption' | 'adopted';
 export type ReportStatus = 'lost' | 'found' | 'sighting';
 export type Platform = 'instagram' | 'facebook' | 'whatsapp' | 'twitter';
 
@@ -288,7 +289,8 @@ export interface CreatePetRequest {
   breed?: string;
   color?: string;
   description?: string;
-  status?: 'registered' | 'stray';
+  city?: string;
+  status?: 'registered' | 'stray' | 'adoption';
   initial_report?: InitialReportRequest;
   // Stray opt-in: expose the reporter's profile phone publicly. Only honored by
   // the backend for stray creations.
@@ -306,6 +308,7 @@ export interface UpdatePetRequest {
   breed?: string;
   color?: string;
   description?: string;
+  city?: string;
   status?: PetStatus;
 }
 
@@ -369,6 +372,13 @@ export interface PetListResponse {
   total: number;
   page: number;
   limit: number;
+}
+
+export interface AdoptionFilters {
+  type?: PetType;
+  city?: string;
+  page?: number;
+  limit?: number;
 }
 
 export interface SendMessageRequest {

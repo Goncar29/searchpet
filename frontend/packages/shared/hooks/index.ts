@@ -13,6 +13,7 @@ import type {
   UpdatePetRequest,
   UpdateProfileRequest,
   PetSearchFilters,
+  AdoptionFilters,
   CreateReportRequest,
   NearbyReportsResponse,
   SendMessageRequest,
@@ -134,6 +135,13 @@ export const useSearchPets = (params: PetSearchFilters) => {
   return useQuery({
     queryKey: ['pets', 'search', params],
     queryFn: () => apiClient.searchPets(params),
+  });
+};
+
+export const useAdoptions = (params: AdoptionFilters) => {
+  return useQuery({
+    queryKey: ['pets', 'adoptions', params],
+    queryFn: () => apiClient.getAdoptions(params),
   });
 };
 

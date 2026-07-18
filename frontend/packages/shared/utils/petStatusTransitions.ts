@@ -13,6 +13,8 @@ export const ALLOWED_TRANSITIONS: Record<PetStatus, PetStatus[]> = {
   found: ['registered', 'archived'],
   archived: ['registered'],
   stray: ['found'],
+  adoption: ['adopted', 'archived'],
+  adopted: ['adoption', 'archived'],
 };
 
 /**

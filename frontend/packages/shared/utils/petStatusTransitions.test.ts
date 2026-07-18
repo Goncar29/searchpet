@@ -11,6 +11,8 @@ describe('petStatusTransitions', () => {
       found: ['registered', 'archived'],
       archived: ['registered'],
       stray: ['found'],
+      adoption: ['adopted', 'archived'],
+      adopted: ['adoption', 'archived'],
     });
   });
 
@@ -33,5 +35,18 @@ describe('petStatusTransitions', () => {
     (['registered', 'lost', 'stray', 'found', 'archived'] as PetStatus[]).forEach((s) => {
       expect(selectableStatuses(s)[0]).toBe(s);
     });
+  });
+});
+
+describe('adoption cluster transitions', () => {
+  it('allows adoption <-> adopted and both -> archived', () => {
+    expect(ALLOWED_TRANSITIONS.adoption).toEqual(['adopted', 'archived']);
+    expect(ALLOWED_TRANSITIONS.adopted).toEqual(['adoption', 'archived']);
+  });
+  it('never offers a lost-cluster target from adoption', () => {
+    const targets = selectableStatuses('adoption');
+    expect(targets).not.toContain('lost');
+    expect(targets).not.toContain('found');
+    expect(targets).not.toContain('stray');
   });
 });

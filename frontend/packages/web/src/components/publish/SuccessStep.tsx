@@ -5,12 +5,24 @@ import type { Pet } from '@shared/types';
 
 interface SuccessStepProps {
   pet: Pet;
-  intent: 'lost' | 'stray';
+  intent: 'lost' | 'stray' | 'adoption';
   failedPhotoCount: number;
   onRetryPhotos: () => void;
   isRetrying: boolean;
   onPublishAnother: () => void;
 }
+
+const TITLE_KEY: Record<SuccessStepProps['intent'], string> = {
+  lost: 'success.lostTitle',
+  stray: 'success.strayTitle',
+  adoption: 'success.adoptionTitle',
+};
+
+const DESCRIPTION_KEY: Record<SuccessStepProps['intent'], string> = {
+  lost: 'success.lostDescription',
+  stray: 'success.strayDescription',
+  adoption: 'success.adoptionDescription',
+};
 
 export function SuccessStep({ pet, intent, failedPhotoCount, onRetryPhotos, isRetrying, onPublishAnother }: SuccessStepProps) {
   const { t } = useTranslation('publish');
@@ -19,10 +31,10 @@ export function SuccessStep({ pet, intent, failedPhotoCount, onRetryPhotos, isRe
     <div data-testid="publish-success" className="bg-white dark:bg-gray-900 rounded-2xl p-8 space-y-5 text-center">
       <span className="text-4xl">✅</span>
       <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-50">
-        {t(intent === 'lost' ? 'success.lostTitle' : 'success.strayTitle')}
+        {t(TITLE_KEY[intent])}
       </h1>
       <p className="text-gray-500 dark:text-gray-400">
-        {t(intent === 'lost' ? 'success.lostDescription' : 'success.strayDescription')}
+        {t(DESCRIPTION_KEY[intent])}
       </p>
 
       {failedPhotoCount > 0 && (

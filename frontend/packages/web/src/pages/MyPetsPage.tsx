@@ -33,6 +33,14 @@ const STATUS_CONFIG: Record<PetStatus, { labelKey: string; className: string }> 
     labelKey: 'pets:status.archived',
     className: 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-500',
   },
+  adoption: {
+    labelKey: 'pets:status.adoption',
+    className: 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300',
+  },
+  adopted: {
+    labelKey: 'pets:status.adopted',
+    className: 'bg-teal-100 text-teal-700 dark:bg-teal-900 dark:text-teal-300',
+  },
 };
 
 function PetCard({
@@ -119,19 +127,25 @@ function PetCard({
 
         <div className="mt-auto space-y-2">
           {/* Acciones principales */}
-          <div className="grid grid-cols-2 gap-2">
+          <div
+            className={`grid gap-2 ${
+              pet.status === 'adoption' || pet.status === 'adopted' ? 'grid-cols-1' : 'grid-cols-2'
+            }`}
+          >
             <Link
               to={`/pets/${pet.id}/edit`}
               className="text-center text-sm font-medium rounded-lg px-3 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
             >
               {t('pets:mine.edit')}
             </Link>
-            <button
-              onClick={() => navigate(`/reports/create?petId=${pet.id}&status=lost`)}
-              className="text-sm font-medium rounded-lg px-3 py-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors"
-            >
-              {t('pets:mine.reportLost')}
-            </button>
+            {pet.status !== 'adoption' && pet.status !== 'adopted' && (
+              <button
+                onClick={() => navigate(`/reports/create?petId=${pet.id}&status=lost`)}
+                className="text-sm font-medium rounded-lg px-3 py-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors"
+              >
+                {t('pets:mine.reportLost')}
+              </button>
+            )}
           </div>
 
           {/* Cambiar estado */}
@@ -209,17 +223,31 @@ function PetCard({
 }
 
 export function MyPetsPage() {
-  const { t } = useTranslation(['pets', 'common']);
-  const [tab, setTab] = useState<'owned' | 'reported'>('owned');
+  const { t } = useTranslation(['pets', 'common', 'adoption']);
+  const [tab, setTab] = useState<'owned' | 'reported' | 'adoption'>('owned');
   const { data: ownedPets, isLoading: loadingOwned } = useMyPets();
   const { data: reportedPets, isLoading: loadingReported } = useReportedPets();
   const deletePet = useDeletePet();
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
-  const pets = tab === 'owned' ? ownedPets : reportedPets;
-  const isLoading = tab === 'owned' ? loadingOwned : loadingReported;
-  const emptyText = tab === 'owned' ? t('pets:mine.empty') : t('pets:reports.empty');
+  // Adoption listings are owned pets too, but they get their own tab so
+  // they don't clutter "Mis mascotas" (which is for the owner's regular pets).
+  const ownedNonAdoption = (ownedPets ?? []).filter(
+    (p) => p.status !== 'adoption' && p.status !== 'adopted',
+  );
+  const adoptionPets = (ownedPets ?? []).filter(
+    (p) => p.status === 'adoption' || p.status === 'adopted',
+  );
+
+  const pets = tab === 'owned' ? ownedNonAdoption : tab === 'reported' ? reportedPets : adoptionPets;
+  const isLoading = tab === 'owned' ? loadingOwned : tab === 'reported' ? loadingReported : loadingOwned;
+  const emptyText =
+    tab === 'owned'
+      ? t('pets:mine.empty')
+      : tab === 'reported'
+        ? t('pets:reports.empty')
+        : t('adoption:profile.empty');
 
   const handleDelete = (id: string) => {
     setDeleteError(null);
@@ -234,7 +262,7 @@ export function MyPetsPage() {
     });
   };
 
-  const renderTab = (key: 'owned' | 'reported', label: string) => (
+  const renderTab = (key: 'owned' | 'reported' | 'adoption', label: string) => (
     <button
       type="button"
       onClick={() => {
@@ -267,10 +295,11 @@ export function MyPetsPage() {
           </Link>
         </div>
 
-        {/* Tabs: owned pets vs reported strays */}
+        {/* Tabs: owned pets vs reported strays vs adoption listings */}
         <div className="flex gap-2 border-b border-gray-200 dark:border-gray-700 mb-6">
           {renderTab('owned', t('pets:reports.tabOwned'))}
           {renderTab('reported', t('pets:reports.tabReported'))}
+          {renderTab('adoption', t('adoption:profile.tab'))}
         </div>
 
         {deleteError && (
