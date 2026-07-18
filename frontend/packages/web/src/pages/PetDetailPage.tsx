@@ -385,6 +385,26 @@ export function PetDetailPage() {
                     copiedLabel={t('pets:detail.copied')}
                   />
                 )}
+                {/* In-app message — always available as an alternative to the
+                    phone, and the only contact channel when the owner has no
+                    phone. Hidden for the owner viewing their own pet. */}
+                {user?.id !== pet.owner_id && (
+                  isAuthenticated ? (
+                    <Link
+                      to={`/messages/${pet.owner_id}`}
+                      className="mt-3 w-full inline-flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 text-white font-bold py-3 rounded-lg transition-colors"
+                    >
+                      💬 {t('pets:detail.sendMessage')}
+                    </Link>
+                  ) : (
+                    <Link
+                      to="/login"
+                      className="mt-3 w-full inline-flex items-center justify-center gap-2 border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 font-semibold py-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                    >
+                      🔒 {t('pets:detail.loginToContact')}
+                    </Link>
+                  )
+                )}
               </div>
             )}
 
