@@ -474,5 +474,32 @@
     "back": "‹ Volver",
     "phoneLabel": "Número de teléfono",
     "phonePlaceholder": "+598 99 000 000"
+  },
+  "adoption": {
+    "section": {
+      "title": "Adoptar",
+      "subtitle": "Mascotas que buscan un hogar",
+      "empty": "No hay mascotas en adopción por ahora",
+      "cityFilter": "Ciudad",
+      "cityPlaceholder": "Filtrar por ciudad",
+      "typeFilter": "Tipo",
+      "allTypes": "Todos",
+      "apply": "Aplicar",
+      "resultCount_one": "{{count}} mascota",
+      "resultCount_other": "{{count}} mascotas"
+    },
+    "publish": {
+      "intentOption": "Doy en adopción",
+      "intentHelp": "Publicá una mascota que busca un hogar",
+      "title": "Contanos sobre la mascota en adopción",
+      "cityLabel": "Ciudad",
+      "cityPlaceholder": "Ej: Montevideo",
+      "submit": "Publicar en adopción",
+      "cityRequired": "Ingresá una ciudad"
+    },
+    "profile": {
+      "tab": "En adopción",
+      "empty": "No tenés mascotas en adopción"
+    }
   }
 }

@@ -474,5 +474,32 @@
     "back": "‹ Back",
     "phoneLabel": "Phone number",
     "phonePlaceholder": "+1 555 000 0000"
+  },
+  "adoption": {
+    "section": {
+      "title": "Adopt",
+      "subtitle": "Pets looking for a home",
+      "empty": "No pets up for adoption right now",
+      "cityFilter": "City",
+      "cityPlaceholder": "Filter by city",
+      "typeFilter": "Type",
+      "allTypes": "All",
+      "apply": "Apply",
+      "resultCount_one": "{{count}} pet",
+      "resultCount_other": "{{count}} pets"
+    },
+    "publish": {
+      "intentOption": "Give for adoption",
+      "intentHelp": "Post a pet looking for a home",
+      "title": "Tell us about the pet up for adoption",
+      "cityLabel": "City",
+      "cityPlaceholder": "e.g. Montevideo",
+      "submit": "Publish for adoption",
+      "cityRequired": "Enter a city"
+    },
+    "profile": {
+      "tab": "For adoption",
+      "empty": "You have no pets up for adoption"
+    }
   }
 }
