@@ -64,6 +64,11 @@ export const useUpdateMe = () => {
     mutationFn: (data) => apiClient.updateMe(data),
     onSuccess: (updatedUser) => {
       queryClient.setQueryData(['me'], updatedUser);
+      // Owner/reporter name and phone are embedded in pet and report payloads,
+      // so refetch them — otherwise a profile edit (e.g. clearing the phone)
+      // keeps showing stale contact info in the editor's cached views.
+      queryClient.invalidateQueries({ queryKey: ['pets'] });
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
     },
   });
 };
