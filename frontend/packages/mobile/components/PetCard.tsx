@@ -18,8 +18,10 @@ export function PetCard({ report, pet: petProp, onPress }: PetCardProps) {
   // report tiene prioridad; petProp es para resultados de búsqueda directa
   const pet = report?.pet ?? petProp;
 
-  // Estado de display: desde report (lost/found/sighting) o desde pet (active→lost, found, archived)
-  const rawStatus = report?.status ?? (petProp?.status === 'found' ? 'found' : 'lost');
+  // Estado de display: desde report (lost/found/sighting) o desde pet
+  // (el status real de la mascota — antes se forzaba a 'lost' salvo 'found',
+  // lo que mostraba "PERDIDO" para mascotas en adopción/stray/etc.)
+  const rawStatus = report?.status ?? petProp?.status ?? 'lost';
   const dateStr = report?.created_at ?? petProp?.created_at ?? '';
   const locationDesc = report?.location_description;
 
@@ -28,6 +30,7 @@ export function PetCard({ report, pet: petProp, onPress }: PetCardProps) {
       case 'lost': return COLORS.lost;
       case 'found': return COLORS.found;
       case 'sighting': return COLORS.sighting;
+      case 'adoption': return '#7E22CE';
       default: return COLORS.primary;
     }
   };
@@ -37,6 +40,7 @@ export function PetCard({ report, pet: petProp, onPress }: PetCardProps) {
       case 'lost': return 'PERDIDO';
       case 'found': return 'ENCONTRADO';
       case 'sighting': return 'AVISTADO';
+      case 'adoption': return 'EN ADOPCIÓN';
       default: return status.toUpperCase();
     }
   };

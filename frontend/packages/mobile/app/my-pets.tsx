@@ -19,23 +19,37 @@ import { useTranslation } from 'react-i18next';
 import i18next from 'i18next';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
-import { useMyPets, useReportedPets, useDeletePet, useUploadPhotoNative, useCreateReport, useMarkPetAsFound } from '../../shared/hooks';
+import { useMyPets, useReportedPets, useDeletePet, useUploadPhotoNative, useCreateReport, useMarkPetAsFound, useUpdatePet } from '../../shared/hooks';
 import { getErrorMessage } from '../../shared/utils/apiErrors';
 import { useLocationStore } from '../store';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS, PET_TYPES } from '../constants';
 import type { Pet } from '../../shared/types';
 
 export default function MyPetsScreen() {
-  const { t } = useTranslation(['my_pets', 'common']);
+  const { t } = useTranslation(['my_pets', 'common', 'adoption']);
   const router = useRouter();
-  const [tab, setTab] = useState<'owned' | 'reported'>('owned');
+  const [tab, setTab] = useState<'owned' | 'reported' | 'adoption'>('owned');
   const owned = useMyPets();
   const reported = useReportedPets();
-  const { data: pets, isLoading, refetch, isRefetching } = tab === 'owned' ? owned : reported;
+  const activeQuery = tab === 'reported' ? reported : owned;
+  const { isLoading, refetch, isRefetching } = activeQuery;
+
+  // Adoption listings are owned pets too, but they get their own tab so they
+  // don't clutter "Mis mascotas" (which is for the owner's regular pets) —
+  // mirrors web's MyPetsPage split.
+  const ownedNonAdoption = (owned.data ?? []).filter(
+    (p: Pet) => p.status !== 'adoption' && p.status !== 'adopted'
+  );
+  const adoptionPets = (owned.data ?? []).filter(
+    (p: Pet) => p.status === 'adoption' || p.status === 'adopted'
+  );
+  const pets = tab === 'owned' ? ownedNonAdoption : tab === 'reported' ? reported.data : adoptionPets;
+
   const deletePet = useDeletePet();
   const uploadPhoto = useUploadPhotoNative();
   const createReport = useCreateReport();
   const markAsFound = useMarkPetAsFound();
+  const updatePet = useUpdatePet();
   const { latitude, longitude } = useLocationStore();
 
   const getStatusLabel = (status: string) => {
@@ -45,6 +59,8 @@ export default function MyPetsScreen() {
       case 'stray':      return t('pets:status.stray');
       case 'found':      return t('pets:status.found');
       case 'archived':   return t('pets:status.archived');
+      case 'adoption':   return t('pets:status.adoption');
+      case 'adopted':    return t('pets:status.adopted');
       default: return status;
     }
   };
@@ -56,6 +72,8 @@ export default function MyPetsScreen() {
       case 'stray':      return COLORS.warning;
       case 'found':      return COLORS.success;
       case 'archived':   return COLORS.textMuted;
+      case 'adoption':   return COLORS.primary;
+      case 'adopted':    return COLORS.success;
       default: return COLORS.textSecondary;
     }
   };
@@ -141,6 +159,26 @@ export default function MyPetsScreen() {
     );
   };
 
+  const handleMarkAdopted = (pet: Pet) => {
+    Alert.alert(
+      i18next.t('adoption:profile.markAdopted'),
+      i18next.t('adoption:profile.markAdoptedConfirm'),
+      [
+        { text: i18next.t('common:cancel'), style: 'cancel' },
+        {
+          text: i18next.t('common:confirm'),
+          onPress: async () => {
+            try {
+              await updatePet.mutateAsync({ id: pet.id, data: { status: 'adopted' } });
+            } catch (err: unknown) {
+              Alert.alert(i18next.t('common:error'), getErrorMessage(err, (key) => i18next.t(key)));
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const handleDelete = (pet: Pet) => {
     Alert.alert(
       i18next.t('my_pets:deleteTitle'),
@@ -162,7 +200,7 @@ export default function MyPetsScreen() {
     );
   };
 
-  const renderTab = (key: 'owned' | 'reported', label: string) => (
+  const renderTab = (key: 'owned' | 'reported' | 'adoption', label: string) => (
     <TouchableOpacity
       onPress={() => setTab(key)}
       style={[styles.tab, tab === key && styles.tabActive]}
@@ -179,6 +217,7 @@ export default function MyPetsScreen() {
       <View style={styles.tabBar}>
         {renderTab('owned', t('pets:reports.tabOwned'))}
         {renderTab('reported', t('pets:reports.tabReported'))}
+        {renderTab('adoption', t('adoption:profile.tab'))}
       </View>
 
       {isLoading ? (
@@ -245,18 +284,28 @@ export default function MyPetsScreen() {
 
               {/* Acciones */}
               <View style={styles.actions}>
-                <TouchableOpacity
-                  style={styles.reportButton}
-                  onPress={() => handleReport(item)}
-                >
-                  <Text style={styles.reportButtonText}>{t('my_pets:reportButton')}</Text>
-                </TouchableOpacity>
+                {item.status !== 'adoption' && item.status !== 'adopted' && (
+                  <TouchableOpacity
+                    style={styles.reportButton}
+                    onPress={() => handleReport(item)}
+                  >
+                    <Text style={styles.reportButtonText}>{t('my_pets:reportButton')}</Text>
+                  </TouchableOpacity>
+                )}
                 {(item.status === 'lost' || item.status === 'stray') && (
                   <TouchableOpacity
                     style={styles.foundButton}
                     onPress={() => handleMarkAsFound(item)}
                   >
                     <Text style={styles.foundButtonText}>{t('my_pets:foundButton')}</Text>
+                  </TouchableOpacity>
+                )}
+                {item.status === 'adoption' && (
+                  <TouchableOpacity
+                    style={styles.foundButton}
+                    onPress={() => handleMarkAdopted(item)}
+                  >
+                    <Text style={styles.foundButtonText}>{t('adoption:profile.markAdopted')}</Text>
                   </TouchableOpacity>
                 )}
                 <TouchableOpacity
@@ -284,6 +333,11 @@ export default function MyPetsScreen() {
             <View style={styles.empty}>
               <Text style={styles.emptyIcon}>🐾</Text>
               <Text style={styles.emptyText}>{t('pets:reports.empty')}</Text>
+            </View>
+          ) : tab === 'adoption' ? (
+            <View style={styles.empty}>
+              <Text style={styles.emptyIcon}>🐾</Text>
+              <Text style={styles.emptyText}>{t('adoption:profile.empty')}</Text>
             </View>
           ) : (
             <View style={styles.empty}>

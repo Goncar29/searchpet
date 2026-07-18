@@ -9,17 +9,18 @@ import { useRouter } from 'expo-router';
 import { IntentStep } from '../../components/publish/IntentStep';
 import { LostPetStep } from '../../components/publish/LostPetStep';
 import { StrayFormStep } from '../../components/publish/StrayFormStep';
+import { AdoptionFormStep } from '../../components/publish/AdoptionFormStep';
 import { LocationStep } from '../../components/publish/LocationStep';
 import { InlineAuthStep } from '../../components/publish/InlineAuthStep';
 import { SuccessStep } from '../../components/publish/SuccessStep';
-import { usePublishLost, usePublishStrayNative } from '@shared/hooks';
+import { usePublishLost, usePublishStrayNative, useCreatePet, useUploadPhotoNative } from '@shared/hooks';
 import { useAuthStore } from '../../store';
 import { getErrorMessage } from '@shared/utils/apiErrors';
 import { COLORS, SPACING, FONTS } from '../../constants';
 import type { Pet, CreatePetRequest, InitialReportRequest, PetType } from '../../../shared/types';
 
-export type PublishStep = 'intent' | 'lost-pet' | 'stray-form' | 'location' | 'auth' | 'success';
-export type PublishIntent = 'lost' | 'stray';
+export type PublishStep = 'intent' | 'lost-pet' | 'stray-form' | 'adoption-form' | 'location' | 'auth' | 'success';
+export type PublishIntent = 'lost' | 'stray' | 'adoption';
 
 export interface StrayFormState {
   type: PetType | '';
@@ -29,10 +30,20 @@ export interface StrayFormState {
   photos: string[]; // local URIs from expo-image-picker
 }
 
+export interface AdoptionFormState {
+  type: PetType | '';
+  breed: string;
+  color: string;
+  description: string;
+  city: string;
+  photos: string[]; // local URIs from expo-image-picker
+}
+
 export interface PublishWizardState {
   intent: PublishIntent | null;
   selectedPet: Pet | null;
   strayForm: StrayFormState;
+  adoptionForm: AdoptionFormState;
   location: InitialReportRequest | null;
 }
 
@@ -40,6 +51,7 @@ export const initialWizardState: PublishWizardState = {
   intent: null,
   selectedPet: null,
   strayForm: { type: '', breed: '', color: '', description: '', photos: [] },
+  adoptionForm: { type: '', breed: '', color: '', description: '', city: '', photos: [] },
   location: null,
 };
 
@@ -55,11 +67,17 @@ export default function PostScreen() {
 
   const publishLost = usePublishLost();
   const publishStray = usePublishStrayNative();
+  const createPet = useCreatePet();
+  const uploadPhotoNative = useUploadPhotoNative();
 
   const handleIntentSelect = (intent: PublishIntent) => {
     setWizard((prev) => ({ ...prev, intent }));
     if (intent === 'lost' && !isAuthenticated) {
       setStep('auth');
+      return;
+    }
+    if (intent === 'adoption') {
+      setStep('adoption-form');
       return;
     }
     setStep(intent === 'lost' ? 'lost-pet' : 'stray-form');
@@ -90,6 +108,47 @@ export default function PostScreen() {
     } catch (err) {
       setPublishError(getErrorMessage(err, (key) => t(key)));
     }
+  };
+
+  // Mirrors submitStray's chain (createPet then sequential, non-blocking photo
+  // uploads collecting failedPhotoIndexes) but via the plain useCreatePet +
+  // useUploadPhotoNative hooks — there is no chained usePublishAdoptionNative
+  // hook, same as the web implementation (PublishWizardPage.submitAdoption).
+  // No location/report step for adoption: pets are owner-based.
+  const submitAdoption = async () => {
+    try {
+      const created = await createPet.mutateAsync({
+        name: t('publish:strayForm.unnamedPet'),
+        type: wizard.adoptionForm.type as Pet['type'],
+        breed: wizard.adoptionForm.breed.trim() || undefined,
+        color: wizard.adoptionForm.color.trim() || undefined,
+        description: wizard.adoptionForm.description.trim() || undefined,
+        city: wizard.adoptionForm.city.trim(),
+        status: 'adoption',
+      });
+      const failed: number[] = [];
+      for (let i = 0; i < wizard.adoptionForm.photos.length; i++) {
+        try {
+          await uploadPhotoNative.mutateAsync({ petId: created.id, uri: wizard.adoptionForm.photos[i] });
+        } catch {
+          failed.push(i);
+        }
+      }
+      setPublishedPet(created);
+      setFailedPhotoIndexes(failed);
+      setStep('success');
+    } catch (err) {
+      setPublishError(getErrorMessage(err, (key) => t(key)));
+    }
+  };
+
+  const handleAdoptionSubmit = async () => {
+    setPublishError(null);
+    if (!isAuthenticated) {
+      setStep('auth');
+      return;
+    }
+    await submitAdoption();
   };
 
   const handlePublish = async (location: NonNullable<typeof wizard.location>) => {
@@ -144,6 +203,14 @@ export default function PostScreen() {
             onNext={() => setStep('location')}
           />
         )}
+        {step === 'adoption-form' && (
+          <AdoptionFormStep
+            value={wizard.adoptionForm}
+            onChange={(adoptionForm) => setWizard((prev) => ({ ...prev, adoptionForm }))}
+            onSubmit={handleAdoptionSubmit}
+            isPending={createPet.isPending}
+          />
+        )}
         {publishError && <Text style={styles.error}>{publishError}</Text>}
         {step === 'location' && (
           <LocationStep
@@ -160,6 +227,10 @@ export default function PostScreen() {
                 setStep('lost-pet');
                 return;
               }
+              if (wizard.intent === 'adoption') {
+                submitAdoption();
+                return;
+              }
               if (wizard.location) submitStray(wizard.location);
             }}
           />
@@ -169,7 +240,7 @@ export default function PostScreen() {
             pet={publishedPet}
             intent={wizard.intent}
             failedPhotoIndexes={failedPhotoIndexes}
-            photoUris={wizard.strayForm.photos}
+            photoUris={wizard.intent === 'adoption' ? wizard.adoptionForm.photos : wizard.strayForm.photos}
             onRetryComplete={setFailedPhotoIndexes}
             onGoToFeed={handleGoToFeed}
           />

@@ -57,11 +57,13 @@ jest.mock('../store', () => ({
 }));
 
 const mockPublishLostMutateAsync = jest.fn();
+const mockCreatePetMutateAsync = jest.fn();
 
 jest.mock('@shared/hooks', () => ({
   useMyPets: jest.fn(() => ({ data: [], isLoading: false })),
   usePublishLost: jest.fn(() => ({ mutateAsync: mockPublishLostMutateAsync, isPending: false })),
   usePublishStrayNative: jest.fn(() => ({ mutateAsync: jest.fn(), isPending: false })),
+  useCreatePet: jest.fn(() => ({ mutateAsync: mockCreatePetMutateAsync, isPending: false })),
   useUploadPhotoNative: jest.fn(() => ({ mutateAsync: jest.fn(), isPending: false })),
 }));
 
@@ -71,6 +73,8 @@ beforeEach(() => {
   useMyPets.mockReturnValue({ data: [], isLoading: false });
   mockPublishLostMutateAsync.mockReset();
   mockPublishLostMutateAsync.mockResolvedValue({ id: 'pet-1', status: 'lost' });
+  mockCreatePetMutateAsync.mockReset();
+  mockCreatePetMutateAsync.mockResolvedValue({ id: 'pet-2', name: 'Sin nombre', status: 'adoption' });
   mockAuthState.isAuthenticated = true;
   mockAuthState.user = { id: 'user-1', name: 'Carlos' };
   mockAuthState.login = jest.fn();
@@ -94,6 +98,13 @@ describe('PostScreen (Publish wizard)', () => {
     const { getByText } = render(<PostScreen />);
     fireEvent.press(getByText('publish:intent.strayTitle'));
     expect(getByText('publish:strayForm.title')).toBeTruthy();
+  });
+
+  it('renders the adoption intent option and advances to the adoption-form step when selected', () => {
+    const { getByText } = render(<PostScreen />);
+    expect(getByText('adoption:publish.intentOption')).toBeTruthy();
+    fireEvent.press(getByText('adoption:publish.intentOption'));
+    expect(getByText('adoption:publish.title')).toBeTruthy();
   });
 });
 
@@ -144,6 +155,46 @@ describe('PostScreen — stray path', () => {
     fireEvent.press(getByText('pets:types.perro'));
     fireEvent.press(getByText('publish:strayForm.next'));
     expect(getByText('publish:location.title')).toBeTruthy();
+  });
+});
+
+describe('PostScreen — adoption path', () => {
+  it('blocks submitting without photo, type, or city, then creates the pet and advances to success', async () => {
+    (ImagePicker.launchImageLibraryAsync as jest.Mock).mockResolvedValue({
+      canceled: false,
+      assets: [{ uri: 'file:///adoption.jpg' }],
+    });
+
+    const { getByText, queryByText, getByPlaceholderText } = render(<PostScreen />);
+    fireEvent.press(getByText('adoption:publish.intentOption'));
+
+    fireEvent.press(getByText('adoption:publish.submit'));
+    expect(getByText('publish:strayForm.photoRequired')).toBeTruthy();
+    expect(getByText('publish:strayForm.typeRequired')).toBeTruthy();
+    expect(getByText('adoption:publish.cityRequired')).toBeTruthy();
+
+    await act(async () => {
+      fireEvent.press(getByText('publish:strayForm.gallery'));
+    });
+    await waitFor(() => expect(queryByText('publish:strayForm.photoRequired')).toBeNull());
+
+    fireEvent.press(getByText('pets:types.perro'));
+    fireEvent.changeText(getByPlaceholderText('adoption:publish.cityPlaceholder'), 'Montevideo');
+
+    await act(async () => {
+      fireEvent.press(getByText('adoption:publish.submit'));
+    });
+
+    expect(mockCreatePetMutateAsync).toHaveBeenCalledWith({
+      name: 'publish:strayForm.unnamedPet',
+      type: 'perro',
+      breed: undefined,
+      color: undefined,
+      description: undefined,
+      city: 'Montevideo',
+      status: 'adoption',
+    });
+    expect(getByText('publish:success.adoptionTitle')).toBeTruthy();
   });
 });
 

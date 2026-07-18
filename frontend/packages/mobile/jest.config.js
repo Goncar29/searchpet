@@ -15,7 +15,11 @@ module.exports = {
     // loads in tests — its transform requires @babel/runtime helpers that don't
     // resolve from shared/, which is not a real pnpm package.
     '^(\\.\\./)+shared/api/client$': '<rootDir>/__mocks__/shared-api-client.js',
+    // Match both the bare alias and any relative depth so the real apiErrors
+    // never loads in tests — it pulls in client.ts, whose @babel/runtime
+    // helpers don't resolve from shared/ (mirrors the client mapper above).
     '^@shared/utils/apiErrors$': '<rootDir>/__mocks__/shared-api-errors.js',
+    '^(\\.\\./)+shared/utils/apiErrors$': '<rootDir>/__mocks__/shared-api-errors.js',
     '^../utils/notifications$': '<rootDir>/__mocks__/notifications.js',
     '^expo-location$': '<rootDir>/__mocks__/expo-location.js',
     '^expo-image-picker$': '<rootDir>/__mocks__/expo-image-picker.js',
