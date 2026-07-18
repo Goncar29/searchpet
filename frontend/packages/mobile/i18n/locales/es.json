@@ -499,7 +499,9 @@
     },
     "profile": {
       "tab": "En adopción",
-      "empty": "No tenés mascotas en adopción"
+      "empty": "No tenés mascotas en adopción",
+      "markAdopted": "Marcar adoptado",
+      "markAdoptedConfirm": "¿Confirmás que esta mascota fue adoptada?"
     }
   }
 }

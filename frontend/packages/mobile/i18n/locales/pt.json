@@ -499,7 +499,9 @@
     },
     "profile": {
       "tab": "Para adoção",
-      "empty": "Você não tem animais para adoção"
+      "empty": "Você não tem animais para adoção",
+      "markAdopted": "Marcar como adotado",
+      "markAdoptedConfirm": "Confirma que este animal foi adotado?"
     }
   }
 }

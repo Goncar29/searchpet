@@ -19,7 +19,7 @@ import { useTranslation } from 'react-i18next';
 import i18next from 'i18next';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
-import { useMyPets, useReportedPets, useDeletePet, useUploadPhotoNative, useCreateReport, useMarkPetAsFound } from '../../shared/hooks';
+import { useMyPets, useReportedPets, useDeletePet, useUploadPhotoNative, useCreateReport, useMarkPetAsFound, useUpdatePet } from '../../shared/hooks';
 import { getErrorMessage } from '../../shared/utils/apiErrors';
 import { useLocationStore } from '../store';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS, PET_TYPES } from '../constants';
@@ -49,6 +49,7 @@ export default function MyPetsScreen() {
   const uploadPhoto = useUploadPhotoNative();
   const createReport = useCreateReport();
   const markAsFound = useMarkPetAsFound();
+  const updatePet = useUpdatePet();
   const { latitude, longitude } = useLocationStore();
 
   const getStatusLabel = (status: string) => {
@@ -149,6 +150,26 @@ export default function MyPetsScreen() {
           onPress: async () => {
             try {
               await markAsFound.mutateAsync(pet.id);
+            } catch (err: unknown) {
+              Alert.alert(i18next.t('common:error'), getErrorMessage(err, (key) => i18next.t(key)));
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleMarkAdopted = (pet: Pet) => {
+    Alert.alert(
+      i18next.t('adoption:profile.markAdopted'),
+      i18next.t('adoption:profile.markAdoptedConfirm'),
+      [
+        { text: i18next.t('common:cancel'), style: 'cancel' },
+        {
+          text: i18next.t('common:confirm'),
+          onPress: async () => {
+            try {
+              await updatePet.mutateAsync({ id: pet.id, data: { status: 'adopted' } });
             } catch (err: unknown) {
               Alert.alert(i18next.t('common:error'), getErrorMessage(err, (key) => i18next.t(key)));
             }
@@ -277,6 +298,14 @@ export default function MyPetsScreen() {
                     onPress={() => handleMarkAsFound(item)}
                   >
                     <Text style={styles.foundButtonText}>{t('my_pets:foundButton')}</Text>
+                  </TouchableOpacity>
+                )}
+                {item.status === 'adoption' && (
+                  <TouchableOpacity
+                    style={styles.foundButton}
+                    onPress={() => handleMarkAdopted(item)}
+                  >
+                    <Text style={styles.foundButtonText}>{t('adoption:profile.markAdopted')}</Text>
                   </TouchableOpacity>
                 )}
                 <TouchableOpacity

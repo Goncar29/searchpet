@@ -499,7 +499,9 @@
     },
     "profile": {
       "tab": "For adoption",
-      "empty": "You have no pets up for adoption"
+      "empty": "You have no pets up for adoption",
+      "markAdopted": "Mark adopted",
+      "markAdoptedConfirm": "Confirm this pet was adopted?"
     }
   }
 }
