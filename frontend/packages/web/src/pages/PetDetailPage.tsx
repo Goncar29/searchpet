@@ -81,9 +81,15 @@ export function PetDetailPage() {
   // owner) may manage the pet — mark found, share, edit, delete, tell its story.
   const canManage = isAuthenticated && (user?.id === pet.owner_id || user?.id === pet.reporter_id);
 
+  // Adoption listings share/flyer are lost-pet framed ("MASCOTA PERDIDA"), so
+  // hide that surface for now — an adoption-framed share is a follow-up. `adopted`
+  // is resolved (has a home), so it gets no share either.
+  const isAdoptionListing = pet.status === 'adoption' || pet.status === 'adopted';
+
   // Sharing is friction-free for active searches (lost/stray use the public
   // endpoint); for any other status it requires a session.
-  const shareAvailable = pet.status === 'lost' || pet.status === 'stray' || isAuthenticated;
+  const shareAvailable =
+    (pet.status === 'lost' || pet.status === 'stray' || isAuthenticated) && !isAdoptionListing;
 
   const goToPhoto = (delta: number) => {
     setActivePhotoIndex((safePhotoIndex + delta + photos.length) % photos.length);
@@ -249,15 +255,17 @@ export function PetDetailPage() {
                   petName={pet.name}
                   pet={pet}
                 />
-              ) : (
+              ) : !isAdoptionListing ? (
                 <Link
                   to="/login"
                   className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 font-semibold rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                 >
                   🔒 {t('pets:detail.loginToShare')}
                 </Link>
-              )}
-              {isAuthenticated && (
+              ) : null}
+              {/* Location reports only make sense while a pet is actively being
+                  searched (lost/stray). Hide for adoption/adopted/found/registered. */}
+              {isAuthenticated && (pet.status === 'lost' || pet.status === 'stray') && (
                 <Link
                   to={`/reports/create?petId=${id}`}
                   className="inline-flex items-center gap-2 px-4 py-2 border border-primary text-primary font-semibold rounded-lg hover:bg-primary/5 transition-colors"
