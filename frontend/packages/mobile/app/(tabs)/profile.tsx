@@ -464,6 +464,14 @@ export default function ProfileScreen() {
           <Text style={styles.menuArrow}>›</Text>
         </TouchableOpacity>
 
+        <TouchableOpacity
+          style={styles.menuItem}
+          onPress={() => router.push('/adopt' as any)}
+        >
+          <Text style={styles.menuIcon}>🏡</Text>
+          <Text style={styles.menuText}>{t('adoption:section.title')}</Text>
+          <Text style={styles.menuArrow}>›</Text>
+        </TouchableOpacity>
 
         <TouchableOpacity
           style={styles.menuItem}
