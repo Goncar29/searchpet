@@ -480,6 +480,10 @@
     "profile": {
       "tab": "En adopción",
       "empty": "No tenés mascotas en adopción"
+    },
+    "detail": {
+      "adoptedTitle": "¡{{name}} encontró un hogar! 🎉",
+      "adoptedSubtitle": "Gracias a la comunidad por difundir."
     }
   }
 }

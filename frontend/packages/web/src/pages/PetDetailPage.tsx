@@ -13,6 +13,7 @@ import { SharePanel } from '../components/SharePanel';
 import { PdfFlyerButton } from '../components/PdfFlyerButton';
 import { RevealContact } from '../components/RevealContact';
 import { TimelineMap } from '../components/TimelineMap';
+import { AdoptionPetBody } from '../components/AdoptionPetBody';
 
 export function PetDetailPage() {
   const { t, i18n } = useTranslation(['pets', 'common']);
@@ -244,6 +245,9 @@ export function PetDetailPage() {
               </div>
             )}
 
+            {isAdoptionListing && <AdoptionPetBody pet={pet} />}
+            {!isAdoptionListing && (
+              <>
             {/* Action buttons.
                 Sharing works logged-out for lost/stray (public endpoint); for any
                 other status it needs a session. Where it's gated we show an honest
@@ -551,6 +555,8 @@ export function PetDetailPage() {
                 </div>
                 <TimelineMap reports={reports ?? []} />
               </div>
+            )}
+              </>
             )}
           </div>
         </div>

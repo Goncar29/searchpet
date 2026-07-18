@@ -72,6 +72,35 @@ describe('buildWhatsAppMessage', () => {
     const msg = buildWhatsAppMessage(basePet, longUrl);
     expect(msg.length).toBeLessThanOrEqual(500);
   });
+
+  it('frames a lost pet as PERDIDA (exact)', () => {
+    const msg = buildWhatsAppMessage({ name: 'Firu', type: 'perro', status: 'lost' });
+    expect(msg).toContain('¡MASCOTA PERDIDA!');
+    expect(msg).toContain('Nombre: Firu');
+  });
+
+  it('frames a found pet as ENCONTRADA (exact)', () => {
+    const msg = buildWhatsAppMessage({ name: 'Firu', type: 'perro', status: 'found' });
+    expect(msg).toContain('¡MASCOTA ENCONTRADA!');
+  });
+
+  it('frames an adoption pet as EN ADOPCIÓN and never as PERDIDA', () => {
+    const msg = buildWhatsAppMessage(
+      { name: 'Michi', type: 'gato', status: 'adoption', city: 'Montevideo' },
+      'https://searchpet.app/pet/tok',
+    );
+    expect(msg).toContain('¡EN ADOPCIÓN!');
+    expect(msg).toContain('busca un hogar');
+    expect(msg).toContain('📍 Montevideo');
+    expect(msg).toContain('https://searchpet.app/pet/tok');
+    expect(msg).not.toContain('PERDIDA');
+  });
+
+  it('omits the city line when no city is given for adoption', () => {
+    const msg = buildWhatsAppMessage({ name: 'Michi', type: 'gato', status: 'adoption' });
+    expect(msg).toContain('¡EN ADOPCIÓN!');
+    expect(msg).not.toContain('📍');
+  });
 });
 
 // ============================================================

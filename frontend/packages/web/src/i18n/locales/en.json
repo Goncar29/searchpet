@@ -480,6 +480,10 @@
     "profile": {
       "tab": "For adoption",
       "empty": "You have no pets up for adoption"
+    },
+    "detail": {
+      "adoptedTitle": "{{name}} found a home! 🎉",
+      "adoptedSubtitle": "Thanks to the community for spreading the word."
     }
   }
 }

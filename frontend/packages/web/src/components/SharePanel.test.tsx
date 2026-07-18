@@ -168,3 +168,13 @@ describe('SharePanel — Instagram Story share (user cancels share sheet)', () =
     expect(queryByText(/pets:share.storyDownloaded/i)).toBeNull();
   });
 });
+
+describe('SharePanel — adoption poster header', () => {
+  it('shows EN ADOPCIÓN in the story template for adoption pets', () => {
+    const { container } = render(
+      <SharePanel petId="pet-2" petName="Michi" pet={{ ...basePet, name: 'Michi', status: 'adoption' }} />
+    );
+    expect(container.textContent).toContain('¡EN ADOPCIÓN!');
+    expect(container.textContent).not.toContain('¡MASCOTA PERDIDA!');
+  });
+});
