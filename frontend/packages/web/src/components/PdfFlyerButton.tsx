@@ -28,6 +28,12 @@ export function PdfFlyerButton({ pet, reports = [] }: PdfFlyerButtonProps) {
 
   const primaryPhoto = pet.photos?.find((p) => p.is_primary) || pet.photos?.[0];
 
+  const isAdoption = pet.status === 'adoption';
+  const posterColor = isAdoption ? '#7c3aed' : pet.status === 'found' ? '#22c55e' : '#ef4444';
+  const posterHeader = isAdoption
+    ? '¡EN ADOPCIÓN!'
+    : pet.status === 'found' ? '¡MASCOTA ENCONTRADA!' : '¡MASCOTA PERDIDA!';
+
   // Última fecha de avistamiento
   const latestReport = reports[0];
   const lastSeenDate = latestReport
@@ -173,7 +179,7 @@ export function PdfFlyerButton({ pet, reports = [] }: PdfFlyerButtonProps) {
         <div style={{ textAlign: 'center', marginBottom: '24px' }}>
           <div
             style={{
-              backgroundColor: pet.status === 'found' ? '#22c55e' : '#ef4444',
+              backgroundColor: posterColor,
               color: '#ffffff',
               padding: '12px 24px',
               borderRadius: '8px',
@@ -184,7 +190,7 @@ export function PdfFlyerButton({ pet, reports = [] }: PdfFlyerButtonProps) {
               display: 'inline-block',
             }}
           >
-            {pet.status === 'found' ? '¡MASCOTA ENCONTRADA!' : '¡MASCOTA PERDIDA!'}
+            {posterHeader}
           </div>
         </div>
 
@@ -217,6 +223,12 @@ export function PdfFlyerButton({ pet, reports = [] }: PdfFlyerButtonProps) {
                 <tr>
                   <td style={{ color: '#6b7280', paddingBottom: '8px', paddingRight: '12px' }}>Color:</td>
                   <td style={{ fontWeight: '600', color: '#111827', paddingBottom: '8px' }}>{pet.color}</td>
+                </tr>
+              )}
+              {isAdoption && pet.city && (
+                <tr>
+                  <td style={{ color: '#6b7280', paddingBottom: '8px', paddingRight: '12px' }}>Zona:</td>
+                  <td style={{ fontWeight: '600', color: '#111827', paddingBottom: '8px' }}>{pet.city}</td>
                 </tr>
               )}
               {lastSeenDate && (

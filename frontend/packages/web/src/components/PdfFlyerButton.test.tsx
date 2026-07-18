@@ -47,3 +47,18 @@ describe('PdfFlyerButton', () => {
     expect(hidden.querySelector('img[alt="Firulais"]')).toBeNull();
   });
 });
+
+describe('PdfFlyerButton — adoption framing', () => {
+  it('renders EN ADOPCIÓN header and the city row for adoption pets', () => {
+    const adoptionPet: Pet = { ...basePet, status: 'adoption', city: 'Montevideo' };
+    const { container } = render(<PdfFlyerButton pet={adoptionPet} />);
+    expect(container.textContent).toContain('¡EN ADOPCIÓN!');
+    expect(container.textContent).toContain('Montevideo');
+    expect(container.textContent).not.toContain('¡MASCOTA PERDIDA!');
+  });
+
+  it('keeps the lost header for lost pets', () => {
+    const { container } = render(<PdfFlyerButton pet={{ ...basePet, status: 'lost', city: undefined }} />);
+    expect(container.textContent).toContain('¡MASCOTA PERDIDA!');
+  });
+});
