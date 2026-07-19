@@ -74,6 +74,13 @@ import type {
   UpdateMyShelterRequest,
   AdminAuditListResponse,
   AdminRoleResult,
+  FosterHome,
+  MyFosterHome,
+  FosterHomePhoto,
+  RegisterFosterHomeRequest,
+  UpdateMyFosterHomeRequest,
+  FosterHomeModerationLog,
+  FosterHomeChangeLog,
 } from '../types';
 
 
@@ -686,6 +693,103 @@ class APIClient {
 
   async rejectShelterLinks(id: string): Promise<AdminShelter> {
     return this.request<AdminShelter>('POST', `/api/admin/shelters/${encodeURIComponent(id)}/links/reject`);
+  }
+
+  // ============================================================
+  // FOSTER HOMES (hogares transitorios) — sección privada (JWT)
+  // ============================================================
+
+  async getFosterHomes(city?: string, animalType?: string): Promise<FosterHome[]> {
+    const params: Record<string, string> = {};
+    if (city) params.city = city;
+    if (animalType) params.animal_type = animalType;
+    return this.request<FosterHome[]>('GET', '/api/foster-homes', undefined, params);
+  }
+
+  async getFosterHomeByID(id: string): Promise<FosterHome> {
+    return this.request<FosterHome>('GET', `/api/foster-homes/${encodeURIComponent(id)}`);
+  }
+
+  async registerFosterHome(data: RegisterFosterHomeRequest): Promise<MyFosterHome> {
+    return this.request<MyFosterHome>('POST', '/api/foster-homes', data);
+  }
+
+  async getMyFosterHome(): Promise<MyFosterHome> {
+    return this.request<MyFosterHome>('GET', '/api/foster-homes/mine');
+  }
+
+  async updateMyFosterHome(data: UpdateMyFosterHomeRequest): Promise<MyFosterHome> {
+    return this.request<MyFosterHome>('PUT', '/api/foster-homes/mine', data);
+  }
+
+  // uploadFosterHomePhoto usa FormData crudo — mismo patrón que uploadPhoto()
+  // (NO usa this.request() porque hardcodea Content-Type: application/json y
+  // rompería el boundary de multipart).
+  async uploadFosterHomePhoto(file: File): Promise<FosterHomePhoto> {
+    const url = `${this.baseURL}/api/foster-homes/mine/photos`;
+
+    const formData = new FormData();
+    formData.append('photo', file);
+
+    const headers: Record<string, string> = {};
+    // NO seteamos Content-Type — el browser lo pone con el boundary correcto
+    if (this.token) {
+      headers['Authorization'] = `Bearer ${this.token}`;
+    }
+
+    const response = await fetchWithTimeout(url, {
+      method: 'POST',
+      headers,
+      body: formData,
+    }, UPLOAD_TIMEOUT_MS);
+
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      const code = body.code ?? 'unknown_error';
+      const message = body.message ?? `HTTP Error ${response.status}`;
+      if (response.status === 401) {
+        this.token = null;
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('auth:session-expired'));
+        }
+      }
+      throw new ApiError(code, response.status, message);
+    }
+
+    return response.json();
+  }
+
+  async deleteFosterHomePhoto(photoId: string): Promise<void> {
+    await this.request<void>('DELETE', `/api/foster-homes/mine/photos/${encodeURIComponent(photoId)}`);
+  }
+
+  // Admin
+  async getPendingFosterHomes(): Promise<MyFosterHome[]> {
+    return this.request<MyFosterHome[]>('GET', '/api/foster-homes/pending');
+  }
+
+  async approveFosterHome(id: string): Promise<MyFosterHome> {
+    return this.request<MyFosterHome>('POST', `/api/foster-homes/${encodeURIComponent(id)}/approve`);
+  }
+
+  async rejectFosterHome(id: string, reason: string): Promise<MyFosterHome> {
+    return this.request<MyFosterHome>('POST', `/api/foster-homes/${encodeURIComponent(id)}/reject`, { reason });
+  }
+
+  async suspendFosterHome(id: string, reason: string): Promise<MyFosterHome> {
+    return this.request<MyFosterHome>('POST', `/api/foster-homes/${encodeURIComponent(id)}/suspend`, { reason });
+  }
+
+  async reinstateFosterHome(id: string): Promise<MyFosterHome> {
+    return this.request<MyFosterHome>('POST', `/api/foster-homes/${encodeURIComponent(id)}/reinstate`);
+  }
+
+  async getFosterHomeLogs(id: string): Promise<FosterHomeModerationLog[]> {
+    return this.request<FosterHomeModerationLog[]>('GET', `/api/foster-homes/${encodeURIComponent(id)}/logs`);
+  }
+
+  async getFosterHomeHistory(id: string): Promise<FosterHomeChangeLog[]> {
+    return this.request<FosterHomeChangeLog[]>('GET', `/api/foster-homes/${encodeURIComponent(id)}/history`);
   }
 
   // ============================================================
