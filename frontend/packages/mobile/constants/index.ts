@@ -30,6 +30,8 @@ export const COLORS = {
   lost: '#EF4444',
   found: '#22C55E',
   sighting: '#F59E0B',
+  adoption: '#7E22CE',
+  adopted: '#0F766E',
 
   // Social
   whatsapp: '#25D366',

@@ -502,6 +502,10 @@
       "empty": "You have no pets up for adoption",
       "markAdopted": "Mark adopted",
       "markAdoptedConfirm": "Confirm this pet was adopted?"
+    },
+    "detail": {
+      "adoptedTitle": "{{name}} found a home! 🎉",
+      "adoptedSubtitle": "Thanks to the community for spreading the word."
     }
   }
 }
