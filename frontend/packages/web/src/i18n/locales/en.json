@@ -493,6 +493,8 @@
       "empty": "No foster homes available yet.",
       "filterCity": "City",
       "filterAnimal": "Animal type",
+      "animalAll": "All",
+      "clearFilters": "Clear filters",
       "capacity": "Capacity",
       "registerCta": "Offer my home"
     },
@@ -515,7 +517,8 @@
       "contactChat": "Contact via chat",
       "contactWhatsapp": "WhatsApp",
       "reportCta": "Report",
-      "photos": "Photos of the place"
+      "photos": "Photos of the place",
+      "notFound": "Foster home not found"
     },
     "register": {
       "title": "Offer my foster home",

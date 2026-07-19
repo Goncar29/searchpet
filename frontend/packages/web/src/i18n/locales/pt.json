@@ -493,6 +493,8 @@
       "empty": "Ainda não há lares disponíveis.",
       "filterCity": "Cidade",
       "filterAnimal": "Tipo de animal",
+      "animalAll": "Todos",
+      "clearFilters": "Limpar filtros",
       "capacity": "Capacidade",
       "registerCta": "Oferecer meu lar"
     },
@@ -515,7 +517,8 @@
       "contactChat": "Contatar por chat",
       "contactWhatsapp": "WhatsApp",
       "reportCta": "Denunciar",
-      "photos": "Fotos do local"
+      "photos": "Fotos do local",
+      "notFound": "Lar temporário não encontrado"
     },
     "register": {
       "title": "Oferecer meu lar temporário",

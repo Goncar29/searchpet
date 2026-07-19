@@ -493,6 +493,8 @@
       "empty": "No hay hogares disponibles todavía.",
       "filterCity": "Ciudad",
       "filterAnimal": "Tipo de animal",
+      "animalAll": "Todos",
+      "clearFilters": "Limpiar filtros",
       "capacity": "Capacidad",
       "registerCta": "Ofrecer mi hogar"
     },
@@ -515,7 +517,8 @@
       "contactChat": "Contactar por chat",
       "contactWhatsapp": "WhatsApp",
       "reportCta": "Denunciar",
-      "photos": "Fotos del lugar"
+      "photos": "Fotos del lugar",
+      "notFound": "Hogar transitorio no encontrado"
     },
     "register": {
       "title": "Ofrecer mi hogar transitorio",
