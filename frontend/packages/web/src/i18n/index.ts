@@ -48,6 +48,7 @@ i18n
         sharedPet: es.sharedPet,
         vets: es.vets,
         adoption: es.adoption,
+        fosterHomes: es.fosterHomes,
       },
       en: {
         // Shared namespaces
@@ -75,6 +76,7 @@ i18n
         sharedPet: en.sharedPet,
         vets: en.vets,
         adoption: en.adoption,
+        fosterHomes: en.fosterHomes,
       },
       pt: {
         // Shared namespaces
@@ -102,6 +104,7 @@ i18n
         sharedPet: pt.sharedPet,
         vets: pt.vets,
         adoption: pt.adoption,
+        fosterHomes: pt.fosterHomes,
       },
     },
     interpolation: {

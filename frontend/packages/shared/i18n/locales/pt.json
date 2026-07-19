@@ -362,7 +362,15 @@
     "binding_failed": "Os dados de entrada fornecidos não são válidos",
     "initial_report_required": "Para publicar um avistamento você precisa informar o último local onde o animal foi visto",
     "request_timeout": "O servidor demorou demais para responder. Verifique sua conexão e tente novamente.",
-    "unknown_error": "Ocorreu um erro inesperado. Por favor, tente novamente"
+    "unknown_error": "Ocorreu um erro inesperado. Por favor, tente novamente",
+    "foster_home_not_found": "Lar temporário não encontrado",
+    "foster_home_already_owned": "Você já tem um lar temporário cadastrado",
+    "foster_home_suspended": "Este lar está suspenso e não pode ser editado",
+    "invalid_foster_home_status": "Ação inválida para o status atual do lar",
+    "suspension_reason_required": "O motivo da suspensão é obrigatório",
+    "too_many_photos": "Você atingiu o máximo de fotos",
+    "self_abuse_report": "Você não pode denunciar seu próprio lar",
+    "duplicate_abuse_report": "Você já tem uma denúncia pendente sobre este lar"
   },
   "publish": {
     "intent": {
