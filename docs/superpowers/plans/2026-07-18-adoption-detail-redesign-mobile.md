@@ -24,9 +24,9 @@
 - `frontend/packages/mobile/i18n/locales/{es,en,pt}.json` — **modify**: add `adoption.detail` keys (adopted banner).
 - `frontend/packages/mobile/constants/index.ts` — **modify**: add `COLORS.adoption` / `COLORS.adopted`.
 - `frontend/packages/mobile/utils/adoptionFraming.ts` — **create**: pure `posterFraming` + `shareStatusLabel` (Spanish poster/share strings).
-- `frontend/packages/mobile/utils/adoptionFraming.test.ts` — **create**: unit tests for the pure helpers.
+- `frontend/packages/mobile/__tests__/adoptionFraming.test.ts` — **create**: unit tests for the pure helpers. (Jest `testMatch` is `**/__tests__/**/*.test.(ts|tsx|js)` — tests MUST live in `__tests__/`, not colocated.)
 - `frontend/packages/mobile/components/AdoptionPetBody.tsx` — **create**: isolated adoption body (contact + share for `adoption`; success banner for `adopted`).
-- `frontend/packages/mobile/components/AdoptionPetBody.test.tsx` — **create**: RTL-native tests.
+- `frontend/packages/mobile/__tests__/AdoptionPetBody.test.tsx` — **create**: RTL-native tests (in `__tests__/`, per jest `testMatch`).
 - `frontend/packages/mobile/app/pet/[id].tsx` — **modify**: derive `isAdoptionListing`, branch the body, add badge colours + adoption city row.
 - `frontend/packages/mobile/__tests__/pet-detail.test.tsx` — **modify**: add an adoption routing case.
 - `frontend/packages/mobile/components/PdfFlyerButton.tsx` — **modify**: use `posterFraming` + add the adoption city row.
