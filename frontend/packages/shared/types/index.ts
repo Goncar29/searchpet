@@ -536,8 +536,12 @@ export interface AbuseReport {
   id: string;
   target_user_id?: string;
   target_report_id?: string;
+  target_foster_home_id?: string;
   reporter_id: string;
-  reason: AbuseReason;
+  // Free-form string on the backend (binding:"required"). Pet/user reports use
+  // canned AbuseReason values client-side; foster home reports use free text
+  // from a textarea — both are valid `reason` strings.
+  reason: AbuseReason | string;
   status: string;
   created_at: string;
   reporter?: { id: string; name: string };
@@ -548,7 +552,8 @@ export interface AbuseReport {
 export interface CreateAbuseReportRequest {
   target_user_id?: string;
   target_report_id?: string;
-  reason: AbuseReason;
+  target_foster_home_id?: string;
+  reason: AbuseReason | string;
 }
 
 export interface BlockUserRequest {
