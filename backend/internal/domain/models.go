@@ -326,6 +326,7 @@ type ReportAbuse struct {
 	ID             uuid.UUID  `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
 	TargetReportID *uuid.UUID `gorm:"type:uuid;column:target_report_id" json:"target_report_id,omitempty"`
 	TargetUserID   *uuid.UUID `gorm:"type:uuid;column:target_user_id" json:"target_user_id,omitempty"`
+	TargetFosterHomeID *uuid.UUID `gorm:"type:uuid;column:target_foster_home_id" json:"target_foster_home_id,omitempty"`
 	ReporterID     uuid.UUID  `gorm:"type:uuid;not null" json:"reporter_id"`
 	Reason         string     `gorm:"not null;size:255" json:"reason"`
 	Status         string     `gorm:"not null;size:50;default:'pending';index" json:"status"` // pending, resolved, dismissed
@@ -337,6 +338,7 @@ type ReportAbuse struct {
 	Reporter     User    `gorm:"foreignKey:ReporterID" json:"-"`
 	TargetUser   *User   `gorm:"foreignKey:TargetUserID" json:"-"`
 	TargetReport *Report `gorm:"foreignKey:TargetReportID;constraint:OnDelete:SET NULL" json:"-"`
+	FosterHome *FosterHome `gorm:"foreignKey:TargetFosterHomeID;constraint:OnDelete:SET NULL" json:"-"`
 }
 
 // ============================================================
