@@ -126,6 +126,33 @@ type ShelterRepository interface {
 	Update(ctx context.Context, shelter *domain.Shelter) error
 }
 
+// FosterHomeRepository define el contrato para acceder a datos de hogares transitorios.
+type FosterHomeRepository interface {
+	Create(ctx context.Context, fh *domain.FosterHome) error
+	GetByID(ctx context.Context, id uuid.UUID) (*domain.FosterHome, error)
+	GetByOwner(ctx context.Context, ownerID uuid.UUID) (*domain.FosterHome, error)
+	GetApproved(ctx context.Context, city, animalType string) ([]domain.FosterHome, error)
+	GetPendingQueue(ctx context.Context) ([]domain.FosterHome, error)
+	Update(ctx context.Context, fh *domain.FosterHome) error
+}
+
+// FosterHomePhotoRepository define el contrato para fotos del hogar.
+type FosterHomePhotoRepository interface {
+	Create(ctx context.Context, p *domain.FosterHomePhoto) error
+	CountByFosterHome(ctx context.Context, fhID uuid.UUID) (int64, error)
+	FindByFosterHome(ctx context.Context, fhID uuid.UUID) ([]domain.FosterHomePhoto, error)
+	FindByID(ctx context.Context, id uuid.UUID) (*domain.FosterHomePhoto, error)
+	DeleteByID(ctx context.Context, id uuid.UUID) error
+}
+
+// FosterHomeAuditRepository persiste los rastros append-only (nunca se borra).
+type FosterHomeAuditRepository interface {
+	CreateModerationLog(ctx context.Context, l *domain.FosterHomeModerationLog) error
+	ListModerationLogs(ctx context.Context, fhID uuid.UUID) ([]domain.FosterHomeModerationLog, error)
+	CreateChangeLog(ctx context.Context, l *domain.FosterHomeChangeLog) error
+	ListChangeLogs(ctx context.Context, fhID uuid.UUID) ([]domain.FosterHomeChangeLog, error)
+}
+
 // DeviceTokenRepository define el contrato para acceder a tokens FCM de dispositivos.
 // Style A: context.Context + uuid.UUID.
 type DeviceTokenRepository interface {
