@@ -2,12 +2,25 @@ package service
 
 import (
 	"context"
+	"errors"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
 	"lost-pets/internal/domain"
 	"lost-pets/internal/dto"
 	"lost-pets/internal/repository"
 )
+
+// pgUniqueViolationCode es el código SQLSTATE de Postgres para "unique_violation".
+const pgUniqueViolationCode = "23505"
+
+// isUniqueViolation detecta una violación de constraint único de Postgres.
+// GORM no traduce errores acá (postgres.go no setea TranslateError), así que
+// el error crudo del driver pgx/v5 llega tal cual hasta este punto.
+func isUniqueViolation(err error) bool {
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) && pgErr.Code == pgUniqueViolationCode
+}
 
 type abuseReportService struct {
 	repo           repository.AbuseReportRepository
@@ -57,6 +70,14 @@ func (s *abuseReportService) Submit(ctx context.Context, reporterID uuid.UUID, r
 	}
 
 	if err := s.repo.Create(ctx, report); err != nil {
+		// Race: dos requests concurrentes pasan el pre-check ExistsPendingBy...
+		// de arriba y ambos llegan a Create; el índice único parcial
+		// uniq_abuse_pending_foster_home rechaza al segundo. Traducimos esa
+		// violación puntual a ErrDuplicateAbuseReport (409, ya mapeado en el
+		// handler) en vez de dejar que se propague como 500.
+		if req.TargetFosterHomeID != nil && isUniqueViolation(err) {
+			return nil, domain.ErrDuplicateAbuseReport
+		}
 		return nil, err
 	}
 
