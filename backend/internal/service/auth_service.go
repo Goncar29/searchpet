@@ -35,14 +35,20 @@ type authService struct {
 	userRepo  repository.UserRepository
 	secretKey string
 	storage   *storage.CloudinaryClient
+	// fosterHomeService is OPTIONAL (may be nil): when wired, UpdateProfile uses it
+	// to record owner contact changes on the user's foster home forensic history.
+	// A nil value makes the hook a no-op.
+	fosterHomeService FosterHomeService
 }
 
-// NewAuthService crea una instancia del servicio de auth con sus dependencias
-func NewAuthService(userRepo repository.UserRepository, secretKey string, storage *storage.CloudinaryClient) AuthService {
+// NewAuthService crea una instancia del servicio de auth con sus dependencias.
+// fosterHomeService puede ser nil (hook de contacto es no-op en ese caso).
+func NewAuthService(userRepo repository.UserRepository, secretKey string, storage *storage.CloudinaryClient, fosterHomeService FosterHomeService) AuthService {
 	return &authService{
-		userRepo:  userRepo,
-		secretKey: secretKey,
-		storage:   storage,
+		userRepo:          userRepo,
+		secretKey:         secretKey,
+		storage:           storage,
+		fosterHomeService: fosterHomeService,
 	}
 }
 
@@ -176,12 +182,18 @@ func (s *authService) UpdatePreferences(ctx context.Context, id uuid.UUID, req d
 	}, nil
 }
 
-// UpdateProfile actualiza el nombre y teléfono del usuario
+// UpdateProfile actualiza el nombre y teléfono del usuario. Si el usuario dueño
+// tiene un hogar transitorio, los cambios de contacto (name/phone) se registran
+// en el historial forense del hogar vía RecordOwnerContactChange (best-effort:
+// nunca hace fallar el update de perfil).
 func (s *authService) UpdateProfile(ctx context.Context, id uuid.UUID, name, phone, city string) (*domain.User, error) {
 	user, err := s.userRepo.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
+	oldName := user.Name
+	oldPhone := user.Phone
+
 	if name != "" {
 		user.Name = name
 	}
@@ -192,5 +204,21 @@ func (s *authService) UpdateProfile(ctx context.Context, id uuid.UUID, name, pho
 	if err := s.userRepo.Update(ctx, user); err != nil {
 		return nil, err
 	}
+
+	if s.fosterHomeService != nil {
+		changed := map[string][2]string{}
+		if user.Name != oldName {
+			changed["name"] = [2]string{oldName, user.Name}
+		}
+		if user.Phone != oldPhone {
+			changed["phone"] = [2]string{oldPhone, user.Phone}
+		}
+		if len(changed) > 0 {
+			if err := s.fosterHomeService.RecordOwnerContactChange(ctx, id, changed); err != nil {
+				log.Printf("[auth_service] failed to record owner contact change for %s: %v", id, err)
+			}
+		}
+	}
+
 	return user, nil
 }

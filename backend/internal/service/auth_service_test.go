@@ -11,8 +11,8 @@ import (
 )
 
 func newAuthSvc(repo *mockUserRepo) service.AuthService {
-	// storage nil → no se testa Cloudinary aquí
-	return service.NewAuthService(repo, "test-secret-key-32chars-minimum!", nil)
+	// storage nil → no se testa Cloudinary aquí; fosterHomeService nil → hook no-op
+	return service.NewAuthService(repo, "test-secret-key-32chars-minimum!", nil, nil)
 }
 
 func bcryptHash(t *testing.T, plain string) string {
