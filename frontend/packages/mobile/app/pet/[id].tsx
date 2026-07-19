@@ -29,12 +29,13 @@ import { getDateLocale } from '../../i18n/dateLocale';
 import { ShareButton } from '../../components/ShareButton';
 import { PdfFlyerButton } from '../../components/PdfFlyerButton';
 import { TimelineMap } from '../../components/TimelineMap';
+import { AdoptionPetBody } from '../../components/AdoptionPetBody';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
 
 const { width } = Dimensions.get('window');
 
 export default function PetDetailScreen() {
-  const { t, i18n } = useTranslation(['pet_detail', 'common', 'pets', 'story', 'map']);
+  const { t, i18n } = useTranslation(['pet_detail', 'common', 'pets', 'story', 'map', 'adoption']);
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { data: pet, isLoading } = usePetByID(id);
@@ -78,6 +79,7 @@ export default function PetDetailScreen() {
   const isOwner = isAuthenticated && user?.id === pet.owner_id;
   // canManage: owner (owned pets) or reporter (stray pets, no owner) may manage.
   const canManage = isAuthenticated && (user?.id === pet.owner_id || user?.id === pet.reporter_id);
+  const isAdoptionListing = pet.status === 'adoption' || pet.status === 'adopted';
 
   const handleBlock = (ownerUserId: string) => {
     blockUser.mutate(
@@ -234,6 +236,8 @@ export default function PetDetailScreen() {
             {
               backgroundColor:
                 pet.status === 'found'      ? COLORS.found :
+                pet.status === 'adopted'    ? COLORS.adopted :
+                pet.status === 'adoption'   ? COLORS.adoption :
                 pet.status === 'archived'   ? COLORS.textMuted :
                 pet.status === 'registered' ? COLORS.textSecondary :
                 pet.status === 'stray'      ? COLORS.warning :
@@ -266,6 +270,13 @@ export default function PetDetailScreen() {
               <Text style={styles.detailValue}>{pet.color}</Text>
             </View>
           )}
+          {/* Zona only while still adoptable — a rehomed (adopted) pet needs no location. */}
+          {pet.status === 'adoption' && pet.city && (
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>{t('adoption:publish.cityLabel')}</Text>
+              <Text style={styles.detailValue}>{pet.city}</Text>
+            </View>
+          )}
           {latestReport?.location_description && (
             <View style={styles.detailRow}>
               <Text style={styles.detailLabel}>{t('pet_detail:lastLocation')}</Text>
@@ -282,6 +293,9 @@ export default function PetDetailScreen() {
           </View>
         )}
 
+        {isAdoptionListing && <AdoptionPetBody pet={pet} />}
+        {!isAdoptionListing && (
+          <>
         {/* Botón Marcar como encontrada — owner cuando está lost, reporter cuando es stray */}
         {canManage && (pet.status === 'lost' || pet.status === 'stray') && (
           <TouchableOpacity
@@ -398,6 +412,8 @@ export default function PetDetailScreen() {
               );
             })}
           </View>
+        )}
+          </>
         )}
 
         <View style={{ height: 80 }} />

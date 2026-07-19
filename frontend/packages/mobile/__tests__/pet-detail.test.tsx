@@ -91,4 +91,15 @@ describe('PetDetailScreen', () => {
     const { queryByText } = render(<PetDetailScreen />);
     expect(queryByText(/pets:status\.lost/i)).toBeNull();
   });
+
+  it('routes adoption pets to the adoption body (no lost scaffolding)', () => {
+    mockUsePetByID.mockReturnValue({
+      data: { ...mockPetBase, status: 'adoption', city: 'Montevideo', owner: { id: 'owner-1', name: 'Ana' } },
+      isLoading: false,
+    });
+    const { queryByTestId } = render(<PetDetailScreen />);
+    // login-gate is unique to AdoptionPetBody → proves the adoption body rendered
+    // in place of the lost-pet body (which has no such element).
+    expect(queryByTestId('login-gate')).toBeTruthy();
+  });
 });

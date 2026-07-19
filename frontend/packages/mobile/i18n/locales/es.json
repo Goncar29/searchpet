@@ -502,6 +502,10 @@
       "empty": "No tenés mascotas en adopción",
       "markAdopted": "Marcar adoptado",
       "markAdoptedConfirm": "¿Confirmás que esta mascota fue adoptada?"
+    },
+    "detail": {
+      "adoptedTitle": "¡{{name}} encontró un hogar! 🎉",
+      "adoptedSubtitle": "Gracias a la comunidad por difundir."
     }
   }
 }

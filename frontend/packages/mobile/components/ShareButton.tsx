@@ -18,6 +18,7 @@ import QRCode from 'react-native-qrcode-svg';
 import { useGenerateShareLink } from '../../shared/hooks';
 import { buildWhatsAppMessage } from '../../shared/utils/whatsappTemplates';
 import { getExpiryInfo } from '../../shared/utils/shareExpiry';
+import { shareStatusLabel } from '../utils/adoptionFraming';
 import { getErrorMessage } from '../../shared/utils/apiErrors';
 import { COLORS, SPACING, FONTS, RADIUS } from '../constants';
 
@@ -25,7 +26,7 @@ interface ShareButtonProps {
   petId: string;
   petName: string;
   petType: string;
-  status: 'lost' | 'found' | 'sighting';
+  status: 'lost' | 'found' | 'sighting' | 'adoption';
   pet?: import('../../shared/types').Pet;
 }
 
@@ -42,7 +43,7 @@ export function ShareButton({ petId, petName, petType, status, pet }: ShareButto
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [expiresAt, setExpiresAt] = useState<string | undefined>(undefined);
   const generateLink = useGenerateShareLink();
-  const statusText = status === 'found' ? 'ENCONTRADA' : 'PERDIDA';
+  const statusText = shareStatusLabel(pet?.status ?? status);
 
   // Generate the link once and cache it in state — all channels reuse the same token.
   const getOrGenerateLink = async (): Promise<string> => {

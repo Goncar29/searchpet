@@ -20,6 +20,7 @@ import QRCode from 'qrcode';
 import { useGenerateShareLink } from '../../shared/hooks';
 import { COLORS, SPACING, FONTS, RADIUS } from '../constants';
 import type { Pet, Report } from '../../shared/types';
+import { posterFraming } from '../utils/adoptionFraming';
 
 interface PdfFlyerButtonProps {
   pet: Pet;
@@ -60,13 +61,13 @@ export function PdfFlyerButton({ pet, reports = [] }: PdfFlyerButtonProps) {
       // 2. QR generado localmente como data URI — sin dependencia de red
       const qrDataUri = await QRCode.toDataURL(shareUrl, { width: 150, margin: 1 });
 
-      const statusColor = pet.status === 'found' ? '#22c55e' : '#ef4444';
-      const statusText = pet.status === 'found' ? '¡MASCOTA ENCONTRADA!' : '¡MASCOTA PERDIDA!';
+      const { color: statusColor, header: statusText } = posterFraming(pet.status);
 
       const detailRows = [
         pet.type ? `<tr><td class="lbl">Tipo:</td><td class="val">${pet.type}</td></tr>` : '',
         pet.breed ? `<tr><td class="lbl">Raza:</td><td class="val">${pet.breed}</td></tr>` : '',
         pet.color ? `<tr><td class="lbl">Color:</td><td class="val">${pet.color}</td></tr>` : '',
+        pet.status === 'adoption' && pet.city ? `<tr><td class="lbl">Zona:</td><td class="val">${pet.city}</td></tr>` : '',
         lastSeenDate ? `<tr><td class="lbl">Visto:</td><td class="val">${lastSeenDate}</td></tr>` : '',
       ].filter(Boolean).join('');
 
