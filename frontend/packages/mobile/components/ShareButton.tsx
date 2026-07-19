@@ -25,7 +25,7 @@ interface ShareButtonProps {
   petId: string;
   petName: string;
   petType: string;
-  status: 'lost' | 'found' | 'sighting';
+  status: 'lost' | 'found' | 'sighting' | 'adoption';
   pet?: import('../../shared/types').Pet;
 }
 
