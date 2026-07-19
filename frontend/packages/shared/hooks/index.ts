@@ -45,6 +45,13 @@ import type {
   Pet,
   PublishLostRequest,
   Vet,
+  FosterHome,
+  MyFosterHome,
+  FosterHomePhoto,
+  RegisterFosterHomeRequest,
+  UpdateMyFosterHomeRequest,
+  FosterHomeModerationLog,
+  FosterHomeChangeLog,
 } from '../types';
 
 // ============================================================
@@ -624,6 +631,135 @@ export const useUpdateMyShelter = () => {
       queryClient.invalidateQueries({ queryKey: ['shelter', 'mine'] });
       queryClient.invalidateQueries({ queryKey: ['shelters'] });
     },
+  });
+};
+
+// ============================================================
+// FOSTER HOME HOOKS (hogares transitorios)
+// ============================================================
+
+export const useFosterHomes = (city?: string, animalType?: string) => {
+  return useQuery<FosterHome[]>({
+    queryKey: ['fosterHomes', city ?? '', animalType ?? ''],
+    queryFn: () => apiClient.getFosterHomes(city, animalType),
+    staleTime: 5 * 60 * 1000,
+  });
+};
+
+export const useFosterHomeByID = (id: string) => {
+  return useQuery<FosterHome>({
+    queryKey: ['fosterHome', id],
+    queryFn: () => apiClient.getFosterHomeByID(id),
+    enabled: !!id,
+  });
+};
+
+// 404 = el usuario no tiene hogar; retry:false para no quemar reintentos.
+export const useMyFosterHome = (enabled = true) => {
+  return useQuery<MyFosterHome, Error & { code?: string }>({
+    queryKey: ['fosterHome', 'mine'],
+    queryFn: () => apiClient.getMyFosterHome(),
+    retry: false,
+    enabled,
+  });
+};
+
+export const useRegisterFosterHome = () => {
+  const queryClient = useQueryClient();
+  return useMutation<MyFosterHome, Error, RegisterFosterHomeRequest>({
+    mutationFn: (data) => apiClient.registerFosterHome(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['fosterHome', 'mine'] });
+    },
+  });
+};
+
+export const useUpdateMyFosterHome = () => {
+  const queryClient = useQueryClient();
+  return useMutation<MyFosterHome, Error, UpdateMyFosterHomeRequest>({
+    mutationFn: (data) => apiClient.updateMyFosterHome(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['fosterHome', 'mine'] });
+      queryClient.invalidateQueries({ queryKey: ['fosterHomes'] });
+    },
+  });
+};
+
+export const useUploadFosterHomePhoto = () => {
+  const queryClient = useQueryClient();
+  return useMutation<FosterHomePhoto, Error, File>({
+    mutationFn: (file) => apiClient.uploadFosterHomePhoto(file),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['fosterHome', 'mine'] }),
+  });
+};
+
+export const useDeleteFosterHomePhoto = () => {
+  const queryClient = useQueryClient();
+  return useMutation<void, Error, string>({
+    mutationFn: (photoId) => apiClient.deleteFosterHomePhoto(photoId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['fosterHome', 'mine'] }),
+  });
+};
+
+// --- Admin ---
+
+export const usePendingFosterHomes = () => {
+  return useQuery<MyFosterHome[]>({
+    queryKey: ['fosterHomes', 'pending'],
+    queryFn: () => apiClient.getPendingFosterHomes(),
+  });
+};
+
+// Cada transición invalida la cola pending y el directorio público.
+const fosterHomeModerationOnSuccess = (queryClient: ReturnType<typeof useQueryClient>) => () => {
+  queryClient.invalidateQueries({ queryKey: ['fosterHomes'] });
+};
+
+export const useApproveFosterHome = () => {
+  const queryClient = useQueryClient();
+  return useMutation<MyFosterHome, Error, string>({
+    mutationFn: (id) => apiClient.approveFosterHome(id),
+    onSuccess: fosterHomeModerationOnSuccess(queryClient),
+  });
+};
+
+export const useRejectFosterHome = () => {
+  const queryClient = useQueryClient();
+  return useMutation<MyFosterHome, Error, { id: string; reason: string }>({
+    mutationFn: ({ id, reason }) => apiClient.rejectFosterHome(id, reason),
+    onSuccess: fosterHomeModerationOnSuccess(queryClient),
+  });
+};
+
+export const useSuspendFosterHome = () => {
+  const queryClient = useQueryClient();
+  return useMutation<MyFosterHome, Error, { id: string; reason: string }>({
+    mutationFn: ({ id, reason }) => apiClient.suspendFosterHome(id, reason),
+    onSuccess: fosterHomeModerationOnSuccess(queryClient),
+  });
+};
+
+export const useReinstateFosterHome = () => {
+  const queryClient = useQueryClient();
+  return useMutation<MyFosterHome, Error, string>({
+    mutationFn: (id) => apiClient.reinstateFosterHome(id),
+    onSuccess: fosterHomeModerationOnSuccess(queryClient),
+  });
+};
+
+export const useFosterHomeLogs = (id: string, enabled = true) => {
+  return useQuery<FosterHomeModerationLog[]>({
+    queryKey: ['fosterHome', id, 'logs'],
+    queryFn: () => apiClient.getFosterHomeLogs(id),
+    enabled: enabled && !!id,
+  });
+};
+
+export const useFosterHomeHistory = (id: string, enabled = true) => {
+  return useQuery<FosterHomeChangeLog[]>({
+    queryKey: ['fosterHome', id, 'history'],
+    queryFn: () => apiClient.getFosterHomeHistory(id),
+    enabled: enabled && !!id,
   });
 };
 
