@@ -10,18 +10,19 @@ import (
 )
 
 type abuseReportService struct {
-	repo repository.AbuseReportRepository
+	repo           repository.AbuseReportRepository
+	fosterHomeRepo repository.FosterHomeRepository
 }
 
 // NewAbuseReportService construye el AbuseReportService.
-func NewAbuseReportService(repo repository.AbuseReportRepository) AbuseReportService {
-	return &abuseReportService{repo: repo}
+func NewAbuseReportService(repo repository.AbuseReportRepository, fosterHomeRepo repository.FosterHomeRepository) AbuseReportService {
+	return &abuseReportService{repo: repo, fosterHomeRepo: fosterHomeRepo}
 }
 
 // Submit crea una denuncia de abuso.
-// REGLA: al menos uno de TargetUserID o TargetReportID debe estar presente.
+// REGLA: al menos uno de TargetUserID, TargetReportID o TargetFosterHomeID debe estar presente.
 func (s *abuseReportService) Submit(ctx context.Context, reporterID uuid.UUID, req dto.CreateAbuseReportRequest) (*domain.ReportAbuse, error) {
-	if req.TargetUserID == nil && req.TargetReportID == nil {
+	if req.TargetUserID == nil && req.TargetReportID == nil && req.TargetFosterHomeID == nil {
 		return nil, domain.ErrInvalidInput
 	}
 
@@ -29,12 +30,30 @@ func (s *abuseReportService) Submit(ctx context.Context, reporterID uuid.UUID, r
 		return nil, domain.ErrInvalidInput
 	}
 
+	if req.TargetFosterHomeID != nil {
+		fh, err := s.fosterHomeRepo.GetByID(ctx, *req.TargetFosterHomeID)
+		if err != nil {
+			return nil, err
+		}
+		if fh.OwnerUserID == reporterID {
+			return nil, domain.ErrSelfAbuseReport
+		}
+		exists, err := s.repo.ExistsPendingByReporterAndFosterHome(ctx, reporterID, *req.TargetFosterHomeID)
+		if err != nil {
+			return nil, err
+		}
+		if exists {
+			return nil, domain.ErrDuplicateAbuseReport
+		}
+	}
+
 	report := &domain.ReportAbuse{
-		TargetReportID: req.TargetReportID,
-		TargetUserID:   req.TargetUserID,
-		ReporterID:     reporterID,
-		Reason:         req.Reason,
-		Status:         "pending",
+		TargetReportID:     req.TargetReportID,
+		TargetUserID:       req.TargetUserID,
+		TargetFosterHomeID: req.TargetFosterHomeID,
+		ReporterID:         reporterID,
+		Reason:             req.Reason,
+		Status:             "pending",
 	}
 
 	if err := s.repo.Create(ctx, report); err != nil {

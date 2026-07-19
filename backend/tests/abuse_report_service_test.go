@@ -17,10 +17,11 @@ import (
 // ============================================================
 
 type mockAbuseReportRepository struct {
-	createFn   func(ctx context.Context, report *domain.ReportAbuse) error
-	getByIDFn  func(ctx context.Context, id uuid.UUID) (*domain.ReportAbuse, error)
-	getAllFn    func(ctx context.Context, resolved *bool, limit, offset int) ([]domain.ReportAbuse, error)
-	resolveFn  func(ctx context.Context, id uuid.UUID, resolvedBy uuid.UUID, status string) error
+	createFn        func(ctx context.Context, report *domain.ReportAbuse) error
+	getByIDFn       func(ctx context.Context, id uuid.UUID) (*domain.ReportAbuse, error)
+	getAllFn        func(ctx context.Context, resolved *bool, limit, offset int) ([]domain.ReportAbuse, error)
+	resolveFn       func(ctx context.Context, id uuid.UUID, resolvedBy uuid.UUID, status string) error
+	existsPendingFn func(ctx context.Context, reporterID, fosterHomeID uuid.UUID) (bool, error)
 }
 
 func (m *mockAbuseReportRepository) Create(ctx context.Context, report *domain.ReportAbuse) error {
@@ -56,12 +57,19 @@ func (m *mockAbuseReportRepository) Resolve(ctx context.Context, id uuid.UUID, r
 	return nil
 }
 
+func (m *mockAbuseReportRepository) ExistsPendingByReporterAndFosterHome(ctx context.Context, reporterID, fosterHomeID uuid.UUID) (bool, error) {
+	if m.existsPendingFn != nil {
+		return m.existsPendingFn(ctx, reporterID, fosterHomeID)
+	}
+	return false, nil
+}
+
 // ============================================================
 // Helpers
 // ============================================================
 
 func newTestAbuseReportService(repo *mockAbuseReportRepository) service.AbuseReportService {
-	return service.NewAbuseReportService(repo)
+	return service.NewAbuseReportService(repo, nil)
 }
 
 func ptrUUID(id uuid.UUID) *uuid.UUID { return &id }

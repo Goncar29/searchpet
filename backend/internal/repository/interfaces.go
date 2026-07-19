@@ -182,6 +182,10 @@ type AbuseReportRepository interface {
 	GetAll(ctx context.Context, resolved *bool, limit, offset int) ([]domain.ReportAbuse, error)
 	CountAll(ctx context.Context, resolved *bool) (int64, error)
 	Resolve(ctx context.Context, id uuid.UUID, resolvedBy uuid.UUID, status string) error
+	// ExistsPendingByReporterAndFosterHome returns true if reporterID already has a
+	// pending abuse report against fosterHomeID (pre-check backstopped by the DB's
+	// partial unique index uniq_abuse_pending_foster_home).
+	ExistsPendingByReporterAndFosterHome(ctx context.Context, reporterID, fosterHomeID uuid.UUID) (bool, error)
 }
 
 // LocalGroupRepository define el contrato para grupos locales por ciudad.
