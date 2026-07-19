@@ -1,6 +1,7 @@
 package dto
 
 import (
+	"encoding/json"
 	"strings"
 
 	"github.com/google/uuid"
@@ -166,6 +167,83 @@ func ToMyFosterHomeListResponse(list []domain.FosterHome) []MyFosterHomeResponse
 	out := make([]MyFosterHomeResponse, len(list))
 	for i := range list {
 		out[i] = ToMyFosterHomeResponse(&list[i])
+	}
+	return out
+}
+
+// FosterHomeModerationLogResponse — vista admin del rastro de moderación (§18).
+type FosterHomeModerationLogResponse struct {
+	ID            uuid.UUID `json:"id"`
+	FosterHomeID  uuid.UUID `json:"foster_home_id"`
+	ActorAdminID  uuid.UUID `json:"actor_admin_id"`
+	Action        string    `json:"action"`
+	Reason        string    `json:"reason,omitempty"`
+	OwnerUserID   uuid.UUID `json:"owner_user_id"`
+	OwnerEmail    string    `json:"owner_email,omitempty"`
+	OwnerPhone    string    `json:"owner_phone,omitempty"`
+	OwnerWhatsapp string    `json:"owner_whatsapp,omitempty"`
+	CreatedAt     string    `json:"created_at"`
+}
+
+func ToFosterHomeModerationLogResponse(l *domain.FosterHomeModerationLog) FosterHomeModerationLogResponse {
+	return FosterHomeModerationLogResponse{
+		ID:            l.ID,
+		FosterHomeID:  l.FosterHomeID,
+		ActorAdminID:  l.ActorAdminID,
+		Action:        l.Action,
+		Reason:        l.Reason,
+		OwnerUserID:   l.OwnerUserID,
+		OwnerEmail:    l.OwnerEmail,
+		OwnerPhone:    l.OwnerPhone,
+		OwnerWhatsapp: l.OwnerWhatsapp,
+		CreatedAt:     l.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+	}
+}
+
+func ToFosterHomeModerationLogListResponse(list []domain.FosterHomeModerationLog) []FosterHomeModerationLogResponse {
+	out := make([]FosterHomeModerationLogResponse, len(list))
+	for i := range list {
+		out[i] = ToFosterHomeModerationLogResponse(&list[i])
+	}
+	return out
+}
+
+// FosterHomeChangeLogResponse — vista admin del historial de ediciones (§18.1).
+// ChangedFields se expone como objeto JSON (no string) usando json.RawMessage.
+type FosterHomeChangeLogResponse struct {
+	ID            uuid.UUID       `json:"id"`
+	FosterHomeID  uuid.UUID       `json:"foster_home_id"`
+	EditedByID    uuid.UUID       `json:"edited_by_id"`
+	ChangeType    string          `json:"change_type"`
+	ChangedFields json.RawMessage `json:"changed_fields"`
+	OwnerEmail    string          `json:"owner_email,omitempty"`
+	OwnerPhone    string          `json:"owner_phone,omitempty"`
+	OwnerWhatsapp string          `json:"owner_whatsapp,omitempty"`
+	CreatedAt     string          `json:"created_at"`
+}
+
+func ToFosterHomeChangeLogResponse(l *domain.FosterHomeChangeLog) FosterHomeChangeLogResponse {
+	cf := json.RawMessage(l.ChangedFields)
+	if len(l.ChangedFields) == 0 {
+		cf = json.RawMessage("null")
+	}
+	return FosterHomeChangeLogResponse{
+		ID:            l.ID,
+		FosterHomeID:  l.FosterHomeID,
+		EditedByID:    l.EditedByID,
+		ChangeType:    l.ChangeType,
+		ChangedFields: cf,
+		OwnerEmail:    l.OwnerEmail,
+		OwnerPhone:    l.OwnerPhone,
+		OwnerWhatsapp: l.OwnerWhatsapp,
+		CreatedAt:     l.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+	}
+}
+
+func ToFosterHomeChangeLogListResponse(list []domain.FosterHomeChangeLog) []FosterHomeChangeLogResponse {
+	out := make([]FosterHomeChangeLogResponse, len(list))
+	for i := range list {
+		out[i] = ToFosterHomeChangeLogResponse(&list[i])
 	}
 	return out
 }

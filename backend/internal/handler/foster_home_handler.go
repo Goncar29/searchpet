@@ -232,7 +232,7 @@ func (h *FosterHomeHandler) ModerationLogs(c *gin.Context) {
 		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		return
 	}
-	c.JSON(http.StatusOK, logs)
+	c.JSON(http.StatusOK, dto.ToFosterHomeModerationLogListResponse(logs))
 }
 
 func (h *FosterHomeHandler) ChangeLogs(c *gin.Context) {
@@ -241,7 +241,7 @@ func (h *FosterHomeHandler) ChangeLogs(c *gin.Context) {
 		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		return
 	}
-	c.JSON(http.StatusOK, logs)
+	c.JSON(http.StatusOK, dto.ToFosterHomeChangeLogListResponse(logs))
 }
 
 func writeFHNotFoundOr500(c *gin.Context, err error) {
