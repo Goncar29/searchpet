@@ -558,7 +558,12 @@
       "addPhoto": "Add photo",
       "photoLimit": "Maximum 5 photos",
       "deletePhoto": "Delete",
-      "suspendedFrozen": "You can't edit a suspended home."
+      "suspendedFrozen": "You can't edit a suspended home.",
+      "saved": "Changes saved",
+      "loadError": "We couldn't load your foster home.",
+      "retry": "Retry",
+      "noFosterHomeTitle": "You haven't registered a foster home yet",
+      "registerNow": "Register now"
     },
     "report": {
       "title": "Report home",

@@ -558,7 +558,12 @@
       "addPhoto": "Agregar foto",
       "photoLimit": "Máximo 5 fotos",
       "deletePhoto": "Eliminar",
-      "suspendedFrozen": "No podés editar un hogar suspendido."
+      "suspendedFrozen": "No podés editar un hogar suspendido.",
+      "saved": "Cambios guardados",
+      "loadError": "No pudimos cargar tu hogar transitorio.",
+      "retry": "Reintentar",
+      "noFosterHomeTitle": "Todavía no registraste un hogar transitorio",
+      "registerNow": "Registrarlo ahora"
     },
     "report": {
       "title": "Denunciar hogar",
