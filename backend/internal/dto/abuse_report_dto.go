@@ -22,11 +22,12 @@ type AbuseTargetReportRef struct {
 }
 
 // CreateAbuseReportRequest contiene los datos para enviar una denuncia.
-// Al menos uno de TargetUserID o TargetReportID debe estar presente.
+// Al menos uno de TargetUserID, TargetReportID o TargetFosterHomeID debe estar presente.
 type CreateAbuseReportRequest struct {
-	TargetUserID   *uuid.UUID `json:"target_user_id"`
-	TargetReportID *uuid.UUID `json:"target_report_id"`
-	Reason         string     `json:"reason" binding:"required"`
+	TargetUserID       *uuid.UUID `json:"target_user_id"`
+	TargetReportID     *uuid.UUID `json:"target_report_id"`
+	TargetFosterHomeID *uuid.UUID `json:"target_foster_home_id"`
+	Reason             string     `json:"reason" binding:"required"`
 }
 
 // ResolveAbuseReportRequest contiene el nuevo status de la denuncia.
@@ -36,10 +37,11 @@ type ResolveAbuseReportRequest struct {
 
 // AbuseReportResponse es la respuesta de una denuncia de abuso.
 type AbuseReportResponse struct {
-	ID             uuid.UUID  `json:"id"`
-	TargetReportID *uuid.UUID `json:"target_report_id,omitempty"`
-	TargetUserID   *uuid.UUID `json:"target_user_id,omitempty"`
-	ReporterID     uuid.UUID  `json:"reporter_id"`
+	ID                 uuid.UUID  `json:"id"`
+	TargetReportID     *uuid.UUID `json:"target_report_id,omitempty"`
+	TargetUserID       *uuid.UUID `json:"target_user_id,omitempty"`
+	TargetFosterHomeID *uuid.UUID `json:"target_foster_home_id,omitempty"`
+	ReporterID         uuid.UUID  `json:"reporter_id"`
 	Reason         string     `json:"reason"`
 	Status         string     `json:"status"`
 	ResolvedBy     *uuid.UUID `json:"resolved_by,omitempty"`
@@ -53,15 +55,16 @@ type AbuseReportResponse struct {
 // ToAbuseReportResponse convierte un domain.ReportAbuse a AbuseReportResponse.
 func ToAbuseReportResponse(r *domain.ReportAbuse) AbuseReportResponse {
 	resp := AbuseReportResponse{
-		ID:             r.ID,
-		TargetReportID: r.TargetReportID,
-		TargetUserID:   r.TargetUserID,
-		ReporterID:     r.ReporterID,
-		Reason:         r.Reason,
-		Status:         r.Status,
-		ResolvedBy:     r.ResolvedBy,
-		ResolvedAt:     r.ResolvedAt,
-		CreatedAt:      r.CreatedAt,
+		ID:                 r.ID,
+		TargetReportID:     r.TargetReportID,
+		TargetUserID:       r.TargetUserID,
+		TargetFosterHomeID: r.TargetFosterHomeID,
+		ReporterID:         r.ReporterID,
+		Reason:             r.Reason,
+		Status:             r.Status,
+		ResolvedBy:         r.ResolvedBy,
+		ResolvedAt:         r.ResolvedAt,
+		CreatedAt:          r.CreatedAt,
 	}
 	if r.Reporter.ID != (uuid.UUID{}) {
 		resp.Reporter = &AbuseUserRef{ID: r.Reporter.ID, Name: r.Reporter.Name, IsBanned: r.Reporter.IsBanned}

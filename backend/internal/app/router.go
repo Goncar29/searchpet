@@ -106,7 +106,16 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 	// ========================================
 	// CAPA 2: Services
 	// ========================================
-	authService := service.NewAuthService(userRepo, cfg.JWTSecret, cloudinaryClient)
+	// Foster homes are constructed before authService because UpdateProfile's
+	// owner-contact-change hook needs fosterHomeService injected into authService.
+	fosterHomeRepo := repository.NewFosterHomeRepository(db)
+	fosterHomePhotoRepo := repository.NewFosterHomePhotoRepository(db)
+	fosterHomeAuditRepo := repository.NewFosterHomeAuditRepository(db)
+	fosterHomeService := service.NewFosterHomeService(fosterHomeRepo, userRepo, fosterHomeAuditRepo, bus)
+	fosterHomePhotoService := service.NewFosterHomePhotoService(fosterHomeRepo, fosterHomePhotoRepo, photoStorage)
+	fosterHomeHandler := handler.NewFosterHomeHandler(fosterHomeService, fosterHomePhotoService)
+
+	authService := service.NewAuthService(userRepo, cfg.JWTSecret, cloudinaryClient, fosterHomeService)
 	photoService := service.NewPhotoService(photoRepo, petRepo, photoStorage, bus)
 	petService := service.NewPetService(petRepo, bus, photoService, reportRepo, petUow, statEventRepo, episodeService, episodeRepo)
 	reportService := service.NewReportService(reportRepo, petRepo, bus, statEventRepo, episodeService, episodeRepo, petUow)
@@ -119,8 +128,9 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 	groupRepo := repository.NewLocalGroupRepository(db)
 	groupMemberRepo := repository.NewGroupMemberRepository(db)
 	groupService := service.NewGroupService(groupRepo, groupMemberRepo)
+
 	abuseReportRepo := repository.NewAbuseReportRepository(db)
-	abuseReportService := service.NewAbuseReportService(abuseReportRepo)
+	abuseReportService := service.NewAbuseReportService(abuseReportRepo, fosterHomeRepo)
 	moderationService := service.NewModerationService(userRepo)
 	adminRepo := repository.NewAdminRepository(db)
 	adminService := service.NewAdminService(userRepo, adminRepo)
@@ -349,6 +359,20 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 		protected.GET("/shelters/mine", shelterHandler.GetMine)
 		protected.PUT("/shelters/mine", shelterHandler.UpdateMine)
 
+		// FOSTER HOME SELF-REGISTRATION (owner). Unlike /shelters/:id (public),
+		// GET /foster-homes/:id lives in THIS SAME group as /foster-homes/mine,
+		// so the static-before-wildcard registration order matters here (same
+		// pattern as /messages/unread-count vs /messages/:userId below —
+		// "Estática antes que :userId — Gin prioriza rutas estáticas en el mismo
+		// segmento"): the /mine routes are registered before the /:id route.
+		protected.POST("/foster-homes", fosterHomeHandler.RegisterOwn)
+		protected.GET("/foster-homes/mine", fosterHomeHandler.GetMine)
+		protected.PUT("/foster-homes/mine", fosterHomeHandler.UpdateMine)
+		protected.POST("/foster-homes/mine/photos", fosterHomeHandler.UploadPhoto)
+		protected.DELETE("/foster-homes/mine/photos/:photoId", fosterHomeHandler.DeletePhoto)
+		protected.GET("/foster-homes", fosterHomeHandler.List)
+		protected.GET("/foster-homes/:id", fosterHomeHandler.GetByID)
+
 		protected.POST("/devices/token", deviceHandler.RegisterToken)
 		protected.POST("/devices", deviceHandler.RegisterToken)
 		protected.DELETE("/devices/:token", deviceHandler.DeleteToken)
@@ -402,6 +426,19 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 		admin.GET("/abuse-reports", abuseReportHandler.List)
 		admin.GET("/abuse-reports/:id", abuseReportHandler.GetByID)
 		admin.PATCH("/admin/abuse-reports/:id/resolve", abuseReportHandler.Resolve)
+
+		// FOSTER HOME MODERATION QUEUE. /foster-homes/pending is a static GET
+		// registered before the /foster-homes/:id/* wildcard routes — same
+		// static-before-wildcard ordering used for /messages/unread-count vs
+		// /messages/:userId and for /foster-homes/mine vs /foster-homes/:id above.
+		admin.GET("/foster-homes/pending", fosterHomeHandler.PendingQueue)
+		admin.POST("/foster-homes/:id/approve", fosterHomeHandler.Approve)
+		admin.POST("/foster-homes/:id/reject", fosterHomeHandler.Reject)
+		admin.POST("/foster-homes/:id/suspend", fosterHomeHandler.Suspend)
+		admin.POST("/foster-homes/:id/reinstate", fosterHomeHandler.Reinstate)
+		admin.GET("/foster-homes/:id/logs", fosterHomeHandler.ModerationLogs)
+		admin.GET("/foster-homes/:id/history", fosterHomeHandler.ChangeLogs)
+
 		admin.PATCH("/admin/reports/:id/verify", reportHandler.VerifyReport)
 		admin.DELETE("/admin/reports/:id", reportHandler.DeleteReport)
 		admin.PATCH("/admin/users/:id/ban", moderationHandler.BanUser)

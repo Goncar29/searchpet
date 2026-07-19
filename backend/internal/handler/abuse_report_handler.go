@@ -39,6 +39,14 @@ func (h *AbuseReportHandler) Submit(c *gin.Context) {
 			writeError(c, http.StatusBadRequest, err)
 			return
 		}
+		if errors.Is(err, domain.ErrFosterHomeNotFound) {
+			writeError(c, http.StatusNotFound, err)
+			return
+		}
+		if errors.Is(err, domain.ErrSelfAbuseReport) || errors.Is(err, domain.ErrDuplicateAbuseReport) {
+			writeError(c, http.StatusConflict, err)
+			return
+		}
 		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		return
 	}

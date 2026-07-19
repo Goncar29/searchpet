@@ -80,6 +80,20 @@ func (r *postgresAbuseReportRepository) CountAll(ctx context.Context, resolved *
 	return n, err
 }
 
+// ExistsPendingByReporterAndFosterHome checks whether reporterID already has a
+// pending abuse report against fosterHomeID.
+func (r *postgresAbuseReportRepository) ExistsPendingByReporterAndFosterHome(ctx context.Context, reporterID, fosterHomeID uuid.UUID) (bool, error) {
+	var count int64
+	err := r.db.WithContext(ctx).
+		Model(&domain.ReportAbuse{}).
+		Where("reporter_id = ? AND target_foster_home_id = ? AND status = ?", reporterID, fosterHomeID, "pending").
+		Count(&count).Error
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
 // Resolve actualiza el status de la denuncia y persiste quién la resolvió (audit).
 func (r *postgresAbuseReportRepository) Resolve(ctx context.Context, id uuid.UUID, resolvedBy uuid.UUID, status string) error {
 	now := time.Now()

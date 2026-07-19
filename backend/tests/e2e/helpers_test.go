@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"gorm.io/gorm"
 	"lost-pets/config"
 	"lost-pets/internal/app"
 	"lost-pets/pkg/logger"
@@ -31,9 +32,20 @@ func uniqueEmail() string {
 // Table truncation is handled by testdb.SetupTestDB's t.Cleanup.
 func startTestServer(t *testing.T) (baseURL string, cleanup func()) {
 	t.Helper()
+	baseURL, _, cleanup = startTestServerWithDB(t)
+	return baseURL, cleanup
+}
+
+// startTestServerWithDB is identical to startTestServer but also returns the
+// *gorm.DB backing the router. Some flows have no self-serve API to reach a
+// given state (e.g. granting is_admin, or flipping email_verified when
+// EnableEmailVerification is off — see CLAUDE.md rule #20 on admin bootstrap)
+// and need direct DB access to set up fixtures.
+func startTestServerWithDB(t *testing.T) (baseURL string, db *gorm.DB, cleanup func()) {
+	t.Helper()
 
 	// SetupTestDB skips the test when DATABASE_URL is not set.
-	db := testdb.SetupTestDB(t)
+	db = testdb.SetupTestDB(t)
 
 	// Build a minimal config that matches what the test environment provides.
 	cfg := &config.Config{
@@ -52,7 +64,7 @@ func startTestServer(t *testing.T) (baseURL string, cleanup func()) {
 	router := app.SetupRouter(cfg, db, log)
 	srv := httptest.NewServer(router)
 
-	return srv.URL, func() {
+	return srv.URL, db, func() {
 		srv.Close()
 	}
 }
