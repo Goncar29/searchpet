@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log"
 	"strconv"
 	"strings"
 
@@ -129,8 +130,12 @@ func (s *fosterHomeService) UpdateMine(ctx context.Context, userID string, req *
 		fh.WhatsappPhone = &v
 	}
 	if req.AnimalTypes != nil {
-		changed["animal_types"] = [2]string{strings.Join([]string(fh.AnimalTypes), ","), strings.Join(req.AnimalTypes, ",")}
-		fh.AnimalTypes = pq.StringArray(req.AnimalTypes)
+		oldCSV := strings.Join([]string(fh.AnimalTypes), ",")
+		newCSV := strings.Join(req.AnimalTypes, ",")
+		if oldCSV != newCSV {
+			changed["animal_types"] = [2]string{oldCSV, newCSV}
+			fh.AnimalTypes = pq.StringArray(req.AnimalTypes)
+		}
 	}
 	if req.Latitude != nil {
 		fh.Latitude = req.Latitude
@@ -170,7 +175,7 @@ func (s *fosterHomeService) writeChangeLog(ctx context.Context, fh *domain.Foste
 	if u, err := s.userRepo.GetByID(ctx, fh.OwnerUserID); err == nil {
 		ownerEmail, ownerPhone = u.Email, u.Phone
 	}
-	_ = s.auditRepo.CreateChangeLog(ctx, &domain.FosterHomeChangeLog{
+	if err := s.auditRepo.CreateChangeLog(ctx, &domain.FosterHomeChangeLog{
 		FosterHomeID:  fh.ID,
 		EditedByID:    editor,
 		ChangeType:    changeType,
@@ -178,7 +183,9 @@ func (s *fosterHomeService) writeChangeLog(ctx context.Context, fh *domain.Foste
 		OwnerEmail:    ownerEmail,
 		OwnerPhone:    ownerPhone,
 		OwnerWhatsapp: wa,
-	})
+	}); err != nil {
+		log.Printf("[foster_home] failed to write change log for %s: %v", fh.ID, err)
+	}
 }
 
 func (s *fosterHomeService) RecordOwnerContactChange(ctx context.Context, userID uuid.UUID, changed map[string][2]string) error {
@@ -251,6 +258,9 @@ func (s *fosterHomeService) transition(ctx context.Context, adminID, id, action,
 	if action == domain.FosterHomeActionReject {
 		fh.RejectionReason = reason
 	}
+	if newStatus == domain.FosterHomeStatusApproved {
+		fh.RejectionReason = ""
+	}
 	if err := s.repo.Update(ctx, fh); err != nil {
 		return nil, err
 	}
@@ -263,7 +273,7 @@ func (s *fosterHomeService) transition(ctx context.Context, adminID, id, action,
 	if u, uerr := s.userRepo.GetByID(ctx, fh.OwnerUserID); uerr == nil {
 		ownerEmail, ownerPhone = u.Email, u.Phone
 	}
-	_ = s.auditRepo.CreateModerationLog(ctx, &domain.FosterHomeModerationLog{
+	if err := s.auditRepo.CreateModerationLog(ctx, &domain.FosterHomeModerationLog{
 		FosterHomeID:  fh.ID,
 		ActorAdminID:  adminUUID,
 		Action:        action,
@@ -272,10 +282,18 @@ func (s *fosterHomeService) transition(ctx context.Context, adminID, id, action,
 		OwnerEmail:    ownerEmail,
 		OwnerPhone:    ownerPhone,
 		OwnerWhatsapp: wa,
-	})
+	}); err != nil {
+		log.Printf("[foster_home] failed to write moderation log for %s: %v", fh.ID, err)
+	}
 
-	if s.bus != nil {
-		s.bus.Publish("foster_home."+action, map[string]any{"foster_home_id": fh.ID})
+	eventName := map[string]string{
+		domain.FosterHomeActionApprove:   "foster_home.approved",
+		domain.FosterHomeActionReject:    "foster_home.rejected",
+		domain.FosterHomeActionSuspend:   "foster_home.suspended",
+		domain.FosterHomeActionReinstate: "foster_home.approved",
+	}[action]
+	if s.bus != nil && eventName != "" {
+		s.bus.Publish(eventName, map[string]any{"foster_home_id": fh.ID})
 	}
 	return fh, nil
 }
@@ -285,6 +303,7 @@ func (s *fosterHomeService) Approve(ctx context.Context, adminID, id string) (*d
 }
 
 func (s *fosterHomeService) Reject(ctx context.Context, adminID, id, reason string) (*domain.FosterHome, error) {
+	reason = strings.TrimSpace(reason)
 	if reason == "" {
 		return nil, domain.ErrRejectionReasonRequired
 	}
@@ -292,6 +311,7 @@ func (s *fosterHomeService) Reject(ctx context.Context, adminID, id, reason stri
 }
 
 func (s *fosterHomeService) Suspend(ctx context.Context, adminID, id, reason string) (*domain.FosterHome, error) {
+	reason = strings.TrimSpace(reason)
 	if reason == "" {
 		return nil, domain.ErrSuspensionReasonRequired
 	}

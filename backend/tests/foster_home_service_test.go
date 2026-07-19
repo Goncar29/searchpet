@@ -2,6 +2,7 @@ package tests
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -204,5 +205,152 @@ func TestEditSuspended_IsFrozen(t *testing.T) {
 	_, err := svc.UpdateMine(ctx, ownerID.String(), &dto.UpdateMyFosterHomeRequest{City: &city})
 	if err != domain.ErrFosterHomeSuspended {
 		t.Fatalf("expected ErrFosterHomeSuspended, got %v", err)
+	}
+}
+
+func TestUpdateMine_WritesChangeLogWithDiff(t *testing.T) {
+	ctx := context.Background()
+	ownerID, userRepo := newVerifiedUser()
+	fhRepo := newFakeFHRepo()
+	auditRepo := &fakeAuditRepo{}
+	svc := service.NewFosterHomeService(fhRepo, userRepo, auditRepo, nil)
+
+	fh := &domain.FosterHome{City: "Montevideo", HousingType: "house", AnimalTypes: []string{"dog"}, Capacity: 2, Description: "desc"}
+	if err := svc.RegisterOwn(ctx, ownerID.String(), fh); err != nil {
+		t.Fatalf("RegisterOwn failed: %v", err)
+	}
+	fhID := fhRepo.created.ID.String()
+	if _, err := svc.Approve(ctx, uuid.New().String(), fhID); err != nil {
+		t.Fatalf("Approve failed: %v", err)
+	}
+
+	city := "Salto"
+	if _, err := svc.UpdateMine(ctx, ownerID.String(), &dto.UpdateMyFosterHomeRequest{City: &city}); err != nil {
+		t.Fatalf("UpdateMine failed: %v", err)
+	}
+
+	if len(auditRepo.changeLogs) != 1 {
+		t.Fatalf("expected exactly 1 change log, got %d", len(auditRepo.changeLogs))
+	}
+	logEntry := auditRepo.changeLogs[0]
+	if logEntry.ChangeType != domain.FosterHomeChangeListingEdit {
+		t.Errorf("expected change type %q, got %q", domain.FosterHomeChangeListingEdit, logEntry.ChangeType)
+	}
+	if !strings.Contains(logEntry.ChangedFields, "city") ||
+		!strings.Contains(logEntry.ChangedFields, "Montevideo") ||
+		!strings.Contains(logEntry.ChangedFields, "Salto") {
+		t.Errorf("expected ChangedFields to contain city old->new diff, got %q", logEntry.ChangedFields)
+	}
+}
+
+func TestUpdateMine_NoChangeNoLog(t *testing.T) {
+	ctx := context.Background()
+	ownerID, userRepo := newVerifiedUser()
+	fhRepo := newFakeFHRepo()
+	auditRepo := &fakeAuditRepo{}
+	svc := service.NewFosterHomeService(fhRepo, userRepo, auditRepo, nil)
+
+	fh := &domain.FosterHome{City: "Montevideo", HousingType: "house", AnimalTypes: []string{"dog"}, Capacity: 2, Description: "desc"}
+	if err := svc.RegisterOwn(ctx, ownerID.String(), fh); err != nil {
+		t.Fatalf("RegisterOwn failed: %v", err)
+	}
+
+	// Same animal_types, nothing else changed → no change log.
+	same := []string{"dog"}
+	if _, err := svc.UpdateMine(ctx, ownerID.String(), &dto.UpdateMyFosterHomeRequest{AnimalTypes: same}); err != nil {
+		t.Fatalf("UpdateMine failed: %v", err)
+	}
+	if len(auditRepo.changeLogs) != 0 {
+		t.Fatalf("expected no change log for identical update, got %d", len(auditRepo.changeLogs))
+	}
+}
+
+func TestRecordOwnerContactChange_NoHomeIsNoop(t *testing.T) {
+	ctx := context.Background()
+	ownerID, userRepo := newVerifiedUser()
+	auditRepo := &fakeAuditRepo{}
+	svc := service.NewFosterHomeService(newFakeFHRepo(), userRepo, auditRepo, nil)
+
+	err := svc.RecordOwnerContactChange(ctx, ownerID, map[string][2]string{"phone": {"111", "222"}})
+	if err != nil {
+		t.Fatalf("expected nil for user without a foster home, got %v", err)
+	}
+	if len(auditRepo.changeLogs) != 0 {
+		t.Fatalf("expected no change log, got %d", len(auditRepo.changeLogs))
+	}
+}
+
+func TestRecordOwnerContactChange_WritesLog(t *testing.T) {
+	ctx := context.Background()
+	ownerID, userRepo := newVerifiedUser()
+	fhRepo := newFakeFHRepo()
+	auditRepo := &fakeAuditRepo{}
+	svc := service.NewFosterHomeService(fhRepo, userRepo, auditRepo, nil)
+
+	fh := &domain.FosterHome{City: "Montevideo", HousingType: "house", AnimalTypes: []string{"dog"}, Capacity: 2, Description: "desc"}
+	if err := svc.RegisterOwn(ctx, ownerID.String(), fh); err != nil {
+		t.Fatalf("RegisterOwn failed: %v", err)
+	}
+
+	err := svc.RecordOwnerContactChange(ctx, ownerID, map[string][2]string{"phone": {"111", "222"}})
+	if err != nil {
+		t.Fatalf("RecordOwnerContactChange failed: %v", err)
+	}
+	if len(auditRepo.changeLogs) != 1 {
+		t.Fatalf("expected exactly 1 change log, got %d", len(auditRepo.changeLogs))
+	}
+	if auditRepo.changeLogs[0].ChangeType != domain.FosterHomeChangeOwnerContact {
+		t.Errorf("expected change type %q, got %q", domain.FosterHomeChangeOwnerContact, auditRepo.changeLogs[0].ChangeType)
+	}
+}
+
+func TestGetApprovedByID_NonApproved404(t *testing.T) {
+	ctx := context.Background()
+	ownerID, userRepo := newVerifiedUser()
+	fhRepo := newFakeFHRepo()
+	svc := service.NewFosterHomeService(fhRepo, userRepo, &fakeAuditRepo{}, nil)
+
+	fh := &domain.FosterHome{City: "Montevideo", HousingType: "house", AnimalTypes: []string{"dog"}, Capacity: 2, Description: "desc"}
+	if err := svc.RegisterOwn(ctx, ownerID.String(), fh); err != nil {
+		t.Fatalf("RegisterOwn failed: %v", err)
+	}
+	// Home is pending, not approved.
+	_, err := svc.GetApprovedByID(ctx, fhRepo.created.ID.String())
+	if err != domain.ErrFosterHomeNotFound {
+		t.Fatalf("expected ErrFosterHomeNotFound for pending home, got %v", err)
+	}
+}
+
+func TestInvalidTransition(t *testing.T) {
+	ctx := context.Background()
+	ownerID, userRepo := newVerifiedUser()
+	fhRepo := newFakeFHRepo()
+	svc := service.NewFosterHomeService(fhRepo, userRepo, &fakeAuditRepo{}, nil)
+
+	fh := &domain.FosterHome{City: "Montevideo", HousingType: "house", AnimalTypes: []string{"dog"}, Capacity: 2, Description: "desc"}
+	if err := svc.RegisterOwn(ctx, ownerID.String(), fh); err != nil {
+		t.Fatalf("RegisterOwn failed: %v", err)
+	}
+	// Suspending a PENDING home is not a valid transition (only approved → suspended).
+	_, err := svc.Suspend(ctx, uuid.New().String(), fhRepo.created.ID.String(), "fraude")
+	if err != domain.ErrInvalidFosterHomeStatus {
+		t.Fatalf("expected ErrInvalidFosterHomeStatus, got %v", err)
+	}
+}
+
+func TestReject_RequiresReason(t *testing.T) {
+	ctx := context.Background()
+	ownerID, userRepo := newVerifiedUser()
+	fhRepo := newFakeFHRepo()
+	svc := service.NewFosterHomeService(fhRepo, userRepo, &fakeAuditRepo{}, nil)
+
+	fh := &domain.FosterHome{City: "Montevideo", HousingType: "house", AnimalTypes: []string{"dog"}, Capacity: 2, Description: "desc"}
+	if err := svc.RegisterOwn(ctx, ownerID.String(), fh); err != nil {
+		t.Fatalf("RegisterOwn failed: %v", err)
+	}
+	// Whitespace-only reason must be rejected (trimmed to empty).
+	_, err := svc.Reject(ctx, uuid.New().String(), fhRepo.created.ID.String(), "  ")
+	if err != domain.ErrRejectionReasonRequired {
+		t.Fatalf("expected ErrRejectionReasonRequired for whitespace reason, got %v", err)
 	}
 }
