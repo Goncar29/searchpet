@@ -9,6 +9,8 @@ interface ConfirmModalProps {
   destructive?: boolean;
   /** Disable actions and show a busy state while the confirm mutation runs. */
   loading?: boolean;
+  /** Disable the confirm button (e.g. a required field is empty). */
+  confirmDisabled?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
   /** Optional extra content rendered between the message and the buttons. */
@@ -26,6 +28,7 @@ export function ConfirmModal({
   cancelLabel = 'Cancel',
   destructive = false,
   loading = false,
+  confirmDisabled = false,
   onConfirm,
   onCancel,
   children,
@@ -65,7 +68,7 @@ export function ConfirmModal({
           <button
             type="button"
             onClick={onConfirm}
-            disabled={loading}
+            disabled={loading || confirmDisabled}
             className={`text-sm font-medium px-4 py-2 rounded-lg transition-colors disabled:opacity-50 ${confirmClasses}`}
           >
             {confirmLabel}

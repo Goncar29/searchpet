@@ -98,7 +98,6 @@ export function MainLayout() {
     ...(myShelter ? [{ to: '/shelters/mine', label: t('myShelter') }] : []),
     { to: '/hogares', label: t('fosterHomes:nav') },
     ...(isAdmin ? [{ to: '/admin/abuse-reports', label: t('admin') }] : []),
-    ...(isAdmin ? [{ to: '/admin/foster-homes', label: t('fosterHomes:nav') }] : []),
   ];
 
   const isActive = (path: string) => location.pathname === path;
@@ -375,18 +374,6 @@ export function MainLayout() {
                       } transition-colors duration-150`}
                     >
                       {t('admin')}
-                    </Link>
-                  )}
-                  {isAdmin && (
-                    <Link
-                      to="/admin/foster-homes"
-                      className={`text-sm font-medium py-2 px-3 rounded-md ${
-                        isActive('/admin/foster-homes')
-                          ? 'text-primary bg-orange-50 dark:bg-orange-950'
-                          : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
-                      } transition-colors duration-150`}
-                    >
-                      {t('fosterHomes:nav')}
                     </Link>
                   )}
                   <Link

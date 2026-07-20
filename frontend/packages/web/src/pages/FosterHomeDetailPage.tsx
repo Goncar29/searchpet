@@ -12,6 +12,7 @@ export function FosterHomeDetailPage() {
   const { user } = useAuth();
   const { data: fosterHome, isLoading, isError } = useFosterHomeByID(id || '');
   const [showReportModal, setShowReportModal] = useState(false);
+  const [activePhotoIndex, setActivePhotoIndex] = useState(0);
 
   if (isLoading) {
     return (
@@ -50,17 +51,56 @@ export function FosterHomeDetailPage() {
   const isOwnHome = !!user && user.id === fosterHome.owner_user_id;
   const whatsappDigits = fosterHome.whatsapp_phone?.replace(/[^0-9]/g, '');
 
+  const photos = fosterHome.photos;
+  const safePhotoIndex = photos.length > 0 ? Math.min(activePhotoIndex, photos.length - 1) : 0;
+  const activePhoto = photos[safePhotoIndex];
+  const goToPhoto = (delta: number) => {
+    setActivePhotoIndex((safePhotoIndex + delta + photos.length) % photos.length);
+  };
+
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-lg">
-        {/* Galería de fotos */}
-        {fosterHome.photos.length > 0 ? (
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-1 p-1 rounded-t-2xl overflow-hidden">
-            {fosterHome.photos.map((photo) => (
-              <div key={photo.id} className="aspect-square bg-gray-100 dark:bg-gray-800 overflow-hidden">
-                <img src={photo.url} alt={fosterHome.city} className="w-full h-full object-cover" />
-              </div>
-            ))}
+        {/* Galería de fotos — una a la vez con navegación (mismo patrón que el detalle de mascota) */}
+        {photos.length > 0 && activePhoto ? (
+          <div className="relative h-72 md:h-96 bg-gray-100 dark:bg-gray-800 overflow-hidden rounded-t-2xl">
+            <img src={activePhoto.url} alt={fosterHome.city} className="w-full h-full object-contain" />
+            {photos.length > 1 && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => goToPhoto(-1)}
+                  aria-label={t('fosterHomes:detail.prevPhoto')}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
+                >
+                  ‹
+                </button>
+                <button
+                  type="button"
+                  onClick={() => goToPhoto(1)}
+                  aria-label={t('fosterHomes:detail.nextPhoto')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
+                >
+                  ›
+                </button>
+                <span className="absolute bottom-3 right-3 text-xs font-medium px-2 py-0.5 rounded-full bg-black/60 text-white">
+                  📷 {safePhotoIndex + 1}/{photos.length}
+                </span>
+                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
+                  {photos.map((p, i) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => setActivePhotoIndex(i)}
+                      aria-label={t('fosterHomes:detail.goToPhoto', { number: i + 1 })}
+                      className={`w-2 h-2 rounded-full transition-colors ${
+                        i === safePhotoIndex ? 'bg-white' : 'bg-white/40 hover:bg-white/70'
+                      }`}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
           </div>
         ) : (
           <div className="h-56 bg-gray-100 dark:bg-gray-800 rounded-t-2xl flex items-center justify-center">

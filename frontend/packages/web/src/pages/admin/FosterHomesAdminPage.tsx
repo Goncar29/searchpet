@@ -210,7 +210,10 @@ function FosterHomeAdminItem({
             {t(`fosterHomes:housingType.${item.housing_type}`)} · {t('fosterHomes:directory.capacity')}:{' '}
             {item.capacity}
           </p>
-          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">owner: {item.owner_user_id}</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            {item.owner_name && <span className="font-medium">{item.owner_name} · </span>}
+            {item.owner_email || item.owner_user_id}
+          </p>
         </div>
         <span
           className={`text-xs font-semibold rounded-full px-3 py-1 ${
@@ -239,6 +242,22 @@ function FosterHomeAdminItem({
       </div>
 
       {item.description && <p className="text-sm text-gray-600 dark:text-gray-300 mt-2">{item.description}</p>}
+
+      {item.photos.length > 0 && (
+        <div className="grid grid-cols-3 sm:grid-cols-4 gap-1.5 mt-3">
+          {item.photos.map((photo) => (
+            <a
+              key={photo.id}
+              href={photo.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block aspect-square overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700 hover:opacity-90 transition-opacity"
+            >
+              <img src={photo.url} alt={item.city} loading="lazy" className="h-full w-full object-cover" />
+            </a>
+          ))}
+        </div>
+      )}
 
       <div className="flex flex-wrap gap-2 mt-4">
         {item.status === 'pending' && (

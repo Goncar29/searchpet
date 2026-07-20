@@ -32,6 +32,11 @@ const EMPTY_FORM: FormState = {
   whatsapp_phone: '',
 };
 
+// Deben coincidir con los límites del backend (foster_home_dto.go) y del form de registro.
+const CITY_MAX_LEN = 100;
+const DESCRIPTION_MAX_LEN = 500;
+const WHATSAPP_MAX_LEN = 20;
+
 type FieldErrorKey = 'city' | 'animal_types' | 'capacity' | 'description';
 
 // status → key del mensaje en fosterHomes:mine.*  (mismo patrón que la label
@@ -137,10 +142,13 @@ export function MyFosterHomePage() {
   const validate = (): boolean => {
     const errs: Partial<Record<FieldErrorKey, string>> = {};
     if (!form.city.trim()) errs.city = t('fosterHomes:register.cityRequired');
+    else if (form.city.length > CITY_MAX_LEN) errs.city = t('fosterHomes:register.maxLengthError', { max: CITY_MAX_LEN });
     if (form.animal_types.length === 0) errs.animal_types = t('fosterHomes:register.animalTypesRequired');
     const capacityNum = Number(form.capacity);
     if (!Number.isInteger(capacityNum) || capacityNum < 1) errs.capacity = t('fosterHomes:register.capacityInvalid');
     if (!form.description.trim()) errs.description = t('fosterHomes:register.descriptionRequired');
+    else if (form.description.length > DESCRIPTION_MAX_LEN)
+      errs.description = t('fosterHomes:register.maxLengthError', { max: DESCRIPTION_MAX_LEN });
     setFieldErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -247,6 +255,7 @@ export function MyFosterHomePage() {
             value={form.city}
             onChange={setField('city')}
             error={fieldErrors.city}
+            maxLength={CITY_MAX_LEN}
           />
 
           <div>
@@ -313,10 +322,24 @@ export function MyFosterHomePage() {
               value={form.description}
               onChange={setField('description')}
               rows={4}
+              maxLength={DESCRIPTION_MAX_LEN}
               disabled={isSuspended}
               className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-60"
             />
-            {fieldErrors.description && <p className="text-sm text-red-600 mt-1">{fieldErrors.description}</p>}
+            <div className="flex justify-between mt-1">
+              {fieldErrors.description ? (
+                <p className="text-sm text-red-600">{fieldErrors.description}</p>
+              ) : (
+                <span />
+              )}
+              <span
+                className={`text-xs ${
+                  form.description.length > DESCRIPTION_MAX_LEN ? 'text-red-600' : 'text-gray-400 dark:text-gray-500'
+                }`}
+              >
+                {form.description.length}/{DESCRIPTION_MAX_LEN}
+              </span>
+            </div>
           </div>
 
           <EditField
@@ -324,6 +347,7 @@ export function MyFosterHomePage() {
             label={t('fosterHomes:register.whatsapp')}
             value={form.whatsapp_phone}
             onChange={setField('whatsapp_phone')}
+            maxLength={WHATSAPP_MAX_LEN}
           />
         </fieldset>
 
@@ -411,6 +435,7 @@ function EditField({
   onChange,
   error,
   type = 'text',
+  maxLength,
 }: {
   id: string;
   label: string;
@@ -418,6 +443,7 @@ function EditField({
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   error?: string;
   type?: string;
+  maxLength?: number;
 }) {
   return (
     <div>
@@ -430,6 +456,7 @@ function EditField({
         value={value}
         onChange={onChange}
         min={type === 'number' ? 1 : undefined}
+        maxLength={maxLength}
         className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-60"
       />
       {error && <p className="text-sm text-red-600 mt-1">{error}</p>}
