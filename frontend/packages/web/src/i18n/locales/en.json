@@ -9,7 +9,8 @@
       "stories": "Stories",
       "groups": "Groups",
       "admins": "Administrators",
-      "shelters": "Shelters"
+      "shelters": "Shelters",
+      "fosterHomes": "Foster homes"
     },
     "abuse": {
       "title": "Abuse Reports",

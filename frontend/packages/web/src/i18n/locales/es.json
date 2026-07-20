@@ -9,7 +9,8 @@
       "stories": "Historias",
       "groups": "Grupos",
       "admins": "Administradores",
-      "shelters": "Refugios"
+      "shelters": "Refugios",
+      "fosterHomes": "Hogares transitorios"
     },
     "abuse": {
       "title": "Denuncias de abuso",
