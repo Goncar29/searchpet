@@ -28,7 +28,9 @@ export function FosterHomeCard({ fosterHome }: FosterHomeCardProps) {
 
         {/* Info */}
         <div className="p-4">
-          <h3 className="font-bold text-gray-900 dark:text-gray-100 text-lg mb-1">📍 {fosterHome.city}</h3>
+          <h3 className="font-bold text-gray-900 dark:text-gray-100 text-lg mb-1 break-words line-clamp-2">
+            📍 {fosterHome.city}
+          </h3>
           <div className="flex flex-wrap gap-1 mb-2">
             <span className="text-xs bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 px-2 py-0.5 rounded-full">
               {t(`fosterHomes:housingType.${fosterHome.housing_type}`)}
@@ -47,7 +49,7 @@ export function FosterHomeCard({ fosterHome }: FosterHomeCardProps) {
           </div>
           {/* Always reserve the description height (2 lines) so every card
               in the grid stays the same height, mirroring the feed fix (#19). */}
-          <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-2 min-h-[2.5rem]">
+          <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-2 min-h-[2.5rem] break-words">
             {fosterHome.description}
           </p>
         </div>

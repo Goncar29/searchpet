@@ -237,6 +237,9 @@ export interface FosterHome {
 export interface MyFosterHome extends FosterHome {
   status: FosterHomeStatus;
   rejection_reason?: string;
+  // Sólo presentes en la cola de moderación admin (Owner preloadeado en backend).
+  owner_name?: string;
+  owner_email?: string;
 }
 
 export interface RegisterFosterHomeRequest {
@@ -547,6 +550,7 @@ export interface AbuseReport {
   reporter?: { id: string; name: string };
   target_user?: { id: string; name: string; is_banned?: boolean };
   target_report?: { id: string; pet_id: string; pet_name: string };
+  target_foster_home?: { id: string; city: string; status: FosterHomeStatus };
 }
 
 export interface CreateAbuseReportRequest {

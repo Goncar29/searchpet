@@ -18,9 +18,10 @@
       "empty": "Nenhuma denúncia encontrada.",
       "filter": { "all": "Todas", "pending": "Pendentes", "resolved": "Resolvidas" },
       "col": { "id": "ID", "reporter": "Denunciante", "reason": "Motivo", "status": "Status", "target": "Alvo", "created": "Data", "actions": "Ações" },
-      "action": { "resolve": "Resolver", "dismiss": "Descartar", "deleteContent": "Excluir conteúdo", "ban": "Banir", "unban": "Desbanir" },
+      "action": { "resolve": "Resolver", "dismiss": "Descartar", "deleteContent": "Excluir conteúdo", "ban": "Banir", "unban": "Desbanir", "suspendHome": "Suspender", "reinstateHome": "Reinstaurar" },
       "targetUser": "usuário: {{id}}",
       "targetReport": "reporte: {{id}}",
+      "targetFosterHome": "lar: {{id}}",
       "modal": {
         "deleteTitle": "Excluir conteúdo",
         "deleteMessage": "Excluir o conteúdo denunciado \"{{name}}\"? Esta ação não pode ser desfeita.",
@@ -31,7 +32,14 @@
         "reasonLabel": "Motivo (opcional)",
         "unbanTitle": "Desbanir usuário",
         "unbanMessage": "Desbanir {{name}}? A pessoa poderá entrar novamente.",
-        "unbanConfirm": "Desbanir"
+        "unbanConfirm": "Desbanir",
+        "suspendHomeTitle": "Suspender lar",
+        "suspendHomeMessage": "Suspender o lar de {{city}}? Deixará de aparecer no diretório.",
+        "suspendHomeConfirm": "Suspender",
+        "suspendReasonLabel": "Motivo (obrigatório)",
+        "reinstateHomeTitle": "Reinstaurar lar",
+        "reinstateHomeMessage": "Reinstaurar o lar de {{city}}? Voltará a aparecer no diretório.",
+        "reinstateHomeConfirm": "Reinstaurar"
       }
     },
     "stories": {
@@ -519,7 +527,10 @@
       "contactWhatsapp": "WhatsApp",
       "reportCta": "Denunciar",
       "photos": "Fotos do local",
-      "notFound": "Lar temporário não encontrado"
+      "notFound": "Lar temporário não encontrado",
+      "prevPhoto": "Foto anterior",
+      "nextPhoto": "Próxima foto",
+      "goToPhoto": "Ir para a foto {{number}}"
     },
     "register": {
       "title": "Oferecer meu lar temporário",
@@ -536,6 +547,7 @@
       "capacityInvalid": "Deve ser 1 ou mais",
       "description": "Descreva seu espaço",
       "descriptionRequired": "A descrição é obrigatória",
+      "maxLengthError": "Máximo de {{max}} caracteres",
       "whatsapp": "WhatsApp (opcional)",
       "submit": "Cadastrar lar",
       "submitting": "Cadastrando...",

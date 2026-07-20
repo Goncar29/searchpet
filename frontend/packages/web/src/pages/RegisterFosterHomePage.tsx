@@ -8,6 +8,11 @@ import type { AnimalKind, HousingType } from '@shared/types';
 const HOUSING_TYPES: HousingType[] = ['house', 'apartment'];
 const ANIMAL_TYPES: AnimalKind[] = ['dog', 'cat', 'other'];
 
+// Deben coincidir con los límites del backend (foster_home_dto.go).
+const CITY_MAX_LEN = 100;
+const DESCRIPTION_MAX_LEN = 500;
+const WHATSAPP_MAX_LEN = 20;
+
 type FormState = {
   city: string;
   housing_type: HousingType;
@@ -134,6 +139,7 @@ export function RegisterFosterHomePage() {
             value={form.city}
             onChange={setField('city')}
             error={fieldErrors.city}
+            maxLength={CITY_MAX_LEN}
           />
 
           <div>
@@ -195,9 +201,19 @@ export function RegisterFosterHomePage() {
               value={form.description}
               onChange={setField('description')}
               rows={4}
+              maxLength={DESCRIPTION_MAX_LEN}
               className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary"
             />
-            {fieldErrors.description && <p className="text-sm text-red-600 mt-1">{fieldErrors.description}</p>}
+            <div className="flex justify-between mt-1">
+              {fieldErrors.description ? (
+                <p className="text-sm text-red-600">{fieldErrors.description}</p>
+              ) : (
+                <span />
+              )}
+              <span className="text-xs text-gray-400 dark:text-gray-500">
+                {form.description.length}/{DESCRIPTION_MAX_LEN}
+              </span>
+            </div>
           </div>
 
           <Field
@@ -205,6 +221,7 @@ export function RegisterFosterHomePage() {
             label={t('fosterHomes:register.whatsapp')}
             value={form.whatsapp_phone}
             onChange={setField('whatsapp_phone')}
+            maxLength={WHATSAPP_MAX_LEN}
           />
 
           {apiError && <p className="text-sm text-red-600">{apiError}</p>}
@@ -245,6 +262,7 @@ function Field({
   onChange,
   error,
   type = 'text',
+  maxLength,
 }: {
   id: string;
   label: string;
@@ -252,6 +270,7 @@ function Field({
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   error?: string;
   type?: string;
+  maxLength?: number;
 }) {
   return (
     <div>
@@ -264,6 +283,7 @@ function Field({
         value={value}
         onChange={onChange}
         min={type === 'number' ? 1 : undefined}
+        maxLength={maxLength}
         className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary"
       />
       {error && <p className="text-sm text-red-600 mt-1">{error}</p>}

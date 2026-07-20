@@ -29,6 +29,7 @@ func (r *postgresAbuseReportRepository) GetByID(ctx context.Context, id uuid.UUI
 		Preload("Reporter").
 		Preload("TargetUser").
 		Preload("TargetReport.Pet").
+		Preload("FosterHome").
 		Where("id = ?", id).
 		First(&report).Error
 	if err != nil {
@@ -45,7 +46,8 @@ func (r *postgresAbuseReportRepository) GetAll(ctx context.Context, resolved *bo
 	q := r.db.WithContext(ctx).
 		Preload("Reporter").
 		Preload("TargetUser").
-		Preload("TargetReport.Pet")
+		Preload("TargetReport.Pet").
+		Preload("FosterHome")
 
 	if resolved != nil {
 		if *resolved {

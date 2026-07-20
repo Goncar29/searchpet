@@ -18,9 +18,10 @@
       "empty": "No abuse reports found.",
       "filter": { "all": "All", "pending": "Pending", "resolved": "Resolved" },
       "col": { "id": "ID", "reporter": "Reporter", "reason": "Reason", "status": "Status", "target": "Target", "created": "Created", "actions": "Actions" },
-      "action": { "resolve": "Resolve", "dismiss": "Dismiss", "deleteContent": "Delete content", "ban": "Ban", "unban": "Unban" },
+      "action": { "resolve": "Resolve", "dismiss": "Dismiss", "deleteContent": "Delete content", "ban": "Ban", "unban": "Unban", "suspendHome": "Suspend", "reinstateHome": "Reinstate" },
       "targetUser": "user: {{id}}",
       "targetReport": "report: {{id}}",
+      "targetFosterHome": "foster home: {{id}}",
       "modal": {
         "deleteTitle": "Delete content",
         "deleteMessage": "Delete the reported content \"{{name}}\"? This cannot be undone.",
@@ -31,7 +32,14 @@
         "reasonLabel": "Reason (optional)",
         "unbanTitle": "Unban user",
         "unbanMessage": "Unban {{name}}? They will be able to log in again.",
-        "unbanConfirm": "Unban"
+        "unbanConfirm": "Unban",
+        "suspendHomeTitle": "Suspend home",
+        "suspendHomeMessage": "Suspend the {{city}} foster home? It will stop appearing in the directory.",
+        "suspendHomeConfirm": "Suspend",
+        "suspendReasonLabel": "Reason (required)",
+        "reinstateHomeTitle": "Reinstate home",
+        "reinstateHomeMessage": "Reinstate the {{city}} foster home? It will appear in the directory again.",
+        "reinstateHomeConfirm": "Reinstate"
       }
     },
     "stories": {
@@ -519,7 +527,10 @@
       "contactWhatsapp": "WhatsApp",
       "reportCta": "Report",
       "photos": "Photos of the place",
-      "notFound": "Foster home not found"
+      "notFound": "Foster home not found",
+      "prevPhoto": "Previous photo",
+      "nextPhoto": "Next photo",
+      "goToPhoto": "Go to photo {{number}}"
     },
     "register": {
       "title": "Offer my foster home",
@@ -536,6 +547,7 @@
       "capacityInvalid": "Must be 1 or more",
       "description": "Describe your space",
       "descriptionRequired": "Description is required",
+      "maxLengthError": "Maximum {{max}} characters",
       "whatsapp": "WhatsApp (optional)",
       "submit": "Register home",
       "submitting": "Registering...",

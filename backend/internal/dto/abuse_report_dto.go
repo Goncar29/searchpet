@@ -21,6 +21,15 @@ type AbuseTargetReportRef struct {
 	PetName string    `json:"pet_name"`
 }
 
+// AbuseTargetFosterHomeRef is a minimal foster-home reference for admin enrichment:
+// lets the moderator see (and open) WHICH home is being reported, and its status
+// so the report row can offer suspend (approved) / reinstate (suspended) inline.
+type AbuseTargetFosterHomeRef struct {
+	ID     uuid.UUID `json:"id"`
+	City   string    `json:"city"`
+	Status string    `json:"status"`
+}
+
 // CreateAbuseReportRequest contiene los datos para enviar una denuncia.
 // Al menos uno de TargetUserID, TargetReportID o TargetFosterHomeID debe estar presente.
 type CreateAbuseReportRequest struct {
@@ -47,9 +56,10 @@ type AbuseReportResponse struct {
 	ResolvedBy     *uuid.UUID `json:"resolved_by,omitempty"`
 	ResolvedAt     *time.Time `json:"resolved_at,omitempty"`
 	CreatedAt      time.Time  `json:"created_at"`
-	Reporter       *AbuseUserRef         `json:"reporter,omitempty"`
-	TargetUser     *AbuseUserRef         `json:"target_user,omitempty"`
-	TargetReport   *AbuseTargetReportRef `json:"target_report,omitempty"`
+	Reporter         *AbuseUserRef             `json:"reporter,omitempty"`
+	TargetUser       *AbuseUserRef             `json:"target_user,omitempty"`
+	TargetReport     *AbuseTargetReportRef     `json:"target_report,omitempty"`
+	TargetFosterHome *AbuseTargetFosterHomeRef `json:"target_foster_home,omitempty"`
 }
 
 // ToAbuseReportResponse convierte un domain.ReportAbuse a AbuseReportResponse.
@@ -80,6 +90,13 @@ func ToAbuseReportResponse(r *domain.ReportAbuse) AbuseReportResponse {
 			ID:      r.TargetReport.ID,
 			PetID:   r.TargetReport.PetID,
 			PetName: r.TargetReport.Pet.Name,
+		}
+	}
+	// Foster homes are never deleted (forensic retention), so this resolves
+	// whenever target_foster_home_id is set — the moderator can open the home.
+	if r.FosterHome != nil && r.FosterHome.ID != (uuid.UUID{}) {
+		resp.TargetFosterHome = &AbuseTargetFosterHomeRef{
+			ID: r.FosterHome.ID, City: r.FosterHome.City, Status: r.FosterHome.Status,
 		}
 	}
 	return resp
