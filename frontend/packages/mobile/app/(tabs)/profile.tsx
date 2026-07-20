@@ -520,6 +520,15 @@ export default function ProfileScreen() {
 
         <TouchableOpacity
           style={styles.menuItem}
+          onPress={() => router.push('/foster-homes' as any)}
+        >
+          <Text style={styles.menuIcon}>🏘️</Text>
+          <Text style={styles.menuText}>{t('fosterHomes:nav')}</Text>
+          <Text style={styles.menuArrow}>›</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.menuItem}
           onPress={() => router.push('/blocked-users' as any)}
         >
           <Text style={styles.menuIcon}>🚫</Text>
