@@ -586,7 +586,13 @@
       "logsTitle": "Moderation trail",
       "historyTitle": "Edit history",
       "noLogs": "No records.",
-      "ownerSnapshot": "Owner contact (at the time)"
+      "ownerSnapshot": "Owner contact (at the time)",
+      "action": {
+        "approve": "Approved",
+        "reject": "Rejected",
+        "suspend": "Suspended",
+        "reinstate": "Reinstated"
+      }
     }
   }
 }

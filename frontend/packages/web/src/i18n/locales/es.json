@@ -586,7 +586,13 @@
       "logsTitle": "Rastro de moderación",
       "historyTitle": "Historial de ediciones",
       "noLogs": "Sin registros.",
-      "ownerSnapshot": "Contacto del dueño (al momento)"
+      "ownerSnapshot": "Contacto del dueño (al momento)",
+      "action": {
+        "approve": "Aprobado",
+        "reject": "Rechazado",
+        "suspend": "Suspendido",
+        "reinstate": "Reinstaurado"
+      }
     }
   }
 }
