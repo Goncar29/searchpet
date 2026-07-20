@@ -37,6 +37,11 @@ import { AlertsPage } from './pages/AlertsPage';
 import { PublishWizardPage } from './pages/PublishWizardPage';
 import { RegisterShelterPage } from './pages/RegisterShelterPage';
 import { MyShelterPage } from './pages/MyShelterPage';
+import { FosterHomesPage } from './pages/FosterHomesPage';
+import { FosterHomeDetailPage } from './pages/FosterHomeDetailPage';
+import { RegisterFosterHomePage } from './pages/RegisterFosterHomePage';
+import { MyFosterHomePage } from './pages/MyFosterHomePage';
+import { FosterHomesAdminPage } from './pages/admin/FosterHomesAdminPage';
 
 export default function App() {
   return (
@@ -75,6 +80,10 @@ export default function App() {
             <Route path="/alerts" element={<AlertsPage />} />
             <Route path="/shelters/register" element={<RegisterShelterPage />} />
             <Route path="/shelters/mine" element={<MyShelterPage />} />
+            <Route path="/hogares" element={<FosterHomesPage />} />
+            <Route path="/hogares/registrar" element={<RegisterFosterHomePage />} />
+            <Route path="/hogares/mio" element={<MyFosterHomePage />} />
+            <Route path="/hogares/:id" element={<FosterHomeDetailPage />} />
           </Route>
           {/* Admin routes — protected by AdminRoute guard */}
           <Route element={<AdminRoute />}>
@@ -85,6 +94,7 @@ export default function App() {
               <Route path="groups" element={<GroupsAdminPage />} />
               <Route path="admins" element={<AdminsPage />} />
               <Route path="shelters" element={<SheltersAdminPage />} />
+              <Route path="foster-homes" element={<FosterHomesAdminPage />} />
             </Route>
           </Route>
         </Route>
