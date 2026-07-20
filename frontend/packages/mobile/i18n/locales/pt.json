@@ -577,6 +577,9 @@
       "photoLimit": "Máximo de 5 fotos",
       "deletePhoto": "Excluir",
       "suspendedFrozen": "Você não pode editar um lar suspenso.",
+      "saved": "Alterações salvas",
+      "loadError": "Não foi possível carregar seu lar temporário.",
+      "retry": "Tentar novamente",
       "noFosterHomeTitle": "Você ainda não registrou um lar temporário",
       "registerNow": "Registrar agora"
     },
