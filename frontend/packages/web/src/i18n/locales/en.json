@@ -9,7 +9,8 @@
       "stories": "Stories",
       "groups": "Groups",
       "admins": "Administrators",
-      "shelters": "Shelters"
+      "shelters": "Shelters",
+      "fosterHomes": "Foster homes"
     },
     "abuse": {
       "title": "Abuse Reports",
@@ -484,6 +485,115 @@
     "detail": {
       "adoptedTitle": "{{name}} found a home! 🎉",
       "adoptedSubtitle": "Thanks to the community for spreading the word."
+    }
+  },
+  "fosterHomes": {
+    "nav": "Foster homes",
+    "directory": {
+      "title": "Foster homes",
+      "empty": "No foster homes available yet.",
+      "filterCity": "City",
+      "filterAnimal": "Animal type",
+      "animalAll": "All",
+      "clearFilters": "Clear filters",
+      "capacity": "Capacity",
+      "registerCta": "Offer my home"
+    },
+    "status": {
+      "pending": "Under review",
+      "approved": "Active",
+      "rejected": "Rejected",
+      "suspended": "Suspended"
+    },
+    "housingType": {
+      "house": "House",
+      "apartment": "Apartment"
+    },
+    "animalType": {
+      "dog": "Dog",
+      "cat": "Cat",
+      "other": "Other"
+    },
+    "detail": {
+      "contactChat": "Contact via chat",
+      "contactWhatsapp": "WhatsApp",
+      "reportCta": "Report",
+      "photos": "Photos of the place",
+      "notFound": "Foster home not found"
+    },
+    "register": {
+      "title": "Offer my foster home",
+      "intro": "Register your space to temporarily house a rescued animal.",
+      "emailUnverified": "You need to verify your email before registering your foster home.",
+      "verifyEmailLink": "Verify email",
+      "start": "Get started",
+      "city": "City",
+      "cityRequired": "City is required",
+      "housingType": "Housing type",
+      "animalTypes": "Which animals can you take in?",
+      "animalTypesRequired": "Choose at least one type",
+      "capacity": "How many animals at once?",
+      "capacityInvalid": "Must be 1 or more",
+      "description": "Describe your space",
+      "descriptionRequired": "Description is required",
+      "whatsapp": "WhatsApp (optional)",
+      "submit": "Register home",
+      "submitting": "Registering...",
+      "successTitle": "Home registered!",
+      "successBody": "An administrator will review it before publishing.",
+      "goToMine": "View my home",
+      "reviewNote": "An admin reviews every home before publishing it.",
+      "oneNote": "You can only have one foster home per account."
+    },
+    "mine": {
+      "title": "My foster home",
+      "statusPending": "Under review by an administrator.",
+      "statusApproved": "Your home is published.",
+      "statusRejected": "Rejected. Edit and resubmit.",
+      "statusSuspended": "Suspended by an administrator. Contact support.",
+      "rejectionReason": "Reason",
+      "edit": "Edit",
+      "save": "Save",
+      "saving": "Saving...",
+      "cancel": "Cancel",
+      "addPhoto": "Add photo",
+      "photoLimit": "Maximum 5 photos",
+      "deletePhoto": "Delete",
+      "suspendedFrozen": "You can't edit a suspended home.",
+      "saved": "Changes saved",
+      "loadError": "We couldn't load your foster home.",
+      "retry": "Retry",
+      "noFosterHomeTitle": "You haven't registered a foster home yet",
+      "registerNow": "Register now"
+    },
+    "report": {
+      "title": "Report home",
+      "reasonLabel": "Reason for the report",
+      "reasonPlaceholder": "Tell us what happened",
+      "submit": "Submit report",
+      "submitting": "Submitting...",
+      "success": "Report submitted. Thank you."
+    },
+    "admin": {
+      "title": "Foster homes",
+      "pendingQueue": "Review queue",
+      "approve": "Approve",
+      "reject": "Reject",
+      "suspend": "Suspend",
+      "reinstate": "Reinstate",
+      "reasonRequired": "Reason is required",
+      "viewLogs": "View moderation",
+      "viewHistory": "View edit history",
+      "logsTitle": "Moderation trail",
+      "historyTitle": "Edit history",
+      "noLogs": "No records.",
+      "ownerSnapshot": "Owner contact (at the time)",
+      "action": {
+        "approve": "Approved",
+        "reject": "Rejected",
+        "suspend": "Suspended",
+        "reinstate": "Reinstated"
+      }
     }
   }
 }
