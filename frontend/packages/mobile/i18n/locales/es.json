@@ -507,5 +507,86 @@
       "adoptedTitle": "¡{{name}} encontró un hogar! 🎉",
       "adoptedSubtitle": "Gracias a la comunidad por difundir."
     }
+  },
+  "fosterHomes": {
+    "nav": "Hogares transitorios",
+    "directory": {
+      "title": "Hogares transitorios",
+      "subtitle": "Familias que reciben animales rescatados de forma temporal",
+      "empty": "No hay hogares disponibles todavía.",
+      "filterCity": "Ciudad",
+      "filterPlaceholder": "Filtrar por ciudad...",
+      "capacity": "Capacidad",
+      "registerCta": "Ofrecer mi hogar"
+    },
+    "status": {
+      "pending": "En revisión",
+      "approved": "Activo",
+      "rejected": "Rechazado",
+      "suspended": "Suspendido"
+    },
+    "housingType": {
+      "house": "Casa",
+      "apartment": "Apartamento"
+    },
+    "animalType": {
+      "dog": "Perro",
+      "cat": "Gato",
+      "other": "Otros"
+    },
+    "detail": {
+      "contactChat": "Contactar por chat",
+      "contactWhatsapp": "WhatsApp",
+      "reportCta": "Denunciar",
+      "photos": "Fotos del lugar"
+    },
+    "register": {
+      "title": "Ofrecer mi hogar transitorio",
+      "intro": "Registrá tu espacio para alojar temporalmente a un animal rescatado.",
+      "emailUnverified": "Necesitás verificar tu email antes de registrar tu hogar.",
+      "verifyEmailLink": "Verificar email",
+      "start": "Empezar",
+      "city": "Ciudad",
+      "cityRequired": "La ciudad es obligatoria",
+      "housingType": "Tipo de vivienda",
+      "animalTypes": "¿Qué animales podés recibir?",
+      "animalTypesRequired": "Elegí al menos un tipo",
+      "capacity": "¿Cuántos animales a la vez?",
+      "capacityInvalid": "Debe ser 1 o más",
+      "description": "Describí tu espacio",
+      "descriptionRequired": "La descripción es obligatoria",
+      "whatsapp": "WhatsApp (opcional)",
+      "submit": "Registrar hogar",
+      "submitting": "Registrando...",
+      "successTitle": "¡Hogar registrado!",
+      "successBody": "Un administrador lo revisará antes de publicarlo.",
+      "goToMine": "Ver mi hogar"
+    },
+    "mine": {
+      "title": "Mi hogar transitorio",
+      "statusPending": "En revisión por un administrador.",
+      "statusApproved": "Tu hogar está publicado.",
+      "statusRejected": "Rechazado. Editá y volvé a enviar.",
+      "statusSuspended": "Suspendido por un administrador. Contactá al soporte.",
+      "rejectionReason": "Motivo",
+      "edit": "Editar",
+      "save": "Guardar",
+      "saving": "Guardando...",
+      "cancel": "Cancelar",
+      "addPhoto": "Agregar foto",
+      "photoLimit": "Máximo 5 fotos",
+      "deletePhoto": "Eliminar",
+      "suspendedFrozen": "No podés editar un hogar suspendido.",
+      "noFosterHomeTitle": "Todavía no registraste un hogar transitorio",
+      "registerNow": "Registrarlo ahora"
+    },
+    "report": {
+      "title": "Denunciar hogar",
+      "reasonLabel": "Motivo de la denuncia",
+      "reasonPlaceholder": "Contanos qué pasó",
+      "submit": "Enviar denuncia",
+      "submitting": "Enviando...",
+      "success": "Denuncia enviada. Gracias."
+    }
   }
 }
