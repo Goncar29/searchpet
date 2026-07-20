@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"strings"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -51,7 +52,15 @@ func (r *postgresFosterHomeRepository) GetApproved(ctx context.Context, city, an
 		Preload("Photos").
 		Where("status = ?", domain.FosterHomeStatusApproved)
 	if city != "" {
-		q = q.Where("city = ?", city)
+		// Búsqueda por palabras: cada término debe aparecer en el campo city
+		// (parcial, case-insensitive). Así "aguada melo" o "melo aguada"
+		// matchean "Montevideo, Aguada, Uruguay, Melo", y ciudades de dos
+		// palabras ("San Marcos", "Rio Branco") funcionan sin importar orden
+		// ni separador. Split por espacios y comas.
+		terms := strings.FieldsFunc(city, func(r rune) bool { return r == ' ' || r == ',' })
+		for _, term := range terms {
+			q = q.Where("city ILIKE ?", "%"+term+"%")
+		}
 	}
 	if animalType != "" {
 		q = q.Where("animal_types @> ARRAY[?]::text[]", animalType)
@@ -63,6 +72,8 @@ func (r *postgresFosterHomeRepository) GetApproved(ctx context.Context, city, an
 func (r *postgresFosterHomeRepository) GetPendingQueue(ctx context.Context) ([]domain.FosterHome, error) {
 	var list []domain.FosterHome
 	err := r.db.WithContext(ctx).
+		Preload("Photos").
+		Preload("Owner").
 		Where("status = ?", domain.FosterHomeStatusPending).
 		Order("created_at ASC").
 		Find(&list).Error
