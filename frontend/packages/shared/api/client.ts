@@ -43,6 +43,7 @@ import type {
   SharedPetResponse,
   GenerateShareRequest,
   Stats,
+  ImpactStats,
   UploadPhotoResponse,
   ImageSearchResponse,
   LocationAlert,
@@ -647,6 +648,10 @@ class APIClient {
 
   async getStats(): Promise<Stats> {
     return this.request<Stats>('GET', '/api/stats');
+  }
+
+  async getImpactStats(): Promise<ImpactStats> {
+    return this.request<ImpactStats>('GET', '/api/stats/impact');
   }
 
   // ============================================================

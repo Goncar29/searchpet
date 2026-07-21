@@ -367,4 +367,30 @@ describe('APIClient request timeout', () => {
 
     await expect(client.getStats()).rejects.toBe(netErr);
   });
+
+  it('getImpactStats resolves the impact payload', async () => {
+    const payload = {
+      totals: {
+        pets_reunited: 2,
+        searches_started: 4,
+        total_users: 1,
+        total_pets: 1,
+        active_searches: 1,
+        reunion_rate: 0.5,
+      },
+      reunions_by_month: [{ month: '2026-07', count: 2 }],
+    };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(JSON.stringify(payload), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+      ),
+    );
+
+    await expect(client.getImpactStats()).resolves.toEqual(payload);
+  });
 });

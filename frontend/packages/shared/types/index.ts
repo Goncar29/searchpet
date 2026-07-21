@@ -143,6 +143,25 @@ export interface Stats {
   searches_started: number;
 }
 
+export interface ImpactMonthlyCount {
+  month: string; // "YYYY-MM"
+  count: number;
+}
+
+export interface ImpactTotals {
+  pets_reunited: number;
+  searches_started: number;
+  total_users: number;
+  total_pets: number;
+  active_searches: number;
+  reunion_rate: number; // 0..1
+}
+
+export interface ImpactStats {
+  totals: ImpactTotals;
+  reunions_by_month: ImpactMonthlyCount[];
+}
+
 // ============================================================
 // SHELTERS
 // ============================================================

@@ -577,6 +577,14 @@ export const useStats = () => {
   });
 };
 
+export const useImpactStats = () => {
+  return useQuery({
+    queryKey: ['impact-stats'],
+    queryFn: () => apiClient.getImpactStats(),
+    staleTime: 5 * 60 * 1000, // 5 min — matches the backend cache TTL
+  });
+};
+
 // ============================================================
 // SHELTER HOOKS
 // ============================================================
