@@ -555,6 +555,7 @@
       "capacityInvalid": "Must be 1 or more",
       "description": "Describe your space",
       "descriptionRequired": "Description is required",
+      "maxLengthError": "Maximum {{max}} characters",
       "whatsapp": "WhatsApp (optional)",
       "submit": "Register home",
       "submitting": "Registering...",

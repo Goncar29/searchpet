@@ -555,6 +555,7 @@
       "capacityInvalid": "Deve ser 1 ou mais",
       "description": "Descreva seu espaço",
       "descriptionRequired": "A descrição é obrigatória",
+      "maxLengthError": "Máximo de {{max}} caracteres",
       "whatsapp": "WhatsApp (opcional)",
       "submit": "Cadastrar lar",
       "submitting": "Cadastrando...",

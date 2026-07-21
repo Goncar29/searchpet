@@ -40,6 +40,11 @@ const HOUSING_TYPES: HousingType[] = ['house', 'apartment'];
 const ANIMAL_TYPES: AnimalKind[] = ['dog', 'cat', 'other'];
 const MAX_PHOTOS = 5;
 
+// Deben coincidir con los límites del backend (foster_home_dto.go) y el form web.
+const CITY_MAX_LEN = 100;
+const DESCRIPTION_MAX_LEN = 500;
+const WHATSAPP_MAX_LEN = 20;
+
 // status → key of the message in fosterHomes:mine.* (mirrors the status
 // label, which uses fosterHomes:status.<status> directly).
 const STATUS_MESSAGE_KEY: Record<FosterHomeStatus, string> = {
@@ -166,12 +171,18 @@ export default function MyFosterHomeScreen() {
   const validate = (): boolean => {
     const nextErrors: FieldErrors = {};
     if (!city.trim()) nextErrors.city = t('fosterHomes:register.cityRequired');
+    else if (city.length > CITY_MAX_LEN) {
+      nextErrors.city = t('fosterHomes:register.maxLengthError', { max: CITY_MAX_LEN });
+    }
     if (animalTypes.length === 0) nextErrors.animalTypes = t('fosterHomes:register.animalTypesRequired');
     const capacityNum = Number(capacity);
     if (!Number.isInteger(capacityNum) || capacityNum < 1) {
       nextErrors.capacity = t('fosterHomes:register.capacityInvalid');
     }
     if (!description.trim()) nextErrors.description = t('fosterHomes:register.descriptionRequired');
+    else if (description.length > DESCRIPTION_MAX_LEN) {
+      nextErrors.description = t('fosterHomes:register.maxLengthError', { max: DESCRIPTION_MAX_LEN });
+    }
     setErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
   };
@@ -271,6 +282,7 @@ export default function MyFosterHomeScreen() {
           editable={!isSuspended}
           placeholderTextColor={COLORS.placeholder}
           autoCapitalize="words"
+          maxLength={CITY_MAX_LEN}
         />
         {errors.city && <Text style={styles.error}>{errors.city}</Text>}
       </View>
@@ -347,8 +359,16 @@ export default function MyFosterHomeScreen() {
           editable={!isSuspended}
           multiline
           numberOfLines={4}
+          maxLength={DESCRIPTION_MAX_LEN}
         />
-        {errors.description && <Text style={styles.error}>{errors.description}</Text>}
+        <View style={styles.fieldFooter}>
+          {errors.description ? (
+            <Text style={styles.error}>{errors.description}</Text>
+          ) : (
+            <View />
+          )}
+          <Text style={styles.counter}>{description.length}/{DESCRIPTION_MAX_LEN}</Text>
+        </View>
       </View>
 
       <View style={styles.section}>
@@ -359,6 +379,7 @@ export default function MyFosterHomeScreen() {
           onChangeText={setWhatsappPhone}
           editable={!isSuspended}
           keyboardType="phone-pad"
+          maxLength={WHATSAPP_MAX_LEN}
         />
       </View>
 
@@ -504,6 +525,13 @@ const styles = StyleSheet.create({
   inputDisabled: { opacity: 0.6 },
   textArea: { height: 90, textAlignVertical: 'top' },
   error: { fontSize: FONTS.sizes.xs, color: COLORS.danger, marginTop: SPACING.xs },
+  fieldFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: SPACING.xs,
+  },
+  counter: { fontSize: FONTS.sizes.xs, color: COLORS.textMuted },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm },
   chipOption: {
     borderWidth: 1,
