@@ -49,6 +49,7 @@ i18n
         vets: es.vets,
         adoption: es.adoption,
         fosterHomes: es.fosterHomes,
+        impact: es.impact,
       },
       en: {
         // Shared namespaces
@@ -77,6 +78,7 @@ i18n
         vets: en.vets,
         adoption: en.adoption,
         fosterHomes: en.fosterHomes,
+        impact: en.impact,
       },
       pt: {
         // Shared namespaces
@@ -105,6 +107,7 @@ i18n
         vets: pt.vets,
         adoption: pt.adoption,
         fosterHomes: pt.fosterHomes,
+        impact: pt.impact,
       },
     },
     interpolation: {

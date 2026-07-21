@@ -607,5 +607,20 @@
         "reinstate": "Reinstated"
       }
     }
+  },
+  "impact": {
+    "title": "SearchPet's impact",
+    "subtitle": "A social cause, 100% free. These are the numbers, with nothing hidden.",
+    "reunited": "Pets reunited 💚",
+    "searches": "Searches started",
+    "community": "Families in the community",
+    "registered": "Pets registered",
+    "reunionsByMonth": "Reunions per month",
+    "activeSearches": "Active searches now",
+    "reunionRate": "Reunion rate",
+    "loading": "Loading impact…",
+    "error": "We couldn't load the impact statistics.",
+    "footerLink": "Our impact",
+    "homeCta": "See our impact →"
   }
 }

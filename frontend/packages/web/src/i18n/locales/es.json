@@ -607,5 +607,20 @@
         "reinstate": "Reinstaurado"
       }
     }
+  },
+  "impact": {
+    "title": "El impacto de SearchPet",
+    "subtitle": "Una causa social, 100% gratuita. Estos son los números, sin nada oculto.",
+    "reunited": "Mascotas reunidas 💚",
+    "searches": "Búsquedas iniciadas",
+    "community": "Familias en la comunidad",
+    "registered": "Mascotas registradas",
+    "reunionsByMonth": "Reuniones por mes",
+    "activeSearches": "Búsquedas activas ahora",
+    "reunionRate": "Tasa de reunión",
+    "loading": "Cargando impacto…",
+    "error": "No pudimos cargar las estadísticas de impacto.",
+    "footerLink": "Nuestro impacto",
+    "homeCta": "Ver nuestro impacto →"
   }
 }
