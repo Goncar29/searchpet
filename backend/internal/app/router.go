@@ -209,6 +209,7 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 	photoHandler := handler.NewPhotoHandler(photoService)
 	statsHandler := handler.NewStatsHandler(db)
 	impactHandler := handler.NewImpactHandler(db)
+	monthlyImpactHandler := handler.NewMonthlyImpactHandler(db)
 	messageHandler := handler.NewMessageHandler(messageService, cloudinaryClient)
 	shareHandler := handler.NewShareHandler(shareLinkService, cfg.AppURL)
 	shelterHandler := handler.NewShelterHandler(shelterService)
@@ -422,6 +423,7 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 	admin.Use(middleware.RequireAdmin(userRepo))
 	{
 		admin.GET("/stats/impact", impactHandler.GetImpactStats)
+		admin.GET("/stats/impact/monthly", monthlyImpactHandler.GetMonthly)
 		admin.PATCH("/admin/stories/:id/featured", storyHandler.SetFeatured)
 		admin.DELETE("/admin/stories/:id", storyHandler.Delete)
 		admin.POST("/groups", groupHandler.Create)

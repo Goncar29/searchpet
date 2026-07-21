@@ -10,10 +10,10 @@ var (
 	ErrUserBanned         = errors.New("usuario bloqueado")
 
 	// User
-	ErrUserNotFound             = errors.New("usuario no encontrado")
-	ErrCannotModerateAdmin      = errors.New("no se puede moderar a un administrador")
-	ErrCannotRevokeSelf         = errors.New("no puedes quitarte el admin a ti mismo")
-	ErrCannotRevokeLastAdmin    = errors.New("no se puede revocar al último administrador")
+	ErrUserNotFound          = errors.New("usuario no encontrado")
+	ErrCannotModerateAdmin   = errors.New("no se puede moderar a un administrador")
+	ErrCannotRevokeSelf      = errors.New("no puedes quitarte el admin a ti mismo")
+	ErrCannotRevokeLastAdmin = errors.New("no se puede revocar al último administrador")
 
 	// Pet
 	ErrPetNotFound             = errors.New("mascota no encontrada")
@@ -111,6 +111,7 @@ var (
 	ErrPhotoFieldRequired     = errors.New("campo 'photo' requerido")
 	ErrInvalidSearchRadius    = errors.New("radius debe estar entre 1000 y 50000 metros")
 	ErrInvalidDateParam       = errors.New("parámetro de fecha debe ser RFC3339")
+	ErrInvalidMonthParam      = errors.New("parámetro 'month' debe ser YYYY-MM")
 	ErrInvalidPageParam       = errors.New("parámetro 'page' debe ser un entero positivo")
 	ErrInvalidLimitParam      = errors.New("parámetro 'limit' debe ser un entero positivo")
 	ErrInvalidMultipart       = errors.New("multipart form inválido o demasiado grande")
@@ -229,6 +230,7 @@ var ErrorCodes = map[error]string{
 	ErrPhotoFieldRequired:     "photo_field_required",
 	ErrInvalidSearchRadius:    "invalid_search_radius",
 	ErrInvalidDateParam:       "invalid_date_param",
+	ErrInvalidMonthParam:      "invalid_month_param",
 	ErrInvalidPageParam:       "invalid_page_param",
 	ErrInvalidLimitParam:      "invalid_limit_param",
 	ErrInvalidMultipart:       "invalid_multipart",
