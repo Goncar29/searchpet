@@ -22,7 +22,7 @@ export function AdminLayout() {
 
       {/* Nav tabs — horizontal on all screens, sidebar on md+ */}
       <div className="flex flex-col md:flex-row gap-6">
-        <nav className="flex md:flex-col gap-1 flex-shrink-0 md:w-48">
+        <nav className="flex flex-wrap md:flex-col md:flex-nowrap gap-1 flex-shrink-0 md:w-48">
           {navLinks.map((link) => (
             <NavLink
               key={link.to}
