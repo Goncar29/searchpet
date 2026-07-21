@@ -6,7 +6,10 @@ import { ImpactLineChart } from '../components/ImpactLineChart';
 function StatTile({ value, label, accent }: { value: string; label: string; accent?: string }) {
   return (
     <div className="rounded-xl border border-gray-200 p-4 text-center dark:border-gray-700">
-      <div className="text-3xl font-extrabold" style={accent ? { color: accent } : undefined}>
+      <div
+        className="text-3xl font-extrabold text-gray-900 dark:text-gray-50"
+        style={accent ? { color: accent } : undefined}
+      >
         {value}
       </div>
       <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">{label}</div>
@@ -48,7 +51,7 @@ export function ImpactPage() {
   return (
     <div className="mx-auto max-w-4xl px-4 py-10">
       <header className="mb-8 text-center">
-        <h1 className="text-3xl font-extrabold">{t('impact:title')} 🐾</h1>
+        <h1 className="text-3xl font-extrabold text-gray-900 dark:text-gray-50">{t('impact:title')} 🐾</h1>
         <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">{t('impact:subtitle')}</p>
       </header>
 
@@ -60,7 +63,7 @@ export function ImpactPage() {
       </div>
 
       <div className="mb-6 rounded-xl border border-gray-200 p-4 dark:border-gray-700">
-        <div className="mb-3 text-sm font-bold">{t('impact:reunionsByMonth')}</div>
+        <div className="mb-3 text-sm font-bold text-gray-900 dark:text-gray-100">{t('impact:reunionsByMonth')}</div>
         <ImpactLineChart data={reunions_by_month} label={t('impact:reunionsByMonth')} />
       </div>
 
