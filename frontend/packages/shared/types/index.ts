@@ -179,6 +179,28 @@ export interface ImpactStats {
   moderation: ImpactModeration;
 }
 
+export interface MonthlyImpactReunion {
+  id: string;
+  name: string;
+  type: string;
+  reunited_at: string; // ISO
+}
+
+export interface MonthlyImpactReport {
+  id: string;
+  pet_name: string;
+  status: string;
+  created_at: string; // ISO
+}
+
+export interface MonthlyImpact {
+  month: string; // "YYYY-MM"
+  totals: { reunions: number; new_users: number; reports: number };
+  reunited_pets: MonthlyImpactReunion[];
+  reports: MonthlyImpactReport[];
+  truncated: boolean;
+}
+
 // ============================================================
 // SHELTERS
 // ============================================================

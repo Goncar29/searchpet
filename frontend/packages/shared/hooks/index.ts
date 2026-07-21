@@ -585,6 +585,14 @@ export const useImpactStats = () => {
   });
 };
 
+export const useMonthlyImpact = (month: string) => {
+  return useQuery({
+    queryKey: ['impact-monthly', month],
+    queryFn: () => apiClient.getMonthlyImpact(month),
+    enabled: !!month,
+  });
+};
+
 // ============================================================
 // SHELTER HOOKS
 // ============================================================

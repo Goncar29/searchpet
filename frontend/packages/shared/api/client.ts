@@ -44,6 +44,7 @@ import type {
   GenerateShareRequest,
   Stats,
   ImpactStats,
+  MonthlyImpact,
   UploadPhotoResponse,
   ImageSearchResponse,
   LocationAlert,
@@ -652,6 +653,13 @@ class APIClient {
 
   async getImpactStats(): Promise<ImpactStats> {
     return this.request<ImpactStats>('GET', '/api/stats/impact');
+  }
+
+  async getMonthlyImpact(month: string): Promise<MonthlyImpact> {
+    return this.request<MonthlyImpact>(
+      'GET',
+      `/api/stats/impact/monthly?month=${encodeURIComponent(month)}`,
+    );
   }
 
   // ============================================================

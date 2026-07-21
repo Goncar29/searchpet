@@ -403,4 +403,25 @@ describe('APIClient request timeout', () => {
 
     await expect(client.getImpactStats()).resolves.toEqual(payload);
   });
+
+  it('getMonthlyImpact resolves the monthly payload', async () => {
+    const payload = {
+      month: '2026-06',
+      totals: { reunions: 2, new_users: 1, reports: 3 },
+      reunited_pets: [{ id: 'a', name: 'Firulais', type: 'perro', reunited_at: '2026-06-10T00:00:00Z' }],
+      reports: [{ id: 'r', pet_name: 'Firulais', status: 'sighting', created_at: '2026-06-03T00:00:00Z' }],
+      truncated: false,
+    };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(JSON.stringify(payload), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+      ),
+    );
+    await expect(client.getMonthlyImpact('2026-06')).resolves.toEqual(payload);
+  });
 });
