@@ -10,7 +10,8 @@
       "groups": "Grupos",
       "admins": "Administradores",
       "shelters": "Refugios",
-      "fosterHomes": "Hogares transitorios"
+      "fosterHomes": "Hogares transitorios",
+      "impact": "Impacto"
     },
     "abuse": {
       "title": "Denuncias de abuso",
@@ -610,17 +611,33 @@
   },
   "impact": {
     "title": "El impacto de SearchPet",
-    "subtitle": "Una causa social, 100% gratuita. Estos son los números, sin nada oculto.",
+    "subtitle": "Panel interno de métricas. Los números completos de la plataforma.",
     "reunited": "Mascotas reunidas 💚",
     "searches": "Búsquedas iniciadas",
     "community": "Familias en la comunidad",
     "registered": "Mascotas registradas",
     "reunionsByMonth": "Reuniones por mes",
+    "newUsersByMonth": "Usuarios nuevos por mes",
+    "reportsByMonth": "Reportes por mes",
+    "petsByType": "Mascotas por tipo",
+    "moderation": "Moderación",
+    "moderationPending": "Pendientes",
+    "moderationResolved": "Resueltas",
+    "moderationDismissed": "Descartadas",
     "activeSearches": "Búsquedas activas ahora",
     "reunionRate": "Tasa de reunión",
+    "petType": {
+      "perro": "Perros",
+      "gato": "Gatos",
+      "ave": "Aves",
+      "otro": "Otros"
+    },
+    "share": "Compartir imagen",
+    "sharing": "Generando…",
+    "shareText": "El impacto de SearchPet — reuniendo familias 🐾",
+    "shareCardTagline": "Reuniendo familias · searchpet.app",
+    "shareDownloaded": "Imagen descargada. ¡Compartila!",
     "loading": "Cargando impacto…",
-    "error": "No pudimos cargar las estadísticas de impacto.",
-    "footerLink": "Nuestro impacto",
-    "homeCta": "Ver nuestro impacto →"
+    "error": "No pudimos cargar las estadísticas de impacto."
   }
 }

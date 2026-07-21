@@ -29,7 +29,7 @@ const PET_STATUSES: { value: PetStatus; labelKey: string }[] = [
 ];
 
 export function HomePage() {
-  const { t } = useTranslation(['home', 'common', 'pets', 'impact']);
+  const { t } = useTranslation(['home', 'common', 'pets']);
   // Local "today" as YYYY-MM-DD (en-CA yields that format) to cap date filters:
   // no future dates, and the range endpoints can't cross each other.
   const todayStr = new Date().toLocaleDateString('en-CA');
@@ -350,14 +350,6 @@ export function HomePage() {
             <p className="text-3xl font-bold text-primary">{stats?.total_pets || 0}</p>
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{t('home:stats.registered')}</p>
           </div>
-        </div>
-        <div className="text-center mt-4">
-          <Link
-            to="/impacto"
-            className="text-sm font-semibold text-primary hover:text-primary-dark transition-colors"
-          >
-            {t('impact:homeCta')}
-          </Link>
         </div>
       </section>
 

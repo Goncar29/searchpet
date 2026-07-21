@@ -57,7 +57,6 @@ export default function App() {
           <Route path="/pets/:id" element={<PetDetailPage />} />
           <Route path="/adoptar" element={<AdoptPage />} />
           <Route path="/shelters" element={<SheltersPage />} />
-          <Route path="/impacto" element={<ImpactPage />} />
           <Route path="/leaderboard" element={<LeaderboardPage />} />
           <Route path="/stories" element={<StoriesPage />} />
           <Route path="/stories/:id" element={<StoryDetailPage />} />
@@ -97,6 +96,7 @@ export default function App() {
               <Route path="admins" element={<AdminsPage />} />
               <Route path="shelters" element={<SheltersAdminPage />} />
               <Route path="foster-homes" element={<FosterHomesAdminPage />} />
+              <Route path="impact" element={<ImpactPage />} />
             </Route>
           </Route>
         </Route>
