@@ -208,6 +208,7 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 	reportHandler := handler.NewReportHandler(reportService, userRepo)
 	photoHandler := handler.NewPhotoHandler(photoService)
 	statsHandler := handler.NewStatsHandler(db)
+	impactHandler := handler.NewImpactHandler(db)
 	messageHandler := handler.NewMessageHandler(messageService, cloudinaryClient)
 	shareHandler := handler.NewShareHandler(shareLinkService, cfg.AppURL)
 	shelterHandler := handler.NewShelterHandler(shelterService)
@@ -263,6 +264,7 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 		public.POST("/auth/register", authRateLimit, authHandler.Register)
 		public.POST("/auth/login", authRateLimit, authHandler.Login)
 		public.GET("/stats", statsHandler.GetStats)
+		public.GET("/stats/impact", impactHandler.GetImpactStats)
 
 		public.GET("/pets/search", petHandler.SearchPets)
 		public.GET("/pets/:id", petHandler.GetPet)
