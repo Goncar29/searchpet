@@ -163,9 +163,11 @@ export interface ImpactTypeCount {
 }
 
 export interface ImpactModeration {
-  pending: number;
-  resolved: number;
-  dismissed: number;
+  abuse_pending: number;
+  abuse_resolved: number;
+  abuse_dismissed: number;
+  foster_homes_pending: number;
+  shelters_pending: number;
 }
 
 export interface ImpactStats {

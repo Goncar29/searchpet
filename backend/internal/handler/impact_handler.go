@@ -57,11 +57,15 @@ type TypeCount struct {
 	Count int64  `json:"count"`
 }
 
-// ModerationStats is the abuse-report queue snapshot by status.
+// ModerationStats is a snapshot of everything awaiting admin attention: abuse
+// reports (by status) plus the foster-home and shelter approval queues. The
+// three *_pending counts answer "what do I still need to review, and where".
 type ModerationStats struct {
-	Pending   int64 `json:"pending"`
-	Resolved  int64 `json:"resolved"`
-	Dismissed int64 `json:"dismissed"`
+	AbusePending       int64 `json:"abuse_pending"`
+	AbuseResolved      int64 `json:"abuse_resolved"`
+	AbuseDismissed     int64 `json:"abuse_dismissed"`
+	FosterHomesPending int64 `json:"foster_homes_pending"`
+	SheltersPending    int64 `json:"shelters_pending"`
 }
 
 type ImpactResponse struct {
@@ -225,32 +229,45 @@ func (h *ImpactHandler) petsByType() ([]TypeCount, error) {
 	return rows, nil
 }
 
-// moderation returns the abuse-report queue snapshot by status. Statuses are
-// pending/resolved/dismissed; unknown statuses are ignored.
+// moderation returns everything awaiting admin attention: abuse reports grouped
+// by status (pending/resolved/dismissed; unknown statuses ignored) plus the
+// count of foster homes and shelters still pending approval.
 func (h *ImpactHandler) moderation() (ModerationStats, error) {
+	var stats ModerationStats
+
 	type row struct {
 		Status string
 		Count  int64
 	}
 	var rows []row
-	err := h.db.Model(&domain.ReportAbuse{}).
+	if err := h.db.Model(&domain.ReportAbuse{}).
 		Select("status, COUNT(*) AS count").
 		Group("status").
-		Scan(&rows).Error
-	if err != nil {
+		Scan(&rows).Error; err != nil {
 		return ModerationStats{}, err
 	}
-
-	var stats ModerationStats
 	for _, r := range rows {
 		switch r.Status {
 		case "pending":
-			stats.Pending = r.Count
+			stats.AbusePending = r.Count
 		case "resolved":
-			stats.Resolved = r.Count
+			stats.AbuseResolved = r.Count
 		case "dismissed":
-			stats.Dismissed = r.Count
+			stats.AbuseDismissed = r.Count
 		}
 	}
+
+	if err := h.db.Model(&domain.FosterHome{}).
+		Where("status = ?", domain.FosterHomeStatusPending).
+		Count(&stats.FosterHomesPending).Error; err != nil {
+		return ModerationStats{}, err
+	}
+
+	if err := h.db.Model(&domain.Shelter{}).
+		Where("status = ?", domain.ShelterStatusPending).
+		Count(&stats.SheltersPending).Error; err != nil {
+		return ModerationStats{}, err
+	}
+
 	return stats, nil
 }

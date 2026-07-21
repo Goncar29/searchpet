@@ -9,6 +9,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 	"gorm.io/gorm"
 	"lost-pets/internal/domain"
 	"lost-pets/internal/handler"
@@ -202,11 +203,35 @@ func TestImpactHandler_NewAggregations(t *testing.T) {
 		}
 	}
 
-	// Moderation queue: 2 pending, 1 resolved, 1 dismissed.
+	// Abuse reports: 2 pending, 1 resolved, 1 dismissed.
 	for _, st := range []string{"pending", "pending", "resolved", "dismissed"} {
 		ab := &domain.ReportAbuse{ReporterID: owner.ID, Reason: "spam", Status: st}
 		if err := db.Create(ab).Error; err != nil {
 			t.Fatalf("seed abuse: %v", err)
+		}
+	}
+
+	// Foster homes: 1 pending approval (OwnerUserID is uniquely indexed, so it
+	// needs its own user).
+	fhOwner := newTestUser(t, userRepo)
+	fh := &domain.FosterHome{
+		OwnerUserID: fhOwner.ID,
+		City:        "Montevideo",
+		HousingType: "house",
+		AnimalTypes: pq.StringArray{"dog"},
+		Capacity:    2,
+		Description: "spare room",
+		Status:      domain.FosterHomeStatusPending,
+	}
+	if err := db.Create(fh).Error; err != nil {
+		t.Fatalf("seed foster home: %v", err)
+	}
+
+	// Shelters: 2 pending + 1 approved (approved must be excluded from the count).
+	for _, st := range []string{domain.ShelterStatusPending, domain.ShelterStatusPending, domain.ShelterStatusApproved} {
+		sh := &domain.Shelter{Name: "Refugio", City: "Montevideo", Status: st}
+		if err := db.Create(sh).Error; err != nil {
+			t.Fatalf("seed shelter: %v", err)
 		}
 	}
 
@@ -233,9 +258,11 @@ func TestImpactHandler_NewAggregations(t *testing.T) {
 			Count int64  `json:"count"`
 		} `json:"pets_by_type"`
 		Moderation struct {
-			Pending   int64 `json:"pending"`
-			Resolved  int64 `json:"resolved"`
-			Dismissed int64 `json:"dismissed"`
+			AbusePending       int64 `json:"abuse_pending"`
+			AbuseResolved      int64 `json:"abuse_resolved"`
+			AbuseDismissed     int64 `json:"abuse_dismissed"`
+			FosterHomesPending int64 `json:"foster_homes_pending"`
+			SheltersPending    int64 `json:"shelters_pending"`
 		} `json:"moderation"`
 	}
 	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
@@ -246,8 +273,9 @@ func TestImpactHandler_NewAggregations(t *testing.T) {
 	if len(resp.NewUsersByMonth) != 12 {
 		t.Errorf("new_users_by_month: want 12 buckets, got %d", len(resp.NewUsersByMonth))
 	}
-	if got := resp.NewUsersByMonth[11]; got.Count != 1 {
-		t.Errorf("new_users current month: want 1, got %d", got.Count)
+	// Two users created this month: the pets owner + the foster-home owner.
+	if got := resp.NewUsersByMonth[11]; got.Count != 2 {
+		t.Errorf("new_users current month: want 2, got %d", got.Count)
 	}
 	if len(resp.ReportsByMonth) != 12 {
 		t.Errorf("reports_by_month: want 12 buckets, got %d", len(resp.ReportsByMonth))
@@ -267,9 +295,16 @@ func TestImpactHandler_NewAggregations(t *testing.T) {
 		t.Errorf("pets_by_type[1]: want {gato 1}, got {%s %d}", resp.PetsByType[1].Type, resp.PetsByType[1].Count)
 	}
 
-	// Moderation snapshot.
-	if resp.Moderation.Pending != 2 || resp.Moderation.Resolved != 1 || resp.Moderation.Dismissed != 1 {
-		t.Errorf("moderation: want {2 1 1}, got {%d %d %d}", resp.Moderation.Pending, resp.Moderation.Resolved, resp.Moderation.Dismissed)
+	// Moderation snapshot: abuse by status + the two approval queues.
+	m := resp.Moderation
+	if m.AbusePending != 2 || m.AbuseResolved != 1 || m.AbuseDismissed != 1 {
+		t.Errorf("abuse moderation: want {2 1 1}, got {%d %d %d}", m.AbusePending, m.AbuseResolved, m.AbuseDismissed)
+	}
+	if m.FosterHomesPending != 1 {
+		t.Errorf("foster_homes_pending: want 1, got %d", m.FosterHomesPending)
+	}
+	if m.SheltersPending != 2 {
+		t.Errorf("shelters_pending: want 2, got %d", m.SheltersPending)
 	}
 }
 

@@ -382,7 +382,13 @@ describe('APIClient request timeout', () => {
       new_users_by_month: [{ month: '2026-07', count: 1 }],
       reports_by_month: [{ month: '2026-07', count: 3 }],
       pets_by_type: [{ type: 'perro', count: 1 }],
-      moderation: { pending: 2, resolved: 1, dismissed: 0 },
+      moderation: {
+        abuse_pending: 2,
+        abuse_resolved: 1,
+        abuse_dismissed: 0,
+        foster_homes_pending: 0,
+        shelters_pending: 3,
+      },
     };
     vi.stubGlobal(
       'fetch',
