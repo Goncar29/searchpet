@@ -157,9 +157,24 @@ export interface ImpactTotals {
   reunion_rate: number; // 0..1
 }
 
+export interface ImpactTypeCount {
+  type: string; // "perro" | "gato" | "ave" | "otro" | free text
+  count: number;
+}
+
+export interface ImpactModeration {
+  pending: number;
+  resolved: number;
+  dismissed: number;
+}
+
 export interface ImpactStats {
   totals: ImpactTotals;
   reunions_by_month: ImpactMonthlyCount[];
+  new_users_by_month: ImpactMonthlyCount[];
+  reports_by_month: ImpactMonthlyCount[];
+  pets_by_type: ImpactTypeCount[];
+  moderation: ImpactModeration;
 }
 
 // ============================================================
