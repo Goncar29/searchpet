@@ -3,6 +3,7 @@ package dto
 import (
 	"encoding/json"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 	"github.com/lib/pq"
@@ -11,6 +12,15 @@ import (
 
 var validHousingTypes = map[string]bool{"house": true, "apartment": true}
 var validAnimalTypes = map[string]bool{"dog": true, "cat": true, "other": true}
+
+// Límites de longitud (en runes/caracteres) de los campos de texto libre.
+// Deben coincidir con los maxLength del form web/mobile. whatsapp = tamaño de
+// la columna (size:20). Sin esto, un string enorme rompe el layout de la card.
+const (
+	fosterCityMaxLen        = 100
+	fosterDescriptionMaxLen = 500
+	fosterWhatsappMaxLen    = 20
+)
 
 // RegisterFosterHomeRequest — POST /api/foster-homes.
 type RegisterFosterHomeRequest struct {
@@ -26,6 +36,13 @@ type RegisterFosterHomeRequest struct {
 
 func (r *RegisterFosterHomeRequest) Validate() error {
 	if strings.TrimSpace(r.City) == "" || strings.TrimSpace(r.Description) == "" {
+		return domain.ErrInvalidInput
+	}
+	if utf8.RuneCountInString(r.City) > fosterCityMaxLen ||
+		utf8.RuneCountInString(r.Description) > fosterDescriptionMaxLen {
+		return domain.ErrInvalidInput
+	}
+	if r.WhatsappPhone != nil && utf8.RuneCountInString(*r.WhatsappPhone) > fosterWhatsappMaxLen {
 		return domain.ErrInvalidInput
 	}
 	if !validHousingTypes[r.HousingType] {
@@ -76,6 +93,15 @@ func (r *UpdateMyFosterHomeRequest) Validate() error {
 		return domain.ErrInvalidInput
 	}
 	if r.Description != nil && strings.TrimSpace(*r.Description) == "" {
+		return domain.ErrInvalidInput
+	}
+	if r.City != nil && utf8.RuneCountInString(*r.City) > fosterCityMaxLen {
+		return domain.ErrInvalidInput
+	}
+	if r.Description != nil && utf8.RuneCountInString(*r.Description) > fosterDescriptionMaxLen {
+		return domain.ErrInvalidInput
+	}
+	if r.WhatsappPhone != nil && utf8.RuneCountInString(*r.WhatsappPhone) > fosterWhatsappMaxLen {
 		return domain.ErrInvalidInput
 	}
 	if r.HousingType != nil && !validHousingTypes[*r.HousingType] {
@@ -148,11 +174,16 @@ func ToFosterHomeListResponse(list []domain.FosterHome) []FosterHomeResponse {
 	return out
 }
 
-// MyFosterHomeResponse — vista del dueño (+ status/rejection_reason).
+// MyFosterHomeResponse — vista del dueño (+ status/rejection_reason). También
+// alimenta la cola de moderación admin: OwnerName/OwnerEmail se pueblan cuando
+// el Owner viene preloadeado (cola admin) y quedan omitidos si no (vista /mine).
+// Nunca llega al directorio público, que usa FosterHomeResponse.
 type MyFosterHomeResponse struct {
 	FosterHomeResponse
 	Status          string `json:"status"`
 	RejectionReason string `json:"rejection_reason,omitempty"`
+	OwnerName       string `json:"owner_name,omitempty"`
+	OwnerEmail      string `json:"owner_email,omitempty"`
 }
 
 func ToMyFosterHomeResponse(fh *domain.FosterHome) MyFosterHomeResponse {
@@ -160,6 +191,8 @@ func ToMyFosterHomeResponse(fh *domain.FosterHome) MyFosterHomeResponse {
 		FosterHomeResponse: ToFosterHomeResponse(fh),
 		Status:             fh.Status,
 		RejectionReason:    fh.RejectionReason,
+		OwnerName:          fh.Owner.Name,
+		OwnerEmail:         fh.Owner.Email,
 	}
 }
 

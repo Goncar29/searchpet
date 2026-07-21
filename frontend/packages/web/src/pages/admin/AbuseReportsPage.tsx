@@ -15,7 +15,9 @@ type FilterMode = 'all' | 'pending' | 'resolved';
 type PendingAction =
   | { type: 'delete'; reportId: string; petName: string }
   | { type: 'ban'; userId: string; userName: string }
-  | { type: 'unban'; userId: string; userName: string };
+  | { type: 'unban'; userId: string; userName: string }
+  | { type: 'suspendHome'; homeId: string; city: string }
+  | { type: 'reinstateHome'; homeId: string; city: string };
 
 export function AbuseReportsPage() {
   const { t } = useTranslation('admin');
@@ -79,6 +81,21 @@ export function AbuseReportsPage() {
   const unbanMutation = useMutation({
     mutationFn: (userId: string) => apiClient.unbanUser(userId),
     onSuccess: afterAction,
+  });
+  // Foster-home moderation straight from the report. Also invalidate the foster
+  // directory/queue so the status change reflects everywhere, not just here.
+  const afterHomeAction = () => {
+    queryClient.invalidateQueries({ queryKey: ['fosterHomes'] });
+    afterAction();
+  };
+  const suspendHomeMutation = useMutation({
+    mutationFn: (vars: { homeId: string; reason: string }) =>
+      apiClient.suspendFosterHome(vars.homeId, vars.reason),
+    onSuccess: afterHomeAction,
+  });
+  const reinstateHomeMutation = useMutation({
+    mutationFn: (homeId: string) => apiClient.reinstateFosterHome(homeId),
+    onSuccess: afterHomeAction,
   });
 
   const filterTabs: { key: FilterMode; label: string }[] = [
@@ -172,12 +189,21 @@ export function AbuseReportsPage() {
                       <Link to={`/pets/${report.target_report.pet_id}`} className="text-primary hover:underline">
                         {report.target_report.pet_name}
                       </Link>
+                    ) : report.target_foster_home ? (
+                      <Link
+                        to={`/hogares/${report.target_foster_home.id}`}
+                        className="text-primary hover:underline"
+                      >
+                        🏠 {report.target_foster_home.city}
+                      </Link>
                     ) : (
                       <span className="font-mono text-xs text-gray-500 dark:text-gray-400">
                         {report.target_user_id
                           ? t('abuse.targetUser', { id: report.target_user_id.slice(0, 8) })
                           : report.target_report_id
                           ? t('abuse.targetReport', { id: report.target_report_id.slice(0, 8) })
+                          : report.target_foster_home_id
+                          ? t('abuse.targetFosterHome', { id: report.target_foster_home_id.slice(0, 8) })
                           : '—'}
                       </span>
                     )}
@@ -260,6 +286,37 @@ export function AbuseReportsPage() {
                             {t('abuse.action.ban')}
                           </button>
                         ))}
+
+                      {report.target_foster_home?.status === 'approved' && (
+                        <button
+                          onClick={() => {
+                            setReason('');
+                            setPending({
+                              type: 'suspendHome',
+                              homeId: report.target_foster_home!.id,
+                              city: report.target_foster_home!.city,
+                            });
+                          }}
+                          className="text-xs font-medium px-2 py-1 rounded bg-red-100 text-red-800 hover:bg-red-200 dark:bg-red-900/40 dark:text-red-300 dark:hover:bg-red-900/60 transition-colors"
+                        >
+                          {t('abuse.action.suspendHome')}
+                        </button>
+                      )}
+
+                      {report.target_foster_home?.status === 'suspended' && (
+                        <button
+                          onClick={() =>
+                            setPending({
+                              type: 'reinstateHome',
+                              homeId: report.target_foster_home!.id,
+                              city: report.target_foster_home!.city,
+                            })
+                          }
+                          className="text-xs font-medium px-2 py-1 rounded bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 transition-colors"
+                        >
+                          {t('abuse.action.reinstateHome')}
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -316,6 +373,41 @@ export function AbuseReportsPage() {
           confirmLabel={t('abuse.modal.unbanConfirm')}
           loading={unbanMutation.isPending}
           onConfirm={() => unbanMutation.mutate(pending.userId)}
+          onCancel={closeModal}
+        />
+      )}
+
+      {pending?.type === 'suspendHome' && (
+        <ConfirmModal
+          title={t('abuse.modal.suspendHomeTitle')}
+          message={t('abuse.modal.suspendHomeMessage', { city: pending.city })}
+          confirmLabel={t('abuse.modal.suspendHomeConfirm')}
+          destructive
+          loading={suspendHomeMutation.isPending}
+          confirmDisabled={!reason.trim()}
+          onConfirm={() => suspendHomeMutation.mutate({ homeId: pending.homeId, reason: reason.trim() })}
+          onCancel={closeModal}
+        >
+          <label className="block text-sm">
+            <span className="text-gray-600 dark:text-gray-300">{t('abuse.modal.suspendReasonLabel')}</span>
+            <input
+              aria-label={t('abuse.modal.suspendReasonLabel')}
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              maxLength={500}
+              className="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
+            />
+          </label>
+        </ConfirmModal>
+      )}
+
+      {pending?.type === 'reinstateHome' && (
+        <ConfirmModal
+          title={t('abuse.modal.reinstateHomeTitle')}
+          message={t('abuse.modal.reinstateHomeMessage', { city: pending.city })}
+          confirmLabel={t('abuse.modal.reinstateHomeConfirm')}
+          loading={reinstateHomeMutation.isPending}
+          onConfirm={() => reinstateHomeMutation.mutate(pending.homeId)}
           onCancel={closeModal}
         />
       )}

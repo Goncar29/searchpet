@@ -72,6 +72,69 @@ func TestSeedPets_coversAllStatusesAndEdges(t *testing.T) {
 	}
 }
 
+func TestSeedFosterHomes_varietyDistinctOwnersAndValid(t *testing.T) {
+	homes := SeedFosterHomes()
+	if len(homes) < 6 {
+		t.Fatalf("expected >=6 foster homes, got %d", len(homes))
+	}
+
+	knownUsers := map[uuid.UUID]bool{}
+	for _, su := range SeedUsers() {
+		knownUsers[su.User.ID] = true
+	}
+
+	owners := map[uuid.UUID]bool{}
+	statuses := map[string]bool{}
+	animals := map[string]bool{}
+	for _, h := range homes {
+		// OwnerUserID is uniquely indexed — each home needs a distinct, real owner.
+		if owners[h.OwnerUserID] {
+			t.Errorf("duplicate foster-home owner %s (violates unique index)", h.OwnerUserID)
+		}
+		owners[h.OwnerUserID] = true
+		if !knownUsers[h.OwnerUserID] {
+			t.Errorf("foster home %s owner %s not created by SeedUsers (FK violation)", h.ID, h.OwnerUserID)
+		}
+		statuses[h.Status] = true
+		for _, a := range h.AnimalTypes {
+			animals[a] = true
+		}
+		if h.City == "" || h.HousingType == "" || h.Description == "" {
+			t.Errorf("foster home %s has an empty required field", h.ID)
+		}
+		if h.Capacity < 1 {
+			t.Errorf("foster home %s has capacity < 1", h.ID)
+		}
+		if len(h.AnimalTypes) == 0 {
+			t.Errorf("foster home %s has no animal types", h.ID)
+		}
+		// Must stay within the length limit enforced by the DTO validator.
+		if len([]rune(h.Description)) > 500 {
+			t.Errorf("foster home %s description exceeds 500 chars", h.ID)
+		}
+	}
+
+	if !statuses[domain.FosterHomeStatusApproved] || !statuses[domain.FosterHomeStatusPending] {
+		t.Errorf("expected both approved and pending homes (for directory + admin queue), got %v", statuses)
+	}
+	for _, a := range []string{"dog", "cat", "other"} {
+		if !animals[a] {
+			t.Errorf("expected animal type %q across seeded homes", a)
+		}
+	}
+
+	// Every seeded photo must reference a seeded home.
+	homeIDs := map[uuid.UUID]bool{}
+	for _, h := range homes {
+		homeIDs[h.ID] = true
+	}
+	for _, p := range SeedFosterHomePhotos() {
+		if !homeIDs[p.FosterHomeID] {
+			t.Errorf("foster photo %s references unknown home %s", p.ID, p.FosterHomeID)
+		}
+	}
+}
+
 func TestSeedReports_coordsAndDescriptionMix(t *testing.T) {
 	reports := SeedReports()
 	if len(reports) < 3 {

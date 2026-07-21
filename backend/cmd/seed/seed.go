@@ -108,6 +108,20 @@ func Seed(ctx context.Context, db *gorm.DB, embedder *service.EmbeddingService, 
 			return err
 		}
 	}
+
+	// Foster homes (owners were upserted above) then their photos (FK → home).
+	for _, fh := range SeedFosterHomes() {
+		fh := fh
+		if err := upsert(db, &fh); err != nil {
+			return err
+		}
+	}
+	for _, fp := range SeedFosterHomePhotos() {
+		fp := fp
+		if err := upsert(db, &fp); err != nil {
+			return err
+		}
+	}
 	opts.Logger.Info("seed: core records upserted")
 
 	return seedEmbeddings(ctx, db, embedder, opts)
@@ -134,6 +148,10 @@ func resetSeedData(db *gorm.DB) error {
 		&domain.Report{}, &domain.Photo{},
 		&domain.Badge{}, &domain.UserPoints{}, &domain.StoryLike{}, &domain.SuccessStory{},
 		&domain.GroupMember{}, &domain.LocalGroup{}, &domain.ReportAbuse{},
+		// Foster homes: photos + audit logs FK → home; home FK → user. ReportAbuse
+		// (above) may reference a home via TargetFosterHomeID, so it goes first.
+		&domain.FosterHomePhoto{}, &domain.FosterHomeModerationLog{},
+		&domain.FosterHomeChangeLog{}, &domain.FosterHome{},
 		&domain.BlockedUser{}, &domain.Pet{}, &domain.User{},
 	} {
 		if err := db.Where("1 = 1").Delete(m).Error; err != nil {

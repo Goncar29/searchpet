@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 	"lost-pets/internal/domain"
 )
 
@@ -41,6 +42,28 @@ var (
 )
 
 func ptrUUID(id uuid.UUID) *uuid.UUID { return &id }
+func ptrStr(s string) *string          { return &s }
+
+// Foster home owners — one distinct user per home (OwnerUserID is uniquely indexed).
+var (
+	fosterOwner1ID = uuid.MustParse("00000000-0000-0000-0000-0000000000f1")
+	fosterOwner2ID = uuid.MustParse("00000000-0000-0000-0000-0000000000f2")
+	fosterOwner3ID = uuid.MustParse("00000000-0000-0000-0000-0000000000f3")
+	fosterOwner4ID = uuid.MustParse("00000000-0000-0000-0000-0000000000f4")
+	fosterOwner5ID = uuid.MustParse("00000000-0000-0000-0000-0000000000f5")
+	fosterOwner6ID = uuid.MustParse("00000000-0000-0000-0000-0000000000f6")
+	fosterOwner7ID = uuid.MustParse("00000000-0000-0000-0000-0000000000f7")
+	fosterOwner8ID = uuid.MustParse("00000000-0000-0000-0000-0000000000f8")
+
+	fosterHome1ID = uuid.MustParse("00000000-0000-0000-0000-00000000fa01")
+	fosterHome2ID = uuid.MustParse("00000000-0000-0000-0000-00000000fa02")
+	fosterHome3ID = uuid.MustParse("00000000-0000-0000-0000-00000000fa03")
+	fosterHome4ID = uuid.MustParse("00000000-0000-0000-0000-00000000fa04")
+	fosterHome5ID = uuid.MustParse("00000000-0000-0000-0000-00000000fa05")
+	fosterHome6ID = uuid.MustParse("00000000-0000-0000-0000-00000000fa06")
+	fosterHome7ID = uuid.MustParse("00000000-0000-0000-0000-00000000fa07")
+	fosterHome8ID = uuid.MustParse("00000000-0000-0000-0000-00000000fa08")
+)
 
 // SeedPets returns one pet per status plus edge-case variants (no description,
 // stray without owner, no photo) to exercise all code paths in tests and seed.
@@ -156,9 +179,9 @@ func SeedCommunity() CommunityData {
 }
 
 // SeedUsers returns the fixed set of users: an admin, two verified normals
-// (a blocked pair), and one unverified user.
+// (a blocked pair), one unverified user, plus one owner per seeded foster home.
 func SeedUsers() []SeedUser {
-	return []SeedUser{
+	base := []SeedUser{
 		{
 			User: domain.User{
 				ID: adminID, Email: "admin@searchpet.local", Name: "Admin Local",
@@ -187,5 +210,88 @@ func SeedUsers() []SeedUser {
 			},
 			Password: "user1234",
 		},
+	}
+	return append(base, fosterOwnerUsers()...)
+}
+
+// fosterOwnerUsers returns one verified user per seeded foster home. A separate
+// owner per home is required because FosterHome.OwnerUserID is uniquely indexed.
+func fosterOwnerUsers() []SeedUser {
+	mk := func(id uuid.UUID, name, email, city string) SeedUser {
+		return SeedUser{
+			User:     domain.User{ID: id, Email: email, Name: name, IsVerified: true, EmailVerified: true, City: city},
+			Password: "user1234",
+		}
+	}
+	return []SeedUser{
+		mk(fosterOwner1ID, "Marta", "marta@searchpet.local", "San José de Mayo"),
+		mk(fosterOwner2ID, "Pedro", "pedro@searchpet.local", "Rio Branco"),
+		mk(fosterOwner3ID, "Lucía", "lucia@searchpet.local", "Montevideo"),
+		mk(fosterOwner4ID, "Diego", "diego@searchpet.local", "Salto"),
+		mk(fosterOwner5ID, "Sofía", "sofia@searchpet.local", "Punta del Este"),
+		mk(fosterOwner6ID, "Mateo", "mateo@searchpet.local", "Las Piedras"),
+		mk(fosterOwner7ID, "Valentina", "valentina@searchpet.local", "Colonia del Sacramento"),
+		mk(fosterOwner8ID, "Nicolás", "nicolas@searchpet.local", "San Carlos"),
+	}
+}
+
+// SeedFosterHomes returns a varied set of foster homes to exercise the directory
+// filter: multi-word city names (San José de Mayo, Rio Branco, Punta del Este),
+// city+neighborhood (Montevideo, Pocitos), single names (Salto); a mix of animal
+// types; and both approved (visible in the directory) and pending (visible only
+// in the admin moderation queue) statuses.
+func SeedFosterHomes() []domain.FosterHome {
+	return []domain.FosterHome{
+		{ID: fosterHome1ID, OwnerUserID: fosterOwner1ID, City: "San José de Mayo",
+			HousingType: "house", AnimalTypes: pq.StringArray{"dog"}, Capacity: 2,
+			Description: "Casa con patio grande, ideal para perros.",
+			Status: domain.FosterHomeStatusApproved, WhatsappPhone: ptrStr("+59891000001")},
+		{ID: fosterHome2ID, OwnerUserID: fosterOwner2ID, City: "Rio Branco, Cerro Largo",
+			HousingType: "house", AnimalTypes: pq.StringArray{"cat"}, Capacity: 3,
+			Description: "Espacio tranquilo para gatos.",
+			Status: domain.FosterHomeStatusApproved},
+		{ID: fosterHome3ID, OwnerUserID: fosterOwner3ID, City: "Montevideo, Pocitos",
+			HousingType: "apartment", AnimalTypes: pq.StringArray{"dog", "cat"}, Capacity: 1,
+			Description: "Apartamento amplio cerca de la rambla.",
+			Status: domain.FosterHomeStatusApproved, WhatsappPhone: ptrStr("+59891000003")},
+		{ID: fosterHome4ID, OwnerUserID: fosterOwner4ID, City: "Salto",
+			HousingType: "house", AnimalTypes: pq.StringArray{"other"}, Capacity: 4,
+			Description: "Chacra con lugar para animales pequeños.",
+			Status: domain.FosterHomeStatusApproved},
+		{ID: fosterHome5ID, OwnerUserID: fosterOwner5ID, City: "Punta del Este, Maldonado",
+			HousingType: "house", AnimalTypes: pq.StringArray{"dog"}, Capacity: 2,
+			Description: "Casa disponible todo el año.",
+			Status: domain.FosterHomeStatusApproved, WhatsappPhone: ptrStr("+59891000005")},
+		{ID: fosterHome6ID, OwnerUserID: fosterOwner6ID, City: "Las Piedras, Canelones",
+			HousingType: "apartment", AnimalTypes: pq.StringArray{"cat", "other"}, Capacity: 2,
+			Description: "Departamento pet-friendly.",
+			Status: domain.FosterHomeStatusApproved},
+		// Pendientes: aparecen en la cola de moderación admin, NO en el directorio.
+		{ID: fosterHome7ID, OwnerUserID: fosterOwner7ID, City: "Colonia del Sacramento",
+			HousingType: "house", AnimalTypes: pq.StringArray{"dog", "cat", "other"}, Capacity: 5,
+			Description: "Casa histórica con jardín.",
+			Status: domain.FosterHomeStatusPending, WhatsappPhone: ptrStr("+59891000007")},
+		{ID: fosterHome8ID, OwnerUserID: fosterOwner8ID, City: "San Carlos, Maldonado",
+			HousingType: "house", AnimalTypes: pq.StringArray{"dog"}, Capacity: 1,
+			Description: "Familia con experiencia en rescate.",
+			Status: domain.FosterHomeStatusPending},
+	}
+}
+
+// SeedFosterHomePhotos gives a few homes photos (stable picsum placeholders):
+// home 3 gets three so the detail carousel is exercisable; homes 1 and 5 get one
+// each so the directory has non-placeholder cards. The rest fall back to 🏠.
+func SeedFosterHomePhotos() []domain.FosterHomePhoto {
+	return []domain.FosterHomePhoto{
+		{ID: uuid.MustParse("00000000-0000-0000-0000-00000000fb01"), FosterHomeID: fosterHome3ID,
+			URL: "https://picsum.photos/seed/foster3a/800/600", PublicID: "seed/foster3a"},
+		{ID: uuid.MustParse("00000000-0000-0000-0000-00000000fb02"), FosterHomeID: fosterHome3ID,
+			URL: "https://picsum.photos/seed/foster3b/800/600", PublicID: "seed/foster3b"},
+		{ID: uuid.MustParse("00000000-0000-0000-0000-00000000fb03"), FosterHomeID: fosterHome3ID,
+			URL: "https://picsum.photos/seed/foster3c/800/600", PublicID: "seed/foster3c"},
+		{ID: uuid.MustParse("00000000-0000-0000-0000-00000000fb04"), FosterHomeID: fosterHome1ID,
+			URL: "https://picsum.photos/seed/foster1/800/600", PublicID: "seed/foster1"},
+		{ID: uuid.MustParse("00000000-0000-0000-0000-00000000fb05"), FosterHomeID: fosterHome5ID,
+			URL: "https://picsum.photos/seed/foster5/800/600", PublicID: "seed/foster5"},
 	}
 }

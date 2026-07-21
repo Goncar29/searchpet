@@ -18,9 +18,10 @@
       "empty": "No hay denuncias.",
       "filter": { "all": "Todas", "pending": "Pendientes", "resolved": "Resueltas" },
       "col": { "id": "ID", "reporter": "Denunciante", "reason": "Motivo", "status": "Estado", "target": "Objetivo", "created": "Fecha", "actions": "Acciones" },
-      "action": { "resolve": "Resolver", "dismiss": "Descartar", "deleteContent": "Eliminar contenido", "ban": "Banear", "unban": "Desbanear" },
+      "action": { "resolve": "Resolver", "dismiss": "Descartar", "deleteContent": "Eliminar contenido", "ban": "Banear", "unban": "Desbanear", "suspendHome": "Suspender", "reinstateHome": "Reinstaurar" },
       "targetUser": "usuario: {{id}}",
       "targetReport": "reporte: {{id}}",
+      "targetFosterHome": "hogar: {{id}}",
       "modal": {
         "deleteTitle": "Eliminar contenido",
         "deleteMessage": "¿Eliminar el contenido denunciado \"{{name}}\"? Esta acción no se puede deshacer.",
@@ -31,7 +32,14 @@
         "reasonLabel": "Motivo (opcional)",
         "unbanTitle": "Desbanear usuario",
         "unbanMessage": "¿Desbanear a {{name}}? Podrá volver a iniciar sesión.",
-        "unbanConfirm": "Desbanear"
+        "unbanConfirm": "Desbanear",
+        "suspendHomeTitle": "Suspender hogar",
+        "suspendHomeMessage": "¿Suspender el hogar de {{city}}? Dejará de aparecer en el directorio.",
+        "suspendHomeConfirm": "Suspender",
+        "suspendReasonLabel": "Motivo (requerido)",
+        "reinstateHomeTitle": "Reinstaurar hogar",
+        "reinstateHomeMessage": "¿Reinstaurar el hogar de {{city}}? Volverá a aparecer en el directorio.",
+        "reinstateHomeConfirm": "Reinstaurar"
       }
     },
     "stories": {
@@ -519,7 +527,10 @@
       "contactWhatsapp": "WhatsApp",
       "reportCta": "Denunciar",
       "photos": "Fotos del lugar",
-      "notFound": "Hogar transitorio no encontrado"
+      "notFound": "Hogar transitorio no encontrado",
+      "prevPhoto": "Foto anterior",
+      "nextPhoto": "Foto siguiente",
+      "goToPhoto": "Ir a la foto {{number}}"
     },
     "register": {
       "title": "Ofrecer mi hogar transitorio",
@@ -536,6 +547,7 @@
       "capacityInvalid": "Debe ser 1 o más",
       "description": "Describí tu espacio",
       "descriptionRequired": "La descripción es obligatoria",
+      "maxLengthError": "Máximo {{max}} caracteres",
       "whatsapp": "WhatsApp (opcional)",
       "submit": "Registrar hogar",
       "submitting": "Registrando...",
