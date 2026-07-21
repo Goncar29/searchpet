@@ -507,5 +507,90 @@
       "adoptedTitle": "{{name}} encontrou um lar! 🎉",
       "adoptedSubtitle": "Obrigado à comunidade por divulgar."
     }
+  },
+  "fosterHomes": {
+    "nav": "Lares temporários",
+    "directory": {
+      "title": "Lares temporários",
+      "subtitle": "Famílias que recebem animais resgatados temporariamente",
+      "empty": "Ainda não há lares disponíveis.",
+      "filterCity": "Cidade",
+      "filterPlaceholder": "Filtrar por cidade...",
+      "capacity": "Capacidade",
+      "registerCta": "Oferecer meu lar"
+    },
+    "status": {
+      "pending": "Em análise",
+      "approved": "Ativo",
+      "rejected": "Rejeitado",
+      "suspended": "Suspenso"
+    },
+    "housingType": {
+      "house": "Casa",
+      "apartment": "Apartamento"
+    },
+    "animalType": {
+      "dog": "Cachorro",
+      "cat": "Gato",
+      "other": "Outros"
+    },
+    "detail": {
+      "contactChat": "Contatar por chat",
+      "contactWhatsapp": "WhatsApp",
+      "reportCta": "Denunciar",
+      "photos": "Fotos do local"
+    },
+    "register": {
+      "title": "Oferecer meu lar temporário",
+      "intro": "Cadastre seu espaço para abrigar temporariamente um animal resgatado.",
+      "emailUnverified": "Você precisa verificar seu e-mail antes de cadastrar seu lar.",
+      "verifyEmailLink": "Verificar e-mail",
+      "start": "Começar",
+      "city": "Cidade",
+      "cityRequired": "A cidade é obrigatória",
+      "housingType": "Tipo de moradia",
+      "animalTypes": "Quais animais você pode receber?",
+      "animalTypesRequired": "Escolha pelo menos um tipo",
+      "capacity": "Quantos animais por vez?",
+      "capacityInvalid": "Deve ser 1 ou mais",
+      "description": "Descreva seu espaço",
+      "descriptionRequired": "A descrição é obrigatória",
+      "maxLengthError": "Máximo de {{max}} caracteres",
+      "whatsapp": "WhatsApp (opcional)",
+      "submit": "Cadastrar lar",
+      "submitting": "Cadastrando...",
+      "successTitle": "Lar cadastrado!",
+      "successBody": "Um administrador vai revisá-lo antes de publicá-lo.",
+      "goToMine": "Ver meu lar"
+    },
+    "mine": {
+      "title": "Meu lar temporário",
+      "statusPending": "Em análise por um administrador.",
+      "statusApproved": "Seu lar está publicado.",
+      "statusRejected": "Rejeitado. Edite e reenvie.",
+      "statusSuspended": "Suspenso por um administrador. Entre em contato com o suporte.",
+      "rejectionReason": "Motivo",
+      "edit": "Editar",
+      "save": "Salvar",
+      "saving": "Salvando...",
+      "cancel": "Cancelar",
+      "addPhoto": "Adicionar foto",
+      "photoLimit": "Máximo de 5 fotos",
+      "deletePhoto": "Excluir",
+      "suspendedFrozen": "Você não pode editar um lar suspenso.",
+      "saved": "Alterações salvas",
+      "loadError": "Não foi possível carregar seu lar temporário.",
+      "retry": "Tentar novamente",
+      "noFosterHomeTitle": "Você ainda não registrou um lar temporário",
+      "registerNow": "Registrar agora"
+    },
+    "report": {
+      "title": "Denunciar lar",
+      "reasonLabel": "Motivo da denúncia",
+      "reasonPlaceholder": "Conte-nos o que aconteceu",
+      "submit": "Enviar denúncia",
+      "submitting": "Enviando...",
+      "success": "Denúncia enviada. Obrigado."
+    }
   }
 }
