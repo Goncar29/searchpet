@@ -4,6 +4,7 @@ import { useImpactStats } from '@shared/hooks';
 import { getErrorMessage } from '@shared/utils/apiErrors';
 import type { ImpactMonthlyCount } from '@shared/types';
 import { ImpactLineChart } from '../components/ImpactLineChart';
+import { MonthlyImpactSection } from '../components/MonthlyImpactSection';
 
 function StatTile({ value, label, accent }: { value: string; label: string; accent?: string }) {
   return (
@@ -286,6 +287,12 @@ export function ImpactPage() {
         <StatTile value={nf.format(totals.active_searches)} label={t('impact:activeSearches')} accent="#3b82f6" />
         <StatTile value={reunionRatePct} label={t('impact:reunionRate')} accent="#22c55e" />
       </div>
+
+      <MonthlyImpactSection
+        months={reunions_by_month.map((d) => d.month)}
+        nf={nf}
+        lang={i18n.language}
+      />
 
       {/* ---- Offscreen share card (fixed light design, 1080x1080) ---- */}
       <div

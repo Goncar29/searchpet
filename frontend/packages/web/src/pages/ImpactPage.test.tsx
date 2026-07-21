@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
+import { MemoryRouter } from 'react-router';
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -9,7 +10,11 @@ vi.mock('react-i18next', () => ({
 }));
 
 const useImpactStats = vi.fn();
-vi.mock('@shared/hooks', () => ({ useImpactStats: () => useImpactStats() }));
+const useMonthlyImpact = vi.fn((_month: string) => ({ data: undefined, isLoading: false, isError: false, error: null }));
+vi.mock('@shared/hooks', () => ({
+  useImpactStats: () => useImpactStats(),
+  useMonthlyImpact: (m: string) => useMonthlyImpact(m),
+}));
 
 import { ImpactPage } from './ImpactPage';
 
@@ -45,7 +50,11 @@ describe('ImpactPage', () => {
       error: null,
     });
 
-    render(<ImpactPage />);
+    render(
+      <MemoryRouter>
+        <ImpactPage />
+      </MemoryRouter>,
+    );
     // Number is locale-formatted; assert the grouped digits appear. It shows in
     // both the on-page tile and the offscreen share card, so match one-or-more.
     expect(screen.getAllByText(/1[.,]247/).length).toBeGreaterThan(0);
@@ -56,7 +65,11 @@ describe('ImpactPage', () => {
 
   it('renders an error state on failure', () => {
     useImpactStats.mockReturnValue({ data: undefined, isLoading: false, isError: true, error: new Error('boom') });
-    render(<ImpactPage />);
+    render(
+      <MemoryRouter>
+        <ImpactPage />
+      </MemoryRouter>,
+    );
     expect(screen.getByText('impact:error')).toBeInTheDocument();
   });
 });
