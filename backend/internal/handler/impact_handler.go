@@ -115,6 +115,11 @@ func (h *ImpactHandler) compute() (*ImpactResponse, error) {
 
 	if totals.SearchesStarted > 0 {
 		totals.ReunionRate = float64(totals.PetsReunited) / float64(totals.SearchesStarted)
+		// Clamp to 1.0: historical or backfilled data can hold more found
+		// episodes than recorded searches, which must never render as >100%.
+		if totals.ReunionRate > 1 {
+			totals.ReunionRate = 1
+		}
 	}
 
 	series, err := h.reunionsByMonth()

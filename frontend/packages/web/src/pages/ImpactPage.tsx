@@ -61,7 +61,7 @@ export function ImpactPage() {
 
       <div className="mb-6 rounded-xl border border-gray-200 p-4 dark:border-gray-700">
         <div className="mb-3 text-sm font-bold">{t('impact:reunionsByMonth')}</div>
-        <ImpactLineChart data={reunions_by_month} />
+        <ImpactLineChart data={reunions_by_month} label={t('impact:reunionsByMonth')} />
       </div>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
