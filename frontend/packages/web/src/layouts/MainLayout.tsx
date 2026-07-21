@@ -16,7 +16,7 @@ export function MainLayout() {
   const navigate = useNavigate();
   const { isAuthenticated, isAdmin, user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
-  const { t } = useTranslation(['layout', 'footer', 'fosterHomes']);
+  const { t } = useTranslation(['layout', 'footer', 'fosterHomes', 'impact']);
   const queryClient = useQueryClient();
 
   // "Mi refugio" solo aparece si el usuario tiene uno (dueño). enabled ligado a
@@ -446,6 +446,9 @@ export function MainLayout() {
                 </Link>
                 <Link to="/shelters" className="text-sm text-gray-500 dark:text-gray-400 hover:text-primary transition-colors">
                   {t('shelters')}
+                </Link>
+                <Link to="/impacto" className="text-sm text-gray-500 dark:text-gray-400 hover:text-primary transition-colors">
+                  {t('impact:footerLink')}
                 </Link>
               </div>
             </div>
