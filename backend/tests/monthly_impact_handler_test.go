@@ -128,3 +128,50 @@ func TestMonthlyImpact_EmptyMonth(t *testing.T) {
 		t.Errorf("empty month should be zero, got %+v", resp)
 	}
 }
+
+// "2026-13" passes the YYYY-MM regex but is not a real month, so it must be
+// rejected by the time.Parse guard (the regex-only invalid test above never
+// reaches that branch).
+func TestMonthlyImpact_InvalidMonthValue(t *testing.T) {
+	db := testdb.SetupTestDB(t)
+	r := setupMonthlyRouter(db)
+	code, _ := getMonthly(t, r, "2026-13")
+	if code != http.StatusBadRequest {
+		t.Errorf("month 2026-13: want 400, got %d", code)
+	}
+}
+
+// The record lists are capped (cap is 50) and set truncated=true when they
+// overflow. Seed cap+1 pet_found events on one pet in a month and assert the
+// list is sliced to the cap with the flag set.
+func TestMonthlyImpact_TruncatesAndFlags(t *testing.T) {
+	db := testdb.SetupTestDB(t)
+	userRepo := repository.NewUserRepository(db)
+	petRepo := repository.NewPetRepository(db)
+
+	owner := newTestUser(t, userRepo)
+	pet := &domain.Pet{OwnerID: ptrUUID(owner.ID), Name: "Firulais", Type: "perro", Status: domain.PetStatusFound, Version: 1}
+	if err := petRepo.Create(pet); err != nil {
+		t.Fatalf("seed pet: %v", err)
+	}
+
+	now := time.Now().UTC()
+	thisMonth := time.Date(now.Year(), now.Month(), 1, 12, 0, 0, 0, time.UTC)
+	for i := 0; i < 51; i++ {
+		if err := db.Create(&domain.PlatformEvent{EventType: domain.StatEventPetFound, PetID: &pet.ID, CreatedAt: thisMonth}).Error; err != nil {
+			t.Fatalf("seed event %d: %v", i, err)
+		}
+	}
+
+	r := setupMonthlyRouter(db)
+	code, resp := getMonthly(t, r, thisMonth.Format("2006-01"))
+	if code != http.StatusOK {
+		t.Fatalf("want 200, got %d", code)
+	}
+	if len(resp.ReunitedPets) != 50 {
+		t.Errorf("reunited_pets: want 50 (capped), got %d", len(resp.ReunitedPets))
+	}
+	if !resp.Truncated {
+		t.Errorf("truncated: want true, got false")
+	}
+}

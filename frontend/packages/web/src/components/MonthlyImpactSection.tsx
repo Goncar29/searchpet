@@ -87,7 +87,9 @@ export function MonthlyImpactSection({
                   </thead>
                   <tbody>
                     {data.reunited_pets.map((p) => (
-                      <tr key={p.id} className="border-t border-gray-100 dark:border-gray-800">
+                      // Same pet can be reunited more than once in a month, so
+                      // p.id alone is not unique — pair it with the event time.
+                      <tr key={`${p.id}-${p.reunited_at}`} className="border-t border-gray-100 dark:border-gray-800">
                         <td className="py-2">
                           <Link to={`/pets/${p.id}`} className="font-medium text-primary hover:underline">
                             {p.name}
