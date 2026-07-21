@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useImpactStats } from '@shared/hooks';
 import { getErrorMessage } from '@shared/utils/apiErrors';
+import type { ImpactMonthlyCount } from '@shared/types';
 import { ImpactLineChart } from '../components/ImpactLineChart';
 
 function StatTile({ value, label, accent }: { value: string; label: string; accent?: string }) {
@@ -23,6 +24,56 @@ function ChartCard({ title, children }: { title: string; children: React.ReactNo
     <div className="rounded-xl border border-gray-200 p-4 dark:border-gray-700">
       <div className="mb-3 text-sm font-bold text-gray-900 dark:text-gray-100">{title}</div>
       {children}
+    </div>
+  );
+}
+
+// A monthly line chart with its numbers spelled out: the current-month value,
+// the trailing-12-month total, and the first/last month on the x-axis — so the
+// card conveys the data, not just a bare line.
+function TimeSeriesCard({
+  title,
+  data,
+  color,
+  nf,
+  lang,
+  latestLabel,
+  totalLabel,
+}: {
+  title: string;
+  data: ImpactMonthlyCount[];
+  color: string;
+  nf: Intl.NumberFormat;
+  lang: string;
+  latestLabel: string;
+  totalLabel: string;
+}) {
+  const total = data.reduce((sum, d) => sum + d.count, 0);
+  const latest = data.length ? data[data.length - 1].count : 0;
+  const fmtMonth = (m: string) => {
+    const [y, mo] = m.split('-').map(Number);
+    return new Date(y, mo - 1, 1).toLocaleDateString(lang, { month: 'short' });
+  };
+
+  return (
+    <div className="rounded-xl border border-gray-200 p-4 dark:border-gray-700">
+      <div className="mb-2 text-sm font-bold text-gray-900 dark:text-gray-100">{title}</div>
+      <div className="flex items-baseline gap-2">
+        <span className="text-2xl font-extrabold" style={{ color }}>
+          {nf.format(latest)}
+        </span>
+        <span className="text-xs text-gray-400">{latestLabel}</span>
+      </div>
+      <div className="mb-3 text-xs text-gray-400">
+        {totalLabel}: <span className="font-semibold text-gray-500 dark:text-gray-300">{nf.format(total)}</span>
+      </div>
+      <ImpactLineChart data={data} color={color} height={120} label={title} />
+      {data.length > 0 && (
+        <div className="mt-1 flex justify-between text-[11px] text-gray-400">
+          <span>{fmtMonth(data[0].month)}</span>
+          <span>{fmtMonth(data[data.length - 1].month)}</span>
+        </div>
+      )}
     </div>
   );
 }
@@ -153,16 +204,34 @@ export function ImpactPage() {
 
       {/* Time series */}
       <div className="mb-6 space-y-6">
-        <ChartCard title={t('impact:reunionsByMonth')}>
-          <ImpactLineChart data={reunions_by_month} color="#22c55e" label={t('impact:reunionsByMonth')} />
-        </ChartCard>
+        <TimeSeriesCard
+          title={t('impact:reunionsByMonth')}
+          data={reunions_by_month}
+          color="#22c55e"
+          nf={nf}
+          lang={i18n.language}
+          latestLabel={t('impact:latestMonth')}
+          totalLabel={t('impact:last12Months')}
+        />
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-          <ChartCard title={t('impact:newUsersByMonth')}>
-            <ImpactLineChart data={new_users_by_month} color="#8b5cf6" label={t('impact:newUsersByMonth')} />
-          </ChartCard>
-          <ChartCard title={t('impact:reportsByMonth')}>
-            <ImpactLineChart data={reports_by_month} color="#f59e0b" label={t('impact:reportsByMonth')} />
-          </ChartCard>
+          <TimeSeriesCard
+            title={t('impact:newUsersByMonth')}
+            data={new_users_by_month}
+            color="#8b5cf6"
+            nf={nf}
+            lang={i18n.language}
+            latestLabel={t('impact:latestMonth')}
+            totalLabel={t('impact:last12Months')}
+          />
+          <TimeSeriesCard
+            title={t('impact:reportsByMonth')}
+            data={reports_by_month}
+            color="#f59e0b"
+            nf={nf}
+            lang={i18n.language}
+            latestLabel={t('impact:latestMonth')}
+            totalLabel={t('impact:last12Months')}
+          />
         </div>
       </div>
 
@@ -195,13 +264,21 @@ export function ImpactPage() {
           )}
         </ChartCard>
 
-        <ChartCard title={t('impact:moderation')}>
+        <div className="rounded-xl border border-gray-200 p-4 dark:border-gray-700">
+          <div className="text-sm font-bold text-gray-900 dark:text-gray-100">{t('impact:moderation')}</div>
+          <div className="mb-3 text-xs text-gray-400">{t('impact:moderationSubtitle')}</div>
           <div className="grid grid-cols-3 gap-3">
-            <StatTile value={nf.format(moderation.pending)} label={t('impact:moderationPending')} accent="#f59e0b" />
-            <StatTile value={nf.format(moderation.resolved)} label={t('impact:moderationResolved')} accent="#22c55e" />
-            <StatTile value={nf.format(moderation.dismissed)} label={t('impact:moderationDismissed')} accent="#6b7280" />
+            <StatTile value={nf.format(moderation.abuse_pending)} label={t('impact:modAbuse')} accent="#f59e0b" />
+            <StatTile value={nf.format(moderation.foster_homes_pending)} label={t('impact:modFosterHomes')} accent="#f59e0b" />
+            <StatTile value={nf.format(moderation.shelters_pending)} label={t('impact:modShelters')} accent="#f59e0b" />
           </div>
-        </ChartCard>
+          <p className="mt-3 text-xs text-gray-400">
+            {t('impact:modAbuseBreakdown', {
+              resolved: nf.format(moderation.abuse_resolved),
+              dismissed: nf.format(moderation.abuse_dismissed),
+            })}
+          </p>
+        </div>
       </div>
 
       {/* Live snapshot */}

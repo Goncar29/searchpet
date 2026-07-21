@@ -32,10 +32,14 @@ export function ImpactLineChart({ data, color = '#22c55e', height = 160, label =
     <svg
       viewBox={`0 0 ${width} ${height}`}
       width="100%"
-      height="auto"
+      height={height}
       preserveAspectRatio="none"
       role="img"
       aria-label={label}
+      // display:block removes the inline-baseline descender gap that let the
+      // stretched SVG poke a few px below its card; the explicit height pins the
+      // box so it can never overflow its container.
+      style={{ display: 'block' }}
     >
       <polygon points={area} fill={color} fillOpacity={0.13} />
       <polyline
