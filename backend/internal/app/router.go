@@ -264,7 +264,6 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 		public.POST("/auth/register", authRateLimit, authHandler.Register)
 		public.POST("/auth/login", authRateLimit, authHandler.Login)
 		public.GET("/stats", statsHandler.GetStats)
-		public.GET("/stats/impact", impactHandler.GetImpactStats)
 
 		public.GET("/pets/search", petHandler.SearchPets)
 		public.GET("/pets/:id", petHandler.GetPet)
@@ -422,6 +421,7 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 	admin.Use(middleware.Auth(cfg.JWTSecret))
 	admin.Use(middleware.RequireAdmin(userRepo))
 	{
+		admin.GET("/stats/impact", impactHandler.GetImpactStats)
 		admin.PATCH("/admin/stories/:id/featured", storyHandler.SetFeatured)
 		admin.DELETE("/admin/stories/:id", storyHandler.Delete)
 		admin.POST("/groups", groupHandler.Create)

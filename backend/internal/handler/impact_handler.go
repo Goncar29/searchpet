@@ -12,13 +12,15 @@ import (
 
 // impactCacheTTL is how long a computed payload is served from memory before a
 // recompute. Impact numbers do not change per second; this shields the DB
-// (Render free tier) from repeated public hits.
+// (Render free tier) from repeated admin-dashboard hits.
 const impactCacheTTL = 5 * time.Minute
 
-// impactMonthsWindow is how many trailing calendar months reunions_by_month spans.
+// impactMonthsWindow is how many trailing calendar months the monthly series span.
 const impactMonthsWindow = 12
 
-// ImpactHandler serves the public impact dashboard at GET /api/stats/impact.
+// ImpactHandler serves the admin-only impact dashboard at GET /api/stats/impact.
+// The route is mounted behind Auth + RequireAdmin in the router; the handler
+// itself performs no auth so it stays testable in isolation.
 type ImpactHandler struct {
 	db *gorm.DB
 
@@ -43,15 +45,32 @@ type ImpactTotals struct {
 	ReunionRate     float64 `json:"reunion_rate"`
 }
 
-// MonthlyCount is one point on the reunions-per-month series. Month is "YYYY-MM".
+// MonthlyCount is one point on a per-month series. Month is "YYYY-MM".
 type MonthlyCount struct {
 	Month string `json:"month"`
 	Count int64  `json:"count"`
 }
 
+// TypeCount is one slice of the pets-by-type breakdown (perro/gato/ave/otro…).
+type TypeCount struct {
+	Type  string `json:"type"`
+	Count int64  `json:"count"`
+}
+
+// ModerationStats is the abuse-report queue snapshot by status.
+type ModerationStats struct {
+	Pending   int64 `json:"pending"`
+	Resolved  int64 `json:"resolved"`
+	Dismissed int64 `json:"dismissed"`
+}
+
 type ImpactResponse struct {
-	Totals          ImpactTotals   `json:"totals"`
-	ReunionsByMonth []MonthlyCount `json:"reunions_by_month"`
+	Totals          ImpactTotals    `json:"totals"`
+	ReunionsByMonth []MonthlyCount  `json:"reunions_by_month"`
+	NewUsersByMonth []MonthlyCount  `json:"new_users_by_month"`
+	ReportsByMonth  []MonthlyCount  `json:"reports_by_month"`
+	PetsByType      []TypeCount     `json:"pets_by_type"`
+	Moderation      ModerationStats `json:"moderation"`
 }
 
 // GetImpactStats godoc
@@ -122,26 +141,51 @@ func (h *ImpactHandler) compute() (*ImpactResponse, error) {
 		}
 	}
 
-	series, err := h.reunionsByMonth()
+	reunions, err := h.monthlySeries(h.db.Model(&domain.PlatformEvent{}).
+		Where("event_type = ?", domain.StatEventPetFound))
+	if err != nil {
+		return nil, err
+	}
+	newUsers, err := h.monthlySeries(h.db.Model(&domain.User{}))
+	if err != nil {
+		return nil, err
+	}
+	reports, err := h.monthlySeries(h.db.Model(&domain.Report{}))
 	if err != nil {
 		return nil, err
 	}
 
-	return &ImpactResponse{Totals: totals, ReunionsByMonth: series}, nil
+	petsByType, err := h.petsByType()
+	if err != nil {
+		return nil, err
+	}
+	moderation, err := h.moderation()
+	if err != nil {
+		return nil, err
+	}
+
+	return &ImpactResponse{
+		Totals:          totals,
+		ReunionsByMonth: reunions,
+		NewUsersByMonth: newUsers,
+		ReportsByMonth:  reports,
+		PetsByType:      petsByType,
+		Moderation:      moderation,
+	}, nil
 }
 
-// reunionsByMonth returns pet_found counts per calendar month for the trailing
-// impactMonthsWindow months, filling months with no events with count:0 so the
-// chart line is continuous.
-func (h *ImpactHandler) reunionsByMonth() ([]MonthlyCount, error) {
+// monthlySeries buckets a pre-filtered query by created_at month over the
+// trailing impactMonthsWindow calendar months, gap-filling empty months with
+// count:0 so the chart line is continuous. The caller supplies the base query
+// with its Model (and any WHERE) already set; the created_at column is assumed.
+func (h *ImpactHandler) monthlySeries(base *gorm.DB) ([]MonthlyCount, error) {
 	type row struct {
 		Month string
 		Count int64
 	}
 	var rows []row
-	err := h.db.Model(&domain.PlatformEvent{}).
+	err := base.
 		Select("to_char(date_trunc('month', created_at), 'YYYY-MM') AS month, COUNT(*) AS count").
-		Where("event_type = ?", domain.StatEventPetFound).
 		Group("date_trunc('month', created_at)").
 		Scan(&rows).Error
 	if err != nil {
@@ -162,4 +206,51 @@ func (h *ImpactHandler) reunionsByMonth() ([]MonthlyCount, error) {
 		series = append(series, MonthlyCount{Month: key, Count: counts[key]})
 	}
 	return series, nil
+}
+
+// petsByType returns the count of pets grouped by their type, biggest first.
+// Empty/NULL types collapse into "otro" so the breakdown always sums to
+// total_pets. Types are stored as free-ish text ("perro", "gato", "ave", …);
+// the frontend maps known keys and shows the rest verbatim.
+func (h *ImpactHandler) petsByType() ([]TypeCount, error) {
+	var rows []TypeCount
+	err := h.db.Model(&domain.Pet{}).
+		Select("COALESCE(NULLIF(type, ''), 'otro') AS type, COUNT(*) AS count").
+		Group("COALESCE(NULLIF(type, ''), 'otro')").
+		Order("count DESC").
+		Scan(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	return rows, nil
+}
+
+// moderation returns the abuse-report queue snapshot by status. Statuses are
+// pending/resolved/dismissed; unknown statuses are ignored.
+func (h *ImpactHandler) moderation() (ModerationStats, error) {
+	type row struct {
+		Status string
+		Count  int64
+	}
+	var rows []row
+	err := h.db.Model(&domain.ReportAbuse{}).
+		Select("status, COUNT(*) AS count").
+		Group("status").
+		Scan(&rows).Error
+	if err != nil {
+		return ModerationStats{}, err
+	}
+
+	var stats ModerationStats
+	for _, r := range rows {
+		switch r.Status {
+		case "pending":
+			stats.Pending = r.Count
+		case "resolved":
+			stats.Resolved = r.Count
+		case "dismissed":
+			stats.Dismissed = r.Count
+		}
+	}
+	return stats, nil
 }
