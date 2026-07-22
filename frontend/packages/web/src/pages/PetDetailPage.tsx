@@ -4,6 +4,7 @@
 import { useParams, Link } from 'react-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { PawPlaceholder } from '../components/PawPlaceholder';
 import { Helmet } from 'react-helmet-async';
 import { usePetByID, useReportsByPetID, useMarkPetAsFound, useSubmitAbuseReport } from '@shared/hooks';
 import { statusBadgeBg } from '../utils/statusBadge';
@@ -165,7 +166,7 @@ export function PetDetailPage() {
                 crossOrigin="anonymous"
               />
             ) : (
-              <div className="w-full h-full flex items-center justify-center"><span className="text-7xl">🐾</span></div>
+              <div className="w-full h-full flex items-center justify-center"><PawPlaceholder className="w-2/5 max-w-28" /></div>
             )}
             {photos.length > 1 && (
               <>

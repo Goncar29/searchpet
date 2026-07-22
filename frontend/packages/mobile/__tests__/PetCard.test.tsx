@@ -46,9 +46,9 @@ describe('PetCard', () => {
     expect(screen.getByText('AVISTADO')).toBeTruthy();
   });
 
-  it('muestra emoji 🐾 cuando no hay fotos', () => {
+  it('muestra el placeholder de marca cuando no hay fotos', () => {
     render(<PetCard report={baseReport} onPress={() => {}} />);
-    expect(screen.getByText('🐾')).toBeTruthy();
+    expect(screen.getByTestId('paw-placeholder')).toBeTruthy();
   });
 
   it('muestra la descripción de ubicación cuando existe', () => {

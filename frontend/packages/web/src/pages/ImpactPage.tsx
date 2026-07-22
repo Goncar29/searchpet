@@ -5,6 +5,7 @@ import { getErrorMessage } from '@shared/utils/apiErrors';
 import type { ImpactMonthlyCount } from '@shared/types';
 import { ImpactLineChart } from '../components/ImpactLineChart';
 import { MonthlyImpactSection } from '../components/MonthlyImpactSection';
+import { Logo } from '../components/Logo';
 
 function StatTile({ value, label, accent }: { value: string; label: string; accent?: string }) {
   return (
@@ -174,8 +175,9 @@ export function ImpactPage() {
     <div className="mx-auto max-w-4xl">
       <header className="mb-8 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-extrabold text-gray-900 dark:text-gray-50">
-            {t('impact:title')} 🐾
+          <h1 className="flex items-center gap-2.5 text-3xl font-extrabold text-gray-900 dark:text-gray-50">
+            {t('impact:title')}
+            <Logo tight className="h-6 w-auto shrink-0 text-primary" />
           </h1>
           <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">{t('impact:subtitle')}</p>
         </div>
@@ -313,7 +315,9 @@ export function ImpactPage() {
         }}
       >
         <div style={{ textAlign: 'center', marginBottom: '56px' }}>
-          <div style={{ fontSize: '64px', marginBottom: '12px' }}>🐾</div>
+          <div style={{ marginBottom: '12px', display: 'flex', justifyContent: 'center' }}>
+            <Logo className="h-16 w-16" color="#C24E1A" />
+          </div>
           <div style={{ fontSize: '52px', fontWeight: 800, color: '#111827' }}>{t('impact:title')}</div>
         </div>
 

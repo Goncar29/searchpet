@@ -5,6 +5,7 @@ import { useMyPets } from '@shared/hooks';
 import { useAuthStore } from '../../store';
 import type { Pet, Photo } from '../../../shared/types';
 import { COLORS, SPACING, FONTS, RADIUS } from '../../constants';
+import { PawPlaceholder } from '../PawPlaceholder';
 
 interface LostPetStepProps {
   onSelect: (pet: Pet) => void;
@@ -55,7 +56,7 @@ export function LostPetStep({ onSelect }: LostPetStepProps) {
               <Image source={{ uri: primaryPhoto.url }} style={styles.thumb} />
             ) : (
               <View style={styles.thumbPlaceholder}>
-                <Text style={styles.thumbPlaceholderText}>🐾</Text>
+                <PawPlaceholder size={28} />
               </View>
             )}
             <View style={styles.rowInfo}>

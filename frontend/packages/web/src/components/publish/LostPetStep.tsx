@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useMyPets } from '@shared/hooks';
 import { useAuth } from '../../context/AuthContext';
 import type { Pet, Photo } from '@shared/types';
+import { PawPlaceholder } from '../PawPlaceholder';
 
 interface LostPetStepProps {
   onSelect: (pet: Pet) => void;
@@ -57,8 +58,8 @@ export function LostPetStep({ onSelect }: LostPetStepProps) {
                   className="h-14 w-14 rounded-lg object-cover flex-shrink-0"
                 />
               ) : (
-                <div className="h-14 w-14 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-2xl flex-shrink-0">
-                  🐾
+                <div className="h-14 w-14 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center flex-shrink-0">
+                  <PawPlaceholder className="w-7" />
                 </div>
               )}
               <div className="flex-1 min-w-0">

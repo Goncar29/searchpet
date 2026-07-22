@@ -16,6 +16,7 @@ import {
   ScrollView,
   Alert,
 } from 'react-native';
+import { PawPlaceholder } from '../../components/PawPlaceholder';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import i18next from 'i18next';
@@ -190,7 +191,7 @@ export default function HomeScreen() {
         <Image source={{ uri: item.photo_url }} style={styles.imageResultPhoto} />
       ) : (
         <View style={[styles.imageResultPhoto, styles.imageResultPhotoPlaceholder]}>
-          <Text style={{ fontSize: 24 }}>🐾</Text>
+          <PawPlaceholder size={28} />
         </View>
       )}
       <View style={styles.imageResultInfo}>
@@ -521,7 +522,7 @@ export default function HomeScreen() {
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
             <View style={styles.empty}>
-              <Text style={styles.emptyIcon}>🐾</Text>
+              <View style={{ marginBottom: 12 }}><PawPlaceholder size={56} /></View>
               <Text style={styles.emptyTitle}>
                 {isSearchMode ? t('home:noResultsTitle') : t('home:noNearbyTitle')}
               </Text>

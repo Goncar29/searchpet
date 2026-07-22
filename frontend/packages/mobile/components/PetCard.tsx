@@ -5,6 +5,7 @@
 import { View, Text, Image, StyleSheet, TouchableOpacity } from 'react-native';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../constants';
 import type { Report, Pet } from '../../shared/types';
+import { PawPlaceholder } from './PawPlaceholder';
 
 interface PetCardProps {
   /** Modo feed: reporte con mascota anidada (nearby reports) */
@@ -70,7 +71,7 @@ export function PetCard({ report, pet: petProp, onPress }: PetCardProps) {
           <Image source={{ uri: primaryPhoto.url }} style={styles.image} />
         ) : (
           <View style={styles.imagePlaceholder}>
-            <Text style={{ fontSize: 40 }}>🐾</Text>
+            <PawPlaceholder size={48} />
           </View>
         )}
         {/* Badge de status */}

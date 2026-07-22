@@ -3,6 +3,7 @@
 // ============================================================
 
 import { useState } from 'react';
+import { Logo } from '../components/Logo';
 import {
   View,
   Text,
@@ -53,7 +54,7 @@ export default function LoginScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <View style={styles.content}>
-        <Text style={styles.logo}>🐾</Text>
+        <View style={styles.logo}><Logo size={64} /></View>
         <Text style={styles.title}>{t('login.welcome')}</Text>
         <Text style={styles.subtitle}>{t('login.subtitle')}</Text>
 

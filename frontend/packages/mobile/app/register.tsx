@@ -3,6 +3,7 @@
 // ============================================================
 
 import { useState } from 'react';
+import { Logo } from '../components/Logo';
 import {
   View,
   Text,
@@ -70,7 +71,7 @@ export default function RegisterScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <Text style={styles.logo}>🐾</Text>
+        <View style={styles.logo}><Logo size={64} /></View>
         <Text style={styles.title}>{t('register.title')}</Text>
         <Text style={styles.subtitle}>{t('register.subtitle')}</Text>
 

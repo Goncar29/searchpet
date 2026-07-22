@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useMyPets, useReportedPets, useDeletePet, useUpdatePet } from '@shared/hooks';
 import type { Pet, PetStatus, Photo } from '@shared/types';
 import { getErrorMessage } from '@shared/utils/apiErrors';
+import { PawPlaceholder } from '../components/PawPlaceholder';
 import { selectableStatuses } from '@shared/utils/petStatusTransitions';
 
 function SkeletonCard() {
@@ -96,7 +97,7 @@ function PetCard({
             className="w-full h-full object-cover group-hover:opacity-90 transition-opacity"
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center text-4xl">🐾</div>
+          <div className="w-full h-full flex items-center justify-center"><PawPlaceholder className="w-2/5 max-w-16" /></div>
         )}
         <span className={`absolute top-2 right-2 text-xs font-medium px-2 py-0.5 rounded-full ${statusCfg.className}`}>
           {t(statusCfg.labelKey)}

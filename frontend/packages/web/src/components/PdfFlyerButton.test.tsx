@@ -38,12 +38,12 @@ describe('PdfFlyerButton', () => {
     expect(position & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it('shows the 🐾 placeholder in the banner when there is no photo', () => {
+  it('shows the paw placeholder in the banner when there is no photo', () => {
     const petWithoutPhoto: Pet = { ...basePet, photos: [] };
-    const { container, getByText } = render(<PdfFlyerButton pet={petWithoutPhoto} />);
+    const { container, getByLabelText } = render(<PdfFlyerButton pet={petWithoutPhoto} />);
     const hidden = container.querySelector('[aria-hidden="true"]') as HTMLElement;
 
-    expect(getByText('🐾')).toBeInTheDocument();
+    expect(getByLabelText('SearchPet')).toBeInTheDocument();
     expect(hidden.querySelector('img[alt="Firulais"]')).toBeNull();
   });
 });

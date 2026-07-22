@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import { usePetByID, useMyPets, useCreateReport } from '@shared/hooks';
+import { PawPlaceholder } from '../components/PawPlaceholder';
 import type { ReportStatus } from '@shared/types';
 import { getErrorMessage } from '@shared/utils/apiErrors';
 
@@ -116,7 +117,7 @@ export function CreateReportPage() {
                 <p className="text-sm text-gray-500 dark:text-gray-400">{t('common:loading')}</p>
               ) : presetPet ? (
                 <div className="flex items-center gap-3 rounded-lg border border-primary/40 bg-primary/5 dark:bg-primary/10 px-4 py-3">
-                  <span className="text-2xl">🐾</span>
+                  <PawPlaceholder className="w-6" />
                   <div>
                     <p className="font-semibold text-gray-900 dark:text-gray-100 text-sm">{presetPet.name}</p>
                     <p className="text-xs text-gray-500 dark:text-gray-400">{presetPet.type}</p>
