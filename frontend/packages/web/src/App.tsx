@@ -55,7 +55,7 @@ export default function App() {
           <Route path="/map" element={<MapPage />} />
           <Route path="/publish" element={<PublishWizardPage />} />
           <Route path="/pets/:id" element={<PetDetailPage />} />
-          <Route path="/adoptar" element={<AdoptPage />} />
+          <Route path="/adopt" element={<AdoptPage />} />
           <Route path="/shelters" element={<SheltersPage />} />
           <Route path="/leaderboard" element={<LeaderboardPage />} />
           <Route path="/stories" element={<StoriesPage />} />
@@ -81,10 +81,10 @@ export default function App() {
             <Route path="/alerts" element={<AlertsPage />} />
             <Route path="/shelters/register" element={<RegisterShelterPage />} />
             <Route path="/shelters/mine" element={<MyShelterPage />} />
-            <Route path="/hogares" element={<FosterHomesPage />} />
-            <Route path="/hogares/registrar" element={<RegisterFosterHomePage />} />
-            <Route path="/hogares/mio" element={<MyFosterHomePage />} />
-            <Route path="/hogares/:id" element={<FosterHomeDetailPage />} />
+            <Route path="/fosterhomes" element={<FosterHomesPage />} />
+            <Route path="/fosterhomes/register" element={<RegisterFosterHomePage />} />
+            <Route path="/fosterhomes/mine" element={<MyFosterHomePage />} />
+            <Route path="/fosterhomes/:id" element={<FosterHomeDetailPage />} />
           </Route>
           {/* Admin routes — protected by AdminRoute guard */}
           <Route element={<AdminRoute />}>

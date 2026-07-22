@@ -84,7 +84,7 @@ export function MainLayout() {
   const publicNavLinks = [
     { to: '/', label: t('home') },
     { to: '/map', label: t('map') },
-    { to: '/adoptar', label: t('adopt') },
+    { to: '/adopt', label: t('adopt') },
     { to: '/shelters', label: t('shelters') },
     { to: '/leaderboard', label: '🏆 Ranking' },
   ];
@@ -97,7 +97,7 @@ export function MainLayout() {
     { to: '/messages', label: t('messages'), badge: true },
     { to: '/alerts', label: t('alerts') },
     ...(myShelter ? [{ to: '/shelters/mine', label: t('myShelter') }] : []),
-    { to: '/hogares', label: t('fosterHomes:nav') },
+    { to: '/fosterhomes', label: t('fosterHomes:nav') },
     ...(isAdmin ? [{ to: '/admin/abuse-reports', label: t('admin') }] : []),
   ];
 
@@ -350,8 +350,8 @@ export function MainLayout() {
                     </Link>
                   )}
                   <Link
-                    to="/hogares"
-                    className={`text-sm font-medium py-2 px-3 rounded-md ${isActive('/hogares')
+                    to="/fosterhomes"
+                    className={`text-sm font-medium py-2 px-3 rounded-md ${isActive('/fosterhomes')
                       ? 'text-primary bg-orange-50 dark:bg-orange-950'
                       : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
                       } transition-colors duration-150`}

@@ -49,7 +49,7 @@ export function RegisterFosterHomePage() {
   // useMyFosterHome — sin el guard de 'done' el redirect se comería la
   // pantalla de confirmación.
   if (myFosterHome && step !== 'done') {
-    return <Navigate to="/hogares/mio" replace />;
+    return <Navigate to="/fosterhomes/mine" replace />;
   }
 
   const emailVerified = verification?.email_verified ?? false;
@@ -244,7 +244,7 @@ export function RegisterFosterHomePage() {
           </h2>
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">{t('fosterHomes:register.successBody')}</p>
           <Link
-            to="/hogares/mio"
+            to="/fosterhomes/mine"
             className="inline-block bg-primary text-white text-sm font-semibold px-6 py-2.5 rounded-xl hover:bg-primary-dark transition-colors"
           >
             {t('fosterHomes:register.goToMine')}

@@ -42,7 +42,7 @@ export function FosterHomesPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
         <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">{t('fosterHomes:directory.title')}</h1>
         <Link
-          to="/hogares/registrar"
+          to="/fosterhomes/register"
           className="inline-flex items-center justify-center px-5 py-2.5 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary-dark transition-colors"
         >
           {t('fosterHomes:directory.registerCta')}

@@ -532,7 +532,7 @@ git commit -m "feat(web): foster homes i18n (es/en/pt) + error codes"
 
 - [ ] **Step 1: `FosterHomeCard.tsx`**
 
-Card que muestra: primera foto (o placeholder 🏠), ciudad, tipo de vivienda (`t('fosterHomes:housingType.<x>')`), chips de animal_types (`t('fosterHomes:animalType.<x>')`), capacidad, y descripción recortada. Link a `/hogares/${fh.id}`. Usar `useTranslation(['fosterHomes'])`. Espejar el look de `PetCardWeb`/`ShelterCard` (Tailwind, dark mode). Alturas parejas (`line-clamp-2 min-h-[2.5rem]` en la descripción, como el fix del feed).
+Card que muestra: primera foto (o placeholder 🏠), ciudad, tipo de vivienda (`t('fosterHomes:housingType.<x>')`), chips de animal_types (`t('fosterHomes:animalType.<x>')`), capacidad, y descripción recortada. Link a `/fosterhomes/${fh.id}`. Usar `useTranslation(['fosterHomes'])`. Espejar el look de `PetCardWeb`/`ShelterCard` (Tailwind, dark mode). Alturas parejas (`line-clamp-2 min-h-[2.5rem]` en la descripción, como el fix del feed).
 
 - [ ] **Step 2: `FosterHomesPage.tsx` (directorio privado)**
 
@@ -540,7 +540,7 @@ Card que muestra: primera foto (o placeholder 🏠), ciudad, tipo de vivienda (`
 - Filtros con **patrón draft/applied** (no disparar API por keystroke — regla del proyecto): estado `draftCity`/`draftAnimal` + `appliedCity`/`appliedAnimal`, se aplican con submit/botón, no en cada `onChange`.
 - Filtro de animal: select con opciones dog/cat/other (labels i18n).
 - Grid de `FosterHomeCard`. Estado vacío: `t('fosterHomes:directory.empty')`. Loading: skeletons.
-- CTA "Ofrecer mi hogar" → link a `/hogares/registrar`.
+- CTA "Ofrecer mi hogar" → link a `/fosterhomes/registrar`.
 
 - [ ] **Step 3: Typecheck + commit**
 
@@ -593,8 +593,8 @@ Copiá la ESTRUCTURA de `RegisterShelterPage.tsx` (stepper `intro`/`form`/`done`
 - `city` (required), `housing_type` (radio/select house|apartment, required), `animal_types` (checkboxes dog/cat/other, ≥1 required), `capacity` (number ≥1, required), `description` (textarea required), `whatsapp_phone` (opcional).
 - Validación cliente espejo del backend: city/description no vacíos, housing_type válido, capacity≥1, ≥1 animal_type.
 - Submit con `useRegisterFosterHome().mutate(...)`, `onSuccess → step 'done'`, `onError → getErrorMessage`.
-- Guard: si `useMyFosterHome().data` existe y `step !== 'done'` → `<Navigate to="/hogares/mio" replace />`.
-- Labels i18n `fosterHomes:register.*`. Título, notas (reviewNote, oneNote), pantalla done con link a `/hogares/mio`.
+- Guard: si `useMyFosterHome().data` existe y `step !== 'done'` → `<Navigate to="/fosterhomes/mio" replace />`.
+- Labels i18n `fosterHomes:register.*`. Título, notas (reviewNote, oneNote), pantalla done con link a `/fosterhomes/mio`.
 
 - [ ] **Step 2: Typecheck + commit**
 
@@ -612,7 +612,7 @@ git commit -m "feat(web): foster home registration page"
 
 - [ ] **Step 1: Implementar (espeja `MyShelterPage`)**
 
-- `useMyFosterHome()`. Si 404 (`code === 'foster_home_not_found'`) → CTA para registrar (`/hogares/registrar`).
+- `useMyFosterHome()`. Si 404 (`code === 'foster_home_not_found'`) → CTA para registrar (`/fosterhomes/registrar`).
 - Muestra estado con `t('fosterHomes:status.<status>')` y el banner de estado (pending/approved/rejected/suspended) con el mensaje correspondiente (`fosterHomes:mine.status*`). Si `rejected`, muestra `rejection_reason`.
 - **Edición** (`useUpdateMyFosterHome`): form con los campos editables (city, housing_type, animal_types, capacity, description, whatsapp_phone). Enviar solo lo que cambió (o todo — el backend hace merge por punteros/undefined). Si el hogar está `suspended`, **deshabilitar la edición** y mostrar `t('fosterHomes:mine.suspendedFrozen')` (el backend igual devuelve 409 `foster_home_suspended`; manejarlo con `getErrorMessage`).
 - **Fotos** (`useUploadFosterHomePhoto`/`useDeleteFosterHomePhoto`): grid de fotos actuales con botón eliminar; input file para agregar (máx 5 — deshabilitar el agregar si ya hay 5, y manejar `too_many_photos`). Aceptar image/jpeg,png,webp.
@@ -660,16 +660,16 @@ git commit -m "feat(web): foster homes admin moderation and forensic viewer"
 
 Importar las páginas nuevas. Dentro del bloque `<Route element={<ProtectedRoute />}>` (privado — la sección es privada §10), agregar:
 ```tsx
-            <Route path="/hogares" element={<FosterHomesPage />} />
-            <Route path="/hogares/registrar" element={<RegisterFosterHomePage />} />
-            <Route path="/hogares/mio" element={<MyFosterHomePage />} />
-            <Route path="/hogares/:id" element={<FosterHomeDetailPage />} />
+            <Route path="/fosterhomes" element={<FosterHomesPage />} />
+            <Route path="/fosterhomes/registrar" element={<RegisterFosterHomePage />} />
+            <Route path="/fosterhomes/mio" element={<MyFosterHomePage />} />
+            <Route path="/fosterhomes/:id" element={<FosterHomeDetailPage />} />
 ```
 Dentro del bloque admin (`<Route path="/admin" element={<AdminLayout />}>`), agregar:
 ```tsx
               <Route path="foster-homes" element={<FosterHomesAdminPage />} />
 ```
-> **Cuidado orden de rutas React Router:** `/hogares/registrar` y `/hogares/mio` son estáticas y `/hogares/:id` es dinámica. React Router v7 hace match por especificidad (las estáticas ganan a `:id`), pero registrá las estáticas antes para claridad. Verificá que `/hogares/registrar` no matchee `/hogares/:id`.
+> **Cuidado orden de rutas React Router:** `/fosterhomes/registrar` y `/fosterhomes/mio` son estáticas y `/fosterhomes/:id` es dinámica. React Router v7 hace match por especificidad (las estáticas ganan a `:id`), pero registrá las estáticas antes para claridad. Verificá que `/fosterhomes/registrar` no matchee `/fosterhomes/:id`.
 
 - [ ] **Step 2: Link de navegación en `MainLayout.tsx`**
 
@@ -731,7 +731,7 @@ Expected: PASS (encadena web + shared vía `vitest.shared.config.ts`, regla #14)
 
 - [ ] **Step 3: Verificación manual (dev)**
 
-`pnpm dev` (o `make web`), loguearse, y recorrer: `/hogares` (directorio vacío al principio), registrar hogar (con email verificado), verlo en `/hogares/mio` como pending, aprobarlo desde `/admin/foster-homes`, verlo en el directorio, entrar al detalle, probar contacto/WhatsApp, denunciar (debe fallar self-report en tu propio hogar), suspender desde admin y ver que desaparece del directorio, abrir el visor de logs/history. Revisar la consola por keys i18n crudas (regla #21) y errores de CSP si algo se rompe.
+`pnpm dev` (o `make web`), loguearse, y recorrer: `/fosterhomes` (directorio vacío al principio), registrar hogar (con email verificado), verlo en `/fosterhomes/mio` como pending, aprobarlo desde `/admin/foster-homes`, verlo en el directorio, entrar al detalle, probar contacto/WhatsApp, denunciar (debe fallar self-report en tu propio hogar), suspender desde admin y ver que desaparece del directorio, abrir el visor de logs/history. Revisar la consola por keys i18n crudas (regla #21) y errores de CSP si algo se rompe.
 
 - [ ] **Step 4: PR (Fase 2)**
 

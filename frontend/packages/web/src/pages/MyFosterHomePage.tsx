@@ -109,7 +109,7 @@ export function MyFosterHomePage() {
           {t('fosterHomes:mine.noFosterHomeTitle')}
         </h1>
         <Link
-          to="/hogares/registrar"
+          to="/fosterhomes/register"
           className="inline-block bg-primary text-white text-sm font-semibold px-6 py-2.5 rounded-xl hover:bg-primary-dark transition-colors"
         >
           {t('fosterHomes:mine.registerNow')}
@@ -333,9 +333,8 @@ export function MyFosterHomePage() {
                 <span />
               )}
               <span
-                className={`text-xs ${
-                  form.description.length > DESCRIPTION_MAX_LEN ? 'text-red-600' : 'text-gray-400 dark:text-gray-500'
-                }`}
+                className={`text-xs ${form.description.length > DESCRIPTION_MAX_LEN ? 'text-red-600' : 'text-gray-400 dark:text-gray-500'
+                  }`}
               >
                 {form.description.length}/{DESCRIPTION_MAX_LEN}
               </span>

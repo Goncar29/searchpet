@@ -135,7 +135,7 @@ adopted   → adoption, archived      (revert if the adoption falls through)
   step.
 
 ### Adopt section
-- **Web:** new route `/adoptar` + nav link. Page lists `useAdoptions` results with
+- **Web:** new route `/adopt` + nav link. Page lists `useAdoptions` results with
   city + type filters (draft/applied pattern, consistent with HomePage). Cards
   reuse `PetCardWeb` with an "En adopción" badge.
 - **Mobile:** an "Adoptar" screen reachable from home/profile (no 6th tab, to
