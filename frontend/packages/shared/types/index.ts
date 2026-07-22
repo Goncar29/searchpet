@@ -143,6 +143,64 @@ export interface Stats {
   searches_started: number;
 }
 
+export interface ImpactMonthlyCount {
+  month: string; // "YYYY-MM"
+  count: number;
+}
+
+export interface ImpactTotals {
+  pets_reunited: number;
+  searches_started: number;
+  total_users: number;
+  total_pets: number;
+  active_searches: number;
+  reunion_rate: number; // 0..1
+}
+
+export interface ImpactTypeCount {
+  type: string; // "perro" | "gato" | "ave" | "otro" | free text
+  count: number;
+}
+
+export interface ImpactModeration {
+  abuse_pending: number;
+  abuse_resolved: number;
+  abuse_dismissed: number;
+  foster_homes_pending: number;
+  shelters_pending: number;
+}
+
+export interface ImpactStats {
+  totals: ImpactTotals;
+  reunions_by_month: ImpactMonthlyCount[];
+  new_users_by_month: ImpactMonthlyCount[];
+  reports_by_month: ImpactMonthlyCount[];
+  pets_by_type: ImpactTypeCount[];
+  moderation: ImpactModeration;
+}
+
+export interface MonthlyImpactReunion {
+  id: string;
+  name: string;
+  type: string;
+  reunited_at: string; // ISO
+}
+
+export interface MonthlyImpactReport {
+  id: string;
+  pet_name: string;
+  status: string;
+  created_at: string; // ISO
+}
+
+export interface MonthlyImpact {
+  month: string; // "YYYY-MM"
+  totals: { reunions: number; new_users: number; reports: number };
+  reunited_pets: MonthlyImpactReunion[];
+  reports: MonthlyImpactReport[];
+  truncated: boolean;
+}
+
 // ============================================================
 // SHELTERS
 // ============================================================

@@ -9,7 +9,8 @@ import (
 // Stat event type values for the append-only platform_events ledger.
 const (
 	// StatEventPetFound is recorded every time a pet transitions into "found".
-	// pets_reunited counts DISTINCT pet_id over these rows.
+	// pets_reunited counts every row (each reunification EPISODE), matching
+	// stats_handler.go — a pet lost and found again adds +1 each time.
 	StatEventPetFound = "pet_found"
 	// StatEventSearchStarted is recorded every time a new lost/stray search is
 	// opened (publish-lost, stray creation, or a registered->lost edit).

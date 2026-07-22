@@ -367,4 +367,61 @@ describe('APIClient request timeout', () => {
 
     await expect(client.getStats()).rejects.toBe(netErr);
   });
+
+  it('getImpactStats resolves the impact payload', async () => {
+    const payload = {
+      totals: {
+        pets_reunited: 2,
+        searches_started: 4,
+        total_users: 1,
+        total_pets: 1,
+        active_searches: 1,
+        reunion_rate: 0.5,
+      },
+      reunions_by_month: [{ month: '2026-07', count: 2 }],
+      new_users_by_month: [{ month: '2026-07', count: 1 }],
+      reports_by_month: [{ month: '2026-07', count: 3 }],
+      pets_by_type: [{ type: 'perro', count: 1 }],
+      moderation: {
+        abuse_pending: 2,
+        abuse_resolved: 1,
+        abuse_dismissed: 0,
+        foster_homes_pending: 0,
+        shelters_pending: 3,
+      },
+    };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(JSON.stringify(payload), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+      ),
+    );
+
+    await expect(client.getImpactStats()).resolves.toEqual(payload);
+  });
+
+  it('getMonthlyImpact resolves the monthly payload', async () => {
+    const payload = {
+      month: '2026-06',
+      totals: { reunions: 2, new_users: 1, reports: 3 },
+      reunited_pets: [{ id: 'a', name: 'Firulais', type: 'perro', reunited_at: '2026-06-10T00:00:00Z' }],
+      reports: [{ id: 'r', pet_name: 'Firulais', status: 'sighting', created_at: '2026-06-03T00:00:00Z' }],
+      truncated: false,
+    };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(JSON.stringify(payload), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+      ),
+    );
+    await expect(client.getMonthlyImpact('2026-06')).resolves.toEqual(payload);
+  });
 });

@@ -43,6 +43,8 @@ import type {
   SharedPetResponse,
   GenerateShareRequest,
   Stats,
+  ImpactStats,
+  MonthlyImpact,
   UploadPhotoResponse,
   ImageSearchResponse,
   LocationAlert,
@@ -647,6 +649,17 @@ class APIClient {
 
   async getStats(): Promise<Stats> {
     return this.request<Stats>('GET', '/api/stats');
+  }
+
+  async getImpactStats(): Promise<ImpactStats> {
+    return this.request<ImpactStats>('GET', '/api/stats/impact');
+  }
+
+  async getMonthlyImpact(month: string): Promise<MonthlyImpact> {
+    return this.request<MonthlyImpact>(
+      'GET',
+      `/api/stats/impact/monthly?month=${encodeURIComponent(month)}`,
+    );
   }
 
   // ============================================================

@@ -13,6 +13,7 @@ import { MapPage } from './pages/MapPage';
 import { PetDetailPage } from './pages/PetDetailPage';
 import { SharedPetPage } from './pages/SharedPetPage';
 import { SheltersPage } from './pages/SheltersPage';
+import { ImpactPage } from './pages/ImpactPage';
 import { AdoptPage } from './pages/AdoptPage';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
@@ -95,6 +96,7 @@ export default function App() {
               <Route path="admins" element={<AdminsPage />} />
               <Route path="shelters" element={<SheltersAdminPage />} />
               <Route path="foster-homes" element={<FosterHomesAdminPage />} />
+              <Route path="impact" element={<ImpactPage />} />
             </Route>
           </Route>
         </Route>

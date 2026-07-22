@@ -10,7 +10,8 @@
       "groups": "Grupos",
       "admins": "Administradores",
       "shelters": "Abrigos",
-      "fosterHomes": "Lares temporários"
+      "fosterHomes": "Lares temporários",
+      "impact": "Impacto"
     },
     "abuse": {
       "title": "Denúncias de abuso",
@@ -607,5 +608,54 @@
         "reinstate": "Reintegrado"
       }
     }
+  },
+  "impact": {
+    "title": "O impacto do SearchPet",
+    "subtitle": "Painel interno de métricas. Os números completos da plataforma.",
+    "reunited": "Pets reunidos 💚",
+    "searches": "Buscas iniciadas",
+    "community": "Famílias na comunidade",
+    "registered": "Pets registrados",
+    "reunionsByMonth": "Reuniões por mês",
+    "newUsersByMonth": "Novos usuários por mês",
+    "reportsByMonth": "Reportes por mês",
+    "petsByType": "Pets por tipo",
+    "moderation": "Moderação",
+    "moderationSubtitle": "Pendentes de revisão",
+    "modAbuse": "Denúncias",
+    "modFosterHomes": "Lares temporários",
+    "modShelters": "Abrigos",
+    "modAbuseBreakdown": "Denúncias: {{resolved}} resolvidas · {{dismissed}} descartadas",
+    "activeSearches": "Buscas ativas agora",
+    "reunionRate": "Taxa de reunião",
+    "latestMonth": "este mês",
+    "last12Months": "Últimos 12 meses",
+    "monthlyTitle": "Detalhe mensal",
+    "monthlySubtitle": "Atividade do mês selecionado",
+    "monthReunions": "Reuniões",
+    "monthNewUsers": "Novos usuários",
+    "monthReports": "Reportes",
+    "reunitedPetsTitle": "Pets reunidos",
+    "reportsTitle": "Reportes criados",
+    "colName": "Nome",
+    "colType": "Tipo",
+    "colDate": "Data",
+    "colPet": "Pet",
+    "colStatus": "Status",
+    "monthEmpty": "Sem registros neste mês",
+    "monthTruncated": "Mostrando os primeiros {{cap}} registros deste mês",
+    "petType": {
+      "perro": "Cães",
+      "gato": "Gatos",
+      "ave": "Aves",
+      "otro": "Outros"
+    },
+    "share": "Compartilhar imagem",
+    "sharing": "Gerando…",
+    "shareText": "O impacto do SearchPet — reunindo famílias 🐾",
+    "shareCardTagline": "Reunindo famílias · searchpet.app",
+    "shareDownloaded": "Imagem baixada. Compartilhe!",
+    "loading": "Carregando impacto…",
+    "error": "Não foi possível carregar as estatísticas de impacto."
   }
 }

@@ -10,7 +10,8 @@
       "groups": "Groups",
       "admins": "Administrators",
       "shelters": "Shelters",
-      "fosterHomes": "Foster homes"
+      "fosterHomes": "Foster homes",
+      "impact": "Impact"
     },
     "abuse": {
       "title": "Abuse Reports",
@@ -607,5 +608,54 @@
         "reinstate": "Reinstated"
       }
     }
+  },
+  "impact": {
+    "title": "SearchPet's impact",
+    "subtitle": "Internal metrics panel. The platform's full numbers.",
+    "reunited": "Pets reunited 💚",
+    "searches": "Searches started",
+    "community": "Families in the community",
+    "registered": "Pets registered",
+    "reunionsByMonth": "Reunions per month",
+    "newUsersByMonth": "New users per month",
+    "reportsByMonth": "Reports per month",
+    "petsByType": "Pets by type",
+    "moderation": "Moderation",
+    "moderationSubtitle": "Pending review",
+    "modAbuse": "Abuse reports",
+    "modFosterHomes": "Foster homes",
+    "modShelters": "Shelters",
+    "modAbuseBreakdown": "Abuse reports: {{resolved}} resolved · {{dismissed}} dismissed",
+    "activeSearches": "Active searches now",
+    "reunionRate": "Reunion rate",
+    "latestMonth": "this month",
+    "last12Months": "Last 12 months",
+    "monthlyTitle": "Monthly detail",
+    "monthlySubtitle": "Activity for the selected month",
+    "monthReunions": "Reunions",
+    "monthNewUsers": "New users",
+    "monthReports": "Reports",
+    "reunitedPetsTitle": "Reunited pets",
+    "reportsTitle": "Reports created",
+    "colName": "Name",
+    "colType": "Type",
+    "colDate": "Date",
+    "colPet": "Pet",
+    "colStatus": "Status",
+    "monthEmpty": "No records this month",
+    "monthTruncated": "Showing the first {{cap}} records of this month",
+    "petType": {
+      "perro": "Dogs",
+      "gato": "Cats",
+      "ave": "Birds",
+      "otro": "Other"
+    },
+    "share": "Share image",
+    "sharing": "Generating…",
+    "shareText": "SearchPet's impact — reuniting families 🐾",
+    "shareCardTagline": "Reuniting families · searchpet.app",
+    "shareDownloaded": "Image downloaded. Share it!",
+    "loading": "Loading impact…",
+    "error": "We couldn't load the impact statistics."
   }
 }
