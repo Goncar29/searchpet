@@ -69,7 +69,7 @@ describe('SharedPetPage', () => {
       render(<SharedPetPage />, { wrapper });
       const hrefs = screen.getAllByRole('link').map((l) => l.getAttribute('href'));
       expect(hrefs).toContain('/');          // logo + botón "Explorar"
-      expect(hrefs).toContain('/descargar'); // link de descarga
+      expect(hrefs).toContain('/download'); // link de descarga
     });
   });
 });

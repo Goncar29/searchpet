@@ -69,7 +69,7 @@ export default function App() {
           <Route path="/users/:id" element={<UserProfilePage />} />
           <Route path="/groups" element={<GroupsPage />} />
           <Route path="/groups/:id" element={<GroupDetailPage />} />
-          <Route path="/descargar" element={<DownloadPage />} />
+          <Route path="/download" element={<DownloadPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
 
@@ -80,6 +80,7 @@ export default function App() {
           <Route path="/hogares/registrar" element={<Navigate to="/fosterhomes/register" replace />} />
           <Route path="/hogares/mio" element={<Navigate to="/fosterhomes/mine" replace />} />
           <Route path="/hogares/:id" element={<FosterHomeLegacyRedirect />} />
+          <Route path="/descargar" element={<Navigate to="/download" replace />} />
 
           {/* Rutas protegidas (requieren autenticación) */}
           <Route element={<ProtectedRoute />}>

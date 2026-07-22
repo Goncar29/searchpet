@@ -148,7 +148,7 @@ export function SharedPetPage() {
                 </Link>
                 <p className="text-xs text-gray-500 mt-3">
                   {t('sharedPet:or')}{' '}
-                  <Link to="/descargar" className="font-semibold text-primary hover:text-primary-dark">
+                  <Link to="/download" className="font-semibold text-primary hover:text-primary-dark">
                     {t('sharedPet:downloadApp')}
                   </Link>
                 </p>
