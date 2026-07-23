@@ -13,6 +13,7 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
+import { PawPlaceholder } from '../components/PawPlaceholder';
 import { useState } from 'react';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -331,17 +332,17 @@ export default function MyPetsScreen() {
         ListEmptyComponent={
           tab === 'reported' ? (
             <View style={styles.empty}>
-              <Text style={styles.emptyIcon}>🐾</Text>
+              <View style={{ marginBottom: 12 }}><PawPlaceholder size={56} /></View>
               <Text style={styles.emptyText}>{t('pets:reports.empty')}</Text>
             </View>
           ) : tab === 'adoption' ? (
             <View style={styles.empty}>
-              <Text style={styles.emptyIcon}>🐾</Text>
+              <View style={{ marginBottom: 12 }}><PawPlaceholder size={56} /></View>
               <Text style={styles.emptyText}>{t('adoption:profile.empty')}</Text>
             </View>
           ) : (
             <View style={styles.empty}>
-              <Text style={styles.emptyIcon}>🐾</Text>
+              <View style={{ marginBottom: 12 }}><PawPlaceholder size={56} /></View>
               <Text style={styles.emptyTitle}>{t('my_pets:emptyTitle')}</Text>
               <Text style={styles.emptyText}>{t('my_pets:emptyText')}</Text>
               <TouchableOpacity

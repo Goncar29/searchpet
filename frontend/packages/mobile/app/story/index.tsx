@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next';
 import { useStories } from '../../../shared/hooks';
 import { getDateLocale } from '../../i18n/dateLocale';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
+import { PawPlaceholder } from '../../components/PawPlaceholder';
 import type { SuccessStory } from '../../../../shared/types';
 
 export default function StoriesScreen() {
@@ -75,7 +76,7 @@ export default function StoriesScreen() {
         }
         ListEmptyComponent={
           <View style={styles.empty}>
-            <Text style={styles.emptyIcon}>🐾</Text>
+            <View style={{ marginBottom: 12 }}><PawPlaceholder size={56} /></View>
             <Text style={styles.emptyTitle}>{t('story:emptyTitle')}</Text>
             <Text style={styles.emptyText}>{t('story:emptyText')}</Text>
           </View>

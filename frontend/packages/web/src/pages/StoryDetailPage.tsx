@@ -4,6 +4,7 @@
 import { useParams, useNavigate, Link } from 'react-router';
 import { useStory, useLikeStory, useUnlikeStory } from '@shared/hooks';
 import { useAuth } from '../context/AuthContext';
+import { PawPlaceholder } from '../components/PawPlaceholder';
 
 export function StoryDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -34,7 +35,7 @@ export function StoryDetailPage() {
   if (isError || !story) {
     return (
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-16 text-center">
-        <p className="text-5xl mb-4">🐾</p>
+        <PawPlaceholder className="w-16 mx-auto mb-4" />
         <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">
           Historia no encontrada
         </h2>

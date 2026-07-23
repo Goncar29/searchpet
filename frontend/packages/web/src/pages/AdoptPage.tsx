@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useAdoptions } from '@shared/hooks';
 import { statusBadgeBg } from '../utils/statusBadge';
 import type { Pet, PetType } from '@shared/types';
+import { PawPlaceholder } from '../components/PawPlaceholder';
 
 const PET_TYPES: { value: PetType; labelKey: string; icon: string }[] = [
   { value: 'perro', labelKey: 'pets:types.perro', icon: '🐕' },
@@ -127,7 +128,7 @@ export function AdoptPage() {
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                       />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center text-5xl">🐾</div>
+                      <div className="w-full h-full flex items-center justify-center"><PawPlaceholder className="w-2/5 max-w-20" /></div>
                     )}
                     <span className={`absolute top-3 left-3 text-xs font-bold text-white px-2 py-1 rounded-md ${statusBadgeBg(pet.status)}`}>
                       {t('pets:status.adoption').toUpperCase()}
@@ -160,7 +161,7 @@ export function AdoptPage() {
           </div>
         ) : (
           <div className="text-center py-12">
-            <p className="text-5xl mb-4">🐾</p>
+            <PawPlaceholder className="w-16 mx-auto mb-4" />
             <p className="text-gray-700 dark:text-gray-300 font-semibold mb-2">{t('adoption:section.empty')}</p>
           </div>
         )}

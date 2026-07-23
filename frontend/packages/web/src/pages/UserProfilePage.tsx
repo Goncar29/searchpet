@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { usePublicProfile, useUserReviews, useCreateReview, useUpdateReview, useDeleteReview, useBlockUser, useBlockedUsers, useUnblockUser, useSubmitAbuseReport } from '@shared/hooks';
 import type { Badge, UserReview, AbuseReason } from '@shared/types';
 import { BADGE_META } from '@shared/types';
+import { PawPlaceholder } from '../components/PawPlaceholder';
 import { useAuth } from '../context/AuthContext';
 import { getErrorMessage } from '@shared/utils/apiErrors';
 
@@ -232,7 +233,7 @@ export function UserProfilePage() {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center px-4">
         <div className="text-center">
-          <p className="text-5xl mb-4">🐾</p>
+          <PawPlaceholder className="w-16 mx-auto mb-4" />
           <h2 className="text-xl font-bold text-gray-900 dark:text-gray-50 mb-2">Perfil no encontrado</h2>
           <p className="text-gray-500 dark:text-gray-400 text-sm mb-6">
             Este usuario no existe o su perfil no está disponible.

@@ -27,6 +27,7 @@ import { getErrorMessage } from '@shared/utils/apiErrors';
 import { useAuthStore } from '../../store';
 import { getDateLocale } from '../../i18n/dateLocale';
 import { ShareButton } from '../../components/ShareButton';
+import { PawPlaceholder } from '../../components/PawPlaceholder';
 import { PdfFlyerButton } from '../../components/PdfFlyerButton';
 import { TimelineMap } from '../../components/TimelineMap';
 import { AdoptionPetBody } from '../../components/AdoptionPetBody';
@@ -205,7 +206,7 @@ export default function PetDetailScreen() {
           />
         ) : (
           <View style={styles.imagePlaceholder}>
-            <Text style={{ fontSize: 60 }}>🐾</Text>
+            <PawPlaceholder size={72} />
           </View>
         )}
         {/* Banner de encontrada */}

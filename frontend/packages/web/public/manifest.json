@@ -12,13 +12,13 @@
   "categories": ["social", "utilities"],
   "icons": [
     {
-      "src": "/icons/icon.png",
+      "src": "/icons/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "maskable any"
     },
     {
-      "src": "/icons/icon.png",
+      "src": "/icons/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable any"
@@ -29,13 +29,13 @@
       "name": "Ver mapa",
       "short_name": "Mapa",
       "url": "/map",
-      "icons": [{ "src": "/icons/icon.png", "sizes": "192x192" }]
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
     },
     {
       "name": "Publicar mascota",
       "short_name": "Publicar",
       "url": "/pets/create",
-      "icons": [{ "src": "/icons/icon.png", "sizes": "192x192" }]
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
     }
   ]
 }

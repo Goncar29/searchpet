@@ -1,5 +1,6 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
 import i18n from '../i18n/index';
+import { PawPlaceholder } from './PawPlaceholder';
 
 interface Props {
   children: ReactNode;
@@ -34,7 +35,7 @@ export class ErrorBoundary extends Component<Props, State> {
 function ErrorFallback() {
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-950 px-4 text-center">
-      <p className="text-5xl mb-6">🐾</p>
+      <PawPlaceholder className="w-20 mx-auto mb-6" />
       <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-50 mb-3">
         {i18n.t('common:error')}
       </h1>

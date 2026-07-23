@@ -8,6 +8,7 @@ import { getErrorMessage } from '@shared/utils/apiErrors';
 import { startOfDayISO, endOfDayISO } from '@shared/utils/dateFilters';
 import { ApiError } from '@shared/api/client';
 import { useAuth } from '../context/AuthContext';
+import { PawPlaceholder } from '../components/PawPlaceholder';
 
 // Montevideo default center for the optional distance filter.
 const DEFAULT_LAT = -34.9011;
@@ -679,7 +680,7 @@ export function HomePage() {
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                         />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center text-5xl">🐾</div>
+                        <div className="w-full h-full flex items-center justify-center"><PawPlaceholder className="w-2/5 max-w-20" /></div>
                       )}
                       <span className="absolute top-3 right-3 text-xs font-bold text-white bg-primary px-2 py-1 rounded-md">
                         {t('pets:card.similarityMatch', { percent: Math.round(result.similarity * 100) })}
@@ -725,7 +726,7 @@ export function HomePage() {
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                         />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center text-5xl">🐾</div>
+                        <div className="w-full h-full flex items-center justify-center"><PawPlaceholder className="w-2/5 max-w-20" /></div>
                       )}
                       <span className={`absolute top-3 left-3 text-xs font-bold text-white px-2 py-1 rounded-md ${statusBadgeBg(pet.status)}`}>
                         {t(`pets:status.${pet.status}`).toUpperCase()}

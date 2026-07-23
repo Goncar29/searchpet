@@ -4,6 +4,7 @@
 // ============================================================
 
 import { useState } from 'react';
+import { PawPlaceholder } from '../components/PawPlaceholder';
 import {
   View,
   Text,
@@ -126,7 +127,7 @@ export default function AdoptScreen() {
             </View>
           ) : (
             <View style={styles.empty}>
-              <Text style={styles.emptyIcon}>🐾</Text>
+              <View style={{ marginBottom: 12 }}><PawPlaceholder size={56} /></View>
               <Text style={styles.emptyText}>{t('adoption:section.empty')}</Text>
             </View>
           )

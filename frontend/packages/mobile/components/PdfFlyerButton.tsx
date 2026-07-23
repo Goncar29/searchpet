@@ -73,7 +73,7 @@ export function PdfFlyerButton({ pet, reports = [] }: PdfFlyerButtonProps) {
 
       const photoHtml = primaryPhoto?.url
         ? `<img src="${primaryPhoto.url}" class="photo" />`
-        : `<div class="photo-ph">🐾</div>`;
+        : `<div class="photo-ph"><svg viewBox="6 38 122 72" width="150" fill="#C24E1A" xmlns="http://www.w3.org/2000/svg"><g transform="translate(4,20)"><circle cx="10" cy="82" r="4"/><circle cx="28" cy="72" r="5.5"/><circle cx="47" cy="61" r="7"/><g transform="translate(44.65,6.86) scale(0.85)"><ellipse cx="51" cy="64" rx="23" ry="19"/><circle cx="23" cy="43" r="9.5"/><circle cx="41" cy="28" r="10.5"/><circle cx="61" cy="28" r="10.5"/><circle cx="79" cy="43" r="9.5"/></g></g></svg></div>`;
 
       const descriptionHtml = description
         ? `<div class="desc">${description}</div>`

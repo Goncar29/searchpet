@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { LanguageSwitcher } from '../components/LanguageSwitcher';
+import { Logo } from '../components/Logo';
 import { useQueryClient } from '@tanstack/react-query';
 import { useUnreadCount, useWebSocket, useMyShelter } from '@shared/hooks';
 import type { WsEnvelope, WsBadgeUpdate } from '@shared/hooks';
@@ -120,8 +121,8 @@ export function MainLayout() {
           >
             {/* Columna 1 — Logo */}
             <Link to="/" className="inline-flex items-center gap-2 pr-6">
-              <span className="text-2xl">🐾</span>
-              <span className="text-xl font-bold text-gray-900 dark:text-gray-50">
+              <Logo tight className="h-6 w-auto shrink-0 text-primary" />
+              <span className="text-2xl font-brand font-semibold tracking-tight text-gray-900 dark:text-gray-50">
                 Search<span className="text-primary">Pet</span>
               </span>
             </Link>
@@ -206,29 +207,28 @@ export function MainLayout() {
                             role="menu"
                             className="w-56 rounded-xl bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-700 shadow-lg py-1"
                           >
-                          {userMenuLinks.map((link) => (
-                            <Link
-                              key={link.to}
-                              to={link.to}
-                              role="menuitem"
-                              className={`flex items-center justify-between px-4 py-2 text-sm ${
-                                isActive(link.to)
+                            {userMenuLinks.map((link) => (
+                              <Link
+                                key={link.to}
+                                to={link.to}
+                                role="menuitem"
+                                className={`flex items-center justify-between px-4 py-2 text-sm ${isActive(link.to)
                                   ? 'text-primary font-semibold bg-orange-50 dark:bg-orange-950'
                                   : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
-                              } transition-colors`}
+                                  } transition-colors`}
+                              >
+                                <span>{link.label}</span>
+                                {link.badge && unreadBadge}
+                              </Link>
+                            ))}
+                            <div className="border-t border-gray-100 dark:border-gray-800 my-1" />
+                            <button
+                              onClick={handleLogout}
+                              role="menuitem"
+                              className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                             >
-                              <span>{link.label}</span>
-                              {link.badge && unreadBadge}
-                            </Link>
-                          ))}
-                          <div className="border-t border-gray-100 dark:border-gray-800 my-1" />
-                          <button
-                            onClick={handleLogout}
-                            role="menuitem"
-                            className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                          >
-                            {t('logout')}
-                          </button>
+                              {t('logout')}
+                            </button>
                           </div>
                         </div>
                       )}
@@ -254,41 +254,41 @@ export function MainLayout() {
 
               {/* Hamburger — solo mobile (< 920px) */}
               <div className="flex min-[960px]:hidden items-center gap-2">
-              <button
-                onClick={() => setIsMenuOpen((prev) => !prev)}
-                aria-label={isMenuOpen ? t('closeMenu') : t('openMenu')}
-                aria-expanded={isMenuOpen}
-                className="p-1.5 rounded-md text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-150"
-              >
-                {isMenuOpen ? (
-                  /* Close icon: ✕ */
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-6 w-6"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={2}
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                ) : (
-                  /* Hamburger icon: ☰ */
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-6 w-6"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={2}
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-                  </svg>
-                )}
-              </button>
+                <button
+                  onClick={() => setIsMenuOpen((prev) => !prev)}
+                  aria-label={isMenuOpen ? t('closeMenu') : t('openMenu')}
+                  aria-expanded={isMenuOpen}
+                  className="p-1.5 rounded-md text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-150"
+                >
+                  {isMenuOpen ? (
+                    /* Close icon: ✕ */
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-6 w-6"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  ) : (
+                    /* Hamburger icon: ☰ */
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-6 w-6"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                    </svg>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
-        </div>
         </div>
 
         {/* Mobile nav panel */}
@@ -299,11 +299,10 @@ export function MainLayout() {
                 <Link
                   key={link.to}
                   to={link.to}
-                  className={`text-sm font-medium py-2 px-3 rounded-md ${
-                    isActive(link.to)
-                      ? 'text-primary bg-orange-50 dark:bg-orange-950'
-                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
-                  } transition-colors duration-150`}
+                  className={`text-sm font-medium py-2 px-3 rounded-md ${isActive(link.to)
+                    ? 'text-primary bg-orange-50 dark:bg-orange-950'
+                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+                    } transition-colors duration-150`}
                 >
                   {link.label}
                 </Link>
@@ -313,65 +312,59 @@ export function MainLayout() {
                 <>
                   <Link
                     to="/pets/mine"
-                    className={`text-sm font-medium py-2 px-3 rounded-md ${
-                      isActive('/pets/mine')
-                        ? 'text-primary bg-orange-50 dark:bg-orange-950'
-                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
-                    } transition-colors duration-150`}
+                    className={`text-sm font-medium py-2 px-3 rounded-md ${isActive('/pets/mine')
+                      ? 'text-primary bg-orange-50 dark:bg-orange-950'
+                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+                      } transition-colors duration-150`}
                   >
                     {t('myPets')}
                   </Link>
                   <Link
                     to="/messages"
-                    className={`text-sm font-medium py-2 px-3 rounded-md flex items-center ${
-                      isActive('/messages')
-                        ? 'text-primary bg-orange-50 dark:bg-orange-950'
-                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
-                    } transition-colors duration-150`}
+                    className={`text-sm font-medium py-2 px-3 rounded-md flex items-center ${isActive('/messages')
+                      ? 'text-primary bg-orange-50 dark:bg-orange-950'
+                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+                      } transition-colors duration-150`}
                   >
                     {t('messages')}
                     {unreadBadge}
                   </Link>
                   <Link
                     to="/alerts"
-                    className={`text-sm font-medium py-2 px-3 rounded-md ${
-                      isActive('/alerts')
-                        ? 'text-primary bg-orange-50 dark:bg-orange-950'
-                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
-                    } transition-colors duration-150`}
+                    className={`text-sm font-medium py-2 px-3 rounded-md ${isActive('/alerts')
+                      ? 'text-primary bg-orange-50 dark:bg-orange-950'
+                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+                      } transition-colors duration-150`}
                   >
                     {t('alerts')}
                   </Link>
                   {myShelter && (
                     <Link
                       to="/shelters/mine"
-                      className={`text-sm font-medium py-2 px-3 rounded-md ${
-                        isActive('/shelters/mine')
-                          ? 'text-primary bg-orange-50 dark:bg-orange-950'
-                          : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
-                      } transition-colors duration-150`}
+                      className={`text-sm font-medium py-2 px-3 rounded-md ${isActive('/shelters/mine')
+                        ? 'text-primary bg-orange-50 dark:bg-orange-950'
+                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+                        } transition-colors duration-150`}
                     >
                       {t('myShelter')}
                     </Link>
                   )}
                   <Link
                     to="/hogares"
-                    className={`text-sm font-medium py-2 px-3 rounded-md ${
-                      isActive('/hogares')
-                        ? 'text-primary bg-orange-50 dark:bg-orange-950'
-                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
-                    } transition-colors duration-150`}
+                    className={`text-sm font-medium py-2 px-3 rounded-md ${isActive('/hogares')
+                      ? 'text-primary bg-orange-50 dark:bg-orange-950'
+                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+                      } transition-colors duration-150`}
                   >
                     {t('fosterHomes:nav')}
                   </Link>
                   {isAdmin && (
                     <Link
                       to="/admin/abuse-reports"
-                      className={`text-sm font-medium py-2 px-3 rounded-md ${
-                        location.pathname.startsWith('/admin')
-                          ? 'text-primary bg-orange-50 dark:bg-orange-950'
-                          : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
-                      } transition-colors duration-150`}
+                      className={`text-sm font-medium py-2 px-3 rounded-md ${location.pathname.startsWith('/admin')
+                        ? 'text-primary bg-orange-50 dark:bg-orange-950'
+                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+                        } transition-colors duration-150`}
                     >
                       {t('admin')}
                     </Link>
@@ -429,8 +422,10 @@ export function MainLayout() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div>
               <div className="flex items-center gap-2 mb-3">
-                <span className="text-xl">🐾</span>
-                <span className="font-bold text-gray-900 dark:text-gray-50">SearchPet</span>
+                <Logo className="h-6 w-6 text-primary" />
+                <span className="font-brand font-semibold tracking-tight text-gray-900 dark:text-gray-50">
+                  Search<span className="text-primary">Pet</span>
+                </span>
               </div>
               <p className="text-sm text-gray-500 dark:text-gray-400">
                 {t('footer:description')}

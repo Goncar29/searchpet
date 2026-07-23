@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { getErrorMessage } from '@shared/utils/apiErrors';
+import { Logo } from '../components/Logo';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -73,7 +74,7 @@ export function RegisterPage() {
   return (
     <div className="max-w-md mx-auto px-4 py-12 bg-gray-50 dark:bg-gray-950 min-h-screen">
       <div className="text-center mb-8">
-        <p className="text-5xl mb-3">🐾</p>
+        <Logo className="h-14 w-14 mx-auto mb-3 text-primary" />
         <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{t('auth:register.title')}</h1>
         <p className="text-gray-500 dark:text-gray-400 mt-1">{t('auth:register.subtitle')}</p>
       </div>

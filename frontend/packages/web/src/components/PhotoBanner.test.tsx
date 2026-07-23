@@ -77,12 +77,12 @@ describe('PhotoBanner', () => {
     expect(img.style.width).toBe('100%');
   });
 
-  it('shows a 🐾 placeholder when there is no photo', () => {
-    const { container, getByText } = render(
+  it('shows a paw placeholder when there is no photo', () => {
+    const { container, getByLabelText } = render(
       <PhotoBanner petName="Firulais" heightPx={400} />
     );
 
-    expect(getByText('🐾')).toBeInTheDocument();
+    expect(getByLabelText('SearchPet')).toBeInTheDocument();
     expect(container.querySelector('img')).toBeNull();
   });
 });

@@ -1,8 +1,10 @@
+import { Logo } from '../components/Logo';
+
 export function DownloadPage() {
   return (
     <div className="max-w-2xl mx-auto px-4 py-16">
       <div className="text-center mb-10">
-        <p className="text-6xl mb-4" aria-hidden>🐾</p>
+        <Logo className="h-16 w-16 mx-auto mb-4 text-primary" />
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
           Descargar SearchPet
         </h1>

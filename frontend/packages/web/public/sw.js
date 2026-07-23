@@ -67,8 +67,8 @@ self.addEventListener('push', (event) => {
   event.waitUntil(
     self.registration.showNotification(data.title || 'SearchPet', {
       body: data.body || '¡Hay una mascota perdida cerca de ti!',
-      icon: '/icons/icon.png',
-      badge: '/icons/icon.png',
+      icon: '/icons/icon-192.png',
+      badge: '/icons/icon-192.png',
       vibrate: [200, 100, 200],
       data: { url: data.url || '/' },
       actions: [

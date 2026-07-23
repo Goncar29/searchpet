@@ -20,6 +20,8 @@
   --color-instagram: #E4405F;
   --color-twitter: #1DA1F2;
   --font-family-sans: 'Inter', system-ui, sans-serif;
+  /* Brand wordmark font (SearchPet logo lockup) */
+  --font-brand: 'Fredoka', system-ui, sans-serif;
 }
 
 /* Dark mode surface tokens — complement utility classes */

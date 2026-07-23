@@ -12,6 +12,7 @@
 // ============================================================
 
 import { useRef, useState } from 'react';
+import { PawPlaceholder } from './PawPlaceholder';
 
 interface PhotoBannerProps {
   photoUrl?: string;
@@ -63,7 +64,7 @@ export function PhotoBanner({ photoUrl, petName, heightPx }: PhotoBannerProps) {
           }
         />
       ) : (
-        <span style={{ fontSize: '80px' }}>🐾</span>
+        <PawPlaceholder className="w-24" color="#C24E1A" />
       )}
     </div>
   );

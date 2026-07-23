@@ -4,6 +4,8 @@ import { useTranslation } from 'react-i18next';
 import { useSharedPet } from '@shared/hooks';
 import { statusBadgeBg } from '../utils/statusBadge';
 import { buildWhatsAppContactURL } from '@shared/utils/whatsappTemplates';
+import { Logo } from '../components/Logo';
+import { PawPlaceholder } from '../components/PawPlaceholder';
 
 export function SharedPetPage() {
   const { t } = useTranslation(['sharedPet', 'pets']);
@@ -66,8 +68,8 @@ export function SharedPetPage() {
         <div className="bg-white border-b border-gray-200 py-4">
           <div className="max-w-lg mx-auto px-4">
             <Link to="/" className="inline-flex items-center gap-2 hover:opacity-80 transition-opacity">
-              <span className="text-2xl">🐾</span>
-              <span className="text-xl font-bold text-gray-900">
+              <Logo className="h-7 w-7 text-primary" />
+              <span className="text-xl font-brand font-semibold tracking-tight text-gray-900">
                 Search<span className="text-primary">Pet</span>
               </span>
             </Link>
@@ -88,7 +90,7 @@ export function SharedPetPage() {
                 <img src={primaryPhoto.url} alt={pet.name} className="w-full h-full object-cover" />
               ) : (
                 <div className="w-full h-full flex items-center justify-center">
-                  <span className="text-7xl">🐾</span>
+                  <PawPlaceholder className="w-2/5 max-w-28" />
                 </div>
               )}
             </div>

@@ -2,6 +2,7 @@ import { Link, useNavigate } from 'react-router';
 import { useStories, useLikeStory, useUnlikeStory } from '@shared/hooks';
 import { useAuth } from '../context/AuthContext';
 import type { SuccessStory } from '@shared/types';
+import { PawPlaceholder } from '../components/PawPlaceholder';
 
 function truncate(text: string, max: number): string {
   if (text.length <= max) return text;
@@ -100,7 +101,7 @@ export function StoriesPage() {
         </div>
       ) : (
         <div className="text-center py-16">
-          <p className="text-5xl mb-4">🐾</p>
+          <PawPlaceholder className="w-16 mx-auto mb-4" />
           <p className="text-gray-700 dark:text-gray-300 font-semibold mb-2">
             Todavía no hay historias
           </p>
