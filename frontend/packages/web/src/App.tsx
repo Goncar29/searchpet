@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from 'react-router';
+import { Routes, Route, Navigate, useParams } from 'react-router';
 import { MainLayout } from './layouts/MainLayout';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { AdminRoute } from './components/AdminRoute';
@@ -44,6 +44,12 @@ import { RegisterFosterHomePage } from './pages/RegisterFosterHomePage';
 import { MyFosterHomePage } from './pages/MyFosterHomePage';
 import { FosterHomesAdminPage } from './pages/admin/FosterHomesAdminPage';
 
+// Preserves the :id param when redirecting the legacy foster-home detail path.
+function FosterHomeLegacyRedirect() {
+  const { id } = useParams();
+  return <Navigate to={`/fosterhomes/${id}`} replace />;
+}
+
 export default function App() {
   return (
     <>
@@ -55,7 +61,7 @@ export default function App() {
           <Route path="/map" element={<MapPage />} />
           <Route path="/publish" element={<PublishWizardPage />} />
           <Route path="/pets/:id" element={<PetDetailPage />} />
-          <Route path="/adoptar" element={<AdoptPage />} />
+          <Route path="/adopt" element={<AdoptPage />} />
           <Route path="/shelters" element={<SheltersPage />} />
           <Route path="/leaderboard" element={<LeaderboardPage />} />
           <Route path="/stories" element={<StoriesPage />} />
@@ -63,9 +69,18 @@ export default function App() {
           <Route path="/users/:id" element={<UserProfilePage />} />
           <Route path="/groups" element={<GroupsPage />} />
           <Route path="/groups/:id" element={<GroupDetailPage />} />
-          <Route path="/descargar" element={<DownloadPage />} />
+          <Route path="/download" element={<DownloadPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
+
+          {/* Legacy Spanish route redirects → English. Keep old shared/bookmarked
+              links working; targets enforce their own auth. */}
+          <Route path="/adoptar" element={<Navigate to="/adopt" replace />} />
+          <Route path="/hogares" element={<Navigate to="/fosterhomes" replace />} />
+          <Route path="/hogares/registrar" element={<Navigate to="/fosterhomes/register" replace />} />
+          <Route path="/hogares/mio" element={<Navigate to="/fosterhomes/mine" replace />} />
+          <Route path="/hogares/:id" element={<FosterHomeLegacyRedirect />} />
+          <Route path="/descargar" element={<Navigate to="/download" replace />} />
 
           {/* Rutas protegidas (requieren autenticación) */}
           <Route element={<ProtectedRoute />}>
@@ -81,10 +96,10 @@ export default function App() {
             <Route path="/alerts" element={<AlertsPage />} />
             <Route path="/shelters/register" element={<RegisterShelterPage />} />
             <Route path="/shelters/mine" element={<MyShelterPage />} />
-            <Route path="/hogares" element={<FosterHomesPage />} />
-            <Route path="/hogares/registrar" element={<RegisterFosterHomePage />} />
-            <Route path="/hogares/mio" element={<MyFosterHomePage />} />
-            <Route path="/hogares/:id" element={<FosterHomeDetailPage />} />
+            <Route path="/fosterhomes" element={<FosterHomesPage />} />
+            <Route path="/fosterhomes/register" element={<RegisterFosterHomePage />} />
+            <Route path="/fosterhomes/mine" element={<MyFosterHomePage />} />
+            <Route path="/fosterhomes/:id" element={<FosterHomeDetailPage />} />
           </Route>
           {/* Admin routes — protected by AdminRoute guard */}
           <Route element={<AdminRoute />}>

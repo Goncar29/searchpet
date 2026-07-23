@@ -43,7 +43,7 @@ export function FosterHomeDetailPage() {
       <div className="text-center py-20">
         <p className="text-5xl mb-4">🏠</p>
         <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">{t('fosterHomes:detail.notFound')}</h2>
-        <Link to="/hogares" className="text-primary font-semibold mt-4 inline-block">{t('common:back')}</Link>
+        <Link to="/fosterhomes" className="text-primary font-semibold mt-4 inline-block">{t('common:back')}</Link>
       </div>
     );
   }
@@ -93,9 +93,8 @@ export function FosterHomeDetailPage() {
                       type="button"
                       onClick={() => setActivePhotoIndex(i)}
                       aria-label={t('fosterHomes:detail.goToPhoto', { number: i + 1 })}
-                      className={`w-2 h-2 rounded-full transition-colors ${
-                        i === safePhotoIndex ? 'bg-white' : 'bg-white/40 hover:bg-white/70'
-                      }`}
+                      className={`w-2 h-2 rounded-full transition-colors ${i === safePhotoIndex ? 'bg-white' : 'bg-white/40 hover:bg-white/70'
+                        }`}
                     />
                   ))}
                 </div>

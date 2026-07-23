@@ -114,11 +114,10 @@ export function AbuseReportsPage() {
           <button
             key={tab.key}
             onClick={() => changeFilter(tab.key)}
-            className={`text-sm font-medium py-1.5 px-4 rounded-lg transition-colors duration-150 ${
-              filter === tab.key
+            className={`text-sm font-medium py-1.5 px-4 rounded-lg transition-colors duration-150 ${filter === tab.key
                 ? 'bg-primary text-white'
                 : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
-            }`}
+              }`}
           >
             {tab.label}
           </button>
@@ -169,13 +168,12 @@ export function AbuseReportsPage() {
                   </td>
                   <td className="py-2 px-3">
                     <span
-                      className={`inline-block text-xs font-semibold px-2 py-0.5 rounded-full ${
-                        report.status === 'pending'
+                      className={`inline-block text-xs font-semibold px-2 py-0.5 rounded-full ${report.status === 'pending'
                           ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300'
                           : report.status === 'resolved'
-                          ? 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300'
-                          : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
-                      }`}
+                            ? 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300'
+                            : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+                        }`}
                     >
                       {report.status}
                     </span>
@@ -191,7 +189,7 @@ export function AbuseReportsPage() {
                       </Link>
                     ) : report.target_foster_home ? (
                       <Link
-                        to={`/hogares/${report.target_foster_home.id}`}
+                        to={`/fosterhomes/${report.target_foster_home.id}`}
                         className="text-primary hover:underline"
                       >
                         🏠 {report.target_foster_home.city}
@@ -201,10 +199,10 @@ export function AbuseReportsPage() {
                         {report.target_user_id
                           ? t('abuse.targetUser', { id: report.target_user_id.slice(0, 8) })
                           : report.target_report_id
-                          ? t('abuse.targetReport', { id: report.target_report_id.slice(0, 8) })
-                          : report.target_foster_home_id
-                          ? t('abuse.targetFosterHome', { id: report.target_foster_home_id.slice(0, 8) })
-                          : '—'}
+                            ? t('abuse.targetReport', { id: report.target_report_id.slice(0, 8) })
+                            : report.target_foster_home_id
+                              ? t('abuse.targetFosterHome', { id: report.target_foster_home_id.slice(0, 8) })
+                              : '—'}
                       </span>
                     )}
                   </td>

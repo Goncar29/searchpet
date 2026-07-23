@@ -11,7 +11,7 @@ export function FosterHomeCard({ fosterHome }: FosterHomeCardProps) {
   const photo = fosterHome.photos?.[0];
 
   return (
-    <Link to={`/hogares/${fosterHome.id}`} className="block group">
+    <Link to={`/fosterhomes/${fosterHome.id}`} className="block group">
       <div className="bg-white dark:bg-gray-900 rounded-2xl overflow-hidden shadow-sm border border-gray-100 dark:border-gray-800 hover:shadow-md transition-shadow">
         {/* Foto */}
         <div className="h-48 bg-gray-100 dark:bg-gray-800 relative overflow-hidden">

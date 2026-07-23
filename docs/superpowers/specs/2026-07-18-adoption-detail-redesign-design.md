@@ -28,7 +28,7 @@ once it is adopted — with none of the lost-pet scaffolding.
    delegates the status-specific body. Adoption gets its own isolated component;
    the lost/stray/found body stays inline, guarded by `!isAdoptionListing`.
    (Rejected: A — more conditionals inside the already-large PetDetailPage;
-   C — a separate `/adoptar/:id` route, which would break existing `/pets/:id`
+   C — a separate `/adopt/:id` route, which would break existing `/pets/:id`
    links and shares for little extra isolation over B.)
 4. **`adopted` state:** contact and sharing are hidden (the pet is resolved). A
    celebratory "🎉 found a home" banner is shown. The record stays reachable by

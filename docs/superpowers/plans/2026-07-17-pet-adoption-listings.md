@@ -42,7 +42,7 @@ Each phase depends on the previous. Do not start Phase 2 before Phase 1 is merge
 - Create `frontend/packages/web/src/components/publish/AdoptionFormStep.tsx` — publish step.
 - Modify `frontend/packages/web/src/pages/PublishWizardPage.tsx` — adoption intent + step.
 - Modify `frontend/packages/web/src/pages/MyPetsPage.tsx` — third tab + adoption card actions.
-- Modify `frontend/packages/web/src/App.tsx` + nav layout — `/adoptar` route + link.
+- Modify `frontend/packages/web/src/App.tsx` + nav layout — `/adopt` route + link.
 - Create `frontend/packages/web/src/i18n/locales/{es,en,pt}/adoption.json`; modify `web/src/i18n/index.ts` + `pets.json` (status labels).
 
 **Mobile (Phase 3)**
@@ -716,7 +716,7 @@ git commit -m "feat(web): add adoption i18n namespace and status labels (es/en/p
 
 **Files:**
 - Create: `frontend/packages/web/src/pages/AdoptPage.tsx`
-- Modify: `frontend/packages/web/src/App.tsx` (route `/adoptar`)
+- Modify: `frontend/packages/web/src/App.tsx` (route `/adopt`)
 - Modify: the nav layout (`layouts/MainLayout.tsx`) — add "Adoptar" link
 
 - [ ] **Step 1: Build the page**
@@ -750,16 +750,16 @@ Fill in the JSX following `HomePage.tsx`'s markup and Tailwind classes so it mat
 
 - [ ] **Step 2: Register the route**
 
-In `App.tsx`, add `<Route path="/adoptar" element={<AdoptPage />} />` (import `AdoptPage`).
+In `App.tsx`, add `<Route path="/adopt" element={<AdoptPage />} />` (import `AdoptPage`).
 
 - [ ] **Step 3: Add the nav link**
 
-In `MainLayout.tsx`, add a nav link to `/adoptar` labeled `t('adoption:section.title')` (or a `layout` namespace key if nav labels live there — follow the existing nav-link pattern).
+In `MainLayout.tsx`, add a nav link to `/adopt` labeled `t('adoption:section.title')` (or a `layout` namespace key if nav labels live there — follow the existing nav-link pattern).
 
 - [ ] **Step 4: Verify build + smoke**
 
 Run: `cd frontend/packages/web && pnpm build`
-Expected: build succeeds. Manually: `pnpm dev`, open `/adoptar`, confirm it renders (empty state if no data) with no raw i18n keys.
+Expected: build succeeds. Manually: `pnpm dev`, open `/adopt`, confirm it renders (empty state if no data) with no raw i18n keys.
 
 - [ ] **Step 5: Commit**
 
@@ -866,7 +866,7 @@ Expected: all green (includes the shared vitest config per rule #14).
 
 - [ ] **Step 2: Manual smoke**
 
-`pnpm dev`: publish an adoption pet → appears in `/adoptar` and in the profile "En adopción" tab → mark adopted → disappears from `/adoptar`. Confirm no raw i18n keys in es/en/pt.
+`pnpm dev`: publish an adoption pet → appears in `/adopt` and in the profile "En adopción" tab → mark adopted → disappears from `/adopt`. Confirm no raw i18n keys in es/en/pt.
 
 - [ ] **Step 3: Open the Phase 2 PR** (searchpet-pr skill). Title: "feat(web): adoption listings — Adoptar section, publish step, profile tab".
 
