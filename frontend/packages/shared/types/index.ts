@@ -388,6 +388,17 @@ export interface AuthResponse {
   user: User;
 }
 
+/**
+ * Response of POST /api/auth/google. `is_new_user` tells the UI whether to show
+ * the location onboarding step — it is the only signal that the account was
+ * created by this very request.
+ */
+export interface GoogleAuthResponse {
+  token: string;
+  user: User;
+  is_new_user: boolean;
+}
+
 export interface UploadPhotoResponse {
   id: string;
   url: string;
@@ -419,6 +430,13 @@ export interface RegisterRequest {
 export interface LoginRequest {
   email: string;
   password: string;
+}
+
+/** Payload of PATCH /api/auth/me/location. latitude and longitude travel as a pair. */
+export interface UpdateLocationRequest {
+  latitude?: number;
+  longitude?: number;
+  city?: string;
 }
 
 export interface InitialReportRequest {
