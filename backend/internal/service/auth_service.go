@@ -243,8 +243,11 @@ func (s *authService) UpdateProfile(ctx context.Context, id uuid.UUID, name, pho
 //  3. Nada conocido      → crea el usuario.
 //
 // SEGURIDAD: los caminos 2 y 3 solo se alcanzan con claims.EmailVerified == true.
-// Sin ese gate, cualquiera podría reclamar la cuenta ajena de un email que no
-// controla. El chequeo de email_verified ES la barrera.
+// Ese gate impide que un tercero reclame la cuenta de un email que NO controla.
+// NO alcanza por sí solo para el camino 2: Register no exige ninguna prueba del
+// email, así que una cuenta local con EmailVerified=false pudo haberla plantado
+// un atacante. Por eso al vincular una cuenta no verificada se descarta su
+// contraseña (ver el comentario en ese bloque).
 func (s *authService) LoginWithGoogle(ctx context.Context, idToken string) (*domain.User, string, bool, error) {
 	if s.googleVerifier == nil {
 		log.Println("[auth_service] login con Google solicitado pero GOOGLE_CLIENT_ID no está configurado")
@@ -287,8 +290,28 @@ func (s *authService) LoginWithGoogle(ctx context.Context, idToken string) (*dom
 		if existing.IsBanned {
 			return nil, "", false, domain.ErrUserBanned
 		}
+		// Una cuenta ya vinculada a OTRA cuenta de Google no se re-vincula por
+		// coincidencia de email: eso pasa cuando una dirección cambia de dueño
+		// (buzón de Workspace reasignado, cuenta de Google borrada y reemitida).
+		// Sin esto, el nuevo dueño del email se queda con la cuenta del anterior.
+		if existing.GoogleID != "" && existing.GoogleID != claims.Sub {
+			return nil, "", false, domain.ErrGoogleAccountMismatch
+		}
+		// SEGURIDAD — pre-hijacking: Register no exige ninguna prueba de que el
+		// email sea tuyo, así que una cuenta con EmailVerified=false pudo haberla
+		// creado un atacante con TU email y una contraseña que él eligió. Si
+		// dejáramos vivir esa contraseña, al vincular te meteríamos en una cuenta
+		// que el atacante también puede abrir. Se descarta: quien acaba de probar
+		// el email ante Google es el dueño legítimo, y entra por Google.
+		if !existing.EmailVerified {
+			existing.PasswordHash = ""
+		}
 		existing.GoogleID = claims.Sub
 		existing.EmailVerified = true
+		// Invariante del codebase (verification_service.go): IsVerified es
+		// EmailVerified || PhoneVerified. Sin esto, todo usuario de Google
+		// quedaría sin insignia de verificado en la UI.
+		existing.IsVerified = true
 		if err := s.userRepo.Update(ctx, existing); err != nil {
 			return nil, "", false, err
 		}
@@ -309,6 +332,7 @@ func (s *authService) LoginWithGoogle(ctx context.Context, idToken string) (*dom
 		GoogleID:           claims.Sub,
 		PasswordHash:       "", // sin contraseña: bcrypt contra "" siempre falla → login por password bloqueado
 		EmailVerified:      true,
+		IsVerified:         true, // invariante: EmailVerified || PhoneVerified
 		VerificationMethod: "google",
 	}
 	if err := s.userRepo.Create(ctx, user); err != nil {

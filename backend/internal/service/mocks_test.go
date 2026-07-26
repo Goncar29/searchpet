@@ -26,6 +26,7 @@ type mockUserRepo struct {
 	// Capturas para aserciones
 	createdUser  *domain.User
 	updatedUsers []*domain.User
+	gotEmail     string // clave con la que se llamó a GetByEmail
 }
 
 func (m *mockUserRepo) Create(_ context.Context, user *domain.User) error {
@@ -41,7 +42,8 @@ func (m *mockUserRepo) GetByID(_ context.Context, _ uuid.UUID) (*domain.User, er
 	return m.user, m.getByIDErr
 }
 
-func (m *mockUserRepo) GetByEmail(_ context.Context, _ string) (*domain.User, error) {
+func (m *mockUserRepo) GetByEmail(_ context.Context, email string) (*domain.User, error) {
+	m.gotEmail = email
 	return m.user, m.emailErr
 }
 

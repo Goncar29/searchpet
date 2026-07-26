@@ -13,6 +13,7 @@ var (
 	ErrGoogleTokenInvalid      = errors.New("no pudimos validar tu cuenta de Google; intentá de nuevo")
 	ErrGoogleEmailUnverified   = errors.New("tu email de Google no está verificado")
 	ErrGoogleSignInUnavailable = errors.New("el inicio de sesión con Google no está disponible en este momento")
+	ErrGoogleAccountMismatch   = errors.New("este email ya está vinculado a otra cuenta de Google")
 
 	// User
 	ErrUserNotFound          = errors.New("usuario no encontrado")
@@ -137,6 +138,7 @@ var ErrorCodes = map[error]string{
 	ErrGoogleTokenInvalid:      "google_token_invalid",
 	ErrGoogleEmailUnverified:   "google_email_unverified",
 	ErrGoogleSignInUnavailable: "google_signin_unavailable",
+	ErrGoogleAccountMismatch:   "google_account_mismatch",
 
 	// User
 	ErrUserNotFound:          "user_not_found",
