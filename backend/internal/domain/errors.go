@@ -9,6 +9,11 @@ var (
 	ErrEmailAlreadyExists = errors.New("el email ya está registrado")
 	ErrUserBanned         = errors.New("usuario bloqueado")
 
+	// Google Sign-In
+	ErrGoogleTokenInvalid    = errors.New("no pudimos validar tu cuenta de Google; intentá de nuevo")
+	ErrGoogleEmailUnverified = errors.New("tu email de Google no está verificado")
+	ErrGoogleVerifyFailed    = errors.New("no pudimos contactar a Google; intentá más tarde")
+
 	// User
 	ErrUserNotFound          = errors.New("usuario no encontrado")
 	ErrCannotModerateAdmin   = errors.New("no se puede moderar a un administrador")
@@ -127,6 +132,11 @@ var ErrorCodes = map[error]string{
 	ErrInvalidCredentials: "invalid_credentials",
 	ErrEmailAlreadyExists: "email_already_exists",
 	ErrUserBanned:         "user_banned",
+
+	// Google Sign-In
+	ErrGoogleTokenInvalid:    "google_token_invalid",
+	ErrGoogleEmailUnverified: "google_email_unverified",
+	ErrGoogleVerifyFailed:    "google_verify_failed",
 
 	// User
 	ErrUserNotFound:          "user_not_found",
