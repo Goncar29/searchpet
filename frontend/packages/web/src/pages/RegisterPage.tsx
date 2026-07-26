@@ -4,6 +4,9 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { getErrorMessage } from '@shared/utils/apiErrors';
 import { Logo } from '../components/Logo';
+import { GoogleSignInButton } from '../components/auth/GoogleSignInButton';
+import { LocationOnboardingStep } from '../components/auth/LocationOnboardingStep';
+import { useGoogleSignIn } from '../hooks/useGoogleSignIn';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -18,6 +21,14 @@ export function RegisterPage() {
   const { t } = useTranslation(['auth', 'common']);
   const navigate = useNavigate();
   const { register, isAuthenticated, isLoading } = useAuth();
+  const {
+    googleError,
+    setGoogleError,
+    googleLoading,
+    showLocationStep,
+    handleCredential,
+    finishOnboarding,
+  } = useGoogleSignIn();
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -78,6 +89,27 @@ export function RegisterPage() {
         <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{t('auth:register.title')}</h1>
         <p className="text-gray-500 dark:text-gray-400 mt-1">{t('auth:register.subtitle')}</p>
       </div>
+
+      {showLocationStep ? (
+        <LocationOnboardingStep onDone={finishOnboarding} />
+      ) : (
+        <>
+          <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 mb-4">
+            {googleError && (
+              <div className="bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-sm p-3 rounded-lg mb-3">
+                {googleError}
+              </div>
+            )}
+            <GoogleSignInButton onCredential={handleCredential} onError={setGoogleError} />
+          </div>
+
+          <div className="flex items-center gap-3 mb-4">
+            <span className="h-px flex-1 bg-gray-200 dark:bg-gray-700" />
+            <span className="text-xs uppercase tracking-wide text-gray-400 dark:text-gray-500">
+              {t('auth:google.divider')}
+            </span>
+            <span className="h-px flex-1 bg-gray-200 dark:bg-gray-700" />
+          </div>
 
       <form
         onSubmit={handleSubmit}
@@ -189,7 +221,7 @@ export function RegisterPage() {
 
         <button
           type="submit"
-          disabled={loading}
+          disabled={loading || googleLoading}
           className="w-full bg-primary text-white font-bold py-3 rounded-lg hover:bg-primary-dark transition-colors disabled:opacity-60"
         >
           {loading ? t('common:loading') : t('auth:register.submit')}
@@ -201,6 +233,8 @@ export function RegisterPage() {
           </Link>
         </p>
       </form>
+        </>
+      )}
     </div>
   );
 }
