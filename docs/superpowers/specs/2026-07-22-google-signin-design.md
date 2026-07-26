@@ -77,6 +77,11 @@ type GoogleClaims struct { Sub, Email, Name, Picture string; EmailVerified bool 
 
 Implementación real en `pkg/googleauth/` (usa `idtoken.Validate`). En tests se inyecta un mock — mismo patrón de DI del resto del backend.
 
+> **Correcciones (2026-07-26, durante la implementación):**
+> - Los tipos se llaman `googleauth.Verifier` y `googleauth.Claims`, no `GoogleTokenVerifier`/`GoogleClaims`: el nombre del paquete ya aporta el prefijo y repetirlo es tartamudeo (`googleauth.GoogleTokenVerifier`).
+> - `NewVerifier` devuelve `(Verifier, error)` y **rechaza un clientID vacío**. Motivo: `idtoken.Validate` se saltea el chequeo de audiencia cuando el audience es `""` (`validate.go:160`), dejando solo firma y expiración — cualquier token de Google entraría, incluido uno emitido para la app de un atacante con el email real y verificado de una víctima. Con el auto-link del paso 4 eso es toma de cuenta. La restricción se hace imposible de saltear en el constructor en vez de confiar en que el llamador chequee la env var.
+> - `Verify` además valida `iss` (la librería NO lo hace: `Issuer` es solo un campo del struct, nunca se lee) y rechaza `sub` o `email` vacíos, que la librería tampoco exige.
+
 ### 5.4 Persistencia de ubicación
 
 Nuevo endpoint chico **`PATCH /api/auth/me/location`** (protegido, JWT): body `{ latitude?, longitude?, city? }`. Setea `Latitude`/`Longitude` (nullables) y/o `City` del usuario autenticado. Reutilizable por cualquier usuario para setear ubicación después, no solo en el onboarding de Google.
@@ -88,8 +93,10 @@ Nuevo endpoint chico **`PATCH /api/auth/me/location`** (protegido, JWT): body `{
 | ID token inválido/expirado | `google_token_invalid` | 401 |
 | `email_verified: false` | `google_email_unverified` | 401 |
 | Usuario baneado | `user_banned` (existente) | 403 |
-| Google inalcanzable al verificar | `google_verify_failed` | 502 |
+| `GOOGLE_CLIENT_ID` sin configurar (verificador nulo) | `google_signin_unavailable` | 502 |
 | Falla re-subida de foto | (best-effort, no error al cliente) | — |
+
+> **Corrección (2026-07-26, durante la implementación):** esta fila decía `google_verify_failed` / "Google inalcanzable al verificar". Se renombró porque `idtoken.Validate` no distingue "token inválido" de "no llegué a Google" — todo fallo de verificación mapea a `google_token_invalid` (401). El 502 quedó reservado para el único caso que sí es distinguible: el servidor no tiene `GOOGLE_CLIENT_ID`. Un mensaje que culpa a la red mandaría a alguien a perseguir un problema de red cuando la causa es una env var sin setear.
 
 ## 6. Frontend (web)
 
