@@ -9,6 +9,8 @@ interface AuthContextType {
   token: string | null;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, name: string, phone?: string, city?: string) => Promise<void>;
+  /** Resolves to `is_new_user` so the caller can decide whether to run onboarding. */
+  loginWithGoogle: (idToken: string) => Promise<boolean>;
   logout: () => void;
   refreshUser: () => Promise<void>;
   isAuthenticated: boolean;
@@ -114,6 +116,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     registerWebPushToken();
   };
 
+  const loginWithGoogle = async (idToken: string): Promise<boolean> => {
+    const resp = await apiClient.loginWithGoogle(idToken);
+    setToken(resp.token);
+    setUser(resp.user);
+    localStorage.setItem('token', resp.token);
+    localStorage.setItem('user', JSON.stringify(resp.user));
+    // Registrar token FCM — en background, falla silenciosamente
+    registerWebPushToken();
+    return resp.is_new_user;
+  };
+
   const logout = () => {
     setToken(null);
     setUser(null);
@@ -133,7 +146,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, login, register, logout, refreshUser, isAuthenticated: !!token, isAdmin: user?.is_admin ?? false, isLoading }}>
+    <AuthContext.Provider value={{ user, token, login, register, loginWithGoogle, logout, refreshUser, isAuthenticated: !!token, isAdmin: user?.is_admin ?? false, isLoading }}>
       {children}
     </AuthContext.Provider>
   );
