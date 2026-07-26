@@ -206,3 +206,61 @@ func TestUserRepository_GetByEmailIsCaseInsensitive(t *testing.T) {
 		t.Errorf("expected ErrUserNotFound for an unrelated address, got %v", err)
 	}
 }
+
+func TestUserRepository_GetByGoogleID(t *testing.T) {
+	db := testdb.SetupTestDB(t)
+	repo := repository.NewUserRepository(db)
+	ctx := context.Background()
+
+	local := uuid.New().String()[:8]
+	sub := "google-sub-" + local
+	user := &domain.User{
+		ID:           uuid.New(),
+		Email:        fmt.Sprintf("google-%s@test.com", local),
+		PasswordHash: "",
+		Name:         "Google User",
+		GoogleID:     sub,
+	}
+	if err := repo.Create(ctx, user); err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	got, err := repo.GetByGoogleID(ctx, sub)
+	if err != nil {
+		t.Fatalf("GetByGoogleID: %v", err)
+	}
+	if got.ID != user.ID {
+		t.Errorf("expected %s, got %s", user.ID, got.ID)
+	}
+
+	if _, err := repo.GetByGoogleID(ctx, "google-sub-nobody-"+local); !errors.Is(err, domain.ErrUserNotFound) {
+		t.Errorf("expected ErrUserNotFound for an unknown sub, got %v", err)
+	}
+
+	// The empty string is the value EVERY non-Google user carries. Matching on it
+	// would hand back an arbitrary stranger's account.
+	if _, err := repo.GetByGoogleID(ctx, ""); !errors.Is(err, domain.ErrUserNotFound) {
+		t.Errorf("SECURITY: an empty google id must never match a user, got %v", err)
+	}
+}
+
+func TestUserRepository_TwoUsersWithoutGoogleCoexist(t *testing.T) {
+	// Regression guard for the partial unique index: uniq_users_google_id is
+	// declared WHERE google_id <> '', so many users may share the empty value.
+	// A plain UNIQUE index here would reject the second password-only signup.
+	db := testdb.SetupTestDB(t)
+	repo := repository.NewUserRepository(db)
+	ctx := context.Background()
+
+	for i := 0; i < 2; i++ {
+		u := &domain.User{
+			ID:           uuid.New(),
+			Email:        fmt.Sprintf("nogoogle-%s@test.com", uuid.New().String()[:8]),
+			PasswordHash: "hashed",
+			Name:         "No Google",
+		}
+		if err := repo.Create(ctx, u); err != nil {
+			t.Fatalf("user %d without a google id must be insertable: %v", i+1, err)
+		}
+	}
+}

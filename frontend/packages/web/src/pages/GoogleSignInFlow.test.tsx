@@ -36,6 +36,7 @@ vi.mock('@shared/api/client', () => ({
 // GoogleSignInButton is exercised by its own tests; here it is reduced to a
 // button that hands up a credential, so these tests are about composition only.
 vi.mock('../components/auth/GoogleSignInButton', () => ({
+  googleClientId: () => 'test-client-id.apps.googleusercontent.com',
   GoogleSignInButton: ({ onCredential }: { onCredential: (t: string) => void }) => (
     <button type="button" onClick={() => onCredential('fake-id-token')}>
       google-signin

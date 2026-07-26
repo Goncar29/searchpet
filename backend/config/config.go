@@ -43,8 +43,6 @@ type Config struct {
 	// Set to a higher value (e.g. 100) in E2E/test environments.
 	AuthRateLimitMax int
 
-	// V1.2 — Image Search (Jina CLIP embeddings + pgvector). Migrated off
-	// HuggingFace serverless, which dropped CLIP image embeddings.
 	// GoogleClientID is the OAuth 2.0 Web client id, checked as the ID token
 	// audience. Empty disables Google Sign-In: POST /api/auth/google then answers
 	// 502 google_signin_unavailable instead of trusting an unchecked token —
@@ -52,6 +50,8 @@ type Config struct {
 	// misconfigured deploy must never build a verifier at all.
 	GoogleClientID string
 
+	// V1.2 — Image Search (Jina CLIP embeddings + pgvector). Migrated off
+	// HuggingFace serverless, which dropped CLIP image embeddings.
 	JinaAPIKey string
 	// JinaEndpoint optionally overrides the default Jina embeddings endpoint
 	// (service.DefaultJinaEndpoint). Empty means "use the default" — set this
@@ -96,9 +96,10 @@ func Load() *Config {
 
 		AuthRateLimitMax: getEnvInt("RATE_LIMIT_AUTH_MAX", 5),
 
-		// V1.2 — Image Search (Jina CLIP)
+		// Google Sign-In
 		GoogleClientID: getEnv("GOOGLE_CLIENT_ID", ""),
 
+		// V1.2 — Image Search (Jina CLIP)
 		JinaAPIKey:   getEnv("JINA_API_KEY", ""),
 		JinaEndpoint: getEnv("JINA_ENDPOINT", ""),
 

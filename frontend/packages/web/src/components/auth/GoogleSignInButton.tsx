@@ -4,6 +4,16 @@ import { useTranslation } from 'react-i18next';
 const GIS_SRC = 'https://accounts.google.com/gsi/client';
 
 /**
+ * Single source of truth for "is Google Sign-In configured". Both this button
+ * and the panel that frames it must agree, or the page renders a divider above
+ * nothing.
+ */
+export function googleClientId(): string | undefined {
+  const id = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined;
+  return id ? id : undefined;
+}
+
+/**
  * The GIS script is a page-level singleton: loading it twice would register two
  * sets of globals. This promise is shared by every instance of the button.
  */
@@ -52,8 +62,8 @@ interface GoogleSignInButtonProps {
  * Google configured simply shows the email/password form on its own.
  */
 export function GoogleSignInButton({ onCredential, onError }: GoogleSignInButtonProps) {
-  const { t } = useTranslation(['auth']);
-  const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined;
+  const { t, i18n } = useTranslation(['auth']);
+  const clientId = googleClientId();
   const containerRef = useRef<HTMLDivElement>(null);
   const [ready, setReady] = useState(false);
 
@@ -69,6 +79,10 @@ export function GoogleSignInButton({ onCredential, onError }: GoogleSignInButton
   // is both sufficient and correct.
   const tRef = useRef(t);
   tRef.current = t;
+  // GIS renders its own button label, so it needs the language explicitly —
+  // otherwise the button says "Continue with Google" while everything around it
+  // follows the app's es/en/pt switcher.
+  const locale = i18n.language;
 
   useEffect(() => {
     if (!clientId) return;
@@ -89,6 +103,7 @@ export function GoogleSignInButton({ onCredential, onError }: GoogleSignInButton
           text: 'continue_with',
           shape: 'pill',
           width: 320,
+          locale,
         });
         setReady(true);
       })
@@ -99,7 +114,7 @@ export function GoogleSignInButton({ onCredential, onError }: GoogleSignInButton
     return () => {
       cancelled = true;
     };
-  }, [clientId]);
+  }, [clientId, locale]);
 
   if (!clientId) return null;
 

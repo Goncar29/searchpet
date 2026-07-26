@@ -7,6 +7,7 @@ vi.mock('@shared/api/client', () => ({
   apiClient: {
     login: vi.fn(),
     register: vi.fn(),
+    loginWithGoogle: vi.fn(),
     getMe: vi.fn(),
     setToken: vi.fn(),
     logout: vi.fn(),
@@ -177,5 +178,98 @@ describe('AuthContext', () => {
     expect(screen.getByTestId('auth').textContent).toBe('false');
     expect(localStorage.getItem('token')).toBeNull();
     expect(localStorage.getItem('user')).toBeNull();
+  });
+});
+
+describe('AuthContext.loginWithGoogle', () => {
+  // Exposes loginWithGoogle so a test can drive it and read what it returned.
+  function GoogleConsumer({ onResult }: { onResult: (isNew: boolean) => void }) {
+    const { loginWithGoogle, isAuthenticated, user } = useAuth();
+    return (
+      <div>
+        <button
+          type="button"
+          // .catch mirrors useGoogleSignIn, which wraps the call in try/catch.
+          onClick={() => void loginWithGoogle('fake-id-token').then(onResult).catch(() => {})}
+        >
+          go
+        </button>
+        <span data-testid="auth">{String(isAuthenticated)}</span>
+        <span data-testid="user">{user?.name ?? 'none'}</span>
+      </div>
+    );
+  }
+
+  beforeEach(() => {
+    localStorage.clear();
+    vi.clearAllMocks();
+  });
+
+  it('stores the session and passes is_new_user through', async () => {
+    const { apiClient } = await import('@shared/api/client');
+    const token = makeJwt({ exp: Math.floor(Date.now() / 1000) + 3600 });
+    vi.mocked(apiClient.loginWithGoogle).mockResolvedValue({
+      token,
+      user: { id: 'u1', email: 'carlos@example.com', name: 'Carlos', is_verified: true, created_at: '' },
+      is_new_user: true,
+    });
+
+    const onResult = vi.fn();
+    render(
+      <AuthProvider>
+        <GoogleConsumer onResult={onResult} />
+      </AuthProvider>,
+    );
+
+    await act(async () => {
+      screen.getByRole('button', { name: 'go' }).click();
+    });
+
+    // The flag is the ONLY signal the pages use to decide onboarding vs redirect.
+    expect(onResult).toHaveBeenCalledWith(true);
+    expect(screen.getByTestId('auth').textContent).toBe('true');
+    expect(screen.getByTestId('user').textContent).toBe('Carlos');
+    expect(localStorage.getItem('token')).toBe(token);
+    expect(JSON.parse(localStorage.getItem('user') ?? '{}').name).toBe('Carlos');
+  });
+
+  it('returns false for a returning user', async () => {
+    const { apiClient } = await import('@shared/api/client');
+    vi.mocked(apiClient.loginWithGoogle).mockResolvedValue({
+      token: makeJwt({ exp: Math.floor(Date.now() / 1000) + 3600 }),
+      user: { id: 'u1', email: 'carlos@example.com', name: 'Carlos', is_verified: true, created_at: '' },
+      is_new_user: false,
+    });
+
+    const onResult = vi.fn();
+    render(
+      <AuthProvider>
+        <GoogleConsumer onResult={onResult} />
+      </AuthProvider>,
+    );
+
+    await act(async () => {
+      screen.getByRole('button', { name: 'go' }).click();
+    });
+
+    expect(onResult).toHaveBeenCalledWith(false);
+  });
+
+  it('leaves no session behind when the request fails', async () => {
+    const { apiClient } = await import('@shared/api/client');
+    vi.mocked(apiClient.loginWithGoogle).mockRejectedValue(new Error('401'));
+
+    render(
+      <AuthProvider>
+        <GoogleConsumer onResult={vi.fn()} />
+      </AuthProvider>,
+    );
+
+    await act(async () => {
+      screen.getByRole('button', { name: 'go' }).click();
+    });
+
+    expect(screen.getByTestId('auth').textContent).toBe('false');
+    expect(localStorage.getItem('token')).toBeNull();
   });
 });

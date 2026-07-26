@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { GoogleSignInButton } from './GoogleSignInButton';
+import { GoogleSignInButton, googleClientId } from './GoogleSignInButton';
 
 interface GoogleAuthPanelProps {
   /** Message to show above the button, or '' for none. */
@@ -19,9 +19,7 @@ interface GoogleAuthPanelProps {
  */
 export function GoogleAuthPanel({ error, onCredential, onError }: GoogleAuthPanelProps) {
   const { t } = useTranslation(['auth']);
-  const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined;
-
-  if (!clientId) return null;
+  if (!googleClientId()) return null;
 
   return (
     <>

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
@@ -14,11 +15,14 @@ import (
 	"lost-pets/internal/domain"
 	"lost-pets/internal/dto"
 	"lost-pets/internal/handler"
+	"lost-pets/internal/service"
 )
 
 // ============================================================
 // Mock: AuthService
 // ============================================================
+
+type handlerAuthService = service.AuthService
 
 type mockAuthService struct {
 	registerFn           func(ctx context.Context, email, password, name, city string) (*domain.User, string, error)
@@ -558,5 +562,114 @@ func TestGoogleAuth_MissingIDToken(t *testing.T) {
 
 	if w.Code != http.StatusBadRequest {
 		t.Errorf("expected 400 for a missing id_token, got %d", w.Code)
+	}
+}
+
+// ============================================================
+// Tests: PATCH /api/auth/me/location
+// ============================================================
+
+// locationRouter wires the handler behind a middleware that injects userID,
+// mirroring how the protected group supplies it in production.
+func locationRouter(svc handlerAuthService, userID *uuid.UUID) *gin.Engine {
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+	router.PATCH("/api/auth/me/location", func(c *gin.Context) {
+		if userID != nil {
+			c.Set("userID", *userID)
+		}
+	}, handler.NewAuthHandler(svc).UpdateLocation)
+	return router
+}
+
+func patchLocation(router *gin.Engine, body string) *httptest.ResponseRecorder {
+	req := httptest.NewRequest(http.MethodPatch, "/api/auth/me/location", bytes.NewReader([]byte(body)))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	return w
+}
+
+func TestUpdateLocation_ResponseShape(t *testing.T) {
+	id := uuid.New()
+	updated := &domain.User{ID: id, Email: "carlos@example.com", Name: "Carlos", City: "Montevideo"}
+	var got dto.UpdateLocationRequest
+	svc := &mockAuthService{
+		updateLocationFn: func(_ context.Context, gotID uuid.UUID, req dto.UpdateLocationRequest) (*domain.User, error) {
+			if gotID != id {
+				t.Errorf("handler passed user %s, expected %s", gotID, id)
+			}
+			got = req
+			return updated, nil
+		},
+	}
+
+	w := patchLocation(locationRouter(svc, &id), `{"latitude":-34.9011,"longitude":-56.1645}`)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d — body: %s", w.Code, w.Body.String())
+	}
+	if got.Latitude == nil || *got.Latitude != -34.9011 || got.Longitude == nil || *got.Longitude != -56.1645 {
+		t.Errorf("coordinates did not reach the service intact: %+v", got)
+	}
+	var resp dto.UserResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+	if resp.City != "Montevideo" {
+		t.Errorf("expected the updated user back, got city %q", resp.City)
+	}
+}
+
+func TestUpdateLocation_RequiresAuthenticatedUser(t *testing.T) {
+	// No middleware sets userID — the handler must refuse rather than panic.
+	w := patchLocation(locationRouter(&mockAuthService{}, nil), `{"city":"Montevideo"}`)
+
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("expected 401 without a userID in context, got %d", w.Code)
+	}
+}
+
+func TestUpdateLocation_ErrorStatusMapping(t *testing.T) {
+	id := uuid.New()
+	cases := []struct {
+		name     string
+		err      error
+		wantCode int
+		wantBody string
+	}{
+		{"invalid input", domain.ErrInvalidInput, http.StatusBadRequest, "invalid_input"},
+		{"user gone", domain.ErrUserNotFound, http.StatusNotFound, "user_not_found"},
+		{"unexpected", errors.New("db exploded"), http.StatusInternalServerError, "internal_error"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			svc := &mockAuthService{
+				updateLocationFn: func(context.Context, uuid.UUID, dto.UpdateLocationRequest) (*domain.User, error) {
+					return nil, tc.err
+				},
+			}
+			w := patchLocation(locationRouter(svc, &id), `{"city":"Montevideo"}`)
+
+			if w.Code != tc.wantCode {
+				t.Errorf("expected %d, got %d", tc.wantCode, w.Code)
+			}
+			var errResp dto.ErrorResponse
+			if err := json.Unmarshal(w.Body.Bytes(), &errResp); err != nil {
+				t.Fatalf("invalid JSON: %v", err)
+			}
+			if errResp.Code != tc.wantBody {
+				t.Errorf("expected code %q, got %q", tc.wantBody, errResp.Code)
+			}
+		})
+	}
+}
+
+func TestUpdateLocation_MalformedBody(t *testing.T) {
+	id := uuid.New()
+	w := patchLocation(locationRouter(&mockAuthService{}, &id), `{"latitude":"not-a-number"}`)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected 400 for a malformed body, got %d", w.Code)
 	}
 }
