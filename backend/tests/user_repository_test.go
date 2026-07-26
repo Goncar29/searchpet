@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -163,5 +164,45 @@ func TestUserRepository_BanAndUnban(t *testing.T) {
 	}
 	if got2.IsBanned {
 		t.Error("want IsBanned=false after unban")
+	}
+}
+
+// GetByEmail debe ser insensible a mayúsculas: Register guarda el email tal cual
+// lo tipeó el usuario, pero LoginWithGoogle normaliza a minúsculas. Sin esto, un
+// usuario registrado como "Carlos@Example.com" que entra con Google no se
+// encuentra y termina con una segunda cuenta duplicada.
+func TestUserRepository_GetByEmailIsCaseInsensitive(t *testing.T) {
+	db := testdb.SetupTestDB(t)
+	repo := repository.NewUserRepository(db)
+	ctx := context.Background()
+
+	local := uuid.New().String()[:8]
+	stored := fmt.Sprintf("Carlos-%s@Example.COM", local)
+	user := &domain.User{
+		ID:           uuid.New(),
+		Email:        stored,
+		PasswordHash: "hashed",
+		Name:         "Test User",
+	}
+	if err := repo.Create(ctx, user); err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	for _, lookup := range []string{
+		stored,
+		strings.ToLower(stored),
+		strings.ToUpper(stored),
+	} {
+		got, err := repo.GetByEmail(ctx, lookup)
+		if err != nil {
+			t.Fatalf("GetByEmail(%q): %v", lookup, err)
+		}
+		if got.ID != user.ID {
+			t.Errorf("GetByEmail(%q) returned %s, expected %s", lookup, got.ID, user.ID)
+		}
+	}
+
+	if _, err := repo.GetByEmail(ctx, fmt.Sprintf("nadie-%s@example.com", local)); !errors.Is(err, domain.ErrUserNotFound) {
+		t.Errorf("expected ErrUserNotFound for an unrelated address, got %v", err)
 	}
 }

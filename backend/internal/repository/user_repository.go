@@ -41,11 +41,19 @@ func (r *postgresUserRepository) GetByID(ctx context.Context, id uuid.UUID) (*do
 	return user, nil
 }
 
-// GetByEmail obtiene un usuario por su email (único)
-// Retorna domain.ErrUserNotFound si no existe
+// GetByEmail obtiene un usuario por su email (único).
+// Retorna domain.ErrUserNotFound si no existe.
+//
+// La comparación es INSENSIBLE a mayúsculas: los emails no distinguen mayúsculas
+// en la práctica, pero Register los guarda tal cual los tipeó el usuario y el
+// índice único de la columna sí distingue. Sin este LOWER(), alguien registrado
+// como "Carlos@Example.com" que entra con Google (que normaliza a minúsculas) no
+// se encontraría y terminaría con una SEGUNDA cuenta, dejando sus mascotas y
+// mensajes varados en la otra fila.
+// El índice funcional idx_users_email_lower (migración 000019) sostiene la query.
 func (r *postgresUserRepository) GetByEmail(ctx context.Context, email string) (*domain.User, error) {
 	user := &domain.User{}
-	if err := r.db.WithContext(ctx).First(user, "email = ?", email).Error; err != nil {
+	if err := r.db.WithContext(ctx).First(user, "LOWER(email) = LOWER(?)", email).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, domain.ErrUserNotFound
 		}
