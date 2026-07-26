@@ -421,3 +421,134 @@ func TestAuthHandler_Login_ResponseShape(t *testing.T) {
 		t.Error("expected user ID in login response")
 	}
 }
+
+// ============================================================
+// Tests: POST /api/auth/google
+// ============================================================
+
+func TestGoogleAuth_NewUserResponseShape(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	created := &domain.User{ID: uuid.New(), Email: "carlos@example.com", Name: "Carlos"}
+	svc := &mockAuthService{
+		loginWithGoogleFn: func(context.Context, string) (*domain.User, string, bool, error) {
+			return created, "jwt-token", true, nil
+		},
+	}
+	h := handler.NewAuthHandler(svc)
+
+	router := gin.New()
+	router.POST("/api/auth/google", h.GoogleAuth)
+
+	body, _ := json.Marshal(map[string]string{"id_token": "google-id-token"})
+	req := httptest.NewRequest(http.MethodPost, "/api/auth/google", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d — body: %s", w.Code, w.Body.String())
+	}
+
+	var resp dto.GoogleAuthResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+	if resp.Token != "jwt-token" {
+		t.Errorf("expected token %q, got %q", "jwt-token", resp.Token)
+	}
+	if !resp.IsNewUser {
+		t.Error("expected is_new_user=true — the web onboarding step depends on this flag")
+	}
+	if resp.User.Email != "carlos@example.com" {
+		t.Errorf("expected email in the response, got %q", resp.User.Email)
+	}
+}
+
+func TestGoogleAuth_ReturningUserIsNotFlaggedNew(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	existing := &domain.User{ID: uuid.New(), Email: "carlos@example.com"}
+	svc := &mockAuthService{
+		loginWithGoogleFn: func(context.Context, string) (*domain.User, string, bool, error) {
+			return existing, "jwt-token", false, nil
+		},
+	}
+	h := handler.NewAuthHandler(svc)
+	router := gin.New()
+	router.POST("/api/auth/google", h.GoogleAuth)
+
+	body, _ := json.Marshal(map[string]string{"id_token": "t"})
+	req := httptest.NewRequest(http.MethodPost, "/api/auth/google", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	var resp dto.GoogleAuthResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+	if resp.IsNewUser {
+		t.Error("a returning user must NOT trigger the location onboarding step")
+	}
+}
+
+func TestGoogleAuth_ErrorStatusMapping(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	cases := []struct {
+		name     string
+		err      error
+		wantCode int
+		wantBody string
+	}{
+		{"invalid token", domain.ErrGoogleTokenInvalid, http.StatusUnauthorized, "google_token_invalid"},
+		{"unverified email", domain.ErrGoogleEmailUnverified, http.StatusUnauthorized, "google_email_unverified"},
+		{"sub mismatch", domain.ErrGoogleAccountMismatch, http.StatusConflict, "google_account_mismatch"},
+		{"banned", domain.ErrUserBanned, http.StatusForbidden, "user_banned"},
+		{"sign-in unavailable", domain.ErrGoogleSignInUnavailable, http.StatusBadGateway, "google_signin_unavailable"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			svc := &mockAuthService{
+				loginWithGoogleFn: func(context.Context, string) (*domain.User, string, bool, error) {
+					return nil, "", false, tc.err
+				},
+			}
+			h := handler.NewAuthHandler(svc)
+			router := gin.New()
+			router.POST("/api/auth/google", h.GoogleAuth)
+
+			body, _ := json.Marshal(map[string]string{"id_token": "t"})
+			req := httptest.NewRequest(http.MethodPost, "/api/auth/google", bytes.NewReader(body))
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+			router.ServeHTTP(w, req)
+
+			if w.Code != tc.wantCode {
+				t.Errorf("expected %d, got %d", tc.wantCode, w.Code)
+			}
+			var errResp dto.ErrorResponse
+			if err := json.Unmarshal(w.Body.Bytes(), &errResp); err != nil {
+				t.Fatalf("invalid JSON: %v", err)
+			}
+			if errResp.Code != tc.wantBody {
+				t.Errorf("expected code %q, got %q", tc.wantBody, errResp.Code)
+			}
+		})
+	}
+}
+
+func TestGoogleAuth_MissingIDToken(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	h := handler.NewAuthHandler(&mockAuthService{})
+	router := gin.New()
+	router.POST("/api/auth/google", h.GoogleAuth)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/auth/google", bytes.NewReader([]byte(`{}`)))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected 400 for a missing id_token, got %d", w.Code)
+	}
+}

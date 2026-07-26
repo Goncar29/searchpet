@@ -74,6 +74,40 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	})
 }
 
+// GoogleAuth godoc
+// POST /api/auth/google
+// Público. Verifica un ID token de Google y devuelve una sesión nuestra.
+func (h *AuthHandler) GoogleAuth(c *gin.Context) {
+	var req dto.GoogleAuthRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		writeError(c, http.StatusBadRequest, err)
+		return
+	}
+
+	user, token, isNewUser, err := h.authService.LoginWithGoogle(c.Request.Context(), req.IDToken)
+	if err != nil {
+		switch {
+		case errors.Is(err, domain.ErrGoogleTokenInvalid), errors.Is(err, domain.ErrGoogleEmailUnverified):
+			writeError(c, http.StatusUnauthorized, err)
+		case errors.Is(err, domain.ErrGoogleAccountMismatch):
+			writeError(c, http.StatusConflict, err)
+		case errors.Is(err, domain.ErrUserBanned):
+			writeError(c, http.StatusForbidden, err)
+		case errors.Is(err, domain.ErrGoogleSignInUnavailable):
+			writeError(c, http.StatusBadGateway, err)
+		default:
+			writeError(c, http.StatusInternalServerError, domain.ErrInternal)
+		}
+		return
+	}
+
+	c.JSON(http.StatusOK, dto.GoogleAuthResponse{
+		User:      dto.ToUserResponse(user),
+		Token:     token,
+		IsNewUser: isNewUser,
+	})
+}
+
 // UploadProfilePhoto godoc
 // POST /api/auth/me/photo
 func (h *AuthHandler) UploadProfilePhoto(c *gin.Context) {
