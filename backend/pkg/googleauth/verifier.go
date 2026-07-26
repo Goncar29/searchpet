@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"google.golang.org/api/idtoken"
 )
@@ -43,6 +44,10 @@ func NewVerifier(clientID string) (Verifier, error) {
 	return &idTokenVerifier{clientID: clientID}, nil
 }
 
+// serviceAccountEmailSuffix marks a Google service-account identity rather than
+// a human account. See the rejection in Verify for why it is refused.
+const serviceAccountEmailSuffix = ".iam.gserviceaccount.com"
+
 // googleIssuers are the two `iss` values Google mints ID tokens with. The
 // idtoken library does NOT check the issuer — it validates signature, expiry
 // and audience only — so we check it here.
@@ -58,21 +63,10 @@ func (v *idTokenVerifier) Verify(ctx context.Context, token string) (*Claims, er
 	if err != nil {
 		return nil, fmt.Errorf("googleauth: invalid id token: %w", err)
 	}
-	if !googleIssuers[payload.Issuer] {
-		return nil, fmt.Errorf("googleauth: unexpected issuer %q", payload.Issuer)
-	}
-
-	// sub and email are the two identifiers the whole auth decision hangs on.
-	// idtoken does not require either to be present, so a malformed token would
-	// otherwise surface as an empty string deep inside the account-matching
-	// logic instead of as a rejection here.
 	sub := payload.Subject
-	if sub == "" {
-		return nil, fmt.Errorf("googleauth: token has no sub claim")
-	}
 	email := stringClaim(payload.Claims, "email")
-	if email == "" {
-		return nil, fmt.Errorf("googleauth: token has no email claim")
+	if err := checkIdentity(payload.Issuer, sub, email); err != nil {
+		return nil, err
 	}
 
 	return &Claims{
@@ -82,6 +76,36 @@ func (v *idTokenVerifier) Verify(ctx context.Context, token string) (*Claims, er
 		Picture:       stringClaim(payload.Claims, "picture"),
 		EmailVerified: boolClaim(payload.Claims, "email_verified"),
 	}, nil
+}
+
+// checkIdentity applies the policy the idtoken library does NOT: it validates
+// the issuer, requires the two identifiers the auth decision hangs on, and
+// refuses non-human principals. Kept as a pure function so every rule is
+// testable without a real Google token.
+func checkIdentity(issuer, sub, email string) error {
+	// idtoken never reads `iss` — Issuer is only a struct field there.
+	if !googleIssuers[issuer] {
+		return fmt.Errorf("googleauth: unexpected issuer %q", issuer)
+	}
+	// idtoken does not require any claim to be present. An empty value here would
+	// otherwise surface deep inside the account-matching logic as a silent
+	// mismatch instead of a rejection.
+	if sub == "" {
+		return errors.New("googleauth: token has no sub claim")
+	}
+	if email == "" {
+		return errors.New("googleauth: token has no email claim")
+	}
+	// Google's IAM `generateIdToken` mints tokens with a CALLER-CHOSEN audience,
+	// signed by the same key set and carrying iss accounts.google.com — so neither
+	// the audience check nor the issuer check narrows them. Not takeover (the
+	// caller cannot choose a victim's address), but it would let anyone create
+	// accounts with a Google-verified email and skip our OTP. No human Google
+	// account carries this domain, so refusing it costs the real flow nothing.
+	if strings.HasSuffix(strings.ToLower(email), serviceAccountEmailSuffix) {
+		return fmt.Errorf("googleauth: service-account token rejected (%s)", email)
+	}
+	return nil
 }
 
 func stringClaim(claims map[string]any, key string) string {
