@@ -38,7 +38,8 @@ type PetSearchCriteria struct {
 type User struct {
 	ID                 uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
 	Email              string    `gorm:"uniqueIndex;not null;size:255" json:"email"`
-	PasswordHash       string    `gorm:"not null;size:255" json:"-"`
+	PasswordHash       string    `gorm:"size:255" json:"-"`       // empty = Google-only account; bcrypt against "" always fails, which blocks password login without extra logic
+	GoogleID           string    `gorm:"size:255;index" json:"-"` // Google `sub` (stable across email changes); empty = not linked. Uniqueness is a PARTIAL unique index (migration 000018), not a GORM uniqueIndex — every non-Google user shares the empty value.
 	Name               string    `gorm:"size:100" json:"name"`
 	Phone              string    `gorm:"size:20" json:"phone,omitempty"`
 	ProfilePhotoURL    string    `gorm:"size:500" json:"profile_photo_url,omitempty"`
@@ -71,7 +72,7 @@ type Pet struct {
 	Breed            string     `gorm:"size:100" json:"breed,omitempty"`
 	Color            string     `gorm:"size:100" json:"color,omitempty"`
 	Description      string     `gorm:"type:text" json:"description,omitempty"`
-	City             string     `gorm:"size:120" json:"city,omitempty"` // free-text city/zone; used by adoption listings for filtering
+	City             string     `gorm:"size:120" json:"city,omitempty"`  // free-text city/zone; used by adoption listings for filtering
 	Gender           string     `gorm:"size:10" json:"gender,omitempty"` // male, female, unknown
 	MicrochipID      *string    `gorm:"uniqueIndex;size:50" json:"microchip_id,omitempty"`
 	Status           string     `gorm:"size:50;default:'registered';index:idx_pets_type_status,composite:status" json:"status"` // registered, lost, stray, found, archived
@@ -323,22 +324,22 @@ type BlockedUser struct {
 
 // ReportAbuse representa una denuncia de fraude/abuso
 type ReportAbuse struct {
-	ID             uuid.UUID  `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
-	TargetReportID *uuid.UUID `gorm:"type:uuid;column:target_report_id" json:"target_report_id,omitempty"`
-	TargetUserID   *uuid.UUID `gorm:"type:uuid;column:target_user_id" json:"target_user_id,omitempty"`
+	ID                 uuid.UUID  `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+	TargetReportID     *uuid.UUID `gorm:"type:uuid;column:target_report_id" json:"target_report_id,omitempty"`
+	TargetUserID       *uuid.UUID `gorm:"type:uuid;column:target_user_id" json:"target_user_id,omitempty"`
 	TargetFosterHomeID *uuid.UUID `gorm:"type:uuid;column:target_foster_home_id" json:"target_foster_home_id,omitempty"`
-	ReporterID     uuid.UUID  `gorm:"type:uuid;not null" json:"reporter_id"`
-	Reason         string     `gorm:"not null;size:255" json:"reason"`
-	Status         string     `gorm:"not null;size:50;default:'pending';index" json:"status"` // pending, resolved, dismissed
-	ResolvedBy     *uuid.UUID `gorm:"type:uuid" json:"resolved_by,omitempty"`
-	ResolvedAt     *time.Time `json:"resolved_at,omitempty"`
-	CreatedAt      time.Time  `gorm:"autoCreateTime;index" json:"created_at"`
+	ReporterID         uuid.UUID  `gorm:"type:uuid;not null" json:"reporter_id"`
+	Reason             string     `gorm:"not null;size:255" json:"reason"`
+	Status             string     `gorm:"not null;size:50;default:'pending';index" json:"status"` // pending, resolved, dismissed
+	ResolvedBy         *uuid.UUID `gorm:"type:uuid" json:"resolved_by,omitempty"`
+	ResolvedAt         *time.Time `json:"resolved_at,omitempty"`
+	CreatedAt          time.Time  `gorm:"autoCreateTime;index" json:"created_at"`
 
 	// Associations (admin enrichment) — not serialized raw; exposed via DTO refs.
-	Reporter     User    `gorm:"foreignKey:ReporterID" json:"-"`
-	TargetUser   *User   `gorm:"foreignKey:TargetUserID" json:"-"`
-	TargetReport *Report `gorm:"foreignKey:TargetReportID;constraint:OnDelete:SET NULL" json:"-"`
-	FosterHome *FosterHome `gorm:"foreignKey:TargetFosterHomeID;constraint:OnDelete:SET NULL" json:"-"`
+	Reporter     User        `gorm:"foreignKey:ReporterID" json:"-"`
+	TargetUser   *User       `gorm:"foreignKey:TargetUserID" json:"-"`
+	TargetReport *Report     `gorm:"foreignKey:TargetReportID;constraint:OnDelete:SET NULL" json:"-"`
+	FosterHome   *FosterHome `gorm:"foreignKey:TargetFosterHomeID;constraint:OnDelete:SET NULL" json:"-"`
 }
 
 // ============================================================
