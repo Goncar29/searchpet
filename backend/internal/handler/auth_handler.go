@@ -225,3 +225,40 @@ func (h *AuthHandler) GetMe(c *gin.Context) {
 
 	c.JSON(http.StatusOK, dto.ToUserResponse(user))
 }
+
+// UpdateLocation godoc
+// PATCH /api/auth/me/location
+// Protegido. Setea coordenadas y/o ciudad del usuario autenticado.
+func (h *AuthHandler) UpdateLocation(c *gin.Context) {
+	rawID, exists := c.Get("userID")
+	if !exists {
+		writeError(c, http.StatusUnauthorized, domain.ErrUnauthorized)
+		return
+	}
+	id, ok := rawID.(uuid.UUID)
+	if !ok {
+		writeError(c, http.StatusUnauthorized, domain.ErrUnauthorized)
+		return
+	}
+
+	var req dto.UpdateLocationRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		writeError(c, http.StatusBadRequest, err)
+		return
+	}
+
+	user, err := h.authService.UpdateLocation(c.Request.Context(), id, req)
+	if err != nil {
+		switch {
+		case errors.Is(err, domain.ErrInvalidInput):
+			writeError(c, http.StatusBadRequest, err)
+		case errors.Is(err, domain.ErrUserNotFound):
+			writeError(c, http.StatusNotFound, err)
+		default:
+			writeError(c, http.StatusInternalServerError, domain.ErrInternal)
+		}
+		return
+	}
+
+	c.JSON(http.StatusOK, dto.ToUserResponse(user))
+}

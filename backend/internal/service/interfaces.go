@@ -163,6 +163,10 @@ type AuthService interface {
 	// UpdateProfile actualiza el nombre y teléfono del usuario
 	UpdateProfile(ctx context.Context, id uuid.UUID, name, phone, city string) (*domain.User, error)
 
+	// UpdateLocation setea la ubicación del usuario (coordenadas y/o ciudad).
+	// lat y lng son un par: mandar una sin la otra es ErrInvalidInput.
+	UpdateLocation(ctx context.Context, id uuid.UUID, req dto.UpdateLocationRequest) (*domain.User, error)
+
 	// UpdateProfilePhoto sube la foto de perfil a Cloudinary y actualiza la URL en BD
 	UpdateProfilePhoto(ctx context.Context, id uuid.UUID, file multipart.File, filename string) (*domain.User, error)
 

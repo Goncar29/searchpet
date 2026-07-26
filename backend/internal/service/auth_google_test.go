@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"lost-pets/internal/domain"
+	"lost-pets/internal/dto"
 	"lost-pets/internal/service"
 	"lost-pets/pkg/googleauth"
 	"lost-pets/pkg/jwt"
@@ -361,5 +362,103 @@ func TestLoginWithGoogle_CreateFailureIssuesNoToken(t *testing.T) {
 	}
 	if token != "" {
 		t.Error("no token may be issued when the user could not be created")
+	}
+}
+
+// ============================================================
+// Tests: UpdateLocation
+// ============================================================
+
+func floatPtr(v float64) *float64 { return &v }
+
+func TestUpdateLocation_SetsCoordinates(t *testing.T) {
+	existing := &domain.User{ID: uuid.New(), Email: "carlos@example.com"}
+	repo := &mockUserRepo{user: existing}
+	svc := newGoogleAuthSvc(repo, nil)
+
+	user, err := svc.UpdateLocation(context.Background(), existing.ID, dto.UpdateLocationRequest{
+		Latitude:  floatPtr(-34.9011),
+		Longitude: floatPtr(-56.1645),
+	})
+
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if user.Latitude == nil || *user.Latitude != -34.9011 {
+		t.Errorf("expected latitude -34.9011, got %v", user.Latitude)
+	}
+	if user.Longitude == nil || *user.Longitude != -56.1645 {
+		t.Errorf("expected longitude -56.1645, got %v", user.Longitude)
+	}
+}
+
+func TestUpdateLocation_SetsCityOnly(t *testing.T) {
+	existing := &domain.User{ID: uuid.New(), Email: "carlos@example.com"}
+	repo := &mockUserRepo{user: existing}
+	svc := newGoogleAuthSvc(repo, nil)
+
+	user, err := svc.UpdateLocation(context.Background(), existing.ID, dto.UpdateLocationRequest{City: "  Montevideo  "})
+
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if user.City != "Montevideo" {
+		t.Errorf("expected trimmed city %q, got %q", "Montevideo", user.City)
+	}
+	if user.Latitude != nil {
+		t.Error("expected latitude to stay nil when only a city is sent")
+	}
+}
+
+func TestUpdateLocation_RejectsEmptyPayload(t *testing.T) {
+	existing := &domain.User{ID: uuid.New()}
+	repo := &mockUserRepo{user: existing}
+	svc := newGoogleAuthSvc(repo, nil)
+
+	_, err := svc.UpdateLocation(context.Background(), existing.ID, dto.UpdateLocationRequest{})
+
+	if !errors.Is(err, domain.ErrInvalidInput) {
+		t.Fatalf("expected ErrInvalidInput, got %v", err)
+	}
+	if len(repo.updatedUsers) != 0 {
+		t.Error("an empty payload must not touch the user")
+	}
+}
+
+func TestUpdateLocation_RejectsHalfCoordinate(t *testing.T) {
+	existing := &domain.User{ID: uuid.New()}
+	repo := &mockUserRepo{user: existing}
+	svc := newGoogleAuthSvc(repo, nil)
+
+	_, err := svc.UpdateLocation(context.Background(), existing.ID, dto.UpdateLocationRequest{Latitude: floatPtr(-34.9)})
+
+	if !errors.Is(err, domain.ErrInvalidInput) {
+		t.Fatalf("expected ErrInvalidInput for latitude without longitude, got %v", err)
+	}
+}
+
+func TestUpdateLocation_RejectsOutOfRange(t *testing.T) {
+	existing := &domain.User{ID: uuid.New()}
+	repo := &mockUserRepo{user: existing}
+	svc := newGoogleAuthSvc(repo, nil)
+
+	for _, tc := range []struct {
+		name     string
+		lat, lng float64
+	}{
+		{"latitude too high", 120, -56.1645},
+		{"latitude too low", -120, -56.1645},
+		{"longitude too high", -34.9, 200},
+		{"longitude too low", -34.9, -200},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := svc.UpdateLocation(context.Background(), existing.ID, dto.UpdateLocationRequest{
+				Latitude:  floatPtr(tc.lat),
+				Longitude: floatPtr(tc.lng),
+			})
+			if !errors.Is(err, domain.ErrInvalidInput) {
+				t.Fatalf("expected ErrInvalidInput, got %v", err)
+			}
+		})
 	}
 }

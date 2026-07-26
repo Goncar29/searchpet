@@ -425,3 +425,39 @@ func (s *authService) importGooglePhoto(ctx context.Context, userID uuid.UUID, p
 	}
 	return secureURL
 }
+
+// UpdateLocation setea la ubicación del usuario. Reutilizable: la usa el
+// onboarding de Google, pero cualquier usuario puede completar su ubicación
+// después desde el perfil.
+func (s *authService) UpdateLocation(ctx context.Context, id uuid.UUID, req dto.UpdateLocationRequest) (*domain.User, error) {
+	city := strings.TrimSpace(req.City)
+
+	// lat/lng son un par — una sola es una coordenada rota, no un update parcial.
+	if (req.Latitude == nil) != (req.Longitude == nil) {
+		return nil, domain.ErrInvalidInput
+	}
+	if req.Latitude == nil && city == "" {
+		return nil, domain.ErrInvalidInput
+	}
+	if req.Latitude != nil {
+		if *req.Latitude < -90 || *req.Latitude > 90 || *req.Longitude < -180 || *req.Longitude > 180 {
+			return nil, domain.ErrInvalidInput
+		}
+	}
+
+	user, err := s.userRepo.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if req.Latitude != nil {
+		user.Latitude = req.Latitude
+		user.Longitude = req.Longitude
+	}
+	if city != "" {
+		user.City = city
+	}
+	if err := s.userRepo.Update(ctx, user); err != nil {
+		return nil, err
+	}
+	return user, nil
+}
