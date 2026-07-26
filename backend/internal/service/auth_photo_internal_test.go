@@ -15,6 +15,9 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"lost-pets/internal/domain"
+	"lost-pets/internal/repository"
+	"lost-pets/pkg/googleauth"
 )
 
 type stubUploader struct {
@@ -38,6 +41,62 @@ func (s *stubUploader) UploadImage(_ context.Context, file io.Reader, _, _ strin
 }
 
 func (s *stubUploader) Delete(context.Context, string) error { return nil }
+
+// photoUserRepo tracks whether the background job re-read the user before
+// saving, and what photo URL it persisted.
+type photoUserRepo struct {
+	created           *domain.User
+	lastSavedPhoto    string
+	reReadAfterCreate bool
+}
+
+func (r *photoUserRepo) Create(_ context.Context, u *domain.User) error {
+	u.ID = uuid.New()
+	copy := *u
+	r.created = &copy
+	return nil
+}
+
+func (r *photoUserRepo) GetByID(_ context.Context, _ uuid.UUID) (*domain.User, error) {
+	if r.created == nil {
+		return nil, domain.ErrUserNotFound
+	}
+	r.reReadAfterCreate = true
+	fresh := *r.created
+	return &fresh, nil
+}
+
+func (r *photoUserRepo) GetByEmail(context.Context, string) (*domain.User, error) {
+	return nil, domain.ErrUserNotFound
+}
+
+func (r *photoUserRepo) GetByGoogleID(context.Context, string) (*domain.User, error) {
+	return nil, domain.ErrUserNotFound
+}
+
+func (r *photoUserRepo) Update(_ context.Context, u *domain.User) error {
+	r.lastSavedPhoto = u.ProfilePhotoURL
+	return nil
+}
+
+func (r *photoUserRepo) Delete(context.Context, uuid.UUID) error { return nil }
+
+var _ repository.UserRepository = (*photoUserRepo)(nil)
+
+// photoVerifier returns fixed claims pointing at the test server's avatar.
+type photoVerifier struct{ picture string }
+
+func (v *photoVerifier) Verify(context.Context, string) (*googleauth.Claims, error) {
+	return &googleauth.Claims{
+		Sub:           "google-sub-photo",
+		Email:         "carlos@example.com",
+		Name:          "Carlos",
+		Picture:       v.picture,
+		EmailVerified: true,
+	}, nil
+}
+
+var _ googleauth.Verifier = (*photoVerifier)(nil)
 
 // allowTestHost points the allowlist at the httptest server's host for the
 // duration of one test, then restores it.
@@ -184,5 +243,71 @@ func TestImportGooglePhoto_NoUploaderIsNoop(t *testing.T) {
 	svc := newPhotoSvc(nil)
 	if got := svc.importGooglePhoto(context.Background(), uuid.New(), "https://lh3.googleusercontent.com/a/photo"); got != "" {
 		t.Errorf("expected empty when no uploader is configured, got %q", got)
+	}
+}
+
+// ============================================================
+// La importación corre FUERA del camino de respuesta
+// ============================================================
+
+func TestLoginWithGoogle_PhotoImportIsOffTheResponsePath(t *testing.T) {
+	body := []byte("avatar-bytes")
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write(body)
+	}))
+	defer srv.Close()
+	allowTestHost(t, srv.URL)
+
+	originalClient := googlePhotoClient
+	client := srv.Client()
+	client.CheckRedirect = originalClient.CheckRedirect
+	googlePhotoClient = client
+	t.Cleanup(func() { googlePhotoClient = originalClient })
+
+	up := &stubUploader{url: "https://res.cloudinary.com/searchpet/avatar.webp"}
+	repo := &photoUserRepo{}
+	svc := &authService{
+		userRepo:       repo,
+		secretKey:      "test-secret-key-32chars-minimum!",
+		storage:        up,
+		googleVerifier: &photoVerifier{picture: srv.URL + "/a/photo"},
+		// Inline instead of `go f()` so the assertions are deterministic.
+		runAsync: func(f func()) { f() },
+	}
+
+	user, token, isNew, err := svc.LoginWithGoogle(context.Background(), "any-token")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if !isNew || token == "" {
+		t.Fatal("expected a new user with a token")
+	}
+
+	// The response object carries no photo: the import is dispatched, not awaited.
+	if user.ProfilePhotoURL != "" {
+		t.Errorf("the signup response must not wait for the avatar, got %q", user.ProfilePhotoURL)
+	}
+	// But the background work did persist it — re-reading the user, not reusing
+	// the stale request copy.
+	if repo.lastSavedPhoto != up.url {
+		t.Errorf("expected the avatar persisted as %q, got %q", up.url, repo.lastSavedPhoto)
+	}
+	if !repo.reReadAfterCreate {
+		t.Error("the background job must RE-READ the user; Update writes the whole row and would clobber concurrent changes")
+	}
+}
+
+func TestImportGooglePhotoAsync_NoDispatchWithoutStorageOrPicture(t *testing.T) {
+	dispatched := 0
+	svc := &authService{storage: nil, runAsync: func(f func()) { dispatched++; f() }}
+	svc.importGooglePhotoAsync(uuid.New(), "https://lh3.googleusercontent.com/a/photo")
+	if dispatched != 0 {
+		t.Error("no uploader configured — nothing should be dispatched")
+	}
+
+	svc = &authService{storage: &stubUploader{}, runAsync: func(f func()) { dispatched++; f() }}
+	svc.importGooglePhotoAsync(uuid.New(), "")
+	if dispatched != 0 {
+		t.Error("no picture in the token — nothing should be dispatched")
 	}
 }

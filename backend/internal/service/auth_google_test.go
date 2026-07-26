@@ -3,9 +3,6 @@ package service_test
 import (
 	"context"
 	"errors"
-	"io"
-	"net/http"
-	"net/http/httptest"
 	"testing"
 
 	"github.com/google/uuid"
@@ -463,85 +460,5 @@ func TestUpdateLocation_RejectsOutOfRange(t *testing.T) {
 				t.Fatalf("expected ErrInvalidInput, got %v", err)
 			}
 		})
-	}
-}
-
-// ============================================================
-// Tests: importación de la foto de perfil de Google
-// ============================================================
-
-type fakeUploader struct {
-	gotBytes []byte
-	gotID    string
-	url      string
-	err      error
-	calls    int
-}
-
-func (f *fakeUploader) UploadImage(_ context.Context, file io.Reader, filename, _ string) (string, string, error) {
-	f.calls++
-	f.gotID = filename
-	if f.err != nil {
-		return "", "", f.err
-	}
-	b, _ := io.ReadAll(file)
-	f.gotBytes = b
-	return f.url, filename, nil
-}
-
-func (f *fakeUploader) Delete(context.Context, string) error { return nil }
-
-var _ service.ImageUploader = (*fakeUploader)(nil)
-
-// newGooglePhotoSvc wires a real uploader so the download+upload path actually runs.
-func newGooglePhotoSvc(repo *mockUserRepo, up service.ImageUploader) service.AuthService {
-	return service.NewAuthService(repo, googleTestSecret, up, nil, &mockVerifier{claims: googleClaims()})
-}
-
-// photoClaims returns claims whose picture points at the given test server, with
-// the host rewritten so it satisfies the .googleusercontent.com allowlist.
-func loginWithPicture(t *testing.T, repo *mockUserRepo, up service.ImageUploader, picture string) *domain.User {
-	t.Helper()
-	claims := googleClaims()
-	claims.Picture = picture
-	svc := service.NewAuthService(repo, googleTestSecret, up, nil, &mockVerifier{claims: claims})
-	user, _, _, err := svc.LoginWithGoogle(context.Background(), "any-token")
-	if err != nil {
-		t.Fatalf("signup must never fail because of the photo: %v", err)
-	}
-	return user
-}
-
-func TestImportGooglePhoto_RejectsNonGoogleHost(t *testing.T) {
-	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write([]byte("payload"))
-	}))
-	defer srv.Close()
-
-	up := &fakeUploader{url: "https://res.cloudinary.com/x.webp"}
-	repo := &mockUserRepo{emailErr: domain.ErrUserNotFound}
-
-	// srv.URL is https://127.0.0.1:PORT — not a googleusercontent.com host.
-	user := loginWithPicture(t, repo, up, srv.URL+"/avatar.jpg")
-
-	if up.calls != 0 {
-		t.Error("SECURITY: a non-googleusercontent host must never be fetched or uploaded")
-	}
-	if user.ProfilePhotoURL != "" {
-		t.Errorf("expected no photo, got %q", user.ProfilePhotoURL)
-	}
-}
-
-func TestImportGooglePhoto_RejectsNonHTTPS(t *testing.T) {
-	up := &fakeUploader{url: "https://res.cloudinary.com/x.webp"}
-	repo := &mockUserRepo{emailErr: domain.ErrUserNotFound}
-
-	user := loginWithPicture(t, repo, up, "http://lh3.googleusercontent.com/a/photo")
-
-	if up.calls != 0 {
-		t.Error("SECURITY: a non-https picture url must never be fetched")
-	}
-	if user.ProfilePhotoURL != "" {
-		t.Error("expected no photo for a non-https url")
 	}
 }

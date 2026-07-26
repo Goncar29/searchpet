@@ -48,6 +48,9 @@ type authService struct {
 	// googleVerifier is OPTIONAL (may be nil): nil means GOOGLE_CLIENT_ID is not
 	// configured, and LoginWithGoogle fails closed with ErrGoogleSignInUnavailable.
 	googleVerifier googleauth.Verifier
+	// runAsync dispara trabajo que NO debe demorar la respuesta. Es un campo para
+	// que los tests lo corran inline y sean deterministas; en producción es `go f()`.
+	runAsync func(func())
 }
 
 // NewAuthService crea una instancia del servicio de auth con sus dependencias.
@@ -66,6 +69,7 @@ func NewAuthService(
 		storage:           storage,
 		fosterHomeService: fosterHomeService,
 		googleVerifier:    googleVerifier,
+		runAsync:          func(f func()) { go f() },
 	}
 }
 
@@ -344,14 +348,10 @@ func (s *authService) LoginWithGoogle(ctx context.Context, idToken string) (*dom
 		return nil, "", false, err
 	}
 
-	// Foto: best-effort. Nunca bloquea el alta.
-	if photoURL := s.importGooglePhoto(ctx, user.ID, claims.Picture); photoURL != "" {
-		user.ProfilePhotoURL = photoURL
-		if err := s.userRepo.Update(ctx, user); err != nil {
-			log.Printf("[auth_service] google: no se pudo persistir la foto de perfil de %s: %v", user.ID, err)
-			user.ProfilePhotoURL = ""
-		}
-	}
+	// Foto: FUERA del camino de respuesta. Es cosmética, y bajarla + subirla a
+	// Cloudinary puede tardar segundos que no tiene por qué pagar el alta. El
+	// avatar aparece en el siguiente refresh del usuario.
+	s.importGooglePhotoAsync(user.ID, claims.Picture)
 
 	token, err := s.issueToken(user)
 	if err != nil {
@@ -400,6 +400,37 @@ var googlePhotoClient = &http.Client{
 		}
 		return nil
 	},
+}
+
+// importGooglePhotoAsync lanza la importación del avatar fuera del camino de
+// respuesta. No-op si no hay foto o no hay storage configurado.
+func (s *authService) importGooglePhotoAsync(userID uuid.UUID, pictureURL string) {
+	if pictureURL == "" || s.storage == nil {
+		return
+	}
+	s.runAsync(func() {
+		// context.Background() a propósito: el contexto del request muere apenas
+		// respondemos, y este trabajo le sobrevive por diseño.
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+
+		photoURL := s.importGooglePhoto(ctx, userID, pictureURL)
+		if photoURL == "" {
+			return
+		}
+		// Se RELEE el usuario en vez de reusar el de la request: Update usa Save,
+		// que escribe la fila entera, así que guardar una copia vieja pisaría
+		// cualquier cambio hecho mientras la foto bajaba.
+		user, err := s.userRepo.GetByID(ctx, userID)
+		if err != nil {
+			log.Printf("[auth_service] google: no se pudo releer el usuario %s para guardar su foto: %v", userID, err)
+			return
+		}
+		user.ProfilePhotoURL = photoURL
+		if err := s.userRepo.Update(ctx, user); err != nil {
+			log.Printf("[auth_service] google: no se pudo persistir la foto de perfil de %s: %v", userID, err)
+		}
+	})
 }
 
 // importGooglePhoto baja el avatar de Google y lo re-sube a Cloudinary, para no
