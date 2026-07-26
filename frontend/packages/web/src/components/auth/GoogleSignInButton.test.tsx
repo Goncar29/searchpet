@@ -2,15 +2,23 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import { GoogleSignInButton, __resetGisLoaderForTests } from './GoogleSignInButton';
 
+let currentLang = 'es';
 vi.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (key: string) => key, i18n: { language: 'es' } }),
+  useTranslation: () => ({ t: (key: string) => key, i18n: { language: currentLang } }),
 }));
 
 const initialize = vi.fn();
-const renderButton = vi.fn();
+// The real GIS APPENDS its button into the container. Mirroring that is what
+// makes the stale-button bug observable in a test.
+const renderButton = vi.fn((parent: HTMLElement, _options: GoogleButtonConfiguration) => {
+  const btn = document.createElement('div');
+  btn.setAttribute('data-gis-button', '');
+  parent.appendChild(btn);
+});
 
 beforeEach(() => {
   vi.clearAllMocks();
+  currentLang = 'es';
   __resetGisLoaderForTests();
   vi.stubEnv('VITE_GOOGLE_CLIENT_ID', 'test-client-id.apps.googleusercontent.com');
   // Pretend the GIS script is already on the page.
@@ -70,5 +78,25 @@ describe('GoogleSignInButton', () => {
   it('shows a placeholder until GIS is ready', () => {
     render(<GoogleSignInButton onCredential={vi.fn()} onError={vi.fn()} />);
     expect(screen.getByText('auth:google.loading')).toBeInTheDocument();
+  });
+
+  it('re-renders the button in the new language when the app language changes', async () => {
+    const { rerender } = render(<GoogleSignInButton onCredential={vi.fn()} onError={vi.fn()} />);
+    await waitFor(() => expect(renderButton).toHaveBeenCalledTimes(1));
+    expect(renderButton.mock.calls[0][1].locale).toBe('es');
+
+    currentLang = 'en';
+    rerender(<GoogleSignInButton onCredential={vi.fn()} onError={vi.fn()} />);
+
+    // GIS draws its own label, so the only way the button follows the app's
+    // language switcher is a fresh renderButton with the new locale.
+    await waitFor(() => expect(renderButton).toHaveBeenCalledTimes(2));
+    expect(renderButton.mock.calls[1][1].locale).toBe('en');
+
+    // GIS APPENDS. Without clearing first, the old Spanish button stays on
+    // screen and the English one piles up beneath it — which is exactly what the
+    // user saw: "the button is only ever in Spanish".
+    expect(screen.getAllByTestId('google-signin-button')[0].querySelectorAll('[data-gis-button]'))
+      .toHaveLength(1);
   });
 });

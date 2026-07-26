@@ -96,6 +96,11 @@ export function GoogleSignInButton({ onCredential, onError }: GoogleSignInButton
           callback: (response) => onCredentialRef.current(response.credential),
           cancel_on_tap_outside: true,
         });
+        // GIS APPENDS its button rather than replacing the container's contents.
+        // On a language change this effect re-runs, so without clearing first the
+        // previous button stays on screen and the new one stacks beneath it —
+        // which reads as "the button never changes language".
+        containerRef.current.replaceChildren();
         window.google.accounts.id.renderButton(containerRef.current, {
           type: 'standard',
           theme: 'outline',
