@@ -120,9 +120,9 @@ export function MainLayout() {
             style={{ gridTemplateColumns: 'auto 1fr auto' }}
           >
             {/* Columna 1 — Logo */}
-            <Link to="/" className="inline-flex items-center gap-2 pr-6">
+            <Link to="/" className="inline-flex items-center gap-2 pr-2 sm:pr-6">
               <Logo tight className="h-6 w-auto shrink-0 text-primary" />
-              <span className="text-2xl font-brand font-semibold tracking-tight text-gray-900 dark:text-gray-50">
+              <span className="text-xl sm:text-2xl font-brand font-semibold tracking-tight text-gray-900 dark:text-gray-50">
                 Search<span className="text-primary">Pet</span>
               </span>
             </Link>
@@ -141,7 +141,7 @@ export function MainLayout() {
             </div>
 
             {/* Columna 3 — Controles + auth, siempre visible a la derecha */}
-            <div className="flex items-center gap-2 pl-4 justify-end">
+            <div className="flex items-center gap-1 sm:gap-2 pl-2 sm:pl-4 justify-end">
               {/* Tema e idioma: siempre visibles */}
               <button
                 onClick={toggleTheme}
