@@ -38,8 +38,8 @@ type PetSearchCriteria struct {
 type User struct {
 	ID                 uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
 	Email              string    `gorm:"uniqueIndex;not null;size:255" json:"email"`
-	PasswordHash       string    `gorm:"size:255" json:"-"`       // empty = Google-only account; bcrypt against "" always fails, which blocks password login without extra logic
-	GoogleID           string    `gorm:"size:255;index" json:"-"` // Google `sub` (stable across email changes); empty = not linked. Uniqueness is a PARTIAL unique index (migration 000018), not a GORM uniqueIndex — every non-Google user shares the empty value.
+	PasswordHash       string    `gorm:"size:255" json:"-"`                           // empty = Google-only account; bcrypt against "" always fails, which blocks password login without extra logic
+	GoogleID           string    `gorm:"size:255;index;not null;default:''" json:"-"` // Google `sub` (stable across email changes); empty = not linked. Uniqueness is a PARTIAL unique index (migration 000018), not a GORM uniqueIndex — every non-Google user shares the empty value.
 	Name               string    `gorm:"size:100" json:"name"`
 	Phone              string    `gorm:"size:20" json:"phone,omitempty"`
 	ProfilePhotoURL    string    `gorm:"size:500" json:"profile_photo_url,omitempty"`
