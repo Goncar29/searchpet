@@ -40,7 +40,13 @@ export function RegisterPage() {
   const [apiError, setApiError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  if (!isLoading && isAuthenticated) {
+  // Both exclusions are load-bearing. AuthContext.loginWithGoogle stores the
+  // token — flipping isAuthenticated — BEFORE it resolves, so there is a render
+  // where the user is authenticated but the page has not yet decided whether to
+  // show onboarding. googleLoading covers that in-flight window; showLocationStep
+  // covers the step itself. Without them this guard redirects away and the whole
+  // new-user flow never renders.
+  if (!isLoading && isAuthenticated && !googleLoading && !showLocationStep) {
     navigate('/', { replace: true });
     return null;
   }
