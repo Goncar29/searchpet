@@ -54,6 +54,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsLoading(false);
   }, []);
 
+  // Reconciliar el usuario cacheado con el servidor al montar.
+  //
+  // localStorage guarda el usuario tal como vino de la respuesta de login, y esa
+  // respuesta puede quedar vieja: la foto de perfil de Google se importa DESPUÉS
+  // de emitir el token (fuera del camino de respuesta), así que el usuario recién
+  // creado se persiste sin foto y el avatar del nav nunca la mostraría.
+  // Es best-effort: si falla, seguimos con lo cacheado.
+  useEffect(() => {
+    if (!token) return;
+    let cancelled = false;
+    apiClient
+      .getMe()
+      .then((fresh) => {
+        // Guard: never let a malformed response blank out a good cached user.
+        if (cancelled || !fresh?.id) return;
+        setUser(fresh);
+        localStorage.setItem('user', JSON.stringify(fresh));
+      })
+      .catch(() => {
+        /* sin red o 401 — el interceptor del client ya maneja la sesión expirada */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
+
   // Escuchar notificaciones en primer plano cuando el usuario está autenticado.
   // El listener se limpia al hacer logout o desmontar el componente.
   useEffect(() => {

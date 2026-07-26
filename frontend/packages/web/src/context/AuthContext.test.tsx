@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, act } from '@testing-library/react';
+import { render, screen, act, waitFor } from '@testing-library/react';
 import { AuthProvider, useAuth } from './AuthContext';
 
 // Mock del apiClient — nunca sale a la red
@@ -8,7 +8,7 @@ vi.mock('@shared/api/client', () => ({
     login: vi.fn(),
     register: vi.fn(),
     loginWithGoogle: vi.fn(),
-    getMe: vi.fn(),
+    getMe: vi.fn().mockRejectedValue(new Error('not stubbed')),
     setToken: vi.fn(),
     logout: vi.fn(),
   },
@@ -271,5 +271,57 @@ describe('AuthContext.loginWithGoogle', () => {
 
     expect(screen.getByTestId('auth').textContent).toBe('false');
     expect(localStorage.getItem('token')).toBeNull();
+  });
+});
+
+describe('AuthContext — reconciliación con el servidor', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    vi.clearAllMocks();
+  });
+
+  it('refresca el usuario cacheado al montar (la foto de Google llega tarde)', async () => {
+    const token = makeJwt({ exp: Math.floor(Date.now() / 1000) + 3600 });
+    // Lo guardado en el login NO tiene foto: la importación del avatar corre
+    // fuera del camino de respuesta y termina después de emitir el token.
+    localStorage.setItem('token', token);
+    localStorage.setItem('user', JSON.stringify({ id: 'u1', name: 'Carlos', profile_photo_url: '' }));
+
+    const { apiClient } = await import('@shared/api/client');
+    vi.mocked(apiClient.getMe).mockResolvedValue({
+      id: 'u1', email: 'carlos@example.com', name: 'Carlos',
+      profile_photo_url: 'https://res.cloudinary.com/searchpet/avatar.webp',
+      is_verified: true, created_at: '',
+    });
+
+    render(
+      <AuthProvider>
+        <AuthConsumer />
+      </AuthProvider>,
+    );
+
+    await waitFor(() =>
+      expect(JSON.parse(localStorage.getItem('user') ?? '{}').profile_photo_url)
+        .toBe('https://res.cloudinary.com/searchpet/avatar.webp'),
+    );
+  });
+
+  it('NO borra el usuario cacheado si el servidor responde algo inválido', async () => {
+    const token = makeJwt({ exp: Math.floor(Date.now() / 1000) + 3600 });
+    localStorage.setItem('token', token);
+    localStorage.setItem('user', JSON.stringify({ id: 'u1', name: 'Carlos' }));
+
+    const { apiClient } = await import('@shared/api/client');
+    // @ts-expect-error — probando deliberadamente una respuesta malformada
+    vi.mocked(apiClient.getMe).mockResolvedValue(undefined);
+
+    render(
+      <AuthProvider>
+        <AuthConsumer />
+      </AuthProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByTestId('loading').textContent).toBe('false'));
+    expect(screen.getByTestId('user').textContent).toBe('Carlos');
   });
 });

@@ -176,9 +176,17 @@ export function MainLayout() {
                         aria-label={t('userMenu')}
                         className="relative flex items-center gap-2 rounded-full pl-1 pr-2 py-1 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                       >
-                        <span className="flex items-center justify-center w-8 h-8 rounded-full bg-primary text-white text-sm font-bold">
-                          {user?.name?.charAt(0).toUpperCase() ?? '?'}
-                        </span>
+                        {user?.profile_photo_url ? (
+                          <img
+                            src={user.profile_photo_url}
+                            alt={user.name}
+                            className="w-8 h-8 rounded-full object-cover"
+                          />
+                        ) : (
+                          <span className="flex items-center justify-center w-8 h-8 rounded-full bg-primary text-white text-sm font-bold">
+                            {user?.name?.charAt(0).toUpperCase() ?? '?'}
+                          </span>
+                        )}
                         <span className="hidden lg:inline text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap max-w-[8rem] truncate">
                           {user?.name}
                         </span>
