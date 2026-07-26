@@ -16,6 +16,7 @@ import (
 	"lost-pets/internal/domain"
 	"lost-pets/internal/dto"
 	"lost-pets/internal/repository"
+	"lost-pets/pkg/googleauth"
 	"lost-pets/pkg/jwt"
 	"lost-pets/pkg/storage"
 )
@@ -39,16 +40,27 @@ type authService struct {
 	// to record owner contact changes on the user's foster home forensic history.
 	// A nil value makes the hook a no-op.
 	fosterHomeService FosterHomeService
+	// googleVerifier is OPTIONAL (may be nil): nil means GOOGLE_CLIENT_ID is not
+	// configured, and LoginWithGoogle fails closed with ErrGoogleSignInUnavailable.
+	googleVerifier googleauth.Verifier
 }
 
 // NewAuthService crea una instancia del servicio de auth con sus dependencias.
 // fosterHomeService puede ser nil (hook de contacto es no-op en ese caso).
-func NewAuthService(userRepo repository.UserRepository, secretKey string, storage *storage.CloudinaryClient, fosterHomeService FosterHomeService) AuthService {
+// googleVerifier puede ser nil (login con Google deshabilitado).
+func NewAuthService(
+	userRepo repository.UserRepository,
+	secretKey string,
+	storage *storage.CloudinaryClient,
+	fosterHomeService FosterHomeService,
+	googleVerifier googleauth.Verifier,
+) AuthService {
 	return &authService{
 		userRepo:          userRepo,
 		secretKey:         secretKey,
 		storage:           storage,
 		fosterHomeService: fosterHomeService,
+		googleVerifier:    googleVerifier,
 	}
 }
 
@@ -221,4 +233,114 @@ func (s *authService) UpdateProfile(ctx context.Context, id uuid.UUID, name, pho
 	}
 
 	return user, nil
+}
+
+// LoginWithGoogle resuelve un ID token de Google a una sesión nuestra.
+//
+// Tres caminos, en orden:
+//  1. GoogleID conocido  → login de usuario que vuelve.
+//  2. Email conocido     → vincula Google a la cuenta local existente.
+//  3. Nada conocido      → crea el usuario.
+//
+// SEGURIDAD: los caminos 2 y 3 solo se alcanzan con claims.EmailVerified == true.
+// Sin ese gate, cualquiera podría reclamar la cuenta ajena de un email que no
+// controla. El chequeo de email_verified ES la barrera.
+func (s *authService) LoginWithGoogle(ctx context.Context, idToken string) (*domain.User, string, bool, error) {
+	if s.googleVerifier == nil {
+		log.Println("[auth_service] login con Google solicitado pero GOOGLE_CLIENT_ID no está configurado")
+		return nil, "", false, domain.ErrGoogleSignInUnavailable
+	}
+
+	claims, err := s.googleVerifier.Verify(ctx, idToken)
+	if err != nil {
+		log.Printf("[auth_service] google: verificación de id token falló: %v", err)
+		return nil, "", false, domain.ErrGoogleTokenInvalid
+	}
+	if !claims.EmailVerified {
+		return nil, "", false, domain.ErrGoogleEmailUnverified
+	}
+	if claims.Sub == "" || claims.Email == "" {
+		return nil, "", false, domain.ErrGoogleTokenInvalid
+	}
+
+	email := strings.ToLower(strings.TrimSpace(claims.Email))
+
+	// 1. Usuario que vuelve — match por el `sub` estable de Google.
+	existing, err := s.userRepo.GetByGoogleID(ctx, claims.Sub)
+	if err == nil {
+		if existing.IsBanned {
+			return nil, "", false, domain.ErrUserBanned
+		}
+		token, err := s.issueToken(existing)
+		if err != nil {
+			return nil, "", false, err
+		}
+		return existing, token, false, nil
+	}
+	if !errors.Is(err, domain.ErrUserNotFound) {
+		return nil, "", false, err
+	}
+
+	// 2. Cuenta local con el mismo email (verificado por Google) — vincular.
+	existing, err = s.userRepo.GetByEmail(ctx, email)
+	if err == nil {
+		if existing.IsBanned {
+			return nil, "", false, domain.ErrUserBanned
+		}
+		existing.GoogleID = claims.Sub
+		existing.EmailVerified = true
+		if err := s.userRepo.Update(ctx, existing); err != nil {
+			return nil, "", false, err
+		}
+		token, err := s.issueToken(existing)
+		if err != nil {
+			return nil, "", false, err
+		}
+		return existing, token, false, nil
+	}
+	if !errors.Is(err, domain.ErrUserNotFound) {
+		return nil, "", false, err
+	}
+
+	// 3. Usuario nuevo.
+	user := &domain.User{
+		Email:              email,
+		Name:               claims.Name,
+		GoogleID:           claims.Sub,
+		PasswordHash:       "", // sin contraseña: bcrypt contra "" siempre falla → login por password bloqueado
+		EmailVerified:      true,
+		VerificationMethod: "google",
+	}
+	if err := s.userRepo.Create(ctx, user); err != nil {
+		return nil, "", false, err
+	}
+
+	// Foto: best-effort. Nunca bloquea el alta.
+	if photoURL := s.importGooglePhoto(ctx, user.ID, claims.Picture); photoURL != "" {
+		user.ProfilePhotoURL = photoURL
+		if err := s.userRepo.Update(ctx, user); err != nil {
+			log.Printf("[auth_service] google: no se pudo persistir la foto de perfil de %s: %v", user.ID, err)
+			user.ProfilePhotoURL = ""
+		}
+	}
+
+	token, err := s.issueToken(user)
+	if err != nil {
+		return nil, "", false, err
+	}
+	return user, token, true, nil
+}
+
+// issueToken genera nuestro JWT y normaliza el error a ErrInternal.
+func (s *authService) issueToken(user *domain.User) (string, error) {
+	token, err := jwt.GenerateToken(user.ID, s.secretKey)
+	if err != nil {
+		return "", domain.ErrInternal
+	}
+	return token, nil
+}
+
+// importGooglePhoto es reemplazada por la implementación real en la tarea 6.
+func (s *authService) importGooglePhoto(_ context.Context, _ uuid.UUID, _ string) string {
+	return ""
 }

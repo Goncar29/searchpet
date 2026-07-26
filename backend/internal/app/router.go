@@ -115,7 +115,7 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 	fosterHomePhotoService := service.NewFosterHomePhotoService(fosterHomeRepo, fosterHomePhotoRepo, photoStorage)
 	fosterHomeHandler := handler.NewFosterHomeHandler(fosterHomeService, fosterHomePhotoService)
 
-	authService := service.NewAuthService(userRepo, cfg.JWTSecret, cloudinaryClient, fosterHomeService)
+	authService := service.NewAuthService(userRepo, cfg.JWTSecret, cloudinaryClient, fosterHomeService, nil)
 	photoService := service.NewPhotoService(photoRepo, petRepo, photoStorage, bus)
 	petService := service.NewPetService(petRepo, bus, photoService, reportRepo, petUow, statEventRepo, episodeService, episodeRepo)
 	reportService := service.NewReportService(reportRepo, petRepo, bus, statEventRepo, episodeService, episodeRepo, petUow)

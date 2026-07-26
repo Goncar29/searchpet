@@ -23,6 +23,7 @@ import (
 type mockAuthService struct {
 	registerFn           func(ctx context.Context, email, password, name, city string) (*domain.User, string, error)
 	loginFn              func(ctx context.Context, email, password string) (*domain.User, string, error)
+	loginWithGoogleFn    func(ctx context.Context, idToken string) (*domain.User, string, bool, error)
 	getUserFn            func(ctx context.Context, id uuid.UUID) (*domain.User, error)
 	updateProfileFn      func(ctx context.Context, id uuid.UUID, name, phone, city string) (*domain.User, error)
 	updateProfilePhotoFn func(ctx context.Context, id uuid.UUID, file multipart.File, filename string) (*domain.User, error)
@@ -41,6 +42,13 @@ func (m *mockAuthService) Login(ctx context.Context, email, password string) (*d
 		return m.loginFn(ctx, email, password)
 	}
 	return nil, "", nil
+}
+
+func (m *mockAuthService) LoginWithGoogle(ctx context.Context, idToken string) (*domain.User, string, bool, error) {
+	if m.loginWithGoogleFn != nil {
+		return m.loginWithGoogleFn(ctx, idToken)
+	}
+	return nil, "", false, nil
 }
 
 func (m *mockAuthService) GetUser(ctx context.Context, id uuid.UUID) (*domain.User, error) {

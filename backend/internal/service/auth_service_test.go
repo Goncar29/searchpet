@@ -11,8 +11,9 @@ import (
 )
 
 func newAuthSvc(repo *mockUserRepo) service.AuthService {
-	// storage nil → no se testa Cloudinary aquí; fosterHomeService nil → hook no-op
-	return service.NewAuthService(repo, "test-secret-key-32chars-minimum!", nil, nil)
+	// storage nil → no se testa Cloudinary aquí; fosterHomeService nil → hook no-op;
+	// googleVerifier nil → login con Google no se ejerce en estos tests (ver auth_google_test.go)
+	return service.NewAuthService(repo, "test-secret-key-32chars-minimum!", nil, nil, nil)
 }
 
 func bcryptHash(t *testing.T, plain string) string {
