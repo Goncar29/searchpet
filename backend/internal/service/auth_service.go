@@ -7,9 +7,12 @@ import (
 	"io"
 	"log"
 	"mime/multipart"
+	"net/http"
+	"net/url"
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
@@ -364,7 +367,61 @@ func (s *authService) issueToken(user *domain.User) (string, error) {
 	return token, nil
 }
 
-// importGooglePhoto es reemplazada por la implementación real en la tarea 6.
-func (s *authService) importGooglePhoto(_ context.Context, _ uuid.UUID, _ string) string {
-	return ""
+// googlePhotoMaxBytes acota la descarga. Los avatares de Google pesan pocos KB;
+// esto es un tope de sanidad, no un límite esperado.
+const googlePhotoMaxBytes = 5 << 20 // 5 MiB
+
+// googlePhotoHost es el único host del que aceptamos descargar el avatar.
+// La URL viene dentro de un token firmado por Google, pero igual la acotamos:
+// si algún día Google (o un token mal validado) trajera otra URL, esto impide
+// que el backend se convierta en un puente para pegarle a hosts arbitrarios.
+const googlePhotoHost = ".googleusercontent.com"
+
+// importGooglePhoto baja el avatar de Google y lo re-sube a Cloudinary, para no
+// hotlinkear una URL que Google puede rotar o revocar.
+//
+// Best-effort por diseño: CUALQUIER falla retorna "" y el alta continúa sin foto.
+// Una cuenta creada sin avatar es un problema cosmético; un alta que falla porque
+// Cloudinary tuvo un mal día, no.
+func (s *authService) importGooglePhoto(ctx context.Context, userID uuid.UUID, pictureURL string) string {
+	if pictureURL == "" || s.storage == nil {
+		return ""
+	}
+
+	parsed, err := url.Parse(pictureURL)
+	if err != nil || parsed.Scheme != "https" {
+		log.Printf("[auth_service] google: picture url no-https ignorada para %s", userID)
+		return ""
+	}
+	host := strings.ToLower(parsed.Hostname())
+	if !strings.HasSuffix(host, googlePhotoHost) {
+		log.Printf("[auth_service] google: picture url de host inesperado %q ignorada para %s", host, userID)
+		return ""
+	}
+
+	reqCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(reqCtx, http.MethodGet, pictureURL, nil)
+	if err != nil {
+		return ""
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		log.Printf("[auth_service] google: descarga de foto falló para %s: %v", userID, err)
+		return ""
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		log.Printf("[auth_service] google: descarga de foto para %s retornó %d", userID, resp.StatusCode)
+		return ""
+	}
+
+	publicID := sanitizeAvatarPublicID(userID.String(), "google-avatar")
+	secureURL, _, err := s.storage.UploadImage(reqCtx, io.LimitReader(resp.Body, googlePhotoMaxBytes), publicID, "searchpet")
+	if err != nil {
+		log.Printf("[auth_service] google: upload a Cloudinary falló para %s: %v", userID, err)
+		return ""
+	}
+	return secureURL
 }
