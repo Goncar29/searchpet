@@ -10,9 +10,9 @@ var (
 	ErrUserBanned         = errors.New("usuario bloqueado")
 
 	// Google Sign-In
-	ErrGoogleTokenInvalid    = errors.New("no pudimos validar tu cuenta de Google; intentá de nuevo")
-	ErrGoogleEmailUnverified = errors.New("tu email de Google no está verificado")
-	ErrGoogleVerifyFailed    = errors.New("no pudimos contactar a Google; intentá más tarde")
+	ErrGoogleTokenInvalid      = errors.New("no pudimos validar tu cuenta de Google; intentá de nuevo")
+	ErrGoogleEmailUnverified   = errors.New("tu email de Google no está verificado")
+	ErrGoogleSignInUnavailable = errors.New("el inicio de sesión con Google no está disponible en este momento")
 
 	// User
 	ErrUserNotFound          = errors.New("usuario no encontrado")
@@ -134,9 +134,9 @@ var ErrorCodes = map[error]string{
 	ErrUserBanned:         "user_banned",
 
 	// Google Sign-In
-	ErrGoogleTokenInvalid:    "google_token_invalid",
-	ErrGoogleEmailUnverified: "google_email_unverified",
-	ErrGoogleVerifyFailed:    "google_verify_failed",
+	ErrGoogleTokenInvalid:      "google_token_invalid",
+	ErrGoogleEmailUnverified:   "google_email_unverified",
+	ErrGoogleSignInUnavailable: "google_signin_unavailable",
 
 	// User
 	ErrUserNotFound:          "user_not_found",
