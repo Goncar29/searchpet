@@ -83,11 +83,14 @@ Read these before Task 1 — three of them contradict a literal reading of the s
 
 7. **`UserResponse` intentionally does not expose `latitude`/`longitude`.** `GET /api/auth/me` already omits them; this plan does not change that. The onboarding step only needs the request to succeed.
 
-**Accepted risks, decided deliberately (not oversights):**
+**Risks that WERE closed during execution (they are no longer accepted):**
 
-- **Tokens minted by Google IAM `generateIdToken` are not distinguished from consent-flow tokens.** That API mints a token with a caller-chosen `aud`, signed by the same key set and carrying `iss: https://accounts.google.com` — so neither our audience check nor our issuer check narrows it. The residual threat is unauthenticated account *creation* with a `…iam.gserviceaccount.com` email; it is **not** takeover, because a service-account email can never be `victim@gmail.com`, so the auto-link barrier still holds. New users get no privileges (`is_admin` defaults false) and the route sits behind the auth rate limiter.
-  **When revisiting, prefer rejecting `*.iam.gserviceaccount.com` email domains over an `azp == clientID` check.** The domain check closes precisely this vector, is unit-testable today with no live OAuth client, and cannot break the real consent flow because no human Google account carries that domain. `azp` is the more principled check but the riskier one to add blind — its presence varies by flow, and getting the "absent means allow" case wrong quietly re-opens the hole.
-- **No nonce binding.** GIS supports a server-issued nonce; without it a captured token is replayable within its ~1h validity. Standard for the GIS-to-backend pattern; noted rather than silently omitted.
+- **Google IAM `generateIdToken` tokens are rejected** (`fc7274f`). That API mints a token with a caller-chosen `aud`, signed by the same key set and carrying `iss: accounts.google.com`, so neither the audience nor the issuer check narrows it — it allowed unauthenticated account creation with a Google-verified email, skipping the OTP. Closed by refusing `*.iam.gserviceaccount.com` email suffixes, chosen over an `azp` check because it is unit-testable with no live OAuth client and cannot break the real consent flow. The policy now lives in the pure, fully tested `checkIdentity(issuer, sub, email)`.
+- **The avatar import no longer sits on the signup response path** (`9b5f91f`). It is dispatched through `runAsync` with `context.Background()`, and the background job re-reads the user before saving because `Update` writes the whole row.
+
+**Still genuinely open — surfaced, not parked:**
+
+- **No nonce binding.** GIS supports a server-issued nonce; without it a captured token is replayable within its ~1h validity. This one cannot be built and verified until the OAuth client exists, so it is called out here rather than silently omitted.
 
 ---
 
