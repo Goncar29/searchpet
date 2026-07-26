@@ -10,6 +10,13 @@
 
 **Source spec:** `docs/superpowers/specs/2026-07-22-google-signin-design.md`
 
+> **STATUS — this plan has been fully executed.** It is kept as the record of how
+> the work was sequenced and why each decision was made. **The code is now the
+> source of truth, not these code blocks.** Several tasks were amended during
+> execution after reviews found real defects; the amendments are summarised in
+> "Changes made during execution" below and in the design notes. Do not re-run a
+> task body verbatim expecting it to match `HEAD`.
+
 **Branch:** `feat/google-signin`
 
 ---
@@ -29,7 +36,7 @@
 | File | Change |
 |------|--------|
 | `backend/internal/domain/models.go` | `User.PasswordHash` drops `not null`; new `User.GoogleID`. |
-| `backend/internal/domain/errors.go` | 3 new sentinel errors + their `{code}` mappings. |
+| `backend/internal/domain/errors.go` | 4 new sentinel errors + their `{code}` mappings. |
 | `backend/internal/repository/interfaces.go` | `UserRepository.GetByGoogleID`. |
 | `backend/internal/repository/user_repository.go` | Implementation of `GetByGoogleID`. |
 | `backend/internal/service/interfaces.go` | `AuthService.LoginWithGoogle` + `AuthService.UpdateLocation`. |
@@ -366,6 +373,7 @@ In `backend/internal/domain/errors.go`, inside the same `var (...)` block that d
 	ErrGoogleTokenInvalid      = errors.New("no pudimos validar tu cuenta de Google; intentá de nuevo")
 	ErrGoogleEmailUnverified   = errors.New("tu email de Google no está verificado")
 	ErrGoogleSignInUnavailable = errors.New("el inicio de sesión con Google no está disponible en este momento")
+	ErrGoogleAccountMismatch   = errors.New("este email ya está vinculado a otra cuenta de Google")
 ```
 
 > `ErrGoogleSignInUnavailable` is a SERVER MISCONFIGURATION (`GOOGLE_CLIENT_ID` unset), not a network failure. Its name and message say so on purpose — "we couldn't reach Google" would send someone chasing a network problem when the real cause is an unset env var.
@@ -378,6 +386,7 @@ In the `ErrorCodes` map (starts line 125), under the `// Auth` group, add:
 	ErrGoogleTokenInvalid:      "google_token_invalid",
 	ErrGoogleEmailUnverified:   "google_email_unverified",
 	ErrGoogleSignInUnavailable: "google_signin_unavailable",
+	ErrGoogleAccountMismatch:   "google_account_mismatch",
 ```
 
 > Note for Task 15: `google_email_unverified` sits next to the pre-existing `email_not_verified`. Different subject (Google's verification vs ours) and different remediation — the translations must be clearly distinct, not near-duplicates.
@@ -2623,6 +2632,29 @@ Not a code step; the tasks above all build and test without it. Needed before th
 - [ ] Sign out, sign in with the same Google account → goes straight into the app, no location step.
 - [ ] Register locally with email `X`, sign out, then sign in with Google using the same `X` → same account (check the user id), and the original password still works afterwards.
 - [ ] New Google user's avatar appears and its URL is on `res.cloudinary.com`, not `googleusercontent.com`.
+
+---
+
+## Changes made during execution
+
+Every one came from an adversarial review that found a real defect. The code
+reflects all of them; the task bodies above mostly do not.
+
+| Change | Commit | Why |
+|---|---|---|
+| Migration 000018 made order-agnostic | `4afe16d` | `testdb` runs AutoMigrate BEFORE the SQL migrations — the opposite of prod — so `ADD COLUMN IF NOT EXISTS … NOT NULL DEFAULT ''` was a no-op there and the test schema drifted from prod. |
+| `NewVerifier` returns `(Verifier, error)`, rejects an empty client id | `6cddb1c` | `idtoken.Validate` **skips the audience check entirely** on an empty audience (`validate.go:160`), so one unset env var would accept a token minted for any app — takeover via the auto-link path. |
+| `Verify` validates `iss` and requires `sub`/`email` | `6cddb1c` | The library never reads `Issuer`, and requires no claim to be present. Our comment claimed otherwise. |
+| Error renamed to `ErrGoogleSignInUnavailable` | `c445300` | It fires on an unset `GOOGLE_CLIENT_ID`, not a network failure; the old message sent people chasing the wrong problem. |
+| Pre-hijacking defence + `google_account_mismatch` + `IsVerified` | `e0caa64` | `Register` requires no proof of email ownership, so an attacker could plant an account on a victim's address and inherit it when the victim signed in with Google. Linking an **unverified** local account now discards its password. |
+| Case-insensitive `GetByEmail` + migration 000019 | `dc1ee8e` | `Register` stores the email as typed; Google normalises to lowercase — a user registered as `Carlos@x.com` was getting a **second account**. |
+| Avatar host allowlist + per-hop redirect re-validation | `2479100` | The allowlist only checked where the request *started*; `http.DefaultClient` follows redirects with no re-validation. |
+| `authService.storage` → `ImageUploader` | `2479100` | The concrete Cloudinary type made the whole download/upload path untestable; the interface already existed in the same package. |
+| Service-account tokens rejected | `fc7274f` | Google IAM `generateIdToken` mints tokens with a caller-chosen audience — unauthenticated account creation bypassing the OTP. |
+| Avatar import moved off the response path | `9b5f91f` | It was adding up to 10s to first-login latency for a cosmetic feature. |
+| `GoogleAuthPanel` extracted | `695a4f3` | 35 lines of JSX were duplicated across the two auth pages. |
+| Auth guard excludes `googleLoading` + `showLocationStep`; CSP gains `style-src` | `cbc8078` | **The location onboarding step was unreachable dead code** — the "already signed in" guard fired first. And GIS needs FOUR CSP directives; both documents listed three. |
+| Tests for the location endpoint, `AuthContext`, and Google repo lookups | `43640fa` | Gaps the pre-PR audit found against spec §7. |
 
 ---
 

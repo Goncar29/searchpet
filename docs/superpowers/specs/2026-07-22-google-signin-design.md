@@ -3,6 +3,8 @@
 **Fecha:** 2026-07-22
 **Alcance de esta iteración:** Agregar "Iniciar sesión con Google" como opción **adicional** de auth en la **web** (el formulario email+contraseña se mantiene intacto), con captura de ubicación y foto de perfil en el alta. Backend genérico para poder sumar mobile en una iteración futura.
 
+> **Corrección (2026-07-26):** el alcance dice que email+contraseña queda "intacto". Una cosa sí cambió: `GetByEmail` pasó a comparar sin distinguir mayúsculas (migración 000019), porque si no, un usuario registrado como `Carlos@Example.com` que entra con Google terminaba con una **segunda cuenta**. Efecto sobre el login clásico: ahora acepta cualquier combinación de mayúsculas. Es estrictamente más permisivo, nunca menos.
+
 ---
 
 ## 1. Objetivo
@@ -33,6 +35,8 @@ Cambios en `users` (`backend/internal/domain/models.go`):
 - `PasswordHash` deja de ser `NOT NULL`. Vacío = sin contraseña (usuario Google-only). No requiere lógica extra para bloquear login por contraseña: `bcrypt.CompareHashAndPassword("", pw)` falla por sí mismo → `ErrInvalidCredentials`.
 - Nueva columna **`GoogleID string`** con `uniqueIndex` (`gorm:"uniqueIndex;size:255"`). Guarda el `sub` de Google (id estable, no cambia aunque cambie el email). Vacío = no vinculado. Un usuario puede tener contraseña **y** `GoogleID` simultáneamente (registró local y luego vinculó).
 - Al crear/vincular por Google: `EmailVerified = true` y `VerificationMethod = "google"` (Google ya verificó el email → se saltea el OTP de Brevo).
+
+> **Corrección (2026-07-26, durante la implementación):** el tag GORM real es `gorm:"size:255;index"`, **NO `uniqueIndex`**. Con `uniqueIndex`, el segundo usuario registrado con email+contraseña rompería el insert, porque TODOS comparten `google_id = ''`. La unicidad la da el índice único **parcial** (`WHERE google_id <> ''`) de la migración, que AutoMigrate no sabe expresar. Se llama `uniq_users_google_id` para no colisionar con el `idx_users_google_id` que GORM genera del tag `index`.
 
 **Migración SQL** (golang-migrate, nueva `migrations/<siguiente-número>_google_signin.up.sql` + `.down.sql`, tomando el próximo número secuencial disponible):
 - `ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL;`
@@ -66,6 +70,11 @@ Flujo:
    - No existe → **crear** usuario nuevo (`email`, `name`, `GoogleID=sub`, `EmailVerified=true`, `VerificationMethod="google"`, `PasswordHash=""`). Re-subir la foto de Google a Cloudinary → `ProfilePhotoURL` (best-effort: si falla, se loguea y el alta continúa sin foto). `is_new_user=true`.
 5. Emitir nuestro JWT (`jwt.GenerateToken`).
 
+> **Corrección (2026-07-26, durante la implementación):** el paso 4 (vincular) hace tres cosas más que las descritas, todas por hallazgos de review:
+> 1. Si la cuenta ya está atada a **otro** `sub` de Google, NO se re-vincula → `ErrGoogleAccountMismatch` (409). Pasa cuando una dirección cambia de dueño.
+> 2. Si la cuenta local tiene `EmailVerified=false`, **se descarta su contraseña**. `Register` no exige ninguna prueba de propiedad del email, así que esa cuenta pudo haberla plantado un atacante con el email de la víctima (*account pre-hijacking*). Ojo: no hay flujo de recuperación de contraseña, así que ese usuario queda solo-Google.
+> 3. Se setea `IsVerified = true` en vincular y en crear, para respetar el invariante `IsVerified = EmailVerified || PhoneVerified` de `verification_service.go`.
+
 ### 5.3 Interfaz del verificador (testabilidad)
 
 ```
@@ -93,6 +102,7 @@ Nuevo endpoint chico **`PATCH /api/auth/me/location`** (protegido, JWT): body `{
 | ID token inválido/expirado | `google_token_invalid` | 401 |
 | `email_verified: false` | `google_email_unverified` | 401 |
 | Usuario baneado | `user_banned` (existente) | 403 |
+| Email ya vinculado a otra cuenta de Google | `google_account_mismatch` | 409 |
 | `GOOGLE_CLIENT_ID` sin configurar (verificador nulo) | `google_signin_unavailable` | 502 |
 | Falla re-subida de foto | (best-effort, no error al cliente) | — |
 
@@ -136,5 +146,7 @@ Probar en el **preview de Vercel** con la consola abierta antes de mergear (una 
 - Costo: **$0**.
 
 ## 9. Consideración de seguridad — vinculación por email
+
+> **Corrección (2026-07-26, durante la implementación): esta sección quedó incompleta y su conclusión es engañosa.** El gate `email_verified` protege una sola dirección — que un tercero reclame la cuenta de un email que NO controla. NO protege la dirección contraria: `Register` no exige prueba del email, así que una cuenta local con `EmailVerified=false` pudo haberla creado un atacante con TU email y una contraseña que él eligió; al vincular, te meteríamos en una cuenta que él también abre. Por eso el gate **no es** la única barrera: al vincular una cuenta no verificada se descarta su contraseña. Ver regla #25 del CLAUDE.md.
 
 La auto-vinculación (paso 4 de 5.2) es segura **porque** solo procede cuando `email_verified == true` en el ID token de Google — es decir, Google confirma que el email es realmente del que firma. Sin ese chequeo, un atacante podría reclamar una cuenta local ajena. El gate `email_verified` es la barrera; por eso se rechaza el token si es `false`.
