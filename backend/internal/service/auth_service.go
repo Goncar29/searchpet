@@ -21,7 +21,6 @@ import (
 	"lost-pets/internal/repository"
 	"lost-pets/pkg/googleauth"
 	"lost-pets/pkg/jwt"
-	"lost-pets/pkg/storage"
 )
 
 var reInvalidCharsUser = regexp.MustCompile(`[^a-zA-Z0-9_\-]`)
@@ -38,7 +37,10 @@ func sanitizeAvatarPublicID(userID, filename string) string {
 type authService struct {
 	userRepo  repository.UserRepository
 	secretKey string
-	storage   *storage.CloudinaryClient
+	// storage usa la interfaz ImageUploader (no el cliente concreto) igual que
+	// photo_service y foster_home_photo_service: permite testear la importación
+	// de la foto de Google con un uploader falso. Puede ser nil.
+	storage ImageUploader
 	// fosterHomeService is OPTIONAL (may be nil): when wired, UpdateProfile uses it
 	// to record owner contact changes on the user's foster home forensic history.
 	// A nil value makes the hook a no-op.
@@ -54,7 +56,7 @@ type authService struct {
 func NewAuthService(
 	userRepo repository.UserRepository,
 	secretKey string,
-	storage *storage.CloudinaryClient,
+	storage ImageUploader,
 	fosterHomeService FosterHomeService,
 	googleVerifier googleauth.Verifier,
 ) AuthService {
@@ -375,7 +377,30 @@ const googlePhotoMaxBytes = 5 << 20 // 5 MiB
 // La URL viene dentro de un token firmado por Google, pero igual la acotamos:
 // si algún día Google (o un token mal validado) trajera otra URL, esto impide
 // que el backend se convierta en un puente para pegarle a hosts arbitrarios.
-const googlePhotoHost = ".googleusercontent.com"
+// var (no const) para que los tests internos puedan apuntarlo a un servidor
+// local; en producción nunca se reasigna.
+var googlePhotoHost = ".googleusercontent.com"
+
+func isGooglePhotoURL(u *url.URL) bool {
+	return u.Scheme == "https" && strings.HasSuffix(strings.ToLower(u.Hostname()), googlePhotoHost)
+}
+
+// googlePhotoClient revalida el destino en CADA salto de redirect.
+// Validar sólo la URL inicial no alcanza: el cliente HTTP de Go sigue los 3xx
+// solo, hasta 10 saltos, sin volver a chequear nada — así que un redirect
+// bastaría para saltear la restricción de host y usar el backend como puente
+// hacia cualquier lado. Se valida dónde TERMINA el pedido, no dónde arranca.
+var googlePhotoClient = &http.Client{
+	CheckRedirect: func(req *http.Request, via []*http.Request) error {
+		if len(via) >= 5 {
+			return fmt.Errorf("demasiados redirects (%d)", len(via))
+		}
+		if !isGooglePhotoURL(req.URL) {
+			return fmt.Errorf("redirect a un destino no permitido: %s", req.URL.Host)
+		}
+		return nil
+	},
+}
 
 // importGooglePhoto baja el avatar de Google y lo re-sube a Cloudinary, para no
 // hotlinkear una URL que Google puede rotar o revocar.
@@ -389,13 +414,8 @@ func (s *authService) importGooglePhoto(ctx context.Context, userID uuid.UUID, p
 	}
 
 	parsed, err := url.Parse(pictureURL)
-	if err != nil || parsed.Scheme != "https" {
-		log.Printf("[auth_service] google: picture url no-https ignorada para %s", userID)
-		return ""
-	}
-	host := strings.ToLower(parsed.Hostname())
-	if !strings.HasSuffix(host, googlePhotoHost) {
-		log.Printf("[auth_service] google: picture url de host inesperado %q ignorada para %s", host, userID)
+	if err != nil || !isGooglePhotoURL(parsed) {
+		log.Printf("[auth_service] google: picture url rechazada para %s (esquema/host inesperado: %q)", userID, pictureURL)
 		return ""
 	}
 
@@ -406,7 +426,7 @@ func (s *authService) importGooglePhoto(ctx context.Context, userID uuid.UUID, p
 	if err != nil {
 		return ""
 	}
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := googlePhotoClient.Do(req)
 	if err != nil {
 		log.Printf("[auth_service] google: descarga de foto falló para %s: %v", userID, err)
 		return ""
