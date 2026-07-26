@@ -45,7 +45,7 @@ func (m *mockUserRepo) GetByEmail(_ context.Context, _ string) (*domain.User, er
 	return m.user, m.emailErr
 }
 
-func (m *mockUserRepo) GetByGoogleID(_ context.Context, googleID string) (*domain.User, error) {
+func (m *mockUserRepo) GetByGoogleID(_ context.Context, _ string) (*domain.User, error) {
 	if m.googleErr != nil {
 		return nil, m.googleErr
 	}
