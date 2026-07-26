@@ -54,6 +54,24 @@ func (r *postgresUserRepository) GetByEmail(ctx context.Context, email string) (
 	return user, nil
 }
 
+// GetByGoogleID obtiene un usuario por el `sub` de su cuenta de Google.
+// Retorna domain.ErrUserNotFound si no existe.
+// Un googleID vacío nunca matchea: el string vacío es el valor compartido por
+// TODOS los usuarios sin Google vinculado.
+func (r *postgresUserRepository) GetByGoogleID(ctx context.Context, googleID string) (*domain.User, error) {
+	if googleID == "" {
+		return nil, domain.ErrUserNotFound
+	}
+	user := &domain.User{}
+	if err := r.db.WithContext(ctx).First(user, "google_id = ?", googleID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, domain.ErrUserNotFound
+		}
+		return nil, err
+	}
+	return user, nil
+}
+
 // Update actualiza los datos de un usuario existente
 // Nota: GORM actualiza solo los campos que cambiaron (smart update)
 func (r *postgresUserRepository) Update(ctx context.Context, user *domain.User) error {

@@ -24,6 +24,9 @@ func (m *mockUserRepoForAdmin) GetByID(ctx context.Context, id uuid.UUID) (*doma
 func (m *mockUserRepoForAdmin) GetByEmail(ctx context.Context, email string) (*domain.User, error) {
 	return m.getByEmailFn(ctx, email)
 }
+func (m *mockUserRepoForAdmin) GetByGoogleID(context.Context, string) (*domain.User, error) {
+	return nil, domain.ErrUserNotFound
+}
 func (m *mockUserRepoForAdmin) Update(context.Context, *domain.User) error { return nil }
 func (m *mockUserRepoForAdmin) Delete(context.Context, uuid.UUID) error    { return nil }
 

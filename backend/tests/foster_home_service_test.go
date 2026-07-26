@@ -61,6 +61,10 @@ func (f *fakeUserRepo) GetByID(_ context.Context, id uuid.UUID) (*domain.User, e
 func (f *fakeUserRepo) GetByEmail(context.Context, string) (*domain.User, error) {
 	return nil, domain.ErrUserNotFound
 }
+
+func (f *fakeUserRepo) GetByGoogleID(context.Context, string) (*domain.User, error) {
+	return nil, domain.ErrUserNotFound
+}
 func (f *fakeUserRepo) Update(context.Context, *domain.User) error { return nil }
 func (f *fakeUserRepo) Delete(context.Context, uuid.UUID) error    { return nil }
 

@@ -18,11 +18,11 @@ import (
 
 // mockUserReviewRepository implementa repository.UserReviewRepository para tests.
 type mockUserReviewRepository struct {
-	createFn                  func(ctx context.Context, review *domain.UserReview) error
-	updateFn                  func(ctx context.Context, review *domain.UserReview) error
-	findByRevieweeFn          func(ctx context.Context, revieweeID uuid.UUID, limit, offset int) ([]domain.UserReview, error)
+	createFn                    func(ctx context.Context, review *domain.UserReview) error
+	updateFn                    func(ctx context.Context, review *domain.UserReview) error
+	findByRevieweeFn            func(ctx context.Context, revieweeID uuid.UUID, limit, offset int) ([]domain.UserReview, error)
 	findByReviewerAndRevieweeFn func(ctx context.Context, reviewerID, revieweeID uuid.UUID) (*domain.UserReview, error)
-	getAverageRatingFn        func(ctx context.Context, revieweeID uuid.UUID) (float64, int, error)
+	getAverageRatingFn          func(ctx context.Context, revieweeID uuid.UUID) (float64, int, error)
 }
 
 func (m *mockUserReviewRepository) Create(ctx context.Context, review *domain.UserReview) error {
@@ -107,6 +107,10 @@ func (m *mockUserRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain
 	return &domain.User{ID: id, Name: "Test User"}, nil
 }
 
+func (m *mockUserRepository) GetByGoogleID(context.Context, string) (*domain.User, error) {
+	return nil, domain.ErrUserNotFound
+}
+
 // ============================================================
 // Helper: build service with optional overrides
 // ============================================================
@@ -129,12 +133,12 @@ func TestReviewService_Create(t *testing.T) {
 	revieweeID := uuid.New()
 
 	tests := []struct {
-		name        string
-		reviewRepo  *mockUserReviewRepository
-		blockedRepo *mockBlockedUserRepository
-		userRepo    *mockUserRepository
-		req         dto.CreateReviewRequest
-		wantErr     error
+		name         string
+		reviewRepo   *mockUserReviewRepository
+		blockedRepo  *mockBlockedUserRepository
+		userRepo     *mockUserRepository
+		req          dto.CreateReviewRequest
+		wantErr      error
 		wantNoDBCall bool
 	}{
 		{
@@ -199,7 +203,7 @@ func TestReviewService_Create(t *testing.T) {
 			wantErr:     domain.ErrInvalidInput,
 		},
 		{
-			name: "blocked user — ErrUserBlocked",
+			name:       "blocked user — ErrUserBlocked",
 			reviewRepo: &mockUserReviewRepository{},
 			blockedRepo: &mockBlockedUserRepository{
 				isBlockedFn: func(_ context.Context, _, _ uuid.UUID) (bool, error) {
