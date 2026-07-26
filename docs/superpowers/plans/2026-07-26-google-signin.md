@@ -1164,6 +1164,7 @@ func TestGoogleAuth_ErrorStatusMapping(t *testing.T) {
 		{"invalid token", domain.ErrGoogleTokenInvalid, http.StatusUnauthorized, "google_token_invalid"},
 		{"unverified email", domain.ErrGoogleEmailUnverified, http.StatusUnauthorized, "google_email_unverified"},
 		{"banned", domain.ErrUserBanned, http.StatusForbidden, "user_banned"},
+		{"sub mismatch", domain.ErrGoogleAccountMismatch, http.StatusConflict, "google_account_mismatch"},
 		{"verify failed", domain.ErrGoogleSignInUnavailable, http.StatusBadGateway, "google_signin_unavailable"},
 	}
 
@@ -1268,6 +1269,8 @@ func (h *AuthHandler) GoogleAuth(c *gin.Context) {
 		switch {
 		case errors.Is(err, domain.ErrGoogleTokenInvalid), errors.Is(err, domain.ErrGoogleEmailUnverified):
 			writeError(c, http.StatusUnauthorized, err)
+		case errors.Is(err, domain.ErrGoogleAccountMismatch):
+			writeError(c, http.StatusConflict, err)
 		case errors.Is(err, domain.ErrUserBanned):
 			writeError(c, http.StatusForbidden, err)
 		case errors.Is(err, domain.ErrGoogleSignInUnavailable):
@@ -2453,6 +2456,7 @@ and inside the `errors` object:
     "google_token_invalid": "No pudimos validar tu cuenta de Google. Intentá de nuevo.",
     "google_email_unverified": "Tu email de Google no está verificado. Verificalo en Google e intentá de nuevo.",
     "google_signin_unavailable": "El inicio de sesión con Google no está disponible en este momento.",
+    "google_account_mismatch": "Este email ya está vinculado a otra cuenta de Google.",
 ```
 
 - [ ] **Step 2: Add the English strings**
@@ -2483,6 +2487,7 @@ and inside `errors`:
     "google_token_invalid": "We couldn't validate your Google account. Please try again.",
     "google_email_unverified": "Your Google email isn't verified. Verify it with Google and try again.",
     "google_signin_unavailable": "Google sign-in is unavailable right now.",
+    "google_account_mismatch": "This email is already linked to a different Google account.",
 ```
 
 - [ ] **Step 3: Add the Portuguese strings**
@@ -2513,6 +2518,7 @@ and inside `errors`:
     "google_token_invalid": "Não foi possível validar sua conta do Google. Tente novamente.",
     "google_email_unverified": "Seu e-mail do Google não está verificado. Verifique no Google e tente novamente.",
     "google_signin_unavailable": "O login com Google não está disponível no momento.",
+    "google_account_mismatch": "Este e-mail já está vinculado a outra conta do Google.",
 ```
 
 - [ ] **Step 4: Verify the JSON is valid and keys line up**
@@ -2529,7 +2535,7 @@ for (const g of ['google','location']) {
     if (k !== other) { console.error('MISMATCH auth.'+g+' in '+name); process.exit(1); }
   }
 }
-for (const c of ['google_token_invalid','google_email_unverified','google_signin_unavailable']) {
+for (const c of ['google_token_invalid','google_email_unverified','google_signin_unavailable','google_account_mismatch']) {
   for (const [name, j] of [['es',es],['en',en],['pt',pt]]) {
     if (!j.errors[c]) { console.error('MISSING errors.'+c+' in '+name); process.exit(1); }
   }
