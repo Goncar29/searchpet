@@ -75,7 +75,15 @@ Read these before Task 1 — three of them contradict a literal reading of the s
 
 3. **Migration order is `RunMigrations` → `RunAutoMigrate`** (`backend/pkg/database/postgres.go:73`). AutoMigrate runs *last*, so `not null` must be removed from the `PasswordHash` struct tag — otherwise AutoMigrate re-imposes the constraint the SQL migration just dropped.
 
-4. **502 vs 401.** `idtoken.Validate` does not cleanly distinguish "bad token" from "couldn't reach Google", so every verification failure maps to `google_token_invalid` (401). `google_verify_failed` (502) is reserved for the case where `GOOGLE_CLIENT_ID` is unset and the verifier is nil — the route stays registered so a front/back config mismatch produces a clear error instead of a confusing 404.
+4. **502 vs 401.** `idtoken.Validate` does not cleanly distinguish "bad token" from "couldn't reach Google", so every verification failure maps to `google_token_invalid` (401). `google_signin_unavailable` (502) is reserved for the case where `GOOGLE_CLIENT_ID` is unset and the verifier is nil — the route stays registered so a front/back config mismatch produces a clear error instead of a confusing 404.
+
+6. **`NewVerifier` returns `(Verifier, error)` and rejects an empty client id.** `idtoken.Validate` skips the audience check entirely when the audience argument is `""` (`validate.go:160` — `if audience != "" && ...`), leaving only signature and expiry. Any Google-minted token would then verify, including one minted for an attacker's own app carrying a victim's real, genuinely-verified email — full takeover through the auto-link path. The constructor therefore refuses to build a permissive verifier rather than trusting callers to check the env var. Same failure shape as CLAUDE.md rule #24 (the Brevo mailer silently no-op'ing on missing config).
+
+7. **The verifier checks `iss` itself, because `idtoken` does not.** `Issuer` exists only as a struct field in that library (`validate.go:48`) and is never read. It also never requires any claim to be present, so `Verify` rejects a token with an empty `sub` or `email` instead of returning empty strings into the account-matching logic.
+
+**Accepted risks, decided deliberately (not oversights):**
+- **No `azp` check.** Google's IAM `generateIdToken` can mint a token with an arbitrary `aud` signed by the same key set, so `aud` alone does not prove a human consent flow. Requiring `azp == clientID` would close it, but the residual threat is unauthenticated account *creation* with a `…iam.gserviceaccount.com` email (no takeover — the attacker cannot choose a victim's email), already behind the auth rate limiter. Adding an untestable extra constraint before the OAuth client even exists risks breaking the real flow for a low-severity gain. Revisit once the flow is verified end-to-end.
+- **No nonce binding.** GIS supports a server-issued nonce; without it a captured token is replayable within its ~1h validity. Standard for the GIS-to-backend pattern; noted rather than silently omitted.
 
 5. **`UserResponse` intentionally does not expose `latitude`/`longitude`.** `GET /api/auth/me` already omits them; this plan does not change that. The onboarding step only needs the request to succeed.
 
@@ -350,20 +358,24 @@ In `backend/internal/domain/errors.go`, inside the same `var (...)` block that d
 
 ```go
 	// Google Sign-In
-	ErrGoogleTokenInvalid    = errors.New("no pudimos validar tu cuenta de Google; intentá de nuevo")
-	ErrGoogleEmailUnverified = errors.New("tu email de Google no está verificado")
-	ErrGoogleVerifyFailed    = errors.New("no pudimos contactar a Google; intentá más tarde")
+	ErrGoogleTokenInvalid      = errors.New("no pudimos validar tu cuenta de Google; intentá de nuevo")
+	ErrGoogleEmailUnverified   = errors.New("tu email de Google no está verificado")
+	ErrGoogleSignInUnavailable = errors.New("el inicio de sesión con Google no está disponible en este momento")
 ```
+
+> `ErrGoogleSignInUnavailable` is a SERVER MISCONFIGURATION (`GOOGLE_CLIENT_ID` unset), not a network failure. Its name and message say so on purpose — "we couldn't reach Google" would send someone chasing a network problem when the real cause is an unset env var.
 
 - [ ] **Step 2: Map them to stable codes**
 
 In the `ErrorCodes` map (starts line 125), under the `// Auth` group, add:
 
 ```go
-	ErrGoogleTokenInvalid:    "google_token_invalid",
-	ErrGoogleEmailUnverified: "google_email_unverified",
-	ErrGoogleVerifyFailed:    "google_verify_failed",
+	ErrGoogleTokenInvalid:      "google_token_invalid",
+	ErrGoogleEmailUnverified:   "google_email_unverified",
+	ErrGoogleSignInUnavailable: "google_signin_unavailable",
 ```
+
+> Note for Task 15: `google_email_unverified` sits next to the pre-existing `email_not_verified`. Different subject (Google's verification vs ours) and different remediation — the translations must be clearly distinct, not near-duplicates.
 
 - [ ] **Step 3: Verify the mapping resolves**
 
@@ -398,6 +410,7 @@ package googleauth
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"google.golang.org/api/idtoken"
@@ -422,22 +435,54 @@ type idTokenVerifier struct {
 }
 
 // NewVerifier returns a Verifier backed by google.golang.org/api/idtoken.
-// clientID is the OAuth 2.0 Web client id; idtoken.Validate checks it as the
-// token audience, which is what stops a token minted for another app from
-// being replayed against us.
-func NewVerifier(clientID string) Verifier {
-	return &idTokenVerifier{clientID: clientID}
+//
+// clientID is the OAuth 2.0 Web client id, checked as the token audience —
+// that check is what stops a token minted for a DIFFERENT application from
+// being replayed against us. It is rejected when empty rather than defaulted,
+// because idtoken.Validate skips the audience check entirely on an empty
+// audience: a misconfigured deploy would otherwise accept any Google token.
+func NewVerifier(clientID string) (Verifier, error) {
+	if clientID == "" {
+		return nil, errors.New("googleauth: clientID is required; an empty audience disables the audience check")
+	}
+	return &idTokenVerifier{clientID: clientID}, nil
+}
+
+// googleIssuers are the two `iss` values Google mints ID tokens with. The
+// idtoken library does NOT check the issuer — it validates signature, expiry
+// and audience only — so we check it here.
+var googleIssuers = map[string]bool{
+	"accounts.google.com":         true,
+	"https://accounts.google.com": true,
 }
 
 func (v *idTokenVerifier) Verify(ctx context.Context, token string) (*Claims, error) {
-	// Validate checks signature, issuer, expiry and audience.
+	// Validate checks the signature, expiry, and audience. It does NOT check
+	// the issuer or require any claim to be present — both are handled below.
 	payload, err := idtoken.Validate(ctx, token, v.clientID)
 	if err != nil {
 		return nil, fmt.Errorf("googleauth: invalid id token: %w", err)
 	}
+	if !googleIssuers[payload.Issuer] {
+		return nil, fmt.Errorf("googleauth: unexpected issuer %q", payload.Issuer)
+	}
+
+	// sub and email are the two identifiers the whole auth decision hangs on.
+	// idtoken does not require either to be present, so a malformed token would
+	// otherwise surface as an empty string deep inside the account-matching
+	// logic instead of as a rejection here.
+	sub := payload.Subject
+	if sub == "" {
+		return nil, fmt.Errorf("googleauth: token has no sub claim")
+	}
+	email := stringClaim(payload.Claims, "email")
+	if email == "" {
+		return nil, fmt.Errorf("googleauth: token has no email claim")
+	}
+
 	return &Claims{
-		Sub:           payload.Subject,
-		Email:         stringClaim(payload.Claims, "email"),
+		Sub:           sub,
+		Email:         email,
 		Name:          stringClaim(payload.Claims, "name"),
 		Picture:       stringClaim(payload.Claims, "picture"),
 		EmailVerified: boolClaim(payload.Claims, "email_verified"),
@@ -708,8 +753,8 @@ func TestLoginWithGoogle_VerifierNotConfigured(t *testing.T) {
 
 	_, _, _, err := svc.LoginWithGoogle(context.Background(), "any-token")
 
-	if !errors.Is(err, domain.ErrGoogleVerifyFailed) {
-		t.Fatalf("expected ErrGoogleVerifyFailed when GOOGLE_CLIENT_ID is unset, got %v", err)
+	if !errors.Is(err, domain.ErrGoogleSignInUnavailable) {
+		t.Fatalf("expected ErrGoogleSignInUnavailable when GOOGLE_CLIENT_ID is unset, got %v", err)
 	}
 }
 
@@ -769,7 +814,7 @@ type authService struct {
 	// A nil value makes the hook a no-op.
 	fosterHomeService FosterHomeService
 	// googleVerifier is OPTIONAL (may be nil): nil means GOOGLE_CLIENT_ID is not
-	// configured, and LoginWithGoogle fails closed with ErrGoogleVerifyFailed.
+	// configured, and LoginWithGoogle fails closed with ErrGoogleSignInUnavailable.
 	googleVerifier googleauth.Verifier
 }
 
@@ -811,7 +856,7 @@ Append to `backend/internal/service/auth_service.go`:
 func (s *authService) LoginWithGoogle(ctx context.Context, idToken string) (*domain.User, string, bool, error) {
 	if s.googleVerifier == nil {
 		log.Println("[auth_service] login con Google solicitado pero GOOGLE_CLIENT_ID no está configurado")
-		return nil, "", false, domain.ErrGoogleVerifyFailed
+		return nil, "", false, domain.ErrGoogleSignInUnavailable
 	}
 
 	claims, err := s.googleVerifier.Verify(ctx, idToken)
@@ -1117,7 +1162,7 @@ func TestGoogleAuth_ErrorStatusMapping(t *testing.T) {
 		{"invalid token", domain.ErrGoogleTokenInvalid, http.StatusUnauthorized, "google_token_invalid"},
 		{"unverified email", domain.ErrGoogleEmailUnverified, http.StatusUnauthorized, "google_email_unverified"},
 		{"banned", domain.ErrUserBanned, http.StatusForbidden, "user_banned"},
-		{"verify failed", domain.ErrGoogleVerifyFailed, http.StatusBadGateway, "google_verify_failed"},
+		{"verify failed", domain.ErrGoogleSignInUnavailable, http.StatusBadGateway, "google_signin_unavailable"},
 	}
 
 	for _, tc := range cases {
@@ -1223,7 +1268,7 @@ func (h *AuthHandler) GoogleAuth(c *gin.Context) {
 			writeError(c, http.StatusUnauthorized, err)
 		case errors.Is(err, domain.ErrUserBanned):
 			writeError(c, http.StatusForbidden, err)
-		case errors.Is(err, domain.ErrGoogleVerifyFailed):
+		case errors.Is(err, domain.ErrGoogleSignInUnavailable):
 			writeError(c, http.StatusBadGateway, err)
 		default:
 			writeError(c, http.StatusInternalServerError, domain.ErrInternal)
@@ -1486,7 +1531,7 @@ In `backend/config/config.go`, add to the `Config` struct (near the other third-
 ```go
 	// GoogleClientID is the OAuth 2.0 Web client id, checked as the ID token
 	// audience. Empty disables Google Sign-In: POST /api/auth/google then
-	// answers 502 google_verify_failed instead of trusting an unchecked token.
+	// answers 502 google_signin_unavailable instead of trusting an unchecked token.
 	GoogleClientID string
 ```
 
@@ -1508,11 +1553,20 @@ with:
 
 ```go
 	// googleVerifier nil = feature deshabilitada (ver config.GoogleClientID).
+	// NewVerifier RECHAZA un clientID vacío a propósito: con audience vacío,
+	// idtoken.Validate se saltea el chequeo de audiencia y aceptaría cualquier
+	// token de Google. Por eso el nil viene de no llamarlo, nunca de llamarlo mal.
 	var googleVerifier googleauth.Verifier
 	if cfg.GoogleClientID != "" {
-		googleVerifier = googleauth.NewVerifier(cfg.GoogleClientID)
+		v, err := googleauth.NewVerifier(cfg.GoogleClientID)
+		if err != nil {
+			// Inalcanzable con la guarda de arriba, pero fallar acá es preferible
+			// a arrancar con un verificador permisivo.
+			log.Fatalf("[app] no se pudo construir el verificador de Google: %v", err)
+		}
+		googleVerifier = v
 	} else {
-		log.Println("[app] GOOGLE_CLIENT_ID no configurado — el login con Google responderá 502")
+		log.Println("[app] GOOGLE_CLIENT_ID no configurado — el login con Google responderá 502 google_signin_unavailable")
 	}
 	authService := service.NewAuthService(userRepo, cfg.JWTSecret, cloudinaryClient, fosterHomeService, googleVerifier)
 ```
@@ -2396,7 +2450,7 @@ and inside the `errors` object:
 ```json
     "google_token_invalid": "No pudimos validar tu cuenta de Google. Intentá de nuevo.",
     "google_email_unverified": "Tu email de Google no está verificado. Verificalo en Google e intentá de nuevo.",
-    "google_verify_failed": "No pudimos contactar a Google. Intentá más tarde.",
+    "google_signin_unavailable": "El inicio de sesión con Google no está disponible en este momento.",
 ```
 
 - [ ] **Step 2: Add the English strings**
@@ -2426,7 +2480,7 @@ and inside `errors`:
 ```json
     "google_token_invalid": "We couldn't validate your Google account. Please try again.",
     "google_email_unverified": "Your Google email isn't verified. Verify it with Google and try again.",
-    "google_verify_failed": "We couldn't reach Google. Please try again later.",
+    "google_signin_unavailable": "Google sign-in is unavailable right now.",
 ```
 
 - [ ] **Step 3: Add the Portuguese strings**
@@ -2456,7 +2510,7 @@ and inside `errors`:
 ```json
     "google_token_invalid": "Não foi possível validar sua conta do Google. Tente novamente.",
     "google_email_unverified": "Seu e-mail do Google não está verificado. Verifique no Google e tente novamente.",
-    "google_verify_failed": "Não conseguimos contatar o Google. Tente mais tarde.",
+    "google_signin_unavailable": "O login com Google não está disponível no momento.",
 ```
 
 - [ ] **Step 4: Verify the JSON is valid and keys line up**
@@ -2473,7 +2527,7 @@ for (const g of ['google','location']) {
     if (k !== other) { console.error('MISMATCH auth.'+g+' in '+name); process.exit(1); }
   }
 }
-for (const c of ['google_token_invalid','google_email_unverified','google_verify_failed']) {
+for (const c of ['google_token_invalid','google_email_unverified','google_signin_unavailable']) {
   for (const [name, j] of [['es',es],['en',en],['pt',pt]]) {
     if (!j.errors[c]) { console.error('MISSING errors.'+c+' in '+name); process.exit(1); }
   }
