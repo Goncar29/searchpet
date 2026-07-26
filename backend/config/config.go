@@ -30,11 +30,11 @@ type Config struct {
 	// BrevoEndpoint optionally overrides the default Brevo API endpoint
 	// (mailer.DefaultBrevoEndpoint). Empty means "use the default" — set this
 	// only if Brevo migrates its API, so it's a config change instead of a deploy.
-	BrevoEndpoint            string
-	TwilioAccountSID         string
-	TwilioAuthToken          string
-	TwilioFromNumber         string
-	EnableEmailVerification  bool
+	BrevoEndpoint           string
+	TwilioAccountSID        string
+	TwilioAuthToken         string
+	TwilioFromNumber        string
+	EnableEmailVerification bool
 
 	// V2.0 — Distributed Rate Limiting (Redis)
 	RedisURL string
@@ -45,6 +45,13 @@ type Config struct {
 
 	// V1.2 — Image Search (Jina CLIP embeddings + pgvector). Migrated off
 	// HuggingFace serverless, which dropped CLIP image embeddings.
+	// GoogleClientID is the OAuth 2.0 Web client id, checked as the ID token
+	// audience. Empty disables Google Sign-In: POST /api/auth/google then answers
+	// 502 google_signin_unavailable instead of trusting an unchecked token —
+	// idtoken.Validate SKIPS the audience check on an empty audience, so a
+	// misconfigured deploy must never build a verifier at all.
+	GoogleClientID string
+
 	JinaAPIKey string
 	// JinaEndpoint optionally overrides the default Jina embeddings endpoint
 	// (service.DefaultJinaEndpoint). Empty means "use the default" — set this
@@ -90,6 +97,8 @@ func Load() *Config {
 		AuthRateLimitMax: getEnvInt("RATE_LIMIT_AUTH_MAX", 5),
 
 		// V1.2 — Image Search (Jina CLIP)
+		GoogleClientID: getEnv("GOOGLE_CLIENT_ID", ""),
+
 		JinaAPIKey:   getEnv("JINA_API_KEY", ""),
 		JinaEndpoint: getEnv("JINA_ENDPOINT", ""),
 

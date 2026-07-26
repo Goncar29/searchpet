@@ -17,6 +17,7 @@ import (
 	"lost-pets/internal/repository"
 	"lost-pets/internal/service"
 	ws "lost-pets/internal/websocket"
+	"lost-pets/pkg/googleauth"
 	"lost-pets/pkg/mailer"
 	"lost-pets/pkg/notification"
 	"lost-pets/pkg/ratelimit"
@@ -115,7 +116,23 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 	fosterHomePhotoService := service.NewFosterHomePhotoService(fosterHomeRepo, fosterHomePhotoRepo, photoStorage)
 	fosterHomeHandler := handler.NewFosterHomeHandler(fosterHomeService, fosterHomePhotoService)
 
-	authService := service.NewAuthService(userRepo, cfg.JWTSecret, photoStorage, fosterHomeService, nil)
+	// googleVerifier nil = feature deshabilitada (ver config.GoogleClientID).
+	// NewVerifier RECHAZA un clientID vacío a propósito: con audience vacío,
+	// idtoken.Validate se saltea el chequeo de audiencia y aceptaría cualquier
+	// token de Google. El nil viene de no llamarlo, nunca de llamarlo mal.
+	var googleVerifier googleauth.Verifier
+	if cfg.GoogleClientID != "" {
+		v, gerr := googleauth.NewVerifier(cfg.GoogleClientID)
+		if gerr != nil {
+			// Inalcanzable con la guarda de arriba, pero fallar acá es preferible
+			// a arrancar con un verificador permisivo.
+			log.Fatal("No se pudo construir el verificador de Google", zap.Error(gerr))
+		}
+		googleVerifier = v
+	} else {
+		log.Warn("GOOGLE_CLIENT_ID no configurado — el login con Google responderá 502 google_signin_unavailable")
+	}
+	authService := service.NewAuthService(userRepo, cfg.JWTSecret, photoStorage, fosterHomeService, googleVerifier)
 	photoService := service.NewPhotoService(photoRepo, petRepo, photoStorage, bus)
 	petService := service.NewPetService(petRepo, bus, photoService, reportRepo, petUow, statEventRepo, episodeService, episodeRepo)
 	reportService := service.NewReportService(reportRepo, petRepo, bus, statEventRepo, episodeService, episodeRepo, petUow)
@@ -264,6 +281,8 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 		authRateLimit := middleware.RateLimit(rateLimitStore, cfg.AuthRateLimitMax, 1*time.Minute)
 		public.POST("/auth/register", authRateLimit, authHandler.Register)
 		public.POST("/auth/login", authRateLimit, authHandler.Login)
+		// Mismo rate limit que login/register: es una puerta de autenticación.
+		public.POST("/auth/google", authRateLimit, authHandler.GoogleAuth)
 		public.GET("/stats", statsHandler.GetStats)
 
 		public.GET("/pets/search", petHandler.SearchPets)
@@ -324,6 +343,7 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 		protected.GET("/auth/me", authHandler.GetMe)
 		protected.PUT("/auth/me", authHandler.UpdateMe)
 		protected.POST("/auth/me/photo", authHandler.UploadProfilePhoto)
+		protected.PATCH("/auth/me/location", authHandler.UpdateLocation)
 		protected.PUT("/users/me/preferences", authHandler.UpdatePreferences)
 
 		protected.POST("/pets", petHandler.CreatePet)
