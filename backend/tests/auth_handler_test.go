@@ -563,6 +563,15 @@ func TestGoogleAuth_MissingIDToken(t *testing.T) {
 	if w.Code != http.StatusBadRequest {
 		t.Errorf("expected 400 for a missing id_token, got %d", w.Code)
 	}
+	// The code must be translatable, not internal_error with a raw English
+	// validator string leaking to the user (rule #11).
+	var errResp dto.ErrorResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &errResp); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+	if errResp.Code != "binding_failed" {
+		t.Errorf("expected code %q, got %q", "binding_failed", errResp.Code)
+	}
 }
 
 // ============================================================
@@ -671,5 +680,12 @@ func TestUpdateLocation_MalformedBody(t *testing.T) {
 
 	if w.Code != http.StatusBadRequest {
 		t.Errorf("expected 400 for a malformed body, got %d", w.Code)
+	}
+	var errResp dto.ErrorResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &errResp); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+	if errResp.Code != "binding_failed" {
+		t.Errorf("expected code %q, got %q", "binding_failed", errResp.Code)
 	}
 }

@@ -80,7 +80,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 func (h *AuthHandler) GoogleAuth(c *gin.Context) {
 	var req dto.GoogleAuthRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		writeError(c, http.StatusBadRequest, err)
+		writeError(c, http.StatusBadRequest, domain.ErrBindingFailed)
 		return
 	}
 
@@ -243,7 +243,7 @@ func (h *AuthHandler) UpdateLocation(c *gin.Context) {
 
 	var req dto.UpdateLocationRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		writeError(c, http.StatusBadRequest, err)
+		writeError(c, http.StatusBadRequest, domain.ErrBindingFailed)
 		return
 	}
 

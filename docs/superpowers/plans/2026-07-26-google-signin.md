@@ -2655,6 +2655,10 @@ reflects all of them; the task bodies above mostly do not.
 | `GoogleAuthPanel` extracted | `695a4f3` | 35 lines of JSX were duplicated across the two auth pages. |
 | Auth guard excludes `googleLoading` + `showLocationStep`; CSP gains `style-src` | `cbc8078` | **The location onboarding step was unreachable dead code** — the "already signed in" guard fired first. And GIS needs FOUR CSP directives; both documents listed three. |
 | Tests for the location endpoint, `AuthContext`, and Google repo lookups | `43640fa` | Gaps the pre-PR audit found against spec §7. |
+| `google_id` declared `not null` on the GORM tag | `9160eb4` | Verified against a real Postgres: **AutoMigrate DROPS a NOT NULL the struct tag does not declare**, so the migration's `SET NOT NULL` was a no-op in production too. |
+| Navbar renders the profile photo; `AuthContext` reconciles with `GET /auth/me` | `d1abcc0` | Found in live testing. The navbar only ever drew the name's initial, and the cached user was stale because the avatar import finishes AFTER the token is issued. |
+| GIS reloaded with `?hl=` on language change | `ae07ea7` | Found in live testing. **GIS fixes its language when the script loads** — `renderButton`'s `locale` option does not re-localize an already-loaded client, so the first render's language was frozen. |
+| New handlers use `ErrBindingFailed` | *this commit* | A malformed body returned `internal_error` plus a raw English validator string instead of the translatable `binding_failed` the rest of the handlers use (rule #11). |
 
 ---
 
