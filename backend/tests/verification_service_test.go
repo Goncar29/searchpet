@@ -25,8 +25,8 @@ import (
 // ============================================================
 
 type mockUserRepo struct {
-	user      *domain.User
-	updateFn  func(ctx context.Context, u *domain.User) error
+	user     *domain.User
+	updateFn func(ctx context.Context, u *domain.User) error
 }
 
 func (m *mockUserRepo) Create(ctx context.Context, u *domain.User) error { return nil }
@@ -39,6 +39,10 @@ func (m *mockUserRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.User,
 }
 
 func (m *mockUserRepo) GetByEmail(ctx context.Context, email string) (*domain.User, error) {
+	return nil, domain.ErrUserNotFound
+}
+
+func (m *mockUserRepo) GetByGoogleID(context.Context, string) (*domain.User, error) {
 	return nil, domain.ErrUserNotFound
 }
 
@@ -112,14 +116,14 @@ func TestConfirmOTP_SetsIsVerifiedAndMethod(t *testing.T) {
 	const validCode = "123456"
 
 	tests := []struct {
-		name                    string
-		channel                 string
-		initialEmailVerified    bool
-		initialPhoneVerified    bool
-		wantEmailVerified       bool
-		wantPhoneVerified       bool
-		wantIsVerified          bool
-		wantVerificationMethod  string
+		name                   string
+		channel                string
+		initialEmailVerified   bool
+		initialPhoneVerified   bool
+		wantEmailVerified      bool
+		wantPhoneVerified      bool
+		wantIsVerified         bool
+		wantVerificationMethod string
 	}{
 		{
 			name:                   "SCENARIO-1A: email OTP confirm sets is_verified=true, method=email",
@@ -419,9 +423,9 @@ func TestGetStatus_ReturnsCorrectDTO(t *testing.T) {
 	ctx := context.Background()
 
 	tests := []struct {
-		name        string
-		user        *domain.User
-		wantDTO     dto.VerificationStatusResponse
+		name    string
+		user    *domain.User
+		wantDTO dto.VerificationStatusResponse
 	}{
 		{
 			name: "unverified user",

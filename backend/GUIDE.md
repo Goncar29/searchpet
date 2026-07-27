@@ -398,7 +398,7 @@ func main() {
 
     // 4. Services (necesitan repos y/o bus)
     petService     := service.NewPetService(petRepo)
-    authService    := service.NewAuthService(userRepo, cfg.JWTSecret)
+    authService    := service.NewAuthService(userRepo, cfg.JWTSecret, photoStorage, fosterHomeService, googleVerifier)
     messageService := service.NewMessageService(messageRepo, bus)
 
     // NotificationService escucha el bus y manda push notifications

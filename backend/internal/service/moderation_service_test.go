@@ -22,6 +22,9 @@ func (m *mockUserRepoForMod) GetByID(ctx context.Context, id uuid.UUID) (*domain
 func (m *mockUserRepoForMod) GetByEmail(context.Context, string) (*domain.User, error) {
 	return nil, nil
 }
+func (m *mockUserRepoForMod) GetByGoogleID(context.Context, string) (*domain.User, error) {
+	return nil, domain.ErrUserNotFound
+}
 func (m *mockUserRepoForMod) Update(ctx context.Context, u *domain.User) error {
 	if m.updateFn != nil {
 		return m.updateFn(ctx, u)

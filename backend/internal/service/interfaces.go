@@ -151,12 +151,21 @@ type AuthService interface {
 	// Retorna error si las credenciales son inválidas o el usuario está baneado
 	Login(ctx context.Context, email, password string) (*domain.User, string, error)
 
+	// LoginWithGoogle verifica un ID token de Google y retorna el usuario, un JWT
+	// propio, y si el usuario fue creado en esta llamada (para el onboarding).
+	// Vincula automáticamente por email SOLO si Google reporta email_verified.
+	LoginWithGoogle(ctx context.Context, idToken string) (*domain.User, string, bool, error)
+
 	// GetUser obtiene los datos de un usuario por su ID
 	// Retorna error si el usuario no existe
 	GetUser(ctx context.Context, id uuid.UUID) (*domain.User, error)
 
 	// UpdateProfile actualiza el nombre y teléfono del usuario
 	UpdateProfile(ctx context.Context, id uuid.UUID, name, phone, city string) (*domain.User, error)
+
+	// UpdateLocation setea la ubicación del usuario (coordenadas y/o ciudad).
+	// lat y lng son un par: mandar una sin la otra es ErrInvalidInput.
+	UpdateLocation(ctx context.Context, id uuid.UUID, req dto.UpdateLocationRequest) (*domain.User, error)
 
 	// UpdateProfilePhoto sube la foto de perfil a Cloudinary y actualiza la URL en BD
 	UpdateProfilePhoto(ctx context.Context, id uuid.UUID, file multipart.File, filename string) (*domain.User, error)

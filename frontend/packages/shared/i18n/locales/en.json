@@ -58,6 +58,21 @@
       "emailPlaceholder": "your@email.com",
       "phonePlaceholder": "+1 555 123 4567",
       "cityPlaceholder": "Ex: New York, Los Angeles..."
+    },
+    "google": {
+      "divider": "or",
+      "loading": "Loading…",
+      "loadError": "We couldn't load Google sign-in. Check your connection."
+    },
+    "location": {
+      "title": "Set your location",
+      "subtitle": "We use it to show you lost pets near you. You can set it later.",
+      "useMyLocation": "Use my location",
+      "permissionDenied": "We couldn't access your location. Type your city instead.",
+      "cityLabel": "City",
+      "cityPlaceholder": "e.g. Montevideo",
+      "saveCity": "Save city",
+      "skip": "Skip for now"
     }
   },
   "pets": {
@@ -370,7 +385,11 @@
     "suspension_reason_required": "A suspension reason is required",
     "too_many_photos": "You've reached the maximum number of photos",
     "self_abuse_report": "You cannot report your own foster home",
-    "duplicate_abuse_report": "You already have a pending report on this foster home"
+    "duplicate_abuse_report": "You already have a pending report on this foster home",
+    "google_token_invalid": "We couldn't validate your Google account. Please try again.",
+    "google_email_unverified": "Your Google account's email isn't verified. Verify it with Google and try again.",
+    "google_signin_unavailable": "Google sign-in is unavailable right now.",
+    "google_account_mismatch": "This email is already linked to a different Google account."
   },
   "publish": {
     "intent": {

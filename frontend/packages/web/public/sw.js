@@ -1,8 +1,12 @@
-// SearchPet Service Worker v1
+// SearchPet Service Worker v2
 // Estrategia: Network first, cache fallback para assets estáticos.
 // Las llamadas a /api/ NUNCA se cachean.
 
-const CACHE_NAME = 'searchpet-v1';
+// Subir este número ante cualquier cambio en la lógica de cacheo. El handler
+// de activate borra todo cache cuyo nombre sea distinto, así que renombrar es
+// lo ÚNICO que purga las entradas viejas: mientras el nombre no cambie, un
+// asset guardado hace meses sigue vivo para siempre.
+const CACHE_NAME = 'searchpet-v2';
 const STATIC_ASSETS = ['/', '/index.html', '/manifest.json'];
 
 // Instalar: cachear assets base
@@ -49,12 +53,24 @@ self.addEventListener('fetch', (event) => {
         }
         return response;
       })
-      .catch(() =>
-        // Sin red: servir desde cache, fallback a index.html para SPA routing
-        caches.match(event.request).then(
-          (cached) => cached || caches.match('/index.html')
-        )
-      )
+      .catch(async () => {
+        // Sin red: servir desde cache si lo tenemos.
+        const cached = await caches.match(event.request);
+        if (cached) return cached;
+
+        // Solo las navegaciones caen a index.html (SPA routing). Devolver el
+        // shell HTML ante un .css o .js caído lo rompe EN SILENCIO: el
+        // navegador rechaza el recurso por MIME, no hay error visible en la
+        // página, y la app queda sin esa hoja de estilos o sin ese chunk.
+        if (event.request.mode === 'navigate') {
+          const shell = await caches.match('/index.html');
+          if (shell) return shell;
+        }
+
+        // Para todo lo demás, fallar como fallo: que el navegador vea un
+        // request roto y no HTML disfrazado de asset.
+        return Response.error();
+      })
   );
 });
 

@@ -74,6 +74,40 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	})
 }
 
+// GoogleAuth godoc
+// POST /api/auth/google
+// Público. Verifica un ID token de Google y devuelve una sesión nuestra.
+func (h *AuthHandler) GoogleAuth(c *gin.Context) {
+	var req dto.GoogleAuthRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		writeError(c, http.StatusBadRequest, domain.ErrBindingFailed)
+		return
+	}
+
+	user, token, isNewUser, err := h.authService.LoginWithGoogle(c.Request.Context(), req.IDToken)
+	if err != nil {
+		switch {
+		case errors.Is(err, domain.ErrGoogleTokenInvalid), errors.Is(err, domain.ErrGoogleEmailUnverified):
+			writeError(c, http.StatusUnauthorized, err)
+		case errors.Is(err, domain.ErrGoogleAccountMismatch):
+			writeError(c, http.StatusConflict, err)
+		case errors.Is(err, domain.ErrUserBanned):
+			writeError(c, http.StatusForbidden, err)
+		case errors.Is(err, domain.ErrGoogleSignInUnavailable):
+			writeError(c, http.StatusBadGateway, err)
+		default:
+			writeError(c, http.StatusInternalServerError, domain.ErrInternal)
+		}
+		return
+	}
+
+	c.JSON(http.StatusOK, dto.GoogleAuthResponse{
+		User:      dto.ToUserResponse(user),
+		Token:     token,
+		IsNewUser: isNewUser,
+	})
+}
+
 // UploadProfilePhoto godoc
 // POST /api/auth/me/photo
 func (h *AuthHandler) UploadProfilePhoto(c *gin.Context) {
@@ -186,6 +220,43 @@ func (h *AuthHandler) GetMe(c *gin.Context) {
 			return
 		}
 		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
+		return
+	}
+
+	c.JSON(http.StatusOK, dto.ToUserResponse(user))
+}
+
+// UpdateLocation godoc
+// PATCH /api/auth/me/location
+// Protegido. Setea coordenadas y/o ciudad del usuario autenticado.
+func (h *AuthHandler) UpdateLocation(c *gin.Context) {
+	rawID, exists := c.Get("userID")
+	if !exists {
+		writeError(c, http.StatusUnauthorized, domain.ErrUnauthorized)
+		return
+	}
+	id, ok := rawID.(uuid.UUID)
+	if !ok {
+		writeError(c, http.StatusUnauthorized, domain.ErrUnauthorized)
+		return
+	}
+
+	var req dto.UpdateLocationRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		writeError(c, http.StatusBadRequest, domain.ErrBindingFailed)
+		return
+	}
+
+	user, err := h.authService.UpdateLocation(c.Request.Context(), id, req)
+	if err != nil {
+		switch {
+		case errors.Is(err, domain.ErrInvalidInput):
+			writeError(c, http.StatusBadRequest, err)
+		case errors.Is(err, domain.ErrUserNotFound):
+			writeError(c, http.StatusNotFound, err)
+		default:
+			writeError(c, http.StatusInternalServerError, domain.ErrInternal)
+		}
 		return
 	}
 

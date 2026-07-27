@@ -58,6 +58,21 @@
       "emailPlaceholder": "tu@email.com",
       "phonePlaceholder": "+598 99 123 456",
       "cityPlaceholder": "Ej: Montevideo, Buenos Aires..."
+    },
+    "google": {
+      "divider": "o",
+      "loading": "Cargando…",
+      "loadError": "No pudimos cargar el acceso con Google. Revisá tu conexión."
+    },
+    "location": {
+      "title": "Completá tu ubicación",
+      "subtitle": "La usamos para mostrarte mascotas perdidas cerca tuyo. Podés completarla después.",
+      "useMyLocation": "Usar mi ubicación",
+      "permissionDenied": "No pudimos acceder a tu ubicación. Escribí tu ciudad.",
+      "cityLabel": "Ciudad",
+      "cityPlaceholder": "Ej: Montevideo",
+      "saveCity": "Guardar ciudad",
+      "skip": "Omitir por ahora"
     }
   },
   "pets": {
@@ -370,7 +385,11 @@
     "suspension_reason_required": "El motivo de suspensión es obligatorio",
     "too_many_photos": "Alcanzaste el máximo de fotos",
     "self_abuse_report": "No podés denunciar tu propio hogar",
-    "duplicate_abuse_report": "Ya tenés una denuncia pendiente sobre este hogar"
+    "duplicate_abuse_report": "Ya tenés una denuncia pendiente sobre este hogar",
+    "google_token_invalid": "No pudimos validar tu cuenta de Google. Intentá de nuevo.",
+    "google_email_unverified": "Tu cuenta de Google no tiene el email verificado. Verificalo en Google y volvé a intentar.",
+    "google_signin_unavailable": "El inicio de sesión con Google no está disponible en este momento.",
+    "google_account_mismatch": "Este email ya está vinculado a otra cuenta de Google."
   },
   "publish": {
     "intent": {

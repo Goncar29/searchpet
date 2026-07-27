@@ -18,6 +18,15 @@ type mockUserRepo struct {
 	getByIDErr error // error devuelto por GetByID
 	createErr  error
 	updateErr  error
+
+	// Google Sign-In
+	googleUser *domain.User // lo que GetByGoogleID devuelve
+	googleErr  error        // error devuelto por GetByGoogleID
+
+	// Capturas para aserciones
+	createdUser  *domain.User
+	updatedUsers []*domain.User
+	gotEmail     string // clave con la que se llamó a GetByEmail
 }
 
 func (m *mockUserRepo) Create(_ context.Context, user *domain.User) error {
@@ -25,6 +34,7 @@ func (m *mockUserRepo) Create(_ context.Context, user *domain.User) error {
 		return m.createErr
 	}
 	user.ID = uuid.New()
+	m.createdUser = user
 	return nil
 }
 
@@ -32,12 +42,27 @@ func (m *mockUserRepo) GetByID(_ context.Context, _ uuid.UUID) (*domain.User, er
 	return m.user, m.getByIDErr
 }
 
-func (m *mockUserRepo) GetByEmail(_ context.Context, _ string) (*domain.User, error) {
+func (m *mockUserRepo) GetByEmail(_ context.Context, email string) (*domain.User, error) {
+	m.gotEmail = email
 	return m.user, m.emailErr
 }
 
+func (m *mockUserRepo) GetByGoogleID(_ context.Context, _ string) (*domain.User, error) {
+	if m.googleErr != nil {
+		return nil, m.googleErr
+	}
+	if m.googleUser == nil {
+		return nil, domain.ErrUserNotFound
+	}
+	return m.googleUser, nil
+}
+
 func (m *mockUserRepo) Update(_ context.Context, user *domain.User) error {
-	return m.updateErr
+	if m.updateErr != nil {
+		return m.updateErr
+	}
+	m.updatedUsers = append(m.updatedUsers, user)
+	return nil
 }
 
 func (m *mockUserRepo) Delete(_ context.Context, _ uuid.UUID) error {
@@ -109,8 +134,8 @@ var _ repository.ReportRepository = (*mockReportRepo)(nil)
 // ============================================================
 
 type mockStatEventRepo struct {
-	recorded []string      // event types passed to Record, in order
-	recordErr error        // if set, Record returns it (best-effort path)
+	recorded  []string // event types passed to Record, in order
+	recordErr error    // if set, Record returns it (best-effort path)
 }
 
 func (m *mockStatEventRepo) Record(_ context.Context, eventType string, _ *uuid.UUID) error {

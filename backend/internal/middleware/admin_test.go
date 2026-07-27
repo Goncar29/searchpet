@@ -19,13 +19,14 @@ type stubUserRepo struct {
 	err  error
 }
 
-func (s *stubUserRepo) Create(context.Context, *domain.User) error          { return nil }
+func (s *stubUserRepo) Create(context.Context, *domain.User) error { return nil }
 func (s *stubUserRepo) GetByID(context.Context, uuid.UUID) (*domain.User, error) {
 	return s.user, s.err
 }
-func (s *stubUserRepo) GetByEmail(context.Context, string) (*domain.User, error) { return nil, nil }
-func (s *stubUserRepo) Update(context.Context, *domain.User) error               { return nil }
-func (s *stubUserRepo) Delete(context.Context, uuid.UUID) error                  { return nil }
+func (s *stubUserRepo) GetByEmail(context.Context, string) (*domain.User, error)    { return nil, nil }
+func (s *stubUserRepo) GetByGoogleID(context.Context, string) (*domain.User, error) { return nil, nil }
+func (s *stubUserRepo) Update(context.Context, *domain.User) error                  { return nil }
+func (s *stubUserRepo) Delete(context.Context, uuid.UUID) error                     { return nil }
 
 // runRequireAdmin runs RequireAdmin behind an optional userID setter and returns
 // the final status, whether the protected handler ran, and the decoded body.

@@ -9,6 +9,8 @@ interface AuthContextType {
   token: string | null;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, name: string, phone?: string, city?: string) => Promise<void>;
+  /** Resolves to `is_new_user` so the caller can decide whether to run onboarding. */
+  loginWithGoogle: (idToken: string) => Promise<boolean>;
   logout: () => void;
   refreshUser: () => Promise<void>;
   isAuthenticated: boolean;
@@ -51,6 +53,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     setIsLoading(false);
   }, []);
+
+  // Reconciliar el usuario cacheado con el servidor al montar.
+  //
+  // localStorage guarda el usuario tal como vino de la respuesta de login, y esa
+  // respuesta puede quedar vieja: la foto de perfil de Google se importa DESPUÉS
+  // de emitir el token (fuera del camino de respuesta), así que el usuario recién
+  // creado se persiste sin foto y el avatar del nav nunca la mostraría.
+  // Es best-effort: si falla, seguimos con lo cacheado.
+  useEffect(() => {
+    if (!token) return;
+    let cancelled = false;
+    apiClient
+      .getMe()
+      .then((fresh) => {
+        // Guard: never let a malformed response blank out a good cached user.
+        if (cancelled || !fresh?.id) return;
+        setUser(fresh);
+        localStorage.setItem('user', JSON.stringify(fresh));
+      })
+      .catch(() => {
+        /* sin red o 401 — el interceptor del client ya maneja la sesión expirada */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
 
   // Escuchar notificaciones en primer plano cuando el usuario está autenticado.
   // El listener se limpia al hacer logout o desmontar el componente.
@@ -114,6 +142,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     registerWebPushToken();
   };
 
+  const loginWithGoogle = async (idToken: string): Promise<boolean> => {
+    const resp = await apiClient.loginWithGoogle(idToken);
+    setToken(resp.token);
+    setUser(resp.user);
+    localStorage.setItem('token', resp.token);
+    localStorage.setItem('user', JSON.stringify(resp.user));
+    // Registrar token FCM — en background, falla silenciosamente
+    registerWebPushToken();
+    return resp.is_new_user;
+  };
+
   const logout = () => {
     setToken(null);
     setUser(null);
@@ -133,7 +172,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, login, register, logout, refreshUser, isAuthenticated: !!token, isAdmin: user?.is_admin ?? false, isLoading }}>
+    <AuthContext.Provider value={{ user, token, login, register, loginWithGoogle, logout, refreshUser, isAuthenticated: !!token, isAdmin: user?.is_admin ?? false, isLoading }}>
       {children}
     </AuthContext.Provider>
   );

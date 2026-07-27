@@ -21,6 +21,7 @@ vi.mock('react-i18next', () => ({
 const mockLogin = vi.fn();
 vi.mock('../context/AuthContext', () => ({
   useAuth: () => ({
+    loginWithGoogle: vi.fn(),
     login: mockLogin,
     isAuthenticated: false,
     isLoading: false,

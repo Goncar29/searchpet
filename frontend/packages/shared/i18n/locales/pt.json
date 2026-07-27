@@ -58,6 +58,21 @@
       "emailPlaceholder": "seu@email.com",
       "phonePlaceholder": "+55 11 91234-5678",
       "cityPlaceholder": "Ex: São Paulo, Rio de Janeiro..."
+    },
+    "google": {
+      "divider": "ou",
+      "loading": "Carregando…",
+      "loadError": "Não foi possível carregar o acesso com Google. Verifique sua conexão."
+    },
+    "location": {
+      "title": "Defina sua localização",
+      "subtitle": "Nós a usamos para mostrar animais perdidos perto de você. Você pode definir depois.",
+      "useMyLocation": "Usar minha localização",
+      "permissionDenied": "Não conseguimos acessar sua localização. Digite sua cidade.",
+      "cityLabel": "Cidade",
+      "cityPlaceholder": "Ex: Montevidéu",
+      "saveCity": "Salvar cidade",
+      "skip": "Pular por enquanto"
     }
   },
   "pets": {
@@ -370,7 +385,11 @@
     "suspension_reason_required": "O motivo da suspensão é obrigatório",
     "too_many_photos": "Você atingiu o máximo de fotos",
     "self_abuse_report": "Você não pode denunciar seu próprio lar",
-    "duplicate_abuse_report": "Você já tem uma denúncia pendente sobre este lar"
+    "duplicate_abuse_report": "Você já tem uma denúncia pendente sobre este lar",
+    "google_token_invalid": "Não foi possível validar sua conta do Google. Tente novamente.",
+    "google_email_unverified": "O e-mail da sua conta do Google não está verificado. Verifique no Google e tente novamente.",
+    "google_signin_unavailable": "O login com Google não está disponível no momento.",
+    "google_account_mismatch": "Este e-mail já está vinculado a outra conta do Google."
   },
   "publish": {
     "intent": {

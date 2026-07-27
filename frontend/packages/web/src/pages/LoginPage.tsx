@@ -4,6 +4,9 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { getErrorMessage } from '@shared/utils/apiErrors';
 import { Logo } from '../components/Logo';
+import { GoogleAuthPanel } from '../components/auth/GoogleAuthPanel';
+import { LocationOnboardingStep } from '../components/auth/LocationOnboardingStep';
+import { useGoogleSignIn } from '../hooks/useGoogleSignIn';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -17,6 +20,14 @@ export function LoginPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { login, isAuthenticated, isLoading } = useAuth();
+  const {
+    googleError,
+    setGoogleError,
+    googleLoading,
+    showLocationStep,
+    handleCredential,
+    finishOnboarding,
+  } = useGoogleSignIn();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -24,7 +35,13 @@ export function LoginPage() {
   const [apiError, setApiError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  if (!isLoading && isAuthenticated) {
+  // Both exclusions are load-bearing. AuthContext.loginWithGoogle stores the
+  // token — flipping isAuthenticated — BEFORE it resolves, so there is a render
+  // where the user is authenticated but the page has not yet decided whether to
+  // show onboarding. googleLoading covers that in-flight window; showLocationStep
+  // covers the step itself. Without them this guard redirects away and the whole
+  // new-user flow never renders.
+  if (!isLoading && isAuthenticated && !googleLoading && !showLocationStep) {
     const returnUrl = searchParams.get('returnUrl') || '/';
     navigate(returnUrl, { replace: true });
     return null;
@@ -68,69 +85,81 @@ export function LoginPage() {
         <p className="text-gray-500 dark:text-gray-400 mt-1">{t('auth:login.subtitle')}</p>
       </div>
 
-      <form
-        onSubmit={handleSubmit}
-        noValidate
-        className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 space-y-4"
-      >
-        {apiError && (
-          <div className="bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-sm p-3 rounded-lg">
-            {apiError}
-          </div>
-        )}
-
-        <div>
-          <label htmlFor="login-email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            {t('auth:login.email')}
-          </label>
-          <input
-            id="login-email"
-            type="email"
-            value={email}
-            onChange={(e) => {
-              setEmail(e.target.value);
-              if (fieldErrors.email) setFieldErrors((prev) => ({ ...prev, email: undefined }));
-            }}
-            className="w-full border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+      {showLocationStep ? (
+        <LocationOnboardingStep onDone={finishOnboarding} />
+      ) : (
+        <>
+          <GoogleAuthPanel
+            error={googleError}
+            onCredential={handleCredential}
+            onError={setGoogleError}
           />
-          {fieldErrors.email && (
-            <p className="text-red-500 dark:text-red-400 text-sm mt-1">{fieldErrors.email}</p>
-          )}
-        </div>
 
-        <div>
-          <label htmlFor="login-password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            {t('auth:login.password')}
-          </label>
-          <input
-            id="login-password"
-            type="password"
-            value={password}
-            onChange={(e) => {
-              setPassword(e.target.value);
-              if (fieldErrors.password) setFieldErrors((prev) => ({ ...prev, password: undefined }));
-            }}
-            className="w-full border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-          />
-          {fieldErrors.password && (
-            <p className="text-red-500 dark:text-red-400 text-sm mt-1">{fieldErrors.password}</p>
-          )}
-        </div>
+          <form
+            onSubmit={handleSubmit}
+            noValidate
+            className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 space-y-4"
+          >
+            {apiError && (
+              <div className="bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-sm p-3 rounded-lg">
+                {apiError}
+              </div>
+            )}
 
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full bg-primary text-white font-bold py-3 rounded-lg hover:bg-primary-dark transition-colors disabled:opacity-60"
-        >
-          {loading ? t('common:loading') : t('auth:login.submit')}
-        </button>
+            <div>
+              <label htmlFor="login-email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                {t('auth:login.email')}
+              </label>
+              <input
+                id="login-email"
+                type="email"
+                value={email}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  if (fieldErrors.email) setFieldErrors((prev) => ({ ...prev, email: undefined }));
+                }}
+                className="w-full border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+              />
+              {fieldErrors.email && (
+                <p className="text-red-500 dark:text-red-400 text-sm mt-1">{fieldErrors.email}</p>
+              )}
+            </div>
 
-        <p className="text-center text-sm text-gray-500 dark:text-gray-400">
-          <Link to="/register" className="text-primary font-semibold hover:underline">
-            {t('auth:login.noAccount')}
-          </Link>
-        </p>
-      </form>
+            <div>
+              <label htmlFor="login-password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                {t('auth:login.password')}
+              </label>
+              <input
+                id="login-password"
+                type="password"
+                value={password}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  if (fieldErrors.password) setFieldErrors((prev) => ({ ...prev, password: undefined }));
+                }}
+                className="w-full border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+              />
+              {fieldErrors.password && (
+                <p className="text-red-500 dark:text-red-400 text-sm mt-1">{fieldErrors.password}</p>
+              )}
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading || googleLoading}
+              className="w-full bg-primary text-white font-bold py-3 rounded-lg hover:bg-primary-dark transition-colors disabled:opacity-60"
+            >
+              {loading ? t('common:loading') : t('auth:login.submit')}
+            </button>
+
+            <p className="text-center text-sm text-gray-500 dark:text-gray-400">
+              <Link to="/register" className="text-primary font-semibold hover:underline">
+                {t('auth:login.noAccount')}
+              </Link>
+            </p>
+          </form>
+        </>
+      )}
     </div>
   );
 }

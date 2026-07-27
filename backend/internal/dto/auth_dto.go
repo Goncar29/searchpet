@@ -41,6 +41,28 @@ type AuthResponse struct {
 	Token string       `json:"token"`
 }
 
+// GoogleAuthRequest es el ID token que el botón de Google Identity Services
+// obtiene en el navegador y nos manda para verificar server-side.
+type GoogleAuthRequest struct {
+	IDToken string `json:"id_token" binding:"required"`
+}
+
+// GoogleAuthResponse extiende AuthResponse con IsNewUser, que le dice al cliente
+// si tiene que mostrar el paso de onboarding de ubicación.
+type GoogleAuthResponse struct {
+	User      UserResponse `json:"user"`
+	Token     string       `json:"token"`
+	IsNewUser bool         `json:"is_new_user"`
+}
+
+// UpdateLocationRequest — todos los campos son opcionales, pero lat y lng viajan
+// como par: una sin la otra es una coordenada inválida, no un update parcial.
+type UpdateLocationRequest struct {
+	Latitude  *float64 `json:"latitude"`
+	Longitude *float64 `json:"longitude"`
+	City      string   `json:"city"`
+}
+
 // UpdateProfileRequest son los datos que el cliente manda para actualizar su perfil
 type UpdateProfileRequest struct {
 	Name  string `json:"name"`

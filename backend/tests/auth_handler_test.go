@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
@@ -14,15 +15,20 @@ import (
 	"lost-pets/internal/domain"
 	"lost-pets/internal/dto"
 	"lost-pets/internal/handler"
+	"lost-pets/internal/service"
 )
 
 // ============================================================
 // Mock: AuthService
 // ============================================================
 
+type handlerAuthService = service.AuthService
+
 type mockAuthService struct {
 	registerFn           func(ctx context.Context, email, password, name, city string) (*domain.User, string, error)
 	loginFn              func(ctx context.Context, email, password string) (*domain.User, string, error)
+	updateLocationFn     func(ctx context.Context, id uuid.UUID, req dto.UpdateLocationRequest) (*domain.User, error)
+	loginWithGoogleFn    func(ctx context.Context, idToken string) (*domain.User, string, bool, error)
 	getUserFn            func(ctx context.Context, id uuid.UUID) (*domain.User, error)
 	updateProfileFn      func(ctx context.Context, id uuid.UUID, name, phone, city string) (*domain.User, error)
 	updateProfilePhotoFn func(ctx context.Context, id uuid.UUID, file multipart.File, filename string) (*domain.User, error)
@@ -41,6 +47,20 @@ func (m *mockAuthService) Login(ctx context.Context, email, password string) (*d
 		return m.loginFn(ctx, email, password)
 	}
 	return nil, "", nil
+}
+
+func (m *mockAuthService) UpdateLocation(ctx context.Context, id uuid.UUID, req dto.UpdateLocationRequest) (*domain.User, error) {
+	if m.updateLocationFn != nil {
+		return m.updateLocationFn(ctx, id, req)
+	}
+	return nil, nil
+}
+
+func (m *mockAuthService) LoginWithGoogle(ctx context.Context, idToken string) (*domain.User, string, bool, error) {
+	if m.loginWithGoogleFn != nil {
+		return m.loginWithGoogleFn(ctx, idToken)
+	}
+	return nil, "", false, nil
 }
 
 func (m *mockAuthService) GetUser(ctx context.Context, id uuid.UUID) (*domain.User, error) {
@@ -411,5 +431,261 @@ func TestAuthHandler_Login_ResponseShape(t *testing.T) {
 	}
 	if resp.User.ID == (uuid.UUID{}) {
 		t.Error("expected user ID in login response")
+	}
+}
+
+// ============================================================
+// Tests: POST /api/auth/google
+// ============================================================
+
+func TestGoogleAuth_NewUserResponseShape(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	created := &domain.User{ID: uuid.New(), Email: "carlos@example.com", Name: "Carlos"}
+	svc := &mockAuthService{
+		loginWithGoogleFn: func(context.Context, string) (*domain.User, string, bool, error) {
+			return created, "jwt-token", true, nil
+		},
+	}
+	h := handler.NewAuthHandler(svc)
+
+	router := gin.New()
+	router.POST("/api/auth/google", h.GoogleAuth)
+
+	body, _ := json.Marshal(map[string]string{"id_token": "google-id-token"})
+	req := httptest.NewRequest(http.MethodPost, "/api/auth/google", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d — body: %s", w.Code, w.Body.String())
+	}
+
+	var resp dto.GoogleAuthResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+	if resp.Token != "jwt-token" {
+		t.Errorf("expected token %q, got %q", "jwt-token", resp.Token)
+	}
+	if !resp.IsNewUser {
+		t.Error("expected is_new_user=true — the web onboarding step depends on this flag")
+	}
+	if resp.User.Email != "carlos@example.com" {
+		t.Errorf("expected email in the response, got %q", resp.User.Email)
+	}
+}
+
+func TestGoogleAuth_ReturningUserIsNotFlaggedNew(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	existing := &domain.User{ID: uuid.New(), Email: "carlos@example.com"}
+	svc := &mockAuthService{
+		loginWithGoogleFn: func(context.Context, string) (*domain.User, string, bool, error) {
+			return existing, "jwt-token", false, nil
+		},
+	}
+	h := handler.NewAuthHandler(svc)
+	router := gin.New()
+	router.POST("/api/auth/google", h.GoogleAuth)
+
+	body, _ := json.Marshal(map[string]string{"id_token": "t"})
+	req := httptest.NewRequest(http.MethodPost, "/api/auth/google", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	var resp dto.GoogleAuthResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+	if resp.IsNewUser {
+		t.Error("a returning user must NOT trigger the location onboarding step")
+	}
+}
+
+func TestGoogleAuth_ErrorStatusMapping(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	cases := []struct {
+		name     string
+		err      error
+		wantCode int
+		wantBody string
+	}{
+		{"invalid token", domain.ErrGoogleTokenInvalid, http.StatusUnauthorized, "google_token_invalid"},
+		{"unverified email", domain.ErrGoogleEmailUnverified, http.StatusUnauthorized, "google_email_unverified"},
+		{"sub mismatch", domain.ErrGoogleAccountMismatch, http.StatusConflict, "google_account_mismatch"},
+		{"banned", domain.ErrUserBanned, http.StatusForbidden, "user_banned"},
+		{"sign-in unavailable", domain.ErrGoogleSignInUnavailable, http.StatusBadGateway, "google_signin_unavailable"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			svc := &mockAuthService{
+				loginWithGoogleFn: func(context.Context, string) (*domain.User, string, bool, error) {
+					return nil, "", false, tc.err
+				},
+			}
+			h := handler.NewAuthHandler(svc)
+			router := gin.New()
+			router.POST("/api/auth/google", h.GoogleAuth)
+
+			body, _ := json.Marshal(map[string]string{"id_token": "t"})
+			req := httptest.NewRequest(http.MethodPost, "/api/auth/google", bytes.NewReader(body))
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+			router.ServeHTTP(w, req)
+
+			if w.Code != tc.wantCode {
+				t.Errorf("expected %d, got %d", tc.wantCode, w.Code)
+			}
+			var errResp dto.ErrorResponse
+			if err := json.Unmarshal(w.Body.Bytes(), &errResp); err != nil {
+				t.Fatalf("invalid JSON: %v", err)
+			}
+			if errResp.Code != tc.wantBody {
+				t.Errorf("expected code %q, got %q", tc.wantBody, errResp.Code)
+			}
+		})
+	}
+}
+
+func TestGoogleAuth_MissingIDToken(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	h := handler.NewAuthHandler(&mockAuthService{})
+	router := gin.New()
+	router.POST("/api/auth/google", h.GoogleAuth)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/auth/google", bytes.NewReader([]byte(`{}`)))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected 400 for a missing id_token, got %d", w.Code)
+	}
+	// The code must be translatable, not internal_error with a raw English
+	// validator string leaking to the user (rule #11).
+	var errResp dto.ErrorResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &errResp); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+	if errResp.Code != "binding_failed" {
+		t.Errorf("expected code %q, got %q", "binding_failed", errResp.Code)
+	}
+}
+
+// ============================================================
+// Tests: PATCH /api/auth/me/location
+// ============================================================
+
+// locationRouter wires the handler behind a middleware that injects userID,
+// mirroring how the protected group supplies it in production.
+func locationRouter(svc handlerAuthService, userID *uuid.UUID) *gin.Engine {
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+	router.PATCH("/api/auth/me/location", func(c *gin.Context) {
+		if userID != nil {
+			c.Set("userID", *userID)
+		}
+	}, handler.NewAuthHandler(svc).UpdateLocation)
+	return router
+}
+
+func patchLocation(router *gin.Engine, body string) *httptest.ResponseRecorder {
+	req := httptest.NewRequest(http.MethodPatch, "/api/auth/me/location", bytes.NewReader([]byte(body)))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	return w
+}
+
+func TestUpdateLocation_ResponseShape(t *testing.T) {
+	id := uuid.New()
+	updated := &domain.User{ID: id, Email: "carlos@example.com", Name: "Carlos", City: "Montevideo"}
+	var got dto.UpdateLocationRequest
+	svc := &mockAuthService{
+		updateLocationFn: func(_ context.Context, gotID uuid.UUID, req dto.UpdateLocationRequest) (*domain.User, error) {
+			if gotID != id {
+				t.Errorf("handler passed user %s, expected %s", gotID, id)
+			}
+			got = req
+			return updated, nil
+		},
+	}
+
+	w := patchLocation(locationRouter(svc, &id), `{"latitude":-34.9011,"longitude":-56.1645}`)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d — body: %s", w.Code, w.Body.String())
+	}
+	if got.Latitude == nil || *got.Latitude != -34.9011 || got.Longitude == nil || *got.Longitude != -56.1645 {
+		t.Errorf("coordinates did not reach the service intact: %+v", got)
+	}
+	var resp dto.UserResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+	if resp.City != "Montevideo" {
+		t.Errorf("expected the updated user back, got city %q", resp.City)
+	}
+}
+
+func TestUpdateLocation_RequiresAuthenticatedUser(t *testing.T) {
+	// No middleware sets userID — the handler must refuse rather than panic.
+	w := patchLocation(locationRouter(&mockAuthService{}, nil), `{"city":"Montevideo"}`)
+
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("expected 401 without a userID in context, got %d", w.Code)
+	}
+}
+
+func TestUpdateLocation_ErrorStatusMapping(t *testing.T) {
+	id := uuid.New()
+	cases := []struct {
+		name     string
+		err      error
+		wantCode int
+		wantBody string
+	}{
+		{"invalid input", domain.ErrInvalidInput, http.StatusBadRequest, "invalid_input"},
+		{"user gone", domain.ErrUserNotFound, http.StatusNotFound, "user_not_found"},
+		{"unexpected", errors.New("db exploded"), http.StatusInternalServerError, "internal_error"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			svc := &mockAuthService{
+				updateLocationFn: func(context.Context, uuid.UUID, dto.UpdateLocationRequest) (*domain.User, error) {
+					return nil, tc.err
+				},
+			}
+			w := patchLocation(locationRouter(svc, &id), `{"city":"Montevideo"}`)
+
+			if w.Code != tc.wantCode {
+				t.Errorf("expected %d, got %d", tc.wantCode, w.Code)
+			}
+			var errResp dto.ErrorResponse
+			if err := json.Unmarshal(w.Body.Bytes(), &errResp); err != nil {
+				t.Fatalf("invalid JSON: %v", err)
+			}
+			if errResp.Code != tc.wantBody {
+				t.Errorf("expected code %q, got %q", tc.wantBody, errResp.Code)
+			}
+		})
+	}
+}
+
+func TestUpdateLocation_MalformedBody(t *testing.T) {
+	id := uuid.New()
+	w := patchLocation(locationRouter(&mockAuthService{}, &id), `{"latitude":"not-a-number"}`)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected 400 for a malformed body, got %d", w.Code)
+	}
+	var errResp dto.ErrorResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &errResp); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+	if errResp.Code != "binding_failed" {
+		t.Errorf("expected code %q, got %q", "binding_failed", errResp.Code)
 	}
 }

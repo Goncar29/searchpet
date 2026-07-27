@@ -4,6 +4,9 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { getErrorMessage } from '@shared/utils/apiErrors';
 import { Logo } from '../components/Logo';
+import { GoogleAuthPanel } from '../components/auth/GoogleAuthPanel';
+import { LocationOnboardingStep } from '../components/auth/LocationOnboardingStep';
+import { useGoogleSignIn } from '../hooks/useGoogleSignIn';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -18,6 +21,14 @@ export function RegisterPage() {
   const { t } = useTranslation(['auth', 'common']);
   const navigate = useNavigate();
   const { register, isAuthenticated, isLoading } = useAuth();
+  const {
+    googleError,
+    setGoogleError,
+    googleLoading,
+    showLocationStep,
+    handleCredential,
+    finishOnboarding,
+  } = useGoogleSignIn();
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -29,7 +40,13 @@ export function RegisterPage() {
   const [apiError, setApiError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  if (!isLoading && isAuthenticated) {
+  // Both exclusions are load-bearing. AuthContext.loginWithGoogle stores the
+  // token — flipping isAuthenticated — BEFORE it resolves, so there is a render
+  // where the user is authenticated but the page has not yet decided whether to
+  // show onboarding. googleLoading covers that in-flight window; showLocationStep
+  // covers the step itself. Without them this guard redirects away and the whole
+  // new-user flow never renders.
+  if (!isLoading && isAuthenticated && !googleLoading && !showLocationStep) {
     navigate('/', { replace: true });
     return null;
   }
@@ -79,128 +96,140 @@ export function RegisterPage() {
         <p className="text-gray-500 dark:text-gray-400 mt-1">{t('auth:register.subtitle')}</p>
       </div>
 
-      <form
-        onSubmit={handleSubmit}
-        noValidate
-        className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 space-y-4"
-      >
-        {apiError && (
-          <div className="bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-sm p-3 rounded-lg">
-            {apiError}
-          </div>
-        )}
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            {t('auth:register.name')} *
-          </label>
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => {
-              setName(e.target.value);
-              if (fieldErrors.name) setFieldErrors((prev) => ({ ...prev, name: undefined }));
-            }}
-            className="w-full border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+      {showLocationStep ? (
+        <LocationOnboardingStep onDone={finishOnboarding} />
+      ) : (
+        <>
+          <GoogleAuthPanel
+            error={googleError}
+            onCredential={handleCredential}
+            onError={setGoogleError}
           />
-          {fieldErrors.name && (
-            <p className="text-red-500 dark:text-red-400 text-sm mt-1">{fieldErrors.name}</p>
-          )}
-        </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            {t('auth:register.email')} *
-          </label>
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => {
-              setEmail(e.target.value);
-              if (fieldErrors.email) setFieldErrors((prev) => ({ ...prev, email: undefined }));
-            }}
-            className="w-full border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-          />
-          {fieldErrors.email && (
-            <p className="text-red-500 dark:text-red-400 text-sm mt-1">{fieldErrors.email}</p>
-          )}
-        </div>
+          <form
+            onSubmit={handleSubmit}
+            noValidate
+            className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 space-y-4"
+          >
+            {apiError && (
+              <div className="bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-sm p-3 rounded-lg">
+                {apiError}
+              </div>
+            )}
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            {t('auth:register.phone')}
-          </label>
-          <input
-            type="tel"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            className="w-full border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-          />
-        </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                {t('auth:register.name')} *
+              </label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => {
+                  setName(e.target.value);
+                  if (fieldErrors.name) setFieldErrors((prev) => ({ ...prev, name: undefined }));
+                }}
+                className="w-full border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+              />
+              {fieldErrors.name && (
+                <p className="text-red-500 dark:text-red-400 text-sm mt-1">{fieldErrors.name}</p>
+              )}
+            </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            {t('auth:register.city')}
-          </label>
-          <input
-            type="text"
-            value={city}
-            onChange={(e) => setCity(e.target.value)}
-            placeholder="Ej: Montevideo, Buenos Aires..."
-            className="w-full border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-          />
-        </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                {t('auth:register.email')} *
+              </label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  if (fieldErrors.email) setFieldErrors((prev) => ({ ...prev, email: undefined }));
+                }}
+                className="w-full border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+              />
+              {fieldErrors.email && (
+                <p className="text-red-500 dark:text-red-400 text-sm mt-1">{fieldErrors.email}</p>
+              )}
+            </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            {t('auth:register.password')} *
-          </label>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => {
-              setPassword(e.target.value);
-              if (fieldErrors.password) setFieldErrors((prev) => ({ ...prev, password: undefined }));
-            }}
-            className="w-full border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-          />
-          {fieldErrors.password && (
-            <p className="text-red-500 dark:text-red-400 text-sm mt-1">{fieldErrors.password}</p>
-          )}
-        </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                {t('auth:register.phone')}
+              </label>
+              <input
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                className="w-full border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+              />
+            </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            {t('auth:register.confirm')} *
-          </label>
-          <input
-            type="password"
-            value={confirm}
-            onChange={(e) => {
-              setConfirm(e.target.value);
-              if (fieldErrors.confirm) setFieldErrors((prev) => ({ ...prev, confirm: undefined }));
-            }}
-            className="w-full border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-          />
-          {fieldErrors.confirm && (
-            <p className="text-red-500 dark:text-red-400 text-sm mt-1">{fieldErrors.confirm}</p>
-          )}
-        </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                {t('auth:register.city')}
+              </label>
+              <input
+                type="text"
+                value={city}
+                onChange={(e) => setCity(e.target.value)}
+                placeholder="Ej: Montevideo, Buenos Aires..."
+                className="w-full border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+              />
+            </div>
 
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full bg-primary text-white font-bold py-3 rounded-lg hover:bg-primary-dark transition-colors disabled:opacity-60"
-        >
-          {loading ? t('common:loading') : t('auth:register.submit')}
-        </button>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                {t('auth:register.password')} *
+              </label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  if (fieldErrors.password) setFieldErrors((prev) => ({ ...prev, password: undefined }));
+                }}
+                className="w-full border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+              />
+              {fieldErrors.password && (
+                <p className="text-red-500 dark:text-red-400 text-sm mt-1">{fieldErrors.password}</p>
+              )}
+            </div>
 
-        <p className="text-center text-sm text-gray-500 dark:text-gray-400">
-          <Link to="/login" className="text-primary font-semibold hover:underline">
-            {t('auth:register.hasAccount')}
-          </Link>
-        </p>
-      </form>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                {t('auth:register.confirm')} *
+              </label>
+              <input
+                type="password"
+                value={confirm}
+                onChange={(e) => {
+                  setConfirm(e.target.value);
+                  if (fieldErrors.confirm) setFieldErrors((prev) => ({ ...prev, confirm: undefined }));
+                }}
+                className="w-full border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+              />
+              {fieldErrors.confirm && (
+                <p className="text-red-500 dark:text-red-400 text-sm mt-1">{fieldErrors.confirm}</p>
+              )}
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading || googleLoading}
+              className="w-full bg-primary text-white font-bold py-3 rounded-lg hover:bg-primary-dark transition-colors disabled:opacity-60"
+            >
+              {loading ? t('common:loading') : t('auth:register.submit')}
+            </button>
+
+            <p className="text-center text-sm text-gray-500 dark:text-gray-400">
+              <Link to="/login" className="text-primary font-semibold hover:underline">
+                {t('auth:register.hasAccount')}
+              </Link>
+            </p>
+          </form>
+        </>
+      )}
     </div>
   );
 }

@@ -120,15 +120,17 @@ export function MainLayout() {
             style={{ gridTemplateColumns: 'auto 1fr auto' }}
           >
             {/* Columna 1 — Logo */}
-            <Link to="/" className="inline-flex items-center gap-2 pr-6">
+            <Link to="/" className="inline-flex items-center gap-2 pr-2 sm:pr-6">
               <Logo tight className="h-6 w-auto shrink-0 text-primary" />
-              <span className="text-2xl font-brand font-semibold tracking-tight text-gray-900 dark:text-gray-50">
+              <span className="text-xl sm:text-2xl font-brand font-semibold tracking-tight text-gray-900 dark:text-gray-50">
                 Search<span className="text-primary">Pet</span>
               </span>
             </Link>
 
-            {/* Columna 2 — Nav links centrados (solo desktop) */}
-            <div className="hidden min-[960px]:flex items-center justify-center gap-6">
+            {/* Columna 2 — Nav links centrados (solo desktop).
+                Base visible, oculto por debajo de 960px: si la media query
+                fallara, la barra queda de más, nunca vacía. */}
+            <div className="flex max-[960px]:hidden items-center justify-center gap-6">
               {publicNavLinks.map((link) => (
                 <Link
                   key={link.to}
@@ -141,7 +143,7 @@ export function MainLayout() {
             </div>
 
             {/* Columna 3 — Controles + auth, siempre visible a la derecha */}
-            <div className="flex items-center gap-2 pl-4 justify-end">
+            <div className="flex items-center gap-1 sm:gap-2 pl-2 sm:pl-4 justify-end">
               {/* Tema e idioma: siempre visibles */}
               <button
                 onClick={toggleTheme}
@@ -152,8 +154,9 @@ export function MainLayout() {
               </button>
               <LanguageSwitcher />
 
-              {/* Auth section — solo desktop */}
-              <div className="hidden min-[960px]:flex items-center gap-3 ml-1">
+              {/* Auth section — solo desktop. Mismo criterio que los nav
+                  links: base visible, se oculta por debajo de 960px. */}
+              <div className="flex max-[960px]:hidden items-center gap-3 ml-1">
                 {isAuthenticated ? (
                   <>
                     <Link
@@ -176,9 +179,17 @@ export function MainLayout() {
                         aria-label={t('userMenu')}
                         className="relative flex items-center gap-2 rounded-full pl-1 pr-2 py-1 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                       >
-                        <span className="flex items-center justify-center w-8 h-8 rounded-full bg-primary text-white text-sm font-bold">
-                          {user?.name?.charAt(0).toUpperCase() ?? '?'}
-                        </span>
+                        {user?.profile_photo_url ? (
+                          <img
+                            src={user.profile_photo_url}
+                            alt={user.name}
+                            className="w-8 h-8 rounded-full object-cover"
+                          />
+                        ) : (
+                          <span className="flex items-center justify-center w-8 h-8 rounded-full bg-primary text-white text-sm font-bold">
+                            {user?.name?.charAt(0).toUpperCase() ?? '?'}
+                          </span>
+                        )}
                         <span className="hidden lg:inline text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap max-w-[8rem] truncate">
                           {user?.name}
                         </span>

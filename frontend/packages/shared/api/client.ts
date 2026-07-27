@@ -19,6 +19,8 @@ export class ApiError extends Error {
 
 import type {
   AuthResponse,
+  GoogleAuthResponse,
+  UpdateLocationRequest,
   RegisterRequest,
   LoginRequest,
   User,
@@ -228,6 +230,12 @@ class APIClient {
     return resp;
   }
 
+  async loginWithGoogle(idToken: string): Promise<GoogleAuthResponse> {
+    const resp = await this.request<GoogleAuthResponse>('POST', '/api/auth/google', { id_token: idToken });
+    this.token = resp.token;
+    return resp;
+  }
+
   logout() {
     this.token = null;
   }
@@ -238,6 +246,10 @@ class APIClient {
 
   async updateMe(data: UpdateProfileRequest): Promise<User> {
     return this.request<User>('PUT', '/api/auth/me', data);
+  }
+
+  async updateMyLocation(data: UpdateLocationRequest): Promise<User> {
+    return this.request<User>('PATCH', '/api/auth/me/location', data);
   }
 
   async updatePreferences(prefs: UserPreferences): Promise<UserPreferences> {
