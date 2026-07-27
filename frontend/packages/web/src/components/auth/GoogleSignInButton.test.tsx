@@ -16,18 +16,46 @@ const renderButton = vi.fn((parent: HTMLElement, _options: GoogleButtonConfigura
   parent.appendChild(btn);
 });
 
+function installGoogleStub() {
+  window.google = { accounts: { id: { initialize, renderButton, cancel: vi.fn() } } };
+}
+
+/** The most recently injected GIS script, or undefined. */
+function lastGisScript(): HTMLScriptElement | undefined {
+  const all = gisScripts();
+  return all[all.length - 1];
+}
+
+/** The <script> elements the component injected, in order. */
+function gisScripts() {
+  return Array.from(document.querySelectorAll('script[src*="gsi/client"]')) as HTMLScriptElement[];
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   currentLang = 'es';
   __resetGisLoaderForTests();
   vi.stubEnv('VITE_GOOGLE_CLIENT_ID', 'test-client-id.apps.googleusercontent.com');
-  // Pretend the GIS script is already on the page.
-  window.google = { accounts: { id: { initialize, renderButton, cancel: vi.fn() } } };
+
+  // jsdom never fetches scripts, so stand in for the browser: when the component
+  // injects the GIS script, install the global and fire onload.
+  const append = document.head.appendChild.bind(document.head);
+  vi.spyOn(document.head, 'appendChild').mockImplementation(((node: Node) => {
+    const el = node as HTMLScriptElement;
+    const res = append(node);
+    if (el.tagName === 'SCRIPT' && String(el.src).includes('gsi/client')) {
+      installGoogleStub();
+      setTimeout(() => el.onload?.(new Event('load')), 0);
+    }
+    return res;
+  }) as typeof document.head.appendChild);
 });
 
 afterEach(() => {
   vi.unstubAllEnvs();
+  vi.restoreAllMocks();
   delete window.google;
+  gisScripts().forEach((el) => el.remove());
 });
 
 describe('GoogleSignInButton', () => {
@@ -80,23 +108,25 @@ describe('GoogleSignInButton', () => {
     expect(screen.getByText('auth:google.loading')).toBeInTheDocument();
   });
 
-  it('re-renders the button in the new language when the app language changes', async () => {
+  it('reloads GIS with the new language when the app language changes', async () => {
     const { rerender } = render(<GoogleSignInButton onCredential={vi.fn()} onError={vi.fn()} />);
     await waitFor(() => expect(renderButton).toHaveBeenCalledTimes(1));
-    expect(renderButton.mock.calls[0][1].locale).toBe('es');
+    expect(lastGisScript()?.src).toContain('hl=es');
 
     currentLang = 'en';
     rerender(<GoogleSignInButton onCredential={vi.fn()} onError={vi.fn()} />);
 
-    // GIS draws its own label, so the only way the button follows the app's
-    // language switcher is a fresh renderButton with the new locale.
+    // GIS fixes its language when the SCRIPT loads — renderButton's `locale`
+    // option does not re-localize an already-loaded client. So the only thing
+    // that actually follows the app's switcher is a fresh script with ?hl=.
+    await waitFor(() => expect(lastGisScript()?.src).toContain('hl=en'));
     await waitFor(() => expect(renderButton).toHaveBeenCalledTimes(2));
-    expect(renderButton.mock.calls[1][1].locale).toBe('en');
+    expect(renderButton.mock.calls[1]?.[1].locale).toBe('en');
 
-    // GIS APPENDS. Without clearing first, the old Spanish button stays on
-    // screen and the English one piles up beneath it — which is exactly what the
-    // user saw: "the button is only ever in Spanish".
-    expect(screen.getAllByTestId('google-signin-button')[0].querySelectorAll('[data-gis-button]'))
-      .toHaveLength(1);
+    // Exactly one script and one button survive — no piling up.
+    expect(gisScripts()).toHaveLength(1);
+    expect(
+      screen.getAllByTestId('google-signin-button')[0]?.querySelectorAll('[data-gis-button]'),
+    ).toHaveLength(1);
   });
 });

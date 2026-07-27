@@ -16,18 +16,38 @@ export function googleClientId(): string | undefined {
 /**
  * The GIS script is a page-level singleton: loading it twice would register two
  * sets of globals. This promise is shared by every instance of the button.
+ *
+ * It is keyed by LOCALE because GIS decides its language when the script loads
+ * (the `hl` query param) — `renderButton`'s `locale` option does NOT re-localize
+ * a client that is already loaded. So following the app's language switcher
+ * means dropping the script and loading it again.
  */
 let gisPromise: Promise<void> | null = null;
+let loadedLocale: string | null = null;
 
-function loadGis(): Promise<void> {
-  if (gisPromise) return gisPromise;
+/** Test-only: clears the module-level singleton between test cases. */
+export function __resetGisLoaderForTests() {
+  gisPromise = null;
+  loadedLocale = null;
+}
+
+function loadGis(locale: string): Promise<void> {
+  if (gisPromise && loadedLocale === locale) return gisPromise;
+
+  // Language changed after the script loaded — tear it down and start over.
+  if (gisPromise) {
+    document.querySelectorAll(`script[src^="${GIS_SRC}"]`).forEach((el) => el.remove());
+    delete window.google;
+  }
+
+  loadedLocale = locale;
   gisPromise = new Promise<void>((resolve, reject) => {
     if (window.google?.accounts?.id) {
       resolve();
       return;
     }
     const script = document.createElement('script');
-    script.src = GIS_SRC;
+    script.src = `${GIS_SRC}?hl=${encodeURIComponent(locale)}`;
     script.async = true;
     script.defer = true;
     script.onload = () => resolve();
@@ -35,16 +55,12 @@ function loadGis(): Promise<void> {
       // Reset so a later mount can retry — a one-off network blip should not
       // disable the button for the rest of the session.
       gisPromise = null;
+      loadedLocale = null;
       reject(new Error('gis_load_failed'));
     };
     document.head.appendChild(script);
   });
   return gisPromise;
-}
-
-/** Test-only: clears the module-level singleton between test cases. */
-export function __resetGisLoaderForTests() {
-  gisPromise = null;
 }
 
 interface GoogleSignInButtonProps {
@@ -88,7 +104,7 @@ export function GoogleSignInButton({ onCredential, onError }: GoogleSignInButton
     if (!clientId) return;
     let cancelled = false;
 
-    loadGis()
+    loadGis(locale)
       .then(() => {
         if (cancelled || !containerRef.current || !window.google) return;
         window.google.accounts.id.initialize({
