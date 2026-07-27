@@ -321,6 +321,9 @@ func (s *authService) LoginWithGoogle(ctx context.Context, idToken string) (*dom
 		// EmailVerified || PhoneVerified. Sin esto, todo usuario de Google
 		// quedaría sin insignia de verificado en la UI.
 		existing.IsVerified = true
+		// Sin esto la cuenta vinculada conservaba el método viejo (o vacío) y
+		// quedaba mintiendo: el email pasó a estar verificado por Google.
+		existing.VerificationMethod = googleVerificationMethod(existing.PhoneVerified)
 		if err := s.userRepo.Update(ctx, existing); err != nil {
 			return nil, "", false, err
 		}
@@ -337,12 +340,12 @@ func (s *authService) LoginWithGoogle(ctx context.Context, idToken string) (*dom
 	// 3. Usuario nuevo.
 	user := &domain.User{
 		Email:              email,
-		Name:               claims.Name,
+		Name:               truncateRunes(claims.Name, userNameMaxRunes),
 		GoogleID:           claims.Sub,
 		PasswordHash:       "", // sin contraseña: bcrypt contra "" siempre falla → login por password bloqueado
 		EmailVerified:      true,
 		IsVerified:         true, // invariante: EmailVerified || PhoneVerified
-		VerificationMethod: "google",
+		VerificationMethod: googleVerificationMethod(false),
 	}
 	if err := s.userRepo.Create(ctx, user); err != nil {
 		return nil, "", false, err
@@ -358,6 +361,32 @@ func (s *authService) LoginWithGoogle(ctx context.Context, idToken string) (*dom
 		return nil, "", false, err
 	}
 	return user, token, true, nil
+}
+
+// userNameMaxRunes refleja el `size:100` de User.Name. Google no acota el claim
+// `name`, y un nombre más largo hacía fallar el INSERT: el alta entera moría con
+// un 500 en vez de crear la cuenta con el nombre recortado.
+const userNameMaxRunes = 100
+
+// truncateRunes recorta por RUNAS, no por bytes: cortar bytes a la mitad de un
+// carácter multibyte (cualquier acento o emoji en un nombre) dejaría UTF-8
+// inválido en la base.
+func truncateRunes(s string, max int) string {
+	r := []rune(s)
+	if len(r) <= max {
+		return s
+	}
+	return string(r[:max])
+}
+
+// googleVerificationMethod mantiene el vocabulario de verification_service:
+// "both" cuando también hay teléfono verificado. "google" registra CÓMO se
+// verificó el email, que es lo que aporta sobre un "email" genérico.
+func googleVerificationMethod(phoneVerified bool) string {
+	if phoneVerified {
+		return "both"
+	}
+	return "google"
 }
 
 // issueToken genera nuestro JWT y normaliza el error a ErrInternal.

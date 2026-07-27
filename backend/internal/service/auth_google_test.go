@@ -3,7 +3,9 @@ package service_test
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 	"lost-pets/internal/domain"
@@ -460,5 +462,81 @@ func TestUpdateLocation_RejectsOutOfRange(t *testing.T) {
 				t.Fatalf("expected ErrInvalidInput, got %v", err)
 			}
 		})
+	}
+}
+
+// El nombre venía del claim `name` de Google sin recorte, y User.Name es
+// size:100 — un nombre más largo hacía fallar el INSERT y el alta entera moría.
+func TestLoginWithGoogle_TruncatesOverlongName(t *testing.T) {
+	claims := googleClaims()
+	claims.Name = strings.Repeat("á", 250) // multibyte a propósito: el corte es por runas
+	repo := &mockUserRepo{emailErr: domain.ErrUserNotFound}
+	svc := newGoogleAuthSvc(repo, &mockVerifier{claims: claims})
+
+	user, _, _, err := svc.LoginWithGoogle(context.Background(), "any-token")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if got := len([]rune(user.Name)); got != 100 {
+		t.Errorf("expected the name capped at 100 runes, got %d", got)
+	}
+	if !utf8.ValidString(user.Name) {
+		t.Error("expected valid UTF-8 — truncating by bytes would split a multibyte rune")
+	}
+}
+
+// Un nombre que entra no se toca.
+func TestLoginWithGoogle_KeepsShortNameIntact(t *testing.T) {
+	repo := &mockUserRepo{emailErr: domain.ErrUserNotFound}
+	svc := newGoogleAuthSvc(repo, &mockVerifier{claims: googleClaims()})
+
+	user, _, _, err := svc.LoginWithGoogle(context.Background(), "any-token")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if user.Name != "Carlos" {
+		t.Errorf("expected the name untouched, got %q", user.Name)
+	}
+}
+
+// Al vincular, VerificationMethod quedaba con el valor viejo (o vacío) y mentía:
+// el email pasa a estar verificado por Google.
+func TestLoginWithGoogle_SetsVerificationMethodOnLink(t *testing.T) {
+	existing := &domain.User{
+		ID:                 uuid.New(),
+		Email:              "carlos@example.com",
+		PasswordHash:       bcryptHash(t, "segura123"),
+		VerificationMethod: "", // nunca se verificó
+	}
+	repo := &mockUserRepo{user: existing, emailErr: nil}
+	svc := newGoogleAuthSvc(repo, &mockVerifier{claims: googleClaims()})
+
+	user, _, _, err := svc.LoginWithGoogle(context.Background(), "any-token")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if user.VerificationMethod != "google" {
+		t.Errorf("expected VerificationMethod=google after linking, got %q", user.VerificationMethod)
+	}
+}
+
+// Con teléfono ya verificado, el vocabulario de verification_service manda: "both".
+func TestLoginWithGoogle_LinkWithVerifiedPhoneIsBoth(t *testing.T) {
+	existing := &domain.User{
+		ID:                 uuid.New(),
+		Email:              "carlos@example.com",
+		PasswordHash:       bcryptHash(t, "segura123"),
+		PhoneVerified:      true,
+		VerificationMethod: "phone",
+	}
+	repo := &mockUserRepo{user: existing, emailErr: nil}
+	svc := newGoogleAuthSvc(repo, &mockVerifier{claims: googleClaims()})
+
+	user, _, _, err := svc.LoginWithGoogle(context.Background(), "any-token")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if user.VerificationMethod != "both" {
+		t.Errorf("expected VerificationMethod=both when the phone was already verified, got %q", user.VerificationMethod)
 	}
 }
