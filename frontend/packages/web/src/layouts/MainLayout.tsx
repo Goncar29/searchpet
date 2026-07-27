@@ -127,8 +127,10 @@ export function MainLayout() {
               </span>
             </Link>
 
-            {/* Columna 2 — Nav links centrados (solo desktop) */}
-            <div className="hidden min-[960px]:flex items-center justify-center gap-6">
+            {/* Columna 2 — Nav links centrados (solo desktop).
+                Base visible, oculto por debajo de 960px: si la media query
+                fallara, la barra queda de más, nunca vacía. */}
+            <div className="flex max-[960px]:hidden items-center justify-center gap-6">
               {publicNavLinks.map((link) => (
                 <Link
                   key={link.to}
@@ -152,8 +154,9 @@ export function MainLayout() {
               </button>
               <LanguageSwitcher />
 
-              {/* Auth section — solo desktop */}
-              <div className="hidden min-[960px]:flex items-center gap-3 ml-1">
+              {/* Auth section — solo desktop. Mismo criterio que los nav
+                  links: base visible, se oculta por debajo de 960px. */}
+              <div className="flex max-[960px]:hidden items-center gap-3 ml-1">
                 {isAuthenticated ? (
                   <>
                     <Link
