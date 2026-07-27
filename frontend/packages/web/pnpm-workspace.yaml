@@ -17,8 +17,16 @@ allowBuilds:
 # (GHSA-xv26-6w52-cph6); it reaches us via firebase > @firebase/database >
 # faye-websocket. websocket-driver is a Node server-side lib the web app
 # never runs, but it still trips `pnpm audit --audit-level=high`.
+#
+# Force patched postcss (>=8.5.18) across transitive paths. Versions <=8.5.17
+# auto-load previous source maps from a `sourceMappingURL`, allowing path
+# traversal and arbitrary .map file disclosure (GHSA-r28c-9q8g-f849). It only
+# reaches us through vite (build + test tooling), never as a direct dependency,
+# so there is no top-level version to bump. vite@8 accepts postcss ^8.5.15,
+# which the patched line satisfies.
 overrides:
   form-data: '>=4.0.6'
+  postcss: '>=8.5.18'
   undici: '7.27.2'
   websocket-driver: '>=0.7.5'
 
@@ -28,8 +36,18 @@ overrides:
 # test runner, and undici is never bundled into the shipped app. The fix
 # (undici >=7.28) is incompatible with jsdom@29.1.1 (latest), so we cannot
 # upgrade out of them yet. Revisit when jsdom supports undici 7.28+.
+#
+# Also ignore the react-router RSC CSRF advisory. Its own text states: "This
+# only affects your application if you are using the unstable RSC APIs." The
+# web app is a declarative SPA — BrowserRouter + Routes/Route/Link/useNavigate,
+# no data router, no loaders or actions, no framework mode, and no server at
+# all (Vercel serves static files). The vulnerable code path is never loaded.
+# The advisory has no fix in the 7.x line (patched >=8.3.0), so clearing it
+# would mean a react-router major upgrade across ~40 files for a flaw we
+# cannot reach. Revisit if the app ever adopts RSC or framework mode.
 auditConfig:
   ignoreGhsas:
     - GHSA-vmh5-mc38-953g # undici TLS cert validation bypass (SOCKS5 ProxyAgent)
     - GHSA-vxpw-j846-p89q # undici WebSocket client DoS (fragment count bypass)
     - GHSA-hm92-r4w5-c3mj # undici cross-origin routing (SOCKS5 proxy pool reuse)
+    - GHSA-qwww-vcr4-c8h2 # react-router CSRF bypass in unstable RSC mode (unused)
