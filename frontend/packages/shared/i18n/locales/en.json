@@ -62,7 +62,10 @@
     "google": {
       "divider": "or",
       "loading": "Loading…",
-      "loadError": "We couldn't load Google sign-in. Check your connection."
+      "loadError": "We couldn't load Google sign-in. Check your connection.",
+      "signIn": "Continue with Google",
+      "failed": "We couldn't sign you in with Google. Please try again.",
+      "playServices": "Google Play services is required to sign in with Google."
     },
     "location": {
       "title": "Set your location",
