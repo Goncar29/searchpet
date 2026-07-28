@@ -11,6 +11,16 @@ on:
         required: true
         default: '1.0.0'
 
+# Google Sign-In OAuth 2.0 Web client id — the audience the backend verifies.
+# Public by design (CLAUDE.md rule #25: GIS is a public client, there is no
+# secret), and already committed in mobile/eas.json and the web bundle.
+# Kept as a literal rather than a repository secret on purpose: an unset secret
+# expands to an empty string, and an empty client id makes the Google button
+# render nothing at all — an APK shipped without Google Sign-In and no error
+# anywhere to show for it.
+env:
+  GOOGLE_WEB_CLIENT_ID: 436771110102-mo3o9c55flh5i8brebhfk5231ebbvo5g.apps.googleusercontent.com
+
 jobs:
   build-apk:
     name: Build Android APK
@@ -51,6 +61,7 @@ jobs:
         env:
           EXPO_PUBLIC_API_URL: ${{ secrets.API_URL }}
           EXPO_PUBLIC_MAPTILER_KEY: ${{ secrets.MAPTILER_KEY }}
+          EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID: ${{ env.GOOGLE_WEB_CLIENT_ID }}
 
       # Compose Compiler 1.5.15 requiere Kotlin 1.9.25.
       # build.gradle define kotlinVersion='1.9.25' pero el classpath no usa esa variable.
@@ -100,6 +111,7 @@ jobs:
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
           EXPO_PUBLIC_API_URL: ${{ secrets.API_URL }}
           EXPO_PUBLIC_MAPTILER_KEY: ${{ secrets.MAPTILER_KEY }}
+          EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID: ${{ env.GOOGLE_WEB_CLIENT_ID }}
 
       # Guard: el build falla si el APK quedo firmado con la debug key.
       # Evita volver a distribuir releases debug-signed sin darnos cuenta.

@@ -11,7 +11,8 @@
         "gradleCommand": ":app:assembleDebug"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "http://localhost:8080"
+        "EXPO_PUBLIC_API_URL": "http://localhost:8080",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "436771110102-mo3o9c55flh5i8brebhfk5231ebbvo5g.apps.googleusercontent.com"
       }
     },
     "preview": {
@@ -23,7 +24,8 @@
         "simulator": true
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://searchpet.onrender.com"
+        "EXPO_PUBLIC_API_URL": "https://searchpet.onrender.com",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "436771110102-mo3o9c55flh5i8brebhfk5231ebbvo5g.apps.googleusercontent.com"
       }
     },
     "production": {
@@ -32,7 +34,8 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://searchpet.onrender.com"
+        "EXPO_PUBLIC_API_URL": "https://searchpet.onrender.com",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "436771110102-mo3o9c55flh5i8brebhfk5231ebbvo5g.apps.googleusercontent.com"
       }
     }
   },
