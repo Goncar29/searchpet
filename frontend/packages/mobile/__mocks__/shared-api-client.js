@@ -12,6 +12,7 @@ module.exports = {
   ApiError,
   apiClient: {
     login: jest.fn(),
+    loginWithGoogle: jest.fn(),
     register: jest.fn(),
     setToken: jest.fn(),
     logout: jest.fn(),

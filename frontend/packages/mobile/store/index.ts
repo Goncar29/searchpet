@@ -22,6 +22,8 @@ interface AuthState {
 
   // Actions
   login: (email: string, password: string) => Promise<void>;
+  /** Devuelve `is_new_user` para que la pantalla decida si pedir ubicación. */
+  loginWithGoogle: (idToken: string) => Promise<boolean>;
   register: (email: string, password: string, name: string, phone?: string, city?: string) => Promise<void>;
   logout: () => Promise<void>;
   loadToken: () => Promise<void>;
@@ -52,6 +54,27 @@ export const useAuthStore = create<AuthState>((set) => ({
     } catch (error) {
       throw error;
     }
+  },
+
+  loginWithGoogle: async (idToken) => {
+    // Mismo contrato que `login`: persistir, setear el token del cliente y
+    // registrar FCM. Sin el registerPushToken() el usuario entra pero nunca
+    // recibe una alerta de mascota cerca.
+    const response = await apiClient.loginWithGoogle(idToken);
+    await SecureStore.setItemAsync('auth_token', response.token);
+    await SecureStore.setItemAsync('user_data', JSON.stringify(response.user));
+    apiClient.setToken(response.token);
+
+    set({
+      user: response.user,
+      token: response.token,
+      isAuthenticated: true,
+    });
+
+    // Registrar token FCM — falla silenciosamente si el usuario denegó permisos
+    registerPushToken();
+
+    return response.is_new_user;
   },
 
   register: async (email, password, name, phone, city) => {
