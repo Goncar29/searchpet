@@ -48,7 +48,8 @@
       "expo-image-picker",
       "expo-camera",
       "expo-secure-store",
-      "expo-notifications"
+      "expo-notifications",
+      "@react-native-google-signin/google-signin"
     ],
     "extra": {
       "eas": {

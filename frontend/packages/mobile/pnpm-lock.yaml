@@ -17,6 +17,9 @@ importers:
       '@react-native-async-storage/async-storage':
         specifier: ~2.1.0
         version: 2.1.2(react-native@0.76.5(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@react-native-community/cli-server-api@14.1.2)(@types/react@18.3.1)(react@18.3.1))
+      '@react-native-google-signin/google-signin':
+        specifier: 16.1.4
+        version: 16.1.4(expo@52.0.49(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@expo/metro-runtime@4.0.1(react-native@0.76.5(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@react-native-community/cli-server-api@14.1.2)(@types/react@18.3.1)(react@18.3.1)))(react-native@0.76.5(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@react-native-community/cli-server-api@14.1.2)(@types/react@18.3.1)(react@18.3.1))(react@18.3.1))(react-native@0.76.5(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@react-native-community/cli-server-api@14.1.2)(@types/react@18.3.1)(react@18.3.1))(react@18.3.1)
       '@react-navigation/native':
         specifier: ^6.1.18
         version: 6.1.18(react-native@0.76.5(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@react-native-community/cli-server-api@14.1.2)(@types/react@18.3.1)(react@18.3.1))(react@18.3.1)
@@ -1261,6 +1264,16 @@ packages:
     resolution: {integrity: sha512-m//tTz77dpX3jY86t/KSfZ4dPKHRr8ObpiSxgEGjVEqoZmStcAcqvZCZMZK00u8aXKt4OKCUmhTc1aDLAPMZxg==}
     engines: {node: '>=18'}
     hasBin: true
+
+  '@react-native-google-signin/google-signin@16.1.4':
+    resolution: {integrity: sha512-Lt4vjihJ+Nk9I4HjScWHzch3ebtIlP3QIea0XEHVN0PJumwUwiK/J2tU8qs7H9DIqNblC0qlXkR0Ts4ELvq7yA==}
+    peerDependencies:
+      expo: '>=52.0.40'
+      react: '*'
+      react-native: '*'
+    peerDependenciesMeta:
+      expo:
+        optional: true
 
   '@react-native/assets-registry@0.76.5':
     resolution: {integrity: sha512-MN5dasWo37MirVcKWuysRkRr4BjNc81SXwUtJYstwbn8oEkfnwR9DaqdDTo/hHOnTdhafffLIa2xOOHcjDIGEw==}
@@ -7650,6 +7663,13 @@ snapshots:
       - supports-color
       - typescript
       - utf-8-validate
+
+  '@react-native-google-signin/google-signin@16.1.4(expo@52.0.49(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@expo/metro-runtime@4.0.1(react-native@0.76.5(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@react-native-community/cli-server-api@14.1.2)(@types/react@18.3.1)(react@18.3.1)))(react-native@0.76.5(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@react-native-community/cli-server-api@14.1.2)(@types/react@18.3.1)(react@18.3.1))(react@18.3.1))(react-native@0.76.5(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@react-native-community/cli-server-api@14.1.2)(@types/react@18.3.1)(react@18.3.1))(react@18.3.1)':
+    dependencies:
+      react: 18.3.1
+      react-native: 0.76.5(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@react-native-community/cli-server-api@14.1.2)(@types/react@18.3.1)(react@18.3.1)
+    optionalDependencies:
+      expo: 52.0.49(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@expo/metro-runtime@4.0.1(react-native@0.76.5(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@react-native-community/cli-server-api@14.1.2)(@types/react@18.3.1)(react@18.3.1)))(react-native@0.76.5(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@react-native-community/cli-server-api@14.1.2)(@types/react@18.3.1)(react@18.3.1))(react@18.3.1)
 
   '@react-native/assets-registry@0.76.5': {}
 
