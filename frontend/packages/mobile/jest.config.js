@@ -11,6 +11,8 @@ module.exports = {
   testMatch: ['**/__tests__/**/*.test.(ts|tsx|js)'],
   setupFilesAfterEnv: ['./jest.setup.js'],
   moduleNameMapper: {
+    // El módulo nativo de Google no carga bajo Jest — se sustituye por el stub.
+    '^@react-native-google-signin/google-signin$': '<rootDir>/__mocks__/google-signin.js',
     // Match any relative depth (../../, ../../../, ...) so the real client never
     // loads in tests — its transform requires @babel/runtime helpers that don't
     // resolve from shared/, which is not a real pnpm package.
