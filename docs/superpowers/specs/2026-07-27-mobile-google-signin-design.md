@@ -75,9 +75,11 @@ mocked, the store with the api client mocked, the screens with the store mocked.
 `GOOGLE_CLIENT_ID` already checks on the backend. The library docs do not state the `aud`
 explicitly.
 
-**Task 1 of implementation decodes a real token and asserts `aud`.** If it turns out to be
-the Android client id instead, the backend must accept multiple audiences and the scope of
-this work changes. Finding that out first costs minutes; finding it out last costs the plan.
+**The implementation decodes a real token and asserts `aud` at the first moment it is
+physically possible** — the first sign-in on the development build, before any of the flows
+are exercised. It cannot be checked earlier: obtaining a token requires the native module,
+which requires the build. If the audience turns out to be the Android client id instead, the
+backend must accept multiple audiences and the scope of this work changes.
 
 ## Components
 
