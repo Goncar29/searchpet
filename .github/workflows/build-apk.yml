@@ -139,6 +139,16 @@ jobs:
             2. Abrir el archivo en tu teléfono
             3. Si aparece advertencia, tocar "Instalar de todas formas"
 
+            > **¿Ya tenías instalada la v1.0.5 o anterior?**
+            > Desinstalá la app antes de instalar esta.
+            >
+            > Las versiones hasta la v1.0.5 salieron firmadas con la clave de
+            > depuración pública de Android por un error del pipeline de build.
+            > Desde esta versión se firman con la clave real del proyecto, y
+            > Android no permite actualizar una app cuando cambia la firma: la
+            > instalación falla con "aplicación no instalada" hasta que borres
+            > la anterior. Es un único paso, y solo esta vez.
+
             ### iOS / Todos los dispositivos
             Instala la web app desde el navegador: agrega a tu pantalla de inicio.
           draft: false
