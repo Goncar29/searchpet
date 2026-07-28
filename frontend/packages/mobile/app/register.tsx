@@ -21,12 +21,29 @@ import { useTranslation } from 'react-i18next';
 import i18next from 'i18next';
 import { useAuthStore } from '../store';
 import { getErrorMessage } from '@shared/utils/apiErrors';
-import { COLORS, SPACING, FONTS, RADIUS } from '../constants';
+import { GoogleSignInButton } from '../components/GoogleSignInButton';
+import { COLORS, SPACING, FONTS, RADIUS, GOOGLE_WEB_CLIENT_ID } from '../constants';
 
 export default function RegisterScreen() {
   const router = useRouter();
   const { t } = useTranslation('auth');
   const register = useAuthStore((state) => state.register);
+  const loginWithGoogle = useAuthStore((state) => state.loginWithGoogle);
+
+  const handleGoogleToken = async (idToken: string) => {
+    try {
+      // Si la cuenta ya existía, el backend la vincula y devuelve is_new_user=false.
+      // Llegar acá desde "Registrarse" con una cuenta existente no es un error.
+      const isNewUser = await loginWithGoogle(idToken);
+      if (isNewUser) {
+        router.replace('/google-location');
+      } else {
+        router.back();
+      }
+    } catch (error) {
+      Alert.alert(i18next.t('common:error'), getErrorMessage(error, (key) => i18next.t(key)));
+    }
+  };
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -149,6 +166,8 @@ export default function RegisterScreen() {
             <Text style={styles.buttonText}>{t('register.submit')}</Text>
           )}
         </TouchableOpacity>
+
+        <GoogleSignInButton clientId={GOOGLE_WEB_CLIENT_ID} onToken={handleGoogleToken} />
 
         <TouchableOpacity
           style={styles.linkContainer}
