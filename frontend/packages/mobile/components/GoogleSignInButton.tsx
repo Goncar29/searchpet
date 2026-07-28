@@ -76,6 +76,7 @@ export function GoogleSignInButton({ clientId, onToken }: Props) {
 
   return (
     <TouchableOpacity
+      testID="google-signin-button"
       accessibilityRole="button"
       style={styles.button}
       onPress={handlePress}
