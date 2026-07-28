@@ -1,3 +1,14 @@
+# This package is not a workspace root — it is a single package. The file only
+# exists because pnpm reads allowBuilds from here and nowhere else.
+#
+# `packages` is required all the same: pnpm treats any directory holding a
+# pnpm-workspace.yaml as a workspace root and aborts with "packages field
+# missing or empty" without it. pnpm 11 tolerates the omission, older versions
+# do not — which is why local installs and CI (both pinned to 11.5.3) passed
+# while the EAS build image failed the "Install dependencies" phase outright.
+packages:
+  - '.'
+
 allowBuilds:
   core-js: false
   unrs-resolver: false
