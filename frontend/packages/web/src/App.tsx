@@ -17,6 +17,7 @@ import { ImpactPage } from './pages/ImpactPage';
 import { AdoptPage } from './pages/AdoptPage';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
+import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
 import { CreatePetPage } from './pages/CreatePetPage';
 import { EditPetPage } from './pages/EditPetPage';
 import { ProfilePage } from './pages/ProfilePage';
@@ -72,6 +73,7 @@ export default function App() {
           <Route path="/download" element={<DownloadPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
 
           {/* Legacy Spanish route redirects → English. Keep old shared/bookmarked
               links working; targets enforce their own auth. */}

@@ -90,11 +90,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Limpiar sesión cuando el API client detecta un 401 (token expirado o inválido).
   useEffect(() => {
-    const handleSessionExpired = () => {
+    const handleSessionExpired = (event: Event) => {
       setToken(null);
       setUser(null);
       localStorage.removeItem('token');
       localStorage.removeItem('user');
+
+      // `session_expired` specifically means the JWT predates a password
+      // change (see backend middleware.Auth) — that token will NEVER work
+      // again. Clearing local state is not enough: if the request that
+      // surfaced this happened on a public page (e.g. liking a story while
+      // logged in), the user would be silently logged out with no prompt to
+      // sign back in. A run-of-the-mill `unauthorized` 401 (bad/missing
+      // token) does not force this — that already happens routinely (e.g. a
+      // stale tab) and forcibly yanking the user off whatever page they are
+      // on would be disruptive for no security reason.
+      const code = (event as CustomEvent<{ code?: string }>).detail?.code;
+      if (code === 'session_expired') {
+        window.location.assign('/login');
+      }
     };
     window.addEventListener('auth:session-expired', handleSessionExpired);
     return () => window.removeEventListener('auth:session-expired', handleSessionExpired);

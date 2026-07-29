@@ -176,7 +176,7 @@ class APIClient {
       if (response.status === 401) {
         this.token = null;
         if (typeof window !== 'undefined') {
-          window.dispatchEvent(new CustomEvent('auth:session-expired'));
+          window.dispatchEvent(new CustomEvent('auth:session-expired', { detail: { code } }));
         }
       }
       throw new ApiError(code, response.status, message);
@@ -293,7 +293,7 @@ class APIClient {
       if (response.status === 401) {
         this.token = null;
         if (typeof window !== 'undefined') {
-          window.dispatchEvent(new CustomEvent('auth:session-expired'));
+          window.dispatchEvent(new CustomEvent('auth:session-expired', { detail: { code } }));
         }
       }
       throw new ApiError(code, response.status, message);
@@ -393,7 +393,7 @@ class APIClient {
       if (response.status === 401) {
         this.token = null;
         if (typeof window !== 'undefined') {
-          window.dispatchEvent(new CustomEvent('auth:session-expired'));
+          window.dispatchEvent(new CustomEvent('auth:session-expired', { detail: { code } }));
         }
       }
       throw new ApiError(code, response.status, message);
@@ -425,7 +425,7 @@ class APIClient {
       if (response.status === 401) {
         this.token = null;
         if (typeof window !== 'undefined') {
-          window.dispatchEvent(new CustomEvent('auth:session-expired'));
+          window.dispatchEvent(new CustomEvent('auth:session-expired', { detail: { code } }));
         }
       }
       throw new ApiError(code, response.status, message);
@@ -459,7 +459,7 @@ class APIClient {
       if (response.status === 401) {
         this.token = null;
         if (typeof window !== 'undefined') {
-          window.dispatchEvent(new CustomEvent('auth:session-expired'));
+          window.dispatchEvent(new CustomEvent('auth:session-expired', { detail: { code } }));
         }
       }
       throw new ApiError(code, response.status, message);
@@ -497,7 +497,7 @@ class APIClient {
       if (response.status === 401) {
         this.token = null;
         if (typeof window !== 'undefined') {
-          window.dispatchEvent(new CustomEvent('auth:session-expired'));
+          window.dispatchEvent(new CustomEvent('auth:session-expired', { detail: { code } }));
         }
       }
       throw new ApiError(code, response.status, message);
@@ -536,7 +536,7 @@ class APIClient {
       if (response.status === 401) {
         this.token = null;
         if (typeof window !== 'undefined') {
-          window.dispatchEvent(new CustomEvent('auth:session-expired'));
+          window.dispatchEvent(new CustomEvent('auth:session-expired', { detail: { code } }));
         }
       }
       throw new ApiError(code, response.status, message);
@@ -796,7 +796,7 @@ class APIClient {
       if (response.status === 401) {
         this.token = null;
         if (typeof window !== 'undefined') {
-          window.dispatchEvent(new CustomEvent('auth:session-expired'));
+          window.dispatchEvent(new CustomEvent('auth:session-expired', { detail: { code } }));
         }
       }
       throw new ApiError(code, response.status, message);

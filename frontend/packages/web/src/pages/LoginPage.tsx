@@ -142,6 +142,12 @@ export function LoginPage() {
               {fieldErrors.password && (
                 <p className="text-red-500 dark:text-red-400 text-sm mt-1">{fieldErrors.password}</p>
               )}
+              <Link
+                to="/forgot-password"
+                className="block text-right text-sm text-primary hover:underline mt-1"
+              >
+                {t('auth:forgotPassword.link')}
+              </Link>
             </div>
 
             <button
