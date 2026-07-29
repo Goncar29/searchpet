@@ -1029,7 +1029,7 @@ email_verified = true
 single-audience check in `pkg/googleauth` stands; no backend change is needed.
 The temporary log has been removed.
 
-- [ ] **Step 3: Test the flows**
+- [x] **Step 3: Test the flows** — all five verified on device, 2026-07-28.
 
 Run against the **production** backend on Render, so the cross-client check
 compares mobile against the live web.
@@ -1052,7 +1052,11 @@ compares mobile against the live web.
   Run with an account that was created with email and password and linked to
   Google afterwards, which is the stronger case: it exercises the linking path
   in `LoginWithGoogle`, whereas an account created by Google never reaches it.
-- [ ] Cancel: dismiss the native dialog → the screen is unchanged, no alert.
+- [x] Cancel: dismiss the native dialog → the screen is unchanged, no alert. Verified 2026-07-28: no alert, the screen is untouched, and the button stops spinning.
+
+  The spinner is the part worth naming. `handlePress` returns early on
+  `result.type === 'cancelled'`, and only the `finally` clears `isLoading` — so
+  this case also proves that early return does not strand the button.
 - [x] Email and password login still works. Verified 2026-07-28, after the account had been linked to Google.
 
   Worth recording *why* it still works: the password survived because the
@@ -1089,7 +1093,11 @@ UPDATE users SET email = '<archived>@local.test', google_id = '' WHERE id = '<id
 To restore afterwards, delete the row the test created **first** — it holds the
 real email, and the unique index will reject the restore otherwise.
 
-- [ ] **Step 4: Commit any fixes found during bring-up**
+- [x] **Step 4: Commit any fixes found during bring-up**
+
+One fix was needed, and it was in the build rather than the feature: `af34806`,
+the Kotlin version alignment described under Step 1. The Google Sign-In code
+itself needed no change — every flow passed as written.
 
 ---
 
