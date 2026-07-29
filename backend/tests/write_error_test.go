@@ -208,3 +208,9 @@ func TestWriteError_UnknownError(t *testing.T) {
 		t.Errorf("expected code=%q, got %q", "internal_error", body.Code)
 	}
 }
+
+func TestCodeFor_SessionExpired(t *testing.T) {
+	if got := domain.CodeFor(domain.ErrSessionExpired); got != "session_expired" {
+		t.Fatalf("CodeFor(ErrSessionExpired) = %q, want %q", got, "session_expired")
+	}
+}
