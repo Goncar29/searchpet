@@ -100,10 +100,6 @@ export default function RootLayout() {
           options={{ title: i18next.t('pet_detail.loading') }}
         />
         <Stack.Screen
-          name="report/create"
-          options={{ title: i18next.t('post.title'), presentation: 'modal' }}
-        />
-        <Stack.Screen
           name="chat/[userId]"
           options={{ title: i18next.t('tabs.messages') }}
         />
