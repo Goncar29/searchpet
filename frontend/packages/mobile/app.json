@@ -48,7 +48,16 @@
       "expo-image-picker",
       "expo-camera",
       "expo-secure-store",
-      "expo-notifications"
+      "expo-notifications",
+      "@react-native-google-signin/google-signin",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "kotlinVersion": "1.9.24"
+          }
+        }
+      ]
     ],
     "extra": {
       "eas": {

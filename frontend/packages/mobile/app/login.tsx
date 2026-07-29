@@ -20,12 +20,14 @@ import { useTranslation } from 'react-i18next';
 import i18next from 'i18next';
 import { useAuthStore } from '../store';
 import { getErrorMessage } from '@shared/utils/apiErrors';
-import { COLORS, SPACING, FONTS, RADIUS } from '../constants';
+import { GoogleSignInButton } from '../components/GoogleSignInButton';
+import { COLORS, SPACING, FONTS, RADIUS, GOOGLE_WEB_CLIENT_ID } from '../constants';
 
 export default function LoginScreen() {
   const router = useRouter();
   const { t } = useTranslation('auth');
   const login = useAuthStore((state) => state.login);
+  const loginWithGoogle = useAuthStore((state) => state.loginWithGoogle);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -45,6 +47,21 @@ export default function LoginScreen() {
       Alert.alert(i18next.t('common:error'), getErrorMessage(error, (key) => i18next.t(key)));
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleGoogleToken = async (idToken: string) => {
+    try {
+      const isNewUser = await loginWithGoogle(idToken);
+      // Un usuario nuevo llega sin ubicación y la búsqueda cercana es el punto de
+      // la app. Uno que vuelve ya la tiene: mandarlo ahí sería repetirle un paso.
+      if (isNewUser) {
+        router.replace('/google-location');
+      } else {
+        router.back();
+      }
+    } catch (error) {
+      Alert.alert(i18next.t('common:error'), getErrorMessage(error, (key) => i18next.t(key)));
     }
   };
 
@@ -89,6 +106,8 @@ export default function LoginScreen() {
             <Text style={styles.buttonText}>{t('login.submit')}</Text>
           )}
         </TouchableOpacity>
+
+        <GoogleSignInButton clientId={GOOGLE_WEB_CLIENT_ID} onToken={handleGoogleToken} />
 
         <TouchableOpacity
           style={styles.linkContainer}

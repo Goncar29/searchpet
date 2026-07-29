@@ -62,7 +62,10 @@
     "google": {
       "divider": "o",
       "loading": "Cargando…",
-      "loadError": "No pudimos cargar el acceso con Google. Revisá tu conexión."
+      "loadError": "No pudimos cargar el acceso con Google. Revisá tu conexión.",
+      "signIn": "Continuar con Google",
+      "failed": "No pudimos iniciar sesión con Google. Intentá de nuevo.",
+      "playServices": "Necesitás Google Play services para entrar con Google."
     },
     "location": {
       "title": "Completá tu ubicación",

@@ -4,6 +4,11 @@
 
 export const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8081';
 
+// OAuth 2.0 Web client id para el login con Google. Es el MISMO valor que usa la
+// web y que el backend verifica como audiencia del token — no el de Android.
+// Vacío = el botón de Google no se renderiza (ver GoogleSignInButton).
+export const GOOGLE_WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '';
+
 export const COLORS = {
   primary: '#FF6B35',
   primaryDark: '#E5551F',
