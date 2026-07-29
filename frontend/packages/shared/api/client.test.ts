@@ -425,3 +425,66 @@ describe('APIClient request timeout', () => {
     await expect(client.getMonthlyImpact('2026-06')).resolves.toEqual(payload);
   });
 });
+
+describe('APIClient password reset', () => {
+  let client: APIClient;
+  let fetchMock: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    client = new APIClient('http://api.test');
+    fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('forgotPassword POSTs the email to /api/auth/password/forgot', async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({ message: 'ok' }),
+    });
+
+    const result = await client.forgotPassword('user@example.com');
+
+    expect(result).toEqual({ message: 'ok' });
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe('http://api.test/api/auth/password/forgot');
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(init.body)).toEqual({ email: 'user@example.com' });
+  });
+
+  it('resetPassword POSTs email/code/new_password to /api/auth/password/reset', async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({ message: 'ok' }),
+    });
+
+    const result = await client.resetPassword('user@example.com', '123456', 'newpassword');
+
+    expect(result).toEqual({ message: 'ok' });
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe('http://api.test/api/auth/password/reset');
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(init.body)).toEqual({
+      email: 'user@example.com',
+      code: '123456',
+      new_password: 'newpassword',
+    });
+  });
+
+  it('resetPassword throws ApiError with code otp_invalid on a wrong/expired code', async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: false,
+      status: 400,
+      json: async () => ({ code: 'otp_invalid', message: 'El código es inválido o venció. Pedí uno nuevo.' }),
+    });
+
+    await expect(
+      client.resetPassword('user@example.com', '000000', 'newpassword')
+    ).rejects.toMatchObject({ code: 'otp_invalid', status: 400 });
+  });
+});

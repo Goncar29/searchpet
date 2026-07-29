@@ -236,6 +236,27 @@ class APIClient {
     return resp;
   }
 
+  /**
+   * Always resolves for a well-formed email, whether or not the account exists —
+   * the backend answers 200 either way so the endpoint cannot be used to probe
+   * which addresses are registered. Do not treat resolution as "the email exists".
+   */
+  async forgotPassword(email: string): Promise<{ message: string }> {
+    return this.request<{ message: string }>('POST', '/api/auth/password/forgot', { email });
+  }
+
+  /**
+   * Rejects with code `otp_invalid` for a wrong code, an expired one, or an
+   * unknown address alike. Surface one message covering both real cases.
+   */
+  async resetPassword(email: string, code: string, newPassword: string): Promise<{ message: string }> {
+    return this.request<{ message: string }>('POST', '/api/auth/password/reset', {
+      email,
+      code,
+      new_password: newPassword,
+    });
+  }
+
   logout() {
     this.token = null;
   }
