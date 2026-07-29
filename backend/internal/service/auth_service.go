@@ -314,6 +314,16 @@ func (s *authService) LoginWithGoogle(ctx context.Context, idToken string) (*dom
 		// el email ante Google es el dueño legítimo, y entra por Google.
 		if !existing.EmailVerified {
 			existing.PasswordHash = ""
+			// Descartar la contraseña era media defensa: si el atacante que plantó
+			// la cuenta ya tiene una sesión abierta, le sacábamos la credencial y
+			// lo dejábamos adentro hasta 72h. Sellar esto la corta — middleware.Auth
+			// rechaza todo JWT emitido antes de este instante.
+			//
+			// Truncado al segundo porque el `iat` de un JWT no tiene componente
+			// sub-segundo: con microsegundos, el token que emitimos doce líneas más
+			// abajo se rechazaría a sí mismo y el login con Google fallaría siempre.
+			discardedAt := time.Now().Truncate(time.Second)
+			existing.PasswordChangedAt = &discardedAt
 		}
 		existing.GoogleID = claims.Sub
 		existing.EmailVerified = true
