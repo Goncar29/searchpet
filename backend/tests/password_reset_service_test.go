@@ -220,6 +220,13 @@ func activeResetToken(code string) *domain.VerificationToken {
 	}
 }
 
+// TestConfirmReset_AllFailuresReturnTheSameError asserts a SAMENESS property, and
+// sameness is trivially satisfied by a function that always returns ErrOTPInvalid —
+// this test passed unchanged against the Task 6 stub that did exactly that. What
+// gives it teeth is TestConfirmReset_HappyPath and _GoogleOnlyUserGetsAPassword
+// forcing the success path to exist and be reachable; only then does "every failure
+// collapses to one error" constrain anything. If you ever weaken those two, this
+// test keeps passing while guaranteeing nothing. Do not read it in isolation.
 func TestConfirmReset_AllFailuresReturnTheSameError(t *testing.T) {
 	cases := []struct {
 		name   string

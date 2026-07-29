@@ -2407,6 +2407,33 @@ git commit -m "docs(backend): actualizar GUIDE.md a la nueva firma de ValidateTo
 
 ---
 
+## Open follow-up: the `ConfirmOTP` half of channel scoping is untested
+
+The spec asks that a `password_reset` token cannot be spent through
+`VerificationService.ConfirmOTP`. Only the reverse direction has a test
+(`TestConfirmReset_RejectsATokenFromAnotherChannel`).
+
+**A naive service-level test here would be vacuous**, which is why one was not added:
+`mockTokenRepo.FindActiveByUser` in `verification_service_test.go` ignores its
+`channel` argument entirely and returns whatever token it holds. A test built on it
+would pass regardless of whether channel scoping works. The real guarantee lives in
+two places — the `WHERE ... channel = ?` clause in
+`verification_token_repository.go:30`, and the string literals `"email"` / `"sms"`
+that `verification_handler.go:94,124` pass in.
+
+The meaningful test is therefore a **handler** test asserting that
+`POST /api/verification/confirm-email` uses channel `"email"` no matter what the
+request body contains. `internal/handler` currently has no test files, so that is
+its own piece of work.
+
+The concrete risk it guards against: `dto.ConfirmOTPRequest` already declares a
+`Channel string` field (`internal/dto/verification_dto.go:17`) with no `binding`
+tag and no reader. The day someone wires it up to unify the two confirm endpoints,
+an authenticated user could spend their own live reset token through the
+verification endpoint, with the whole suite green. Blast radius is self-inflicted —
+the userID comes from the session — which is why this is a follow-up and not a
+blocker.
+
 ## Known pre-existing issue, deliberately not fixed here
 
 `VerificationHandler.handleSendError` (`internal/handler/verification_handler.go:151-161`) still emits the legacy `{"error": ..., "retry_after": ...}` shape for rate limits instead of `{code, message}` — a rule #11 violation predating this work. Out of scope: touching it would change the contract of the email-verification endpoints, which this change does not otherwise go near. Worth its own small PR.
