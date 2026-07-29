@@ -60,7 +60,7 @@ func assertTokenBelongsTo(t *testing.T, token string, want uuid.UUID) {
 	if token == "" {
 		t.Fatal("expected non-empty JWT token")
 	}
-	got, err := jwt.ValidateToken(token, googleTestSecret)
+	got, _, err := jwt.ValidateToken(token, googleTestSecret)
 	if err != nil {
 		t.Fatalf("issued token does not validate: %v", err)
 	}

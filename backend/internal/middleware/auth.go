@@ -31,7 +31,7 @@ func Auth(secretKey string) gin.HandlerFunc {
 			return
 		}
 
-		userID, err := jwt.ValidateToken(parts[1], secretKey)
+		userID, _, err := jwt.ValidateToken(parts[1], secretKey)
 		if err != nil {
 			abortUnauthorized(c)
 			return
@@ -60,7 +60,7 @@ func OptionalAuth(secretKey string) gin.HandlerFunc {
 			return
 		}
 
-		if userID, err := jwt.ValidateToken(parts[1], secretKey); err == nil {
+		if userID, _, err := jwt.ValidateToken(parts[1], secretKey); err == nil {
 			c.Set("userID", userID)
 		}
 		c.Next()
