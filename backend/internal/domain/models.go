@@ -57,6 +57,13 @@ type User struct {
 	CreatedAt          time.Time `gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt          time.Time `gorm:"autoUpdateTime" json:"updated_at"`
 
+	// PasswordChangedAt is the moment the credentials last changed. NULL means
+	// "never changed" and invalidates nothing, so existing sessions survive the
+	// deploy that introduces this column. Always stored truncated to the second:
+	// a JWT's `iat` has second granularity, and a sub-second value here would
+	// make a freshly issued token reject itself.
+	PasswordChangedAt *time.Time `json:"-" gorm:"column:password_changed_at"`
+
 	// Relaciones
 	Pets     []Pet     `gorm:"foreignKey:OwnerID" json:"pets,omitempty"`
 	Messages []Message `gorm:"foreignKey:SenderID" json:"-"`
