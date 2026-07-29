@@ -1031,11 +1031,63 @@ The temporary log has been removed.
 
 - [ ] **Step 3: Test the flows**
 
-- [ ] New account: sign in with a Google account never used here → lands on the location step → reaches the app authenticated.
-- [ ] Returning: sign in again → straight into the app, no location step.
-- [ ] Cross-client: log in on the web with the same Google account → **the same account**, with the pets created on mobile (guaranteed by the `sub` match and case-insensitive email, rules #25 and #26).
+Run against the **production** backend on Render, so the cross-client check
+compares mobile against the live web.
+
+- [x] New account: sign in with a Google account never used here → lands on the location step → reaches the app authenticated. Verified 2026-07-28.
+
+  Both halves were checked, not just the visible one. The backend really did
+  take the create path — a new `users` row appeared with the Google `sub` — and
+  the app really did land on the location screen, so `router.replace` in
+  `login.tsx` fired on `is_new_user: true`.
+
+  Run against a **local** backend rather than production. `is_new_user` is
+  decided by the database, so pointing the app at a database that has never seen
+  the account makes an ordinary Google account new again — no throwaway account
+  needed, and no test user left behind in production. See the note below on
+  freeing the email.
+- [x] Returning: sign in again → straight into the app, no location step. Verified 2026-07-28 on device, twice.
+- [x] Cross-client: log in on the web with the same Google account → **the same account**, with the pets created on mobile (guaranteed by the `sub` match and case-insensitive email, rules #25 and #26). Verified 2026-07-28 against production.
+
+  Run with an account that was created with email and password and linked to
+  Google afterwards, which is the stronger case: it exercises the linking path
+  in `LoginWithGoogle`, whereas an account created by Google never reaches it.
 - [ ] Cancel: dismiss the native dialog → the screen is unchanged, no alert.
-- [ ] Email and password login still works.
+- [x] Email and password login still works. Verified 2026-07-28, after the account had been linked to Google.
+
+  Worth recording *why* it still works: the password survived because the
+  account was already email-verified when Google linked to it. `LoginWithGoogle`
+  wipes `PasswordHash` when `!existing.EmailVerified` (`auth_service.go:315-317`),
+  and the backend has no password-recovery flow, so an unverified account would
+  have become Google-only permanently. This test passing on a *verified* account
+  says nothing about the unverified path — that one is covered by unit tests, not
+  here.
+
+**Ordering constraint found during bring-up.** `is_new_user` is decided by the
+backend, so the "new account" case is single-shot: once a Google account signs
+in, it is a returning user forever. Test it with an account that has never
+touched SearchPet on either client. Note that revoking third-party access from
+the Google account does **not** reset this — the SearchPet user and its stored
+`GoogleID` are untouched; it only forces the consent screen to reappear.
+
+**Device note.** With a single Google account on the phone and consent already
+granted, Android signs in with no dialog at all, so the cancel case cannot be
+triggered. Either add a second Google account to the device or revoke access at
+`myaccount.google.com` to bring the consent screen back. The cancel case needs
+no backend at all — cancelling never sends a token anywhere — so it can be run
+against production with no setup.
+
+**Making an account new again, locally.** `LoginWithGoogle` only returns
+`is_new_user: true` when the row is absent by *both* `google_id` and email, so
+freeing the email is enough; deleting the user and cascading through its
+foreign keys is not necessary:
+
+```sql
+UPDATE users SET email = '<archived>@local.test', google_id = '' WHERE id = '<id>';
+```
+
+To restore afterwards, delete the row the test created **first** — it holds the
+real email, and the unique index will reject the restore otherwise.
 
 - [ ] **Step 4: Commit any fixes found during bring-up**
 
