@@ -154,7 +154,7 @@ git commit -m "feat(auth): agregar columna users.password_changed_at"
 
 **Files:**
 - Modify: `backend/pkg/jwt/jwt.go:36-54`
-- Test: `backend/tests/jwt_test.go` (existing, append)
+- Test: `backend/tests/jwt_test.go` — **create it.** CLAUDE.md claims this file exists with 4 tests; it does not exist anywhere in the repo. Stale doc, corrected here on 2026-07-29.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -253,7 +253,8 @@ git commit -m "feat(auth): ValidateToken retorna el issued-at del JWT"
 
 **Files:**
 - Modify: `backend/internal/middleware/auth.go`
-- Test: `backend/tests/auth_middleware_test.go` (create)
+- Modify: `backend/internal/middleware/auth_test.go` — **this file already exists and will not compile after this task.** Its line 30 calls `OptionalAuth(testSecret)` with one argument. It has four passing tests, all covering `OptionalAuth` (no header → anonymous 200; valid Bearer → `userID` set; malformed JWT → anonymous, no abort; non-Bearer scheme → anonymous). Update that call to pass a `PasswordChangedAtFunc` and keep every existing assertion. `Auth` has **no** coverage in this file, which is why the new test file below exists.
+- Test: `backend/tests/auth_middleware_test.go` (create). It lives in package `tests`, so its `TestOptionalAuth_*` names do not collide with the ones in package `middleware`.
 
 **Why both gates:** `OptionalAuth` establishes `userID` from the same token on public endpoints that enrich their response for a signed-in viewer. Patching only `Auth` would leave a revoked token granting identity there. `OptionalAuth` keeps its contract and never aborts — on a stale token it simply declines to set `userID`.
 
