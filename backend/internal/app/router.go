@@ -196,6 +196,7 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 	}
 	smsSenderClient := sms.NewTwilioSender(cfg.TwilioAccountSID, cfg.TwilioAuthToken, cfg.TwilioFromNumber)
 	verificationService := service.NewVerificationService(verificationTokenRepo, userRepo, mailerClient, smsSenderClient, bus)
+	passwordResetService := service.NewPasswordResetService(verificationTokenRepo, userRepo, mailerClient)
 
 	notificationService := service.NewNotificationService(fcmClient, deviceTokenRepo)
 	notificationService.RegisterListeners(bus)
@@ -255,6 +256,7 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 	moderationHandler := handler.NewModerationHandler(moderationService)
 	adminHandler := handler.NewAdminHandler(adminService)
 	verificationHandler := handler.NewVerificationHandler(verificationService, cfg.EnableEmailVerification)
+	passwordResetHandler := handler.NewPasswordResetHandler(passwordResetService)
 	gamHandler := handler.NewGamificationHandler(gamSvc)
 	reindexHandler := handler.NewReindexHandler(embeddingService, cfg.ReindexToken)
 
@@ -298,6 +300,11 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 		public.POST("/auth/login", authRateLimit, authHandler.Login)
 		// Mismo rate limit que login/register: es una puerta de autenticación.
 		public.POST("/auth/google", authRateLimit, authHandler.GoogleAuth)
+		// Mismo rate limit que login/register: el límite por IP es lo que acota
+		// el abuso ahora que el service se traga deliberadamente el cooldown
+		// por usuario (defensa anti-enumeración).
+		public.POST("/auth/password/forgot", authRateLimit, passwordResetHandler.ForgotPassword)
+		public.POST("/auth/password/reset", authRateLimit, passwordResetHandler.ResetPassword)
 		public.GET("/stats", statsHandler.GetStats)
 
 		public.GET("/pets/search", petHandler.SearchPets)

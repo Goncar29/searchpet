@@ -55,6 +55,24 @@ type GoogleAuthResponse struct {
 	IsNewUser bool         `json:"is_new_user"`
 }
 
+// ForgotPasswordRequest inicia la recuperación de contraseña.
+type ForgotPasswordRequest struct {
+	Email string `json:"email" binding:"required,email"`
+}
+
+// ResetPasswordRequest completa la recuperación con el OTP recibido por email.
+// min=6 iguala a RegisterRequest a propósito: exigir más en la recuperación que
+// en el alta sería incoherente. max=72 es el límite de bcrypt.GenerateFromPassword
+// (cuenta bytes, no runas, que es justo lo que bcrypt trunca) — sin este bound un
+// passphrase largo de un password manager llega al service, mapea a
+// domain.ErrInternal (500) y ya quemó un intento de OTP porque IncrementAttempts
+// corre antes del hasheo.
+type ResetPasswordRequest struct {
+	Email       string `json:"email" binding:"required,email"`
+	Code        string `json:"code" binding:"required"`
+	NewPassword string `json:"new_password" binding:"required,min=6,max=72"`
+}
+
 // UpdateLocationRequest — todos los campos son opcionales, pero lat y lng viajan
 // como par: una sin la otra es una coordenada inválida, no un update parcial.
 type UpdateLocationRequest struct {
