@@ -22,6 +22,10 @@ const DefaultBrevoEndpoint = "https://api.brevo.com/v3/smtp/email"
 // SECURITY: el parámetro code NUNCA debe ser logueado.
 type Mailer interface {
 	SendOTP(ctx context.Context, to, code string) error
+
+	// SendPasswordReset envía el OTP de recuperación de contraseña.
+	// SECURITY: el parámetro code NUNCA debe ser logueado.
+	SendPasswordReset(ctx context.Context, to, code string) error
 }
 
 // brevoMailer envía emails a través de la API HTTP v3 de Brevo (sin SDK).
@@ -105,6 +109,60 @@ const otpHTMLTemplate = `<!DOCTYPE html>
 </body>
 </html>`
 
+// resetHTMLTemplate mirrors otpHTMLTemplate's email-safe structure (tables plus
+// inline styles) and SearchPet's palette. It deliberately contains NO links:
+// training users that our reset mail never asks for a click is the cheapest
+// anti-phishing defence available. The only placeholder (%s) is the OTP code.
+const resetHTMLTemplate = `<!DOCTYPE html>
+<html lang="es">
+<body style="margin:0;padding:0;background-color:#f4f5f7;">
+  <table role="presentation" width="100%%" cellpadding="0" cellspacing="0" style="background-color:#f4f5f7;padding:32px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%%" cellpadding="0" cellspacing="0" style="max-width:440px;background-color:#ffffff;border-radius:12px;overflow:hidden;">
+          <tr>
+            <td style="background-color:#FF6B35;padding:20px 32px;text-align:center;">
+              <span style="font-family:Helvetica,Arial,sans-serif;font-size:22px;font-weight:bold;color:#ffffff;">&#128062; SearchPet</span>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:32px;">
+              <p style="margin:0 0 8px;font-family:Helvetica,Arial,sans-serif;font-size:18px;font-weight:bold;color:#1f2937;text-align:center;">
+                Restablec&eacute; tu contrase&ntilde;a
+              </p>
+              <p style="margin:0 0 24px;font-family:Helvetica,Arial,sans-serif;font-size:14px;color:#6b7280;text-align:center;">
+                Ingres&aacute; este c&oacute;digo en SearchPet para elegir una nueva.
+              </p>
+              <table role="presentation" width="100%%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td align="center" style="background-color:#FFF1EB;border-radius:8px;padding:20px;">
+                    <span style="font-family:Courier,monospace;font-size:34px;font-weight:bold;letter-spacing:8px;color:#E5551F;">%s</span>
+                  </td>
+                </tr>
+              </table>
+              <p style="margin:24px 0 0;font-family:Helvetica,Arial,sans-serif;font-size:13px;color:#6b7280;text-align:center;">
+                Expira en 10 minutos. No lo compartas con nadie.
+              </p>
+              <p style="margin:16px 0 0;font-family:Helvetica,Arial,sans-serif;font-size:13px;color:#6b7280;text-align:center;">
+                Al cambiarla vas a tener que volver a entrar en tus otros dispositivos.
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:16px 32px 24px;border-top:1px solid #f0f0f0;">
+              <p style="margin:0;font-family:Helvetica,Arial,sans-serif;font-size:12px;color:#9ca3af;text-align:center;">
+                Si no pediste esto, ignor&aacute; este mail &mdash; tu contrase&ntilde;a no cambia.<br>
+                Nunca te vamos a pedir que hagas clic en un enlace para recuperarla.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`
+
 // SendOTP envía un OTP por email al destinatario.
 // SECURITY: el código se incluye en el cuerpo del email pero NUNCA en los logs.
 func (m *brevoMailer) SendOTP(ctx context.Context, to, code string) error {
@@ -122,6 +180,37 @@ func (m *brevoMailer) SendOTP(ctx context.Context, to, code string) error {
 		"htmlContent": fmt.Sprintf(otpHTMLTemplate, escapedCode),
 	}
 
+	return m.post(ctx, payload)
+}
+
+// SendPasswordReset envía el OTP de recuperación de contraseña.
+// SECURITY: el código se incluye en el cuerpo del email pero NUNCA en los logs.
+func (m *brevoMailer) SendPasswordReset(ctx context.Context, to, code string) error {
+	escapedCode := html.EscapeString(code)
+	payload := map[string]interface{}{
+		"sender": map[string]string{
+			"email": m.fromEmail,
+			"name":  m.fromName,
+		},
+		"to": []map[string]string{
+			{"email": to},
+		},
+		"subject": "Restablecer tu contraseña — SearchPet",
+		"textContent": fmt.Sprintf(
+			"Tu código para restablecer la contraseña es: %s\n\n"+
+				"Expira en 10 minutos. No lo compartas con nadie.\n"+
+				"Al cambiarla vas a tener que volver a entrar en tus otros dispositivos.\n\n"+
+				"Si no pediste esto, ignorá este mail — tu contraseña no cambia.", code),
+		"htmlContent": fmt.Sprintf(resetHTMLTemplate, escapedCode),
+	}
+
+	return m.post(ctx, payload)
+}
+
+// post marshals and delivers a Brevo payload. Shared by SendOTP and
+// SendPasswordReset so the transport, error shape and status handling stay in
+// one place.
+func (m *brevoMailer) post(ctx context.Context, payload map[string]interface{}) error {
 	body, err := json.Marshal(payload)
 	if err != nil {
 		return fmt.Errorf("mailer: marshal error: %w", err)
@@ -157,5 +246,9 @@ func (m *brevoMailer) SendOTP(ctx context.Context, to, code string) error {
 type noopMailer struct{}
 
 func (n *noopMailer) SendOTP(_ context.Context, _, _ string) error {
+	return nil
+}
+
+func (n *noopMailer) SendPasswordReset(_ context.Context, _, _ string) error {
 	return nil
 }

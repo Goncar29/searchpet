@@ -397,12 +397,18 @@ func (f *failingMailer) SendOTP(ctx context.Context, to, code string) error {
 	return fmt.Errorf("mailer: brevo returned status 401")
 }
 
+func (f *failingMailer) SendPasswordReset(ctx context.Context, to, code string) error {
+	return fmt.Errorf("mailer: brevo returned status 401")
+}
+
 var _ mailer.Mailer = (*failingMailer)(nil)
 
 // noopMailer implements mailer.Mailer with no side-effects.
 type noopMailer struct{}
 
 func (n *noopMailer) SendOTP(ctx context.Context, to, code string) error { return nil }
+
+func (n *noopMailer) SendPasswordReset(ctx context.Context, to, code string) error { return nil }
 
 // Compile-time interface check.
 var _ mailer.Mailer = (*noopMailer)(nil)
