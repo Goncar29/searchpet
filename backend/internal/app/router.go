@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 	"lost-pets/config"
@@ -85,6 +86,20 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 	// CAPA 3: Repositories
 	// ========================================
 	userRepo := repository.NewUserRepository(db)
+
+	// One primary-key read per authenticated request. Accepted cost: it is what
+	// makes a password reset actually terminate the attacker's live session.
+	passwordChangedAt := func(ctx context.Context, userID uuid.UUID) (time.Time, error) {
+		u, err := userRepo.GetByID(ctx, userID)
+		if err != nil {
+			return time.Time{}, err
+		}
+		if u.PasswordChangedAt == nil {
+			return time.Time{}, nil
+		}
+		return *u.PasswordChangedAt, nil
+	}
+
 	petRepo := repository.NewPetRepository(db)
 	reportRepo := repository.NewReportRepository(db)
 	petUow := repository.NewUnitOfWork(db)
@@ -327,7 +342,7 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 	// (anónimo lee igual; logueado recibe liked_by_me por viewer)
 	// ----------------------------------------
 	storiesPublic := router.Group("/api")
-	storiesPublic.Use(middleware.OptionalAuth(cfg.JWTSecret))
+	storiesPublic.Use(middleware.OptionalAuth(cfg.JWTSecret, passwordChangedAt))
 	{
 		storiesPublic.GET("/stories", storyHandler.List)
 		storiesPublic.GET("/stories/pet/:petId", storyHandler.GetByPetID)
@@ -338,7 +353,7 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 	// RUTAS PROTEGIDAS
 	// ----------------------------------------
 	protected := router.Group("/api")
-	protected.Use(middleware.Auth(cfg.JWTSecret))
+	protected.Use(middleware.Auth(cfg.JWTSecret, passwordChangedAt))
 	{
 		protected.GET("/auth/me", authHandler.GetMe)
 		protected.PUT("/auth/me", authHandler.UpdateMe)
@@ -439,7 +454,7 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 	// RUTAS ADMIN
 	// ----------------------------------------
 	admin := router.Group("/api")
-	admin.Use(middleware.Auth(cfg.JWTSecret))
+	admin.Use(middleware.Auth(cfg.JWTSecret, passwordChangedAt))
 	admin.Use(middleware.RequireAdmin(userRepo))
 	{
 		admin.GET("/stats/impact", impactHandler.GetImpactStats)
