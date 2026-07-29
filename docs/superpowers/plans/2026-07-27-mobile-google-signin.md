@@ -983,7 +983,7 @@ Add the same variable to the `development` and `preview` `env` blocks in `eas.js
 
 ### Task 9: [REQUIRES THE ACCOUNT OWNER] Build, verify the audience, test end to end
 
-- [ ] **Step 1: Build**
+- [x] **Step 1: Build**
 
 ```bash
 cd frontend/packages/mobile
@@ -992,7 +992,17 @@ npx eas build --profile development --platform android
 
 Install the resulting APK, then `npx expo start --dev-client`.
 
-- [ ] **Step 2: Verify the load-bearing assumption**
+Done 2026-07-28, build `9bad5bd9-1816-4986-9994-073066f180e7`. Three earlier
+attempts died in the `Run gradlew` phase. Cause: the Kotlin Gradle plugin
+resolved to 1.9.24 (from `@react-native/gradle-plugin@0.76.5`) while the Expo
+SDK 52 template declared `ext.kotlinVersion = 1.9.25`, which made
+`expo-modules-core` select a Compose Compiler that demanded 1.9.25. Fixed in
+`af34806` by pinning `android.kotlinVersion` to 1.9.24 through
+`expo-build-properties`. The `sed` in `build-apk.yml` that had been patching
+the same classpath — only ever in GitHub Actions, which is why the APK
+pipeline built and EAS did not — was removed in the same commit.
+
+- [x] **Step 2: Verify the load-bearing assumption**
 
 Sign in with Google. Before the token reaches the backend, print its audience — temporarily add this inside `handlePress` in `GoogleSignInButton.tsx`, right after `idToken` is read:
 
@@ -1005,6 +1015,19 @@ Expected: the **web** client id (`436771110102-…`), matching `GOOGLE_CLIENT_ID
 If it prints the **Android** client id instead, STOP. The backend must then accept several audiences, which is a change to `pkg/googleauth` and outside this plan. Record the finding and re-plan.
 
 Remove the log line once confirmed.
+
+**CONFIRMED 2026-07-28.** Read on device, twice, with a clean reinstall between
+the two runs:
+
+```
+aud            = 436771110102-mo3o9c55flh5i8brebhfk5231ebbvo5g.apps.googleusercontent.com
+iss            = https://accounts.google.com
+email_verified = true
+```
+
+`aud` is the **web** client id, matching `GOOGLE_CLIENT_ID` on the backend. The
+single-audience check in `pkg/googleauth` stands; no backend change is needed.
+The temporary log has been removed.
 
 - [ ] **Step 3: Test the flows**
 
