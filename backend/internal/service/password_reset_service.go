@@ -2,10 +2,12 @@ package service
 
 import (
 	"context"
+	"crypto/subtle"
 	"errors"
 	"log"
 	"time"
 
+	"golang.org/x/crypto/bcrypt"
 	"lost-pets/internal/domain"
 	"lost-pets/internal/repository"
 	"lost-pets/pkg/mailer"
@@ -116,13 +118,59 @@ func (s *passwordResetService) RequestReset(ctx context.Context, email string) e
 	return nil
 }
 
-// ConfirmReset is implemented in Task 7 of the password-recovery plan. This
-// stub exists ONLY so *passwordResetService satisfies the PasswordResetService
-// interface added in this task (Task 6 Step 3 declares both methods, Step 4
-// implements only RequestReset — without this stub `go build` fails with
-// "missing method ConfirmReset"). It carries none of Task 7's logic (no
-// bcrypt, no attempt cap, no channel check, no PasswordChangedAt stamp) and is
-// not exercised by any test in this task.
 func (s *passwordResetService) ConfirmReset(ctx context.Context, email, code, newPassword string) error {
-	return domain.ErrOTPInvalid
+	// SECURITY: every failure below returns domain.ErrOTPInvalid. Telling an
+	// expired token apart from a wrong code (or from an unknown address) turns
+	// this endpoint into an oracle for which accounts exist.
+	user, err := s.userRepo.GetByEmail(ctx, email)
+	if err != nil {
+		if errors.Is(err, domain.ErrUserNotFound) {
+			return domain.ErrOTPInvalid
+		}
+		return err
+	}
+	if user.IsBanned {
+		return domain.ErrOTPInvalid
+	}
+
+	token, err := s.tokenRepo.FindActiveByUser(ctx, user.ID, ChannelPasswordReset)
+	if err != nil {
+		return err
+	}
+	if token == nil || time.Now().After(token.ExpiresAt) {
+		return domain.ErrOTPInvalid
+	}
+
+	attempts, err := s.tokenRepo.IncrementAttempts(ctx, token.ID)
+	if err != nil {
+		return err
+	}
+	if attempts > otpMaxAttempts {
+		_ = s.tokenRepo.MarkUsed(ctx, token.ID)
+		return domain.ErrOTPInvalid
+	}
+
+	// Constant-time comparison: with only 5 attempts a prefix-timing attack is
+	// impractical anyway, but the guarantee costs one line.
+	if subtle.ConstantTimeCompare([]byte(hashOTPCode(code)), []byte(token.CodeHash)) != 1 {
+		return domain.ErrOTPInvalid
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return domain.ErrInternal
+	}
+
+	if err := s.tokenRepo.MarkUsed(ctx, token.ID); err != nil {
+		return err
+	}
+
+	// Truncated to the second: a JWT's `iat` has no sub-second component, so a
+	// microsecond-precision value here would make a token issued immediately
+	// after the reset reject itself.
+	changedAt := time.Now().Truncate(time.Second)
+	user.PasswordHash = string(hash)
+	user.PasswordChangedAt = &changedAt
+
+	return s.userRepo.Update(ctx, user)
 }

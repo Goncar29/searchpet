@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"golang.org/x/crypto/bcrypt"
 	"lost-pets/internal/domain"
 	"lost-pets/internal/service"
 )
@@ -191,5 +192,163 @@ func TestRequestReset_MailFailure_StillReturnsNilAndFreesTheCooldown(t *testing.
 	}
 	if len(tokens.markedUsed) != 1 {
 		t.Fatal("a failed send must invalidate the token so the 60s cooldown does not block the retry")
+	}
+}
+
+// ============================================================
+// ConfirmReset — every failure collapses into one error
+// ============================================================
+
+// activeResetToken builds a live password_reset token whose code is `code`.
+func activeResetToken(code string) *domain.VerificationToken {
+	return &domain.VerificationToken{
+		ID:        uuid.New(),
+		Channel:   "password_reset",
+		CodeHash:  hashCode(code), // helper from verification_service_test.go
+		ExpiresAt: time.Now().Add(10 * time.Minute),
+		CreatedAt: time.Now(),
+	}
+}
+
+func TestConfirmReset_AllFailuresReturnTheSameError(t *testing.T) {
+	cases := []struct {
+		name   string
+		users  *resetUserRepo
+		tokens *resetTokenRepo
+		email  string
+		code   string
+	}{
+		{
+			name:   "wrong code",
+			users:  knownUser("user@example.com"),
+			tokens: &resetTokenRepo{active: activeResetToken("111111")},
+			email:  "user@example.com",
+			code:   "999999",
+		},
+		{
+			name:  "expired token",
+			users: knownUser("user@example.com"),
+			tokens: func() *resetTokenRepo {
+				tok := activeResetToken("111111")
+				tok.ExpiresAt = time.Now().Add(-time.Minute)
+				return &resetTokenRepo{active: tok}
+			}(),
+			email: "user@example.com",
+			code:  "111111",
+		},
+		{
+			name:   "no active token",
+			users:  knownUser("user@example.com"),
+			tokens: &resetTokenRepo{},
+			email:  "user@example.com",
+			code:   "111111",
+		},
+		{
+			name:   "unknown email",
+			users:  &resetUserRepo{byEmail: map[string]*domain.User{}},
+			tokens: &resetTokenRepo{active: activeResetToken("111111")},
+			email:  "ghost@example.com",
+			code:   "111111",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			svc := newResetSvc(tc.users, tc.tokens, &recordingMailer{})
+			err := svc.ConfirmReset(context.Background(), tc.email, tc.code, "newpassword")
+
+			// Distinguishing these lets an attacker probe which accounts exist:
+			// request a reset, wait past the TTL, submit garbage — an "expired"
+			// answer proves the address is registered.
+			if !errors.Is(err, domain.ErrOTPInvalid) {
+				t.Fatalf("err = %v, want domain.ErrOTPInvalid for every failure mode", err)
+			}
+			if tc.users.updated != nil {
+				t.Fatal("no password may be written on a failed reset")
+			}
+		})
+	}
+}
+
+func TestConfirmReset_SixthAttemptInvalidatesTheToken(t *testing.T) {
+	users := knownUser("user@example.com")
+	tokens := &resetTokenRepo{active: activeResetToken("111111"), attempts: 5}
+	svc := newResetSvc(users, tokens, &recordingMailer{})
+
+	// Even with the RIGHT code: the cap has been spent.
+	err := svc.ConfirmReset(context.Background(), "user@example.com", "111111", "newpassword")
+
+	if !errors.Is(err, domain.ErrOTPInvalid) {
+		t.Fatalf("err = %v, want domain.ErrOTPInvalid", err)
+	}
+	if len(tokens.markedUsed) != 1 {
+		t.Fatal("exceeding the attempt cap must invalidate the token")
+	}
+}
+
+func TestConfirmReset_HappyPath_SetsHashAndStampsPasswordChangedAt(t *testing.T) {
+	users := knownUser("user@example.com")
+	tokens := &resetTokenRepo{active: activeResetToken("111111")}
+	svc := newResetSvc(users, tokens, &recordingMailer{})
+
+	before := time.Now().Add(-time.Second)
+	if err := svc.ConfirmReset(context.Background(), "user@example.com", "111111", "newpassword"); err != nil {
+		t.Fatalf("ConfirmReset: %v", err)
+	}
+
+	got := users.updated
+	if got == nil {
+		t.Fatal("the user was never updated")
+	}
+	if got.PasswordHash == "old-hash" {
+		t.Fatal("the password hash was not replaced")
+	}
+	if err := bcrypt.CompareHashAndPassword([]byte(got.PasswordHash), []byte("newpassword")); err != nil {
+		t.Fatalf("the stored hash does not match the new password: %v", err)
+	}
+	if got.PasswordChangedAt == nil {
+		t.Fatal("PasswordChangedAt was not stamped — sessions would survive the reset")
+	}
+	if got.PasswordChangedAt.Before(before) {
+		t.Fatalf("PasswordChangedAt = %v, want roughly now", got.PasswordChangedAt)
+	}
+	// Truncation matters: a JWT's iat has second granularity, so a sub-second
+	// value here would make a freshly issued token reject itself.
+	if got.PasswordChangedAt.Nanosecond() != 0 {
+		t.Fatalf("PasswordChangedAt = %v, want it truncated to the second", got.PasswordChangedAt)
+	}
+	if len(tokens.markedUsed) != 1 {
+		t.Fatal("the token must be single-use")
+	}
+}
+
+func TestConfirmReset_GoogleOnlyUserGetsAPassword(t *testing.T) {
+	// The case that motivated the whole feature: LoginWithGoogle discards the
+	// hash when linking an unverified account (rule #25), leaving the legitimate
+	// owner Google-only with no way back.
+	users := knownUser("user@example.com")
+	users.byEmail["user@example.com"].PasswordHash = ""
+	tokens := &resetTokenRepo{active: activeResetToken("111111")}
+	svc := newResetSvc(users, tokens, &recordingMailer{})
+
+	if err := svc.ConfirmReset(context.Background(), "user@example.com", "111111", "newpassword"); err != nil {
+		t.Fatalf("ConfirmReset: %v", err)
+	}
+	if users.updated == nil || users.updated.PasswordHash == "" {
+		t.Fatal("a Google-only account must come out of this with a usable password")
+	}
+}
+
+func TestConfirmReset_RejectsATokenFromAnotherChannel(t *testing.T) {
+	users := knownUser("user@example.com")
+	// An email-verification token must never be spendable on a reset.
+	tok := activeResetToken("111111")
+	tok.Channel = "email"
+	tokens := &resetTokenRepo{active: tok}
+	svc := newResetSvc(users, tokens, &recordingMailer{})
+
+	err := svc.ConfirmReset(context.Background(), "user@example.com", "111111", "newpassword")
+	if !errors.Is(err, domain.ErrOTPInvalid) {
+		t.Fatalf("err = %v, want domain.ErrOTPInvalid", err)
 	}
 }
