@@ -63,16 +63,6 @@ jobs:
           EXPO_PUBLIC_MAPTILER_KEY: ${{ secrets.MAPTILER_KEY }}
           EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID: ${{ env.GOOGLE_WEB_CLIENT_ID }}
 
-      # Compose Compiler 1.5.15 requiere Kotlin 1.9.25.
-      # build.gradle define kotlinVersion='1.9.25' pero el classpath no usa esa variable.
-      # Parcheamos el classpath para inyectar la versión explícitamente.
-      - name: Patch Kotlin version in classpath
-        working-directory: frontend/packages/mobile/android
-        run: |
-          sed -i "s/classpath('org.jetbrains.kotlin:kotlin-gradle-plugin')/classpath(\"org.jetbrains.kotlin:kotlin-gradle-plugin:\${kotlinVersion}\")/" build.gradle
-          echo "=== Kotlin classpath after patch ==="
-          grep "kotlin-gradle-plugin" build.gradle
-
       # expo prebuild genera un build.gradle que firma release con la debug key
       # publica del template de React Native (extraible por cualquiera). Se
       # inyecta la firma real: keystore desde secrets (base64) + signingConfig
