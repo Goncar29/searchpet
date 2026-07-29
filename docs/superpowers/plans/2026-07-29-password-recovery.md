@@ -256,6 +256,20 @@ git commit -m "feat(auth): ValidateToken retorna el issued-at del JWT"
 - Modify: `backend/internal/middleware/auth_test.go` — **this file already exists and will not compile after this task.** Its line 30 calls `OptionalAuth(testSecret)` with one argument. It has four passing tests, all covering `OptionalAuth` (no header → anonymous 200; valid Bearer → `userID` set; malformed JWT → anonymous, no abort; non-Bearer scheme → anonymous). Update that call to pass a `PasswordChangedAtFunc` and keep every existing assertion. `Auth` has **no** coverage in this file, which is why the new test file below exists.
 - Test: `backend/tests/auth_middleware_test.go` (create). It lives in package `tests`, so its `TestOptionalAuth_*` names do not collide with the ones in package `middleware`.
 
+> **AMENDED 2026-07-29 after review — the `tokenIsStale` code below is WRONG. Do not copy it.**
+> It returns `true` for *any* lookup error, and `Auth` turned that into `401 session_expired`.
+> But both clients **delete their stored token** on that code, so a transient database
+> failure (Neon scaling to zero, a Render cold start, brief pool exhaustion) would have
+> logged out the entire user base. Failing closed on the request is right; failing closed
+> with a *token-destroying code* is not.
+>
+> The shipped version (commit `82a5360`) replaces it with
+> `checkFreshness(...) (fresh bool, err error)`: `domain.ErrUserNotFound` → `(false, nil)` →
+> `session_expired`; any other error → `(false, err)` → **500 `internal_error`**, which no
+> client wipes state on. `OptionalAuth` is unchanged — it skips `c.Set` and never aborts.
+> Additionally, a nil `PasswordChangedAtFunc` silently disabled the whole defence, so both
+> constructors now panic at boot. Read `backend/internal/middleware/auth.go` for the real code.
+
 **Why both gates:** `OptionalAuth` establishes `userID` from the same token on public endpoints that enrich their response for a signed-in viewer. Patching only `Auth` would leave a revoked token granting identity there. `OptionalAuth` keeps its contract and never aborts — on a stale token it simply declines to set `userID`.
 
 - [ ] **Step 1: Write the failing tests**
