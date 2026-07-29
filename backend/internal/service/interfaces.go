@@ -141,6 +141,26 @@ type ReviewService interface {
 	Delete(ctx context.Context, reviewerID, revieweeID uuid.UUID) error
 }
 
+// PasswordResetService recupera el acceso a una cuenta probando control del
+// email con un OTP. Es anónimo: no hay sesión cuando arranca.
+type PasswordResetService interface {
+	// RequestReset envía un OTP al email si corresponde.
+	//
+	// SECURITY: devuelve nil para TODO resultado observable por el llamador —
+	// email inexistente, usuario baneado, cooldown activo, fallo del mailer.
+	// Cualquier diferencia visible convierte al endpoint en un oráculo de qué
+	// direcciones están registradas. Solo un fallo de infraestructura
+	// independiente del email (una caída de la base) devuelve error.
+	RequestReset(ctx context.Context, email string) error
+
+	// ConfirmReset valida el código y fija la contraseña nueva.
+	//
+	// SECURITY: devuelve domain.ErrOTPInvalid para código errado, token vencido,
+	// ausencia de token y email inexistente por igual. Distinguir el vencimiento
+	// del código errado permitiría sondear qué cuentas existen.
+	ConfirmReset(ctx context.Context, email, code, newPassword string) error
+}
+
 // AuthService define el contrato para la lógica de autenticación
 type AuthService interface {
 	// Register crea un nuevo usuario y retorna el usuario + JWT
