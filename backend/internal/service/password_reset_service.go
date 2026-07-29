@@ -71,9 +71,21 @@ func (s *passwordResetService) RequestReset(ctx context.Context, email string) e
 		return nil
 	}
 
+	// SECURITY: every failure from here on returns nil, not an error.
+	//
+	// These paths are only reachable for an account that exists and is not banned —
+	// they sit after the two returns above. Surfacing them would hand out the very
+	// oracle this endpoint is shaped to deny: if writes to verification_tokens fail
+	// while users stays readable (a lock held by a migration, a pooler hiccup on the
+	// second query), a real address would answer 500 and an invented one 200. That is
+	// cheaper to exploit than the timing channel runAsync exists to close.
+	//
+	// Only the GetByEmail failure above returns an error, because that one cannot
+	// depend on whether the address is registered.
 	existing, err := s.tokenRepo.FindActiveByUser(ctx, user.ID, ChannelPasswordReset)
 	if err != nil {
-		return err
+		log.Printf("[password_reset] token lookup failed for user %s: %v", user.ID, err)
+		return nil
 	}
 	if existing != nil && time.Since(existing.CreatedAt) < otpRateLimit {
 		// Only a real account can be rate-limited, so the cooldown is swallowed.
@@ -85,7 +97,8 @@ func (s *passwordResetService) RequestReset(ctx context.Context, email string) e
 	// SECURITY: NUNCA loguear el código en texto plano.
 	code, err := generateOTPCode()
 	if err != nil {
-		return err
+		log.Printf("[password_reset] code generation failed for user %s: %v", user.ID, err)
+		return nil
 	}
 
 	token := &domain.VerificationToken{
@@ -97,13 +110,28 @@ func (s *passwordResetService) RequestReset(ctx context.Context, email string) e
 		Used:      false,
 	}
 	if err := s.tokenRepo.Create(ctx, token); err != nil {
-		return err
+		log.Printf("[password_reset] token create failed for user %s: %v", user.ID, err)
+		return nil
 	}
 
 	userID, to, tokenID := user.ID, user.Email, token.ID
 	s.runAsync(func() {
+		// This stack is no longer under Gin's recovery, so an unhandled panic here
+		// would take the whole API down instead of failing a single request.
+		defer func() {
+			if r := recover(); r != nil {
+				// SECURITY: log the recovery, never the code.
+				log.Printf("[password_reset] panic while sending to user %s: %v", userID, r)
+			}
+		}()
+
 		// Detached: the HTTP request is already answered, so ctx may be cancelled.
-		bg := context.Background()
+		// Bounded like importGooglePhotoAsync in auth_service.go — without a deadline,
+		// a provider that blackholes packets instead of refusing them leaves this
+		// goroutine blocked in Do forever, pinning the plaintext code in its stack.
+		bg, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+
 		if sendErr := s.mailer.SendPasswordReset(bg, to, code); sendErr != nil {
 			// SECURITY: sendErr carries the provider status, never the code.
 			log.Printf("[password_reset] send failed for user %s: %v", userID, sendErr)
@@ -133,9 +161,16 @@ func (s *passwordResetService) ConfirmReset(ctx context.Context, email, code, ne
 		return domain.ErrOTPInvalid
 	}
 
+	// SECURITY: every failure from here on returns ErrOTPInvalid, including
+	// infrastructure ones. Same reasoning as RequestReset: these paths are only
+	// reachable for an account that exists, so a distinguishable 500 would let a
+	// caller tell a registered address from an invented one by submitting a garbage
+	// code. It costs the user a misleading "invalid code" during a database fault,
+	// which a retry resolves at no cost.
 	token, err := s.tokenRepo.FindActiveByUser(ctx, user.ID, ChannelPasswordReset)
 	if err != nil {
-		return err
+		log.Printf("[password_reset] token lookup failed for user %s: %v", user.ID, err)
+		return domain.ErrOTPInvalid
 	}
 	if token == nil || time.Now().After(token.ExpiresAt) {
 		return domain.ErrOTPInvalid
@@ -143,7 +178,8 @@ func (s *passwordResetService) ConfirmReset(ctx context.Context, email, code, ne
 
 	attempts, err := s.tokenRepo.IncrementAttempts(ctx, token.ID)
 	if err != nil {
-		return err
+		log.Printf("[password_reset] attempt increment failed for user %s: %v", user.ID, err)
+		return domain.ErrOTPInvalid
 	}
 	if attempts > otpMaxAttempts {
 		_ = s.tokenRepo.MarkUsed(ctx, token.ID)
@@ -161,8 +197,11 @@ func (s *passwordResetService) ConfirmReset(ctx context.Context, email, code, ne
 		return domain.ErrInternal
 	}
 
+	// Before the user update on purpose: if the write below fails, the token is
+	// already spent and cannot be replayed.
 	if err := s.tokenRepo.MarkUsed(ctx, token.ID); err != nil {
-		return err
+		log.Printf("[password_reset] mark-used failed for user %s: %v", user.ID, err)
+		return domain.ErrOTPInvalid
 	}
 
 	// Truncated to the second: a JWT's `iat` has no sub-second component, so a
@@ -172,5 +211,9 @@ func (s *passwordResetService) ConfirmReset(ctx context.Context, email, code, ne
 	user.PasswordHash = string(hash)
 	user.PasswordChangedAt = &changedAt
 
-	return s.userRepo.Update(ctx, user)
+	if err := s.userRepo.Update(ctx, user); err != nil {
+		log.Printf("[password_reset] password write failed for user %s: %v", user.ID, err)
+		return domain.ErrOTPInvalid
+	}
+	return nil
 }

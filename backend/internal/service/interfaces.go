@@ -147,17 +147,27 @@ type PasswordResetService interface {
 	// RequestReset envía un OTP al email si corresponde.
 	//
 	// SECURITY: devuelve nil para TODO resultado observable por el llamador —
-	// email inexistente, usuario baneado, cooldown activo, fallo del mailer.
+	// email inexistente, usuario baneado, cooldown activo, fallo del mailer, y
+	// también cualquier fallo de base POSTERIOR a la búsqueda del usuario.
 	// Cualquier diferencia visible convierte al endpoint en un oráculo de qué
-	// direcciones están registradas. Solo un fallo de infraestructura
-	// independiente del email (una caída de la base) devuelve error.
+	// direcciones están registradas.
+	//
+	// El ÚNICO error que devuelve es un fallo al buscar el usuario por email:
+	// ese es el único que no puede depender de si la dirección existe. Los
+	// posteriores sí — solo se alcanzan para cuentas reales — así que se
+	// loguean y se tragan.
 	RequestReset(ctx context.Context, email string) error
 
 	// ConfirmReset valida el código y fija la contraseña nueva.
 	//
 	// SECURITY: devuelve domain.ErrOTPInvalid para código errado, token vencido,
-	// ausencia de token y email inexistente por igual. Distinguir el vencimiento
-	// del código errado permitiría sondear qué cuentas existen.
+	// ausencia de token, email inexistente, usuario baneado y fallos de base
+	// posteriores a la búsqueda del usuario, todos por igual. Distinguir el
+	// vencimiento del código errado —o un 500 de un 400— permitiría sondear qué
+	// cuentas existen mandando un código cualquiera.
+	//
+	// Igual que en RequestReset, el único error propagado tal cual es un fallo al
+	// buscar el usuario por email.
 	ConfirmReset(ctx context.Context, email, code, newPassword string) error
 }
 

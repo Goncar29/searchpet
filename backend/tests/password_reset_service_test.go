@@ -51,15 +51,25 @@ type resetTokenRepo struct {
 	created    []*domain.VerificationToken
 	markedUsed []uuid.UUID
 	attempts   int
+	// createErr and findErr simulate an infrastructure fault reachable ONLY for an
+	// account that exists — the shape that would otherwise leak account existence.
+	createErr error
+	findErr   error
 }
 
 func (r *resetTokenRepo) Create(_ context.Context, t *domain.VerificationToken) error {
+	if r.createErr != nil {
+		return r.createErr
+	}
 	t.ID = uuid.New()
 	t.CreatedAt = time.Now()
 	r.created = append(r.created, t)
 	return nil
 }
 func (r *resetTokenRepo) FindActiveByUser(_ context.Context, _ uuid.UUID, channel string) (*domain.VerificationToken, error) {
+	if r.findErr != nil {
+		return nil, r.findErr
+	}
 	if r.active != nil && r.active.Channel == channel {
 		return r.active, nil
 	}
@@ -350,5 +360,107 @@ func TestConfirmReset_RejectsATokenFromAnotherChannel(t *testing.T) {
 	err := svc.ConfirmReset(context.Background(), "user@example.com", "111111", "newpassword")
 	if !errors.Is(err, domain.ErrOTPInvalid) {
 		t.Fatalf("err = %v, want domain.ErrOTPInvalid", err)
+	}
+}
+
+// ============================================================
+// Infrastructure faults must not become an existence oracle
+//
+// Every error site AFTER the user lookup is reachable only for an account that
+// exists — they sit past the not-found and banned returns. A distinguishable
+// status there would let a caller tell a registered address from an invented one,
+// which is cheaper to exploit than the timing channel runAsync exists to close.
+// ============================================================
+
+func TestRequestReset_TokenCreateFailure_StillReturnsNil(t *testing.T) {
+	users := knownUser("user@example.com")
+	tokens := &resetTokenRepo{createErr: errors.New("verification_tokens is locked")}
+	m := &recordingMailer{}
+
+	if err := newResetSvc(users, tokens, m).RequestReset(context.Background(), "user@example.com"); err != nil {
+		t.Fatalf("a write failure must not reach the caller, got %v", err)
+	}
+	if m.sentTo != "" {
+		t.Fatal("no mail may be sent when the token was never stored")
+	}
+}
+
+func TestRequestReset_TokenLookupFailure_StillReturnsNil(t *testing.T) {
+	users := knownUser("user@example.com")
+	tokens := &resetTokenRepo{findErr: errors.New("db down")}
+
+	if err := newResetSvc(users, tokens, &recordingMailer{}).RequestReset(context.Background(), "user@example.com"); err != nil {
+		t.Fatalf("a lookup failure must not reach the caller, got %v", err)
+	}
+}
+
+func TestRequestReset_InfrastructureFaultIsIndistinguishableFromUnknownAddress(t *testing.T) {
+	// The whole point, asserted directly: the caller cannot tell these apart.
+	real := newResetSvc(
+		knownUser("user@example.com"),
+		&resetTokenRepo{createErr: errors.New("verification_tokens is locked")},
+		&recordingMailer{},
+	).RequestReset(context.Background(), "user@example.com")
+
+	fake := newResetSvc(
+		&resetUserRepo{byEmail: map[string]*domain.User{}},
+		&resetTokenRepo{},
+		&recordingMailer{},
+	).RequestReset(context.Background(), "ghost@example.com")
+
+	if real != nil || fake != nil {
+		t.Fatalf("registered address returned %v, unknown returned %v — both must be nil", real, fake)
+	}
+}
+
+func TestConfirmReset_TokenLookupFailure_ReturnsOTPInvalidNotADistinctError(t *testing.T) {
+	users := knownUser("user@example.com")
+	tokens := &resetTokenRepo{findErr: errors.New("db down")}
+
+	err := newResetSvc(users, tokens, &recordingMailer{}).
+		ConfirmReset(context.Background(), "user@example.com", "111111", "newpassword")
+
+	if !errors.Is(err, domain.ErrOTPInvalid) {
+		t.Fatalf("err = %v, want domain.ErrOTPInvalid — a 500 here would only appear for real accounts", err)
+	}
+	if users.updated != nil {
+		t.Fatal("no password may be written when the token could not be read")
+	}
+}
+
+func TestConfirmReset_PasswordWriteFailure_ReturnsOTPInvalid(t *testing.T) {
+	users := knownUser("user@example.com")
+	users.updateErr = errors.New("db down")
+	tokens := &resetTokenRepo{active: activeResetToken("111111")}
+
+	err := newResetSvc(users, tokens, &recordingMailer{}).
+		ConfirmReset(context.Background(), "user@example.com", "111111", "newpassword")
+
+	if !errors.Is(err, domain.ErrOTPInvalid) {
+		t.Fatalf("err = %v, want domain.ErrOTPInvalid", err)
+	}
+	// The token was spent before the write was attempted, so it cannot be replayed.
+	if len(tokens.markedUsed) != 1 {
+		t.Fatal("the token must be consumed before the password write is attempted")
+	}
+}
+
+func TestConfirmReset_BannedUserCannotSetAPassword(t *testing.T) {
+	// The single line between a banned account and a working password.
+	users := knownUser("banned@example.com")
+	users.byEmail["banned@example.com"].IsBanned = true
+	tokens := &resetTokenRepo{active: activeResetToken("111111")}
+
+	err := newResetSvc(users, tokens, &recordingMailer{}).
+		ConfirmReset(context.Background(), "banned@example.com", "111111", "newpassword")
+
+	if !errors.Is(err, domain.ErrOTPInvalid) {
+		t.Fatalf("err = %v, want domain.ErrOTPInvalid", err)
+	}
+	if users.updated != nil {
+		t.Fatal("a banned user must not come out of this with a usable password")
+	}
+	if len(tokens.markedUsed) != 0 || tokens.attempts != 0 {
+		t.Fatal("a banned user must not consume the token or an attempt")
 	}
 }
