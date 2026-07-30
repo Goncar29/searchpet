@@ -369,7 +369,10 @@ type DeviceToken struct {
 type VerificationToken struct {
 	ID          uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
 	UserID      uuid.UUID `gorm:"type:uuid;not null;index" json:"user_id"`
-	Channel     string    `gorm:"not null;size:10" json:"channel"` // "email" or "sms"
+	// "email", "sms" or "password_reset". Sized for the longest value: at size:10
+	// every password_reset insert failed with SQLSTATE 22001, and the reset flow
+	// swallows that error by design, so the feature broke silently.
+	Channel     string    `gorm:"not null;size:20" json:"channel"`
 	CodeHash    string    `gorm:"not null;size:64" json:"-"`       // SHA-256 hex — never plaintext
 	Attempts    int       `gorm:"default:0" json:"-"`
 	ExpiresAt   time.Time `gorm:"not null;index" json:"expires_at"`
