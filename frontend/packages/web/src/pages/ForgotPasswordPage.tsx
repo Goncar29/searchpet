@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { apiClient } from '@shared/api/client';
 import { getErrorMessage } from '@shared/utils/apiErrors';
+import { useAuth } from '../context/AuthContext';
 import { Logo } from '../components/Logo';
 
 type Step = 'email' | 'code';
@@ -14,6 +15,7 @@ const labelClass = 'block text-sm font-medium text-gray-700 dark:text-gray-300 m
 export function ForgotPasswordPage() {
   const { t } = useTranslation(['auth', 'common', 'errors']);
   const navigate = useNavigate();
+  const { logout } = useAuth();
   const [step, setStep] = useState<Step>('email');
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
@@ -44,6 +46,12 @@ export function ForgotPasswordPage() {
     setLoading(true);
     try {
       await apiClient.resetPassword(email.trim(), code.trim(), newPassword);
+      // Drop the local session before leaving. The reset just invalidated every
+      // token issued before it, so anything still held here is dead — and while
+      // it is held, LoginPage's isAuthenticated guard bounces this navigation
+      // straight back to "/", where the user sits with a token that 401s on the
+      // next request and never sees the confirmation.
+      logout();
       navigate('/login', { state: { notice: t('forgotPassword.success') } });
     } catch (err) {
       setApiError(getErrorMessage(err, t));

@@ -95,6 +95,26 @@ describe('LoginPage — validación de formulario', () => {
     expect(mockLogin).toHaveBeenCalledWith('carlos@example.com', 'mi-password');
   });
 
+  it('muestra el aviso que deja ForgotPasswordPage al terminar el reset', () => {
+    // Sin esto el usuario completa todo el flujo de recuperación y aterriza en un
+    // formulario pelado, sin ninguna señal de que la contraseña se cambió.
+    render(
+      <MemoryRouter
+        initialEntries={[{ pathname: '/login', state: { notice: 'Contraseña actualizada' } }]}
+      >
+        <LoginPage />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByRole('status')).toHaveTextContent('Contraseña actualizada');
+  });
+
+  it('no muestra ningún aviso cuando se entra a /login directamente', () => {
+    renderLoginPage();
+
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  });
+
   it('muestra error de API cuando login() falla', async () => {
     const user = userEvent.setup();
     mockLogin.mockRejectedValue(new ApiError('invalid_credentials', 401, 'Credenciales inválidas'));
