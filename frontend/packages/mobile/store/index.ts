@@ -173,83 +173,44 @@ export const useAuthStore = create<AuthState>((set) => ({
 // SESSION EXPIRY — mobile parity with web's AuthContext.tsx listener
 // ============================================================
 //
-// The shared api client (frontend/packages/shared/api/client.ts) reacts to
-// every 401 by calling `window.dispatchEvent(new CustomEvent('auth:session-
-// expired', { detail: { code } }))`. That works on web because a browser
-// provides `window.addEventListener`/`dispatchEvent` and `CustomEvent` out of
-// the box. React Native does NOT: `react-native/Libraries/Core/
-// setUpGlobals.js` sets `global.window = global` (so `typeof window !==
-// 'undefined'` is true), but nothing in React Native's core ever attaches
-// `addEventListener`/`dispatchEvent`/`CustomEvent` to that object — those are
-// DOM APIs, not part of the ECMAScript spec Hermes implements, and RN's own
-// setup files only ever add `alert`, `navigator`, `performance` and
-// `process`. Left unpatched, the client's dispatch call throws on a real
-// device before the intended `ApiError` is even thrown, so `session_expired`
-// could never reach here.
+// The shared api client announces a rejected token by dispatching the DOM event
+// `auth:session-expired`. React Native provides none of the APIs that needs — see
+// `polyfills/domEvents.ts` for the details and the verification. That module is
+// imported first in `app/_layout.tsx`; it is NOT imported here, because a state
+// store patching globals as an import side effect is invisible to whoever reads
+// the store later.
 //
-// This is scoped to the mobile app only (not `shared/`, which web also uses,
-// and whose existing behaviour/tests must not change): a minimal shim gives
-// `global` (== `window`) just enough of the DOM Event contract for the
-// client's existing dispatch call to work.
-type SessionExpiredListener = (event: { type: string; detail?: { code?: string } }) => void;
+// `session_expired` specifically means the JWT predates a password change
+// (backend `middleware.Auth`) — that token will NEVER work again. Dropping local
+// state is not enough: the request that surfaced it could have fired from any
+// screen, so we force navigation to /login too (mirrors `AuthContext.tsx` on web).
+// A run-of-the-mill 401 (bad or missing token) deliberately does not reach this
+// branch: the per-screen auth guard already handles that, and wiping a live
+// session on every unrelated 401 would be disruptive for no security gain.
+type SessionExpiredEvent = { type: string; detail?: { code?: string } };
 
-const globalScope = globalThis as unknown as {
-  window?: unknown;
-  CustomEvent?: new (type: string, params?: { detail?: unknown }) => unknown;
-  addEventListener?: (type: string, listener: SessionExpiredListener) => void;
-  removeEventListener?: (type: string, listener: SessionExpiredListener) => void;
-  dispatchEvent?: (event: { type: string }) => boolean;
+const eventTarget = globalThis as unknown as {
+  addEventListener?: (type: string, listener: (event: SessionExpiredEvent) => void) => void;
 };
 
-if (typeof globalScope.window === 'undefined') {
-  globalScope.window = globalScope;
+if (typeof eventTarget.addEventListener === 'function') {
+  eventTarget.addEventListener('auth:session-expired', (event) => {
+    if (event.detail?.code !== 'session_expired') return;
+
+    SecureStore.deleteItemAsync('auth_token').catch(() => {});
+    SecureStore.deleteItemAsync('user_data').catch(() => {});
+    apiClient.setToken(null);
+    useAuthStore.setState({ user: null, token: null, isAuthenticated: false });
+    router.replace('/login');
+  });
+} else {
+  // Reachable only if the polyfill import was dropped from app/_layout.tsx.
+  // Silence here would mean a revoked token keeps working until the app restarts.
+  console.warn(
+    '[store] no addEventListener on the global scope — session-expiry handling is INACTIVE. ' +
+      "Is polyfills/domEvents.ts still the first import of app/_layout.tsx?",
+  );
 }
-
-if (typeof globalScope.CustomEvent === 'undefined') {
-  class CustomEventPolyfill<T = unknown> {
-    type: string;
-    detail: T | undefined;
-    constructor(type: string, params?: { detail?: T }) {
-      this.type = type;
-      this.detail = params?.detail;
-    }
-  }
-  globalScope.CustomEvent = CustomEventPolyfill as unknown as typeof globalScope.CustomEvent;
-}
-
-if (typeof globalScope.addEventListener !== 'function') {
-  const listenersByType = new Map<string, Set<SessionExpiredListener>>();
-  globalScope.addEventListener = (type, listener) => {
-    if (!listenersByType.has(type)) listenersByType.set(type, new Set());
-    listenersByType.get(type)!.add(listener);
-  };
-  globalScope.removeEventListener = (type, listener) => {
-    listenersByType.get(type)?.delete(listener);
-  };
-  globalScope.dispatchEvent = (event) => {
-    listenersByType.get(event.type)?.forEach((listener) => listener(event as Parameters<SessionExpiredListener>[0]));
-    return true;
-  };
-}
-
-// `session_expired` specifically means the JWT predates a password change
-// (backend middleware.Auth) — that token will NEVER work again. Dropping
-// local state is not enough: the request that surfaced this could have fired
-// from any screen, so we also force navigation to /login (mirrors
-// AuthContext.tsx on web). A run-of-the-mill 401 (bad/missing token) does not
-// reach this branch on purpose — the app's normal auth guard already handles
-// that per screen, and wiping a live session on every unrelated 401 would be
-// disruptive for no security reason.
-globalScope.addEventListener!('auth:session-expired', (event) => {
-  const code = event.detail?.code;
-  if (code !== 'session_expired') return;
-
-  SecureStore.deleteItemAsync('auth_token').catch(() => {});
-  SecureStore.deleteItemAsync('user_data').catch(() => {});
-  apiClient.setToken(null);
-  useAuthStore.setState({ user: null, token: null, isAuthenticated: false });
-  router.replace('/login');
-});
 
 // ============================================================
 // LANGUAGE STORE

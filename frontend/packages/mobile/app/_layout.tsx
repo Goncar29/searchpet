@@ -2,6 +2,11 @@
 // SearchPet - Layout principal (Expo Router)
 // ============================================================
 
+// MUST stay the first import: installs CustomEvent/addEventListener/dispatchEvent
+// on the global scope, which React Native does not provide. The store registers a
+// listener on them at import time, so this has to be evaluated before ../store is.
+import '../polyfills/domEvents';
+
 // Initialize i18next before any screen renders (synchronous — bundled resources)
 import '../i18n';
 

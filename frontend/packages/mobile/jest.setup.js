@@ -1,6 +1,13 @@
 // jest.setup.js — SearchPet Mobile Test Setup
 // Runs after the test framework is installed (setupFilesAfterEnv)
 
+// Same global setup the app performs as the first import of app/_layout.tsx.
+// The jest environment lacks CustomEvent/addEventListener/dispatchEvent just as a
+// device does, and store/index.ts registers its session-expiry listener on them at
+// import time — without this, that listener silently never registers and the tests
+// covering it would be testing nothing.
+require('./polyfills/domEvents');
+
 // expo-router mocks — must be declared with jest.mock (not vi)
 jest.mock('expo-router', () => ({
   useRouter: () => ({

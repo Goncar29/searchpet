@@ -488,3 +488,59 @@ describe('APIClient password reset', () => {
     ).rejects.toMatchObject({ code: 'otp_invalid', status: 400 });
   });
 });
+
+// ============================================================
+// Regression: a 401 must not depend on DOM event APIs existing
+//
+// React Native aliases `window` to `global`, so the old guard
+// `typeof window !== 'undefined'` passed on a device while CustomEvent and
+// dispatchEvent did not exist — the client threw a ReferenceError BEFORE raising
+// its ApiError, turning every 401 in the mobile app into an unrelated crash.
+// Invisible for months because the mobile suite mocks this whole module.
+// ============================================================
+
+describe('401 handling without DOM event APIs (React Native global shape)', () => {
+  const saved = {
+    CustomEvent: (globalThis as Record<string, unknown>).CustomEvent,
+    dispatchEvent: (globalThis as Record<string, unknown>).dispatchEvent,
+  };
+
+  beforeEach(() => {
+    // Exactly what a device looks like: window IS global, but no DOM events.
+    delete (globalThis as Record<string, unknown>).CustomEvent;
+    delete (globalThis as Record<string, unknown>).dispatchEvent;
+  });
+
+  afterEach(() => {
+    (globalThis as Record<string, unknown>).CustomEvent = saved.CustomEvent;
+    (globalThis as Record<string, unknown>).dispatchEvent = saved.dispatchEvent;
+  });
+
+  it('still throws ApiError, not ReferenceError, and still clears the token', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 401,
+      json: async () => ({ code: 'session_expired', message: 'tu sesión expiró' }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const client = new APIClient('http://test.local');
+    client.setToken('stale-token');
+
+    const err = await client.getMyPets().catch((e) => e);
+
+    expect(err).toBeInstanceOf(ApiError);
+    expect(err).toMatchObject({ code: 'session_expired', status: 401 });
+
+    // Losing the notification is recoverable; losing the ApiError is not — and the
+    // token must still be dropped even with nowhere to announce it. There is no
+    // getToken(), so this is asserted through observable behaviour: the next
+    // request must go out WITHOUT an Authorization header.
+    fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => [] });
+    await client.getMyPets().catch(() => {});
+
+    const lastInit = fetchMock.mock.calls[fetchMock.mock.calls.length - 1][1];
+    const headers = (lastInit?.headers ?? {}) as Record<string, string>;
+    expect(headers.Authorization).toBeUndefined();
+  });
+});
