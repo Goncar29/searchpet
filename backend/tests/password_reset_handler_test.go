@@ -134,3 +134,27 @@ func TestResetPassword_HappyPathIs200(t *testing.T) {
 		t.Fatalf("status = %d, want 200", w.Code)
 	}
 }
+
+func TestResetPassword_MultibytePasswordOver72BytesIs400AndServiceNotCalled(t *testing.T) {
+	// The DTO's `max=72` counts RUNES, bcrypt's limit is 72 BYTES. 72 "ñ" is 144
+	// bytes: it clears the binding and would reach bcrypt as a 500, having already
+	// burned one of the five OTP attempts.
+	svc := &stubResetSvc{}
+	h := handler.NewPasswordResetHandler(svc)
+
+	long := strings.Repeat("ñ", 72)
+	if len(long) <= 72 {
+		t.Fatalf("fixture is wrong: %d bytes, need more than 72", len(long))
+	}
+
+	w := postJSON(t, h.ResetPassword, "/reset", map[string]string{
+		"email": "user@example.com", "code": "123456", "new_password": long,
+	})
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400", w.Code)
+	}
+	if svc.confirmCalled {
+		t.Fatal("the service must not be reached — an attempt would be spent for nothing")
+	}
+}

@@ -304,6 +304,37 @@ The consequence, stated plainly: **email becomes the only route back into an acc
 who loses their mailbox loses the account. For a free pet-finding app that is an acceptable
 trade — and it is exactly why this flow has to be correct.
 
+## Findings from the security review (2026-07-29), and what was done
+
+The review found **no vulnerability at or above its confidence bar**. It raised three
+sub-threshold notes. One was a real defect and is fixed; two are accepted and recorded
+here rather than silently dropped.
+
+**Fixed — the `max=72` on the password did not do what its comment claimed.**
+`go-playground/validator`'s `max` tag counts **runes** (`utf8.RuneCountInString`) while
+`bcrypt.GenerateFromPassword`'s limit is 72 **bytes**. Verified empirically: 72 `ñ`
+characters are 144 bytes and sail through the binding. They would then fail inside
+bcrypt as a `500`, *after* `IncrementAttempts` had already spent one of five tries —
+exactly the failure the bound was added to prevent. The handler now checks the byte
+length before any state moves (`bcryptMaxPasswordBytes`), with a test that fails when
+the check is removed.
+
+**Accepted — a resend leaves the older reset OTP usable.** `FindActiveByUser` returns
+only the newest token, so after a successful reset spends it, a previous still-active
+token becomes the next candidate for its remaining TTL. Exploiting that requires
+already knowing that older code, which means mailbox access — at which point the
+attacker has the newest code too, so the security gain of fixing it is zero. Closing
+it properly needs a new repository method (invalidate all tokens for user+channel)
+plus its interface and mocks; that is not worth the surface for no gain. The
+pre-existing email-verification flow has the identical gap.
+
+**Accepted — an already-open WebSocket survives a reset.** New connections are
+blocked (tickets are minted from the now freshness-gated `protected` group), but a
+connection established before the reset keeps streaming until it drops. This is an
+incompleteness of a brand-new control, not a regression. Making revocation airtight
+means the hub must drop a user's live connections on a credential change — its own
+piece of work, and out of scope here.
+
 ## Open risks
 
 - **Middleware DB read per authenticated request.** Accepted above. If it ever shows up in

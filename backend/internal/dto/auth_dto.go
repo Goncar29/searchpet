@@ -62,11 +62,13 @@ type ForgotPasswordRequest struct {
 
 // ResetPasswordRequest completa la recuperación con el OTP recibido por email.
 // min=6 iguala a RegisterRequest a propósito: exigir más en la recuperación que
-// en el alta sería incoherente. max=72 es el límite de bcrypt.GenerateFromPassword
-// (cuenta bytes, no runas, que es justo lo que bcrypt trunca) — sin este bound un
-// passphrase largo de un password manager llega al service, mapea a
-// domain.ErrInternal (500) y ya quemó un intento de OTP porque IncrementAttempts
-// corre antes del hasheo.
+// en el alta sería incoherente.
+//
+// max=72 NO alcanza por sí solo: el tag `max` de go-playground/validator cuenta
+// RUNAS (utf8.RuneCountInString), y el límite de bcrypt.GenerateFromPassword es de
+// 72 BYTES. Verificado: 72 runas de "ñ" son 144 bytes y pasan el binding. El
+// handler agrega el chequeo de bytes; ver bcryptMaxPasswordBytes en
+// password_reset_handler.go.
 type ResetPasswordRequest struct {
 	Email       string `json:"email" binding:"required,email"`
 	Code        string `json:"code" binding:"required"`

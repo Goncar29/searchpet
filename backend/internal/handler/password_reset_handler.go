@@ -14,6 +14,10 @@ import (
 // the address exists would undo the service-level enumeration defence.
 const forgotPasswordMessage = "Si el email está registrado, te enviamos un código."
 
+// bcryptMaxPasswordBytes is the hard input limit of bcrypt.GenerateFromPassword.
+// It is a BYTE count, which is why the DTO's rune-based `max=72` cannot enforce it.
+const bcryptMaxPasswordBytes = 72
+
 // PasswordResetHandler expone la recuperación de contraseña. Ambas rutas son
 // públicas: por definición el usuario no puede iniciar sesión.
 type PasswordResetHandler struct {
@@ -56,6 +60,16 @@ func (h *PasswordResetHandler) ForgotPassword(c *gin.Context) {
 func (h *PasswordResetHandler) ResetPassword(c *gin.Context) {
 	var req dto.ResetPasswordRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		writeError(c, http.StatusBadRequest, domain.ErrBindingFailed)
+		return
+	}
+
+	// The DTO's `max=72` counts RUNES; bcrypt's limit is 72 BYTES. Without this,
+	// a 72-rune multibyte passphrase (up to 288 bytes) clears the binding, reaches
+	// bcrypt inside the service, and comes back as a 500 — after IncrementAttempts
+	// has already spent one of the five tries. Five of those and the token is dead,
+	// with nothing on screen ever explaining why. Checked here so no state moves.
+	if len(req.NewPassword) > bcryptMaxPasswordBytes {
 		writeError(c, http.StatusBadRequest, domain.ErrBindingFailed)
 		return
 	}
