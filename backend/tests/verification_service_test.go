@@ -65,6 +65,7 @@ type mockTokenRepo struct {
 	activeToken       *domain.VerificationToken
 	incrementAttempts int
 	markUsedCalled    bool
+	markAllUsedCalls  int
 }
 
 func (m *mockTokenRepo) Create(ctx context.Context, t *domain.VerificationToken) error { return nil }
@@ -75,6 +76,12 @@ func (m *mockTokenRepo) FindActiveByUser(ctx context.Context, userID uuid.UUID, 
 
 func (m *mockTokenRepo) MarkUsed(ctx context.Context, id uuid.UUID) error {
 	m.markUsedCalled = true
+	return nil
+}
+
+func (m *mockTokenRepo) MarkAllUsedByUser(ctx context.Context, userID uuid.UUID, channel string) error {
+	m.markUsedCalled = true
+	m.markAllUsedCalls++
 	return nil
 }
 

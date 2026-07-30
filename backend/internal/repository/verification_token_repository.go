@@ -47,6 +47,16 @@ func (r *postgresVerificationTokenRepository) MarkUsed(ctx context.Context, id u
 		UpdateColumn("used", true).Error
 }
 
+// MarkAllUsedByUser invalida todos los tokens activos del usuario en un canal.
+// No filtra por expires_at a propósito: un token ya expirado tampoco sirve, y
+// marcarlo igual deja el estado sin tokens activos rezagados.
+func (r *postgresVerificationTokenRepository) MarkAllUsedByUser(ctx context.Context, userID uuid.UUID, channel string) error {
+	return r.db.WithContext(ctx).
+		Model(&domain.VerificationToken{}).
+		Where("user_id = ? AND channel = ? AND used = false", userID, channel).
+		UpdateColumn("used", true).Error
+}
+
 // IncrementAttempts incrementa el contador de forma atómica y retorna el nuevo valor.
 func (r *postgresVerificationTokenRepository) IncrementAttempts(ctx context.Context, id uuid.UUID) (int, error) {
 	result := r.db.WithContext(ctx).

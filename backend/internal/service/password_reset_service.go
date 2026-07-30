@@ -101,6 +101,15 @@ func (s *passwordResetService) RequestReset(ctx context.Context, email string) e
 		return nil
 	}
 
+	// Retire every outstanding code before minting the replacement. FindActiveByUser
+	// returns only the newest row, so without this the previous code stops working
+	// while still looking valid: a user who types the one from the first email gets
+	// otp_invalid with no explanation, and burns attempts on the new token doing it.
+	if err := s.tokenRepo.MarkAllUsedByUser(ctx, user.ID, ChannelPasswordReset); err != nil {
+		log.Printf("[password_reset] failed to retire previous tokens for user %s: %v", user.ID, err)
+		return nil
+	}
+
 	token := &domain.VerificationToken{
 		UserID:    user.ID,
 		Channel:   ChannelPasswordReset,
@@ -198,8 +207,10 @@ func (s *passwordResetService) ConfirmReset(ctx context.Context, email, code, ne
 	}
 
 	// Before the user update on purpose: if the write below fails, the token is
-	// already spent and cannot be replayed.
-	if err := s.tokenRepo.MarkUsed(ctx, token.ID); err != nil {
+	// already spent and cannot be replayed. Retires every outstanding code, not
+	// just the one spent here, so a leftover from an earlier request cannot drive
+	// a second reset for the rest of its TTL.
+	if err := s.tokenRepo.MarkAllUsedByUser(ctx, user.ID, ChannelPasswordReset); err != nil {
 		log.Printf("[password_reset] mark-used failed for user %s: %v", user.ID, err)
 		return domain.ErrOTPInvalid
 	}

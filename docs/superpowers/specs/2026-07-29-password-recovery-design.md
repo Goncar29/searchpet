@@ -319,14 +319,26 @@ exactly the failure the bound was added to prevent. The handler now checks the b
 length before any state moves (`bcryptMaxPasswordBytes`), with a test that fails when
 the check is removed.
 
-**Accepted — a resend leaves the older reset OTP usable.** `FindActiveByUser` returns
-only the newest token, so after a successful reset spends it, a previous still-active
-token becomes the next candidate for its remaining TTL. Exploiting that requires
-already knowing that older code, which means mailbox access — at which point the
-attacker has the newest code too, so the security gain of fixing it is zero. Closing
-it properly needs a new repository method (invalidate all tokens for user+channel)
-plus its interface and mocks; that is not worth the surface for no gain. The
-pre-existing email-verification flow has the identical gap.
+**~~Accepted~~ FIXED (2026-07-30) — a resend leaves the older reset OTP usable.**
+`FindActiveByUser` returns only the newest token, so a previous still-active token
+lingers for its remaining TTL. This was accepted here on the grounds that exploiting
+it requires already knowing the older code — mailbox access, at which point the
+attacker holds the newest code too — so the *security* gain of fixing it is zero.
+
+That reasoning was right and still incomplete: it weighed only the security axis. The
+code review of 2026-07-30 pointed at the **usability** one, which is where the real
+damage is. A user who receives two emails and types the code from the first gets
+`otp_invalid` with no explanation, and spends one of their five attempts finding that
+out. Nothing in the UI can distinguish "wrong code" from "correct code, wrong email" —
+the endpoint deliberately collapses both. That is a live person locked out of their own
+recovery flow by an implementation detail, which outweighs a zero-gain security
+argument.
+
+Closed with `MarkAllUsedByUser(userID, channel)` on the repository, called in two
+places: before minting a replacement in `RequestReset`, and on success in
+`ConfirmReset` (so no leftover can drive a second reset). Its failure is swallowed
+like every other post-lookup error, for the enumeration reason. The pre-existing
+email-verification flow still has the identical gap and is untouched here.
 
 **Accepted — an already-open WebSocket survives a reset.** New connections are
 blocked (tickets are minted from the now freshness-gated `protected` group), but a
@@ -337,6 +349,18 @@ piece of work, and out of scope here.
 
 ## Open risks
 
+- **A single victim can drain the shared Brevo daily quota.** Raised by the code review of
+  2026-07-30 and NOT fixed here. The only per-account bound on reset mail is the 60s
+  cooldown, i.e. 1440 messages/day against one address. The route rate limit is keyed on
+  `route + ClientIP` (`middleware/rate_limit.go`), so it bounds a source, never an account:
+  a distributed caller sidesteps it entirely, and even a single IP at 1/min stays under it.
+  Brevo free is 300 messages/day (rule #24) **shared with the email-verification OTP**, so
+  roughly five hours of this both mailbombs the victim and takes email verification down
+  for every other user — the blast radius is the whole platform, not the target.
+  The fix is a daily cap on `password_reset` tokens per user, which needs a counting query
+  the repository does not have today. Left out deliberately: it is a policy change with its
+  own shape, not a defect in this implementation, and shipping it inside this branch would
+  mean designing a quota under time pressure. **Reassess before this flow sees real traffic.**
 - **Middleware DB read per authenticated request.** Accepted above. If it ever shows up in
   Render metrics, the fix is a short-TTL in-process cache of `password_changed_at`, not a
   redesign. Not built now: Render free runs a single instance, and premature caching would

@@ -51,10 +51,13 @@ type resetTokenRepo struct {
 	created    []*domain.VerificationToken
 	markedUsed []uuid.UUID
 	attempts   int
-	// createErr and findErr simulate an infrastructure fault reachable ONLY for an
-	// account that exists — the shape that would otherwise leak account existence.
-	createErr error
-	findErr   error
+	retiredAll int
+	// createErr, findErr and markAllUsedErr simulate an infrastructure fault
+	// reachable ONLY for an account that exists — the shape that would otherwise
+	// leak account existence.
+	createErr      error
+	findErr        error
+	markAllUsedErr error
 }
 
 func (r *resetTokenRepo) Create(_ context.Context, t *domain.VerificationToken) error {
@@ -77,6 +80,17 @@ func (r *resetTokenRepo) FindActiveByUser(_ context.Context, _ uuid.UUID, channe
 }
 func (r *resetTokenRepo) MarkUsed(_ context.Context, id uuid.UUID) error {
 	r.markedUsed = append(r.markedUsed, id)
+	return nil
+}
+
+// Counted apart from markedUsed on purpose: MarkUsed retires one known token,
+// this retires every outstanding one. Conflating them hides which guarantee a
+// test is actually asserting.
+func (r *resetTokenRepo) MarkAllUsedByUser(_ context.Context, _ uuid.UUID, _ string) error {
+	if r.markAllUsedErr != nil {
+		return r.markAllUsedErr
+	}
+	r.retiredAll++
 	return nil
 }
 func (r *resetTokenRepo) IncrementAttempts(context.Context, uuid.UUID) (int, error) {
@@ -334,8 +348,8 @@ func TestConfirmReset_HappyPath_SetsHashAndStampsPasswordChangedAt(t *testing.T)
 	if got.PasswordChangedAt.Nanosecond() != 0 {
 		t.Fatalf("PasswordChangedAt = %v, want it truncated to the second", got.PasswordChangedAt)
 	}
-	if len(tokens.markedUsed) != 1 {
-		t.Fatal("the token must be single-use")
+	if tokens.retiredAll != 1 {
+		t.Fatal("the token must be single-use, and every outstanding code retired with it")
 	}
 }
 
@@ -447,7 +461,7 @@ func TestConfirmReset_PasswordWriteFailure_ReturnsOTPInvalid(t *testing.T) {
 		t.Fatalf("err = %v, want domain.ErrOTPInvalid", err)
 	}
 	// The token was spent before the write was attempted, so it cannot be replayed.
-	if len(tokens.markedUsed) != 1 {
+	if tokens.retiredAll != 1 {
 		t.Fatal("the token must be consumed before the password write is attempted")
 	}
 }
@@ -469,5 +483,50 @@ func TestConfirmReset_BannedUserCannotSetAPassword(t *testing.T) {
 	}
 	if len(tokens.markedUsed) != 0 || tokens.attempts != 0 {
 		t.Fatal("a banned user must not consume the token or an attempt")
+	}
+}
+
+// ============================================================
+// RequestReset — a new code retires the previous one
+// ============================================================
+
+func TestRequestReset_PastCooldown_RetiresThePreviousCodeBeforeMintingANewOne(t *testing.T) {
+	users := knownUser("user@example.com")
+	previous := &domain.VerificationToken{
+		ID:        uuid.New(),
+		Channel:   "password_reset",
+		CreatedAt: time.Now().Add(-2 * time.Minute), // past the 60s cooldown
+		ExpiresAt: time.Now().Add(8 * time.Minute),  // but still inside its 10min TTL
+	}
+	tokens := &resetTokenRepo{active: previous}
+	m := &recordingMailer{}
+
+	if err := newResetSvc(users, tokens, m).RequestReset(context.Background(), "user@example.com"); err != nil {
+		t.Fatalf("RequestReset() = %v, want nil", err)
+	}
+
+	if len(tokens.created) != 1 {
+		t.Fatalf("created %d tokens, want 1", len(tokens.created))
+	}
+	// Without this sweep the previous code stays used=false and unexpired, but
+	// FindActiveByUser only ever returns the newest row — so it is unspendable
+	// while still looking valid to the person holding that first email.
+	if tokens.retiredAll != 1 {
+		t.Fatal("requesting a new code must retire the outstanding ones")
+	}
+}
+
+func TestRequestReset_RetireFailure_StillReturnsNilAndMintsNothing(t *testing.T) {
+	users := knownUser("user@example.com")
+	tokens := &resetTokenRepo{markAllUsedErr: errors.New("verification_tokens is locked")}
+	m := &recordingMailer{}
+
+	// Same enumeration rule as every other post-lookup failure: this path is only
+	// reachable for an account that exists, so it must not surface an error.
+	if err := newResetSvc(users, tokens, m).RequestReset(context.Background(), "user@example.com"); err != nil {
+		t.Fatalf("RequestReset() = %v, want nil", err)
+	}
+	if len(tokens.created) != 0 || m.sentTo != "" {
+		t.Fatal("a failed retire must not leave a new code behind, nor mail one out")
 	}
 }
