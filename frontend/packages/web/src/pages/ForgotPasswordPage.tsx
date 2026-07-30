@@ -8,6 +8,10 @@ import { Logo } from '../components/Logo';
 
 type Step = 'email' | 'code';
 
+// Igual al min=6 de ResetPasswordRequest en el backend, que a su vez iguala a
+// RegisterRequest: exigir más en la recuperación que en el alta sería incoherente.
+const MIN_PASSWORD_LENGTH = 6;
+
 const inputClass =
   'w-full border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary';
 const labelClass = 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1';
@@ -43,6 +47,16 @@ export function ForgotPasswordPage() {
   const handleReset = async (e: React.FormEvent) => {
     e.preventDefault();
     setApiError('');
+
+    // Sin este chequeo una contraseña corta viaja igual y vuelve como
+    // binding_failed — "Los datos de entrada no son válidos", que no dice cuál
+    // dato. En una pantalla donde el fallo esperado es "el código está mal", ese
+    // mensaje genérico apunta al campo equivocado. RegisterPage ya valida así.
+    if (newPassword.length < MIN_PASSWORD_LENGTH) {
+      setApiError(t('auth:register.passwordMin'));
+      return;
+    }
+
     setLoading(true);
     try {
       await apiClient.resetPassword(email.trim(), code.trim(), newPassword);

@@ -1,4 +1,5 @@
 import React from 'react';
+import { Alert } from 'react-native';
 import { render, fireEvent, waitFor, screen } from '@testing-library/react-native';
 import { apiClient } from '../../shared/api/client';
 import ForgotPasswordScreen from '../app/forgot-password';
@@ -14,6 +15,8 @@ jest.mock('react-i18next', () => ({
   }),
   initReactI18next: { type: '3rdParty', init: jest.fn() },
 }));
+
+jest.spyOn(Alert, 'alert').mockImplementation(() => {});
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -61,6 +64,23 @@ describe('ForgotPasswordScreen', () => {
     await waitFor(() =>
       expect(apiClient.resetPassword).toHaveBeenCalledWith('user@example.com', '123456', 'newpassword'),
     );
+  });
+
+  it('rejects a short password before it reaches the API', async () => {
+    // El backend la rechaza con binding_failed ("datos de entrada inválidos"),
+    // que no identifica el campo. En esta pantalla el fallo que el usuario espera
+    // es "el código está mal", así que ese mensaje lo manda al campo equivocado.
+    render(<ForgotPasswordScreen />);
+
+    fireEvent.changeText(screen.getByPlaceholderText('forgotPassword.email'), 'user@example.com');
+    fireEvent.press(screen.getByText('forgotPassword.sendCode'));
+
+    fireEvent.changeText(await screen.findByPlaceholderText('forgotPassword.code'), '123456');
+    fireEvent.changeText(screen.getByPlaceholderText('forgotPassword.newPassword'), 'corta');
+    fireEvent.press(screen.getByText('forgotPassword.submit'));
+
+    await waitFor(() => expect(Alert.alert).toHaveBeenCalled());
+    expect(apiClient.resetPassword).not.toHaveBeenCalled();
   });
 
   it('shows the API error and stays on the code step when the reset fails', async () => {

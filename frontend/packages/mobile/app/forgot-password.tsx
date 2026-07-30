@@ -24,6 +24,10 @@ import { COLORS, SPACING, FONTS, RADIUS } from '../constants';
 
 type Step = 'email' | 'code';
 
+// Igual al min=6 de ResetPasswordRequest en el backend, que a su vez iguala a
+// RegisterRequest: exigir más en la recuperación que en el alta sería incoherente.
+const MIN_PASSWORD_LENGTH = 6;
+
 export default function ForgotPasswordScreen() {
   const router = useRouter();
   const { t } = useTranslation('auth');
@@ -51,6 +55,15 @@ export default function ForgotPasswordScreen() {
   };
 
   const handleReset = async () => {
+    // Sin este chequeo una contraseña corta vuelve como binding_failed ("datos de
+    // entrada inválidos"), que no dice cuál dato — y en esta pantalla el fallo que
+    // el usuario espera es "el código está mal", así que apunta al campo
+    // equivocado. register.tsx ya valida igual.
+    if (newPassword.length < MIN_PASSWORD_LENGTH) {
+      Alert.alert(i18next.t('common:error'), t('register.passwordMin'));
+      return;
+    }
+
     setIsLoading(true);
     try {
       await apiClient.resetPassword(email.trim(), code.trim(), newPassword);

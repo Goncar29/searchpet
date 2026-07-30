@@ -107,6 +107,29 @@ describe('ForgotPasswordPage', () => {
     );
   });
 
+  it('rejects a short password before it reaches the API', async () => {
+    // El backend la rechaza con binding_failed — "datos de entrada inválidos" —
+    // que no identifica el campo. En una pantalla donde el fallo esperado es "el
+    // código está mal", ese mensaje manda al usuario a mirar el campo equivocado.
+    renderPage();
+
+    fireEvent.change(screen.getByLabelText('forgotPassword.email'), {
+      target: { value: 'user@example.com' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'forgotPassword.sendCode' }));
+
+    fireEvent.change(await screen.findByLabelText('forgotPassword.code'), {
+      target: { value: '123456' },
+    });
+    fireEvent.change(screen.getByLabelText('forgotPassword.newPassword'), {
+      target: { value: 'corta' }, // 5 caracteres
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'forgotPassword.submit' }));
+
+    expect(await screen.findByText('auth:register.passwordMin')).toBeInTheDocument();
+    expect(resetPassword).not.toHaveBeenCalled();
+  });
+
   it('drops the local session before leaving', async () => {
     // The reset invalidated every token issued before it. Holding on to the dead
     // one makes LoginPage's isAuthenticated guard bounce the user to "/", where
