@@ -59,6 +59,38 @@ func (m *brevoMailer) SetEndpoint(endpoint string) {
 	m.endpoint = endpoint
 }
 
+// Identidad de marca "Rastro" para los emails.
+//
+// brandPrimary es el mismo #C24E1A que --color-primary en la web y theme_color
+// en el manifest, y **es exactamente el color de fondo de icon-192.png**: por eso
+// el ícono se funde con la cabecera sin que se vea el recuadro.
+//
+// La URL va hardcodeada a producción a propósito, no derivada de APP_URL: el mail
+// se abre fuera de la app, en el cliente de correo del destinatario, así que el
+// asset tiene que resolver público sí o sí. Con APP_URL, un entorno local mandaría
+// mails apuntando a localhost. Mismo criterio que web/api/share.js y index.html.
+const (
+	brandPrimary = "#C24E1A"
+	brandLogoURL = "https://searchpet.vercel.app/icons/icon-192.png"
+)
+
+// brandHeader es la cabecera compartida por los dos templates. El alt del ícono
+// va vacío adrede: el wordmark de al lado ya dice "SearchPet", así que con las
+// imágenes bloqueadas (default de Gmail para remitentes desconocidos) se lee el
+// nombre una sola vez en vez de dos.
+const brandHeader = `<td style="background-color:` + brandPrimary + `;padding:20px 32px;text-align:center;">
+              <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto;">
+                <tr>
+                  <td style="padding-right:10px;vertical-align:middle;">
+                    <img src="` + brandLogoURL + `" width="32" height="32" alt="" style="display:block;border:0;width:32px;height:32px;">
+                  </td>
+                  <td style="vertical-align:middle;">
+                    <span style="font-family:Helvetica,Arial,sans-serif;font-size:22px;font-weight:bold;color:#ffffff;">SearchPet</span>
+                  </td>
+                </tr>
+              </table>
+            </td>`
+
 // otpHTMLTemplate es el cuerpo HTML del email de verificación. Email-safe:
 // tablas + estilos inline (Gmail/Outlook no soportan CSS moderno). El único
 // placeholder (%s) es el código OTP.
@@ -70,9 +102,7 @@ const otpHTMLTemplate = `<!DOCTYPE html>
       <td align="center">
         <table role="presentation" width="100%%" cellpadding="0" cellspacing="0" style="max-width:440px;background-color:#ffffff;border-radius:12px;overflow:hidden;">
           <tr>
-            <td style="background-color:#FF6B35;padding:20px 32px;text-align:center;">
-              <span style="font-family:Helvetica,Arial,sans-serif;font-size:22px;font-weight:bold;color:#ffffff;">&#128062; SearchPet</span>
-            </td>
+            ` + brandHeader + `
           </tr>
           <tr>
             <td style="padding:32px;">
@@ -121,9 +151,7 @@ const resetHTMLTemplate = `<!DOCTYPE html>
       <td align="center">
         <table role="presentation" width="100%%" cellpadding="0" cellspacing="0" style="max-width:440px;background-color:#ffffff;border-radius:12px;overflow:hidden;">
           <tr>
-            <td style="background-color:#FF6B35;padding:20px 32px;text-align:center;">
-              <span style="font-family:Helvetica,Arial,sans-serif;font-size:22px;font-weight:bold;color:#ffffff;">&#128062; SearchPet</span>
-            </td>
+            ` + brandHeader + `
           </tr>
           <tr>
             <td style="padding:32px;">

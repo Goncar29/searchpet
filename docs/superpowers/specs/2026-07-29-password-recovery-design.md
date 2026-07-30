@@ -232,8 +232,14 @@ fine — confirm at implementation time.
 
 Copy differs from the verification email in three ways that matter:
 
-- **No links at all.** A reset mail that never asks the user to click is the strongest
+- **Nothing clickable.** A reset mail that never asks the user to click is the strongest
   anti-phishing posture available: it trains them that ours never does.
+  Refined 2026-07-30, when the brand logo was added: the guarantee is about anything
+  **clickable**, not about the literal absence of URLs. The logo is an `<img>` — nobody
+  can click it, so it trains nothing. The test enforces both halves: zero `<a`/`href`,
+  **and** exactly one URL in the payload, which must be the logo asset. That second
+  assertion keeps the rule as auditable as the old blunt "no `https://`" check was —
+  any link added later still fails, instead of hiding behind the narrower one.
 - **"Si no pediste esto, ignoralo — tu contraseña no cambia."** This is the only signal the
   victim gets that someone is probing their account.
 - **"Al cambiarla vas a tener que volver a entrar en tus otros dispositivos."** Without this,
