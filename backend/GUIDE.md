@@ -503,10 +503,28 @@ func Auth(secretKey string) gin.HandlerFunc {
             return
         }
 
-        // 2. Validar el JWT
-        userID, err := jwt.ValidateToken(parts[1], secretKey)
+        // 2. Validar el JWT — devuelve también el issued-at
+        userID, issuedAt, err := jwt.ValidateToken(parts[1], secretKey)
         if err != nil {
             c.AbortWithStatusJSON(401, gin.H{"error": "token inválido"})
+            return
+        }
+
+        // 3. Rechazar tokens anteriores al último cambio de credenciales.
+        // `changedAt` es una PasswordChangedAtFunc inyectada en el constructor:
+        // lee users.password_changed_at (una lectura por request autenticado).
+        at, err := changedAt(c.Request.Context(), userID)
+        if err != nil {
+            // Fallo de infraestructura: NO uses session_expired acá. Los clientes
+            // borran el token con ese código, así que un hipo de la base
+            // desloguearía a todos los usuarios a la vez.
+            abortInternal(c)
+            return
+        }
+        // El iat del JWT tiene granularidad de SEGUNDO y el timestamp de Postgres
+        // microsegundos: sin truncar, un token recién emitido se rechaza a sí mismo.
+        if !at.IsZero() && issuedAt.Before(at.Truncate(time.Second)) {
+            abortSessionExpired(c)  // 401 session_expired, distinto de unauthorized
             return
         }
 
@@ -598,7 +616,7 @@ Wrappers sobre librerías externas. Cada uno encapsula la complejidad de la libr
 token, err := jwt.CreateToken(userID.String(), secretKey)
 
 // Validar token en el middleware
-userID, err := jwt.ValidateToken(tokenString, secretKey)
+userID, issuedAt, err := jwt.ValidateToken(tokenString, secretKey)
 ```
 
 ### Database (`pkg/database/`)
@@ -851,7 +869,7 @@ Cuando una función devuelve algo que no necesitás, usás `_` para ignorarlo:
 _ = repository.NewFavoriteRepository(db)
 
 // En JWT, ignoramos el token completo y solo queremos el userID
-userID, _ := jwt.ValidateToken(tokenString, secretKey)
+userID, _, _ := jwt.ValidateToken(tokenString, secretKey)
 // ⚠️ Cuidado: ignorar el error así es casi siempre un error de diseño
 ```
 
@@ -1470,7 +1488,7 @@ El middleware de Gin usa este patrón — una función que devuelve otra funció
 func Auth(secretKey string) gin.HandlerFunc {
     return func(c *gin.Context) {       // ← la función que realmente maneja requests
         // secretKey está capturado del scope exterior (closure)
-        userID, err := jwt.ValidateToken(parts[1], secretKey)
+        userID, issuedAt, err := jwt.ValidateToken(parts[1], secretKey)
         // ...
     }
 }
