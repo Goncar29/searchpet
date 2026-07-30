@@ -15,6 +15,15 @@ jest.mock('expo-router', () => ({
   Stack: { Screen: () => null },
   Tabs: { Screen: () => null },
   Redirect: () => null,
+  // Imperative singleton (usable outside components, e.g. from a Zustand
+  // store) — unlike useRouter() above, this is the same object across the
+  // whole test file, so a test can assert on it after the fact.
+  router: {
+    push: jest.fn(),
+    back: jest.fn(),
+    replace: jest.fn(),
+    navigate: jest.fn(),
+  },
 }));
 
 // expo-notifications mock
