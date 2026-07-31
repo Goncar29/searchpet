@@ -68,6 +68,10 @@ export default function ForgotPasswordScreen() {
     setIsLoading(true);
     try {
       await apiClient.forgotPassword(email.trim());
+      // Un pedido nuevo hace que el backend retire los códigos anteriores
+      // (MarkAllUsedByUserExcept), así que lo tipeado ya no sirve. Dejarlo invita a
+      // enviarlo: come otp_invalid y quema uno de los 5 intentos del token nuevo.
+      setCode('');
       setResendAt(Date.now() + 60_000);
       // SECURITY: always advance, whether or not the address is registered.
       // The backend answers 200 either way (PasswordResetService.RequestReset)

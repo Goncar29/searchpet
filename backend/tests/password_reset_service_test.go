@@ -57,6 +57,9 @@ type resetTokenRepo struct {
 	// counter would let the ordering regress without a single test going red.
 	retiredAllExcept int
 	retiredExceptID  uuid.UUID
+	// deletedIDs registra los tokens borrados: el fallo de envio los borra en vez
+	// de marcarlos usados, para no gastar cupo diario con un codigo que no salio.
+	deletedIDs []uuid.UUID
 	// createErr, findErr and markAllUsedErr simulate an infrastructure fault
 	// reachable ONLY for an account that exists — the shape that would otherwise
 	// leak account existence.
@@ -119,6 +122,10 @@ func (r *resetTokenRepo) MarkAllUsedByUserExcept(_ context.Context, _ uuid.UUID,
 func (r *resetTokenRepo) IncrementAttempts(context.Context, uuid.UUID) (int, error) {
 	r.attempts++
 	return r.attempts, nil
+}
+func (r *resetTokenRepo) DeleteByID(_ context.Context, id uuid.UUID) error {
+	r.deletedIDs = append(r.deletedIDs, id)
+	return nil
 }
 func (r *resetTokenRepo) DeleteExpired(context.Context) (int64, error) { return 0, nil }
 
@@ -828,5 +835,34 @@ func TestRequestReset_GlobalDailyReserve(t *testing.T) {
 	}
 	if m.sentTo != "" {
 		t.Fatal("reserva agotada: no se puede mandar mail")
+	}
+}
+
+func TestRequestReset_FailedSendDoesNotBurnTheDailyQuota(t *testing.T) {
+	// Un envio fallido no entrego nada, asi que su fila no puede gastar cupo.
+	// Antes se marcaba usada: eso liberaba el cooldown pero CountSince ignora `used`
+	// a proposito, con lo cual seguia contando. Tres caidas seguidas del proveedor
+	// —el 401 de Brevo por Authorized IPs de la regla #24— dejaban al usuario sin
+	// recuperacion 24h sin haber recibido un solo mail, y /forgot igual le decia
+	// que le habia mandado un codigo.
+	users := knownUser("user@example.com")
+	tokens := &resetTokenRepo{}
+	m := &recordingMailer{err: errors.New("brevo returned status 401")}
+
+	if err := newResetSvc(users, tokens, m).RequestReset(context.Background(), "user@example.com"); err != nil {
+		t.Fatalf("RequestReset() = %v, want nil", err)
+	}
+	if len(tokens.created) != 1 {
+		t.Fatalf("acuno %d tokens, want 1", len(tokens.created))
+	}
+	if len(tokens.deletedIDs) != 1 {
+		t.Fatalf("borro %d tokens tras el fallo de envio, want 1 — la fila sigue gastando cupo", len(tokens.deletedIDs))
+	}
+	if tokens.deletedIDs[0] != tokens.created[0].ID {
+		t.Fatalf("borro %v, want el token recien acunado %v", tokens.deletedIDs[0], tokens.created[0].ID)
+	}
+	// MarkUsed ya no aplica: la fila deja de existir, no queda marcada.
+	if len(tokens.markedUsed) != 0 {
+		t.Fatal("un envio fallido borra la fila, no la marca usada — marcada seguiria contando para el cupo")
 	}
 }

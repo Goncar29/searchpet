@@ -92,6 +92,11 @@ export function ForgotPasswordPage() {
     setLoading(true);
     try {
       await apiClient.forgotPassword(email.trim());
+      // Un pedido nuevo hace que el backend retire los códigos anteriores
+      // (MarkAllUsedByUserExcept), así que lo que haya tipeado el usuario ya no
+      // sirve. Dejarlo ahí invita a enviarlo: come otp_invalid y encima quema uno
+      // de los 5 intentos del token nuevo.
+      setCode('');
       const deadline = Date.now() + RESEND_COOLDOWN_MS;
       writeResendDeadline(deadline);
       setResendAt(deadline);
@@ -183,12 +188,22 @@ export function ForgotPasswordPage() {
             />
           </div>
 
+          {/* `secondsLeft` también acá, no sólo en el reenvío. El paso no se
+              persiste, así que un F5 durante el cooldown devuelve al usuario a esta
+              pantalla: sin esta guarda vuelve a mandar, el servidor se lo come en
+              silencio (cooldown, no se acuña nada, no sale ningún mail), la UI
+              avanza igual diciendo que envió un código, y encima el submit PISA el
+              deadline vivo dejándolo esperando más que el cooldown real. */}
           <button
             type="submit"
-            disabled={loading || !email.trim()}
+            disabled={loading || !email.trim() || secondsLeft > 0}
             className="w-full bg-primary text-white font-bold py-3 rounded-lg hover:bg-primary-dark transition-colors disabled:opacity-60"
           >
-            {loading ? t('common:loading') : t('forgotPassword.sendCode')}
+            {loading
+              ? t('common:loading')
+              : secondsLeft > 0
+                ? t('forgotPassword.resendIn', { seconds: secondsLeft })
+                : t('forgotPassword.sendCode')}
           </button>
 
           <p className="text-center text-sm text-gray-500 dark:text-gray-400">

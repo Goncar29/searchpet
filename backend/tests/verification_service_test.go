@@ -96,6 +96,8 @@ func (m *mockTokenRepo) IncrementAttempts(ctx context.Context, id uuid.UUID) (in
 	return m.incrementAttempts, nil
 }
 
+func (m *mockTokenRepo) DeleteByID(ctx context.Context, id uuid.UUID) error { return nil }
+
 func (m *mockTokenRepo) DeleteExpired(ctx context.Context) (int64, error) { return 0, nil }
 
 func (m *mockTokenRepo) CountSince(_ context.Context, _ *uuid.UUID, _ string, _ time.Time) (int64, error) {

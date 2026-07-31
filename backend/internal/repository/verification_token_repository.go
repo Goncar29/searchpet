@@ -107,6 +107,16 @@ func (r *postgresVerificationTokenRepository) IncrementAttempts(ctx context.Cont
 	return token.Attempts, nil
 }
 
+// DeleteByID borra un token puntual, sin condiciones. Existe para el fallo de
+// envío: marcarlo usado liberaba el cooldown pero la fila seguía contando para el
+// cupo diario, porque CountSince ignora `used`. Un código que nunca salió no está
+// en manos de nadie y no debe gastar cupo.
+func (r *postgresVerificationTokenRepository) DeleteByID(ctx context.Context, id uuid.UUID) error {
+	return r.db.WithContext(ctx).
+		Where("id = ?", id).
+		Delete(&domain.VerificationToken{}).Error
+}
+
 // TokenRetention es cuánta historia conserva la tabla más allá del vencimiento.
 //
 // Existe porque el cupo diario de recuperación CUENTA historia sobre estas filas

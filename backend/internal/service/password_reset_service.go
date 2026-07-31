@@ -273,10 +273,19 @@ func (s *passwordResetService) RequestReset(ctx context.Context, email string) e
 		if sendErr := s.mailer.SendPasswordReset(bg, to, code); sendErr != nil {
 			// SECURITY: sendErr carries the provider status, never the code.
 			log.Printf("[password_reset] send failed for user %s: %v", userID, sendErr)
-			// Free the cooldown: leaving the token active would block a retry for
-			// 60s even though the user never received anything.
-			if muErr := s.tokenRepo.MarkUsed(bg, tokenID); muErr != nil {
-				log.Printf("[password_reset] failed to invalidate token after send failure: %v", muErr)
+			// Se BORRA la fila, no se marca usada. Marcarla liberaba el cooldown pero
+			// la dejaba contando para el cupo diario, porque CountSince ignora `used`
+			// a propósito: tres caídas seguidas del proveedor —el 401 de Brevo por
+			// Authorized IPs de la regla #24, por ejemplo— dejaban al usuario sin
+			// recuperación por 24h sin haber recibido un solo mail, y encima /forgot
+			// seguía contestándole que le había enviado un código.
+			//
+			// Un envío fallido no entregó nada: la fila no representa un código en
+			// manos de nadie, así que no tiene por qué gastar cupo ni cooldown. Si el
+			// proveedor de hecho entregó y aun así devolvió error, el usuario pide
+			// otro sin esperar, que es exactamente lo que queremos que pueda hacer.
+			if delErr := s.tokenRepo.DeleteByID(bg, tokenID); delErr != nil {
+				log.Printf("[password_reset] failed to drop token after send failure: %v", delErr)
 			}
 		}
 	})

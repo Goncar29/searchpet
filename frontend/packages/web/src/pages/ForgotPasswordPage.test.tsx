@@ -187,4 +187,61 @@ describe('ForgotPasswordPage', () => {
       vi.useRealTimers();
     }
   });
+
+  it('blocks a fresh request while the cooldown is live, so F5 cannot overwrite the deadline', async () => {
+    // `step` no se persiste: un F5 durante el cooldown devuelve al paso del email.
+    // Sin la guarda, el usuario reenvia, el backend se lo come en silencio, la UI
+    // dice que mando un codigo, y el submit PISA el deadline vivo.
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const { unmount } = renderPage();
+      fireEvent.change(screen.getByLabelText('forgotPassword.email'), {
+        target: { value: 'user@example.com' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: 'forgotPassword.sendCode' }));
+      await screen.findByLabelText('forgotPassword.code');
+      expect(forgotPassword).toHaveBeenCalledTimes(1);
+
+      // Simula el F5: se remonta la pagina, que arranca en el paso del email y
+      // relee el deadline de sessionStorage.
+      unmount();
+      renderPage();
+
+      fireEvent.change(screen.getByLabelText('forgotPassword.email'), {
+        target: { value: 'user@example.com' },
+      });
+      const submit = screen.getByRole('button', { name: 'forgotPassword.resendIn' });
+      expect(submit).toBeDisabled();
+      fireEvent.click(submit);
+      expect(forgotPassword).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('clears the typed code when a new one is requested', async () => {
+    // El backend retira los codigos anteriores en cada pedido. Dejar el viejo en
+    // el input hace que el usuario lo mande y queme uno de los 5 intentos.
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      renderPage();
+      fireEvent.change(screen.getByLabelText('forgotPassword.email'), {
+        target: { value: 'user@example.com' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: 'forgotPassword.sendCode' }));
+
+      const codeInput = await screen.findByLabelText('forgotPassword.code');
+      fireEvent.change(codeInput, { target: { value: '111111' } });
+      expect(codeInput).toHaveValue('111111');
+
+      await act(async () => {
+        vi.advanceTimersByTime(61_000);
+      });
+      fireEvent.click(screen.getByRole('button', { name: 'forgotPassword.resend' }));
+
+      await waitFor(() => expect(screen.getByLabelText('forgotPassword.code')).toHaveValue(''));
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
