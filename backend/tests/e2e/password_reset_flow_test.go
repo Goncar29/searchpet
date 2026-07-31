@@ -27,6 +27,17 @@ const knownCode = "123456"
 // defence), so /forgot still answered 200 and no test with a mocked repository
 // could tell. Only a real Postgres column can fail this way.
 func TestPasswordResetFlow_EndToEnd(t *testing.T) {
+	// Force the noop mailer BEFORE the server is built, and therefore before the
+	// mailer is constructed from these two variables (NewBrevoMailer returns a noop
+	// when either is empty). Not hygiene — determinism. With real credentials in
+	// the environment the send goroutine fires at a foreign network, fails, and
+	// calls MarkUsed on the token to free the cooldown. That write races step 2's
+	// `stored.Used` check and step 3's redemption, and the failure it produces
+	// blames the wrong thing entirely ("no password_reset token reached the
+	// database"). t.Setenv restores the previous values when the test ends.
+	t.Setenv("BREVO_API_KEY", "")
+	t.Setenv("MAIL_FROM_EMAIL", "")
+
 	baseURL, db, cleanup := startTestServerWithDB(t)
 	defer cleanup()
 
