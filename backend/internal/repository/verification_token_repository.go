@@ -67,6 +67,28 @@ func (r *postgresVerificationTokenRepository) MarkAllUsedByUserExcept(ctx contex
 		UpdateColumn("used", true).Error
 }
 
+// CountSince cuenta tokens del canal creados desde `since`. Con userID nil cuenta
+// el canal entero (la reserva global); con userID cuenta esa cuenta sola.
+//
+// NO filtra por `used`, y eso es lo único importante de esta función:
+// MarkAllUsedByUserExcept marca los códigos anteriores del usuario como usados
+// cada vez que se acuña uno nuevo, así que filtrar por used haría que PEDIR UN
+// CÓDIGO NUEVO RESETEE EL CAP y el tope directamente no existiría.
+func (r *postgresVerificationTokenRepository) CountSince(ctx context.Context, userID *uuid.UUID, channel string, since time.Time) (int64, error) {
+	q := r.db.WithContext(ctx).
+		Model(&domain.VerificationToken{}).
+		Where("channel = ? AND created_at >= ?", channel, since)
+	if userID != nil {
+		q = q.Where("user_id = ?", *userID)
+	}
+
+	var n int64
+	if err := q.Count(&n).Error; err != nil {
+		return 0, err
+	}
+	return n, nil
+}
+
 // IncrementAttempts incrementa el contador de forma atómica y retorna el nuevo valor.
 func (r *postgresVerificationTokenRepository) IncrementAttempts(ctx context.Context, id uuid.UUID) (int, error) {
 	result := r.db.WithContext(ctx).

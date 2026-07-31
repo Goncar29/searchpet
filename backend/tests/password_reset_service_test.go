@@ -64,6 +64,11 @@ type resetTokenRepo struct {
 	findErr              error
 	markAllUsedErr       error
 	markAllUsedExceptErr error
+	// countByUser y countGlobal manejan los dos topes diarios. Cero significa
+	// "por debajo del cap", que es lo que quiere casi todo test existente.
+	countByUser int64
+	countGlobal int64
+	countErr    error
 }
 
 func (r *resetTokenRepo) Create(_ context.Context, t *domain.VerificationToken) error {
@@ -116,6 +121,16 @@ func (r *resetTokenRepo) IncrementAttempts(context.Context, uuid.UUID) (int, err
 	return r.attempts, nil
 }
 func (r *resetTokenRepo) DeleteExpired(context.Context) (int64, error) { return 0, nil }
+
+func (r *resetTokenRepo) CountSince(_ context.Context, userID *uuid.UUID, _ string, _ time.Time) (int64, error) {
+	if r.countErr != nil {
+		return 0, r.countErr
+	}
+	if userID == nil {
+		return r.countGlobal, nil
+	}
+	return r.countByUser, nil
+}
 
 type recordingMailer struct {
 	sentTo   string

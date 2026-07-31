@@ -202,3 +202,66 @@ func TestVerificationTokenRepository_DeleteExpired(t *testing.T) {
 func generateTestHash(i int) string {
 	return fmt.Sprintf("%063d%d", 0, i%10)
 }
+
+// CountSince is the backbone of the daily quota. It runs against real Postgres
+// because a wrong WHERE clause passes every mock-based test in the suite —
+// mocks have no columns and no created_at semantics (rule #34).
+func TestVerificationTokenRepository_CountSince(t *testing.T) {
+	gormDB := testdb.SetupTestDB(t)
+	userRepo := repository.NewUserRepository(gormDB)
+	tokenRepo := repository.NewVerificationTokenRepository(gormDB)
+	ctx := context.Background()
+
+	alice := newTestUser(t, userRepo)
+	bob := newTestUser(t, userRepo)
+
+	mint := func(userID uuid.UUID, channel string, createdAt time.Time, used bool) {
+		t.Helper()
+		tok := &domain.VerificationToken{
+			UserID:    userID,
+			Channel:   channel,
+			CodeHash:  "hash",
+			ExpiresAt: createdAt.Add(10 * time.Minute),
+			Used:      used,
+		}
+		if err := tokenRepo.Create(ctx, tok); err != nil {
+			t.Fatalf("Create: %v", err)
+		}
+		// GORM stamps created_at on insert, so the backdating is a second write.
+		if err := gormDB.Model(&domain.VerificationToken{}).
+			Where("id = ?", tok.ID).UpdateColumn("created_at", createdAt).Error; err != nil {
+			t.Fatalf("backdate: %v", err)
+		}
+	}
+
+	now := time.Now()
+	since := now.Add(-24 * time.Hour)
+
+	mint(alice.ID, "password_reset", now.Add(-1*time.Hour), false)
+	// USED, and inside the window. This row is the whole point: MarkAllUsedByUserExcept
+	// marks previous codes used on every new request, so a CountSince that filtered
+	// on `used` would make asking for a new code RESET the cap.
+	mint(alice.ID, "password_reset", now.Add(-2*time.Hour), true)
+	// Outside the window.
+	mint(alice.ID, "password_reset", now.Add(-30*time.Hour), false)
+	// Another channel — must not be counted.
+	mint(alice.ID, "email", now.Add(-1*time.Hour), false)
+	// Another user — counts globally, not for alice.
+	mint(bob.ID, "password_reset", now.Add(-3*time.Hour), false)
+
+	got, err := tokenRepo.CountSince(ctx, &alice.ID, "password_reset", since)
+	if err != nil {
+		t.Fatalf("CountSince(alice): %v", err)
+	}
+	if got != 2 {
+		t.Fatalf("per-user count = %d, want 2 (one unused + one USED inside the window)", got)
+	}
+
+	global, err := tokenRepo.CountSince(ctx, nil, "password_reset", since)
+	if err != nil {
+		t.Fatalf("CountSince(global): %v", err)
+	}
+	if global != 3 {
+		t.Fatalf("global count = %d, want 3 (alice's two plus bob's one)", global)
+	}
+}
