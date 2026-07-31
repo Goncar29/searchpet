@@ -78,11 +78,27 @@ const (
 // va vacío adrede: el wordmark de al lado ya dice "SearchPet", así que con las
 // imágenes bloqueadas (default de Gmail para remitentes desconocidos) se lee el
 // nombre una sola vez en vez de dos.
+//
+// Los 56px no son el tamaño del logo, son el tamaño del MARCO: icon-192.png trae
+// ~40% de fondo vacío alrededor de la pata, así que el glifo visible mide ~34px.
+// A 32px la pata caía a ~18px, empatada con la altura de mayúscula del wordmark
+// (~16px), y un glifo rodeado de aire siempre pierde contra texto en negrita a
+// tamaño parejo: hay que pasarlo, no igualarlo. Si algún día se recorta el asset,
+// este número tiene que bajar en la misma proporción.
+//
+// El padding-right de 6px se lee más chico de lo que es: el ícono aporta ~4px de
+// fondo propio a su derecha. Va ajustado a propósito para que ícono y wordmark
+// lean como un bloque — con el fondo del ícono fundido con el de la cabecera no
+// hay borde que los agrupe, y separados se leen como dos elementos sueltos.
+//
+// El width/height van duplicados en atributo y en style a propósito: Outlook
+// ignora el CSS inline y necesita el atributo, y los clientes que reescalan por
+// densidad necesitan el style.
 const brandHeader = `<td style="background-color:` + brandPrimary + `;padding:20px 32px;text-align:center;">
               <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto;">
                 <tr>
-                  <td style="padding-right:10px;vertical-align:middle;">
-                    <img src="` + brandLogoURL + `" width="32" height="32" alt="" style="display:block;border:0;width:32px;height:32px;">
+                  <td style="padding-right:6px;vertical-align:middle;">
+                    <img src="` + brandLogoURL + `" width="56" height="56" alt="" style="display:block;border:0;width:56px;height:56px;">
                   </td>
                   <td style="vertical-align:middle;">
                     <span style="font-family:Helvetica,Arial,sans-serif;font-size:22px;font-weight:bold;color:#ffffff;">SearchPet</span>
