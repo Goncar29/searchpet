@@ -89,7 +89,10 @@
       "submit": "Change password",
       "sessionsWarning": "Changing it will sign you out on your other devices.",
       "success": "Done. Sign in with your new password.",
-      "backToLogin": "Back to sign in"
+      "backToLogin": "Back to sign in",
+      "dailyLimitNotice": "You can request up to 3 codes per day. Wait a minute between attempts.",
+      "resend": "Resend code",
+      "resendIn": "Resend in {{seconds}}s"
     }
   },
   "pets": {

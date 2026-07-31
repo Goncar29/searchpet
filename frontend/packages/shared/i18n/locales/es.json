@@ -89,7 +89,10 @@
       "submit": "Cambiar contraseña",
       "sessionsWarning": "Al cambiarla vas a tener que volver a entrar en tus otros dispositivos.",
       "success": "Listo. Entrá con tu contraseña nueva.",
-      "backToLogin": "Volver al inicio de sesión"
+      "backToLogin": "Volver al inicio de sesión",
+      "dailyLimitNotice": "Podés pedir hasta 3 códigos por día. Esperá 1 minuto entre intentos.",
+      "resend": "Reenviar código",
+      "resendIn": "Reenviar en {{seconds}}s"
     }
   },
   "pets": {

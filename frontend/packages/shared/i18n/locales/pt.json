@@ -89,7 +89,10 @@
       "submit": "Alterar senha",
       "sessionsWarning": "Ao alterá-la, você precisará entrar novamente nos seus outros dispositivos.",
       "success": "Pronto. Entre com sua nova senha.",
-      "backToLogin": "Voltar para o login"
+      "backToLogin": "Voltar para o login",
+      "dailyLimitNotice": "Você pode pedir até 3 códigos por dia. Espere 1 minuto entre tentativas.",
+      "resend": "Reenviar código",
+      "resendIn": "Reenviar em {{seconds}}s"
     }
   },
   "pets": {
