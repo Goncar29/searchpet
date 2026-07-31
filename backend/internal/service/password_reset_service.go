@@ -188,6 +188,25 @@ func (s *passwordResetService) RequestReset(ctx context.Context, email string) e
 		return nil
 	}
 
+	// Reserva global del canal. Protege la cuota diaria de Brevo que este flujo
+	// COMPARTE con la verificación de email: sin esto, un ataque de resets deja sin
+	// verificar el mail a todos los usuarios nuevos de la plataforma. El cap por
+	// cuenta solo no alcanza — con ~17 direcciones registradas se agotan los 300.
+	globalCount, err := s.tokenRepo.CountSince(ctx, nil, ChannelPasswordReset, since)
+	if err != nil {
+		log.Printf("[password_reset] global quota count failed: %v", err)
+		return nil
+	}
+	if globalCount >= passwordResetGlobalDailyMax {
+		// INCIDENTE, no rutina: es casi seguro un ataque, y a partir de acá la
+		// recuperación de contraseña queda caída para TODOS hasta que corra la
+		// ventana. Tiene que ser greppable — esta feature ya nos mordió dos veces
+		// por fallar en silencio.
+		log.Printf("[password_reset] ALERT: global daily reserve exhausted (%d/%d) — password recovery is disabled until the window rolls",
+			globalCount, passwordResetGlobalDailyMax)
+		return nil
+	}
+
 	// SECURITY: NUNCA loguear el código en texto plano.
 	code, err := generateOTPCode()
 	if err != nil {

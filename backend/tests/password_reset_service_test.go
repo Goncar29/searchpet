@@ -811,3 +811,22 @@ func TestRequestReset_CountFailureFailsClosed(t *testing.T) {
 		t.Fatal("si el conteo falla no se acuna ni se manda nada")
 	}
 }
+
+func TestRequestReset_GlobalDailyReserve(t *testing.T) {
+	// Un usuario POR DEBAJO de su cap igual queda frenado si el canal agoto la
+	// reserva. Esa es la unica capa que garantiza que la verificacion de email no
+	// se caiga para toda la plataforma por culpa de los resets.
+	users := knownUser("user@example.com")
+	tokens := &resetTokenRepo{countByUser: 0, countGlobal: 50}
+	m := &recordingMailer{}
+
+	if err := newResetSvc(users, tokens, m).RequestReset(context.Background(), "user@example.com"); err != nil {
+		t.Fatalf("RequestReset() = %v, want nil", err)
+	}
+	if len(tokens.created) != 0 {
+		t.Fatalf("acuno %d tokens, want 0 — la reserva global no freno nada", len(tokens.created))
+	}
+	if m.sentTo != "" {
+		t.Fatal("reserva agotada: no se puede mandar mail")
+	}
+}
