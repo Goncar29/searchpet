@@ -1,6 +1,6 @@
 import React from 'react';
 import { Alert } from 'react-native';
-import { render, fireEvent, waitFor, screen } from '@testing-library/react-native';
+import { render, fireEvent, waitFor, screen, act } from '@testing-library/react-native';
 import { apiClient } from '../../shared/api/client';
 import ForgotPasswordScreen from '../app/forgot-password';
 
@@ -97,5 +97,41 @@ describe('ForgotPasswordScreen', () => {
     await waitFor(() => expect(apiClient.resetPassword).toHaveBeenCalled());
     // Still on the code step — a failed reset must not silently advance or reset the flow.
     expect(screen.getByPlaceholderText('forgotPassword.code')).toBeTruthy();
+  });
+
+  it('shows the daily-limit policy on the email step', () => {
+    // FIXED text: policy, never account state. A real "2 of 3 left" counter is
+    // computable only for an account that exists, so rendering one would rebuild
+    // the enumeration oracle the backend was shaped to deny.
+    render(<ForgotPasswordScreen />);
+    expect(screen.getByText('forgotPassword.dailyLimitNotice')).toBeTruthy();
+  });
+
+  it('disables resend with a countdown, then re-enables it after 60s', async () => {
+    // Fake timers go in BEFORE render. Installing them afterwards would leave the
+    // component's setInterval scheduled on the real clock, and advanceTimersByTime
+    // would never fire it — the test would pass or fail for the wrong reason.
+    jest.useFakeTimers();
+    try {
+      render(<ForgotPasswordScreen />);
+
+      fireEvent.changeText(screen.getByPlaceholderText('forgotPassword.email'), 'user@example.com');
+      // await act flushes the resolved API promise. Promise resolution is a
+      // microtask, so it works under fake timers without advancing anything.
+      await act(async () => {
+        fireEvent.press(screen.getByText('forgotPassword.sendCode'));
+      });
+
+      // The i18n mock drops the interpolation object, so the two states render as
+      // two distinct bare keys — which is what makes them assertable.
+      expect(screen.getByText('forgotPassword.resendIn')).toBeTruthy();
+
+      act(() => {
+        jest.advanceTimersByTime(61_000);
+      });
+      expect(screen.getByText('forgotPassword.resend')).toBeTruthy();
+    } finally {
+      jest.useRealTimers();
+    }
   });
 });

@@ -59,17 +59,31 @@ export function ForgotPasswordPage() {
   const [newPassword, setNewPassword] = useState('');
   const [apiError, setApiError] = useState('');
   const [loading, setLoading] = useState(false);
+  // Se inicializa leyendo el deadline para que un F5 en mitad del cooldown no
+  // reactive el botón: sin esto, recargar y reenviar hace que el servidor se coma
+  // el pedido en silencio y no llegue ningún mail.
+  const [resendAt, setResendAt] = useState(readResendDeadline);
   const [secondsLeft, setSecondsLeft] = useState(0);
 
+  // La dependencia es el DEADLINE, no secondsLeft. Con secondsLeft el efecto se
+  // vuelve a correr en cada tick, destruyendo y recreando el intervalo una vez por
+  // segundo — que además de derrochador rompe los tests con timers falsos, porque
+  // el intervalo nuevo se agenda contra el reloj ya avanzado. resendAt sólo cambia
+  // cuando se pide un código, así que el intervalo es estable mientras dura la cuenta.
   useEffect(() => {
+    // Sin deadline no hay nada que contar: arrancar el intervalo igual sería un
+    // tick por segundo sin propósito, y en los tests dispara warnings de act()
+    // por actualizar estado fuera de toda interacción.
+    if (resendAt === 0) return;
+
     const tick = () => {
-      const ms = readResendDeadline() - Date.now();
+      const ms = resendAt - Date.now();
       setSecondsLeft(ms > 0 ? Math.ceil(ms / 1000) : 0);
     };
     tick();
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
-  }, []);
+  }, [resendAt]);
 
   // `e` es opcional para que el botón de reenvío pueda llamarla sin evento.
   const handleRequest = async (e?: React.FormEvent) => {
@@ -78,8 +92,9 @@ export function ForgotPasswordPage() {
     setLoading(true);
     try {
       await apiClient.forgotPassword(email.trim());
-      writeResendDeadline(Date.now() + RESEND_COOLDOWN_MS);
-      setSecondsLeft(RESEND_COOLDOWN_MS / 1000);
+      const deadline = Date.now() + RESEND_COOLDOWN_MS;
+      writeResendDeadline(deadline);
+      setResendAt(deadline);
       // Always advance. The backend answers 200 whether or not the address is
       // registered; branching here would rebuild — in the client — the exact
       // enumeration oracle the backend deliberately closed.
