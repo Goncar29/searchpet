@@ -52,12 +52,18 @@ type resetTokenRepo struct {
 	markedUsed []uuid.UUID
 	attempts   int
 	retiredAll int
+	// Counted apart from retiredAll on purpose: ConfirmReset sweeps every code,
+	// RequestReset sweeps every code EXCEPT the one it just minted. Sharing one
+	// counter would let the ordering regress without a single test going red.
+	retiredAllExcept int
+	retiredExceptID  uuid.UUID
 	// createErr, findErr and markAllUsedErr simulate an infrastructure fault
 	// reachable ONLY for an account that exists — the shape that would otherwise
 	// leak account existence.
-	createErr      error
-	findErr        error
-	markAllUsedErr error
+	createErr            error
+	findErr              error
+	markAllUsedErr       error
+	markAllUsedExceptErr error
 }
 
 func (r *resetTokenRepo) Create(_ context.Context, t *domain.VerificationToken) error {
@@ -91,6 +97,18 @@ func (r *resetTokenRepo) MarkAllUsedByUser(_ context.Context, _ uuid.UUID, _ str
 		return r.markAllUsedErr
 	}
 	r.retiredAll++
+	return nil
+}
+
+// The sweep RequestReset uses: everything except the code just minted. The
+// exceptID is recorded so a test can prove the survivor is the NEW token and not
+// whatever row happened to be lying around.
+func (r *resetTokenRepo) MarkAllUsedByUserExcept(_ context.Context, _ uuid.UUID, _ string, exceptID uuid.UUID) error {
+	if r.markAllUsedExceptErr != nil {
+		return r.markAllUsedExceptErr
+	}
+	r.retiredAllExcept++
+	r.retiredExceptID = exceptID
 	return nil
 }
 func (r *resetTokenRepo) IncrementAttempts(context.Context, uuid.UUID) (int, error) {
@@ -370,6 +388,58 @@ func TestConfirmReset_GoogleOnlyUserGetsAPassword(t *testing.T) {
 	}
 }
 
+func TestConfirmReset_MarksTheEmailVerified(t *testing.T) {
+	// Not cosmetic, and not a nice-to-have. Register never asks for proof of the
+	// address, so EmailVerified=false is the COMMON case. auth_service.go blanks
+	// PasswordHash for any unverified account that later links a Google identity
+	// (the pre-hijacking defence, rule #25) — so without this the user recovers
+	// their password and then silently loses it on their next Google sign-in,
+	// landing back in the Google-only hole this whole flow exists to close.
+	// Redeeming the OTP proves control of the mailbox exactly as strongly as the
+	// verification flow does, so the flag is earned.
+	users := knownUser("user@example.com")
+	users.byEmail["user@example.com"].EmailVerified = false
+	users.byEmail["user@example.com"].IsVerified = false
+	tokens := &resetTokenRepo{active: activeResetToken("111111")}
+	svc := newResetSvc(users, tokens, &recordingMailer{})
+
+	if err := svc.ConfirmReset(context.Background(), "user@example.com", "111111", "newpassword"); err != nil {
+		t.Fatalf("ConfirmReset: %v", err)
+	}
+	if users.updated == nil {
+		t.Fatal("no user was written")
+	}
+	if !users.updated.EmailVerified {
+		t.Fatal("EmailVerified must be set — otherwise a later Google sign-in discards this password")
+	}
+	// Codebase invariant (verification_service.go): IsVerified is the OR of the
+	// two channels and VerificationMethod names the confirmed ones. Setting the
+	// flag without these leaves the user in a state no other flow can produce.
+	if !users.updated.IsVerified {
+		t.Fatal("IsVerified must follow EmailVerified")
+	}
+	if users.updated.VerificationMethod != "email" {
+		t.Fatalf("VerificationMethod = %q, want \"email\"", users.updated.VerificationMethod)
+	}
+}
+
+func TestConfirmReset_KeepsBothWhenThePhoneWasAlreadyVerified(t *testing.T) {
+	// The other half of the invariant: verifying the email must not erase a
+	// phone verification the user already had.
+	users := knownUser("user@example.com")
+	users.byEmail["user@example.com"].EmailVerified = false
+	users.byEmail["user@example.com"].PhoneVerified = true
+	tokens := &resetTokenRepo{active: activeResetToken("111111")}
+	svc := newResetSvc(users, tokens, &recordingMailer{})
+
+	if err := svc.ConfirmReset(context.Background(), "user@example.com", "111111", "newpassword"); err != nil {
+		t.Fatalf("ConfirmReset: %v", err)
+	}
+	if users.updated.VerificationMethod != "both" {
+		t.Fatalf("VerificationMethod = %q, want \"both\"", users.updated.VerificationMethod)
+	}
+}
+
 func TestConfirmReset_RejectsATokenFromAnotherChannel(t *testing.T) {
 	users := knownUser("user@example.com")
 	// An email-verification token must never be spendable on a reset.
@@ -511,14 +581,25 @@ func TestRequestReset_PastCooldown_RetiresThePreviousCodeBeforeMintingANewOne(t 
 	// Without this sweep the previous code stays used=false and unexpired, but
 	// FindActiveByUser only ever returns the newest row — so it is unspendable
 	// while still looking valid to the person holding that first email.
-	if tokens.retiredAll != 1 {
+	if tokens.retiredAllExcept != 1 {
 		t.Fatal("requesting a new code must retire the outstanding ones")
+	}
+	// The survivor has to be the code we just minted. A sweep that spares the
+	// wrong row would still increment the counter above.
+	if tokens.retiredExceptID != tokens.created[0].ID {
+		t.Fatalf("spared token %v, want the freshly minted %v", tokens.retiredExceptID, tokens.created[0].ID)
 	}
 }
 
-func TestRequestReset_RetireFailure_StillReturnsNilAndMintsNothing(t *testing.T) {
+func TestRequestReset_RetireFailure_StillMintsAndMailsTheNewCode(t *testing.T) {
+	// This test used to assert the exact opposite — that a failed retire minted
+	// nothing and mailed nothing. That was the defect written down as a contract:
+	// it left the user with ZERO usable codes while /forgot still answered "we
+	// sent you a code". The sweep is now a best-effort cleanup that runs AFTER the
+	// mint, so losing it degrades to the previous code staying alive until its
+	// TTL — annoying, and strictly better than locking the user out of recovery.
 	users := knownUser("user@example.com")
-	tokens := &resetTokenRepo{markAllUsedErr: errors.New("verification_tokens is locked")}
+	tokens := &resetTokenRepo{markAllUsedExceptErr: errors.New("verification_tokens is locked")}
 	m := &recordingMailer{}
 
 	// Same enumeration rule as every other post-lookup failure: this path is only
@@ -526,7 +607,31 @@ func TestRequestReset_RetireFailure_StillReturnsNilAndMintsNothing(t *testing.T)
 	if err := newResetSvc(users, tokens, m).RequestReset(context.Background(), "user@example.com"); err != nil {
 		t.Fatalf("RequestReset() = %v, want nil", err)
 	}
-	if len(tokens.created) != 0 || m.sentTo != "" {
-		t.Fatal("a failed retire must not leave a new code behind, nor mail one out")
+	if len(tokens.created) != 1 {
+		t.Fatalf("created %d tokens, want 1 — a failed cleanup must not cost the user their code", len(tokens.created))
+	}
+	if m.sentTo != "user@example.com" {
+		t.Fatalf("mailed %q, want the code to go out anyway", m.sentTo)
+	}
+}
+
+func TestRequestReset_CreateFailure_LeavesTheExistingCodeAlone(t *testing.T) {
+	// The ordering guarantee, stated from the other side. When the mint fails the
+	// sweep must never have run, so whatever code the user is already holding
+	// keeps working. Retiring first meant a transient Create error silently
+	// stripped the user of every valid code — and let anyone who knew the address
+	// deny recovery indefinitely by polling /forgot.
+	users := knownUser("user@example.com")
+	tokens := &resetTokenRepo{createErr: errors.New("verification_tokens is unavailable")}
+	m := &recordingMailer{}
+
+	if err := newResetSvc(users, tokens, m).RequestReset(context.Background(), "user@example.com"); err != nil {
+		t.Fatalf("RequestReset() = %v, want nil", err)
+	}
+	if tokens.retiredAllExcept != 0 || tokens.retiredAll != 0 {
+		t.Fatal("a failed mint must not retire anything — the user keeps the code they have")
+	}
+	if m.sentTo != "" {
+		t.Fatal("no code was minted, so nothing may be mailed")
 	}
 }

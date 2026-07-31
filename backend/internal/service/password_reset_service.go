@@ -101,15 +101,6 @@ func (s *passwordResetService) RequestReset(ctx context.Context, email string) e
 		return nil
 	}
 
-	// Retire every outstanding code before minting the replacement. FindActiveByUser
-	// returns only the newest row, so without this the previous code stops working
-	// while still looking valid: a user who types the one from the first email gets
-	// otp_invalid with no explanation, and burns attempts on the new token doing it.
-	if err := s.tokenRepo.MarkAllUsedByUser(ctx, user.ID, ChannelPasswordReset); err != nil {
-		log.Printf("[password_reset] failed to retire previous tokens for user %s: %v", user.ID, err)
-		return nil
-	}
-
 	token := &domain.VerificationToken{
 		UserID:    user.ID,
 		Channel:   ChannelPasswordReset,
@@ -121,6 +112,24 @@ func (s *passwordResetService) RequestReset(ctx context.Context, email string) e
 	if err := s.tokenRepo.Create(ctx, token); err != nil {
 		log.Printf("[password_reset] token create failed for user %s: %v", user.ID, err)
 		return nil
+	}
+
+	// Retirar los códigos viejos va DESPUÉS de acuñar el nuevo, y el orden es la
+	// corrección: hacerlo antes deja al usuario con CERO códigos válidos si el
+	// Create falla, mientras /forgot igual contesta "te enviamos un código". Peor
+	// todavía, le daba a cualquiera que conozca la dirección una forma de negar la
+	// recuperación indefinidamente — llamando /forgot cada 61s se mata el código
+	// que la víctima está tipeando en ese momento, una y otra vez.
+	//
+	// Se retiran igual porque FindActiveByUser devuelve solo el más reciente: sin
+	// esto, el código anterior deja de poder canjearse pero sigue pareciendo
+	// válido, y quien tipea el del primer mail come otp_invalid sin explicación.
+	//
+	// Un fallo acá NO aborta el envío: degrada a que el código viejo siga vivo
+	// hasta su TTL, que es el comportamiento previo a 789e27b — molesto, pero
+	// estrictamente mejor que quedarse sin ninguno.
+	if err := s.tokenRepo.MarkAllUsedByUserExcept(ctx, user.ID, ChannelPasswordReset, token.ID); err != nil {
+		log.Printf("[password_reset] failed to retire previous tokens for user %s: %v", user.ID, err)
 	}
 
 	userID, to, tokenID := user.ID, user.Email, token.ID
@@ -221,6 +230,29 @@ func (s *passwordResetService) ConfirmReset(ctx context.Context, email, code, ne
 	changedAt := time.Now().Truncate(time.Second)
 	user.PasswordHash = string(hash)
 	user.PasswordChangedAt = &changedAt
+
+	// Canjear este OTP prueba control del buzón exactamente igual de fuerte que
+	// VerificationService.ConfirmOTP, que sí marca el email como verificado.
+	// Dejarlo en false acá NO es neutral: Register no exige ninguna prueba, así que
+	// false es el caso común, y la defensa anti pre-hijacking de auth_service.go
+	// blanquea el PasswordHash de toda cuenta no verificada que después vincule una
+	// identidad de Google. El usuario recuperaría su contraseña y la perdería en
+	// silencio en su siguiente login con Google — de vuelta al agujero solo-Google
+	// que este flujo existe para cerrar.
+	//
+	// A propósito NO se publica el evento user.verified: ese badge premia pasar por
+	// el flujo de verificación deliberadamente, y otorgarlo como efecto secundario
+	// de recuperar la cuenta sería inesperado. Acá solo se mueve el flag que lee la
+	// decisión de seguridad.
+	user.EmailVerified = true
+	// Invariante del codebase (verification_service.go:207): IsVerified es el OR de
+	// los dos canales, y VerificationMethod nombra los que están confirmados.
+	user.IsVerified = true
+	if user.PhoneVerified {
+		user.VerificationMethod = "both"
+	} else {
+		user.VerificationMethod = "email"
+	}
 
 	if err := s.userRepo.Update(ctx, user); err != nil {
 		log.Printf("[password_reset] password write failed for user %s: %v", user.ID, err)

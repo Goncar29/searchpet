@@ -62,10 +62,11 @@ func (m *mockUserRepo) Delete(ctx context.Context, id uuid.UUID) error { return 
 // ============================================================
 
 type mockTokenRepo struct {
-	activeToken       *domain.VerificationToken
-	incrementAttempts int
-	markUsedCalled    bool
-	markAllUsedCalls  int
+	activeToken            *domain.VerificationToken
+	incrementAttempts      int
+	markUsedCalled         bool
+	markAllUsedCalls       int
+	markAllUsedExceptCalls int
 }
 
 func (m *mockTokenRepo) Create(ctx context.Context, t *domain.VerificationToken) error { return nil }
@@ -82,6 +83,11 @@ func (m *mockTokenRepo) MarkUsed(ctx context.Context, id uuid.UUID) error {
 func (m *mockTokenRepo) MarkAllUsedByUser(ctx context.Context, userID uuid.UUID, channel string) error {
 	m.markUsedCalled = true
 	m.markAllUsedCalls++
+	return nil
+}
+
+func (m *mockTokenRepo) MarkAllUsedByUserExcept(ctx context.Context, userID uuid.UUID, channel string, exceptID uuid.UUID) error {
+	m.markAllUsedExceptCalls++
 	return nil
 }
 

@@ -175,6 +175,12 @@ type VerificationTokenRepository interface {
 	// dado. Existe porque FindActiveByUser devuelve solo el más reciente: sin esto,
 	// pedir un código nuevo deja vivo al anterior, que ya nunca se puede canjear.
 	MarkAllUsedByUser(ctx context.Context, userID uuid.UUID, channel string) error
+	// MarkAllUsedByUserExcept hace lo mismo pero preserva un token: el recién
+	// acuñado. Existe para que emitir un código nuevo pueda acuñar PRIMERO y
+	// retirar los viejos DESPUÉS. Retirar primero deja al usuario con cero códigos
+	// válidos si el Create posterior falla, y le da a cualquiera que conozca la
+	// dirección una forma de anular el código que la víctima está tipeando.
+	MarkAllUsedByUserExcept(ctx context.Context, userID uuid.UUID, channel string, exceptID uuid.UUID) error
 	// IncrementAttempts incrementa el contador de intentos de forma atómica y retorna el nuevo valor.
 	IncrementAttempts(ctx context.Context, id uuid.UUID) (int, error)
 	// DeleteExpired elimina tokens expirados y retorna la cantidad eliminada.
