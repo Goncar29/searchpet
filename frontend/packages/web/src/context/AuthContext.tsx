@@ -107,7 +107,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // on would be disruptive for no security reason.
       const code = (event as CustomEvent<{ code?: string }>).detail?.code;
       if (code === 'session_expired') {
-        window.location.assign('/login');
+        // Carry where the user was: LoginPage reads `returnUrl` and navigates back
+        // after a successful sign-in. Without it a forced logout always dumps them
+        // on the home page, which is a needless detour right after they proved who
+        // they are. `/login` itself is excluded — pointing returnUrl at the login
+        // page would bounce the user straight back to it after signing in.
+        const current = window.location.pathname + window.location.search;
+        const target = current.startsWith('/login')
+          ? '/login'
+          : `/login?returnUrl=${encodeURIComponent(current)}`;
+        window.location.assign(target);
       }
     };
     window.addEventListener('auth:session-expired', handleSessionExpired);

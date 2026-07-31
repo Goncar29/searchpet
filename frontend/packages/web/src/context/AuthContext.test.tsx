@@ -164,12 +164,12 @@ describe('AuthContext', () => {
 
   // jsdom's window.location.assign is non-configurable, so vi.spyOn cannot wrap
   // it directly — the whole `location` object is replaced with a stub instead.
-  function stubLocationAssign() {
+  function stubLocationAssign(pathname = '/', search = '') {
     const original = window.location;
     const assign = vi.fn();
     Object.defineProperty(window, 'location', {
       configurable: true,
-      value: { ...original, assign },
+      value: { ...original, pathname, search, assign },
     });
     return {
       assign,
@@ -198,6 +198,56 @@ describe('AuthContext', () => {
     expect(localStorage.getItem('token')).toBeNull();
     expect(localStorage.getItem('user')).toBeNull();
     expect(screen.getByTestId('auth').textContent).toBe('false');
+    expect(location.assign).toHaveBeenCalledWith('/login?returnUrl=%2F');
+
+    location.restore();
+  });
+
+  it('lleva la ruta actual como returnUrl para volver despues del login', async () => {
+    // A forced logout should not cost the user their place. LoginPage already
+    // reads `returnUrl` and navigates back on success; before this the redirect
+    // dropped it and always dumped the user on the home page.
+    const location = stubLocationAssign('/pets/123', '?tab=timeline');
+    localStorage.setItem('token', 'stale-token');
+
+    render(
+      <AuthProvider>
+        <AuthConsumer />
+      </AuthProvider>
+    );
+    await act(async () => {});
+
+    await act(async () => {
+      window.dispatchEvent(
+        new CustomEvent('auth:session-expired', { detail: { code: 'session_expired' } })
+      );
+    });
+
+    expect(location.assign).toHaveBeenCalledWith(
+      `/login?returnUrl=${encodeURIComponent('/pets/123?tab=timeline')}`
+    );
+
+    location.restore();
+  });
+
+  it('NO se pasa returnUrl a si mismo cuando ya estas en /login', async () => {
+    // Otherwise signing in would navigate straight back to the login page.
+    const location = stubLocationAssign('/login', '');
+    localStorage.setItem('token', 'stale-token');
+
+    render(
+      <AuthProvider>
+        <AuthConsumer />
+      </AuthProvider>
+    );
+    await act(async () => {});
+
+    await act(async () => {
+      window.dispatchEvent(
+        new CustomEvent('auth:session-expired', { detail: { code: 'session_expired' } })
+      );
+    });
+
     expect(location.assign).toHaveBeenCalledWith('/login');
 
     location.restore();
