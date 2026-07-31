@@ -162,6 +162,124 @@ describe('AuthContext', () => {
     expect(screen.getByTestId('user').textContent).toBe('Carlos');
   });
 
+  // jsdom's window.location.assign is non-configurable, so vi.spyOn cannot wrap
+  // it directly — the whole `location` object is replaced with a stub instead.
+  function stubLocationAssign(pathname = '/', search = '') {
+    const original = window.location;
+    const assign = vi.fn();
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: { ...original, pathname, search, assign },
+    });
+    return {
+      assign,
+      restore: () => Object.defineProperty(window, 'location', { configurable: true, value: original }),
+    };
+  }
+
+  it('hace navegacion forzada a /login cuando el 401 trae code session_expired', async () => {
+    const location = stubLocationAssign();
+    localStorage.setItem('token', 'stale-token');
+    localStorage.setItem('user', JSON.stringify({ id: '1', name: 'Carlos' }));
+
+    render(
+      <AuthProvider>
+        <AuthConsumer />
+      </AuthProvider>
+    );
+    await act(async () => {});
+
+    await act(async () => {
+      window.dispatchEvent(
+        new CustomEvent('auth:session-expired', { detail: { code: 'session_expired' } })
+      );
+    });
+
+    expect(localStorage.getItem('token')).toBeNull();
+    expect(localStorage.getItem('user')).toBeNull();
+    expect(screen.getByTestId('auth').textContent).toBe('false');
+    expect(location.assign).toHaveBeenCalledWith('/login?returnUrl=%2F');
+
+    location.restore();
+  });
+
+  it('lleva la ruta actual como returnUrl para volver despues del login', async () => {
+    // A forced logout should not cost the user their place. LoginPage already
+    // reads `returnUrl` and navigates back on success; before this the redirect
+    // dropped it and always dumped the user on the home page.
+    const location = stubLocationAssign('/pets/123', '?tab=timeline');
+    localStorage.setItem('token', 'stale-token');
+
+    render(
+      <AuthProvider>
+        <AuthConsumer />
+      </AuthProvider>
+    );
+    await act(async () => {});
+
+    await act(async () => {
+      window.dispatchEvent(
+        new CustomEvent('auth:session-expired', { detail: { code: 'session_expired' } })
+      );
+    });
+
+    expect(location.assign).toHaveBeenCalledWith(
+      `/login?returnUrl=${encodeURIComponent('/pets/123?tab=timeline')}`
+    );
+
+    location.restore();
+  });
+
+  it('NO se pasa returnUrl a si mismo cuando ya estas en /login', async () => {
+    // Otherwise signing in would navigate straight back to the login page.
+    const location = stubLocationAssign('/login', '');
+    localStorage.setItem('token', 'stale-token');
+
+    render(
+      <AuthProvider>
+        <AuthConsumer />
+      </AuthProvider>
+    );
+    await act(async () => {});
+
+    await act(async () => {
+      window.dispatchEvent(
+        new CustomEvent('auth:session-expired', { detail: { code: 'session_expired' } })
+      );
+    });
+
+    expect(location.assign).toHaveBeenCalledWith('/login');
+
+    location.restore();
+  });
+
+  it('NO fuerza navegacion para un 401 generico sin code session_expired', async () => {
+    const location = stubLocationAssign();
+    localStorage.setItem('token', 'stale-token');
+    localStorage.setItem('user', JSON.stringify({ id: '1', name: 'Carlos' }));
+
+    render(
+      <AuthProvider>
+        <AuthConsumer />
+      </AuthProvider>
+    );
+    await act(async () => {});
+
+    await act(async () => {
+      window.dispatchEvent(
+        new CustomEvent('auth:session-expired', { detail: { code: 'unauthorized' } })
+      );
+    });
+
+    // The session is still cleared — this is not about session_expired's cleanup,
+    // it is about NOT force-navigating away from wherever the user currently is
+    // for a run-of-the-mill invalid/expired token.
+    expect(localStorage.getItem('token')).toBeNull();
+    expect(location.assign).not.toHaveBeenCalled();
+
+    location.restore();
+  });
+
   it('descarta una sesión con user corrupto sin colgar la carga', async () => {
     const valid = makeJwt({ exp: Math.floor(Date.now() / 1000) + 3600 });
     localStorage.setItem('token', valid);

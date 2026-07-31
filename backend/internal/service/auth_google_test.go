@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 	"unicode/utf8"
 
 	"github.com/google/uuid"
@@ -47,7 +48,16 @@ func googleClaims() *googleauth.Claims {
 // so the profile-photo import is skipped — it is best-effort by design and
 // covered separately in TestLoginWithGoogle_NewUser_NoStorage_StillSucceeds.
 func newGoogleAuthSvc(repo *mockUserRepo, v googleauth.Verifier) service.AuthService {
-	return service.NewAuthService(repo, googleTestSecret, nil, nil, v)
+	return service.NewAuthService(repo, googleTestSecret, nil, nil, v, nil)
+}
+
+// newGoogleAuthSvcWithDisconnect records which users had their live sockets torn
+// down, so the pre-hijacking defence can be asserted end to end.
+func newGoogleAuthSvcWithDisconnect(
+	repo *mockUserRepo, v googleauth.Verifier, disconnected *[]uuid.UUID,
+) service.AuthService {
+	return service.NewAuthService(repo, googleTestSecret, nil, nil, v,
+		func(userID uuid.UUID) { *disconnected = append(*disconnected, userID) })
 }
 
 const googleTestSecret = "test-secret-key-32chars-minimum!"
@@ -60,7 +70,7 @@ func assertTokenBelongsTo(t *testing.T, token string, want uuid.UUID) {
 	if token == "" {
 		t.Fatal("expected non-empty JWT token")
 	}
-	got, err := jwt.ValidateToken(token, googleTestSecret)
+	got, _, err := jwt.ValidateToken(token, googleTestSecret)
 	if err != nil {
 		t.Fatalf("issued token does not validate: %v", err)
 	}
@@ -175,6 +185,60 @@ func TestLoginWithGoogle_LinksExistingLocalAccount(t *testing.T) {
 	}
 	if repo.createdUser != nil {
 		t.Error("expected NO user creation when linking")
+	}
+}
+
+func TestLoginWithGoogle_DiscardingThePasswordAlsoClosesLiveSockets(t *testing.T) {
+	// The pre-hijacking defence was half a defence. Discarding PasswordHash takes
+	// the attacker's credential away and stamping PasswordChangedAt kills their
+	// JWTs — but a WebSocket authenticates ONCE, with a ticket, at upgrade time,
+	// and nothing re-checks it for the life of the connection. So an attacker who
+	// planted the account and already had a socket open kept reading the rightful
+	// owner's messages, right through the linking that was supposed to evict them.
+	existing := &domain.User{
+		ID:           uuid.New(),
+		Email:        "carlos@example.com",
+		PasswordHash: bcryptHash(t, "planted-by-an-attacker"),
+		// EmailVerified is false: this is what makes the account untrusted.
+	}
+	repo := &mockUserRepo{user: existing}
+	var disconnected []uuid.UUID
+	svc := newGoogleAuthSvcWithDisconnect(repo, &mockVerifier{claims: googleClaims()}, &disconnected)
+
+	if _, _, _, err := svc.LoginWithGoogle(context.Background(), "any-token"); err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if len(disconnected) != 1 {
+		t.Fatalf("disconnected %d users, want 1 — the attacker's live socket survives the link", len(disconnected))
+	}
+	if disconnected[0] != existing.ID {
+		t.Fatalf("disconnected %v, want the account being linked", disconnected[0])
+	}
+}
+
+func TestLoginWithGoogle_VerifiedAccountKeepsItsSockets(t *testing.T) {
+	// The other side. An already-verified account keeps its password (nothing was
+	// planted, so there is nothing to revoke), and a plain sign-in must not knock
+	// the user off their own open connections.
+	existing := &domain.User{
+		ID:            uuid.New(),
+		Email:         "carlos@example.com",
+		PasswordHash:  bcryptHash(t, "segura123"),
+		EmailVerified: true,
+	}
+	repo := &mockUserRepo{user: existing}
+	var disconnected []uuid.UUID
+	svc := newGoogleAuthSvcWithDisconnect(repo, &mockVerifier{claims: googleClaims()}, &disconnected)
+
+	user, _, _, err := svc.LoginWithGoogle(context.Background(), "any-token")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if user.PasswordHash == "" {
+		t.Error("a verified account must keep its password — the discard is only for untrusted ones")
+	}
+	if len(disconnected) != 0 {
+		t.Fatal("linking a VERIFIED account revokes nothing, so it must not close any socket")
 	}
 }
 
@@ -538,5 +602,71 @@ func TestLoginWithGoogle_LinkWithVerifiedPhoneIsBoth(t *testing.T) {
 	}
 	if user.VerificationMethod != "both" {
 		t.Errorf("expected VerificationMethod=both when the phone was already verified, got %q", user.VerificationMethod)
+	}
+}
+
+// Discarding the planted password is only half the pre-hijacking defence: if the
+// attacker who planted the account already holds a JWT, it stays valid for up to
+// 72h. Stamping PasswordChangedAt is what terminates it — middleware.Auth rejects
+// every token issued before that instant.
+func TestLoginWithGoogle_LinkingUnverifiedAccountStampsPasswordChangedAt(t *testing.T) {
+	existing := &domain.User{
+		ID:            uuid.New(),
+		Email:         "carlos@example.com",
+		PasswordHash:  bcryptHash(t, "planted123"),
+		EmailVerified: false,
+	}
+	repo := &mockUserRepo{user: existing, emailErr: nil}
+	svc := newGoogleAuthSvc(repo, &mockVerifier{claims: googleClaims()})
+
+	user, token, _, err := svc.LoginWithGoogle(context.Background(), "any-token")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	if user.PasswordChangedAt == nil {
+		t.Fatal("SECURITY: PasswordChangedAt must be stamped, or the planter's live session survives the link")
+	}
+	// A JWT's `iat` has no sub-second component, so a microsecond-precision value
+	// here would make the token issued by this very call reject itself.
+	if user.PasswordChangedAt.Nanosecond() != 0 {
+		t.Errorf("PasswordChangedAt = %v, want it truncated to the second", user.PasswordChangedAt)
+	}
+
+	// The critical interaction: this call both stamps the column AND issues a token.
+	// Replay the middleware's freshness rule against them to prove the fresh token
+	// is not rejected — getting this wrong makes Google Sign-In fail every time.
+	_, issuedAt, err := jwt.ValidateToken(token, googleTestSecret)
+	if err != nil {
+		t.Fatalf("ValidateToken: %v", err)
+	}
+	if issuedAt.Before(user.PasswordChangedAt.Truncate(time.Second)) {
+		t.Fatalf("the token issued by this call rejects itself: iat=%v, password_changed_at=%v",
+			issuedAt, user.PasswordChangedAt)
+	}
+}
+
+// A VERIFIED account keeps its password, so there is nothing to revoke and no
+// reason to sign the owner out of their other devices.
+func TestLoginWithGoogle_LinkingVerifiedAccountDoesNotStampPasswordChangedAt(t *testing.T) {
+	existing := &domain.User{
+		ID:            uuid.New(),
+		Email:         "carlos@example.com",
+		PasswordHash:  bcryptHash(t, "segura123"),
+		EmailVerified: true,
+	}
+	repo := &mockUserRepo{user: existing, emailErr: nil}
+	svc := newGoogleAuthSvc(repo, &mockVerifier{claims: googleClaims()})
+
+	user, _, _, err := svc.LoginWithGoogle(context.Background(), "any-token")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	if user.PasswordHash == "" {
+		t.Error("a verified account must keep its password")
+	}
+	if user.PasswordChangedAt != nil {
+		t.Errorf("PasswordChangedAt = %v, want nil — nothing was revoked, so nobody should be logged out", user.PasswordChangedAt)
 	}
 }

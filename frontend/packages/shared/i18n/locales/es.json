@@ -76,6 +76,20 @@
       "cityPlaceholder": "Ej: Montevideo",
       "saveCity": "Guardar ciudad",
       "skip": "Omitir por ahora"
+    },
+    "forgotPassword": {
+      "link": "¿Olvidaste tu contraseña?",
+      "title": "Recuperar contraseña",
+      "emailStepDescription": "Te enviamos un código de 6 dígitos para que elijas una contraseña nueva.",
+      "email": "Email",
+      "sendCode": "Enviar código",
+      "codeStepDescription": "Si el email está registrado, te enviamos un código. Revisá tu casilla y el spam.",
+      "code": "Código de 6 dígitos",
+      "newPassword": "Contraseña nueva",
+      "submit": "Cambiar contraseña",
+      "sessionsWarning": "Al cambiarla vas a tener que volver a entrar en tus otros dispositivos.",
+      "success": "Listo. Entrá con tu contraseña nueva.",
+      "backToLogin": "Volver al inicio de sesión"
     }
   },
   "pets": {
@@ -358,7 +372,7 @@
     "abuse_report_not_found": "Denuncia no encontrada",
     "not_admin": "No tenés permisos para realizar esta acción",
     "otp_expired": "El código de verificación expiró. Solicitá uno nuevo",
-    "otp_invalid": "Código de verificación incorrecto",
+    "otp_invalid": "El código es inválido o venció. Pedí uno nuevo.",
     "rate_limit_exceeded": "Demasiados intentos. Esperá un momento e intentá de nuevo.",
     "phone_mismatch": "El número de teléfono no coincide",
     "points_not_found": "Puntos de usuario no encontrados",
@@ -392,7 +406,8 @@
     "google_token_invalid": "No pudimos validar tu cuenta de Google. Intentá de nuevo.",
     "google_email_unverified": "Tu cuenta de Google no tiene el email verificado. Verificalo en Google y volvé a intentar.",
     "google_signin_unavailable": "El inicio de sesión con Google no está disponible en este momento.",
-    "google_account_mismatch": "Este email ya está vinculado a otra cuenta de Google."
+    "google_account_mismatch": "Este email ya está vinculado a otra cuenta de Google.",
+    "session_expired": "Tu sesión expiró. Volvé a iniciar sesión."
   },
   "publish": {
     "intent": {

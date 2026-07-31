@@ -76,6 +76,20 @@
       "cityPlaceholder": "e.g. Montevideo",
       "saveCity": "Save city",
       "skip": "Skip for now"
+    },
+    "forgotPassword": {
+      "link": "Forgot your password?",
+      "title": "Reset password",
+      "emailStepDescription": "We'll send you a 6-digit code so you can choose a new password.",
+      "email": "Email",
+      "sendCode": "Send code",
+      "codeStepDescription": "If the email is registered, we sent a code. Check your inbox and spam folder.",
+      "code": "6-digit code",
+      "newPassword": "New password",
+      "submit": "Change password",
+      "sessionsWarning": "Changing it will sign you out on your other devices.",
+      "success": "Done. Sign in with your new password.",
+      "backToLogin": "Back to sign in"
     }
   },
   "pets": {
@@ -358,7 +372,7 @@
     "abuse_report_not_found": "Abuse report not found",
     "not_admin": "You do not have permission to perform this action",
     "otp_expired": "The verification code has expired. Please request a new one",
-    "otp_invalid": "Incorrect verification code",
+    "otp_invalid": "That code is invalid or has expired. Request a new one.",
     "rate_limit_exceeded": "Too many attempts. Please wait a moment and try again.",
     "phone_mismatch": "The phone number does not match",
     "points_not_found": "User points not found",
@@ -392,7 +406,8 @@
     "google_token_invalid": "We couldn't validate your Google account. Please try again.",
     "google_email_unverified": "Your Google account's email isn't verified. Verify it with Google and try again.",
     "google_signin_unavailable": "Google sign-in is unavailable right now.",
-    "google_account_mismatch": "This email is already linked to a different Google account."
+    "google_account_mismatch": "This email is already linked to a different Google account.",
+    "session_expired": "Your session expired. Please sign in again."
   },
   "publish": {
     "intent": {

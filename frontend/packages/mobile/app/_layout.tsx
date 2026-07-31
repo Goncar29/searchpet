@@ -2,6 +2,11 @@
 // SearchPet - Layout principal (Expo Router)
 // ============================================================
 
+// MUST stay the first import: installs CustomEvent/addEventListener/dispatchEvent
+// on the global scope, which React Native does not provide. The store registers a
+// listener on them at import time, so this has to be evaluated before ../store is.
+import '../polyfills/domEvents';
+
 // Initialize i18next before any screen renders (synchronous — bundled resources)
 import '../i18n';
 
@@ -89,23 +94,27 @@ export default function RootLayout() {
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen
           name="login"
-          options={{ title: i18next.t('profile.loginButton'), presentation: 'modal' }}
+          options={{ title: i18next.t('profile:loginButton'), presentation: 'modal' }}
         />
         <Stack.Screen
           name="register"
-          options={{ title: i18next.t('profile.createAccount'), presentation: 'modal' }}
+          options={{ title: i18next.t('profile:createAccount'), presentation: 'modal' }}
+        />
+        <Stack.Screen
+          name="forgot-password"
+          options={{ title: i18next.t('auth:forgotPassword.title'), presentation: 'modal' }}
         />
         <Stack.Screen
           name="pet/[id]"
-          options={{ title: i18next.t('pet_detail.loading') }}
+          options={{ title: i18next.t('pet_detail:loading') }}
         />
         <Stack.Screen
           name="chat/[userId]"
-          options={{ title: i18next.t('tabs.messages') }}
+          options={{ title: i18next.t('tabs:messages') }}
         />
         <Stack.Screen
           name="my-pets"
-          options={{ title: i18next.t('my_pets.title') }}
+          options={{ title: i18next.t('my_pets:title') }}
         />
         <Stack.Screen
           name="adopt"
@@ -117,35 +126,35 @@ export default function RootLayout() {
         />
         <Stack.Screen
           name="alerts/index"
-          options={{ title: i18next.t('alerts.title') }}
+          options={{ title: i18next.t('alerts:title') }}
         />
         <Stack.Screen
           name="badges/index"
-          options={{ title: i18next.t('profile.menuBadges') }}
+          options={{ title: i18next.t('profile:menuBadges') }}
         />
         <Stack.Screen
           name="leaderboard/index"
-          options={{ title: i18next.t('leaderboard.title') }}
+          options={{ title: i18next.t('leaderboard:title') }}
         />
         <Stack.Screen
           name="users/[id]"
-          options={{ title: i18next.t('profile.title') }}
+          options={{ title: i18next.t('profile:title') }}
         />
         <Stack.Screen
           name="groups/index"
-          options={{ title: i18next.t('groups.title') }}
+          options={{ title: i18next.t('groups:title') }}
         />
         <Stack.Screen
           name="groups/[id]"
-          options={{ title: i18next.t('groups.groupDetail') }}
+          options={{ title: i18next.t('groups:groupDetail') }}
         />
         <Stack.Screen
           name="blocked-users"
-          options={{ title: i18next.t('blocked_users.title') }}
+          options={{ title: i18next.t('blocked_users:title') }}
         />
         <Stack.Screen
           name="story/create"
-          options={{ title: i18next.t('story.createTitle'), presentation: 'modal' }}
+          options={{ title: i18next.t('story:createTitle'), presentation: 'modal' }}
         />
         <Stack.Screen name="shelters/index" options={{ headerShown: false }} />
       </Stack>

@@ -2,9 +2,22 @@
 // SearchPet - Estado global (Zustand)
 // ============================================================
 
+// MUST stay the first import, and must NOT be removed on the grounds that
+// `app/_layout.tsx` already imports it. This module registers a global listener
+// at evaluation time, so it has to install the globals itself instead of trusting
+// somebody else to have gone first — and that trust was misplaced: expo-router
+// calls `loadRoute()` eagerly for every layout while building the route tree, and
+// Metro sorts the context keys, so `app/(tabs)/_layout.tsx` ('(' = 0x28) is
+// evaluated BEFORE `app/_layout.tsx` ('_' = 0x5F). That group layout imports this
+// store, so the listener used to register against a global scope the root layout
+// had not patched yet — it silently never registered, on device and in prod.
+// ES module imports are idempotent, so the duplicate with the root layout is free.
+import '../polyfills/domEvents';
+
 import { create } from 'zustand';
 import * as SecureStore from 'expo-secure-store';
 import { getDevicePushTokenAsync } from 'expo-notifications';
+import { router } from 'expo-router';
 import type { User } from '../../shared/types';
 import { apiClient } from '../../shared/api/client';
 import { isJwtExpired } from '../../shared/utils/jwt';
@@ -167,6 +180,52 @@ export const useAuthStore = create<AuthState>((set) => ({
     }
   },
 }));
+
+// ============================================================
+// SESSION EXPIRY — mobile parity with web's AuthContext.tsx listener
+// ============================================================
+//
+// The shared api client announces a rejected token by dispatching the DOM event
+// `auth:session-expired`. React Native provides none of the APIs that needs — see
+// `polyfills/domEvents.ts` for the details and the verification. That module is
+// imported first in `app/_layout.tsx`; it is NOT imported here, because a state
+// store patching globals as an import side effect is invisible to whoever reads
+// the store later.
+//
+// `session_expired` specifically means the JWT predates a password change
+// (backend `middleware.Auth`) — that token will NEVER work again. Dropping local
+// state is not enough: the request that surfaced it could have fired from any
+// screen, so we force navigation to /login too (mirrors `AuthContext.tsx` on web).
+// A run-of-the-mill 401 (bad or missing token) deliberately does not reach this
+// branch: the per-screen auth guard already handles that, and wiping a live
+// session on every unrelated 401 would be disruptive for no security gain.
+type SessionExpiredEvent = { type: string; detail?: { code?: string } };
+
+const eventTarget = globalThis as unknown as {
+  addEventListener?: (type: string, listener: (event: SessionExpiredEvent) => void) => void;
+};
+
+if (typeof eventTarget.addEventListener === 'function') {
+  eventTarget.addEventListener('auth:session-expired', (event) => {
+    if (event.detail?.code !== 'session_expired') return;
+
+    SecureStore.deleteItemAsync('auth_token').catch(() => {});
+    SecureStore.deleteItemAsync('user_data').catch(() => {});
+    apiClient.setToken(null);
+    useAuthStore.setState({ user: null, token: null, isAuthenticated: false });
+    router.replace('/login');
+  });
+} else {
+  // Unreachable while the `../polyfills/domEvents` import at the top of this file
+  // stays put — it installs addEventListener before this line runs, regardless of
+  // which module the bundler happens to evaluate first. Kept as a tripwire: this
+  // branch is what a device silently fell into for as long as the registration
+  // depended on app/_layout.tsx having been evaluated first.
+  console.warn(
+    '[store] no addEventListener on the global scope — session-expiry handling is INACTIVE. ' +
+      "Is polyfills/domEvents.ts still the first import of store/index.ts?",
+  );
+}
 
 // ============================================================
 // LANGUAGE STORE

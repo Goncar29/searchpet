@@ -4,6 +4,7 @@
 //   ../utils/notifications → __mocks__/notifications.js
 
 import * as SecureStore from 'expo-secure-store';
+import { router } from 'expo-router';
 import { apiClient } from '../../shared/api/client';
 import { useAuthStore, useLocationStore } from '../store';
 
@@ -192,6 +193,43 @@ describe('useAuthStore — loadToken', () => {
     expect(state.isLoading).toBe(false);
     expect(mockSecureStore.deleteItemAsync).toHaveBeenCalledWith('auth_token');
     expect(mockSecureStore.deleteItemAsync).toHaveBeenCalledWith('user_data');
+  });
+});
+
+// ============================================================
+// Tests: session expiry (auth:session-expired) — mobile parity with
+// web's AuthContext.tsx listener. See store/index.ts for why a shim for
+// window/CustomEvent/addEventListener is required here: React Native's
+// `window` (== `global`) never gets those DOM APIs on its own.
+// ============================================================
+
+describe('useAuthStore — session expired', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockSecureStore.deleteItemAsync.mockResolvedValue(undefined);
+    useAuthStore.setState({ user: mockUser, token: 'stale-jwt', isAuthenticated: true, isLoading: false });
+  });
+
+  it('drops the persisted token and routes to login on session_expired', () => {
+    window.dispatchEvent(new CustomEvent('auth:session-expired', { detail: { code: 'session_expired' } }));
+
+    const state = useAuthStore.getState();
+    expect(state.isAuthenticated).toBe(false);
+    expect(state.token).toBeNull();
+    expect(state.user).toBeNull();
+    expect(mockSecureStore.deleteItemAsync).toHaveBeenCalledWith('auth_token');
+    expect(mockSecureStore.deleteItemAsync).toHaveBeenCalledWith('user_data');
+    expect(mockApiClient.setToken).toHaveBeenCalledWith(null);
+    expect(router.replace).toHaveBeenCalledWith('/login');
+  });
+
+  it('leaves an active session untouched for a run-of-the-mill 401', () => {
+    window.dispatchEvent(new CustomEvent('auth:session-expired', { detail: { code: 'unauthorized' } }));
+
+    const state = useAuthStore.getState();
+    expect(state.isAuthenticated).toBe(true);
+    expect(state.token).toBe('stale-jwt');
+    expect(router.replace).not.toHaveBeenCalled();
   });
 });
 

@@ -113,6 +113,11 @@ var (
 	ErrInternal          = errors.New("error interno del servidor")
 	ErrRateLimitExceeded = errors.New("rate limit exceeded")
 
+	// Returned when a JWT predates the user's last credential change. Distinct
+	// from ErrUnauthorized so clients can drop the stored token and route to
+	// login instead of showing a generic failure.
+	ErrSessionExpired = errors.New("tu sesión expiró; volvé a iniciar sesión")
+
 	// Validation sentinel errors for handler-level input checks
 	ErrPhotoFieldRequired     = errors.New("campo 'photo' requerido")
 	ErrInvalidSearchRadius    = errors.New("radius debe estar entre 1000 y 50000 metros")
@@ -237,6 +242,7 @@ var ErrorCodes = map[error]string{
 	ErrInvalidInput:      "invalid_input",
 	ErrInternal:          "internal_error",
 	ErrRateLimitExceeded: "rate_limit_exceeded",
+	ErrSessionExpired:    "session_expired",
 
 	// Validation sentinel errors
 	ErrPhotoFieldRequired:     "photo_field_required",

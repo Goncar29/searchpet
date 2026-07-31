@@ -90,11 +90,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Limpiar sesión cuando el API client detecta un 401 (token expirado o inválido).
   useEffect(() => {
-    const handleSessionExpired = () => {
+    const handleSessionExpired = (event: Event) => {
       setToken(null);
       setUser(null);
       localStorage.removeItem('token');
       localStorage.removeItem('user');
+
+      // `session_expired` specifically means the JWT predates a password
+      // change (see backend middleware.Auth) — that token will NEVER work
+      // again. Clearing local state is not enough: if the request that
+      // surfaced this happened on a public page (e.g. liking a story while
+      // logged in), the user would be silently logged out with no prompt to
+      // sign back in. A run-of-the-mill `unauthorized` 401 (bad/missing
+      // token) does not force this — that already happens routinely (e.g. a
+      // stale tab) and forcibly yanking the user off whatever page they are
+      // on would be disruptive for no security reason.
+      const code = (event as CustomEvent<{ code?: string }>).detail?.code;
+      if (code === 'session_expired') {
+        // Carry where the user was: LoginPage reads `returnUrl` and navigates back
+        // after a successful sign-in. Without it a forced logout always dumps them
+        // on the home page, which is a needless detour right after they proved who
+        // they are. `/login` itself is excluded — pointing returnUrl at the login
+        // page would bounce the user straight back to it after signing in.
+        const current = window.location.pathname + window.location.search;
+        const target = current.startsWith('/login')
+          ? '/login'
+          : `/login?returnUrl=${encodeURIComponent(current)}`;
+        window.location.assign(target);
+      }
     };
     window.addEventListener('auth:session-expired', handleSessionExpired);
     return () => window.removeEventListener('auth:session-expired', handleSessionExpired);

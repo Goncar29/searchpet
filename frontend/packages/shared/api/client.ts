@@ -124,6 +124,32 @@ async function fetchWithTimeout(
   }
 }
 
+/**
+ * Announces that the server rejected our credentials, so the host app can drop
+ * the stored token. Web listens for this in `AuthContext.tsx`; mobile listens in
+ * `store/index.ts`.
+ *
+ * The capability check is deliberate, and it is NOT `typeof window !==
+ * 'undefined'`. React Native aliases `window` to `global`, so that test passes on
+ * a device while `CustomEvent` and `dispatchEvent` do not exist there — the old
+ * guard let the call through and threw a `ReferenceError` **before** the intended
+ * `ApiError` was raised, turning every 401 in the mobile app into an unrelated
+ * crash. It was invisible because the mobile test suite mocks this whole module.
+ *
+ * Mobile now installs a minimal shim (`mobile/polyfills/domEvents.ts`). Anywhere
+ * these APIs are genuinely absent, this degrades to a no-op rather than throwing:
+ * losing the notification is recoverable, losing the `ApiError` is not.
+ */
+function notifySessionExpired(code?: string): void {
+  const scope = globalThis as unknown as {
+    CustomEvent?: new (type: string, params?: { detail?: unknown }) => unknown;
+    dispatchEvent?: (event: unknown) => boolean;
+  };
+  if (typeof scope.CustomEvent !== 'function' || typeof scope.dispatchEvent !== 'function') {
+    return;
+  }
+  scope.dispatchEvent(new scope.CustomEvent('auth:session-expired', { detail: { code } }));
+}
 
 class APIClient {
   private baseURL: string;
@@ -175,9 +201,7 @@ class APIClient {
       const message = errBody.message ?? `HTTP Error ${response.status}`;
       if (response.status === 401) {
         this.token = null;
-        if (typeof window !== 'undefined') {
-          window.dispatchEvent(new CustomEvent('auth:session-expired'));
-        }
+        notifySessionExpired(code);
       }
       throw new ApiError(code, response.status, message);
     }
@@ -236,6 +260,27 @@ class APIClient {
     return resp;
   }
 
+  /**
+   * Always resolves for a well-formed email, whether or not the account exists —
+   * the backend answers 200 either way so the endpoint cannot be used to probe
+   * which addresses are registered. Do not treat resolution as "the email exists".
+   */
+  async forgotPassword(email: string): Promise<{ message: string }> {
+    return this.request<{ message: string }>('POST', '/api/auth/password/forgot', { email });
+  }
+
+  /**
+   * Rejects with code `otp_invalid` for a wrong code, an expired one, or an
+   * unknown address alike. Surface one message covering both real cases.
+   */
+  async resetPassword(email: string, code: string, newPassword: string): Promise<{ message: string }> {
+    return this.request<{ message: string }>('POST', '/api/auth/password/reset', {
+      email,
+      code,
+      new_password: newPassword,
+    });
+  }
+
   logout() {
     this.token = null;
   }
@@ -271,9 +316,7 @@ class APIClient {
       const message = body.message ?? `HTTP Error ${response.status}`;
       if (response.status === 401) {
         this.token = null;
-        if (typeof window !== 'undefined') {
-          window.dispatchEvent(new CustomEvent('auth:session-expired'));
-        }
+        notifySessionExpired(code);
       }
       throw new ApiError(code, response.status, message);
     }
@@ -371,9 +414,7 @@ class APIClient {
       const message = body.message ?? `HTTP Error ${response.status}`;
       if (response.status === 401) {
         this.token = null;
-        if (typeof window !== 'undefined') {
-          window.dispatchEvent(new CustomEvent('auth:session-expired'));
-        }
+        notifySessionExpired(code);
       }
       throw new ApiError(code, response.status, message);
     }
@@ -403,9 +444,7 @@ class APIClient {
       const message = body.message ?? `HTTP Error ${response.status}`;
       if (response.status === 401) {
         this.token = null;
-        if (typeof window !== 'undefined') {
-          window.dispatchEvent(new CustomEvent('auth:session-expired'));
-        }
+        notifySessionExpired(code);
       }
       throw new ApiError(code, response.status, message);
     }
@@ -437,9 +476,7 @@ class APIClient {
       const message = body.message ?? `HTTP Error ${response.status}`;
       if (response.status === 401) {
         this.token = null;
-        if (typeof window !== 'undefined') {
-          window.dispatchEvent(new CustomEvent('auth:session-expired'));
-        }
+        notifySessionExpired(code);
       }
       throw new ApiError(code, response.status, message);
     }
@@ -475,9 +512,7 @@ class APIClient {
       const message = body.message ?? `HTTP Error ${response.status}`;
       if (response.status === 401) {
         this.token = null;
-        if (typeof window !== 'undefined') {
-          window.dispatchEvent(new CustomEvent('auth:session-expired'));
-        }
+        notifySessionExpired(code);
       }
       throw new ApiError(code, response.status, message);
     }
@@ -514,9 +549,7 @@ class APIClient {
       const message = body.message ?? `HTTP Error ${response.status}`;
       if (response.status === 401) {
         this.token = null;
-        if (typeof window !== 'undefined') {
-          window.dispatchEvent(new CustomEvent('auth:session-expired'));
-        }
+        notifySessionExpired(code);
       }
       throw new ApiError(code, response.status, message);
     }
@@ -774,9 +807,7 @@ class APIClient {
       const message = body.message ?? `HTTP Error ${response.status}`;
       if (response.status === 401) {
         this.token = null;
-        if (typeof window !== 'undefined') {
-          window.dispatchEvent(new CustomEvent('auth:session-expired'));
-        }
+        notifySessionExpired(code);
       }
       throw new ApiError(code, response.status, message);
     }

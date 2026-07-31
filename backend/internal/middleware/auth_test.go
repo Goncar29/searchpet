@@ -1,9 +1,11 @@
 package middleware
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -11,6 +13,12 @@ import (
 )
 
 const testSecret = "test-secret-optional-auth"
+
+// noPasswordChange is a PasswordChangedAtFunc reporting "never changed", so
+// these tests only exercise OptionalAuth's original header-parsing contract.
+func noPasswordChange(_ context.Context, _ uuid.UUID) (time.Time, error) {
+	return time.Time{}, nil
+}
 
 // runOptionalAuth runs OptionalAuth with the given Authorization header and
 // reports whether a userID landed in the context and the final HTTP status.
@@ -27,7 +35,7 @@ func runOptionalAuth(t *testing.T, authHeader string) (gotUserID uuid.UUID, hasU
 
 	nextCalled := false
 	r := gin.New()
-	r.Use(OptionalAuth(testSecret))
+	r.Use(OptionalAuth(testSecret, noPasswordChange))
 	r.GET("/api/stories", func(ctx *gin.Context) {
 		nextCalled = true
 		if v, ok := ctx.Get("userID"); ok {

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { getErrorMessage } from '@shared/utils/apiErrors';
@@ -18,8 +18,13 @@ interface FieldErrors {
 export function LoginPage() {
   const { t } = useTranslation(['auth', 'common']);
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const { login, isAuthenticated, isLoading } = useAuth();
+
+  // Set by ForgotPasswordPage after a successful reset. Without reading it the
+  // user finishes the whole flow and lands on a bare form with no sign it worked.
+  const notice = (location.state as { notice?: string } | null)?.notice;
   const {
     googleError,
     setGoogleError,
@@ -100,6 +105,15 @@ export function LoginPage() {
             noValidate
             className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 space-y-4"
           >
+            {notice && (
+              <div
+                role="status"
+                className="bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-sm p-3 rounded-lg"
+              >
+                {notice}
+              </div>
+            )}
+
             {apiError && (
               <div className="bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-sm p-3 rounded-lg">
                 {apiError}
@@ -142,6 +156,12 @@ export function LoginPage() {
               {fieldErrors.password && (
                 <p className="text-red-500 dark:text-red-400 text-sm mt-1">{fieldErrors.password}</p>
               )}
+              <Link
+                to="/forgot-password"
+                className="block text-right text-sm text-primary hover:underline mt-1"
+              >
+                {t('auth:forgotPassword.link')}
+              </Link>
             </div>
 
             <button

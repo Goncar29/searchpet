@@ -55,6 +55,53 @@ func TestHub_RegisterIsConnectedUnregister(t *testing.T) {
 	}
 }
 
+// DisconnectUser drops EVERY session of one user and leaves everybody else alone.
+// This is the teardown a password reset depends on: stamping password_changed_at
+// invalidates JWTs, but a socket authenticates once with a ticket at upgrade time
+// and is never re-checked, so an already-open connection would otherwise keep
+// delivering the victim's messages.
+func TestHub_DisconnectUser(t *testing.T) {
+	hub := NewHub(nil)
+	go hub.Run()
+	defer hub.Close()
+
+	victim1 := newTestClient("user-victim", hub)
+	victim2 := newTestClient("user-victim", hub)
+	bystander := newTestClient("user-bystander", hub)
+
+	hub.register <- victim1
+	hub.register <- victim2
+	hub.register <- bystander
+	time.Sleep(20 * time.Millisecond)
+
+	hub.DisconnectUser("user-victim")
+	time.Sleep(20 * time.Millisecond)
+
+	if hub.IsConnected("user-victim") {
+		t.Fatal("every session of the reset account must be closed, not just the newest")
+	}
+	// Blast radius: revoking one account's credentials must not knock anyone else
+	// off. A sweep over the whole clients map would pass the assertion above.
+	if !hub.IsConnected("user-bystander") {
+		t.Fatal("disconnecting one user must not touch another user's sessions")
+	}
+}
+
+// DisconnectUser on someone with no sessions is a no-op, not a panic. Reachable
+// on every reset by a user who simply has no app open.
+func TestHub_DisconnectUser_NoSessions(t *testing.T) {
+	hub := NewHub(nil)
+	go hub.Run()
+	defer hub.Close()
+
+	hub.DisconnectUser("nobody-here")
+	time.Sleep(20 * time.Millisecond)
+
+	if hub.IsConnected("nobody-here") {
+		t.Fatal("a user with no sessions must stay disconnected")
+	}
+}
+
 // Hub-T-2: multi-device — two clients same user, both connected.
 func TestHub_MultiDevice(t *testing.T) {
 	hub := NewHub(nil)

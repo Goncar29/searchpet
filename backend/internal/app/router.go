@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 	"lost-pets/config"
@@ -85,6 +86,20 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 	// CAPA 3: Repositories
 	// ========================================
 	userRepo := repository.NewUserRepository(db)
+
+	// One primary-key read per authenticated request. Accepted cost: it is what
+	// makes a password reset actually terminate the attacker's live session.
+	passwordChangedAt := func(ctx context.Context, userID uuid.UUID) (time.Time, error) {
+		u, err := userRepo.GetByID(ctx, userID)
+		if err != nil {
+			return time.Time{}, err
+		}
+		if u.PasswordChangedAt == nil {
+			return time.Time{}, nil
+		}
+		return *u.PasswordChangedAt, nil
+	}
+
 	petRepo := repository.NewPetRepository(db)
 	reportRepo := repository.NewReportRepository(db)
 	petUow := repository.NewUnitOfWork(db)
@@ -132,7 +147,6 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 	} else {
 		log.Warn("GOOGLE_CLIENT_ID no configurado — el login con Google responderá 502 google_signin_unavailable")
 	}
-	authService := service.NewAuthService(userRepo, cfg.JWTSecret, photoStorage, fosterHomeService, googleVerifier)
 	photoService := service.NewPhotoService(photoRepo, petRepo, photoStorage, bus)
 	petService := service.NewPetService(petRepo, bus, photoService, reportRepo, petUow, statEventRepo, episodeService, episodeRepo)
 	reportService := service.NewReportService(reportRepo, petRepo, bus, statEventRepo, episodeService, episodeRepo, petUow)
@@ -193,6 +207,24 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 	wsTicketStore := ws.NewTicketStore()
 	go wsTicketStore.CleanupLoop()
 
+	// Ambos servicios se construyen ACÁ, después del hub, y no arriba con el
+	// resto: los dos invalidan sesiones estampando password_changed_at, y eso
+	// corta los JWT pero NO un socket ya abierto — autentica una única vez con su
+	// ticket al hacer el upgrade y nadie lo vuelve a chequear. Se les pasa una
+	// función y no el Hub para que la capa de servicio siga sin conocer
+	// internal/websocket. authService mantiene su dependencia de fosterHomeService,
+	// construido más arriba (ver el comentario en su bloque).
+	disconnectFromWS := func(userID uuid.UUID) { wsHub.DisconnectUser(userID.String()) }
+
+	authService := service.NewAuthService(
+		userRepo, cfg.JWTSecret, photoStorage, fosterHomeService, googleVerifier,
+		disconnectFromWS,
+	)
+	passwordResetService := service.NewPasswordResetService(
+		verificationTokenRepo, userRepo, mailerClient,
+		disconnectFromWS,
+	)
+
 	notificationService.SetPresence(wsHub)
 	notificationService.SetPusher(wsHub)
 
@@ -240,6 +272,7 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 	moderationHandler := handler.NewModerationHandler(moderationService)
 	adminHandler := handler.NewAdminHandler(adminService)
 	verificationHandler := handler.NewVerificationHandler(verificationService, cfg.EnableEmailVerification)
+	passwordResetHandler := handler.NewPasswordResetHandler(passwordResetService)
 	gamHandler := handler.NewGamificationHandler(gamSvc)
 	reindexHandler := handler.NewReindexHandler(embeddingService, cfg.ReindexToken)
 
@@ -283,6 +316,11 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 		public.POST("/auth/login", authRateLimit, authHandler.Login)
 		// Mismo rate limit que login/register: es una puerta de autenticación.
 		public.POST("/auth/google", authRateLimit, authHandler.GoogleAuth)
+		// Mismo rate limit que login/register: el límite por IP es lo que acota
+		// el abuso ahora que el service se traga deliberadamente el cooldown
+		// por usuario (defensa anti-enumeración).
+		public.POST("/auth/password/forgot", authRateLimit, passwordResetHandler.ForgotPassword)
+		public.POST("/auth/password/reset", authRateLimit, passwordResetHandler.ResetPassword)
 		public.GET("/stats", statsHandler.GetStats)
 
 		public.GET("/pets/search", petHandler.SearchPets)
@@ -327,7 +365,7 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 	// (anónimo lee igual; logueado recibe liked_by_me por viewer)
 	// ----------------------------------------
 	storiesPublic := router.Group("/api")
-	storiesPublic.Use(middleware.OptionalAuth(cfg.JWTSecret))
+	storiesPublic.Use(middleware.OptionalAuth(cfg.JWTSecret, passwordChangedAt))
 	{
 		storiesPublic.GET("/stories", storyHandler.List)
 		storiesPublic.GET("/stories/pet/:petId", storyHandler.GetByPetID)
@@ -338,7 +376,7 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 	// RUTAS PROTEGIDAS
 	// ----------------------------------------
 	protected := router.Group("/api")
-	protected.Use(middleware.Auth(cfg.JWTSecret))
+	protected.Use(middleware.Auth(cfg.JWTSecret, passwordChangedAt))
 	{
 		protected.GET("/auth/me", authHandler.GetMe)
 		protected.PUT("/auth/me", authHandler.UpdateMe)
@@ -439,7 +477,7 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 	// RUTAS ADMIN
 	// ----------------------------------------
 	admin := router.Group("/api")
-	admin.Use(middleware.Auth(cfg.JWTSecret))
+	admin.Use(middleware.Auth(cfg.JWTSecret, passwordChangedAt))
 	admin.Use(middleware.RequireAdmin(userRepo))
 	{
 		admin.GET("/stats/impact", impactHandler.GetImpactStats)

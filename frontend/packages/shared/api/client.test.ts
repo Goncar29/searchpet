@@ -425,3 +425,122 @@ describe('APIClient request timeout', () => {
     await expect(client.getMonthlyImpact('2026-06')).resolves.toEqual(payload);
   });
 });
+
+describe('APIClient password reset', () => {
+  let client: APIClient;
+  let fetchMock: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    client = new APIClient('http://api.test');
+    fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('forgotPassword POSTs the email to /api/auth/password/forgot', async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({ message: 'ok' }),
+    });
+
+    const result = await client.forgotPassword('user@example.com');
+
+    expect(result).toEqual({ message: 'ok' });
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe('http://api.test/api/auth/password/forgot');
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(init.body)).toEqual({ email: 'user@example.com' });
+  });
+
+  it('resetPassword POSTs email/code/new_password to /api/auth/password/reset', async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({ message: 'ok' }),
+    });
+
+    const result = await client.resetPassword('user@example.com', '123456', 'newpassword');
+
+    expect(result).toEqual({ message: 'ok' });
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe('http://api.test/api/auth/password/reset');
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(init.body)).toEqual({
+      email: 'user@example.com',
+      code: '123456',
+      new_password: 'newpassword',
+    });
+  });
+
+  it('resetPassword throws ApiError with code otp_invalid on a wrong/expired code', async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: false,
+      status: 400,
+      json: async () => ({ code: 'otp_invalid', message: 'El código es inválido o venció. Pedí uno nuevo.' }),
+    });
+
+    await expect(
+      client.resetPassword('user@example.com', '000000', 'newpassword')
+    ).rejects.toMatchObject({ code: 'otp_invalid', status: 400 });
+  });
+});
+
+// ============================================================
+// Regression: a 401 must not depend on DOM event APIs existing
+//
+// React Native aliases `window` to `global`, so the old guard
+// `typeof window !== 'undefined'` passed on a device while CustomEvent and
+// dispatchEvent did not exist — the client threw a ReferenceError BEFORE raising
+// its ApiError, turning every 401 in the mobile app into an unrelated crash.
+// Invisible for months because the mobile suite mocks this whole module.
+// ============================================================
+
+describe('401 handling without DOM event APIs (React Native global shape)', () => {
+  const saved = {
+    CustomEvent: (globalThis as Record<string, unknown>).CustomEvent,
+    dispatchEvent: (globalThis as Record<string, unknown>).dispatchEvent,
+  };
+
+  beforeEach(() => {
+    // Exactly what a device looks like: window IS global, but no DOM events.
+    delete (globalThis as Record<string, unknown>).CustomEvent;
+    delete (globalThis as Record<string, unknown>).dispatchEvent;
+  });
+
+  afterEach(() => {
+    (globalThis as Record<string, unknown>).CustomEvent = saved.CustomEvent;
+    (globalThis as Record<string, unknown>).dispatchEvent = saved.dispatchEvent;
+  });
+
+  it('still throws ApiError, not ReferenceError, and still clears the token', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 401,
+      json: async () => ({ code: 'session_expired', message: 'tu sesión expiró' }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const client = new APIClient('http://test.local');
+    client.setToken('stale-token');
+
+    const err = await client.getMyPets().catch((e) => e);
+
+    expect(err).toBeInstanceOf(ApiError);
+    expect(err).toMatchObject({ code: 'session_expired', status: 401 });
+
+    // Losing the notification is recoverable; losing the ApiError is not — and the
+    // token must still be dropped even with nowhere to announce it. There is no
+    // getToken(), so this is asserted through observable behaviour: the next
+    // request must go out WITHOUT an Authorization header.
+    fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => [] });
+    await client.getMyPets().catch(() => {});
+
+    const lastInit = fetchMock.mock.calls[fetchMock.mock.calls.length - 1][1];
+    const headers = (lastInit?.headers ?? {}) as Record<string, string>;
+    expect(headers.Authorization).toBeUndefined();
+  });
+});

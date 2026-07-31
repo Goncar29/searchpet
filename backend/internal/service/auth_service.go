@@ -51,17 +51,26 @@ type authService struct {
 	// runAsync dispara trabajo que NO debe demorar la respuesta. Es un campo para
 	// que los tests lo corran inline y sean deterministas; en producción es `go f()`.
 	runAsync func(func())
+	// disconnectUser cierra los WebSocket vivos del usuario. OPCIONAL (puede ser
+	// nil). Lo usa SOLO el descarte anti pre-hijacking de LoginWithGoogle, que
+	// estampa PasswordChangedAt: eso corta los JWT pero no un socket ya abierto,
+	// porque autentica una única vez con su ticket al hacer el upgrade. Función y
+	// no el Hub para que esta capa siga sin conocer internal/websocket — mismo
+	// criterio que password_reset_service.
+	disconnectUser func(userID uuid.UUID)
 }
 
 // NewAuthService crea una instancia del servicio de auth con sus dependencias.
 // fosterHomeService puede ser nil (hook de contacto es no-op en ese caso).
 // googleVerifier puede ser nil (login con Google deshabilitado).
+// disconnectUser puede ser nil (no se cierran sockets al descartar la contraseña).
 func NewAuthService(
 	userRepo repository.UserRepository,
 	secretKey string,
 	storage ImageUploader,
 	fosterHomeService FosterHomeService,
 	googleVerifier googleauth.Verifier,
+	disconnectUser func(userID uuid.UUID),
 ) AuthService {
 	return &authService{
 		userRepo:          userRepo,
@@ -70,6 +79,7 @@ func NewAuthService(
 		fosterHomeService: fosterHomeService,
 		googleVerifier:    googleVerifier,
 		runAsync:          func(f func()) { go f() },
+		disconnectUser:    disconnectUser,
 	}
 }
 
@@ -306,6 +316,7 @@ func (s *authService) LoginWithGoogle(ctx context.Context, idToken string) (*dom
 		if existing.GoogleID != "" && existing.GoogleID != claims.Sub {
 			return nil, "", false, domain.ErrGoogleAccountMismatch
 		}
+		sessionsRevoked := false
 		// SEGURIDAD — pre-hijacking: Register no exige ninguna prueba de que el
 		// email sea tuyo, así que una cuenta con EmailVerified=false pudo haberla
 		// creado un atacante con TU email y una contraseña que él eligió. Si
@@ -314,6 +325,20 @@ func (s *authService) LoginWithGoogle(ctx context.Context, idToken string) (*dom
 		// el email ante Google es el dueño legítimo, y entra por Google.
 		if !existing.EmailVerified {
 			existing.PasswordHash = ""
+			// Descartar la contraseña era media defensa: si el atacante que plantó
+			// la cuenta ya tiene una sesión abierta, le sacábamos la credencial y
+			// lo dejábamos adentro hasta 72h. Sellar esto la corta — middleware.Auth
+			// rechaza todo JWT emitido antes de este instante.
+			//
+			// Truncado al segundo porque el `iat` de un JWT no tiene componente
+			// sub-segundo: con microsegundos, el token que emitimos doce líneas más
+			// abajo se rechazaría a sí mismo y el login con Google fallaría siempre.
+			discardedAt := time.Now().Truncate(time.Second)
+			existing.PasswordChangedAt = &discardedAt
+			// Se recuerda en una variable porque EmailVerified se pisa a true
+			// tres líneas más abajo: después de eso ya no hay forma de saber si
+			// por acá se revocó algo.
+			sessionsRevoked = true
 		}
 		existing.GoogleID = claims.Sub
 		existing.EmailVerified = true
@@ -326,6 +351,18 @@ func (s *authService) LoginWithGoogle(ctx context.Context, idToken string) (*dom
 		existing.VerificationMethod = googleVerificationMethod(existing.PhoneVerified)
 		if err := s.userRepo.Update(ctx, existing); err != nil {
 			return nil, "", false, err
+		}
+		// Mismo agujero que cerró la recuperación de contraseña, en el otro
+		// extremo: password_changed_at invalida los JWT, pero un socket autenticó
+		// UNA sola vez con su ticket al hacer el upgrade y nadie lo vuelve a
+		// chequear mientras vive. Sin esto, al atacante que plantó la cuenta le
+		// sacábamos la contraseña y el token, y le dejábamos la conexión abierta
+		// leyendo los mensajes del dueño legítimo — la mitad de la defensa.
+		//
+		// Va DESPUÉS del Update y solo si hubo descarte: si el write falla no
+		// cambió nada, y cortar conexiones de un login normal sería pura molestia.
+		if sessionsRevoked && s.disconnectUser != nil {
+			s.disconnectUser(existing.ID)
 		}
 		token, err := s.issueToken(existing)
 		if err != nil {

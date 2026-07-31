@@ -62,9 +62,11 @@ func (m *mockUserRepo) Delete(ctx context.Context, id uuid.UUID) error { return 
 // ============================================================
 
 type mockTokenRepo struct {
-	activeToken       *domain.VerificationToken
-	incrementAttempts int
-	markUsedCalled    bool
+	activeToken            *domain.VerificationToken
+	incrementAttempts      int
+	markUsedCalled         bool
+	markAllUsedCalls       int
+	markAllUsedExceptCalls int
 }
 
 func (m *mockTokenRepo) Create(ctx context.Context, t *domain.VerificationToken) error { return nil }
@@ -75,6 +77,17 @@ func (m *mockTokenRepo) FindActiveByUser(ctx context.Context, userID uuid.UUID, 
 
 func (m *mockTokenRepo) MarkUsed(ctx context.Context, id uuid.UUID) error {
 	m.markUsedCalled = true
+	return nil
+}
+
+func (m *mockTokenRepo) MarkAllUsedByUser(ctx context.Context, userID uuid.UUID, channel string) error {
+	m.markUsedCalled = true
+	m.markAllUsedCalls++
+	return nil
+}
+
+func (m *mockTokenRepo) MarkAllUsedByUserExcept(ctx context.Context, userID uuid.UUID, channel string, exceptID uuid.UUID) error {
+	m.markAllUsedExceptCalls++
 	return nil
 }
 
@@ -397,12 +410,18 @@ func (f *failingMailer) SendOTP(ctx context.Context, to, code string) error {
 	return fmt.Errorf("mailer: brevo returned status 401")
 }
 
+func (f *failingMailer) SendPasswordReset(ctx context.Context, to, code string) error {
+	return fmt.Errorf("mailer: brevo returned status 401")
+}
+
 var _ mailer.Mailer = (*failingMailer)(nil)
 
 // noopMailer implements mailer.Mailer with no side-effects.
 type noopMailer struct{}
 
 func (n *noopMailer) SendOTP(ctx context.Context, to, code string) error { return nil }
+
+func (n *noopMailer) SendPasswordReset(ctx context.Context, to, code string) error { return nil }
 
 // Compile-time interface check.
 var _ mailer.Mailer = (*noopMailer)(nil)

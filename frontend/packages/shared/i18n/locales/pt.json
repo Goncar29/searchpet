@@ -76,6 +76,20 @@
       "cityPlaceholder": "Ex: Montevidéu",
       "saveCity": "Salvar cidade",
       "skip": "Pular por enquanto"
+    },
+    "forgotPassword": {
+      "link": "Esqueceu sua senha?",
+      "title": "Recuperar senha",
+      "emailStepDescription": "Enviamos um código de 6 dígitos para você escolher uma nova senha.",
+      "email": "Email",
+      "sendCode": "Enviar código",
+      "codeStepDescription": "Se o email estiver cadastrado, enviamos um código. Verifique sua caixa de entrada e o spam.",
+      "code": "Código de 6 dígitos",
+      "newPassword": "Nova senha",
+      "submit": "Alterar senha",
+      "sessionsWarning": "Ao alterá-la, você precisará entrar novamente nos seus outros dispositivos.",
+      "success": "Pronto. Entre com sua nova senha.",
+      "backToLogin": "Voltar para o login"
     }
   },
   "pets": {
@@ -358,7 +372,7 @@
     "abuse_report_not_found": "Denúncia não encontrada",
     "not_admin": "Você não tem permissão para realizar esta ação",
     "otp_expired": "O código de verificação expirou. Solicite um novo",
-    "otp_invalid": "Código de verificação incorreto",
+    "otp_invalid": "O código é inválido ou expirou. Solicite um novo.",
     "rate_limit_exceeded": "Muitas tentativas. Aguarde um momento e tente novamente.",
     "phone_mismatch": "O número de telefone não coincide",
     "points_not_found": "Pontos do usuário não encontrados",
@@ -392,7 +406,8 @@
     "google_token_invalid": "Não foi possível validar sua conta do Google. Tente novamente.",
     "google_email_unverified": "O e-mail da sua conta do Google não está verificado. Verifique no Google e tente novamente.",
     "google_signin_unavailable": "O login com Google não está disponível no momento.",
-    "google_account_mismatch": "Este e-mail já está vinculado a outra conta do Google."
+    "google_account_mismatch": "Este e-mail já está vinculado a outra conta do Google.",
+    "session_expired": "Sua sessão expirou. Entre novamente."
   },
   "publish": {
     "intent": {
