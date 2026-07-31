@@ -56,6 +56,23 @@ type passwordResetService struct {
 // quedar cómodamente por encima del caso registrado típico.
 const minRequestResetDuration = 300 * time.Millisecond
 
+// passwordResetDailyMax es el tope de codigos de recuperacion por CUENTA en
+// quotaWindow. Tres alcanza de sobra para el caso real —pedís, no te llega, mirás
+// el spam, pedís de nuevo— y deja el ataque acotado a 3 mails por víctima en vez
+// de 1440.
+const passwordResetDailyMax = 3
+
+// passwordResetGlobalDailyMax es la reserva del CANAL en quotaWindow. El cap por
+// cuenta solo no protege la cuota compartida: un atacante con ~17 direcciones
+// registradas la agotaría igual, y con ella se cae la verificación de email de
+// TODA la plataforma, no solo la recuperación. Cincuenta deja 250 de los 300
+// diarios de Brevo para la verificación, que es el consumidor primario porque
+// corre en cada alta.
+const passwordResetGlobalDailyMax = 50
+
+// quotaWindow es la ventana móvil que usan los dos topes.
+const quotaWindow = 24 * time.Hour
+
 // padTo duerme lo que falte para que la llamada haya durado al menos
 // minRequestResetDuration, contando desde start.
 func (s *passwordResetService) padTo(start time.Time) {
@@ -149,6 +166,25 @@ func (s *passwordResetService) RequestReset(ctx context.Context, email string) e
 		// Only a real account can be rate-limited, so the cooldown is swallowed.
 		// Abuse is bounded by the per-IP rate limit middleware, which cannot tell
 		// accounts apart and therefore cannot leak.
+		return nil
+	}
+
+	// Tope diario por cuenta. Se traga igual que el cooldown: este camino solo se
+	// alcanza para una cuenta que existe, así que responder distinto la delataría.
+	//
+	// El cooldown de arriba acota la FRECUENCIA (uno por minuto); esto acota el
+	// VOLUMEN. Sin este tope, un minuto de espera entre pedidos igual permite 1440
+	// mails por día contra una sola dirección.
+	since := time.Now().Add(-quotaWindow)
+	userCount, err := s.tokenRepo.CountSince(ctx, &user.ID, ChannelPasswordReset, since)
+	if err != nil {
+		// Falla cerrado: sin número no hay tope, y abrir la puerta ante un error del
+		// conteo convierte cualquier hipo de la base en vía libre.
+		log.Printf("[password_reset] per-account quota count failed for user %s: %v", user.ID, err)
+		return nil
+	}
+	if userCount >= passwordResetDailyMax {
+		log.Printf("[password_reset] daily cap reached for user %s (%d/%d)", user.ID, userCount, passwordResetDailyMax)
 		return nil
 	}
 

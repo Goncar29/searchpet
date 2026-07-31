@@ -760,3 +760,54 @@ func TestRequestReset_CreateFailure_LeavesTheExistingCodeAlone(t *testing.T) {
 		t.Fatal("no code was minted, so nothing may be mailed")
 	}
 }
+
+func TestRequestReset_PerAccountDailyCap(t *testing.T) {
+	// El unico freno por cuenta que existia era el cooldown de 60s: 1440 mails
+	// por dia contra una sola direccion, sobre los 300/dia de Brevo que se
+	// COMPARTEN con la verificacion de email.
+	users := knownUser("user@example.com")
+	tokens := &resetTokenRepo{countByUser: 3} // ya en el tope
+	m := &recordingMailer{}
+
+	// Devuelve nil igual que todo lo demas: cualquier diferencia observable seria
+	// un oraculo de existencia de cuenta.
+	if err := newResetSvc(users, tokens, m).RequestReset(context.Background(), "user@example.com"); err != nil {
+		t.Fatalf("RequestReset() = %v, want nil", err)
+	}
+	if len(tokens.created) != 0 {
+		t.Fatalf("acuno %d tokens, want 0 — el cap no freno nada", len(tokens.created))
+	}
+	if m.sentTo != "" {
+		t.Fatal("no se acuno codigo, asi que no se puede mandar mail")
+	}
+}
+
+func TestRequestReset_UnderThePerAccountCapStillWorks(t *testing.T) {
+	users := knownUser("user@example.com")
+	tokens := &resetTokenRepo{countByUser: 2} // uno por debajo
+	m := &recordingMailer{}
+
+	if err := newResetSvc(users, tokens, m).RequestReset(context.Background(), "user@example.com"); err != nil {
+		t.Fatalf("RequestReset() = %v, want nil", err)
+	}
+	if len(tokens.created) != 1 {
+		t.Fatalf("acuno %d tokens, want 1 — el cap frena de mas", len(tokens.created))
+	}
+	if m.sentTo != "user@example.com" {
+		t.Fatalf("mailed %q, want user@example.com", m.sentTo)
+	}
+}
+
+func TestRequestReset_CountFailureFailsClosed(t *testing.T) {
+	// Un fallo del conteo no puede abrir la puerta: sin numero no hay tope.
+	users := knownUser("user@example.com")
+	tokens := &resetTokenRepo{countErr: errors.New("verification_tokens is unavailable")}
+	m := &recordingMailer{}
+
+	if err := newResetSvc(users, tokens, m).RequestReset(context.Background(), "user@example.com"); err != nil {
+		t.Fatalf("RequestReset() = %v, want nil", err)
+	}
+	if len(tokens.created) != 0 || m.sentTo != "" {
+		t.Fatal("si el conteo falla no se acuna ni se manda nada")
+	}
+}
