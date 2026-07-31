@@ -93,22 +93,42 @@ CountSince(ctx context.Context, userID *uuid.UUID, channel string, since time.Ti
 
 One shape, two uses. `nil` gives the global count.
 
-### The cap counts attempts, not deliveries
+### Token retention must outlive the counting window
+
+`verification_tokens` has a reaper: `router.go` runs `DeleteExpired` hourly, and the delete
+is **hard** — `domain.VerificationToken` has no `gorm.DeletedAt`. With a ten-minute OTP TTL,
+sweeping rows as soon as they expired emptied the counting window every hour and turned the
+daily cap into an hourly one (~72/day per account, ~1200/day channel-wide). The feature did
+not do what this document said it did.
+
+`repository.TokenRetention` fixes it, and `QuotaWindow` **derives** from it rather than
+declaring its own 24 hours. `DeleteExpired` deliberately does **not** take retention as a
+parameter: a configurable value can be passed as zero by some call site, and no test would
+catch it — the cap would depend on someone reading a comment.
+
+**The testing lesson, one level below rule #34.** The `CountSince` test runs against real
+Postgres precisely because mocks have no columns. It still missed this, because it backdates
+rows by hand and never runs the sweeper: a real database modelling a world with no
+background jobs. **When a table has a reaper, any query that counts history over a window
+must be tested with the reaper running.**
+
+### A failed send costs nothing: the row is deleted, not marked used
 
 A token row is created before the mail is sent, and the send is detached. When the send
-fails, `runAsync` calls `MarkUsed(tokenID)` to free the 60-second cooldown so the user can
-retry immediately — but the row still exists, and it still counts.
+fails, `runAsync` **deletes the row** (`DeleteByID`).
 
-That is intentional, for two reasons. First, the two states are indistinguishable after the
-fact: `used = true` means either "redeemed" or "send failed", and adding a column to tell
-them apart would be schema churn in service of a rare path. Second, counting attempts is the
-conservative direction for a bound whose job is protecting a quota.
+The first draft of this design marked it used instead, reasoning that counting attempts was
+the conservative direction for a quota bound. That was wrong, and the code review of
+2026-07-31 caught it: `MarkUsed` frees the 60-second cooldown but `CountSince` ignores
+`used` on purpose, so the row kept consuming quota. Three consecutive provider failures —
+the Brevo `Authorized IPs` 401 of rule #24 is a real, recurring instance — locked a user out
+of recovery for 24 hours **having received nothing**, while `/forgot` kept telling them a
+code had been sent. A silent lockout produced by the defence itself.
 
-The cost is a genuine edge case: a user hitting three consecutive provider failures is
-capped for the day having received nothing. It is bounded (they can retry tomorrow), it is
-visible (the global-reserve and mailer logs will both be loud), and it only occurs while
-mail delivery is already broken — at which point the cap is not what is wrong. Recorded in
-Open risks rather than engineered around.
+Deleting is correct because the row does not represent a code in anybody's hands. Nothing
+was delivered, so nothing should be spent. The one imperfect case is a provider that
+delivered and still returned an error: the user holds a code we just invalidated, and can
+request another with no wait — which is exactly the behaviour we want available to them.
 
 ### The trap: the count must ignore `used`
 
@@ -219,14 +239,41 @@ End-to-end, against real Postgres (`-tags e2e`):
 
 ## Open risks
 
+*The first three were raised by the code review of 2026-07-31 and accepted rather than
+fixed. Each is a property of the design, not a defect in the implementation.*
+
+- **The global reserve is itself a cheap denial-of-recovery vector, and it is CHEAPER than
+  the attack it replaces.** Registration is open and unauthenticated, so an attacker does
+  not need to find 17 registered addresses — they can create them. Seventeen accounts times
+  three requests reaches fifty in 24 hours and disables password recovery for **every**
+  user; the rolling window means roughly two requests an hour sustains it indefinitely.
+  Per-IP limiting cannot see it: seventeen accounts, a slow rate, rotatable addresses. The
+  pre-PR attack needed 300 emails; this needs 51 requests.
+  Accepted because the alternative is worse: without the reserve, the same attacker takes
+  down **email verification** too, which breaks every new signup. This trades an unbounded
+  platform-wide outage for a bounded single-flow one. The mitigation if it ever happens is
+  an admin bypass or an allowlist, neither of which exists today, and the only signal is a
+  `log.Printf` on a Render free instance — nobody is paged.
+- **The "leaves 250 of 300 for verification" justification is not enforced anywhere.** The
+  reserve caps only `channel = 'password_reset'`. `VerificationService.SendOTP` has **no
+  daily cap at all** — its only brake is the same 60-second per-token cooldown this design
+  just demonstrated to be insufficient. An attacker who registers accounts and loops
+  `/api/verification/send-email` still drains the shared 300/day, and draining it takes
+  password recovery down with it. The constant buys less than its comment implies: it
+  bounds what *this* flow can consume, not what remains available to it.
+- **`minRequestResetDuration` is now load-bearing on six database round trips.** The two
+  `CountSince` calls pushed the registered path from four to six; the constant went from
+  300 ms to 500 ms to keep its margin. It must be re-evaluated every time work is added to
+  this path — it is not a style constant, it is the ceiling of the timing channel.
 - **An attacker with many known registered addresses can still exhaust the reset reserve.**
   Seventeen addresses at three each reaches fifty. The reserve then denies password recovery
   to everyone for the rest of the day, while leaving email verification intact. This is a
   deliberate trade: a bounded outage of one flow instead of an unbounded one across the
   platform. Reassess if it ever happens.
-- **Three consecutive provider failures cap a user who received nothing.** Follows from
-  counting attempts rather than deliveries; see that section for why the alternative is
-  worse. Bounded to 24 hours, and only reachable while mail is already broken.
+- ~~**Three consecutive provider failures cap a user who received nothing.**~~ **Closed
+  2026-07-31**, not accepted: the code review showed this was a lockout produced by the
+  defence itself, not an acceptable edge case. Failed sends now delete their row. See "A
+  failed send costs nothing".
 - **The 300/day Brevo ceiling is the real constraint** and this design only rations it. If
   SearchPet grows past a few hundred signups a day, the answer is a different mail plan or
   provider, not smaller caps.

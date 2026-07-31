@@ -46,15 +46,21 @@ type passwordResetService struct {
 //
 // runAsync sacó el round trip de mail de la respuesta, pero el trabajo de base no
 // desapareció: una dirección registrada cuesta GetByEmail + FindActiveByUser +
-// Create + el barrido —cuatro viajes a Neon, dos de ellos escrituras— contra UNA
-// sola lectura para una desconocida. Sobre un Postgres gestionado remoto esa
-// diferencia son decenas de ms contra unos pocos: la misma señal medible que
-// runAsync existía para tapar.
+// los DOS CountSince + Create + el barrido —SEIS viajes a Neon, dos de ellos
+// escrituras— contra UNA sola lectura para una desconocida. Sobre un Postgres
+// gestionado remoto esa diferencia son decenas de ms contra unos pocos: la misma
+// señal medible que runAsync existía para tapar.
+//
+// Subió de 300ms a 500ms cuando el cupo diario agregó los dos CountSince. Los
+// 300ms se habían calibrado para cuatro viajes; con seis, y con Neon pudiendo
+// responder frío, el caso registrado se acercaba demasiado al piso. Este valor
+// tiene que recalcularse cada vez que se agregue trabajo de base a este camino —
+// no es una constante de estilo, es el techo del canal de timing.
 //
 // Es una mitigación, no una prueba: si la base se pone lenta y el camino
-// registrado supera este piso, la diferencia vuelve a asomar. El valor tiene que
-// quedar cómodamente por encima del caso registrado típico.
-const minRequestResetDuration = 300 * time.Millisecond
+// registrado supera este piso, la diferencia vuelve a asomar. El costo de subirlo
+// es medio segundo en un endpoint que un usuario toca dos veces en su vida.
+const minRequestResetDuration = 500 * time.Millisecond
 
 // passwordResetDailyMax es el tope de codigos de recuperacion por CUENTA en
 // quotaWindow. Tres alcanza de sobra para el caso real —pedís, no te llega, mirás
