@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { ForgotPasswordPage } from './ForgotPasswordPage';
 
@@ -40,6 +40,9 @@ beforeEach(() => {
   resetPassword.mockReset().mockResolvedValue({ message: 'ok' });
   logout.mockReset();
   navigate.mockReset();
+  // jsdom comparte sessionStorage entre tests del mismo archivo: sin esto, el
+  // deadline que deja un test arranca al siguiente en mitad de la cuenta regresiva.
+  sessionStorage.clear();
 });
 
 // Drives the page through both steps to a successful reset.
@@ -147,5 +150,41 @@ describe('ForgotPasswordPage', () => {
         state: { notice: 'forgotPassword.success' },
       }),
     );
+  });
+
+  it('shows the daily-limit policy on the email step', () => {
+    // FIXED text: it states policy, never account state. A real "2 of 3 left"
+    // counter is computable only for an account that exists, so rendering one
+    // would rebuild the enumeration oracle the backend was shaped to deny.
+    renderPage();
+    expect(screen.getByText('forgotPassword.dailyLimitNotice')).toBeInTheDocument();
+  });
+
+  it('disables resend with a countdown, then re-enables it after 60s', async () => {
+    // shouldAdvanceTime keeps findBy* from hanging under fake timers.
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      renderPage();
+
+      fireEvent.change(screen.getByLabelText('forgotPassword.email'), {
+        target: { value: 'user@example.com' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: 'forgotPassword.sendCode' }));
+
+      // The i18n mock drops the interpolation object, so the accessible name is
+      // the bare key — which is exactly what distinguishes the two states.
+      const resend = await screen.findByRole('button', { name: 'forgotPassword.resendIn' });
+      expect(resend).toBeDisabled();
+
+      await act(async () => {
+        vi.advanceTimersByTime(61_000);
+      });
+
+      expect(
+        await screen.findByRole('button', { name: 'forgotPassword.resend' }),
+      ).toBeEnabled();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
