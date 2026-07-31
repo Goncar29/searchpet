@@ -188,7 +188,8 @@ type VerificationTokenRepository interface {
 	CountSince(ctx context.Context, userID *uuid.UUID, channel string, since time.Time) (int64, error)
 	// IncrementAttempts incrementa el contador de intentos de forma atómica y retorna el nuevo valor.
 	IncrementAttempts(ctx context.Context, id uuid.UUID) (int, error)
-	// DeleteExpired elimina tokens expirados y retorna la cantidad eliminada.
+	// DeleteExpired elimina tokens vencidos hace más de TokenRetention. Sin
+	// retención el borrado —que es DURO— vacía la ventana que cuenta el cupo diario.
 	DeleteExpired(ctx context.Context) (int64, error)
 }
 

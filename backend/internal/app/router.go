@@ -241,6 +241,10 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 		ticker := time.NewTicker(1 * time.Hour)
 		defer ticker.Stop()
 		for range ticker.C {
+			// DeleteExpired conserva repository.TokenRetention de historia: el cupo
+			// diario de recuperación cuenta filas de esta tabla por created_at, y el
+			// borrado es DURO. Barriendo apenas vencen —los OTP duran 10 minutos—
+			// cada pasada horaria vaciaba la ventana y el tope de 3/día valía 3/hora.
 			if deleted, err := verificationTokenRepo.DeleteExpired(context.Background()); err != nil {
 				log.Error("OTP cleanup error", zap.Error(err))
 			} else if deleted > 0 {

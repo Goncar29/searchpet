@@ -107,10 +107,26 @@ func (r *postgresVerificationTokenRepository) IncrementAttempts(ctx context.Cont
 	return token.Attempts, nil
 }
 
-// DeleteExpired elimina tokens expirados y retorna la cantidad eliminada.
+// TokenRetention es cuánta historia conserva la tabla más allá del vencimiento.
+//
+// Existe porque el cupo diario de recuperación CUENTA historia sobre estas filas
+// y este borrado es DURO: VerificationToken no tiene gorm.DeletedAt. Los OTP
+// vencen a los 10 minutos, así que el sweeper horario de router.go, barriendo
+// apenas vencían, vaciaba la ventana de conteo entera cada hora y convertía el
+// tope de 3 por día en 3 por HORA (~72/día) sin que nada lo delatara.
+//
+// service.QuotaWindow LEE esta constante en vez de duplicarla, y DeleteExpired no
+// toma la retención por parámetro: si fuese configurable, un call site podría
+// pasar cero y no habría test que lo cazara — el tope quedaría dependiendo de que
+// alguien leyera un comentario. Un solo valor, un solo lector, imposible de
+// desalinear.
+const TokenRetention = 24 * time.Hour
+
+// DeleteExpired elimina tokens vencidos hace más de TokenRetention y retorna la
+// cantidad eliminada.
 func (r *postgresVerificationTokenRepository) DeleteExpired(ctx context.Context) (int64, error) {
 	result := r.db.WithContext(ctx).
-		Where("expires_at < ?", time.Now()).
+		Where("expires_at < ?", time.Now().Add(-TokenRetention)).
 		Delete(&domain.VerificationToken{})
 	return result.RowsAffected, result.Error
 }

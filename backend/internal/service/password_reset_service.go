@@ -70,8 +70,15 @@ const passwordResetDailyMax = 3
 // corre en cada alta.
 const passwordResetGlobalDailyMax = 50
 
-// quotaWindow es la ventana móvil que usan los dos topes.
-const quotaWindow = 24 * time.Hour
+// QuotaWindow es la ventana móvil que usan los dos topes.
+//
+// DERIVA de repository.TokenRetention en vez de declarar su propio 24h, y no es
+// cosmético: contar historia sobre una tabla que tiene un reaper sólo funciona
+// mientras el reaper conserve al menos esta ventana. Con dos constantes separadas,
+// tocar una y olvidar la otra deja el tope existiendo sólo en apariencia — que es
+// exactamente lo que pasaba antes, con el sweeper barriendo apenas vencía cada
+// token y el tope diario valiendo en los hechos una hora.
+const QuotaWindow = repository.TokenRetention
 
 // padTo duerme lo que falte para que la llamada haya durado al menos
 // minRequestResetDuration, contando desde start.
@@ -175,7 +182,7 @@ func (s *passwordResetService) RequestReset(ctx context.Context, email string) e
 	// El cooldown de arriba acota la FRECUENCIA (uno por minuto); esto acota el
 	// VOLUMEN. Sin este tope, un minuto de espera entre pedidos igual permite 1440
 	// mails por día contra una sola dirección.
-	since := time.Now().Add(-quotaWindow)
+	since := time.Now().Add(-QuotaWindow)
 	userCount, err := s.tokenRepo.CountSince(ctx, &user.ID, ChannelPasswordReset, since)
 	if err != nil {
 		// Falla cerrado: sin número no hay tope, y abrir la puerta ante un error del
