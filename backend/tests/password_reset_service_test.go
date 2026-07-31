@@ -130,8 +130,27 @@ func (m *recordingMailer) SendPasswordReset(_ context.Context, to, code string) 
 }
 
 // newResetSvc builds the service with runAsync inlined so tests are deterministic.
+// disconnectUser is nil here: most cases do not care, and the service treats it as
+// optional. Use newResetSvcWithDisconnect when the socket teardown is the subject.
 func newResetSvc(users *resetUserRepo, tokens *resetTokenRepo, m *recordingMailer) service.PasswordResetService {
-	return service.NewPasswordResetServiceForTest(tokens, users, m, func(f func()) { f() })
+	return service.NewPasswordResetServiceForTest(tokens, users, m, func(f func()) { f() }, nil, nil)
+}
+
+// newResetSvcWithDisconnect records which users had their live sockets closed.
+func newResetSvcWithDisconnect(
+	users *resetUserRepo, tokens *resetTokenRepo, m *recordingMailer, disconnected *[]uuid.UUID,
+) service.PasswordResetService {
+	return service.NewPasswordResetServiceForTest(tokens, users, m, func(f func()) { f() },
+		func(userID uuid.UUID) { *disconnected = append(*disconnected, userID) }, nil)
+}
+
+// newResetSvcWithSleep records the timing pad instead of serving it, so the
+// enumeration mitigation can be asserted without the suite actually waiting.
+func newResetSvcWithSleep(
+	users *resetUserRepo, tokens *resetTokenRepo, m *recordingMailer, slept *[]time.Duration,
+) service.PasswordResetService {
+	return service.NewPasswordResetServiceForTest(tokens, users, m, func(f func()) { f() }, nil,
+		func(d time.Duration) { *slept = append(*slept, d) })
 }
 
 func knownUser(email string) *resetUserRepo {
@@ -440,6 +459,63 @@ func TestConfirmReset_KeepsBothWhenThePhoneWasAlreadyVerified(t *testing.T) {
 	}
 }
 
+func TestConfirmReset_ClosesLiveSockets(t *testing.T) {
+	// password_changed_at cuts every JWT, but a WebSocket authenticates ONCE with
+	// a ticket at upgrade time and is never re-checked (internal/websocket). So
+	// without this, whoever is already holding an open socket keeps receiving the
+	// victim's messages indefinitely after the reset — the exact access the reset
+	// exists to revoke. The 30s ticket TTL only bounds NEW connections.
+	users := knownUser("user@example.com")
+	tokens := &resetTokenRepo{active: activeResetToken("111111")}
+	var disconnected []uuid.UUID
+	svc := newResetSvcWithDisconnect(users, tokens, &recordingMailer{}, &disconnected)
+
+	if err := svc.ConfirmReset(context.Background(), "user@example.com", "111111", "newpassword"); err != nil {
+		t.Fatalf("ConfirmReset: %v", err)
+	}
+	if len(disconnected) != 1 {
+		t.Fatalf("disconnected %d users, want 1 — live sockets survive the reset", len(disconnected))
+	}
+	if disconnected[0] != users.byEmail["user@example.com"].ID {
+		t.Fatalf("disconnected %v, want the account being reset", disconnected[0])
+	}
+}
+
+func TestConfirmReset_WrongCodeLeavesSocketsAlone(t *testing.T) {
+	// The other direction, and the reason the call sits AFTER the write instead of
+	// before it: a failed attempt must not kick the legitimate owner off their own
+	// connections. Otherwise anyone could disrupt a session by guessing codes.
+	users := knownUser("user@example.com")
+	tokens := &resetTokenRepo{active: activeResetToken("111111")}
+	var disconnected []uuid.UUID
+	svc := newResetSvcWithDisconnect(users, tokens, &recordingMailer{}, &disconnected)
+
+	err := svc.ConfirmReset(context.Background(), "user@example.com", "999999", "newpassword")
+	if !errors.Is(err, domain.ErrOTPInvalid) {
+		t.Fatalf("err = %v, want domain.ErrOTPInvalid", err)
+	}
+	if len(disconnected) != 0 {
+		t.Fatal("a wrong code must not disconnect anyone")
+	}
+}
+
+func TestConfirmReset_FailedWriteLeavesSocketsAlone(t *testing.T) {
+	// If the password never changed, the old credentials still work, so tearing
+	// down the sockets would be pure disruption with no security gain.
+	users := knownUser("user@example.com")
+	users.updateErr = errors.New("users is unavailable")
+	tokens := &resetTokenRepo{active: activeResetToken("111111")}
+	var disconnected []uuid.UUID
+	svc := newResetSvcWithDisconnect(users, tokens, &recordingMailer{}, &disconnected)
+
+	if err := svc.ConfirmReset(context.Background(), "user@example.com", "111111", "newpassword"); !errors.Is(err, domain.ErrOTPInvalid) {
+		t.Fatalf("err = %v, want domain.ErrOTPInvalid", err)
+	}
+	if len(disconnected) != 0 {
+		t.Fatal("a failed password write must not disconnect anyone")
+	}
+}
+
 func TestConfirmReset_RejectsATokenFromAnotherChannel(t *testing.T) {
 	users := knownUser("user@example.com")
 	// An email-verification token must never be spendable on a reset.
@@ -612,6 +688,40 @@ func TestRequestReset_RetireFailure_StillMintsAndMailsTheNewCode(t *testing.T) {
 	}
 	if m.sentTo != "user@example.com" {
 		t.Fatalf("mailed %q, want the code to go out anyway", m.sentTo)
+	}
+}
+
+func TestRequestReset_PadsBothTheKnownAndUnknownPathsToTheSameFloor(t *testing.T) {
+	// The enumeration defence runAsync did not finish. Detaching the mail send
+	// removed ~300-500ms from the registered path, but the DATABASE work stayed:
+	// a real address costs GetByEmail + FindActiveByUser + Create + the sweep,
+	// four round trips with two writes, against a single read for an invented one.
+	// On a remote managed Postgres that is measurable. Both paths must therefore
+	// leave through the same floor.
+	//
+	// The assertion is on the padded TOTAL, never on the sleep duration itself:
+	// the sleep is exactly the complement of however long the work took, so
+	// comparing the two sleeps directly would just re-measure the leak.
+	var knownSlept, unknownSlept []time.Duration
+
+	known := knownUser("user@example.com")
+	if err := newResetSvcWithSleep(known, &resetTokenRepo{}, &recordingMailer{}, &knownSlept).
+		RequestReset(context.Background(), "user@example.com"); err != nil {
+		t.Fatalf("RequestReset(known) = %v, want nil", err)
+	}
+
+	unknown := knownUser("someone-else@example.com")
+	if err := newResetSvcWithSleep(unknown, &resetTokenRepo{}, &recordingMailer{}, &unknownSlept).
+		RequestReset(context.Background(), "nobody@example.com"); err != nil {
+		t.Fatalf("RequestReset(unknown) = %v, want nil", err)
+	}
+
+	if len(knownSlept) != 1 {
+		t.Fatalf("registered address padded %d times, want exactly 1", len(knownSlept))
+	}
+	if len(unknownSlept) != 1 {
+		t.Fatalf("unknown address padded %d times, want exactly 1 — this is the path that "+
+			"returns early, and an unpadded early return is the whole oracle", len(unknownSlept))
 	}
 }
 

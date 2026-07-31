@@ -6,6 +6,8 @@ import (
 	"log"
 	"sync"
 	"time"
+
+	"nhooyr.io/websocket"
 )
 
 // MessageServicer defines the minimal message-service contract needed by Hub.
@@ -133,6 +135,45 @@ func (h *Hub) SendToUser(userID string, msg []byte) {
 			h.unregister <- c
 		}
 	}
+}
+
+// DisconnectUser force-closes every live connection belonging to userID.
+//
+// WHY THIS EXISTS: the ticket is checked ONCE, at upgrade time (handler.go), and
+// readPump then blocks until the peer goes away — nothing re-reads
+// password_changed_at for the life of the socket. So stamping that column cuts
+// every future HTTP request and every new socket, while somebody already holding
+// an open connection keeps receiving the victim's messages indefinitely. The 30s
+// ticket TTL bounds only NEW connections. Password recovery has to close the
+// existing ones explicitly, or "todas las sesiones anteriores" is not true.
+//
+// Closes the CONNECTION, never c.send. Two reasons: close() on an already-closed
+// channel panics and would take the whole API down, and SendToUser force-closes
+// c.send when a buffer fills — so a concurrent disconnect could hit exactly that
+// window. Breaking the socket instead makes readPump's Read return an error and
+// its own defer performs the normal unregister, which is the teardown path the
+// hub already knows how to run. websocket.Conn.Close is safe to call twice.
+func (h *Hub) DisconnectUser(userID string) {
+	h.mu.RLock()
+	conns := make([]*Client, len(h.clients[userID]))
+	copy(conns, h.clients[userID])
+	h.mu.RUnlock()
+
+	if len(conns) == 0 {
+		return
+	}
+
+	for _, c := range conns {
+		if c.conn == nil {
+			// No socket to break, so no Read will fail and no defer will fire:
+			// unregister explicitly. Reachable from the hub's own unit tests,
+			// which build clients without a real connection.
+			h.unregister <- c
+			continue
+		}
+		_ = c.conn.Close(websocket.StatusPolicyViolation, "credentials revoked")
+	}
+	log.Printf("[ws] force-disconnected userID=%s sessions=%d (credentials revoked)", userID, len(conns))
 }
 
 // handleInbound routes an inbound message to the appropriate handler based on envelope type.

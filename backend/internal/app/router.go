@@ -196,7 +196,6 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 	}
 	smsSenderClient := sms.NewTwilioSender(cfg.TwilioAccountSID, cfg.TwilioAuthToken, cfg.TwilioFromNumber)
 	verificationService := service.NewVerificationService(verificationTokenRepo, userRepo, mailerClient, smsSenderClient, bus)
-	passwordResetService := service.NewPasswordResetService(verificationTokenRepo, userRepo, mailerClient)
 
 	notificationService := service.NewNotificationService(fcmClient, deviceTokenRepo)
 	notificationService.RegisterListeners(bus)
@@ -208,6 +207,15 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 	go wsHub.Run()
 	wsTicketStore := ws.NewTicketStore()
 	go wsTicketStore.CleanupLoop()
+
+	// Constructed HERE, after the hub, and not up with the other services: a reset
+	// has to close the user's live sockets, which authenticate once at upgrade time
+	// and are never re-checked against password_changed_at. Passed as a function so
+	// the service layer keeps knowing nothing about internal/websocket.
+	passwordResetService := service.NewPasswordResetService(
+		verificationTokenRepo, userRepo, mailerClient,
+		func(userID uuid.UUID) { wsHub.DisconnectUser(userID.String()) },
+	)
 
 	notificationService.SetPresence(wsHub)
 	notificationService.SetPusher(wsHub)

@@ -7,6 +7,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 	"lost-pets/internal/domain"
 	"lost-pets/internal/repository"
@@ -27,34 +28,91 @@ type passwordResetService struct {
 	// makes a registered address take ~300-500ms against ~5ms for an unknown one,
 	// which is trivially measurable. Tests run it inline for determinism.
 	runAsync func(func())
+	// disconnectUser closes the user's live WebSocket connections. OPTIONAL (may
+	// be nil, and is nil in tests that do not care). A function rather than the
+	// Hub itself so this layer keeps knowing nothing about internal/websocket —
+	// same seam as middleware.Auth's PasswordChangedAtFunc.
+	//
+	// Stamping password_changed_at is NOT enough on its own: sockets authenticate
+	// with a ticket once, at upgrade time, and are never re-checked afterwards.
+	disconnectUser func(userID uuid.UUID)
+	// sleep exists so the timing pad below is injectable: tests would otherwise
+	// spend minRequestResetDuration on every RequestReset case.
+	sleep func(time.Duration)
+}
+
+// minRequestResetDuration es el piso al que se acolcha TODA respuesta de
+// RequestReset, exista o no la cuenta.
+//
+// runAsync sacó el round trip de mail de la respuesta, pero el trabajo de base no
+// desapareció: una dirección registrada cuesta GetByEmail + FindActiveByUser +
+// Create + el barrido —cuatro viajes a Neon, dos de ellos escrituras— contra UNA
+// sola lectura para una desconocida. Sobre un Postgres gestionado remoto esa
+// diferencia son decenas de ms contra unos pocos: la misma señal medible que
+// runAsync existía para tapar.
+//
+// Es una mitigación, no una prueba: si la base se pone lenta y el camino
+// registrado supera este piso, la diferencia vuelve a asomar. El valor tiene que
+// quedar cómodamente por encima del caso registrado típico.
+const minRequestResetDuration = 300 * time.Millisecond
+
+// padTo duerme lo que falte para que la llamada haya durado al menos
+// minRequestResetDuration, contando desde start.
+func (s *passwordResetService) padTo(start time.Time) {
+	if s.sleep == nil {
+		return
+	}
+	if elapsed := time.Since(start); elapsed < minRequestResetDuration {
+		s.sleep(minRequestResetDuration - elapsed)
+	}
 }
 
 // NewPasswordResetService construye el servicio con sus dependencias.
+// disconnectUser may be nil: the flow still works, it just leaves live sockets up.
 func NewPasswordResetService(
 	tokenRepo repository.VerificationTokenRepository,
 	userRepo repository.UserRepository,
 	m mailer.Mailer,
+	disconnectUser func(userID uuid.UUID),
 ) PasswordResetService {
 	return &passwordResetService{
-		tokenRepo: tokenRepo,
-		userRepo:  userRepo,
-		mailer:    m,
-		runAsync:  func(f func()) { go f() },
+		tokenRepo:      tokenRepo,
+		userRepo:       userRepo,
+		mailer:         m,
+		runAsync:       func(f func()) { go f() },
+		disconnectUser: disconnectUser,
+		sleep:          time.Sleep,
 	}
 }
 
 // NewPasswordResetServiceForTest injects runAsync so tests observe the send
 // synchronously. Not for production wiring.
+// sleep may be nil, which disables the timing pad so the suite does not spend
+// minRequestResetDuration per case. Pass a recorder to assert on the padding.
 func NewPasswordResetServiceForTest(
 	tokenRepo repository.VerificationTokenRepository,
 	userRepo repository.UserRepository,
 	m mailer.Mailer,
 	runAsync func(func()),
+	disconnectUser func(userID uuid.UUID),
+	sleep func(time.Duration),
 ) PasswordResetService {
-	return &passwordResetService{tokenRepo: tokenRepo, userRepo: userRepo, mailer: m, runAsync: runAsync}
+	return &passwordResetService{
+		tokenRepo:      tokenRepo,
+		userRepo:       userRepo,
+		mailer:         m,
+		runAsync:       runAsync,
+		disconnectUser: disconnectUser,
+		sleep:          sleep,
+	}
 }
 
 func (s *passwordResetService) RequestReset(ctx context.Context, email string) error {
+	// Every return below is padded to the same floor — see minRequestResetDuration
+	// for why the work this endpoint does is itself an enumeration oracle. The
+	// argument is evaluated now, at defer time, which is what makes this the start.
+	defer s.padTo(time.Now())
+
 	// GetByEmail matches case-insensitively (idx_users_email_lower, migration
 	// 000019), so an account registered as Carlos@Example.com is reachable here.
 	user, err := s.userRepo.GetByEmail(ctx, email)
@@ -257,6 +315,16 @@ func (s *passwordResetService) ConfirmReset(ctx context.Context, email, code, ne
 	if err := s.userRepo.Update(ctx, user); err != nil {
 		log.Printf("[password_reset] password write failed for user %s: %v", user.ID, err)
 		return domain.ErrOTPInvalid
+	}
+
+	// DESPUÉS del write, y solo si salió bien: cortar sockets de una recuperación
+	// que después falla dejaría al dueño legítimo desconectado sin haber cambiado
+	// nada. password_changed_at invalida los JWT, pero un socket ya abierto
+	// autenticó una sola vez con su ticket y nadie lo vuelve a chequear — sin
+	// esto, quien tenga una conexión viva sigue recibiendo los mensajes de la
+	// víctima indefinidamente, que es justo lo que el reset viene a cortar.
+	if s.disconnectUser != nil {
+		s.disconnectUser(user.ID)
 	}
 	return nil
 }
