@@ -20,11 +20,22 @@
  *
  * WHERE IT MUST BE IMPORTED
  *
- * First import of `app/_layout.tsx`, the root layout. Global setup belongs at the
- * app entry, and it has to be evaluated before anything registers a listener or
- * fires a request. Do not move it into a store or a screen: patching globals as a
- * side effect of importing a state module is invisible to whoever reads that
- * module later.
+ * First import of `app/_layout.tsx` (the root layout) AND first import of any
+ * module that registers a listener at evaluation time — today that means
+ * `store/index.ts`. Both, not either.
+ *
+ * This used to say "do not move it into a store", on the theory that the root
+ * layout always runs first. It does not. expo-router calls `loadRoute()` eagerly
+ * for every layout while building the route tree, and Metro sorts the context
+ * keys, so `app/(tabs)/_layout.tsx` ('(' = 0x28) is evaluated BEFORE
+ * `app/_layout.tsx` ('_' = 0x5F). Since that group layout imports the store, the
+ * store's listener registered against an unpatched global scope and silently did
+ * nothing. A module that needs these globals must import this itself rather than
+ * trust an ordering it does not control. ES imports are idempotent — importing it
+ * from several entry points costs nothing.
+ *
+ * The stylistic concern behind the old rule still stands, so it is handled with a
+ * comment at each import site instead of by leaving the ordering to luck.
  *
  * The shared client degrades to a no-op when these APIs are missing, so a missed
  * import costs the session-expiry notification — not a crash.

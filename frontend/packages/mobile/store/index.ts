@@ -2,6 +2,18 @@
 // SearchPet - Estado global (Zustand)
 // ============================================================
 
+// MUST stay the first import, and must NOT be removed on the grounds that
+// `app/_layout.tsx` already imports it. This module registers a global listener
+// at evaluation time, so it has to install the globals itself instead of trusting
+// somebody else to have gone first — and that trust was misplaced: expo-router
+// calls `loadRoute()` eagerly for every layout while building the route tree, and
+// Metro sorts the context keys, so `app/(tabs)/_layout.tsx` ('(' = 0x28) is
+// evaluated BEFORE `app/_layout.tsx` ('_' = 0x5F). That group layout imports this
+// store, so the listener used to register against a global scope the root layout
+// had not patched yet — it silently never registered, on device and in prod.
+// ES module imports are idempotent, so the duplicate with the root layout is free.
+import '../polyfills/domEvents';
+
 import { create } from 'zustand';
 import * as SecureStore from 'expo-secure-store';
 import { getDevicePushTokenAsync } from 'expo-notifications';
@@ -204,11 +216,14 @@ if (typeof eventTarget.addEventListener === 'function') {
     router.replace('/login');
   });
 } else {
-  // Reachable only if the polyfill import was dropped from app/_layout.tsx.
-  // Silence here would mean a revoked token keeps working until the app restarts.
+  // Unreachable while the `../polyfills/domEvents` import at the top of this file
+  // stays put — it installs addEventListener before this line runs, regardless of
+  // which module the bundler happens to evaluate first. Kept as a tripwire: this
+  // branch is what a device silently fell into for as long as the registration
+  // depended on app/_layout.tsx having been evaluated first.
   console.warn(
     '[store] no addEventListener on the global scope — session-expiry handling is INACTIVE. ' +
-      "Is polyfills/domEvents.ts still the first import of app/_layout.tsx?",
+      "Is polyfills/domEvents.ts still the first import of store/index.ts?",
   );
 }
 
