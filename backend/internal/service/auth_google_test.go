@@ -48,7 +48,16 @@ func googleClaims() *googleauth.Claims {
 // so the profile-photo import is skipped — it is best-effort by design and
 // covered separately in TestLoginWithGoogle_NewUser_NoStorage_StillSucceeds.
 func newGoogleAuthSvc(repo *mockUserRepo, v googleauth.Verifier) service.AuthService {
-	return service.NewAuthService(repo, googleTestSecret, nil, nil, v)
+	return service.NewAuthService(repo, googleTestSecret, nil, nil, v, nil)
+}
+
+// newGoogleAuthSvcWithDisconnect records which users had their live sockets torn
+// down, so the pre-hijacking defence can be asserted end to end.
+func newGoogleAuthSvcWithDisconnect(
+	repo *mockUserRepo, v googleauth.Verifier, disconnected *[]uuid.UUID,
+) service.AuthService {
+	return service.NewAuthService(repo, googleTestSecret, nil, nil, v,
+		func(userID uuid.UUID) { *disconnected = append(*disconnected, userID) })
 }
 
 const googleTestSecret = "test-secret-key-32chars-minimum!"
@@ -176,6 +185,60 @@ func TestLoginWithGoogle_LinksExistingLocalAccount(t *testing.T) {
 	}
 	if repo.createdUser != nil {
 		t.Error("expected NO user creation when linking")
+	}
+}
+
+func TestLoginWithGoogle_DiscardingThePasswordAlsoClosesLiveSockets(t *testing.T) {
+	// The pre-hijacking defence was half a defence. Discarding PasswordHash takes
+	// the attacker's credential away and stamping PasswordChangedAt kills their
+	// JWTs — but a WebSocket authenticates ONCE, with a ticket, at upgrade time,
+	// and nothing re-checks it for the life of the connection. So an attacker who
+	// planted the account and already had a socket open kept reading the rightful
+	// owner's messages, right through the linking that was supposed to evict them.
+	existing := &domain.User{
+		ID:           uuid.New(),
+		Email:        "carlos@example.com",
+		PasswordHash: bcryptHash(t, "planted-by-an-attacker"),
+		// EmailVerified is false: this is what makes the account untrusted.
+	}
+	repo := &mockUserRepo{user: existing}
+	var disconnected []uuid.UUID
+	svc := newGoogleAuthSvcWithDisconnect(repo, &mockVerifier{claims: googleClaims()}, &disconnected)
+
+	if _, _, _, err := svc.LoginWithGoogle(context.Background(), "any-token"); err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if len(disconnected) != 1 {
+		t.Fatalf("disconnected %d users, want 1 — the attacker's live socket survives the link", len(disconnected))
+	}
+	if disconnected[0] != existing.ID {
+		t.Fatalf("disconnected %v, want the account being linked", disconnected[0])
+	}
+}
+
+func TestLoginWithGoogle_VerifiedAccountKeepsItsSockets(t *testing.T) {
+	// The other side. An already-verified account keeps its password (nothing was
+	// planted, so there is nothing to revoke), and a plain sign-in must not knock
+	// the user off their own open connections.
+	existing := &domain.User{
+		ID:            uuid.New(),
+		Email:         "carlos@example.com",
+		PasswordHash:  bcryptHash(t, "segura123"),
+		EmailVerified: true,
+	}
+	repo := &mockUserRepo{user: existing}
+	var disconnected []uuid.UUID
+	svc := newGoogleAuthSvcWithDisconnect(repo, &mockVerifier{claims: googleClaims()}, &disconnected)
+
+	user, _, _, err := svc.LoginWithGoogle(context.Background(), "any-token")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if user.PasswordHash == "" {
+		t.Error("a verified account must keep its password — the discard is only for untrusted ones")
+	}
+	if len(disconnected) != 0 {
+		t.Fatal("linking a VERIFIED account revokes nothing, so it must not close any socket")
 	}
 }
 

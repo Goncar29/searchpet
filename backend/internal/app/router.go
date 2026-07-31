@@ -147,7 +147,6 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 	} else {
 		log.Warn("GOOGLE_CLIENT_ID no configurado — el login con Google responderá 502 google_signin_unavailable")
 	}
-	authService := service.NewAuthService(userRepo, cfg.JWTSecret, photoStorage, fosterHomeService, googleVerifier)
 	photoService := service.NewPhotoService(photoRepo, petRepo, photoStorage, bus)
 	petService := service.NewPetService(petRepo, bus, photoService, reportRepo, petUow, statEventRepo, episodeService, episodeRepo)
 	reportService := service.NewReportService(reportRepo, petRepo, bus, statEventRepo, episodeService, episodeRepo, petUow)
@@ -208,13 +207,22 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 	wsTicketStore := ws.NewTicketStore()
 	go wsTicketStore.CleanupLoop()
 
-	// Constructed HERE, after the hub, and not up with the other services: a reset
-	// has to close the user's live sockets, which authenticate once at upgrade time
-	// and are never re-checked against password_changed_at. Passed as a function so
-	// the service layer keeps knowing nothing about internal/websocket.
+	// Ambos servicios se construyen ACÁ, después del hub, y no arriba con el
+	// resto: los dos invalidan sesiones estampando password_changed_at, y eso
+	// corta los JWT pero NO un socket ya abierto — autentica una única vez con su
+	// ticket al hacer el upgrade y nadie lo vuelve a chequear. Se les pasa una
+	// función y no el Hub para que la capa de servicio siga sin conocer
+	// internal/websocket. authService mantiene su dependencia de fosterHomeService,
+	// construido más arriba (ver el comentario en su bloque).
+	disconnectFromWS := func(userID uuid.UUID) { wsHub.DisconnectUser(userID.String()) }
+
+	authService := service.NewAuthService(
+		userRepo, cfg.JWTSecret, photoStorage, fosterHomeService, googleVerifier,
+		disconnectFromWS,
+	)
 	passwordResetService := service.NewPasswordResetService(
 		verificationTokenRepo, userRepo, mailerClient,
-		func(userID uuid.UUID) { wsHub.DisconnectUser(userID.String()) },
+		disconnectFromWS,
 	)
 
 	notificationService.SetPresence(wsHub)
