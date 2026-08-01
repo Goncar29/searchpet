@@ -9,12 +9,35 @@ import { API_BASE_URL } from './baseURL';
 export class ApiError extends Error {
   code: string;
   status: number;
-  constructor(code: string, status: number, message: string) {
+  /**
+   * Seconds from the `Retry-After` header, when the server sent one.
+   * Undefined for errors that carry no honest number — the channel-wide OTP
+   * reserve, for instance, frees up on other users' traffic, so any figure
+   * would be a guess.
+   */
+  retryAfter?: number;
+  constructor(code: string, status: number, message: string, retryAfter?: number) {
     super(message);
     this.name = 'ApiError';
     this.code = code;
     this.status = status;
+    this.retryAfter = retryAfter;
   }
+}
+
+/**
+ * Reads `Retry-After` as a whole number of seconds.
+ * The HTTP-date form is ignored on purpose: this API never sends it, and a
+ * silently-misparsed date would surface as a nonsense countdown.
+ */
+function parseRetryAfter(response: Response): number | undefined {
+  // Optional chaining is not paranoia: this runs on EVERY error response, and an
+  // error handler that throws replaces a useful ApiError with a TypeError from
+  // three frames away. "No headers" is honestly "no seconds".
+  const raw = response.headers?.get('Retry-After');
+  if (raw === null || raw === undefined) return undefined;
+  const seconds = Number(raw);
+  return Number.isFinite(seconds) && seconds > 0 ? Math.ceil(seconds) : undefined;
 }
 
 import type {
@@ -203,7 +226,10 @@ class APIClient {
         this.token = null;
         notifySessionExpired(code);
       }
-      throw new ApiError(code, response.status, message);
+      // Only this path parses Retry-After: it is the one the OTP endpoints go
+      // through. The upload paths below never answer 429 with a header, and
+      // widening them would be change without a caller.
+      throw new ApiError(code, response.status, message, parseRetryAfter(response));
     }
 
     return response;
