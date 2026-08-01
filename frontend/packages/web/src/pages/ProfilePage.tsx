@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useTranslation, Trans } from 'react-i18next';
 import { useUpdateMe, useUploadProfilePhoto, useMyBadges, useVerificationStatus, useSendEmailOTP, useConfirmEmailOTP, usePublicProfile } from '@shared/hooks';
 import { getErrorMessage } from '@shared/utils/apiErrors';
+import { ApiError } from '@shared/api/client';
 import { useAuth } from '../context/AuthContext';
 import type { Badge } from '@shared/types';
 import { BADGE_META } from '@shared/types';
@@ -50,12 +51,24 @@ export function ProfilePage() {
   }, [resendCountdown]);
 
   const handleSendOTP = async () => {
+    setVerifyError('');
     try {
       await sendEmailOTP.mutateAsync();
       setOtpSent(true);
       setResendCountdown(60);
     } catch (err) {
       setVerifyError(getErrorMessage(err, t));
+      // El cooldown es el único límite cuya espera se mide en segundos, así que
+      // es el único que alimenta el contador. El tope diario se cuenta en horas
+      // y su mensaje ya dice "mañana"; la reserva del canal no trae número
+      // porque depende del tráfico de terceros.
+      //
+      // Se pasa al paso de confirmación: un cooldown significa que ya se emitió
+      // un código y probablemente esté en la casilla del usuario.
+      if (err instanceof ApiError && err.code === 'otp_cooldown' && err.retryAfter) {
+        setOtpSent(true);
+        setResendCountdown(err.retryAfter);
+      }
     }
   };
 
@@ -338,10 +351,14 @@ export function ProfilePage() {
                     <button
                       type="button"
                       onClick={handleSendOTP}
-                      disabled={sendEmailOTP.isPending}
+                      disabled={sendEmailOTP.isPending || resendCountdown > 0}
                       className="bg-primary hover:bg-primary-dark disabled:opacity-60 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
                     >
-                      {sendEmailOTP.isPending ? t('profile:sending') : t('profile:sendCode')}
+                      {sendEmailOTP.isPending
+                        ? t('profile:sending')
+                        : resendCountdown > 0
+                          ? t('profile:resendIn', { seconds: resendCountdown })
+                          : t('profile:sendCode')}
                     </button>
                   </div>
                 ) : (
@@ -376,7 +393,7 @@ export function ProfilePage() {
                       <button
                         type="button"
                         onClick={handleSendOTP}
-                        disabled={sendEmailOTP.isPending}
+                        disabled={sendEmailOTP.isPending || resendCountdown > 0}
                         className="w-full text-xs text-primary font-medium text-center disabled:opacity-60"
                       >
                         {t('profile:resendCode')}
