@@ -41,7 +41,7 @@ func (h *VerificationHandler) SendEmail(c *gin.Context) {
 
 	callerID := getUserUUID(c)
 
-	err := h.verificationService.SendOTP(c.Request.Context(), callerID, "email", "")
+	err := h.verificationService.SendOTP(c.Request.Context(), callerID, "email")
 	if err != nil {
 		h.handleSendError(c, err)
 		return
@@ -50,30 +50,6 @@ func (h *VerificationHandler) SendEmail(c *gin.Context) {
 	c.JSON(http.StatusAccepted, gin.H{"message": "código enviado"})
 }
 
-// SendSMS godoc
-// POST /api/verification/send-sms
-func (h *VerificationHandler) SendSMS(c *gin.Context) {
-	if !h.featureEnabled {
-		h.notImplemented(c)
-		return
-	}
-
-	callerID := getUserUUID(c)
-
-	var req dto.SendSMSRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		writeError(c, http.StatusBadRequest, err)
-		return
-	}
-
-	err := h.verificationService.SendOTP(c.Request.Context(), callerID, "sms", req.Phone)
-	if err != nil {
-		h.handleSendError(c, err)
-		return
-	}
-
-	c.JSON(http.StatusAccepted, gin.H{"message": "código SMS enviado"})
-}
 
 // ConfirmEmail godoc
 // POST /api/verification/confirm-email
@@ -91,7 +67,7 @@ func (h *VerificationHandler) ConfirmEmail(c *gin.Context) {
 		return
 	}
 
-	err := h.verificationService.ConfirmOTP(c.Request.Context(), callerID, "email", req.Code, "")
+	err := h.verificationService.ConfirmOTP(c.Request.Context(), callerID, "email", req.Code)
 	if err != nil {
 		h.handleConfirmError(c, err)
 		return
@@ -100,35 +76,6 @@ func (h *VerificationHandler) ConfirmEmail(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "email verificado"})
 }
 
-// ConfirmSMS godoc
-// POST /api/verification/confirm-sms
-func (h *VerificationHandler) ConfirmSMS(c *gin.Context) {
-	if !h.featureEnabled {
-		h.notImplemented(c)
-		return
-	}
-
-	callerID := getUserUUID(c)
-
-	var req dto.ConfirmOTPRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		writeError(c, http.StatusBadRequest, err)
-		return
-	}
-
-	if req.Phone == "" {
-		writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
-		return
-	}
-
-	err := h.verificationService.ConfirmOTP(c.Request.Context(), callerID, "sms", req.Code, req.Phone)
-	if err != nil {
-		h.handleConfirmError(c, err)
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"message": "teléfono verificado"})
-}
 
 // GetStatus godoc
 // GET /api/verification/status

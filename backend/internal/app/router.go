@@ -22,7 +22,6 @@ import (
 	"lost-pets/pkg/mailer"
 	"lost-pets/pkg/notification"
 	"lost-pets/pkg/ratelimit"
-	"lost-pets/pkg/sms"
 	"lost-pets/pkg/storage"
 )
 
@@ -193,8 +192,7 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 			bm.SetEndpoint(cfg.BrevoEndpoint)
 		}
 	}
-	smsSenderClient := sms.NewTwilioSender(cfg.TwilioAccountSID, cfg.TwilioAuthToken, cfg.TwilioFromNumber)
-	verificationService := service.NewVerificationService(verificationTokenRepo, userRepo, mailerClient, smsSenderClient, bus)
+	verificationService := service.NewVerificationService(verificationTokenRepo, userRepo, mailerClient, bus)
 
 	notificationService := service.NewNotificationService(fcmClient, deviceTokenRepo)
 	notificationService.RegisterListeners(bus)
@@ -469,9 +467,7 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 		protected.DELETE("/users/:id/reviews", reviewHandler.DeleteReview)
 
 		protected.POST("/verification/send-email", middleware.RateLimit(rateLimitStore, 5, 1*time.Minute), verificationHandler.SendEmail)
-		protected.POST("/verification/send-sms", verificationHandler.SendSMS)
 		protected.POST("/verification/confirm-email", verificationHandler.ConfirmEmail)
-		protected.POST("/verification/confirm-sms", verificationHandler.ConfirmSMS)
 		protected.GET("/verification/status", verificationHandler.GetStatus)
 
 		protected.POST("/ws/ticket", wsHandler.IssueTicket)

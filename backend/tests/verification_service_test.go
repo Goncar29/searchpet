@@ -17,7 +17,6 @@ import (
 	"lost-pets/internal/dto"
 	"lost-pets/internal/service"
 	"lost-pets/pkg/mailer"
-	"lost-pets/pkg/sms"
 )
 
 // ============================================================
@@ -155,10 +154,14 @@ func TestConfirmOTP_SetsIsVerifiedAndMethod(t *testing.T) {
 			wantVerificationMethod: "email",
 		},
 		{
-			name:                   "SCENARIO-1B: phone OTP when email already verified sets method=both",
-			channel:                "sms",
-			initialEmailVerified:   true,
-			initialPhoneVerified:   false,
+			// La verificacion por SMS se quito el 2026-07-31, pero PhoneVerified
+			// sigue existiendo y el invariante lo sigue leyendo. Este caso prueba
+			// que un usuario que verifico su telefono ANTES no se desverifica al
+			// confirmar su email: sale con method=both, no con method=email.
+			name:                   "telefono verificado de antes + email confirmado ahora = both",
+			channel:                "email",
+			initialEmailVerified:   false,
+			initialPhoneVerified:   true,
 			wantEmailVerified:      true,
 			wantPhoneVerified:      true,
 			wantIsVerified:         true,
@@ -181,15 +184,9 @@ func TestConfirmOTP_SetsIsVerifiedAndMethod(t *testing.T) {
 				activeToken: makeToken(tc.channel, validCode, userID),
 			}
 
-			svc := service.NewVerificationService(tokenRepo, userRepo, nil, nil, nil)
+			svc := service.NewVerificationService(tokenRepo, userRepo, nil, nil)
 
-			// For SMS tests, set TargetPhone on the token to match the call.
-			phone := ""
-			if tc.channel == "sms" {
-				phone = "+59812345678"
-				tokenRepo.activeToken.TargetPhone = phone
-			}
-			err := svc.ConfirmOTP(ctx, userID, tc.channel, validCode, phone)
+			err := svc.ConfirmOTP(ctx, userID, tc.channel, validCode)
 			if err != nil {
 				t.Fatalf("expected no error, got %v", err)
 			}
@@ -226,9 +223,9 @@ func TestConfirmOTP_InvalidCode_ReturnsError(t *testing.T) {
 		activeToken: makeToken("email", "correct", userID),
 	}
 
-	svc := service.NewVerificationService(tokenRepo, userRepo, nil, nil, nil)
+	svc := service.NewVerificationService(tokenRepo, userRepo, nil, nil)
 
-	err := svc.ConfirmOTP(ctx, userID, "email", "wrong_code", "")
+	err := svc.ConfirmOTP(ctx, userID, "email", "wrong_code")
 	if err == nil {
 		t.Fatal("expected ErrOTPInvalid, got nil")
 	}
@@ -244,111 +241,8 @@ func TestConfirmOTP_InvalidCode_ReturnsError(t *testing.T) {
 // T07: Phone atomicity — new test cases
 // ============================================================
 
-// Phone mismatch on ConfirmOTP (sms) returns error and does not update user.
-func TestConfirmOTP_SMS_PhoneMismatch_ReturnsError(t *testing.T) {
-	ctx := context.Background()
-	userID := uuid.New()
-	const validCode = "123456"
 
-	user := &domain.User{
-		ID:            userID,
-		Email:         "test@example.com",
-		PhoneVerified: false,
-	}
-	userRepo := &mockUserRepo{user: user}
-	token := makeToken("sms", validCode, userID)
-	token.TargetPhone = "+59812345678"
-	tokenRepo := &mockTokenRepo{activeToken: token}
 
-	svc := service.NewVerificationService(tokenRepo, userRepo, nil, nil, nil)
-
-	// Pass a different phone than TargetPhone — should fail.
-	err := svc.ConfirmOTP(ctx, userID, "sms", validCode, "+59899999999")
-	if err == nil {
-		t.Fatal("expected phone mismatch error, got nil")
-	}
-	if !errors.Is(err, domain.ErrPhoneMismatch) {
-		t.Errorf("want domain.ErrPhoneMismatch, got %v", err)
-	}
-	if user.PhoneVerified {
-		t.Error("PhoneVerified should remain false on phone mismatch")
-	}
-	if user.Phone != "" {
-		t.Errorf("Phone should not be updated on mismatch, got %q", user.Phone)
-	}
-}
-
-// Happy path: SMS confirm stores Phone and PhoneVerified atomically.
-func TestConfirmOTP_SMS_HappyPath_StoresPhoneAndVerified(t *testing.T) {
-	ctx := context.Background()
-	userID := uuid.New()
-	const validCode = "123456"
-	const targetPhone = "+59812345678"
-
-	user := &domain.User{
-		ID:            userID,
-		Email:         "test@example.com",
-		Phone:         "",
-		PhoneVerified: false,
-	}
-	userRepo := &mockUserRepo{user: user}
-	token := makeToken("sms", validCode, userID)
-	token.TargetPhone = targetPhone
-	tokenRepo := &mockTokenRepo{activeToken: token}
-
-	svc := service.NewVerificationService(tokenRepo, userRepo, nil, nil, nil)
-
-	err := svc.ConfirmOTP(ctx, userID, "sms", validCode, targetPhone)
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	}
-	if !user.PhoneVerified {
-		t.Error("PhoneVerified should be true after successful SMS confirm")
-	}
-	if user.Phone != targetPhone {
-		t.Errorf("Phone: want %q, got %q", targetPhone, user.Phone)
-	}
-	if !user.IsVerified {
-		t.Error("IsVerified should be true after phone verification")
-	}
-}
-
-// SendOTP for SMS stores TargetPhone in token.
-func TestSendOTP_SMS_StoresTargetPhone(t *testing.T) {
-	ctx := context.Background()
-	userID := uuid.New()
-	const phone = "+59812345678"
-
-	user := &domain.User{
-		ID:    userID,
-		Email: "test@example.com",
-		Phone: phone,
-	}
-	userRepo := &mockUserRepo{user: user}
-
-	var createdToken *domain.VerificationToken
-	tokenRepo := &mockTokenRepo{}
-	// Override Create to capture the token.
-	captureRepo := &captureTokenRepo{
-		mockTokenRepo: tokenRepo,
-		onCreate: func(t *domain.VerificationToken) {
-			createdToken = t
-		},
-	}
-
-	svc := service.NewVerificationService(captureRepo, userRepo, &noopMailer{}, &noopSMS{}, nil)
-
-	err := svc.SendOTP(ctx, userID, "sms", phone)
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	}
-	if createdToken == nil {
-		t.Fatal("expected token to be created")
-	}
-	if createdToken.TargetPhone != phone {
-		t.Errorf("TargetPhone: want %q, got %q", phone, createdToken.TargetPhone)
-	}
-}
 
 // captureTokenRepo wraps mockTokenRepo and intercepts Create.
 type captureTokenRepo struct {
@@ -389,13 +283,13 @@ func TestSendOTP_MailerFails_InvalidatesTokenAndLogsCause(t *testing.T) {
 	userRepo := &mockUserRepo{user: &domain.User{ID: userID, Email: "test@example.com"}}
 	tokenRepo := &mockTokenRepo{}
 
-	svc := service.NewVerificationService(tokenRepo, userRepo, &failingMailer{}, &noopSMS{}, nil)
+	svc := service.NewVerificationService(tokenRepo, userRepo, &failingMailer{}, nil)
 
 	var logBuf bytes.Buffer
 	log.SetOutput(&logBuf)
 	defer log.SetOutput(os.Stderr)
 
-	err := svc.SendOTP(ctx, userID, "email", "")
+	err := svc.SendOTP(ctx, userID, "email")
 
 	var extErr *service.ErrExternalService
 	if !errors.As(err, &extErr) {
@@ -432,13 +326,6 @@ func (n *noopMailer) SendPasswordReset(ctx context.Context, to, code string) err
 // Compile-time interface check.
 var _ mailer.Mailer = (*noopMailer)(nil)
 
-// noopSMS implements sms.SMSSender with no side-effects.
-type noopSMS struct{}
-
-func (n *noopSMS) SendOTP(ctx context.Context, to, code string) error { return nil }
-
-// Compile-time interface check.
-var _ sms.SMSSender = (*noopSMS)(nil)
 
 // ============================================================
 // T-13: GetStatus returns correct DTO from user fields
@@ -501,7 +388,7 @@ func TestGetStatus_ReturnsCorrectDTO(t *testing.T) {
 			userRepo := &mockUserRepo{user: tc.user}
 			tokenRepo := &mockTokenRepo{}
 
-			svc := service.NewVerificationService(tokenRepo, userRepo, nil, nil, nil)
+			svc := service.NewVerificationService(tokenRepo, userRepo, nil, nil)
 
 			result, err := svc.GetStatus(ctx, tc.user.ID)
 			if err != nil {
