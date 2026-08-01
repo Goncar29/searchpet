@@ -293,9 +293,15 @@ func (c *captureTokenRepo) DeleteExpired(ctx context.Context) (int64, error) {
 	return c.mockTokenRepo.DeleteExpired(ctx)
 }
 
-// SendOTP with a failing mailer returns ErrExternalService, invalidates the
-// pending token (so the 60s cooldown does not block an immediate retry after
-// a provider failure), and logs the upstream cause for diagnosis.
+// SendOTP with a failing mailer returns ErrExternalService, retires the pending
+// token (so the 60s cooldown does not block an immediate retry after a provider
+// failure), and logs the upstream cause for diagnosis.
+//
+// El mecanismo cambio al llegar el cupo diario: antes se marcaba usado, ahora se
+// BORRA. La intencion es la misma, pero CountSince ignora `used`, asi que marcarlo
+// dejaba la fila gastando cupo por un codigo que nunca salio — ver
+// TestSendOTP_FalloDeEnvioNoQuemaCupo. Mismo defecto que ya se cerro en la
+// recuperacion de contrasena (8155d1c).
 func TestSendOTP_MailerFails_InvalidatesTokenAndLogsCause(t *testing.T) {
 	ctx := context.Background()
 	userID := uuid.New()
@@ -315,8 +321,8 @@ func TestSendOTP_MailerFails_InvalidatesTokenAndLogsCause(t *testing.T) {
 	if !errors.As(err, &extErr) {
 		t.Fatalf("expected ErrExternalService, got %v", err)
 	}
-	if !tokenRepo.markUsedCalled {
-		t.Error("expected failed-send token to be invalidated (MarkUsed) so retry is not cooldown-blocked")
+	if tokenRepo.deleteByIDCalls != 1 {
+		t.Errorf("DeleteByID llamado %d veces, want 1 — el token fallido tiene que salir de la tabla para que ni el cooldown ni el cupo lo cuenten", tokenRepo.deleteByIDCalls)
 	}
 	if !strings.Contains(logBuf.String(), "brevo returned status 401") {
 		t.Errorf("expected upstream cause in logs, got: %q", logBuf.String())
@@ -424,5 +430,114 @@ func TestGetStatus_ReturnsCorrectDTO(t *testing.T) {
 				t.Errorf("IsVerified: want %v, got %v", tc.wantDTO.IsVerified, result.IsVerified)
 			}
 		})
+	}
+}
+
+// ============================================================
+// Cupo diario del canal email (parte B)
+// ============================================================
+
+// El cooldown de 60s acota la FRECUENCIA; esto acota el VOLUMEN. Sin tope,
+// esperar el minuto igual permite 1440 mails por dia contra una sola cuenta.
+func TestSendOTP_TopePorCuenta(t *testing.T) {
+	ctx := context.Background()
+	userID := uuid.New()
+	oldest := time.Now().Add(-20 * time.Hour)
+
+	tests := []struct {
+		name        string
+		countByUser int64
+		wantBlocked bool
+	}{
+		{name: "quinto pedido pasa", countByUser: 4, wantBlocked: false},
+		{name: "sexto pedido se bloquea", countByUser: 5, wantBlocked: true},
+		{name: "muy por encima tambien se bloquea", countByUser: 40, wantBlocked: true},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			userRepo := &mockUserRepo{user: &domain.User{ID: userID, Email: "a@b.com"}}
+			tokenRepo := &mockTokenRepo{countByUser: tc.countByUser, oldestCreated: &oldest}
+			svc := service.NewVerificationService(tokenRepo, userRepo, &noopMailer{}, nil)
+
+			err := svc.SendOTP(ctx, userID, "email")
+
+			var limitErr *service.ErrOTPDailyLimit
+			if tc.wantBlocked {
+				if !errors.As(err, &limitErr) {
+					t.Fatalf("con %d codigos en la ventana want ErrOTPDailyLimit, got %v", tc.countByUser, err)
+				}
+				// El 429 promete un numero real: cuanto falta para que el mas viejo
+				// salga de la ventana. Cero seria invitar a reintentar ya mismo.
+				if limitErr.RetryAfter <= 0 {
+					t.Fatalf("RetryAfter = %d, want > 0", limitErr.RetryAfter)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("con %d codigos want nil, got %v", tc.countByUser, err)
+			}
+		})
+	}
+}
+
+// La reserva del canal protege la cuota de Brevo que este flujo COMPARTE con la
+// recuperacion. El tope por cuenta solo no alcanza: el registro es abierto, asi
+// que con suficientes cuentas se agota igual.
+func TestSendOTP_ReservaDelCanal(t *testing.T) {
+	ctx := context.Background()
+	userID := uuid.New()
+	userRepo := &mockUserRepo{user: &domain.User{ID: userID, Email: "a@b.com"}}
+	// La cuenta esta MUY por debajo de su tope: lo que bloquea es el canal.
+	tokenRepo := &mockTokenRepo{countByUser: 0, countGlobal: 250}
+	svc := service.NewVerificationService(tokenRepo, userRepo, &noopMailer{}, nil)
+
+	err := svc.SendOTP(ctx, userID, "email")
+
+	if !errors.Is(err, domain.ErrOTPChannelUnavailable) {
+		t.Fatalf("con la reserva agotada want ErrOTPChannelUnavailable, got %v", err)
+	}
+	// No es ErrOTPDailyLimit: este usuario no agoto nada, y decirle que si lo
+	// mandaria a esperar 24h cuando el cupo se libera con el trafico de terceros.
+	var limitErr *service.ErrOTPDailyLimit
+	if errors.As(err, &limitErr) {
+		t.Fatal("la reserva del canal no debe emitir ErrOTPDailyLimit")
+	}
+}
+
+// Falla CERRADO: sin numero no hay tope, y dejar pasar ante un error del conteo
+// convierte cualquier hipo de la base en via libre.
+func TestSendOTP_ConteoFallidoFallaCerrado(t *testing.T) {
+	ctx := context.Background()
+	userID := uuid.New()
+
+	userRepo := &mockUserRepo{user: &domain.User{ID: userID, Email: "a@b.com"}}
+	tokenRepo := &mockTokenRepo{countErr: errors.New("boom")}
+	svc := service.NewVerificationService(tokenRepo, userRepo, &noopMailer{}, nil)
+
+	if err := svc.SendOTP(ctx, userID, "email"); err == nil {
+		t.Fatal("un error del conteo tiene que abortar el envio, no dejarlo pasar")
+	}
+}
+
+// Un envio fallido no entrego nada, asi que su fila no puede gastar cupo. Tres
+// 401 de Brevo —la regla #24— dejarian al usuario sin poder verificar 24h sin
+// haber recibido un solo mail.
+func TestSendOTP_FalloDeEnvioNoQuemaCupo(t *testing.T) {
+	ctx := context.Background()
+	userID := uuid.New()
+	userRepo := &mockUserRepo{user: &domain.User{ID: userID, Email: "a@b.com"}}
+	tokenRepo := &mockTokenRepo{}
+	svc := service.NewVerificationService(tokenRepo, userRepo, &failingMailer{}, nil)
+
+	if err := svc.SendOTP(ctx, userID, "email"); err == nil {
+		t.Fatal("want error del proveedor, got nil")
+	}
+
+	if tokenRepo.deleteByIDCalls != 1 {
+		t.Fatalf("DeleteByID llamado %d veces, want 1 — la fila tiene que BORRARSE", tokenRepo.deleteByIDCalls)
+	}
+	if tokenRepo.markUsedCalled {
+		t.Fatal("MarkUsed no sirve aca: CountSince ignora `used`, asi que la fila seguiria gastando cupo")
 	}
 }

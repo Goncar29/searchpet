@@ -20,6 +20,28 @@ const (
 	otpTTL         = 10 * time.Minute
 	otpRateLimit   = 60 * time.Second
 	otpMaxAttempts = 5
+
+	// ChannelEmail es el canal de verificación de email dentro de la tabla
+	// compartida verification_tokens.
+	ChannelEmail = "email"
+
+	// emailVerificationDailyMax es el tope de códigos por CUENTA en QuotaWindow.
+	//
+	// Cinco y no los tres de la recuperación porque esto es onboarding: el usuario
+	// está esperando del otro lado y la fricción acá cuesta un alta.
+	emailVerificationDailyMax = 5
+
+	// emailVerificationGlobalDailyMax es la reserva del CANAL en QuotaWindow.
+	//
+	// 250 + los 50 de password_reset = los 300 diarios del plan de Brevo. Los dos
+	// presupuestos son DISJUNTOS: ningún canal puede matar de hambre al otro, y
+	// juntos no pueden exceder lo que el proveedor acepta. Hasta acá, la
+	// justificación del cupo de reset —"deja 250 para la verificación"— no la
+	// hacía cumplir absolutamente nadie.
+	//
+	// El tope no crea una caída: hace visible una inevitable. Hoy, a los 300,
+	// Brevo simplemente empieza a rechazar y el fallo es casi mudo.
+	emailVerificationGlobalDailyMax = 250
 )
 
 type verificationService struct {
@@ -73,6 +95,40 @@ func (s *verificationService) SendOTP(ctx context.Context, userID uuid.UUID, cha
 		}
 	}
 
+	// El cooldown de arriba acota la FRECUENCIA (uno por minuto); esto acota el
+	// VOLUMEN. Sin tope, esperar el minuto igual permite 1440 mails por día.
+	//
+	// A diferencia de /forgot, este endpoint está detrás de `protected`: no hay
+	// secreto de existencia de cuenta que defender, así que responde la verdad en
+	// vez de tragarse el fallo.
+	since := time.Now().Add(-QuotaWindow)
+
+	userCount, err := s.tokenRepo.CountSince(ctx, &userID, channel, since)
+	if err != nil {
+		// Falla CERRADO: sin número no hay tope, y abrir la puerta ante un error del
+		// conteo convierte cualquier hipo de la base en vía libre.
+		log.Printf("[verification] per-account quota count failed for user %s: %v", userID, err)
+		return err
+	}
+	if userCount >= emailVerificationDailyMax {
+		log.Printf("[verification] daily cap reached for user %s (%d/%d)", userID, userCount, emailVerificationDailyMax)
+		return &ErrOTPDailyLimit{RetryAfter: s.secondsUntilWindowFrees(ctx, &userID, channel, since)}
+	}
+
+	globalCount, err := s.tokenRepo.CountSince(ctx, nil, channel, since)
+	if err != nil {
+		log.Printf("[verification] global quota count failed: %v", err)
+		return err
+	}
+	if globalCount >= emailVerificationGlobalDailyMax {
+		// INCIDENTE, no rutina: a partir de acá ningún usuario nuevo puede verificar
+		// su email hasta que corra la ventana. Tiene que ser greppable — esta
+		// familia de features ya nos mordió dos veces por fallar en silencio.
+		log.Printf("[verification] ALERT: global daily reserve exhausted (%d/%d) — email verification is disabled until the window rolls",
+			globalCount, emailVerificationGlobalDailyMax)
+		return domain.ErrOTPChannelUnavailable
+	}
+
 	// Generar código de 6 dígitos con crypto/rand
 	// SECURITY: NUNCA loguear el código en texto plano
 	code, err := generateOTPCode()
@@ -108,10 +164,13 @@ func (s *verificationService) SendOTP(ctx context.Context, userID uuid.UUID, cha
 		// SECURITY: sendErr solo contiene el status del proveedor, nunca el código OTP.
 		log.Printf("[verification] %s send failed for user %s: %v", channel, userID, sendErr)
 
-		// Invalidar el token fallido: si queda activo, el cooldown de 60s
-		// bloquea el reintento aunque el usuario nunca recibió nada.
-		if muErr := s.tokenRepo.MarkUsed(ctx, token.ID); muErr != nil {
-			log.Printf("[verification] failed to invalidate token after send failure: %v", muErr)
+		// BORRAR, no marcar usado. Marcarlo libera el cooldown de 60s —que era la
+		// intención original— pero CountSince ignora `used`, así que la fila seguiría
+		// gastando cupo diario por un código que nunca salió: tres 401 de Brevo
+		// dejarían al usuario sin poder verificar durante 24h sin haber recibido
+		// nada. Mismo defecto que ya se cerró en la recuperación (8155d1c).
+		if delErr := s.tokenRepo.DeleteByID(ctx, token.ID); delErr != nil {
+			log.Printf("[verification] failed to delete token after send failure: %v", delErr)
 		}
 
 		// Falló el proveedor externo → envolver para que el handler retorne 502
@@ -210,6 +269,23 @@ func (s *verificationService) GetStatus(ctx context.Context, userID uuid.UUID) (
 		PhoneVerified: user.PhoneVerified,
 		IsVerified:    user.IsVerified,
 	}, nil
+}
+
+// secondsUntilWindowFrees calcula cuánto falta para que el código más viejo de la
+// ventana salga de ella, que es cuando la cuenta recupera un cupo.
+//
+// Ante cualquier problema devuelve la ventana entera: es un Retry-After
+// conservador, nunca uno optimista que invite a reintentar antes de tiempo.
+func (s *verificationService) secondsUntilWindowFrees(ctx context.Context, userID *uuid.UUID, channel string, since time.Time) int {
+	oldest, err := s.tokenRepo.OldestCreatedAtSince(ctx, userID, channel, since)
+	if err != nil || oldest == nil {
+		return int(QuotaWindow.Seconds())
+	}
+	remaining := time.Until(oldest.Add(QuotaWindow))
+	if remaining <= 0 {
+		return 1
+	}
+	return int(remaining.Seconds()) + 1
 }
 
 // generateOTPCode genera un código numérico de 6 dígitos usando crypto/rand.
