@@ -242,14 +242,38 @@ jobs:
   # Deploy Backend (Render) — requiere RENDER_DEPLOY_HOOK_URL en GitHub Secrets
   # Obtenerlo en: Render Dashboard → tu servicio → Settings → Deploy Hook
   # ============================================
+  # Este job es la UNICA via por la que el backend debe llegar a produccion.
+  # El servicio de Render tiene que quedar con Auto-Deploy en OFF: si ademas
+  # deploya solo por commit, cada merge a main buildea DOS veces (verificado en
+  # ca21ad8: dos deploys, el segundo pisa al primero) y —peor— ese deploy por
+  # commit no espera a los tests, asi que produccion corre codigo sin CI verde.
   deploy-backend:
     name: Deploy Backend
     runs-on: ubuntu-latest
-    needs: [backend-test]
+    # Los cuatro, no solo backend-test: un e2e o un build de web en rojo tienen
+    # que frenar el deploy igual que un test de Go. Con `needs: [backend-test]`
+    # se deployaba con el resto de la suite todavia corriendo, o directamente roja.
+    needs: [backend-test, frontend-web, mobile-test, e2e-web]
     if: github.ref == 'refs/heads/main'
     steps:
       - name: Trigger Render deploy
-        run: curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
+        env:
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: |
+          # Sin esto, un secret vacio o mal cargado hace que curl le pegue a la
+          # cadena vacia y el job igual pase en verde: te quedas creyendo que
+          # deployaste durante semanas.
+          if [ -z "$RENDER_DEPLOY_HOOK_URL" ]; then
+            echo "::error::RENDER_DEPLOY_HOOK_URL no esta configurado — no se disparo ningun deploy"
+            exit 1
+          fi
+          # --fail para que un 4xx/5xx del hook rompa el job. Sin el, curl sale 0
+          # ante cualquier respuesta HTTP y este job reportaba 'success' aunque
+          # Render no se hubiera enterado de nada.
+          curl --fail --silent --show-error --location -X POST "$RENDER_DEPLOY_HOOK_URL"
+          echo ""
+          echo "Deploy disparado. OJO: esto solo confirma que el hook acepto el request."
+          echo "Que el build de Render termine bien se verifica en Render, no aca."
 
   # ============================================
   # Deploy Web (Vercel) — auto-deploy via GitHub integration
