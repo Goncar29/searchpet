@@ -273,8 +273,12 @@ func TestRequestReset_MailFailure_StillReturnsNilAndFreesTheCooldown(t *testing.
 	if err := newResetSvc(users, tokens, m).RequestReset(context.Background(), "user@example.com"); err != nil {
 		t.Fatalf("mail failure must not reach the caller, got %v", err)
 	}
-	if len(tokens.markedUsed) != 1 {
-		t.Fatal("a failed send must invalidate the token so the 60s cooldown does not block the retry")
+	// El mecanismo cambio: antes se marcaba usado, ahora se BORRA. La intencion es
+	// la misma —que el cooldown de 60s no bloquee el reintento de algo que nunca
+	// llego— pero marcarlo dejaba la fila contando para el cupo diario, porque
+	// CountSince ignora `used`. Ver TestRequestReset_FailedSendDoesNotBurnTheDailyQuota.
+	if len(tokens.deletedIDs) != 1 {
+		t.Fatal("un envio fallido tiene que sacar el token para que el cooldown de 60s no bloquee el reintento")
 	}
 }
 
