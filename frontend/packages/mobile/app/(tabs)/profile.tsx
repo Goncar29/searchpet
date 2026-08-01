@@ -11,6 +11,7 @@ import i18next from 'i18next';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore, useLanguageStore } from '../../store';
 import { getErrorMessage } from '@shared/utils/apiErrors';
+import { ApiError } from '../../../shared/api/client';
 import { useMyPets, usePublicProfile, useUploadProfilePhotoNative, useVerificationStatus, useSendEmailOTP, useConfirmEmailOTP } from '../../../shared/hooks';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
 import { LANG_KEY } from '../../i18n';
@@ -79,6 +80,17 @@ export default function ProfileScreen() {
       setSheetStep('confirm');
       setResendCountdown(60);
     } catch (err) {
+      // El cooldown es el único límite cuya espera se mide en segundos, así que
+      // es el único que alimenta el contador. El tope diario se cuenta en horas
+      // y su mensaje ya dice "mañana"; la reserva del canal no trae número
+      // porque depende del tráfico de terceros.
+      //
+      // Se pasa al paso de confirmación: un cooldown significa que ya se emitió
+      // un código y probablemente esté en la casilla del usuario.
+      if (err instanceof ApiError && err.code === 'otp_cooldown' && err.retryAfter) {
+        setSheetStep('confirm');
+        setResendCountdown(err.retryAfter);
+      }
       Alert.alert(i18next.t('common:error'), getErrorMessage(err, (key) => i18next.t(key)));
     }
   };
@@ -248,14 +260,16 @@ export default function ProfileScreen() {
 
           {sheetStep === 'send' ? (
             <TouchableOpacity
-              style={[styles.sheetPrimaryButton, sendEmailOTP.isPending && styles.buttonDisabled]}
+              style={[styles.sheetPrimaryButton, (sendEmailOTP.isPending || resendCountdown > 0) && styles.buttonDisabled]}
               onPress={handleSendOTP}
-              disabled={sendEmailOTP.isPending}
+              disabled={sendEmailOTP.isPending || resendCountdown > 0}
             >
               {sendEmailOTP.isPending ? (
                 <ActivityIndicator color={COLORS.white} />
               ) : (
-                <Text style={styles.sheetPrimaryButtonText}>{t('sendCode')}</Text>
+                <Text style={styles.sheetPrimaryButtonText}>
+                  {resendCountdown > 0 ? t('resendIn', { seconds: resendCountdown }) : t('sendCode')}
+                </Text>
               )}
             </TouchableOpacity>
           ) : (
@@ -284,7 +298,7 @@ export default function ProfileScreen() {
               {resendCountdown > 0 ? (
                 <Text style={styles.resendCountdown}>{t('resendIn', { seconds: resendCountdown })}</Text>
               ) : (
-                <TouchableOpacity onPress={handleSendOTP} disabled={sendEmailOTP.isPending}>
+                <TouchableOpacity onPress={handleSendOTP} disabled={sendEmailOTP.isPending || resendCountdown > 0}>
                   <Text style={styles.resendLink}>{t('resend')}</Text>
                 </TouchableOpacity>
               )}
