@@ -25,22 +25,29 @@ type VerificationService interface {
 	GetStatus(ctx context.Context, userID uuid.UUID) (*dto.VerificationStatusResponse, error)
 }
 
-// ErrRateLimitOTP es retornado cuando se intenta enviar un OTP dentro del período de rate limit.
+// ErrRateLimitOTP es retornado cuando se pide un OTP dentro del cooldown de 60s.
 // RetryAfter indica los segundos que el cliente debe esperar.
+//
+// Unwrap devuelve el sentinel para que writeError → domain.CodeFor resuelva
+// `otp_cooldown`. Sin eso el handler emitiría `internal_error` y el frontend
+// mostraría un mensaje genérico (regla #11).
 type ErrRateLimitOTP struct {
 	RetryAfter int
 }
 
-func (e *ErrRateLimitOTP) Error() string {
-	return "rate limit: espera antes de solicitar otro código"
+func (e *ErrRateLimitOTP) Error() string { return domain.ErrOTPCooldown.Error() }
+
+func (e *ErrRateLimitOTP) Unwrap() error { return domain.ErrOTPCooldown }
+
+// ErrOTPDailyLimit es retornado cuando la CUENTA agotó sus códigos de la ventana.
+// RetryAfter son los segundos hasta que el más viejo salga de ella.
+type ErrOTPDailyLimit struct {
+	RetryAfter int
 }
 
-// ErrNoPhoneOnFile es retornado cuando se solicita SMS pero el usuario no tiene teléfono.
-type ErrNoPhoneOnFile struct{}
+func (e *ErrOTPDailyLimit) Error() string { return domain.ErrOTPDailyLimit.Error() }
 
-func (e *ErrNoPhoneOnFile) Error() string {
-	return "no_phone_on_file"
-}
+func (e *ErrOTPDailyLimit) Unwrap() error { return domain.ErrOTPDailyLimit }
 
 // ErrExternalService es retornado cuando un proveedor externo (Brevo, Twilio) falla.
 // El handler lo mapea a 502 Bad Gateway.

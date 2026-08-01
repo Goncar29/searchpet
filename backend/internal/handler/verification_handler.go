@@ -94,22 +94,31 @@ func (h *VerificationHandler) GetStatus(c *gin.Context) {
 	c.JSON(http.StatusOK, status)
 }
 
-// handleSendError centraliza el mapeo de errores para los endpoints de envío.
+// handleSendError centraliza el mapeo de errores para el endpoint de envío.
+//
+// Los tres 429 son deliberadamente distintos: "esperá un minuto", "terminaste por
+// hoy" y "la plataforma se quedó sin presupuesto" son situaciones distintas para
+// el usuario y señales distintas para nosotros. Colapsarlos sería el mismo error
+// que el mensaje genérico que este handler devolvía.
 func (h *VerificationHandler) handleSendError(c *gin.Context, err error) {
 	var rateLimitErr *service.ErrRateLimitOTP
 	if errors.As(err, &rateLimitErr) {
-		// 429 con Retry-After header (requerimiento de la spec)
 		c.Header("Retry-After", strconv.Itoa(rateLimitErr.RetryAfter))
-		c.JSON(http.StatusTooManyRequests, gin.H{
-			"error":       "rate limit excedido",
-			"retry_after": rateLimitErr.RetryAfter,
-		})
+		writeError(c, http.StatusTooManyRequests, rateLimitErr)
 		return
 	}
 
-	var noPhoneErr *service.ErrNoPhoneOnFile
-	if errors.As(err, &noPhoneErr) {
-		writeError(c, http.StatusUnprocessableEntity, noPhoneErr)
+	var dailyLimitErr *service.ErrOTPDailyLimit
+	if errors.As(err, &dailyLimitErr) {
+		c.Header("Retry-After", strconv.Itoa(dailyLimitErr.RetryAfter))
+		writeError(c, http.StatusTooManyRequests, dailyLimitErr)
+		return
+	}
+
+	if errors.Is(err, domain.ErrOTPChannelUnavailable) {
+		// Sin Retry-After a propósito: cuándo se libera depende de otros usuarios,
+		// así que cualquier número sería una adivinanza.
+		writeError(c, http.StatusTooManyRequests, err)
 		return
 	}
 
