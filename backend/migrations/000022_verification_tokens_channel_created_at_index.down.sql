@@ -1,0 +1,1 @@
+DROP INDEX IF EXISTS idx_verification_tokens_channel_created_at;

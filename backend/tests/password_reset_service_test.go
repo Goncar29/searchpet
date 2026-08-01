@@ -57,6 +57,9 @@ type resetTokenRepo struct {
 	// counter would let the ordering regress without a single test going red.
 	retiredAllExcept int
 	retiredExceptID  uuid.UUID
+	// deletedIDs registra los tokens borrados: el fallo de envio los borra en vez
+	// de marcarlos usados, para no gastar cupo diario con un codigo que no salio.
+	deletedIDs []uuid.UUID
 	// createErr, findErr and markAllUsedErr simulate an infrastructure fault
 	// reachable ONLY for an account that exists — the shape that would otherwise
 	// leak account existence.
@@ -64,6 +67,11 @@ type resetTokenRepo struct {
 	findErr              error
 	markAllUsedErr       error
 	markAllUsedExceptErr error
+	// countByUser y countGlobal manejan los dos topes diarios. Cero significa
+	// "por debajo del cap", que es lo que quiere casi todo test existente.
+	countByUser int64
+	countGlobal int64
+	countErr    error
 }
 
 func (r *resetTokenRepo) Create(_ context.Context, t *domain.VerificationToken) error {
@@ -115,7 +123,21 @@ func (r *resetTokenRepo) IncrementAttempts(context.Context, uuid.UUID) (int, err
 	r.attempts++
 	return r.attempts, nil
 }
+func (r *resetTokenRepo) DeleteByID(_ context.Context, id uuid.UUID) error {
+	r.deletedIDs = append(r.deletedIDs, id)
+	return nil
+}
 func (r *resetTokenRepo) DeleteExpired(context.Context) (int64, error) { return 0, nil }
+
+func (r *resetTokenRepo) CountSince(_ context.Context, userID *uuid.UUID, _ string, _ time.Time) (int64, error) {
+	if r.countErr != nil {
+		return 0, r.countErr
+	}
+	if userID == nil {
+		return r.countGlobal, nil
+	}
+	return r.countByUser, nil
+}
 
 type recordingMailer struct {
 	sentTo   string
@@ -251,8 +273,12 @@ func TestRequestReset_MailFailure_StillReturnsNilAndFreesTheCooldown(t *testing.
 	if err := newResetSvc(users, tokens, m).RequestReset(context.Background(), "user@example.com"); err != nil {
 		t.Fatalf("mail failure must not reach the caller, got %v", err)
 	}
-	if len(tokens.markedUsed) != 1 {
-		t.Fatal("a failed send must invalidate the token so the 60s cooldown does not block the retry")
+	// El mecanismo cambio: antes se marcaba usado, ahora se BORRA. La intencion es
+	// la misma —que el cooldown de 60s no bloquee el reintento de algo que nunca
+	// llego— pero marcarlo dejaba la fila contando para el cupo diario, porque
+	// CountSince ignora `used`. Ver TestRequestReset_FailedSendDoesNotBurnTheDailyQuota.
+	if len(tokens.deletedIDs) != 1 {
+		t.Fatal("un envio fallido tiene que sacar el token para que el cooldown de 60s no bloquee el reintento")
 	}
 }
 
@@ -743,5 +769,104 @@ func TestRequestReset_CreateFailure_LeavesTheExistingCodeAlone(t *testing.T) {
 	}
 	if m.sentTo != "" {
 		t.Fatal("no code was minted, so nothing may be mailed")
+	}
+}
+
+func TestRequestReset_PerAccountDailyCap(t *testing.T) {
+	// El unico freno por cuenta que existia era el cooldown de 60s: 1440 mails
+	// por dia contra una sola direccion, sobre los 300/dia de Brevo que se
+	// COMPARTEN con la verificacion de email.
+	users := knownUser("user@example.com")
+	tokens := &resetTokenRepo{countByUser: 3} // ya en el tope
+	m := &recordingMailer{}
+
+	// Devuelve nil igual que todo lo demas: cualquier diferencia observable seria
+	// un oraculo de existencia de cuenta.
+	if err := newResetSvc(users, tokens, m).RequestReset(context.Background(), "user@example.com"); err != nil {
+		t.Fatalf("RequestReset() = %v, want nil", err)
+	}
+	if len(tokens.created) != 0 {
+		t.Fatalf("acuno %d tokens, want 0 — el cap no freno nada", len(tokens.created))
+	}
+	if m.sentTo != "" {
+		t.Fatal("no se acuno codigo, asi que no se puede mandar mail")
+	}
+}
+
+func TestRequestReset_UnderThePerAccountCapStillWorks(t *testing.T) {
+	users := knownUser("user@example.com")
+	tokens := &resetTokenRepo{countByUser: 2} // uno por debajo
+	m := &recordingMailer{}
+
+	if err := newResetSvc(users, tokens, m).RequestReset(context.Background(), "user@example.com"); err != nil {
+		t.Fatalf("RequestReset() = %v, want nil", err)
+	}
+	if len(tokens.created) != 1 {
+		t.Fatalf("acuno %d tokens, want 1 — el cap frena de mas", len(tokens.created))
+	}
+	if m.sentTo != "user@example.com" {
+		t.Fatalf("mailed %q, want user@example.com", m.sentTo)
+	}
+}
+
+func TestRequestReset_CountFailureFailsClosed(t *testing.T) {
+	// Un fallo del conteo no puede abrir la puerta: sin numero no hay tope.
+	users := knownUser("user@example.com")
+	tokens := &resetTokenRepo{countErr: errors.New("verification_tokens is unavailable")}
+	m := &recordingMailer{}
+
+	if err := newResetSvc(users, tokens, m).RequestReset(context.Background(), "user@example.com"); err != nil {
+		t.Fatalf("RequestReset() = %v, want nil", err)
+	}
+	if len(tokens.created) != 0 || m.sentTo != "" {
+		t.Fatal("si el conteo falla no se acuna ni se manda nada")
+	}
+}
+
+func TestRequestReset_GlobalDailyReserve(t *testing.T) {
+	// Un usuario POR DEBAJO de su cap igual queda frenado si el canal agoto la
+	// reserva. Esa es la unica capa que garantiza que la verificacion de email no
+	// se caiga para toda la plataforma por culpa de los resets.
+	users := knownUser("user@example.com")
+	tokens := &resetTokenRepo{countByUser: 0, countGlobal: 50}
+	m := &recordingMailer{}
+
+	if err := newResetSvc(users, tokens, m).RequestReset(context.Background(), "user@example.com"); err != nil {
+		t.Fatalf("RequestReset() = %v, want nil", err)
+	}
+	if len(tokens.created) != 0 {
+		t.Fatalf("acuno %d tokens, want 0 — la reserva global no freno nada", len(tokens.created))
+	}
+	if m.sentTo != "" {
+		t.Fatal("reserva agotada: no se puede mandar mail")
+	}
+}
+
+func TestRequestReset_FailedSendDoesNotBurnTheDailyQuota(t *testing.T) {
+	// Un envio fallido no entrego nada, asi que su fila no puede gastar cupo.
+	// Antes se marcaba usada: eso liberaba el cooldown pero CountSince ignora `used`
+	// a proposito, con lo cual seguia contando. Tres caidas seguidas del proveedor
+	// —el 401 de Brevo por Authorized IPs de la regla #24— dejaban al usuario sin
+	// recuperacion 24h sin haber recibido un solo mail, y /forgot igual le decia
+	// que le habia mandado un codigo.
+	users := knownUser("user@example.com")
+	tokens := &resetTokenRepo{}
+	m := &recordingMailer{err: errors.New("brevo returned status 401")}
+
+	if err := newResetSvc(users, tokens, m).RequestReset(context.Background(), "user@example.com"); err != nil {
+		t.Fatalf("RequestReset() = %v, want nil", err)
+	}
+	if len(tokens.created) != 1 {
+		t.Fatalf("acuno %d tokens, want 1", len(tokens.created))
+	}
+	if len(tokens.deletedIDs) != 1 {
+		t.Fatalf("borro %d tokens tras el fallo de envio, want 1 — la fila sigue gastando cupo", len(tokens.deletedIDs))
+	}
+	if tokens.deletedIDs[0] != tokens.created[0].ID {
+		t.Fatalf("borro %v, want el token recien acunado %v", tokens.deletedIDs[0], tokens.created[0].ID)
+	}
+	// MarkUsed ya no aplica: la fila deja de existir, no queda marcada.
+	if len(tokens.markedUsed) != 0 {
+		t.Fatal("un envio fallido borra la fila, no la marca usada — marcada seguiria contando para el cupo")
 	}
 }

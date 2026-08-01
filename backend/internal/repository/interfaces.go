@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 	"lost-pets/internal/domain"
@@ -181,9 +182,17 @@ type VerificationTokenRepository interface {
 	// válidos si el Create posterior falla, y le da a cualquiera que conozca la
 	// dirección una forma de anular el código que la víctima está tipeando.
 	MarkAllUsedByUserExcept(ctx context.Context, userID uuid.UUID, channel string, exceptID uuid.UUID) error
+	// CountSince cuenta tokens del canal creados desde `since`. Un userID nil
+	// cuenta TODO el canal, que es como se mide la reserva global diaria.
+	// NO filtra por used — ver el comentario de la implementación.
+	CountSince(ctx context.Context, userID *uuid.UUID, channel string, since time.Time) (int64, error)
 	// IncrementAttempts incrementa el contador de intentos de forma atómica y retorna el nuevo valor.
 	IncrementAttempts(ctx context.Context, id uuid.UUID) (int, error)
-	// DeleteExpired elimina tokens expirados y retorna la cantidad eliminada.
+	// DeleteByID borra un token puntual. Lo usa el fallo de envío: una fila cuyo
+	// código nunca se entregó no puede gastar cupo diario ni cooldown.
+	DeleteByID(ctx context.Context, id uuid.UUID) error
+	// DeleteExpired elimina tokens vencidos hace más de TokenRetention. Sin
+	// retención el borrado —que es DURO— vacía la ventana que cuenta el cupo diario.
 	DeleteExpired(ctx context.Context) (int64, error)
 }
 

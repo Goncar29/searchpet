@@ -46,15 +46,45 @@ type passwordResetService struct {
 //
 // runAsync sacó el round trip de mail de la respuesta, pero el trabajo de base no
 // desapareció: una dirección registrada cuesta GetByEmail + FindActiveByUser +
-// Create + el barrido —cuatro viajes a Neon, dos de ellos escrituras— contra UNA
-// sola lectura para una desconocida. Sobre un Postgres gestionado remoto esa
-// diferencia son decenas de ms contra unos pocos: la misma señal medible que
-// runAsync existía para tapar.
+// los DOS CountSince + Create + el barrido —SEIS viajes a Neon, dos de ellos
+// escrituras— contra UNA sola lectura para una desconocida. Sobre un Postgres
+// gestionado remoto esa diferencia son decenas de ms contra unos pocos: la misma
+// señal medible que runAsync existía para tapar.
+//
+// Subió de 300ms a 500ms cuando el cupo diario agregó los dos CountSince. Los
+// 300ms se habían calibrado para cuatro viajes; con seis, y con Neon pudiendo
+// responder frío, el caso registrado se acercaba demasiado al piso. Este valor
+// tiene que recalcularse cada vez que se agregue trabajo de base a este camino —
+// no es una constante de estilo, es el techo del canal de timing.
 //
 // Es una mitigación, no una prueba: si la base se pone lenta y el camino
-// registrado supera este piso, la diferencia vuelve a asomar. El valor tiene que
-// quedar cómodamente por encima del caso registrado típico.
-const minRequestResetDuration = 300 * time.Millisecond
+// registrado supera este piso, la diferencia vuelve a asomar. El costo de subirlo
+// es medio segundo en un endpoint que un usuario toca dos veces en su vida.
+const minRequestResetDuration = 500 * time.Millisecond
+
+// passwordResetDailyMax es el tope de codigos de recuperacion por CUENTA en
+// quotaWindow. Tres alcanza de sobra para el caso real —pedís, no te llega, mirás
+// el spam, pedís de nuevo— y deja el ataque acotado a 3 mails por víctima en vez
+// de 1440.
+const passwordResetDailyMax = 3
+
+// passwordResetGlobalDailyMax es la reserva del CANAL en quotaWindow. El cap por
+// cuenta solo no protege la cuota compartida: un atacante con ~17 direcciones
+// registradas la agotaría igual, y con ella se cae la verificación de email de
+// TODA la plataforma, no solo la recuperación. Cincuenta deja 250 de los 300
+// diarios de Brevo para la verificación, que es el consumidor primario porque
+// corre en cada alta.
+const passwordResetGlobalDailyMax = 50
+
+// QuotaWindow es la ventana móvil que usan los dos topes.
+//
+// DERIVA de repository.TokenRetention en vez de declarar su propio 24h, y no es
+// cosmético: contar historia sobre una tabla que tiene un reaper sólo funciona
+// mientras el reaper conserve al menos esta ventana. Con dos constantes separadas,
+// tocar una y olvidar la otra deja el tope existiendo sólo en apariencia — que es
+// exactamente lo que pasaba antes, con el sweeper barriendo apenas vencía cada
+// token y el tope diario valiendo en los hechos una hora.
+const QuotaWindow = repository.TokenRetention
 
 // padTo duerme lo que falte para que la llamada haya durado al menos
 // minRequestResetDuration, contando desde start.
@@ -152,6 +182,44 @@ func (s *passwordResetService) RequestReset(ctx context.Context, email string) e
 		return nil
 	}
 
+	// Tope diario por cuenta. Se traga igual que el cooldown: este camino solo se
+	// alcanza para una cuenta que existe, así que responder distinto la delataría.
+	//
+	// El cooldown de arriba acota la FRECUENCIA (uno por minuto); esto acota el
+	// VOLUMEN. Sin este tope, un minuto de espera entre pedidos igual permite 1440
+	// mails por día contra una sola dirección.
+	since := time.Now().Add(-QuotaWindow)
+	userCount, err := s.tokenRepo.CountSince(ctx, &user.ID, ChannelPasswordReset, since)
+	if err != nil {
+		// Falla cerrado: sin número no hay tope, y abrir la puerta ante un error del
+		// conteo convierte cualquier hipo de la base en vía libre.
+		log.Printf("[password_reset] per-account quota count failed for user %s: %v", user.ID, err)
+		return nil
+	}
+	if userCount >= passwordResetDailyMax {
+		log.Printf("[password_reset] daily cap reached for user %s (%d/%d)", user.ID, userCount, passwordResetDailyMax)
+		return nil
+	}
+
+	// Reserva global del canal. Protege la cuota diaria de Brevo que este flujo
+	// COMPARTE con la verificación de email: sin esto, un ataque de resets deja sin
+	// verificar el mail a todos los usuarios nuevos de la plataforma. El cap por
+	// cuenta solo no alcanza — con ~17 direcciones registradas se agotan los 300.
+	globalCount, err := s.tokenRepo.CountSince(ctx, nil, ChannelPasswordReset, since)
+	if err != nil {
+		log.Printf("[password_reset] global quota count failed: %v", err)
+		return nil
+	}
+	if globalCount >= passwordResetGlobalDailyMax {
+		// INCIDENTE, no rutina: es casi seguro un ataque, y a partir de acá la
+		// recuperación de contraseña queda caída para TODOS hasta que corra la
+		// ventana. Tiene que ser greppable — esta feature ya nos mordió dos veces
+		// por fallar en silencio.
+		log.Printf("[password_reset] ALERT: global daily reserve exhausted (%d/%d) — password recovery is disabled until the window rolls",
+			globalCount, passwordResetGlobalDailyMax)
+		return nil
+	}
+
 	// SECURITY: NUNCA loguear el código en texto plano.
 	code, err := generateOTPCode()
 	if err != nil {
@@ -211,10 +279,19 @@ func (s *passwordResetService) RequestReset(ctx context.Context, email string) e
 		if sendErr := s.mailer.SendPasswordReset(bg, to, code); sendErr != nil {
 			// SECURITY: sendErr carries the provider status, never the code.
 			log.Printf("[password_reset] send failed for user %s: %v", userID, sendErr)
-			// Free the cooldown: leaving the token active would block a retry for
-			// 60s even though the user never received anything.
-			if muErr := s.tokenRepo.MarkUsed(bg, tokenID); muErr != nil {
-				log.Printf("[password_reset] failed to invalidate token after send failure: %v", muErr)
+			// Se BORRA la fila, no se marca usada. Marcarla liberaba el cooldown pero
+			// la dejaba contando para el cupo diario, porque CountSince ignora `used`
+			// a propósito: tres caídas seguidas del proveedor —el 401 de Brevo por
+			// Authorized IPs de la regla #24, por ejemplo— dejaban al usuario sin
+			// recuperación por 24h sin haber recibido un solo mail, y encima /forgot
+			// seguía contestándole que le había enviado un código.
+			//
+			// Un envío fallido no entregó nada: la fila no representa un código en
+			// manos de nadie, así que no tiene por qué gastar cupo ni cooldown. Si el
+			// proveedor de hecho entregó y aun así devolvió error, el usuario pide
+			// otro sin esperar, que es exactamente lo que queremos que pueda hacer.
+			if delErr := s.tokenRepo.DeleteByID(bg, tokenID); delErr != nil {
+				log.Printf("[password_reset] failed to drop token after send failure: %v", delErr)
 			}
 		}
 	})

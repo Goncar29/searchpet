@@ -156,8 +156,11 @@ func TestVerificationTokenRepository_DeleteExpired(t *testing.T) {
 
 	user := newTestUser(t, userRepo)
 
-	// Create two expired + one valid token
-	for i, dur := range []time.Duration{-2 * time.Minute, -1 * time.Minute} {
+	// Vencidos hace MÁS de la retención: éstos sí se barren.
+	for i, dur := range []time.Duration{
+		-repository.TokenRetention - 2*time.Hour,
+		-repository.TokenRetention - 1*time.Hour,
+	} {
 		tok := &domain.VerificationToken{
 			ID:        uuid.New(),
 			UserID:    user.ID,
@@ -180,6 +183,19 @@ func TestVerificationTokenRepository_DeleteExpired(t *testing.T) {
 		t.Fatalf("Create valid token: %v", err)
 	}
 
+	// Vencido hace poco, DENTRO de la retención: tiene que sobrevivir. Es la fila
+	// que el cupo diario necesita seguir contando; barrerla era el defecto.
+	recentlyExpired := &domain.VerificationToken{
+		ID:        uuid.New(),
+		UserID:    user.ID,
+		Channel:   "password_reset",
+		CodeHash:  generateTestHash(50),
+		ExpiresAt: time.Now().Add(-1 * time.Minute),
+	}
+	if err := tokenRepo.Create(ctx, recentlyExpired); err != nil {
+		t.Fatalf("Create recently expired token: %v", err)
+	}
+
 	deleted, err := tokenRepo.DeleteExpired(ctx)
 	if err != nil {
 		t.Fatalf("DeleteExpired: %v", err)
@@ -196,9 +212,136 @@ func TestVerificationTokenRepository_DeleteExpired(t *testing.T) {
 	if got == nil {
 		t.Error("valid token should still exist after DeleteExpired")
 	}
+
+	// Y el recién vencido también, aunque ya no sea "activo": el cupo diario lo
+	// cuenta por created_at, no por vigencia.
+	var survivors int64
+	if err := gormDB.Model(&domain.VerificationToken{}).
+		Where("id = ?", recentlyExpired.ID).Count(&survivors).Error; err != nil {
+		t.Fatalf("count recently expired: %v", err)
+	}
+	if survivors != 1 {
+		t.Error("un token vencido hace un minuto NO puede barrerse: está dentro de la ventana que cuenta el cupo diario")
+	}
 }
 
 // generateTestHash returns a 64-char hex string safe as a CodeHash.
 func generateTestHash(i int) string {
 	return fmt.Sprintf("%063d%d", 0, i%10)
+}
+
+// CountSince is the backbone of the daily quota. It runs against real Postgres
+// because a wrong WHERE clause passes every mock-based test in the suite —
+// mocks have no columns and no created_at semantics (rule #34).
+func TestVerificationTokenRepository_CountSince(t *testing.T) {
+	gormDB := testdb.SetupTestDB(t)
+	userRepo := repository.NewUserRepository(gormDB)
+	tokenRepo := repository.NewVerificationTokenRepository(gormDB)
+	ctx := context.Background()
+
+	alice := newTestUser(t, userRepo)
+	bob := newTestUser(t, userRepo)
+
+	mint := func(userID uuid.UUID, channel string, createdAt time.Time, used bool) {
+		t.Helper()
+		tok := &domain.VerificationToken{
+			UserID:    userID,
+			Channel:   channel,
+			CodeHash:  "hash",
+			ExpiresAt: createdAt.Add(10 * time.Minute),
+			Used:      used,
+		}
+		if err := tokenRepo.Create(ctx, tok); err != nil {
+			t.Fatalf("Create: %v", err)
+		}
+		// GORM stamps created_at on insert, so the backdating is a second write.
+		if err := gormDB.Model(&domain.VerificationToken{}).
+			Where("id = ?", tok.ID).UpdateColumn("created_at", createdAt).Error; err != nil {
+			t.Fatalf("backdate: %v", err)
+		}
+	}
+
+	now := time.Now()
+	since := now.Add(-24 * time.Hour)
+
+	mint(alice.ID, "password_reset", now.Add(-1*time.Hour), false)
+	// USED, and inside the window. This row is the whole point: MarkAllUsedByUserExcept
+	// marks previous codes used on every new request, so a CountSince that filtered
+	// on `used` would make asking for a new code RESET the cap.
+	mint(alice.ID, "password_reset", now.Add(-2*time.Hour), true)
+	// Outside the window.
+	mint(alice.ID, "password_reset", now.Add(-30*time.Hour), false)
+	// Another channel — must not be counted.
+	mint(alice.ID, "email", now.Add(-1*time.Hour), false)
+	// Another user — counts globally, not for alice.
+	mint(bob.ID, "password_reset", now.Add(-3*time.Hour), false)
+
+	got, err := tokenRepo.CountSince(ctx, &alice.ID, "password_reset", since)
+	if err != nil {
+		t.Fatalf("CountSince(alice): %v", err)
+	}
+	if got != 2 {
+		t.Fatalf("per-user count = %d, want 2 (one unused + one USED inside the window)", got)
+	}
+
+	global, err := tokenRepo.CountSince(ctx, nil, "password_reset", since)
+	if err != nil {
+		t.Fatalf("CountSince(global): %v", err)
+	}
+	if global != 3 {
+		t.Fatalf("global count = %d, want 3 (alice's two plus bob's one)", global)
+	}
+}
+
+// El cupo diario cuenta HISTORIA, y esta tabla tiene un reaper: router.go corre
+// DeleteExpired cada hora, y es un borrado DURO (VerificationToken no tiene
+// gorm.DeletedAt). Con los OTP venciendo a los 10 minutos, un sweeper sin
+// retencion vacia la ventana de conteo entera cada hora y el tope de 3/dia pasa a
+// ser 3/HORA — la feature dejaria de hacer lo que dice.
+//
+// Este test es el que faltaba. TestVerificationTokenRepository_CountSince backdatea
+// filas a mano y NUNCA corre el sweeper: usa una base real, pero modela un mundo sin
+// jobs de fondo. Una base de verdad no alcanza si el entorno que simula no existe.
+func TestVerificationTokenRepository_DeleteExpiredRespetaLaVentanaDeConteo(t *testing.T) {
+	gormDB := testdb.SetupTestDB(t)
+	userRepo := repository.NewUserRepository(gormDB)
+	tokenRepo := repository.NewVerificationTokenRepository(gormDB)
+	ctx := context.Background()
+
+	user := newTestUser(t, userRepo)
+	now := time.Now()
+
+	mint := func(createdAt time.Time) {
+		t.Helper()
+		tok := &domain.VerificationToken{
+			UserID:    user.ID,
+			Channel:   "password_reset",
+			CodeHash:  "hash",
+			ExpiresAt: createdAt.Add(10 * time.Minute), // vencido hace rato
+		}
+		if err := tokenRepo.Create(ctx, tok); err != nil {
+			t.Fatalf("Create: %v", err)
+		}
+		if err := gormDB.Model(&domain.VerificationToken{}).
+			Where("id = ?", tok.ID).UpdateColumn("created_at", createdAt).Error; err != nil {
+			t.Fatalf("backdate: %v", err)
+		}
+	}
+
+	mint(now.Add(-23 * time.Hour)) // DENTRO de la ventana de conteo
+	mint(now.Add(-25 * time.Hour)) // fuera: puede irse
+
+	if _, err := tokenRepo.DeleteExpired(ctx); err != nil {
+		t.Fatalf("DeleteExpired: %v", err)
+	}
+
+	// La de 23h tiene que seguir contando DESPUES de la barrida. Si el sweeper se
+	// la lleva, el usuario recupera cupo cada hora y el tope diario es ficcion.
+	got, err := tokenRepo.CountSince(ctx, &user.ID, "password_reset", now.Add(-24*time.Hour))
+	if err != nil {
+		t.Fatalf("CountSince: %v", err)
+	}
+	if got != 1 {
+		t.Fatalf("count tras la barrida = %d, want 1 — el sweeper se comio la ventana de conteo", got)
+	}
 }
