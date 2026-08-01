@@ -89,6 +89,30 @@ func (r *postgresVerificationTokenRepository) CountSince(ctx context.Context, us
 	return n, nil
 }
 
+// OldestCreatedAtSince retorna el created_at más viejo del canal dentro de la
+// ventana, o nil si no hay filas. Con userID nil mide el canal entero.
+//
+// No filtra por `used` a propósito, por el mismo motivo que CountSince: el cupo
+// cuenta códigos EMITIDOS, y un token canjeado ya gastó su mail. Si filtrara,
+// este número diría que hay cupo libre antes de que realmente lo haya.
+func (r *postgresVerificationTokenRepository) OldestCreatedAtSince(ctx context.Context, userID *uuid.UUID, channel string, since time.Time) (*time.Time, error) {
+	q := r.db.WithContext(ctx).
+		Model(&domain.VerificationToken{}).
+		Where("channel = ? AND created_at >= ?", channel, since)
+	if userID != nil {
+		q = q.Where("user_id = ?", *userID)
+	}
+
+	var oldest []time.Time
+	if err := q.Order("created_at ASC").Limit(1).Pluck("created_at", &oldest).Error; err != nil {
+		return nil, err
+	}
+	if len(oldest) == 0 {
+		return nil, nil
+	}
+	return &oldest[0], nil
+}
+
 // IncrementAttempts incrementa el contador de forma atómica y retorna el nuevo valor.
 func (r *postgresVerificationTokenRepository) IncrementAttempts(ctx context.Context, id uuid.UUID) (int, error) {
 	result := r.db.WithContext(ctx).

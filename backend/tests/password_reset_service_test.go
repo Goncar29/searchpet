@@ -870,3 +870,9 @@ func TestRequestReset_FailedSendDoesNotBurnTheDailyQuota(t *testing.T) {
 		t.Fatal("un envio fallido borra la fila, no la marca usada — marcada seguiria contando para el cupo")
 	}
 }
+
+// OldestCreatedAtSince: la recuperacion no lo usa —su 429 se traga por
+// anti-enumeracion, asi que no emite Retry-After— pero el contrato lo exige.
+func (r *resetTokenRepo) OldestCreatedAtSince(_ context.Context, _ *uuid.UUID, _ string, _ time.Time) (*time.Time, error) {
+	return nil, nil
+}

@@ -66,6 +66,13 @@ type mockTokenRepo struct {
 	markUsedCalled         bool
 	markAllUsedCalls       int
 	markAllUsedExceptCalls int
+	deleteByIDCalls        int
+	// countByUser / countGlobal alimentan los dos topes diarios. Cero por default,
+	// que es "sin cupo consumido".
+	countByUser   int64
+	countGlobal   int64
+	countErr      error
+	oldestCreated *time.Time
 }
 
 func (m *mockTokenRepo) Create(ctx context.Context, t *domain.VerificationToken) error { return nil }
@@ -95,12 +102,25 @@ func (m *mockTokenRepo) IncrementAttempts(ctx context.Context, id uuid.UUID) (in
 	return m.incrementAttempts, nil
 }
 
-func (m *mockTokenRepo) DeleteByID(ctx context.Context, id uuid.UUID) error { return nil }
+func (m *mockTokenRepo) DeleteByID(ctx context.Context, id uuid.UUID) error {
+	m.deleteByIDCalls++
+	return nil
+}
 
 func (m *mockTokenRepo) DeleteExpired(ctx context.Context) (int64, error) { return 0, nil }
 
-func (m *mockTokenRepo) CountSince(_ context.Context, _ *uuid.UUID, _ string, _ time.Time) (int64, error) {
-	return 0, nil
+func (m *mockTokenRepo) CountSince(_ context.Context, userID *uuid.UUID, _ string, _ time.Time) (int64, error) {
+	if m.countErr != nil {
+		return 0, m.countErr
+	}
+	if userID == nil {
+		return m.countGlobal, nil
+	}
+	return m.countByUser, nil
+}
+
+func (m *mockTokenRepo) OldestCreatedAtSince(_ context.Context, _ *uuid.UUID, _ string, _ time.Time) (*time.Time, error) {
+	return m.oldestCreated, nil
 }
 
 // ============================================================

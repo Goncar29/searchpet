@@ -186,6 +186,13 @@ type VerificationTokenRepository interface {
 	// cuenta TODO el canal, que es como se mide la reserva global diaria.
 	// NO filtra por used — ver el comentario de la implementación.
 	CountSince(ctx context.Context, userID *uuid.UUID, channel string, since time.Time) (int64, error)
+	// OldestCreatedAtSince retorna el created_at más viejo del canal dentro de la
+	// ventana, o nil si no hay ninguno. Con userID nil mide el CANAL entero.
+	//
+	// Existe para que el 429 del tope diario pueda decir un Retry-After real
+	// —cuánto falta para que la fila más vieja salga de la ventana— en vez de un
+	// número inventado. Usa el mismo índice (channel, created_at) de la 000022.
+	OldestCreatedAtSince(ctx context.Context, userID *uuid.UUID, channel string, since time.Time) (*time.Time, error)
 	// IncrementAttempts incrementa el contador de intentos de forma atómica y retorna el nuevo valor.
 	IncrementAttempts(ctx context.Context, id uuid.UUID) (int, error)
 	// DeleteByID borra un token puntual. Lo usa el fallo de envío: una fila cuyo
