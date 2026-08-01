@@ -1,7 +1,7 @@
 # Email verification: drop SMS, add a daily quota — design
 
 **Date:** 2026-07-31
-**Status:** approved, not implemented
+**Status:** implemented (Part A: PR #116 · Part B: branch `feat/email-verification-quota`)
 **Closes:** the second open risk of `2026-07-31-password-reset-daily-quota-design.md` — "the
 `250 of 300` justification is not enforced anywhere".
 
