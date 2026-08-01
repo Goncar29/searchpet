@@ -38,7 +38,6 @@ export default function HomeScreen() {
   const { latitude, longitude, setLocation } = useLocationStore();
 
   // ── Nudge de verificación (session-only, no persiste) ────
-  const [verifyDismissed, setVerifyDismissed] = useState(false);
 
   // ── Filtros (draft state — updated on every keystroke/tap) ──
   const [draftType, setDraftType] = useState<PetType | undefined>();
@@ -443,24 +442,6 @@ export default function HomeScreen() {
         </TouchableOpacity>
       )}
 
-      {/* ── Nudge de verificación de teléfono ── */}
-      {isAuthenticated && user && !user.phone_verified && !user.email_verified && !verifyDismissed && (
-        <View style={styles.verifyNudge}>
-          <Text style={styles.verifyNudgeText}>{t('home:verifyNudge')}</Text>
-          <View style={styles.verifyNudgeActions}>
-            <TouchableOpacity
-              style={styles.verifyNudgeBtn}
-              onPress={() => router.push('/verify-phone')}
-            >
-              <Text style={styles.verifyNudgeBtnText}>{t('home:verifyNudgeCta')}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => setVerifyDismissed(true)}>
-              <Text style={styles.verifyNudgeDismiss}>✕</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      )}
-
       {/* ── Historias de éxito ── */}
       {storiesQuery.isLoading && (
         <View style={styles.storiesLoadingRow}>
@@ -657,27 +638,6 @@ const styles = StyleSheet.create({
   },
   ctaText: { color: COLORS.white, fontSize: FONTS.sizes.md, fontWeight: '600', flex: 1 },
   ctaArrow: { color: COLORS.white, fontSize: FONTS.sizes.xl, fontWeight: '700', marginLeft: SPACING.sm },
-
-  // ── Nudge de verificación ──
-  verifyNudge: {
-    flexDirection: 'column',
-    backgroundColor: COLORS.secondary,
-    marginHorizontal: SPACING.lg,
-    marginVertical: SPACING.sm,
-    paddingVertical: SPACING.sm,
-    paddingHorizontal: SPACING.lg,
-    borderRadius: 12,
-  },
-  verifyNudgeText: { color: COLORS.white, fontSize: FONTS.sizes.sm, fontWeight: '500', marginBottom: SPACING.xs },
-  verifyNudgeActions: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  verifyNudgeBtn: {
-    paddingHorizontal: SPACING.md,
-    paddingVertical: 6,
-    backgroundColor: COLORS.white,
-    borderRadius: 8,
-  },
-  verifyNudgeBtnText: { color: COLORS.secondary, fontWeight: '700', fontSize: FONTS.sizes.sm },
-  verifyNudgeDismiss: { color: COLORS.white, fontSize: FONTS.sizes.lg, fontWeight: '700', paddingHorizontal: SPACING.sm },
 
   // ── Lista ──
   list: { paddingHorizontal: SPACING.lg, paddingBottom: 100 },

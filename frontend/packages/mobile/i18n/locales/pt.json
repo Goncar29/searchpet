@@ -40,9 +40,7 @@
     "photoResultsTitle": "Resultados por foto",
     "photoNoResults": "Nenhum pet semelhante encontrado",
     "clearPhotoResults": "Limpar busca por foto",
-    "photoSearchError": "A busca por foto não está disponível agora. Usando o classificador padrão.",
-    "verifyNudge": "Verifique seu telefone para ganhar confiança na comunidade",
-    "verifyNudgeCta": "Verificar agora"
+    "photoSearchError": "A busca por foto não está disponível agora. Usando o classificador padrão."
   },
   "map": {
     "loading": "Carregando mapa...",

@@ -40,9 +40,7 @@
     "photoResultsTitle": "Resultados por foto",
     "photoNoResults": "No se encontraron mascotas similares",
     "clearPhotoResults": "Limpiar búsqueda por foto",
-    "photoSearchError": "La búsqueda por foto no está disponible ahora. Usando el clasificador habitual.",
-    "verifyNudge": "Verificá tu teléfono para ganar más confianza en la comunidad",
-    "verifyNudgeCta": "Verificar ahora"
+    "photoSearchError": "La búsqueda por foto no está disponible ahora. Usando el clasificador habitual."
   },
   "map": {
     "loading": "Cargando mapa...",

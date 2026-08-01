@@ -11,7 +11,7 @@ import i18next from 'i18next';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore, useLanguageStore } from '../../store';
 import { getErrorMessage } from '@shared/utils/apiErrors';
-import { useMyPets, usePublicProfile, useUploadProfilePhotoNative, useVerificationStatus, useSendEmailOTP, useConfirmEmailOTP, useSendSmsOTP, useConfirmSmsOTP } from '../../../shared/hooks';
+import { useMyPets, usePublicProfile, useUploadProfilePhotoNative, useVerificationStatus, useSendEmailOTP, useConfirmEmailOTP } from '../../../shared/hooks';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
 import { LANG_KEY } from '../../i18n';
 
@@ -28,8 +28,6 @@ export default function ProfileScreen() {
   const { data: verificationStatus, error: verificationError } = useVerificationStatus();
   const sendEmailOTP = useSendEmailOTP();
   const confirmEmailOTP = useConfirmEmailOTP();
-  const sendSmsOTP = useSendSmsOTP();
-  const confirmSmsOTP = useConfirmSmsOTP();
 
   const [sheetVisible, setSheetVisible] = useState(false);
   const [sheetStep, setSheetStep] = useState<'send' | 'confirm'>('send');
@@ -37,26 +35,12 @@ export default function ProfileScreen() {
   const [otpError, setOtpError] = useState('');
   const [resendCountdown, setResendCountdown] = useState(0);
 
-  // SMS OTP state
-  const [smsSheetVisible, setSmsSheetVisible] = useState(false);
-  const [smsSheetStep, setSmsSheetStep] = useState<'send' | 'confirm'>('send');
-  const [smsOtpCode, setSmsOtpCode] = useState('');
-  const [smsOtpError, setSmsOtpError] = useState('');
-  const [smsResendCountdown, setSmsResendCountdown] = useState(0);
-  const [smsUnavailable, setSmsUnavailable] = useState(false);
-
   // Countdown timer for resend
   useEffect(() => {
     if (resendCountdown <= 0) return;
     const timer = setTimeout(() => setResendCountdown((c) => c - 1), 1000);
     return () => clearTimeout(timer);
   }, [resendCountdown]);
-
-  useEffect(() => {
-    if (smsResendCountdown <= 0) return;
-    const timer = setTimeout(() => setSmsResendCountdown((c) => c - 1), 1000);
-    return () => clearTimeout(timer);
-  }, [smsResendCountdown]);
 
   // 501 → feature disabled: verificationError will have status 501
   const verificationDisabled = (verificationError as any)?.status === 501;
@@ -110,43 +94,6 @@ export default function ProfileScreen() {
       setSheetVisible(false);
     } catch (err) {
       setOtpError(getErrorMessage(err, (key) => i18next.t(key)));
-    }
-  };
-
-  const handleOpenSmsSheet = () => {
-    setSmsSheetStep('send');
-    setSmsOtpCode('');
-    setSmsOtpError('');
-    setSmsUnavailable(false);
-    setSmsSheetVisible(true);
-  };
-
-  const handleSendSmsOTP = async () => {
-    const phoneNumber = user?.phone?.trim() ?? '';
-    try {
-      await sendSmsOTP.mutateAsync(phoneNumber);
-      setSmsSheetStep('confirm');
-      setSmsResendCountdown(60);
-    } catch (err: any) {
-      if (err.status === 501) {
-        setSmsUnavailable(true);
-      } else {
-        Alert.alert(i18next.t('common:error'), getErrorMessage(err, (key) => i18next.t(key)));
-      }
-    }
-  };
-
-  const handleConfirmSmsOTP = async () => {
-    if (smsOtpCode.length !== 6) {
-      setSmsOtpError(i18next.t('profile:otpError'));
-      return;
-    }
-    setSmsOtpError('');
-    try {
-      await confirmSmsOTP.mutateAsync({ phone: user?.phone?.trim() ?? '', code: smsOtpCode });
-      setSmsSheetVisible(false);
-    } catch (err) {
-      setSmsOtpError(getErrorMessage(err, (key) => i18next.t(key)));
     }
   };
 
@@ -277,100 +224,6 @@ export default function ProfileScreen() {
           ) : null}
         </View>
       )}
-
-      {/* SMS Verification Row — only if phone not verified */}
-      {!verificationDisabled && verificationStatus?.phone_verified === false && (
-        <View style={styles.verificationSection}>
-          <Text style={styles.verificationLabel}>{t('phoneVerification')}</Text>
-          {smsUnavailable ? (
-            <View style={[styles.verifiedBadgeRow, { backgroundColor: COLORS.textMuted }]}>
-              <Text style={styles.verifiedBadgeText}>{t('smsUnavailable')}</Text>
-            </View>
-          ) : (
-            <TouchableOpacity style={styles.verifyButton} onPress={handleOpenSmsSheet}>
-              <Text style={styles.verifyButtonText}>{t('verifyPhone')}</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      )}
-
-      {/* SMS Verification Bottom Sheet */}
-      <Modal
-        visible={smsSheetVisible}
-        animationType="slide"
-        presentationStyle="pageSheet"
-        onRequestClose={() => setSmsSheetVisible(false)}
-      >
-        <KeyboardAvoidingView
-          style={styles.sheetContainer}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        >
-          <View style={styles.sheetHandle} />
-          <Text style={styles.sheetTitle}>
-            {smsSheetStep === 'send' ? t('verifySmsTitle') : t('verifySmsCode')}
-          </Text>
-          <Text style={styles.sheetSubtitle}>
-            {smsUnavailable
-              ? t('smsUnavailableText')
-              : smsSheetStep === 'send'
-              ? t('sendSmsTo', { phone: user?.phone || '' })
-              : t('checkSmsCode')}
-          </Text>
-
-          {smsUnavailable ? (
-            <TouchableOpacity style={styles.sheetCancelButton} onPress={() => setSmsSheetVisible(false)}>
-              <Text style={styles.sheetCancelText}>{t('close')}</Text>
-            </TouchableOpacity>
-          ) : smsSheetStep === 'send' ? (
-            <TouchableOpacity
-              style={[styles.sheetPrimaryButton, (sendSmsOTP.isPending || !user?.phone) && styles.buttonDisabled]}
-              onPress={handleSendSmsOTP}
-              disabled={sendSmsOTP.isPending || !user?.phone}
-            >
-              {sendSmsOTP.isPending ? (
-                <ActivityIndicator color={COLORS.white} />
-              ) : (
-                <Text style={styles.sheetPrimaryButtonText}>{t('sendSmsCode')}</Text>
-              )}
-            </TouchableOpacity>
-          ) : (
-            <>
-              <TextInput
-                style={styles.otpInput}
-                value={smsOtpCode}
-                onChangeText={(t) => { setSmsOtpCode(t.replace(/\D/g, '').slice(0, 6)); setSmsOtpError(''); }}
-                placeholder="000000"
-                keyboardType="number-pad"
-                maxLength={6}
-                autoFocus
-              />
-              {smsOtpError ? <Text style={styles.otpError}>{smsOtpError}</Text> : null}
-              <TouchableOpacity
-                style={[styles.sheetPrimaryButton, confirmSmsOTP.isPending && styles.buttonDisabled]}
-                onPress={handleConfirmSmsOTP}
-                disabled={confirmSmsOTP.isPending}
-              >
-                {confirmSmsOTP.isPending ? (
-                  <ActivityIndicator color={COLORS.white} />
-                ) : (
-                  <Text style={styles.sheetPrimaryButtonText}>{t('confirm')}</Text>
-                )}
-              </TouchableOpacity>
-              {smsResendCountdown > 0 ? (
-                <Text style={styles.resendCountdown}>{t('resendIn', { seconds: smsResendCountdown })}</Text>
-              ) : (
-                <TouchableOpacity onPress={handleSendSmsOTP} disabled={sendSmsOTP.isPending}>
-                  <Text style={styles.resendLink}>{t('resend')}</Text>
-                </TouchableOpacity>
-              )}
-            </>
-          )}
-
-          <TouchableOpacity style={styles.sheetCancelButton} onPress={() => setSmsSheetVisible(false)}>
-            <Text style={styles.sheetCancelText}>{t('common:cancel')}</Text>
-          </TouchableOpacity>
-        </KeyboardAvoidingView>
-      </Modal>
 
       {/* Email Verification Bottom Sheet */}
       <Modal
