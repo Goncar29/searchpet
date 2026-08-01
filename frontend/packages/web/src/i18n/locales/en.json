@@ -17,9 +17,29 @@
       "title": "Abuse Reports",
       "loading": "Loading reports...",
       "empty": "No abuse reports found.",
-      "filter": { "all": "All", "pending": "Pending", "resolved": "Resolved" },
-      "col": { "id": "ID", "reporter": "Reporter", "reason": "Reason", "status": "Status", "target": "Target", "created": "Created", "actions": "Actions" },
-      "action": { "resolve": "Resolve", "dismiss": "Dismiss", "deleteContent": "Delete content", "ban": "Ban", "unban": "Unban", "suspendHome": "Suspend", "reinstateHome": "Reinstate" },
+      "filter": {
+        "all": "All",
+        "pending": "Pending",
+        "resolved": "Resolved"
+      },
+      "col": {
+        "id": "ID",
+        "reporter": "Reporter",
+        "reason": "Reason",
+        "status": "Status",
+        "target": "Target",
+        "created": "Created",
+        "actions": "Actions"
+      },
+      "action": {
+        "resolve": "Resolve",
+        "dismiss": "Dismiss",
+        "deleteContent": "Delete content",
+        "ban": "Ban",
+        "unban": "Unban",
+        "suspendHome": "Suspend",
+        "reinstateHome": "Reinstate"
+      },
       "targetUser": "user: {{id}}",
       "targetReport": "report: {{id}}",
       "targetFosterHome": "foster home: {{id}}",
@@ -47,9 +67,22 @@
       "title": "Stories",
       "loading": "Loading stories...",
       "empty": "No stories found.",
-      "col": { "title": "Title", "author": "Author", "featured": "Featured", "created": "Created", "actions": "Actions" },
-      "badge": { "featured": "Featured", "normal": "Normal" },
-      "action": { "feature": "Feature", "unfeature": "Unfeature", "delete": "Delete" },
+      "col": {
+        "title": "Title",
+        "author": "Author",
+        "featured": "Featured",
+        "created": "Created",
+        "actions": "Actions"
+      },
+      "badge": {
+        "featured": "Featured",
+        "normal": "Normal"
+      },
+      "action": {
+        "feature": "Feature",
+        "unfeature": "Unfeature",
+        "delete": "Delete"
+      },
       "confirmDelete": "Delete story \"{{name}}\"? This cannot be undone."
     },
     "groups": {
@@ -410,9 +443,6 @@
     "confirmCode": "Confirm code",
     "resendIn": "Resend in {{seconds}}s",
     "resendCode": "Resend code",
-    "phoneVerification": "Phone verification",
-    "verifyPhone": "Verify phone",
-    "phoneVerificationHint": "Verify your number to increase trust in your profile.",
     "statsTitle": "My stats",
     "statsPoints": "Points",
     "statsReports": "Reports",
@@ -425,7 +455,6 @@
     "title": "Verify phone",
     "ariaLabel": "Phone verification",
     "close": "Close",
-    "stepPhoneDesc": "Enter your phone number and we'll send you an SMS code.",
     "stepCodeDesc": "Enter the 6-digit code we sent to {{phone}}.",
     "phoneLabel": "Phone",
     "codeLabel": "Verification code",

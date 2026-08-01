@@ -1038,14 +1038,6 @@ class APIClient {
     return this.request<void>('POST', '/api/verification/confirm-email', { code });
   }
 
-  async sendSmsOtp(phone: string): Promise<void> {
-    return this.request<void>('POST', '/api/verification/send-sms', { phone });
-  }
-
-  async confirmSmsOtp(phone: string, code: string): Promise<void> {
-    return this.request<void>('POST', '/api/verification/confirm-sms', { phone, code });
-  }
-
   // ============================================================
   // ADMIN
   // ============================================================
