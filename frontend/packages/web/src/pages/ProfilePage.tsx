@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
 import { useTranslation, Trans } from 'react-i18next';
-import { useQueryClient } from '@tanstack/react-query';
 import { useUpdateMe, useUploadProfilePhoto, useMyBadges, useVerificationStatus, useSendEmailOTP, useConfirmEmailOTP, usePublicProfile } from '@shared/hooks';
 import { getErrorMessage } from '@shared/utils/apiErrors';
 import { useAuth } from '../context/AuthContext';
@@ -10,7 +9,6 @@ import { BADGE_META } from '@shared/types';
 export function ProfilePage() {
   const { t, i18n } = useTranslation(['profile', 'common', 'badges']);
   const { user, refreshUser } = useAuth();
-  const queryClient = useQueryClient();
   const updateMe = useUpdateMe();
   const uploadPhoto = useUploadProfilePhoto();
   const { data: badges } = useMyBadges();
