@@ -43,6 +43,15 @@ func startTestServer(t *testing.T) (baseURL string, cleanup func()) {
 // and need direct DB access to set up fixtures.
 func startTestServerWithDB(t *testing.T) (baseURL string, db *gorm.DB, cleanup func()) {
 	t.Helper()
+	return startTestServerWithConfig(t, nil)
+}
+
+// startTestServerWithConfig is startTestServerWithDB with a hook to adjust the
+// config before the router is wired. Flows behind a feature flag need it:
+// EnableEmailVerification is off by default here, and with it off every
+// /api/verification/* route answers 501 before reaching any logic.
+func startTestServerWithConfig(t *testing.T, tweak func(*config.Config)) (baseURL string, db *gorm.DB, cleanup func()) {
+	t.Helper()
 
 	// SetupTestDB skips the test when DATABASE_URL is not set.
 	db = testdb.SetupTestDB(t)
@@ -57,6 +66,10 @@ func startTestServerWithDB(t *testing.T) (baseURL string, db *gorm.DB, cleanup f
 		AppURL:                  "http://localhost",
 		EnableEmailVerification: false,
 		AuthRateLimitMax:        1000,
+	}
+
+	if tweak != nil {
+		tweak(cfg)
 	}
 
 	log := logger.Init("test")
