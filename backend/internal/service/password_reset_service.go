@@ -57,10 +57,24 @@ type passwordResetService struct {
 // tiene que recalcularse cada vez que se agregue trabajo de base a este camino —
 // no es una constante de estilo, es el techo del canal de timing.
 //
+// Subió de 500ms a 700ms cuando el conteo pasó a correr detrás de
+// WithChannelLock: la transacción que sostiene el lock agrega su BEGIN y su
+// COMMIT, o sea OCHO viajes para una dirección registrada contra uno solo para
+// una desconocida. Y el lock además puede ESPERAR si hay otro pedido en vuelo,
+// cosa que ninguno de los otros viajes hacía: ese caso se va por encima del
+// piso y vuelve a asomar la diferencia. Es aceptable porque la contención acá es
+// rarísima: el cooldown de 60s por cuenta y el rate limit por IP la hacen casi
+// imposible.
+//
 // Es una mitigación, no una prueba: si la base se pone lenta y el camino
 // registrado supera este piso, la diferencia vuelve a asomar. El costo de subirlo
 // es medio segundo en un endpoint que un usuario toca dos veces en su vida.
-const minRequestResetDuration = 500 * time.Millisecond
+const minRequestResetDuration = 700 * time.Millisecond
+
+// errQuotaRejected marca que el cupo dijo que no. Es interno de RequestReset:
+// distingue un rechazo del cupo de un fallo de la transaccion del lock, que es
+// lo unico que puede dejar una fila viva sin mail.
+var errQuotaRejected = errors.New("password_reset: quota rejected")
 
 // passwordResetDailyMax es el tope de codigos de recuperacion por CUENTA en
 // quotaWindow. Tres alcanza de sobra para el caso real —pedís, no te llega, mirás
@@ -189,36 +203,6 @@ func (s *passwordResetService) RequestReset(ctx context.Context, email string) e
 	// VOLUMEN. Sin este tope, un minuto de espera entre pedidos igual permite 1440
 	// mails por día contra una sola dirección.
 	since := time.Now().Add(-QuotaWindow)
-	userCount, err := s.tokenRepo.CountSince(ctx, &user.ID, ChannelPasswordReset, since)
-	if err != nil {
-		// Falla cerrado: sin número no hay tope, y abrir la puerta ante un error del
-		// conteo convierte cualquier hipo de la base en vía libre.
-		log.Printf("[password_reset] per-account quota count failed for user %s: %v", user.ID, err)
-		return nil
-	}
-	if userCount >= passwordResetDailyMax {
-		log.Printf("[password_reset] daily cap reached for user %s (%d/%d)", user.ID, userCount, passwordResetDailyMax)
-		return nil
-	}
-
-	// Reserva global del canal. Protege la cuota diaria de Brevo que este flujo
-	// COMPARTE con la verificación de email: sin esto, un ataque de resets deja sin
-	// verificar el mail a todos los usuarios nuevos de la plataforma. El cap por
-	// cuenta solo no alcanza — con ~17 direcciones registradas se agotan los 300.
-	globalCount, err := s.tokenRepo.CountSince(ctx, nil, ChannelPasswordReset, since)
-	if err != nil {
-		log.Printf("[password_reset] global quota count failed: %v", err)
-		return nil
-	}
-	if globalCount >= passwordResetGlobalDailyMax {
-		// INCIDENTE, no rutina: es casi seguro un ataque, y a partir de acá la
-		// recuperación de contraseña queda caída para TODOS hasta que corra la
-		// ventana. Tiene que ser greppable — esta feature ya nos mordió dos veces
-		// por fallar en silencio.
-		log.Printf("[password_reset] ALERT: global daily reserve exhausted (%d/%d) — password recovery is disabled until the window rolls",
-			globalCount, passwordResetGlobalDailyMax)
-		return nil
-	}
 
 	// SECURITY: NUNCA loguear el código en texto plano.
 	code, err := generateOTPCode()
@@ -235,8 +219,70 @@ func (s *passwordResetService) RequestReset(ctx context.Context, email string) e
 		ExpiresAt: time.Now().Add(otpTTL),
 		Used:      false,
 	}
-	if err := s.tokenRepo.Create(ctx, token); err != nil {
-		log.Printf("[password_reset] token create failed for user %s: %v", user.ID, err)
+
+	// Contar y acuñar van JUNTOS detrás del lock del canal, igual que en la
+	// verificación de email. Sueltos, dos pedidos simultáneos leen el mismo
+	// conteo y los dos acuñan; como los 50 de este canal más los 250 del de
+	// email son EXACTAMENTE los 300 de Brevo, cualquier excedente sale como
+	// rechazo opaco del proveedor. La idea de que "los 50 tienen margen" sólo
+	// vale si el canal de email está por debajo de su reserva, y este camino no
+	// tiene forma de saberlo.
+	//
+	// El lock es POR CANAL, así que la recuperación no compite con la
+	// verificación: cada una serializa lo suyo y la suma sigue cerrando.
+	minted := false
+	lockErr := s.tokenRepo.WithChannelLock(ctx, ChannelPasswordReset, func(ctx context.Context) error {
+		userCount, cErr := s.tokenRepo.CountSince(ctx, &user.ID, ChannelPasswordReset, since)
+		if cErr != nil {
+			// Falla cerrado: sin número no hay tope, y abrir la puerta ante un error del
+			// conteo convierte cualquier hipo de la base en vía libre.
+			log.Printf("[password_reset] per-account quota count failed for user %s: %v", user.ID, cErr)
+			return cErr
+		}
+		if userCount >= passwordResetDailyMax {
+			log.Printf("[password_reset] daily cap reached for user %s (%d/%d)", user.ID, userCount, passwordResetDailyMax)
+			return errQuotaRejected
+		}
+
+		// Reserva global del canal. Protege la cuota diaria de Brevo que este flujo
+		// COMPARTE con la verificación de email: sin esto, un ataque de resets deja sin
+		// verificar el mail a todos los usuarios nuevos de la plataforma. El cap por
+		// cuenta solo no alcanza — con ~17 direcciones registradas se agotan los 300.
+		globalCount, cErr := s.tokenRepo.CountSince(ctx, nil, ChannelPasswordReset, since)
+		if cErr != nil {
+			log.Printf("[password_reset] global quota count failed: %v", cErr)
+			return cErr
+		}
+		if globalCount >= passwordResetGlobalDailyMax {
+			// INCIDENTE, no rutina: es casi seguro un ataque, y a partir de acá la
+			// recuperación de contraseña queda caída para TODOS hasta que corra la
+			// ventana. Tiene que ser greppable — esta feature ya nos mordió dos veces
+			// por fallar en silencio.
+			log.Printf("[password_reset] ALERT: global daily reserve exhausted (%d/%d) — password recovery is disabled until the window rolls",
+				globalCount, passwordResetGlobalDailyMax)
+			return errQuotaRejected
+		}
+
+		if cErr := s.tokenRepo.Create(ctx, token); cErr != nil {
+			log.Printf("[password_reset] token create failed for user %s: %v", user.ID, cErr)
+			return cErr
+		}
+		minted = true
+		return nil
+	})
+	if lockErr != nil && minted {
+		// El Create commitea por su cuenta —fn escribe FUERA de la transacción
+		// que sostiene el lock—, así que un fallo al cerrar esa transacción deja
+		// la fila viva sin que nadie mande el mail: la víctima pierde uno de sus
+		// tres códigos diarios por uno que nunca existió.
+		if delErr := s.tokenRepo.DeleteByID(ctx, token.ID); delErr != nil {
+			log.Printf("[password_reset] failed to delete token after lock tx error: %v", delErr)
+		}
+		minted = false
+	}
+	if !minted {
+		// Todo se traga igual que el cooldown: este camino solo se alcanza para una
+		// cuenta que existe, así que responder distinto la delataría.
 		return nil
 	}
 
