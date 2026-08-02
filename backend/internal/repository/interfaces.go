@@ -186,13 +186,29 @@ type VerificationTokenRepository interface {
 	// cuenta TODO el canal, que es como se mide la reserva global diaria.
 	// NO filtra por used — ver el comentario de la implementación.
 	CountSince(ctx context.Context, userID *uuid.UUID, channel string, since time.Time) (int64, error)
-	// OldestCreatedAtSince retorna el created_at más viejo del canal dentro de la
-	// ventana, o nil si no hay ninguno. Con userID nil mide el CANAL entero.
+	// NthOldestCreatedAtSince retorna el created_at de la fila número `skip+1` más
+	// vieja dentro de la ventana, o nil si no hay tantas. Con userID nil mide el
+	// CANAL entero.
 	//
-	// Existe para que el 429 del tope diario pueda decir un Retry-After real
-	// —cuánto falta para que la fila más vieja salga de la ventana— en vez de un
-	// número inventado. Usa el mismo índice (channel, created_at) de la 000022.
-	OldestCreatedAtSince(ctx context.Context, userID *uuid.UUID, channel string, since time.Time) (*time.Time, error)
+	// Existe para que el 429 del tope diario pueda decir un Retry-After real en vez
+	// de un número inventado. `skip` es lo que lo hace correcto: con el contador
+	// por encima del tope, esperar a que salga la fila MÁS VIEJA no libera nada
+	// —siguen sobrando— y el Retry-After manda al cliente a comerse otro 429. El
+	// cupo se libera cuando sale la (count-max+1)-ésima. Usa el mismo índice
+	// (channel, created_at) de la 000022.
+	NthOldestCreatedAtSince(ctx context.Context, userID *uuid.UUID, channel string, since time.Time, skip int) (*time.Time, error)
+	// WithChannelLock corre fn detrás de un advisory lock por canal, para que
+	// contar el cupo y acuñar el token no puedan intercalarse entre requests
+	// concurrentes. Sin esto dos pedidos simultáneos leen el mismo count y los dos
+	// pasan: con 250+50 sumando exactamente los 300 de Brevo no hay margen, y el
+	// excedente aterriza como rechazos opacos del proveedor — justo el modo de
+	// falla que el cupo existe para reemplazar.
+	//
+	// fn NO recibe la transacción: sus escrituras van por el pool normal y
+	// commitean solas. El lock es un mutex, no una unidad de trabajo — alcanza
+	// porque el insert de un writer commitea antes de que suelte el lock, así que
+	// el siguiente ya lo cuenta.
+	WithChannelLock(ctx context.Context, channel string, fn func(context.Context) error) error
 	// IncrementAttempts incrementa el contador de intentos de forma atómica y retorna el nuevo valor.
 	IncrementAttempts(ctx context.Context, id uuid.UUID) (int, error)
 	// DeleteByID borra un token puntual. Lo usa el fallo de envío: una fila cuyo

@@ -73,9 +73,20 @@ type mockTokenRepo struct {
 	countGlobal   int64
 	countErr      error
 	oldestCreated *time.Time
+	// lastSkip guarda el offset con que se pidió el Nth más viejo: es lo único
+	// que distingue un Retry-After correcto de uno optimista.
+	lastSkip int
+	// lockedCalls / createdInsideLock verifican que acuñar pase por el lock del
+	// canal y no por afuera.
+	lockedCalls       int
+	createdInsideLock bool
+	insideLock        bool
 }
 
-func (m *mockTokenRepo) Create(ctx context.Context, t *domain.VerificationToken) error { return nil }
+func (m *mockTokenRepo) Create(ctx context.Context, t *domain.VerificationToken) error {
+	m.createdInsideLock = m.insideLock
+	return nil
+}
 
 func (m *mockTokenRepo) FindActiveByUser(ctx context.Context, userID uuid.UUID, channel string) (*domain.VerificationToken, error) {
 	return m.activeToken, nil
@@ -119,8 +130,19 @@ func (m *mockTokenRepo) CountSince(_ context.Context, userID *uuid.UUID, _ strin
 	return m.countByUser, nil
 }
 
-func (m *mockTokenRepo) OldestCreatedAtSince(_ context.Context, _ *uuid.UUID, _ string, _ time.Time) (*time.Time, error) {
+func (m *mockTokenRepo) NthOldestCreatedAtSince(_ context.Context, _ *uuid.UUID, _ string, _ time.Time, skip int) (*time.Time, error) {
+	m.lastSkip = skip
 	return m.oldestCreated, nil
+}
+
+// WithChannelLock: el mock no serializa nada, sólo deja pasar. Lo que importa
+// verificar acá es que el conteo y el Create queden DENTRO de fn — de eso se
+// encarga lockedCalls contra el orden de las llamadas reales.
+func (m *mockTokenRepo) WithChannelLock(ctx context.Context, _ string, fn func(context.Context) error) error {
+	m.lockedCalls++
+	m.insideLock = true
+	defer func() { m.insideLock = false }()
+	return fn(ctx)
 }
 
 // ============================================================
@@ -568,5 +590,68 @@ func TestSendOTP_CuentaYaVerificadaNoGastaCupo(t *testing.T) {
 	// enviar (si se hubiera intentado, el error seria el del proveedor).
 	if created != 0 {
 		t.Fatalf("se acunaron %d tokens: una cuenta verificada no puede gastar cupo", created)
+	}
+}
+
+// Contar y acunar tienen que ir JUNTOS detras del lock del canal. Sueltos, dos
+// requests simultaneos leen el mismo 249 y los dos acunan; como 250 + los 50 de
+// password_reset son exactamente los 300 de Brevo, el excedente sale como
+// rechazo opaco del proveedor — el modo de falla que el cupo vino a reemplazar.
+func TestSendOTP_CuentaYAcunaDentroDelLock(t *testing.T) {
+	ctx := context.Background()
+	userID := uuid.New()
+	userRepo := &mockUserRepo{user: &domain.User{ID: userID, Email: "a@b.com"}}
+	tokenRepo := &mockTokenRepo{}
+	svc := service.NewVerificationService(tokenRepo, userRepo, &noopMailer{}, nil)
+
+	if err := svc.SendOTP(ctx, userID, "email"); err != nil {
+		t.Fatalf("want nil, got %v", err)
+	}
+
+	if tokenRepo.lockedCalls != 1 {
+		t.Fatalf("WithChannelLock llamado %d veces, want 1", tokenRepo.lockedCalls)
+	}
+	if !tokenRepo.createdInsideLock {
+		t.Fatal("el Create quedo FUERA del lock: dos requests concurrentes pueden pasar el mismo conteo")
+	}
+}
+
+// El Retry-After del tope tiene que esperar a la fila que LIBERA el cupo, no a
+// la mas vieja. Con el contador por encima del maximo, esperar a la mas vieja
+// deja el contador todavia arriba y manda al cliente a comerse otro 429.
+func TestSendOTP_RetryAfterEsperaLaFilaQueLibera(t *testing.T) {
+	ctx := context.Background()
+	userID := uuid.New()
+	oldest := time.Now().Add(-20 * time.Hour)
+
+	tests := []struct {
+		name        string
+		countByUser int64
+		wantSkip    int
+	}{
+		// Justo en el tope: sale una y alcanza. Es el unico caso donde la mas
+		// vieja es la correcta, y por eso el bug se veia sano.
+		{name: "justo en el tope pide la mas vieja", countByUser: 5, wantSkip: 0},
+		// Por encima: sobran 36, hay que esperar a que salgan 36.
+		{name: "muy por encima saltea las que sobran", countByUser: 40, wantSkip: 35},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			userRepo := &mockUserRepo{user: &domain.User{ID: userID, Email: "a@b.com"}}
+			tokenRepo := &mockTokenRepo{countByUser: tc.countByUser, oldestCreated: &oldest}
+			svc := service.NewVerificationService(tokenRepo, userRepo, &noopMailer{}, nil)
+
+			err := svc.SendOTP(ctx, userID, "email")
+
+			var limitErr *service.ErrOTPDailyLimit
+			if !errors.As(err, &limitErr) {
+				t.Fatalf("want ErrOTPDailyLimit, got %v", err)
+			}
+			if tokenRepo.lastSkip != tc.wantSkip {
+				t.Fatalf("skip = %d, want %d — con %d codigos el cupo lo libera la (count-max+1)-esima, no la mas vieja",
+					tokenRepo.lastSkip, tc.wantSkip, tc.countByUser)
+			}
+		})
 	}
 }

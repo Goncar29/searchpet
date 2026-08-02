@@ -358,7 +358,7 @@ func TestVerificationTokenRepository_DeleteExpiredRespetaLaVentanaDeConteo(t *te
 // El 429 del tope diario promete un Retry-After real: cuanto falta para que el
 // codigo mas viejo de la ventana salga de ella. Eso no lo puede contestar
 // CountSince, y un numero inventado es peor que no dar ninguno.
-func TestVerificationTokenRepository_OldestCreatedAtSince(t *testing.T) {
+func TestVerificationTokenRepository_NthOldestCreatedAtSince(t *testing.T) {
 	gormDB := testdb.SetupTestDB(t)
 	userRepo := repository.NewUserRepository(gormDB)
 	tokenRepo := repository.NewVerificationTokenRepository(gormDB)
@@ -389,9 +389,9 @@ func TestVerificationTokenRepository_OldestCreatedAtSince(t *testing.T) {
 
 	// Sin filas en la ventana: nil, sin error. El servicio lo lee como "no se
 	// puede calcular" y cae a la ventana entera.
-	got, err := tokenRepo.OldestCreatedAtSince(ctx, &user.ID, "email", since)
+	got, err := tokenRepo.NthOldestCreatedAtSince(ctx, &user.ID, "email", since, 0)
 	if err != nil {
-		t.Fatalf("OldestCreatedAtSince (vacio): %v", err)
+		t.Fatalf("NthOldestCreatedAtSince (vacio): %v", err)
 	}
 	if got != nil {
 		t.Fatalf("sin filas want nil, got %v", got)
@@ -403,7 +403,7 @@ func TestVerificationTokenRepository_OldestCreatedAtSince(t *testing.T) {
 	mint(user.ID, "password_reset", now.Add(-23*time.Hour)) // otro canal: no cuenta
 	mint(other.ID, "email", now.Add(-23*time.Hour))         // otro usuario: no cuenta por cuenta
 
-	got, err = tokenRepo.OldestCreatedAtSince(ctx, &user.ID, "email", since)
+	got, err = tokenRepo.NthOldestCreatedAtSince(ctx, &user.ID, "email", since, 0)
 	if err != nil {
 		t.Fatalf("OldestCreatedAtSince: %v", err)
 	}
@@ -416,14 +416,40 @@ func TestVerificationTokenRepository_OldestCreatedAtSince(t *testing.T) {
 	}
 
 	// userID nil mide el CANAL entero: ahi la de otro usuario a -23h es mas vieja.
-	got, err = tokenRepo.OldestCreatedAtSince(ctx, nil, "email", since)
+	got, err = tokenRepo.NthOldestCreatedAtSince(ctx, nil, "email", since, 0)
 	if err != nil {
-		t.Fatalf("OldestCreatedAtSince (canal): %v", err)
+		t.Fatalf("NthOldestCreatedAtSince (canal): %v", err)
 	}
 	if got == nil {
 		t.Fatal("canal: want la fila de -23h, got nil")
 	}
 	if diff := got.Sub(now.Add(-23 * time.Hour)); diff > time.Second || diff < -time.Second {
 		t.Fatalf("oldest del canal = %v, want ~%v", got, now.Add(-23*time.Hour))
+	}
+
+	// skip: la razon de ser del parametro. Con el contador por encima del tope,
+	// esperar a la fila mas vieja no devuelve el cupo —siguen sobrando— y el
+	// Retry-After manda al cliente a comerse otro 429. La cuenta tiene dos filas
+	// en la ventana (-20h y -5h): skip=1 tiene que dar la de -5h, no la de -20h.
+	got, err = tokenRepo.NthOldestCreatedAtSince(ctx, &user.ID, "email", since, 1)
+	if err != nil {
+		t.Fatalf("NthOldestCreatedAtSince (skip=1): %v", err)
+	}
+	if got == nil {
+		t.Fatal("skip=1: want la fila de -5h, got nil")
+	}
+	if diff := got.Sub(now.Add(-5 * time.Hour)); diff > time.Second || diff < -time.Second {
+		t.Fatalf("skip=1 = %v, want ~%v — devolvio la mas vieja, o sea que el offset no se aplico",
+			got, now.Add(-5*time.Hour))
+	}
+
+	// Mas skip que filas: nil, no un error ni la ultima. El servicio lo lee como
+	// "no se puede calcular" y cae a la ventana entera, que es lo conservador.
+	got, err = tokenRepo.NthOldestCreatedAtSince(ctx, &user.ID, "email", since, 99)
+	if err != nil {
+		t.Fatalf("NthOldestCreatedAtSince (skip fuera de rango): %v", err)
+	}
+	if got != nil {
+		t.Fatalf("skip fuera de rango want nil, got %v", got)
 	}
 }

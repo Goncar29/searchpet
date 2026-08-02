@@ -871,8 +871,15 @@ func TestRequestReset_FailedSendDoesNotBurnTheDailyQuota(t *testing.T) {
 	}
 }
 
-// OldestCreatedAtSince: la recuperacion no lo usa —su 429 se traga por
+// NthOldestCreatedAtSince: la recuperacion no lo usa —su 429 se traga por
 // anti-enumeracion, asi que no emite Retry-After— pero el contrato lo exige.
-func (r *resetTokenRepo) OldestCreatedAtSince(_ context.Context, _ *uuid.UUID, _ string, _ time.Time) (*time.Time, error) {
+func (r *resetTokenRepo) NthOldestCreatedAtSince(_ context.Context, _ *uuid.UUID, _ string, _ time.Time, _ int) (*time.Time, error) {
 	return nil, nil
+}
+
+// WithChannelLock: el contrato lo exige. La recuperacion todavia cuenta y acuna
+// sin el lock; su reserva de 50 tiene margen contra los 300 de Brevo, asi que un
+// solapamiento no desborda el plan como si lo haria el canal de verificacion.
+func (r *resetTokenRepo) WithChannelLock(ctx context.Context, _ string, fn func(context.Context) error) error {
+	return fn(ctx)
 }

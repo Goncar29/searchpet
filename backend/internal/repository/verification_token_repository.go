@@ -89,13 +89,18 @@ func (r *postgresVerificationTokenRepository) CountSince(ctx context.Context, us
 	return n, nil
 }
 
-// OldestCreatedAtSince retorna el created_at más viejo del canal dentro de la
-// ventana, o nil si no hay filas. Con userID nil mide el canal entero.
+// NthOldestCreatedAtSince retorna el created_at de la fila `skip+1` más vieja del
+// canal dentro de la ventana, o nil si no hay tantas. Con userID nil mide el
+// canal entero.
 //
 // No filtra por `used` a propósito, por el mismo motivo que CountSince: el cupo
 // cuenta códigos EMITIDOS, y un token canjeado ya gastó su mail. Si filtrara,
 // este número diría que hay cupo libre antes de que realmente lo haya.
-func (r *postgresVerificationTokenRepository) OldestCreatedAtSince(ctx context.Context, userID *uuid.UUID, channel string, since time.Time) (*time.Time, error) {
+func (r *postgresVerificationTokenRepository) NthOldestCreatedAtSince(ctx context.Context, userID *uuid.UUID, channel string, since time.Time, skip int) (*time.Time, error) {
+	if skip < 0 {
+		skip = 0
+	}
+
 	q := r.db.WithContext(ctx).
 		Model(&domain.VerificationToken{}).
 		Where("channel = ? AND created_at >= ?", channel, since)
@@ -103,14 +108,32 @@ func (r *postgresVerificationTokenRepository) OldestCreatedAtSince(ctx context.C
 		q = q.Where("user_id = ?", *userID)
 	}
 
-	var oldest []time.Time
-	if err := q.Order("created_at ASC").Limit(1).Pluck("created_at", &oldest).Error; err != nil {
+	var found []time.Time
+	if err := q.Order("created_at ASC").Offset(skip).Limit(1).Pluck("created_at", &found).Error; err != nil {
 		return nil, err
 	}
-	if len(oldest) == 0 {
+	if len(found) == 0 {
 		return nil, nil
 	}
-	return &oldest[0], nil
+	return &found[0], nil
+}
+
+// WithChannelLock serializa fn por canal con un advisory lock transaccional.
+//
+// La transacción existe SOLO para sostener el lock (pg_advisory_xact_lock se
+// libera al commit); fn corre contra el pool normal, así que sus escrituras
+// commitean por su cuenta antes de que el lock se suelte y el siguiente writer
+// ya las cuenta. Mismo mecanismo que GetOrCreateForPet en share_link.
+//
+// fn debe ser corta y sin I/O de red: el envío del mail va FUERA, o cada request
+// se comería la latencia de Brevo del anterior.
+func (r *postgresVerificationTokenRepository) WithChannelLock(ctx context.Context, channel string, fn func(context.Context) error) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Exec("SELECT pg_advisory_xact_lock(hashtext(?))", "otp_quota:"+channel).Error; err != nil {
+			return err
+		}
+		return fn(ctx)
+	})
 }
 
 // IncrementAttempts incrementa el contador de forma atómica y retorna el nuevo valor.

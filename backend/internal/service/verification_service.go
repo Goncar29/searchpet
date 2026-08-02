@@ -112,32 +112,6 @@ func (s *verificationService) SendOTP(ctx context.Context, userID uuid.UUID, cha
 	// vez de tragarse el fallo.
 	since := time.Now().Add(-QuotaWindow)
 
-	userCount, err := s.tokenRepo.CountSince(ctx, &userID, channel, since)
-	if err != nil {
-		// Falla CERRADO: sin número no hay tope, y abrir la puerta ante un error del
-		// conteo convierte cualquier hipo de la base en vía libre.
-		log.Printf("[verification] per-account quota count failed for user %s: %v", userID, err)
-		return err
-	}
-	if userCount >= emailVerificationDailyMax {
-		log.Printf("[verification] daily cap reached for user %s (%d/%d)", userID, userCount, emailVerificationDailyMax)
-		return &ErrOTPDailyLimit{RetryAfter: s.secondsUntilWindowFrees(ctx, &userID, channel, since)}
-	}
-
-	globalCount, err := s.tokenRepo.CountSince(ctx, nil, channel, since)
-	if err != nil {
-		log.Printf("[verification] global quota count failed: %v", err)
-		return err
-	}
-	if globalCount >= emailVerificationGlobalDailyMax {
-		// INCIDENTE, no rutina: a partir de acá ningún usuario nuevo puede verificar
-		// su email hasta que corra la ventana. Tiene que ser greppable — esta
-		// familia de features ya nos mordió dos veces por fallar en silencio.
-		log.Printf("[verification] ALERT: global daily reserve exhausted (%d/%d) — email verification is disabled until the window rolls",
-			globalCount, emailVerificationGlobalDailyMax)
-		return domain.ErrOTPChannelUnavailable
-	}
-
 	// Generar código de 6 dígitos con crypto/rand
 	// SECURITY: NUNCA loguear el código en texto plano
 	code, err := generateOTPCode()
@@ -157,7 +131,43 @@ func (s *verificationService) SendOTP(ctx context.Context, userID uuid.UUID, cha
 		Used:      false,
 	}
 
-	if err := s.tokenRepo.Create(ctx, token); err != nil {
+	// Contar y acuñar van JUNTOS detrás del lock del canal. Sueltos, dos requests
+	// simultáneos leen el mismo 249 y los dos acuñan: como 250 + los 50 de
+	// password_reset son exactamente los 300 de Brevo, el excedente no tiene
+	// colchón y sale como rechazo opaco del proveedor. El cooldown de 60s
+	// serializa a un mismo usuario, nunca a dos distintos, así que no cubre la
+	// reserva global. El envío del mail queda FUERA a propósito.
+	if err := s.tokenRepo.WithChannelLock(ctx, channel, func(ctx context.Context) error {
+		userCount, err := s.tokenRepo.CountSince(ctx, &userID, channel, since)
+		if err != nil {
+			// Falla CERRADO: sin número no hay tope, y abrir la puerta ante un error del
+			// conteo convierte cualquier hipo de la base en vía libre.
+			log.Printf("[verification] per-account quota count failed for user %s: %v", userID, err)
+			return err
+		}
+		if userCount >= emailVerificationDailyMax {
+			log.Printf("[verification] daily cap reached for user %s (%d/%d)", userID, userCount, emailVerificationDailyMax)
+			return &ErrOTPDailyLimit{
+				RetryAfter: s.secondsUntilWindowFrees(ctx, &userID, channel, since, userCount, emailVerificationDailyMax),
+			}
+		}
+
+		globalCount, err := s.tokenRepo.CountSince(ctx, nil, channel, since)
+		if err != nil {
+			log.Printf("[verification] global quota count failed: %v", err)
+			return err
+		}
+		if globalCount >= emailVerificationGlobalDailyMax {
+			// INCIDENTE, no rutina: a partir de acá ningún usuario nuevo puede verificar
+			// su email hasta que corra la ventana. Tiene que ser greppable — esta
+			// familia de features ya nos mordió dos veces por fallar en silencio.
+			log.Printf("[verification] ALERT: global daily reserve exhausted (%d/%d) — email verification is disabled until the window rolls",
+				globalCount, emailVerificationGlobalDailyMax)
+			return domain.ErrOTPChannelUnavailable
+		}
+
+		return s.tokenRepo.Create(ctx, token)
+	}); err != nil {
 		return err
 	}
 
@@ -280,17 +290,27 @@ func (s *verificationService) GetStatus(ctx context.Context, userID uuid.UUID) (
 	}, nil
 }
 
-// secondsUntilWindowFrees calcula cuánto falta para que el código más viejo de la
-// ventana salga de ella, que es cuando la cuenta recupera un cupo.
+// secondsUntilWindowFrees calcula cuánto falta para que salga de la ventana el
+// código cuya salida devuelve el cupo, que es cuando se puede volver a pedir.
+//
+// No es el más viejo salvo que el contador esté justo en el tope. Con count por
+// encima del máximo —alcanzable bajando la constante, o por un alta concurrente—
+// esperar al más viejo deja el contador todavía arriba y manda al cliente a
+// comerse otro 429; el que libera es el (count-max+1)-ésimo.
 //
 // Ante cualquier problema devuelve la ventana entera: es un Retry-After
 // conservador, nunca uno optimista que invite a reintentar antes de tiempo.
-func (s *verificationService) secondsUntilWindowFrees(ctx context.Context, userID *uuid.UUID, channel string, since time.Time) int {
-	oldest, err := s.tokenRepo.OldestCreatedAtSince(ctx, userID, channel, since)
-	if err != nil || oldest == nil {
+func (s *verificationService) secondsUntilWindowFrees(ctx context.Context, userID *uuid.UUID, channel string, since time.Time, count, max int64) int {
+	skip := int(count - max)
+	if skip < 0 {
+		skip = 0
+	}
+
+	freesAt, err := s.tokenRepo.NthOldestCreatedAtSince(ctx, userID, channel, since, skip)
+	if err != nil || freesAt == nil {
 		return int(QuotaWindow.Seconds())
 	}
-	remaining := time.Until(oldest.Add(QuotaWindow))
+	remaining := time.Until(freesAt.Add(QuotaWindow))
 	if remaining <= 0 {
 		return 1
 	}
