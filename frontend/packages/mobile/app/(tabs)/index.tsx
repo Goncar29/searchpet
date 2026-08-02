@@ -34,10 +34,8 @@ const RADII = [5, 10, 25, 50] as const;
 export default function HomeScreen() {
   const router = useRouter();
   const { t } = useTranslation(['home', 'common', 'pets']);
-  const { isAuthenticated, user } = useAuthStore();
+  const { isAuthenticated } = useAuthStore();
   const { latitude, longitude, setLocation } = useLocationStore();
-
-  // ── Nudge de verificación (session-only, no persiste) ────
 
   // ── Filtros (draft state — updated on every keystroke/tap) ──
   const [draftType, setDraftType] = useState<PetType | undefined>();

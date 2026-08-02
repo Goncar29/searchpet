@@ -1,15 +1,11 @@
 package dto
 
-// SendOTPRequest contiene el canal para enviar el OTP (email).
-type SendOTPRequest struct {
-	Channel string `json:"channel" binding:"required"` // solo "email"
-}
-
-// ConfirmOTPRequest contiene el canal y el código a confirmar.
-// Channel es opcional: /confirm-email ya conoce el canal implícitamente.
+// ConfirmOTPRequest contiene el código a confirmar. No lleva canal: sólo queda
+// el de email y /confirm-email ya lo conoce. SendOTPRequest se fue con el mismo
+// argumento — /send-email no bindea cuerpo, así que era un tipo sin llamador con
+// un binding:"required" invitando a re-cablearlo.
 type ConfirmOTPRequest struct {
-	Channel string `json:"channel"`
-	Code    string `json:"code" binding:"required"`
+	Code string `json:"code" binding:"required"`
 }
 
 // VerificationStatusResponse indica si el email y el teléfono están verificados.

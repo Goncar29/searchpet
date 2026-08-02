@@ -49,7 +49,7 @@ func (e *ErrOTPDailyLimit) Error() string { return domain.ErrOTPDailyLimit.Error
 
 func (e *ErrOTPDailyLimit) Unwrap() error { return domain.ErrOTPDailyLimit }
 
-// ErrExternalService es retornado cuando un proveedor externo (Brevo, Twilio) falla.
+// ErrExternalService es retornado cuando un proveedor externo (Brevo) falla.
 // El handler lo mapea a 502 Bad Gateway.
 type ErrExternalService struct {
 	Cause error
