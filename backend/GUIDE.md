@@ -468,14 +468,28 @@ El archivo `.env` va en gitignore. `.env.example` existe como plantilla:
 ```
 PORT=8080
 ENVIRONMENT=development
-DATABASE_URL=postgres://postgres:postgres@localhost:5432/searchpet?sslmode=disable
+DATABASE_URL=postgres://postgres:postgres@localhost:5433/lostpets?sslmode=disable
 JWT_SECRET=dev-secret-change-in-production
 CLOUDINARY_CLOUD_NAME=
 CLOUDINARY_API_KEY=
 CLOUDINARY_API_SECRET=
 FIREBASE_KEY=
+BREVO_API_KEY=
+MAIL_FROM_EMAIL=
+JINA_API_KEY=
+GOOGLE_CLIENT_ID=
 APP_URL=http://localhost:8080
 ```
+
+Dos detalles del `DATABASE_URL` que cuestan un rato de debugging si se copian mal:
+el puerto publicado en tu máquina es **5433** (el contenedor escucha en 5432
+adentro), y la base se llama **`lostpets`**, no `searchpet` — mirá
+`docker-compose.yml`. Para correr los tests de integración va
+`DATABASE_URL` apuntando a **`lostpets_test`**: con `lostpets` los tests te
+borran el seed de desarrollo, y **sin la variable `testdb.SetupTestDB` los saltea
+en silencio**, así que un verde puede significar que no corrió ninguno.
+
+La lista completa y al día de variables es `backend/.env.example`.
 
 ---
 

@@ -10,6 +10,12 @@ Configurar en: **GitHub repo → Settings → Secrets and variables → Actions 
 | `ANDROID_KEY_ALIAS` | Alias de la signing key |
 | `ANDROID_KEY_PASSWORD` | Contraseña de la key (puede ser igual al keystore) |
 
+El pipeline principal (`ci.yml`) usa además:
+
+| Secret | Descripción |
+|--------|-------------|
+| `RENDER_DEPLOY_HOOK_URL` | Deploy hook de Render. Lo dispara `deploy-backend` en push a `main`, después de que pasen los cuatro jobs de test. El Auto-Deploy por commit del servicio está **apagado** a propósito: si estuviera prendido, cada push deployaría dos veces y el deploy automático no esperaría a los tests |
+
 ## Generar Keystore (solo se hace UNA vez)
 
 ```bash
@@ -41,11 +47,18 @@ Si se pierde, no se puede actualizar el APK con el mismo certificado.
 
 ## Historial de firma
 
-Hasta v1.0.6 inclusive, `build-apk.yml` recibía estos secrets pero ningún paso
+Hasta **v1.0.5 inclusive**, `build-apk.yml` recibía estos secrets pero ningún paso
 los consumía: los APKs salían firmados con la **debug key pública del template
-de React Native** (la que genera `expo prebuild` por defecto). Desde el fix de
-firma, el workflow decodifica el keystore real e inyecta el `signingConfig`
-release, y un guard hace fallar el build si el APK queda debug-signed.
+de React Native** (la que genera `expo prebuild` por defecto). El fix (`fbbc375`,
+PR #73) se mergeó el 2026-07-09, pero recién produjo un artefacto con el tag
+**v1.0.6** (`7811cdf`, 2026-07-28) — o sea que **v1.0.6 es la primera release
+firmada de verdad**. Desde el fix, el workflow decodifica el keystore real e
+inyecta el `signingConfig` release, y un guard hace fallar el build si el APK
+queda debug-signed.
+
+Para leer el SHA-1 de un APK **no hace falta el keystore**:
+`apksigner verify --print-certs <apk>`. Ojo que `keytool -printcert -jarfile` no
+imprime nada acá, porque los APK están firmados con v2/v3 y sin firma JAR v1.
 
 Consecuencia one-off: la primera actualización con la firma nueva NO instala
 sobre una versión debug-signed — hay que desinstalar y reinstalar la app.
