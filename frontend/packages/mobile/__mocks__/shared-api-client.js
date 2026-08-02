@@ -1,10 +1,13 @@
 // Mirrors ApiError from shared/api/client.ts so `instanceof` checks work in tests.
 class ApiError extends Error {
-  constructor(code, status, message) {
+  constructor(code, status, message, retryAfter) {
     super(message);
     this.name = 'ApiError';
     this.code = code;
     this.status = status;
+    // Seconds from the Retry-After header. Keep in step with the real class:
+    // the profile screen reads it to seed the OTP cooldown countdown.
+    this.retryAfter = retryAfter;
   }
 }
 

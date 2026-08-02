@@ -77,3 +77,17 @@ describe('ApiError', () => {
     expect(err instanceof ApiError).toBe(true);
   });
 });
+
+describe('ApiError.retryAfter', () => {
+  it('carries the Retry-After seconds when the server sent one', () => {
+    const err = new ApiError('otp_cooldown', 429, 'otp_cooldown', 42);
+    expect(err.retryAfter).toBe(42);
+  });
+
+  it('is undefined when the server sent no header', () => {
+    // The channel-wide OTP reserve deliberately ships no Retry-After: when it
+    // frees up depends on other users, so any number would be a guess.
+    const err = new ApiError('otp_channel_unavailable', 429, 'otp_channel_unavailable');
+    expect(err.retryAfter).toBeUndefined();
+  });
+});

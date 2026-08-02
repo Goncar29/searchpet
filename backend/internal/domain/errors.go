@@ -90,9 +90,24 @@ var (
 	ErrNotAdmin            = errors.New("forbidden")
 
 	// Verification (V1.3)
-	ErrOTPExpired    = errors.New("otp_expired")
-	ErrOTPInvalid    = errors.New("otp_invalid")
-	ErrPhoneMismatch = errors.New("phone_mismatch")
+	ErrOTPExpired = errors.New("otp_expired")
+	ErrOTPInvalid = errors.New("otp_invalid")
+	// ErrOTPCooldown: se pidió otro código dentro de los 60s. Distinto de
+	// otp_daily_limit a propósito — "esperá un minuto" y "terminaste por hoy" son
+	// situaciones distintas para el usuario y señales distintas para nosotros.
+	ErrOTPCooldown = errors.New("otp_cooldown")
+	// ErrOTPDailyLimit: la cuenta agotó sus códigos de la ventana de 24h.
+	ErrOTPDailyLimit = errors.New("otp_daily_limit")
+	// ErrOTPChannelUnavailable: se agotó la reserva del CANAL. No depende del
+	// usuario que la recibe, así que su respuesta no lleva Retry-After: cuándo se
+	// libera depende de terceros y cualquier número sería una adivinanza.
+	ErrOTPChannelUnavailable = errors.New("otp_channel_unavailable")
+	// ErrEmailAlreadyVerified: la cuenta ya está verificada y pidió otro código.
+	// No es un error del usuario sino una pestaña vieja, pero tiene que cortar
+	// igual: sin este freno una cuenta verificada sigue acuñando códigos, y con la
+	// reserva del canal eso alcanza para dejar sin verificación a los que sí la
+	// necesitan (50 cuentas x 5 códigos = los 250 del canal).
+	ErrEmailAlreadyVerified = errors.New("email_already_verified")
 
 	// Gamification (V1.4)
 	ErrPointsNotFound = errors.New("user points not found")
@@ -220,9 +235,12 @@ var ErrorCodes = map[error]string{
 	ErrNotAdmin:            "not_admin",
 
 	// Verification
-	ErrOTPExpired:    "otp_expired",
-	ErrOTPInvalid:    "otp_invalid",
-	ErrPhoneMismatch: "phone_mismatch",
+	ErrOTPExpired:            "otp_expired",
+	ErrOTPInvalid:            "otp_invalid",
+	ErrOTPCooldown:           "otp_cooldown",
+	ErrOTPDailyLimit:         "otp_daily_limit",
+	ErrOTPChannelUnavailable: "otp_channel_unavailable",
+	ErrEmailAlreadyVerified:  "email_already_verified",
 
 	// Gamification
 	ErrPointsNotFound: "points_not_found",

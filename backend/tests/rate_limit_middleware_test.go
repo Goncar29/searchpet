@@ -131,3 +131,51 @@ func TestRateLimitMiddleware_DifferentIPs(t *testing.T) {
 		t.Errorf("expected 200 for IP B (fresh bucket), got %d", w3.Code)
 	}
 }
+
+// El 429 del limiter de ruta era el unico de los tres de /verification/send-email
+// sin Retry-After: el frontend no arrancaba contador y dejaba el boton vivo,
+// invitando al reintento que el servidor acababa de rechazar. Se manda la ventana
+// ENTERA porque el Store solo contesta si/no, no cuanto falta: esperar de mas es
+// inocuo, un numero optimista no.
+func TestRateLimitMiddleware_El429TraeRetryAfter(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+
+	const window = 90 * time.Second
+	r.GET("/test", middleware.RateLimit(ratelimit.NewInMemoryStore(), 1, window), func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"ok": true})
+	})
+
+	hit := func() *httptest.ResponseRecorder {
+		req := httptest.NewRequest(http.MethodGet, "/test", nil)
+		req.RemoteAddr = "10.0.0.9:12345"
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		return w
+	}
+
+	if w := hit(); w.Code != http.StatusOK {
+		t.Fatalf("el primer request tiene que pasar, got %d", w.Code)
+	}
+
+	w := hit()
+	if w.Code != http.StatusTooManyRequests {
+		t.Fatalf("want 429, got %d", w.Code)
+	}
+	if got := w.Header().Get("Retry-After"); got != "90" {
+		t.Fatalf("Retry-After = %q, want \"90\" (la ventana entera)", got)
+	}
+
+	// El header solo sirve si el browser lo puede LEER: en produccion la web es
+	// cross-origin (Vercel -> Render) y Retry-After no esta entre los siete que
+	// el navegador expone por defecto.
+	exposed := false
+	for _, h := range middleware.ExposedResponseHeaders {
+		if h == "Retry-After" {
+			exposed = true
+		}
+	}
+	if !exposed {
+		t.Fatal("Retry-After no esta en ExposedResponseHeaders: el JS lo lee como null y sin un solo error en consola")
+	}
+}

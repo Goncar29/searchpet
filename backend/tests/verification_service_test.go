@@ -66,9 +66,27 @@ type mockTokenRepo struct {
 	markUsedCalled         bool
 	markAllUsedCalls       int
 	markAllUsedExceptCalls int
+	deleteByIDCalls        int
+	// countByUser / countGlobal alimentan los dos topes diarios. Cero por default,
+	// que es "sin cupo consumido".
+	countByUser   int64
+	countGlobal   int64
+	countErr      error
+	oldestCreated *time.Time
+	// lastSkip guarda el offset con que se pidió el Nth más viejo: es lo único
+	// que distingue un Retry-After correcto de uno optimista.
+	lastSkip int
+	// lockedCalls / createdInsideLock verifican que acuñar pase por el lock del
+	// canal y no por afuera.
+	lockedCalls       int
+	createdInsideLock bool
+	insideLock        bool
 }
 
-func (m *mockTokenRepo) Create(ctx context.Context, t *domain.VerificationToken) error { return nil }
+func (m *mockTokenRepo) Create(ctx context.Context, t *domain.VerificationToken) error {
+	m.createdInsideLock = m.insideLock
+	return nil
+}
 
 func (m *mockTokenRepo) FindActiveByUser(ctx context.Context, userID uuid.UUID, channel string) (*domain.VerificationToken, error) {
 	return m.activeToken, nil
@@ -95,12 +113,36 @@ func (m *mockTokenRepo) IncrementAttempts(ctx context.Context, id uuid.UUID) (in
 	return m.incrementAttempts, nil
 }
 
-func (m *mockTokenRepo) DeleteByID(ctx context.Context, id uuid.UUID) error { return nil }
+func (m *mockTokenRepo) DeleteByID(ctx context.Context, id uuid.UUID) error {
+	m.deleteByIDCalls++
+	return nil
+}
 
 func (m *mockTokenRepo) DeleteExpired(ctx context.Context) (int64, error) { return 0, nil }
 
-func (m *mockTokenRepo) CountSince(_ context.Context, _ *uuid.UUID, _ string, _ time.Time) (int64, error) {
-	return 0, nil
+func (m *mockTokenRepo) CountSince(_ context.Context, userID *uuid.UUID, _ string, _ time.Time) (int64, error) {
+	if m.countErr != nil {
+		return 0, m.countErr
+	}
+	if userID == nil {
+		return m.countGlobal, nil
+	}
+	return m.countByUser, nil
+}
+
+func (m *mockTokenRepo) NthOldestCreatedAtSince(_ context.Context, _ *uuid.UUID, _ string, _ time.Time, skip int) (*time.Time, error) {
+	m.lastSkip = skip
+	return m.oldestCreated, nil
+}
+
+// WithChannelLock: el mock no serializa nada, sólo deja pasar. Lo que importa
+// verificar acá es que el conteo y el Create queden DENTRO de fn — de eso se
+// encarga lockedCalls contra el orden de las llamadas reales.
+func (m *mockTokenRepo) WithChannelLock(ctx context.Context, _ string, fn func(context.Context) error) error {
+	m.lockedCalls++
+	m.insideLock = true
+	defer func() { m.insideLock = false }()
+	return fn(ctx)
 }
 
 // ============================================================
@@ -241,9 +283,6 @@ func TestConfirmOTP_InvalidCode_ReturnsError(t *testing.T) {
 // T07: Phone atomicity — new test cases
 // ============================================================
 
-
-
-
 // captureTokenRepo wraps mockTokenRepo and intercepts Create.
 type captureTokenRepo struct {
 	*mockTokenRepo
@@ -273,9 +312,15 @@ func (c *captureTokenRepo) DeleteExpired(ctx context.Context) (int64, error) {
 	return c.mockTokenRepo.DeleteExpired(ctx)
 }
 
-// SendOTP with a failing mailer returns ErrExternalService, invalidates the
-// pending token (so the 60s cooldown does not block an immediate retry after
-// a provider failure), and logs the upstream cause for diagnosis.
+// SendOTP with a failing mailer returns ErrExternalService, retires the pending
+// token (so the 60s cooldown does not block an immediate retry after a provider
+// failure), and logs the upstream cause for diagnosis.
+//
+// El mecanismo cambio al llegar el cupo diario: antes se marcaba usado, ahora se
+// BORRA. La intencion es la misma, pero CountSince ignora `used`, asi que marcarlo
+// dejaba la fila gastando cupo por un codigo que nunca salio — ver
+// TestSendOTP_FalloDeEnvioNoQuemaCupo. Mismo defecto que ya se cerro en la
+// recuperacion de contrasena (8155d1c).
 func TestSendOTP_MailerFails_InvalidatesTokenAndLogsCause(t *testing.T) {
 	ctx := context.Background()
 	userID := uuid.New()
@@ -295,8 +340,8 @@ func TestSendOTP_MailerFails_InvalidatesTokenAndLogsCause(t *testing.T) {
 	if !errors.As(err, &extErr) {
 		t.Fatalf("expected ErrExternalService, got %v", err)
 	}
-	if !tokenRepo.markUsedCalled {
-		t.Error("expected failed-send token to be invalidated (MarkUsed) so retry is not cooldown-blocked")
+	if tokenRepo.deleteByIDCalls != 1 {
+		t.Errorf("DeleteByID llamado %d veces, want 1 — el token fallido tiene que salir de la tabla para que ni el cooldown ni el cupo lo cuenten", tokenRepo.deleteByIDCalls)
 	}
 	if !strings.Contains(logBuf.String(), "brevo returned status 401") {
 		t.Errorf("expected upstream cause in logs, got: %q", logBuf.String())
@@ -325,7 +370,6 @@ func (n *noopMailer) SendPasswordReset(ctx context.Context, to, code string) err
 
 // Compile-time interface check.
 var _ mailer.Mailer = (*noopMailer)(nil)
-
 
 // ============================================================
 // T-13: GetStatus returns correct DTO from user fields
@@ -404,5 +448,259 @@ func TestGetStatus_ReturnsCorrectDTO(t *testing.T) {
 				t.Errorf("IsVerified: want %v, got %v", tc.wantDTO.IsVerified, result.IsVerified)
 			}
 		})
+	}
+}
+
+// ============================================================
+// Cupo diario del canal email (parte B)
+// ============================================================
+
+// El cooldown de 60s acota la FRECUENCIA; esto acota el VOLUMEN. Sin tope,
+// esperar el minuto igual permite 1440 mails por dia contra una sola cuenta.
+func TestSendOTP_TopePorCuenta(t *testing.T) {
+	ctx := context.Background()
+	userID := uuid.New()
+	oldest := time.Now().Add(-20 * time.Hour)
+
+	tests := []struct {
+		name        string
+		countByUser int64
+		wantBlocked bool
+	}{
+		{name: "quinto pedido pasa", countByUser: 4, wantBlocked: false},
+		{name: "sexto pedido se bloquea", countByUser: 5, wantBlocked: true},
+		{name: "muy por encima tambien se bloquea", countByUser: 40, wantBlocked: true},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			userRepo := &mockUserRepo{user: &domain.User{ID: userID, Email: "a@b.com"}}
+			tokenRepo := &mockTokenRepo{countByUser: tc.countByUser, oldestCreated: &oldest}
+			svc := service.NewVerificationService(tokenRepo, userRepo, &noopMailer{}, nil)
+
+			err := svc.SendOTP(ctx, userID, "email")
+
+			var limitErr *service.ErrOTPDailyLimit
+			if tc.wantBlocked {
+				if !errors.As(err, &limitErr) {
+					t.Fatalf("con %d codigos en la ventana want ErrOTPDailyLimit, got %v", tc.countByUser, err)
+				}
+				// El 429 promete un numero real: cuanto falta para que el mas viejo
+				// salga de la ventana. Cero seria invitar a reintentar ya mismo.
+				if limitErr.RetryAfter <= 0 {
+					t.Fatalf("RetryAfter = %d, want > 0", limitErr.RetryAfter)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("con %d codigos want nil, got %v", tc.countByUser, err)
+			}
+		})
+	}
+}
+
+// La reserva del canal protege la cuota de Brevo que este flujo COMPARTE con la
+// recuperacion. El tope por cuenta solo no alcanza: el registro es abierto, asi
+// que con suficientes cuentas se agota igual.
+func TestSendOTP_ReservaDelCanal(t *testing.T) {
+	ctx := context.Background()
+	userID := uuid.New()
+	userRepo := &mockUserRepo{user: &domain.User{ID: userID, Email: "a@b.com"}}
+	// La cuenta esta MUY por debajo de su tope: lo que bloquea es el canal.
+	tokenRepo := &mockTokenRepo{countByUser: 0, countGlobal: 250}
+	svc := service.NewVerificationService(tokenRepo, userRepo, &noopMailer{}, nil)
+
+	err := svc.SendOTP(ctx, userID, "email")
+
+	if !errors.Is(err, domain.ErrOTPChannelUnavailable) {
+		t.Fatalf("con la reserva agotada want ErrOTPChannelUnavailable, got %v", err)
+	}
+	// No es ErrOTPDailyLimit: este usuario no agoto nada, y decirle que si lo
+	// mandaria a esperar 24h cuando el cupo se libera con el trafico de terceros.
+	var limitErr *service.ErrOTPDailyLimit
+	if errors.As(err, &limitErr) {
+		t.Fatal("la reserva del canal no debe emitir ErrOTPDailyLimit")
+	}
+}
+
+// Falla CERRADO: sin numero no hay tope, y dejar pasar ante un error del conteo
+// convierte cualquier hipo de la base en via libre.
+func TestSendOTP_ConteoFallidoFallaCerrado(t *testing.T) {
+	ctx := context.Background()
+	userID := uuid.New()
+
+	userRepo := &mockUserRepo{user: &domain.User{ID: userID, Email: "a@b.com"}}
+	tokenRepo := &mockTokenRepo{countErr: errors.New("boom")}
+	svc := service.NewVerificationService(tokenRepo, userRepo, &noopMailer{}, nil)
+
+	if err := svc.SendOTP(ctx, userID, "email"); err == nil {
+		t.Fatal("un error del conteo tiene que abortar el envio, no dejarlo pasar")
+	}
+}
+
+// Un envio fallido no entrego nada, asi que su fila no puede gastar cupo. Tres
+// 401 de Brevo —la regla #24— dejarian al usuario sin poder verificar 24h sin
+// haber recibido un solo mail.
+func TestSendOTP_FalloDeEnvioNoQuemaCupo(t *testing.T) {
+	ctx := context.Background()
+	userID := uuid.New()
+	userRepo := &mockUserRepo{user: &domain.User{ID: userID, Email: "a@b.com"}}
+	tokenRepo := &mockTokenRepo{}
+	svc := service.NewVerificationService(tokenRepo, userRepo, &failingMailer{}, nil)
+
+	if err := svc.SendOTP(ctx, userID, "email"); err == nil {
+		t.Fatal("want error del proveedor, got nil")
+	}
+
+	if tokenRepo.deleteByIDCalls != 1 {
+		t.Fatalf("DeleteByID llamado %d veces, want 1 — la fila tiene que BORRARSE", tokenRepo.deleteByIDCalls)
+	}
+	if tokenRepo.markUsedCalled {
+		t.Fatal("MarkUsed no sirve aca: CountSince ignora `used`, asi que la fila seguiria gastando cupo")
+	}
+}
+
+// Una cuenta ya verificada no tiene nada que verificar. Antes de la reserva del
+// canal esto era solo desperdicio; con ella es la denegacion mas barata que hay:
+// 50 cuentas verificadas x 5 codigos = los 250 del canal, y ningun usuario nuevo
+// puede verificar por 24h. El caso cotidiano es mas aburrido y mas frecuente:
+// una pestana vieja que quedo mostrando "enviar codigo".
+func TestSendOTP_CuentaYaVerificadaNoGastaCupo(t *testing.T) {
+	ctx := context.Background()
+	userID := uuid.New()
+	userRepo := &mockUserRepo{user: &domain.User{
+		ID:            userID,
+		Email:         "a@b.com",
+		EmailVerified: true,
+	}}
+	created := 0
+	tokenRepo := &captureTokenRepo{
+		mockTokenRepo: &mockTokenRepo{},
+		onCreate:      func(*domain.VerificationToken) { created++ },
+	}
+	svc := service.NewVerificationService(tokenRepo, userRepo, &failingMailer{}, nil)
+
+	err := svc.SendOTP(ctx, userID, "email")
+
+	if !errors.Is(err, domain.ErrEmailAlreadyVerified) {
+		t.Fatalf("want ErrEmailAlreadyVerified, got %v", err)
+	}
+	// Lo que importa no es el error sino que no se haya gastado nada: sin fila no
+	// hay cupo consumido, y el mailer que falla prueba que tampoco se intento
+	// enviar (si se hubiera intentado, el error seria el del proveedor).
+	if created != 0 {
+		t.Fatalf("se acunaron %d tokens: una cuenta verificada no puede gastar cupo", created)
+	}
+}
+
+// Contar y acunar tienen que ir JUNTOS detras del lock del canal. Sueltos, dos
+// requests simultaneos leen el mismo 249 y los dos acunan; como 250 + los 50 de
+// password_reset son exactamente los 300 de Brevo, el excedente sale como
+// rechazo opaco del proveedor — el modo de falla que el cupo vino a reemplazar.
+func TestSendOTP_CuentaYAcunaDentroDelLock(t *testing.T) {
+	ctx := context.Background()
+	userID := uuid.New()
+	userRepo := &mockUserRepo{user: &domain.User{ID: userID, Email: "a@b.com"}}
+	tokenRepo := &mockTokenRepo{}
+	svc := service.NewVerificationService(tokenRepo, userRepo, &noopMailer{}, nil)
+
+	if err := svc.SendOTP(ctx, userID, "email"); err != nil {
+		t.Fatalf("want nil, got %v", err)
+	}
+
+	if tokenRepo.lockedCalls != 1 {
+		t.Fatalf("WithChannelLock llamado %d veces, want 1", tokenRepo.lockedCalls)
+	}
+	if !tokenRepo.createdInsideLock {
+		t.Fatal("el Create quedo FUERA del lock: dos requests concurrentes pueden pasar el mismo conteo")
+	}
+}
+
+// El Retry-After del tope tiene que esperar a la fila que LIBERA el cupo, no a
+// la mas vieja. Con el contador por encima del maximo, esperar a la mas vieja
+// deja el contador todavia arriba y manda al cliente a comerse otro 429.
+func TestSendOTP_RetryAfterEsperaLaFilaQueLibera(t *testing.T) {
+	ctx := context.Background()
+	userID := uuid.New()
+	oldest := time.Now().Add(-20 * time.Hour)
+
+	tests := []struct {
+		name        string
+		countByUser int64
+		wantSkip    int
+	}{
+		// Justo en el tope: sale una y alcanza. Es el unico caso donde la mas
+		// vieja es la correcta, y por eso el bug se veia sano.
+		{name: "justo en el tope pide la mas vieja", countByUser: 5, wantSkip: 0},
+		// Por encima: sobran 36, hay que esperar a que salgan 36.
+		{name: "muy por encima saltea las que sobran", countByUser: 40, wantSkip: 35},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			userRepo := &mockUserRepo{user: &domain.User{ID: userID, Email: "a@b.com"}}
+			tokenRepo := &mockTokenRepo{countByUser: tc.countByUser, oldestCreated: &oldest}
+			svc := service.NewVerificationService(tokenRepo, userRepo, &noopMailer{}, nil)
+
+			err := svc.SendOTP(ctx, userID, "email")
+
+			var limitErr *service.ErrOTPDailyLimit
+			if !errors.As(err, &limitErr) {
+				t.Fatalf("want ErrOTPDailyLimit, got %v", err)
+			}
+			if tokenRepo.lastSkip != tc.wantSkip {
+				t.Fatalf("skip = %d, want %d — con %d codigos el cupo lo libera la (count-max+1)-esima, no la mas vieja",
+					tokenRepo.lastSkip, tc.wantSkip, tc.countByUser)
+			}
+		})
+	}
+}
+
+// lockFailTokenRepo hace fallar la transaccion del lock DESPUES de que fn corrio
+// entera. Modela el caso real: fn escribe por otra conexion y su insert ya
+// commiteo cuando la transaccion que sostiene el lock no logra cerrar.
+type lockFailTokenRepo struct {
+	*mockTokenRepo
+	created int
+}
+
+func (r *lockFailTokenRepo) Create(ctx context.Context, t *domain.VerificationToken) error {
+	r.created++
+	return nil
+}
+
+func (r *lockFailTokenRepo) WithChannelLock(ctx context.Context, _ string, fn func(context.Context) error) error {
+	if err := fn(ctx); err != nil {
+		return err
+	}
+	return errors.New("commit: connection reset")
+}
+
+// Una fila acunada cuyo mail nunca se mando no puede gastar cupo. El fallo de
+// envio ya lo cubria (8155d1c), pero el lock abrio la misma puerta por otro
+// lado: el Create commitea por su cuenta —fn escribe FUERA de la transaccion que
+// sostiene el lock— asi que si esa transaccion no cierra, SendOTP devuelve error
+// con la fila viva y sin que nadie envie nada. Sin el borrado, el usuario pierde
+// uno de sus cinco codigos diarios por uno que nunca existio.
+func TestSendOTP_FalloDeLaTransaccionDelLockNoQuemaCupo(t *testing.T) {
+	ctx := context.Background()
+	userID := uuid.New()
+	userRepo := &mockUserRepo{user: &domain.User{ID: userID, Email: "a@b.com"}}
+	tokenRepo := &lockFailTokenRepo{mockTokenRepo: &mockTokenRepo{}}
+	svc := service.NewVerificationService(tokenRepo, userRepo, &noopMailer{}, nil)
+
+	if err := svc.SendOTP(ctx, userID, service.ChannelEmail); err == nil {
+		t.Fatal("want error de la transaccion del lock, got nil")
+	}
+
+	if tokenRepo.created != 1 {
+		t.Fatalf("Create llamado %d veces, want 1 — el escenario no se monto", tokenRepo.created)
+	}
+	if tokenRepo.deleteByIDCalls != 1 {
+		t.Fatalf("DeleteByID llamado %d veces, want 1: la fila quedo viva gastando cupo por un codigo que nadie recibio",
+			tokenRepo.deleteByIDCalls)
+	}
+	if tokenRepo.markUsedCalled {
+		t.Fatal("MarkUsed no sirve aca: CountSince ignora `used`, la fila seguiria contando")
 	}
 }

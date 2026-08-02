@@ -1,7 +1,7 @@
 # Email verification: drop SMS, add a daily quota — design
 
 **Date:** 2026-07-31
-**Status:** approved, not implemented
+**Status:** implemented (Part A: PR #116 · Part B: branch `feat/email-verification-quota`)
 **Closes:** the second open risk of `2026-07-31-password-reset-daily-quota-design.md` — "the
 `250 of 300` justification is not enforced anywhere".
 
@@ -135,6 +135,20 @@ simplifies B: with one channel gone, the budget has fewer moving parts to reason
 - **Hitting the channel reserve blocks new signups from verifying** for the rest of the
   window. Accepted for the reason above: without the cap the same thing happens anyway, as
   an opaque provider error rather than a deliberate, logged decision.
+- **The 250 reserve is itself a cheap, *deliberate* denial — priced at ~50 registrations.**
+  The bullet above frames exhaustion as accidental. It is also trivially intentional:
+  registration is open and free, so an attacker registers ~50 throwaway accounts, spends the
+  5 codes each account is allowed, and no new user on the platform can verify their email for
+  24 hours. There is no admin bypass and no alerting — the only signal is a `log.Printf` on a
+  free tier nobody watches.
+
+  This is the *same* accepted tradeoff as the reset channel's reserve (see the password-reset
+  design's Open risks, where the equivalent attack costs ~17 accounts), and it is accepted for
+  the same reason: without a per-channel reserve, one abused channel starves the other and the
+  failure is an opaque Brevo rejection instead of a bounded, logged one. Recorded here so the
+  price is written down rather than rediscovered. The real fix is not a bigger cap — it is
+  making registration cost something (email confirmation before the account is usable, or a
+  captcha), which is out of scope for this change.
 - **`users.phone_verified` becomes write-once history.** No flow can set it after this
   change, but existing `true` values keep counting toward `IsVerified`. That is intentional;
   removing them would silently un-verify real users.

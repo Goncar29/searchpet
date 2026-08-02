@@ -89,6 +89,63 @@ func (r *postgresVerificationTokenRepository) CountSince(ctx context.Context, us
 	return n, nil
 }
 
+// NthOldestCreatedAtSince retorna el created_at de la fila `skip+1` más vieja del
+// canal dentro de la ventana, o nil si no hay tantas. Con userID nil mide el
+// canal entero.
+//
+// No filtra por `used` a propósito, por el mismo motivo que CountSince: el cupo
+// cuenta códigos EMITIDOS, y un token canjeado ya gastó su mail. Si filtrara,
+// este número diría que hay cupo libre antes de que realmente lo haya.
+func (r *postgresVerificationTokenRepository) NthOldestCreatedAtSince(ctx context.Context, userID *uuid.UUID, channel string, since time.Time, skip int) (*time.Time, error) {
+	if skip < 0 {
+		skip = 0
+	}
+
+	q := r.db.WithContext(ctx).
+		Model(&domain.VerificationToken{}).
+		Where("channel = ? AND created_at >= ?", channel, since)
+	if userID != nil {
+		q = q.Where("user_id = ?", *userID)
+	}
+
+	var found []time.Time
+	if err := q.Order("created_at ASC").Offset(skip).Limit(1).Pluck("created_at", &found).Error; err != nil {
+		return nil, err
+	}
+	if len(found) == 0 {
+		return nil, nil
+	}
+	return &found[0], nil
+}
+
+// WithChannelLock serializa fn por canal con un advisory lock transaccional.
+//
+// La transacción existe SOLO para sostener el lock (pg_advisory_xact_lock se
+// libera al commit); fn corre contra el pool normal, así que sus escrituras
+// commitean por su cuenta antes de que el lock se suelte y el siguiente writer
+// ya las cuenta. Mismo mecanismo que GetOrCreateForPet en share_link.
+//
+// fn debe ser corta y sin I/O de red: el envío del mail va FUERA, o cada request
+// se comería la latencia de Brevo del anterior.
+//
+// DEPENDE DE UN POOL SIN TOPE. La transacción del lock ocupa una conexión y fn
+// escribe por OTRA, así que cada request en vuelo necesita dos. Si alguien
+// llama SetMaxOpenConns(N), N waiters bloqueados en el lock pueden llenar el
+// pool entero y el que YA tiene el lock nunca consigue su segunda conexión:
+// deadlock, no lentitud. Hoy nadie lo setea (pkg/database/postgres.go abre el
+// *sql.DB sin límites), y por eso esto es seguro. Si algún día hace falta
+// acotar el pool, este método tiene que pasar la tx a fn en vez de una segunda
+// conexión — lo que obliga a meter *gorm.DB en la firma y romper la abstracción
+// del repositorio, que es justamente lo que este diseño evita.
+func (r *postgresVerificationTokenRepository) WithChannelLock(ctx context.Context, channel string, fn func(context.Context) error) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Exec("SELECT pg_advisory_xact_lock(hashtext(?))", "otp_quota:"+channel).Error; err != nil {
+			return err
+		}
+		return fn(ctx)
+	})
+}
+
 // IncrementAttempts incrementa el contador de forma atómica y retorna el nuevo valor.
 func (r *postgresVerificationTokenRepository) IncrementAttempts(ctx context.Context, id uuid.UUID) (int, error) {
 	result := r.db.WithContext(ctx).

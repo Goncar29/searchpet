@@ -164,9 +164,6 @@ jobs:
       FIREBASE_KEY: ""
       BREVO_API_KEY: ""
       MAIL_FROM_EMAIL: ""
-      TWILIO_ACCOUNT_SID: ""
-      TWILIO_AUTH_TOKEN: ""
-      TWILIO_FROM_NUMBER: ""
       RATE_LIMIT_AUTH_MAX: "100"
 
     steps:

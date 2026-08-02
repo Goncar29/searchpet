@@ -50,7 +50,6 @@ func (h *VerificationHandler) SendEmail(c *gin.Context) {
 	c.JSON(http.StatusAccepted, gin.H{"message": "código enviado"})
 }
 
-
 // ConfirmEmail godoc
 // POST /api/verification/confirm-email
 func (h *VerificationHandler) ConfirmEmail(c *gin.Context) {
@@ -76,7 +75,6 @@ func (h *VerificationHandler) ConfirmEmail(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "email verificado"})
 }
 
-
 // GetStatus godoc
 // GET /api/verification/status
 func (h *VerificationHandler) GetStatus(c *gin.Context) {
@@ -94,22 +92,40 @@ func (h *VerificationHandler) GetStatus(c *gin.Context) {
 	c.JSON(http.StatusOK, status)
 }
 
-// handleSendError centraliza el mapeo de errores para los endpoints de envío.
+// handleSendError centraliza el mapeo de errores para el endpoint de envío.
+//
+// Los tres 429 son deliberadamente distintos: "esperá un minuto", "terminaste por
+// hoy" y "la plataforma se quedó sin presupuesto" son situaciones distintas para
+// el usuario y señales distintas para nosotros. Colapsarlos sería el mismo error
+// que el mensaje genérico que este handler devolvía.
 func (h *VerificationHandler) handleSendError(c *gin.Context, err error) {
-	var rateLimitErr *service.ErrRateLimitOTP
-	if errors.As(err, &rateLimitErr) {
-		// 429 con Retry-After header (requerimiento de la spec)
-		c.Header("Retry-After", strconv.Itoa(rateLimitErr.RetryAfter))
-		c.JSON(http.StatusTooManyRequests, gin.H{
-			"error":       "rate limit excedido",
-			"retry_after": rateLimitErr.RetryAfter,
-		})
+	if errors.Is(err, domain.ErrEmailAlreadyVerified) {
+		// 409 y no 429: no se agotó ningún cupo, el pedido no tiene sentido contra
+		// el estado actual de la cuenta. Tampoco es 400 — nada del request está mal
+		// formado, y un Retry-After acá invitaría a reintentar algo que nunca va a
+		// funcionar.
+		writeError(c, http.StatusConflict, err)
 		return
 	}
 
-	var noPhoneErr *service.ErrNoPhoneOnFile
-	if errors.As(err, &noPhoneErr) {
-		writeError(c, http.StatusUnprocessableEntity, noPhoneErr)
+	var rateLimitErr *service.ErrRateLimitOTP
+	if errors.As(err, &rateLimitErr) {
+		c.Header("Retry-After", strconv.Itoa(rateLimitErr.RetryAfter))
+		writeError(c, http.StatusTooManyRequests, rateLimitErr)
+		return
+	}
+
+	var dailyLimitErr *service.ErrOTPDailyLimit
+	if errors.As(err, &dailyLimitErr) {
+		c.Header("Retry-After", strconv.Itoa(dailyLimitErr.RetryAfter))
+		writeError(c, http.StatusTooManyRequests, dailyLimitErr)
+		return
+	}
+
+	if errors.Is(err, domain.ErrOTPChannelUnavailable) {
+		// Sin Retry-After a propósito: cuándo se libera depende de otros usuarios,
+		// así que cualquier número sería una adivinanza.
+		writeError(c, http.StatusTooManyRequests, err)
 		return
 	}
 
@@ -131,11 +147,6 @@ func (h *VerificationHandler) handleConfirmError(c *gin.Context, err error) {
 	}
 
 	if errors.Is(err, domain.ErrOTPInvalid) {
-		writeError(c, http.StatusBadRequest, err)
-		return
-	}
-
-	if errors.Is(err, domain.ErrPhoneMismatch) {
 		writeError(c, http.StatusBadRequest, err)
 		return
 	}

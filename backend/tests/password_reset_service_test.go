@@ -47,6 +47,9 @@ func (r *resetUserRepo) Update(_ context.Context, u *domain.User) error {
 func (r *resetUserRepo) Delete(context.Context, uuid.UUID) error { return nil }
 
 type resetTokenRepo struct {
+	// lockCalls cuenta las pasadas por WithChannelLock: contar y acunar tienen
+	// que ir adentro, igual que en la verificacion de email.
+	lockCalls  int
 	active     *domain.VerificationToken
 	created    []*domain.VerificationToken
 	markedUsed []uuid.UUID
@@ -868,5 +871,44 @@ func TestRequestReset_FailedSendDoesNotBurnTheDailyQuota(t *testing.T) {
 	// MarkUsed ya no aplica: la fila deja de existir, no queda marcada.
 	if len(tokens.markedUsed) != 0 {
 		t.Fatal("un envio fallido borra la fila, no la marca usada — marcada seguiria contando para el cupo")
+	}
+}
+
+// NthOldestCreatedAtSince: la recuperacion no lo usa —su 429 se traga por
+// anti-enumeracion, asi que no emite Retry-After— pero el contrato lo exige.
+func (r *resetTokenRepo) NthOldestCreatedAtSince(_ context.Context, _ *uuid.UUID, _ string, _ time.Time, _ int) (*time.Time, error) {
+	return nil, nil
+}
+
+// WithChannelLock: RequestReset cuenta y acuna aca adentro. lockCalls existe para
+// probarlo — la version anterior de este comentario justificaba NO usar el lock
+// diciendo que "los 50 tienen margen contra los 300 de Brevo", y era falso: ese
+// margen solo existe si el canal de email esta por debajo de sus 250, y este
+// camino no tiene forma de saberlo. Los dos presupuestos suman exacto.
+func (r *resetTokenRepo) WithChannelLock(ctx context.Context, _ string, fn func(context.Context) error) error {
+	r.lockCalls++
+	return fn(ctx)
+}
+
+// Contar y acunar tienen que ir JUNTOS detras del lock del canal, igual que en la
+// verificacion de email. Sueltos, dos /forgot simultaneos leen el mismo conteo y
+// los dos acunan; como los 50 de este canal mas los 250 del de email son
+// EXACTAMENTE los 300 diarios de Brevo, el excedente sale como rechazo opaco del
+// proveedor: el modo de falla que el cupo vino a reemplazar.
+func TestRequestReset_CuentaYAcunaDentroDelLockDelCanal(t *testing.T) {
+	users := knownUser("quien@example.com")
+	tokens := &resetTokenRepo{}
+	m := &recordingMailer{}
+
+	if err := newResetSvc(users, tokens, m).RequestReset(context.Background(), "quien@example.com"); err != nil {
+		t.Fatalf("RequestReset: %v", err)
+	}
+
+	if tokens.lockCalls != 1 {
+		t.Fatalf("WithChannelLock llamado %d veces, want 1: contar y acunar quedaron fuera del lock",
+			tokens.lockCalls)
+	}
+	if len(tokens.created) != 1 {
+		t.Fatalf("se acunaron %d tokens, want 1 — el escenario no se monto", len(tokens.created))
 	}
 }

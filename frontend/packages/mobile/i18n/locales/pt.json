@@ -440,28 +440,6 @@
     "loginButton": "Entrar",
     "youPrefix": "Você: "
   },
-  "verify": {
-    "title": "Verificar telefone",
-    "stepCodeDesc": "Digite o código de 6 dígitos que enviamos para {{phone}}.",
-    "codeLabel": "Código de verificação",
-    "send": "Enviar código",
-    "sending": "Enviando...",
-    "verify": "Verificar",
-    "verifying": "Verificando...",
-    "resendIn": "Reenviar em {{seconds}}s",
-    "resend": "Reenviar código",
-    "changeNumber": "Alterar número",
-    "errorRequired": "Digite seu número de telefone",
-    "errorCodeLength": "O código deve ter 6 dígitos",
-    "errorRateLimit": "Muitas tentativas. Aguarde 60 segundos antes de reenviar.",
-    "errorMaxAttempts": "Você atingiu o limite de 5 tentativas. Solicite um novo código.",
-    "errorUnexpected": "Ocorreu um erro inesperado",
-    "verifiedTitle": "Verificado!",
-    "verifiedSuccess": "Seu telefone foi verificado com sucesso.",
-    "back": "‹ Voltar",
-    "phoneLabel": "Número de telefone",
-    "phonePlaceholder": "+55 11 91234-5678"
-  },
   "adoption": {
     "section": {
       "title": "Adotar",
