@@ -137,6 +137,7 @@ func (s *verificationService) SendOTP(ctx context.Context, userID uuid.UUID, cha
 	// colchón y sale como rechazo opaco del proveedor. El cooldown de 60s
 	// serializa a un mismo usuario, nunca a dos distintos, así que no cubre la
 	// reserva global. El envío del mail queda FUERA a propósito.
+	minted := false
 	if err := s.tokenRepo.WithChannelLock(ctx, channel, func(ctx context.Context) error {
 		userCount, err := s.tokenRepo.CountSince(ctx, &userID, channel, since)
 		if err != nil {
@@ -166,8 +167,23 @@ func (s *verificationService) SendOTP(ctx context.Context, userID uuid.UUID, cha
 			return domain.ErrOTPChannelUnavailable
 		}
 
-		return s.tokenRepo.Create(ctx, token)
+		if err := s.tokenRepo.Create(ctx, token); err != nil {
+			return err
+		}
+		minted = true
+		return nil
 	}); err != nil {
+		// El Create commitea por su cuenta —fn escribe FUERA de la transacción
+		// que sostiene el lock—, así que un fallo al cerrar esa transacción
+		// devuelve error con la fila ya viva y sin que nadie mande el mail. Sin
+		// esto el usuario pierde uno de sus cinco códigos diarios por un código
+		// que nunca existió: el mismo agujero que 8155d1c cerró en el fallo de
+		// envío, entrando por el otro lado.
+		if minted {
+			if delErr := s.tokenRepo.DeleteByID(ctx, token.ID); delErr != nil {
+				log.Printf("[verification] failed to delete token after lock tx error: %v", delErr)
+			}
+		}
 		return err
 	}
 

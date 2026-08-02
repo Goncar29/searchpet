@@ -655,3 +655,52 @@ func TestSendOTP_RetryAfterEsperaLaFilaQueLibera(t *testing.T) {
 		})
 	}
 }
+
+// lockFailTokenRepo hace fallar la transaccion del lock DESPUES de que fn corrio
+// entera. Modela el caso real: fn escribe por otra conexion y su insert ya
+// commiteo cuando la transaccion que sostiene el lock no logra cerrar.
+type lockFailTokenRepo struct {
+	*mockTokenRepo
+	created int
+}
+
+func (r *lockFailTokenRepo) Create(ctx context.Context, t *domain.VerificationToken) error {
+	r.created++
+	return nil
+}
+
+func (r *lockFailTokenRepo) WithChannelLock(ctx context.Context, _ string, fn func(context.Context) error) error {
+	if err := fn(ctx); err != nil {
+		return err
+	}
+	return errors.New("commit: connection reset")
+}
+
+// Una fila acunada cuyo mail nunca se mando no puede gastar cupo. El fallo de
+// envio ya lo cubria (8155d1c), pero el lock abrio la misma puerta por otro
+// lado: el Create commitea por su cuenta —fn escribe FUERA de la transaccion que
+// sostiene el lock— asi que si esa transaccion no cierra, SendOTP devuelve error
+// con la fila viva y sin que nadie envie nada. Sin el borrado, el usuario pierde
+// uno de sus cinco codigos diarios por uno que nunca existio.
+func TestSendOTP_FalloDeLaTransaccionDelLockNoQuemaCupo(t *testing.T) {
+	ctx := context.Background()
+	userID := uuid.New()
+	userRepo := &mockUserRepo{user: &domain.User{ID: userID, Email: "a@b.com"}}
+	tokenRepo := &lockFailTokenRepo{mockTokenRepo: &mockTokenRepo{}}
+	svc := service.NewVerificationService(tokenRepo, userRepo, &noopMailer{}, nil)
+
+	if err := svc.SendOTP(ctx, userID, service.ChannelEmail); err == nil {
+		t.Fatal("want error de la transaccion del lock, got nil")
+	}
+
+	if tokenRepo.created != 1 {
+		t.Fatalf("Create llamado %d veces, want 1 — el escenario no se monto", tokenRepo.created)
+	}
+	if tokenRepo.deleteByIDCalls != 1 {
+		t.Fatalf("DeleteByID llamado %d veces, want 1: la fila quedo viva gastando cupo por un codigo que nadie recibio",
+			tokenRepo.deleteByIDCalls)
+	}
+	if tokenRepo.markUsedCalled {
+		t.Fatal("MarkUsed no sirve aca: CountSince ignora `used`, la fila seguiria contando")
+	}
+}
