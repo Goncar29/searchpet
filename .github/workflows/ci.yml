@@ -3,8 +3,15 @@ name: CI/CD Pipeline
 on:
   push:
     branches: [main, develop]
+  # Sin filtro `branches`: corre en TODO pull request, apunte a donde apunte.
+  # Con `branches: [main]`, un PR stackeado sobre otra rama no ejecutaba un solo
+  # job y los unicos checks verdes eran los de Vercel, que solo dicen que el
+  # preview deployo. Eso se lee como "suite verde" sin serlo.
+  # Listar las ramas base a mano no sirve: hay que acordarse por cada stack, y
+  # olvidarse falla en silencio. El deploy no corre riesgo — `deploy-backend`
+  # exige `github.ref == 'refs/heads/main'`, y en un evento pull_request ese ref
+  # es `refs/pull/<n>/merge`.
   pull_request:
-    branches: [main]
 
 jobs:
   # ============================================
