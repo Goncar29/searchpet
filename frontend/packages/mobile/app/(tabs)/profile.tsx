@@ -77,6 +77,13 @@ export default function ProfileScreen() {
   const handleSendOTP = async () => {
     try {
       await sendEmailOTP.mutateAsync();
+      // Vaciar lo tipeado: el backend retira los códigos anteriores al acuñar uno
+      // nuevo, así que los dígitos que quedaron en la caja pertenecen a un código
+      // que ya no puede matchear. Enviarlos quema uno de los 5 intentos y devuelve
+      // "inválido" sin ninguna explicación. Sólo en el camino de ÉXITO: si el
+      // pedido se rechazó, no se acuñó nada y lo tipeado puede seguir sirviendo.
+      setOtpCode('');
+      setOtpError('');
       setSheetStep('confirm');
       setResendCountdown(60);
     } catch (err) {

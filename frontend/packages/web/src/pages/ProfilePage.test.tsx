@@ -104,4 +104,32 @@ describe('ProfilePage', () => {
       expect(screen.queryByText(/^profile:resendIn:/)).not.toBeInTheDocument();
     });
   });
+
+  // Reenviar acuna un codigo nuevo y RETIRA el anterior, asi que lo que quedo
+  // tipeado ya no puede matchear: enviarlo quema uno de los 5 intentos y
+  // devuelve "invalido" sin explicar nada. Mismo defecto que ya se cerro en la
+  // recuperacion de contrasena (8155d1c) y seguia abierto aca.
+  it('al reenviar vacia el codigo viejo del input', async () => {
+    // Un cooldown de 1s es la via barata de llegar al paso de confirmacion con un
+    // contador que expira solo: el boton de reenviar solo existe en cero.
+    sendEmailOTP.mutateAsync = vi.fn().mockRejectedValue(
+      new ApiError('otp_cooldown', 429, 'otp_cooldown', 1)
+    );
+
+    render(<ProfilePage />, { wrapper });
+
+    await userEvent.click(screen.getByText('profile:verifyEmail'));
+    await userEvent.click(screen.getByText('profile:sendCode'));
+
+    const input = await screen.findByPlaceholderText('000000');
+    await userEvent.type(input, '123456');
+    expect(input).toHaveValue('123456');
+
+    // El reenvio ahora SI acuna: es el unico camino que invalida lo tipeado.
+    sendEmailOTP.mutateAsync = vi.fn().mockResolvedValue(undefined);
+    const resend = await screen.findByText('profile:resendCode', {}, { timeout: 3000 });
+    await userEvent.click(resend);
+
+    await waitFor(() => expect(input).toHaveValue(''));
+  });
 });

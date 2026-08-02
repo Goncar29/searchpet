@@ -123,4 +123,33 @@ describe('ProfileScreen — límites de verificación por email', () => {
     });
     expect(screen.queryByText(/^resendIn:/)).toBeNull();
   });
+
+  // Reenviar acuña un código nuevo y RETIRA el anterior, así que lo que quedó
+  // tipeado ya no puede matchear: enviarlo quema uno de los 5 intentos y
+  // devuelve "inválido" sin explicar nada. Mismo defecto que ya se cerró en la
+  // recuperación de contraseña (8155d1c) y seguía abierto acá.
+  it('al reenviar vacía el código viejo del input', async () => {
+    // Un cooldown de 1s es la vía barata de llegar al paso de confirmación con un
+    // contador que expira solo: el link de reenviar sólo existe en cero.
+    mockSendEmailOTP.mutateAsync = jest
+      .fn()
+      .mockRejectedValue(new ApiError('otp_cooldown', 429, 'otp_cooldown', 1));
+
+    render(<ProfileScreen />);
+
+    fireEvent.press(screen.getByText('verifyEmail'));
+    fireEvent.press(screen.getByText('sendCode'));
+
+    const input = await screen.findByPlaceholderText('000000');
+    fireEvent.changeText(input, '123456');
+    expect(input.props.value).toBe('123456');
+
+    // El reenvío ahora SÍ acuña: es el único camino que invalida lo tipeado.
+    mockSendEmailOTP.mutateAsync = jest.fn().mockResolvedValue(undefined);
+    fireEvent.press(await screen.findByText('resend', {}, { timeout: 3000 }));
+
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText('000000').props.value).toBe('');
+    });
+  });
 });
