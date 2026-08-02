@@ -71,9 +71,20 @@ export function ProfilePage() {
       //
       // Se pasa al paso de confirmación: un cooldown significa que ya se emitió
       // un código y probablemente esté en la casilla del usuario.
-      if (err instanceof ApiError && err.code === 'otp_cooldown' && err.retryAfter) {
-        setOtpSent(true);
-        setResendCountdown(err.retryAfter);
+      if (err instanceof ApiError && err.retryAfter) {
+        // El cooldown significa que YA se emitió un código y probablemente esté
+        // en la casilla, por eso pasa al paso de confirmación.
+        //
+        // El rate limit de ruta NO acuñó nada: murió en el middleware, antes de
+        // llegar al servicio. Arranca el contador —que apaga el botón— pero deja
+        // al usuario donde estaba. Es el tercer 429 de este endpoint y hasta
+        // ahora era el único sin número, así que no pasaba nada en pantalla.
+        if (err.code === 'otp_cooldown') {
+          setOtpSent(true);
+          setResendCountdown(err.retryAfter);
+        } else if (err.code === 'rate_limit_exceeded') {
+          setResendCountdown(err.retryAfter);
+        }
       }
     }
   };
@@ -399,7 +410,11 @@ export function ProfilePage() {
                       <button
                         type="button"
                         onClick={handleSendOTP}
-                        disabled={sendEmailOTP.isPending || resendCountdown > 0}
+                        // Sin `resendCountdown > 0`: este botón vive en la rama
+                        // FALSA de `resendCountdown > 0 ? … : …`, así que ahí la
+                        // condición no puede ser verdadera. Leerla como
+                        // protección era leer algo que no protegía nada.
+                        disabled={sendEmailOTP.isPending}
                         className="w-full text-xs text-primary font-medium text-center disabled:opacity-60"
                       >
                         {t('profile:resendCode')}
