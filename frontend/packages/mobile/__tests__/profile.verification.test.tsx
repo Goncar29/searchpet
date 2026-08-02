@@ -66,6 +66,14 @@ jest.mock('react-i18next', () => ({
   }),
 }));
 
+// El primer render de esta pantalla arrastra su grafo de módulos entero y ese
+// costo se le cobra al PRIMER test, que quedaba pegado a los 5000ms por defecto
+// de jest: medido en frío, una corrida falló a 5550ms y la siguiente pasó a
+// 4686ms. No es un cuelgue —con margen corre en ~600ms— así que lo que
+// corresponde es darle margen, no perseguir el símbolo lento. Sin esto el job de
+// mobile se pone rojo de a ratos en un runner más lento que esta máquina.
+jest.setTimeout(25000);
+
 describe('ProfileScreen — límites de verificación por email', () => {
   beforeEach(() => {
     mockSendEmailOTP.mutateAsync = jest.fn();
