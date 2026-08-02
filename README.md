@@ -16,7 +16,10 @@ Aplicación de causa social para ayudar a encontrar mascotas perdidas.
 | **Migraciones** | golang-migrate (SQL) + GORM AutoMigrate |
 | **Imágenes** | Cloudinary (signed URLs) |
 | **Push** | Firebase Cloud Messaging |
-| **Auth** | JWT |
+| **Email** | Brevo (OTP de verificación y recuperación) |
+| **Auth** | JWT + Google Sign-In (web y Android) |
+| **Búsqueda por imagen** | pgvector + Jina CLIP (`jina-clip-v2`) |
+| **Rate limiting** | In-memory o Redis (pluggable) |
 | **Real-time** | WebSocket (Hub propio) |
 | **Logging** | Zap (structured) |
 | **Package manager** | pnpm 11 |
@@ -111,7 +114,8 @@ cd searchpet
 docker-compose up -d
 ```
 
-Levanta PostgreSQL + PostGIS en `localhost:5432`.
+Levanta PostgreSQL + PostGIS en `localhost:5433` (el contenedor escucha en 5432; el
+puerto publicado en tu máquina es **5433**, para no chocar con un Postgres local).
 
 ### 3. Configurar backend
 
@@ -150,10 +154,15 @@ pnpm start
 | GET | `/api/ws` | Conexión WebSocket |
 | POST | `/api/auth/register` | Registrar usuario |
 | POST | `/api/auth/login` | Iniciar sesión |
+| POST | `/api/auth/google` | Login/alta con Google (ID token verificado server-side) |
+| POST | `/api/auth/password/forgot` | Pedir OTP de recuperación (siempre 200, anti-enumeración) |
+| POST | `/api/auth/password/reset` | Canjear el OTP por una contraseña nueva |
 | GET | `/api/stats` | Estadísticas públicas |
 | GET | `/api/pets/search` | Buscar mascotas |
 | GET | `/api/pets/:id` | Detalle de mascota |
 | GET | `/api/pets/:id/photos` | Fotos de mascota |
+| GET | `/api/adoptions` | Mascotas en adopción |
+| GET | `/api/vets/nearby` | Veterinarias cercanas (PostGIS, datos de OpenStreetMap) |
 | GET | `/api/reports/nearby` | Reportes cercanos (PostGIS) |
 | GET | `/api/reports/pet/:petId` | Reportes de una mascota |
 | GET | `/api/reports/:id` | Detalle de reporte |
@@ -181,6 +190,8 @@ pnpm start
 | PUT | `/api/pets/:id` | Actualizar mascota |
 | DELETE | `/api/pets/:id` | Eliminar mascota |
 | PATCH | `/api/pets/:id/found` | Marcar como encontrada |
+| POST | `/api/pets/:id/publish-lost` | Publicar una mascota registrada como perdida |
+| POST | `/api/pets/search/image` | Búsqueda por imagen (pgvector + CLIP) |
 | POST | `/api/pets/:id/photos` | Subir foto de mascota |
 | DELETE | `/api/pets/:id/photos/:photoId` | Eliminar foto |
 | POST | `/api/reports` | Crear reporte |
@@ -207,8 +218,11 @@ pnpm start
 | DELETE | `/api/groups/:id/leave` | Salir de grupo |
 | GET | `/api/users/me/badges` | Mis badges |
 | POST | `/api/users/:id/reviews` | Reseñar a usuario |
-| POST | `/api/verification/send-email` | Enviar código de verificación email |
+| POST | `/api/verification/send-email` | Enviar código de verificación email (5/min por IP + cupo diario) |
 | POST | `/api/verification/confirm-email` | Confirmar email |
+| GET | `/api/verification/status` | Estado de verificación de la cuenta |
+| GET | `/api/foster-homes` | Listar casas de acogida |
+| POST | `/api/foster-homes` | Registrar casa de acogida propia |
 
 ### Admin
 
@@ -219,18 +233,33 @@ pnpm start
 | GET | `/api/abuse-reports` | Ver reportes de abuso |
 | PATCH | `/api/admin/abuse-reports/:id/resolve` | Resolver reporte de abuso |
 | PATCH | `/api/admin/reports/:id/verify` | Verificar reporte |
+| PATCH | `/api/admin/users/:id/ban` | Banear / desbanear usuario |
+| POST | `/api/admin/users/admin-role` | Otorgar o revocar admin por email (auditado) |
+| GET | `/api/admin/role-changes` | Historial de cambios de rol |
+| GET | `/api/stats/impact/monthly` | Métricas de impacto mensuales |
+| GET | `/api/foster-homes/pending` | Cola de moderación de casas de acogida |
+| GET | `/api/admin/shelters/pending` | Cola de moderación de refugios |
+
+> Esta tabla es un resumen, no un inventario. La fuente de verdad es
+> `backend/internal/app/router.go`.
 
 ---
 
-## Base de Datos (18 tablas)
+## Base de Datos (29 tablas)
 
-**Core:** `users`, `pets`, `reports`, `photos`, `messages`  
-**Social:** `share_links`, `local_groups`, `group_members`, `success_stories`, `user_reviews`  
+**Core:** `users`, `pets`, `reports`, `photos`, `messages`, `search_episodes`, `platform_events`  
+**Social:** `share_links`, `local_groups`, `group_members`, `success_stories`, `story_likes`, `user_reviews`  
 **Alerts:** `location_alerts`, `device_tokens`  
 **Gamification:** `badges`, `user_points`  
-**Security:** `blocked_users`, `abuse_reports`  
-**Infra:** `shelters`  
+**Security:** `blocked_users`, `report_abuses`, `verification_tokens`, `admin_audit_logs`, `conversation_hides`  
+**Refugios y acogida:** `shelters`, `foster_homes`, `foster_home_photos`, `foster_home_moderation_logs`, `foster_home_change_logs`  
+**Infra:** `vets` (PostGIS, importadas de OpenStreetMap)  
 **IA:** `pet_embeddings` (pgvector, solo via migración SQL — no AutoMigrate)
+
+> La lista canónica de los 28 modelos que pasan por AutoMigrate es
+> `backend/pkg/database/postgres.go` → `var Models`. `pet_embeddings` es la
+> excepción deliberada: su tabla la crea sólo la migración `000009`. Un modelo
+> que falte en ese slice es una tabla que **nunca se crea en producción**.
 
 ---
 
@@ -238,12 +267,23 @@ pnpm start
 
 | Job | Trigger | Qué hace |
 |-----|---------|---------|
-| `backend-test` | push/PR | `go test ./...` + `go build` con PostgreSQL real |
-| `frontend-web` | push/PR | `pnpm audit` + `vitest` + `tsc && vite build` |
-| `mobile-test` | push/PR | `jest` con `jest-expo` |
-| `e2e-web` | push a main | Playwright + Go flow tests contra backend real |
-| `deploy-backend` | push a main | Trigger deploy en Render |
+| `backend-test` | push a main/develop, **todo PR** | `go test ./...` + `go build` con PostgreSQL real |
+| `frontend-web` | push a main/develop, **todo PR** | `pnpm audit` + `vitest` + `tsc && vite build` |
+| `mobile-test` | push a main/develop, **todo PR** | `jest` con `jest-expo` |
+| `e2e-web` | push a main, **todo PR** | Playwright + Go flow tests contra backend real |
+| `deploy-backend` | push a main | Trigger deploy en Render, tras los 4 jobs |
 | `build-apk` | tag `v*` | Gradle build → GitHub Release |
+
+**El trigger `pull_request` no filtra por rama base a propósito.** Con
+`branches: [main]`, un PR stackeado sobre otra rama no ejecutaba un solo job y
+los únicos checks verdes eran los de Vercel, que sólo dicen que el preview
+deployó — se lee como "suite verde" sin serlo. Listar las ramas base a mano
+tampoco sirve: hay que acordarse por cada stack, y olvidarse falla en silencio.
+
+El deploy no corre riesgo por eso: `deploy-backend` exige
+`github.ref == 'refs/heads/main'`, y en un evento `pull_request` ese ref es
+`refs/pull/<n>/merge`. Además depende de los cuatro jobs de test, así que un
+rojo en cualquiera frena el deploy a producción.
 
 ---
 
@@ -255,11 +295,20 @@ pnpm start
 - [x] Distribución: APK directo + PWA instalable (sin stores)
 - [x] V1.1: volantes PDF, QR code, plantillas WhatsApp, timeline de reportes
 - [x] V1.2: filtros avanzados, alertas geográficas, push en reporte cercano
-- [x] V1.3: verificación usuarios (email/SMS), grupos locales, historias de éxito, bloqueos
+- [x] V1.3: verificación de usuarios por email, grupos locales, historias de éxito, bloqueos
 - [x] V1.4: puntos, leaderboard, perfiles públicos, reseñas
 - [x] Redis rate limiting, E2E tests (Playwright + Go), búsqueda IA server-side (pgvector + CLIP), UI refugios
 - [x] Multi-idioma (es, en, pt) en mobile + web
-- [ ] V2.0: veterinarias cercanas, multi-SMS alertas, analytics dashboard público
+- [x] V2.0: veterinarias cercanas (OpenStreetMap + PostGIS), Google Sign-In (web + Android)
+- [x] Casas de acogida con flujo de moderación
+- [x] Recuperación de contraseña por OTP, con cupo diario por cuenta y por canal
+- [ ] Analytics dashboard público (hoy sólo existe la versión admin)
+
+**No va a haber notificaciones por SMS.** Se retiraron del roadmap: mandar SMS
+cuesta plata por mensaje y el proyecto es $0/mes sin excepciones. Las alertas de
+ubicación viajan por push (FCM, gratis e ilimitado), que cubre el caso de uso.
+La verificación por SMS también se quitó, y con ella la única dependencia paga
+que tenía el proyecto.
 
 ---
 
