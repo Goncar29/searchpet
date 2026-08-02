@@ -367,18 +367,21 @@ type DeviceToken struct {
 // VerificationToken almacena los OTPs de verificación de identidad.
 // CodeHash contiene SHA-256(code) en hex — NUNCA el código en texto plano.
 type VerificationToken struct {
-	ID          uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
-	UserID      uuid.UUID `gorm:"type:uuid;not null;index" json:"user_id"`
+	ID     uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+	UserID uuid.UUID `gorm:"type:uuid;not null;index" json:"user_id"`
 	// "email", "sms" or "password_reset". Sized for the longest value: at size:10
 	// every password_reset insert failed with SQLSTATE 22001, and the reset flow
 	// swallows that error by design, so the feature broke silently.
-	Channel     string    `gorm:"not null;size:20" json:"channel"`
-	CodeHash    string    `gorm:"not null;size:64" json:"-"`       // SHA-256 hex — never plaintext
-	Attempts    int       `gorm:"default:0" json:"-"`
-	ExpiresAt   time.Time `gorm:"not null;index" json:"expires_at"`
-	Used        bool      `gorm:"default:false;index" json:"-"`
-	TargetPhone string    `gorm:"size:20" json:"-"` // phone number OTP was sent to (sms only)
-	CreatedAt   time.Time `gorm:"autoCreateTime" json:"created_at"`
+	Channel   string    `gorm:"not null;size:20" json:"channel"`
+	CodeHash  string    `gorm:"not null;size:64" json:"-"` // SHA-256 hex — never plaintext
+	Attempts  int       `gorm:"default:0" json:"-"`
+	ExpiresAt time.Time `gorm:"not null;index" json:"expires_at"`
+	Used      bool      `gorm:"default:false;index" json:"-"`
+	// El campo TargetPhone se fue con la verificacion por SMS (2026-07-31). La
+	// COLUMNA se deja en la base a proposito: GORM no la borra en AutoMigrate y
+	// dropearla rompe un rollback al binario anterior. Es nullable y no la lee
+	// nadie.
+	CreatedAt time.Time `gorm:"autoCreateTime" json:"created_at"`
 }
 
 // Estados del flujo de auto-registro de refugios.

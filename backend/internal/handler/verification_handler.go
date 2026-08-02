@@ -151,10 +151,5 @@ func (h *VerificationHandler) handleConfirmError(c *gin.Context, err error) {
 		return
 	}
 
-	if errors.Is(err, domain.ErrPhoneMismatch) {
-		writeError(c, http.StatusBadRequest, err)
-		return
-	}
-
 	writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 }

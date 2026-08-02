@@ -440,28 +440,6 @@
     "loginButton": "Sign In",
     "youPrefix": "You: "
   },
-  "verify": {
-    "title": "Verify phone",
-    "stepCodeDesc": "Enter the 6-digit code we sent to {{phone}}.",
-    "codeLabel": "Verification code",
-    "send": "Send code",
-    "sending": "Sending...",
-    "verify": "Verify",
-    "verifying": "Verifying...",
-    "resendIn": "Resend in {{seconds}}s",
-    "resend": "Resend code",
-    "changeNumber": "Change number",
-    "errorRequired": "Enter your phone number",
-    "errorCodeLength": "The code must be 6 digits",
-    "errorRateLimit": "Too many attempts. Wait 60 seconds before resending.",
-    "errorMaxAttempts": "You've reached the 5-attempt limit. Request a new code.",
-    "errorUnexpected": "An unexpected error occurred",
-    "verifiedTitle": "Verified!",
-    "verifiedSuccess": "Your phone was verified successfully.",
-    "back": "‹ Back",
-    "phoneLabel": "Phone number",
-    "phonePlaceholder": "+1 555 000 0000"
-  },
   "adoption": {
     "section": {
       "title": "Adopt",

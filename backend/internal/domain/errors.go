@@ -90,9 +90,8 @@ var (
 	ErrNotAdmin            = errors.New("forbidden")
 
 	// Verification (V1.3)
-	ErrOTPExpired    = errors.New("otp_expired")
-	ErrOTPInvalid    = errors.New("otp_invalid")
-	ErrPhoneMismatch = errors.New("phone_mismatch")
+	ErrOTPExpired = errors.New("otp_expired")
+	ErrOTPInvalid = errors.New("otp_invalid")
 	// ErrOTPCooldown: se pidió otro código dentro de los 60s. Distinto de
 	// otp_daily_limit a propósito — "esperá un minuto" y "terminaste por hoy" son
 	// situaciones distintas para el usuario y señales distintas para nosotros.
@@ -238,7 +237,6 @@ var ErrorCodes = map[error]string{
 	// Verification
 	ErrOTPExpired:            "otp_expired",
 	ErrOTPInvalid:            "otp_invalid",
-	ErrPhoneMismatch:         "phone_mismatch",
 	ErrOTPCooldown:           "otp_cooldown",
 	ErrOTPDailyLimit:         "otp_daily_limit",
 	ErrOTPChannelUnavailable: "otp_channel_unavailable",

@@ -451,26 +451,6 @@
     "achievementsTitle": "Minhas conquistas",
     "noAchievements": "Ainda não há conquistas. Comece relatando pets!"
   },
-  "otp": {
-    "title": "Verificar telefone",
-    "ariaLabel": "Verificação de telefone",
-    "close": "Fechar",
-    "stepCodeDesc": "Digite o código de 6 dígitos que enviamos para {{phone}}.",
-    "phoneLabel": "Telefone",
-    "codeLabel": "Código de verificação",
-    "send": "Enviar código",
-    "sending": "Enviando...",
-    "verify": "Verificar",
-    "verifying": "Verificando...",
-    "resendIn": "Reenviar em {{seconds}}s",
-    "resend": "Reenviar código",
-    "changeNumber": "Alterar número",
-    "errorRequired": "Digite seu número de telefone",
-    "errorCodeLength": "O código deve ter 6 dígitos",
-    "errorRateLimit": "Muitas tentativas. Aguarde 60 segundos antes de reenviar.",
-    "errorMaxAttempts": "Você atingiu o limite de 5 tentativas. Solicite um novo código.",
-    "errorUnexpected": "Ocorreu um erro inesperado"
-  },
   "sharedPet": {
     "notFoundTitle": "Pet não encontrado",
     "notFoundSubtitle": "Este link pode ter expirado",

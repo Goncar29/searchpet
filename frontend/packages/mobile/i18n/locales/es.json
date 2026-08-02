@@ -440,28 +440,6 @@
     "loginButton": "Iniciar sesión",
     "youPrefix": "Vos: "
   },
-  "verify": {
-    "title": "Verificar teléfono",
-    "stepCodeDesc": "Ingresá el código de 6 dígitos que enviamos a {{phone}}.",
-    "codeLabel": "Código de verificación",
-    "send": "Enviar código",
-    "sending": "Enviando...",
-    "verify": "Verificar",
-    "verifying": "Verificando...",
-    "resendIn": "Reenviar en {{seconds}}s",
-    "resend": "Reenviar código",
-    "changeNumber": "Cambiar número",
-    "errorRequired": "Ingresá tu número de teléfono",
-    "errorCodeLength": "El código debe tener 6 dígitos",
-    "errorRateLimit": "Demasiados intentos. Esperá 60 segundos antes de reenviar.",
-    "errorMaxAttempts": "Alcanzaste el máximo de 5 intentos. Solicitá un nuevo código.",
-    "errorUnexpected": "Ocurrió un error inesperado",
-    "verifiedTitle": "¡Verificado!",
-    "verifiedSuccess": "Tu teléfono fue verificado exitosamente.",
-    "back": "‹ Volver",
-    "phoneLabel": "Número de teléfono",
-    "phonePlaceholder": "+598 99 000 000"
-  },
   "adoption": {
     "section": {
       "title": "Adoptar",

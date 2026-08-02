@@ -451,26 +451,6 @@
     "achievementsTitle": "My achievements",
     "noAchievements": "No achievements yet. Start by reporting pets!"
   },
-  "otp": {
-    "title": "Verify phone",
-    "ariaLabel": "Phone verification",
-    "close": "Close",
-    "stepCodeDesc": "Enter the 6-digit code we sent to {{phone}}.",
-    "phoneLabel": "Phone",
-    "codeLabel": "Verification code",
-    "send": "Send code",
-    "sending": "Sending...",
-    "verify": "Verify",
-    "verifying": "Verifying...",
-    "resendIn": "Resend in {{seconds}}s",
-    "resend": "Resend code",
-    "changeNumber": "Change number",
-    "errorRequired": "Enter your phone number",
-    "errorCodeLength": "The code must be 6 digits",
-    "errorRateLimit": "Too many attempts. Wait 60 seconds before resending.",
-    "errorMaxAttempts": "You've reached the 5-attempt limit. Request a new code.",
-    "errorUnexpected": "An unexpected error occurred"
-  },
   "sharedPet": {
     "notFoundTitle": "Pet not found",
     "notFoundSubtitle": "This link may have expired",

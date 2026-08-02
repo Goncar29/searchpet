@@ -77,7 +77,6 @@ func TestCodeFor_KnownError(t *testing.T) {
 		{domain.ErrNotAdmin, "not_admin"},
 		{domain.ErrOTPExpired, "otp_expired"},
 		{domain.ErrOTPInvalid, "otp_invalid"},
-		{domain.ErrPhoneMismatch, "phone_mismatch"},
 		{domain.ErrPointsNotFound, "points_not_found"},
 		{domain.ErrReviewNotFound, "review_not_found"},
 		{domain.ErrAlreadyReviewed, "already_reviewed"},

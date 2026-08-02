@@ -451,26 +451,6 @@
     "achievementsTitle": "Mis logros",
     "noAchievements": "Todavía no tenés logros. ¡Empezá reportando mascotas!"
   },
-  "otp": {
-    "title": "Verificar teléfono",
-    "ariaLabel": "Verificación de teléfono",
-    "close": "Cerrar",
-    "stepCodeDesc": "Ingresá el código de 6 dígitos que enviamos a {{phone}}.",
-    "phoneLabel": "Teléfono",
-    "codeLabel": "Código de verificación",
-    "send": "Enviar código",
-    "sending": "Enviando...",
-    "verify": "Verificar",
-    "verifying": "Verificando...",
-    "resendIn": "Reenviar en {{seconds}}s",
-    "resend": "Reenviar código",
-    "changeNumber": "Cambiar número",
-    "errorRequired": "Ingresá tu número de teléfono",
-    "errorCodeLength": "El código debe tener 6 dígitos",
-    "errorRateLimit": "Demasiados intentos. Esperá 60 segundos antes de reenviar.",
-    "errorMaxAttempts": "Alcanzaste el máximo de 5 intentos. Solicitá un nuevo código.",
-    "errorUnexpected": "Ocurrió un error inesperado"
-  },
   "sharedPet": {
     "notFoundTitle": "Mascota no encontrada",
     "notFoundSubtitle": "Este link puede haber expirado",
