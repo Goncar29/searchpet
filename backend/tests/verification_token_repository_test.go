@@ -317,6 +317,16 @@ func TestVerificationTokenRepository_DeleteExpiredRespetaLaVentanaDeConteo(t *te
 			user := newTestUser(t, userRepo)
 			now := time.Now()
 
+			// Este test siembra una fila que SOBREVIVE al sweeper a proposito, y la
+			// base de tests no trunca entre tests: sin esto queda en el canal para
+			// el que venga despues. NthOldestCreatedAtSince mide el canal entero
+			// con userID nil y compara contra su propio `now` con +-1s, asi que la
+			// heredaba y pasaba solo mientras los dos tests corrieran con menos de
+			// un segundo de diferencia.
+			t.Cleanup(func() {
+				gormDB.Where("user_id = ?", user.ID).Delete(&domain.VerificationToken{})
+			})
+
 			mint := func(createdAt time.Time) {
 				t.Helper()
 				tok := &domain.VerificationToken{
@@ -367,6 +377,12 @@ func TestVerificationTokenRepository_NthOldestCreatedAtSince(t *testing.T) {
 	user := newTestUser(t, userRepo)
 	other := newTestUser(t, userRepo)
 	now := time.Now()
+
+	// Limpiar lo propio por el mismo motivo: este test tambien deja filas del
+	// canal email y otros miden el canal entero.
+	t.Cleanup(func() {
+		gormDB.Where("user_id IN ?", []any{user.ID, other.ID}).Delete(&domain.VerificationToken{})
+	})
 
 	mint := func(userID uuid.UUID, channel string, createdAt time.Time) {
 		t.Helper()

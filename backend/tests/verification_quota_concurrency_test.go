@@ -109,7 +109,12 @@ func TestSendOTP_ReservaDelCanalNoDesbordaConRequestsSimultaneos(t *testing.T) {
 	if err != nil {
 		t.Fatalf("obtener *sql.DB: %v", err)
 	}
+	// El *sql.DB es COMPARTIDO por todo el paquete, asi que subir el pool sin
+	// restaurarlo le cambia la configuracion a cada test que corra despues: uno
+	// sensible al pool pasaria o fallaria segun si este corrio antes. database/sql
+	// no expone el valor actual, asi que se repone el default documentado (2).
 	sqlDB.SetMaxIdleConns(callers * 2)
+	t.Cleanup(func() { sqlDB.SetMaxIdleConns(2) })
 	var warm sync.WaitGroup
 	warmStart := make(chan struct{})
 	for i := 0; i < callers*2; i++ {
