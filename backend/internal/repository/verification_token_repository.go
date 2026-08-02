@@ -127,6 +127,16 @@ func (r *postgresVerificationTokenRepository) NthOldestCreatedAtSince(ctx contex
 //
 // fn debe ser corta y sin I/O de red: el envío del mail va FUERA, o cada request
 // se comería la latencia de Brevo del anterior.
+//
+// DEPENDE DE UN POOL SIN TOPE. La transacción del lock ocupa una conexión y fn
+// escribe por OTRA, así que cada request en vuelo necesita dos. Si alguien
+// llama SetMaxOpenConns(N), N waiters bloqueados en el lock pueden llenar el
+// pool entero y el que YA tiene el lock nunca consigue su segunda conexión:
+// deadlock, no lentitud. Hoy nadie lo setea (pkg/database/postgres.go abre el
+// *sql.DB sin límites), y por eso esto es seguro. Si algún día hace falta
+// acotar el pool, este método tiene que pasar la tx a fn en vez de una segunda
+// conexión — lo que obliga a meter *gorm.DB en la firma y romper la abstracción
+// del repositorio, que es justamente lo que este diseño evita.
 func (r *postgresVerificationTokenRepository) WithChannelLock(ctx context.Context, channel string, fn func(context.Context) error) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Exec("SELECT pg_advisory_xact_lock(hashtext(?))", "otp_quota:"+channel).Error; err != nil {
