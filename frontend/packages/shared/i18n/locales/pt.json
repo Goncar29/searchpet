@@ -379,6 +379,7 @@
     "otp_cooldown": "Aguarde alguns segundos antes de pedir outro código.",
     "otp_daily_limit": "Você atingiu o limite de códigos de hoje. Tente novamente amanhã.",
     "otp_channel_unavailable": "O envio de códigos está indisponível no momento. Tente mais tarde.",
+    "email_already_verified": "Seu e-mail já está verificado.",
     "rate_limit_exceeded": "Muitas tentativas. Aguarde um momento e tente novamente.",
     "phone_mismatch": "O número de telefone não coincide",
     "points_not_found": "Pontos do usuário não encontrados",

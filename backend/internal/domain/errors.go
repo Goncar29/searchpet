@@ -103,6 +103,12 @@ var (
 	// usuario que la recibe, así que su respuesta no lleva Retry-After: cuándo se
 	// libera depende de terceros y cualquier número sería una adivinanza.
 	ErrOTPChannelUnavailable = errors.New("otp_channel_unavailable")
+	// ErrEmailAlreadyVerified: la cuenta ya está verificada y pidió otro código.
+	// No es un error del usuario sino una pestaña vieja, pero tiene que cortar
+	// igual: sin este freno una cuenta verificada sigue acuñando códigos, y con la
+	// reserva del canal eso alcanza para dejar sin verificación a los que sí la
+	// necesitan (50 cuentas x 5 códigos = los 250 del canal).
+	ErrEmailAlreadyVerified = errors.New("email_already_verified")
 
 	// Gamification (V1.4)
 	ErrPointsNotFound = errors.New("user points not found")
@@ -236,6 +242,7 @@ var ErrorCodes = map[error]string{
 	ErrOTPCooldown:           "otp_cooldown",
 	ErrOTPDailyLimit:         "otp_daily_limit",
 	ErrOTPChannelUnavailable: "otp_channel_unavailable",
+	ErrEmailAlreadyVerified:  "email_already_verified",
 
 	// Gamification
 	ErrPointsNotFound: "points_not_found",

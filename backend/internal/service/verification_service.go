@@ -45,10 +45,10 @@ const (
 )
 
 type verificationService struct {
-	tokenRepo  repository.VerificationTokenRepository
-	userRepo   repository.UserRepository
-	mailer     mailer.Mailer
-	bus        *event.EventBus
+	tokenRepo repository.VerificationTokenRepository
+	userRepo  repository.UserRepository
+	mailer    mailer.Mailer
+	bus       *event.EventBus
 }
 
 // NewVerificationService construye el VerificationService con sus dependencias.
@@ -81,6 +81,15 @@ func (s *verificationService) SendOTP(ctx context.Context, userID uuid.UUID, cha
 		return err
 	}
 
+	// Una cuenta ya verificada no tiene nada que verificar, y hasta que existió la
+	// reserva del canal eso era sólo desperdicio. Ahora no: 50 cuentas verificadas
+	// pidiendo sus 5 códigos agotan los 250 del canal y dejan sin verificar a todo
+	// usuario nuevo por 24h, gastando el presupuesto en mails que no verifican
+	// nada. La versión cotidiana es más aburrida y más frecuente — una pestaña
+	// vieja que quedó mostrando "enviar código" después de verificar en otra.
+	if user.EmailVerified {
+		return domain.ErrEmailAlreadyVerified
+	}
 
 	// Rate limit: verificar si ya hay un token activo reciente (< 60s)
 	existing, err := s.tokenRepo.FindActiveByUser(ctx, userID, channel)
@@ -296,7 +305,7 @@ func generateOTPCode() (string, error) {
 		return "", err
 	}
 	// Convertir a número de 6 dígitos (0-999999)
-	n := int(b[0])<<24|int(b[1])<<16|int(b[2])<<8|int(b[3])
+	n := int(b[0])<<24 | int(b[1])<<16 | int(b[2])<<8 | int(b[3])
 	if n < 0 {
 		n = -n
 	}

@@ -50,7 +50,6 @@ func (h *VerificationHandler) SendEmail(c *gin.Context) {
 	c.JSON(http.StatusAccepted, gin.H{"message": "código enviado"})
 }
 
-
 // ConfirmEmail godoc
 // POST /api/verification/confirm-email
 func (h *VerificationHandler) ConfirmEmail(c *gin.Context) {
@@ -76,7 +75,6 @@ func (h *VerificationHandler) ConfirmEmail(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "email verificado"})
 }
 
-
 // GetStatus godoc
 // GET /api/verification/status
 func (h *VerificationHandler) GetStatus(c *gin.Context) {
@@ -101,6 +99,15 @@ func (h *VerificationHandler) GetStatus(c *gin.Context) {
 // el usuario y señales distintas para nosotros. Colapsarlos sería el mismo error
 // que el mensaje genérico que este handler devolvía.
 func (h *VerificationHandler) handleSendError(c *gin.Context, err error) {
+	if errors.Is(err, domain.ErrEmailAlreadyVerified) {
+		// 409 y no 429: no se agotó ningún cupo, el pedido no tiene sentido contra
+		// el estado actual de la cuenta. Tampoco es 400 — nada del request está mal
+		// formado, y un Retry-After acá invitaría a reintentar algo que nunca va a
+		// funcionar.
+		writeError(c, http.StatusConflict, err)
+		return
+	}
+
 	var rateLimitErr *service.ErrRateLimitOTP
 	if errors.As(err, &rateLimitErr) {
 		c.Header("Retry-After", strconv.Itoa(rateLimitErr.RetryAfter))

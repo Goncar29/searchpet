@@ -261,9 +261,6 @@ func TestConfirmOTP_InvalidCode_ReturnsError(t *testing.T) {
 // T07: Phone atomicity — new test cases
 // ============================================================
 
-
-
-
 // captureTokenRepo wraps mockTokenRepo and intercepts Create.
 type captureTokenRepo struct {
 	*mockTokenRepo
@@ -351,7 +348,6 @@ func (n *noopMailer) SendPasswordReset(ctx context.Context, to, code string) err
 
 // Compile-time interface check.
 var _ mailer.Mailer = (*noopMailer)(nil)
-
 
 // ============================================================
 // T-13: GetStatus returns correct DTO from user fields
@@ -539,5 +535,38 @@ func TestSendOTP_FalloDeEnvioNoQuemaCupo(t *testing.T) {
 	}
 	if tokenRepo.markUsedCalled {
 		t.Fatal("MarkUsed no sirve aca: CountSince ignora `used`, asi que la fila seguiria gastando cupo")
+	}
+}
+
+// Una cuenta ya verificada no tiene nada que verificar. Antes de la reserva del
+// canal esto era solo desperdicio; con ella es la denegacion mas barata que hay:
+// 50 cuentas verificadas x 5 codigos = los 250 del canal, y ningun usuario nuevo
+// puede verificar por 24h. El caso cotidiano es mas aburrido y mas frecuente:
+// una pestana vieja que quedo mostrando "enviar codigo".
+func TestSendOTP_CuentaYaVerificadaNoGastaCupo(t *testing.T) {
+	ctx := context.Background()
+	userID := uuid.New()
+	userRepo := &mockUserRepo{user: &domain.User{
+		ID:            userID,
+		Email:         "a@b.com",
+		EmailVerified: true,
+	}}
+	created := 0
+	tokenRepo := &captureTokenRepo{
+		mockTokenRepo: &mockTokenRepo{},
+		onCreate:      func(*domain.VerificationToken) { created++ },
+	}
+	svc := service.NewVerificationService(tokenRepo, userRepo, &failingMailer{}, nil)
+
+	err := svc.SendOTP(ctx, userID, "email")
+
+	if !errors.Is(err, domain.ErrEmailAlreadyVerified) {
+		t.Fatalf("want ErrEmailAlreadyVerified, got %v", err)
+	}
+	// Lo que importa no es el error sino que no se haya gastado nada: sin fila no
+	// hay cupo consumido, y el mailer que falla prueba que tampoco se intento
+	// enviar (si se hubiera intentado, el error seria el del proveedor).
+	if created != 0 {
+		t.Fatalf("se acunaron %d tokens: una cuenta verificada no puede gastar cupo", created)
 	}
 }

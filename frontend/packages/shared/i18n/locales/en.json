@@ -379,6 +379,7 @@
     "otp_cooldown": "Wait a few seconds before requesting another code.",
     "otp_daily_limit": "You've reached today's limit of verification codes. Try again tomorrow.",
     "otp_channel_unavailable": "Code delivery is unavailable right now. Please try again later.",
+    "email_already_verified": "Your email is already verified.",
     "rate_limit_exceeded": "Too many attempts. Please wait a moment and try again.",
     "phone_mismatch": "The phone number does not match",
     "points_not_found": "User points not found",
