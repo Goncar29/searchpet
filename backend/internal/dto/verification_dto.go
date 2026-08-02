@@ -2,24 +2,19 @@ package dto
 
 // SendOTPRequest contiene el canal para enviar el OTP (email).
 type SendOTPRequest struct {
-	Channel string `json:"channel" binding:"required"` // "email" or "sms"
-}
-
-// SendSMSRequest contiene el teléfono destino para enviar el OTP por SMS.
-type SendSMSRequest struct {
-	Phone string `json:"phone" binding:"required"`
+	Channel string `json:"channel" binding:"required"` // solo "email"
 }
 
 // ConfirmOTPRequest contiene el canal y el código a confirmar.
-// Channel es opcional: los endpoints /email/confirm y /phone/confirm ya conocen el canal implícitamente.
-// Phone es requerido para channel="sms" (validado en el handler); ignorado para channel="email".
+// Channel es opcional: /confirm-email ya conoce el canal implícitamente.
 type ConfirmOTPRequest struct {
 	Channel string `json:"channel"`
 	Code    string `json:"code" binding:"required"`
-	Phone   string `json:"phone"`
 }
 
 // VerificationStatusResponse indica si el email y el teléfono están verificados.
+// PhoneVerified se conserva aunque la verificación por SMS ya no exista: hay
+// usuarios que la completaron antes y IsVerified sigue leyéndola.
 type VerificationStatusResponse struct {
 	EmailVerified bool `json:"email_verified"`
 	PhoneVerified bool `json:"phone_verified"`

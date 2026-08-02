@@ -17,9 +17,29 @@
       "title": "Denuncias de abuso",
       "loading": "Cargando denuncias...",
       "empty": "No hay denuncias.",
-      "filter": { "all": "Todas", "pending": "Pendientes", "resolved": "Resueltas" },
-      "col": { "id": "ID", "reporter": "Denunciante", "reason": "Motivo", "status": "Estado", "target": "Objetivo", "created": "Fecha", "actions": "Acciones" },
-      "action": { "resolve": "Resolver", "dismiss": "Descartar", "deleteContent": "Eliminar contenido", "ban": "Banear", "unban": "Desbanear", "suspendHome": "Suspender", "reinstateHome": "Reinstaurar" },
+      "filter": {
+        "all": "Todas",
+        "pending": "Pendientes",
+        "resolved": "Resueltas"
+      },
+      "col": {
+        "id": "ID",
+        "reporter": "Denunciante",
+        "reason": "Motivo",
+        "status": "Estado",
+        "target": "Objetivo",
+        "created": "Fecha",
+        "actions": "Acciones"
+      },
+      "action": {
+        "resolve": "Resolver",
+        "dismiss": "Descartar",
+        "deleteContent": "Eliminar contenido",
+        "ban": "Banear",
+        "unban": "Desbanear",
+        "suspendHome": "Suspender",
+        "reinstateHome": "Reinstaurar"
+      },
       "targetUser": "usuario: {{id}}",
       "targetReport": "reporte: {{id}}",
       "targetFosterHome": "hogar: {{id}}",
@@ -47,9 +67,22 @@
       "title": "Historias",
       "loading": "Cargando historias...",
       "empty": "No hay historias.",
-      "col": { "title": "Título", "author": "Autor", "featured": "Destacada", "created": "Fecha", "actions": "Acciones" },
-      "badge": { "featured": "Destacada", "normal": "Normal" },
-      "action": { "feature": "Destacar", "unfeature": "Quitar destacado", "delete": "Eliminar" },
+      "col": {
+        "title": "Título",
+        "author": "Autor",
+        "featured": "Destacada",
+        "created": "Fecha",
+        "actions": "Acciones"
+      },
+      "badge": {
+        "featured": "Destacada",
+        "normal": "Normal"
+      },
+      "action": {
+        "feature": "Destacar",
+        "unfeature": "Quitar destacado",
+        "delete": "Eliminar"
+      },
       "confirmDelete": "¿Eliminar la historia \"{{name}}\"? Esta acción no se puede deshacer."
     },
     "groups": {
@@ -410,9 +443,6 @@
     "confirmCode": "Confirmar código",
     "resendIn": "Reenviar en {{seconds}}s",
     "resendCode": "Reenviar código",
-    "phoneVerification": "Verificación de teléfono",
-    "verifyPhone": "Verificar teléfono",
-    "phoneVerificationHint": "Verificá tu número para aumentar la confianza en tu perfil.",
     "statsTitle": "Mis estadísticas",
     "statsPoints": "Puntos",
     "statsReports": "Reportes",
@@ -425,7 +455,6 @@
     "title": "Verificar teléfono",
     "ariaLabel": "Verificación de teléfono",
     "close": "Cerrar",
-    "stepPhoneDesc": "Ingresá tu número de teléfono y te enviaremos un código SMS.",
     "stepCodeDesc": "Ingresá el código de 6 dígitos que enviamos a {{phone}}.",
     "phoneLabel": "Teléfono",
     "codeLabel": "Código de verificación",

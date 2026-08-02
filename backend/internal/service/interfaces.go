@@ -15,12 +15,12 @@ type VerificationService interface {
 	// SendOTP genera y envía un OTP al usuario por el canal dado ("email" o "sms").
 	// phone es el número destino del OTP (solo usado cuando channel="sms"; pasar "" para email).
 	// Retorna error rate-limit si ya se envió en el último minuto.
-	SendOTP(ctx context.Context, userID uuid.UUID, channel string, phone string) error
+	SendOTP(ctx context.Context, userID uuid.UUID, channel string) error
 	// ConfirmOTP verifica el código OTP del usuario.
 	// phone es el número que el cliente afirma haber recibido el OTP (solo usado cuando channel="sms"; pasar "" para email).
 	// Retorna ErrOTPExpired si el token expiró, ErrOTPInvalid si el código es incorrecto.
 	// Al superar 5 intentos fallidos, invalida el token.
-	ConfirmOTP(ctx context.Context, userID uuid.UUID, channel, code, phone string) error
+	ConfirmOTP(ctx context.Context, userID uuid.UUID, channel, code string) error
 	// GetStatus retorna el estado de verificación del usuario (email_verified, phone_verified, is_verified).
 	GetStatus(ctx context.Context, userID uuid.UUID) (*dto.VerificationStatusResponse, error)
 }

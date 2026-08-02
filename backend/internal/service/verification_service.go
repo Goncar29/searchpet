@@ -6,7 +6,6 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"log"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -15,7 +14,6 @@ import (
 	"lost-pets/internal/event"
 	"lost-pets/internal/repository"
 	"lost-pets/pkg/mailer"
-	"lost-pets/pkg/sms"
 )
 
 const (
@@ -28,7 +26,6 @@ type verificationService struct {
 	tokenRepo  repository.VerificationTokenRepository
 	userRepo   repository.UserRepository
 	mailer     mailer.Mailer
-	smsSender  sms.SMSSender
 	bus        *event.EventBus
 }
 
@@ -38,24 +35,21 @@ func NewVerificationService(
 	tokenRepo repository.VerificationTokenRepository,
 	userRepo repository.UserRepository,
 	m mailer.Mailer,
-	s sms.SMSSender,
 	bus *event.EventBus,
 ) VerificationService {
 	return &verificationService{
 		tokenRepo: tokenRepo,
 		userRepo:  userRepo,
 		mailer:    m,
-		smsSender: s,
 		bus:       bus,
 	}
 }
 
 // SendOTP genera y envía un OTP al usuario por el canal dado.
-// phone es el número destino cuando channel="sms"; ignorado para channel="email".
 // SECURITY: el código en texto plano NUNCA es logueado.
-func (s *verificationService) SendOTP(ctx context.Context, userID uuid.UUID, channel string, phone string) error {
+func (s *verificationService) SendOTP(ctx context.Context, userID uuid.UUID, channel string) error {
 	// Validar canal
-	if channel != "email" && channel != "sms" {
+	if channel != "email" {
 		return domain.ErrInvalidInput
 	}
 
@@ -65,10 +59,6 @@ func (s *verificationService) SendOTP(ctx context.Context, userID uuid.UUID, cha
 		return err
 	}
 
-	// Validación SMS: phone debe venir del request (ya validado por el handler)
-	if channel == "sms" && strings.TrimSpace(phone) == "" {
-		return &ErrNoPhoneOnFile{}
-	}
 
 	// Rate limit: verificar si ya hay un token activo reciente (< 60s)
 	existing, err := s.tokenRepo.FindActiveByUser(ctx, userID, channel)
@@ -102,11 +92,6 @@ func (s *verificationService) SendOTP(ctx context.Context, userID uuid.UUID, cha
 		Used:      false,
 	}
 
-	// Almacenar el teléfono destino en el token para validarlo en ConfirmOTP
-	if channel == "sms" {
-		token.TargetPhone = phone
-	}
-
 	if err := s.tokenRepo.Create(ctx, token); err != nil {
 		return err
 	}
@@ -117,8 +102,6 @@ func (s *verificationService) SendOTP(ctx context.Context, userID uuid.UUID, cha
 	switch channel {
 	case "email":
 		sendErr = s.mailer.SendOTP(ctx, user.Email, code)
-	case "sms":
-		sendErr = s.smsSender.SendOTP(ctx, phone, code)
 	}
 
 	if sendErr != nil {
@@ -139,9 +122,8 @@ func (s *verificationService) SendOTP(ctx context.Context, userID uuid.UUID, cha
 }
 
 // ConfirmOTP verifica el código OTP del usuario.
-// phone es el número que el cliente afirma haber recibido el OTP; solo se usa cuando channel="sms".
 // SECURITY: nunca loguea el código recibido.
-func (s *verificationService) ConfirmOTP(ctx context.Context, userID uuid.UUID, channel, code, phone string) error {
+func (s *verificationService) ConfirmOTP(ctx context.Context, userID uuid.UUID, channel, code string) error {
 	// Buscar token activo
 	token, err := s.tokenRepo.FindActiveByUser(ctx, userID, channel)
 	if err != nil {
@@ -154,12 +136,6 @@ func (s *verificationService) ConfirmOTP(ctx context.Context, userID uuid.UUID, 
 	// Verificar expiración (doble check — FindActiveByUser ya filtra por expires_at)
 	if time.Now().After(token.ExpiresAt) {
 		return domain.ErrOTPExpired
-	}
-
-	// Validar que el teléfono del request coincide con el teléfono al que se envió el OTP.
-	// SECURITY: previene ataques de phone-swap — el OTP fue enviado a token.TargetPhone.
-	if channel == "sms" && token.TargetPhone != phone {
-		return domain.ErrPhoneMismatch
 	}
 
 	// Incrementar intentos de forma atómica
@@ -195,15 +171,12 @@ func (s *verificationService) ConfirmOTP(ctx context.Context, userID uuid.UUID, 
 	switch channel {
 	case "email":
 		user.EmailVerified = true
-	case "sms":
-		// Actualización atómica: guardar el teléfono verificado y marcar como verificado
-		// en una sola operación para evitar inconsistencias.
-		user.Phone = phone
-		user.PhoneVerified = true
 	}
 
 	// Derivar is_verified y verification_method a partir del estado actualizado.
-	// REGLA: email solo es suficiente para is_verified = true (MVP).
+	// PhoneVerified ya no lo puede poner nadie —la verificación por SMS se quitó el
+	// 2026-07-31— pero se sigue leyendo: hay usuarios que la completaron antes y
+	// borrarlos del invariante los desverificaría en silencio.
 	user.IsVerified = user.EmailVerified || user.PhoneVerified
 	switch {
 	case user.EmailVerified && user.PhoneVerified:

@@ -40,9 +40,7 @@
     "photoResultsTitle": "Results by photo",
     "photoNoResults": "No similar pets found",
     "clearPhotoResults": "Clear photo search",
-    "photoSearchError": "Photo search is unavailable right now. Showing the regular classifier instead.",
-    "verifyNudge": "Verify your phone to build trust in the community",
-    "verifyNudgeCta": "Verify now"
+    "photoSearchError": "Photo search is unavailable right now. Showing the regular classifier instead."
   },
   "map": {
     "loading": "Loading map...",
@@ -105,11 +103,7 @@
     "found": "Found",
     "reports": "Reports",
     "accountVerification": "Account verification",
-    "phoneVerification": "Phone verification",
     "verifyEmail": "Verify email",
-    "verifyPhone": "Verify phone",
-    "smsUnavailable": "SMS unavailable",
-    "smsUnavailableText": "SMS service is not available at the moment.",
     "menuMyPets": "My pets",
     "menuBadges": "My badges",
     "menuLeaderboard": "Leaderboard",
@@ -140,11 +134,6 @@
     "resend": "Resend code",
     "otpError": "Enter the 6-digit code",
     "otpWrong": "Incorrect or expired code",
-    "verifySmsTitle": "Verify phone",
-    "verifySmsCode": "Enter the SMS code",
-    "sendSmsTo": "We'll send an SMS code to {{phone}}",
-    "checkSmsCode": "Check your phone and enter the 6-digit code",
-    "sendSmsCode": "Send SMS code",
     "language": "Language",
     "languageTitle": "Language",
     "spanish": "Español",
@@ -153,7 +142,6 @@
     "comingSoon": "Coming soon",
     "close": "Close",
     "sendOtpError": "Could not send code",
-    "sendSmsOtpError": "Could not send SMS code",
     "editProfile": {
       "title": "Edit Profile",
       "name": "Name",
@@ -454,7 +442,6 @@
   },
   "verify": {
     "title": "Verify phone",
-    "stepPhoneDesc": "Enter your phone number and we'll send you an SMS code.",
     "stepCodeDesc": "Enter the 6-digit code we sent to {{phone}}.",
     "codeLabel": "Verification code",
     "send": "Send code",

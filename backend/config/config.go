@@ -31,9 +31,6 @@ type Config struct {
 	// (mailer.DefaultBrevoEndpoint). Empty means "use the default" — set this
 	// only if Brevo migrates its API, so it's a config change instead of a deploy.
 	BrevoEndpoint           string
-	TwilioAccountSID        string
-	TwilioAuthToken         string
-	TwilioFromNumber        string
 	EnableEmailVerification bool
 
 	// V2.0 — Distributed Rate Limiting (Redis)
@@ -86,9 +83,6 @@ func Load() *Config {
 		BrevoAPIKey:             getEnv("BREVO_API_KEY", ""),
 		MailFromEmail:           getEnv("MAIL_FROM_EMAIL", ""),
 		BrevoEndpoint:           getEnv("BREVO_ENDPOINT", ""),
-		TwilioAccountSID:        getEnv("TWILIO_ACCOUNT_SID", ""),
-		TwilioAuthToken:         getEnv("TWILIO_AUTH_TOKEN", ""),
-		TwilioFromNumber:        getEnv("TWILIO_FROM_NUMBER", ""),
 		EnableEmailVerification: getEnv("ENABLE_EMAIL_VERIFICATION", "true") == "true",
 
 		// V2.0 — Distributed Rate Limiting (Redis)

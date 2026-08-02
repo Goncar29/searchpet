@@ -1,17 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
 import { useTranslation, Trans } from 'react-i18next';
-import { useQueryClient } from '@tanstack/react-query';
 import { useUpdateMe, useUploadProfilePhoto, useMyBadges, useVerificationStatus, useSendEmailOTP, useConfirmEmailOTP, usePublicProfile } from '@shared/hooks';
 import { getErrorMessage } from '@shared/utils/apiErrors';
 import { useAuth } from '../context/AuthContext';
 import type { Badge } from '@shared/types';
 import { BADGE_META } from '@shared/types';
-import { OtpVerificationModal } from '../components/OtpVerificationModal';
 
 export function ProfilePage() {
   const { t, i18n } = useTranslation(['profile', 'common', 'badges']);
   const { user, refreshUser } = useAuth();
-  const queryClient = useQueryClient();
   const updateMe = useUpdateMe();
   const uploadPhoto = useUploadProfilePhoto();
   const { data: badges } = useMyBadges();
@@ -37,8 +34,6 @@ export function ProfilePage() {
   const [resendCountdown, setResendCountdown] = useState(0);
   const verificationDisabled = (verificationError as any)?.status === 501;
 
-  // SMS OTP modal state
-  const [otpModalOpen, setOtpModalOpen] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -53,12 +48,6 @@ export function ProfilePage() {
     const timer = setTimeout(() => setResendCountdown((c) => c - 1), 1000);
     return () => clearTimeout(timer);
   }, [resendCountdown]);
-
-  const handleOtpSuccess = () => {
-    setOtpModalOpen(false);
-    queryClient.invalidateQueries({ queryKey: ['me'] });
-    queryClient.invalidateQueries({ queryKey: ['verification-status'] });
-  };
 
   const handleSendOTP = async () => {
     try {
@@ -398,34 +387,6 @@ export function ProfilePage() {
               </div>
             )}
           </div>
-        )}
-
-        {/* Verificación de teléfono (SMS OTP) — solo si teléfono no verificado */}
-        {verificationStatus?.phone_verified === false && (
-          <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">
-            <div className="flex items-center justify-between">
-              <h2 className="text-base font-semibold text-gray-900 dark:text-gray-50">
-                {t('profile:phoneVerification')}
-              </h2>
-              <button
-                type="button"
-                onClick={() => setOtpModalOpen(true)}
-                className="text-sm font-medium text-primary flex items-center gap-1"
-              >
-                {t('profile:verifyPhone')}
-              </button>
-            </div>
-            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-              {t('profile:phoneVerificationHint')}
-            </p>
-          </div>
-        )}
-
-        {otpModalOpen && (
-          <OtpVerificationModal
-            onSuccess={handleOtpSuccess}
-            onClose={() => setOtpModalOpen(false)}
-          />
         )}
 
         {/* Puntos y estadísticas */}

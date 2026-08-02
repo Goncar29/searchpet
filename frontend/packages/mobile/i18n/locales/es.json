@@ -40,9 +40,7 @@
     "photoResultsTitle": "Resultados por foto",
     "photoNoResults": "No se encontraron mascotas similares",
     "clearPhotoResults": "Limpiar búsqueda por foto",
-    "photoSearchError": "La búsqueda por foto no está disponible ahora. Usando el clasificador habitual.",
-    "verifyNudge": "Verificá tu teléfono para ganar más confianza en la comunidad",
-    "verifyNudgeCta": "Verificar ahora"
+    "photoSearchError": "La búsqueda por foto no está disponible ahora. Usando el clasificador habitual."
   },
   "map": {
     "loading": "Cargando mapa...",
@@ -105,11 +103,7 @@
     "found": "Encontradas",
     "reports": "Reportes",
     "accountVerification": "Verificación de cuenta",
-    "phoneVerification": "Verificación de teléfono",
     "verifyEmail": "Verificar email",
-    "verifyPhone": "Verificar teléfono",
-    "smsUnavailable": "SMS no disponible",
-    "smsUnavailableText": "El servicio de SMS no está disponible en este momento.",
     "menuMyPets": "Mis mascotas",
     "menuBadges": "Mis badges",
     "menuLeaderboard": "Tabla de líderes",
@@ -140,11 +134,6 @@
     "resend": "Reenviar código",
     "otpError": "Ingresá el código de 6 dígitos",
     "otpWrong": "Código incorrecto o expirado",
-    "verifySmsTitle": "Verificar teléfono",
-    "verifySmsCode": "Ingresá el código SMS",
-    "sendSmsTo": "Te enviaremos un código SMS a {{phone}}",
-    "checkSmsCode": "Revisá tu teléfono e ingresá el código de 6 dígitos",
-    "sendSmsCode": "Enviar código SMS",
     "language": "Idioma",
     "languageTitle": "Idioma",
     "spanish": "Español",
@@ -153,7 +142,6 @@
     "comingSoon": "Próximamente",
     "close": "Cerrar",
     "sendOtpError": "No se pudo enviar el código",
-    "sendSmsOtpError": "No se pudo enviar el código SMS",
     "editProfile": {
       "title": "Editar perfil",
       "name": "Nombre",
@@ -454,7 +442,6 @@
   },
   "verify": {
     "title": "Verificar teléfono",
-    "stepPhoneDesc": "Ingresá tu número de teléfono y te enviaremos un código SMS.",
     "stepCodeDesc": "Ingresá el código de 6 dígitos que enviamos a {{phone}}.",
     "codeLabel": "Código de verificación",
     "send": "Enviar código",
