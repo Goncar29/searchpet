@@ -16,6 +16,16 @@ El pipeline principal (`ci.yml`) usa además:
 |--------|-------------|
 | `RENDER_DEPLOY_HOOK_URL` | Deploy hook de Render. Lo dispara `deploy-backend` en push a `main`, después de que pasen los cuatro jobs de test. El Auto-Deploy por commit del servicio está **apagado** a propósito: si estuviera prendido, cada push deployaría dos veces y el deploy automático no esperaría a los tests |
 
+## Variables de entorno de Render (no son secrets de GitHub)
+
+Estas se setean en el servicio de Render, no acá. Se documentan en este archivo porque
+son las que gatean endpoints que de otro modo no aparecen en ninguna parte.
+
+| Variable | Descripción |
+|----------|-------------|
+| `OPS_STATUS_TOKEN` | Gatea `GET /api/ops/quota`, que reporta cuánto se gastó de la reserva diaria de cada canal de mail. Se manda en el header `X-Ops-Token`. **Vacía o sin setear deshabilita el endpoint por completo** (404 a todo, incluso a un header vacío). Los monitores de UptimeRobot la llevan en `customHttpHeaders`. Ojo: el cuerpo dice cuánta cuota queda, que para un atacante es el marcador del partido — no dejarla sin token en prod |
+| `REINDEX_TOKEN` | Gatea `POST /api/admin/reindex-embeddings` (backfill one-off de embeddings). Mismo patrón: sin setear, 404. Se setea, se corre una vez, y se borra |
+
 ## Generar Keystore (solo se hace UNA vez)
 
 ```bash
