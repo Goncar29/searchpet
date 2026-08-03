@@ -1,6 +1,8 @@
 package tests
 
 import (
+	"context"
+	"errors"
 	"testing"
 
 	"lost-pets/internal/service"
@@ -85,5 +87,50 @@ func TestWorstLevel(t *testing.T) {
 		if got := service.WorstLevel(c.a, c.b); got != c.quiero {
 			t.Fatalf("WorstLevel(%q,%q) = %q, quiero %q", c.a, c.b, got, c.quiero)
 		}
+	}
+}
+
+// TestReport_ArmaLosDosCanales verifica el cuerpo completo con consumo real.
+// mockTokenRepo.CountSince devuelve countGlobal cuando userID es nil, que es
+// exactamente como el servicio cuenta el canal entero.
+func TestReport_ArmaLosDosCanales(t *testing.T) {
+	repo := &mockTokenRepo{countGlobal: 203}
+	svc := service.NewOpsQuotaService(repo)
+
+	rep, err := svc.Report(context.Background())
+	if err != nil {
+		t.Fatalf("Report devolvio error: %v", err)
+	}
+	if len(rep.Channels) != 2 {
+		t.Fatalf("quiero 2 canales, hay %d", len(rep.Channels))
+	}
+	if rep.Channels[0].Channel != service.ChannelEmail || rep.Channels[0].Cap != 250 {
+		t.Fatalf("canal 0 = %+v, quiero email con cap 250", rep.Channels[0])
+	}
+	if rep.Channels[1].Channel != service.ChannelPasswordReset || rep.Channels[1].Cap != 50 {
+		t.Fatalf("canal 1 = %+v, quiero password_reset con cap 50", rep.Channels[1])
+	}
+	// 203 sobre 250 es aviso; 203 sobre 50 es critico. El peor manda.
+	if rep.Status != service.QuotaLevelCritical {
+		t.Fatalf("status = %q, quiero critical", rep.Status)
+	}
+	if rep.WindowHours != 24 {
+		t.Fatalf("window_hours = %v, quiero 24", rep.WindowHours)
+	}
+}
+
+// TestReport_ErrorDeConteoNoSeTraga es el test mas importante del archivo. Un
+// conteo que fallo no puede volverse un "ok": es una senal de exito emitida
+// cuando el chequeo no ocurrio.
+func TestReport_ErrorDeConteoNoSeTraga(t *testing.T) {
+	repo := &mockTokenRepo{countErr: errors.New("boom")}
+	svc := service.NewOpsQuotaService(repo)
+
+	rep, err := svc.Report(context.Background())
+	if err == nil {
+		t.Fatal("Report devolvio nil error con el conteo roto")
+	}
+	if rep != nil {
+		t.Fatalf("Report devolvio un reporte (%+v) con el conteo roto", rep)
 	}
 }
