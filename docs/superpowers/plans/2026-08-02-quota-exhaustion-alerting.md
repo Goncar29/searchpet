@@ -665,14 +665,30 @@ func (h *OpsQuotaHandler) Report(c *gin.Context) {
 Run: `cd backend && go test ./tests/ -count=1 -run TestOpsQuota_ > /tmp/t5.log 2>&1; echo "EXIT=$?"`
 Expected: `EXIT=0`.
 
-- [ ] **Step 5: Prove the ordering test actually guards**
+- [ ] **Step 5: Prove the guard actually guards**
 
-Temporarily swap the two guards in `Report` (header comparison first), then run:
+**Corrected after execution.** This step originally said to swap the two guards so the
+header comparison runs first. That is a **no-op**: with `token == ""` and an empty header,
+`"" != ""` is false, control falls through to the other guard, and the response is 404
+either way. Order is not what makes this safe — the existence of the empty-token guard is.
+
+Reproduce the *real* vulnerable shape instead: collapse both guards into a single
+comparison that authorizes on a match.
+
+```go
+	// VULNERABLE — solo para ver el rojo, restaurar despues
+	if c.GetHeader(opsTokenHeader) != h.token {
+		c.JSON(http.StatusNotFound, gin.H{"code": "not_found", "message": "not found"})
+		return
+	}
+```
 
 Run: `cd backend && go test ./tests/ -count=1 -run TestOpsQuota_ > /tmp/t5b.log 2>&1; echo "EXIT=$?"`
-Expected: non-zero, and `/tmp/t5b.log` names only `TestOpsQuota_TokenVacioDa404ConHeaderVacio`.
+Expected: non-zero, and `/tmp/t5b.log` names only `TestOpsQuota_TokenVacioDa404ConHeaderVacio`,
+reporting `200, quiero 404`.
 
-Restore the original order and re-run to `EXIT=0`. A guard nobody has seen fail is a guard nobody has verified.
+Restore both guards and re-run to `EXIT=0`. A guard nobody has seen fail is a guard nobody
+has verified — but make sure the break you introduce is the one the guard actually stops.
 
 - [ ] **Step 6: Commit**
 
