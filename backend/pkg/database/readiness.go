@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 // readinessTimeout acota lo que puede tardar el chequeo.
@@ -42,8 +43,15 @@ func (c *ReadinessChecker) Check(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, readinessTimeout)
 	defer cancel()
 
+	// Logger descartado a proposito. Connect arma GORM con logger.Info, que
+	// loguea TODA query exitosa: sin esto, cada poll del monitor escribe un
+	// SELECT 1 en los logs de Render. Y como el endpoint es publico y sin rate
+	// limit, cualquiera puede inflar ese volumen justo en el unico lugar donde
+	// vive el diagnostico de este endpoint. El error SI se sigue viendo: lo
+	// loguea el handler, no GORM.
 	var uno int
-	if err := c.db.WithContext(ctx).Raw("SELECT 1").Scan(&uno).Error; err != nil {
+	quiet := c.db.Session(&gorm.Session{Logger: logger.Discard})
+	if err := quiet.WithContext(ctx).Raw("SELECT 1").Scan(&uno).Error; err != nil {
 		return err
 	}
 	if uno != 1 {

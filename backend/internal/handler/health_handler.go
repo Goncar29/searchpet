@@ -40,9 +40,15 @@ func NewHealthHandler(checker ReadinessChecker, log *zap.Logger) *HealthHandler 
 func (h *HealthHandler) Ready(c *gin.Context) {
 	if err := h.checker.Check(c.Request.Context()); err != nil {
 		// La pregunta no es "se fue el caller" sino "el chequeo fallo PORQUE
-		// se fue el caller". Se separan cuando la base esta caida Y el caller
-		// se desconecta a la vez: preguntandole al contexto, esa caida real se
-		// suprimia del log — el unico lugar donde el diagnostico existe.
+		// se fue el caller". Se separan cuando la base RECHAZA la conexion y
+		// el caller se desconecta a la vez: ahi gana el error de dial y la
+		// caida real se loguea, cosa que preguntandole al contexto no pasaba.
+		//
+		// OJO con el alcance, que es menor que el que parece: si la base esta
+		// COLGADA (acepta y no contesta), la query se queda esperando el
+		// contexto, y un caller que corta adentro de la ventana de 2s produce
+		// un error que envuelve context.Canceled. Esa caida real SI se suprime
+		// igual. El timeout achica la ventana, no la cierra.
 		//
 		// context.Canceled sobrevive el wrapping de GORM y pgx: verificado
 		// contra Postgres real, no supuesto.

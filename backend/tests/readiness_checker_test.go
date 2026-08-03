@@ -1,4 +1,4 @@
-package database_test
+package tests
 
 import (
 	"context"
@@ -8,6 +8,19 @@ import (
 	"lost-pets/pkg/database"
 	"lost-pets/tests/testdb"
 )
+
+// Estos tests ejercitan pkg/database, no el handler, y aun asi viven aca y NO
+// en pkg/database/. Es deliberado.
+//
+// SetupTestDB trunca las 24 tablas de la base que nombra DATABASE_URL en su
+// cleanup, y `go test ./...` —lo que corre ci.yml— ejecuta el binario de cada
+// paquete EN PARALELO. Un segundo paquete que truncara la misma base podria
+// barrer las filas de un test de `tests` entre el sembrado y la asercion: rojo
+// en un PR que no toco nada, sin causa reproducible. Mientras `tests` sea el
+// unico paquete que llama a SetupTestDB, esa carrera no puede existir.
+//
+// Si algun dia hace falta paralelizar de verdad, la salida es una base por
+// paquete, no mover estos tests.
 
 // TestReadinessChecker_LaFallaDeConexionPropaga prueba que un pool cerrado —el
 // caso mas simple de "la base no contesta"— realmente hace que Check devuelva
