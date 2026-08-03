@@ -71,7 +71,7 @@ func NewVerificationService(
 // SECURITY: el código en texto plano NUNCA es logueado.
 func (s *verificationService) SendOTP(ctx context.Context, userID uuid.UUID, channel string) error {
 	// Validar canal
-	if channel != "email" {
+	if channel != ChannelEmail {
 		return domain.ErrInvalidInput
 	}
 
