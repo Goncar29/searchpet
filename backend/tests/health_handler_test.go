@@ -14,6 +14,8 @@ import (
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
 	"lost-pets/internal/handler"
+	"lost-pets/pkg/database"
+	"lost-pets/tests/testdb"
 )
 
 // stubChecker devuelve el error que le pongan, sin tocar ninguna base.
@@ -139,5 +141,30 @@ func TestReady_ContextoCanceladoNoLoguaComoFallaDeBase(t *testing.T) {
 	}
 	if logs.Len() != 0 {
 		t.Fatalf("se loguearon %d entradas para un contexto ya cancelado, quiero 0", logs.Len())
+	}
+}
+
+// TestReadinessChecker_ExigeElValor es el test que impide repetir la falla que este
+// endpoint existe para cerrar. Un Scan que no encuentra filas devuelve error nil y
+// deja la variable en cero: seria "listo" sin que la base haya contestado nada.
+// El checker tiene que exigir que el valor vuelva, no solo que no haya error.
+func TestReadinessChecker_ExigeElValor(t *testing.T) {
+	db := testdb.SetupTestDB(t)
+
+	checker := database.NewReadinessChecker(db)
+	if err := checker.Check(context.Background()); err != nil {
+		t.Fatalf("contra una base viva: %v, quiero nil", err)
+	}
+
+	sqlDB, err := db.DB()
+	if err != nil {
+		t.Fatalf("obtener el pool: %v", err)
+	}
+	if err := sqlDB.Close(); err != nil {
+		t.Fatalf("cerrar el pool: %v", err)
+	}
+
+	if err := checker.Check(context.Background()); err == nil {
+		t.Fatal("con el pool cerrado devolvio nil — el chequeo no ocurrio y dio verde igual")
 	}
 }
