@@ -131,11 +131,18 @@ implementation wraps the `*gorm.DB` already built in `SetupRouter`.
    than a simulation of one.
 3. **`/health` stays dumb.** With the pool closed, `/health` must still return 200.
 
-Tests 2 and 3 share one closed pool and must run in the same test function, in that
-order. Closing the pool is destructive to every later user of that `*gorm.DB`, so this
-must not be done against the shared test database handle other tests depend on: open a
-dedicated connection for this test and close that one. A test that poisons the shared
-handle fails somewhere else, and the failure will not name this file.
+Closing the pool is destructive, so the constraint is worth stating precisely — an
+earlier draft of this section got it wrong.
+
+It claimed tests 2 and 3 had to share one test function because closing the pool would
+poison a shared database handle. That is not how this suite works: `testdb.SetupTestDB`
+opens a **fresh pool per test** and registers its own cleanup to truncate and close it.
+Separate test functions each get an isolated pool, which is both safe and clearer.
+
+The real constraint is different, and it is about the cleanup rather than the handle:
+closing the pool makes that cleanup's `TRUNCATE` fail, and it fails non-fatally with only
+a log line. **So these tests must seed no rows.** With nothing seeded there is nothing for
+the skipped truncate to leak into the next test.
 
 Test 3 is the one that matters most. It is this design compiled into an executable
 assertion: it is the only thing standing between the diagnostic split and a future
