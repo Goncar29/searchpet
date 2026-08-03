@@ -18,6 +18,7 @@ import (
 	"lost-pets/internal/repository"
 	"lost-pets/internal/service"
 	ws "lost-pets/internal/websocket"
+	"lost-pets/pkg/database"
 	"lost-pets/pkg/googleauth"
 	"lost-pets/pkg/mailer"
 	"lost-pets/pkg/notification"
@@ -293,11 +294,19 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 	router.Use(middleware.CORS(cfg.Environment, cfg.CORSAllowedOrigins))
 
 	// ----------------------------------------
-	// HEALTH CHECK
+	// HEALTH CHECK — liveness y readiness son DOS preguntas distintas
+	//
+	// /health no toca ninguna dependencia, y eso es la feature, no una omision:
+	// si mirara la base, el monitor dejaria de distinguir "el proceso murio" de
+	// "la base no contesta", que son dos fallas con respuestas opuestas. El test
+	// TestHealthReady_HealthSigueTontoConLaBaseCaida lo protege.
 	// ----------------------------------------
 	router.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "ok"})
 	})
+
+	healthHandler := handler.NewHealthHandler(database.NewReadinessChecker(db), log)
+	router.GET("/health/ready", healthHandler.Ready)
 
 	// ----------------------------------------
 	// WEBSOCKET
