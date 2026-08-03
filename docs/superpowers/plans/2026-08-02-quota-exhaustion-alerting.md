@@ -507,11 +507,13 @@ func doOpsQuota(r *gin.Engine, header string, setHeader bool) *httptest.Response
 	return w
 }
 
-// TestOpsQuota_TokenVacioDa404ConHeaderVacio es un test sobre el ORDEN de los dos
-// chequeos, no sobre el 404. Si el handler comparara el header antes de mirar si
-// hay token configurado, un OPS_STATUS_TOKEN sin setear matchearia con un header
-// vacio y el endpoint le contestaria a cualquiera. Invertir las dos guardas sigue
-// pasando todos los demas tests de este archivo; solo falla este.
+// TestOpsQuota_TokenVacioDa404ConHeaderVacio cubre el endpoint DESHABILITADO: sin
+// OPS_STATUS_TOKEN configurado no se le contesta a nadie, ni siquiera a un header
+// vacio, que es el caso que matchearia por accidente.
+//
+// OJO con lo que este test NO prueba: el ORDEN de las dos guardas. Invertirlas es
+// un no-op y este test sigue verde. Lo que si caza es COLAPSAR las dos en una sola
+// comparacion (`header == token` para autorizar), que es el agujero de verdad.
 func TestOpsQuota_TokenVacioDa404ConHeaderVacio(t *testing.T) {
 	r := buildOpsQuotaRouter("", &mockTokenRepo{})
 
@@ -637,9 +639,10 @@ func NewOpsQuotaHandler(quotaService *service.OpsQuotaService, token string) *Op
 func (h *OpsQuotaHandler) Report(c *gin.Context) {
 	// Deshabilitado salvo que OPS_STATUS_TOKEN este configurado.
 	//
-	// Este chequeo VA PRIMERO y no es estilo: al reves, una variable sin setear
-	// matchearia con un header vacio y el endpoint le contestaria a cualquiera.
-	// Misma regla que REINDEX_TOKEN (#18).
+	// Lo que sostiene la seguridad es que esta guarda EXISTA, no que vaya primero:
+	// con dos early-returns independientes el orden es indistinguible. El agujero
+	// real es colapsar las dos en una sola comparacion (`header == token` para
+	// autorizar), porque ahi una variable sin setear matchea con un header vacio.
 	if h.token == "" {
 		c.JSON(http.StatusNotFound, gin.H{"code": "not_found", "message": "not found"})
 		return

@@ -31,10 +31,15 @@ func doOpsQuota(r *gin.Engine, header string, setHeader bool) *httptest.Response
 	return w
 }
 
-// TestOpsQuota_TokenVacioDa404ConHeaderVacio es un test sobre el ORDEN de los dos
-// chequeos, no sobre el 404. Si el handler comparara el header antes de mirar si
-// hay token configurado, un OPS_STATUS_TOKEN sin setear matchearia con un header
-// vacio y el endpoint le contestaria a cualquiera.
+// TestOpsQuota_TokenVacioDa404ConHeaderVacio cubre el endpoint DESHABILITADO: sin
+// OPS_STATUS_TOKEN configurado no se le contesta a nadie, ni siquiera a un header
+// vacio, que es el caso que matchearia por accidente.
+//
+// OJO con lo que este test NO prueba: el ORDEN de las dos guardas. Invertirlas es
+// un no-op —con token="" y header vacio, `"" != ""` da false, cae a la otra guarda
+// y devuelve 404 igual— y este test sigue verde. Lo que si caza es COLAPSAR las dos
+// en una sola comparacion (`header == token` para autorizar), que es el agujero de
+// verdad. Se probo en rojo con esa variante.
 func TestOpsQuota_TokenVacioDa404ConHeaderVacio(t *testing.T) {
 	r := buildOpsQuotaRouter("", &mockTokenRepo{})
 

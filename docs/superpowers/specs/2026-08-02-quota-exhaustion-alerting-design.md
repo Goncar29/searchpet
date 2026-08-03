@@ -62,13 +62,21 @@ auth group.
 
 Authorization follows `reindex_handler.go` exactly:
 
-1. If the configured token is empty, return a bare 404 **before reading any header**.
+1. If the configured token is empty, return a bare 404.
 2. If the supplied `X-Ops-Token` does not match, return the same bare 404.
 
-The ordering in step 1 is the whole security property, not a stylistic preference. With
-the checks reversed, an unset environment variable would match an empty header and the
-endpoint would answer anyone. Rule #18 records this for `REINDEX_TOKEN`; it applies
-unchanged here.
+**What carries the security property is that guard 1 EXISTS — not that it runs first.**
+An earlier draft of this design said the ordering was the whole point, and that is wrong:
+with two independent early returns, swapping them changes nothing. Given an unset token
+and an empty header, `"" != ""` is false, control falls through to the other guard, and
+the response is 404 either way. The real hole is *collapsing* both into a single
+comparison that authorizes on a match — there, an unset variable matches an empty header
+and the endpoint answers anyone. That collapsed form is what
+`TestOpsQuota_TokenVacioDa404ConHeaderVacio` catches, and it was proven red against it.
+
+CLAUDE.md rule #18 states the same mistake about `REINDEX_TOKEN` and has been corrected
+alongside this change. A rule that misnames its own mechanism makes you write the wrong
+test: anyone "protecting the ordering" was protecting something that cannot break.
 
 404 rather than 401 is the shape the sibling endpoint already uses, and it is what this
 design keeps — but **it does not make the route invisible, and no part of the design may
