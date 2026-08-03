@@ -23,8 +23,14 @@ import {
   useBlockStatus,
   useMarkPetAsFound,
   useNearbyVets,
+  useUpdateMe,
+  useUploadProfilePhoto,
+  useUploadProfilePhotoNative,
+  useUnreadCount,
+  useGetMe,
+  UNREAD_COUNT_KEY,
 } from './index';
-import type { Pet, SuccessStory, StoryListResponse, Message, Report } from '../types';
+import type { Pet, SuccessStory, StoryListResponse, Message, Report, User } from '../types';
 
 function wrapper({ children }: { children: ReactNode }) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -613,5 +619,145 @@ describe('useNearbyVets', () => {
 
     await new Promise((r) => setTimeout(r, 50));
     expect(spy).not.toHaveBeenCalled();
+  });
+});
+
+// ============================================================
+// Hooks que escriben la cache a mano, y el invariante de la clave del badge.
+//
+// Estos NO son passthrough de React Query: escriben con setQueryData usando una
+// clave hardcodeada que tiene que coincidir con la que lee useGetMe, e invalidan
+// prefijos elegidos por un motivo escrito. Si esa correspondencia se rompe, no
+// hay error: la UI muestra datos viejos y nadie se entera.
+// ============================================================
+
+const mockUser: User = {
+  id: 'user-1',
+  name: 'Carlos',
+  email: 'carlos@example.com',
+  phone: '',
+} as User;
+
+describe('useUpdateMe', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('lo que escribe el mutation es lo que LEE useGetMe', async () => {
+    const viejo = { ...mockUser, name: 'Carlos viejo' };
+    const nuevo = { ...mockUser, name: 'Carlos nuevo' };
+    vi.spyOn(apiClient, 'getMe').mockResolvedValue(viejo);
+    vi.spyOn(apiClient, 'updateMe').mockResolvedValue(nuevo);
+    const { wrapper: w } = createWrapperWithClient();
+
+    // Se renderizan LOS DOS hooks contra el mismo QueryClient. Comparar la
+    // cache contra un literal ['me'] escrito a mano no probaba nada: fijaba el
+    // escritor contra una copia de si mismo, y renombrar la clave de useGetMe
+    // dejaba todo verde mientras el perfil mostraba datos viejos.
+    const { result } = renderHook(() => ({ update: useUpdateMe(), me: useGetMe() }), { wrapper: w });
+
+    await waitFor(() => expect(result.current.me.data).toEqual(viejo));
+
+    result.current.update.mutate({ name: 'Carlos nuevo' });
+
+    await waitFor(() => expect(result.current.update.isSuccess).toBe(true));
+    await waitFor(() => expect(result.current.me.data).toEqual(nuevo));
+  });
+
+  it('invalida pets y reports — el telefono viejo vive embebido en esos payloads', async () => {
+    vi.spyOn(apiClient, 'updateMe').mockResolvedValue(mockUser);
+    const { queryClient, wrapper: w } = createWrapperWithClient();
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
+
+    const { result } = renderHook(() => useUpdateMe(), { wrapper: w });
+    result.current.mutate({ name: 'Carlos' });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    // Estas dos invalidaciones parecen redundantes y no lo son: el nombre y el
+    // telefono del dueño viajan DENTRO de las mascotas y los reportes. Si
+    // alguien las borra, quien se borra el telefono lo sigue viendo en sus
+    // propias publicaciones, sin ningun sintoma de error.
+    // Se compara el filtro ENTERO, no solo queryKey: con `exact: true` la
+    // invalidacion dejaria de alcanzar ['pets','mine'] y ['pets', id], que son
+    // justo las vistas donde el dueño ve su propio telefono viejo.
+    const filtros = invalidate.mock.calls.map((c) => JSON.stringify(c[0]));
+    expect(filtros).toContain(JSON.stringify({ queryKey: ['pets'] }));
+    expect(filtros).toContain(JSON.stringify({ queryKey: ['reports'] }));
+  });
+});
+
+describe('useUploadProfilePhoto', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('la foto nueva llega a useGetMe', async () => {
+    const sinFoto: User = { ...mockUser, profile_photo_url: undefined };
+    const conFoto: User = { ...mockUser, profile_photo_url: 'https://cdn/x.webp' };
+    vi.spyOn(apiClient, 'getMe').mockResolvedValue(sinFoto);
+    vi.spyOn(apiClient, 'uploadProfilePhoto').mockResolvedValue(conFoto);
+    const { wrapper: w } = createWrapperWithClient();
+
+    const { result } = renderHook(() => ({ up: useUploadProfilePhoto(), me: useGetMe() }), { wrapper: w });
+    await waitFor(() => expect(result.current.me.data?.profile_photo_url).toBeUndefined());
+
+    result.current.up.mutate(new File([''], 'foto.jpg'));
+
+    await waitFor(() => expect(result.current.up.isSuccess).toBe(true));
+    // Se afirma el CAMPO, no el objeto entero: comparar contra el mock completo
+    // pasaba igual con un mockUser sin foto.
+    await waitFor(() => expect(result.current.me.data?.profile_photo_url).toBe('https://cdn/x.webp'));
+  });
+});
+
+describe('useUploadProfilePhotoNative', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('la foto nueva llega a useGetMe', async () => {
+    const sinFoto: User = { ...mockUser, profile_photo_url: undefined };
+    const conFoto: User = { ...mockUser, profile_photo_url: 'https://cdn/y.webp' };
+    vi.spyOn(apiClient, 'getMe').mockResolvedValue(sinFoto);
+    vi.spyOn(apiClient, 'uploadProfilePhotoNative').mockResolvedValue(conFoto);
+    const { wrapper: w } = createWrapperWithClient();
+
+    const { result } = renderHook(() => ({ up: useUploadProfilePhotoNative(), me: useGetMe() }), { wrapper: w });
+    await waitFor(() => expect(result.current.me.data?.profile_photo_url).toBeUndefined());
+
+    result.current.up.mutate('file:///tmp/foto.jpg');
+
+    await waitFor(() => expect(result.current.up.isSuccess).toBe(true));
+    await waitFor(() => expect(result.current.me.data?.profile_photo_url).toBe('https://cdn/y.webp'));
+  });
+});
+
+describe('useUnreadCount', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('su clave vive bajo el prefijo messages, asi las invalidaciones existentes lo refrescan', async () => {
+    const getUnread = vi.spyOn(apiClient, 'getUnreadCount').mockResolvedValue({ count: 3 });
+    const { queryClient, wrapper: w } = createWrapperWithClient();
+
+    const { result } = renderHook(() => useUnreadCount(), { wrapper: w });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(getUnread).toHaveBeenCalledTimes(1);
+
+    // El OTRO escritor de esta clave es el envelope badge_update del WebSocket
+    // en MainLayout. Los dos usan UNREAD_COUNT_KEY, asi que renombrarla mueve
+    // las dos puntas a la vez; mientras el literal estaba duplicado, cambiarlo
+    // de un lado dejaba el badge sin actualizarse en vivo y todo en verde.
+    expect(queryClient.getQueryData(UNREAD_COUNT_KEY)).toEqual({ count: 3 });
+
+    // El hook es un useQuery pelado: lo que se prueba aca NO es React Query,
+    // es la RELACION entre su clave y el prefijo que invalidan los demas hooks
+    // de mensajeria. Si la clave dejara de colgar de ['messages'], el badge de
+    // no leidos se quedaria viejo despues de cada mensaje, en silencio.
+    await queryClient.invalidateQueries({ queryKey: ['messages'] });
+
+    await waitFor(() => expect(getUnread).toHaveBeenCalledTimes(2));
   });
 });
