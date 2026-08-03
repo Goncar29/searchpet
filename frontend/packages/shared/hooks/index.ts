@@ -400,9 +400,15 @@ export const useConversations = () => {
 // WebSocket badge_update envelope overwrites the cache via setQueryData.
 // The 30s poll is the fallback for when the socket is down. The key lives
 // under the ['messages'] prefix so existing invalidations refresh it too.
+// Clave del badge de no leidos. Se exporta porque tiene DOS escritores: este
+// hook y el envelope badge_update del WebSocket en MainLayout. Mientras el
+// literal estuviera duplicado, renombrarlo de un solo lado dejaba el badge sin
+// actualizarse en vivo, en silencio y con todos los tests en verde.
+export const UNREAD_COUNT_KEY = ['messages', 'unread-count'] as const;
+
 export const useUnreadCount = (enabled = true) => {
   return useQuery({
-    queryKey: ['messages', 'unread-count'],
+    queryKey: UNREAD_COUNT_KEY,
     queryFn: () => apiClient.getUnreadCount(),
     enabled,
     refetchInterval: 30_000,

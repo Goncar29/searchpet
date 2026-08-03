@@ -27,6 +27,8 @@ import {
   useUploadProfilePhoto,
   useUploadProfilePhotoNative,
   useUnreadCount,
+  useGetMe,
+  UNREAD_COUNT_KEY,
 } from './index';
 import type { Pet, SuccessStory, StoryListResponse, Message, Report, User } from '../types';
 
@@ -641,18 +643,25 @@ describe('useUpdateMe', () => {
     vi.restoreAllMocks();
   });
 
-  it('escribe el usuario nuevo en la cache con la MISMA clave que lee useGetMe', async () => {
-    vi.spyOn(apiClient, 'updateMe').mockResolvedValue(mockUser);
-    const { queryClient, wrapper: w } = createWrapperWithClient();
+  it('lo que escribe el mutation es lo que LEE useGetMe', async () => {
+    const viejo = { ...mockUser, name: 'Carlos viejo' };
+    const nuevo = { ...mockUser, name: 'Carlos nuevo' };
+    vi.spyOn(apiClient, 'getMe').mockResolvedValue(viejo);
+    vi.spyOn(apiClient, 'updateMe').mockResolvedValue(nuevo);
+    const { wrapper: w } = createWrapperWithClient();
 
-    const { result } = renderHook(() => useUpdateMe(), { wrapper: w });
-    result.current.mutate({ name: 'Carlos' });
+    // Se renderizan LOS DOS hooks contra el mismo QueryClient. Comparar la
+    // cache contra un literal ['me'] escrito a mano no probaba nada: fijaba el
+    // escritor contra una copia de si mismo, y renombrar la clave de useGetMe
+    // dejaba todo verde mientras el perfil mostraba datos viejos.
+    const { result } = renderHook(() => ({ update: useUpdateMe(), me: useGetMe() }), { wrapper: w });
 
-    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    await waitFor(() => expect(result.current.me.data).toEqual(viejo));
 
-    // useGetMe usa queryKey ['me']. Si el setQueryData del mutation escribiera
-    // otra clave, el perfil seguiria mostrando los datos viejos sin fallar.
-    expect(queryClient.getQueryData(['me'])).toEqual(mockUser);
+    result.current.update.mutate({ name: 'Carlos nuevo' });
+
+    await waitFor(() => expect(result.current.update.isSuccess).toBe(true));
+    await waitFor(() => expect(result.current.me.data).toEqual(nuevo));
   });
 
   it('invalida pets y reports — el telefono viejo vive embebido en esos payloads', async () => {
@@ -669,9 +678,12 @@ describe('useUpdateMe', () => {
     // telefono del dueño viajan DENTRO de las mascotas y los reportes. Si
     // alguien las borra, quien se borra el telefono lo sigue viendo en sus
     // propias publicaciones, sin ningun sintoma de error.
-    const claves = invalidate.mock.calls.map((c) => JSON.stringify(c[0]?.queryKey));
-    expect(claves).toContain(JSON.stringify(['pets']));
-    expect(claves).toContain(JSON.stringify(['reports']));
+    // Se compara el filtro ENTERO, no solo queryKey: con `exact: true` la
+    // invalidacion dejaria de alcanzar ['pets','mine'] y ['pets', id], que son
+    // justo las vistas donde el dueño ve su propio telefono viejo.
+    const filtros = invalidate.mock.calls.map((c) => JSON.stringify(c[0]));
+    expect(filtros).toContain(JSON.stringify({ queryKey: ['pets'] }));
+    expect(filtros).toContain(JSON.stringify({ queryKey: ['reports'] }));
   });
 });
 
@@ -680,17 +692,22 @@ describe('useUploadProfilePhoto', () => {
     vi.restoreAllMocks();
   });
 
-  it('escribe la foto nueva en la clave que lee useGetMe', async () => {
-    const conFoto = { ...mockUser, profile_photo: 'https://cdn/x.webp' } as User;
+  it('la foto nueva llega a useGetMe', async () => {
+    const sinFoto: User = { ...mockUser, profile_photo_url: undefined };
+    const conFoto: User = { ...mockUser, profile_photo_url: 'https://cdn/x.webp' };
+    vi.spyOn(apiClient, 'getMe').mockResolvedValue(sinFoto);
     vi.spyOn(apiClient, 'uploadProfilePhoto').mockResolvedValue(conFoto);
-    const { queryClient, wrapper: w } = createWrapperWithClient();
+    const { wrapper: w } = createWrapperWithClient();
 
-    const { result } = renderHook(() => useUploadProfilePhoto(), { wrapper: w });
-    result.current.mutate(new File([''], 'foto.jpg'));
+    const { result } = renderHook(() => ({ up: useUploadProfilePhoto(), me: useGetMe() }), { wrapper: w });
+    await waitFor(() => expect(result.current.me.data?.profile_photo_url).toBeUndefined());
 
-    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    result.current.up.mutate(new File([''], 'foto.jpg'));
 
-    expect(queryClient.getQueryData(['me'])).toEqual(conFoto);
+    await waitFor(() => expect(result.current.up.isSuccess).toBe(true));
+    // Se afirma el CAMPO, no el objeto entero: comparar contra el mock completo
+    // pasaba igual con un mockUser sin foto.
+    await waitFor(() => expect(result.current.me.data?.profile_photo_url).toBe('https://cdn/x.webp'));
   });
 });
 
@@ -699,17 +716,20 @@ describe('useUploadProfilePhotoNative', () => {
     vi.restoreAllMocks();
   });
 
-  it('escribe la foto nueva en la clave que lee useGetMe', async () => {
-    const conFoto = { ...mockUser, profile_photo: 'https://cdn/y.webp' } as User;
+  it('la foto nueva llega a useGetMe', async () => {
+    const sinFoto: User = { ...mockUser, profile_photo_url: undefined };
+    const conFoto: User = { ...mockUser, profile_photo_url: 'https://cdn/y.webp' };
+    vi.spyOn(apiClient, 'getMe').mockResolvedValue(sinFoto);
     vi.spyOn(apiClient, 'uploadProfilePhotoNative').mockResolvedValue(conFoto);
-    const { queryClient, wrapper: w } = createWrapperWithClient();
+    const { wrapper: w } = createWrapperWithClient();
 
-    const { result } = renderHook(() => useUploadProfilePhotoNative(), { wrapper: w });
-    result.current.mutate('file:///tmp/foto.jpg');
+    const { result } = renderHook(() => ({ up: useUploadProfilePhotoNative(), me: useGetMe() }), { wrapper: w });
+    await waitFor(() => expect(result.current.me.data?.profile_photo_url).toBeUndefined());
 
-    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    result.current.up.mutate('file:///tmp/foto.jpg');
 
-    expect(queryClient.getQueryData(['me'])).toEqual(conFoto);
+    await waitFor(() => expect(result.current.up.isSuccess).toBe(true));
+    await waitFor(() => expect(result.current.me.data?.profile_photo_url).toBe('https://cdn/y.webp'));
   });
 });
 
@@ -719,12 +739,18 @@ describe('useUnreadCount', () => {
   });
 
   it('su clave vive bajo el prefijo messages, asi las invalidaciones existentes lo refrescan', async () => {
-    const getUnread = vi.spyOn(apiClient, 'getUnreadCount').mockResolvedValue({ count: 3 } as never);
+    const getUnread = vi.spyOn(apiClient, 'getUnreadCount').mockResolvedValue({ count: 3 });
     const { queryClient, wrapper: w } = createWrapperWithClient();
 
     const { result } = renderHook(() => useUnreadCount(), { wrapper: w });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(getUnread).toHaveBeenCalledTimes(1);
+
+    // El OTRO escritor de esta clave es el envelope badge_update del WebSocket
+    // en MainLayout. Los dos usan UNREAD_COUNT_KEY, asi que renombrarla mueve
+    // las dos puntas a la vez; mientras el literal estaba duplicado, cambiarlo
+    // de un lado dejaba el badge sin actualizarse en vivo y todo en verde.
+    expect(queryClient.getQueryData(UNREAD_COUNT_KEY)).toEqual({ count: 3 });
 
     // El hook es un useQuery pelado: lo que se prueba aca NO es React Query,
     // es la RELACION entre su clave y el prefijo que invalidan los demas hooks

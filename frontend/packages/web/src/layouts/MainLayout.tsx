@@ -6,7 +6,7 @@ import { useTheme } from '../context/ThemeContext';
 import { LanguageSwitcher } from '../components/LanguageSwitcher';
 import { Logo } from '../components/Logo';
 import { useQueryClient } from '@tanstack/react-query';
-import { useUnreadCount, useWebSocket, useMyShelter } from '@shared/hooks';
+import { useUnreadCount, useWebSocket, useMyShelter, UNREAD_COUNT_KEY } from '@shared/hooks';
 import type { WsEnvelope, WsBadgeUpdate } from '@shared/hooks';
 
 export function MainLayout() {
@@ -36,7 +36,7 @@ export function MainLayout() {
     onMessage: (envelope: WsEnvelope) => {
       if (envelope.type === 'badge_update') {
         const payload = envelope.payload as WsBadgeUpdate;
-        queryClient.setQueryData(['messages', 'unread-count'], { count: payload.unread_count });
+        queryClient.setQueryData(UNREAD_COUNT_KEY, { count: payload.unread_count });
       } else if (envelope.type === 'chat_message') {
         queryClient.invalidateQueries({ queryKey: ['messages'] });
       }
