@@ -39,19 +39,13 @@ func NewHealthHandler(checker ReadinessChecker, log *zap.Logger) *HealthHandler 
 // UNICO lugar donde el diagnostico existe.
 func (h *HealthHandler) Ready(c *gin.Context) {
 	if err := h.checker.Check(c.Request.Context()); err != nil {
-		// La pregunta correcta no es "se fue el caller" sino "el chequeo
-		// fallo PORQUE se fue el caller". Son distintas en un solo caso: la
-		// base esta genuinamente caida Y el caller se desconecta al mismo
-		// tiempo (un network flap entre el monitor y el host) — ahi
-		// c.Request.Context().Err() != nil iguales, pero el error NO es
-		// context.Canceled, es la falla real. Con el predicado viejo
-		// (chequear el contexto del request) esa caida real se suprimia del
-		// log, justo en el unico lugar donde el diagnostico existe. Con el
-		// predicado en el error mismo, solo se suprime cuando la cancelacion
-		// es lo que efectivamente rompio el chequeo. Verificado contra
-		// Postgres real: un contexto ya cancelado hace que Check devuelva un
-		// error donde errors.Is(err, context.Canceled) da true, sobrevive al
-		// wrapping de GORM y pgx.
+		// La pregunta no es "se fue el caller" sino "el chequeo fallo PORQUE
+		// se fue el caller". Se separan cuando la base esta caida Y el caller
+		// se desconecta a la vez: preguntandole al contexto, esa caida real se
+		// suprimia del log — el unico lugar donde el diagnostico existe.
+		//
+		// context.Canceled sobrevive el wrapping de GORM y pgx: verificado
+		// contra Postgres real, no supuesto.
 		if !errors.Is(err, context.Canceled) {
 			h.log.Error("readiness: la base no contesta", zap.Error(err))
 		}
