@@ -1,4 +1,5 @@
 import { Routes, Route, Navigate, useParams } from 'react-router';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 import { MainLayout } from './layouts/MainLayout';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { AdminRoute } from './components/AdminRoute';
@@ -122,6 +123,7 @@ export default function App() {
         <Route path="/pet/:token" element={<SharedPetPage />} />
       </Routes>
       <InstallPWA />
+      <SpeedInsights />
     </>
   );
 }
