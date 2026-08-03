@@ -152,8 +152,29 @@ it, the entire value of this work can be silently deleted by someone trying to h
 ## Monitor
 
 One new UptimeRobot monitor, type **HTTP** (not KEYWORD), against
-`https://searchpet.onrender.com/health/ready`, 300s interval, reusing alert contact
+`https://searchpet.onrender.com/health/ready`, **1800s interval**, reusing alert contact
 `8348190`.
+
+**The interval is set by Neon's compute budget, not by how fast we would like to know.**
+Neon's Free plan allows 100 CU-hours per project per month and suspends the compute after
+5 minutes of inactivity — always on, not disableable. Every poll issues a query, which
+wakes the compute and holds it up for another 5 minutes. So the poll interval directly
+buys compute time:
+
+| Interval | Compute awake | ≈ CU-hours/month at 0.25 CU |
+|---|---|---|
+| 300s | permanently — each poll resets the idle timer | ~180 — **over budget** |
+| 900s | ~8 h/day | ~60 — tight once real traffic is added |
+| 1800s | ~4 h/day | ~30 — comfortable |
+
+A 300s poll would exhaust the month's compute around day 16, Neon would suspend the
+project, and the whole application would go down — **caused by the monitor whose job is to
+notice outages**, in a project whose first rule is $0/mes. That is the failure this
+design would have shipped had the review not caught it.
+
+The honest framing: on a tier with scale-to-zero, fast outage detection and a small
+compute budget are in direct conflict. There is no configuration that gives both. 1800s
+buys the budget and pays for it in detection latency.
 
 No keyword and no custom header are needed: PR #121 established empirically that any
 non-2xx marks a monitor DOWN, with the incident naming the status as the cause. A plain
@@ -171,9 +192,14 @@ The two monitors are read together:
 
 ## Open risks
 
-- **A 300s poll means up to five minutes of unnoticed database outage.** 300s is the
-  floor on the current UptimeRobot plan — `interval: 60` is rejected outright — so this
-  is a constraint, not a choice.
+- **A 1800s poll means up to thirty minutes of unnoticed database outage.** That is a
+  deliberate trade against Neon's compute budget, explained under Monitor above. It is
+  still an improvement on the current state, which is never finding out at all. If the
+  project ever leaves the free tier, dropping this to 300s is a one-field change.
+- **The readiness poll is itself the largest scheduled consumer of Neon compute.** At
+  1800s it roughly triples the baseline (the hourly `DeleteExpired` ticker). Worth
+  re-checking actual usage in the Neon console after a full month rather than trusting
+  this estimate — the numbers above are arithmetic, not measurement.
 - **Readiness reports reachability, not correctness.** A database that answers `SELECT 1`
   while returning wrong data, or one missing a migration, reports ready. Checking
   extensions was deliberately excluded: that is a startup-time failure, and the backend

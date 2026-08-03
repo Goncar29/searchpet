@@ -541,12 +541,18 @@ Expected: `ready=200`. A 404 means the deploy has not landed yet.
 - [ ] **Step 2: Create the monitor**
 
 Type `HTTP` (not KEYWORD), `url: https://searchpet.onrender.com/health/ready`,
-`interval: 300`, alert contact `8348190`, friendly name
+**`interval: 1800`**, alert contact `8348190`, friendly name
 `SearchPet — base de datos sin responder`.
 
 No keyword and no custom header are needed, so the UptimeRobot MCP server can create this
 one directly — the `customHttpHeaders` limitation that forced the raw v3 API for the quota
-monitors does not apply. `interval: 60` is rejected by the plan; 300 is the floor.
+monitors does not apply.
+
+**Do not lower the interval to 300s.** Every poll wakes Neon's compute and holds it up for
+another 5 minutes, so a 300s poll keeps it permanently awake: ~180 CU-hours against the
+Free plan's 100, exhausted around day 16, after which Neon suspends the project and the
+whole application goes down. The monitor would cause the outage it exists to detect. See
+the Monitor section of the spec for the arithmetic.
 
 - [ ] **Step 3: Confirm it reads UP**
 
