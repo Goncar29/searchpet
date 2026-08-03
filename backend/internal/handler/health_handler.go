@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -38,13 +39,20 @@ func NewHealthHandler(checker ReadinessChecker, log *zap.Logger) *HealthHandler 
 // UNICO lugar donde el diagnostico existe.
 func (h *HealthHandler) Ready(c *gin.Context) {
 	if err := h.checker.Check(c.Request.Context()); err != nil {
-		// Un contexto de request ya cancelado (el caller se fue, un bot que
-		// corta la conexion) hace que Check devuelva context.Canceled sin que
-		// la base tenga ningun problema. Loguear eso como "la base no
-		// contesta" ensucia justo el log que un humano lee durante una caida
-		// real. Igual respondemos 503: el caller ya no esta, la respuesta no
-		// va a ningun lado, pero no mentimos en el log.
-		if c.Request.Context().Err() == nil {
+		// La pregunta correcta no es "se fue el caller" sino "el chequeo
+		// fallo PORQUE se fue el caller". Son distintas en un solo caso: la
+		// base esta genuinamente caida Y el caller se desconecta al mismo
+		// tiempo (un network flap entre el monitor y el host) — ahi
+		// c.Request.Context().Err() != nil iguales, pero el error NO es
+		// context.Canceled, es la falla real. Con el predicado viejo
+		// (chequear el contexto del request) esa caida real se suprimia del
+		// log, justo en el unico lugar donde el diagnostico existe. Con el
+		// predicado en el error mismo, solo se suprime cuando la cancelacion
+		// es lo que efectivamente rompio el chequeo. Verificado contra
+		// Postgres real: un contexto ya cancelado hace que Check devuelva un
+		// error donde errors.Is(err, context.Canceled) da true, sobrevive al
+		// wrapping de GORM y pgx.
+		if !errors.Is(err, context.Canceled) {
 			h.log.Error("readiness: la base no contesta", zap.Error(err))
 		}
 		c.JSON(http.StatusServiceUnavailable, gin.H{

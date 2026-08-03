@@ -126,9 +126,15 @@ func TestReady_ElCuerpoNoFiltraElErrorDelDriver(t *testing.T) {
 // un humano lee durante una caida real. La respuesta sigue siendo 503 (el
 // caller ya no esta, pero no hay nada mejor que devolver), y el log queda
 // limpio.
+//
+// El stub devuelve context.Canceled, no un error de conexion: es lo unico que
+// el checker real puede devolver cuando el contexto del request ya esta
+// cancelado (verificado contra Postgres real en Task 2 — WithContext sobre un
+// contexto cancelado nunca produce un error de dial). Emparejar un contexto
+// cancelado con un error de conexion como antes describia una combinacion que
+// no puede ocurrir.
 func TestReady_ContextoCanceladoNoLoguaComoFallaDeBase(t *testing.T) {
-	driverErr := errors.New("dial tcp 10.0.0.7:5432: connect: connection refused")
-	r, logs := buildHealthRouter(driverErr)
+	r, logs := buildHealthRouter(context.Canceled)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
@@ -141,6 +147,31 @@ func TestReady_ContextoCanceladoNoLoguaComoFallaDeBase(t *testing.T) {
 	}
 	if logs.Len() != 0 {
 		t.Fatalf("se loguearon %d entradas para un contexto ya cancelado, quiero 0", logs.Len())
+	}
+}
+
+// TestReady_ContextoCanceladoConFallaRealDeBaseSiLoguea es la regresion que el
+// predicado viejo (chequear c.Request.Context().Err() en vez del error) no
+// cubria: un network flap puede tumbar la base Y desconectar al caller al
+// mismo tiempo. Si el caller ya se fue no dice nada sobre si la base esta
+// sana — hay que seguir logueando la falla real.
+func TestReady_ContextoCanceladoConFallaRealDeBaseSiLoguea(t *testing.T) {
+	driverErr := errors.New("dial tcp 10.0.0.7:5432: connect: connection refused")
+	r, logs := buildHealthRouter(driverErr)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	req := httptest.NewRequest(http.MethodGet, "/health/ready", nil).WithContext(ctx)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusServiceUnavailable {
+		t.Fatalf("status %d, quiero 503", w.Code)
+	}
+
+	entries := logs.FilterMessage("readiness: la base no contesta").All()
+	if len(entries) != 1 {
+		t.Fatalf("se loguearon %d entradas, quiero exactamente 1 — la caida real no se puede perder aunque el caller tambien se haya ido", len(entries))
 	}
 }
 
