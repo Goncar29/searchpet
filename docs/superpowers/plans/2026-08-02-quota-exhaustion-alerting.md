@@ -27,27 +27,21 @@
 
 ---
 
-## Task 1: Give the email channel a named constant
+## Task 1: Use the existing `ChannelEmail` constant in the SendOTP guard
 
-`ChannelPasswordReset` exists; the email channel is the bare literal `"email"` in
-`verification_service.go`. The ops service needs it too, and a third copy of a magic
-string is how the two drift.
+**Corrected after execution.** This task originally claimed `ChannelEmail` did not exist
+and had to be created. It already existed in the `const` block of
+`verification_service.go`. The claim came from a verification whose output was piped
+through `head -8`, which cut the line that would have shown it — a truncated check read as
+a complete one, which is the same failure this plan warns about elsewhere.
+
+What actually needed doing: `SendOTP` compared against the bare literal `"email"` while
+the constant sat six lines above it. Do not touch the constant or its comment.
 
 **Files:**
 - Modify: `backend/internal/service/verification_service.go`
 
-- [ ] **Step 1: Add the constant next to the existing quota constants**
-
-In `backend/internal/service/verification_service.go`, above `emailVerificationDailyMax`:
-
-```go
-// ChannelEmail scopes email verification tokens inside the shared
-// verification_tokens table. Named because three call sites now compare against
-// it; a bare literal in each is how two of them eventually disagree.
-const ChannelEmail = "email"
-```
-
-- [ ] **Step 2: Use it in SendOTP**
+- [ ] **Step 1: Use the constant in SendOTP**
 
 In the same file, replace the channel guard:
 
@@ -57,16 +51,16 @@ In the same file, replace the channel guard:
 		return domain.ErrInvalidInput
 ```
 
-- [ ] **Step 3: Build and run the existing suite**
+- [ ] **Step 2: Build and run the existing suite**
 
-Run: `cd backend && go build ./... && DATABASE_URL="postgres://postgres:postgres@localhost:5433/lostpets_test?sslmode=disable" go test ./tests/ -count=1 -run Verification > /tmp/t1.log 2>&1; echo "EXIT=$?"`
+Run: `cd backend && go build ./... && DATABASE_URL="postgres://postgres:postgres@localhost:5433/lostpets_test?sslmode=disable" go test ./tests/ -count=1 > /tmp/t1.log 2>&1; echo "EXIT=$?"`
 Expected: `EXIT=0`. Read `/tmp/t1.log` on any other value — never grep for "FAIL" (rule #41).
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 3: Commit**
 
 ```bash
 git add backend/internal/service/verification_service.go
-git commit -m "refactor(auth): nombrar el canal email en vez de repetir el literal"
+git commit -m "refactor(auth): usar la constante ChannelEmail en el guard de SendOTP"
 ```
 
 ---
