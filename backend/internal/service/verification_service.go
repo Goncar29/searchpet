@@ -71,7 +71,7 @@ func NewVerificationService(
 // SECURITY: el código en texto plano NUNCA es logueado.
 func (s *verificationService) SendOTP(ctx context.Context, userID uuid.UUID, channel string) error {
 	// Validar canal
-	if channel != "email" {
+	if channel != ChannelEmail {
 		return domain.ErrInvalidInput
 	}
 
@@ -191,8 +191,14 @@ func (s *verificationService) SendOTP(ctx context.Context, userID uuid.UUID, cha
 	// SECURITY: pasamos el código al sender pero no lo logueamos nosotros
 	var sendErr error
 	switch channel {
-	case "email":
+	case ChannelEmail:
 		sendErr = s.mailer.SendOTP(ctx, user.Email, code)
+	default:
+		// Un canal que pasa el guard de arriba pero no tiene sender acá NO puede
+		// terminar en éxito: la fila ya está acuñada y gastando cupo, así que un
+		// switch sin default devolvería 202 por un mail que nunca salió. Con el
+		// error entra al camino de fallo de abajo, que BORRA el token.
+		sendErr = fmt.Errorf("verification: no hay sender para el canal %q", channel)
 	}
 
 	if sendErr != nil {
@@ -218,6 +224,17 @@ func (s *verificationService) SendOTP(ctx context.Context, userID uuid.UUID, cha
 // ConfirmOTP verifica el código OTP del usuario.
 // SECURITY: nunca loguea el código recibido.
 func (s *verificationService) ConfirmOTP(ctx context.Context, userID uuid.UUID, channel, code string) error {
+	// Validar canal ANTES de tocar estado, igual que SendOTP.
+	//
+	// Hoy un canal desconocido ya fallaba solo: FindActiveByUser no encuentra nada
+	// y se sale por ErrOTPExpired. Pero eso depende de que no exista otro canal
+	// válido — el día que exista, el token se encontraría, MarkUsed lo quemaría, y
+	// el switch de abajo no marcaría nada verificado. El usuario perdería el código
+	// sin verificar nada y sin ningún error.
+	if channel != ChannelEmail {
+		return domain.ErrInvalidInput
+	}
+
 	// Buscar token activo
 	token, err := s.tokenRepo.FindActiveByUser(ctx, userID, channel)
 	if err != nil {
@@ -263,7 +280,7 @@ func (s *verificationService) ConfirmOTP(ctx context.Context, userID uuid.UUID, 
 	}
 
 	switch channel {
-	case "email":
+	case ChannelEmail:
 		user.EmailVerified = true
 	}
 
