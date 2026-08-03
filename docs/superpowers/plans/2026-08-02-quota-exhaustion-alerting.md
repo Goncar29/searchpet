@@ -928,7 +928,7 @@ existing `searchpet.onrender.com` monitor.
 | `SearchPet — cuota de mail al 80%` | `QUOTA_WARN` |
 | `SearchPet — cuota de mail agotada` | `QUOTA_CRIT` |
 
-- [ ] **Step 5: Prove the monitors actually fire**
+- [x] **Step 5: Prove the monitors actually fire**
 
 A monitor nobody has seen fire is a monitor nobody has verified — the same reasoning as
 Step 5 of Task 5.
@@ -937,6 +937,15 @@ Temporarily lower `emailVerificationGlobalDailyMax` in a scratch branch deployed
 **or** seed enough rows in the production window to cross 80%. The safer option: point a
 throwaway monitor at a static URL whose body contains `QUOTA_WARN` and confirm the alert
 reaches you through the existing contacts.
+
+Done 2026-08-03 by the safer option, using this repository's own raw spec URL on `main` as
+the static body — it contains `QUOTA_WARN` and is served over a stable public URL. The
+throwaway went DOWN at 14:36:31Z with `"reason": "Keyword has been found"`, and the email
+reached the existing contact. Throwaway deleted.
+
+The part worth naming: detection and delivery are separate links, and only the second one
+needed a human to confirm it. Two correctly configured monitors that cannot reach a
+mailbox detect perfectly and tell nobody.
 
 - [x] **Step 6: Document the token**
 
