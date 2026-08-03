@@ -70,7 +70,22 @@ the checks reversed, an unset environment variable would match an empty header a
 endpoint would answer anyone. Rule #18 records this for `REINDEX_TOKEN`; it applies
 unchanged here.
 
-404 rather than 401 is also deliberate: 401 confirms the route exists.
+404 rather than 401 is the shape the sibling endpoint already uses, and it is what this
+design keeps — but **it does not make the route invisible, and no part of the design may
+depend on that.** Verified by running the server: an unregistered path returns Gin's
+`404 page not found` as `text/plain`, while this endpoint returns
+`{"code":"not_found","message":"not found"}` as `application/json`. The body and the
+content type confirm the route exists exactly as surely as a 401 would.
+
+Matching Gin's plain-text 404 byte for byte would close that, and it is deliberately not
+done: it would break the `{code,message}` error contract this API holds everywhere (rule
+#11), and the inconsistency is the kind a later reader "fixes" — silently undoing the
+stealth without knowing it was load-bearing. The trade is accepted because **stealth was
+never the security property here.** The token is. An attacker who guesses the path learns
+only that it exists, and still reads nothing.
+
+The same applies to `reindex_handler.go`, which has shipped this pattern since before this
+change.
 
 Configuration: `OPS_STATUS_TOKEN`. Absent means disabled, and disabled means invisible.
 

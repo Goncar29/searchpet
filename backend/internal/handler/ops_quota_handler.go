@@ -13,8 +13,13 @@ const opsTokenHeader = "X-Ops-Token"
 // OpsQuotaHandler publica el consumo del cupo de mail para el monitoreo externo.
 //
 // El cuerpo dice cuanta cuota queda, que para un atacante es el marcador del
-// partido: le confirma si ya gano y cuanto le falta. De ahi el token, y de ahi que
-// todo camino no autorizado termine en un 404 mudo en vez de un 401.
+// partido: le confirma si ya gano y cuanto le falta. De ahi el token.
+//
+// El 404 sigue la forma del endpoint hermano (reindex), pero OJO: no vuelve
+// invisible a la ruta, y nada puede depender de que lo haga. Una ruta inexistente
+// devuelve el `404 page not found` de gin en text/plain; esta devuelve
+// {code,message} en application/json. El cuerpo delata que existe igual que un 401.
+// Se acepta porque el sigilo nunca fue la proteccion — la proteccion es el token.
 type OpsQuotaHandler struct {
 	quotaService *service.OpsQuotaService
 	token        string
