@@ -60,6 +60,10 @@ type Config struct {
 	// endpoint entirely — it returns 404 and exposes no surface. Set it
 	// temporarily to run the backfill, then unset it again.
 	ReindexToken string
+
+	// OpsStatusToken gates the mail-quota status endpoint consumed by external
+	// monitoring. Empty disables the endpoint entirely (404, no surface).
+	OpsStatusToken string
 }
 
 func Load() *Config {
@@ -99,6 +103,8 @@ func Load() *Config {
 
 		// One-off admin embeddings backfill (disabled unless set)
 		ReindexToken: getEnv("REINDEX_TOKEN", ""),
+
+		OpsStatusToken: getEnv("OPS_STATUS_TOKEN", ""),
 	}
 
 	// Fail-fast: JWT_SECRET is required in all environments.

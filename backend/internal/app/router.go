@@ -277,6 +277,10 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 	passwordResetHandler := handler.NewPasswordResetHandler(passwordResetService)
 	gamHandler := handler.NewGamificationHandler(gamSvc)
 	reindexHandler := handler.NewReindexHandler(embeddingService, cfg.ReindexToken)
+	opsQuotaHandler := handler.NewOpsQuotaHandler(
+		service.NewOpsQuotaService(verificationTokenRepo),
+		cfg.OpsStatusToken,
+	)
 
 	// ========================================
 	// ROUTER
@@ -307,6 +311,7 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 	// then unset REINDEX_TOKEN to disable it again.
 	// ----------------------------------------
 	router.POST("/api/admin/reindex-embeddings", reindexHandler.BackfillEmbeddings)
+	router.GET("/api/ops/quota", opsQuotaHandler.Report)
 
 	// ----------------------------------------
 	// RUTAS PÚBLICAS
