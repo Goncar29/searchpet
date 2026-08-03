@@ -4,7 +4,9 @@ package e2e_test
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -65,8 +67,17 @@ func TestOpsQuota_CuentaFilasReales(t *testing.T) {
 	}
 }
 
-// TestOpsQuota_SinTokenNoExiste corre contra el server real, no contra un router
-// armado a mano: confirma que la ruta quedo registrada Y que el gate viaja con ella.
+// TestOpsQuota_SinTokenNoExiste confirma, contra el server real, que la ruta esta
+// REGISTRADA y que el gate viaja con ella.
+//
+// El status 404 solo no alcanza para afirmar eso, y ese era el defecto de la
+// version anterior de este test: 404 es exactamente lo que devuelve gin para una
+// ruta que no existe, asi que borrando el router.GET de router.go seguia verde.
+// Una senal de exito que tambien se emite cuando el chequeo no ocurrio.
+//
+// Lo que si distingue los dos casos es el CUERPO: gin contesta "404 page not found"
+// en text/plain, y nuestro handler contesta {code,message} en application/json.
+// Chequear el content-type es lo que ata este test a que el handler haya corrido.
 func TestOpsQuota_SinTokenNoExiste(t *testing.T) {
 	baseURL, _, cleanup := startTestServerWithConfig(t, func(c *config.Config) {
 		c.OpsStatusToken = "test-ops-token"
@@ -81,5 +92,17 @@ func TestOpsQuota_SinTokenNoExiste(t *testing.T) {
 
 	if resp.StatusCode != http.StatusNotFound {
 		t.Fatalf("sin header: status %d, quiero 404", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("leer cuerpo: %v", err)
+	}
+
+	if ct := resp.Header.Get("Content-Type"); !strings.HasPrefix(ct, "application/json") {
+		t.Fatalf("content-type %q — este es el 404 de gin, o sea que la ruta NO quedo registrada", ct)
+	}
+	if !strings.Contains(string(body), `"not_found"`) {
+		t.Fatalf("cuerpo %q — no salio de nuestro handler", string(body))
 	}
 }
