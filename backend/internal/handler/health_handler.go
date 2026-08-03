@@ -33,10 +33,20 @@ func NewHealthHandler(checker ReadinessChecker, log *zap.Logger) *HealthHandler 
 // El error real del driver va al LOG y nunca al cuerpo: los errores de conexion
 // de Postgres traen host, puerto, usuario y a veces el nombre de la base, y este
 // endpoint es publico. Regalar la topologia de la infraestructura justo cuando
-// algo se rompio es exactamente lo que no queremos.
+// algo se rompio es exactamente lo que no queremos. El cuerpo del 503 es
+// deliberadamente sin causa ("database unreachable", nada mas): el log es el
+// UNICO lugar donde el diagnostico existe.
 func (h *HealthHandler) Ready(c *gin.Context) {
 	if err := h.checker.Check(c.Request.Context()); err != nil {
-		h.log.Error("readiness: la base no contesta", zap.Error(err))
+		// Un contexto de request ya cancelado (el caller se fue, un bot que
+		// corta la conexion) hace que Check devuelva context.Canceled sin que
+		// la base tenga ningun problema. Loguear eso como "la base no
+		// contesta" ensucia justo el log que un humano lee durante una caida
+		// real. Igual respondemos 503: el caller ya no esta, la respuesta no
+		// va a ningun lado, pero no mentimos en el log.
+		if c.Request.Context().Err() == nil {
+			h.log.Error("readiness: la base no contesta", zap.Error(err))
+		}
 		c.JSON(http.StatusServiceUnavailable, gin.H{
 			"code":    "not_ready",
 			"message": "database unreachable",
