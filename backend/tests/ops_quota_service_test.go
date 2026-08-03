@@ -36,3 +36,54 @@ func TestLevelFor_Bordes(t *testing.T) {
 		})
 	}
 }
+
+// TestAlertsFor_CriticoEmiteLosDos protege el bug sutil: si critico emitiera solo
+// QUOTA_CRIT, el cuerpo perderia QUOTA_WARN y el monitor de aviso mandaria un
+// "recuperado" en el mismo instante en que el otro manda "caido".
+func TestAlertsFor_CriticoEmiteLosDos(t *testing.T) {
+	casos := []struct {
+		nivel  string
+		quiero []string
+	}{
+		{service.QuotaLevelOK, []string{}},
+		{service.QuotaLevelWarning, []string{service.AlertQuotaWarn}},
+		{service.QuotaLevelCritical, []string{service.AlertQuotaWarn, service.AlertQuotaCrit}},
+	}
+
+	for _, c := range casos {
+		t.Run(c.nivel, func(t *testing.T) {
+			got := service.AlertsFor(c.nivel)
+			if len(got) != len(c.quiero) {
+				t.Fatalf("AlertsFor(%q) = %v, quiero %v", c.nivel, got, c.quiero)
+			}
+			for i := range c.quiero {
+				if got[i] != c.quiero[i] {
+					t.Fatalf("AlertsFor(%q)[%d] = %q, quiero %q", c.nivel, i, got[i], c.quiero[i])
+				}
+			}
+		})
+	}
+}
+
+// TestAlertsFor_OkNoEsNil garantiza que el JSON serialice [] y no null.
+func TestAlertsFor_OkNoEsNil(t *testing.T) {
+	if service.AlertsFor(service.QuotaLevelOK) == nil {
+		t.Fatal("AlertsFor(ok) devolvio nil, quiero un slice vacio")
+	}
+}
+
+// TestWorstLevel: el status global es el del canal mas comprometido, no un promedio.
+func TestWorstLevel(t *testing.T) {
+	casos := []struct{ a, b, quiero string }{
+		{service.QuotaLevelOK, service.QuotaLevelOK, service.QuotaLevelOK},
+		{service.QuotaLevelOK, service.QuotaLevelWarning, service.QuotaLevelWarning},
+		{service.QuotaLevelWarning, service.QuotaLevelOK, service.QuotaLevelWarning},
+		{service.QuotaLevelWarning, service.QuotaLevelCritical, service.QuotaLevelCritical},
+		{service.QuotaLevelCritical, service.QuotaLevelWarning, service.QuotaLevelCritical},
+	}
+	for _, c := range casos {
+		if got := service.WorstLevel(c.a, c.b); got != c.quiero {
+			t.Fatalf("WorstLevel(%q,%q) = %q, quiero %q", c.a, c.b, got, c.quiero)
+		}
+	}
+}

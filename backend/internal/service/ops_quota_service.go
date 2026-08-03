@@ -30,3 +30,28 @@ func LevelFor(used int64, capacity int) string {
 		return QuotaLevelOK
 	}
 }
+
+// AlertsFor renderiza los tokens que matchean los monitores.
+//
+// Critico emite LOS DOS a proposito. Emitir solo QUOTA_CRIT sacaria QUOTA_WARN del
+// cuerpo, y el monitor de aviso disparia una recuperacion en el mismo instante en
+// que el de critico dispara una caida. Escalar no puede leerse como recuperarse.
+func AlertsFor(level string) []string {
+	switch level {
+	case QuotaLevelCritical:
+		return []string{AlertQuotaWarn, AlertQuotaCrit}
+	case QuotaLevelWarning:
+		return []string{AlertQuotaWarn}
+	default:
+		return []string{}
+	}
+}
+
+// WorstLevel devuelve el mas grave de dos niveles.
+func WorstLevel(a, b string) string {
+	rank := map[string]int{QuotaLevelOK: 0, QuotaLevelWarning: 1, QuotaLevelCritical: 2}
+	if rank[b] > rank[a] {
+		return b
+	}
+	return a
+}
