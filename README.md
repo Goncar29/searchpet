@@ -302,7 +302,12 @@ rojo en cualquiera frena el deploy a producción.
 - [x] V2.0: veterinarias cercanas (OpenStreetMap + PostGIS), Google Sign-In (web + Android)
 - [x] Casas de acogida con flujo de moderación
 - [x] Recuperación de contraseña por OTP, con cupo diario por cuenta y por canal
-- [ ] Analytics dashboard público (hoy sólo existe la versión admin)
+- [x] Dashboard de impacto (`/admin/impact` + `GET /api/stats/impact/monthly`), admin-gated
+
+**El dashboard de impacto es admin-only a propósito, y no va a haber versión
+pública.** El diseño arrancó siendo público y durante la implementación se pivoteó
+a admin; se entregó así en el PR #104. El roadmap quedó un tiempo listando "analytics
+dashboard público" como pendiente, que era el rastro de un plan ya descartado.
 
 **No va a haber notificaciones por SMS.** Se retiraron del roadmap: mandar SMS
 cuesta plata por mensaje y el proyecto es $0/mes sin excepciones. Las alertas de
