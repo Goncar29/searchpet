@@ -14,8 +14,6 @@ import (
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
 	"lost-pets/internal/handler"
-	"lost-pets/pkg/database"
-	"lost-pets/tests/testdb"
 )
 
 // stubChecker devuelve el error que le pongan, sin tocar ninguna base.
@@ -175,51 +173,7 @@ func TestReady_ContextoCanceladoConFallaRealDeBaseSiLoguea(t *testing.T) {
 	}
 }
 
-// TestReadinessChecker_LaFallaDeConexionPropaga prueba que un pool cerrado —el
-// caso mas simple de "la base no contesta"— realmente hace que Check devuelva
-// error. Con SELECT 1, un fallo de conexion lo captura enteramente la rama
-// `if err != nil`: nunca llega a la guarda `uno != 1`, asi que este test NO
-// cubre esa guarda. Ver TestGormScanSinFilasNoDaError para lo que si la cubre
-// (la premisa que la justifica), y el comentario de Check en readiness.go.
-func TestReadinessChecker_LaFallaDeConexionPropaga(t *testing.T) {
-	db := testdb.SetupTestDB(t)
-
-	checker := database.NewReadinessChecker(db)
-	if err := checker.Check(context.Background()); err != nil {
-		t.Fatalf("contra una base viva: %v, quiero nil", err)
-	}
-
-	sqlDB, err := db.DB()
-	if err != nil {
-		t.Fatalf("obtener el pool: %v", err)
-	}
-	if err := sqlDB.Close(); err != nil {
-		t.Fatalf("cerrar el pool: %v", err)
-	}
-
-	if err := checker.Check(context.Background()); err == nil {
-		t.Fatal("con el pool cerrado devolvio nil — el chequeo no ocurrio y dio verde igual")
-	}
-}
-
-// TestGormScanSinFilasNoDaError prueba el peligro del que se defiende la guarda
-// `uno != 1` del checker: GORM devuelve error nil y deja la variable en cero
-// cuando la consulta no matchea ninguna fila. Sin la guarda, eso seria "listo"
-// sin que la base hubiera contestado nada.
-//
-// La guarda NO es alcanzable con el SELECT 1 que usa el checker —Postgres
-// siempre devuelve exactamente una fila con un uno—, asi que este test prueba la
-// PREMISA, no la rama. Es deliberado: agregarle una costura al checker solo para
-// poder ejecutar esa rama seria peor que el hueco.
-func TestGormScanSinFilasNoDaError(t *testing.T) {
-	db := testdb.SetupTestDB(t)
-
-	var uno int
-	err := db.Raw("SELECT 1 WHERE false").Scan(&uno).Error
-	if err != nil {
-		t.Fatalf("Scan sin filas devolvio error: %v — quiero nil (si esto falla, la guarda uno != 1 no defiende nada y hay que sacarla)", err)
-	}
-	if uno != 0 {
-		t.Fatalf("uno = %d, quiero 0 (valor cero sin tocar)", uno)
-	}
-}
+// TestReadinessChecker_LaFallaDeConexionPropaga, TestGormScanSinFilasNoDaError
+// y TestReadinessChecker_PropagaElContextoDelCaller viven en
+// pkg/database/readiness_test.go: ejercitan el checker real (pkg/database),
+// no el handler stubbed de este archivo.
