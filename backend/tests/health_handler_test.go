@@ -175,11 +175,13 @@ func TestReady_ContextoCanceladoConFallaRealDeBaseSiLoguea(t *testing.T) {
 	}
 }
 
-// TestReadinessChecker_ExigeElValor es el test que impide repetir la falla que este
-// endpoint existe para cerrar. Un Scan que no encuentra filas devuelve error nil y
-// deja la variable en cero: seria "listo" sin que la base haya contestado nada.
-// El checker tiene que exigir que el valor vuelva, no solo que no haya error.
-func TestReadinessChecker_ExigeElValor(t *testing.T) {
+// TestReadinessChecker_LaFallaDeConexionPropaga prueba que un pool cerrado —el
+// caso mas simple de "la base no contesta"— realmente hace que Check devuelva
+// error. Con SELECT 1, un fallo de conexion lo captura enteramente la rama
+// `if err != nil`: nunca llega a la guarda `uno != 1`, asi que este test NO
+// cubre esa guarda. Ver TestGormScanSinFilasNoDaError para lo que si la cubre
+// (la premisa que la justifica), y el comentario de Check en readiness.go.
+func TestReadinessChecker_LaFallaDeConexionPropaga(t *testing.T) {
 	db := testdb.SetupTestDB(t)
 
 	checker := database.NewReadinessChecker(db)
@@ -197,5 +199,27 @@ func TestReadinessChecker_ExigeElValor(t *testing.T) {
 
 	if err := checker.Check(context.Background()); err == nil {
 		t.Fatal("con el pool cerrado devolvio nil — el chequeo no ocurrio y dio verde igual")
+	}
+}
+
+// TestGormScanSinFilasNoDaError prueba el peligro del que se defiende la guarda
+// `uno != 1` del checker: GORM devuelve error nil y deja la variable en cero
+// cuando la consulta no matchea ninguna fila. Sin la guarda, eso seria "listo"
+// sin que la base hubiera contestado nada.
+//
+// La guarda NO es alcanzable con el SELECT 1 que usa el checker —Postgres
+// siempre devuelve exactamente una fila con un uno—, asi que este test prueba la
+// PREMISA, no la rama. Es deliberado: agregarle una costura al checker solo para
+// poder ejecutar esa rama seria peor que el hueco.
+func TestGormScanSinFilasNoDaError(t *testing.T) {
+	db := testdb.SetupTestDB(t)
+
+	var uno int
+	err := db.Raw("SELECT 1 WHERE false").Scan(&uno).Error
+	if err != nil {
+		t.Fatalf("Scan sin filas devolvio error: %v — quiero nil (si esto falla, la guarda uno != 1 no defiende nada y hay que sacarla)", err)
+	}
+	if uno != 0 {
+		t.Fatalf("uno = %d, quiero 0 (valor cero sin tocar)", uno)
 	}
 }

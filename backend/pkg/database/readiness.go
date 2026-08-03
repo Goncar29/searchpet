@@ -33,6 +33,11 @@ func NewReadinessChecker(db *gorm.DB) *ReadinessChecker {
 //
 // Por el mismo motivo se exige el VALOR: un Scan sin filas devuelve error nil y
 // deja uno en cero.
+//
+// La guarda `uno != 1` es inalcanzable con el SELECT 1 de aca abajo —Postgres
+// siempre devuelve exactamente una fila con un uno, asi que ningun test la
+// ejercita en esta rama—: es seguro contra el dia que la consulta o el driver
+// cambien, no cobertura de la rama actual. No la borres por parecer muerta.
 func (c *ReadinessChecker) Check(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, readinessTimeout)
 	defer cancel()
