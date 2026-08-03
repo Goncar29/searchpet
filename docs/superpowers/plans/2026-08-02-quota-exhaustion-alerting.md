@@ -772,7 +772,9 @@ in the package: `startTestServerWithConfig` (`helpers_test.go:53`), `registerAnd
 ```go
 //go:build e2e
 
-package e2e
+// OJO: el paquete es e2e_test, NO e2e. Este plan decia e2e y estaba mal; los
+// archivos hermanos del directorio usan e2e_test y no compilan mezclados.
+package e2e_test
 
 import (
 	"encoding/json"
