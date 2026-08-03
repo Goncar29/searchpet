@@ -298,8 +298,11 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 	//
 	// /health no toca ninguna dependencia, y eso es la feature, no una omision:
 	// si mirara la base, el monitor dejaria de distinguir "el proceso murio" de
-	// "la base no contesta", que son dos fallas con respuestas opuestas. El test
-	// TestHealthReady_HealthSigueTontoConLaBaseCaida lo protege.
+	// "la base no contesta", que son dos fallas con respuestas opuestas.
+	// TestHealthReady_HealthSigueTontoConLaBaseCaida prueba que /health sigue
+	// en 200 con el pool cerrado — el error mas probable — pero no prueba la
+	// ausencia total de dependencias (no cubre un /health que consulte y se
+	// trague el error, ni una base colgada en vez de caida).
 	// ----------------------------------------
 	router.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "ok"})
