@@ -882,12 +882,12 @@ git commit -m "test(e2e): el endpoint del cupo cuenta filas reales de Postgres"
 This task runs against live infrastructure and must happen **after** the backend is
 deployed with `OPS_STATUS_TOKEN` set in Render.
 
-- [ ] **Step 1: Generate and set the token in Render**
+- [x] **Step 1: Generate and set the token in Render**
 
 Generate a random token, set it as `OPS_STATUS_TOKEN` on the Render service, and wait for
 the redeploy.
 
-- [ ] **Step 2: Verify by content, not by /health**
+- [x] **Step 2: Verify by content, not by /health**
 
 Run, substituting the real token:
 
@@ -899,7 +899,7 @@ curl -s -H "X-Ops-Token: <token>" https://searchpet.onrender.com/api/ops/quota
 Expected: `sin-token=404`, and the second returns the JSON report. A 404 on the second
 means the deploy has not landed yet — `/health` answering 200 proves nothing (rule #46).
 
-- [ ] **Step 3: Verify the 500 assumption before relying on it**
+- [x] **Step 3: Verify the 500 assumption before relying on it**
 
 The spec flags this explicitly. A 500 removes both keywords from the body, and an
 `ALERT_EXISTS` monitor does not fire on an absent keyword — so the alerting could go quiet
@@ -916,7 +916,7 @@ whether UptimeRobot marks it DOWN.
 Record the observed result in the spec's Open risks section. **Do not skip this step and
 assume the favourable branch.**
 
-- [ ] **Step 4: Create the two monitors**
+- [x] **Step 4: Create the two monitors**
 
 Both `type: KEYWORD`, `url: https://searchpet.onrender.com/api/ops/quota`,
 `keywordType: ALERT_EXISTS`, `interval: 300`, `keywordCaseType: 0` (case-sensitive),
@@ -928,7 +928,7 @@ existing `searchpet.onrender.com` monitor.
 | `SearchPet — cuota de mail al 80%` | `QUOTA_WARN` |
 | `SearchPet — cuota de mail agotada` | `QUOTA_CRIT` |
 
-- [ ] **Step 5: Prove the monitors actually fire**
+- [x] **Step 5: Prove the monitors actually fire**
 
 A monitor nobody has seen fire is a monitor nobody has verified — the same reasoning as
 Step 5 of Task 5.
@@ -938,7 +938,16 @@ Temporarily lower `emailVerificationGlobalDailyMax` in a scratch branch deployed
 throwaway monitor at a static URL whose body contains `QUOTA_WARN` and confirm the alert
 reaches you through the existing contacts.
 
-- [ ] **Step 6: Document the token**
+Done 2026-08-03 by the safer option, using this repository's own raw spec URL on `main` as
+the static body — it contains `QUOTA_WARN` and is served over a stable public URL. The
+throwaway went DOWN at 14:36:31Z with `"reason": "Keyword has been found"`, and the email
+reached the existing contact. Throwaway deleted.
+
+The part worth naming: detection and delivery are separate links, and only the second one
+needed a human to confirm it. Two correctly configured monitors that cannot reach a
+mailbox detect perfectly and tell nobody.
+
+- [x] **Step 6: Document the token**
 
 Add `OPS_STATUS_TOKEN` to `docs/github-secrets.md` under the `ci.yml` secrets table
 introduced earlier, noting that it is a Render environment variable rather than a GitHub

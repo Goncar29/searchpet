@@ -184,11 +184,37 @@ implementation rather than assumed:
 Do not assume (1). Confirm it by pointing a throwaway monitor at a URL that returns 500
 before relying on it.
 
+**Verified 2026-08-03 — (1) holds, so no third monitor is needed.** Two throwaway KEYWORD
+monitors with `ALERT_EXISTS` and a keyword that never appeared in the body both went DOWN:
+
+| Target | Response | Keyword | Result |
+|---|---|---|---|
+| `/api/ops/quota` with no `X-Ops-Token` | 404 | absent | DOWN |
+| `httpbin.org/status/500` | 5xx | absent | DOWN |
+
+The mechanism is visible on the monitor resource rather than inferred: KEYWORD monitors
+carry `successHttpResponseCodes: ["2xx","3xx"]`, and the recorded incident names the
+status as the cause (`"cause": 404, "reason": "404 Not Found"`) — not the keyword. Both
+throwaways were deleted after the observation.
+
+A 404 alone would have left the conclusion resting on "a 404 and a 500 are the same class
+of thing", which is the assumption this section exists to forbid. The 5xx case was run
+for that reason.
+
 ### Monitors
 
 Both KEYWORD type, `ALERT_EXISTS`, 300s interval, `X-Ops-Token` supplied through
 `customHttpHeaders` (verified supported), reusing the alert contacts already proven by
 the existing `searchpet.onrender.com/health` monitor.
+
+**Creating them requires the raw v3 API or the dashboard, not the UptimeRobot MCP
+server.** That server rejects `customHttpHeaders` as an input for KEYWORD monitors
+(`Invalid field for KEYWORD monitor: customHttpHeaders`) on both create and update — its
+update schema has no such field at all. This is a wrapper limitation, not an UptimeRobot
+one: reading any KEYWORD monitor back returns `customHttpHeaders` as a populated field,
+and `POST /v3/monitors` accepts it. The distinction matters because a monitor created
+without the header receives a 404 and, per the section above, goes DOWN — so building
+them the easy way produces two monitors that alert constantly and prove nothing.
 
 | Friendly name | Keyword |
 |---|---|
@@ -226,8 +252,10 @@ Three tests, each written failing first.
 - **A 300s poll can miss a fast attack's warning stage.** ~50 accounts spending 5 codes
   each could cross 80% → 100% inside one interval, collapsing the diagnostic gap the two
   monitors exist to produce. The interval is not lowered because a missed warning still
-  leaves the critical alert correct, and the free tier's shorter intervals are better
-  spent on liveness.
+  leaves the critical alert correct — and, as of 2026-08-03, because it *cannot* be:
+  the plan rejects anything under 300s outright (`interval: 60` → "You can not use this
+  monitor interval. Use higher interval."). The earlier wording framed 300s as a choice
+  among available intervals; it is the floor.
 - **`QUOTA_WARN` fires at 80% of a cap that is itself an estimate.** If 250 turns out to
   be wrong, the warning is wrong by the same factor. The endpoint's `used` value is the
   measurement that will eventually correct it — which is the point of building this
