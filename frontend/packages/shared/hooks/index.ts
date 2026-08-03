@@ -74,6 +74,7 @@ export const useUpdateMe = () => {
       // Owner/reporter name and phone are embedded in pet and report payloads,
       // so refetch them — otherwise a profile edit (e.g. clearing the phone)
       // keeps showing stale contact info in the editor's cached views.
+      // Protegido por "invalida pets y reports" en hooks/index.test.ts.
       queryClient.invalidateQueries({ queryKey: ['pets'] });
       queryClient.invalidateQueries({ queryKey: ['reports'] });
     },
