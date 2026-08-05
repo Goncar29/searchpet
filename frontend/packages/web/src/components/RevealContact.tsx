@@ -49,7 +49,7 @@ export function RevealContact({
       <button
         type="button"
         onClick={() => setRevealed(true)}
-        className="mt-4 w-full inline-flex items-center justify-center gap-2 bg-[#25D366] text-white font-bold py-3 rounded-lg hover:opacity-90 transition-opacity"
+        className="mt-4 w-full inline-flex items-center justify-center gap-2 bg-[#25D366] text-white font-bold px-3 py-3 text-center leading-tight rounded-lg hover:opacity-90 transition-opacity"
       >
         📞 {revealLabel}
       </button>
@@ -58,11 +58,15 @@ export function RevealContact({
 
   return (
     <div className="mt-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60 p-4">
-      {/* Number + copy affordance */}
-      <div className="flex items-center justify-between gap-3 mb-3">
+      {/* Number + copy affordance. `flex-wrap` and `min-w-0` are both load-
+          bearing since this card lives in a ~214px sidebar column: a phone
+          number is an unbreakable string, so without them the copy button —
+          which is `shrink-0` — gets pushed clean outside the card. Measured at
+          1280px: the button ended 67px past the right edge of the <aside>. */}
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
         <a
           href={`tel:${phone}`}
-          className="text-lg font-bold tracking-wide tabular-nums text-gray-900 dark:text-gray-100 hover:text-[#1c9e4d] dark:hover:text-[#25D366] transition-colors"
+          className="min-w-0 break-all text-lg font-bold tracking-wide tabular-nums text-gray-900 dark:text-gray-100 hover:text-[#1c9e4d] dark:hover:text-[#25D366] transition-colors"
         >
           {phone}
         </a>
@@ -81,7 +85,7 @@ export function RevealContact({
         href={buildWhatsAppContactURL(phone, pet)}
         target="_blank"
         rel="noopener noreferrer"
-        className="w-full inline-flex items-center justify-center gap-2 bg-[#25D366] text-white font-bold py-3 rounded-lg hover:opacity-90 transition-opacity"
+        className="w-full inline-flex items-center justify-center gap-2 bg-[#25D366] text-white font-bold px-3 py-3 text-center leading-tight rounded-lg hover:opacity-90 transition-opacity"
       >
         💬 {contactLabel}
       </a>
@@ -89,7 +93,7 @@ export function RevealContact({
       {/* Secondary action — phone call */}
       <a
         href={`tel:${phone}`}
-        className="mt-2 w-full inline-flex items-center justify-center gap-2 border border-[#25D366] text-[#1c9e4d] dark:text-[#25D366] font-bold py-3 rounded-lg hover:bg-[#25D366]/10 transition-colors"
+        className="mt-2 w-full inline-flex items-center justify-center gap-2 border border-[#25D366] text-[#1c9e4d] dark:text-[#25D366] font-bold px-3 py-3 text-center leading-tight rounded-lg hover:bg-[#25D366]/10 transition-colors"
       >
         📞 {callLabel}
       </a>

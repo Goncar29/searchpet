@@ -496,14 +496,14 @@ export function PetDetailPage() {
                   isAuthenticated ? (
                     <Link
                       to={`/messages/${pet.owner_id}`}
-                      className="mt-3 w-full inline-flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 text-white font-bold py-3 rounded-lg transition-colors"
+                      className="mt-3 w-full inline-flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 text-white font-bold px-3 py-3 text-center leading-tight rounded-lg transition-colors"
                     >
                       💬 {t('pets:detail.sendMessage')}
                     </Link>
                   ) : (
                     <Link
                       to="/login"
-                      className="mt-3 w-full inline-flex items-center justify-center gap-2 border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 font-semibold py-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                      className="mt-3 w-full inline-flex items-center justify-center gap-2 border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 font-semibold px-3 py-3 text-center leading-tight rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                     >
                       🔒 {t('pets:detail.loginToContact')}
                     </Link>
@@ -544,7 +544,7 @@ export function PetDetailPage() {
                     // In-app messaging fallback (login required).
                     <Link
                       to={`/messages/${pet.reporter_id}`}
-                      className="w-full inline-flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-600 text-white font-bold py-3 rounded-lg transition-colors"
+                      className="w-full inline-flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-600 text-white font-bold px-3 py-3 text-center leading-tight rounded-lg transition-colors"
                     >
                       💬 {t('pets:detail.contactReporter')}
                     </Link>
@@ -552,7 +552,7 @@ export function PetDetailPage() {
                     // Honest gated state: tell the logged-out finder how to contact.
                     <Link
                       to="/login"
-                      className="w-full inline-flex items-center justify-center gap-2 border border-amber-400 dark:border-amber-700 text-amber-700 dark:text-amber-300 font-semibold py-3 rounded-lg hover:bg-amber-100 dark:hover:bg-amber-900 transition-colors"
+                      className="w-full inline-flex items-center justify-center gap-2 border border-amber-400 dark:border-amber-700 text-amber-700 dark:text-amber-300 font-semibold px-3 py-3 text-center leading-tight rounded-lg hover:bg-amber-100 dark:hover:bg-amber-900 transition-colors"
                     >
                       🔒 {t('pets:detail.loginToContact')}
                     </Link>
