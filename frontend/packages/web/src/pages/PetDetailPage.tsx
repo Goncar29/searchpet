@@ -162,7 +162,7 @@ export function PetDetailPage() {
             className="rounded-2xl border border-gray-100 bg-white p-4 dark:border-gray-800 dark:bg-gray-900"
           >
             <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">{t(labelKey)}</p>
-            <p className="mt-1 font-display text-headline text-gray-900 dark:text-gray-100">{value}</p>
+            <p className="mt-1 font-display text-headline break-words text-gray-900 dark:text-gray-100">{value}</p>
           </div>
         ))}
     </div>
@@ -174,7 +174,14 @@ export function PetDetailPage() {
         <Icon name="description" className="text-primary" />
         {t('pets:detail.description')}
       </h3>
-      <p className="mt-2 leading-relaxed text-gray-600 dark:text-gray-300">{pet.description}</p>
+      {/* `break-words` is load-bearing, not tidiness: the description is free
+          text a user typed, so it can hold a pasted URL or a 90-character
+          compound with no break opportunity. Without it that word paints past
+          its box and drags the page's scrollWidth with it — measured at 375px,
+          713 against a 375 viewport. Neither `min-w-0` nor the grid's
+          `minmax(0,…)` help: those stop the TRACK from growing, they do not
+          make a word wrap. */}
+      <p className="mt-2 leading-relaxed break-words text-gray-600 dark:text-gray-300">{pet.description}</p>
     </div>
   ) : null;
 
@@ -261,7 +268,7 @@ export function PetDetailPage() {
                 <div className="min-w-0">
                   <h1 className="font-display text-display-sm md:text-display break-words">{pet.name}</h1>
                   {(pet.breed || pet.type) && (
-                    <p className="mt-1 text-sm text-white/80">
+                    <p className="mt-1 break-words text-sm text-white/80">
                       {[pet.breed, pet.type && t(`pets:types.${pet.type}`)].filter(Boolean).join(' • ')}
                     </p>
                   )}
@@ -299,9 +306,11 @@ export function PetDetailPage() {
               </>
             )}
             {!isAdoptionListing && (
-              // `minmax(0,…)` on both tracks is not decorative: without it a long
-              // unbroken word in a description pushes the grid past the viewport
-              // and brings horizontal overflow back on a phone.
+              // `minmax(0,…)` on both tracks stops a wide child from forcing the
+              // TRACK past the viewport. It does NOT make text wrap — an
+              // unbreakable word still paints outside its box, which is what
+              // `break-words` on the user-content nodes is for. The two solve
+              // different halves and neither substitutes for the other.
               <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] gap-6">
                 <div className="min-w-0">
                 {factCards}
@@ -616,9 +625,9 @@ export function PetDetailPage() {
                           </span>
                         )}
                         {report.location_description && (
-                          <p className="flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400">
-                            <Icon name="location-on" className="text-base" />
-                            {report.location_description}
+                          <p className="flex items-start gap-1 text-sm text-gray-500 dark:text-gray-400">
+                            <Icon name="location-on" className="mt-0.5 shrink-0 text-base" />
+                            <span className="min-w-0 break-words">{report.location_description}</span>
                           </p>
                         )}
                         <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
