@@ -94,6 +94,29 @@ describe('PetDetailPage', () => {
     render(<PetDetailPage />, { wrapper });
     expect(document.body).toBeTruthy();
   });
+
+  // `t` is mocked to echo its key, so there is no English in this harness: a
+  // translated string renders as `pets:detail.x` and a hardcoded one renders as
+  // Spanish. That difference is the assertion. It proves the string stopped
+  // being a literal — it cannot prove the English reads well, which is why
+  // e2e/pet-detail.spec.ts drives a browser that resolves the app to English.
+  it('pasa el flujo de marcar como encontrada por i18n y no por español hardcodeado', () => {
+    authState.isAuthenticated = true;
+    authState.user = { id: 'owner-1' };
+    petResult = { data: lostPetWithOwner(), isLoading: false };
+
+    render(<PetDetailPage />, { wrapper });
+
+    // `$` anchors the match so markFoundSaving and markFoundConfirm don't satisfy it.
+    const markFound = screen.getByRole('button', { name: /pets:detail\.markFound$/ });
+    expect(screen.queryByText(/Marcar como encontrada/)).not.toBeInTheDocument();
+
+    fireEvent.click(markFound);
+
+    // The confirmation of an irreversible action must go through i18n.
+    expect(screen.queryByText(/Confirmás/)).not.toBeInTheDocument();
+    expect(screen.getByText(/pets:detail\.markFoundConfirm/)).toBeInTheDocument();
+  });
 });
 
 describe('PetDetailPage — stray reporter contact', () => {
@@ -165,8 +188,8 @@ describe('PetDetailPage — found story nudge', () => {
     expect(screen.queryByText('pets:detail.foundNudgeTitle')).toBeNull();
 
     // Abrir el confirm y confirmar
-    fireEvent.click(screen.getByRole('button', { name: /Marcar como encontrada/i }));
-    fireEvent.click(screen.getByRole('button', { name: 'Confirmar' }));
+    fireEvent.click(screen.getByRole('button', { name: /pets:detail.markFound$/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'common:confirm' }));
 
     // Aparece el nudge con el CTA que lleva a crear la historia de esta mascota
     expect(screen.getByText('pets:detail.foundNudgeTitle')).toBeInTheDocument();
@@ -179,8 +202,8 @@ describe('PetDetailPage — found story nudge', () => {
 
     render(<PetDetailPage />, { wrapper });
 
-    fireEvent.click(screen.getByRole('button', { name: /Marcar como encontrada/i }));
-    fireEvent.click(screen.getByRole('button', { name: 'Confirmar' }));
+    fireEvent.click(screen.getByRole('button', { name: /pets:detail.markFound$/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'common:confirm' }));
     expect(screen.getByText('pets:detail.foundNudgeTitle')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /foundNudgeDismiss/i }));
