@@ -154,6 +154,29 @@ describe('PetDetailPage', () => {
     expect(screen.queryByText('pets:detail.breed')).not.toBeInTheDocument();
     expect(screen.queryByText('pets:detail.color')).not.toBeInTheDocument();
   });
+
+  it('no deja hijos de grid vacíos cuando no hay sidebar ni reportes', () => {
+    // A stray whose own reporter is looking at it: the owner block does not
+    // apply, the reporter block returns null for the reporter themselves, and
+    // the abuse block is hidden because they manage the pet. All three empty.
+    authState.isAuthenticated = true;
+    authState.user = { id: 'reporter-1' };
+    petResult = { data: strayPet(), isLoading: false };
+
+    render(<PetDetailPage />, { wrapper });
+
+    // An empty <aside> would still claim the grid's 1fr column and leave a
+    // third of the page blank next to a squeezed left column.
+    expect(document.querySelector('aside')).toBeNull();
+
+    // With no sidebar the grid must collapse to one column, or the timeline —
+    // the next grid child — lands in the right-hand column instead of below.
+    const body = document.querySelector('[data-detail-body]');
+    expect(body?.className).not.toMatch(/lg:grid-cols-/);
+
+    // No reports and no sidebar: the left column is the only child left.
+    expect(body?.children).toHaveLength(1);
+  });
 });
 
 describe('PetDetailPage — stray reporter contact', () => {

@@ -142,20 +142,33 @@ export function PetDetailPage() {
     : t('pets:detail.ogFallback', { name: pet.name });
   const ogImage = primaryPhoto?.url;
 
+  // Whether the contact sidebar has anything to show. Hoisted because the
+  // `<aside>` must not exist at all when it is empty: as a grid child it would
+  // still claim its `1fr` column and leave a third of the page blank next to a
+  // squeezed left column. Reachable for a stray whose own reporter is looking
+  // at it, and for a logged-out visitor on a pet with no owner loaded.
+  const isReporterViewing = isAuthenticated && user?.id === pet.reporter_id;
+  const showReporterContact =
+    pet.status === 'stray' && !pet.owner && !!pet.reporter_id && !isReporterViewing;
+  const showAbuseReport = isAuthenticated && !canManage && !!(pet.owner_id || pet.reporter_id);
+  const hasSidebar = !!pet.owner || showReporterContact || showAbuseReport;
+
+  const factValues = ([
+    ['pets:detail.type', pet.type && t(`pets:types.${pet.type}`)],
+    ['pets:detail.breed', pet.breed],
+    ['pets:detail.color', pet.color],
+    // Breed and color are optional and an update can clear them with "", so a
+    // falsy value drops the whole card instead of rendering a heading with
+    // nothing under it.
+  ] as const).filter(([, value]) => !!value);
+
   // Extracted so the adoption body and the two-column body can both render them
   // without the JSX existing twice — the two branches share these, they do not
-  // each own a copy.
-  const factCards = (
+  // each own a copy. Both return null when empty: a wrapper that survives its
+  // own content still contributes its margin and its grid cell.
+  const factCards = factValues.length > 0 ? (
     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-      {([
-        ['pets:detail.type', pet.type && t(`pets:types.${pet.type}`)],
-        ['pets:detail.breed', pet.breed],
-        ['pets:detail.color', pet.color],
-      ] as const)
-        // Breed and color are optional and an update can clear them with "", so
-        // a falsy value must drop the whole card — not render a heading with
-        // nothing under it.
-        .filter(([, value]) => !!value)
+      {factValues
         .map(([labelKey, value]) => (
           <div
             key={labelKey}
@@ -166,7 +179,7 @@ export function PetDetailPage() {
           </div>
         ))}
     </div>
-  );
+  ) : null;
 
   const descriptionCard = pet.description ? (
     <div className="mb-6 rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
@@ -311,7 +324,16 @@ export function PetDetailPage() {
               // unbreakable word still paints outside its box, which is what
               // `break-words` on the user-content nodes is for. The two solve
               // different halves and neither substitutes for the other.
-              <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] gap-6">
+              //
+              // The second column only exists when the sidebar does. Keeping it
+              // unconditionally would send the timeline — the next grid child —
+              // into the right column the moment the sidebar is absent.
+              <div
+                data-detail-body
+                className={`grid grid-cols-1 gap-6 ${
+                  hasSidebar ? 'lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]' : ''
+                }`}
+              >
                 <div className="min-w-0">
                 {factCards}
                 {descriptionCard}
@@ -436,6 +458,7 @@ export function PetDetailPage() {
                 action someone takes after recognising the pet. On desktop the
                 grid auto-places it in column 2 and the timeline below in
                 column 1, without either needing an explicit placement. */}
+            {hasSidebar && (
             <aside className="min-w-0 lg:sticky lg:top-24 lg:self-start">
 
             {/* Dueño */}
@@ -589,10 +612,13 @@ export function PetDetailPage() {
             )}
 
             </aside>
+            )}
 
-            {/* Timeline */}
-            <div className="min-w-0">
+            {/* Timeline. The condition wraps the grid child, not its contents:
+                a wrapper that outlives its content still gets a grid cell and
+                its share of the gap. */}
             {reports && reports.length > 0 && (
+            <div className="min-w-0">
               <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
                 <h3 className="mb-4 flex items-center gap-2 font-display text-headline text-gray-900 dark:text-gray-100">
                   <Icon name="history" className="text-primary" />
@@ -639,8 +665,8 @@ export function PetDetailPage() {
                 </div>
                 <TimelineMap reports={reports ?? []} />
               </div>
-            )}
             </div>
+            )}
               </div>
             )}
           </div>
