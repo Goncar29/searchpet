@@ -237,6 +237,7 @@
     "flyer": {
       "button": "Baixar cartaz",
       "generating": "Gerando PDF...",
+      "error": "Erro ao gerar o link",
       "title": "Baixar cartaz PDF para imprimir"
     }
   },

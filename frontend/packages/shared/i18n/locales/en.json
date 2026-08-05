@@ -237,6 +237,7 @@
     "flyer": {
       "button": "Download flyer",
       "generating": "Generating PDF...",
+      "error": "Could not generate the link",
       "title": "Download PDF flyer to print"
     }
   },

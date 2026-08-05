@@ -12,7 +12,7 @@ import type { Pet, ShareLink } from '@shared/types';
 import { buildWhatsAppMessage } from '@shared/utils/whatsappTemplates';
 import { getExpiryInfo } from '@shared/utils/shareExpiry';
 import { PhotoBanner } from './PhotoBanner';
-import { Icon } from './Icon';
+import { Icon, type IconName } from './Icon';
 
 interface SharePanelProps {
   petId: string;
@@ -23,14 +23,14 @@ interface SharePanelProps {
 const PLATFORMS: {
   key: string;
   label: string;
-  icon: string;
+  icon: IconName;
   bg: string;
   getURL: (link: ShareLink, message: string) => string | null;
 }[] = [
   {
     key: 'whatsapp',
     label: 'WhatsApp',
-    icon: '💬',
+    icon: 'whatsapp',
     bg: 'bg-[#25D366] hover:bg-[#1ebe5d]',
     getURL: (_, message) =>
       `https://wa.me/?text=${encodeURIComponent(message)}`,
@@ -38,7 +38,7 @@ const PLATFORMS: {
   {
     key: 'facebook',
     label: 'Facebook',
-    icon: '📘',
+    icon: 'facebook',
     bg: 'bg-[#1877F2] hover:bg-[#0c6cdf]',
     getURL: (link) =>
       `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(link.share_url)}`,
@@ -46,7 +46,7 @@ const PLATFORMS: {
   {
     key: 'twitter',
     label: 'Twitter / X',
-    icon: '🐦',
+    icon: 'x',
     bg: 'bg-[#1DA1F2] hover:bg-[#0d8fdc]',
     getURL: (_, message) =>
       `https://twitter.com/intent/tweet?text=${encodeURIComponent(message)}`,
@@ -54,7 +54,7 @@ const PLATFORMS: {
   {
     key: 'instagram',
     label: 'Instagram',
-    icon: '📸',
+    icon: 'instagram',
     bg: 'bg-gradient-to-br from-[#f09433] via-[#e6683c] to-[#cc2366] hover:opacity-90',
     getURL: () => null, // Instagram no tiene Web Share Intent — se copia el link
   },
@@ -251,7 +251,7 @@ export function SharePanel({ petId, petName, pet }: SharePanelProps) {
                   disabled={!shareLink || (p.key === 'instagram' && isSharingStory)}
                   className={`flex items-center gap-2 px-3 py-2 rounded-lg text-white text-sm font-semibold transition-opacity disabled:opacity-40 ${p.bg}`}
                 >
-                  <span>{p.icon}</span>
+                  <Icon name={p.icon} className="shrink-0 text-base" />
                   {p.label}
                 </button>
               ))}

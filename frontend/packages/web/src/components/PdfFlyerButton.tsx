@@ -151,7 +151,8 @@ export function PdfFlyerButton({ pet, reports = [] }: PdfFlyerButtonProps) {
           </>
         ) : shareError ? (
           <>
-            ⚠️ Error al generar link
+            <Icon name="warning" className="shrink-0" />
+            {t('pets:flyer.error')}
           </>
         ) : (
           <>

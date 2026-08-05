@@ -12,6 +12,7 @@ import { useAuth } from '../context/AuthContext';
 import { RevealContact } from './RevealContact';
 import { SharePanel } from './SharePanel';
 import { PdfFlyerButton } from './PdfFlyerButton';
+import { Icon } from './Icon';
 
 interface AdoptionPetBodyProps {
   pet: Pet;
@@ -28,7 +29,7 @@ export function AdoptionPetBody({ pet }: AdoptionPetBodyProps) {
         data-testid="adopted-banner"
         className="bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-xl p-6 mb-6 text-center"
       >
-        <div className="text-4xl mb-2">🎉</div>
+        <Icon name="celebration" className="mx-auto mb-2 block text-4xl" />
         <h3 className="font-bold text-green-800 dark:text-green-200">
           {t('adoption:detail.adoptedTitle', { name: pet.name })}
         </h3>
@@ -48,7 +49,7 @@ export function AdoptionPetBody({ pet }: AdoptionPetBodyProps) {
         <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-4 mb-6">
           <h3 className="font-bold text-gray-900 dark:text-gray-100 mb-3">{t('pets:detail.owner')}</h3>
           <div className="flex items-center gap-3 mb-1">
-            <div className="w-12 h-12 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center text-xl">👤</div>
+            <div className="w-12 h-12 shrink-0 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center"><Icon name="person" className="text-2xl text-gray-500 dark:text-gray-400" /></div>
             <p className="font-semibold text-gray-900 dark:text-gray-100">{pet.owner.name}</p>
           </div>
 
@@ -73,14 +74,16 @@ export function AdoptionPetBody({ pet }: AdoptionPetBodyProps) {
                 to={`/messages/${pet.owner_id}`}
                 className="mt-3 w-full inline-flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 text-white font-bold py-3 rounded-lg transition-colors"
               >
-                💬 {t('pets:detail.sendMessage')}
+                <Icon name="chat-bubble" className="shrink-0 text-lg" />
+          {t('pets:detail.sendMessage')}
               </Link>
             ) : (
               <Link
                 to="/login"
                 className="mt-3 w-full inline-flex items-center justify-center gap-2 border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 font-semibold py-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
               >
-                🔒 {t('pets:detail.loginToContact')}
+                <Icon name="lock" className="shrink-0 text-base" />
+          {t('pets:detail.loginToContact')}
               </Link>
             )
           )}
