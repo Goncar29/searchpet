@@ -141,6 +141,19 @@ describe('PetDetailPage', () => {
     // would read it twice to a screen reader.
     expect(screen.getAllByText('Firulais')).toHaveLength(1);
   });
+
+  it('omite las fact cards de los campos opcionales vaciados', () => {
+    // Breed and color are optional and can be explicitly emptied (an update
+    // sends "" to clear them), so the page must not render a card that is just
+    // a heading with nothing under it.
+    petResult = { data: lostPetWithOwner({ breed: '', color: '' }), isLoading: false };
+
+    render(<PetDetailPage />, { wrapper });
+
+    expect(screen.getByText('pets:detail.type')).toBeInTheDocument();
+    expect(screen.queryByText('pets:detail.breed')).not.toBeInTheDocument();
+    expect(screen.queryByText('pets:detail.color')).not.toBeInTheDocument();
+  });
 });
 
 describe('PetDetailPage — stray reporter contact', () => {

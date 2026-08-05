@@ -15,6 +15,7 @@ import { PdfFlyerButton } from '../components/PdfFlyerButton';
 import { RevealContact } from '../components/RevealContact';
 import { TimelineMap } from '../components/TimelineMap';
 import { AdoptionPetBody } from '../components/AdoptionPetBody';
+import { Icon } from '../components/Icon';
 
 export function PetDetailPage() {
   const { t, i18n } = useTranslation(['pets', 'common']);
@@ -141,6 +142,42 @@ export function PetDetailPage() {
     : t('pets:detail.ogFallback', { name: pet.name });
   const ogImage = primaryPhoto?.url;
 
+  // Extracted so the adoption body and the two-column body can both render them
+  // without the JSX existing twice — the two branches share these, they do not
+  // each own a copy.
+  const factCards = (
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+      {([
+        ['pets:detail.type', pet.type && t(`pets:types.${pet.type}`)],
+        ['pets:detail.breed', pet.breed],
+        ['pets:detail.color', pet.color],
+      ] as const)
+        // Breed and color are optional and an update can clear them with "", so
+        // a falsy value must drop the whole card — not render a heading with
+        // nothing under it.
+        .filter(([, value]) => !!value)
+        .map(([labelKey, value]) => (
+          <div
+            key={labelKey}
+            className="rounded-2xl border border-gray-100 bg-white p-4 dark:border-gray-800 dark:bg-gray-900"
+          >
+            <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">{t(labelKey)}</p>
+            <p className="mt-1 font-display text-headline text-gray-900 dark:text-gray-100">{value}</p>
+          </div>
+        ))}
+    </div>
+  );
+
+  const descriptionCard = pet.description ? (
+    <div className="mb-6 rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
+      <h3 className="flex items-center gap-2 font-display text-headline text-gray-900 dark:text-gray-100">
+        <Icon name="description" className="text-primary" />
+        {t('pets:detail.description')}
+      </h3>
+      <p className="mt-2 leading-relaxed text-gray-600 dark:text-gray-300">{pet.description}</p>
+    </div>
+  ) : null;
+
   return (
     <>
       <Helmet>
@@ -254,38 +291,21 @@ export function PetDetailPage() {
           </div>
 
           <div className="p-6 md:p-8">
-
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-              {pet.type && (
-                <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3">
-                  <p className="text-xs text-gray-500 dark:text-gray-400">{t('pets:detail.type')}</p>
-                  <p className="font-semibold text-gray-900 dark:text-gray-100">{t(`pets:types.${pet.type}`)}</p>
-                </div>
-              )}
-              {pet.breed && (
-                <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3">
-                  <p className="text-xs text-gray-500 dark:text-gray-400">{t('pets:detail.breed')}</p>
-                  <p className="font-semibold text-gray-900 dark:text-gray-100">{pet.breed}</p>
-                </div>
-              )}
-              {pet.color && (
-                <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3">
-                  <p className="text-xs text-gray-500 dark:text-gray-400">{t('pets:detail.color')}</p>
-                  <p className="font-semibold text-gray-900 dark:text-gray-100">{pet.color}</p>
-                </div>
-              )}
-            </div>
-
-            {pet.description && (
-              <div className="mb-6">
-                <h3 className="font-bold text-gray-900 dark:text-gray-100 mb-2">{t('pets:detail.description')}</h3>
-                <p className="text-gray-600 dark:text-gray-300 leading-relaxed">{pet.description}</p>
-              </div>
-            )}
-
-            {isAdoptionListing && <AdoptionPetBody pet={pet} />}
-            {!isAdoptionListing && (
+            {isAdoptionListing && (
               <>
+                {factCards}
+                {descriptionCard}
+                <AdoptionPetBody pet={pet} />
+              </>
+            )}
+            {!isAdoptionListing && (
+              // `minmax(0,…)` on both tracks is not decorative: without it a long
+              // unbroken word in a description pushes the grid past the viewport
+              // and brings horizontal overflow back on a phone.
+              <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] gap-6">
+                <div className="min-w-0">
+                {factCards}
+                {descriptionCard}
             {/* Action buttons.
                 Sharing works logged-out for lost/stray (public endpoint); for any
                 other status it needs a session. Where it's gated we show an honest
@@ -398,6 +418,16 @@ export function PetDetailPage() {
               {/* PDF Flyer — same gating as share (it embeds the share-link QR) */}
               {shareAvailable && <PdfFlyerButton pet={pet} reports={reports ?? []} />}
             </div>
+
+                </div>
+
+            {/* Contact sidebar. It is the SECOND grid child on purpose: on a
+                phone the grid collapses to one column and children stack in DOM
+                order, so contact has to come before the timeline — it is the
+                action someone takes after recognising the pet. On desktop the
+                grid auto-places it in column 2 and the timeline below in
+                column 1, without either needing an explicit placement. */}
+            <aside className="min-w-0 lg:sticky lg:top-24 lg:self-start">
 
             {/* Dueño */}
             {pet.owner && (
@@ -549,10 +579,14 @@ export function PetDetailPage() {
               </div>
             )}
 
+            </aside>
+
             {/* Timeline */}
+            <div className="min-w-0">
             {reports && reports.length > 0 && (
-              <div>
-                <h3 className="font-bold text-gray-900 dark:text-gray-100 mb-4">
+              <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
+                <h3 className="mb-4 flex items-center gap-2 font-display text-headline text-gray-900 dark:text-gray-100">
+                  <Icon name="history" className="text-primary" />
                   {t('pets:detail.timeline', { count: reports.length })}
                 </h3>
                 <div className="space-y-0">
@@ -582,7 +616,10 @@ export function PetDetailPage() {
                           </span>
                         )}
                         {report.location_description && (
-                          <p className="text-sm text-gray-500 dark:text-gray-400">📍 {report.location_description}</p>
+                          <p className="flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400">
+                            <Icon name="location-on" className="text-base" />
+                            {report.location_description}
+                          </p>
                         )}
                         <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
                           {getReportDate(report)}
@@ -594,7 +631,8 @@ export function PetDetailPage() {
                 <TimelineMap reports={reports ?? []} />
               </div>
             )}
-              </>
+            </div>
+              </div>
             )}
           </div>
         </div>
