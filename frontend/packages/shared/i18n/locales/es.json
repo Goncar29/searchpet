@@ -19,7 +19,8 @@
       "hoursAgo": "hace {{count}}h",
       "daysAgo": "hace {{count}}d"
     },
-    "unknownUser": "Usuario"
+    "unknownUser": "Usuario",
+    "close": "Cerrar"
   },
   "auth": {
     "login": {
