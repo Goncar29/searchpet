@@ -113,9 +113,6 @@ export function PetDetailPage() {
     );
   };
 
-  // Lift gallery counter and dots above the "found" banner when it is shown
-  const galleryControlsBottom = pet.status === 'found' ? 'bottom-12' : 'bottom-3';
-
   const statusBadge = {
     color: statusBadgeBg(pet.status),
     label: t(`pets:status.${pet.status}`).toUpperCase(),
@@ -156,15 +153,29 @@ export function PetDetailPage() {
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-lg">
-          {/* Photo gallery */}
-          <div className="relative h-72 md:h-96 bg-gray-100 dark:bg-gray-800 overflow-hidden rounded-t-2xl">
+          {/* Photo gallery / hero */}
+          <div className="relative h-80 md:h-[28rem] bg-gray-100 dark:bg-gray-800 overflow-hidden rounded-t-2xl">
             {activePhoto ? (
-              <img
-                src={activePhoto.url}
-                alt={pet.name}
-                className="w-full h-full object-contain"
-                crossOrigin="anonymous"
-              />
+              <>
+                {/* A scaled, blurred copy of the same photo fills the frame, so the
+                    design's edge-to-edge hero never costs us a crop. Pet photos
+                    arrive in any orientation and `object-cover` would cut the head
+                    off a vertical one — on the page whose whole job is to let
+                    someone recognise this animal. Decoration only: the real <img>
+                    below carries the alt text. */}
+                <div
+                  data-hero-backdrop
+                  aria-hidden="true"
+                  className="absolute inset-0 scale-110 bg-cover bg-center blur-2xl"
+                  style={{ backgroundImage: `url(${activePhoto.url})` }}
+                />
+                <img
+                  src={activePhoto.url}
+                  alt={pet.name}
+                  className="relative z-10 w-full h-full object-contain"
+                  crossOrigin="anonymous"
+                />
+              </>
             ) : (
               <div className="w-full h-full flex items-center justify-center"><PawPlaceholder className="w-2/5 max-w-28" /></div>
             )}
@@ -174,7 +185,7 @@ export function PetDetailPage() {
                   type="button"
                   onClick={() => goToPhoto(-1)}
                   aria-label={t('pets:detail.prevPhoto')}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
+                  className="absolute z-30 left-3 top-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
                 >
                   ‹
                 </button>
@@ -182,41 +193,67 @@ export function PetDetailPage() {
                   type="button"
                   onClick={() => goToPhoto(1)}
                   aria-label={t('pets:detail.nextPhoto')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
+                  className="absolute z-30 right-3 top-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
                 >
                   ›
                 </button>
-                <span className={`absolute ${galleryControlsBottom} right-3 text-xs font-medium px-2 py-0.5 rounded-full bg-black/60 text-white`}>
+                {/* The counter moved to the top row: the bottom of the hero now
+                    belongs to the name, and stacking both there collides on a
+                    phone the moment a pet has a long name. */}
+                <span className="absolute z-30 top-4 right-4 text-xs font-medium px-2 py-0.5 rounded-full bg-black/60 text-white">
                   📷 {safePhotoIndex + 1}/{photos.length}
                 </span>
-                <div className={`absolute ${galleryControlsBottom} left-1/2 -translate-x-1/2 flex gap-1.5`}>
-                  {photos.map((p, i) => (
-                    <button
-                      key={p.id}
-                      type="button"
-                      onClick={() => setActivePhotoIndex(i)}
-                      aria-label={t('pets:detail.goToPhoto', { number: i + 1 })}
-                      className={`w-2 h-2 rounded-full transition-colors ${
-                        i === safePhotoIndex ? 'bg-white' : 'bg-white/40 hover:bg-white/70'
-                      }`}
-                    />
-                  ))}
-                </div>
               </>
             )}
-            <span className={`absolute top-4 left-4 ${statusBadge.color} text-white text-xs font-bold px-3 py-1 rounded`}>
+            <span className={`absolute z-30 top-4 left-4 ${statusBadge.color} text-white text-xs font-bold px-3 py-1 rounded`}>
               {statusBadge.label}
             </span>
-            {/* Banner de encontrada sobre la imagen */}
-            {pet.status === 'found' && (
-              <div className="absolute bottom-0 left-0 right-0 bg-green-700/95 text-white text-center py-2 font-bold text-sm">
-                {t('pets:detail.foundBanner')}
+
+            {/* Scrim. Not decoration in the throwaway sense: the title sits over
+                an arbitrary user photo and needs a guaranteed dark base to stay
+                readable — the same reasoning as the StoryCard scrim. */}
+            <div
+              aria-hidden="true"
+              className="absolute inset-x-0 bottom-0 z-10 h-2/3 bg-gradient-to-t from-black/85 via-black/40 to-transparent"
+            />
+
+            {/* Bottom stack, in flow so nothing needs a magic offset: title row
+                first, found banner underneath it. */}
+            <div className="absolute inset-x-0 bottom-0 z-20">
+              <div className="flex items-end justify-between gap-4 p-5 md:p-8 text-white">
+                <div className="min-w-0">
+                  <h1 className="font-display text-display-sm md:text-display break-words">{pet.name}</h1>
+                  {(pet.breed || pet.type) && (
+                    <p className="mt-1 text-sm text-white/80">
+                      {[pet.breed, pet.type && t(`pets:types.${pet.type}`)].filter(Boolean).join(' • ')}
+                    </p>
+                  )}
+                </div>
+                {photos.length > 1 && (
+                  <div className="flex shrink-0 gap-1.5 pb-2">
+                    {photos.map((p, i) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => setActivePhotoIndex(i)}
+                        aria-label={t('pets:detail.goToPhoto', { number: i + 1 })}
+                        className={`w-2 h-2 rounded-full transition-colors ${
+                          i === safePhotoIndex ? 'bg-white' : 'bg-white/40 hover:bg-white/70'
+                        }`}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
-            )}
+              {pet.status === 'found' && (
+                <div className="bg-green-700/95 text-white text-center py-2 font-bold text-sm">
+                  {t('pets:detail.foundBanner')}
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="p-6 md:p-8">
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-4">{pet.name}</h1>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
               {pet.type && (
