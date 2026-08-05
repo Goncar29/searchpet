@@ -263,19 +263,21 @@
       "locating": "Ubicando..."
     },
     "filters": {
-      "type": "Filtrar por tipo de mascota",
-      "status": "Filtrar por estado",
-      "dateFrom": "Fecha desde",
-      "dateTo": "Fecha hasta",
-      "color": "Filtrar por color",
-      "breed": "Filtrar por raza",
-      "distance": "Filtrar por distancia",
       "title": "Filtrar mascotas",
       "allTypes": "Todos los tipos",
       "colorPlaceholder": "Color (ej: negro, marrón...)",
       "defaultStatus": "Perdidos y callejeros",
       "breedPlaceholder": "Raza (ej: Labrador...)",
-      "clear": "Limpiar"
+      "clear": "Limpiar",
+      "labels": {
+        "type": "Tipo",
+        "color": "Color",
+        "status": "Estado",
+        "breed": "Raza",
+        "dateFrom": "Desde",
+        "dateTo": "Hasta",
+        "distance": "Distancia"
+      }
     },
     "petTypes": {
       "perro": "Perro",

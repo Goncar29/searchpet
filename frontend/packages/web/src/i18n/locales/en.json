@@ -263,19 +263,21 @@
       "locating": "Locating..."
     },
     "filters": {
-      "type": "Filter by pet type",
-      "status": "Filter by status",
-      "dateFrom": "Date from",
-      "dateTo": "Date to",
-      "color": "Filter by color",
-      "breed": "Filter by breed",
-      "distance": "Filter by distance",
       "title": "Filter pets",
       "allTypes": "All types",
       "colorPlaceholder": "Color (e.g. black, brown...)",
       "defaultStatus": "Lost and stray",
       "breedPlaceholder": "Breed (e.g. Labrador...)",
-      "clear": "Clear"
+      "clear": "Clear",
+      "labels": {
+        "type": "Type",
+        "color": "Color",
+        "status": "Status",
+        "breed": "Breed",
+        "dateFrom": "From",
+        "dateTo": "To",
+        "distance": "Distance"
+      }
     },
     "petTypes": {
       "perro": "Dog",
