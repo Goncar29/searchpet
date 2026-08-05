@@ -178,3 +178,19 @@ describe('SharePanel — adoption poster header', () => {
     expect(container.textContent).not.toContain('¡MASCOTA PERDIDA!');
   });
 });
+
+describe('SharePanel — the story template is invisible to assistive tech', () => {
+  it('keeps the offscreen story template out of the accessibility tree', () => {
+    const { getByTestId } = render(
+      <SharePanel petId="pet-3" petName="Firulais" pet={basePet} />
+    );
+
+    const template = getByTestId('story-template');
+
+    // `top: -9999px` only moves it out of view. Without aria-hidden a screen
+    // reader still reads the whole template — including an <h1> with the pet
+    // name — as content the user cannot see or act on.
+    expect(template).toHaveAttribute('aria-hidden', 'true');
+    expect(template.querySelector('h1')).not.toBeNull();
+  });
+});
