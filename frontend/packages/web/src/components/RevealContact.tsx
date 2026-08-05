@@ -10,6 +10,7 @@
 import { useState } from 'react';
 import type { Pet } from '@shared/types';
 import { buildWhatsAppContactURL } from '@shared/utils/whatsappTemplates';
+import { Icon } from './Icon';
 
 interface RevealContactProps {
   phone: string;
@@ -51,7 +52,8 @@ export function RevealContact({
         onClick={() => setRevealed(true)}
         className="mt-4 w-full inline-flex items-center justify-center gap-2 bg-[#25D366] text-white font-bold px-3 py-3 text-center leading-tight rounded-lg hover:opacity-90 transition-opacity"
       >
-        📞 {revealLabel}
+        <Icon name="call" className="shrink-0 text-lg" />
+        {revealLabel}
       </button>
     );
   }
@@ -73,10 +75,14 @@ export function RevealContact({
         <button
           type="button"
           onClick={handleCopy}
-          aria-label={copied ? copiedLabel : copyLabel}
+          // No `aria-label` here: the label is visible right next to the icon,
+          // and an aria-label would OVERRIDE it rather than add to it — the
+          // same trap the home redesign hit. The icon is aria-hidden, so the
+          // text is what carries the accessible name.
           className="shrink-0 inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-md border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
         >
-          {copied ? `✓ ${copiedLabel}` : `📋 ${copyLabel}`}
+          <Icon name={copied ? 'check' : 'content-copy'} className="shrink-0 text-sm" />
+          {copied ? copiedLabel : copyLabel}
         </button>
       </div>
 
@@ -87,7 +93,8 @@ export function RevealContact({
         rel="noopener noreferrer"
         className="w-full inline-flex items-center justify-center gap-2 bg-[#25D366] text-white font-bold px-3 py-3 text-center leading-tight rounded-lg hover:opacity-90 transition-opacity"
       >
-        💬 {contactLabel}
+        <Icon name="chat-bubble" className="shrink-0 text-lg" />
+        {contactLabel}
       </a>
 
       {/* Secondary action — phone call */}
@@ -95,7 +102,8 @@ export function RevealContact({
         href={`tel:${phone}`}
         className="mt-2 w-full inline-flex items-center justify-center gap-2 border border-[#25D366] text-[#1c9e4d] dark:text-[#25D366] font-bold px-3 py-3 text-center leading-tight rounded-lg hover:bg-[#25D366]/10 transition-colors"
       >
-        📞 {callLabel}
+        <Icon name="call" className="shrink-0 text-lg" />
+        {callLabel}
       </a>
     </div>
   );

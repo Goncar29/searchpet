@@ -10,6 +10,7 @@ import { QRCodeCanvas } from 'qrcode.react';
 import { useShareLink } from '@shared/hooks';
 import type { Pet, Report } from '@shared/types';
 import { PhotoBanner } from './PhotoBanner';
+import { Icon } from './Icon';
 
 interface PdfFlyerButtonProps {
   pet: Pet;
@@ -145,7 +146,7 @@ export function PdfFlyerButton({ pet, reports = [] }: PdfFlyerButtonProps) {
       >
         {isGenerating ? (
           <>
-            <span className="animate-spin">⏳</span>
+            <Icon name="spinner" className="animate-spin shrink-0" />
             {t('pets:flyer.generating')}
           </>
         ) : shareError ? (
@@ -154,7 +155,8 @@ export function PdfFlyerButton({ pet, reports = [] }: PdfFlyerButtonProps) {
           </>
         ) : (
           <>
-            📄 {t('pets:flyer.button')}
+            <Icon name="description" className="shrink-0" />
+            {t('pets:flyer.button')}
           </>
         )}
       </button>
@@ -173,6 +175,7 @@ export function PdfFlyerButton({ pet, reports = [] }: PdfFlyerButtonProps) {
           boxSizing: 'border-box',
         }}
         ref={flyerRef}
+        data-testid="flyer-template"
         aria-hidden="true"
       >
         {/* Header */}

@@ -12,6 +12,7 @@ import type { Pet, ShareLink } from '@shared/types';
 import { buildWhatsAppMessage } from '@shared/utils/whatsappTemplates';
 import { getExpiryInfo } from '@shared/utils/shareExpiry';
 import { PhotoBanner } from './PhotoBanner';
+import { Icon } from './Icon';
 
 interface SharePanelProps {
   petId: string;
@@ -213,12 +214,13 @@ export function SharePanel({ petId, petName, pet }: SharePanelProps) {
       >
         {generateLink.isPending ? (
           <>
-            <span className="animate-spin">⏳</span>
+            <Icon name="spinner" className="animate-spin shrink-0" />
             {t('pets:share.generating')}
           </>
         ) : (
           <>
-            🔗 {t('pets:share.button')}
+            <Icon name="share" className="shrink-0" />
+            {t('pets:share.button')}
           </>
         )}
       </button>

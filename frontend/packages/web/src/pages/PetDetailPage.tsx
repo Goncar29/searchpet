@@ -66,8 +66,8 @@ export function PetDetailPage() {
   if (!pet) {
     return (
       <div className="text-center py-20">
-        <p className="text-5xl mb-4">🔍</p>
-        <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">{t('pets:detail.notFound')}</h2>
+        <Icon name="search" className="mx-auto mb-4 block text-5xl text-gray-400" />
+        <h2 className="font-display text-headline text-gray-900 dark:text-gray-100">{t('pets:detail.notFound')}</h2>
         <Link to="/" className="text-primary font-semibold mt-4 inline-block">{t('common:back')}</Link>
       </div>
     );
@@ -258,7 +258,8 @@ export function PetDetailPage() {
                     belongs to the name, and stacking both there collides on a
                     phone the moment a pet has a long name. */}
                 <span className="absolute z-30 top-4 right-4 text-xs font-medium px-2 py-0.5 rounded-full bg-black/60 text-white">
-                  📷 {safePhotoIndex + 1}/{photos.length}
+                  <Icon name="photo-camera" className="shrink-0 text-sm" />
+                  {safePhotoIndex + 1}/{photos.length}
                 </span>
               </>
             )}
@@ -353,7 +354,8 @@ export function PetDetailPage() {
                   to="/login"
                   className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 font-semibold rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                 >
-                  🔒 {t('pets:detail.loginToShare')}
+                  <Icon name="lock" className="shrink-0 text-base" />
+                  {t('pets:detail.loginToShare')}
                 </Link>
               ) : null}
               {/* Location reports only make sense while a pet is actively being
@@ -380,7 +382,10 @@ export function PetDetailPage() {
                         {t('pets:detail.markFoundSaving')}
                       </>
                     ) : (
-                      `✅ ${t('pets:detail.markFound')}`
+                      <>
+                        <Icon name="check-circle" className="shrink-0 text-lg" />
+                        {t('pets:detail.markFound')}
+                      </>
                     )}
                   </button>
                   {showFoundConfirm && (
@@ -424,7 +429,8 @@ export function PetDetailPage() {
                       to={`/stories/create?petId=${id}`}
                       className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white text-sm font-semibold rounded-lg hover:bg-green-700 transition-colors"
                     >
-                      🎉 {t('pets:detail.foundNudgeCta')}
+                      <Icon name="celebration" className="shrink-0 text-base" />
+                      {t('pets:detail.foundNudgeCta')}
                     </Link>
                     <button
                       type="button"
@@ -443,7 +449,8 @@ export function PetDetailPage() {
                   to={`/stories/create?petId=${id}`}
                   className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition-colors"
                 >
-                  🎉 {t('pets:detail.tellStory')}
+                  <Icon name="celebration" className="shrink-0 text-lg" />
+                  {t('pets:detail.tellStory')}
                 </Link>
               )}
               {/* PDF Flyer — same gating as share (it embeds the share-link QR) */}
@@ -464,9 +471,14 @@ export function PetDetailPage() {
             {/* Dueño */}
             {pet.owner && (
               <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-4 mb-6">
-                <h3 className="font-bold text-gray-900 dark:text-gray-100 mb-3">{t('pets:detail.owner')}</h3>
+                {/* Etiqueta chica en mayúsculas, no un headline: así es en el
+                    diseño ("OWNER CONTACT") y además `text-headline` son 24px,
+                    que en una columna de 214px parten el título en dos líneas. */}
+                <h3 className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-3">{t('pets:detail.owner')}</h3>
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center text-xl">👤</div>
+                  <div className="w-12 h-12 shrink-0 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center">
+                    <Icon name="person" className="text-2xl text-gray-500 dark:text-gray-400" />
+                  </div>
                   <div>
                     <p className="font-semibold text-gray-900 dark:text-gray-100">{pet.owner.name}</p>
                     {pet.owner.is_verified && (
@@ -498,14 +510,16 @@ export function PetDetailPage() {
                       to={`/messages/${pet.owner_id}`}
                       className="mt-3 w-full inline-flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 text-white font-bold px-3 py-3 text-center leading-tight rounded-lg transition-colors"
                     >
-                      💬 {t('pets:detail.sendMessage')}
+                      <Icon name="chat-bubble" className="shrink-0 text-lg" />
+                      {t('pets:detail.sendMessage')}
                     </Link>
                   ) : (
                     <Link
                       to="/login"
                       className="mt-3 w-full inline-flex items-center justify-center gap-2 border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 font-semibold px-3 py-3 text-center leading-tight rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                     >
-                      🔒 {t('pets:detail.loginToContact')}
+                      <Icon name="lock" className="shrink-0 text-base" />
+                      {t('pets:detail.loginToContact')}
                     </Link>
                   )
                 )}
@@ -527,7 +541,7 @@ export function PetDetailPage() {
 
               return (
                 <div className="bg-amber-50 dark:bg-amber-950 rounded-xl p-4 mb-6 border border-amber-200 dark:border-amber-800">
-                  <h3 className="font-bold text-gray-900 dark:text-gray-100 mb-2">{t('pets:detail.reporter')}</h3>
+                  <h3 className="text-xs uppercase tracking-wide text-amber-700 dark:text-amber-300 mb-2">{t('pets:detail.reporter')}</h3>
                   <p className="text-sm text-gray-600 dark:text-gray-300 mb-3">{t('pets:detail.reporterDescription')}</p>
                   {publicContact ? (
                     // Public WhatsApp (no login), behind a reveal-on-click guard.
@@ -546,7 +560,8 @@ export function PetDetailPage() {
                       to={`/messages/${pet.reporter_id}`}
                       className="w-full inline-flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-600 text-white font-bold px-3 py-3 text-center leading-tight rounded-lg transition-colors"
                     >
-                      💬 {t('pets:detail.contactReporter')}
+                      <Icon name="chat-bubble" className="shrink-0 text-lg" />
+                      {t('pets:detail.contactReporter')}
                     </Link>
                   ) : (
                     // Honest gated state: tell the logged-out finder how to contact.
@@ -554,7 +569,8 @@ export function PetDetailPage() {
                       to="/login"
                       className="w-full inline-flex items-center justify-center gap-2 border border-amber-400 dark:border-amber-700 text-amber-700 dark:text-amber-300 font-semibold px-3 py-3 text-center leading-tight rounded-lg hover:bg-amber-100 dark:hover:bg-amber-900 transition-colors"
                     >
-                      🔒 {t('pets:detail.loginToContact')}
+                      <Icon name="lock" className="shrink-0 text-base" />
+                      {t('pets:detail.loginToContact')}
                     </Link>
                   )}
                 </div>
