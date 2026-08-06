@@ -3,7 +3,7 @@
 // ============================================================
 
 import { useState } from 'react';
-import { View, ScrollView, Text, StyleSheet } from 'react-native';
+import { View, ScrollView, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
 import { IntentStep } from '../../components/publish/IntentStep';
@@ -86,6 +86,29 @@ export default function PostScreen() {
   const handleBackFromLocation = () => {
     setPublishError(null);
     setStep(wizard.intent === 'lost' ? 'lost-pet' : 'stray-form');
+  };
+
+  // Elegir una de las tres opciones era un camino de ida: ningun paso recibia
+  // un onBack, asi que la unica salida era irse a otra pestana. El paso `auth`
+  // es el peor caso: a un visitante sin sesion que toca "mi mascota se
+  // perdio" lo primero que le aparece es el login.
+  const backToIntent = () => {
+    setStep('intent');
+    setWizard(initialWizardState);
+    setPublishError(null);
+  };
+
+  // A `auth` se llega por TRES caminos y dos traen un formulario ya
+  // completado. Como backToIntent resetea el borrador, mandarlos al selector
+  // les borraria lo cargado: peor que el callejon sin salida que esto cierra.
+  const resolveBack = (): { onBack: () => void; label: string } | null => {
+    if (step === 'lost-pet' || step === 'stray-form' || step === 'adoption-form') {
+      return { onBack: backToIntent, label: t('publish:back') };
+    }
+    if (step !== 'auth') return null;
+    if (wizard.intent === 'lost') return { onBack: backToIntent, label: t('publish:back') };
+    if (wizard.intent === 'adoption') return { onBack: () => setStep('adoption-form'), label: t('publish:backStep') };
+    return { onBack: () => setStep('location'), label: t('publish:backStep') };
   };
 
   const submitStray = async (location: NonNullable<typeof wizard.location>) => {
@@ -184,9 +207,16 @@ export default function PostScreen() {
     router.replace('/(tabs)');
   };
 
+  const back = resolveBack();
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View>
+        {back && (
+          <TouchableOpacity onPress={back.onBack} style={styles.backButton} accessibilityRole="button">
+            <Text style={styles.backButtonText}>{`← ${back.label}`}</Text>
+          </TouchableOpacity>
+        )}
         {step === 'intent' && <IntentStep onSelect={handleIntentSelect} />}
         {step === 'lost-pet' && (
           <LostPetStep
@@ -254,4 +284,6 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
   content: { padding: SPACING.lg },
   error: { fontSize: FONTS.sizes.sm, color: COLORS.danger, textAlign: 'center', marginBottom: SPACING.md },
+  backButton: { alignSelf: 'flex-start', paddingVertical: SPACING.xs, marginBottom: SPACING.md },
+  backButtonText: { fontSize: FONTS.sizes.sm, fontWeight: '600', color: COLORS.textSecondary },
 });

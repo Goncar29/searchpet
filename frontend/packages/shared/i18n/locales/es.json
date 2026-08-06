@@ -427,6 +427,7 @@
   },
   "publish": {
     "back": "Volver a las opciones",
+    "backStep": "Atrás",
     "intent": {
       "title": "¿Qué querés publicar?",
       "lostTitle": "Mi mascota se perdió",

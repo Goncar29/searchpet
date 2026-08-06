@@ -95,7 +95,26 @@ export function PublishWizardPage() {
     setPublishError(null);
   };
 
-  const canGoBackToIntent = step === 'lost-pet' || step === 'stray-form' || step === 'adoption-form';
+  // El paso `auth` también era un callejón sin salida, y es el peor de todos:
+  // a un usuario sin sesión que elige "mi mascota se perdió" lo primero que le
+  // aparece es el login, sin ninguna forma de volver a las opciones.
+  //
+  // No alcanza con sumar 'auth' a la lista de arriba: se llega por TRES
+  // caminos y dos de ellos traen un formulario ya completado. Como
+  // `backToIntent` resetea el borrador, mandarlos al selector les borraría lo
+  // que acaban de cargar — perder el trabajo sería peor que el callejón que
+  // esto viene a cerrar. Así que cada camino vuelve al paso del que vino.
+  const resolveBack = (): { onBack: () => void; label: string } | null => {
+    if (step === 'lost-pet' || step === 'stray-form' || step === 'adoption-form') {
+      return { onBack: backToIntent, label: t('back') };
+    }
+    if (step !== 'auth') return null;
+    // Desde el selector: no hay nada cargado que perder.
+    if (wizard.intent === 'lost') return { onBack: backToIntent, label: t('back') };
+    // Desde un formulario ya completado: vuelve al formulario, no al selector.
+    if (wizard.intent === 'adoption') return { onBack: () => setStep('adoption-form'), label: t('backStep') };
+    return { onBack: () => setStep('location'), label: t('backStep') };
+  };
 
   const [publishedPet, setPublishedPet] = useState<Pet | null>(null);
   const [failedPhotoIndexes, setFailedPhotoIndexes] = useState<number[]>([]);
@@ -234,6 +253,8 @@ export function PublishWizardPage() {
     }
   };
 
+  const back = resolveBack();
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 py-10 px-4">
       <div className="max-w-2xl mx-auto">
@@ -244,14 +265,14 @@ export function PublishWizardPage() {
             una decisión del wizard, no del formulario. Puesto acá cubre además
             el estado vacío de LostPetStep, que es justo donde el usuario
             quedaba trabado sin ninguna salida. */}
-        {canGoBackToIntent && (
+        {back && (
           <button
             type="button"
-            onClick={backToIntent}
+            onClick={back.onBack}
             className="mb-4 inline-flex items-center gap-1 text-sm font-semibold text-gray-500 hover:text-primary dark:text-gray-400 transition-colors"
           >
             <span aria-hidden="true">←</span>
-            {t('back')}
+            {back.label}
           </button>
         )}
         {step === 'intent' && <IntentStep onSelect={handleIntentSelect} />}

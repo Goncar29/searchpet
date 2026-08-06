@@ -477,3 +477,80 @@ describe('PublishWizardPage — salir del paso elegido', () => {
     expect(screen.getByLabelText('publish:strayForm.breedLabel')).toHaveValue('');
   });
 });
+
+describe('PublishWizardPage — salir del paso de login', () => {
+  // El paso `auth` quedaba sin salida igual que los otros tres, y para un
+  // visitante sin sesion es lo PRIMERO que ve al elegir "mi mascota se
+  // perdio": el login, sin ninguna forma de volver a las tres opciones.
+  const initialAuthState = {
+    isAuthenticated: authState.isAuthenticated,
+    user: authState.user,
+    login: authState.login,
+    register: authState.register,
+  };
+
+  afterEach(() => {
+    authState.isAuthenticated = initialAuthState.isAuthenticated;
+    authState.user = initialAuthState.user;
+    authState.login = initialAuthState.login;
+    authState.register = initialAuthState.register;
+  });
+
+  it('vuelve a las tres opciones desde el login al que cae un visitante sin sesion', () => {
+    authState.isAuthenticated = false;
+    authState.user = null;
+
+    render(<PublishWizardPage />, { wrapper });
+    fireEvent.click(screen.getByText('publish:intent.lostTitle'));
+    expect(screen.getByText('publish:auth.title')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'publish:back' }));
+    expect(screen.getByText('publish:intent.title')).toBeInTheDocument();
+  });
+
+  // Los otros dos caminos llegan al login con un formulario YA COMPLETADO, asi
+  // que vuelven al paso anterior y no al selector: backToIntent resetea el
+  // borrador, y perder lo cargado seria peor que el callejon sin salida.
+  it('desde el login del formulario de adopcion vuelve al formulario, con lo cargado intacto', async () => {
+    authState.isAuthenticated = false;
+    authState.user = null;
+
+    render(<PublishWizardPage />, { wrapper });
+    fireEvent.click(screen.getByText('adoption:publish.intentOption'));
+
+    const file = new File(['fake'], 'adopta.jpg', { type: 'image/jpeg' });
+    fireEvent.change(screen.getByLabelText('publish:strayForm.photoLabel'), { target: { files: [file] } });
+    fireEvent.change(screen.getByLabelText('publish:strayForm.typeLabel'), { target: { value: 'gato' } });
+    fireEvent.change(screen.getByLabelText('adoption:publish.cityLabel'), { target: { value: 'Salto' } });
+    fireEvent.click(screen.getByText('adoption:publish.submit'));
+
+    expect(await screen.findByText('publish:auth.title')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'publish:backStep' }));
+
+    expect(screen.getByText('adoption:publish.title')).toBeInTheDocument();
+    expect(screen.getByLabelText('adoption:publish.cityLabel')).toHaveValue('Salto');
+  });
+
+  it('desde el login del flujo de callejera vuelve al paso de ubicacion, con la nota intacta', async () => {
+    authState.isAuthenticated = false;
+    authState.user = null;
+
+    render(<PublishWizardPage />, { wrapper });
+    fireEvent.click(screen.getByText('publish:intent.strayTitle'));
+
+    const file = new File(['fake'], 'stray.jpg', { type: 'image/jpeg' });
+    fireEvent.change(screen.getByLabelText('publish:strayForm.photoLabel'), { target: { files: [file] } });
+    fireEvent.change(screen.getByLabelText('publish:strayForm.typeLabel'), { target: { value: 'gato' } });
+    fireEvent.click(screen.getByText('publish:strayForm.next'));
+    fireEvent.change(screen.getByLabelText('publish:location.noteLabel'), { target: { value: 'Plaza central' } });
+    fireEvent.click(screen.getByText('publish:location.publish'));
+
+    expect(await screen.findByText('publish:auth.title')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'publish:backStep' }));
+
+    expect(screen.getByText('publish:location.title')).toBeInTheDocument();
+    expect(screen.getByLabelText('publish:location.noteLabel')).toHaveValue('Plaza central');
+  });
+});

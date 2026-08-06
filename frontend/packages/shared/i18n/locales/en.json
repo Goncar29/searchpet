@@ -427,6 +427,7 @@
   },
   "publish": {
     "back": "Back to the options",
+    "backStep": "Back",
     "intent": {
       "title": "What do you want to publish?",
       "lostTitle": "My pet is lost",
