@@ -147,9 +147,16 @@ describe('CreateReportPage — despues de publicar como perdida', () => {
     enviar();
 
     expect(mocks.mutate).toHaveBeenCalledWith(
-      expect.objectContaining({ pet_id: 'pet-1', status: 'lost', occurred_at: '2026-08-04T00:00:00Z' }),
+      expect.objectContaining({ pet_id: 'pet-1', status: 'lost' }),
       expect.anything(),
     );
+    // El DIA que se lee de vuelta, no un string UTC literal: mandar
+    // `2026-08-04T00:00:00Z` guardaba el 3 al oeste de Greenwich.
+    const enviado = mocks.mutate.mock.calls[0][0] as { occurred_at?: string };
+    const vuelta = new Date(enviado.occurred_at!);
+    expect(
+      `${vuelta.getFullYear()}-${String(vuelta.getMonth() + 1).padStart(2, '0')}-${String(vuelta.getDate()).padStart(2, '0')}`,
+    ).toBe('2026-08-04');
   });
 
   // Un avistamiento no abre ninguna busqueda ni cambia el estado de la

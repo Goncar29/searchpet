@@ -5,6 +5,7 @@ import MapLibreGL from '@maplibre/maplibre-react-native';
 import * as Location from 'expo-location';
 import { COLORS, SPACING, FONTS, RADIUS, MAP_DEFAULTS } from '../../constants';
 import type { InitialReportRequest } from '../../../shared/types';
+import { calendarDayToISO, isFutureCalendarDay } from '../../../shared/utils/reportDate';
 
 // MapLibre no necesita token de Mapbox
 MapLibreGL.setAccessToken(null);
@@ -24,6 +25,12 @@ export function LocationStep({ value, onPublish, onBack, isPending }: LocationSt
     value ? [value.longitude, value.latitude] : [MAP_DEFAULTS.defaultLongitude, MAP_DEFAULTS.defaultLatitude]
   );
   const [note, setNote] = useState(value?.note ?? '');
+  // Campo de texto y no un date picker nativo a proposito: el picker es un
+  // modulo NATIVO, y sumarlo obliga a rebuildear el APK y el dev client. El
+  // dato que faltaba es la fecha, no el widget; el picker es una mejora de UX
+  // posterior que no cambia este contrato.
+  const [date, setDate] = useState(value?.occurred_at?.slice(0, 10) ?? '');
+  const [dateError, setDateError] = useState<string | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
 
   const useMyLocation = async () => {
@@ -41,8 +48,32 @@ export function LocationStep({ value, onPublish, onBack, isPending }: LocationSt
     }
   };
 
+  // Se valida aca y no solo en el backend porque el rechazo del servidor llega
+  // como invalid_input generico, sin decir cual campo: el usuario veria un
+  // error rojo sin saber que corregir.
+  const parseDate = (raw: string): { iso?: string; error?: string } => {
+    const limpio = raw.trim();
+    if (!limpio) return {};
+    // calendarDayToISO valida el formato Y que el dia exista (un 31 de febrero
+    // rebota al 3 de marzo si no se chequea), y convierte a la medianoche
+    // LOCAL: mandar `${dia}T00:00:00Z` guarda el dia anterior en toda zona al
+    // oeste de Greenwich. Ver shared/utils/reportDate.ts.
+    const iso = calendarDayToISO(limpio);
+    if (!iso) return { error: t('publish:location.dateInvalid') };
+    if (isFutureCalendarDay(limpio)) return { error: t('publish:location.dateFuture') };
+    return { iso };
+  };
+
   const handlePublish = () => {
-    onPublish({ latitude: coordinate[1], longitude: coordinate[0], note: note.trim() || undefined });
+    const { iso, error } = parseDate(date);
+    setDateError(error ?? null);
+    if (error) return;
+    onPublish({
+      latitude: coordinate[1],
+      longitude: coordinate[0],
+      note: note.trim() || undefined,
+      occurred_at: iso,
+    });
   };
 
   return (
@@ -69,6 +100,28 @@ export function LocationStep({ value, onPublish, onBack, isPending }: LocationSt
         <Text style={styles.locationButtonText}>{t('publish:location.useMyLocation')}</Text>
       </TouchableOpacity>
       {locationError && <Text style={styles.error}>{locationError}</Text>}
+
+      <Text style={styles.label}>{t('publish:location.dateLabel')}</Text>
+      <TextInput
+        testID="location-date-input"
+        style={styles.input}
+        value={date}
+        onChangeText={(v) => {
+          setDate(v);
+          if (dateError) setDateError(null);
+        }}
+        placeholder="2026-08-04"
+        placeholderTextColor={COLORS.placeholder}
+        autoCapitalize="none"
+        autoCorrect={false}
+        keyboardType="numbers-and-punctuation"
+        maxLength={10}
+      />
+      {dateError ? (
+        <Text style={styles.error}>{dateError}</Text>
+      ) : (
+        <Text style={styles.help}>{t('publish:location.dateHelp')}</Text>
+      )}
 
       <Text style={styles.label}>{t('publish:location.noteLabel')}</Text>
       <TextInput
@@ -104,6 +157,7 @@ const styles = StyleSheet.create({
   locationButtonText: { color: COLORS.primary, fontWeight: '700' },
   error: { fontSize: FONTS.sizes.xs, color: COLORS.danger, textAlign: 'center', marginBottom: SPACING.sm },
   label: { fontSize: FONTS.sizes.sm, fontWeight: '600', color: COLORS.textPrimary, marginBottom: SPACING.xs, marginTop: SPACING.sm },
+  help: { fontSize: FONTS.sizes.xs, color: COLORS.textSecondary, marginTop: SPACING.xs },
   input: {
     backgroundColor: COLORS.white, borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.md,
     paddingHorizontal: SPACING.md, paddingVertical: 14, fontSize: FONTS.sizes.md, color: COLORS.textPrimary,

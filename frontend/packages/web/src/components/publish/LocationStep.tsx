@@ -3,6 +3,7 @@ import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
 import { useTranslation } from 'react-i18next';
 import L from 'leaflet';
 import type { InitialReportRequest } from '@shared/types';
+import { calendarDayToISO, todayAsCalendarDay } from '@shared/utils/reportDate';
 
 const MONTEVIDEO: [number, number] = [-34.9011, -56.1645];
 
@@ -35,7 +36,14 @@ export function LocationStep({ value, onPublish, onBack, isPending }: LocationSt
     value ? [value.latitude, value.longitude] : MONTEVIDEO
   );
   const [note, setNote] = useState(value?.note ?? '');
+  // Sólo la parte de fecha del ISO: <input type="date"> trabaja en YYYY-MM-DD.
+  const [date, setDate] = useState(value?.occurred_at?.slice(0, 10) ?? '');
   const [locationError, setLocationError] = useState<string | null>(null);
+
+  // El backend rechaza cualquier fecha futura con invalid_input, así que el
+  // input no deja ni elegirla: es el mismo límite, dicho antes de enviar.
+  // Día LOCAL, no el de toISOString(), que es el de UTC y puede diferir.
+  const today = todayAsCalendarDay();
 
   const useMyLocation = () => {
     setLocationError(null);
@@ -46,7 +54,12 @@ export function LocationStep({ value, onPublish, onBack, isPending }: LocationSt
   };
 
   const handlePublish = () => {
-    onPublish({ latitude: position[0], longitude: position[1], note: note.trim() || undefined });
+    onPublish({
+      latitude: position[0],
+      longitude: position[1],
+      note: note.trim() || undefined,
+      occurred_at: calendarDayToISO(date),
+    });
   };
 
   return (
@@ -90,6 +103,21 @@ export function LocationStep({ value, onPublish, onBack, isPending }: LocationSt
           {locationError}
         </p>
       )}
+
+      <div>
+        <label htmlFor="location-date" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          {t('location.dateLabel')}
+        </label>
+        <input
+          id="location-date"
+          type="date"
+          value={date}
+          max={today}
+          onChange={(e) => setDate(e.target.value)}
+          className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
+        />
+        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{t('location.dateHelp')}</p>
+      </div>
 
       <div>
         <label htmlFor="location-note" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">

@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"log"
+	"time"
 
 	"github.com/google/uuid"
 	"lost-pets/internal/domain"
@@ -103,6 +104,12 @@ func (s *petService) CreatePet(ownerID string, req dto.CreatePetRequest) (*domai
 	if status != domain.PetStatusStray && req.InitialReport != nil {
 		return nil, domain.ErrInitialReportNotAllowed
 	}
+	// Mismo contrato que POST /api/reports: si viene fecha, no puede ser futura.
+	// Los dos caminos crean el mismo domain.Report, así que aceptar acá lo que
+	// el otro rechaza dejaría el dato inconsistente según por dónde entró.
+	if req.InitialReport != nil && req.InitialReport.OccurredAt != nil && req.InitialReport.OccurredAt.After(time.Now()) {
+		return nil, domain.ErrInvalidInput
+	}
 
 	// Stray pets have no owner; registered pets always have an owner
 	var ownerPtr *uuid.UUID
@@ -150,6 +157,7 @@ func (s *petService) CreatePet(ownerID string, req dto.CreatePetRequest) (*domai
 			Latitude:            req.InitialReport.Latitude,
 			Longitude:           req.InitialReport.Longitude,
 			LocationDescription: req.InitialReport.Note,
+			OccurredAt:          req.InitialReport.OccurredAt,
 		}
 		err := s.uow.Execute(func(tx repository.UnitOfWorkRepos) error {
 			if err := tx.Pets.Create(pet); err != nil {
@@ -491,6 +499,13 @@ func (s *petService) PublishLost(ownerID string, petID string, req dto.PublishLo
 		return nil, err
 	}
 
+	// Se valida ANTES de abrir la transacción, igual que las dos guardas de
+	// arriba: rechazar tarde funcionaría (el uow revierte) pero deja el orden
+	// de las validaciones dependiendo de un rollback en vez de ser explícito.
+	if req.OccurredAt != nil && req.OccurredAt.After(time.Now()) {
+		return nil, domain.ErrInvalidInput
+	}
+
 	if s.uow == nil {
 		return nil, domain.ErrInternal
 	}
@@ -512,6 +527,7 @@ func (s *petService) PublishLost(ownerID string, petID string, req dto.PublishLo
 			Latitude:            req.Latitude,
 			Longitude:           req.Longitude,
 			LocationDescription: req.Note,
+			OccurredAt:          req.OccurredAt,
 		}
 		// Open a search episode and stamp the initial location report.
 		if tx.Episodes != nil {

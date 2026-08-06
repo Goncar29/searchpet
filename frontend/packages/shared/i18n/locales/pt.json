@@ -472,6 +472,10 @@
       "locationDenied": "Não conseguimos acessar sua localização. Mova o marcador manualmente.",
       "noteLabel": "Nota (opcional)",
       "notePlaceholder": "Ex.: perto da praça, com coleira vermelha...",
+      "dateLabel": "Quando foi? (opcional)",
+      "dateHelp": "Se deixar em branco, usamos a data de hoje.",
+      "dateInvalid": "Use o formato AAAA-MM-DD, por exemplo 2026-08-04.",
+      "dateFuture": "A data não pode ser futura.",
       "publish": "Publicar",
       "back": "Voltar"
     },

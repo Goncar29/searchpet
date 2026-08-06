@@ -472,6 +472,10 @@
       "locationDenied": "We couldn't access your location. Move the pin manually.",
       "noteLabel": "Note (optional)",
       "notePlaceholder": "E.g.: near the square, wearing a red collar...",
+      "dateLabel": "When did it happen? (optional)",
+      "dateHelp": "If you leave it blank, today is used.",
+      "dateInvalid": "Use the format YYYY-MM-DD, for example 2026-08-04.",
+      "dateFuture": "The date cannot be in the future.",
       "publish": "Publish",
       "back": "Back"
     },

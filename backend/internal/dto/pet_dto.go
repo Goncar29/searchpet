@@ -36,6 +36,11 @@ type InitialReportRequest struct {
 	Latitude  float64 `json:"latitude"`
 	Longitude float64 `json:"longitude"`
 	Note      string  `json:"note"`
+	// Cuándo ocurrió, opcional y nunca futura. Sin esto el reporte inicial sólo
+	// puede decir DÓNDE, y la gente publica días después de lo que vio: la
+	// fecha de creación no sirve como sustituto. POST /api/reports ya la pedía,
+	// así que los dos caminos de reporte por fin dicen lo mismo.
+	OccurredAt *time.Time `json:"occurred_at"`
 }
 
 // PublishLostRequest contains the location data for transitioning an owned,
@@ -45,6 +50,10 @@ type PublishLostRequest struct {
 	Latitude  float64 `json:"latitude"`
 	Longitude float64 `json:"longitude"`
 	Note      string  `json:"note"`
+	// Cuándo se perdió, opcional y nunca futura. Es el caso donde más pesa:
+	// entre que la mascota se pierde y el dueño publica pueden pasar días, y
+	// buscar sin saber desde cuándo cambia por completo el radio.
+	OccurredAt *time.Time `json:"occurred_at"`
 }
 
 // UpdatePetRequest contiene los datos para actualizar una mascota.

@@ -3,7 +3,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter, useLocation } from 'react-router';
 import { QueryClientProvider, QueryClient } from '@tanstack/react-query';
 import { PublishWizardPage } from './PublishWizardPage';
-import { useMyPets, useCreatePet } from '@shared/hooks';
+import { useMyPets, useCreatePet, usePublishStray } from '@shared/hooks';
 import { apiClient } from '@shared/api/client';
 
 vi.mock('react-i18next', () => ({
@@ -229,6 +229,79 @@ describe('PublishWizardPage — location step', () => {
 
     // Con sesión abierta publica directo — no aparece el paso de auth.
     expect(screen.queryByText('publish:auth.title')).not.toBeInTheDocument();
+  });
+
+  // El reporte inicial solo podia decir DONDE. Entre que alguien ve una
+  // callejera y llega a publicarla pueden pasar dias, asi que created_at no
+  // sustituye a cuando ocurrio.
+  it('manda la fecha del avistamiento en el reporte inicial', async () => {
+    const mutateAsync = vi.fn().mockResolvedValue({
+      pet: { id: 'pet-2', name: 'Sin nombre', type: 'perro', status: 'stray', photos: [] },
+      failedPhotoIndexes: [],
+    });
+    vi.mocked(usePublishStray).mockReturnValue({
+      mutateAsync,
+      isPending: false,
+    } as unknown as ReturnType<typeof usePublishStray>);
+
+    render(<PublishWizardPage />, { wrapper });
+    fireEvent.click(screen.getByText('publish:intent.strayTitle'));
+
+    const file = new File(['fake'], 'stray.jpg', { type: 'image/jpeg' });
+    fireEvent.change(screen.getByLabelText('publish:strayForm.photoLabel'), { target: { files: [file] } });
+    fireEvent.change(screen.getByLabelText('publish:strayForm.typeLabel'), { target: { value: 'perro' } });
+    fireEvent.click(screen.getByText('publish:strayForm.next'));
+
+    fireEvent.change(screen.getByLabelText('publish:location.dateLabel'), { target: { value: '2026-08-04' } });
+    fireEvent.click(screen.getByText('publish:location.publish'));
+
+    // Se afirma el DIA que se lee de vuelta, no un string UTC literal: mandar
+    // `2026-08-04T00:00:00Z` guardaba el 3 en toda zona al oeste de Greenwich.
+    // Un literal ataria el test a la zona del runner y taparia justo ese bug.
+    const enviado = mutateAsync.mock.calls[0][0].pet.initial_report.occurred_at as string;
+    const vuelta = new Date(enviado);
+    expect(
+      `${vuelta.getFullYear()}-${String(vuelta.getMonth() + 1).padStart(2, '0')}-${String(vuelta.getDate()).padStart(2, '0')}`,
+    ).toBe('2026-08-04');
+  });
+
+  // Sin fecha el campo no viaja: es opcional y el backend lo deja en NULL.
+  it('sin fecha no manda occurred_at', () => {
+    const mutateAsync = vi.fn().mockResolvedValue({
+      pet: { id: 'pet-2', name: 'Sin nombre', type: 'perro', status: 'stray', photos: [] },
+      failedPhotoIndexes: [],
+    });
+    vi.mocked(usePublishStray).mockReturnValue({
+      mutateAsync,
+      isPending: false,
+    } as unknown as ReturnType<typeof usePublishStray>);
+
+    render(<PublishWizardPage />, { wrapper });
+    fireEvent.click(screen.getByText('publish:intent.strayTitle'));
+
+    const file = new File(['fake'], 'stray.jpg', { type: 'image/jpeg' });
+    fireEvent.change(screen.getByLabelText('publish:strayForm.photoLabel'), { target: { files: [file] } });
+    fireEvent.change(screen.getByLabelText('publish:strayForm.typeLabel'), { target: { value: 'perro' } });
+    fireEvent.click(screen.getByText('publish:strayForm.next'));
+    fireEvent.click(screen.getByText('publish:location.publish'));
+
+    const enviado = mutateAsync.mock.calls[0][0];
+    expect(enviado.pet.initial_report.occurred_at).toBeUndefined();
+  });
+
+  // El backend rechaza fechas futuras con invalid_input; el input las bloquea
+  // antes, para que el limite se vea en vez de llegar como error generico.
+  it('el campo de fecha no deja elegir una futura', () => {
+    render(<PublishWizardPage />, { wrapper });
+    fireEvent.click(screen.getByText('publish:intent.strayTitle'));
+
+    const file = new File(['fake'], 'stray.jpg', { type: 'image/jpeg' });
+    fireEvent.change(screen.getByLabelText('publish:strayForm.photoLabel'), { target: { files: [file] } });
+    fireEvent.change(screen.getByLabelText('publish:strayForm.typeLabel'), { target: { value: 'perro' } });
+    fireEvent.click(screen.getByText('publish:strayForm.next'));
+
+    const hoy = new Date().toISOString().slice(0, 10);
+    expect(screen.getByLabelText('publish:location.dateLabel')).toHaveAttribute('max', hoy);
   });
 });
 
