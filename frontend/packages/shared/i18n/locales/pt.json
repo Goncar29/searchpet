@@ -426,6 +426,8 @@
     "session_expired": "Sua sessão expirou. Entre novamente."
   },
   "publish": {
+    "back": "Voltar às opções",
+    "backStep": "Voltar",
     "intent": {
       "title": "O que você quer publicar?",
       "lostTitle": "Meu animal se perdeu",
@@ -438,6 +440,8 @@
       "title": "Escolha o animal perdido",
       "empty": "Você ainda não tem animais cadastrados.",
       "emptyAction": "Cadastrar um animal",
+      "noneEligible": "Nenhum dos seus animais está disponível para publicar como perdido. Vá em Meus animais para alterar o status do que precisar.",
+      "noneEligibleAction": "Ir para Meus animais",
       "select": "Selecionar"
     },
     "strayForm": {

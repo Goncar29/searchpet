@@ -17,22 +17,39 @@ export function LostPetStep({ onSelect }: LostPetStepProps) {
   const { isAuthenticated } = useAuthStore();
   const { data: pets, isLoading } = useMyPets(isAuthenticated);
 
+  // Sólo una mascota `registered` puede pasar a `lost`: las demás ya están en
+  // un estado terminal o en una búsqueda activa.
   const eligiblePets = (pets ?? []).filter((pet: Pet) => pet.status === 'registered');
+  // Mismo filtro que la pestaña "Mis mascotas" del destino (my-pets.tsx deja
+  // las publicaciones de adopción en su propia pestaña). Contar TODAS mandaba a
+  // quien sólo tiene una en adopción a una pestaña vacía que le dice que no
+  // tiene mascotas: la misma contradicción, una pantalla más adelante.
+  const ownsAnyPet = (pets ?? []).some(
+    (pet: Pet) => pet.status !== 'adoption' && pet.status !== 'adopted',
+  );
 
   if (isLoading) {
     return <Text style={styles.loading}>{t('common:loading')}</Text>;
   }
 
+  // Mismo defecto que en la web: al dueño de una mascota se le decía que no
+  // tenía ninguna registrada. Acá el destino ya era el correcto (Mis mascotas),
+  // pero el texto seguía siendo el de "no tenés ninguna", que para ese usuario
+  // es falso. Que el estado no sea elegible es un detalle de implementación.
   if (eligiblePets.length === 0) {
     return (
       <View style={styles.emptyContainer}>
-        <Text style={styles.emptyText}>{t('publish:lostPet.empty')}</Text>
+        <Text style={styles.emptyText}>
+          {ownsAnyPet ? t('publish:lostPet.noneEligible') : t('publish:lostPet.empty')}
+        </Text>
         <TouchableOpacity
           style={styles.emptyButton}
-          onPress={() => router.push('/my-pets')}
+          onPress={() => router.push(ownsAnyPet ? '/my-pets' : '/pets/register')}
           accessibilityRole="button"
         >
-          <Text style={styles.emptyButtonText}>{t('publish:lostPet.emptyAction')}</Text>
+          <Text style={styles.emptyButtonText}>
+            {ownsAnyPet ? t('publish:lostPet.noneEligibleAction') : t('publish:lostPet.emptyAction')}
+          </Text>
         </TouchableOpacity>
       </View>
     );

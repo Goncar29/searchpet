@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { MemoryRouter } from 'react-router';
+import { MemoryRouter, useLocation } from 'react-router';
 import { QueryClientProvider, QueryClient } from '@tanstack/react-query';
 import { PublishWizardPage } from './PublishWizardPage';
-import { useMyPets, usePublishLost, useCreatePet } from '@shared/hooks';
+import { useMyPets, useCreatePet } from '@shared/hooks';
 import { apiClient } from '@shared/api/client';
 
 vi.mock('react-i18next', () => ({
@@ -78,10 +78,21 @@ vi.mock('leaflet', () => ({
   default: { Icon: class { constructor() {} } },
 }));
 
+// Expone la ubicación actual para poder afirmar a dónde navega el wizard.
+// Sin esto, una navegación no deja rastro observable en el DOM y un test que
+// "pasa" no distingue haber navegado de no haber hecho nada.
+function LocationProbe() {
+  const location = useLocation();
+  return <span data-testid="location-probe">{`${location.pathname}${location.search}`}</span>;
+}
+
 function wrapper({ children }: { children: React.ReactNode }) {
   return (
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-      <MemoryRouter>{children}</MemoryRouter>
+      <MemoryRouter>
+        {children}
+        <LocationProbe />
+      </MemoryRouter>
     </QueryClientProvider>
   );
 }
@@ -123,7 +134,11 @@ describe('PublishWizardPage — lost path', () => {
     expect(screen.getByRole('link', { name: 'publish:lostPet.emptyAction' })).toHaveAttribute('href', '/pets/create');
   });
 
-  it('lists only registered pets and selecting one advances to the location step', () => {
+  it('lista solo las registradas y deriva al formulario de reporte que ya existe', () => {
+    // Elegir la mascota no abre el paso de ubicación del wizard: manda al
+    // formulario de reporte, que termina en el mismo lugar (POST /api/reports
+    // con status "lost" transiciona la mascota dentro de la transacción) y
+    // además pide la fecha, que el paso de ubicación no tiene.
     vi.mocked(useMyPets).mockReturnValue({
       data: [
         { id: 'pet-1', name: 'Firulais', type: 'perro', status: 'registered', photos: [] },
@@ -139,7 +154,12 @@ describe('PublishWizardPage — lost path', () => {
     expect(screen.queryByText('Michi')).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByText('Firulais'));
-    expect(screen.getByText('publish:location.title')).toBeInTheDocument();
+
+    expect(screen.getByTestId('location-probe')).toHaveTextContent(
+      '/reports/create?petId=pet-1&status=lost',
+    );
+    // El paso de ubicación del wizard ya no participa de este camino.
+    expect(screen.queryByText('publish:location.title')).not.toBeInTheDocument();
   });
 });
 
@@ -189,15 +209,17 @@ describe('PublishWizardPage — adoption path', () => {
 });
 
 describe('PublishWizardPage — location step', () => {
+  // Se llega por el camino de callejera, que es el único que queda usando el
+  // paso de ubicación del wizard: el de mascota perdida deriva al formulario
+  // de reporte.
   it('renders the map with a default center and publishes with the selected location', () => {
-    vi.mocked(useMyPets).mockReturnValue({
-      data: [{ id: 'pet-1', name: 'Firulais', type: 'perro', status: 'registered', photos: [] }],
-      isLoading: false,
-    } as unknown as ReturnType<typeof useMyPets>);
-
     render(<PublishWizardPage />, { wrapper });
-    fireEvent.click(screen.getByText('publish:intent.lostTitle'));
-    fireEvent.click(screen.getByText('Firulais'));
+    fireEvent.click(screen.getByText('publish:intent.strayTitle'));
+
+    const file = new File(['fake'], 'stray.jpg', { type: 'image/jpeg' });
+    fireEvent.change(screen.getByLabelText('publish:strayForm.photoLabel'), { target: { files: [file] } });
+    fireEvent.change(screen.getByLabelText('publish:strayForm.typeLabel'), { target: { value: 'perro' } });
+    fireEvent.click(screen.getByText('publish:strayForm.next'));
 
     expect(screen.getByText('publish:location.title')).toBeInTheDocument();
     expect(screen.getByTestId('map')).toBeInTheDocument();
@@ -205,26 +227,15 @@ describe('PublishWizardPage — location step', () => {
     fireEvent.change(screen.getByLabelText('publish:location.noteLabel'), { target: { value: 'Cerca de la plaza' } });
     fireEvent.click(screen.getByText('publish:location.publish'));
 
-    // Authenticated lost path publishes immediately — no auth step.
+    // Con sesión abierta publica directo — no aparece el paso de auth.
     expect(screen.queryByText('publish:auth.title')).not.toBeInTheDocument();
   });
 });
 
 describe('PublishWizardPage — success step', () => {
-  it('publishes the lost pet and shows the success step with SharePanel', async () => {
-    vi.mocked(useMyPets).mockReturnValue({
-      data: [{ id: 'pet-1', name: 'Firulais', type: 'perro', status: 'registered', photos: [] }],
-      isLoading: false,
-    } as unknown as ReturnType<typeof useMyPets>);
-
-    render(<PublishWizardPage />, { wrapper });
-    fireEvent.click(screen.getByText('publish:intent.lostTitle'));
-    fireEvent.click(screen.getByText('Firulais'));
-    fireEvent.click(screen.getByText('publish:location.publish'));
-
-    expect(await screen.findByText('publish:success.lostTitle')).toBeInTheDocument();
-    expect(usePublishLost).toHaveBeenCalled();
-  });
+  // El camino "mascota perdida" ya no publica desde el wizard: deriva al
+  // formulario de reporte, que tiene su propia pantalla de éxito. Lo que este
+  // archivo cubre de ese camino es a dónde deriva (ver "lost path").
 
   it('refetches the published stray pet so SharePanel gets the uploaded photos', async () => {
     vi.mocked(apiClient.getPetByID).mockResolvedValue({
@@ -351,6 +362,84 @@ describe('PublishWizardPage — unauthenticated lost path', () => {
 
 describe('PublishWizardPage — publish another', () => {
   it('resets the wizard to the intent step when clicking "publish another"', async () => {
+    render(<PublishWizardPage />, { wrapper });
+    fireEvent.click(screen.getByText('publish:intent.strayTitle'));
+
+    const file = new File(['fake'], 'stray.jpg', { type: 'image/jpeg' });
+    fireEvent.change(screen.getByLabelText('publish:strayForm.photoLabel'), { target: { files: [file] } });
+    fireEvent.change(screen.getByLabelText('publish:strayForm.typeLabel'), { target: { value: 'perro' } });
+    fireEvent.click(screen.getByText('publish:strayForm.next'));
+    fireEvent.click(screen.getByText('publish:location.publish'));
+
+    expect(await screen.findByText('publish:success.strayTitle')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('publish:success.publishAnother'));
+
+    expect(screen.getByText('publish:intent.lostTitle')).toBeInTheDocument();
+    expect(screen.getByText('publish:intent.strayTitle')).toBeInTheDocument();
+    expect(screen.queryByText('publish:success.strayTitle')).not.toBeInTheDocument();
+  });
+});
+
+// Los dos defectos que reportó el usuario sobre /publish, ninguno cubierto antes.
+describe('PublishWizardPage — el usuario ya tiene mascotas propias', () => {
+  it('con mascotas propias pero ninguna elegible, manda a Mis mascotas y no a crear otra', () => {
+    // El usuario tiene UNA mascota, ya publicada como perdida. No es elegible
+    // para volver a publicarse, pero decirle "no tenés mascotas registradas" y
+    // ofrecerle registrar otra es falso: la tiene, y la ve en Mis mascotas.
+    vi.mocked(useMyPets).mockReturnValue({
+      data: [{ id: 'pet-1', name: 'Holly', type: 'perro', status: 'lost', photos: [] }],
+      isLoading: false,
+    } as unknown as ReturnType<typeof useMyPets>);
+
+    render(<PublishWizardPage />, { wrapper });
+    fireEvent.click(screen.getByText('publish:intent.lostTitle'));
+
+    expect(screen.getByText('publish:lostPet.noneEligible')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'publish:lostPet.noneEligibleAction' })).toHaveAttribute(
+      'href',
+      '/pets/mine',
+    );
+    // El mensaje de "no tenés ninguna" no puede aparecer cuando sí tiene.
+    expect(screen.queryByText('publish:lostPet.empty')).not.toBeInTheDocument();
+  });
+
+  // Una publicacion de adopcion es una mascota propia, pero /pets/mine abre en
+  // la pestana "Mis mascotas", que las deja en su propia solapa. Mandarlo ahi
+  // lo dejaba mirando una pestana vacia que le dice que no tiene mascotas: la
+  // misma contradiccion, corrida una pantalla mas adelante.
+  it('con SOLO una publicacion de adopcion ofrece registrar, porque Mis mascotas le quedaria vacia', () => {
+    vi.mocked(useMyPets).mockReturnValue({
+      data: [{ id: 'pet-1', name: 'Toby', type: 'perro', status: 'adoption', photos: [] }],
+      isLoading: false,
+    } as unknown as ReturnType<typeof useMyPets>);
+
+    render(<PublishWizardPage />, { wrapper });
+    fireEvent.click(screen.getByText('publish:intent.lostTitle'));
+
+    expect(screen.getByText('publish:lostPet.empty')).toBeInTheDocument();
+    expect(screen.queryByText('publish:lostPet.noneEligible')).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'publish:lostPet.emptyAction' })).toHaveAttribute('href', '/pets/create');
+  });
+
+  it('sin ninguna mascota sigue ofreciendo registrar una', () => {
+    vi.mocked(useMyPets).mockReturnValue({ data: [], isLoading: false } as unknown as ReturnType<typeof useMyPets>);
+
+    render(<PublishWizardPage />, { wrapper });
+    fireEvent.click(screen.getByText('publish:intent.lostTitle'));
+
+    expect(screen.getByText('publish:lostPet.empty')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'publish:lostPet.emptyAction' })).toHaveAttribute(
+      'href',
+      '/pets/create',
+    );
+  });
+});
+
+describe('PublishWizardPage — salir del paso elegido', () => {
+  // Elegir una de las tres opciones era un camino de ida: ningun paso recibia
+  // onBack, asi que la unica salida era navegar a otra parte del sitio.
+  it('vuelve a las tres opciones desde el paso de mascota perdida', () => {
     vi.mocked(useMyPets).mockReturnValue({
       data: [{ id: 'pet-1', name: 'Firulais', type: 'perro', status: 'registered', photos: [] }],
       isLoading: false,
@@ -358,15 +447,128 @@ describe('PublishWizardPage — publish another', () => {
 
     render(<PublishWizardPage />, { wrapper });
     fireEvent.click(screen.getByText('publish:intent.lostTitle'));
-    fireEvent.click(screen.getByText('Firulais'));
+    expect(screen.getByText('publish:lostPet.title')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'publish:back' }));
+    expect(screen.getByText('publish:intent.title')).toBeInTheDocument();
+  });
+
+  it('vuelve a las tres opciones desde el estado vacio, que es donde el usuario quedaba trabado', () => {
+    vi.mocked(useMyPets).mockReturnValue({ data: [], isLoading: false } as unknown as ReturnType<typeof useMyPets>);
+
+    render(<PublishWizardPage />, { wrapper });
+    fireEvent.click(screen.getByText('publish:intent.lostTitle'));
+    fireEvent.click(screen.getByRole('button', { name: 'publish:back' }));
+
+    expect(screen.getByText('publish:intent.title')).toBeInTheDocument();
+  });
+
+  it('vuelve a las tres opciones desde el formulario de callejera', () => {
+    render(<PublishWizardPage />, { wrapper });
+    fireEvent.click(screen.getByText('publish:intent.strayTitle'));
+    expect(screen.getByText('publish:strayForm.title')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'publish:back' }));
+    expect(screen.getByText('publish:intent.title')).toBeInTheDocument();
+  });
+
+  it('vuelve a las tres opciones desde el formulario de adopcion', () => {
+    render(<PublishWizardPage />, { wrapper });
+    fireEvent.click(screen.getByText('adoption:publish.intentOption'));
+    expect(screen.getByText('adoption:publish.title')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'publish:back' }));
+    expect(screen.getByText('publish:intent.title')).toBeInTheDocument();
+  });
+
+  it('descarta lo cargado al volver, asi no reaparece al reelegir la opcion', () => {
+    render(<PublishWizardPage />, { wrapper });
+    fireEvent.click(screen.getByText('publish:intent.strayTitle'));
+
+    const breed = screen.getByLabelText('publish:strayForm.breedLabel');
+    fireEvent.change(breed, { target: { value: 'Husky' } });
+    expect(breed).toHaveValue('Husky');
+
+    fireEvent.click(screen.getByRole('button', { name: 'publish:back' }));
+    fireEvent.click(screen.getByText('publish:intent.strayTitle'));
+
+    expect(screen.getByLabelText('publish:strayForm.breedLabel')).toHaveValue('');
+  });
+});
+
+describe('PublishWizardPage — salir del paso de login', () => {
+  // El paso `auth` quedaba sin salida igual que los otros tres, y para un
+  // visitante sin sesion es lo PRIMERO que ve al elegir "mi mascota se
+  // perdio": el login, sin ninguna forma de volver a las tres opciones.
+  const initialAuthState = {
+    isAuthenticated: authState.isAuthenticated,
+    user: authState.user,
+    login: authState.login,
+    register: authState.register,
+  };
+
+  afterEach(() => {
+    authState.isAuthenticated = initialAuthState.isAuthenticated;
+    authState.user = initialAuthState.user;
+    authState.login = initialAuthState.login;
+    authState.register = initialAuthState.register;
+  });
+
+  it('vuelve a las tres opciones desde el login al que cae un visitante sin sesion', () => {
+    authState.isAuthenticated = false;
+    authState.user = null;
+
+    render(<PublishWizardPage />, { wrapper });
+    fireEvent.click(screen.getByText('publish:intent.lostTitle'));
+    expect(screen.getByText('publish:auth.title')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'publish:back' }));
+    expect(screen.getByText('publish:intent.title')).toBeInTheDocument();
+  });
+
+  // Los otros dos caminos llegan al login con un formulario YA COMPLETADO, asi
+  // que vuelven al paso anterior y no al selector: backToIntent resetea el
+  // borrador, y perder lo cargado seria peor que el callejon sin salida.
+  it('desde el login del formulario de adopcion vuelve al formulario, con lo cargado intacto', async () => {
+    authState.isAuthenticated = false;
+    authState.user = null;
+
+    render(<PublishWizardPage />, { wrapper });
+    fireEvent.click(screen.getByText('adoption:publish.intentOption'));
+
+    const file = new File(['fake'], 'adopta.jpg', { type: 'image/jpeg' });
+    fireEvent.change(screen.getByLabelText('publish:strayForm.photoLabel'), { target: { files: [file] } });
+    fireEvent.change(screen.getByLabelText('publish:strayForm.typeLabel'), { target: { value: 'gato' } });
+    fireEvent.change(screen.getByLabelText('adoption:publish.cityLabel'), { target: { value: 'Salto' } });
+    fireEvent.click(screen.getByText('adoption:publish.submit'));
+
+    expect(await screen.findByText('publish:auth.title')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'publish:backStep' }));
+
+    expect(screen.getByText('adoption:publish.title')).toBeInTheDocument();
+    expect(screen.getByLabelText('adoption:publish.cityLabel')).toHaveValue('Salto');
+  });
+
+  it('desde el login del flujo de callejera vuelve al paso de ubicacion, con la nota intacta', async () => {
+    authState.isAuthenticated = false;
+    authState.user = null;
+
+    render(<PublishWizardPage />, { wrapper });
+    fireEvent.click(screen.getByText('publish:intent.strayTitle'));
+
+    const file = new File(['fake'], 'stray.jpg', { type: 'image/jpeg' });
+    fireEvent.change(screen.getByLabelText('publish:strayForm.photoLabel'), { target: { files: [file] } });
+    fireEvent.change(screen.getByLabelText('publish:strayForm.typeLabel'), { target: { value: 'gato' } });
+    fireEvent.click(screen.getByText('publish:strayForm.next'));
+    fireEvent.change(screen.getByLabelText('publish:location.noteLabel'), { target: { value: 'Plaza central' } });
     fireEvent.click(screen.getByText('publish:location.publish'));
 
-    expect(await screen.findByText('publish:success.lostTitle')).toBeInTheDocument();
+    expect(await screen.findByText('publish:auth.title')).toBeInTheDocument();
 
-    fireEvent.click(screen.getByText('publish:success.publishAnother'));
+    fireEvent.click(screen.getByRole('button', { name: 'publish:backStep' }));
 
-    expect(screen.getByText('publish:intent.lostTitle')).toBeInTheDocument();
-    expect(screen.getByText('publish:intent.strayTitle')).toBeInTheDocument();
-    expect(screen.queryByText('publish:success.lostTitle')).not.toBeInTheDocument();
+    expect(screen.getByText('publish:location.title')).toBeInTheDocument();
+    expect(screen.getByLabelText('publish:location.noteLabel')).toHaveValue('Plaza central');
   });
 });

@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router';
+import { Link, useNavigate, useSearchParams } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import { usePetByID, useMyPets, useCreateReport } from '@shared/hooks';
 import { PawPlaceholder } from '../components/PawPlaceholder';
-import type { ReportStatus } from '@shared/types';
+import { SharePanel } from '../components/SharePanel';
+import type { Pet, ReportStatus } from '@shared/types';
 import { getErrorMessage } from '@shared/utils/apiErrors';
 
 // Fix leaflet default icon paths broken by bundlers
@@ -39,7 +40,7 @@ interface FieldErrors {
 }
 
 export function CreateReportPage() {
-  const { t } = useTranslation(['reports', 'pets', 'common']);
+  const { t } = useTranslation(['reports', 'pets', 'common', 'publish']);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
@@ -61,6 +62,7 @@ export function CreateReportPage() {
   const [coord, setCoord] = useState<LatLng | null>(null);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [apiError, setApiError] = useState<string | null>(null);
+  const [publishedPet, setPublishedPet] = useState<Pet | null>(null);
 
   const validate = (): boolean => {
     const errors: FieldErrors = {};
@@ -88,6 +90,18 @@ export function CreateReportPage() {
       },
       {
         onSuccess: () => {
+          // Un reporte `lost` no es sólo un reporte: deja la mascota en
+          // búsqueda activa, y lo que hace que la búsqueda sirva es que el
+          // aviso circule. Antes este formulario mandaba derecho a
+          // /pets/mine, así que quien publicaba su mascota como perdida se
+          // quedaba sin el link para compartir — que es el producto entero de
+          // publicar. Los otros dos estados (`found`, `sighting`) no abren
+          // ninguna búsqueda, así que siguen yendo al listado como antes.
+          const pet = presetPet ?? myPets?.find((p) => p.id === petId);
+          if (status === 'lost' && pet) {
+            setPublishedPet(pet);
+            return;
+          }
           navigate('/pets/mine');
         },
         onError: (err) => {
@@ -96,6 +110,40 @@ export function CreateReportPage() {
       }
     );
   };
+
+  if (publishedPet) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-950 py-10 px-4">
+        <div className="max-w-2xl mx-auto text-center space-y-6">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-50">
+              {t('publish:success.lostTitle')}
+            </h1>
+            <p className="mt-2 text-gray-600 dark:text-gray-400">
+              {t('publish:success.lostDescription')}
+            </p>
+          </div>
+
+          <SharePanel petId={publishedPet.id} petName={publishedPet.name} pet={publishedPet} />
+
+          <div className="flex flex-wrap justify-center gap-3">
+            <Link
+              to={`/pets/${publishedPet.id}`}
+              className="inline-flex items-center justify-center px-6 py-2 bg-primary hover:bg-primary-dark text-white font-semibold rounded-lg transition-colors"
+            >
+              {t('publish:success.viewPet')}
+            </Link>
+            <Link
+              to="/pets/mine"
+              className="inline-flex items-center justify-center px-6 py-2 border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 font-semibold rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            >
+              {t('pets:mine.title')}
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 py-10 px-4">
