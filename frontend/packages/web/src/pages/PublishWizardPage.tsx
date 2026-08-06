@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { IntentStep } from '../components/publish/IntentStep';
 import { LostPetStep } from '../components/publish/LostPetStep';
@@ -8,7 +9,7 @@ import { LocationStep } from '../components/publish/LocationStep';
 import { SuccessStep } from '../components/publish/SuccessStep';
 import { InlineAuthStep } from '../components/publish/InlineAuthStep';
 import { useAuth } from '../context/AuthContext';
-import { useCreatePet, usePublishLost, usePublishStray, useUploadPhoto } from '@shared/hooks';
+import { useCreatePet, usePublishStray, useUploadPhoto } from '@shared/hooks';
 import { apiClient } from '@shared/api/client';
 import { getErrorMessage } from '@shared/utils/apiErrors';
 import type { Pet, CreatePetRequest, InitialReportRequest } from '@shared/types';
@@ -37,7 +38,6 @@ export interface AdoptionFormState {
 
 export interface PublishWizardState {
   intent: PublishIntent | null;
-  selectedPet: Pet | null;
   strayForm: StrayFormState;
   adoptionForm: AdoptionFormState;
   location: InitialReportRequest | null;
@@ -45,7 +45,6 @@ export interface PublishWizardState {
 
 export const initialWizardState: PublishWizardState = {
   intent: null,
-  selectedPet: null,
   strayForm: { type: '', breed: '', color: '', description: '', photos: [], contactPublic: false },
   adoptionForm: { type: '', breed: '', color: '', description: '', city: '', photos: [] },
   location: null,
@@ -54,6 +53,7 @@ export const initialWizardState: PublishWizardState = {
 export function PublishWizardPage() {
   const { t } = useTranslation('publish');
   const { isAuthenticated } = useAuth();
+  const navigate = useNavigate();
   const [step, setStep] = useState<PublishStep>('intent');
   const [wizard, setWizard] = useState<PublishWizardState>(initialWizardState);
 
@@ -74,8 +74,10 @@ export function PublishWizardPage() {
     setStep('stray-form');
   };
 
+  // Al paso de ubicación sólo se llega desde el formulario de callejera: el
+  // camino de "mi mascota se perdió" ahora deriva al formulario de reporte.
   const handleBackFromLocation = () => {
-    setStep(wizard.intent === 'lost' ? 'lost-pet' : 'stray-form');
+    setStep('stray-form');
   };
 
   // Elegir una de las tres opciones era un camino de ida: ninguno de esos pasos
@@ -99,7 +101,6 @@ export function PublishWizardPage() {
   const [failedPhotoIndexes, setFailedPhotoIndexes] = useState<number[]>([]);
   const [publishError, setPublishError] = useState<string | null>(null);
 
-  const publishLost = usePublishLost();
   const publishStray = usePublishStray();
   const createPet = useCreatePet();
   const uploadPhoto = useUploadPhoto();
@@ -190,18 +191,6 @@ export function PublishWizardPage() {
     setWizard((prev) => ({ ...prev, location }));
     setPublishError(null);
 
-    if (wizard.intent === 'lost' && wizard.selectedPet) {
-      try {
-        const pet = await publishLost.mutateAsync({ id: wizard.selectedPet.id, data: location });
-        setPublishedPet(pet);
-        setFailedPhotoIndexes([]);
-        setStep('success');
-      } catch (err) {
-        setPublishError(getErrorMessage(err, t));
-      }
-      return;
-    }
-
     if (!isAuthenticated && wizard.intent === 'stray') {
       setStep('auth');
       return;
@@ -267,11 +256,16 @@ export function PublishWizardPage() {
         )}
         {step === 'intent' && <IntentStep onSelect={handleIntentSelect} />}
         {step === 'lost-pet' && (
+          // Elegir la mascota deriva al formulario de reporte que ya existe en
+          // vez de al paso de ubicación del wizard. Los dos terminan igual:
+          // POST /api/reports con status "lost" abre el episodio y transiciona
+          // la mascota a `lost` dentro de la misma transacción, exactamente lo
+          // que hacía publish-lost. La diferencia es que el formulario de
+          // reporte además pide la FECHA (`occurred_at`), que el paso de
+          // ubicación no tiene — y con una mascota perdida el cuándo importa
+          // tanto como el dónde. Un solo formulario de reporte, no dos.
           <LostPetStep
-            onSelect={(pet) => {
-              setWizard((prev) => ({ ...prev, selectedPet: pet }));
-              setStep('location');
-            }}
+            onSelect={(pet) => navigate(`/reports/create?petId=${pet.id}&status=lost`)}
           />
         )}
         {step === 'stray-form' && (
@@ -294,7 +288,7 @@ export function PublishWizardPage() {
             value={wizard.location}
             onPublish={handlePublish}
             onBack={handleBackFromLocation}
-            isPending={publishLost.isPending || publishStray.isPending}
+            isPending={publishStray.isPending}
           />
         )}
         {step === 'auth' && (
