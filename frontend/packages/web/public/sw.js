@@ -1,12 +1,23 @@
-// SearchPet Service Worker v2
+// SearchPet Service Worker v3
 // Estrategia: Network first, cache fallback para assets estáticos.
 // Las llamadas a /api/ NUNCA se cachean.
 
-// Subir este número ante cualquier cambio en la lógica de cacheo. El handler
-// de activate borra todo cache cuyo nombre sea distinto, así que renombrar es
-// lo ÚNICO que purga las entradas viejas: mientras el nombre no cambie, un
-// asset guardado hace meses sigue vivo para siempre.
-const CACHE_NAME = 'searchpet-v2';
+// Subir este número ante cualquier cambio en la lógica de cacheo Y ante
+// cualquier rediseño que cambie la cáscara de la app. El handler de activate
+// borra todo cache cuyo nombre sea distinto, así que renombrar es lo ÚNICO
+// que purga las entradas viejas: mientras el nombre no cambie, un asset
+// guardado hace meses sigue vivo para siempre.
+//
+// El fetch de acá abajo guarda TODA respuesta 200 same-origin, no sólo los
+// STATIC_ASSETS del install. O sea que el index.html y los bundles con hash
+// de cada deploy se van acumulando bajo este mismo nombre y no los limpia
+// nadie. Network-first hace que un usuario online igual reciba lo nuevo,
+// pero el material viejo queda ahí para cualquier fallback.
+//
+// v2 -> v3: el rediseño de la home y del detalle de mascota (PRs #126 a #130)
+// cambió la cáscara entera. Todo el que entró antes de ese deploy arrastraba
+// un cache 'searchpet-v2' con la versión previa adentro.
+const CACHE_NAME = 'searchpet-v3';
 const STATIC_ASSETS = ['/', '/index.html', '/manifest.json'];
 
 // Instalar: cachear assets base

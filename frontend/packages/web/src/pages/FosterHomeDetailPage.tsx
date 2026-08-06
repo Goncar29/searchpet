@@ -16,7 +16,7 @@ export function FosterHomeDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-lg overflow-hidden animate-pulse">
           <div className="h-72 md:h-96 bg-gray-200 dark:bg-gray-700" />
           <div className="p-6 md:p-8 space-y-5">
@@ -59,7 +59,7 @@ export function FosterHomeDetailPage() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-lg">
         {/* Galería de fotos — una a la vez con navegación (mismo patrón que el detalle de mascota) */}
         {photos.length > 0 && activePhoto ? (

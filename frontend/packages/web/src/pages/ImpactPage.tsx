@@ -149,7 +149,7 @@ export function ImpactPage() {
 
   if (isLoading) {
     return (
-      <div className="mx-auto max-w-4xl px-4 py-16 text-center text-gray-500">
+      <div className="mx-auto max-w-7xl px-4 py-16 text-center text-gray-500">
         {t('impact:loading')}
       </div>
     );
@@ -157,7 +157,7 @@ export function ImpactPage() {
 
   if (isError || !data) {
     return (
-      <div className="mx-auto max-w-4xl px-4 py-16 text-center text-red-600">
+      <div className="mx-auto max-w-7xl px-4 py-16 text-center text-red-600">
         <p>{t('impact:error')}</p>
         {isError ? <p className="mt-2 text-sm text-gray-400">{getErrorMessage(error, t)}</p> : null}
       </div>
@@ -172,7 +172,7 @@ export function ImpactPage() {
   const reunionRatePct = `${Math.round(totals.reunion_rate * 100)}%`;
 
   return (
-    <div className="mx-auto max-w-4xl">
+    <div className="mx-auto max-w-7xl">
       <header className="mb-8 flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="flex items-center gap-2.5 text-3xl font-extrabold text-gray-900 dark:text-gray-50">
