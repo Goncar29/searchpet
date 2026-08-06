@@ -141,7 +141,7 @@ export function PetDetailPage() {
   // SEO — descripción truncada a 160 caracteres
   const ogDescription = pet.description
     ? pet.description.slice(0, 160) + (pet.description.length > 160 ? '...' : '')
-    : `Ayudanos a encontrar a ${pet.name}`;
+    : t('pets:detail.ogFallback', { name: pet.name });
   const ogImage = primaryPhoto?.url;
 
   return (
@@ -210,7 +210,7 @@ export function PetDetailPage() {
             {/* Banner de encontrada sobre la imagen */}
             {pet.status === 'found' && (
               <div className="absolute bottom-0 left-0 right-0 bg-green-700/95 text-white text-center py-2 font-bold text-sm">
-                ¡Esta mascota fue encontrada!
+                {t('pets:detail.foundBanner')}
               </div>
             )}
           </div>
@@ -289,16 +289,16 @@ export function PetDetailPage() {
                     {markAsFound.isPending ? (
                       <>
                         <span className="animate-spin">⏳</span>
-                        Guardando...
+                        {t('pets:detail.markFoundSaving')}
                       </>
                     ) : (
-                      '✅ Marcar como encontrada'
+                      `✅ ${t('pets:detail.markFound')}`
                     )}
                   </button>
                   {showFoundConfirm && (
                     <div className="flex flex-col gap-2 p-3 bg-green-50 dark:bg-green-950 rounded-xl border border-green-200 dark:border-green-800">
                       <p className="text-sm font-semibold text-green-800 dark:text-green-200">
-                        ¿Confirmás que {pet.name} fue encontrada? Esta acción no se puede deshacer.
+                        {t('pets:detail.markFoundConfirm', { name: pet.name })}
                       </p>
                       <div className="flex gap-2">
                         <button
@@ -307,14 +307,14 @@ export function PetDetailPage() {
                           disabled={markAsFound.isPending}
                           className="px-4 py-1.5 bg-green-600 text-white text-sm font-semibold rounded-lg hover:bg-green-700 disabled:opacity-60 transition-colors"
                         >
-                          Confirmar
+                          {t('common:confirm')}
                         </button>
                         <button
                           type="button"
                           onClick={() => setShowFoundConfirm(false)}
                           className="px-4 py-1.5 text-sm font-semibold text-gray-600 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                         >
-                          Cancelar
+                          {t('common:cancel')}
                         </button>
                       </div>
                     </div>
@@ -355,7 +355,7 @@ export function PetDetailPage() {
                   to={`/stories/create?petId=${id}`}
                   className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition-colors"
                 >
-                  🎉 Contar historia
+                  🎉 {t('pets:detail.tellStory')}
                 </Link>
               )}
               {/* PDF Flyer — same gating as share (it embeds the share-link QR) */}
@@ -541,7 +541,7 @@ export function PetDetailPage() {
                             <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                               <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"/>
                             </svg>
-                            Verificado
+                            {t('pets:detail.reportVerified')}
                           </span>
                         )}
                         {report.location_description && (
