@@ -238,6 +238,7 @@
     "flyer": {
       "button": "Descargar volante",
       "generating": "Generando PDF...",
+      "error": "Error al generar el link",
       "title": "Descargar volante PDF para imprimir"
     }
   },

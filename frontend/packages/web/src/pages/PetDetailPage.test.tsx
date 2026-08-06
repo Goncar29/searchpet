@@ -4,7 +4,7 @@ import { MemoryRouter } from 'react-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { HelmetProvider } from 'react-helmet-async';
 import { PetDetailPage } from './PetDetailPage';
-import type { Pet } from '@shared/types';
+import type { Pet, Photo } from '@shared/types';
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (key: string) => key, i18n: { language: 'es' } }),
@@ -116,6 +116,66 @@ describe('PetDetailPage', () => {
     // The confirmation of an irreversible action must go through i18n.
     expect(screen.queryByText(/Confirmás/)).not.toBeInTheDocument();
     expect(screen.getByText(/pets:detail\.markFoundConfirm/)).toBeInTheDocument();
+  });
+
+  it('nunca recorta la foto de la mascota', () => {
+    petResult = {
+      data: lostPetWithOwner({
+        photos: [{ id: 'p1', url: 'https://example.com/a.jpg', is_primary: true } as Photo],
+      }),
+      isLoading: false,
+    };
+
+    render(<PetDetailPage />, { wrapper });
+
+    // object-contain is the whole point of the hero: the design paints the photo
+    // edge to edge, and a cropped vertical photo loses the animal's head on the
+    // one page whose job is to let someone recognise it.
+    expect(screen.getByAltText('Firulais')).toHaveClass('object-contain');
+
+    // The blurred fill that gives the design its full frame is decoration and
+    // must stay out of the accessibility tree — the real <img> carries the alt.
+    expect(document.querySelector('[data-hero-backdrop]')).toHaveAttribute('aria-hidden', 'true');
+
+    // The name lives in the hero now. Rendering it here and in the old <h1> too
+    // would read it twice to a screen reader.
+    expect(screen.getAllByText('Firulais')).toHaveLength(1);
+  });
+
+  it('omite las fact cards de los campos opcionales vaciados', () => {
+    // Breed and color are optional and can be explicitly emptied (an update
+    // sends "" to clear them), so the page must not render a card that is just
+    // a heading with nothing under it.
+    petResult = { data: lostPetWithOwner({ breed: '', color: '' }), isLoading: false };
+
+    render(<PetDetailPage />, { wrapper });
+
+    expect(screen.getByText('pets:detail.type')).toBeInTheDocument();
+    expect(screen.queryByText('pets:detail.breed')).not.toBeInTheDocument();
+    expect(screen.queryByText('pets:detail.color')).not.toBeInTheDocument();
+  });
+
+  it('no deja hijos de grid vacíos cuando no hay sidebar ni reportes', () => {
+    // A stray whose own reporter is looking at it: the owner block does not
+    // apply, the reporter block returns null for the reporter themselves, and
+    // the abuse block is hidden because they manage the pet. All three empty.
+    authState.isAuthenticated = true;
+    authState.user = { id: 'reporter-1' };
+    petResult = { data: strayPet(), isLoading: false };
+
+    render(<PetDetailPage />, { wrapper });
+
+    // An empty <aside> would still claim the grid's 1fr column and leave a
+    // third of the page blank next to a squeezed left column.
+    expect(document.querySelector('aside')).toBeNull();
+
+    // With no sidebar the grid must collapse to one column, or the timeline —
+    // the next grid child — lands in the right-hand column instead of below.
+    const body = document.querySelector('[data-detail-body]');
+    expect(body?.className).not.toMatch(/lg:grid-cols-/);
+
+    // No reports and no sidebar: the left column is the only child left.
+    expect(body?.children).toHaveLength(1);
   });
 });
 

@@ -15,6 +15,7 @@ import { PdfFlyerButton } from '../components/PdfFlyerButton';
 import { RevealContact } from '../components/RevealContact';
 import { TimelineMap } from '../components/TimelineMap';
 import { AdoptionPetBody } from '../components/AdoptionPetBody';
+import { Icon } from '../components/Icon';
 
 export function PetDetailPage() {
   const { t, i18n } = useTranslation(['pets', 'common']);
@@ -32,7 +33,7 @@ export function PetDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-lg overflow-hidden animate-pulse">
           {/* Image placeholder */}
           <div className="h-72 md:h-96 bg-gray-200 dark:bg-gray-700" />
@@ -65,8 +66,8 @@ export function PetDetailPage() {
   if (!pet) {
     return (
       <div className="text-center py-20">
-        <p className="text-5xl mb-4">🔍</p>
-        <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">{t('pets:detail.notFound')}</h2>
+        <Icon name="search" className="mx-auto mb-4 block text-5xl text-gray-400" />
+        <h2 className="font-display text-headline text-gray-900 dark:text-gray-100">{t('pets:detail.notFound')}</h2>
         <Link to="/" className="text-primary font-semibold mt-4 inline-block">{t('common:back')}</Link>
       </div>
     );
@@ -113,9 +114,6 @@ export function PetDetailPage() {
     );
   };
 
-  // Lift gallery counter and dots above the "found" banner when it is shown
-  const galleryControlsBottom = pet.status === 'found' ? 'bottom-12' : 'bottom-3';
-
   const statusBadge = {
     color: statusBadgeBg(pet.status),
     label: t(`pets:status.${pet.status}`).toUpperCase(),
@@ -144,6 +142,62 @@ export function PetDetailPage() {
     : t('pets:detail.ogFallback', { name: pet.name });
   const ogImage = primaryPhoto?.url;
 
+  // Whether the contact sidebar has anything to show. Hoisted because the
+  // `<aside>` must not exist at all when it is empty: as a grid child it would
+  // still claim its `1fr` column and leave a third of the page blank next to a
+  // squeezed left column. Reachable for a stray whose own reporter is looking
+  // at it, and for a logged-out visitor on a pet with no owner loaded.
+  const isReporterViewing = isAuthenticated && user?.id === pet.reporter_id;
+  const showReporterContact =
+    pet.status === 'stray' && !pet.owner && !!pet.reporter_id && !isReporterViewing;
+  const showAbuseReport = isAuthenticated && !canManage && !!(pet.owner_id || pet.reporter_id);
+  const hasSidebar = !!pet.owner || showReporterContact || showAbuseReport;
+
+  const factValues = ([
+    ['pets:detail.type', pet.type && t(`pets:types.${pet.type}`)],
+    ['pets:detail.breed', pet.breed],
+    ['pets:detail.color', pet.color],
+    // Breed and color are optional and an update can clear them with "", so a
+    // falsy value drops the whole card instead of rendering a heading with
+    // nothing under it.
+  ] as const).filter(([, value]) => !!value);
+
+  // Extracted so the adoption body and the two-column body can both render them
+  // without the JSX existing twice — the two branches share these, they do not
+  // each own a copy. Both return null when empty: a wrapper that survives its
+  // own content still contributes its margin and its grid cell.
+  const factCards = factValues.length > 0 ? (
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+      {factValues
+        .map(([labelKey, value]) => (
+          <div
+            key={labelKey}
+            className="rounded-2xl border border-gray-100 bg-white p-4 dark:border-gray-800 dark:bg-gray-900"
+          >
+            <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">{t(labelKey)}</p>
+            <p className="mt-1 font-display text-headline break-words text-gray-900 dark:text-gray-100">{value}</p>
+          </div>
+        ))}
+    </div>
+  ) : null;
+
+  const descriptionCard = pet.description ? (
+    <div className="mb-6 rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
+      <h3 className="flex items-center gap-2 font-display text-headline text-gray-900 dark:text-gray-100">
+        <Icon name="description" className="text-primary" />
+        {t('pets:detail.description')}
+      </h3>
+      {/* `break-words` is load-bearing, not tidiness: the description is free
+          text a user typed, so it can hold a pasted URL or a 90-character
+          compound with no break opportunity. Without it that word paints past
+          its box and drags the page's scrollWidth with it — measured at 375px,
+          713 against a 375 viewport. Neither `min-w-0` nor the grid's
+          `minmax(0,…)` help: those stop the TRACK from growing, they do not
+          make a word wrap. */}
+      <p className="mt-2 leading-relaxed break-words text-gray-600 dark:text-gray-300">{pet.description}</p>
+    </div>
+  ) : null;
+
   return (
     <>
       <Helmet>
@@ -154,17 +208,31 @@ export function PetDetailPage() {
         <meta property="og:type" content="website" />
       </Helmet>
 
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-lg">
-          {/* Photo gallery */}
-          <div className="relative h-72 md:h-96 bg-gray-100 dark:bg-gray-800 overflow-hidden rounded-t-2xl">
+          {/* Photo gallery / hero */}
+          <div className="relative h-80 md:h-[28rem] bg-gray-100 dark:bg-gray-800 overflow-hidden rounded-t-2xl">
             {activePhoto ? (
-              <img
-                src={activePhoto.url}
-                alt={pet.name}
-                className="w-full h-full object-contain"
-                crossOrigin="anonymous"
-              />
+              <>
+                {/* A scaled, blurred copy of the same photo fills the frame, so the
+                    design's edge-to-edge hero never costs us a crop. Pet photos
+                    arrive in any orientation and `object-cover` would cut the head
+                    off a vertical one — on the page whose whole job is to let
+                    someone recognise this animal. Decoration only: the real <img>
+                    below carries the alt text. */}
+                <div
+                  data-hero-backdrop
+                  aria-hidden="true"
+                  className="absolute inset-0 scale-110 bg-cover bg-center blur-2xl"
+                  style={{ backgroundImage: `url(${activePhoto.url})` }}
+                />
+                <img
+                  src={activePhoto.url}
+                  alt={pet.name}
+                  className="relative z-10 w-full h-full object-contain"
+                  crossOrigin="anonymous"
+                />
+              </>
             ) : (
               <div className="w-full h-full flex items-center justify-center"><PawPlaceholder className="w-2/5 max-w-28" /></div>
             )}
@@ -174,7 +242,7 @@ export function PetDetailPage() {
                   type="button"
                   onClick={() => goToPhoto(-1)}
                   aria-label={t('pets:detail.prevPhoto')}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
+                  className="absolute z-30 left-3 top-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
                 >
                   ‹
                 </button>
@@ -182,73 +250,94 @@ export function PetDetailPage() {
                   type="button"
                   onClick={() => goToPhoto(1)}
                   aria-label={t('pets:detail.nextPhoto')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
+                  className="absolute z-30 right-3 top-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
                 >
                   ›
                 </button>
-                <span className={`absolute ${galleryControlsBottom} right-3 text-xs font-medium px-2 py-0.5 rounded-full bg-black/60 text-white`}>
-                  📷 {safePhotoIndex + 1}/{photos.length}
+                {/* The counter moved to the top row: the bottom of the hero now
+                    belongs to the name, and stacking both there collides on a
+                    phone the moment a pet has a long name. */}
+                <span className="absolute z-30 top-4 right-4 text-xs font-medium px-2 py-0.5 rounded-full bg-black/60 text-white">
+                  <Icon name="photo-camera" className="shrink-0 text-sm" />
+                  {safePhotoIndex + 1}/{photos.length}
                 </span>
-                <div className={`absolute ${galleryControlsBottom} left-1/2 -translate-x-1/2 flex gap-1.5`}>
-                  {photos.map((p, i) => (
-                    <button
-                      key={p.id}
-                      type="button"
-                      onClick={() => setActivePhotoIndex(i)}
-                      aria-label={t('pets:detail.goToPhoto', { number: i + 1 })}
-                      className={`w-2 h-2 rounded-full transition-colors ${
-                        i === safePhotoIndex ? 'bg-white' : 'bg-white/40 hover:bg-white/70'
-                      }`}
-                    />
-                  ))}
-                </div>
               </>
             )}
-            <span className={`absolute top-4 left-4 ${statusBadge.color} text-white text-xs font-bold px-3 py-1 rounded`}>
+            <span className={`absolute z-30 top-4 left-4 ${statusBadge.color} text-white text-xs font-bold px-3 py-1 rounded`}>
               {statusBadge.label}
             </span>
-            {/* Banner de encontrada sobre la imagen */}
-            {pet.status === 'found' && (
-              <div className="absolute bottom-0 left-0 right-0 bg-green-700/95 text-white text-center py-2 font-bold text-sm">
-                {t('pets:detail.foundBanner')}
+
+            {/* Scrim. Not decoration in the throwaway sense: the title sits over
+                an arbitrary user photo and needs a guaranteed dark base to stay
+                readable — the same reasoning as the StoryCard scrim. */}
+            <div
+              aria-hidden="true"
+              className="absolute inset-x-0 bottom-0 z-10 h-2/3 bg-gradient-to-t from-black/85 via-black/40 to-transparent"
+            />
+
+            {/* Bottom stack, in flow so nothing needs a magic offset: title row
+                first, found banner underneath it. */}
+            <div className="absolute inset-x-0 bottom-0 z-20">
+              <div className="flex items-end justify-between gap-4 p-5 md:p-8 text-white">
+                <div className="min-w-0">
+                  <h1 className="font-display text-display-sm md:text-display break-words">{pet.name}</h1>
+                  {(pet.breed || pet.type) && (
+                    <p className="mt-1 break-words text-sm text-white/80">
+                      {[pet.breed, pet.type && t(`pets:types.${pet.type}`)].filter(Boolean).join(' • ')}
+                    </p>
+                  )}
+                </div>
+                {photos.length > 1 && (
+                  <div className="flex shrink-0 gap-1.5 pb-2">
+                    {photos.map((p, i) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => setActivePhotoIndex(i)}
+                        aria-label={t('pets:detail.goToPhoto', { number: i + 1 })}
+                        className={`w-2 h-2 rounded-full transition-colors ${
+                          i === safePhotoIndex ? 'bg-white' : 'bg-white/40 hover:bg-white/70'
+                        }`}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-
-          <div className="p-6 md:p-8">
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-4">{pet.name}</h1>
-
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-              {pet.type && (
-                <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3">
-                  <p className="text-xs text-gray-500 dark:text-gray-400">{t('pets:detail.type')}</p>
-                  <p className="font-semibold text-gray-900 dark:text-gray-100">{t(`pets:types.${pet.type}`)}</p>
-                </div>
-              )}
-              {pet.breed && (
-                <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3">
-                  <p className="text-xs text-gray-500 dark:text-gray-400">{t('pets:detail.breed')}</p>
-                  <p className="font-semibold text-gray-900 dark:text-gray-100">{pet.breed}</p>
-                </div>
-              )}
-              {pet.color && (
-                <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3">
-                  <p className="text-xs text-gray-500 dark:text-gray-400">{t('pets:detail.color')}</p>
-                  <p className="font-semibold text-gray-900 dark:text-gray-100">{pet.color}</p>
+              {pet.status === 'found' && (
+                <div className="bg-green-700/95 text-white text-center py-2 font-bold text-sm">
+                  {t('pets:detail.foundBanner')}
                 </div>
               )}
             </div>
+          </div>
 
-            {pet.description && (
-              <div className="mb-6">
-                <h3 className="font-bold text-gray-900 dark:text-gray-100 mb-2">{t('pets:detail.description')}</h3>
-                <p className="text-gray-600 dark:text-gray-300 leading-relaxed">{pet.description}</p>
-              </div>
-            )}
-
-            {isAdoptionListing && <AdoptionPetBody pet={pet} />}
-            {!isAdoptionListing && (
+          <div className="p-6 md:p-8">
+            {isAdoptionListing && (
               <>
+                {factCards}
+                {descriptionCard}
+                <AdoptionPetBody pet={pet} />
+              </>
+            )}
+            {!isAdoptionListing && (
+              // `minmax(0,…)` on both tracks stops a wide child from forcing the
+              // TRACK past the viewport. It does NOT make text wrap — an
+              // unbreakable word still paints outside its box, which is what
+              // `break-words` on the user-content nodes is for. The two solve
+              // different halves and neither substitutes for the other.
+              //
+              // The second column only exists when the sidebar does. Keeping it
+              // unconditionally would send the timeline — the next grid child —
+              // into the right column the moment the sidebar is absent.
+              <div
+                data-detail-body
+                className={`grid grid-cols-1 gap-6 ${
+                  hasSidebar ? 'lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]' : ''
+                }`}
+              >
+                <div className="min-w-0">
+                {factCards}
+                {descriptionCard}
             {/* Action buttons.
                 Sharing works logged-out for lost/stray (public endpoint); for any
                 other status it needs a session. Where it's gated we show an honest
@@ -265,7 +354,8 @@ export function PetDetailPage() {
                   to="/login"
                   className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 font-semibold rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                 >
-                  🔒 {t('pets:detail.loginToShare')}
+                  <Icon name="lock" className="shrink-0 text-base" />
+                  {t('pets:detail.loginToShare')}
                 </Link>
               ) : null}
               {/* Location reports only make sense while a pet is actively being
@@ -292,7 +382,10 @@ export function PetDetailPage() {
                         {t('pets:detail.markFoundSaving')}
                       </>
                     ) : (
-                      `✅ ${t('pets:detail.markFound')}`
+                      <>
+                        <Icon name="check-circle" className="shrink-0 text-lg" />
+                        {t('pets:detail.markFound')}
+                      </>
                     )}
                   </button>
                   {showFoundConfirm && (
@@ -336,7 +429,8 @@ export function PetDetailPage() {
                       to={`/stories/create?petId=${id}`}
                       className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white text-sm font-semibold rounded-lg hover:bg-green-700 transition-colors"
                     >
-                      🎉 {t('pets:detail.foundNudgeCta')}
+                      <Icon name="celebration" className="shrink-0 text-base" />
+                      {t('pets:detail.foundNudgeCta')}
                     </Link>
                     <button
                       type="button"
@@ -355,19 +449,36 @@ export function PetDetailPage() {
                   to={`/stories/create?petId=${id}`}
                   className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition-colors"
                 >
-                  🎉 {t('pets:detail.tellStory')}
+                  <Icon name="celebration" className="shrink-0 text-lg" />
+                  {t('pets:detail.tellStory')}
                 </Link>
               )}
               {/* PDF Flyer — same gating as share (it embeds the share-link QR) */}
               {shareAvailable && <PdfFlyerButton pet={pet} reports={reports ?? []} />}
             </div>
 
+                </div>
+
+            {/* Contact sidebar. It is the SECOND grid child on purpose: on a
+                phone the grid collapses to one column and children stack in DOM
+                order, so contact has to come before the timeline — it is the
+                action someone takes after recognising the pet. On desktop the
+                grid auto-places it in column 2 and the timeline below in
+                column 1, without either needing an explicit placement. */}
+            {hasSidebar && (
+            <aside className="min-w-0 lg:sticky lg:top-24 lg:self-start">
+
             {/* Dueño */}
             {pet.owner && (
               <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-4 mb-6">
-                <h3 className="font-bold text-gray-900 dark:text-gray-100 mb-3">{t('pets:detail.owner')}</h3>
+                {/* Etiqueta chica en mayúsculas, no un headline: así es en el
+                    diseño ("OWNER CONTACT") y además `text-headline` son 24px,
+                    que en una columna de 214px parten el título en dos líneas. */}
+                <h3 className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-3">{t('pets:detail.owner')}</h3>
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center text-xl">👤</div>
+                  <div className="w-12 h-12 shrink-0 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center">
+                    <Icon name="person" className="text-2xl text-gray-500 dark:text-gray-400" />
+                  </div>
                   <div>
                     <p className="font-semibold text-gray-900 dark:text-gray-100">{pet.owner.name}</p>
                     {pet.owner.is_verified && (
@@ -397,16 +508,18 @@ export function PetDetailPage() {
                   isAuthenticated ? (
                     <Link
                       to={`/messages/${pet.owner_id}`}
-                      className="mt-3 w-full inline-flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 text-white font-bold py-3 rounded-lg transition-colors"
+                      className="mt-3 w-full inline-flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 text-white font-bold px-3 py-3 text-center leading-tight rounded-lg transition-colors"
                     >
-                      💬 {t('pets:detail.sendMessage')}
+                      <Icon name="chat-bubble" className="shrink-0 text-lg" />
+                      {t('pets:detail.sendMessage')}
                     </Link>
                   ) : (
                     <Link
                       to="/login"
-                      className="mt-3 w-full inline-flex items-center justify-center gap-2 border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 font-semibold py-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                      className="mt-3 w-full inline-flex items-center justify-center gap-2 border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 font-semibold px-3 py-3 text-center leading-tight rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                     >
-                      🔒 {t('pets:detail.loginToContact')}
+                      <Icon name="lock" className="shrink-0 text-base" />
+                      {t('pets:detail.loginToContact')}
                     </Link>
                   )
                 )}
@@ -428,7 +541,7 @@ export function PetDetailPage() {
 
               return (
                 <div className="bg-amber-50 dark:bg-amber-950 rounded-xl p-4 mb-6 border border-amber-200 dark:border-amber-800">
-                  <h3 className="font-bold text-gray-900 dark:text-gray-100 mb-2">{t('pets:detail.reporter')}</h3>
+                  <h3 className="text-xs uppercase tracking-wide text-amber-700 dark:text-amber-300 mb-2">{t('pets:detail.reporter')}</h3>
                   <p className="text-sm text-gray-600 dark:text-gray-300 mb-3">{t('pets:detail.reporterDescription')}</p>
                   {publicContact ? (
                     // Public WhatsApp (no login), behind a reveal-on-click guard.
@@ -445,17 +558,19 @@ export function PetDetailPage() {
                     // In-app messaging fallback (login required).
                     <Link
                       to={`/messages/${pet.reporter_id}`}
-                      className="w-full inline-flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-600 text-white font-bold py-3 rounded-lg transition-colors"
+                      className="w-full inline-flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-600 text-white font-bold px-3 py-3 text-center leading-tight rounded-lg transition-colors"
                     >
-                      💬 {t('pets:detail.contactReporter')}
+                      <Icon name="chat-bubble" className="shrink-0 text-lg" />
+                      {t('pets:detail.contactReporter')}
                     </Link>
                   ) : (
                     // Honest gated state: tell the logged-out finder how to contact.
                     <Link
                       to="/login"
-                      className="w-full inline-flex items-center justify-center gap-2 border border-amber-400 dark:border-amber-700 text-amber-700 dark:text-amber-300 font-semibold py-3 rounded-lg hover:bg-amber-100 dark:hover:bg-amber-900 transition-colors"
+                      className="w-full inline-flex items-center justify-center gap-2 border border-amber-400 dark:border-amber-700 text-amber-700 dark:text-amber-300 font-semibold px-3 py-3 text-center leading-tight rounded-lg hover:bg-amber-100 dark:hover:bg-amber-900 transition-colors"
                     >
-                      🔒 {t('pets:detail.loginToContact')}
+                      <Icon name="lock" className="shrink-0 text-base" />
+                      {t('pets:detail.loginToContact')}
                     </Link>
                   )}
                 </div>
@@ -512,10 +627,17 @@ export function PetDetailPage() {
               </div>
             )}
 
-            {/* Timeline */}
+            </aside>
+            )}
+
+            {/* Timeline. The condition wraps the grid child, not its contents:
+                a wrapper that outlives its content still gets a grid cell and
+                its share of the gap. */}
             {reports && reports.length > 0 && (
-              <div>
-                <h3 className="font-bold text-gray-900 dark:text-gray-100 mb-4">
+            <div className="min-w-0">
+              <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
+                <h3 className="mb-4 flex items-center gap-2 font-display text-headline text-gray-900 dark:text-gray-100">
+                  <Icon name="history" className="text-primary" />
                   {t('pets:detail.timeline', { count: reports.length })}
                 </h3>
                 <div className="space-y-0">
@@ -545,7 +667,10 @@ export function PetDetailPage() {
                           </span>
                         )}
                         {report.location_description && (
-                          <p className="text-sm text-gray-500 dark:text-gray-400">📍 {report.location_description}</p>
+                          <p className="flex items-start gap-1 text-sm text-gray-500 dark:text-gray-400">
+                            <Icon name="location-on" className="mt-0.5 shrink-0 text-base" />
+                            <span className="min-w-0 break-words">{report.location_description}</span>
+                          </p>
                         )}
                         <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
                           {getReportDate(report)}
@@ -556,8 +681,9 @@ export function PetDetailPage() {
                 </div>
                 <TimelineMap reports={reports ?? []} />
               </div>
+            </div>
             )}
-              </>
+              </div>
             )}
           </div>
         </div>

@@ -21,7 +21,11 @@ const basePet: Pet = {
 describe('PdfFlyerButton', () => {
   it('renders a full-width 4:3 photo banner above the title and table', () => {
     const { container } = render(<PdfFlyerButton pet={basePet} />);
-    const hidden = container.querySelector('[aria-hidden="true"]') as HTMLElement;
+    // Scoped by testid, not by `[aria-hidden="true"]`: that selector took
+    // whichever aria-hidden element came first, so the moment the trigger
+    // button got an aria-hidden icon it started matching the icon's <svg>
+    // instead of the flyer template.
+    const hidden = container.querySelector('[data-testid="flyer-template"]') as HTMLElement;
 
     const img = hidden.querySelector('img[alt="Firulais"]') as HTMLImageElement;
     const title = hidden.querySelector('h1');
@@ -41,7 +45,11 @@ describe('PdfFlyerButton', () => {
   it('shows the paw placeholder in the banner when there is no photo', () => {
     const petWithoutPhoto: Pet = { ...basePet, photos: [] };
     const { container, getByLabelText } = render(<PdfFlyerButton pet={petWithoutPhoto} />);
-    const hidden = container.querySelector('[aria-hidden="true"]') as HTMLElement;
+    // Scoped by testid, not by `[aria-hidden="true"]`: that selector took
+    // whichever aria-hidden element came first, so the moment the trigger
+    // button got an aria-hidden icon it started matching the icon's <svg>
+    // instead of the flyer template.
+    const hidden = container.querySelector('[data-testid="flyer-template"]') as HTMLElement;
 
     expect(getByLabelText('SearchPet')).toBeInTheDocument();
     expect(hidden.querySelector('img[alt="Firulais"]')).toBeNull();
