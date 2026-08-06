@@ -666,5 +666,22 @@
     "shareDownloaded": "Imagem baixada. Compartilhe!",
     "loading": "Carregando impacto…",
     "error": "Não foi possível carregar as estatísticas de impacto."
+  },
+  "stories": {
+    "title": "Histórias de sucesso",
+    "subtitle": "Animais que voltaram para casa graças à comunidade.",
+    "loading": "Carregando histórias...",
+    "empty": {
+      "title": "Ainda não há histórias",
+      "hint": "Quando um animal for encontrado, sua história aparecerá aqui."
+    },
+    "badge": {
+      "reunited": "Reencontrado",
+      "featured": "Destaque"
+    },
+    "like": "Curtir",
+    "unlike": "Remover curtida",
+    "likeCount_one": "{{count}} curtida",
+    "likeCount_other": "{{count}} curtidas"
   }
 }

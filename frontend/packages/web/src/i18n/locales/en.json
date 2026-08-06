@@ -666,5 +666,22 @@
     "shareDownloaded": "Image downloaded. Share it!",
     "loading": "Loading impact…",
     "error": "We couldn't load the impact statistics."
+  },
+  "stories": {
+    "title": "Success stories",
+    "subtitle": "Pets that made it home thanks to the community.",
+    "loading": "Loading stories...",
+    "empty": {
+      "title": "No stories yet",
+      "hint": "When a pet is found, its story will show up here."
+    },
+    "badge": {
+      "reunited": "Reunited",
+      "featured": "Featured"
+    },
+    "like": "Like",
+    "unlike": "Remove like",
+    "likeCount_one": "{{count}} like",
+    "likeCount_other": "{{count}} likes"
   }
 }

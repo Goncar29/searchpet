@@ -33,36 +33,46 @@ test.describe('Story likes', () => {
     await page.goto('/stories');
 
     // Target this run's story card by its unique title, then its like button.
+    // The card holds exactly one button, so no name filter is needed — and none
+    // may be used: the accessible name is translated, and this browser resolves
+    // the app to English, so matching a Spanish string would only ever pass by
+    // accident. The pressed state below is what actually carries the meaning.
     const card = page.locator('a', { hasText: storyTitle });
     await expect(card).toBeVisible({ timeout: 10_000 });
-    const likeButton = card.getByRole('button', { name: /me gusta/i });
+    const likeButton = card.getByRole('button');
 
     // Initial state: nobody has liked it yet — outline heart, count 0.
+    // `aria-pressed` and the heart glyph are both driven by `liked_by_me`, so
+    // asserting the state covers the fill without pinning the icon's markup.
     await expect(likeButton).toHaveAttribute('aria-pressed', 'false');
-    await expect(likeButton).toContainText('🤍');
     await expect(likeButton).toContainText('0');
+    const unlikedName = await likeButton.getAttribute('aria-label');
 
     // Like → filled heart, count 1 (server truth after reconcile).
     await likeButton.click();
     await expect(likeButton).toHaveAttribute('aria-pressed', 'true');
-    await expect(likeButton).toContainText('❤️');
     await expect(likeButton).toContainText('1');
+
+    // The label has to move with the state: a toggle stuck on "like" tells a
+    // screen-reader user the opposite of what the button will do. Compared
+    // against the captured value so this holds in any language.
+    await expect(likeButton).not.toHaveAttribute('aria-label', unlikedName ?? '');
 
     // The count is server-sourced, not just optimistic: a reload still shows 1.
     await page.reload();
-    const reloadedLiked = page.locator('a', { hasText: storyTitle }).getByRole('button', { name: /me gusta/i });
+    const reloadedLiked = page.locator('a', { hasText: storyTitle }).getByRole('button');
     await expect(reloadedLiked).toHaveAttribute('aria-pressed', 'true');
     await expect(reloadedLiked).toContainText('1');
 
     // Unlike → back to outline heart, count 0 (no drift to 2, no negative).
     await reloadedLiked.click();
     await expect(reloadedLiked).toHaveAttribute('aria-pressed', 'false');
-    await expect(reloadedLiked).toContainText('🤍');
     await expect(reloadedLiked).toContainText('0');
+    await expect(reloadedLiked).toHaveAttribute('aria-label', unlikedName ?? '');
 
     // Reload once more: the unlike persisted, count stays 0.
     await page.reload();
-    const reloadedUnliked = page.locator('a', { hasText: storyTitle }).getByRole('button', { name: /me gusta/i });
+    const reloadedUnliked = page.locator('a', { hasText: storyTitle }).getByRole('button');
     await expect(reloadedUnliked).toHaveAttribute('aria-pressed', 'false');
     await expect(reloadedUnliked).toContainText('0');
   });
