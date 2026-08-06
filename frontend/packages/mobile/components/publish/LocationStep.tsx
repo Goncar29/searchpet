@@ -5,7 +5,7 @@ import MapLibreGL from '@maplibre/maplibre-react-native';
 import * as Location from 'expo-location';
 import { COLORS, SPACING, FONTS, RADIUS, MAP_DEFAULTS } from '../../constants';
 import type { InitialReportRequest } from '../../../shared/types';
-import { calendarDayToISO, isFutureCalendarDay } from '../../../shared/utils/reportDate';
+import { calendarDayToISO, isFutureCalendarDay, isoToCalendarDay } from '../../../shared/utils/reportDate';
 
 // MapLibre no necesita token de Mapbox
 MapLibreGL.setAccessToken(null);
@@ -29,7 +29,10 @@ export function LocationStep({ value, onPublish, onBack, isPending }: LocationSt
   // modulo NATIVO, y sumarlo obliga a rebuildear el APK y el dev client. El
   // dato que faltaba es la fecha, no el widget; el picker es una mejora de UX
   // posterior que no cambia este contrato.
-  const [date, setDate] = useState(value?.occurred_at?.slice(0, 10) ?? '');
+  // El dia LOCAL del instante guardado, no `iso.slice(0, 10)`: el slice lee el
+  // dia en UTC y al este de Greenwich rehidrata el dia anterior, restando uno
+  // mas en cada ida y vuelta por el paso de login.
+  const [date, setDate] = useState(() => isoToCalendarDay(value?.occurred_at));
   const [dateError, setDateError] = useState<string | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
 

@@ -1,5 +1,48 @@
 import { describe, it, expect } from 'vitest';
-import { calendarDayToISO, todayAsCalendarDay, isFutureCalendarDay } from './reportDate';
+import { calendarDayToISO, todayAsCalendarDay, isFutureCalendarDay, isoToCalendarDay } from './reportDate';
+
+describe('isoToCalendarDay', () => {
+  // El invariante que importa: calendarDayToISO e isoToCalendarDay son inversas
+  // en CUALQUIER zona. La forma obvia de la vuelta —iso.slice(0,10)— lee el dia
+  // en UTC y reintroduce el corrimiento: en UTC+2 la medianoche local del 6 es
+  // 2026-08-05T22:00:00Z, asi que el slice devuelve el 5 y el campo se
+  // rehidrata un dia atras.
+  it('es la inversa exacta de calendarDayToISO', () => {
+    for (const dia of ['2026-08-06', '2026-01-01', '2026-12-31', '2024-02-29']) {
+      expect(isoToCalendarDay(calendarDayToISO(dia))).toBe(dia);
+    }
+  });
+
+  // Este es el guard de verdad, y hay que construirlo con cuidado: un instante
+  // cualquiera NO sirve. `iso.slice(0,10)` solo miente cuando el dia de UTC del
+  // instante difiere del dia LOCAL, o sea cuando la hora local cae del otro
+  // lado de la medianoche de Greenwich. Se elige la hora segun el signo del
+  // offset del runner, para que el test distinga en cualquier zona.
+  //
+  // (Una version anterior de este test usaba la medianoche local de UTC+2 fija
+  // y pasaba igual con el defecto puesto en un runner UTC-3: no probaba nada.)
+  it('no lee el dia en UTC — falla si se vuelve a usar iso.slice(0,10)', () => {
+    const offsetMin = new Date().getTimezoneOffset();
+    if (offsetMin === 0) return; // en UTC no hay diferencia que detectar
+
+    // offset > 0 => al oeste: una hora local tardia empuja el UTC al dia siguiente.
+    // offset < 0 => al este: una hora local temprana lo tira al dia anterior.
+    const hora = offsetMin > 0 ? 23 : 1;
+    const local = new Date(2026, 7, 4, hora, 0, 0);
+    const iso = local.toISOString();
+
+    // Precondicion: el instante elegido efectivamente cruza la medianoche UTC.
+    expect(iso.slice(0, 10)).not.toBe('2026-08-04');
+    // Y aun asi el dia de calendario local es el 4.
+    expect(isoToCalendarDay(iso)).toBe('2026-08-04');
+  });
+
+  it('devuelve vacio ante undefined o un ISO invalido', () => {
+    expect(isoToCalendarDay(undefined)).toBe('');
+    expect(isoToCalendarDay('')).toBe('');
+    expect(isoToCalendarDay('no soy una fecha')).toBe('');
+  });
+});
 
 describe('calendarDayToISO', () => {
   // El invariante que importa, y el que la version con `T00:00:00Z` rompia:

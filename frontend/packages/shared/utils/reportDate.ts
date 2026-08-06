@@ -36,6 +36,24 @@ export function calendarDayToISO(day: string): string | undefined {
 }
 
 /**
+ * La vuelta de calendarDayToISO: del instante guardado al día de calendario
+ * LOCAL, en YYYY-MM-DD, listo para un `<input type="date">`.
+ *
+ * Hace falta porque `iso.slice(0, 10)` —la forma obvia— lee el día en UTC y
+ * reintroduce el mismo corrimiento en la dirección de lectura. En UTC+2, la
+ * medianoche local del 6 es `2026-08-05T22:00:00Z`, así que el slice devuelve
+ * el **5**: el campo se rehidrata con el día anterior, y cada ida y vuelta por
+ * el paso de login resta uno más. Al oeste de Greenwich no se nota, que es
+ * justamente por qué es fácil que se cuele.
+ */
+export function isoToCalendarDay(iso: string | undefined): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return todayAsCalendarDay(d);
+}
+
+/**
  * El día de HOY según la zona del usuario, en YYYY-MM-DD. Sirve de `max` para
  * un input de fecha. No se usa toISOString() porque devuelve el día en UTC, que
  * al este de Greenwich puede ser mañana y al oeste, ayer.

@@ -214,6 +214,9 @@ describe('PublishWizardPage — location step', () => {
   // mock se filtra a los describes siguientes y les rompe el paso de exito.
   const strayPorDefecto = vi.mocked(usePublishStray).getMockImplementation();
   afterEach(() => {
+    authState.isAuthenticated = true;
+    authState.user = { id: 'user-1', name: 'Carlos' };
+
     if (strayPorDefecto) vi.mocked(usePublishStray).mockImplementation(strayPorDefecto);
   });
 
@@ -338,6 +341,35 @@ describe('PublishWizardPage — location step', () => {
 
     expect(mutateAsync).not.toHaveBeenCalled();
     expect(screen.getByText('publish:location.dateFuture')).toBeInTheDocument();
+  });
+
+  // La ida guarda medianoche LOCAL; la vuelta tiene que leer el dia LOCAL. Con
+  // `iso.slice(0,10)` el campo se rehidrataba con el dia de UTC, que al este de
+  // Greenwich es el anterior, y cada ida y vuelta por el login restaba uno mas.
+  //
+  // El camino real: un visitante SIN sesion llena la ubicacion, toca Publicar,
+  // cae en el login y vuelve con "Atras". Recien ahi wizard.location tiene el
+  // ISO y LocationStep se remonta reinicializando su useState.
+  it('al volver del login el campo conserva el mismo dia que se eligio', async () => {
+    authState.isAuthenticated = false;
+    authState.user = null;
+
+    render(<PublishWizardPage />, { wrapper });
+    fireEvent.click(screen.getByText('publish:intent.strayTitle'));
+
+    const file = new File(['fake'], 'stray.jpg', { type: 'image/jpeg' });
+    fireEvent.change(screen.getByLabelText('publish:strayForm.photoLabel'), { target: { files: [file] } });
+    fireEvent.change(screen.getByLabelText('publish:strayForm.typeLabel'), { target: { value: 'perro' } });
+    fireEvent.click(screen.getByText('publish:strayForm.next'));
+
+    const elegido = '2026-08-04';
+    fireEvent.change(screen.getByLabelText('publish:location.dateLabel'), { target: { value: elegido } });
+    fireEvent.click(screen.getByText('publish:location.publish'));
+
+    expect(await screen.findByText('publish:auth.title')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'publish:backStep' }));
+
+    expect(screen.getByLabelText('publish:location.dateLabel')).toHaveValue(elegido);
   });
 });
 

@@ -3,7 +3,7 @@ import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
 import { useTranslation } from 'react-i18next';
 import L from 'leaflet';
 import type { InitialReportRequest } from '@shared/types';
-import { calendarDayToISO, todayAsCalendarDay, isFutureCalendarDay } from '@shared/utils/reportDate';
+import { calendarDayToISO, todayAsCalendarDay, isFutureCalendarDay, isoToCalendarDay } from '@shared/utils/reportDate';
 
 const MONTEVIDEO: [number, number] = [-34.9011, -56.1645];
 
@@ -36,8 +36,10 @@ export function LocationStep({ value, onPublish, onBack, isPending }: LocationSt
     value ? [value.latitude, value.longitude] : MONTEVIDEO
   );
   const [note, setNote] = useState(value?.note ?? '');
-  // Sólo la parte de fecha del ISO: <input type="date"> trabaja en YYYY-MM-DD.
-  const [date, setDate] = useState(value?.occurred_at?.slice(0, 10) ?? '');
+  // El día LOCAL del instante guardado, no `iso.slice(0, 10)`: el slice lee el
+  // día en UTC y al este de Greenwich rehidrata el día anterior, restando uno
+  // más en cada ida y vuelta por el paso de login. Ver shared/utils/reportDate.
+  const [date, setDate] = useState(() => isoToCalendarDay(value?.occurred_at));
   const [dateError, setDateError] = useState<string | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
 
@@ -63,12 +65,21 @@ export function LocationStep({ value, onPublish, onBack, isPending }: LocationSt
       setDateError(t('location.dateFuture'));
       return;
     }
+    // Un valor que no parsea devuelve undefined y se iba en SILENCIO: publicaba
+    // sin fecha, sin error y sin decir nada. Sólo pasa donde el input de fecha
+    // degrada a texto, pero descartar dato del usuario sin avisar es peor que
+    // el caso raro que lo produce. Mobile ya nombraba este error.
+    const iso = date ? calendarDayToISO(date) : undefined;
+    if (date && !iso) {
+      setDateError(t('location.dateInvalid'));
+      return;
+    }
     setDateError(null);
     onPublish({
       latitude: position[0],
       longitude: position[1],
       note: note.trim() || undefined,
-      occurred_at: calendarDayToISO(date),
+      occurred_at: iso,
     });
   };
 
