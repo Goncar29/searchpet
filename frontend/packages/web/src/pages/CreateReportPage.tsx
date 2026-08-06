@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
@@ -78,12 +78,21 @@ export function CreateReportPage() {
     ? ['lost', 'found', 'sighting']
     : ['sighting'];
 
-  // Si venía preseleccionado un estado que este usuario no puede usar (por
-  // ejemplo entrando por una URL con ?status=lost a una mascota ajena), se cae
-  // a avistamiento en vez de mandar algo que el backend va a rechazar.
-  useEffect(() => {
-    if (!puedeCambiarEstado && status !== 'sighting') setStatus('sighting');
-  }, [puedeCambiarEstado, status]);
+  // Si el usuario no puede cambiar el estado, lo que viaja es `sighting`, aunque
+  // la URL pidiera otra cosa.
+  //
+  // Se DERIVA en vez de escribirse con un efecto, y no es un detalle de estilo:
+  // con un `useEffect` que pisaba `status`, el primer render ocurre con la
+  // mascota todavía sin cargar, o sea `puedeCambiarEstado === false`, y el
+  // efecto reescribía `status` a 'sighting'. Cuando la mascota cargaba y
+  // resultaba ser del usuario, nada lo devolvía: la DUEÑA entrando en frío a
+  // ?status=lost terminaba publicando un avistamiento. Verificado en el
+  // navegador con caché fría — con caché caliente no se reproduce, que es por
+  // qué es fácil que pase desapercibido.
+  //
+  // Derivado no puede desincronizarse: vale en todos los renders, cargue cuando
+  // cargue.
+  const statusEfectivo: ReportStatus = puedeCambiarEstado ? status : 'sighting';
 
   const validate = (): boolean => {
     const errors: FieldErrors = {};
@@ -103,7 +112,7 @@ export function CreateReportPage() {
     createReport.mutate(
       {
         pet_id: petId,
-        status,
+        status: statusEfectivo,
         latitude: coord.lat,
         longitude: coord.lng,
         location_description: description.trim() || undefined,
@@ -119,7 +128,7 @@ export function CreateReportPage() {
           // publicar. Los otros dos estados (`found`, `sighting`) no abren
           // ninguna búsqueda, así que siguen yendo al listado como antes.
           const pet = presetPet ?? myPets?.find((p) => p.id === petId);
-          if (status === 'lost' && pet) {
+          if (statusEfectivo === 'lost' && pet) {
             setPublishedPet(pet);
             return;
           }
@@ -232,7 +241,7 @@ export function CreateReportPage() {
                   type="button"
                   onClick={() => setStatus(s)}
                   className={`py-2 rounded-lg text-sm font-semibold border transition-colors ${
-                    status === s
+                    statusEfectivo === s
                       ? s === 'lost'
                         ? 'bg-red-600 border-red-600 text-white'
                         : s === 'found'

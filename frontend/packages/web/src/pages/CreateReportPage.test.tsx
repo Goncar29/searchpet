@@ -21,6 +21,9 @@ const mocks = vi.hoisted(() => ({
   // que `validate()` exige: sin eso el submit nunca llega a mutate.
   mapClick: null as null | ((e: { latlng: { lat: number; lng: number } }) => void),
   pet: null as unknown,
+  // cuantos renders devuelve isLoading antes de entregar la mascota: reproduce
+  // la carga en dos tiempos, que es cuando aparecio el bug del estado pisado.
+  rendersCargando: 0,
 }));
 
 vi.mock('../context/AuthContext', () => ({
@@ -65,8 +68,14 @@ vi.mock('../components/SharePanel', () => ({
 }));
 
 vi.mock('@shared/hooks', () => ({
-  usePetByID: () => ({ data: mocks.pet ?? PET, isLoading: false }),
-  useMyPets: () => ({ data: [PET] }),
+  usePetByID: () => {
+    if (mocks.rendersCargando > 0) { mocks.rendersCargando -= 1; return { data: undefined, isLoading: true }; }
+    return { data: mocks.pet ?? PET, isLoading: false };
+  },
+  // En frio las DOS estan cargando: si solo se simula usePetByID, myPets sigue
+  // entregando la mascota y el permiso ya es true en el primer render — el
+  // escenario del bug no llega a existir.
+  useMyPets: () => (mocks.rendersCargando > 0 ? { data: undefined } : { data: [PET] }),
   useCreateReport: () => ({ mutate: mocks.mutate, mutateAsync: vi.fn(), isPending: false }),
 }));
 
@@ -96,6 +105,7 @@ beforeEach(() => {
   mocks.search = 'petId=pet-1&status=lost';
   mocks.mapClick = null;
   mocks.pet = null;
+  mocks.rendersCargando = 0;
 });
 
 describe('CreateReportPage', () => {
@@ -184,6 +194,29 @@ describe('CreateReportPage — una mascota ajena', () => {
 
     expect(mocks.mutate).toHaveBeenCalledWith(
       expect.objectContaining({ pet_id: 'pet-9', status: 'sighting' }),
+      expect.anything(),
+    );
+  });
+});
+
+// La mascota no llega en el primer render. Con un useEffect que pisaba `status`
+// cuando el usuario "no podia" cambiarlo, ese primer render —sin mascota, o sea
+// sin permiso— lo reescribia a sighting, y nada lo devolvia al cargar. La DUEÑA
+// entrando en frio a ?status=lost terminaba publicando un avistamiento.
+//
+// Con caché caliente no se reproduce, que es por que los otros tests no lo veian:
+// mockean la mascota con isLoading false desde el primer render.
+describe('CreateReportPage — la mascota carga despues del primer render', () => {
+  it('la dueña con ?status=lost sigue mandando lost aunque la mascota tarde', () => {
+    mocks.rendersCargando = 2; // los primeros renders no tienen la mascota
+    mocks.search = 'petId=pet-1&status=lost';
+
+    render(<CreateReportPage />, { wrapper });
+    marcarUbicacion();
+    enviar();
+
+    expect(mocks.mutate).toHaveBeenCalledWith(
+      expect.objectContaining({ pet_id: 'pet-1', status: 'lost' }),
       expect.anything(),
     );
   });
