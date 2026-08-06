@@ -74,9 +74,16 @@ export function CreateReportPage() {
   // aporta al seguimiento — después se coordina por el chat o WhatsApp.
   const petElegida = presetPet ?? myPets?.find((p) => p.id === petId) ?? null;
   const puedeCambiarEstado = canManagePet(petElegida, user?.id);
-  const opcionesEstado: ReportStatus[] = puedeCambiarEstado
-    ? ['lost', 'found', 'sighting']
-    : ['sighting'];
+
+  // Hay un petId pero no se pudo resolver la mascota, y ya terminó de cargar.
+  // Es distinto de "no tenés permiso" y `validate` lo trata aparte.
+  const petIdSinResolver = !!petId && !petElegida && !presetLoading;
+
+  // Mientras no haya mascota elegida todavía no hay nada que restringir, así
+  // que se muestran las tres. Colapsar a una sola y expandir después de elegir
+  // hacía saltar el control y dejaba `lost` marcado sin que nadie lo tocara.
+  const opcionesEstado: ReportStatus[] =
+    !petElegida || puedeCambiarEstado ? ['lost', 'found', 'sighting'] : ['sighting'];
 
   // Si el usuario no puede cambiar el estado, lo que viaja es `sighting`, aunque
   // la URL pidiera otra cosa.
@@ -97,6 +104,18 @@ export function CreateReportPage() {
   const validate = (): boolean => {
     const errors: FieldErrors = {};
     if (!petId) errors.petId = t('common:required');
+    // "No tenés permiso" y "no pude cargar la mascota" son lo MISMO para
+    // canManagePet: los dos dan false. Pero significan cosas opuestas, y
+    // colapsarlos silenciosamente es peor que fallar.
+    //
+    // Sin esto: el dueño abre ?status=lost, `GET /api/pets/:id` falla —un
+    // arranque en frío de Render devolviendo 502 alcanza—, `statusEfectivo` cae
+    // a `sighting`, el backend contesta 201 y lo mandamos a /pets/mine como si
+    // hubiera salido bien. La búsqueda nunca se abrió y nadie se lo dijo.
+    //
+    // Con la mascota sin resolver no se reescribe el pedido: se corta y se
+    // avisa. Se chequea `!presetLoading` para no bloquear mientras carga.
+    else if (petIdSinResolver) errors.petId = t('pets:detail.notFound');
     if (!coord) errors.coord = t('reports:create.noCoord');
     if (date && new Date(date) > new Date()) errors.date = t('reports:create.noFutureDate');
     setFieldErrors(errors);

@@ -24,6 +24,7 @@ const mocks = vi.hoisted(() => ({
   // cuantos renders devuelve isLoading antes de entregar la mascota: reproduce
   // la carga en dos tiempos, que es cuando aparecio el bug del estado pisado.
   rendersCargando: 0,
+  myPetsVacio: false,
 }));
 
 vi.mock('../context/AuthContext', () => ({
@@ -70,12 +71,12 @@ vi.mock('../components/SharePanel', () => ({
 vi.mock('@shared/hooks', () => ({
   usePetByID: () => {
     if (mocks.rendersCargando > 0) { mocks.rendersCargando -= 1; return { data: undefined, isLoading: true }; }
-    return { data: mocks.pet ?? PET, isLoading: false };
+    return { data: mocks.myPetsVacio ? undefined : (mocks.pet ?? PET), isLoading: false };
   },
   // En frio las DOS estan cargando: si solo se simula usePetByID, myPets sigue
   // entregando la mascota y el permiso ya es true en el primer render — el
   // escenario del bug no llega a existir.
-  useMyPets: () => (mocks.rendersCargando > 0 ? { data: undefined } : { data: [PET] }),
+  useMyPets: () => (mocks.rendersCargando > 0 || mocks.myPetsVacio ? { data: undefined } : { data: [PET] }),
   useCreateReport: () => ({ mutate: mocks.mutate, mutateAsync: vi.fn(), isPending: false }),
 }));
 
@@ -106,6 +107,7 @@ beforeEach(() => {
   mocks.mapClick = null;
   mocks.pet = null;
   mocks.rendersCargando = 0;
+  mocks.myPetsVacio = false;
 });
 
 describe('CreateReportPage', () => {
@@ -219,5 +221,28 @@ describe('CreateReportPage — la mascota carga despues del primer render', () =
       expect.objectContaining({ pet_id: 'pet-1', status: 'lost' }),
       expect.anything(),
     );
+  });
+});
+
+// "No tenes permiso" y "no pude cargar la mascota" son lo mismo para
+// canManagePet: los dos dan false. Pero significan cosas OPUESTAS. Colapsarlos
+// hacia que el dueño abriera ?status=lost con la API caida —un arranque en frio
+// de Render alcanza—, se publicara un AVISTAMIENTO, y lo mandaramos al listado
+// como si hubiera salido bien. La busqueda nunca se abria y nadie se lo decia.
+describe('CreateReportPage — la mascota no se pudo cargar', () => {
+  it('no publica nada y avisa, en vez de degradar el pedido a avistamiento', () => {
+    mocks.pet = undefined;        // usePetByID devuelve vacio, ya sin cargar
+    mocks.myPetsVacio = true;     // y myPets tampoco la tiene
+    mocks.search = 'petId=pet-1&status=lost';
+
+    render(<CreateReportPage />, { wrapper });
+    marcarUbicacion();
+    enviar();
+
+    expect(mocks.mutate).not.toHaveBeenCalled();
+    // Aparece dos veces: el bloque de la mascota ya decia 'no encontrada'
+    // ANTES de este arreglo, y aun asi el formulario se enviaba. Lo que faltaba
+    // no era el mensaje, era cortar el envio.
+    expect(screen.getAllByText('pets:detail.notFound').length).toBeGreaterThan(0);
   });
 });
