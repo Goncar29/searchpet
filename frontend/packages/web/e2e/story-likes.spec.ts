@@ -49,6 +49,17 @@ test.describe('Story likes', () => {
     const unlikedName = await likeButton.getAttribute('aria-label');
 
     // Like → filled heart, count 1 (server truth after reconcile).
+    //
+    // La respuesta se engancha ANTES del click a propósito. `useLikeStory` hace
+    // el toggle en `onMutate`, o sea optimista: `aria-pressed` pasa a `true` en
+    // cuanto se hace click, sin que el servidor haya contestado. Sin esperar el
+    // POST, el `page.reload()` de más abajo corre contra una base que todavía no
+    // registró el like y devuelve el estado viejo — que es exactamente por qué
+    // este test fallaba de a ratos bajo paralelismo, y sólo bajo paralelismo:
+    // con la máquina cargada la ventana entre el click y el POST se agranda.
+    const likeGuardado = page.waitForResponse(
+      (r) => r.url().includes('/like') && r.request().method() === 'POST' && r.ok(),
+    );
     await likeButton.click();
     await expect(likeButton).toHaveAttribute('aria-pressed', 'true');
     await expect(likeButton).toContainText('1');
@@ -59,18 +70,24 @@ test.describe('Story likes', () => {
     await expect(likeButton).not.toHaveAttribute('aria-label', unlikedName ?? '');
 
     // The count is server-sourced, not just optimistic: a reload still shows 1.
+    await likeGuardado;
     await page.reload();
     const reloadedLiked = page.locator('a', { hasText: storyTitle }).getByRole('button');
     await expect(reloadedLiked).toHaveAttribute('aria-pressed', 'true');
     await expect(reloadedLiked).toContainText('1');
 
     // Unlike → back to outline heart, count 0 (no drift to 2, no negative).
+    // Mismo enganche que el like: el DELETE también se refleja optimista.
+    const unlikeGuardado = page.waitForResponse(
+      (r) => r.url().includes('/like') && r.request().method() === 'DELETE' && r.ok(),
+    );
     await reloadedLiked.click();
     await expect(reloadedLiked).toHaveAttribute('aria-pressed', 'false');
     await expect(reloadedLiked).toContainText('0');
     await expect(reloadedLiked).toHaveAttribute('aria-label', unlikedName ?? '');
 
     // Reload once more: the unlike persisted, count stays 0.
+    await unlikeGuardado;
     await page.reload();
     const reloadedUnliked = page.locator('a', { hasText: storyTitle }).getByRole('button');
     await expect(reloadedUnliked).toHaveAttribute('aria-pressed', 'false');
