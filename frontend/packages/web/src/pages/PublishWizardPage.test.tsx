@@ -209,6 +209,14 @@ describe('PublishWizardPage — adoption path', () => {
 });
 
 describe('PublishWizardPage — location step', () => {
+  // Los casos de fecha pisan usePublishStray para inspeccionar el payload.
+  // `mockReturnValue` NO se revierte solo entre tests, asi que sin esto el
+  // mock se filtra a los describes siguientes y les rompe el paso de exito.
+  const strayPorDefecto = vi.mocked(usePublishStray).getMockImplementation();
+  afterEach(() => {
+    if (strayPorDefecto) vi.mocked(usePublishStray).mockImplementation(strayPorDefecto);
+  });
+
   // Se llega por el camino de callejera, que es el único que queda usando el
   // paso de ubicación del wizard: el de mascota perdida deriva al formulario
   // de reporte.
@@ -300,8 +308,36 @@ describe('PublishWizardPage — location step', () => {
     fireEvent.change(screen.getByLabelText('publish:strayForm.typeLabel'), { target: { value: 'perro' } });
     fireEvent.click(screen.getByText('publish:strayForm.next'));
 
-    const hoy = new Date().toISOString().slice(0, 10);
-    expect(screen.getByLabelText('publish:location.dateLabel')).toHaveAttribute('max', hoy);
+    const ahora = new Date();
+    const hoyLocal = `${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, '0')}-${String(ahora.getDate()).padStart(2, '0')}`;
+    expect(screen.getByLabelText('publish:location.dateLabel')).toHaveAttribute('max', hoyLocal);
+  });
+
+  // El `max` orienta al date picker pero NO impide tipear. Sin el chequeo del
+  // cliente, quien escribe una fecha futura recibe el 400 del backend como
+  // "los datos ingresados no son validos": generico, sin decir que campo.
+  it('nombra el problema cuando se tipea una fecha futura, en vez de dejar que conteste el backend', () => {
+    const mutateAsync = vi.fn();
+    vi.mocked(usePublishStray).mockReturnValue({
+      mutateAsync,
+      isPending: false,
+    } as unknown as ReturnType<typeof usePublishStray>);
+
+    render(<PublishWizardPage />, { wrapper });
+    fireEvent.click(screen.getByText('publish:intent.strayTitle'));
+
+    const file = new File(['fake'], 'stray.jpg', { type: 'image/jpeg' });
+    fireEvent.change(screen.getByLabelText('publish:strayForm.photoLabel'), { target: { files: [file] } });
+    fireEvent.change(screen.getByLabelText('publish:strayForm.typeLabel'), { target: { value: 'perro' } });
+    fireEvent.click(screen.getByText('publish:strayForm.next'));
+
+    const manana = new Date(Date.now() + 86400000);
+    const mananaStr = `${manana.getFullYear()}-${String(manana.getMonth() + 1).padStart(2, '0')}-${String(manana.getDate()).padStart(2, '0')}`;
+    fireEvent.change(screen.getByLabelText('publish:location.dateLabel'), { target: { value: mananaStr } });
+    fireEvent.click(screen.getByText('publish:location.publish'));
+
+    expect(mutateAsync).not.toHaveBeenCalled();
+    expect(screen.getByText('publish:location.dateFuture')).toBeInTheDocument();
   });
 });
 
