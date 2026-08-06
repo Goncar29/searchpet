@@ -22,6 +22,27 @@
   --font-family-sans: 'Inter', system-ui, sans-serif;
   /* Brand wordmark font (SearchPet logo lockup) */
   --font-brand: 'Fredoka', system-ui, sans-serif;
+  /* Display face for headings, from the Stitch design system. Inter stays the
+     body face — this only applies where a heading opts in with `font-display`. */
+  --font-display: 'Plus Jakarta Sans', system-ui, sans-serif;
+
+  /* Heading scale from the Stitch design system.
+     `display` is the desktop size; `display-sm` is the design's own mobile step,
+     which the mockups define but never actually apply — every headline there is
+     48px at any width. Pair them as `text-display-sm md:text-display`.
+     Body and label sizes need no tokens: the design's 18/16/14/12px are exactly
+     Tailwind's text-lg / text-base / text-sm / text-xs. */
+  --text-display: 3rem; /* 48px */
+  --text-display--line-height: 3.5rem; /* 56px */
+  --text-display--letter-spacing: -0.02em;
+  --text-display--font-weight: 700;
+  --text-display-sm: 2rem; /* 32px */
+  --text-display-sm--line-height: 2.5rem; /* 40px */
+  --text-display-sm--letter-spacing: -0.01em;
+  --text-display-sm--font-weight: 700;
+  --text-headline: 1.5rem; /* 24px */
+  --text-headline--line-height: 2rem; /* 32px */
+  --text-headline--font-weight: 600;
 }
 
 /* Dark mode surface tokens — complement utility classes */
