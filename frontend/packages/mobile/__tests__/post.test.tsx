@@ -257,3 +257,77 @@ describe('PostScreen — unauthenticated lost path', () => {
     expect(mockAuthState.login).toHaveBeenCalledWith('carlos@test.com', 'password123');
   });
 });
+
+describe('PostScreen — salir del paso elegido', () => {
+  // Elegir una de las tres opciones era un camino de ida: ningun paso recibia
+  // un onBack, asi que la unica salida era irse a otra pestana.
+  it('vuelve a las tres opciones desde el paso de mascota perdida', () => {
+    useMyPets.mockReturnValue({
+      data: [{ id: 'pet-1', name: 'Firulais', type: 'perro', status: 'registered', photos: [] }],
+      isLoading: false,
+    });
+    const { getByText } = render(<PostScreen />);
+    fireEvent.press(getByText('publish:intent.lostTitle'));
+    expect(getByText('publish:lostPet.title')).toBeTruthy();
+
+    fireEvent.press(getByText('← publish:back'));
+    expect(getByText('publish:intent.title')).toBeTruthy();
+  });
+
+  it('vuelve a las tres opciones desde el formulario de callejera', () => {
+    const { getByText } = render(<PostScreen />);
+    fireEvent.press(getByText('publish:intent.strayTitle'));
+    expect(getByText('publish:strayForm.title')).toBeTruthy();
+
+    fireEvent.press(getByText('← publish:back'));
+    expect(getByText('publish:intent.title')).toBeTruthy();
+  });
+
+  it('vuelve a las tres opciones desde el formulario de adopcion', () => {
+    const { getByText } = render(<PostScreen />);
+    fireEvent.press(getByText('adoption:publish.intentOption'));
+    expect(getByText('adoption:publish.title')).toBeTruthy();
+
+    fireEvent.press(getByText('← publish:back'));
+    expect(getByText('publish:intent.title')).toBeTruthy();
+  });
+
+  it('vuelve a las tres opciones desde el login al que cae un visitante sin sesion', () => {
+    mockAuthState.isAuthenticated = false;
+    const { getByText } = render(<PostScreen />);
+    fireEvent.press(getByText('publish:intent.lostTitle'));
+    expect(getByText('publish:auth.title')).toBeTruthy();
+
+    fireEvent.press(getByText('← publish:back'));
+    expect(getByText('publish:intent.title')).toBeTruthy();
+  });
+});
+
+describe('PostScreen — el usuario ya tiene mascotas propias', () => {
+  it('con mascotas propias pero ninguna elegible, manda a Mis mascotas y no a crear otra', () => {
+    useMyPets.mockReturnValue({
+      data: [{ id: 'pet-1', name: 'Nala', type: 'perro', status: 'lost', photos: [] }],
+      isLoading: false,
+    });
+    const { getByText, queryByText } = render(<PostScreen />);
+    fireEvent.press(getByText('publish:intent.lostTitle'));
+
+    expect(getByText('publish:lostPet.noneEligible')).toBeTruthy();
+    expect(queryByText('publish:lostPet.empty')).toBeNull();
+  });
+
+  // Una publicacion de adopcion es una mascota propia, pero la pestana "Mis
+  // mascotas" del destino la deja en su propia solapa: mandarlo ahi lo dejaba
+  // en una pestana vacia que le dice que no tiene mascotas.
+  it('con SOLO una publicacion de adopcion ofrece registrar, porque Mis mascotas le quedaria vacia', () => {
+    useMyPets.mockReturnValue({
+      data: [{ id: 'pet-1', name: 'Toby', type: 'perro', status: 'adoption', photos: [] }],
+      isLoading: false,
+    });
+    const { getByText, queryByText } = render(<PostScreen />);
+    fireEvent.press(getByText('publish:intent.lostTitle'));
+
+    expect(getByText('publish:lostPet.empty')).toBeTruthy();
+    expect(queryByText('publish:lostPet.noneEligible')).toBeNull();
+  });
+});

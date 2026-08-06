@@ -107,8 +107,15 @@ export default function PostScreen() {
     }
     if (step !== 'auth') return null;
     if (wizard.intent === 'lost') return { onBack: backToIntent, label: t('publish:back') };
-    if (wizard.intent === 'adoption') return { onBack: () => setStep('adoption-form'), label: t('publish:backStep') };
-    return { onBack: () => setStep('location'), label: t('publish:backStep') };
+    // Limpia el error igual que backToIntent: si un intento anterior fallo, el
+    // cartel rojo sobrevive al cambio de paso y queda arriba de un formulario
+    // que no tiene nada de malo.
+    const backTo = (target: PublishStep) => () => {
+      setPublishError(null);
+      setStep(target);
+    };
+    if (wizard.intent === 'adoption') return { onBack: backTo('adoption-form'), label: t('publish:backStep') };
+    return { onBack: backTo('location'), label: t('publish:backStep') };
   };
 
   const submitStray = async (location: NonNullable<typeof wizard.location>) => {

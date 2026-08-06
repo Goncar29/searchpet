@@ -17,7 +17,15 @@ export function LostPetStep({ onSelect }: LostPetStepProps) {
   // Sólo una mascota `registered` puede pasar a `lost`: las demás ya están en
   // un estado terminal o en una búsqueda activa.
   const eligiblePets = (pets ?? []).filter((pet) => pet.status === 'registered');
-  const ownsAnyPet = (pets ?? []).length > 0;
+  // La pregunta no es "¿tiene alguna fila?" sino "¿va a ver algo cuando llegue?".
+  // /pets/mine abre en la pestaña "Mis mascotas", que deja las publicaciones de
+  // adopción en su propia pestaña. Contar TODAS las mascotas mandaba a quien
+  // sólo tiene una en adopción a una pestaña vacía que le dice "no tenés
+  // mascotas" — la misma contradicción que este archivo vino a eliminar, corrida
+  // una pantalla más adelante. Este filtro tiene que espejar al del destino.
+  const ownsAnyPet = (pets ?? []).some(
+    (pet) => pet.status !== 'adoption' && pet.status !== 'adopted',
+  );
 
   if (isLoading) {
     return <p className="text-center text-gray-500 dark:text-gray-400">{t('common:loading')}</p>;

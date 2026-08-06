@@ -404,6 +404,24 @@ describe('PublishWizardPage — el usuario ya tiene mascotas propias', () => {
     expect(screen.queryByText('publish:lostPet.empty')).not.toBeInTheDocument();
   });
 
+  // Una publicacion de adopcion es una mascota propia, pero /pets/mine abre en
+  // la pestana "Mis mascotas", que las deja en su propia solapa. Mandarlo ahi
+  // lo dejaba mirando una pestana vacia que le dice que no tiene mascotas: la
+  // misma contradiccion, corrida una pantalla mas adelante.
+  it('con SOLO una publicacion de adopcion ofrece registrar, porque Mis mascotas le quedaria vacia', () => {
+    vi.mocked(useMyPets).mockReturnValue({
+      data: [{ id: 'pet-1', name: 'Toby', type: 'perro', status: 'adoption', photos: [] }],
+      isLoading: false,
+    } as unknown as ReturnType<typeof useMyPets>);
+
+    render(<PublishWizardPage />, { wrapper });
+    fireEvent.click(screen.getByText('publish:intent.lostTitle'));
+
+    expect(screen.getByText('publish:lostPet.empty')).toBeInTheDocument();
+    expect(screen.queryByText('publish:lostPet.noneEligible')).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'publish:lostPet.emptyAction' })).toHaveAttribute('href', '/pets/create');
+  });
+
   it('sin ninguna mascota sigue ofreciendo registrar una', () => {
     vi.mocked(useMyPets).mockReturnValue({ data: [], isLoading: false } as unknown as ReturnType<typeof useMyPets>);
 

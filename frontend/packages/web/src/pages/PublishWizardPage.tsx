@@ -112,8 +112,15 @@ export function PublishWizardPage() {
     // Desde el selector: no hay nada cargado que perder.
     if (wizard.intent === 'lost') return { onBack: backToIntent, label: t('back') };
     // Desde un formulario ya completado: vuelve al formulario, no al selector.
-    if (wizard.intent === 'adoption') return { onBack: () => setStep('adoption-form'), label: t('backStep') };
-    return { onBack: () => setStep('location'), label: t('backStep') };
+    // Limpia el error igual que backToIntent: si un intento anterior falló, el
+    // cartel rojo sobrevive al cambio de paso y queda arriba de un formulario
+    // que no tiene nada de malo.
+    const backTo = (target: PublishStep) => () => {
+      setPublishError(null);
+      setStep(target);
+    };
+    if (wizard.intent === 'adoption') return { onBack: backTo('adoption-form'), label: t('backStep') };
+    return { onBack: backTo('location'), label: t('backStep') };
   };
 
   const [publishedPet, setPublishedPet] = useState<Pet | null>(null);
