@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
@@ -8,6 +8,8 @@ import { PawPlaceholder } from '../components/PawPlaceholder';
 import { SharePanel } from '../components/SharePanel';
 import type { Pet, ReportStatus } from '@shared/types';
 import { getErrorMessage } from '@shared/utils/apiErrors';
+import { canManagePet } from '@shared/utils/petAuthorization';
+import { useAuth } from '../context/AuthContext';
 
 // Fix leaflet default icon paths broken by bundlers
 delete (L.Icon.Default.prototype as { _getIconUrl?: unknown })._getIconUrl;
@@ -42,6 +44,7 @@ interface FieldErrors {
 export function CreateReportPage() {
   const { t } = useTranslation(['reports', 'pets', 'common', 'publish']);
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [searchParams] = useSearchParams();
 
   const presetPetId = searchParams.get('petId') ?? '';
@@ -63,6 +66,24 @@ export function CreateReportPage() {
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [apiError, setApiError] = useState<string | null>(null);
   const [publishedPet, setPublishedPet] = useState<Pet | null>(null);
+
+  // `lost` y `found` mueven el estado de la mascota, y eso lo decide su dueño
+  // (o quien reportó la callejera). El backend lo rechaza con 403; acá se
+  // esconden las opciones para no dejar que alguien llene el formulario entero
+  // y recién ahí se entere. A un tercero le queda el avistamiento, que es como
+  // aporta al seguimiento — después se coordina por el chat o WhatsApp.
+  const petElegida = presetPet ?? myPets?.find((p) => p.id === petId) ?? null;
+  const puedeCambiarEstado = canManagePet(petElegida, user?.id);
+  const opcionesEstado: ReportStatus[] = puedeCambiarEstado
+    ? ['lost', 'found', 'sighting']
+    : ['sighting'];
+
+  // Si venía preseleccionado un estado que este usuario no puede usar (por
+  // ejemplo entrando por una URL con ?status=lost a una mascota ajena), se cae
+  // a avistamiento en vez de mandar algo que el backend va a rechazar.
+  useEffect(() => {
+    if (!puedeCambiarEstado && status !== 'sighting') setStatus('sighting');
+  }, [puedeCambiarEstado, status]);
 
   const validate = (): boolean => {
     const errors: FieldErrors = {};
@@ -204,8 +225,8 @@ export function CreateReportPage() {
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               {t('reports:create.status')} *
             </label>
-            <div className="grid grid-cols-3 gap-2">
-              {(['lost', 'found', 'sighting'] as ReportStatus[]).map((s) => (
+            <div className={`grid gap-2 ${opcionesEstado.length === 1 ? 'grid-cols-1' : 'grid-cols-3'}`}>
+              {opcionesEstado.map((s) => (
                 <button
                   key={s}
                   type="button"

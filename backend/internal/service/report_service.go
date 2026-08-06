@@ -112,6 +112,30 @@ func (s *reportService) CreateReport(reporterID string, req CreateReportRequest)
 		target = domain.PetStatusLost
 	}
 
+	// Un reporte que MUEVE el estado de la mascota es una decisión del dueño, no
+	// de un tercero. Sólo él sabe que su mascota se perdió, y sólo él puede
+	// confirmar que volvió — alguien de afuera podría confundirla con una
+	// parecida y cerrar una búsqueda real.
+	//
+	// El tercero no necesita este permiso para ayudar: para eso está `sighting`,
+	// que registra el avistamiento en el seguimiento que el dueño ve, y el chat y
+	// el contacto por WhatsApp para ponerse de acuerdo. Cambiar el estado no
+	// agrega información que el avistamiento no dé; sólo agrega la posibilidad de
+	// romperlo.
+	//
+	// Se reusa canManagePet, que ya es la fuente única de esta regla en el resto
+	// del proyecto: dueño para las propias, y quien la reportó para las
+	// callejeras, que no tienen dueño y si no nadie podría cerrarlas.
+	if target != "" {
+		pet, err := s.petRepo.FindByID(req.PetID)
+		if err != nil {
+			return nil, err
+		}
+		if !canManagePet(pet, reporterID) {
+			return nil, domain.ErrForbidden
+		}
+	}
+
 	var (
 		loaded           *domain.Report
 		oldStatus        string

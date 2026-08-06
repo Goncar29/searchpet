@@ -47,6 +47,18 @@ func (h *ReportHandler) CreateReport(c *gin.Context) {
 			writeError(c, http.StatusBadRequest, err)
 			return
 		}
+		// Un tercero pidiendo un reporte que cambia el estado de la mascota.
+		// Sin esta rama caía en el 500 de abajo: le diría "error nuestro" a un
+		// permiso denegado, y el frontend no podría explicar que sólo el dueño
+		// puede marcarla perdida o encontrada.
+		if errors.Is(err, domain.ErrForbidden) {
+			writeError(c, http.StatusForbidden, err)
+			return
+		}
+		if errors.Is(err, domain.ErrPetNotFound) {
+			writeError(c, http.StatusNotFound, err)
+			return
+		}
 		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		return
 	}

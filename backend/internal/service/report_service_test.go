@@ -24,6 +24,13 @@ func newReportSvcWithStats(rRepo *mockReportRepo, pRepo *mockPetRepo, stats *moc
 	return service.NewReportService(rRepo, pRepo, nil, stats, nil, nil, nil)
 }
 
+// Estos tests ejercitan la sincronizacion de status, no la autorizacion, asi
+// que corren como el DUEÑO. Antes el fixture usaba dos uuid.New() sueltos
+// para dueño y reportante: daba igual porque CreateReport no miraba la
+// propiedad. Ahora un reporte lost/found exige canManagePet, asi que el
+// reportante tiene que ser el dueño o el caso de prueba no llega a lo que mide.
+var testReportOwnerID = uuid.New()
+
 func validReportReq(petID string) service.CreateReportRequest {
 	return service.CreateReportRequest{
 		PetID:               petID,
@@ -41,10 +48,10 @@ func validReportReq(petID string) service.CreateReportRequest {
 func TestCreateReport_HappyPath(t *testing.T) {
 	petID := uuid.New()
 	rRepo := &mockReportRepo{}
-	pRepo := &mockPetRepo{pet: petWithStatus(uuid.New(), "active")}
+	pRepo := &mockPetRepo{pet: petWithStatus(testReportOwnerID, "active")}
 	svc := newReportSvc(rRepo, pRepo)
 
-	report, err := svc.CreateReport(uuid.New().String(), validReportReq(petID.String()))
+	report, err := svc.CreateReport(testReportOwnerID.String(), validReportReq(petID.String()))
 
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
@@ -68,7 +75,7 @@ func TestCreateReport_InvalidPetID(t *testing.T) {
 	svc := newReportSvc(&mockReportRepo{}, &mockPetRepo{})
 
 	req := validReportReq("not-a-uuid")
-	_, err := svc.CreateReport(uuid.New().String(), req)
+	_, err := svc.CreateReport(testReportOwnerID.String(), req)
 
 	if err != domain.ErrInvalidInput {
 		t.Errorf("expected ErrInvalidInput, got %v", err)
@@ -81,7 +88,7 @@ func TestCreateReport_InvalidStatus(t *testing.T) {
 	req := validReportReq(uuid.New().String())
 	req.Status = "desaparecido" // no es lost/found/sighting
 
-	_, err := svc.CreateReport(uuid.New().String(), req)
+	_, err := svc.CreateReport(testReportOwnerID.String(), req)
 
 	if err != domain.ErrInvalidStatus {
 		t.Errorf("expected ErrInvalidStatus, got %v", err)
@@ -95,7 +102,7 @@ func TestCreateReport_FutureDate(t *testing.T) {
 	req := validReportReq(uuid.New().String())
 	req.OccurredAt = &future
 
-	_, err := svc.CreateReport(uuid.New().String(), req)
+	_, err := svc.CreateReport(testReportOwnerID.String(), req)
 
 	if err != domain.ErrInvalidInput {
 		t.Errorf("expected ErrInvalidInput for future date, got %v", err)
@@ -110,13 +117,13 @@ func TestCreateReport_FoundStatus_UpdatesPetToFound(t *testing.T) {
 	petID := uuid.New()
 	// lost → found is a valid transition: the pet's status must be updated.
 	rRepo := &mockReportRepo{preloaded: preloadedReport(petID, domain.PetStatusLost)}
-	pRepo := &mockPetRepo{pet: petWithStatus(uuid.New(), domain.PetStatusLost)}
+	pRepo := &mockPetRepo{pet: petWithStatus(testReportOwnerID, domain.PetStatusLost)}
 	svc := newReportSvc(rRepo, pRepo)
 
 	req := validReportReq(petID.String())
 	req.Status = "found"
 
-	_, err := svc.CreateReport(uuid.New().String(), req)
+	_, err := svc.CreateReport(testReportOwnerID.String(), req)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -131,13 +138,13 @@ func TestCreateReport_LostStatus_UpdatesPetToLost(t *testing.T) {
 	// registered → lost is a valid transition: the pet's status must be updated.
 	// (found → lost is not valid per the state machine.)
 	rRepo := &mockReportRepo{preloaded: preloadedReport(petID, domain.PetStatusRegistered)}
-	pRepo := &mockPetRepo{pet: petWithStatus(uuid.New(), domain.PetStatusRegistered)}
+	pRepo := &mockPetRepo{pet: petWithStatus(testReportOwnerID, domain.PetStatusRegistered)}
 	svc := newReportSvc(rRepo, pRepo)
 
 	req := validReportReq(petID.String())
 	req.Status = "lost"
 
-	_, err := svc.CreateReport(uuid.New().String(), req)
+	_, err := svc.CreateReport(testReportOwnerID.String(), req)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -155,7 +162,7 @@ func TestCreateReport_InvalidTransition_FoundToLost_NoStatusFlipNoLedger(t *test
 	// ValidateTransition guard in CreateReport.
 	rRepo := &mockReportRepo{preloaded: preloadedReport(petID, domain.PetStatusFound)}
 	stats := &mockStatEventRepo{}
-	pRepo := &mockPetRepo{pet: petWithStatus(uuid.New(), domain.PetStatusFound)}
+	pRepo := &mockPetRepo{pet: petWithStatus(testReportOwnerID, domain.PetStatusFound)}
 	bus := event.NewEventBus()
 	published := make(chan event.PetLostEvent, 1)
 	bus.Subscribe("pet.lost", func(p interface{}) {
@@ -168,7 +175,7 @@ func TestCreateReport_InvalidTransition_FoundToLost_NoStatusFlipNoLedger(t *test
 	req := validReportReq(petID.String())
 	req.Status = "lost"
 
-	rep, err := svc.CreateReport(uuid.New().String(), req)
+	rep, err := svc.CreateReport(testReportOwnerID.String(), req)
 	if err != nil {
 		t.Fatalf("report should still be created on an invalid transition, got error: %v", err)
 	}
@@ -192,13 +199,13 @@ func TestCreateReport_InvalidTransition_FoundToLost_NoStatusFlipNoLedger(t *test
 func TestCreateReport_SightingStatus_NoStatusUpdate(t *testing.T) {
 	petID := uuid.New()
 	rRepo := &mockReportRepo{}
-	pRepo := &mockPetRepo{pet: petWithStatus(uuid.New(), "active")}
+	pRepo := &mockPetRepo{pet: petWithStatus(testReportOwnerID, "active")}
 	svc := newReportSvc(rRepo, pRepo)
 
 	req := validReportReq(petID.String())
 	req.Status = "sighting"
 
-	_, err := svc.CreateReport(uuid.New().String(), req)
+	_, err := svc.CreateReport(testReportOwnerID.String(), req)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -220,7 +227,7 @@ func TestCreateReport_SightingStatus_NoStatusUpdate(t *testing.T) {
 // preloadedReport arma el reporte que FindByID devuelve, con el Pet en su estado
 // ANTERIOR al UpdateStatus (loaded.Pet.Status = oldStatus).
 func preloadedReport(petID uuid.UUID, oldStatus string) *domain.Report {
-	pet := petWithStatus(uuid.New(), oldStatus)
+	pet := petWithStatus(testReportOwnerID, oldStatus)
 	pet.ID = petID
 	return &domain.Report{ID: uuid.New(), PetID: petID, Pet: *pet}
 }
@@ -231,12 +238,12 @@ func TestCreateReport_LostReport_RecordsSearchStarted(t *testing.T) {
 	// (found → lost no es válido según la máquina de estados.)
 	rRepo := &mockReportRepo{preloaded: preloadedReport(petID, domain.PetStatusRegistered)}
 	stats := &mockStatEventRepo{}
-	svc := newReportSvcWithStats(rRepo, &mockPetRepo{pet: petWithStatus(uuid.New(), domain.PetStatusRegistered)}, stats)
+	svc := newReportSvcWithStats(rRepo, &mockPetRepo{pet: petWithStatus(testReportOwnerID, domain.PetStatusRegistered)}, stats)
 
 	req := validReportReq(petID.String())
 	req.Status = "lost"
 
-	if _, err := svc.CreateReport(uuid.New().String(), req); err != nil {
+	if _, err := svc.CreateReport(testReportOwnerID.String(), req); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if len(stats.recorded) != 1 || stats.recorded[0] != domain.StatEventSearchStarted {
@@ -249,12 +256,12 @@ func TestCreateReport_LostReport_AlreadyLost_RecordsNothing(t *testing.T) {
 	// lost → lost: la búsqueda ya está activa, no es un episodio nuevo.
 	rRepo := &mockReportRepo{preloaded: preloadedReport(petID, domain.PetStatusLost)}
 	stats := &mockStatEventRepo{}
-	svc := newReportSvcWithStats(rRepo, &mockPetRepo{pet: petWithStatus(uuid.New(), domain.PetStatusLost)}, stats)
+	svc := newReportSvcWithStats(rRepo, &mockPetRepo{pet: petWithStatus(testReportOwnerID, domain.PetStatusLost)}, stats)
 
 	req := validReportReq(petID.String())
 	req.Status = "lost"
 
-	if _, err := svc.CreateReport(uuid.New().String(), req); err != nil {
+	if _, err := svc.CreateReport(testReportOwnerID.String(), req); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if len(stats.recorded) != 0 {
@@ -267,12 +274,12 @@ func TestCreateReport_FoundReport_RecordsPetFound(t *testing.T) {
 	// lost → found = reencuentro.
 	rRepo := &mockReportRepo{preloaded: preloadedReport(petID, domain.PetStatusLost)}
 	stats := &mockStatEventRepo{}
-	svc := newReportSvcWithStats(rRepo, &mockPetRepo{pet: petWithStatus(uuid.New(), domain.PetStatusLost)}, stats)
+	svc := newReportSvcWithStats(rRepo, &mockPetRepo{pet: petWithStatus(testReportOwnerID, domain.PetStatusLost)}, stats)
 
 	req := validReportReq(petID.String())
 	req.Status = "found"
 
-	if _, err := svc.CreateReport(uuid.New().String(), req); err != nil {
+	if _, err := svc.CreateReport(testReportOwnerID.String(), req); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if len(stats.recorded) != 1 || stats.recorded[0] != domain.StatEventPetFound {
@@ -284,12 +291,12 @@ func TestCreateReport_Sighting_RecordsNothing(t *testing.T) {
 	petID := uuid.New()
 	rRepo := &mockReportRepo{preloaded: preloadedReport(petID, domain.PetStatusLost)}
 	stats := &mockStatEventRepo{}
-	svc := newReportSvcWithStats(rRepo, &mockPetRepo{pet: petWithStatus(uuid.New(), domain.PetStatusLost)}, stats)
+	svc := newReportSvcWithStats(rRepo, &mockPetRepo{pet: petWithStatus(testReportOwnerID, domain.PetStatusLost)}, stats)
 
 	req := validReportReq(petID.String())
 	req.Status = "sighting"
 
-	if _, err := svc.CreateReport(uuid.New().String(), req); err != nil {
+	if _, err := svc.CreateReport(testReportOwnerID.String(), req); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if len(stats.recorded) != 0 {
@@ -317,11 +324,11 @@ func TestCreateReport_FoundTransition_PublishesPetFound(t *testing.T) {
 			got <- e
 		}
 	})
-	svc := service.NewReportService(rRepo, &mockPetRepo{pet: petWithStatus(uuid.New(), domain.PetStatusLost)}, bus, nil, nil, nil, nil)
+	svc := service.NewReportService(rRepo, &mockPetRepo{pet: petWithStatus(testReportOwnerID, domain.PetStatusLost)}, bus, nil, nil, nil, nil)
 
 	req := validReportReq(petID.String())
 	req.Status = "found"
-	if _, err := svc.CreateReport(uuid.New().String(), req); err != nil {
+	if _, err := svc.CreateReport(testReportOwnerID.String(), req); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
@@ -347,11 +354,11 @@ func TestCreateReport_LostTransition_PublishesPetLost(t *testing.T) {
 			got <- e
 		}
 	})
-	svc := service.NewReportService(rRepo, &mockPetRepo{pet: petWithStatus(uuid.New(), domain.PetStatusRegistered)}, bus, nil, nil, nil, nil)
+	svc := service.NewReportService(rRepo, &mockPetRepo{pet: petWithStatus(testReportOwnerID, domain.PetStatusRegistered)}, bus, nil, nil, nil, nil)
 
 	req := validReportReq(petID.String())
 	req.Status = "lost"
-	if _, err := svc.CreateReport(uuid.New().String(), req); err != nil {
+	if _, err := svc.CreateReport(testReportOwnerID.String(), req); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
@@ -376,11 +383,11 @@ func TestCreateReport_AlreadyLost_DoesNotPublishPetLost(t *testing.T) {
 			got <- e
 		}
 	})
-	svc := service.NewReportService(rRepo, &mockPetRepo{pet: petWithStatus(uuid.New(), domain.PetStatusLost)}, bus, nil, nil, nil, nil)
+	svc := service.NewReportService(rRepo, &mockPetRepo{pet: petWithStatus(testReportOwnerID, domain.PetStatusLost)}, bus, nil, nil, nil, nil)
 
 	req := validReportReq(petID.String())
 	req.Status = "lost"
-	if _, err := svc.CreateReport(uuid.New().String(), req); err != nil {
+	if _, err := svc.CreateReport(testReportOwnerID.String(), req); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
