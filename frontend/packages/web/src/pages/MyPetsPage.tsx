@@ -282,8 +282,8 @@ export function MyPetsPage() {
   );
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 py-10 px-4">
-      <div className="max-w-4xl mx-auto">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 py-10">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-50">
             {t('pets:mine.title')}
