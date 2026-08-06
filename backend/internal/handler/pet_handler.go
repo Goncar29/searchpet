@@ -393,10 +393,6 @@ func (h *PetHandler) PublishLost(c *gin.Context) {
 		// Sin esta rama caía en el 500 de abajo: el usuario veía "error interno
 		// del servidor" ante un dato suyo inválido, y el frontend no podía
 		// decirle qué corregir.
-		// Una fecha futura en occurred_at es culpa del cliente, no nuestra.
-		// Sin esta rama caía en el 500 de abajo: el usuario veía "error interno
-		// del servidor" ante un dato suyo inválido, y el frontend no podía
-		// decirle qué corregir.
 		if errors.Is(err, domain.ErrInvalidInput) {
 			writeError(c, http.StatusBadRequest, err)
 			return
