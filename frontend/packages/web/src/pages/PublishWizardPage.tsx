@@ -78,6 +78,23 @@ export function PublishWizardPage() {
     setStep(wizard.intent === 'lost' ? 'lost-pet' : 'stray-form');
   };
 
+  // Elegir una de las tres opciones era un camino de ida: ninguno de esos pasos
+  // recibía un `onBack`, así que la única salida era navegar a otra parte del
+  // sitio. El link "Publicar" del navbar tampoco servía — apunta a /publish y
+  // el usuario ya está en /publish, así que React Router no cambia de ruta, no
+  // remonta la página y este `step` sobrevive.
+  //
+  // Vuelve al inicio limpio: el borrador pertenece a la opción que se está
+  // abandonando, y arrastrarlo a otra sería peor que perderlo. Es el mismo
+  // reset que hace handlePublishAnother.
+  const backToIntent = () => {
+    setStep('intent');
+    setWizard(initialWizardState);
+    setPublishError(null);
+  };
+
+  const canGoBackToIntent = step === 'lost-pet' || step === 'stray-form' || step === 'adoption-form';
+
   const [publishedPet, setPublishedPet] = useState<Pet | null>(null);
   const [failedPhotoIndexes, setFailedPhotoIndexes] = useState<number[]>([]);
   const [publishError, setPublishError] = useState<string | null>(null);
@@ -233,6 +250,20 @@ export function PublishWizardPage() {
       <div className="max-w-2xl mx-auto">
         {publishError && (
           <p className="text-red-500 dark:text-red-400 text-sm text-center mb-4">{publishError}</p>
+        )}
+        {/* Vive acá y no adentro de cada paso a propósito: volver al selector es
+            una decisión del wizard, no del formulario. Puesto acá cubre además
+            el estado vacío de LostPetStep, que es justo donde el usuario
+            quedaba trabado sin ninguna salida. */}
+        {canGoBackToIntent && (
+          <button
+            type="button"
+            onClick={backToIntent}
+            className="mb-4 inline-flex items-center gap-1 text-sm font-semibold text-gray-500 hover:text-primary dark:text-gray-400 transition-colors"
+          >
+            <span aria-hidden="true">←</span>
+            {t('back')}
+          </button>
         )}
         {step === 'intent' && <IntentStep onSelect={handleIntentSelect} />}
         {step === 'lost-pet' && (

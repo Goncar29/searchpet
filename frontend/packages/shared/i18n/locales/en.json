@@ -426,6 +426,7 @@
     "session_expired": "Your session expired. Please sign in again."
   },
   "publish": {
+    "back": "Back to the options",
     "intent": {
       "title": "What do you want to publish?",
       "lostTitle": "My pet is lost",
@@ -438,6 +439,8 @@
       "title": "Pick the lost pet",
       "empty": "You don't have any registered pets yet.",
       "emptyAction": "Register a pet",
+      "noneEligible": "None of your pets is available to report as lost. Go to My pets to change the status of the one you need.",
+      "noneEligibleAction": "Go to My pets",
       "select": "Select"
     },
     "strayForm": {

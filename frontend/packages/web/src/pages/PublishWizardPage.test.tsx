@@ -370,3 +370,100 @@ describe('PublishWizardPage — publish another', () => {
     expect(screen.queryByText('publish:success.lostTitle')).not.toBeInTheDocument();
   });
 });
+
+// Los dos defectos que reportó el usuario sobre /publish, ninguno cubierto antes.
+describe('PublishWizardPage — el usuario ya tiene mascotas propias', () => {
+  it('con mascotas propias pero ninguna elegible, manda a Mis mascotas y no a crear otra', () => {
+    // El usuario tiene UNA mascota, ya publicada como perdida. No es elegible
+    // para volver a publicarse, pero decirle "no tenés mascotas registradas" y
+    // ofrecerle registrar otra es falso: la tiene, y la ve en Mis mascotas.
+    vi.mocked(useMyPets).mockReturnValue({
+      data: [{ id: 'pet-1', name: 'Holly', type: 'perro', status: 'lost', photos: [] }],
+      isLoading: false,
+    } as unknown as ReturnType<typeof useMyPets>);
+
+    render(<PublishWizardPage />, { wrapper });
+    fireEvent.click(screen.getByText('publish:intent.lostTitle'));
+
+    expect(screen.getByText('publish:lostPet.noneEligible')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'publish:lostPet.noneEligibleAction' })).toHaveAttribute(
+      'href',
+      '/pets/mine',
+    );
+    // El mensaje de "no tenés ninguna" no puede aparecer cuando sí tiene.
+    expect(screen.queryByText('publish:lostPet.empty')).not.toBeInTheDocument();
+  });
+
+  it('sin ninguna mascota sigue ofreciendo registrar una', () => {
+    vi.mocked(useMyPets).mockReturnValue({ data: [], isLoading: false } as unknown as ReturnType<typeof useMyPets>);
+
+    render(<PublishWizardPage />, { wrapper });
+    fireEvent.click(screen.getByText('publish:intent.lostTitle'));
+
+    expect(screen.getByText('publish:lostPet.empty')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'publish:lostPet.emptyAction' })).toHaveAttribute(
+      'href',
+      '/pets/create',
+    );
+  });
+});
+
+describe('PublishWizardPage — salir del paso elegido', () => {
+  // Elegir una de las tres opciones era un camino de ida: ningun paso recibia
+  // onBack, asi que la unica salida era navegar a otra parte del sitio.
+  it('vuelve a las tres opciones desde el paso de mascota perdida', () => {
+    vi.mocked(useMyPets).mockReturnValue({
+      data: [{ id: 'pet-1', name: 'Firulais', type: 'perro', status: 'registered', photos: [] }],
+      isLoading: false,
+    } as unknown as ReturnType<typeof useMyPets>);
+
+    render(<PublishWizardPage />, { wrapper });
+    fireEvent.click(screen.getByText('publish:intent.lostTitle'));
+    expect(screen.getByText('publish:lostPet.title')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'publish:back' }));
+    expect(screen.getByText('publish:intent.title')).toBeInTheDocument();
+  });
+
+  it('vuelve a las tres opciones desde el estado vacio, que es donde el usuario quedaba trabado', () => {
+    vi.mocked(useMyPets).mockReturnValue({ data: [], isLoading: false } as unknown as ReturnType<typeof useMyPets>);
+
+    render(<PublishWizardPage />, { wrapper });
+    fireEvent.click(screen.getByText('publish:intent.lostTitle'));
+    fireEvent.click(screen.getByRole('button', { name: 'publish:back' }));
+
+    expect(screen.getByText('publish:intent.title')).toBeInTheDocument();
+  });
+
+  it('vuelve a las tres opciones desde el formulario de callejera', () => {
+    render(<PublishWizardPage />, { wrapper });
+    fireEvent.click(screen.getByText('publish:intent.strayTitle'));
+    expect(screen.getByText('publish:strayForm.title')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'publish:back' }));
+    expect(screen.getByText('publish:intent.title')).toBeInTheDocument();
+  });
+
+  it('vuelve a las tres opciones desde el formulario de adopcion', () => {
+    render(<PublishWizardPage />, { wrapper });
+    fireEvent.click(screen.getByText('adoption:publish.intentOption'));
+    expect(screen.getByText('adoption:publish.title')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'publish:back' }));
+    expect(screen.getByText('publish:intent.title')).toBeInTheDocument();
+  });
+
+  it('descarta lo cargado al volver, asi no reaparece al reelegir la opcion', () => {
+    render(<PublishWizardPage />, { wrapper });
+    fireEvent.click(screen.getByText('publish:intent.strayTitle'));
+
+    const breed = screen.getByLabelText('publish:strayForm.breedLabel');
+    fireEvent.change(breed, { target: { value: 'Husky' } });
+    expect(breed).toHaveValue('Husky');
+
+    fireEvent.click(screen.getByRole('button', { name: 'publish:back' }));
+    fireEvent.click(screen.getByText('publish:intent.strayTitle'));
+
+    expect(screen.getByLabelText('publish:strayForm.breedLabel')).toHaveValue('');
+  });
+});

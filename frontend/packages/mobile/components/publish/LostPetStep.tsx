@@ -17,22 +17,33 @@ export function LostPetStep({ onSelect }: LostPetStepProps) {
   const { isAuthenticated } = useAuthStore();
   const { data: pets, isLoading } = useMyPets(isAuthenticated);
 
+  // Sólo una mascota `registered` puede pasar a `lost`: las demás ya están en
+  // un estado terminal o en una búsqueda activa.
   const eligiblePets = (pets ?? []).filter((pet: Pet) => pet.status === 'registered');
+  const ownsAnyPet = (pets ?? []).length > 0;
 
   if (isLoading) {
     return <Text style={styles.loading}>{t('common:loading')}</Text>;
   }
 
+  // Mismo defecto que en la web: al dueño de una mascota se le decía que no
+  // tenía ninguna registrada. Acá el destino ya era el correcto (Mis mascotas),
+  // pero el texto seguía siendo el de "no tenés ninguna", que para ese usuario
+  // es falso. Que el estado no sea elegible es un detalle de implementación.
   if (eligiblePets.length === 0) {
     return (
       <View style={styles.emptyContainer}>
-        <Text style={styles.emptyText}>{t('publish:lostPet.empty')}</Text>
+        <Text style={styles.emptyText}>
+          {ownsAnyPet ? t('publish:lostPet.noneEligible') : t('publish:lostPet.empty')}
+        </Text>
         <TouchableOpacity
           style={styles.emptyButton}
-          onPress={() => router.push('/my-pets')}
+          onPress={() => router.push(ownsAnyPet ? '/my-pets' : '/pets/register')}
           accessibilityRole="button"
         >
-          <Text style={styles.emptyButtonText}>{t('publish:lostPet.emptyAction')}</Text>
+          <Text style={styles.emptyButtonText}>
+            {ownsAnyPet ? t('publish:lostPet.noneEligibleAction') : t('publish:lostPet.emptyAction')}
+          </Text>
         </TouchableOpacity>
       </View>
     );
