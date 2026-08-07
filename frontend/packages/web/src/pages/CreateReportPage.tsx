@@ -8,6 +8,8 @@ import { PawPlaceholder } from '../components/PawPlaceholder';
 import { SharePanel } from '../components/SharePanel';
 import type { Pet, ReportStatus } from '@shared/types';
 import { getErrorMessage } from '@shared/utils/apiErrors';
+import { canManagePet } from '@shared/utils/petAuthorization';
+import { useAuth } from '../context/AuthContext';
 
 // Fix leaflet default icon paths broken by bundlers
 delete (L.Icon.Default.prototype as { _getIconUrl?: unknown })._getIconUrl;
@@ -42,6 +44,7 @@ interface FieldErrors {
 export function CreateReportPage() {
   const { t } = useTranslation(['reports', 'pets', 'common', 'publish']);
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [searchParams] = useSearchParams();
 
   const presetPetId = searchParams.get('petId') ?? '';
@@ -64,9 +67,55 @@ export function CreateReportPage() {
   const [apiError, setApiError] = useState<string | null>(null);
   const [publishedPet, setPublishedPet] = useState<Pet | null>(null);
 
+  // `lost` y `found` mueven el estado de la mascota, y eso lo decide su dueño
+  // (o quien reportó la callejera). El backend lo rechaza con 403; acá se
+  // esconden las opciones para no dejar que alguien llene el formulario entero
+  // y recién ahí se entere. A un tercero le queda el avistamiento, que es como
+  // aporta al seguimiento — después se coordina por el chat o WhatsApp.
+  const petElegida = presetPet ?? myPets?.find((p) => p.id === petId) ?? null;
+  const puedeCambiarEstado = canManagePet(petElegida, user?.id);
+
+  // Hay un petId pero no se pudo resolver la mascota, y ya terminó de cargar.
+  // Es distinto de "no tenés permiso" y `validate` lo trata aparte.
+  const petIdSinResolver = !!petId && !petElegida && !presetLoading;
+
+  // Mientras no haya mascota elegida todavía no hay nada que restringir, así
+  // que se muestran las tres. Colapsar a una sola y expandir después de elegir
+  // hacía saltar el control y dejaba `lost` marcado sin que nadie lo tocara.
+  const opcionesEstado: ReportStatus[] =
+    !petElegida || puedeCambiarEstado ? ['lost', 'found', 'sighting'] : ['sighting'];
+
+  // Si el usuario no puede cambiar el estado, lo que viaja es `sighting`, aunque
+  // la URL pidiera otra cosa.
+  //
+  // Se DERIVA en vez de escribirse con un efecto, y no es un detalle de estilo:
+  // con un `useEffect` que pisaba `status`, el primer render ocurre con la
+  // mascota todavía sin cargar, o sea `puedeCambiarEstado === false`, y el
+  // efecto reescribía `status` a 'sighting'. Cuando la mascota cargaba y
+  // resultaba ser del usuario, nada lo devolvía: la DUEÑA entrando en frío a
+  // ?status=lost terminaba publicando un avistamiento. Verificado en el
+  // navegador con caché fría — con caché caliente no se reproduce, que es por
+  // qué es fácil que pase desapercibido.
+  //
+  // Derivado no puede desincronizarse: vale en todos los renders, cargue cuando
+  // cargue.
+  const statusEfectivo: ReportStatus = puedeCambiarEstado ? status : 'sighting';
+
   const validate = (): boolean => {
     const errors: FieldErrors = {};
     if (!petId) errors.petId = t('common:required');
+    // "No tenés permiso" y "no pude cargar la mascota" son lo MISMO para
+    // canManagePet: los dos dan false. Pero significan cosas opuestas, y
+    // colapsarlos silenciosamente es peor que fallar.
+    //
+    // Sin esto: el dueño abre ?status=lost, `GET /api/pets/:id` falla —un
+    // arranque en frío de Render devolviendo 502 alcanza—, `statusEfectivo` cae
+    // a `sighting`, el backend contesta 201 y lo mandamos a /pets/mine como si
+    // hubiera salido bien. La búsqueda nunca se abrió y nadie se lo dijo.
+    //
+    // Con la mascota sin resolver no se reescribe el pedido: se corta y se
+    // avisa. Se chequea `!presetLoading` para no bloquear mientras carga.
+    else if (petIdSinResolver) errors.petId = t('pets:detail.notFound');
     if (!coord) errors.coord = t('reports:create.noCoord');
     if (date && new Date(date) > new Date()) errors.date = t('reports:create.noFutureDate');
     setFieldErrors(errors);
@@ -82,7 +131,7 @@ export function CreateReportPage() {
     createReport.mutate(
       {
         pet_id: petId,
-        status,
+        status: statusEfectivo,
         latitude: coord.lat,
         longitude: coord.lng,
         location_description: description.trim() || undefined,
@@ -98,7 +147,7 @@ export function CreateReportPage() {
           // publicar. Los otros dos estados (`found`, `sighting`) no abren
           // ninguna búsqueda, así que siguen yendo al listado como antes.
           const pet = presetPet ?? myPets?.find((p) => p.id === petId);
-          if (status === 'lost' && pet) {
+          if (statusEfectivo === 'lost' && pet) {
             setPublishedPet(pet);
             return;
           }
@@ -204,14 +253,14 @@ export function CreateReportPage() {
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               {t('reports:create.status')} *
             </label>
-            <div className="grid grid-cols-3 gap-2">
-              {(['lost', 'found', 'sighting'] as ReportStatus[]).map((s) => (
+            <div className={`grid gap-2 ${opcionesEstado.length === 1 ? 'grid-cols-1' : 'grid-cols-3'}`}>
+              {opcionesEstado.map((s) => (
                 <button
                   key={s}
                   type="button"
                   onClick={() => setStatus(s)}
                   className={`py-2 rounded-lg text-sm font-semibold border transition-colors ${
-                    status === s
+                    statusEfectivo === s
                       ? s === 'lost'
                         ? 'bg-red-600 border-red-600 text-white'
                         : s === 'found'

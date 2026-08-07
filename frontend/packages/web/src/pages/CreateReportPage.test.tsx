@@ -4,7 +4,11 @@ import { MemoryRouter } from 'react-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { CreateReportPage } from './CreateReportPage';
 
-const PET = { id: 'pet-1', name: 'Firulais', type: 'perro', status: 'registered', photos: [] };
+// owner_id ata la mascota al usuario logueado: estos tests describen al DUEÑO
+// publicando la suya. Sin dueño, canManagePet da false y el formulario solo
+// ofrece avistamiento, que es justo lo que se agrego para los terceros.
+const USER_ID = 'user-1';
+const PET = { id: 'pet-1', name: 'Firulais', type: 'perro', status: 'registered', owner_id: USER_ID, photos: [] };
 
 // Hoisted: vi.mock se eleva por encima de cualquier const normal.
 const mocks = vi.hoisted(() => ({
@@ -16,6 +20,15 @@ const mocks = vi.hoisted(() => ({
   // El handler de click del mapa, capturado para poder sembrar la coordenada
   // que `validate()` exige: sin eso el submit nunca llega a mutate.
   mapClick: null as null | ((e: { latlng: { lat: number; lng: number } }) => void),
+  pet: null as unknown,
+  // cuantos renders devuelve isLoading antes de entregar la mascota: reproduce
+  // la carga en dos tiempos, que es cuando aparecio el bug del estado pisado.
+  rendersCargando: 0,
+  myPetsVacio: false,
+}));
+
+vi.mock('../context/AuthContext', () => ({
+  useAuth: () => ({ user: { id: USER_ID, name: 'Carlos' }, isAuthenticated: true }),
 }));
 
 vi.mock('react-i18next', () => ({
@@ -56,8 +69,14 @@ vi.mock('../components/SharePanel', () => ({
 }));
 
 vi.mock('@shared/hooks', () => ({
-  usePetByID: () => ({ data: PET, isLoading: false }),
-  useMyPets: () => ({ data: [PET] }),
+  usePetByID: () => {
+    if (mocks.rendersCargando > 0) { mocks.rendersCargando -= 1; return { data: undefined, isLoading: true }; }
+    return { data: mocks.myPetsVacio ? undefined : (mocks.pet ?? PET), isLoading: false };
+  },
+  // En frio las DOS estan cargando: si solo se simula usePetByID, myPets sigue
+  // entregando la mascota y el permiso ya es true en el primer render — el
+  // escenario del bug no llega a existir.
+  useMyPets: () => (mocks.rendersCargando > 0 || mocks.myPetsVacio ? { data: undefined } : { data: [PET] }),
   useCreateReport: () => ({ mutate: mocks.mutate, mutateAsync: vi.fn(), isPending: false }),
 }));
 
@@ -86,6 +105,9 @@ beforeEach(() => {
   mocks.mutate.mockImplementation((_v: unknown, o?: { onSuccess?: () => void }) => o?.onSuccess?.());
   mocks.search = 'petId=pet-1&status=lost';
   mocks.mapClick = null;
+  mocks.pet = null;
+  mocks.rendersCargando = 0;
+  mocks.myPetsVacio = false;
 });
 
 describe('CreateReportPage', () => {
@@ -141,5 +163,86 @@ describe('CreateReportPage — despues de publicar como perdida', () => {
     expect(mocks.mutate).toHaveBeenCalledTimes(1);
     expect(mocks.navigate).toHaveBeenCalledWith('/pets/mine');
     expect(screen.queryByTestId('share-panel')).not.toBeInTheDocument();
+  });
+});
+
+// Cambiar el estado de la mascota lo decide su dueño, y el backend lo rechaza
+// con 403. El formulario esconde esas opciones para no dejar que un tercero lo
+// llene entero y recien ahi se entere. Le queda el avistamiento, que es como
+// aporta al seguimiento — despues se coordina por el chat o WhatsApp.
+describe('CreateReportPage — una mascota ajena', () => {
+  const ajena = { id: 'pet-9', name: 'Nala', type: 'perro', status: 'lost', owner_id: 'otro-usuario', photos: [] };
+
+  it('a un tercero solo le ofrece avistamiento', () => {
+    mocks.pet = ajena;
+    mocks.search = 'petId=pet-9';
+
+    render(<CreateReportPage />, { wrapper });
+
+    expect(screen.getByText('pets:card.sighting')).toBeInTheDocument();
+    expect(screen.queryByText('pets:card.lost')).not.toBeInTheDocument();
+    expect(screen.queryByText('pets:card.found')).not.toBeInTheDocument();
+  });
+
+  // Entrar a mano con ?status=lost a una mascota ajena no debe mandar `lost`:
+  // se cae a avistamiento en vez de armar un request que el backend rechaza.
+  it('con ?status=lost en la URL igual manda un avistamiento', () => {
+    mocks.pet = ajena;
+    mocks.search = 'petId=pet-9&status=lost';
+
+    render(<CreateReportPage />, { wrapper });
+    marcarUbicacion();
+    enviar();
+
+    expect(mocks.mutate).toHaveBeenCalledWith(
+      expect.objectContaining({ pet_id: 'pet-9', status: 'sighting' }),
+      expect.anything(),
+    );
+  });
+});
+
+// La mascota no llega en el primer render. Con un useEffect que pisaba `status`
+// cuando el usuario "no podia" cambiarlo, ese primer render —sin mascota, o sea
+// sin permiso— lo reescribia a sighting, y nada lo devolvia al cargar. La DUEÑA
+// entrando en frio a ?status=lost terminaba publicando un avistamiento.
+//
+// Con caché caliente no se reproduce, que es por que los otros tests no lo veian:
+// mockean la mascota con isLoading false desde el primer render.
+describe('CreateReportPage — la mascota carga despues del primer render', () => {
+  it('la dueña con ?status=lost sigue mandando lost aunque la mascota tarde', () => {
+    mocks.rendersCargando = 2; // los primeros renders no tienen la mascota
+    mocks.search = 'petId=pet-1&status=lost';
+
+    render(<CreateReportPage />, { wrapper });
+    marcarUbicacion();
+    enviar();
+
+    expect(mocks.mutate).toHaveBeenCalledWith(
+      expect.objectContaining({ pet_id: 'pet-1', status: 'lost' }),
+      expect.anything(),
+    );
+  });
+});
+
+// "No tenes permiso" y "no pude cargar la mascota" son lo mismo para
+// canManagePet: los dos dan false. Pero significan cosas OPUESTAS. Colapsarlos
+// hacia que el dueño abriera ?status=lost con la API caida —un arranque en frio
+// de Render alcanza—, se publicara un AVISTAMIENTO, y lo mandaramos al listado
+// como si hubiera salido bien. La busqueda nunca se abria y nadie se lo decia.
+describe('CreateReportPage — la mascota no se pudo cargar', () => {
+  it('no publica nada y avisa, en vez de degradar el pedido a avistamiento', () => {
+    mocks.pet = undefined;        // usePetByID devuelve vacio, ya sin cargar
+    mocks.myPetsVacio = true;     // y myPets tampoco la tiene
+    mocks.search = 'petId=pet-1&status=lost';
+
+    render(<CreateReportPage />, { wrapper });
+    marcarUbicacion();
+    enviar();
+
+    expect(mocks.mutate).not.toHaveBeenCalled();
+    // Aparece dos veces: el bloque de la mascota ya decia 'no encontrada'
+    // ANTES de este arreglo, y aun asi el formulario se enviaba. Lo que faltaba
+    // no era el mensaje, era cortar el envio.
+    expect(screen.getAllByText('pets:detail.notFound').length).toBeGreaterThan(0);
   });
 });

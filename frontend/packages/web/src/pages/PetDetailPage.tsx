@@ -8,6 +8,7 @@ import { PawPlaceholder } from '../components/PawPlaceholder';
 import { Helmet } from 'react-helmet-async';
 import { usePetByID, useReportsByPetID, useMarkPetAsFound, useSubmitAbuseReport } from '@shared/hooks';
 import { statusBadgeBg } from '../utils/statusBadge';
+import { canManagePet } from '@shared/utils/petAuthorization';
 import type { Photo, Report, AbuseReason } from '@shared/types';
 import { useAuth } from '../context/AuthContext';
 import { SharePanel } from '../components/SharePanel';
@@ -80,9 +81,18 @@ export function PetDetailPage() {
   const safePhotoIndex = photos.length > 0 ? Math.min(activePhotoIndex, photos.length - 1) : 0;
   const activePhoto: Photo | undefined = photos[safePhotoIndex];
   const primaryPhoto = photos[0];
-  // canManage: the owner (owned pets) or the reporter (stray pets, which have no
-  // owner) may manage the pet — mark found, share, edit, delete, tell its story.
-  const canManage = isAuthenticated && (user?.id === pet.owner_id || user?.id === pet.reporter_id);
+  // canManage: el dueño (mascotas propias) o quien la reportó (callejeras, que
+  // no tienen dueño) puede administrarla — marcar encontrada, compartir, editar,
+  // borrar, contar su historia.
+  //
+  // Usa el helper compartido en vez de la comparación inline que había acá,
+  // porque la inline DISCREPABA: con `||` le daba permiso al reportante de una
+  // mascota que además tiene dueño, y tanto el backend (`canManagePet` en
+  // authorization.go) como el resto del cliente se lo dan sólo al dueño. Hoy
+  // ningún flujo setea las dos columnas, así que era latente y no vivo — pero
+  // era una tercera definición de la misma regla, y justo en la pantalla que
+  // enlaza al formulario que este PR endureció.
+  const canManage = isAuthenticated && canManagePet(pet, user?.id);
 
   // Adoption listings share/flyer are lost-pet framed ("MASCOTA PERDIDA"), so
   // hide that surface for now — an adoption-framed share is a follow-up. `adopted`
