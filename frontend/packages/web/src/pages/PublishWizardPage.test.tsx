@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { MemoryRouter, useLocation } from 'react-router';
+import { MemoryRouter, useLocation, Link } from 'react-router';
 import { QueryClientProvider, QueryClient } from '@tanstack/react-query';
 import { PublishWizardPage } from './PublishWizardPage';
 import { useMyPets, useCreatePet, usePublishStray } from '@shared/hooks';
@@ -711,5 +711,56 @@ describe('PublishWizardPage — salir del paso de login', () => {
 
     expect(screen.getByText('publish:location.title')).toBeInTheDocument();
     expect(screen.getByLabelText('publish:location.noteLabel')).toHaveValue('Plaza central');
+  });
+});
+
+// El link "Publicar" del navbar apunta a /publish. Con el paso en useState, un
+// usuario metido en un formulario que lo tocaba SEGUIA VIENDO EL FORMULARIO:
+// React Router no navega cuando el destino es identico al actual, asi que no
+// remontaba nada y el `step` local sobrevivia (regla #51).
+//
+// Con el paso en la URL el destino /publish y el actual /publish?paso=... SI
+// son distintos, asi que navega y el wizard vuelve al selector.
+describe('PublishWizardPage — el link del navbar resetea el wizard', () => {
+  function wrapperConNavbar({ children }: { children: React.ReactNode }) {
+    return (
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <MemoryRouter initialEntries={['/publish']}>
+          <Link to="/publish">nav-publicar</Link>
+          {children}
+          <LocationProbe />
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+  }
+
+  it('desde un formulario, tocar "Publicar" vuelve a las tres opciones', () => {
+    render(<PublishWizardPage />, { wrapper: wrapperConNavbar });
+
+    fireEvent.click(screen.getByText('publish:intent.strayTitle'));
+    expect(screen.getByText('publish:strayForm.title')).toBeInTheDocument();
+    expect(screen.getByTestId('location-probe')).toHaveTextContent('/publish?paso=stray-form');
+
+    // el link del navbar, sin query
+    fireEvent.click(screen.getByText('nav-publicar'));
+
+    expect(screen.getByText('publish:intent.title')).toBeInTheDocument();
+    expect(screen.getByTestId('location-probe')).toHaveTextContent('/publish');
+  });
+
+  // La URL es entrada de usuario: un paso inalcanzable no debe dejar la
+  // pantalla en blanco ni permitir publicar sin los datos obligatorios.
+  it('un paso inalcanzable por URL cae al selector', () => {
+    for (const paso of ['success', 'location', 'no-existe']) {
+      const { unmount } = render(<PublishWizardPage />, {
+        wrapper: ({ children }) => (
+          <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+            <MemoryRouter initialEntries={[`/publish?paso=${paso}`]}>{children}</MemoryRouter>
+          </QueryClientProvider>
+        ),
+      });
+      expect(screen.getByText('publish:intent.title')).toBeInTheDocument();
+      unmount();
+    }
   });
 });

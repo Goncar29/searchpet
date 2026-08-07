@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router';
+import { useNavigate, useSearchParams } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { IntentStep } from '../components/publish/IntentStep';
 import { LostPetStep } from '../components/publish/LostPetStep';
@@ -16,6 +16,9 @@ import type { Pet, CreatePetRequest, InitialReportRequest } from '@shared/types'
 
 export type PublishStep = 'intent' | 'lost-pet' | 'stray-form' | 'adoption-form' | 'location' | 'auth' | 'success';
 export type PublishIntent = 'lost' | 'stray' | 'adoption';
+
+// Los pasos validos, para filtrar lo que venga por la URL.
+const PUBLISH_STEPS: PublishStep[] = ['intent', 'lost-pet', 'stray-form', 'adoption-form', 'location', 'auth', 'success'];
 
 export interface StrayFormState {
   type: CreatePetRequest['type'] | '';
@@ -54,8 +57,43 @@ export function PublishWizardPage() {
   const { t } = useTranslation('publish');
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
-  const [step, setStep] = useState<PublishStep>('intent');
   const [wizard, setWizard] = useState<PublishWizardState>(initialWizardState);
+  const [publishedPet, setPublishedPet] = useState<Pet | null>(null);
+
+  // El paso vive en la URL, no en useState. Tres motivos, en orden de peso:
+  //
+  // 1. El link "Publicar" del navbar apunta a /publish. Con el paso en estado
+  //    local, un usuario metido en un formulario que lo tocaba SEGUÍA VIENDO EL
+  //    FORMULARIO: React Router no navega cuando el destino es idéntico al
+  //    actual, así que no remontaba nada (regla #51). Ahora el destino es
+  //    /publish sin query y el actual es /publish?paso=…, o sea que SÍ son
+  //    distintos: navega, el paso vuelve a 'intent' y el wizard se resetea.
+  // 2. El botón atrás del navegador recorre los pasos en vez de salirse de la
+  //    página entera.
+  // 3. Un F5 en el medio no te devuelve al principio.
+  //
+  // El BORRADOR sigue en memoria a propósito: se pierde con el refresh, pero
+  // meterlo en la URL implicaría poner fotos y notas en la barra de direcciones.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const setStep = (s: PublishStep) => {
+    // `intent` no lleva query: deja la URL limpia y hace que el link del navbar
+    // apunte exactamente al estado inicial.
+    setSearchParams(s === 'intent' ? {} : { paso: s }, { replace: false });
+  };
+
+  // Un paso pedido por URL puede ser inalcanzable: `success` sin mascota
+  // publicada renderizaría una pantalla en blanco, y `location` sin borrador
+  // dejaría publicar una callejera sin foto ni tipo. En esos casos se cae a
+  // 'intent' en vez de mostrar algo roto — la URL es entrada de usuario y hay
+  // que tratarla como tal.
+  const pasoPedido = searchParams.get('paso') as PublishStep | null;
+  const step: PublishStep = ((): PublishStep => {
+    if (!pasoPedido || !PUBLISH_STEPS.includes(pasoPedido)) return 'intent';
+    if (pasoPedido === 'success' && !publishedPet) return 'intent';
+    if (pasoPedido === 'location' && !wizard.strayForm.type) return 'intent';
+    if (pasoPedido === 'auth' && !wizard.intent) return 'intent';
+    return pasoPedido;
+  })();
 
   const handleIntentSelect = (intent: PublishIntent) => {
     setWizard((prev) => ({ ...prev, intent }));
@@ -123,7 +161,8 @@ export function PublishWizardPage() {
     return { onBack: backTo('location'), label: t('backStep') };
   };
 
-  const [publishedPet, setPublishedPet] = useState<Pet | null>(null);
+  // publishedPet se declara arriba, junto al wizard: la validación del paso
+  // pedido por URL lo necesita para no dejar entrar a `success` en blanco.
   const [failedPhotoIndexes, setFailedPhotoIndexes] = useState<number[]>([]);
   const [publishError, setPublishError] = useState<string | null>(null);
 
