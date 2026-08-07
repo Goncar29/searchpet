@@ -214,7 +214,9 @@
       "qrTitle": "QR code",
       "qrHint": "Scan to open {{name}}'s page",
       "qrDownload": "Download QR (PNG)",
-      "storyDownloaded": "Image downloaded — post it as a Story from your phone 📲"
+      "storyDownloaded": "Image downloaded — post it as a Story from your phone 📲",
+      "loadError": "We couldn't prepare the share link.",
+      "retry": "Retry"
     },
     "report": {
       "button": "Report post",

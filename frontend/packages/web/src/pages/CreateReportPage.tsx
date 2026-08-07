@@ -249,7 +249,12 @@ export function CreateReportPage() {
                 <option value="">— {t('reports:create.selectPet')} —</option>
                 {myPets?.map((pet) => (
                   <option key={pet.id} value={pet.id}>
-                    {pet.name} ({pet.type}{pet.breed ? ` · ${pet.breed}` : ''})
+                    {/* Mismo motivo que la rama de arriba: el tipo se guarda
+                        crudo y sin traducir se leía `perro` aun con la app en
+                        inglés o portugués. Esta rama es el flujo DIRECTO
+                        (/reports/create sin ?petId=), así que era la más vista
+                        de las dos. */}
+                    {pet.name} ({t(`pets:types.${pet.type}`)}{pet.breed ? ` · ${pet.breed}` : ''})
                   </option>
                 ))}
               </select>

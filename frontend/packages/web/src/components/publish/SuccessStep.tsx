@@ -53,7 +53,11 @@ export function SuccessStep({ pet, intent, failedPhotoCount, onRetryPhotos, isRe
         </div>
       )}
 
-      <SharePanel petId={pet.id} petName={pet.name} pet={pet} />
+      {/* `inline` por el mismo motivo que en CreateReportPage: esta pantalla
+          también pide compartir como acción principal, y el panel desplegable
+          es `absolute z-20`, así que al abrirse tapaba los dos botones de acá
+          abajo — "Ver mascota" y "Publicar otra". */}
+      <SharePanel petId={pet.id} petName={pet.name} pet={pet} inline />
 
       <div className="flex flex-col sm:flex-row gap-3 pt-2">
         <Link

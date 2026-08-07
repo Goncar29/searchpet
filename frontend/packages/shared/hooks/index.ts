@@ -522,6 +522,15 @@ export const useShareLink = () => {
   });
 };
 
+// Share link for panels that open on their own, without a user click. Resolves
+// through the idempotent public endpoint so a mount effect never mints a row
+// nor grants share points. See apiClient.autoResolveShareLink.
+export const useAutoShareLink = () => {
+  return useMutation({
+    mutationFn: ({ petID }: { petID: string }) => apiClient.autoResolveShareLink(petID),
+  });
+};
+
 export const useSharedPet = (token: string) => {
   return useQuery<SharedPetResponse>({
     queryKey: ['shared', token],

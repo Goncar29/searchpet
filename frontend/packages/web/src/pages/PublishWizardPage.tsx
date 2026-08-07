@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { IntentStep } from '../components/publish/IntentStep';
@@ -19,6 +19,16 @@ export type PublishIntent = 'lost' | 'stray' | 'adoption';
 
 // Los pasos validos, para filtrar lo que venga por la URL.
 const PUBLISH_STEPS: PublishStep[] = ['intent', 'lost-pet', 'stray-form', 'adoption-form', 'location', 'auth', 'success'];
+
+// Tres pasos llevan el intent implícito en su propio nombre, y a `location`
+// sólo se llega desde el de callejera. Con esto, un paso pedido por URL puede
+// reconstruir el intent que se perdió al recargar.
+const STEP_INTENT: Partial<Record<PublishStep, PublishIntent>> = {
+  'lost-pet': 'lost',
+  'stray-form': 'stray',
+  'adoption-form': 'adoption',
+  location: 'stray',
+};
 
 export interface StrayFormState {
   type: CreatePetRequest['type'] | '';
@@ -78,7 +88,14 @@ export function PublishWizardPage() {
   const setStep = (s: PublishStep) => {
     // `intent` no lleva query: deja la URL limpia y hace que el link del navbar
     // apunte exactamente al estado inicial.
-    setSearchParams(s === 'intent' ? {} : { paso: s }, { replace: false });
+    //
+    // `success` REEMPLAZA la entrada anterior en vez de apilarse. Apilar los
+    // pasos hizo del botón atrás del navegador una superficie nueva: un back
+    // desde la pantalla de éxito aterrizaba en el formulario recién publicado,
+    // con el borrador entero todavía en memoria y su botón "Publicar" vivo, y
+    // tocarlo creaba una SEGUNDA mascota. El guard de abajo lo corta igual —
+    // esto además evita dejar la URL apuntando a un paso que ya no se ve.
+    setSearchParams(s === 'intent' ? {} : { paso: s }, { replace: s === 'success' });
   };
 
   // Un paso pedido por URL puede ser inalcanzable: `success` sin mascota
@@ -89,7 +106,13 @@ export function PublishWizardPage() {
   const pasoPedido = searchParams.get('paso') as PublishStep | null;
   const step: PublishStep = ((): PublishStep => {
     if (!pasoPedido || !PUBLISH_STEPS.includes(pasoPedido)) return 'intent';
-    if (pasoPedido === 'success' && !publishedPet) return 'intent';
+    // Ya hay una mascota publicada: ningún paso previo puede volver a
+    // renderizarse, porque su botón "Publicar" sigue funcionando y el borrador
+    // sigue completo. Va PRIMERO justamente por eso — los guards de abajo miran
+    // el borrador, que en este punto pasa todos.
+    if (publishedPet) return 'success';
+    // De acá para abajo, publishedPet es null.
+    if (pasoPedido === 'success') return 'intent';
     if (pasoPedido === 'location' && !wizard.strayForm.type) return 'intent';
     if (pasoPedido === 'auth' && !wizard.intent) return 'intent';
     return pasoPedido;
@@ -125,12 +148,12 @@ export function PublishWizardPage() {
   // remonta la página y este `step` sobrevive.
   //
   // Vuelve al inicio limpio: el borrador pertenece a la opción que se está
-  // abandonando, y arrastrarlo a otra sería peor que perderlo. Es el mismo
-  // reset que hace handlePublishAnother.
+  // abandonando, y arrastrarlo a otra sería peor que perderlo. El reset ya no
+  // se hace acá — lo hace el efecto que vigila el paso `intent`, así TODOS los
+  // caminos que llegan al selector quedan limpios y no sólo los que se
+  // acuerdan de limpiar.
   const backToIntent = () => {
     setStep('intent');
-    setWizard(initialWizardState);
-    setPublishError(null);
   };
 
   // El paso `auth` también era un callejón sin salida, y es el peor de todos:
@@ -165,6 +188,41 @@ export function PublishWizardPage() {
   // pedido por URL lo necesita para no dejar entrar a `success` en blanco.
   const [failedPhotoIndexes, setFailedPhotoIndexes] = useState<number[]>([]);
   const [publishError, setPublishError] = useState<string | null>(null);
+
+  // El paso pasó a vivir en la URL, pero el intent siguió viviendo SÓLO en
+  // memoria — y esa mezcla era el agujero. Un F5 en /publish?paso=stray-form
+  // (justo el escenario que la URL venía a habilitar) dejaba `intent` en null.
+  // Nada lo notaba, porque el formulario se ve idéntico: el usuario lo
+  // completaba, publicaba, LA MASCOTA SE CREABA DE VERDAD, y el guard de render
+  // de `success` —que exige `intent`— dejaba la pantalla EN BLANCO. El mismo
+  // null mandaba al usuario sin sesión derecho a un 401 en vez de al login, y
+  // rebotaba el camino de adopción al selector sin explicar nada.
+  //
+  // Se repara en un solo lugar y no en cada handler porque los consumidores del
+  // intent son seis (handlePublish, handleAdoptionSubmit, resolveBack, el
+  // callback de InlineAuthStep, handleRetryPhotos y el render de `success`), y
+  // alcanza con que uno se olvide para que vuelva el mismo bug.
+  useEffect(() => {
+    const implicito = STEP_INTENT[step];
+    if (!implicito) return;
+    setWizard((prev) => (prev.intent ? prev : { ...prev, intent: implicito }));
+  }, [step]);
+
+  // `intent` es por definición el estado inicial, y hacerlo cumplir acá es lo
+  // que vuelve honesto al link "Publicar" del navbar. Ese link sólo cambia la
+  // URL: la ruta es la misma, el componente NO remonta, así que el borrador
+  // sobrevivía intacto en useState. Publicar → navbar "Publicar" → "encontré
+  // una callejera" mostraba el formulario PRELLENADO con las fotos y el tipo de
+  // la mascota recién publicada, y volver a tocar "Publicar" creaba un
+  // duplicado. Los setters usan la forma funcional para no re-renderizar de
+  // más cuando ya está todo limpio, que es el caso del primer montaje.
+  useEffect(() => {
+    if (step !== 'intent') return;
+    setWizard((prev) => (prev === initialWizardState ? prev : initialWizardState));
+    setPublishedPet(null);
+    setFailedPhotoIndexes((prev) => (prev.length === 0 ? prev : []));
+    setPublishError(null);
+  }, [step]);
 
   const publishStray = usePublishStray();
   const createPet = useCreatePet();
@@ -264,12 +322,9 @@ export function PublishWizardPage() {
     await submitStray(location);
   };
 
+  // El reset lo hace el efecto del paso `intent`, igual que backToIntent.
   const handlePublishAnother = () => {
     setStep('intent');
-    setWizard(initialWizardState);
-    setPublishedPet(null);
-    setFailedPhotoIndexes([]);
-    setPublishError(null);
   };
 
   const handleRetryPhotos = async () => {

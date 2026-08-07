@@ -214,7 +214,9 @@
       "qrTitle": "Código QR",
       "qrHint": "Escaneie para abrir a ficha de {{name}}",
       "qrDownload": "Baixar QR (PNG)",
-      "storyDownloaded": "Imagem baixada — publique como Story pelo seu celular 📲"
+      "storyDownloaded": "Imagem baixada — publique como Story pelo seu celular 📲",
+      "loadError": "Não conseguimos preparar o link de compartilhamento.",
+      "retry": "Tentar novamente"
     },
     "report": {
       "button": "Denunciar publicação",

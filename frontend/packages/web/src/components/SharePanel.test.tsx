@@ -10,6 +10,11 @@ const shareLink: ShareLink = {
 };
 
 const mutateAsync = vi.fn().mockResolvedValue(shareLink);
+// El resolver del modo inline es OTRO a propósito: pega al endpoint idempotente
+// en vez de al protegido, que inserta una fila y otorga puntos. Se mockea
+// aparte justamente para poder afirmar cuál de los dos se usó.
+const autoMutateAsync = vi.fn().mockResolvedValue(shareLink);
+const autoPending = { value: false };
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -20,6 +25,7 @@ vi.mock('react-i18next', () => ({
 
 vi.mock('@shared/hooks', () => ({
   useShareLink: () => ({ mutateAsync, isPending: false }),
+  useAutoShareLink: () => ({ mutateAsync: autoMutateAsync, isPending: autoPending.value }),
 }));
 
 const basePet: Pet = {
@@ -35,6 +41,9 @@ const basePet: Pet = {
 
 afterEach(() => {
   mutateAsync.mockClear();
+  autoMutateAsync.mockClear();
+  autoMutateAsync.mockResolvedValue(shareLink);
+  autoPending.value = false;
 });
 
 describe('SharePanel — Story template', () => {
@@ -192,5 +201,36 @@ describe('SharePanel — the story template is invisible to assistive tech', () 
     // name — as content the user cannot see or act on.
     expect(template).toHaveAttribute('aria-hidden', 'true');
     expect(template.querySelector('h1')).not.toBeNull();
+  });
+});
+
+describe('SharePanel — modo inline', () => {
+  it('resuelve el link por el endpoint idempotente, nunca por el que otorga puntos', async () => {
+    render(<SharePanel petId="pet-1" petName="Firulais" pet={basePet} inline />);
+
+    await waitFor(() => expect(autoMutateAsync).toHaveBeenCalledWith({ petID: 'pet-1' }));
+
+    // El protegido siempre INSERTA una fila y publica `share.created` (+2
+    // puntos). Llamarlo desde un efecto de montaje acreditaba un compartir que
+    // nunca ocurrió, una vez por publicación.
+    expect(mutateAsync).not.toHaveBeenCalled();
+  });
+
+  it('ante un fallo avisa y deja reintentar, en vez de quedar mudo', async () => {
+    autoMutateAsync.mockRejectedValueOnce(new Error('502 cold start'));
+
+    const { getByText, queryByText } = render(
+      <SharePanel petId="pet-1" petName="Firulais" pet={basePet} inline />
+    );
+
+    // Sin esto el panel quedaba MUERTO en silencio: en inline no se renderiza
+    // el botón —único spinner y único reintento—, así que los cuatro botones de
+    // plataforma quedaban deshabilitados para siempre sin un solo cartel.
+    await waitFor(() => expect(getByText('pets:share.loadError')).toBeInTheDocument());
+
+    await userEvent.click(getByText('pets:share.retry'));
+
+    await waitFor(() => expect(autoMutateAsync).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(queryByText('pets:share.loadError')).toBeNull());
   });
 });
