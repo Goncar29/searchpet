@@ -21,10 +21,58 @@ const (
 	BirthDatePrecisionYear  = "year"
 )
 
+// BirthDateLayout es el ÚNICO formato en que la fecha de nacimiento entra y
+// sale de la API: un día de calendario, sin hora y sin zona.
+//
+// NO puede viajar como instante, y esto costó un hallazgo de code review. La
+// columna es DATE: Postgres se queda con el DÍA del valor que recibe y tira el
+// resto. Mandar la medianoche local como ISO —que es lo que hace
+// `calendarDayToISO`, y es CORRECTO para `occurred_at` porque esa columna es
+// timestamptz— termina guardando el día de UTC:
+//
+//	usuario en UTC+2 elige el 6  →  2026-08-05T22:00:00Z  →  se guarda el 5
+//
+// Y a la vuelta el error es simétrico: un `2026-08-06T00:00:00Z` leído en
+// Uruguay (UTC-3) se muestra como el 5. El instante no sobrevive al INSERT, así
+// que el día local es irrecuperable — no hay helper que lo arregle del lado del
+// cliente.
+//
+// Con un YYYY-MM-DD plano no hay zona horaria en ninguna punta del viaje.
+const BirthDateLayout = "2006-01-02"
+
 var birthDatePrecisions = map[string]bool{
 	BirthDatePrecisionDay:   true,
 	BirthDatePrecisionMonth: true,
 	BirthDatePrecisionYear:  true,
+}
+
+// birthDateMaxAge es el piso de la fecha. Es deliberadamente generoso: la app
+// acepta `otro` como tipo de mascota, y una tortuga pasa los 150 años. No busca
+// atajar una edad discutible, sino los valores absurdos —el año 0001 que deja
+// pasar un cliente roto— que después derivan en una edad sin sentido.
+const birthDateMaxAge = 150
+
+// ParseBirthDate convierte el día de calendario que manda el cliente en el
+// valor que se persiste: medianoche UTC de ese día.
+//
+// La UTC acá no representa una zona horaria, es una convención canónica: la
+// columna DATE se queda sólo con el día, así que cualquier otra hora sería
+// ruido que Postgres descarta igual.
+func ParseBirthDate(day string) (time.Time, error) {
+	parsed, err := time.ParseInLocation(BirthDateLayout, day, time.UTC)
+	if err != nil {
+		return time.Time{}, ErrInvalidInput
+	}
+	return parsed, nil
+}
+
+// FormatBirthDate es la vuelta de ParseBirthDate. Devuelve "" cuando no hay
+// fecha, para que el `omitempty` de la respuesta la omita.
+func FormatBirthDate(birthDate *time.Time) string {
+	if birthDate == nil {
+		return ""
+	}
+	return birthDate.UTC().Format(BirthDateLayout)
 }
 
 // ValidateBirthDate valida el par (fecha, precisión) como una UNIDAD, porque
@@ -45,16 +93,17 @@ func ValidateBirthDate(birthDate *time.Time, precision string) error {
 		return ErrInvalidInput
 	}
 
-	// Una mascota no puede haber nacido en el futuro. Mismo contrato que
-	// `occurred_at` en los reportes, a propósito: los dos caminos guardan fechas
-	// que el usuario elige en un calendario, y aceptar en uno lo que el otro
-	// rechaza deja el dato inconsistente según por dónde entró.
-	//
-	// Depende de que el cliente mande el día como medianoche LOCAL
-	// (`calendarDayToISO`) y no como medianoche UTC. Con UTC, un usuario al este
-	// de Greenwich se vería rechazar el día de HOY — es el mismo bug de zona
-	// horaria que ya se arregló en la fecha del reporte.
-	if birthDate.After(time.Now()) {
+	// Se comparan DÍAS DE CALENDARIO, no instantes. Comparar contra
+	// `time.Now()` a secas rechazaría a una mascota nacida HOY durante las
+	// primeras horas UTC del día, porque la fecha guardada vuelve siempre como
+	// medianoche.
+	hoy := time.Now().UTC().Truncate(24 * time.Hour)
+	dia := birthDate.UTC().Truncate(24 * time.Hour)
+
+	if dia.After(hoy) {
+		return ErrInvalidInput
+	}
+	if dia.Before(hoy.AddDate(-birthDateMaxAge, 0, 0)) {
 		return ErrInvalidInput
 	}
 

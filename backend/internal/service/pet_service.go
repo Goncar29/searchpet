@@ -125,10 +125,25 @@ func (s *petService) CreatePet(ownerID string, req dto.CreatePetRequest) (*domai
 	// reporter). For registered pets it stays false regardless of the request.
 	reporterContactPublic := status == domain.PetStatusStray && req.ReporterContactPublic
 
+	// Sin allowlist, un gender largo llega hasta Postgres y explota con
+	// SQLSTATE 22001: el usuario recibe un 500 por un dato que el servidor
+	// tenía que rechazar con 400.
+	if !domain.IsValidPetGender(req.Gender) {
+		return nil, domain.ErrInvalidInput
+	}
+
 	// La fecha de nacimiento y su precisión se validan como una unidad, ANTES de
 	// tocar nada: una fecha sin precisión no se puede mostrar sin mentir sobre
 	// cuánto se sabe de ella, y una precisión sin fecha no describe nada.
-	if err := domain.ValidateBirthDate(req.BirthDate, req.BirthDatePrecision); err != nil {
+	var birthDate *time.Time
+	if req.BirthDate != nil && *req.BirthDate != "" {
+		parsed, err := domain.ParseBirthDate(*req.BirthDate)
+		if err != nil {
+			return nil, err
+		}
+		birthDate = &parsed
+	}
+	if err := domain.ValidateBirthDate(birthDate, req.BirthDatePrecision); err != nil {
 		return nil, err
 	}
 
@@ -142,7 +157,7 @@ func (s *petService) CreatePet(ownerID string, req dto.CreatePetRequest) (*domai
 		Description:           req.Description,
 		Gender:                req.Gender,
 		MicrochipID:           req.MicrochipID,
-		BirthDate:             req.BirthDate,
+		BirthDate:             birthDate,
 		BirthDatePrecision:    req.BirthDatePrecision,
 		City:                  req.City,
 		Status:                status,
@@ -278,12 +293,19 @@ func (s *petService) UpdatePet(ownerID string, petID string, req dto.UpdatePetRe
 		pet.City = *req.City
 	}
 	if req.Gender != nil {
+		if !domain.IsValidPetGender(*req.Gender) {
+			return nil, domain.ErrInvalidInput
+		}
 		pet.Gender = *req.Gender
 	}
-	// El ORDEN importa: la precisión se aplica primero porque vaciarla BORRA la
-	// fecha, y una fecha enviada después tiene que poder pisar ese borrado. Al
-	// revés, mandar fecha y precisión vacía en el mismo request dejaría una
-	// fecha huérfana — que es justo lo que el validador de abajo rechaza.
+
+	// El ORDEN de estos dos bloques SÍ importa, y no por la razón que decía el
+	// comentario anterior. Con la precisión primero, mandar una fecha junto a
+	// una precisión vacía deja la fecha puesta y la precisión en blanco, o sea
+	// un par incoherente que el validador rechaza con 400. Invertidos, el
+	// borrado de la precisión pisaría la fecha y el request contradictorio se
+	// aceptaría con un 200 descartando en silencio el dato que el usuario
+	// mandó. Se prefiere el error explícito.
 	if req.BirthDatePrecision != nil {
 		pet.BirthDatePrecision = *req.BirthDatePrecision
 		if *req.BirthDatePrecision == "" {
@@ -291,13 +313,31 @@ func (s *petService) UpdatePet(ownerID string, petID string, req dto.UpdatePetRe
 		}
 	}
 	if req.BirthDate != nil {
-		pet.BirthDate = req.BirthDate
+		if *req.BirthDate == "" {
+			pet.BirthDate = nil
+		} else {
+			parsed, err := domain.ParseBirthDate(*req.BirthDate)
+			if err != nil {
+				return nil, err
+			}
+			pet.BirthDate = &parsed
+		}
 	}
-	// Se valida el par YA APLICADO, no el request: un update parcial que sólo
-	// manda la fecha tiene que validarse contra la precisión que la mascota ya
-	// tenía guardada, no contra el vacío del request.
-	if err := domain.ValidateBirthDate(pet.BirthDate, pet.BirthDatePrecision); err != nil {
-		return nil, err
+
+	// Se valida SÓLO si el request tocó el par, y sobre el estado ya aplicado.
+	//
+	// Lo primero no es un detalle: validar siempre significa revalidar lo que ya
+	// estaba guardado, y entonces cualquier fila que por lo que sea quedara
+	// fuera de rango bloquearía TODA edición futura de esa mascota — incluido un
+	// cambio de estado que no tiene nada que ver, como marcarla encontrada.
+	//
+	// Lo segundo tampoco: un update parcial que sólo manda la fecha tiene que
+	// validarse contra la precisión que la mascota ya tenía, no contra el vacío
+	// del request.
+	if req.BirthDate != nil || req.BirthDatePrecision != nil {
+		if err := domain.ValidateBirthDate(pet.BirthDate, pet.BirthDatePrecision); err != nil {
+			return nil, err
+		}
 	}
 	if req.Status != "" {
 		pet.Status = req.Status
