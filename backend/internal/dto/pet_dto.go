@@ -18,6 +18,12 @@ type CreatePetRequest struct {
 	City        string  `json:"city"`
 	Gender      string  `json:"gender"`
 	MicrochipID *string `json:"microchip_id"`
+	// BirthDate y BirthDatePrecision viajan juntos y se validan como una unidad
+	// (domain.ValidateBirthDate). La fecha tiene que llegar como medianoche
+	// LOCAL del día elegido, no UTC: con UTC se corre un día entero para todo
+	// usuario al oeste de Greenwich. El frontend usa `calendarDayToISO`.
+	BirthDate          *time.Time `json:"birth_date"`
+	BirthDatePrecision string     `json:"birth_date_precision"`
 	// Status is optional. Accepted values: "registered" (default), "stray", and
 	// "adoption". Any other value is rejected by the service layer.
 	Status string `json:"status"`
@@ -66,7 +72,14 @@ type UpdatePetRequest struct {
 	Color       *string `json:"color"`
 	Description *string `json:"description"`
 	City        *string `json:"city"`
+	Gender      *string `json:"gender"`
 	Status      string  `json:"status"`
+	// La fecha de nacimiento se BORRA mandando la precisión vacía, no la fecha:
+	// con `BirthDate` en nil no se puede distinguir "no lo mandé" de "borralo",
+	// que es el problema que los punteros vienen a resolver para los demás
+	// campos. Como el par se guarda junto, alcanza con un solo interruptor.
+	BirthDate          *time.Time `json:"birth_date"`
+	BirthDatePrecision *string    `json:"birth_date_precision"`
 	// Version is used for optimistic concurrency. Send the value received from the
 	// last GET response; the server rejects the update with 409 if it has changed.
 	Version int `json:"version"`
@@ -116,7 +129,18 @@ type PetResponse struct {
 	Color       string             `json:"color,omitempty"`
 	Description string             `json:"description,omitempty"`
 	City        string             `json:"city,omitempty"`
+	Gender      string             `json:"gender,omitempty"`
 	Status      string             `json:"status"`
+	// La edad NO viaja: viaja la fecha con su precisión y el cliente deriva.
+	// Calcularla acá la congelaría en el instante de la respuesta y además
+	// obligaría al backend a pluralizar "año/años" en tres idiomas.
+	//
+	// MicrochipID queda DELIBERADAMENTE fuera: GET /api/pets/:id es público, y
+	// un número de microchip es un identificador con el que un tercero podría
+	// reclamar una mascota ajena. Exponerlo necesita una respuesta con alcance
+	// de dueño, que es un cambio aparte.
+	BirthDate          *time.Time         `json:"birth_date,omitempty"`
+	BirthDatePrecision string             `json:"birth_date_precision,omitempty"`
 	Version     int                `json:"version"`
 	Photos      []PetPhotoResponse `json:"photos"`
 	Owner       *PetOwnerResponse  `json:"owner,omitempty"`
@@ -150,6 +174,9 @@ func ToPetResponse(pet *domain.Pet) PetResponse {
 		Color:                 pet.Color,
 		Description:           pet.Description,
 		City:                  pet.City,
+		Gender:                pet.Gender,
+		BirthDate:             pet.BirthDate,
+		BirthDatePrecision:    pet.BirthDatePrecision,
 		Status:                pet.Status,
 		Version:               pet.Version,
 		Photos:                photos,
