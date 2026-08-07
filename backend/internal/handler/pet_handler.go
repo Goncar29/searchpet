@@ -150,6 +150,15 @@ func (h *PetHandler) UpdatePet(c *gin.Context) {
 			writeError(c, http.StatusConflict, err)
 			return
 		}
+		// ErrInvalidInput lo devuelven la validación del par de nacimiento y la
+		// allowlist de gender. Sin esta rama, un dato inválido del cliente sale
+		// como 500 "error interno del servidor" — el mismo agujero que ya se
+		// había tapado en CreatePet cuando llegó la validación de occurred_at,
+		// y que acá quedó abierto porque el handler de update no se tocó.
+		if errors.Is(err, domain.ErrInvalidInput) {
+			writeError(c, http.StatusBadRequest, err)
+			return
+		}
 		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		return
 	}
