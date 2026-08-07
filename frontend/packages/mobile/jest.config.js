@@ -11,6 +11,22 @@ module.exports = {
   testMatch: ['**/__tests__/**/*.test.(ts|tsx|js)'],
   setupFilesAfterEnv: ['./jest.setup.js'],
   moduleNameMapper: {
+    // Los helpers de @babel/runtime se resuelven desde el directorio del
+    // archivo que los pide, y `shared/` no es un paquete pnpm real: no tiene
+    // node_modules, así que la búsqueda sube a packages/ → frontend/ → raíz y
+    // nunca encuentra la copia que vive en mobile/node_modules. Cualquier
+    // módulo de shared/ cuya transpilación emita un helper explota con
+    // "Cannot find module '@babel/runtime/helpers/...'".
+    //
+    // Hasta ahora se venía esquivando MOCKEANDO cada módulo de shared que lo
+    // sufría (ver los dos mappers de abajo). Eso no escala y además no sirve
+    // cuando el test necesita el comportamiento real del módulo — que es el
+    // caso de reportDate, cuya conversión de fechas es justo lo que se prueba.
+    //
+    // Apuntar el paquete a la copia de mobile lo arregla de raíz para todos.
+    // Ojo: LOCAL PUEDE PASAR IGUAL SIN ESTO, porque la caché de transformación
+    // de jest sirve un compilado previo; el CI instala limpio y ahí explota.
+    '^@babel/runtime/(.*)$': '<rootDir>/node_modules/@babel/runtime/$1',
     // El módulo nativo de Google no carga bajo Jest — se sustituye por el stub.
     '^@react-native-google-signin/google-signin$': '<rootDir>/__mocks__/google-signin.js',
     // Match any relative depth (../../, ../../../, ...) so the real client never
