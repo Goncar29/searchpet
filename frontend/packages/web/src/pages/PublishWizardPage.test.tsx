@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { MemoryRouter, useLocation } from 'react-router';
+import { MemoryRouter, useLocation, useNavigate, Link } from 'react-router';
 import { QueryClientProvider, QueryClient } from '@tanstack/react-query';
 import { PublishWizardPage } from './PublishWizardPage';
 import { useMyPets, useCreatePet, usePublishStray } from '@shared/hooks';
@@ -84,6 +84,14 @@ vi.mock('leaflet', () => ({
 function LocationProbe() {
   const location = useLocation();
   return <span data-testid="location-probe">{`${location.pathname}${location.search}`}</span>;
+}
+
+// Ejercita el botón atrás del navegador. MemoryRouter lleva su propio history y
+// `navigate(-1)` es la misma operación que dispara la flecha del navegador, así
+// que un paso apilado se puede recorrer de verdad en un test.
+function BackButton() {
+  const navigate = useNavigate();
+  return <button onClick={() => navigate(-1)}>ir-atras</button>;
 }
 
 function wrapper({ children }: { children: React.ReactNode }) {
@@ -711,5 +719,196 @@ describe('PublishWizardPage — salir del paso de login', () => {
 
     expect(screen.getByText('publish:location.title')).toBeInTheDocument();
     expect(screen.getByLabelText('publish:location.noteLabel')).toHaveValue('Plaza central');
+  });
+});
+
+// El link "Publicar" del navbar apunta a /publish. Con el paso en useState, un
+// usuario metido en un formulario que lo tocaba SEGUIA VIENDO EL FORMULARIO:
+// React Router no navega cuando el destino es identico al actual, asi que no
+// remontaba nada y el `step` local sobrevivia (regla #51).
+//
+// Con el paso en la URL el destino /publish y el actual /publish?paso=... SI
+// son distintos, asi que navega y el wizard vuelve al selector.
+describe('PublishWizardPage — el link del navbar resetea el wizard', () => {
+  function wrapperConNavbar({ children }: { children: React.ReactNode }) {
+    return (
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <MemoryRouter initialEntries={['/publish']}>
+          <Link to="/publish">nav-publicar</Link>
+          {children}
+          <LocationProbe />
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+  }
+
+  it('desde un formulario, tocar "Publicar" vuelve a las tres opciones', () => {
+    render(<PublishWizardPage />, { wrapper: wrapperConNavbar });
+
+    fireEvent.click(screen.getByText('publish:intent.strayTitle'));
+    expect(screen.getByText('publish:strayForm.title')).toBeInTheDocument();
+    expect(screen.getByTestId('location-probe')).toHaveTextContent('/publish?paso=stray-form');
+
+    // el link del navbar, sin query
+    fireEvent.click(screen.getByText('nav-publicar'));
+
+    expect(screen.getByText('publish:intent.title')).toBeInTheDocument();
+    // Regex anclada, NO el string suelto: `toHaveTextContent('/publish')` hace
+    // match por SUBSTRING, y '/publish?paso=stray-form' contiene '/publish'.
+    // Con el string, si el click del navbar no hiciera absolutamente nada, esta
+    // línea pasaba igual — la misma forma que la regla #41.
+    expect(screen.getByTestId('location-probe')).toHaveTextContent(/^\/publish$/);
+  });
+
+  it('tocar "Publicar" en el navbar limpia el BORRADOR, no sólo el paso', () => {
+    render(<PublishWizardPage />, { wrapper: wrapperConNavbar });
+
+    fireEvent.click(screen.getByText('publish:intent.strayTitle'));
+    const file = new File(['fake'], 'stray.jpg', { type: 'image/jpeg' });
+    fireEvent.change(screen.getByLabelText('publish:strayForm.photoLabel'), { target: { files: [file] } });
+    fireEvent.change(screen.getByLabelText('publish:strayForm.typeLabel'), { target: { value: 'perro' } });
+
+    fireEvent.click(screen.getByText('nav-publicar'));
+    fireEvent.click(screen.getByText('publish:intent.strayTitle'));
+
+    // El formulario tiene que volver VACÍO. Antes conservaba la foto y el tipo,
+    // porque el link del navbar cambia la URL pero no remonta la página, y el
+    // borrador vivía en useState: se veía prellenado con lo de la opción
+    // anterior — o, después de publicar, con la mascota recién creada.
+    fireEvent.click(screen.getByText('publish:strayForm.next'));
+    expect(screen.getByText('publish:strayForm.photoRequired')).toBeInTheDocument();
+    expect(screen.getByText('publish:strayForm.typeRequired')).toBeInTheDocument();
+  });
+
+  // La URL es entrada de usuario: un paso inalcanzable no debe dejar la
+  // pantalla en blanco ni permitir publicar sin los datos obligatorios.
+  it('un paso inalcanzable por URL cae al selector', () => {
+    for (const paso of ['success', 'location', 'no-existe']) {
+      const { unmount } = render(<PublishWizardPage />, {
+        wrapper: ({ children }) => (
+          <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+            <MemoryRouter initialEntries={[`/publish?paso=${paso}`]}>{children}</MemoryRouter>
+          </QueryClientProvider>
+        ),
+      });
+      expect(screen.getByText('publish:intent.title')).toBeInTheDocument();
+      unmount();
+    }
+  });
+});
+
+// El paso pasó a vivir en la URL, pero el intent siguió viviendo en memoria.
+// Recargar en el medio del wizard es exactamente el escenario que separa a los
+// dos, y era el que nadie ejercitaba.
+describe('PublishWizardPage — entrar directo a un paso por URL (F5 en el medio)', () => {
+  const initialAuthState = { ...authState };
+
+  afterEach(() => {
+    authState.isAuthenticated = initialAuthState.isAuthenticated;
+    authState.user = initialAuthState.user;
+  });
+
+  function wrapperEn(url: string) {
+    return ({ children }: { children: React.ReactNode }) => (
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <MemoryRouter initialEntries={[url]}>{children}</MemoryRouter>
+      </QueryClientProvider>
+    );
+  }
+
+  it('publicar tras entrar por URL muestra la pantalla de éxito, no una en blanco', async () => {
+    const mutateAsync = vi.fn().mockResolvedValue({
+      pet: { id: 'pet-2', name: 'Sin nombre', type: 'perro', status: 'stray', photos: [] },
+      failedPhotoIndexes: [],
+    });
+    vi.mocked(usePublishStray).mockReturnValue({
+      mutateAsync,
+      isPending: false,
+    } as unknown as ReturnType<typeof usePublishStray>);
+
+    // Nunca se pasa por el selector: es literalmente lo que deja un F5.
+    render(<PublishWizardPage />, { wrapper: wrapperEn('/publish?paso=stray-form') });
+
+    const file = new File(['fake'], 'stray.jpg', { type: 'image/jpeg' });
+    fireEvent.change(screen.getByLabelText('publish:strayForm.photoLabel'), { target: { files: [file] } });
+    fireEvent.change(screen.getByLabelText('publish:strayForm.typeLabel'), { target: { value: 'perro' } });
+    fireEvent.click(screen.getByText('publish:strayForm.next'));
+    fireEvent.click(screen.getByText('publish:location.publish'));
+
+    // La mascota se creaba igual — el defecto no era el publish, era el render:
+    // el guard de `success` exige un intent que el F5 se había llevado, así que
+    // quedaba una pantalla EN BLANCO sobre una mascota que existía de verdad.
+    expect(mutateAsync).toHaveBeenCalledTimes(1);
+    expect(await screen.findByText('publish:success.strayTitle')).toBeInTheDocument();
+  });
+
+  it('sin sesión, entrar por URL sigue mostrando el login en vez de mandar un 401', async () => {
+    authState.isAuthenticated = false;
+    authState.user = null;
+    const mutateAsync = vi.fn();
+    vi.mocked(usePublishStray).mockReturnValue({
+      mutateAsync,
+      isPending: false,
+    } as unknown as ReturnType<typeof usePublishStray>);
+
+    render(<PublishWizardPage />, { wrapper: wrapperEn('/publish?paso=stray-form') });
+
+    const file = new File(['fake'], 'stray.jpg', { type: 'image/jpeg' });
+    fireEvent.change(screen.getByLabelText('publish:strayForm.photoLabel'), { target: { files: [file] } });
+    fireEvent.change(screen.getByLabelText('publish:strayForm.typeLabel'), { target: { value: 'perro' } });
+    fireEvent.click(screen.getByText('publish:strayForm.next'));
+    fireEvent.click(screen.getByText('publish:location.publish'));
+
+    // El desvío al login lo decidía `wizard.intent === 'stray'`, que con el
+    // intent en null daba false: la publicación salía sin sesión y volvía 401.
+    expect(await screen.findByText('publish:auth.title')).toBeInTheDocument();
+    expect(mutateAsync).not.toHaveBeenCalled();
+  });
+});
+
+// Meter los pasos en el history convirtió al botón atrás del navegador en una
+// superficie nueva, y la pantalla de éxito no tenía defensa contra él.
+describe('PublishWizardPage — el back del navegador después de publicar', () => {
+  function wrapperConBack({ children }: { children: React.ReactNode }) {
+    return (
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <MemoryRouter initialEntries={['/publish']}>
+          {children}
+          <BackButton />
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+  }
+
+  it('no reabre el formulario que ya publicó', async () => {
+    const mutateAsync = vi.fn().mockResolvedValue({
+      pet: { id: 'pet-2', name: 'Sin nombre', type: 'perro', status: 'stray', photos: [] },
+      failedPhotoIndexes: [],
+    });
+    vi.mocked(usePublishStray).mockReturnValue({
+      mutateAsync,
+      isPending: false,
+    } as unknown as ReturnType<typeof usePublishStray>);
+
+    render(<PublishWizardPage />, { wrapper: wrapperConBack });
+
+    fireEvent.click(screen.getByText('publish:intent.strayTitle'));
+    const file = new File(['fake'], 'stray.jpg', { type: 'image/jpeg' });
+    fireEvent.change(screen.getByLabelText('publish:strayForm.photoLabel'), { target: { files: [file] } });
+    fireEvent.change(screen.getByLabelText('publish:strayForm.typeLabel'), { target: { value: 'perro' } });
+    fireEvent.click(screen.getByText('publish:strayForm.next'));
+    fireEvent.click(screen.getByText('publish:location.publish'));
+
+    expect(await screen.findByText('publish:success.strayTitle')).toBeInTheDocument();
+    expect(mutateAsync).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByText('ir-atras'));
+
+    // Un back aterrizaba en el formulario de ubicación con el borrador entero
+    // vivo y su botón "Publicar" funcionando: tocarlo creaba una SEGUNDA
+    // mascota. Ahora el paso previo ya no puede renderizarse.
+    expect(screen.getByText('publish:success.strayTitle')).toBeInTheDocument();
+    expect(screen.queryByText('publish:location.publish')).not.toBeInTheDocument();
+    expect(mutateAsync).toHaveBeenCalledTimes(1);
   });
 });

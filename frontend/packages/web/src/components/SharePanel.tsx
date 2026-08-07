@@ -4,10 +4,10 @@
 // Incluye QR code (qrcode.react) y WhatsApp template compartido.
 // ============================================================
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { QRCodeSVG, QRCodeCanvas } from 'qrcode.react';
-import { useShareLink } from '@shared/hooks';
+import { useShareLink, useAutoShareLink } from '@shared/hooks';
 import type { Pet, ShareLink } from '@shared/types';
 import { buildWhatsAppMessage } from '@shared/utils/whatsappTemplates';
 import { getExpiryInfo } from '@shared/utils/shareExpiry';
@@ -18,6 +18,22 @@ interface SharePanelProps {
   petId: string;
   petName: string;
   pet: Pet;
+  /**
+   * Muestra las opciones desplegadas, sin el botón que las abre.
+   *
+   * Es para pantallas donde compartir ES la acción principal — la de éxito al
+   * publicar una mascota perdida dice literalmente "Compartí el aviso para que
+   * más personas ayuden a buscarla". Ahí el desplegable molestaba dos veces:
+   * pedía un click de más para la única cosa que la pantalla te pide, y al
+   * abrirse tapaba los botones de abajo, porque es `absolute`.
+   *
+   * En este modo el link se RESUELVE al montar en vez de al hacer click, y por
+   * el endpoint idempotente: montar no es pedir compartir, así que no puede
+   * acuñar una fila ni otorgar los puntos de `share.created`. En el detalle de
+   * mascota, donde compartir es UNA opción entre varias y el click SÍ es una
+   * intención explícita, sigue siendo desplegable, perezoso y protegido.
+   */
+  inline?: boolean;
 }
 
 const PLATFORMS: {
@@ -60,7 +76,7 @@ const PLATFORMS: {
   },
 ];
 
-export function SharePanel({ petId, petName, pet }: SharePanelProps) {
+export function SharePanel({ petId, petName, pet, inline = false }: SharePanelProps) {
   const { t, i18n } = useTranslation();
   const [open, setOpen] = useState(false);
   const [shareLink, setShareLink] = useState<ShareLink | null>(null);
@@ -68,6 +84,11 @@ export function SharePanel({ petId, petName, pet }: SharePanelProps) {
   const [isSharingStory, setIsSharingStory] = useState(false);
   const [storyMessage, setStoryMessage] = useState<string | null>(null);
   const generateLink = useShareLink();
+  const autoLink = useAutoShareLink();
+  const [autoError, setAutoError] = useState(false);
+  // Un contador, no un booleano: el reintento vuelve a disparar el mismo efecto
+  // en vez de duplicar su lógica en un handler aparte.
+  const [autoAttempt, setAutoAttempt] = useState(0);
 
   // Ref al div contenedor del QR canvas oculto (para descarga en alta resolución)
   const qrContainerRef = useRef<HTMLDivElement | null>(null);
@@ -84,6 +105,38 @@ export function SharePanel({ petId, petName, pet }: SharePanelProps) {
   const posterHeader = isAdoption
     ? '¡EN ADOPCIÓN!'
     : pet.status === 'found' ? '¡MASCOTA ENCONTRADA!' : '¡MASCOTA PERDIDA!';
+
+  // En modo inline no hay click que dispare la resolución, así que se pide al
+  // montar. `petId` en las deps y el guard de `shareLink` evitan repetirlo.
+  //
+  // Va por `useAutoShareLink` y NO por `useShareLink`: el segundo pega al
+  // endpoint protegido, que siempre INSERTA una fila y publica `share.created`
+  // (+2 puntos). Desde un efecto de montaje eso acreditaba un compartir que
+  // nunca ocurrió, una vez por publicación — y dos veces en dev, porque
+  // StrictMode invoca los efectos dos veces.
+  useEffect(() => {
+    if (!inline || shareLink) return;
+    let vigente = true;
+    setAutoError(false);
+    autoLink
+      .mutateAsync({ petID: petId })
+      .then((r) => {
+        // Si el componente se desmontó mientras viajaba, no se setea estado.
+        if (vigente) setShareLink(r);
+      })
+      .catch(() => {
+        // Sin esto el panel quedaba MUERTO y en silencio: en modo inline el
+        // botón —único spinner y único reintento— no se renderiza, así que ante
+        // un 502 de cold start de Render los cuatro botones de plataforma
+        // quedaban `disabled` para siempre, sin URL, sin QR y sin un cartel que
+        // dijera nada. La única salida era recargar la página entera.
+        if (vigente) setAutoError(true);
+      });
+    return () => {
+      vigente = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inline, petId, autoAttempt]);
 
   const handleOpen = async () => {
     if (open) {
@@ -205,8 +258,11 @@ export function SharePanel({ petId, petName, pet }: SharePanelProps) {
     a.click();
   };
 
+  const abierto = inline || open;
+
   return (
-    <div className="relative">
+    <div className={inline ? undefined : "relative"}>
+      {!inline && (
       <button
         onClick={handleOpen}
         disabled={generateLink.isPending}
@@ -224,23 +280,62 @@ export function SharePanel({ petId, petName, pet }: SharePanelProps) {
           </>
         )}
       </button>
+      )}
 
-      {open && (
+      {abierto && (
         <>
-          {/* Overlay para cerrar al hacer click afuera */}
-          <div
-            className="fixed inset-0 z-10"
-            onClick={() => setOpen(false)}
-          />
+          {/* Overlay para cerrar al hacer click afuera. En modo inline no hay
+              nada que cerrar, y un `fixed inset-0` taparía la página entera. */}
+          {!inline && (
+            <div
+              className="fixed inset-0 z-10"
+              onClick={() => setOpen(false)}
+            />
+          )}
 
-          {/* Panel */}
-          <div className="absolute left-0 top-full mt-2 z-20 w-80 bg-white dark:bg-gray-900 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-800 p-4">
+          {/* Panel. Inline ocupa el flujo normal —por eso no lleva `absolute`
+              ni z-index— y así deja de taparle los botones a lo que sigue. */}
+          <div
+            className={
+              inline
+                ? 'w-80 mx-auto bg-white dark:bg-gray-900 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-800 p-4 text-left'
+                : 'absolute left-0 top-full mt-2 z-20 w-80 bg-white dark:bg-gray-900 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-800 p-4'
+            }
+          >
             <p className="text-sm font-bold text-gray-900 dark:text-gray-100 mb-1">
               {t('pets:share.title', { name: petName })}
             </p>
             <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
               {t('pets:share.subtitle')}
             </p>
+
+            {/* Estado de la resolución inline. En modo desplegable esto lo
+                cubre el propio botón, que muestra el spinner y se puede volver
+                a tocar; acá no hay botón, así que el spinner y el reintento
+                tienen que vivir adentro del panel. */}
+            {inline && !shareLink && (
+              <div className="mb-3 text-center" data-testid="share-inline-status">
+                {autoLink.isPending ? (
+                  <p className="inline-flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                    <Icon name="spinner" className="animate-spin shrink-0" />
+                    {t('pets:share.generating')}
+                  </p>
+                ) : autoError ? (
+                  <>
+                    <p className="text-xs text-red-500 dark:text-red-400 mb-1">
+                      {t('pets:share.loadError')}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setAutoAttempt((n) => n + 1)}
+                      className="text-xs font-semibold text-primary hover:text-primary-dark"
+                    >
+                      {t('pets:share.retry')}
+                    </button>
+                  </>
+                ) : null}
+              </div>
+            )}
 
             {/* Plataformas */}
             <div className="grid grid-cols-2 gap-2 mb-3">

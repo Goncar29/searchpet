@@ -179,7 +179,7 @@ export function CreateReportPage() {
             </p>
           </div>
 
-          <SharePanel petId={publishedPet.id} petName={publishedPet.name} pet={publishedPet} />
+          <SharePanel petId={publishedPet.id} petName={publishedPet.name} pet={publishedPet} inline />
 
           <div className="flex flex-wrap justify-center gap-3">
             <Link
@@ -223,7 +223,13 @@ export function CreateReportPage() {
                   <PawPlaceholder className="w-6" />
                   <div>
                     <p className="font-semibold text-gray-900 dark:text-gray-100 text-sm">{presetPet.name}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">{presetPet.type}</p>
+                    {/* El valor crudo (`perro`, `gato`) es el que guarda la base:
+                        sin traducir se leía en minúscula y en español aunque la
+                        app estuviera en inglés o portugués. Mismo patrón que
+                        LostPetStep.tsx:94. */}
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      {t(`pets:types.${presetPet.type}`)}
+                    </p>
                   </div>
                 </div>
               ) : (
@@ -243,7 +249,12 @@ export function CreateReportPage() {
                 <option value="">— {t('reports:create.selectPet')} —</option>
                 {myPets?.map((pet) => (
                   <option key={pet.id} value={pet.id}>
-                    {pet.name} ({pet.type}{pet.breed ? ` · ${pet.breed}` : ''})
+                    {/* Mismo motivo que la rama de arriba: el tipo se guarda
+                        crudo y sin traducir se leía `perro` aun con la app en
+                        inglés o portugués. Esta rama es el flujo DIRECTO
+                        (/reports/create sin ?petId=), así que era la más vista
+                        de las dos. */}
+                    {pet.name} ({t(`pets:types.${pet.type}`)}{pet.breed ? ` · ${pet.breed}` : ''})
                   </option>
                 ))}
               </select>

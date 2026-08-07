@@ -710,6 +710,31 @@ class APIClient {
     }
   }
 
+  // Resolver for share UIs that open WITHOUT the user asking — the inline panel
+  // on the publish-success screens, which resolves the link on mount.
+  //
+  // Deliberately the MIRROR of getOrCreateShareLink: the idempotent public
+  // endpoint goes FIRST and the protected creator is only a fallback. The
+  // protected one ALWAYS inserts a row and publishes `share.created`, which
+  // grants +2 gamification points — so calling it from a mount effect credited
+  // a share that never happened, once per publish. The public endpoint reuses
+  // the pet's existing link and awards nothing.
+  //
+  // The fallback exists because the public endpoint is gated to lost/stray, so
+  // an adoption pet 404s there. On that one path a link is minted and the
+  // points are granted — acceptable, because it is the first link of a pet the
+  // user just published, which is the case the points were written for.
+  async autoResolveShareLink(petID: string): Promise<ShareLink> {
+    try {
+      return await this.getOrCreatePublicShareLink(petID);
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 404 && this.token) {
+        return this.generateShareLink(petID);
+      }
+      throw err;
+    }
+  }
+
   async getSharedPet(token: string): Promise<SharedPetResponse> {
     return this.request<SharedPetResponse>('GET', `/api/share/pet/${token}`);
   }

@@ -9,6 +9,16 @@ module.exports = {
     'node_modules/\\.pnpm/.+/node_modules/(?!((jest-)?react-native|@react-native(-community)?|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@unimodules/.*|unimodules|sentry-expo|native-base|react-native-svg|@shopify/.*))',
   ],
   testMatch: ['**/__tests__/**/*.test.(ts|tsx|js)'],
+  // El default de jest son 5s, y al PRIMER test de una corrida en frío no le
+  // alcanzan: paga la transpilación de todo el grafo de React Native antes de
+  // ejecutar una sola línea. Medido — con `npx jest --clearCache` previo,
+  // GoogleSignInButton.test.tsx se pasaba de los 5s y su suite tardaba 11.2s;
+  // con la caché tibia pasa en milisegundos.
+  //
+  // Un runner de CI SIEMPRE arranca en frío, así que esto es un rojo esperando
+  // a que le toque a cualquiera. No se sube el timeout de ESE test porque el
+  // test no es lento: lento es el primer arranque, y le puede tocar a otro.
+  testTimeout: 30000,
   setupFilesAfterEnv: ['./jest.setup.js'],
   moduleNameMapper: {
     // Los helpers de @babel/runtime se resuelven desde el directorio del
