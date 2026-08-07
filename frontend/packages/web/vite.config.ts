@@ -45,8 +45,41 @@ function generateSW(env: Record<string, string>) {
   fs.writeFileSync(outputPath, content, 'utf-8');
 }
 
+// Vercel sirve /_vercel/* (el script de Speed Insights y su beacon) desde su
+// propia infraestructura. Fuera de Vercel esa ruta no existe, y el fallback SPA
+// de vite devuelve index.html — así que el navegador recibe HTML donde esperaba
+// JavaScript y tira `Unexpected token '<'`.
+//
+// Eso rompió el E2E de verdad: map.spec.ts afirma que no hay errores de consola
+// y fallaba, también en el reintento. Y es exactamente lo que la regla #28
+// prohíbe para el service worker: NUNCA devolver index.html ante un asset,
+// porque el navegador lo rechaza por MIME y falla en silencio.
+//
+// Contestar 404 es lo honesto: la ruta no existe en este entorno. El script no
+// carga, Speed Insights no mide nada fuera de Vercel —que es lo correcto— y
+// nadie recibe HTML disfrazado de JS.
+function vercelPaths404(): Plugin {
+  const cortar = (req: { url?: string }, res: { statusCode: number; end: () => void }, next: () => void) => {
+    if (req.url?.startsWith('/_vercel/')) {
+      res.statusCode = 404;
+      res.end();
+      return;
+    }
+    next();
+  };
+  return {
+    name: 'vercel-paths-404',
+    configureServer(server) {
+      server.middlewares.use(cortar);
+    },
+    configurePreviewServer(server) {
+      server.middlewares.use(cortar);
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [react(), tailwindcss(), firebaseSwPlugin()],
+  plugins: [react(), tailwindcss(), firebaseSwPlugin(), vercelPaths404()],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
