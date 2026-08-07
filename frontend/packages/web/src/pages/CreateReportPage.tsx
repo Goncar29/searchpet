@@ -179,7 +179,7 @@ export function CreateReportPage() {
             </p>
           </div>
 
-          <SharePanel petId={publishedPet.id} petName={publishedPet.name} pet={publishedPet} />
+          <SharePanel petId={publishedPet.id} petName={publishedPet.name} pet={publishedPet} inline />
 
           <div className="flex flex-wrap justify-center gap-3">
             <Link

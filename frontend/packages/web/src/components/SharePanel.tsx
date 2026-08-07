@@ -4,7 +4,7 @@
 // Incluye QR code (qrcode.react) y WhatsApp template compartido.
 // ============================================================
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { QRCodeSVG, QRCodeCanvas } from 'qrcode.react';
 import { useShareLink } from '@shared/hooks';
@@ -18,6 +18,21 @@ interface SharePanelProps {
   petId: string;
   petName: string;
   pet: Pet;
+  /**
+   * Muestra las opciones desplegadas, sin el botón que las abre.
+   *
+   * Es para pantallas donde compartir ES la acción principal — la de éxito al
+   * publicar una mascota perdida dice literalmente "Compartí el aviso para que
+   * más personas ayuden a buscarla". Ahí el desplegable molestaba dos veces:
+   * pedía un click de más para la única cosa que la pantalla te pide, y al
+   * abrirse tapaba los botones de abajo, porque es `absolute`.
+   *
+   * En este modo el link se genera al montar en vez de al hacer click. Es una
+   * request extra, y se acepta a propósito: en esa pantalla el usuario viene a
+   * compartir. En el detalle de mascota, donde compartir es UNA opción entre
+   * varias, sigue siendo desplegable y perezoso.
+   */
+  inline?: boolean;
 }
 
 const PLATFORMS: {
@@ -60,7 +75,7 @@ const PLATFORMS: {
   },
 ];
 
-export function SharePanel({ petId, petName, pet }: SharePanelProps) {
+export function SharePanel({ petId, petName, pet, inline = false }: SharePanelProps) {
   const { t, i18n } = useTranslation();
   const [open, setOpen] = useState(false);
   const [shareLink, setShareLink] = useState<ShareLink | null>(null);
@@ -84,6 +99,24 @@ export function SharePanel({ petId, petName, pet }: SharePanelProps) {
   const posterHeader = isAdoption
     ? '¡EN ADOPCIÓN!'
     : pet.status === 'found' ? '¡MASCOTA ENCONTRADA!' : '¡MASCOTA PERDIDA!';
+
+  // En modo inline no hay click que dispare la generación, así que se pide al
+  // montar. `petId` en las deps y el guard de `shareLink` evitan repetirlo.
+  useEffect(() => {
+    if (!inline || shareLink || generateLink.isPending) return;
+    let vigente = true;
+    generateLink
+      .mutateAsync({ petID: petId })
+      .then((r) => {
+        // Si el componente se desmontó mientras viajaba, no se setea estado.
+        if (vigente) setShareLink(r);
+      })
+      .catch(() => {});
+    return () => {
+      vigente = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inline, petId]);
 
   const handleOpen = async () => {
     if (open) {
@@ -205,8 +238,11 @@ export function SharePanel({ petId, petName, pet }: SharePanelProps) {
     a.click();
   };
 
+  const abierto = inline || open;
+
   return (
-    <div className="relative">
+    <div className={inline ? undefined : "relative"}>
+      {!inline && (
       <button
         onClick={handleOpen}
         disabled={generateLink.isPending}
@@ -224,17 +260,28 @@ export function SharePanel({ petId, petName, pet }: SharePanelProps) {
           </>
         )}
       </button>
+      )}
 
-      {open && (
+      {abierto && (
         <>
-          {/* Overlay para cerrar al hacer click afuera */}
-          <div
-            className="fixed inset-0 z-10"
-            onClick={() => setOpen(false)}
-          />
+          {/* Overlay para cerrar al hacer click afuera. En modo inline no hay
+              nada que cerrar, y un `fixed inset-0` taparía la página entera. */}
+          {!inline && (
+            <div
+              className="fixed inset-0 z-10"
+              onClick={() => setOpen(false)}
+            />
+          )}
 
-          {/* Panel */}
-          <div className="absolute left-0 top-full mt-2 z-20 w-80 bg-white dark:bg-gray-900 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-800 p-4">
+          {/* Panel. Inline ocupa el flujo normal —por eso no lleva `absolute`
+              ni z-index— y así deja de taparle los botones a lo que sigue. */}
+          <div
+            className={
+              inline
+                ? 'w-80 mx-auto bg-white dark:bg-gray-900 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-800 p-4 text-left'
+                : 'absolute left-0 top-full mt-2 z-20 w-80 bg-white dark:bg-gray-900 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-800 p-4'
+            }
+          >
             <p className="text-sm font-bold text-gray-900 dark:text-gray-100 mb-1">
               {t('pets:share.title', { name: petName })}
             </p>
