@@ -27,15 +27,32 @@ allowBuilds:
 overrides:
   form-data: '>=4.0.6'
   postcss: '>=8.5.18'
-  undici: '7.27.2'
+  undici: '>=7.29.0 <8'
   websocket-driver: '>=0.7.5'
 
-# Ignore the three HIGH undici advisories that only reach us through the
-# dev-only vitest>jsdom>undici test path. They cover undici's SOCKS5
-# ProxyAgent and WebSocket client — features jsdom never exercises in the
-# test runner, and undici is never bundled into the shipped app. The fix
-# (undici >=7.28) is incompatible with jsdom@29.1.1 (latest), so we cannot
-# upgrade out of them yet. Revisit when jsdom supports undici 7.28+.
+# El override de undici estuvo clavado en 7.27.2 con el motivo de que la
+# version parcheada era incompatible con jsdom@29.1.1. Ese motivo quedo
+# VIEJO: se probo con jsdom 29.1.1 sin tocar, y undici 7.29.0 pasa la suite
+# entera (48 archivos web + 12 de shared). Verificado el 2026-08-06.
+#
+# Subir el pin de 7.27.2 a >=7.29.0 <8 arregla CUATRO advisories high de una:
+# los tres que estaban en ignoreGhsas (SOCKS5 ProxyAgent, WebSocket DoS,
+# reuso del pool del proxy) mas GHSA-4cwx-7wf7-3272, publicado despues y que
+# 7.27.2 no esquivaba. Total de vulnerabilidades: de 19 a 7.
+#
+# El tope <8 NO es prudencia: es el limite exacto, medido.
+#
+# jsdom-dispatcher.js hace require("undici/lib/handler/wrap-handler.js").
+# Ese archivo existe en 7.27.2 y en 7.29.0, y NO existe en 8.10.0 — o sea que
+# undici 8 rompe jsdom, y 7.29.0 no. Comprobado listando el directorio de cada
+# version instalada, no deducido.
+#
+# Main afirmaba que jsdom "breaks on >=7.28.0" y que por eso el parche era
+# inalcanzable, e ignoraba GHSA-4cwx-7wf7-3272 por ese motivo. La rotura esta
+# en 8.x, no en 7.28+: el advisory SI se puede arreglar, y por eso el ignore se
+# saca en vez de conservarse. Ojo que la suite pasa igual con undici 8 —los
+# tests mockean la red y nunca llegan al dispatcher de jsdom—, asi que el verde
+# no habria detectado la incompatibilidad.
 #
 # Also ignore the react-router RSC CSRF advisory. Its own text states: "This
 # only affects your application if you are using the unstable RSC APIs." The
@@ -47,15 +64,4 @@ overrides:
 # cannot reach. Revisit if the app ever adopts RSC or framework mode.
 auditConfig:
   ignoreGhsas:
-    - GHSA-vmh5-mc38-953g # undici TLS cert validation bypass (SOCKS5 ProxyAgent)
-    - GHSA-vxpw-j846-p89q # undici WebSocket client DoS (fragment count bypass)
-    - GHSA-hm92-r4w5-c3mj # undici cross-origin routing (SOCKS5 proxy pool reuse)
-    # undici cache interceptor: private="" se guarda en la cache compartida y
-    # puede servirse a otro caller, y `private, private="x"` en el mismo header
-    # tira un TypeError. Leido el cuerpo del advisory, no el titulo: LOS DOS
-    # vectores exigen `interceptors.cache()` habilitado. Nadie lo habilita aca
-    # —undici solo aparece en los lockfiles, via jsdom en el runner de tests— y
-    # nunca se empaqueta en la app. El parche es undici >=7.29, incompatible con
-    # jsdom@29.1.1 igual que los tres de arriba. Revisar cuando jsdom soporte 7.28+.
-    - GHSA-4cwx-7wf7-3272
     - GHSA-qwww-vcr4-c8h2 # react-router CSRF bypass in unstable RSC mode (unused)
