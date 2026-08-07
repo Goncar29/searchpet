@@ -443,6 +443,10 @@ export interface InitialReportRequest {
   latitude: number;
   longitude: number;
   note?: string;
+  // ISO 8601. Opcional y nunca futura: el backend rechaza con invalid_input.
+  // Sin esto el reporte sólo dice DÓNDE, y entre lo que pasó y la publicación
+  // suelen pasar días — created_at no sustituye a cuándo ocurrió.
+  occurred_at?: string;
 }
 
 export interface CreatePetRequest {
@@ -463,6 +467,9 @@ export interface PublishLostRequest {
   latitude: number;
   longitude: number;
   note?: string;
+  // ISO 8601. Opcional y nunca futura. Es donde más pesa: buscar sin saber
+  // desde cuándo cambia por completo el radio razonable.
+  occurred_at?: string;
 }
 
 export interface UpdatePetRequest {

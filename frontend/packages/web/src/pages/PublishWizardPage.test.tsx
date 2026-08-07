@@ -3,7 +3,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter, useLocation } from 'react-router';
 import { QueryClientProvider, QueryClient } from '@tanstack/react-query';
 import { PublishWizardPage } from './PublishWizardPage';
-import { useMyPets, useCreatePet } from '@shared/hooks';
+import { useMyPets, useCreatePet, usePublishStray } from '@shared/hooks';
 import { apiClient } from '@shared/api/client';
 
 vi.mock('react-i18next', () => ({
@@ -209,6 +209,17 @@ describe('PublishWizardPage — adoption path', () => {
 });
 
 describe('PublishWizardPage — location step', () => {
+  // Los casos de fecha pisan usePublishStray para inspeccionar el payload.
+  // `mockReturnValue` NO se revierte solo entre tests, asi que sin esto el
+  // mock se filtra a los describes siguientes y les rompe el paso de exito.
+  const strayPorDefecto = vi.mocked(usePublishStray).getMockImplementation();
+  afterEach(() => {
+    authState.isAuthenticated = true;
+    authState.user = { id: 'user-1', name: 'Carlos' };
+
+    if (strayPorDefecto) vi.mocked(usePublishStray).mockImplementation(strayPorDefecto);
+  });
+
   // Se llega por el camino de callejera, que es el único que queda usando el
   // paso de ubicación del wizard: el de mascota perdida deriva al formulario
   // de reporte.
@@ -229,6 +240,136 @@ describe('PublishWizardPage — location step', () => {
 
     // Con sesión abierta publica directo — no aparece el paso de auth.
     expect(screen.queryByText('publish:auth.title')).not.toBeInTheDocument();
+  });
+
+  // El reporte inicial solo podia decir DONDE. Entre que alguien ve una
+  // callejera y llega a publicarla pueden pasar dias, asi que created_at no
+  // sustituye a cuando ocurrio.
+  it('manda la fecha del avistamiento en el reporte inicial', async () => {
+    const mutateAsync = vi.fn().mockResolvedValue({
+      pet: { id: 'pet-2', name: 'Sin nombre', type: 'perro', status: 'stray', photos: [] },
+      failedPhotoIndexes: [],
+    });
+    vi.mocked(usePublishStray).mockReturnValue({
+      mutateAsync,
+      isPending: false,
+    } as unknown as ReturnType<typeof usePublishStray>);
+
+    render(<PublishWizardPage />, { wrapper });
+    fireEvent.click(screen.getByText('publish:intent.strayTitle'));
+
+    const file = new File(['fake'], 'stray.jpg', { type: 'image/jpeg' });
+    fireEvent.change(screen.getByLabelText('publish:strayForm.photoLabel'), { target: { files: [file] } });
+    fireEvent.change(screen.getByLabelText('publish:strayForm.typeLabel'), { target: { value: 'perro' } });
+    fireEvent.click(screen.getByText('publish:strayForm.next'));
+
+    fireEvent.change(screen.getByLabelText('publish:location.dateLabel'), { target: { value: '2026-08-04' } });
+    fireEvent.click(screen.getByText('publish:location.publish'));
+
+    // Se afirma el DIA que se lee de vuelta, no un string UTC literal: mandar
+    // `2026-08-04T00:00:00Z` guardaba el 3 en toda zona al oeste de Greenwich.
+    // Un literal ataria el test a la zona del runner y taparia justo ese bug.
+    const enviado = mutateAsync.mock.calls[0][0].pet.initial_report.occurred_at as string;
+    const vuelta = new Date(enviado);
+    expect(
+      `${vuelta.getFullYear()}-${String(vuelta.getMonth() + 1).padStart(2, '0')}-${String(vuelta.getDate()).padStart(2, '0')}`,
+    ).toBe('2026-08-04');
+  });
+
+  // Sin fecha el campo no viaja: es opcional y el backend lo deja en NULL.
+  it('sin fecha no manda occurred_at', () => {
+    const mutateAsync = vi.fn().mockResolvedValue({
+      pet: { id: 'pet-2', name: 'Sin nombre', type: 'perro', status: 'stray', photos: [] },
+      failedPhotoIndexes: [],
+    });
+    vi.mocked(usePublishStray).mockReturnValue({
+      mutateAsync,
+      isPending: false,
+    } as unknown as ReturnType<typeof usePublishStray>);
+
+    render(<PublishWizardPage />, { wrapper });
+    fireEvent.click(screen.getByText('publish:intent.strayTitle'));
+
+    const file = new File(['fake'], 'stray.jpg', { type: 'image/jpeg' });
+    fireEvent.change(screen.getByLabelText('publish:strayForm.photoLabel'), { target: { files: [file] } });
+    fireEvent.change(screen.getByLabelText('publish:strayForm.typeLabel'), { target: { value: 'perro' } });
+    fireEvent.click(screen.getByText('publish:strayForm.next'));
+    fireEvent.click(screen.getByText('publish:location.publish'));
+
+    const enviado = mutateAsync.mock.calls[0][0];
+    expect(enviado.pet.initial_report.occurred_at).toBeUndefined();
+  });
+
+  // El backend rechaza fechas futuras con invalid_input; el input las bloquea
+  // antes, para que el limite se vea en vez de llegar como error generico.
+  it('el campo de fecha no deja elegir una futura', () => {
+    render(<PublishWizardPage />, { wrapper });
+    fireEvent.click(screen.getByText('publish:intent.strayTitle'));
+
+    const file = new File(['fake'], 'stray.jpg', { type: 'image/jpeg' });
+    fireEvent.change(screen.getByLabelText('publish:strayForm.photoLabel'), { target: { files: [file] } });
+    fireEvent.change(screen.getByLabelText('publish:strayForm.typeLabel'), { target: { value: 'perro' } });
+    fireEvent.click(screen.getByText('publish:strayForm.next'));
+
+    const ahora = new Date();
+    const hoyLocal = `${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, '0')}-${String(ahora.getDate()).padStart(2, '0')}`;
+    expect(screen.getByLabelText('publish:location.dateLabel')).toHaveAttribute('max', hoyLocal);
+  });
+
+  // El `max` orienta al date picker pero NO impide tipear. Sin el chequeo del
+  // cliente, quien escribe una fecha futura recibe el 400 del backend como
+  // "los datos ingresados no son validos": generico, sin decir que campo.
+  it('nombra el problema cuando se tipea una fecha futura, en vez de dejar que conteste el backend', () => {
+    const mutateAsync = vi.fn();
+    vi.mocked(usePublishStray).mockReturnValue({
+      mutateAsync,
+      isPending: false,
+    } as unknown as ReturnType<typeof usePublishStray>);
+
+    render(<PublishWizardPage />, { wrapper });
+    fireEvent.click(screen.getByText('publish:intent.strayTitle'));
+
+    const file = new File(['fake'], 'stray.jpg', { type: 'image/jpeg' });
+    fireEvent.change(screen.getByLabelText('publish:strayForm.photoLabel'), { target: { files: [file] } });
+    fireEvent.change(screen.getByLabelText('publish:strayForm.typeLabel'), { target: { value: 'perro' } });
+    fireEvent.click(screen.getByText('publish:strayForm.next'));
+
+    const manana = new Date(Date.now() + 86400000);
+    const mananaStr = `${manana.getFullYear()}-${String(manana.getMonth() + 1).padStart(2, '0')}-${String(manana.getDate()).padStart(2, '0')}`;
+    fireEvent.change(screen.getByLabelText('publish:location.dateLabel'), { target: { value: mananaStr } });
+    fireEvent.click(screen.getByText('publish:location.publish'));
+
+    expect(mutateAsync).not.toHaveBeenCalled();
+    expect(screen.getByText('publish:location.dateFuture')).toBeInTheDocument();
+  });
+
+  // La ida guarda medianoche LOCAL; la vuelta tiene que leer el dia LOCAL. Con
+  // `iso.slice(0,10)` el campo se rehidrataba con el dia de UTC, que al este de
+  // Greenwich es el anterior, y cada ida y vuelta por el login restaba uno mas.
+  //
+  // El camino real: un visitante SIN sesion llena la ubicacion, toca Publicar,
+  // cae en el login y vuelve con "Atras". Recien ahi wizard.location tiene el
+  // ISO y LocationStep se remonta reinicializando su useState.
+  it('al volver del login el campo conserva el mismo dia que se eligio', async () => {
+    authState.isAuthenticated = false;
+    authState.user = null;
+
+    render(<PublishWizardPage />, { wrapper });
+    fireEvent.click(screen.getByText('publish:intent.strayTitle'));
+
+    const file = new File(['fake'], 'stray.jpg', { type: 'image/jpeg' });
+    fireEvent.change(screen.getByLabelText('publish:strayForm.photoLabel'), { target: { files: [file] } });
+    fireEvent.change(screen.getByLabelText('publish:strayForm.typeLabel'), { target: { value: 'perro' } });
+    fireEvent.click(screen.getByText('publish:strayForm.next'));
+
+    const elegido = '2026-08-04';
+    fireEvent.change(screen.getByLabelText('publish:location.dateLabel'), { target: { value: elegido } });
+    fireEvent.click(screen.getByText('publish:location.publish'));
+
+    expect(await screen.findByText('publish:auth.title')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'publish:backStep' }));
+
+    expect(screen.getByLabelText('publish:location.dateLabel')).toHaveValue(elegido);
   });
 });
 

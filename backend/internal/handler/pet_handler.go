@@ -49,7 +49,10 @@ func (h *PetHandler) CreatePet(c *gin.Context) {
 		// not a valid creation status — i.e. malformed request input, hence 400.
 		// Contrast with PublishLost, where the same error means an existing resource's
 		// current status forbids the transition — a state-machine violation, hence 422.
-		if errors.Is(err, domain.ErrInitialReportRequired) || errors.Is(err, domain.ErrInitialReportNotAllowed) || errors.Is(err, domain.ErrInvalidStatusTransition) {
+		// ErrInvalidInput lo devuelve la validación de initial_report.occurred_at
+		// (fecha futura). Sin él acá, un dato inválido del cliente salía como
+		// 500 "error interno del servidor".
+		if errors.Is(err, domain.ErrInitialReportRequired) || errors.Is(err, domain.ErrInitialReportNotAllowed) || errors.Is(err, domain.ErrInvalidStatusTransition) || errors.Is(err, domain.ErrInvalidInput) {
 			writeError(c, http.StatusBadRequest, err)
 			return
 		}
@@ -384,6 +387,14 @@ func (h *PetHandler) PublishLost(c *gin.Context) {
 		}
 		if errors.Is(err, domain.ErrInvalidStatusTransition) {
 			writeError(c, http.StatusUnprocessableEntity, err)
+			return
+		}
+		// Una fecha futura en occurred_at es culpa del cliente, no nuestra.
+		// Sin esta rama caía en el 500 de abajo: el usuario veía "error interno
+		// del servidor" ante un dato suyo inválido, y el frontend no podía
+		// decirle qué corregir.
+		if errors.Is(err, domain.ErrInvalidInput) {
+			writeError(c, http.StatusBadRequest, err)
 			return
 		}
 		writeError(c, http.StatusInternalServerError, domain.ErrInternal)

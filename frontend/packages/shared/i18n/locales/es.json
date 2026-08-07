@@ -472,6 +472,10 @@
       "locationDenied": "No pudimos acceder a tu ubicación. Mové el pin manualmente.",
       "noteLabel": "Nota (opcional)",
       "notePlaceholder": "Ej: cerca de la plaza, con collar rojo...",
+      "dateLabel": "¿Cuándo fue? (opcional)",
+      "dateHelp": "Si no la ponés, se usa la fecha de hoy.",
+      "dateInvalid": "Usá el formato AAAA-MM-DD, por ejemplo 2026-08-04.",
+      "dateFuture": "La fecha no puede ser futura.",
       "publish": "Publicar",
       "back": "Atrás"
     },

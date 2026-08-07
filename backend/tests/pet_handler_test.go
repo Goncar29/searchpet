@@ -1096,3 +1096,85 @@ func TestCreatePetHandler_InitialReportNotAllowed_Returns400(t *testing.T) {
 		t.Errorf("expected code 'initial_report_not_allowed', got %q", resp.Code)
 	}
 }
+
+// Una fecha futura en occurred_at es un dato invalido del CLIENTE. El servicio
+// devuelve ErrInvalidInput, pero ninguno de los dos handlers lo mapeaba: caia
+// en el else y salia como 500 "error interno del servidor". El usuario veia un
+// error nuestro ante un dato suyo, y getErrorMessage no podia decirle que
+// corregir.
+//
+// Los tests del servicio no podian ver esto: prueban que el servicio devuelve
+// ErrInvalidInput, que era cierto todo el tiempo. La traduccion a HTTP vive una
+// capa mas arriba.
+func TestPublishLostHandler_FechaFutura_Returns400(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	svc := &mockPetService{
+		publishLostFn: func(_, _ string, _ dto.PublishLostRequest) (*domain.Pet, error) {
+			return nil, domain.ErrInvalidInput
+		},
+	}
+	h := handler.NewPetHandler(svc, nil)
+
+	r := gin.New()
+	r.POST("/api/pets/:id/publish-lost", func(c *gin.Context) {
+		c.Set("userID", uuid.New())
+		h.PublishLost(c)
+	})
+
+	body, _ := json.Marshal(map[string]interface{}{
+		"latitude": -34.9011, "longitude": -56.1645, "occurred_at": "2030-01-01T00:00:00Z",
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/pets/"+uuid.New().String()+"/publish-lost", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("esperaba 400, obtuve %d: %s", w.Code, w.Body.String())
+	}
+	var resp map[string]string
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if resp["code"] != "invalid_input" {
+		t.Errorf("esperaba code invalid_input, obtuve %q (cuerpo: %s)", resp["code"], w.Body.String())
+	}
+}
+
+func TestCreatePetHandler_FechaFuturaEnInitialReport_Returns400(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	svc := &mockPetService{
+		createPetFn: func(_ string, _ dto.CreatePetRequest) (*domain.Pet, error) {
+			return nil, domain.ErrInvalidInput
+		},
+	}
+	h := handler.NewPetHandler(svc, nil)
+
+	r := gin.New()
+	r.POST("/api/pets", func(c *gin.Context) {
+		c.Set("userID", uuid.New())
+		h.CreatePet(c)
+	})
+
+	body, _ := json.Marshal(map[string]interface{}{
+		"name": "Sin nombre", "type": "perro", "status": "stray",
+		"initial_report": map[string]interface{}{
+			"latitude": -34.9, "longitude": -56.1, "occurred_at": "2030-01-01T00:00:00Z",
+		},
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/pets", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("esperaba 400, obtuve %d: %s", w.Code, w.Body.String())
+	}
+	var resp map[string]string
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if resp["code"] != "invalid_input" {
+		t.Errorf("esperaba code invalid_input, obtuve %q", resp["code"])
+	}
+}

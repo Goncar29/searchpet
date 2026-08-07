@@ -3,6 +3,7 @@ import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
 import { useTranslation } from 'react-i18next';
 import L from 'leaflet';
 import type { InitialReportRequest } from '@shared/types';
+import { calendarDayToISO, todayAsCalendarDay, isFutureCalendarDay, isoToCalendarDay } from '@shared/utils/reportDate';
 
 const MONTEVIDEO: [number, number] = [-34.9011, -56.1645];
 
@@ -35,7 +36,17 @@ export function LocationStep({ value, onPublish, onBack, isPending }: LocationSt
     value ? [value.latitude, value.longitude] : MONTEVIDEO
   );
   const [note, setNote] = useState(value?.note ?? '');
+  // El día LOCAL del instante guardado, no `iso.slice(0, 10)`: el slice lee el
+  // día en UTC y al este de Greenwich rehidrata el día anterior, restando uno
+  // más en cada ida y vuelta por el paso de login. Ver shared/utils/reportDate.
+  const [date, setDate] = useState(() => isoToCalendarDay(value?.occurred_at));
+  const [dateError, setDateError] = useState<string | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
+
+  // El backend rechaza cualquier fecha futura con invalid_input, así que el
+  // input no deja ni elegirla: es el mismo límite, dicho antes de enviar.
+  // Día LOCAL, no el de toISOString(), que es el de UTC y puede diferir.
+  const today = todayAsCalendarDay();
 
   const useMyLocation = () => {
     setLocationError(null);
@@ -45,8 +56,31 @@ export function LocationStep({ value, onPublish, onBack, isPending }: LocationSt
     );
   };
 
+  // El `max` del input orienta al date picker pero NO impide tipear una fecha
+  // a mano. Sin este chequeo, quien la escribe recibe el 400 del backend como
+  // "los datos ingresados no son válidos": un mensaje genérico que no dice qué
+  // campo ni por qué. Mobile ya nombraba el problema; esto empareja las dos.
   const handlePublish = () => {
-    onPublish({ latitude: position[0], longitude: position[1], note: note.trim() || undefined });
+    if (date && isFutureCalendarDay(date)) {
+      setDateError(t('location.dateFuture'));
+      return;
+    }
+    // Un valor que no parsea devuelve undefined y se iba en SILENCIO: publicaba
+    // sin fecha, sin error y sin decir nada. Sólo pasa donde el input de fecha
+    // degrada a texto, pero descartar dato del usuario sin avisar es peor que
+    // el caso raro que lo produce. Mobile ya nombraba este error.
+    const iso = date ? calendarDayToISO(date) : undefined;
+    if (date && !iso) {
+      setDateError(t('location.dateInvalid'));
+      return;
+    }
+    setDateError(null);
+    onPublish({
+      latitude: position[0],
+      longitude: position[1],
+      note: note.trim() || undefined,
+      occurred_at: iso,
+    });
   };
 
   return (
@@ -90,6 +124,28 @@ export function LocationStep({ value, onPublish, onBack, isPending }: LocationSt
           {locationError}
         </p>
       )}
+
+      <div>
+        <label htmlFor="location-date" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          {t('location.dateLabel')}
+        </label>
+        <input
+          id="location-date"
+          type="date"
+          value={date}
+          max={today}
+          onChange={(e) => {
+            setDate(e.target.value);
+            if (dateError) setDateError(null);
+          }}
+          className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
+        />
+        {dateError ? (
+          <p className="text-xs text-red-500 dark:text-red-400 mt-1">{dateError}</p>
+        ) : (
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{t('location.dateHelp')}</p>
+        )}
+      </div>
 
       <div>
         <label htmlFor="location-note" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">

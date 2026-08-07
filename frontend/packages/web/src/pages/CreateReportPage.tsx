@@ -10,6 +10,7 @@ import type { Pet, ReportStatus } from '@shared/types';
 import { getErrorMessage } from '@shared/utils/apiErrors';
 import { canManagePet } from '@shared/utils/petAuthorization';
 import { useAuth } from '../context/AuthContext';
+import { calendarDayToISO, isFutureCalendarDay } from '@shared/utils/reportDate';
 
 // Fix leaflet default icon paths broken by bundlers
 delete (L.Icon.Default.prototype as { _getIconUrl?: unknown })._getIconUrl;
@@ -117,7 +118,12 @@ export function CreateReportPage() {
     // avisa. Se chequea `!presetLoading` para no bloquear mientras carga.
     else if (petIdSinResolver) errors.petId = t('pets:detail.notFound');
     if (!coord) errors.coord = t('reports:create.noCoord');
-    if (date && new Date(date) > new Date()) errors.date = t('reports:create.noFutureDate');
+    // `new Date(date) > new Date()` comparaba el string como UTC contra el
+    // instante actual: el mismo error de zona que corría la fecha un día.
+    if (date && isFutureCalendarDay(date)) errors.date = t('reports:create.noFutureDate');
+    // Una fecha que no parsea daba undefined y se descartaba en SILENCIO: el
+    // reporte se guardaba sin fecha, sin error y sin avisar nada.
+    else if (date && !calendarDayToISO(date)) errors.date = t('publish:location.dateInvalid');
     setFieldErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -135,7 +141,7 @@ export function CreateReportPage() {
         latitude: coord.lat,
         longitude: coord.lng,
         location_description: description.trim() || undefined,
-        occurred_at: date ? `${date}T00:00:00Z` : undefined,
+        occurred_at: calendarDayToISO(date),
       },
       {
         onSuccess: () => {

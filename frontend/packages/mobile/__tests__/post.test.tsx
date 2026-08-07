@@ -331,3 +331,84 @@ describe('PostScreen — el usuario ya tiene mascotas propias', () => {
     expect(queryByText('publish:lostPet.noneEligible')).toBeNull();
   });
 });
+
+// El reporte inicial de mobile solo podia decir DONDE. Entre que una mascota
+// se pierde y el dueno llega a publicarla pueden pasar dias, asi que la fecha
+// de creacion no sustituye a cuando ocurrio.
+describe('PostScreen — fecha del reporte', () => {
+  const abrirUbicacion = () => {
+    useMyPets.mockReturnValue({
+      data: [{ id: 'pet-1', name: 'Firulais', type: 'perro', status: 'registered', photos: [] }],
+      isLoading: false,
+    });
+    const utils = render(<PostScreen />);
+    fireEvent.press(utils.getByText('publish:intent.lostTitle'));
+    fireEvent.press(utils.getByText('Firulais'));
+    return utils;
+  };
+
+  it('manda la fecha en que se perdio', async () => {
+    const { getByText, getByTestId } = abrirUbicacion();
+    fireEvent.changeText(getByTestId('location-date-input'), '2026-08-04');
+    await act(async () => {
+      fireEvent.press(getByText('publish:location.publish'));
+    });
+
+    // Se afirma el DIA que se lee de vuelta, no un string UTC literal: mandar
+    // `2026-08-04T00:00:00Z` guardaba el 3 en toda zona al oeste de Greenwich,
+    // y un literal ataria el test a la zona del runner tapando ese bug.
+    const enviado = mockPublishLostMutateAsync.mock.calls[0][0].data.occurred_at as string;
+    const vuelta = new Date(enviado);
+    const dia = `${vuelta.getFullYear()}-${String(vuelta.getMonth() + 1).padStart(2, '0')}-${String(vuelta.getDate()).padStart(2, '0')}`;
+    expect(dia).toBe('2026-08-04');
+  });
+
+  it('sin fecha no manda occurred_at', async () => {
+    const { getByText } = abrirUbicacion();
+    await act(async () => {
+      fireEvent.press(getByText('publish:location.publish'));
+    });
+
+    const enviado = mockPublishLostMutateAsync.mock.calls[0][0];
+    expect(enviado.data.occurred_at).toBeUndefined();
+  });
+
+  // Se valida en el cliente porque el backend rechaza con invalid_input
+  // generico, sin decir cual campo: el usuario veria un rojo sin saber que
+  // corregir.
+  it('bloquea una fecha futura y no envia nada', async () => {
+    const manana = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+    const { getByText, getByTestId } = abrirUbicacion();
+    fireEvent.changeText(getByTestId('location-date-input'), manana);
+    await act(async () => {
+      fireEvent.press(getByText('publish:location.publish'));
+    });
+
+    expect(mockPublishLostMutateAsync).not.toHaveBeenCalled();
+    expect(getByText('publish:location.dateFuture')).toBeTruthy();
+  });
+
+  it('bloquea una fecha con formato invalido', async () => {
+    const { getByText, getByTestId } = abrirUbicacion();
+    fireEvent.changeText(getByTestId('location-date-input'), '04/08/2026');
+    await act(async () => {
+      fireEvent.press(getByText('publish:location.publish'));
+    });
+
+    expect(mockPublishLostMutateAsync).not.toHaveBeenCalled();
+    expect(getByText('publish:location.dateInvalid')).toBeTruthy();
+  });
+
+  // 31 de febrero tiene la forma correcta pero no existe: el regex solo no
+  // alcanza, por eso se compara el ISO de vuelta.
+  it('bloquea una fecha con forma valida pero inexistente', async () => {
+    const { getByText, getByTestId } = abrirUbicacion();
+    fireEvent.changeText(getByTestId('location-date-input'), '2026-02-31');
+    await act(async () => {
+      fireEvent.press(getByText('publish:location.publish'));
+    });
+
+    expect(mockPublishLostMutateAsync).not.toHaveBeenCalled();
+    expect(getByText('publish:location.dateInvalid')).toBeTruthy();
+  });
+});
