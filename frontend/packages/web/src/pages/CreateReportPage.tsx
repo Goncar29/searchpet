@@ -223,7 +223,13 @@ export function CreateReportPage() {
                   <PawPlaceholder className="w-6" />
                   <div>
                     <p className="font-semibold text-gray-900 dark:text-gray-100 text-sm">{presetPet.name}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">{presetPet.type}</p>
+                    {/* El valor crudo (`perro`, `gato`) es el que guarda la base:
+                        sin traducir se leía en minúscula y en español aunque la
+                        app estuviera en inglés o portugués. Mismo patrón que
+                        LostPetStep.tsx:94. */}
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      {t(`pets:types.${presetPet.type}`)}
+                    </p>
                   </div>
                 </div>
               ) : (
