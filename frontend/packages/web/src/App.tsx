@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate, useParams } from 'react-router';
 import { SpeedInsights } from '@vercel/speed-insights/react';
+import { Analytics } from '@vercel/analytics/react';
 import { MainLayout } from './layouts/MainLayout';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { AdminRoute } from './components/AdminRoute';
@@ -124,6 +125,7 @@ export default function App() {
       </Routes>
       <InstallPWA />
       <SpeedInsights />
+      <Analytics />
     </>
   );
 }
