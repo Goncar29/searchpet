@@ -113,7 +113,8 @@
       "birthYear": "Ano",
       "birthMonth": "Mês",
       "birthDay": "Dia",
-      "birthDateHint": "Se você não sabe o mês ou o dia, deixe em branco. Ainda ajuda a estimar a idade."
+      "birthDateHint": "Se você não sabe o mês ou o dia, deixe em branco. Ainda ajuda a estimar a idade.",
+      "birthDateInvalid": "Confira a data: não pode ser futura nem um dia inexistente."
     },
     "mine": {
       "title": "Meus pets",
@@ -194,13 +195,7 @@
     "edit": {
       "title": "Editar pet",
       "submit": "Salvar alterações",
-      "replacePhoto": "Envie uma nova para substituir a foto atual",
-      "gender": "Sexo",
-      "birthDate": "Data de nascimento",
-      "birthYear": "Ano",
-      "birthMonth": "Mês",
-      "birthDay": "Dia",
-      "birthDateHint": "Se você não sabe o mês ou o dia, deixe em branco. Ainda ajuda a estimar a idade."
+      "replacePhoto": "Envie uma nova para substituir a foto atual"
     },
     "status": {
       "registered": "Registrado",

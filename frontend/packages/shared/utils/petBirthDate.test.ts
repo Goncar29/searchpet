@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { composeBirthDate, decomposeBirthDate, birthDateYears } from './petBirthDate';
+import {
+  composeBirthDate,
+  decomposeBirthDate,
+  birthDateYears,
+  selectableMonths,
+  selectableDays,
+} from './petBirthDate';
 
 // La precisión se DERIVA de cuánto llenó el usuario. Ese es todo el diseño: si
 // el formulario no tiene un control de precisión separado, el par incoherente
@@ -121,16 +127,55 @@ describe('decomposeBirthDate', () => {
 });
 
 describe('birthDateYears', () => {
-  it('arranca en el año actual y va hacia atrás', () => {
+  it('cubre el mismo rango que el backend, del más nuevo al más viejo', () => {
+    // 150 y no un rango "razonable" más corto: el piso del backend es 150
+    // porque el tipo `otro` incluye tortugas y loros. Con 30, el año de una
+    // mascota longeva era IMPOSIBLE de cargar desde la web — y si ya existía,
+    // el select no tenía la opción, React lo dejaba en selectedIndex = -1, y el
+    // año se veía vacío con mes y día llenos.
     const anios = birthDateYears(new Date(2026, 7, 9));
     expect(anios[0]).toBe(2026);
-    expect(anios[anios.length - 1]).toBe(2026 - 29);
+    expect(anios.at(-1)).toBe(2026 - 150);
+    expect(anios).toHaveLength(151);
+  });
+});
+
+// La otra mitad del arreglo del borrado silencioso: si no se puede ELEGIR una
+// fecha futura, composeBirthDate no tiene por qué rechazarla, y el update no
+// llega nunca al `?? ''` que borraba el par.
+describe('selectableMonths / selectableDays', () => {
+  const hoy = new Date(2026, 7, 9); // 9 de agosto de 2026
+
+  it('un año pasado ofrece los 12 meses y el mes completo', () => {
+    expect(selectableMonths('2022', hoy)).toHaveLength(12);
+    expect(selectableDays('2022', '1', hoy)).toHaveLength(31);
   });
 
-  it('cubre 30 años, dentro del piso de 150 del backend', () => {
-    // El backend rechaza cualquier fecha de más de 150 años (`otro` incluye
-    // tortugas). 30 alcanza de sobra para perros y gatos sin volver el select
-    // inmanejable, y nunca puede producir un valor que el servidor rechace.
-    expect(birthDateYears(new Date(2026, 7, 9))).toHaveLength(30);
+  it('el año EN CURSO se corta en el mes de hoy', () => {
+    const meses = selectableMonths('2026', hoy);
+    expect(meses).toHaveLength(8);
+    expect(meses.at(-1)).toBe(8);
+    expect(meses).not.toContain(12);
+  });
+
+  it('el mes en curso se corta en el día de hoy', () => {
+    const dias = selectableDays('2026', '8', hoy);
+    expect(dias.at(-1)).toBe(9);
+    expect(dias).not.toContain(31);
+  });
+
+  it('un mes pasado del año en curso va completo', () => {
+    expect(selectableDays('2026', '7', hoy)).toHaveLength(31);
+  });
+
+  it('nada de lo ofrecido puede producir una fecha que composeBirthDate rechace', () => {
+    // El invariante que une las dos piezas. Si alguna combinación elegible
+    // devolviera undefined, el update la leería como "borrá el par".
+    for (const m of selectableMonths('2026', hoy)) {
+      for (const d of selectableDays('2026', String(m), hoy)) {
+        const r = composeBirthDate({ year: '2026', month: String(m), day: String(d) }, hoy);
+        expect(r, `2026-${m}-${d} tendría que ser válida`).toBeDefined();
+      }
+    }
   });
 });

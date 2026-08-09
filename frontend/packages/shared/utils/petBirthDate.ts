@@ -29,19 +29,53 @@ export interface BirthDatePayload {
 
 const VACIO: BirthDateParts = { year: '', month: '', day: '' };
 
-/** Cuántos años hacia atrás ofrece el select. Ver el test para el porqué. */
-const YEARS_OFFERED = 30;
-
 /**
  * Los años que ofrece el select, del actual hacia atrás.
  *
- * Se acota a 30 y no a los 150 que tolera el backend: alcanza de sobra para
- * perros y gatos, mantiene el select usable, y —lo que importa— nunca puede
- * producir un año que el servidor rechace.
+ * Cubre los mismos 150 que tolera el backend (`birthDateMaxAge`), no un rango
+ * "razonable" más corto. Una versión anterior ofrecía 30 justificando que
+ * "alcanza para perros y gatos", y eso CONTRADECÍA al dominio: el piso es 150
+ * justamente porque el tipo `otro` incluye tortugas y loros. Dos consecuencias
+ * que se evitan cubriendo el rango completo:
+ *
+ *  - el año de una mascota longeva era imposible de cargar desde la web;
+ *  - si ese valor ya existía (cargado por la API), el `<select>` no tenía la
+ *    opción y React lo dejaba en `selectedIndex = -1`: el año se veía VACÍO
+ *    mientras mes y día seguían llenos, y el dueño podía "corregirlo" eligiendo
+ *    otro año, reescribiendo un dato real sin enterarse.
+ *
+ * Van del más nuevo al más viejo, así el caso común queda arriba.
  */
 export function birthDateYears(now: Date = new Date()): number[] {
   const actual = now.getFullYear();
-  return Array.from({ length: YEARS_OFFERED }, (_, i) => actual - i);
+  return Array.from({ length: BIRTH_DATE_MAX_AGE + 1 }, (_, i) => actual - i);
+}
+
+/** Espeja domain.birthDateMaxAge: el backend rechaza fechas más viejas. */
+export const BIRTH_DATE_MAX_AGE = 150;
+
+/**
+ * Los meses elegibles para ese año: 1..12, salvo en el año actual, donde se
+ * corta en el mes de hoy.
+ *
+ * Acotar la OFERTA es la mitad estructural del arreglo — igual que derivar la
+ * precisión, lo que no se puede elegir no hay que validarlo. Sin esto el
+ * formulario ofrecía diciembre en el año en curso, `composeBirthDate` devolvía
+ * `undefined` por ser futura, y el update mandaba el par vacío: la fecha
+ * guardada se BORRABA en silencio y el usuario terminaba en "Mis mascotas" sin
+ * un solo mensaje.
+ */
+export function selectableMonths(year: string, now: Date = new Date()): number[] {
+  const tope = Number(year) === now.getFullYear() ? now.getMonth() + 1 : 12;
+  return Array.from({ length: tope }, (_, i) => i + 1);
+}
+
+/** Los días elegibles: los del mes, cortados en hoy si es el mes en curso. */
+export function selectableDays(year: string, month: string, now: Date = new Date()): number[] {
+  const enElMes = daysInMonth(year, month);
+  const esMesActual = Number(year) === now.getFullYear() && Number(month) === now.getMonth() + 1;
+  const tope = esMesActual ? Math.min(enElMes, now.getDate()) : enElMes;
+  return Array.from({ length: tope }, (_, i) => i + 1);
 }
 
 /**

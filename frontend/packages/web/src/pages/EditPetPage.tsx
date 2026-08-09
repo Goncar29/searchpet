@@ -19,6 +19,7 @@ interface FormState {
 interface FieldErrors {
   name?: string;
   type?: string;
+  birthDate?: string;
 }
 
 export function EditPetPage() {
@@ -123,6 +124,16 @@ export function EditPetPage() {
     setUploadError(null);
 
     const birth = composeBirthDate(form.identity.birth);
+    // Segunda mitad del arreglo: acotar la oferta impide ELEGIR una fecha
+    // futura, pero no cubre una que ya esté guardada. El backend tolera un día
+    // de gracia sobre UTC, así que una mascota con la fecha de mañana entra por
+    // la API y después este formulario la rechaza. Sin este corte, el `?? ''`
+    // de abajo la interpretaría como "borrá el par" y la fecha desaparecería en
+    // silencio, con navegación a /pets/mine incluida.
+    if (form.identity.birth.year && !birth) {
+      setFieldErrors((prev) => ({ ...prev, birthDate: t('pets:create.birthDateInvalid') }));
+      return;
+    }
 
     updatePet.mutate(
       {
@@ -217,8 +228,12 @@ export function EditPetPage() {
 
           <PetIdentityFields
             value={form.identity}
-            onChange={(identity) => setForm((prev) => ({ ...prev, identity }))}
+            onChange={(identity) => {
+              setForm((prev) => ({ ...prev, identity }));
+              setFieldErrors((prev) => ({ ...prev, birthDate: undefined }));
+            }}
             disabled={isPending}
+            birthDateError={fieldErrors.birthDate}
           />
 
           {/* Breed */}

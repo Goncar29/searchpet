@@ -110,6 +110,43 @@ describe('EditPetPage', () => {
     });
   });
 
+  // EL hallazgo caro del code review, verificado manejando el navegador antes
+  // de arreglarlo: con el año en curso el select ofrecía los 12 meses, elegir
+  // diciembre hacía que composeBirthDate devolviera undefined, el `?? ''` lo
+  // leía como "borrá el par", el backend limpiaba la fecha guardada y la app
+  // navegaba a /pets/mine SIN UN SOLO MENSAJE. El dueño perdía el dato y nunca
+  // se enteraba de que lo que eligió había sido rechazado.
+  it('el año en curso no ofrece meses futuros', () => {
+    petData = unaMascota({ birth_date: '2022-03-09', birth_date_precision: 'day' });
+    render(<EditPetPage />, { wrapper });
+
+    const ahora = new Date();
+    fireEvent.change(screen.getByLabelText('pets:create.birthYear'), {
+      target: { value: String(ahora.getFullYear()) },
+    });
+
+    const meses = screen
+      .getByLabelText('pets:create.birthMonth')
+      .querySelectorAll('option[value]:not([value=""])');
+    expect(meses.length).toBe(ahora.getMonth() + 1);
+  });
+
+  it('nunca manda el par vacío por una fecha que el formulario no pudo armar', () => {
+    // Guard de red: aunque la oferta ya impide elegir futuro, si compose falla
+    // por cualquier motivo el submit tiene que CORTAR, no vaciar el par.
+    petData = unaMascota({ birth_date: '2022-03-09', birth_date_precision: 'day' });
+    render(<EditPetPage />, { wrapper });
+
+    fireEvent.change(screen.getByLabelText('pets:create.birthYear'), { target: { value: '2021' } });
+    fireEvent.submit(screen.getByRole('button', { name: 'pets:edit.submit' }).closest('form')!);
+
+    // Cambiar sólo el año CONSERVA mes y día, así que la precisión sigue en
+    // 'day' — lo que importa es que el par viaje entero y no vacío.
+    const enviado = mutate.mock.calls[0]?.[0]?.data;
+    expect(enviado.birth_date).toBe('2021-03-09');
+    expect(enviado.birth_date_precision).toBe('day');
+  });
+
   it('manda el sexo elegido', () => {
     petData = unaMascota({ gender: 'female' });
     render(<EditPetPage />, { wrapper });

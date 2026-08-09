@@ -19,6 +19,7 @@ interface FormState {
 interface FieldErrors {
   name?: string;
   type?: string;
+  birthDate?: string;
 }
 
 export function CreatePetPage() {
@@ -123,6 +124,14 @@ export function CreatePetPage() {
     // acá no hay forma de armarlo — la precisión sale de lo que el usuario
     // llenó, no de un control aparte.
     const birth = composeBirthDate(form.identity.birth);
+    // Si eligió un año pero el par no se pudo armar, se avisa en vez de crear
+    // la mascota sin fecha y sin decir nada. Acá no se pierde un dato guardado
+    // —no hay ninguno todavía— pero el silencio es igual de malo: el usuario
+    // cree que cargó la fecha y no está.
+    if (form.identity.birth.year && !birth) {
+      setFieldErrors((prev) => ({ ...prev, birthDate: t('pets:create.birthDateInvalid') }));
+      return;
+    }
 
     createPet.mutate(
       {
@@ -223,8 +232,12 @@ export function CreatePetPage() {
 
           <PetIdentityFields
             value={form.identity}
-            onChange={(identity) => setForm((prev) => ({ ...prev, identity }))}
+            onChange={(identity) => {
+              setForm((prev) => ({ ...prev, identity }));
+              setFieldErrors((prev) => ({ ...prev, birthDate: undefined }));
+            }}
             disabled={isPending}
+            birthDateError={fieldErrors.birthDate}
           />
 
           {/* Breed */}

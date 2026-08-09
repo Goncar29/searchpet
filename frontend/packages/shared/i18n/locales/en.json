@@ -113,7 +113,8 @@
       "birthYear": "Year",
       "birthMonth": "Month",
       "birthDay": "Day",
-      "birthDateHint": "If you don't know the month or day, leave them blank. It still helps estimate the age."
+      "birthDateHint": "If you don't know the month or day, leave them blank. It still helps estimate the age.",
+      "birthDateInvalid": "Check the date: it can't be in the future or a day that doesn't exist."
     },
     "mine": {
       "title": "My pets",
@@ -194,13 +195,7 @@
     "edit": {
       "title": "Edit pet",
       "submit": "Save changes",
-      "replacePhoto": "Upload a new one to replace the current photo",
-      "gender": "Sex",
-      "birthDate": "Date of birth",
-      "birthYear": "Year",
-      "birthMonth": "Month",
-      "birthDay": "Day",
-      "birthDateHint": "If you don't know the month or day, leave them blank. It still helps estimate the age."
+      "replacePhoto": "Upload a new one to replace the current photo"
     },
     "status": {
       "registered": "Registered",

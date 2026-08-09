@@ -113,7 +113,8 @@
       "birthYear": "Año",
       "birthMonth": "Mes",
       "birthDay": "Día",
-      "birthDateHint": "Si no sabés el mes o el día, dejalos vacíos. Sirve igual para estimar la edad."
+      "birthDateHint": "Si no sabés el mes o el día, dejalos vacíos. Sirve igual para estimar la edad.",
+      "birthDateInvalid": "Revisá la fecha: no puede ser futura ni un día que no exista."
     },
     "mine": {
       "title": "Mis mascotas",
@@ -194,13 +195,7 @@
     "edit": {
       "title": "Editar mascota",
       "submit": "Guardar cambios",
-      "replacePhoto": "Subí una nueva para reemplazar la actual",
-      "gender": "Sexo",
-      "birthDate": "Fecha de nacimiento",
-      "birthYear": "Año",
-      "birthMonth": "Mes",
-      "birthDay": "Día",
-      "birthDateHint": "Si no sabés el mes o el día, dejalos vacíos. Sirve igual para estimar la edad."
+      "replacePhoto": "Subí una nueva para reemplazar la actual"
     },
     "status": {
       "registered": "Registrada",

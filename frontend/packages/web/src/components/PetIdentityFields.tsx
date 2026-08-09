@@ -1,12 +1,22 @@
 import { useTranslation } from 'react-i18next';
 import type { PetGender } from '@shared/types';
-import { birthDateYears, daysInMonth, type BirthDateParts } from '@shared/utils/petBirthDate';
+import {
+  birthDateYears,
+  selectableDays,
+  selectableMonths,
+  type BirthDateParts,
+} from '@shared/utils/petBirthDate';
 
-// Sexo y fecha de nacimiento, juntos porque siempre se piden juntos y porque
-// asi los cuatro formularios de alta/edicion comparten UNA definicion. Las
-// columnas existian en la base desde el principio y ningun formulario las
-// pedia; duplicar el markup en cada pantalla era la forma segura de que
-// volvieran a divergir.
+// Sexo y fecha de nacimiento, juntos porque siempre se piden juntos y para que
+// las pantallas que los piden compartan UNA definicion en vez de duplicar el
+// markup.
+//
+// HOY LO USAN DOS: CreatePetPage y EditPetPage. Las otras superficies que crean
+// mascotas siguen SIN poder cargar estos campos — PublishWizardPage (callejera
+// y adopcion) en web, y pets/register.tsx y (tabs)/post.tsx en mobile. Se dice
+// explicito porque una version anterior de este comentario afirmaba "los cuatro
+// formularios", que se leia como que la divergencia ya estaba resuelta cuando
+// es justamente lo que falta.
 //
 // LA FECHA SE PIDE EN TRES SELECTS Y LA PRECISION SE DERIVA de cuanto lleno el
 // usuario. No hay ningun control que diga "precision": si solo elige el anio,
@@ -23,13 +33,15 @@ interface Props {
   value: PetIdentityValue;
   onChange: (next: PetIdentityValue) => void;
   disabled?: boolean;
+  /** Error de la fecha, cuando el par no se pudo armar con lo elegido. */
+  birthDateError?: string;
 }
 
 const labelClass = 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1';
 const controlClass =
   'w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed';
 
-export function PetIdentityFields({ value, onChange, disabled }: Props) {
+export function PetIdentityFields({ value, onChange, disabled, birthDateError }: Props) {
   const { t, i18n } = useTranslation(['pets', 'common']);
 
   // Los nombres de mes salen de Intl con el idioma activo, no de 36 claves de
@@ -40,7 +52,11 @@ export function PetIdentityFields({ value, onChange, disabled }: Props) {
   );
 
   const years = birthDateYears();
-  const maxDay = daysInMonth(value.birth.year, value.birth.month);
+  // La oferta se corta en HOY cuando el año elegido es el actual. Nadie nació
+  // mañana, y ofrecerlo hacía que el update borrara la fecha guardada sin decir
+  // nada. Lo que no se puede elegir no hay que validarlo después.
+  const months = selectableMonths(value.birth.year);
+  const days = selectableDays(value.birth.year, value.birth.month);
 
   const setBirth = (patch: Partial<BirthDateParts>) => {
     const birth = { ...value.birth, ...patch };
@@ -55,8 +71,13 @@ export function PetIdentityFields({ value, onChange, disabled }: Props) {
     if (!birth.month) birth.day = '';
     // Cambiar a un mes mas corto tiene que soltar un dia que ya no existe, o
     // quedaria un 31 de febrero seleccionado que composeBirthDate descarta en
-    // silencio: el usuario perderia la fecha entera sin entender por que.
-    if (birth.day && Number(birth.day) > daysInMonth(birth.year, birth.month)) {
+    // silencio: el usuario perderia la fecha entera sin entender por que. Lo
+    // mismo al pasar al anio en curso, donde la oferta se corta en hoy.
+    const diasValidos = selectableDays(birth.year, birth.month);
+    if (birth.day && !diasValidos.includes(Number(birth.day))) birth.day = '';
+    const mesesValidos = selectableMonths(birth.year);
+    if (birth.month && !mesesValidos.includes(Number(birth.month))) {
+      birth.month = '';
       birth.day = '';
     }
     onChange({ ...value, birth });
@@ -83,7 +104,10 @@ export function PetIdentityFields({ value, onChange, disabled }: Props) {
         </select>
       </div>
 
-      <fieldset className="border-0 p-0 m-0">
+      {/* Sin `m-0`: esa clase pisaba el margen que `space-y-5` del formulario
+          le pone al campo SIGUIENTE, y "Raza" quedaba pegado a 0px mientras el
+          resto respiraba 20. Medido con getBoundingClientRect, no a ojo. */}
+      <fieldset className="border-0 p-0">
         <legend className={labelClass}>{t('pets:create.birthDate')}</legend>
 
         <div className="grid grid-cols-3 gap-2">
@@ -125,9 +149,9 @@ export function PetIdentityFields({ value, onChange, disabled }: Props) {
               aria-label={t('pets:create.birthMonth')}
             >
               <option value="">{t('pets:create.birthMonth')}</option>
-              {monthNames.map((nombre, i) => (
-                <option key={nombre} value={String(i + 1)}>
-                  {nombre}
+              {months.map((m) => (
+                <option key={m} value={String(m)}>
+                  {monthNames[m - 1]}
                 </option>
               ))}
             </select>
@@ -147,7 +171,7 @@ export function PetIdentityFields({ value, onChange, disabled }: Props) {
               aria-label={t('pets:create.birthDay')}
             >
               <option value="">{t('pets:create.birthDay')}</option>
-              {Array.from({ length: maxDay }, (_, i) => i + 1).map((d) => (
+              {days.map((d) => (
                 <option key={d} value={String(d)}>
                   {d}
                 </option>
@@ -156,9 +180,13 @@ export function PetIdentityFields({ value, onChange, disabled }: Props) {
           </div>
         </div>
 
-        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-          {t('pets:create.birthDateHint')}
-        </p>
+        {birthDateError ? (
+          <p className="text-red-500 dark:text-red-400 text-sm mt-1">{birthDateError}</p>
+        ) : (
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            {t('pets:create.birthDateHint')}
+          </p>
+        )}
       </fieldset>
     </>
   );
