@@ -56,6 +56,15 @@ func (h *PetHandler) CreatePet(c *gin.Context) {
 			writeError(c, http.StatusBadRequest, err)
 			return
 		}
+		// 409 y no 400: el número puede ser perfectamente válido y aun así estar
+		// tomado por otra mascota. Es un conflicto con un recurso existente, no un
+		// dato mal formado, y el usuario no puede corregirlo mirando su propio
+		// formulario. Sin esta rama salía como 500 — "error nuestro, reintentá"
+		// ante algo que no va a funcionar nunca por más que reintente.
+		if errors.Is(err, domain.ErrMicrochipTaken) {
+			writeError(c, http.StatusConflict, err)
+			return
+		}
 		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		return
 	}
@@ -148,6 +157,15 @@ func (h *PetHandler) UpdatePet(c *gin.Context) {
 		}
 		if errors.Is(err, domain.ErrConflict) {
 			writeError(c, http.StatusConflict, err)
+			return
+		}
+		// ErrInvalidInput lo devuelven la validación del par de nacimiento y la
+		// allowlist de gender. Sin esta rama, un dato inválido del cliente sale
+		// como 500 "error interno del servidor" — el mismo agujero que ya se
+		// había tapado en CreatePet cuando llegó la validación de occurred_at,
+		// y que acá quedó abierto porque el handler de update no se tocó.
+		if errors.Is(err, domain.ErrInvalidInput) {
+			writeError(c, http.StatusBadRequest, err)
 			return
 		}
 		writeError(c, http.StatusInternalServerError, domain.ErrInternal)

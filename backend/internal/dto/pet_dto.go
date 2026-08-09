@@ -17,7 +17,18 @@ type CreatePetRequest struct {
 	Description string  `json:"description"`
 	City        string  `json:"city"`
 	Gender      string  `json:"gender"`
+	// Opcional y acotado a 50 RUNAS por la columna (ver domain.IsValidMicrochipID).
+	// Un string vacío se guarda como NULL: la columna es uniqueIndex y los vacíos
+	// sí colisionan entre sí, los NULL no. No hay campo espejo en
+	// UpdatePetRequest — hoy el microchip sólo se puede cargar al crear.
 	MicrochipID *string `json:"microchip_id"`
+	// BirthDate viaja como día de calendario plano ("2006-01-02"), NO como
+	// instante ISO: la columna es DATE y se queda sólo con el día, así que
+	// mandar medianoche local corre la fecha un día entero según la zona. Ver
+	// domain.BirthDateLayout, que documenta el caso completo. Va siempre con su
+	// precisión y las dos se validan como una unidad.
+	BirthDate          *string `json:"birth_date"`
+	BirthDatePrecision string  `json:"birth_date_precision"`
 	// Status is optional. Accepted values: "registered" (default), "stray", and
 	// "adoption". Any other value is rejected by the service layer.
 	Status string `json:"status"`
@@ -66,7 +77,17 @@ type UpdatePetRequest struct {
 	Color       *string `json:"color"`
 	Description *string `json:"description"`
 	City        *string `json:"city"`
+	Gender      *string `json:"gender"`
 	Status      string  `json:"status"`
+	// Día de calendario plano, igual que en el alta. `nil` = no enviado.
+	//
+	// Un string vacío en CUALQUIERA de los dos borra el par, pero sólo pisa lo
+	// que estaba GUARDADO: si el mismo request manda además el otro campo con un
+	// valor, no se descarta en silencio — el par queda incoherente y el validador
+	// responde 400. Se prefiere el error explícito a aceptar un request
+	// contradictorio tirando la mitad de lo que el usuario mandó.
+	BirthDate          *string `json:"birth_date"`
+	BirthDatePrecision *string `json:"birth_date_precision"`
 	// Version is used for optimistic concurrency. Send the value received from the
 	// last GET response; the server rejects the update with 409 if it has changed.
 	Version int `json:"version"`
@@ -116,7 +137,18 @@ type PetResponse struct {
 	Color       string             `json:"color,omitempty"`
 	Description string             `json:"description,omitempty"`
 	City        string             `json:"city,omitempty"`
+	Gender      string             `json:"gender,omitempty"`
 	Status      string             `json:"status"`
+	// La edad NO viaja: viaja la fecha con su precisión y el cliente deriva.
+	// Calcularla acá la congelaría en el instante de la respuesta y además
+	// obligaría al backend a pluralizar "año/años" en tres idiomas.
+	//
+	// MicrochipID queda DELIBERADAMENTE fuera: GET /api/pets/:id es público, y
+	// un número de microchip es un identificador con el que un tercero podría
+	// reclamar una mascota ajena. Exponerlo necesita una respuesta con alcance
+	// de dueño, que es un cambio aparte.
+	BirthDate          string             `json:"birth_date,omitempty"`
+	BirthDatePrecision string             `json:"birth_date_precision,omitempty"`
 	Version     int                `json:"version"`
 	Photos      []PetPhotoResponse `json:"photos"`
 	Owner       *PetOwnerResponse  `json:"owner,omitempty"`
@@ -150,6 +182,9 @@ func ToPetResponse(pet *domain.Pet) PetResponse {
 		Color:                 pet.Color,
 		Description:           pet.Description,
 		City:                  pet.City,
+		Gender:                pet.Gender,
+		BirthDate:             domain.FormatBirthDate(pet.BirthDate),
+		BirthDatePrecision:    pet.BirthDatePrecision,
 		Status:                pet.Status,
 		Version:               pet.Version,
 		Photos:                photos,

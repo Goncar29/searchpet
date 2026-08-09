@@ -82,6 +82,16 @@ type Pet struct {
 	City             string     `gorm:"size:120" json:"city,omitempty"`  // free-text city/zone; used by adoption listings for filtering
 	Gender           string     `gorm:"size:10" json:"gender,omitempty"` // male, female, unknown
 	MicrochipID      *string    `gorm:"uniqueIndex;size:50" json:"microchip_id,omitempty"`
+	// BirthDate y BirthDatePrecision se guardan y se borran SIEMPRE juntos: ver
+	// pet_birth_date.go, que documenta por qué la precisión existe y valida el
+	// par. La EDAD no se guarda en ninguna parte — se deriva de la fecha, porque
+	// guardar "3 años" es guardar un dato que queda viejo solo al pasar el año.
+	//
+	// El `not null;default:''` de la precisión no es cosmético: tiene que decir
+	// exactamente lo mismo que la migración 000023, o la base que arma el tag
+	// (tests) y la que arma el SQL (producción) divergen en silencio.
+	BirthDate          *time.Time `gorm:"type:date" json:"birth_date,omitempty"`
+	BirthDatePrecision string     `gorm:"size:10;not null;default:''" json:"birth_date_precision,omitempty"`
 	Status           string     `gorm:"size:50;default:'registered';index:idx_pets_type_status,composite:status" json:"status"` // registered, lost, stray, found, archived
 	Version          int        `gorm:"default:1" json:"version"`                                                               // optimistic concurrency — increment on each status change
 	CurrentEpisodeID *uuid.UUID `gorm:"type:uuid;index" json:"current_episode_id,omitempty"`

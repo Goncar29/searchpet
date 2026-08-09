@@ -355,6 +355,7 @@
     "pet_already_found": "Este pet já foi marcado como encontrado",
     "pet_archived": "Este pet está arquivado e não pode ser modificado",
     "pet_status_locked": "O status deste pet não pode mais ser alterado",
+    "microchip_taken": "Já existe um pet registrado com esse número de microchip. Confira o número; se estiver certo, pode ser que alguém já tenha publicado este pet",
     "pet_not_found_status": "O pet deve estar marcado como encontrado para criar uma história",
     "report_not_found": "Reporte não encontrado",
     "invalid_status": "Status inválido",
