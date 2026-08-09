@@ -107,7 +107,14 @@
       "status": "Status",
       "submit": "Publicar",
       "photoFormatError": "Formato não permitido. Use JPG, PNG ou WebP.",
-      "photoSizeError": "Cada foto não pode ultrapassar 5 MB."
+      "photoSizeError": "Cada foto não pode ultrapassar 5 MB.",
+      "gender": "Sexo",
+      "birthDate": "Data de nascimento",
+      "birthYear": "Ano",
+      "birthMonth": "Mês",
+      "birthDay": "Dia",
+      "birthDateHint": "Se você não sabe o mês ou o dia, deixe em branco. Ainda ajuda a estimar a idade.",
+      "birthDateInvalid": "Confira a data: não pode ser futura nem um dia inexistente."
     },
     "mine": {
       "title": "Meus pets",
@@ -242,6 +249,11 @@
       "generating": "Gerando PDF...",
       "error": "Erro ao gerar o link",
       "title": "Baixar cartaz PDF para imprimir"
+    },
+    "genders": {
+      "male": "Macho",
+      "female": "Fêmea",
+      "unknown": "Não sei"
     }
   },
   "chat": {

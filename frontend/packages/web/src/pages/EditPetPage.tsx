@@ -4,6 +4,8 @@ import { useTranslation } from 'react-i18next';
 import { usePetByID, useUpdatePet, useUploadPhoto } from '@shared/hooks';
 import type { PetType } from '@shared/types';
 import { getErrorMessage } from '@shared/utils/apiErrors';
+import { composeBirthDate, decomposeBirthDate } from '@shared/utils/petBirthDate';
+import { PetIdentityFields, type PetIdentityValue } from '../components/PetIdentityFields';
 
 interface FormState {
   name: string;
@@ -11,11 +13,13 @@ interface FormState {
   breed: string;
   color: string;
   description: string;
+  identity: PetIdentityValue;
 }
 
 interface FieldErrors {
   name?: string;
   type?: string;
+  birthDate?: string;
 }
 
 export function EditPetPage() {
@@ -33,6 +37,7 @@ export function EditPetPage() {
     breed: '',
     color: '',
     description: '',
+    identity: { gender: '', birth: { year: '', month: '', day: '' } },
   });
 
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
@@ -52,6 +57,16 @@ export function EditPetPage() {
         breed: pet.breed ?? '',
         color: pet.color ?? '',
         description: pet.description ?? '',
+        identity: {
+          gender: pet.gender ?? '',
+          // decomposeBirthDate devuelve SÓLO los componentes que la precisión
+          // declara reales. Con precisión 'year' el backend guarda
+          // "2022-01-01", y rehidratar mes=enero y día=1 mostraría una fecha
+          // exacta que el dueño nunca afirmó — y al guardar sin tocar nada la
+          // precisión subiría a 'day'. El dato se contaminaría solo, con abrir
+          // y cerrar esta pantalla.
+          birth: decomposeBirthDate(pet.birth_date, pet.birth_date_precision),
+        },
       });
     }
   }, [pet]);
@@ -108,6 +123,18 @@ export function EditPetPage() {
     setApiError(null);
     setUploadError(null);
 
+    const birth = composeBirthDate(form.identity.birth);
+    // Segunda mitad del arreglo: acotar la oferta impide ELEGIR una fecha
+    // futura, pero no cubre una que ya esté guardada. El backend tolera un día
+    // de gracia sobre UTC, así que una mascota con la fecha de mañana entra por
+    // la API y después este formulario la rechaza. Sin este corte, el `?? ''`
+    // de abajo la interpretaría como "borrá el par" y la fecha desaparecería en
+    // silencio, con navegación a /pets/mine incluida.
+    if (form.identity.birth.year && !birth) {
+      setFieldErrors((prev) => ({ ...prev, birthDate: t('pets:create.birthDateInvalid') }));
+      return;
+    }
+
     updatePet.mutate(
       {
         id,
@@ -119,6 +146,13 @@ export function EditPetPage() {
           breed: form.breed.trim(),
           color: form.color.trim(),
           description: form.description.trim(),
+          gender: form.identity.gender,
+          // Mismo criterio que los demás opcionales: se manda el valor SIEMPRE,
+          // incluso vacío, para que se pueda borrar. Si el usuario dejó el año
+          // en blanco, van los dos en '' y el backend limpia el par completo —
+          // nunca uno solo, que sería el request contradictorio que da 400.
+          birth_date: birth?.birth_date ?? '',
+          birth_date_precision: birth?.birth_date_precision ?? '',
         },
       },
       {
@@ -191,6 +225,16 @@ export function EditPetPage() {
               {form.type || '—'}
             </p>
           </div>
+
+          <PetIdentityFields
+            value={form.identity}
+            onChange={(identity) => {
+              setForm((prev) => ({ ...prev, identity }));
+              setFieldErrors((prev) => ({ ...prev, birthDate: undefined }));
+            }}
+            disabled={isPending}
+            birthDateError={fieldErrors.birthDate}
+          />
 
           {/* Breed */}
           <div>

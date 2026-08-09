@@ -56,6 +56,18 @@ export interface Pet {
   color?: string;
   description?: string;
   city?: string;
+  gender?: PetGender;
+  // Día de calendario plano ("2022-03-01"), NUNCA un instante ISO: la columna
+  // del backend es DATE y se queda sólo con el día, así que mandar medianoche
+  // local corre la fecha un día entero según la zona.
+  //
+  // Viaja SIEMPRE con su precisión, que dice cuánto de esa fecha es información
+  // real. Los componentes que no son significativos se rellenan con 01: con
+  // precisión 'year', el "2022-01-01" que llega significa "2022", no el 1 de
+  // enero. Mostrar el día sin mirar la precisión es afirmar algo que el dueño
+  // nunca dijo.
+  birth_date?: string;
+  birth_date_precision?: BirthDatePrecision;
   status: PetStatus;
   photos: Photo[];
   owner?: PetOwner;
@@ -411,6 +423,16 @@ export interface UploadPhotoResponse {
 // ============================================================
 
 export type PetType = 'perro' | 'gato' | 'pajaro' | 'otro';
+
+// Espeja la allowlist de domain.IsValidPetGender. El backend responde 400 ante
+// cualquier otro valor: la columna es varchar(10) y sin la allowlist un valor
+// largo llegaba hasta Postgres y salía como 500.
+export type PetGender = 'male' | 'female' | 'unknown';
+
+// Cuánto de birth_date es información real. Espeja domain.BirthDatePrecision*.
+// El backend valida el par como una unidad: fecha sin precisión y precisión sin
+// fecha son los dos 400.
+export type BirthDatePrecision = 'day' | 'month' | 'year';
 export type PetStatus = 'registered' | 'lost' | 'stray' | 'found' | 'archived' | 'adoption' | 'adopted';
 export type ReportStatus = 'lost' | 'found' | 'sighting';
 export type Platform = 'instagram' | 'facebook' | 'whatsapp' | 'twitter';
@@ -456,6 +478,10 @@ export interface CreatePetRequest {
   color?: string;
   description?: string;
   city?: string;
+  gender?: PetGender;
+  // Van los dos o no va ninguno — ver composeBirthDate en utils/petBirthDate.
+  birth_date?: string;
+  birth_date_precision?: BirthDatePrecision;
   status?: 'registered' | 'stray' | 'adoption';
   initial_report?: InitialReportRequest;
   // Stray opt-in: expose the reporter's profile phone publicly. Only honored by
@@ -478,6 +504,14 @@ export interface UpdatePetRequest {
   color?: string;
   description?: string;
   city?: string;
+  gender?: PetGender | '';
+  // `undefined` = no enviado (no tocar). `''` = vaciar, igual que el resto de
+  // los opcionales (ver regla #22). Vaciar CUALQUIERA de los dos borra el par,
+  // pero mandar uno con valor y el otro vacío en el mismo request es
+  // contradictorio y el backend responde 400 — por eso el formulario deriva la
+  // precisión en vez de dejar que el usuario la elija por separado.
+  birth_date?: string;
+  birth_date_precision?: BirthDatePrecision | '';
   status?: PetStatus;
 }
 
