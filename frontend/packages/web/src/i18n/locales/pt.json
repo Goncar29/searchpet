@@ -463,7 +463,14 @@
     "downloadApp": "baixe o app",
     "seoTitleLost": "{{name}} — Pet Perdido | SearchPet",
     "seoTitleFound": "{{name}} — Encontrado | SearchPet",
-    "seoDescriptionFallback": "Ajude-nos a encontrar {{name}}"
+    "seoDescriptionFallback": "Ajude-nos a encontrar {{name}}",
+    "about": "Sobre {{name}}",
+    "ownerLooking": "Dono procurando",
+    "shareNotice": "Compartilhar aviso",
+    "views_one": "{{count}} pessoa já viu este aviso",
+    "views_other": "{{count}} pessoas já viram este aviso",
+    "photoOf": "Foto {{n}} de {{total}} de {{name}}",
+    "gallery": "Galeria de fotos"
   },
   "vets": {
     "toggle": "Mostrar veterinárias",

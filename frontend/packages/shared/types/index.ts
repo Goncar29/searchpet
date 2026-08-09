@@ -136,6 +136,13 @@ export interface SharedPetInfo {
   breed?: string;
   color?: string;
   description?: string;
+  // Señas: quien abre este link está tratando de reconocer al animal, y
+  // "macho, unos 4 años" es de lo más útil que se le puede dar. El microchip
+  // NO viaja acá a propósito — es probatorio, no descriptivo. Ver el comentario
+  // de ShareLinkPetResponse en el backend.
+  gender?: PetGender;
+  birth_date?: string;
+  birth_date_precision?: BirthDatePrecision;
   status: PetStatus;
   photos: Photo[];
 }

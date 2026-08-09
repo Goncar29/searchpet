@@ -15,15 +15,31 @@ type ShareLinkOwnerResponse struct {
 }
 
 // ShareLinkPetResponse son los datos del pet que se exponen en un share link público.
+//
+// Gender y el par de nacimiento están acá porque son SEÑAS: quien recibe este
+// link por WhatsApp está tratando de reconocer al animal, y "macho, unos 4
+// años" es de lo más útil que se le puede dar. Es la misma razón por la que
+// viajan breed y color.
+//
+// MicrochipID sigue AFUERA, y la distinción importa: un microchip es
+// PROBATORIO —quien lo sabe puede reclamar una mascota ajena— mientras que el
+// sexo y la edad son DESCRIPTIVOS. Ver el comentario de PetResponse.
+//
+// La EDAD no viaja calculada, viaja la fecha con su precisión y el cliente
+// deriva: calcularla acá la congelaría en el instante de la respuesta y
+// obligaría al backend a pluralizar en tres idiomas.
 type ShareLinkPetResponse struct {
-	ID          uuid.UUID          `json:"id"`
-	Name        string             `json:"name"`
-	Type        string             `json:"type"`
-	Breed       string             `json:"breed,omitempty"`
-	Color       string             `json:"color,omitempty"`
-	Description string             `json:"description,omitempty"`
-	Status      string             `json:"status"`
-	Photos      []PetPhotoResponse `json:"photos"`
+	ID                 uuid.UUID          `json:"id"`
+	Name               string             `json:"name"`
+	Type               string             `json:"type"`
+	Breed              string             `json:"breed,omitempty"`
+	Color              string             `json:"color,omitempty"`
+	Description        string             `json:"description,omitempty"`
+	Gender             string             `json:"gender,omitempty"`
+	BirthDate          string             `json:"birth_date,omitempty"`
+	BirthDatePrecision string             `json:"birth_date_precision,omitempty"`
+	Status             string             `json:"status"`
+	Photos             []PetPhotoResponse `json:"photos"`
 }
 
 // GenerateShareLinkResponse es la respuesta al generar un nuevo share link.
@@ -73,8 +89,15 @@ func ToShareLinkPublicResponse(link *domain.ShareLink) ShareLinkPublicResponse {
 			Breed:       link.Pet.Breed,
 			Color:       link.Pet.Color,
 			Description: link.Pet.Description,
-			Status:      link.Pet.Status,
-			Photos:      photos,
+			Gender:      link.Pet.Gender,
+			// Se reusa el MISMO formateador que PetResponse en vez de armar el
+			// string acá: la fecha tiene que salir como día de calendario plano
+			// en TODAS las respuestas. Un instante ISO le hace perder la zona al
+			// cliente y corre la fecha un día entero.
+			BirthDate:          domain.FormatBirthDate(link.Pet.BirthDate),
+			BirthDatePrecision: link.Pet.BirthDatePrecision,
+			Status:             link.Pet.Status,
+			Photos:             photos,
 		},
 		Owner: ShareLinkOwnerResponse{
 			Name:  link.Pet.Owner.Name,

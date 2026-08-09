@@ -463,7 +463,14 @@
     "downloadApp": "download the mobile app",
     "seoTitleLost": "{{name}} — Lost Pet | SearchPet",
     "seoTitleFound": "{{name}} — Found | SearchPet",
-    "seoDescriptionFallback": "Help us find {{name}}"
+    "seoDescriptionFallback": "Help us find {{name}}",
+    "about": "About {{name}}",
+    "ownerLooking": "Owner searching",
+    "shareNotice": "Share notice",
+    "views_one": "{{count}} person has seen this notice",
+    "views_other": "{{count}} people have seen this notice",
+    "photoOf": "Photo {{n}} of {{total}} of {{name}}",
+    "gallery": "Photo gallery"
   },
   "vets": {
     "toggle": "Show veterinaries",
