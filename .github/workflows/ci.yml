@@ -61,6 +61,70 @@ jobs:
         run: go build -o main ./cmd/server
 
   # ============================================
+  # Backend E2E Tests (Go, contra Postgres real)
+  # ============================================
+  # Job PROPIO, y el motivo es un incidente concreto (2026-08-09): estos tests
+  # vivian dentro de `e2e-web`, que hace `needs: [frontend-web]`. Un advisory
+  # nuevo de npm puso el audit de web en rojo, `e2e-web` quedo SKIPPED, y los
+  # e2e del backend no corrieron ni una vez durante todo un PR de backend. El
+  # CI quedaba rojo —no era un falso verde— pero una verificacion se apagaba
+  # sin que se notara, y la causa no tenia ninguna relacion con Go.
+  #
+  # Nada los ataba a la web: `startTestServer` levanta su propio httptest, asi
+  # que no necesitan el binario en :8080 ni el preview de Vite. Solo Postgres.
+  #
+  # Ademas gana su propia base: en `e2e-web` compartian `lostpets_test` con el
+  # backend que sirve a Playwright, y dos procesos escribiendo la misma base
+  # durante una corrida es una fuente de intermitencias esperando su turno.
+  #
+  # Sin `if`: corre en todo push y todo PR, como backend-test. Estos tests son
+  # la unica cobertura que toca Postgres de verdad (los mocks no tienen
+  # columnas, ver regla #34) y son ~2 min en paralelo.
+  e2e-backend:
+    name: Backend E2E Tests
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgis/postgis:15-3.4
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: lostpets_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+
+      - name: Install dependencies
+        working-directory: ./backend
+        run: go mod download
+
+      # El build tag `e2e` es lo que los separa del resto: `go test ./...` a
+      # secas NO los compila, asi que el verde de "Backend Tests" nunca dijo
+      # nada sobre ellos.
+      - name: Run Go e2e flow tests
+        working-directory: ./backend
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/lostpets_test?sslmode=disable
+          JWT_SECRET: test-secret-e2e
+          BREVO_API_KEY: ""
+          MAIL_FROM_EMAIL: ""
+        run: go test -tags e2e -count=1 -v ./tests/e2e/...
+
+  # ============================================
   # Frontend Lint & Build (Web)
   # ============================================
   frontend-web:
@@ -136,8 +200,15 @@ jobs:
         run: pnpm run test:run
 
   # ============================================
-  # E2E Tests (Web — Playwright + real backend)
-  # Runs only on push to main to keep PR feedback fast.
+  # E2E Tests (Web — Playwright contra el backend real)
+  #
+  # SOLO Playwright. Los e2e de Go se mudaron a `e2e-backend` para que dejen de
+  # depender del build de web; aca quedan los que de verdad necesitan el
+  # navegador, el preview de Vite y el binario sirviendo en :8080.
+  #
+  # El `if` de abajo dice pull_request O push a main — o sea, corre en todos los
+  # PRs. El comentario anterior afirmaba "solo en push a main", que nunca fue lo
+  # que hace la condicion.
   # ============================================
   e2e-web:
     name: E2E Tests (Web)
@@ -225,10 +296,6 @@ jobs:
         working-directory: ./frontend/packages/web
         run: npx playwright install chromium --with-deps
 
-      - name: Run Go e2e flow tests
-        working-directory: ./backend
-        run: go test -tags e2e -count=1 -v ./tests/e2e/...
-
       - name: Run Playwright tests
         working-directory: ./frontend/packages/web
         run: pnpm run test:e2e
@@ -254,10 +321,15 @@ jobs:
   deploy-backend:
     name: Deploy Backend
     runs-on: ubuntu-latest
-    # Los cuatro, no solo backend-test: un e2e o un build de web en rojo tienen
-    # que frenar el deploy igual que un test de Go. Con `needs: [backend-test]`
-    # se deployaba con el resto de la suite todavia corriendo, o directamente roja.
-    needs: [backend-test, frontend-web, mobile-test, e2e-web]
+    # TODOS, no solo backend-test: un e2e o un build de web en rojo tienen que
+    # frenar el deploy igual que un test de Go. Con `needs: [backend-test]` se
+    # deployaba con el resto de la suite todavia corriendo, o directamente roja.
+    #
+    # `e2e-backend` esta en la lista por la misma razon, y ahora ademas hace
+    # falta explicitamente: al salir de adentro de `e2e-web` dejo de estar
+    # cubierto de rebote, asi que sin nombrarlo aca produccion podria recibir
+    # codigo cuyos e2e nunca corrieron.
+    needs: [backend-test, e2e-backend, frontend-web, mobile-test, e2e-web]
     if: github.ref == 'refs/heads/main'
     steps:
       - name: Trigger Render deploy
