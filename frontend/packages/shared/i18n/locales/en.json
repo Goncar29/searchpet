@@ -107,7 +107,13 @@
       "status": "Status",
       "submit": "Post",
       "photoFormatError": "Format not allowed. Use JPG, PNG or WebP.",
-      "photoSizeError": "Each photo cannot exceed 5 MB."
+      "photoSizeError": "Each photo cannot exceed 5 MB.",
+      "gender": "Sex",
+      "birthDate": "Date of birth",
+      "birthYear": "Year",
+      "birthMonth": "Month",
+      "birthDay": "Day",
+      "birthDateHint": "If you don't know the month or day, leave them blank. It still helps estimate the age."
     },
     "mine": {
       "title": "My pets",
@@ -188,7 +194,13 @@
     "edit": {
       "title": "Edit pet",
       "submit": "Save changes",
-      "replacePhoto": "Upload a new one to replace the current photo"
+      "replacePhoto": "Upload a new one to replace the current photo",
+      "gender": "Sex",
+      "birthDate": "Date of birth",
+      "birthYear": "Year",
+      "birthMonth": "Month",
+      "birthDay": "Day",
+      "birthDateHint": "If you don't know the month or day, leave them blank. It still helps estimate the age."
     },
     "status": {
       "registered": "Registered",
@@ -242,6 +254,11 @@
       "generating": "Generating PDF...",
       "error": "Could not generate the link",
       "title": "Download PDF flyer to print"
+    },
+    "genders": {
+      "male": "Male",
+      "female": "Female",
+      "unknown": "Don't know"
     }
   },
   "chat": {

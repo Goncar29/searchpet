@@ -107,7 +107,13 @@
       "status": "Estado",
       "submit": "Publicar",
       "photoFormatError": "Formato no permitido. Usá JPG, PNG o WebP.",
-      "photoSizeError": "Cada foto no puede superar los 5 MB."
+      "photoSizeError": "Cada foto no puede superar los 5 MB.",
+      "gender": "Sexo",
+      "birthDate": "Fecha de nacimiento",
+      "birthYear": "Año",
+      "birthMonth": "Mes",
+      "birthDay": "Día",
+      "birthDateHint": "Si no sabés el mes o el día, dejalos vacíos. Sirve igual para estimar la edad."
     },
     "mine": {
       "title": "Mis mascotas",
@@ -188,7 +194,13 @@
     "edit": {
       "title": "Editar mascota",
       "submit": "Guardar cambios",
-      "replacePhoto": "Subí una nueva para reemplazar la actual"
+      "replacePhoto": "Subí una nueva para reemplazar la actual",
+      "gender": "Sexo",
+      "birthDate": "Fecha de nacimiento",
+      "birthYear": "Año",
+      "birthMonth": "Mes",
+      "birthDay": "Día",
+      "birthDateHint": "Si no sabés el mes o el día, dejalos vacíos. Sirve igual para estimar la edad."
     },
     "status": {
       "registered": "Registrada",
@@ -242,6 +254,11 @@
       "generating": "Generando PDF...",
       "error": "Error al generar el link",
       "title": "Descargar volante PDF para imprimir"
+    },
+    "genders": {
+      "male": "Macho",
+      "female": "Hembra",
+      "unknown": "No sé"
     }
   },
   "chat": {

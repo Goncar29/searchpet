@@ -4,6 +4,8 @@ import { useTranslation } from 'react-i18next';
 import { useCreatePet, useUploadPhoto } from '@shared/hooks';
 import type { Pet, PetType } from '@shared/types';
 import { getErrorMessage } from '@shared/utils/apiErrors';
+import { composeBirthDate } from '@shared/utils/petBirthDate';
+import { PetIdentityFields, type PetIdentityValue } from '../components/PetIdentityFields';
 
 interface FormState {
   name: string;
@@ -11,6 +13,7 @@ interface FormState {
   breed: string;
   color: string;
   description: string;
+  identity: PetIdentityValue;
 }
 
 interface FieldErrors {
@@ -30,6 +33,7 @@ export function CreatePetPage() {
     breed: '',
     color: '',
     description: '',
+    identity: { gender: '', birth: { year: '', month: '', day: '' } },
   });
 
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
@@ -114,6 +118,12 @@ export function CreatePetPage() {
 
     if (!validate()) return;
 
+    // El par viaja entero o no viaja: composeBirthDate devuelve los dos campos
+    // juntos, o undefined. Mandar uno solo es el 400 que el backend rechaza, y
+    // acá no hay forma de armarlo — la precisión sale de lo que el usuario
+    // llenó, no de un control aparte.
+    const birth = composeBirthDate(form.identity.birth);
+
     createPet.mutate(
       {
         name: form.name.trim(),
@@ -121,6 +131,8 @@ export function CreatePetPage() {
         breed: form.breed.trim() || undefined,
         color: form.color.trim() || undefined,
         description: form.description.trim() || undefined,
+        gender: form.identity.gender || undefined,
+        ...(birth ?? {}),
       },
       {
         onSuccess: async (pet: Pet) => {
@@ -208,6 +220,12 @@ export function CreatePetPage() {
               <p className="text-red-500 dark:text-red-400 text-sm mt-1">{fieldErrors.type}</p>
             )}
           </div>
+
+          <PetIdentityFields
+            value={form.identity}
+            onChange={(identity) => setForm((prev) => ({ ...prev, identity }))}
+            disabled={isPending}
+          />
 
           {/* Breed */}
           <div>
