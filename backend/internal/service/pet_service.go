@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -143,11 +144,21 @@ func (s *petService) CreatePet(ownerID string, req dto.CreatePetRequest) (*domai
 	// SQLSTATE 23505 → otro 500. Es el mismo defecto que el largo, con otro código.
 	microchipID := req.MicrochipID
 	if microchipID != nil {
-		if !domain.IsValidMicrochipID(*microchipID) {
+		// Se recorta ANTES de las dos guardas, y no es cosmético en ninguna de
+		// las dos. Sin recortar, "   " no es el vacío, así que se guarda como
+		// tres espacios literales y la segunda mascota cargada igual vuelve a
+		// chocar con 23505 — el mismo 500 que la normalización viene a cerrar.
+		// Y " 985141" contra "985141" quedan como dos filas distintas, que
+		// derrota al uniqueIndex justo en el único campo donde la identidad es
+		// todo el punto.
+		limpio := strings.TrimSpace(*microchipID)
+		if !domain.IsValidMicrochipID(limpio) {
 			return nil, domain.ErrInvalidInput
 		}
-		if *microchipID == "" {
+		if limpio == "" {
 			microchipID = nil
+		} else {
+			microchipID = &limpio
 		}
 	}
 

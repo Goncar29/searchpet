@@ -220,7 +220,15 @@ func TestPetBirthDate_RechazaElParIncoherente(t *testing.T) {
 		// Precisión sin fecha: afirma saber algo que no tiene.
 		{"precision sin fecha", map[string]interface{}{"birth_date_precision": "year"}},
 		{"precision inventada", map[string]interface{}{"birth_date": "2020-01-01", "birth_date_precision": "decada"}},
-		{"fecha futura", map[string]interface{}{"birth_date": time.Now().AddDate(0, 0, 2).Format("2006-01-02"), "birth_date_precision": "day"}},
+		// La fecha se calcula en UTC, igual que la guarda. Con `time.Now()` a
+		// secas —que es LOCAL— este caso se apoyaba en que la máquina estuviera
+		// en UTC: en Montevideo (UTC-3) después de las 21:00, el día local va
+		// uno atrás del de UTC, así que local+2 da UTC+1, que es exactamente el
+		// borde que el día de gracia ACEPTA. Pasaba en CI sólo porque los
+		// runners de GitHub están en UTC.
+		//
+		// Son +3 y no +2 para no volver a quedar pegado al borde.
+		{"fecha futura", map[string]interface{}{"birth_date": time.Now().UTC().AddDate(0, 0, 3).Format("2006-01-02"), "birth_date_precision": "day"}},
 		// Sin piso, el año 0001 que manda un cliente roto se persiste y después
 		// cualquier cálculo de edad devuelve un absurdo.
 		{"fecha absurdamente vieja", map[string]interface{}{"birth_date": "0001-01-01", "birth_date_precision": "year"}},
@@ -281,6 +289,52 @@ func TestPetBirthDate_GenderFueraDeLaAllowlistDa400(t *testing.T) {
 	defer upd.Body.Close()
 	if upd.StatusCode != http.StatusBadRequest {
 		t.Fatalf("PUT: status %d, se esperaba 400", upd.StatusCode)
+	}
+}
+
+// EL test del día de gracia, y existe porque sin él la línea no estaba
+// protegida por nadie: revertir la guarda a `dia.After(hoy)` dejaba la suite
+// ENTERA en verde mientras volvía a romper al usuario para el que se escribió.
+// El caso "fecha futura" de arriba no sirve de guarda porque las dos versiones
+// lo rechazan igual.
+//
+// Hacen falta las DOS aserciones, y son un par: la de aceptar se pone roja si
+// alguien saca el día de gracia, y la de rechazar impide que el arreglo sea
+// "aflojar la guarda hasta que pase", que aceptaría cualquier futuro.
+//
+// Todo se calcula en UTC, igual que la guarda, para no heredar el bug del caso
+// de arriba: con `time.Now()` local, una máquina atrasada de UTC corre estas
+// fechas un día y el test miente en las dos direcciones.
+func TestPetBirthDate_ElDiaDeGraciaAceptaManianaYRechazaPasado(t *testing.T) {
+	baseURL, cleanup := startTestServer(t)
+	defer cleanup()
+
+	token, _ := registerAndLogin(t, baseURL)
+	hoy := time.Now().UTC()
+
+	// +1: el usuario adelantado de UTC. Alguien en España cargando a las 00:30
+	// elige su día local, que en UTC todavía es ayer — sin el margen se lo
+	// rechazaba con 400 por una fecha perfectamente válida. La app se publica
+	// en es/en/pt, así que esas zonas están en alcance.
+	aceptada := birthDateRequest(t, http.MethodPost, baseURL+"/api/pets", token, map[string]interface{}{
+		"name": "Manana", "type": "perro",
+		"birth_date": hoy.AddDate(0, 0, 1).Format("2006-01-02"), "birth_date_precision": "day",
+	})
+	defer aceptada.Body.Close()
+	if aceptada.StatusCode != http.StatusCreated {
+		t.Fatalf("UTC+1 día: status %d, se esperaba 201 — sin el día de gracia se rechaza al usuario adelantado de UTC, que es justo para quien existe el margen", aceptada.StatusCode)
+	}
+
+	// +2: el margen es de UN día, no de los que hagan falta. Ninguna zona del
+	// mundo pasa de UTC+14, así que un día de calendario local nunca puede ir
+	// más de uno adelante del de UTC: dos días ya es un dato absurdo.
+	rechazada := birthDateRequest(t, http.MethodPost, baseURL+"/api/pets", token, map[string]interface{}{
+		"name": "Pasado", "type": "perro",
+		"birth_date": hoy.AddDate(0, 0, 2).Format("2006-01-02"), "birth_date_precision": "day",
+	})
+	defer rechazada.Body.Close()
+	if rechazada.StatusCode != http.StatusBadRequest {
+		t.Fatalf("UTC+2 días: status %d, se esperaba 400 — el margen es de un día y ninguna zona pasa de UTC+14", rechazada.StatusCode)
 	}
 }
 
@@ -345,14 +399,57 @@ func TestPetMicrochipID_DosVaciosNoColisionan(t *testing.T) {
 
 	token, _ := registerAndLogin(t, baseURL)
 
-	for i, nombre := range []string{"Primera", "Segunda"} {
+	// Cada forma del blanco va DOS veces, porque la primera alta siempre pasa:
+	// la colisión sólo aparece en la segunda. Y los espacios van además del
+	// vacío exacto porque son un agujero aparte — normalizar sólo `""` deja que
+	// "   " se guarde como tres espacios literales, y dos mascotas cargadas así
+	// vuelven a chocar con 23505.
+	for i, caso := range []struct{ nombre, chip string }{
+		{"Primera", ""},
+		{"Segunda", ""},
+		// EXACTAMENTE el mismo string las dos veces. Con largos distintos ("   "
+		// contra "  ") son valores distintos y no colisionan ni sin el recorte:
+		// el caso pasaba en verde sin probar nada.
+		{"TerceraConEspacios", "   "},
+		{"CuartaConEspacios", "   "},
+	} {
 		resp := birthDateRequest(t, http.MethodPost, baseURL+"/api/pets", token, map[string]interface{}{
-			"name": nombre, "type": "perro", "microchip_id": "",
+			"name": caso.nombre, "type": "perro", "microchip_id": caso.chip,
 		})
 		if resp.StatusCode != http.StatusCreated {
 			resp.Body.Close()
-			t.Fatalf("alta %d (%s): status %d, se esperaba 201 — dos microchips vacíos no son un duplicado", i+1, nombre, resp.StatusCode)
+			t.Fatalf("alta %d (%s, chip=%q): status %d, se esperaba 201 — un microchip en blanco no es un duplicado, con o sin espacios", i+1, caso.nombre, caso.chip, resp.StatusCode)
 		}
 		resp.Body.Close()
+	}
+}
+
+// El recorte también protege la unicidad, que es para lo que existe el índice:
+// " 985141" y "985141" son el MISMO microchip y no pueden entrar como dos filas
+// distintas. Sin TrimSpace las dos altas dan 201 y el uniqueIndex queda inerte
+// justo en el único campo donde la identidad es todo el punto.
+func TestPetMicrochipID_ElRecorteHaceValerLaUnicidad(t *testing.T) {
+	baseURL, cleanup := startTestServer(t)
+	defer cleanup()
+
+	token, _ := registerAndLogin(t, baseURL)
+
+	primera := birthDateRequest(t, http.MethodPost, baseURL+"/api/pets", token, map[string]interface{}{
+		"name": "Chipeada", "type": "perro", "microchip_id": "985141000123456",
+	})
+	defer primera.Body.Close()
+	if primera.StatusCode != http.StatusCreated {
+		t.Fatalf("primera alta: status %d, se esperaba 201", primera.StatusCode)
+	}
+
+	// Mismo número, con espacios alrededor. Tiene que colisionar — hoy eso sale
+	// como 500 (23505 sin mapear, ver el comentario de IsValidMicrochipID), y lo
+	// que este test fija es que NO entre como una segunda fila con 201.
+	segunda := birthDateRequest(t, http.MethodPost, baseURL+"/api/pets", token, map[string]interface{}{
+		"name": "Clon", "type": "perro", "microchip_id": "  985141000123456  ",
+	})
+	defer segunda.Body.Close()
+	if segunda.StatusCode == http.StatusCreated {
+		t.Fatalf("la segunda alta entró con 201: \" 985141… \" y \"985141…\" son el mismo microchip y el uniqueIndex tiene que verlos como uno solo")
 	}
 }
