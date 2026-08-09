@@ -132,6 +132,25 @@ func (s *petService) CreatePet(ownerID string, req dto.CreatePetRequest) (*domai
 		return nil, domain.ErrInvalidInput
 	}
 
+	// Mismo modo de falla que gender, un campo más arriba en el request:
+	// microchip_id es `uniqueIndex;size:50` y viaja derecho al INSERT, así que sin
+	// guarda un valor de 60 caracteres da SQLSTATE 22001 → 500 por input de
+	// cliente. El largo se cuenta en RUNAS; ver domain.IsValidMicrochipID.
+	//
+	// El vacío se normaliza a NULL, y no es cosmético: en un uniqueIndex de
+	// Postgres los NULL no colisionan entre sí pero los strings vacíos SÍ, así que
+	// dos mascotas cargadas con el campo del formulario en blanco chocarían con
+	// SQLSTATE 23505 → otro 500. Es el mismo defecto que el largo, con otro código.
+	microchipID := req.MicrochipID
+	if microchipID != nil {
+		if !domain.IsValidMicrochipID(*microchipID) {
+			return nil, domain.ErrInvalidInput
+		}
+		if *microchipID == "" {
+			microchipID = nil
+		}
+	}
+
 	// La fecha de nacimiento y su precisión se validan como una unidad, ANTES de
 	// tocar nada: una fecha sin precisión no se puede mostrar sin mentir sobre
 	// cuánto se sabe de ella, y una precisión sin fecha no describe nada.
@@ -156,7 +175,7 @@ func (s *petService) CreatePet(ownerID string, req dto.CreatePetRequest) (*domai
 		Color:                 req.Color,
 		Description:           req.Description,
 		Gender:                req.Gender,
-		MicrochipID:           req.MicrochipID,
+		MicrochipID:           microchipID,
 		BirthDate:             birthDate,
 		BirthDatePrecision:    req.BirthDatePrecision,
 		City:                  req.City,
@@ -315,6 +334,16 @@ func (s *petService) UpdatePet(ownerID string, petID string, req dto.UpdatePetRe
 	if req.BirthDate != nil {
 		if *req.BirthDate == "" {
 			pet.BirthDate = nil
+			// Vaciar la fecha borra también la precisión GUARDADA: sin fecha no
+			// describe nada. Pero no pisa una precisión que el mismo request
+			// esté pidiendo — ese pedido es contradictorio y lo corta el
+			// validador de abajo con 400, igual que en el caso espejo.
+			//
+			// Sin esta distinción, un `{"birth_date": ""}` a secas dejaba viva
+			// la precisión vieja y devolvía 400 por un request impecable.
+			if req.BirthDatePrecision == nil {
+				pet.BirthDatePrecision = ""
+			}
 		} else {
 			parsed, err := domain.ParseBirthDate(*req.BirthDate)
 			if err != nil {

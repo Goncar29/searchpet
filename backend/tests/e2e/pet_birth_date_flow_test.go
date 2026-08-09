@@ -283,3 +283,76 @@ func TestPetBirthDate_GenderFueraDeLaAllowlistDa400(t *testing.T) {
 		t.Fatalf("PUT: status %d, se esperaba 400", upd.StatusCode)
 	}
 }
+
+// microchip_id es el campo de al lado de gender y tenía exactamente el mismo
+// agujero: `uniqueIndex;size:50`, sin guarda, derecho al INSERT. Un valor de 60
+// caracteres daba SQLSTATE 22001 → 500 por un dato que el servidor tenía que
+// rechazar con 400. Contra Postgres real y no contra un mock, por lo de siempre:
+// un mock de repositorio no tiene ancho de columna.
+func TestPetMicrochipID_LargoFueraDeRangoDa400(t *testing.T) {
+	baseURL, cleanup := startTestServer(t)
+	defer cleanup()
+
+	token, _ := registerAndLogin(t, baseURL)
+
+	resp := birthDateRequest(t, http.MethodPost, baseURL+"/api/pets", token, map[string]interface{}{
+		"name": "Chip", "type": "perro",
+		"microchip_id": strings.Repeat("9", 51),
+	})
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("status %d, se esperaba 400 (un 500 acá significa que el largo llegó hasta Postgres)", resp.StatusCode)
+	}
+}
+
+// EL test que fija la UNIDAD, que es lo único no obvio de esta guarda. `size:50`
+// produce un VARCHAR(50) y Postgres cuenta VARCHAR en CARACTERES, así que 50
+// runas acentuadas ENTRAN aunque ocupen 100 bytes.
+//
+// Si alguien cambia el chequeo a bytes, este test se pone rojo con un 400 sobre
+// un identificador que la base acepta sin chistar — el error inverso al del tag
+// `max` del validador contra el límite en bytes de bcrypt. El caso del largo
+// pelado no distingue las dos implementaciones; éste sí.
+func TestPetMicrochipID_ElLargoSeCuentaEnRunasNoEnBytes(t *testing.T) {
+	baseURL, cleanup := startTestServer(t)
+	defer cleanup()
+
+	token, _ := registerAndLogin(t, baseURL)
+
+	// 50 runas, 100 bytes en UTF-8.
+	chip := strings.Repeat("ñ", 50)
+	if len(chip) != 100 {
+		t.Fatalf("el caso de prueba no vale: %d bytes, se esperaban 100", len(chip))
+	}
+
+	resp := birthDateRequest(t, http.MethodPost, baseURL+"/api/pets", token, map[string]interface{}{
+		"name": "Ñoño", "type": "gato", "microchip_id": chip,
+	})
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusCreated {
+		t.Fatalf("status %d, se esperaba 201: 50 runas entran en un VARCHAR(50) aunque sean 100 bytes; un 400 acá significa que el chequeo está contando bytes", resp.StatusCode)
+	}
+}
+
+// El vacío tiene que guardarse como NULL. En un uniqueIndex de Postgres los NULL
+// no colisionan entre sí, pero los strings vacíos SÍ: sin normalizar, la segunda
+// mascota creada con el campo del formulario en blanco moría con SQLSTATE 23505
+// → 500. Es el mismo defecto que el largo, con otro código de error, y por eso
+// hacen falta DOS altas para verlo — la primera pasa siempre.
+func TestPetMicrochipID_DosVaciosNoColisionan(t *testing.T) {
+	baseURL, cleanup := startTestServer(t)
+	defer cleanup()
+
+	token, _ := registerAndLogin(t, baseURL)
+
+	for i, nombre := range []string{"Primera", "Segunda"} {
+		resp := birthDateRequest(t, http.MethodPost, baseURL+"/api/pets", token, map[string]interface{}{
+			"name": nombre, "type": "perro", "microchip_id": "",
+		})
+		if resp.StatusCode != http.StatusCreated {
+			resp.Body.Close()
+			t.Fatalf("alta %d (%s): status %d, se esperaba 201 — dos microchips vacíos no son un duplicado", i+1, nombre, resp.StatusCode)
+		}
+		resp.Body.Close()
+	}
+}

@@ -17,6 +17,10 @@ type CreatePetRequest struct {
 	Description string  `json:"description"`
 	City        string  `json:"city"`
 	Gender      string  `json:"gender"`
+	// Opcional y acotado a 50 RUNAS por la columna (ver domain.IsValidMicrochipID).
+	// Un string vacío se guarda como NULL: la columna es uniqueIndex y los vacíos
+	// sí colisionan entre sí, los NULL no. No hay campo espejo en
+	// UpdatePetRequest — hoy el microchip sólo se puede cargar al crear.
 	MicrochipID *string `json:"microchip_id"`
 	// BirthDate viaja como día de calendario plano ("2006-01-02"), NO como
 	// instante ISO: la columna es DATE y se queda sólo con el día, así que
@@ -75,8 +79,13 @@ type UpdatePetRequest struct {
 	City        *string `json:"city"`
 	Gender      *string `json:"gender"`
 	Status      string  `json:"status"`
-	// Día de calendario plano, igual que en el alta. `nil` = no enviado; un
-	// string vacío en cualquiera de los dos borra el par completo.
+	// Día de calendario plano, igual que en el alta. `nil` = no enviado.
+	//
+	// Un string vacío en CUALQUIERA de los dos borra el par, pero sólo pisa lo
+	// que estaba GUARDADO: si el mismo request manda además el otro campo con un
+	// valor, no se descarta en silencio — el par queda incoherente y el validador
+	// responde 400. Se prefiere el error explícito a aceptar un request
+	// contradictorio tirando la mitad de lo que el usuario mandó.
 	BirthDate          *string `json:"birth_date"`
 	BirthDatePrecision *string `json:"birth_date_precision"`
 	// Version is used for optimistic concurrency. Send the value received from the

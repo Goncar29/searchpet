@@ -100,7 +100,15 @@ func ValidateBirthDate(birthDate *time.Time, precision string) error {
 	hoy := time.Now().UTC().Truncate(24 * time.Hour)
 	dia := birthDate.UTC().Truncate(24 * time.Hour)
 
-	if dia.After(hoy) {
+	// El día de gracia cubre a los usuarios ADELANTADOS de UTC, que es la mitad
+	// del problema que el párrafo de arriba resolvía sólo para los atrasados:
+	// alguien en Portugal o España cargando a las 00:30 elige su día local, que
+	// en UTC todavía es ayer, y sin el margen se lo rechaza. La app se publica
+	// en es/en/pt, así que esas zonas están en alcance.
+	//
+	// No debilita la guarda en nada que importe: lo que atajamos son fechas
+	// absurdas, y "mañana" no es una fecha de nacimiento más plausible que hoy.
+	if dia.After(hoy.AddDate(0, 0, 1)) {
 		return ErrInvalidInput
 	}
 	if dia.Before(hoy.AddDate(-birthDateMaxAge, 0, 0)) {
