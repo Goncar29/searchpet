@@ -172,7 +172,9 @@
       "foundNudgeTitle": "¡La encontraste! 🎉",
       "foundNudgeText": "¿Querés contar cómo fue? Las historias de éxito motivan a toda la comunidad.",
       "foundNudgeCta": "Contar la historia",
-      "foundNudgeDismiss": "Ahora no"
+      "foundNudgeDismiss": "Ahora no",
+      "gender": "Sexo",
+      "age": "Edad"
     },
     "card": {
       "lost": "Perdido",
@@ -254,6 +256,15 @@
       "male": "Macho",
       "female": "Hembra",
       "unknown": "No sé"
+    },
+    "age": {
+      "years_one": "{{count}} año",
+      "years_other": "{{count}} años",
+      "months_one": "{{count}} mes",
+      "months_other": "{{count}} meses",
+      "days_one": "{{count}} día",
+      "days_other": "{{count}} días",
+      "approximate": "aprox. {{age}}"
     }
   },
   "chat": {

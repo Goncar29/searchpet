@@ -10,6 +10,7 @@ import { usePetByID, useReportsByPetID, useMarkPetAsFound, useSubmitAbuseReport 
 import { statusBadgeBg } from '../utils/statusBadge';
 import { canManagePet } from '@shared/utils/petAuthorization';
 import type { Photo, Report, AbuseReason } from '@shared/types';
+import { computePetAge } from '@shared/utils/petAge';
 import { useAuth } from '../context/AuthContext';
 import { SharePanel } from '../components/SharePanel';
 import { PdfFlyerButton } from '../components/PdfFlyerButton';
@@ -163,10 +164,28 @@ export function PetDetailPage() {
   const showAbuseReport = isAuthenticated && !canManage && !!(pet.owner_id || pet.reporter_id);
   const hasSidebar = !!pet.owner || showReporterContact || showAbuseReport;
 
+  // La edad se DERIVA de birth_date respetando su precisión, no se guarda:
+  // guardar "3 años" es guardar un dato que queda viejo solo al pasar el año.
+  // Y el "aprox." no es cortesía — con precisión 'year' el backend guarda un
+  // "01-01" de relleno, así que afirmar la edad exacta sería inventar hasta 11
+  // meses de certeza que el dueño nunca dio.
+  const edad = computePetAge(pet.birth_date, pet.birth_date_precision);
+  const edadTexto = edad
+    ? (() => {
+        const base = t(`pets:age.${edad.unit}s`, { count: edad.value });
+        return edad.approximate ? t('pets:age.approximate', { age: base }) : base;
+      })()
+    : '';
+
   const factValues = ([
     ['pets:detail.type', pet.type && t(`pets:types.${pet.type}`)],
     ['pets:detail.breed', pet.breed],
     ['pets:detail.color', pet.color],
+    // 'unknown' se OMITE a propósito: una tarjeta que dice "No sé" no ayuda a
+    // reconocer a la mascota, que es para lo que existe esta grilla. Sólo se
+    // muestra cuando el dato aporta.
+    ['pets:detail.gender', pet.gender && pet.gender !== 'unknown' && t(`pets:genders.${pet.gender}`)],
+    ['pets:detail.age', edadTexto],
     // Breed and color are optional and an update can clear them with "", so a
     // falsy value drops the whole card instead of rendering a heading with
     // nothing under it.

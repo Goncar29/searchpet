@@ -172,7 +172,9 @@
       "foundNudgeTitle": "You found them! 🎉",
       "foundNudgeText": "Want to share how it happened? Success stories inspire the whole community.",
       "foundNudgeCta": "Tell the story",
-      "foundNudgeDismiss": "Not now"
+      "foundNudgeDismiss": "Not now",
+      "gender": "Sex",
+      "age": "Age"
     },
     "card": {
       "lost": "Lost",
@@ -254,6 +256,15 @@
       "male": "Male",
       "female": "Female",
       "unknown": "Don't know"
+    },
+    "age": {
+      "years_one": "{{count}} year",
+      "years_other": "{{count}} years",
+      "months_one": "{{count}} month",
+      "months_other": "{{count}} months",
+      "days_one": "{{count}} day",
+      "days_other": "{{count}} days",
+      "approximate": "about {{age}}"
     }
   },
   "chat": {
