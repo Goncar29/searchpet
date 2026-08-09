@@ -3,6 +3,7 @@ package repository
 import (
 	"errors"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	"gorm.io/gorm"
 	"lost-pets/internal/domain"
 )
@@ -27,9 +28,43 @@ func orderedPhotos(db *gorm.DB) *gorm.DB {
 	return db.Order("photos.created_at ASC, photos.id ASC")
 }
 
+// microchipUniqueIndex es el índice que crea el tag `uniqueIndex` de
+// Pet.MicrochipID. Se compara por NOMBRE y no sólo por el SQLSTATE porque la
+// tabla puede ganar otros índices únicos: mapear cualquier 23505 a
+// "microchip_taken" le mentiría al usuario sobre qué campo corregir.
+const microchipUniqueIndex = "idx_pets_microchip_id"
+
+// pgUniqueViolation es el SQLSTATE 23505. Se declara acá en vez de traer
+// github.com/jackc/pgerrcode: es UNA constante, y el valor lo fija el estándar
+// SQL, no la librería. Sumar un módulo entero al grafo de dependencias por un
+// string de cinco caracteres es superficie de supply chain a cambio de nada.
+const pgUniqueViolation = "23505"
+
+// translatePetWriteError convierte los errores del DRIVER en errores de
+// dominio. Vive en el repositorio a propósito: es la única capa que puede
+// conocer a Postgres, y ponerlo más arriba obligaría al servicio a importar
+// pgconn — justo lo que las interfaces de repositorio existen para evitar.
+//
+// Y hay una razón práctica además de la arquitectónica: una callejera se crea
+// dentro de uow.Execute y una registrada por el repo directo. Los dos caminos
+// pasan por este Create (la UoW construye NewPetRepository(tx)), así que acá la
+// traducción se aplica una vez y cubre a los dos. En el servicio habría que
+// acordarse en cada rama, y olvidarse no da error: devuelve 500 en silencio.
+//
+// Lo que NO se traduce se devuelve tal cual: un error desconocido tiene que
+// seguir saliendo como 500, que es la respuesta honesta ante algo que no
+// entendemos.
+func translatePetWriteError(err error) error {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == pgUniqueViolation && pgErr.ConstraintName == microchipUniqueIndex {
+		return domain.ErrMicrochipTaken
+	}
+	return err
+}
+
 // Create inserta una nueva mascota en la BD.
 func (r *PostgresPetRepository) Create(pet *domain.Pet) error {
-	return r.db.Create(pet).Error
+	return translatePetWriteError(r.db.Create(pet).Error)
 }
 
 // FindByID busca una mascota por su UUID y carga el owner.

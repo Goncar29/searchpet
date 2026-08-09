@@ -56,6 +56,15 @@ func (h *PetHandler) CreatePet(c *gin.Context) {
 			writeError(c, http.StatusBadRequest, err)
 			return
 		}
+		// 409 y no 400: el número puede ser perfectamente válido y aun así estar
+		// tomado por otra mascota. Es un conflicto con un recurso existente, no un
+		// dato mal formado, y el usuario no puede corregirlo mirando su propio
+		// formulario. Sin esta rama salía como 500 — "error nuestro, reintentá"
+		// ante algo que no va a funcionar nunca por más que reintente.
+		if errors.Is(err, domain.ErrMicrochipTaken) {
+			writeError(c, http.StatusConflict, err)
+			return
+		}
 		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		return
 	}

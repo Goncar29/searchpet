@@ -33,6 +33,16 @@ var (
 	ErrOwnerRequiredForStatus  = errors.New("owner_required_for_status")
 	ErrInitialReportRequired   = errors.New("initial_report_required")
 	ErrInitialReportNotAllowed = errors.New("initial_report_not_allowed")
+	// ErrMicrochipTaken: otra mascota ya está registrada con ese número. Es un
+	// conflicto con un recurso existente, no una falla del servidor: antes salía
+	// como 500 porque el 23505 de Postgres llegaba crudo al handler.
+	//
+	// Es un sentinel propio y NO ErrConflict, que ya significa "la versión
+	// cambió desde que leíste" en el control de concurrencia optimista. Los dos
+	// dan 409, pero colapsarlos le daría al cliente el mismo `code` para dos
+	// situaciones con acciones opuestas: una se resuelve recargando, la otra
+	// corrigiendo el número.
+	ErrMicrochipTaken = errors.New("microchip_taken")
 
 	// Report
 	ErrReportNotFound = errors.New("reporte no encontrado")
@@ -178,6 +188,7 @@ var ErrorCodes = map[error]string{
 	ErrOwnerRequiredForStatus:  "owner_required_for_status",
 	ErrInitialReportRequired:   "initial_report_required",
 	ErrInitialReportNotAllowed: "initial_report_not_allowed",
+	ErrMicrochipTaken:          "microchip_taken",
 
 	// Report
 	ErrReportNotFound: "report_not_found",

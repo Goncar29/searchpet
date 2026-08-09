@@ -442,14 +442,91 @@ func TestPetMicrochipID_ElRecorteHaceValerLaUnicidad(t *testing.T) {
 		t.Fatalf("primera alta: status %d, se esperaba 201", primera.StatusCode)
 	}
 
-	// Mismo número, con espacios alrededor. Tiene que colisionar — hoy eso sale
-	// como 500 (23505 sin mapear, ver el comentario de IsValidMicrochipID), y lo
-	// que este test fija es que NO entre como una segunda fila con 201.
+	// Mismo número, con espacios alrededor: es el MISMO microchip y el
+	// uniqueIndex tiene que verlo como uno solo. Se afirma el 409 y no un
+	// "distinto de 201" porque ese assert flojo también lo satisface el 500 que
+	// este flujo daba antes — y un 500 le dice al cliente "error nuestro,
+	// reintentá" ante un dato suyo que nunca va a funcionar.
 	segunda := birthDateRequest(t, http.MethodPost, baseURL+"/api/pets", token, map[string]interface{}{
 		"name": "Clon", "type": "perro", "microchip_id": "  985141000123456  ",
 	})
 	defer segunda.Body.Close()
-	if segunda.StatusCode == http.StatusCreated {
-		t.Fatalf("la segunda alta entró con 201: \" 985141… \" y \"985141…\" son el mismo microchip y el uniqueIndex tiene que verlos como uno solo")
+	if segunda.StatusCode != http.StatusConflict {
+		t.Fatalf("status %d, se esperaba 409: \" 985141… \" y \"985141…\" son el mismo microchip", segunda.StatusCode)
+	}
+}
+
+// Un microchip repetido es un CONFLICTO con un recurso existente, no una falla
+// del servidor. El caso no es exótico y fue el que trajo el code review: un
+// finder registra una callejera con el chip X que le escaneó el veterinario, y
+// más tarde el dueño registra su mascota con el mismo X.
+//
+// Se afirma el CÓDIGO del cuerpo además del status, porque es lo único que el
+// frontend puede usar para explicar qué corregir: `getErrorMessage` mapea
+// `code`, no el status. Y el campo es de sólo escritura —no viaja en
+// PetResponse ni se puede editar— así que quien choca no tiene forma de
+// inspeccionar el valor: el mensaje es toda la ayuda que recibe.
+func TestPetMicrochipID_DuplicadoDa409YNo500(t *testing.T) {
+	baseURL, cleanup := startTestServer(t)
+	defer cleanup()
+
+	token, _ := registerAndLogin(t, baseURL)
+	const chip = "985141000999888"
+
+	primera := birthDateRequest(t, http.MethodPost, baseURL+"/api/pets", token, map[string]interface{}{
+		"name": "Original", "type": "perro", "microchip_id": chip,
+	})
+	defer primera.Body.Close()
+	if primera.StatusCode != http.StatusCreated {
+		t.Fatalf("primera alta: status %d, se esperaba 201", primera.StatusCode)
+	}
+
+	segunda := birthDateRequest(t, http.MethodPost, baseURL+"/api/pets", token, map[string]interface{}{
+		"name": "Duplicada", "type": "perro", "microchip_id": chip,
+	})
+	defer segunda.Body.Close()
+	if segunda.StatusCode != http.StatusConflict {
+		t.Fatalf("status %d, se esperaba 409 (un 500 acá significa que el 23505 de Postgres llegó crudo al handler)", segunda.StatusCode)
+	}
+
+	var cuerpo struct {
+		Code string `json:"code"`
+	}
+	if err := json.NewDecoder(segunda.Body).Decode(&cuerpo); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if cuerpo.Code != "microchip_taken" {
+		t.Fatalf("code = %q, se esperaba \"microchip_taken\": es lo único que el frontend puede traducir", cuerpo.Code)
+	}
+}
+
+// La colisión tiene que dar 409 también cuando la mascota entra por el camino
+// TRANSACCIONAL. Una callejera se crea dentro de uow.Execute junto a su reporte
+// inicial, que es un Create distinto del de una mascota registrada — y es
+// justamente el caso del finder que escanea un chip, o sea el más probable de
+// los dos. Si la traducción del error viviera en el servicio en vez del
+// repositorio, esta rama se quedaría sin ella y nadie lo notaría.
+func TestPetMicrochipID_DuplicadoEnCallejeraTambienDa409(t *testing.T) {
+	baseURL, cleanup := startTestServer(t)
+	defer cleanup()
+
+	token, _ := registerAndLogin(t, baseURL)
+	const chip = "985141000777666"
+
+	stray := map[string]interface{}{
+		"name": "Callejera", "type": "perro", "status": "stray", "microchip_id": chip,
+		"initial_report": map[string]interface{}{"latitude": -34.9011, "longitude": -56.1645},
+	}
+	primera := birthDateRequest(t, http.MethodPost, baseURL+"/api/pets", token, stray)
+	defer primera.Body.Close()
+	if primera.StatusCode != http.StatusCreated {
+		t.Fatalf("primera callejera: status %d, se esperaba 201", primera.StatusCode)
+	}
+
+	stray["name"] = "Callejera duplicada"
+	segunda := birthDateRequest(t, http.MethodPost, baseURL+"/api/pets", token, stray)
+	defer segunda.Body.Close()
+	if segunda.StatusCode != http.StatusConflict {
+		t.Fatalf("status %d, se esperaba 409 en el camino transaccional", segunda.StatusCode)
 	}
 }
