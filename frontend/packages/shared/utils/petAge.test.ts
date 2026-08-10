@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computePetAge } from './petAge';
+import { computePetAge, formatPetAge } from './petAge';
 
 // La edad se DERIVA de la fecha, nunca se guarda: guardar "3 años" es guardar
 // un dato que queda viejo solo al pasar el año.
@@ -98,5 +98,30 @@ describe('computePetAge', () => {
 
   it('ignora un instante ISO, que no es un día de calendario', () => {
     expect(computePetAge('2022-03-09T00:00:00Z', 'day', HOY)).toBeNull();
+  });
+});
+
+// El "aprox." es un INVARIANTE, no presentacion: solo la precision 'day' afirma
+// el dia exacto. Estaba duplicado en PetDetailPage y SharedPetPage, asi que
+// arreglarlo en una habria dejado a la otra —la landing publica, la que ven mas
+// desconocidos— haciendo la afirmacion mas fuerte. Ahora hay una sola copia y
+// estos tests la fijan.
+describe('formatPetAge', () => {
+  const t = (key: string, o?: Record<string, unknown>) =>
+    key === 'pets:age.approximate' ? `aprox. ${o?.age}` : `${o?.count} ${key.split('.')[1]}`;
+
+  it('precision day NO lleva aprox.', () => {
+    expect(formatPetAge(t, '2022-03-09', 'day', HOY)).toBe('4 years');
+  });
+
+  it('precision year y month SI llevan aprox.', () => {
+    expect(formatPetAge(t, '2022-01-01', 'year', HOY)).toBe('aprox. 4 years');
+    expect(formatPetAge(t, '2022-03-01', 'month', HOY)).toBe('aprox. 4 years');
+  });
+
+  it('sin fecha devuelve cadena vacia, no "0 anios"', () => {
+    // Los consumidores filtran por truthiness para no renderizar un chip vacio.
+    expect(formatPetAge(t, undefined, undefined, HOY)).toBe('');
+    expect(formatPetAge(t, '2022-03-09', undefined, HOY)).toBe('');
   });
 });

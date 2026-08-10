@@ -10,7 +10,7 @@ import { usePetByID, useReportsByPetID, useMarkPetAsFound, useSubmitAbuseReport 
 import { statusBadgeBg } from '../utils/statusBadge';
 import { canManagePet } from '@shared/utils/petAuthorization';
 import type { Photo, Report, AbuseReason } from '@shared/types';
-import { computePetAge } from '@shared/utils/petAge';
+import { formatPetAge } from '@shared/utils/petAge';
 import { useAuth } from '../context/AuthContext';
 import { SharePanel } from '../components/SharePanel';
 import { PdfFlyerButton } from '../components/PdfFlyerButton';
@@ -169,13 +169,7 @@ export function PetDetailPage() {
   // Y el "aprox." no es cortesía — con precisión 'year' el backend guarda un
   // "01-01" de relleno, así que afirmar la edad exacta sería inventar hasta 11
   // meses de certeza que el dueño nunca dio.
-  const edad = computePetAge(pet.birth_date, pet.birth_date_precision);
-  const edadTexto = edad
-    ? (() => {
-        const base = t(`pets:age.${edad.unit}s`, { count: edad.value });
-        return edad.approximate ? t('pets:age.approximate', { age: base }) : base;
-      })()
-    : '';
+  const edadTexto = formatPetAge(t, pet.birth_date, pet.birth_date_precision);
 
   const factValues = ([
     ['pets:detail.type', pet.type && t(`pets:types.${pet.type}`)],

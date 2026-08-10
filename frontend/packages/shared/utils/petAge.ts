@@ -28,6 +28,30 @@ export interface PetAge {
   approximate: boolean;
 }
 
+/**
+ * La edad ya formateada y traducida, o '' si no hay fecha.
+ *
+ * Vive acá y no en cada pantalla porque la regla del "aprox." es un INVARIANTE,
+ * no una decisión de presentación: sólo la precisión 'day' afirma el día
+ * exacto, así que sólo ella puede mostrarse sin atenuar. Con una copia por
+ * pantalla, arreglarlo en una dejaría a la otra —la landing pública, que es la
+ * que ven más desconocidos— haciendo la afirmación más fuerte.
+ *
+ * Recibe la función de traducción en vez de importar i18next: `shared/` es
+ * agnóstico de web y mobile.
+ */
+export function formatPetAge(
+  t: (key: string, options?: Record<string, unknown>) => string,
+  birthDate: string | undefined,
+  precision: BirthDatePrecision | '' | undefined,
+  now: Date = new Date()
+): string {
+  const age = computePetAge(birthDate, precision, now);
+  if (!age) return '';
+  const base = t(`pets:age.${age.unit}s`, { count: age.value });
+  return age.approximate ? t('pets:age.approximate', { age: base }) : base;
+}
+
 export function computePetAge(
   birthDate: string | undefined,
   precision: BirthDatePrecision | '' | undefined,

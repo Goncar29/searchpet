@@ -466,9 +466,8 @@
     "seoDescriptionFallback": "Ayudanos a encontrar a {{name}}",
     "about": "Acerca de {{name}}",
     "ownerLooking": "Dueño buscando",
-    "shareNotice": "Compartir aviso",
-    "views_one": "{{count}} persona ya vio este aviso",
-    "views_other": "{{count}} personas ya vieron este aviso",
+    "views_one": "Visto {{count}} vez",
+    "views_other": "Visto {{count}} veces",
     "photoOf": "Foto {{n}} de {{total}} de {{name}}",
     "gallery": "Galería de fotos"
   },

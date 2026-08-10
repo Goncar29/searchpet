@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { useSharedPet } from '@shared/hooks';
 import { statusBadgeBg } from '../utils/statusBadge';
 import { buildWhatsAppContactURL } from '@shared/utils/whatsappTemplates';
-import { computePetAge } from '@shared/utils/petAge';
+import { formatPetAge } from '@shared/utils/petAge';
 import { Logo } from '../components/Logo';
 import { PawPlaceholder } from '../components/PawPlaceholder';
 import { Icon } from '../components/Icon';
@@ -59,21 +59,22 @@ export function SharedPetPage() {
   const pet = data.pet;
   const owner = data.owner;
   const photos = pet.photos ?? [];
-  // La primaria manda, y el resto conserva su orden. Sin esto la galería
-  // arrancaría por una foto cualquiera según el orden del heap de Postgres.
+  // Sube la PRIMARIA al frente; el resto ya viene ordenado por created_at desde
+  // el repositorio (`Preload("Pet.Photos", orderedPhotos)`), así que esto NO
+  // está corrigiendo un orden indefinido — una versión anterior de este
+  // comentario decía eso y era falso.
   const ordered = [...photos].sort((a, b) => Number(b.is_primary) - Number(a.is_primary));
-  const current = ordered[Math.min(activePhoto, ordered.length - 1)];
+  // El índice se acota UNA vez y se usa el acotado en todos lados. Antes la
+  // imagen usaba el acotado pero el alt y el aria-current el crudo: si el dueño
+  // borraba una foto mientras alguien tenía la pestaña abierta, el refetch por
+  // foco dejaba "Foto 3 de 2" y ninguna miniatura marcada.
+  const safeIndex = ordered.length > 0 ? Math.min(activePhoto, ordered.length - 1) : 0;
+  const current = ordered[safeIndex];
 
   const statusLabel = pet.status === 'found' ? t('pets:card.found') : t('pets:card.lost');
   const statusBg = statusBadgeBg(pet.status);
 
-  const age = computePetAge(pet.birth_date, pet.birth_date_precision);
-  const ageText = age
-    ? (() => {
-        const base = t(`pets:age.${age.unit}s`, { count: age.value });
-        return age.approximate ? t('pets:age.approximate', { age: base }) : base;
-      })()
-    : '';
+  const ageText = formatPetAge(t, pet.birth_date, pet.birth_date_precision);
   const genderText = pet.gender && pet.gender !== 'unknown' ? t(`pets:genders.${pet.gender}`) : '';
   // Sexo y edad en UN chip. Si falta uno, va el otro solo; si faltan los dos,
   // el chip no existe (filter de abajo) en vez de dejar una píldora vacía.
@@ -136,7 +137,11 @@ export function SharedPetPage() {
                 <span
                   className={`absolute z-10 top-3 left-3 ${statusBg} text-white text-xs font-bold uppercase tracking-wider px-3 py-1.5 rounded-full inline-flex items-center gap-1.5`}
                 >
-                  <Icon name="warning" className="h-3.5 w-3.5" />
+                  {/* El ícono sigue al ESTADO, igual que la etiqueta y el
+                      color. Estaba fijo en `warning`, así que una mascota
+                      encontrada mostraba una píldora verde que decía
+                      ENCONTRADO con un triángulo de peligro al lado. */}
+                  <Icon name={pet.status === 'found' ? 'check' : 'warning'} className="h-3.5 w-3.5" />
                   {statusLabel}
                 </span>
 
@@ -144,7 +149,7 @@ export function SharedPetPage() {
                   <img
                     src={current.url}
                     alt={t('sharedPet:photoOf', {
-                      n: activePhoto + 1,
+                      n: safeIndex + 1,
                       total: ordered.length,
                       name: pet.name,
                     })}
@@ -168,14 +173,14 @@ export function SharedPetPage() {
                       <button
                         type="button"
                         onClick={() => setActivePhoto(i)}
-                        aria-current={i === activePhoto}
+                        aria-current={i === safeIndex}
                         aria-label={t('sharedPet:photoOf', {
                           n: i + 1,
                           total: ordered.length,
                           name: pet.name,
                         })}
                         className={`block w-full aspect-square rounded-xl overflow-hidden ring-2 transition-all focus:outline-none focus-visible:ring-4 focus-visible:ring-primary/40 ${
-                          i === activePhoto
+                          i === safeIndex
                             ? 'ring-primary'
                             : 'ring-transparent hover:ring-gray-300 dark:hover:ring-gray-600'
                         }`}
@@ -196,9 +201,9 @@ export function SharedPetPage() {
 
               {chips.length > 0 && (
                 <ul className="mt-4 flex flex-wrap gap-2">
-                  {chips.map((chip) => (
+                  {chips.map((chip, i) => (
                     <li
-                      key={chip}
+                      key={`${i}-${chip}`}
                       className="rounded-full bg-gray-100 dark:bg-gray-800 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-200"
                     >
                       {chip}
@@ -265,6 +270,16 @@ export function SharedPetPage() {
                   </p>
                 </div>
 
+                {/* Dice VECES, no PERSONAS, porque eso es lo que el contador
+                    mide: `IncrementViewCount` corre en cada GET del endpoint, y
+                    el cliente refetchea al volver el foco pasados 30s
+                    (queryClient.ts). Una sola persona que cambia de pestaña y
+                    vuelve suma otra. Verificado sin querer al hacer el /verify:
+                    el contador llegó a 8 con un solo navegador headless.
+                    Contar personas de verdad necesita deduplicar del lado del
+                    servidor, que es un cambio aparte — mientras tanto la
+                    etiqueta dice la verdad en vez de inflar una cifra que el
+                    dueño lee como interés real en su aviso. */}
                 {data.view_count > 0 && (
                   <p className="pt-1 text-center text-xs text-gray-500 dark:text-gray-400">
                     {t('sharedPet:views', { count: data.view_count })}

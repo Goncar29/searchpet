@@ -466,9 +466,8 @@
     "seoDescriptionFallback": "Help us find {{name}}",
     "about": "About {{name}}",
     "ownerLooking": "Owner searching",
-    "shareNotice": "Share notice",
-    "views_one": "{{count}} person has seen this notice",
-    "views_other": "{{count}} people have seen this notice",
+    "views_one": "Seen {{count}} time",
+    "views_other": "Seen {{count}} times",
     "photoOf": "Photo {{n}} of {{total}} of {{name}}",
     "gallery": "Photo gallery"
   },
