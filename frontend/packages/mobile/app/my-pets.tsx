@@ -356,6 +356,27 @@ export default function MyPetsScreen() {
         }
       />
       )}
+
+      {/* Registrar mascota, SIEMPRE alcanzable.
+          Antes esta acción vivía únicamente dentro de ListEmptyComponent, o sea
+          que se renderizaba SÓLO con la lista vacía: con una mascota cargada
+          desaparecía y no quedaba ninguna otra entrada. Y el otro camino
+          tampoco rescataba — LostPetStep manda a /my-pets cuando ya tenés una
+          mascota, justo la pantalla donde el botón estaba escondido, así que
+          los dos caminos terminaban en la misma puerta cerrada.
+          Va sólo en la pestaña de mascotas propias, que es la misma condición
+          que ya tenía el botón del estado vacío. */}
+      {tab === 'owned' && !isLoading && (
+        <TouchableOpacity
+          style={styles.fab}
+          onPress={() => router.push('/pets/register')}
+          activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel={t('my_pets:registerPet')}
+        >
+          <Text style={styles.fabIcon}>+</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
@@ -400,6 +421,32 @@ const styles = StyleSheet.create({
   list: {
     padding: SPACING.lg,
     paddingBottom: 100,
+  },
+  // 56px es el tamaño estándar del botón flotante en Android, y el
+  // paddingBottom de 100 de la lista ya deja aire para que no tape el último
+  // card. El elevation es lo que lo despega en Android; las sombras de iOS no
+  // hacen nada ahí.
+  fab: {
+    position: 'absolute',
+    right: SPACING.lg,
+    bottom: SPACING.xl,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: COLORS.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 6,
+  },
+  fabIcon: {
+    color: COLORS.white,
+    fontSize: 32,
+    lineHeight: 36,
+    fontWeight: '700',
   },
   emptyContainer: {
     flex: 1,
