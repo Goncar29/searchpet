@@ -628,3 +628,78 @@ func TestGetNearbyReports_LosFiltrosLleganAlServicio(t *testing.T) {
 		t.Error("From: esperaba una fecha, obtuve nil")
 	}
 }
+
+// El endpoint es PUBLICO y SIN rate limit (router.go: grupo `public`), asi que
+// lo que el cliente manda tiene que quedar acotado por construccion y no por
+// confianza. Sin deduplicar, `status=lost,lost,lost,...` hasta el tope de ~1 MB
+// de la linea de request son ~200.000 valores TODOS VALIDOS — pasan la
+// validacion entera y terminan en un IN de 200.000 parametros que Postgres
+// tiene que parsear y planificar. En Neon el compute es el presupuesto.
+func TestGetNearbyReports_EstadosRepetidosSeDeduplican(t *testing.T) {
+	reporterID := uuid.New()
+	var capturado domain.NearbyReportCriteria
+
+	svc := &mockReportService{
+		getNearbyFn: func(c domain.NearbyReportCriteria) ([]domain.Report, error) {
+			capturado = c
+			return nil, nil
+		},
+	}
+	r := setupReportRouter(handler.NewReportHandler(svc, nil), reporterID)
+
+	repetidos := strings.TrimSuffix(strings.Repeat("lost,", 5000), ",")
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET",
+		"/api/reports/nearby?lat=-34.9011&lng=-56.1645&status="+repetidos, nil)
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("esperaba 200, obtuve %d: %s", w.Code, w.Body.String())
+	}
+	if len(capturado.ReportStatuses) != 1 {
+		t.Fatalf("5000 repeticiones de 'lost' tenian que colapsar a 1, quedaron %d", len(capturado.ReportStatuses))
+	}
+}
+
+// Una coma final es tolerable: el frontend arma la cadena con un join y puede
+// dejar un hueco. Lo que NO es tolerable es descartar el parametro entero en
+// silencio, asi que una lista sin un solo valor util sigue siendo 400.
+func TestGetNearbyReports_ComaFinalYListaVacia(t *testing.T) {
+	reporterID := uuid.New()
+
+	t.Run("coma final se tolera", func(t *testing.T) {
+		var capturado domain.NearbyReportCriteria
+		svc := &mockReportService{
+			getNearbyFn: func(c domain.NearbyReportCriteria) ([]domain.Report, error) {
+				capturado = c
+				return nil, nil
+			},
+		}
+		r := setupReportRouter(handler.NewReportHandler(svc, nil), reporterID)
+
+		w := httptest.NewRecorder()
+		req, _ := http.NewRequest("GET", "/api/reports/nearby?lat=-34.9011&lng=-56.1645&status=lost,", nil)
+		r.ServeHTTP(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Fatalf("esperaba 200 con coma final, obtuve %d: %s", w.Code, w.Body.String())
+		}
+		if len(capturado.ReportStatuses) != 1 || capturado.ReportStatuses[0] != "lost" {
+			t.Fatalf("esperaba [lost], obtuve %v", capturado.ReportStatuses)
+		}
+	})
+
+	t.Run("lista sin ningun valor util da 400", func(t *testing.T) {
+		// getNearbyFn en nil a proposito: si llega al servicio, explota.
+		svc := &mockReportService{}
+		r := setupReportRouter(handler.NewReportHandler(svc, nil), reporterID)
+
+		w := httptest.NewRecorder()
+		req, _ := http.NewRequest("GET", "/api/reports/nearby?lat=-34.9011&lng=-56.1645&status=,,,", nil)
+		r.ServeHTTP(w, req)
+
+		if w.Code != http.StatusBadRequest {
+			t.Fatalf("esperaba 400 con una lista vacia, obtuve %d: %s", w.Code, w.Body.String())
+		}
+	})
+}

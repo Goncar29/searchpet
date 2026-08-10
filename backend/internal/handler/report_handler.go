@@ -216,14 +216,38 @@ func (h *ReportHandler) GetNearbyReports(c *gin.Context) {
 		criteria.PetType = petType
 	}
 
+	// Se DEDUPLICA, y no es cosmético: esta ruta es pública y sin rate limit
+	// (grupo `public` en router.go). Sin deduplicar, `status=lost,lost,...`
+	// hasta el tope de ~1 MB de la línea de request son ~200.000 valores TODOS
+	// VÁLIDOS — pasan la validación entera, porque son correctos, y terminan en
+	// un IN de 200.000 parámetros que Postgres tiene que parsear y planificar.
+	// Con el set, el slice nunca pasa de len(ValidReportStatuses), mande lo que
+	// mande el cliente: queda acotado por construcción y no por confianza.
+	//
+	// Los vacíos se saltean para tolerar una coma final (el frontend arma la
+	// cadena con un join y puede dejar un hueco), pero una lista sin un solo
+	// valor útil sigue siendo 400: descartar el parámetro entero en silencio es
+	// justo lo que esta validación existe para evitar.
 	if raw := c.Query("status"); raw != "" {
+		vistos := make(map[string]bool, len(domain.ValidReportStatuses))
 		for _, s := range strings.Split(raw, ",") {
 			s = strings.TrimSpace(s)
+			if s == "" {
+				continue
+			}
 			if !domain.IsValidReportStatus(s) {
 				writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
 				return
 			}
+			if vistos[s] {
+				continue
+			}
+			vistos[s] = true
 			criteria.ReportStatuses = append(criteria.ReportStatuses, s)
+		}
+		if len(criteria.ReportStatuses) == 0 {
+			writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
+			return
 		}
 	}
 
