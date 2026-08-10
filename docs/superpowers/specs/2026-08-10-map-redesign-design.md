@@ -181,6 +181,39 @@ joins and no allowlist, so they cannot fail the way the database fails (rule #34
 **Web:** Vitest over `useMapFilters` (draft state does not fetch; Apply does), `NearbyReportList`,
 and the marker's status→ring mapping including the no-photo fallback.
 
+## Method
+
+**SDD: not used.** The ambiguity SDD exists to reduce was resolved during brainstorming and is
+captured here. A parallel `openspec/` artifact set would restate this document. Size and risk never
+select SDD on their own — only an explicit request does.
+
+**TDD: yes, for logic; no, for layout.** A failing test written before moving a panel to the left
+proves nothing. Applied strictly to:
+
+- the widening test (remove the allowlist guard, confirm red, then trust green);
+- the backward-compatibility test that lets slice 1 ship alone;
+- the date bounds and `from > to` rejection;
+- `useMapFilters` draft-vs-applied behaviour;
+- the marker's status→ring mapping and its no-photo fallback.
+
+Layout and gesture work is verified by looking at it and by the existing smoke tests.
+
+**RDD: yes, one cycle per slice.** Entry is always
+`gentle-ai review status --contract gentle-ai.review-integration/v2 --agent claude-code
+--next-transition`, routing only from the returned `next_transition`.
+
+Two consequences that shape the work rather than merely follow it:
+
+- The candidate **freezes** at review start and admits **one** bounded correction. The habit of
+  review → push fixes → review again (PR #138 took three rounds) becomes three separate reviews of
+  three candidates. Arrive whole.
+- Every source-mutating step — formatters, linters, generated files — runs **before** review start.
+  After that point any changed byte invalidates the receipt.
+
+Slice 1 touches a visibility invariant, so it may be classified high risk and draw the canonical
+four-lens review. If so, the cost forecast is given before the first lens runs, and any consent
+envelope is relayed in full for the user to answer.
+
 ## Open risks
 
 - **Nominatim rate limits are shared per origin.** A burst from several users could see throttling.
