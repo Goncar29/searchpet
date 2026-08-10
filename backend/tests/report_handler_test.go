@@ -535,3 +535,96 @@ func TestReportHandler_DeleteReport_BadID(t *testing.T) {
 		t.Errorf("want invalid_input code, got %s", w.Body.String())
 	}
 }
+
+// ============================================================
+// GET /api/reports/nearby — validación de los filtros
+// ============================================================
+
+func TestGetNearbyReports_FiltrosInvalidosDan400(t *testing.T) {
+	reporterID := uuid.New()
+
+	casos := []struct {
+		name  string
+		query string
+	}{
+		{"tipo inexistente", "type=dinosaurio"},
+		{"tipo en inglés (los valores son español)", "type=dog"},
+		{"estado inexistente", "status=lost,inventado"},
+		{"fecha no parseable", "from=ayer"},
+		{"from posterior a to", "from=2026-08-10T00:00:00Z&to=2026-08-01T00:00:00Z"},
+	}
+
+	for _, tc := range casos {
+		t.Run(tc.name, func(t *testing.T) {
+			// getNearbyFn queda en nil A PROPOSITO: si un request invalido llega
+			// al servicio, el test explota en vez de pasar calladito.
+			svc := &mockReportService{}
+			r := setupReportRouter(handler.NewReportHandler(svc, nil), reporterID)
+
+			w := httptest.NewRecorder()
+			url := "/api/reports/nearby?lat=-34.9011&lng=-56.1645&" + tc.query
+			req, _ := http.NewRequest("GET", url, nil)
+			r.ServeHTTP(w, req)
+
+			if w.Code != http.StatusBadRequest {
+				t.Fatalf("esperaba 400, obtuve %d: %s", w.Code, w.Body.String())
+			}
+		})
+	}
+}
+
+// Los cuatro parametros son OPCIONALES: sin ellos el endpoint se comporta como
+// siempre. Es la garantia que permite deployar esta rebanada antes de que el
+// frontend exista.
+func TestGetNearbyReports_SinFiltrosSigueDando200(t *testing.T) {
+	reporterID := uuid.New()
+	petID := uuid.New()
+
+	svc := &mockReportService{
+		getNearbyFn: func(_ domain.NearbyReportCriteria) ([]domain.Report, error) {
+			return []domain.Report{*newTestReport(reporterID, petID)}, nil
+		},
+	}
+	r := setupReportRouter(handler.NewReportHandler(svc, nil), reporterID)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/api/reports/nearby?lat=-34.9011&lng=-56.1645", nil)
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("esperaba 200 sin filtros, obtuve %d: %s", w.Code, w.Body.String())
+	}
+}
+
+// Los filtros validos tienen que LLEGAR al servicio, no sólo pasar validación.
+func TestGetNearbyReports_LosFiltrosLleganAlServicio(t *testing.T) {
+	reporterID := uuid.New()
+	var capturado domain.NearbyReportCriteria
+
+	svc := &mockReportService{
+		getNearbyFn: func(c domain.NearbyReportCriteria) ([]domain.Report, error) {
+			capturado = c
+			return nil, nil
+		},
+	}
+	r := setupReportRouter(handler.NewReportHandler(svc, nil), reporterID)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET",
+		"/api/reports/nearby?lat=-34.9011&lng=-56.1645&type=gato&status=lost,sighting&from=2026-08-01T00:00:00Z",
+		nil)
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("esperaba 200, obtuve %d: %s", w.Code, w.Body.String())
+	}
+	if capturado.PetType != "gato" {
+		t.Errorf("PetType: esperaba gato, obtuve %q", capturado.PetType)
+	}
+	if len(capturado.ReportStatuses) != 2 {
+		t.Errorf("ReportStatuses: esperaba 2, obtuve %v", capturado.ReportStatuses)
+	}
+	if capturado.From == nil {
+		t.Error("From: esperaba una fecha, obtuve nil")
+	}
+}

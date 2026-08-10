@@ -4,6 +4,8 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -197,11 +199,61 @@ func (h *ReportHandler) GetNearbyReports(c *gin.Context) {
 		}
 	}
 
-	reports, err := h.reportService.GetNearbyReports(domain.NearbyReportCriteria{
+	criteria := domain.NearbyReportCriteria{
 		Lat:          lat,
 		Lng:          lng,
 		RadiusMeters: float64(radiusMeters),
-	})
+	}
+
+	// Los cuatro filtros son OPCIONALES: ausentes, el endpoint se comporta como
+	// siempre. Un valor desconocido responde 400 en vez de ignorarse — un filtro
+	// que se descarta en silencio le miente al usuario sobre lo que está viendo.
+	if petType := c.Query("type"); petType != "" {
+		if !domain.IsValidPetType(petType) {
+			writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
+			return
+		}
+		criteria.PetType = petType
+	}
+
+	if raw := c.Query("status"); raw != "" {
+		for _, s := range strings.Split(raw, ",") {
+			s = strings.TrimSpace(s)
+			if !domain.IsValidReportStatus(s) {
+				writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
+				return
+			}
+			criteria.ReportStatuses = append(criteria.ReportStatuses, s)
+		}
+	}
+
+	// Instantes RFC3339 ya resueltos por el cliente. El servidor no adivina
+	// zonas horarias: lo que el usuario entiende por "un día" se resuelve donde
+	// el usuario está.
+	if raw := c.Query("from"); raw != "" {
+		parsed, parseErr := time.Parse(time.RFC3339, raw)
+		if parseErr != nil {
+			writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
+			return
+		}
+		criteria.From = &parsed
+	}
+
+	if raw := c.Query("to"); raw != "" {
+		parsed, parseErr := time.Parse(time.RFC3339, raw)
+		if parseErr != nil {
+			writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
+			return
+		}
+		criteria.To = &parsed
+	}
+
+	if criteria.From != nil && criteria.To != nil && criteria.From.After(*criteria.To) {
+		writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
+		return
+	}
+
+	reports, err := h.reportService.GetNearbyReports(criteria)
 	if err != nil {
 		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		return
