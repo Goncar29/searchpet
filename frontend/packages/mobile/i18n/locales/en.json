@@ -188,7 +188,9 @@
     "inappropriate": "Inappropriate content",
     "other": "Other",
     "reportSuccess": "Report submitted. Thank you for helping keep the community safe.",
-    "reportError": "Could not submit report"
+    "reportError": "Could not submit report",
+    "gender": "Sex",
+    "age": "Age"
   },
   "my_pets": {
     "title": "My Pets",
