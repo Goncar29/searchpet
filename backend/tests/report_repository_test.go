@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"lost-pets/internal/domain"
@@ -622,5 +623,133 @@ func TestReportRepository_FindNearby_FiltraPorEstadoDelReporte(t *testing.T) {
 	}
 	if len(got) != 1 || got[0].Status != "sighting" {
 		t.Fatalf("esperaba sólo el sighting, obtuve %d", len(got))
+	}
+}
+
+func TestReportRepository_FindNearby_FiltraPorTipoDeMascota(t *testing.T) {
+	gormDB := testdb.SetupTestDB(t)
+	userRepo := repository.NewUserRepository(gormDB)
+	petRepo := repository.NewPetRepository(gormDB)
+	reportRepo := repository.NewReportRepository(gormDB)
+	epRepo := repository.NewEpisodeRepository(gormDB)
+
+	owner := newTestUser(t, userRepo)
+	for _, tipo := range []string{"perro", "gato"} {
+		pet := &domain.Pet{ID: uuid.New(), OwnerID: ptrUUID(owner.ID), Name: tipo, Type: tipo, Status: domain.PetStatusLost}
+		if err := petRepo.Create(pet); err != nil {
+			t.Fatalf("Create pet %s: %v", tipo, err)
+		}
+		ep, err := epRepo.Open(pet.ID.String())
+		if err != nil {
+			t.Fatalf("Open episode %s: %v", tipo, err)
+		}
+		r := &domain.Report{
+			ID: uuid.New(), PetID: pet.ID, ReporterID: owner.ID,
+			Status: "lost", Latitude: mvdLat, Longitude: mvdLng,
+			EpisodeID: &ep.ID,
+		}
+		if err := reportRepo.Create(r); err != nil {
+			t.Fatalf("Create report %s: %v", tipo, err)
+		}
+	}
+
+	got, err := reportRepo.FindNearby(domain.NearbyReportCriteria{
+		Lat: mvdLat, Lng: mvdLng, RadiusMeters: 5000,
+		PetType: "gato",
+	})
+	if err != nil {
+		t.Fatalf("FindNearby: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("esperaba 1 gato, obtuve %d", len(got))
+	}
+	if got[0].Pet.Type != "gato" {
+		t.Fatalf("esperaba un reporte de gato, obtuve tipo %q", got[0].Pet.Type)
+	}
+}
+
+// occurred_at es NULLABLE y la UI muestra `occurred_at ?? created_at`. Si el
+// filtro compara contra la columna pelada, todo reporte sin fecha de
+// ocurrencia DESAPARECE apenas el usuario elige un rango — en silencio, que es
+// el peor modo de falla. Por eso la query usa COALESCE, igual que la pantalla.
+func TestReportRepository_FindNearby_RangoDeFechasUsaCoalesce(t *testing.T) {
+	gormDB := testdb.SetupTestDB(t)
+	userRepo := repository.NewUserRepository(gormDB)
+	petRepo := repository.NewPetRepository(gormDB)
+	reportRepo := repository.NewReportRepository(gormDB)
+	epRepo := repository.NewEpisodeRepository(gormDB)
+
+	owner := newTestUser(t, userRepo)
+	pet := &domain.Pet{ID: uuid.New(), OwnerID: ptrUUID(owner.ID), Name: "Sin Fecha", Type: "perro", Status: domain.PetStatusLost}
+	if err := petRepo.Create(pet); err != nil {
+		t.Fatalf("Create pet: %v", err)
+	}
+	ep, err := epRepo.Open(pet.ID.String())
+	if err != nil {
+		t.Fatalf("Open episode: %v", err)
+	}
+
+	// Reporte SIN occurred_at: su created_at es ahora, así que cae en el rango.
+	sinFecha := &domain.Report{
+		ID: uuid.New(), PetID: pet.ID, ReporterID: owner.ID,
+		Status: "lost", Latitude: mvdLat, Longitude: mvdLng,
+		EpisodeID: &ep.ID,
+	}
+	if err := reportRepo.Create(sinFecha); err != nil {
+		t.Fatalf("Create report sin fecha: %v", err)
+	}
+
+	desde := time.Now().Add(-24 * time.Hour)
+	hasta := time.Now().Add(24 * time.Hour)
+
+	got, err := reportRepo.FindNearby(domain.NearbyReportCriteria{
+		Lat: mvdLat, Lng: mvdLng, RadiusMeters: 5000,
+		From: &desde, To: &hasta,
+	})
+	if err != nil {
+		t.Fatalf("FindNearby: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("el reporte sin occurred_at desapareció del rango: esperaba 1, obtuve %d", len(got))
+	}
+}
+
+func TestReportRepository_FindNearby_RangoDeFechasExcluyeLoViejo(t *testing.T) {
+	gormDB := testdb.SetupTestDB(t)
+	userRepo := repository.NewUserRepository(gormDB)
+	petRepo := repository.NewPetRepository(gormDB)
+	reportRepo := repository.NewReportRepository(gormDB)
+	epRepo := repository.NewEpisodeRepository(gormDB)
+
+	owner := newTestUser(t, userRepo)
+	pet := &domain.Pet{ID: uuid.New(), OwnerID: ptrUUID(owner.ID), Name: "Viejo", Type: "perro", Status: domain.PetStatusLost}
+	if err := petRepo.Create(pet); err != nil {
+		t.Fatalf("Create pet: %v", err)
+	}
+	ep, err := epRepo.Open(pet.ID.String())
+	if err != nil {
+		t.Fatalf("Open episode: %v", err)
+	}
+
+	viejo := time.Now().Add(-72 * time.Hour)
+	r := &domain.Report{
+		ID: uuid.New(), PetID: pet.ID, ReporterID: owner.ID,
+		Status: "lost", Latitude: mvdLat, Longitude: mvdLng,
+		EpisodeID: &ep.ID, OccurredAt: &viejo,
+	}
+	if err := reportRepo.Create(r); err != nil {
+		t.Fatalf("Create report: %v", err)
+	}
+
+	desde := time.Now().Add(-24 * time.Hour)
+	got, err := reportRepo.FindNearby(domain.NearbyReportCriteria{
+		Lat: mvdLat, Lng: mvdLng, RadiusMeters: 5000,
+		From: &desde,
+	})
+	if err != nil {
+		t.Fatalf("FindNearby: %v", err)
+	}
+	if len(got) != 0 {
+		t.Fatalf("esperaba 0 reportes fuera del rango, obtuve %d", len(got))
 	}
 }

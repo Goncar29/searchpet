@@ -119,7 +119,8 @@ func (r *PostgresReportRepository) FindNearby(c domain.NearbyReportCriteria) ([]
 	// whose episode_id differs from pets.current_episode_id) are excluded.
 	// CloseCurrent intentionally leaves current_episode_id intact so that a
 	// just-found pet's "recovered here" marker remains visible.
-	// Lo de acá abajo es INCONDICIONAL: la allowlist de visibilidad y el
+	//
+	// Todo lo de este bloque es INCONDICIONAL: la allowlist de visibilidad y el
 	// alcance del episodio no dependen de ningún criterio del usuario.
 	q := r.db.Preload("Pet").Preload("Reporter").
 		Joins("JOIN pets ON pets.id = reports.pet_id").
@@ -139,6 +140,20 @@ func (r *PostgresReportRepository) FindNearby(c domain.NearbyReportCriteria) ([]
 	// ya excluyó. Lo protege TestReportRepository_FindNearby_ElFiltroNoEnsanchaLaAllowlist.
 	if len(c.ReportStatuses) > 0 {
 		q = q.Where("reports.status IN (?)", c.ReportStatuses)
+	}
+
+	if c.PetType != "" {
+		q = q.Where("pets.type = ?", c.PetType)
+	}
+
+	// COALESCE, no la columna pelada: occurred_at es nullable y la pantalla
+	// muestra `occurred_at ?? created_at`. Filtrar por la columna sola haría
+	// desaparecer los reportes sin fecha de ocurrencia sin decir una palabra.
+	if c.From != nil {
+		q = q.Where("COALESCE(reports.occurred_at, reports.created_at) >= ?", *c.From)
+	}
+	if c.To != nil {
+		q = q.Where("COALESCE(reports.occurred_at, reports.created_at) <= ?", *c.To)
 	}
 
 	err := q.Order(orderExpr).Find(&reports).Error
