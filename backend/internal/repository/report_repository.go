@@ -119,7 +119,9 @@ func (r *PostgresReportRepository) FindNearby(c domain.NearbyReportCriteria) ([]
 	// whose episode_id differs from pets.current_episode_id) are excluded.
 	// CloseCurrent intentionally leaves current_episode_id intact so that a
 	// just-found pet's "recovered here" marker remains visible.
-	err := r.db.Preload("Pet").Preload("Reporter").
+	// Lo de acá abajo es INCONDICIONAL: la allowlist de visibilidad y el
+	// alcance del episodio no dependen de ningún criterio del usuario.
+	q := r.db.Preload("Pet").Preload("Reporter").
 		Joins("JOIN pets ON pets.id = reports.pet_id").
 		Where("pets.status IN (?)", domain.MapVisibleStatuses).
 		Where("reports.episode_id = pets.current_episode_id").
@@ -129,9 +131,17 @@ func (r *PostgresReportRepository) FindNearby(c domain.NearbyReportCriteria) ([]
 				ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography,
 				?
 			)
-		`, c.Lng, c.Lat, c.RadiusMeters).
-		Order(orderExpr).
-		Find(&reports).Error
+		`, c.Lng, c.Lat, c.RadiusMeters)
+
+	// Los filtros del usuario se SUMAN a lo de arriba, nunca lo reemplazan.
+	// Por eso van como Where encadenados y no como parte de esa expresión:
+	// acotan dentro de la allowlist y no pueden alcanzar un reporte que ella
+	// ya excluyó. Lo protege TestReportRepository_FindNearby_ElFiltroNoEnsanchaLaAllowlist.
+	if len(c.ReportStatuses) > 0 {
+		q = q.Where("reports.status IN (?)", c.ReportStatuses)
+	}
+
+	err := q.Order(orderExpr).Find(&reports).Error
 
 	return reports, err
 }

@@ -529,3 +529,98 @@ func TestReportRepository_FindNearby_SinFiltrosDevuelveTodoLoVisible(t *testing.
 		t.Fatalf("esperaba 1 reporte sin filtros, obtuve %d", len(got))
 	}
 }
+
+// El filtro del usuario acota DENTRO de la allowlist; jamás la ensancha.
+//
+// La mascota está `archived`, o sea fuera de MapVisibleStatuses, así que su
+// reporte no debe aparecer nunca — ni sin filtros, ni pidiendo explícitamente
+// el estado que ese reporte tiene. Si alguna vez este test se pone verde
+// porque el filtro reemplazó a la allowlist en vez de sumarse, el mapa estaría
+// filtrando casos cerrados y mascotas ajenas ya privadas.
+func TestReportRepository_FindNearby_ElFiltroNoEnsanchaLaAllowlist(t *testing.T) {
+	gormDB := testdb.SetupTestDB(t)
+	userRepo := repository.NewUserRepository(gormDB)
+	petRepo := repository.NewPetRepository(gormDB)
+	reportRepo := repository.NewReportRepository(gormDB)
+	epRepo := repository.NewEpisodeRepository(gormDB)
+
+	owner := newTestUser(t, userRepo)
+	pet := &domain.Pet{ID: uuid.New(), OwnerID: ptrUUID(owner.ID), Name: "Archivada", Type: "perro", Status: domain.PetStatusLost}
+	if err := petRepo.Create(pet); err != nil {
+		t.Fatalf("Create pet: %v", err)
+	}
+	ep, err := epRepo.Open(pet.ID.String())
+	if err != nil {
+		t.Fatalf("Open episode: %v", err)
+	}
+	report := &domain.Report{
+		ID: uuid.New(), PetID: pet.ID, ReporterID: owner.ID,
+		Status: "lost", Latitude: mvdLat, Longitude: mvdLng,
+		EpisodeID: &ep.ID,
+	}
+	if err := reportRepo.Create(report); err != nil {
+		t.Fatalf("Create report: %v", err)
+	}
+
+	// Recién ahora se archiva, y va con UpdateStatus a propósito: toca SÓLO la
+	// columna status y deja `current_episode_id` intacto.
+	//
+	// Con petRepo.Update(pet) el test pasaba sin la allowlist puesta, o sea que
+	// no probaba nada: la variable `pet` se creó ANTES de Open, así que lleva
+	// CurrentEpisodeID en nil, y Update se lo escribía encima. El reporte
+	// quedaba fuera por la cláusula del episodio y la allowlist ni participaba.
+	// Verificado sacando la allowlist y viendo el rojo.
+	if err := petRepo.UpdateStatus(pet.ID.String(), domain.PetStatusArchived); err != nil {
+		t.Fatalf("UpdateStatus a archived: %v", err)
+	}
+
+	got, err := reportRepo.FindNearby(domain.NearbyReportCriteria{
+		Lat: mvdLat, Lng: mvdLng, RadiusMeters: 5000,
+		ReportStatuses: []string{"lost"},
+	})
+	if err != nil {
+		t.Fatalf("FindNearby: %v", err)
+	}
+	if len(got) != 0 {
+		t.Fatalf("la allowlist se ensanchó: esperaba 0 reportes, obtuve %d", len(got))
+	}
+}
+
+func TestReportRepository_FindNearby_FiltraPorEstadoDelReporte(t *testing.T) {
+	gormDB := testdb.SetupTestDB(t)
+	userRepo := repository.NewUserRepository(gormDB)
+	petRepo := repository.NewPetRepository(gormDB)
+	reportRepo := repository.NewReportRepository(gormDB)
+	epRepo := repository.NewEpisodeRepository(gormDB)
+
+	owner := newTestUser(t, userRepo)
+	pet := &domain.Pet{ID: uuid.New(), OwnerID: ptrUUID(owner.ID), Name: "Lost Dog", Type: "perro", Status: domain.PetStatusLost}
+	if err := petRepo.Create(pet); err != nil {
+		t.Fatalf("Create pet: %v", err)
+	}
+	ep, err := epRepo.Open(pet.ID.String())
+	if err != nil {
+		t.Fatalf("Open episode: %v", err)
+	}
+	for _, st := range []string{"lost", "sighting"} {
+		r := &domain.Report{
+			ID: uuid.New(), PetID: pet.ID, ReporterID: owner.ID,
+			Status: st, Latitude: mvdLat, Longitude: mvdLng,
+			EpisodeID: &ep.ID,
+		}
+		if err := reportRepo.Create(r); err != nil {
+			t.Fatalf("Create report %s: %v", st, err)
+		}
+	}
+
+	got, err := reportRepo.FindNearby(domain.NearbyReportCriteria{
+		Lat: mvdLat, Lng: mvdLng, RadiusMeters: 5000,
+		ReportStatuses: []string{"sighting"},
+	})
+	if err != nil {
+		t.Fatalf("FindNearby: %v", err)
+	}
+	if len(got) != 1 || got[0].Status != "sighting" {
+		t.Fatalf("esperaba sólo el sighting, obtuve %d", len(got))
+	}
+}
