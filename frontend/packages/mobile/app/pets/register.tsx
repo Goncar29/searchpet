@@ -22,6 +22,8 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
+import { composeBirthDate } from '@shared/utils/petBirthDate';
+import { PetIdentityFields, type PetIdentityValue } from '../../components/PetIdentityFields';
 import i18next from 'i18next';
 import * as ImagePicker from 'expo-image-picker';
 import { useCreatePet, useUploadPhotoNative } from '@shared/hooks';
@@ -42,6 +44,11 @@ export default function RegisterPetScreen() {
   const [breed, setBreed] = useState('');
   const [color, setColor] = useState('');
   const [description, setDescription] = useState('');
+  const [identity, setIdentity] = useState<PetIdentityValue>({
+    gender: '',
+    birth: { year: '', month: '', day: '' },
+  });
+  const [birthDateError, setBirthDateError] = useState<string | undefined>();
   const [photos, setPhotos] = useState<string[]>([]);
   const [photoErrors, setPhotoErrors] = useState<Record<number, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -113,6 +120,16 @@ export default function RegisterPetScreen() {
 
     setIsSubmitting(true);
     setPhotoErrors({});
+    // Si eligio un anio y el par no se pudo armar, se AVISA en vez de crear la
+    // mascota sin fecha y en silencio: el usuario cree que la cargo y no esta.
+    // Mismo criterio que CreatePetPage en web.
+    if (identity.birth.year && !composeBirthDate(identity.birth)) {
+      setBirthDateError(t('pets:create.birthDateInvalid'));
+      setIsSubmitting(false);
+      return;
+    }
+    setBirthDateError(undefined);
+
     try {
       // 1. Crear la mascota (status omitido => 'registered' por default del backend)
       const pet = await createPet.mutateAsync({
@@ -121,6 +138,10 @@ export default function RegisterPetScreen() {
         breed: breed.trim(),
         color: color.trim(),
         description: description.trim(),
+        gender: identity.gender || undefined,
+        // El par viaja entero o no viaja. El guard de arriba corta antes si el
+        // usuario eligio un anio y la fecha no se pudo armar.
+        ...(composeBirthDate(identity.birth) ?? {}),
       });
 
       // 2. Subir fotos (no bloquea si falla — la mascota ya fue creada)
@@ -153,6 +174,11 @@ export default function RegisterPetScreen() {
       setColor('');
       setDescription('');
       setPhotos([]);
+      // `identity` TAMBIEN. La pantalla queda montada (router.push, no replace),
+      // asi que sin esto el sexo y la fecha de la mascota anterior siguen
+      // puestos y se le atribuyen a la SIGUIENTE — una fecha de nacimiento
+      // factualmente falsa sobre otro animal.
+      setIdentity({ gender: '', birth: { year: '', month: '', day: '' } });
     } catch (error) {
       Alert.alert(i18next.t('common:error'), getErrorMessage(error, (key) => i18next.t(key)));
     } finally {
@@ -209,6 +235,16 @@ export default function RegisterPetScreen() {
             </TouchableOpacity>
           ))}
         </View>
+
+        <PetIdentityFields
+          value={identity}
+          onChange={(next) => {
+            setIdentity(next);
+            setBirthDateError(undefined);
+          }}
+          disabled={isSubmitting}
+          birthDateError={birthDateError}
+        />
 
         <Text style={styles.label}>{t('post:breedLabel')}</Text>
         <TextInput style={styles.input} placeholder={t('post:breedPlaceholder')} placeholderTextColor={COLORS.placeholder} value={breed} onChangeText={setBreed} />

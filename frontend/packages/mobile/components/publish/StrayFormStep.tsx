@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Image, ScrollView, Alert, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import { PetIdentityFields } from '../PetIdentityFields';
 import * as ImagePicker from 'expo-image-picker';
 import type { StrayFormState } from '../../app/(tabs)/post';
 import { COLORS, SPACING, FONTS, RADIUS, PET_TYPES } from '../../constants';
@@ -139,6 +140,12 @@ export function StrayFormStep({ value, onChange, onNext }: StrayFormStepProps) {
         </View>
         {errors.type && <Text style={styles.error}>{errors.type}</Text>}
       </View>
+
+      <PetIdentityFields
+        value={value.identity}
+        onChange={(identity) => onChange({ ...value, identity })}
+        hideBirthDate
+      />
 
       {/* Breed */}
       <View style={styles.section}>

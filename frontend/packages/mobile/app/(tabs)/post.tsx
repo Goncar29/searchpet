@@ -16,6 +16,8 @@ import { SuccessStep } from '../../components/publish/SuccessStep';
 import { usePublishLost, usePublishStrayNative, useCreatePet, useUploadPhotoNative } from '@shared/hooks';
 import { useAuthStore } from '../../store';
 import { getErrorMessage } from '@shared/utils/apiErrors';
+import { composeBirthDate } from '@shared/utils/petBirthDate';
+import type { PetIdentityValue } from '../../components/PetIdentityFields';
 import { COLORS, SPACING, FONTS } from '../../constants';
 import type { Pet, CreatePetRequest, InitialReportRequest, PetType } from '../../../shared/types';
 
@@ -26,6 +28,9 @@ export interface StrayFormState {
   type: PetType | '';
   breed: string;
   color: string;
+  // Sólo el sexo, sin fecha: quien reporta una callejera la encontró en la
+  // calle. Ver hideBirthDate en components/PetIdentityFields.
+  identity: PetIdentityValue;
   description: string;
   photos: string[]; // local URIs from expo-image-picker
 }
@@ -34,6 +39,7 @@ export interface AdoptionFormState {
   type: PetType | '';
   breed: string;
   color: string;
+  identity: PetIdentityValue;
   description: string;
   city: string;
   photos: string[]; // local URIs from expo-image-picker
@@ -50,8 +56,8 @@ export interface PublishWizardState {
 export const initialWizardState: PublishWizardState = {
   intent: null,
   selectedPet: null,
-  strayForm: { type: '', breed: '', color: '', description: '', photos: [] },
-  adoptionForm: { type: '', breed: '', color: '', description: '', city: '', photos: [] },
+  strayForm: { type: '', breed: '', color: '', description: '', photos: [], identity: { gender: '', birth: { year: '', month: '', day: '' } } },
+  adoptionForm: { type: '', breed: '', color: '', description: '', city: '', photos: [], identity: { gender: '', birth: { year: '', month: '', day: '' } } },
   location: null,
 };
 
@@ -127,6 +133,11 @@ export default function PostScreen() {
           breed: wizard.strayForm.breed.trim() || undefined,
           color: wizard.strayForm.color.trim() || undefined,
           description: wizard.strayForm.description.trim() || undefined,
+          gender: wizard.strayForm.identity.gender || undefined,
+          // Se manda el par aunque hoy el formulario no lo pida: el dia que se
+          // saque hideBirthDate, anda. Leyendo solo `gender` quedarian campos
+          // funcionando cuyo valor nunca llega a la API.
+          ...(composeBirthDate(wizard.strayForm.identity.birth) ?? {}),
           status: 'stray',
           initial_report: location,
         },
@@ -154,6 +165,9 @@ export default function PostScreen() {
         color: wizard.adoptionForm.color.trim() || undefined,
         description: wizard.adoptionForm.description.trim() || undefined,
         city: wizard.adoptionForm.city.trim(),
+        gender: wizard.adoptionForm.identity.gender || undefined,
+        // El par viaja entero o no viaja: mandar uno solo es el 400 del backend.
+        ...(composeBirthDate(wizard.adoptionForm.identity.birth) ?? {}),
         status: 'adoption',
       });
       const failed: number[] = [];

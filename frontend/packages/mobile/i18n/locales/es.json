@@ -188,7 +188,9 @@
     "inappropriate": "Contenido inapropiado",
     "other": "Otro",
     "reportSuccess": "Denuncia enviada. Gracias por ayudar a mantener la comunidad segura.",
-    "reportError": "No se pudo enviar la denuncia"
+    "reportError": "No se pudo enviar la denuncia",
+    "gender": "Sexo",
+    "age": "Edad"
   },
   "my_pets": {
     "title": "Mis Mascotas",

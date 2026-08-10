@@ -90,6 +90,14 @@ export function selectableDays(year: string, month: string, now: Date = new Date
 export function composeBirthDate(parts: BirthDateParts, now: Date = new Date()): BirthDatePayload | undefined {
   const year = parts.year.trim();
   if (!/^\d{4}$/.test(year)) return undefined;
+  // El piso de 150 años se valida ACÁ y no sólo acotando la oferta del select.
+  // En web alcanzaba con acotarla —lo que no se puede elegir no hay que
+  // validarlo— pero mobile pide el año en un campo de TEXTO LIBRE: ahí la
+  // garantía estructural no existe. Un "1022" tipeado en vez de "2022" pasaba
+  // esta función y moría en el backend con un 400 genérico que nunca nombra el
+  // campo. La invariante vive en la función compartida, no en la forma que cada
+  // plataforma le da al control.
+  if (Number(year) < now.getFullYear() - BIRTH_DATE_MAX_AGE) return undefined;
 
   const month = parts.month.trim();
   const day = parts.day.trim();

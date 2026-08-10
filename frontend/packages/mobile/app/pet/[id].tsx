@@ -20,6 +20,7 @@ import {
 import { useState, useRef, useCallback } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
+import { formatPetAge } from '@shared/utils/petAge';
 import i18next from 'i18next';
 import { usePetByID, useReportsByPetID, useMarkPetAsFound, useBlockUser, useSubmitAbuseReport } from '@shared/hooks';
 import { buildWhatsAppContactURL } from '@shared/utils/whatsappTemplates';
@@ -76,6 +77,10 @@ export default function PetDetailScreen() {
   }
 
   const petPhotos = pet.photos ?? [];
+  // La misma funcion que usan PetDetailPage y SharedPetPage en web: la regla del
+  // "aprox." es un invariante, no presentacion, asi que vive en shared/ y no se
+  // duplica por plataforma.
+  const edadTexto = formatPetAge(t, pet.birth_date, pet.birth_date_precision);
   const latestReport = reports?.[0];
   const isOwner = isAuthenticated && user?.id === pet.owner_id;
   // canManage: owner (owned pets) or reporter (stray pets, no owner) may manage.
@@ -256,7 +261,9 @@ export default function PetDetailScreen() {
           {pet.type && (
             <View style={styles.detailRow}>
               <Text style={styles.detailLabel}>{t('pet_detail:type')}</Text>
-              <Text style={styles.detailValue}>{pet.type}</Text>
+              {/* Traducido, no crudo: sin esto dice "perro" en minuscula aunque
+                  la app este en ingles. Mismo defecto que tenia la landing. */}
+              <Text style={styles.detailValue}>{t(`pets:types.${pet.type}`)}</Text>
             </View>
           )}
           {pet.breed && (
@@ -269,6 +276,23 @@ export default function PetDetailScreen() {
             <View style={styles.detailRow}>
               <Text style={styles.detailLabel}>{t('pet_detail:color')}</Text>
               <Text style={styles.detailValue}>{pet.color}</Text>
+            </View>
+          )}
+          {/* 'unknown' se OMITE: una fila que dice "No se" no ayuda a reconocer
+              a la mascota. Misma decision que en web. */}
+          {pet.gender && pet.gender !== 'unknown' && (
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>{t('pet_detail:gender')}</Text>
+              <Text style={styles.detailValue}>{t(`pets:genders.${pet.gender}`)}</Text>
+            </View>
+          )}
+          {/* La edad se DERIVA y respeta la precision: con 'year' dice "aprox."
+              porque el 01-01 guardado es relleno. formatPetAge es la misma
+              funcion que usan las dos pantallas de web. */}
+          {edadTexto !== '' && (
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>{t('pet_detail:age')}</Text>
+              <Text style={styles.detailValue}>{edadTexto}</Text>
             </View>
           )}
           {/* Zona only while still adoptable — a rehomed (adopted) pet needs no location. */}
