@@ -8,7 +8,11 @@ import { apiClient } from '@shared/api/client';
 
 vi.mock('react-i18next', () => ({
   useTranslation: (ns?: string | string[]) => ({
-    t: (key: string) => `${Array.isArray(ns) ? ns[0] : ns}:${key}`,
+    // Igual que en StrayFormStep.test: una clave que YA trae namespace se
+    // devuelve tal cual. Esta suite renderiza PetIdentityFields via los dos
+    // pasos, asi que sin esto sus labels salen "pets:pets:create.gender" y el
+    // proximo getByLabelText falla por el mock, no por el componente.
+    t: (key: string) => (key.includes(':') ? key : `${Array.isArray(ns) ? ns[0] : ns}:${key}`),
     i18n: { language: 'es' },
   }),
 }));
@@ -212,6 +216,35 @@ describe('PublishWizardPage — adoption path', () => {
     expect(useCreatePet).toHaveBeenCalled();
     expect(mockCreatePetMutateAsync).toHaveBeenCalledWith(
       expect.objectContaining({ status: 'adoption', city: 'Montevideo', type: 'gato' })
+    );
+  });
+
+  // La adopcion es el UNICO camino que manda el par de nacimiento, y era el
+  // unico sin test: borrar `gender:` o el spread de composeBirthDate del
+  // payload dejaba la suite entera en verde. El camino de callejera, que solo
+  // manda `gender`, tenia dos.
+  it('manda el sexo y el par de nacimiento con la precision derivada', async () => {
+    render(<PublishWizardPage />, { wrapper });
+    fireEvent.click(screen.getByText('adoption:publish.intentOption'));
+
+    const file = new File(['fake'], 'adoption.jpg', { type: 'image/jpeg' });
+    fireEvent.change(screen.getByLabelText('publish:strayForm.photoLabel'), { target: { files: [file] } });
+    fireEvent.change(screen.getByLabelText('publish:strayForm.typeLabel'), { target: { value: 'gato' } });
+    fireEvent.change(screen.getByLabelText('adoption:publish.cityLabel'), { target: { value: 'Montevideo' } });
+    fireEvent.change(screen.getByLabelText('pets:create.gender'), { target: { value: 'female' } });
+    // Solo el anio: la precision tiene que salir 'year', no 'day'. Es el
+    // invariante de toda esta linea de trabajo, verificado en el payload real.
+    fireEvent.change(screen.getByLabelText('pets:create.birthYear'), { target: { value: '2022' } });
+
+    fireEvent.click(screen.getByText('adoption:publish.submit'));
+
+    expect(await screen.findByText('publish:success.adoptionTitle')).toBeInTheDocument();
+    expect(mockCreatePetMutateAsync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        gender: 'female',
+        birth_date: '2022-01-01',
+        birth_date_precision: 'year',
+      })
     );
   });
 });
