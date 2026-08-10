@@ -20,6 +20,7 @@ import QRCode from 'qrcode';
 import i18next from 'i18next';
 import { useGenerateShareLink } from '../../shared/hooks';
 import { getErrorMessage } from '../../shared/utils/apiErrors';
+import { ApiError } from '../../shared/api/client';
 import { COLORS, SPACING, FONTS, RADIUS } from '../constants';
 import type { Pet, Report } from '../../shared/types';
 import { posterFraming } from '../utils/adoptionFraming';
@@ -39,7 +40,7 @@ export function PdfFlyerButton({ pet, reports = [] }: PdfFlyerButtonProps) {
 
   const latestReport = reports[0];
   const lastSeenDate = latestReport
-    ? new Date(latestReport.occurred_at ?? latestReport.created_at).toLocaleDateString('es', {
+    ? new Date(latestReport.occurred_at ?? latestReport.created_at).toLocaleDateString(i18next.language, {
         day: 'numeric',
         month: 'long',
         year: 'numeric',
@@ -65,12 +66,15 @@ export function PdfFlyerButton({ pet, reports = [] }: PdfFlyerButtonProps) {
 
       const { color: statusColor, header: statusText } = posterFraming(pet.status);
 
+      // El volante se IMPRIME y se reparte, así que es la superficie donde el
+      // idioma equivocado más molesta: no lo podés cambiar después de pegarlo
+      // en un poste.
       const detailRows = [
-        pet.type ? `<tr><td class="lbl">Tipo:</td><td class="val">${pet.type}</td></tr>` : '',
-        pet.breed ? `<tr><td class="lbl">Raza:</td><td class="val">${pet.breed}</td></tr>` : '',
-        pet.color ? `<tr><td class="lbl">Color:</td><td class="val">${pet.color}</td></tr>` : '',
-        pet.status === 'adoption' && pet.city ? `<tr><td class="lbl">Zona:</td><td class="val">${pet.city}</td></tr>` : '',
-        lastSeenDate ? `<tr><td class="lbl">Visto:</td><td class="val">${lastSeenDate}</td></tr>` : '',
+        pet.type ? `<tr><td class="lbl">${i18next.t('pets:share.flyerType')}</td><td class="val">${i18next.t(`pets:types.${pet.type}`)}</td></tr>` : '',
+        pet.breed ? `<tr><td class="lbl">${i18next.t('pets:share.flyerBreed')}</td><td class="val">${pet.breed}</td></tr>` : '',
+        pet.color ? `<tr><td class="lbl">${i18next.t('pets:share.flyerColor')}</td><td class="val">${pet.color}</td></tr>` : '',
+        pet.status === 'adoption' && pet.city ? `<tr><td class="lbl">${i18next.t('pets:share.flyerZone')}</td><td class="val">${pet.city}</td></tr>` : '',
+        lastSeenDate ? `<tr><td class="lbl">${i18next.t('pets:share.flyerSeen')}</td><td class="val">${lastSeenDate}</td></tr>` : '',
       ].filter(Boolean).join('');
 
       const photoHtml = primaryPhoto?.url
@@ -131,9 +135,9 @@ export function PdfFlyerButton({ pet, reports = [] }: PdfFlyerButtonProps) {
   <div class="footer">
     <img src="${qrDataUri}" class="qr" />
     <div class="ft-text">
-      <p class="ft-label">Escaneá el QR para ver más info y compartir:</p>
+      <p class="ft-label">${i18next.t('pets:share.flyerScan')}</p>
       <p class="ft-url">${shareUrl}</p>
-      <p class="ft-brand">SearchPet — Ayudamos a reunir mascotas con sus familias</p>
+      <p class="ft-brand">${i18next.t('pets:share.flyerBrand')}</p>
     </div>
   </div>
 </body>
@@ -146,22 +150,36 @@ export function PdfFlyerButton({ pet, reports = [] }: PdfFlyerButtonProps) {
       const canShare = await Sharing.isAvailableAsync();
       if (!canShare) {
         Alert.alert(
-          i18next.t('share:flyerUnavailableTitle'),
-          i18next.t('share:flyerUnavailableBody'),
+          i18next.t('pets:share.flyerUnavailableTitle'),
+          i18next.t('pets:share.flyerUnavailableBody'),
         );
         return;
       }
 
       await Sharing.shareAsync(uri, {
         mimeType: 'application/pdf',
-        dialogTitle: i18next.t('share:flyerDialogTitle', { name: pet.name }),
+        dialogTitle: i18next.t('pets:share.flyerDialogTitle', { name: pet.name }),
         UTI: 'com.adobe.pdf',
       });
     } catch (err: unknown) {
-      // Regla #11: nunca `err.message` crudo al usuario. getErrorMessage
-      // traduce los códigos del backend y cae en un mensaje genérico para lo
-      // que no reconoce; el crudo podía escupir texto interno de expo-print.
-      Alert.alert(i18next.t('common:error'), getErrorMessage(err, (key) => i18next.t(key)));
+      // El error real va al log. Sin esto, un fallo de expo-print propio de un
+      // device concreto no deja rastro en ningún lado: el usuario ve un texto
+      // genérico y no queda absolutamente nada para diagnosticar.
+      console.warn('[flyer] falló la generación del volante:', err);
+
+      // Regla #11: nunca `err.message` crudo al usuario — podía escupir texto
+      // interno de expo-print.
+      //
+      // Pero getErrorMessage sólo aporta algo con un ApiError, que acá viene
+      // únicamente del share link. Print, QRCode y Sharing tiran Error común,
+      // y para eso devuelve el genérico — que al lado del título "Ocurrió un
+      // error" son dos frases casi idénticas y no dicen qué falló. Por eso lo
+      // que no es ApiError usa el mensaje específico del volante.
+      const mensaje = err instanceof ApiError
+        ? getErrorMessage(err, (key) => i18next.t(key))
+        : i18next.t('pets:share.flyerError');
+
+      Alert.alert(i18next.t('common:error'), mensaje);
     } finally {
       setIsGenerating(false);
     }
@@ -177,7 +195,7 @@ export function PdfFlyerButton({ pet, reports = [] }: PdfFlyerButtonProps) {
       {isGenerating ? (
         <ActivityIndicator size="small" color={COLORS.white} />
       ) : (
-        <Text style={styles.label}>📄 Descargar volante PDF</Text>
+        <Text style={styles.label}>📄 {i18next.t('pets:share.flyerButton')}</Text>
       )}
     </TouchableOpacity>
   );

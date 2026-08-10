@@ -17,7 +17,7 @@ interface PetCardProps {
 }
 
 export function PetCard({ report, pet: petProp, onPress }: PetCardProps) {
-  const { t } = useTranslation(['pets']);
+  const { t, i18n } = useTranslation(['pets', 'common']);
   // report tiene prioridad; petProp es para resultados de búsqueda directa
   const pet = report?.pet ?? petProp;
 
@@ -51,7 +51,18 @@ export function PetCard({ report, pet: petProp, onPress }: PetCardProps) {
       case 'found': return t('pets:card.found').toUpperCase();
       case 'sighting': return t('pets:card.sighting').toUpperCase();
       case 'adoption': return t('pets:status.adoption').toUpperCase();
-      default: return status.toUpperCase();
+      default: {
+        // El default NO puede devolver el enum crudo. En modo búsqueda el feed
+        // monta este card con `pet=`, y `stray` está en PublicSearchableStatuses
+        // y FeedVisibleStatuses: filtrando por tipo o color aparecían callejeras
+        // con el badge diciendo literalmente "STRAY", en los tres idiomas.
+        //
+        // pets:status.<status> cubre los siete estados. Si aún así no hubiera
+        // traducción, i18next devuelve la clave — feo, pero visible, que es
+        // mejor que un enum que parece texto de producto.
+        const traducido = t(`pets:status.${status}`);
+        return traducido.toUpperCase();
+      }
     }
   };
 
@@ -64,10 +75,15 @@ export function PetCard({ report, pet: petProp, onPress }: PetCardProps) {
     const diffHours = Math.floor(diffMins / 60);
     const diffDays = Math.floor(diffHours / 24);
 
-    if (diffMins < 60) return `hace ${diffMins} min`;
-    if (diffHours < 24) return `hace ${diffHours}h`;
-    if (diffDays < 7) return `hace ${diffDays}d`;
-    return date.toLocaleDateString('es');
+    // common:timeAgo YA existía en los tres idiomas con exactamente este
+    // formato compacto, y nadie la había cableado. Sin esto, un usuario en
+    // inglés veía "LOST" y "No name" traducidos AL LADO de "hace 5 min", en el
+    // mismo encabezado del card — mezclado es peor que todo en español.
+    if (diffMins < 1) return t('common:timeAgo.now');
+    if (diffMins < 60) return t('common:timeAgo.minutesAgo', { count: diffMins });
+    if (diffHours < 24) return t('common:timeAgo.hoursAgo', { count: diffHours });
+    if (diffDays < 7) return t('common:timeAgo.daysAgo', { count: diffDays });
+    return date.toLocaleDateString(i18n.language);
   };
 
   const primaryPhoto = pet?.photos?.find(p => p.is_primary) || pet?.photos?.[0];

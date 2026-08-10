@@ -213,8 +213,8 @@
     "share": {
       "button": "Share",
       "generating": "Generating...",
-      "title": "Share {{name}}",
-      "subtitle": "Sharing increases the chances of finding them",
+      "title": "Share pet",
+      "subtitle": "Help spread the word. Sharing increases the chances of finding them.",
       "copy": "Copy",
       "copied": "✓ Copied",
       "copiedToast": "Link copied to clipboard",
@@ -225,7 +225,25 @@
       "qrDownload": "Download QR (PNG)",
       "storyDownloaded": "Image downloaded — post it as a Story from your phone 📲",
       "loadError": "We couldn't prepare the share link.",
-      "retry": "Retry"
+      "retry": "Retry",
+      "showQr": "Show QR code",
+      "hideQr": "Hide QR",
+      "generatingLink": "Generating link...",
+      "moreOptions": "More options...",
+      "instagramTitle": "Share on Instagram",
+      "instagramBody": "The link was copied. Open Instagram and paste it in your story or post.",
+      "flyerButton": "Download PDF flyer",
+      "flyerUnavailableTitle": "Not available",
+      "flyerUnavailableBody": "File sharing is not available on this device.",
+      "flyerError": "Could not generate the flyer. Please try again.",
+      "flyerDialogTitle": "{{name}} flyer",
+      "flyerType": "Type:",
+      "flyerBreed": "Breed:",
+      "flyerColor": "Color:",
+      "flyerZone": "Area:",
+      "flyerSeen": "Seen:",
+      "flyerScan": "Scan the QR for more info and to share:",
+      "flyerBrand": "SearchPet — Helping reunite pets with their families"
     },
     "report": {
       "button": "Report post",
@@ -525,17 +543,5 @@
       "publishAnother": "Publish another alert",
       "goToFeed": "Back to feed"
     }
-  },
-  "share": {
-    "title": "Share pet",
-    "subtitle": "Help spread the word. Sharing increases the chances of finding them.",
-    "showQr": "Show QR code",
-    "hideQr": "Hide QR",
-    "instagramTitle": "Share on Instagram",
-    "instagramBody": "The link was copied. Open Instagram and paste it in your story or post.",
-    "flyerUnavailableTitle": "Not available",
-    "flyerUnavailableBody": "File sharing is not available on this device.",
-    "flyerError": "Could not generate the flyer",
-    "flyerDialogTitle": "{{name}} flyer"
   }
 }

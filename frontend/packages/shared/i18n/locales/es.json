@@ -213,8 +213,8 @@
     "share": {
       "button": "Compartir",
       "generating": "Generando...",
-      "title": "Compartir a {{name}}",
-      "subtitle": "Compartir aumenta las chances de encontrarlo/a",
+      "title": "Compartir mascota",
+      "subtitle": "Ayuda a difundir. Compartir aumenta las chances de encontrarla.",
       "copy": "Copiar",
       "copied": "✓ Copiado",
       "copiedToast": "Link copiado al portapapeles",
@@ -225,7 +225,25 @@
       "qrDownload": "Descargar QR (PNG)",
       "storyDownloaded": "Imagen descargada — subila como Historia desde tu celular 📲",
       "loadError": "No pudimos preparar el link para compartir.",
-      "retry": "Reintentar"
+      "retry": "Reintentar",
+      "showQr": "Ver código QR",
+      "hideQr": "Ocultar QR",
+      "generatingLink": "Generando link...",
+      "moreOptions": "Más opciones...",
+      "instagramTitle": "Compartir en Instagram",
+      "instagramBody": "El link fue copiado. Abrí Instagram y pegalo en tu historia o publicación.",
+      "flyerButton": "Descargar volante PDF",
+      "flyerUnavailableTitle": "No disponible",
+      "flyerUnavailableBody": "Compartir archivos no está disponible en este dispositivo.",
+      "flyerError": "No se pudo generar el volante. Probá de nuevo.",
+      "flyerDialogTitle": "Volante de {{name}}",
+      "flyerType": "Tipo:",
+      "flyerBreed": "Raza:",
+      "flyerColor": "Color:",
+      "flyerZone": "Zona:",
+      "flyerSeen": "Visto:",
+      "flyerScan": "Escaneá el QR para ver más info y compartir:",
+      "flyerBrand": "SearchPet — Ayudamos a reunir mascotas con sus familias"
     },
     "report": {
       "button": "Denunciar publicación",
@@ -525,17 +543,5 @@
       "publishAnother": "Publicar otro aviso",
       "goToFeed": "Volver al feed"
     }
-  },
-  "share": {
-    "title": "Compartir mascota",
-    "subtitle": "Ayuda a difundir. Compartir aumenta las chances de encontrarla.",
-    "showQr": "Ver código QR",
-    "hideQr": "Ocultar QR",
-    "instagramTitle": "Compartir en Instagram",
-    "instagramBody": "El link fue copiado. Abrí Instagram y pegalo en tu historia o publicación.",
-    "flyerUnavailableTitle": "No disponible",
-    "flyerUnavailableBody": "Compartir archivos no está disponible en este dispositivo.",
-    "flyerError": "No se pudo generar el volante",
-    "flyerDialogTitle": "Volante de {{name}}"
   }
 }
