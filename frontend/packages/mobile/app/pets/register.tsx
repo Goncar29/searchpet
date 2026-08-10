@@ -174,6 +174,11 @@ export default function RegisterPetScreen() {
       setColor('');
       setDescription('');
       setPhotos([]);
+      // `identity` TAMBIEN. La pantalla queda montada (router.push, no replace),
+      // asi que sin esto el sexo y la fecha de la mascota anterior siguen
+      // puestos y se le atribuyen a la SIGUIENTE — una fecha de nacimiento
+      // factualmente falsa sobre otro animal.
+      setIdentity({ gender: '', birth: { year: '', month: '', day: '' } });
     } catch (error) {
       Alert.alert(i18next.t('common:error'), getErrorMessage(error, (key) => i18next.t(key)));
     } finally {

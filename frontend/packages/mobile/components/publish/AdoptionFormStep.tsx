@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Image, ScrollView, Alert, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { PetIdentityFields } from '../PetIdentityFields';
+import { composeBirthDate } from '@shared/utils/petBirthDate';
 import * as ImagePicker from 'expo-image-picker';
 import type { AdoptionFormState } from '../../app/(tabs)/post';
 import { COLORS, SPACING, FONTS, RADIUS, PET_TYPES } from '../../constants';
@@ -16,6 +17,7 @@ interface AdoptionFormStepProps {
 const MAX_PHOTOS = 3;
 
 interface FieldErrors {
+  birthDate?: string;
   photo?: string;
   type?: string;
   city?: string;
@@ -74,6 +76,14 @@ export function AdoptionFormStep({ value, onChange, onSubmit, isPending }: Adopt
     if (value.photos.length === 0) nextErrors.photo = t('publish:strayForm.photoRequired');
     if (!value.type) nextErrors.type = t('publish:strayForm.typeRequired');
     if (!value.city.trim()) nextErrors.city = t('adoption:publish.cityRequired');
+    // Acá hace más falta que en web: allá los meses y días salen de un <select>
+    // acotado, así que "13" o "31 de febrero" NO se pueden elegir. Mobile los
+    // pide en texto libre, o sea que la garantía estructural no existe y la
+    // validación tiene que hacer todo el trabajo. Sin esto, escribir mes 13
+    // creaba la mascota SIN fecha y sin un solo mensaje.
+    if (value.identity.birth.year && !composeBirthDate(value.identity.birth)) {
+      nextErrors.birthDate = t('pets:create.birthDateInvalid');
+    }
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length === 0) onSubmit();
   };
@@ -149,7 +159,12 @@ export function AdoptionFormStep({ value, onChange, onSubmit, isPending }: Adopt
 
       <PetIdentityFields
         value={value.identity}
-        onChange={(identity) => onChange({ ...value, identity })}
+        onChange={(identity) => {
+          onChange({ ...value, identity });
+          setErrors((prev) => ({ ...prev, birthDate: undefined }));
+        }}
+        disabled={isPending}
+        birthDateError={errors.birthDate}
       />
 
       {/* Breed */}

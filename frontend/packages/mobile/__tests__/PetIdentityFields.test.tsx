@@ -64,6 +64,19 @@ describe('PetIdentityFields (mobile)', () => {
     );
   });
 
+  // React Native mapea `checked` a radio/checkbox y `selected` a roles tipo
+  // pestania. Con `selected`, los lectores de pantalla leen las tres opciones
+  // igual y no dicen cual esta activa — justo el dato que hace falta, porque la
+  // unica forma de limpiar el valor es volver a tocar la que ya lo esta.
+  it('anuncia cual sexo esta elegido con `checked`, no con `selected`', () => {
+    const { getByLabelText } = render(
+      <PetIdentityFields value={{ ...vacio, gender: 'female' }} onChange={jest.fn()} />
+    );
+
+    expect(getByLabelText('pets:genders.female').props.accessibilityState.checked).toBe(true);
+    expect(getByLabelText('pets:genders.male').props.accessibilityState.checked).toBe(false);
+  });
+
   // Sin anio no hay fecha posible, y "el 9 de algun mes" no existe en el modelo.
   it('vaciar el anio vacia mes y dia', () => {
     const onChange = jest.fn();

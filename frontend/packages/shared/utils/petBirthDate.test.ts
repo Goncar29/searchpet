@@ -63,6 +63,17 @@ describe('composeBirthDate', () => {
     expect(composeBirthDate({ year: '2024', month: '2', day: '29' })?.birth_date).toBe('2024-02-29');
   });
 
+  it('rechaza un anio mas viejo que el piso del backend', () => {
+    // En web el select no puede ofrecerlo, pero mobile pide el anio en TEXTO
+    // LIBRE: un "1022" tipeado en vez de "2022" pasaba y moria en el backend
+    // con un 400 generico que nunca nombra el campo. La invariante vive aca.
+    const hoy = new Date(2026, 7, 9);
+    expect(composeBirthDate({ year: '1022', month: '', day: '' }, hoy)).toBeUndefined();
+    // El limite exacto SI entra.
+    expect(composeBirthDate({ year: String(2026 - 150), month: '', day: '' }, hoy)).toBeDefined();
+    expect(composeBirthDate({ year: String(2026 - 151), month: '', day: '' }, hoy)).toBeUndefined();
+  });
+
   it('rechaza una fecha futura', () => {
     const hoy = new Date();
     const anioQueViene = String(hoy.getFullYear() + 1);

@@ -79,7 +79,12 @@ export function PetIdentityFields({
     <>
       <View style={styles.section}>
         <Text style={styles.label}>{t('pets:create.gender')}</Text>
-        <View style={styles.row}>
+        {/* radiogroup + checked: React Native mapea `checked` a radio/checkbox y
+            `selected` a roles tipo pestania. Con `selected`, TalkBack y
+            VoiceOver leen las tres opciones IGUAL y no dicen cual esta activa —
+            justo el dato que hace falta, porque la unica forma de limpiar el
+            valor es volver a tocar la que ya lo esta. */}
+        <View style={styles.row} accessibilityRole="radiogroup">
           {GENDERS.map((g) => {
             const active = value.gender === g;
             return (
@@ -92,7 +97,7 @@ export function PetIdentityFields({
                 // una opción "vacía" como el "—" del <select> de web.
                 onPress={() => onChange({ ...value, gender: active ? '' : g })}
                 accessibilityRole="radio"
-                accessibilityState={{ selected: active, disabled: !!disabled }}
+                accessibilityState={{ checked: active, disabled: !!disabled }}
                 accessibilityLabel={t(`pets:genders.${g}`)}
               >
                 <Text style={[styles.optionLabel, active && styles.optionLabelActive]}>
