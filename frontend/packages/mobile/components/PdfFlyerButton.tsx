@@ -17,7 +17,9 @@ import {
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import QRCode from 'qrcode';
+import i18next from 'i18next';
 import { useGenerateShareLink } from '../../shared/hooks';
+import { getErrorMessage } from '../../shared/utils/apiErrors';
 import { COLORS, SPACING, FONTS, RADIUS } from '../constants';
 import type { Pet, Report } from '../../shared/types';
 import { posterFraming } from '../utils/adoptionFraming';
@@ -143,17 +145,23 @@ export function PdfFlyerButton({ pet, reports = [] }: PdfFlyerButtonProps) {
       // 5. Compartir via native share sheet (imprimir, WhatsApp, Drive, etc.)
       const canShare = await Sharing.isAvailableAsync();
       if (!canShare) {
-        Alert.alert('No disponible', 'El compartir archivos no está disponible en este dispositivo');
+        Alert.alert(
+          i18next.t('share:flyerUnavailableTitle'),
+          i18next.t('share:flyerUnavailableBody'),
+        );
         return;
       }
 
       await Sharing.shareAsync(uri, {
         mimeType: 'application/pdf',
-        dialogTitle: `Volante de ${pet.name}`,
+        dialogTitle: i18next.t('share:flyerDialogTitle', { name: pet.name }),
         UTI: 'com.adobe.pdf',
       });
-    } catch (err: any) {
-      Alert.alert('Error', err?.message || 'No se pudo generar el volante');
+    } catch (err: unknown) {
+      // Regla #11: nunca `err.message` crudo al usuario. getErrorMessage
+      // traduce los códigos del backend y cae en un mensaje genérico para lo
+      // que no reconoce; el crudo podía escupir texto interno de expo-print.
+      Alert.alert(i18next.t('common:error'), getErrorMessage(err, (key) => i18next.t(key)));
     } finally {
       setIsGenerating(false);
     }

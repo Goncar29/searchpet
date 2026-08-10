@@ -525,5 +525,17 @@
       "publishAnother": "Publicar otro aviso",
       "goToFeed": "Volver al feed"
     }
+  },
+  "share": {
+    "title": "Compartir mascota",
+    "subtitle": "Ayuda a difundir. Compartir aumenta las chances de encontrarla.",
+    "showQr": "Ver código QR",
+    "hideQr": "Ocultar QR",
+    "instagramTitle": "Compartir en Instagram",
+    "instagramBody": "El link fue copiado. Abrí Instagram y pegalo en tu historia o publicación.",
+    "flyerUnavailableTitle": "No disponible",
+    "flyerUnavailableBody": "Compartir archivos no está disponible en este dispositivo.",
+    "flyerError": "No se pudo generar el volante",
+    "flyerDialogTitle": "Volante de {{name}}"
   }
 }

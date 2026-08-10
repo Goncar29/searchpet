@@ -525,5 +525,17 @@
       "publishAnother": "Publicar outro aviso",
       "goToFeed": "Voltar ao feed"
     }
+  },
+  "share": {
+    "title": "Compartilhar pet",
+    "subtitle": "Ajude a divulgar. Compartilhar aumenta as chances de encontrá-lo.",
+    "showQr": "Ver código QR",
+    "hideQr": "Ocultar QR",
+    "instagramTitle": "Compartilhar no Instagram",
+    "instagramBody": "O link foi copiado. Abra o Instagram e cole no seu story ou publicação.",
+    "flyerUnavailableTitle": "Não disponível",
+    "flyerUnavailableBody": "Compartilhar arquivos não está disponível neste dispositivo.",
+    "flyerError": "Não foi possível gerar o panfleto",
+    "flyerDialogTitle": "Panfleto de {{name}}"
   }
 }

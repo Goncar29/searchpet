@@ -525,5 +525,17 @@
       "publishAnother": "Publish another alert",
       "goToFeed": "Back to feed"
     }
+  },
+  "share": {
+    "title": "Share pet",
+    "subtitle": "Help spread the word. Sharing increases the chances of finding them.",
+    "showQr": "Show QR code",
+    "hideQr": "Hide QR",
+    "instagramTitle": "Share on Instagram",
+    "instagramBody": "The link was copied. Open Instagram and paste it in your story or post.",
+    "flyerUnavailableTitle": "Not available",
+    "flyerUnavailableBody": "File sharing is not available on this device.",
+    "flyerError": "Could not generate the flyer",
+    "flyerDialogTitle": "{{name}} flyer"
   }
 }

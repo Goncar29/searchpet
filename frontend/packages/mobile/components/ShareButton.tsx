@@ -13,6 +13,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import * as Linking from 'expo-linking';
+import { useTranslation } from 'react-i18next';
 import i18next from 'i18next';
 import QRCode from 'react-native-qrcode-svg';
 import { useGenerateShareLink } from '../../shared/hooks';
@@ -38,6 +39,10 @@ const PLATFORMS = [
 ] as const;
 
 export function ShareButton({ petId, petName, petType, status, pet }: ShareButtonProps) {
+  // El namespace `share` vive en shared/i18n: este panel se monta desde el
+  // detalle, desde la ficha de adopción y desde el paso de éxito del wizard,
+  // así que no pertenece a ninguno de los tres.
+  const { t } = useTranslation(['share']);
   const [isLoading, setIsLoading] = useState(false);
   const [showQR, setShowQR] = useState(false);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
@@ -69,8 +74,8 @@ export function ShareButton({ petId, petName, petType, status, pet }: ShareButto
         await Linking.openURL(`https://twitter.com/intent/tweet?text=${encodeURIComponent(message)}`);
       } else if (platform === 'instagram') {
         Alert.alert(
-          'Compartir en Instagram',
-          'El link fue copiado. Abre Instagram y pégalo en tu historia o publicación.',
+          i18next.t('share:instagramTitle'),
+          i18next.t('share:instagramBody'),
         );
       } else {
         await Share.share({ message, url, title: `${petName} - ${statusText}` });
@@ -117,10 +122,8 @@ export function ShareButton({ petId, petName, petType, status, pet }: ShareButto
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Compartir mascota</Text>
-      <Text style={styles.subtitle}>
-        Ayuda a difundir. Compartir aumenta las chances de encontrarla.
-      </Text>
+      <Text style={styles.title}>{t('share:title')}</Text>
+      <Text style={styles.subtitle}>{t('share:subtitle')}</Text>
 
       <View style={styles.platformsRow}>
         {PLATFORMS.map((p) => (
@@ -135,7 +138,7 @@ export function ShareButton({ petId, petName, petType, status, pet }: ShareButto
       </View>
 
       <TouchableOpacity style={styles.qrToggle} onPress={handleToggleQR} disabled={generateLink.isPending}>
-        <Text style={styles.qrToggleText}>{showQR ? 'Ocultar QR' : 'Ver código QR'}</Text>
+        <Text style={styles.qrToggleText}>{showQR ? t('share:hideQr') : t('share:showQr')}</Text>
       </TouchableOpacity>
 
       {showQR && (
