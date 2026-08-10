@@ -11,12 +11,17 @@ import {
 // las pantallas que los piden compartan UNA definicion en vez de duplicar el
 // markup.
 //
-// HOY LO USAN DOS: CreatePetPage y EditPetPage. Las otras superficies que crean
-// mascotas siguen SIN poder cargar estos campos — PublishWizardPage (callejera
-// y adopcion) en web, y pets/register.tsx y (tabs)/post.tsx en mobile. Se dice
-// explicito porque una version anterior de este comentario afirmaba "los cuatro
-// formularios", que se leia como que la divergencia ya estaba resuelta cuando
-// es justamente lo que falta.
+// LO USAN LAS CUATRO SUPERFICIES DE ALTA/EDICION DE WEB: CreatePetPage,
+// EditPetPage, y los pasos StrayFormStep y AdoptionFormStep del wizard.
+//
+// Lo que TODAVIA falta es MOBILE — pets/register.tsx, (tabs)/post.tsx y sus dos
+// pasos del wizard siguen sin poder cargar estos campos. Ahi no alcanza con
+// importar este componente: es React DOM (<select>, <fieldset>, clases de
+// Tailwind) y hace falta un equivalente nativo.
+//
+// Se enumera explicito porque una version anterior de este comentario decia
+// "los cuatro formularios" cuando solo lo usaban dos, y se leia como que la
+// divergencia ya estaba resuelta.
 //
 // LA FECHA SE PIDE EN TRES SELECTS Y LA PRECISION SE DERIVA de cuanto lleno el
 // usuario. No hay ningun control que diga "precision": si solo elige el anio,
@@ -35,13 +40,22 @@ interface Props {
   disabled?: boolean;
   /** Error de la fecha, cuando el par no se pudo armar con lo elegido. */
   birthDateError?: string;
+  /**
+   * Oculta la fecha de nacimiento y deja sólo el sexo.
+   *
+   * Lo usa el alta de CALLEJERA: quien la reporta es un desconocido que la
+   * encontró en la calle. El sexo lo puede VER; la fecha de nacimiento no la
+   * puede saber. Ofrecerle un selector de año lo invita a inventar, y la
+   * precisión existe justamente para que nadie tenga que fabricar certeza.
+   */
+  hideBirthDate?: boolean;
 }
 
 const labelClass = 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1';
 const controlClass =
   'w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed';
 
-export function PetIdentityFields({ value, onChange, disabled, birthDateError }: Props) {
+export function PetIdentityFields({ value, onChange, disabled, birthDateError, hideBirthDate }: Props) {
   const { t, i18n } = useTranslation(['pets', 'common']);
 
   // Los nombres de mes salen de Intl con el idioma activo, no de 36 claves de
@@ -104,6 +118,8 @@ export function PetIdentityFields({ value, onChange, disabled, birthDateError }:
         </select>
       </div>
 
+      {!hideBirthDate && (
+      <>
       {/* Sin `m-0`: esa clase pisaba el margen que `space-y-5` del formulario
           le pone al campo SIGUIENTE, y "Raza" quedaba pegado a 0px mientras el
           resto respiraba 20. Medido con getBoundingClientRect, no a ojo. */}
@@ -188,6 +204,8 @@ export function PetIdentityFields({ value, onChange, disabled, birthDateError }:
           </p>
         )}
       </fieldset>
+      </>
+      )}
     </>
   );
 }

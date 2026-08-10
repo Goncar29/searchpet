@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { PetIdentityFields } from '../PetIdentityFields';
 import type { AdoptionFormState } from '../../pages/PublishWizardPage';
 import type { PetType } from '@shared/types';
 
@@ -170,6 +171,11 @@ export function AdoptionFormStep({ value, onChange, onSubmit, isPending }: Adopt
         </select>
         {errors.type && <p className="text-red-500 dark:text-red-400 text-sm mt-1">{errors.type}</p>}
       </div>
+
+      <PetIdentityFields
+        value={value.identity}
+        onChange={(identity) => onChange({ ...value, identity })}
+      />
 
       {/* Breed */}
       <div>

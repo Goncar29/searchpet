@@ -10,6 +10,8 @@ import { SuccessStep } from '../components/publish/SuccessStep';
 import { InlineAuthStep } from '../components/publish/InlineAuthStep';
 import { useAuth } from '../context/AuthContext';
 import { useCreatePet, usePublishStray, useUploadPhoto } from '@shared/hooks';
+import { composeBirthDate } from '@shared/utils/petBirthDate';
+import type { PetIdentityValue } from '../components/PetIdentityFields';
 import { apiClient } from '@shared/api/client';
 import { getErrorMessage } from '@shared/utils/apiErrors';
 import type { Pet, CreatePetRequest, InitialReportRequest } from '@shared/types';
@@ -34,6 +36,9 @@ export interface StrayFormState {
   type: CreatePetRequest['type'] | '';
   breed: string;
   color: string;
+  // Sólo el sexo, sin fecha: quien reporta una callejera la encontró en la
+  // calle. El sexo lo puede ver; cuándo nació, no. Ver hideBirthDate.
+  identity: PetIdentityValue;
   description: string;
   photos: File[];
   // Opt-in: expose the reporter's WhatsApp publicly so logged-out finders can reach them.
@@ -44,6 +49,7 @@ export interface AdoptionFormState {
   type: CreatePetRequest['type'] | '';
   breed: string;
   color: string;
+  identity: PetIdentityValue;
   description: string;
   city: string;
   photos: File[];
@@ -58,8 +64,8 @@ export interface PublishWizardState {
 
 export const initialWizardState: PublishWizardState = {
   intent: null,
-  strayForm: { type: '', breed: '', color: '', description: '', photos: [], contactPublic: false },
-  adoptionForm: { type: '', breed: '', color: '', description: '', city: '', photos: [] },
+  strayForm: { type: '', breed: '', color: '', description: '', photos: [], contactPublic: false, identity: { gender: '', birth: { year: '', month: '', day: '' } } },
+  adoptionForm: { type: '', breed: '', color: '', description: '', city: '', photos: [], identity: { gender: '', birth: { year: '', month: '', day: '' } } },
   location: null,
 };
 
@@ -235,6 +241,10 @@ export function PublishWizardPage() {
     color: wizard.adoptionForm.color.trim() || undefined,
     description: wizard.adoptionForm.description.trim() || undefined,
     city: wizard.adoptionForm.city.trim(),
+    gender: wizard.adoptionForm.identity.gender || undefined,
+    // El par viaja entero o no viaja; composeBirthDate devuelve los dos juntos
+    // o undefined. Mandar uno solo es el 400 que el backend rechaza.
+    ...(composeBirthDate(wizard.adoptionForm.identity.birth) ?? {}),
     status: 'adoption',
   });
 
@@ -281,6 +291,7 @@ export function PublishWizardPage() {
     breed: wizard.strayForm.breed.trim() || undefined,
     color: wizard.strayForm.color.trim() || undefined,
     description: wizard.strayForm.description.trim() || undefined,
+    gender: wizard.strayForm.identity.gender || undefined,
     status: 'stray',
     initial_report: location,
     reporter_contact_public: wizard.strayForm.contactPublic,
