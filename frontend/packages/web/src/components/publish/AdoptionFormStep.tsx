@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { PetIdentityFields } from '../PetIdentityFields';
+import { composeBirthDate } from '@shared/utils/petBirthDate';
 import type { AdoptionFormState } from '../../pages/PublishWizardPage';
 import type { PetType } from '@shared/types';
 
@@ -19,6 +20,7 @@ interface FieldErrors {
   photo?: string;
   type?: string;
   city?: string;
+  birthDate?: string;
 }
 
 // Mirrors StrayFormStep.tsx's shape (photos + type + breed + color + description),
@@ -92,6 +94,14 @@ export function AdoptionFormStep({ value, onChange, onSubmit, isPending }: Adopt
     if (value.photos.length === 0) nextErrors.photo = t('strayForm.photoRequired');
     if (!value.type) nextErrors.type = t('strayForm.typeRequired');
     if (!value.city.trim()) nextErrors.city = tAdoption('publish.cityRequired');
+    // Si eligio un anio y el par no se pudo armar, se AVISA en vez de publicar
+    // sin fecha y en silencio. Hoy la oferta acotada de meses y dias hace que
+    // esto sea inalcanzable, asi que es red — pero CreatePetPage toma la misma
+    // decision para el mismo input, y que dos pantallas elijan lo opuesto ante
+    // el mismo caso es como una de las dos termina equivocada.
+    if (value.identity.birth.year && !composeBirthDate(value.identity.birth)) {
+      nextErrors.birthDate = t('pets:create.birthDateInvalid');
+    }
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length === 0) onSubmit();
   };
@@ -172,9 +182,16 @@ export function AdoptionFormStep({ value, onChange, onSubmit, isPending }: Adopt
         {errors.type && <p className="text-red-500 dark:text-red-400 text-sm mt-1">{errors.type}</p>}
       </div>
 
+      {/* disabled durante el envio: buildAdoptionPayload congela `identity` al
+          hacer click, pero createPet mas hasta 3 subidas de foto siguen
+          corriendo segundos despues. Sin esto el usuario puede cambiar el sexo
+          en esa ventana: la pantalla muestra "Hembra" y la mascota se creo
+          "Macho", sin error y sin forma de notarlo. */}
       <PetIdentityFields
         value={value.identity}
         onChange={(identity) => onChange({ ...value, identity })}
+        disabled={isPending}
+        birthDateError={errors.birthDate}
       />
 
       {/* Breed */}

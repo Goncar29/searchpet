@@ -292,6 +292,13 @@ export function PublishWizardPage() {
     color: wizard.strayForm.color.trim() || undefined,
     description: wizard.strayForm.description.trim() || undefined,
     gender: wizard.strayForm.identity.gender || undefined,
+    // Se manda el par aunque HOY el formulario de callejera no lo pida
+    // (hideBirthDate), asi que `birth` viene vacio y composeBirthDate devuelve
+    // undefined. No es codigo muerto: es que quien maniana saque ese prop
+    // obtenga un date picker que FUNCIONA. Leyendo solo `gender`, tendria tres
+    // selects andando cuyo valor nunca llega a la API — sin error de tipos, sin
+    // test rojo y sin sintoma.
+    ...(composeBirthDate(wizard.strayForm.identity.birth) ?? {}),
     status: 'stray',
     initial_report: location,
     reporter_contact_public: wizard.strayForm.contactPublic,
