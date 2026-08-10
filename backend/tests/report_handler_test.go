@@ -26,7 +26,7 @@ type mockReportService struct {
 	createReportFn    func(reporterID string, req service.CreateReportRequest) (*domain.Report, error)
 	getReportByIDFn   func(id string) (*domain.Report, error)
 	getReportsByPetFn func(petID string) ([]domain.Report, error)
-	getNearbyFn       func(lat, lng, radius float64) ([]domain.Report, error)
+	getNearbyFn       func(criteria domain.NearbyReportCriteria) ([]domain.Report, error)
 	verifyReportFn    func(ctx context.Context, reportID, adminID uuid.UUID) error
 	deleteFn          func(ctx context.Context, id uuid.UUID) error
 }
@@ -52,9 +52,9 @@ func (m *mockReportService) GetReportsByPet(petID string) ([]domain.Report, erro
 	return nil, nil
 }
 
-func (m *mockReportService) GetNearbyReports(lat, lng, radiusMeters float64) ([]domain.Report, error) {
+func (m *mockReportService) GetNearbyReports(criteria domain.NearbyReportCriteria) ([]domain.Report, error) {
 	if m.getNearbyFn != nil {
-		return m.getNearbyFn(lat, lng, radiusMeters)
+		return m.getNearbyFn(criteria)
 	}
 	return nil, nil
 }
@@ -286,7 +286,7 @@ func TestReportHandler_GetNearbyReports(t *testing.T) {
 			name:  "valid lat/lng/radius returns 200",
 			query: "?lat=-34.9011&lng=-56.1645&radius=5000",
 			setupMock: func(m *mockReportService) {
-				m.getNearbyFn = func(_, _, _ float64) ([]domain.Report, error) {
+				m.getNearbyFn = func(_ domain.NearbyReportCriteria) ([]domain.Report, error) {
 					return []domain.Report{*newTestReport(reporterID, petID)}, nil
 				}
 			},
@@ -296,7 +296,7 @@ func TestReportHandler_GetNearbyReports(t *testing.T) {
 			name:  "valid lat/lng without radius uses default",
 			query: "?lat=-34.9011&lng=-56.1645",
 			setupMock: func(m *mockReportService) {
-				m.getNearbyFn = func(_, _, _ float64) ([]domain.Report, error) {
+				m.getNearbyFn = func(_ domain.NearbyReportCriteria) ([]domain.Report, error) {
 					return []domain.Report{}, nil
 				}
 			},
@@ -336,7 +336,7 @@ func TestReportHandler_GetNearbyReports(t *testing.T) {
 			name:  "internal error returns 500",
 			query: "?lat=-34.9011&lng=-56.1645",
 			setupMock: func(m *mockReportService) {
-				m.getNearbyFn = func(_, _, _ float64) ([]domain.Report, error) {
+				m.getNearbyFn = func(_ domain.NearbyReportCriteria) ([]domain.Report, error) {
 					return nil, domain.ErrInternal
 				}
 			},
@@ -367,7 +367,7 @@ func TestReportHandler_GetNearbyReports_ResponseShape(t *testing.T) {
 	petID := uuid.New()
 
 	svc := &mockReportService{
-		getNearbyFn: func(_, _, _ float64) ([]domain.Report, error) {
+		getNearbyFn: func(_ domain.NearbyReportCriteria) ([]domain.Report, error) {
 			return []domain.Report{*newTestReport(reporterID, petID)}, nil
 		},
 	}

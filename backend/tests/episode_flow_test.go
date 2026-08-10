@@ -131,7 +131,9 @@ func TestEpisodeFlow_ReLostPet_MapShowsOnlyCurrentEpisode(t *testing.T) {
 		t.Fatalf("current episode after re-lost should be open, got EndedAt=%v", cur.EndedAt)
 	}
 
-	got, err := deps.reportRepo.FindNearby(mvdLat, mvdLng, 50000)
+	got, err := deps.reportRepo.FindNearby(domain.NearbyReportCriteria{
+		Lat: mvdLat, Lng: mvdLng, RadiusMeters: 50000,
+	})
 	if err != nil {
 		t.Fatalf("find nearby: %v", err)
 	}

@@ -197,7 +197,11 @@ func (h *ReportHandler) GetNearbyReports(c *gin.Context) {
 		}
 	}
 
-	reports, err := h.reportService.GetNearbyReports(lat, lng, float64(radiusMeters))
+	reports, err := h.reportService.GetNearbyReports(domain.NearbyReportCriteria{
+		Lat:          lat,
+		Lng:          lng,
+		RadiusMeters: float64(radiusMeters),
+	})
 	if err != nil {
 		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		return

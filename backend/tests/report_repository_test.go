@@ -97,7 +97,7 @@ func TestReportRepository_FindNearby_Found(t *testing.T) {
 	}
 
 	// Query with 1000 m radius centered on the same point — must find the report
-	results, err := reportRepo.FindNearby(mvdLat, mvdLng, 1000)
+	results, err := reportRepo.FindNearby(domain.NearbyReportCriteria{Lat: mvdLat, Lng: mvdLng, RadiusMeters: 1000})
 	if err != nil {
 		t.Fatalf("FindNearby: %v", err)
 	}
@@ -140,7 +140,7 @@ func TestReportRepository_FindNearby_NotFound_OutsideRadius(t *testing.T) {
 	}
 
 	// Query with 1000 m radius at Montevideo center — must NOT find the far report
-	results, err := reportRepo.FindNearby(mvdLat, mvdLng, 1000)
+	results, err := reportRepo.FindNearby(domain.NearbyReportCriteria{Lat: mvdLat, Lng: mvdLng, RadiusMeters: 1000})
 	if err != nil {
 		t.Fatalf("FindNearby: %v", err)
 	}
@@ -217,7 +217,7 @@ func TestReportRepository_FindNearby_OrderedByDistance(t *testing.T) {
 		}
 	}
 
-	results, err := reportRepo.FindNearby(mvdLat, mvdLng, 2000)
+	results, err := reportRepo.FindNearby(domain.NearbyReportCriteria{Lat: mvdLat, Lng: mvdLng, RadiusMeters: 2000})
 	if err != nil {
 		t.Fatalf("FindNearby: %v", err)
 	}
@@ -287,7 +287,7 @@ func TestReportRepository_FindNearby_FiltersByPetStatus(t *testing.T) {
 		}
 	}
 
-	results, err := reportRepo.FindNearby(mvdLat, mvdLng, 1000)
+	results, err := reportRepo.FindNearby(domain.NearbyReportCriteria{Lat: mvdLat, Lng: mvdLng, RadiusMeters: 1000})
 	if err != nil {
 		t.Fatalf("FindNearby: %v", err)
 	}
@@ -423,7 +423,7 @@ func TestReportRepository_FindNearby_ScopesToCurrentEpisode(t *testing.T) {
 		Status: "lost", Latitude: mvdLat, Longitude: mvdLng, EpisodeID: &ep2.ID}
 	reportRepo.Create(newReport)
 
-	got, err := reportRepo.FindNearby(mvdLat, mvdLng, 50000)
+	got, err := reportRepo.FindNearby(domain.NearbyReportCriteria{Lat: mvdLat, Lng: mvdLng, RadiusMeters: 50000})
 	if err != nil {
 		t.Fatalf("find nearby: %v", err)
 	}
@@ -479,5 +479,53 @@ func TestReportRepository_UpdateVerified(t *testing.T) {
 	}
 	if !got.IsVerified {
 		t.Error("want IsVerified=true after UpdateVerified")
+	}
+}
+
+// ============================================================
+// Filtros de nearby (rebanada 1 del rediseño del mapa)
+// ============================================================
+
+// Un criteria sin filtros tiene que devolver EXACTAMENTE lo que devolvía la
+// firma vieja. Es la garantía que permite mergear y deployar esta rebanada
+// sola, antes de que el frontend mande un solo parámetro nuevo.
+func TestReportRepository_FindNearby_SinFiltrosDevuelveTodoLoVisible(t *testing.T) {
+	gormDB := testdb.SetupTestDB(t)
+	userRepo := repository.NewUserRepository(gormDB)
+	petRepo := repository.NewPetRepository(gormDB)
+	reportRepo := repository.NewReportRepository(gormDB)
+	epRepo := repository.NewEpisodeRepository(gormDB)
+
+	owner := newTestUser(t, userRepo)
+	pet := &domain.Pet{ID: uuid.New(), OwnerID: ptrUUID(owner.ID), Name: "Lost Dog", Type: "perro", Status: domain.PetStatusLost}
+	if err := petRepo.Create(pet); err != nil {
+		t.Fatalf("Create pet: %v", err)
+	}
+
+	// El episodio NO es opcional para que el reporte sea visible: FindNearby
+	// exige `reports.episode_id = pets.current_episode_id`, y en SQL NULL = NULL
+	// no es verdadero. Sin esto el reporte queda fuera con toda razón.
+	ep, err := epRepo.Open(pet.ID.String())
+	if err != nil {
+		t.Fatalf("Open episode: %v", err)
+	}
+
+	report := &domain.Report{
+		ID: uuid.New(), PetID: pet.ID, ReporterID: owner.ID,
+		Status: "lost", Latitude: mvdLat, Longitude: mvdLng,
+		EpisodeID: &ep.ID,
+	}
+	if err := reportRepo.Create(report); err != nil {
+		t.Fatalf("Create report: %v", err)
+	}
+
+	got, err := reportRepo.FindNearby(domain.NearbyReportCriteria{
+		Lat: mvdLat, Lng: mvdLng, RadiusMeters: 5000,
+	})
+	if err != nil {
+		t.Fatalf("FindNearby: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("esperaba 1 reporte sin filtros, obtuve %d", len(got))
 	}
 }

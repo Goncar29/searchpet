@@ -95,7 +95,7 @@ func (r *PostgresReportRepository) SetEpisodeID(reportID string, episodeID uuid.
 // FindNearby busca reportes dentro de un radio usando PostGIS.
 // ST_DWithin verifica si dos puntos están dentro del radio en metros.
 // ST_Distance calcula la distancia exacta para ordenar los resultados del más cercano al más lejano.
-func (r *PostgresReportRepository) FindNearby(lat, lng float64, radiusMeters float64) ([]domain.Report, error) {
+func (r *PostgresReportRepository) FindNearby(c domain.NearbyReportCriteria) ([]domain.Report, error) {
 	var reports []domain.Report
 
 	// ORDER BY uses fmt.Sprintf to embed float64 values directly — gorm.Expr with ?
@@ -103,7 +103,7 @@ func (r *PostgresReportRepository) FindNearby(lat, lng float64, radiusMeters flo
 	// Embedding float64 is safe: no injection risk since the type is not user-controlled text.
 	orderExpr := fmt.Sprintf(
 		"ST_Distance(ST_SetSRID(ST_MakePoint(reports.longitude, reports.latitude), 4326)::geography, ST_SetSRID(ST_MakePoint(%g, %g), 4326)::geography) ASC",
-		lng, lat,
+		c.Lng, c.Lat,
 	)
 
 	// JOIN pets and filter on the pet's CURRENT status (MapVisibleStatuses:
@@ -129,7 +129,7 @@ func (r *PostgresReportRepository) FindNearby(lat, lng float64, radiusMeters flo
 				ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography,
 				?
 			)
-		`, lng, lat, radiusMeters).
+		`, c.Lng, c.Lat, c.RadiusMeters).
 		Order(orderExpr).
 		Find(&reports).Error
 

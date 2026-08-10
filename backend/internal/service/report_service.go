@@ -16,7 +16,7 @@ type ReportService interface {
 	CreateReport(reporterID string, req CreateReportRequest) (*domain.Report, error)
 	GetReportByID(id string) (*domain.Report, error)
 	GetReportsByPet(petID string) ([]domain.Report, error)
-	GetNearbyReports(lat, lng float64, radiusMeters float64) ([]domain.Report, error)
+	GetNearbyReports(criteria domain.NearbyReportCriteria) ([]domain.Report, error)
 	// VerifyReport marca un reporte como verificado (admin-only, enforced en handler).
 	VerifyReport(ctx context.Context, reportID, adminID uuid.UUID) error
 	// Delete removes a report (admin moderation; admin enforcement is in the handler).
@@ -284,8 +284,8 @@ func (s *reportService) GetReportsByPet(petID string) ([]domain.Report, error) {
 
 // GetNearbyReports busca reportes cercanos a una ubicación.
 // El radio debe ser provisto por el caller (ver ReportHandler para la lógica de precedencia).
-func (s *reportService) GetNearbyReports(lat, lng float64, radiusMeters float64) ([]domain.Report, error) {
-	return s.repo.FindNearby(lat, lng, radiusMeters)
+func (s *reportService) GetNearbyReports(criteria domain.NearbyReportCriteria) ([]domain.Report, error) {
+	return s.repo.FindNearby(criteria)
 }
 
 // VerifyReport marca un reporte como verificado.
