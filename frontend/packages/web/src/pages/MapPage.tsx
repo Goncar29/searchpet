@@ -1,14 +1,13 @@
 import { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Circle, useMapEvents } from 'react-leaflet';
 import { shouldShowSearchHere } from '@shared/utils/searchArea';
-import { Link } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import L from 'leaflet';
-import { statusBadgeBg } from '../utils/statusBadge';
 import { useNearbyReports, useNearbyVets } from '@shared/hooks';
-import { formatDistance, formatTimeAgo } from '@shared/utils/mapFormat';
 import type { Report, Vet } from '@shared/types';
 import { useTheme } from '../context/ThemeContext';
+import { ReportPopup } from '../components/map/ReportPopup';
+import { VetPopup } from '../components/map/VetPopup';
 
 const lostIcon = new L.Icon({
   iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
@@ -53,7 +52,7 @@ function MapPanTracker({ onCenterChange }: { onCenterChange: (c: [number, number
 }
 
 export function MapPage() {
-  const { t, i18n } = useTranslation(['map', 'pets', 'reports']);
+  const { t } = useTranslation(['map', 'pets', 'reports']);
   const { theme } = useTheme();
   const [searchCenter, setSearchCenter] = useState<[number, number]>([-34.9011, -56.1645]);
   const [mapCenter, setMapCenter] = useState<[number, number]>([-34.9011, -56.1645]);
@@ -83,9 +82,6 @@ export function MapPage() {
     radius * 1000,
   );
 
-  const directionsUrl = (lat: number, lng: number) =>
-    `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
-
   const getIcon = (status: string) => {
     switch (status) {
       case 'lost': return lostIcon;
@@ -94,21 +90,6 @@ export function MapPage() {
       default: return lostIcon;
     }
   };
-
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case 'lost': return t('pets:status.lost');
-      case 'found': return t('pets:status.found');
-      case 'sighting': return t('pets:card.sighting');
-      default: return status;
-    }
-  };
-
-  const primaryPhotoUrl = (p?: Report['pet']) =>
-    p?.photos?.find((ph) => ph.is_primary)?.url ?? p?.photos?.[0]?.url ?? '';
-
-  const petSubtitle = (p?: Report['pet']) =>
-    p ? [t(`pets:types.${p.type}`), p.breed, p.color].filter(Boolean).join(' · ') : '';
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -191,76 +172,14 @@ export function MapPage() {
                   icon={getIcon(report.status)}
                 >
                   <Popup>
-                    <div className="w-52">
-                      {primaryPhotoUrl(report.pet) && (
-                        <img
-                          src={primaryPhotoUrl(report.pet)}
-                          alt={report.pet?.name || t('map:pet')}
-                          className="w-full h-28 object-cover rounded-md mb-2"
-                        />
-                      )}
-                      <div className="flex items-start justify-between gap-2">
-                        <h3 className="font-bold text-base leading-tight">{report.pet?.name || t('map:pet')}</h3>
-                        <span className={`shrink-0 inline-block text-[10px] font-bold text-white px-2 py-0.5 rounded ${statusBadgeBg(report.status)}`}>
-                          {getStatusLabel(report.status)}
-                        </span>
-                      </div>
-                      {petSubtitle(report.pet) && (
-                        <p className="text-xs text-gray-500 mt-1 capitalize">{petSubtitle(report.pet)}</p>
-                      )}
-                      {formatTimeAgo(report.occurred_at ?? report.created_at, new Date(), i18n.language) && (
-                        <p className="text-xs text-gray-400 mt-1">
-                          🕑 {formatTimeAgo(report.occurred_at ?? report.created_at, new Date(), i18n.language)}
-                        </p>
-                      )}
-                      {report.location_description && (
-                        <p className="text-sm text-gray-600 mt-2">{report.location_description}</p>
-                      )}
-                      <Link
-                        to={`/pets/${report.pet?.id || report.pet_id}`}
-                        className="inline-block mt-2 text-sm text-primary font-semibold hover:underline"
-                      >
-                        {t('map:viewDetails')} →
-                      </Link>
-                    </div>
+                    <ReportPopup report={report} />
                   </Popup>
                 </Marker>
               ))}
               {showVets && vets?.map((vet: Vet) => (
                 <Marker key={`vet-${vet.id}`} position={[vet.latitude, vet.longitude]} icon={vetIcon}>
                   <Popup>
-                    <div className="w-52">
-                      <h3 className="font-bold text-base leading-tight">{vet.name || tv('defaultName')}</h3>
-                      <p className="text-xs font-semibold text-primary mt-0.5">📍 {formatDistance(vet.distance_meters)}</p>
-                      {vet.address && <p className="text-sm text-gray-600 mt-1">{vet.address}</p>}
-                      {vet.opening_hours && <p className="text-xs text-gray-500 mt-1">🕐 {vet.opening_hours}</p>}
-                      <div className="flex gap-3 mt-2 flex-wrap">
-                        <a
-                          href={directionsUrl(vet.latitude, vet.longitude)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-sm text-primary font-semibold hover:underline"
-                        >
-                          {tv('directions')} →
-                        </a>
-                        {vet.phone && (
-                          <a href={`tel:${vet.phone}`} className="text-sm text-primary font-semibold hover:underline">
-                            {tv('call')}
-                          </a>
-                        )}
-                        {vet.website && (
-                          <a
-                            href={vet.website}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-sm text-primary font-semibold hover:underline"
-                          >
-                            {tv('website')}
-                          </a>
-                        )}
-                      </div>
-                      <p className="text-[10px] text-gray-400 mt-2">{tv('attribution')}</p>
-                    </div>
+                    <VetPopup vet={vet} />
                   </Popup>
                 </Marker>
               ))}
