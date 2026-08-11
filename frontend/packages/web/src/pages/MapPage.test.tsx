@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { act } from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -28,7 +28,7 @@ vi.mock('@shared/hooks', () => ({
 
 // Captured so the test can simulate a pan (moveend).
 let capturedMoveend: (() => void) | undefined;
-const fakeMap = { getCenter: vi.fn(() => ({ lat: -34.9011, lng: -56.1645 })) };
+const fakeMap = { getCenter: vi.fn(() => ({ lat: -34.9011, lng: -56.1645 })), setView: vi.fn() };
 
 // leaflet uses DOM APIs not available in jsdom
 vi.mock('react-leaflet', () => ({
@@ -42,6 +42,9 @@ vi.mock('react-leaflet', () => ({
   ),
   Popup: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   Circle: () => null,
+  // setView se expone para poder afirmar que el viewport SIGUE al centro de
+  // busqueda. Sin esto no hay forma de ver el bug del cache desde un test.
+  useMap: () => fakeMap,
   useMapEvents: (handlers: { moveend?: () => void }) => {
     capturedMoveend = handlers.moveend;
     return fakeMap;
@@ -261,5 +264,25 @@ describe('MapPage', () => {
     expect(html).toContain('var(--color-lost)');
     // Miniatura, nunca la foto original: son decenas de marcadores por pantalla.
     expect(html).toContain('w_64,h_64,c_fill,g_auto');
+  });
+
+  it('el viewport SIGUE al centro de busqueda, no solo al montar', async () => {
+    const setView = fakeMap.setView;
+    setView.mockClear();
+    fakeMap.getCenter.mockReturnValue({ lat: -34.9011, lng: -56.1645 });
+    render(<MapPage />, { wrapper });
+    await waitFor(() => expect(setView).toHaveBeenCalled());
+    setView.mockClear();
+
+    // Mover el mapa y tocar "buscar en esta zona" cambia searchCenter. El
+    // viewport tiene que SEGUIRLO por MapViewSync, y no por el remonte
+    // accidental que provoca el ternario de isLoading — porque ese remonte no
+    // ocurre cuando la respuesta esta cacheada, y ahi el input dice un lugar y
+    // el mapa muestra otro.
+    fakeMap.getCenter.mockReturnValue({ lat: -34.8511, lng: -56.1645 });
+    act(() => { capturedMoveend?.(); });
+    await userEvent.click(screen.getByText('map:searchHere'));
+
+    await waitFor(() => expect(setView).toHaveBeenCalledWith([-34.8511, -56.1645]));
   });
 });
