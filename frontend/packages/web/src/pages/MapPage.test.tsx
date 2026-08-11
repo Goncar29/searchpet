@@ -331,7 +331,9 @@ describe('MapPage', () => {
     // Si algun dia se le pasara la mascota equivocada, el mapa mostraria la
     // cara de otro animal sobre el pin — en una app para encontrar mascotas eso
     // es peor que no mostrar nada.
-    expect(html).toContain('alt="Firulais"');
+    // Va como <title> del svg: la foto ahora es un <image> de SVG recortado
+    // contra la elipse de la almohadilla, y <image> no tiene alt.
+    expect(html).toContain('<title>Firulais</title>');
     expect(html).toContain('var(--color-lost)');
     // Miniatura, nunca la foto original: son decenas de marcadores por pantalla.
     expect(html).toContain('w_64,h_64,c_fill,g_auto');
