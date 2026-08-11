@@ -4,6 +4,8 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -197,7 +199,85 @@ func (h *ReportHandler) GetNearbyReports(c *gin.Context) {
 		}
 	}
 
-	reports, err := h.reportService.GetNearbyReports(lat, lng, float64(radiusMeters))
+	criteria := domain.NearbyReportCriteria{
+		Lat:          lat,
+		Lng:          lng,
+		RadiusMeters: float64(radiusMeters),
+	}
+
+	// Los cuatro filtros son OPCIONALES: ausentes, el endpoint se comporta como
+	// siempre. Un valor desconocido responde 400 en vez de ignorarse — un filtro
+	// que se descarta en silencio le miente al usuario sobre lo que está viendo.
+	if petType := c.Query("type"); petType != "" {
+		if !domain.IsValidPetType(petType) {
+			writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
+			return
+		}
+		criteria.PetType = petType
+	}
+
+	// Se DEDUPLICA, y no es cosmético: esta ruta es pública y sin rate limit
+	// (grupo `public` en router.go). Sin deduplicar, `status=lost,lost,...`
+	// hasta el tope de ~1 MB de la línea de request son ~200.000 valores TODOS
+	// VÁLIDOS — pasan la validación entera, porque son correctos, y terminan en
+	// un IN de 200.000 parámetros que Postgres tiene que parsear y planificar.
+	// Con el set, el slice nunca pasa de len(ValidReportStatuses), mande lo que
+	// mande el cliente: queda acotado por construcción y no por confianza.
+	//
+	// Los vacíos se saltean para tolerar una coma final (el frontend arma la
+	// cadena con un join y puede dejar un hueco), pero una lista sin un solo
+	// valor útil sigue siendo 400: descartar el parámetro entero en silencio es
+	// justo lo que esta validación existe para evitar.
+	if raw := c.Query("status"); raw != "" {
+		vistos := make(map[string]bool, len(domain.ValidReportStatuses))
+		for _, s := range strings.Split(raw, ",") {
+			s = strings.TrimSpace(s)
+			if s == "" {
+				continue
+			}
+			if !domain.IsValidReportStatus(s) {
+				writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
+				return
+			}
+			if vistos[s] {
+				continue
+			}
+			vistos[s] = true
+			criteria.ReportStatuses = append(criteria.ReportStatuses, s)
+		}
+		if len(criteria.ReportStatuses) == 0 {
+			writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
+			return
+		}
+	}
+
+	// Instantes RFC3339 ya resueltos por el cliente. El servidor no adivina
+	// zonas horarias: lo que el usuario entiende por "un día" se resuelve donde
+	// el usuario está.
+	if raw := c.Query("from"); raw != "" {
+		parsed, parseErr := time.Parse(time.RFC3339, raw)
+		if parseErr != nil {
+			writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
+			return
+		}
+		criteria.From = &parsed
+	}
+
+	if raw := c.Query("to"); raw != "" {
+		parsed, parseErr := time.Parse(time.RFC3339, raw)
+		if parseErr != nil {
+			writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
+			return
+		}
+		criteria.To = &parsed
+	}
+
+	if criteria.From != nil && criteria.To != nil && criteria.From.After(*criteria.To) {
+		writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
+		return
+	}
+
+	reports, err := h.reportService.GetNearbyReports(criteria)
 	if err != nil {
 		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		return

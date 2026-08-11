@@ -409,7 +409,7 @@ func TestGetNearbyReports_PassesThroughRadius(t *testing.T) {
 	rRepo := &mockReportRepo{reports: []domain.Report{}}
 	svc := newReportSvc(rRepo, &mockPetRepo{})
 
-	_, err := svc.GetNearbyReports(-34.9011, -56.1645, 5000)
+	_, err := svc.GetNearbyReports(domain.NearbyReportCriteria{Lat: -34.9011, Lng: -56.1645, RadiusMeters: 5000})
 
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -423,7 +423,7 @@ func TestGetNearbyReports_CustomRadius(t *testing.T) {
 	rRepo := &mockReportRepo{reports: []domain.Report{}}
 	svc := newReportSvc(rRepo, &mockPetRepo{})
 
-	_, err := svc.GetNearbyReports(-34.9011, -56.1645, 1500)
+	_, err := svc.GetNearbyReports(domain.NearbyReportCriteria{Lat: -34.9011, Lng: -56.1645, RadiusMeters: 1500})
 
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)

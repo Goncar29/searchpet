@@ -30,6 +30,35 @@ type PetSearchCriteria struct {
 	Limit        int // tamaño de página (default 20, max 100)
 }
 
+// NearbyReportCriteria son los criterios de búsqueda de reportes cercanos.
+//
+// Sigue el patrón de PetSearchCriteria: la firma con parámetros posicionales
+// llegaba a siete argumentos, que es donde se empiezan a pasar al revés.
+//
+// IMPORTANTE: los campos de acá son SOLO los filtros que provee el usuario.
+// La allowlist de visibilidad (MapVisibleStatuses) y el alcance del episodio
+// NO viven acá: los aplica el repositorio siempre, pase lo que pase con este
+// struct. Un filtro del usuario acota dentro de la allowlist, nunca la ensancha.
+type NearbyReportCriteria struct {
+	Lat          float64
+	Lng          float64
+	RadiusMeters float64
+
+	// PetType filtra por pets.type. Vacío = sin filtro.
+	PetType string
+
+	// ReportStatuses filtra por reports.status (lost/found/sighting), que es
+	// una columna DISTINTA de pets.status. Vacío = sin filtro.
+	ReportStatuses []string
+
+	// From/To acotan COALESCE(reports.occurred_at, reports.created_at), porque
+	// occurred_at es nullable y la UI muestra ese mismo fallback. Comparar
+	// contra la columna pelada haría desaparecer en silencio todo reporte sin
+	// fecha de ocurrencia. nil = sin límite.
+	From *time.Time
+	To   *time.Time
+}
+
 // ============================================================
 // CORE ENTITIES
 // ============================================================

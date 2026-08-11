@@ -95,7 +95,7 @@ func (r *PostgresReportRepository) SetEpisodeID(reportID string, episodeID uuid.
 // FindNearby busca reportes dentro de un radio usando PostGIS.
 // ST_DWithin verifica si dos puntos están dentro del radio en metros.
 // ST_Distance calcula la distancia exacta para ordenar los resultados del más cercano al más lejano.
-func (r *PostgresReportRepository) FindNearby(lat, lng float64, radiusMeters float64) ([]domain.Report, error) {
+func (r *PostgresReportRepository) FindNearby(c domain.NearbyReportCriteria) ([]domain.Report, error) {
 	var reports []domain.Report
 
 	// ORDER BY uses fmt.Sprintf to embed float64 values directly — gorm.Expr with ?
@@ -103,7 +103,7 @@ func (r *PostgresReportRepository) FindNearby(lat, lng float64, radiusMeters flo
 	// Embedding float64 is safe: no injection risk since the type is not user-controlled text.
 	orderExpr := fmt.Sprintf(
 		"ST_Distance(ST_SetSRID(ST_MakePoint(reports.longitude, reports.latitude), 4326)::geography, ST_SetSRID(ST_MakePoint(%g, %g), 4326)::geography) ASC",
-		lng, lat,
+		c.Lng, c.Lat,
 	)
 
 	// JOIN pets and filter on the pet's CURRENT status (MapVisibleStatuses:
@@ -119,7 +119,10 @@ func (r *PostgresReportRepository) FindNearby(lat, lng float64, radiusMeters flo
 	// whose episode_id differs from pets.current_episode_id) are excluded.
 	// CloseCurrent intentionally leaves current_episode_id intact so that a
 	// just-found pet's "recovered here" marker remains visible.
-	err := r.db.Preload("Pet").Preload("Reporter").
+	//
+	// Todo lo de este bloque es INCONDICIONAL: la allowlist de visibilidad y el
+	// alcance del episodio no dependen de ningún criterio del usuario.
+	q := r.db.Preload("Pet").Preload("Reporter").
 		Joins("JOIN pets ON pets.id = reports.pet_id").
 		Where("pets.status IN (?)", domain.MapVisibleStatuses).
 		Where("reports.episode_id = pets.current_episode_id").
@@ -129,9 +132,31 @@ func (r *PostgresReportRepository) FindNearby(lat, lng float64, radiusMeters flo
 				ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography,
 				?
 			)
-		`, lng, lat, radiusMeters).
-		Order(orderExpr).
-		Find(&reports).Error
+		`, c.Lng, c.Lat, c.RadiusMeters)
+
+	// Los filtros del usuario se SUMAN a lo de arriba, nunca lo reemplazan.
+	// Por eso van como Where encadenados y no como parte de esa expresión:
+	// acotan dentro de la allowlist y no pueden alcanzar un reporte que ella
+	// ya excluyó. Lo protege TestReportRepository_FindNearby_ElFiltroNoEnsanchaLaAllowlist.
+	if len(c.ReportStatuses) > 0 {
+		q = q.Where("reports.status IN (?)", c.ReportStatuses)
+	}
+
+	if c.PetType != "" {
+		q = q.Where("pets.type = ?", c.PetType)
+	}
+
+	// COALESCE, no la columna pelada: occurred_at es nullable y la pantalla
+	// muestra `occurred_at ?? created_at`. Filtrar por la columna sola haría
+	// desaparecer los reportes sin fecha de ocurrencia sin decir una palabra.
+	if c.From != nil {
+		q = q.Where("COALESCE(reports.occurred_at, reports.created_at) >= ?", *c.From)
+	}
+	if c.To != nil {
+		q = q.Where("COALESCE(reports.occurred_at, reports.created_at) <= ?", *c.To)
+	}
+
+	err := q.Order(orderExpr).Find(&reports).Error
 
 	return reports, err
 }

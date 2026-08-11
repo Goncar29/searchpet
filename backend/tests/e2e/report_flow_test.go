@@ -167,3 +167,88 @@ func TestReportFlow_OutOfRadius(t *testing.T) {
 		}
 	}
 }
+
+// TestReportFlow_NearbyFiltra ejercita los filtros nuevos contra el servidor
+// real, que es donde se ve lo que los tests de repositorio no pueden ver: el
+// parseo del query string, la validación y el armado del criteria, todo junto.
+//
+// createPet siembra siempre "type": "perro", que es lo que hace significativa
+// la aserción de type=gato.
+func TestReportFlow_NearbyFiltra(t *testing.T) {
+	baseURL, cleanup := startTestServer(t)
+	defer cleanup()
+
+	token, _ := registerAndLogin(t, baseURL)
+	petID := createPet(t, baseURL, token, "Filtrable")
+
+	reportBody, _ := json.Marshal(map[string]interface{}{
+		"pet_id":    petID,
+		"status":    "lost",
+		"latitude":  -34.9011,
+		"longitude": -56.1645,
+	})
+	req, _ := http.NewRequest(http.MethodPost, baseURL+"/api/reports", bytes.NewReader(reportBody))
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("create report: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusCreated {
+		t.Fatalf("create report: want 201, got %d", resp.StatusCode)
+	}
+
+	contar := func(t *testing.T, query string) int {
+		t.Helper()
+		r, err := http.Get(baseURL + "/api/reports/nearby?" + query)
+		if err != nil {
+			t.Fatalf("nearby %q: %v", query, err)
+		}
+		defer r.Body.Close()
+		if r.StatusCode != http.StatusOK {
+			t.Fatalf("nearby %q: want 200, got %d", query, r.StatusCode)
+		}
+		var out struct {
+			Data []struct {
+				ID string `json:"id"`
+			} `json:"data"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&out); err != nil {
+			t.Fatalf("nearby %q: decode: %v", query, err)
+		}
+		return len(out.Data)
+	}
+
+	base := "lat=-34.9011&lng=-56.1645&radius=5000"
+
+	if n := contar(t, base); n != 1 {
+		t.Fatalf("sin filtros esperaba 1 reporte, obtuve %d", n)
+	}
+	if n := contar(t, base+"&type=perro"); n != 1 {
+		t.Fatalf("filtrando por perro esperaba 1 reporte, obtuve %d", n)
+	}
+	if n := contar(t, base+"&type=gato"); n != 0 {
+		t.Fatalf("filtrando por gato esperaba 0 reportes, obtuve %d", n)
+	}
+	if n := contar(t, base+"&status=lost"); n != 1 {
+		t.Fatalf("filtrando por lost esperaba 1 reporte, obtuve %d", n)
+	}
+	if n := contar(t, base+"&status=found"); n != 0 {
+		t.Fatalf("filtrando por found esperaba 0 reportes, obtuve %d", n)
+	}
+	// Combinados: tipo correcto con un estado que el reporte no tiene.
+	if n := contar(t, base+"&type=perro&status=found"); n != 0 {
+		t.Fatalf("tipo correcto + estado ajeno esperaba 0, obtuve %d", n)
+	}
+
+	// Un tipo invalido es 400, no un 200 con lista vacia.
+	invalida, err := http.Get(baseURL + "/api/reports/nearby?" + base + "&type=dinosaurio")
+	if err != nil {
+		t.Fatalf("nearby type invalido: %v", err)
+	}
+	defer invalida.Body.Close()
+	if invalida.StatusCode != http.StatusBadRequest {
+		t.Fatalf("type invalido: want 400, got %d", invalida.StatusCode)
+	}
+}

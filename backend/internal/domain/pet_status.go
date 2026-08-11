@@ -55,3 +55,41 @@ var MapVisibleStatuses = []string{PetStatusLost, PetStatusStray, PetStatusFound}
 // PublicSearchableStatuses so adoption never leaks into the lost-pet feed,
 // map, or public search.
 var AdoptionVisibleStatuses = []string{PetStatusAdoption}
+
+// ValidPetTypes son los cuatro tipos de mascota que ofrece la UI.
+//
+// OJO CON LA ASIMETRÍA: la CREACIÓN no valida el tipo (CreatePetRequest lo pide
+// con `required` y nada más), así que en la base puede haber cualquier string.
+// Esta lista existe para validar FILTROS, donde el cliente es un select con
+// estas cuatro opciones y cualquier otra cosa es un request malformado. No
+// cambia ni revalida datos ya guardados.
+//
+// Los valores son en ESPAÑOL y son cuatro. La unión canónica del lado del
+// frontend es `PetType` en shared/types/index.ts, con su espejo en PET_TYPES.
+var ValidPetTypes = []string{"perro", "gato", "pajaro", "otro"}
+
+// IsValidPetType dice si un tipo viene de la lista que ofrece la UI.
+func IsValidPetType(t string) bool {
+	for _, v := range ValidPetTypes {
+		if v == t {
+			return true
+		}
+	}
+	return false
+}
+
+// ValidReportStatuses son los estados de un REPORTE, que es una columna
+// distinta del estado de la MASCOTA. No confundir con las allowlists de
+// visibilidad de arriba: éstas acotan lo que el usuario puede pedir, aquéllas
+// deciden qué es visible y no dependen de ningún parámetro.
+var ValidReportStatuses = []string{"lost", "found", "sighting"}
+
+// IsValidReportStatus dice si un estado de reporte es uno de los tres válidos.
+func IsValidReportStatus(s string) bool {
+	for _, v := range ValidReportStatuses {
+		if v == s {
+			return true
+		}
+	}
+	return false
+}

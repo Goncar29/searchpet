@@ -108,8 +108,8 @@ func (m *mockReportRepo) FindByPetID(_ string) ([]domain.Report, error) {
 	return m.reports, m.findErr
 }
 
-func (m *mockReportRepo) FindNearby(_, _ float64, radius float64) ([]domain.Report, error) {
-	m.capturedRadius = radius
+func (m *mockReportRepo) FindNearby(c domain.NearbyReportCriteria) ([]domain.Report, error) {
+	m.capturedRadius = c.RadiusMeters
 	return m.reports, m.findErr
 }
 
