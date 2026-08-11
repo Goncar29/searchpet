@@ -13,6 +13,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import * as Linking from 'expo-linking';
+import { useTranslation } from 'react-i18next';
 import i18next from 'i18next';
 import QRCode from 'react-native-qrcode-svg';
 import { useGenerateShareLink } from '../../shared/hooks';
@@ -38,6 +39,10 @@ const PLATFORMS = [
 ] as const;
 
 export function ShareButton({ petId, petName, petType, status, pet }: ShareButtonProps) {
+  // Toda la copy de compartir vive en `pets.share` de shared/i18n, que es de
+  // donde ya la lee el SharePanel de web. Una sola fuente para las dos
+  // plataformas: con dos, quien actualice una deja la otra con el texto viejo.
+  const { t } = useTranslation(['pets']);
   const [isLoading, setIsLoading] = useState(false);
   const [showQR, setShowQR] = useState(false);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
@@ -69,8 +74,8 @@ export function ShareButton({ petId, petName, petType, status, pet }: ShareButto
         await Linking.openURL(`https://twitter.com/intent/tweet?text=${encodeURIComponent(message)}`);
       } else if (platform === 'instagram') {
         Alert.alert(
-          'Compartir en Instagram',
-          'El link fue copiado. Abre Instagram y pégalo en tu historia o publicación.',
+          i18next.t('pets:share.instagramTitle'),
+          i18next.t('pets:share.instagramBody'),
         );
       } else {
         await Share.share({ message, url, title: `${petName} - ${statusText}` });
@@ -110,17 +115,15 @@ export function ShareButton({ petId, petName, petType, status, pet }: ShareButto
     return (
       <View style={styles.container}>
         <ActivityIndicator color={COLORS.primary} />
-        <Text style={styles.loadingText}>Generando link...</Text>
+        <Text style={styles.loadingText}>{t('pets:share.generatingLink')}</Text>
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Compartir mascota</Text>
-      <Text style={styles.subtitle}>
-        Ayuda a difundir. Compartir aumenta las chances de encontrarla.
-      </Text>
+      <Text style={styles.title}>{t('pets:share.title')}</Text>
+      <Text style={styles.subtitle}>{t('pets:share.subtitle')}</Text>
 
       <View style={styles.platformsRow}>
         {PLATFORMS.map((p) => (
@@ -135,7 +138,7 @@ export function ShareButton({ petId, petName, petType, status, pet }: ShareButto
       </View>
 
       <TouchableOpacity style={styles.qrToggle} onPress={handleToggleQR} disabled={generateLink.isPending}>
-        <Text style={styles.qrToggleText}>{showQR ? 'Ocultar QR' : 'Ver código QR'}</Text>
+        <Text style={styles.qrToggleText}>{showQR ? t('pets:share.hideQr') : t('pets:share.showQr')}</Text>
       </TouchableOpacity>
 
       {showQR && (
@@ -172,7 +175,7 @@ export function ShareButton({ petId, petName, petType, status, pet }: ShareButto
       )}
 
       <TouchableOpacity style={styles.moreButton} onPress={handleNativeShare}>
-        <Text style={styles.moreText}>Más opciones...</Text>
+        <Text style={styles.moreText}>{t('pets:share.moreOptions')}</Text>
       </TouchableOpacity>
     </View>
   );

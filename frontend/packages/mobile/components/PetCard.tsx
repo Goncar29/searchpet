@@ -3,6 +3,7 @@
 // ============================================================
 
 import { View, Text, Image, StyleSheet, TouchableOpacity } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../constants';
 import type { Report, Pet } from '../../shared/types';
 import { PawPlaceholder } from './PawPlaceholder';
@@ -16,6 +17,7 @@ interface PetCardProps {
 }
 
 export function PetCard({ report, pet: petProp, onPress }: PetCardProps) {
+  const { t, i18n } = useTranslation(['pets', 'common']);
   // report tiene prioridad; petProp es para resultados de búsqueda directa
   const pet = report?.pet ?? petProp;
 
@@ -36,13 +38,31 @@ export function PetCard({ report, pet: petProp, onPress }: PetCardProps) {
     }
   };
 
+  // Regla #13: los badges salen de i18n, nunca de etiquetas hardcodeadas.
+  // Estas cuatro claves YA existían en los tres idiomas — el componente
+  // simplemente nunca las usó, así que un usuario en inglés leía "PERDIDO".
+  //
+  // El `toUpperCase` va acá y no en las traducciones: la mayúscula es
+  // presentación del badge, no parte del texto. Si mañana el diseño lo quiere
+  // en minúscula, se cambia en un lugar y no en nueve entradas de locale.
   const getStatusLabel = (status: string) => {
     switch (status) {
-      case 'lost': return 'PERDIDO';
-      case 'found': return 'ENCONTRADO';
-      case 'sighting': return 'AVISTADO';
-      case 'adoption': return 'EN ADOPCIÓN';
-      default: return status.toUpperCase();
+      case 'lost': return t('pets:card.lost').toUpperCase();
+      case 'found': return t('pets:card.found').toUpperCase();
+      case 'sighting': return t('pets:card.sighting').toUpperCase();
+      case 'adoption': return t('pets:status.adoption').toUpperCase();
+      default: {
+        // El default NO puede devolver el enum crudo. En modo búsqueda el feed
+        // monta este card con `pet=`, y `stray` está en PublicSearchableStatuses
+        // y FeedVisibleStatuses: filtrando por tipo o color aparecían callejeras
+        // con el badge diciendo literalmente "STRAY", en los tres idiomas.
+        //
+        // pets:status.<status> cubre los siete estados. Si aún así no hubiera
+        // traducción, i18next devuelve la clave — feo, pero visible, que es
+        // mejor que un enum que parece texto de producto.
+        const traducido = t(`pets:status.${status}`);
+        return traducido.toUpperCase();
+      }
     }
   };
 
@@ -55,10 +75,15 @@ export function PetCard({ report, pet: petProp, onPress }: PetCardProps) {
     const diffHours = Math.floor(diffMins / 60);
     const diffDays = Math.floor(diffHours / 24);
 
-    if (diffMins < 60) return `hace ${diffMins} min`;
-    if (diffHours < 24) return `hace ${diffHours}h`;
-    if (diffDays < 7) return `hace ${diffDays}d`;
-    return date.toLocaleDateString('es');
+    // common:timeAgo YA existía en los tres idiomas con exactamente este
+    // formato compacto, y nadie la había cableado. Sin esto, un usuario en
+    // inglés veía "LOST" y "No name" traducidos AL LADO de "hace 5 min", en el
+    // mismo encabezado del card — mezclado es peor que todo en español.
+    if (diffMins < 1) return t('common:timeAgo.now');
+    if (diffMins < 60) return t('common:timeAgo.minutesAgo', { count: diffMins });
+    if (diffHours < 24) return t('common:timeAgo.hoursAgo', { count: diffHours });
+    if (diffDays < 7) return t('common:timeAgo.daysAgo', { count: diffDays });
+    return date.toLocaleDateString(i18n.language);
   };
 
   const primaryPhoto = pet?.photos?.find(p => p.is_primary) || pet?.photos?.[0];
@@ -89,7 +114,7 @@ export function PetCard({ report, pet: petProp, onPress }: PetCardProps) {
       <View style={styles.info}>
         <View style={styles.infoHeader}>
           <Text style={styles.petName} numberOfLines={1}>
-            {pet?.name || 'Sin nombre'}
+            {pet?.name || t('pets:card.noName')}
           </Text>
           <Text style={styles.timeAgo}>{getTimeAgo(dateStr)}</Text>
         </View>
