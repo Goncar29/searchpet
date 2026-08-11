@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, Circle, useMapEvents } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Circle, useMapEvents, useMap } from 'react-leaflet';
 import { shouldShowSearchHere } from '@shared/utils/searchArea';
 import { useTranslation } from 'react-i18next';
 import { useNearbyReports, useNearbyVets } from '@shared/hooks';
@@ -19,6 +19,30 @@ function MapPanTracker({ onCenterChange }: { onCenterChange: (c: [number, number
       onCenterChange([c.lat, c.lng]);
     },
   });
+  return null;
+}
+
+/**
+ * Lleva el viewport al centro de búsqueda cuando ese centro cambia.
+ *
+ * `center` de MapContainer se lee SÓLO al montar, así que sin esto el mapa no
+ * sigue a `searchCenter`. Parecía funcionar por accidente: el ternario de
+ * `isLoading` remonta el MapContainer en cada búsqueda nueva, y ese remonte
+ * volvía a leer `center`.
+ *
+ * Se rompía justo cuando la respuesta estaba CACHEADA. Medido: buscar
+ * "Punta del Este" → "Colonia" → "Punta del Este" pedía 20, 15 y **cero**
+ * tiles. En la tercera el input decía "Punta del Este" y el mapa mostraba
+ * Colonia, a 300 km — con los resultados correspondiendo a un tercer lugar.
+ */
+function MapViewSync({ center }: { center: [number, number] }) {
+  const map = useMap();
+  const [lat, lng] = center;
+  useEffect(() => {
+    // Dependencias por VALOR y no por el array: `center` es un literal nuevo en
+    // cada render, y con él en las deps esto se dispararía siempre.
+    map.setView([lat, lng]);
+  }, [map, lat, lng]);
   return null;
 }
 
@@ -67,8 +91,20 @@ export function MapPage() {
   // habria forma comoda de bajar.
   return (
     <div className="w-full">
-      <div className="flex flex-col lg:flex-row h-[78vh]">
-        <aside className="w-full lg:w-80 shrink-0 overflow-y-auto border-b lg:border-b-0 lg:border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
+      {/* El alto fijo va SOLO desde lg. Abajo de ese ancho la fila es una
+          columna, y con `h-[78vh]` en el contenedor el aside — que mide ~1850px
+          de contenido real — se comia el alto entero y dejaba al mapa con
+          `flex-1` sobre CERO espacio: medido, `.leaflet-container` daba 390x0 y
+          el mapa directamente no existia. En celular cada uno lleva su propio
+          alto y la pagina scrollea.
+
+          El `order` pone el MAPA primero en el telefono. Es la pantalla que se
+          usa en la calle: abrirla y ver un formulario de filtros con el mapa
+          debajo del pliegue invierte para que vino el usuario. La hoja inferior
+          arrastrable de la rebanada 3 es el arreglo definitivo; esto es el piso
+          decente mientras tanto. */}
+      <div className="flex flex-col lg:flex-row lg:h-[78vh]">
+        <aside className="order-2 lg:order-none w-full lg:w-80 lg:shrink-0 lg:overflow-y-auto border-t lg:border-t-0 lg:border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
           <MapFilterPanel
             draft={draft}
             onDraftChange={setDraft}
@@ -83,17 +119,21 @@ export function MapPage() {
           <NearbyReportList reports={reports} isLoading={isLoading} />
         </aside>
 
-        <div className="relative flex-1">
+        {/* Leaflet NECESITA un alto explicito: dentro de un contenedor de alto
+            automatico colapsa a cero. En celular se lo damos con `h-[60vh]`; en
+            escritorio lo hereda del `lg:h-[78vh]` del padre via `flex-1`. */}
+        <div className="order-1 lg:order-none relative h-[60vh] lg:h-auto lg:flex-1">
         {isLoading ? (
           <div className="flex items-center justify-center h-full">
             <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
           </div>
         ) : (
           <>
-            {/* `center` is mount-only in react-leaflet; later searchCenter changes move the
-                markers/circle but not the viewport (panning is user-driven via the button). */}
+            {/* `center` se lee solo al montar; MapViewSync es lo que hace que
+                el viewport siga a searchCenter. Ver su comentario. */}
             <MapContainer center={searchCenter} zoom={13} style={{ height: '100%', width: '100%' }}>
               <MapPanTracker onCenterChange={setMapCenter} />
+              <MapViewSync center={searchCenter} />
               <TileLayer
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
