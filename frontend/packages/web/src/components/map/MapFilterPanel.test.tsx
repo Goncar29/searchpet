@@ -14,6 +14,7 @@ const base = {
   onToggleStatus: vi.fn(),
   onApply: vi.fn(),
   onReset: vi.fn(),
+  rangeError: false,
   radius: 3,
   onRadiusChange: vi.fn(),
   showVets: false,
@@ -22,6 +23,21 @@ const base = {
 };
 
 describe('MapFilterPanel', () => {
+  it('el rango invertido se avisa y marca los dos campos', () => {
+    const { rerender } = render(<MapFilterPanel {...base} />);
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(screen.getByLabelText('map:dateFrom')).toHaveAttribute('aria-invalid', 'false');
+
+    rerender(<MapFilterPanel {...base} rangeError />);
+
+    // role=alert y no un <p> mudo: el usuario acaba de apretar Aplicar y la
+    // busqueda NO se dispara, asi que sin esto para un lector de pantalla no
+    // pasa absolutamente nada.
+    expect(screen.getByRole('alert').textContent).toBe('map:invalidRange');
+    expect(screen.getByLabelText('map:dateFrom')).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByLabelText('map:dateTo')).toHaveAttribute('aria-invalid', 'true');
+  });
+
   it('el radio NO pasa por Aplicar: avisa al toque', () => {
     const onRadiusChange = vi.fn();
     const onApply = vi.fn();

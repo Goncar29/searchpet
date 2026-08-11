@@ -15,7 +15,7 @@ vi.mock('../context/ThemeContext', () => ({
 }));
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const mockUseNearbyReports = vi.fn((): { data: any[]; isLoading: boolean } => ({ data: [], isLoading: false }));
+const mockUseNearbyReports = vi.fn((): { data: any[]; isLoading: boolean; isError: boolean } => ({ data: [], isLoading: false, isError: false }));
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const mockUseNearbyVets = vi.fn((): { data: any[]; isLoading: boolean } => ({ data: [], isLoading: false }));
 
@@ -28,6 +28,7 @@ vi.mock('@shared/hooks', () => ({
 
 // Captured so the test can simulate a pan (moveend).
 let capturedMoveend: (() => void) | undefined;
+const iconosCapturados: unknown[] = [];
 const fakeMap = { getCenter: vi.fn(() => ({ lat: -34.9011, lng: -56.1645 })), setView: vi.fn() };
 
 // leaflet uses DOM APIs not available in jsdom
@@ -37,9 +38,13 @@ vi.mock('react-leaflet', () => ({
   // Expone el HTML del icono: con divIcon el marcador ES una cadena de HTML
   // armada en el cliente, asi que se puede inspeccionar. Sin esto el mock lo
   // descarta y no hay forma de afirmar que cada pin lleva SU mascota.
-  Marker: ({ children, icon }: { children: React.ReactNode; icon?: { html?: string } }) => (
-    <div data-testid="marker" data-icon-html={icon?.html ?? ''}>{children}</div>
-  ),
+  // Se guarda la REFERENCIA del icono, no solo su HTML: react-leaflet compara
+  // `props.icon` por identidad, asi que un objeto nuevo con el mismo HTML igual
+  // dispara setIcon y recrea el <img>. El HTML no puede ver esa diferencia.
+  Marker: ({ children, icon }: { children: React.ReactNode; icon?: { html?: string } }) => {
+    iconosCapturados.push(icon);
+    return <div data-testid="marker" data-icon-html={icon?.html ?? ''}>{children}</div>;
+  },
   Popup: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   Circle: () => null,
   // setView se expone para poder afirmar que el viewport SIGUE al centro de
@@ -88,8 +93,9 @@ function wrapper({ children }: { children: React.ReactNode }) {
 describe('MapPage', () => {
   beforeEach(() => {
     capturedMoveend = undefined;
+    iconosCapturados.length = 0;
     mockUseNearbyReports.mockReset();
-    mockUseNearbyReports.mockReturnValue({ data: [], isLoading: false });
+    mockUseNearbyReports.mockReturnValue({ data: [], isLoading: false, isError: false });
     mockUseNearbyVets.mockReset();
     mockUseNearbyVets.mockReturnValue({ data: [], isLoading: false });
   });
@@ -97,6 +103,69 @@ describe('MapPage', () => {
   it('renderiza sin lanzar errores', () => {
     render(<MapPage />, { wrapper });
     expect(document.body).toBeTruthy();
+  });
+
+  it('el lienzo del mapa AISLA su apilamiento, o el boton tapa el navbar', () => {
+    render(<MapPage />, { wrapper });
+
+    // Esto parece un test de una clase de Tailwind y no lo es: es la unica
+    // guarda de un invariante que se rompe EN SILENCIO. El boton "Buscar en
+    // esta zona" necesita z-[1000] para superar los panes de Leaflet (llegan a
+    // 800), pero `relative` con z-index:auto NO abre contexto de apilamiento,
+    // asi que ese 1000 competia contra el navbar (sticky z-50) y le ganaba: al
+    // scrollear, el boton se pintaba encima del nav. Sacar `isolate` no rompe
+    // ningun render ni ningun tipo — solo devuelve el bug.
+    expect(screen.getByTestId('map-canvas')).toHaveClass('isolate');
+  });
+
+  it('el icono de un marcador NO se reconstruye al panear', () => {
+    mockUseNearbyReports.mockReturnValue({
+      data: [{
+        id: 'r1', pet_id: 'p1', reporter_id: 'u1', status: 'lost',
+        latitude: -34.9011, longitude: -56.1645, is_verified: false,
+        created_at: '2026-06-23T10:00:00Z',
+        pet: { id: 'p1', name: 'Rex', type: 'perro', status: 'lost', created_at: '2026-06-23T10:00:00Z', photos: [] },
+      }],
+      isLoading: false,
+      isError: false,
+    });
+
+    fakeMap.getCenter.mockReturnValue({ lat: -34.9011, lng: -56.1645 });
+    render(<MapPage />, { wrapper });
+    const antes = iconosCapturados[iconosCapturados.length - 1];
+
+    // Un paneo re-renderiza la pagina entera (setMapCenter). Con el icono
+    // construido inline, cada uno de esos renders devolvia un objeto NUEVO,
+    // react-leaflet llamaba setIcon y Leaflet reasignaba innerHTML: el <img>
+    // de cada pin destruido y recreado en cada movimiento del mapa.
+    fakeMap.getCenter.mockReturnValue({ lat: -34.8911, lng: -56.1645 });
+    act(() => { capturedMoveend?.(); });
+    const despues = iconosCapturados[iconosCapturados.length - 1];
+
+    expect(iconosCapturados.length).toBeGreaterThan(1);
+    expect(despues).toBe(antes);
+  });
+
+  it('el mapa NO se desmonta mientras carga: el spinner va ENCIMA', () => {
+    mockUseNearbyReports.mockReturnValue({ data: [], isLoading: true, isError: false });
+    render(<MapPage />, { wrapper });
+
+    // Con `applied` en el queryKey, cada Aplicar con una combinacion sin
+    // cachear prendia isLoading, y el ternario desmontaba el MapContainer: el
+    // mapa volvia a montar en zoom 13 y se comia el zoom y el paneo. Acercarse
+    // a una cuadra, tildar un estado y perder la vista es lo contrario de lo
+    // que el filtro promete.
+    expect(screen.getByTestId('map-container')).toBeInTheDocument();
+  });
+
+  it('un request fallido llega a la lista como ERROR, no como vacio', () => {
+    mockUseNearbyReports.mockReturnValue({ data: undefined as never, isLoading: false, isError: true });
+    render(<MapPage />, { wrapper });
+
+    // El cableado importa tanto como el componente: si MapPage no pasa isError,
+    // NearbyReportList no tiene forma de distinguir el fallo del vacio.
+    expect(screen.getByText('map:resultsError')).toBeInTheDocument();
+    expect(screen.queryByText('map:noResults')).toBeNull();
   });
 
   it('renders radius selector with options [1, 3, 5, 10]', () => {
@@ -171,6 +240,7 @@ describe('MapPage', () => {
         },
       ],
       isLoading: false,
+      isError: false,
     });
 
     render(<MapPage />, { wrapper });
@@ -250,6 +320,7 @@ describe('MapPage', () => {
         },
       ],
       isLoading: false,
+      isError: false,
     });
 
     render(<MapPage />, { wrapper });

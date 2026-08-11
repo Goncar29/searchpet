@@ -20,6 +20,8 @@ interface Props {
   onToggleStatus: (s: ReportStatus) => void;
   onApply: () => void;
   onReset: () => void;
+  /** El rango está al revés: se avisa acá y NO se manda el request. */
+  rangeError: boolean;
   /** El radio y las veterinarias NO pasan por Aplicar — ver abajo. */
   radius: number;
   onRadiusChange: (km: number) => void;
@@ -47,6 +49,7 @@ export function MapFilterPanel({
   onToggleStatus,
   onApply,
   onReset,
+  rangeError,
   radius,
   onRadiusChange,
   showVets,
@@ -125,6 +128,8 @@ export function MapFilterPanel({
             // undefined y no cadena vacía: una cadena vacía entra al queryKey
             // como un filtro presente que no filtra nada.
             onChange={(e) => onDraftChange({ fromDay: e.target.value || undefined })}
+            aria-invalid={rangeError}
+            aria-describedby={rangeError ? 'map-range-error' : undefined}
             className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
           />
         </div>
@@ -137,10 +142,21 @@ export function MapFilterPanel({
             type="date"
             value={draft.toDay ?? ''}
             onChange={(e) => onDraftChange({ toDay: e.target.value || undefined })}
+            aria-invalid={rangeError}
+            aria-describedby={rangeError ? 'map-range-error' : undefined}
             className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
           />
         </div>
       </div>
+
+      {/* role=alert: el usuario acaba de apretar Aplicar y espera que algo
+          pase. Sin esto, para un lector de pantalla no pasa NADA — la búsqueda
+          no se dispara y el mensaje aparece lejos del foco. */}
+      {rangeError && (
+        <p id="map-range-error" role="alert" className="text-xs text-danger">
+          {t('map:invalidRange')}
+        </p>
+      )}
 
       <div className="flex gap-2">
         <button

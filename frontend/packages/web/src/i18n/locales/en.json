@@ -432,7 +432,9 @@
     "searchNotFound": "We could not find that place. Try another name.",
     "searchError": "The place search failed. Check your connection and try again.",
     "searchingPlace": "Searching...",
-    "movedTo": "Map moved to {{place}}"
+    "movedTo": "Map moved to {{place}}",
+    "resultsError": "Couldn't load the reports. Please try again.",
+    "invalidRange": "The \"From\" date can't be later than the \"To\" date."
   },
   "profile": {
     "title": "My profile",
