@@ -14,7 +14,14 @@ const ENDPOINT = 'https://nominatim.openstreetmap.org/search';
 export type GeocodeResult =
   | { kind: 'ok'; lat: number; lng: number; label: string }
   | { kind: 'empty' }
-  | { kind: 'error' };
+  | { kind: 'error' }
+  /**
+   * Lo cancelamos NOSOTROS porque hay una búsqueda más nueva. No es un fallo y
+   * no se le muestra nada al usuario: colapsarlo en `error` le diría
+   * "revisá tu conexión" a alguien cuya conexión está perfecta, cada vez que
+   * busca dos veces seguidas rápido.
+   */
+  | { kind: 'aborted' };
 
 interface GeocodeOptions {
   language?: string;
@@ -57,7 +64,14 @@ export async function geocode(query: string, opts: GeocodeOptions = {}): Promise
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) return { kind: 'error' };
 
     return { kind: 'ok', lat, lng, label: data[0].display_name ?? q };
-  } catch {
+  } catch (e) {
+    // La cancelación entra por acá: `fetch` rechaza con AbortError. Se mira el
+    // signal primero porque es la fuente de verdad — el nombre del error
+    // depende del runtime, y en algunos entornos de test es un DOMException
+    // sintético.
+    if (opts.signal?.aborted || (e as Error | undefined)?.name === 'AbortError') {
+      return { kind: 'aborted' };
+    }
     return { kind: 'error' };
   }
 }

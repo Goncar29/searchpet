@@ -80,6 +80,54 @@ describe('PlaceSearch', () => {
     await waitFor(() => expect(screen.queryByText('map:searchNotFound')).toBeNull());
   });
 
+  it('la respuesta LENTA de una busqueda vieja no pisa a la nueva', async () => {
+    const onFound = vi.fn();
+    // Primera busqueda: lenta. Segunda: instantanea. La vieja aterriza ULTIMA.
+    //
+    // OJO CON EL ARNES: la lenta resuelve con un 'ok' VALIDO, no con 'aborted'.
+    // La primera version de este test la hacia resolver 'aborted' al recibir la
+    // cancelacion, y asi pasaba CON Y SIN el arreglo — el mock estaba haciendo
+    // el trabajo que el test tenia que verificar. Una respuesta ya en vuelo
+    // puede llegar entera igual: abortar no rebobina el tiempo.
+    let resolverLenta: ((v: unknown) => void) | undefined;
+    mockGeocode
+      .mockImplementationOnce(() => new Promise((res) => {
+        resolverLenta = () => res({ kind: 'ok', lat: -34.46, lng: -57.84, label: 'Colonia' });
+      }))
+      .mockResolvedValueOnce({ kind: 'ok', lat: -34.95, lng: -54.95, label: 'Punta del Este' });
+
+    render(<PlaceSearch onFound={onFound} />);
+    const input = screen.getByLabelText('map:searchPlace');
+
+    fireEvent.change(input, { target: { value: 'Colonia' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    fireEvent.change(input, { target: { value: 'Punta del Este' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    await waitFor(() => expect(onFound).toHaveBeenCalledWith(-34.95, -54.95, 'Punta del Este'));
+
+    // Ahora aterriza la vieja. Sin la guarda movia el mapa a Colonia con el
+    // input diciendo "Punta del Este": el mapa a 300 km de lo que se lee.
+    resolverLenta?.(undefined);
+    await waitFor(() => expect(onFound).toHaveBeenCalledTimes(1));
+    expect(onFound).not.toHaveBeenCalledWith(expect.anything(), expect.anything(), 'Colonia');
+  });
+
+  it('el EXITO tambien se anuncia, no solo los fallos', async () => {
+    mockGeocode.mockResolvedValue({ kind: 'ok', lat: -34.91, lng: -56.15, label: 'Pocitos, Montevideo' });
+    render(<PlaceSearch onFound={vi.fn()} />);
+    const input = screen.getByLabelText('map:searchPlace');
+
+    fireEvent.change(input, { target: { value: 'Pocitos' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    // La region viva cubria buscando/vacio/error y NO el exito, asi que para
+    // un lector de pantalla el mapa se movia en silencio: la unica confirmacion
+    // era visual. La clave map:movedTo existia y no la usaba nadie.
+    await waitFor(() => expect(screen.getByRole('status').textContent).toContain('map:movedTo'));
+  });
+
   it('el estado se anuncia por aria-live', () => {
     render(<PlaceSearch onFound={vi.fn()} />);
     // Sin esto, un lector de pantalla no se entera de que la busqueda fallo:

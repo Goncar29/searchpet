@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { geocode } from '@shared/utils/geocode';
 
@@ -10,6 +10,7 @@ interface Props {
 type Estado =
   | { fase: 'quieto' }
   | { fase: 'buscando' }
+  | { fase: 'movido'; lugar: string }
   | { fase: 'vacio' }
   | { fase: 'error' };
 
@@ -30,7 +31,27 @@ export function PlaceSearch({ onFound }: Props) {
   const [valor, setValor] = useState('');
   const [estado, setEstado] = useState<Estado>({ fase: 'quieto' });
 
+  /**
+   * La búsqueda EN VUELO. Sin esto, dos Enter seguidos son una carrera que
+   * gana la respuesta más LENTA: buscás "Colonia", después "Punta del Este", y
+   * si la primera tarda más, aterriza última y mueve el mapa a Colonia con el
+   * input diciendo "Punta del Este". Es exactamente la divergencia entre lo
+   * que se lee y lo que se ve que MapViewSync vino a arreglar, entrando por
+   * otra puerta.
+   */
+  const enVuelo = useRef<AbortController | null>(null);
+
+  // Cancelar al desmontar evita, además, un setState sobre un componente que
+  // ya no existe.
+  useEffect(() => () => enVuelo.current?.abort(), []);
+
   const buscar = async () => {
+    // La anterior se cancela ANTES de arrancar la nueva: mientras haya una sola
+    // vigente, no hay carrera que perder.
+    enVuelo.current?.abort();
+    const ctrl = new AbortController();
+    enVuelo.current = ctrl;
+
     // El mensaje anterior se limpia ANTES de preguntar: un error que sobrevive
     // a una búsqueda exitosa hace creer que falló.
     setEstado({ fase: 'buscando' });
@@ -40,15 +61,23 @@ export function PlaceSearch({ onFound }: Props) {
     // en "Buscando..." para siempre y sin salida — el usuario no tendría forma
     // de saber que ya no va a pasar nada.
     try {
-      const r = await geocode(valor, { language: i18n.language });
+      const r = await geocode(valor, { language: i18n.language, signal: ctrl.signal });
+
+      // Llegó tarde: ya hay una búsqueda más nueva. No se toca NADA — ni el
+      // mapa ni el mensaje —, porque la que manda es la otra.
+      if (ctrl.signal.aborted || r?.kind === 'aborted') return;
+
       if (r?.kind === 'ok') {
-        setEstado({ fase: 'quieto' });
+        // El éxito también se anuncia. Antes el `role=status` sólo cubría
+        // buscando/vacío/error, así que quien usa lector de pantalla no se
+        // enteraba de que el mapa se había movido: la única señal era visual.
+        setEstado({ fase: 'movido', lugar: r.label });
         onFound(r.lat, r.lng, r.label);
         return;
       }
       setEstado({ fase: r?.kind === 'empty' ? 'vacio' : 'error' });
     } catch {
-      setEstado({ fase: 'error' });
+      if (!ctrl.signal.aborted) setEstado({ fase: 'error' });
     }
   };
 
@@ -86,6 +115,13 @@ export function PlaceSearch({ onFound }: Props) {
         )}
         {estado.fase === 'error' && (
           <span className="text-danger">{t('map:searchError')}</span>
+        )}
+        {/* El nombre lo devuelve Nominatim, o sea un tercero. Va como texto en
+            JSX, que React escapa — nunca a innerHTML. */}
+        {estado.fase === 'movido' && (
+          <span className="text-gray-500 dark:text-gray-400">
+            {t('map:movedTo', { place: estado.lugar })}
+          </span>
         )}
       </p>
     </div>

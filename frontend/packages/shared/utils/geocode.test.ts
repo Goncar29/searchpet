@@ -13,6 +13,22 @@ describe('geocode', () => {
     vi.unstubAllGlobals();
   });
 
+  it('una cancelacion NUESTRA no es un error de red', async () => {
+    const ctrl = new AbortController();
+    const abortError = Object.assign(new Error('aborted'), { name: 'AbortError' });
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(() => {
+      ctrl.abort();
+      return Promise.reject(abortError);
+    });
+
+    const r = await geocode('Pocitos', { signal: ctrl.signal });
+
+    // Cancelamos nosotros porque hay una busqueda mas nueva. Colapsarlo en
+    // 'error' le diria "revisa tu conexion" a alguien cuya conexion esta
+    // perfecta, cada vez que busca dos veces seguidas rapido.
+    expect(r).toEqual({ kind: 'aborted' });
+  });
+
   it('devuelve las coordenadas y la etiqueta del primer resultado', async () => {
     (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
       ok: true,
