@@ -29,7 +29,7 @@ func (r *PostgresReportRepository) Create(report *domain.Report) error {
 // FindByID busca un reporte por su UUID y carga la mascota y el reporter.
 func (r *PostgresReportRepository) FindByID(id string) (*domain.Report, error) {
 	var report domain.Report
-	err := r.db.Preload("Pet").Preload("Reporter").Where("id = ?", id).First(&report).Error
+	err := r.db.Preload("Pet").Preload("Pet.Photos").Preload("Reporter").Where("id = ?", id).First(&report).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, domain.ErrReportNotFound
@@ -44,7 +44,7 @@ func (r *PostgresReportRepository) FindByID(id string) (*domain.Report, error) {
 // tengan prioridad sobre la fecha de creación del reporte.
 func (r *PostgresReportRepository) FindByPetID(petID string) ([]domain.Report, error) {
 	var reports []domain.Report
-	err := r.db.Preload("Pet").Preload("Reporter").
+	err := r.db.Preload("Pet").Preload("Pet.Photos").Preload("Reporter").
 		Where("pet_id = ?", petID).
 		Order("COALESCE(occurred_at, created_at) DESC").
 		Find(&reports).Error
@@ -122,7 +122,12 @@ func (r *PostgresReportRepository) FindNearby(c domain.NearbyReportCriteria) ([]
 	//
 	// Todo lo de este bloque es INCONDICIONAL: la allowlist de visibilidad y el
 	// alcance del episodio no dependen de ningún criterio del usuario.
-	q := r.db.Preload("Pet").Preload("Reporter").
+	// `Pet.Photos` va SIN Limit a propósito. GORM aplica el Limit de un Preload a
+	// la consulta ENTERA, no por padre: un `Limit(1)` acá devolvería una sola foto
+	// para TODAS las mascotas de la página, no una por mascota. La poda a una foto
+	// la hace el DTO, que sí sabe de a qué mascota pertenece cada una.
+	// Sigue siendo una consulta extra (IN de todos los pet_id), no un N+1.
+	q := r.db.Preload("Pet").Preload("Pet.Photos").Preload("Reporter").
 		Joins("JOIN pets ON pets.id = reports.pet_id").
 		Where("pets.status IN (?)", domain.MapVisibleStatuses).
 		Where("reports.episode_id = pets.current_episode_id").
