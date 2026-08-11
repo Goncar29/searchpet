@@ -434,7 +434,8 @@
     "searchingPlace": "Buscando...",
     "movedTo": "Mapa movido a {{place}}",
     "resultsError": "No se pudieron cargar los reportes. Probá de nuevo.",
-    "invalidRange": "La fecha \"Desde\" no puede ser posterior a la de \"Hasta\"."
+    "invalidRange": "La fecha \"Desde\" no puede ser posterior a la de \"Hasta\".",
+    "pickPlace": "Encontramos {{n}} lugares. Elegí cuál."
   },
   "profile": {
     "title": "Mi perfil",

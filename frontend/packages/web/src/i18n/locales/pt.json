@@ -434,7 +434,8 @@
     "searchingPlace": "Buscando...",
     "movedTo": "Mapa movido para {{place}}",
     "resultsError": "Não foi possível carregar os relatos. Tente novamente.",
-    "invalidRange": "A data \"De\" não pode ser posterior à data \"Até\"."
+    "invalidRange": "A data \"De\" não pode ser posterior à data \"Até\".",
+    "pickPlace": "Encontramos {{n}} lugares. Escolha um."
   },
   "profile": {
     "title": "Meu perfil",

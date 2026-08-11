@@ -148,6 +148,10 @@ export function MapPage() {
             onRadiusChange={setRadius}
             showVets={showVets}
             onToggleVets={() => setShowVets((v) => !v)}
+            // `mapCenter` y no `searchCenter`: es donde el usuario esta MIRANDO,
+            // asi que la preferencia lo sigue al panear. Si se muda a Europa, el
+            // buscador se muda con el.
+            placeSearchNear={{ lat: mapCenter[0], lng: mapCenter[1] }}
             onPlaceFound={(lat, lng) => {
               // Mueve el centro de BUSQUEDA, que es la unica fuente de verdad
               // sobre donde se busca. El texto navega; el centro + radio siguen

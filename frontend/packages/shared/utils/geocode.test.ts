@@ -38,10 +38,62 @@ describe('geocode', () => {
     const r = await geocode('Pocitos');
     expect(r).toEqual({
       kind: 'ok',
-      lat: -34.9187,
-      lng: -56.1567,
-      label: 'Pocitos, Montevideo, Uruguay',
+      places: [{ lat: -34.9187, lng: -56.1567, label: 'Pocitos, Montevideo, Uruguay' }],
     });
+  });
+
+  it('devuelve TODOS los candidatos, no solo el primero', async () => {
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ok: true,
+      json: async () => [
+        { lat: '50.93', lon: '6.95', display_name: 'Colonia, Renania, Alemania' },
+        { lat: '-34.47', lon: '-57.84', display_name: 'Colonia del Sacramento, Uruguay' },
+      ],
+    });
+
+    const r = await geocode('colonia');
+    // Con limit=1 nos quedabamos con el primero del ranking GLOBAL, y para
+    // "colonia" ese es Koln: mandabamos a 11.000 km a alguien que buscaba a su
+    // mascota. Ningun sesgo elimina la ambiguedad; la elige el usuario.
+    expect(r.kind === 'ok' && r.places.map((p) => p.label)).toEqual([
+      'Colonia, Renania, Alemania',
+      'Colonia del Sacramento, Uruguay',
+    ]);
+  });
+
+  it('un candidato roto se descarta SOLO, sin tirar los buenos', async () => {
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ok: true,
+      json: async () => [
+        { lat: 'nope', lon: '-57.84', display_name: 'Roto' },
+        { lat: '-34.47', lon: '-57.84', display_name: 'Colonia del Sacramento, Uruguay' },
+      ],
+    });
+
+    const r = await geocode('colonia');
+    // Que uno venga ilegible no es motivo para tirar los otros cuatro.
+    expect(r.kind === 'ok' && r.places.map((p) => p.label)).toEqual(['Colonia del Sacramento, Uruguay']);
+  });
+
+  it('preferencia por region: manda viewbox solo si le dan `near`', async () => {
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ok: true,
+      json: async () => OK,
+    });
+
+    await geocode('colonia');
+    expect(String((globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0][0])).not.toContain('viewbox');
+
+    await geocode('colonia', { near: { lat: -34.9011, lng: -56.1645 } });
+    const url = String((globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[1][0]);
+
+    // Medido contra Nominatim: con +-0.05 grados (lo que se ve a zoom 13) y con
+    // +-0.5, Koln SIGUE saliendo primero. Recien a +-3 gana Colonia del
+    // Sacramento. O sea que pasar los limites visibles del mapa — la
+    // implementacion intuitiva — no arregla nada.
+    expect(decodeURIComponent(url)).toContain('viewbox=-59.1645,-31.9011,-53.1645,-37.9011');
+    // NO se manda bounded: restringir rompe buscar algo lejano a proposito.
+    expect(url).not.toContain('bounded');
   });
 
   it('distingue SIN RESULTADOS de un error de red', async () => {
@@ -87,7 +139,7 @@ describe('geocode', () => {
     expect(headers.toLowerCase()).not.toContain('user-agent');
   });
 
-  it('pide un solo resultado y en el idioma dado', async () => {
+  it('pide varios candidatos y en el idioma dado', async () => {
     (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
       ok: true,
       json: async () => OK,
@@ -96,7 +148,8 @@ describe('geocode', () => {
 
     const url = String((globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0][0]);
     expect(url).toContain('nominatim.openstreetmap.org/search');
-    expect(url).toContain('limit=1');
+    // limit=5, NO 1: con uno solo no hay nada que desambiguar.
+    expect(url).toContain('limit=5');
     expect(url).toContain('accept-language=pt');
   });
 

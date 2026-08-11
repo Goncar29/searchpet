@@ -434,7 +434,8 @@
     "searchingPlace": "Searching...",
     "movedTo": "Map moved to {{place}}",
     "resultsError": "Couldn't load the reports. Please try again.",
-    "invalidRange": "The \"From\" date can't be later than the \"To\" date."
+    "invalidRange": "The \"From\" date can't be later than the \"To\" date.",
+    "pickPlace": "Found {{n}} places. Pick one."
   },
   "profile": {
     "title": "My profile",

@@ -34,7 +34,7 @@ describe('PlaceSearch', () => {
 
   it('avisa hacia arriba con las coordenadas encontradas', async () => {
     const onFound = vi.fn();
-    mockGeocode.mockResolvedValue({ kind: 'ok', lat: -34.91, lng: -56.15, label: 'Pocitos' });
+    mockGeocode.mockResolvedValue({ kind: 'ok', places: [{ lat: -34.91, lng: -56.15, label: 'Pocitos' }] });
 
     render(<PlaceSearch onFound={onFound} />);
     fireEvent.change(screen.getByLabelText('map:searchPlace'), { target: { value: 'Pocitos' } });
@@ -72,7 +72,7 @@ describe('PlaceSearch', () => {
     fireEvent.keyDown(input, { key: 'Enter' });
     await waitFor(() => expect(screen.getByText('map:searchNotFound')).toBeTruthy());
 
-    mockGeocode.mockResolvedValue({ kind: 'ok', lat: 1, lng: 2, label: 'Pocitos' });
+    mockGeocode.mockResolvedValue({ kind: 'ok', places: [{ lat: 1, lng: 2, label: 'Pocitos' }] });
     fireEvent.change(input, { target: { value: 'Pocitos' } });
     fireEvent.keyDown(input, { key: 'Enter' });
 
@@ -92,9 +92,9 @@ describe('PlaceSearch', () => {
     let resolverLenta: ((v: unknown) => void) | undefined;
     mockGeocode
       .mockImplementationOnce(() => new Promise((res) => {
-        resolverLenta = () => res({ kind: 'ok', lat: -34.46, lng: -57.84, label: 'Colonia' });
+        resolverLenta = () => res({ kind: 'ok', places: [{ lat: -34.46, lng: -57.84, label: 'Colonia' }] });
       }))
-      .mockResolvedValueOnce({ kind: 'ok', lat: -34.95, lng: -54.95, label: 'Punta del Este' });
+      .mockResolvedValueOnce({ kind: 'ok', places: [{ lat: -34.95, lng: -54.95, label: 'Punta del Este' }] });
 
     render(<PlaceSearch onFound={onFound} />);
     const input = screen.getByLabelText('map:searchPlace');
@@ -115,7 +115,7 @@ describe('PlaceSearch', () => {
   });
 
   it('el EXITO tambien se anuncia, no solo los fallos', async () => {
-    mockGeocode.mockResolvedValue({ kind: 'ok', lat: -34.91, lng: -56.15, label: 'Pocitos, Montevideo' });
+    mockGeocode.mockResolvedValue({ kind: 'ok', places: [{ lat: -34.91, lng: -56.15, label: 'Pocitos, Montevideo' }] });
     render(<PlaceSearch onFound={vi.fn()} />);
     const input = screen.getByLabelText('map:searchPlace');
 
@@ -126,6 +126,94 @@ describe('PlaceSearch', () => {
     // un lector de pantalla el mapa se movia en silencio: la unica confirmacion
     // era visual. La clave map:movedTo existia y no la usaba nadie.
     await waitFor(() => expect(screen.getByRole('status').textContent).toContain('map:movedTo'));
+  });
+
+  const COLONIAS = {
+    kind: 'ok',
+    places: [
+      { lat: 50.93, lng: 6.95, label: 'Colonia, Renania del Norte-Westfalia, Alemania' },
+      { lat: -34.47, lng: -57.84, label: 'Colonia del Sacramento, Colonia, Uruguay' },
+    ],
+  };
+
+  it('con VARIOS candidatos no mueve el mapa: los ofrece', async () => {
+    const onFound = vi.fn();
+    mockGeocode.mockResolvedValue(COLONIAS);
+
+    render(<PlaceSearch onFound={onFound} />);
+    const input = screen.getByLabelText('map:searchPlace');
+    fireEvent.change(input, { target: { value: 'colonia' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    // Este es EL bug que reporto el usuario: "colonia" lo mandaba a Koln,
+    // Alemania, porque nos quedabamos con el primero del ranking global.
+    await waitFor(() => expect(screen.getByText(/Colonia del Sacramento/)).toBeTruthy());
+    expect(screen.getByText(/Alemania/)).toBeTruthy();
+    expect(onFound).not.toHaveBeenCalled();
+  });
+
+  it('elegir de la lista mueve el mapa a ESE lugar', async () => {
+    const onFound = vi.fn();
+    mockGeocode.mockResolvedValue(COLONIAS);
+
+    render(<PlaceSearch onFound={onFound} />);
+    const input = screen.getByLabelText('map:searchPlace');
+    fireEvent.change(input, { target: { value: 'colonia' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    const opcion = await screen.findByText(/Colonia del Sacramento/);
+    fireEvent.click(opcion);
+
+    expect(onFound).toHaveBeenCalledWith(-34.47, -57.84, 'Colonia del Sacramento, Colonia, Uruguay');
+  });
+
+  it('UN solo candidato no pide un tap de mas', async () => {
+    const onFound = vi.fn();
+    mockGeocode.mockResolvedValue({
+      kind: 'ok',
+      places: [{ lat: -34.91, lng: -56.15, label: 'Pocitos, Montevideo, Uruguay' }],
+    });
+
+    render(<PlaceSearch onFound={onFound} />);
+    const input = screen.getByLabelText('map:searchPlace');
+    fireEvent.change(input, { target: { value: 'Pocitos' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    // Sin ambiguedad no hay nada que elegir: pedir que confirme seria ceremonia.
+    await waitFor(() => expect(onFound).toHaveBeenCalledWith(-34.91, -56.15, 'Pocitos, Montevideo, Uruguay'));
+    expect(screen.queryByRole('list')).toBeNull();
+  });
+
+  it('cambiar la consulta BORRA la lista vieja', async () => {
+    mockGeocode.mockResolvedValue(COLONIAS);
+
+    render(<PlaceSearch onFound={vi.fn()} />);
+    const input = screen.getByLabelText('map:searchPlace');
+    fireEvent.change(input, { target: { value: 'colonia' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    await screen.findByText(/Colonia del Sacramento/);
+
+    fireEvent.change(input, { target: { value: 'Montevideo' } });
+
+    // Si la lista sobreviviera, se podria escribir "Montevideo" y elegir una
+    // "Colonia": el mapa en un lugar y el input diciendo otro — la misma
+    // divergencia que MapViewSync y la guarda de la carrera vinieron a cerrar.
+    expect(screen.queryByText(/Colonia del Sacramento/)).toBeNull();
+  });
+
+  it('le pasa a geocode DONDE esta mirando el usuario', async () => {
+    mockGeocode.mockResolvedValue(COLONIAS);
+
+    render(<PlaceSearch onFound={vi.fn()} near={{ lat: -34.9011, lng: -56.1645 }} />);
+    const input = screen.getByLabelText('map:searchPlace');
+    fireEvent.change(input, { target: { value: 'colonia' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    // Sin `near` no hay viewbox, y sin viewbox Koln gana el ranking global.
+    await waitFor(() => expect(mockGeocode).toHaveBeenCalledWith(
+      'colonia',
+      expect.objectContaining({ near: { lat: -34.9011, lng: -56.1645 } }),
+    ));
   });
 
   it('el estado se anuncia por aria-live', () => {

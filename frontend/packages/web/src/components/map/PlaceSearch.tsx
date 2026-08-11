@@ -1,15 +1,22 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { geocode } from '@shared/utils/geocode';
+import { geocode, type GeocodePlace } from '@shared/utils/geocode';
 
 interface Props {
-  /** Recibe el lugar encontrado. El mapa se mueve; la búsqueda no filtra. */
+  /** Recibe el lugar elegido. El mapa se mueve; la búsqueda no filtra. */
   onFound: (lat: number, lng: number, label: string) => void;
+  /**
+   * Dónde está mirando el usuario, para preferir lugares de su región.
+   * Sin esto, "Colonia" resuelve a Köln, Alemania.
+   */
+  near?: { lat: number; lng: number };
 }
 
 type Estado =
   | { fase: 'quieto' }
   | { fase: 'buscando' }
+  /** Hay más de un candidato: elige el usuario, no nosotros. */
+  | { fase: 'eligiendo'; lugares: GeocodePlace[] }
   | { fase: 'movido'; lugar: string }
   | { fase: 'vacio' }
   | { fase: 'error' };
@@ -26,7 +33,7 @@ type Estado =
  * Se dispara con ENTER y nunca por tecla: la política de uso de Nominatim topea
  * en un request por segundo, y escribir un barrio la violaría sola.
  */
-export function PlaceSearch({ onFound }: Props) {
+export function PlaceSearch({ onFound, near }: Props) {
   const { t, i18n } = useTranslation(['map']);
   const [valor, setValor] = useState('');
   const [estado, setEstado] = useState<Estado>({ fase: 'quieto' });
@@ -45,6 +52,14 @@ export function PlaceSearch({ onFound }: Props) {
   // ya no existe.
   useEffect(() => () => enVuelo.current?.abort(), []);
 
+  const elegir = (lugar: GeocodePlace) => {
+    // El éxito también se anuncia. Antes el `role=status` sólo cubría
+    // buscando/vacío/error, así que quien usa lector de pantalla no se enteraba
+    // de que el mapa se había movido: la única señal era visual.
+    setEstado({ fase: 'movido', lugar: lugar.label });
+    onFound(lugar.lat, lugar.lng, lugar.label);
+  };
+
   const buscar = async () => {
     // La anterior se cancela ANTES de arrancar la nueva: mientras haya una sola
     // vigente, no hay carrera que perder.
@@ -61,18 +76,22 @@ export function PlaceSearch({ onFound }: Props) {
     // en "Buscando..." para siempre y sin salida — el usuario no tendría forma
     // de saber que ya no va a pasar nada.
     try {
-      const r = await geocode(valor, { language: i18n.language, signal: ctrl.signal });
+      const r = await geocode(valor, { language: i18n.language, signal: ctrl.signal, near });
 
       // Llegó tarde: ya hay una búsqueda más nueva. No se toca NADA — ni el
       // mapa ni el mensaje —, porque la que manda es la otra.
       if (ctrl.signal.aborted || r?.kind === 'aborted') return;
 
       if (r?.kind === 'ok') {
-        // El éxito también se anuncia. Antes el `role=status` sólo cubría
-        // buscando/vacío/error, así que quien usa lector de pantalla no se
-        // enteraba de que el mapa se había movido: la única señal era visual.
-        setEstado({ fase: 'movido', lugar: r.label });
-        onFound(r.lat, r.lng, r.label);
+        // UN solo candidato no es ambiguo: no hay nada que elegir, así que
+        // pedir un tap extra sería ceremonia. "Pocitos" sigue siendo un Enter.
+        if (r.places.length === 1) {
+          elegir(r.places[0]);
+          return;
+        }
+        // Varios: decide el usuario. Elegir nosotros es lo que mandaba a
+        // Alemania a alguien que buscaba Colonia del Sacramento.
+        setEstado({ fase: 'eligiendo', lugares: r.places });
         return;
       }
       setEstado({ fase: r?.kind === 'empty' ? 'vacio' : 'error' });
@@ -90,7 +109,15 @@ export function PlaceSearch({ onFound }: Props) {
         id="map-place"
         type="search"
         value={valor}
-        onChange={(e) => setValor(e.target.value)}
+        onChange={(e) => {
+          setValor(e.target.value);
+          // La lista de candidatos muere al cambiar la consulta. Si sobreviviera,
+          // el usuario podría escribir "Montevideo" y elegir de una lista de
+          // "Colonia" — el mapa en un lugar y el input diciendo otro, que es
+          // exactamente la divergencia que MapViewSync y la guarda de la
+          // carrera vinieron a cerrar.
+          if (estado.fase === 'eligiendo') setEstado({ fase: 'quieto' });
+        }}
         onKeyDown={(e) => {
           if (e.key === 'Enter') {
             e.preventDefault();
@@ -123,7 +150,38 @@ export function PlaceSearch({ onFound }: Props) {
             {t('map:movedTo', { place: estado.lugar })}
           </span>
         )}
+        {estado.fase === 'eligiendo' && (
+          <span className="text-gray-500 dark:text-gray-400">
+            {/* `n` y NO `count`: con `count` i18next activa la pluralizacion y
+                busca `pickPlace_one`/`pickPlace_other`, que no existen. */}
+            {t('map:pickPlace', { n: estado.lugares.length })}
+          </span>
+        )}
       </p>
+
+      {/* LA DESAMBIGUACION. "Colonia" son tres lugares distintos y el ranking
+          global pone primero a Köln, Alemania: con limit=1 mandabamos a alguien
+          que busca a su mascota a 11.000 km. El sesgo por region reordena, pero
+          NO elimina la ambiguedad — la elige quien sabe a cual se referia.
+
+          Se muestra el display_name COMPLETO, que es lo unico que distingue
+          "Colonia del Sacramento, Colonia, Uruguay" de "Colonia, Alemania".
+          Recortarlo a la primera palabra dejaria dos filas identicas. */}
+      {estado.fase === 'eligiendo' && (
+        <ul className="flex flex-col border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+          {estado.lugares.map((lugar) => (
+            <li key={`${lugar.lat},${lugar.lng}`}>
+              <button
+                type="button"
+                onClick={() => elegir(lugar)}
+                className="w-full text-left px-3 py-2 text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 border-b last:border-b-0 border-gray-200 dark:border-gray-700 transition-colors"
+              >
+                {lugar.label}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

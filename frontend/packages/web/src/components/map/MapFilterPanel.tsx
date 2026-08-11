@@ -29,6 +29,8 @@ interface Props {
   onToggleVets: () => void;
   /** El buscador NAVEGA: mueve el mapa. No filtra. */
   onPlaceFound: (lat: number, lng: number, label: string) => void;
+  /** Dónde mira el usuario, para que el buscador prefiera lugares de su región. */
+  placeSearchNear?: { lat: number; lng: number };
 }
 
 /**
@@ -55,6 +57,7 @@ export function MapFilterPanel({
   showVets,
   onToggleVets,
   onPlaceFound,
+  placeSearchNear,
 }: Props) {
   const { t } = useTranslation(['map', 'pets', 'vets']);
 
@@ -68,7 +71,7 @@ export function MapFilterPanel({
           mueve el mapa. Mezclarlo con los chips sugeriria que acota resultados,
           que es justo la confusion que el disenio evito al decidir que el texto
           NAVEGA en vez de filtrar. */}
-      <PlaceSearch onFound={onPlaceFound} />
+      <PlaceSearch onFound={onPlaceFound} near={placeSearchNear} />
 
       <div className="flex flex-col gap-1">
         <label htmlFor="map-type" className="text-sm font-medium text-gray-700 dark:text-gray-300">
