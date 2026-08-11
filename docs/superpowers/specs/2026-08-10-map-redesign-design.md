@@ -38,6 +38,7 @@ coloured pins.
 | Date range travels as **RFC3339 instants resolved by the client** | The server must not guess the user's timezone. What a user means by "a day" is resolved where the user is. |
 | Unknown `type`/`status` values return **400** | A filter silently dropped lies to the user about what they are looking at. |
 | Bottom sheet on mobile, hand-rolled | The map is used one-handed in the street; the sheet is the only option that keeps map and results visible at once. Hand-rolled because a sheet library for a single screen is disproportionate under this project's supply-chain rules. |
+| The panel collapses on desktop too, from the side | The full-bleed exception to rule #50 says the map's pixels matter; a panel that cannot move contradicts it. Direction differs per breakpoint because the scarce dimension differs — see slice 3. |
 | Markers become the Rastro logo with the pet's photo | Brand consistency plus a real usability gain — the map becomes readable at a glance. Also removes the `raw.githubusercontent.com` dependency. |
 
 ## Out of scope
@@ -128,12 +129,48 @@ OpenStreetMap usage and its $0/month constraint. Requirements:
 
 ## Slice 3 — responsive
 
+Two changes, one per breakpoint. They share a premise: the panel should **overlay** the map and be
+dismissible, never be pushed out of the way. What differs is the direction, and the direction is
+decided by which dimension is scarce at each size.
+
+### Mobile — bottom sheet
+
 Bottom sheet with three snap points: peek (filter summary and result count), half (list visible),
 full (filters open). Built with pointer events and CSS transforms; no new dependency.
 
 The one hard part is gesture arbitration: a drag starting on the sheet handle must move the sheet,
 and a drag starting on the map must pan the map. Leaflet's own handlers must be suppressed inside
 the sheet's bounds.
+
+**A side drawer was considered and rejected here.** Recorded because it is the obvious alternative
+and will be proposed again:
+
+- **The geometry does not fit.** The panel needs ~300px. On a 390px-wide phone that is 77% of the
+  width — opening it *is* covering the map. A sheet at 40% height spends 338px of 844 and leaves
+  ~500px of map at full width. On a phone the width is the scarce dimension and the height the
+  abundant one; a side drawer spends the scarce one.
+- **It breaks the feedback loop.** What makes the sheet work is that you filter and watch the pins
+  change in the same gesture. A binary drawer turns that into apply → close → look.
+- Minor but real: a thumb reaches the bottom edge one-handed. It does not reach the top corner of a
+  tall phone.
+
+### Desktop — collapsible panel
+
+A toggle that slides the `aside` out of the way and gives its ~320px back to the map.
+
+This closes a contradiction the current layout carries: slice 2 deliberately breaks `max-w-7xl`
+(rule #50) on the grounds that *"the map is a canvas and capping it would waste the viewport on the
+one screen whose whole value is how much ground it shows"* — and then pins a panel to it that
+cannot be moved. Either those pixels matter or they do not.
+
+Here the side **is** the right direction: at desktop width the horizontal room is abundant, and the
+panel is already anchored there. Cheap to build — the `aside` is an isolated component and
+`useMapFilters` already owns the state, so collapsing it unmounts nothing and loses no draft.
+
+The collapsed state is view-only: it must not clear filters, and it must not be confused with
+"no filters applied". Whatever summary the peek state shows on mobile is the same information the
+collapsed rail should surface on desktop, so a user cannot lose track of an active filter by
+closing the panel.
 
 ## The marker
 
