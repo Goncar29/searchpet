@@ -426,7 +426,13 @@
     "clear": "Clear",
     "resultsInArea": "Reports in this area",
     "noResults": "No reports match these filters.",
-    "loadingResults": "Searching reports..."
+    "loadingResults": "Searching reports...",
+    "searchPlace": "Neighbourhood or city",
+    "searchPlaceHint": "Type and press Enter to move the map",
+    "searchNotFound": "We could not find that place. Try another name.",
+    "searchError": "The place search failed. Check your connection and try again.",
+    "searchingPlace": "Searching...",
+    "movedTo": "Map moved to {{place}}"
   },
   "profile": {
     "title": "My profile",

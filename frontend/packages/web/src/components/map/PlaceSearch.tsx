@@ -1,0 +1,93 @@
+import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { geocode } from '@shared/utils/geocode';
+
+interface Props {
+  /** Recibe el lugar encontrado. El mapa se mueve; la búsqueda no filtra. */
+  onFound: (lat: number, lng: number, label: string) => void;
+}
+
+type Estado =
+  | { fase: 'quieto' }
+  | { fase: 'buscando' }
+  | { fase: 'vacio' }
+  | { fase: 'error' };
+
+/**
+ * Buscador de lugares del panel del mapa.
+ *
+ * NAVEGA, NO FILTRA. Escribir "Pocitos" mueve el mapa a Pocitos y la búsqueda
+ * sigue corriendo sobre el centro + radio de siempre. Ese fue el punto de
+ * diseño: el mapa ya responde "dónde", y una segunda fuente para la misma
+ * pregunta produce resultados que no coinciden con ninguno de los dos
+ * controles que el usuario tiene en pantalla.
+ *
+ * Se dispara con ENTER y nunca por tecla: la política de uso de Nominatim topea
+ * en un request por segundo, y escribir un barrio la violaría sola.
+ */
+export function PlaceSearch({ onFound }: Props) {
+  const { t, i18n } = useTranslation(['map']);
+  const [valor, setValor] = useState('');
+  const [estado, setEstado] = useState<Estado>({ fase: 'quieto' });
+
+  const buscar = async () => {
+    // El mensaje anterior se limpia ANTES de preguntar: un error que sobrevive
+    // a una búsqueda exitosa hace creer que falló.
+    setEstado({ fase: 'buscando' });
+
+    // geocode se traga sus propios errores y siempre devuelve un resultado,
+    // pero el try igual va: si alguna vez tirara, esta pantalla quedaría clavada
+    // en "Buscando..." para siempre y sin salida — el usuario no tendría forma
+    // de saber que ya no va a pasar nada.
+    try {
+      const r = await geocode(valor, { language: i18n.language });
+      if (r?.kind === 'ok') {
+        setEstado({ fase: 'quieto' });
+        onFound(r.lat, r.lng, r.label);
+        return;
+      }
+      setEstado({ fase: r?.kind === 'empty' ? 'vacio' : 'error' });
+    } catch {
+      setEstado({ fase: 'error' });
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-1">
+      <label htmlFor="map-place" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+        {t('map:searchPlace')}
+      </label>
+      <input
+        id="map-place"
+        type="search"
+        value={valor}
+        onChange={(e) => setValor(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            void buscar();
+          }
+        }}
+        placeholder={t('map:searchPlaceHint')}
+        className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+      />
+
+      {/* role=status + aria-live: sin esto un lector de pantalla no se entera
+          de que la búsqueda falló, porque el mensaje aparece lejos del foco. */}
+      <p role="status" aria-live="polite" className="text-xs min-h-4">
+        {estado.fase === 'buscando' && (
+          <span className="text-gray-500 dark:text-gray-400">{t('map:searchingPlace')}</span>
+        )}
+        {/* Los dos desenlaces dicen cosas DISTINTAS: uno manda a reescribir, el
+            otro a reintentar. Colapsarlos manda a corregir un texto que estaba
+            bien. */}
+        {estado.fase === 'vacio' && (
+          <span className="text-gray-500 dark:text-gray-400">{t('map:searchNotFound')}</span>
+        )}
+        {estado.fase === 'error' && (
+          <span className="text-danger">{t('map:searchError')}</span>
+        )}
+      </p>
+    </div>
+  );
+}

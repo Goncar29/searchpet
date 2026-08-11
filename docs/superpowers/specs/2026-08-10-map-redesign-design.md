@@ -115,7 +115,12 @@ Nominatim (`https://nominatim.openstreetmap.org/search`), consistent with the pr
 OpenStreetMap usage and its $0/month constraint. Requirements:
 
 - Debounced, submitted on Enter — not per keystroke. Nominatim's usage policy caps at 1 req/s.
-- Identifying `User-Agent`/`Referer`, as the policy requires.
+- **Identification comes from the `Referer` the browser sends automatically — NOT from a
+  `User-Agent` header.** An earlier version of this spec asked for `User-Agent`, which is
+  impossible: the Fetch standard lists it as a forbidden header name, so the browser ignores any
+  attempt to set it. Writing that code would look like policy compliance and do nothing — the same
+  family as a check that reports success without running. From a browser app the automatic
+  `Referer` is what identifies the caller, and it is what Nominatim's policy expects for this case.
 - No result and network failure are distinct states in the UI. A silent no-op reads as a broken app.
 - **`connect-src` in `vercel.json` must list the Nominatim origin.** Without it the search works in
   local dev and fails only in production, without breaking the build (rule #23). Slice 2 is not

@@ -79,6 +79,13 @@ export function MapPage() {
             onRadiusChange={setRadius}
             showVets={showVets}
             onToggleVets={() => setShowVets((v) => !v)}
+            onPlaceFound={(lat, lng) => {
+              // Mueve el centro de BUSQUEDA, que es la unica fuente de verdad
+              // sobre donde se busca. El texto navega; el centro + radio siguen
+              // siendo lo que decide los resultados.
+              setSearchCenter([lat, lng]);
+              setMapCenter([lat, lng]);
+            }}
           />
           <NearbyReportList reports={reports} isLoading={isLoading} />
         </aside>
