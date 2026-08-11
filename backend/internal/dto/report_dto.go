@@ -7,11 +7,57 @@ import (
 	"lost-pets/internal/domain"
 )
 
+// ReportPetPhotoResponse es la foto que el mapa usa para identificar la mascota.
+//
+// NO expone `PublicID` de Cloudinary. `domain.Photo` lo marca `json:"-"`, pero
+// eso protege al modelo, no a este DTO: si algún día se serializara la entidad
+// directo, la protección viene de allá. Acá se listan los campos a mano — que
+// es la regla #7, y también el motivo por el que este struct existe.
+type ReportPetPhotoResponse struct {
+	ID        uuid.UUID `json:"id"`
+	URL       string    `json:"url"`
+	IsPrimary bool      `json:"is_primary"`
+}
+
 // ReportPetResponse es el objeto pet anidado dentro del reporte.
+//
+// LLEVA COMO MUCHO UNA FOTO, a propósito. El mapa dibuja decenas de reportes
+// por pantalla y sólo necesita la que va en el marcador; mandar la galería
+// entera multiplicaría la respuesta sin que nadie la use. Se conserva la forma
+// de LISTA porque es la que el frontend ya lee (`photos.find(is_primary)`), no
+// porque se planee mandar más de una.
+//
+// `Breed` y `Color` los usa el subtítulo del popup del mapa.
 type ReportPetResponse struct {
-	ID   uuid.UUID `json:"id"`
-	Name string    `json:"name"`
-	Type string    `json:"type"`
+	ID     uuid.UUID                `json:"id"`
+	Name   string                   `json:"name"`
+	Type   string                   `json:"type"`
+	Breed  string                   `json:"breed,omitempty"`
+	Color  string                   `json:"color,omitempty"`
+	Photos []ReportPetPhotoResponse `json:"photos"`
+}
+
+// fotoDelMarcador elige la foto que representa a la mascota en el mapa.
+//
+// La primaria si existe; si no, la primera. Devuelve una lista de 0 o 1
+// elemento — nunca nil, porque `photos: null` obligaría a cada consumidor a
+// distinguir "sin fotos" de "no vino el campo", y son lo mismo.
+func fotoDelMarcador(fotos []domain.Photo) []ReportPetPhotoResponse {
+	elegida := -1
+	for i, f := range fotos {
+		if f.IsPrimary {
+			elegida = i
+			break
+		}
+		if elegida == -1 {
+			elegida = i
+		}
+	}
+	if elegida == -1 {
+		return []ReportPetPhotoResponse{}
+	}
+	f := fotos[elegida]
+	return []ReportPetPhotoResponse{{ID: f.ID, URL: f.URL, IsPrimary: f.IsPrimary}}
 }
 
 // ReportReporterResponse es el objeto reporter anidado dentro del reporte.
@@ -48,9 +94,12 @@ func ToReportResponse(report *domain.Report) ReportResponse {
 		LocationDescription: report.LocationDescription,
 		IsVerified:          report.IsVerified,
 		Pet: ReportPetResponse{
-			ID:   report.Pet.ID,
-			Name: report.Pet.Name,
-			Type: report.Pet.Type,
+			ID:     report.Pet.ID,
+			Name:   report.Pet.Name,
+			Type:   report.Pet.Type,
+			Breed:  report.Pet.Breed,
+			Color:  report.Pet.Color,
+			Photos: fotoDelMarcador(report.Pet.Photos),
 		},
 		Reporter: ReportReporterResponse{
 			ID:   report.Reporter.ID,
