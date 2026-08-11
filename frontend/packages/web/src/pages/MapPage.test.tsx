@@ -15,7 +15,7 @@ vi.mock('../context/ThemeContext', () => ({
 }));
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const mockUseNearbyReports = vi.fn((): { data: any[]; isLoading: boolean } => ({ data: [], isLoading: false }));
+const mockUseNearbyReports = vi.fn((): { data: any[]; isLoading: boolean; isError: boolean } => ({ data: [], isLoading: false, isError: false }));
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const mockUseNearbyVets = vi.fn((): { data: any[]; isLoading: boolean } => ({ data: [], isLoading: false }));
 
@@ -89,7 +89,7 @@ describe('MapPage', () => {
   beforeEach(() => {
     capturedMoveend = undefined;
     mockUseNearbyReports.mockReset();
-    mockUseNearbyReports.mockReturnValue({ data: [], isLoading: false });
+    mockUseNearbyReports.mockReturnValue({ data: [], isLoading: false, isError: false });
     mockUseNearbyVets.mockReset();
     mockUseNearbyVets.mockReturnValue({ data: [], isLoading: false });
   });
@@ -97,6 +97,41 @@ describe('MapPage', () => {
   it('renderiza sin lanzar errores', () => {
     render(<MapPage />, { wrapper });
     expect(document.body).toBeTruthy();
+  });
+
+  it('el lienzo del mapa AISLA su apilamiento, o el boton tapa el navbar', () => {
+    render(<MapPage />, { wrapper });
+
+    // Esto parece un test de una clase de Tailwind y no lo es: es la unica
+    // guarda de un invariante que se rompe EN SILENCIO. El boton "Buscar en
+    // esta zona" necesita z-[1000] para superar los panes de Leaflet (llegan a
+    // 800), pero `relative` con z-index:auto NO abre contexto de apilamiento,
+    // asi que ese 1000 competia contra el navbar (sticky z-50) y le ganaba: al
+    // scrollear, el boton se pintaba encima del nav. Sacar `isolate` no rompe
+    // ningun render ni ningun tipo — solo devuelve el bug.
+    expect(screen.getByTestId('map-canvas')).toHaveClass('isolate');
+  });
+
+  it('el mapa NO se desmonta mientras carga: el spinner va ENCIMA', () => {
+    mockUseNearbyReports.mockReturnValue({ data: [], isLoading: true, isError: false });
+    render(<MapPage />, { wrapper });
+
+    // Con `applied` en el queryKey, cada Aplicar con una combinacion sin
+    // cachear prendia isLoading, y el ternario desmontaba el MapContainer: el
+    // mapa volvia a montar en zoom 13 y se comia el zoom y el paneo. Acercarse
+    // a una cuadra, tildar un estado y perder la vista es lo contrario de lo
+    // que el filtro promete.
+    expect(screen.getByTestId('map-container')).toBeInTheDocument();
+  });
+
+  it('un request fallido llega a la lista como ERROR, no como vacio', () => {
+    mockUseNearbyReports.mockReturnValue({ data: undefined as never, isLoading: false, isError: true });
+    render(<MapPage />, { wrapper });
+
+    // El cableado importa tanto como el componente: si MapPage no pasa isError,
+    // NearbyReportList no tiene forma de distinguir el fallo del vacio.
+    expect(screen.getByText('map:resultsError')).toBeInTheDocument();
+    expect(screen.queryByText('map:noResults')).toBeNull();
   });
 
   it('renders radius selector with options [1, 3, 5, 10]', () => {
@@ -171,6 +206,7 @@ describe('MapPage', () => {
         },
       ],
       isLoading: false,
+      isError: false,
     });
 
     render(<MapPage />, { wrapper });

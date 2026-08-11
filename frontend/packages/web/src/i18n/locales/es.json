@@ -426,7 +426,9 @@
     "clear": "Limpiar",
     "resultsInArea": "Reportes en esta zona",
     "noResults": "No hay reportes que coincidan con estos filtros.",
-    "loadingResults": "Buscando reportes..."
+    "loadingResults": "Buscando reportes...",
+    "resultsError": "No se pudieron cargar los reportes. Probá de nuevo.",
+    "invalidRange": "La fecha \"Desde\" no puede ser posterior a la de \"Hasta\"."
   },
   "profile": {
     "title": "Mi perfil",
