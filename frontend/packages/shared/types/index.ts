@@ -531,7 +531,22 @@ export interface CreateReportRequest {
   occurred_at?: string; // ISO 8601, opcional; no puede ser fecha futura
 }
 
-export interface NearbySearchParams {
+/** Filtros opcionales de /api/reports/nearby. Ausentes = sin filtrar. */
+export interface NearbyReportFilters {
+  /** pets.type — perro | gato | pajaro | otro. */
+  type?: PetType;
+  /** reports.status — lost | found | sighting. Admite varios. */
+  status?: ReportStatus[];
+  /**
+   * Instantes RFC3339. Los resuelve el CLIENTE desde los días de calendario que
+   * eligió el usuario: el servidor no puede saber en qué zona horaria está, y
+   * "un día" es lo que el usuario quiso decir donde el usuario está.
+   */
+  from?: string;
+  to?: string;
+}
+
+export interface NearbySearchParams extends NearbyReportFilters {
   lat: number;
   lng: number;
   radius?: number;
