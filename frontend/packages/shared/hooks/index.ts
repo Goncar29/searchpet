@@ -16,6 +16,7 @@ import type {
   AdoptionFilters,
   CreateReportRequest,
   NearbyReportsResponse,
+  NearbyReportFilters,
   SendMessageRequest,
   Message,
   GenerateShareRequest,
@@ -337,10 +338,23 @@ export const useImageSearchNative = () => {
 // ============================================================
 
 // radius en km (ej: 5 = 5 km). Internamente se convierte a metros para la API.
-export const useNearbyReports = (lat: number, lng: number, radius = 5, enabled = true) => {
+export const useNearbyReports = (
+  lat: number,
+  lng: number,
+  radius = 5,
+  enabled = true,
+  filters: NearbyReportFilters = {},
+) => {
+  // Los filtros van EN LA CLAVE, no sólo en el request.
+  //
+  // Con la clave vieja, cambiar un filtro devolvía la respuesta cacheada sin
+  // filtrar: el usuario aplicaba "sólo gatos" y seguía viendo perros, sin un
+  // error y sin un request — porque la query ni se disparaba. React Query
+  // hashea la clave en vez de comparar referencias, así que un objeto nuevo con
+  // el mismo contenido NO remonta nada.
   const query = useQuery<NearbyReportsResponse>({
-    queryKey: ['reports', 'nearby', lat, lng, radius],
-    queryFn: () => apiClient.getNearbyReports({ lat, lng, radius: radius * 1000 }),
+    queryKey: ['reports', 'nearby', lat, lng, radius, filters],
+    queryFn: () => apiClient.getNearbyReports({ lat, lng, radius: radius * 1000, ...filters }),
     enabled: enabled && !!lat && !!lng,
     staleTime: 5 * 60 * 1000, // 5 minutos
   });

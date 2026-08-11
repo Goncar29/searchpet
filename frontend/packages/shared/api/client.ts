@@ -603,6 +603,20 @@ class APIClient {
     if (params.limit !== undefined) {
       queryParams['limit'] = params.limit;
     }
+    if (params.type) {
+      queryParams['type'] = params.type;
+    }
+    if (params.status && params.status.length > 0) {
+      // El backend deduplica del otro lado, pero mandar repetidos es ruido en
+      // la URL y hace la query string arbitrariamente larga.
+      queryParams['status'] = Array.from(new Set(params.status)).join(',');
+    }
+    if (params.from) {
+      queryParams['from'] = params.from;
+    }
+    if (params.to) {
+      queryParams['to'] = params.to;
+    }
     return this.request<NearbyReportsResponse>('GET', '/api/reports/nearby', undefined, queryParams);
   }
 

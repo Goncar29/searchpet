@@ -761,3 +761,59 @@ describe('useUnreadCount', () => {
     await waitFor(() => expect(getUnread).toHaveBeenCalledTimes(2));
   });
 });
+
+// ============================================================
+// useNearbyReports — los filtros tienen que entrar al queryKey
+// ============================================================
+
+describe('useNearbyReports con filtros', () => {
+  // El beforeEach que restaura mocks mas arriba en el archivo vive DENTRO de
+  // otro describe, no es global: sin este, el spy arrastra las llamadas del
+  // test anterior y el conteo miente.
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  // Va con createWrapperWithClient y NO con `wrapper`: ese crea un QueryClient
+  // NUEVO en cada render, con lo cual no hay cache compartido y el test pasaria
+  // con y sin el arreglo. Con un cliente estable, la segunda llamada solo
+  // ocurre si la CLAVE cambio.
+  it('cambiar un filtro dispara una busqueda nueva, no devuelve el cache', async () => {
+    const { wrapper: stableWrapper } = createWrapperWithClient();
+    const spy = vi
+      .spyOn(apiClient, 'getNearbyReports')
+      .mockResolvedValue({ data: [], radius_used: 5000 } as never);
+
+    const { rerender } = renderHook(
+      ({ filtros }: { filtros: { type?: 'perro' | 'gato' } }) =>
+        useNearbyReports(-34.9011, -56.1645, 5, true, filtros),
+      { wrapper: stableWrapper, initialProps: { filtros: { type: 'perro' as const } } },
+    );
+    await waitFor(() => expect(spy).toHaveBeenCalledTimes(1));
+
+    rerender({ filtros: { type: 'gato' as const } });
+    await waitFor(() => expect(spy).toHaveBeenCalledTimes(2));
+
+    expect(spy.mock.calls[1][0]).toMatchObject({ type: 'gato' });
+  });
+
+  it('el mismo filtro NO dispara una busqueda nueva', async () => {
+    const { wrapper: stableWrapper } = createWrapperWithClient();
+    const spy = vi
+      .spyOn(apiClient, 'getNearbyReports')
+      .mockResolvedValue({ data: [], radius_used: 5000 } as never);
+
+    const { rerender } = renderHook(
+      ({ filtros }: { filtros: { type?: 'perro' } }) =>
+        useNearbyReports(-34.9011, -56.1645, 5, true, filtros),
+      { wrapper: stableWrapper, initialProps: { filtros: { type: 'perro' as const } } },
+    );
+    await waitFor(() => expect(spy).toHaveBeenCalledTimes(1));
+
+    // Objeto NUEVO con el mismo contenido: React Query hashea la clave, no
+    // compara referencias. Si esto disparara, cada render remontaria la query.
+    rerender({ filtros: { type: 'perro' as const } });
+    await new Promise((r) => setTimeout(r, 50));
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
+});

@@ -415,7 +415,20 @@
     "pet": "Pet",
     "radius": "Radius",
     "radiusKm": "{{km}} km",
-    "searchHere": "Search this area"
+    "searchHere": "Search this area",
+    "filtersTitle": "Filter reports",
+    "typeLabel": "Pet type",
+    "typeAll": "All",
+    "statusLabel": "Status",
+    "dateFrom": "From",
+    "dateTo": "To",
+    "apply": "Apply filters",
+    "clear": "Clear",
+    "resultsInArea": "Reports in this area",
+    "noResults": "No reports match these filters.",
+    "loadingResults": "Searching reports...",
+    "resultsError": "Couldn't load the reports. Please try again.",
+    "invalidRange": "The \"From\" date can't be later than the \"To\" date."
   },
   "profile": {
     "title": "My profile",

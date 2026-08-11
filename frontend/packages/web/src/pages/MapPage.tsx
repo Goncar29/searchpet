@@ -1,14 +1,16 @@
 import { useEffect, useState } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, Circle, useMapEvents } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Circle, useMapEvents, useMap } from 'react-leaflet';
 import { shouldShowSearchHere } from '@shared/utils/searchArea';
-import { Link } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import L from 'leaflet';
-import { statusBadgeBg } from '../utils/statusBadge';
 import { useNearbyReports, useNearbyVets } from '@shared/hooks';
-import { formatDistance, formatTimeAgo } from '@shared/utils/mapFormat';
 import type { Report, Vet } from '@shared/types';
 import { useTheme } from '../context/ThemeContext';
+import { ReportPopup } from '../components/map/ReportPopup';
+import { VetPopup } from '../components/map/VetPopup';
+import { MapFilterPanel } from '../components/map/MapFilterPanel';
+import { NearbyReportList } from '../components/map/NearbyReportList';
+import { useMapFilters } from '../hooks/useMapFilters';
 
 const lostIcon = new L.Icon({
   iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
@@ -52,8 +54,32 @@ function MapPanTracker({ onCenterChange }: { onCenterChange: (c: [number, number
   return null;
 }
 
+/**
+ * Lleva el viewport al centro de búsqueda cuando ese centro cambia.
+ *
+ * `center` de MapContainer se lee SÓLO al montar, así que sin esto el mapa no
+ * sigue a `searchCenter`. Parecía funcionar por accidente: el ternario de
+ * `isLoading` remonta el MapContainer en cada búsqueda nueva, y ese remonte
+ * volvía a leer `center`.
+ *
+ * Se rompía justo cuando la respuesta estaba CACHEADA. Medido: buscar
+ * "Punta del Este" → "Colonia" → "Punta del Este" pedía 20, 15 y **cero**
+ * tiles. En la tercera el input decía "Punta del Este" y el mapa mostraba
+ * Colonia, a 300 km — con los resultados correspondiendo a un tercer lugar.
+ */
+function MapViewSync({ center }: { center: [number, number] }) {
+  const map = useMap();
+  const [lat, lng] = center;
+  useEffect(() => {
+    // Dependencias por VALOR y no por el array: `center` es un literal nuevo en
+    // cada render, y con él en las deps esto se dispararía siempre.
+    map.setView([lat, lng]);
+  }, [map, lat, lng]);
+  return null;
+}
+
 export function MapPage() {
-  const { t, i18n } = useTranslation(['map', 'pets', 'reports']);
+  const { t } = useTranslation(['map', 'pets', 'reports', 'vets']);
   const { theme } = useTheme();
   const [searchCenter, setSearchCenter] = useState<[number, number]>([-34.9011, -56.1645]);
   const [mapCenter, setMapCenter] = useState<[number, number]>([-34.9011, -56.1645]);
@@ -71,9 +97,17 @@ export function MapPage() {
     );
   }, []);
 
-  const { t: tv } = useTranslation('vets');
+  const { draft, applied, rangeError, setDraft, toggleStatus, apply, reset } = useMapFilters();
   const [radius, setRadius] = useState(3);
-  const { data: reports, isLoading } = useNearbyReports(searchCenter[0], searchCenter[1], radius, true);
+  // `applied`, NUNCA `draft`: pasar el borrador dispararia un request por cada
+  // tecla, que es el defecto que el patron existe para evitar.
+  //
+  // `isError` viaja hasta la lista. Sin el, un request fallido llega ahi como
+  // `reports === undefined` con `isLoading === false`, indistinguible de una
+  // busqueda que no encontro nada.
+  const { data: reports, isLoading, isError } = useNearbyReports(
+    searchCenter[0], searchCenter[1], radius, true, applied,
+  );
   const [showVets, setShowVets] = useState(false);
   const { data: vets } = useNearbyVets(searchCenter[0], searchCenter[1], 5000, showVets);
 
@@ -82,9 +116,6 @@ export function MapPage() {
     { lat: searchCenter[0], lng: searchCenter[1] },
     radius * 1000,
   );
-
-  const directionsUrl = (lat: number, lng: number) =>
-    `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
 
   const getIcon = (status: string) => {
     switch (status) {
@@ -95,74 +126,67 @@ export function MapPage() {
     }
   };
 
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case 'lost': return t('pets:status.lost');
-      case 'found': return t('pets:status.found');
-      case 'sighting': return t('pets:card.sighting');
-      default: return status;
-    }
-  };
-
-  const primaryPhotoUrl = (p?: Report['pet']) =>
-    p?.photos?.find((ph) => ph.is_primary)?.url ?? p?.photos?.[0]?.url ?? '';
-
-  const petSubtitle = (p?: Report['pet']) =>
-    p ? [t(`pets:types.${p.type}`), p.breed, p.color].filter(Boolean).join(' · ') : '';
-
+  // Esta pagina va a ANCHO COMPLETO a proposito, rompiendo max-w-7xl (regla
+  // #50). Esa regla capea paginas de CONTENIDO al ancho del navbar; el mapa es
+  // un LIENZO y capearlo desperdicia viewport en la unica pantalla cuyo valor
+  // es cuanto terreno muestra. Ver el spec del redisenio.
+  //
+  // El ALTO en cambio NO es completo: con 100vh el footer de MainLayout queda
+  // debajo del pliegue y Leaflet se queda con la rueda del mouse, asi que no
+  // habria forma comoda de bajar.
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-      <div className="flex flex-col gap-3 min-[530px]:flex-row min-[530px]:items-start min-[530px]:justify-between min-[530px]:gap-4 mb-4">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 shrink-0">{t('map:title')}</h1>
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 min-[530px]:justify-end text-sm text-gray-700 dark:text-gray-300">
-          <button
-            type="button"
-            onClick={() => setShowVets((v) => !v)}
-            className={`px-3 py-1 rounded-full text-sm font-semibold border transition-colors ${
-              showVets
-                ? 'bg-blue-600 text-white border-blue-600'
-                : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600'
-            }`}
-          >
-            🏥 {showVets ? tv('hide') : tv('toggle')}
-          </button>
-          <label className="flex items-center gap-1 font-medium">
-            {t('map:radius')}:
-            <select
-              value={radius}
-              onChange={(e) => setRadius(Number(e.target.value))}
-              className="ml-1 border border-gray-300 dark:border-gray-600 rounded px-2 py-0.5 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-            >
-              {[1, 3, 5, 10].map((km) => (
-                <option key={km} value={km}>{t('map:radiusKm', { km })}</option>
-              ))}
-            </select>
-          </label>
-          <div className="flex items-center gap-x-4 gap-y-1">
-            <span className="flex items-center gap-1">
-              <span className="w-3 h-3 rounded-full bg-lost inline-block"></span> {t('pets:status.lost')}
-            </span>
-            <span className="flex items-center gap-1">
-              <span className="w-3 h-3 rounded-full bg-found inline-block"></span> {t('pets:status.found')}
-            </span>
-            <span className="flex items-center gap-1">
-              <span className="w-3 h-3 rounded-full bg-sighting inline-block"></span> {t('pets:card.sighting')}
-            </span>
-          </div>
-        </div>
-      </div>
+    <div className="w-full">
+      {/* El alto fijo va SOLO desde lg. Abajo de ese ancho la fila es una
+          columna, y con `h-[78vh]` en el contenedor el aside — que mide ~1850px
+          de contenido real — se comia el alto entero y dejaba al mapa con
+          `flex-1` sobre CERO espacio: medido, `.leaflet-container` daba 390x0 y
+          el mapa directamente no existia. En celular cada uno lleva su propio
+          alto y la pagina scrollea.
 
-      <div className="relative bg-white dark:bg-gray-900 rounded-2xl shadow-lg overflow-hidden" style={{ height: '70vh' }}>
-        {isLoading ? (
-          <div className="flex items-center justify-center h-full">
-            <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
-          </div>
-        ) : (
-          <>
-            {/* `center` is mount-only in react-leaflet; later searchCenter changes move the
-                markers/circle but not the viewport (panning is user-driven via the button). */}
+          El `order` pone el MAPA primero en el telefono. Es la pantalla que se
+          usa en la calle: abrirla y ver un formulario de filtros con el mapa
+          debajo del pliegue invierte para que vino el usuario. La hoja inferior
+          arrastrable de la rebanada 3 es el arreglo definitivo; esto es el piso
+          decente mientras tanto. */}
+      <div className="flex flex-col lg:flex-row lg:h-[78vh]">
+        <aside className="order-2 lg:order-none w-full lg:w-80 lg:shrink-0 lg:overflow-y-auto border-t lg:border-t-0 lg:border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
+          <MapFilterPanel
+            draft={draft}
+            onDraftChange={setDraft}
+            onToggleStatus={toggleStatus}
+            onApply={apply}
+            onReset={reset}
+            rangeError={rangeError}
+            radius={radius}
+            onRadiusChange={setRadius}
+            showVets={showVets}
+            onToggleVets={() => setShowVets((v) => !v)}
+          />
+          <NearbyReportList reports={reports} isLoading={isLoading} isError={isError} />
+        </aside>
+
+        {/* Leaflet NECESITA un alto explicito: dentro de un contenedor de alto
+            automatico colapsa a cero. En celular se lo damos con `h-[60vh]`; en
+            escritorio lo hereda del `lg:h-[78vh]` del padre via `flex-1`. */}
+        {/* `isolate` (isolation:isolate) NO es decorativo: crea el CONTEXTO DE
+            APILAMIENTO que contiene al `z-[1000]` del boton "Buscar en esta
+            zona".
+
+            `relative` solo no alcanza — `position:relative` con `z-index:auto`
+            no abre contexto nuevo. Sin `isolate`, ese 1000 competia de igual a
+            igual con el navbar de MainLayout (`sticky top-0 z-50`) y le ganaba:
+            al scrollear, el boton se pintaba ENCIMA del nav. El 1000 hace falta
+            igual, porque adentro del mapa tiene que superar los panes de
+            Leaflet, que llegan a 800. Lo que faltaba era acotarlo. */}
+        <div
+          data-testid="map-canvas"
+          className="order-1 lg:order-none relative isolate h-[60vh] lg:h-auto lg:flex-1"
+        >
+            {/* `center` se lee solo al montar; MapViewSync es lo que hace que
+                el viewport siga a searchCenter. Ver su comentario. */}
             <MapContainer center={searchCenter} zoom={13} style={{ height: '100%', width: '100%' }}>
               <MapPanTracker onCenterChange={setMapCenter} />
+              <MapViewSync center={searchCenter} />
               <TileLayer
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -191,76 +215,14 @@ export function MapPage() {
                   icon={getIcon(report.status)}
                 >
                   <Popup>
-                    <div className="w-52">
-                      {primaryPhotoUrl(report.pet) && (
-                        <img
-                          src={primaryPhotoUrl(report.pet)}
-                          alt={report.pet?.name || t('map:pet')}
-                          className="w-full h-28 object-cover rounded-md mb-2"
-                        />
-                      )}
-                      <div className="flex items-start justify-between gap-2">
-                        <h3 className="font-bold text-base leading-tight">{report.pet?.name || t('map:pet')}</h3>
-                        <span className={`shrink-0 inline-block text-[10px] font-bold text-white px-2 py-0.5 rounded ${statusBadgeBg(report.status)}`}>
-                          {getStatusLabel(report.status)}
-                        </span>
-                      </div>
-                      {petSubtitle(report.pet) && (
-                        <p className="text-xs text-gray-500 mt-1 capitalize">{petSubtitle(report.pet)}</p>
-                      )}
-                      {formatTimeAgo(report.occurred_at ?? report.created_at, new Date(), i18n.language) && (
-                        <p className="text-xs text-gray-400 mt-1">
-                          🕑 {formatTimeAgo(report.occurred_at ?? report.created_at, new Date(), i18n.language)}
-                        </p>
-                      )}
-                      {report.location_description && (
-                        <p className="text-sm text-gray-600 mt-2">{report.location_description}</p>
-                      )}
-                      <Link
-                        to={`/pets/${report.pet?.id || report.pet_id}`}
-                        className="inline-block mt-2 text-sm text-primary font-semibold hover:underline"
-                      >
-                        {t('map:viewDetails')} →
-                      </Link>
-                    </div>
+                    <ReportPopup report={report} />
                   </Popup>
                 </Marker>
               ))}
               {showVets && vets?.map((vet: Vet) => (
                 <Marker key={`vet-${vet.id}`} position={[vet.latitude, vet.longitude]} icon={vetIcon}>
                   <Popup>
-                    <div className="w-52">
-                      <h3 className="font-bold text-base leading-tight">{vet.name || tv('defaultName')}</h3>
-                      <p className="text-xs font-semibold text-primary mt-0.5">📍 {formatDistance(vet.distance_meters)}</p>
-                      {vet.address && <p className="text-sm text-gray-600 mt-1">{vet.address}</p>}
-                      {vet.opening_hours && <p className="text-xs text-gray-500 mt-1">🕐 {vet.opening_hours}</p>}
-                      <div className="flex gap-3 mt-2 flex-wrap">
-                        <a
-                          href={directionsUrl(vet.latitude, vet.longitude)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-sm text-primary font-semibold hover:underline"
-                        >
-                          {tv('directions')} →
-                        </a>
-                        {vet.phone && (
-                          <a href={`tel:${vet.phone}`} className="text-sm text-primary font-semibold hover:underline">
-                            {tv('call')}
-                          </a>
-                        )}
-                        {vet.website && (
-                          <a
-                            href={vet.website}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-sm text-primary font-semibold hover:underline"
-                          >
-                            {tv('website')}
-                          </a>
-                        )}
-                      </div>
-                      <p className="text-[10px] text-gray-400 mt-2">{tv('attribution')}</p>
-                    </div>
+                    <VetPopup vet={vet} />
                   </Popup>
                 </Marker>
               ))}
@@ -274,19 +236,41 @@ export function MapPage() {
                 {t('map:searchHere')}
               </button>
             )}
-          </>
-        )}
+
+            {/* El spinner es una CAPA ENCIMA del mapa, no un reemplazo.
+                Reemplazarlo desmontaba el MapContainer, y con `applied` en el
+                queryKey eso pasa ahora en cada Aplicar con una combinacion sin
+                cachear: el mapa volvia a montar en `center={searchCenter}
+                zoom={13}` y se comia el zoom y el paneo del usuario. Acercarse
+                a una cuadra, tildar "avistamiento" y perder la vista es
+                exactamente lo contrario de lo que el filtro promete.
+
+                Ojo: ese remonte era ademas lo que hacia que el viewport
+                siguiera al centro POR ACCIDENTE. Sacarlo deja a MapViewSync
+                como unico responsable, que es donde tiene que estar.
+
+                `pointer-events-none` para que el mapa se pueda seguir usando
+                mientras carga, y `aria-hidden` porque la lista del panel ya
+                anuncia "Buscando reportes..." — dos anuncios para el mismo
+                hecho es ruido para un lector de pantalla. */}
+            {isLoading && (
+              <div
+                aria-hidden="true"
+                className="absolute inset-0 z-[1100] flex items-center justify-center bg-white/60 dark:bg-gray-900/60 pointer-events-none"
+              >
+                <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
+              </div>
+            )}
+        </div>
       </div>
 
-      {!isLoading && reports && reports.length === 0 && (
-        <p className="text-center text-gray-500 dark:text-gray-400 mt-4 text-sm">
-          {t('reports:nearby.empty')}
-        </p>
-      )}
+      {/* El contador vive DEBAJO del mapa y no dentro del panel: el panel ya
+          lista los reportes uno por uno, y repetir "N reportes" arriba de la
+          lista seria decir dos veces lo mismo. El vacio tambien lo cubre la
+          lista, asi que ese mensaje se fue. */}
       {showVets && vets && vets.length === 0 && (
-        <p className="text-center text-gray-500 dark:text-gray-400 mt-2 text-sm">{tv('empty')}</p>
+        <p className="text-center text-gray-500 dark:text-gray-400 mt-2 text-sm">{t('vets:empty')}</p>
       )}
-
       {(!isLoading && reports && reports.length > 0) && (
         <p className="text-sm text-gray-400 dark:text-gray-500 mt-3 text-center">
           {t('map:reports', { count: reports.length })}

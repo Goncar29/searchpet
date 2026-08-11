@@ -415,7 +415,20 @@
     "pet": "Mascota",
     "radius": "Radio",
     "radiusKm": "{{km}} km",
-    "searchHere": "Buscar en esta zona"
+    "searchHere": "Buscar en esta zona",
+    "filtersTitle": "Filtrar reportes",
+    "typeLabel": "Tipo de mascota",
+    "typeAll": "Todos",
+    "statusLabel": "Estado",
+    "dateFrom": "Desde",
+    "dateTo": "Hasta",
+    "apply": "Aplicar filtros",
+    "clear": "Limpiar",
+    "resultsInArea": "Reportes en esta zona",
+    "noResults": "No hay reportes que coincidan con estos filtros.",
+    "loadingResults": "Buscando reportes...",
+    "resultsError": "No se pudieron cargar los reportes. Probá de nuevo.",
+    "invalidRange": "La fecha \"Desde\" no puede ser posterior a la de \"Hasta\"."
   },
   "profile": {
     "title": "Mi perfil",
