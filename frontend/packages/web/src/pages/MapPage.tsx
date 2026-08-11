@@ -97,11 +97,15 @@ export function MapPage() {
     );
   }, []);
 
-  const { draft, applied, setDraft, toggleStatus, apply, reset } = useMapFilters();
+  const { draft, applied, rangeError, setDraft, toggleStatus, apply, reset } = useMapFilters();
   const [radius, setRadius] = useState(3);
   // `applied`, NUNCA `draft`: pasar el borrador dispararia un request por cada
   // tecla, que es el defecto que el patron existe para evitar.
-  const { data: reports, isLoading } = useNearbyReports(
+  //
+  // `isError` viaja hasta la lista. Sin el, un request fallido llega ahi como
+  // `reports === undefined` con `isLoading === false`, indistinguible de una
+  // busqueda que no encontro nada.
+  const { data: reports, isLoading, isError } = useNearbyReports(
     searchCenter[0], searchCenter[1], radius, true, applied,
   );
   const [showVets, setShowVets] = useState(false);
@@ -152,24 +156,32 @@ export function MapPage() {
             onToggleStatus={toggleStatus}
             onApply={apply}
             onReset={reset}
+            rangeError={rangeError}
             radius={radius}
             onRadiusChange={setRadius}
             showVets={showVets}
             onToggleVets={() => setShowVets((v) => !v)}
           />
-          <NearbyReportList reports={reports} isLoading={isLoading} />
+          <NearbyReportList reports={reports} isLoading={isLoading} isError={isError} />
         </aside>
 
         {/* Leaflet NECESITA un alto explicito: dentro de un contenedor de alto
             automatico colapsa a cero. En celular se lo damos con `h-[60vh]`; en
             escritorio lo hereda del `lg:h-[78vh]` del padre via `flex-1`. */}
-        <div className="order-1 lg:order-none relative h-[60vh] lg:h-auto lg:flex-1">
-        {isLoading ? (
-          <div className="flex items-center justify-center h-full">
-            <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
-          </div>
-        ) : (
-          <>
+        {/* `isolate` (isolation:isolate) NO es decorativo: crea el CONTEXTO DE
+            APILAMIENTO que contiene al `z-[1000]` del boton "Buscar en esta
+            zona".
+
+            `relative` solo no alcanza — `position:relative` con `z-index:auto`
+            no abre contexto nuevo. Sin `isolate`, ese 1000 competia de igual a
+            igual con el navbar de MainLayout (`sticky top-0 z-50`) y le ganaba:
+            al scrollear, el boton se pintaba ENCIMA del nav. El 1000 hace falta
+            igual, porque adentro del mapa tiene que superar los panes de
+            Leaflet, que llegan a 800. Lo que faltaba era acotarlo. */}
+        <div
+          data-testid="map-canvas"
+          className="order-1 lg:order-none relative isolate h-[60vh] lg:h-auto lg:flex-1"
+        >
             {/* `center` se lee solo al montar; MapViewSync es lo que hace que
                 el viewport siga a searchCenter. Ver su comentario. */}
             <MapContainer center={searchCenter} zoom={13} style={{ height: '100%', width: '100%' }}>
@@ -224,8 +236,31 @@ export function MapPage() {
                 {t('map:searchHere')}
               </button>
             )}
-          </>
-        )}
+
+            {/* El spinner es una CAPA ENCIMA del mapa, no un reemplazo.
+                Reemplazarlo desmontaba el MapContainer, y con `applied` en el
+                queryKey eso pasa ahora en cada Aplicar con una combinacion sin
+                cachear: el mapa volvia a montar en `center={searchCenter}
+                zoom={13}` y se comia el zoom y el paneo del usuario. Acercarse
+                a una cuadra, tildar "avistamiento" y perder la vista es
+                exactamente lo contrario de lo que el filtro promete.
+
+                Ojo: ese remonte era ademas lo que hacia que el viewport
+                siguiera al centro POR ACCIDENTE. Sacarlo deja a MapViewSync
+                como unico responsable, que es donde tiene que estar.
+
+                `pointer-events-none` para que el mapa se pueda seguir usando
+                mientras carga, y `aria-hidden` porque la lista del panel ya
+                anuncia "Buscando reportes..." — dos anuncios para el mismo
+                hecho es ruido para un lector de pantalla. */}
+            {isLoading && (
+              <div
+                aria-hidden="true"
+                className="absolute inset-0 z-[1100] flex items-center justify-center bg-white/60 dark:bg-gray-900/60 pointer-events-none"
+              >
+                <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
+              </div>
+            )}
         </div>
       </div>
 

@@ -426,7 +426,9 @@
     "clear": "Limpar",
     "resultsInArea": "Relatos nesta área",
     "noResults": "Nenhum relato corresponde a estes filtros.",
-    "loadingResults": "Buscando relatos..."
+    "loadingResults": "Buscando relatos...",
+    "resultsError": "Não foi possível carregar os relatos. Tente novamente.",
+    "invalidRange": "A data \"De\" não pode ser posterior à data \"Até\"."
   },
   "profile": {
     "title": "Meu perfil",
