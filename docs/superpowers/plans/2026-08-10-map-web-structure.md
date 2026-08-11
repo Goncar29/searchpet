@@ -573,10 +573,10 @@ git commit -m "feat(web): lista de reportes de la zona"
 
 - [ ] **Step 1: Rewrite the page shell**
 
-Replace the `max-w-7xl mx-auto px-4 …` wrapper with a full-bleed two-column shell:
+Replace the `max-w-7xl mx-auto px-4 …` wrapper with a full-**width** two-column shell:
 
 ```tsx
-    <div className="flex h-[calc(100vh-4rem)] w-full">
+    <div className="flex h-[78vh] w-full">
       <aside className="w-80 shrink-0 overflow-y-auto border-r border-gray-200 dark:border-gray-700">
         <MapFilterPanel … />
         <NearbyReportList reports={reports} isLoading={isLoading} />
@@ -587,6 +587,16 @@ Replace the `max-w-7xl mx-auto px-4 …` wrapper with a full-bleed two-column sh
     </div>
 ```
 
+**Full width, NOT full viewport height, and el footer queda en flujo normal.**
+`78vh` sube desde el `70vh` de hoy porque se gana todo el ancho, pero deliberadamente
+no llega a `calc(100vh - 4rem)`. Con el alto completo el footer de `MainLayout` queda
+debajo del pliegue y —peor— Leaflet se queda con la rueda del mouse para hacer zoom,
+así que el gesto natural para bajar no funciona. Dejando aire, siempre hay zona fuera
+del mapa para scrollear y `MainLayout` no se toca.
+
+Leaflet **necesita un alto explícito**: dentro de un contenedor de alto automático
+colapsa a cero. Por eso se fija un valor en vez de dejar que "ocupe lo que necesite".
+
 **Leave this comment above the shell** — without it, the next person applying rule #50 will "fix" it back:
 
 ```tsx
@@ -596,7 +606,7 @@ Replace the `max-w-7xl mx-auto px-4 …` wrapper with a full-bleed two-column sh
         muestra. Ver el spec del rediseño. */}
 ```
 
-`h-[calc(100vh-4rem)]` assumes the navbar is 4rem — read the real height from `MainLayout.tsx` and use that value.
+El navbar es `h-16` y `sticky` (verificado en MainLayout.tsx:119), dato que importa si algún día se vuelve a evaluar el alto completo.
 
 - [ ] **Step 2: Wire the filters**
 
