@@ -28,13 +28,23 @@ vi.mock('@shared/hooks', () => ({
 
 // Captured so the test can simulate a pan (moveend).
 let capturedMoveend: (() => void) | undefined;
+const iconosCapturados: unknown[] = [];
 const fakeMap = { getCenter: vi.fn(() => ({ lat: -34.9011, lng: -56.1645 })), setView: vi.fn() };
 
 // leaflet uses DOM APIs not available in jsdom
 vi.mock('react-leaflet', () => ({
   MapContainer: ({ children }: { children: React.ReactNode }) => <div data-testid="map-container">{children}</div>,
   TileLayer: () => null,
-  Marker: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  // Expone el HTML del icono: con divIcon el marcador ES una cadena de HTML
+  // armada en el cliente, asi que se puede inspeccionar. Sin esto el mock lo
+  // descarta y no hay forma de afirmar que cada pin lleva SU mascota.
+  // Se guarda la REFERENCIA del icono, no solo su HTML: react-leaflet compara
+  // `props.icon` por identidad, asi que un objeto nuevo con el mismo HTML igual
+  // dispara setIcon y recrea el <img>. El HTML no puede ver esa diferencia.
+  Marker: ({ children, icon }: { children: React.ReactNode; icon?: { html?: string } }) => {
+    iconosCapturados.push(icon);
+    return <div data-testid="marker" data-icon-html={icon?.html ?? ''}>{children}</div>;
+  },
   Popup: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   Circle: () => null,
   // setView se expone para poder afirmar que el viewport SIGUE al centro de
@@ -46,12 +56,19 @@ vi.mock('react-leaflet', () => ({
   },
 }));
 
-vi.mock('leaflet', () => ({
-  default: { Icon: class {} },
-  Icon: class {
-    constructor() {}
-  },
-}));
+// divIcon devuelve el objeto tal cual para que los tests puedan mirar el HTML
+// que se le pasa — es lo unico que distingue un marcador de otro ahora que el
+// icono se arma como cadena en vez de bajarse como PNG.
+vi.mock('leaflet', () => {
+  const divIcon = (opts: unknown) => opts;
+  return {
+    default: { Icon: class {}, divIcon },
+    Icon: class {
+      constructor() {}
+    },
+    divIcon,
+  };
+});
 
 // jsdom doesn't implement geolocation
 Object.defineProperty(globalThis.navigator, 'geolocation', {
@@ -76,6 +93,7 @@ function wrapper({ children }: { children: React.ReactNode }) {
 describe('MapPage', () => {
   beforeEach(() => {
     capturedMoveend = undefined;
+    iconosCapturados.length = 0;
     mockUseNearbyReports.mockReset();
     mockUseNearbyReports.mockReturnValue({ data: [], isLoading: false, isError: false });
     mockUseNearbyVets.mockReset();
@@ -98,6 +116,34 @@ describe('MapPage', () => {
     // scrollear, el boton se pintaba encima del nav. Sacar `isolate` no rompe
     // ningun render ni ningun tipo — solo devuelve el bug.
     expect(screen.getByTestId('map-canvas')).toHaveClass('isolate');
+  });
+
+  it('el icono de un marcador NO se reconstruye al panear', () => {
+    mockUseNearbyReports.mockReturnValue({
+      data: [{
+        id: 'r1', pet_id: 'p1', reporter_id: 'u1', status: 'lost',
+        latitude: -34.9011, longitude: -56.1645, is_verified: false,
+        created_at: '2026-06-23T10:00:00Z',
+        pet: { id: 'p1', name: 'Rex', type: 'perro', status: 'lost', created_at: '2026-06-23T10:00:00Z', photos: [] },
+      }],
+      isLoading: false,
+      isError: false,
+    });
+
+    fakeMap.getCenter.mockReturnValue({ lat: -34.9011, lng: -56.1645 });
+    render(<MapPage />, { wrapper });
+    const antes = iconosCapturados[iconosCapturados.length - 1];
+
+    // Un paneo re-renderiza la pagina entera (setMapCenter). Con el icono
+    // construido inline, cada uno de esos renders devolvia un objeto NUEVO,
+    // react-leaflet llamaba setIcon y Leaflet reasignaba innerHTML: el <img>
+    // de cada pin destruido y recreado en cada movimiento del mapa.
+    fakeMap.getCenter.mockReturnValue({ lat: -34.8911, lng: -56.1645 });
+    act(() => { capturedMoveend?.(); });
+    const despues = iconosCapturados[iconosCapturados.length - 1];
+
+    expect(iconosCapturados.length).toBeGreaterThan(1);
+    expect(despues).toBe(antes);
   });
 
   it('el mapa NO se desmonta mientras carga: el spinner va ENCIMA', () => {
@@ -253,6 +299,44 @@ describe('MapPage', () => {
 
     const despues = mockUseNearbyReports.mock.calls as unknown[][];
     expect(despues[despues.length - 1][4]).toEqual({ type: 'gato' });
+  });
+
+  it('el marcador del reporte lleva la foto de ESA mascota y el color de SU estado', () => {
+    mockUseNearbyReports.mockReturnValue({
+      data: [
+        {
+          id: 'r9', pet_id: 'p9', reporter_id: 'u1', status: 'lost',
+          latitude: -34.9011, longitude: -56.1645, is_verified: false,
+          created_at: '2026-06-23T10:00:00Z',
+          pet: {
+            id: 'p9', name: 'Firulais', type: 'perro',
+            status: 'lost', created_at: '2026-06-23T10:00:00Z',
+            photos: [{
+              id: 'ph9',
+              url: 'https://res.cloudinary.com/dd0yz5yxb/image/upload/v1786328704/searchpet/pets/p9/foto.webp',
+              is_primary: true,
+            }],
+          },
+        },
+      ],
+      isLoading: false,
+      isError: false,
+    });
+
+    render(<MapPage />, { wrapper });
+
+    const marcador = document.querySelector('[data-testid="marker"]');
+    const html = marcador?.getAttribute('data-icon-html') ?? '';
+
+    // Si algun dia se le pasara la mascota equivocada, el mapa mostraria la
+    // cara de otro animal sobre el pin — en una app para encontrar mascotas eso
+    // es peor que no mostrar nada.
+    // Va como <title> del svg: la foto ahora es un <image> de SVG recortado
+    // contra la elipse de la almohadilla, y <image> no tiene alt.
+    expect(html).toContain('<title>Firulais</title>');
+    expect(html).toContain('var(--color-lost)');
+    // Miniatura, nunca la foto original: son decenas de marcadores por pantalla.
+    expect(html).toContain('w_64,h_64,c_fill,g_auto');
   });
 
   it('el viewport SIGUE al centro de busqueda, no solo al montar', async () => {

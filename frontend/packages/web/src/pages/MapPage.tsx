@@ -1,8 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Circle, useMapEvents, useMap } from 'react-leaflet';
 import { shouldShowSearchHere } from '@shared/utils/searchArea';
 import { useTranslation } from 'react-i18next';
-import L from 'leaflet';
 import { useNearbyReports, useNearbyVets } from '@shared/hooks';
 import type { Report, Vet } from '@shared/types';
 import { useTheme } from '../context/ThemeContext';
@@ -11,38 +10,7 @@ import { VetPopup } from '../components/map/VetPopup';
 import { MapFilterPanel } from '../components/map/MapFilterPanel';
 import { NearbyReportList } from '../components/map/NearbyReportList';
 import { useMapFilters } from '../hooks/useMapFilters';
-
-const lostIcon = new L.Icon({
-  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-});
-
-const foundIcon = new L.Icon({
-  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-});
-
-const sightingIcon = new L.Icon({
-  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-orange.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-});
-
-const vetIcon = new L.Icon({
-  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-blue.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-});
+import { rastroDivIcon, vetDivIcon } from '../components/map/rastroMarker';
 
 function MapPanTracker({ onCenterChange }: { onCenterChange: (c: [number, number]) => void }) {
   const map = useMapEvents({
@@ -117,14 +85,33 @@ export function MapPage() {
     radius * 1000,
   );
 
-  const getIcon = (status: string) => {
-    switch (status) {
-      case 'lost': return lostIcon;
-      case 'found': return foundIcon;
-      case 'sighting': return sightingIcon;
-      default: return lostIcon;
-    }
-  };
+  // Los iconos se arman UNA vez por respuesta, no una vez por render.
+  //
+  // Con divIcon el marcador es una cadena de HTML, y react-leaflet compara
+  // `props.icon` POR REFERENCIA: un objeto nuevo lo hace llamar a setIcon, y
+  // ahi Leaflet reasigna innerHTML, o sea que destruye y recrea el <img> de
+  // cada pin. Construirlos inline volvia eso a pasar en CADA render — y esta
+  // pantalla re-renderiza en cada moveend del mapa y en cada tecla del
+  // borrador de filtros. Antes eran L.Icon constantes a nivel de modulo, asi
+  // que el churn lo introdujo el marcador nuevo.
+  //
+  // `reports` viene de React Query, que conserva la identidad del array
+  // mientras la respuesta no cambia: eso es lo que hace que este memo aguante
+  // el paneo y el tipeo.
+  const iconosPorReporte = useMemo(() => {
+    const m = new Map<string, ReturnType<typeof rastroDivIcon>>();
+    reports?.forEach((r: Report) => {
+      m.set(r.id, rastroDivIcon(
+        r.status,
+        r.pet?.photos?.find((ph) => ph.is_primary)?.url ?? r.pet?.photos?.[0]?.url,
+        r.pet?.name ?? '',
+      ));
+    });
+    return m;
+  }, [reports]);
+
+  // No depende de nada: una sola instancia para todas las veterinarias.
+  const iconoVet = useMemo(() => vetDivIcon(), []);
 
   // Esta pagina va a ANCHO COMPLETO a proposito, rompiendo max-w-7xl (regla
   // #50). Esa regla capea paginas de CONTENIDO al ancho del navbar; el mapa es
@@ -212,7 +199,7 @@ export function MapPage() {
                 <Marker
                   key={report.id}
                   position={[report.latitude, report.longitude]}
-                  icon={getIcon(report.status)}
+                  icon={iconosPorReporte.get(report.id)}
                 >
                   <Popup>
                     <ReportPopup report={report} />
@@ -220,7 +207,7 @@ export function MapPage() {
                 </Marker>
               ))}
               {showVets && vets?.map((vet: Vet) => (
-                <Marker key={`vet-${vet.id}`} position={[vet.latitude, vet.longitude]} icon={vetIcon}>
+                <Marker key={`vet-${vet.id}`} position={[vet.latitude, vet.longitude]} icon={iconoVet}>
                   <Popup>
                     <VetPopup vet={vet} />
                   </Popup>
