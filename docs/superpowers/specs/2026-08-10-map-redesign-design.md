@@ -184,19 +184,36 @@ circle (47, 61) r=7
   + four toe circles
 ```
 
-The marker reuses this construction with **marker-tuned proportions**: the trail shrinks and the paw
-grows, so the pad becomes a ~30px circle holding the pet's photo, crowned by the four toes. At the
-logo's native proportions the pad is 30% of the width, which at a 40px marker leaves a ~12px oval —
-too small to tell a cat from a dog, which defeats the purpose.
+**The marker uses that geometry verbatim.** Same numbers, same transforms, copied from `Logo.tsx`.
+The only addition is the pet's photo, clipped against that same pad ellipse.
+
+> **Corrected 2026-08-11.** This section used to specify **marker-tuned proportions** — "the trail
+> shrinks and the paw grows, so the pad becomes a ~30px circle" — reasoning that at the logo's
+> native proportions the pad is ~32% of the width, too small to tell a cat from a dog. The premise
+> was right and the conclusion was wrong. What shipped was a deformed logo: a 122×72 (wide) mark
+> forced into a 56×64 (tall) box, with the elliptical pad replaced by a CSS circle. The user spotted
+> it immediately — "the logo was modified totally".
+>
+> **If the native pad is too small a fraction, enlarge the marker until that fraction is enough.
+> Never deform the mark.** Hence 88×52: 88/52 = 1.69, exactly 122/72. The pad lands at ~28×23 px —
+> the same photo size the deformed marker had. Nothing was lost.
+>
+> The box's aspect ratio must match the viewBox's. A test pins it, and a second test compares the
+> marker's shapes against a rendered `<Logo />` one by one, transform chains included. Before that,
+> nothing in the suite could see the deformation: the marker was the only source of its own
+> geometry.
 
 - **Anchor:** the small left dot. The trail becomes the pin's tip and touches the real coordinate.
 - **Status moves to the ring.** Today the status is encoded in the marker's colour. With the photo
   in the centre, the coloured ring around it carries that meaning, using the existing
   `--color-lost` / `--color-found` / `--color-sighting` tokens. The legend keeps matching because it
   reads from the same tokens.
-- **No photo:** the paw renders solid in the status colour — today's marker, essentially.
-- **Implementation:** `L.divIcon` with inline SVG plus an `<img>`, replacing the four `L.Icon` PNGs
-  and the `raw.githubusercontent.com` origin with them.
+- **No photo:** nothing extra is drawn — the plain logo, solid in the status colour.
+- **Implementation:** `L.divIcon` with inline SVG. The photo is an SVG `<image>` clipped by a
+  `clipPath` holding the pad ellipse, with `preserveAspectRatio="xMidYMid slice"` so it covers and
+  crops instead of stretching. Each marker gets its own clip id — SVG ids are document-global and
+  this screen draws dozens of pins. Replaces the four `L.Icon` PNGs and the
+  `raw.githubusercontent.com` origin.
 - **Bandwidth:** photos are requested through Cloudinary transformations at marker size
   (`w_64,h_64,c_fill,g_auto`), never full-size. Cloudinary's free tier is bound by bandwidth, not
   storage, and this screen can render dozens of markers at once.
