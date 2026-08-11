@@ -2,32 +2,69 @@ import L from 'leaflet';
 import { cloudinaryThumb } from '@shared/utils/cloudinaryThumb';
 
 // ============================================================
-// SearchPet — el marcador del mapa es el logo Rastro
+// SearchPet — el marcador del mapa ES el logo Rastro
 // ============================================================
 //
-// El logo es un rastro de tres huellas que crecen y desembocan en una pata.
-// El marcador reusa esa construcción con PROPORCIONES AJUSTADAS: el rastro se
-// achica y la pata crece, para que la almohadilla llegue a 30px y la foto de la
-// mascota se reconozca. Con las proporciones nativas del logo la almohadilla es
-// el 30% del ancho, o sea ~12px a tamaño de marcador — ahí no se distingue un
-// gato de un perro y la foto no serviría para nada.
+// LA GEOMETRÍA ES LA DEL LOGO, TAL CUAL. Está copiada de `Logo.tsx` sin tocar
+// un solo número: las tres huellas, el `translate/scale` de la pata, la elipse
+// de la almohadilla y los cuatro dedos. Lo único que se agrega es la foto de la
+// mascota RECORTADA contra esa misma elipse.
 //
-// El ANCLA es la huella chica de la izquierda: esa punta toca la coordenada
-// real. Con el ancla en el centro, el pin marcaría un lugar que no es donde se
-// vio a la mascota.
+// La versión anterior usaba "proporciones ajustadas al marcador" —el rastro se
+// achicaba, la pata crecía, y la almohadilla elíptica se reemplazaba por un div
+// circular de 30×30—, con el argumento de que a tamaño de pin la almohadilla
+// nativa queda chica. El resultado era un logo deformado: una marca de 122×72
+// (ANCHA) metida a la fuerza en una caja de 56×64 (ALTA). Se veía estirada
+// porque estaba estirada.
 //
-// El ESTADO se mudó al ANILLO. Antes vivía en el color del marcador entero;
-// con la foto ocupando el centro, el anillo es lo que conserva ese significado.
-// Lee los mismos tokens que la leyenda y los chips del panel.
+// La tensión era real, pero se resolvió del lado equivocado. Si la almohadilla
+// nativa es el 32% del ancho, la respuesta es agrandar el MARCADOR hasta que
+// esa fracción alcance, no deformar la marca. De ahí los 88×52: respetan el
+// aspecto del logo al milímetro y dejan una almohadilla de ~28×23 px, que es el
+// mismo tamaño de foto que tenía el marcador deformado.
 
-/** Caja del marcador en píxeles: [ancho, alto]. */
-export const MARKER_SIZE: [number, number] = [56, 64];
+/** El `viewBox` recortado de `Logo.tsx` (`tight`). Su aspecto es 122×72. */
+const VIEW_BOX = '6 38 122 72';
+const VB = { x: 6, y: 38, w: 122, h: 72 };
 
-/** La huella chica de la izquierda — el punto que toca la coordenada. */
-export const MARKER_ANCHOR: [number, number] = [6, 58];
+/**
+ * Caja del marcador en píxeles. **Respeta el aspecto del logo**: 88/52 = 1.69,
+ * igual que 122/72. Si cambiás uno, calculá el otro — descuadrarlos es
+ * exactamente el defecto que esto vino a arreglar.
+ */
+export const MARKER_SIZE: [number, number] = [88, 52];
 
-/** El popup abre arriba de la pata, no encima del ancla. */
-export const MARKER_POPUP_ANCHOR: [number, number] = [30, -34];
+/** Las dos transformaciones del logo, compuestas: translate(4,20) ∘ translate(44.65,6.86). */
+const PAW_TRANSFORM = 'translate(48.65,26.86) scale(0.85)';
+
+/** La almohadilla en coordenadas internas del logo — la elipse que lleva la foto. */
+const PAD = { cx: 51, cy: 64, rx: 23, ry: 19 };
+
+/**
+ * La almohadilla ya proyectada a la raíz del `viewBox`, para ubicar la `<image>`.
+ * Sale de aplicarle PAW_TRANSFORM a PAD: 48.65 + 0.85·51 = 92, etc.
+ */
+const PAD_ROOT = { cx: 92, cy: 81.26, rx: 19.55, ry: 16.15 };
+
+const px = (vx: number, vy: number): [number, number] => [
+  ((vx - VB.x) / VB.w) * MARKER_SIZE[0],
+  ((vy - VB.y) / VB.h) * MARKER_SIZE[1],
+];
+
+/**
+ * El ancla es la huella CHICA de la izquierda — `circle(10,82)` del logo, que
+ * en la raíz cae en (14,102). Esa punta es la que toca la coordenada real: con
+ * el ancla en el centro, el pin marcaría un lugar que no es donde se vio a la
+ * mascota.
+ */
+export const MARKER_ANCHOR: [number, number] = px(14, 102).map(Math.round) as [number, number];
+
+/** El popup abre arriba de la almohadilla, no encima del ancla. */
+const [padCx, padTop] = px(PAD_ROOT.cx, PAD_ROOT.cy - PAD_ROOT.ry);
+export const MARKER_POPUP_ANCHOR: [number, number] = [
+  Math.round(padCx - MARKER_ANCHOR[0]),
+  Math.round(padTop - MARKER_ANCHOR[1]),
+];
 
 const TOKEN_POR_ESTADO: Record<string, string> = {
   lost: 'var(--color-lost)',
@@ -45,6 +82,19 @@ function escaparHtml(s: string): string {
     .replace(/'/g, '&#39;');
 }
 
+/**
+ * Id único por marcador para el `clipPath`.
+ *
+ * Los ids de SVG son GLOBALES al documento y el mapa dibuja decenas de pines a
+ * la vez. Con un id compartido, sacar un marcador del DOM se llevaría puesta la
+ * definición que los otros siguen referenciando.
+ */
+function idClip(semilla: string): string {
+  let h = 5381;
+  for (let i = 0; i < semilla.length; i++) h = ((h << 5) + h + semilla.charCodeAt(i)) | 0;
+  return `rastro-pad-${(h >>> 0).toString(36)}`;
+}
+
 export function rastroMarkerHtml(
   status: string,
   photoUrl: string | undefined,
@@ -53,25 +103,41 @@ export function rastroMarkerHtml(
   const color = TOKEN_POR_ESTADO[status] ?? 'var(--color-lost)';
   const nombre = escaparHtml(petName);
   const thumb = cloudinaryThumb(photoUrl, 64);
+  const clip = idClip(`${status}|${thumb}|${petName}`);
 
-  // Sin foto, la almohadilla va sólida en el color del estado — que es, en
-  // esencia, el marcador de siempre. Un hueco blanco se leería como un error.
-  const contenidoPad = thumb
-    ? `<img src="${escaparHtml(thumb)}" alt="${nombre}" width="30" height="30" style="width:100%;height:100%;object-fit:cover;display:block" />`
+  // Sin foto NO se dibuja nada extra: queda el logo tal cual, sólido en el color
+  // del estado — que es, en esencia, el marcador de siempre. Un hueco blanco se
+  // leería como un error.
+  //
+  // `slice` y no `meet`: la foto CUBRE la elipse y se recorta. Con `meet`
+  // entraría entera y se deformaría para llenar una caja que no es cuadrada,
+  // que es el mismo error que este archivo vino a corregir, un nivel más abajo.
+  const foto = thumb
+    ? `<image href="${escaparHtml(thumb)}" x="${PAD_ROOT.cx - PAD_ROOT.rx}" y="${PAD_ROOT.cy - PAD_ROOT.ry}" width="${PAD_ROOT.rx * 2}" height="${PAD_ROOT.ry * 2}" preserveAspectRatio="xMidYMid slice" clip-path="url(#${clip})" />
+    <ellipse cx="${PAD_ROOT.cx}" cy="${PAD_ROOT.cy}" rx="${PAD_ROOT.rx}" ry="${PAD_ROOT.ry}" fill="none" stroke="${color}" stroke-width="3" />`
     : '';
 
-  return `<div class="rastro-pin" style="position:relative;width:56px;height:64px">
-  <svg width="56" height="64" viewBox="0 0 56 64" style="position:absolute;inset:0" aria-hidden="true">
-    <circle class="huella" cx="6" cy="58" r="2.5" fill="${color}"/>
-    <circle class="huella" cx="13" cy="52" r="3" fill="${color}"/>
-    <circle class="huella" cx="20" cy="46" r="3.5" fill="${color}"/>
-    <circle class="dedo" cx="22" cy="14" r="5" fill="${color}"/>
-    <circle class="dedo" cx="31" cy="7" r="5.5" fill="${color}"/>
-    <circle class="dedo" cx="42" cy="7" r="5.5" fill="${color}"/>
-    <circle class="dedo" cx="51" cy="14" r="5" fill="${color}"/>
-  </svg>
-  <div style="position:absolute;left:21px;top:22px;width:30px;height:30px;border-radius:50%;overflow:hidden;border:3px solid ${color};background:${color};box-sizing:border-box;box-shadow:0 1px 3px rgba(0,0,0,.35)">${contenidoPad}</div>
-</div>`;
+  return `<svg class="rastro-pin" width="${MARKER_SIZE[0]}" height="${MARKER_SIZE[1]}" viewBox="${VIEW_BOX}" role="img" style="overflow:visible;filter:drop-shadow(0 1px 2px rgba(0,0,0,.35))">
+  <title>${nombre}</title>
+  <defs>
+    <clipPath id="${clip}">
+      <ellipse cx="${PAD.cx}" cy="${PAD.cy}" rx="${PAD.rx}" ry="${PAD.ry}" transform="${PAW_TRANSFORM}" />
+    </clipPath>
+  </defs>
+  <g fill="${color}" transform="translate(4,20)">
+    <circle class="huella" cx="10" cy="82" r="4" />
+    <circle class="huella" cx="28" cy="72" r="5.5" />
+    <circle class="huella" cx="47" cy="61" r="7" />
+    <g transform="translate(44.65,6.86) scale(0.85)">
+      <ellipse cx="${PAD.cx}" cy="${PAD.cy}" rx="${PAD.rx}" ry="${PAD.ry}" />
+      <circle class="dedo" cx="23" cy="43" r="9.5" />
+      <circle class="dedo" cx="41" cy="28" r="10.5" />
+      <circle class="dedo" cx="61" cy="28" r="10.5" />
+      <circle class="dedo" cx="79" cy="43" r="9.5" />
+    </g>
+  </g>
+  ${foto}
+</svg>`;
 }
 
 /**
