@@ -38,6 +38,7 @@ coloured pins.
 | Date range travels as **RFC3339 instants resolved by the client** | The server must not guess the user's timezone. What a user means by "a day" is resolved where the user is. |
 | Unknown `type`/`status` values return **400** | A filter silently dropped lies to the user about what they are looking at. |
 | Bottom sheet on mobile, hand-rolled | The map is used one-handed in the street; the sheet is the only option that keeps map and results visible at once. Hand-rolled because a sheet library for a single screen is disproportionate under this project's supply-chain rules. |
+| The panel collapses on desktop too, from the side | The full-bleed exception to rule #50 says the map's pixels matter; a panel that cannot move contradicts it. Direction differs per breakpoint because the scarce dimension differs — see slice 3. |
 | Markers become the Rastro logo with the pet's photo | Brand consistency plus a real usability gain — the map becomes readable at a glance. Also removes the `raw.githubusercontent.com` dependency. |
 
 ## Out of scope
@@ -115,7 +116,12 @@ Nominatim (`https://nominatim.openstreetmap.org/search`), consistent with the pr
 OpenStreetMap usage and its $0/month constraint. Requirements:
 
 - Debounced, submitted on Enter — not per keystroke. Nominatim's usage policy caps at 1 req/s.
-- Identifying `User-Agent`/`Referer`, as the policy requires.
+- **Identification comes from the `Referer` the browser sends automatically — NOT from a
+  `User-Agent` header.** An earlier version of this spec asked for `User-Agent`, which is
+  impossible: the Fetch standard lists it as a forbidden header name, so the browser ignores any
+  attempt to set it. Writing that code would look like policy compliance and do nothing — the same
+  family as a check that reports success without running. From a browser app the automatic
+  `Referer` is what identifies the caller, and it is what Nominatim's policy expects for this case.
 - No result and network failure are distinct states in the UI. A silent no-op reads as a broken app.
 - **`connect-src` in `vercel.json` must list the Nominatim origin.** Without it the search works in
   local dev and fails only in production, without breaking the build (rule #23). Slice 2 is not
@@ -123,12 +129,48 @@ OpenStreetMap usage and its $0/month constraint. Requirements:
 
 ## Slice 3 — responsive
 
+Two changes, one per breakpoint. They share a premise: the panel should **overlay** the map and be
+dismissible, never be pushed out of the way. What differs is the direction, and the direction is
+decided by which dimension is scarce at each size.
+
+### Mobile — bottom sheet
+
 Bottom sheet with three snap points: peek (filter summary and result count), half (list visible),
 full (filters open). Built with pointer events and CSS transforms; no new dependency.
 
 The one hard part is gesture arbitration: a drag starting on the sheet handle must move the sheet,
 and a drag starting on the map must pan the map. Leaflet's own handlers must be suppressed inside
 the sheet's bounds.
+
+**A side drawer was considered and rejected here.** Recorded because it is the obvious alternative
+and will be proposed again:
+
+- **The geometry does not fit.** The panel needs ~300px. On a 390px-wide phone that is 77% of the
+  width — opening it *is* covering the map. A sheet at 40% height spends 338px of 844 and leaves
+  ~500px of map at full width. On a phone the width is the scarce dimension and the height the
+  abundant one; a side drawer spends the scarce one.
+- **It breaks the feedback loop.** What makes the sheet work is that you filter and watch the pins
+  change in the same gesture. A binary drawer turns that into apply → close → look.
+- Minor but real: a thumb reaches the bottom edge one-handed. It does not reach the top corner of a
+  tall phone.
+
+### Desktop — collapsible panel
+
+A toggle that slides the `aside` out of the way and gives its ~320px back to the map.
+
+This closes a contradiction the current layout carries: slice 2 deliberately breaks `max-w-7xl`
+(rule #50) on the grounds that *"the map is a canvas and capping it would waste the viewport on the
+one screen whose whole value is how much ground it shows"* — and then pins a panel to it that
+cannot be moved. Either those pixels matter or they do not.
+
+Here the side **is** the right direction: at desktop width the horizontal room is abundant, and the
+panel is already anchored there. Cheap to build — the `aside` is an isolated component and
+`useMapFilters` already owns the state, so collapsing it unmounts nothing and loses no draft.
+
+The collapsed state is view-only: it must not clear filters, and it must not be confused with
+"no filters applied". Whatever summary the peek state shows on mobile is the same information the
+collapsed rail should surface on desktop, so a user cannot lose track of an active filter by
+closing the panel.
 
 ## The marker
 
@@ -142,19 +184,36 @@ circle (47, 61) r=7
   + four toe circles
 ```
 
-The marker reuses this construction with **marker-tuned proportions**: the trail shrinks and the paw
-grows, so the pad becomes a ~30px circle holding the pet's photo, crowned by the four toes. At the
-logo's native proportions the pad is 30% of the width, which at a 40px marker leaves a ~12px oval —
-too small to tell a cat from a dog, which defeats the purpose.
+**The marker uses that geometry verbatim.** Same numbers, same transforms, copied from `Logo.tsx`.
+The only addition is the pet's photo, clipped against that same pad ellipse.
+
+> **Corrected 2026-08-11.** This section used to specify **marker-tuned proportions** — "the trail
+> shrinks and the paw grows, so the pad becomes a ~30px circle" — reasoning that at the logo's
+> native proportions the pad is ~32% of the width, too small to tell a cat from a dog. The premise
+> was right and the conclusion was wrong. What shipped was a deformed logo: a 122×72 (wide) mark
+> forced into a 56×64 (tall) box, with the elliptical pad replaced by a CSS circle. The user spotted
+> it immediately — "the logo was modified totally".
+>
+> **If the native pad is too small a fraction, enlarge the marker until that fraction is enough.
+> Never deform the mark.** Hence 88×52: 88/52 = 1.69, exactly 122/72. The pad lands at ~28×23 px —
+> the same photo size the deformed marker had. Nothing was lost.
+>
+> The box's aspect ratio must match the viewBox's. A test pins it, and a second test compares the
+> marker's shapes against a rendered `<Logo />` one by one, transform chains included. Before that,
+> nothing in the suite could see the deformation: the marker was the only source of its own
+> geometry.
 
 - **Anchor:** the small left dot. The trail becomes the pin's tip and touches the real coordinate.
 - **Status moves to the ring.** Today the status is encoded in the marker's colour. With the photo
   in the centre, the coloured ring around it carries that meaning, using the existing
   `--color-lost` / `--color-found` / `--color-sighting` tokens. The legend keeps matching because it
   reads from the same tokens.
-- **No photo:** the paw renders solid in the status colour — today's marker, essentially.
-- **Implementation:** `L.divIcon` with inline SVG plus an `<img>`, replacing the four `L.Icon` PNGs
-  and the `raw.githubusercontent.com` origin with them.
+- **No photo:** nothing extra is drawn — the plain logo, solid in the status colour.
+- **Implementation:** `L.divIcon` with inline SVG. The photo is an SVG `<image>` clipped by a
+  `clipPath` holding the pad ellipse, with `preserveAspectRatio="xMidYMid slice"` so it covers and
+  crops instead of stretching. Each marker gets its own clip id — SVG ids are document-global and
+  this screen draws dozens of pins. Replaces the four `L.Icon` PNGs and the
+  `raw.githubusercontent.com` origin.
 - **Bandwidth:** photos are requested through Cloudinary transformations at marker size
   (`w_64,h_64,c_fill,g_auto`), never full-size. Cloudinary's free tier is bound by bandwidth, not
   storage, and this screen can render dozens of markers at once.

@@ -427,8 +427,15 @@
     "resultsInArea": "Relatos nesta área",
     "noResults": "Nenhum relato corresponde a estes filtros.",
     "loadingResults": "Buscando relatos...",
+    "searchPlace": "Bairro ou cidade",
+    "searchPlaceHint": "Digite e aperte Enter para mover o mapa",
+    "searchNotFound": "Não encontramos esse lugar. Tente outro nome.",
+    "searchError": "Não foi possível buscar o lugar. Verifique sua conexão e tente de novo.",
+    "searchingPlace": "Buscando...",
+    "movedTo": "Mapa movido para {{place}}",
     "resultsError": "Não foi possível carregar os relatos. Tente novamente.",
-    "invalidRange": "A data \"De\" não pode ser posterior à data \"Até\"."
+    "invalidRange": "A data \"De\" não pode ser posterior à data \"Até\".",
+    "pickPlace": "Encontramos {{n}} lugares. Escolha um."
   },
   "profile": {
     "title": "Meu perfil",

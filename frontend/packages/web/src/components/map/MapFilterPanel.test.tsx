@@ -19,6 +19,7 @@ const base = {
   onRadiusChange: vi.fn(),
   showVets: false,
   onToggleVets: vi.fn(),
+  onPlaceFound: vi.fn(),
 };
 
 describe('MapFilterPanel', () => {

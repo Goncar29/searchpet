@@ -427,8 +427,15 @@
     "resultsInArea": "Reportes en esta zona",
     "noResults": "No hay reportes que coincidan con estos filtros.",
     "loadingResults": "Buscando reportes...",
+    "searchPlace": "Barrio o ciudad",
+    "searchPlaceHint": "Escribí y apretá Enter para mover el mapa",
+    "searchNotFound": "No encontramos ese lugar. Probá con otro nombre.",
+    "searchError": "No se pudo buscar el lugar. Revisá tu conexión e intentá de nuevo.",
+    "searchingPlace": "Buscando...",
+    "movedTo": "Mapa movido a {{place}}",
     "resultsError": "No se pudieron cargar los reportes. Probá de nuevo.",
-    "invalidRange": "La fecha \"Desde\" no puede ser posterior a la de \"Hasta\"."
+    "invalidRange": "La fecha \"Desde\" no puede ser posterior a la de \"Hasta\".",
+    "pickPlace": "Encontramos {{n}} lugares. Elegí cuál."
   },
   "profile": {
     "title": "Mi perfil",

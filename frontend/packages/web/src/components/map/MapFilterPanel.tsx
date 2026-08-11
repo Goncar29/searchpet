@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import type { PetType, ReportStatus } from '@shared/types';
 import type { MapFilterDraft } from '../../hooks/useMapFilters';
+import { PlaceSearch } from './PlaceSearch';
 
 const TIPOS: PetType[] = ['perro', 'gato', 'pajaro', 'otro'];
 
@@ -26,6 +27,10 @@ interface Props {
   onRadiusChange: (km: number) => void;
   showVets: boolean;
   onToggleVets: () => void;
+  /** El buscador NAVEGA: mueve el mapa. No filtra. */
+  onPlaceFound: (lat: number, lng: number, label: string) => void;
+  /** Dónde mira el usuario, para que el buscador prefiera lugares de su región. */
+  placeSearchNear?: { lat: number; lng: number };
 }
 
 /**
@@ -51,6 +56,8 @@ export function MapFilterPanel({
   onRadiusChange,
   showVets,
   onToggleVets,
+  onPlaceFound,
+  placeSearchNear,
 }: Props) {
   const { t } = useTranslation(['map', 'pets', 'vets']);
 
@@ -59,6 +66,12 @@ export function MapFilterPanel({
       <h2 className="font-display text-lg font-semibold text-gray-900 dark:text-gray-100">
         {t('map:filtersTitle')}
       </h2>
+
+      {/* El buscador va ARRIBA de los filtros y separado: no filtra nada,
+          mueve el mapa. Mezclarlo con los chips sugeriria que acota resultados,
+          que es justo la confusion que el disenio evito al decidir que el texto
+          NAVEGA en vez de filtrar. */}
+      <PlaceSearch onFound={onPlaceFound} near={placeSearchNear} />
 
       <div className="flex flex-col gap-1">
         <label htmlFor="map-type" className="text-sm font-medium text-gray-700 dark:text-gray-300">
