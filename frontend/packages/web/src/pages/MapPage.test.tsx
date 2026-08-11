@@ -86,7 +86,9 @@ describe('MapPage', () => {
 
   it('renders radius selector with options [1, 3, 5, 10]', () => {
     render(<MapPage />, { wrapper });
-    const select = screen.getByRole('combobox');
+    // Ahora hay DOS combobox en la pantalla (tipo y radio), asi que se apunta
+    // al radio por su label en vez de por rol.
+    const select = screen.getByLabelText('map:radius');
     const options = select.querySelectorAll('option');
     const values = Array.from(options).map((o) => Number((o as HTMLOptionElement).value));
     expect(values).toEqual([1, 3, 5, 10]);
@@ -94,7 +96,7 @@ describe('MapPage', () => {
 
   it('default radius is 3km', () => {
     render(<MapPage />, { wrapper });
-    const select = screen.getByRole('combobox') as HTMLSelectElement;
+    const select = screen.getByLabelText('map:radius') as HTMLSelectElement;
     expect(select.value).toBe('3');
   });
 
@@ -102,7 +104,7 @@ describe('MapPage', () => {
     mockUseNearbyReports.mockClear();
     render(<MapPage />, { wrapper });
 
-    const select = screen.getByRole('combobox');
+    const select = screen.getByLabelText('map:radius');
     await userEvent.selectOptions(select, '10');
 
     // The last call to useNearbyReports (after radius change) should use radius=10
@@ -197,5 +199,20 @@ describe('MapPage', () => {
     const calls = mockUseNearbyReports.mock.calls as unknown[][];
     const lastCall = calls[calls.length - 1];
     expect(lastCall[0]).toBeCloseTo(-34.8511, 3); // new search lat
+  });
+
+  it('el tipo NO llega al hook hasta que se toca Aplicar', async () => {
+    mockUseNearbyReports.mockClear();
+    render(<MapPage />, { wrapper });
+
+    await userEvent.selectOptions(screen.getByLabelText('map:typeLabel'), 'gato');
+
+    const antes = mockUseNearbyReports.mock.calls as unknown[][];
+    expect(antes[antes.length - 1][4]).toEqual({});
+
+    await userEvent.click(screen.getByRole('button', { name: 'map:apply' }));
+
+    const despues = mockUseNearbyReports.mock.calls as unknown[][];
+    expect(despues[despues.length - 1][4]).toEqual({ type: 'gato' });
   });
 });

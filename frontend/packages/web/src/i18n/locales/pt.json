@@ -415,7 +415,18 @@
     "pet": "Pet",
     "radius": "Raio",
     "radiusKm": "{{km}} km",
-    "searchHere": "Buscar nesta área"
+    "searchHere": "Buscar nesta área",
+    "filtersTitle": "Filtrar relatos",
+    "typeLabel": "Tipo de pet",
+    "typeAll": "Todos",
+    "statusLabel": "Status",
+    "dateFrom": "De",
+    "dateTo": "Até",
+    "apply": "Aplicar filtros",
+    "clear": "Limpar",
+    "resultsInArea": "Relatos nesta área",
+    "noResults": "Nenhum relato corresponde a estes filtros.",
+    "loadingResults": "Buscando relatos..."
   },
   "profile": {
     "title": "Meu perfil",

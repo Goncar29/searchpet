@@ -415,7 +415,18 @@
     "pet": "Mascota",
     "radius": "Radio",
     "radiusKm": "{{km}} km",
-    "searchHere": "Buscar en esta zona"
+    "searchHere": "Buscar en esta zona",
+    "filtersTitle": "Filtrar reportes",
+    "typeLabel": "Tipo de mascota",
+    "typeAll": "Todos",
+    "statusLabel": "Estado",
+    "dateFrom": "Desde",
+    "dateTo": "Hasta",
+    "apply": "Aplicar filtros",
+    "clear": "Limpiar",
+    "resultsInArea": "Reportes en esta zona",
+    "noResults": "No hay reportes que coincidan con estos filtros.",
+    "loadingResults": "Buscando reportes..."
   },
   "profile": {
     "title": "Mi perfil",

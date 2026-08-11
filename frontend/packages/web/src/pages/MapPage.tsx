@@ -8,6 +8,9 @@ import type { Report, Vet } from '@shared/types';
 import { useTheme } from '../context/ThemeContext';
 import { ReportPopup } from '../components/map/ReportPopup';
 import { VetPopup } from '../components/map/VetPopup';
+import { MapFilterPanel } from '../components/map/MapFilterPanel';
+import { NearbyReportList } from '../components/map/NearbyReportList';
+import { useMapFilters } from '../hooks/useMapFilters';
 
 const lostIcon = new L.Icon({
   iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
@@ -52,7 +55,7 @@ function MapPanTracker({ onCenterChange }: { onCenterChange: (c: [number, number
 }
 
 export function MapPage() {
-  const { t } = useTranslation(['map', 'pets', 'reports']);
+  const { t } = useTranslation(['map', 'pets', 'reports', 'vets']);
   const { theme } = useTheme();
   const [searchCenter, setSearchCenter] = useState<[number, number]>([-34.9011, -56.1645]);
   const [mapCenter, setMapCenter] = useState<[number, number]>([-34.9011, -56.1645]);
@@ -70,9 +73,13 @@ export function MapPage() {
     );
   }, []);
 
-  const { t: tv } = useTranslation('vets');
+  const { draft, applied, setDraft, toggleStatus, apply, reset } = useMapFilters();
   const [radius, setRadius] = useState(3);
-  const { data: reports, isLoading } = useNearbyReports(searchCenter[0], searchCenter[1], radius, true);
+  // `applied`, NUNCA `draft`: pasar el borrador dispararia un request por cada
+  // tecla, que es el defecto que el patron existe para evitar.
+  const { data: reports, isLoading } = useNearbyReports(
+    searchCenter[0], searchCenter[1], radius, true, applied,
+  );
   const [showVets, setShowVets] = useState(false);
   const { data: vets } = useNearbyVets(searchCenter[0], searchCenter[1], 5000, showVets);
 
@@ -91,49 +98,33 @@ export function MapPage() {
     }
   };
 
+  // Esta pagina va a ANCHO COMPLETO a proposito, rompiendo max-w-7xl (regla
+  // #50). Esa regla capea paginas de CONTENIDO al ancho del navbar; el mapa es
+  // un LIENZO y capearlo desperdicia viewport en la unica pantalla cuyo valor
+  // es cuanto terreno muestra. Ver el spec del redisenio.
+  //
+  // El ALTO en cambio NO es completo: con 100vh el footer de MainLayout queda
+  // debajo del pliegue y Leaflet se queda con la rueda del mouse, asi que no
+  // habria forma comoda de bajar.
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-      <div className="flex flex-col gap-3 min-[530px]:flex-row min-[530px]:items-start min-[530px]:justify-between min-[530px]:gap-4 mb-4">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 shrink-0">{t('map:title')}</h1>
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 min-[530px]:justify-end text-sm text-gray-700 dark:text-gray-300">
-          <button
-            type="button"
-            onClick={() => setShowVets((v) => !v)}
-            className={`px-3 py-1 rounded-full text-sm font-semibold border transition-colors ${
-              showVets
-                ? 'bg-blue-600 text-white border-blue-600'
-                : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600'
-            }`}
-          >
-            🏥 {showVets ? tv('hide') : tv('toggle')}
-          </button>
-          <label className="flex items-center gap-1 font-medium">
-            {t('map:radius')}:
-            <select
-              value={radius}
-              onChange={(e) => setRadius(Number(e.target.value))}
-              className="ml-1 border border-gray-300 dark:border-gray-600 rounded px-2 py-0.5 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-            >
-              {[1, 3, 5, 10].map((km) => (
-                <option key={km} value={km}>{t('map:radiusKm', { km })}</option>
-              ))}
-            </select>
-          </label>
-          <div className="flex items-center gap-x-4 gap-y-1">
-            <span className="flex items-center gap-1">
-              <span className="w-3 h-3 rounded-full bg-lost inline-block"></span> {t('pets:status.lost')}
-            </span>
-            <span className="flex items-center gap-1">
-              <span className="w-3 h-3 rounded-full bg-found inline-block"></span> {t('pets:status.found')}
-            </span>
-            <span className="flex items-center gap-1">
-              <span className="w-3 h-3 rounded-full bg-sighting inline-block"></span> {t('pets:card.sighting')}
-            </span>
-          </div>
-        </div>
-      </div>
+    <div className="w-full">
+      <div className="flex flex-col lg:flex-row h-[78vh]">
+        <aside className="w-full lg:w-80 shrink-0 overflow-y-auto border-b lg:border-b-0 lg:border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
+          <MapFilterPanel
+            draft={draft}
+            onDraftChange={setDraft}
+            onToggleStatus={toggleStatus}
+            onApply={apply}
+            onReset={reset}
+            radius={radius}
+            onRadiusChange={setRadius}
+            showVets={showVets}
+            onToggleVets={() => setShowVets((v) => !v)}
+          />
+          <NearbyReportList reports={reports} isLoading={isLoading} />
+        </aside>
 
-      <div className="relative bg-white dark:bg-gray-900 rounded-2xl shadow-lg overflow-hidden" style={{ height: '70vh' }}>
+        <div className="relative flex-1">
         {isLoading ? (
           <div className="flex items-center justify-center h-full">
             <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
@@ -195,17 +186,16 @@ export function MapPage() {
             )}
           </>
         )}
+        </div>
       </div>
 
-      {!isLoading && reports && reports.length === 0 && (
-        <p className="text-center text-gray-500 dark:text-gray-400 mt-4 text-sm">
-          {t('reports:nearby.empty')}
-        </p>
-      )}
+      {/* El contador vive DEBAJO del mapa y no dentro del panel: el panel ya
+          lista los reportes uno por uno, y repetir "N reportes" arriba de la
+          lista seria decir dos veces lo mismo. El vacio tambien lo cubre la
+          lista, asi que ese mensaje se fue. */}
       {showVets && vets && vets.length === 0 && (
-        <p className="text-center text-gray-500 dark:text-gray-400 mt-2 text-sm">{tv('empty')}</p>
+        <p className="text-center text-gray-500 dark:text-gray-400 mt-2 text-sm">{t('vets:empty')}</p>
       )}
-
       {(!isLoading && reports && reports.length > 0) && (
         <p className="text-sm text-gray-400 dark:text-gray-500 mt-3 text-center">
           {t('map:reports', { count: reports.length })}
