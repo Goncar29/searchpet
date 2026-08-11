@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Circle, useMapEvents, useMap } from 'react-leaflet';
 import { shouldShowSearchHere } from '@shared/utils/searchArea';
 import { useTranslation } from 'react-i18next';
@@ -84,6 +84,34 @@ export function MapPage() {
     { lat: searchCenter[0], lng: searchCenter[1] },
     radius * 1000,
   );
+
+  // Los iconos se arman UNA vez por respuesta, no una vez por render.
+  //
+  // Con divIcon el marcador es una cadena de HTML, y react-leaflet compara
+  // `props.icon` POR REFERENCIA: un objeto nuevo lo hace llamar a setIcon, y
+  // ahi Leaflet reasigna innerHTML, o sea que destruye y recrea el <img> de
+  // cada pin. Construirlos inline volvia eso a pasar en CADA render — y esta
+  // pantalla re-renderiza en cada moveend del mapa y en cada tecla del
+  // borrador de filtros. Antes eran L.Icon constantes a nivel de modulo, asi
+  // que el churn lo introdujo el marcador nuevo.
+  //
+  // `reports` viene de React Query, que conserva la identidad del array
+  // mientras la respuesta no cambia: eso es lo que hace que este memo aguante
+  // el paneo y el tipeo.
+  const iconosPorReporte = useMemo(() => {
+    const m = new Map<string, ReturnType<typeof rastroDivIcon>>();
+    reports?.forEach((r: Report) => {
+      m.set(r.id, rastroDivIcon(
+        r.status,
+        r.pet?.photos?.find((ph) => ph.is_primary)?.url ?? r.pet?.photos?.[0]?.url,
+        r.pet?.name ?? '',
+      ));
+    });
+    return m;
+  }, [reports]);
+
+  // No depende de nada: una sola instancia para todas las veterinarias.
+  const iconoVet = useMemo(() => vetDivIcon(), []);
 
   // Esta pagina va a ANCHO COMPLETO a proposito, rompiendo max-w-7xl (regla
   // #50). Esa regla capea paginas de CONTENIDO al ancho del navbar; el mapa es
@@ -171,11 +199,7 @@ export function MapPage() {
                 <Marker
                   key={report.id}
                   position={[report.latitude, report.longitude]}
-                  icon={rastroDivIcon(
-                    report.status,
-                    report.pet?.photos?.find((ph) => ph.is_primary)?.url ?? report.pet?.photos?.[0]?.url,
-                    report.pet?.name ?? '',
-                  )}
+                  icon={iconosPorReporte.get(report.id)}
                 >
                   <Popup>
                     <ReportPopup report={report} />
@@ -183,7 +207,7 @@ export function MapPage() {
                 </Marker>
               ))}
               {showVets && vets?.map((vet: Vet) => (
-                <Marker key={`vet-${vet.id}`} position={[vet.latitude, vet.longitude]} icon={vetDivIcon()}>
+                <Marker key={`vet-${vet.id}`} position={[vet.latitude, vet.longitude]} icon={iconoVet}>
                   <Popup>
                     <VetPopup vet={vet} />
                   </Popup>

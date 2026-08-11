@@ -1,6 +1,7 @@
 import { Link } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { formatTimeAgo } from '@shared/utils/mapFormat';
+import { cloudinaryThumb } from '@shared/utils/cloudinaryThumb';
 import { statusBadgeBg } from '../../utils/statusBadge';
 import type { Report } from '@shared/types';
 
@@ -79,7 +80,17 @@ export function NearbyReportList({ reports, isLoading, isError }: Props) {
                 >
                   {foto ? (
                     <img
-                      src={foto}
+                      // MINIATURA, no la foto entera. El slot mide 48px (96 a
+                      // 2x), y la original pesa 150-300 KB: una respuesta de 20
+                      // reportes se traia varios megas para pintar 20 cuadritos
+                      // de 48px. El marcador de al lado ya pedia miniatura; esta
+                      // lista se habia quedado con la URL cruda.
+                      //
+                      // El cuello del plan gratuito de Cloudinary es el
+                      // BANDWIDTH, no el storage — o sea que esto es
+                      // exactamente el gasto que cloudinaryThumb existe para
+                      // evitar.
+                      src={cloudinaryThumb(foto, 96)}
                       alt=""
                       className="w-12 h-12 rounded-lg object-cover shrink-0"
                     />
