@@ -15,6 +15,17 @@
   --color-lost: #EF4444;
   --color-found: #22C55E;
   --color-sighting: #F59E0B;
+  /* Mensajes de error. Existía como clase (`text-danger`) desde el rediseño del
+     mapa pero NUNCA como token, así que los cinco usos resolvían a un color
+     inválido y se pintaban de NEGRO: el aviso de rango inválido, el de búsqueda
+     de lugar fallida y el de resultados caídos se leían igual que el texto
+     normal.
+
+     No se reusa --color-lost aunque también sea rojo: son dos significados que
+     pueden divergir, y encima ese #EF4444 da 3.76:1 sobre blanco, por debajo
+     del 4.5 que pide WCAG AA. Este da 4.83:1 sobre blanco, y su variante de
+     `.dark` 6.41:1 sobre --color-surface. */
+  --color-danger: #DC2626;
   --color-whatsapp: #25D366;
   --color-facebook: #1877F2;
   --color-instagram: #E4405F;
@@ -53,6 +64,9 @@
   --color-border: #374151;         /* gray-700 */
   --color-text: #f9fafb;           /* gray-50 */
   --color-text-muted: #9ca3af;     /* gray-400 */
+  /* El #DC2626 del tema claro da 3.67:1 sobre --color-surface, por debajo de
+     WCAG AA. Este da 6.41:1. */
+  --color-danger: #F87171;         /* red-400 */
 }
 
 body {
