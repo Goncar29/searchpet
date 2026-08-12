@@ -10,6 +10,12 @@ interface Props {
   /** Cuántos reportes trajo la búsqueda. `undefined` mientras no haya respuesta. */
   resultCount: number | undefined;
   isLoading: boolean;
+  /**
+   * El request falló. Viaja hasta acá y no sólo hasta la lista porque en `peek`
+   * la lista está fuera de la pantalla: la barra es lo único que se ve, y sin
+   * esto un fallo se lee igual que una búsqueda sin resultados.
+   */
+  isError: boolean;
   children: ReactNode;
 }
 
@@ -31,7 +37,7 @@ interface Props {
  * peek como la columna colapsada muestran el resumen de lo que está aplicado.
  * Cerrar el panel no limpia nada.
  */
-export function MapPanel({ resumen, resultCount, isLoading, children }: Props) {
+export function MapPanel({ resumen, resultCount, isLoading, isError, children }: Props) {
   const { t } = useTranslation(['map']);
   const esHoja = useEsHoja();
   const [colapsado, setColapsado] = useState(false);
@@ -51,6 +57,18 @@ export function MapPanel({ resumen, resultCount, isLoading, children }: Props) {
   const resumenTexto = resumen.total === 0
     ? t('map:noFilters')
     : t('map:filtersActive', { count: resumen.total });
+
+  // El ORDEN es el mismo que el de `NearbyReportList` y por el mismo motivo:
+  // cargando, fallado y "hay N" son tres estados distintos, y `isError` va
+  // ANTES del contador porque con el request caído `resultCount` llega
+  // `undefined` y la rama del contador no lo distingue de una respuesta vacía.
+  const estadoResultado = isLoading
+    ? t('map:loadingResults')
+    : isError
+      ? t('map:resultsError')
+      : resultCount !== undefined
+        ? t('map:reports', { count: resultCount })
+        : '';
 
   return (
     <aside
@@ -93,12 +111,12 @@ export function MapPanel({ resumen, resultCount, isLoading, children }: Props) {
           <Icon name="filter-alt" className="text-base" />
           {resumenTexto}
         </span>
-        <span className="min-w-0 truncate whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-          {isLoading
-            ? t('map:loadingResults')
-            : resultCount !== undefined
-              ? t('map:reports', { count: resultCount })
-              : ''}
+        <span
+          className={`min-w-0 truncate whitespace-nowrap text-sm ${
+            isError ? 'text-danger font-semibold' : 'text-gray-500 dark:text-gray-400'
+          }`}
+        >
+          {estadoResultado}
         </span>
       </div>
 
@@ -129,12 +147,20 @@ export function MapPanel({ resumen, resultCount, isLoading, children }: Props) {
         {/* El sr-only lleva el texto completo: los números sueltos de la columna
             no significan nada leídos en voz alta. */}
         <span className="sr-only">{resumenTexto}</span>
-        {!isLoading && resultCount !== undefined && (
+        {/* El fallo también tiene que llegar acá: colapsado, esta columna es
+            todo lo que queda en pantalla, y un número ausente sin explicación
+            se lee como "no hay nada". */}
+        {isError ? (
+          <span className="text-danger" title={estadoResultado}>
+            <Icon name="warning" className="text-xl" />
+            <span className="sr-only">{estadoResultado}</span>
+          </span>
+        ) : !isLoading && resultCount !== undefined ? (
           <span className="text-xs font-semibold text-gray-600 dark:text-gray-300">
             {resultCount}
             <span className="sr-only"> {t('map:reports', { count: resultCount })}</span>
           </span>
-        )}
+        ) : null}
       </div>
 
       {/* CONTENIDO — el panel de filtros y la lista.

@@ -42,7 +42,7 @@ afterEach(() => {
 
 const montar = () =>
   render(
-    <MapPanel resumen={resumirFiltros({})} resultCount={0} isLoading={false}>
+    <MapPanel resumen={resumirFiltros({})} resultCount={0} isLoading={false} isError={false}>
       <p>contenido</p>
     </MapPanel>,
   );

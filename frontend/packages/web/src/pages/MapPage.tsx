@@ -145,6 +145,10 @@ export function MapPage() {
           resumen={resumen}
           resultCount={reports?.length}
           isLoading={isLoading}
+          // `isError` NO se queda en la lista. En `peek` la lista esta fuera de
+          // la pantalla y la barra es lo unico visible: sin esto, un request
+          // caido se ve igual que una busqueda sin resultados.
+          isError={isError}
         >
           <MapFilterPanel
             draft={draft}

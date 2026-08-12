@@ -16,7 +16,7 @@ const conFiltros = resumirFiltros({ type: 'gato', status: ['lost'] });
 describe('MapPanel', () => {
   it('anuncia los filtros aplicados en la barra de resumen', () => {
     render(
-      <MapPanel resumen={conFiltros} resultCount={4} isLoading={false}>
+      <MapPanel resumen={conFiltros} resultCount={4} isLoading={false} isError={false}>
         <p>contenido</p>
       </MapPanel>,
     );
@@ -30,7 +30,7 @@ describe('MapPanel', () => {
 
   it('sin filtros lo dice explícitamente', () => {
     render(
-      <MapPanel resumen={sinFiltros} resultCount={0} isLoading={false}>
+      <MapPanel resumen={sinFiltros} resultCount={0} isLoading={false} isError={false}>
         <p>contenido</p>
       </MapPanel>,
     );
@@ -43,7 +43,7 @@ describe('MapPanel', () => {
   // pantalla, no de descartar trabajo.
   it('colapsar en escritorio NO desmonta el contenido del panel', () => {
     render(
-      <MapPanel resumen={conFiltros} resultCount={4} isLoading={false}>
+      <MapPanel resumen={conFiltros} resultCount={4} isLoading={false} isError={false}>
         <p>contenido</p>
       </MapPanel>,
     );
@@ -57,7 +57,7 @@ describe('MapPanel', () => {
   // filtrando. Sin él, una lista acotada por filtros se lee como la realidad.
   it('la columna colapsada sigue mostrando el resumen', () => {
     render(
-      <MapPanel resumen={conFiltros} resultCount={4} isLoading={false}>
+      <MapPanel resumen={conFiltros} resultCount={4} isLoading={false} isError={false}>
         <p>contenido</p>
       </MapPanel>,
     );
@@ -67,7 +67,7 @@ describe('MapPanel', () => {
 
   it('se puede volver a expandir', () => {
     render(
-      <MapPanel resumen={sinFiltros} resultCount={0} isLoading={false}>
+      <MapPanel resumen={sinFiltros} resultCount={0} isLoading={false} isError={false}>
         <p>contenido</p>
       </MapPanel>,
     );
@@ -81,7 +81,7 @@ describe('MapPanel', () => {
   // siempre y los filtros quedan inalcanzables.
   it('el click en el asa cicla peek → half → full → peek', () => {
     render(
-      <MapPanel resumen={sinFiltros} resultCount={0} isLoading={false}>
+      <MapPanel resumen={sinFiltros} resultCount={0} isLoading={false} isError={false}>
         <p>contenido</p>
       </MapPanel>,
     );
@@ -96,9 +96,33 @@ describe('MapPanel', () => {
     expect(asa.getAttribute('aria-expanded')).toBe('false');
   });
 
+  // La rebanada 2 ya había pagado esta lección en `NearbyReportList`: un
+  // request FALLIDO llega como `reports === undefined` con `isLoading === false`,
+  // indistinguible de una búsqueda sin resultados. La hoja la volvía invisible
+  // un nivel más arriba — en `peek`, que es el estado por defecto en celular, la
+  // lista está fuera de la pantalla y la barra es lo ÚNICO que se ve. El usuario
+  // veía un mapa sin pines y una barra tranquila, y concluía que no hay reportes.
+  it('un request fallido se anuncia en la barra, no se lee como vacío', () => {
+    render(
+      <MapPanel resumen={sinFiltros} resultCount={undefined} isLoading={false} isError>
+        <p>contenido</p>
+      </MapPanel>,
+    );
+    expect(screen.getAllByText('map:resultsError').length).toBeGreaterThan(0);
+  });
+
+  it('el error le gana al contador: no muestra un total y un error a la vez', () => {
+    render(
+      <MapPanel resumen={sinFiltros} resultCount={7} isLoading={false} isError>
+        <p>contenido</p>
+      </MapPanel>,
+    );
+    expect(screen.queryByText('map:reports:7')).toBeNull();
+  });
+
   it('mientras carga, el resumen dice que está buscando en vez de mostrar un total viejo', () => {
     render(
-      <MapPanel resumen={sinFiltros} resultCount={undefined} isLoading>
+      <MapPanel resumen={sinFiltros} resultCount={undefined} isLoading isError={false}>
         <p>contenido</p>
       </MapPanel>,
     );
