@@ -88,14 +88,32 @@ export function useBottomSheet(activo: boolean, inicial: SnapPoint = 'peek') {
     setDragOffset(limitarOffset(a.offsetInicial + delta, a.alto));
   }, []);
 
-  const terminar = useCallback((e: ReactPointerEvent<HTMLElement>) => {
+  /**
+   * Fin del arrastre. `cancelado` distingue `pointercancel` de `pointerup`, y
+   * esa diferencia decide dos cosas distintas — de ahí que sea un parámetro y
+   * no dos handlers.
+   */
+  const terminar = useCallback((e: ReactPointerEvent<HTMLElement>, cancelado: boolean) => {
     const a = arrastre.current;
     if (!a) return;
     arrastre.current = null;
-    e.currentTarget.releasePointerCapture?.(e.pointerId);
+
+    // Se PREGUNTA antes de liberar. En `pointercancel` el navegador ya liberó
+    // la captura, y la spec de Pointer Events manda tirar `NotFoundError` si el
+    // pointerId no corresponde a un puntero activo. Esa excepción abortaba el
+    // handler acá mismo, o sea ANTES del reset de abajo: `dragOffset` no volvía
+    // nunca a null, la hoja ignoraba su clase de anclaje y quedaba clavada a
+    // mitad de camino, sin responder ni al arrastre ni al click.
+    if (e.currentTarget.hasPointerCapture?.(e.pointerId)) {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    }
 
     if (a.movio) {
-      suprimirClick.current = true;
+      // Sólo cuando el gesto termina en `pointerup`. Un `pointercancel` NO
+      // dispara `click`, así que armar la supresión ahí dejaría la bandera
+      // cargada esperando un evento que no llega, y se comería el próximo
+      // toque de verdad del asa.
+      if (!cancelado) suprimirClick.current = true;
       const offsetFinal = limitarOffset(a.offsetInicial + (e.clientY - a.yInicial), a.alto);
       setSnap(snapMasCercano(offsetFinal, a.alto));
     }
@@ -120,8 +138,8 @@ export function useBottomSheet(activo: boolean, inicial: SnapPoint = 'peek') {
   const asaProps = {
     onPointerDown,
     onPointerMove,
-    onPointerUp: terminar,
-    onPointerCancel: terminar,
+    onPointerUp: (e: ReactPointerEvent<HTMLElement>) => terminar(e, false),
+    onPointerCancel: (e: ReactPointerEvent<HTMLElement>) => terminar(e, true),
     onClick,
     // Sin esto el navegador se queda con el gesto vertical para scrollear la
     // página y los `pointermove` dejan de llegar a mitad del arrastre.
