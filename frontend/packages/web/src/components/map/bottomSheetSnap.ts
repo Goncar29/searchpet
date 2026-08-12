@@ -7,8 +7,22 @@
  */
 export type SnapPoint = 'peek' | 'half' | 'full';
 
-/** Cuánto de la hoja queda visible en `peek`: el asa más la barra de resumen. */
-export const PEEK_VISIBLE_PX = 96;
+/**
+ * Cuánto de la hoja queda visible en `peek`.
+ *
+ * El asa más la barra de resumen miden **52 px** — medido en el navegador a 320,
+ * 360, 390 y 430 px de ancho, en español, inglés y portugués: los ocho casos dan
+ * exactamente lo mismo, porque la barra está fijada a una sola línea
+ * (`whitespace-nowrap` en `MapPanel`). Si alguien deja que ese texto wrappee,
+ * este número se queda corto y `peek` empieza a cortar la única información que
+ * existe para mostrar.
+ *
+ * Los 20 px de más son a propósito: asoma el borde superior del contenido —que
+ * arranca con 16 px de padding, así que es una franja y no texto cortado— y eso
+ * dice que hay más para abrir. Con los 96 originales asomaban 44 px y el título
+ * "Filtrar reportes" quedaba partido al medio por el borde del contenedor.
+ */
+export const PEEK_VISIBLE_PX = 72;
 
 /**
  * `half` es una FRACCIÓN de la altura de la hoja y no una medida en vh, para

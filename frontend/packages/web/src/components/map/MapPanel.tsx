@@ -82,13 +82,18 @@ export function MapPanel({ resumen, resultCount, isLoading, children }: Props) {
       </button>
 
       {/* BARRA DE RESUMEN — lo único que se ve en `peek`, junto con el asa.
-          Ese par tiene que entrar en PEEK_VISIBLE_PX. */}
+          Ese par tiene que entrar en PEEK_VISIBLE_PX, así que la barra está
+          fijada a UNA SOLA LÍNEA: `whitespace-nowrap` en los dos textos y
+          `truncate` en el que puede crecer. Si wrappeara, la barra pasaría de
+          33 px a 66 y `peek` cortaría justo la información que existe para
+          mostrar. El de la izquierda es corto y fijo, así que el que cede es el
+          contador. */}
       <div className="lg:hidden shrink-0 px-4 pb-3 flex items-center justify-between gap-3 border-b border-gray-200 dark:border-gray-700">
-        <span className="flex items-center gap-1.5 text-sm font-semibold text-gray-700 dark:text-gray-300">
+        <span className="flex items-center gap-1.5 shrink-0 whitespace-nowrap text-sm font-semibold text-gray-700 dark:text-gray-300">
           <Icon name="filter-alt" className="text-base" />
           {resumenTexto}
         </span>
-        <span className="text-sm text-gray-500 dark:text-gray-400">
+        <span className="min-w-0 truncate whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
           {isLoading
             ? t('map:loadingResults')
             : resultCount !== undefined
