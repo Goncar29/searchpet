@@ -133,14 +133,76 @@ Two changes, one per breakpoint. They share a premise: the panel should **overla
 dismissible, never be pushed out of the way. What differs is the direction, and the direction is
 decided by which dimension is scarce at each size.
 
+**One DOM instance, two behaviours — not two trees.** The obvious shape is a mobile component and a
+desktop component with `hidden`/`lg:block` between them, and it is wrong here: both would render
+the same `id`s (`map-type`, `map-from`, `map-to`), and a duplicated `id` silently breaks every
+`<label for>` in the panel. So `MapPanel` is a single `aside` whose classes switch, and the CSS
+decides which behaviour applies.
+
+That leaves one thing JavaScript must know — whether to apply the sheet transform — and
+`useEsHoja` answers it. It asks in **rem** (`not all and (min-width: 64rem)`), the same unit
+Tailwind's `lg:` emits, because rule #29's lesson is exactly this: a `px` query and a `rem`
+breakpoint diverge as soon as the reader enlarges their browser font, and the panel would be
+transformed as a sheet while the CSS drew it as a column.
+
+~~It fails to `false`, so a media query that cannot be evaluated costs the new gesture and never
+the layout that already worked.~~
+
+> **Corrected 2026-08-12.** `false` is still the right answer, but not for the reason given. It
+> yields the desktop column only **at `lg` and above**, where `lg:static lg:h-auto
+> lg:translate-y-0` produce it. Below 1024px with `esHoja === false` the `aside` keeps its base
+> `absolute inset-x-0 bottom-0 h-[80%]` and receives no transform: it sits fully open over 80% of
+> the map, undraggable (the drag is gated on the same flag) and with the handle's click changing
+> `snap` to no visible effect. That is worse than the previous layout, not equal to it.
+>
+> The scenario is unreachable today — without `matchMedia` the app never renders at all, because
+> `ThemeContext.tsx:15` and `InstallPWA.tsx:15` call it unguarded; removing it, the `aside` never
+> appears. So `false` remains correct for a different reason: it is the only answer that cannot
+> break desktop, which is where the failure would actually be seen.
+>
+> Recorded because the guard advertises a robustness it does not have — the same failure mode as
+> rules #18 and #48, a comment naming a mechanism that isn't the one doing the work. The real fix,
+> if it is ever wanted, is to take the decision away from JavaScript: move the offset into a custom
+> property that `lg:translate-y-0` can override, which retires the hook entirely.
+
 ### Mobile — bottom sheet
 
 Bottom sheet with three snap points: peek (filter summary and result count), half (list visible),
 full (filters open). Built with pointer events and CSS transforms; no new dependency.
 
-The one hard part is gesture arbitration: a drag starting on the sheet handle must move the sheet,
+~~The one hard part is gesture arbitration: a drag starting on the sheet handle must move the sheet,
 and a drag starting on the map must pan the map. Leaflet's own handlers must be suppressed inside
-the sheet's bounds.
+the sheet's bounds.~~
+
+> **Corrected 2026-08-12 — the hard part was not hard, and the reason matters.** No arbitration
+> code exists, because there is nothing to arbitrate. Leaflet binds its drag handlers to
+> `.leaflet-container` itself, not to the div that wraps it, so a sheet rendered as that
+> container's **sibling** never delivers an event Leaflet can see. Suppressing handlers "inside the
+> sheet's bounds" would have been code written against a conflict that the DOM position already
+> prevents.
+>
+> Measured in a real browser at 390×844, all three directions: a drag on the map pans it
+> (`translate3d(0,-135px,0)`) and leaves the sheet at rest; a drag on the handle moves the sheet
+> (peek → half) and leaves the map's pan untouched; a wheel over the open content scrolls it
+> (`scrollTop` 0 → 200) and moves neither.
+>
+> The lesson is about where a guarantee should live: **DOM position, not event suppression.** Had
+> the sheet been nested inside `.leaflet-container` — the layout that looks equivalent — every one
+> of those three cases would have needed its own handler, and each would have been a place to get
+> it wrong later.
+
+Only the **handle** drags. A drag starting on the content scrolls the list, which is what a list
+inside a sheet should do. The handle is a `<button>` whose click cycles peek → half → full: a
+keyboard user cannot drag, and without that cycle the sheet stays at peek forever with the filters
+out of reach.
+
+`PEEK_VISIBLE_PX` is **72**, and it is calibrated rather than chosen. Handle plus summary bar
+measure 52 px — measured at 320, 360, 390 and 430 px wide in all three languages, eight identical
+results — and the remaining 20 px deliberately expose the content's top padding, which reads as
+"there is more" without cutting text. The first value tried was 96 and it sliced the "Filtrar
+reportes" heading in half. The 52 px is only stable because the bar is pinned to one line
+(`whitespace-nowrap`, with the counter truncating); let that text wrap and the bar becomes 66 px,
+and peek starts hiding the one thing it exists to show.
 
 **A side drawer was considered and rejected here.** Recorded because it is the obvious alternative
 and will be proposed again:
@@ -156,7 +218,11 @@ and will be proposed again:
 
 ### Desktop — collapsible panel
 
-A toggle that slides the `aside` out of the way and gives its ~320px back to the map.
+A toggle that slides the `aside` out of the way and gives most of its 320px back to the map.
+
+Measured at 1440×900: the panel goes from 320 px to a 56 px rail, so the map grows 1120 → 1384 px.
+The rail is not zero width on purpose — it is what carries the collapsed summary and the control
+that opens the panel again.
 
 This closes a contradiction the current layout carries: slice 2 deliberately breaks `max-w-7xl`
 (rule #50) on the grounds that *"the map is a canvas and capping it would waste the viewport on the
@@ -239,6 +305,17 @@ joins and no allowlist, so they cannot fail the way the database fails (rule #34
 
 **Web:** Vitest over `useMapFilters` (draft state does not fetch; Apply does), `NearbyReportList`,
 and the marker's status→ring mapping including the no-photo fallback.
+
+Slice 3 adds four units, each confirmed red by breaking the thing it protects: the snap arithmetic
+(`offsetsParaAltura` never returns a negative offset, and the tie-break prefers the more open
+point), the applied-filter summary, `useEsHoja` failing open with no `matchMedia`, and — the one
+that encodes a spec promise — that collapsing the desktop panel **does not unmount its content**,
+so a half-typed draft survives a gesture whose meaning is "move this out of my way", not "discard
+my work".
+
+Layout and gesture are verified in a real browser, not in jsdom, because jsdom has no layout: the
+peek/half/full offsets, the drag settling on a snap point, the three-way gesture arbitration, and
+the widths the collapse returns to the map are all measured numbers recorded above.
 
 ## Method
 

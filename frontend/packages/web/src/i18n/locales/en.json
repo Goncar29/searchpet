@@ -410,7 +410,8 @@
     "loading": "Loading map...",
     "error": "Could not load the map.",
     "clickToReport": "Click on the map to add a report",
-    "reports": "{{count}} reports in the area",
+    "reports_one": "{{count}} report in the area",
+    "reports_other": "{{count}} reports in the area",
     "viewDetails": "View details",
     "pet": "Pet",
     "radius": "Radius",
@@ -435,7 +436,13 @@
     "movedTo": "Map moved to {{place}}",
     "resultsError": "Couldn't load the reports. Please try again.",
     "invalidRange": "The \"From\" date can't be later than the \"To\" date.",
-    "pickPlace": "Found {{n}} places. Pick one."
+    "pickPlace": "Found {{n}} places. Pick one.",
+    "noFilters": "No filters",
+    "sheetToggle": "Show or hide filters",
+    "expandPanel": "Show filters",
+    "collapsePanel": "Hide filters",
+    "filtersActive_one": "{{count}} filter",
+    "filtersActive_other": "{{count}} filters"
   },
   "profile": {
     "title": "My profile",

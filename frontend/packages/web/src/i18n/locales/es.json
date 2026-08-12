@@ -410,7 +410,8 @@
     "loading": "Cargando mapa...",
     "error": "No se pudo cargar el mapa.",
     "clickToReport": "Hacé clic en el mapa para agregar un reporte",
-    "reports": "{{count}} reportes en la zona",
+    "reports_one": "{{count}} reporte en la zona",
+    "reports_other": "{{count}} reportes en la zona",
     "viewDetails": "Ver detalles",
     "pet": "Mascota",
     "radius": "Radio",
@@ -435,7 +436,13 @@
     "movedTo": "Mapa movido a {{place}}",
     "resultsError": "No se pudieron cargar los reportes. Probá de nuevo.",
     "invalidRange": "La fecha \"Desde\" no puede ser posterior a la de \"Hasta\".",
-    "pickPlace": "Encontramos {{n}} lugares. Elegí cuál."
+    "pickPlace": "Encontramos {{n}} lugares. Elegí cuál.",
+    "noFilters": "Sin filtros",
+    "sheetToggle": "Mostrar u ocultar los filtros",
+    "expandPanel": "Mostrar los filtros",
+    "collapsePanel": "Ocultar los filtros",
+    "filtersActive_one": "{{count}} filtro",
+    "filtersActive_other": "{{count}} filtros"
   },
   "profile": {
     "title": "Mi perfil",

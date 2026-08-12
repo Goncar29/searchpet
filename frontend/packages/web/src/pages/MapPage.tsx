@@ -9,7 +9,9 @@ import { ReportPopup } from '../components/map/ReportPopup';
 import { VetPopup } from '../components/map/VetPopup';
 import { MapFilterPanel } from '../components/map/MapFilterPanel';
 import { NearbyReportList } from '../components/map/NearbyReportList';
+import { MapPanel } from '../components/map/MapPanel';
 import { useMapFilters } from '../hooks/useMapFilters';
+import { resumirFiltros } from '../utils/mapFilterSummary';
 import { rastroDivIcon, vetDivIcon } from '../components/map/rastroMarker';
 
 function MapPanTracker({ onCenterChange }: { onCenterChange: (c: [number, number]) => void }) {
@@ -113,6 +115,11 @@ export function MapPage() {
   // No depende de nada: una sola instancia para todas las veterinarias.
   const iconoVet = useMemo(() => vetDivIcon(), []);
 
+  // Se resume lo APLICADO y no el borrador: es lo que describe los pines que
+  // hay en pantalla. Con el borrador, cerrar el panel a mitad de una edición
+  // anunciaría filtros que la búsqueda no está usando.
+  const resumen = useMemo(() => resumirFiltros(applied), [applied]);
+
   // Esta pagina va a ANCHO COMPLETO a proposito, rompiendo max-w-7xl (regla
   // #50). Esa regla capea paginas de CONTENIDO al ancho del navbar; el mapa es
   // un LIENZO y capearlo desperdicia viewport en la unica pantalla cuyo valor
@@ -123,20 +130,26 @@ export function MapPage() {
   // habria forma comoda de bajar.
   return (
     <div className="w-full">
-      {/* El alto fijo va SOLO desde lg. Abajo de ese ancho la fila es una
-          columna, y con `h-[78vh]` en el contenedor el aside — que mide ~1850px
-          de contenido real — se comia el alto entero y dejaba al mapa con
-          `flex-1` sobre CERO espacio: medido, `.leaflet-container` daba 390x0 y
-          el mapa directamente no existia. En celular cada uno lleva su propio
-          alto y la pagina scrollea.
+      {/* Ahora el alto fijo vale para los DOS anchos, y eso lo habilita la hoja.
+          Antes el panel era un hermano en flujo que en celular media ~1850px de
+          contenido real: con un alto fijo en el contenedor se comia el alto
+          entero y dejaba al mapa con `flex-1` sobre CERO espacio — medido,
+          `.leaflet-container` daba 390x0. Al superponerse y scrollear por
+          dentro, el panel ya no le disputa el alto a nadie.
 
-          El `order` pone el MAPA primero en el telefono. Es la pantalla que se
-          usa en la calle: abrirla y ver un formulario de filtros con el mapa
-          debajo del pliegue invierte para que vino el usuario. La hoja inferior
-          arrastrable de la rebanada 3 es el arreglo definitivo; esto es el piso
-          decente mientras tanto. */}
-      <div className="flex flex-col lg:flex-row lg:h-[78vh]">
-        <aside className="order-2 lg:order-none w-full lg:w-80 lg:shrink-0 lg:overflow-y-auto border-t lg:border-t-0 lg:border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
+          `relative` es el sistema de referencia de la hoja, y `overflow-hidden`
+          hace falta porque en `peek` la hoja queda desplazada casi su alto
+          entero hacia abajo: sin recortar, ese sobrante empuja la pagina. */}
+      <div className="relative overflow-hidden flex flex-col lg:flex-row h-[78vh]">
+        <MapPanel
+          resumen={resumen}
+          resultCount={reports?.length}
+          isLoading={isLoading}
+          // `isError` NO se queda en la lista. En `peek` la lista esta fuera de
+          // la pantalla y la barra es lo unico visible: sin esto, un request
+          // caido se ve igual que una busqueda sin resultados.
+          isError={isError}
+        >
           <MapFilterPanel
             draft={draft}
             onDraftChange={setDraft}
@@ -161,11 +174,12 @@ export function MapPage() {
             }}
           />
           <NearbyReportList reports={reports} isLoading={isLoading} isError={isError} />
-        </aside>
+        </MapPanel>
 
         {/* Leaflet NECESITA un alto explicito: dentro de un contenedor de alto
-            automatico colapsa a cero. En celular se lo damos con `h-[60vh]`; en
-            escritorio lo hereda del `lg:h-[78vh]` del padre via `flex-1`. */}
+            automatico colapsa a cero. Lo hereda del `h-[78vh]` del padre via
+            `flex-1`, en los dos anchos. `min-h-0` porque un hijo flex no baja
+            de su altura de contenido sin el. */}
         {/* `isolate` (isolation:isolate) NO es decorativo: crea el CONTEXTO DE
             APILAMIENTO que contiene al `z-[1000]` del boton "Buscar en esta
             zona".
@@ -178,7 +192,7 @@ export function MapPage() {
             Leaflet, que llegan a 800. Lo que faltaba era acotarlo. */}
         <div
           data-testid="map-canvas"
-          className="order-1 lg:order-none relative isolate h-[60vh] lg:h-auto lg:flex-1"
+          className="relative isolate flex-1 min-h-0"
         >
             {/* `center` se lee solo al montar; MapViewSync es lo que hace que
                 el viewport siga a searchCenter. Ver su comentario. */}
@@ -269,8 +283,11 @@ export function MapPage() {
       {showVets && vets && vets.length === 0 && (
         <p className="text-center text-gray-500 dark:text-gray-400 mt-2 text-sm">{t('vets:empty')}</p>
       )}
+      {/* En celular este contador ya lo lleva la barra de peek, siempre visible
+          y sin scrollear. Repetirlo abajo del mapa seria decir dos veces lo
+          mismo, y ademas en el unico lugar donde hay que bajar para leerlo. */}
       {(!isLoading && reports && reports.length > 0) && (
-        <p className="text-sm text-gray-400 dark:text-gray-500 mt-3 text-center">
+        <p className="hidden lg:block text-sm text-gray-400 dark:text-gray-500 mt-3 text-center">
           {t('map:reports', { count: reports.length })}
         </p>
       )}
