@@ -192,6 +192,22 @@ export function MapPanel({ resumen, resultCount, isLoading, isError, children }:
           `overscroll-contain` evita que al llegar al final de la lista el gesto
           siga scrolleando la página de atrás. */}
       <div
+        data-testid="map-panel-contenido"
+        // En `peek` el contenido está trasladado por debajo del contenedor y
+        // sólo lo tapa su `overflow-hidden`. Un contenedor con overflow oculto
+        // SIGUE siendo scrolleable por programa, así que enfocar un control de
+        // adentro hace que el navegador lo traiga a la vista: medido, un Tab
+        // desde el asa saltaba al buscador de lugares, la fila scrolleaba 414px
+        // y el mapa se iba a top:-349 — sin barra de scroll para volver.
+        //
+        // Va atado a `snap` y NO a la visibilidad calculada: en `half` parte del
+        // contenido queda abajo del pliegue, pero ahí el contenedor interno SÍ
+        // es un scroller de verdad y traerlo a la vista es lo correcto.
+        //
+        // `esHoja &&` es obligatorio: en escritorio el panel está a la vista y
+        // nunca se traslada, así que marcarlo inert dejaría los filtros sin
+        // teclado en la pantalla donde más se usan.
+        inert={esHoja && snap === 'peek'}
         className={[
           'flex-1 min-h-0 overflow-y-auto overscroll-contain',
           colapsado ? 'lg:hidden' : '',

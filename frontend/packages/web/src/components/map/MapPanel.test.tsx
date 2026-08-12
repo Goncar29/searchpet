@@ -1,5 +1,5 @@
 import { render, screen, fireEvent } from '@testing-library/react';
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { MapPanel } from './MapPanel';
 import { resumirFiltros } from '../../utils/mapFilterSummary';
 
@@ -12,6 +12,28 @@ vi.mock('react-i18next', () => ({
 
 const sinFiltros = resumirFiltros({});
 const conFiltros = resumirFiltros({ type: 'gato', status: ['lost'] });
+
+/**
+ * Sin `matchMedia`, `useEsHoja` devuelve false y el panel se comporta como la
+ * columna de escritorio. Los casos que necesitan el modo HOJA lo montan con
+ * esto; el resto se renderiza directo y ejercita el modo escritorio.
+ */
+function montarComoHoja() {
+  Object.defineProperty(window, 'matchMedia', {
+    value: () => ({ matches: true, media: '', addEventListener: vi.fn(), removeEventListener: vi.fn() }),
+    configurable: true,
+    writable: true,
+  });
+  return render(
+    <MapPanel resumen={sinFiltros} resultCount={0} isLoading={false} isError={false}>
+      <p>contenido</p>
+    </MapPanel>,
+  );
+}
+
+afterEach(() => {
+  Reflect.deleteProperty(window, 'matchMedia');
+});
 
 describe('MapPanel', () => {
   it('anuncia los filtros aplicados en la barra de resumen', () => {
@@ -63,6 +85,41 @@ describe('MapPanel', () => {
     );
     fireEvent.click(screen.getByLabelText('map:collapsePanel'));
     expect(screen.getAllByText('map:filtersActive:2').length).toBeGreaterThan(0);
+  });
+
+  // En `peek` el contenido está trasladado por debajo del contenedor y sólo lo
+  // tapa el `overflow-hidden` de la fila. Un contenedor con overflow oculto
+  // SIGUE siendo scrolleable por programa, así que enfocar un control de
+  // adentro hace que el navegador lo traiga a la vista: medido en el navegador,
+  // un Tab desde el asa saltaba al buscador de lugares, la fila scrolleaba
+  // 414px y el mapa se iba a top:-349 — sin barra de scroll para volver.
+  //
+  // `inert` saca esos controles del orden de tabulación mientras están
+  // guardados. Para llegar a ellos con teclado, primero se abre la hoja con el
+  // asa, que es el mismo orden que con el dedo.
+  it('en peek el contenido guardado queda fuera del orden de tabulación', () => {
+    montarComoHoja();
+    const contenido = screen.getByText('contenido').closest('[data-testid="map-panel-contenido"]');
+    expect(contenido).toHaveAttribute('inert');
+  });
+
+  it('al abrir la hoja el contenido vuelve a ser alcanzable', () => {
+    montarComoHoja();
+    fireEvent.click(screen.getByLabelText('map:sheetToggle')); // peek -> half
+    const contenido = screen.getByText('contenido').closest('[data-testid="map-panel-contenido"]');
+    expect(contenido).not.toHaveAttribute('inert');
+  });
+
+  // En escritorio el panel está a la vista y nunca se traslada: marcarlo inert
+  // dejaría los filtros sin teclado en la pantalla donde más se usa.
+  it('en escritorio el contenido NUNCA es inert', () => {
+    render(
+      <MapPanel resumen={sinFiltros} resultCount={0} isLoading={false} isError={false}>
+        <p>contenido</p>
+      </MapPanel>,
+    );
+    const contenido = screen.getByText('contenido').closest('[data-testid="map-panel-contenido"]');
+    expect(contenido).not.toHaveAttribute('inert');
   });
 
   // El contenido del panel mide ~1850px, así que el contenedor scrollea
