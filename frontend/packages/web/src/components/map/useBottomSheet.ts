@@ -1,0 +1,132 @@
+import { useCallback, useRef, useState } from 'react';
+import type { PointerEvent as ReactPointerEvent } from 'react';
+import {
+  PEEK_VISIBLE_PX,
+  SNAP_HALF_FRACTION,
+  limitarOffset,
+  snapMasCercano,
+  type SnapPoint,
+} from './bottomSheetSnap';
+
+/**
+ * El desplazamiento de cada punto, expresado en CSS.
+ *
+ * Se derivan de las MISMAS constantes que usa la aritmética del arrastre. Con
+ * dos juegos de números, soltar la hoja la movería unos píxeles respecto de
+ * donde el CSS la dejaba — un salto chico, permanente y muy difícil de explicar.
+ */
+export const CSS_POR_SNAP: Record<SnapPoint, string> = {
+  full: '0px',
+  half: `${SNAP_HALF_FRACTION * 100}%`,
+  peek: `calc(100% - ${PEEK_VISIBLE_PX}px)`,
+};
+
+/** Debajo de esto el gesto fue un toque, no un arrastre. */
+const UMBRAL_ARRASTRE_PX = 6;
+
+/** El click del asa abre de a poco. Desde `full` vuelve a cerrar. */
+const CICLO: Record<SnapPoint, SnapPoint> = {
+  peek: 'half',
+  half: 'full',
+  full: 'peek',
+};
+
+interface Arrastre {
+  yInicial: number;
+  offsetInicial: number;
+  alto: number;
+  movio: boolean;
+}
+
+/**
+ * Arrastre y anclaje de la hoja inferior.
+ *
+ * Sólo el ASA arrastra. Un arrastre que empieza sobre el contenido scrollea la
+ * lista, y uno que empieza sobre el mapa lo panea — el mapa ni se entera de
+ * estos eventos, porque la hoja es un hermano de `.leaflet-container` y Leaflet
+ * escucha sobre su propio contenedor, no sobre el div que los envuelve.
+ */
+export function useBottomSheet(activo: boolean, inicial: SnapPoint = 'peek') {
+  const [snap, setSnap] = useState<SnapPoint>(inicial);
+  const [dragOffset, setDragOffset] = useState<number | null>(null);
+  const hojaRef = useRef<HTMLElement | null>(null);
+  const arrastre = useRef<Arrastre | null>(null);
+  /**
+   * Un arrastre termina en `pointerup`, y el navegador dispara `click` justo
+   * después. Sin esta marca, soltar la hoja la anclaría y acto seguido el click
+   * la mandaría al punto siguiente.
+   */
+  const suprimirClick = useRef(false);
+
+  const ciclar = useCallback(() => setSnap((s) => CICLO[s]), []);
+
+  const onPointerDown = useCallback((e: ReactPointerEvent<HTMLElement>) => {
+    const el = hojaRef.current;
+    const padre = el?.parentElement;
+    if (!activo || !el || !padre) return;
+
+    const rect = el.getBoundingClientRect();
+    const rectPadre = padre.getBoundingClientRect();
+    // El desplazamiento actual se LEE DEL DOM en vez de derivarse del snap: así
+    // el arrastre arranca donde la hoja está de verdad, incluso a mitad de una
+    // transición. Sin transformar, su borde superior cae en
+    // `padre.bottom - alto`; la diferencia contra el real es el desplazamiento.
+    arrastre.current = {
+      yInicial: e.clientY,
+      offsetInicial: rect.top - rectPadre.bottom + rect.height,
+      alto: rect.height,
+      movio: false,
+    };
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+  }, [activo]);
+
+  const onPointerMove = useCallback((e: ReactPointerEvent<HTMLElement>) => {
+    const a = arrastre.current;
+    if (!a) return;
+    const delta = e.clientY - a.yInicial;
+    if (Math.abs(delta) > UMBRAL_ARRASTRE_PX) a.movio = true;
+    setDragOffset(limitarOffset(a.offsetInicial + delta, a.alto));
+  }, []);
+
+  const terminar = useCallback((e: ReactPointerEvent<HTMLElement>) => {
+    const a = arrastre.current;
+    if (!a) return;
+    arrastre.current = null;
+    e.currentTarget.releasePointerCapture?.(e.pointerId);
+
+    if (a.movio) {
+      suprimirClick.current = true;
+      const offsetFinal = limitarOffset(a.offsetInicial + (e.clientY - a.yInicial), a.alto);
+      setSnap(snapMasCercano(offsetFinal, a.alto));
+    }
+    // Siempre, haya movido o no: mientras `dragOffset` no sea null la hoja
+    // ignora su clase de anclaje y se queda clavada donde la soltaron.
+    setDragOffset(null);
+  }, []);
+
+  /**
+   * El asa es un BOTÓN y el click cicla los tres puntos. No es un extra: quien
+   * navega con teclado no puede arrastrar, y sin esto la hoja se le queda en
+   * `peek` para siempre, con los filtros inalcanzables.
+   */
+  const onClick = useCallback(() => {
+    if (suprimirClick.current) {
+      suprimirClick.current = false;
+      return;
+    }
+    ciclar();
+  }, [ciclar]);
+
+  const asaProps = {
+    onPointerDown,
+    onPointerMove,
+    onPointerUp: terminar,
+    onPointerCancel: terminar,
+    onClick,
+    // Sin esto el navegador se queda con el gesto vertical para scrollear la
+    // página y los `pointermove` dejan de llegar a mitad del arrastre.
+    style: { touchAction: 'none' as const },
+  };
+
+  return { snap, setSnap, ciclar, dragOffset, hojaRef, asaProps };
+}

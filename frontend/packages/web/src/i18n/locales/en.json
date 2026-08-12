@@ -435,7 +435,13 @@
     "movedTo": "Map moved to {{place}}",
     "resultsError": "Couldn't load the reports. Please try again.",
     "invalidRange": "The \"From\" date can't be later than the \"To\" date.",
-    "pickPlace": "Found {{n}} places. Pick one."
+    "pickPlace": "Found {{n}} places. Pick one.",
+    "noFilters": "No filters",
+    "sheetToggle": "Show or hide filters",
+    "expandPanel": "Show filters",
+    "collapsePanel": "Hide filters",
+    "filtersActive_one": "{{count}} filter",
+    "filtersActive_other": "{{count}} filters"
   },
   "profile": {
     "title": "My profile",

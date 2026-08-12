@@ -435,7 +435,13 @@
     "movedTo": "Mapa movido para {{place}}",
     "resultsError": "Não foi possível carregar os relatos. Tente novamente.",
     "invalidRange": "A data \"De\" não pode ser posterior à data \"Até\".",
-    "pickPlace": "Encontramos {{n}} lugares. Escolha um."
+    "pickPlace": "Encontramos {{n}} lugares. Escolha um.",
+    "noFilters": "Sem filtros",
+    "sheetToggle": "Mostrar ou ocultar os filtros",
+    "expandPanel": "Mostrar os filtros",
+    "collapsePanel": "Ocultar os filtros",
+    "filtersActive_one": "{{count}} filtro",
+    "filtersActive_other": "{{count}} filtros"
   },
   "profile": {
     "title": "Meu perfil",
