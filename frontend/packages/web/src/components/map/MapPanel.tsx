@@ -112,6 +112,7 @@ export function MapPanel({ resumen, resultCount, isLoading, isError, children }:
           {resumenTexto}
         </span>
         <span
+          data-testid="map-panel-estado"
           className={`min-w-0 truncate whitespace-nowrap text-sm ${
             isError ? 'text-danger font-semibold' : 'text-gray-500 dark:text-gray-400'
           }`}
@@ -163,6 +164,28 @@ export function MapPanel({ resumen, resultCount, isLoading, isError, children }:
         ) : null}
       </div>
 
+      {/* BOTÓN DE COLAPSAR — hermano del contenido y NO su primer hijo.
+          Adentro del contenedor scrolleable se iba de pantalla apenas el
+          usuario bajaba: el panel mide ~1850px, así que scrollea siempre, y el
+          control para cerrarlo dejaba de existir hasta volver arriba.
+
+          `shrink-0` para que la fila no ceda alto cuando el contenido empuja.
+
+          Que sea `hidden lg:flex` es deliberado y falla ABIERTO: si la media
+          query no aplicara, lo peor que pasa es que el panel no se pueda
+          colapsar. Nunca que quede colapsado sin forma de abrirlo. */}
+      <div className={`hidden shrink-0 lg:flex justify-end px-2 pt-2 ${colapsado ? 'lg:hidden' : ''}`}>
+        <button
+          type="button"
+          onClick={() => setColapsado(true)}
+          aria-label={t('map:collapsePanel')}
+          aria-expanded
+          className="p-1.5 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
+        >
+          <Icon name="chevron-left" className="text-xl" />
+        </button>
+      </div>
+
       {/* CONTENIDO — el panel de filtros y la lista.
           `min-h-0` es obligatorio: sin él un hijo flex no baja de su altura de
           contenido y el `overflow-y-auto` nunca llega a scrollear.
@@ -174,20 +197,6 @@ export function MapPanel({ resumen, resultCount, isLoading, isError, children }:
           colapsado ? 'lg:hidden' : '',
         ].join(' ')}
       >
-        {/* El botón de colapsar vive dentro del contenido: si la media query
-            fallara y `lg:` no aplicara, lo peor que pasa es que el panel no se
-            pueda colapsar. Nunca que quede colapsado sin forma de abrirlo. */}
-        <div className="hidden lg:flex justify-end px-2 pt-2">
-          <button
-            type="button"
-            onClick={() => setColapsado(true)}
-            aria-label={t('map:collapsePanel')}
-            aria-expanded
-            className="p-1.5 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
-          >
-            <Icon name="chevron-left" className="text-xl" />
-          </button>
-        </div>
         {children}
       </div>
     </aside>

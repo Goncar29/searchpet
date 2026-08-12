@@ -163,8 +163,15 @@ describe('MapPage', () => {
     render(<MapPage />, { wrapper });
 
     // El cableado importa tanto como el componente: si MapPage no pasa isError,
-    // NearbyReportList no tiene forma de distinguir el fallo del vacio.
-    expect(screen.getByText('map:resultsError')).toBeInTheDocument();
+    // ni NearbyReportList ni MapPanel tienen forma de distinguir el fallo del
+    // vacio.
+    //
+    // Ahora el fallo tiene que llegar a DOS destinos, y el segundo es el que
+    // importa en celular: la lista vive dentro del contenido de la hoja, que en
+    // `peek` esta fuera de la pantalla. Si el error solo llegara ahi, el estado
+    // por defecto seguiria mostrando un mapa sin pines y una barra tranquila.
+    expect(screen.getAllByText('map:resultsError').length).toBeGreaterThan(1);
+    expect(screen.getByTestId('map-panel-estado')).toHaveTextContent('map:resultsError');
     expect(screen.queryByText('map:noResults')).toBeNull();
   });
 

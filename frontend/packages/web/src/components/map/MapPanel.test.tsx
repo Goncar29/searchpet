@@ -65,6 +65,22 @@ describe('MapPanel', () => {
     expect(screen.getAllByText('map:filtersActive:2').length).toBeGreaterThan(0);
   });
 
+  // El contenido del panel mide ~1850px, así que el contenedor scrollea
+  // siempre. Con el botón adentro, bajar a mirar la lista de reportes hacía
+  // desaparecer el control para cerrar el panel hasta volver arriba.
+  it('el botón de colapsar NO vive dentro del contenedor scrolleable', () => {
+    render(
+      <MapPanel resumen={sinFiltros} resultCount={0} isLoading={false} isError={false}>
+        <p>contenido</p>
+      </MapPanel>,
+    );
+    const boton = screen.getByLabelText('map:collapsePanel');
+    expect(boton.closest('.overflow-y-auto')).toBeNull();
+    // Y el contenido sí está adentro: la aserción de arriba no puede pasar
+    // porque el contenedor haya dejado de existir.
+    expect(screen.getByText('contenido').closest('.overflow-y-auto')).not.toBeNull();
+  });
+
   it('se puede volver a expandir', () => {
     render(
       <MapPanel resumen={sinFiltros} resultCount={0} isLoading={false} isError={false}>
