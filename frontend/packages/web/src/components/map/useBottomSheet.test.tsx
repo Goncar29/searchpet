@@ -1,6 +1,7 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { MapPanel } from './MapPanel';
+import { CSS_POR_SNAP } from './useBottomSheet';
 import { resumirFiltros } from '../../utils/mapFilterSummary';
 
 vi.mock('react-i18next', () => ({
@@ -53,6 +54,13 @@ const arrastrar = (asa: HTMLElement, finEvento: 'pointerUp' | 'pointerCancel') =
   fireEvent[finEvento](asa, { clientY: 300, pointerId: 1 });
 };
 
+/** Un toque limpio: baja, sube sin moverse, y el navegador manda el click. */
+const tocar = (asa: HTMLElement) => {
+  fireEvent.pointerDown(asa, { clientY: 400, pointerId: 1 });
+  fireEvent.pointerUp(asa, { clientY: 400, pointerId: 1 });
+  fireEvent.click(asa);
+};
+
 describe('useBottomSheet — fin del arrastre', () => {
   // Un `pointercancel` NO dispara `click`. Si el fin del arrastre arma la
   // supresión sin distinguir el motivo, la bandera queda cargada y se come el
@@ -79,6 +87,65 @@ describe('useBottomSheet — fin del arrastre', () => {
     expect(asa.getAttribute('aria-expanded')).toBe(trasSoltar);
   });
 
+  // El navegador SUPRIME el click cuando el toque se movió más allá del umbral
+  // de tap: un arrastre táctil termina en `pointerup` y ahí se acaba, sin click.
+  // Armar la supresión esperando un evento que puede no llegar deja la bandera
+  // cargada, y se come el PRÓXIMO toque de verdad.
+  //
+  // La bandera se limpia en `pointerdown` para no depender de esa suposición:
+  // cada gesto arranca con el estado limpio, dispare o no el navegador el click
+  // del gesto anterior.
+  it('un arrastre que NO terminó en click no se come el toque siguiente', () => {
+    montar();
+    const asa = screen.getByLabelText('map:sheetToggle');
+
+    // Arrastre táctil: pointerup y nada más. El navegador no manda click.
+    fireEvent.pointerDown(asa, { clientY: 400, pointerId: 1 });
+    fireEvent.pointerMove(asa, { clientY: 200, pointerId: 1 });
+    fireEvent.pointerUp(asa, { clientY: 200, pointerId: 1 });
+
+    const antes = asa.getAttribute('aria-expanded');
+    tocar(asa);
+    expect(asa.getAttribute('aria-expanded')).not.toBe(antes);
+  });
+
+  // Un gesto cancelado no es un gesto: no lo terminó el usuario. Comprometer un
+  // punto de anclaje con las coordenadas de un `pointercancel` —que la spec no
+  // garantiza significativas— puede dejar la hoja abierta al 80% después de una
+  // llamada entrante. Se descarta el arrastre y queda el anclaje anterior.
+  it('un pointercancel descarta el arrastre en vez de comprometer un anclaje', () => {
+    montar();
+    const asa = screen.getByLabelText('map:sheetToggle');
+    const antes = asa.getAttribute('aria-expanded');
+
+    fireEvent.pointerDown(asa, { clientY: 400, pointerId: 1 });
+    fireEvent.pointerMove(asa, { clientY: 100, pointerId: 1 });
+    fireEvent.pointerCancel(asa, { clientY: 0, pointerId: 1 });
+
+    expect(asa.getAttribute('aria-expanded')).toBe(antes);
+  });
+
+  // Un segundo dedo sobre el asa pisaba el origen del arrastre en curso, así que
+  // los movimientos del primero pasaban a medirse contra el origen del segundo y
+  // la hoja pegaba un salto. Peor: el `pointerup` del segundo mataba el arrastre
+  // del primero, que seguía apoyado.
+  it('ignora los punteros que no son el del arrastre en curso', () => {
+    montar();
+    const asa = screen.getByLabelText('map:sheetToggle');
+    const hoja = asa.closest('aside') as HTMLElement;
+
+    fireEvent.pointerDown(asa, { clientY: 400, pointerId: 1 });
+    fireEvent.pointerMove(asa, { clientY: 300, pointerId: 1 });
+
+    // Segundo dedo: baja y sube mientras el primero sigue apoyado.
+    fireEvent.pointerDown(asa, { clientY: 800, pointerId: 2 });
+    fireEvent.pointerUp(asa, { clientY: 800, pointerId: 2 });
+
+    // El arrastre del primero sigue vivo: su movimiento todavía mueve la hoja.
+    fireEvent.pointerMove(asa, { clientY: 250, pointerId: 1 });
+    expect(hoja.style.transform).toMatch(/^translateY\(\d+px\)$/);
+  });
+
   // En `pointercancel` el navegador ya liberó la captura, y la spec de Pointer
   // Events manda tirar `NotFoundError` si el pointerId no corresponde a un
   // puntero activo. Liberar sin preguntar aborta el handler ANTES del reset, y
@@ -97,8 +164,11 @@ describe('useBottomSheet — fin del arrastre', () => {
 
     expect(() => arrastrar(asa, 'pointerCancel')).not.toThrow();
     expect(HTMLElement.prototype.releasePointerCapture).not.toHaveBeenCalled();
-    // `dragOffset` volvió a null: la hoja vuelve a obedecer su anclaje en vez
-    // de quedarse con el desplazamiento inline del arrastre.
-    expect(hoja.style.transform).toBe('translateY(0px)');
+    // Lo que importa es que `dragOffset` volvió a null: la hoja obedece de
+    // nuevo su CLASE de anclaje en vez de quedarse clavada en el
+    // desplazamiento inline del arrastre. Se compara contra la constante y no
+    // contra un valor escrito a mano, así el test sigue diciendo lo mismo si
+    // los anclajes cambian de número.
+    expect(hoja.style.transform).toBe(`translateY(${CSS_POR_SNAP.peek})`);
   });
 });

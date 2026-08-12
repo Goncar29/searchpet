@@ -32,6 +32,8 @@ const CICLO: Record<SnapPoint, SnapPoint> = {
 };
 
 interface Arrastre {
+  /** Qué dedo abrió este arrastre. Los demás se ignoran mientras dure. */
+  pointerId: number;
   yInicial: number;
   offsetInicial: number;
   alto: number;
@@ -64,6 +66,17 @@ export function useBottomSheet(activo: boolean, inicial: SnapPoint = 'peek') {
     const el = hojaRef.current;
     const padre = el?.parentElement;
     if (!activo || !el || !padre) return;
+    // Un arrastre en curso manda: un segundo dedo sobre el asa NO lo reinicia.
+    // Pisando el origen, los movimientos del primer dedo pasaban a medirse
+    // contra el del segundo y la hoja pegaba un salto.
+    if (arrastre.current) return;
+
+    // Cada gesto arranca con la bandera limpia. Antes se limpiaba SÓLO cuando
+    // llegaba el click que venía a suprimir — y el navegador no manda click
+    // cuando el toque se movió más allá del umbral de tap, así que la bandera
+    // quedaba cargada y se comía el toque siguiente. No se puede depender de un
+    // evento que puede no llegar.
+    suprimirClick.current = false;
 
     const rect = el.getBoundingClientRect();
     const rectPadre = padre.getBoundingClientRect();
@@ -72,6 +85,7 @@ export function useBottomSheet(activo: boolean, inicial: SnapPoint = 'peek') {
     // transición. Sin transformar, su borde superior cae en
     // `padre.bottom - alto`; la diferencia contra el real es el desplazamiento.
     arrastre.current = {
+      pointerId: e.pointerId,
       yInicial: e.clientY,
       offsetInicial: rect.top - rectPadre.bottom + rect.height,
       alto: rect.height,
@@ -82,7 +96,7 @@ export function useBottomSheet(activo: boolean, inicial: SnapPoint = 'peek') {
 
   const onPointerMove = useCallback((e: ReactPointerEvent<HTMLElement>) => {
     const a = arrastre.current;
-    if (!a) return;
+    if (!a || a.pointerId !== e.pointerId) return;
     const delta = e.clientY - a.yInicial;
     if (Math.abs(delta) > UMBRAL_ARRASTRE_PX) a.movio = true;
     setDragOffset(limitarOffset(a.offsetInicial + delta, a.alto));
@@ -95,7 +109,9 @@ export function useBottomSheet(activo: boolean, inicial: SnapPoint = 'peek') {
    */
   const terminar = useCallback((e: ReactPointerEvent<HTMLElement>, cancelado: boolean) => {
     const a = arrastre.current;
-    if (!a) return;
+    // El `pointerup` de OTRO dedo no termina este arrastre: el que lo abrió
+    // puede seguir apoyado.
+    if (!a || a.pointerId !== e.pointerId) return;
     arrastre.current = null;
 
     // Se PREGUNTA antes de liberar. En `pointercancel` el navegador ya liberó
@@ -108,12 +124,15 @@ export function useBottomSheet(activo: boolean, inicial: SnapPoint = 'peek') {
       e.currentTarget.releasePointerCapture(e.pointerId);
     }
 
-    if (a.movio) {
-      // Sólo cuando el gesto termina en `pointerup`. Un `pointercancel` NO
-      // dispara `click`, así que armar la supresión ahí dejaría la bandera
-      // cargada esperando un evento que no llega, y se comería el próximo
-      // toque de verdad del asa.
-      if (!cancelado) suprimirClick.current = true;
+    // Un gesto CANCELADO no lo terminó el usuario, así que no compromete nada:
+    // ni un anclaje nuevo ni la supresión del click.
+    //
+    // Comprometerlo era además apoyarse en las coordenadas de un
+    // `pointercancel`, que la spec no garantiza significativas: con un
+    // `clientY` de 0 el desplazamiento final se acota a cero y la hoja se abre
+    // entera, tapando el 80% del mapa después de una llamada entrante.
+    if (a.movio && !cancelado) {
+      suprimirClick.current = true;
       const offsetFinal = limitarOffset(a.offsetInicial + (e.clientY - a.yInicial), a.alto);
       setSnap(snapMasCercano(offsetFinal, a.alto));
     }
