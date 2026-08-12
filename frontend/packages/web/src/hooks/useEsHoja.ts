@@ -12,11 +12,28 @@ import { useEffect, useState } from 'react';
 export const CONSULTA_HOJA = 'not all and (min-width: 64rem)';
 
 /**
- * Falla ABIERTO: sin `matchMedia` devuelve `false`, o sea el panel fijo de
- * escritorio, que es exactamente el layout que ya funcionaba antes de la
- * rebanada 3. El modo hoja aplica transformaciones y un arrastre; activarlo por
- * error dejaría el panel corrido en una pantalla que no lo espera, mientras que
- * NO activarlo sólo pierde el gesto.
+ * Sin `matchMedia` devuelve `false`.
+ *
+ * **Ojo con lo que eso significa, porque este comentario decía otra cosa.**
+ * Afirmaba que el fallback deja "el panel fijo de escritorio, exactamente el
+ * layout que ya funcionaba", y eso vale SÓLO de `lg` para arriba, donde la
+ * columna la producen las clases `lg:static lg:h-auto lg:translate-y-0`. Abajo
+ * de 1024px, con `esHoja` en false, el `aside` conserva su base
+ * `absolute inset-x-0 bottom-0 h-[80%]` y no recibe transformación: queda
+ * abierto del todo tapando el 80% del mapa, sin poder arrastrarlo (el arrastre
+ * está detrás de `activo`) y con el click del asa cambiando `snap` sin efecto
+ * visible. Peor que el layout anterior, no igual.
+ *
+ * Ese escenario **no es alcanzable hoy**: sin `matchMedia` la app no llega ni a
+ * renderizar, porque `ThemeContext.tsx:15` y `InstallPWA.tsx:15` la llaman sin
+ * guarda. Comprobado — quitándola, el `aside` nunca aparece. Así que el riesgo
+ * real es nulo y el `false` sigue siendo la respuesta correcta: es la única que
+ * no rompe escritorio, que es donde la falla sí sería visible.
+ *
+ * Queda anotado porque la guarda promete una robustez que no tiene. Si algún
+ * día se quiere de verdad, el camino es sacarle a JavaScript la decisión:
+ * mover el desplazamiento a una custom property que `lg:translate-y-0` pueda
+ * pisar, y con eso este hook deja de hacer falta.
  */
 function leer(): boolean {
   if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false;

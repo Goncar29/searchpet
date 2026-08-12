@@ -143,8 +143,27 @@ That leaves one thing JavaScript must know — whether to apply the sheet transf
 `useEsHoja` answers it. It asks in **rem** (`not all and (min-width: 64rem)`), the same unit
 Tailwind's `lg:` emits, because rule #29's lesson is exactly this: a `px` query and a `rem`
 breakpoint diverge as soon as the reader enlarges their browser font, and the panel would be
-transformed as a sheet while the CSS drew it as a column. It fails to `false`, so a media query
-that cannot be evaluated costs the new gesture and never the layout that already worked.
+transformed as a sheet while the CSS drew it as a column.
+
+~~It fails to `false`, so a media query that cannot be evaluated costs the new gesture and never
+the layout that already worked.~~
+
+> **Corrected 2026-08-12.** `false` is still the right answer, but not for the reason given. It
+> yields the desktop column only **at `lg` and above**, where `lg:static lg:h-auto
+> lg:translate-y-0` produce it. Below 1024px with `esHoja === false` the `aside` keeps its base
+> `absolute inset-x-0 bottom-0 h-[80%]` and receives no transform: it sits fully open over 80% of
+> the map, undraggable (the drag is gated on the same flag) and with the handle's click changing
+> `snap` to no visible effect. That is worse than the previous layout, not equal to it.
+>
+> The scenario is unreachable today — without `matchMedia` the app never renders at all, because
+> `ThemeContext.tsx:15` and `InstallPWA.tsx:15` call it unguarded; removing it, the `aside` never
+> appears. So `false` remains correct for a different reason: it is the only answer that cannot
+> break desktop, which is where the failure would actually be seen.
+>
+> Recorded because the guard advertises a robustness it does not have — the same failure mode as
+> rules #18 and #48, a comment naming a mechanism that isn't the one doing the work. The real fix,
+> if it is ever wanted, is to take the decision away from JavaScript: move the offset into a custom
+> property that `lg:translate-y-0` can override, which retires the hook entirely.
 
 ### Mobile — bottom sheet
 

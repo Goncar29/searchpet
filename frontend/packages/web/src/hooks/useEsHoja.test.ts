@@ -43,10 +43,12 @@ describe('useEsHoja', () => {
     expect(result.current).toBe(true);
   });
 
-  // Falla ABIERTO. El modo hoja transforma el panel y le monta un arrastre;
-  // activarlo por error lo dejaría corrido en una pantalla que no lo espera.
-  // No activarlo sólo pierde el gesto y deja la columna fija de siempre.
-  it('sin matchMedia devuelve false — el layout que ya funcionaba', () => {
+  // `false` es la respuesta correcta, pero NO porque deje "el layout de
+  // siempre": abajo de 1024px deja la hoja abierta y trabada (ver el comentario
+  // del hook). Es correcta porque es la única que no rompe escritorio, que es
+  // donde la falla sería visible. El escenario no es alcanzable igual: sin
+  // matchMedia la app no renderiza, otros dos componentes la llaman sin guarda.
+  it('sin matchMedia devuelve false — la única respuesta que no rompe escritorio', () => {
     Object.defineProperty(window, 'matchMedia', {
       value: undefined,
       configurable: true,
