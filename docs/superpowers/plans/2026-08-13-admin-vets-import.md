@@ -212,9 +212,15 @@ cd backend && DATABASE_URL="postgres://postgres:postgres@localhost:5433/lostpets
 ```
 
 Expected: **FAIL** with `expected the vet to be back, got 0 rows` — the soft-deleted row still
-occupies the unique key, the upsert hits the conflict and leaves `deleted_at` set. Restore the
-line with `git checkout -- backend/internal/repository/vet_repository.go` and re-run to confirm
-green.
+occupies the unique key, the upsert hits the conflict and leaves `deleted_at` set. Then put the
+line back **by editing it back in**, and re-run to confirm green.
+
+> **Do NOT restore with `git checkout -- <file>` while the surrounding change is uncommitted.**
+> That command restores the file to `HEAD`, not to "one edit ago", so it silently throws away the
+> implementation you have not committed yet along with the line you meant to put back. Learned the
+> expensive way during Task 2 on 2026-08-13, when it wiped both new repository methods. Use a
+> targeted edit for every red-check restore in this plan; `git checkout --` is only safe once the
+> work is already committed.
 
 *(Verified 2026-08-13: red output exactly as above, `EXIT=1`; restored, `EXIT=0`.)*
 
