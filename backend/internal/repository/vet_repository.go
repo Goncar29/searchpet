@@ -20,6 +20,11 @@ func NewVetRepository(db *gorm.DB) VetRepository {
 
 // Upsert inserta una veterinaria o la actualiza si ya existe (mismo osm_type+osm_id).
 // Hace idempotente la importación: re-correr el import nunca duplica filas.
+//
+// deleted_at viaja en DoUpdates a propósito: el registro entrante lo trae en su
+// valor cero, así que EXCLUDED.deleted_at es NULL y una veterinaria que vuelve a
+// OpenStreetMap RESUCITA sola. Sin esa columna, la fila seguiría marcada como
+// borrada y el mapa no la dibujaría nunca más, sin un solo error a la vista.
 func (r *postgresVetRepository) Upsert(ctx context.Context, vet *domain.Vet) error {
 	return r.db.WithContext(ctx).
 		Clauses(clause.OnConflict{
@@ -27,6 +32,7 @@ func (r *postgresVetRepository) Upsert(ctx context.Context, vet *domain.Vet) err
 			DoUpdates: clause.AssignmentColumns([]string{
 				"name", "latitude", "longitude", "address",
 				"phone", "website", "opening_hours", "last_synced_at", "updated_at",
+				"deleted_at",
 			}),
 		}).
 		Create(vet).Error

@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
 // Vet is a veterinary clinic imported from OpenStreetMap (amenity=veterinary).
@@ -24,6 +25,16 @@ type Vet struct {
 	LastSyncedAt time.Time `json:"-"`
 	CreatedAt    time.Time `gorm:"autoCreateTime" json:"-"`
 	UpdatedAt    time.Time `gorm:"autoUpdateTime" json:"-"`
+
+	// DeletedAt marks a vet OpenStreetMap no longer lists. GORM applies the
+	// soft-delete scope to every model-scoped query, so FindNearby needs no
+	// change — a fact pinned by TestVetRepository_FindNearby_ExcludesSoftDeleted
+	// rather than by this comment.
+	//
+	// Soft rather than hard because the sweep that sets it is automated and
+	// unattended: a wrong run is undone with one UPDATE instead of waiting for
+	// the next full import.
+	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
 }
 
 // VetNearbyResult is a Vet plus its computed distance from the query point.
