@@ -39,6 +39,11 @@ takes seconds and would have caught it immediately.
 restores to the last *commit*, not to one edit ago, so in the TDD order used here (implement →
 verify red → commit) it destroys the implementation you have not committed yet.
 
+**The local backend listens on `:8081`, not `:8080`.** `config.Load()` defaults `PORT` to `8081`
+(`backend/config/config.go:75`). The `8080` in `.env.example` and in `ci.yml`'s `VITE_API_URL` is a
+different thing and does not apply to a local `go run ./cmd/server`. A curl to the wrong port
+returns `000` (connection refused), which is easy to misread as a routing problem.
+
 ## File structure
 
 | File | Responsibility | Action |
@@ -1191,13 +1196,13 @@ a route that rejects anonymous callers but accepts any logged-in user is the fai
 cd backend && DATABASE_URL="postgres://postgres:postgres@localhost:5433/lostpets?sslmode=disable" JWT_SECRET=test-secret go run ./cmd/server &
 sleep 20
 
-curl -s -o /dev/null -w "sin token:  %{http_code}\n" -X POST http://localhost:8080/api/admin/vets/import
+curl -s -o /dev/null -w "sin token:  %{http_code}\n" -X POST http://localhost:8081/api/admin/vets/import
 
 # ana@searchpet.local is a seeded NON-admin (cmd/seed/fixtures.go).
-USER_TOKEN=$(curl -s -X POST http://localhost:8080/api/auth/login \
+USER_TOKEN=$(curl -s -X POST http://localhost:8081/api/auth/login \
   -H 'Content-Type: application/json' \
   -d '{"email":"ana@searchpet.local","password":"user1234"}' | python -c "import sys,json;print(json.load(sys.stdin)['token'])")
-curl -s -o /dev/null -w "no admin:   %{http_code}\n" -X POST http://localhost:8080/api/admin/vets/import \
+curl -s -o /dev/null -w "no admin:   %{http_code}\n" -X POST http://localhost:8081/api/admin/vets/import \
   -H "Authorization: Bearer $USER_TOKEN"
 
 kill %1
@@ -1589,10 +1594,10 @@ Start the server against the **development** database (`lostpets`, not `lostpets
 ```bash
 cd backend && DATABASE_URL="postgres://postgres:postgres@localhost:5433/lostpets?sslmode=disable" JWT_SECRET=test-secret go run ./cmd/server &
 sleep 20
-TOKEN=$(curl -s -X POST http://localhost:8080/api/auth/login \
+TOKEN=$(curl -s -X POST http://localhost:8081/api/auth/login \
   -H 'Content-Type: application/json' \
   -d '{"email":"admin@searchpet.local","password":"admin1234"}' | python -c "import sys,json;print(json.load(sys.stdin)['token'])")
-curl -s -X POST http://localhost:8080/api/admin/vets/import -H "Authorization: Bearer $TOKEN" | tee /tmp/import.json
+curl -s -X POST http://localhost:8081/api/admin/vets/import -H "Authorization: Bearer $TOKEN" | tee /tmp/import.json
 kill %1
 ```
 
