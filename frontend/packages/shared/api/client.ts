@@ -108,6 +108,7 @@ import type {
   UpdateMyFosterHomeRequest,
   FosterHomeModerationLog,
   FosterHomeChangeLog,
+  VetImportResult,
 } from '../types';
 
 
@@ -1160,6 +1161,10 @@ class APIClient {
 
   async setUserAdmin(email: string, grant: boolean): Promise<AdminRoleResult> {
     return this.request<AdminRoleResult>('POST', '/api/admin/users/admin-role', { email, grant });
+  }
+
+  async importVets(): Promise<VetImportResult> {
+    return this.request<VetImportResult>('POST', '/api/admin/vets/import');
   }
 
   async getRoleChanges(page = 1, limit = 50): Promise<AdminAuditListResponse> {
