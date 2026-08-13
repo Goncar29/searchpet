@@ -115,6 +115,47 @@ func TestMapElement_PhoneFallbackToContactTag(t *testing.T) {
 	}
 }
 
+// The website tag is world-editable and lands in an href on the map popup, so a
+// javascript: or data: scheme would run in the visitor's page. Shelters get this
+// checked at their own door (validOptionalHTTPSURL, shelter_dto.go); vets never
+// had a door, because nobody types this value into one of our forms.
+func TestMapElement_DropsWebsiteWithANonHTTPScheme(t *testing.T) {
+	for _, raw := range []string{
+		"javascript:alert(document.cookie)",
+		"JavaScript:alert(1)", // scheme comparison must not be case sensitive
+		"data:text/html;base64,PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg==",
+		"//evil.example",      // protocol-relative: parses, but carries no scheme
+		"vbscript:msgbox(1)",
+	} {
+		el := overpassElement{
+			Type: "node", ID: 401, Lat: -34.9, Lon: -56.1,
+			Tags: map[string]string{"website": raw},
+		}
+		vet, ok := mapElement(el)
+		if !ok {
+			t.Fatalf("%q: the element itself is fine, only its website is not", raw)
+		}
+		if vet.Website != "" {
+			t.Errorf("%q survived into Website as %q", raw, vet.Website)
+		}
+	}
+}
+
+// Dropping the unsafe value must not drop the usable one sitting next to it.
+func TestMapElement_FallsBackToContactWebsiteWhenThePrimaryIsUnsafe(t *testing.T) {
+	el := overpassElement{
+		Type: "node", ID: 402, Lat: -34.9, Lon: -56.1,
+		Tags: map[string]string{
+			"website":         "javascript:alert(1)",
+			"contact:website": "https://veterinaria.uy",
+		},
+	}
+	vet, _ := mapElement(el)
+	if vet.Website != "https://veterinaria.uy" {
+		t.Errorf("Website = %q, want the safe contact tag", vet.Website)
+	}
+}
+
 func TestParseOverpass_DecodesElements(t *testing.T) {
 	body := []byte(`{"elements":[
 		{"type":"node","id":1,"lat":-34.9,"lon":-56.1,"tags":{"name":"A"}},
@@ -186,7 +227,7 @@ func TestRun_SweepsWhenTheRunLooksComplete(t *testing.T) {
 	defer srv.Close()
 	repo := &fakeVetRepo{activeBefore: 100}
 
-	res, err := newTestImporter(repo, srv.URL).Run(context.Background())
+	res, err := newTestImporter(repo, srv.URL).Run(context.Background(), RunOptions{})
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -208,7 +249,7 @@ func TestRun_ThresholdBlocksSweepOnShortResponse(t *testing.T) {
 	defer srv.Close()
 	repo := &fakeVetRepo{activeBefore: 100}
 
-	res, err := newTestImporter(repo, srv.URL).Run(context.Background())
+	res, err := newTestImporter(repo, srv.URL).Run(context.Background(), RunOptions{})
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -229,6 +270,53 @@ func TestRun_ThresholdBlocksSweepOnShortResponse(t *testing.T) {
 	}
 }
 
+// The threshold doubts the response. A human who has run the import twice and
+// read the same number twice has evidence the response is honest, and until this
+// existed their only exit was an UPDATE against the production database.
+func TestRun_ForceSweepOverridesTheThreshold(t *testing.T) {
+	srv := overpassStub(t, 2) // 2 upserted against 100 already there
+	defer srv.Close()
+	repo := &fakeVetRepo{activeBefore: 100}
+
+	res, err := newTestImporter(repo, srv.URL).Run(context.Background(), RunOptions{ForceSweep: true})
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if res.SweepSkipped != "" {
+		t.Errorf("SweepSkipped = %q, want the sweep to have run", res.SweepSkipped)
+	}
+	if repo.sweptCutoff == nil {
+		t.Error("the operator asked for the sweep explicitly and it still did not run")
+	}
+	if !res.SweepForced {
+		t.Error("a forced sweep has to be legible afterwards, in the body and in the log")
+	}
+}
+
+// This is the line that matters, and it is not symmetry: the threshold doubts
+// OSM, but upsert_failures doubts US. Sweeping while our own writes are failing
+// retires clinics that are alive upstream — and no operator pressing a button
+// can know that from the outside, so the button must not be able to reach it.
+func TestRun_ForceSweepStillRespectsUpsertFailures(t *testing.T) {
+	srv := overpassStub(t, 100)
+	defer srv.Close()
+	repo := &fakeVetRepo{activeBefore: 100, upsertErr: errors.New("connection reset")}
+
+	res, err := newTestImporter(repo, srv.URL).Run(context.Background(), RunOptions{ForceSweep: true})
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if res.SweepSkipped != "upsert_failures" {
+		t.Errorf("SweepSkipped = %q, want \"upsert_failures\"", res.SweepSkipped)
+	}
+	if repo.sweptCutoff != nil {
+		t.Error("forcing reached the guard that protects against our own failed writes")
+	}
+	if res.SweepForced {
+		t.Error("nothing was forced: the run was blocked by the other guard")
+	}
+}
+
 // A failed upsert leaves a live row with a stale last_synced_at, which the sweep
 // would read as "OSM dropped it". It did not — our write failed.
 func TestRun_UpsertFailureBlocksSweep(t *testing.T) {
@@ -236,7 +324,7 @@ func TestRun_UpsertFailureBlocksSweep(t *testing.T) {
 	defer srv.Close()
 	repo := &fakeVetRepo{activeBefore: 100, upsertErr: errors.New("connection reset")}
 
-	res, err := newTestImporter(repo, srv.URL).Run(context.Background())
+	res, err := newTestImporter(repo, srv.URL).Run(context.Background(), RunOptions{})
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -264,7 +352,7 @@ func TestRun_MissingCoordsDoesNotBlockSweep(t *testing.T) {
 	defer srv.Close()
 	repo := &fakeVetRepo{activeBefore: 1}
 
-	res, err := newTestImporter(repo, srv.URL).Run(context.Background())
+	res, err := newTestImporter(repo, srv.URL).Run(context.Background(), RunOptions{})
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -282,7 +370,7 @@ func TestRun_EmptyTableStillSweeps(t *testing.T) {
 	defer srv.Close()
 	repo := &fakeVetRepo{activeBefore: 0}
 
-	res, err := newTestImporter(repo, srv.URL).Run(context.Background())
+	res, err := newTestImporter(repo, srv.URL).Run(context.Background(), RunOptions{})
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -301,7 +389,7 @@ func TestRun_PartialUpsertFailureBlocksSweepEvenAboveThreshold(t *testing.T) {
 	defer srv.Close()
 	repo := &fakeVetRepo{activeBefore: 100, failFirst: 1}
 
-	res, err := newTestImporter(repo, srv.URL).Run(context.Background())
+	res, err := newTestImporter(repo, srv.URL).Run(context.Background(), RunOptions{})
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}

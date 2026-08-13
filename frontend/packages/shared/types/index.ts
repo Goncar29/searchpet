@@ -877,4 +877,6 @@ export interface VetImportResult {
   active_before: number;
   /** Present only when a guard blocked the deletion pass. */
   sweep_skipped?: string;
+  /** True when the operator overrode the threshold and the sweep then ran. */
+  sweep_forced?: boolean;
 }

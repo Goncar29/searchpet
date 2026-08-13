@@ -1172,11 +1172,16 @@ class APIClient {
     return this.request<AdminRoleResult>('POST', '/api/admin/users/admin-role', { email, grant });
   }
 
-  async importVets(): Promise<VetImportResult> {
+  /**
+   * Runs the OSM vets import. `forceSweep` lets the deletion pass proceed below
+   * the sanity threshold — the operator's exit from a guard that cannot untrip
+   * itself. It never reaches the guard that protects against failed writes.
+   */
+  async importVets(forceSweep = false): Promise<VetImportResult> {
     return this.request<VetImportResult>(
       'POST',
       '/api/admin/vets/import',
-      undefined,
+      { force_sweep: forceSweep },
       undefined,
       IMPORT_TIMEOUT_MS,
     );

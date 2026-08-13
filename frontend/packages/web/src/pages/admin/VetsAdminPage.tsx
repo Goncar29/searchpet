@@ -16,7 +16,9 @@ function Stat({ label, value }: { label: string; value: number }) {
 
 export function VetsAdminPage() {
   const { t } = useTranslation('admin');
-  const run = useMutation<VetImportResult>({ mutationFn: () => apiClient.importVets() });
+  const run = useMutation<VetImportResult, Error, boolean>({
+    mutationFn: (forceSweep: boolean) => apiClient.importVets(forceSweep),
+  });
 
   return (
     <div className="space-y-6">
@@ -31,7 +33,7 @@ export function VetsAdminPage() {
       <button
         type="button"
         onClick={() => {
-          if (window.confirm(t('vets.confirmRun'))) run.mutate();
+          if (window.confirm(t('vets.confirmRun'))) run.mutate(false);
         }}
         disabled={run.isPending}
         className="bg-primary text-white text-sm font-medium px-4 py-2 rounded-md disabled:opacity-60"
@@ -81,7 +83,40 @@ export function VetsAdminPage() {
                   }),
                 })}
               </p>
+
+              {/* The way out of a guard that cannot untrip itself. Offered ONLY
+                  for the threshold: the other guard fires when our own writes
+                  failed, and an operator has no way to see that from here, so
+                  it is not theirs to overrule. */}
+              {run.data.sweep_skipped === 'below_threshold' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (
+                      window.confirm(
+                        t('vets.confirmForceRun', {
+                          upserted: run.data!.upserted,
+                          activeBefore: run.data!.active_before,
+                        }),
+                      )
+                    ) {
+                      run.mutate(true);
+                    }
+                  }}
+                  disabled={run.isPending}
+                  className="mt-3 border border-amber-500 text-amber-900 dark:text-amber-200 text-sm font-medium px-3 py-1.5 rounded-md disabled:opacity-60"
+                >
+                  {t('vets.forceRun')}
+                </button>
+              )}
             </div>
+          )}
+
+          {/* A forced run must not read afterwards like an ordinary one. */}
+          {run.data.sweep_forced && (
+            <p className="text-sm text-amber-800 dark:text-amber-300">
+              {t('vets.sweepForcedNotice', { swept: run.data.swept })}
+            </p>
           )}
         </div>
       )}

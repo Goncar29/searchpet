@@ -17,7 +17,7 @@ import (
 // here keeps the handler testable with a fake and keeps the HTTP layer from
 // depending on a concrete importer.
 type VetImporter interface {
-	Run(ctx context.Context) (osmimport.Result, error)
+	Run(ctx context.Context, opts osmimport.RunOptions) (osmimport.Result, error)
 }
 
 // VetImportHandler exposes the OSM veterinary import to admins (RequireAdmin at
@@ -55,7 +55,13 @@ func (h *VetImportHandler) Import(c *gin.Context) {
 	}
 	defer h.running.Store(false)
 
-	res, err := h.importer.Run(c.Request.Context())
+	// The body is optional and so is every field in it, so a bind failure — no
+	// body at all, or malformed JSON — leaves the zero value and the run stays
+	// fully guarded. Failing open here would mean a typo could delete rows.
+	var req dto.VetImportRequest
+	_ = c.ShouldBindJSON(&req)
+
+	res, err := h.importer.Run(c.Request.Context(), osmimport.RunOptions{ForceSweep: req.ForceSweep})
 	if err != nil {
 		// The upstream error carries the endpoint and driver internals, so it goes
 		// to the log drain and never to the client.
@@ -83,6 +89,7 @@ func toVetImportResponse(r osmimport.Result) dto.VetImportResponse {
 		UpsertFailed:    r.UpsertFailed,
 		Swept:           r.Swept,
 		ActiveBefore:    r.ActiveBefore,
+		SweepForced:     r.SweepForced,
 		SweepSkipped:    r.SweepSkipped,
 	}
 }

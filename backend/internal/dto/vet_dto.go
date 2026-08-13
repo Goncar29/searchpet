@@ -56,6 +56,15 @@ func ToVetListResponse(rs []domain.VetNearbyResult) []VetResponse {
 // The mapping from osmimport.Result lives in the handler, not here: dto maps
 // from domain, and importing an infrastructure package into this layer would
 // invert the dependency direction the architecture rests on.
+// VetImportRequest is the optional body of POST /api/admin/vets/import. Every
+// field is optional: a run with no body at all is the ordinary, guarded import.
+type VetImportRequest struct {
+	// ForceSweep lets the deletion pass proceed below the sanity threshold. It is
+	// the operator's exit from a guard that cannot untrip itself, and it never
+	// reaches the guard that protects against our own failed writes.
+	ForceSweep bool `json:"force_sweep"`
+}
+
 type VetImportResponse struct {
 	Scanned         int    `json:"scanned"`
 	Upserted        int    `json:"upserted"`
@@ -64,4 +73,5 @@ type VetImportResponse struct {
 	Swept           int    `json:"swept"`
 	ActiveBefore    int64  `json:"active_before"`
 	SweepSkipped    string `json:"sweep_skipped,omitempty"`
+	SweepForced     bool   `json:"sweep_forced,omitempty"`
 }

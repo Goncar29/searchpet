@@ -58,6 +58,7 @@ describe('VetsAdminPage', () => {
     // Keys the locale files really define. Resolving them to themselves keeps the
     // assertions readable; anything absent behaves like a missing translation.
     translations['vets.sweepSkipped_below_threshold'] = 'vets.sweepSkipped_below_threshold';
+    translations['vets.sweepSkipped_upsert_failures'] = 'vets.sweepSkipped_upsert_failures';
     translations['vets.sweepSkipped_unknown'] = 'vets.sweepSkipped_unknown';
     // getErrorMessage falls back whenever t hands the key back, so these two have
     // to resolve to something that is not the key.
@@ -97,6 +98,43 @@ describe('VetsAdminPage', () => {
     // against is the operator's only handle on why. "2 upserted" says nothing
     // until you can see it was measured against 183.
     expect(screen.getByText('183')).toBeInTheDocument();
+  });
+
+  // The threshold guard cannot untrip itself, so without this button the only
+  // exit is an UPDATE against production.
+  it('offers the override after the threshold blocked the sweep, and forces on click', async () => {
+    mockedApi.importVets.mockResolvedValue({
+      scanned: 140, upserted: 140, skipped_no_coords: 0, upsert_failed: 0,
+      swept: 0, sweep_skipped: 'below_threshold', active_before: 183,
+    });
+    renderPage();
+
+    await userEvent.click(screen.getByRole('button', { name: 'vets.run' }));
+    const force = await screen.findByRole('button', { name: 'vets.forceRun' });
+
+    // The ordinary run must not force anything on its way here.
+    expect(mockedApi.importVets).toHaveBeenLastCalledWith(false);
+
+    await userEvent.click(force);
+    await waitFor(() => expect(mockedApi.importVets).toHaveBeenLastCalledWith(true));
+  });
+
+  // The other guard fires when OUR writes failed, which the operator cannot see
+  // from this screen. Offering the override there would hand them a button that
+  // retires clinics that are alive in OSM.
+  it('does not offer the override when the block came from failed writes', async () => {
+    mockedApi.importVets.mockResolvedValue({
+      scanned: 100, upserted: 99, skipped_no_coords: 0, upsert_failed: 1,
+      swept: 0, sweep_skipped: 'upsert_failures', active_before: 100,
+    });
+    renderPage();
+
+    await userEvent.click(screen.getByRole('button', { name: 'vets.run' }));
+
+    await waitFor(() =>
+      expect(screen.getByText('vets.sweepSkipped_upsert_failures')).toBeInTheDocument(),
+    );
+    expect(screen.queryByRole('button', { name: 'vets.forceRun' })).not.toBeInTheDocument();
   });
 
   // The run retires rows and the panel has no un-retire, so a misclick has to be

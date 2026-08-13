@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync"
 	"testing"
 
@@ -15,8 +16,11 @@ import (
 )
 
 type fakeImporter struct {
-	res     osmimport.Result
-	err     error
+	res  osmimport.Result
+	err  error
+	// gotOpts records what the handler passed down, which is the only way to tell
+	// "the body reached the importer" from "the handler ignored it".
+	gotOpts osmimport.RunOptions
 	started chan struct{} // closed on entry when non-nil
 	release chan struct{} // blocks Run until closed when non-nil
 	// startOnce guards the close(started) signal. The handler test re-enters
@@ -26,7 +30,8 @@ type fakeImporter struct {
 	startOnce sync.Once
 }
 
-func (f *fakeImporter) Run(_ context.Context) (osmimport.Result, error) {
+func (f *fakeImporter) Run(_ context.Context, opts osmimport.RunOptions) (osmimport.Result, error) {
+	f.gotOpts = opts
 	if f.started != nil {
 		f.startOnce.Do(func() { close(f.started) })
 		<-f.release
@@ -82,6 +87,45 @@ func TestVetImportHandler_BlockedSweepIsVisibleInTheBody(t *testing.T) {
 	// and those two have opposite next steps.
 	if body["active_before"] != float64(183) {
 		t.Errorf("active_before missing from a blocked run, so the block cannot be diagnosed: %v", body)
+	}
+}
+
+func TestVetImportHandler_ForceSweepTravelsFromTheBody(t *testing.T) {
+	imp := &fakeImporter{res: osmimport.Result{Scanned: 2, Upserted: 2, Swept: 1, SweepForced: true}}
+	req := httptest.NewRequest(http.MethodPost, "/api/admin/vets/import",
+		strings.NewReader(`{"force_sweep":true}`))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	vetImportRouter(imp).ServeHTTP(w, req)
+
+	if !imp.gotOpts.ForceSweep {
+		t.Error("the operator asked to force the sweep and the handler dropped it")
+	}
+	var body map[string]any
+	_ = json.Unmarshal(w.Body.Bytes(), &body)
+	// A deletion pass that only happened because a human overrode a safety guard
+	// must not read afterwards like an ordinary import.
+	if body["sweep_forced"] != true {
+		t.Errorf("sweep_forced missing from a forced run: %v", body)
+	}
+}
+
+// The body is optional, so anything unreadable has to land on the guarded run.
+// Failing open here would turn a typo into a deletion.
+func TestVetImportHandler_AnUnreadableBodyDoesNotForceAnything(t *testing.T) {
+	for _, body := range []string{"", "{", `{"force_sweep":"yes"}`, `{"forceSweep":true}`} {
+		imp := &fakeImporter{res: osmimport.Result{Scanned: 2, Upserted: 2}}
+		req := httptest.NewRequest(http.MethodPost, "/api/admin/vets/import", strings.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		vetImportRouter(imp).ServeHTTP(w, req)
+
+		if imp.gotOpts.ForceSweep {
+			t.Errorf("body %q forced the sweep", body)
+		}
+		if w.Code != http.StatusOK {
+			t.Errorf("body %q: status = %d, want the run to proceed guarded", body, w.Code)
+		}
 	}
 }
 
