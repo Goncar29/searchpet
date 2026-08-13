@@ -136,10 +136,17 @@ type fakeVetRepo struct {
 	upsertErr    error
 	sweptCutoff  *time.Time
 	upserts      int
+	// failFirst makes the first N upserts fail, so a test can model a PARTIAL
+	// failure — the case where the threshold is satisfied and only guard 2 stands
+	// between a stale row and deletion.
+	failFirst int
 }
 
 func (f *fakeVetRepo) Upsert(_ context.Context, _ *domain.Vet) error {
 	f.upserts++
+	if f.failFirst > 0 && f.upserts <= f.failFirst {
+		return errors.New("write failed")
+	}
 	return f.upsertErr
 }
 
@@ -275,5 +282,31 @@ func TestRun_EmptyTableStillSweeps(t *testing.T) {
 	}
 	if res.SweepSkipped != "" {
 		t.Errorf("first-ever import blocked its own sweep: %q", res.SweepSkipped)
+	}
+}
+
+// The scenario guard 2 exists for, and the one the all-failures test cannot reach:
+// almost everything succeeds, so the threshold is satisfied and waves the run
+// through. The single row whose write failed is still in the table with a stale
+// last_synced_at — sweeping now would retire a clinic that is alive in OSM, and
+// nothing else would stop it.
+func TestRun_PartialUpsertFailureBlocksSweepEvenAboveThreshold(t *testing.T) {
+	srv := overpassStub(t, 100)
+	defer srv.Close()
+	repo := &fakeVetRepo{activeBefore: 100, failFirst: 1}
+
+	res, err := newTestImporter(repo, srv.URL).Run(context.Background())
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if res.Upserted != 99 || res.UpsertFailed != 1 {
+		t.Fatalf("wrong scenario: upserted=%d failed=%d", res.Upserted, res.UpsertFailed)
+	}
+	// 99 >= 0.8 * 100, so the threshold is NOT what blocks this one.
+	if res.SweepSkipped != "upsert_failures" {
+		t.Errorf("SweepSkipped = %q, want \"upsert_failures\"", res.SweepSkipped)
+	}
+	if repo.sweptCutoff != nil {
+		t.Error("swept with a live vet holding a stale timestamp")
 	}
 }
