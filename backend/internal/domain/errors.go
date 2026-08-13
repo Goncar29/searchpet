@@ -131,6 +131,10 @@ var (
 	ErrTicketRequired = errors.New("ticket requerido")
 	ErrTicketInvalid  = errors.New("ticket inválido o expirado")
 
+	// Vets
+	ErrVetImportRunning  = errors.New("ya hay una importación de veterinarias en curso")
+	ErrVetImportUpstream = errors.New("no se pudo consultar OpenStreetMap")
+
 	// General
 	ErrUnauthorized      = errors.New("no autorizado")
 	ErrForbidden         = errors.New("acceso prohibido")
@@ -264,6 +268,10 @@ var ErrorCodes = map[error]string{
 	// WebSocket
 	ErrTicketRequired: "ticket_required",
 	ErrTicketInvalid:  "ticket_invalid",
+
+	// Vets
+	ErrVetImportRunning:  "vet_import_running",
+	ErrVetImportUpstream: "vet_import_upstream_failed",
 
 	// General
 	ErrUnauthorized:      "unauthorized",

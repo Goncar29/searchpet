@@ -5,6 +5,7 @@ package app
 
 import (
 	"context"
+	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -15,11 +16,13 @@ import (
 	"lost-pets/internal/event"
 	"lost-pets/internal/handler"
 	"lost-pets/internal/middleware"
+	"lost-pets/internal/osmimport"
 	"lost-pets/internal/repository"
 	"lost-pets/internal/service"
 	ws "lost-pets/internal/websocket"
 	"lost-pets/pkg/database"
 	"lost-pets/pkg/googleauth"
+	"lost-pets/pkg/logger"
 	"lost-pets/pkg/mailer"
 	"lost-pets/pkg/notification"
 	"lost-pets/pkg/ratelimit"
@@ -278,6 +281,14 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 	passwordResetHandler := handler.NewPasswordResetHandler(passwordResetService)
 	gamHandler := handler.NewGamificationHandler(gamSvc)
 	reindexHandler := handler.NewReindexHandler(embeddingService, cfg.ReindexToken)
+	vetImportHandler := handler.NewVetImportHandler(osmimport.New(
+		vetRepo,
+		// 60 s against a measured 10.9 s round trip: ~5.5x headroom, and far below
+		// the 150 s the CLI can afford, because a browser is waiting on this one.
+		&http.Client{Timeout: 60 * time.Second},
+		osmimport.DefaultOverpassEndpoint,
+		logger.Get(),
+	))
 	opsQuotaHandler := handler.NewOpsQuotaHandler(
 		service.NewOpsQuotaService(verificationTokenRepo),
 		cfg.OpsStatusToken,
@@ -533,6 +544,8 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 		admin.POST("/admin/shelters/:id/reject", shelterHandler.Reject)
 		admin.POST("/admin/shelters/:id/links/approve", shelterHandler.ApproveLinks)
 		admin.POST("/admin/shelters/:id/links/reject", shelterHandler.RejectLinks)
+
+		admin.POST("/admin/vets/import", vetImportHandler.Import)
 	}
 
 	return router

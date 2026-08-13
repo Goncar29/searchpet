@@ -3,6 +3,7 @@ package dto
 import (
 	"github.com/google/uuid"
 	"lost-pets/internal/domain"
+	"lost-pets/internal/osmimport"
 )
 
 // VetResponse son los datos públicos de una veterinaria devueltos al cliente.
@@ -41,4 +42,31 @@ func ToVetListResponse(rs []domain.VetNearbyResult) []VetResponse {
 		out[i] = ToVetResponse(r)
 	}
 	return out
+}
+
+// VetImportResponse is the outcome of one OSM import run.
+//
+// sweep_skipped is present ONLY when a guard blocked the deletion pass. An
+// operator has to be able to tell "nothing was stale" (swept: 0, no reason) from
+// "we refused to delete" (swept: 0, with a reason) — collapsing those two into a
+// bare zero is how a broken import looks identical to a clean one.
+type VetImportResponse struct {
+	Scanned         int    `json:"scanned"`
+	Upserted        int    `json:"upserted"`
+	SkippedNoCoords int    `json:"skipped_no_coords"`
+	UpsertFailed    int    `json:"upsert_failed"`
+	Swept           int    `json:"swept"`
+	SweepSkipped    string `json:"sweep_skipped,omitempty"`
+}
+
+// ToVetImportResponse maps an importer Result onto its HTTP shape.
+func ToVetImportResponse(r osmimport.Result) VetImportResponse {
+	return VetImportResponse{
+		Scanned:         r.Scanned,
+		Upserted:        r.Upserted,
+		SkippedNoCoords: r.SkippedNoCoords,
+		UpsertFailed:    r.UpsertFailed,
+		Swept:           r.Swept,
+		SweepSkipped:    r.SweepSkipped,
+	}
 }
