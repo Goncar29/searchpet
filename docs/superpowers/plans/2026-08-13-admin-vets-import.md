@@ -28,6 +28,17 @@ Postgres must be up: `docker compose up -d db redis`, wait for `lostpets-db` to 
 
 **Never point `DATABASE_URL` at `lostpets`** — that is the developer's seeded database and the tests truncate it.
 
+**A task that changes an interface must run `go build ./...` before it commits.** Adding a method
+to `repository.VetRepository` breaks every mock that implements it, and a package-scoped test run
+cannot see that: the broken mock lives in a package the task never touches. Task 2 committed
+exactly this break on 2026-08-13 — `mockVetRepo` in `internal/service/vet_service_test.go` — and
+it stayed invisible until Task 3 reached the full suite nine minutes into a run. `go build ./...`
+takes seconds and would have caught it immediately.
+
+**Restoring after a red-check: edit the line back, never `git checkout -- <file>`.** That command
+restores to the last *commit*, not to one edit ago, so in the TDD order used here (implement →
+verify red → commit) it destroys the implementation you have not committed yet.
+
 ## File structure
 
 | File | Responsibility | Action |
