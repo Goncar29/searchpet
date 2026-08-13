@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Circle, useMapEvents, useMap } from 'react-leaflet';
 import { shouldShowSearchHere } from '@shared/utils/searchArea';
+import { vetLayerRadiusMeters } from '@shared/utils/vetLayerRadius';
 import { useTranslation } from 'react-i18next';
 import { useNearbyReports, useNearbyVets } from '@shared/hooks';
 import type { Report, Vet } from '@shared/types';
@@ -79,7 +80,13 @@ export function MapPage() {
     searchCenter[0], searchCenter[1], radius, true, applied,
   );
   const [showVets, setShowVets] = useState(false);
-  const { data: vets } = useNearbyVets(searchCenter[0], searchCenter[1], 5000, showVets);
+  // Estaba hardcodeado en 5000 e ignoraba el selector: con el radio en 10 km los
+  // reportes se estiraban y las veterinarias no. La regla (seguir al selector,
+  // con piso) vive en shared/ para que web y mobile no la escriban por separado
+  // — que fue como se colo el bug.
+  const { data: vets } = useNearbyVets(
+    searchCenter[0], searchCenter[1], vetLayerRadiusMeters(radius), showVets,
+  );
 
   const canSearchHere = shouldShowSearchHere(
     { lat: mapCenter[0], lng: mapCenter[1] },

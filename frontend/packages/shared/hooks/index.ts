@@ -8,6 +8,9 @@ export * from './useImageClassify';
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../api/client';
+// El default de useNearbyVets sale de aca y no de un 5000 propio: el bug que se
+// arreglo fue esa misma constante copiada en dos lugares que despues divergieron.
+import { VET_LAYER_MIN_RADIUS_METERS } from '../utils/vetLayerRadius';
 import type {
   CreatePetRequest,
   UpdatePetRequest,
@@ -365,9 +368,17 @@ export const useNearbyReports = (
   };
 };
 
-// radiusMeters en metros (default 5000). enabled=false por defecto: la query
+// radiusMeters en metros; el default es VET_LAYER_MIN_RADIUS_METERS y NO se
+// nombra su valor aca a proposito: escribir "5000" en la prosa reintroduce la
+// copia que este cambio vino a eliminar, con el agravante de que un comentario
+// desactualizado no lo caza ningun test. enabled=false por defecto: la query
 // solo dispara cuando la UI lo activa ("buscar en esta zona" / toggle de capa).
-export const useNearbyVets = (lat: number, lng: number, radiusMeters = 5000, enabled = false) => {
+export const useNearbyVets = (
+  lat: number,
+  lng: number,
+  radiusMeters: number = VET_LAYER_MIN_RADIUS_METERS,
+  enabled = false,
+) => {
   return useQuery<Vet[]>({
     queryKey: ['vets', 'nearby', lat, lng, radiusMeters],
     queryFn: () => apiClient.getNearbyVets({ lat, lng, radius: radiusMeters }),

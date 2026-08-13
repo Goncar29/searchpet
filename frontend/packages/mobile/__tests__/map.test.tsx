@@ -59,10 +59,14 @@ jest.mock('../store', () => ({
 
 // Named with the `mock` prefix so jest's hoisting allows referencing it inside the factory.
 const mockUseNearbyReports = jest.fn(() => ({ data: [], isLoading: false }));
+// Idem, y NO un jest.fn() suelto dentro del factory: asi definido, nadie puede
+// leer con que argumentos se llamo, y el bug que se arreglo aca era justamente
+// un argumento equivocado en el call site.
+const mockUseNearbyVets = jest.fn(() => ({ data: [], isLoading: false }));
 
 jest.mock('@shared/hooks', () => ({
   useNearbyReports: (...args: unknown[]) => mockUseNearbyReports(...args),
-  useNearbyVets: jest.fn(() => ({ data: [], isLoading: false })),
+  useNearbyVets: (...args: unknown[]) => mockUseNearbyVets(...args),
 }));
 
 jest.mock('react-i18next', () => ({
@@ -164,6 +168,20 @@ describe('MapScreen', () => {
     const calls = mockUseNearbyReports.mock.calls as unknown[][];
     const lastCall = calls[calls.length - 1];
     expect(lastCall[0]).toBeCloseTo(-34.8511, 3); // new search lat
+  });
+
+  // El bug arreglado era del CALL SITE: un 5000 hardcodeado que ignoraba el
+  // selector. El test de shared/utils/vetLayerRadius no puede cazar eso —
+  // prueba la funcion pura, no quien la llama. Sin esta asercion, re-hardcodear
+  // el radio en map.tsx deja toda la suite de mobile en verde.
+  it('la capa de veterinarias sigue el selector de radio', () => {
+    mockUseNearbyVets.mockClear();
+    render(<MapScreen />);
+
+    fireEvent.press(screen.getByText('10km'));
+
+    const calls = mockUseNearbyVets.mock.calls as unknown[][];
+    expect(calls[calls.length - 1][2]).toBe(10_000);
   });
 
   it('shows the empty-state when vets are enabled but none are nearby', () => {

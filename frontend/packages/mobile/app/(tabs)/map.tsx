@@ -18,6 +18,7 @@ import i18next from 'i18next';
 import * as Location from 'expo-location';
 import { useNearbyReports, useNearbyVets } from '../../../shared/hooks';
 import { shouldShowSearchHere } from '../../../shared/utils/searchArea';
+import { vetLayerRadiusMeters } from '../../../shared/utils/vetLayerRadius';
 import { useLocationStore } from '../../store';
 import { COLORS, SPACING, FONTS, MAP_DEFAULTS } from '../../constants';
 import type { Report, Vet } from '../../../shared/types';
@@ -100,7 +101,12 @@ export default function MapScreen() {
 
   const [showVets, setShowVets] = useState(false);
   const [selectedVet, setSelectedVet] = useState<Vet | null>(null);
-  const { data: vets } = useNearbyVets(searchCenter[0], searchCenter[1], 5000, showVets);
+  // Estaba hardcodeado en 5000 e ignoraba el selector, igual que en la web. La
+  // regla (seguir al selector, con piso) vive en shared/ para que las dos
+  // pantallas no la escriban por separado — que fue como se colo el bug.
+  const { data: vets } = useNearbyVets(
+    searchCenter[0], searchCenter[1], vetLayerRadiusMeters(radius), showVets,
+  );
 
   const circleGeoJSON = createCircleGeoJSON(searchCenter[1], searchCenter[0], radius);
 
