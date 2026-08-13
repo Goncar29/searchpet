@@ -50,6 +50,16 @@ type overpassResponse struct {
 	Elements []overpassElement `json:"elements"`
 }
 
+// sweepMinRatio is the share of the existing OSM rows a run must re-upsert before
+// it is allowed to delete anything. It defends the ugly failure mode: Overpass
+// answering 200 with a short body and no error, which a blind sweep would read as
+// "OpenStreetMap dropped almost every vet in Uruguay".
+//
+// 0.8 is judgement, not measurement — the real run re-upserts ~100%. If it ever
+// blocks a legitimate import, that is the number to revisit, and revisiting it
+// means looking at what OSM actually did, not at this file.
+const sweepMinRatio = 0.8
+
 // Result summarizes an import run.
 type Result struct {
 	Scanned  int
@@ -87,9 +97,21 @@ func New(repo repository.VetRepository, client *http.Client, endpoint string, lo
 	}
 }
 
-// Run fetches Uruguay vets from Overpass and upserts each into the vets table.
+// Run fetches Uruguay vets from Overpass, upserts each into the vets table, and
+// then soft-deletes the rows this run did not touch — but only if the run passes
+// both guards (see sweepReason).
 func (i *Importer) Run(ctx context.Context) (Result, error) {
 	var res Result
+
+	// Captured BEFORE the fetch: every successful upsert writes a later
+	// last_synced_at, so whatever stays behind this instant is what OSM no
+	// longer lists.
+	cutoff := time.Now()
+
+	activeBefore, err := i.repo.CountActiveOSM(ctx)
+	if err != nil {
+		return res, fmt.Errorf("osmimport: count active: %w", err)
+	}
 
 	body, err := i.fetch(ctx)
 	if err != nil {
@@ -118,10 +140,42 @@ func (i *Importer) Run(ctx context.Context) (Result, error) {
 		res.Upserted++
 	}
 
+	res.SweepSkipped = sweepReason(res, activeBefore)
+	if res.SweepSkipped == "" {
+		swept, err := i.repo.SoftDeleteStaleBefore(ctx, cutoff)
+		if err != nil {
+			return res, fmt.Errorf("osmimport: sweep: %w", err)
+		}
+		res.Swept = int(swept)
+	} else {
+		i.logger.Warn("[osmimport] sweep skipped",
+			zap.String("reason", res.SweepSkipped),
+			zap.Int("upserted", res.Upserted), zap.Int64("active_before", activeBefore))
+	}
+
 	i.logger.Info("[osmimport] done",
 		zap.Int("scanned", res.Scanned), zap.Int("upserted", res.Upserted),
-		zap.Int("skipped_no_coords", res.SkippedNoCoords), zap.Int("upsert_failed", res.UpsertFailed))
+		zap.Int("skipped_no_coords", res.SkippedNoCoords), zap.Int("upsert_failed", res.UpsertFailed),
+		zap.Int("swept", res.Swept), zap.String("sweep_skipped", res.SweepSkipped))
 	return res, nil
+}
+
+// sweepReason returns "" when the run earned the right to delete rows, or the name
+// of the guard that blocked it.
+//
+// Both conditions protect against the same thing from opposite directions: rows
+// whose last_synced_at is stale for a reason that is OUR fault rather than OSM's.
+func sweepReason(res Result, activeBefore int64) string {
+	// Our writes failed, so those rows kept an old timestamp while still existing
+	// in OSM. Sweeping now would delete live clinics.
+	if res.UpsertFailed > 0 {
+		return "upsert_failures"
+	}
+	// The response was too small to be believable against what we already have.
+	if float64(res.Upserted) < sweepMinRatio*float64(activeBefore) {
+		return "below_threshold"
+	}
+	return ""
 }
 
 // fetch POSTs the Overpass QL query and returns the raw response body.
