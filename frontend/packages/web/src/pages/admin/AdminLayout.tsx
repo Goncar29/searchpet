@@ -9,6 +9,7 @@ const navLinks = [
   { to: '/admin/shelters', labelKey: 'nav.shelters' },
   { to: '/admin/foster-homes', labelKey: 'nav.fosterHomes' },
   { to: '/admin/impact', labelKey: 'nav.impact' },
+  { to: '/admin/vets', labelKey: 'nav.vets' },
 ];
 
 export function AdminLayout() {

@@ -46,6 +46,7 @@ import { FosterHomeDetailPage } from './pages/FosterHomeDetailPage';
 import { RegisterFosterHomePage } from './pages/RegisterFosterHomePage';
 import { MyFosterHomePage } from './pages/MyFosterHomePage';
 import { FosterHomesAdminPage } from './pages/admin/FosterHomesAdminPage';
+import { VetsAdminPage } from './pages/admin/VetsAdminPage';
 
 // Preserves the :id param when redirecting the legacy foster-home detail path.
 function FosterHomeLegacyRedirect() {
@@ -116,6 +117,7 @@ export default function App() {
               <Route path="shelters" element={<SheltersAdminPage />} />
               <Route path="foster-homes" element={<FosterHomesAdminPage />} />
               <Route path="impact" element={<ImpactPage />} />
+              <Route path="vets" element={<VetsAdminPage />} />
             </Route>
           </Route>
         </Route>

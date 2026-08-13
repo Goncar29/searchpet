@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"go.uber.org/zap"
-	"gorm.io/gorm"
 	"lost-pets/internal/domain"
 	"lost-pets/internal/repository"
 )
@@ -51,11 +50,44 @@ type overpassResponse struct {
 	Elements []overpassElement `json:"elements"`
 }
 
+// sweepMinRatio is the share of the existing OSM rows a run must re-upsert before
+// it is allowed to delete anything. It defends the ugly failure mode: Overpass
+// answering 200 with a short body and no error, which a blind sweep would read as
+// "OpenStreetMap dropped almost every vet in Uruguay".
+//
+// 0.8 is judgement, not measurement — the real run re-upserts ~100%. If it ever
+// blocks a legitimate import, that is the number to revisit, and revisiting it
+// means looking at what OSM actually did, not at this file.
+const sweepMinRatio = 0.8
+
 // Result summarizes an import run.
 type Result struct {
 	Scanned  int
 	Upserted int
-	Skipped  int
+	// SkippedNoCoords counts OSM elements with no usable coordinates. It does NOT
+	// block the sweep: a clinic we cannot place on a map is one we cannot show
+	// either, so retiring it is the honest outcome.
+	//
+	// Note what that costs, because it is not "these rows were never ours": a way
+	// imported earlier WITH a center that comes back without one (broken geometry
+	// upstream) is still listed in OSM and still gets swept. Soft delete makes it
+	// self-healing — the next run with a usable center resurrects it through
+	// Upsert — which is why this is acceptable rather than guarded against.
+	SkippedNoCoords int
+	// UpsertFailed counts rows whose write failed. These ARE in the table with a
+	// stale last_synced_at, so a sweep would delete a vet that is alive in OSM.
+	// Keeping this separate from SkippedNoCoords is what lets guard 2 be correct.
+	UpsertFailed int
+	// Swept counts rows soft-deleted because OSM no longer lists them.
+	Swept int
+	// SweepSkipped names the guard that blocked the sweep, or "" when it ran.
+	SweepSkipped string
+	// ActiveBefore is how many live OSM rows existed when the run started — the
+	// denominator of the threshold guard. It travels all the way to the response
+	// on purpose: without it an operator reads "140 saved, 0 retired" and cannot
+	// see the 183 that blocked the sweep, which is the one number that explains
+	// the outcome.
+	ActiveBefore int64
 }
 
 // Importer pulls OSM vets and upserts them via the repository.
@@ -67,18 +99,33 @@ type Importer struct {
 }
 
 // New builds an Importer. Pass DefaultOverpassEndpoint unless overriding for tests.
-func New(db *gorm.DB, client *http.Client, endpoint string, log *zap.Logger) *Importer {
+// It takes the repository rather than a *gorm.DB so the HTTP handler can drive the
+// same importer the CLI does, without either one owning a database handle.
+func New(repo repository.VetRepository, client *http.Client, endpoint string, log *zap.Logger) *Importer {
 	return &Importer{
-		repo:       repository.NewVetRepository(db),
+		repo:       repo,
 		httpClient: client,
 		endpoint:   endpoint,
 		logger:     log,
 	}
 }
 
-// Run fetches Uruguay vets from Overpass and upserts each into the vets table.
+// Run fetches Uruguay vets from Overpass, upserts each into the vets table, and
+// then soft-deletes the rows this run did not touch — but only if the run passes
+// both guards (see sweepReason).
 func (i *Importer) Run(ctx context.Context) (Result, error) {
 	var res Result
+
+	// Captured BEFORE the fetch: every successful upsert writes a later
+	// last_synced_at, so whatever stays behind this instant is what OSM no
+	// longer lists.
+	cutoff := time.Now()
+
+	activeBefore, err := i.repo.CountActiveOSM(ctx)
+	if err != nil {
+		return res, fmt.Errorf("osmimport: count active: %w", err)
+	}
+	res.ActiveBefore = activeBefore
 
 	body, err := i.fetch(ctx)
 	if err != nil {
@@ -95,21 +142,63 @@ func (i *Importer) Run(ctx context.Context) (Result, error) {
 		if !ok {
 			i.logger.Warn("[osmimport] skipping element without usable coords",
 				zap.String("type", el.Type), zap.Int64("id", el.ID))
-			res.Skipped++
+			res.SkippedNoCoords++
 			continue
 		}
 		if err := i.repo.Upsert(ctx, vet); err != nil {
 			i.logger.Warn("[osmimport] upsert failed",
 				zap.String("osm_type", vet.OSMType), zap.Int64("osm_id", vet.OSMID), zap.Error(err))
-			res.Skipped++
+			res.UpsertFailed++
 			continue
 		}
 		res.Upserted++
 	}
 
+	res.SweepSkipped = sweepReason(res, activeBefore)
+	if res.SweepSkipped == "" {
+		swept, err := i.repo.SoftDeleteStaleBefore(ctx, cutoff)
+		if err != nil {
+			return res, fmt.Errorf("osmimport: sweep: %w", err)
+		}
+		res.Swept = int(swept)
+	} else {
+		i.logger.Warn("[osmimport] sweep skipped",
+			zap.String("reason", res.SweepSkipped),
+			zap.Int("upserted", res.Upserted), zap.Int64("active_before", activeBefore))
+	}
+
 	i.logger.Info("[osmimport] done",
-		zap.Int("scanned", res.Scanned), zap.Int("upserted", res.Upserted), zap.Int("skipped", res.Skipped))
+		zap.Int("scanned", res.Scanned), zap.Int("upserted", res.Upserted),
+		zap.Int("skipped_no_coords", res.SkippedNoCoords), zap.Int("upsert_failed", res.UpsertFailed),
+		zap.Int("swept", res.Swept), zap.String("sweep_skipped", res.SweepSkipped))
 	return res, nil
+}
+
+// sweepReason returns "" when the run earned the right to delete rows, or the name
+// of the guard that blocked it.
+//
+// Both conditions protect against the same thing from opposite directions: rows
+// whose last_synced_at is stale for a reason that is OUR fault rather than OSM's.
+func sweepReason(res Result, activeBefore int64) string {
+	// Our writes failed, so those rows kept an old timestamp while still existing
+	// in OSM. Sweeping now would delete live clinics.
+	if res.UpsertFailed > 0 {
+		return "upsert_failures"
+	}
+	// The response was too small to be believable against what we already have.
+	//
+	// KNOWN LIMITATION, and it is a trap worth naming: this guard cannot untrip
+	// itself. activeBefore is what the table holds, and a blocked sweep changes
+	// nothing, so a LEGITIMATE drop below the ratio (an upstream retagging
+	// campaign, say) blocks every future run with identical inputs — for good.
+	// There is deliberately no override yet: a force flag on a pass that deletes
+	// rows deserves its own design, not a one-line escape hatch. Until then the
+	// exit is manual, which is why ActiveBefore rides along in the response and
+	// the UI names both numbers instead of telling the operator to try later.
+	if float64(res.Upserted) < sweepMinRatio*float64(activeBefore) {
+		return "below_threshold"
+	}
+	return ""
 }
 
 // fetch POSTs the Overpass QL query and returns the raw response body.

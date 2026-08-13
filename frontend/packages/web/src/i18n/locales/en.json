@@ -11,7 +11,8 @@
       "admins": "Administrators",
       "shelters": "Shelters",
       "fosterHomes": "Foster homes",
-      "impact": "Impact"
+      "impact": "Impact",
+      "vets": "Veterinary clinics"
     },
     "abuse": {
       "title": "Abuse Reports",
@@ -144,6 +145,25 @@
       "confirmReject": "Confirm rejection",
       "cancel": "Cancel",
       "actionError": "The action could not be completed."
+    },
+    "vets": {
+      "title": "Veterinary clinics (OpenStreetMap)",
+      "description": "Re-reads veterinary clinics from OpenStreetMap and retires the ones it no longer lists. Takes a few seconds.",
+      "run": "Import now",
+      "running": "Importing…",
+      "resultTitle": "Last run",
+      "scanned": "Read from OSM",
+      "upserted": "Saved",
+      "skippedNoCoords": "Without coordinates",
+      "upsertFailed": "Failed to save",
+      "swept": "Retired",
+      "sweepSkippedTitle": "Nothing was retired",
+      "activeBefore": "Active before",
+      "confirmRun": "This re-reads OpenStreetMap and retires the clinics it no longer lists. Retirements are reversible, but only from the database. Continue?",
+      "sweepSkipped_below_threshold": "OpenStreetMap returned {{upserted}} clinics and we already had {{activeBefore}} active. That is a drop of more than 20%, so nothing was retired: it may be a truncated Overpass response. If you retry and the number repeats, the drop is real — and this block does not clear itself, those rows have to be retired by hand.",
+      "sweepSkipped_upsert_failures": "Some clinics could not be saved, so nothing was deleted: a removal might have been our own fault.",
+      "sweepSkipped_unknown": "Nothing was retired. The server reported a reason this screen cannot explain yet: {{reason}}.",
+      "error": "The import could not be completed."
     }
   },
   "pagination": {

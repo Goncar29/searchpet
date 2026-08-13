@@ -42,3 +42,26 @@ func ToVetListResponse(rs []domain.VetNearbyResult) []VetResponse {
 	}
 	return out
 }
+
+// VetImportResponse is the outcome of one OSM import run.
+//
+// sweep_skipped is present ONLY when a guard blocked the deletion pass. An
+// operator has to be able to tell "nothing was stale" (swept: 0, no reason) from
+// "we refused to delete" (swept: 0, with a reason) — collapsing those two into a
+// bare zero is how a broken import looks identical to a clean one.
+// active_before is the threshold guard's denominator. It ships even on a clean
+// run because the only way to read a blocked sweep is against the number it was
+// measured against.
+//
+// The mapping from osmimport.Result lives in the handler, not here: dto maps
+// from domain, and importing an infrastructure package into this layer would
+// invert the dependency direction the architecture rests on.
+type VetImportResponse struct {
+	Scanned         int    `json:"scanned"`
+	Upserted        int    `json:"upserted"`
+	SkippedNoCoords int    `json:"skipped_no_coords"`
+	UpsertFailed    int    `json:"upsert_failed"`
+	Swept           int    `json:"swept"`
+	ActiveBefore    int64  `json:"active_before"`
+	SweepSkipped    string `json:"sweep_skipped,omitempty"`
+}

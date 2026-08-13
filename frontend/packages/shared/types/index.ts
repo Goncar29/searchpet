@@ -865,3 +865,16 @@ export interface AdminRoleResult {
   is_admin: boolean;
   no_change: boolean;
 }
+
+/** Outcome of one OSM veterinary import run. */
+export interface VetImportResult {
+  scanned: number;
+  upserted: number;
+  skipped_no_coords: number;
+  upsert_failed: number;
+  swept: number;
+  /** Live OSM rows when the run started — the threshold guard's denominator. */
+  active_before: number;
+  /** Present only when a guard blocked the deletion pass. */
+  sweep_skipped?: string;
+}

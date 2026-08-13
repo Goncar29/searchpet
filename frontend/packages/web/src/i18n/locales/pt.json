@@ -11,7 +11,8 @@
       "admins": "Administradores",
       "shelters": "Abrigos",
       "fosterHomes": "Lares temporários",
-      "impact": "Impacto"
+      "impact": "Impacto",
+      "vets": "Veterinárias"
     },
     "abuse": {
       "title": "Denúncias de abuso",
@@ -144,6 +145,25 @@
       "confirmReject": "Confirmar rejeição",
       "cancel": "Cancelar",
       "actionError": "Não foi possível concluir a ação."
+    },
+    "vets": {
+      "title": "Veterinárias (OpenStreetMap)",
+      "description": "Relê as veterinárias do OpenStreetMap e retira as que já não constam lá. Leva alguns segundos.",
+      "run": "Importar agora",
+      "running": "Importando…",
+      "resultTitle": "Última execução",
+      "scanned": "Lidas do OSM",
+      "upserted": "Salvas",
+      "skippedNoCoords": "Sem coordenadas",
+      "upsertFailed": "Falharam ao salvar",
+      "swept": "Retiradas",
+      "sweepSkippedTitle": "Nada foi retirado",
+      "activeBefore": "Ativas antes",
+      "confirmRun": "Isto relê o OpenStreetMap e retira as veterinárias que já não constam lá. As retiradas podem ser revertidas, mas só pelo banco de dados. Continuar?",
+      "sweepSkipped_below_threshold": "O OpenStreetMap devolveu {{upserted}} veterinárias e já tínhamos {{activeBefore}} ativas. A queda passa de 20%, então nada foi retirado: pode ser uma resposta truncada do Overpass. Se tentar de novo e o número se repetir, a queda é real — e este bloqueio não se desfaz sozinho, essas linhas têm de ser retiradas na mão.",
+      "sweepSkipped_upsert_failures": "Algumas veterinárias não puderam ser salvas, então nada foi apagado: uma remoção poderia ter sido erro nosso.",
+      "sweepSkipped_unknown": "Nada foi retirado. O servidor informou um motivo que esta tela ainda não sabe explicar: {{reason}}.",
+      "error": "Não foi possível concluir a importação."
     }
   },
   "pagination": {
