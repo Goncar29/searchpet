@@ -18,8 +18,9 @@ const (
 	// El numero esta medido, no elegido: OpenStreetMap tiene 181 amenity=veterinary
 	// en TODO Uruguay (Overpass, 2026-08-12) y el radio esta topeado en 50 km mas
 	// arriba, asi que 500 es ~2,7 veces el pais entero y no puede recortar en la
-	// practica. En el peor caso son ~93 KB de respuesta. Si algun dia la tabla deja
-	// de venir sola de OSM, este numero hay que volver a medirlo.
+	// practica. El techo teorico de payload es ~93 KB, pero el real hoy es ~34 KB:
+	// no se pueden devolver 500 filas de una tabla que tiene 181. Si algun dia la
+	// tabla deja de venir sola de OSM, los dos numeros hay que volver a medirlos.
 	vetResultLimit = 500
 )
 

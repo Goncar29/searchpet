@@ -29,7 +29,8 @@ import (
 // comentario de vetResultLimit.
 func TestVetService_FindNearby_NoTruncaLoQueEntraEnElRadio(t *testing.T) {
 	db := testdb.SetupTestDB(t)
-	svc := service.NewVetService(repository.NewVetRepository(db))
+	repo := repository.NewVetRepository(db)
+	svc := service.NewVetService(repo)
 
 	const lat, lng = -34.9011, -56.1645
 	const dentroDelRadio = 69
@@ -37,7 +38,7 @@ func TestVetService_FindNearby_NoTruncaLoQueEntraEnElRadio(t *testing.T) {
 	// 0.0005 grados de latitud son ~55 m, asi que la numero 69 queda a ~3,8 km:
 	// todas dentro de los 5 km que se consultan abajo.
 	for i := 1; i <= dentroDelRadio; i++ {
-		seedVet(t, repository.NewVetRepository(db), int64(9000+i),
+		seedVet(t, repo, int64(9000+i),
 			fmt.Sprintf("Veterinaria %02d", i), lat+0.0005*float64(i), lng)
 	}
 
