@@ -10,7 +10,17 @@ import (
 const (
 	defaultVetRadiusMeters = 5000
 	maxVetRadiusMeters     = 50000
-	vetResultLimit         = 50
+	// Techo de seguridad del payload, NO un tope de negocio: con 50 recortaba de
+	// verdad. El recorte se aplica DESPUES de ordenar por distancia (ver
+	// vet_repository.go), asi que las mas lejanas desaparecian del mapa sin error,
+	// sin contador y sin log — y quien miraba concluia que no existian.
+	//
+	// El numero esta medido, no elegido: OpenStreetMap tiene 181 amenity=veterinary
+	// en TODO Uruguay (Overpass, 2026-08-12) y el radio esta topeado en 50 km mas
+	// arriba, asi que 500 es ~2,7 veces el pais entero y no puede recortar en la
+	// practica. En el peor caso son ~93 KB de respuesta. Si algun dia la tabla deja
+	// de venir sola de OSM, este numero hay que volver a medirlo.
+	vetResultLimit = 500
 )
 
 // VetService defines the business logic for nearby veterinary queries.
