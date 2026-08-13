@@ -204,6 +204,33 @@ describe('MapPage', () => {
     expect(lastCall[2]).toBe(10);
   });
 
+  // La capa de veterinarias pedia 5000 m FIJOS mientras los reportes seguian el
+  // selector, asi que las dos capas del mismo mapa miraban radios distintos: con
+  // el radio en 10 km los reportes se estiraban y las veterinarias no. El hook
+  // toma METROS, el selector da KILOMETROS.
+  it('la capa de veterinarias sigue el selector cuando se abre el radio', async () => {
+    mockUseNearbyVets.mockClear();
+    render(<MapPage />, { wrapper });
+
+    const select = screen.getByLabelText('map:radius');
+    await userEvent.selectOptions(select, '10');
+
+    const calls = mockUseNearbyVets.mock.calls as unknown[][];
+    const lastCall = calls[calls.length - 1];
+    expect(lastCall[2]).toBe(10_000);
+  });
+
+  // Sin el piso, el radio por defecto mostraria MENOS veterinarias que antes del
+  // arreglo (45 contra 50), o sea que la correccion habria agravado el sintoma
+  // que la origino.
+  it('la capa de veterinarias no baja del piso de 5 km con el radio por defecto', () => {
+    mockUseNearbyVets.mockClear();
+    render(<MapPage />, { wrapper });
+
+    const calls = mockUseNearbyVets.mock.calls as unknown[][];
+    expect(calls[calls.length - 1][2]).toBe(5_000);
+  });
+
   it('shows the "search this area" button after panning beyond the threshold', () => {
     fakeMap.getCenter.mockReturnValue({ lat: -34.9011, lng: -56.1645 });
     render(<MapPage />, { wrapper });
