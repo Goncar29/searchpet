@@ -33,6 +33,11 @@ type VetImportHandler struct {
 	// running serialises runs. Two concurrent imports would interleave their
 	// cutoffs and thresholds over each other's writes — exactly the state the
 	// guards reason about — and serialising is cheaper than reasoning about it.
+	//
+	// The scope is this PROCESS, not the service: a second instance would carry
+	// its own flag and could run in parallel. That holds today because the free
+	// tier runs one instance. If this ever scales out, the lock has to move to
+	// the database (an advisory lock, like WithChannelLock does for OTP quotas).
 	running atomic.Bool
 }
 
@@ -61,7 +66,23 @@ func (h *VetImportHandler) Import(c *gin.Context) {
 
 	logger.Get().Info("vet import completed",
 		zap.Int("scanned", res.Scanned), zap.Int("upserted", res.Upserted),
-		zap.Int("swept", res.Swept), zap.String("sweep_skipped", res.SweepSkipped))
+		zap.Int("swept", res.Swept), zap.String("sweep_skipped", res.SweepSkipped),
+		zap.Int64("active_before", res.ActiveBefore))
 
-	c.JSON(http.StatusOK, dto.ToVetImportResponse(res))
+	c.JSON(http.StatusOK, toVetImportResponse(res))
+}
+
+// toVetImportResponse maps the importer result onto its HTTP shape. It lives
+// here rather than in dto so that the DTO layer keeps mapping from domain only
+// and never takes a dependency on an infrastructure package.
+func toVetImportResponse(r osmimport.Result) dto.VetImportResponse {
+	return dto.VetImportResponse{
+		Scanned:         r.Scanned,
+		Upserted:        r.Upserted,
+		SkippedNoCoords: r.SkippedNoCoords,
+		UpsertFailed:    r.UpsertFailed,
+		Swept:           r.Swept,
+		ActiveBefore:    r.ActiveBefore,
+		SweepSkipped:    r.SweepSkipped,
+	}
 }

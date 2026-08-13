@@ -221,6 +221,12 @@ func TestRun_ThresholdBlocksSweepOnShortResponse(t *testing.T) {
 	if res.Swept != 0 {
 		t.Errorf("Swept = %d, want 0", res.Swept)
 	}
+	// The guard cannot untrip itself, so the operator's only way to tell a
+	// truncated response from a real shrinkage is comparing these two numbers
+	// across runs. Reporting the block without its denominator hides that.
+	if res.ActiveBefore != 100 {
+		t.Errorf("ActiveBefore = %d, want 100 — the block is unreadable without it", res.ActiveBefore)
+	}
 }
 
 // A failed upsert leaves a live row with a stale last_synced_at, which the sweep

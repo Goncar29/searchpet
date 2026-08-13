@@ -64,8 +64,15 @@ const sweepMinRatio = 0.8
 type Result struct {
 	Scanned  int
 	Upserted int
-	// SkippedNoCoords counts OSM elements with no usable coordinates. They were
-	// never in our table, so they cannot be swept and they must not block a sweep.
+	// SkippedNoCoords counts OSM elements with no usable coordinates. It does NOT
+	// block the sweep: a clinic we cannot place on a map is one we cannot show
+	// either, so retiring it is the honest outcome.
+	//
+	// Note what that costs, because it is not "these rows were never ours": a way
+	// imported earlier WITH a center that comes back without one (broken geometry
+	// upstream) is still listed in OSM and still gets swept. Soft delete makes it
+	// self-healing — the next run with a usable center resurrects it through
+	// Upsert — which is why this is acceptable rather than guarded against.
 	SkippedNoCoords int
 	// UpsertFailed counts rows whose write failed. These ARE in the table with a
 	// stale last_synced_at, so a sweep would delete a vet that is alive in OSM.
@@ -75,6 +82,12 @@ type Result struct {
 	Swept int
 	// SweepSkipped names the guard that blocked the sweep, or "" when it ran.
 	SweepSkipped string
+	// ActiveBefore is how many live OSM rows existed when the run started — the
+	// denominator of the threshold guard. It travels all the way to the response
+	// on purpose: without it an operator reads "140 saved, 0 retired" and cannot
+	// see the 183 that blocked the sweep, which is the one number that explains
+	// the outcome.
+	ActiveBefore int64
 }
 
 // Importer pulls OSM vets and upserts them via the repository.
@@ -112,6 +125,7 @@ func (i *Importer) Run(ctx context.Context) (Result, error) {
 	if err != nil {
 		return res, fmt.Errorf("osmimport: count active: %w", err)
 	}
+	res.ActiveBefore = activeBefore
 
 	body, err := i.fetch(ctx)
 	if err != nil {
@@ -172,6 +186,15 @@ func sweepReason(res Result, activeBefore int64) string {
 		return "upsert_failures"
 	}
 	// The response was too small to be believable against what we already have.
+	//
+	// KNOWN LIMITATION, and it is a trap worth naming: this guard cannot untrip
+	// itself. activeBefore is what the table holds, and a blocked sweep changes
+	// nothing, so a LEGITIMATE drop below the ratio (an upstream retagging
+	// campaign, say) blocks every future run with identical inputs — for good.
+	// There is deliberately no override yet: a force flag on a pass that deletes
+	// rows deserves its own design, not a one-line escape hatch. Until then the
+	// exit is manual, which is why ActiveBefore rides along in the response and
+	// the UI names both numbers instead of telling the operator to try later.
 	if float64(res.Upserted) < sweepMinRatio*float64(activeBefore) {
 		return "below_threshold"
 	}

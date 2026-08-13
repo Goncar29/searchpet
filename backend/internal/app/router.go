@@ -285,6 +285,13 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 		vetRepo,
 		// 60 s against a measured 10.9 s round trip: ~5.5x headroom, and far below
 		// the 150 s the CLI can afford, because a browser is waiting on this one.
+		//
+		// That browser has its own deadline, and it has to be the LOOSER of the
+		// two: the client aborting first cancels this request's context mid-write,
+		// which fails the remaining upserts, blocks the sweep, and hands the
+		// operator a bare request_timeout on top of a partial import. See
+		// IMPORT_TIMEOUT_MS in shared/api/client.ts — lower this and that must
+		// come down with it.
 		&http.Client{Timeout: 60 * time.Second},
 		osmimport.DefaultOverpassEndpoint,
 		logger.Get(),

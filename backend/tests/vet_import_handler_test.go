@@ -66,7 +66,7 @@ func TestVetImportHandler_ReturnsTheRunResult(t *testing.T) {
 
 func TestVetImportHandler_BlockedSweepIsVisibleInTheBody(t *testing.T) {
 	imp := &fakeImporter{res: osmimport.Result{
-		Scanned: 2, Upserted: 2, SweepSkipped: "below_threshold",
+		Scanned: 2, Upserted: 2, SweepSkipped: "below_threshold", ActiveBefore: 183,
 	}}
 	w := httptest.NewRecorder()
 	vetImportRouter(imp).ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/api/admin/vets/import", nil))
@@ -75,6 +75,13 @@ func TestVetImportHandler_BlockedSweepIsVisibleInTheBody(t *testing.T) {
 	_ = json.Unmarshal(w.Body.Bytes(), &body)
 	if body["sweep_skipped"] != "below_threshold" {
 		t.Errorf("the operator cannot see why nothing was deleted: %v", body)
+	}
+	// The reason alone does not explain the block: "2 upserted" only reads as too
+	// few against the number it was measured against. Without the denominator the
+	// operator cannot tell a truncated Overpass response from a real shrinkage,
+	// and those two have opposite next steps.
+	if body["active_before"] != float64(183) {
+		t.Errorf("active_before missing from a blocked run, so the block cannot be diagnosed: %v", body)
 	}
 }
 
