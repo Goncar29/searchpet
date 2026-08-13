@@ -121,6 +121,13 @@ const REQUEST_TIMEOUT_MS = 45000;
 // Wider ceiling for multipart uploads and CLIP image search, which legitimately
 // take longer (large request bodies, HuggingFace inference latency).
 const UPLOAD_TIMEOUT_MS = 90000;
+// The admin OSM vets import, which is synchronous by design. The arithmetic it
+// has to clear: a cold start (the same ~30-50s that sets REQUEST_TIMEOUT_MS)
+// plus the server's own 60s Overpass ceiling plus the upsert pass. At 45s this
+// call aborted runs the server would have finished — and aborting is not free,
+// because it cancels the request context mid-write and leaves a partial import
+// behind a bare request_timeout with no counters to read.
+const IMPORT_TIMEOUT_MS = 120000;
 
 // fetch() has no built-in timeout: if the server accepts the connection but
 // never responds, the promise hangs forever. AbortController gives the request
@@ -193,7 +200,8 @@ class APIClient {
     method: string,
     path: string,
     body?: unknown,
-    params?: Record<string, string | number>
+    params?: Record<string, string | number>,
+    timeoutMs: number = REQUEST_TIMEOUT_MS
   ): Promise<Response> {
     const url = new URL(`${this.baseURL}${path}`);
 
@@ -217,7 +225,7 @@ class APIClient {
       method,
       headers,
       body: body ? JSON.stringify(body) : undefined,
-    }, REQUEST_TIMEOUT_MS);
+    }, timeoutMs);
 
     if (!response.ok) {
       const errBody = await response.json().catch(() => ({}));
@@ -241,9 +249,10 @@ class APIClient {
     method: string,
     path: string,
     body?: unknown,
-    params?: Record<string, string | number>
+    params?: Record<string, string | number>,
+    timeoutMs?: number
   ): Promise<T> {
-    const response = await this.doFetch(method, path, body, params);
+    const response = await this.doFetch(method, path, body, params, timeoutMs);
     if (response.status === 204) {
       return {} as T;
     }
@@ -1164,7 +1173,13 @@ class APIClient {
   }
 
   async importVets(): Promise<VetImportResult> {
-    return this.request<VetImportResult>('POST', '/api/admin/vets/import');
+    return this.request<VetImportResult>(
+      'POST',
+      '/api/admin/vets/import',
+      undefined,
+      undefined,
+      IMPORT_TIMEOUT_MS,
+    );
   }
 
   async getRoleChanges(page = 1, limit = 50): Promise<AdminAuditListResponse> {
