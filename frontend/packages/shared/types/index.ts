@@ -873,6 +873,8 @@ export interface VetImportResult {
   skipped_no_coords: number;
   upsert_failed: number;
   swept: number;
+  /** Live OSM rows when the run started — the threshold guard's denominator. */
+  active_before: number;
   /** Present only when a guard blocked the deletion pass. */
   sweep_skipped?: string;
 }

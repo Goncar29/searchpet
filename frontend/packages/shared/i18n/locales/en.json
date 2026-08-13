@@ -454,6 +454,8 @@
     "binding_failed": "The provided input data is not valid",
     "initial_report_required": "To publish a sighting you need to provide the last seen location",
     "request_timeout": "The server took too long to respond. Check your connection and try again.",
+    "vet_import_running": "A veterinary import is already running. Wait for it to finish.",
+    "vet_import_upstream_failed": "OpenStreetMap could not be reached. Try again in a few minutes.",
     "unknown_error": "An unexpected error occurred. Please try again",
     "foster_home_not_found": "Foster home not found",
     "foster_home_already_owned": "You already have a foster home registered",

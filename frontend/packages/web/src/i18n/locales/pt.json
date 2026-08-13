@@ -158,8 +158,11 @@
       "upsertFailed": "Falharam ao salvar",
       "swept": "Retiradas",
       "sweepSkippedTitle": "Nada foi retirado",
-      "sweepSkipped_below_threshold": "O OpenStreetMap devolveu bem menos veterinárias do que já tínhamos, então nada foi apagado. Tente de novo mais tarde.",
+      "activeBefore": "Ativas antes",
+      "confirmRun": "Isto relê o OpenStreetMap e retira as veterinárias que já não constam lá. As retiradas podem ser revertidas, mas só pelo banco de dados. Continuar?",
+      "sweepSkipped_below_threshold": "O OpenStreetMap devolveu {{upserted}} veterinárias e já tínhamos {{activeBefore}} ativas. A queda passa de 20%, então nada foi retirado: pode ser uma resposta truncada do Overpass. Se tentar de novo e o número se repetir, a queda é real — e este bloqueio não se desfaz sozinho, essas linhas têm de ser retiradas na mão.",
       "sweepSkipped_upsert_failures": "Algumas veterinárias não puderam ser salvas, então nada foi apagado: uma remoção poderia ter sido erro nosso.",
+      "sweepSkipped_unknown": "Nada foi retirado. O servidor informou um motivo que esta tela ainda não sabe explicar: {{reason}}.",
       "error": "Não foi possível concluir a importação."
     }
   },

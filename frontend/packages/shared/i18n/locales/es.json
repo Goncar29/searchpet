@@ -454,6 +454,8 @@
     "binding_failed": "Los datos de entrada no son válidos",
     "initial_report_required": "Para publicar un avistamiento necesitás indicar la última ubicación donde fue vista la mascota",
     "request_timeout": "El servidor tardó demasiado en responder. Revisá tu conexión e intentá de nuevo.",
+    "vet_import_running": "Ya hay una importación de veterinarias en curso. Esperá a que termine.",
+    "vet_import_upstream_failed": "No se pudo consultar OpenStreetMap. Probá de nuevo en unos minutos.",
     "unknown_error": "Ocurrió un error inesperado. Por favor intentá de nuevo",
     "foster_home_not_found": "Hogar transitorio no encontrado",
     "foster_home_already_owned": "Ya tenés un hogar transitorio registrado",
