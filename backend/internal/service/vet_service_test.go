@@ -33,9 +33,10 @@ func TestVetService_FindNearby_DefaultsRadiusWhenZero(t *testing.T) {
 	}
 	// 500, no 50: con 50 el recorte se aplicaba DESPUES de ordenar por distancia
 	// y las veterinarias mas lejanas desaparecian del mapa sin aviso. Este mock
-	// solo puede afirmar que el techo VIAJA hasta el repositorio; que no recorte
-	// de verdad lo prueba tests/vet_service_test.go contra Postgres real, porque
-	// un mock no tiene filas que recortar.
+	// solo puede afirmar que el techo VIAJA hasta el repositorio — un mock no
+	// tiene filas que recortar. Que el techo alcance para la densidad real
+	// medida lo cubre tests/vet_service_test.go contra Postgres, con el alcance
+	// exacto documentado ahi: fija el piso del techo, no la ausencia de recorte.
 	if repo.gotLimit != 500 {
 		t.Errorf("limit = %d, want 500", repo.gotLimit)
 	}

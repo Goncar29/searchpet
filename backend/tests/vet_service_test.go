@@ -19,6 +19,14 @@ import (
 // que OpenStreetMap tiene dentro de 5 km del centro de Montevideo (medido contra
 // la API de Overpass el 2026-08-12). Con el tope viejo de 50, diecinueve
 // veterinarias reales quedaban afuera del radio que la propia pantalla pedia.
+//
+// QUE PRUEBA Y QUE NO, porque la diferencia importa: esto se pone rojo para
+// cualquier tope por debajo de 69, o sea que fija el PISO del techo contra la
+// unica densidad real que medimos. NO prueba "nunca recorta", y no podria: un
+// techo recorta por encima de su valor, para eso existe. Si alguien lo baja a
+// 100, este test sigue verde y una ciudad mas densa que Montevideo se recortaria
+// igual. La defensa contra eso no es un test, es volver a medir — lo dice el
+// comentario de vetResultLimit.
 func TestVetService_FindNearby_NoTruncaLoQueEntraEnElRadio(t *testing.T) {
 	db := testdb.SetupTestDB(t)
 	svc := service.NewVetService(repository.NewVetRepository(db))
