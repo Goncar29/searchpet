@@ -141,6 +141,20 @@ func TestMapElement_DropsWebsiteWithANonHTTPScheme(t *testing.T) {
 	}
 }
 
+// A tag typed by a person carries stray whitespace, and url.Parse refuses it:
+// " https://x.uy" reads as a path segment containing a colon. Dropping a good
+// link over a space is data loss with no error anywhere.
+func TestMapElement_TrimsWhitespaceAroundTheWebsite(t *testing.T) {
+	el := overpassElement{
+		Type: "node", ID: 403, Lat: -34.9, Lon: -56.1,
+		Tags: map[string]string{"website": "  https://veterinaria.uy  "},
+	}
+	vet, _ := mapElement(el)
+	if vet.Website != "https://veterinaria.uy" {
+		t.Errorf("Website = %q, want the trimmed URL", vet.Website)
+	}
+}
+
 // Dropping the unsafe value must not drop the usable one sitting next to it.
 func TestMapElement_FallsBackToContactWebsiteWhenThePrimaryIsUnsafe(t *testing.T) {
 	el := overpassElement{
@@ -290,6 +304,33 @@ func TestRun_ForceSweepOverridesTheThreshold(t *testing.T) {
 	}
 	if !res.SweepForced {
 		t.Error("a forced sweep has to be legible afterwards, in the body and in the log")
+	}
+}
+
+// An override that changed nothing must not be reported as one, or a routine
+// import reads afterwards like an operator overruling a safety guard — and the
+// log line that says so would be equally false.
+//
+// This one is a pin rather than a discovery: it was written after a review
+// replaced the guard with a bare `res.SweepForced = opts.ForceSweep` and watched
+// the whole suite stay green. Removing that conjunct now fails HERE.
+func TestRun_ForceSweepIsNotReportedWhenTheRunClearedTheThresholdAnyway(t *testing.T) {
+	srv := overpassStub(t, 100) // 100 upserted against 100 already there
+	defer srv.Close()
+	repo := &fakeVetRepo{activeBefore: 100}
+
+	res, err := newTestImporter(repo, srv.URL).Run(context.Background(), RunOptions{ForceSweep: true})
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if res.SweepSkipped != "" {
+		t.Fatalf("SweepSkipped = %q, this run clears the threshold on its own", res.SweepSkipped)
+	}
+	if repo.sweptCutoff == nil {
+		t.Error("the sweep should have run on its own merits")
+	}
+	if res.SweepForced {
+		t.Error("nothing was overridden: this run cleared the threshold without help")
 	}
 }
 

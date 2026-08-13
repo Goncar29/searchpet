@@ -60,6 +60,16 @@ type overpassResponse struct {
 // means looking at what OSM actually did, not at this file.
 const sweepMinRatio = 0.8
 
+// belowThreshold is the ONLY place the ratio is evaluated. Two copies of this
+// comparison drift, and here the drift would be silent in the worst possible
+// shape: the sweep running under one rule while the response reports it as
+// forced under another, which makes sweep_forced lie about the one thing it
+// exists to record. Same defect the two hardcoded 5000s caused in the map layer
+// (PR #153) — the rule lives in one function, and the call sites ask it.
+func belowThreshold(upserted int, activeBefore int64) bool {
+	return float64(upserted) < sweepMinRatio*float64(activeBefore)
+}
+
 // Result summarizes an import run.
 type Result struct {
 	Scanned  int
@@ -181,7 +191,7 @@ func (i *Importer) Run(ctx context.Context, opts RunOptions) (Result, error) {
 		// Recorded only when the override actually changed the outcome: a forced
 		// flag on a run that would have swept anyway would misreport a routine
 		// import as an operator overriding a safety guard.
-		res.SweepForced = opts.ForceSweep && float64(res.Upserted) < sweepMinRatio*float64(activeBefore)
+		res.SweepForced = opts.ForceSweep && belowThreshold(res.Upserted, activeBefore)
 		if res.SweepForced {
 			i.logger.Warn("[osmimport] sweeping below the threshold because the caller forced it",
 				zap.Int("upserted", res.Upserted), zap.Int64("active_before", activeBefore))
@@ -230,7 +240,7 @@ func sweepReason(res Result, activeBefore int64, force bool) string {
 	// deliberately the operator's to pull rather than something the process
 	// decides for itself: the evidence that the response is honest — having run
 	// it twice and read the same number twice — lives with the human.
-	if !force && float64(res.Upserted) < sweepMinRatio*float64(activeBefore) {
+	if !force && belowThreshold(res.Upserted, activeBefore) {
 		return "below_threshold"
 	}
 	return ""
@@ -337,6 +347,10 @@ func composeAddress(tags map[string]string) string {
 // shelter_dto.go, on both the create and the update path). Vets had no door,
 // because no human ever types this value into one of our forms.
 func safeWebsite(raw string) string {
+	// OSM tags are typed by people, so a stray space is ordinary. Without this the
+	// URL fails to parse — " https://x.uy" reads as a path segment containing a
+	// colon — and a perfectly good link disappears with no error anywhere.
+	raw = strings.TrimSpace(raw)
 	if raw == "" {
 		return ""
 	}
