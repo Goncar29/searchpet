@@ -12,6 +12,7 @@ import (
 	"lost-pets/config"
 	"lost-pets/internal/domain"
 	"lost-pets/internal/osmimport"
+	"lost-pets/internal/repository"
 	"lost-pets/pkg/database"
 	"lost-pets/pkg/logger"
 )
@@ -32,7 +33,12 @@ func main() {
 		log.Fatal("import-vets: AutoMigrate failed", zap.Error(err))
 	}
 
-	imp := osmimport.New(db, &http.Client{Timeout: 150 * time.Second}, osmimport.DefaultOverpassEndpoint, log)
+	imp := osmimport.New(
+		repository.NewVetRepository(db),
+		&http.Client{Timeout: 150 * time.Second},
+		osmimport.DefaultOverpassEndpoint,
+		log,
+	)
 
 	res, err := imp.Run(context.Background())
 	if err != nil {
@@ -42,6 +48,9 @@ func main() {
 	log.Info("import-vets: completed",
 		zap.Int("scanned", res.Scanned),
 		zap.Int("upserted", res.Upserted),
-		zap.Int("skipped", res.Skipped),
+		zap.Int("skipped_no_coords", res.SkippedNoCoords),
+		zap.Int("upsert_failed", res.UpsertFailed),
+		zap.Int("swept", res.Swept),
+		zap.String("sweep_skipped", res.SweepSkipped),
 	)
 }

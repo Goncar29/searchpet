@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"go.uber.org/zap"
-	"gorm.io/gorm"
 	"lost-pets/internal/domain"
 	"lost-pets/internal/repository"
 )
@@ -55,7 +54,17 @@ type overpassResponse struct {
 type Result struct {
 	Scanned  int
 	Upserted int
-	Skipped  int
+	// SkippedNoCoords counts OSM elements with no usable coordinates. They were
+	// never in our table, so they cannot be swept and they must not block a sweep.
+	SkippedNoCoords int
+	// UpsertFailed counts rows whose write failed. These ARE in the table with a
+	// stale last_synced_at, so a sweep would delete a vet that is alive in OSM.
+	// Keeping this separate from SkippedNoCoords is what lets guard 2 be correct.
+	UpsertFailed int
+	// Swept counts rows soft-deleted because OSM no longer lists them.
+	Swept int
+	// SweepSkipped names the guard that blocked the sweep, or "" when it ran.
+	SweepSkipped string
 }
 
 // Importer pulls OSM vets and upserts them via the repository.
@@ -67,9 +76,11 @@ type Importer struct {
 }
 
 // New builds an Importer. Pass DefaultOverpassEndpoint unless overriding for tests.
-func New(db *gorm.DB, client *http.Client, endpoint string, log *zap.Logger) *Importer {
+// It takes the repository rather than a *gorm.DB so the HTTP handler can drive the
+// same importer the CLI does, without either one owning a database handle.
+func New(repo repository.VetRepository, client *http.Client, endpoint string, log *zap.Logger) *Importer {
 	return &Importer{
-		repo:       repository.NewVetRepository(db),
+		repo:       repo,
 		httpClient: client,
 		endpoint:   endpoint,
 		logger:     log,
@@ -95,20 +106,21 @@ func (i *Importer) Run(ctx context.Context) (Result, error) {
 		if !ok {
 			i.logger.Warn("[osmimport] skipping element without usable coords",
 				zap.String("type", el.Type), zap.Int64("id", el.ID))
-			res.Skipped++
+			res.SkippedNoCoords++
 			continue
 		}
 		if err := i.repo.Upsert(ctx, vet); err != nil {
 			i.logger.Warn("[osmimport] upsert failed",
 				zap.String("osm_type", vet.OSMType), zap.Int64("osm_id", vet.OSMID), zap.Error(err))
-			res.Skipped++
+			res.UpsertFailed++
 			continue
 		}
 		res.Upserted++
 	}
 
 	i.logger.Info("[osmimport] done",
-		zap.Int("scanned", res.Scanned), zap.Int("upserted", res.Upserted), zap.Int("skipped", res.Skipped))
+		zap.Int("scanned", res.Scanned), zap.Int("upserted", res.Upserted),
+		zap.Int("skipped_no_coords", res.SkippedNoCoords), zap.Int("upsert_failed", res.UpsertFailed))
 	return res, nil
 }
 
