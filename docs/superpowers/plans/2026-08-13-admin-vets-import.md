@@ -128,7 +128,18 @@ func TestVetRepository_Upsert_ResurrectsSoftDeleted(t *testing.T) {
 cd backend && DATABASE_URL="postgres://postgres:postgres@localhost:5433/lostpets_test?sslmode=disable" JWT_SECRET=test-secret go test ./tests/ -count=1 -run 'TestVetRepository_(FindNearby_ExcludesSoftDeleted|Upsert_ResurrectsSoftDeleted)' -v
 ```
 
-Expected: both FAIL. `Vet` has no `deleted_at` column yet, so GORM's `Delete` issues a **hard** `DELETE`. The first test then passes for the wrong reason (the row is gone, not hidden) — read the output carefully; what must fail here is the second, with `expected the vet to be back, got 0 rows`. Once Step 3 adds the field, the first test starts exercising the behaviour it names.
+**Both tests PASS here, and that is not a red run — it is the absence of one.** `Vet` has no
+`deleted_at` column yet, so GORM's `Delete` issues a **hard** `DELETE`: the row is gone, the next
+`Upsert` finds no conflict target and inserts cleanly, and the vet "comes back" for a reason that
+has nothing to do with the fix. Neither test can fail before Step 3, because removing the whole
+feature also removes the soft delete the test setup depends on.
+
+*(Measured 2026-08-13: both PASS at this point. An earlier draft of this plan predicted the second
+one would fail — it does not.)*
+
+So the redness of these two is verified **after** Step 4, by removing only the line that carries
+the behaviour. That is Step 5b below, and it is the step that decides whether these tests are
+guards or decoration.
 
 - [ ] **Step 3: Add the field**
 
@@ -190,6 +201,27 @@ cd backend && DATABASE_URL="postgres://postgres:postgres@localhost:5433/lostpets
 ```
 
 Expected: PASS, including the two pre-existing `FindNearby`/`Upsert` tests.
+
+- [ ] **Step 5b: Verify the resurrection test RED — remove the line, not the feature**
+
+Delete only `"deleted_at",` from the `DoUpdates` list in `Upsert`, leaving the model field alone,
+and run:
+
+```bash
+cd backend && DATABASE_URL="postgres://postgres:postgres@localhost:5433/lostpets_test?sslmode=disable" JWT_SECRET=test-secret go test ./tests/ -count=1 -run 'TestVetRepository_Upsert_ResurrectsSoftDeleted' -v
+```
+
+Expected: **FAIL** with `expected the vet to be back, got 0 rows` — the soft-deleted row still
+occupies the unique key, the upsert hits the conflict and leaves `deleted_at` set. Restore the
+line with `git checkout -- backend/internal/repository/vet_repository.go` and re-run to confirm
+green.
+
+*(Verified 2026-08-13: red output exactly as above, `EXIT=1`; restored, `EXIT=0`.)*
+
+**This is the general form, and it is why Step 2 could not be the red run.** To prove a guard
+guards, remove the one line that implements the behaviour — never the whole feature. Removing the
+feature can also remove the conditions the test depends on, and then green means "the scenario no
+longer exists", not "the code is correct".
 
 - [ ] **Step 6: Verify the column lands on an EMPTY database**
 
