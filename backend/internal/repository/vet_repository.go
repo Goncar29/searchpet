@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -63,6 +64,32 @@ func (r *postgresVetRepository) FindNearby(ctx context.Context, lat, lng, radius
 		Scan(&results).Error
 
 	return results, err
+}
+
+// SoftDeleteStaleBefore marca las veterinarias de OSM que la última corrida no
+// tocó. GORM traduce Delete a UPDATE ... SET deleted_at = now() y agrega solo
+// "deleted_at IS NULL" al WHERE, así que re-barrer es idempotente.
+//
+// El filtro por source es deliberado y NO es cosmético: acota el radio de acción
+// del barrido a las filas que vienen de OpenStreetMap. Una veterinaria cargada a
+// mano nunca aparece en la respuesta de Overpass, así que sin este filtro el
+// primer import la borraría.
+func (r *postgresVetRepository) SoftDeleteStaleBefore(ctx context.Context, cutoff time.Time) (int64, error) {
+	res := r.db.WithContext(ctx).
+		Where("source = ? AND last_synced_at < ?", "osm", cutoff).
+		Delete(&domain.Vet{})
+	return res.RowsAffected, res.Error
+}
+
+// CountActiveOSM cuenta las veterinarias vivas de origen OSM. El scope de borrado
+// suave de GORM excluye las marcadas sin que haga falta pedirlo.
+func (r *postgresVetRepository) CountActiveOSM(ctx context.Context) (int64, error) {
+	var n int64
+	err := r.db.WithContext(ctx).
+		Model(&domain.Vet{}).
+		Where("source = ?", "osm").
+		Count(&n).Error
+	return n, err
 }
 
 var _ VetRepository = (*postgresVetRepository)(nil)

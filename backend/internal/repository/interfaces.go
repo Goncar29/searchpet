@@ -329,6 +329,12 @@ type EpisodeRepository interface {
 type VetRepository interface {
 	Upsert(ctx context.Context, vet *domain.Vet) error
 	FindNearby(ctx context.Context, lat, lng, radiusMeters float64, limit int) ([]domain.VetNearbyResult, error)
+	// SoftDeleteStaleBefore marca como borradas las veterinarias de origen OSM
+	// cuya última sincronización exitosa es anterior a cutoff. Retorna cuántas.
+	SoftDeleteStaleBefore(ctx context.Context, cutoff time.Time) (int64, error)
+	// CountActiveOSM cuenta las filas VIVAS de origen OSM. Es el denominador del
+	// umbral de cordura del barrido.
+	CountActiveOSM(ctx context.Context) (int64, error)
 }
 
 // AdminRepository owns admin-role mutations that must be atomic with their audit
