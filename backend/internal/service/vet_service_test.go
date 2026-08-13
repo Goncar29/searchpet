@@ -3,6 +3,7 @@ package service_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	"lost-pets/internal/domain"
 	"lost-pets/internal/service"
@@ -19,6 +20,16 @@ func (m *mockVetRepo) FindNearby(_ context.Context, _, _, radiusMeters float64, 
 	m.gotLimit = limit
 	return []domain.VetNearbyResult{}, nil
 }
+
+// VetService no barre ni cuenta: sólo consulta por cercanía. Estos dos existen
+// para satisfacer la interfaz, y devuelven el valor cero a propósito — si algún
+// día VetService los llamara de verdad, un test que dependa de su resultado
+// fallaría acá y no en producción.
+func (m *mockVetRepo) SoftDeleteStaleBefore(_ context.Context, _ time.Time) (int64, error) {
+	return 0, nil
+}
+
+func (m *mockVetRepo) CountActiveOSM(_ context.Context) (int64, error) { return 0, nil }
 
 func TestVetService_FindNearby_DefaultsRadiusWhenZero(t *testing.T) {
 	repo := &mockVetRepo{}
