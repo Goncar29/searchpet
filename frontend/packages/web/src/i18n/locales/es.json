@@ -11,7 +11,8 @@
       "admins": "Administradores",
       "shelters": "Refugios",
       "fosterHomes": "Hogares transitorios",
-      "impact": "Impacto"
+      "impact": "Impacto",
+      "vets": "Veterinarias"
     },
     "abuse": {
       "title": "Denuncias de abuso",
@@ -144,6 +145,22 @@
       "confirmReject": "Confirmar rechazo",
       "cancel": "Cancelar",
       "actionError": "No se pudo completar la acción."
+    },
+    "vets": {
+      "title": "Veterinarias (OpenStreetMap)",
+      "description": "Vuelve a leer las veterinarias de OpenStreetMap y da de baja las que ya no figuran ahí. Tarda unos segundos.",
+      "run": "Importar ahora",
+      "running": "Importando…",
+      "resultTitle": "Última corrida",
+      "scanned": "Leídas de OSM",
+      "upserted": "Guardadas",
+      "skippedNoCoords": "Sin coordenadas",
+      "upsertFailed": "Fallaron al guardar",
+      "swept": "Dadas de baja",
+      "sweepSkippedTitle": "No se dio de baja nada",
+      "sweepSkipped_below_threshold": "La respuesta de OpenStreetMap trajo muchas menos veterinarias de las que ya teníamos, así que no se borró nada. Probá de nuevo en un rato.",
+      "sweepSkipped_upsert_failures": "Algunas veterinarias no se pudieron guardar, así que no se borró nada: una baja podría haber sido un error nuestro.",
+      "error": "No se pudo completar la importación."
     }
   },
   "pagination": {

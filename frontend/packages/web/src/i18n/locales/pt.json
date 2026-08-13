@@ -11,7 +11,8 @@
       "admins": "Administradores",
       "shelters": "Abrigos",
       "fosterHomes": "Lares temporários",
-      "impact": "Impacto"
+      "impact": "Impacto",
+      "vets": "Veterinárias"
     },
     "abuse": {
       "title": "Denúncias de abuso",
@@ -144,6 +145,22 @@
       "confirmReject": "Confirmar rejeição",
       "cancel": "Cancelar",
       "actionError": "Não foi possível concluir a ação."
+    },
+    "vets": {
+      "title": "Veterinárias (OpenStreetMap)",
+      "description": "Relê as veterinárias do OpenStreetMap e retira as que já não constam lá. Leva alguns segundos.",
+      "run": "Importar agora",
+      "running": "Importando…",
+      "resultTitle": "Última execução",
+      "scanned": "Lidas do OSM",
+      "upserted": "Salvas",
+      "skippedNoCoords": "Sem coordenadas",
+      "upsertFailed": "Falharam ao salvar",
+      "swept": "Retiradas",
+      "sweepSkippedTitle": "Nada foi retirado",
+      "sweepSkipped_below_threshold": "O OpenStreetMap devolveu bem menos veterinárias do que já tínhamos, então nada foi apagado. Tente de novo mais tarde.",
+      "sweepSkipped_upsert_failures": "Algumas veterinárias não puderam ser salvas, então nada foi apagado: uma remoção poderia ter sido erro nosso.",
+      "error": "Não foi possível concluir a importação."
     }
   },
   "pagination": {
