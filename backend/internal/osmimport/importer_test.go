@@ -186,6 +186,12 @@ func TestParseOverpass_DecodesElements(t *testing.T) {
 
 // fakeVetRepo records what the importer asks of the repository. Counting calls is
 // the point: these tests are about WHETHER the sweep runs, not about SQL.
+//
+// It models one thing on purpose, because the guard is about it: which rows the
+// run REFRESHED. An upsert of a clinic we never had is a write that refreshes
+// nothing, so it must not shrink the stale set — and an earlier version of this
+// fake returned a fixed 3 from the sweep, which made that distinction impossible
+// to see and let a bound measured on writes look correct for months.
 type fakeVetRepo struct {
 	activeBefore int64
 	upsertErr    error
@@ -195,14 +201,46 @@ type fakeVetRepo struct {
 	// failure — the case where the threshold is satisfied and only guard 2 stands
 	// between a stale row and deletion.
 	failFirst int
+	// knownIDs are the osm_ids the table already holds. Leave it nil and every
+	// successful upsert counts as refreshing one existing row, which is the
+	// ordinary case; set it to model a response carrying clinics that are new to
+	// us, where writes and refreshes stop being the same number.
+	knownIDs  map[int64]bool
+	refreshed int
+	// staleErr makes the pre-sweep count fail, which is a guard input going
+	// missing rather than the run failing.
+	staleErr error
 }
 
-func (f *fakeVetRepo) Upsert(_ context.Context, _ *domain.Vet) error {
+func (f *fakeVetRepo) Upsert(_ context.Context, vet *domain.Vet) error {
 	f.upserts++
 	if f.failFirst > 0 && f.upserts <= f.failFirst {
 		return errors.New("write failed")
 	}
-	return f.upsertErr
+	if f.upsertErr != nil {
+		return f.upsertErr
+	}
+	if f.knownIDs == nil || f.knownIDs[vet.OSMID] {
+		f.refreshed++
+	}
+	return nil
+}
+
+// stale is what both repository counting methods answer, so they can never
+// disagree here for a reason the real ones would not share.
+func (f *fakeVetRepo) stale() int64 {
+	refreshed := int64(f.refreshed)
+	if refreshed > f.activeBefore {
+		refreshed = f.activeBefore
+	}
+	return f.activeBefore - refreshed
+}
+
+func (f *fakeVetRepo) CountStaleBefore(_ context.Context, _ time.Time) (int64, error) {
+	if f.staleErr != nil {
+		return 0, f.staleErr
+	}
+	return f.stale(), nil
 }
 
 func (f *fakeVetRepo) FindNearby(_ context.Context, _, _, _ float64, _ int) ([]domain.VetNearbyResult, error) {
@@ -211,7 +249,7 @@ func (f *fakeVetRepo) FindNearby(_ context.Context, _, _, _ float64, _ int) ([]d
 
 func (f *fakeVetRepo) SoftDeleteStaleBefore(_ context.Context, cutoff time.Time) (int64, error) {
 	f.sweptCutoff = &cutoff
-	return 3, nil
+	return f.stale(), nil
 }
 
 func (f *fakeVetRepo) CountActiveOSM(_ context.Context) (int64, error) {
@@ -254,7 +292,11 @@ func newTestImporter(repo *fakeVetRepo, endpoint string) *Importer {
 func TestRun_SweepsWhenTheRunLooksComplete(t *testing.T) {
 	srv := overpassStub(t, 100)
 	defer srv.Close()
-	repo := &fakeVetRepo{activeBefore: 100}
+	// 100 refreshed out of 103 held: three clinics left OpenStreetMap, which is
+	// ordinary drift and well inside the bound. The 3 is the number the sweep
+	// actually takes, not a stub constant — the fake derives it from what the run
+	// refreshed, so this assertion means something.
+	repo := &fakeVetRepo{activeBefore: 103}
 
 	res, err := newTestImporter(repo, srv.URL).Run(context.Background(), RunOptions{})
 	if err != nil {
@@ -308,7 +350,9 @@ func TestRun_ForceSweepOverridesTheThreshold(t *testing.T) {
 	repo := &fakeVetRepo{activeBefore: 100}
 
 	res, err := newTestImporter(repo, srv.URL).Run(context.Background(),
-		RunOptions{ForceSweep: true, ExpectedUpserted: 2})
+		// 2 refreshed out of 100, so 98 rows would go. The operator read that number
+		// and approved it as the ceiling.
+		RunOptions{ForceSweep: true, MaxRetired: 98})
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -323,52 +367,55 @@ func TestRun_ForceSweepOverridesTheThreshold(t *testing.T) {
 	}
 }
 
-// THE reason the override carries evidence instead of a bare bool. Forcing starts
-// a NEW run — new Overpass fetch, new upserts — so the numbers the operator read
-// and approved belong to the PREVIOUS one. The dangerous sequence is short: two
-// runs report 140 against 183, the operator concludes the shrinkage is real and
-// presses force, and THAT third response comes back truncated at 12. Without the
-// pin, the guard written for exactly the truncated response is switched off for
-// the only run nobody ever looked at.
+// THE reason the override carries a number instead of a bare bool, and the reason
+// that number is a CEILING. Forcing starts a NEW run — new Overpass fetch, new
+// upserts — so what the operator read and approved belongs to the PREVIOUS one.
+// The dangerous sequence is short: two runs agree that 140 clinics should go, the
+// operator concludes the shrinkage is real and presses force, and THAT third
+// response comes back truncated at 12 elements, which leaves 171 rows stale.
+//
+// The ceiling refuses it without anyone having to anticipate it: a truncated
+// response always retires MORE, so it can only ever exceed what was approved.
 func TestRun_ForceSweepDoesNotCoverARunTheOperatorNeverSaw(t *testing.T) {
 	srv := overpassStub(t, 12) // the truncated response nobody approved
 	defer srv.Close()
 	repo := &fakeVetRepo{activeBefore: 183}
 
 	res, err := newTestImporter(repo, srv.URL).Run(context.Background(),
-		RunOptions{ForceSweep: true, ExpectedUpserted: 140}) // what the operator actually saw
+		RunOptions{ForceSweep: true, MaxRetired: 140}) // at most 140 may go
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
 	if res.SweepSkipped != "below_threshold" {
-		t.Errorf("SweepSkipped = %q: the override was granted for 140, this run brought 12",
-			res.SweepSkipped)
+		t.Errorf("SweepSkipped = %q: at most 140 were approved and this run would retire %d",
+			res.SweepSkipped, res.WouldRetire)
 	}
 	if repo.sweptCutoff != nil {
 		t.Error("a truncated response swept the table under an override approved for another run")
 	}
 	if res.SweepForced {
-		t.Error("nothing was forced: the run never reached the number the override was granted for")
+		t.Error("nothing was forced: the run would retire more than the ceiling allows")
 	}
 }
 
-// A run that comes back BETTER than what the operator approved still sweeps: the
-// pin is a floor on the evidence, not an equality check. Requiring an exact match
-// would make a legitimate override fail whenever OSM gained one clinic between
-// the two runs, and an operator whose override silently does nothing presses it
-// again rather than reading a number.
-func TestRun_ForceSweepAppliesWhenTheRunBeatsTheApprovedNumber(t *testing.T) {
+// A run that would retire FEWER rows than approved still sweeps: the ceiling is a
+// bound, not an equality check. Requiring an exact match would make a legitimate
+// override fail whenever OSM gained a clinic between the two runs, and an operator
+// whose override silently does nothing presses it again rather than reading a
+// number.
+func TestRun_ForceSweepAppliesWhenTheRunRetiresLessThanApproved(t *testing.T) {
 	srv := overpassStub(t, 145)
 	defer srv.Close()
 	repo := &fakeVetRepo{activeBefore: 183}
 
 	res, err := newTestImporter(repo, srv.URL).Run(context.Background(),
-		RunOptions{ForceSweep: true, ExpectedUpserted: 140})
+		RunOptions{ForceSweep: true, MaxRetired: 140})
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
 	if res.SweepSkipped != "" {
-		t.Errorf("SweepSkipped = %q: 145 clears the 140 the operator approved", res.SweepSkipped)
+		t.Errorf("SweepSkipped = %q: retiring %d is well inside the 140 approved",
+			res.SweepSkipped, res.WouldRetire)
 	}
 	if !res.SweepForced {
 		t.Error("the sweep only happened because of the override and must say so")
@@ -439,7 +486,10 @@ func TestRun_ForceSweepStillRespectsUpsertFailures(t *testing.T) {
 	repo := &fakeVetRepo{activeBefore: 100, failFirst: 25}
 
 	res, err := newTestImporter(repo, srv.URL).Run(context.Background(),
-		RunOptions{ForceSweep: true, ExpectedUpserted: 50})
+		// 25 refreshed out of 100 held, so 75 would go and the ceiling covers them:
+		// the override is genuinely LIVE here, which is what makes this test about
+		// upsert_failures instead of about an override that could not apply anyway.
+		RunOptions{ForceSweep: true, MaxRetired: 75})
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -498,7 +548,7 @@ func TestRun_MappingFailuresCannotBeForced(t *testing.T) {
 	repo := &fakeVetRepo{activeBefore: 100}
 
 	res, err := newTestImporter(repo, srv.URL).Run(context.Background(),
-		RunOptions{ForceSweep: true, ExpectedUpserted: 100})
+		RunOptions{ForceSweep: true, MaxRetired: 100})
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -514,6 +564,112 @@ func TestRun_MappingFailuresCannotBeForced(t *testing.T) {
 	}
 }
 
+// The count feeds a guard, so failing to get it must refuse the sweep — not
+// discard the run. Aborting throws away a Result whose 183 upserts already
+// committed, and the handler maps any error to 502 vet_import_upstream_failed,
+// which names Overpass for a database blip: the operator reads "the import could
+// not be completed" and never learns the writes landed.
+func TestRun_AFailedStaleCountBlocksTheSweepWithoutLosingTheRun(t *testing.T) {
+	srv := overpassStub(t, 100)
+	defer srv.Close()
+	repo := &fakeVetRepo{activeBefore: 100, staleErr: errors.New("connection reset by peer")}
+
+	res, err := newTestImporter(repo, srv.URL).Run(context.Background(), RunOptions{})
+	if err != nil {
+		t.Fatalf("Run returned an error and threw away 100 committed upserts: %v", err)
+	}
+	if res.Upserted != 100 {
+		t.Errorf("Upserted = %d: the run's own outcome was lost", res.Upserted)
+	}
+	if res.SweepSkipped != "stale_count_failed" {
+		t.Errorf("SweepSkipped = %q, want \"stale_count_failed\"", res.SweepSkipped)
+	}
+	if repo.sweptCutoff != nil {
+		t.Error("swept without knowing how many rows it would take")
+	}
+}
+
+// And it must not be overridable: the operator cannot approve a ceiling on a
+// number nobody could read.
+func TestRun_AFailedStaleCountCannotBeForced(t *testing.T) {
+	srv := overpassStub(t, 100)
+	defer srv.Close()
+	repo := &fakeVetRepo{activeBefore: 100, staleErr: errors.New("connection reset by peer")}
+
+	res, err := newTestImporter(repo, srv.URL).Run(context.Background(),
+		RunOptions{ForceSweep: true, MaxRetired: 100})
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if res.SweepSkipped != "stale_count_failed" || repo.sweptCutoff != nil {
+		t.Errorf("forcing reached a guard that fired because we could not measure: %q",
+			res.SweepSkipped)
+	}
+}
+
+// Issue #156. The bound promises that no run retires more than a fifth of the
+// table unless a human asked, and measuring it on Upserted only approximates
+// that: Upserted counts WRITES, and the upsert of a clinic we never had refreshes
+// nothing while still padding the number the guard reads.
+//
+// Scenario: we hold 183, OSM has grown, and Overpass returns a truncated 150 of
+// which 30 are new to us. 150 clears 0.8*183 on writes, but only 120 existing
+// rows were refreshed, so 63 live clinics — 34% — would go away unforced.
+func TestRun_TheBoundCountsRowsRetiredNotWritesMade(t *testing.T) {
+	known := make(map[int64]bool, 120)
+	for i := int64(1); i <= 120; i++ {
+		known[i] = true
+	}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		els := make([]string, 0, 150)
+		for i := 1; i <= 120; i++ { // already ours
+			els = append(els, fmt.Sprintf(
+				`{"type":"node","id":%d,"lat":-34.9,"lon":-56.1,"tags":{"name":"V%d"}}`, i, i))
+		}
+		for i := 1000; i <= 1029; i++ { // new in OSM since the last run
+			els = append(els, fmt.Sprintf(
+				`{"type":"node","id":%d,"lat":-34.9,"lon":-56.1,"tags":{"name":"N%d"}}`, i, i))
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"elements":[` + strings.Join(els, ",") + `]}`))
+	}))
+	defer srv.Close()
+	repo := &fakeVetRepo{activeBefore: 183, knownIDs: known}
+
+	res, err := newTestImporter(repo, srv.URL).Run(context.Background(), RunOptions{})
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if res.Upserted != 150 {
+		t.Fatalf("wrong scenario: upserted=%d", res.Upserted)
+	}
+	if res.SweepSkipped != "below_threshold" {
+		t.Errorf("SweepSkipped = %q: 150 writes cleared the guard while 63 live rows go away",
+			res.SweepSkipped)
+	}
+	if max := (1 - sweepMinRatio) * float64(res.ActiveBefore); float64(res.Swept) > max {
+		t.Errorf("retired %d of %d rows, the bound allows %.0f — no guard, no operator",
+			res.Swept, res.ActiveBefore, max)
+	}
+}
+
+// The number the operator is asked to approve has to be the number the guard
+// used, so it travels to the response even on a clean run — same reason
+// ActiveBefore does.
+func TestRun_ReportsHowManyRowsTheRunWouldRetire(t *testing.T) {
+	srv := overpassStub(t, 100)
+	defer srv.Close()
+	repo := &fakeVetRepo{activeBefore: 103}
+
+	res, err := newTestImporter(repo, srv.URL).Run(context.Background(), RunOptions{})
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if res.WouldRetire != 3 {
+		t.Errorf("WouldRetire = %d, want 3", res.WouldRetire)
+	}
+}
+
 // A rejected override must not be indistinguishable from one that was never
 // sent. Both produce sweep_skipped: below_threshold and no sweep_forced, so the
 // panel would show the operator the exact same screen — and the natural reading
@@ -526,7 +682,7 @@ func TestRun_ARejectedOverrideSaysSoInTheResult(t *testing.T) {
 	repo := &fakeVetRepo{activeBefore: 183}
 
 	res, err := newTestImporter(repo, srv.URL).Run(context.Background(),
-		RunOptions{ForceSweep: true, ExpectedUpserted: 140})
+		RunOptions{ForceSweep: true, MaxRetired: 140})
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -640,7 +796,9 @@ func TestRun_MappingFailuresStillBlockAForcedRun(t *testing.T) {
 	repo := &fakeVetRepo{activeBefore: 183}
 
 	res, err := newTestImporter(repo, srv.URL).Run(context.Background(),
-		RunOptions{ForceSweep: true, ExpectedUpserted: 100})
+		// 5 refreshed out of 183, so 178 would go and the ceiling covers them — the
+		// override is live, and mapping_failures still has to stop it.
+		RunOptions{ForceSweep: true, MaxRetired: 178})
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -665,7 +823,8 @@ func TestRun_ForcingARealShrinkageIsNotMistakenForAMappingFailure(t *testing.T) 
 	repo := &fakeVetRepo{activeBefore: 183}
 
 	res, err := newTestImporter(repo, srv.URL).Run(context.Background(),
-		RunOptions{ForceSweep: true, ExpectedUpserted: 12})
+		// 12 refreshed out of 183, so 171 go away — that is what was approved.
+		RunOptions{ForceSweep: true, MaxRetired: 171})
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}

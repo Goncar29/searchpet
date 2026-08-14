@@ -3,6 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { apiClient, ApiError } from '@shared/api/client';
+import type { VetImportResult } from '@shared/types';
 import { VetsAdminPage } from './VetsAdminPage';
 
 // i18next returns the key unchanged when a translation is missing, and BOTH
@@ -72,7 +73,7 @@ describe('VetsAdminPage', () => {
   it('shows the run counters after a successful import', async () => {
     mockedApi.importVets.mockResolvedValue({
       scanned: 183, upserted: 183, skipped_no_coords: 0, upsert_failed: 0, swept: 1,
-      active_before: 183,
+      would_retire: 1, active_before: 183,
     });
     renderPage();
 
@@ -88,7 +89,7 @@ describe('VetsAdminPage', () => {
   it('explains a blocked sweep instead of showing a bare zero', async () => {
     mockedApi.importVets.mockResolvedValue({
       scanned: 2, upserted: 2, skipped_no_coords: 0, upsert_failed: 0,
-      swept: 0, sweep_skipped: 'below_threshold', active_before: 183,
+      swept: 0, would_retire: 181, sweep_skipped: 'below_threshold', active_before: 183,
     });
     renderPage();
 
@@ -106,13 +107,12 @@ describe('VetsAdminPage', () => {
   // The threshold guard cannot untrip itself, so without this button the only
   // exit is an UPDATE against production.
   it('offers the override after the threshold blocked the sweep, and forces on click', async () => {
-    // scanned and upserted deliberately differ — two stray ways with no center.
-    // With both at 140 this test could not tell which number the page pins, and
-    // pinning the wrong one is the whole defect: the override would approve a
-    // quantity the server measures nothing against.
+    // Every number differs on purpose. The page has to pin would_retire — what the
+    // guard bounds — and pinning any of the others would approve one quantity
+    // while unlocking a check on another, which is the defect this closes.
     mockedApi.importVets.mockResolvedValue({
       scanned: 140, upserted: 138, skipped_no_coords: 2, upsert_failed: 0,
-      swept: 0, sweep_skipped: 'below_threshold', active_before: 183,
+      swept: 0, would_retire: 45, sweep_skipped: 'below_threshold', active_before: 183,
     });
     renderPage();
 
@@ -127,24 +127,24 @@ describe('VetsAdminPage', () => {
     // including the truncated response the threshold guard exists to catch. The
     // server refuses to apply the override unless the new run reaches this number.
     //
-    // 138 and not 140: the pin has to be what the threshold measures, which is what
-    // SURVIVED, not what OpenStreetMap listed. Pinning scanned would approve one
-    // quantity while unlocking a check on another.
+    // 45 — would_retire — and none of the other three numbers on screen. It is a
+    // ceiling: "at most 45 may go away".
     await userEvent.click(force);
     await waitFor(() =>
-      expect(mockedApi.importVets).toHaveBeenLastCalledWith({ expectedUpserted: 138 }),
+      expect(mockedApi.importVets).toHaveBeenLastCalledWith({ maxRetired: 45 }),
     );
   });
 
-  // The server refuses an override pinned to zero, and it is right to: "keep at
-  // least 0 rows" approves any response at all, including the empty one that
-  // caused the block. Offering a button that CANNOT work is the dead end this
-  // whole PR is about — the operator confirms a destructive action, a full import
-  // runs, and the screen comes back identical with no error and no explanation.
+  // Defensive, not expected. Now that the bound is measured on would_retire, a
+  // block implies would_retire > 0 and this state should be unreachable — but the
+  // implication rests on stale rows always being a subset of active ones, an
+  // invariant held across two separate repository queries. The server refuses a
+  // ceiling of zero, so without this branch the operator would get a button that
+  // confirms a destructive action, runs a full import, and changes nothing.
   it('does not offer an override that the server is guaranteed to refuse', async () => {
     mockedApi.importVets.mockResolvedValue({
       scanned: 0, upserted: 0, skipped_no_coords: 0, upsert_failed: 0,
-      swept: 0, sweep_skipped: 'below_threshold', active_before: 183,
+      swept: 0, would_retire: 0, sweep_skipped: 'below_threshold', active_before: 183,
     });
     renderPage();
 
@@ -158,13 +158,39 @@ describe('VetsAdminPage', () => {
     expect(screen.getByText('vets.forceUnavailableEmptyRun')).toBeInTheDocument();
   });
 
+  // Web and backend deploy independently from the same push — Vercel lands a
+  // couple of minutes before Render — so for that window this page talks to a
+  // backend that has never heard of would_retire. Declaring the field required
+  // does not make it arrive: it just moves the surprise to runtime, where
+  // `undefined > 0` quietly hides the override and the counter renders blank.
+  it('survives a backend that does not send would_retire yet', async () => {
+    const sinCampo = {
+      scanned: 150, upserted: 150, skipped_no_coords: 0, upsert_failed: 0,
+      swept: 0, sweep_skipped: 'below_threshold', active_before: 183,
+    } as VetImportResult;
+    mockedApi.importVets.mockResolvedValue(sinCampo);
+    renderPage();
+
+    await userEvent.click(screen.getByRole('button', { name: 'vets.run' }));
+
+    await waitFor(() =>
+      expect(screen.getByText('vets.sweepSkipped_below_threshold')).toBeInTheDocument(),
+    );
+    // No override: there is no number to pin a ceiling to, and inventing one is
+    // how a run gets approved for a quantity nobody read.
+    expect(screen.queryByRole('button', { name: 'vets.forceRun' })).not.toBeInTheDocument();
+    // And no counter claiming zero rows would go, which would be a different lie
+    // from "we do not know".
+    expect(screen.queryByText('vets.wouldRetire')).not.toBeInTheDocument();
+  });
+
   // A dropped override renders the same block as a run nobody forced, so without
   // this the operator reads "the button did nothing" and presses it again — and
   // the second press is pinned to the run that just came back short.
   it('says so when the override was asked for and refused', async () => {
     mockedApi.importVets.mockResolvedValue({
       scanned: 12, upserted: 12, skipped_no_coords: 0, upsert_failed: 0,
-      swept: 0, sweep_skipped: 'below_threshold', active_before: 183,
+      swept: 0, would_retire: 171, sweep_skipped: 'below_threshold', active_before: 183,
       sweep_force_ignored: true,
     });
     renderPage();
@@ -183,7 +209,7 @@ describe('VetsAdminPage', () => {
   it('does not offer the override when the block came from our own mapping', async () => {
     mockedApi.importVets.mockResolvedValue({
       scanned: 183, upserted: 20, skipped_no_coords: 163, upsert_failed: 0,
-      swept: 0, sweep_skipped: 'mapping_failures', active_before: 183,
+      swept: 0, would_retire: 163, sweep_skipped: 'mapping_failures', active_before: 183,
     });
     renderPage();
 
@@ -201,7 +227,7 @@ describe('VetsAdminPage', () => {
   it('does not offer the override when the block came from failed writes', async () => {
     mockedApi.importVets.mockResolvedValue({
       scanned: 100, upserted: 99, skipped_no_coords: 0, upsert_failed: 1,
-      swept: 0, sweep_skipped: 'upsert_failures', active_before: 100,
+      swept: 0, would_retire: 1, sweep_skipped: 'upsert_failures', active_before: 100,
     });
     renderPage();
 
@@ -246,7 +272,7 @@ describe('VetsAdminPage', () => {
   it('falls back to a named reason when the guard is one it does not know', async () => {
     mockedApi.importVets.mockResolvedValue({
       scanned: 2, upserted: 2, skipped_no_coords: 0, upsert_failed: 0,
-      swept: 0, sweep_skipped: 'some_future_guard', active_before: 3,
+      swept: 0, would_retire: 1, sweep_skipped: 'some_future_guard', active_before: 3,
     });
     renderPage();
 

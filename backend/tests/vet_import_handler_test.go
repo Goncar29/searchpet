@@ -93,7 +93,7 @@ func TestVetImportHandler_BlockedSweepIsVisibleInTheBody(t *testing.T) {
 func TestVetImportHandler_ForceSweepTravelsFromTheBody(t *testing.T) {
 	imp := &fakeImporter{res: osmimport.Result{Scanned: 2, Upserted: 2, Swept: 1, SweepForced: true}}
 	req := httptest.NewRequest(http.MethodPost, "/api/admin/vets/import",
-		strings.NewReader(`{"force_sweep":true,"expected_upserted":140}`))
+		strings.NewReader(`{"force_sweep":true,"max_retired":140}`))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	vetImportRouter(imp).ServeHTTP(w, req)
@@ -104,9 +104,9 @@ func TestVetImportHandler_ForceSweepTravelsFromTheBody(t *testing.T) {
 	// The flag without the number is an override with nothing behind it: the
 	// importer would refuse it, so dropping this field here turns the button into
 	// a no-op with no error anywhere.
-	if imp.gotOpts.ExpectedUpserted != 140 {
-		t.Errorf("ExpectedUpserted = %d, want the 140 the operator approved",
-			imp.gotOpts.ExpectedUpserted)
+	if imp.gotOpts.MaxRetired != 140 {
+		t.Errorf("MaxRetired = %d, want the 140 the operator approved",
+			imp.gotOpts.MaxRetired)
 	}
 	var body map[string]any
 	_ = json.Unmarshal(w.Body.Bytes(), &body)
@@ -114,6 +114,43 @@ func TestVetImportHandler_ForceSweepTravelsFromTheBody(t *testing.T) {
 	// must not read afterwards like an ordinary import.
 	if body["sweep_forced"] != true {
 		t.Errorf("sweep_forced missing from a forced run: %v", body)
+	}
+}
+
+// would_retire is both the number that explains a refusal and the ceiling the
+// operator is about to approve, so the panel is useless without it. Its test
+// lives HERE, on the JSON body, and not only at the domain level: a field that is
+// only asserted one layer below its consumer can be dropped from the mapper with
+// every suite still green — that is exactly how sweep_force_ignored nearly
+// shipped unproven.
+func TestVetImportHandler_WouldRetireReachesTheBody(t *testing.T) {
+	imp := &fakeImporter{res: osmimport.Result{
+		Scanned: 120, Upserted: 120, WouldRetire: 63,
+		SweepSkipped: "below_threshold", ActiveBefore: 183,
+	}}
+	w := httptest.NewRecorder()
+	vetImportRouter(imp).ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/api/admin/vets/import", nil))
+
+	var body map[string]any
+	_ = json.Unmarshal(w.Body.Bytes(), &body)
+	if body["would_retire"] != float64(63) {
+		t.Errorf("the operator cannot see what the run wanted to delete: %v", body)
+	}
+}
+
+// The ceiling has to survive the trip too. Dropping it here turns the override
+// button into a request the importer refuses for lack of evidence, and the panel
+// would show an ordinary block with no hint that anything was asked.
+func TestVetImportHandler_MaxRetiredTravelsFromTheBody(t *testing.T) {
+	imp := &fakeImporter{res: osmimport.Result{Scanned: 120, Upserted: 120, Swept: 63, SweepForced: true}}
+	req := httptest.NewRequest(http.MethodPost, "/api/admin/vets/import",
+		strings.NewReader(`{"force_sweep":true,"max_retired":63}`))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	vetImportRouter(imp).ServeHTTP(w, req)
+
+	if imp.gotOpts.MaxRetired != 63 {
+		t.Errorf("MaxRetired = %d, want the 63 the operator approved", imp.gotOpts.MaxRetired)
 	}
 }
 
@@ -129,7 +166,7 @@ func TestVetImportHandler_ARejectedOverrideReachesTheBody(t *testing.T) {
 		ActiveBefore: 183, SweepForceIgnored: true,
 	}}
 	req := httptest.NewRequest(http.MethodPost, "/api/admin/vets/import",
-		strings.NewReader(`{"force_sweep":true,"expected_upserted":140}`))
+		strings.NewReader(`{"force_sweep":true,"max_retired":140}`))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	vetImportRouter(imp).ServeHTTP(w, req)
@@ -170,9 +207,9 @@ func TestVetImportHandler_AnUnreadableBodyDoesNotForceAnything(t *testing.T) {
 		if imp.gotOpts.ForceSweep {
 			t.Errorf("body %q forced the sweep", body)
 		}
-		if imp.gotOpts.ExpectedUpserted != 0 {
+		if imp.gotOpts.MaxRetired != 0 {
 			t.Errorf("body %q carried an approved number into the run: %d",
-				body, imp.gotOpts.ExpectedUpserted)
+				body, imp.gotOpts.MaxRetired)
 		}
 		if w.Code != http.StatusOK {
 			t.Errorf("body %q: status = %d, want the run to proceed guarded", body, w.Code)

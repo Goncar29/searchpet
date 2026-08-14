@@ -81,6 +81,24 @@ func (r *postgresVetRepository) SoftDeleteStaleBefore(ctx context.Context, cutof
 	return res.RowsAffected, res.Error
 }
 
+// CountStaleBefore cuenta, sin tocarlas, las filas que SoftDeleteStaleBefore
+// barrería con ese mismo cutoff. Deja que el umbral acote lo que REALMENTE se va
+// a dar de baja en lugar de inferirlo de cuántas escrituras hizo la corrida.
+//
+// El WHERE es una copia literal del de SoftDeleteStaleBefore, y tiene que
+// seguirlo siendo: si divergen, el barrido borra un conjunto distinto del que el
+// umbral aprobó — y ese desacuerdo sería invisible, porque los dos números
+// seguirían pareciendo razonables por separado. El scope de borrado suave de
+// GORM agrega "deleted_at IS NULL" a las dos consultas por igual.
+func (r *postgresVetRepository) CountStaleBefore(ctx context.Context, cutoff time.Time) (int64, error) {
+	var n int64
+	err := r.db.WithContext(ctx).
+		Model(&domain.Vet{}).
+		Where("source = ? AND last_synced_at < ?", "osm", cutoff).
+		Count(&n).Error
+	return n, err
+}
+
 // CountActiveOSM cuenta las veterinarias vivas de origen OSM. El scope de borrado
 // suave de GORM excluye las marcadas sin que haga falta pedirlo.
 func (r *postgresVetRepository) CountActiveOSM(ctx context.Context) (int64, error) {
