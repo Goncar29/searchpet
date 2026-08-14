@@ -94,7 +94,16 @@ func belowThreshold(count int, activeBefore int64) bool {
 // A floor rather than an equality: OSM can gain a clinic between two runs, and an
 // override that silently does nothing gets pressed again instead of read.
 func forceApplies(opts RunOptions, upserted int) bool {
-	return opts.ForceSweep && opts.ExpectedUpserted > 0 && upserted >= opts.ExpectedUpserted
+	return forceRequested(opts) && upserted >= opts.ExpectedUpserted
+}
+
+// forceRequested reports whether an override was actually made, as opposed to
+// merely asked for. The flag without its number is not an override — it is a
+// request with nothing behind it — and the two callers that ask this question
+// have to agree, or the response reports as "refused" something that was never
+// granted in the first place.
+func forceRequested(opts RunOptions) bool {
+	return opts.ForceSweep && opts.ExpectedUpserted > 0
 }
 
 // Result summarizes an import run.
@@ -254,7 +263,13 @@ func (i *Importer) Run(ctx context.Context, opts RunOptions) (Result, error) {
 	} else {
 		// Only the threshold can drop an override; the other two never accept one,
 		// so reporting them as "your force was ignored" would be false.
-		res.SweepForceIgnored = opts.ForceSweep && res.SweepSkipped == "below_threshold"
+		//
+		// The evidence has to exist too. A request carrying the flag and no number
+		// never was an override — forceApplies says exactly that — and reporting it
+		// as one refused makes the panel tell the operator that this run fell short
+		// of what they approved, when nothing was approved. The flag means "your
+		// override was evaluated and came up short", and that needs an override.
+		res.SweepForceIgnored = forceRequested(opts) && res.SweepSkipped == "below_threshold"
 		i.logger.Warn("[osmimport] sweep skipped",
 			zap.String("reason", res.SweepSkipped),
 			zap.Bool("force_ignored", res.SweepForceIgnored),
@@ -282,16 +297,27 @@ func (i *Importer) Run(ctx context.Context, opts RunOptions) (Result, error) {
 // of being reported as an OpenStreetMap shrinkage the operator is invited to
 // override. The last one is the only one they can override.
 //
-// The ordering is load-bearing for a second reason. below_threshold is the
-// promise "no run retires more than a fifth of the table unasked", and it has to
-// be the LAST word, measured on what actually survives (Upserted) against the
-// table. An earlier version moved it onto Scanned so that our mapping losses
-// could not trip it; that split the promise into two ratios in series, and
-// ratios in series multiply — Scanned >= 0.8*activeBefore with
+// The ordering is load-bearing for a second reason. below_threshold is the bound
+// on how much one import may delete, and it has to be the LAST word, measured on
+// Upserted against the table. An earlier version moved it onto Scanned so that
+// our mapping losses could not trip it; that split the bound into two ratios in
+// series, and ratios in series multiply — Scanned >= 0.8*activeBefore with
 // Upserted >= 0.8*Scanned only yields Upserted >= 0.64*activeBefore, so a run
 // retired 35% of the table with every guard satisfied. Separating the CAUSES is
 // what that change was for, and mapping_failures below does it; the bound stays
 // where it always was.
+//
+// KNOWN GAP, measured and deliberately not closed here. Upserted counts WRITES,
+// and an upsert of a clinic we never had refreshes nothing, so rows OSM added
+// since the last run pad the number this guard reads. Reproduced: we hold 183,
+// Overpass returns a truncated 150 of which 30 are new, 150 >= 0.8*183 clears the
+// guard, only 120 existing rows were refreshed, and the sweep takes 63 — 34% of
+// the table, unforced. Closing it properly means bounding the rows the sweep will
+// actually retire (a CountStaleBefore on the repository) and flipping the
+// override from a floor on what survived to a ceiling on what goes away, which
+// changes the request contract and belongs in its own change. Until then the
+// guarantee this guard gives is "at least four fifths of activeBefore were
+// written this run", which is not the same sentence.
 func sweepReason(res Result, activeBefore int64, opts RunOptions) string {
 	// Our writes failed, so those rows kept an old timestamp while still existing
 	// in OSM. Sweeping now would delete live clinics.

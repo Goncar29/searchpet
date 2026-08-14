@@ -538,6 +538,29 @@ func TestRun_ARejectedOverrideSaysSoInTheResult(t *testing.T) {
 	}
 }
 
+// A request with the flag and no number never was an override — forceApplies
+// says so — so reporting it as one refused makes the panel tell the operator
+// that "this run saved less than what you approved" when nothing was approved.
+// The flag means "your override was evaluated and came up short", and that
+// sentence needs an override to have existed.
+func TestRun_AForceWithNoEvidenceIsNotReportedAsARefusedOverride(t *testing.T) {
+	srv := overpassStub(t, 12)
+	defer srv.Close()
+	repo := &fakeVetRepo{activeBefore: 183}
+
+	res, err := newTestImporter(repo, srv.URL).Run(context.Background(),
+		RunOptions{ForceSweep: true}) // flag, no number
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if res.SweepSkipped != "below_threshold" {
+		t.Fatalf("wrong scenario: %q", res.SweepSkipped)
+	}
+	if res.SweepForceIgnored {
+		t.Error("reported as a refused override, but no override was ever made")
+	}
+}
+
 // And it must stay quiet otherwise, or every ordinary blocked run would tell the
 // operator an override was refused when none was ever requested.
 func TestRun_AnUnforcedBlockDoesNotClaimAnOverrideWasIgnored(t *testing.T) {
