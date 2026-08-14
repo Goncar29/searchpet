@@ -335,6 +335,15 @@ type VetRepository interface {
 	// CountActiveOSM cuenta las filas VIVAS de origen OSM. Es el denominador del
 	// umbral de cordura del barrido.
 	CountActiveOSM(ctx context.Context) (int64, error)
+	// CountStaleBefore cuenta cuántas filas barrería SoftDeleteStaleBefore con ese
+	// mismo cutoff, sin tocarlas. Es lo que le permite al umbral acotar la CANTIDAD
+	// QUE SE VA A BORRAR en vez de un proxy: contar escrituras no sirve, porque el
+	// upsert de una veterinaria que nunca tuvimos no refresca ninguna fila y aun
+	// así engorda el número.
+	//
+	// Tiene que usar exactamente el mismo WHERE que SoftDeleteStaleBefore: si los
+	// dos divergen, el barrido borra un conjunto distinto del que se autorizó.
+	CountStaleBefore(ctx context.Context, cutoff time.Time) (int64, error)
 }
 
 // AdminRepository owns admin-role mutations that must be atomic with their audit

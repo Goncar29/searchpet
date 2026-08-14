@@ -173,6 +173,75 @@ func TestVetRepository_SoftDeleteStaleBefore_OnlyStaleOSMRows(t *testing.T) {
 	}
 }
 
+// CountStaleBefore is what lets the threshold bound the rows that will actually
+// be retired instead of guessing from how many writes the run made. That only
+// works while it selects EXACTLY the set SoftDeleteStaleBefore deletes — so this
+// test does not assert a number it was told, it asserts that the two agree.
+//
+// A divergence would be invisible in production: both numbers would still look
+// plausible on their own, and the sweep would simply delete a different set than
+// the one the guard approved.
+func TestVetRepository_CountStaleBefore_AgreesWithWhatTheSweepDeletes(t *testing.T) {
+	db := testdb.SetupTestDB(t)
+	repo := repository.NewVetRepository(db)
+
+	cutoff := time.Now()
+	old := cutoff.Add(-time.Hour)
+	fresh := cutoff.Add(time.Minute)
+
+	seedVetAt(t, db, 1, "Stale OSM", "osm", old)
+	seedVetAt(t, db, 2, "Stale OSM 2", "osm", old)
+	seedVetAt(t, db, 3, "Fresh OSM", "osm", fresh)     // synced this run
+	seedVetAt(t, db, 4, "Community", "community", old) // not ours to sweep
+	seedVetAt(t, db, 5, "Already gone", "osm", old)
+	if err := db.Where("osm_id = ?", 5).Delete(&domain.Vet{}).Error; err != nil {
+		t.Fatalf("soft delete: %v", err)
+	}
+
+	counted, err := repo.CountStaleBefore(context.Background(), cutoff)
+	if err != nil {
+		t.Fatalf("CountStaleBefore: %v", err)
+	}
+
+	swept, err := repo.SoftDeleteStaleBefore(context.Background(), cutoff)
+	if err != nil {
+		t.Fatalf("SoftDeleteStaleBefore: %v", err)
+	}
+
+	if counted != swept {
+		t.Errorf("the guard counted %d rows and the sweep took %d — it authorised a different set",
+			counted, swept)
+	}
+	// Pinned as well as compared: two queries that agree on the WRONG set would
+	// satisfy the equality above and still be broken.
+	if counted != 2 {
+		t.Errorf("counted %d, want the 2 stale OSM rows (a fresh one, a community one and an already-deleted one must not count)",
+			counted)
+	}
+}
+
+// Counting BEFORE anything is retired is the whole point: the number has to be
+// available while the run can still be refused.
+func TestVetRepository_CountStaleBefore_DoesNotRetireAnything(t *testing.T) {
+	db := testdb.SetupTestDB(t)
+	repo := repository.NewVetRepository(db)
+
+	cutoff := time.Now()
+	seedVetAt(t, db, 1, "Stale OSM", "osm", cutoff.Add(-time.Hour))
+
+	if _, err := repo.CountStaleBefore(context.Background(), cutoff); err != nil {
+		t.Fatalf("CountStaleBefore: %v", err)
+	}
+
+	n, err := repo.CountActiveOSM(context.Background())
+	if err != nil {
+		t.Fatalf("CountActiveOSM: %v", err)
+	}
+	if n != 1 {
+		t.Errorf("counting the stale rows deleted them: %d live OSM rows left, want 1", n)
+	}
+}
+
 func TestVetRepository_CountActiveOSM_IgnoresDeletedAndOtherSources(t *testing.T) {
 	db := testdb.SetupTestDB(t)
 	repo := repository.NewVetRepository(db)

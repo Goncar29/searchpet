@@ -61,7 +61,7 @@ func (h *VetImportHandler) Import(c *gin.Context) {
 	//
 	// The reset is not belt-and-braces. encoding/json fills fields as it walks the
 	// object and keeps what it decoded when it hits the error, so a body truncated
-	// mid-object (`{"force_sweep":true,"expected_upserted":140,`) arrives with BOTH
+	// mid-object (`{"force_sweep":true,"max_retired":140,`) arrives with BOTH
 	// fields set and an error nobody reads. Discarding the error without discarding
 	// the half-decoded struct is how a comment ends up describing something the
 	// code does not do.
@@ -71,8 +71,8 @@ func (h *VetImportHandler) Import(c *gin.Context) {
 	}
 
 	res, err := h.importer.Run(c.Request.Context(), osmimport.RunOptions{
-		ForceSweep:       req.ForceSweep,
-		ExpectedUpserted: req.ExpectedUpserted,
+		ForceSweep: req.ForceSweep,
+		MaxRetired: req.MaxRetired,
 	})
 	if err != nil {
 		// The upstream error carries the endpoint and driver internals, so it goes
@@ -89,12 +89,13 @@ func (h *VetImportHandler) Import(c *gin.Context) {
 	logger.Get().Info("vet import completed",
 		zap.String("admin_id", getUserID(c)),
 		zap.Int("scanned", res.Scanned), zap.Int("upserted", res.Upserted),
-		zap.Int("swept", res.Swept), zap.String("sweep_skipped", res.SweepSkipped),
+		zap.Int("swept", res.Swept), zap.Int("would_retire", res.WouldRetire),
+		zap.String("sweep_skipped", res.SweepSkipped),
 		zap.Int64("active_before", res.ActiveBefore),
 		// Requested vs applied are different facts: an override granted for a number
 		// the new run never reached is recorded as asked-for and NOT forced.
 		zap.Bool("force_requested", req.ForceSweep),
-		zap.Int("expected_upserted", req.ExpectedUpserted),
+		zap.Int("max_retired", req.MaxRetired),
 		zap.Bool("sweep_forced", res.SweepForced),
 		zap.Bool("force_ignored", res.SweepForceIgnored))
 
@@ -111,6 +112,7 @@ func toVetImportResponse(r osmimport.Result) dto.VetImportResponse {
 		SkippedNoCoords:   r.SkippedNoCoords,
 		UpsertFailed:      r.UpsertFailed,
 		Swept:             r.Swept,
+		WouldRetire:       r.WouldRetire,
 		ActiveBefore:      r.ActiveBefore,
 		SweepForced:       r.SweepForced,
 		SweepForceIgnored: r.SweepForceIgnored,

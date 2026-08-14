@@ -18,7 +18,7 @@ export function VetsAdminPage() {
   const { t } = useTranslation('admin');
   // The variable is the override itself, not a flag: an override with no number
   // behind it is one the server refuses, so the two travel together or not at all.
-  const run = useMutation<VetImportResult, Error, { expectedUpserted: number } | undefined>({
+  const run = useMutation<VetImportResult, Error, { maxRetired: number } | undefined>({
     mutationFn: (force) => apiClient.importVets(force),
   });
 
@@ -59,6 +59,10 @@ export function VetsAdminPage() {
             <Stat label={t('vets.scanned')} value={run.data.scanned} />
             <Stat label={t('vets.upserted')} value={run.data.upserted} />
             <Stat label={t('vets.swept')} value={run.data.swept} />
+            {/* What the sweep wanted to take. On a blocked run this is the whole
+                explanation and the number the override would approve, so it has
+                to be on screen before the operator is asked to confirm it. */}
+            <Stat label={t('vets.wouldRetire')} value={run.data.would_retire} />
             <Stat label={t('vets.skippedNoCoords')} value={run.data.skipped_no_coords} />
             <Stat label={t('vets.upsertFailed')} value={run.data.upsert_failed} />
             {/* The threshold guard's denominator. On a clean run it is context;
@@ -80,6 +84,7 @@ export function VetsAdminPage() {
                 {t(`vets.sweepSkipped_${run.data.sweep_skipped}`, {
                   scanned: run.data.scanned,
                   upserted: run.data.upserted,
+                  wouldRetire: run.data.would_retire,
                   activeBefore: run.data.active_before,
                   defaultValue: t('vets.sweepSkipped_unknown', {
                     reason: run.data.sweep_skipped,
@@ -109,23 +114,25 @@ export function VetsAdminPage() {
                   back short. Otherwise a third response truncated to a handful of
                   elements would sweep with the guard written for it turned off.
 
-                  The pinned number is `upserted`, what actually survived, because
-                  that is what the threshold measures. Pinning `scanned` would
-                  approve one quantity while unlocking a check on another. */}
+                  The pinned number is `would_retire` — how many rows the sweep
+                  wants to take — because that is what the guard bounds, and it is
+                  a CEILING: "at most this many go away". A truncated response
+                  leaves MORE rows stale, so it exceeds the ceiling on its own and
+                  the guard stays on without anyone anticipating it. */}
               {run.data.sweep_skipped === 'below_threshold' &&
-                (run.data.upserted > 0 ? (
+                (run.data.would_retire > 0 ? (
                   <button
                     type="button"
                     onClick={() => {
                       if (
                         window.confirm(
                           t('vets.confirmForceRun', {
-                            upserted: run.data!.upserted,
+                            wouldRetire: run.data!.would_retire,
                             activeBefore: run.data!.active_before,
                           }),
                         )
                       ) {
-                        run.mutate({ expectedUpserted: run.data!.upserted });
+                        run.mutate({ maxRetired: run.data!.would_retire });
                       }
                     }}
                     disabled={run.isPending}
@@ -134,14 +141,13 @@ export function VetsAdminPage() {
                     {t('vets.forceRun')}
                   </button>
                 ) : (
-                  /* The server refuses an override pinned to zero, and rightly:
-                     "keep at least 0" approves any response including the empty
-                     one that caused this block. Rendering the button anyway would
-                     be a confirm dialog, a full destructive import, and an
-                     identical screen afterwards with nothing to read. It is a
-                     deliberate dead end — a total OSM shutdown is exactly what
-                     nobody should be able to approve from a panel — so it says so
-                     instead of hiding. */
+                  /* Defensive, not expected. The bound is `would_retire > 20% of
+                     the table`, so a block implies would_retire > 0 — this branch
+                     should be unreachable. It stays because that implication rests
+                     on stale rows always being a subset of active ones, which is
+                     an invariant held across two separate repository queries, and
+                     the alternative to a message here is a button that silently
+                     does nothing (the server refuses a ceiling of zero). */
                   <p className="text-sm text-amber-800 dark:text-amber-300 mt-3">
                     {t('vets.forceUnavailableEmptyRun')}
                   </p>

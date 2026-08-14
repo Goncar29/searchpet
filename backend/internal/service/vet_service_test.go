@@ -31,6 +31,10 @@ func (m *mockVetRepo) SoftDeleteStaleBefore(_ context.Context, _ time.Time) (int
 
 func (m *mockVetRepo) CountActiveOSM(_ context.Context) (int64, error) { return 0, nil }
 
+func (m *mockVetRepo) CountStaleBefore(_ context.Context, _ time.Time) (int64, error) {
+	return 0, nil
+}
+
 func TestVetService_FindNearby_DefaultsRadiusWhenZero(t *testing.T) {
 	repo := &mockVetRepo{}
 	svc := service.NewVetService(repo)

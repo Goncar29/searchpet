@@ -1180,19 +1180,21 @@ class APIClient {
    * that cannot untrip itself. It never reaches the guard that protects against
    * our own failed writes.
    *
-   * The override carries `expectedUpserted` — the count the operator read on the
-   * blocked run — and the argument is an object rather than a second boolean so
-   * that the flag CANNOT be sent without it. Forcing starts a NEW import: a bare
-   * flag would approve whatever that run brings back, including the truncated
-   * response the threshold exists to catch. The server applies the override only
-   * when the new run reaches this number.
+   * The override carries `maxRetired` — the `would_retire` the operator read on
+   * the blocked run — and the argument is an object rather than a second boolean
+   * so that the flag CANNOT be sent without it.
+   *
+   * It is a CEILING: "at most this many rows may go away". Forcing starts a NEW
+   * import, and a truncated response leaves MORE rows stale, so it can only ever
+   * exceed the ceiling — the guard written for exactly that response stays on
+   * without the caller having to anticipate it.
    */
-  async importVets(force?: { expectedUpserted: number }): Promise<VetImportResult> {
+  async importVets(force?: { maxRetired: number }): Promise<VetImportResult> {
     return this.request<VetImportResult>(
       'POST',
       '/api/admin/vets/import',
       force
-        ? { force_sweep: true, expected_upserted: force.expectedUpserted }
+        ? { force_sweep: true, max_retired: force.maxRetired }
         : { force_sweep: false },
       undefined,
       IMPORT_TIMEOUT_MS,

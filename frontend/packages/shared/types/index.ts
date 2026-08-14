@@ -873,6 +873,12 @@ export interface VetImportResult {
   skipped_no_coords: number;
   upsert_failed: number;
   swept: number;
+  /**
+   * How many rows the sweep would take, counted before it ran. On a blocked run
+   * it is what explains the refusal and the ceiling the operator would approve;
+   * on a clean one it equals `swept`.
+   */
+  would_retire: number;
   /** Live OSM rows when the run started — the threshold guard's denominator. */
   active_before: number;
   /** Present only when a guard blocked the deletion pass. */

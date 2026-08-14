@@ -50,14 +50,17 @@ type VetImportRequest struct {
 	// the operator's exit from a guard that cannot untrip itself, and it never
 	// reaches the guard that protects against our own failed writes.
 	ForceSweep bool `json:"force_sweep"`
-	// ExpectedUpserted is the upserted count the operator read on the run they are
-	// overriding — the same number the threshold measures, and deliberately not
-	// `scanned`: pinning one quantity while unlocking a check on another is the
-	// defect this field exists to close. Forcing starts a NEW import, so the flag
-	// on its own would approve a run nobody has seen; the override only takes
-	// effect when the new run reaches this number. Omitting it, or sending zero,
-	// leaves the run fully guarded.
-	ExpectedUpserted int `json:"expected_upserted"`
+	// MaxRetired is the CEILING the operator approves: at most this many rows may
+	// be soft-deleted. It is the `would_retire` they read on the blocked run — the
+	// same number the guard bounds, because pinning one quantity while unlocking a
+	// check on another is the defect this field exists to close.
+	//
+	// Forcing starts a NEW import, so the flag on its own would approve a run
+	// nobody has seen. A ceiling refuses the dangerous case without anyone having
+	// to anticipate it: a truncated response leaves MORE rows stale, so it can only
+	// ever exceed what was approved. Omitting it, or sending zero, leaves the run
+	// fully guarded.
+	MaxRetired int `json:"max_retired"`
 }
 
 // VetImportResponse is the outcome of one OSM import run.
@@ -74,14 +77,18 @@ type VetImportRequest struct {
 // from domain, and importing an infrastructure package into this layer would
 // invert the dependency direction the architecture rests on.
 type VetImportResponse struct {
-	Scanned         int    `json:"scanned"`
-	Upserted        int    `json:"upserted"`
-	SkippedNoCoords int    `json:"skipped_no_coords"`
-	UpsertFailed    int    `json:"upsert_failed"`
-	Swept           int    `json:"swept"`
-	ActiveBefore    int64  `json:"active_before"`
-	SweepSkipped    string `json:"sweep_skipped,omitempty"`
-	SweepForced     bool   `json:"sweep_forced,omitempty"`
+	Scanned         int `json:"scanned"`
+	Upserted        int `json:"upserted"`
+	SkippedNoCoords int `json:"skipped_no_coords"`
+	UpsertFailed    int `json:"upsert_failed"`
+	Swept           int `json:"swept"`
+	// WouldRetire is how many rows the sweep would take, counted before it ran. On
+	// a blocked run it is the number that explains the refusal AND the ceiling the
+	// operator would be approving; on a clean one it equals swept.
+	WouldRetire  int    `json:"would_retire"`
+	ActiveBefore int64  `json:"active_before"`
+	SweepSkipped string `json:"sweep_skipped,omitempty"`
+	SweepForced  bool   `json:"sweep_forced,omitempty"`
 	// SweepForceIgnored tells the panel that an override was asked for and dropped.
 	// Without it that outcome is byte-identical to an ordinary blocked run.
 	SweepForceIgnored bool `json:"sweep_force_ignored,omitempty"`

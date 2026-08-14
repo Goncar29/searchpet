@@ -74,27 +74,34 @@ func belowThreshold(count int, activeBefore int64) bool {
 	return float64(count) < sweepMinRatio*float64(activeBefore)
 }
 
+// retiresTooMuch is the bound, and the ONLY place it is evaluated. It asks the
+// question the guard is actually about — how many rows is this run about to
+// delete — instead of inferring it from how many writes the run made.
+//
+// That distinction is issue #156, and it is not academic: Upserted counts
+// WRITES, so a response carrying clinics we never had padded it while leaving
+// exactly as many rows stale. Measured, before it was fixed: 150 writes cleared
+// 0.8*183 while 63 live rows went away, 34% of the table, unforced.
+func retiresTooMuch(wouldRetire int, activeBefore int64) bool {
+	return float64(wouldRetire) > (1-sweepMinRatio)*float64(activeBefore)
+}
+
 // forceApplies reports whether the operator's override may take effect for THIS
 // run — the only place that question is answered, for the same reason
-// belowThreshold is the only place the ratio is evaluated.
+// retiresTooMuch is the only place the bound is evaluated.
 //
 // The override is a decision about an outcome the operator READ, and pressing
 // the button starts a fresh run that can return anything. So it is granted
-// against a number: a run that brings back at least what was approved is the run
-// the approval was about, and one that comes back short is not, no matter what
-// the caller asked for.
+// against a number, and the number is WouldRetire, because that is what the
+// guard it unlocks measures. An override pinned to anything else would approve
+// one quantity while disabling a check on another.
 //
-// The number is Upserted, because that is what the guard it unlocks measures. An
-// override pinned to anything else would approve one quantity while disabling a
-// check on another — the same shape as the defect it was written to fix. It also
-// closes the truncated-response case on its own: Upserted can never exceed
-// Scanned, so a response cut down to a handful of elements cannot reach a pin
-// granted for a hundred.
-//
-// A floor rather than an equality: OSM can gain a clinic between two runs, and an
-// override that silently does nothing gets pressed again instead of read.
-func forceApplies(opts RunOptions, upserted int) bool {
-	return forceRequested(opts) && upserted >= opts.ExpectedUpserted
+// A CEILING, not a floor, and that direction is the safety: the operator approves
+// "at most this many go away". A truncated response leaves MORE rows stale, so it
+// exceeds the ceiling and the override simply does not apply — the guard written
+// for exactly that response stays on, without anyone having to remember why.
+func forceApplies(opts RunOptions, wouldRetire int) bool {
+	return forceRequested(opts) && wouldRetire <= opts.MaxRetired
 }
 
 // forceRequested reports whether an override was actually made, as opposed to
@@ -103,7 +110,7 @@ func forceApplies(opts RunOptions, upserted int) bool {
 // have to agree, or the response reports as "refused" something that was never
 // granted in the first place.
 func forceRequested(opts RunOptions) bool {
-	return opts.ForceSweep && opts.ExpectedUpserted > 0
+	return opts.ForceSweep && opts.MaxRetired > 0
 }
 
 // Result summarizes an import run.
@@ -125,7 +132,18 @@ type Result struct {
 	// stale last_synced_at, so a sweep would delete a vet that is alive in OSM.
 	// Keeping this separate from SkippedNoCoords is what lets guard 2 be correct.
 	UpsertFailed int
-	// Swept counts rows soft-deleted because OSM no longer lists them.
+	// WouldRetire is how many rows the sweep WOULD take, counted before it runs.
+	// It is the number the threshold bounds and the number the operator approves,
+	// and it exists because Upserted could only ever approximate it: writes are
+	// not refreshes, so a response carrying clinics we never had inflates Upserted
+	// while leaving exactly as many rows stale (issue #156).
+	//
+	// It ships on a clean run too, for the same reason ActiveBefore does — "63 of
+	// 183" is the whole outcome, and it is unreadable one number at a time.
+	WouldRetire int
+	// Swept counts rows soft-deleted because OSM no longer lists them. On a run
+	// that swept it equals WouldRetire; on a blocked one it is zero while
+	// WouldRetire says what was refused.
 	Swept int
 	// SweepSkipped names the guard that blocked the sweep, or "" when it ran.
 	SweepSkipped string
@@ -164,7 +182,7 @@ type RunOptions struct {
 	// (mapping_failures) — and no operator can see either from the panel, so
 	// neither is theirs to overrule.
 	ForceSweep bool
-	// ExpectedUpserted is how many rows the operator saw the blocked run SAVE —
+	// MaxRetired is how many rows the operator saw the blocked run SAVE —
 	// what survived, which is exactly what the threshold measures, and not what
 	// OpenStreetMap listed. Pinning the override to any other number would approve
 	// one quantity while unlocking a check on another.
@@ -177,7 +195,7 @@ type RunOptions struct {
 	// that response, switched off.
 	//
 	// Zero means no evidence, and no evidence means no override (see forceApplies).
-	ExpectedUpserted int
+	MaxRetired int
 }
 
 // Importer pulls OSM vets and upserts them via the repository.
@@ -244,15 +262,24 @@ func (i *Importer) Run(ctx context.Context, opts RunOptions) (Result, error) {
 		res.Upserted++
 	}
 
+	// Counted BEFORE deciding, which is the point: the guard has to bound the rows
+	// that are about to go away, and after SoftDeleteStaleBefore runs it is too
+	// late to refuse. Same cutoff as the sweep, so the two see the same set.
+	wouldRetire, err := i.repo.CountStaleBefore(ctx, cutoff)
+	if err != nil {
+		return res, fmt.Errorf("osmimport: count stale: %w", err)
+	}
+	res.WouldRetire = int(wouldRetire)
+
 	res.SweepSkipped = sweepReason(res, activeBefore, opts)
 	if res.SweepSkipped == "" {
 		// Recorded only when the override actually changed the outcome: a forced
 		// flag on a run that would have swept anyway would misreport a routine
 		// import as an operator overriding a safety guard.
-		res.SweepForced = forceApplies(opts, res.Upserted) && belowThreshold(res.Upserted, activeBefore)
+		res.SweepForced = forceApplies(opts, res.WouldRetire) && retiresTooMuch(res.WouldRetire, activeBefore)
 		if res.SweepForced {
-			i.logger.Warn("[osmimport] sweeping below the threshold because the caller forced it",
-				zap.Int("upserted", res.Upserted), zap.Int("expected_upserted", opts.ExpectedUpserted),
+			i.logger.Warn("[osmimport] sweeping past the bound because the caller forced it",
+				zap.Int("would_retire", res.WouldRetire), zap.Int("max_retired", opts.MaxRetired),
 				zap.Int64("active_before", activeBefore))
 		}
 		swept, err := i.repo.SoftDeleteStaleBefore(ctx, cutoff)
@@ -350,10 +377,10 @@ func sweepReason(res Result, activeBefore int64, opts RunOptions) string {
 	if belowThreshold(res.Upserted, int64(res.Scanned)) {
 		return "mapping_failures"
 	}
-	// Too few rows survive this run to retire the rest of the table — the bound on
-	// how much one import may delete, measured on what actually survives against
-	// what we hold. Everything above has already been ruled out, so whatever is
-	// missing here is missing because OpenStreetMap no longer lists it.
+	// This run would delete more of the table than one import is allowed to,
+	// measured on the rows themselves. Everything above has already been ruled
+	// out, so whatever is missing here is missing because OpenStreetMap no longer
+	// lists it.
 	//
 	// This guard cannot untrip itself: activeBefore is what the table holds, and a
 	// blocked sweep changes nothing, so a LEGITIMATE drop below the ratio (an
@@ -365,7 +392,7 @@ func sweepReason(res Result, activeBefore int64, opts RunOptions) string {
 	//
 	// forceApplies, not opts.ForceSweep: the flag alone would hand the exit to a
 	// run the operator never saw, which is the failure this guard exists for.
-	if belowThreshold(res.Upserted, activeBefore) && !forceApplies(opts, res.Upserted) {
+	if retiresTooMuch(res.WouldRetire, activeBefore) && !forceApplies(opts, res.WouldRetire) {
 		return "below_threshold"
 	}
 	return ""
