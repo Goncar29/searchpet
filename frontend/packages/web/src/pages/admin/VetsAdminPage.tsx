@@ -61,8 +61,15 @@ export function VetsAdminPage() {
             <Stat label={t('vets.swept')} value={run.data.swept} />
             {/* What the sweep wanted to take. On a blocked run this is the whole
                 explanation and the number the override would approve, so it has
-                to be on screen before the operator is asked to confirm it. */}
-            <Stat label={t('vets.wouldRetire')} value={run.data.would_retire} />
+                to be on screen before the operator is asked to confirm it.
+
+                Hidden rather than zeroed when the backend did not send it (the
+                deploy-skew window): "0 would go" and "we do not know" are
+                different facts, and rendering the first as the second is the
+                shape of defect this whole change is about. */}
+            {run.data.would_retire !== undefined && (
+              <Stat label={t('vets.wouldRetire')} value={run.data.would_retire} />
+            )}
             <Stat label={t('vets.skippedNoCoords')} value={run.data.skipped_no_coords} />
             <Stat label={t('vets.upsertFailed')} value={run.data.upsert_failed} />
             {/* The threshold guard's denominator. On a clean run it is context;
@@ -98,7 +105,9 @@ export function VetsAdminPage() {
                   approval to the run that just came back short. */}
               {run.data.sweep_force_ignored && (
                 <p className="text-sm font-medium text-amber-900 dark:text-amber-200 mt-2">
-                  {t('vets.sweepForceIgnoredNotice')}
+                  {/* The number is the whole explanation: the override was dropped
+                      because THIS run wants to retire more than was approved. */}
+                  {t('vets.sweepForceIgnoredNotice', { wouldRetire: run.data.would_retire })}
                 </p>
               )}
 
@@ -120,7 +129,7 @@ export function VetsAdminPage() {
                   leaves MORE rows stale, so it exceeds the ceiling on its own and
                   the guard stays on without anyone anticipating it. */}
               {run.data.sweep_skipped === 'below_threshold' &&
-                (run.data.would_retire > 0 ? (
+                ((run.data.would_retire ?? 0) > 0 ? (
                   <button
                     type="button"
                     onClick={() => {
@@ -132,7 +141,11 @@ export function VetsAdminPage() {
                           }),
                         )
                       ) {
-                        run.mutate({ maxRetired: run.data!.would_retire });
+                        // ?? 0 is unreachable — this branch only renders when the
+                        // value is a number above zero — and it fails closed if
+                        // that ever stops being true: the server refuses a ceiling
+                        // of zero rather than approving an unbounded sweep.
+                        run.mutate({ maxRetired: run.data!.would_retire ?? 0 });
                       }
                     }}
                     disabled={run.isPending}

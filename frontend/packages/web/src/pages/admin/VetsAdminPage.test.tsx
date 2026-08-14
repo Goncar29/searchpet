@@ -3,6 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { apiClient, ApiError } from '@shared/api/client';
+import type { VetImportResult } from '@shared/types';
 import { VetsAdminPage } from './VetsAdminPage';
 
 // i18next returns the key unchanged when a translation is missing, and BOTH
@@ -155,6 +156,32 @@ describe('VetsAdminPage', () => {
     expect(screen.queryByRole('button', { name: 'vets.forceRun' })).not.toBeInTheDocument();
     // And it has to say why, or the missing button is its own small mystery.
     expect(screen.getByText('vets.forceUnavailableEmptyRun')).toBeInTheDocument();
+  });
+
+  // Web and backend deploy independently from the same push — Vercel lands a
+  // couple of minutes before Render — so for that window this page talks to a
+  // backend that has never heard of would_retire. Declaring the field required
+  // does not make it arrive: it just moves the surprise to runtime, where
+  // `undefined > 0` quietly hides the override and the counter renders blank.
+  it('survives a backend that does not send would_retire yet', async () => {
+    const sinCampo = {
+      scanned: 150, upserted: 150, skipped_no_coords: 0, upsert_failed: 0,
+      swept: 0, sweep_skipped: 'below_threshold', active_before: 183,
+    } as VetImportResult;
+    mockedApi.importVets.mockResolvedValue(sinCampo);
+    renderPage();
+
+    await userEvent.click(screen.getByRole('button', { name: 'vets.run' }));
+
+    await waitFor(() =>
+      expect(screen.getByText('vets.sweepSkipped_below_threshold')).toBeInTheDocument(),
+    );
+    // No override: there is no number to pin a ceiling to, and inventing one is
+    // how a run gets approved for a quantity nobody read.
+    expect(screen.queryByRole('button', { name: 'vets.forceRun' })).not.toBeInTheDocument();
+    // And no counter claiming zero rows would go, which would be a different lie
+    // from "we do not know".
+    expect(screen.queryByText('vets.wouldRetire')).not.toBeInTheDocument();
   });
 
   // A dropped override renders the same block as a run nobody forced, so without

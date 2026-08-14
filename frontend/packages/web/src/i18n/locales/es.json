@@ -167,10 +167,11 @@
       "sweepSkipped_below_threshold": "Esta corrida daría de baja {{wouldRetire}} veterinarias de las {{activeBefore}} activas, más del 20%, así que no se borró nada: puede ser una respuesta truncada de Overpass. Importá de nuevo: si el número se repite, la caída es real y podés forzar la baja con el botón de acá abajo.",
       "sweepSkipped_upsert_failures": "Algunas veterinarias no se pudieron guardar, así que no se borró nada: una baja podría haber sido un error nuestro.",
       "sweepSkipped_mapping_failures": "OpenStreetMap devolvió {{scanned}} veterinarias pero sólo pudimos quedarnos con {{upserted}}: al resto le faltaban las coordenadas. La pérdida es nuestra, no de OSM, así que no se dio de baja nada — darlas de baja borraría veterinarias que siguen listadas. Esto no se puede forzar desde acá: hay que revisar el importador.",
-      "sweepForceIgnoredNotice": "Pediste dar de baja igual, pero esta corrida nueva guardó menos de lo que habías aprobado, así que el pedido no se aplicó. Leé los números de arriba antes de insistir: el botón vuelve a aprobar lo que diga ESTA corrida, no la anterior.",
-      "forceUnavailableEmptyRun": "Esta corrida no guardó ninguna veterinaria, así que no se puede forzar la baja desde acá: aprobar cero sería aprobar que se borre todo, pase lo que pase. Si OpenStreetMap realmente se vació, eso se resuelve en la base de datos, a mano.",
+      "sweepForceIgnoredNotice": "Pediste dar de baja igual, pero esta corrida nueva quiere dar de baja {{wouldRetire}} — más de las que habías aprobado — así que el pedido no se aplicó. Mirá ese número antes de insistir: el botón aprueba como tope lo que diga ESTA corrida, no la anterior.",
+      "forceUnavailableEmptyRun": "Esta corrida no tiene filas para dar de baja, así que no hay nada que forzar. Si esperabas que las hubiera, volvé a importar en unos minutos: puede que el servidor todavía no esté informando ese número.",
       "sweepSkipped_unknown": "No se dio de baja nada. El servidor informó un motivo que esta pantalla todavía no sabe explicar: {{reason}}.",
-      "error": "No se pudo completar la importación."
+      "error": "No se pudo completar la importación.",
+      "sweepSkipped_stale_count_failed": "No se pudo consultar cuántas veterinarias se darían de baja, así que no se borró nada. Ojo: las que esta corrida importó SÍ se guardaron. Probá de nuevo en un rato."
     }
   },
   "pagination": {

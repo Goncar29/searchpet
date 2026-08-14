@@ -67,9 +67,9 @@ const sweepMinRatio = 0.8
 // exists to record. Same defect the two hardcoded 5000s caused in the map layer
 // (PR #153) — the rule lives in one function, and the call sites ask it.
 //
-// The count is deliberately unnamed as to WHICH number it is: sweepReason applies
-// the same ratio to Scanned and to Upserted, and the difference between those two
-// answers is what separates "OSM shrank" from "we dropped rows".
+// One call site left, mapping_failures, where it asks what share of OSM's answer
+// we managed to keep. The bound itself moved to retiresTooMuch, which measures
+// rows instead of writes — see issue #156.
 func belowThreshold(count int, activeBefore int64) bool {
 	return float64(count) < sweepMinRatio*float64(activeBefore)
 }
@@ -182,17 +182,17 @@ type RunOptions struct {
 	// (mapping_failures) — and no operator can see either from the panel, so
 	// neither is theirs to overrule.
 	ForceSweep bool
-	// MaxRetired is how many rows the operator saw the blocked run SAVE —
-	// what survived, which is exactly what the threshold measures, and not what
-	// OpenStreetMap listed. Pinning the override to any other number would approve
-	// one quantity while unlocking a check on another.
+	// MaxRetired is a CEILING on how many rows may be soft-deleted: "at most this
+	// many go away". It is the WouldRetire the operator read on the blocked run —
+	// the same number the bound measures. Pass anything else and you approve one
+	// quantity while unlocking a check on another; pass Upserted, say 138 of 183,
+	// and you have authorised retiring 138 rows, three quarters of the table.
 	//
 	// It is what turns the override from a blank cheque into a decision about a
 	// specific outcome: forcing starts a NEW run, so the numbers that justified
-	// pressing the button describe a run that is already over. Without this pin,
-	// a third response that comes back truncated would sweep under an approval
-	// granted for a different one — with the threshold guard, written for exactly
-	// that response, switched off.
+	// pressing the button describe a run that is already over. The ceiling handles
+	// that without anyone having to anticipate it — a more truncated response
+	// leaves MORE rows stale, so it can only exceed what was approved.
 	//
 	// Zero means no evidence, and no evidence means no override (see forceApplies).
 	MaxRetired int
@@ -265,13 +265,25 @@ func (i *Importer) Run(ctx context.Context, opts RunOptions) (Result, error) {
 	// Counted BEFORE deciding, which is the point: the guard has to bound the rows
 	// that are about to go away, and after SoftDeleteStaleBefore runs it is too
 	// late to refuse. Same cutoff as the sweep, so the two see the same set.
+	//
+	// A failure here is a guard INPUT going missing, not the run failing, and the
+	// difference matters: by this line the upserts have committed. Returning the
+	// error would throw that Result away and the handler would answer 502
+	// vet_import_upstream_failed — a name pointing at Overpass for a database
+	// blip, leaving the operator reading "the import could not be completed" about
+	// a run whose 183 writes landed. So the run reports itself and refuses the
+	// sweep, which is the fail-closed outcome anyway.
+	staleCountFailed := false
 	wouldRetire, err := i.repo.CountStaleBefore(ctx, cutoff)
 	if err != nil {
-		return res, fmt.Errorf("osmimport: count stale: %w", err)
+		i.logger.Error("[osmimport] could not count the rows the sweep would take",
+			zap.Error(err))
+		staleCountFailed = true
+	} else {
+		res.WouldRetire = int(wouldRetire)
 	}
-	res.WouldRetire = int(wouldRetire)
 
-	res.SweepSkipped = sweepReason(res, activeBefore, opts)
+	res.SweepSkipped = sweepReason(res, activeBefore, opts, staleCountFailed)
 	if res.SweepSkipped == "" {
 		// Recorded only when the override actually changed the outcome: a forced
 		// flag on a run that would have swept anyway would misreport a routine
@@ -318,34 +330,36 @@ func (i *Importer) Run(ctx context.Context, opts RunOptions) (Result, error) {
 // sweepReason returns "" when the run earned the right to delete rows, or the name
 // of the guard that blocked it.
 //
-// Three guards, in the order a diagnosis is useful rather than the order they
-// were written: the two that doubt US come first, so a run whose rows went
-// missing through our own writes or our own mapping is NAMED for that, instead
-// of being reported as an OpenStreetMap shrinkage the operator is invited to
-// override. The last one is the only one they can override.
+// Four guards, in the order a diagnosis is useful rather than the order they were
+// written: the ones that doubt US come first, so a run whose rows went missing
+// through our own writes or our own mapping is NAMED for that, instead of being
+// reported as an OpenStreetMap shrinkage the operator is invited to override. The
+// last one is the only one they can override.
 //
 // The ordering is load-bearing for a second reason. below_threshold is the bound
-// on how much one import may delete, and it has to be the LAST word, measured on
-// Upserted against the table. An earlier version moved it onto Scanned so that
-// our mapping losses could not trip it; that split the bound into two ratios in
-// series, and ratios in series multiply — Scanned >= 0.8*activeBefore with
-// Upserted >= 0.8*Scanned only yields Upserted >= 0.64*activeBefore, so a run
-// retired 35% of the table with every guard satisfied. Separating the CAUSES is
-// what that change was for, and mapping_failures below does it; the bound stays
-// where it always was.
+// on how much one import may delete, and it has to be the LAST word. An earlier
+// version moved it onto Scanned so that our mapping losses could not trip it;
+// that split the bound into two ratios in series, and ratios in series multiply —
+// Scanned >= 0.8*activeBefore with Upserted >= 0.8*Scanned only yields
+// Upserted >= 0.64*activeBefore, so a run retired 35% of the table with every
+// guard satisfied. Separating the CAUSES is what that change was for, and
+// mapping_failures below does it; the bound stayed where it was.
 //
-// KNOWN GAP, measured and deliberately not closed here. Upserted counts WRITES,
-// and an upsert of a clinic we never had refreshes nothing, so rows OSM added
-// since the last run pad the number this guard reads. Reproduced: we hold 183,
-// Overpass returns a truncated 150 of which 30 are new, 150 >= 0.8*183 clears the
-// guard, only 120 existing rows were refreshed, and the sweep takes 63 — 34% of
-// the table, unforced. Closing it properly means bounding the rows the sweep will
-// actually retire (a CountStaleBefore on the repository) and flipping the
-// override from a floor on what survived to a ceiling on what goes away, which
-// changes the request contract and belongs in its own change. Until then the
-// guarantee this guard gives is "at least four fifths of activeBefore were
-// written this run", which is not the same sentence.
-func sweepReason(res Result, activeBefore int64, opts RunOptions) string {
+// It then stopped being a proxy at all (issue #156). It used to compare Upserted
+// against the table, and Upserted counts WRITES: an upsert of a clinic we never
+// had refreshes nothing, so rows OSM added since the last run padded the number
+// the guard read. Measured at the time: we hold 183, Overpass returns a truncated
+// 150 of which 30 are new, 150 clears 0.8*183, only 120 existing rows were
+// refreshed, and the sweep takes 63 — 34% of the table, unforced. It now bounds
+// WouldRetire, counted from the table before anything is deleted, so the guard
+// measures the quantity it is about instead of inferring it.
+func sweepReason(res Result, activeBefore int64, opts RunOptions, staleCountFailed bool) string {
+	// We could not measure what the sweep would take, so there is nothing to bound
+	// it against. Not forcible for the plainest reason of all: an operator cannot
+	// approve a ceiling on a number nobody was able to read.
+	if staleCountFailed {
+		return "stale_count_failed"
+	}
 	// Our writes failed, so those rows kept an old timestamp while still existing
 	// in OSM. Sweeping now would delete live clinics.
 	//

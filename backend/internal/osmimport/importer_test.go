@@ -207,6 +207,9 @@ type fakeVetRepo struct {
 	// us, where writes and refreshes stop being the same number.
 	knownIDs  map[int64]bool
 	refreshed int
+	// staleErr makes the pre-sweep count fail, which is a guard input going
+	// missing rather than the run failing.
+	staleErr error
 }
 
 func (f *fakeVetRepo) Upsert(_ context.Context, vet *domain.Vet) error {
@@ -234,6 +237,9 @@ func (f *fakeVetRepo) stale() int64 {
 }
 
 func (f *fakeVetRepo) CountStaleBefore(_ context.Context, _ time.Time) (int64, error) {
+	if f.staleErr != nil {
+		return 0, f.staleErr
+	}
 	return f.stale(), nil
 }
 
@@ -555,6 +561,49 @@ func TestRun_MappingFailuresCannotBeForced(t *testing.T) {
 	}
 	if res.SweepForced {
 		t.Error("nothing was forced: the run was blocked by the other guard")
+	}
+}
+
+// The count feeds a guard, so failing to get it must refuse the sweep — not
+// discard the run. Aborting throws away a Result whose 183 upserts already
+// committed, and the handler maps any error to 502 vet_import_upstream_failed,
+// which names Overpass for a database blip: the operator reads "the import could
+// not be completed" and never learns the writes landed.
+func TestRun_AFailedStaleCountBlocksTheSweepWithoutLosingTheRun(t *testing.T) {
+	srv := overpassStub(t, 100)
+	defer srv.Close()
+	repo := &fakeVetRepo{activeBefore: 100, staleErr: errors.New("connection reset by peer")}
+
+	res, err := newTestImporter(repo, srv.URL).Run(context.Background(), RunOptions{})
+	if err != nil {
+		t.Fatalf("Run returned an error and threw away 100 committed upserts: %v", err)
+	}
+	if res.Upserted != 100 {
+		t.Errorf("Upserted = %d: the run's own outcome was lost", res.Upserted)
+	}
+	if res.SweepSkipped != "stale_count_failed" {
+		t.Errorf("SweepSkipped = %q, want \"stale_count_failed\"", res.SweepSkipped)
+	}
+	if repo.sweptCutoff != nil {
+		t.Error("swept without knowing how many rows it would take")
+	}
+}
+
+// And it must not be overridable: the operator cannot approve a ceiling on a
+// number nobody could read.
+func TestRun_AFailedStaleCountCannotBeForced(t *testing.T) {
+	srv := overpassStub(t, 100)
+	defer srv.Close()
+	repo := &fakeVetRepo{activeBefore: 100, staleErr: errors.New("connection reset by peer")}
+
+	res, err := newTestImporter(repo, srv.URL).Run(context.Background(),
+		RunOptions{ForceSweep: true, MaxRetired: 100})
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if res.SweepSkipped != "stale_count_failed" || repo.sweptCutoff != nil {
+		t.Errorf("forcing reached a guard that fired because we could not measure: %q",
+			res.SweepSkipped)
 	}
 }
 

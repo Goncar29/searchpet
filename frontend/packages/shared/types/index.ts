@@ -877,8 +877,13 @@ export interface VetImportResult {
    * How many rows the sweep would take, counted before it ran. On a blocked run
    * it is what explains the refusal and the ceiling the operator would approve;
    * on a clean one it equals `swept`.
+   *
+   * Optional because it genuinely is: web and backend deploy independently from
+   * the same push and Vercel lands first, so for a couple of minutes this client
+   * talks to a backend that never sends it. Declaring it required would not make
+   * it arrive — it would only move the surprise to runtime.
    */
-  would_retire: number;
+  would_retire?: number;
   /** Live OSM rows when the run started — the threshold guard's denominator. */
   active_before: number;
   /** Present only when a guard blocked the deletion pass. */

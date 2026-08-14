@@ -167,10 +167,11 @@
       "sweepSkipped_below_threshold": "This run would retire {{wouldRetire}} clinics out of the {{activeBefore}} we hold, more than 20%, so nothing was deleted: it may be a truncated Overpass response. Import again: if the number repeats, the drop is real and you can force the retirement with the button below.",
       "sweepSkipped_upsert_failures": "Some clinics could not be saved, so nothing was deleted: a removal might have been our own fault.",
       "sweepSkipped_mapping_failures": "OpenStreetMap returned {{scanned}} clinics but we could only keep {{upserted}}: the rest arrived without coordinates. The loss is ours, not OSM's, so nothing was retired — retiring them would delete clinics that are still listed. This cannot be forced from here: the importer needs looking at.",
-      "sweepForceIgnoredNotice": "You asked to retire them anyway, but this new run saved less than what you had approved, so the request was not applied. Read the numbers above before insisting: the button approves whatever THIS run reports, not the previous one.",
-      "forceUnavailableEmptyRun": "This run saved no clinics at all, so the retirement cannot be forced from here: approving zero would approve deleting everything, whatever comes back. If OpenStreetMap really did empty out, that is settled in the database by hand.",
+      "sweepForceIgnoredNotice": "You asked to retire them anyway, but this new run wants to retire {{wouldRetire}} — more than you had approved — so the request was not applied. Read that number before insisting: the button approves whatever THIS run reports as the ceiling, not the previous one.",
+      "forceUnavailableEmptyRun": "This run has no rows to retire, so there is nothing to force. If you expected otherwise, import again in a few minutes — the server may not be reporting that number yet.",
       "sweepSkipped_unknown": "Nothing was retired. The server reported a reason this screen cannot explain yet: {{reason}}.",
-      "error": "The import could not be completed."
+      "error": "The import could not be completed.",
+      "sweepSkipped_stale_count_failed": "We could not read how many clinics would be retired, so nothing was deleted. Note that the clinics this run imported WERE saved. Try again in a few minutes."
     }
   },
   "pagination": {
