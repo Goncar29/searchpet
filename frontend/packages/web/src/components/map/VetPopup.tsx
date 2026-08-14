@@ -1,10 +1,15 @@
 import { useTranslation } from 'react-i18next';
 import { formatDistance } from '@shared/utils/mapFormat';
+import { safeExternalUrl } from '@shared/utils/safeExternalUrl';
 import type { Vet } from '@shared/types';
 
 // Movido tal cual desde MapPage, con su helper de direcciones.
 export function VetPopup({ vet }: { vet: Vet }) {
   const { t: tv } = useTranslation('vets');
+  // vet.website is an OpenStreetMap tag, so it is world-editable, and React does
+  // not check schemes on href. The import drops non-http(s) values at the door
+  // now; rows stored before that filter existed still carry whatever OSM had.
+  const website = safeExternalUrl(vet.website);
 
   const directionsUrl = (lat: number, lng: number) =>
     `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
@@ -29,9 +34,9 @@ export function VetPopup({ vet }: { vet: Vet }) {
             {tv('call')}
           </a>
         )}
-        {vet.website && (
+        {website && (
           <a
-            href={vet.website}
+            href={website}
             target="_blank"
             rel="noopener noreferrer"
             className="text-sm text-primary font-semibold hover:underline"

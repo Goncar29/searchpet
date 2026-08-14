@@ -40,7 +40,9 @@ func main() {
 		log,
 	)
 
-	res, err := imp.Run(context.Background())
+	// No force: whoever runs the CLI has a database shell open anyway, so the
+	// override earns nothing here and would only add a way to get it wrong.
+	res, err := imp.Run(context.Background(), osmimport.RunOptions{})
 	if err != nil {
 		log.Fatal("import-vets: run failed", zap.Error(err))
 	}

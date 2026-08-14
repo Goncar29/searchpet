@@ -43,6 +43,23 @@ func ToVetListResponse(rs []domain.VetNearbyResult) []VetResponse {
 	return out
 }
 
+// VetImportRequest is the optional body of POST /api/admin/vets/import. Every
+// field is optional: a run with no body at all is the ordinary, guarded import.
+type VetImportRequest struct {
+	// ForceSweep lets the deletion pass proceed below the sanity threshold. It is
+	// the operator's exit from a guard that cannot untrip itself, and it never
+	// reaches the guard that protects against our own failed writes.
+	ForceSweep bool `json:"force_sweep"`
+	// ExpectedUpserted is the upserted count the operator read on the run they are
+	// overriding — the same number the threshold measures, and deliberately not
+	// `scanned`: pinning one quantity while unlocking a check on another is the
+	// defect this field exists to close. Forcing starts a NEW import, so the flag
+	// on its own would approve a run nobody has seen; the override only takes
+	// effect when the new run reaches this number. Omitting it, or sending zero,
+	// leaves the run fully guarded.
+	ExpectedUpserted int `json:"expected_upserted"`
+}
+
 // VetImportResponse is the outcome of one OSM import run.
 //
 // sweep_skipped is present ONLY when a guard blocked the deletion pass. An
@@ -64,4 +81,8 @@ type VetImportResponse struct {
 	Swept           int    `json:"swept"`
 	ActiveBefore    int64  `json:"active_before"`
 	SweepSkipped    string `json:"sweep_skipped,omitempty"`
+	SweepForced     bool   `json:"sweep_forced,omitempty"`
+	// SweepForceIgnored tells the panel that an override was asked for and dropped.
+	// Without it that outcome is byte-identical to an ordinary blocked run.
+	SweepForceIgnored bool `json:"sweep_force_ignored,omitempty"`
 }

@@ -159,9 +159,15 @@
       "swept": "Dadas de baja",
       "sweepSkippedTitle": "No se dio de baja nada",
       "activeBefore": "Activas antes",
+      "forceRun": "Dar de baja igual",
+      "confirmForceRun": "Esta corrida guardó {{upserted}} y tenemos {{activeBefore}} activas. Si corriste el import de nuevo y el número se repitió, la caída es real y se pueden dar de baja. Si es la primera vez que lo ves, mejor probá otra vez antes. Ojo: esto vuelve a correr el import, y sólo se dará de baja si la corrida nueva guarda al menos {{upserted}}. ¿Damos de baja las que faltan?",
+      "sweepForcedNotice": "Se dieron de baja {{swept}} salteando el control de cordura, porque lo pediste explícitamente.",
       "confirmRun": "Esto vuelve a leer OpenStreetMap y da de baja las veterinarias que ya no figuran ahí. Las bajas se pueden revertir, pero sólo desde la base de datos. ¿Seguimos?",
-      "sweepSkipped_below_threshold": "OpenStreetMap devolvió {{upserted}} veterinarias y ya teníamos {{activeBefore}} activas. La caída supera el 20%, así que no se dio de baja nada: puede ser una respuesta truncada de Overpass. Si probás de nuevo y el número se repite, la caída es real — y este bloqueo no se destraba solo, hay que dar de baja esas filas a mano.",
+      "sweepSkipped_below_threshold": "Esta corrida guardó {{upserted}} veterinarias y ya teníamos {{activeBefore}} activas. La caída supera el 20%, así que no se dio de baja nada: puede ser una respuesta truncada de Overpass. Importá de nuevo: si el número se repite, la caída es real y podés forzar la baja con el botón de acá abajo.",
       "sweepSkipped_upsert_failures": "Algunas veterinarias no se pudieron guardar, así que no se borró nada: una baja podría haber sido un error nuestro.",
+      "sweepSkipped_mapping_failures": "OpenStreetMap devolvió {{scanned}} veterinarias pero sólo pudimos quedarnos con {{upserted}}: al resto le faltaban las coordenadas. La pérdida es nuestra, no de OSM, así que no se dio de baja nada — darlas de baja borraría veterinarias que siguen listadas. Esto no se puede forzar desde acá: hay que revisar el importador.",
+      "sweepForceIgnoredNotice": "Pediste dar de baja igual, pero esta corrida nueva guardó menos de lo que habías aprobado, así que el pedido no se aplicó. Leé los números de arriba antes de insistir: el botón vuelve a aprobar lo que diga ESTA corrida, no la anterior.",
+      "forceUnavailableEmptyRun": "Esta corrida no guardó ninguna veterinaria, así que no se puede forzar la baja desde acá: aprobar cero sería aprobar que se borre todo, pase lo que pase. Si OpenStreetMap realmente se vació, eso se resuelve en la base de datos, a mano.",
       "sweepSkipped_unknown": "No se dio de baja nada. El servidor informó un motivo que esta pantalla todavía no sabe explicar: {{reason}}.",
       "error": "No se pudo completar la importación."
     }

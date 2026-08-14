@@ -1172,11 +1172,28 @@ class APIClient {
     return this.request<AdminRoleResult>('POST', '/api/admin/users/admin-role', { email, grant });
   }
 
-  async importVets(): Promise<VetImportResult> {
+  /**
+   * Runs the OSM vets import. Called with no argument it is the ordinary, fully
+   * guarded run.
+   *
+   * Passing `force` is the operator's exit from the sanity threshold, a guard
+   * that cannot untrip itself. It never reaches the guard that protects against
+   * our own failed writes.
+   *
+   * The override carries `expectedUpserted` — the count the operator read on the
+   * blocked run — and the argument is an object rather than a second boolean so
+   * that the flag CANNOT be sent without it. Forcing starts a NEW import: a bare
+   * flag would approve whatever that run brings back, including the truncated
+   * response the threshold exists to catch. The server applies the override only
+   * when the new run reaches this number.
+   */
+  async importVets(force?: { expectedUpserted: number }): Promise<VetImportResult> {
     return this.request<VetImportResult>(
       'POST',
       '/api/admin/vets/import',
-      undefined,
+      force
+        ? { force_sweep: true, expected_upserted: force.expectedUpserted }
+        : { force_sweep: false },
       undefined,
       IMPORT_TIMEOUT_MS,
     );

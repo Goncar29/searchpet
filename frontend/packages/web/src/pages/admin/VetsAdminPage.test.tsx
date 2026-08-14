@@ -58,7 +58,11 @@ describe('VetsAdminPage', () => {
     // Keys the locale files really define. Resolving them to themselves keeps the
     // assertions readable; anything absent behaves like a missing translation.
     translations['vets.sweepSkipped_below_threshold'] = 'vets.sweepSkipped_below_threshold';
+    translations['vets.sweepSkipped_upsert_failures'] = 'vets.sweepSkipped_upsert_failures';
+    translations['vets.sweepSkipped_mapping_failures'] = 'vets.sweepSkipped_mapping_failures';
     translations['vets.sweepSkipped_unknown'] = 'vets.sweepSkipped_unknown';
+    translations['vets.forceUnavailableEmptyRun'] = 'vets.forceUnavailableEmptyRun';
+    translations['vets.sweepForceIgnoredNotice'] = 'vets.sweepForceIgnoredNotice';
     // getErrorMessage falls back whenever t hands the key back, so these two have
     // to resolve to something that is not the key.
     translations['errors:vet_import_running'] = 'Ya hay una importación en curso';
@@ -97,6 +101,116 @@ describe('VetsAdminPage', () => {
     // against is the operator's only handle on why. "2 upserted" says nothing
     // until you can see it was measured against 183.
     expect(screen.getByText('183')).toBeInTheDocument();
+  });
+
+  // The threshold guard cannot untrip itself, so without this button the only
+  // exit is an UPDATE against production.
+  it('offers the override after the threshold blocked the sweep, and forces on click', async () => {
+    // scanned and upserted deliberately differ — two stray ways with no center.
+    // With both at 140 this test could not tell which number the page pins, and
+    // pinning the wrong one is the whole defect: the override would approve a
+    // quantity the server measures nothing against.
+    mockedApi.importVets.mockResolvedValue({
+      scanned: 140, upserted: 138, skipped_no_coords: 2, upsert_failed: 0,
+      swept: 0, sweep_skipped: 'below_threshold', active_before: 183,
+    });
+    renderPage();
+
+    await userEvent.click(screen.getByRole('button', { name: 'vets.run' }));
+    const force = await screen.findByRole('button', { name: 'vets.forceRun' });
+
+    // The ordinary run must not force anything on its way here.
+    expect(mockedApi.importVets).toHaveBeenLastCalledWith(undefined);
+
+    // The override travels with the number the operator just read. Forcing fires a
+    // NEW import, so a bare flag would approve whatever that run brings back —
+    // including the truncated response the threshold guard exists to catch. The
+    // server refuses to apply the override unless the new run reaches this number.
+    //
+    // 138 and not 140: the pin has to be what the threshold measures, which is what
+    // SURVIVED, not what OpenStreetMap listed. Pinning scanned would approve one
+    // quantity while unlocking a check on another.
+    await userEvent.click(force);
+    await waitFor(() =>
+      expect(mockedApi.importVets).toHaveBeenLastCalledWith({ expectedUpserted: 138 }),
+    );
+  });
+
+  // The server refuses an override pinned to zero, and it is right to: "keep at
+  // least 0 rows" approves any response at all, including the empty one that
+  // caused the block. Offering a button that CANNOT work is the dead end this
+  // whole PR is about — the operator confirms a destructive action, a full import
+  // runs, and the screen comes back identical with no error and no explanation.
+  it('does not offer an override that the server is guaranteed to refuse', async () => {
+    mockedApi.importVets.mockResolvedValue({
+      scanned: 0, upserted: 0, skipped_no_coords: 0, upsert_failed: 0,
+      swept: 0, sweep_skipped: 'below_threshold', active_before: 183,
+    });
+    renderPage();
+
+    await userEvent.click(screen.getByRole('button', { name: 'vets.run' }));
+
+    await waitFor(() =>
+      expect(screen.getByText('vets.sweepSkipped_below_threshold')).toBeInTheDocument(),
+    );
+    expect(screen.queryByRole('button', { name: 'vets.forceRun' })).not.toBeInTheDocument();
+    // And it has to say why, or the missing button is its own small mystery.
+    expect(screen.getByText('vets.forceUnavailableEmptyRun')).toBeInTheDocument();
+  });
+
+  // A dropped override renders the same block as a run nobody forced, so without
+  // this the operator reads "the button did nothing" and presses it again — and
+  // the second press is pinned to the run that just came back short.
+  it('says so when the override was asked for and refused', async () => {
+    mockedApi.importVets.mockResolvedValue({
+      scanned: 12, upserted: 12, skipped_no_coords: 0, upsert_failed: 0,
+      swept: 0, sweep_skipped: 'below_threshold', active_before: 183,
+      sweep_force_ignored: true,
+    });
+    renderPage();
+
+    await userEvent.click(screen.getByRole('button', { name: 'vets.run' }));
+
+    await waitFor(() =>
+      expect(screen.getByText('vets.sweepForceIgnoredNotice')).toBeInTheDocument(),
+    );
+  });
+
+  // Same reasoning as upsert_failures, one layer earlier: OSM listed enough and
+  // our own mapping dropped them. From this screen that is indistinguishable from
+  // a real shrinkage, and the number repeats across runs precisely because the
+  // fault is ours — which is what the confirmation teaches them to trust.
+  it('does not offer the override when the block came from our own mapping', async () => {
+    mockedApi.importVets.mockResolvedValue({
+      scanned: 183, upserted: 20, skipped_no_coords: 163, upsert_failed: 0,
+      swept: 0, sweep_skipped: 'mapping_failures', active_before: 183,
+    });
+    renderPage();
+
+    await userEvent.click(screen.getByRole('button', { name: 'vets.run' }));
+
+    await waitFor(() =>
+      expect(screen.getByText('vets.sweepSkipped_mapping_failures')).toBeInTheDocument(),
+    );
+    expect(screen.queryByRole('button', { name: 'vets.forceRun' })).not.toBeInTheDocument();
+  });
+
+  // The other guard fires when OUR writes failed, which the operator cannot see
+  // from this screen. Offering the override there would hand them a button that
+  // retires clinics that are alive in OSM.
+  it('does not offer the override when the block came from failed writes', async () => {
+    mockedApi.importVets.mockResolvedValue({
+      scanned: 100, upserted: 99, skipped_no_coords: 0, upsert_failed: 1,
+      swept: 0, sweep_skipped: 'upsert_failures', active_before: 100,
+    });
+    renderPage();
+
+    await userEvent.click(screen.getByRole('button', { name: 'vets.run' }));
+
+    await waitFor(() =>
+      expect(screen.getByText('vets.sweepSkipped_upsert_failures')).toBeInTheDocument(),
+    );
+    expect(screen.queryByRole('button', { name: 'vets.forceRun' })).not.toBeInTheDocument();
   });
 
   // The run retires rows and the panel has no un-retire, so a misclick has to be

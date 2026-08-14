@@ -159,9 +159,15 @@
       "swept": "Retiradas",
       "sweepSkippedTitle": "Nada foi retirado",
       "activeBefore": "Ativas antes",
+      "forceRun": "Retirar mesmo assim",
+      "confirmForceRun": "Esta execução salvou {{upserted}} e temos {{activeBefore}} ativas. Se você rodou a importação de novo e o número se repetiu, a queda é real e elas podem ser retiradas. Se é a primeira vez que vê isto, rode mais uma vez antes. Atenção: isto roda a importação de novo, e nada será retirado se a nova execução não salvar pelo menos {{upserted}}. Retirar as que faltam?",
+      "sweepForcedNotice": "{{swept}} foram retiradas pulando o controle de sanidade, porque você pediu explicitamente.",
       "confirmRun": "Isto relê o OpenStreetMap e retira as veterinárias que já não constam lá. As retiradas podem ser revertidas, mas só pelo banco de dados. Continuar?",
-      "sweepSkipped_below_threshold": "O OpenStreetMap devolveu {{upserted}} veterinárias e já tínhamos {{activeBefore}} ativas. A queda passa de 20%, então nada foi retirado: pode ser uma resposta truncada do Overpass. Se tentar de novo e o número se repetir, a queda é real — e este bloqueio não se desfaz sozinho, essas linhas têm de ser retiradas na mão.",
+      "sweepSkipped_below_threshold": "Salvamos {{upserted}} veterinárias e já tínhamos {{activeBefore}} ativas. A queda passa de 20%, então nada foi retirado: pode ser uma resposta truncada do Overpass. Importe de novo: se o número se repetir, a queda é real e você pode forçar a retirada com o botão abaixo.",
       "sweepSkipped_upsert_failures": "Algumas veterinárias não puderam ser salvas, então nada foi apagado: uma remoção poderia ter sido erro nosso.",
+      "sweepSkipped_mapping_failures": "O OpenStreetMap devolveu {{scanned}} veterinárias mas só conseguimos ficar com {{upserted}}: o resto chegou sem coordenadas. A perda é nossa, não do OSM, então nada foi retirado — retirá-las apagaria veterinárias que continuam listadas. Isto não pode ser forçado daqui: é preciso revisar o importador.",
+      "sweepForceIgnoredNotice": "Você pediu para retirar mesmo assim, mas esta nova execução salvou menos do que você tinha aprovado, então o pedido não foi aplicado. Leia os números acima antes de insistir: o botão aprova o que ESTA execução informa, não a anterior.",
+      "forceUnavailableEmptyRun": "Esta execução não salvou nenhuma veterinária, então a retirada não pode ser forçada daqui: aprovar zero seria aprovar apagar tudo, venha o que vier. Se o OpenStreetMap realmente esvaziou, isso se resolve no banco de dados, à mão.",
       "sweepSkipped_unknown": "Nada foi retirado. O servidor informou um motivo que esta tela ainda não sabe explicar: {{reason}}.",
       "error": "Não foi possível concluir a importação."
     }
