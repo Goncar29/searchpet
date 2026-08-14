@@ -155,10 +155,12 @@ type RunOptions struct {
 	// (mapping_failures) — and no operator can see either from the panel, so
 	// neither is theirs to overrule.
 	ForceSweep bool
-	// ExpectedUpserted is how many elements the operator saw the blocked run bring
-	// back from OpenStreetMap — the number the threshold measured, not what we
-	// then saved from it. It
-	// is what turns the override from a blank cheque into a decision about a
+	// ExpectedUpserted is how many rows the operator saw the blocked run SAVE —
+	// what survived, which is exactly what the threshold measures, and not what
+	// OpenStreetMap listed. Pinning the override to any other number would approve
+	// one quantity while unlocking a check on another.
+	//
+	// It is what turns the override from a blank cheque into a decision about a
 	// specific outcome: forcing starts a NEW run, so the numbers that justified
 	// pressing the button describe a run that is already over. Without this pin,
 	// a third response that comes back truncated would sweep under an approval
@@ -263,7 +265,11 @@ func (i *Importer) Run(ctx context.Context, opts RunOptions) (Result, error) {
 		zap.Int("scanned", res.Scanned), zap.Int("upserted", res.Upserted),
 		zap.Int("skipped_no_coords", res.SkippedNoCoords), zap.Int("upsert_failed", res.UpsertFailed),
 		zap.Int("swept", res.Swept), zap.String("sweep_skipped", res.SweepSkipped),
-		zap.Bool("sweep_forced", res.SweepForced))
+		// Both, because this line is the summary someone reads first when they ask
+		// why rows went away: whether an override took, and whether one was asked
+		// for and refused, are different answers to that question.
+		zap.Bool("sweep_forced", res.SweepForced),
+		zap.Bool("force_ignored", res.SweepForceIgnored))
 	return res, nil
 }
 

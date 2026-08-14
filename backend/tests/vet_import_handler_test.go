@@ -117,6 +117,46 @@ func TestVetImportHandler_ForceSweepTravelsFromTheBody(t *testing.T) {
 	}
 }
 
+// A dropped override is invisible to the operator unless it survives the mapper.
+// The importer sets the flag and the panel renders it, but between those two the
+// value has to cross toVetImportResponse — and deleting it there leaves the whole
+// Go suite green AND the web test green, because that one mocks the client. Same
+// shape as the Retry-After header that curl could read and the browser could not:
+// the value exists and nobody proves it reaches the consumer.
+func TestVetImportHandler_ARejectedOverrideReachesTheBody(t *testing.T) {
+	imp := &fakeImporter{res: osmimport.Result{
+		Scanned: 12, Upserted: 12, SweepSkipped: "below_threshold",
+		ActiveBefore: 183, SweepForceIgnored: true,
+	}}
+	req := httptest.NewRequest(http.MethodPost, "/api/admin/vets/import",
+		strings.NewReader(`{"force_sweep":true,"expected_upserted":140}`))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	vetImportRouter(imp).ServeHTTP(w, req)
+
+	var body map[string]any
+	_ = json.Unmarshal(w.Body.Bytes(), &body)
+	if body["sweep_force_ignored"] != true {
+		t.Errorf("the override was dropped and the panel cannot tell: %v", body)
+	}
+}
+
+// And absent, not false, on a run nobody forced — otherwise every ordinary block
+// carries a field whose only job is to say something happened.
+func TestVetImportHandler_AnOrdinaryBlockCarriesNoIgnoredFlag(t *testing.T) {
+	imp := &fakeImporter{res: osmimport.Result{
+		Scanned: 12, Upserted: 12, SweepSkipped: "below_threshold", ActiveBefore: 183,
+	}}
+	w := httptest.NewRecorder()
+	vetImportRouter(imp).ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/api/admin/vets/import", nil))
+
+	var body map[string]any
+	_ = json.Unmarshal(w.Body.Bytes(), &body)
+	if _, present := body["sweep_force_ignored"]; present {
+		t.Errorf("sweep_force_ignored leaked into a run nobody forced: %v", body)
+	}
+}
+
 // The body is optional, so anything unreadable has to land on the guarded run.
 // Failing open here would turn a typo into a deletion.
 func TestVetImportHandler_AnUnreadableBodyDoesNotForceAnything(t *testing.T) {
