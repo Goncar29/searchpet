@@ -66,17 +66,45 @@ const sweepMinRatio = 0.8
 // forced under another, which makes sweep_forced lie about the one thing it
 // exists to record. Same defect the two hardcoded 5000s caused in the map layer
 // (PR #153) — the rule lives in one function, and the call sites ask it.
-func belowThreshold(upserted int, activeBefore int64) bool {
-	return float64(upserted) < sweepMinRatio*float64(activeBefore)
+//
+// The count is deliberately unnamed as to WHICH number it is: sweepReason applies
+// the same ratio to Scanned and to Upserted, and the difference between those two
+// answers is what separates "OSM shrank" from "we dropped rows".
+func belowThreshold(count int, activeBefore int64) bool {
+	return float64(count) < sweepMinRatio*float64(activeBefore)
+}
+
+// forceApplies reports whether the operator's override may take effect for THIS
+// run — the only place that question is answered, for the same reason
+// belowThreshold is the only place the ratio is evaluated.
+//
+// The override is a decision about an outcome the operator READ, and pressing
+// the button starts a fresh run that can return anything. So it is granted
+// against a number: a run that brings back at least what was approved is the run
+// the approval was about, and one that comes back short is not, no matter what
+// the caller asked for.
+//
+// The number is Upserted, because that is what the guard it unlocks measures. An
+// override pinned to anything else would approve one quantity while disabling a
+// check on another — the same shape as the defect it was written to fix. It also
+// closes the truncated-response case on its own: Upserted can never exceed
+// Scanned, so a response cut down to a handful of elements cannot reach a pin
+// granted for a hundred.
+//
+// A floor rather than an equality: OSM can gain a clinic between two runs, and an
+// override that silently does nothing gets pressed again instead of read.
+func forceApplies(opts RunOptions, upserted int) bool {
+	return opts.ForceSweep && opts.ExpectedUpserted > 0 && upserted >= opts.ExpectedUpserted
 }
 
 // Result summarizes an import run.
 type Result struct {
 	Scanned  int
 	Upserted int
-	// SkippedNoCoords counts OSM elements with no usable coordinates. It does NOT
-	// block the sweep: a clinic we cannot place on a map is one we cannot show
-	// either, so retiring it is the honest outcome.
+	// SkippedNoCoords counts OSM elements with no usable coordinates. A handful do
+	// NOT block the sweep: a clinic we cannot place on a map is one we cannot show
+	// either, so retiring it is the honest outcome. A systematic wave of them does
+	// block it, under mapping_failures — see sweepReason.
 	//
 	// Note what that costs, because it is not "these rows were never ours": a way
 	// imported earlier WITH a center that comes back without one (broken geometry
@@ -96,6 +124,12 @@ type Result struct {
 	// then actually ran. A deletion pass that happened because a human insisted
 	// has to stay legible afterwards — in the response and in the log.
 	SweepForced bool
+	// SweepForceIgnored is true when an override was requested and the threshold
+	// blocked the run anyway, because this run did not reach the number it was
+	// granted for. Without it a dropped override looks byte-identical to one that
+	// was never sent, and "the button did nothing" reads as an invitation to press
+	// it again — which re-pins the approval to the run that just came back short.
+	SweepForceIgnored bool
 	// ActiveBefore is how many live OSM rows existed when the run started — the
 	// denominator of the threshold guard. It travels all the way to the response
 	// on purpose: without it an operator reads "140 saved, 0 retired" and cannot
@@ -115,11 +149,24 @@ type RunOptions struct {
 	// identical inputs. The operator who has run the import twice and read the
 	// same number twice holds evidence the process cannot get on its own.
 	//
-	// It does NOT reach the upsert-failure guard, and that asymmetry is the whole
-	// design: the threshold doubts OpenStreetMap, which a human can double-check,
-	// while the other guard doubts OUR OWN writes, which the human cannot see
-	// from the outside.
+	// It reaches ONLY the threshold, and that asymmetry is the whole design: the
+	// threshold doubts OpenStreetMap, which a human can go and check. The other
+	// two guards doubt US — our writes (upsert_failures) and our mapping
+	// (mapping_failures) — and no operator can see either from the panel, so
+	// neither is theirs to overrule.
 	ForceSweep bool
+	// ExpectedUpserted is how many elements the operator saw the blocked run bring
+	// back from OpenStreetMap — the number the threshold measured, not what we
+	// then saved from it. It
+	// is what turns the override from a blank cheque into a decision about a
+	// specific outcome: forcing starts a NEW run, so the numbers that justified
+	// pressing the button describe a run that is already over. Without this pin,
+	// a third response that comes back truncated would sweep under an approval
+	// granted for a different one — with the threshold guard, written for exactly
+	// that response, switched off.
+	//
+	// Zero means no evidence, and no evidence means no override (see forceApplies).
+	ExpectedUpserted int
 }
 
 // Importer pulls OSM vets and upserts them via the repository.
@@ -144,7 +191,7 @@ func New(repo repository.VetRepository, client *http.Client, endpoint string, lo
 
 // Run fetches Uruguay vets from Overpass, upserts each into the vets table, and
 // then soft-deletes the rows this run did not touch — but only if the run passes
-// both guards (see sweepReason).
+// all three guards (see sweepReason).
 func (i *Importer) Run(ctx context.Context, opts RunOptions) (Result, error) {
 	var res Result
 
@@ -186,15 +233,16 @@ func (i *Importer) Run(ctx context.Context, opts RunOptions) (Result, error) {
 		res.Upserted++
 	}
 
-	res.SweepSkipped = sweepReason(res, activeBefore, opts.ForceSweep)
+	res.SweepSkipped = sweepReason(res, activeBefore, opts)
 	if res.SweepSkipped == "" {
 		// Recorded only when the override actually changed the outcome: a forced
 		// flag on a run that would have swept anyway would misreport a routine
 		// import as an operator overriding a safety guard.
-		res.SweepForced = opts.ForceSweep && belowThreshold(res.Upserted, activeBefore)
+		res.SweepForced = forceApplies(opts, res.Upserted) && belowThreshold(res.Upserted, activeBefore)
 		if res.SweepForced {
 			i.logger.Warn("[osmimport] sweeping below the threshold because the caller forced it",
-				zap.Int("upserted", res.Upserted), zap.Int64("active_before", activeBefore))
+				zap.Int("upserted", res.Upserted), zap.Int("expected_upserted", opts.ExpectedUpserted),
+				zap.Int64("active_before", activeBefore))
 		}
 		swept, err := i.repo.SoftDeleteStaleBefore(ctx, cutoff)
 		if err != nil {
@@ -202,8 +250,12 @@ func (i *Importer) Run(ctx context.Context, opts RunOptions) (Result, error) {
 		}
 		res.Swept = int(swept)
 	} else {
+		// Only the threshold can drop an override; the other two never accept one,
+		// so reporting them as "your force was ignored" would be false.
+		res.SweepForceIgnored = opts.ForceSweep && res.SweepSkipped == "below_threshold"
 		i.logger.Warn("[osmimport] sweep skipped",
 			zap.String("reason", res.SweepSkipped),
+			zap.Bool("force_ignored", res.SweepForceIgnored),
 			zap.Int("upserted", res.Upserted), zap.Int64("active_before", activeBefore))
 	}
 
@@ -218,9 +270,23 @@ func (i *Importer) Run(ctx context.Context, opts RunOptions) (Result, error) {
 // sweepReason returns "" when the run earned the right to delete rows, or the name
 // of the guard that blocked it.
 //
-// Both conditions protect against the same thing from opposite directions: rows
-// whose last_synced_at is stale for a reason that is OUR fault rather than OSM's.
-func sweepReason(res Result, activeBefore int64, force bool) string {
+// Three guards, in the order a diagnosis is useful rather than the order they
+// were written: the two that doubt US come first, so a run whose rows went
+// missing through our own writes or our own mapping is NAMED for that, instead
+// of being reported as an OpenStreetMap shrinkage the operator is invited to
+// override. The last one is the only one they can override.
+//
+// The ordering is load-bearing for a second reason. below_threshold is the
+// promise "no run retires more than a fifth of the table unasked", and it has to
+// be the LAST word, measured on what actually survives (Upserted) against the
+// table. An earlier version moved it onto Scanned so that our mapping losses
+// could not trip it; that split the promise into two ratios in series, and
+// ratios in series multiply — Scanned >= 0.8*activeBefore with
+// Upserted >= 0.8*Scanned only yields Upserted >= 0.64*activeBefore, so a run
+// retired 35% of the table with every guard satisfied. Separating the CAUSES is
+// what that change was for, and mapping_failures below does it; the bound stays
+// where it always was.
+func sweepReason(res Result, activeBefore int64, opts RunOptions) string {
 	// Our writes failed, so those rows kept an old timestamp while still existing
 	// in OSM. Sweeping now would delete live clinics.
 	//
@@ -231,7 +297,31 @@ func sweepReason(res Result, activeBefore int64, force bool) string {
 	if res.UpsertFailed > 0 {
 		return "upsert_failures"
 	}
-	// The response was too small to be believable against what we already have.
+	// We lost too much of what the response DID contain — every element that
+	// mapElement could not place (a way with no center). Measured against Scanned,
+	// because the question is what share of OSM's answer WE dropped, which has
+	// nothing to do with how big the table is. One broken way is ordinary and must
+	// not trap the sweep, so it is the same ratio rather than "any skip at all";
+	// at real scale one loss out of 183 is nowhere near the line.
+	//
+	// Ahead of below_threshold on purpose. Both can be true at once, and when they
+	// are, the FIRST answer is the one the panel shows: reporting a mapping
+	// regression as an OpenStreetMap shrinkage hands the operator the override
+	// button for a problem that is ours, which is the whole failure this guard was
+	// added to close.
+	//
+	// Not forcible, and not for symmetry. A mapping regression produces a number
+	// that REPEATS run after run — because the fault is ours and deterministic —
+	// and repetition is exactly what the confirmation dialog teaches the operator
+	// to read as "the drop is real, go ahead". They would be approving the one
+	// thing they cannot see from that screen.
+	if belowThreshold(res.Upserted, int64(res.Scanned)) {
+		return "mapping_failures"
+	}
+	// Too few rows survive this run to retire the rest of the table — the bound on
+	// how much one import may delete, measured on what actually survives against
+	// what we hold. Everything above has already been ruled out, so whatever is
+	// missing here is missing because OpenStreetMap no longer lists it.
 	//
 	// This guard cannot untrip itself: activeBefore is what the table holds, and a
 	// blocked sweep changes nothing, so a LEGITIMATE drop below the ratio (an
@@ -240,7 +330,10 @@ func sweepReason(res Result, activeBefore int64, force bool) string {
 	// deliberately the operator's to pull rather than something the process
 	// decides for itself: the evidence that the response is honest — having run
 	// it twice and read the same number twice — lives with the human.
-	if !force && belowThreshold(res.Upserted, activeBefore) {
+	//
+	// forceApplies, not opts.ForceSweep: the flag alone would hand the exit to a
+	// run the operator never saw, which is the failure this guard exists for.
+	if belowThreshold(res.Upserted, activeBefore) && !forceApplies(opts, res.Upserted) {
 		return "below_threshold"
 	}
 	return ""

@@ -16,8 +16,10 @@ function Stat({ label, value }: { label: string; value: number }) {
 
 export function VetsAdminPage() {
   const { t } = useTranslation('admin');
-  const run = useMutation<VetImportResult, Error, boolean>({
-    mutationFn: (forceSweep: boolean) => apiClient.importVets(forceSweep),
+  // The variable is the override itself, not a flag: an override with no number
+  // behind it is one the server refuses, so the two travel together or not at all.
+  const run = useMutation<VetImportResult, Error, { expectedUpserted: number } | undefined>({
+    mutationFn: (force) => apiClient.importVets(force),
   });
 
   return (
@@ -33,7 +35,7 @@ export function VetsAdminPage() {
       <button
         type="button"
         onClick={() => {
-          if (window.confirm(t('vets.confirmRun'))) run.mutate(false);
+          if (window.confirm(t('vets.confirmRun'))) run.mutate(undefined);
         }}
         disabled={run.isPending}
         className="bg-primary text-white text-sm font-medium px-4 py-2 rounded-md disabled:opacity-60"
@@ -76,6 +78,7 @@ export function VetsAdminPage() {
                   fallback still names the reason, which is what an operator needs. */}
               <p className="text-sm text-amber-800 dark:text-amber-300 mt-1">
                 {t(`vets.sweepSkipped_${run.data.sweep_skipped}`, {
+                  scanned: run.data.scanned,
                   upserted: run.data.upserted,
                   activeBefore: run.data.active_before,
                   defaultValue: t('vets.sweepSkipped_unknown', {
@@ -84,31 +87,65 @@ export function VetsAdminPage() {
                 })}
               </p>
 
+              {/* A dropped override produces the same block as a run nobody
+                  forced, so without this the operator reads "the button did
+                  nothing" and presses it again — and the second press pins the
+                  approval to the run that just came back short. */}
+              {run.data.sweep_force_ignored && (
+                <p className="text-sm font-medium text-amber-900 dark:text-amber-200 mt-2">
+                  {t('vets.sweepForceIgnoredNotice')}
+                </p>
+              )}
+
               {/* The way out of a guard that cannot untrip itself. Offered ONLY
                   for the threshold: the other guard fires when our own writes
                   failed, and an operator has no way to see that from here, so
-                  it is not theirs to overrule. */}
-              {run.data.sweep_skipped === 'below_threshold' && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (
-                      window.confirm(
-                        t('vets.confirmForceRun', {
-                          upserted: run.data!.upserted,
-                          activeBefore: run.data!.active_before,
-                        }),
-                      )
-                    ) {
-                      run.mutate(true);
-                    }
-                  }}
-                  disabled={run.isPending}
-                  className="mt-3 border border-amber-500 text-amber-900 dark:text-amber-200 text-sm font-medium px-3 py-1.5 rounded-md disabled:opacity-60"
-                >
-                  {t('vets.forceRun')}
-                </button>
-              )}
+                  it is not theirs to overrule.
+
+                  Pressing this starts a NEW import — new Overpass fetch, new
+                  upserts — so the numbers in the confirmation describe a run that
+                  is already over. The override goes out pinned to the count the
+                  operator just read, and the server drops it if the new run comes
+                  back short. Otherwise a third response truncated to a handful of
+                  elements would sweep with the guard written for it turned off.
+
+                  The pinned number is `upserted`, what actually survived, because
+                  that is what the threshold measures. Pinning `scanned` would
+                  approve one quantity while unlocking a check on another. */}
+              {run.data.sweep_skipped === 'below_threshold' &&
+                (run.data.upserted > 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (
+                        window.confirm(
+                          t('vets.confirmForceRun', {
+                            upserted: run.data!.upserted,
+                            activeBefore: run.data!.active_before,
+                          }),
+                        )
+                      ) {
+                        run.mutate({ expectedUpserted: run.data!.upserted });
+                      }
+                    }}
+                    disabled={run.isPending}
+                    className="mt-3 border border-amber-500 text-amber-900 dark:text-amber-200 text-sm font-medium px-3 py-1.5 rounded-md disabled:opacity-60"
+                  >
+                    {t('vets.forceRun')}
+                  </button>
+                ) : (
+                  /* The server refuses an override pinned to zero, and rightly:
+                     "keep at least 0" approves any response including the empty
+                     one that caused this block. Rendering the button anyway would
+                     be a confirm dialog, a full destructive import, and an
+                     identical screen afterwards with nothing to read. It is a
+                     deliberate dead end — a total OSM shutdown is exactly what
+                     nobody should be able to approve from a panel — so it says so
+                     instead of hiding. */
+                  <p className="text-sm text-amber-800 dark:text-amber-300 mt-3">
+                    {t('vets.forceUnavailableEmptyRun')}
+                  </p>
+                ))}
             </div>
           )}
 

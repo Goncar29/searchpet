@@ -93,13 +93,20 @@ func TestVetImportHandler_BlockedSweepIsVisibleInTheBody(t *testing.T) {
 func TestVetImportHandler_ForceSweepTravelsFromTheBody(t *testing.T) {
 	imp := &fakeImporter{res: osmimport.Result{Scanned: 2, Upserted: 2, Swept: 1, SweepForced: true}}
 	req := httptest.NewRequest(http.MethodPost, "/api/admin/vets/import",
-		strings.NewReader(`{"force_sweep":true}`))
+		strings.NewReader(`{"force_sweep":true,"expected_upserted":140}`))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	vetImportRouter(imp).ServeHTTP(w, req)
 
 	if !imp.gotOpts.ForceSweep {
 		t.Error("the operator asked to force the sweep and the handler dropped it")
+	}
+	// The flag without the number is an override with nothing behind it: the
+	// importer would refuse it, so dropping this field here turns the button into
+	// a no-op with no error anywhere.
+	if imp.gotOpts.ExpectedUpserted != 140 {
+		t.Errorf("ExpectedUpserted = %d, want the 140 the operator approved",
+			imp.gotOpts.ExpectedUpserted)
 	}
 	var body map[string]any
 	_ = json.Unmarshal(w.Body.Bytes(), &body)
@@ -122,6 +129,10 @@ func TestVetImportHandler_AnUnreadableBodyDoesNotForceAnything(t *testing.T) {
 
 		if imp.gotOpts.ForceSweep {
 			t.Errorf("body %q forced the sweep", body)
+		}
+		if imp.gotOpts.ExpectedUpserted != 0 {
+			t.Errorf("body %q carried an approved number into the run: %d",
+				body, imp.gotOpts.ExpectedUpserted)
 		}
 		if w.Code != http.StatusOK {
 			t.Errorf("body %q: status = %d, want the run to proceed guarded", body, w.Code)
