@@ -177,7 +177,21 @@ export function ForgotPasswordPage() {
     // made for login and register.
     <AuthLayout title={t('forgotPassword.title')} subtitle={description}>
       {step === 'email' ? (
-        <form onSubmit={handleRequest} noValidate className={`${AUTH_CARD} space-y-5`}>
+        // The key is load-bearing. Both steps render a <form> in the same slot,
+        // so without distinct keys React reconciles their children BY INDEX and
+        // reuses component instances across the switch. Measured: the email
+        // field and the new-password field both land at child index 2, and the
+        // password field inherited the email field's instance — same useId
+        // output, `_r_0_`, on both.
+        //
+        // That is harmless today only because `revealed` can never be true on an
+        // email field: AuthField renders the reveal toggle behind `isPassword`,
+        // so nothing can flip it. But that makes the masking of a recovery
+        // password depend on an invariant nobody enforces — add a "change my
+        // email" control that goes back to this step with the password revealed,
+        // and the field would mount UNMASKED. Keying the forms closes it for
+        // every child, present and future, instead of per field.
+        <form key="email-step" onSubmit={handleRequest} noValidate className={`${AUTH_CARD} space-y-5`}>
           {/* Texto FIJO: informa la POLÍTICA, nunca el estado de la cuenta. Un
               contador real ("te quedan 2 de 3") sólo se puede calcular para una
               cuenta que existe, así que mostrarlo reconstruiría en el cliente el
@@ -219,7 +233,7 @@ export function ForgotPasswordPage() {
           {backToLogin}
         </form>
       ) : (
-        <form onSubmit={handleReset} noValidate className={`${AUTH_CARD} space-y-5`}>
+        <form key="code-step" onSubmit={handleReset} noValidate className={`${AUTH_CARD} space-y-5`}>
           {errorBanner}
 
           <AuthField
