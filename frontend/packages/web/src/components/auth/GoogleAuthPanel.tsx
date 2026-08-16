@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next';
+import { AUTH_CARD } from './authStyles';
 import { GoogleSignInButton, googleClientId } from './GoogleSignInButton';
 
 interface GoogleAuthPanelProps {
@@ -23,9 +24,9 @@ export function GoogleAuthPanel({ error, onCredential, onError }: GoogleAuthPane
 
   return (
     <>
-      <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 mb-4">
+      <div className={`${AUTH_CARD} mb-4`}>
         {error && (
-          <div className="bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-sm p-3 rounded-lg mb-3">
+          <div role="alert" className="bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-sm p-3 rounded-lg mb-3">
             {error}
           </div>
         )}

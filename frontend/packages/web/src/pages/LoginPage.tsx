@@ -3,7 +3,10 @@ import { Link, useLocation, useNavigate, useSearchParams } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { getErrorMessage } from '@shared/utils/apiErrors';
-import { Logo } from '../components/Logo';
+import { Icon } from '../components/Icon';
+import { AuthField } from '../components/auth/AuthField';
+import { AuthLayout } from '../components/auth/AuthLayout';
+import { AUTH_CARD } from '../components/auth/authStyles';
 import { GoogleAuthPanel } from '../components/auth/GoogleAuthPanel';
 import { LocationOnboardingStep } from '../components/auth/LocationOnboardingStep';
 import { useGoogleSignIn } from '../hooks/useGoogleSignIn';
@@ -83,13 +86,7 @@ export function LoginPage() {
   };
 
   return (
-    <div className="max-w-md mx-auto px-4 py-16 bg-gray-50 dark:bg-gray-950 min-h-screen">
-      <div className="text-center mb-8">
-        <Logo className="h-14 w-14 mx-auto mb-3 text-primary" />
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{t('auth:login.title')}</h1>
-        <p className="text-gray-500 dark:text-gray-400 mt-1">{t('auth:login.subtitle')}</p>
-      </div>
-
+    <AuthLayout title={t('auth:login.title')} subtitle={t('auth:login.subtitle')}>
       {showLocationStep ? (
         <LocationOnboardingStep onDone={finishOnboarding} />
       ) : (
@@ -100,11 +97,7 @@ export function LoginPage() {
             onError={setGoogleError}
           />
 
-          <form
-            onSubmit={handleSubmit}
-            noValidate
-            className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 space-y-4"
-          >
+          <form onSubmit={handleSubmit} noValidate className={`${AUTH_CARD} space-y-5`}>
             {notice && (
               <div
                 role="status"
@@ -115,61 +108,49 @@ export function LoginPage() {
             )}
 
             {apiError && (
-              <div className="bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-sm p-3 rounded-lg">
+              <div role="alert" className="bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-sm p-3 rounded-lg">
                 {apiError}
               </div>
             )}
 
-            <div>
-              <label htmlFor="login-email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                {t('auth:login.email')}
-              </label>
-              <input
-                id="login-email"
-                type="email"
-                value={email}
-                onChange={(e) => {
-                  setEmail(e.target.value);
-                  if (fieldErrors.email) setFieldErrors((prev) => ({ ...prev, email: undefined }));
-                }}
-                className="w-full border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-              />
-              {fieldErrors.email && (
-                <p className="text-red-500 dark:text-red-400 text-sm mt-1">{fieldErrors.email}</p>
-              )}
-            </div>
+            <AuthField
+              label={t('auth:login.email')}
+              type="email"
+              icon="mail"
+              autoComplete="email"
+              value={email}
+              error={fieldErrors.email}
+              onChange={(next) => {
+                setEmail(next);
+                if (fieldErrors.email) setFieldErrors((prev) => ({ ...prev, email: undefined }));
+              }}
+            />
 
-            <div>
-              <label htmlFor="login-password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                {t('auth:login.password')}
-              </label>
-              <input
-                id="login-password"
-                type="password"
-                value={password}
-                onChange={(e) => {
-                  setPassword(e.target.value);
-                  if (fieldErrors.password) setFieldErrors((prev) => ({ ...prev, password: undefined }));
-                }}
-                className="w-full border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-              />
-              {fieldErrors.password && (
-                <p className="text-red-500 dark:text-red-400 text-sm mt-1">{fieldErrors.password}</p>
-              )}
-              <Link
-                to="/forgot-password"
-                className="block text-right text-sm text-primary hover:underline mt-1"
-              >
-                {t('auth:forgotPassword.link')}
-              </Link>
-            </div>
+            <AuthField
+              label={t('auth:login.password')}
+              type="password"
+              icon="lock"
+              autoComplete="current-password"
+              value={password}
+              error={fieldErrors.password}
+              onChange={(next) => {
+                setPassword(next);
+                if (fieldErrors.password) setFieldErrors((prev) => ({ ...prev, password: undefined }));
+              }}
+              labelAction={
+                <Link to="/forgot-password" className="text-sm text-primary hover:underline">
+                  {t('auth:forgotPassword.link')}
+                </Link>
+              }
+            />
 
             <button
               type="submit"
               disabled={loading || googleLoading}
-              className="w-full bg-primary text-white font-bold py-3 rounded-lg hover:bg-primary-dark transition-colors disabled:opacity-60"
+              className="w-full inline-flex items-center justify-center gap-2 bg-primary text-white font-semibold py-3 rounded-xl shadow-sm hover:bg-primary-dark transition-colors disabled:opacity-60"
             >
               {loading ? t('common:loading') : t('auth:login.submit')}
+              {!loading && <Icon name="arrow-forward" className="h-5 w-5" />}
             </button>
 
             <p className="text-center text-sm text-gray-500 dark:text-gray-400">
@@ -180,6 +161,6 @@ export function LoginPage() {
           </form>
         </>
       )}
-    </div>
+    </AuthLayout>
   );
 }

@@ -5,6 +5,7 @@ import { apiClient } from '@shared/api/client';
 import { getErrorMessage } from '@shared/utils/apiErrors';
 import { useAuth } from '../context/AuthContext';
 import { Logo } from '../components/Logo';
+import { AUTH_CARD } from '../components/auth/authStyles';
 
 type Step = 'email' | 'code';
 
@@ -142,7 +143,13 @@ export function ForgotPasswordPage() {
   };
 
   return (
-    <div className="max-w-md mx-auto px-4 py-16 bg-gray-50 dark:bg-gray-950 min-h-screen">
+    // The full redesign of this page is the next slice; what lands here now is
+    // only the correctness half. It carried the same duplicated
+    // `min-h-screen bg-gray-50 dark:bg-gray-950` that MainLayout already applies
+    // (MainLayout.tsx:111) — measured at 192px of dead background between the
+    // card and the footer — and login now links here in one click, so leaving it
+    // would send the user straight from the fixed screen to the unfixed one.
+    <div className="max-w-md mx-auto px-4 py-10 sm:py-16">
       <div className="text-center mb-8">
         <Logo className="h-14 w-14 mx-auto mb-3 text-primary" />
         <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
@@ -154,7 +161,7 @@ export function ForgotPasswordPage() {
         <form
           onSubmit={handleRequest}
           noValidate
-          className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 space-y-4"
+          className={`${AUTH_CARD} space-y-4`}
         >
           <p className="text-sm text-gray-500 dark:text-gray-400">
             {t('forgotPassword.emailStepDescription')}
@@ -216,7 +223,7 @@ export function ForgotPasswordPage() {
         <form
           onSubmit={handleReset}
           noValidate
-          className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 space-y-4"
+          className={`${AUTH_CARD} space-y-4`}
         >
           <p className="text-sm text-gray-500 dark:text-gray-400">
             {t('forgotPassword.codeStepDescription')}
