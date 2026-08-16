@@ -94,7 +94,9 @@
       "dailyLimitNotice": "Você pode pedir até 3 códigos por dia. Espere 1 minuto entre tentativas.",
       "resend": "Reenviar código",
       "resendIn": "Reenviar em {{seconds}}s"
-    }
+    },
+    "showPassword": "Mostrar senha",
+    "hidePassword": "Ocultar senha"
   },
   "pets": {
     "create": {
