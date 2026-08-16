@@ -48,7 +48,6 @@ function writeResendDeadline(at: number): void {
   }
 }
 
-
 export function ForgotPasswordPage() {
   const { t } = useTranslation(['auth', 'common', 'errors']);
   const navigate = useNavigate();
