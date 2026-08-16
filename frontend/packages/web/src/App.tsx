@@ -54,6 +54,39 @@ function FosterHomeLegacyRedirect() {
   return <Navigate to={`/fosterhomes/${id}`} replace />;
 }
 
+// The backend builds share URLs as <APP_URL>/share/<token> (share_dto.go), and in
+// production a vercel.json rewrite sends that path to the api/share serverless
+// function, which serves the OpenGraph preview to crawlers and redirects people to
+// /pet/<token>. Vite does not read vercel.json, so under `pnpm dev` the path fell
+// through to the SPA, matched nothing, and rendered a blank page — a copied share
+// link looked broken locally while working fine in production.
+//
+// This route is NOT dead code in production, and deleting it would bring the blank
+// page back for real users. The edge rewrite normally consumes /share/:token before
+// index.html is served, but sw.js is network-first and falls back to the cached
+// index.html shell for any request with mode === 'navigate'. So when the network
+// fails the rewrite is never reached, the SPA boots at /share/<token>, and this is
+// the route that rescues it — measured in a browser with the service worker
+// controlling and the network off.
+//
+// The token is validated instead of forwarded raw, and the check mirrors the one
+// api/share.js applies before it will touch a token, so the two paths that serve
+// /share/<token> agree on malformed input: both send it to the home page.
+//
+// Forwarding raw was not merely untidy. useParams decodes %2F, so `..%2F..%2Fmap`
+// became /pet/../../map and resolved to /map, and `..%2F..%2F%2Fevil.com` resolved
+// to /evil.com — no route, blank page, the very thing this route exists to prevent.
+// It never left the origin (resolvePath collapses repeated slashes and backslashes,
+// `..` normalizes from the root, and pushState throws on a cross-origin URL), so it
+// was never a redirect anyone could aim; it was a blank page reachable through the
+// fix for blank pages.
+const SHARE_TOKEN_RE = /^[a-f0-9]{32}$/;
+
+function ShareLinkRedirect() {
+  const { token } = useParams();
+  return <Navigate to={token && SHARE_TOKEN_RE.test(token) ? `/pet/${token}` : '/'} replace />;
+}
+
 export default function App() {
   return (
     <>
@@ -124,6 +157,7 @@ export default function App() {
 
         {/* Landing page compartida (sin layout) */}
         <Route path="/pet/:token" element={<SharedPetPage />} />
+        <Route path="/share/:token" element={<ShareLinkRedirect />} />
       </Routes>
       <InstallPWA />
       <SpeedInsights />
