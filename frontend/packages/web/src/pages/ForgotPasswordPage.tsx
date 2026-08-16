@@ -4,7 +4,9 @@ import { useTranslation } from 'react-i18next';
 import { apiClient } from '@shared/api/client';
 import { getErrorMessage } from '@shared/utils/apiErrors';
 import { useAuth } from '../context/AuthContext';
-import { Logo } from '../components/Logo';
+import { Icon } from '../components/Icon';
+import { AuthField } from '../components/auth/AuthField';
+import { AuthLayout } from '../components/auth/AuthLayout';
 import { AUTH_CARD } from '../components/auth/authStyles';
 
 type Step = 'email' | 'code';
@@ -46,9 +48,6 @@ function writeResendDeadline(at: number): void {
   }
 }
 
-const inputClass =
-  'w-full border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary';
-const labelClass = 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1';
 
 export function ForgotPasswordPage() {
   const { t } = useTranslation(['auth', 'common', 'errors']);
@@ -142,31 +141,44 @@ export function ForgotPasswordPage() {
     }
   };
 
+  // The Stitch designs put the explanatory paragraph right under the heading, so
+  // it rides as AuthLayout's subtitle instead of sitting inside the card. That
+  // also makes it switch with the step, which is what it already did.
+  const description =
+    step === 'email'
+      ? t('forgotPassword.emailStepDescription')
+      : t('forgotPassword.codeStepDescription');
+
+  const backToLogin = (
+    <p className="text-center">
+      <Link
+        to="/login"
+        className="inline-flex items-center gap-1 text-sm text-primary font-semibold hover:underline"
+      >
+        <Icon name="chevron-left" className="h-4 w-4" />
+        {t('forgotPassword.backToLogin')}
+      </Link>
+    </p>
+  );
+
+  const errorBanner = apiError && (
+    <div
+      role="alert"
+      className="bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-sm p-3 rounded-lg"
+    >
+      {apiError}
+    </div>
+  );
+
   return (
-    // The full redesign of this page is the next slice; what lands here now is
-    // only the correctness half. It carried the same duplicated
-    // `min-h-screen bg-gray-50 dark:bg-gray-950` that MainLayout already applies
-    // (MainLayout.tsx:111) — measured at 192px of dead background between the
-    // card and the footer — and login now links here in one click, so leaving it
-    // would send the user straight from the fixed screen to the unfixed one.
-    <div className="max-w-md mx-auto px-4 py-10 sm:py-16">
-      <div className="text-center mb-8">
-        <Logo className="h-14 w-14 mx-auto mb-3 text-primary" />
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-          {t('forgotPassword.title')}
-        </h1>
-      </div>
-
+    // Heading ABOVE the card, via AuthLayout — deliberately NOT what the two
+    // Stitch mockups for this screen show, which tuck it inside. This page is
+    // reached by clicking a link on the login page, so following the mockup
+    // literally would make the card jump on that exact click. Same call that was
+    // made for login and register.
+    <AuthLayout title={t('forgotPassword.title')} subtitle={description}>
       {step === 'email' ? (
-        <form
-          onSubmit={handleRequest}
-          noValidate
-          className={`${AUTH_CARD} space-y-4`}
-        >
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            {t('forgotPassword.emailStepDescription')}
-          </p>
-
+        <form onSubmit={handleRequest} noValidate className={`${AUTH_CARD} space-y-5`}>
           {/* Texto FIJO: informa la POLÍTICA, nunca el estado de la cuenta. Un
               contador real ("te quedan 2 de 3") sólo se puede calcular para una
               cuenta que existe, así que mostrarlo reconstruiría en el cliente el
@@ -175,25 +187,16 @@ export function ForgotPasswordPage() {
             {t('forgotPassword.dailyLimitNotice')}
           </p>
 
-          {apiError && (
-            <div className="bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-sm p-3 rounded-lg">
-              {apiError}
-            </div>
-          )}
+          {errorBanner}
 
-          <div>
-            <label htmlFor="forgot-email" className={labelClass}>
-              {t('forgotPassword.email')}
-            </label>
-            <input
-              id="forgot-email"
-              type="email"
-              autoComplete="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className={inputClass}
-            />
-          </div>
+          <AuthField
+            label={t('forgotPassword.email')}
+            type="email"
+            icon="mail"
+            autoComplete="email"
+            value={email}
+            onChange={setEmail}
+          />
 
           {/* `secondsLeft` también acá, no sólo en el reenvío. El paso no se
               persiste, así que un F5 durante el cooldown devuelve al usuario a esta
@@ -204,82 +207,62 @@ export function ForgotPasswordPage() {
           <button
             type="submit"
             disabled={loading || !email.trim() || secondsLeft > 0}
-            className="w-full bg-primary text-white font-bold py-3 rounded-lg hover:bg-primary-dark transition-colors disabled:opacity-60"
+            className="w-full inline-flex items-center justify-center gap-2 bg-primary text-white font-semibold py-3 rounded-xl shadow-sm hover:bg-primary-dark transition-colors disabled:opacity-60"
           >
             {loading
               ? t('common:loading')
               : secondsLeft > 0
                 ? t('forgotPassword.resendIn', { seconds: secondsLeft })
                 : t('forgotPassword.sendCode')}
+            {!loading && secondsLeft === 0 && <Icon name="arrow-forward" className="h-5 w-5" />}
           </button>
 
-          <p className="text-center text-sm text-gray-500 dark:text-gray-400">
-            <Link to="/login" className="text-primary font-semibold hover:underline">
-              {t('forgotPassword.backToLogin')}
-            </Link>
-          </p>
+          {backToLogin}
         </form>
       ) : (
-        <form
-          onSubmit={handleReset}
-          noValidate
-          className={`${AUTH_CARD} space-y-4`}
-        >
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            {t('forgotPassword.codeStepDescription')}
-          </p>
+        <form onSubmit={handleReset} noValidate className={`${AUTH_CARD} space-y-5`}>
+          {errorBanner}
 
-          {/* La cuenta regresiva sale del reloj del cliente, no del servidor:
-              refleja lo que hizo ESTE navegador. El servidor no puede informarla
-              sin delatar si la cuenta existe. */}
-          <button
-            type="button"
-            onClick={() => {
-              void handleRequest();
-            }}
-            disabled={secondsLeft > 0 || loading}
-            className="text-sm text-primary underline disabled:no-underline disabled:text-gray-400 disabled:cursor-not-allowed"
-          >
-            {secondsLeft > 0
-              ? t('forgotPassword.resendIn', { seconds: secondsLeft })
-              : t('forgotPassword.resend')}
-          </button>
+          <AuthField
+            label={t('forgotPassword.code')}
+            type="text"
+            icon="pin"
+            inputMode="numeric"
+            maxLength={6}
+            autoComplete="one-time-code"
+            value={code}
+            onChange={setCode}
+            // The resend control moves up onto the label row, where login puts
+            // its "forgot password?" link. AuthField declares labelAction after
+            // the input in the DOM, so it stays out of the way of someone
+            // tabbing from the code straight into the new password.
+            labelAction={
+              // La cuenta regresiva sale del reloj del cliente, no del servidor:
+              // refleja lo que hizo ESTE navegador. El servidor no puede
+              // informarla sin delatar si la cuenta existe.
+              <button
+                type="button"
+                onClick={() => {
+                  void handleRequest();
+                }}
+                disabled={secondsLeft > 0 || loading}
+                className="text-sm text-primary hover:underline disabled:no-underline disabled:text-gray-400 disabled:cursor-not-allowed"
+              >
+                {secondsLeft > 0
+                  ? t('forgotPassword.resendIn', { seconds: secondsLeft })
+                  : t('forgotPassword.resend')}
+              </button>
+            }
+          />
 
-          {apiError && (
-            <div className="bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-sm p-3 rounded-lg">
-              {apiError}
-            </div>
-          )}
-
-          <div>
-            <label htmlFor="forgot-code" className={labelClass}>
-              {t('forgotPassword.code')}
-            </label>
-            <input
-              id="forgot-code"
-              type="text"
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              maxLength={6}
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
-              className={inputClass}
-            />
-          </div>
-
-          <div>
-            <label htmlFor="forgot-new-password" className={labelClass}>
-              {t('forgotPassword.newPassword')}
-            </label>
-            <input
-              id="forgot-new-password"
-              type="password"
-              autoComplete="new-password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              className={inputClass}
-            />
-          </div>
+          <AuthField
+            label={t('forgotPassword.newPassword')}
+            type="password"
+            icon="lock"
+            autoComplete="new-password"
+            value={newPassword}
+            onChange={setNewPassword}
+          />
 
           <p className="text-xs text-gray-500 dark:text-gray-400">
             {t('forgotPassword.sessionsWarning')}
@@ -288,18 +271,15 @@ export function ForgotPasswordPage() {
           <button
             type="submit"
             disabled={loading || !code.trim() || !newPassword}
-            className="w-full bg-primary text-white font-bold py-3 rounded-lg hover:bg-primary-dark transition-colors disabled:opacity-60"
+            className="w-full inline-flex items-center justify-center gap-2 bg-primary text-white font-semibold py-3 rounded-xl shadow-sm hover:bg-primary-dark transition-colors disabled:opacity-60"
           >
             {loading ? t('common:loading') : t('forgotPassword.submit')}
+            {!loading && <Icon name="arrow-forward" className="h-5 w-5" />}
           </button>
 
-          <p className="text-center text-sm text-gray-500 dark:text-gray-400">
-            <Link to="/login" className="text-primary font-semibold hover:underline">
-              {t('forgotPassword.backToLogin')}
-            </Link>
-          </p>
+          {backToLogin}
         </form>
       )}
-    </div>
+    </AuthLayout>
   );
 }

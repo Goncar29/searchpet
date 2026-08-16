@@ -12,9 +12,12 @@ interface AuthFieldProps {
   error?: string;
   placeholder?: string;
   autoComplete?: string;
+  /** Needed by the recovery OTP field, which is digits-only and exactly 6 long. */
+  inputMode?: 'numeric';
+  maxLength?: number;
   /**
-   * Rendered on the right of the label row — currently the "forgot password?"
-   * link, which is where the Stitch login screen puts it.
+   * Rendered on the right of the label row — the "forgot password?" link on
+   * login, the "resend code" button on password recovery.
    */
   labelAction?: ReactNode;
 }
@@ -39,6 +42,8 @@ export function AuthField({
   error,
   placeholder,
   autoComplete,
+  inputMode,
+  maxLength,
   labelAction,
 }: AuthFieldProps) {
   const { t } = useTranslation(['auth']);
@@ -80,6 +85,8 @@ export function AuthField({
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
           autoComplete={autoComplete}
+          inputMode={inputMode}
+          maxLength={maxLength}
           aria-invalid={error ? true : undefined}
           aria-describedby={error ? errorId : undefined}
           className={`w-full rounded-xl border bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 pl-10 ${
