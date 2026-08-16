@@ -16,8 +16,25 @@ interface AuthFieldProps {
   inputMode?: 'numeric';
   maxLength?: number;
   /**
+   * Only for a field that appears as the result of an action the user just
+   * took. Password recovery swaps the whole form when the code step arrives,
+   * which drops focus to <body>: without this the user hears nothing and has to
+   * Tab from the top of the document to find the field that appeared. Never put
+   * it on a field that is present at page load.
+   */
+  autoFocus?: boolean;
+  /**
    * Rendered on the right of the label row — the "forgot password?" link on
-   * login, the "resend code" button on password recovery.
+   * login.
+   *
+   * ONLY USE THIS ON THE LAST FIELD OF A FORM. It is declared after the input
+   * in the DOM (so it does not intercept someone arriving at the field), which
+   * means it sits between this field and whatever comes next. On a middle field
+   * that puts a control in the way of the Tab from this input to the following
+   * one — measured on password recovery, where the resend button landed between
+   * the code and the new password, and activating it wipes the code just typed.
+   * A label-row action has only two possible DOM positions and both intercept
+   * something; last-field is the only place where neither hurts.
    */
   labelAction?: ReactNode;
 }
@@ -44,6 +61,7 @@ export function AuthField({
   autoComplete,
   inputMode,
   maxLength,
+  autoFocus,
   labelAction,
 }: AuthFieldProps) {
   const { t } = useTranslation(['auth']);
@@ -87,6 +105,7 @@ export function AuthField({
           autoComplete={autoComplete}
           inputMode={inputMode}
           maxLength={maxLength}
+          autoFocus={autoFocus}
           aria-invalid={error ? true : undefined}
           aria-describedby={error ? errorId : undefined}
           className={`w-full rounded-xl border bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 pl-10 ${

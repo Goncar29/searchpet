@@ -245,27 +245,7 @@ export function ForgotPasswordPage() {
             autoComplete="one-time-code"
             value={code}
             onChange={setCode}
-            // The resend control moves up onto the label row, where login puts
-            // its "forgot password?" link. AuthField declares labelAction after
-            // the input in the DOM, so it stays out of the way of someone
-            // tabbing from the code straight into the new password.
-            labelAction={
-              // La cuenta regresiva sale del reloj del cliente, no del servidor:
-              // refleja lo que hizo ESTE navegador. El servidor no puede
-              // informarla sin delatar si la cuenta existe.
-              <button
-                type="button"
-                onClick={() => {
-                  void handleRequest();
-                }}
-                disabled={secondsLeft > 0 || loading}
-                className="text-sm text-primary hover:underline disabled:no-underline disabled:text-gray-400 disabled:cursor-not-allowed"
-              >
-                {secondsLeft > 0
-                  ? t('forgotPassword.resendIn', { seconds: secondsLeft })
-                  : t('forgotPassword.resend')}
-              </button>
-            }
+            autoFocus
           />
 
           <AuthField
@@ -289,6 +269,34 @@ export function ForgotPasswordPage() {
             {loading ? t('common:loading') : t('forgotPassword.submit')}
             {!loading && <Icon name="arrow-forward" className="h-5 w-5" />}
           </button>
+
+          {/* El reenvio va DESPUES del submit, y no arriba del campo ni en la
+              fila del label. Medido: enabled y ubicado en labelAction quedaba
+              entre el codigo y la contraseña, asi que quien tipeaba el codigo y
+              tabulaba esperando la contraseña caia acá — y Enter dispara
+              handleRequest, que BORRA el codigo recien tipeado (setCode('')) y
+              quema uno de los 3 pedidos diarios de la cuenta (regla #43), sin
+              confirmar nada. Detras del submit sigue siendo alcanzable por
+              teclado, pero el destino natural del Tab pasa a ser el boton
+              principal.
+
+              La cuenta regresiva sale del reloj del cliente, no del servidor:
+              refleja lo que hizo ESTE navegador. El servidor no puede
+              informarla sin delatar si la cuenta existe. */}
+          <p className="text-center">
+            <button
+              type="button"
+              onClick={() => {
+                void handleRequest();
+              }}
+              disabled={secondsLeft > 0 || loading}
+              className="text-sm text-primary hover:underline disabled:no-underline disabled:text-gray-400 disabled:cursor-not-allowed"
+            >
+              {secondsLeft > 0
+                ? t('forgotPassword.resendIn', { seconds: secondsLeft })
+                : t('forgotPassword.resend')}
+            </button>
+          </p>
 
           {backToLogin}
         </form>
