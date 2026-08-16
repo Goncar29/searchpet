@@ -105,7 +105,7 @@ export function RegisterPage() {
 
           <form onSubmit={handleSubmit} noValidate className={`${AUTH_CARD} space-y-5`}>
             {apiError && (
-              <div className="bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-sm p-3 rounded-lg">
+              <div role="alert" className="bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-sm p-3 rounded-lg">
                 {apiError}
               </div>
             )}

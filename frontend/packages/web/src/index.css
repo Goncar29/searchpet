@@ -83,3 +83,17 @@ body {
      stay below the sticky navbar (z-50 = 50). */
   z-index: 0;
 }
+
+/* Edge draws its own reveal control inside every password input. AuthField
+   already ships one, so without this the user sees two eyes side by side — and
+   they desync: pressing Edge's native eye unmasks the field while our
+   `revealed` state stays false, so the button keeps announcing "show password"
+   to a screen reader while the password is already in plaintext. An accessible
+   name that contradicts the state is worse than no name.
+
+   Chromium does not implement this pseudo-element, so it cannot be reproduced
+   in the Playwright suite — it is here on Edge's documented behaviour. */
+input::-ms-reveal,
+input::-ms-clear {
+  display: none;
+}

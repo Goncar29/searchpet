@@ -26,7 +26,7 @@ export function GoogleAuthPanel({ error, onCredential, onError }: GoogleAuthPane
     <>
       <div className={`${AUTH_CARD} mb-4`}>
         {error && (
-          <div className="bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-sm p-3 rounded-lg mb-3">
+          <div role="alert" className="bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-sm p-3 rounded-lg mb-3">
             {error}
           </div>
         )}

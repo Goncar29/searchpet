@@ -51,16 +51,24 @@ export function AuthField({
   // and faking it would let the browser keep masking the value.
   const inputType = isPassword && revealed ? 'text' : type;
 
+  // Grid with explicit placement, not a flex row, because tab order follows DOM
+  // order and ignores visual order. `labelAction` is the "forgot password?" link
+  // and the Stitch design puts it up on the label row — but writing it there in
+  // the markup put it BEFORE the password input in the DOM, so tabbing out of
+  // the email field landed on a navigation link, and Enter there left the page
+  // and discarded what the user had typed. Measured, not assumed. Declaring it
+  // last and pinning it to row 1 / column 2 keeps the design and restores
+  // input-then-link for the keyboard.
   return (
-    <div>
-      <div className="flex items-baseline justify-between gap-3 mb-1.5">
-        <label htmlFor={id} className="text-sm font-medium text-gray-700 dark:text-gray-300">
-          {label}
-        </label>
-        {labelAction}
-      </div>
+    <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3">
+      <label
+        htmlFor={id}
+        className="col-start-1 row-start-1 self-baseline mb-1.5 text-sm font-medium text-gray-700 dark:text-gray-300"
+      >
+        {label}
+      </label>
 
-      <div className="relative">
+      <div className="col-span-2 row-start-2 relative">
         <Icon
           name={icon}
           className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 dark:text-gray-500"
@@ -97,8 +105,23 @@ export function AuthField({
         )}
       </div>
 
+      {/* Declared after the input on purpose — see the note above the grid. */}
+      {labelAction && (
+        <div className="col-start-2 row-start-1 self-baseline justify-self-end mb-1.5">
+          {labelAction}
+        </div>
+      )}
+
       {error && (
-        <p id={errorId} className="text-red-500 dark:text-red-400 text-sm mt-1.5">
+        <p
+          id={errorId}
+          // `aria-describedby` alone only reaches the message once focus is
+          // already inside the field. Submitting with an empty field leaves
+          // focus on the button, so without a live region the form just
+          // silently refuses to submit for anyone not watching the screen.
+          role="alert"
+          className="col-span-2 row-start-3 text-red-500 dark:text-red-400 text-sm mt-1.5"
+        >
           {error}
         </p>
       )}
