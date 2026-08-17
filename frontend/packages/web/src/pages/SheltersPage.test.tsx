@@ -11,9 +11,16 @@ vi.mock('react-i18next', () => ({
 // Mutable so each test can inject its own shelter list / ownership state.
 let sheltersData: unknown[] = [];
 let myShelterData: unknown = undefined;
+// Records every city argument the page hands to `useShelters`, in order. The
+// draft/applied split is only observable from here: the input's value changing
+// is NOT evidence that the query stayed put.
+const sheltersCalls: (string | undefined)[] = [];
 vi.mock('@shared/hooks', () => ({
   useStats: () => ({ data: { total_pets: 10, total_found: 5, total_users: 20, total_reports: 30 } }),
-  useShelters: () => ({ data: sheltersData, isLoading: false, isError: false }),
+  useShelters: (city?: string) => {
+    sheltersCalls.push(city);
+    return { data: sheltersData, isLoading: false, isError: false };
+  },
   useMyShelter: () => ({ data: myShelterData, isLoading: false, error: null }),
 }));
 
@@ -41,10 +48,14 @@ function wrapper({ children }: { children: React.ReactNode }) {
   );
 }
 
+/** The city the page most recently asked the API for. */
+const lastCity = () => sheltersCalls[sheltersCalls.length - 1];
+
 describe('SheltersPage', () => {
   beforeEach(() => {
     sheltersData = [];
     myShelterData = undefined;
+    sheltersCalls.length = 0;
   });
 
   it('renderiza sin lanzar errores', () => {
@@ -107,5 +118,78 @@ describe('SheltersPage', () => {
     sheltersData = [{ ...shelterWithDescription, description: undefined }];
     render(<SheltersPage />, { wrapper });
     expect(screen.queryByText('shelters:seeMore')).toBeNull();
+  });
+
+  it('marca como verificados solo a los refugios que lo son', () => {
+    sheltersData = [
+      shelterWithDescription,
+      { ...shelterWithDescription, id: 's2', name: 'Refugio Nuevo', is_verified: false },
+    ];
+    render(<SheltersPage />, { wrapper });
+
+    // Dos tarjetas, un solo distintivo.
+    expect(screen.getAllByText('shelters:verified')).toHaveLength(1);
+  });
+
+  describe('búsqueda por ciudad', () => {
+    it('no consulta la API mientras se tipea: solo al enviar', () => {
+      render(<SheltersPage />, { wrapper });
+      expect(lastCity()).toBeUndefined();
+
+      const input = screen.getByLabelText('shelters:cityLabel');
+      fireEvent.change(input, { target: { value: 'Salt' } });
+      fireEvent.change(input, { target: { value: 'Salto' } });
+
+      // Tres letras tipeadas no son tres consultas: el borrador no viaja.
+      expect(lastCity()).toBeUndefined();
+
+      fireEvent.click(screen.getByText('shelters:searchButton'));
+      expect(lastCity()).toBe('Salto');
+    });
+
+    it('recorta los espacios y trata el campo vacío como "sin filtro"', () => {
+      render(<SheltersPage />, { wrapper });
+      const input = screen.getByLabelText('shelters:cityLabel');
+
+      fireEvent.change(input, { target: { value: '  Salto  ' } });
+      fireEvent.click(screen.getByText('shelters:searchButton'));
+      expect(lastCity()).toBe('Salto');
+
+      // Un campo en blanco no puede filtrar por la cadena vacía: eso pediría
+      // `?city=` y el backend lo trataría como un filtro que no matchea nada.
+      fireEvent.change(input, { target: { value: '   ' } });
+      fireEvent.click(screen.getByText('shelters:searchButton'));
+      expect(lastCity()).toBeUndefined();
+    });
+
+    it('sin resultados por ciudad muestra un vacío propio, no el del directorio', () => {
+      render(<SheltersPage />, { wrapper });
+
+      fireEvent.change(screen.getByLabelText('shelters:cityLabel'), {
+        target: { value: 'Salto' },
+      });
+      fireEvent.click(screen.getByText('shelters:searchButton'));
+
+      // "No hay refugios disponibles" sería falso: los hay, pero no en Salto.
+      expect(screen.getByText('shelters:emptyForCity')).toBeTruthy();
+      expect(screen.queryByText('shelters:empty')).toBeNull();
+    });
+
+    it('el vacío por ciudad ofrece una salida que quita el filtro', () => {
+      render(<SheltersPage />, { wrapper });
+
+      const input = screen.getByLabelText('shelters:cityLabel');
+      fireEvent.change(input, { target: { value: 'Salto' } });
+      fireEvent.click(screen.getByText('shelters:searchButton'));
+      expect(lastCity()).toBe('Salto');
+
+      fireEvent.click(screen.getByText('shelters:clearFilter'));
+
+      // Vuelve el directorio completo y el campo queda limpio, o el usuario
+      // veria la ciudad tipeada sin que siga aplicada.
+      expect(lastCity()).toBeUndefined();
+      expect((input as HTMLInputElement).value).toBe('');
+      expect(screen.getByText('shelters:empty')).toBeTruthy();
+    });
   });
 });
