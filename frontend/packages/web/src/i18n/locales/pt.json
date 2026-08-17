@@ -548,7 +548,8 @@
       "allTypes": "Todos",
       "apply": "Aplicar",
       "resultCount_one": "{{count}} animal",
-      "resultCount_other": "{{count}} animais"
+      "resultCount_other": "{{count}} animais",
+      "viewProfile": "Ver perfil"
     },
     "publish": {
       "intentOption": "Doar para adoção",

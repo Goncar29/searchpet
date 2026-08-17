@@ -548,7 +548,8 @@
       "allTypes": "Todos",
       "apply": "Aplicar",
       "resultCount_one": "{{count}} mascota",
-      "resultCount_other": "{{count}} mascotas"
+      "resultCount_other": "{{count}} mascotas",
+      "viewProfile": "Ver perfil"
     },
     "publish": {
       "intentOption": "Doy en adopción",

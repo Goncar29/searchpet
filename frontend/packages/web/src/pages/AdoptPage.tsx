@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useAdoptions } from '@shared/hooks';
 import { statusBadgeBg } from '../utils/statusBadge';
 import type { Pet, PetType } from '@shared/types';
+import { Icon } from '../components/Icon';
 import { PawPlaceholder } from '../components/PawPlaceholder';
 
 const PET_TYPES: { value: PetType; labelKey: string; icon: string }[] = [
@@ -43,7 +44,7 @@ export function AdoptPage() {
       {/* Header */}
       <section className="bg-gradient-to-br from-primary to-primary-dark text-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 text-center">
-          <h1 className="text-3xl md:text-4xl font-extrabold mb-3">
+          <h1 className="font-display text-display-sm md:text-display mb-3">
             {t('adoption:section.title')}
           </h1>
           <p className="text-lg text-white/80 max-w-2xl mx-auto">
@@ -55,24 +56,34 @@ export function AdoptPage() {
       {/* Filtros */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-5">
-          <div className="flex flex-wrap gap-3 items-end">
+          {/* Barra de una fila en escritorio y apilada en celular. Los filtros
+              siguen siendo ciudad y tipo: el diseño de Stitch dibuja ademas
+              especie, edad, tamaño y genero, pero `useAdoptions` no los acepta
+              y pintar un control que no filtra nada es peor que no tenerlo. */}
+          <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
             {/* Ciudad */}
-            <input
-              type="text"
-              placeholder={t('adoption:section.cityPlaceholder')}
-              aria-label={t('adoption:section.cityFilter')}
-              value={cityDraft}
-              onChange={(e) => setCityDraft(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && applyFilters()}
-              className="border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-primary min-w-[180px]"
-            />
+            <div className="relative flex-1">
+              <Icon
+                name="search"
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 dark:text-gray-500"
+              />
+              <input
+                type="text"
+                placeholder={t('adoption:section.cityPlaceholder')}
+                aria-label={t('adoption:section.cityFilter')}
+                value={cityDraft}
+                onChange={(e) => setCityDraft(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && applyFilters()}
+                className="w-full border border-gray-200 dark:border-gray-700 rounded-xl pl-10 pr-4 py-2.5 text-sm bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 transition-colors focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+              />
+            </div>
 
             {/* Tipo */}
             <select
               value={typeDraft}
               onChange={(e) => setTypeDraft(e.target.value as PetType | '')}
               aria-label={t('adoption:section.typeFilter')}
-              className="border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-primary"
+              className="border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-2.5 text-sm bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 transition-colors focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
             >
               <option value="">{t('adoption:section.allTypes')}</option>
               {PET_TYPES.map((pt) => (
@@ -83,8 +94,9 @@ export function AdoptPage() {
             {/* Aplicar */}
             <button
               onClick={applyFilters}
-              className="px-5 py-2 text-sm font-semibold text-white bg-primary rounded-lg hover:bg-primary-dark transition-colors"
+              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-semibold text-white bg-primary rounded-xl shadow-sm hover:bg-primary-dark transition-colors"
             >
+              <Icon name="filter-alt" className="h-4 w-4" />
               {t('adoption:section.apply')}
             </button>
           </div>
@@ -94,13 +106,13 @@ export function AdoptPage() {
       {/* Resultados */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+          <h2 className="font-display text-headline text-gray-900 dark:text-gray-100">
             {t('adoption:section.resultCount', { count })}
           </h2>
         </div>
 
         {isLoading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {[0, 1, 2, 3, 4, 5].map((i) => (
               <div
                 key={i}
@@ -115,7 +127,7 @@ export function AdoptPage() {
             ))}
           </div>
         ) : pets.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {pets.map((pet: Pet) => (
               <Link key={pet.id} to={`/pets/${pet.id}`} className="block group">
                 <div className="bg-white dark:bg-gray-900 rounded-2xl overflow-hidden shadow-sm border border-gray-100 dark:border-gray-800 hover:shadow-md transition-shadow">
@@ -136,17 +148,31 @@ export function AdoptPage() {
                   </div>
                   {/* Info */}
                   <div className="p-4">
-                    <h3 className="font-bold text-gray-900 dark:text-gray-100 text-lg mb-1">{pet.name}</h3>
-                    <div className="flex flex-wrap gap-1 mb-2">
-                      {pet.type && <span className="text-xs bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 px-2 py-0.5 rounded-full">{t(`pets:types.${pet.type}`)}</span>}
-                      {pet.breed && <span className="text-xs bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 px-2 py-0.5 rounded-full">{pet.breed}</span>}
-                      {pet.color && <span className="text-xs bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 px-2 py-0.5 rounded-full">{pet.color}</span>}
-                      {pet.city && <span className="text-xs bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 px-2 py-0.5 rounded-full">📍 {pet.city}</span>}
-                    </div>
+                    <h3 className="font-display text-lg text-gray-900 dark:text-gray-100">{pet.name}</h3>
+
+                    {/* Una linea de metadatos en vez de cuatro chips, como en el
+                        diseño. Se conservan los mismos datos: tipo, raza y color
+                        van juntos, y la ciudad baja a su propia linea con el
+                        icono de ubicacion en lugar del emoji. */}
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5 min-h-[1.25rem]">
+                      {[pet.type && t(`pets:types.${pet.type}`), pet.breed, pet.color]
+                        .filter(Boolean)
+                        .join(' · ')}
+                    </p>
+
+                    <p className="flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400 mt-1 min-h-[1.25rem]">
+                      {pet.city && (
+                        <>
+                          <Icon name="location-on" className="h-4 w-4 shrink-0" />
+                          <span className="truncate">{pet.city}</span>
+                        </>
+                      )}
+                    </p>
+
                     {/* Reserve the comment height (2 lines) and show a placeholder
                         when empty so every card stays the same height. */}
                     <p
-                      className={`text-sm line-clamp-2 min-h-[2.5rem] ${
+                      className={`text-sm line-clamp-2 min-h-[2.5rem] mt-2 ${
                         pet.description
                           ? 'text-gray-500 dark:text-gray-400'
                           : 'italic text-gray-400 dark:text-gray-500'
@@ -154,6 +180,16 @@ export function AdoptPage() {
                     >
                       {pet.description || t('pets:card.noComment')}
                     </p>
+
+                    {/* Un <span>, no un <Link> ni un <button>: la tarjeta ENTERA
+                        ya es el link, y anidar un interactivo dentro de otro es
+                        HTML invalido y le da dos destinos al mismo destino a un
+                        lector de pantalla. Esto es la senal visual del diseño;
+                        lo clickeable sigue siendo toda la tarjeta. */}
+                    <span className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-primary">
+                      {t('adoption:section.viewProfile')}
+                      <Icon name="chevron-right" className="h-4 w-4" />
+                    </span>
                   </div>
                 </div>
               </Link>
