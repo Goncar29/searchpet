@@ -113,15 +113,34 @@ export function AdoptPage() {
 
         {isLoading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {[0, 1, 2, 3, 4, 5].map((i) => (
+            {/* Ocho, no seis: la grilla llega a cuatro columnas, y seis dejan una
+                fila incompleta.
+
+                El esqueleto imita la tarjeta FILA POR FILA — nombre, metadatos,
+                ciudad, dos lineas de descripcion y el "ver perfil" — porque su
+                unico trabajo es ocupar el mismo alto que lo que viene despues.
+                Cuando se le agregaron esas filas a la tarjeta y este bloque
+                quedo igual, el esqueleto medía 274px contra 381px de la tarjeta
+                real: 107px de salto por fila al llegar los datos, invisible en
+                una captura y en cualquier test. Si mañana crece la tarjeta, esto
+                crece con ella. */}
+            {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
               <div
                 key={i}
                 className="bg-white dark:bg-gray-900 rounded-2xl overflow-hidden shadow-sm border border-gray-100 dark:border-gray-800 animate-pulse"
               >
                 <div className="h-48 bg-gray-100 dark:bg-gray-800"></div>
                 <div className="p-4">
-                  <div className="h-5 w-2/3 bg-gray-100 dark:bg-gray-800 rounded mb-3"></div>
-                  <div className="h-4 w-1/2 bg-gray-100 dark:bg-gray-800 rounded"></div>
+                  {/* nombre */}
+                  <div className="h-7 w-2/3 bg-gray-100 dark:bg-gray-800 rounded"></div>
+                  {/* metadatos */}
+                  <div className="h-5 w-1/2 bg-gray-100 dark:bg-gray-800 rounded mt-0.5"></div>
+                  {/* ciudad */}
+                  <div className="h-5 w-1/3 bg-gray-100 dark:bg-gray-800 rounded mt-1"></div>
+                  {/* descripcion: dos lineas, igual que el line-clamp-2 */}
+                  <div className="h-10 w-full bg-gray-100 dark:bg-gray-800 rounded mt-2"></div>
+                  {/* ver perfil */}
+                  <div className="h-5 w-24 bg-gray-100 dark:bg-gray-800 rounded mt-3"></div>
                 </div>
               </div>
             ))}
