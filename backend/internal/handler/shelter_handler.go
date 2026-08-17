@@ -68,6 +68,11 @@ func (h *ShelterHandler) Create(c *gin.Context) {
 		return
 	}
 
+	if err := req.Validate(); err != nil {
+		writeError(c, http.StatusBadRequest, err)
+		return
+	}
+
 	shelter := dto.ToCreateShelterDomain(&req)
 
 	if err := h.shelterService.Create(c.Request.Context(), shelter); err != nil {
@@ -101,6 +106,11 @@ func (h *ShelterHandler) Update(c *gin.Context) {
 
 	var req dto.UpdateShelterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		writeError(c, http.StatusBadRequest, err)
+		return
+	}
+
+	if err := req.Validate(); err != nil {
 		writeError(c, http.StatusBadRequest, err)
 		return
 	}
