@@ -59,7 +59,14 @@ function RowBadges({ badges, className = '' }: { badges: string[]; className?: s
         // Un tope de tres no es capricho: son seis badges posibles por veinte
         // filas, y a 390px la fila se parte. El "+N" tiene texto propio para
         // que no quede un numero suelto sin decir de que es.
+        //
+        // `role="img"` NO es decorativo: ARIA prohibe `aria-label` en elementos
+        // genericos y los lectores de pantalla lo ignoran seguido. Sin el rol,
+        // medido en el arbol de accesibilidad de Chrome, este nodo salia como
+        // `generic` con nombre — o sea la misma clase de bug que el emoji suelto
+        // que este PR vino a arreglar, colada en el resumen.
         <span
+          role="img"
           aria-label={t('leaderboard:moreBadges', { count: rest })}
           className="inline-flex h-7 items-center rounded-full bg-gray-100 dark:bg-gray-800 px-2 text-xs font-semibold text-gray-500 dark:text-gray-400"
         >

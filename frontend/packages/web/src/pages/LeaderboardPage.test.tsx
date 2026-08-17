@@ -152,10 +152,13 @@ describe('LeaderboardPage', () => {
 
       const row = screen.getByLabelText(/^leaderboard:rowAria\|/);
       // Seis posibles por veinte filas rompe la grilla en celular: van 3 y un
-      // resumen que dice de qué es.
-      expect(within(row).getAllByRole('img')).toHaveLength(3);
+      // resumen que dice de qué es. Se cuentan por su etiqueta y no con
+      // `getAllByRole('img')` a secas, porque el resumen también es `img` — y
+      // tiene que serlo: `aria-label` en un elemento genérico no se expone.
+      expect(within(row).getAllByLabelText(/^badges:/)).toHaveLength(3);
       expect(within(row).getByText('+3')).toBeTruthy();
-      expect(within(row).getByLabelText('leaderboard:moreBadges|3')).toBeTruthy();
+      const resumen = within(row).getByLabelText('leaderboard:moreBadges|3');
+      expect(resumen.getAttribute('role')).toBe('img');
     });
 
     it('sin excedente no aparece ningún "+N"', () => {
@@ -164,7 +167,7 @@ describe('LeaderboardPage', () => {
       search('Montevideo');
 
       const row = screen.getByLabelText(/^leaderboard:rowAria\|/);
-      expect(within(row).getAllByRole('img')).toHaveLength(3);
+      expect(within(row).getAllByLabelText(/^badges:/)).toHaveLength(3);
       expect(within(row).queryByText(/^\+/)).toBeNull();
     });
 

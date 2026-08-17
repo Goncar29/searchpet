@@ -74,7 +74,10 @@ test('en celular las filas conservan sus logros', async ({ page }) => {
   // Visibles de verdad, no solo presentes en el DOM: `hidden` los dejaba en el
   // markup y esta aserción es la que lo distingue.
   await expect(row.locator('[role="img"]').first()).toBeVisible();
-  await expect(row.locator('[role="img"]')).toHaveCount(3);
+  // Cuatro nodos: los tres logros más el resumen, que también es `role="img"`
+  // porque `aria-label` en un elemento genérico no llega al árbol.
+  await expect(row.locator('[role="img"]')).toHaveCount(4);
+  await expect(row.locator('[role="img"][aria-label*="logros"]')).toHaveCount(1);
   await expect(row.getByText('+3')).toBeVisible();
 });
 

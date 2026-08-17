@@ -86,7 +86,12 @@ export function MainLayout() {
     { to: '/map', label: t('map') },
     { to: '/adopt', label: t('adopt') },
     { to: '/shelters', label: t('shelters') },
-    { to: '/leaderboard', label: '🏆 Ranking' },
+    // Era `'🏆 Ranking'`, hardcodeado: el UNICO item del nav sin traducir, asi
+    // que en ingles y portugues quedaba una palabra en español en el medio de
+    // la barra. Y el emoji no era decoracion — medido en el arbol de
+    // accesibilidad de Chrome, el nombre del link era literalmente
+    // "🏆 Ranking", o sea que un lector de pantalla anunciaba "trofeo Ranking".
+    { to: '/leaderboard', label: t('leaderboard') },
   ];
 
   // Private links: only for authenticated users. Moved out of the main nav
