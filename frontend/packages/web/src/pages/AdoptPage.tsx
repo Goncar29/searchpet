@@ -113,8 +113,12 @@ export function AdoptPage() {
 
         {isLoading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {/* Ocho, no seis: la grilla llega a cuatro columnas, y seis dejan una
-                fila incompleta.
+            {/* DOCE, que es el unico numero que llena filas completas en los tres
+                anchos de la grilla: 2, 3 y 4 columnas. Antes decian ocho "porque
+                la grilla llega a cuatro", y esa cuenta era falsa justo en el
+                medio — a tres columnas ocho deja una fila de dos, que es la fila
+                incompleta que se queria evitar. Y doce entra comodo en la pagina
+                de 20 que devuelve la API.
 
                 El esqueleto imita la tarjeta FILA POR FILA — nombre, metadatos,
                 ciudad, dos lineas de descripcion y el "ver perfil" — porque su
@@ -124,7 +128,7 @@ export function AdoptPage() {
                 real: 107px de salto por fila al llegar los datos, invisible en
                 una captura y en cualquier test. Si mañana crece la tarjeta, esto
                 crece con ella. */}
-            {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
+            {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((i) => (
               <div
                 key={i}
                 className="bg-white dark:bg-gray-900 rounded-2xl overflow-hidden shadow-sm border border-gray-100 dark:border-gray-800 animate-pulse"
@@ -167,7 +171,16 @@ export function AdoptPage() {
                   </div>
                   {/* Info */}
                   <div className="p-4">
-                    <h3 className="font-display text-lg text-gray-900 dark:text-gray-100">{pet.name}</h3>
+                    {/* El peso va explicito. `font-display` fija la FAMILIA, no el
+                        peso, y el preflight de Tailwind v4 pone los h1-h6 en
+                        `font-weight: inherit`, asi que cambiar `font-bold` por
+                        `font-display` a secas dejaba el nombre en 400: el mismo
+                        peso que la linea de metadatos de abajo, distinguiendose
+                        solo por tamaño. Medido. Los tokens `text-headline` y
+                        `text-display` si traen peso propio; `text-lg` no. */}
+                    <h3 className="font-display text-lg font-semibold text-gray-900 dark:text-gray-100">
+                      {pet.name}
+                    </h3>
 
                     {/* Una linea de metadatos en vez de cuatro chips, como en el
                         diseño. Se conservan los mismos datos: tipo, raza y color
