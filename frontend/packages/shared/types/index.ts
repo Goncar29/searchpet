@@ -397,6 +397,8 @@ export interface LeaderboardEntry {
   user_id: string;
   name: string;
   city: string;
+  /** Ausente si la persona nunca subió foto — la UI cae en la inicial del nombre. */
+  profile_photo_url?: string;
   total_points: number;
   rank: number;
   badges?: string[];

@@ -216,7 +216,13 @@
     "empty": "Ainda não há usuários em {{city}}.",
     "emptyHint": "Seja o primeiro a reportar pets aí!",
     "loadError": "Não foi possível carregar o leaderboard.",
-    "pts": "pts"
+    "pts": "pts",
+    "cityLabel": "Buscar por cidade",
+    "rowAria": "Posição {{rank}}: {{name}}, {{points}} pts",
+    "podiumAria": "Posição {{place}}: {{name}}, {{points}} pts",
+    "moreBadges": "mais {{count}} conquistas",
+    "statReunited": "Animais reunidos",
+    "statHelpers": "Pessoas ajudando"
   },
   "layout": {
     "home": "Início",

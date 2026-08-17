@@ -216,7 +216,13 @@
     "empty": "No users in {{city}} yet.",
     "emptyHint": "Be the first to report pets there!",
     "loadError": "Couldn't load the leaderboard.",
-    "pts": "pts"
+    "pts": "pts",
+    "cityLabel": "Search by city",
+    "rowAria": "Rank {{rank}}: {{name}}, {{points}} pts",
+    "podiumAria": "Rank {{place}}: {{name}}, {{points}} pts",
+    "moreBadges": "{{count}} more achievements",
+    "statReunited": "Pets reunited",
+    "statHelpers": "People helping"
   },
   "layout": {
     "home": "Home",
