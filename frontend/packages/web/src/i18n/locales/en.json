@@ -548,7 +548,8 @@
       "allTypes": "All",
       "apply": "Apply",
       "resultCount_one": "{{count}} pet",
-      "resultCount_other": "{{count}} pets"
+      "resultCount_other": "{{count}} pets",
+      "viewProfile": "View profile"
     },
     "publish": {
       "intentOption": "Give for adoption",
