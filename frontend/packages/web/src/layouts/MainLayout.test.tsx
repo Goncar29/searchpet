@@ -101,3 +101,28 @@ describe('MainLayout — menú de perfil', () => {
     expect(screen.queryByText('myShelter')).toBeNull();
   });
 });
+
+describe('MainLayout — los links del nav salen de i18n', () => {
+  it('ningún link del nav trae texto hardcodeado ni emojis', () => {
+    // El de Ranking decía `'🏆 Ranking'` a mano: el único de los cinco sin
+    // traducir, así que en inglés y portugués quedaba una palabra en español en
+    // el medio de la barra. Y el emoji tampoco era decoración — medido en el
+    // árbol de accesibilidad de Chrome, el nombre del link era literalmente
+    // "🏆 Ranking", o sea que se anunciaba "trofeo Ranking".
+    //
+    // Con `t: (key) => key`, un link traducido rinde su CLAVE. Cualquier cosa
+    // con espacios, tildes o emojis es texto escrito a mano.
+    renderLayout();
+
+    const nav = document.querySelector('nav')!;
+    const labels = [...nav.querySelectorAll('a')]
+      .map((a) => (a.textContent || '').trim())
+      .filter(Boolean);
+
+    expect(labels.length).toBeGreaterThan(0);
+    for (const label of labels) {
+      expect(label).not.toMatch(/\p{Extended_Pictographic}/u);
+    }
+    expect(labels).toContain('leaderboard');
+  });
+});

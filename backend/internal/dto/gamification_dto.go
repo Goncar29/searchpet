@@ -31,10 +31,15 @@ type UserProfileResponse struct {
 
 // LeaderboardEntry es una entrada del ranking de usuarios por ciudad.
 type LeaderboardEntry struct {
-	UserID      uuid.UUID `json:"user_id"`
-	Name        string    `json:"name"`
-	City        string    `json:"city"`
-	TotalPoints int       `json:"total_points"`
-	Rank        int       `json:"rank"`
-	Badges      []string  `json:"badges"`
+	UserID uuid.UUID `json:"user_id"`
+	Name   string    `json:"name"`
+	City   string    `json:"city"`
+	// ProfilePhotoURL sale de la relación User que el repositorio YA precarga
+	// (`Preload("User")` en user_points_repository.go), así que no cuesta una
+	// query extra. `omitempty`: quien no subió foto no manda el campo y el
+	// frontend cae en la inicial del nombre.
+	ProfilePhotoURL string   `json:"profile_photo_url,omitempty"`
+	TotalPoints     int      `json:"total_points"`
+	Rank            int      `json:"rank"`
+	Badges          []string `json:"badges"`
 }

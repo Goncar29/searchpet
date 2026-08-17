@@ -303,10 +303,11 @@ func (s *gamificationService) GetLeaderboard(ctx context.Context, city string, l
 			Rank:        i + 1, // 1-based
 			Badges:      badgesByUser[row.UserID],
 		}
-		// Incluir nombre y ciudad del usuario si la relación fue cargada.
+		// Incluir nombre, ciudad y foto del usuario si la relación fue cargada.
 		if row.User.ID != uuid.Nil {
 			entry.Name = row.User.Name
 			entry.City = row.User.City
+			entry.ProfilePhotoURL = row.User.ProfilePhotoURL
 		}
 		entries = append(entries, entry)
 	}

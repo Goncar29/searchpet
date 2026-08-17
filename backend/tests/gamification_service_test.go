@@ -689,3 +689,46 @@ func TestGamificationService_GetMyBadges(t *testing.T) {
 		})
 	}
 }
+
+// El podio del ranking necesita la foto, y la relación User ya viene precargada
+// por el repositorio (`Preload("User")`), así que exponerla no cuesta una query
+// extra. Lo que este test protege es que el service la COPIE: el campo puede
+// existir en el DTO y quedar siempre vacío sin que nada se rompa a la vista —
+// la página simplemente mostraría la inicial de todo el mundo, que es
+// exactamente lo que hace cuando no hay foto. Un fallo invisible.
+func TestGamificationService_GetLeaderboard_ExponeLaFotoDePerfil(t *testing.T) {
+	conFoto := uuid.New()
+	sinFoto := uuid.New()
+
+	pointsRepo := &mockUserPointsRepository{
+		findLeaderboardFn: func(_ context.Context, _ string, _ int) ([]domain.UserPoints, error) {
+			return []domain.UserPoints{
+				{UserID: conFoto, Points: 100, User: domain.User{
+					ID: conFoto, Name: "Alice", City: "Montevideo",
+					ProfilePhotoURL: "https://res.cloudinary.com/demo/alice.webp",
+				}},
+				{UserID: sinFoto, Points: 50, User: domain.User{
+					ID: sinFoto, Name: "Bob", City: "Montevideo",
+				}},
+			}, nil
+		},
+	}
+
+	svc := newTestGamificationService(&mockBadgeRepository{}, pointsRepo, &mockUserRepository{}, &mockGamificationReviewRepository{})
+	entries, err := svc.GetLeaderboard(context.Background(), "Montevideo", 10)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(entries) != 2 {
+		t.Fatalf("expected 2 entries, got %d", len(entries))
+	}
+
+	if got := entries[0].ProfilePhotoURL; got != "https://res.cloudinary.com/demo/alice.webp" {
+		t.Errorf("foto de Alice: want la URL de Cloudinary, got %q", got)
+	}
+	// Y quien no tiene foto tiene que llegar VACÍO, no con la de otro: el campo
+	// se copia por fila, no se arrastra del anterior.
+	if got := entries[1].ProfilePhotoURL; got != "" {
+		t.Errorf("Bob no tiene foto: want \"\", got %q", got)
+	}
+}
