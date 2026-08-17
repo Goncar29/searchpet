@@ -4,8 +4,17 @@ import { MemoryRouter } from 'react-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SheltersPage } from './SheltersPage';
 
+// El mock interpola: devuelve `clave|valores`. Con `t: (key) => key` a secas,
+// los nombres accesibles de las tarjetas salían todos idénticos en el test aun
+// pasándoles el refugio — o sea que el test no podía distinguir "paso el nombre"
+// de "me olvidé el objeto de interpolación", que es justo el defecto que estas
+// etiquetas existen para evitar.
 vi.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (key: string) => key, i18n: { language: 'es' } }),
+  useTranslation: () => ({
+    t: (key: string, opts?: Record<string, unknown>) =>
+      opts ? `${key}|${Object.values(opts).join(',')}` : key,
+    i18n: { language: 'es' },
+  }),
 }));
 
 // Mutable so each test can inject its own shelter list / ownership state.
@@ -120,6 +129,64 @@ describe('SheltersPage', () => {
     expect(screen.queryByText('shelters:seeMore')).toBeNull();
   });
 
+  it('da a cada tarjeta controles con nombre accesible propio', () => {
+    // Seis "Donar" que se anuncian igual no le dicen a nadie a qué refugio van,
+    // y el <article> que los envuelve NO cuenta como contexto para WCAG 2.4.4.
+    sheltersData = [
+      shelterWithDescription,
+      { ...shelterWithDescription, id: 's2', name: 'Refugio Nuevo' },
+    ];
+    render(<SheltersPage />, { wrapper });
+
+    for (const key of ['shelters:donateAria', 'shelters:visitWebAria', 'shelters:seeMoreAria']) {
+      const names = screen
+        .getAllByLabelText(new RegExp(`^${key}\\|`))
+        .map((el) => el.getAttribute('aria-label'));
+      expect(names).toHaveLength(2);
+      expect(new Set(names).size).toBe(2);
+    }
+  });
+
+  describe('modal: teclado y foco', () => {
+    const openDetail = () => {
+      sheltersData = [shelterWithDescription];
+      render(<SheltersPage />, { wrapper });
+      const trigger = screen.getByText('shelters:seeMore').closest('button')!;
+      fireEvent.click(trigger);
+      return trigger;
+    };
+
+    it('mueve el foco adentro al abrir', () => {
+      openDetail();
+      const dialog = screen.getByRole('dialog');
+      // Sin esto el foco queda en el botón que el propio modal acaba de tapar.
+      expect(dialog.contains(document.activeElement)).toBe(true);
+    });
+
+    it('cierra con Escape', () => {
+      openDetail();
+      expect(screen.getByRole('dialog')).toBeTruthy();
+
+      fireEvent.keyDown(document, { key: 'Escape' });
+      expect(screen.queryByRole('dialog')).toBeNull();
+    });
+
+    it('devuelve el foco a quien lo abrió', () => {
+      const trigger = openDetail();
+      fireEvent.keyDown(document, { key: 'Escape' });
+      // Devolverlo al <body> obliga a retabular la página desde cero.
+      expect(document.activeElement).toBe(trigger);
+    });
+
+    it('el diálogo se anuncia con el nombre del refugio', () => {
+      openDetail();
+      const dialog = screen.getByRole('dialog');
+      const labelledBy = dialog.getAttribute('aria-labelledby');
+      expect(labelledBy).toBeTruthy();
+      expect(document.getElementById(labelledBy!)?.textContent).toBe('Refugio Grande');
+    });
+  });
+
   it('marca como verificados solo a los refugios que lo son', () => {
     sheltersData = [
       shelterWithDescription,
@@ -171,7 +238,8 @@ describe('SheltersPage', () => {
       fireEvent.click(screen.getByText('shelters:searchButton'));
 
       // "No hay refugios disponibles" sería falso: los hay, pero no en Salto.
-      expect(screen.getByText('shelters:emptyForCity')).toBeTruthy();
+      // Y la ciudad tiene que viajar hasta el mensaje, o vuelve a ser genérico.
+      expect(screen.getByText('shelters:emptyForCity|Salto')).toBeTruthy();
       expect(screen.queryByText('shelters:empty')).toBeNull();
     });
 

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 import { useStats, useShelters, useMyShelter } from '@shared/hooks';
@@ -24,6 +24,53 @@ export function SheltersPage() {
   // A 404/401 (no shelter or logged out) leaves myShelter undefined.
   const { data: myShelter } = useMyShelter();
   const [detail, setDetail] = useState<Shelter | null>(null);
+
+  const dialogRef = useRef<HTMLDivElement>(null);
+  // Quien abrio el modal, para devolverle el foco al cerrarlo. Sin esto el foco
+  // vuelve al <body> y el usuario de teclado reempieza desde el principio.
+  const triggerRef = useRef<HTMLElement | null>(null);
+  const dialogTitleId = useId();
+
+  // `aria-modal="true"` le promete a un lector de pantalla que el resto de la
+  // pagina esta inerte. Sin foco adentro, sin ciclo de Tab y sin Escape esa
+  // promesa era falsa: medido, el foco quedaba en el boton "Ver mas" que queda
+  // TAPADO por el modal, y cerrar con teclado obligaba a tabular por toda la
+  // pagina hasta el boton "Cerrar". Un atributo que afirma un invariante no lo
+  // vuelve cierto (regla #37).
+  useEffect(() => {
+    const panel = dialogRef.current;
+    if (!detail || !panel) return;
+
+    panel.focus();
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setDetail(null);
+        return;
+      }
+      if (e.key !== 'Tab') return;
+
+      const focusables = panel.querySelectorAll<HTMLElement>('a[href], button:not([disabled])');
+      if (focusables.length === 0) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+
+      // El panel mismo cuenta como "antes del primero": recibe el foco al abrir.
+      if (e.shiftKey && (document.activeElement === first || document.activeElement === panel)) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      triggerRef.current?.focus();
+    };
+  }, [detail]);
 
   const applyCity = () => setAppliedCity(cityDraft.trim() || undefined);
   const clearCity = () => {
@@ -213,8 +260,9 @@ export function SheltersPage() {
                 </p>
 
                 {/* La fila del telefono reserva su alto aunque el refugio no
-                    tenga: sin eso las tarjetas de una misma fila arrancan el
-                    bloque de descripcion a distinta altura. */}
+                    tenga. Medido: con la reserva la descripcion arranca a 105px
+                    del borde de la tarjeta, sin ella a 85px — 20px de
+                    desalineacion contra las tarjetas vecinas que si tienen. */}
                 <p className="flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400 mt-1 min-h-[1.25rem]">
                   {shelter.phone && (
                     <>
@@ -231,9 +279,20 @@ export function SheltersPage() {
                     <p className="text-sm text-gray-500 dark:text-gray-400 mt-2 line-clamp-3">
                       {shelter.description}
                     </p>
+                    {/* El nombre visible se queda corto ("Ver mas"), pero el
+                        accesible lleva el refugio. Con seis tarjetas habia seis
+                        controles con el MISMO nombre accesible, y el contexto no
+                        los desambigua: WCAG 2.4.4 admite como contexto la frase,
+                        el parrafo, el item de lista, la celda o el encabezado que
+                        envuelve al link — un <article> no esta en esa lista. Vale
+                        igual para "Visitar web" y "Donar". */}
                     <button
                       type="button"
-                      onClick={() => setDetail(shelter)}
+                      aria-label={t('shelters:seeMoreAria', { name: shelter.name })}
+                      onClick={(e) => {
+                        triggerRef.current = e.currentTarget;
+                        setDetail(shelter);
+                      }}
                       className="self-start mt-2 inline-flex items-center gap-1 text-sm font-semibold text-primary hover:underline"
                     >
                       {t('shelters:seeMore')}
@@ -251,6 +310,7 @@ export function SheltersPage() {
                       href={shelter.website_url}
                       target="_blank"
                       rel="noopener noreferrer"
+                      aria-label={t('shelters:visitWebAria', { name: shelter.name })}
                       className="flex-1 text-center text-sm font-semibold text-primary border border-primary py-2 rounded-xl hover:bg-primary/5 transition-colors"
                     >
                       {t('shelters:visitWeb')}
@@ -261,6 +321,7 @@ export function SheltersPage() {
                       href={shelter.donation_url}
                       target="_blank"
                       rel="noopener noreferrer"
+                      aria-label={t('shelters:donateAria', { name: shelter.name })}
                       className="flex-1 text-center text-sm font-semibold text-white bg-primary py-2 rounded-xl hover:bg-primary-dark transition-colors"
                     >
                       {t('shelters:donate')}
@@ -305,17 +366,27 @@ export function SheltersPage() {
 
       {detail && (
         <div
-          role="dialog"
-          aria-modal="true"
           className="fixed inset-0 z-30 flex items-center justify-center bg-black/40 px-4"
           onClick={() => setDetail(null)}
         >
+          {/* El `role="dialog"` va en el PANEL, no en el fondo: en el fondo, el
+              contenido del dialogo para un lector de pantalla incluia la capa
+              oscura entera. Y `aria-labelledby` lo nombra con el refugio, que es
+              lo que un dialogo sin nombre no le decia a nadie. */}
           <div
-            className="w-full max-w-lg rounded-2xl bg-white dark:bg-gray-900 p-6 max-h-[85vh] overflow-y-auto shadow-xl"
+            ref={dialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={dialogTitleId}
+            tabIndex={-1}
+            className="w-full max-w-lg rounded-2xl bg-white dark:bg-gray-900 p-6 max-h-[85vh] overflow-y-auto shadow-xl focus:outline-none"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start justify-between gap-2 mb-1">
-              <h3 className="font-display text-headline text-gray-900 dark:text-gray-100">
+              <h3
+                id={dialogTitleId}
+                className="font-display text-headline text-gray-900 dark:text-gray-100"
+              >
                 {detail.name}
               </h3>
               {detail.is_verified && (

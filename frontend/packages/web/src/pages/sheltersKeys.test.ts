@@ -24,7 +24,13 @@ const NEW_KEYS = [
   'emptyForCity',
   'clearFilter',
   'registerCtaBody',
+  'seeMoreAria',
+  'visitWebAria',
+  'donateAria',
 ] as const;
+
+/** Accessible names that only disambiguate if the shelter's name is in them. */
+const NAMED_KEYS = ['seeMoreAria', 'visitWebAria', 'donateAria'] as const;
 
 describe('SheltersPage translation keys', () => {
   for (const [lang, bundle] of Object.entries(LOCALES)) {
@@ -44,5 +50,14 @@ describe('SheltersPage translation keys', () => {
       // the directory-wide empty state, which is its whole reason to exist.
       expect(shelters.emptyForCity).toContain('{{city}}');
     });
+
+    for (const key of NAMED_KEYS) {
+      it(`${lang} keeps the {{name}} placeholder in ${key}`, () => {
+        // These exist ONLY to tell six otherwise-identical controls apart. A
+        // translation that drops {{name}} restores the exact ambiguity they
+        // were added to remove, and looks perfectly fine on screen.
+        expect(shelters[key]).toContain('{{name}}');
+      });
+    }
   }
 });
