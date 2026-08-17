@@ -221,6 +221,10 @@
     "rowAria": "Puesto {{rank}}: {{name}}, {{points}} pts",
     "podiumAria": "Puesto {{place}}: {{name}}, {{points}} pts",
     "moreBadges": "{{count}} logros más",
+    "moreBadges_one": "{{count}} logro más",
+    "moreBadges_other": "{{count}} logros más",
+    "badgeCount_one": "{{count}} logro",
+    "badgeCount_other": "{{count}} logros",
     "statReunited": "Mascotas reunidas",
     "statHelpers": "Personas ayudando"
   },

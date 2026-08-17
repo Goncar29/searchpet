@@ -116,3 +116,88 @@ test('en celular el ganador va arriba de todo', async ({ page }) => {
   // Apilado, el 2-1-3 de escritorio dejaría al segundo arriba del ganador.
   expect(ys.sort((a, b) => a.y - b.y).map((p) => p.place)).toEqual(['1', '2', '3']);
 });
+
+test('el esqueleto deja el podio donde va a aterrizar', async ({ page }) => {
+  // Igualar el ALTO no alcanza: el placeholder grande estaba en la columna 1 y
+  // el primer puesto aterrizaba en la 2, así que al llegar los datos el avatar
+  // se corría 272px de golpe — medido. Un salto horizontal es tan salto como
+  // uno vertical, y este lo hacía el esqueleto que existe para evitarlo.
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.route('**/api/stats', (r) =>
+    r.fulfill({ json: { pets_reunited: 128, total_users: 940 } }),
+  );
+  await page.route('**/api/leaderboard*', async (r) => {
+    await new Promise((res) => setTimeout(res, 1500));
+    await r.fulfill({ json: [1, 2, 3, 4].map(entry) });
+  });
+
+  await page.goto('/leaderboard');
+  await page.locator('form input[type="text"]').fill('Montevideo');
+  await page.locator('form button[type="submit"]').click();
+
+  // El placeholder más alto del esqueleto del podio.
+  await page.locator('.animate-pulse').first().waitFor({ state: 'visible' });
+  const xEsqueleto = await page.evaluate(() => {
+    const items = [...document.querySelectorAll('.animate-pulse')].filter((e) =>
+      e.querySelector('.rounded-full'),
+    );
+    const alto = items.map((e) => ({
+      x: Math.round(e.getBoundingClientRect().x),
+      h: Math.round(e.querySelector('.rounded-full')!.getBoundingClientRect().height),
+    }));
+    return alto.reduce((a, c) => (c.h > a.h ? c : a)).x;
+  });
+
+  await page.locator('[aria-label^="Puesto 1:"]').waitFor({ state: 'visible' });
+  const xReal = await page
+    .locator('[aria-label^="Puesto 1:"]')
+    .evaluate((e) => Math.round(e.getBoundingClientRect().x));
+
+  expect(xReal).toBe(xEsqueleto);
+});
+
+test('el puntaje del primer puesto llega a 4.5:1 sobre el color de marca', async ({ page }) => {
+  // Va en el e2e y no en vitest por dos motivos, y el segundo es el que manda:
+  // jsdom no computa colores, y acá se mide el color RENDERIZADO en vez de
+  // parsear el CSS — si mañana el token cambia, o alguien suaviza el texto, o
+  // una regla de más pisa el color, este test lo ve.
+  //
+  // Es el dato central del podio. Medido: blanco pleno da 4.77:1 sobre
+  // #C24E1A y al 80% cae a 3.63:1, debajo del 4.5:1 de WCAG AA.
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await openLeaderboard(page);
+
+  const ratio = await page
+    .locator('[aria-label^="Puesto 1:"]')
+    .evaluate((place) => {
+      const parse = (c: string) =>
+        c.match(/[\d.]+/g)!.map(Number) as [number, number, number, number?];
+      const puntaje = [...place.querySelectorAll('p')].find((p) => /\d+\s/.test(p.textContent || ''))!;
+      const [fr, fg, fb, alfa = 1] = parse(getComputedStyle(puntaje).color);
+
+      // El fondo pintado más cercano hacia arriba.
+      let node: HTMLElement | null = puntaje;
+      let fondo: [number, number, number] = [255, 255, 255];
+      while (node) {
+        const bg = parse(getComputedStyle(node).backgroundColor);
+        if ((bg[3] ?? 1) > 0) {
+          fondo = [bg[0], bg[1], bg[2]];
+          break;
+        }
+        node = node.parentElement;
+      }
+
+      const compuesto = [fr, fg, fb].map((v, i) => v * alfa + fondo[i] * (1 - alfa));
+      const lum = (rgb: number[]) => {
+        const s = rgb.map((v) => {
+          const x = v / 255;
+          return x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4);
+        });
+        return 0.2126 * s[0] + 0.7152 * s[1] + 0.0722 * s[2];
+      };
+      const [hi, lo] = [lum(compuesto), lum(fondo)].sort((a, b) => b - a);
+      return (hi + 0.05) / (lo + 0.05);
+    });
+
+  expect(ratio).toBeGreaterThanOrEqual(4.5);
+});

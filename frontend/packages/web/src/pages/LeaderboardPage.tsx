@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router';
 import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import { useLeaderboard, useStats } from '@shared/hooks';
 import { BADGE_META } from '@shared/types';
 import type { LeaderboardEntry } from '@shared/types';
@@ -8,6 +9,28 @@ import { Icon } from '../components/Icon';
 
 /** Cuántos badges muestra una fila antes de resumir en "+N". */
 const ROW_BADGE_LIMIT = 3;
+
+/** Los tipos de logro que sabemos dibujar, en el orden en que vinieron. */
+const knownBadges = (badges?: string[]) => (badges ?? []).filter((b) => BADGE_META[b]);
+
+/**
+ * El nombre accesible de un link con logros.
+ *
+ * Un `aria-label` explícito en un link REEMPLAZA el nombre que se computaría de
+ * su contenido, así que los `role="img"` de adentro no entran: quien tabula o
+ * usa la lista de links oía sólo "Puesto 4: Persona 4, 148 pts". Los nodos de
+ * los logros siguen en el árbol y se alcanzan en modo lectura —eso lo medí— pero
+ * el modo con el que se recorre una lista de links es el otro, y ahí no
+ * estaban.
+ *
+ * Va el CONTEO, no los seis nombres: tabular veinte filas escuchando seis
+ * logros cada una es peor que no tenerlos. Los nombres siguen disponibles en
+ * modo lectura y en la leyenda del costado.
+ */
+function withBadgeCount(base: string, badges: string[], t: TFunction): string {
+  if (badges.length === 0) return base;
+  return `${base}, ${t('leaderboard:badgeCount', { count: badges.length })}`;
+}
 
 /**
  * Los emojis de badge NO se sustituyen por iconos.
@@ -44,7 +67,7 @@ function BadgeGlyph({ type, className = '' }: { type: string; className?: string
 /** Los badges de una fila: hasta tres, y el resto resumido. */
 function RowBadges({ badges, className = '' }: { badges: string[]; className?: string }) {
   const { t } = useTranslation('leaderboard');
-  const known = badges.filter((b) => BADGE_META[b]);
+  const known = knownBadges(badges);
   if (known.length === 0) return null;
 
   const shown = known.slice(0, ROW_BADGE_LIMIT);
@@ -98,12 +121,6 @@ function Avatar({ entry, className }: { entry: LeaderboardEntry; className: stri
 }
 
 /**
- * Una plaza del podio. `place` es 1, 2 o 3 y decide el tamaño: el primero va
- * mas grande y elevado. Los medalleros 🥇🥈🥉 que habia antes se fueron por
- * DISEÑO, no por sustitucion de icono — la jerarquia ya la da el tamaño y el
- * numero de puesto, y tres emojis mas competian con los badges de al lado.
- */
-/**
  * El orden visual del podio (2 - 1 - 3 en escritorio) lo hace CSS, no el DOM.
  * El DOM se queda en 1 - 2 - 3, que es el orden que recorren el teclado y un
  * lector de pantalla, y en celular —donde se apila— es además el orden que se
@@ -112,17 +129,31 @@ function Avatar({ entry, className }: { entry: LeaderboardEntry; className: stri
  * Esto estaba MAL escrito en la primera versión: había puesto el JSX en orden
  * visual y el comentario afirmaba que el DOM quedaba 1-2-3. Lo agarró el test
  * `el DOM lee 1-2-3 aunque el podio se vea 2-1-3`, no yo.
+ *
+ * Lo usa TAMBIÉN el esqueleto: igualar el alto no sirve si el placeholder
+ * grande queda en otra columna que el primer puesto.
  */
 const PODIUM_ORDER: Record<number, string> = { 1: 'sm:order-2', 2: 'sm:order-1', 3: 'sm:order-3' };
 
+/**
+ * Una plaza del podio. `place` es 1, 2 o 3 y decide el tamaño: el primero va
+ * mas grande y elevado. Los medalleros 🥇🥈🥉 que habia antes se fueron por
+ * DISEÑO, no por sustitucion de icono — la jerarquia ya la da el tamaño y el
+ * numero de puesto, y tres emojis mas competian con los badges de al lado.
+ */
 function PodiumPlace({ entry, place }: { entry: LeaderboardEntry; place: number }) {
   const { t } = useTranslation('leaderboard');
   const first = place === 1;
+  const badges = knownBadges(entry.badges);
 
   return (
     <Link
       to={`/users/${entry.user_id}`}
-      aria-label={t('leaderboard:podiumAria', { place, name: entry.name, points: entry.total_points })}
+      aria-label={withBadgeCount(
+        t('leaderboard:podiumAria', { place, name: entry.name, points: entry.total_points }),
+        badges,
+        t,
+      )}
       className={`group flex flex-col items-center text-center ${PODIUM_ORDER[place] ?? ''}`}
     >
       <div className="relative">
@@ -151,7 +182,11 @@ function PodiumPlace({ entry, place }: { entry: LeaderboardEntry; place: number 
         >
           {entry.name}
         </p>
-        <p className={`text-sm font-semibold ${first ? 'text-white/80' : 'text-primary'}`}>
+        {/* Blanco pleno y no `white/80`: medido sobre `--color-primary`
+            (#C24E1A) el blanco pleno da 4.77:1 y al 80% cae a 3.63:1, debajo
+            del 4.5:1 que pide WCAG AA. Y esto no es texto decorativo — es el
+            puntaje del primer puesto, el dato central del podio. */}
+        <p className={`text-sm font-semibold ${first ? 'text-white' : 'text-primary'}`}>
           {entry.total_points} {t('leaderboard:pts')}
         </p>
         {/* El podio tiene lugar, asi que muestra TODOS los logros; el tope de
@@ -178,11 +213,15 @@ function LeaderboardRow({ entry }: { entry: LeaderboardEntry }) {
       // Sin esto son veinte links que se anuncian igual: el nombre accesible
       // tiene que identificar a la persona (lo mismo que se corrigio en las
       // tarjetas de Refugios, WCAG 2.4.4).
-      aria-label={t('leaderboard:rowAria', {
-        rank: entry.rank,
-        name: entry.name,
-        points: entry.total_points,
-      })}
+      aria-label={withBadgeCount(
+        t('leaderboard:rowAria', {
+          rank: entry.rank,
+          name: entry.name,
+          points: entry.total_points,
+        }),
+        knownBadges(entry.badges),
+        t,
+      )}
       className="flex items-center gap-3 sm:gap-4 p-4 bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 hover:border-primary/40 hover:shadow-sm transition-all"
     >
       <span className="w-8 shrink-0 text-center font-display text-lg font-bold text-gray-400 dark:text-gray-500">
@@ -305,11 +344,20 @@ export function LeaderboardPage() {
               // de layout es invisible en una captura y en cualquier test.
               <div>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end mb-8">
-                  {[0, 1, 2].map((i) => (
-                    <div key={i} className="flex flex-col items-center animate-pulse">
+                  {/* El esqueleto usa el MISMO `PODIUM_ORDER` que el podio de
+                      verdad. Sin eso el placeholder grande quedaba en la
+                      columna 1 y el primer puesto aterrizaba en la 2: medido,
+                      272px de salto horizontal al llegar los datos — el salto
+                      que el esqueleto existe para evitar. Igualar el alto no
+                      alcanza si no se iguala la POSICION. */}
+                  {[1, 2, 3].map((place) => (
+                    <div
+                      key={place}
+                      className={`flex flex-col items-center animate-pulse ${PODIUM_ORDER[place]}`}
+                    >
                       <div
                         className={`rounded-full bg-gray-200 dark:bg-gray-800 ${
-                          i === 0 ? 'h-24 w-24 sm:h-28 sm:w-28' : 'h-20 w-20'
+                          place === 1 ? 'h-24 w-24 sm:h-28 sm:w-28' : 'h-20 w-20'
                         }`}
                       />
                       <div className="mt-4 w-full rounded-2xl bg-gray-100 dark:bg-gray-800 h-[7.5rem]" />
@@ -337,7 +385,13 @@ export function LeaderboardPage() {
               </div>
             )}
 
-            {city && error && (
+            {/* `!entries?.length` en la guarda del error, no `error` a secas:
+                React Query CONSERVA los datos cacheados cuando falla un
+                refetch, y ahi `isLoading` es false. Con la guarda anterior, un
+                fallo pasajero —el cold start de Render tras dormirse, un 502—
+                reemplazaba un ranking ya dibujado por el cartel de error.
+                Mostrar datos viejos es mejor que borrar los que estan. */}
+            {city && error && !entries?.length && (
               <div className="text-center py-16">
                 <Icon
                   name="warning"
@@ -362,7 +416,7 @@ export function LeaderboardPage() {
               </div>
             )}
 
-            {city && !isLoading && !error && entries && entries.length > 0 && (
+            {city && !isLoading && entries && entries.length > 0 && (
               <>
                 {/* `items-end` para que el primero, que es mas alto, quede
                     parado sobre la misma linea de base que los otros dos. */}

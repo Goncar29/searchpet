@@ -25,6 +25,15 @@ const NEW_KEYS = [
   'statHelpers',
 ] as const;
 
+/**
+ * Claves que reciben `count` y por lo tanto NECESITAN sus formas plurales.
+ *
+ * i18next sólo pluraliza si existen las claves sufijadas; con la base sola cae
+ * de vuelta a ella y renderiza "1 logros más". Y `rest === 1` es alcanzable:
+ * son seis logros posibles y la fila muestra tres.
+ */
+const PLURAL_KEYS = ['moreBadges', 'badgeCount'] as const;
+
 /** Claves cuyo placeholder es lo único que las hace útiles. */
 const PLACEHOLDERS: Record<string, string[]> = {
   rowAria: ['{{rank}}', '{{name}}', '{{points}}'],
@@ -43,6 +52,19 @@ describe('LeaderboardPage translation keys', () => {
         expect((lb[key] as string).trim()).not.toBe('');
         // La forma que toma una traducción faltante: la clave como su valor.
         expect(lb[key]).not.toMatch(/^leaderboard[.:]/);
+      });
+    }
+
+    for (const key of PLURAL_KEYS) {
+      it(`${lang} defines both plural forms of leaderboard:${key}`, () => {
+        for (const suffix of ['_one', '_other']) {
+          const form = lb[`${key}${suffix}`];
+          expect(typeof form).toBe('string');
+          expect(form).toContain('{{count}}');
+        }
+        // Si las dos formas dicen lo mismo, no hay pluralización: es el mismo
+        // "1 logros más" con dos claves en vez de una.
+        expect(lb[`${key}_one`]).not.toBe(lb[`${key}_other`]);
       });
     }
 

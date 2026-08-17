@@ -221,6 +221,10 @@
     "rowAria": "Posição {{rank}}: {{name}}, {{points}} pts",
     "podiumAria": "Posição {{place}}: {{name}}, {{points}} pts",
     "moreBadges": "mais {{count}} conquistas",
+    "moreBadges_one": "mais {{count}} conquista",
+    "moreBadges_other": "mais {{count}} conquistas",
+    "badgeCount_one": "{{count}} conquista",
+    "badgeCount_other": "{{count}} conquistas",
     "statReunited": "Animais reunidos",
     "statHelpers": "Pessoas ajudando"
   },

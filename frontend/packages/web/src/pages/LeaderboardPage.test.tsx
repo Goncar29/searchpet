@@ -180,6 +180,30 @@ describe('LeaderboardPage', () => {
       expect(within(first).getAllByRole('img')).toHaveLength(6);
     });
 
+    it('el nombre accesible del link dice CUÁNTOS logros tiene', () => {
+      // Un `aria-label` explícito en un link reemplaza el nombre que se
+      // computaría de su contenido, así que los `role="img"` de adentro no
+      // entran en él: quien tabula oía sólo "Puesto 4: Persona 4, 148 pts".
+      // Va el conteo y no los seis nombres — tabular veinte filas escuchando
+      // seis logros cada una es peor que no tenerlos.
+      entries = [entry(1), entry(2), entry(3), entry(4, { badges: SEIS })];
+      render(<LeaderboardPage />, { wrapper });
+      search('Montevideo');
+
+      const row = screen.getByLabelText(/^leaderboard:rowAria\|/);
+      expect(row.getAttribute('aria-label')).toContain('leaderboard:badgeCount|6');
+    });
+
+    it('sin logros, el nombre accesible no menciona ninguno', () => {
+      entries = [entry(1), entry(2), entry(3), entry(4, { badges: [] })];
+      render(<LeaderboardPage />, { wrapper });
+      search('Montevideo');
+
+      const row = screen.getByLabelText(/^leaderboard:rowAria\|/);
+      // Ni un "0 logros" colgando del final.
+      expect(row.getAttribute('aria-label')).not.toContain('badgeCount');
+    });
+
     it('cada logro se anuncia con su nombre, no con el emoji', () => {
       // Un emoji suelto lo lee un lector de pantalla por su nombre Unicode
       // ("handshake"), que no le dice nada a nadie. El `title` tampoco alcanza:
@@ -241,6 +265,20 @@ describe('LeaderboardPage', () => {
 
       expect(screen.getByText('leaderboard:loadError')).toBeTruthy();
       expect(screen.queryByText(/^leaderboard:empty\|/)).toBeNull();
+    });
+
+    it('un fallo de refetch NO borra un ranking ya dibujado', () => {
+      // React Query conserva los datos cacheados cuando falla un refetch, y
+      // ahí `isLoading` es false. Con la guarda anterior (`!error`), el cold
+      // start de Render tras dormirse reemplazaba un ranking entero por el
+      // cartel de error. Mostrar datos viejos es mejor que borrar los que hay.
+      entries = [entry(1), entry(2), entry(3), entry(4)];
+      error = new Error('502 del cold start');
+      render(<LeaderboardPage />, { wrapper });
+      search('Montevideo');
+
+      expect(screen.getAllByLabelText(/^leaderboard:podiumAria\|/)).toHaveLength(3);
+      expect(screen.queryByText('leaderboard:loadError')).toBeNull();
     });
 
     it('sin gente en la ciudad lo dice con la ciudad adentro', () => {

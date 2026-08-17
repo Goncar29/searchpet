@@ -221,6 +221,10 @@
     "rowAria": "Rank {{rank}}: {{name}}, {{points}} pts",
     "podiumAria": "Rank {{place}}: {{name}}, {{points}} pts",
     "moreBadges": "{{count}} more achievements",
+    "moreBadges_one": "{{count}} more achievement",
+    "moreBadges_other": "{{count}} more achievements",
+    "badgeCount_one": "{{count}} achievement",
+    "badgeCount_other": "{{count}} achievements",
     "statReunited": "Pets reunited",
     "statHelpers": "People helping"
   },
