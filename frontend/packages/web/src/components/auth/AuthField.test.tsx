@@ -66,4 +66,27 @@ describe('AuthField', () => {
 
     expect(screen.queryByRole('button')).toBeNull();
   });
+
+  // The recovery OTP field is the only caller of these two, and it passes them
+  // from the page. Dropping either line from the component would leave the code
+  // field silently accepting more than six characters and offering a full
+  // keyboard on a phone — neither of which shows up as a failure anywhere else.
+  it('forwards the numeric keypad and the length cap to the input', () => {
+    render(
+      <AuthField
+        label="Código"
+        type="text"
+        icon="pin"
+        value=""
+        onChange={() => {}}
+        inputMode="numeric"
+        maxLength={6}
+      />
+    );
+
+    const input = screen.getByLabelText('Código');
+
+    expect(input.getAttribute('inputmode')).toBe('numeric');
+    expect(input).toHaveProperty('maxLength', 6);
+  });
 });
