@@ -163,6 +163,28 @@ export function SheltersPage() {
 
       {/* Directorio */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
+        {/* La salida del filtro vive acá y no dentro del vacío, porque una
+            búsqueda CON resultados también hay que poder deshacerla. Estaba
+            solo en el estado vacío: quien buscaba "Salto" y obtenía tres
+            refugios no tenía forma de volver al directorio salvo deducir que
+            había que borrar el campo y apretar Buscar de nuevo. Y el único
+            indicio de que el filtro seguía puesto era el texto en el input. */}
+        {appliedCity && (
+          <div className="flex items-center gap-2 mb-6">
+            <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 dark:bg-primary/20 px-3 py-1 text-sm font-semibold text-primary">
+              <Icon name="location-on" className="h-4 w-4" />
+              {appliedCity}
+            </span>
+            <button
+              type="button"
+              onClick={clearCity}
+              className="text-sm font-semibold text-gray-500 dark:text-gray-400 hover:text-primary hover:underline"
+            >
+              {t('shelters:clearFilter')}
+            </button>
+          </div>
+        )}
+
         {isLoading && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {/* SEIS, el unico numero que llena filas completas en los tres anchos
@@ -213,18 +235,12 @@ export function SheltersPage() {
         {isEmpty && (
           <div className="text-center py-12">
             {appliedCity ? (
-              <>
-                <p className="text-gray-500 dark:text-gray-400 mb-4">
-                  {t('shelters:emptyForCity', { city: appliedCity })}
-                </p>
-                <button
-                  type="button"
-                  onClick={clearCity}
-                  className="text-sm font-semibold text-primary hover:underline"
-                >
-                  {t('shelters:clearFilter')}
-                </button>
-              </>
+              // La salida no se repite acá: el chip de arriba ya la ofrece, y
+              // dos botones con el mismo nombre accesible es justo lo que este
+              // PR corrigió en las tarjetas.
+              <p className="text-gray-500 dark:text-gray-400">
+                {t('shelters:emptyForCity', { city: appliedCity })}
+              </p>
             ) : (
               <p className="text-gray-400 dark:text-gray-500">{t('shelters:empty')}</p>
             )}
@@ -366,7 +382,13 @@ export function SheltersPage() {
 
       {detail && (
         <div
-          className="fixed inset-0 z-30 flex items-center justify-center bg-black/40 px-4"
+          /* z-[60], por encima del `z-50` del navbar de MainLayout. Con z-30 el
+             navbar quedaba PINTADO ARRIBA del modal: medido, `elementFromPoint`
+             sobre la barra devolvia el nav, no la capa oscura, y un click en
+             "Mapa" con el modal abierto navegaba. O sea que el `aria-modal` que
+             se agrego recien seguia siendo falso por mouse aunque el foco ya
+             estuviera atrapado por teclado. */
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 px-4"
           onClick={() => setDetail(null)}
         >
           {/* El `role="dialog"` va en el PANEL, no en el fondo: en el fondo, el

@@ -32,6 +32,13 @@ const NEW_KEYS = [
 /** Accessible names that only disambiguate if the shelter's name is in them. */
 const NAMED_KEYS = ['seeMoreAria', 'visitWebAria', 'donateAria'] as const;
 
+/** visible label → its accessible name. WCAG 2.5.3 wants the first inside the second. */
+const LABEL_PAIRS = [
+  ['seeMore', 'seeMoreAria'],
+  ['visitWeb', 'visitWebAria'],
+  ['donate', 'donateAria'],
+] as const;
+
 describe('SheltersPage translation keys', () => {
   for (const [lang, bundle] of Object.entries(LOCALES)) {
     const shelters = (bundle as { shelters: Record<string, unknown> }).shelters;
@@ -50,6 +57,17 @@ describe('SheltersPage translation keys', () => {
       // the directory-wide empty state, which is its whole reason to exist.
       expect(shelters.emptyForCity).toContain('{{city}}');
     });
+
+    for (const [visible, aria] of LABEL_PAIRS) {
+      it(`${lang}: the accessible name of ${visible} contains its visible label`, () => {
+        // WCAG 2.5.3 "Label in Name" (Level A). Concreto: alguien que maneja la
+        // web por voz dice "click Visitar web" — el software matchea contra el
+        // nombre ACCESIBLE, así que si el visible no está adentro, no pasa
+        // nada. Pasó con `visitWebAria`: "Visitar el sitio web de X" no
+        // contiene "Visitar web", y el test de {{name}} lo daba por bueno.
+        expect(shelters[aria]).toContain(shelters[visible]);
+      });
+    }
 
     for (const key of NAMED_KEYS) {
       it(`${lang} keeps the {{name}} placeholder in ${key}`, () => {

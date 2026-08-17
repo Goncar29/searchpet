@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"strings"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -46,7 +47,21 @@ func (r *postgresShelterRepository) GetAll(ctx context.Context, city string, isV
 		Where("status = ?", domain.ShelterStatusApproved)
 
 	if city != "" {
-		query = query.Where("city = ?", city)
+		// Búsqueda por palabras, igual que `foster_home_repository.go`: cada
+		// término tiene que aparecer en el campo (parcial, case-insensitive).
+		//
+		// Era `city = ?`, exacto y sensible a mayúsculas. Mientras el filtro
+		// no tuvo UI, daba igual — nadie lo tipeaba. Desde que la página de
+		// refugios tiene buscador, ese `=` es una MENTIRA: la ciudad la
+		// escribe a mano el dueño al registrarse, así que un refugio guardado
+		// como "Montevideo" quedaba invisible para quien tipeara "montevideo",
+		// y uno guardado como "Ciudad de la Costa, Canelones" para quien
+		// tipeara "Ciudad de la Costa". La pantalla contestaba "no
+		// encontramos refugios en X" con refugios en X.
+		terms := strings.FieldsFunc(city, func(r rune) bool { return r == ' ' || r == ',' })
+		for _, term := range terms {
+			query = query.Where("city ILIKE ?", "%"+term+"%")
+		}
 	}
 	if isVerified != nil {
 		query = query.Where("is_verified = ?", *isVerified)

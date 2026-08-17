@@ -243,7 +243,21 @@ describe('SheltersPage', () => {
       expect(screen.queryByText('shelters:empty')).toBeNull();
     });
 
-    it('el vacío por ciudad ofrece una salida que quita el filtro', () => {
+    it('ofrece una salida del filtro AUNQUE la búsqueda haya dado resultados', () => {
+      // Estaba solo en el estado vacío: quien buscaba y encontraba se quedaba
+      // sin forma de volver al directorio completo.
+      sheltersData = [shelterWithDescription];
+      render(<SheltersPage />, { wrapper });
+
+      fireEvent.change(screen.getByLabelText('shelters:cityLabel'), {
+        target: { value: 'Montevideo' },
+      });
+      fireEvent.click(screen.getByText('shelters:searchButton'));
+      expect(lastCity()).toBe('Montevideo');
+      expect(screen.getByText('shelters:clearFilter')).toBeTruthy();
+    });
+
+    it('la salida quita el filtro y limpia el campo', () => {
       render(<SheltersPage />, { wrapper });
 
       const input = screen.getByLabelText('shelters:cityLabel');

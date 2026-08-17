@@ -248,3 +248,61 @@ func TestShelterRepository_GetPendingQueue(t *testing.T) {
 		t.Errorf("want {Pendiente, Con Cambio} in queue, got %v", names)
 	}
 }
+
+// El buscador de la página de refugios manda texto libre, y la ciudad la
+// escribe a mano el dueño al registrarse. Con el `city = ?` exacto y sensible a
+// mayúsculas que había antes, la pantalla contestaba "no encontramos refugios
+// en X" habiendo refugios en X — la peor forma de fallar, porque parece un dato
+// y es un bug. Va contra Postgres de verdad: un mock no tiene ILIKE.
+func TestShelterRepository_GetAll_BuscaLaCiudadSinImportarMayusculasNiSerExacta(t *testing.T) {
+	gormDB := testdb.SetupTestDB(t)
+	shelterRepo := repository.NewShelterRepository(gormDB)
+	ctx := context.Background()
+
+	target := &domain.Shelter{
+		ID: uuid.New(), Name: "Refugio Costero", City: "Ciudad de la Costa, Canelones",
+		Status: domain.ShelterStatusApproved,
+	}
+	otro := &domain.Shelter{
+		ID: uuid.New(), Name: "Refugio Norteño", City: "Tacuarembó",
+		Status: domain.ShelterStatusApproved,
+	}
+	for _, s := range []*domain.Shelter{target, otro} {
+		if err := shelterRepo.Create(ctx, s); err != nil {
+			t.Fatalf("Create %q: %v", s.Name, err)
+		}
+	}
+
+	encuentraElCostero := func(t *testing.T, query string) {
+		t.Helper()
+		got, err := shelterRepo.GetAll(ctx, query, nil)
+		if err != nil {
+			t.Fatalf("GetAll(%q): %v", query, err)
+		}
+		for _, s := range got {
+			if s.ID == target.ID {
+				return
+			}
+		}
+		t.Errorf("GetAll(%q): no encontró el refugio guardado como %q", query, target.City)
+	}
+
+	// Cada uno de estos fallaba con el `=` exacto.
+	encuentraElCostero(t, "ciudad de la costa") // todo en minúsculas
+	encuentraElCostero(t, "CIUDAD DE LA COSTA") // todo en mayúsculas
+	encuentraElCostero(t, "Ciudad de la Costa") // sin el ", Canelones" guardado
+	encuentraElCostero(t, "Canelones")          // solo la parte de atrás
+	encuentraElCostero(t, "costa canelones")    // términos sueltos, otro orden
+	encuentraElCostero(t, "  costa  ")          // con espacios de sobra
+
+	// Y sigue acotando: no puede devolver todo.
+	got, err := shelterRepo.GetAll(ctx, "costa", nil)
+	if err != nil {
+		t.Fatalf("GetAll(costa): %v", err)
+	}
+	for _, s := range got {
+		if s.ID == otro.ID {
+			t.Errorf("GetAll(costa) devolvió %q, que está en %q", s.Name, s.City)
+		}
+	}
+}

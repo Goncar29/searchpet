@@ -375,7 +375,7 @@
     "impactReports": "Reports created",
     "impactPets": "Pets registered",
     "visitWeb": "Visit website",
-    "visitWebAria": "Visit {{name}}'s website",
+    "visitWebAria": "Visit website of {{name}}",
     "cityLabel": "Search by city",
     "searchPlaceholder": "Search by city",
     "searchButton": "Search",
