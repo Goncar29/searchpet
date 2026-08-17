@@ -680,3 +680,129 @@ func TestShelterHandler_LinksEndpoints(t *testing.T) {
 		t.Errorf("links/reject: want 200 + service call, got %d (called=%v)", wR.Code, rejectCalled)
 	}
 }
+
+// ============================================================
+// Admin Create / Update: esquema de los links
+// ============================================================
+
+func setupAdminShelterRouter(h *handler.ShelterHandler) *gin.Engine {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.POST("/api/admin/shelters", h.Create)
+	r.PUT("/api/admin/shelters/:id", h.Update)
+	return r
+}
+
+// Estos tests son de HANDLER y no solo de DTO a propósito. El defecto que
+// cierran no era un validador mal escrito: era un validador que NADIE LLAMABA.
+// `validOptionalHTTPSURL` existía y las otras dos vías de escritura lo usaban;
+// la vía admin bindeaba el JSON y se iba derecho al service. Un test que solo
+// ejercite `req.Validate()` pasa igual con el handler sin cablear.
+func TestShelterHandler_AdminCreate_RechazaEsquemasQueNoSonHTTPS(t *testing.T) {
+	// `shelterService.Create` marca la fila Approved en el acto y el directorio
+	// público sirve las aprobadas, así que esto aterriza en un href de la web
+	// sin que nadie más lo mire. React escapa texto pero no valida esquemas.
+	for _, url := range []string{
+		"javascript:alert(document.cookie)",
+		"JavaScript:alert(1)", // el esquema se normaliza a minúsculas al parsear
+		"data:text/html;base64,PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg==",
+		"//evil.example",      // protocol-relative: parsea limpio pero sin esquema
+		"http://sin-tls.org",
+	} {
+		for _, field := range []string{"website_url", "donation_url"} {
+			created := false
+			svc := &mockShelterService{createFn: func(ctx context.Context, s *domain.Shelter) error {
+				created = true
+				return nil
+			}}
+			r := setupAdminShelterRouter(handler.NewShelterHandler(svc))
+
+			body := `{"name":"Refugio","city":"Montevideo","` + field + `":"` + url + `"}`
+			req := httptest.NewRequest(http.MethodPost, "/api/admin/shelters", strings.NewReader(body))
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+			r.ServeHTTP(w, req)
+
+			if w.Code != http.StatusBadRequest {
+				t.Errorf("%s=%q: want 400, got %d — body: %s", field, url, w.Code, w.Body.String())
+			}
+			if resp := decodeErrorResponse(t, w); resp.Code != "invalid_input" {
+				t.Errorf("%s=%q: code want invalid_input, got %q", field, url, resp.Code)
+			}
+			// Lo que de verdad importa: la fila no llegó a existir.
+			if created {
+				t.Errorf("%s=%q: el refugio se creó igual", field, url)
+			}
+		}
+	}
+}
+
+func TestShelterHandler_AdminCreate_AceptaHTTPSYVacio(t *testing.T) {
+	for _, body := range []string{
+		`{"name":"Refugio","city":"Montevideo","website_url":"https://refugio.org","donation_url":"https://refugio.org/donar"}`,
+		`{"name":"Refugio","city":"Montevideo"}`, // los links son opcionales
+	} {
+		svc := &mockShelterService{}
+		r := setupAdminShelterRouter(handler.NewShelterHandler(svc))
+
+		req := httptest.NewRequest(http.MethodPost, "/api/admin/shelters", strings.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+
+		if w.Code != http.StatusCreated {
+			t.Errorf("want 201, got %d — body: %s", w.Code, w.Body.String())
+		}
+	}
+}
+
+func TestShelterHandler_AdminUpdate_RechazaEsquemasQueNoSonHTTPS(t *testing.T) {
+	id := uuid.New()
+	for _, field := range []string{"website_url", "donation_url"} {
+		updated := false
+		svc := &mockShelterService{
+			getByIDAnyStatusFn: func(ctx context.Context, s string) (*domain.Shelter, error) {
+				return &domain.Shelter{ID: id, Name: "Refugio", City: "Montevideo"}, nil
+			},
+			updateFn: func(ctx context.Context, s *domain.Shelter) error {
+				updated = true
+				return nil
+			},
+		}
+		r := setupAdminShelterRouter(handler.NewShelterHandler(svc))
+
+		body := `{"` + field + `":"javascript:alert(1)"}`
+		req := httptest.NewRequest(http.MethodPut, "/api/admin/shelters/"+id.String(), strings.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+
+		if w.Code != http.StatusBadRequest {
+			t.Errorf("%s: want 400, got %d — body: %s", field, w.Code, w.Body.String())
+		}
+		if updated {
+			t.Errorf("%s: la fila publicada se actualizó igual", field)
+		}
+	}
+}
+
+func TestShelterHandler_AdminUpdate_UnCampoAusenteNoEsUnaURLInvalida(t *testing.T) {
+	// Los campos son punteros: nil es "no enviado", no "vacío". Validar un nil
+	// como si fuera "" rompería toda edición parcial (cambiar solo el nombre).
+	id := uuid.New()
+	svc := &mockShelterService{
+		getByIDAnyStatusFn: func(ctx context.Context, s string) (*domain.Shelter, error) {
+			return &domain.Shelter{ID: id, Name: "Refugio", City: "Montevideo"}, nil
+		},
+	}
+	r := setupAdminShelterRouter(handler.NewShelterHandler(svc))
+
+	req := httptest.NewRequest(http.MethodPut, "/api/admin/shelters/"+id.String(), strings.NewReader(`{"name":"Otro Nombre"}`))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("want 200, got %d — body: %s", w.Code, w.Body.String())
+	}
+}

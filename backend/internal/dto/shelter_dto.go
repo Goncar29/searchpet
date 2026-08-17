@@ -39,6 +39,23 @@ type UpdateShelterRequest struct {
 	IsVerified  *bool    `json:"is_verified"`
 }
 
+// Validate acota los links de la vía admin al mismo esquema que ya exigen el
+// auto-registro y la edición del dueño.
+//
+// No es simetría por prolijidad: `shelterService.Create` marca la fila
+// `Approved` en el acto, sin paso de moderación, y el directorio público sirve
+// exactamente las aprobadas — así que lo que entra por acá aterriza en un
+// `href` de la web sin que nadie más lo mire. React escapa texto pero **NO
+// valida esquemas** (regla #54), con lo cual un `javascript:` guardado acá
+// arma un link que funciona, y ejecuta en el browser de cada visitante. Que el
+// autor sea admin acota quién puede plantarlo, no a quién le explota.
+func (r *CreateShelterRequest) Validate() error {
+	if !validOptionalHTTPSURL(r.WebsiteURL) || !validOptionalHTTPSURL(r.DonationURL) {
+		return domain.ErrInvalidInput
+	}
+	return nil
+}
+
 // ToCreateShelterDomain convierte CreateShelterRequest en un domain.Shelter listo para persistir.
 func ToCreateShelterDomain(req *CreateShelterRequest) *domain.Shelter {
 	return &domain.Shelter{
@@ -52,6 +69,22 @@ func ToCreateShelterDomain(req *CreateShelterRequest) *domain.Shelter {
 		Latitude:    req.Latitude,
 		Longitude:   req.Longitude,
 	}
+}
+
+// Validate acota los links de la edición admin. Mismo motivo que
+// CreateShelterRequest.Validate: `shelterService.Update` guarda directo sobre
+// una fila que ya está aprobada y publicada.
+//
+// Los campos son punteros, así que solo se mira lo que llegó: un nil es "no
+// enviado" y no tiene URL que validar.
+func (r *UpdateShelterRequest) Validate() error {
+	if r.WebsiteURL != nil && !validOptionalHTTPSURL(*r.WebsiteURL) {
+		return domain.ErrInvalidInput
+	}
+	if r.DonationURL != nil && !validOptionalHTTPSURL(*r.DonationURL) {
+		return domain.ErrInvalidInput
+	}
+	return nil
 }
 
 // ToUpdateShelterDomain aplica los campos presentes en UpdateShelterRequest sobre un shelter existente.
