@@ -292,6 +292,33 @@ describe('ProfilePage', () => {
     expect(screen.getByText('profile:verifyEmail')).toBeInTheDocument();
   });
 
+  // El nombre accesible dice "ver todos mis REPORTES", así que el destino tiene
+  // que abrir en esa pestaña. `/my-pets` a secas abre siempre en "Mis mascotas":
+  // el link prometía algo que el destino no entregaba.
+  it('el "ver todas" de reportes lleva a su pestaña, no al listado por defecto', () => {
+    petsData.reported = [1, 2, 3, 4, 5].map((i) =>
+      pet({ id: `r${i}`, name: `Reporte ${i}`, status: 'stray' }),
+    );
+    render(<ProfilePage />, { wrapper });
+
+    expect(screen.getByLabelText('profile:viewAllReports')).toHaveAttribute(
+      'href',
+      '/my-pets?tab=reported',
+    );
+  });
+
+  it('el "ver todas" de adopción lleva a su pestaña', () => {
+    petsData.mine = [1, 2, 3, 4, 5].map((i) =>
+      pet({ id: `a${i}`, name: `Adopción ${i}`, status: 'adoption' }),
+    );
+    render(<ProfilePage />, { wrapper });
+
+    expect(screen.getByLabelText('profile:viewAllAdoption')).toHaveAttribute(
+      'href',
+      '/my-pets?tab=adoption',
+    );
+  });
+
   it('sin pasarse del tope no hay "ver todas"', () => {
     petsData.mine = [pet({ id: 'p1', name: 'Bruno', status: 'registered' })];
     render(<ProfilePage />, { wrapper });

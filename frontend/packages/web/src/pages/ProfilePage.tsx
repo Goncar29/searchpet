@@ -247,12 +247,14 @@ function SectionHeader({
   subtitle,
   viewAllLabel,
   viewAllAria,
+  viewAllTo,
   action,
 }: {
   title: string;
   subtitle: string;
   viewAllLabel?: string;
   viewAllAria?: string;
+  viewAllTo?: string;
   action?: React.ReactNode;
 }) {
   return (
@@ -261,11 +263,16 @@ function SectionHeader({
         <h2 className="font-display text-headline text-gray-900 dark:text-gray-100">{title}</h2>
         <p className="text-sm text-gray-500 dark:text-gray-400">{subtitle}</p>
       </div>
-      <div className="shrink-0">
+      {/* La separación entre los dos controles va en el contenedor y NO como
+          margen del botón: un `mr-3` existe siempre, también cuando el "ver
+          todas" no se dibuja, y ahí deja al botón 12px adentro del borde
+          derecho de las tarjetas de abajo. Medido: botón en 1236 contra 1248 de
+          la columna. Con `gap` la separación sólo existe si hay dos hijos. */}
+      <div className="shrink-0 flex items-center gap-3">
         {action}
-        {viewAllLabel && (
+        {viewAllLabel && viewAllTo && (
           <Link
-            to="/my-pets"
+            to={viewAllTo}
             aria-label={viewAllAria}
             className="inline-flex items-center gap-1 text-sm font-semibold text-primary hover:text-primary-dark transition-colors"
           >
@@ -839,10 +846,11 @@ export function ProfilePage() {
                 subtitle={t('profile:myPetsSubtitle')}
                 viewAllLabel={ownedPets.length > SUMMARY_LIMIT ? t('profile:viewAll') : undefined}
                 viewAllAria={t('profile:viewAllPets')}
+                viewAllTo="/my-pets"
                 action={
                   <Link
                     to="/pets/create"
-                    className="inline-flex items-center gap-1.5 bg-primary hover:bg-primary-dark text-white font-semibold rounded-xl px-4 py-2.5 text-sm transition-colors mr-3"
+                    className="inline-flex items-center gap-1.5 bg-primary hover:bg-primary-dark text-white font-semibold rounded-xl px-4 py-2.5 text-sm transition-colors"
                   >
                     + {t('pets:mine.add')}
                   </Link>
@@ -902,6 +910,7 @@ export function ProfilePage() {
                     (reportedPets?.length ?? 0) > SUMMARY_LIMIT ? t('profile:viewAll') : undefined
                   }
                   viewAllAria={t('profile:viewAllReports')}
+                  viewAllTo="/my-pets?tab=reported"
                 />
                 <div className="space-y-3">
                   {reportedPets!.slice(0, SUMMARY_LIMIT).map((pet: Pet) => (
@@ -921,6 +930,7 @@ export function ProfilePage() {
                     adoptionPets.length > SUMMARY_LIMIT ? t('profile:viewAll') : undefined
                   }
                   viewAllAria={t('profile:viewAllAdoption')}
+                  viewAllTo="/my-pets?tab=adoption"
                 />
                 <div className="space-y-3">
                   {adoptionPets.slice(0, SUMMARY_LIMIT).map((pet: Pet) => (

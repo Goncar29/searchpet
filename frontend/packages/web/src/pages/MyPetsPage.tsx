@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { Link, useNavigate, useSearchParams } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { useMyPets, useReportedPets, useDeletePet, useUpdatePet } from '@shared/hooks';
 import type { Pet, PetStatus, Photo } from '@shared/types';
@@ -224,9 +224,30 @@ function PetCard({
   );
 }
 
+type MyPetsTab = 'owned' | 'reported' | 'adoption';
+
+const MY_PETS_TABS: readonly MyPetsTab[] = ['owned', 'reported', 'adoption'];
+
+/**
+ * La pestaña con la que abre la pantalla, según `?tab=`.
+ *
+ * Es una PUERTA DE ENTRADA, no estado en la URL: el perfil enlaza "ver todos
+ * mis reportes" acá, y sin esto el link aterrizaba siempre en "Mis mascotas" —
+ * un nombre accesible que promete algo que el destino no entrega. Los clicks en
+ * las pestañas siguen siendo `useState` y no tocan la URL, así que esto no
+ * arrastra la superficie que trae mudar un paso entero a la URL (regla #52).
+ *
+ * La lista es explícita a propósito: un `?tab=cualquiera` tiene que caer en la
+ * pestaña por defecto, no dejar la pantalla sin ninguna seleccionada.
+ */
+function initialTab(param: string | null): MyPetsTab {
+  return MY_PETS_TABS.find((candidate) => candidate === param) ?? 'owned';
+}
+
 export function MyPetsPage() {
   const { t } = useTranslation(['pets', 'common', 'adoption']);
-  const [tab, setTab] = useState<'owned' | 'reported' | 'adoption'>('owned');
+  const [searchParams] = useSearchParams();
+  const [tab, setTab] = useState<MyPetsTab>(() => initialTab(searchParams.get('tab')));
   const { data: ownedPets, isLoading: loadingOwned } = useMyPets();
   const { data: reportedPets, isLoading: loadingReported } = useReportedPets();
   const deletePet = useDeletePet();
@@ -263,7 +284,7 @@ export function MyPetsPage() {
     });
   };
 
-  const renderTab = (key: 'owned' | 'reported' | 'adoption', label: string) => (
+  const renderTab = (key: MyPetsTab, label: string) => (
     <button
       type="button"
       onClick={() => {
