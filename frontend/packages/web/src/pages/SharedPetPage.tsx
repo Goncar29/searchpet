@@ -6,6 +6,7 @@ import { useSharedPet } from '@shared/hooks';
 import { statusBadgeBg } from '../utils/statusBadge';
 import { buildWhatsAppContactURL } from '@shared/utils/whatsappTemplates';
 import { formatPetAge } from '@shared/utils/petAge';
+import { cloudinaryThumb } from '@shared/utils/cloudinaryThumb';
 import { Logo } from '../components/Logo';
 import { PawPlaceholder } from '../components/PawPlaceholder';
 import { Icon } from '../components/Icon';
@@ -146,8 +147,13 @@ export function SharedPetPage() {
                 </span>
 
                 {current ? (
+                  // 800x600 para una caja de 490x367 (~1,6x). La columna es
+                  // 1.1fr de 2.1 dentro de `max-w-5xl` y la foto es
+                  // `aspect-[4/3]`. Va `c_lfill` y no `c_limit` porque el
+                  // contenedor usa `object-cover`: acá recortar es lo correcto,
+                  // al revés que en `PetDetailPage`, que es `object-contain`.
                   <img
-                    src={current.url}
+                    src={cloudinaryThumb(current.url, 800, 600)}
                     alt={t('sharedPet:photoOf', {
                       n: safeIndex + 1,
                       total: ordered.length,
@@ -185,7 +191,14 @@ export function SharedPetPage() {
                             : 'ring-transparent hover:ring-gray-300 dark:hover:ring-gray-600'
                         }`}
                       >
-                        <img src={photo.url} alt="" className="w-full h-full object-cover" />
+                        {/* 240 para una caja de 155 (grid-cols-3 dentro de los
+                            490 de la columna). Hoy cada una de estas bajaba la
+                            foto ENTERA de 1200. */}
+                        <img
+                          src={cloudinaryThumb(photo.url, 240)}
+                          alt=""
+                          className="w-full h-full object-cover"
+                        />
                       </button>
                     </li>
                   ))}
