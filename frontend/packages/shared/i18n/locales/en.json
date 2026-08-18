@@ -306,6 +306,10 @@
     "reportSuccessText": "Thank you for reporting",
     "reportError": "Could not submit report",
     "typing_indicator": "Typing...",
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "you": "You",
+    "backToList": "Back to messages",
     "actions": {
       "menuLabel": "Conversation options with {{name}}",
       "viewProfile": "View profile",
@@ -338,7 +342,12 @@
     "loginButton": "Sign In",
     "emptyTitle": "No messages",
     "emptySubtitle": "When someone contacts you about a pet, it will appear here",
-    "youPrefix": "You: "
+    "youPrefix": "You: ",
+    "searchLabel": "Search conversations",
+    "searchPlaceholder": "Search conversations...",
+    "noResults": "No conversation matches \"{{query}}\"",
+    "selectPrompt": "Pick a conversation",
+    "selectPromptSubtitle": "Select someone from the list to see the messages."
   },
   "badges": {
     "title": "My Badges",

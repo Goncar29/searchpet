@@ -13,13 +13,21 @@ import type { WsEnvelope, WsChatMessage, WsTypingEvent } from '@shared/hooks';
 import type { Message } from '@shared/types';
 import { getErrorMessage } from '@shared/utils/apiErrors';
 import { useAuth } from '../context/AuthContext';
+import { Icon } from '../components/Icon';
 import { ConversationActionsMenu } from '../components/ConversationActionsMenu';
+import { MessagesShell } from '../components/chat/MessagesShell';
 
 const TYPING_IDLE_MS = 2_000;
 const SEND_ERROR_TOAST_MS = 3000;
 
+/** Identidad del día civil de una fecha, para agrupar los mensajes. */
+function dayKey(iso: string): string {
+  const d = new Date(iso);
+  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+}
+
 export function ChatPage() {
-  const { t } = useTranslation(['chat', 'common', 'errors']);
+  const { t, i18n } = useTranslation(['chat', 'common', 'errors']);
   const { userId } = useParams<{ userId: string }>();
   const { user, isAuthenticated } = useAuth();
   const queryClient = useQueryClient();
@@ -65,6 +73,11 @@ export function ChatPage() {
       const payload = envelope.payload as WsChatMessage;
       if (payload.from === userId || payload.to === userId) {
         queryClient.invalidateQueries({ queryKey: ['messages', userId] });
+        // Y la lista de la izquierda, que ahora se dibuja en esta misma
+        // pantalla: sin esto el hilo se actualiza y la fila de al lado sigue
+        // mostrando el mensaje viejo como último. Antes no hacía falta porque
+        // la lista vivía en otra ruta.
+        queryClient.invalidateQueries({ queryKey: ['messages'], exact: true });
       }
     }
 
@@ -139,19 +152,56 @@ export function ChatPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  /**
+   * Etiqueta del separador de día.
+   *
+   * "Hoy" y "Ayer" se traducen; el resto sale de `toLocaleDateString` con el
+   * idioma ACTIVO de i18next y no el del navegador, que son dos cosas distintas:
+   * la app deja elegir idioma en la barra, así que alguien con Chrome en inglés
+   * y SearchPet en español vería "August 18" arriba de un chat en español.
+   */
+  const dayLabel = (iso: string): string => {
+    const key = dayKey(iso);
+    const now = new Date();
+    if (key === dayKey(now.toISOString())) return t('chat:today');
+    const yesterday = new Date(now);
+    yesterday.setDate(now.getDate() - 1);
+    if (key === dayKey(yesterday.toISOString())) return t('chat:yesterday');
+    return new Date(iso).toLocaleDateString(i18n.language, { day: 'numeric', month: 'long' });
+  };
+
+  const timeLabel = (iso: string): string =>
+    new Date(iso).toLocaleTimeString(i18n.language, { hour: '2-digit', minute: '2-digit' });
+
   return (
-    <div className="max-w-2xl mx-auto flex flex-col h-[calc(100vh-4rem)]">
-      {/* Conversation header */}
-      <div className="flex items-center justify-between gap-3 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-4 py-3">
-        <Link to={`/users/${userId}`} className="flex items-center gap-3 min-w-0">
-          <div
-            aria-hidden="true"
-            className="flex-shrink-0 h-9 w-9 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold uppercase"
+    <MessagesShell selectedUserId={userId}>
+      {/* ── Cabecera de la conversación ── */}
+      <div className="flex shrink-0 items-center justify-between gap-3 border-b border-gray-100 dark:border-gray-800 px-4 py-3">
+        <div className="flex min-w-0 items-center gap-2">
+          {/* Volver a la lista. Sólo hace falta en celular, donde la lista está
+              escondida; en escritorio está al lado. Si la media query fallara se
+              vería una flecha de más, nunca una pantalla sin salida. */}
+          <Link
+            to="/messages"
+            aria-label={t('chat:backToList')}
+            className="-ml-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 lg:hidden"
           >
-            {otherName.charAt(0)}
-          </div>
-          <span className="font-semibold text-gray-900 dark:text-gray-100 truncate">{otherName}</span>
-        </Link>
+            <Icon name="chevron-left" className="h-5 w-5" />
+          </Link>
+
+          <Link to={`/users/${userId}`} className="flex min-w-0 items-center gap-3">
+            <span
+              aria-hidden="true"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/20 font-bold uppercase text-primary"
+            >
+              {otherName.charAt(0)}
+            </span>
+            <span className="truncate font-display font-semibold text-gray-900 dark:text-gray-100">
+              {otherName}
+            </span>
+          </Link>
+        </div>
+
         {/* Mark-unread is hidden here: viewing this page re-marks the
             conversation read on every refetch, which would silently undo it. */}
         <ConversationActionsMenu
@@ -162,47 +212,62 @@ export function ChatPage() {
         />
       </div>
 
-      {/* Message list */}
+      {/* ── Los mensajes ── */}
       <div
         ref={scrollRef}
-        className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-2"
+        className="flex flex-1 flex-col gap-1 overflow-y-auto bg-gray-50 px-4 py-4 dark:bg-gray-950/40"
       >
         {isLoading ? (
-          <div className="text-center py-12">
+          <div className="py-12 text-center">
             <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4" />
             <p className="text-gray-500 dark:text-gray-400">{t('chat:loadingMessages')}</p>
           </div>
         ) : isError ? (
-          <div className="text-center py-12">
-            <p className="text-gray-500 dark:text-gray-400 text-sm mb-4">{t('chat:loadError')}</p>
+          <div className="py-12 text-center">
+            <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">{t('chat:loadError')}</p>
             <button
               type="button"
               onClick={() => refetch()}
-              className="px-4 py-2 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-primary-dark transition-colors"
+              className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-dark"
             >
               {t('chat:retry')}
             </button>
           </div>
         ) : !messages?.length ? (
-          <div className="text-center py-12 text-gray-500 dark:text-gray-400 text-sm">
+          <div className="py-12 text-center text-sm text-gray-500 dark:text-gray-400">
             {t('chat:empty')}
           </div>
         ) : (
-          messages.map((msg: Message) => {
+          messages.map((msg: Message, i: number) => {
             const isOwn = msg.sender_id === user?.id;
+            // El separador se dibuja cuando cambia el día respecto del mensaje
+            // anterior; el primero siempre lo lleva.
+            const prev = i > 0 ? messages[i - 1] : undefined;
+            const showDay = !prev || dayKey(prev.created_at) !== dayKey(msg.created_at);
+
             return (
-              <div
-                key={msg.id}
-                className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}
-              >
-                <div
-                  className={`max-w-xs lg:max-w-md px-4 py-2 rounded-2xl text-sm ${
-                    isOwn
-                      ? 'bg-primary text-white rounded-br-none'
-                      : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 border border-gray-100 dark:border-gray-700 rounded-bl-none'
-                  }`}
-                >
-                  {msg.content}
+              <div key={msg.id}>
+                {showDay && (
+                  <div className="my-3 flex justify-center" data-testid="day-divider">
+                    <span className="rounded-full bg-white px-3 py-1 text-xs font-medium text-gray-500 shadow-sm dark:bg-gray-800 dark:text-gray-400">
+                      {dayLabel(msg.created_at)}
+                    </span>
+                  </div>
+                )}
+
+                <div className={`flex flex-col ${isOwn ? 'items-end' : 'items-start'}`}>
+                  <span className="mb-1 px-1 text-xs text-gray-400 dark:text-gray-500">
+                    {isOwn ? t('chat:you') : otherName} · {timeLabel(msg.created_at)}
+                  </span>
+                  <div
+                    className={`max-w-xs whitespace-pre-wrap break-words px-4 py-2 text-sm lg:max-w-md ${
+                      isOwn
+                        ? 'rounded-2xl rounded-br-md bg-primary text-white'
+                        : 'rounded-2xl rounded-bl-md border border-gray-100 bg-white text-gray-900 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100'
+                    }`}
+                  >
+                    {msg.content}
+                  </div>
                 </div>
               </div>
             );
@@ -211,8 +276,8 @@ export function ChatPage() {
 
         {/* Remote typing indicator */}
         {remoteTyping && (
-          <div className="flex justify-start">
-            <div className="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl rounded-bl-none text-sm text-gray-500 dark:text-gray-400 italic">
+          <div className="mt-1 flex justify-start">
+            <div className="rounded-2xl rounded-bl-md border border-gray-100 bg-white px-4 py-2 text-sm italic text-gray-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400">
               {t('chat:typing')}
             </div>
           </div>
@@ -222,20 +287,20 @@ export function ChatPage() {
       {/* Send form (or blocked banner). While the block status loads we
           render neither, to avoid flashing the form at a blocked user. */}
       {isBlockStatusLoading ? null : isBlocked ? (
-        <div className="border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-4 py-4 text-center text-sm text-gray-500 dark:text-gray-400">
+        <div className="shrink-0 border-t border-gray-100 px-4 py-4 text-center text-sm text-gray-500 dark:border-gray-800 dark:text-gray-400">
           {t('chat:actions.blockedBanner')}
         </div>
       ) : (
         <form
           onSubmit={handleSubmit}
-          className="border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-4 py-3 flex gap-3 items-end"
+          className="flex shrink-0 items-end gap-2 border-t border-gray-100 px-4 py-3 dark:border-gray-800"
         >
           <textarea
             value={input}
             onChange={handleInputChange}
             placeholder={t('chat:inputPlaceholder')}
             rows={1}
-            className="flex-1 resize-none rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary"
+            className="flex-1 resize-none rounded-full border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
@@ -243,12 +308,16 @@ export function ChatPage() {
               }
             }}
           />
+          {/* El botón queda sin texto visible, así que el nombre accesible sale
+              del `aria-label`: sin él un lector de pantalla anuncia "botón" y
+              nada más. El ícono va `aria-hidden` desde el propio componente. */}
           <button
             type="submit"
             disabled={!input.trim() || sendMessageTo.isPending}
-            className="px-4 py-2 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-primary-dark disabled:opacity-50 transition-colors"
+            aria-label={t('chat:send')}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-white transition-colors hover:bg-primary-dark disabled:opacity-50"
           >
-            {t('chat:send')}
+            <Icon name="send" className="h-5 w-5" />
           </button>
         </form>
       )}
@@ -258,11 +327,11 @@ export function ChatPage() {
           role="status"
           // bottom-16: ConversationActionsMenu's toast owns the bottom-4 slot;
           // both can be visible within the same 3s window and must not overlap.
-          className="fixed bottom-16 left-1/2 -translate-x-1/2 z-30 rounded-xl bg-red-600 text-white text-sm px-4 py-2 shadow-lg"
+          className="fixed bottom-16 left-1/2 z-30 -translate-x-1/2 rounded-xl bg-red-600 px-4 py-2 text-sm text-white shadow-lg"
         >
           {sendError}
         </div>
       )}
-    </div>
+    </MessagesShell>
   );
 }
