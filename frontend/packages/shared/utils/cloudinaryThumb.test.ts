@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { cloudinaryThumb, cloudinaryCardThumb } from './cloudinaryThumb';
+import { cloudinaryThumb, cloudinaryCardThumb, cloudinaryFit } from './cloudinaryThumb';
 
 const REAL =
   'https://res.cloudinary.com/dd0yz5yxb/image/upload/v1786328704/searchpet/pets/040f876a/foto.webp';
@@ -111,5 +111,35 @@ describe('cloudinaryCardThumb', () => {
       cloudinaryCardThumb(REAL, 'compact'),
     ];
     expect(new Set(urls).size).toBe(3);
+  });
+});
+
+describe('cloudinaryFit', () => {
+  it('usa c_limit, que achica sin recortar', () => {
+    expect(cloudinaryFit(REAL, 1200, 900)).toContain('w_1200,h_900,c_limit');
+  });
+
+  it('NO recorta: nada de c_lfill ni c_fill', () => {
+    // Es la unica diferencia que importa. Un contenedor `object-contain` ya
+    // muestra la foto entera; recortarla en Cloudinary la mutila ANTES de que
+    // llegue, y en una foto vertical de un perro lo que se pierde es la cabeza.
+    const url = cloudinaryFit(REAL, 600, 320);
+    expect(url).not.toContain('c_lfill');
+    expect(url).not.toMatch(/[,/]c_fill[,/]/);
+  });
+
+  it('NO lleva g_auto', () => {
+    // La gravity dice DONDE recortar, y aca no se recorta. Pasarla no rompe
+    // nada pero sugiere lo contrario de lo que hace la transformacion.
+    expect(cloudinaryFit(REAL, 600, 320)).not.toContain('g_auto');
+  });
+
+  it('deja intactas las URLs ajenas y las ya transformadas', () => {
+    const ajena = 'https://picsum.photos/seed/foo/800/600';
+    expect(cloudinaryFit(ajena, 600, 320)).toBe(ajena);
+    const ya = 'https://res.cloudinary.com/dd0yz5yxb/image/upload/w_1200,c_limit/v1786328704/x/f.webp';
+    expect(cloudinaryFit(ya, 600, 320)).toBe(ya);
+    expect(cloudinaryFit('', 600, 320)).toBe('');
+    expect(cloudinaryFit(undefined, 600, 320)).toBe('');
   });
 });

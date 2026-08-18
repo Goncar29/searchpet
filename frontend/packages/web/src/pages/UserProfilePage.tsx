@@ -7,6 +7,7 @@ import { BADGE_META } from '@shared/types';
 import { PawPlaceholder } from '../components/PawPlaceholder';
 import { useAuth } from '../context/AuthContext';
 import { getErrorMessage } from '@shared/utils/apiErrors';
+import { cloudinaryThumb } from '@shared/utils/cloudinaryThumb';
 
 const BADGE_COLOR: Record<string, string> = {
   first_helper: 'bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300',
@@ -80,7 +81,8 @@ function ReviewCard({ review, onDelete }: { review: UserReview; onDelete?: () =>
     <div className="flex gap-3 py-4 border-b border-gray-100 dark:border-gray-800 last:border-0">
       {review.reviewer_photo ? (
         <img
-          src={review.reviewer_photo}
+          src={cloudinaryThumb(review.reviewer_photo, 96)}
+          loading="lazy"
           alt={review.reviewer_name}
           className="w-9 h-9 rounded-full object-cover flex-shrink-0"
         />
@@ -259,7 +261,7 @@ export function UserProfilePage() {
             {/* Avatar */}
             {profile.profile_photo_url ? (
               <img
-                src={profile.profile_photo_url}
+                src={cloudinaryThumb(profile.profile_photo_url, 192)}
                 alt={profile.name}
                 className="w-20 h-20 rounded-full object-cover border-2 border-gray-200 dark:border-gray-700 flex-shrink-0"
               />

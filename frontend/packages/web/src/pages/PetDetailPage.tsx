@@ -18,6 +18,7 @@ import { RevealContact } from '../components/RevealContact';
 import { TimelineMap } from '../components/TimelineMap';
 import { AdoptionPetBody } from '../components/AdoptionPetBody';
 import { Icon } from '../components/Icon';
+import { cloudinaryFit } from '@shared/utils/cloudinaryThumb';
 
 export function PetDetailPage() {
   const { t, i18n } = useTranslation(['pets', 'common']);
@@ -247,10 +248,14 @@ export function PetDetailPage() {
                   data-hero-backdrop
                   aria-hidden="true"
                   className="absolute inset-0 scale-110 bg-cover bg-center blur-2xl"
-                  style={{ backgroundImage: `url(${activePhoto.url})` }}
+                  // La MISMA transformacion que el <img> de abajo, a proposito: si cada
+                      // uno pidiera su tamaño serian DOS descargas donde hoy hay una.
+                      // Al fondo le da igual (esta borroso y escalado 110%), asi que
+                      // compartir la del hero es gratis y ahorra el request.
+                      style={{ backgroundImage: `url(${cloudinaryFit(activePhoto.url, 1200, 900)})` }}
                 />
                 <img
-                  src={activePhoto.url}
+                  src={cloudinaryFit(activePhoto.url, 1200, 900)}
                   alt={pet.name}
                   className="relative z-10 w-full h-full object-contain"
                   crossOrigin="anonymous"

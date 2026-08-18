@@ -1,6 +1,7 @@
 import { Link } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import type { FosterHome } from '@shared/types';
+import { cloudinaryCardThumb } from '@shared/utils/cloudinaryThumb';
 
 interface FosterHomeCardProps {
   fosterHome: FosterHome;
@@ -17,7 +18,8 @@ export function FosterHomeCard({ fosterHome }: FosterHomeCardProps) {
         <div className="h-48 bg-gray-100 dark:bg-gray-800 relative overflow-hidden">
           {photo ? (
             <img
-              src={photo.url}
+              src={cloudinaryCardThumb(photo.url, 'feed')}
+                loading="lazy"
               alt={fosterHome.city}
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
             />

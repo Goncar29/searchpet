@@ -5,6 +5,7 @@ import { useParams, useNavigate, Link } from 'react-router';
 import { useStory, useLikeStory, useUnlikeStory } from '@shared/hooks';
 import { useAuth } from '../context/AuthContext';
 import { PawPlaceholder } from '../components/PawPlaceholder';
+import { cloudinaryThumb } from '@shared/utils/cloudinaryThumb';
 
 export function StoryDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -85,7 +86,7 @@ export function StoryDetailPage() {
         {/* Pet photo hero */}
         {story.pet_photo && (
           <img
-            src={story.pet_photo}
+            src={cloudinaryThumb(story.pet_photo, 1100, 384)}
             alt={story.pet_name}
             className="w-full h-64 object-cover rounded-lg mb-6"
           />
@@ -125,7 +126,8 @@ export function StoryDetailPage() {
               <div className="flex-1">
                 <p className="text-xs text-gray-400 dark:text-gray-500 mb-1 text-center">Antes</p>
                 <img
-                  src={story.photo_before}
+                  src={cloudinaryThumb(story.photo_before, 540, 240)}
+                  loading="lazy"
                   alt="Antes"
                   className="w-full h-40 object-cover rounded-lg"
                 />
@@ -135,7 +137,8 @@ export function StoryDetailPage() {
               <div className="flex-1">
                 <p className="text-xs text-gray-400 dark:text-gray-500 mb-1 text-center">Después</p>
                 <img
-                  src={story.photo_after}
+                  src={cloudinaryThumb(story.photo_after, 540, 240)}
+                  loading="lazy"
                   alt="Después"
                   className="w-full h-40 object-cover rounded-lg"
                 />

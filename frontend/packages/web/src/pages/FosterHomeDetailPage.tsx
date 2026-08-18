@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useFosterHomeByID } from '@shared/hooks';
 import { useAuth } from '../context/AuthContext';
 import { ReportFosterHomeModal } from '../components/ReportFosterHomeModal';
+import { cloudinaryFit } from '@shared/utils/cloudinaryThumb';
 
 export function FosterHomeDetailPage() {
   const { t } = useTranslation(['fosterHomes', 'errors', 'common']);
@@ -64,7 +65,7 @@ export function FosterHomeDetailPage() {
         {/* Galería de fotos — una a la vez con navegación (mismo patrón que el detalle de mascota) */}
         {photos.length > 0 && activePhoto ? (
           <div className="relative h-72 md:h-96 bg-gray-100 dark:bg-gray-800 overflow-hidden rounded-t-2xl">
-            <img src={activePhoto.url} alt={fosterHome.city} className="w-full h-full object-contain" />
+            <img src={cloudinaryFit(activePhoto.url, 1200, 768)} alt={fosterHome.city} className="w-full h-full object-contain" />
             {photos.length > 1 && (
               <>
                 <button

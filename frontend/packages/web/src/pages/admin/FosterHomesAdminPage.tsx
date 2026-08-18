@@ -10,6 +10,7 @@ import {
   useFosterHomeHistory,
 } from '@shared/hooks';
 import { getErrorMessage } from '@shared/utils/apiErrors';
+import { cloudinaryThumb } from '@shared/utils/cloudinaryThumb';
 import type {
   AnimalKind,
   FosterHomeChangeLog,
@@ -253,7 +254,7 @@ function FosterHomeAdminItem({
               rel="noopener noreferrer"
               className="block aspect-square overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700 hover:opacity-90 transition-opacity"
             >
-              <img src={photo.url} alt={item.city} loading="lazy" className="h-full w-full object-cover" />
+              <img src={cloudinaryThumb(photo.url, 224)} alt={item.city} loading="lazy" className="h-full w-full object-cover" />
             </a>
           ))}
         </div>
