@@ -71,10 +71,18 @@ export function cloudinaryThumb(
  * ancho de contenido real, que son 1216 px dentro de `max-w-7xl`, y se pide esa
  * proporción con ~1,5x de densidad.
  *
- *   variante   pantalla                     grilla densa    caja      proporción
- *   feed       HomePage                     lg:3  gap-6     389x192   2,03:1
- *   adopt      AdoptPage                    xl:4  gap-6     286x192   1,49:1
- *   compact    MyPetsPage / ProfilePage     lg:3  gap-4     395x160   2,47:1
+ *   variante   pantalla      grilla densa                          caja      proporción
+ *   feed       HomePage      lg:3 gap-6                            389x192   2,03:1
+ *   adopt      AdoptPage     xl:4 gap-6                            286x192   1,49:1
+ *   compact    MyPetsPage    lg:3 gap-4                            395x160   2,47:1
+ *   compact    ProfilePage   sm:2 gap-6 dentro de lg:col-span-2    388x160   2,43:1
+ *
+ * OJO con la última fila: `ProfilePage` NO tiene la grilla de `MyPetsPage`. La
+ * suya es `sm:grid-cols-2 gap-6` anidada en el `lg:col-span-2` de un layout
+ * `lg:grid-cols-3 gap-8`, así que su caja se deriva distinto y da 388x160.
+ * Comparten variante porque 2,43 y 2,47 son la misma medida a los fines
+ * prácticos, NO porque compartan grilla: quien vaya a recalcular el número del
+ * perfil tiene que medir el perfil, no copiar las columnas de MyPetsPage.
  *
  * `adopt` es casi cuadrada porque esa pantalla llega a CUATRO columnas, y
  * `compact` es más apaisada porque su caja es `h-40` en vez de `h-48`. Por eso

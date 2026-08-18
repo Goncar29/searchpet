@@ -114,17 +114,22 @@ function Avatar({
   entry,
   className,
   px,
+  eager = false,
 }: {
   entry: LeaderboardEntry;
   className: string;
   px: number;
+  eager?: boolean;
 }) {
   if (entry.profile_photo_url) {
     return (
       <img
         src={cloudinaryThumb(entry.profile_photo_url, px)}
         alt=""
-        loading="lazy"
+        // El podio esta SIEMPRE arriba del pliegue y son tres imagenes: diferirlas
+        // solo retrasa lo primero que se ve. Las filas si van diferidas — son
+        // veinte y la mayoria nace abajo.
+        loading={eager ? undefined : 'lazy'}
         className={`${className} rounded-full object-cover bg-gray-100 dark:bg-gray-800`}
       />
     );
@@ -175,7 +180,17 @@ function PodiumPlace({ entry, place }: { entry: LeaderboardEntry; place: number 
       className={`group flex flex-col items-center text-center ${PODIUM_ORDER[place] ?? ''}`}
     >
       <div className="relative">
-        <Avatar entry={entry} className={first ? 'h-24 w-24 sm:h-28 sm:w-28' : 'h-20 w-20'} px={224} />
+        {/* Un `px` por plaza, no uno para las tres: el primero es h-28 (112 css)
+            y el segundo y el tercero son h-20 (80). Con 224 fijo, esos dos
+            pedian 2,8x su caja — la misma sobre-descarga que este cambio vino a
+            cerrar, colada en el unico call site donde un numero servia a dos
+            clases distintas. */}
+        <Avatar
+          entry={entry}
+          className={first ? 'h-24 w-24 sm:h-28 sm:w-28' : 'h-20 w-20'}
+          px={first ? 224 : 160}
+          eager
+        />
         <span
           aria-hidden="true"
           className={`absolute -bottom-1 -right-1 flex items-center justify-center rounded-full border-2 border-gray-50 dark:border-gray-950 font-display font-bold text-white ${
