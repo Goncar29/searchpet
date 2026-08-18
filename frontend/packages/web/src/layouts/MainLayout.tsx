@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
+import { cloudinaryThumb } from '@shared/utils/cloudinaryThumb';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { LanguageSwitcher } from '../components/LanguageSwitcher';
@@ -185,8 +186,14 @@ export function MainLayout() {
                         className="relative flex items-center gap-2 rounded-full pl-1 pr-2 py-1 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                       >
                         {user?.profile_photo_url ? (
+                          // 64 para una caja de 32 css (2x). Es el avatar de MAS
+                          // frecuencia del sitio: el navbar se dibuja en todas
+                          // las paginas. Y sin esto el perfil baja DOS variantes
+                          // de la misma foto — la de 224 que pide su avatar mas
+                          // la original que pedia esta, que antes compartian URL
+                          // y eran una sola descarga.
                           <img
-                            src={user.profile_photo_url}
+                            src={cloudinaryThumb(user.profile_photo_url, 64)}
                             alt={user.name}
                             className="w-8 h-8 rounded-full object-cover"
                           />

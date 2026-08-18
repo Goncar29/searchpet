@@ -476,6 +476,18 @@ describe('ProfilePage', () => {
       expect(img.src).toContain('w_600,h_240,c_lfill,g_auto');
     });
 
+    it('la fila compacta pide 112, el doble de sus 56 css', () => {
+      // Estaba cubierta solo por el test generico de c_lfill, que pasa con
+      // CUALQUIER tamanio — la misma clase de hueco que dejo pasar el px del
+      // podio, un piso mas abajo.
+      petsData.reported = [pet({ id: 'p9', name: 'Fila', status: 'stray', photos: [{ url: FOTO }] })];
+
+      const { container } = render(<ProfilePage />, { wrapper });
+
+      const srcs = [...container.querySelectorAll('img')].map((i) => i.getAttribute('src') || '');
+      expect(srcs.some((s) => s.includes('w_112,h_112,c_lfill'))).toBe(true);
+    });
+
     it('el avatar pide 224, el doble de sus 112 css', () => {
       authUser.current = { ...authUser.current, profile_photo_url: FOTO };
       const { container } = render(<ProfilePage />, { wrapper });
