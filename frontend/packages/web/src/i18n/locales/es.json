@@ -331,8 +331,7 @@
     },
     "successStories": {
       "title": "Historias de éxito",
-      "allInAdoption": "Todas tus mascotas están ofrecidas en adopción.",
-    "viewAll": "Ver todas"
+      "viewAll": "Ver todas"
     },
     "noResults": {
       "title": "Sin resultados",
@@ -501,9 +500,10 @@
     "myPetsSubtitle": "Gestioná la información de tus compañeros.",
     "reportsSubtitle": "Las mascotas callejeras que reportaste.",
     "adoptionSubtitle": "Las que ofreciste en adopción.",
+    "allInAdoption": "Todas tus mascotas están ofrecidas en adopción.",
     "viewAll": "Ver todas",
     "viewAllPets": "Ver todas mis mascotas",
-    "viewAllReports": "Ver todos mis reportes",
+    "viewAllReports": "Ver todas las mascotas que reportaste",
     "viewAllAdoption": "Ver todas mis mascotas en adopción",
     "email": "Correo electrónico",
     "emailReadOnly": "El correo no se puede modificar",

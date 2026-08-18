@@ -331,8 +331,7 @@
     },
     "successStories": {
       "title": "Histórias de sucesso",
-      "allInAdoption": "Todos os seus pets estão disponíveis para adoção.",
-    "viewAll": "Ver todas"
+      "viewAll": "Ver todas"
     },
     "noResults": {
       "title": "Sem resultados",
@@ -501,6 +500,7 @@
     "myPetsSubtitle": "Gerencie as informações dos seus companheiros.",
     "reportsSubtitle": "Os pets de rua que você relatou.",
     "adoptionSubtitle": "Os que você ofereceu para adoção.",
+    "allInAdoption": "Todos os seus pets estão disponíveis para adoção.",
     "viewAll": "Ver todos",
     "viewAllPets": "Ver todos os meus pets",
     "viewAllReports": "Ver todos os meus relatos",

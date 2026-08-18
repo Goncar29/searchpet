@@ -331,8 +331,7 @@
     },
     "successStories": {
       "title": "Success stories",
-      "allInAdoption": "All your pets are currently up for adoption.",
-    "viewAll": "View all"
+      "viewAll": "View all"
     },
     "noResults": {
       "title": "No results",
@@ -501,6 +500,7 @@
     "myPetsSubtitle": "Manage your companions' information.",
     "reportsSubtitle": "The stray pets you reported.",
     "adoptionSubtitle": "The ones you offered for adoption.",
+    "allInAdoption": "All your pets are currently up for adoption.",
     "viewAll": "View all",
     "viewAllPets": "View all my pets",
     "viewAllReports": "View all my reports",

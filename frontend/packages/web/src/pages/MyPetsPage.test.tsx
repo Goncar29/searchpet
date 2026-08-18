@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, within, fireEvent } from '@testing-library/react';
-import { MemoryRouter } from 'react-router';
+import userEvent from '@testing-library/user-event';
+import { MemoryRouter, Link } from 'react-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MyPetsPage } from './MyPetsPage';
 import type { Pet, PetStatus } from '@shared/types';
@@ -148,5 +149,34 @@ describe('MyPetsPage', () => {
 
     expect(screen.getByText('Pet registered')).toBeInTheDocument();
     expect(screen.queryByText('Pet stray')).not.toBeInTheDocument();
+  });
+
+  // Navegar a la misma ruta NO remonta el elemento (regla #51), así que leer
+  // `?tab=` sólo en el inicializador dejaba la URL y la pestaña visible
+  // contradiciéndose: se llega desde el perfil a `?tab=adoption`, se toca "Mis
+  // mascotas" en el navbar, la URL pierde el parámetro y la pestaña de adopción
+  // se queda seleccionada. Un F5 después cambiaba sola.
+  it('al navegar a la misma ruta sin ?tab= vuelve a "owned"', async () => {
+    state.owned = [makePet('registered'), makePet('adoption')];
+    render(
+      <QueryClientProvider
+        client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+      >
+        <MemoryRouter initialEntries={['/pets/mine?tab=adoption']}>
+          {/* El link imita el del navbar: misma ruta, sin el parámetro. */}
+          <Link to="/pets/mine">volver-a-mis-mascotas</Link>
+          <MyPetsPage />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    // Arranca donde pidió la URL.
+    expect(screen.getByText('Pet adoption')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByText('volver-a-mis-mascotas'));
+
+    // Y sigue a la URL cuando ésta cambia, sin remontar.
+    expect(screen.getByText('Pet registered')).toBeInTheDocument();
+    expect(screen.queryByText('Pet adoption')).not.toBeInTheDocument();
   });
 });

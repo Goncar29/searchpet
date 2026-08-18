@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router';
+import { useState, useEffect } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { useMyPets, useReportedPets, useDeletePet, useUpdatePet } from '@shared/hooks';
 import type { Pet, PetStatus, Photo } from '@shared/types';
@@ -229,25 +229,48 @@ type MyPetsTab = 'owned' | 'reported' | 'adoption';
 const MY_PETS_TABS: readonly MyPetsTab[] = ['owned', 'reported', 'adoption'];
 
 /**
- * La pestaña con la que abre la pantalla, según `?tab=`.
+ * La pestaña que pide la URL, según `?tab=`.
  *
- * Es una PUERTA DE ENTRADA, no estado en la URL: el perfil enlaza "ver todos
- * mis reportes" acá, y sin esto el link aterrizaba siempre en "Mis mascotas" —
- * un nombre accesible que promete algo que el destino no entrega. Los clicks en
- * las pestañas siguen siendo `useState` y no tocan la URL, así que esto no
- * arrastra la superficie que trae mudar un paso entero a la URL (regla #52).
+ * El perfil enlaza "ver todas las mascotas que reportaste" acá, y sin esto el
+ * link aterrizaba siempre en "Mis mascotas" — un nombre accesible que promete
+ * algo que el destino no entrega.
  *
  * La lista es explícita a propósito: un `?tab=cualquiera` tiene que caer en la
  * pestaña por defecto, no dejar la pantalla sin ninguna seleccionada.
  */
-function initialTab(param: string | null): MyPetsTab {
+function tabFromURL(search: string): MyPetsTab {
+  const param = new URLSearchParams(search).get('tab');
   return MY_PETS_TABS.find((candidate) => candidate === param) ?? 'owned';
 }
 
 export function MyPetsPage() {
   const { t } = useTranslation(['pets', 'common', 'adoption']);
-  const [searchParams] = useSearchParams();
-  const [tab, setTab] = useState<MyPetsTab>(() => initialTab(searchParams.get('tab')));
+  const location = useLocation();
+  const [tab, setTab] = useState<MyPetsTab>(() => tabFromURL(location.search));
+
+  // Re-derivar en CADA navegación, no sólo al montar.
+  //
+  // Leerlo únicamente en el inicializador de `useState` dejaba la URL y la
+  // pestaña visible contradiciéndose: quien llega desde el perfil a
+  // `/pets/mine?tab=adoption` y después toca "Mis mascotas" en el navbar
+  // (`MainLayout.tsx:101` → `/pets/mine`) navegaba de verdad, pero el elemento
+  // de ruta NO se vuelve a montar, así que la URL perdía el `?tab=` mientras la
+  // pestaña de adopción seguía seleccionada — y un F5 después cambiaba sola.
+  //
+  // Se depende de `location.key` y no del valor del parámetro: con el valor, ir
+  // de `/pets/mine` a `/pets/mine` (sin parámetro las dos veces) no dispara
+  // nada, que es el caso de tocar el navbar estando ya acá.
+  //
+  // Queda un residuo que NO se puede cerrar desde este componente: si la URL de
+  // destino es idéntica a la actual, React Router directamente no navega y
+  // `location.key` no cambia (regla #51). Los clicks en las pestañas siguen sin
+  // escribir la URL a propósito — esto es una puerta de entrada, no estado en la
+  // URL, y mudarlo entero es una refactorización con superficie propia
+  // (regla #52).
+  useEffect(() => {
+    setTab(tabFromURL(location.search));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.key]);
   const { data: ownedPets, isLoading: loadingOwned } = useMyPets();
   const { data: reportedPets, isLoading: loadingReported } = useReportedPets();
   const deletePet = useDeletePet();
