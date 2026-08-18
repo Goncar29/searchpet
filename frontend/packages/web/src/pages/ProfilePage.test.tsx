@@ -2,9 +2,11 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { MemoryRouter } from 'react-router';
+import { MemoryRouter, Routes, Route } from 'react-router';
 import { ApiError } from '@shared/api/client';
 import { ProfilePage } from './ProfilePage';
+import { MyPetsPage } from './MyPetsPage';
+import { MY_PETS_ROUTE } from '../routes';
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -41,20 +43,29 @@ const petsData = vi.hoisted(() => ({ mine: [] as unknown[], reported: [] as unkn
 
 const verification = vi.hoisted(() => ({ current: null as { is_verified: boolean } | null }));
 
+const badgesData = vi.hoisted(() => ({ current: [] as unknown[] }));
+
+const refreshUser = vi.hoisted(() => vi.fn());
+
 vi.mock('../context/AuthContext', () => ({
-  useAuth: () => ({ user: authUser.current, refreshUser: vi.fn() }),
+  useAuth: () => ({ user: authUser.current, refreshUser }),
 }));
 
 // Mutable so each test can drive what the send mutation does.
 const sendEmailOTP = vi.hoisted(() => ({ mutateAsync: vi.fn(), isPending: false }));
+const confirmEmailOTP = vi.hoisted(() => ({ mutateAsync: vi.fn(), isPending: false }));
 
 vi.mock('@shared/hooks', () => ({
+  // `useDeletePet` y `useUpdatePet` son de MyPetsPage: este archivo la monta de
+  // verdad para probar que el "ver todas" ATERRIZA en algún lado.
+  useDeletePet: () => ({ mutate: vi.fn(), isPending: false }),
+  useUpdatePet: () => ({ mutate: vi.fn(), isPending: false }),
   useUpdateMe: () => ({ mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false }),
   useUploadProfilePhoto: () => ({ mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false }),
-  useMyBadges: () => ({ data: [] }),
+  useMyBadges: () => ({ data: badgesData.current }),
   useVerificationStatus: () => ({ data: verification.current }),
   useSendEmailOTP: () => sendEmailOTP,
-  useConfirmEmailOTP: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useConfirmEmailOTP: () => confirmEmailOTP,
   usePublicProfile: () => ({ data: null, isLoading: false }),
   useMyPets: () => ({ data: petsData.mine, isLoading: false }),
   useReportedPets: () => ({ data: petsData.reported, isLoading: false }),
@@ -85,6 +96,30 @@ function wrapper({ children }: { children: React.ReactNode }) {
   );
 }
 
+/**
+ * Monta el perfil CON su destino, en una tabla de rutas de verdad.
+ *
+ * Existe porque la version anterior de estos tests afirmaba el `href` — o sea
+ * el string que yo mismo habia tipeado — y por eso paso en verde mientras los
+ * tres "ver todas" apuntaban a `/my-pets`, una ruta que no existe: medido en el
+ * browser, 0 caracteres renderizados. Es la forma de la regla #53: una asercion
+ * que tambien se cumple cuando lo que debia verificarse nunca ocurrio.
+ *
+ * La ruta sale de `MY_PETS_ROUTE`, la MISMA constante que registra `App.tsx`.
+ */
+function renderConDestino() {
+  return render(
+    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+      <MemoryRouter initialEntries={['/profile']}>
+        <Routes>
+          <Route path="/profile" element={<ProfilePage />} />
+          <Route path={MY_PETS_ROUTE} element={<MyPetsPage />} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+}
+
 function pet(overrides: Record<string, unknown>) {
   return {
     id: 'pet-1',
@@ -111,6 +146,9 @@ describe('ProfilePage', () => {
     petsData.mine = [];
     petsData.reported = [];
     verification.current = null;
+    badgesData.current = [];
+    refreshUser.mockClear();
+    confirmEmailOTP.mutateAsync = vi.fn();
   });
 
   it('renderiza sin lanzar errores', () => {
@@ -292,31 +330,118 @@ describe('ProfilePage', () => {
     expect(screen.getByText('profile:verifyEmail')).toBeInTheDocument();
   });
 
-  // El nombre accesible dice "ver todos mis REPORTES", así que el destino tiene
-  // que abrir en esa pestaña. `/my-pets` a secas abre siempre en "Mis mascotas":
-  // el link prometía algo que el destino no entregaba.
-  it('el "ver todas" de reportes lleva a su pestaña, no al listado por defecto', () => {
+  // NO se afirma el `href`: se hace click y se exige que ALGO se renderice del
+  // otro lado. Afirmar el string pasaba en verde con los tres links apuntando a
+  // `/my-pets`, una ruta que no existe — pantalla en blanco, 0 caracteres.
+  it('el "ver todas" de reportes ATERRIZA en la pantalla, y en su pestaña', async () => {
     petsData.reported = [1, 2, 3, 4, 5].map((i) =>
       pet({ id: `r${i}`, name: `Reporte ${i}`, status: 'stray' }),
     );
-    render(<ProfilePage />, { wrapper });
+    renderConDestino();
 
-    expect(screen.getByLabelText('profile:viewAllReports')).toHaveAttribute(
-      'href',
-      '/my-pets?tab=reported',
-    );
+    await userEvent.click(screen.getByLabelText('profile:viewAllReports'));
+
+    // El destino existe...
+    expect(await screen.findByText('pets:mine.title')).toBeInTheDocument();
+    // ...y abrió en la pestaña que el nombre accesible prometía.
+    expect(screen.getByText('Reporte 1')).toBeInTheDocument();
   });
 
-  it('el "ver todas" de adopción lleva a su pestaña', () => {
+  it('el "ver todas" de adopción ATERRIZA en la pantalla, y en su pestaña', async () => {
     petsData.mine = [1, 2, 3, 4, 5].map((i) =>
       pet({ id: `a${i}`, name: `Adopción ${i}`, status: 'adoption' }),
     );
+    renderConDestino();
+
+    await userEvent.click(screen.getByLabelText('profile:viewAllAdoption'));
+
+    expect(await screen.findByText('pets:mine.title')).toBeInTheDocument();
+    expect(screen.getByText('Adopción 1')).toBeInTheDocument();
+  });
+
+  it('el "ver todas" de mis mascotas ATERRIZA en la pantalla', async () => {
+    petsData.mine = [1, 2, 3, 4, 5].map((i) =>
+      pet({ id: `m${i}`, name: `Mascota ${i}`, status: 'registered' }),
+    );
+    renderConDestino();
+
+    await userEvent.click(screen.getByLabelText('profile:viewAllPets'));
+
+    expect(await screen.findByText('pets:mine.title')).toBeInTheDocument();
+  });
+
+  // Al ocultar la sección de verificación con la cuenta ya verificada, el único
+  // acuse de recibo pasó a ser el distintivo de la tarjeta, que lee
+  // `user.is_verified` del AuthContext — `useState`, NO React Query. El
+  // `invalidateQueries(['me'])` del hook no lo toca. Sin `refreshUser()`,
+  // confirmar el código hacía desaparecer la sección sin que apareciera el
+  // distintivo: verificarse quedaba en silencio absoluto hasta recargar.
+  it('al confirmar el código refresca el usuario, o verificarse queda en silencio', async () => {
+    confirmEmailOTP.mutateAsync = vi.fn().mockResolvedValue(undefined);
+    sendEmailOTP.mutateAsync = vi.fn().mockResolvedValue(undefined);
+    verification.current = { is_verified: false };
+
     render(<ProfilePage />, { wrapper });
 
-    expect(screen.getByLabelText('profile:viewAllAdoption')).toHaveAttribute(
-      'href',
-      '/my-pets?tab=adoption',
-    );
+    await userEvent.click(screen.getByText('profile:verifyEmail'));
+    await userEvent.click(screen.getByText('profile:sendCode'));
+    await userEvent.type(await screen.findByPlaceholderText('000000'), '123456');
+    await userEvent.click(screen.getByText('profile:confirmCode'));
+
+    await waitFor(() => expect(confirmEmailOTP.mutateAsync).toHaveBeenCalledWith('123456'));
+    expect(refreshUser).toHaveBeenCalled();
+  });
+
+  // La grilla recorre BADGE_META, que es una constante compilada en el front. Un
+  // logro que el backend otorgue antes de que shared/types lo conozca no tendría
+  // dónde salir: el usuario se lo gana y no lo ve nunca.
+  it('muestra un logro obtenido aunque el front no conozca su tipo', () => {
+    badgesData.current = [
+      { id: 'b1', badge_type: 'septimo_logro', earned_at: '2026-08-01T00:00:00Z' },
+    ];
+    render(<ProfilePage />, { wrapper });
+
+    expect(screen.getByText('septimo_logro')).toBeInTheDocument();
+  });
+
+  // `ownedPets` excluye adopción, así que a quien tiene TODAS sus mascotas en
+  // adopción le decía "todavía no publicaste ninguna" con la sección "En
+  // adopción" listándolas justo abajo. Un estado vacío desmentido por otra
+  // sección de la misma pantalla (mismo defecto que el wizard de /publish).
+  it('no dice "no publicaste ninguna mascota" si tiene todas en adopción', () => {
+    petsData.mine = [pet({ id: 'a1', name: 'Nube', status: 'adoption' })];
+    render(<ProfilePage />, { wrapper });
+
+    expect(screen.queryByText('pets:mine.empty')).not.toBeInTheDocument();
+    expect(screen.getByText('profile:allInAdoption')).toBeInTheDocument();
+    // Y la sección que lo desmentía sigue estando, con la mascota adentro.
+    expect(screen.getByText('Nube')).toBeInTheDocument();
+  });
+
+  it('sin ninguna mascota sí muestra el estado vacío de siempre', () => {
+    render(<ProfilePage />, { wrapper });
+
+    expect(screen.getByText('pets:mine.empty')).toBeInTheDocument();
+    expect(screen.queryByText('profile:allInAdoption')).not.toBeInTheDocument();
+  });
+
+  // El botón del avatar sigue vivo con el formulario abierto, y su éxito llama
+  // `refreshUser()`. El efecto que sincroniza desde el servidor pisaba lo
+  // tipeado, sin decir nada. Con un modo de edición explícito cuyo contrato es
+  // "cancelar = deshacer", que otra cosa borre los campos es pérdida de datos.
+  it('un refresh del usuario NO pisa lo que se está tipeando en el formulario', async () => {
+    const { rerender } = render(<ProfilePage />, { wrapper });
+
+    await userEvent.click(screen.getByText('profile:edit'));
+    const nombre = screen.getByLabelText(/^profile:name/);
+    await userEvent.clear(nombre);
+    await userEvent.type(nombre, 'Carlos Editado');
+
+    // Llega un `user` nuevo desde el servidor (lo que hace subir el avatar).
+    authUser.current = { ...authUser.current, profile_photo_url: 'https://x/y.jpg' };
+    rerender(<ProfilePage />);
+
+    expect(nombre).toHaveValue('Carlos Editado');
   });
 
   it('sin pasarse del tope no hay "ver todas"', () => {

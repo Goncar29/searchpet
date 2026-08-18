@@ -23,9 +23,10 @@ import { BADGE_META } from '@shared/types';
 import { Icon } from '../components/Icon';
 import { PawPlaceholder } from '../components/PawPlaceholder';
 import { statusBadgeBg } from '../utils/statusBadge';
+import { myPetsRoute } from '../routes';
 
 /**
- * Cuántas mascotas muestra cada sección antes de derivar a "Mis mascotas".
+ * Cuántas mascotas muestra cada sección antes de derivar a "Mis mascotas" (`/pets/mine`).
  *
  * El perfil es un RESUMEN: `MyPetsPage` sigue siendo la pantalla completa, con
  * sus tres pestañas y sus acciones de edición. Sin tope, alguien con veinte
@@ -104,8 +105,19 @@ function AchievementTile({
   language: string;
   t: TFunction;
 }) {
-  const meta = BADGE_META[type];
-  if (!meta) return null;
+  // Sin `return null` ante un tipo desconocido: la grilla recorre `BADGE_META`,
+  // así que un logro que el backend otorgue ANTES de que `shared/types` lo
+  // conozca no tendría dónde aparecer y el usuario se lo ganaría sin verlo
+  // nunca — sin error, sin hueco, sin nada. La versión anterior tenía este
+  // mismo respaldo y se perdió al pasar de "listar lo obtenido" a "listar los
+  // seis". La etiqueta cae al tipo crudo, que es feo pero honesto: mejor un
+  // nombre técnico que un logro invisible.
+  const meta = BADGE_META[type] ?? {
+    emoji: '🏅',
+    labelKey: type,
+    descriptionKey: '',
+    howToEarnKey: '',
+  };
   const earned = !!earnedAt;
 
   return (
@@ -141,7 +153,7 @@ function AchievementTile({
   );
 }
 
-/** Tarjeta de mascota del resumen: sólo mira, no edita. Eso vive en /my-pets. */
+/** Tarjeta de mascota del resumen: sólo mira, no edita. Eso vive en `/pets/mine`. */
 function PetSummaryCard({ pet, t }: { pet: Pet; t: TFunction }) {
   const photo = pet.photos?.find((p) => p.is_primary) ?? pet.photos?.[0];
   const age = formatPetAge(t, pet.birth_date, pet.birth_date_precision);
@@ -321,13 +333,22 @@ export function ProfilePage() {
   const [resendCountdown, setResendCountdown] = useState(0);
   const verificationDisabled = (verificationError as any)?.status === 501;
 
+  // Se sincroniza desde el servidor SÓLO fuera del modo edición.
+  //
+  // El botón del avatar sigue vivo con el formulario abierto, y su éxito llama
+  // `refreshUser()` → objeto `user` nuevo → este efecto pisaba lo que la persona
+  // estuviera tipeando, con el formulario abierto y sin decir nada. Ahora que
+  // editar es un modo explícito con contrato de "cancelar = deshacer", que algo
+  // más borre los campos es directamente pérdida de datos.
+  //
+  // Fuera de edición no hay nada que pisar, y `openEdit` siembra los campos con
+  // lo guardado cada vez que se abre, así que nunca se abre con datos viejos.
   useEffect(() => {
-    if (user) {
-      setName(user.name);
-      setPhone(user.phone ?? '');
-      setCity(user.city ?? '');
-    }
-  }, [user]);
+    if (!user || editing) return;
+    setName(user.name);
+    setPhone(user.phone ?? '');
+    setCity(user.city ?? '');
+  }, [user, editing]);
 
   useEffect(() => {
     if (resendCountdown <= 0) return;
@@ -383,6 +404,22 @@ export function ProfilePage() {
     }
     try {
       await confirmEmailOTP.mutateAsync(verifyCode);
+      // `refreshUser()` NO es opcional acá, y esta línea es la que evita que
+      // verificarse quede en silencio absoluto.
+      //
+      // El distintivo "Verificado" de la tarjeta de arriba lee `user.is_verified`
+      // del `AuthContext`, que es `useState` — NO consume React Query. El
+      // `invalidateQueries(['me'])` del hook no lo toca: sólo refresca la caché
+      // de React Query, y nadie lee `['me']` desde el contexto. Así que al
+      // confirmar pasaba esto: `verificationStatus` sí se refrescaba y ocultaba
+      // esta sección, mientras el distintivo nunca aparecía. La verificación
+      // desaparecía de la pantalla sin que nada dijera que salió bien, hasta
+      // recargar la página entera.
+      //
+      // Lo introdujo el rediseño: antes la sección se quedaba y mostraba su
+      // propio "Verificado" desde `verificationStatus`. Al ocultarla, el único
+      // acuse de recibo pasó a depender de un estado que nadie actualizaba.
+      await refreshUser();
       setAccordionOpen(false);
       setOtpSent(false);
       setVerifyCode('');
@@ -450,6 +487,18 @@ export function ProfilePage() {
     );
   };
 
+  const openEdit = () => {
+    // Sembrar con lo guardado en el momento de abrir: el efecto de arriba ya no
+    // corre en modo edición, así que esta es la única puerta por la que entran
+    // los valores frescos.
+    setName(user?.name ?? '');
+    setPhone(user?.phone ?? '');
+    setCity(user?.city ?? '');
+    setNameError('');
+    setApiError('');
+    setEditing(true);
+  };
+
   const cancelEdit = () => {
     // Volver a lo guardado, no a lo tipeado: cancelar tiene que deshacer.
     setName(user?.name ?? '');
@@ -479,7 +528,7 @@ export function ProfilePage() {
               <div className="flex justify-end">
                 <button
                   type="button"
-                  onClick={() => (editing ? cancelEdit() : setEditing(true))}
+                  onClick={() => (editing ? cancelEdit() : openEdit())}
                   aria-expanded={editing}
                   className="inline-flex items-center gap-1.5 text-sm font-semibold text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1.5 hover:border-primary hover:text-primary transition-colors"
                 >
@@ -833,6 +882,23 @@ export function ProfilePage() {
                     t={t}
                   />
                 ))}
+                {/* Y los que el usuario SÍ tiene pero esta versión del front no
+                    conoce. La grilla recorre `BADGE_META`, que es una constante
+                    compilada acá: si el backend otorga un séptimo logro antes de
+                    que `shared/types` lo liste, sin esto se gana un logro que no
+                    puede ver. Se dibujan al final para no correr a los seis de
+                    siempre. */}
+                {(badges ?? [])
+                  .filter((b: Badge) => !BADGE_META[b.badge_type])
+                  .map((b: Badge) => (
+                    <AchievementTile
+                      key={b.id}
+                      type={b.badge_type}
+                      earnedAt={b.earned_at}
+                      language={i18n.language}
+                      t={t}
+                    />
+                  ))}
               </div>
             </section>
           </aside>
@@ -846,7 +912,7 @@ export function ProfilePage() {
                 subtitle={t('profile:myPetsSubtitle')}
                 viewAllLabel={ownedPets.length > SUMMARY_LIMIT ? t('profile:viewAll') : undefined}
                 viewAllAria={t('profile:viewAllPets')}
-                viewAllTo="/my-pets"
+                viewAllTo={myPetsRoute()}
                 action={
                   <Link
                     to="/pets/create"
@@ -885,14 +951,24 @@ export function ProfilePage() {
               ) : (
                 <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 text-center py-12 px-6">
                   <PawPlaceholder className="w-16 mx-auto mb-4" />
+                  {/* La pregunta que decide el cartel es si tiene ALGUNA mascota,
+                      no si tiene alguna fuera de adopción. `ownedPets` excluye
+                      adopción, así que a quien tiene todas sus mascotas ofrecidas
+                      en adopción le decía "Todavía no publicaste ninguna mascota"
+                      con la sección "En adopción" listándolas justo abajo: un
+                      estado vacío desmentido por otra sección de la misma
+                      pantalla. Exactamente el defecto del wizard de /publish
+                      (PR #132). */}
                   <p className="text-gray-700 dark:text-gray-300 font-semibold mb-4">
-                    {t('pets:mine.empty')}
+                    {(myPets?.length ?? 0) > 0 ? t('profile:allInAdoption') : t('pets:mine.empty')}
                   </p>
                   <Link
                     to="/pets/create"
                     className="inline-block bg-primary hover:bg-primary-dark text-white font-semibold rounded-xl px-6 py-2.5 text-sm transition-colors"
                   >
-                    {t('pets:mine.emptyAction')}
+                    {(myPets?.length ?? 0) > 0
+                      ? t('pets:mine.add')
+                      : t('pets:mine.emptyAction')}
                   </Link>
                 </div>
               )}
@@ -910,7 +986,7 @@ export function ProfilePage() {
                     (reportedPets?.length ?? 0) > SUMMARY_LIMIT ? t('profile:viewAll') : undefined
                   }
                   viewAllAria={t('profile:viewAllReports')}
-                  viewAllTo="/my-pets?tab=reported"
+                  viewAllTo={myPetsRoute('reported')}
                 />
                 <div className="space-y-3">
                   {reportedPets!.slice(0, SUMMARY_LIMIT).map((pet: Pet) => (
@@ -930,7 +1006,7 @@ export function ProfilePage() {
                     adoptionPets.length > SUMMARY_LIMIT ? t('profile:viewAll') : undefined
                   }
                   viewAllAria={t('profile:viewAllAdoption')}
-                  viewAllTo="/my-pets?tab=adoption"
+                  viewAllTo={myPetsRoute('adoption')}
                 />
                 <div className="space-y-3">
                   {adoptionPets.slice(0, SUMMARY_LIMIT).map((pet: Pet) => (

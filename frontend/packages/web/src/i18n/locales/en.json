@@ -331,7 +331,8 @@
     },
     "successStories": {
       "title": "Success stories",
-      "viewAll": "View all"
+      "allInAdoption": "All your pets are currently up for adoption.",
+    "viewAll": "View all"
     },
     "noResults": {
       "title": "No results",

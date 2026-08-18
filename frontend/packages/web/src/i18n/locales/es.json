@@ -331,7 +331,8 @@
     },
     "successStories": {
       "title": "Historias de éxito",
-      "viewAll": "Ver todas"
+      "allInAdoption": "Todas tus mascotas están ofrecidas en adopción.",
+    "viewAll": "Ver todas"
     },
     "noResults": {
       "title": "Sin resultados",

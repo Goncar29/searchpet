@@ -24,6 +24,7 @@ import { CreatePetPage } from './pages/CreatePetPage';
 import { EditPetPage } from './pages/EditPetPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { MyPetsPage } from './pages/MyPetsPage';
+import { MY_PETS_ROUTE } from './routes';
 import { CreateReportPage } from './pages/CreateReportPage';
 import { CreateStoryPage } from './pages/CreateStoryPage';
 import { LeaderboardPage } from './pages/LeaderboardPage';
@@ -125,7 +126,7 @@ export default function App() {
             <Route path="/pets/create" element={<CreatePetPage />} />
             <Route path="/pets/:id/edit" element={<EditPetPage />} />
             <Route path="/profile" element={<ProfilePage />} />
-            <Route path="/pets/mine" element={<MyPetsPage />} />
+            <Route path={MY_PETS_ROUTE} element={<MyPetsPage />} />
             <Route path="/reports/create" element={<CreateReportPage />} />
             <Route path="/stories/create" element={<CreateStoryPage />} />
             <Route path="/blocked-users" element={<BlockedUsersPage />} />
