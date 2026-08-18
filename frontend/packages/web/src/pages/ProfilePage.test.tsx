@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { MemoryRouter } from 'react-router';
 import { ApiError } from '@shared/api/client';
 import { ProfilePage } from './ProfilePage';
 
@@ -10,6 +11,9 @@ vi.mock('react-i18next', () => ({
     t: (key: string, opts?: Record<string, unknown>) => {
       // Interpolate so the countdown's seconds are observable in the rendered text.
       if (opts && 'seconds' in opts) return `${key}:${opts.seconds}`;
+      // "Miembro desde {{date}}" se interpola igual, porque lo que este test
+      // vigila es justamente QUE FECHA entra ahi.
+      if (opts && 'date' in opts) return `${key}:${opts.date}`;
       // getErrorMessage treats "t returned the key unchanged" as "no translation
       // exists" and falls back to unknown_error. An identity mock would therefore
       // collapse every code into the same string and assert nothing about which
@@ -22,49 +26,99 @@ vi.mock('react-i18next', () => ({
   Trans: ({ i18nKey }: { i18nKey: string }) => i18nKey,
 }));
 
+// Mutable: cada test decide con que usuario y con que mascotas se renderiza.
+const authUser = vi.hoisted(() => ({
+  current: {
+    id: 'user-1',
+    name: 'Carlos',
+    email: 'carlos@example.com',
+    is_verified: false,
+    created_at: '',
+  } as Record<string, unknown>,
+}));
+
+const petsData = vi.hoisted(() => ({ mine: [] as unknown[], reported: [] as unknown[] }));
+
+const verification = vi.hoisted(() => ({ current: null as { is_verified: boolean } | null }));
+
 vi.mock('../context/AuthContext', () => ({
-  useAuth: () => ({
-    user: { id: 'user-1', name: 'Carlos', email: 'carlos@example.com', is_verified: false, created_at: '' },
-    refreshUser: vi.fn(),
-  }),
+  useAuth: () => ({ user: authUser.current, refreshUser: vi.fn() }),
 }));
 
 // Mutable so each test can drive what the send mutation does.
 const sendEmailOTP = vi.hoisted(() => ({ mutateAsync: vi.fn(), isPending: false }));
 
 vi.mock('@shared/hooks', () => ({
-  useUpdateMe: () => ({ mutateAsync: vi.fn(), isPending: false }),
-  useUploadProfilePhoto: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useUpdateMe: () => ({ mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false }),
+  useUploadProfilePhoto: () => ({ mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false }),
   useMyBadges: () => ({ data: [] }),
-  useVerificationStatus: () => ({ data: null }),
+  useVerificationStatus: () => ({ data: verification.current }),
   useSendEmailOTP: () => sendEmailOTP,
   useConfirmEmailOTP: () => ({ mutateAsync: vi.fn(), isPending: false }),
   usePublicProfile: () => ({ data: null, isLoading: false }),
+  useMyPets: () => ({ data: petsData.mine, isLoading: false }),
+  useReportedPets: () => ({ data: petsData.reported, isLoading: false }),
 }));
 
+// Un solo logro conocido: alcanza para probar el estado obtenido y el pendiente
+// sin atarse a los seis reales, que viven en shared y cambian por su cuenta.
 vi.mock('@shared/types', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@shared/types')>();
-  return { ...actual, BADGE_META: {} };
+  return {
+    ...actual,
+    BADGE_META: {
+      first_helper: {
+        emoji: '🤝',
+        labelKey: 'badges:first_helper.label',
+        descriptionKey: 'badges:first_helper.description',
+        howToEarnKey: 'badges:first_helper.howToEarn',
+      },
+    },
+  };
 });
 
 function wrapper({ children }: { children: React.ReactNode }) {
   return (
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-      {children}
+      <MemoryRouter>{children}</MemoryRouter>
     </QueryClientProvider>
   );
+}
+
+function pet(overrides: Record<string, unknown>) {
+  return {
+    id: 'pet-1',
+    name: 'Bruno',
+    type: 'perro',
+    status: 'registered',
+    photos: [],
+    created_at: '2026-01-01T00:00:00Z',
+    ...overrides,
+  };
 }
 
 describe('ProfilePage', () => {
   beforeEach(() => {
     sendEmailOTP.mutateAsync = vi.fn();
     sendEmailOTP.isPending = false;
+    authUser.current = {
+      id: 'user-1',
+      name: 'Carlos',
+      email: 'carlos@example.com',
+      is_verified: false,
+      created_at: '',
+    };
+    petsData.mine = [];
+    petsData.reported = [];
+    verification.current = null;
   });
 
   it('renderiza sin lanzar errores', () => {
     render(<ProfilePage />, { wrapper });
     expect(document.body).toBeTruthy();
   });
+
+  // ── Verificación de email (comportamiento previo, intacto) ──
 
   // El 429 del cooldown venia sin `code`, asi que getErrorMessage caia en
   // unknown_error y el usuario leia un fallo generico. Y el boton quedaba
@@ -131,5 +185,117 @@ describe('ProfilePage', () => {
     await userEvent.click(resend);
 
     await waitFor(() => expect(input).toHaveValue(''));
+  });
+
+  // ── Rediseño ──
+
+  // `created_at` es `string`, no `string | undefined`: una cadena vacia o basura
+  // produce `Invalid Date`, y `toLocaleDateString` la imprime tal cual. Sin la
+  // guarda el usuario lee literalmente "Miembro desde Invalid Date".
+  it('no imprime "Invalid Date" cuando created_at no sirve', () => {
+    authUser.current = { ...authUser.current, created_at: 'no-es-una-fecha' };
+    render(<ProfilePage />, { wrapper });
+
+    expect(screen.queryByText(/Invalid Date/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^profile:memberSince/)).not.toBeInTheDocument();
+  });
+
+  it('con created_at valido muestra el mes y el año', () => {
+    authUser.current = { ...authUser.current, created_at: '2026-03-15T10:00:00Z' };
+    render(<ProfilePage />, { wrapper });
+
+    expect(screen.getByText(/^profile:memberSince:marzo de 2026/)).toBeInTheDocument();
+  });
+
+  // El formulario vive detras del boton "Editar", como en el diseño. Si el
+  // toggle deja de abrirlo, el usuario pierde la unica via de cambiar su nombre
+  // o su telefono — y la pantalla sigue viendose sana.
+  it('el formulario de edicion esta detras del boton Editar', async () => {
+    render(<ProfilePage />, { wrapper });
+
+    expect(screen.queryByLabelText(/^profile:name/)).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByText('profile:edit'));
+    expect(screen.getByLabelText(/^profile:name/)).toBeInTheDocument();
+
+    await userEvent.click(screen.getByText('common:cancel'));
+    expect(screen.queryByLabelText(/^profile:name/)).not.toBeInTheDocument();
+  });
+
+  // El corte owned/adoption sale de `splitOwnedPets`, la misma definicion que usa
+  // MyPetsPage. Una mascota en adopcion NO puede aparecer en "Mis mascotas".
+  it('separa las mascotas en adopcion de las propias', () => {
+    petsData.mine = [
+      pet({ id: 'p1', name: 'Bruno', status: 'registered' }),
+      pet({ id: 'p2', name: 'Luna', status: 'adoption' }),
+    ];
+    render(<ProfilePage />, { wrapper });
+
+    // Las dos se ven, pero cada una en su seccion.
+    expect(screen.getByText('Bruno')).toBeInTheDocument();
+    expect(screen.getByText('Luna')).toBeInTheDocument();
+    expect(screen.getByText('adoption:profile.tab')).toBeInTheDocument();
+    // Y la de adopcion no se cuela en la grilla de propias: si lo hiciera,
+    // apareceria dos veces.
+    expect(screen.getAllByText('Luna')).toHaveLength(1);
+  });
+
+  // Una seccion vacia permanente es ruido. Sin reportes ni adopciones, sus
+  // encabezados no existen.
+  it('oculta reportes y adopcion cuando no hay ninguno', () => {
+    render(<ProfilePage />, { wrapper });
+
+    expect(screen.queryByText('pets:reports.tabReported')).not.toBeInTheDocument();
+    expect(screen.queryByText('adoption:profile.tab')).not.toBeInTheDocument();
+    // "Mis mascotas" SI se queda, con su llamada a publicar la primera.
+    expect(screen.getByText('pets:mine.empty')).toBeInTheDocument();
+  });
+
+  // Un logro pendiente se muestra en gris con COMO conseguirlo: un tablero que
+  // solo lista lo ya obtenido no dice que hacer despues.
+  it('muestra los logros no obtenidos con su proximo objetivo', () => {
+    render(<ProfilePage />, { wrapper });
+
+    expect(screen.getByText('badges:first_helper.label')).toBeInTheDocument();
+    expect(screen.getByText('badges:first_helper.howToEarn')).toBeInTheDocument();
+  });
+
+  // El "ver todas" solo aparece cuando hay mas de las que entran, y lleva
+  // `aria-label` propio porque las tres secciones repiten el mismo texto
+  // visible (WCAG 2.4.4).
+  it('el "ver todas" aparece solo al pasarse del tope y se distingue por su nombre accesible', () => {
+    petsData.mine = [1, 2, 3, 4, 5].map((i) =>
+      pet({ id: `p${i}`, name: `Mascota ${i}`, status: 'registered' }),
+    );
+    render(<ProfilePage />, { wrapper });
+
+    expect(screen.getByLabelText('profile:viewAllPets')).toBeInTheDocument();
+    // El tope corta en cuatro: la quinta no se dibuja.
+    expect(screen.queryByText('Mascota 5')).not.toBeInTheDocument();
+  });
+
+  // Verificado ya lo dice el distintivo de la tarjeta de perfil. Dejar además la
+  // sección de verificación dibujaba el mismo dato dos veces en la misma columna
+  // y sin ninguna acción detrás.
+  it('con la cuenta verificada la seccion de verificacion no se dibuja', () => {
+    verification.current = { is_verified: true };
+    render(<ProfilePage />, { wrapper });
+
+    expect(screen.queryByText('profile:accountVerification')).not.toBeInTheDocument();
+  });
+
+  it('sin verificar, la seccion de verificacion sigue estando', () => {
+    verification.current = { is_verified: false };
+    render(<ProfilePage />, { wrapper });
+
+    expect(screen.getByText('profile:accountVerification')).toBeInTheDocument();
+    expect(screen.getByText('profile:verifyEmail')).toBeInTheDocument();
+  });
+
+  it('sin pasarse del tope no hay "ver todas"', () => {
+    petsData.mine = [pet({ id: 'p1', name: 'Bruno', status: 'registered' })];
+    render(<ProfilePage />, { wrapper });
+
+    expect(screen.queryByLabelText('profile:viewAllPets')).not.toBeInTheDocument();
   });
 });

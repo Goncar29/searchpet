@@ -1,21 +1,300 @@
 import { useState, useEffect, useRef } from 'react';
+import { Link } from 'react-router';
 import { useTranslation, Trans } from 'react-i18next';
-import { useUpdateMe, useUploadProfilePhoto, useMyBadges, useVerificationStatus, useSendEmailOTP, useConfirmEmailOTP, usePublicProfile } from '@shared/hooks';
+import type { TFunction } from 'i18next';
+import {
+  useUpdateMe,
+  useUploadProfilePhoto,
+  useMyBadges,
+  useVerificationStatus,
+  useSendEmailOTP,
+  useConfirmEmailOTP,
+  usePublicProfile,
+  useMyPets,
+  useReportedPets,
+} from '@shared/hooks';
 import { getErrorMessage } from '@shared/utils/apiErrors';
 import { ApiError } from '@shared/api/client';
+import { formatPetAge } from '@shared/utils/petAge';
+import { splitOwnedPets } from '@shared/utils/ownedPetBuckets';
 import { useAuth } from '../context/AuthContext';
-import type { Badge } from '@shared/types';
+import type { Badge, Pet } from '@shared/types';
 import { BADGE_META } from '@shared/types';
+import { Icon } from '../components/Icon';
+import { PawPlaceholder } from '../components/PawPlaceholder';
+import { statusBadgeBg } from '../utils/statusBadge';
+
+/**
+ * Cuántas mascotas muestra cada sección antes de derivar a "Mis mascotas".
+ *
+ * El perfil es un RESUMEN: `MyPetsPage` sigue siendo la pantalla completa, con
+ * sus tres pestañas y sus acciones de edición. Sin tope, alguien con veinte
+ * mascotas empuja los logros y las estadísticas fuera de la pantalla y el
+ * perfil deja de ser un perfil.
+ */
+const SUMMARY_LIMIT = 4;
+
+/**
+ * "Miembro desde marzo 2025", o cadena vacía si la fecha no sirve.
+ *
+ * La guarda no es defensiva por costumbre: `created_at` es `string` y una
+ * cadena vacía produce `Invalid Date`, que `toLocaleDateString` imprime tal
+ * cual — el usuario leería literalmente "Miembro desde Invalid Date". Un dato
+ * ausente tiene que desaparecer, no mostrarse roto.
+ */
+function formatMemberSince(createdAt: string | undefined, language: string): string {
+  if (!createdAt) return '';
+  const date = new Date(createdAt);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleDateString(language, { month: 'long', year: 'numeric' });
+}
+
+/** Una línea de contacto de la tarjeta de perfil: icono, etiqueta y valor. */
+function ContactRow({
+  icon,
+  label,
+  value,
+  muted = false,
+}: {
+  icon: 'mail' | 'call' | 'location-on';
+  label: string;
+  value: string;
+  muted?: boolean;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 py-2.5">
+      <span className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 shrink-0">
+        <Icon name={icon} className="h-4 w-4" />
+        {label}
+      </span>
+      <span
+        className={`text-sm text-right truncate ${
+          muted
+            ? 'italic text-gray-400 dark:text-gray-500'
+            : 'font-medium text-gray-900 dark:text-gray-100'
+        }`}
+      >
+        {value}
+      </span>
+    </div>
+  );
+}
+
+/**
+ * Un logro, obtenido o no.
+ *
+ * Los NO obtenidos se muestran en gris con su `howToEarn` en lugar de
+ * esconderse: un tablero que sólo lista lo ya conseguido no dice qué hacer
+ * después. Los seis tienen esa clave en es/en/pt.
+ *
+ * El emoji de `BADGE_META` NO se sustituye por un `Icon`: lo comparten ocho
+ * archivos entre web y mobile, y cambiarlo sólo acá haría que el mismo logro se
+ * vea distinto en el ranking, en el perfil y en el celular. Lo que sí lleva es
+ * `role="img"` con su nombre, porque un lector de pantalla anuncia el nombre
+ * Unicode del glifo ("handshake"), no "Primer ayudante".
+ */
+function AchievementTile({
+  type,
+  earnedAt,
+  language,
+  t,
+}: {
+  type: string;
+  earnedAt?: string;
+  language: string;
+  t: TFunction;
+}) {
+  const meta = BADGE_META[type];
+  if (!meta) return null;
+  const earned = !!earnedAt;
+
+  return (
+    <div
+      className={`rounded-xl border p-3 text-center transition-colors ${
+        earned
+          ? 'border-primary/20 bg-primary/5'
+          : 'border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/40'
+      }`}
+    >
+      <span
+        role="img"
+        aria-label={t(meta.labelKey)}
+        className={`block text-2xl leading-none mb-2 ${earned ? '' : 'grayscale opacity-50'}`}
+      >
+        {meta.emoji}
+      </span>
+      <p
+        className={`text-xs font-semibold truncate ${
+          earned ? 'text-gray-900 dark:text-gray-100' : 'text-gray-500 dark:text-gray-400'
+        }`}
+      >
+        {t(meta.labelKey)}
+      </p>
+      {/* Obtenido: cuándo. Pendiente: cómo. Nunca las dos, y nunca ninguna —
+          la altura tiene que ser la misma en los cuatro cuadrantes. */}
+      <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5 line-clamp-2 min-h-[2rem]">
+        {earned
+          ? new Date(earnedAt!).toLocaleDateString(language, { day: 'numeric', month: 'short' })
+          : t(meta.howToEarnKey)}
+      </p>
+    </div>
+  );
+}
+
+/** Tarjeta de mascota del resumen: sólo mira, no edita. Eso vive en /my-pets. */
+function PetSummaryCard({ pet, t }: { pet: Pet; t: TFunction }) {
+  const photo = pet.photos?.find((p) => p.is_primary) ?? pet.photos?.[0];
+  const age = formatPetAge(t, pet.birth_date, pet.birth_date_precision);
+  const meta = [pet.breed, age].filter(Boolean).join(' · ');
+
+  return (
+    <Link
+      to={`/pets/${pet.id}`}
+      className="group block bg-white dark:bg-gray-900 rounded-2xl overflow-hidden shadow-sm border border-gray-100 dark:border-gray-800 hover:shadow-md transition-shadow"
+    >
+      <div className="h-40 bg-gray-100 dark:bg-gray-800 relative overflow-hidden">
+        {photo ? (
+          <img
+            src={photo.url}
+            alt={pet.name}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center">
+            <PawPlaceholder className="w-2/5 max-w-16" />
+          </div>
+        )}
+        <span
+          className={`absolute top-3 right-3 text-xs font-bold text-white px-2 py-1 rounded-md ${statusBadgeBg(pet.status)}`}
+        >
+          {t(`pets:status.${pet.status}`)}
+        </span>
+      </div>
+      <div className="p-4">
+        <h3 className="font-display text-lg font-semibold text-gray-900 dark:text-gray-100 truncate">
+          {pet.name}
+        </h3>
+        {/* Alto reservado aunque no haya raza ni edad: sin esto las tarjetas de
+            una misma fila quedan de altos distintos según qué cargó cada dueño. */}
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5 truncate min-h-[1.25rem]">
+          {meta || t(`pets:types.${pet.type}`)}
+        </p>
+      </div>
+    </Link>
+  );
+}
+
+/** Fila del resumen — el patrón de "Reportes Activos" del diseño. */
+function PetSummaryRow({ pet, t }: { pet: Pet; t: TFunction }) {
+  const photo = pet.photos?.find((p) => p.is_primary) ?? pet.photos?.[0];
+
+  return (
+    <Link
+      to={`/pets/${pet.id}`}
+      className="flex items-center gap-4 p-3 bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 hover:border-primary/40 hover:shadow-sm transition-all"
+    >
+      <div className="h-14 w-14 shrink-0 rounded-xl overflow-hidden bg-gray-100 dark:bg-gray-800">
+        {photo ? (
+          <img src={photo.url} alt="" className="w-full h-full object-cover" />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center">
+            <PawPlaceholder className="w-1/2" />
+          </div>
+        )}
+      </div>
+
+      <div className="flex-1 min-w-0">
+        <p className="font-display text-base font-semibold text-gray-900 dark:text-gray-100 truncate">
+          {pet.name}
+        </p>
+        <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
+          {pet.description || [pet.breed, pet.color].filter(Boolean).join(' · ') || t(`pets:types.${pet.type}`)}
+        </p>
+        {pet.city && (
+          <p className="flex items-center gap-1 text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+            <Icon name="location-on" className="h-3.5 w-3.5 shrink-0" />
+            <span className="truncate">{pet.city}</span>
+          </p>
+        )}
+      </div>
+
+      <span
+        className={`shrink-0 text-xs font-bold text-white px-2 py-1 rounded-md ${statusBadgeBg(pet.status)}`}
+      >
+        {t(`pets:status.${pet.status}`)}
+      </span>
+      {/* A 390px el chevron le comía ~28px al texto, que es donde vive la única
+          información de la fila. Es decorativo —lo clickeable es la fila
+          entera— así que abajo de 640px se va. */}
+      <Icon
+        name="chevron-right"
+        className="hidden sm:block h-5 w-5 shrink-0 text-gray-300 dark:text-gray-600"
+      />
+    </Link>
+  );
+}
+
+/**
+ * El encabezado de una sección del resumen.
+ *
+ * El "ver todas" lleva `aria-label` propio porque las tres secciones repiten el
+ * mismo texto visible: tres links que se anuncian igual son tres destinos
+ * indistinguibles para quien tabula (WCAG 2.4.4). El texto visible sigue
+ * contenido en el nombre accesible, como pide 2.5.3.
+ */
+function SectionHeader({
+  title,
+  subtitle,
+  viewAllLabel,
+  viewAllAria,
+  action,
+}: {
+  title: string;
+  subtitle: string;
+  viewAllLabel?: string;
+  viewAllAria?: string;
+  action?: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-start justify-between gap-4 mb-4">
+      <div className="min-w-0">
+        <h2 className="font-display text-headline text-gray-900 dark:text-gray-100">{title}</h2>
+        <p className="text-sm text-gray-500 dark:text-gray-400">{subtitle}</p>
+      </div>
+      <div className="shrink-0">
+        {action}
+        {viewAllLabel && (
+          <Link
+            to="/my-pets"
+            aria-label={viewAllAria}
+            className="inline-flex items-center gap-1 text-sm font-semibold text-primary hover:text-primary-dark transition-colors"
+          >
+            {viewAllLabel}
+            <Icon name="chevron-right" className="h-4 w-4" />
+          </Link>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export function ProfilePage() {
-  const { t, i18n } = useTranslation(['profile', 'common', 'badges']);
+  const { t, i18n } = useTranslation(['profile', 'common', 'badges', 'pets', 'adoption']);
   const { user, refreshUser } = useAuth();
   const updateMe = useUpdateMe();
   const uploadPhoto = useUploadProfilePhoto();
   const { data: badges } = useMyBadges();
   const { data: publicProfile, isLoading: statsLoading } = usePublicProfile(user?.id ?? '');
+  const { data: myPets, isLoading: petsLoading } = useMyPets();
+  const { data: reportedPets, isLoading: reportedLoading } = useReportedPets();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // El corte owned/adoption vive en `shared/utils/ownedPetBuckets` y lo comparte
+  // con `MyPetsPage`: escrito a mano en los dos lados, un estado nuevo rompería
+  // uno solo, en silencio.
+  const { owned: ownedPets, adoption: adoptionPets } = splitOwnedPets(myPets);
+
+  const [editing, setEditing] = useState(false);
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [city, setCity] = useState('');
@@ -34,7 +313,6 @@ export function ProfilePage() {
   const [verifyError, setVerifyError] = useState('');
   const [resendCountdown, setResendCountdown] = useState(0);
   const verificationDisabled = (verificationError as any)?.status === 501;
-
 
   useEffect(() => {
     if (user) {
@@ -151,6 +429,10 @@ export function ProfilePage() {
       {
         onSuccess: async () => {
           await refreshUser();
+          // Se cierra el formulario para que las filas de contacto muestren lo
+          // recién guardado: el aviso de éxito sin ver el dato nuevo obliga a
+          // creerle a un cartel.
+          setEditing(false);
           setSuccess(true);
           setTimeout(() => setSuccess(false), 3000);
         },
@@ -161,340 +443,493 @@ export function ProfilePage() {
     );
   };
 
+  const cancelEdit = () => {
+    // Volver a lo guardado, no a lo tipeado: cancelar tiene que deshacer.
+    setName(user?.name ?? '');
+    setPhone(user?.phone ?? '');
+    setCity(user?.city ?? '');
+    setNameError('');
+    setApiError('');
+    setEditing(false);
+  };
+
   if (!user) return null;
 
+  const memberSince = formatMemberSince(user.created_at, i18n.language);
+  const earnedAt = new Map((badges ?? []).map((b: Badge) => [b.badge_type, b.earned_at]));
+
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 py-10 px-4">
-      <div className="max-w-lg mx-auto">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-50 mb-8">
-          {t('profile:title')}
-        </h1>
-
-        {/* Avatar + info básica */}
-        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">
-          <div className="flex items-center gap-5">
-            {/* Avatar clickeable */}
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploadPhoto.isPending}
-              className="relative flex-shrink-0 group"
-              title={t('profile:changePhoto')}
-            >
-              {user.profile_photo_url ? (
-                <img
-                  src={user.profile_photo_url}
-                  alt={user.name}
-                  className="w-20 h-20 rounded-full object-cover border-2 border-gray-200 dark:border-gray-700"
-                />
-              ) : (
-                <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center text-3xl font-bold text-primary">
-                  {user.name.charAt(0).toUpperCase()}
-                </div>
-              )}
-              {/* Overlay al hover */}
-              <div className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 group-disabled:opacity-100 transition-opacity">
-                {uploadPhoto.isPending ? (
-                  <span className="text-white text-xs">...</span>
-                ) : (
-                  <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-                  </svg>
-                )}
-              </div>
-            </button>
-
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              onChange={handlePhotoChange}
-              className="hidden"
-            />
-
-            <div>
-              <p className="text-lg font-semibold text-gray-900 dark:text-gray-50">{user.name}</p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">{user.email}</p>
-              {user.is_verified && (
-                <span className="inline-flex items-center gap-1 text-xs font-semibold text-green-600 dark:text-green-400 mt-1">
-                  ✓ {t('profile:verified')}
-                </span>
-              )}
-              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                {t('profile:changePhoto')}
-              </p>
-            </div>
-          </div>
-          {photoError && (
-            <p className="text-red-500 dark:text-red-400 text-sm mt-3">{photoError}</p>
-          )}
-        </div>
-
-        {/* Formulario de edición */}
-        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-          <h2 className="text-base font-semibold text-gray-900 dark:text-gray-50 mb-5">
-            {t('profile:editTitle')}
-          </h2>
-
-          <form onSubmit={handleSubmit} noValidate className="space-y-5">
-            {/* Email — read only */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                {t('profile:email')}
-              </label>
-              <input
-                type="email"
-                value={user.email}
-                disabled
-                className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-400 dark:text-gray-500 px-3 py-2 text-sm cursor-not-allowed"
-              />
-              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                {t('profile:emailReadOnly')}
-              </p>
-            </div>
-
-            {/* Nombre */}
-            <div>
-              <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                {t('profile:name')} *
-              </label>
-              <input
-                id="name"
-                type="text"
-                value={name}
-                onChange={(e) => {
-                  setName(e.target.value);
-                  if (nameError) setNameError('');
-                }}
-                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
-              />
-              {nameError && (
-                <p className="text-red-500 dark:text-red-400 text-sm mt-1">{nameError}</p>
-              )}
-            </div>
-
-            {/* Teléfono */}
-            <div>
-              <label htmlFor="phone" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                {t('profile:phone')}
-              </label>
-              <input
-                id="phone"
-                type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder={t('profile:phonePlaceholder')}
-                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
-              />
-              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                {t('profile:phoneHint')}
-              </p>
-            </div>
-
-            {/* Ciudad */}
-            <div>
-              <label htmlFor="city" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                {t('profile:city')}
-              </label>
-              <input
-                id="city"
-                type="text"
-                value={city}
-                onChange={(e) => setCity(e.target.value)}
-                placeholder={t('profile:cityPlaceholder')}
-                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
-              />
-            </div>
-
-            {apiError && (
-              <p className="text-red-500 dark:text-red-400 text-sm">{apiError}</p>
-            )}
-
-            {success && (
-              <p className="text-green-600 dark:text-green-400 text-sm font-medium">
-                {t('profile:saveSuccess')}
-              </p>
-            )}
-
-            <button
-              type="submit"
-              disabled={updateMe.isPending}
-              className="w-full bg-primary hover:bg-primary-dark disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold rounded-lg px-4 py-2 transition-colors"
-            >
-              {updateMe.isPending ? t('common:loading') : t('profile:save')}
-            </button>
-          </form>
-        </div>
-
-        {/* Verificación — oculto si feature flag deshabilitado (501) */}
-        {!verificationDisabled && (
-          <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">
-            <div className="flex items-center justify-between">
-              <h2 className="text-base font-semibold text-gray-900 dark:text-gray-50">
-                {t('profile:accountVerification')}
-              </h2>
-              {verificationStatus?.is_verified ? (
-                <span className="inline-flex items-center gap-1 text-xs font-semibold text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/30 px-3 py-1 rounded-full">
-                  {t('profile:verified')}
-                </span>
-              ) : verificationStatus !== undefined ? (
+    <div className="bg-gray-50 dark:bg-gray-950 min-h-screen">
+      {/* Sin banda de encabezado: la banda existe para llevar un título y un
+          subtítulo, y el perfil no tiene ninguno de los dos — el nombre de la
+          persona ya es el encabezado. */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* ── Columna izquierda: quién sos ── */}
+          <aside className="lg:col-span-1 space-y-6">
+            {/* Tarjeta de perfil */}
+            <section className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-6">
+              <div className="flex justify-end">
                 <button
                   type="button"
-                  onClick={() => setAccordionOpen((o) => !o)}
-                  className="text-sm font-medium text-primary flex items-center gap-1"
-                  aria-expanded={accordionOpen}
+                  onClick={() => (editing ? cancelEdit() : setEditing(true))}
+                  aria-expanded={editing}
+                  className="inline-flex items-center gap-1.5 text-sm font-semibold text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1.5 hover:border-primary hover:text-primary transition-colors"
                 >
-                  {t('profile:verifyEmail')}
-                  <span className={`transition-transform ${accordionOpen ? 'rotate-180' : ''}`}>▾</span>
+                  {editing ? (
+                    <>
+                      <Icon name="close" className="h-4 w-4" />
+                      {t('common:cancel')}
+                    </>
+                  ) : (
+                    <>
+                      <Icon name="description" className="h-4 w-4" />
+                      {t('profile:edit')}
+                    </>
+                  )}
                 </button>
-              ) : null}
-            </div>
+              </div>
 
-            {accordionOpen && !verificationStatus?.is_verified && (
-              <div className="mt-4 border-t border-gray-100 dark:border-gray-800 pt-4">
-                {!otpSent ? (
-                  <div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-                      <Trans
-                        i18nKey="profile:otpWillSend"
-                        values={{ email: user?.email }}
-                        components={{ 1: <strong /> }}
-                      />
-                    </p>
-                    {verifyError && (
-                      <p className="text-sm text-red-500 dark:text-red-400 mb-2">{verifyError}</p>
-                    )}
-                    <button
-                      type="button"
-                      onClick={handleSendOTP}
-                      disabled={sendEmailOTP.isPending || resendCountdown > 0}
-                      className="bg-primary hover:bg-primary-dark disabled:opacity-60 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
-                    >
-                      {sendEmailOTP.isPending
-                        ? t('profile:sending')
-                        : resendCountdown > 0
-                          ? t('profile:resendIn', { seconds: resendCountdown })
-                          : t('profile:sendCode')}
-                    </button>
-                  </div>
-                ) : (
-                  <form onSubmit={handleConfirmOTP} noValidate>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-                      {t('profile:checkEmail')}
-                    </p>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      maxLength={6}
-                      value={verifyCode}
-                      onChange={(e) => { setVerifyCode(e.target.value.replace(/\D/g, '').slice(0, 6)); setVerifyError(''); }}
-                      placeholder="000000"
-                      className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-3 py-2 text-center text-xl tracking-widest mb-2 focus:outline-none focus:ring-2 focus:ring-primary"
+              <div className="flex flex-col items-center text-center -mt-2">
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploadPhoto.isPending}
+                  className="relative group rounded-full"
+                  aria-label={t('profile:changePhoto')}
+                >
+                  {user.profile_photo_url ? (
+                    <img
+                      src={user.profile_photo_url}
+                      alt=""
+                      className="h-28 w-28 rounded-full object-cover ring-4 ring-primary/20"
                     />
-                    {verifyError && (
-                      <p className="text-sm text-red-500 dark:text-red-400 mb-2">{verifyError}</p>
-                    )}
-                    <button
-                      type="submit"
-                      disabled={confirmEmailOTP.isPending}
-                      className="w-full bg-primary hover:bg-primary-dark disabled:opacity-60 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors mb-2"
-                    >
-                      {confirmEmailOTP.isPending ? t('profile:verifying') : t('profile:confirmCode')}
-                    </button>
-                    {resendCountdown > 0 ? (
-                      <p className="text-xs text-gray-400 dark:text-gray-500 text-center">
-                        {t('profile:resendIn', { seconds: resendCountdown })}
-                      </p>
+                  ) : (
+                    <div className="h-28 w-28 rounded-full bg-primary/10 dark:bg-primary/20 ring-4 ring-primary/20 flex items-center justify-center font-display text-4xl font-bold text-primary">
+                      {user.name.charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                  <span className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 group-disabled:opacity-100 transition-opacity">
+                    {uploadPhoto.isPending ? (
+                      <Icon name="spinner" className="h-6 w-6 text-white animate-spin" />
                     ) : (
-                      <button
-                        type="button"
-                        onClick={handleSendOTP}
-                        // Sin `resendCountdown > 0`: este botón vive en la rama
-                        // FALSA de `resendCountdown > 0 ? … : …`, así que ahí la
-                        // condición no puede ser verdadera. Leerla como
-                        // protección era leer algo que no protegía nada.
-                        disabled={sendEmailOTP.isPending}
-                        className="w-full text-xs text-primary font-medium text-center disabled:opacity-60"
-                      >
-                        {t('profile:resendCode')}
-                      </button>
+                      <Icon name="photo-camera" className="h-6 w-6 text-white" />
                     )}
-                  </form>
+                  </span>
+                </button>
+
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={handlePhotoChange}
+                  className="hidden"
+                />
+
+                <h1 className="font-display text-headline text-gray-900 dark:text-gray-100 mt-4 break-words">
+                  {user.name}
+                </h1>
+
+                {(memberSince || user.city) && (
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                    {[memberSince && t('profile:memberSince', { date: memberSince }), user.city]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </p>
+                )}
+
+                {user.is_verified && (
+                  <span className="inline-flex items-center gap-1 mt-3 text-xs font-semibold text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/30 px-3 py-1 rounded-full">
+                    <Icon name="check-circle" className="h-3.5 w-3.5" />
+                    {t('profile:verified')}
+                  </span>
                 )}
               </div>
-            )}
-          </div>
-        )}
 
-        {/* Puntos y estadísticas */}
-        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">
-          <h2 className="text-base font-semibold text-gray-900 dark:text-gray-50 mb-4">
-            {t('profile:statsTitle')}
-          </h2>
-          {statsLoading ? (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              {[1, 2, 3, 4].map((i) => (
-                <div key={i} className="h-14 rounded-xl bg-gray-100 dark:bg-gray-800 animate-pulse" />
-              ))}
-            </div>
-          ) : publicProfile ? (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              <div className="text-center p-3 rounded-xl bg-primary/5 border border-primary/20">
-                <p className="text-2xl font-bold text-primary">{publicProfile.total_points}</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{t('profile:statsPoints')}</p>
-              </div>
-              <div className="text-center p-3 rounded-xl bg-primary/5 border border-primary/20">
-                <p className="text-2xl font-bold text-primary">{publicProfile.total_reports}</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{t('profile:statsReports')}</p>
-              </div>
-              <div className="text-center p-3 rounded-xl bg-primary/5 border border-primary/20">
-                <p className="text-2xl font-bold text-primary">{publicProfile.found_count}</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{t('profile:statsFound')}</p>
-              </div>
-              <div className="text-center p-3 rounded-xl bg-primary/5 border border-primary/20">
-                <p className="text-2xl font-bold text-primary">{publicProfile.share_count}</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{t('profile:statsShared')}</p>
-              </div>
-            </div>
-          ) : null}
-        </div>
+              {photoError && (
+                <p className="text-danger text-sm mt-3 text-center">{photoError}</p>
+              )}
 
-        {/* Mis logros */}
-        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-          <h2 className="text-base font-semibold text-gray-900 dark:text-gray-50 mb-4">
-            {t('profile:achievementsTitle')}
-          </h2>
-          {!badges || badges.length === 0 ? (
-            <div className="text-center py-6">
-              <p className="text-3xl mb-2">🏅</p>
-              <p className="text-sm text-gray-400 dark:text-gray-500">
-                {t('profile:noAchievements')}
-              </p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 gap-2">
-              {badges.map((badge: Badge) => {
-                const meta = BADGE_META[badge.badge_type] ?? { emoji: '🏅', labelKey: badge.badge_type, descriptionKey: '' };
-                return (
-                  <div
-                    key={badge.id}
-                    className="flex items-center gap-2 p-3 rounded-xl bg-primary/5 border border-primary/20"
+              {success && (
+                <p className="text-green-600 dark:text-green-400 text-sm font-medium mt-4 text-center">
+                  {t('profile:saveSuccess')}
+                </p>
+              )}
+
+              {!editing ? (
+                <div className="mt-5 pt-4 border-t border-gray-100 dark:border-gray-800 divide-y divide-gray-100 dark:divide-gray-800">
+                  <ContactRow icon="mail" label={t('profile:email')} value={user.email} />
+                  <ContactRow
+                    icon="call"
+                    label={t('profile:phone')}
+                    value={user.phone || t('profile:noPhone')}
+                    muted={!user.phone}
+                  />
+                </div>
+              ) : (
+                <form
+                  onSubmit={handleSubmit}
+                  noValidate
+                  className="mt-5 pt-5 border-t border-gray-100 dark:border-gray-800 space-y-4"
+                >
+                  {/* Email — sólo lectura */}
+                  <div>
+                    <label
+                      htmlFor="profile-email"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                    >
+                      {t('profile:email')}
+                    </label>
+                    <input
+                      id="profile-email"
+                      type="email"
+                      value={user.email}
+                      disabled
+                      className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-400 dark:text-gray-500 px-3 py-2.5 text-sm cursor-not-allowed"
+                    />
+                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                      {t('profile:emailReadOnly')}
+                    </p>
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="name"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                    >
+                      {t('profile:name')} *
+                    </label>
+                    <input
+                      id="name"
+                      type="text"
+                      value={name}
+                      onChange={(e) => {
+                        setName(e.target.value);
+                        if (nameError) setNameError('');
+                      }}
+                      className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-3 py-2.5 text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                    />
+                    {nameError && <p className="text-danger text-sm mt-1">{nameError}</p>}
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="phone"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                    >
+                      {t('profile:phone')}
+                    </label>
+                    <input
+                      id="phone"
+                      type="tel"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      placeholder={t('profile:phonePlaceholder')}
+                      className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-3 py-2.5 text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                    />
+                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                      {t('profile:phoneHint')}
+                    </p>
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="city"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                    >
+                      {t('profile:city')}
+                    </label>
+                    <input
+                      id="city"
+                      type="text"
+                      value={city}
+                      onChange={(e) => setCity(e.target.value)}
+                      placeholder={t('profile:cityPlaceholder')}
+                      className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-3 py-2.5 text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                    />
+                  </div>
+
+                  {apiError && <p className="text-danger text-sm">{apiError}</p>}
+
+                  <button
+                    type="submit"
+                    disabled={updateMe.isPending}
+                    className="w-full bg-primary hover:bg-primary-dark disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold rounded-xl px-4 py-2.5 text-sm transition-colors"
                   >
-                    <span className="text-xl">{meta.emoji}</span>
-                    <div className="min-w-0">
-                      <p className="text-xs font-semibold text-gray-900 dark:text-gray-50 truncate">
-                        {t(meta.labelKey)}
-                      </p>
-                      <p className="text-xs text-gray-400 dark:text-gray-500">
-                        {new Date(badge.earned_at).toLocaleDateString(i18n.language, { day: 'numeric', month: 'short' })}
+                    {updateMe.isPending ? t('common:loading') : t('profile:save')}
+                  </button>
+                </form>
+              )}
+            </section>
+
+            {/* Verificación — oculta si el feature flag está apagado (501) y
+                también cuando la cuenta YA está verificada: la tarjeta de arriba
+                lleva su propio distintivo "Verificado", así que dejarla dibujaba
+                el mismo dato dos veces en la misma columna sin ofrecer ninguna
+                acción. La sección existe para verificarse, no para informar que
+                ya lo estás. */}
+            {!verificationDisabled && !verificationStatus?.is_verified && (
+              <section className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-6">
+                <div className="flex items-center justify-between gap-3">
+                  <h2 className="font-display text-base font-semibold text-gray-900 dark:text-gray-100">
+                    {t('profile:accountVerification')}
+                  </h2>
+                  {verificationStatus !== undefined ? (
+                    <button
+                      type="button"
+                      onClick={() => setAccordionOpen((o) => !o)}
+                      className="text-sm font-semibold text-primary flex items-center gap-1"
+                      aria-expanded={accordionOpen}
+                    >
+                      {t('profile:verifyEmail')}
+                      <span className={`transition-transform ${accordionOpen ? 'rotate-180' : ''}`}>
+                        ▾
+                      </span>
+                    </button>
+                  ) : null}
+                </div>
+
+                {/* Sin repetir `!verificationStatus?.is_verified`: la sección
+                    entera ya no se renderiza cuando la cuenta está verificada,
+                    así que acá esa condición no puede ser falsa. Un guard que no
+                    puede disparar se lee como protección y no protege nada. */}
+                {accordionOpen && (
+                  <div className="mt-4 border-t border-gray-100 dark:border-gray-800 pt-4">
+                    {!otpSent ? (
+                      <div>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                          <Trans
+                            i18nKey="profile:otpWillSend"
+                            values={{ email: user?.email }}
+                            components={{ 1: <strong /> }}
+                          />
+                        </p>
+                        {verifyError && <p className="text-sm text-danger mb-2">{verifyError}</p>}
+                        <button
+                          type="button"
+                          onClick={handleSendOTP}
+                          disabled={sendEmailOTP.isPending || resendCountdown > 0}
+                          className="bg-primary hover:bg-primary-dark disabled:opacity-60 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors"
+                        >
+                          {sendEmailOTP.isPending
+                            ? t('profile:sending')
+                            : resendCountdown > 0
+                              ? t('profile:resendIn', { seconds: resendCountdown })
+                              : t('profile:sendCode')}
+                        </button>
+                      </div>
+                    ) : (
+                      <form onSubmit={handleConfirmOTP} noValidate>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                          {t('profile:checkEmail')}
+                        </p>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          maxLength={6}
+                          value={verifyCode}
+                          onChange={(e) => {
+                            setVerifyCode(e.target.value.replace(/\D/g, '').slice(0, 6));
+                            setVerifyError('');
+                          }}
+                          placeholder="000000"
+                          aria-label={t('profile:confirmCode')}
+                          className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-3 py-2.5 text-center text-xl tracking-widest mb-2 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                        />
+                        {verifyError && <p className="text-sm text-danger mb-2">{verifyError}</p>}
+                        <button
+                          type="submit"
+                          disabled={confirmEmailOTP.isPending}
+                          className="w-full bg-primary hover:bg-primary-dark disabled:opacity-60 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors mb-2"
+                        >
+                          {confirmEmailOTP.isPending
+                            ? t('profile:verifying')
+                            : t('profile:confirmCode')}
+                        </button>
+                        {resendCountdown > 0 ? (
+                          <p className="text-xs text-gray-400 dark:text-gray-500 text-center">
+                            {t('profile:resendIn', { seconds: resendCountdown })}
+                          </p>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={handleSendOTP}
+                            // Sin `resendCountdown > 0`: este botón vive en la rama
+                            // FALSA de `resendCountdown > 0 ? … : …`, así que ahí la
+                            // condición no puede ser verdadera. Leerla como
+                            // protección era leer algo que no protegía nada.
+                            disabled={sendEmailOTP.isPending}
+                            className="w-full text-xs text-primary font-semibold text-center disabled:opacity-60"
+                          >
+                            {t('profile:resendCode')}
+                          </button>
+                        )}
+                      </form>
+                    )}
+                  </div>
+                )}
+              </section>
+            )}
+
+            {/* Estadísticas */}
+            <section className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-6">
+              <h2 className="font-display text-base font-semibold text-gray-900 dark:text-gray-100 mb-4">
+                {t('profile:statsTitle')}
+              </h2>
+              {statsLoading ? (
+                <div className="grid grid-cols-2 gap-3">
+                  {[1, 2, 3, 4].map((i) => (
+                    <div
+                      key={i}
+                      className="h-[4.75rem] rounded-xl bg-gray-100 dark:bg-gray-800 animate-pulse"
+                    />
+                  ))}
+                </div>
+              ) : publicProfile ? (
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    { value: publicProfile.total_points, label: t('profile:statsPoints') },
+                    { value: publicProfile.total_reports, label: t('profile:statsReports') },
+                    { value: publicProfile.found_count, label: t('profile:statsFound') },
+                    { value: publicProfile.share_count, label: t('profile:statsShared') },
+                  ].map((stat) => (
+                    <div
+                      key={stat.label}
+                      className="text-center p-3 rounded-xl bg-primary/5 border border-primary/20"
+                    >
+                      <p className="font-display text-2xl font-bold text-primary">{stat.value}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                        {stat.label}
                       </p>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+                  ))}
+                </div>
+              ) : null}
+            </section>
+
+            {/* Logros */}
+            <section className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-6">
+              <h2 className="font-display text-base font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                <Icon name="celebration" className="h-5 w-5 text-primary" />
+                {t('profile:achievementsTitle')}
+              </h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5 mb-4">
+                {t('badges:achievementsSubtitle')}
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                {Object.keys(BADGE_META).map((type) => (
+                  <AchievementTile
+                    key={type}
+                    type={type}
+                    earnedAt={earnedAt.get(type)}
+                    language={i18n.language}
+                    t={t}
+                  />
+                ))}
+              </div>
+            </section>
+          </aside>
+
+          {/* ── Columna derecha: qué tenés ── */}
+          <div className="lg:col-span-2 space-y-10">
+            {/* Mis mascotas */}
+            <section>
+              <SectionHeader
+                title={t('pets:mine.title')}
+                subtitle={t('profile:myPetsSubtitle')}
+                viewAllLabel={ownedPets.length > SUMMARY_LIMIT ? t('profile:viewAll') : undefined}
+                viewAllAria={t('profile:viewAllPets')}
+                action={
+                  <Link
+                    to="/pets/create"
+                    className="inline-flex items-center gap-1.5 bg-primary hover:bg-primary-dark text-white font-semibold rounded-xl px-4 py-2.5 text-sm transition-colors mr-3"
+                  >
+                    + {t('pets:mine.add')}
+                  </Link>
+                }
+              />
+
+              {petsLoading ? (
+                // El esqueleto mide lo que mide la tarjeta: foto de 160px más
+                // 105px de cuerpo (nombre, metadatos y padding). Un placeholder
+                // de otro alto convierte la carga en un salto de layout que no
+                // se ve en una captura ni en un test.
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  {[0, 1].map((i) => (
+                    <div
+                      key={i}
+                      className="bg-white dark:bg-gray-900 rounded-2xl overflow-hidden border border-gray-100 dark:border-gray-800 animate-pulse"
+                    >
+                      <div className="h-40 bg-gray-100 dark:bg-gray-800" />
+                      <div className="p-4">
+                        <div className="h-7 w-2/3 bg-gray-100 dark:bg-gray-800 rounded" />
+                        <div className="h-5 w-1/2 bg-gray-100 dark:bg-gray-800 rounded mt-0.5" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : ownedPets.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  {ownedPets.slice(0, SUMMARY_LIMIT).map((pet: Pet) => (
+                    <PetSummaryCard key={pet.id} pet={pet} t={t} />
+                  ))}
+                </div>
+              ) : (
+                <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 text-center py-12 px-6">
+                  <PawPlaceholder className="w-16 mx-auto mb-4" />
+                  <p className="text-gray-700 dark:text-gray-300 font-semibold mb-4">
+                    {t('pets:mine.empty')}
+                  </p>
+                  <Link
+                    to="/pets/create"
+                    className="inline-block bg-primary hover:bg-primary-dark text-white font-semibold rounded-xl px-6 py-2.5 text-sm transition-colors"
+                  >
+                    {t('pets:mine.emptyAction')}
+                  </Link>
+                </div>
+              )}
+            </section>
+
+            {/* Mis reportes — sólo si hay alguno. Una sección vacía permanente en
+                el perfil de quien nunca reportó una callejera es ruido: la
+                pestaña de "Mis mascotas" sigue estando para descubrirla. */}
+            {!reportedLoading && (reportedPets?.length ?? 0) > 0 && (
+              <section>
+                <SectionHeader
+                  title={t('pets:reports.tabReported')}
+                  subtitle={t('profile:reportsSubtitle')}
+                  viewAllLabel={
+                    (reportedPets?.length ?? 0) > SUMMARY_LIMIT ? t('profile:viewAll') : undefined
+                  }
+                  viewAllAria={t('profile:viewAllReports')}
+                />
+                <div className="space-y-3">
+                  {reportedPets!.slice(0, SUMMARY_LIMIT).map((pet: Pet) => (
+                    <PetSummaryRow key={pet.id} pet={pet} t={t} />
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* En adopción — mismo criterio que los reportes. */}
+            {!petsLoading && adoptionPets.length > 0 && (
+              <section>
+                <SectionHeader
+                  title={t('adoption:profile.tab')}
+                  subtitle={t('profile:adoptionSubtitle')}
+                  viewAllLabel={
+                    adoptionPets.length > SUMMARY_LIMIT ? t('profile:viewAll') : undefined
+                  }
+                  viewAllAria={t('profile:viewAllAdoption')}
+                />
+                <div className="space-y-3">
+                  {adoptionPets.slice(0, SUMMARY_LIMIT).map((pet: Pet) => (
+                    <PetSummaryRow key={pet.id} pet={pet} t={t} />
+                  ))}
+                </div>
+              </section>
+            )}
+          </div>
         </div>
       </div>
     </div>

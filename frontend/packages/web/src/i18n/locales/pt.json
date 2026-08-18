@@ -494,7 +494,16 @@
   },
   "profile": {
     "title": "Meu perfil",
-    "editTitle": "Editar informações",
+    "edit": "Editar",
+    "memberSince": "Membro desde {{date}}",
+    "noPhone": "Sem telefone",
+    "myPetsSubtitle": "Gerencie as informações dos seus companheiros.",
+    "reportsSubtitle": "Os pets de rua que você relatou.",
+    "adoptionSubtitle": "Os que você ofereceu para adoção.",
+    "viewAll": "Ver todos",
+    "viewAllPets": "Ver todos os meus pets",
+    "viewAllReports": "Ver todos os meus relatos",
+    "viewAllAdoption": "Ver todos os meus pets para adoção",
     "email": "Endereço de e-mail",
     "emailReadOnly": "O e-mail não pode ser alterado",
     "name": "Nome completo",
@@ -525,8 +534,7 @@
     "statsReports": "Relatos",
     "statsFound": "Encontradas",
     "statsShared": "Compartilhadas",
-    "achievementsTitle": "Minhas conquistas",
-    "noAchievements": "Ainda não há conquistas. Comece relatando pets!"
+    "achievementsTitle": "Minhas conquistas"
   },
   "sharedPet": {
     "notFoundTitle": "Pet não encontrado",
