@@ -1,6 +1,7 @@
 import { Link } from 'react-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { cloudinaryCardThumb } from '@shared/utils/cloudinaryThumb';
 import { useAdoptions } from '@shared/hooks';
 import { statusBadgeBg } from '../utils/statusBadge';
 import type { Pet, PetType } from '@shared/types';
@@ -158,7 +159,8 @@ export function AdoptPage() {
                   <div className="h-48 bg-gray-100 dark:bg-gray-800 relative overflow-hidden">
                     {pet.photos?.[0]?.url ? (
                       <img
-                        src={pet.photos[0].url}
+                        src={cloudinaryCardThumb(pet.photos[0].url, 'adopt')}
+                        loading="lazy"
                         alt={pet.name}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                       />

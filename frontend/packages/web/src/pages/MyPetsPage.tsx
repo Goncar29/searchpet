@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router';
 import { useTranslation } from 'react-i18next';
+import { cloudinaryCardThumb } from '@shared/utils/cloudinaryThumb';
 import { useMyPets, useReportedPets, useDeletePet, useUpdatePet } from '@shared/hooks';
 import type { Pet, PetStatus, Photo } from '@shared/types';
 import { getErrorMessage } from '@shared/utils/apiErrors';
@@ -93,7 +94,8 @@ function PetCard({
       <Link to={`/pets/${pet.id}`} className="block h-40 bg-gray-100 dark:bg-gray-700 relative flex-shrink-0 group">
         {primaryPhoto ? (
           <img
-            src={primaryPhoto.url}
+            src={cloudinaryCardThumb(primaryPhoto.url, 'compact')}
+            loading="lazy"
             alt={pet.name}
             className="w-full h-full object-cover group-hover:opacity-90 transition-opacity"
           />

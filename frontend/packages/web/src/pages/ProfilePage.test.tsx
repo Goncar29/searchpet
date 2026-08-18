@@ -458,4 +458,48 @@ describe('ProfilePage', () => {
 
     expect(screen.queryByLabelText('profile:viewAllPets')).not.toBeInTheDocument();
   });
+
+  // ── Miniaturas ───────────────────────────────────────────────────────────
+  // El perfil dibuja TRES imagenes de tamanios muy distintos con la misma foto
+  // de origen: la tarjeta de mascota (h-40), la fila compacta (h-14) y el avatar
+  // (h-28). Servir la de 1200 en las tres es el gasto que estos guards cierran.
+  describe('miniaturas', () => {
+    const FOTO =
+      'https://res.cloudinary.com/dd0yz5yxb/image/upload/v1785290767/searchpet/pets/abc/foto.webp';
+
+    it('la tarjeta de mascota pide la variante compact', () => {
+      petsData.mine = [pet({ status: 'lost', photos: [{ url: FOTO }] })];
+      render(<ProfilePage />, { wrapper });
+
+      const img = screen.getByAltText('Bruno') as HTMLImageElement;
+      // compact y NO feed: la caja es h-40, no h-48.
+      expect(img.src).toContain('w_600,h_240,c_lfill,g_auto');
+    });
+
+    it('el avatar pide 224, el doble de sus 112 css', () => {
+      authUser.current = { ...authUser.current, profile_photo_url: FOTO };
+      const { container } = render(<ProfilePage />, { wrapper });
+
+      const srcs = [...container.querySelectorAll('img')].map((i) => i.getAttribute('src') || '');
+      expect(srcs.some((s) => s.includes('w_224,h_224,c_lfill'))).toBe(true);
+    });
+
+    it('ninguna foto de Cloudinary se sirve sin transformar', () => {
+      // El guard que de verdad importa: no enumera tamanios, exige que NINGUNA
+      // quede cruda. Una imagen nueva que alguien agregue sin miniatura cae aca
+      // sin que haya que acordarse de sumarle su propia asercion.
+      authUser.current = { ...authUser.current, profile_photo_url: FOTO };
+      petsData.mine = [pet({ status: 'lost', photos: [{ url: FOTO }] })];
+      petsData.reported = [pet({ id: 'pet-2', name: 'Mia', status: 'stray', photos: [{ url: FOTO }] })];
+
+      const { container } = render(<ProfilePage />, { wrapper });
+
+      const cloudinarias = [...container.querySelectorAll('img')]
+        .map((i) => i.getAttribute('src') || '')
+        .filter((s) => s.includes('res.cloudinary.com'));
+
+      expect(cloudinarias.length).toBeGreaterThan(0);
+      expect(cloudinarias.every((s) => s.includes('c_lfill'))).toBe(true);
+    });
+  });
 });

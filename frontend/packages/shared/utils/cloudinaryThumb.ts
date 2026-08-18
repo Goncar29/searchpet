@@ -64,42 +64,56 @@ export function cloudinaryThumb(
 }
 
 /**
- * Ancho y alto de la foto en una tarjeta del feed.
+ * Medidas de la foto en cada listado, en un solo lugar.
  *
- * 600x300 es la proporción del contenedor en la grilla MÁS DENSA (`lg`, 3
- * columnas dentro de `max-w-7xl`): ~389x192, casi 2:1. En los otros
- * breakpoints NO coincide — a 768px la tarjeta es ~356x192 (1,85:1) y en una
- * sola columna llega a ~607x192 (3,16:1). O sea que `object-cover` sigue
- * recortando en tablet y en teléfonos grandes: pedir 600x300 ACHICA ese segundo
- * recorte, no lo elimina. Se elige el breakpoint más denso porque es el que más
- * fotos dibuja por pantalla.
+ * CÓMO SE ELIGE CADA UNA, porque no es a ojo: se toma el contenedor en la
+ * grilla MÁS DENSA de esa pantalla (la que más fotos dibuja por vista) sobre el
+ * ancho de contenido real, que son 1216 px dentro de `max-w-7xl`, y se pide esa
+ * proporción con ~1,5x de densidad.
  *
- * Sobre la nitidez, sin adornar: a ~389 px de ancho, 600 da 1,54x — por debajo
- * de 2x, así que en un teléfono con DPR 3 la foto se ve más blanda que antes de
- * este cambio, cuando se servía el original de 1200. Es un canje deliberado:
- * el cuello del plan gratuito es el bandwidth, no la resolución. Si algún día
- * molesta, la salida es un `srcSet` con un candidato 2x (`w_1200,h_600`), que
- * deja a los equipos 1x pagando lo mismo que hoy.
+ *   variante   pantalla                     grilla densa    caja      proporción
+ *   feed       HomePage                     lg:3  gap-6     389x192   2,03:1
+ *   adopt      AdoptPage                    xl:4  gap-6     286x192   1,49:1
+ *   compact    MyPetsPage / ProfilePage     lg:3  gap-4     395x160   2,47:1
  *
- * Por qué 600 y no 800: medido sobre una foto real de producción, 600x300 pesa
+ * `adopt` es casi cuadrada porque esa pantalla llega a CUATRO columnas, y
+ * `compact` es más apaisada porque su caja es `h-40` en vez de `h-48`. Por eso
+ * NO comparten medida con el feed: una sola constante para las tres se vería
+ * bien igual y recortaría distinto en cada una.
+ *
+ * DOS COSAS QUE ESTAS MEDIDAS **NO** HACEN, para que nadie lea de más:
+ *
+ * 1. No eliminan el recorte del navegador, lo achican. La proporción sólo
+ *    coincide en el breakpoint denso; en una sola columna la caja del feed
+ *    llega a 3,16:1 y `object-cover` recorta igual.
+ * 2. No son 2x. A ~389 px de ancho, 600 da 1,54x, así que en un teléfono con
+ *    DPR 3 la foto se ve más blanda que sirviendo el original. Es deliberado:
+ *    el cuello del plan gratuito es el bandwidth, no la resolución. La salida,
+ *    si algún día molesta, es un `srcSet` con candidato 2x.
+ *
+ * Por qué ~1,5x y no 2x: medido sobre una foto real de producción, 600x300 pesa
  * 29.214 B y 800x400 pesa 53.724 B. Subir a 800 cuesta 1,8x más bytes.
  */
-const CARD_W = 600;
-const CARD_H = 300;
+const LISTING_SIZES = {
+  feed: [600, 300],
+  adopt: [450, 300],
+  compact: [600, 240],
+} as const;
+
+export type ListingVariant = keyof typeof LISTING_SIZES;
 
 /**
- * Foto de una tarjeta del feed (`HomePage`, sus dos grillas).
+ * Foto de una tarjeta de listado, por variante.
  *
- * Existe para que las dos grillas pidan EL MISMO tamaño: una tarjeta que pide
- * otra medida no se ve rota, se ve igual y gasta distinto, que es justo la
- * clase de derroche que este helper vino a cerrar.
- *
- * OJO, hoy lo usa SÓLO el feed. `AdoptPage` y `MyPetsPage` siguen sirviendo la
- * foto entera, y cuando se conviertan no alcanza con llamar a esta función:
- * `AdoptPage` es `xl:grid-cols-4` (~283x192, 1,47:1) y `MyPetsPage` usa `h-40`,
- * así que 600x300 no es la medida de ninguna de las dos. Cada una necesita su
- * propia constante o esto vuelve a ser el problema que cierra.
+ * Existe para que ninguna pantalla escriba sus propios números: una tarjeta que
+ * pide otra medida no se ve rota, se ve igual y gasta distinto, que es justo la
+ * clase de derroche que este helper vino a cerrar. Agregar un listado nuevo es
+ * medir su grilla densa y sumar una variante acá, no copiar la de al lado.
  */
-export function cloudinaryCardThumb(url: string | undefined | null): string {
-  return cloudinaryThumb(url, CARD_W, CARD_H);
+export function cloudinaryCardThumb(
+  url: string | undefined | null,
+  variant: ListingVariant = 'feed',
+): string {
+  const [w, h] = LISTING_SIZES[variant];
+  return cloudinaryThumb(url, w, h);
 }

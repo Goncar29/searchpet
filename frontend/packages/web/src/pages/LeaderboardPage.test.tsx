@@ -287,4 +287,29 @@ describe('LeaderboardPage', () => {
       expect(screen.getByText('leaderboard:empty|Salto')).toBeTruthy();
     });
   });
+
+  // El Avatar lo comparten el podio (h-28 = 112 css) y las filas (h-11 = 44), y
+  // el tamanio pedido va por prop porque el visible lo decide una clase de
+  // Tailwind. Es exactamente donde se cuela el numero equivocado.
+  it('el podio pide 224 y las filas 96', () => {
+    const FOTO = 'https://res.cloudinary.com/dd0yz5yxb/image/upload/v1785290767/searchpet/pets/abc/foto.webp';
+    entries = [
+      entry(1, { profile_photo_url: FOTO }),
+      entry(2, { profile_photo_url: FOTO }),
+      entry(3, { profile_photo_url: FOTO }),
+      entry(4, { profile_photo_url: FOTO }),
+    ];
+
+    const { container } = render(<LeaderboardPage />, { wrapper });
+    // La pagina no dibuja resultados hasta que se busca una ciudad; sin esto el
+    // DOM no tiene un solo <img> y el test pasaria a verde el dia que alguien
+    // rompa el avatar.
+    search('Montevideo');
+    const srcs = [...container.querySelectorAll('img')].map((i) => i.getAttribute('src') || '');
+
+    expect(srcs.some((s) => s.includes('w_224,h_224,c_lfill'))).toBe(true);
+    expect(srcs.some((s) => s.includes('w_96,h_96,c_lfill'))).toBe(true);
+    // Y ninguno se queda con la original.
+    expect(srcs.filter((s) => s.includes('res.cloudinary.com')).every((s) => s.includes('c_lfill'))).toBe(true);
+  });
 });
