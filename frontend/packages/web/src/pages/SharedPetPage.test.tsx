@@ -72,4 +72,65 @@ describe('SharedPetPage', () => {
       expect(hrefs).toContain('/download'); // link de descarga
     });
   });
+
+  // ── Miniaturas ───────────────────────────────────────────────────────────
+  // Esta es la landing PUBLICA de las redes sociales, o sea la pantalla que
+  // CLAUDE.md identifica como el escenario que quema creditos de Cloudinary:
+  // "un pico viral que carga la landing publica". Servia la foto de 1200 en la
+  // principal Y en cada miniatura de la tira. Con tres fotos eran ~321 KB.
+  describe('miniaturas', () => {
+    const FOTO = (n: number) =>
+      `https://res.cloudinary.com/dd0yz5yxb/image/upload/v178529076${n}/searchpet/pets/abc/foto${n}.webp`;
+
+    function conFotos(n: number) {
+      mockUseSharedPet.mockReturnValue({
+        data: {
+          pet: {
+            id: 'pet-1',
+            name: 'Firulais',
+            type: 'perro',
+            status: 'lost',
+            photos: Array.from({ length: n }, (_, i) => ({ id: `f${i}`, url: FOTO(i) })),
+          },
+          owner: null,
+        },
+        isLoading: false,
+      });
+    }
+
+    it('la foto principal pide 800x600, no la original', () => {
+      conFotos(1);
+      const { container } = render(<SharedPetPage />, { wrapper });
+
+      const srcs = [...container.querySelectorAll('img')].map((i) => i.getAttribute('src') || '');
+      // c_lfill y NO c_limit: el contenedor es object-cover, aca recortar es lo
+      // correcto. Al reves que PetDetailPage, que es object-contain.
+      expect(srcs.some((s) => s.includes('w_800,h_600,c_lfill,g_auto'))).toBe(true);
+    });
+
+    it('cada miniatura de la tira pide 240, no la original', () => {
+      conFotos(3);
+      const { container } = render(<SharedPetPage />, { wrapper });
+
+      const tira = [...container.querySelectorAll('img')]
+        .map((i) => i.getAttribute('src') || '')
+        .filter((s) => s.includes('w_240,h_240,c_lfill'));
+
+      // Las tres, no "alguna": un guard que pide que exista UNA se queda verde
+      // con las otras dos crudas.
+      expect(tira).toHaveLength(3);
+    });
+
+    it('ninguna foto de Cloudinary se sirve sin transformar', () => {
+      conFotos(3);
+      const { container } = render(<SharedPetPage />, { wrapper });
+
+      const cloudinarias = [...container.querySelectorAll('img')]
+        .map((i) => i.getAttribute('src') || '')
+        .filter((s) => s.includes('res.cloudinary.com'));
+
+      expect(cloudinarias.length).toBeGreaterThan(0);
+      expect(cloudinarias.every((s) => s.includes('c_lfill'))).toBe(true);
+    });
+  });
 });
