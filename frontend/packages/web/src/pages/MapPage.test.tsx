@@ -370,7 +370,7 @@ describe('MapPage', () => {
     expect(html).toContain('<title>Firulais</title>');
     expect(html).toContain('var(--color-lost)');
     // Miniatura, nunca la foto original: son decenas de marcadores por pantalla.
-    expect(html).toContain('w_64,h_64,c_fill,g_auto');
+    expect(html).toContain('w_64,h_64,c_lfill,g_auto');
   });
 
   it('el viewport SIGUE al centro de busqueda, no solo al montar', async () => {

@@ -68,7 +68,7 @@ describe('NearbyReportList', () => {
     // se traian varios megas para pintar 20 cuadritos. El cuello del plan
     // gratuito de Cloudinary es el BANDWIDTH.
     const img = screen.getByRole('presentation', { hidden: true }) as HTMLImageElement;
-    expect(img.getAttribute('src')).toContain('w_96,h_96,c_fill,g_auto');
+    expect(img.getAttribute('src')).toContain('w_96,h_96,c_lfill,g_auto');
   });
 
   it('cae al pet_id cuando el reporte no trae la mascota anidada', () => {

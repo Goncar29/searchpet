@@ -6,6 +6,7 @@ import { statusBadgeBg } from '../utils/statusBadge';
 import type { Pet, PetType, PetStatus, SuccessStory, ClassifyResult, ImageSearchResult } from '@shared/types';
 import { getErrorMessage } from '@shared/utils/apiErrors';
 import { startOfDayISO, endOfDayISO } from '@shared/utils/dateFilters';
+import { cloudinaryCardThumb } from '@shared/utils/cloudinaryThumb';
 import { ApiError } from '@shared/api/client';
 import { useAuth } from '../context/AuthContext';
 import { PawPlaceholder } from '../components/PawPlaceholder';
@@ -764,8 +765,9 @@ export function HomePage() {
                     <div className="h-48 bg-gray-100 dark:bg-gray-800 relative overflow-hidden">
                       {result.photo_url ? (
                         <img
-                          src={result.photo_url}
+                          src={cloudinaryCardThumb(result.photo_url)}
                           alt={result.name}
+                          loading="lazy"
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                         />
                       ) : (
@@ -810,8 +812,9 @@ export function HomePage() {
                     <div className="h-48 bg-gray-100 dark:bg-gray-800 relative overflow-hidden">
                       {pet.photos?.[0]?.url ? (
                         <img
-                          src={pet.photos[0].url}
+                          src={cloudinaryCardThumb(pet.photos[0].url)}
                           alt={pet.name}
+                          loading="lazy"
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                         />
                       ) : (
