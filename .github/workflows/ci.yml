@@ -297,6 +297,24 @@ jobs:
         working-directory: ./frontend/packages/web
         run: pnpm run preview &
 
+      # Espera EXPLICITA, igual que la del backend de mas arriba.
+      #
+      # Hasta ahora nadie esperaba a Vite: `playwright.config.ts` no tiene bloque
+      # `webServer` (solo `baseURL`), asi que Playwright ni levanta ni espera el
+      # servidor. Lo unico que le daba tiempo a bindear el 4173 era que la
+      # instalacion de Chromium tardara uno o dos minutos — un `sleep` accidental
+      # apoyado en la lentitud del paso siguiente.
+      #
+      # El cache que agrega este mismo commit hace ese paso casi instantaneo, o
+      # sea que BORRA esa espera. Y el sintoma no aparece aca: los caches se
+      # scopean por rama, asi que el primer hit ocurre despues de mergear y de
+      # que corra `main`, en un PR que no va a tener nada que ver con este.
+      # `retries: 1` lo taparia a veces, que es la peor forma de tenerlo.
+      - name: Wait for web preview
+        run: |
+          timeout 60 bash -c 'until curl -sf http://localhost:4173 >/dev/null; do sleep 1; done' || \
+            { echo "::error::el preview de Vite no respondio en 4173 a los 60s"; exit 1; }
+
       # La version sale del paquete instalado y no de package.json: ahi dice
       # "^1.44.0", y una clave de cache con un rango serviria binarios viejos
       # despues de que el lockfile suba de minor.
@@ -305,11 +323,15 @@ jobs:
         working-directory: ./frontend/packages/web
         run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
 
+      # `ImageOS` y no solo `runner.os`: este ultimo es `Linux` a secas, y
+      # `ubuntu-latest` se mueve de 22.04 a 24.04 sin avisar. Los browsers
+      # dependen de libs del sistema, asi que un cache cruzado entre imagenes
+      # puede restaurar binarios que no levantan.
       - name: Cache Playwright browsers
         uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}
+          key: playwright-${{ env.ImageOS }}-${{ steps.pw.outputs.version }}
 
       # `--with-deps` corre un apt-get, que es la parte que se colgo el
       # 2026-08-17 y el 2026-08-18. El comando NO cambia con el cache puesto:
