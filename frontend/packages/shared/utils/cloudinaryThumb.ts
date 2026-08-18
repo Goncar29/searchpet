@@ -125,3 +125,41 @@ export function cloudinaryCardThumb(
   const [w, h] = LISTING_SIZES[variant];
   return cloudinaryThumb(url, w, h);
 }
+
+/**
+ * Foto acotada a una caja, SIN recortar.
+ *
+ * `c_limit` achica hasta entrar en `w x h` conservando la proporción, y nunca
+ * agranda. Es lo que necesita un contenedor `object-contain`: ahí el navegador
+ * ya muestra la foto entera con bandas, así que un `c_lfill` recortaría la
+ * imagen ANTES de que llegue — y en una foto vertical de un perro, lo que se
+ * pierde es la cabeza.
+ *
+ * O sea que `object-fit` decide la transformación, no el tamaño:
+ *
+ *   object-cover    -> cloudinaryThumb   (c_lfill, recorta)
+ *   object-contain  -> cloudinaryFit     (c_limit, no recorta)
+ *
+ * Elegir mal no se ve como un bug: con `c_lfill` sobre un contenedor `contain`
+ * la foto se ve completa igual, sólo que ya venía recortada de Cloudinary.
+ *
+ * NO lleva `g_auto`: la gravity le dice a Cloudinary DÓNDE recortar, y acá no
+ * se recorta. Pasarla no rompe nada, pero es ruido que sugiere lo contrario de
+ * lo que hace la transformación.
+ */
+export function cloudinaryFit(
+  url: string | undefined | null,
+  width: number,
+  height: number,
+): string {
+  if (!url) return '';
+
+  const marca = '/image/upload/';
+  const corte = url.indexOf(marca);
+  if (corte === -1) return url;
+
+  const resto = url.slice(corte + marca.length);
+  if (!/^v\d+\//.test(resto)) return url;
+
+  return `${url.slice(0, corte + marca.length)}w_${width},h_${height},c_limit/${resto}`;
+}

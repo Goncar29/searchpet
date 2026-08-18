@@ -118,6 +118,32 @@ describe('PetDetailPage', () => {
     expect(screen.getByText(/pets:detail\.markFoundConfirm/)).toBeInTheDocument();
   });
 
+  // La OTRA mitad del mismo invariante. El test de abajo cubre el CSS
+  // (object-contain); este cubre lo que se le pide a Cloudinary. Con `c_lfill`
+  // la foto llegaria YA recortada y el object-contain la mostraria entera sin
+  // que nada se vea roto — o sea que el guard del CSS solo no alcanza.
+  it('le pide a Cloudinary que NO recorte, y el fondo comparte la url', () => {
+    const FOTO = 'https://res.cloudinary.com/dd0yz5yxb/image/upload/v1785290767/searchpet/pets/abc/foto.webp';
+    petResult = {
+      data: lostPetWithOwner({
+        photos: [{ id: 'p1', url: FOTO, is_primary: true } as Photo],
+      }),
+      isLoading: false,
+    };
+
+    const { container } = render(<PetDetailPage />, { wrapper });
+
+    const img = container.querySelector('img[alt]') as HTMLImageElement;
+    expect(img.src).toContain('c_limit');
+    expect(img.src).not.toContain('c_lfill');
+
+    // El fondo borroso tiene que pedir EXACTAMENTE la misma url. Si pidiera su
+    // propio tamaño serian dos descargas donde hoy hay una — la trampa que se
+    // colo con el avatar del navbar en el #167.
+    const backdrop = container.querySelector('[data-hero-backdrop]') as HTMLElement;
+    expect(backdrop.style.backgroundImage).toContain(img.src);
+  });
+
   it('nunca recorta la foto de la mascota', () => {
     petResult = {
       data: lostPetWithOwner({

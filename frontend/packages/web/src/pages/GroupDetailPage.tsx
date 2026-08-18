@@ -2,6 +2,7 @@ import { useParams, useNavigate } from 'react-router';
 import { useGroup, useGroupMembers, useJoinGroup, useLeaveGroup } from '@shared/hooks';
 import { useAuth } from '../context/AuthContext';
 import type { GroupMember } from '@shared/types';
+import { cloudinaryThumb } from '@shared/utils/cloudinaryThumb';
 
 // ============================================================
 // Helpers
@@ -28,7 +29,8 @@ function MemberCard({ member }: { member: GroupMember }) {
     <div className="flex items-center gap-3 p-3 bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-700">
       {member.profile_photo_url ? (
         <img
-          src={member.profile_photo_url}
+          src={cloudinaryThumb(member.profile_photo_url, 96)}
+          loading="lazy"
           alt={member.name}
           className="w-10 h-10 rounded-full object-cover flex-shrink-0"
         />

@@ -6,6 +6,7 @@ import type { PetType } from '@shared/types';
 import { getErrorMessage } from '@shared/utils/apiErrors';
 import { composeBirthDate, decomposeBirthDate } from '@shared/utils/petBirthDate';
 import { PetIdentityFields, type PetIdentityValue } from '../components/PetIdentityFields';
+import { cloudinaryFit } from '@shared/utils/cloudinaryThumb';
 
 interface FormState {
   name: string;
@@ -291,7 +292,7 @@ export function EditPetPage() {
             {currentPhoto && !previewURL && (
               <div className="mb-3">
                 <img
-                  src={currentPhoto.url}
+                  src={cloudinaryFit(currentPhoto.url, 600, 320)}
                   alt={form.name}
                   className="h-40 w-full object-contain rounded-lg border border-gray-200 dark:border-gray-700"
                 />

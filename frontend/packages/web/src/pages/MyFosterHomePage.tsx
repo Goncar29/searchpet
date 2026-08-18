@@ -9,6 +9,7 @@ import {
 } from '@shared/hooks';
 import { getErrorMessage } from '@shared/utils/apiErrors';
 import type { AnimalKind, FosterHomeStatus, HousingType } from '@shared/types';
+import { cloudinaryThumb } from '@shared/utils/cloudinaryThumb';
 
 const HOUSING_TYPES: HousingType[] = ['house', 'apartment'];
 const ANIMAL_TYPES: AnimalKind[] = ['dog', 'cat', 'other'];
@@ -385,7 +386,7 @@ export function MyFosterHomePage() {
                 key={photo.id}
                 className="relative aspect-square rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700"
               >
-                <img src={photo.url} alt="" className="w-full h-full object-cover" />
+                <img src={cloudinaryThumb(photo.url, 320)} alt="" loading="lazy" className="w-full h-full object-cover" />
                 <button
                   type="button"
                   onClick={() => handleDeletePhoto(photo.id)}
