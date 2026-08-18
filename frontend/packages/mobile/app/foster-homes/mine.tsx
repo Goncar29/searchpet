@@ -35,6 +35,8 @@ import type {
   UpdateMyFosterHomeRequest,
 } from '@shared/types';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
+import { cloudinaryThumb } from '@shared/utils/cloudinaryThumb';
+import { IMAGE_SIZES } from '../../constants/imageSizes';
 
 const HOUSING_TYPES: HousingType[] = ['house', 'apartment'];
 const ANIMAL_TYPES: AnimalKind[] = ['dog', 'cat', 'other'];
@@ -406,7 +408,7 @@ export default function MyFosterHomeScreen() {
           <View style={styles.photoGrid}>
             {photos.map((photo: FosterHomePhoto) => (
               <View key={photo.id} style={styles.photoThumbWrapper}>
-                <Image source={{ uri: photo.url }} style={styles.photoThumb} />
+                <Image source={{ uri: cloudinaryThumb(photo.url, IMAGE_SIZES.avatarMd) }} style={styles.photoThumb} />
                 <TouchableOpacity
                   style={styles.photoDeleteButton}
                   onPress={() => handleDeletePhoto(photo.id)}

@@ -25,6 +25,8 @@ import { getErrorMessage } from '../../shared/utils/apiErrors';
 import { useLocationStore } from '../store';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS, PET_TYPES } from '../constants';
 import type { Pet } from '../../shared/types';
+import { cloudinaryThumb } from '@shared/utils/cloudinaryThumb';
+import { IMAGE_SIZES } from '../constants/imageSizes';
 
 export default function MyPetsScreen() {
   const { t } = useTranslation(['my_pets', 'common', 'adoption']);
@@ -249,7 +251,11 @@ export default function MyPetsScreen() {
                     <ActivityIndicator color={COLORS.primary} />
                   </View>
                 ) : primaryPhoto ? (
-                  <Image source={{ uri: primaryPhoto.url }} style={styles.photo} />
+                  <Image
+                    testID="my-pet-photo"
+                    source={{ uri: cloudinaryThumb(primaryPhoto.url, IMAGE_SIZES.thumbLg) }}
+                    style={styles.photo}
+                  />
                 ) : (
                   <View style={styles.photoPlaceholder}>
                     <Text style={styles.photoIcon}>{getPetIcon(item.type)}</Text>

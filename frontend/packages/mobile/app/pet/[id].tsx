@@ -33,6 +33,8 @@ import { PdfFlyerButton } from '../../components/PdfFlyerButton';
 import { TimelineMap } from '../../components/TimelineMap';
 import { AdoptionPetBody } from '../../components/AdoptionPetBody';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
+import { cloudinaryThumb } from '@shared/utils/cloudinaryThumb';
+import { IMAGE_BOXES } from '../../constants/imageSizes';
 
 const { width } = Dimensions.get('window');
 
@@ -206,7 +208,7 @@ export default function PetDetailScreen() {
             onViewableItemsChanged={onViewableItemsChanged}
             viewabilityConfig={viewabilityConfig.current}
             renderItem={({ item }) => (
-              <Image source={{ uri: item.url }} style={styles.carouselImage} />
+              <Image source={{ uri: cloudinaryThumb(item.url, ...IMAGE_BOXES.carouselTall) }} style={styles.carouselImage} />
             )}
           />
         ) : (

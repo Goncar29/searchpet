@@ -28,6 +28,8 @@ import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
 import { getDateLocale } from '../../i18n/dateLocale';
 import type { Badge, UserReview } from '../../../shared/types';
 import { BADGE_META } from '../../../shared/types';
+import { cloudinaryThumb } from '@shared/utils/cloudinaryThumb';
+import { IMAGE_SIZES } from '../../constants/imageSizes';
 
 // ============================================================
 // Helpers
@@ -131,7 +133,7 @@ function ReviewCard({ review, onDelete }: ReviewCardProps) {
     <View style={styles.reviewCard}>
       <View style={styles.reviewHeader}>
         {review.reviewer_photo ? (
-          <Image source={{ uri: review.reviewer_photo }} style={styles.reviewAvatar} />
+          <Image source={{ uri: cloudinaryThumb(review.reviewer_photo, IMAGE_SIZES.avatarSm) }} style={styles.reviewAvatar} />
         ) : (
           <View style={styles.reviewAvatarInitials}>
             <Text style={styles.reviewAvatarText}>{initials}</Text>
@@ -369,7 +371,7 @@ export default function PublicProfileScreen() {
       <View style={styles.userCard}>
         {profile.profile_photo_url ? (
           <Image
-            source={{ uri: profile.profile_photo_url }}
+            source={{ uri: cloudinaryThumb(profile.profile_photo_url, IMAGE_SIZES.avatarMd) }}
             style={styles.photoAvatar}
           />
         ) : (

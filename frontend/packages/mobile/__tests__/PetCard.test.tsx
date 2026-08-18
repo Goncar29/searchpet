@@ -129,4 +129,23 @@ describe('PetCard', () => {
     fireEvent.press(screen.getByText('Firulais'));
     expect(onPress).toHaveBeenCalledTimes(1);
   });
+
+  // La foto de la card salia CRUDA: ~107 KB para una caja de ancho completo x
+  // 180 dp. En mobile el calculo no es el de la web — las medidas son dp y hay
+  // que multiplicar por el DPR (se toma 3x), asi que el ANCHO se queda en 1200;
+  // lo que ahorra es el recorte del alto, porque la foto es 3:4 vertical y la
+  // caja es apaisada. Medido: 107.156 B -> 42.840 B.
+  it('la foto pide la miniatura de card, no la original', () => {
+    const FOTO = 'https://res.cloudinary.com/dd0yz5yxb/image/upload/v1785290767/searchpet/pets/abc/foto.webp';
+    render(
+      <PetCard
+        report={{ ...baseReport, pet: { ...baseReport.pet!, photos: [{ url: FOTO }] } } as Report}
+        onPress={() => {}}
+      />,
+    );
+
+    const uri = screen.getByTestId('pet-photo').props.source.uri as string;
+    expect(uri).toContain('w_1200,h_540,c_lfill,g_auto');
+    expect(uri).not.toBe(FOTO);
+  });
 });

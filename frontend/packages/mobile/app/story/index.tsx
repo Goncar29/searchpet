@@ -10,6 +10,8 @@ import { getDateLocale } from '../../i18n/dateLocale';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
 import { PawPlaceholder } from '../../components/PawPlaceholder';
 import type { SuccessStory } from '../../../../shared/types';
+import { cloudinaryThumb } from '@shared/utils/cloudinaryThumb';
+import { IMAGE_BOXES } from '../../constants/imageSizes';
 
 export default function StoriesScreen() {
   const router = useRouter();
@@ -24,7 +26,7 @@ export default function StoriesScreen() {
       activeOpacity={0.7}
     >
       {item.pet_photo ? (
-        <Image source={{ uri: item.pet_photo }} style={styles.cardImage} resizeMode="cover" />
+        <Image source={{ uri: cloudinaryThumb(item.pet_photo, ...IMAGE_BOXES.card) }} style={styles.cardImage} resizeMode="cover" />
       ) : null}
       <View style={styles.cardHeader}>
         <Text style={styles.petName}>{item.pet_name}</Text>

@@ -7,6 +7,8 @@ import { useTranslation } from 'react-i18next';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../constants';
 import type { Report, Pet } from '../../shared/types';
 import { PawPlaceholder } from './PawPlaceholder';
+import { cloudinaryThumb } from '@shared/utils/cloudinaryThumb';
+import { IMAGE_BOXES } from '../constants/imageSizes';
 
 interface PetCardProps {
   /** Modo feed: reporte con mascota anidada (nearby reports) */
@@ -93,7 +95,11 @@ export function PetCard({ report, pet: petProp, onPress }: PetCardProps) {
       {/* Imagen */}
       <View style={styles.imageContainer}>
         {primaryPhoto ? (
-          <Image source={{ uri: primaryPhoto.url }} style={styles.image} />
+          <Image
+            testID="pet-photo"
+            source={{ uri: cloudinaryThumb(primaryPhoto.url, ...IMAGE_BOXES.card) }}
+            style={styles.image}
+          />
         ) : (
           <View style={styles.imagePlaceholder}>
             <PawPlaceholder size={48} />

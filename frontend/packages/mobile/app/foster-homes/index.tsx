@@ -20,6 +20,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFosterHomes } from '@shared/hooks';
 import { FosterHome } from '@shared/types';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
+import { cloudinaryThumb } from '@shared/utils/cloudinaryThumb';
+import { IMAGE_BOXES } from '../../constants/imageSizes';
 
 // ============================================================
 // FosterHomeCard — inline component
@@ -38,7 +40,7 @@ function FosterHomeCard({ fosterHome, t, onPress }: FosterHomeCardProps) {
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.8}>
       {/* Photo or placeholder */}
       {photo ? (
-        <Image source={{ uri: photo.url }} style={styles.cardImage} />
+        <Image source={{ uri: cloudinaryThumb(photo.url, ...IMAGE_BOXES.card) }} style={styles.cardImage} />
       ) : (
         <View style={styles.cardImagePlaceholder}>
           <Text style={{ fontSize: 40 }}>🏠</Text>

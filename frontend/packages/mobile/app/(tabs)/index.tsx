@@ -28,6 +28,8 @@ import { PetCard } from '../../components/PetCard';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS, MAP_DEFAULTS, PET_TYPES } from '../../constants';
 import type { PetType, SuccessStory, ClassifyResult, ImageSearchResult } from '../../../shared/types';
 import { ApiError } from '../../../shared/api/client';
+import { cloudinaryThumb } from '@shared/utils/cloudinaryThumb';
+import { IMAGE_SIZES } from '../../constants/imageSizes';
 
 const RADII = [5, 10, 25, 50] as const;
 
@@ -185,7 +187,7 @@ export default function HomeScreen() {
   const renderImageResult = ({ item }: { item: ImageSearchResult }) => (
     <TouchableOpacity style={styles.imageResultRow} onPress={() => handlePetPress(item.pet_id)} activeOpacity={0.7}>
       {item.photo_url ? (
-        <Image source={{ uri: item.photo_url }} style={styles.imageResultPhoto} />
+        <Image source={{ uri: cloudinaryThumb(item.photo_url, IMAGE_SIZES.thumb) }} style={styles.imageResultPhoto} />
       ) : (
         <View style={[styles.imageResultPhoto, styles.imageResultPhotoPlaceholder]}>
           <PawPlaceholder size={28} />
