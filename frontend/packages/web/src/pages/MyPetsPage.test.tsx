@@ -179,4 +179,20 @@ describe('MyPetsPage', () => {
     expect(screen.getByText('Pet registered')).toBeInTheDocument();
     expect(screen.queryByText('Pet adoption')).not.toBeInTheDocument();
   });
+
+  // La foto de la tarjeta sale de w_1200 y se dibuja en una caja h-40. Sin este
+  // guard, volver a la URL cruda no rompe nada visible: se ve igual y gasta 6x.
+  it('la tarjeta pide la miniatura compact, no la foto original', () => {
+    const FOTO = 'https://res.cloudinary.com/dd0yz5yxb/image/upload/v1785290767/searchpet/pets/abc/foto.webp';
+    state.owned = [
+      { ...makePet('lost'), photos: [{ url: FOTO }] } as unknown as Pet,
+    ];
+    state.reported = [];
+
+    render(<MyPetsPage />, { wrapper });
+
+    const img = screen.getByAltText('Pet lost') as HTMLImageElement;
+    // 'compact' y NO 'feed': la caja es h-40 (2,47:1), no h-48 (2,03:1).
+    expect(img.src).toContain('w_600,h_240,c_lfill,g_auto');
+  });
 });

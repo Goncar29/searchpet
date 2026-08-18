@@ -17,6 +17,7 @@ import { getErrorMessage } from '@shared/utils/apiErrors';
 import { ApiError } from '@shared/api/client';
 import { formatPetAge } from '@shared/utils/petAge';
 import { splitOwnedPets } from '@shared/utils/ownedPetBuckets';
+import { cloudinaryCardThumb, cloudinaryThumb } from '@shared/utils/cloudinaryThumb';
 import { useAuth } from '../context/AuthContext';
 import type { Badge, Pet } from '@shared/types';
 import { BADGE_META } from '@shared/types';
@@ -167,7 +168,8 @@ function PetSummaryCard({ pet, t }: { pet: Pet; t: TFunction }) {
       <div className="h-40 bg-gray-100 dark:bg-gray-800 relative overflow-hidden">
         {photo ? (
           <img
-            src={photo.url}
+            src={cloudinaryCardThumb(photo.url, 'compact')}
+            loading="lazy"
             alt={pet.name}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
           />
@@ -207,7 +209,7 @@ function PetSummaryRow({ pet, t }: { pet: Pet; t: TFunction }) {
     >
       <div className="h-14 w-14 shrink-0 rounded-xl overflow-hidden bg-gray-100 dark:bg-gray-800">
         {photo ? (
-          <img src={photo.url} alt="" className="w-full h-full object-cover" />
+          <img src={cloudinaryThumb(photo.url, 112)} alt="" loading="lazy" className="w-full h-full object-cover" />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
             <PawPlaceholder className="w-1/2" />
@@ -556,7 +558,7 @@ export function ProfilePage() {
                 >
                   {user.profile_photo_url ? (
                     <img
-                      src={user.profile_photo_url}
+                      src={cloudinaryThumb(user.profile_photo_url, 224)}
                       alt=""
                       className="h-28 w-28 rounded-full object-cover ring-4 ring-primary/20"
                     />

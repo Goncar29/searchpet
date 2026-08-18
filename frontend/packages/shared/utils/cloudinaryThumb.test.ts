@@ -89,4 +89,27 @@ describe('cloudinaryCardThumb', () => {
     const ajena = 'https://picsum.photos/seed/foo/800/600';
     expect(cloudinaryCardThumb(ajena)).toBe(ajena);
   });
+
+  // Las tres variantes salen de medir la grilla MAS DENSA de cada pantalla sobre
+  // 1216 px de ancho de contenido. Estan fijadas acá porque el numero es la
+  // decision: una pantalla que pide la variante de otra no se ve rota, se ve
+  // igual y recorta distinto.
+  it.each([
+    ['feed', 'w_600,h_300', 'HomePage — lg:3 gap-6, caja 389x192'],
+    ['adopt', 'w_450,h_300', 'AdoptPage — xl:4 gap-6, caja 286x192'],
+    ['compact', 'w_600,h_240', 'MyPetsPage/ProfilePage — lg:3 gap-4, caja 395x160'],
+  ] as const)('la variante %s pide %s (%s)', (variante, medida) => {
+    expect(cloudinaryCardThumb(REAL, variante)).toContain(`${medida},c_lfill,g_auto`);
+  });
+
+  it('las tres variantes son distintas entre si', () => {
+    // Si dos colapsan al mismo valor, la variante dejo de significar algo y
+    // alguna pantalla esta recortando con la proporcion de otra.
+    const urls = [
+      cloudinaryCardThumb(REAL, 'feed'),
+      cloudinaryCardThumb(REAL, 'adopt'),
+      cloudinaryCardThumb(REAL, 'compact'),
+    ];
+    expect(new Set(urls).size).toBe(3);
+  });
 });

@@ -287,4 +287,60 @@ describe('LeaderboardPage', () => {
       expect(screen.getByText('leaderboard:empty|Salto')).toBeTruthy();
     });
   });
+
+  // El Avatar lo comparten el podio (h-28 = 112 css) y las filas (h-11 = 44), y
+  // el tamanio pedido va por prop porque el visible lo decide una clase de
+  // Tailwind. Es exactamente donde se cuela el numero equivocado.
+  it('el podio pide 224 y las filas 96', () => {
+    const FOTO = 'https://res.cloudinary.com/dd0yz5yxb/image/upload/v1785290767/searchpet/pets/abc/foto.webp';
+    entries = [
+      entry(1, { profile_photo_url: FOTO }),
+      entry(2, { profile_photo_url: FOTO }),
+      entry(3, { profile_photo_url: FOTO }),
+      entry(4, { profile_photo_url: FOTO }),
+    ];
+
+    const { container } = render(<LeaderboardPage />, { wrapper });
+    // La pagina no dibuja resultados hasta que se busca una ciudad; sin esto el
+    // DOM no tiene un solo <img> y el test pasaria a verde el dia que alguien
+    // rompa el avatar.
+    search('Montevideo');
+    const srcs = [...container.querySelectorAll('img')].map((i) => i.getAttribute('src') || '');
+
+    // A CADA plaza por su nombre accesible, no "alguna imagen de 224". La
+    // version anterior de este test pedia que EXISTIERA una de 224 y una de 96,
+    // y eso queda verde con el 2do y el 3ro pidiendo cualquier cosa — que es
+    // exactamente el defecto que se colo (un solo px={224} para dos className
+    // distintos). Un guard que no distingue las plazas no protege el podio.
+    const avatarDe = (re: RegExp) =>
+      (screen.getByLabelText(re).querySelector('img') as HTMLImageElement).getAttribute('src') || '';
+
+    // 1er puesto: h-28 = 112 css -> 224
+    expect(avatarDe(/^leaderboard:podiumAria\|1,/)).toContain('w_224,h_224,c_lfill');
+    // 2do y 3ro: h-20 = 80 css -> 160
+    expect(avatarDe(/^leaderboard:podiumAria\|2,/)).toContain('w_160,h_160,c_lfill');
+    expect(avatarDe(/^leaderboard:podiumAria\|3,/)).toContain('w_160,h_160,c_lfill');
+
+    // Las filas (4to en adelante) son h-11 = 44 css -> 96
+    expect(srcs.some((s) => s.includes('w_96,h_96,c_lfill'))).toBe(true);
+
+    // Y ninguna se queda con la original.
+    expect(srcs.filter((s) => s.includes('res.cloudinary.com')).every((s) => s.includes('c_lfill'))).toBe(true);
+  });
+
+  it('el podio NO difiere sus imagenes, las filas si', () => {
+    // Tres imagenes siempre arriba del pliegue: diferirlas solo retrasa lo
+    // primero que se ve. Las filas nacen abajo y si van diferidas.
+    const FOTO = 'https://res.cloudinary.com/dd0yz5yxb/image/upload/v1785290767/searchpet/pets/abc/foto.webp';
+    entries = [1, 2, 3, 4].map((r) => entry(r, { profile_photo_url: FOTO }));
+
+    render(<LeaderboardPage />, { wrapper });
+    search('Montevideo');
+
+    const podio = screen.getByLabelText(/^leaderboard:podiumAria\|1,/).querySelector('img');
+    expect(podio?.getAttribute('loading')).toBeNull();
+
+    const fila = screen.getByLabelText(/^leaderboard:rowAria\|4,/)?.querySelector('img');
+    expect(fila?.getAttribute('loading')).toBe('lazy');
+  });
 });

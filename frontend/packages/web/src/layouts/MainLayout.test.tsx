@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -8,11 +8,15 @@ vi.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (key: string) => key, i18n: { language: 'es' } }),
 }));
 
+const mockUser = vi.hoisted(
+  () => ({ current: { id: 'user-1', name: 'Me' } as Record<string, unknown> }),
+);
+
 vi.mock('../context/AuthContext', () => ({
   useAuth: () => ({
     isAuthenticated: true,
     isAdmin: false,
-    user: { id: 'user-1', name: 'Me' },
+    user: mockUser.current,
     logout: vi.fn(),
   }),
 }));
@@ -124,5 +128,35 @@ describe('MainLayout — los links del nav salen de i18n', () => {
       expect(label).not.toMatch(/\p{Extended_Pictographic}/u);
     }
     expect(labels).toContain('leaderboard');
+  });
+});
+
+describe('MainLayout — miniatura del avatar', () => {
+  const FOTO =
+    'https://res.cloudinary.com/dd0yz5yxb/image/upload/v1785290767/searchpet/pets/abc/foto.webp';
+
+  beforeEach(() => {
+    vi.mocked(useUnreadCount).mockReturnValue({ data: { count: 0 } } as unknown as ReturnType<
+      typeof useUnreadCount
+    >);
+    mockUser.current = { id: 'user-1', name: 'Me' };
+  });
+
+  it('el avatar del navbar pide 64, no la foto original', () => {
+    // Es el avatar de MAS frecuencia del sitio: se dibuja en todas las paginas.
+    // Y si se queda con la original, el perfil baja DOS variantes de la misma
+    // foto (la de 224 de su avatar mas esta), cuando antes compartian URL y
+    // eran una sola descarga.
+    mockUser.current = { id: 'user-1', name: 'Me', profile_photo_url: FOTO };
+
+    renderLayout();
+
+    const img = screen.getByAltText('Me') as HTMLImageElement;
+    expect(img.src).toContain('w_64,h_64,c_lfill,g_auto');
+  });
+
+  it('sin foto cae en la inicial, sin romper', () => {
+    renderLayout();
+    expect(screen.queryByAltText('Me')).toBeNull();
   });
 });

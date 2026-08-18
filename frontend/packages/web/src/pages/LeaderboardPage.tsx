@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router';
 import { useTranslation } from 'react-i18next';
+import { cloudinaryThumb } from '@shared/utils/cloudinaryThumb';
 import type { TFunction } from 'i18next';
 import { useLeaderboard, useStats } from '@shared/hooks';
 import { BADGE_META } from '@shared/types';
@@ -100,13 +101,35 @@ function RowBadges({ badges, className = '' }: { badges: string[]; className?: s
   );
 }
 
-/** Avatar con caida a la inicial: no todo el mundo subio foto. */
-function Avatar({ entry, className }: { entry: LeaderboardEntry; className: string }) {
+/**
+ * Avatar con caida a la inicial: no todo el mundo subio foto.
+ *
+ * `px` es el lado en pixeles que se le pide a Cloudinary, y va explicito porque
+ * el tamaño VISIBLE lo decide `className`, que es una cadena de Tailwind: desde
+ * adentro no hay forma de leerlo. Si cambia la clase, hay que cambiar el numero
+ * — un avatar pedido a la medida equivocada no se ve roto, se ve igual y gasta
+ * distinto.
+ */
+function Avatar({
+  entry,
+  className,
+  px,
+  eager = false,
+}: {
+  entry: LeaderboardEntry;
+  className: string;
+  px: number;
+  eager?: boolean;
+}) {
   if (entry.profile_photo_url) {
     return (
       <img
-        src={entry.profile_photo_url}
+        src={cloudinaryThumb(entry.profile_photo_url, px)}
         alt=""
+        // El podio esta SIEMPRE arriba del pliegue y son tres imagenes: diferirlas
+        // solo retrasa lo primero que se ve. Las filas si van diferidas — son
+        // veinte y la mayoria nace abajo.
+        loading={eager ? undefined : 'lazy'}
         className={`${className} rounded-full object-cover bg-gray-100 dark:bg-gray-800`}
       />
     );
@@ -157,7 +180,17 @@ function PodiumPlace({ entry, place }: { entry: LeaderboardEntry; place: number 
       className={`group flex flex-col items-center text-center ${PODIUM_ORDER[place] ?? ''}`}
     >
       <div className="relative">
-        <Avatar entry={entry} className={first ? 'h-24 w-24 sm:h-28 sm:w-28' : 'h-20 w-20'} />
+        {/* Un `px` por plaza, no uno para las tres: el primero es h-28 (112 css)
+            y el segundo y el tercero son h-20 (80). Con 224 fijo, esos dos
+            pedian 2,8x su caja — la misma sobre-descarga que este cambio vino a
+            cerrar, colada en el unico call site donde un numero servia a dos
+            clases distintas. */}
+        <Avatar
+          entry={entry}
+          className={first ? 'h-24 w-24 sm:h-28 sm:w-28' : 'h-20 w-20'}
+          px={first ? 224 : 160}
+          eager
+        />
         <span
           aria-hidden="true"
           className={`absolute -bottom-1 -right-1 flex items-center justify-center rounded-full border-2 border-gray-50 dark:border-gray-950 font-display font-bold text-white ${
@@ -228,7 +261,7 @@ function LeaderboardRow({ entry }: { entry: LeaderboardEntry }) {
         {entry.rank}
       </span>
 
-      <Avatar entry={entry} className="h-11 w-11 shrink-0 text-lg" />
+      <Avatar entry={entry} className="h-11 w-11 shrink-0 text-lg" px={96} />
 
       {/* En celular los logros bajan a su propia linea debajo de la ciudad; en
           escritorio se acomodan a la derecha del nombre. Van UNA sola vez en el

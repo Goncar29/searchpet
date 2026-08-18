@@ -1,0 +1,72 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { AdoptPage } from './AdoptPage';
+import type { Pet } from '@shared/types';
+
+vi.mock('react-i18next', () => ({
+  useTranslation: () => ({ t: (key: string) => key, i18n: { language: 'es' } }),
+}));
+
+// `useAdoptions` se desestructura como `const { data }` y la pagina lee
+// `data?.data` (AdoptPage.tsx:40), o sea que el hook devuelve un SOBRE
+// paginado, no el array. Devolver el array deja la grilla vacia y el test
+// falla sin que haya nada roto en la pagina.
+const state = vi.hoisted(() => ({ data: { data: [] as unknown[], total: 0 } }));
+
+vi.mock('@shared/hooks', () => ({
+  useAdoptions: () => ({ data: state.data, isLoading: false }),
+}));
+
+function wrapper({ children }: { children: React.ReactNode }) {
+  return (
+    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+      <MemoryRouter>{children}</MemoryRouter>
+    </QueryClientProvider>
+  );
+}
+
+const FOTO =
+  'https://res.cloudinary.com/dd0yz5yxb/image/upload/v1785290767/searchpet/pets/abc/foto.webp';
+
+function pet(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'pet-1',
+    name: 'Bruno',
+    type: 'perro',
+    status: 'adoption',
+    photos: [{ url: FOTO }],
+    ...overrides,
+  } as unknown as Pet;
+}
+
+describe('AdoptPage', () => {
+  beforeEach(() => {
+    state.data = { data: [], total: 0 };
+  });
+
+  // Esta pantalla es la unica que llega a CUATRO columnas (`xl:grid-cols-4`),
+  // asi que su tarjeta mide ~286x192 y es casi cuadrada. Pedir la variante del
+  // feed —600x300, mas apaisada— no se veria roto: se veria igual y recortaria
+  // con la proporcion de otra pantalla. Por eso el guard fija el numero.
+  it('la tarjeta pide la variante adopt, no la del feed', () => {
+    state.data = { data: [pet()], total: 1 };
+
+    render(<AdoptPage />, { wrapper });
+
+    const img = screen.getByAltText('Bruno') as HTMLImageElement;
+    expect(img.src).toContain('w_450,h_300,c_lfill,g_auto');
+  });
+
+  it('una foto que no es de Cloudinary se dibuja intacta', () => {
+    // El seed usa hosts ajenos. Recortar una URL que no es nuestra romperia la
+    // imagen en vez de achicarla.
+    const ajena = 'https://picsum.photos/seed/foo/800/600';
+    state.data = { data: [pet({ photos: [{ url: ajena }] })], total: 1 };
+
+    render(<AdoptPage />, { wrapper });
+
+    expect((screen.getByAltText('Bruno') as HTMLImageElement).src).toBe(ajena);
+  });
+});
