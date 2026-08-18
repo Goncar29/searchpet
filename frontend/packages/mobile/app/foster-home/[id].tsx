@@ -25,6 +25,8 @@ import { getErrorMessage } from '@shared/utils/apiErrors';
 import type { FosterHomePhoto, AnimalKind } from '@shared/types';
 import { useAuthStore } from '../../store';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
+import { cloudinaryThumb } from '@shared/utils/cloudinaryThumb';
+import { IMAGE_BOXES } from '../../constants/imageSizes';
 
 const { width } = Dimensions.get('window');
 
@@ -104,7 +106,7 @@ export default function FosterHomeDetailScreen() {
             showsHorizontalScrollIndicator={false}
           >
             {photos.map((photo: FosterHomePhoto) => (
-              <Image key={photo.id} source={{ uri: photo.url }} style={styles.carouselImage} />
+              <Image key={photo.id} source={{ uri: cloudinaryThumb(photo.url, ...IMAGE_BOXES.carousel) }} style={styles.carouselImage} />
             ))}
           </ScrollView>
         ) : (

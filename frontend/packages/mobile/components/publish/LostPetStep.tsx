@@ -6,6 +6,8 @@ import { useAuthStore } from '../../store';
 import type { Pet, Photo } from '../../../shared/types';
 import { COLORS, SPACING, FONTS, RADIUS } from '../../constants';
 import { PawPlaceholder } from '../PawPlaceholder';
+import { cloudinaryThumb } from '@shared/utils/cloudinaryThumb';
+import { IMAGE_SIZES } from '../../constants/imageSizes';
 
 interface LostPetStepProps {
   onSelect: (pet: Pet) => void;
@@ -70,7 +72,7 @@ export function LostPetStep({ onSelect }: LostPetStepProps) {
             accessibilityRole="button"
           >
             {primaryPhoto ? (
-              <Image source={{ uri: primaryPhoto.url }} style={styles.thumb} />
+              <Image source={{ uri: cloudinaryThumb(primaryPhoto.url, IMAGE_SIZES.thumb) }} style={styles.thumb} />
             ) : (
               <View style={styles.thumbPlaceholder}>
                 <PawPlaceholder size={28} />

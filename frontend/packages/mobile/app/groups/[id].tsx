@@ -22,6 +22,8 @@ import { useGroup, useGroupMembers, useJoinGroup, useLeaveGroup } from '../../..
 import { getErrorMessage } from '../../../shared/utils/apiErrors';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
 import type { GroupMember } from '../../../shared/types';
+import { cloudinaryThumb } from '@shared/utils/cloudinaryThumb';
+import { IMAGE_SIZES } from '../../constants/imageSizes';
 
 // ============================================================
 // Helpers
@@ -43,7 +45,7 @@ function MemberRow({ member }: { member: GroupMember }) {
   return (
     <View style={styles.memberRow}>
       {member.profile_photo_url ? (
-        <Image source={{ uri: member.profile_photo_url }} style={styles.memberAvatar} />
+        <Image source={{ uri: cloudinaryThumb(member.profile_photo_url, IMAGE_SIZES.avatarSm) }} style={styles.memberAvatar} />
       ) : (
         <View style={styles.memberAvatarInitials}>
           <Text style={styles.memberAvatarText}>{getInitials(member.name)}</Text>

@@ -15,6 +15,8 @@ import { ApiError } from '../../../shared/api/client';
 import { useMyPets, usePublicProfile, useUploadProfilePhotoNative, useVerificationStatus, useSendEmailOTP, useConfirmEmailOTP } from '../../../shared/hooks';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
 import { LANG_KEY } from '../../i18n';
+import { cloudinaryThumb } from '@shared/utils/cloudinaryThumb';
+import { IMAGE_SIZES } from '../../constants/imageSizes';
 
 export default function ProfileScreen() {
   const { t } = useTranslation('profile');
@@ -198,7 +200,7 @@ export default function ProfileScreen() {
               <ActivityIndicator color={COLORS.primary} />
             </View>
           ) : user?.profile_photo_url ? (
-            <Image source={{ uri: user.profile_photo_url }} style={styles.avatarImage} />
+            <Image source={{ uri: cloudinaryThumb(user.profile_photo_url, IMAGE_SIZES.avatarMd) }} style={styles.avatarImage} />
           ) : (
             <View style={styles.avatar}>
               <Text style={{ fontSize: 36 }}>👤</Text>
