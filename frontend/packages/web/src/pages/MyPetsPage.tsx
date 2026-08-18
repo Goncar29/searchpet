@@ -6,6 +6,7 @@ import type { Pet, PetStatus, Photo } from '@shared/types';
 import { getErrorMessage } from '@shared/utils/apiErrors';
 import { PawPlaceholder } from '../components/PawPlaceholder';
 import { selectableStatuses } from '@shared/utils/petStatusTransitions';
+import { splitOwnedPets } from '@shared/utils/ownedPetBuckets';
 
 function SkeletonCard() {
   return (
@@ -234,12 +235,11 @@ export function MyPetsPage() {
 
   // Adoption listings are owned pets too, but they get their own tab so
   // they don't clutter "Mis mascotas" (which is for the owner's regular pets).
-  const ownedNonAdoption = (ownedPets ?? []).filter(
-    (p) => p.status !== 'adoption' && p.status !== 'adopted',
-  );
-  const adoptionPets = (ownedPets ?? []).filter(
-    (p) => p.status === 'adoption' || p.status === 'adopted',
-  );
+  //
+  // El corte vive en `shared/utils/ownedPetBuckets` y no acá: lo consumen esta
+  // pantalla y el perfil. Escrito a mano en los dos lados, agregar un estado
+  // rompería uno solo, en silencio.
+  const { owned: ownedNonAdoption, adoption: adoptionPets } = splitOwnedPets(ownedPets);
 
   const pets = tab === 'owned' ? ownedNonAdoption : tab === 'reported' ? reportedPets : adoptionPets;
   const isLoading = tab === 'owned' ? loadingOwned : tab === 'reported' ? loadingReported : loadingOwned;
