@@ -494,7 +494,17 @@
   },
   "profile": {
     "title": "My profile",
-    "editTitle": "Edit information",
+    "edit": "Edit",
+    "memberSince": "Member since {{date}}",
+    "noPhone": "No phone number",
+    "myPetsSubtitle": "Manage your companions' information.",
+    "reportsSubtitle": "The stray pets you reported.",
+    "adoptionSubtitle": "The ones you offered for adoption.",
+    "allInAdoption": "All your pets are currently up for adoption.",
+    "viewAll": "View all",
+    "viewAllPets": "View all my pets",
+    "viewAllReports": "View all my reports",
+    "viewAllAdoption": "View all my pets up for adoption",
     "email": "Email address",
     "emailReadOnly": "Email cannot be changed",
     "name": "Full name",
@@ -525,8 +535,7 @@
     "statsReports": "Reports",
     "statsFound": "Found",
     "statsShared": "Shared",
-    "achievementsTitle": "My achievements",
-    "noAchievements": "No achievements yet. Start by reporting pets!"
+    "achievementsTitle": "My achievements"
   },
   "sharedPet": {
     "notFoundTitle": "Pet not found",

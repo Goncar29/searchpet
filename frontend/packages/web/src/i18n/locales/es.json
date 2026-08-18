@@ -494,7 +494,17 @@
   },
   "profile": {
     "title": "Mi perfil",
-    "editTitle": "Editar información",
+    "edit": "Editar",
+    "memberSince": "Miembro desde {{date}}",
+    "noPhone": "Sin teléfono",
+    "myPetsSubtitle": "Gestioná la información de tus compañeros.",
+    "reportsSubtitle": "Las mascotas callejeras que reportaste.",
+    "adoptionSubtitle": "Las que ofreciste en adopción.",
+    "allInAdoption": "Todas tus mascotas están ofrecidas en adopción.",
+    "viewAll": "Ver todas",
+    "viewAllPets": "Ver todas mis mascotas",
+    "viewAllReports": "Ver todas las mascotas que reportaste",
+    "viewAllAdoption": "Ver todas mis mascotas en adopción",
     "email": "Correo electrónico",
     "emailReadOnly": "El correo no se puede modificar",
     "name": "Nombre completo",
@@ -525,8 +535,7 @@
     "statsReports": "Reportes",
     "statsFound": "Encontradas",
     "statsShared": "Compartidas",
-    "achievementsTitle": "Mis logros",
-    "noAchievements": "Todavía no tenés logros. ¡Empezá reportando mascotas!"
+    "achievementsTitle": "Mis logros"
   },
   "sharedPet": {
     "notFoundTitle": "Mascota no encontrada",

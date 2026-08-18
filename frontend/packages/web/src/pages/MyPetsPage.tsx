@@ -1,11 +1,12 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { useState, useEffect } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { useMyPets, useReportedPets, useDeletePet, useUpdatePet } from '@shared/hooks';
 import type { Pet, PetStatus, Photo } from '@shared/types';
 import { getErrorMessage } from '@shared/utils/apiErrors';
 import { PawPlaceholder } from '../components/PawPlaceholder';
 import { selectableStatuses } from '@shared/utils/petStatusTransitions';
+import { splitOwnedPets } from '@shared/utils/ownedPetBuckets';
 
 function SkeletonCard() {
   return (
@@ -223,9 +224,53 @@ function PetCard({
   );
 }
 
+type MyPetsTab = 'owned' | 'reported' | 'adoption';
+
+const MY_PETS_TABS: readonly MyPetsTab[] = ['owned', 'reported', 'adoption'];
+
+/**
+ * La pestaña que pide la URL, según `?tab=`.
+ *
+ * El perfil enlaza "ver todas las mascotas que reportaste" acá, y sin esto el
+ * link aterrizaba siempre en "Mis mascotas" — un nombre accesible que promete
+ * algo que el destino no entrega.
+ *
+ * La lista es explícita a propósito: un `?tab=cualquiera` tiene que caer en la
+ * pestaña por defecto, no dejar la pantalla sin ninguna seleccionada.
+ */
+function tabFromURL(search: string): MyPetsTab {
+  const param = new URLSearchParams(search).get('tab');
+  return MY_PETS_TABS.find((candidate) => candidate === param) ?? 'owned';
+}
+
 export function MyPetsPage() {
   const { t } = useTranslation(['pets', 'common', 'adoption']);
-  const [tab, setTab] = useState<'owned' | 'reported' | 'adoption'>('owned');
+  const location = useLocation();
+  const [tab, setTab] = useState<MyPetsTab>(() => tabFromURL(location.search));
+
+  // Re-derivar en CADA navegación, no sólo al montar.
+  //
+  // Leerlo únicamente en el inicializador de `useState` dejaba la URL y la
+  // pestaña visible contradiciéndose: quien llega desde el perfil a
+  // `/pets/mine?tab=adoption` y después toca "Mis mascotas" en el navbar
+  // (`MainLayout.tsx:101` → `/pets/mine`) navegaba de verdad, pero el elemento
+  // de ruta NO se vuelve a montar, así que la URL perdía el `?tab=` mientras la
+  // pestaña de adopción seguía seleccionada — y un F5 después cambiaba sola.
+  //
+  // Se depende de `location.key` y no del valor del parámetro: con el valor, ir
+  // de `/pets/mine` a `/pets/mine` (sin parámetro las dos veces) no dispara
+  // nada, que es el caso de tocar el navbar estando ya acá.
+  //
+  // Queda un residuo que NO se puede cerrar desde este componente: si la URL de
+  // destino es idéntica a la actual, React Router directamente no navega y
+  // `location.key` no cambia (regla #51). Los clicks en las pestañas siguen sin
+  // escribir la URL a propósito — esto es una puerta de entrada, no estado en la
+  // URL, y mudarlo entero es una refactorización con superficie propia
+  // (regla #52).
+  useEffect(() => {
+    setTab(tabFromURL(location.search));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.key]);
   const { data: ownedPets, isLoading: loadingOwned } = useMyPets();
   const { data: reportedPets, isLoading: loadingReported } = useReportedPets();
   const deletePet = useDeletePet();
@@ -234,12 +279,11 @@ export function MyPetsPage() {
 
   // Adoption listings are owned pets too, but they get their own tab so
   // they don't clutter "Mis mascotas" (which is for the owner's regular pets).
-  const ownedNonAdoption = (ownedPets ?? []).filter(
-    (p) => p.status !== 'adoption' && p.status !== 'adopted',
-  );
-  const adoptionPets = (ownedPets ?? []).filter(
-    (p) => p.status === 'adoption' || p.status === 'adopted',
-  );
+  //
+  // El corte vive en `shared/utils/ownedPetBuckets` y no acá: lo consumen esta
+  // pantalla y el perfil. Escrito a mano en los dos lados, agregar un estado
+  // rompería uno solo, en silencio.
+  const { owned: ownedNonAdoption, adoption: adoptionPets } = splitOwnedPets(ownedPets);
 
   const pets = tab === 'owned' ? ownedNonAdoption : tab === 'reported' ? reportedPets : adoptionPets;
   const isLoading = tab === 'owned' ? loadingOwned : tab === 'reported' ? loadingReported : loadingOwned;
@@ -263,7 +307,7 @@ export function MyPetsPage() {
     });
   };
 
-  const renderTab = (key: 'owned' | 'reported' | 'adoption', label: string) => (
+  const renderTab = (key: MyPetsTab, label: string) => (
     <button
       type="button"
       onClick={() => {
