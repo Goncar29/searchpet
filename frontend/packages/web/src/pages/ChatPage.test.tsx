@@ -18,11 +18,16 @@ vi.mock('../context/AuthContext', () => ({
 
 const navigateMock = vi.fn();
 
+// El parametro de la ruta es MUTABLE para que un test pueda cambiar de
+// conversacion sin desmontar nada — que es exactamente lo que hace React Router
+// cuando el usuario clickea la fila de al lado.
+const paramUserId = vi.hoisted(() => ({ current: 'user-2' }));
+
 vi.mock('react-router', async (importOriginal) => {
   const actual = await importOriginal<typeof import('react-router')>();
   return {
     ...actual,
-    useParams: () => ({ userId: 'user-2' }),
+    useParams: () => ({ userId: paramUserId.current }),
     useNavigate: () => navigateMock,
   };
 });
@@ -93,6 +98,7 @@ describe('ChatPage', () => {
     sendMessageToMutateMock.mockReset();
     capturedMenuProps = null;
     capturedMenuList = [];
+    paramUserId.current = 'user-2';
     usePublicProfileMock.mockReturnValue({ data: { id: 'user-2', name: 'Alice' } });
     useBlockStatusMock.mockReturnValue({ isBlocked: false, isLoading: false });
     // La lista del shell vuelve a vacio en cada test. Sin esto, el unico que la
@@ -330,6 +336,46 @@ describe('ChatPage', () => {
     // 'Alice' sale del perfil publico mockeado en beforeEach.
     expect(screen.getByText(/^chat:you ·/)).toBeTruthy();
     expect(screen.getByText(/^Alice ·/)).toBeTruthy();
+  });
+
+  it('el borrador NO viaja a la conversacion siguiente, y el envio va al destinatario nuevo', () => {
+    // EL BUG QUE ESTE GUARD CIERRA, medido en el browser antes de arreglarlo:
+    // React Router no remonta cuando solo cambia el parametro de la ruta, y
+    // desde que la lista comparte pantalla con el hilo, cambiar de conversacion
+    // es un click en la fila de al lado. Sin remontar, el borrador escrito
+    // mirando a Ana quedaba en el compositor de Bruno y el POST salia con
+    // `receiver_id` de BRUNO. Un mensaje escrito para una persona, entregado a
+    // otra.
+    //
+    // No lo veia ningun test porque todos fijaban `useParams` a un solo valor:
+    // con el parametro clavado, la unica transicion posible es la que SI
+    // desmonta. Por eso el mock es mutable.
+    vi.mocked(useConversation).mockReturnValue(mockConversation([], false));
+
+    const { rerender } = render(<ChatPage />, { wrapper });
+
+    const escribir = () => screen.getByPlaceholderText('chat:inputPlaceholder') as HTMLTextAreaElement;
+    fireEvent.change(escribir(), { target: { value: 'esto es privado, para user-2' } });
+    expect(escribir().value).toBe('esto es privado, para user-2');
+
+    // El usuario clickea otra fila: cambia el parametro, NO se desmonta nada.
+    paramUserId.current = 'user-9';
+    rerender(<ChatPage />);
+
+    expect(escribir().value).toBe('');
+
+    // Y lo que de verdad hacia daño: que apretar Enter mandara ese texto al
+    // nuevo destinatario. Ahora no hay texto que mandar, y cuando el usuario
+    // escribe, sale con el receiver correcto.
+    sendMessageToMutateMock.mockClear();
+    fireEvent.change(escribir(), { target: { value: 'hola user-9' } });
+    fireEvent.keyDown(escribir(), { key: 'Enter' });
+
+    expect(sendMessageToMutateMock).toHaveBeenCalledTimes(1);
+    expect(sendMessageToMutateMock.mock.calls[0][0]).toMatchObject({
+      receiverID: 'user-9',
+      content: 'hola user-9',
+    });
   });
 
   it('la fila abierta se marca con aria-current, no solo con un color', () => {

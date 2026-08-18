@@ -26,16 +26,49 @@ function dayKey(iso: string): string {
   return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
 }
 
+/**
+ * `/messages/:userId`.
+ *
+ * Sólo lee el parámetro y monta la conversación CON `key={userId}`. Esa key es
+ * el arreglo entero, y el motivo es de peso:
+ *
+ * React Router **no remonta** un componente cuando lo único que cambia es el
+ * parámetro de la ruta. Desde que la lista comparte pantalla con el hilo, saltar
+ * de una conversación a otra es un click en la fila de al lado — y sin la key,
+ * todo el `useState` de la conversación anterior sobrevive al salto. Medido en
+ * el browser antes de arreglarlo: un borrador escrito mirando a Ana quedaba en
+ * el compositor de Bruno, y al apretar Enter el POST salía con
+ * `receiver_id` de **Bruno**. Un mensaje escrito para una persona, entregado a
+ * otra. En la base quedó la fila que lo prueba.
+ *
+ * Antes de este rediseño el salto no existía: para cambiar de conversación había
+ * que pasar por `/messages`, que desmontaba esta pantalla y limpiaba todo. El
+ * camino nuevo es el que estrena el problema.
+ *
+ * Va por `key` y NO por un efecto que resetee los campos, porque un efecto es
+ * una LISTA que alguien tiene que acordarse de ampliar: hoy serían `input`,
+ * `remoteTyping`, `sendError` y cuatro refs con timers adentro, y el estado
+ * nuevo que se agregue mañana entra sin resetearse y sin que nada avise. La key
+ * los cubre a todos por construcción, incluidos los que todavía no existen.
+ *
+ * Efecto lateral y deseado: el `typing_stop` del cleanup ahora se dispara al
+ * cambiar de conversación, y sale con el `userId` VIEJO — que es a quien hay que
+ * avisarle. Sin remontar, ese aviso se lo habría comido el destinatario nuevo.
+ */
 export function ChatPage() {
-  const { t, i18n } = useTranslation(['chat', 'common', 'errors']);
   const { userId } = useParams<{ userId: string }>();
+  return <Conversation key={userId} userId={userId!} />;
+}
+
+function Conversation({ userId }: { userId: string }) {
+  const { t, i18n } = useTranslation(['chat', 'common', 'errors']);
   const { user, isAuthenticated } = useAuth();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
-  const { data: messages, isLoading, isError, refetch } = useConversation(userId!);
+  const { data: messages, isLoading, isError, refetch } = useConversation(userId);
   const sendMessageTo = useSendMessageTo();
-  const { data: profile } = usePublicProfile(userId!);
+  const { data: profile } = usePublicProfile(userId);
   const { isBlocked, isLoading: isBlockStatusLoading } = useBlockStatus(userId);
   const otherName = profile?.name ?? t('common:unknownUser');
 
@@ -205,7 +238,7 @@ export function ChatPage() {
         {/* Mark-unread is hidden here: viewing this page re-marks the
             conversation read on every refetch, which would silently undo it. */}
         <ConversationActionsMenu
-          otherUserId={userId!}
+          otherUserId={userId}
           otherUserName={otherName}
           showMarkUnread={false}
           onHidden={() => navigate('/messages')}
