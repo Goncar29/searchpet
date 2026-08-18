@@ -51,6 +51,13 @@ describe('HomePage', () => {
   beforeEach(() => {
     mockAuth = { isAuthenticated: false, user: null };
     mockSearchPets = undefined;
+    // `mockResolvedValueOnce` encola un valor que sobrevive al test si nadie lo
+    // consume. Hoy siempre se consume porque el guard de auth deja pasar la
+    // llamada, o sea que el aislamiento depende de una condicion de OTRO
+    // archivo: si ese guard cambia, el valor encolado se filtra al proximo test
+    // que llame a mutateAsync y rompe en un lugar que no tiene nada que ver.
+    mockMutateAsync.mockReset();
+    mockClassify.mockReset();
   });
 
   it('renderiza sin lanzar errores', () => {
@@ -109,11 +116,13 @@ describe('HomePage', () => {
 
     render(<HomePage />, { wrapper });
 
+    // Este `toContain` es el guard: falla si el tamanio cambia, si el modo de
+    // recorte cambia, y tambien si la URL sale sin transformar. No hace falta
+    // una asercion extra de "no es la original" — estaria cubierta por esta, y
+    // un comentario diciendo que protege algo que ya protege este renglon es
+    // como se termina cuidando una linea que no hace nada.
     const img = screen.getByAltText('Luna') as HTMLImageElement;
-    expect(img.src).toContain('w_600,h_300,c_fill,g_auto');
-    // La asercion que de verdad importa: que NO sea la original. Sin esto,
-    // pedir un tamanio equivocado seguiria pasando el test de arriba.
-    expect(img.src).not.toBe(FOTO_CLOUDINARY);
+    expect(img.src).toContain('w_600,h_300,c_lfill,g_auto');
   });
 
   it('los resultados de busqueda por foto tambien piden la miniatura', async () => {
@@ -129,8 +138,7 @@ describe('HomePage', () => {
     });
 
     const img = (await screen.findByAltText('Rocco')) as HTMLImageElement;
-    expect(img.src).toContain('w_600,h_300,c_fill,g_auto');
-    expect(img.src).not.toBe(FOTO_CLOUDINARY);
+    expect(img.src).toContain('w_600,h_300,c_lfill,g_auto');
   });
 
   it('una foto que no es de Cloudinary se dibuja intacta', () => {

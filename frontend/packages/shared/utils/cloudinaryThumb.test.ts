@@ -7,12 +7,12 @@ const REAL =
 describe('cloudinaryThumb', () => {
   it('inserta la transformacion despues de /upload/', () => {
     expect(cloudinaryThumb(REAL, 64)).toBe(
-      'https://res.cloudinary.com/dd0yz5yxb/image/upload/w_64,h_64,c_fill,g_auto/v1786328704/searchpet/pets/040f876a/foto.webp',
+      'https://res.cloudinary.com/dd0yz5yxb/image/upload/w_64,h_64,c_lfill,g_auto/v1786328704/searchpet/pets/040f876a/foto.webp',
     );
   });
 
   it('g_auto para que el recorte caiga en la cara y no en una pata', () => {
-    // Un c_fill sin gravity recorta al centro geometrico. En una foto vertical
+    // Un c_lfill sin gravity recorta al centro geometrico. En una foto vertical
     // de un perro, el centro suele ser el lomo: el marcador mostraria pelo.
     expect(cloudinaryThumb(REAL, 64)).toContain('g_auto');
   });
@@ -54,12 +54,26 @@ describe('cloudinaryThumb', () => {
 });
 
 describe('cloudinaryCardThumb', () => {
-  it('pide 600x300, la proporcion del contenedor de la tarjeta', () => {
-    // La tarjeta dibuja h-48 a ancho completo (~389x192, o sea 2:1) y encima
-    // aplica object-cover. Pedir un cuadrado hace que Cloudinary recorte con
-    // g_auto y el navegador vuelva a recortar arriba y abajo, ignorando la
-    // gravity: ese segundo recorte es el que corta cabezas.
-    expect(cloudinaryCardThumb(REAL)).toContain('w_600,h_300,c_fill,g_auto');
+  it('pide 600x300, la proporcion del contenedor en la grilla mas densa', () => {
+    // A `lg` la tarjeta es ~389x192, casi 2:1. En los demas breakpoints NO
+    // coincide (~1,85:1 a 768px, ~3,16:1 en una sola columna), asi que
+    // object-cover sigue recortando: 600x300 ACHICA ese segundo recorte, no lo
+    // elimina. Se elige el breakpoint mas denso porque es el que mas fotos
+    // dibuja por pantalla.
+    expect(cloudinaryCardThumb(REAL)).toContain('w_600,h_300,c_lfill,g_auto');
+  });
+
+  it('usa c_lfill y NUNCA c_fill, porque c_fill agranda', () => {
+    // El backend sube con `w_1200,c_limit` y c_limit no agranda, asi que un
+    // asset guardado puede medir menos de 600px (una captura, una foto
+    // reenviada por WhatsApp). Medido encadenando sobre una foto real achicada
+    // a 320px: la fuente pesa 10.062 B, c_fill devuelve 11.346 B —MAS que el
+    // original, lo contrario de para lo que existe este helper— y c_lfill
+    // devuelve 9.038 B. Con fuentes grandes los dos dan identico (15.430 B
+    // sobre un asset de 1200x1600), asi que el mapa no se entera.
+    const url = cloudinaryCardThumb(REAL);
+    expect(url).toContain('c_lfill');
+    expect(url).not.toMatch(/[,/]c_fill[,/]/);
   });
 
   it('NO agrega f_auto ni q_auto', () => {

@@ -59,7 +59,7 @@ describe('rastroMarkerHtml', () => {
     expect(html).toContain('preserveAspectRatio="xMidYMid slice"');
     // Pedida como miniatura, nunca la original: el mapa dibuja decenas a la vez
     // y el cuello del plan gratuito de Cloudinary es el bandwidth.
-    expect(html).toContain('w_64,h_64,c_fill,g_auto');
+    expect(html).toContain('w_64,h_64,c_lfill,g_auto');
   });
 
   it('cada marcador trae su PROPIO id de recorte', () => {
