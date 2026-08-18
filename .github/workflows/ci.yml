@@ -20,6 +20,7 @@ jobs:
   backend-test:
     name: Backend Tests
     runs-on: ubuntu-latest
+    timeout-minutes: 20  # observado 5m39s
 
     services:
       postgres:
@@ -83,6 +84,7 @@ jobs:
   e2e-backend:
     name: Backend E2E Tests
     runs-on: ubuntu-latest
+    timeout-minutes: 15  # observado 1m17s
 
     services:
       postgres:
@@ -130,6 +132,7 @@ jobs:
   frontend-web:
     name: Frontend Web Build
     runs-on: ubuntu-latest
+    timeout-minutes: 15  # observado 1m26s
 
     steps:
       - uses: actions/checkout@v6
@@ -176,6 +179,7 @@ jobs:
   mobile-test:
     name: Mobile Tests
     runs-on: ubuntu-latest
+    timeout-minutes: 15  # observado 39s
     defaults:
       run:
         working-directory: frontend/packages/mobile
@@ -213,6 +217,7 @@ jobs:
   e2e-web:
     name: E2E Tests (Web)
     runs-on: ubuntu-latest
+    timeout-minutes: 20  # observado 2m31s
     needs: [frontend-web]
     if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
 
@@ -292,8 +297,28 @@ jobs:
         working-directory: ./frontend/packages/web
         run: pnpm run preview &
 
+      # La version sale del paquete instalado y no de package.json: ahi dice
+      # "^1.44.0", y una clave de cache con un rango serviria binarios viejos
+      # despues de que el lockfile suba de minor.
+      - name: Resolve Playwright version
+        id: pw
+        working-directory: ./frontend/packages/web
+        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}
+
+      # `--with-deps` corre un apt-get, que es la parte que se colgo el
+      # 2026-08-17 y el 2026-08-18. El comando NO cambia con el cache puesto:
+      # `playwright install` detecta el browser ya bajado y lo saltea solo, asi
+      # que no hace falta un `if` de cache-hit — una rama condicional aca seria
+      # un camino mas que puede estar mal y que casi nunca se ejercita.
       - name: Install Playwright browsers
         working-directory: ./frontend/packages/web
+        timeout-minutes: 10
         run: npx playwright install chromium --with-deps
 
       - name: Run Playwright tests
@@ -321,6 +346,7 @@ jobs:
   deploy-backend:
     name: Deploy Backend
     runs-on: ubuntu-latest
+    timeout-minutes: 10  # dispara un hook y sale
     # TODOS, no solo backend-test: un e2e o un build de web en rojo tienen que
     # frenar el deploy igual que un test de Go. Con `needs: [backend-test]` se
     # deployaba con el resto de la suite todavia corriendo, o directamente roja.
