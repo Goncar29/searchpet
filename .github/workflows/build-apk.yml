@@ -25,6 +25,7 @@ jobs:
   build-apk:
     name: Build Android APK
     runs-on: ubuntu-latest
+    timeout-minutes: 45  # prebuild + gradle assembleRelease; es el pipeline de release
     permissions:
       contents: write
 

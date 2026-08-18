@@ -295,7 +295,7 @@ jobs:
 
       - name: Start web preview
         working-directory: ./frontend/packages/web
-        run: pnpm run preview &
+        run: pnpm run preview > /tmp/preview.log 2>&1 &
 
       # Espera EXPLICITA, igual que la del backend de mas arriba.
       #
@@ -310,28 +310,60 @@ jobs:
       # scopean por rama, asi que el primer hit ocurre despues de mergear y de
       # que corra `main`, en un PR que no va a tener nada que ver con este.
       # `retries: 1` lo taparia a veces, que es la peor forma de tenerlo.
+      #
+      # El log del preview va a un archivo, igual que el del backend: si no, la
+      # salida de Vite muere con el proceso del paso anterior y esto falla
+      # diciendo solo "no respondio". Y el caso mas probable no es un cuelgue
+      # sino que el 4173 ya este tomado — `vite preview` NO usa strictPort por
+      # defecto, asi que se corre en silencio al 4174 y la espera queda mirando
+      # un puerto que nunca se va a abrir.
       - name: Wait for web preview
         run: |
           timeout 60 bash -c 'until curl -sf http://localhost:4173 >/dev/null; do sleep 1; done' || \
-            { echo "::error::el preview de Vite no respondio en 4173 a los 60s"; exit 1; }
+            (echo "::error::el preview de Vite no respondio en 4173 a los 60s" && \
+             echo "=== PREVIEW LOGS ===" && cat /tmp/preview.log && exit 1)
 
-      # La version sale del paquete instalado y no de package.json: ahi dice
-      # "^1.44.0", y una clave de cache con un rango serviria binarios viejos
-      # despues de que el lockfile suba de minor.
-      - name: Resolve Playwright version
+      # Las DOS partes de la clave se resuelven aca adentro, y con guarda.
+      #
+      # La version sale del paquete INSTALADO y no de package.json: ahi dice
+      # "^1.44.0", y una clave con un rango serviria binarios viejos despues de
+      # que el lockfile suba de minor.
+      #
+      # `ImageOS` se lee como variable de PROCESO (`$ImageOS`) y nunca como
+      # `${{ env.ImageOS }}`: el contexto `env` de las expresiones solo trae lo
+      # declarado en el workflow/job/step o escrito a `$GITHUB_ENV`, jamas lo que
+      # hereda el runner. Esto no es teoria — medido en la corrida 32178022533,
+      # con la expresion la clave salio literalmente `playwright--1.60.0`: cadena
+      # vacia en el medio, o sea que la guarda entre imagenes que el comentario
+      # anterior prometia NO EXISTIA.
+      #
+      # Y el `echo "x=$(cmd)"` de antes tomaba el exit de `echo`, no el de
+      # `node`, asi que un fallo dejaba el paso VERDE y la clave en
+      # `playwright--`. Una clave constante restaura para siempre lo primero que
+      # se haya cacheado y no se vuelve a guardar nunca. Por eso ahora se asigna
+      # a variables y se valida que ninguna quede vacia.
+      - name: Resolve cache key parts
         id: pw
         working-directory: ./frontend/packages/web
-        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+        run: |
+          version=$(node -p "require('@playwright/test/package.json').version") || {
+            echo "::error::no pude resolver la version de @playwright/test"; exit 1; }
+          [ -n "$version" ] || { echo "::error::la version de Playwright salio vacia"; exit 1; }
+          [ -n "$ImageOS" ] || { echo "::error::ImageOS vacio: la clave no distinguiria imagenes"; exit 1; }
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "imageos=$ImageOS" >> "$GITHUB_OUTPUT"
+          echo "clave de cache: playwright-$ImageOS-$version"
 
-      # `ImageOS` y no solo `runner.os`: este ultimo es `Linux` a secas, y
-      # `ubuntu-latest` se mueve de 22.04 a 24.04 sin avisar. Los browsers
-      # dependen de libs del sistema, asi que un cache cruzado entre imagenes
-      # puede restaurar binarios que no levantan.
-      - name: Cache Playwright browsers
-        uses: actions/cache@v4
+      # restore + save por SEPARADO, y no `actions/cache` a secas: su paso post
+      # lleva `post-if: success()`, asi que con la suite E2E en rojo no guarda
+      # nada. Justo el caso en el que se re-corre diez veces seguidas, cada una
+      # pagando la descarga entera — el gasto que este cambio venia a sacar.
+      - name: Restore Playwright browsers
+        id: pw-cache
+        uses: actions/cache/restore@v4
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-${{ env.ImageOS }}-${{ steps.pw.outputs.version }}
+          key: playwright-${{ steps.pw.outputs.imageos }}-${{ steps.pw.outputs.version }}
 
       # `--with-deps` corre un apt-get, que es la parte que se colgo el
       # 2026-08-17 y el 2026-08-18. El comando NO cambia con el cache puesto:
@@ -339,9 +371,22 @@ jobs:
       # que no hace falta un `if` de cache-hit — una rama condicional aca seria
       # un camino mas que puede estar mal y que casi nunca se ejercita.
       - name: Install Playwright browsers
+        id: pw-install
         working-directory: ./frontend/packages/web
         timeout-minutes: 10
         run: npx playwright install chromium --with-deps
+
+      # Guarda aunque los TESTS fallen, pero solo si el install salio bien.
+      # `if: always()` a secas cachearia un directorio a medio bajar cuando el
+      # install se corta por su timeout de 10 minutos, y esa descarga parcial se
+      # restauraria en cada corrida futura: convertiria un cuelgue de una sola
+      # vez en un browser roto para siempre.
+      - name: Save Playwright browsers
+        if: steps.pw-install.outcome == 'success' && steps.pw-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ steps.pw.outputs.imageos }}-${{ steps.pw.outputs.version }}
 
       - name: Run Playwright tests
         working-directory: ./frontend/packages/web
