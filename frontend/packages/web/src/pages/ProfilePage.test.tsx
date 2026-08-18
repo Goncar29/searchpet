@@ -106,6 +106,14 @@ function wrapper({ children }: { children: React.ReactNode }) {
  * que tambien se cumple cuando lo que debia verificarse nunca ocurrio.
  *
  * La ruta sale de `MY_PETS_ROUTE`, la MISMA constante que registra `App.tsx`.
+ *
+ * Y la asercion NO puede ser `pets:mine.title`: ese texto lo renderizan LAS DOS
+ * paginas — es el h1 de MyPetsPage y tambien el encabezado de la seccion "Mis
+ * mascotas" del perfil. Con esa asercion, montar el ProfilePage como destino
+ * pasaba en verde: 22/22, medido. Solo se ponia roja con la ruta mala por un
+ * motivo ACCIDENTAL (una ruta que no matchea desmonta todo), no por el que el
+ * test dice verificar. Se afirma sobre la barra de pestañas, que es de
+ * MyPetsPage y de nadie mas.
  */
 function renderConDestino() {
   return render(
@@ -342,7 +350,7 @@ describe('ProfilePage', () => {
     await userEvent.click(screen.getByLabelText('profile:viewAllReports'));
 
     // El destino existe...
-    expect(await screen.findByText('pets:mine.title')).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'pets:reports.tabOwned' })).toBeInTheDocument();
     // ...y abrió en la pestaña que el nombre accesible prometía.
     expect(screen.getByText('Reporte 1')).toBeInTheDocument();
   });
@@ -355,7 +363,7 @@ describe('ProfilePage', () => {
 
     await userEvent.click(screen.getByLabelText('profile:viewAllAdoption'));
 
-    expect(await screen.findByText('pets:mine.title')).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'pets:reports.tabOwned' })).toBeInTheDocument();
     expect(screen.getByText('Adopción 1')).toBeInTheDocument();
   });
 
@@ -367,7 +375,7 @@ describe('ProfilePage', () => {
 
     await userEvent.click(screen.getByLabelText('profile:viewAllPets'));
 
-    expect(await screen.findByText('pets:mine.title')).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'pets:reports.tabOwned' })).toBeInTheDocument();
   });
 
   // Al ocultar la sección de verificación con la cuenta ya verificada, el único
