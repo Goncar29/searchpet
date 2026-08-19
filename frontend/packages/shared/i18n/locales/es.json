@@ -306,6 +306,10 @@
     "reportSuccessText": "Gracias por reportarlo",
     "reportError": "No se pudo enviar la denuncia",
     "typing_indicator": "Escribiendo...",
+    "today": "Hoy",
+    "yesterday": "Ayer",
+    "you": "Vos",
+    "backToList": "Volver a mensajes",
     "actions": {
       "menuLabel": "Opciones de conversación con {{name}}",
       "viewProfile": "Ver perfil",
@@ -338,7 +342,13 @@
     "loginButton": "Iniciar Sesión",
     "emptyTitle": "Sin mensajes",
     "emptySubtitle": "Cuando alguien te contacte sobre una mascota, aparecerá aquí",
-    "youPrefix": "Vos: "
+    "youPrefix": "Vos: ",
+    "searchLabel": "Buscar conversaciones",
+    "searchPlaceholder": "Buscar conversaciones...",
+    "noResults": "Ninguna conversación coincide con «{{query}}»",
+    "selectPrompt": "Elegí una conversación",
+    "selectPromptSubtitle": "Seleccioná a alguien de la lista para ver los mensajes.",
+    "newConversation": "Conversación nueva"
   },
   "badges": {
     "title": "Mis Badges",
