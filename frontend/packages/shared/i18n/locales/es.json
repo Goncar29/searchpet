@@ -319,7 +319,7 @@
       "report": "Denunciar usuario",
       "delete": "Borrar conversación",
       "deleteConfirmTitle": "¿Borrar esta conversación?",
-      "deleteConfirmBody": "Desaparecerá de tu lista. Si recibís un mensaje nuevo, volverá a aparecer.",
+      "deleteConfirmBody": "Se borra sólo para vos: no vas a poder ver estos mensajes nunca más. La otra persona conserva su copia. Si alguno de los dos vuelve a escribir, la conversación reaparece vacía.",
       "blockConfirmTitle": "¿Bloquear a {{name}}?",
       "blockConfirmBody": "No podrán enviarse mensajes entre sí.",
       "confirm": "Confirmar",

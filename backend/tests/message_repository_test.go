@@ -286,3 +286,191 @@ func TestMessageRepository_MarkConversationUnread(t *testing.T) {
 		t.Errorf("MarkConversationUnread with no messages should be a no-op, got %v", err)
 	}
 }
+
+// Borrar una conversación tiene que borrarla DE VERDAD para quien la borró, no
+// sólo esconder su fila de la lista.
+//
+// EL DEFECTO QUE CIERRA, reportado por un usuario: borraba la conversación,
+// desaparecía, y al volver a escribirle reaparecía CON TODO EL HISTORIAL. El
+// ocultamiento sólo se aplicaba a `GetConversations` (la lista) y a
+// `CountUnread`; el hilo devolvía siempre todo.
+//
+// Va contra Postgres real y no contra un mock a propósito: lo que se prueba es
+// una cláusula SQL, y un mock de repositorio no tiene SQL que ejecutar — pasaría
+// verde con el filtro puesto o sacado (regla #34).
+func TestMessageRepository_GetConversation_BorrarOcultaLoAnteriorSoloParaQuienBorro(t *testing.T) {
+	gormDB := testdb.SetupTestDB(t)
+	userRepo := repository.NewUserRepository(gormDB)
+	msgRepo := repository.NewMessageRepository(gormDB)
+	hideRepo := repository.NewConversationHideRepository(gormDB)
+	ctx := context.Background()
+
+	yo := newTestUser(t, userRepo)
+	otro := newTestUser(t, userRepo)
+
+	seedMessage(t, msgRepo, yo.ID, otro.ID, "viejo mio")
+	seedMessage(t, msgRepo, otro.ID, yo.ID, "viejo suyo")
+
+	// Borro la conversación.
+	if err := hideRepo.Upsert(ctx, yo.ID, otro.ID); err != nil {
+		t.Fatalf("Upsert: %v", err)
+	}
+
+	mios, err := msgRepo.GetConversation(ctx, yo.ID, otro.ID, 50, 0)
+	if err != nil {
+		t.Fatalf("GetConversation: %v", err)
+	}
+	if len(mios) != 0 {
+		t.Errorf("tras borrar, el hilo tiene que estar vacío para mí; vinieron %d mensajes", len(mios))
+	}
+
+	// La contraparte NO pierde nada: su consulta pasa userA = ella, y no tiene
+	// fila en conversation_hides. Si esto fallara, borrar le estaría borrando
+	// mensajes a otra persona.
+	suyos, err := msgRepo.GetConversation(ctx, otro.ID, yo.ID, 50, 0)
+	if err != nil {
+		t.Fatalf("GetConversation (contraparte): %v", err)
+	}
+	if len(suyos) != 2 {
+		t.Errorf("la contraparte tiene que conservar los 2 mensajes, tiene %d", len(suyos))
+	}
+
+	// Vuelvo a escribirle: la conversación reaparece, pero EMPIEZA VACÍA — lo
+	// anterior al borrado no vuelve nunca.
+	//
+	// El created_at se fija explícitamente igual que en
+	// TestMessageRepository_GetConversations_HiddenReappearsOnNewMessage: `created_at`
+	// lo estampa el reloj de Go (`autoCreateTime`) y `hidden_at` el de Postgres
+	// (`NOW()`). Son DOS relojes, y microsegundos de desacuerdo en la dirección
+	// equivocada vuelven este test flaky sin que nadie toque el código.
+	nuevoMsg := seedMessage(t, msgRepo, yo.ID, otro.ID, "nuevo despues de borrar")
+	gormDB.Model(&domain.Message{}).Where("id = ?", nuevoMsg.ID).
+		Update("created_at", gorm.Expr("NOW() + interval '1 second'"))
+
+	tras, err := msgRepo.GetConversation(ctx, yo.ID, otro.ID, 50, 0)
+	if err != nil {
+		t.Fatalf("GetConversation (tras reabrir): %v", err)
+	}
+	if len(tras) != 1 {
+		t.Fatalf("al reabrir tengo que ver SOLO el mensaje nuevo, veo %d", len(tras))
+	}
+	if tras[0].Text != "nuevo despues de borrar" {
+		t.Errorf("el único mensaje visible tiene que ser el nuevo, es %q", tras[0].Text)
+	}
+
+	// Y la contraparte ahora ve los tres.
+	suyos, err = msgRepo.GetConversation(ctx, otro.ID, yo.ID, 50, 0)
+	if err != nil {
+		t.Fatalf("GetConversation (contraparte, tras reabrir): %v", err)
+	}
+	if len(suyos) != 3 {
+		t.Errorf("la contraparte tiene que ver los 3, ve %d", len(suyos))
+	}
+}
+
+// Abrir una conversación borrada no puede marcar leído lo que quien borró NO
+// puede ver.
+//
+// EL DEFECTO QUE CIERRA, y lo introdujo el propio filtro del hilo: `GetConversation`
+// llama a `MarkConversationRead` en CADA apertura, así que se cambió qué se
+// devuelve sin cambiar qué se marca. El resultado era un acuse de lectura hacia
+// la contraparte por mensajes que el lector tiene invisibles para siempre — una
+// señal de entrega falsa, y encima hacia la única persona que no eligió borrar.
+//
+// Va contra Postgres real por lo mismo que el test de arriba: lo que se prueba es
+// una cláusula SQL, y un mock de repositorio no tiene SQL que ejecutar.
+func TestMessageRepository_MarkConversationRead_NoMarcaLoQueElLectorNoVe(t *testing.T) {
+	gormDB := testdb.SetupTestDB(t)
+	userRepo := repository.NewUserRepository(gormDB)
+	msgRepo := repository.NewMessageRepository(gormDB)
+	hideRepo := repository.NewConversationHideRepository(gormDB)
+	ctx := context.Background()
+
+	yo := newTestUser(t, userRepo)
+	otro := newTestUser(t, userRepo)
+
+	viejo := seedMessage(t, msgRepo, otro.ID, yo.ID, "algo incomodo de antes")
+
+	// Borro la conversación: `viejo` queda invisible para mí, para siempre.
+	if err := hideRepo.Upsert(ctx, yo.ID, otro.ID); err != nil {
+		t.Fatalf("Upsert: %v", err)
+	}
+
+	// El otro me vuelve a escribir y abro el hilo. Mismo motivo que arriba para
+	// fijar el created_at: `autoCreateTime` y `NOW()` son relojes distintos.
+	nuevo := seedMessage(t, msgRepo, otro.ID, yo.ID, "hola de nuevo")
+	gormDB.Model(&domain.Message{}).Where("id = ?", nuevo.ID).
+		Update("created_at", gorm.Expr("NOW() + interval '1 second'"))
+	if err := msgRepo.MarkConversationRead(ctx, yo.ID, otro.ID); err != nil {
+		t.Fatalf("MarkConversationRead: %v", err)
+	}
+
+	traer := func(id uuid.UUID) *domain.Message {
+		t.Helper()
+		m, err := msgRepo.GetByID(ctx, id)
+		if err != nil {
+			t.Fatalf("GetByID: %v", err)
+		}
+		return m
+	}
+
+	if traer(viejo.ID).ReadAt != nil {
+		t.Error("el mensaje anterior al borrado NO puede quedar marcado como leído: yo no puedo verlo")
+	}
+	if traer(nuevo.ID).ReadAt == nil {
+		t.Error("el mensaje posterior al borrado sí tiene que marcarse leído: ese lo veo")
+	}
+}
+
+// "Marcar como no leída" no puede caer sobre un mensaje anterior al borrado.
+//
+// Es la CUARTA consulta de la regla de visibilidad, y la que faltaba. Alcanzable
+// de verdad: `showMarkUnread` es `true` por default y sólo se apaga en
+// `ChatPage`, así que la LISTA ofrece la acción — y la conversación reaparece en
+// la lista en cuanto quien borró vuelve a escribir.
+//
+// El daño que importa no es para quien borró (para él es un no-op mudo: el badge
+// no se mueve porque `CountUnread` excluye ese mensaje por esta misma regla) sino
+// para la CONTRAPARTE, que ve pasar a "sin leer" un mensaje que figuraba leído.
+// Es el espejo del acuse de lectura falso: la misma señal de entrega inventada,
+// en la otra dirección.
+func TestMessageRepository_MarkConversationUnread_NoTocaLoAnteriorAlBorrado(t *testing.T) {
+	gormDB := testdb.SetupTestDB(t)
+	userRepo := repository.NewUserRepository(gormDB)
+	msgRepo := repository.NewMessageRepository(gormDB)
+	hideRepo := repository.NewConversationHideRepository(gormDB)
+	ctx := context.Background()
+
+	yo := newTestUser(t, userRepo)
+	otro := newTestUser(t, userRepo)
+
+	viejo := seedMessage(t, msgRepo, otro.ID, yo.ID, "algo de antes que ya lei")
+	if err := msgRepo.MarkConversationRead(ctx, yo.ID, otro.ID); err != nil {
+		t.Fatalf("MarkConversationRead: %v", err)
+	}
+
+	// Borro la conversación: `viejo` queda invisible para mí, para siempre.
+	if err := hideRepo.Upsert(ctx, yo.ID, otro.ID); err != nil {
+		t.Fatalf("Upsert: %v", err)
+	}
+
+	// Le vuelvo a escribir YO, así la conversación reaparece en mi lista sin que
+	// entre ningún mensaje recibido nuevo. Ese es justo el estado en el que la
+	// acción está disponible y el único candidato recibido es el de antes.
+	// El created_at va fijado: `autoCreateTime` y `NOW()` son relojes distintos.
+	mio := seedMessage(t, msgRepo, yo.ID, otro.ID, "che, una cosa mas")
+	gormDB.Model(&domain.Message{}).Where("id = ?", mio.ID).
+		Update("created_at", gorm.Expr("NOW() + interval '1 second'"))
+
+	if err := msgRepo.MarkConversationUnread(ctx, yo.ID, otro.ID); err != nil {
+		t.Fatalf("MarkConversationUnread: %v", err)
+	}
+
+	tras, err := msgRepo.GetByID(ctx, viejo.ID)
+	if err != nil {
+		t.Fatalf("GetByID: %v", err)
+	}
+	if tras.ReadAt == nil {
+		t.Error("el mensaje anterior al borrado NO puede volver a 'sin leer': yo no puedo verlo, y la contraparte lo veria pasar de leido a no leido")
+	}
+}
