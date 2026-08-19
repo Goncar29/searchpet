@@ -80,20 +80,35 @@ export function ChatPage() {
   const [typingFrom, setTypingFrom] = useState<string | null>(null);
 
   const onMessage = (envelope: WsEnvelope) => {
+    // LA LISTA SE REFRESCA ANTE CUALQUIER MENSAJE, no sólo los de la
+    // conversación abierta. Ahora se dibuja en ESTA pantalla, así que el caso
+    // que importa es justo el contrario al que uno piensa: si escribe un
+    // TERCERO, su fila es la que queda vieja —sin punto de no leído y con el
+    // mensaje anterior como último— hasta que caiga el poll de 15s. Este
+    // handler tiene que hacer lo mismo que el de `MessagesPage`, que invalida
+    // ante `chat_message` Y `badge_update`; mientras estuvo metido adentro de
+    // la guarda de `from/to` no cubría ninguno de los dos casos ajenos.
+    if (envelope.type === 'chat_message' || envelope.type === 'badge_update') {
+      queryClient.invalidateQueries({ queryKey: ['messages'], exact: true });
+    }
+
     if (envelope.type === 'chat_message') {
       const payload = envelope.payload as WsChatMessage;
+      // El HILO, en cambio, sí es sólo el de esta conversación.
       if (payload.from === userId || payload.to === userId) {
         queryClient.invalidateQueries({ queryKey: ['messages', userId] });
-        // Y la lista de la izquierda, que ahora se dibuja en esta misma
-        // pantalla: sin esto el hilo se actualiza y la fila de al lado sigue
-        // mostrando el mensaje viejo como último. Antes no hacía falta porque
-        // la lista vivía en otra ruta.
-        queryClient.invalidateQueries({ queryKey: ['messages'], exact: true });
       }
     }
 
     if (envelope.type === 'typing_start') {
-      setTypingFrom((envelope.payload as WsTypingEvent).from);
+      const { from } = envelope.payload as WsTypingEvent;
+      // SÓLO el de la conversación abierta. Sin esta guarda, un tercero que
+      // arranca a escribir pisa `typingFrom` y APAGA el indicador de quien sí
+      // está escribiendo acá: vuelve recién con su próximo `typing_start`
+      // (~2s), o sea que se lee como un parpadeo. `typing_stop` ya era
+      // defensivo (`actual === from ? null : actual`); esto es su espejo, que
+      // faltaba.
+      if (from === userId) setTypingFrom(from);
     }
 
     if (envelope.type === 'typing_stop') {

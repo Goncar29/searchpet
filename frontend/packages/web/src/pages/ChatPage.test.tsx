@@ -551,4 +551,97 @@ describe('ChatPage', () => {
     expect(claves).toContain(JSON.stringify({ queryKey: ['messages', 'user-2'] }));
     expect(claves).toContain(JSON.stringify({ queryKey: ['messages'], exact: true }));
   });
+
+  // El test de arriba manda un mensaje DE LA CONVERSACION ABIERTA, o sea el
+  // unico caso donde la guarda de `from/to` daba true — por eso pasaba con el
+  // defecto puesto. Estos dos cubren lo que quedaba afuera.
+
+  it('un mensaje de un TERCERO refresca la lista, aunque no sea de esta conversacion', () => {
+    // El caso que importa es el contrario al que uno piensa: si escribe alguien
+    // con quien NO estas hablando, su fila es la que queda vieja —sin punto de
+    // no leido y con el mensaje anterior como ultimo— y es la fila que el
+    // usuario esta mirando en la columna de al lado.
+    let capturedOnMessage: ((env: WsEnvelope) => void) | null = null;
+    vi.mocked(useWebSocket).mockImplementationOnce(({ onMessage }: UseWebSocketOptions) => {
+      capturedOnMessage = onMessage;
+      return { connectionState: 'connected' as WsConnectionState, sendEnvelope: vi.fn() };
+    });
+    vi.mocked(useConversation).mockReturnValue(mockConversation([], false));
+
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const spy = vi.spyOn(client, 'invalidateQueries');
+
+    render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter>
+          <ChatPage />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    act(() => {
+      // user-3 no es ni la conversacion abierta (user-2) ni yo (user-1).
+      capturedOnMessage?.({
+        type: 'chat_message',
+        payload: { id: 'm', from: 'user-3', to: 'user-1', body: 'hola', timestamp: '' },
+      });
+    });
+
+    const claves = spy.mock.calls.map((c) => JSON.stringify(c[0]));
+    expect(claves).toContain(JSON.stringify({ queryKey: ['messages'], exact: true }));
+    // Y el hilo abierto NO se toca: ese mensaje no es de esta conversacion.
+    expect(claves).not.toContain(JSON.stringify({ queryKey: ['messages', 'user-2'] }));
+  });
+
+  it('un badge_update tambien refresca la lista, igual que en MessagesPage', () => {
+    let capturedOnMessage: ((env: WsEnvelope) => void) | null = null;
+    vi.mocked(useWebSocket).mockImplementationOnce(({ onMessage }: UseWebSocketOptions) => {
+      capturedOnMessage = onMessage;
+      return { connectionState: 'connected' as WsConnectionState, sendEnvelope: vi.fn() };
+    });
+    vi.mocked(useConversation).mockReturnValue(mockConversation([], false));
+
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const spy = vi.spyOn(client, 'invalidateQueries');
+
+    render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter>
+          <ChatPage />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    act(() => {
+      capturedOnMessage?.({ type: 'badge_update', payload: { count: 3 } } as unknown as WsEnvelope);
+    });
+
+    const claves = spy.mock.calls.map((c) => JSON.stringify(c[0]));
+    expect(claves).toContain(JSON.stringify({ queryKey: ['messages'], exact: true }));
+  });
+
+  it('un tercero tecleando NO apaga el indicador de la conversacion abierta', () => {
+    // `typing_stop` ya se escribia defensivo; `typing_start` no. Sin la guarda,
+    // que Bruno arranque a escribir pisa `typingFrom` y el "Escribiendo..." de
+    // Ana desaparece aunque siga tecleando — vuelve recien con su proximo
+    // frame (~2s), o sea que se lee como un parpadeo.
+    let capturedOnMessage: ((env: WsEnvelope) => void) | null = null;
+    vi.mocked(useWebSocket).mockImplementationOnce(({ onMessage }: UseWebSocketOptions) => {
+      capturedOnMessage = onMessage;
+      return { connectionState: 'connected' as WsConnectionState, sendEnvelope: vi.fn() };
+    });
+    vi.mocked(useConversation).mockReturnValue(mockConversation([], false));
+
+    render(<ChatPage />, { wrapper });
+
+    act(() => {
+      capturedOnMessage?.({ type: 'typing_start', payload: { from: 'user-2', to: 'user-1' } });
+    });
+    expect(screen.getByText('chat:typing')).toBeTruthy();
+
+    act(() => {
+      capturedOnMessage?.({ type: 'typing_start', payload: { from: 'user-3', to: 'user-1' } });
+    });
+    expect(screen.getByText('chat:typing')).toBeTruthy();
+  });
 });
