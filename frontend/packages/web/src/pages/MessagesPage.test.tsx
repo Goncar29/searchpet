@@ -333,12 +333,12 @@ describe('MessagesPage', () => {
 
     render(<MessagesPage />, { wrapper });
 
-    // `showMarkUnread: true` en las dos porque en `/messages` no hay ninguna
-    // conversacion abierta. La fila ABIERTA lo recibe en false — su guard vive
-    // en ChatPage.test.tsx, que es donde hay una.
+    // Las dos filas llevan menu porque en `/messages` no hay ninguna
+    // conversacion abierta. La fila ABIERTA no lleva ninguno —su menu es el de
+    // la cabecera— y ese guard vive en ChatPage.test.tsx, que es donde hay una.
     expect(capturedMenuProps).toEqual({
-      'user-2': { otherUserId: 'user-2', otherUserName: 'Juan', showMarkUnread: true },
-      'user-3': { otherUserId: 'user-3', otherUserName: 'Carla', showMarkUnread: true },
+      'user-2': { otherUserId: 'user-2', otherUserName: 'Juan' },
+      'user-3': { otherUserId: 'user-3', otherUserName: 'Carla' },
     });
     expect(screen.getByLabelText('chat:actions.menuLabel-user-2')).toBeTruthy();
     expect(screen.getByLabelText('chat:actions.menuLabel-user-3')).toBeTruthy();

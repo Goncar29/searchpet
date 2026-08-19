@@ -356,24 +356,29 @@ export function MessagesShell({ selectedUserId, selectedUserName, children }: Me
                           </span>
                         </span>
                       </Link>
-                      {/* "Marcar como no leída" se oculta en la fila ABIERTA, y
-                          es el mismo motivo por el que ya estaba oculta en la
-                          cabecera de la conversación: tenerla a la vista la
-                          re-marca leída en cada refetch, así que la acción se
-                          deshace sola y en silencio. Antes no hacía falta
-                          pensarlo porque la lista y el hilo vivían en pantallas
-                          distintas y nunca coincidían; con las dos columnas
-                          juntas, la fila abierta es exactamente ese caso. */}
-                      {/* La conversación que todavía no existe no lleva menú:
-                          "borrar conversación" y "marcar como no leída" no
-                          tienen sobre qué operar, y bloquear o denunciar ya
-                          están en el menú de la cabecera, que es de esa misma
-                          persona. Dos menús para el mismo par serían dos. */}
-                      {!row.isNew && (
+                      {/* LA FILA ABIERTA NO LLEVA MENÚ. El de la cabecera ya es
+                          el de esa misma conversación, y tener los dos a la vez
+                          traía tres problemas concretos:
+
+                          1. Sólo el de la cabecera recibe `onHidden`, así que
+                             borrar la conversación desde el de la FILA ocultaba
+                             la conversación y dejaba al usuario parado adentro
+                             del hilo — que además reaparecía como "Conversación
+                             nueva" en cuanto refrescaba la lista.
+                          2. Dos botones con el MISMO nombre accesible
+                             ("Opciones de conversación con Alice"), o sea
+                             indistinguibles para un lector de pantalla.
+                          3. Su formulario de denuncia usa `id="report-reason"`;
+                             con los dos abiertos ese id queda duplicado y el
+                             `<label htmlFor>` apunta al que aparezca primero.
+
+                          Y la conversación que todavía no existe tampoco lleva:
+                          "borrar" y "marcar no leída" no tienen sobre qué
+                          operar. */}
+                      {!row.isNew && !active && (
                         <ConversationActionsMenu
                           otherUserId={row.otherUserId}
                           otherUserName={row.otherUserName}
-                          showMarkUnread={!active}
                         />
                       )}
                     </li>

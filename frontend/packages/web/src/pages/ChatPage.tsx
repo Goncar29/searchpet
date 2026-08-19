@@ -51,29 +51,89 @@ function dayKey(iso: string): string {
  * nuevo que se agregue mañana entra sin resetearse y sin que nada avise. La key
  * los cubre a todos por construcción, incluidos los que todavía no existen.
  *
- * Efecto lateral y deseado: el `typing_stop` del cleanup ahora se dispara al
- * cambiar de conversación, y sale con el `userId` VIEJO — que es a quien hay que
- * avisarle. Sin remontar, ese aviso se lo habría comido el destinatario nuevo.
+ * QUÉ QUEDA AFUERA DE LA KEY, Y POR QUÉ IMPORTA. El socket y el panel de la
+ * lista viven ACÁ, arriba del punto de remontaje, y no adentro de
+ * `Conversation`. Con todo adentro, cada click en una fila tiraba abajo y
+ * rearmaba el WebSocket: medido, **8 tickets y 8 sockets nuevos en 4 saltos**,
+ * más el buscador de la izquierda borrándose en cada uno. Y encima rompía el
+ * `typing_stop` de despedida — `useWebSocket` se declara antes que el efecto que
+ * lo manda, así que su cleanup corría primero, dejaba `wsRef` en null y el
+ * frame se perdía en silencio. Con el socket acá arriba, el cleanup del hilo
+ * corre contra una conexión viva y el aviso sale con el `userId` VIEJO, que es a
+ * quien hay que avisarle.
+ *
+ * `remoteTyping` se deriva de QUIÉN está escribiendo y no de un booleano por
+ * conversación: como el estado vive afuera de la key, un booleano se habría
+ * arrastrado al hilo siguiente. Comparar contra `userId` lo resuelve sin
+ * necesidad de resetear nada.
  */
 export function ChatPage() {
+  const { t } = useTranslation(['chat', 'common']);
   const { userId } = useParams<{ userId: string }>();
-  return <Conversation key={userId} userId={userId!} />;
+  const { isAuthenticated } = useAuth();
+  const queryClient = useQueryClient();
+
+  const { data: profile } = usePublicProfile(userId!);
+  const otherName = profile?.name ?? t('common:unknownUser');
+
+  // Quién está tecleando, no "si hay alguien tecleando".
+  const [typingFrom, setTypingFrom] = useState<string | null>(null);
+
+  const onMessage = (envelope: WsEnvelope) => {
+    if (envelope.type === 'chat_message') {
+      const payload = envelope.payload as WsChatMessage;
+      if (payload.from === userId || payload.to === userId) {
+        queryClient.invalidateQueries({ queryKey: ['messages', userId] });
+        // Y la lista de la izquierda, que ahora se dibuja en esta misma
+        // pantalla: sin esto el hilo se actualiza y la fila de al lado sigue
+        // mostrando el mensaje viejo como último. Antes no hacía falta porque
+        // la lista vivía en otra ruta.
+        queryClient.invalidateQueries({ queryKey: ['messages'], exact: true });
+      }
+    }
+
+    if (envelope.type === 'typing_start') {
+      setTypingFrom((envelope.payload as WsTypingEvent).from);
+    }
+
+    if (envelope.type === 'typing_stop') {
+      const { from } = envelope.payload as WsTypingEvent;
+      setTypingFrom((actual) => (actual === from ? null : actual));
+    }
+  };
+
+  const { sendEnvelope } = useWebSocket({ enabled: isAuthenticated, onMessage });
+
+  return (
+    <MessagesShell selectedUserId={userId} selectedUserName={otherName}>
+      <Conversation
+        key={userId}
+        userId={userId!}
+        otherName={otherName}
+        sendEnvelope={sendEnvelope}
+        remoteTyping={typingFrom === userId}
+      />
+    </MessagesShell>
+  );
 }
 
-function Conversation({ userId }: { userId: string }) {
+interface ConversationProps {
+  userId: string;
+  otherName: string;
+  sendEnvelope: (env: WsEnvelope) => void;
+  remoteTyping: boolean;
+}
+
+function Conversation({ userId, otherName, sendEnvelope, remoteTyping }: ConversationProps) {
   const { t, i18n } = useTranslation(['chat', 'common', 'errors']);
-  const { user, isAuthenticated } = useAuth();
-  const queryClient = useQueryClient();
+  const { user } = useAuth();
   const navigate = useNavigate();
 
   const { data: messages, isLoading, isError, refetch } = useConversation(userId);
   const sendMessageTo = useSendMessageTo();
-  const { data: profile } = usePublicProfile(userId);
   const { isBlocked, isLoading: isBlockStatusLoading } = useBlockStatus(userId);
-  const otherName = profile?.name ?? t('common:unknownUser');
 
   const [input, setInput] = useState('');
-  const [remoteTyping, setRemoteTyping] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
   const inputSnapshotRef = useRef('');
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -100,36 +160,6 @@ function Conversation({ userId }: { userId: string }) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
-
-  const onMessage = (envelope: WsEnvelope) => {
-    if (envelope.type === 'chat_message') {
-      const payload = envelope.payload as WsChatMessage;
-      if (payload.from === userId || payload.to === userId) {
-        queryClient.invalidateQueries({ queryKey: ['messages', userId] });
-        // Y la lista de la izquierda, que ahora se dibuja en esta misma
-        // pantalla: sin esto el hilo se actualiza y la fila de al lado sigue
-        // mostrando el mensaje viejo como último. Antes no hacía falta porque
-        // la lista vivía en otra ruta.
-        queryClient.invalidateQueries({ queryKey: ['messages'], exact: true });
-      }
-    }
-
-    if (envelope.type === 'typing_start') {
-      const payload = envelope.payload as WsTypingEvent;
-      if (payload.from === userId) {
-        setRemoteTyping(true);
-      }
-    }
-
-    if (envelope.type === 'typing_stop') {
-      const payload = envelope.payload as WsTypingEvent;
-      if (payload.from === userId) {
-        setRemoteTyping(false);
-      }
-    }
-  };
-
-  const { sendEnvelope } = useWebSocket({ enabled: isAuthenticated, onMessage });
 
   const stopTyping = () => {
     if (isTypingRef.current) {
@@ -207,7 +237,7 @@ function Conversation({ userId }: { userId: string }) {
     new Date(iso).toLocaleTimeString(i18n.language, { hour: '2-digit', minute: '2-digit' });
 
   return (
-    <MessagesShell selectedUserId={userId} selectedUserName={otherName}>
+    <>
       {/* ── Cabecera de la conversación ── */}
       <div className="flex shrink-0 items-center justify-between gap-3 border-b border-gray-100 dark:border-gray-800 px-4 py-3">
         <div className="flex min-w-0 items-center gap-2">
@@ -365,6 +395,6 @@ function Conversation({ userId }: { userId: string }) {
           {sendError}
         </div>
       )}
-    </MessagesShell>
+    </>
   );
 }

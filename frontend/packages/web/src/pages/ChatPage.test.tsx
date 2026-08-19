@@ -498,14 +498,20 @@ describe('ChatPage', () => {
     expect(abiertas).toHaveLength(1);
     expect(abiertas[0].getAttribute('href')).toBe('/messages/user-2');
 
-    // Y "marcar como no leida" no se ofrece en NINGUN menu de la conversacion
-    // abierta —ni el de la cabecera ni el de su fila—, porque mirarla la vuelve
-    // a marcar leida en cada refetch y la accion se deshace sola. La fila que NO
-    // esta abierta si lo ofrece.
+    // Y la conversacion abierta tiene EXACTAMENTE UN menu: el de la cabecera.
+    // Su fila no lleva.
+    //
+    // Con los dos, borrar desde el de la fila ocultaba la conversacion y dejaba
+    // al usuario parado adentro del hilo (solo el de la cabecera recibe
+    // `onHidden`), ademas de dejar dos botones con el mismo nombre accesible y
+    // un `id="report-reason"` duplicado si se abrian los dos formularios.
     const deLaAbierta = capturedMenuList.filter((p) => p.otherUserId === 'user-2');
-    expect(deLaAbierta.length).toBeGreaterThan(0);
-    expect(deLaAbierta.every((p) => p.showMarkUnread === false)).toBe(true);
-    expect(capturedMenuList.find((p) => p.otherUserId === 'user-9')?.showMarkUnread).toBe(true);
+    expect(deLaAbierta).toHaveLength(1);
+    expect(typeof deLaAbierta[0].onHidden).toBe('function');
+    expect(deLaAbierta[0].showMarkUnread).toBe(false);
+
+    // La fila que NO esta abierta si lleva el suyo.
+    expect(capturedMenuList.filter((p) => p.otherUserId === 'user-9')).toHaveLength(1);
   });
 
   it('un mensaje entrante refresca TAMBIEN la lista de la izquierda, no solo el hilo', () => {
