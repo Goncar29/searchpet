@@ -39,6 +39,24 @@ func (r *postgresMessageRepository) GetByID(ctx context.Context, id uuid.UUID) (
 	return &message, nil
 }
 
+// conversacionBorradaClause es la regla de visibilidad de "borrar conversación",
+// en UNA sola definición. Va con los placeholders en orden (quienPregunta,
+// contraparte) y correlaciona contra la tabla `messages` sin alias.
+//
+// LA REGLA VIVE EN TRES CONSULTAS Y EL BUG FUE TENERLA EN DOS. Por eso las dos
+// que comparten esta forma exacta —`GetConversation` y `MarkConversationRead`—
+// la toman de acá y no de una copia: el hilo no puede DEVOLVER lo borrado, y
+// tampoco puede marcarlo leído.
+//
+// `CountUnread` tiene su propia versión y no puede usar ésta: abarca a TODOS los
+// remitentes (`ch.other_user_id = m.sender_id`, no un `?`) y correlaciona contra
+// el alias `m`. Si tocás una, andá a mirar la otra.
+const conversacionBorradaClause = `NOT EXISTS (
+	SELECT 1 FROM conversation_hides ch
+	WHERE ch.user_id = ? AND ch.other_user_id = ?
+	  AND ch.hidden_at >= messages.created_at
+)`
+
 // GetConversation retorna los mensajes entre userA y userB en orden cronológico ascendente.
 // La query es bidireccional: incluye mensajes donde A es sender y B es receiver, y viceversa.
 func (r *postgresMessageRepository) GetConversation(ctx context.Context, userA, userB uuid.UUID, limit, offset int) ([]domain.Message, error) {
@@ -65,18 +83,11 @@ func (r *postgresMessageRepository) GetConversation(ctx context.Context, userA, 
 		// NO se borran de la tabla — no puede ser de otra forma, la fila le
 		// pertenece a los dos.
 		//
-		// Es la misma cláusula que ya usaba `CountUnread` para no contar lo que el
+		// Es la misma regla que ya usaba `CountUnread` para no contar lo que el
 		// usuario no puede ver; acá se reusa para que el hilo diga lo mismo que el
 		// badge. Que las dos vistas discrepen es cómo aparecen los "tengo un no
 		// leído que no encuentro".
-		Where(
-			`NOT EXISTS (
-				SELECT 1 FROM conversation_hides ch
-				WHERE ch.user_id = ? AND ch.other_user_id = ?
-				  AND ch.hidden_at >= messages.created_at
-			)`,
-			userA, userB,
-		).
+		Where(conversacionBorradaClause, userA, userB).
 		Order("created_at ASC").
 		Limit(limit).
 		Offset(offset).
@@ -148,10 +159,22 @@ func (r *postgresMessageRepository) MarkAsRead(ctx context.Context, messageID uu
 // MarkConversationRead marca como leídos todos los mensajes no leídos de una conversación
 // donde receiverID es el destinatario y senderID el remitente.
 // Condición WHERE read_at IS NULL garantiza idempotencia.
+//
+// NO MARCA LO QUE EL LECTOR NO PUEDE VER. `GetConversation` lo llama en cada
+// apertura del hilo, así que sin este filtro abrir una conversación borrada
+// marcaría leídos mensajes anteriores al borrado — que quien borró tiene
+// invisibles para siempre. Eso le manda a la contraparte un acuse de lectura por
+// algo que demostrablemente nadie leyó: una señal de entrega falsa, y encima
+// hacia la única persona que no eligió borrar nada.
+//
+// Es la misma regla que el hilo y el badge; la definición está arriba, en
+// `conversacionBorradaClause`. Los mensajes que quedan sin marcar no ensucian
+// nada: `CountUnread` ya los excluye del contador por la misma regla.
 func (r *postgresMessageRepository) MarkConversationRead(ctx context.Context, receiverID, senderID uuid.UUID) error {
 	return r.db.WithContext(ctx).
 		Model(&domain.Message{}).
 		Where("receiver_id = ? AND sender_id = ? AND read_at IS NULL", receiverID, senderID).
+		Where(conversacionBorradaClause, receiverID, senderID).
 		Update("read_at", gorm.Expr("NOW()")).Error
 }
 

@@ -359,3 +359,54 @@ func TestMessageRepository_GetConversation_BorrarOcultaLoAnteriorSoloParaQuienBo
 		t.Errorf("la contraparte tiene que ver los 3, ve %d", len(suyos))
 	}
 }
+
+// Abrir una conversación borrada no puede marcar leído lo que quien borró NO
+// puede ver.
+//
+// EL DEFECTO QUE CIERRA, y lo introdujo el propio filtro del hilo: `GetConversation`
+// llama a `MarkConversationRead` en CADA apertura, así que se cambió qué se
+// devuelve sin cambiar qué se marca. El resultado era un acuse de lectura hacia
+// la contraparte por mensajes que el lector tiene invisibles para siempre — una
+// señal de entrega falsa, y encima hacia la única persona que no eligió borrar.
+//
+// Va contra Postgres real por lo mismo que el test de arriba: lo que se prueba es
+// una cláusula SQL, y un mock de repositorio no tiene SQL que ejecutar.
+func TestMessageRepository_MarkConversationRead_NoMarcaLoQueElLectorNoVe(t *testing.T) {
+	gormDB := testdb.SetupTestDB(t)
+	userRepo := repository.NewUserRepository(gormDB)
+	msgRepo := repository.NewMessageRepository(gormDB)
+	hideRepo := repository.NewConversationHideRepository(gormDB)
+	ctx := context.Background()
+
+	yo := newTestUser(t, userRepo)
+	otro := newTestUser(t, userRepo)
+
+	viejo := seedMessage(t, msgRepo, otro.ID, yo.ID, "algo incomodo de antes")
+
+	// Borro la conversación: `viejo` queda invisible para mí, para siempre.
+	if err := hideRepo.Upsert(ctx, yo.ID, otro.ID); err != nil {
+		t.Fatalf("Upsert: %v", err)
+	}
+
+	// El otro me vuelve a escribir y abro el hilo.
+	nuevo := seedMessage(t, msgRepo, otro.ID, yo.ID, "hola de nuevo")
+	if err := msgRepo.MarkConversationRead(ctx, yo.ID, otro.ID); err != nil {
+		t.Fatalf("MarkConversationRead: %v", err)
+	}
+
+	traer := func(id uuid.UUID) *domain.Message {
+		t.Helper()
+		m, err := msgRepo.GetByID(ctx, id)
+		if err != nil {
+			t.Fatalf("GetByID: %v", err)
+		}
+		return m
+	}
+
+	if traer(viejo.ID).ReadAt != nil {
+		t.Error("el mensaje anterior al borrado NO puede quedar marcado como leído: yo no puedo verlo")
+	}
+	if traer(nuevo.ID).ReadAt == nil {
+		t.Error("el mensaje posterior al borrado sí tiene que marcarse leído: ese lo veo")
+	}
+}
