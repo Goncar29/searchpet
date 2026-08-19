@@ -1,4 +1,5 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useRef } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@shared/api/client';
 import { isJwtExpired } from '@shared/utils/jwt';
 import type { User } from '@shared/types';
@@ -24,6 +25,61 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const queryClient = useQueryClient();
+
+  /**
+   * La caché de React Query se vacía cuando cambia QUIÉN está logueado.
+   *
+   * EL PROBLEMA: ninguna clave de query lleva el id del usuario — `['me']`,
+   * `['messages']`, `['pets','mine']`, `['reports']` son todas globales — y
+   * cerrar sesión navega con el router, sin recargar la página. Así que la
+   * caché del usuario anterior sobrevivía y se le servía al siguiente hasta que
+   * cada query terminara de refetchear. Reportado por un usuario: cambiaba de
+   * cuenta y veía "rastros" de la sesión anterior, a veces un segundo, a veces
+   * hasta recargar. No es cosmético: durante ese rato B ve la lista de
+   * conversaciones de A, con nombres y previews de mensajes ajenos.
+   *
+   * VA EN UN SOLO LUGAR, y ese es el punto. Hay SEIS caminos que cambian de
+   * identidad —`login`, `register`, `loginWithGoogle`, `logout`, el listener de
+   * `auth:session-expired` y el de token vencido al volver a la pestaña— y
+   * ponerle un `clear()` a cada uno es una lista que alguien va a olvidar
+   * ampliar. Un efecto sobre el id los cubre a todos, incluido el que se agregue
+   * mañana.
+   *
+   * LA PREGUNTA ES SI HUBO UNA SESIÓN ANTES, NO SI HAY DATOS AHORA. El primer
+   * login de una carga de página no tiene nada de nadie que limpiar: lo que
+   * pueda haber cacheado es público y lo pidió este mismo usuario navegando
+   * (`stats`, `stories`, `pets/search` los carga el home sin sesión). Limpiar
+   * ahí es puro desperdicio. En cambio, en cuanto hubo UNA sesión en esta
+   * página, todo login posterior tiene que limpiar aunque el id anterior sea
+   * null — porque entre medio pudo aterrizar una escritura de la sesión vieja.
+   *
+   * Una versión anterior preguntaba `hayDatosCacheados` (`data !== undefined`).
+   * Cubría lo mismo en seguridad y costaba caro: MEDIDO en el browser, entrar
+   * desde el home pasaba de 5 a 10 requests, porque el home sin sesión ya deja
+   * el feed en la caché y eso disparaba el `clear()` en el caso más común que
+   * hay. La bandera da la misma cobertura gratis.
+   *
+   * LO QUE ESTA GUARDA NO PUEDE CERRAR, y por eso no vive sola: una escritura
+   * que aterriza DESPUÉS del login siguiente. Las mutaciones sobreviven al
+   * `clear()` y al unmount —`MutationCache.clear()` las saca del set pero no
+   * cancela `execute()`— así que un envío que rechaza tarde restauraría el hilo
+   * de A cuando ya no queda ninguna transición de identidad por delante.
+   * Limpiar al cambiar de identidad no alcanza contra algo que llega después
+   * del cambio: eso se repara en la escritura, en `useSendMessageTo.onError`,
+   * que se abstiene si el token de la sesión cambió.
+   */
+  const idAnteriorRef = useRef<string | null>(null);
+  const huboSesionRef = useRef(false);
+  useEffect(() => {
+    const actual = user?.id ?? null;
+    const anterior = idAnteriorRef.current;
+    if (anterior === actual) return;
+    idAnteriorRef.current = actual;
+
+    if (anterior !== null || huboSesionRef.current) queryClient.clear();
+    if (actual !== null) huboSesionRef.current = true;
+  }, [user?.id, queryClient]);
 
   // Al iniciar, recuperamos el token de localStorage si existe.
   // isLoading evita que ProtectedRoute redirija antes de que este efecto termine.

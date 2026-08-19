@@ -59,6 +59,33 @@ import type {
 } from '../types';
 
 // ============================================================
+// ESCRITURAS DE CACHE QUE SOBREVIVEN A UN CAMBIO DE SESION
+// ============================================================
+//
+// Los callbacks de una mutacion NO mueren con el componente ni con
+// `queryClient.clear()`: `MutationCache.clear()` saca la mutacion del set pero
+// no cancela `execute()`. Asi que una peticion lenta que arranco con la sesion
+// de A puede resolver cuando B ya esta adentro, y su `onSuccess`/`onError`
+// escribiria datos de A en la cache de B. Ninguna clave lleva el id del usuario,
+// asi que B los leeria como propios.
+//
+// La guarda de `AuthContext` (vaciar la cache al cambiar de identidad) no
+// alcanza: corre ANTES de esa escritura tardia. Por eso se repara aca, en la
+// escritura, con la misma forma en todos los hooks que escriben datos de una
+// persona — una sola idea, no una variante por hook.
+//
+// Se compara el TOKEN y no el id del usuario porque estos hooks son compartidos
+// con mobile, que no tiene el `AuthContext` de la web. El token es la identidad
+// que `apiClient` ya conoce en las dos plataformas.
+
+/** Para `onMutate`: deja anotado con que sesion arranco la mutacion. */
+const anotarSesion = () => ({ sesion: apiClient.getToken() });
+
+/** Para los callbacks: ¿la sesion sigue siendo la que arranco esto? */
+const mismaSesion = (context: unknown) =>
+  (context as { sesion?: string | null } | undefined)?.sesion === apiClient.getToken();
+
+// ============================================================
 // AUTH HOOKS
 // ============================================================
 
@@ -73,7 +100,14 @@ export const useUpdateMe = () => {
   const queryClient = useQueryClient();
   return useMutation<User, Error, UpdateProfileRequest>({
     mutationFn: (data) => apiClient.updateMe(data),
-    onSuccess: (updatedUser) => {
+    onMutate: anotarSesion,
+    onSuccess: (updatedUser, _vars, context) => {
+      // El perfil trae email y telefono: si la sesion cambio mientras el PATCH
+      // viajaba, esto los dejaria en la cache de otra persona. Ver el bloque de
+      // arriba. Las invalidaciones de abajo si son inocuas —no escriben nada—
+      // pero quedan adentro igual: refrescar la cache de B con datos de B es
+      // correcto, y salir temprano evita un refetch que a nadie le sirve.
+      if (!mismaSesion(context)) return;
       queryClient.setQueryData(['me'], updatedUser);
       // Owner/reporter name and phone are embedded in pet and report payloads,
       // so refetch them — otherwise a profile edit (e.g. clearing the phone)
@@ -89,7 +123,9 @@ export const useUploadProfilePhoto = () => {
   const queryClient = useQueryClient();
   return useMutation<User, Error, File>({
     mutationFn: (file) => apiClient.uploadProfilePhoto(file),
-    onSuccess: (updatedUser) => {
+    onMutate: anotarSesion,
+    onSuccess: (updatedUser, _vars, context) => {
+      if (!mismaSesion(context)) return;
       queryClient.setQueryData(['me'], updatedUser);
     },
   });
@@ -99,7 +135,9 @@ export const useUploadProfilePhotoNative = () => {
   const queryClient = useQueryClient();
   return useMutation<User, Error, string>({
     mutationFn: (uri) => apiClient.uploadProfilePhotoNative(uri),
-    onSuccess: (updatedUser) => {
+    onMutate: anotarSesion,
+    onSuccess: (updatedUser, _vars, context) => {
+      if (!mismaSesion(context)) return;
       queryClient.setQueryData(['me'], updatedUser);
     },
   });
@@ -479,6 +517,8 @@ export const useSendMessageTo = () => {
     onMutate: async ({ receiverID, senderID, content }) => {
       await queryClient.cancelQueries({ queryKey: ['messages', receiverID] });
       const previous = queryClient.getQueryData<Message[]>(['messages', receiverID]);
+      // Con qué sesión arrancó este envío. Ver el guard de `onError`.
+      const { sesion } = anotarSesion();
       const optimistic: Message = {
         id: `temp-${Date.now()}`,
         sender_id: senderID,
@@ -488,9 +528,19 @@ export const useSendMessageTo = () => {
         created_at: new Date().toISOString(),
       };
       queryClient.setQueryData<Message[]>(['messages', receiverID], (old) => [...(old ?? []), optimistic]);
-      return { previous };
+      return { previous, sesion };
     },
     onError: (_err, { receiverID }, context) => {
+      // `previous` es el hilo ENTERO de quien mandó — el dato más sensible que
+      // escribe cualquiera de estos hooks. Sin este guard, la secuencia
+      //
+      //     A manda → el POST queda colgado (hasta 45s, REQUEST_TIMEOUT_MS)
+      //     A cierra sesión → B entra → recién ahí el POST rechaza
+      //
+      // deja los mensajes privados de A en la caché de B. Medido en el browser.
+      // Ver el bloque del principio del archivo.
+      if (!mismaSesion(context)) return;
+
       const ctx = context as { previous: Message[] | undefined } | undefined;
       if (ctx?.previous) queryClient.setQueryData(['messages', receiverID], ctx.previous);
     },

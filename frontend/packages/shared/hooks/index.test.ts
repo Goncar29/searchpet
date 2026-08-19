@@ -390,6 +390,10 @@ describe('useUnlikeStory', () => {
 describe('useSendMessageTo', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    // `apiClient` es un singleton y su token es estado REAL, que
+    // `restoreAllMocks` no toca. El rollback compara ese token, así que sin
+    // esto un test que lo deje seteado decide el resultado del siguiente.
+    apiClient.setToken(null);
   });
 
   const serverMessage: Message = {
@@ -437,6 +441,52 @@ describe('useSendMessageTo', () => {
 
     const cached = queryClient.getQueryData<Message[]>(['messages', 'them']);
     expect(cached).toEqual([existing]);
+  });
+
+  it('no restaura el hilo si la sesion cambio mientras el envio estaba en vuelo', async () => {
+    // EL ORDEN QUE LIMPIAR LA CACHE NO PUEDE ALCANZAR.
+    //
+    // `onError` sobrevive al unmount y al `queryClient.clear()`:
+    // `MutationCache.clear()` saca la mutacion del set pero no cancela
+    // `execute()`. Y `previous` es el hilo ENTERO de quien mando. Asi que la
+    // secuencia
+    //
+    //     A manda -> el POST queda colgado (hasta 45s, REQUEST_TIMEOUT_MS)
+    //     A cierra sesion -> B entra -> recien ahi el POST rechaza
+    //
+    // escribiria los mensajes privados de A en la cache de B, y para entonces ya
+    // no queda ninguna transicion de identidad que la limpie: la guarda de
+    // `AuthContext` corre ANTES de esta escritura. Por eso la reparacion vive
+    // aca, en la escritura.
+    let rechazar!: (e: Error) => void;
+    vi.spyOn(apiClient, 'sendMessageTo').mockReturnValue(
+      new Promise((_res, rej) => {
+        rechazar = rej;
+      }),
+    );
+
+    const hiloDeA: Message = { ...serverMessage, id: 'msg-de-A', content: 'hilo privado de A' };
+    const { queryClient, wrapper: wrapperWithClient } = createWrapperWithClient();
+    queryClient.setQueryData<Message[]>(['messages', 'them'], [hiloDeA]);
+
+    apiClient.setToken('tok-A');
+    const { result } = renderHook(() => useSendMessageTo(), { wrapper: wrapperWithClient });
+    result.current.mutate({ receiverID: 'them', senderID: 'me', content: 'hola' });
+
+    await waitFor(() =>
+      expect(queryClient.getQueryData<Message[]>(['messages', 'them'])).toHaveLength(2),
+    );
+
+    // A cierra sesion (AuthContext vacia la cache) y entra B.
+    apiClient.setToken(null);
+    queryClient.clear();
+    apiClient.setToken('tok-B');
+
+    // Recien AHORA rechaza el envio de A.
+    rechazar(new Error('la red se cayo'));
+    await waitFor(() => expect(result.current.isError).toBe(true));
+
+    expect(queryClient.getQueryData(['messages', 'them'])).toBeUndefined();
   });
 
   it('invalidates the conversation and the conversation list on settle', async () => {
@@ -641,6 +691,10 @@ const mockUser: User = {
 describe('useUpdateMe', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    // El token de `apiClient` es estado REAL de un singleton, que
+    // `restoreAllMocks` no toca, y ahora decide si `onSuccess` escribe. Sin
+    // esto, un test que lo deje seteado condiciona al siguiente.
+    apiClient.setToken(null);
   });
 
   it('lo que escribe el mutation es lo que LEE useGetMe', async () => {
@@ -662,6 +716,38 @@ describe('useUpdateMe', () => {
 
     await waitFor(() => expect(result.current.update.isSuccess).toBe(true));
     await waitFor(() => expect(result.current.me.data).toEqual(nuevo));
+  });
+
+  it('no escribe el perfil en la cache si la sesion cambio mientras el PATCH viajaba', async () => {
+    // MISMO AGUJERO QUE EL DE `useSendMessageTo`, en el otro hook que escribe
+    // datos de una persona. El perfil trae email y telefono, y la clave `['me']`
+    // no lleva el id de nadie: si el PATCH de A resuelve con B ya adentro, B
+    // leeria el perfil de A como propio.
+    //
+    // Hoy `useGetMe` no tiene consumidores, asi que esto no fuga en pantalla.
+    // El guard existe igual porque el dia que alguien lo use no va a ir a
+    // revisar si la escritura era segura — y porque un agujero inerte que nadie
+    // marca es exactamente como reaparece.
+    const viejo = { ...mockUser, name: 'Perfil de A' };
+    let resolver!: (u: typeof viejo) => void;
+    vi.spyOn(apiClient, 'updateMe').mockReturnValue(new Promise((res) => { resolver = res; }));
+
+    const { queryClient, wrapper: w } = createWrapperWithClient();
+    apiClient.setToken('tok-A');
+
+    const { result } = renderHook(() => useUpdateMe(), { wrapper: w });
+    result.current.mutate({ name: 'Perfil de A' });
+    await waitFor(() => expect(result.current.isPending).toBe(true));
+
+    // A cierra sesion y entra B.
+    apiClient.setToken(null);
+    queryClient.clear();
+    apiClient.setToken('tok-B');
+
+    resolver(viejo);
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    expect(queryClient.getQueryData(['me'])).toBeUndefined();
   });
 
   it('invalida pets y reports — el telefono viejo vive embebido en esos payloads', async () => {

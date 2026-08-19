@@ -195,6 +195,15 @@ class APIClient {
     this.token = token;
   }
 
+  // Identidad de la sesión ACTUAL, para que un callback que sobrevive a un
+  // cambio de sesión pueda darse cuenta y abstenerse. No es para mandarlo a
+  // ningún lado —`request` ya pone el header solo— sino para comparar: un
+  // callback de mutación que arrancó con un token y termina con otro está por
+  // escribir datos de una persona en la sesión de otra. Ver `useSendMessageTo`.
+  getToken(): string | null {
+    return this.token;
+  }
+
   // Fetch + error handling shared by request() and requestWithTotal().
   private async doFetch(
     method: string,
