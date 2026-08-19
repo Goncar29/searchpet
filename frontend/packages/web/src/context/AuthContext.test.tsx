@@ -538,13 +538,16 @@ describe('AuthContext — reconciliación con el servidor', () => {
     expect(client.getQueryData(['messages'])).toBeUndefined();
   });
 
-  it('montar con sesion ya guardada NO vacia la cache', async () => {
-    // La guarda `anterior !== null` existe para esto: sin ella, la hidratacion
-    // inicial (null -> usuario) dispararia un clear en CADA carga de pagina y
-    // con el una tanda entera de refetches. Es seguro saltearla porque una
-    // carga de pagina estrena un QueryClient vacio.
+  it('montar con sesion ya guardada y la cache vacia NO dispara un clear', async () => {
+    // POR QUE ESPIA `clear` EN VEZ DE SEMBRAR Y MIRAR SI SOBREVIVE: lo que hay
+    // que proteger es la INTENCION —no pagar una tanda de refetches en cada
+    // carga de pagina— y eso se mide contando llamadas con la cache vacia, que
+    // es como arranca una carga de verdad. Sembrarla y afirmar que el dato
+    // sobrevive fija por contrato el comportamiento inseguro, y encima en un
+    // mundo que no existe: si hay datos de alguien, hay que limpiarlos (ver el
+    // test siguiente).
     const client = nuevoClient();
-    client.setQueryData(['messages'], 'sembrado-antes-de-montar');
+    const clearSpy = vi.spyOn(client, 'clear');
     localStorage.setItem('token', 'tok-A');
     localStorage.setItem('user', JSON.stringify({ id: 'user-A', name: 'Ana' }));
 
@@ -555,6 +558,39 @@ describe('AuthContext — reconciliación con el servidor', () => {
     );
     await act(async () => {});
 
-    expect(client.getQueryData(['messages'])).toBe('sembrado-antes-de-montar');
+    expect(clearSpy).not.toHaveBeenCalled();
+  });
+
+  it('un dato que aterriza con la sesion ya cerrada no sobrevive al login siguiente', async () => {
+    // LA FUGA QUE CIERRA, medida manejando la app antes de escribir esto.
+    // Las mutaciones sobreviven al `clear()` y al unmount, asi que el rollback
+    // de un envio fallido (`useSendMessageTo.onError`, que restaura el hilo
+    // entero) puede escribir en la cache DESPUES de cerrar sesion, con el id ya
+    // en null. Con la guarda vieja, `null -> B` no limpiaba y B heredaba ese
+    // hilo: medido en el browser, B leyendo el mensaje privado de A.
+    //
+    // El montaje arranca SIN sesion —null -> null, no hay transicion— y recien
+    // despues se siembra: eso reproduce el orden real (primero se cierra la
+    // sesion, despues aterriza el rollback).
+    const { apiClient } = await import('@shared/api/client');
+    vi.mocked(apiClient.login).mockResolvedValue({
+      token: 'tok-B',
+      user: { id: 'user-B', email: 'b@b.com', name: 'Bruno', is_verified: false, created_at: '' },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    const client = nuevoClient();
+    render(
+      <Providers client={client}>
+        <Disparador />
+      </Providers>
+    );
+    await act(async () => {});
+
+    client.setQueryData(['messages', 'user-C'], 'hilo privado de A con C');
+
+    await act(async () => { screen.getByText('entrar-B').click(); });
+
+    expect(client.getQueryData(['messages', 'user-C'])).toBeUndefined();
   });
 });

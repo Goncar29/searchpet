@@ -46,12 +46,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
    * ampliar. Un efecto sobre el id los cubre a todos, incluido el que se agregue
    * mañana.
    *
-   * LA GUARDA `anterior !== null` NO ES UN DETALLE: sin ella, la hidratación
-   * inicial (null → usuario, leyendo localStorage) dispararía un `clear()` en
-   * cada carga de página y con él una tanda entera de refetches. Saltearla es
-   * seguro porque una carga de página estrena un QueryClient vacío: no hay nada
-   * de nadie que limpiar. Lo que sí se limpia es todo cambio POSTERIOR — salir
-   * (id → null) y cambiar de cuenta (idA → idB).
+   * POR QUÉ NO SE LIMPIA EN LA PRIMERA TRANSICIÓN. La hidratación inicial
+   * (null → usuario, leyendo localStorage) no tiene nada de nadie que limpiar, y
+   * un `clear()` ahí dispararía una tanda entera de refetches en CADA carga de
+   * página. Pero eso vale por lo que la caché TIENE, no por ser la primera vez:
+   * la condición se pregunta, no se supone.
+   *
+   * Y no es teórico. Con `anterior !== null` a secas quedaba una fuga medida:
+   * las mutaciones sobreviven al `clear()` y al unmount —`MutationCache.clear()`
+   * las saca del set pero no cancela `execute()`— así que el rollback de un
+   * envío fallido (`useSendMessageTo.onError`, que restaura el hilo entero)
+   * puede aterrizar DESPUÉS de que se cerró la sesión, con el id ya en null. Y
+   * como `null → B` no limpiaba, B heredaba ese hilo. Manejando la app: A abre
+   * un chat, manda, el POST falla tarde, A cierra sesión en el medio, B entra y
+   * abre ese mismo chat — y lee el mensaje privado de A. Angosto pero real.
+   *
+   * Preguntar por `data !== undefined` y no por la cantidad de queries es lo que
+   * mantiene barata la carga de página: cuando este efecto corre, las queries de
+   * los hijos ya existen (sus efectos corren ANTES que el del padre) pero
+   * todavía están en vuelo, sin `data`. No hay `initialData` ni persister en el
+   * frontend, así que hoy esto no cambia el comportamiento del montaje — cambia
+   * el día que algo escriba en la caché sin que haya nadie logueado.
    */
   const idAnteriorRef = useRef<string | null>(null);
   useEffect(() => {
@@ -59,7 +74,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const anterior = idAnteriorRef.current;
     if (anterior === actual) return;
     idAnteriorRef.current = actual;
-    if (anterior !== null) queryClient.clear();
+
+    const hayDatosCacheados = queryClient
+      .getQueryCache()
+      .getAll()
+      .some((q) => q.state.data !== undefined);
+    if (anterior !== null || hayDatosCacheados) queryClient.clear();
   }, [user?.id, queryClient]);
 
   // Al iniciar, recuperamos el token de localStorage si existe.
