@@ -75,7 +75,12 @@ type UserRepository interface {
 type MessageRepository interface {
 	Create(ctx context.Context, message *domain.Message) error
 	GetByID(ctx context.Context, id uuid.UUID) (*domain.Message, error)
-	GetConversation(ctx context.Context, userA, userB uuid.UUID, limit, offset int) ([]domain.Message, error)
+	// GetConversation NO es simétrica: `viewerID` tiene que ser SIEMPRE quien
+	// pregunta. Los mensajes se traen en las dos direcciones, pero el filtro de
+	// "conversación borrada" se aplica al borrado de `viewerID` — invertir los
+	// argumentos aplica el borrado de la otra persona y devuelve un hilo
+	// incorrecto en silencio, sin error de compilación ni test en rojo.
+	GetConversation(ctx context.Context, viewerID, otherID uuid.UUID, limit, offset int) ([]domain.Message, error)
 	GetConversations(ctx context.Context, userID uuid.UUID) ([]domain.Message, error)
 	MarkAsRead(ctx context.Context, messageID uuid.UUID) error
 	// MarkConversationRead marca como leídos todos los mensajes sin leer de una conversación
