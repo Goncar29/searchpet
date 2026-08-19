@@ -1,4 +1,5 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useRef } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@shared/api/client';
 import { isJwtExpired } from '@shared/utils/jwt';
 import type { User } from '@shared/types';
@@ -24,6 +25,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const queryClient = useQueryClient();
+
+  /**
+   * La caché de React Query se vacía cuando cambia QUIÉN está logueado.
+   *
+   * EL PROBLEMA: ninguna clave de query lleva el id del usuario — `['me']`,
+   * `['messages']`, `['pets','mine']`, `['reports']` son todas globales — y
+   * cerrar sesión navega con el router, sin recargar la página. Así que la
+   * caché del usuario anterior sobrevivía y se le servía al siguiente hasta que
+   * cada query terminara de refetchear. Reportado por un usuario: cambiaba de
+   * cuenta y veía "rastros" de la sesión anterior, a veces un segundo, a veces
+   * hasta recargar. No es cosmético: durante ese rato B ve la lista de
+   * conversaciones de A, con nombres y previews de mensajes ajenos.
+   *
+   * VA EN UN SOLO LUGAR, y ese es el punto. Hay SEIS caminos que cambian de
+   * identidad —`login`, `register`, `loginWithGoogle`, `logout`, el listener de
+   * `auth:session-expired` y el de token vencido al volver a la pestaña— y
+   * ponerle un `clear()` a cada uno es una lista que alguien va a olvidar
+   * ampliar. Un efecto sobre el id los cubre a todos, incluido el que se agregue
+   * mañana.
+   *
+   * LA GUARDA `anterior !== null` NO ES UN DETALLE: sin ella, la hidratación
+   * inicial (null → usuario, leyendo localStorage) dispararía un `clear()` en
+   * cada carga de página y con él una tanda entera de refetches. Saltearla es
+   * seguro porque una carga de página estrena un QueryClient vacío: no hay nada
+   * de nadie que limpiar. Lo que sí se limpia es todo cambio POSTERIOR — salir
+   * (id → null) y cambiar de cuenta (idA → idB).
+   */
+  const idAnteriorRef = useRef<string | null>(null);
+  useEffect(() => {
+    const actual = user?.id ?? null;
+    const anterior = idAnteriorRef.current;
+    if (anterior === actual) return;
+    idAnteriorRef.current = actual;
+    if (anterior !== null) queryClient.clear();
+  }, [user?.id, queryClient]);
 
   // Al iniciar, recuperamos el token de localStorage si existe.
   // isLoading evita que ProtectedRoute redirija antes de que este efecto termine.

@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { useState } from 'react';
 import { render, screen, act, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider, useAuth } from './AuthContext';
 
 // Mock del apiClient — nunca sale a la red
@@ -27,6 +29,27 @@ function makeJwt(payload: object): string {
   return `${enc({ alg: 'HS256', typ: 'JWT' })}.${enc(payload)}.signature`;
 }
 
+// AuthProvider vacía la caché de React Query cuando cambia el usuario, así que
+// necesita un QueryClientProvider arriba. Se crea uno NUEVO por render a
+// propósito: compartirlo haría que el clear de un test se vea en el siguiente y
+// los guards pasarían a depender del orden del archivo.
+function Providers({ children, client: externo }: { children: React.ReactNode; client?: QueryClient }) {
+  // `useState` con inicializador perezoso y no `new QueryClient()` suelto en el
+  // cuerpo: así el cliente sobrevive a los re-renders del provider. Con una
+  // instancia nueva por render, el efecto de AuthContext que depende de
+  // `queryClient` se volvería a disparar en cada uno. En producción no aplica
+  // porque `main.tsx` crea el cliente una sola vez a nivel de módulo.
+  const [propio] = useState(
+    () => new QueryClient({ defaultOptions: { queries: { retry: false } } }),
+  );
+  const client = externo ?? propio;
+  return (
+    <QueryClientProvider client={client}>
+      <AuthProvider>{children}</AuthProvider>
+    </QueryClientProvider>
+  );
+}
+
 // Componente auxiliar que expone el contexto
 function AuthConsumer() {
   const { user, isAuthenticated, isLoading } = useAuth();
@@ -47,9 +70,9 @@ beforeEach(() => {
 describe('AuthContext', () => {
   it('inicia sin usuario autenticado cuando localStorage está vacío', async () => {
     render(
-      <AuthProvider>
+      <Providers>
         <AuthConsumer />
-      </AuthProvider>
+      </Providers>
     );
 
     // Esperar a que termine el efecto de inicialización
@@ -65,9 +88,9 @@ describe('AuthContext', () => {
     localStorage.setItem('user', JSON.stringify(mockUser));
 
     render(
-      <AuthProvider>
+      <Providers>
         <AuthConsumer />
-      </AuthProvider>
+      </Providers>
     );
 
     await act(async () => {});
@@ -90,10 +113,10 @@ describe('AuthContext', () => {
     }
 
     const { getByRole } = render(
-      <AuthProvider>
+      <Providers>
         <LoginTrigger />
         <AuthConsumer />
-      </AuthProvider>
+      </Providers>
     );
 
     await act(async () => {
@@ -115,10 +138,10 @@ describe('AuthContext', () => {
     }
 
     const { getByRole } = render(
-      <AuthProvider>
+      <Providers>
         <LogoutTrigger />
         <AuthConsumer />
-      </AuthProvider>
+      </Providers>
     );
 
     await act(async () => {});
@@ -135,9 +158,9 @@ describe('AuthContext', () => {
     localStorage.setItem('user', JSON.stringify({ id: '1', name: 'Carlos' }));
 
     render(
-      <AuthProvider>
+      <Providers>
         <AuthConsumer />
-      </AuthProvider>
+      </Providers>
     );
     await act(async () => {});
 
@@ -152,9 +175,9 @@ describe('AuthContext', () => {
     localStorage.setItem('user', JSON.stringify({ id: '1', email: 'a@a.com', name: 'Carlos', is_verified: false, created_at: '' }));
 
     render(
-      <AuthProvider>
+      <Providers>
         <AuthConsumer />
-      </AuthProvider>
+      </Providers>
     );
     await act(async () => {});
 
@@ -183,9 +206,9 @@ describe('AuthContext', () => {
     localStorage.setItem('user', JSON.stringify({ id: '1', name: 'Carlos' }));
 
     render(
-      <AuthProvider>
+      <Providers>
         <AuthConsumer />
-      </AuthProvider>
+      </Providers>
     );
     await act(async () => {});
 
@@ -211,9 +234,9 @@ describe('AuthContext', () => {
     localStorage.setItem('token', 'stale-token');
 
     render(
-      <AuthProvider>
+      <Providers>
         <AuthConsumer />
-      </AuthProvider>
+      </Providers>
     );
     await act(async () => {});
 
@@ -236,9 +259,9 @@ describe('AuthContext', () => {
     localStorage.setItem('token', 'stale-token');
 
     render(
-      <AuthProvider>
+      <Providers>
         <AuthConsumer />
-      </AuthProvider>
+      </Providers>
     );
     await act(async () => {});
 
@@ -259,9 +282,9 @@ describe('AuthContext', () => {
     localStorage.setItem('user', JSON.stringify({ id: '1', name: 'Carlos' }));
 
     render(
-      <AuthProvider>
+      <Providers>
         <AuthConsumer />
-      </AuthProvider>
+      </Providers>
     );
     await act(async () => {});
 
@@ -286,9 +309,9 @@ describe('AuthContext', () => {
     localStorage.setItem('user', '{ broken json');
 
     render(
-      <AuthProvider>
+      <Providers>
         <AuthConsumer />
-      </AuthProvider>
+      </Providers>
     );
     await act(async () => {});
 
@@ -334,9 +357,9 @@ describe('AuthContext.loginWithGoogle', () => {
 
     const onResult = vi.fn();
     render(
-      <AuthProvider>
+      <Providers>
         <GoogleConsumer onResult={onResult} />
-      </AuthProvider>,
+      </Providers>,
     );
 
     await act(async () => {
@@ -361,9 +384,9 @@ describe('AuthContext.loginWithGoogle', () => {
 
     const onResult = vi.fn();
     render(
-      <AuthProvider>
+      <Providers>
         <GoogleConsumer onResult={onResult} />
-      </AuthProvider>,
+      </Providers>,
     );
 
     await act(async () => {
@@ -378,9 +401,9 @@ describe('AuthContext.loginWithGoogle', () => {
     vi.mocked(apiClient.loginWithGoogle).mockRejectedValue(new Error('401'));
 
     render(
-      <AuthProvider>
+      <Providers>
         <GoogleConsumer onResult={vi.fn()} />
-      </AuthProvider>,
+      </Providers>,
     );
 
     await act(async () => {
@@ -413,9 +436,9 @@ describe('AuthContext — reconciliación con el servidor', () => {
     });
 
     render(
-      <AuthProvider>
+      <Providers>
         <AuthConsumer />
-      </AuthProvider>,
+      </Providers>,
     );
 
     await waitFor(() =>
@@ -434,12 +457,104 @@ describe('AuthContext — reconciliación con el servidor', () => {
     vi.mocked(apiClient.getMe).mockResolvedValue(undefined);
 
     render(
-      <AuthProvider>
+      <Providers>
         <AuthConsumer />
-      </AuthProvider>,
+      </Providers>,
     );
 
     await waitFor(() => expect(screen.getByTestId('loading').textContent).toBe('false'));
     expect(screen.getByTestId('user').textContent).toBe('Carlos');
+  });
+
+  // ── La caché no puede sobrevivir al cambio de usuario ──
+  //
+  // Se inspecciona el QueryClient DIRECTAMENTE y no por el DOM: `setQueryData`
+  // no re-renderiza a quien no esté suscripto con `useQuery`, así que un span
+  // que lo lea en render muestra el valor viejo y el test miente.
+
+  function Disparador() {
+    const { login, logout } = useAuth();
+    return (
+      <div>
+        <button onClick={logout}>salir</button>
+        <button onClick={() => login('b@b.com', 'x')}>entrar-B</button>
+      </div>
+    );
+  }
+
+  const nuevoClient = () =>
+    new QueryClient({ defaultOptions: { queries: { retry: false } } });
+
+  it('cerrar sesion vacia la cache: el usuario siguiente no ve datos del anterior', async () => {
+    // EL BUG QUE CIERRA, reportado por un usuario: cambiaba de cuenta y veia
+    // "rastros" de la sesion anterior. Ninguna clave de query lleva el id del
+    // usuario y cerrar sesion navega con el router SIN recargar, asi que la
+    // cache del anterior se le servia al siguiente hasta que cada query
+    // refetcheara. No es cosmetico: son conversaciones y nombres ajenos.
+    const client = nuevoClient();
+    localStorage.setItem('token', 'tok-A');
+    localStorage.setItem('user', JSON.stringify({ id: 'user-A', name: 'Ana' }));
+
+    render(
+      <Providers client={client}>
+        <Disparador />
+      </Providers>
+    );
+    await act(async () => {});
+
+    client.setQueryData(['messages'], 'datos-del-usuario-A');
+    expect(client.getQueryData(['messages'])).toBe('datos-del-usuario-A');
+
+    await act(async () => { screen.getByText('salir').click(); });
+
+    expect(client.getQueryData(['messages'])).toBeUndefined();
+  });
+
+  it('cambiar de cuenta sin pasar por logout tampoco arrastra la cache', async () => {
+    const { apiClient } = await import('@shared/api/client');
+    vi.mocked(apiClient.login).mockResolvedValue({
+      token: 'tok-B',
+      user: { id: 'user-B', email: 'b@b.com', name: 'Bruno', is_verified: false, created_at: '' },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    const client = nuevoClient();
+    localStorage.setItem('token', 'tok-A');
+    localStorage.setItem('user', JSON.stringify({ id: 'user-A', name: 'Ana' }));
+
+    render(
+      <Providers client={client}>
+        <Disparador />
+      </Providers>
+    );
+    await act(async () => {});
+
+    client.setQueryData(['messages'], 'datos-del-usuario-A');
+
+    // A -> B directo. Un clear colgado sólo de `logout` no cubriria este camino,
+    // y es uno de los SEIS que cambian de identidad.
+    await act(async () => { screen.getByText('entrar-B').click(); });
+
+    expect(client.getQueryData(['messages'])).toBeUndefined();
+  });
+
+  it('montar con sesion ya guardada NO vacia la cache', async () => {
+    // La guarda `anterior !== null` existe para esto: sin ella, la hidratacion
+    // inicial (null -> usuario) dispararia un clear en CADA carga de pagina y
+    // con el una tanda entera de refetches. Es seguro saltearla porque una
+    // carga de pagina estrena un QueryClient vacio.
+    const client = nuevoClient();
+    client.setQueryData(['messages'], 'sembrado-antes-de-montar');
+    localStorage.setItem('token', 'tok-A');
+    localStorage.setItem('user', JSON.stringify({ id: 'user-A', name: 'Ana' }));
+
+    render(
+      <Providers client={client}>
+        <Disparador />
+      </Providers>
+    );
+    await act(async () => {});
+
+    expect(client.getQueryData(['messages'])).toBe('sembrado-antes-de-montar');
   });
 });
