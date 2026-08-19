@@ -470,6 +470,8 @@ export const useSendMessageTo = () => {
     onMutate: async ({ receiverID, senderID, content }) => {
       await queryClient.cancelQueries({ queryKey: ['messages', receiverID] });
       const previous = queryClient.getQueryData<Message[]>(['messages', receiverID]);
+      // Se anota CON QUÉ SESIÓN arrancó este envío. Ver el guard de `onError`.
+      const sesion = apiClient.getToken();
       const optimistic: Message = {
         id: `temp-${Date.now()}`,
         sender_id: senderID,
@@ -479,10 +481,32 @@ export const useSendMessageTo = () => {
         created_at: new Date().toISOString(),
       };
       queryClient.setQueryData<Message[]>(['messages', receiverID], (old) => [...(old ?? []), optimistic]);
-      return { previous };
+      return { previous, sesion };
     },
     onError: (_err, { receiverID }, context) => {
-      const ctx = context as { previous: Message[] | undefined } | undefined;
+      const ctx = context as { previous: Message[] | undefined; sesion: string | null } | undefined;
+
+      // NO RESTAURAR NADA SI LA SESIÓN CAMBIÓ MIENTRAS EL ENVÍO ESTABA EN VUELO.
+      //
+      // Este callback sobrevive al unmount Y al `queryClient.clear()`:
+      // `MutationCache.clear()` saca la mutación del set pero no cancela
+      // `execute()`, así que `onError` corre igual. Y `previous` es el hilo
+      // ENTERO de quien mandó. Sin este guard, la secuencia
+      //
+      //     A manda → el POST queda colgado (hasta 45s, REQUEST_TIMEOUT_MS)
+      //     A cierra sesión → B entra → recién ahí el POST rechaza
+      //
+      // escribe los mensajes privados de A en la caché de B, y ya no queda
+      // ninguna transición de identidad que la limpie. Es el mismo agujero que
+      // cierra la guarda de `AuthContext`, en el orden que esa guarda no puede
+      // alcanzar: limpiar al cambiar de identidad no sirve contra una escritura
+      // que llega DESPUÉS del cambio. Por eso se repara acá, en la escritura.
+      //
+      // Se compara el token y no el id del usuario porque este hook es
+      // compartido con mobile, que no tiene el AuthContext de la web. El token
+      // es la identidad que `apiClient` ya conoce en las dos plataformas.
+      if (ctx?.sesion !== apiClient.getToken()) return;
+
       if (ctx?.previous) queryClient.setQueryData(['messages', receiverID], ctx.previous);
     },
     onSettled: (_, __, { receiverID }) => {

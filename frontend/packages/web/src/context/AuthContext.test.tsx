@@ -485,12 +485,33 @@ describe('AuthContext — reconciliación con el servidor', () => {
   const nuevoClient = () =>
     new QueryClient({ defaultOptions: { queries: { retry: false } } });
 
+  // `beforeEach` usa `vi.clearAllMocks()`, que borra las LLAMADAS pero NO las
+  // implementaciones: sin esto, estos tests heredan el `getMe` que dejó puesto
+  // el último test de arriba. Importa porque el efecto de reconciliación llama a
+  // `getMe()` al montar (hay token en localStorage) y, si devolviera un usuario
+  // con otro `id`, cambiaría `user?.id` y dispararía la guarda — un rojo por un
+  // motivo que no tiene nada que ver con lo que el test afirma.
+  // RESUELVE `undefined` A PROPOSITO, y no un usuario. `AuthContext` lo descarta
+  // con `if (!fresh?.id) return`, asi que la reconciliacion NO puede mover la
+  // identidad. Un stub que devuelva un usuario —aunque sea "el mismo"— la mueve:
+  // tras entrar B, `getMe` reconcilia a ese usuario y produce una transicion
+  // B -> X que limpia sola. La primera version de este helper devolvia
+  // `{id:'user-A'}` y hacia pasar el test de la fuga SIN la guarda puesta. El
+  // aislamiento no puede introducir el efecto del que aisla.
+  async function aislarGetMe() {
+    const { apiClient } = await import('@shared/api/client');
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vi.mocked(apiClient.getMe).mockResolvedValue(undefined as any);
+    return apiClient;
+  }
+
   it('cerrar sesion vacia la cache: el usuario siguiente no ve datos del anterior', async () => {
     // EL BUG QUE CIERRA, reportado por un usuario: cambiaba de cuenta y veia
     // "rastros" de la sesion anterior. Ninguna clave de query lleva el id del
     // usuario y cerrar sesion navega con el router SIN recargar, asi que la
     // cache del anterior se le servia al siguiente hasta que cada query
     // refetcheara. No es cosmetico: son conversaciones y nombres ajenos.
+    await aislarGetMe();
     const client = nuevoClient();
     localStorage.setItem('token', 'tok-A');
     localStorage.setItem('user', JSON.stringify({ id: 'user-A', name: 'Ana' }));
@@ -511,7 +532,7 @@ describe('AuthContext — reconciliación con el servidor', () => {
   });
 
   it('cambiar de cuenta sin pasar por logout tampoco arrastra la cache', async () => {
-    const { apiClient } = await import('@shared/api/client');
+    const apiClient = await aislarGetMe();
     vi.mocked(apiClient.login).mockResolvedValue({
       token: 'tok-B',
       user: { id: 'user-B', email: 'b@b.com', name: 'Bruno', is_verified: false, created_at: '' },
@@ -538,15 +559,22 @@ describe('AuthContext — reconciliación con el servidor', () => {
     expect(client.getQueryData(['messages'])).toBeUndefined();
   });
 
-  it('montar con sesion ya guardada y la cache vacia NO dispara un clear', async () => {
-    // POR QUE ESPIA `clear` EN VEZ DE SEMBRAR Y MIRAR SI SOBREVIVE: lo que hay
-    // que proteger es la INTENCION —no pagar una tanda de refetches en cada
-    // carga de pagina— y eso se mide contando llamadas con la cache vacia, que
-    // es como arranca una carga de verdad. Sembrarla y afirmar que el dato
-    // sobrevive fija por contrato el comportamiento inseguro, y encima en un
-    // mundo que no existe: si hay datos de alguien, hay que limpiarlos (ver el
-    // test siguiente).
+  it('el PRIMER login de la pagina no dispara un clear, aunque haya datos cacheados', async () => {
+    // ESTO ES SEGURIDAD **Y** COSTO, y por eso se afirma con datos SEMBRADOS.
+    //
+    // Antes de este login no hubo ninguna sesion en esta pagina, asi que lo que
+    // haya en la cache es publico y lo pidio este mismo usuario navegando: el
+    // home sin sesion carga `stats`, `stories` y `pets/search`. No hay nada de
+    // nadie que limpiar.
+    //
+    // Una version anterior preguntaba si la cache tenia datos, y por eso
+    // limpiaba justo aca. MEDIDO en el browser: entrar desde el home pasaba de
+    // 5 a 10 requests. La bandera `huboSesion` da la misma cobertura gratis, y
+    // este test es lo que impide que alguien la cambie de vuelta por el
+    // predicado caro sin enterarse.
+    await aislarGetMe();
     const client = nuevoClient();
+    client.setQueryData(['stats'], 'datos publicos que cargo el home');
     const clearSpy = vi.spyOn(client, 'clear');
     localStorage.setItem('token', 'tok-A');
     localStorage.setItem('user', JSON.stringify({ id: 'user-A', name: 'Ana' }));
@@ -559,20 +587,22 @@ describe('AuthContext — reconciliación con el servidor', () => {
     await act(async () => {});
 
     expect(clearSpy).not.toHaveBeenCalled();
+    expect(client.getQueryData(['stats'])).toBe('datos publicos que cargo el home');
   });
 
   it('un dato que aterriza con la sesion ya cerrada no sobrevive al login siguiente', async () => {
-    // LA FUGA QUE CIERRA, medida manejando la app antes de escribir esto.
-    // Las mutaciones sobreviven al `clear()` y al unmount, asi que el rollback
-    // de un envio fallido (`useSendMessageTo.onError`, que restaura el hilo
-    // entero) puede escribir en la cache DESPUES de cerrar sesion, con el id ya
-    // en null. Con la guarda vieja, `null -> B` no limpiaba y B heredaba ese
-    // hilo: medido en el browser, B leyendo el mensaje privado de A.
+    // LA FUGA, medida manejando la app antes de escribir esto. Las mutaciones
+    // sobreviven al `clear()` y al unmount, asi que el rollback de un envio
+    // fallido (`useSendMessageTo.onError`, que restaura el hilo entero) puede
+    // escribir en la cache DESPUES de cerrar sesion, con el id ya en null.
     //
-    // El montaje arranca SIN sesion —null -> null, no hay transicion— y recien
-    // despues se siembra: eso reproduce el orden real (primero se cierra la
-    // sesion, despues aterriza el rollback).
-    const { apiClient } = await import('@shared/api/client');
+    // LA SECUENCIA IMPORTA Y ES LA REAL: se monta CON la sesion de A, A cierra
+    // sesion (ahi corre el clear), recien entonces aterriza la escritura tardia,
+    // y despues entra B. Sin el paso del logout el test no probaria nada: seria
+    // un primer login, que por diseño no limpia (test anterior). Es la bandera
+    // `huboSesion` la que distingue los dos casos, y modelar mal la secuencia
+    // haria que los dos tests se pisen.
+    const apiClient = await aislarGetMe();
     vi.mocked(apiClient.login).mockResolvedValue({
       token: 'tok-B',
       user: { id: 'user-B', email: 'b@b.com', name: 'Bruno', is_verified: false, created_at: '' },
@@ -580,6 +610,9 @@ describe('AuthContext — reconciliación con el servidor', () => {
     } as any);
 
     const client = nuevoClient();
+    localStorage.setItem('token', 'tok-A');
+    localStorage.setItem('user', JSON.stringify({ id: 'user-A', name: 'Ana' }));
+
     render(
       <Providers client={client}>
         <Disparador />
@@ -587,6 +620,9 @@ describe('AuthContext — reconciliación con el servidor', () => {
     );
     await act(async () => {});
 
+    await act(async () => { screen.getByText('salir').click(); });
+
+    // La escritura tardia de la sesion de A, ya sin nadie logueado.
     client.setQueryData(['messages', 'user-C'], 'hilo privado de A con C');
 
     await act(async () => { screen.getByText('entrar-B').click(); });
