@@ -169,13 +169,48 @@ export function MessagesShell({ selectedUserId, selectedUserName, children }: Me
   // se acuerda de lo que escribió, no de con quién.
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
-    if (!needle) return rows;
-    return rows.filter(
+    if (!needle) return { filas: rows, coincidencias: rows.length };
+
+    const coinciden = rows.filter(
       (row) =>
         row.otherUserName.toLowerCase().includes(needle) ||
         row.preview.toLowerCase().includes(needle),
     );
-  }, [rows, query]);
+
+    // LA FILA ABIERTA NO SE FILTRA NUNCA.
+    //
+    // El buscador elige QUÉ CONVERSACIONES MIRÁS, no EN CUÁL ESTÁS. Sin esta
+    // excepción, buscar un nombre que no es el de la conversación abierta deja
+    // la pantalla en el estado exacto que causó el incidente: un solo nombre en
+    // negrita —el de OTRA persona—, la identidad real del hilo en un renglón
+    // chico de la cabecera, y el compositor armado. Medido: con el hilo de Ana
+    // abierto, buscar "bruno" dejaba `aria-current` en CERO filas.
+    //
+    // Le pasa igual a una conversación real que a una recién estrenada, así que
+    // la exención va acá —después de filtrar, sobre `rows`— y no dentro de la
+    // rama que arma la fila sintética: ahí sólo cubriría la mitad de los casos.
+    //
+    // Va primero y no en su lugar natural porque cuando el filtro la descarta,
+    // su papel deja de ser "un resultado más" y pasa a ser "acá estás parado".
+    if (selectedUserId && !coinciden.some((r) => r.otherUserId === selectedUserId)) {
+      const abierta = rows.find((r) => r.otherUserId === selectedUserId);
+      if (abierta) return { filas: [abierta, ...coinciden], coincidencias: coinciden.length };
+    }
+
+    return { filas: coinciden, coincidencias: coinciden.length };
+  }, [rows, query, selectedUserId]);
+
+  const { filas, coincidencias } = filtered;
+
+  /**
+   * "Ninguna conversación coincide" mira las COINCIDENCIAS, no las filas.
+   *
+   * Desde que la fila abierta se fija, la lista nunca queda vacía mientras haya
+   * una conversación abierta — así que atarlo a `filas.length === 0` habría
+   * dejado el cartel mudo justo cuando hace falta: el usuario buscaría algo que
+   * no existe, vería una sola fila, y creería que ESA es el resultado.
+   */
+  const sinCoincidencias = query.trim() !== '' && coincidencias === 0;
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -241,17 +276,22 @@ export function MessagesShell({ selectedUserId, selectedUserName, children }: Me
                   {t('messages:emptySubtitle')}
                 </p>
               </div>
-            ) : filtered.length === 0 ? (
-              /* Lista con datos pero filtro sin resultados. Es un estado
-                 distinto del vacío de verdad: acá el usuario SÍ tiene
-                 conversaciones y lo que falla es su búsqueda, así que el texto
-                 tiene que decir eso y no "todavía no tenés mensajes". */
-              <p className="px-4 py-12 text-center text-sm text-gray-500 dark:text-gray-400">
-                {t('messages:noResults', { query: query.trim() })}
-              </p>
             ) : (
-              <ul className="flex flex-col gap-1">
-                {filtered.map((row) => {
+              <>
+                {/* Lista con datos pero filtro sin resultados. Es un estado
+                    distinto del vacío de verdad: acá el usuario SÍ tiene
+                    conversaciones y lo que falla es su búsqueda, así que el
+                    texto tiene que decir eso y no "todavía no tenés mensajes".
+                    Va ARRIBA y no en lugar de la lista, porque debajo puede
+                    quedar la fila de la conversación abierta, que no es un
+                    resultado de la búsqueda sino dónde estás parado. */}
+                {sinCoincidencias && (
+                  <p className="px-4 py-6 text-center text-sm text-gray-500 dark:text-gray-400">
+                    {t('messages:noResults', { query: query.trim() })}
+                  </p>
+                )}
+                <ul className="flex flex-col gap-1">
+                  {filas.map((row) => {
                   const active = row.otherUserId === selectedUserId;
                   return (
                     /* Keyed by counterpart, not msg.id: the conversations query
@@ -338,8 +378,9 @@ export function MessagesShell({ selectedUserId, selectedUserName, children }: Me
                       )}
                     </li>
                   );
-                })}
-              </ul>
+                  })}
+                </ul>
+              </>
             )}
           </div>
         </aside>

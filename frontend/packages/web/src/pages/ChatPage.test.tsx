@@ -418,6 +418,62 @@ describe('ChatPage', () => {
     expect(screen.getByText('Admin Local')).toBeTruthy();
   });
 
+  it('buscar NO puede esconder la fila de la conversacion abierta', () => {
+    // EL AGUJERO QUE CIERRA, medido en el browser: con un hilo abierto, escribir
+    // en el buscador un nombre que no es el suyo dejaba `aria-current` en CERO
+    // filas. La pantalla quedaba identica a la del incidente — un solo nombre en
+    // negrita, el de OTRA persona, con el compositor armado.
+    //
+    // Le pasa igual a una conversacion real que a una recien estrenada, asi que
+    // acá se ejercita la REAL: es la mitad que no cubre la fila sintetica.
+    vi.mocked(useConversation).mockReturnValue(mockConversation([], false));
+    vi.mocked(useConversations).mockReturnValue({
+      data: [
+        { id: 'c-1', sender_id: 'user-2', receiver_id: 'user-1', content: 'hola', is_read: true, created_at: new Date().toISOString(), sender: { id: 'user-2', name: 'Alice' } },
+        { id: 'c-2', sender_id: 'user-9', receiver_id: 'user-1', content: 'buenas', is_read: true, created_at: new Date().toISOString(), sender: { id: 'user-9', name: 'Bruno' } },
+      ],
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    render(<ChatPage />, { wrapper });
+
+    // La abierta es user-2 (Alice). Busco al OTRO.
+    fireEvent.change(screen.getByLabelText('messages:searchLabel'), { target: { value: 'bruno' } });
+
+    const marcadas = screen.getAllByRole('link', { current: 'page' });
+    expect(marcadas).toHaveLength(1);
+    expect(marcadas[0].getAttribute('href')).toBe('/messages/user-2');
+    // Y el resultado de la busqueda sigue estando: la fila fijada se suma, no
+    // reemplaza.
+    expect(screen.getByText('Bruno')).toBeTruthy();
+  });
+
+  it('con CERO coincidencias sigue avisando que la busqueda no matcheo', () => {
+    // La fila fijada hace que la lista nunca quede vacia con una conversacion
+    // abierta. Si el cartel dependiera de `filas.length === 0` se volveria mudo
+    // justo ahi, y el usuario creeria que esa unica fila ES el resultado.
+    vi.mocked(useConversation).mockReturnValue(mockConversation([], false));
+    vi.mocked(useConversations).mockReturnValue({
+      data: [
+        { id: 'c-1', sender_id: 'user-2', receiver_id: 'user-1', content: 'hola', is_read: true, created_at: new Date().toISOString(), sender: { id: 'user-2', name: 'Alice' } },
+      ],
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    render(<ChatPage />, { wrapper });
+    fireEvent.change(screen.getByLabelText('messages:searchLabel'), { target: { value: 'zzzzz' } });
+
+    expect(screen.getByText('messages:noResults')).toBeTruthy();
+    // …y aun asi la abierta sigue visible y marcada.
+    expect(screen.getAllByRole('link', { current: 'page' })).toHaveLength(1);
+  });
+
   it('la fila abierta se marca con aria-current, no solo con un color', () => {
     // En escritorio las dos columnas comparten pantalla, asi que hay que poder
     // saber CUAL esta abierta. El diseño lo resuelve con una barra naranja: eso
