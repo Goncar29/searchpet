@@ -35,6 +35,11 @@ export interface ConversationRow {
   unread: boolean;
   /** El último mensaje lo escribí yo. Decide el prefijo "Vos:" del preview. */
   fromMe: boolean;
+  /**
+   * Fila sintética: la conversación está ABIERTA pero todavía no tiene ni un
+   * mensaje, así que el backend no la devuelve. No tiene fecha ni acciones.
+   */
+  isNew?: boolean;
 }
 
 /**
@@ -79,6 +84,12 @@ export function timeAgo(dateStr: string, t: (key: string, opts?: object) => stri
 interface MessagesShellProps {
   /** Conversación abierta, si la hay. Decide qué panel se ve en celular. */
   selectedUserId?: string;
+  /**
+   * Nombre de la contraparte abierta. Lo sabe la página (lo trae de
+   * `usePublicProfile`), no el shell, y hace falta para dibujar la fila de una
+   * conversación que todavía no tiene mensajes.
+   */
+  selectedUserName?: string;
   /** Panel derecho: la conversación, o el cartel de "elegí una". */
   children: ReactNode;
 }
@@ -102,7 +113,7 @@ interface MessagesShellProps {
  * `['messages', userId]` (el hilo). Si alguna vez hace falta refrescar la lista
  * desde acá, se agrega una prop — no un segundo hook.
  */
-export function MessagesShell({ selectedUserId, children }: MessagesShellProps) {
+export function MessagesShell({ selectedUserId, selectedUserName, children }: MessagesShellProps) {
   const { t } = useTranslation(['messages', 'common']);
   const { user } = useAuth();
   const [query, setQuery] = useState('');
@@ -111,10 +122,45 @@ export function MessagesShell({ selectedUserId, children }: MessagesShellProps) 
   // montar el shell en las dos rutas no agrega un solo request.
   const { data: conversations, isLoading, isError, refetch } = useConversations();
 
-  const rows = useMemo(
+  const reales = useMemo(
     () => deriveConversationRows(conversations ?? [], user?.id, t('common:unknownUser')),
     [conversations, user?.id, t],
   );
+
+  /**
+   * La conversación abierta SIEMPRE tiene su fila, aunque todavía no exista.
+   *
+   * EL INVARIANTE ES "la fila marcada es con quién estás hablando", y sin esto
+   * tenía una excepción justo donde más duele. Se llega a `/messages/:userId`
+   * desde el detalle de una mascota —"Contactar al dueño" y "Contactar al
+   * reportero"— con alguien con quien nunca hablaste, así que la lista no lo
+   * contiene y NINGUNA fila queda marcada. Entonces el único nombre en negrita
+   * de la pantalla es el de OTRA persona, y la identidad real del hilo queda en
+   * un renglón chico de la cabecera, al lado de un compositor listo para enviar.
+   *
+   * Le pasó a una usuaria de verdad y el mensaje salió a quien no era: entró por
+   * una callejera, la lista mostraba sólo "Admin Local" sin marcar, escribió, y
+   * el mensaje se fue al reportero de la mascota. Antes del rediseño esto no
+   * podía pasar porque esta pantalla no mostraba ninguna lista.
+   *
+   * La fila va ARRIBA y entra al mismo filtro y al mismo render que las reales:
+   * un camino aparte para "la de arriba" es cómo se cuela la próxima excepción.
+   */
+  const rows = useMemo(() => {
+    if (!selectedUserId || reales.some((r) => r.otherUserId === selectedUserId)) return reales;
+    return [
+      {
+        otherUserId: selectedUserId,
+        otherUserName: selectedUserName || t('common:unknownUser'),
+        preview: t('messages:newConversation'),
+        createdAt: '',
+        unread: false,
+        fromMe: false,
+        isNew: true,
+      },
+      ...reales,
+    ];
+  }, [reales, selectedUserId, selectedUserName, t]);
 
   // El filtro es del lado del cliente A PROPÓSITO: la lista ya está entera en
   // memoria (el endpoint devuelve un mensaje por contraparte, no hay paginado),
@@ -239,9 +285,14 @@ export function MessagesShell({ selectedUserId, children }: MessagesShellProps) 
                             <span className="truncate font-semibold text-gray-900 dark:text-gray-100">
                               {row.otherUserName}
                             </span>
-                            <span className="shrink-0 whitespace-nowrap text-xs text-gray-400 dark:text-gray-500">
-                              {timeAgo(row.createdAt, t as (key: string, opts?: object) => string)}
-                            </span>
+                            {/* Una conversación sin mensajes no tiene "hace
+                                cuánto": inventar una fecha ahí seria afirmar que
+                                paso algo que no paso. */}
+                            {row.createdAt && (
+                              <span className="shrink-0 whitespace-nowrap text-xs text-gray-400 dark:text-gray-500">
+                                {timeAgo(row.createdAt, t as (key: string, opts?: object) => string)}
+                              </span>
+                            )}
                           </span>
                           <span className="mt-0.5 flex items-center gap-2">
                             {/* "Vos:" cuando el ultimo mensaje es propio. La
@@ -249,7 +300,13 @@ export function MessagesShell({ selectedUserId, children }: MessagesShellProps) 
                                 la usaba mobile; la web mostraba el texto pelado,
                                 asi que la fila decia lo mismo lo hubiera escrito
                                 cualquiera de los dos. */}
-                            <span className="flex-1 truncate text-sm text-gray-500 dark:text-gray-400">
+                            <span
+                              className={`flex-1 truncate text-sm ${
+                                row.isNew
+                                  ? 'italic text-gray-400 dark:text-gray-500'
+                                  : 'text-gray-500 dark:text-gray-400'
+                              }`}
+                            >
                               {row.fromMe ? t('messages:youPrefix') : ''}
                               {row.preview}
                             </span>
@@ -267,11 +324,18 @@ export function MessagesShell({ selectedUserId, children }: MessagesShellProps) 
                           pensarlo porque la lista y el hilo vivían en pantallas
                           distintas y nunca coincidían; con las dos columnas
                           juntas, la fila abierta es exactamente ese caso. */}
-                      <ConversationActionsMenu
-                        otherUserId={row.otherUserId}
-                        otherUserName={row.otherUserName}
-                        showMarkUnread={!active}
-                      />
+                      {/* La conversación que todavía no existe no lleva menú:
+                          "borrar conversación" y "marcar como no leída" no
+                          tienen sobre qué operar, y bloquear o denunciar ya
+                          están en el menú de la cabecera, que es de esa misma
+                          persona. Dos menús para el mismo par serían dos. */}
+                      {!row.isNew && (
+                        <ConversationActionsMenu
+                          otherUserId={row.otherUserId}
+                          otherUserName={row.otherUserName}
+                          showMarkUnread={!active}
+                        />
+                      )}
                     </li>
                   );
                 })}

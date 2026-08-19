@@ -347,7 +347,8 @@
     "searchPlaceholder": "Buscar conversas...",
     "noResults": "Nenhuma conversa corresponde a \"{{query}}\"",
     "selectPrompt": "Escolha uma conversa",
-    "selectPromptSubtitle": "Selecione alguém da lista para ver as mensagens."
+    "selectPromptSubtitle": "Selecione alguém da lista para ver as mensagens.",
+    "newConversation": "Nova conversa"
   },
   "badges": {
     "title": "Meus Badges",

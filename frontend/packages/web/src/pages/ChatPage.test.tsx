@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ChatPage } from './ChatPage';
@@ -174,9 +174,14 @@ describe('ChatPage', () => {
   it('muestra el nombre de la contraparte como link al perfil publico', () => {
     vi.mocked(useConversation).mockReturnValue(mockConversation([], false));
 
-    render(<ChatPage />, { wrapper });
+    const { container } = render(<ChatPage />, { wrapper });
 
-    const link = screen.getByText('Alice').closest('a');
+    // Acotado al panel DERECHO: el nombre aparece dos veces a proposito, porque
+    // la conversacion abierta tambien tiene su fila en la lista de la izquierda
+    // aunque todavia no tenga mensajes. Sin acotar, `getByText` falla por
+    // ambiguo — y esa ambiguedad es la feature, no el bug.
+    const panel = within(container.querySelector('section') as HTMLElement);
+    const link = panel.getByText('Alice').closest('a');
     expect(link).toBeTruthy();
     expect(link?.getAttribute('href')).toBe('/users/user-2');
   });
@@ -376,6 +381,41 @@ describe('ChatPage', () => {
       receiverID: 'user-9',
       content: 'hola user-9',
     });
+  });
+
+  it('una conversacion SIN mensajes igual tiene su fila, marcada y con el nombre correcto', () => {
+    // EL BUG QUE CIERRA, reportado por una usuaria real: se llega aca desde el
+    // detalle de una mascota ("Contactar al dueño" / "al reportero") con alguien
+    // con quien nunca hablaste. El backend no devuelve esa conversacion porque
+    // no existe, asi que la lista no la contenia y NINGUNA fila quedaba marcada:
+    // el unico nombre en negrita de la pantalla era el de OTRA persona, con un
+    // compositor listo al lado. Escribio, y el mensaje salio a quien no era.
+    vi.mocked(useConversation).mockReturnValue(mockConversation([], false));
+    vi.mocked(useConversations).mockReturnValue({
+      // La lista real trae SOLO a Admin, no a user-2 (el hilo abierto).
+      data: [
+        { id: 'c-1', sender_id: 'admin-1', receiver_id: 'user-1', content: 'hola', is_read: true, created_at: new Date().toISOString(), sender: { id: 'admin-1', name: 'Admin Local' } },
+      ],
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    render(<ChatPage />, { wrapper });
+
+    // Hay fila para la conversacion abierta, y es la marcada.
+    const marcadas = screen.getAllByRole('link', { current: 'page' });
+    expect(marcadas).toHaveLength(1);
+    expect(marcadas[0].getAttribute('href')).toBe('/messages/user-2');
+    // Con el nombre real de la contraparte (viene de usePublicProfile), no un
+    // placeholder: si dijera "Usuario desconocido" seguiria sin decirle a nadie
+    // con quien esta hablando.
+    expect(marcadas[0].textContent).toContain('Alice');
+    expect(screen.getByText('messages:newConversation')).toBeTruthy();
+
+    // Y la fila de Admin sigue ahi, sin marcar.
+    expect(screen.getByText('Admin Local')).toBeTruthy();
   });
 
   it('la fila abierta se marca con aria-current, no solo con un color', () => {

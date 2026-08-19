@@ -207,7 +207,7 @@ function Conversation({ userId }: { userId: string }) {
     new Date(iso).toLocaleTimeString(i18n.language, { hour: '2-digit', minute: '2-digit' });
 
   return (
-    <MessagesShell selectedUserId={userId}>
+    <MessagesShell selectedUserId={userId} selectedUserName={otherName}>
       {/* ── Cabecera de la conversación ── */}
       <div className="flex shrink-0 items-center justify-between gap-3 border-b border-gray-100 dark:border-gray-800 px-4 py-3">
         <div className="flex min-w-0 items-center gap-2">
