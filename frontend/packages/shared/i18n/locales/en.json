@@ -315,7 +315,7 @@
       "report": "Report user",
       "delete": "Delete conversation",
       "deleteConfirmTitle": "Delete this conversation?",
-      "deleteConfirmBody": "It will disappear from your list. If you receive a new message, it will come back.",
+      "deleteConfirmBody": "It is deleted only for you: you will never see these messages again. The other person keeps their copy. If either of you writes again, the conversation comes back empty.",
       "blockConfirmTitle": "Block {{name}}?",
       "blockConfirmBody": "You will not be able to message each other.",
       "confirm": "Confirm",

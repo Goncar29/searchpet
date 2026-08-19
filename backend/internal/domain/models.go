@@ -201,10 +201,17 @@ type Message struct {
 	Receiver User `gorm:"foreignKey:ReceiverID" json:"receiver,omitempty"`
 }
 
-// ConversationHide registra que un usuario ocultó su conversación con otro
-// usuario ("borrar conversación" estilo WhatsApp: solo desaparece para quien
-// la borra). Los mensajes NUNCA se borran — un mensaje nuevo posterior a
-// HiddenAt hace reaparecer la conversación.
+// ConversationHide registra que un usuario borró su conversación con otro.
+//
+// Es DIRECCIONAL: la clave primaria compuesta (UserID, OtherUserID) dice
+// "UserID borró lo suyo con OtherUserID" y no afirma nada sobre lo que ve el
+// otro, que conserva la conversación entera. Borrar no "desmanda" nada.
+//
+// Las filas de `messages` NUNCA se borran — no pueden, cada una le pertenece a
+// los dos. Lo que hace HiddenAt es actuar de piso: para quien borró, todo
+// mensaje anterior queda invisible PARA SIEMPRE, en la lista, en el hilo y en el
+// contador de no leídos. Si después cualquiera de los dos vuelve a escribir, la
+// conversación reaparece pero EMPIEZA VACÍA para quien la había borrado.
 type ConversationHide struct {
 	UserID      uuid.UUID `gorm:"type:uuid;primaryKey" json:"user_id"`
 	OtherUserID uuid.UUID `gorm:"type:uuid;primaryKey" json:"other_user_id"`

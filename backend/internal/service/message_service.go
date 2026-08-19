@@ -182,8 +182,10 @@ func (s *messageService) CountUnread(ctx context.Context, userID string) (int64,
 	return s.messageRepo.CountUnread(ctx, userUUID)
 }
 
-// HideConversation oculta la conversación de userID con otherUserID (estilo WhatsApp:
-// solo desaparece para quien la oculta; un mensaje nuevo la hace reaparecer).
+// HideConversation borra la conversación de userID con otherUserID SOLO para
+// userID: la saca de su lista y le deja invisible todo lo anterior, también en el
+// hilo. Si alguno de los dos vuelve a escribir, la conversación reaparece pero
+// arranca vacía para quien la borró. La contraparte no pierde nada.
 func (s *messageService) HideConversation(ctx context.Context, userID string, otherUserID string) error {
 	userUUID, err := uuid.Parse(userID)
 	if err != nil {

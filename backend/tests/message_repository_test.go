@@ -286,3 +286,76 @@ func TestMessageRepository_MarkConversationUnread(t *testing.T) {
 		t.Errorf("MarkConversationUnread with no messages should be a no-op, got %v", err)
 	}
 }
+
+// Borrar una conversación tiene que borrarla DE VERDAD para quien la borró, no
+// sólo esconder su fila de la lista.
+//
+// EL DEFECTO QUE CIERRA, reportado por un usuario: borraba la conversación,
+// desaparecía, y al volver a escribirle reaparecía CON TODO EL HISTORIAL. El
+// ocultamiento sólo se aplicaba a `GetConversations` (la lista) y a
+// `CountUnread`; el hilo devolvía siempre todo.
+//
+// Va contra Postgres real y no contra un mock a propósito: lo que se prueba es
+// una cláusula SQL, y un mock de repositorio no tiene SQL que ejecutar — pasaría
+// verde con el filtro puesto o sacado (regla #34).
+func TestMessageRepository_GetConversation_BorrarOcultaLoAnteriorSoloParaQuienBorro(t *testing.T) {
+	gormDB := testdb.SetupTestDB(t)
+	userRepo := repository.NewUserRepository(gormDB)
+	msgRepo := repository.NewMessageRepository(gormDB)
+	hideRepo := repository.NewConversationHideRepository(gormDB)
+	ctx := context.Background()
+
+	yo := newTestUser(t, userRepo)
+	otro := newTestUser(t, userRepo)
+
+	seedMessage(t, msgRepo, yo.ID, otro.ID, "viejo mio")
+	seedMessage(t, msgRepo, otro.ID, yo.ID, "viejo suyo")
+
+	// Borro la conversación.
+	if err := hideRepo.Upsert(ctx, yo.ID, otro.ID); err != nil {
+		t.Fatalf("Upsert: %v", err)
+	}
+
+	mios, err := msgRepo.GetConversation(ctx, yo.ID, otro.ID, 50, 0)
+	if err != nil {
+		t.Fatalf("GetConversation: %v", err)
+	}
+	if len(mios) != 0 {
+		t.Errorf("tras borrar, el hilo tiene que estar vacío para mí; vinieron %d mensajes", len(mios))
+	}
+
+	// La contraparte NO pierde nada: su consulta pasa userA = ella, y no tiene
+	// fila en conversation_hides. Si esto fallara, borrar le estaría borrando
+	// mensajes a otra persona.
+	suyos, err := msgRepo.GetConversation(ctx, otro.ID, yo.ID, 50, 0)
+	if err != nil {
+		t.Fatalf("GetConversation (contraparte): %v", err)
+	}
+	if len(suyos) != 2 {
+		t.Errorf("la contraparte tiene que conservar los 2 mensajes, tiene %d", len(suyos))
+	}
+
+	// Vuelvo a escribirle: la conversación reaparece, pero EMPIEZA VACÍA — lo
+	// anterior al borrado no vuelve nunca.
+	seedMessage(t, msgRepo, yo.ID, otro.ID, "nuevo despues de borrar")
+
+	tras, err := msgRepo.GetConversation(ctx, yo.ID, otro.ID, 50, 0)
+	if err != nil {
+		t.Fatalf("GetConversation (tras reabrir): %v", err)
+	}
+	if len(tras) != 1 {
+		t.Fatalf("al reabrir tengo que ver SOLO el mensaje nuevo, veo %d", len(tras))
+	}
+	if tras[0].Text != "nuevo despues de borrar" {
+		t.Errorf("el único mensaje visible tiene que ser el nuevo, es %q", tras[0].Text)
+	}
+
+	// Y la contraparte ahora ve los tres.
+	suyos, err = msgRepo.GetConversation(ctx, otro.ID, yo.ID, 50, 0)
+	if err != nil {
+		t.Fatalf("GetConversation (contraparte, tras reabrir): %v", err)
+	}
+	if len(suyos) != 3 {
+		t.Errorf("la contraparte tiene que ver los 3, ve %d", len(suyos))
+	}
+}

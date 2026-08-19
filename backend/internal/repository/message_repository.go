@@ -49,6 +49,34 @@ func (r *postgresMessageRepository) GetConversation(ctx context.Context, userA, 
 			"(sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?)",
 			userA, userB, userB, userA,
 		).
+		// "Borrar conversación" tiene que borrar de verdad PARA QUIEN LA BORRÓ.
+		//
+		// Sin este filtro, el ocultamiento sólo tapaba la FILA de la lista: al
+		// reabrirse la conversación —porque cualquiera de los dos escribe— volvía
+		// entera, con todo el historial que el usuario creía haber borrado. Un
+		// botón que dice "Borrar" y sólo esconde una fila promete lo que no hace,
+		// y en esta app la gente lo usa después de un intercambio incómodo con un
+		// desconocido que le escribió por su mascota.
+		//
+		// `userA` es SIEMPRE quien pregunta (el servicio pasa el userID de la
+		// sesión primero), así que el filtro es direccional por construcción: la
+		// contraparte hace su propia consulta con userA = ella, no tiene fila en
+		// `conversation_hides`, y conserva la conversación intacta. Los mensajes
+		// NO se borran de la tabla — no puede ser de otra forma, la fila le
+		// pertenece a los dos.
+		//
+		// Es la misma cláusula que ya usaba `CountUnread` para no contar lo que el
+		// usuario no puede ver; acá se reusa para que el hilo diga lo mismo que el
+		// badge. Que las dos vistas discrepen es cómo aparecen los "tengo un no
+		// leído que no encuentro".
+		Where(
+			`NOT EXISTS (
+				SELECT 1 FROM conversation_hides ch
+				WHERE ch.user_id = ? AND ch.other_user_id = ?
+				  AND ch.hidden_at >= messages.created_at
+			)`,
+			userA, userB,
+		).
 		Order("created_at ASC").
 		Limit(limit).
 		Offset(offset).

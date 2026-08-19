@@ -315,7 +315,7 @@
       "report": "Denunciar usuário",
       "delete": "Apagar conversa",
       "deleteConfirmTitle": "Apagar esta conversa?",
-      "deleteConfirmBody": "Ela desaparecerá da sua lista. Se você receber uma nova mensagem, ela voltará a aparecer.",
+      "deleteConfirmBody": "É apagada só para você: você nunca mais verá estas mensagens. A outra pessoa mantém a cópia dela. Se qualquer um dos dois escrever de novo, a conversa reaparece vazia.",
       "blockConfirmTitle": "Bloquear {{name}}?",
       "blockConfirmBody": "Vocês não poderão trocar mensagens.",
       "confirm": "Confirmar",
