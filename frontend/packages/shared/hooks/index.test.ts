@@ -691,6 +691,10 @@ const mockUser: User = {
 describe('useUpdateMe', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    // El token de `apiClient` es estado REAL de un singleton, que
+    // `restoreAllMocks` no toca, y ahora decide si `onSuccess` escribe. Sin
+    // esto, un test que lo deje seteado condiciona al siguiente.
+    apiClient.setToken(null);
   });
 
   it('lo que escribe el mutation es lo que LEE useGetMe', async () => {
@@ -712,6 +716,38 @@ describe('useUpdateMe', () => {
 
     await waitFor(() => expect(result.current.update.isSuccess).toBe(true));
     await waitFor(() => expect(result.current.me.data).toEqual(nuevo));
+  });
+
+  it('no escribe el perfil en la cache si la sesion cambio mientras el PATCH viajaba', async () => {
+    // MISMO AGUJERO QUE EL DE `useSendMessageTo`, en el otro hook que escribe
+    // datos de una persona. El perfil trae email y telefono, y la clave `['me']`
+    // no lleva el id de nadie: si el PATCH de A resuelve con B ya adentro, B
+    // leeria el perfil de A como propio.
+    //
+    // Hoy `useGetMe` no tiene consumidores, asi que esto no fuga en pantalla.
+    // El guard existe igual porque el dia que alguien lo use no va a ir a
+    // revisar si la escritura era segura — y porque un agujero inerte que nadie
+    // marca es exactamente como reaparece.
+    const viejo = { ...mockUser, name: 'Perfil de A' };
+    let resolver!: (u: typeof viejo) => void;
+    vi.spyOn(apiClient, 'updateMe').mockReturnValue(new Promise((res) => { resolver = res; }));
+
+    const { queryClient, wrapper: w } = createWrapperWithClient();
+    apiClient.setToken('tok-A');
+
+    const { result } = renderHook(() => useUpdateMe(), { wrapper: w });
+    result.current.mutate({ name: 'Perfil de A' });
+    await waitFor(() => expect(result.current.isPending).toBe(true));
+
+    // A cierra sesion y entra B.
+    apiClient.setToken(null);
+    queryClient.clear();
+    apiClient.setToken('tok-B');
+
+    resolver(viejo);
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    expect(queryClient.getQueryData(['me'])).toBeUndefined();
   });
 
   it('invalida pets y reports — el telefono viejo vive embebido en esos payloads', async () => {
