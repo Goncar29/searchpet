@@ -418,6 +418,15 @@ export const useConversations = () => {
     queryKey: ['messages'],
     queryFn: () => apiClient.getConversations(),
     refetchInterval: 15000, // Refrescar cada 15 segundos
+    // Sin `staleTime` el default es 0, o sea que CADA montaje dispara un fetch
+    // aunque el dato tenga un segundo de vida. Con la lista dibujándose en las
+    // dos rutas de mensajes, ir de `/messages` a `/messages/:id` remonta el
+    // panel —son componentes de ruta distintos— y pagaba un GET de más en cada
+    // ida y vuelta. No afloja la frescura: el poll de 15s sigue igual y el
+    // WebSocket invalida al instante ante cualquier mensaje, que es lo que de
+    // verdad mantiene la lista al día. Importa por la regla #59: Neon cobra por
+    // tiempo despierto, no por tráfico.
+    staleTime: 10_000,
   });
 };
 

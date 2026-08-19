@@ -32,6 +32,7 @@ type messageService struct {
 	messageRepo repository.MessageRepository
 	blockedRepo repository.BlockedUserRepository
 	hideRepo    repository.ConversationHideRepository
+	userRepo    repository.UserRepository
 	eventBus    *event.EventBus
 }
 
@@ -41,12 +42,14 @@ func NewMessageService(
 	messageRepo repository.MessageRepository,
 	blockedRepo repository.BlockedUserRepository,
 	hideRepo repository.ConversationHideRepository,
+	userRepo repository.UserRepository,
 	eventBus *event.EventBus,
 ) MessageService {
 	return &messageService{
 		messageRepo: messageRepo,
 		blockedRepo: blockedRepo,
 		hideRepo:    hideRepo,
+		userRepo:    userRepo,
 		eventBus:    eventBus,
 	}
 }
@@ -54,7 +57,8 @@ func NewMessageService(
 // Send envía un mensaje de senderID a receiverID.
 // REGLAS DE NEGOCIO:
 // 1. No se puede enviar mensajes a uno mismo → ErrSelfMessage (400)
-// 2. Si existe un bloqueo en cualquier dirección → ErrUserBlocked (403)
+// 2. El destinatario tiene que existir → ErrUserNotFound (404)
+// 3. Si existe un bloqueo en cualquier dirección → ErrUserBlocked (403)
 func (s *messageService) Send(ctx context.Context, senderID string, req dto.SendMessageRequest) (*domain.Message, error) {
 	senderUUID, err := uuid.Parse(senderID)
 	if err != nil {
@@ -69,7 +73,23 @@ func (s *messageService) Send(ctx context.Context, senderID string, req dto.Send
 		return nil, domain.ErrSelfMessage
 	}
 
-	// REGLA 2: verificar bloqueo bidireccional (A bloqueó B ó B bloqueó A)
+	// REGLA 2: el destinatario tiene que existir.
+	//
+	// Sin este chequeo el insert llegaba a Postgres y moria contra la foreign key
+	// `fk_messages_receiver`, o sea un error de driver que el handler no
+	// reconoce y termina en 500 `internal_error`. Un id que no existe es ENTRADA
+	// INVALIDA, no una falla del servidor: quien manda no puede hacer nada con
+	// un 500, y ademas ensucia los logs de produccion con lo que en realidad es
+	// una URL mal tipeada.
+	//
+	// Va DESPUES del auto-mensaje —que no necesita tocar la base— y ANTES del
+	// chequeo de bloqueo, porque `IsBlocked` contra un usuario inexistente
+	// devuelve false y dejaria seguir hasta el insert que ya sabemos que falla.
+	if _, err := s.userRepo.GetByID(ctx, receiverUUID); err != nil {
+		return nil, err
+	}
+
+	// REGLA 3: verificar bloqueo bidireccional (A bloqueó B ó B bloqueó A)
 	// IsBlocked ya hace el check en ambas direcciones en una sola query.
 	blocked, err := s.blockedRepo.IsBlocked(ctx, senderUUID, receiverUUID)
 	if err != nil {
