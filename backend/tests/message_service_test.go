@@ -122,13 +122,27 @@ func (m *mockBlockedRepoForMsg) GetBlockedByUserID(_ context.Context, _ uuid.UUI
 // Helpers
 // ============================================================
 
+// newMessageService arma el servicio con un userRepo que dice que TODO
+// destinatario existe, que es la precondición de casi todos los tests. El caso
+// contrario tiene su propio helper abajo.
 func newMessageService(
 	msgRepo *mockMessageRepository,
 	blockedRepo *mockBlockedRepoForMsg,
 	hideRepo *mockConversationHideRepository,
 ) service.MessageService {
+	return newMessageServiceWithUsers(msgRepo, blockedRepo, hideRepo, &mockUserRepository{})
+}
+
+// newMessageServiceWithUsers deja elegir qué contesta el repositorio de
+// usuarios, para poder ejercitar el destinatario inexistente.
+func newMessageServiceWithUsers(
+	msgRepo *mockMessageRepository,
+	blockedRepo *mockBlockedRepoForMsg,
+	hideRepo *mockConversationHideRepository,
+	userRepo *mockUserRepository,
+) service.MessageService {
 	bus := event.NewEventBus()
-	return service.NewMessageService(msgRepo, blockedRepo, hideRepo, bus)
+	return service.NewMessageService(msgRepo, blockedRepo, hideRepo, userRepo, bus)
 }
 
 // ============================================================
@@ -237,6 +251,51 @@ func TestMessageService_Send(t *testing.T) {
 				t.Error("expected message, got nil")
 			}
 		})
+	}
+}
+
+// Enviarle a un usuario que no existe tiene que ser ErrUserNotFound (404), y el
+// mensaje NO debe llegar a escribirse.
+//
+// Sin el chequeo, el insert viajaba hasta Postgres y moria contra la foreign key
+// `fk_messages_receiver`: un error de driver que el handler no reconoce y
+// devuelve como 500 `internal_error`. Medido contra el backend real antes del
+// arreglo. Un id inexistente es entrada invalida, no una falla del servidor.
+//
+// El mock de repositorio NO tiene foreign keys —por eso este caso podia existir
+// sin que ningun test lo notara (regla #34)—, asi que lo que se afirma no es que
+// el insert falle, sino que NUNCA SE INTENTA.
+func TestMessageService_Send_DestinatarioInexistente(t *testing.T) {
+	senderID := uuid.New()
+	receiverID := uuid.New()
+
+	creado := false
+	msgRepo := &mockMessageRepository{
+		createFn: func(_ context.Context, _ *domain.Message) error {
+			creado = true
+			return nil
+		},
+	}
+	userRepo := &mockUserRepository{
+		getByIDFn: func(_ context.Context, _ uuid.UUID) (*domain.User, error) {
+			return nil, domain.ErrUserNotFound
+		},
+	}
+
+	svc := newMessageServiceWithUsers(msgRepo, &mockBlockedRepoForMsg{}, &mockConversationHideRepository{}, userRepo)
+	msg, err := svc.Send(context.Background(), senderID.String(), dto.SendMessageRequest{
+		ReceiverID: receiverID,
+		Content:    "a la nada",
+	})
+
+	if !errors.Is(err, domain.ErrUserNotFound) {
+		t.Errorf("esperaba ErrUserNotFound, obtuve %v", err)
+	}
+	if msg != nil {
+		t.Errorf("esperaba mensaje nil, obtuve %+v", msg)
+	}
+	if creado {
+		t.Error("se intento escribir el mensaje de un destinatario inexistente: el chequeo no corta antes del insert")
 	}
 }
 

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ChatPage } from './ChatPage';
@@ -18,11 +18,16 @@ vi.mock('../context/AuthContext', () => ({
 
 const navigateMock = vi.fn();
 
+// El parametro de la ruta es MUTABLE para que un test pueda cambiar de
+// conversacion sin desmontar nada — que es exactamente lo que hace React Router
+// cuando el usuario clickea la fila de al lado.
+const paramUserId = vi.hoisted(() => ({ current: 'user-2' }));
+
 vi.mock('react-router', async (importOriginal) => {
   const actual = await importOriginal<typeof import('react-router')>();
   return {
     ...actual,
-    useParams: () => ({ userId: 'user-2' }),
+    useParams: () => ({ userId: paramUserId.current }),
     useNavigate: () => navigateMock,
   };
 });
@@ -33,6 +38,13 @@ const sendMessageToMutateMock = vi.fn();
 
 vi.mock('@shared/hooks', () => ({
   useConversation: vi.fn(),
+  // `useConversations` (en plural) no lo llama ChatPage sino el `MessagesShell`
+  // que ahora la envuelve: la lista de la izquierda y el hilo comparten
+  // pantalla. Un hook que aparece en el árbol y no en este mock no rompe con un
+  // error de assert sino con "No export is defined on the mock", que tira TODOS
+  // los tests del archivo — incluido el que sólo dice "renderiza sin lanzar
+  // errores". Mismo contrato que los smoke tests de mobile (regla #17).
+  useConversations: vi.fn(() => ({ data: [], isLoading: false, isError: false, refetch: vi.fn() })),
   useSendMessageTo: () => ({ mutate: sendMessageToMutateMock, isPending: false }),
   useWebSocket: vi.fn(() => ({ connectionState: 'connected' as WsConnectionState, sendEnvelope: vi.fn() })),
   usePublicProfile: (...args: unknown[]) => usePublicProfileMock(...args),
@@ -46,17 +58,23 @@ interface CapturedMenuProps {
   otherUserId: string;
   otherUserName: string;
   onHidden?: () => void;
+  showMarkUnread?: boolean;
 }
 let capturedMenuProps: CapturedMenuProps | null = null;
+// Ademas del ultimo, TODOS: desde que la lista comparte pantalla con el hilo hay
+// varios menus a la vez (uno por fila + el de la cabecera), y "el ultimo" no
+// alcanza para afirmar nada sobre una fila en particular.
+let capturedMenuList: CapturedMenuProps[] = [];
 
 vi.mock('../components/ConversationActionsMenu', () => ({
   ConversationActionsMenu: (props: CapturedMenuProps) => {
     capturedMenuProps = props;
+    capturedMenuList.push(props);
     return <button aria-label="chat:actions.menuLabel">menu</button>;
   },
 }));
 
-import { useConversation, useWebSocket } from '@shared/hooks';
+import { useConversation, useConversations, useWebSocket } from '@shared/hooks';
 
 // Helper to build a minimal mock return value for useConversation
 // Cast through unknown to satisfy TS6's stricter overlap checks.
@@ -79,8 +97,21 @@ describe('ChatPage', () => {
     navigateMock.mockClear();
     sendMessageToMutateMock.mockReset();
     capturedMenuProps = null;
+    capturedMenuList = [];
+    paramUserId.current = 'user-2';
     usePublicProfileMock.mockReturnValue({ data: { id: 'user-2', name: 'Alice' } });
     useBlockStatusMock.mockReturnValue({ isBlocked: false, isLoading: false });
+    // La lista del shell vuelve a vacio en cada test. Sin esto, el unico que la
+    // puebla con `mockReturnValue` se la deja puesta a todos los que siguen —
+    // no rompe nada hoy, pero es la clase de acoplamiento entre tests que se
+    // cobra cuando alguien reordena el archivo.
+    vi.mocked(useConversations).mockReturnValue({
+      data: [],
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
   });
 
   it('renderiza sin lanzar errores', () => {
@@ -143,9 +174,14 @@ describe('ChatPage', () => {
   it('muestra el nombre de la contraparte como link al perfil publico', () => {
     vi.mocked(useConversation).mockReturnValue(mockConversation([], false));
 
-    render(<ChatPage />, { wrapper });
+    const { container } = render(<ChatPage />, { wrapper });
 
-    const link = screen.getByText('Alice').closest('a');
+    // Acotado al panel DERECHO: el nombre aparece dos veces a proposito, porque
+    // la conversacion abierta tambien tiene su fila en la lista de la izquierda
+    // aunque todavia no tenga mensajes. Sin acotar, `getByText` falla por
+    // ambiguo — y esa ambiguedad es la feature, no el bug.
+    const panel = within(container.querySelector('section') as HTMLElement);
+    const link = panel.getByText('Alice').closest('a');
     expect(link).toBeTruthy();
     expect(link?.getAttribute('href')).toBe('/users/user-2');
   });
@@ -249,5 +285,363 @@ describe('ChatPage', () => {
 
     expect(screen.queryByPlaceholderText('chat:inputPlaceholder')).toBeNull();
     expect(screen.queryByText('chat:actions.blockedBanner')).toBeNull();
+  });
+
+  // ── Lo que trajo el rediseño ──
+
+  it('el boton de enviar quedo sin texto, asi que su nombre accesible tiene que venir del aria-label', () => {
+    // El diseño lo dibuja como un circulo con un avioncito. Un boton cuyo unico
+    // contenido es un <svg aria-hidden> se anuncia como "boton" y nada mas: el
+    // aria-label ES el nombre accesible, no un extra.
+    vi.mocked(useConversation).mockReturnValue(mockConversation([], false));
+
+    render(<ChatPage />, { wrapper });
+
+    const enviar = screen.getByRole('button', { name: 'chat:send' });
+    expect(enviar.getAttribute('type')).toBe('submit');
+  });
+
+  it('agrupa por dia: un separador por dia, no uno por mensaje', () => {
+    const hoy = new Date();
+    const anteayer = new Date(hoy);
+    anteayer.setDate(hoy.getDate() - 2);
+
+    vi.mocked(useConversation).mockReturnValue(mockConversation([
+      { id: 'msg-1', sender_id: 'user-2', receiver_id: 'user-1', content: 'viejo A', is_read: true, created_at: anteayer.toISOString() },
+      { id: 'msg-2', sender_id: 'user-1', receiver_id: 'user-2', content: 'viejo B', is_read: true, created_at: anteayer.toISOString() },
+      { id: 'msg-3', sender_id: 'user-2', receiver_id: 'user-1', content: 'nuevo', is_read: false, created_at: hoy.toISOString() },
+    ], false));
+
+    render(<ChatPage />, { wrapper });
+
+    // Se cuentan los SEPARADORES, no las etiquetas "hoy".
+    //
+    // La primera version de este test afirmaba `getAllByText('chat:today')`
+    // con largo 1 y **quedaba verde con el bug puesto**: con un separador por
+    // mensaje hay TRES, pero solo uno dice "hoy" — los otros dos son la fecha
+    // de anteayer. Verificado en rojo recien despues de cambiarlo: la asercion
+    // vieja no medía lo que su nombre decía (regla #41).
+    expect(screen.getAllByTestId('day-divider')).toHaveLength(2);
+    expect(screen.getAllByText('chat:today')).toHaveLength(1);
+    // Anteayer no es "ayer", asi que cae en la fecha formateada.
+    expect(screen.queryByText('chat:yesterday')).toBeNull();
+  });
+
+  it('cada burbuja dice de quien es y a que hora', () => {
+    const ahora = new Date();
+    vi.mocked(useConversation).mockReturnValue(mockConversation([
+      { id: 'msg-1', sender_id: 'user-1', receiver_id: 'user-2', content: 'mio', is_read: true, created_at: ahora.toISOString() },
+      { id: 'msg-2', sender_id: 'user-2', receiver_id: 'user-1', content: 'suyo', is_read: false, created_at: ahora.toISOString() },
+    ], false));
+
+    render(<ChatPage />, { wrapper });
+
+    // La hora se arma con toLocaleTimeString, asi que el string exacto depende
+    // del runner; lo que importa es de quien dice que es cada mensaje.
+    // 'Alice' sale del perfil publico mockeado en beforeEach.
+    expect(screen.getByText(/^chat:you ·/)).toBeTruthy();
+    expect(screen.getByText(/^Alice ·/)).toBeTruthy();
+  });
+
+  it('el borrador NO viaja a la conversacion siguiente, y el envio va al destinatario nuevo', () => {
+    // EL BUG QUE ESTE GUARD CIERRA, medido en el browser antes de arreglarlo:
+    // React Router no remonta cuando solo cambia el parametro de la ruta, y
+    // desde que la lista comparte pantalla con el hilo, cambiar de conversacion
+    // es un click en la fila de al lado. Sin remontar, el borrador escrito
+    // mirando a Ana quedaba en el compositor de Bruno y el POST salia con
+    // `receiver_id` de BRUNO. Un mensaje escrito para una persona, entregado a
+    // otra.
+    //
+    // No lo veia ningun test porque todos fijaban `useParams` a un solo valor:
+    // con el parametro clavado, la unica transicion posible es la que SI
+    // desmonta. Por eso el mock es mutable.
+    vi.mocked(useConversation).mockReturnValue(mockConversation([], false));
+
+    const { rerender } = render(<ChatPage />, { wrapper });
+
+    const escribir = () => screen.getByPlaceholderText('chat:inputPlaceholder') as HTMLTextAreaElement;
+    fireEvent.change(escribir(), { target: { value: 'esto es privado, para user-2' } });
+    expect(escribir().value).toBe('esto es privado, para user-2');
+
+    // El usuario clickea otra fila: cambia el parametro, NO se desmonta nada.
+    paramUserId.current = 'user-9';
+    rerender(<ChatPage />);
+
+    expect(escribir().value).toBe('');
+
+    // Y lo que de verdad hacia daño: que apretar Enter mandara ese texto al
+    // nuevo destinatario. Ahora no hay texto que mandar, y cuando el usuario
+    // escribe, sale con el receiver correcto.
+    sendMessageToMutateMock.mockClear();
+    fireEvent.change(escribir(), { target: { value: 'hola user-9' } });
+    fireEvent.keyDown(escribir(), { key: 'Enter' });
+
+    expect(sendMessageToMutateMock).toHaveBeenCalledTimes(1);
+    expect(sendMessageToMutateMock.mock.calls[0][0]).toMatchObject({
+      receiverID: 'user-9',
+      content: 'hola user-9',
+    });
+  });
+
+  it('una conversacion SIN mensajes igual tiene su fila, marcada y con el nombre correcto', () => {
+    // EL BUG QUE CIERRA, reportado por una usuaria real: se llega aca desde el
+    // detalle de una mascota ("Contactar al dueño" / "al reportero") con alguien
+    // con quien nunca hablaste. El backend no devuelve esa conversacion porque
+    // no existe, asi que la lista no la contenia y NINGUNA fila quedaba marcada:
+    // el unico nombre en negrita de la pantalla era el de OTRA persona, con un
+    // compositor listo al lado. Escribio, y el mensaje salio a quien no era.
+    vi.mocked(useConversation).mockReturnValue(mockConversation([], false));
+    vi.mocked(useConversations).mockReturnValue({
+      // La lista real trae SOLO a Admin, no a user-2 (el hilo abierto).
+      data: [
+        { id: 'c-1', sender_id: 'admin-1', receiver_id: 'user-1', content: 'hola', is_read: true, created_at: new Date().toISOString(), sender: { id: 'admin-1', name: 'Admin Local' } },
+      ],
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    render(<ChatPage />, { wrapper });
+
+    // Hay fila para la conversacion abierta, y es la marcada.
+    const marcadas = screen.getAllByRole('link', { current: 'page' });
+    expect(marcadas).toHaveLength(1);
+    expect(marcadas[0].getAttribute('href')).toBe('/messages/user-2');
+    // Con el nombre real de la contraparte (viene de usePublicProfile), no un
+    // placeholder: si dijera "Usuario desconocido" seguiria sin decirle a nadie
+    // con quien esta hablando.
+    expect(marcadas[0].textContent).toContain('Alice');
+    expect(screen.getByText('messages:newConversation')).toBeTruthy();
+
+    // Y la fila de Admin sigue ahi, sin marcar.
+    expect(screen.getByText('Admin Local')).toBeTruthy();
+  });
+
+  it('buscar NO puede esconder la fila de la conversacion abierta', () => {
+    // EL AGUJERO QUE CIERRA, medido en el browser: con un hilo abierto, escribir
+    // en el buscador un nombre que no es el suyo dejaba `aria-current` en CERO
+    // filas. La pantalla quedaba identica a la del incidente — un solo nombre en
+    // negrita, el de OTRA persona, con el compositor armado.
+    //
+    // Le pasa igual a una conversacion real que a una recien estrenada, asi que
+    // acá se ejercita la REAL: es la mitad que no cubre la fila sintetica.
+    vi.mocked(useConversation).mockReturnValue(mockConversation([], false));
+    vi.mocked(useConversations).mockReturnValue({
+      data: [
+        { id: 'c-1', sender_id: 'user-2', receiver_id: 'user-1', content: 'hola', is_read: true, created_at: new Date().toISOString(), sender: { id: 'user-2', name: 'Alice' } },
+        { id: 'c-2', sender_id: 'user-9', receiver_id: 'user-1', content: 'buenas', is_read: true, created_at: new Date().toISOString(), sender: { id: 'user-9', name: 'Bruno' } },
+      ],
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    render(<ChatPage />, { wrapper });
+
+    // La abierta es user-2 (Alice). Busco al OTRO.
+    fireEvent.change(screen.getByLabelText('messages:searchLabel'), { target: { value: 'bruno' } });
+
+    const marcadas = screen.getAllByRole('link', { current: 'page' });
+    expect(marcadas).toHaveLength(1);
+    expect(marcadas[0].getAttribute('href')).toBe('/messages/user-2');
+    // Y el resultado de la busqueda sigue estando: la fila fijada se suma, no
+    // reemplaza.
+    expect(screen.getByText('Bruno')).toBeTruthy();
+  });
+
+  it('con CERO coincidencias sigue avisando que la busqueda no matcheo', () => {
+    // La fila fijada hace que la lista nunca quede vacia con una conversacion
+    // abierta. Si el cartel dependiera de `filas.length === 0` se volveria mudo
+    // justo ahi, y el usuario creeria que esa unica fila ES el resultado.
+    vi.mocked(useConversation).mockReturnValue(mockConversation([], false));
+    vi.mocked(useConversations).mockReturnValue({
+      data: [
+        { id: 'c-1', sender_id: 'user-2', receiver_id: 'user-1', content: 'hola', is_read: true, created_at: new Date().toISOString(), sender: { id: 'user-2', name: 'Alice' } },
+      ],
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    render(<ChatPage />, { wrapper });
+    fireEvent.change(screen.getByLabelText('messages:searchLabel'), { target: { value: 'zzzzz' } });
+
+    expect(screen.getByText('messages:noResults')).toBeTruthy();
+    // …y aun asi la abierta sigue visible y marcada.
+    expect(screen.getAllByRole('link', { current: 'page' })).toHaveLength(1);
+  });
+
+  it('la fila abierta se marca con aria-current, no solo con un color', () => {
+    // En escritorio las dos columnas comparten pantalla, asi que hay que poder
+    // saber CUAL esta abierta. El diseño lo resuelve con una barra naranja: eso
+    // es invisible para un lector de pantalla y para quien no distingue ese
+    // color. `aria-current="page"` es la version que si se anuncia.
+    vi.mocked(useConversations).mockReturnValue({
+      data: [
+        { id: 'c-1', sender_id: 'user-2', receiver_id: 'user-1', content: 'hola', is_read: false, created_at: new Date().toISOString(), sender: { id: 'user-2', name: 'Alice' } },
+        { id: 'c-2', sender_id: 'user-9', receiver_id: 'user-1', content: 'otra', is_read: true, created_at: new Date().toISOString(), sender: { id: 'user-9', name: 'Otro' } },
+      ],
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+    vi.mocked(useConversation).mockReturnValue(mockConversation([], false));
+
+    render(<ChatPage />, { wrapper });
+
+    // `useParams` esta mockeado a user-2, asi que esa fila es la abierta.
+    const abiertas = screen.getAllByRole('link', { current: 'page' });
+    expect(abiertas).toHaveLength(1);
+    expect(abiertas[0].getAttribute('href')).toBe('/messages/user-2');
+
+    // Y la conversacion abierta tiene EXACTAMENTE UN menu: el de la cabecera.
+    // Su fila no lleva.
+    //
+    // Con los dos, borrar desde el de la fila ocultaba la conversacion y dejaba
+    // al usuario parado adentro del hilo (solo el de la cabecera recibe
+    // `onHidden`), ademas de dejar dos botones con el mismo nombre accesible y
+    // un `id="report-reason"` duplicado si se abrian los dos formularios.
+    const deLaAbierta = capturedMenuList.filter((p) => p.otherUserId === 'user-2');
+    expect(deLaAbierta).toHaveLength(1);
+    expect(typeof deLaAbierta[0].onHidden).toBe('function');
+    expect(deLaAbierta[0].showMarkUnread).toBe(false);
+
+    // La fila que NO esta abierta si lleva el suyo.
+    expect(capturedMenuList.filter((p) => p.otherUserId === 'user-9')).toHaveLength(1);
+  });
+
+  it('un mensaje entrante refresca TAMBIEN la lista de la izquierda, no solo el hilo', () => {
+    // La lista y el hilo ahora comparten pantalla. `['messages', userId]` sola
+    // dejaria la fila de al lado mostrando el mensaje anterior como ultimo, y
+    // eso no se ve como un bug: se ve como una fila desactualizada.
+    let capturedOnMessage: ((env: WsEnvelope) => void) | null = null;
+    vi.mocked(useWebSocket).mockImplementationOnce(({ onMessage }: UseWebSocketOptions) => {
+      capturedOnMessage = onMessage;
+      return { connectionState: 'connected' as WsConnectionState, sendEnvelope: vi.fn() };
+    });
+    vi.mocked(useConversation).mockReturnValue(mockConversation([], false));
+
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const spy = vi.spyOn(client, 'invalidateQueries');
+
+    render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter>
+          <ChatPage />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    // Dentro de `act`, como el test del indicador de escritura: ademas de ser lo
+    // correcto para un handler que puede tocar estado, es lo que evita que TS
+    // estreche `capturedOnMessage` a `null` — la asignacion ocurre adentro de un
+    // callback que el analisis de flujo no ve.
+    act(() => {
+      capturedOnMessage?.({
+        type: 'chat_message',
+        payload: { id: 'm', from: 'user-2', to: 'user-1', body: 'hola', timestamp: '' },
+      });
+    });
+
+    const claves = spy.mock.calls.map((c) => JSON.stringify(c[0]));
+    expect(claves).toContain(JSON.stringify({ queryKey: ['messages', 'user-2'] }));
+    expect(claves).toContain(JSON.stringify({ queryKey: ['messages'], exact: true }));
+  });
+
+  // El test de arriba manda un mensaje DE LA CONVERSACION ABIERTA, o sea el
+  // unico caso donde la guarda de `from/to` daba true — por eso pasaba con el
+  // defecto puesto. Estos dos cubren lo que quedaba afuera.
+
+  it('un mensaje de un TERCERO refresca la lista, aunque no sea de esta conversacion', () => {
+    // El caso que importa es el contrario al que uno piensa: si escribe alguien
+    // con quien NO estas hablando, su fila es la que queda vieja —sin punto de
+    // no leido y con el mensaje anterior como ultimo— y es la fila que el
+    // usuario esta mirando en la columna de al lado.
+    let capturedOnMessage: ((env: WsEnvelope) => void) | null = null;
+    vi.mocked(useWebSocket).mockImplementationOnce(({ onMessage }: UseWebSocketOptions) => {
+      capturedOnMessage = onMessage;
+      return { connectionState: 'connected' as WsConnectionState, sendEnvelope: vi.fn() };
+    });
+    vi.mocked(useConversation).mockReturnValue(mockConversation([], false));
+
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const spy = vi.spyOn(client, 'invalidateQueries');
+
+    render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter>
+          <ChatPage />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    act(() => {
+      // user-3 no es ni la conversacion abierta (user-2) ni yo (user-1).
+      capturedOnMessage?.({
+        type: 'chat_message',
+        payload: { id: 'm', from: 'user-3', to: 'user-1', body: 'hola', timestamp: '' },
+      });
+    });
+
+    const claves = spy.mock.calls.map((c) => JSON.stringify(c[0]));
+    expect(claves).toContain(JSON.stringify({ queryKey: ['messages'], exact: true }));
+    // Y el hilo abierto NO se toca: ese mensaje no es de esta conversacion.
+    expect(claves).not.toContain(JSON.stringify({ queryKey: ['messages', 'user-2'] }));
+  });
+
+  it('un badge_update tambien refresca la lista, igual que en MessagesPage', () => {
+    let capturedOnMessage: ((env: WsEnvelope) => void) | null = null;
+    vi.mocked(useWebSocket).mockImplementationOnce(({ onMessage }: UseWebSocketOptions) => {
+      capturedOnMessage = onMessage;
+      return { connectionState: 'connected' as WsConnectionState, sendEnvelope: vi.fn() };
+    });
+    vi.mocked(useConversation).mockReturnValue(mockConversation([], false));
+
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const spy = vi.spyOn(client, 'invalidateQueries');
+
+    render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter>
+          <ChatPage />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    act(() => {
+      capturedOnMessage?.({ type: 'badge_update', payload: { count: 3 } } as unknown as WsEnvelope);
+    });
+
+    const claves = spy.mock.calls.map((c) => JSON.stringify(c[0]));
+    expect(claves).toContain(JSON.stringify({ queryKey: ['messages'], exact: true }));
+  });
+
+  it('un tercero tecleando NO apaga el indicador de la conversacion abierta', () => {
+    // `typing_stop` ya se escribia defensivo; `typing_start` no. Sin la guarda,
+    // que Bruno arranque a escribir pisa `typingFrom` y el "Escribiendo..." de
+    // Ana desaparece aunque siga tecleando — vuelve recien con su proximo
+    // frame (~2s), o sea que se lee como un parpadeo.
+    let capturedOnMessage: ((env: WsEnvelope) => void) | null = null;
+    vi.mocked(useWebSocket).mockImplementationOnce(({ onMessage }: UseWebSocketOptions) => {
+      capturedOnMessage = onMessage;
+      return { connectionState: 'connected' as WsConnectionState, sendEnvelope: vi.fn() };
+    });
+    vi.mocked(useConversation).mockReturnValue(mockConversation([], false));
+
+    render(<ChatPage />, { wrapper });
+
+    act(() => {
+      capturedOnMessage?.({ type: 'typing_start', payload: { from: 'user-2', to: 'user-1' } });
+    });
+    expect(screen.getByText('chat:typing')).toBeTruthy();
+
+    act(() => {
+      capturedOnMessage?.({ type: 'typing_start', payload: { from: 'user-3', to: 'user-1' } });
+    });
+    expect(screen.getByText('chat:typing')).toBeTruthy();
   });
 });
