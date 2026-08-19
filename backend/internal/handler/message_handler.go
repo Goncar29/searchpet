@@ -50,6 +50,12 @@ func (h *MessageHandler) Send(c *gin.Context) {
 			writeError(c, http.StatusForbidden, err)
 			return
 		}
+		// Un destinatario que no existe es entrada invalida, no una falla del
+		// servidor: antes moria contra la foreign key y salia como 500.
+		if errors.Is(err, domain.ErrUserNotFound) {
+			writeError(c, http.StatusNotFound, err)
+			return
+		}
 		if errors.Is(err, domain.ErrInvalidInput) {
 			writeError(c, http.StatusBadRequest, err)
 			return
