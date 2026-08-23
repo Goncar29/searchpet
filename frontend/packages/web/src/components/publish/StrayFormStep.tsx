@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { PetIdentityFields } from '../PetIdentityFields';
+import { Icon } from '../Icon';
 import type { StrayFormState } from '../../pages/PublishWizardPage';
 import type { PetType } from '@shared/types';
 
@@ -132,9 +133,9 @@ export function StrayFormStep({ value, onChange, onNext }: StrayFormStepProps) {
                   type="button"
                   onClick={() => removePhoto(i)}
                   className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center leading-none hover:bg-red-600"
-                  aria-label="Eliminar foto"
+                  aria-label={t('strayForm.removePhoto')}
                 >
-                  ✕
+                  <Icon name="close" />
                 </button>
               </div>
             ))}
