@@ -22,9 +22,6 @@ export function CreateStoryPage() {
 
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
-  // `hero_name` viaja en CreateStoryRequest desde siempre y este formulario
-  // nunca lo expuso: quien quería agradecer a quien lo ayudó no tenía dónde.
-  const [heroName, setHeroName] = useState('');
   const [bodyError, setBodyError] = useState('');
   const [apiError, setApiError] = useState<string | null>(null);
 
@@ -43,7 +40,6 @@ export function CreateStoryPage() {
         pet_id: petId,
         title: title.trim() || undefined,
         body: body.trim(),
-        hero_name: heroName.trim() || undefined,
       },
       {
         onSuccess: () => {
@@ -100,20 +96,6 @@ export function CreateStoryPage() {
               )}
             </FormField>
           </div>
-        </FormSection>
-
-        <FormSection title={t('create.thanksSection')} badge={t('create.optional')}>
-          <FormField label={t('create.heroLabel')} htmlFor="story-hero">
-            {(control) => (
-              <input
-                {...control}
-                type="text"
-                value={heroName}
-                onChange={(e) => setHeroName(e.target.value)}
-                placeholder={t('create.heroPlaceholder')}
-              />
-            )}
-          </FormField>
         </FormSection>
 
         {apiError && (

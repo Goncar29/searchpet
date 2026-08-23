@@ -39,18 +39,23 @@ describe('CreateStoryPage', () => {
   // cruda y comparar contra un literal en español pasaría igual con el i18n
   // roto. Que las claves resuelvan de verdad sólo se puede comprobar en un
   // navegador — se hizo, en los tres idiomas.
-  it('arma las dos secciones del formulario', () => {
+  it('arma la sección del formulario', () => {
     const { container } = render(<CreateStoryPage />, { wrapper });
-    expect(container.querySelectorAll('form section')).toHaveLength(2);
+    expect(container.querySelectorAll('form section')).toHaveLength(1);
   });
 
-  it('expone los tres campos, incluido el de agradecimientos', () => {
+  it('expone sólo los campos que el backend acepta', () => {
     const { container } = render(<CreateStoryPage />, { wrapper });
-    expect(container.querySelector('#story-body')).toBeTruthy();
     expect(container.querySelector('#story-title')).toBeTruthy();
-    // hero_name viaja en CreateStoryRequest desde siempre y la página no lo
-    // exponía. Si alguien lo saca, esto se pone rojo.
-    expect(container.querySelector('#story-hero')).toBeTruthy();
+    expect(container.querySelector('#story-body')).toBeTruthy();
+    // NO hay campo de agradecimientos. `hero_name` existe en el tipo de
+    // TypeScript y en el render de StoryDetailPage, pero NO en el backend:
+    // `rg -i hero backend/` da cero, y CreateStoryRequest de Go sólo lleva
+    // pet_id, title, body, photo_before y photo_after. Gin descarta el campo
+    // desconocido sin error, así que un input acá aceptaría texto que no se
+    // guarda en ningún lado — la regla #34 exacta. Si alguien lo vuelve a
+    // agregar sin tocar el backend, esto se pone rojo.
+    expect(container.querySelector('#story-hero')).toBeNull();
   });
 
   it('marca el relato como obligatorio para tecnología asistiva', () => {
