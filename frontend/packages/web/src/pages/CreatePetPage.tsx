@@ -6,6 +6,11 @@ import type { Pet, PetType } from '@shared/types';
 import { getErrorMessage } from '@shared/utils/apiErrors';
 import { composeBirthDate } from '@shared/utils/petBirthDate';
 import { PetIdentityFields, type PetIdentityValue } from '../components/PetIdentityFields';
+import { Icon } from '../components/Icon';
+import { FormPage } from '../components/form/FormPage';
+import { FormSection } from '../components/form/FormSection';
+import { FormField } from '../components/form/FormField';
+import { FormActions, formSubmitClass } from '../components/form/FormActions';
 
 interface FormState {
   name: string;
@@ -177,175 +182,126 @@ export function CreatePetPage() {
   const atLimit = selectedFiles.length >= MAX_PHOTOS;
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 py-10 px-4">
-      <div className="max-w-lg mx-auto bg-white dark:bg-gray-900 rounded-2xl shadow-md p-8">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-50 mb-6">
-          {t('pets:create.title')}
-        </h1>
+    <FormPage title={t('pets:create.title')}>
+        <form onSubmit={handleSubmit} noValidate className="space-y-6">
+          <FormSection title={t('pets:create.sectionIdentity')}>
+            <div className="space-y-6">
+              <FormField label={t('pets:create.name')} htmlFor="name" required error={fieldErrors.name}>
+                {(control) => (
+                  <input {...control} name="name" type="text" value={form.name} onChange={handleChange} />
+                )}
+              </FormField>
 
-        <form onSubmit={handleSubmit} noValidate className="space-y-5">
-          {/* Name */}
-          <div>
-            <label
-              htmlFor="name"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-            >
-              {t('pets:create.name')} *
-            </label>
-            <input
-              id="name"
-              name="name"
-              type="text"
-              value={form.name}
-              onChange={handleChange}
-              className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
-            />
-            {fieldErrors.name && (
-              <p className="text-red-500 dark:text-red-400 text-sm mt-1">{fieldErrors.name}</p>
-            )}
-          </div>
+              <FormField label={t('pets:create.species')} htmlFor="type" required error={fieldErrors.type}>
+                {(control) => (
+                  <select {...control} name="type" value={form.type} onChange={handleChange}>
+                    <option value="">—</option>
+                    <option value="perro">{t('pets:types.dog')}</option>
+                    <option value="gato">{t('pets:types.cat')}</option>
+                    <option value="otro">{t('pets:types.other')}</option>
+                  </select>
+                )}
+              </FormField>
 
-          {/* Species / Type */}
-          <div>
-            <label
-              htmlFor="type"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-            >
-              {t('pets:create.species')} *
-            </label>
-            <select
-              id="type"
-              name="type"
-              value={form.type}
-              onChange={handleChange}
-              className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
-            >
-              <option value="">—</option>
-              <option value="perro">{t('pets:types.dog')}</option>
-              <option value="gato">{t('pets:types.cat')}</option>
-              <option value="otro">{t('pets:types.other')}</option>
-            </select>
-            {fieldErrors.type && (
-              <p className="text-red-500 dark:text-red-400 text-sm mt-1">{fieldErrors.type}</p>
-            )}
-          </div>
+              <PetIdentityFields
+                value={form.identity}
+                onChange={(identity) => {
+                  setForm((prev) => ({ ...prev, identity }));
+                  setFieldErrors((prev) => ({ ...prev, birthDate: undefined }));
+                }}
+                disabled={isPending}
+                birthDateError={fieldErrors.birthDate}
+              />
 
-          <PetIdentityFields
-            value={form.identity}
-            onChange={(identity) => {
-              setForm((prev) => ({ ...prev, identity }));
-              setFieldErrors((prev) => ({ ...prev, birthDate: undefined }));
-            }}
-            disabled={isPending}
-            birthDateError={fieldErrors.birthDate}
-          />
+              {/* Raza y color en una fila: dos campos cortos y opcionales. */}
+              <div className="grid sm:grid-cols-2 gap-6">
+                <FormField label={t('pets:create.breed')} htmlFor="breed">
+                  {(control) => (
+                    <input {...control} name="breed" type="text" value={form.breed} onChange={handleChange} />
+                  )}
+                </FormField>
 
-          {/* Breed */}
-          <div>
-            <label
-              htmlFor="breed"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-            >
-              {t('pets:create.breed')}
-            </label>
-            <input
-              id="breed"
-              name="breed"
-              type="text"
-              value={form.breed}
-              onChange={handleChange}
-              className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
-            />
-          </div>
+                <FormField label={t('pets:create.color')} htmlFor="color">
+                  {(control) => (
+                    <input {...control} name="color" type="text" value={form.color} onChange={handleChange} />
+                  )}
+                </FormField>
+              </div>
 
-          {/* Color */}
-          <div>
-            <label
-              htmlFor="color"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-            >
-              {t('pets:create.color')}
-            </label>
-            <input
-              id="color"
-              name="color"
-              type="text"
-              value={form.color}
-              onChange={handleChange}
-              className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
-            />
-          </div>
+              <FormField label={t('pets:create.description')} htmlFor="description">
+                {(control) => (
+                  <textarea
+                    {...control}
+                    className={`${control.className} resize-y`}
+                    name="description"
+                    value={form.description}
+                    onChange={handleChange}
+                    rows={3}
+                  />
+                )}
+              </FormField>
+            </div>
+          </FormSection>
 
-          {/* Description */}
-          <div>
-            <label
-              htmlFor="description"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-            >
-              {t('pets:create.description')}
-            </label>
-            <textarea
-              id="description"
-              name="description"
-              value={form.description}
-              onChange={handleChange}
-              rows={3}
-              className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary resize-none"
-            />
-          </div>
-
-          {/* Photo upload */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              {t('pets:create.photo', 'Fotos de la mascota')} ({selectedFiles.length}/{MAX_PHOTOS})
-            </label>
-            <input
-              ref={fileInputRef}
-              type="file"
-              multiple
-              accept="image/jpeg,image/png,image/webp"
-              disabled={atLimit}
-              onChange={handleFileChange}
-              className="block w-full text-sm text-gray-500 dark:text-gray-400
-                file:mr-4 file:py-2 file:px-4
-                file:rounded-lg file:border-0
-                file:text-sm file:font-semibold
-                file:bg-primary file:text-white
-                hover:file:bg-primary-dark
-                disabled:opacity-40 disabled:cursor-not-allowed
-                cursor-pointer"
-            />
-            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              JPG, PNG o WebP · máx. 5 MB por foto · hasta 3 fotos
+          <FormSection
+            title={t('pets:create.sectionPhotos')}
+            badge={`${selectedFiles.length}/${MAX_PHOTOS}`}
+          >
+            <FormField label={t('pets:create.photo')} htmlFor="pet-photo">
+              {(control) => (
+                <input
+                  {...control}
+                  /* Sin la clase de control de texto: la caja del input de
+                     archivo la dibuja el navegador. Del spread conserva el id y
+                     el cableado de aria. */
+                  className="block w-full text-sm text-gray-500 dark:text-gray-400
+                    file:mr-4 file:py-2 file:px-4
+                    file:rounded-lg file:border-0
+                    file:text-sm file:font-semibold
+                    file:bg-primary file:text-white
+                    hover:file:bg-primary-dark
+                    disabled:opacity-40 disabled:cursor-not-allowed
+                    cursor-pointer"
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  accept="image/jpeg,image/png,image/webp"
+                  disabled={atLimit}
+                  onChange={handleFileChange}
+                />
+              )}
+            </FormField>
+            <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+              {t('pets:create.photoHint')}
             </p>
             {atLimit && (
               <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
-                Máximo 3 fotos
+                {t('pets:create.photoLimit')}
               </p>
             )}
             {/* Previews de las imágenes seleccionadas */}
             {previewURLs.length > 0 && (
-              <div className="mt-3 flex flex-wrap gap-2">
+              <div className="mt-4 flex flex-wrap gap-3">
                 {previewURLs.map((url, i) => (
                   <div key={i} className="relative">
                     <img
                       src={url}
-                      alt={`Vista previa ${i + 1}`}
-                      className="h-24 w-24 object-cover rounded-lg border border-gray-200 dark:border-gray-700"
+                      alt={t('pets:create.photoPreviewAlt', { n: i + 1 })}
+                      className="h-24 w-24 object-cover rounded-xl border border-gray-200 dark:border-gray-700"
                     />
                     <button
                       type="button"
                       onClick={() => removeFile(i)}
-                      className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center leading-none hover:bg-red-600"
-                      aria-label="Eliminar foto"
+                      className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-danger text-white text-xs flex items-center justify-center leading-none hover:opacity-90"
+                      aria-label={t('pets:create.removePhoto')}
                     >
-                      ✕
+                      <Icon name="close" />
                     </button>
                   </div>
                 ))}
               </div>
             )}
-          </div>
+          </FormSection>
 
           {/* Error de API (pet creation failed) */}
           {apiError && (
@@ -375,16 +331,14 @@ export function CreatePetPage() {
             <p className="text-red-500 dark:text-red-400 text-sm">{uploadError}</p>
           )}
 
-          {/* Submit */}
-          <button
-            type="submit"
-            disabled={isPending}
-            className="w-full bg-primary hover:bg-primary-dark disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold rounded-lg px-4 py-2 transition-colors"
-          >
-            {isPending ? t('common:loading') : t('pets:create.submit')}
-          </button>
+          <FormActions
+            submit={
+              <button type="submit" disabled={isPending} className={formSubmitClass}>
+                {isPending ? t('common:loading') : t('pets:create.submit')}
+              </button>
+            }
+          />
         </form>
-      </div>
-    </div>
+    </FormPage>
   );
 }

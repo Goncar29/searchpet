@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next';
+import { controlClass as formControlClass } from './form/FormField';
 import type { PetGender } from '@shared/types';
 import {
   birthDateYears,
@@ -51,9 +52,18 @@ interface Props {
   hideBirthDate?: boolean;
 }
 
-const labelClass = 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1';
+const labelClass = 'block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2';
+
+// Toma la clase del sistema de formularios en vez de mantener la suya.
+//
+// Sus CUATRO consumidores —CreatePetPage, EditPetPage, StrayFormStep y
+// AdoptionFormStep— ya usan las primitivas, asi que con una clase propia este
+// bloque quedaba con OTRA densidad adentro de la misma card: los campos de
+// alrededor a 52px de alto y estos a 38, con radios distintos. No se ve como un
+// bug, se ve como un descuido, que es peor — nadie lo reporta y nadie lo
+// arregla. Se ve en la captura de EditPetPage: "Nombre" contra "Sexo".
 const controlClass =
-  'w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed';
+  formControlClass() + ' disabled:opacity-50 disabled:cursor-not-allowed';
 
 export function PetIdentityFields({ value, onChange, disabled, birthDateError, hideBirthDate }: Props) {
   const { t, i18n } = useTranslation(['pets', 'common']);

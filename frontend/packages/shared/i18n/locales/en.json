@@ -100,6 +100,13 @@
   },
   "pets": {
     "create": {
+      "sectionIdentity": "Pet details",
+      "sectionPhotos": "Photos",
+      "photo": "Pet photos",
+      "photoHint": "JPG, PNG or WebP · max 5 MB each · up to 3 photos",
+      "photoLimit": "Maximum 3 photos",
+      "removePhoto": "Remove photo",
+      "photoPreviewAlt": "Preview {{n}}",
       "title": "Post a pet",
       "name": "Name",
       "species": "Species",
@@ -197,6 +204,8 @@
       "otro": "Other"
     },
     "edit": {
+      "photoHint": "JPG, PNG or WebP · max 5 MB",
+      "previewAlt": "Preview",
       "title": "Edit pet",
       "submit": "Save changes",
       "replacePhoto": "Upload a new one to replace the current photo"
