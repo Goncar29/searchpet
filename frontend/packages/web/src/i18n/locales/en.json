@@ -774,6 +774,7 @@
       "heroLabel": "Mention whoever helped you",
       "heroPlaceholder": "e.g. Thanks to Juan and Refugio Esperanza",
       "optional": "Optional",
+      "optionalHint": "(optional)",
       "submit": "Publish story",
       "submitting": "Publishing…",
       "cancel": "Cancel"

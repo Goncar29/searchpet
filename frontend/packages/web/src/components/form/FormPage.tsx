@@ -15,14 +15,17 @@ interface FormPageProps {
  *
  * Two containers on purpose, and the nesting is the point:
  *
- * - The OUTER one is `max-w-7xl` with the padding inside it, which is the
- *   project-wide content width (rule #50) and keeps the page's left edge on the
- *   same x as the navbar logo.
- * - The INNER one caps the cards at `max-w-3xl` (768px). A single-column form
- *   stretched to 1216px is unreadable — the eye loses the label-to-input
- *   relationship — so the column stays narrow and centred inside a page that is
- *   still aligned with everything else. The Stitch mock does exactly this: wide
- *   page, narrow card column.
+ * - The OUTER one is `max-w-7xl` with the padding inside it, per rule #50.
+ * - The INNER one caps the cards at `max-w-3xl` (768px), because a single-column
+ *   form stretched to 1216px is unreadable — the eye loses the label-to-input
+ *   relationship. The Stitch mock does exactly this: wide page, narrow column.
+ *
+ * That second cap is a DELIBERATE DEVIATION from rule #50, not compliance with
+ * it, and it is worth saying plainly: the rule's own check is "the left edge of
+ * the page's first heading lines up with the navbar logo", and here it does not
+ * — the column is centred, so it starts around x=257 against the logo's x=32.
+ * A form is the one page type where matching the navbar costs more than it buys.
+ * Anything that is a CONTENT page still follows rule #50 unmodified.
  *
  * No `min-h-screen` and no background here. `MainLayout` already wraps every
  * page in `min-h-screen flex flex-col bg-gray-50 dark:bg-gray-950`

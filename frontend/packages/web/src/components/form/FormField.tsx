@@ -1,49 +1,80 @@
 import type { ReactNode } from 'react';
 
 /**
- * Shared class list for the controls inside a `FormField`.
+ * Class list for the control inside a `FormField`.
  *
- * Exported as a string rather than wrapped in an `<input>` component on
- * purpose: the thirteen forms this design has to cover use inputs, textareas,
- * selects, date pickers and a Leaflet map, and a component that tried to own
- * all of them would grow a prop per control type. The wrapper owns the label,
- * the error and the spacing — which is the part every field shares — and the
- * caller keeps its own element.
+ * One function instead of two exported strings: the plain and the error variant
+ * differ only in border and ring, and as separate constants whoever changed the
+ * padding had to remember both — forgetting gave a form whose fields changed
+ * density depending on whether they were in error, with nothing failing.
  *
  * `px-6 py-4` comes from the design (24px / 16px), measured against the mock
  * rather than guessed: the placeholder sits 24px from the field's left edge and
  * the control lands at ~52px tall.
  */
-export const formControlClass =
-  'w-full px-6 py-4 rounded-xl border bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 ' +
-  'placeholder:text-gray-400 dark:placeholder:text-gray-500 outline-none transition-colors ' +
-  'border-gray-300 dark:border-gray-600 focus:border-primary focus:ring-2 focus:ring-primary/20';
+export function controlClass(hasError = false): string {
+  const base =
+    'w-full px-6 py-4 rounded-xl border bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 ' +
+    'placeholder:text-gray-400 dark:placeholder:text-gray-500 outline-none transition-colors ';
+  return (
+    base +
+    (hasError
+      ? 'border-danger focus:border-danger focus:ring-2 focus:ring-danger/20'
+      : 'border-gray-300 dark:border-gray-600 focus:border-primary focus:ring-2 focus:ring-primary/20')
+  );
+}
 
-/** Swapped in for `border-gray-300 …` when the field is showing an error. */
-export const formControlErrorClass =
-  'w-full px-6 py-4 rounded-xl border bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 ' +
-  'placeholder:text-gray-400 dark:placeholder:text-gray-500 outline-none transition-colors ' +
-  'border-danger focus:border-danger focus:ring-2 focus:ring-danger/20';
+/**
+ * What `FormField` hands to its control. Spread it onto the element.
+ *
+ * It carries the id, the styling and — the part that matters — the wiring that
+ * tells assistive technology this control is invalid and where its message is.
+ */
+export interface ControlProps {
+  id: string;
+  className: string;
+  'aria-describedby'?: string;
+  'aria-invalid'?: true;
+  'aria-required'?: true;
+}
 
 interface FormFieldProps {
   label: string;
-  /** Must match the control's `id`, so clicking the label focuses it. */
+  /** Also becomes the control's `id`, so the two can never drift apart. */
   htmlFor: string;
-  /** Rendered after the label, muted — for "(optional)". */
+  /** Rendered after the label, muted — for "(optional)". Pass a translated string, never one built by casing another key. */
   hint?: string;
   required?: boolean;
   error?: string;
-  children: ReactNode;
+  /**
+   * Receives the props the control must carry. A render prop and not plain
+   * children on purpose: the association between a control and its error
+   * message is exactly the kind of wiring that gets forgotten once thirteen
+   * screens are copying each other, and a value you have to remember to spread
+   * fails loudly here (nothing renders) instead of silently (an error no screen
+   * reader can find).
+   */
+  children: (control: ControlProps) => ReactNode;
 }
 
 /**
  * Label, control and error message for one field.
  *
- * The error is rendered with `role="alert"` so a screen reader announces it
- * when it appears after a failed submit, instead of leaving the user to
- * discover it by navigating back over the field.
+ * The error carries `role="alert"` so it is announced the moment it appears,
+ * AND is referenced by the control through `aria-describedby`, so a user who
+ * tabs back to the field later still hears it. The first without the second
+ * announces once and then goes silent — which is what this component did before
+ * the wiring existed.
  */
 export function FormField({ label, htmlFor, hint, required, error, children }: FormFieldProps) {
+  const errorId = `${htmlFor}-error`;
+  const control: ControlProps = {
+    id: htmlFor,
+    className: controlClass(!!error),
+    ...(error ? { 'aria-describedby': errorId, 'aria-invalid': true as const } : {}),
+    ...(required ? { 'aria-required': true as const } : {}),
+  };
+
   return (
     <div>
       <label
@@ -51,12 +82,16 @@ export function FormField({ label, htmlFor, hint, required, error, children }: F
         className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2"
       >
         {label}
-        {required && <span className="text-danger ml-0.5">*</span>}
+        {required && (
+          <span aria-hidden="true" className="text-danger ml-0.5">
+            *
+          </span>
+        )}
         {hint && <span className="ml-1 font-normal text-gray-400 dark:text-gray-500">{hint}</span>}
       </label>
-      {children}
+      {children(control)}
       {error && (
-        <p role="alert" className="text-danger text-sm mt-2">
+        <p id={errorId} role="alert" className="text-danger text-sm mt-2">
           {error}
         </p>
       )}

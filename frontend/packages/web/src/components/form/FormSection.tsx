@@ -28,9 +28,13 @@ interface FormSectionProps {
 export function FormSection({ title, badge, children }: FormSectionProps) {
   return (
     <section className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl p-6 sm:p-8 shadow-sm">
-      {title && (
+      {/* La condición mira los DOS: con `title &&` a secas, una sección con
+          badge y sin título descartaba el badge en silencio. */}
+      {(title || badge) && (
         <div className="flex items-center justify-between gap-3 mb-6">
-          <h2 className="font-display text-headline text-gray-900 dark:text-gray-50">{title}</h2>
+          {title && (
+            <h2 className="font-display text-headline text-gray-900 dark:text-gray-50">{title}</h2>
+          )}
           {badge && (
             <span className="shrink-0 text-xs font-medium px-2.5 py-1 rounded-md bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400">
               {badge}

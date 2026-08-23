@@ -9,7 +9,7 @@ import { useCreateStory } from '@shared/hooks';
 import { getErrorMessage } from '@shared/utils/apiErrors';
 import { FormPage } from '../components/form/FormPage';
 import { FormSection } from '../components/form/FormSection';
-import { FormField, formControlClass, formControlErrorClass } from '../components/form/FormField';
+import { FormField } from '../components/form/FormField';
 import { FormActions, formSubmitClass, formCancelClass } from '../components/form/FormActions';
 
 export function CreateStoryPage() {
@@ -66,16 +66,17 @@ export function CreateStoryPage() {
             <FormField
               label={t('create.titleLabel')}
               htmlFor="story-title"
-              hint={`(${t('create.optional').toLowerCase()})`}
+              hint={t('create.optionalHint')}
             >
-              <input
-                id="story-title"
-                type="text"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder={t('create.titlePlaceholder')}
-                className={formControlClass}
-              />
+              {(control) => (
+                <input
+                  {...control}
+                  type="text"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder={t('create.titlePlaceholder')}
+                />
+              )}
             </FormField>
 
             <FormField
@@ -84,31 +85,34 @@ export function CreateStoryPage() {
               required
               error={bodyError || undefined}
             >
-              <textarea
-                id="story-body"
-                value={body}
-                onChange={(e) => {
-                  setBody(e.target.value);
-                  if (e.target.value.trim()) setBodyError('');
-                }}
-                rows={6}
-                placeholder={t('create.bodyPlaceholder')}
-                className={`${bodyError ? formControlErrorClass : formControlClass} resize-y`}
-              />
+              {(control) => (
+                <textarea
+                  {...control}
+                  className={`${control.className} resize-y`}
+                  value={body}
+                  onChange={(e) => {
+                    setBody(e.target.value);
+                    if (e.target.value.trim()) setBodyError('');
+                  }}
+                  rows={6}
+                  placeholder={t('create.bodyPlaceholder')}
+                />
+              )}
             </FormField>
           </div>
         </FormSection>
 
         <FormSection title={t('create.thanksSection')} badge={t('create.optional')}>
           <FormField label={t('create.heroLabel')} htmlFor="story-hero">
-            <input
-              id="story-hero"
-              type="text"
-              value={heroName}
-              onChange={(e) => setHeroName(e.target.value)}
-              placeholder={t('create.heroPlaceholder')}
-              className={formControlClass}
-            />
+            {(control) => (
+              <input
+                {...control}
+                type="text"
+                value={heroName}
+                onChange={(e) => setHeroName(e.target.value)}
+                placeholder={t('create.heroPlaceholder')}
+              />
+            )}
           </FormField>
         </FormSection>
 
