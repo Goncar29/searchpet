@@ -14,19 +14,22 @@ interface FormActionsProps {
  * what makes it read as "this ends the whole form" rather than "this ends the
  * last section".
  *
- * Order is cancel-then-submit in the DOM, which is both the reading order on
- * desktop (primary action on the right, where the eye finishes) and the tab
- * order — a keyboard user reaches the destructive-ish exit before the commit,
- * never the other way around.
+ * Order is cancel-then-submit in the DOM, which is the reading order on desktop
+ * (primary action on the right, where the eye finishes) and the tab order.
  *
- * On a phone the row stacks and REVERSES (`flex-col-reverse`), so the primary
- * button ends up on top: stacked, the last child would otherwise be furthest
- * from the thumb, and "Cancel" would be the one sitting under it.
+ * It stacks with `flex-col` and NOT `flex-col-reverse`. The reverse was here to
+ * put the primary button on top on a phone, but it only flips the PAINTING
+ * order: the DOM — and therefore focus order — stays cancel-then-submit, so a
+ * keyboard user tabbing off the last field landed on the button drawn *below*
+ * the one they saw first. That is the WCAG 2.4.3 / 1.3.2 mismatch, and it is
+ * not fixable by reversing: any `*-reverse` decouples the two orders by
+ * definition. The premise was wrong anyway — stacked at the end of a form, the
+ * LAST child is the one nearest the thumb, not the furthest.
  */
 export function FormActions({ cancel, submit }: FormActionsProps) {
   return (
     <div className="pt-6 mt-2 border-t border-gray-200 dark:border-gray-700">
-      <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
+      <div className="flex flex-col sm:flex-row sm:justify-end gap-3">
         {cancel}
         {submit}
       </div>

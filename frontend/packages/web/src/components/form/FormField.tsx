@@ -13,14 +13,24 @@ import type { ReactNode } from 'react';
  * the control lands at ~52px tall.
  */
 export function controlClass(hasError = false): string {
+  // `focus:outline-hidden` y no `outline-none` a secas, por dos motivos:
+  // el primero sólo actúa al enfocar (el `outline-none` suelto mataba también
+  // el indicador en reposo), y deja un contorno transparente que el modo de
+  // colores forzados del sistema sí puede pintar. Con `outline-none` un usuario
+  // de alto contraste se quedaba sin ninguna señal de foco.
+  //
+  // El anillo va en /30 y no en /20: el código que esto reemplaza usaba
+  // `focus:ring-primary` OPACO, así que /20 era una regresión — a esa opacidad
+  // el anillo ronda 1,2:1 sobre blanco y la única señal real quedaba en el
+  // borde. /30 además es lo que ya usan otras 12 pantallas del repo.
   const base =
     'w-full px-6 py-4 rounded-xl border bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 ' +
-    'placeholder:text-gray-400 dark:placeholder:text-gray-500 outline-none transition-colors ';
+    'placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-hidden transition-colors ';
   return (
     base +
     (hasError
-      ? 'border-danger focus:border-danger focus:ring-2 focus:ring-danger/20'
-      : 'border-gray-300 dark:border-gray-600 focus:border-primary focus:ring-2 focus:ring-primary/20')
+      ? 'border-danger focus:border-danger focus:ring-2 focus:ring-danger/30'
+      : 'border-gray-300 dark:border-gray-600 focus:border-primary focus:ring-2 focus:ring-primary/30')
   );
 }
 
