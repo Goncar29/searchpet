@@ -761,6 +761,20 @@
     "error": "Não foi possível carregar as estatísticas de impacto."
   },
   "stories": {
+    "create": {
+      "title": "Compartilhar história de sucesso",
+      "subtitle": "Sua história de reencontro inspira toda a comunidade. Compartilhe a alegria e dê esperança a quem ainda procura.",
+      "storySection": "Sua história",
+      "titleLabel": "Título da história",
+      "titlePlaceholder": "Ex.: A Luna voltou para casa!",
+      "bodyLabel": "Relato do reencontro",
+      "bodyPlaceholder": "Conte como foi o momento, quem ajudou, quanto tempo passou…",
+      "bodyRequired": "Conte como foi o reencontro",
+      "optionalHint": "(opcional)",
+      "submit": "Publicar história",
+      "submitting": "Publicando…",
+      "cancel": "Cancelar"
+    },
     "title": "Histórias de sucesso",
     "subtitle": "Animais que voltaram para casa graças à comunidade.",
     "loading": "Carregando histórias...",
