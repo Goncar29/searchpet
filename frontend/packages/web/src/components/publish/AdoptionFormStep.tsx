@@ -2,6 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { PetIdentityFields } from '../PetIdentityFields';
 import { Icon } from '../Icon';
+import { FormSection } from '../form/FormSection';
+import { FormField } from '../form/FormField';
+import { FormActions, formSubmitClass } from '../form/FormActions';
 import { composeBirthDate } from '@shared/utils/petBirthDate';
 import type { AdoptionFormState } from '../../pages/PublishWizardPage';
 import type { PetType } from '@shared/types';
@@ -108,50 +111,66 @@ export function AdoptionFormStep({ value, onChange, onSubmit, isPending }: Adopt
   };
 
   return (
-    <div className="bg-white dark:bg-gray-900 rounded-2xl p-8 space-y-5">
-      <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-50 text-center">
+    // El paso NO usa FormPage: el frame lo pone PublishWizardPage. Ver la nota
+    // equivalente en StrayFormStep.
+    <div className="space-y-6">
+      <h1 className="font-display text-headline text-gray-900 dark:text-gray-50 text-center">
         {tAdoption('publish.title')}
       </h1>
 
-      {/* Photos */}
-      <div>
-        <div className="flex items-center justify-between mb-1">
-          <label htmlFor="adoption-photo" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            {t('strayForm.photoLabel')}
-          </label>
-          <span className="text-xs text-gray-400 dark:text-gray-500">
-            {value.photos.length}/{MAX_PHOTOS}
-          </span>
-        </div>
-        <input
-          ref={fileInputRef}
-          id="adoption-photo"
-          data-testid="adoption-photo-input"
-          type="file"
-          multiple
-          accept="image/jpeg,image/png,image/webp"
-          disabled={atLimit}
-          onChange={handleFileChange}
-          className="block w-full text-sm text-gray-500 dark:text-gray-400
-            file:mr-4 file:py-2 file:px-4
-            file:rounded-lg file:border-0
-            file:text-sm file:font-semibold
-            file:bg-primary file:text-white
-            hover:file:bg-primary-dark
-            disabled:opacity-40 disabled:cursor-not-allowed
-            cursor-pointer"
-        />
-        {atLimit && <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">{t('strayForm.photoLimit')}</p>}
-        {errors.photo && <p className="text-red-500 dark:text-red-400 text-sm mt-1">{errors.photo}</p>}
+      <FormSection
+        title={t('strayForm.sectionPhotos')}
+        badge={`${value.photos.length}/${MAX_PHOTOS}`}
+      >
+        <FormField
+          label={t('strayForm.photoLabel')}
+          htmlFor="adoption-photo"
+          required
+          error={errors.photo}
+        >
+          {(control) => (
+            <input
+              {...control}
+              /* Sin la clase de control de texto: la caja del input de archivo
+                 la dibuja el navegador. Ver StrayFormStep. */
+              className="block w-full text-sm text-gray-500 dark:text-gray-400
+                file:mr-4 file:py-2 file:px-4
+                file:rounded-lg file:border-0
+                file:text-sm file:font-semibold
+                file:bg-primary file:text-white
+                hover:file:bg-primary-dark
+                disabled:opacity-40 disabled:cursor-not-allowed
+                cursor-pointer"
+              ref={fileInputRef}
+              data-testid="adoption-photo-input"
+              type="file"
+              multiple
+              accept="image/jpeg,image/png,image/webp"
+              disabled={atLimit}
+              onChange={handleFileChange}
+            />
+          )}
+        </FormField>
+
+        {atLimit && (
+          <p className="mt-2 text-xs text-gray-400 dark:text-gray-500">
+            {t('strayForm.photoLimit')}
+          </p>
+        )}
+
         {previewURLs.length > 0 && (
-          <div className="mt-3 flex flex-wrap gap-2">
+          <div className="mt-4 flex flex-wrap gap-3">
             {previewURLs.map((url, i) => (
               <div key={i} className="relative">
-                <img src={url} alt={`preview-${i}`} className="h-24 w-24 object-cover rounded-lg border border-gray-200 dark:border-gray-700" />
+                <img
+                  src={url}
+                  alt={`preview-${i}`}
+                  className="h-24 w-24 object-cover rounded-xl border border-gray-200 dark:border-gray-700"
+                />
                 <button
                   type="button"
                   onClick={() => removePhoto(i)}
-                  className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center leading-none hover:bg-red-600"
+                  className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-danger text-white text-xs flex items-center justify-center leading-none hover:opacity-90"
                   aria-label={t('strayForm.removePhoto')}
                 >
                   <Icon name="close" />
@@ -160,28 +179,31 @@ export function AdoptionFormStep({ value, onChange, onSubmit, isPending }: Adopt
             ))}
           </div>
         )}
-      </div>
+      </FormSection>
 
-      {/* Type */}
-      <div>
-        <label htmlFor="adoption-type" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-          {t('strayForm.typeLabel')}
-        </label>
-        <select
-          id="adoption-type"
-          data-testid="adoption-type-select"
-          value={value.type}
-          onChange={(e) => onChange({ ...value, type: e.target.value as PetType })}
-          className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
-        >
-          <option value="">—</option>
-          <option value="perro">{t('pets:types.perro')}</option>
-          <option value="gato">{t('pets:types.gato')}</option>
-          <option value="pajaro">{t('pets:types.pajaro')}</option>
-          <option value="otro">{t('pets:types.otro')}</option>
-        </select>
-        {errors.type && <p className="text-red-500 dark:text-red-400 text-sm mt-1">{errors.type}</p>}
-      </div>
+      <FormSection title={t('strayForm.sectionIdentity')}>
+        <div className="space-y-6">
+      <FormField
+        label={t('strayForm.typeLabel')}
+        htmlFor="adoption-type"
+        required
+        error={errors.type}
+      >
+        {(control) => (
+          <select
+            {...control}
+            data-testid="adoption-type-select"
+            value={value.type}
+            onChange={(e) => onChange({ ...value, type: e.target.value as PetType })}
+          >
+            <option value="">—</option>
+            <option value="perro">{t('pets:types.perro')}</option>
+            <option value="gato">{t('pets:types.gato')}</option>
+            <option value="pajaro">{t('pets:types.pajaro')}</option>
+            <option value="otro">{t('pets:types.otro')}</option>
+          </select>
+        )}
+      </FormField>
 
       {/* disabled durante el envio: buildAdoptionPayload congela `identity` al
           hacer click, pero createPet mas hasta 3 subidas de foto siguen
@@ -195,73 +217,81 @@ export function AdoptionFormStep({ value, onChange, onSubmit, isPending }: Adopt
         birthDateError={errors.birthDate}
       />
 
-      {/* Breed */}
-      <div>
-        <label htmlFor="adoption-breed" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-          {t('strayForm.breedLabel')}
-        </label>
-        <input
-          id="adoption-breed"
-          type="text"
-          value={value.breed}
-          onChange={(e) => onChange({ ...value, breed: e.target.value })}
-          className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
-        />
-      </div>
+          {/* Raza y color en una fila: dos campos cortos y opcionales. */}
+          <div className="grid sm:grid-cols-2 gap-6">
+            <FormField label={t('strayForm.breedLabel')} htmlFor="adoption-breed">
+              {(control) => (
+                <input
+                  {...control}
+                  type="text"
+                  value={value.breed}
+                  onChange={(e) => onChange({ ...value, breed: e.target.value })}
+                />
+              )}
+            </FormField>
 
-      {/* Color */}
-      <div>
-        <label htmlFor="adoption-color" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-          {t('strayForm.colorLabel')}
-        </label>
-        <input
-          id="adoption-color"
-          type="text"
-          value={value.color}
-          onChange={(e) => onChange({ ...value, color: e.target.value })}
-          className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
-        />
-      </div>
+            <FormField label={t('strayForm.colorLabel')} htmlFor="adoption-color">
+              {(control) => (
+                <input
+                  {...control}
+                  type="text"
+                  value={value.color}
+                  onChange={(e) => onChange({ ...value, color: e.target.value })}
+                />
+              )}
+            </FormField>
+          </div>
 
-      {/* Description */}
-      <div>
-        <label htmlFor="adoption-description" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-          {t('strayForm.descriptionLabel')}
-        </label>
-        <textarea
-          id="adoption-description"
-          value={value.description}
-          onChange={(e) => onChange({ ...value, description: e.target.value })}
-          rows={3}
-          className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary resize-none"
-        />
-      </div>
+          <FormField label={t('strayForm.descriptionLabel')} htmlFor="adoption-description">
+            {(control) => (
+              <textarea
+                {...control}
+                className={`${control.className} resize-y`}
+                value={value.description}
+                onChange={(e) => onChange({ ...value, description: e.target.value })}
+                rows={3}
+              />
+            )}
+          </FormField>
+        </div>
+      </FormSection>
 
-      {/* City — required. Adoption pets are owner-based (no location report),
-          so the city is how adopters filter/find them. */}
-      <div>
-        <label htmlFor="adoption-city" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-          {tAdoption('publish.cityLabel')}
-        </label>
-        <input
-          id="adoption-city"
-          type="text"
-          placeholder={tAdoption('publish.cityPlaceholder')}
-          value={value.city}
-          onChange={(e) => onChange({ ...value, city: e.target.value })}
-          className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
-        />
-        {errors.city && <p className="text-red-500 dark:text-red-400 text-sm mt-1">{errors.city}</p>}
-      </div>
+      {/* La ciudad es obligatoria y va en su propia card: una mascota en
+          adopción no tiene reporte de ubicación, así que la ciudad es el único
+          dato con el que un adoptante puede filtrarla o encontrarla.
+          Sin título de sección a propósito — con un solo campo, el encabezado
+          repetiría palabra por palabra la etiqueta que está justo debajo. */}
+      <FormSection>
+        <FormField
+          label={tAdoption('publish.cityLabel')}
+          htmlFor="adoption-city"
+          required
+          error={errors.city}
+        >
+          {(control) => (
+            <input
+              {...control}
+              type="text"
+              placeholder={tAdoption('publish.cityPlaceholder')}
+              value={value.city}
+              onChange={(e) => onChange({ ...value, city: e.target.value })}
+            />
+          )}
+        </FormField>
+      </FormSection>
 
-      <button
-        type="button"
-        onClick={handleSubmit}
-        disabled={isPending}
-        className="w-full bg-primary hover:bg-primary-dark disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold rounded-lg px-4 py-2 transition-colors"
-      >
-        {tAdoption('publish.submit')}
-      </button>
+      <FormActions
+        submit={
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={isPending}
+            className={formSubmitClass}
+          >
+            {tAdoption('publish.submit')}
+          </button>
+        }
+      />
     </div>
   );
 }
