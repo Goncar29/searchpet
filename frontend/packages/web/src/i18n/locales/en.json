@@ -761,6 +761,23 @@
     "error": "We couldn't load the impact statistics."
   },
   "stories": {
+    "create": {
+      "title": "Share your success story",
+      "subtitle": "Your reunion story inspires the whole community. Share the joy and give hope to those still searching.",
+      "storySection": "Your story",
+      "titleLabel": "Story title",
+      "titlePlaceholder": "e.g. Luna is back home!",
+      "bodyLabel": "How the reunion went",
+      "bodyPlaceholder": "Tell us how it happened, who helped, how long it took…",
+      "bodyRequired": "Tell us how the reunion went",
+      "thanksSection": "Thanks",
+      "heroLabel": "Mention whoever helped you",
+      "heroPlaceholder": "e.g. Thanks to Juan and Refugio Esperanza",
+      "optional": "Optional",
+      "submit": "Publish story",
+      "submitting": "Publishing…",
+      "cancel": "Cancel"
+    },
     "title": "Success stories",
     "subtitle": "Pets that made it home thanks to the community.",
     "loading": "Loading stories...",

@@ -761,6 +761,23 @@
     "error": "No pudimos cargar las estadísticas de impacto."
   },
   "stories": {
+    "create": {
+      "title": "Compartir historia de éxito",
+      "subtitle": "Tu historia de reencuentro inspira a toda la comunidad. Compartí la alegría y dale esperanza a quienes todavía buscan.",
+      "storySection": "Tu historia",
+      "titleLabel": "Título de la historia",
+      "titlePlaceholder": "Ej. ¡Luna volvió a casa!",
+      "bodyLabel": "Relato del reencuentro",
+      "bodyPlaceholder": "Contanos cómo fue el momento, quién te ayudó, cuánto tiempo pasó…",
+      "bodyRequired": "Contanos cómo fue el reencuentro",
+      "thanksSection": "Agradecimientos",
+      "heroLabel": "Mencioná a quienes te ayudaron",
+      "heroPlaceholder": "Ej. Gracias a Juan y al Refugio Esperanza",
+      "optional": "Opcional",
+      "submit": "Publicar historia",
+      "submitting": "Publicando…",
+      "cancel": "Cancelar"
+    },
     "title": "Historias de éxito",
     "subtitle": "Mascotas que volvieron a casa gracias a la comunidad.",
     "loading": "Cargando historias...",
