@@ -8,12 +8,24 @@ import (
 )
 
 // CreateStoryRequest contiene los datos para crear una historia de éxito.
+//
+// Los `max` replican el ancho de las columnas de domain.SuccessStory (Title
+// size:255, las dos fotos size:500). Sin ellos, un valor más largo llega hasta
+// Postgres, que lo rechaza con SQLSTATE 22001, y el handler colapsa cualquier
+// error no-dominio en 500 ErrInternal: el usuario lee "ocurrió un error
+// inesperado", pierde el borrador y no se entera de qué campo fue.
+//
+// Las unidades acá SÍ coinciden, y conviene decirlo porque la regla #36 nace de
+// un caso donde no coincidían: el tag `max` de go-playground/validator cuenta
+// RUNAS (utf8.RuneCountInString) y varchar(n) de Postgres cuenta CARACTERES, que
+// para este propósito son lo mismo. No es el caso de bcrypt, cuyo límite es de
+// bytes y por eso necesita un chequeo aparte.
 type CreateStoryRequest struct {
 	PetID       uuid.UUID `json:"pet_id" binding:"required"`
-	Title       string    `json:"title"`
+	Title       string    `json:"title" binding:"max=255"`
 	Body        string    `json:"body" binding:"required"`
-	PhotoBefore string    `json:"photo_before"`
-	PhotoAfter  string    `json:"photo_after"`
+	PhotoBefore string    `json:"photo_before" binding:"max=500"`
+	PhotoAfter  string    `json:"photo_after" binding:"max=500"`
 }
 
 // SetFeaturedRequest contiene el flag para marcar/desmarcar featured.

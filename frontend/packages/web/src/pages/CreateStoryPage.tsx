@@ -68,6 +68,12 @@ export function CreateStoryPage() {
                 <input
                   {...control}
                   type="text"
+                  /* La columna es varchar(255). Sin este tope el usuario
+                     escribe de más, Postgres rechaza el insert y el handler
+                     devuelve un 500 genérico: se pierde el borrador sin saber
+                     qué campo falló. El backend lo valida también — esto sólo
+                     evita que se llegue a intentar. */
+                  maxLength={255}
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder={t('create.titlePlaceholder')}
