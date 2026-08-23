@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 import { SharePanel } from '../SharePanel';
+import { Icon } from '../Icon';
 import type { Pet } from '@shared/types';
 
 interface SuccessStepProps {
@@ -29,7 +30,7 @@ export function SuccessStep({ pet, intent, failedPhotoCount, onRetryPhotos, isRe
 
   return (
     <div data-testid="publish-success" className="bg-white dark:bg-gray-900 rounded-2xl p-8 space-y-5 text-center">
-      <span className="text-4xl">✅</span>
+      <Icon name="check-circle" className="mx-auto block text-4xl text-found" />
       <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-50">
         {t(TITLE_KEY[intent])}
       </h1>

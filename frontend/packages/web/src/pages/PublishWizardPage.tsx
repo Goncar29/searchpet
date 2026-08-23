@@ -8,6 +8,7 @@ import { AdoptionFormStep } from '../components/publish/AdoptionFormStep';
 import { LocationStep } from '../components/publish/LocationStep';
 import { SuccessStep } from '../components/publish/SuccessStep';
 import { InlineAuthStep } from '../components/publish/InlineAuthStep';
+import { Icon } from '../components/Icon';
 import { useAuth } from '../context/AuthContext';
 import { useCreatePet, usePublishStray, useUploadPhoto } from '@shared/hooks';
 import { composeBirthDate } from '@shared/utils/petBirthDate';
@@ -390,7 +391,7 @@ export function PublishWizardPage() {
             onClick={back.onBack}
             className="mb-4 inline-flex items-center gap-1 text-sm font-semibold text-gray-500 hover:text-primary dark:text-gray-400 transition-colors"
           >
-            <span aria-hidden="true">←</span>
+            <Icon name="arrow-back" />
             {back.label}
           </button>
         )}
