@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { MemoryRouter } from 'react-router';
+import { MemoryRouter, Route, Routes } from 'react-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { CreateStoryPage } from './CreateStoryPage';
+import { MY_PETS_ROUTE } from '../routes';
 
 // La query de la URL se configura por test: sin `petId` la pantalla ofrece un
 // selector, con `petId` muestra la mascota fija.
@@ -24,19 +25,26 @@ let reportedPets: unknown[] = [];
 // tiene que poder representar esa diferencia, o el arnés no puede ver el bug.
 let mineFailed = false;
 let reportedFailed = false;
+// `isPending` (nunca hubo dato) e `isFetching` (hay un pedido en vuelo, aunque
+// ya haya caché) son ESTADOS DISTINTOS, y el mock tiene que poder separarlos:
+// con caché stale, `isLoading` de React Query v5 ya es false y la pantalla
+// decidiría sobre datos viejos.
+let refetching = false;
 const refetchMine = vi.fn();
 const refetchReported = vi.fn();
 vi.mock('@shared/hooks', () => ({
   useCreateStory: () => ({ mutate, isPending: false }),
   useMyPets: () => ({
     data: mineFailed ? undefined : myPets,
-    isLoading: false,
+    isPending: false,
+    isFetching: refetching,
     isError: mineFailed,
     refetch: refetchMine,
   }),
   useReportedPets: () => ({
     data: reportedFailed ? undefined : reportedPets,
-    isLoading: false,
+    isPending: false,
+    isFetching: refetching,
     isError: reportedFailed,
     refetch: refetchReported,
   }),
@@ -54,6 +62,7 @@ beforeEach(() => {
   reportedPets = [];
   mineFailed = false;
   reportedFailed = false;
+  refetching = false;
 });
 
 function wrapper({ children }: { children: React.ReactNode }) {
@@ -137,10 +146,36 @@ describe('CreateStoryPage', () => {
       expect(container.querySelector('#story-body')).toBeNull();
     });
 
-    it('ofrece a donde ir', () => {
+    /**
+     * El CTA se sigue hasta el DESTINO, no se le mira el `href`.
+     *
+     * `routes.ts` documenta por qué: un link a `/my-pets` —que no es ruta de
+     * esta app— dejaba la página en blanco, y lo que dejó pasar el defecto fue
+     * un test que afirmaba el string del href en vez del destino. La versión
+     * anterior de este test hacía `getByRole('link')` y nada más: habría pasado
+     * en verde con el link apuntando a cualquier lado.
+     *
+     * La aserción NO puede ser sobre texto que rendericen las dos pantallas.
+     * Se monta MyPetsPage como destino y se afirma sobre su barra de pestañas,
+     * que es de ella y de nadie más.
+     */
+    it('el CTA lleva a una ruta que EXISTE', () => {
       myPets = [];
-      render(<CreateStoryPage />, { wrapper });
-      expect(screen.getByRole('link')).toBeTruthy();
+      render(
+        <QueryClientProvider
+          client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+        >
+          <MemoryRouter initialEntries={['/stories/create']}>
+            <Routes>
+              <Route path="/stories/create" element={<CreateStoryPage />} />
+              <Route path={MY_PETS_ROUTE} element={<div data-testid="destino-mis-mascotas" />} />
+            </Routes>
+          </MemoryRouter>
+        </QueryClientProvider>
+      );
+
+      fireEvent.click(screen.getByRole('link'));
+      expect(screen.getByTestId('destino-mis-mascotas')).toBeTruthy();
     });
   });
 
@@ -174,6 +209,60 @@ describe('CreateStoryPage', () => {
       mineFailed = true;
       const { container } = render(<CreateStoryPage />, { wrapper });
 
+      expect(container.querySelector('h2')?.textContent ?? '').toContain('loadError');
+    });
+  });
+
+  describe('con datos viejos en la cache', () => {
+    it('NO emite un veredicto negativo mientras se esta refrescando', () => {
+      // El camino real: marcar una mascota como encontrada invalida ['pets']
+      // pero NO refetchea (esa query no esta montada), y el nudge navega del
+      // lado del cliente, asi que la cache sobrevive. Esta pantalla monta con
+      // la fila VIEJA en 'lost' — y en React Query v5 `isLoading` ya es false
+      // porque hay cache. Decidir ahi le dice al usuario "todavia no esta
+      // marcada como encontrada" segundos despues de marcarla.
+      searchParams = new URLSearchParams({ petId: 'pet-lost' });
+      myPets = [perdida];
+      refetching = true;
+      const { container } = render(<CreateStoryPage />, { wrapper });
+
+      expect(container.querySelector('[role="alert"]')).toBeNull();
+      expect(container.querySelector('form')).toBeNull();
+    });
+
+    it('el veredicto POSITIVO si puede salir de la cache', () => {
+      // Mostrar el formulario de mas no le miente a nadie: si la mascota
+      // resulta no calificar, el backend lo dice. Bloquear la pantalla en cada
+      // refetch de fondo seria peor.
+      searchParams = new URLSearchParams({ petId: 'pet-found' });
+      myPets = [encontrada];
+      refetching = true;
+      const { container } = render(<CreateStoryPage />, { wrapper });
+
+      expect(container.querySelector('form')).toBeTruthy();
+    });
+  });
+
+  describe('cuando una lista falla pero la otra alcanza', () => {
+    it('deja escribir igual si la mascota pedida ya esta cargada', () => {
+      // Ese camino funcionaba antes de este PR: negar la pantalla entera
+      // cuando /pets/mine YA trajo la mascota es peor que el problema.
+      searchParams = new URLSearchParams({ petId: 'pet-found' });
+      myPets = [encontrada];
+      reportedFailed = true;
+      const { container } = render(<CreateStoryPage />, { wrapper });
+
+      expect(container.querySelector('form')).toBeTruthy();
+      // Pero se avisa que la lista puede estar incompleta.
+      expect(container.querySelector('[role="status"]')).toBeTruthy();
+    });
+
+    it('bloquea solo cuando no queda nada que ofrecer', () => {
+      myPets = [];
+      reportedFailed = true;
+      const { container } = render(<CreateStoryPage />, { wrapper });
+
+      expect(container.querySelector('form')).toBeNull();
       expect(container.querySelector('h2')?.textContent ?? '').toContain('loadError');
     });
   });

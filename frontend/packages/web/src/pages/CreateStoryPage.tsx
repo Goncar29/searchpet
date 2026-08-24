@@ -7,6 +7,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { useCreateStory, useMyPets, useReportedPets } from '@shared/hooks';
 import { getErrorMessage } from '@shared/utils/apiErrors';
+import { MY_PETS_ROUTE, myPetsRoute } from '../routes';
 import { FormPage } from '../components/form/FormPage';
 import { FormSection } from '../components/form/FormSection';
 import { FormField } from '../components/form/FormField';
@@ -31,16 +32,34 @@ export function CreateStoryPage() {
   // filtro de la pantalla contradecia lo que mostraba otra pantalla del sitio.
   const {
     data: myPets,
-    isLoading: loadingMine,
+    isPending: pendingMine,
+    isFetching: fetchingMine,
     isError: errorMine,
     refetch: refetchMine,
   } = useMyPets();
   const {
     data: reportedPets,
-    isLoading: loadingReported,
+    isPending: pendingReported,
+    isFetching: fetchingReported,
     isError: errorReported,
     refetch: refetchReported,
   } = useReportedPets();
+
+  // `isPending` + `isFetching`, NO `isLoading`.
+  //
+  // En React Query v5 `isLoading` es `isPending && isFetching`, o sea que da
+  // FALSE en cuanto hay algo en caché, aunque esté viejo. Y el camino que
+  // importa produce exactamente esa situación: marcar una mascota como
+  // encontrada llama `invalidateQueries(['pets'])`, que marca la lista como
+  // stale pero NO la refetchea (esa query no está montada); el nudge de
+  // PetDetailPage navega del lado del cliente, así que la caché sobrevive. Al
+  // montar esta pantalla, `useMyPets` devuelve la fila VIEJA con status 'lost'
+  // e `isLoading` false — y el usuario lee "todavía no está marcada como
+  // encontrada" segundos después de marcarla. Se cura sola cuando aterriza el
+  // refetch, pero un arranque en frío de Render son decenas de segundos con un
+  // callejón sin salida en pantalla.
+  const sinDatos = pendingMine || pendingReported;
+  const refrescando = fetchingMine || fetchingReported;
 
   // `isError` de las DOS, y no sólo `data ?? []`.
   //
@@ -68,7 +87,6 @@ export function CreateStoryPage() {
     });
   }, [myPets, reportedPets]);
 
-  const loadingPets = loadingMine || loadingReported;
   const [selectedPetId, setSelectedPetId] = useState('');
   const petId = presetPetId || selectedPetId;
 
@@ -77,7 +95,25 @@ export function CreateStoryPage() {
   // cargadas en vez de pedirla aparte — si el usuario puede escribir su
   // historia, la mascota está en una de las dos por definición.
   const presetPet = presetPetId ? eligiblePets.find((p) => p.id === presetPetId) : undefined;
-  const presetNotEligible = !!presetPetId && !loadingPets && !petsFailed && !presetPet;
+
+  // Un fallo sólo bloquea cuando la respuesta DEPENDE de la lista que falló.
+  //
+  // Si /pets/reported se cae pero /pets/mine trajo la mascota que el usuario
+  // venía a contar, negarle la pantalla entera es peor que el problema: ese
+  // camino funcionaba antes de este PR. Se bloquea sólo cuando no queda nada
+  // que ofrecer; si hay algo, se sigue y se avisa que la lista puede estar
+  // incompleta.
+  const hayAlgoQueOfrecer = !!presetPet || eligiblePets.length > 0;
+  const bloqueaPorFallo = petsFailed && !hayAlgoQueOfrecer;
+  const listaIncompleta = petsFailed && hayAlgoQueOfrecer;
+
+  const presetNotEligible = !!presetPetId && !petsFailed && !presetPet;
+  const sinElegibles = !presetPetId && eligiblePets.length === 0 && !petsFailed;
+
+  // Los veredictos NEGATIVOS no se emiten con un refetch en vuelo: se estarían
+  // apoyando en datos que justo se están reemplazando. El positivo sí puede
+  // salir de la caché — mostrar el formulario de más nunca le miente a nadie.
+  const vaADecirQueNo = bloqueaPorFallo || sinElegibles || presetNotEligible;
 
   // Por qué no califica, que NO es siempre lo mismo.
   //
@@ -90,6 +126,13 @@ export function CreateStoryPage() {
   const presetEnMisListas =
     !!presetPetId &&
     [...(myPets ?? []), ...(reportedPets ?? [])].some((p) => p.id === presetPetId);
+
+  // Si la mascota que no califica es una CALLEJERA que el usuario reportó, la
+  // pestaña correcta es esa: "Mis mascotas" abre en `owned`, que para alguien
+  // cuyo único vínculo son callejeras reportadas está vacía — mandarlo ahí es
+  // mandarlo a otra pantalla que le dice que no tiene nada.
+  const presetEsReportada = !!presetPetId && (reportedPets ?? []).some((p) => p.id === presetPetId);
+  const destinoDelCta = presetEsReportada ? myPetsRoute('reported') : MY_PETS_ROUTE;
 
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
@@ -134,7 +177,7 @@ export function CreateStoryPage() {
 
   // Nada de esto puede decidirse mientras las listas cargan: hacerlo mostraria
   // el estado vacio por un instante a alguien que SI tiene mascotas.
-  if (loadingPets) {
+  if (sinDatos || (vaADecirQueNo && refrescando)) {
     return (
       <FormPage icon="celebration" title={t('create.title')}>
         <FormSection>
@@ -146,7 +189,7 @@ export function CreateStoryPage() {
 
   // Falló al menos una lista: NO se puede afirmar que el usuario no tenga
   // mascotas, así que se dice lo que sí se sabe y se ofrece reintentar.
-  if (petsFailed) {
+  if (bloqueaPorFallo) {
     return (
       <FormPage icon="celebration" title={t('create.title')}>
         <FormSection>
@@ -176,7 +219,7 @@ export function CreateStoryPage() {
   // escribir la historia entera y recien al enviar aparecia un "ocurrio un
   // error inesperado" que ni siquiera decia cual era el problema. Ahora se dice
   // antes, se explica por que, y se ofrece a donde ir.
-  if (!presetPetId && eligiblePets.length === 0) {
+  if (sinElegibles) {
     return (
       <FormPage icon="celebration" title={t('create.title')}>
         <FormSection>
@@ -185,7 +228,12 @@ export function CreateStoryPage() {
               {t('create.noEligibleTitle')}
             </h2>
             <p className="text-gray-500 dark:text-gray-400">{t('create.noEligibleBody')}</p>
-            <Link to="/pets/mine" className={`${formSubmitClass} mt-2`}>
+            {/* La ruta sale de la CONSTANTE, no de un string tipeado a mano.
+                `routes.ts` existe por un defecto concreto: un link a `/my-pets`
+                —que no es una ruta de esta app— dejaba la página EN BLANCO,
+                porque no hay `path="*"`. Con la constante, un rename rompe el
+                test en vez de producir otra pantalla vacía. */}
+            <Link to={MY_PETS_ROUTE} className={`${formSubmitClass} mt-2`}>
               {t('create.noEligibleCta')}
             </Link>
           </div>
@@ -204,7 +252,7 @@ export function CreateStoryPage() {
             <p role="alert" className="text-gray-700 dark:text-gray-300">
               {presetEnMisListas ? t('create.petNotEligible') : t('create.petNotFound')}
             </p>
-            <Link to="/pets/mine" className={`${formSubmitClass} mt-2`}>
+            <Link to={destinoDelCta} className={`${formSubmitClass} mt-2`}>
               {t('create.noEligibleCta')}
             </Link>
           </div>
@@ -217,6 +265,17 @@ export function CreateStoryPage() {
     <FormPage icon="celebration" title={t('create.title')} subtitle={t('create.subtitle')}>
       <form onSubmit={handleSubmit} noValidate className="space-y-6">
         <FormSection title={t('create.petSection')}>
+          {/* Se sigue, pero se avisa: una de las dos listas no cargó, así que
+              lo que se ofrece puede estar incompleto. Bloquear la pantalla
+              entera cuando ya hay algo que ofrecer es peor que el problema. */}
+          {listaIncompleta && (
+            <p
+              role="status"
+              className="mb-4 rounded-xl border border-yellow-200 dark:border-yellow-900 bg-yellow-50 dark:bg-yellow-950 px-4 py-3 text-sm text-yellow-800 dark:text-yellow-200"
+            >
+              {t('create.partialListWarning')}
+            </p>
+          )}
           {presetPet ? (
             /* Vino por URL desde el detalle de la mascota: no se puede cambiar,
                se muestra cual es. */

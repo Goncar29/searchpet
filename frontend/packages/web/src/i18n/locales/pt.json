@@ -764,6 +764,7 @@
   },
   "stories": {
     "create": {
+      "partialListWarning": "Não conseguimos ler uma de suas listas, então algum animal pode estar faltando aqui.",
       "loadErrorTitle": "Não conseguimos carregar seus animais",
       "loadErrorBody": "Não é que você não tenha nenhum: não conseguimos ler a lista. Tente de novo.",
       "loadErrorRetry": "Tentar de novo",

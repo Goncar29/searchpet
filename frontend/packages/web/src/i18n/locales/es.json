@@ -764,6 +764,7 @@
   },
   "stories": {
     "create": {
+      "partialListWarning": "No pudimos leer una de tus listas, así que puede faltar alguna mascota acá.",
       "loadErrorTitle": "No pudimos cargar tus mascotas",
       "loadErrorBody": "No es que no tengas ninguna: no llegamos a leer la lista. Probá de nuevo.",
       "loadErrorRetry": "Reintentar",

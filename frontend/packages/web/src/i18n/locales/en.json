@@ -764,6 +764,7 @@
   },
   "stories": {
     "create": {
+      "partialListWarning": "We couldn't read one of your lists, so a pet may be missing here.",
       "loadErrorTitle": "We couldn't load your pets",
       "loadErrorBody": "It's not that you have none — we couldn't read the list. Try again.",
       "loadErrorRetry": "Try again",
