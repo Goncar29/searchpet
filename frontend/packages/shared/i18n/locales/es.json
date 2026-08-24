@@ -503,6 +503,9 @@
       "select": "Seleccionar"
     },
     "strayForm": {
+      "sectionPhotos": "Fotos",
+      "sectionIdentity": "Identificación de la mascota",
+      "sectionContact": "Contacto",
       "title": "Contanos sobre la mascota que viste",
       "photoLabel": "Fotos (1 a 3, obligatorio)",
       "photoRequired": "Agregá al menos una foto",
@@ -524,6 +527,8 @@
       "removePhoto": "Quitar foto"
     },
     "location": {
+      "sectionPlace": "Lugar",
+      "sectionDetails": "Detalle",
       "title": "¿Dónde la viste por última vez?",
       "instructions": "Arrastrá el pin al lugar exacto o usá tu ubicación actual.",
       "useMyLocation": "Usar mi ubicación",

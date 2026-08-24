@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
 import { useTranslation } from 'react-i18next';
 import L from 'leaflet';
+import { FormSection } from '../form/FormSection';
+import { FormField } from '../form/FormField';
+import { FormActions, formSubmitClass, formCancelClass } from '../form/FormActions';
 import type { InitialReportRequest } from '@shared/types';
 import { calendarDayToISO, todayAsCalendarDay, isFutureCalendarDay, isoToCalendarDay } from '@shared/utils/reportDate';
 
@@ -84,12 +87,18 @@ export function LocationStep({ value, onPublish, onBack, isPending }: LocationSt
   };
 
   return (
-    <div className="bg-white dark:bg-gray-900 rounded-2xl p-8 space-y-5">
-      <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-50 text-center">
+    // El paso NO usa FormPage: el frame lo pone PublishWizardPage. Ver la nota
+    // equivalente en StrayFormStep.
+    <div className="space-y-6">
+      <h1 className="font-display text-headline text-gray-900 dark:text-gray-50 text-center">
         {t('location.title')}
       </h1>
       <p className="text-sm text-gray-500 dark:text-gray-400 text-center">{t('location.instructions')}</p>
 
+      <FormSection title={t('location.sectionPlace')}>
+      {/* El MapContainer queda EXACTAMENTE como estaba: este cambio es de
+          presentación, y el mapa es lo único de esta pantalla que no es
+          presentación. Sólo cambia la card que lo enmarca. */}
       <div className="h-72 rounded-xl overflow-hidden">
         <MapContainer center={position} zoom={13} style={{ height: '100%', width: '100%' }}>
           <TileLayer
@@ -115,69 +124,77 @@ export function LocationStep({ value, onPublish, onBack, isPending }: LocationSt
       <button
         type="button"
         onClick={useMyLocation}
-        className="w-full border-2 border-primary text-primary font-semibold rounded-lg px-4 py-2 hover:bg-primary/5 transition-colors"
+        className="mt-4 w-full border-2 border-primary text-primary font-semibold rounded-lg px-4 py-2 hover:bg-primary/5 transition-colors"
       >
         {t('location.useMyLocation')}
       </button>
       {locationError && (
-        <p role="alert" className="text-yellow-600 dark:text-yellow-400 text-sm text-center">
+        <p role="alert" className="mt-2 text-yellow-600 dark:text-yellow-400 text-sm text-center">
           {locationError}
         </p>
       )}
+      </FormSection>
 
-      <div>
-        <label htmlFor="location-date" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-          {t('location.dateLabel')}
-        </label>
-        <input
-          id="location-date"
-          type="date"
-          value={date}
-          max={today}
-          onChange={(e) => {
-            setDate(e.target.value);
-            if (dateError) setDateError(null);
-          }}
-          className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
-        />
-        {dateError ? (
-          <p className="text-xs text-red-500 dark:text-red-400 mt-1">{dateError}</p>
-        ) : (
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{t('location.dateHelp')}</p>
-        )}
-      </div>
+      <FormSection title={t('location.sectionDetails')}>
+        <div className="space-y-6">
+          <FormField
+            label={t('location.dateLabel')}
+            htmlFor="location-date"
+            error={dateError ?? undefined}
+          >
+            {(control) => (
+              <input
+                {...control}
+                type="date"
+                value={date}
+                max={today}
+                onChange={(e) => {
+                  setDate(e.target.value);
+                  if (dateError) setDateError(null);
+                }}
+              />
+            )}
+          </FormField>
+          {/* La ayuda se esconde cuando hay error: FormField ya muestra el
+              mensaje ahí, y dos textos bajo el mismo campo compiten. */}
+          {!dateError && (
+            <p className="-mt-4 text-xs text-gray-500 dark:text-gray-400">
+              {t('location.dateHelp')}
+            </p>
+          )}
 
-      <div>
-        <label htmlFor="location-note" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-          {t('location.noteLabel')}
-        </label>
-        <textarea
-          id="location-note"
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-          placeholder={t('location.notePlaceholder')}
-          rows={2}
-          className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary resize-none"
-        />
-      </div>
+          <FormField label={t('location.noteLabel')} htmlFor="location-note">
+            {(control) => (
+              <textarea
+                {...control}
+                className={`${control.className} resize-y`}
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                placeholder={t('location.notePlaceholder')}
+                rows={2}
+              />
+            )}
+          </FormField>
+        </div>
+      </FormSection>
 
-      <div className="flex gap-3">
-        <button
-          type="button"
-          onClick={onBack}
-          className="flex-1 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-semibold rounded-lg px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-        >
-          {t('location.back')}
-        </button>
-        <button
-          type="button"
-          onClick={handlePublish}
-          disabled={isPending}
-          className="flex-1 bg-primary hover:bg-primary-dark disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold rounded-lg px-4 py-2 transition-colors"
-        >
-          {t('location.publish')}
-        </button>
-      </div>
+      <FormActions
+        cancel={
+          <button type="button" onClick={onBack} className={formCancelClass}>
+            {t('location.back')}
+          </button>
+        }
+        submit={
+          <button
+            type="button"
+            onClick={handlePublish}
+            disabled={isPending}
+            className={formSubmitClass}
+          >
+            {t('location.publish')}
+          </button>
+        }
+      />
     </div>
   );
 }

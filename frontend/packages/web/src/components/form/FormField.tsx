@@ -87,18 +87,25 @@ export function FormField({ label, htmlFor, hint, required, error, children }: F
 
   return (
     <div>
-      <label
-        htmlFor={htmlFor}
-        className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2"
-      >
-        {label}
+      {/* El asterisco y el hint van FUERA del <label>, no adentro.
+          `getByLabelText` y varias herramientas de accesibilidad computan el
+          nombre a partir del textContent de la etiqueta: con el asterisco
+          adentro, "Fotos" pasaba a ser "Fotos*" y toda consulta por texto
+          exacto dejaba de encontrarlo. Medido — rompio 15 tests del wizard de
+          una sola vez, y se habria repetido en cada pantalla que adopte esto.
+          La obligatoriedad ya viaja por aria-required, que es donde tiene que
+          estar; el asterisco es decoracion y por eso queda aria-hidden. */}
+      <div className="flex items-baseline gap-1 mb-2">
+        <label htmlFor={htmlFor} className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+          {label}
+        </label>
         {required && (
-          <span aria-hidden="true" className="text-danger ml-0.5">
+          <span aria-hidden="true" className="text-danger">
             *
           </span>
         )}
-        {hint && <span className="ml-1 font-normal text-gray-400 dark:text-gray-500">{hint}</span>}
-      </label>
+        {hint && <span className="text-sm text-gray-400 dark:text-gray-500">{hint}</span>}
+      </div>
       {children(control)}
       {error && (
         <p id={errorId} role="alert" className="text-danger text-sm mt-2">

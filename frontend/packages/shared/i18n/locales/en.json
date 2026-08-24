@@ -503,6 +503,9 @@
       "select": "Select"
     },
     "strayForm": {
+      "sectionPhotos": "Photos",
+      "sectionIdentity": "Pet identification",
+      "sectionContact": "Contact",
       "title": "Tell us about the pet you saw",
       "photoLabel": "Photos (1 to 3, required)",
       "photoRequired": "Add at least one photo",
@@ -524,6 +527,8 @@
       "removePhoto": "Remove photo"
     },
     "location": {
+      "sectionPlace": "Place",
+      "sectionDetails": "Details",
       "title": "Where did you last see it?",
       "instructions": "Drag the pin to the exact spot or use your current location.",
       "useMyLocation": "Use my location",

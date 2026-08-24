@@ -503,6 +503,9 @@
       "select": "Selecionar"
     },
     "strayForm": {
+      "sectionPhotos": "Fotos",
+      "sectionIdentity": "Identificação do animal",
+      "sectionContact": "Contato",
       "title": "Conte sobre o animal que você viu",
       "photoLabel": "Fotos (1 a 3, obrigatório)",
       "photoRequired": "Adicione pelo menos uma foto",
@@ -524,6 +527,8 @@
       "removePhoto": "Remover foto"
     },
     "location": {
+      "sectionPlace": "Local",
+      "sectionDetails": "Detalhe",
       "title": "Onde você o viu pela última vez?",
       "instructions": "Arraste o marcador até o local exato ou use sua localização atual.",
       "useMyLocation": "Usar minha localização",
