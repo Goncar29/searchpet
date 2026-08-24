@@ -246,6 +246,25 @@ describe('CreateReportPage — despues de publicar como perdida', () => {
     expect(screen.queryByRole('button', { name: 'reports:create.submit' })).not.toBeInTheDocument();
   });
 
+  // `publicado` viaja en la URL, o sea que es ENTRADA DE USUARIO: por si solo no
+  // prueba que exista ningun reporte. Sin el permiso, cualquiera podia abrir
+  // /reports/create?petId=<ajena>&publicado=x y leer "tu mascota esta marcada
+  // como perdida" sobre una mascota que no es suya — y `GET /api/pets/:id` es
+  // PUBLICO, asi que resuelve cualquier id. Es una regresion que trajo mover el
+  // estado de exito de useState a la URL: antes la pantalla era inalcanzable sin
+  // un mutate exitoso.
+  it('con ?publicado sobre una mascota AJENA no muestra el exito', () => {
+    mocks.pet = { ...PET, owner_id: 'otro-usuario', reporter_id: undefined };
+    mocks.search = 'petId=pet-1&status=lost&publicado=report-1';
+    render(<CreateReportPage />, { wrapper });
+
+    expect(screen.queryByTestId('share-panel')).not.toBeInTheDocument();
+    expect(screen.queryByText('publish:success.lostTitle')).not.toBeInTheDocument();
+    // Y sigue fallando CERRADO: tampoco cae al formulario, que seria el otro
+    // agujero.
+    expect(document.querySelector('form')).toBeNull();
+  });
+
   it('mientras la mascota carga con ?publicado tampoco aparece el formulario', () => {
     // Fallar ABIERTO acá seria reabrir el agujero por otra puerta: un
     // formulario vivo y re-enviable en la URL de un reporte que ya existe.

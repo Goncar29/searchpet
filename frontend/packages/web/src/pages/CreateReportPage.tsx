@@ -66,7 +66,10 @@ export function CreateReportPage() {
   // Si viene petId en la URL → mascota bloqueada (ajena o propia desde card)
   // Si no → el usuario elige entre SUS mascotas
   const { data: presetPet, isLoading: presetLoading } = usePetByID(presetPetId);
-  const { data: myPets } = useMyPets();
+  // `isLoading` de las DOS consultas, no sólo de una: `petElegida` sale de
+  // `presetPet ?? myPets.find(...)`, así que mirar sólo `presetLoading` para
+  // decidir "cargando o no encontrada" es mirar la mitad de sus fuentes.
+  const { data: myPets, isLoading: myPetsLoading } = useMyPets();
 
   const createReport = useCreateReport();
 
@@ -193,12 +196,35 @@ export function CreateReportPage() {
   // pase con la carga de la mascota. Caer al formulario ante un fallo sería
   // reabrir el mismo agujero por otra puerta: dejaría un formulario vivo y
   // re-enviable en la URL de un reporte que ya existe.
+  //
+  // Pero `publicado` viene de la URL, así que por sí solo no prueba NADA: mover
+  // el estado de éxito de useState a la barra de direcciones lo convirtió en
+  // entrada de usuario. Sin este permiso, `/reports/create?petId=<ajena>&
+  // publicado=x` le afirmaba a cualquiera "tu mascota está marcada como
+  // perdida" sobre una mascota que no es suya —y `GET /api/pets/:id` es
+  // público, así que resuelve cualquier id—. Esta pantalla existe para copiar
+  // links: alguien que copia la barra de direcciones en vez del link del panel
+  // manda justo esa URL.
+  //
+  // Se reusa `canManagePet`, que ya es la fuente única de esta regla en el
+  // resto del proyecto (dueño, o quien reportó la callejera).
+  //
+  // Se evaluó exigir ADEMÁS `status === 'lost'` y se dejó afuera. Sospeché que
+  // metería un parpadeo de "mascota no encontrada" sobre el camino feliz,
+  // porque tras publicar el refetch todavía viaja con la mascota en
+  // `registered` — y lo medí en el navegador con las dos consultas lentas y
+  // sirviendo el dato viejo: ESE PARPADEO NO OCURRE. El motivo real de dejarlo
+  // afuera es otro: `canManagePet` ya cierra el caso que importa (una mascota
+  // ajena), y un status exacto rebotaría a quien publica sobre su propia
+  // callejera, que llega acá en `stray`. Lo único que cerraría de más es un
+  // favorito viejo de tu PROPIA mascota ya encontrada — una imprecisión sobre
+  // algo tuyo, no una afirmación sobre la mascota de otro.
   if (publicado) {
-    if (!petElegida) {
+    if (!petElegida || !puedeCambiarEstado) {
       return (
         <div className="min-h-screen bg-gray-50 dark:bg-gray-950 py-10 px-4">
           <div className="max-w-2xl mx-auto text-center space-y-6">
-            {presetLoading ? (
+            {!petElegida && (presetLoading || myPetsLoading) ? (
               <p className="text-gray-500 dark:text-gray-400">{t('common:loading')}</p>
             ) : (
               <>
