@@ -764,6 +764,10 @@
   },
   "stories": {
     "create": {
+      "loadErrorTitle": "No pudimos cargar tus mascotas",
+      "loadErrorBody": "No es que no tengas ninguna: no llegamos a leer la lista. Probá de nuevo.",
+      "loadErrorRetry": "Reintentar",
+      "petNotFound": "No encontramos esa mascota entre las tuyas.",
       "petSection": "La mascota",
       "petLabel": "¿De cuál mascota es la historia?",
       "petPlaceholder": "Elegí una",

@@ -764,6 +764,10 @@
   },
   "stories": {
     "create": {
+      "loadErrorTitle": "We couldn't load your pets",
+      "loadErrorBody": "It's not that you have none — we couldn't read the list. Try again.",
+      "loadErrorRetry": "Try again",
+      "petNotFound": "We couldn't find that pet among yours.",
       "petSection": "The pet",
       "petLabel": "Which pet is this story about?",
       "petPlaceholder": "Pick one",

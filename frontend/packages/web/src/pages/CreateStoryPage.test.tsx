@@ -20,10 +20,26 @@ vi.mock('react-router', async (importOriginal) => {
 const mutate = vi.fn();
 let myPets: unknown[] = [];
 let reportedPets: unknown[] = [];
+// Una query que FALLA devuelve `data: undefined`, no una lista vacía. El mock
+// tiene que poder representar esa diferencia, o el arnés no puede ver el bug.
+let mineFailed = false;
+let reportedFailed = false;
+const refetchMine = vi.fn();
+const refetchReported = vi.fn();
 vi.mock('@shared/hooks', () => ({
   useCreateStory: () => ({ mutate, isPending: false }),
-  useMyPets: () => ({ data: myPets, isLoading: false }),
-  useReportedPets: () => ({ data: reportedPets, isLoading: false }),
+  useMyPets: () => ({
+    data: mineFailed ? undefined : myPets,
+    isLoading: false,
+    isError: mineFailed,
+    refetch: refetchMine,
+  }),
+  useReportedPets: () => ({
+    data: reportedFailed ? undefined : reportedPets,
+    isLoading: false,
+    isError: reportedFailed,
+    refetch: refetchReported,
+  }),
 }));
 
 const encontrada = { id: 'pet-found', name: 'Luna', type: 'perro', status: 'found' };
@@ -31,9 +47,13 @@ const perdida = { id: 'pet-lost', name: 'Toby', type: 'gato', status: 'lost' };
 
 beforeEach(() => {
   mutate.mockClear();
+  refetchMine.mockClear();
+  refetchReported.mockClear();
   searchParams = new URLSearchParams();
   myPets = [];
   reportedPets = [];
+  mineFailed = false;
+  reportedFailed = false;
 });
 
 function wrapper({ children }: { children: React.ReactNode }) {
@@ -124,6 +144,40 @@ describe('CreateStoryPage', () => {
     });
   });
 
+  describe('cuando una lista no se pudo cargar', () => {
+    it('NO dice que el usuario no tiene mascotas', () => {
+      // El bug: `data ?? []` vuelve una query fallida indistinguible de una
+      // lista vacía, así que quien tiene una mascota elegible y se come un 500
+      // lee "todavía no tenés ninguna" — falso, sin reintento y sin pista de
+      // que hubo un fallo. Convención del repo: MyShelterPage.tsx:76.
+      reportedFailed = true;
+      myPets = [];
+      const { container } = render(<CreateStoryPage />, { wrapper });
+
+      const h2 = container.querySelector('h2')?.textContent ?? '';
+      expect(h2).toContain('loadError');
+      expect(h2).not.toContain('noEligible');
+    });
+
+    it('ofrece reintentar, y reintenta LAS DOS', () => {
+      mineFailed = true;
+      render(<CreateStoryPage />, { wrapper });
+
+      fireEvent.click(screen.getByRole('button'));
+      // Cualquiera de las dos pudo ser la que falló, y el usuario no sabe cuál.
+      expect(refetchMine).toHaveBeenCalled();
+      expect(refetchReported).toHaveBeenCalled();
+    });
+
+    it('tampoco afirma nada sobre una mascota pedida por URL', () => {
+      searchParams = new URLSearchParams({ petId: 'pet-found' });
+      mineFailed = true;
+      const { container } = render(<CreateStoryPage />, { wrapper });
+
+      expect(container.querySelector('h2')?.textContent ?? '').toContain('loadError');
+    });
+  });
+
   describe('con petId en la URL', () => {
     it('fija la mascota y no ofrece selector', () => {
       searchParams = new URLSearchParams({ petId: 'pet-found' });
@@ -142,7 +196,23 @@ describe('CreateStoryPage', () => {
       // Validar sólo el camino del selector dejaba este abierto: entrar por URL
       // con una mascota que no califica reproducía el mismo defecto.
       expect(container.querySelector('form')).toBeNull();
-      expect(container.querySelector('[role="alert"]')).toBeTruthy();
+      const alerta = container.querySelector('[role="alert"]')?.textContent ?? '';
+      // La mascota SI está en sus listas, así que el motivo es el estado.
+      expect(alerta).toContain('petNotEligible');
+    });
+
+    it('no afirma el estado de una mascota que no esta en sus listas', () => {
+      searchParams = new URLSearchParams({ petId: 'de-otro-usuario' });
+      myPets = [encontrada];
+      const { container } = render(<CreateStoryPage />, { wrapper });
+
+      // Decir "todavía no está marcada como encontrada" sobre una mascota que
+      // no conocemos es afirmar algo que el código no puede sostener — y con un
+      // id ajeno, contarle al usuario el estado de una mascota que ni siquiera
+      // puede ver.
+      const alerta = container.querySelector('[role="alert"]')?.textContent ?? '';
+      expect(alerta).toContain('petNotFound');
+      expect(alerta).not.toContain('petNotEligible');
     });
   });
 

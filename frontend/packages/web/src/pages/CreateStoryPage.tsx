@@ -29,8 +29,29 @@ export function CreateStoryPage() {
   // como encontrada veria "no tenés mascotas" mientras el backend le habría
   // aceptado la historia. Es el mismo defecto que tuvo LostPetStep, donde el
   // filtro de la pantalla contradecia lo que mostraba otra pantalla del sitio.
-  const { data: myPets, isLoading: loadingMine } = useMyPets();
-  const { data: reportedPets, isLoading: loadingReported } = useReportedPets();
+  const {
+    data: myPets,
+    isLoading: loadingMine,
+    isError: errorMine,
+    refetch: refetchMine,
+  } = useMyPets();
+  const {
+    data: reportedPets,
+    isLoading: loadingReported,
+    isError: errorReported,
+    refetch: refetchReported,
+  } = useReportedPets();
+
+  // `isError` de las DOS, y no sólo `data ?? []`.
+  //
+  // Una query que falló devuelve `data: undefined`, que con `?? []` queda
+  // INDISTINGUIBLE de una lista vacía: quien tiene una mascota elegible y se
+  // come un 500 lee "todavía no tenés ninguna mascota reencontrada" — una
+  // afirmación falsa, sin reintento y sin pista de que hubo un fallo. Es el
+  // mismo modo de falla que esta pantalla vino a cerrar, y el repo ya tiene la
+  // convención escrita para esto en MyShelterPage.tsx:76 (patrón del PR #82:
+  // estados DISTINTOS para "vacío esperado" y "falló el fetch").
+  const petsFailed = errorMine || errorReported;
 
   // Y sólo las `found`: es la tercera regla del service
   // (success_story_service.go:40 responde ErrPetNotFoundStatus). Ofrecer una
@@ -56,7 +77,19 @@ export function CreateStoryPage() {
   // cargadas en vez de pedirla aparte — si el usuario puede escribir su
   // historia, la mascota está en una de las dos por definición.
   const presetPet = presetPetId ? eligiblePets.find((p) => p.id === presetPetId) : undefined;
-  const presetNotEligible = !!presetPetId && !loadingPets && !presetPet;
+  const presetNotEligible = !!presetPetId && !loadingPets && !petsFailed && !presetPet;
+
+  // Por qué no califica, que NO es siempre lo mismo.
+  //
+  // Si la mascota está en alguna de las dos listas, el motivo es su estado. Si
+  // no está en ninguna, no sabemos nada de ella —puede no existir, ser de otro,
+  // o estar mal escrito el id— y decir "todavía no está marcada como
+  // encontrada" seria afirmar algo que el codigo no puede sostener. Peor con un
+  // id ajeno: le estariamos contando al usuario el estado de una mascota que ni
+  // siquiera puede ver.
+  const presetEnMisListas =
+    !!presetPetId &&
+    [...(myPets ?? []), ...(reportedPets ?? [])].some((p) => p.id === presetPetId);
 
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
@@ -111,6 +144,34 @@ export function CreateStoryPage() {
     );
   }
 
+  // Falló al menos una lista: NO se puede afirmar que el usuario no tenga
+  // mascotas, así que se dice lo que sí se sabe y se ofrece reintentar.
+  if (petsFailed) {
+    return (
+      <FormPage icon="celebration" title={t('create.title')}>
+        <FormSection>
+          <div className="text-center space-y-4">
+            <h2 className="font-display text-headline text-gray-900 dark:text-gray-50">
+              {t('create.loadErrorTitle')}
+            </h2>
+            <p className="text-gray-500 dark:text-gray-400">{t('create.loadErrorBody')}</p>
+            <button
+              type="button"
+              onClick={() => {
+                // Las dos, porque cualquiera de las dos pudo ser la que falló.
+                refetchMine();
+                refetchReported();
+              }}
+              className={`${formSubmitClass} mt-2`}
+            >
+              {t('create.loadErrorRetry')}
+            </button>
+          </div>
+        </FormSection>
+      </FormPage>
+    );
+  }
+
   // Sin ninguna mascota elegible el formulario NO se muestra. Antes se podia
   // escribir la historia entera y recien al enviar aparecia un "ocurrio un
   // error inesperado" que ni siquiera decia cual era el problema. Ahora se dice
@@ -141,7 +202,7 @@ export function CreateStoryPage() {
         <FormSection>
           <div className="text-center space-y-4">
             <p role="alert" className="text-gray-700 dark:text-gray-300">
-              {t('create.petNotEligible')}
+              {presetEnMisListas ? t('create.petNotEligible') : t('create.petNotFound')}
             </p>
             <Link to="/pets/mine" className={`${formSubmitClass} mt-2`}>
               {t('create.noEligibleCta')}

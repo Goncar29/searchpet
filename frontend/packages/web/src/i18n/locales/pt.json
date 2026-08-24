@@ -764,6 +764,10 @@
   },
   "stories": {
     "create": {
+      "loadErrorTitle": "Não conseguimos carregar seus animais",
+      "loadErrorBody": "Não é que você não tenha nenhum: não conseguimos ler a lista. Tente de novo.",
+      "loadErrorRetry": "Tentar de novo",
+      "petNotFound": "Não encontramos esse animal entre os seus.",
       "petSection": "O animal",
       "petLabel": "Sobre qual animal é esta história?",
       "petPlaceholder": "Escolha um",
