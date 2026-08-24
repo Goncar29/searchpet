@@ -354,6 +354,9 @@
   },
   "reports": {
     "create": {
+      "sectionWhat": "O que você reporta",
+      "sectionPlace": "Local",
+      "sectionDetails": "Detalhe",
       "title": "Adicionar reporte de localização",
       "pet": "Pet",
       "description": "Descrição (opcional)",
