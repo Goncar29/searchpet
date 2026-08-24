@@ -398,6 +398,8 @@
     "registerButton": "Registrar meu abrigo",
     "manageButton": "Gerenciar meu abrigo",
     "register": {
+      "sectionData": "Dados do abrigo",
+      "sectionLinks": "Links",
       "title": "Registre seu abrigo",
       "step1Title": "Preencha os dados",
       "step1Body": "Conte sobre seu abrigo: nome, cidade, contato e links.",

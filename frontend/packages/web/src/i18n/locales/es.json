@@ -398,6 +398,8 @@
     "registerButton": "Registrar mi refugio",
     "manageButton": "Gestionar mi refugio",
     "register": {
+      "sectionData": "Datos del refugio",
+      "sectionLinks": "Enlaces",
       "title": "Registrá tu refugio",
       "step1Title": "Completá los datos",
       "step1Body": "Contanos sobre tu refugio: nombre, ciudad, contacto y links.",

@@ -398,6 +398,8 @@
     "registerButton": "Register my shelter",
     "manageButton": "Manage my shelter",
     "register": {
+      "sectionData": "Shelter details",
+      "sectionLinks": "Links",
       "title": "Register your shelter",
       "step1Title": "Fill in your data",
       "step1Body": "Tell us about your shelter: name, city, contact and links.",
