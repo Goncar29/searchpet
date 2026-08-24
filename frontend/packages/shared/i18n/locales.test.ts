@@ -24,21 +24,29 @@ import pt from './locales/pt.json';
  * produccion, hay que bajar la asercion al nivel donde el dato vive.
  */
 
-// `auth.register.*LabelRequired` son MOBILE-ONLY y ahi el asterisco del texto es
-// la unica senal de obligatorio: no hay FormField en React Native que lo agregue.
-// Exentas a proposito, no por olvido. Si alguna pantalla WEB llega a consumir
-// estas claves con `<FormField required>`, va a reproducir el mismo doble
-// asterisco y hay que sacarlas de esta lista.
+// Estas cuatro son MOBILE-ONLY (`mobile/app/register.tsx`) y ahi el asterisco del
+// texto es la unica senal de obligatorio: no hay FormField en React Native que lo
+// agregue. Exentas a proposito, no por olvido.
 //
-// La exencion es por RUTA COMPLETA y no por namespace de primer nivel: `register`
-// no es top-level, cuelga de `auth`. Exentar 'register' a secas no eximia nada y
-// ademas habria eximido cualquier `register` que apareciera en otro namespace.
-const RUTAS_EXENTAS = ['auth.register.'];
+// Se listan UNA POR UNA y no como prefijo `auth.register.`: ese subarbol tambien
+// lo consume el RegisterPage de la web, asi que un prefijo eximiria en silencio a
+// una clave futura que si termine dentro de un `<FormField required>` — que es
+// exactamente el doble asterisco que este archivo viene a impedir. La exencion
+// tiene que ser tan angosta como su justificacion.
+//
+// (La web hoy no duplica nada ahi: arma el label como `${t('auth:register.name')} *`
+// sobre AuthField, que no tiene prop `required`.)
+const CLAVES_EXENTAS = [
+  'auth.register.nameLabelRequired',
+  'auth.register.emailLabelRequired',
+  'auth.register.passwordLabelRequired',
+  'auth.register.confirmLabelRequired',
+];
 
 function textosConAsterisco(obj: unknown, ruta: string[] = []): string[] {
   const path = ruta.join('.');
   if (typeof obj === 'string') {
-    if (RUTAS_EXENTAS.some((p) => path.startsWith(p))) return [];
+    if (CLAVES_EXENTAS.includes(path)) return [];
     return obj.includes('*') ? [`${path} = ${JSON.stringify(obj)}`] : [];
   }
   if (!obj || typeof obj !== 'object') return [];
