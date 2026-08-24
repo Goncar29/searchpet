@@ -132,7 +132,9 @@ export function AdoptionFormStep({ value, onChange, onSubmit, isPending }: Adopt
 
       {/* Type */}
       <View style={styles.section}>
-        <Text style={styles.label}>{t('publish:strayForm.typeLabel')}</Text>
+        {/* Ver StrayFormStep: el asterisco sale de la traduccion compartida y se
+            escribe aca, porque en la web FormField agrega el suyo y salian dos. */}
+        <Text style={styles.label}>{t('publish:strayForm.typeLabel')} *</Text>
         <View style={styles.typeRow}>
           {PET_TYPES.map((petType) => {
             const active = value.type === petType.value;

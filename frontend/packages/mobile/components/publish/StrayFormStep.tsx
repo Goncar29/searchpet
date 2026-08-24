@@ -116,7 +116,11 @@ export function StrayFormStep({ value, onChange, onNext }: StrayFormStepProps) {
 
       {/* Type */}
       <View style={styles.section}>
-        <Text style={styles.label}>{t('publish:strayForm.typeLabel')}</Text>
+        {/* El asterisco se escribe ACA y ya no viene dentro de la traduccion.
+            La clave es compartida con la web, donde FormField agrega el suyo al
+            recibir `required`: con el asterisco tambien en el texto salian DOS.
+            Es presentacion, no contenido — la web lo renderiza igual de literal. */}
+        <Text style={styles.label}>{t('publish:strayForm.typeLabel')} *</Text>
         <View style={styles.typeRow}>
           {PET_TYPES.map((petType) => {
             const active = value.type === petType.value;
