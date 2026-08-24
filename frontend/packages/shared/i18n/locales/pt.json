@@ -521,7 +521,7 @@
       "photoFormatError": "Formato não suportado. Use JPG, PNG ou WebP",
       "photoSizeError": "Cada foto deve ter menos de 5 MB",
       "photoLimit": "Máximo de 3 fotos",
-      "typeLabel": "Tipo *",
+      "typeLabel": "Tipo",
       "typeRequired": "Selecione o tipo de animal",
       "breedLabel": "Raça",
       "colorLabel": "Cor",

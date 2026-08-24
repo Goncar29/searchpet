@@ -100,6 +100,20 @@ describe('PostScreen (Publish wizard)', () => {
     expect(getByText('publish:strayForm.title')).toBeTruthy();
   });
 
+  // El asterisco de obligatorio del campo Tipo se escribe ACA, en el JSX, y ya no
+  // viene dentro de la traduccion: la clave es compartida con la web, donde
+  // FormField dibuja el suyo, y con el asterisco en el texto salian DOS.
+  //
+  // Este assert es el unico que lo protege. La clave ahora esta guardada por
+  // shared/i18n/locales.test.ts, que exige que NO tenga asterisco — asi que sin
+  // esto, alguien que borre el ` *` de este componente deja a mobile sin su unica
+  // marca de obligatorio con la suite entera en verde.
+  it('el campo Tipo conserva su marca de obligatorio en mobile', () => {
+    const { getByText } = render(<PostScreen />);
+    fireEvent.press(getByText('publish:intent.strayTitle'));
+    expect(getByText('publish:strayForm.typeLabel *')).toBeTruthy();
+  });
+
   it('renders the adoption intent option and advances to the adoption-form step when selected', () => {
     const { getByText } = render(<PostScreen />);
     expect(getByText('adoption:publish.intentOption')).toBeTruthy();
