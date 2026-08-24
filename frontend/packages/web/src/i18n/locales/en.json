@@ -764,6 +764,15 @@
   },
   "stories": {
     "create": {
+      "petSection": "The pet",
+      "petLabel": "Which pet is this story about?",
+      "petPlaceholder": "Pick one",
+      "petRequired": "Pick which pet this story is about",
+      "noEligibleTitle": "You have no reunited pets yet",
+      "noEligibleBody": "Stories are written about a pet marked as found. Once you mark one, you'll be able to tell how it went.",
+      "noEligibleCta": "Go to my pets",
+      "petNotEligible": "This pet is not marked as found yet, so it cannot have a story.",
+      "loading": "Loading…",
       "title": "Share your success story",
       "subtitle": "Your reunion story inspires the whole community. Share the joy and give hope to those still searching.",
       "storySection": "Your story",

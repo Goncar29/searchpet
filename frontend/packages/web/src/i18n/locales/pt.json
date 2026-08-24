@@ -764,6 +764,15 @@
   },
   "stories": {
     "create": {
+      "petSection": "O animal",
+      "petLabel": "Sobre qual animal é esta história?",
+      "petPlaceholder": "Escolha um",
+      "petRequired": "Escolha sobre qual animal é a história",
+      "noEligibleTitle": "Você ainda não tem nenhum animal reencontrado",
+      "noEligibleBody": "As histórias são escritas sobre um animal marcado como encontrado. Quando marcar um, poderá contar como foi.",
+      "noEligibleCta": "Ir para meus animais",
+      "petNotEligible": "Este animal ainda não está marcado como encontrado, então não pode ter uma história.",
+      "loading": "Carregando…",
       "title": "Compartilhar história de sucesso",
       "subtitle": "Sua história de reencontro inspira toda a comunidade. Compartilhe a alegria e dê esperança a quem ainda procura.",
       "storySection": "Sua história",
