@@ -100,6 +100,13 @@
   },
   "pets": {
     "create": {
+      "sectionIdentity": "Dados do animal",
+      "sectionPhotos": "Fotos",
+      "photo": "Fotos do animal",
+      "photoHint": "JPG, PNG ou WebP · máx. 5 MB por foto · até 3 fotos",
+      "photoLimit": "Máximo de 3 fotos",
+      "removePhoto": "Remover foto",
+      "photoPreviewAlt": "Prévia {{n}}",
       "title": "Publicar um pet",
       "name": "Nome",
       "species": "Espécie",
@@ -197,6 +204,8 @@
       "otro": "Outro"
     },
     "edit": {
+      "photoHint": "JPG, PNG ou WebP · máx. 5 MB",
+      "previewAlt": "Prévia",
       "title": "Editar pet",
       "submit": "Salvar alterações",
       "replacePhoto": "Envie uma nova para substituir a foto atual"
