@@ -6,6 +6,10 @@ import L from 'leaflet';
 import { usePetByID, useMyPets, useCreateReport } from '@shared/hooks';
 import { PawPlaceholder } from '../components/PawPlaceholder';
 import { SharePanel } from '../components/SharePanel';
+import { FormPage } from '../components/form/FormPage';
+import { FormSection } from '../components/form/FormSection';
+import { FormField } from '../components/form/FormField';
+import { FormActions, formSubmitClass } from '../components/form/FormActions';
 import type { ReportStatus } from '@shared/types';
 import { getErrorMessage } from '@shared/utils/apiErrors';
 import { canManagePet } from '@shared/utils/petAuthorization';
@@ -276,179 +280,200 @@ export function CreateReportPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 py-10 px-4">
-      <div className="max-w-2xl mx-auto">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-50 mb-6">
-          {t('reports:create.title')}
-        </h1>
-
-        <form onSubmit={handleSubmit} noValidate className="space-y-6">
-          {/* Pet selector */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              {t('reports:create.pet')} *
-            </label>
-
+    <FormPage title={t('reports:create.title')}>
+      <form onSubmit={handleSubmit} noValidate className="space-y-6">
+        <FormSection title={t('reports:create.sectionWhat')}>
+          <div className="space-y-6">
             {presetPetId ? (
-              /* Flujo desde card o detalle: mascota bloqueada, no editable */
-              presetLoading ? (
-                <p className="text-sm text-gray-500 dark:text-gray-400">{t('common:loading')}</p>
-              ) : presetPet ? (
-                <div className="flex items-center gap-3 rounded-lg border border-primary/40 bg-primary/5 dark:bg-primary/10 px-4 py-3">
-                  <PawPlaceholder className="w-6" />
-                  <div>
-                    <p className="font-semibold text-gray-900 dark:text-gray-100 text-sm">{presetPet.name}</p>
-                    {/* El valor crudo (`perro`, `gato`) es el que guarda la base:
-                        sin traducir se leía en minúscula y en español aunque la
-                        app estuviera en inglés o portugués. Mismo patrón que
-                        LostPetStep.tsx:94. */}
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {t(`pets:types.${presetPet.type}`)}
-                    </p>
-                  </div>
+              // Mascota BLOQUEADA (se llegó desde una card o el detalle). No es
+              // un control, así que no va en FormField: un `htmlFor` apuntando a
+              // un input que no existe deja un label huérfano, que es justo lo
+              // que la auditoría de accesibilidad del #180 marca como defecto.
+              // Lleva su propia fila de etiqueta, con el asterisco fuera del
+              // texto y aria-hidden, igual que FormField.
+              <div>
+                <div className="flex items-baseline gap-1 mb-2">
+                  <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                    {t('reports:create.pet')}
+                  </span>
+                  <span aria-hidden="true" className="text-danger">*</span>
                 </div>
-              ) : (
-                <p className="text-sm text-red-500">{t('pets:detail.notFound')}</p>
-              )
+                {presetLoading ? (
+                  <p className="text-sm text-gray-500 dark:text-gray-400">{t('common:loading')}</p>
+                ) : presetPet ? (
+                  <div className="flex items-center gap-3 rounded-xl border border-primary/40 bg-primary/5 dark:bg-primary/10 px-4 py-3">
+                    <PawPlaceholder className="w-6" />
+                    <div>
+                      <p className="font-semibold text-gray-900 dark:text-gray-100 text-sm">{presetPet.name}</p>
+                      {/* El valor crudo (`perro`, `gato`) es el que guarda la base:
+                          sin traducir se leía en minúscula y en español aunque la
+                          app estuviera en inglés o portugués. Mismo patrón que
+                          LostPetStep.tsx:94. */}
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        {t(`pets:types.${presetPet.type}`)}
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-danger text-sm">{t('pets:detail.notFound')}</p>
+                )}
+                {fieldErrors.petId && (
+                  <p role="alert" className="text-danger text-sm mt-2">{fieldErrors.petId}</p>
+                )}
+              </div>
             ) : (
               /* Flujo directo: el usuario elige entre SUS mascotas */
-              <select
-                value={petId}
-                aria-label={t('reports:create.selectPet')}
-                onChange={(e) => {
-                  setPetId(e.target.value);
-                  if (fieldErrors.petId) setFieldErrors((prev) => ({ ...prev, petId: undefined }));
-                }}
-                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
+              <FormField
+                label={t('reports:create.pet')}
+                htmlFor="report-pet"
+                required
+                error={fieldErrors.petId}
               >
-                <option value="">— {t('reports:create.selectPet')} —</option>
-                {myPets?.map((pet) => (
-                  <option key={pet.id} value={pet.id}>
-                    {/* Mismo motivo que la rama de arriba: el tipo se guarda
-                        crudo y sin traducir se leía `perro` aun con la app en
-                        inglés o portugués. Esta rama es el flujo DIRECTO
-                        (/reports/create sin ?petId=), así que era la más vista
-                        de las dos. */}
-                    {pet.name} ({t(`pets:types.${pet.type}`)}{pet.breed ? ` · ${pet.breed}` : ''})
-                  </option>
+                {(control) => (
+                  // Sin `aria-label`: acá el <label> del FormField ya nombra al
+                  // control, y un aria-label lo PISA — el nombre accesible
+                  // pasaba a ser el placeholder del selector en vez de "Mascota".
+                  <select
+                    {...control}
+                    value={petId}
+                    onChange={(e) => {
+                      setPetId(e.target.value);
+                      if (fieldErrors.petId) setFieldErrors((prev) => ({ ...prev, petId: undefined }));
+                    }}
+                  >
+                    <option value="">— {t('reports:create.selectPet')} —</option>
+                    {myPets?.map((pet) => (
+                      <option key={pet.id} value={pet.id}>
+                        {/* Mismo motivo que la rama de arriba: el tipo se guarda
+                            crudo y sin traducir se leía `perro` aun con la app en
+                            inglés o portugués. Esta rama es el flujo DIRECTO
+                            (/reports/create sin ?petId=), así que era la más vista
+                            de las dos. */}
+                        {pet.name} ({t(`pets:types.${pet.type}`)}{pet.breed ? ` · ${pet.breed}` : ''})
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </FormField>
+            )}
+
+            {/* El estado son tres BOTONES, no un input, así que tampoco va en
+                FormField. `role="group"` + `aria-labelledby` es lo que le da un
+                nombre accesible al conjunto; el <label> sin `for` que había acá
+                no etiquetaba nada. */}
+            <div>
+              <div className="flex items-baseline gap-1 mb-2">
+                <span id="report-status-label" className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                  {t('reports:create.status')}
+                </span>
+                <span aria-hidden="true" className="text-danger">*</span>
+              </div>
+              <div
+                role="group"
+                aria-labelledby="report-status-label"
+                className={`grid gap-2 ${opcionesEstado.length === 1 ? 'grid-cols-1' : 'grid-cols-3'}`}
+              >
+                {opcionesEstado.map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => setStatus(s)}
+                    // `aria-pressed` porque son botones de alternancia: sin él,
+                    // cuál está elegido viaja SÓLO en el color, que un lector de
+                    // pantalla no anuncia.
+                    aria-pressed={statusEfectivo === s}
+                    className={`py-3 rounded-xl text-sm font-semibold border transition-colors ${
+                      statusEfectivo === s
+                        ? s === 'lost'
+                          ? 'bg-red-600 border-red-600 text-white'
+                          : s === 'found'
+                          ? 'bg-green-700 border-green-700 text-white'
+                          : 'bg-amber-700 border-amber-700 text-white'
+                        : 'border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
+                    }`}
+                  >
+                    {t(`pets:card.${s}`)}
+                  </button>
                 ))}
-              </select>
-            )}
-
-            {fieldErrors.petId && (
-              <p className="text-red-500 dark:text-red-400 text-sm mt-1">{fieldErrors.petId}</p>
-            )}
-          </div>
-
-          {/* Status */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              {t('reports:create.status')} *
-            </label>
-            <div className={`grid gap-2 ${opcionesEstado.length === 1 ? 'grid-cols-1' : 'grid-cols-3'}`}>
-              {opcionesEstado.map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => setStatus(s)}
-                  className={`py-2 rounded-lg text-sm font-semibold border transition-colors ${
-                    statusEfectivo === s
-                      ? s === 'lost'
-                        ? 'bg-red-600 border-red-600 text-white'
-                        : s === 'found'
-                        ? 'bg-green-700 border-green-700 text-white'
-                        : 'bg-amber-700 border-amber-700 text-white'
-                      : 'border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
-                  }`}
-                >
-                  {t(`pets:card.${s}`)}
-                </button>
-              ))}
+              </div>
             </div>
           </div>
+        </FormSection>
 
-          {/* Map */}
-          <div>
-            <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              {t('reports:create.clickMap')}
-            </p>
-            <div
-              className="rounded-xl overflow-hidden border border-gray-300 dark:border-gray-600"
-              style={{ height: '320px' }}
-            >
-              <MapContainer center={MONTEVIDEO} zoom={13} style={{ height: '100%', width: '100%' }}>
-                <TileLayer
-                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                />
-                <MapClickHandler onCoordPicked={setCoord} />
-                {coord && <Marker position={[coord.lat, coord.lng]} />}
-              </MapContainer>
-            </div>
-            {fieldErrors.coord && (
-              <p className="text-red-500 dark:text-red-400 text-sm mt-1">{fieldErrors.coord}</p>
-            )}
-            {coord && (
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                {coord.lat.toFixed(5)}, {coord.lng.toFixed(5)}
-              </p>
-            )}
-          </div>
-
-          {/* Description */}
-          <div>
-            <label
-              htmlFor="description"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-            >
-              {t('reports:create.description')}
-            </label>
-            <textarea
-              id="description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={3}
-              className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary resize-none"
-            />
-          </div>
-
-          {/* Date */}
-          <div>
-            <label
-              htmlFor="date"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-            >
-              {t('reports:create.date')}
-            </label>
-            <input
-              id="date"
-              type="date"
-              value={date}
-              max={new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().split('T')[0]}
-              onChange={(e) => {
-                setDate(e.target.value);
-                if (fieldErrors.date) setFieldErrors(prev => ({ ...prev, date: undefined }));
-              }}
-              className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
-            />
-            {fieldErrors.date && (
-              <p className="text-red-500 dark:text-red-400 text-sm mt-1">{fieldErrors.date}</p>
-            )}
-          </div>
-
-          {apiError && (
-            <p className="text-red-500 text-sm">{apiError}</p>
-          )}
-
-          <button
-            type="submit"
-            disabled={createReport.isPending}
-            className="w-full bg-primary hover:bg-primary-dark disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold rounded-lg px-4 py-2 transition-colors"
+        {/* El MapContainer queda EXACTAMENTE como estaba: sólo cambia la card
+            que lo enmarca. Mismo criterio que LocationStep en el #180 — este
+            cambio es de presentación, y el mapa es lo único de esta pantalla que
+            no lo es. */}
+        <FormSection title={t('reports:create.sectionPlace')}>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
+            {t('reports:create.clickMap')}
+          </p>
+          <div
+            className="rounded-xl overflow-hidden border border-gray-300 dark:border-gray-600"
+            style={{ height: '320px' }}
           >
-            {createReport.isPending ? t('common:loading') : t('reports:create.submit')}
-          </button>
-        </form>
-      </div>
-    </div>
+            <MapContainer center={MONTEVIDEO} zoom={13} style={{ height: '100%', width: '100%' }}>
+              <TileLayer
+                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              />
+              <MapClickHandler onCoordPicked={setCoord} />
+              {coord && <Marker position={[coord.lat, coord.lng]} />}
+            </MapContainer>
+          </div>
+          {fieldErrors.coord && (
+            <p role="alert" className="text-danger text-sm mt-2">{fieldErrors.coord}</p>
+          )}
+          {coord && (
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+              {coord.lat.toFixed(5)}, {coord.lng.toFixed(5)}
+            </p>
+          )}
+        </FormSection>
+
+        <FormSection title={t('reports:create.sectionDetails')}>
+          <div className="space-y-6">
+            <FormField label={t('reports:create.description')} htmlFor="description">
+              {(control) => (
+                <textarea
+                  {...control}
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  rows={3}
+                  className={`${control.className} resize-none`}
+                />
+              )}
+            </FormField>
+
+            <FormField label={t('reports:create.date')} htmlFor="date" error={fieldErrors.date}>
+              {(control) => (
+                <input
+                  {...control}
+                  type="date"
+                  value={date}
+                  max={new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().split('T')[0]}
+                  onChange={(e) => {
+                    setDate(e.target.value);
+                    if (fieldErrors.date) setFieldErrors((prev) => ({ ...prev, date: undefined }));
+                  }}
+                />
+              )}
+            </FormField>
+          </div>
+        </FormSection>
+
+        {apiError && (
+          <p role="alert" className="text-danger text-sm text-center">{apiError}</p>
+        )}
+
+        <FormActions
+          submit={
+            <button type="submit" disabled={createReport.isPending} className={formSubmitClass}>
+              {createReport.isPending ? t('common:loading') : t('reports:create.submit')}
+            </button>
+          }
+        />
+      </form>
+    </FormPage>
   );
 }
