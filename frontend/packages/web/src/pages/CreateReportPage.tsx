@@ -292,11 +292,17 @@ export function CreateReportPage() {
               // Lleva su propia fila de etiqueta, con el asterisco fuera del
               // texto y aria-hidden, igual que FormField.
               <div>
-                <div className="flex items-baseline gap-1 mb-2">
+                {/* SIN asterisco: acá la mascota ya viene elegida y no se puede
+                    cambiar. Un marcador de obligatorio sobre un valor que el
+                    usuario no puede editar le pide una acción que no existe, y
+                    además —siendo aria-hidden sobre texto estático, sin ningún
+                    control detrás— no llega a nadie por la vía programática.
+                    El asterisco vive sólo en la rama del selector, que es la
+                    que sí tiene algo que completar. */}
+                <div className="mb-2">
                   <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
                     {t('reports:create.pet')}
                   </span>
-                  <span aria-hidden="true" className="text-danger">*</span>
                 </div>
                 {presetLoading ? (
                   <p className="text-sm text-gray-500 dark:text-gray-400">{t('common:loading')}</p>
@@ -357,32 +363,38 @@ export function CreateReportPage() {
               </FormField>
             )}
 
-            {/* El estado son tres BOTONES, no un input, así que tampoco va en
-                FormField. `role="group"` + `aria-labelledby` es lo que le da un
-                nombre accesible al conjunto; el <label> sin `for` que había acá
-                no etiquetaba nada. */}
-            <div>
-              <div className="flex items-baseline gap-1 mb-2">
-                <span id="report-status-label" className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                  {t('reports:create.status')}
-                </span>
+            {/* Elegir el estado es elegir UNA opción entre varias excluyentes:
+                eso es un grupo de radios, y se escribe con radios NATIVOS —
+                `fieldset` + `legend` + `input[type=radio]` visualmente ocultos,
+                con el `<label>` haciendo de botón.
+
+                No son `<button>` con `aria-pressed`, que es lo que había: eso
+                modela tres interruptores INDEPENDIENTES, así que quien lo
+                escucha oye "Perdido, no presionado" sin ninguna forma de saber
+                que activarlo desactiva a otro. Y tampoco `role="radiogroup"`
+                escrito a mano: ese patrón exige un único tab stop y navegación
+                con flechas, y declararlo sin implementar el teclado promete un
+                comportamiento que no está.
+
+                Con radios nativos, la exclusividad, las flechas, el tab stop
+                único y `required` vienen del navegador — sin una línea de JS.
+
+                Ojo con lo que esto REPARA: el asterisco quedó `aria-hidden` al
+                portar y `role="group"` NO admite `aria-required` (ARIA 1.2 sólo
+                lo permite en `radiogroup`), así que la obligatoriedad no se
+                anunciaba por ningún lado. Antes del porte viajaba como texto
+                plano dentro del label y sí se leía: era una regresión. */}
+            <fieldset>
+              <legend className="flex items-baseline gap-1 mb-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
+                {t('reports:create.status')}
                 <span aria-hidden="true" className="text-danger">*</span>
-              </div>
-              <div
-                role="group"
-                aria-labelledby="report-status-label"
-                className={`grid gap-2 ${opcionesEstado.length === 1 ? 'grid-cols-1' : 'grid-cols-3'}`}
-              >
+              </legend>
+              <div className={`grid gap-2 ${opcionesEstado.length === 1 ? 'grid-cols-1' : 'grid-cols-3'}`}>
                 {opcionesEstado.map((s) => (
-                  <button
+                  <label
                     key={s}
-                    type="button"
-                    onClick={() => setStatus(s)}
-                    // `aria-pressed` porque son botones de alternancia: sin él,
-                    // cuál está elegido viaja SÓLO en el color, que un lector de
-                    // pantalla no anuncia.
-                    aria-pressed={statusEfectivo === s}
-                    className={`py-3 rounded-xl text-sm font-semibold border transition-colors ${
+                    className={`py-3 rounded-xl text-sm font-semibold border transition-colors text-center cursor-pointer
+                      has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-primary/30 ${
                       statusEfectivo === s
                         ? s === 'lost'
                           ? 'bg-red-600 border-red-600 text-white'
@@ -392,11 +404,20 @@ export function CreateReportPage() {
                         : 'border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
                     }`}
                   >
+                    <input
+                      type="radio"
+                      name="report-status"
+                      value={s}
+                      required
+                      checked={statusEfectivo === s}
+                      onChange={() => setStatus(s)}
+                      className="sr-only"
+                    />
                     {t(`pets:card.${s}`)}
-                  </button>
+                  </label>
                 ))}
               </div>
-            </div>
+            </fieldset>
           </div>
         </FormSection>
 
