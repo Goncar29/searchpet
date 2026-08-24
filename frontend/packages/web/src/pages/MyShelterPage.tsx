@@ -4,6 +4,10 @@ import { useTranslation } from 'react-i18next';
 import { useMyShelter, useUpdateMyShelter } from '@shared/hooks';
 import { getErrorMessage } from '@shared/utils/apiErrors';
 import { ShelterSteps, type ShelterStepKey } from '../components/ShelterSteps';
+import { FormPage } from '../components/form/FormPage';
+import { FormSection } from '../components/form/FormSection';
+import { FormField } from '../components/form/FormField';
+import { FormActions, formSubmitClass } from '../components/form/FormActions';
 import type { MyShelter } from '@shared/types';
 
 const HTTPS_RE = /^https:\/\/.+/;
@@ -147,9 +151,7 @@ export function MyShelterPage() {
   };
 
   return (
-    <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8">
-      <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6">{t('shelters:mine.title')}</h1>
-
+    <FormPage title={t('shelters:mine.title')}>
       <ShelterSteps active={STEP_BY_STATUS[shelter.status]} />
 
       {isApproved && (
@@ -174,51 +176,72 @@ export function MyShelterPage() {
         </span>
       )}
 
-      <form onSubmit={handleSubmit} noValidate className="mt-6 space-y-4">
-        <EditField id="mine-name" label={t('shelters:register.name')} value={form.name} onChange={setField('name')} error={fieldErrors.name} />
-        <EditField id="mine-city" label={t('shelters:register.city')} value={form.city} onChange={setField('city')} error={fieldErrors.city} />
-        <EditField id="mine-phone" label={t('shelters:register.phone')} value={form.phone} onChange={setField('phone')} />
-        <EditField id="mine-email" label={t('shelters:register.email')} value={form.email} onChange={setField('email')} type="email" />
-        <div>
-          <label htmlFor="mine-description" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            {t('shelters:register.description')}
-          </label>
-          <textarea
-            id="mine-description"
-            value={form.description}
-            onChange={setField('description')}
-            rows={4}
-            className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary"
-          />
-        </div>
+      <form onSubmit={handleSubmit} noValidate className="mt-6 space-y-6">
+        <FormSection title={t('shelters:register.sectionData')}>
+          <div className="space-y-6">
+            <EditField id="mine-name" label={t('shelters:register.name')} value={form.name} onChange={setField('name')} error={fieldErrors.name} />
+            <div className="grid sm:grid-cols-2 gap-6">
+              <EditField id="mine-city" label={t('shelters:register.city')} value={form.city} onChange={setField('city')} error={fieldErrors.city} />
+              <EditField id="mine-phone" label={t('shelters:register.phone')} value={form.phone} onChange={setField('phone')} type="tel" />
+            </div>
+            <EditField id="mine-email" label={t('shelters:register.email')} value={form.email} onChange={setField('email')} type="email" />
+            <FormField label={t('shelters:register.description')} htmlFor="mine-description">
+              {(control) => (
+                <textarea
+                  {...control}
+                  className={`${control.className} resize-y`}
+                  value={form.description}
+                  onChange={setField('description')}
+                  rows={4}
+                />
+              )}
+            </FormField>
+          </div>
+        </FormSection>
 
-        {isApproved && (
-          <p className="text-sm text-yellow-800 dark:text-yellow-200 bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-900 rounded-xl p-3">
-            {t('shelters:mine.linkReviewWarning')}
-          </p>
-        )}
-        <EditField id="mine-website" label={t('shelters:register.websiteUrl')} value={form.website_url} onChange={setField('website_url')} error={fieldErrors.website_url} />
-        <EditField id="mine-donation" label={t('shelters:register.donationUrl')} value={form.donation_url} onChange={setField('donation_url')} error={fieldErrors.donation_url} />
+        <FormSection title={t('shelters:register.sectionLinks')}>
+          <div className="space-y-6">
+            {/* El aviso va DENTRO de la sección de enlaces y no suelto: es
+                específico de estos dos campos — tocarlos manda el refugio de
+                vuelta a revisión. Fuera de la card se leía como si aplicara al
+                formulario entero. */}
+            {isApproved && (
+              <p className="text-sm text-yellow-800 dark:text-yellow-200 bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-900 rounded-xl p-3">
+                {t('shelters:mine.linkReviewWarning')}
+              </p>
+            )}
+            <EditField id="mine-website" label={t('shelters:register.websiteUrl')} value={form.website_url} onChange={setField('website_url')} error={fieldErrors.website_url} type="url" />
+            <EditField id="mine-donation" label={t('shelters:register.donationUrl')} value={form.donation_url} onChange={setField('donation_url')} error={fieldErrors.donation_url} type="url" />
+          </div>
+        </FormSection>
 
-        {apiError && <p className="text-sm text-red-600">{apiError}</p>}
+        {apiError && <p role="alert" className="text-sm text-danger">{apiError}</p>}
         {saved && <p role="status" className="text-sm text-green-600 dark:text-green-400">{t('shelters:mine.saved')}</p>}
 
-        <button
-          type="submit"
-          disabled={updateShelter.isPending}
-          className="w-full bg-primary text-white font-semibold py-3 rounded-xl hover:bg-primary-dark transition-colors disabled:opacity-50"
-        >
-          {updateShelter.isPending
-            ? t('shelters:mine.saving')
-            : isRejected
-              ? t('shelters:mine.resubmit')
-              : t('shelters:mine.save')}
-        </button>
+        <FormActions
+          submit={
+            <button type="submit" disabled={updateShelter.isPending} className={formSubmitClass}>
+              {updateShelter.isPending
+                ? t('shelters:mine.saving')
+                : isRejected
+                  ? t('shelters:mine.resubmit')
+                  : t('shelters:mine.save')}
+            </button>
+          }
+        />
       </form>
-    </div>
+    </FormPage>
   );
 }
 
+/**
+ * Adaptador sobre `FormField`, gemelo del `Field` de RegisterShelterPage.
+ *
+ * Las dos pantallas tenían este mismo componente duplicado byte por byte —
+ * etiqueta, clase de control y párrafo de error propios— o sea dos copias
+ * privadas de lo que hoy hace `FormField`. Quedan como adaptadores para no
+ * tocar los siete call sites de cada una.
+ */
 function EditField({
   id,
   label,
@@ -235,18 +258,8 @@ function EditField({
   type?: string;
 }) {
   return (
-    <div>
-      <label htmlFor={id} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-        {label}
-      </label>
-      <input
-        id={id}
-        type={type}
-        value={value}
-        onChange={onChange}
-        className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary"
-      />
-      {error && <p className="text-sm text-red-600 mt-1">{error}</p>}
-    </div>
+    <FormField label={label} htmlFor={id} error={error}>
+      {(control) => <input {...control} type={type} value={value} onChange={onChange} />}
+    </FormField>
   );
 }
