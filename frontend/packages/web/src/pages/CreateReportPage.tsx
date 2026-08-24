@@ -6,7 +6,7 @@ import L from 'leaflet';
 import { usePetByID, useMyPets, useCreateReport } from '@shared/hooks';
 import { PawPlaceholder } from '../components/PawPlaceholder';
 import { SharePanel } from '../components/SharePanel';
-import type { Pet, ReportStatus } from '@shared/types';
+import type { ReportStatus } from '@shared/types';
 import { getErrorMessage } from '@shared/utils/apiErrors';
 import { canManagePet } from '@shared/utils/petAuthorization';
 import { useAuth } from '../context/AuthContext';
@@ -46,14 +46,30 @@ export function CreateReportPage() {
   const { t } = useTranslation(['reports', 'pets', 'common', 'publish']);
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const presetPetId = searchParams.get('petId') ?? '';
+
+  // "Ya reportaste" vive en la URL y NO en useState. Con useState moría en el
+  // REMONTE, y esa es exactamente la forma del bug: publicabas, tocabas "Ver
+  // mascota" desde la pantalla de éxito y volvías con el botón atrás — el
+  // componente se remontaba con el estado en null y te devolvía el FORMULARIO
+  // LIMPIO en la MISMA URL, porque la URL no distinguía "vení a reportar" de
+  // "ya reportaste". Confirmarlo otra vez creaba un SEGUNDO reporte, y la
+  // mascota quedaba con doble historial. Reproducido en el navegador: 2 POST
+  // /api/reports, 2 entradas en el timeline.
+  //
+  // Es la regla #52 aplicada a esta pantalla. El paso del wizard se movió a la
+  // URL en el #136 por este mismo motivo; este formulario nunca lo recibió.
+  const publicado = searchParams.get('publicado');
 
   // Si viene petId en la URL → mascota bloqueada (ajena o propia desde card)
   // Si no → el usuario elige entre SUS mascotas
   const { data: presetPet, isLoading: presetLoading } = usePetByID(presetPetId);
-  const { data: myPets } = useMyPets();
+  // `isLoading` de las DOS consultas, no sólo de una: `petElegida` sale de
+  // `presetPet ?? myPets.find(...)`, así que mirar sólo `presetLoading` para
+  // decidir "cargando o no encontrada" es mirar la mitad de sus fuentes.
+  const { data: myPets, isLoading: myPetsLoading } = useMyPets();
 
   const createReport = useCreateReport();
 
@@ -66,7 +82,6 @@ export function CreateReportPage() {
   const [coord, setCoord] = useState<LatLng | null>(null);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [apiError, setApiError] = useState<string | null>(null);
-  const [publishedPet, setPublishedPet] = useState<Pet | null>(null);
 
   // `lost` y `found` mueven el estado de la mascota, y eso lo decide su dueño
   // (o quien reportó la callejera). El backend lo rechaza con 403; acá se
@@ -144,7 +159,7 @@ export function CreateReportPage() {
         occurred_at: calendarDayToISO(date),
       },
       {
-        onSuccess: () => {
+        onSuccess: (report) => {
           // Un reporte `lost` no es sólo un reporte: deja la mascota en
           // búsqueda activa, y lo que hace que la búsqueda sirva es que el
           // aviso circule. Antes este formulario mandaba derecho a
@@ -152,12 +167,23 @@ export function CreateReportPage() {
           // quedaba sin el link para compartir — que es el producto entero de
           // publicar. Los otros dos estados (`found`, `sighting`) no abren
           // ninguna búsqueda, así que siguen yendo al listado como antes.
-          const pet = presetPet ?? myPets?.find((p) => p.id === petId);
-          if (statusEfectivo === 'lost' && pet) {
-            setPublishedPet(pet);
+          //
+          // `replace: true` es la mitad del arreglo, y no es cosmético: la
+          // entrada del formulario se REEMPLAZA, así que después de publicar no
+          // queda ninguna entrada de history que devuelva a un formulario vivo.
+          // El petId viaja en la URL porque el flujo directo lo tenía sólo en
+          // estado local, y sin él la pantalla de éxito no se puede reconstruir
+          // tras un remonte.
+          if (statusEfectivo === 'lost') {
+            setSearchParams(
+              { petId, status: statusEfectivo, publicado: report.id },
+              { replace: true }
+            );
             return;
           }
-          navigate('/pets/mine');
+          // Mismo motivo que arriba: sin `replace`, el atrás desde /pets/mine
+          // devuelve este formulario y deja re-enviarlo.
+          navigate('/pets/mine', { replace: true });
         },
         onError: (err) => {
           setApiError(getErrorMessage(err, t));
@@ -166,7 +192,56 @@ export function CreateReportPage() {
     );
   };
 
-  if (publishedPet) {
+  // Con `publicado` en la URL el formulario queda INALCANZABLE, pase lo que
+  // pase con la carga de la mascota. Caer al formulario ante un fallo sería
+  // reabrir el mismo agujero por otra puerta: dejaría un formulario vivo y
+  // re-enviable en la URL de un reporte que ya existe.
+  //
+  // Pero `publicado` viene de la URL, así que por sí solo no prueba NADA: mover
+  // el estado de éxito de useState a la barra de direcciones lo convirtió en
+  // entrada de usuario. Sin este permiso, `/reports/create?petId=<ajena>&
+  // publicado=x` le afirmaba a cualquiera "tu mascota está marcada como
+  // perdida" sobre una mascota que no es suya —y `GET /api/pets/:id` es
+  // público, así que resuelve cualquier id—. Esta pantalla existe para copiar
+  // links: alguien que copia la barra de direcciones en vez del link del panel
+  // manda justo esa URL.
+  //
+  // Se reusa `canManagePet`, que ya es la fuente única de esta regla en el
+  // resto del proyecto (dueño, o quien reportó la callejera).
+  //
+  // Se evaluó exigir ADEMÁS `status === 'lost'` y se dejó afuera. Sospeché que
+  // metería un parpadeo de "mascota no encontrada" sobre el camino feliz,
+  // porque tras publicar el refetch todavía viaja con la mascota en
+  // `registered` — y lo medí en el navegador con las dos consultas lentas y
+  // sirviendo el dato viejo: ESE PARPADEO NO OCURRE. El motivo real de dejarlo
+  // afuera es otro: `canManagePet` ya cierra el caso que importa (una mascota
+  // ajena), y un status exacto rebotaría a quien publica sobre su propia
+  // callejera, que llega acá en `stray`. Lo único que cerraría de más es un
+  // favorito viejo de tu PROPIA mascota ya encontrada — una imprecisión sobre
+  // algo tuyo, no una afirmación sobre la mascota de otro.
+  if (publicado) {
+    if (!petElegida || !puedeCambiarEstado) {
+      return (
+        <div className="min-h-screen bg-gray-50 dark:bg-gray-950 py-10 px-4">
+          <div className="max-w-2xl mx-auto text-center space-y-6">
+            {!petElegida && (presetLoading || myPetsLoading) ? (
+              <p className="text-gray-500 dark:text-gray-400">{t('common:loading')}</p>
+            ) : (
+              <>
+                <p className="text-gray-700 dark:text-gray-300">{t('pets:detail.notFound')}</p>
+                <Link
+                  to="/pets/mine"
+                  className="inline-flex items-center justify-center px-6 py-2 bg-primary hover:bg-primary-dark text-white font-semibold rounded-lg transition-colors"
+                >
+                  {t('pets:mine.title')}
+                </Link>
+              </>
+            )}
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-950 py-10 px-4">
         <div className="max-w-2xl mx-auto text-center space-y-6">
@@ -179,11 +254,11 @@ export function CreateReportPage() {
             </p>
           </div>
 
-          <SharePanel petId={publishedPet.id} petName={publishedPet.name} pet={publishedPet} inline />
+          <SharePanel petId={petElegida.id} petName={petElegida.name} pet={petElegida} inline />
 
           <div className="flex flex-wrap justify-center gap-3">
             <Link
-              to={`/pets/${publishedPet.id}`}
+              to={`/pets/${petElegida.id}`}
               className="inline-flex items-center justify-center px-6 py-2 bg-primary hover:bg-primary-dark text-white font-semibold rounded-lg transition-colors"
             >
               {t('publish:success.viewPet')}

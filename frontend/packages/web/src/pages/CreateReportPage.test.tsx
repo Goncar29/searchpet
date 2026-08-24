@@ -16,7 +16,17 @@ const mocks = vi.hoisted(() => ({
   search: 'petId=pet-1&status=lost',
   // El componente usa `mutate` con callbacks, NO `mutateAsync`. El mock viejo
   // solo tenia mutateAsync, por eso el smoke test nunca ejercito el envio.
-  mutate: vi.fn((_vars: unknown, opts?: { onSuccess?: () => void }) => opts?.onSuccess?.()),
+  //
+  // onSuccess recibe el REPORTE creado. El mock viejo llamaba `onSuccess()` a
+  // secas, que no es el contrato de React Query (onSuccess(data, vars, ctx)) —
+  // un arnes mas indulgente que el hook real: el componente pasó a leer
+  // `report.id` y nada lo habria advertido hasta produccion.
+  mutate: vi.fn((_vars: unknown, opts?: { onSuccess?: (r: { id: string }) => void }) =>
+    opts?.onSuccess?.({ id: 'report-1' })
+  ),
+  // Registra las llamadas a setSearchParams para poder afirmar el `replace`,
+  // que es la mitad del arreglo del doble reporte.
+  setSearchParams: vi.fn(),
   // El handler de click del mapa, capturado para poder sembrar la coordenada
   // que `validate()` exige: sin eso el submit nunca llega a mutate.
   mapClick: null as null | ((e: { latlng: { lat: number; lng: number } }) => void),
@@ -37,10 +47,26 @@ vi.mock('react-i18next', () => ({
 
 vi.mock('react-router', async (importOriginal) => {
   const actual = await importOriginal<typeof import('react-router')>();
+  const React = await import('react');
   return {
     ...actual,
     useNavigate: () => mocks.navigate,
-    useSearchParams: () => [new URLSearchParams(mocks.search)],
+    // Stateful a proposito: el componente ESCRIBE la URL al publicar, asi que
+    // un mock de solo lectura no puede ejercitar la pantalla de exito. Devolver
+    // un array de un elemento ademas dejaba `setSearchParams` en undefined.
+    useSearchParams: () => {
+      const [params, setParams] = React.useState(() => new URLSearchParams(mocks.search));
+      const setter = (
+        next: Record<string, string> | URLSearchParams,
+        opts?: { replace?: boolean }
+      ) => {
+        const np = next instanceof URLSearchParams ? next : new URLSearchParams(next);
+        mocks.search = np.toString();
+        mocks.setSearchParams(Object.fromEntries(np.entries()), opts);
+        setParams(np);
+      };
+      return [params, setter];
+    },
   };
 });
 
@@ -102,7 +128,11 @@ function enviar() {
 beforeEach(() => {
   mocks.navigate.mockClear();
   mocks.mutate.mockClear();
-  mocks.mutate.mockImplementation((_v: unknown, o?: { onSuccess?: () => void }) => o?.onSuccess?.());
+  mocks.setSearchParams.mockClear();
+  mocks.mutate.mockImplementation(
+    (_v: unknown, o?: { onSuccess?: (r: { id: string }) => void }) =>
+      o?.onSuccess?.({ id: 'report-1' })
+  );
   mocks.search = 'petId=pet-1&status=lost';
   mocks.mapClick = null;
   mocks.pet = null;
@@ -168,8 +198,81 @@ describe('CreateReportPage — despues de publicar como perdida', () => {
     enviar();
 
     expect(mocks.mutate).toHaveBeenCalledTimes(1);
-    expect(mocks.navigate).toHaveBeenCalledWith('/pets/mine');
+    // `replace` no es un detalle: sin el, la entrada de este formulario queda
+    // viva en el history y el boton atras desde /pets/mine lo devuelve listo
+    // para re-enviar — el mismo doble reporte por la otra puerta.
+    expect(mocks.navigate).toHaveBeenCalledWith('/pets/mine', { replace: true });
     expect(screen.queryByTestId('share-panel')).not.toBeInTheDocument();
+  });
+
+  // ── Regresion: el doble reporte ────────────────────────────────────────────
+  // Reproducido en el navegador antes de escribir esto: publicar, tocar "Ver
+  // mascota" desde el exito, y volver con el boton ATRAS devolvia el formulario
+  // limpio en la MISMA URL. Confirmarlo otra vez creaba un SEGUNDO reporte y la
+  // mascota quedaba con doble historial (2 POST /api/reports medidos).
+  //
+  // La causa era que "ya reportaste" vivia en useState, que muere en el
+  // remonte, mientras la URL seguia siendo identica antes y despues de
+  // publicar. Estos dos tests fijan las dos mitades del arreglo.
+
+  it('publicar un lost escribe el exito en la URL y REEMPLAZA la entrada del formulario', () => {
+    mocks.search = 'petId=pet-1&status=lost';
+    render(<CreateReportPage />, { wrapper });
+    marcarUbicacion();
+    enviar();
+
+    expect(mocks.setSearchParams).toHaveBeenCalledWith(
+      { petId: 'pet-1', status: 'lost', publicado: 'report-1' },
+      { replace: true },
+    );
+    // Sin `replace` la entrada del formulario sobrevive en el history y el
+    // atras la reabre: es exactamente el bug, no una preferencia de estilo.
+    expect(mocks.setSearchParams.mock.calls[0][1]).toEqual({ replace: true });
+    // Y ya NO navega: la pantalla de exito se queda en esta misma ruta.
+    expect(mocks.navigate).not.toHaveBeenCalled();
+  });
+
+  it('con ?publicado en la URL el formulario es INALCANZABLE, aunque el componente se remonte', () => {
+    // Un montaje limpio, que es lo que hace el boton atras al volver de
+    // /pets/:id. No hay estado previo: todo lo que se sabe viene de la URL.
+    mocks.search = 'petId=pet-1&status=lost&publicado=report-1';
+    render(<CreateReportPage />, { wrapper });
+
+    // Lo que se ve es el exito...
+    expect(screen.getByTestId('share-panel')).toBeInTheDocument();
+    // ...y lo que NO existe es el formulario. Con el bug puesto, acá hay un
+    // <form> con su boton de enviar, y tocarlo crea el segundo reporte.
+    expect(document.querySelector('form')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'reports:create.submit' })).not.toBeInTheDocument();
+  });
+
+  // `publicado` viaja en la URL, o sea que es ENTRADA DE USUARIO: por si solo no
+  // prueba que exista ningun reporte. Sin el permiso, cualquiera podia abrir
+  // /reports/create?petId=<ajena>&publicado=x y leer "tu mascota esta marcada
+  // como perdida" sobre una mascota que no es suya — y `GET /api/pets/:id` es
+  // PUBLICO, asi que resuelve cualquier id. Es una regresion que trajo mover el
+  // estado de exito de useState a la URL: antes la pantalla era inalcanzable sin
+  // un mutate exitoso.
+  it('con ?publicado sobre una mascota AJENA no muestra el exito', () => {
+    mocks.pet = { ...PET, owner_id: 'otro-usuario', reporter_id: undefined };
+    mocks.search = 'petId=pet-1&status=lost&publicado=report-1';
+    render(<CreateReportPage />, { wrapper });
+
+    expect(screen.queryByTestId('share-panel')).not.toBeInTheDocument();
+    expect(screen.queryByText('publish:success.lostTitle')).not.toBeInTheDocument();
+    // Y sigue fallando CERRADO: tampoco cae al formulario, que seria el otro
+    // agujero.
+    expect(document.querySelector('form')).toBeNull();
+  });
+
+  it('mientras la mascota carga con ?publicado tampoco aparece el formulario', () => {
+    // Fallar ABIERTO acá seria reabrir el agujero por otra puerta: un
+    // formulario vivo y re-enviable en la URL de un reporte que ya existe.
+    mocks.search = 'petId=pet-1&status=lost&publicado=report-1';
+    mocks.rendersCargando = 2;
+    render(<CreateReportPage />, { wrapper });
+
+    expect(document.querySelector('form')).toBeNull();
   });
 });
 
