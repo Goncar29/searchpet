@@ -125,31 +125,48 @@ Four decisions inside that signature:
 | # | condition | renders |
 |---|---|---|
 | 1 | `isLoading` (`isPending && isFetching`) | the `loading` slot |
-| 2 | `isPending && !isFetching` → **disabled query** | the optional `idle` slot; defaults to the `empty` slot |
-| 3 | `isError` **and** `items.length === 0` | the primitive's error card + retry |
-| 4 | `items.length === 0` | the `empty` slot |
-| 5 | `items.length > 0` | stale banner if `isError`, then `children(items)` |
+| 2 | `isPaused` **and** `items.length === 0` → **offline** | the offline card + retry |
+| 3 | `isPending` → **disabled query** | the optional `idle` slot; defaults to the `empty` slot |
+| 4 | `isError` **and** `items.length === 0` | the primitive's error card + retry |
+| 5 | `items.length === 0` | the `empty` slot |
+| 6 | `items.length > 0` | offline banner if `isPaused`, else stale banner if `isError`, then `children(items)` |
 
-`items` is computed as `query.data === undefined ? [] : select(query.data)` — `select` is never
-called on `undefined`.
+`items` is computed as `query.data == null ? [] : select(query.data)`, and the **selected value is
+guarded too** (`raw ?? []`). Guarding only the input to `select` left the same blank screen one
+level down, for any envelope hook whose selected field came back null.
 
-Four invariants that must be stated in code comments, because each one is a trap already paid for:
+Five invariants that must be stated in code comments, because each one is a trap already paid for:
 
-- **`isLoading`, never `isPending`.** In React Query v5 a **disabled** query sits at
+- **`isLoading`, never `isPending`, for row 1.** In React Query v5 a **disabled** query sits at
   `status: 'pending'` forever — it was never asked. Branching on `isPending` would give
   `LostPetStep` an **infinite skeleton** for a signed-out user, which is a worse bug than the one
-  being fixed. `isLoading = isPending && isFetching`, so it is `false` while disabled. Row 2 exists
-  only so the disabled case is **named** instead of arrived at by accident; defaulting it to the
-  `empty` slot preserves today's behavior exactly, so no screen changes meaning during the port.
+  being fixed. `isLoading = isPending && isFetching`, so it is `false` while disabled.
   More than 20 hooks pass `enabled` (`useMyPets(isAuthenticated)`, `useReportsByPetID` with
   `enabled: !!petID`, `useUserReviews` with `enabled: !!userId`), so this is wide, not a corner.
-- **Row 3 requires `items.length === 0`.** This is the Leaderboard lesson above. Without it, a cold
+- **Row 2 must come BEFORE row 3, and this design originally got it wrong.** The first version of
+  this spec claimed that reaching row 3 with `isPending` still true "means one thing only: the query
+  is disabled". **That claim is false**, and it survived three reviews before `/code-review` caught
+  it. Verified against the installed `@tanstack/query-core@5.100.14`: `retryer.js:11` defines
+  `canFetch` as `(networkMode ?? 'online') === 'online' ? onlineManager.isOnline() : true`;
+  `query.js:415` sets `fetchStatus: canFetch(...) ? 'fetching' : 'paused'`;
+  `queryObserver.js:307,310,332` derive `isFetching = fetchStatus === 'fetching'`,
+  `isLoading = isPending && isFetching`, and `isPaused = fetchStatus === 'paused'`. The project sets
+  no `networkMode`, so the default applies. Therefore an **offline first load** gives
+  `isPending: true, isFetching: false, isLoading: false` — it falls past row 1 into the disabled
+  branch and renders the `empty` slot, i.e. *"you have nothing"*. That is the exact lie this
+  component exists to kill, and it is reachable in production: SearchPet is a PWA whose service
+  worker serves the shell offline (rule #28). Row 2 is what makes row 3's claim true.
+- **Row 4 requires `items.length === 0`.** This is the Leaderboard lesson above. Without it, a cold
   start erases a drawn list.
 - **The primitive wraps no slot in a `<div>`.** Leaderboard's skeleton lives inside a `grid` and its
-  column placement was measured. A wrapper element would break it.
-- **`role="alert"` on the error card, `role="status"` on the stale banner.** The first interrupts,
-  because there is nothing on screen to look at. The second must not, because the data is right
-  there.
+  column placement was measured. A wrapper element would break it. The banner is the one element the
+  primitive owns, and it carries `col-span-full w-full` for the same reason: it is a sibling of
+  `children(items)` inside the consumer's container, so in a `grid` it would otherwise become the
+  first grid cell and shift every card by one position. `col-span-full` is correct in a grid and
+  inert in flex and block.
+- **`role="alert"` on the error and offline cards, `role="status"` on the banner.** The first
+  interrupts, because there is nothing on screen to look at. The second must not, because the data
+  is right there.
 
 ### Stale data
 
@@ -157,6 +174,10 @@ When a refetch fails but cached data is on screen, the list stays and a discreet
 above it: *"No pudimos actualizar"* plus a retry. The user never loses what they were looking at,
 and never believes stale data is fresh. This is a deliberate step beyond Leaderboard, which today
 keeps the stale data **silently**.
+
+Offline with cached data gets its own message — *"Sin conexión. Estás viendo datos guardados."* —
+rather than reusing the failed-refetch one. They are different facts, and the offline one tells the
+user something they can act on.
 
 ### Screens that merge two queries
 
@@ -176,12 +197,14 @@ message; the precedent already exists and is already translated:
 `sharedEs.common` / `sharedEn.common` / `sharedPt.common`. Adding the keys to
 `web/src/i18n/locales/es.json` would put them somewhere nothing reads.
 
-Four keys under `common`, following the `CreateStoryPage` voice:
+Seven keys under `common`, following the `CreateStoryPage` voice:
 
 - `common:loadErrorTitle` — the default error card heading
 - `common:loadErrorBody` — must carry the "it is not that you have none" distinction
 - `common:retry` — the retry button
-- `common:staleTitle` — the stale banner text
+- `common:staleTitle` — the banner text after a failed refetch
+- `common:offlineTitle` / `common:offlineBody` — the offline card (row 2)
+- `common:offlineStale` — the banner when offline with cached data
 
 **`common:retry` is a new key and not a reuse of the existing `common:reload`.** That one reads
 "Reintentar" too, but it belongs to `ErrorBoundary`, where it means *reload the page* after a render
