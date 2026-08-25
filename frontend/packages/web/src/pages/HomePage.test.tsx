@@ -181,4 +181,29 @@ describe('HomePage', () => {
     expect(screen.queryByText('home:noResults.title')).not.toBeInTheDocument();
     expect(screen.getByRole('alert')).toBeInTheDocument();
   });
+
+  // Con un filtro activo Y la query caída, el título usaba `?? 0`: afirmaba
+  // "0 resultados" (un hecho) justo arriba del cartel que dice que no se pudo
+  // cargar (una incertidumbre). Sin filtro activo el título ni se renderiza
+  // (`hasActiveFilters` es false), así que hace falta activar uno para
+  // alcanzar la rama rota.
+  it('con un filtro activo y la busqueda caida el titulo NO dice "0"', () => {
+    vi.mocked(useSearchPets).mockReturnValue(
+      { data: undefined, isPending: false, isFetching: false, isLoading: false,
+        isPaused: false, isError: true, error: new Error('boom'), refetch: vi.fn() } as never,
+    );
+
+    const { container } = render(<HomePage />, { wrapper });
+
+    const statusSelect = container.querySelector('#filter-status') as HTMLSelectElement;
+    fireEvent.change(statusSelect, { target: { value: 'lost' } });
+    fireEvent.click(screen.getByRole('button', { name: 'home:searchButton' }));
+
+    // La sección "Resultados" es la última del documento, así que su <h2> es
+    // el último de la página — no se puede buscar por nombre accesible porque
+    // el título correcto (sin la query) queda VACÍO a propósito.
+    const headings = container.querySelectorAll('h2');
+    const resultsHeading = headings[headings.length - 1];
+    expect(resultsHeading.textContent).not.toContain('0');
+  });
 });

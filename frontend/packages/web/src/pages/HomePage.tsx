@@ -327,6 +327,12 @@ export function HomePage() {
     lng: geoLng,
     radiusMeters: filterRadius ? radiusKm * 1000 : undefined,
   });
+  // `undefined` y no 0 cuando no hay datos: con la query caída, un "0
+  // resultados" acá contradice al cartel de error de abajo, y de los dos el que
+  // suena seguro es el que miente. Sin dato, no se afirma nada.
+  const resultCount = searchQuery.data
+    ? (searchQuery.data.total ?? searchQuery.data.data.length)
+    : undefined;
 
   return (
     <div className="bg-gray-50 dark:bg-gray-950 min-h-screen">
@@ -735,11 +741,9 @@ export function HomePage() {
             {imageResults
               ? `${t('home:photoSearch.resultsTitle')} (${imageResults.length})`
               : hasActiveFilters
-              ? `${searchQuery.data?.total ?? searchQuery.data?.data?.length ?? 0} ${
-                  (searchQuery.data?.total ?? searchQuery.data?.data?.length ?? 0) !== 1
-                    ? t('home:results')
-                    : t('home:result')
-                }`
+              ? resultCount !== undefined
+                ? `${resultCount} ${resultCount !== 1 ? t('home:results') : t('home:result')}`
+                : null
               : t('home:recentReports')}
           </h2>
           {imageResults ? (
