@@ -192,9 +192,13 @@ word should not share a key, or the day one of them needs different wording both
 Because `common` is shared, **mobile inherits these keys**, which is deliberate: the mobile port of
 this class is a later change and will not have to re-translate anything.
 
-`shared/i18n/locales.test.ts` asserts key parity across the three files, so a key added to only one
-language fails the suite. Screens with better-fitting existing copy pass `errorTitle` / `errorBody`
-instead — `CreateStoryPage` keeps its own.
+`shared/i18n/locales.test.ts` **did not** assert key parity across the three files before this
+change — it was checked, and it only asserted the no-asterisk rule from PR #185 (see the file's own
+comment header). A key added to only one language would have rendered as the raw key on screen for
+the other two, with nothing failing (project rule #21). This change adds that parity test, comparing
+`en` and `pt` against `es` in both directions (missing keys and orphaned keys). Screens with
+better-fitting existing copy pass `errorTitle` / `errorBody` instead — `CreateStoryPage` keeps its
+own.
 
 Per rule #21, `common` is already registered in `web/src/i18n/index.ts`; no registration change is
 needed.

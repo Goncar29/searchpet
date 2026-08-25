@@ -97,7 +97,10 @@ These go in **shared**, not in `web/src/i18n/locales/`. `web/src/i18n/index.ts` 
 - [ ] **Step 2: Run the shared locale parity test**
 
 Run: `cd frontend/packages/web && pnpm vitest run --config vitest.shared.config.ts`
-Expected: PASS. `shared/i18n/locales.test.ts` asserts the three files carry the same keys, so this fails if you added a key to only one language.
+Expected: PASS. `shared/i18n/locales.test.ts` asserts the three files carry the same keys — this
+parity test was added by this change, because the design's original claim that it already existed
+was checked and found false; the file previously only asserted the no-asterisk rule from PR #185.
+This step now also fails if you added a key to only one language.
 
 - [ ] **Step 3: Commit**
 
