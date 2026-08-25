@@ -94,4 +94,38 @@ describe('ListState', () => {
 
     expect(screen.getByText('a')).toBeInTheDocument();
   });
+
+  it('una query deshabilitada NO muestra el esqueleto para siempre', () => {
+    // `enabled: false` en v5 = pending eterno, fetching false. Ramar con
+    // `isPending` le daría a LostPetStep un esqueleto infinito al usuario sin
+    // sesión.
+    render(
+      <ListState
+        query={fakeQuery<string[]>({ isPending: true, isFetching: false })}
+        loading={<p>cargando</p>}
+        empty={<p>vacio</p>}
+      >
+        {(items) => <p>{items.join(',')}</p>}
+      </ListState>,
+    );
+
+    expect(screen.queryByText('cargando')).not.toBeInTheDocument();
+    expect(screen.getByText('vacio')).toBeInTheDocument();
+  });
+
+  it('usa el slot idle cuando la pantalla ofrece uno', () => {
+    render(
+      <ListState
+        query={fakeQuery<string[]>({ isPending: true, isFetching: false })}
+        loading={<p>cargando</p>}
+        empty={<p>vacio</p>}
+        idle={<p>entra para ver</p>}
+      >
+        {(items) => <p>{items.join(',')}</p>}
+      </ListState>,
+    );
+
+    expect(screen.getByText('entra para ver')).toBeInTheDocument();
+    expect(screen.queryByText('vacio')).not.toBeInTheDocument();
+  });
 });

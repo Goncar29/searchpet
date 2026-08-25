@@ -6,6 +6,13 @@ interface BaseProps<TItem> {
   loading: ReactNode;
   /** Lo que se ve cuando la query respondió y no hay nada. */
   empty: ReactNode;
+  /**
+   * Query deshabilitada (`enabled: false`): nunca se la pidió, así que no
+   * sabemos nada. Por default cae al slot `empty`, que es exactamente lo que
+   * las pantallas mostraban antes de este cambio — el port no altera el
+   * significado de ninguna pantalla.
+   */
+  idle?: ReactNode;
   children: (items: TItem[]) => ReactNode;
 }
 
@@ -27,7 +34,7 @@ export type ListStateProps<TData, TItem> = BaseProps<TItem> & {
 } & SelectProp<TData, TItem>;
 
 export function ListState<TData, TItem>(props: ListStateProps<TData, TItem>) {
-  const { query, loading, empty, children } = props;
+  const { query, loading, empty, idle, children } = props;
   const select = (props as { select?: (data: TData) => TItem[] }).select;
 
   // `select` nunca se llama con `undefined`.
@@ -43,6 +50,10 @@ export function ListState<TData, TItem>(props: ListStateProps<TData, TItem>) {
   // se midió un salto horizontal de 272px cuando cambió de columna. Un wrapper
   // lo rompería, y el salto es invisible en una captura y en cualquier test.
   if (query.isLoading) return <>{loading}</>;
+  // `isLoading` es `isPending && isFetching`, así que llegar acá con `isPending`
+  // todavía en true significa una sola cosa: la query está deshabilitada. La
+  // rama existe para NOMBRAR ese caso, no para que se caiga de rebote.
+  if (query.isPending) return <>{idle ?? empty}</>;
   if (items.length === 0) return <>{empty}</>;
   return <>{children(items)}</>;
 }
