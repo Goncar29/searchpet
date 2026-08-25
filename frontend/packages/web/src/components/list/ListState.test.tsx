@@ -57,4 +57,41 @@ describe('ListState', () => {
 
     expect(screen.getByText('a,b')).toBeInTheDocument();
   });
+
+  it('exige `select` cuando la data no es un array', () => {
+    // El tipo es lo único que impide que una pantalla con sobre paginado
+    // caiga de nuevo en `?? []`. Si `select` dejara de ser obligatorio acá,
+    // el `@ts-expect-error` quedaría sin usar y `tsc` se pondría en rojo.
+    // En runtime los tipos ya están borrados: si igual compilara sin `select`,
+    // `items` sería el sobre entero (`{ data: [...] }`) y `.join` no existe en
+    // un objeto — por eso se espera el throw, no un render limpio. La prueba
+    // que importa de verdad es la de tipos (ver el `tsc` en el reporte).
+    expect(() =>
+      render(
+        // @ts-expect-error falta `select`: `{ data: string[] }` no es `string[]`
+        <ListState
+          query={fakeQuery<{ data: string[] }>({ data: { data: ['a'] } })}
+          loading={<p>cargando</p>}
+          empty={<p>vacio</p>}
+        >
+          {(items) => <p>{items.join(',')}</p>}
+        </ListState>,
+      ),
+    ).toThrow();
+  });
+
+  it('usa `select` para desenvolver un sobre paginado', () => {
+    render(
+      <ListState
+        query={fakeQuery<{ data: string[] }>({ data: { data: ['a'] } })}
+        select={(d) => d.data}
+        loading={<p>cargando</p>}
+        empty={<p>vacio</p>}
+      >
+        {(items) => <p>{items.join(',')}</p>}
+      </ListState>,
+    );
+
+    expect(screen.getByText('a')).toBeInTheDocument();
+  });
 });
