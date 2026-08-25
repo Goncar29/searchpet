@@ -13,6 +13,10 @@ interface BaseProps<TItem> {
    * sabemos nada. Por default cae al slot `empty`, que es exactamente lo que
    * las pantallas mostraban antes de este cambio — el port no altera el
    * significado de ninguna pantalla.
+   *
+   * El fallback es `idle ?? empty`: un `idle={null}` (o `undefined`) NO
+   * significa "no mostrar nada" — sigue cayendo a `empty`. Para renderizar
+   * nada de verdad en este estado hay que pasar `idle={<></>}`.
    */
   idle?: ReactNode;
   children: (items: TItem[]) => ReactNode;
@@ -41,6 +45,11 @@ function QueryErrorCard({
       <Icon name="warning" className="h-12 w-12 mx-auto mb-3 text-gray-300 dark:text-gray-700" />
       <p className="text-gray-700 dark:text-gray-300 font-semibold mb-1">{title}</p>
       <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">{body}</p>
+      {/* `common:retry`, no `common:reload`: ese key es de `ErrorBoundary` y
+          significa "recargá la página" tras un crash de render — en inglés
+          y portugués dice literalmente "Reload"/"Recarregar". Acá no hay
+          crash, sólo se vuelve a pedir la query, y en español las dos claves
+          coinciden ("Reintentar"), lo que esconde el error en ese idioma. */}
       <button
         type="button"
         onClick={onRetry}
@@ -92,14 +101,22 @@ export type ListStateProps<TData, TItem> = BaseProps<TItem> & {
   query: UseQueryResult<TData>;
 } & SelectProp<TData, TItem>;
 
-export function ListState<TData, TItem>(props: ListStateProps<TData, TItem>) {
+export function ListState<TData, TItem = TData extends (infer U)[] ? U : never>(
+  props: ListStateProps<TData, TItem>,
+) {
   const { query, loading, empty, idle, errorTitle, errorBody, children } = props;
   const { t } = useTranslation('common');
   const select = (props as { select?: (data: TData) => TItem[] }).select;
 
-  // `select` nunca se llama con `undefined`.
+  // `select` nunca se llama con `undefined`/`null`. `== null` y no
+  // `=== undefined`: el backend arma sus slices con `make([]T, ...)` así que
+  // en la práctica Go siempre emite `[]`, nunca `null` — pero este es el ÚNICO
+  // choke point que ve a las 12 pantallas portadas, así que blindarlo acá
+  // cierra la clase entera de una vez. Sin esto, un `data: null` legítimo
+  // (JSON válido) llegaría a `items.length` y tiraría, poniendo en blanco
+  // exactamente la pantalla que este componente existe para proteger.
   const items: TItem[] =
-    query.data === undefined
+    query.data == null
       ? []
       : select
         ? select(query.data)

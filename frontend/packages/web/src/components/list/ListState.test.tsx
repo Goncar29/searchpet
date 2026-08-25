@@ -197,10 +197,12 @@ describe('ListState', () => {
     expect(screen.queryByText('cargando')).not.toBeInTheDocument();
   });
 
-  it('un refetch fallido CONSERVA la lista y avisa, no la borra', () => {
+  it('un refetch fallido CONSERVA la lista y avisa, no la borra', async () => {
+    const refetch = vi.fn();
+    const user = userEvent.setup();
     render(
       <ListState
-        query={fakeQuery<string[]>({ data: ['a', 'b'], isError: true })}
+        query={fakeQuery<string[]>({ data: ['a', 'b'], isError: true, refetch })}
         loading={<p>cargando</p>}
         empty={<p>vacio</p>}
       >
@@ -214,6 +216,10 @@ describe('ListState', () => {
     expect(screen.queryByText('common:loadErrorTitle')).not.toBeInTheDocument();
     // ...y el usuario se entera de que son viejos.
     expect(screen.getByRole('status')).toHaveTextContent('common:staleTitle');
+    // ...y el botón de la franja es su ÚNICA forma de refrescar: tiene que
+    // llamar a refetch de verdad, no ser un botón decorativo.
+    await user.click(screen.getByRole('button', { name: 'common:retry' }));
+    expect(refetch).toHaveBeenCalledTimes(1);
   });
 
   it('no envuelve los slots en ningun elemento', () => {
@@ -264,5 +270,6 @@ describe('ListState', () => {
     );
 
     expect(screen.getByText('No pudimos cargar tus mascotas')).toBeInTheDocument();
+    expect(screen.getByText('Probá de nuevo.')).toBeInTheDocument();
   });
 });
