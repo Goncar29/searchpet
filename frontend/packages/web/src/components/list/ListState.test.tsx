@@ -178,6 +178,25 @@ describe('ListState', () => {
     expect(refetch).toHaveBeenCalledTimes(1);
   });
 
+  it('una lista realmente vacia muestra el slot empty', () => {
+    // Rama 4: la query respondió bien y no hay nada. Es el ÚNICO camino que
+    // llega acá — los otros tests que ven `empty` entran por el default de
+    // `idle` (rama 2), así que sin este test la rama 4 se puede borrar entera
+    // y la suite sigue verde. Medido.
+    render(
+      <ListState
+        query={fakeQuery<string[]>({ data: [] })}
+        loading={<p>cargando</p>}
+        empty={<p>vacio</p>}
+      >
+        {(items) => <p>{items.join(',')}</p>}
+      </ListState>,
+    );
+
+    expect(screen.getByText('vacio')).toBeInTheDocument();
+    expect(screen.queryByText('cargando')).not.toBeInTheDocument();
+  });
+
   it('un refetch fallido CONSERVA la lista y avisa, no la borra', () => {
     render(
       <ListState
@@ -212,6 +231,23 @@ describe('ListState', () => {
     );
 
     expect(screen.getByTestId('fila').parentElement).toBe(container);
+  });
+
+  it('no envuelve el slot loading en ningun elemento', () => {
+    // El caso que la regla realmente protege es el esqueleto de
+    // `LeaderboardPage`, o sea el slot `loading` — el test anterior sólo
+    // cubre `children`, y envolver `loading` en un `<div>` lo dejaría pasar.
+    const { container } = render(
+      <ListState
+        query={fakeQuery<string[]>({ isPending: true, isFetching: true })}
+        loading={<p data-testid="esqueleto">cargando</p>}
+        empty={<p>vacio</p>}
+      >
+        {(items) => <p>{items.join(',')}</p>}
+      </ListState>,
+    );
+
+    expect(screen.getByTestId('esqueleto').parentElement).toBe(container);
   });
 
   it('la pantalla puede reescribir el texto del cartel', () => {

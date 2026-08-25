@@ -114,6 +114,11 @@ export function ListState<TData, TItem>(props: ListStateProps<TData, TItem>) {
   // todavía en true significa una sola cosa: la query está deshabilitada. La
   // rama existe para NOMBRAR ese caso, no para que se caiga de rebote.
   if (query.isPending) return <>{idle ?? empty}</>;
+  // El `items.length === 0` NO es redundante: React Query CONSERVA los datos
+  // cacheados cuando falla un refetch, y ahí `isLoading` es false. Con `isError`
+  // a secas, un fallo pasajero —el cold start de Render tras dormirse, un 502—
+  // REEMPLAZA una lista ya dibujada por este cartel. Mostrar datos viejos es
+  // mejor que borrar los que están; de eso se ocupa la rama de abajo.
   if (query.isError && items.length === 0) {
     return (
       <QueryErrorCard
