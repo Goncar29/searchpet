@@ -20,7 +20,11 @@
       "daysAgo": "hace {{count}}d"
     },
     "unknownUser": "Usuario",
-    "close": "Cerrar"
+    "close": "Cerrar",
+    "loadErrorTitle": "No pudimos cargar esta lista",
+    "loadErrorBody": "No es que no haya nada: no llegamos a leerla. Probá de nuevo.",
+    "retry": "Reintentar",
+    "staleTitle": "No pudimos actualizar. Estás viendo datos de hace un rato."
   },
   "auth": {
     "login": {
