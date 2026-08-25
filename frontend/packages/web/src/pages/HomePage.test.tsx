@@ -187,7 +187,14 @@ describe('HomePage', () => {
   // cargar (una incertidumbre). Sin filtro activo el título ni se renderiza
   // (`hasActiveFilters` es false), así que hace falta activar uno para
   // alcanzar la rama rota.
-  it('con un filtro activo y la busqueda caida el titulo NO dice "0"', () => {
+  //
+  // El heading se busca por NOMBRE ACCESIBLE (`getByRole`), no por posición en
+  // el DOM: un `<h2>` vacío (la solución intermedia que se probó antes de
+  // ésta) hubiera sido invisible a `querySelectorAll('h2')[last]` pero
+  // segudia siendo un heading sin nombre — exactamente lo que un lector de
+  // pantalla anuncia como "encabezado nivel 2" seguido de silencio. Buscar
+  // por nombre hace que ESE defecto también deje el test en rojo.
+  it('con un filtro activo y la busqueda caida el titulo cae al generico, sin decir "0"', () => {
     vi.mocked(useSearchPets).mockReturnValue(
       { data: undefined, isPending: false, isFetching: false, isLoading: false,
         isPaused: false, isError: true, error: new Error('boom'), refetch: vi.fn() } as never,
@@ -199,11 +206,7 @@ describe('HomePage', () => {
     fireEvent.change(statusSelect, { target: { value: 'lost' } });
     fireEvent.click(screen.getByRole('button', { name: 'home:searchButton' }));
 
-    // La sección "Resultados" es la última del documento, así que su <h2> es
-    // el último de la página — no se puede buscar por nombre accesible porque
-    // el título correcto (sin la query) queda VACÍO a propósito.
-    const headings = container.querySelectorAll('h2');
-    const resultsHeading = headings[headings.length - 1];
-    expect(resultsHeading.textContent).not.toContain('0');
+    const heading = screen.getByRole('heading', { name: 'home:recentReports' });
+    expect(heading.textContent).not.toContain('0');
   });
 });

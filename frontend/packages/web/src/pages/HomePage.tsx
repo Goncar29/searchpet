@@ -740,10 +740,8 @@ export function HomePage() {
           <h2 className="font-display text-headline sm:text-display-sm text-gray-900 dark:text-gray-100">
             {imageResults
               ? `${t('home:photoSearch.resultsTitle')} (${imageResults.length})`
-              : hasActiveFilters
-              ? resultCount !== undefined
-                ? `${resultCount} ${resultCount !== 1 ? t('home:results') : t('home:result')}`
-                : null
+              : hasActiveFilters && resultCount !== undefined
+              ? `${resultCount} ${resultCount !== 1 ? t('home:results') : t('home:result')}`
               : t('home:recentReports')}
           </h2>
           {imageResults ? (
