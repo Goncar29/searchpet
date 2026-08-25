@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import type { UseQueryResult } from '@tanstack/react-query';
 import { ListState } from './ListState';
@@ -127,5 +128,69 @@ describe('ListState', () => {
 
     expect(screen.getByText('entra para ver')).toBeInTheDocument();
     expect(screen.queryByText('vacio')).not.toBeInTheDocument();
+  });
+
+  it('sin datos y con error muestra el cartel, no el vacio', () => {
+    render(
+      <ListState
+        query={fakeQuery<string[]>({ isError: true })}
+        loading={<p>cargando</p>}
+        empty={<p>no tenes nada</p>}
+      >
+        {(items) => <p>{items.join(',')}</p>}
+      </ListState>,
+    );
+
+    expect(screen.getByText('common:loadErrorTitle')).toBeInTheDocument();
+    expect(screen.getByText('common:loadErrorBody')).toBeInTheDocument();
+    // Lo que define todo este trabajo: la pantalla NO afirma que no hay nada.
+    expect(screen.queryByText('no tenes nada')).not.toBeInTheDocument();
+  });
+
+  it('el cartel de error es un role=alert', () => {
+    render(
+      <ListState
+        query={fakeQuery<string[]>({ isError: true })}
+        loading={<p>cargando</p>}
+        empty={<p>vacio</p>}
+      >
+        {(items) => <p>{items.join(',')}</p>}
+      </ListState>,
+    );
+
+    expect(screen.getByRole('alert')).toHaveTextContent('common:loadErrorTitle');
+  });
+
+  it('reintentar llama a refetch', async () => {
+    const refetch = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <ListState
+        query={fakeQuery<string[]>({ isError: true, refetch })}
+        loading={<p>cargando</p>}
+        empty={<p>vacio</p>}
+      >
+        {(items) => <p>{items.join(',')}</p>}
+      </ListState>,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'common:retry' }));
+    expect(refetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('la pantalla puede reescribir el texto del cartel', () => {
+    render(
+      <ListState
+        query={fakeQuery<string[]>({ isError: true })}
+        loading={<p>cargando</p>}
+        empty={<p>vacio</p>}
+        errorTitle="No pudimos cargar tus mascotas"
+        errorBody="Probá de nuevo."
+      >
+        {(items) => <p>{items.join(',')}</p>}
+      </ListState>,
+    );
+
+    expect(screen.getByText('No pudimos cargar tus mascotas')).toBeInTheDocument();
   });
 });

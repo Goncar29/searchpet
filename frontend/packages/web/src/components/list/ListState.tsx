@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react';
 import type { UseQueryResult } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
+import { Icon } from '../Icon';
 
 interface BaseProps<TItem> {
   /** Lo que se ve mientras la query trae datos por primera vez. */
@@ -14,6 +16,40 @@ interface BaseProps<TItem> {
    */
   idle?: ReactNode;
   children: (items: TItem[]) => ReactNode;
+  /** Reescribe el título del cartel de error. No hay prop que lo saque. */
+  errorTitle?: string;
+  /** Reescribe el cuerpo del cartel de error. */
+  errorBody?: string;
+}
+
+function QueryErrorCard({
+  title,
+  body,
+  onRetry,
+}: {
+  title: string;
+  body: string;
+  onRetry: () => void;
+}) {
+  const { t } = useTranslation('common');
+
+  return (
+    // `role="alert"` y no `status`: acá no quedó NADA en pantalla, así que
+    // interrumpir es correcto. La franja de datos viejos hace lo contrario, por
+    // el motivo opuesto.
+    <div role="alert" className="text-center py-16">
+      <Icon name="warning" className="h-12 w-12 mx-auto mb-3 text-gray-300 dark:text-gray-700" />
+      <p className="text-gray-700 dark:text-gray-300 font-semibold mb-1">{title}</p>
+      <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">{body}</p>
+      <button
+        type="button"
+        onClick={onRetry}
+        className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-dark"
+      >
+        {t('common:retry')}
+      </button>
+    </div>
+  );
 }
 
 /**
@@ -34,7 +70,8 @@ export type ListStateProps<TData, TItem> = BaseProps<TItem> & {
 } & SelectProp<TData, TItem>;
 
 export function ListState<TData, TItem>(props: ListStateProps<TData, TItem>) {
-  const { query, loading, empty, idle, children } = props;
+  const { query, loading, empty, idle, errorTitle, errorBody, children } = props;
+  const { t } = useTranslation('common');
   const select = (props as { select?: (data: TData) => TItem[] }).select;
 
   // `select` nunca se llama con `undefined`.
@@ -54,6 +91,15 @@ export function ListState<TData, TItem>(props: ListStateProps<TData, TItem>) {
   // todavía en true significa una sola cosa: la query está deshabilitada. La
   // rama existe para NOMBRAR ese caso, no para que se caiga de rebote.
   if (query.isPending) return <>{idle ?? empty}</>;
+  if (query.isError && items.length === 0) {
+    return (
+      <QueryErrorCard
+        title={errorTitle ?? t('common:loadErrorTitle')}
+        body={errorBody ?? t('common:loadErrorBody')}
+        onRetry={() => query.refetch()}
+      />
+    );
+  }
   if (items.length === 0) return <>{empty}</>;
   return <>{children(items)}</>;
 }
