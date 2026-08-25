@@ -178,6 +178,25 @@ describe('ListState', () => {
     expect(refetch).toHaveBeenCalledTimes(1);
   });
 
+  it('un refetch fallido CONSERVA la lista y avisa, no la borra', () => {
+    render(
+      <ListState
+        query={fakeQuery<string[]>({ data: ['a', 'b'], isError: true })}
+        loading={<p>cargando</p>}
+        empty={<p>vacio</p>}
+      >
+        {(items) => <p>{items.join(',')}</p>}
+      </ListState>,
+    );
+
+    // Los datos viejos siguen ahí...
+    expect(screen.getByText('a,b')).toBeInTheDocument();
+    // ...el cartel que los reemplazaría NO está...
+    expect(screen.queryByText('common:loadErrorTitle')).not.toBeInTheDocument();
+    // ...y el usuario se entera de que son viejos.
+    expect(screen.getByRole('status')).toHaveTextContent('common:staleTitle');
+  });
+
   it('la pantalla puede reescribir el texto del cartel', () => {
     render(
       <ListState

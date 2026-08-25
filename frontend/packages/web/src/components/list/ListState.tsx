@@ -52,6 +52,29 @@ function QueryErrorCard({
   );
 }
 
+function StaleBanner({ onRetry }: { onRetry: () => void }) {
+  const { t } = useTranslation('common');
+
+  return (
+    // `role="status"` y no `alert`: los datos están en pantalla, así que esto
+    // informa, no interrumpe. Un `alert` acá le robaría el foco al lector de
+    // pantalla por algo que el usuario puede seguir ignorando.
+    <div
+      role="status"
+      className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-900 dark:bg-amber-950"
+    >
+      <p className="text-sm text-amber-900 dark:text-amber-200">{t('common:staleTitle')}</p>
+      <button
+        type="button"
+        onClick={onRetry}
+        className="shrink-0 text-sm font-semibold text-amber-900 underline dark:text-amber-200"
+      >
+        {t('common:retry')}
+      </button>
+    </div>
+  );
+}
+
 /**
  * `select` lo exige el tipo SOLO cuando hace falta.
  *
@@ -101,5 +124,10 @@ export function ListState<TData, TItem>(props: ListStateProps<TData, TItem>) {
     );
   }
   if (items.length === 0) return <>{empty}</>;
-  return <>{children(items)}</>;
+  return (
+    <>
+      {query.isError && <StaleBanner onRetry={() => query.refetch()} />}
+      {children(items)}
+    </>
+  );
 }
