@@ -24,7 +24,10 @@
     "loadErrorTitle": "No pudimos cargar esta lista",
     "loadErrorBody": "No es que no haya nada: no llegamos a leerla. Probá de nuevo.",
     "retry": "Reintentar",
-    "staleTitle": "No pudimos actualizar. Estás viendo datos de hace un rato."
+    "staleTitle": "No pudimos actualizar. Estás viendo datos de hace un rato.",
+    "offlineTitle": "Estás sin conexión",
+    "offlineBody": "No pudimos leer esta lista. Cuando vuelva la conexión, probá de nuevo.",
+    "offlineStale": "Sin conexión. Estás viendo datos guardados."
   },
   "auth": {
     "login": {

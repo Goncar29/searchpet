@@ -19,25 +19,43 @@ vi.mock('react-i18next', () => ({
  * la librería no produce nunca — y el verde no diría nada sobre el mundo real.
  * En particular, es lo que hace que el caso de la query DESHABILITADA
  * (`isPending && !isFetching`) sea representable acá tal como ocurre en prod.
+ *
+ * `fetchStatus` es la MISMA idea un nivel más abajo, y por el mismo motivo:
+ * `isFetching`/`isLoading`/`isPaused` se derivan de él tal como hace
+ * `queryObserver.js` (`isFetching = fetchStatus === 'fetching'`,
+ * `isPaused = fetchStatus === 'paused'`). Sin esto un test podría pedir
+ * `isPaused: true, isFetching: true` — otro estado que React Query nunca
+ * produce — y ocultar el bug exacto que motivó esta extensión: offline
+ * (`fetchStatus: 'paused'`) da `isFetching: false`, así que `isLoading`
+ * también es `false` y una carga inicial sin conexión NO cae en la rama
+ * `isLoading`. `isFetching` como booleano suelto sigue aceptándose para no
+ * romper los call sites viejos: mapea a `fetchStatus: 'fetching' | 'idle'`.
  */
 function fakeQuery<T>({
   data,
   isPending = false,
-  isFetching = false,
+  isFetching,
+  fetchStatus,
   isError = false,
   refetch = vi.fn(),
 }: {
   data?: T;
   isPending?: boolean;
   isFetching?: boolean;
+  fetchStatus?: 'fetching' | 'paused' | 'idle';
   isError?: boolean;
   refetch?: () => void;
 }): UseQueryResult<T> {
+  const resolvedFetchStatus = fetchStatus ?? (isFetching ? 'fetching' : 'idle');
+  const resolvedIsFetching = resolvedFetchStatus === 'fetching';
+  const isPaused = resolvedFetchStatus === 'paused';
   return {
     data,
     isPending,
-    isFetching,
-    isLoading: isPending && isFetching,
+    fetchStatus: resolvedFetchStatus,
+    isFetching: resolvedIsFetching,
+    isLoading: isPending && resolvedIsFetching,
+    isPaused,
     isError,
     error: isError ? new Error('boom') : null,
     refetch,
@@ -254,6 +272,102 @@ describe('ListState', () => {
     );
 
     expect(screen.getByTestId('esqueleto').parentElement).toBe(container);
+  });
+
+  it('carga inicial offline muestra el cartel de sin conexion, no el vacio', () => {
+    // `fetchStatus: 'paused'` es como React Query representa un fetch que no
+    // pudo ni arrancar por falta de red (`networkMode: 'online'`, el default
+    // del proyecto). Ahí `isFetching` es false, así que `isLoading` también —
+    // sin una rama propia esto caía en la de `isPending` y mentía "no tenés
+    // nada" en la primera carga sin conexión.
+    render(
+      <ListState
+        query={fakeQuery<string[]>({ isPending: true, fetchStatus: 'paused' })}
+        loading={<p>cargando</p>}
+        empty={<p>vacio</p>}
+      >
+        {(items) => <p>{items.join(',')}</p>}
+      </ListState>,
+    );
+
+    expect(screen.getByText('common:offlineTitle')).toBeInTheDocument();
+    expect(screen.queryByText('vacio')).not.toBeInTheDocument();
+  });
+
+  it('offline con datos en cache conserva la lista y avisa que esta offline', () => {
+    // Distinto del refetch fallido: acá no hubo error, la conexión simplemente
+    // no está. El cartel tiene que decir "estás viendo datos guardados", no
+    // "no pudimos actualizar" — lo segundo sugeriría un fallo del servidor que
+    // nunca ocurrió.
+    render(
+      <ListState
+        query={fakeQuery<string[]>({ data: ['a', 'b'], fetchStatus: 'paused' })}
+        loading={<p>cargando</p>}
+        empty={<p>vacio</p>}
+      >
+        {(items) => <p>{items.join(',')}</p>}
+      </ListState>,
+    );
+
+    expect(screen.getByText('a,b')).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('common:offlineStale');
+    expect(screen.queryByText('common:staleTitle')).not.toBeInTheDocument();
+  });
+
+  it('una query deshabilitada de verdad (fetchStatus idle) sigue usando idle ?? empty', () => {
+    // Guarda de no-regresión: separar la rama offline de la de `isPending` no
+    // puede tocar el caso real de `enabled: false`, que sigue siendo
+    // `fetchStatus: 'idle'` (nunca 'paused', porque nunca se intentó nada).
+    render(
+      <ListState
+        query={fakeQuery<string[]>({ isPending: true, fetchStatus: 'idle' })}
+        loading={<p>cargando</p>}
+        empty={<p>vacio</p>}
+      >
+        {(items) => <p>{items.join(',')}</p>}
+      </ListState>,
+    );
+
+    expect(screen.getByText('vacio')).toBeInTheDocument();
+  });
+
+  it('la franja de datos viejos ocupa todo el ancho, no una sola celda del grid', () => {
+    // La primitiva no sabe si su padre es un grid, un flex o un block.
+    // `LeaderboardPage` envuelve `ListState` en un `grid`: sin `col-span-full`
+    // la franja se convierte en la PRIMER CELDA de esa grilla, empujando cada
+    // card una posición — un salto invisible en una captura.
+    render(
+      <ListState
+        query={fakeQuery<string[]>({ data: ['a', 'b'], isError: true })}
+        loading={<p>cargando</p>}
+        empty={<p>vacio</p>}
+      >
+        {(items) => <p>{items.join(',')}</p>}
+      </ListState>,
+    );
+
+    const banner = screen.getByRole('status');
+    expect(banner.className).toMatch(/\bcol-span-full\b/);
+    expect(banner.className).toMatch(/\bw-full\b/);
+  });
+
+  it('un select que devuelve null no rompe el render, cae a lista vacia', () => {
+    // El guard de `query.data == null` sólo cubría el nivel de arriba. Un
+    // `select` cuyo RETORNO es null/undefined —sobre datos que sí llegaron—
+    // llegaba sin blindar a `items.length` y tiraba, la misma pantalla en
+    // blanco un nivel más abajo.
+    render(
+      <ListState
+        query={fakeQuery<{ data: string[] | null }>({ data: { data: null } })}
+        select={(d) => d.data as unknown as string[]}
+        loading={<p>cargando</p>}
+        empty={<p>vacio</p>}
+      >
+        {(items) => <p>{items.join(',')}</p>}
+      </ListState>,
+    );
+
+    expect(screen.getByText('vacio')).toBeInTheDocument();
   });
 
   it('la pantalla puede reescribir el texto del cartel', () => {

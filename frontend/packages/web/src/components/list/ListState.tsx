@@ -61,18 +61,25 @@ function QueryErrorCard({
   );
 }
 
-function StaleBanner({ onRetry }: { onRetry: () => void }) {
+function StaleBanner({ message, onRetry }: { message: string; onRetry: () => void }) {
   const { t } = useTranslation('common');
 
   return (
     // `role="status"` y no `alert`: los datos están en pantalla, así que esto
     // informa, no interrumpe. Un `alert` acá le robaría el foco al lector de
     // pantalla por algo que el usuario puede seguir ignorando.
+    //
+    // `col-span-full w-full`: la primitiva no sabe si su padre es un grid, un
+    // flex o un block — `LeaderboardPage` la envuelve en un `grid`, y sin esto
+    // la franja se convierte en la PRIMER CELDA de esa grilla en vez de ocupar
+    // toda la fila, empujando cada card una posición (272px medidos). En
+    // flex/block, `col-span-full` no hace nada: es la única declaración
+    // correcta en los dos mundos.
     <div
       role="status"
-      className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-900 dark:bg-amber-950"
+      className="col-span-full w-full mb-4 flex items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-900 dark:bg-amber-950"
     >
-      <p className="text-sm text-amber-900 dark:text-amber-200">{t('common:staleTitle')}</p>
+      <p className="text-sm text-amber-900 dark:text-amber-200">{message}</p>
       <button
         type="button"
         onClick={onRetry}
@@ -115,21 +122,38 @@ export function ListState<TData, TItem = TData extends (infer U)[] ? U : never>(
   // cierra la clase entera de una vez. Sin esto, un `data: null` legítimo
   // (JSON válido) llegaría a `items.length` y tiraría, poniendo en blanco
   // exactamente la pantalla que este componente existe para proteger.
-  const items: TItem[] =
-    query.data == null
-      ? []
-      : select
-        ? select(query.data)
-        : (query.data as unknown as TItem[]);
+  //
+  // Este guard cubre el nivel de arriba (`query.data`), pero NO el de abajo:
+  // el RETORNO de `select` estaba sin blindar, y una `select` que devuelve
+  // `null`/`undefined` sobre datos que sí llegaron caía igual en
+  // `items.length` un piso más abajo — la misma pantalla en blanco. Por eso
+  // el `?? []` final envuelve el resultado de `select`, no sólo su entrada.
+  const raw =
+    query.data == null ? [] : select ? select(query.data) : (query.data as unknown as TItem[]);
+  const items: TItem[] = raw ?? [];
 
   // Fragmentos y no `<div>`: la primitiva NO envuelve ningún slot. El esqueleto
   // de `LeaderboardPage` vive dentro de un `grid` y su posición está medida —
   // se midió un salto horizontal de 272px cuando cambió de columna. Un wrapper
   // lo rompería, y el salto es invisible en una captura y en cualquier test.
   if (query.isLoading) return <>{loading}</>;
-  // `isLoading` es `isPending && isFetching`, así que llegar acá con `isPending`
-  // todavía en true significa una sola cosa: la query está deshabilitada. La
-  // rama existe para NOMBRAR ese caso, no para que se caiga de rebote.
+  // `isPaused` ANTES que `isPending`, y no al revés: React Query pausa una query
+  // cuando el navegador está offline (`fetchStatus: 'paused'`), y en ese estado
+  // `isFetching` es false, así que `isLoading` también. Sin esta rama, una
+  // primera carga sin conexión cae en la de abajo y dice "no tenés nada" — la
+  // mentira exacta que este componente existe para matar, y justo cuando el
+  // usuario menos puede saber que es mentira.
+  if (query.isPaused && items.length === 0) {
+    return (
+      <QueryErrorCard
+        title={t('common:offlineTitle')}
+        body={t('common:offlineBody')}
+        onRetry={() => query.refetch()}
+      />
+    );
+  }
+  // Acá `isPending` sí significa una sola cosa: la query está DESHABILITADA
+  // (`enabled: false`), porque el caso offline se fue en la rama de arriba.
   if (query.isPending) return <>{idle ?? empty}</>;
   // El `items.length === 0` NO es redundante: React Query CONSERVA los datos
   // cacheados cuando falla un refetch, y ahí `isLoading` es false. Con `isError`
@@ -148,7 +172,11 @@ export function ListState<TData, TItem = TData extends (infer U)[] ? U : never>(
   if (items.length === 0) return <>{empty}</>;
   return (
     <>
-      {query.isError && <StaleBanner onRetry={() => query.refetch()} />}
+      {query.isPaused ? (
+        <StaleBanner message={t('common:offlineStale')} onRetry={() => query.refetch()} />
+      ) : query.isError ? (
+        <StaleBanner message={t('common:staleTitle')} onRetry={() => query.refetch()} />
+      ) : null}
       {children(items)}
     </>
   );

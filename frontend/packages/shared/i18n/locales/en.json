@@ -24,7 +24,10 @@
     "loadErrorTitle": "We couldn't load this list",
     "loadErrorBody": "It's not that there's nothing here — we couldn't read it. Try again.",
     "retry": "Try again",
-    "staleTitle": "We couldn't refresh. You're seeing data from a moment ago."
+    "staleTitle": "We couldn't refresh. You're seeing data from a moment ago.",
+    "offlineTitle": "You're offline",
+    "offlineBody": "We couldn't read this list. Try again when your connection is back.",
+    "offlineStale": "Offline. You're seeing saved data."
   },
   "auth": {
     "login": {
