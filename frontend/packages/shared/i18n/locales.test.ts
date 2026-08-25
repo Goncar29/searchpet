@@ -71,3 +71,49 @@ describe('locales compartidos — el asterisco de obligatorio no va en el texto'
     });
   }
 });
+
+/**
+ * Paridad de claves entre los tres idiomas.
+ *
+ * El diseño de `ListState` (2026-08-25) afirmaba que este archivo YA aseguraba
+ * paridad de claves entre es/en/pt, y que por eso una clave sumada a un solo
+ * idioma haria fallar la suite. Es FALSO — se verifico leyendo el archivo:
+ * hasta este cambio, lo unico que se afirmaba era la regla del asterisco de
+ * arriba. Ninguna clave faltante rompia nada.
+ *
+ * El costo real de esa clave faltante es la regla #21 del CLAUDE.md del
+ * proyecto: `useTranslation` devuelve la CLAVE CRUDA cuando no encuentra la
+ * traduccion, sin un solo error en consola. Nadie se entera hasta que alguien
+ * mira la pantalla en ese idioma.
+ *
+ * Se compara cada idioma contra `es` como referencia, en las DOS direcciones:
+ * claves que le faltan (una traduccion olvidada) y claves de mas (una clave
+ * huerfana que ya no existe en `es` pero sigue viva en otro idioma). Cualquiera
+ * de las dos es un desvio real y las dos quedan mudas sin este test.
+ */
+function rutasDeClaves(obj: unknown, prefijo = ''): string[] {
+  if (obj === null || typeof obj !== 'object' || Array.isArray(obj)) return [prefijo];
+  return Object.entries(obj as Record<string, unknown>).flatMap(([k, v]) =>
+    rutasDeClaves(v, prefijo ? `${prefijo}.${k}` : k),
+  );
+}
+
+describe('locales compartidos — paridad de claves entre es/en/pt', () => {
+  const referencia = rutasDeClaves(es);
+  const otros = { en, pt } as const;
+
+  for (const [lang, dict] of Object.entries(otros)) {
+    it(`${lang}: no le falta ninguna clave que tenga es`, () => {
+      const propias = new Set(rutasDeClaves(dict));
+      const faltantes = referencia.filter((ruta) => !propias.has(ruta));
+      expect(faltantes).toEqual([]);
+    });
+
+    it(`${lang}: no tiene claves huerfanas que es ya no tenga`, () => {
+      const deReferencia = new Set(referencia);
+      const propias = rutasDeClaves(dict);
+      const huerfanas = propias.filter((ruta) => !deReferencia.has(ruta));
+      expect(huerfanas).toEqual([]);
+    });
+  }
+});

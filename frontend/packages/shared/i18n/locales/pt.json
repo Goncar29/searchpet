@@ -20,7 +20,14 @@
       "daysAgo": "há {{count}}d"
     },
     "unknownUser": "Usuário",
-    "close": "Fechar"
+    "close": "Fechar",
+    "loadErrorTitle": "Não conseguimos carregar esta lista",
+    "loadErrorBody": "Não é que não haja nada: não conseguimos ler. Tente de novo.",
+    "retry": "Tentar de novo",
+    "staleTitle": "Não conseguimos atualizar. Você está vendo dados de um tempo atrás.",
+    "offlineTitle": "Você está sem conexão",
+    "offlineBody": "Não conseguimos ler esta lista. Tente de novo quando a conexão voltar.",
+    "offlineStale": "Sem conexão. Você está vendo dados salvos."
   },
   "auth": {
     "login": {
