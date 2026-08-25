@@ -197,6 +197,23 @@ describe('ListState', () => {
     expect(screen.getByRole('status')).toHaveTextContent('common:staleTitle');
   });
 
+  it('no envuelve los slots en ningun elemento', () => {
+    // `LeaderboardPage` pone su esqueleto dentro de un `grid` y su posición está
+    // medida: un wrapper lo saca de la columna que le toca. El salto es
+    // invisible en una captura, así que esta aserción es la única defensa.
+    const { container } = render(
+      <ListState
+        query={fakeQuery<string[]>({ data: ['a'] })}
+        loading={<p>cargando</p>}
+        empty={<p>vacio</p>}
+      >
+        {() => <p data-testid="fila">fila</p>}
+      </ListState>,
+    );
+
+    expect(screen.getByTestId('fila').parentElement).toBe(container);
+  });
+
   it('la pantalla puede reescribir el texto del cartel', () => {
     render(
       <ListState
