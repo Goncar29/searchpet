@@ -8,6 +8,7 @@ import {
 } from '@shared/hooks';
 import type { LocationAlert } from '@shared/types';
 import type { PetType } from '@shared/types';
+import { ListState } from '../components/list/ListState';
 
 const PET_TYPES: PetType[] = ['perro', 'gato', 'pajaro', 'otro'];
 
@@ -21,12 +22,22 @@ const MAX_ALERTS = 10;
 
 export function AlertsPage() {
   const { t } = useTranslation('alerts');
-  const { data, isLoading } = useAlerts();
+  const alertsQuery = useAlerts();
   const createAlert = useCreateAlert();
   const updateAlert = useUpdateAlert();
   const deleteAlert = useDeleteAlert();
 
-  const alerts: LocationAlert[] = data ?? [];
+  // `undefined` cuando no hay respuesta, y cada consumidor decide qué hacer con
+  // esa ignorancia por separado — los dos viven FUERA de la rama que envuelve
+  // `ListState`, así que el port no los alcanza solo:
+  //
+  //   · el título NO afirma un número que no sabe. Con `?? 0` decía
+  //     "Mis alertas (0/10)" al lado del cartel que dice que no pudimos leer
+  //     nada: la misma mentira que toda esta primitiva viene a matar.
+  //   · el botón falla ABIERTO (`?? 0`), que es el comportamiento de hoy: el
+  //     tope real lo aplica el backend, así que bloquear por las dudas le
+  //     sacaría al usuario una acción válida por un fallo nuestro.
+  const alertCount = alertsQuery.data?.length;
 
   // ── Form state ──────────────────────────────────────────────
   const [showForm, setShowForm] = useState(false);
@@ -112,12 +123,14 @@ export function AlertsPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-          {t('title', { count: alerts.length, max: MAX_ALERTS })}
+          {alertCount !== undefined
+            ? t('title', { count: alertCount, max: MAX_ALERTS })
+            : t('titleNoCount')}
         </h1>
         {!showForm && (
           <button
             onClick={() => setShowForm(true)}
-            disabled={alerts.length >= MAX_ALERTS}
+            disabled={(alertCount ?? 0) >= MAX_ALERTS}
             className="px-4 py-2 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {t('newAlert')}
@@ -252,33 +265,41 @@ export function AlertsPage() {
         </form>
       )}
 
-      {/* Loading */}
-      {isLoading && (
-        <div className="text-center py-12">
-          <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
-          <p className="text-gray-500 dark:text-gray-400">{t('loading')}</p>
-        </div>
-      )}
-
-      {/* Empty state */}
-      {!isLoading && alerts.length === 0 && !showForm && (
-        <div className="text-center py-16">
-          <p className="text-5xl mb-4">🔔</p>
-          <p className="text-gray-700 dark:text-gray-300 font-semibold mb-2">{t('emptyTitle')}</p>
-          <p className="text-gray-500 dark:text-gray-400 mb-4 text-sm">
-            {t('emptyText')}
-          </p>
-          <button
-            onClick={() => setShowForm(true)}
-            className="px-5 py-2 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary-dark transition-colors"
-          >
-            {t('createFirst')}
-          </button>
-        </div>
-      )}
-
-      {/* Alert list */}
-      {!isLoading && alerts.length > 0 && (
+      {/* Los tres bloques hermanos —cargando, vacío y lista— colapsan en uno:
+          eran tres condiciones sueltas que había que mantener mutuamente
+          excluyentes a mano, y ninguna de las tres cubría el cuarto estado. */}
+      <ListState
+        query={alertsQuery}
+        loading={
+          <div className="text-center py-12">
+            <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
+            <p className="text-gray-500 dark:text-gray-400">{t('loading')}</p>
+          </div>
+        }
+        empty={
+          // El vacío sigue callado mientras el formulario está abierto:
+          // decirle "no tenés alertas, creá la primera" a alguien que la está
+          // creando justo ahí es ruido. El cartel de error NO comparte esa
+          // lógica y por eso no lleva el gate — que la lista no haya cargado
+          // es información nueva, y el usuario la necesita igual.
+          !showForm ? (
+            <div className="text-center py-16">
+              <p className="text-5xl mb-4">🔔</p>
+              <p className="text-gray-700 dark:text-gray-300 font-semibold mb-2">{t('emptyTitle')}</p>
+              <p className="text-gray-500 dark:text-gray-400 mb-4 text-sm">
+                {t('emptyText')}
+              </p>
+              <button
+                onClick={() => setShowForm(true)}
+                className="px-5 py-2 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary-dark transition-colors"
+              >
+                {t('createFirst')}
+              </button>
+            </div>
+          ) : null
+        }
+      >
+        {(alerts: LocationAlert[]) => (
         <div className="space-y-3">
           {alerts.map((alert) => (
             <div
@@ -317,7 +338,8 @@ export function AlertsPage() {
             </div>
           ))}
         </div>
-      )}
+        )}
+      </ListState>
     </div>
   );
 }
