@@ -23,7 +23,7 @@ The user concludes they own no pets. It was confirmed pre-existing — that PR d
 
 | screen | how it lies |
 |---|---|
-| `HomePage` | the FEED — `searchResults?.data && length > 0`, otherwise the empty state |
+| `HomePage` | **two lists.** The FEED — `searchResults?.data && length > 0`, otherwise the empty state. Also the "Historias de éxito" strip — `featuredStories && featuredStories.length > 0`, which hides the whole section (no error, no explanation) when `useStories` fails |
 | `MyPetsPage` | `!pets \|\| pets.length === 0` |
 | `ProfilePage` | `ownedPets.length > 0` and `adoptionPets.length > 0` |
 | `AdoptPage` | `data?.data ?? []` |
@@ -261,6 +261,7 @@ PR regardless of base branch, so a stacked PR does execute its jobs.
 | 4 | `PetDetailPage`, `CreateReportPage`, `LostPetStep` |
 | 5 | `ProfilePage`, `UserProfilePage` |
 | 6 | `admin/AbuseReportsPage`, `admin/StoriesAdminPage` |
+| 7 | `HomePage`'s "Historias de éxito" strip. Deliberately **not** part of PR 2: porting it there would have been scope creep on the feed port. Its `empty` slot must be `<></>` — this section is meant to disappear when genuinely empty (no stories yet is not a fact worth a card), unlike the feed, whose `empty` states this doc's fix asserts must render. |
 
 Per rule #30, every branch is cut from `origin/main`, and per rule #49 the base of a stack is merged
 **without** `--delete-branch`.

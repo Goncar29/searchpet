@@ -206,7 +206,22 @@ describe('HomePage', () => {
     fireEvent.change(statusSelect, { target: { value: 'lost' } });
     fireEvent.click(screen.getByRole('button', { name: 'home:searchButton' }));
 
-    const heading = screen.getByRole('heading', { name: 'home:recentReports' });
+    // `home:resultsUnknown`, no `home:recentReports`: ese último es la
+    // etiqueta del feed SIN filtrar, y acá hay un filtro puesto (el badge
+    // "búsqueda activa" sigue en pantalla) — decir "Reportes recientes" se
+    // contradice con su propio vecino.
+    const heading = screen.getByRole('heading', { name: 'home:resultsUnknown' });
     expect(heading.textContent).not.toContain('0');
+  });
+
+  // Idem: la mitad positiva de la distinción que este PR existe para crear.
+  // Sin este test, borrar el slot `empty` de ListState en esta pantalla deja
+  // la suite entera verde.
+  it('con el feed vacio de verdad SI muestra el vacio', () => {
+    mockSearchPets = { data: [], total: 0 };
+    render(<HomePage />, { wrapper });
+
+    expect(screen.getByText('home:noResults.title')).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 });

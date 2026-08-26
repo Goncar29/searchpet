@@ -330,9 +330,12 @@ export function HomePage() {
   // `undefined` y no 0 cuando no hay datos: con la query caída, un "0
   // resultados" acá contradice al cartel de error de abajo, y de los dos el que
   // suena seguro es el que miente. Sin dato, no se afirma nada.
-  const resultCount = searchQuery.data
-    ? (searchQuery.data.total ?? searchQuery.data.data.length)
-    : undefined;
+  // Sin `?? searchQuery.data.data.length`: `backend/internal/dto/pet_dto.go`
+  // declara `Total int64` con `json:"total"` y sin `omitempty`, así que el
+  // backend siempre lo manda. Ese fallback era inalcanzable y además más débil
+  // que el .length real — un fallback que nunca corre y que si corriera sería
+  // peor es ruido que parece protección.
+  const resultCount = searchQuery.data ? searchQuery.data.total : undefined;
 
   return (
     <div className="bg-gray-50 dark:bg-gray-950 min-h-screen">
@@ -742,6 +745,14 @@ export function HomePage() {
               ? `${t('home:photoSearch.resultsTitle')} (${imageResults.length})`
               : hasActiveFilters && resultCount !== undefined
               ? `${resultCount} ${resultCount !== 1 ? t('home:results') : t('home:result')}`
+              // Con un filtro activo pero sin conteo (la búsqueda falló), el
+              // título no puede seguir diciendo "Reportes recientes" — esa
+              // etiqueta es la del feed SIN filtrar, y el badge "búsqueda
+              // activa" de al lado la contradice. `resultsUnknown` es neutro:
+              // no afirma un conteo que no tenemos, y no miente sobre si hay
+              // un filtro puesto.
+              : hasActiveFilters
+              ? t('home:resultsUnknown')
               : t('home:recentReports')}
           </h2>
           {imageResults ? (

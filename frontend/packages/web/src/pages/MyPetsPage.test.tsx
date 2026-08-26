@@ -220,4 +220,14 @@ describe('MyPetsPage', () => {
     expect(screen.queryByText('pets:mine.empty')).not.toBeInTheDocument();
     expect(screen.getByRole('alert')).toBeInTheDocument();
   });
+
+  // El par positivo del test de arriba. Sin este, borrar el slot `empty`
+  // entero deja la suite verde — medido: 690 tests pasaban igual. `state.owned`
+  // ya es `[]` por el `beforeEach`, así que esto es la carga genuinamente vacía,
+  // no una carga caída.
+  it('con la lista vacia de verdad SI dice que no tenes mascotas', () => {
+    render(<MyPetsPage />, { wrapper });
+    expect(screen.getByText('pets:mine.empty')).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
 });

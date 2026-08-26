@@ -339,6 +339,7 @@
     },
     "result": "result",
     "results": "results",
+    "resultsUnknown": "Results",
     "searchButton": "Search",
     "searchActive": "Active search",
     "recentReports": "Recent reports",
