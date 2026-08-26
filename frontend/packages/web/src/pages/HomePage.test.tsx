@@ -3,6 +3,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { HomePage } from './HomePage';
+import { useSearchPets } from '@shared/hooks';
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (key: string) => key, i18n: { language: 'es' } }),
@@ -24,10 +25,14 @@ let mockStats = { total_users: 100, total_pets: 42, pets_reunited: 10, searches_
 // dibuje y el test falle sin que haya nada roto en la pagina.
 let mockSearchPets: { data: unknown[]; total?: number } | undefined = undefined;
 
+// `useSearchPets` es `vi.fn()` (y no una arrow function pelada como las otras)
+// porque el test de ListState necesita `mockReturnValue` para simular una
+// query caída — con una función normal, `vi.mocked(useSearchPets).mockReturnValue`
+// no existe.
 vi.mock('@shared/hooks', () => ({
   useStats: () => ({ data: mockStats }),
   useNearbyReports: () => ({ data: [], isLoading: false }),
-  useSearchPets: () => ({ data: mockSearchPets, isLoading: false }),
+  useSearchPets: vi.fn(),
   useStories: () => ({ data: [], isLoading: false }),
   useImageClassify: () => ({ classify: mockClassify, isModelLoading: false, isClassifying: false, error: null }),
   useImageSearch: () => ({ mutateAsync: mockMutateAsync, isPending: false }),
@@ -58,6 +63,12 @@ describe('HomePage', () => {
     // que llame a mutateAsync y rompe en un lugar que no tiene nada que ver.
     mockMutateAsync.mockReset();
     mockClassify.mockReset();
+    // `mockImplementation` y no `mockReturnValue`: tiene que leer `mockSearchPets`
+    // en cada llamada, porque los tests reasignan esa variable DESPUÉS de este
+    // `beforeEach` — con `mockReturnValue` quedaría pegado al valor inicial.
+    vi.mocked(useSearchPets).mockImplementation(
+      () => ({ data: mockSearchPets, isLoading: false }) as never,
+    );
   });
 
   it('renderiza sin lanzar errores', () => {
@@ -153,5 +164,90 @@ describe('HomePage', () => {
     render(<HomePage />, { wrapper });
 
     expect((screen.getByAltText('Mia') as HTMLImageElement).src).toBe(ajena);
+  });
+
+  // Antes de ListState, `isLoading ? ... : searchResults?.data?.length > 0 ? ... : ...`
+  // no distinguía "la query falló" de "no hay resultados" — un `useSearchPets`
+  // caído mostraba el mismo cartel de "sin resultados" que un filtro sin
+  // coincidencias. Ver ListState.tsx.
+  it('con la busqueda caida NO muestra el vacio del feed', () => {
+    vi.mocked(useSearchPets).mockReturnValue(
+      { data: undefined, isPending: false, isFetching: false, isLoading: false,
+        isPaused: false, isError: true, error: new Error('boom'), refetch: vi.fn() } as never,
+    );
+
+    render(<HomePage />, { wrapper });
+
+    expect(screen.queryByText('home:noResults.title')).not.toBeInTheDocument();
+    expect(screen.getByRole('alert')).toBeInTheDocument();
+  });
+
+  // Con un filtro activo Y la query caída, el título usaba `?? 0`: afirmaba
+  // "0 resultados" (un hecho) justo arriba del cartel que dice que no se pudo
+  // cargar (una incertidumbre). Sin filtro activo el título ni se renderiza
+  // (`hasActiveFilters` es false), así que hace falta activar uno para
+  // alcanzar la rama rota.
+  //
+  // El heading se busca por NOMBRE ACCESIBLE (`getByRole`), no por posición en
+  // el DOM: un `<h2>` vacío (la solución intermedia que se probó antes de
+  // ésta) hubiera sido invisible a `querySelectorAll('h2')[last]` pero
+  // segudia siendo un heading sin nombre — exactamente lo que un lector de
+  // pantalla anuncia como "encabezado nivel 2" seguido de silencio. Buscar
+  // por nombre hace que ESE defecto también deje el test en rojo.
+  it('con un filtro activo y la busqueda caida el titulo cae al generico, sin decir "0"', () => {
+    vi.mocked(useSearchPets).mockReturnValue(
+      { data: undefined, isPending: false, isFetching: false, isLoading: false,
+        isPaused: false, isError: true, error: new Error('boom'), refetch: vi.fn() } as never,
+    );
+
+    const { container } = render(<HomePage />, { wrapper });
+
+    const statusSelect = container.querySelector('#filter-status') as HTMLSelectElement;
+    fireEvent.change(statusSelect, { target: { value: 'lost' } });
+    fireEvent.click(screen.getByRole('button', { name: 'home:searchButton' }));
+
+    // `home:resultsUnknown`, no `home:recentReports`: ese último es la
+    // etiqueta del feed SIN filtrar, y acá hay un filtro puesto (el badge
+    // "búsqueda activa" sigue en pantalla) — decir "Reportes recientes" se
+    // contradice con su propio vecino.
+    const heading = screen.getByRole('heading', { name: 'home:resultsUnknown' });
+    expect(heading.textContent).not.toContain('0');
+  });
+
+  // Idem: la mitad positiva de la distinción que este PR existe para crear.
+  // Sin este test, borrar el slot `empty` de ListState en esta pantalla deja
+  // la suite entera verde.
+  it('con el feed vacio de verdad SI muestra el vacio', () => {
+    mockSearchPets = { data: [], total: 0 };
+    render(<HomePage />, { wrapper });
+
+    expect(screen.getByText('home:noResults.title')).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  // El defecto exacto de PR #188: `resultCount` ya leía `searchQuery.data`
+  // (no `items.length`), pero `ListState` gateaba su cartel de error con
+  // `items.length === 0` — con datos cacheados cuya tajada es `[]` y un
+  // refetch caído, el heading decía "0 resultados" justo arriba de un cartel
+  // que decía "no pudimos leer esta lista". Con el guard de `ListState` en
+  // `query.data == null`, el heading y el cuerpo vuelven a estar de acuerdo.
+  it('con datos cacheados vacios y el refetch caido, el titulo y el cuerpo coinciden', () => {
+    vi.mocked(useSearchPets).mockReturnValue(
+      { data: { data: [], total: 0 }, isPending: false, isFetching: false, isLoading: false,
+        isPaused: false, isError: true, error: new Error('boom'), refetch: vi.fn() } as never,
+    );
+
+    const { container } = render(<HomePage />, { wrapper });
+
+    const statusSelect = container.querySelector('#filter-status') as HTMLSelectElement;
+    fireEvent.change(statusSelect, { target: { value: 'lost' } });
+    fireEvent.click(screen.getByRole('button', { name: 'home:searchButton' }));
+
+    // El heading afirma "0 resultados"...
+    expect(screen.getByRole('heading', { name: /0 home:result/ })).toBeInTheDocument();
+    // ...y el cuerpo tiene que estar de acuerdo: el vacío real, no el cartel
+    // de "no pudimos leer", que sería la mentira opuesta sobre el mismo dato.
+    expect(screen.getByText('home:noResults.title')).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 });

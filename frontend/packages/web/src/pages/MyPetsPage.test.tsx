@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Link } from 'react-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MyPetsPage } from './MyPetsPage';
+import { useMyPets } from '@shared/hooks';
 import type { Pet, PetStatus } from '@shared/types';
 
 const state = vi.hoisted(() => ({ owned: [] as Pet[], reported: [] as Pet[] }));
@@ -17,8 +18,11 @@ vi.mock('react-router', async (importOriginal) => {
   return { ...actual, useNavigate: () => vi.fn() };
 });
 
+// `useMyPets` es `vi.fn()` (y no una arrow function pelada como las otras) porque
+// el test de ListState necesita `mockReturnValue` para simular una query caída
+// — con una función normal, `vi.mocked(useMyPets).mockReturnValue` no existe.
 vi.mock('@shared/hooks', () => ({
-  useMyPets: () => ({ data: state.owned, isLoading: false }),
+  useMyPets: vi.fn(),
   useReportedPets: () => ({ data: state.reported, isLoading: false }),
   useDeletePet: () => ({ mutate: vi.fn(), isPending: false }),
   useUpdatePet: () => ({ mutate: vi.fn(), isPending: false }),
@@ -66,6 +70,12 @@ describe('MyPetsPage', () => {
   beforeEach(() => {
     state.owned = [];
     state.reported = [];
+    // `mockImplementation` y no `mockReturnValue`: tiene que leer `state.owned`
+    // en cada llamada, porque los tests reasignan `state.owned` DESPUÉS de este
+    // `beforeEach` — con `mockReturnValue` quedaría pegado al array vacío inicial.
+    vi.mocked(useMyPets).mockImplementation(
+      () => ({ data: state.owned, isLoading: false }) as never,
+    );
   });
 
   it('renderiza sin lanzar errores', () => {
@@ -194,5 +204,30 @@ describe('MyPetsPage', () => {
     const img = screen.getByAltText('Pet lost') as HTMLImageElement;
     // 'compact' y NO 'feed': la caja es h-40 (2,47:1), no h-48 (2,03:1).
     expect(img.src).toContain('w_600,h_240,c_lfill,g_auto');
+  });
+
+  // Antes de ListState, `!pets || pets.length === 0` no distinguía "la query
+  // falló" de "no tenés mascotas" — un `useMyPets` caído mostraba el mismo
+  // cartel vacío que una cuenta sin mascotas. Ver ListState.tsx.
+  it('con useMyPets caido NO dice que no tenes mascotas', () => {
+    vi.mocked(useMyPets).mockReturnValue(
+      { data: undefined, isPending: false, isFetching: false, isLoading: false,
+        isPaused: false, isError: true, error: new Error('boom'), refetch: vi.fn() } as never,
+    );
+
+    render(<MyPetsPage />, { wrapper });
+
+    expect(screen.queryByText('pets:mine.empty')).not.toBeInTheDocument();
+    expect(screen.getByRole('alert')).toBeInTheDocument();
+  });
+
+  // El par positivo del test de arriba. Sin este, borrar el slot `empty`
+  // entero deja la suite verde — medido: 690 tests pasaban igual. `state.owned`
+  // ya es `[]` por el `beforeEach`, así que esto es la carga genuinamente vacía,
+  // no una carga caída.
+  it('con la lista vacia de verdad SI dice que no tenes mascotas', () => {
+    render(<MyPetsPage />, { wrapper });
+    expect(screen.getByText('pets:mine.empty')).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 });

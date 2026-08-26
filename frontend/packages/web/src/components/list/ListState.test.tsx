@@ -165,6 +165,46 @@ describe('ListState', () => {
     expect(screen.queryByText('no tenes nada')).not.toBeInTheDocument();
   });
 
+  it('error con datos cacheados cuya seleccion da vacio muestra el slot empty, no el cartel', () => {
+    // El defecto real de PR #188: `items` sale DESPUES de `select`, así que una
+    // tajada vacía de datos que SÍ tenemos (el usuario tiene mascotas pero
+    // ninguna en adopción) no es ignorancia, es una respuesta. El gate tiene
+    // que mirar `query.data`, no `items.length`.
+    render(
+      <ListState
+        query={fakeQuery<{ data: string[] }>({ data: { data: ['perro', 'gato'] }, isError: true })}
+        select={() => []}
+        loading={<p>cargando</p>}
+        empty={<p>no tenes nada en adopcion</p>}
+      >
+        {(items) => <p>{items.join(',')}</p>}
+      </ListState>,
+    );
+
+    expect(screen.getByText('no tenes nada en adopcion')).toBeInTheDocument();
+    expect(screen.queryByText('common:loadErrorTitle')).not.toBeInTheDocument();
+    // Hay un hecho cacheado (aunque su tajada esté vacía), así que la franja de
+    // "datos viejos" tiene que avisar igual que en la rama con lista no vacía.
+    expect(screen.getByRole('status')).toHaveTextContent('common:staleTitle');
+  });
+
+  it('offline con datos cacheados cuya seleccion da vacio muestra el slot empty, no el cartel offline', () => {
+    render(
+      <ListState
+        query={fakeQuery<{ data: string[] }>({ data: { data: ['perro', 'gato'] }, fetchStatus: 'paused' })}
+        select={() => []}
+        loading={<p>cargando</p>}
+        empty={<p>no tenes nada en adopcion</p>}
+      >
+        {(items) => <p>{items.join(',')}</p>}
+      </ListState>,
+    );
+
+    expect(screen.getByText('no tenes nada en adopcion')).toBeInTheDocument();
+    expect(screen.queryByText('common:offlineTitle')).not.toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('common:offlineStale');
+  });
+
   it('el cartel de error es un role=alert', () => {
     render(
       <ListState

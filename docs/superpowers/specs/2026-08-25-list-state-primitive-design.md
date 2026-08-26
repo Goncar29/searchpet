@@ -23,7 +23,7 @@ The user concludes they own no pets. It was confirmed pre-existing — that PR d
 
 | screen | how it lies |
 |---|---|
-| `HomePage` | the FEED — `searchResults?.data && length > 0`, otherwise the empty state |
+| `HomePage` | **two lists.** The FEED — `searchResults?.data && length > 0`, otherwise the empty state. Also the "Historias de éxito" strip — `featuredStories && featuredStories.length > 0`, which hides the whole section (no error, no explanation) when `useStories` fails |
 | `MyPetsPage` | `!pets \|\| pets.length === 0` |
 | `ProfilePage` | `ownedPets.length > 0` and `adoptionPets.length > 0` |
 | `AdoptPage` | `data?.data ?? []` |
@@ -125,10 +125,10 @@ Four decisions inside that signature:
 | # | condition | renders |
 |---|---|---|
 | 1 | `isLoading` (`isPending && isFetching`) | the `loading` slot |
-| 2 | `isPaused` **and** `items.length === 0` → **offline** | the offline card + retry |
+| 2 | `isPaused` **and** `query.data == null` → **offline** | the offline card + retry |
 | 3 | `isPending` → **disabled query** | the optional `idle` slot; defaults to the `empty` slot |
-| 4 | `isError` **and** `items.length === 0` | the primitive's error card + retry |
-| 5 | `items.length === 0` | the `empty` slot |
+| 4 | `isError` **and** `query.data == null` | the primitive's error card + retry |
+| 5 | `items.length === 0` | the offline/stale banner (if `isPaused`/`isError`), then the `empty` slot |
 | 6 | `items.length > 0` | offline banner if `isPaused`, else stale banner if `isError`, then `children(items)` |
 
 `items` is computed as `query.data == null ? [] : select(query.data)`, and the **selected value is
@@ -156,8 +156,17 @@ Five invariants that must be stated in code comments, because each one is a trap
   branch and renders the `empty` slot, i.e. *"you have nothing"*. That is the exact lie this
   component exists to kill, and it is reachable in production: SearchPet is a PWA whose service
   worker serves the shell offline (rule #28). Row 2 is what makes row 3's claim true.
-- **Row 4 requires `items.length === 0`.** This is the Leaderboard lesson above. Without it, a cold
-  start erases a drawn list.
+- **Rows 2 and 4 gate on `query.data == null`, never on `items.length === 0`.** This is the
+  Leaderboard lesson above, one level too shallow: `items` is computed **after** `select` runs, so
+  an empty selected slice does not mean the query taught us nothing — it can mean we have perfectly
+  good cached data whose slice happens to be empty. **This document originally stated the invariant
+  as `items.length === 0`, and that wording is what produced the regression `/code-review` found on
+  PR #188**, after two earlier reviews had already passed it: with cached data `['perro', 'gato']`
+  and a `select` narrowing to `[]` (e.g. the adoption bucket of a user's own pets), an `isError`
+  refetch replaced the correct "no tenés nada en adopción" empty state with "no pudimos leer esta
+  lista" — asserting ignorance where a cached fact exists, the exact mirror of the bug this
+  primitive exists to kill. The fix reads `query.data`, the pre-`select` value, so a real cold start
+  (`data == null`) still shows the card, and a merely-empty selected slice does not.
 - **The primitive wraps no slot in a `<div>`.** Leaderboard's skeleton lives inside a `grid` and its
   column placement was measured. A wrapper element would break it. The banner is the one element the
   primitive owns, and it carries `col-span-full w-full` for the same reason: it is a sibling of
@@ -236,7 +245,8 @@ go red**. A green test that was never seen red proves nothing.
 | test | proven red by |
 |---|---|
 | a disabled query does **not** render the skeleton | swapping `isLoading` for `isPending` → infinite skeleton |
-| error **with** cached data renders the list + banner, not the error card | dropping `&& items.length === 0` → the list disappears |
+| error **with** cached data renders the list + banner, not the error card | dropping `&& query.data == null` → the list disappears |
+| error **with** cached data whose `select` narrows to `[]` renders the `empty` slot + banner, not the error card | swapping the guard back to `items.length === 0` → the PR #188 regression |
 | error with no data renders the card, and retry calls `refetch` | — |
 | a genuine empty renders the `empty` slot | — |
 | slots render with **no wrapper element** | adding a `<div>` → Leaderboard's grid breaks |
@@ -261,6 +271,7 @@ PR regardless of base branch, so a stacked PR does execute its jobs.
 | 4 | `PetDetailPage`, `CreateReportPage`, `LostPetStep` |
 | 5 | `ProfilePage`, `UserProfilePage` |
 | 6 | `admin/AbuseReportsPage`, `admin/StoriesAdminPage` |
+| 7 | `HomePage`'s "Historias de éxito" strip. Deliberately **not** part of PR 2: porting it there would have been scope creep on the feed port. Its `empty` slot must be `<></>` — this section is meant to disappear when genuinely empty (no stories yet is not a fact worth a card), unlike the feed, whose `empty` states this doc's fix asserts must render. |
 
 Per rule #30, every branch is cut from `origin/main`, and per rule #49 the base of a stack is merged
 **without** `--delete-branch`.

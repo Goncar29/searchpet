@@ -8,6 +8,7 @@ import { getErrorMessage } from '@shared/utils/apiErrors';
 import { PawPlaceholder } from '../components/PawPlaceholder';
 import { selectableStatuses } from '@shared/utils/petStatusTransitions';
 import { splitOwnedPets } from '@shared/utils/ownedPetBuckets';
+import { ListState } from '../components/list/ListState';
 
 function SkeletonCard() {
   return (
@@ -273,8 +274,8 @@ export function MyPetsPage() {
     setTab(tabFromURL(location.search));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.key]);
-  const { data: ownedPets, isLoading: loadingOwned } = useMyPets();
-  const { data: reportedPets, isLoading: loadingReported } = useReportedPets();
+  const ownedQuery = useMyPets();
+  const reportedQuery = useReportedPets();
   const deletePet = useDeletePet();
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -285,10 +286,19 @@ export function MyPetsPage() {
   // El corte vive en `shared/utils/ownedPetBuckets` y no acá: lo consumen esta
   // pantalla y el perfil. Escrito a mano en los dos lados, agregar un estado
   // rompería uno solo, en silencio.
-  const { owned: ownedNonAdoption, adoption: adoptionPets } = splitOwnedPets(ownedPets);
+  //
+  // Las pestañas `owned` y `adoption` salen de la MISMA query y se separan con
+  // `select`; `reported` es otra query. Por eso acá se elige la query y su
+  // `select` JUNTOS: si se eligieran por separado, una pestaña podría terminar
+  // leyendo el `select` de la otra.
+  const query = tab === 'reported' ? reportedQuery : ownedQuery;
+  const selectPets = (pets: Pet[]) =>
+    tab === 'owned'
+      ? splitOwnedPets(pets).owned
+      : tab === 'adoption'
+        ? splitOwnedPets(pets).adoption
+        : pets;
 
-  const pets = tab === 'owned' ? ownedNonAdoption : tab === 'reported' ? reportedPets : adoptionPets;
-  const isLoading = tab === 'owned' ? loadingOwned : tab === 'reported' ? loadingReported : loadingOwned;
   const emptyText =
     tab === 'owned'
       ? t('pets:mine.empty')
@@ -353,37 +363,44 @@ export function MyPetsPage() {
           <p className="text-red-500 dark:text-red-400 text-sm mb-4">{deleteError}</p>
         )}
 
-        {isLoading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            <SkeletonCard />
-            <SkeletonCard />
-            <SkeletonCard />
-          </div>
-        ) : !pets || pets.length === 0 ? (
-          <div className="text-center py-20">
-            <p className="text-gray-500 dark:text-gray-400 mb-4">{emptyText}</p>
-            {tab === 'owned' && (
-              <Link
-                to="/pets/create"
-                className="inline-block bg-primary hover:bg-primary-dark text-white font-semibold rounded-lg px-6 py-2 transition-colors"
-              >
-                {t('pets:mine.emptyAction')}
-              </Link>
-            )}
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {pets.map((pet) => (
-              <PetCard
-                key={pet.id}
-                pet={pet}
-                onDelete={handleDelete}
-                confirmingId={confirmingId}
-                onRequestConfirm={setConfirmingId}
-              />
-            ))}
-          </div>
-        )}
+        <ListState
+          query={query}
+          select={selectPets}
+          loading={
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <SkeletonCard />
+              <SkeletonCard />
+              <SkeletonCard />
+            </div>
+          }
+          empty={
+            <div className="text-center py-20">
+              <p className="text-gray-500 dark:text-gray-400 mb-4">{emptyText}</p>
+              {tab === 'owned' && (
+                <Link
+                  to="/pets/create"
+                  className="inline-block bg-primary hover:bg-primary-dark text-white font-semibold rounded-lg px-6 py-2 transition-colors"
+                >
+                  {t('pets:mine.emptyAction')}
+                </Link>
+              )}
+            </div>
+          }
+        >
+          {(pets) => (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {pets.map((pet) => (
+                <PetCard
+                  key={pet.id}
+                  pet={pet}
+                  onDelete={handleDelete}
+                  confirmingId={confirmingId}
+                  onRequestConfirm={setConfirmingId}
+                />
+              ))}
+            </div>
+          )}
+        </ListState>
       </div>
     </div>
   );

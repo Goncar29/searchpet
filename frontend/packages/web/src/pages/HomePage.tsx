@@ -3,7 +3,7 @@ import { useState, useRef, useCallback, useEffect, type ChangeEvent } from 'reac
 import { useTranslation } from 'react-i18next';
 import { useStats, useSearchPets, useStories, useImageClassify, useImageSearch } from '@shared/hooks';
 import { statusBadgeBg } from '../utils/statusBadge';
-import type { Pet, PetType, PetStatus, SuccessStory, ClassifyResult, ImageSearchResult } from '@shared/types';
+import type { PetType, PetStatus, SuccessStory, ClassifyResult, ImageSearchResult } from '@shared/types';
 import { getErrorMessage } from '@shared/utils/apiErrors';
 import { startOfDayISO, endOfDayISO } from '@shared/utils/dateFilters';
 import { cloudinaryCardThumb } from '@shared/utils/cloudinaryThumb';
@@ -12,6 +12,7 @@ import { useAuth } from '../context/AuthContext';
 import { PawPlaceholder } from '../components/PawPlaceholder';
 import { Icon } from '../components/Icon';
 import { StoryCard } from '../components/StoryCard';
+import { ListState } from '../components/list/ListState';
 
 // Montevideo default center for the optional distance filter.
 const DEFAULT_LAT = -34.9011;
@@ -315,7 +316,7 @@ export function HomePage() {
   const radiusKm = Number(filterRadius);
   const geoLat = filterRadius ? (filterGeoCenter?.lat ?? DEFAULT_LAT) : undefined;
   const geoLng = filterRadius ? (filterGeoCenter?.lng ?? DEFAULT_LNG) : undefined;
-  const { data: searchResults, isLoading } = useSearchPets({
+  const searchQuery = useSearchPets({
     type: filterType || undefined,
     color: filterColor.trim() || undefined,
     status: filterStatus || undefined,
@@ -326,6 +327,15 @@ export function HomePage() {
     lng: geoLng,
     radiusMeters: filterRadius ? radiusKm * 1000 : undefined,
   });
+  // `undefined` y no 0 cuando no hay datos: con la query caída, un "0
+  // resultados" acá contradice al cartel de error de abajo, y de los dos el que
+  // suena seguro es el que miente. Sin dato, no se afirma nada.
+  // Sin `?? searchQuery.data.data.length`: `backend/internal/dto/pet_dto.go`
+  // declara `Total int64` con `json:"total"` y sin `omitempty`, así que el
+  // backend siempre lo manda. Ese fallback era inalcanzable y además más débil
+  // que el .length real — un fallback que nunca corre y que si corriera sería
+  // peor es ruido que parece protección.
+  const resultCount = searchQuery.data ? searchQuery.data.total : undefined;
 
   return (
     <div className="bg-gray-50 dark:bg-gray-950 min-h-screen">
@@ -733,12 +743,16 @@ export function HomePage() {
           <h2 className="font-display text-headline sm:text-display-sm text-gray-900 dark:text-gray-100">
             {imageResults
               ? `${t('home:photoSearch.resultsTitle')} (${imageResults.length})`
+              : hasActiveFilters && resultCount !== undefined
+              ? `${resultCount} ${resultCount !== 1 ? t('home:results') : t('home:result')}`
+              // Con un filtro activo pero sin conteo (la búsqueda falló), el
+              // título no puede seguir diciendo "Reportes recientes" — esa
+              // etiqueta es la del feed SIN filtrar, y el badge "búsqueda
+              // activa" de al lado la contradice. `resultsUnknown` es neutro:
+              // no afirma un conteo que no tenemos, y no miente sobre si hay
+              // un filtro puesto.
               : hasActiveFilters
-              ? `${searchResults?.total ?? searchResults?.data?.length ?? 0} ${
-                  (searchResults?.total ?? searchResults?.data?.length ?? 0) !== 1
-                    ? t('home:results')
-                    : t('home:result')
-                }`
+              ? t('home:resultsUnknown')
               : t('home:recentReports')}
           </h2>
           {imageResults ? (
@@ -796,68 +810,77 @@ export function HomePage() {
               </button>
             </div>
           )
-        ) : isLoading ? (
-          <div className="text-center py-12">
-            <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
-            <p className="text-gray-500 dark:text-gray-400">{t('common:loading')}</p>
-          </div>
         ) : (
-          // ── Resultados de búsqueda (Pet[]) ──
-          searchResults?.data && searchResults.data.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {searchResults.data.map((pet: Pet) => (
-                <Link key={pet.id} to={`/pets/${pet.id}`} className="block group">
-                  <div className="bg-white dark:bg-gray-900 rounded-2xl overflow-hidden shadow-sm border border-gray-100 dark:border-gray-800 hover:shadow-md transition-shadow">
-                    {/* Foto */}
-                    <div className="h-48 bg-gray-100 dark:bg-gray-800 relative overflow-hidden">
-                      {pet.photos?.[0]?.url ? (
-                        <img
-                          src={cloudinaryCardThumb(pet.photos[0].url)}
-                          alt={pet.name}
-                          loading="lazy"
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center"><PawPlaceholder className="w-2/5 max-w-20" /></div>
-                      )}
-                      <span className={`absolute top-3 left-3 text-xs font-bold text-white px-2.5 py-1 rounded-full ${statusBadgeBg(pet.status)}`}>
-                        {t(`pets:status.${pet.status}`).toUpperCase()}
-                      </span>
-                    </div>
-                    {/* Info */}
-                    <div className="p-4">
-                      <h3 className="font-bold text-gray-900 dark:text-gray-100 text-lg mb-1">{pet.name}</h3>
-                      <div className="flex flex-wrap gap-1 mb-2">
-                        {pet.type && <span className="text-xs bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 px-2 py-0.5 rounded-full">{t(`pets:types.${pet.type}`)}</span>}
-                        {pet.breed && <span className="text-xs bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 px-2 py-0.5 rounded-full">{pet.breed}</span>}
-                        {pet.color && <span className="text-xs bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 px-2 py-0.5 rounded-full">{pet.color}</span>}
+          <ListState
+            query={searchQuery}
+            select={(res) => res.data}
+            loading={
+              <div className="text-center py-12">
+                <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
+                <p className="text-gray-500 dark:text-gray-400">{t('common:loading')}</p>
+              </div>
+            }
+            empty={
+              // Este vacío ya dice lo correcto: "no hay resultados" para los
+              // filtros puestos, no "no hay mascotas". Es el estado de filtro
+              // sin coincidencias, y se queda tal cual.
+              <div className="text-center py-12">
+                <Icon name="search" className="mx-auto mb-4 text-5xl text-gray-300 dark:text-gray-600" />
+                <p className="text-gray-700 dark:text-gray-300 font-semibold mb-2">{t('home:noResults.title')}</p>
+                <p className="text-gray-500 dark:text-gray-400 mb-4">{t('home:noResults.hint')}</p>
+                <button onClick={clearFilters} className="px-5 py-2 bg-primary text-white rounded-lg text-sm font-semibold hover:bg-primary-dark transition-colors">
+                  {t('home:filters.clear')}
+                </button>
+              </div>
+            }
+          >
+            {(pets) => (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {pets.map((pet) => (
+                  <Link key={pet.id} to={`/pets/${pet.id}`} className="block group">
+                    <div className="bg-white dark:bg-gray-900 rounded-2xl overflow-hidden shadow-sm border border-gray-100 dark:border-gray-800 hover:shadow-md transition-shadow">
+                      {/* Foto */}
+                      <div className="h-48 bg-gray-100 dark:bg-gray-800 relative overflow-hidden">
+                        {pet.photos?.[0]?.url ? (
+                          <img
+                            src={cloudinaryCardThumb(pet.photos[0].url)}
+                            alt={pet.name}
+                            loading="lazy"
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center"><PawPlaceholder className="w-2/5 max-w-20" /></div>
+                        )}
+                        <span className={`absolute top-3 left-3 text-xs font-bold text-white px-2.5 py-1 rounded-full ${statusBadgeBg(pet.status)}`}>
+                          {t(`pets:status.${pet.status}`).toUpperCase()}
+                        </span>
                       </div>
-                      {/* Always reserve the comment height (2 lines) and show a
-                          placeholder when empty so every card stays the same height (#19). */}
-                      <p
-                        className={`text-sm line-clamp-2 min-h-[2.5rem] ${
-                          pet.description
-                            ? 'text-gray-500 dark:text-gray-400'
-                            : 'italic text-gray-400 dark:text-gray-500'
-                        }`}
-                      >
-                        {pet.description || t('pets:card.noComment')}
-                      </p>
+                      {/* Info */}
+                      <div className="p-4">
+                        <h3 className="font-bold text-gray-900 dark:text-gray-100 text-lg mb-1">{pet.name}</h3>
+                        <div className="flex flex-wrap gap-1 mb-2">
+                          {pet.type && <span className="text-xs bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 px-2 py-0.5 rounded-full">{t(`pets:types.${pet.type}`)}</span>}
+                          {pet.breed && <span className="text-xs bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 px-2 py-0.5 rounded-full">{pet.breed}</span>}
+                          {pet.color && <span className="text-xs bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 px-2 py-0.5 rounded-full">{pet.color}</span>}
+                        </div>
+                        {/* Always reserve the comment height (2 lines) and show a
+                            placeholder when empty so every card stays the same height (#19). */}
+                        <p
+                          className={`text-sm line-clamp-2 min-h-[2.5rem] ${
+                            pet.description
+                              ? 'text-gray-500 dark:text-gray-400'
+                              : 'italic text-gray-400 dark:text-gray-500'
+                          }`}
+                        >
+                          {pet.description || t('pets:card.noComment')}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-12">
-              <Icon name="search" className="mx-auto mb-4 text-5xl text-gray-300 dark:text-gray-600" />
-              <p className="text-gray-700 dark:text-gray-300 font-semibold mb-2">{t('home:noResults.title')}</p>
-              <p className="text-gray-500 dark:text-gray-400 mb-4">{t('home:noResults.hint')}</p>
-              <button onClick={clearFilters} className="px-5 py-2 bg-primary text-white rounded-lg text-sm font-semibold hover:bg-primary-dark transition-colors">
-                {t('home:filters.clear')}
-              </button>
-            </div>
-          )
+                  </Link>
+                ))}
+              </div>
+            )}
+          </ListState>
         )}
       </section>
     </div>
