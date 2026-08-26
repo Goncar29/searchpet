@@ -167,6 +167,7 @@
       "noPhone": "Nenhum telefone cadastrado",
       "whatsappMessage": "Olá, vi seu pet {{name}} no SearchPet",
       "timeline": "Histórico de reportes ({{count}})",
+      "timelineLoadError": "Não conseguimos carregar o histórico",
       "reporter": "Quem reportou",
       "reporterDescription": "Este pet errante foi reportado por um membro da comunidade.",
       "contactReporter": "Contatar reportador",

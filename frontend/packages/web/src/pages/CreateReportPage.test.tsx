@@ -385,6 +385,19 @@ describe('CreateReportPage — el selector de mascota', () => {
     expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
   });
 
+  // Con el campo reemplazado por el cartel, `fieldErrors.petId` se queda SIN
+  // renderer: sus dos unicos lugares son el `FormField` de `campoMascota` y la
+  // rama del preset. Si el boton sigue vivo, `validate()` falla y en pantalla
+  // no cambia NADA — un boton muerto y silencioso.
+  it('con la lista caida el boton de enviar NO queda vivo y mudo', () => {
+    mocks.search = '';
+    mocks.myPetsError = true;
+
+    render(<CreateReportPage />, { wrapper });
+
+    expect(screen.getByRole('button', { name: 'reports:create.submit' })).toBeDisabled();
+  });
+
   // La otra mitad: con mascotas, el selector sigue estando y las lista.
   it('con mascotas el selector las ofrece', () => {
     mocks.search = '';

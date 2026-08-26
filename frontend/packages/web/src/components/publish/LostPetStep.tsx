@@ -73,6 +73,16 @@ export function LostPetStep({ onSelect }: LostPetStepProps) {
       // en un estado terminal o en una búsqueda activa.
       select={(pets) => pets.filter((pet) => pet.status === 'registered')}
       loading={<p className="text-center text-gray-500 dark:text-gray-400">{t('common:loading')}</p>}
+      // `idle={<></>}` y NO el default (`idle ?? empty`): sin sesión la query
+      // queda DESHABILITADA, o sea que nunca se preguntó nada — y caer al slot
+      // `empty` le afirmaría a un desconocido que "no tenés mascotas
+      // registradas". Es exactamente la mentira que toda esta serie borra,
+      // sólo que sobre ignorancia en vez de sobre un fallo.
+      //
+      // Hoy es latente: el wizard gatea la sesión antes (PublishWizardPage:130).
+      // Se cierra igual porque el componente es reusable y el costo es una
+      // línea; que sea inalcanzable no lo hace correcto.
+      idle={<></>}
       empty={sinElegibles}
     >
       {(eligiblePets) => (

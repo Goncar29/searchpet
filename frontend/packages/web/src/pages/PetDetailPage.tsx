@@ -681,6 +681,12 @@ export function PetDetailPage() {
                 sin envoltorio, respetando el comentario de arriba. */}
             <ListState
               query={reportsQuery}
+              // El título por default dice "no pudimos cargar esta LISTA", y en
+              // las otras pantallas portadas la lista ES la página, así que se
+              // entiende solo. Acá el cartel aterriza en medio de una página de
+              // detalle donde la foto, los datos y el contacto cargaron bien:
+              // sin nombrar el historial, el usuario no sabe a qué se refiere.
+              errorTitle={t('pets:detail.timelineLoadError')}
               loading={<></>}
               empty={<></>}
             >

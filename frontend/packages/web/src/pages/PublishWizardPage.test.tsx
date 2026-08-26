@@ -981,7 +981,14 @@ describe('LostPetStep — query deshabilitada', () => {
 
     render(<LostPetStep onSelect={vi.fn()} />, { wrapper });
 
+    // NI el esqueleto NI una afirmacion sobre sus mascotas: sin sesion no se
+    // pregunto nada, asi que no hay nada honesto que decir. La version anterior
+    // de este test asertaba `lostPet.empty`, o sea FIJABA la mentira como
+    // contrato — se llamaba "no se queda cargando" y de paso bendecia el
+    // "no tenes mascotas registradas" dicho a un desconocido.
     expect(screen.queryByText('common:loading')).not.toBeInTheDocument();
-    expect(screen.getByText('publish:lostPet.empty')).toBeInTheDocument();
+    expect(screen.queryByText('publish:lostPet.empty')).not.toBeInTheDocument();
+    expect(screen.queryByText('publish:lostPet.noneEligible')).not.toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 });

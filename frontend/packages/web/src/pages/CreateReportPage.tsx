@@ -88,6 +88,18 @@ export function CreateReportPage() {
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [apiError, setApiError] = useState<string | null>(null);
 
+  // Cuando la lista no se pudo leer, `ListState` reemplaza el campo por su
+  // cartel — y con el campo se va el ÚNICO lugar donde `fieldErrors.petId` se
+  // dibuja (sus dos renderers son el `FormField` de `campoMascota` y la rama
+  // del preset). Sin esto el botón queda VIVO Y MUDO: `validate()` falla, no
+  // hay dónde poner el mensaje, y en pantalla no cambia absolutamente nada.
+  //
+  // La condición espeja la del cartel de `ListState` a propósito: con datos
+  // cacheados el campo SIGUE en pantalla aunque el refetch haya fallado, y ahí
+  // el usuario puede elegir y enviar como siempre.
+  const sinSelectorDeMascota =
+    !presetPetId && myPetsQuery.isError && myPetsQuery.data == null;
+
   // El campo de mascota, armado una sola vez para que los tres estados de la
   // consulta rendericen el MISMO control (ver el comentario en su uso).
   const campoMascota = (pets: Pet[]) => (
@@ -516,7 +528,11 @@ export function CreateReportPage() {
 
         <FormActions
           submit={
-            <button type="submit" disabled={createReport.isPending} className={formSubmitClass}>
+            <button
+              type="submit"
+              disabled={createReport.isPending || sinSelectorDeMascota}
+              className={formSubmitClass}
+            >
               {createReport.isPending ? t('common:loading') : t('reports:create.submit')}
             </button>
           }
