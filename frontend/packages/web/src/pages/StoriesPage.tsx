@@ -5,12 +5,16 @@ import { useAuth } from '../context/AuthContext';
 import type { SuccessStory } from '@shared/types';
 import { PawPlaceholder } from '../components/PawPlaceholder';
 import { StoryCard } from '../components/StoryCard';
+import { ListState } from '../components/list/ListState';
 
 export function StoriesPage() {
   const navigate = useNavigate();
   const { t } = useTranslation(['stories', 'common']);
   const { isAuthenticated } = useAuth();
-  const { data: stories, isLoading } = useStories({ limit: 20 });
+  // Sin `select`: `StoryListResponse` es un alias de `SuccessStory[]`, no un
+  // sobre paginado — el sobre lo devuelve `getStoriesAdmin`, que es otro
+  // endpoint. `ListState` sólo exige `select` cuando el tipo NO es ya un array.
+  const storiesQuery = useStories({ limit: 20 });
   const likeStory = useLikeStory();
   const unlikeStory = useUnlikeStory();
   const isToggling = likeStory.isPending || unlikeStory.isPending;
@@ -39,32 +43,38 @@ export function StoriesPage() {
         </p>
       </div>
 
-      {isLoading ? (
-        <div className="text-center py-12">
-          <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
-          <p className="text-gray-500 dark:text-gray-400">{t('stories:loading')}</p>
-        </div>
-      ) : stories && stories.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {stories.map((story: SuccessStory) => (
-            <StoryCard
-              key={story.id}
-              story={story}
-              to={`/stories/${story.id}`}
-              onToggleLike={toggleLike}
-              likeBusy={isToggling}
-            />
-          ))}
-        </div>
-      ) : (
-        <div className="text-center py-16">
-          <PawPlaceholder className="w-16 mx-auto mb-4" />
-          <p className="text-gray-700 dark:text-gray-300 font-semibold mb-2">
-            {t('stories:empty.title')}
-          </p>
-          <p className="text-gray-500 dark:text-gray-400">{t('stories:empty.hint')}</p>
-        </div>
-      )}
+      <ListState
+        query={storiesQuery}
+        loading={
+          <div className="text-center py-12">
+            <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
+            <p className="text-gray-500 dark:text-gray-400">{t('stories:loading')}</p>
+          </div>
+        }
+        empty={
+          <div className="text-center py-16">
+            <PawPlaceholder className="w-16 mx-auto mb-4" />
+            <p className="text-gray-700 dark:text-gray-300 font-semibold mb-2">
+              {t('stories:empty.title')}
+            </p>
+            <p className="text-gray-500 dark:text-gray-400">{t('stories:empty.hint')}</p>
+          </div>
+        }
+      >
+        {(stories) => (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {stories.map((story: SuccessStory) => (
+              <StoryCard
+                key={story.id}
+                story={story}
+                to={`/stories/${story.id}`}
+                onToggleLike={toggleLike}
+                likeBusy={isToggling}
+              />
+            ))}
+          </div>
+        )}
+      </ListState>
     </div>
   );
 }

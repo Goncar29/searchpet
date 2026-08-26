@@ -181,6 +181,7 @@
   },
   "alerts": {
     "title": "My alerts ({{count}}/{{max}})",
+    "titleNoCount": "My alerts",
     "newAlert": "+ New alert",
     "formTitle": "New alert",
     "nameLabel": "Name (optional)",

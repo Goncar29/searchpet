@@ -7,7 +7,8 @@ import { StoriesPage } from './StoriesPage';
 const likeMutate = vi.fn();
 const unlikeMutate = vi.fn();
 const mockNavigate = vi.fn();
-let mockStories: unknown[] = [];
+let mockStories: unknown[] | undefined = [];
+let mockStoriesError = false;
 let mockIsAuthenticated = true;
 
 vi.mock('react-i18next', () => ({
@@ -15,7 +16,16 @@ vi.mock('react-i18next', () => ({
 }));
 
 vi.mock('@shared/hooks', () => ({
-  useStories: () => ({ data: mockStories, isLoading: false }),
+  useStories: () => ({
+    data: mockStories,
+    isPending: false,
+    isFetching: false,
+    isLoading: false,
+    isPaused: false,
+    isError: mockStoriesError,
+    error: mockStoriesError ? new Error('boom') : null,
+    refetch: vi.fn(),
+  }),
   useLikeStory: () => ({ mutate: likeMutate, isPending: false }),
   useUnlikeStory: () => ({ mutate: unlikeMutate, isPending: false }),
 }));
@@ -58,12 +68,23 @@ describe('StoriesPage', () => {
     unlikeMutate.mockClear();
     mockNavigate.mockClear();
     mockStories = [];
+    mockStoriesError = false;
     mockIsAuthenticated = true;
   });
 
   it('renderiza el estado vacío cuando no hay historias', () => {
     render(<StoriesPage />, { wrapper });
     expect(screen.getByText('stories:empty.title')).toBeTruthy();
+  });
+
+  it('con la query caida NO dice que no hay historias', () => {
+    mockStories = undefined;
+    mockStoriesError = true;
+
+    render(<StoriesPage />, { wrapper });
+
+    expect(screen.queryByText('stories:empty.title')).not.toBeInTheDocument();
+    expect(screen.getByRole('alert')).toBeInTheDocument();
   });
 
   // The like state is asserted through aria-pressed, not through the glyph.

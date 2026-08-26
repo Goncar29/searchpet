@@ -13,10 +13,24 @@ vi.mock('react-i18next', () => ({
 // `data?.data` (AdoptPage.tsx:40), o sea que el hook devuelve un SOBRE
 // paginado, no el array. Devolver el array deja la grilla vacia y el test
 // falla sin que haya nada roto en la pagina.
-const state = vi.hoisted(() => ({ data: { data: [] as unknown[], total: 0 } }));
+const state = vi.hoisted(() => ({
+  data: { data: [] as unknown[], total: 0 } as
+    | { data: unknown[] | null; total?: number }
+    | undefined,
+  isError: false,
+}));
 
 vi.mock('@shared/hooks', () => ({
-  useAdoptions: () => ({ data: state.data, isLoading: false }),
+  useAdoptions: () => ({
+    data: state.data,
+    isPending: false,
+    isFetching: false,
+    isLoading: false,
+    isPaused: false,
+    isError: state.isError,
+    error: state.isError ? new Error('boom') : null,
+    refetch: vi.fn(),
+  }),
 }));
 
 function wrapper({ children }: { children: React.ReactNode }) {
@@ -44,6 +58,55 @@ function pet(overrides: Record<string, unknown> = {}) {
 describe('AdoptPage', () => {
   beforeEach(() => {
     state.data = { data: [], total: 0 };
+    state.isError = false;
+  });
+
+  it('con la query caida NO dice que no hay mascotas en adopcion', () => {
+    state.data = undefined;
+    state.isError = true;
+
+    render(<AdoptPage />, { wrapper });
+
+    expect(screen.queryByText('adoption:section.empty')).not.toBeInTheDocument();
+    expect(screen.getByRole('alert')).toBeInTheDocument();
+  });
+
+  // El contador vive FUERA de la rama que se envuelve, asi que el port no lo
+  // toca solo: con la query caida `data?.total ?? pets.length` daba CERO y el
+  // encabezado afirmaba "0 mascotas" al lado del cartel que dice que no
+  // pudimos leer nada. Es la misma mentira un piso mas arriba.
+  it('con la query caida NO afirma un conteo de resultados', () => {
+    state.data = undefined;
+    state.isError = true;
+
+    render(<AdoptPage />, { wrapper });
+
+    expect(screen.queryByText(/resultCount/)).not.toBeInTheDocument();
+  });
+
+  // La otra mitad de la distincion. Sin esto, `count` degradado a `undefined`
+  // para siempre —o el bloque `{count !== undefined && ...}` borrado— deja los
+  // cuatro tests en verde mientras TODO usuario pierde el encabezado.
+  it('con datos el conteo SI se afirma', () => {
+    state.data = { data: [pet()], total: 1 };
+
+    render(<AdoptPage />, { wrapper });
+
+    expect(screen.getByText('adoption:section.resultCount')).toBeInTheDocument();
+  });
+
+  // El backend arma sus slices con `make(...)` y `Total` no lleva `omitempty`,
+  // asi que hoy las dos mitades del sobre siempre viajan. Pero el codigo previo
+  // decia `data?.total ?? (data?.data ?? []).length` y ese `?? []` blindaba la
+  // tajada interna: al reescribir el contador se perdio. Un `data: null` es
+  // JSON valido —y es exactamente la forma de un slice `nil` de Go— y tiraba en
+  // pleno render, dejando en blanco la pantalla que todo esto viene a proteger.
+  it('un sobre con la tajada en null no rompe el render', () => {
+    state.data = { data: null };
+
+    render(<AdoptPage />, { wrapper });
+
+    expect(screen.getByText('adoption:section.empty')).toBeInTheDocument();
   });
 
   // Esta pantalla es la unica que llega a CUATRO columnas (`xl:grid-cols-4`),

@@ -7,6 +7,7 @@ import { statusBadgeBg } from '../utils/statusBadge';
 import type { Pet, PetType } from '@shared/types';
 import { Icon } from '../components/Icon';
 import { PawPlaceholder } from '../components/PawPlaceholder';
+import { ListState } from '../components/list/ListState';
 
 const PET_TYPES: { value: PetType; labelKey: string; icon: string }[] = [
   { value: 'perro', labelKey: 'pets:types.perro', icon: '🐕' },
@@ -32,13 +33,26 @@ export function AdoptPage() {
     });
   };
 
-  const { data, isLoading } = useAdoptions({
+  const adoptionsQuery = useAdoptions({
     city: applied.city,
     type: applied.type,
   });
 
-  const pets = data?.data ?? [];
-  const count = data?.total ?? pets.length;
+  // `undefined` y no `0` cuando no hay respuesta: el encabezado es una
+  // AFIRMACION sobre cuantas mascotas hay, y con la query caida `?? 0` la
+  // convertia en una mentira dibujada justo al lado del cartel que dice que no
+  // pudimos leer nada. Vive fuera de la rama que envuelve `ListState`, asi que
+  // el port no lo arregla solo.
+  //
+  // El `?.length ?? 0` de adentro NO es paranoia de mas: el codigo anterior
+  // decia `data?.total ?? (data?.data ?? []).length` y ese `?? []` blindaba la
+  // tajada interna. `ListState` se blinda igual contra un `data: null` (es JSON
+  // valido, y la forma exacta de un slice `nil` de Go), pero ese guard cubre el
+  // nivel de arriba y este contador lo esquiva por vivir afuera. Sin esto, el
+  // render TIRA y deja en blanco la pantalla que todo esto viene a proteger.
+  const count = adoptionsQuery.data
+    ? (adoptionsQuery.data.total ?? (adoptionsQuery.data.data?.length ?? 0))
+    : undefined;
 
   return (
     <div className="bg-gray-50 dark:bg-gray-950 min-h-screen">
@@ -106,14 +120,22 @@ export function AdoptPage() {
 
       {/* Resultados */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="font-display text-headline text-gray-900 dark:text-gray-100">
-            {t('adoption:section.resultCount', { count })}
-          </h2>
-        </div>
+        {/* Se oculta el encabezado entero y no solo su numero: un `<h2>` vacio
+            es un encabezado sin nombre accesible, que para un lector de
+            pantalla es peor que no tenerlo. */}
+        {count !== undefined && (
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="font-display text-headline text-gray-900 dark:text-gray-100">
+              {t('adoption:section.resultCount', { count })}
+            </h2>
+          </div>
+        )}
 
-        {isLoading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        <ListState
+          query={adoptionsQuery}
+          select={(res) => res.data}
+          loading={
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {/* DOCE, que es el unico numero que llena filas completas en los tres
                 anchos de la grilla: 2, 3 y 4 columnas. Antes decian ocho "porque
                 la grilla llega a cuatro", y esa cuenta era falsa justo en el
@@ -149,8 +171,16 @@ export function AdoptPage() {
                 </div>
               </div>
             ))}
-          </div>
-        ) : pets.length > 0 ? (
+            </div>
+          }
+          empty={
+            <div className="text-center py-12">
+              <PawPlaceholder className="w-16 mx-auto mb-4" />
+              <p className="text-gray-700 dark:text-gray-300 font-semibold mb-2">{t('adoption:section.empty')}</p>
+            </div>
+          }
+        >
+          {(pets) => (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {pets.map((pet: Pet) => (
               <Link key={pet.id} to={`/pets/${pet.id}`} className="block group">
@@ -229,12 +259,8 @@ export function AdoptPage() {
               </Link>
             ))}
           </div>
-        ) : (
-          <div className="text-center py-12">
-            <PawPlaceholder className="w-16 mx-auto mb-4" />
-            <p className="text-gray-700 dark:text-gray-300 font-semibold mb-2">{t('adoption:section.empty')}</p>
-          </div>
-        )}
+          )}
+        </ListState>
       </section>
     </div>
   );
