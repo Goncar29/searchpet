@@ -13,10 +13,22 @@ vi.mock('react-i18next', () => ({
 // `data?.data` (AdoptPage.tsx:40), o sea que el hook devuelve un SOBRE
 // paginado, no el array. Devolver el array deja la grilla vacia y el test
 // falla sin que haya nada roto en la pagina.
-const state = vi.hoisted(() => ({ data: { data: [] as unknown[], total: 0 } }));
+const state = vi.hoisted(() => ({
+  data: { data: [] as unknown[], total: 0 } as { data: unknown[]; total: number } | undefined,
+  isError: false,
+}));
 
 vi.mock('@shared/hooks', () => ({
-  useAdoptions: () => ({ data: state.data, isLoading: false }),
+  useAdoptions: () => ({
+    data: state.data,
+    isPending: false,
+    isFetching: false,
+    isLoading: false,
+    isPaused: false,
+    isError: state.isError,
+    error: state.isError ? new Error('boom') : null,
+    refetch: vi.fn(),
+  }),
 }));
 
 function wrapper({ children }: { children: React.ReactNode }) {
@@ -44,6 +56,30 @@ function pet(overrides: Record<string, unknown> = {}) {
 describe('AdoptPage', () => {
   beforeEach(() => {
     state.data = { data: [], total: 0 };
+    state.isError = false;
+  });
+
+  it('con la query caida NO dice que no hay mascotas en adopcion', () => {
+    state.data = undefined;
+    state.isError = true;
+
+    render(<AdoptPage />, { wrapper });
+
+    expect(screen.queryByText('adoption:section.empty')).not.toBeInTheDocument();
+    expect(screen.getByRole('alert')).toBeInTheDocument();
+  });
+
+  // El contador vive FUERA de la rama que se envuelve, asi que el port no lo
+  // toca solo: con la query caida `data?.total ?? pets.length` daba CERO y el
+  // encabezado afirmaba "0 mascotas" al lado del cartel que dice que no
+  // pudimos leer nada. Es la misma mentira un piso mas arriba.
+  it('con la query caida NO afirma un conteo de resultados', () => {
+    state.data = undefined;
+    state.isError = true;
+
+    render(<AdoptPage />, { wrapper });
+
+    expect(screen.queryByText(/resultCount/)).not.toBeInTheDocument();
   });
 
   // Esta pantalla es la unica que llega a CUATRO columnas (`xl:grid-cols-4`),
