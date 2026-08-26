@@ -132,6 +132,14 @@ export function ListState<TData, TItem = TData extends (infer U)[] ? U : never>(
     query.data == null ? [] : select ? select(query.data) : (query.data as unknown as TItem[]);
   const items: TItem[] = raw ?? [];
 
+  // `query.data == null` y NO `items.length === 0`: `items` sale DESPUÉS de
+  // `select`, así que una tajada vacía de datos que SÍ tenemos —el usuario
+  // tiene mascotas pero ninguna en adopción— no es ignorancia, es una
+  // respuesta. Decir "no pudimos leer" ahí es el ESPEJO exacto del bug que
+  // esta primitiva existe para matar: afirmar ignorancia donde hay un hecho
+  // cacheado, en vez de afirmar un hecho donde hay ignorancia.
+  const sinDatos = query.data == null;
+
   // Fragmentos y no `<div>`: la primitiva NO envuelve ningún slot. El esqueleto
   // de `LeaderboardPage` vive dentro de un `grid` y su posición está medida —
   // se midió un salto horizontal de 272px cuando cambió de columna. Un wrapper
@@ -143,7 +151,7 @@ export function ListState<TData, TItem = TData extends (infer U)[] ? U : never>(
   // primera carga sin conexión cae en la de abajo y dice "no tenés nada" — la
   // mentira exacta que este componente existe para matar, y justo cuando el
   // usuario menos puede saber que es mentira.
-  if (query.isPaused && items.length === 0) {
+  if (query.isPaused && sinDatos) {
     return (
       <QueryErrorCard
         title={t('common:offlineTitle')}
@@ -155,12 +163,14 @@ export function ListState<TData, TItem = TData extends (infer U)[] ? U : never>(
   // Acá `isPending` sí significa una sola cosa: la query está DESHABILITADA
   // (`enabled: false`), porque el caso offline se fue en la rama de arriba.
   if (query.isPending) return <>{idle ?? empty}</>;
-  // El `items.length === 0` NO es redundante: React Query CONSERVA los datos
-  // cacheados cuando falla un refetch, y ahí `isLoading` es false. Con `isError`
-  // a secas, un fallo pasajero —el cold start de Render tras dormirse, un 502—
-  // REEMPLAZA una lista ya dibujada por este cartel. Mostrar datos viejos es
-  // mejor que borrar los que están; de eso se ocupa la rama de abajo.
-  if (query.isError && items.length === 0) {
+  // `sinDatos` (`query.data == null`) y NO `items.length === 0`: React Query
+  // CONSERVA los datos cacheados cuando falla un refetch, y ahí `isLoading` es
+  // false. Con `isError` a secas, un fallo pasajero —el cold start de Render
+  // tras dormirse, un 502— REEMPLAZA una lista ya dibujada por este cartel.
+  // Mostrar datos viejos es mejor que borrar los que están; de eso se ocupa la
+  // rama de abajo, que ahora también cubre el caso de una tajada vacía sobre
+  // datos reales.
+  if (query.isError && sinDatos) {
     return (
       <QueryErrorCard
         title={errorTitle ?? t('common:loadErrorTitle')}
@@ -169,15 +179,17 @@ export function ListState<TData, TItem = TData extends (infer U)[] ? U : never>(
       />
     );
   }
-  if (items.length === 0) return <>{empty}</>;
-  return (
-    <>
-      {query.isPaused ? (
-        <StaleBanner message={t('common:offlineStale')} onRetry={() => query.refetch()} />
-      ) : query.isError ? (
-        <StaleBanner message={t('common:staleTitle')} onRetry={() => query.refetch()} />
-      ) : null}
-      {children(items)}
-    </>
-  );
+  // La franja va ARRIBA de lo que sea que se muestre —el slot `empty` incluido—
+  // porque en los dos casos hay un dato cacheado que puede estar vencido: un
+  // `[]` real (no hay nada en adopción) y un `[]` post-`select` sobre datos
+  // reales que no pudimos refrescar se ven idénticos en `items`, y en los dos
+  // el usuario tiene derecho a saber que lo que ve puede no ser lo último.
+  const banner = query.isPaused ? (
+    <StaleBanner message={t('common:offlineStale')} onRetry={() => query.refetch()} />
+  ) : query.isError ? (
+    <StaleBanner message={t('common:staleTitle')} onRetry={() => query.refetch()} />
+  ) : null;
+
+  if (items.length === 0) return <>{banner}{empty}</>;
+  return <>{banner}{children(items)}</>;
 }

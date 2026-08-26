@@ -224,4 +224,30 @@ describe('HomePage', () => {
     expect(screen.getByText('home:noResults.title')).toBeInTheDocument();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
+
+  // El defecto exacto de PR #188: `resultCount` ya leía `searchQuery.data`
+  // (no `items.length`), pero `ListState` gateaba su cartel de error con
+  // `items.length === 0` — con datos cacheados cuya tajada es `[]` y un
+  // refetch caído, el heading decía "0 resultados" justo arriba de un cartel
+  // que decía "no pudimos leer esta lista". Con el guard de `ListState` en
+  // `query.data == null`, el heading y el cuerpo vuelven a estar de acuerdo.
+  it('con datos cacheados vacios y el refetch caido, el titulo y el cuerpo coinciden', () => {
+    vi.mocked(useSearchPets).mockReturnValue(
+      { data: { data: [], total: 0 }, isPending: false, isFetching: false, isLoading: false,
+        isPaused: false, isError: true, error: new Error('boom'), refetch: vi.fn() } as never,
+    );
+
+    const { container } = render(<HomePage />, { wrapper });
+
+    const statusSelect = container.querySelector('#filter-status') as HTMLSelectElement;
+    fireEvent.change(statusSelect, { target: { value: 'lost' } });
+    fireEvent.click(screen.getByRole('button', { name: 'home:searchButton' }));
+
+    // El heading afirma "0 resultados"...
+    expect(screen.getByRole('heading', { name: /0 home:result/ })).toBeInTheDocument();
+    // ...y el cuerpo tiene que estar de acuerdo: el vacío real, no el cartel
+    // de "no pudimos leer", que sería la mentira opuesta sobre el mismo dato.
+    expect(screen.getByText('home:noResults.title')).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
 });
