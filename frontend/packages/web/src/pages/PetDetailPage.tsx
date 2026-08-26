@@ -16,6 +16,7 @@ import { SharePanel } from '../components/SharePanel';
 import { PdfFlyerButton } from '../components/PdfFlyerButton';
 import { RevealContact } from '../components/RevealContact';
 import { TimelineMap } from '../components/TimelineMap';
+import { ListState } from '../components/list/ListState';
 import { AdoptionPetBody } from '../components/AdoptionPetBody';
 import { Icon } from '../components/Icon';
 import { cloudinaryFit } from '@shared/utils/cloudinaryThumb';
@@ -25,7 +26,7 @@ export function PetDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { user, isAuthenticated } = useAuth();
   const { data: pet, isLoading } = usePetByID(id || '');
-  const { data: reports } = useReportsByPetID(id || '');
+  const reportsQuery = useReportsByPetID(id || '');
   const markAsFound = useMarkPetAsFound();
   const submitAbuseReport = useSubmitAbuseReport();
   const [showPetReportMenu, setShowPetReportMenu] = useState(false);
@@ -482,7 +483,10 @@ export function PetDetailPage() {
                 </Link>
               )}
               {/* PDF Flyer — same gating as share (it embeds the share-link QR) */}
-              {shareAvailable && <PdfFlyerButton pet={pet} reports={reports ?? []} />}
+              {/* Vive FUERA de la rama del historial, así que el `?? []` se
+                  queda: el volante degrada bien sin reportes y no le afirma
+                  nada al usuario sobre cuántos hay. */}
+              {shareAvailable && <PdfFlyerButton pet={pet} reports={reportsQuery.data ?? []} />}
             </div>
 
                 </div>
@@ -661,7 +665,26 @@ export function PetDetailPage() {
             {/* Timeline. The condition wraps the grid child, not its contents:
                 a wrapper that outlives its content still gets a grid cell and
                 its share of the gap. */}
-            {reports && reports.length > 0 && (
+            {/* `loading` y `empty` van en fragmento vacío A PROPÓSITO, y son dos
+                decisiones distintas.
+
+                `loading`: hoy no se dibuja nada mientras carga. Meterle un
+                esqueleto sería un cambio de diseño, y esto es un porte.
+
+                `empty`: una mascota que de verdad no tiene reportes NO gana una
+                tarjeta "Historial (0)" vacía. El silencio ahí es correcto — lo
+                que estaba mal era usar EL MISMO silencio cuando la consulta
+                fallaba, que es lo único que cambia acá.
+
+                El cartel de error sí ocupa la celda del grid, y está bien: la
+                celda existe porque hay algo que decir. Por eso `ListState` va
+                sin envoltorio, respetando el comentario de arriba. */}
+            <ListState
+              query={reportsQuery}
+              loading={<></>}
+              empty={<></>}
+            >
+              {(reports) => (
             <div className="min-w-0">
               <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
                 <h3 className="mb-4 flex items-center gap-2 font-display text-headline text-gray-900 dark:text-gray-100">
@@ -707,10 +730,11 @@ export function PetDetailPage() {
                     </div>
                   ))}
                 </div>
-                <TimelineMap reports={reports ?? []} />
+                <TimelineMap reports={reports} />
               </div>
             </div>
-            )}
+              )}
+            </ListState>
               </div>
             )}
           </div>
