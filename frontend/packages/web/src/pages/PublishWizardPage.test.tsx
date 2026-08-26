@@ -4,6 +4,7 @@ import { MemoryRouter, useLocation, useNavigate, Link } from 'react-router';
 import { QueryClientProvider, QueryClient } from '@tanstack/react-query';
 import { PublishWizardPage } from './PublishWizardPage';
 import { useMyPets, useCreatePet, usePublishStray } from '@shared/hooks';
+import { LostPetStep } from '../components/publish/LostPetStep';
 import { apiClient } from '@shared/api/client';
 
 vi.mock('react-i18next', () => ({
@@ -138,6 +139,20 @@ describe('PublishWizardPage', () => {
 });
 
 describe('PublishWizardPage — lost path', () => {
+  it('con la lista caida NO dice que no tenes mascotas', () => {
+    vi.mocked(useMyPets).mockReturnValue({
+      data: undefined, isPending: false, isFetching: false, isLoading: false,
+      isPaused: false, isError: true, error: new Error('boom'), refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useMyPets>);
+
+    render(<PublishWizardPage />, { wrapper });
+    fireEvent.click(screen.getByText('publish:intent.lostTitle'));
+
+    expect(screen.queryByText('publish:lostPet.empty')).not.toBeInTheDocument();
+    expect(screen.queryByText('publish:lostPet.noneEligible')).not.toBeInTheDocument();
+    expect(screen.getByRole('alert')).toBeInTheDocument();
+  });
+
   it('shows the empty state with a link to /pets/create when there are no eligible pets', () => {
     vi.mocked(useMyPets).mockReturnValue({ data: [], isLoading: false } as unknown as ReturnType<typeof useMyPets>);
     render(<PublishWizardPage />, { wrapper });
@@ -943,5 +958,30 @@ describe('PublishWizardPage — el back del navegador después de publicar', () 
     expect(screen.getByText('publish:success.strayTitle')).toBeInTheDocument();
     expect(screen.queryByText('publish:location.publish')).not.toBeInTheDocument();
     expect(mutateAsync).toHaveBeenCalledTimes(1);
+  });
+});
+
+// `LostPetStep` renderizado DIRECTO, no a traves del wizard: el wizard gatea la
+// sesion antes (PublishWizardPage.tsx:130 manda a InlineAuthStep), asi que por
+// ese camino el visitante sin sesion NUNCA llega aca. La guarda igual importa —
+// `useMyPets(isAuthenticated)` deja la query DESHABILITADA, y en React Query v5
+// eso es `pending` para siempre: quien reuse este componente sin el gate se
+// comeria un esqueleto eterno. Es la rama `idle` de ListState.
+describe('LostPetStep — query deshabilitada', () => {
+  afterEach(() => {
+    authState.isAuthenticated = true;
+  });
+
+  it('sin sesion NO se queda cargando para siempre', () => {
+    authState.isAuthenticated = false;
+    vi.mocked(useMyPets).mockReturnValue({
+      data: undefined, isPending: true, isFetching: false, isLoading: false,
+      isPaused: false, isError: false, error: null, refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useMyPets>);
+
+    render(<LostPetStep onSelect={vi.fn()} />, { wrapper });
+
+    expect(screen.queryByText('common:loading')).not.toBeInTheDocument();
+    expect(screen.getByText('publish:lostPet.empty')).toBeInTheDocument();
   });
 });
