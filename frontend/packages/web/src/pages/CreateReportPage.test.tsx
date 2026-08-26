@@ -35,6 +35,7 @@ const mocks = vi.hoisted(() => ({
   // la carga en dos tiempos, que es cuando aparecio el bug del estado pisado.
   rendersCargando: 0,
   myPetsVacio: false,
+  myPetsError: false,
 }));
 
 vi.mock('../context/AuthContext', () => ({
@@ -102,7 +103,19 @@ vi.mock('@shared/hooks', () => ({
   // En frio las DOS estan cargando: si solo se simula usePetByID, myPets sigue
   // entregando la mascota y el permiso ya es true en el primer render — el
   // escenario del bug no llega a existir.
-  useMyPets: () => (mocks.rendersCargando > 0 || mocks.myPetsVacio ? { data: undefined } : { data: [PET] }),
+  useMyPets: () => ({
+    data:
+      mocks.myPetsError || mocks.rendersCargando > 0 || mocks.myPetsVacio ? undefined : [PET],
+    // `isLoading` era `undefined` en el mock viejo, o sea falsy: se deja en
+    // `false` explicito para no cambiar lo que la pantalla derivaba.
+    isPending: false,
+    isFetching: false,
+    isLoading: false,
+    isPaused: false,
+    isError: mocks.myPetsError,
+    error: mocks.myPetsError ? new Error('boom') : null,
+    refetch: vi.fn(),
+  }),
   useCreateReport: () => ({ mutate: mocks.mutate, mutateAsync: vi.fn(), isPending: false }),
 }));
 
@@ -138,6 +151,7 @@ beforeEach(() => {
   mocks.pet = null;
   mocks.rendersCargando = 0;
   mocks.myPetsVacio = false;
+  mocks.myPetsError = false;
 });
 
 describe('CreateReportPage', () => {
@@ -354,5 +368,43 @@ describe('CreateReportPage — la mascota no se pudo cargar', () => {
     // ANTES de este arreglo, y aun asi el formulario se enviaba. Lo que faltaba
     // no era el mensaje, era cortar el envio.
     expect(screen.getAllByText('pets:detail.notFound').length).toBeGreaterThan(0);
+  });
+});
+
+// El caso ORIGINAL de toda esta clase, medido el 2026-08-24: el selector de
+// mascota se quedaba con su placeholder y nada mas. El usuario leia "elegi una
+// mascota" sobre una lista vacia y concluia que no tenia ninguna registrada.
+describe('CreateReportPage — el selector de mascota', () => {
+  it('con la lista caida avisa, en vez de ofrecer un selector vacio', () => {
+    mocks.search = '';            // flujo directo: sin ?petId=, aparece el <select>
+    mocks.myPetsError = true;
+
+    render(<CreateReportPage />, { wrapper });
+
+    expect(screen.getByRole('alert')).toBeInTheDocument();
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
+  });
+
+  // Con el campo reemplazado por el cartel, `fieldErrors.petId` se queda SIN
+  // renderer: sus dos unicos lugares son el `FormField` de `campoMascota` y la
+  // rama del preset. Si el boton sigue vivo, `validate()` falla y en pantalla
+  // no cambia NADA — un boton muerto y silencioso.
+  it('con la lista caida el boton de enviar NO queda vivo y mudo', () => {
+    mocks.search = '';
+    mocks.myPetsError = true;
+
+    render(<CreateReportPage />, { wrapper });
+
+    expect(screen.getByRole('button', { name: 'reports:create.submit' })).toBeDisabled();
+  });
+
+  // La otra mitad: con mascotas, el selector sigue estando y las lista.
+  it('con mascotas el selector las ofrece', () => {
+    mocks.search = '';
+
+    render(<CreateReportPage />, { wrapper });
+
+    expect(screen.getByRole('combobox')).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 });

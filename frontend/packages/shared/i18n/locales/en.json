@@ -167,6 +167,7 @@
       "noPhone": "No phone registered",
       "whatsappMessage": "Hi, I saw your pet {{name}} on SearchPet",
       "timeline": "Report history ({{count}})",
+      "timelineLoadError": "We couldn't load the report history",
       "reporter": "Who reported it",
       "reporterDescription": "This stray pet was reported by a community member.",
       "contactReporter": "Contact reporter",

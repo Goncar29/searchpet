@@ -27,9 +27,23 @@ vi.mock('react-router', async (importOriginal) => {
   };
 });
 
+const reportsState = vi.hoisted(() => ({
+  data: [] as unknown[] | undefined,
+  isError: false,
+}));
+
 vi.mock('@shared/hooks', () => ({
   usePetByID: () => petResult,
-  useReportsByPetID: () => ({ data: [] }),
+  useReportsByPetID: () => ({
+    data: reportsState.data,
+    isPending: false,
+    isFetching: false,
+    isLoading: false,
+    isPaused: false,
+    isError: reportsState.isError,
+    error: reportsState.isError ? new Error('boom') : null,
+    refetch: vi.fn(),
+  }),
   useMarkPetAsFound: () => ({ mutate: (_id: string, opts?: { onSuccess?: () => void }) => opts?.onSuccess?.() }),
   useSubmitAbuseReport: () => ({ mutate: vi.fn() }),
 }));
@@ -83,11 +97,45 @@ function lostPetWithOwner(overrides: Partial<Pet> = {}): Pet {
   };
 }
 
+describe('PetDetailPage — historial', () => {
+  beforeEach(() => {
+    authState.isAuthenticated = false;
+    authState.user = null;
+    petResult = { data: lostPetWithOwner(), isLoading: false };
+    reportsState.data = [];
+    reportsState.isError = false;
+  });
+
+  // El historial es el unico caso del porte donde la seccion DESAPARECIA
+  // entera al fallar: no habia estado vacio que mintiera, habia silencio. El
+  // usuario nunca se enteraba de que esta mascota tenia un historial.
+  it('con el historial caido avisa en vez de desaparecer', () => {
+    reportsState.data = undefined;
+    reportsState.isError = true;
+
+    render(<PetDetailPage />, { wrapper });
+
+    expect(screen.getByRole('alert')).toBeInTheDocument();
+  });
+
+  // La otra mitad de la distincion. Una mascota que de verdad no tiene
+  // reportes NO gana una tarjeta vacia: el silencio ahi es correcto, y es lo
+  // que separa "no hay nada que mostrar" de "no pudimos leerlo".
+  it('sin reportes la seccion sigue sin aparecer, y sin cartel', () => {
+    render(<PetDetailPage />, { wrapper });
+
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.queryByText(/pets:detail.timeline/)).not.toBeInTheDocument();
+  });
+});
+
 describe('PetDetailPage', () => {
   beforeEach(() => {
     authState.isAuthenticated = false;
     authState.user = null;
     petResult = { data: null, isLoading: true };
+    reportsState.data = [];
+    reportsState.isError = false;
   });
 
   it('renderiza el skeleton de carga cuando isLoading=true', () => {
