@@ -10,7 +10,8 @@ import { FormPage } from '../components/form/FormPage';
 import { FormSection } from '../components/form/FormSection';
 import { FormField } from '../components/form/FormField';
 import { FormActions, formSubmitClass } from '../components/form/FormActions';
-import type { ReportStatus } from '@shared/types';
+import { ListState } from '../components/list/ListState';
+import type { Pet, ReportStatus } from '@shared/types';
 import { getErrorMessage } from '@shared/utils/apiErrors';
 import { canManagePet } from '@shared/utils/petAuthorization';
 import { useAuth } from '../context/AuthContext';
@@ -73,7 +74,7 @@ export function CreateReportPage() {
   // `isLoading` de las DOS consultas, no sólo de una: `petElegida` sale de
   // `presetPet ?? myPets.find(...)`, así que mirar sólo `presetLoading` para
   // decidir "cargando o no encontrada" es mirar la mitad de sus fuentes.
-  const { data: myPets, isLoading: myPetsLoading } = useMyPets();
+  const myPetsQuery = useMyPets();
 
   const createReport = useCreateReport();
 
@@ -87,12 +88,52 @@ export function CreateReportPage() {
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [apiError, setApiError] = useState<string | null>(null);
 
+  // El campo de mascota, armado una sola vez para que los tres estados de la
+  // consulta rendericen el MISMO control (ver el comentario en su uso).
+  const campoMascota = (pets: Pet[]) => (
+    <FormField
+      label={t('reports:create.pet')}
+      htmlFor="report-pet"
+      required
+      error={fieldErrors.petId}
+    >
+      {(control) => (
+        // Sin `aria-label`: acá el <label> del FormField ya nombra al
+        // control, y un aria-label lo PISA — el nombre accesible
+        // pasaba a ser el placeholder del selector en vez de "Mascota".
+        <select
+          {...control}
+          value={petId}
+          onChange={(e) => {
+            setPetId(e.target.value);
+            if (fieldErrors.petId) setFieldErrors((prev) => ({ ...prev, petId: undefined }));
+          }}
+        >
+          <option value="">— {t('reports:create.selectPet')} —</option>
+          {pets.map((pet) => (
+            <option key={pet.id} value={pet.id}>
+              {/* Mismo motivo que la rama de arriba: el tipo se guarda
+                  crudo y sin traducir se leía `perro` aun con la app en
+                  inglés o portugués. Esta rama es el flujo DIRECTO
+                  (/reports/create sin ?petId=), así que era la más vista
+                  de las dos. */}
+              {pet.name} ({t(`pets:types.${pet.type}`)}{pet.breed ? ` · ${pet.breed}` : ''})
+            </option>
+          ))}
+        </select>
+      )}
+    </FormField>
+  );
+
   // `lost` y `found` mueven el estado de la mascota, y eso lo decide su dueño
   // (o quien reportó la callejera). El backend lo rechaza con 403; acá se
   // esconden las opciones para no dejar que alguien llene el formulario entero
   // y recién ahí se entere. A un tercero le queda el avistamiento, que es como
   // aporta al seguimiento — después se coordina por el chat o WhatsApp.
-  const petElegida = presetPet ?? myPets?.find((p) => p.id === petId) ?? null;
+  // Vive FUERA de la rama del selector, así que el port no lo alcanza. Acá el
+  // `?.` se queda y está bien: esto es una BÚSQUEDA, no una afirmación que el
+  // usuario lea. Que no encuentre la mascota ya tiene su propio camino abajo.
+  const petElegida = presetPet ?? myPetsQuery.data?.find((p) => p.id === petId) ?? null;
   const puedeCambiarEstado = canManagePet(petElegida, user?.id);
 
   // Hay un petId pero no se pudo resolver la mascota, y ya terminó de cargar.
@@ -228,7 +269,7 @@ export function CreateReportPage() {
       return (
         <div className="min-h-screen bg-gray-50 dark:bg-gray-950 py-10 px-4">
           <div className="max-w-2xl mx-auto text-center space-y-6">
-            {!petElegida && (presetLoading || myPetsLoading) ? (
+            {!petElegida && (presetLoading || myPetsQuery.isLoading) ? (
               <p className="text-gray-500 dark:text-gray-400">{t('common:loading')}</p>
             ) : (
               <>
@@ -328,39 +369,25 @@ export function CreateReportPage() {
                 )}
               </div>
             ) : (
-              /* Flujo directo: el usuario elige entre SUS mascotas */
-              <FormField
-                label={t('reports:create.pet')}
-                htmlFor="report-pet"
-                required
-                error={fieldErrors.petId}
+              /* Flujo directo: el usuario elige entre SUS mascotas.
+
+                 El `ListState` envuelve el CAMPO ENTERO y no la lista de
+                 `<option>`: su cartel de error es un `<div>`, y un `<div>`
+                 dentro de un `<select>` es marcado inválido. Por eso el campo se
+                 arma una sola vez en `campoMascota` y los tres slots lo reusan —
+                 tres copias del `<select>` serían tres lugares donde olvidarse
+                 de arreglar el mismo bug.
+
+                 `loading` y `empty` renderizan LO MISMO que hoy: el selector con
+                 su placeholder y nada más. Lo único que cambia es que la
+                 consulta caída deja de disfrazarse de "no tenés mascotas". */
+              <ListState
+                query={myPetsQuery}
+                loading={campoMascota([])}
+                empty={campoMascota([])}
               >
-                {(control) => (
-                  // Sin `aria-label`: acá el <label> del FormField ya nombra al
-                  // control, y un aria-label lo PISA — el nombre accesible
-                  // pasaba a ser el placeholder del selector en vez de "Mascota".
-                  <select
-                    {...control}
-                    value={petId}
-                    onChange={(e) => {
-                      setPetId(e.target.value);
-                      if (fieldErrors.petId) setFieldErrors((prev) => ({ ...prev, petId: undefined }));
-                    }}
-                  >
-                    <option value="">— {t('reports:create.selectPet')} —</option>
-                    {myPets?.map((pet) => (
-                      <option key={pet.id} value={pet.id}>
-                        {/* Mismo motivo que la rama de arriba: el tipo se guarda
-                            crudo y sin traducir se leía `perro` aun con la app en
-                            inglés o portugués. Esta rama es el flujo DIRECTO
-                            (/reports/create sin ?petId=), así que era la más vista
-                            de las dos. */}
-                        {pet.name} ({t(`pets:types.${pet.type}`)}{pet.breed ? ` · ${pet.breed}` : ''})
-                      </option>
-                    ))}
-                  </select>
-                )}
-              </FormField>
+                {(pets) => campoMascota(pets)}
+              </ListState>
             )}
 
             {/* Elegir el estado es elegir UNA opción entre varias excluyentes:
