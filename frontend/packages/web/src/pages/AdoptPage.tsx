@@ -43,8 +43,15 @@ export function AdoptPage() {
   // convertia en una mentira dibujada justo al lado del cartel que dice que no
   // pudimos leer nada. Vive fuera de la rama que envuelve `ListState`, asi que
   // el port no lo arregla solo.
+  //
+  // El `?.length ?? 0` de adentro NO es paranoia de mas: el codigo anterior
+  // decia `data?.total ?? (data?.data ?? []).length` y ese `?? []` blindaba la
+  // tajada interna. `ListState` se blinda igual contra un `data: null` (es JSON
+  // valido, y la forma exacta de un slice `nil` de Go), pero ese guard cubre el
+  // nivel de arriba y este contador lo esquiva por vivir afuera. Sin esto, el
+  // render TIRA y deja en blanco la pantalla que todo esto viene a proteger.
   const count = adoptionsQuery.data
-    ? (adoptionsQuery.data.total ?? adoptionsQuery.data.data.length)
+    ? (adoptionsQuery.data.total ?? (adoptionsQuery.data.data?.length ?? 0))
     : undefined;
 
   return (

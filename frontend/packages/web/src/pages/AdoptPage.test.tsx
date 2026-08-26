@@ -14,7 +14,9 @@ vi.mock('react-i18next', () => ({
 // paginado, no el array. Devolver el array deja la grilla vacia y el test
 // falla sin que haya nada roto en la pagina.
 const state = vi.hoisted(() => ({
-  data: { data: [] as unknown[], total: 0 } as { data: unknown[]; total: number } | undefined,
+  data: { data: [] as unknown[], total: 0 } as
+    | { data: unknown[] | null; total?: number }
+    | undefined,
   isError: false,
 }));
 
@@ -80,6 +82,31 @@ describe('AdoptPage', () => {
     render(<AdoptPage />, { wrapper });
 
     expect(screen.queryByText(/resultCount/)).not.toBeInTheDocument();
+  });
+
+  // La otra mitad de la distincion. Sin esto, `count` degradado a `undefined`
+  // para siempre —o el bloque `{count !== undefined && ...}` borrado— deja los
+  // cuatro tests en verde mientras TODO usuario pierde el encabezado.
+  it('con datos el conteo SI se afirma', () => {
+    state.data = { data: [pet()], total: 1 };
+
+    render(<AdoptPage />, { wrapper });
+
+    expect(screen.getByText('adoption:section.resultCount')).toBeInTheDocument();
+  });
+
+  // El backend arma sus slices con `make(...)` y `Total` no lleva `omitempty`,
+  // asi que hoy las dos mitades del sobre siempre viajan. Pero el codigo previo
+  // decia `data?.total ?? (data?.data ?? []).length` y ese `?? []` blindaba la
+  // tajada interna: al reescribir el contador se perdio. Un `data: null` es
+  // JSON valido —y es exactamente la forma de un slice `nil` de Go— y tiraba en
+  // pleno render, dejando en blanco la pantalla que todo esto viene a proteger.
+  it('un sobre con la tajada en null no rompe el render', () => {
+    state.data = { data: null };
+
+    render(<AdoptPage />, { wrapper });
+
+    expect(screen.getByText('adoption:section.empty')).toBeInTheDocument();
   });
 
   // Esta pantalla es la unica que llega a CUATRO columnas (`xl:grid-cols-4`),
