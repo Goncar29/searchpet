@@ -39,7 +39,12 @@ const authUser = vi.hoisted(() => ({
   } as Record<string, unknown>,
 }));
 
-const petsData = vi.hoisted(() => ({ mine: [] as unknown[], reported: [] as unknown[] }));
+const petsData = vi.hoisted(() => ({
+  mine: [] as unknown[],
+  reported: [] as unknown[],
+  mineError: false,
+  reportedError: false,
+}));
 
 const verification = vi.hoisted(() => ({ current: null as { is_verified: boolean } | null }));
 
@@ -55,21 +60,39 @@ vi.mock('../context/AuthContext', () => ({
 const sendEmailOTP = vi.hoisted(() => ({ mutateAsync: vi.fn(), isPending: false }));
 const confirmEmailOTP = vi.hoisted(() => ({ mutateAsync: vi.fn(), isPending: false }));
 
-vi.mock('@shared/hooks', () => ({
-  // `useDeletePet` y `useUpdatePet` son de MyPetsPage: este archivo la monta de
-  // verdad para probar que el "ver todas" ATERRIZA en algún lado.
-  useDeletePet: () => ({ mutate: vi.fn(), isPending: false }),
-  useUpdatePet: () => ({ mutate: vi.fn(), isPending: false }),
-  useUpdateMe: () => ({ mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false }),
-  useUploadProfilePhoto: () => ({ mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false }),
-  useMyBadges: () => ({ data: badgesData.current }),
-  useVerificationStatus: () => ({ data: verification.current }),
-  useSendEmailOTP: () => sendEmailOTP,
-  useConfirmEmailOTP: () => confirmEmailOTP,
-  usePublicProfile: () => ({ data: null, isLoading: false }),
-  useMyPets: () => ({ data: petsData.mine, isLoading: false }),
-  useReportedPets: () => ({ data: petsData.reported, isLoading: false }),
-}));
+vi.mock('@shared/hooks', () => {
+  // Un `UseQueryResult` con la relación real entre las banderas de v5
+  // (`isLoading` = `isPending && isFetching`). El `{ data, isLoading: false }`
+  // que había acá antes dejaba `isError`, `isPaused` y `refetch` en `undefined`:
+  // ninguna rama de `ListState` fuera de la feliz era representable, así que un
+  // verde no decía nada sobre la caída.
+  const query = (data: unknown, isError: boolean) => ({
+    data: isError ? undefined : data,
+    isPending: false,
+    isFetching: false,
+    isLoading: false,
+    isPaused: false,
+    isError,
+    error: isError ? new Error('boom') : null,
+    refetch: vi.fn(),
+  });
+
+  return {
+    // `useDeletePet` y `useUpdatePet` son de MyPetsPage: este archivo la monta de
+    // verdad para probar que el "ver todas" ATERRIZA en algún lado.
+    useDeletePet: () => ({ mutate: vi.fn(), isPending: false }),
+    useUpdatePet: () => ({ mutate: vi.fn(), isPending: false }),
+    useUpdateMe: () => ({ mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false }),
+    useUploadProfilePhoto: () => ({ mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false }),
+    useMyBadges: () => ({ data: badgesData.current }),
+    useVerificationStatus: () => ({ data: verification.current }),
+    useSendEmailOTP: () => sendEmailOTP,
+    useConfirmEmailOTP: () => confirmEmailOTP,
+    usePublicProfile: () => ({ data: null, isLoading: false }),
+    useMyPets: () => query(petsData.mine, petsData.mineError),
+    useReportedPets: () => query(petsData.reported, petsData.reportedError),
+  };
+});
 
 // Un solo logro conocido: alcanza para probar el estado obtenido y el pendiente
 // sin atarse a los seis reales, que viven en shared y cambian por su cuenta.
@@ -153,6 +176,8 @@ describe('ProfilePage', () => {
     };
     petsData.mine = [];
     petsData.reported = [];
+    petsData.mineError = false;
+    petsData.reportedError = false;
     verification.current = null;
     badgesData.current = [];
     refreshUser.mockClear();
@@ -295,6 +320,53 @@ describe('ProfilePage', () => {
     expect(screen.queryByText('adoption:profile.tab')).not.toBeInTheDocument();
     // "Mis mascotas" SI se queda, con su llamada a publicar la primera.
     expect(screen.getByText('pets:mine.empty')).toBeInTheDocument();
+  });
+
+  // ── La lista caida no se puede ver igual que la lista vacia ──
+
+  // El perfil no sabe si tenes mascotas cuando no pudo leerlas. Decir "todavia
+  // no publicaste ninguna" ahi es una afirmacion que la pantalla no puede
+  // sostener, y la de al lado ("todas en adopcion") es la misma mentira con
+  // otro texto.
+  it('con useMyPets caido NO dice que no publicaste ninguna mascota', () => {
+    petsData.mineError = true;
+    render(<ProfilePage />, { wrapper });
+
+    expect(screen.queryByText('pets:mine.empty')).not.toBeInTheDocument();
+    expect(screen.queryByText('profile:allInAdoption')).not.toBeInTheDocument();
+    expect(screen.getByRole('alert')).toBeInTheDocument();
+  });
+
+  // La seccion "En adopcion" sale de la MISMA query que "Mis mascotas", que
+  // siempre se dibuja y por lo tanto siempre carga el cartel. Un segundo cartel
+  // seria el mismo fallo dicho dos veces en la misma columna.
+  it('una sola caida de useMyPets deja UN solo cartel, no uno por seccion', () => {
+    petsData.mineError = true;
+    render(<ProfilePage />, { wrapper });
+
+    expect(screen.getAllByRole('alert')).toHaveLength(1);
+  });
+
+  // Los reportes son otra query y su seccion se esconde cuando esta vacia, asi
+  // que su caida era INVISIBLE: la seccion desaparecia igual que si el usuario
+  // nunca hubiera reportado una callejera.
+  it('con useReportedPets caido avisa, en vez de esconder la seccion', () => {
+    petsData.reportedError = true;
+    render(<ProfilePage />, { wrapper });
+
+    // Y el cartel NOMBRA la seccion: aterriza en una pagina donde todo lo demas
+    // cargo bien y, sin encabezado propio, no se sabria a que se refiere.
+    expect(screen.getByText('profile:reportsLoadError')).toBeInTheDocument();
+    expect(screen.getByRole('alert')).toBeInTheDocument();
+  });
+
+  // La otra mitad de la distincion: sin reportes de verdad, el silencio se
+  // queda. Es la decision de diseño que el port NO puede cambiar.
+  it('sin reportes y sin error, la seccion sigue sin dibujarse', () => {
+    render(<ProfilePage />, { wrapper });
+
+    expect(screen.queryByText('pets:reports.tabReported')).not.toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
   // Un logro pendiente se muestra en gris con COMO conseguirlo: un tablero que

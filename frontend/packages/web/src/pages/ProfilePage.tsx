@@ -22,6 +22,7 @@ import { useAuth } from '../context/AuthContext';
 import type { Badge, Pet } from '@shared/types';
 import { BADGE_META } from '@shared/types';
 import { Icon } from '../components/Icon';
+import { ListState } from '../components/list/ListState';
 import { PawPlaceholder } from '../components/PawPlaceholder';
 import { statusBadgeBg } from '../utils/statusBadge';
 import { myPetsRoute } from '../routes';
@@ -306,13 +307,21 @@ export function ProfilePage() {
   const uploadPhoto = useUploadProfilePhoto();
   const { data: badges } = useMyBadges();
   const { data: publicProfile, isLoading: statsLoading } = usePublicProfile(user?.id ?? '');
-  const { data: myPets, isLoading: petsLoading } = useMyPets();
-  const { data: reportedPets, isLoading: reportedLoading } = useReportedPets();
+  const petsQuery = useMyPets();
+  const reportedQuery = useReportedPets();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // El corte owned/adoption vive en `shared/utils/ownedPetBuckets` y lo comparte
   // con `MyPetsPage`: escrito a mano en los dos lados, un estado nuevo rompería
   // uno solo, en silencio.
+  //
+  // Estas dos tajadas siguen viviendo acá afuera porque las leen cosas que NO
+  // están dentro de la rama que envuelve `ListState`: el "ver todas" del
+  // encabezado y la sección "En adopción". Con la query caída las dos dan `[]`,
+  // y ahí eso es correcto: ninguna de las dos AFIRMA nada — un link que no
+  // aparece y una sección que no se dibuja no le dicen al usuario que no tiene
+  // mascotas. El cartel lo pone la sección de arriba, una sola vez.
+  const myPets = petsQuery.data;
   const { owned: ownedPets, adoption: adoptionPets } = splitOwnedPets(myPets);
 
   const [editing, setEditing] = useState(false);
@@ -925,81 +934,122 @@ export function ProfilePage() {
                 }
               />
 
-              {petsLoading ? (
-                // El esqueleto mide lo que mide la tarjeta: foto de 160px más
-                // 105px de cuerpo (nombre, metadatos y padding). Un placeholder
-                // de otro alto convierte la carga en un salto de layout que no
-                // se ve en una captura ni en un test.
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                  {[0, 1].map((i) => (
-                    <div
-                      key={i}
-                      className="bg-white dark:bg-gray-900 rounded-2xl overflow-hidden border border-gray-100 dark:border-gray-800 animate-pulse"
-                    >
-                      <div className="h-40 bg-gray-100 dark:bg-gray-800" />
-                      <div className="p-4">
-                        <div className="h-7 w-2/3 bg-gray-100 dark:bg-gray-800 rounded" />
-                        <div className="h-5 w-1/2 bg-gray-100 dark:bg-gray-800 rounded mt-0.5" />
+              {/* El cartel de error va sin `errorTitle` propio: cae justo debajo
+                  del encabezado "Mis mascotas", que ya nombra lo que no se pudo
+                  leer. Los reportes, más abajo, sí lo necesitan — su encabezado
+                  no existe cuando no hay nada. */}
+              <ListState
+                query={petsQuery}
+                select={(pets) => splitOwnedPets(pets).owned}
+                loading={
+                  // El esqueleto mide lo que mide la tarjeta: foto de 160px más
+                  // 105px de cuerpo (nombre, metadatos y padding). Un placeholder
+                  // de otro alto convierte la carga en un salto de layout que no
+                  // se ve en una captura ni en un test.
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    {[0, 1].map((i) => (
+                      <div
+                        key={i}
+                        className="bg-white dark:bg-gray-900 rounded-2xl overflow-hidden border border-gray-100 dark:border-gray-800 animate-pulse"
+                      >
+                        <div className="h-40 bg-gray-100 dark:bg-gray-800" />
+                        <div className="p-4">
+                          <div className="h-7 w-2/3 bg-gray-100 dark:bg-gray-800 rounded" />
+                          <div className="h-5 w-1/2 bg-gray-100 dark:bg-gray-800 rounded mt-0.5" />
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              ) : ownedPets.length > 0 ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                  {ownedPets.slice(0, SUMMARY_LIMIT).map((pet: Pet) => (
-                    <PetSummaryCard key={pet.id} pet={pet} t={t} />
-                  ))}
-                </div>
-              ) : (
-                <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 text-center py-12 px-6">
-                  <PawPlaceholder className="w-16 mx-auto mb-4" />
-                  {/* La pregunta que decide el cartel es si tiene ALGUNA mascota,
-                      no si tiene alguna fuera de adopción. `ownedPets` excluye
-                      adopción, así que a quien tiene todas sus mascotas ofrecidas
-                      en adopción le decía "Todavía no publicaste ninguna mascota"
-                      con la sección "En adopción" listándolas justo abajo: un
-                      estado vacío desmentido por otra sección de la misma
-                      pantalla. Exactamente el defecto del wizard de /publish
-                      (PR #132). */}
-                  <p className="text-gray-700 dark:text-gray-300 font-semibold mb-4">
-                    {(myPets?.length ?? 0) > 0 ? t('profile:allInAdoption') : t('pets:mine.empty')}
-                  </p>
-                  <Link
-                    to="/pets/create"
-                    className="inline-block bg-primary hover:bg-primary-dark text-white font-semibold rounded-xl px-6 py-2.5 text-sm transition-colors"
-                  >
-                    {(myPets?.length ?? 0) > 0
-                      ? t('pets:mine.add')
-                      : t('pets:mine.emptyAction')}
-                  </Link>
-                </div>
-              )}
+                    ))}
+                  </div>
+                }
+                empty={
+                  <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 text-center py-12 px-6">
+                    <PawPlaceholder className="w-16 mx-auto mb-4" />
+                    {/* La pregunta que decide el cartel es si tiene ALGUNA mascota,
+                        no si tiene alguna fuera de adopción. `ownedPets` excluye
+                        adopción, así que a quien tiene todas sus mascotas ofrecidas
+                        en adopción le decía "Todavía no publicaste ninguna mascota"
+                        con la sección "En adopción" listándolas justo abajo: un
+                        estado vacío desmentido por otra sección de la misma
+                        pantalla. Exactamente el defecto del wizard de /publish
+                        (PR #132).
+
+                        El `?? 0` se queda y ahora es honesto: este slot sólo se
+                        dibuja cuando la query RESPONDIÓ, así que `myPets` es un
+                        dato, no una incógnita. */}
+                    <p className="text-gray-700 dark:text-gray-300 font-semibold mb-4">
+                      {(myPets?.length ?? 0) > 0 ? t('profile:allInAdoption') : t('pets:mine.empty')}
+                    </p>
+                    <Link
+                      to="/pets/create"
+                      className="inline-block bg-primary hover:bg-primary-dark text-white font-semibold rounded-xl px-6 py-2.5 text-sm transition-colors"
+                    >
+                      {(myPets?.length ?? 0) > 0
+                        ? t('pets:mine.add')
+                        : t('pets:mine.emptyAction')}
+                    </Link>
+                  </div>
+                }
+              >
+                {(pets) => (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    {pets.slice(0, SUMMARY_LIMIT).map((pet: Pet) => (
+                      <PetSummaryCard key={pet.id} pet={pet} t={t} />
+                    ))}
+                  </div>
+                )}
+              </ListState>
             </section>
 
             {/* Mis reportes — sólo si hay alguno. Una sección vacía permanente en
                 el perfil de quien nunca reportó una callejera es ruido: la
-                pestaña de "Mis mascotas" sigue estando para descubrirla. */}
-            {!reportedLoading && (reportedPets?.length ?? 0) > 0 && (
-              <section>
-                <SectionHeader
-                  title={t('pets:reports.tabReported')}
-                  subtitle={t('profile:reportsSubtitle')}
-                  viewAllLabel={
-                    (reportedPets?.length ?? 0) > SUMMARY_LIMIT ? t('profile:viewAll') : undefined
-                  }
-                  viewAllAria={t('profile:viewAllReports')}
-                  viewAllTo={myPetsRoute('reported')}
-                />
-                <div className="space-y-3">
-                  {reportedPets!.slice(0, SUMMARY_LIMIT).map((pet: Pet) => (
-                    <PetSummaryRow key={pet.id} pet={pet} t={t} />
-                  ))}
-                </div>
-              </section>
-            )}
+                pestaña de "Mis mascotas" sigue estando para descubrirla.
 
-            {/* En adopción — mismo criterio que los reportes. */}
-            {!petsLoading && adoptionPets.length > 0 && (
+                `loading` y `empty` van en fragmento vacío, y son dos decisiones
+                distintas. `loading`: hoy no se dibuja nada mientras carga, y
+                meterle un esqueleto sería un cambio de diseño — esto es un
+                porte. `empty`: el silencio de arriba es correcto y se queda.
+                Lo único que cambia es que ese MISMO silencio ya no se usa
+                cuando la consulta falló. */}
+            <ListState
+              query={reportedQuery}
+              // El default dice "no pudimos cargar esta LISTA". Acá el cartel
+              // aterriza en una página donde el perfil, los logros y las
+              // mascotas cargaron bien, y esta sección no tiene encabezado
+              // propio en ese estado: sin nombrarla, el usuario no sabe qué es
+              // lo que no se pudo leer.
+              errorTitle={t('profile:reportsLoadError')}
+              loading={<></>}
+              empty={<></>}
+            >
+              {(reported) => (
+                <section>
+                  <SectionHeader
+                    title={t('pets:reports.tabReported')}
+                    subtitle={t('profile:reportsSubtitle')}
+                    viewAllLabel={
+                      reported.length > SUMMARY_LIMIT ? t('profile:viewAll') : undefined
+                    }
+                    viewAllAria={t('profile:viewAllReports')}
+                    viewAllTo={myPetsRoute('reported')}
+                  />
+                  <div className="space-y-3">
+                    {reported.slice(0, SUMMARY_LIMIT).map((pet: Pet) => (
+                      <PetSummaryRow key={pet.id} pet={pet} t={t} />
+                    ))}
+                  </div>
+                </section>
+              )}
+            </ListState>
+
+            {/* En adopción — mismo criterio que los reportes.
+
+                Esta sección NO lleva su propio `ListState`, y es a propósito:
+                sale de la misma query que "Mis mascotas", que siempre se dibuja
+                y por lo tanto siempre carga el cartel cuando esa query falla.
+                Un segundo cartel sería el mismo fallo dicho dos veces en la
+                misma columna. Con la query caída `adoptionPets` es `[]` y la
+                sección no se dibuja — que no afirma nada. */}
+            {!petsQuery.isLoading && adoptionPets.length > 0 && (
               <section>
                 <SectionHeader
                   title={t('adoption:profile.tab')}
