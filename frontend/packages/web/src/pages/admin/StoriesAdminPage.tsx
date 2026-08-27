@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tansta
 import { useTranslation } from 'react-i18next';
 import { apiClient } from '@shared/api/client';
 import type { SuccessStory } from '@shared/types';
+import { ListState } from '../../components/list/ListState';
 import { Pagination } from '../../components/Pagination';
 
 const PAGE_SIZE = 20;
@@ -12,20 +13,27 @@ export function StoriesAdminPage() {
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
 
-  const { data: result, isLoading } = useQuery({
+  const storiesQuery = useQuery({
     queryKey: ['stories-admin', page],
     queryFn: () => apiClient.getStoriesAdmin({ limit: PAGE_SIZE, offset: (page - 1) * PAGE_SIZE }),
     placeholderData: keepPreviousData,
   });
 
-  const stories = result?.data ?? [];
+  const result = storiesQuery.data;
   const total = result?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   // Deleting a story can shrink the list — never sit on an empty page past the end.
+  //
+  // La guarda `result &&` no es defensiva: sin ella este efecto ANULA el porte
+  // en toda página que no sea la primera. Con la consulta caída, `total` es 0 →
+  // `totalPages` 1 → vuelve a la página 1, y eso CAMBIA la queryKey, así que
+  // arranca otra consulta y **el cartel de error nunca se dibuja**. Acotar sólo
+  // tiene sentido cuando sabemos cuántas páginas hay; un 0 que significa "no
+  // leí" no es un largo.
   useEffect(() => {
-    if (page > totalPages) setPage(totalPages);
-  }, [totalPages, page]);
+    if (result && page > totalPages) setPage(totalPages);
+  }, [result, totalPages, page]);
 
   const invalidateStories = () => {
     queryClient.invalidateQueries({ queryKey: ['stories-admin'] });
@@ -53,12 +61,22 @@ export function StoriesAdminPage() {
     <div>
       <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-6">{t('stories.title')}</h2>
 
-      {isLoading ? (
-        <div className="text-center py-12">
-          <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
-          <p className="text-gray-500 dark:text-gray-400">{t('stories.loading')}</p>
-        </div>
-      ) : stories.length > 0 ? (
+      <ListState
+        query={storiesQuery}
+        select={(res) => res.data}
+        loading={
+          <div className="text-center py-12">
+            <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
+            <p className="text-gray-500 dark:text-gray-400">{t('stories.loading')}</p>
+          </div>
+        }
+        empty={
+          <div className="text-center py-12 text-gray-400 dark:text-gray-500">
+            {t('stories.empty')}
+          </div>
+        }
+      >
+        {(stories) => (
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -125,11 +143,8 @@ export function StoriesAdminPage() {
           </table>
           <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
         </div>
-      ) : (
-        <div className="text-center py-12 text-gray-400 dark:text-gray-500">
-          {t('stories.empty')}
-        </div>
-      )}
+        )}
+      </ListState>
     </div>
   );
 }
