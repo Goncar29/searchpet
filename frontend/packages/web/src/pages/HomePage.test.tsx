@@ -33,21 +33,26 @@ let mockSearchPets: { data: unknown[]; total?: number } | undefined = undefined;
 // INVISIBLE. El mock tiene que poder fallar: `{ data, isLoading }` a secas deja
 // `isError` y `refetch` en undefined y ninguna rama de `ListState` fuera de la
 // feliz es representable.
-let mockStories: { data: unknown[] | undefined; isError: boolean } = {
+let mockStories: { data: unknown[] | undefined; isError: boolean; isPaused: boolean } = {
   data: [],
   isError: false,
+  isPaused: false,
 };
 
 vi.mock('@shared/hooks', () => ({
   useStats: () => ({ data: mockStats }),
   useNearbyReports: () => ({ data: [], isLoading: false }),
   useSearchPets: vi.fn(),
+  // `isPaused` es un parámetro y no una constante: sin él la rama de offline
+  // —que este porte deja viva en la landing por primera vez— no es
+  // representable, y una regresión ahí se mergearía con la suite en verde. Es
+  // el patrón de las reglas #34/#37: el arnés más indulgente que producción.
   useStories: () => ({
     data: mockStories.isError ? undefined : mockStories.data,
-    isPending: false,
+    isPending: mockStories.isPaused && mockStories.data === undefined,
     isFetching: false,
     isLoading: false,
-    isPaused: false,
+    isPaused: mockStories.isPaused,
     isError: mockStories.isError,
     error: mockStories.isError ? new Error('boom') : null,
     refetch: vi.fn(),
@@ -74,7 +79,7 @@ describe('HomePage', () => {
   beforeEach(() => {
     mockAuth = { isAuthenticated: false, user: null };
     mockSearchPets = undefined;
-    mockStories = { data: [], isError: false };
+    mockStories = { data: [], isError: false, isPaused: false };
     // `mockResolvedValueOnce` encola un valor que sobrevive al test si nadie lo
     // consume. Hoy siempre se consume porque el guard de auth deja pasar la
     // llamada, o sea que el aislamiento depende de una condicion de OTRO
@@ -102,7 +107,7 @@ describe('HomePage', () => {
   // EXACTAMENTE igual que "todavía no hay historias de éxito". Nadie se
   // enteraba de nada.
   it('con las historias caidas avisa, en vez de esconder la tira', () => {
-    mockStories = { data: undefined, isError: true };
+    mockStories = { data: undefined, isError: true, isPaused: false };
     render(<HomePage />, { wrapper });
 
     // El cartel NOMBRA la tira: cae en medio de la landing, donde todo lo demás
@@ -119,6 +124,18 @@ describe('HomePage', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
+  // Primera visita sin conexión: el service worker sirve el shell cacheado
+  // (regla #28), así que la landing se dibuja y las queries quedan en
+  // `fetchStatus: 'paused'`. Sin esta rama la tira desaparecía en silencio,
+  // igual que antes del porte.
+  it('sin conexion y sin datos, la tira avisa en vez de desaparecer', () => {
+    mockStories = { data: undefined, isError: false, isPaused: true };
+    render(<HomePage />, { wrapper });
+
+    expect(screen.getByRole('alert')).toBeInTheDocument();
+    expect(screen.getByText('common:offlineTitle')).toBeInTheDocument();
+  });
+
   it('con historias las lista', () => {
     mockStories = {
       data: [
@@ -132,6 +149,7 @@ describe('HomePage', () => {
         },
       ],
       isError: false,
+      isPaused: false,
     };
     render(<HomePage />, { wrapper });
 

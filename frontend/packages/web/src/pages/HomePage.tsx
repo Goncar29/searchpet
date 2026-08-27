@@ -462,18 +462,29 @@ export function HomePage() {
           éxito" con el vacío abajo; ese silencio es correcto y se queda. Lo
           único que cambia es que ese MISMO silencio ya no se usa cuando la
           consulta falló. */}
-      <ListState
-        query={storiesQuery}
-        // El default dice "no pudimos cargar esta LISTA". Acá el cartel aterriza
-        // en medio de la landing, donde el hero, las estadísticas y el feed
-        // cargaron bien, y en ese estado la tira no tiene encabezado propio:
-        // sin nombrarla, el visitante no sabe qué es lo que no se pudo leer.
-        errorTitle={t('home:successStories.loadError')}
-        loading={<></>}
-        empty={<></>}
-      >
-        {(featuredStories) => (
-        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+      {/* El contenedor capeado envuelve al `ListState`, no a su contenido: los
+          slots que dibuja la primitiva —el cartel de error y la franja de datos
+          viejos— son hijos suyos, así que afuera del contenedor salen A SANGRE.
+          Medido a 1536px de viewport: el cartel daba x=0 w=1536 contra x=128
+          w=1280 de cada sección vecina, y la franja lleva borde y fondo, o sea
+          que la diferencia se ve. Es la regla #50.
+
+          Y el padding va acá y NO también en la `<section>` de adentro, que se
+          queda sólo con su `py`: repetirlo indentaría el contenido 32px más que
+          el de sus vecinas — el error inverso, el que sólo aparece al ensanchar. */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <ListState
+          query={storiesQuery}
+          // El default dice "no pudimos cargar esta LISTA". Acá el cartel aterriza
+          // en medio de la landing, donde el hero, las estadísticas y el feed
+          // cargaron bien, y en ese estado la tira no tiene encabezado propio:
+          // sin nombrarla, el visitante no sabe qué es lo que no se pudo leer.
+          errorTitle={t('home:successStories.loadError')}
+          loading={<></>}
+          empty={<></>}
+        >
+          {(featuredStories) => (
+        <section className="py-8 sm:py-12">
           <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-6">
             <h2 className="font-display text-headline sm:text-display-sm text-gray-900 dark:text-gray-100">
               {t('home:successStories.title')}
@@ -494,8 +505,9 @@ export function HomePage() {
             ))}
           </div>
         </section>
-        )}
-      </ListState>
+          )}
+        </ListState>
+      </div>
 
       {/* Buscar por foto */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
