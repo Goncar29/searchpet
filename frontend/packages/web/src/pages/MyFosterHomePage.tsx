@@ -10,6 +10,11 @@ import {
 import { getErrorMessage } from '@shared/utils/apiErrors';
 import type { AnimalKind, FosterHomeStatus, HousingType } from '@shared/types';
 import { cloudinaryThumb } from '@shared/utils/cloudinaryThumb';
+import { FormPage } from '../components/form/FormPage';
+import { FormSection } from '../components/form/FormSection';
+import { FormField } from '../components/form/FormField';
+import { FormActions, formSubmitClass } from '../components/form/FormActions';
+import { FormChoiceGroup } from '../components/form/FormChoiceGroup';
 
 const HOUSING_TYPES: HousingType[] = ['house', 'apartment'];
 const ANIMAL_TYPES: AnimalKind[] = ['dog', 'cat', 'other'];
@@ -206,8 +211,7 @@ export function MyFosterHomePage() {
   };
 
   return (
-    <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8">
-      <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6">{t('fosterHomes:mine.title')}</h1>
+    <FormPage title={t('fosterHomes:mine.title')}>
 
       <div
         className={
@@ -248,116 +252,120 @@ export function MyFosterHomePage() {
         )}
       </div>
 
-      <form onSubmit={handleSubmit} noValidate className="mt-6 space-y-5">
-        <fieldset disabled={isSuspended} className="space-y-5 disabled:opacity-60">
-          <EditField
-            id="mine-city"
-            label={t('fosterHomes:register.city')}
-            value={form.city}
-            onChange={setField('city')}
-            error={fieldErrors.city}
-            maxLength={CITY_MAX_LEN}
-          />
+      <form onSubmit={handleSubmit} noValidate className="mt-6 space-y-6">
+        {/* El `<fieldset disabled>` se queda, y no es decoración: deshabilita
+            NATIVAMENTE todo control que contenga, así que los `disabled` que
+            había repetidos en cada input eran redundantes y se fueron con el
+            marcado viejo. Hay un test que lo comprueba en vez de suponerlo. */}
+        <fieldset disabled={isSuspended} className="space-y-6 disabled:opacity-60">
+          <FormSection title={t('fosterHomes:register.sectionHome')}>
+            <div className="space-y-6">
+              <div className="grid sm:grid-cols-2 gap-6">
+                <EditField
+                  id="mine-city"
+                  label={t('fosterHomes:register.city')}
+                  value={form.city}
+                  onChange={setField('city')}
+                  error={fieldErrors.city}
+                  maxLength={CITY_MAX_LEN}
+                  required
+                />
+                <EditField
+                  id="mine-capacity"
+                  label={t('fosterHomes:register.capacity')}
+                  value={form.capacity}
+                  onChange={setField('capacity')}
+                  error={fieldErrors.capacity}
+                  type="number"
+                  required
+                />
+              </div>
 
-          <div>
-            <span className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              {t('fosterHomes:register.housingType')}
-            </span>
-            <div className="flex gap-4">
-              {HOUSING_TYPES.map((ht) => (
-                <label key={ht} className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-                  <input
-                    type="radio"
-                    name="housing_type"
-                    value={ht}
-                    checked={form.housing_type === ht}
-                    onChange={() => {
-                      setSaved(false);
-                      setForm((f) => ({ ...f, housing_type: ht }));
-                    }}
-                    disabled={isSuspended}
-                    className="text-primary focus:ring-primary"
-                  />
-                  {t(`fosterHomes:housingType.${ht}`)}
-                </label>
-              ))}
+              <FormChoiceGroup
+                id="mine-housing"
+                type="radio"
+                legend={t('fosterHomes:register.housingType')}
+                options={HOUSING_TYPES.map((ht) => ({
+                  value: ht,
+                  label: t(`fosterHomes:housingType.${ht}`),
+                }))}
+                value={form.housing_type}
+                onToggle={(ht) => {
+                  setSaved(false);
+                  setForm((f) => ({ ...f, housing_type: ht }));
+                }}
+              />
+
+              <FormChoiceGroup
+                id="mine-animals"
+                type="checkbox"
+                legend={t('fosterHomes:register.animalTypes')}
+                options={ANIMAL_TYPES.map((kind) => ({
+                  value: kind,
+                  label: t(`fosterHomes:animalType.${kind}`),
+                }))}
+                value={form.animal_types}
+                onToggle={toggleAnimalType}
+                required
+                requiredLabel={t('fosterHomes:register.required')}
+                error={fieldErrors.animal_types}
+              />
             </div>
-          </div>
+          </FormSection>
 
-          <div>
-            <span className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              {t('fosterHomes:register.animalTypes')}
-            </span>
-            <div className="flex flex-wrap gap-4">
-              {ANIMAL_TYPES.map((kind) => (
-                <label key={kind} className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-                  <input
-                    type="checkbox"
-                    checked={form.animal_types.includes(kind)}
-                    onChange={() => toggleAnimalType(kind)}
-                    disabled={isSuspended}
-                    className="rounded text-primary focus:ring-primary"
-                  />
-                  {t(`fosterHomes:animalType.${kind}`)}
-                </label>
-              ))}
-            </div>
-            {fieldErrors.animal_types && <p className="text-sm text-red-600 mt-1">{fieldErrors.animal_types}</p>}
-          </div>
-
-          <EditField
-            id="mine-capacity"
-            label={t('fosterHomes:register.capacity')}
-            value={form.capacity}
-            onChange={setField('capacity')}
-            error={fieldErrors.capacity}
-            type="number"
-          />
-
-          <div>
-            <label htmlFor="mine-description" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              {t('fosterHomes:register.description')}
-            </label>
-            <textarea
-              id="mine-description"
-              value={form.description}
-              onChange={setField('description')}
-              rows={4}
-              maxLength={DESCRIPTION_MAX_LEN}
-              disabled={isSuspended}
-              className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-60"
-            />
-            <div className="flex justify-between mt-1">
-              {fieldErrors.description ? (
-                <p className="text-sm text-red-600">{fieldErrors.description}</p>
-              ) : (
-                <span />
-              )}
-              <span
-                className={`text-xs ${form.description.length > DESCRIPTION_MAX_LEN ? 'text-red-600' : 'text-gray-400 dark:text-gray-500'
-                  }`}
+          <FormSection title={t('fosterHomes:register.sectionContact')}>
+            <div className="space-y-6">
+              <FormField
+                label={t('fosterHomes:register.description')}
+                htmlFor="mine-description"
+                required
+                error={fieldErrors.description}
               >
-                {form.description.length}/{DESCRIPTION_MAX_LEN}
-              </span>
-            </div>
-          </div>
+                {(control) => (
+                  <>
+                    <textarea
+                      {...control}
+                      className={`${control.className} resize-y`}
+                      value={form.description}
+                      onChange={setField('description')}
+                      rows={4}
+                      maxLength={DESCRIPTION_MAX_LEN}
+                    />
+                    {/* El contador se pone rojo al pasarse. Con `maxLength` el
+                        navegador no deja llegar ahí tipeando, pero sí pegando
+                        en algunos casos, y la validación de `validate()`
+                        también lo contempla — el color no es adorno. */}
+                    <p
+                      className={`mt-1 text-right text-xs ${
+                        form.description.length > DESCRIPTION_MAX_LEN
+                          ? 'text-danger'
+                          : 'text-gray-400 dark:text-gray-500'
+                      }`}
+                    >
+                      {form.description.length}/{DESCRIPTION_MAX_LEN}
+                    </p>
+                  </>
+                )}
+              </FormField>
 
-          <EditField
-            id="mine-whatsapp"
-            label={t('fosterHomes:register.whatsapp')}
-            value={form.whatsapp_phone}
-            onChange={setField('whatsapp_phone')}
-            maxLength={WHATSAPP_MAX_LEN}
-          />
+              <EditField
+                id="mine-whatsapp"
+                label={t('fosterHomes:register.whatsapp')}
+                value={form.whatsapp_phone}
+                onChange={setField('whatsapp_phone')}
+                maxLength={WHATSAPP_MAX_LEN}
+              />
+            </div>
+          </FormSection>
         </fieldset>
 
         {isSuspended && (
-          <p className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-900 rounded-xl p-3">
+          <p className="text-sm text-danger bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-900 rounded-xl p-3">
             {t('fosterHomes:mine.suspendedFrozen')}
           </p>
         )}
 
-        {apiError && <p className="text-sm text-red-600">{apiError}</p>}
+        {apiError && <p role="alert" className="text-sm text-danger">{apiError}</p>}
         {saved && (
           <p role="status" className="text-sm text-green-600 dark:text-green-400">
             {t('fosterHomes:mine.saved')}
@@ -365,19 +373,21 @@ export function MyFosterHomePage() {
         )}
 
         {!isSuspended && (
-          <button
-            type="submit"
-            disabled={updateFosterHome.isPending}
-            className="w-full bg-primary text-white font-semibold py-3 rounded-xl hover:bg-primary-dark transition-colors disabled:opacity-50"
-          >
-            {updateFosterHome.isPending ? t('fosterHomes:mine.saving') : t('fosterHomes:mine.save')}
-          </button>
+          <FormActions
+            submit={
+              <button type="submit" disabled={updateFosterHome.isPending} className={formSubmitClass}>
+                {updateFosterHome.isPending ? t('fosterHomes:mine.saving') : t('fosterHomes:mine.save')}
+              </button>
+            }
+          />
         )}
       </form>
 
-      {/* Fotos — retención por diseño: no hay botón de borrar el hogar (§18). */}
-      <div className="mt-8">
-        <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-3">{t('fosterHomes:detail.photos')}</h2>
+      {/* Fotos — retención por diseño: no hay botón de borrar el hogar (§18).
+          Va en su propia card, como el resto: es una sección más de la página,
+          aunque viva fuera del <form> porque sube y borra por su cuenta. */}
+      <div className="mt-6">
+        <FormSection title={t('fosterHomes:detail.photos')}>
 
         {photoCount > 0 && (
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
@@ -423,11 +433,20 @@ export function MyFosterHomePage() {
         ) : (
           <p className="text-xs text-gray-500 dark:text-gray-400">{t('fosterHomes:mine.photoLimit')}</p>
         )}
+        </FormSection>
       </div>
-    </div>
+    </FormPage>
   );
 }
 
+/**
+ * Envoltorio fino sobre `FormField` para los campos de texto de esta pantalla.
+ * Misma forma que el `Field` de `RegisterFosterHomePage`: sólo adapta la firma
+ * para no tocar los cuatro call sites.
+ *
+ * El `disabled` de cada control se fue: lo pone el `<fieldset disabled>` que
+ * envuelve al formulario, nativamente y sin repetirlo campo por campo.
+ */
 function EditField({
   id,
   label,
@@ -436,6 +455,7 @@ function EditField({
   error,
   type = 'text',
   maxLength,
+  required,
 }: {
   id: string;
   label: string;
@@ -444,22 +464,20 @@ function EditField({
   error?: string;
   type?: string;
   maxLength?: number;
+  required?: boolean;
 }) {
   return (
-    <div>
-      <label htmlFor={id} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-        {label}
-      </label>
-      <input
-        id={id}
-        type={type}
-        value={value}
-        onChange={onChange}
-        min={type === 'number' ? 1 : undefined}
-        maxLength={maxLength}
-        className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-60"
-      />
-      {error && <p className="text-sm text-red-600 mt-1">{error}</p>}
-    </div>
+    <FormField label={label} htmlFor={id} error={error} required={required}>
+      {(control) => (
+        <input
+          {...control}
+          type={type}
+          value={value}
+          onChange={onChange}
+          min={type === 'number' ? 1 : undefined}
+          maxLength={maxLength}
+        />
+      )}
+    </FormField>
   );
 }
