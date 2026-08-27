@@ -44,6 +44,7 @@ const petsData = vi.hoisted(() => ({
   reported: [] as unknown[],
   mineError: false,
   reportedError: false,
+  reportedStale: false,
 }));
 
 const verification = vi.hoisted(() => ({ current: null as { is_verified: boolean } | null }));
@@ -66,8 +67,14 @@ vi.mock('@shared/hooks', () => {
   // que había acá antes dejaba `isError`, `isPaused` y `refetch` en `undefined`:
   // ninguna rama de `ListState` fuera de la feliz era representable, así que un
   // verde no decía nada sobre la caída.
-  const query = (data: unknown, isError: boolean) => ({
-    data: isError ? undefined : data,
+  //
+  // `conservaDatos` modela el estado que NINGÚN mock de pantalla podía
+  // representar: **error CON datos cacheados**. React Query conserva la caché
+  // cuando falla un refetch, y ése es el camino de la franja de "datos viejos".
+  // Con `data: isError ? undefined : data` a secas ese camino no existe, así
+  // que un cambio en él no se puede probar en rojo desde una pantalla.
+  const query = (data: unknown, isError: boolean, conservaDatos = false) => ({
+    data: isError && !conservaDatos ? undefined : data,
     isPending: false,
     isFetching: false,
     isLoading: false,
@@ -90,7 +97,8 @@ vi.mock('@shared/hooks', () => {
     useConfirmEmailOTP: () => confirmEmailOTP,
     usePublicProfile: () => ({ data: null, isLoading: false }),
     useMyPets: () => query(petsData.mine, petsData.mineError),
-    useReportedPets: () => query(petsData.reported, petsData.reportedError),
+    useReportedPets: () =>
+      query(petsData.reported, petsData.reportedError, petsData.reportedStale),
   };
 });
 
@@ -178,6 +186,7 @@ describe('ProfilePage', () => {
     petsData.reported = [];
     petsData.mineError = false;
     petsData.reportedError = false;
+    petsData.reportedStale = false;
     verification.current = null;
     badgesData.current = [];
     refreshUser.mockClear();
@@ -358,6 +367,21 @@ describe('ProfilePage', () => {
     // cargo bien y, sin encabezado propio, no se sabria a que se refiere.
     expect(screen.getByText('profile:reportsLoadError')).toBeInTheDocument();
     expect(screen.getByRole('alert')).toBeInTheDocument();
+  });
+
+  // Un refetch fallido sobre una lista de reportes vacía deja `items` en cero
+  // con datos cacheados de verdad: la franja ámbar se dibujaba SOLA, entre "Mis
+  // mascotas" y "En adopción", diciendo "estás viendo datos de hace un rato"
+  // sobre una sección que no está en pantalla. El slot `empty` de esta sección
+  // es `<></>` a propósito.
+  it('un refetch fallido de reportes no deja una franja flotando sobre nada', () => {
+    petsData.reported = [];
+    petsData.reportedError = true;
+    petsData.reportedStale = true;
+    render(<ProfilePage />, { wrapper });
+
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    expect(screen.queryByText('pets:reports.tabReported')).not.toBeInTheDocument();
   });
 
   // La otra mitad de la distincion: sin reportes de verdad, el silencio se
