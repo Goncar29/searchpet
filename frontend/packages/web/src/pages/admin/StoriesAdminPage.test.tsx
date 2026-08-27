@@ -116,4 +116,36 @@ describe('StoriesAdminPage', () => {
       expect(call[0]).toMatchObject({ offset: 20 });
     }
   });
+
+  // Quedarse en la página 2 es lo correcto, pero sin salida es una trampa: el
+  // pager vive DENTRO de `children`, así que con el cartel en pantalla no
+  // existe, y "Reintentar" vuelve a pedir la MISMA página que falla. Esta
+  // pantalla NO tiene pestañas de filtro, así que —a diferencia de las
+  // denuncias— no hay ningún otro control que resetee la página: el único
+  // escape sería recargar el navegador.
+  it('una pagina caida ofrece una salida a la primera pagina', async () => {
+    mockStories = [story({})];
+    mockTotal = 50;
+    mockFailOffsets = [20];
+    renderPage();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'next' }));
+    expect(await screen.findByRole('alert')).toBeInTheDocument();
+
+    // El pager NO está — por eso hace falta esta salida y no alcanza con él.
+    expect(screen.queryByRole('button', { name: 'prev' })).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'backToFirstPage' }));
+
+    expect(await screen.findByText('Bruno volvió a casa')).toBeInTheDocument();
+  });
+
+  // La otra mitad: en la página 1 no hay a dónde volver.
+  it('en la pagina 1 caida no ofrece esa salida', async () => {
+    mockFailOffsets = [0];
+    renderPage();
+
+    expect(await screen.findByRole('alert')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'backToFirstPage' })).toBeNull();
+  });
 });

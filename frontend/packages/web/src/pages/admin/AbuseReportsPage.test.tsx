@@ -230,6 +230,40 @@ describe('AbuseReportsPage', () => {
     }
   });
 
+  // Quedarse en la página 2 es lo correcto, pero sin salida es una trampa: el
+  // pager vive DENTRO de `children`, así que con el cartel en pantalla no
+  // existe, y "Reintentar" vuelve a pedir la MISMA página que falla. Si la 2
+  // falla siempre —una fila rota, un timeout en un offset más pesado— el único
+  // escape sería recargar el navegador. Es el defecto del wizard de /publish
+  // (regla #51) en otra pantalla: un estado del que no se puede salir.
+  it('una pagina caida ofrece una salida a la primera pagina', async () => {
+    mockReports = [makeReport({ reporter: { id: 'u-rep', name: 'Alice' } })];
+    mockTotal = 50;
+    mockFailOffsets = [20];
+    render(<AbuseReportsPage />, { wrapper });
+
+    fireEvent.click(await screen.findByRole('button', { name: 'next' }));
+    expect(await screen.findByRole('alert')).toBeInTheDocument();
+
+    // El pager NO está — por eso hace falta esta salida y no alcanza con él.
+    expect(screen.queryByRole('button', { name: 'prev' })).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'backToFirstPage' }));
+
+    // Y la salida LLEVA a algún lado: la página 1 vuelve a estar en pantalla.
+    expect(await screen.findByText('Alice')).toBeInTheDocument();
+  });
+
+  // La otra mitad: en la página 1 no hay a dónde volver, así que el botón no se
+  // dibuja. Un "volver a la primera página" estando en la primera es ruido.
+  it('en la pagina 1 caida no ofrece esa salida', async () => {
+    mockFailOffsets = [0];
+    render(<AbuseReportsPage />, { wrapper });
+
+    expect(await screen.findByRole('alert')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'backToFirstPage' })).toBeNull();
+  });
+
   it('resetea a la página 1 al cambiar de filtro', async () => {
     mockReports = [makeReport({ reporter: { id: 'u-rep', name: 'Alice' } })];
     mockTotal = 50;

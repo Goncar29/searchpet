@@ -345,6 +345,29 @@ export function AbuseReportsPage() {
         )}
       </ListState>
 
+      {/* La salida. Quedarse en la página que falló es lo correcto —el clamp de
+          arriba ya no rebota—, pero sin esto sería una trampa: `Pagination` se
+          dibuja DENTRO de `children`, así que con el cartel en pantalla no
+          existe, y "Reintentar" vuelve a pedir la MISMA página que falla. Si la
+          2 falla siempre, el único escape sería recargar el navegador.
+
+          Mover `Pagination` afuera NO alcanza: con la consulta caída `total` es
+          0 → `totalPages` 1 → el componente devuelve `null` igual.
+
+          Las pestañas de filtro de esta pantalla también resetean la página,
+          pero eso es un escape accidental y nadie lo adivina. */}
+      {reportsQuery.isError && page > 1 && (
+        <div className="text-center -mt-6 pb-8">
+          <button
+            type="button"
+            onClick={() => setPage(1)}
+            className="text-sm font-semibold text-primary hover:text-primary-dark underline transition-colors"
+          >
+            {t('backToFirstPage')}
+          </button>
+        </div>
+      )}
+
       {pending?.type === 'delete' && (
         <ConfirmModal
           title={t('abuse.modal.deleteTitle')}

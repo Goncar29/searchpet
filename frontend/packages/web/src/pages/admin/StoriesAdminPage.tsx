@@ -145,6 +145,29 @@ export function StoriesAdminPage() {
         </div>
         )}
       </ListState>
+
+      {/* La salida. Quedarse en la página que falló es lo correcto —el clamp de
+          arriba ya no rebota—, pero sin esto sería una trampa: `Pagination` se
+          dibuja DENTRO de `children`, así que con el cartel en pantalla no
+          existe, y "Reintentar" vuelve a pedir la MISMA página que falla.
+
+          Mover `Pagination` afuera NO alcanza: con la consulta caída `total` es
+          0 → `totalPages` 1 → el componente devuelve `null` igual.
+
+          Y acá pesa más que en las denuncias: esta pantalla no tiene pestañas
+          de filtro, así que sin este botón NINGÚN control resetea la página y
+          el único escape es recargar el navegador. */}
+      {storiesQuery.isError && page > 1 && (
+        <div className="text-center -mt-6 pb-8">
+          <button
+            type="button"
+            onClick={() => setPage(1)}
+            className="text-sm font-semibold text-primary hover:text-primary-dark underline transition-colors"
+          >
+            {t('backToFirstPage')}
+          </button>
+        </div>
+      )}
     </div>
   );
 }
