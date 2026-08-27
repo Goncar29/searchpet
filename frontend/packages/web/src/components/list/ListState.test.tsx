@@ -282,11 +282,18 @@ describe('ListState', () => {
 
   // ── La franja no puede quedar flotando sobre nada ──
 
-  // Cuatro pantallas portadas pasan `empty={<></>}`: son secciones que se
-  // ESCONDEN cuando no hay nada (los reportes del perfil, el historial de la
-  // mascota, las alertas, la tira de historias de la home). Ahí la franja ámbar
-  // se dibujaba igual, sola, entre dos secciones y sin nada a lo que referirse:
-  // el usuario lee "estás viendo datos de hace un rato" sobre el vacío.
+  // Dos pantallas pasan `empty={<></>}` — el historial de `PetDetailPage` y los
+  // reportes de `ProfilePage` — y `AlertsPage` da `null` mientras su formulario
+  // está abierto: son secciones que se ESCONDEN cuando no hay nada. Ahí la
+  // franja ámbar se dibujaba igual, sola, entre dos secciones y sin nada a lo
+  // que referirse: el usuario lee "estás viendo datos de hace un rato" sobre el
+  // vacío.
+  //
+  // El inventario dice DOS y no cuatro porque se contó (`rg "empty=\{"`): la
+  // versión anterior de este comentario sumaba las alertas —que son otra forma—
+  // y la tira de la home, que ni siquiera usa `ListState` todavía. Un comentario
+  // que afirma un inventario falso es cómo el próximo lector protege la
+  // invariante equivocada (regla #37).
   it('con un empty que no dibuja nada, la franja de datos viejos NO aparece', () => {
     render(
       <ListState
@@ -300,6 +307,48 @@ describe('ListState', () => {
     );
 
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  });
+
+  // Las tres formas que un `empty` toma en la práctica cuando "no dibuja nada"
+  // y que NO son `<></>` pelado. La primera es la que más duele: `false` sí
+  // estaba contemplado en el nivel de arriba y no un piso más abajo, o sea que
+  // la función era inconsistente consigo misma.
+  it.each([
+    ['un fragmento con children false', <>{false && <p>algo</p>}</>],
+    ['un fragmento con un array vacio', <>{[].map(() => <p key="x">algo</p>)}</>],
+    ['un array vacio pelado', []],
+    ['un fragmento anidado que no dibuja nada', <><>{null}</></>],
+  ])('con %s tampoco aparece la franja', (_nombre, empty) => {
+    render(
+      <ListState
+        query={fakeQuery<{ data: string[] }>({ data: { data: ['perro'] }, isError: true })}
+        select={() => []}
+        loading={<p>cargando</p>}
+        empty={empty as React.ReactNode}
+      >
+        {(items) => <p>{items.join(',')}</p>}
+      </ListState>,
+    );
+
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  });
+
+  // Y la mitad de al lado, para que la función no se vuelva "nunca hay franja":
+  // un fragmento que SÍ dibuja algo la conserva.
+  it('un fragmento con contenido de verdad SI conserva la franja', () => {
+    render(
+      <ListState
+        query={fakeQuery<{ data: string[] }>({ data: { data: ['perro'] }, isError: true })}
+        select={() => []}
+        loading={<p>cargando</p>}
+        empty={<>{true && <p>no tenes nada</p>}</>}
+      >
+        {(items) => <p>{items.join(',')}</p>}
+      </ListState>,
+    );
+
+    expect(screen.getByRole('status')).toBeInTheDocument();
+    expect(screen.getByText('no tenes nada')).toBeInTheDocument();
   });
 
   it('lo mismo con empty={null}', () => {
