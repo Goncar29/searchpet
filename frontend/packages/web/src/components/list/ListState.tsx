@@ -1,7 +1,36 @@
-import type { ReactNode } from 'react';
+import { Fragment, isValidElement, type ReactNode } from 'react';
 import type { UseQueryResult } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Icon } from '../Icon';
+
+/**
+ * ¿Este slot dibuja algo?
+ *
+ * Existe por las secciones que se ESCONDEN cuando no hay nada —los reportes del
+ * perfil, el historial de la mascota, las alertas, la tira de historias— que
+ * pasan `empty={<></>}`. Sin esta pregunta, la franja de "datos viejos" se
+ * dibujaba igual: sola, entre dos secciones y sin nada a lo que referirse.
+ *
+ * Se pregunta acá y NO con una prop (`hiddenWhenEmpty` o similar) a propósito:
+ * una prop hay que acordarse de pasarla en cada porte, y olvidarse **no da
+ * error, simplemente reaparece la franja huérfana**. Es el modo de falla de la
+ * regla #40 — un valor configurable puede ser peor que ninguno cuando lo que se
+ * configura es una invariante.
+ *
+ * Lo que NO detecta, y está bien que no: un `<div/>` vacío o un componente que
+ * decide no dibujar nada. Ahí React sí crea un nodo, así que la franja tiene a
+ * qué agarrarse; y adivinar lo que devuelve un componente sin renderizarlo no
+ * se puede.
+ */
+function dibujaAlgo(slot: ReactNode): boolean {
+  if (slot === null || slot === undefined || slot === false || slot === '') return false;
+  // `<></>` es un elemento válido de tipo Fragment sin hijos.
+  if (isValidElement(slot) && slot.type === Fragment) {
+    const { children } = slot.props as { children?: ReactNode };
+    return children !== undefined && children !== null;
+  }
+  return true;
+}
 
 interface BaseProps<TItem> {
   /** Lo que se ve mientras la query trae datos por primera vez. */
@@ -154,7 +183,18 @@ export function ListState<TData, TItem = TData extends (infer U)[] ? U : never>(
   if (query.isPaused && sinDatos) {
     return (
       <QueryErrorCard
-        title={t('common:offlineTitle')}
+        // `errorTitle` también acá. La rama de error lo usaba y ésta no, así
+        // que una pantalla con DOS secciones sin encabezado propio —el perfil,
+        // con `useMyPets` y `useReportedPets`— dibujaba offline dos carteles
+        // idénticos y sin nada que los distinga: el nombre de la sección
+        // faltaba justo en el estado donde más falta hace.
+        title={errorTitle ?? t('common:offlineTitle')}
+        // El cuerpo NO se sobreescribe con `errorBody`, y la asimetría es el
+        // diseño: el título dice QUÉ falló (la sección, que es la misma en las
+        // dos ramas) y el cuerpo dice POR QUÉ (offline contra fallo del
+        // servidor). Pisarlo con la explicación de un error de servidor borra
+        // la única parte accionable — "cuando vuelva la conexión, probá de
+        // nuevo" — mientras el usuario está sin red.
         body={t('common:offlineBody')}
         onRetry={() => query.refetch()}
       />
@@ -190,6 +230,16 @@ export function ListState<TData, TItem = TData extends (infer U)[] ? U : never>(
     <StaleBanner message={t('common:staleTitle')} onRetry={() => query.refetch()} />
   ) : null;
 
-  if (items.length === 0) return <>{banner}{empty}</>;
+  // La franja acompaña a algo que está en pantalla. Si el slot `empty` no
+  // dibuja nada —la sección se esconde cuando está vacía— quedaría flotando
+  // sola, entre dos secciones, diciendo "estás viendo datos de hace un rato"
+  // sobre el vacío. Ahí el silencio es lo correcto: no se afirma nada, así que
+  // tampoco hay nada que calificar.
+  //
+  // Ojo con la mitad de al lado, que NO cambia: con un `empty` VISIBLE la
+  // franja SÍ va, y es el caso más valioso de los dos — "no tenés alertas" es
+  // una afirmación, y una afirmación vencida es exactamente la mentira que esta
+  // primitiva existe para matar.
+  if (items.length === 0) return <>{dibujaAlgo(empty) ? banner : null}{empty}</>;
   return <>{banner}{children(items)}</>;
 }

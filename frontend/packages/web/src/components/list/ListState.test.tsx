@@ -280,6 +280,81 @@ describe('ListState', () => {
     expect(refetch).toHaveBeenCalledTimes(1);
   });
 
+  // ── La franja no puede quedar flotando sobre nada ──
+
+  // Cuatro pantallas portadas pasan `empty={<></>}`: son secciones que se
+  // ESCONDEN cuando no hay nada (los reportes del perfil, el historial de la
+  // mascota, las alertas, la tira de historias de la home). Ahí la franja ámbar
+  // se dibujaba igual, sola, entre dos secciones y sin nada a lo que referirse:
+  // el usuario lee "estás viendo datos de hace un rato" sobre el vacío.
+  it('con un empty que no dibuja nada, la franja de datos viejos NO aparece', () => {
+    render(
+      <ListState
+        query={fakeQuery<{ data: string[] }>({ data: { data: ['perro'] }, isError: true })}
+        select={() => []}
+        loading={<p>cargando</p>}
+        empty={<></>}
+      >
+        {(items) => <p>{items.join(',')}</p>}
+      </ListState>,
+    );
+
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  });
+
+  it('lo mismo con empty={null}', () => {
+    render(
+      <ListState
+        query={fakeQuery<{ data: string[] }>({ data: { data: ['perro'] }, fetchStatus: 'paused' })}
+        select={() => []}
+        loading={<p>cargando</p>}
+        empty={null}
+      >
+        {(items) => <p>{items.join(',')}</p>}
+      </ListState>,
+    );
+
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  });
+
+  // ── El nombre de la sección tiene que llegar también al cartel de offline ──
+
+  // `errorTitle` existe para pantallas cuya sección NO tiene encabezado propio
+  // cuando falla. La rama offline lo ignoraba, así que el perfil dibujaba DOS
+  // carteles idénticos —uno por `useMyPets` y otro por `useReportedPets`— sin
+  // nada que los distinga, justo en el estado donde más falta hace.
+  it('offline usa el titulo de la pantalla cuando lo hay', () => {
+    render(
+      <ListState
+        query={fakeQuery<string[]>({ isPending: true, fetchStatus: 'paused' })}
+        errorTitle="No pudimos cargar tus reportes"
+        loading={<p>cargando</p>}
+        empty={<p>vacio</p>}
+      >
+        {(items) => <p>{items.join(',')}</p>}
+      </ListState>,
+    );
+
+    expect(screen.getByText('No pudimos cargar tus reportes')).toBeInTheDocument();
+    // Y el CUERPO sigue siendo el de offline: dice por qué falló y qué hacer.
+    // Es la mitad que no se puede perder al renombrar el título.
+    expect(screen.getByText('common:offlineBody')).toBeInTheDocument();
+  });
+
+  it('sin errorTitle, offline sigue diciendo que no hay conexion', () => {
+    render(
+      <ListState
+        query={fakeQuery<string[]>({ isPending: true, fetchStatus: 'paused' })}
+        loading={<p>cargando</p>}
+        empty={<p>vacio</p>}
+      >
+        {(items) => <p>{items.join(',')}</p>}
+      </ListState>,
+    );
+
+    expect(screen.getByText('common:offlineTitle')).toBeInTheDocument();
+  });
+
   it('no envuelve los slots en ningun elemento', () => {
     // `LeaderboardPage` pone su esqueleto dentro de un `grid` y su posición está
     // medida: un wrapper lo saca de la columna que le toca. El salto es
