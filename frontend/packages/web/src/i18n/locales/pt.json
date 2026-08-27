@@ -506,6 +506,7 @@
     "noPhone": "Sem telefone",
     "myPetsSubtitle": "Gerencie as informações dos seus companheiros.",
     "reportsSubtitle": "Os pets de rua que você relatou.",
+    "reportsLoadError": "Não conseguimos carregar seus relatos",
     "adoptionSubtitle": "Os que você ofereceu para adoção.",
     "allInAdoption": "Todos os seus pets estão disponíveis para adoção.",
     "viewAll": "Ver todos",

@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { usePublicProfile, useUserReviews, useCreateReview, useUpdateReview, useDeleteReview, useBlockUser, useBlockedUsers, useUnblockUser, useSubmitAbuseReport } from '@shared/hooks';
 import type { Badge, UserReview, AbuseReason } from '@shared/types';
 import { BADGE_META } from '@shared/types';
+import { ListState } from '../components/list/ListState';
 import { PawPlaceholder } from '../components/PawPlaceholder';
 import { useAuth } from '../context/AuthContext';
 import { getErrorMessage } from '@shared/utils/apiErrors';
@@ -132,7 +133,7 @@ export function UserProfilePage() {
   const { t } = useTranslation();
   const { user, isAuthenticated } = useAuth();
   const { data: profile, isLoading, error } = usePublicProfile(id ?? '');
-  const { data: reviewsData, isLoading: reviewsLoading } = useUserReviews(id ?? '');
+  const reviewsQuery = useUserReviews(id ?? '');
 
   const [showForm, setShowForm] = useState(false);
   const [formStars, setFormStars] = useState(0);
@@ -149,7 +150,6 @@ export function UserProfilePage() {
   const submitAbuseReport = useSubmitAbuseReport();
   const { data: blockedList } = useBlockedUsers();
 
-  const reviews = reviewsData?.reviews ?? [];
   const isOwnProfile = !!user && user.id === id;
   const canReview = isAuthenticated && !isOwnProfile;
   const isBlockedByMe = blockedList?.some((b) => b.blocked_id === id) ?? false;
@@ -180,7 +180,24 @@ export function UserProfilePage() {
     );
   };
 
-  const myReview = canReview ? reviews.find((r) => r.reviewer_id === user?.id) : undefined;
+  // `myReview` decide si el formulario edita o crea, y vive FUERA de la rama que
+  // envuelve `ListState`, así que el guard de la primitiva no lo alcanza. Con la
+  // query caída queda `undefined` y el formulario ofrece publicar — que es
+  // exactamente lo que hacía antes. No es una mentira sobre la lista (el cartel
+  // de abajo dice que no se pudo leer), y bloquear el formulario mientras no se
+  // sepa es otra decisión, no un porte.
+  //
+  // Los `?.` reemplazan al `?? []` que había: no hace falta un array vacío para
+  // buscar dentro de datos que no llegaron. Van **dos**, y el segundo importa:
+  // `ListState` blinda `query.data` Y el retorno de `select` contra `null`
+  // justo porque es el único choke point que ven las 12 pantallas portadas,
+  // pero esta línea vive AFUERA. Con un solo `?.`, un cuerpo `{"reviews": null}`
+  // tira acá en pleno render y deja la pantalla en blanco vía `ErrorBoundary`:
+  // la falla exacta que este trabajo existe para evitar, reintroducida por el
+  // borrado de la única defensa que había en este punto.
+  const myReview = canReview
+    ? reviewsQuery.data?.reviews?.find((r) => r.reviewer_id === user?.id)
+    : undefined;
 
   const handleOpenForm = () => {
     setFormError('');
@@ -451,34 +468,44 @@ export function UserProfilePage() {
           )}
 
           {/* List */}
-          {reviewsLoading ? (
-            <div className="space-y-3 py-2">
-              {[1, 2].map((i) => (
-                <div key={i} className="h-16 rounded-xl bg-gray-100 dark:bg-gray-800 animate-pulse" />
-              ))}
-            </div>
-          ) : reviews.length === 0 ? (
-            <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-4">
-              Aún no hay reseñas.
-            </p>
-          ) : (
-            <div>
-              {reviews.map((review) => (
-                <ReviewCard
-                  key={review.id}
-                  review={review}
-                  onDelete={
-                    user && review.reviewer_id === user.id
-                      ? () => {
-                          if (!window.confirm('¿Eliminar tu reseña?')) return;
-                          deleteReview.mutate(id ?? '');
-                        }
-                      : undefined
-                  }
-                />
-              ))}
-            </div>
-          )}
+          <ListState
+            query={reviewsQuery}
+            select={(res) => res.reviews}
+            // `useUserReviews` es `enabled: !!userId`. Sin `id` en la URL la
+            // query nunca se pide y cae al slot `empty`, igual que hoy — pero
+            // ese caso ya lo ataja la guarda de `!profile` de más arriba.
+            loading={
+              <div className="space-y-3 py-2">
+                {[1, 2].map((i) => (
+                  <div key={i} className="h-16 rounded-xl bg-gray-100 dark:bg-gray-800 animate-pulse" />
+                ))}
+              </div>
+            }
+            empty={
+              <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-4">
+                Aún no hay reseñas.
+              </p>
+            }
+          >
+            {(reviews) => (
+              <div>
+                {reviews.map((review) => (
+                  <ReviewCard
+                    key={review.id}
+                    review={review}
+                    onDelete={
+                      user && review.reviewer_id === user.id
+                        ? () => {
+                            if (!window.confirm('¿Eliminar tu reseña?')) return;
+                            deleteReview.mutate(id ?? '');
+                          }
+                        : undefined
+                    }
+                  />
+                ))}
+              </div>
+            )}
+          </ListState>
         </div>
 
         {/* Link al leaderboard */}

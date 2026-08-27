@@ -506,6 +506,7 @@
     "noPhone": "No phone number",
     "myPetsSubtitle": "Manage your companions' information.",
     "reportsSubtitle": "The stray pets you reported.",
+    "reportsLoadError": "We couldn't load your reports",
     "adoptionSubtitle": "The ones you offered for adoption.",
     "allInAdoption": "All your pets are currently up for adoption.",
     "viewAll": "View all",

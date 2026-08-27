@@ -506,6 +506,7 @@
     "noPhone": "Sin teléfono",
     "myPetsSubtitle": "Gestioná la información de tus compañeros.",
     "reportsSubtitle": "Las mascotas callejeras que reportaste.",
+    "reportsLoadError": "No pudimos cargar tus reportes",
     "adoptionSubtitle": "Las que ofreciste en adopción.",
     "allInAdoption": "Todas tus mascotas están ofrecidas en adopción.",
     "viewAll": "Ver todas",
