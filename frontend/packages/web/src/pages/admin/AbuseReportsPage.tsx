@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tansta
 import { apiClient } from '@shared/api/client';
 import type { AbuseReport } from '@shared/types';
 import { ConfirmModal } from '../../components/ConfirmModal';
+import { ListState } from '../../components/list/ListState';
 import { Pagination } from '../../components/Pagination';
 
 const PAGE_SIZE = 20;
@@ -28,7 +29,7 @@ export function AbuseReportsPage() {
   const resolvedParam =
     filter === 'pending' ? false : filter === 'resolved' ? true : undefined;
 
-  const { data: result, isLoading } = useQuery({
+  const reportsQuery = useQuery({
     queryKey: ['abuseReports', filter, page],
     queryFn: () =>
       apiClient.listAbuseReports({
@@ -39,15 +40,23 @@ export function AbuseReportsPage() {
     placeholderData: keepPreviousData,
   });
 
-  const reports = result?.data ?? [];
+  const result = reportsQuery.data;
   const total = result?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   // Mutations (resolve/delete/ban) can shrink the current filter — clamp the page
   // so we never sit on an empty page past the end.
+  //
+  // La guarda `result &&` no es defensiva: sin ella este efecto ANULA el porte
+  // en toda página que no sea la primera. Con la consulta caída, `total` es 0 →
+  // `totalPages` 1 → devuelve al admin a la página 1, y eso CAMBIA la queryKey,
+  // así que arranca otra consulta y **el cartel de error nunca se dibuja**. El
+  // moderador termina en la página 1 sin enterarse de que la 2 no cargó. Acotar
+  // sólo tiene sentido cuando sabemos cuántas páginas hay; con la consulta
+  // caída no lo sabemos, y un 0 que significa "no leí" no es un largo.
   useEffect(() => {
-    if (page > totalPages) setPage(totalPages);
-  }, [totalPages, page]);
+    if (result && page > totalPages) setPage(totalPages);
+  }, [result, totalPages, page]);
 
   const changeFilter = (f: FilterMode) => {
     setFilter(f);
@@ -124,12 +133,22 @@ export function AbuseReportsPage() {
         ))}
       </div>
 
-      {isLoading ? (
-        <div className="text-center py-12">
-          <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
-          <p className="text-gray-500 dark:text-gray-400">{t('abuse.loading')}</p>
-        </div>
-      ) : reports.length > 0 ? (
+      <ListState
+        query={reportsQuery}
+        select={(res) => res.data}
+        loading={
+          <div className="text-center py-12">
+            <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
+            <p className="text-gray-500 dark:text-gray-400">{t('abuse.loading')}</p>
+          </div>
+        }
+        empty={
+          <div className="text-center py-12 text-gray-400 dark:text-gray-500">
+            {t('abuse.empty')}
+          </div>
+        }
+      >
+        {(reports) => (
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -323,9 +342,29 @@ export function AbuseReportsPage() {
           </table>
           <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
         </div>
-      ) : (
-        <div className="text-center py-12 text-gray-400 dark:text-gray-500">
-          {t('abuse.empty')}
+        )}
+      </ListState>
+
+      {/* La salida. Quedarse en la página que falló es lo correcto —el clamp de
+          arriba ya no rebota—, pero sin esto sería una trampa: `Pagination` se
+          dibuja DENTRO de `children`, así que con el cartel en pantalla no
+          existe, y "Reintentar" vuelve a pedir la MISMA página que falla. Si la
+          2 falla siempre, el único escape sería recargar el navegador.
+
+          Mover `Pagination` afuera NO alcanza: con la consulta caída `total` es
+          0 → `totalPages` 1 → el componente devuelve `null` igual.
+
+          Las pestañas de filtro de esta pantalla también resetean la página,
+          pero eso es un escape accidental y nadie lo adivina. */}
+      {reportsQuery.isError && page > 1 && (
+        <div className="text-center -mt-6 pb-8">
+          <button
+            type="button"
+            onClick={() => setPage(1)}
+            className="text-sm font-semibold text-primary hover:text-primary-dark underline transition-colors"
+          >
+            {t('backToFirstPage')}
+          </button>
         </div>
       )}
 

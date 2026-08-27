@@ -19,11 +19,16 @@ let mockReports: unknown[] = [];
 // When set, overrides the reported total so pagination can be exercised
 // independently of how many rows the mock returns for the current page.
 let mockTotal: number | null = null;
+// Qué offsets tienen que fallar. Un booleano suelto no alcanza: el defecto que
+// se persigue sólo aparece cuando falla UNA página y no la primera.
+let mockFailOffsets: number[] = [];
 
 vi.mock('@shared/api/client', () => ({
   apiClient: {
-    listAbuseReports: vi.fn(() =>
-      Promise.resolve({ data: mockReports, total: mockTotal ?? mockReports.length })
+    listAbuseReports: vi.fn((params?: { offset?: number }) =>
+      mockFailOffsets.includes(params?.offset ?? 0)
+        ? Promise.reject(new Error('boom'))
+        : Promise.resolve({ data: mockReports, total: mockTotal ?? mockReports.length })
     ),
     resolveAbuseReport: vi.fn(() => Promise.resolve({})),
     deleteReport: vi.fn(() => Promise.resolve({ message: 'report deleted' })),
@@ -55,6 +60,7 @@ describe('AbuseReportsPage', () => {
   beforeEach(() => {
     mockReports = [];
     mockTotal = null;
+    mockFailOffsets = [];
     vi.clearAllMocks();
   });
 
@@ -165,6 +171,97 @@ describe('AbuseReportsPage', () => {
         expect.objectContaining({ limit: 20, offset: 20 })
       )
     );
+  });
+
+  // ── La cola caída no se puede ver igual que la cola vacía ──
+
+  // Es la versión de más riesgo de todo este trabajo: "No hay denuncias" es lo
+  // que hace que un moderador cierre la pestaña. Si en realidad la cola está
+  // llena y la consulta falló, nadie modera nada y nadie se entera.
+  it('con la consulta caida NO dice que no hay denuncias', async () => {
+    mockFailOffsets = [0];
+    render(<AbuseReportsPage />, { wrapper });
+
+    expect(await screen.findByRole('alert')).toBeInTheDocument();
+    expect(screen.queryByText('abuse.empty')).not.toBeInTheDocument();
+  });
+
+  // La otra mitad: sin denuncias de verdad, el texto se queda. Es un hecho.
+  it('sin denuncias y sin error, sigue diciendo que no hay', async () => {
+    render(<AbuseReportsPage />, { wrapper });
+
+    expect(await screen.findByText('abuse.empty')).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  // El `useEffect` que acota la página lee `total`, y con la consulta caída
+  // `total` es 0 → `totalPages` 1 → devuelve al admin a la página 1. Eso
+  // CAMBIA la queryKey, así que arranca otra consulta (la de la página 1, que
+  // anda) y **el cartel de error nunca llega a dibujarse**: el porte quedaría
+  // anulado en toda página que no sea la primera, en silencio.
+  it('una pagina caida NO devuelve al admin a la pagina 1', async () => {
+    mockReports = [makeReport({ reporter: { id: 'u-rep', name: 'Alice' } })];
+    mockTotal = 50; // 3 páginas
+    mockFailOffsets = [20]; // sólo la segunda falla
+    render(<AbuseReportsPage />, { wrapper });
+
+    fireEvent.click(await screen.findByRole('button', { name: 'next' }));
+
+    // El admin se entera de que la página 2 no cargó...
+    expect(await screen.findByRole('alert')).toBeInTheDocument();
+    // ...y la fila de la página 1 ya no está en pantalla.
+    expect(screen.queryByText('Alice')).toBeNull();
+
+    // Y sigue PARADO en la página 2. Eso no se puede leer del DOM —`Pagination`
+    // se dibuja dentro de `children`, así que con el cartel en pantalla no
+    // existe—, se mide por consecuencia: "Reintentar" refetchea la queryKey
+    // ACTUAL, así que el offset del pedido siguiente ES la página en la que
+    // quedó.
+    //
+    // La primera versión de esta aserción era `not.toHaveBeenCalledTimes(3)` y
+    // quedaba VERDE contra el código viejo: el rebote a la página 1 reusa la
+    // caché de React Query y no genera ningún pedido. Medía algo que no era.
+    vi.mocked(apiClient.listAbuseReports).mockClear();
+    fireEvent.click(screen.getByRole('button', { name: 'common:retry' }));
+
+    await waitFor(() => expect(apiClient.listAbuseReports).toHaveBeenCalled());
+    for (const call of vi.mocked(apiClient.listAbuseReports).mock.calls) {
+      expect(call[0]).toMatchObject({ offset: 20 });
+    }
+  });
+
+  // Quedarse en la página 2 es lo correcto, pero sin salida es una trampa: el
+  // pager vive DENTRO de `children`, así que con el cartel en pantalla no
+  // existe, y "Reintentar" vuelve a pedir la MISMA página que falla. Si la 2
+  // falla siempre —una fila rota, un timeout en un offset más pesado— el único
+  // escape sería recargar el navegador. Es el defecto del wizard de /publish
+  // (regla #51) en otra pantalla: un estado del que no se puede salir.
+  it('una pagina caida ofrece una salida a la primera pagina', async () => {
+    mockReports = [makeReport({ reporter: { id: 'u-rep', name: 'Alice' } })];
+    mockTotal = 50;
+    mockFailOffsets = [20];
+    render(<AbuseReportsPage />, { wrapper });
+
+    fireEvent.click(await screen.findByRole('button', { name: 'next' }));
+    expect(await screen.findByRole('alert')).toBeInTheDocument();
+
+    // El pager NO está — por eso hace falta esta salida y no alcanza con él.
+    expect(screen.queryByRole('button', { name: 'prev' })).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'backToFirstPage' }));
+
+    // Y la salida LLEVA a algún lado: la página 1 vuelve a estar en pantalla.
+    expect(await screen.findByText('Alice')).toBeInTheDocument();
+  });
+
+  // La otra mitad: en la página 1 no hay a dónde volver, así que el botón no se
+  // dibuja. Un "volver a la primera página" estando en la primera es ruido.
+  it('en la pagina 1 caida no ofrece esa salida', async () => {
+    mockFailOffsets = [0];
+    render(<AbuseReportsPage />, { wrapper });
+
+    expect(await screen.findByRole('alert')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'backToFirstPage' })).toBeNull();
   });
 
   it('resetea a la página 1 al cambiar de filtro', async () => {

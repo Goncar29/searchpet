@@ -1,5 +1,6 @@
 {
   "admin": {
+    "backToFirstPage": "Voltar para a primeira página",
     "panel": {
       "title": "Painel de administração",
       "subtitle": "Ferramentas de moderação"
