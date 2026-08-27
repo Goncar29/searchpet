@@ -646,6 +646,9 @@
       "goToPhoto": "Go to photo {{number}}"
     },
     "register": {
+      "required": "required",
+      "sectionHome": "Your home",
+      "sectionContact": "Contact and description",
       "title": "Offer my foster home",
       "intro": "Register your space to temporarily house a rescued animal.",
       "emailUnverified": "You need to verify your email before registering your foster home.",

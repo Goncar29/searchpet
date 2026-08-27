@@ -646,6 +646,9 @@
       "goToPhoto": "Ir a la foto {{number}}"
     },
     "register": {
+      "required": "obligatorio",
+      "sectionHome": "Tu hogar",
+      "sectionContact": "Contacto y descripción",
       "title": "Ofrecer mi hogar transitorio",
       "intro": "Registrá tu espacio para alojar temporalmente a un animal rescatado.",
       "emailUnverified": "Necesitás verificar tu email antes de registrar tu hogar.",
