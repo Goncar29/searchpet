@@ -209,9 +209,25 @@ describe('AbuseReportsPage', () => {
 
     // El admin se entera de que la página 2 no cargó...
     expect(await screen.findByRole('alert')).toBeInTheDocument();
-    // ...y sigue parado en la página 2, no lo mandaron de vuelta a la 1.
-    expect(apiClient.listAbuseReports).not.toHaveBeenCalledTimes(3);
+    // ...y la fila de la página 1 ya no está en pantalla.
     expect(screen.queryByText('Alice')).toBeNull();
+
+    // Y sigue PARADO en la página 2. Eso no se puede leer del DOM —`Pagination`
+    // se dibuja dentro de `children`, así que con el cartel en pantalla no
+    // existe—, se mide por consecuencia: "Reintentar" refetchea la queryKey
+    // ACTUAL, así que el offset del pedido siguiente ES la página en la que
+    // quedó.
+    //
+    // La primera versión de esta aserción era `not.toHaveBeenCalledTimes(3)` y
+    // quedaba VERDE contra el código viejo: el rebote a la página 1 reusa la
+    // caché de React Query y no genera ningún pedido. Medía algo que no era.
+    vi.mocked(apiClient.listAbuseReports).mockClear();
+    fireEvent.click(screen.getByRole('button', { name: 'common:retry' }));
+
+    await waitFor(() => expect(apiClient.listAbuseReports).toHaveBeenCalled());
+    for (const call of vi.mocked(apiClient.listAbuseReports).mock.calls) {
+      expect(call[0]).toMatchObject({ offset: 20 });
+    }
   });
 
   it('resetea a la página 1 al cambiar de filtro', async () => {

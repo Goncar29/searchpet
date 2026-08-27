@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { apiClient } from '@shared/api/client';
@@ -101,8 +101,19 @@ describe('StoriesAdminPage', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'next' }));
 
     expect(await screen.findByRole('alert')).toBeInTheDocument();
-    // Sigue parado en la página 2: no hubo una tercera consulta que lo devuelva.
-    expect(apiClient.getStoriesAdmin).not.toHaveBeenCalledTimes(3);
     expect(screen.queryByText('Bruno volvió a casa')).toBeNull();
+
+    // Sigue PARADO en la página 2, medido por consecuencia: "Reintentar"
+    // refetchea la queryKey ACTUAL, así que el offset del pedido siguiente ES
+    // la página en la que quedó. Un `not.toHaveBeenCalledTimes(3)` acá queda
+    // verde contra el código viejo, porque el rebote a la página 1 reusa la
+    // caché de React Query sin pedir nada.
+    vi.mocked(apiClient.getStoriesAdmin).mockClear();
+    fireEvent.click(screen.getByRole('button', { name: 'common:retry' }));
+
+    await waitFor(() => expect(apiClient.getStoriesAdmin).toHaveBeenCalled());
+    for (const call of vi.mocked(apiClient.getStoriesAdmin).mock.calls) {
+      expect(call[0]).toMatchObject({ offset: 20 });
+    }
   });
 });
