@@ -121,27 +121,54 @@ describe('RegisterFosterHomePage', () => {
     renderPage();
     abrirFormulario();
 
-    const grupos = screen.getAllByRole('group');
-    const nombres = grupos.map((g) => g.getAttribute('aria-labelledby'))
-      .map((id) => (id ? document.getElementById(id)?.textContent : null));
-
-    expect(nombres).toContain('fosterHomes:register.housingType');
-    expect(nombres).toContain('fosterHomes:register.animalTypes');
+    // Se pregunta por ROL Y NOMBRE, no por el atributo: `getByRole(..., {name})`
+    // computa el nombre accesible como lo hace el navegador, así que prueba la
+    // cadena entera. Leer `aria-labelledby` a mano pasa aunque el id apunte a
+    // un nodo que no existe.
+    expect(
+      screen.getByRole('group', { name: 'fosterHomes:register.housingType' }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole('group', { name: /fosterHomes:register\.animalTypes/ }),
+    ).toBeTruthy();
   });
 
-  it('el grupo de animales queda atado a su error', () => {
+  // La obligatoriedad tiene que llegar a quien NO ve el asterisco. `role="group"`
+  // no admite `aria-required` (ARIA 1.2 sólo lo permite en `radiogroup`), y el
+  // asterisco es `aria-hidden`: si la palabra no está en la leyenda, el usuario
+  // de lector de pantalla no tiene NINGÚN canal por el cual enterarse. Es la
+  // regresión que `CreateReportPage` ya documentó haber reparado.
+  it('el grupo requerido ANUNCIA que lo es', () => {
+    renderPage();
+    abrirFormulario();
+
+    expect(
+      screen.getByRole('group', { name: /fosterHomes:register\.required/ }),
+    ).toBeTruthy();
+  });
+
+  // El error se cuelga de CADA control y no sólo del grupo: un
+  // `aria-describedby` en el contenedor no se anuncia cuando el foco entra a
+  // los checkboxes, así que el usuario oye el `role="alert"` una vez, tabula
+  // para corregir y no recibe nada. Es el mismo "anuncia una vez y después se
+  // queda mudo" que `FormField` documenta haber cerrado para los campos de
+  // texto.
+  it('el error del grupo llega a CADA checkbox, no solo al grupo', () => {
     renderPage();
     abrirFormulario();
     fireEvent.click(screen.getByText('fosterHomes:register.submit'));
 
-    const grupo = screen
-      .getAllByRole('group')
-      .find((g) => g.getAttribute('aria-labelledby')?.includes('animals'));
-    expect(grupo).toBeTruthy();
-    const descrito = grupo!.getAttribute('aria-describedby');
-    expect(document.getElementById(descrito!)?.textContent).toBe(
-      'fosterHomes:register.animalTypesRequired',
-    );
+    const grupo = screen.getByRole('group', { name: /animalTypes/ });
+    const casillas = within(grupo).getAllByRole('checkbox');
+    expect(casillas).toHaveLength(3);
+
+    for (const casilla of casillas) {
+      expect(casilla.getAttribute('aria-invalid')).toBe('true');
+      const descrito = casilla.getAttribute('aria-describedby');
+      expect(document.getElementById(descrito!)?.textContent).toBe(
+        'fosterHomes:register.animalTypesRequired',
+      );
+    }
   });
 
   it('el contador de la descripcion sigue estando y cuenta', () => {
@@ -168,9 +195,7 @@ describe('RegisterFosterHomePage', () => {
     fireEvent.change(screen.getByLabelText('fosterHomes:register.description'), {
       target: { value: '  tengo patio  ' },
     });
-    const animales = screen
-      .getAllByRole('group')
-      .find((g) => g.getAttribute('aria-labelledby')?.includes('animals'))!;
+    const animales = screen.getByRole('group', { name: /animalTypes/ });
     fireEvent.click(within(animales).getAllByRole('checkbox')[0]);
 
     fireEvent.click(screen.getByText('fosterHomes:register.submit'));
@@ -197,9 +222,7 @@ describe('RegisterFosterHomePage', () => {
     fireEvent.change(screen.getByLabelText('fosterHomes:register.description'), {
       target: { value: 'tengo patio' },
     });
-    const animales = screen
-      .getAllByRole('group')
-      .find((g) => g.getAttribute('aria-labelledby')?.includes('animals'))!;
+    const animales = screen.getByRole('group', { name: /animalTypes/ });
     fireEvent.click(within(animales).getAllByRole('checkbox')[0]);
     fireEvent.click(screen.getByText('fosterHomes:register.submit'));
 
@@ -226,9 +249,7 @@ describe('RegisterFosterHomePage', () => {
     fireEvent.change(screen.getByLabelText('fosterHomes:register.description'), {
       target: { value: 'tengo patio' },
     });
-    const animales = screen
-      .getAllByRole('group')
-      .find((g) => g.getAttribute('aria-labelledby')?.includes('animals'))!;
+    const animales = screen.getByRole('group', { name: /animalTypes/ });
     fireEvent.click(within(animales).getAllByRole('checkbox')[0]);
     fireEvent.click(screen.getByText('fosterHomes:register.submit'));
 

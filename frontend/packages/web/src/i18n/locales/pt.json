@@ -646,6 +646,7 @@
       "goToPhoto": "Ir para a foto {{number}}"
     },
     "register": {
+      "required": "obrigatório",
       "sectionHome": "Seu lar",
       "sectionContact": "Contato e descrição",
       "title": "Oferecer meu lar temporário",

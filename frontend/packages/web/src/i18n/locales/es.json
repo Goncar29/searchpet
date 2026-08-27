@@ -646,6 +646,7 @@
       "goToPhoto": "Ir a la foto {{number}}"
     },
     "register": {
+      "required": "obligatorio",
       "sectionHome": "Tu hogar",
       "sectionContact": "Contacto y descripción",
       "title": "Ofrecer mi hogar transitorio",

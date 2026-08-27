@@ -9,6 +9,7 @@ import { FormPage } from '../components/form/FormPage';
 import { FormSection } from '../components/form/FormSection';
 import { FormField } from '../components/form/FormField';
 import { FormActions, formSubmitClass } from '../components/form/FormActions';
+import { FormChoiceGroup } from '../components/form/FormChoiceGroup';
 
 const HOUSING_TYPES: HousingType[] = ['house', 'apartment'];
 const ANIMAL_TYPES: AnimalKind[] = ['dog', 'cat', 'other'];
@@ -159,35 +160,32 @@ export function RegisterFosterHomePage() {
                 />
               </div>
 
-              <ChoiceGroup id="fh-housing" label={t('fosterHomes:register.housingType')}>
-                {HOUSING_TYPES.map((ht) => (
-                  <Choice
-                    key={ht}
-                    type="radio"
-                    name="housing_type"
-                    checked={form.housing_type === ht}
-                    onChange={() => setForm((f) => ({ ...f, housing_type: ht }))}
-                    label={t(`fosterHomes:housingType.${ht}`)}
-                  />
-                ))}
-              </ChoiceGroup>
+              <FormChoiceGroup
+                id="fh-housing"
+                type="radio"
+                legend={t('fosterHomes:register.housingType')}
+                options={HOUSING_TYPES.map((ht) => ({
+                  value: ht,
+                  label: t(`fosterHomes:housingType.${ht}`),
+                }))}
+                value={form.housing_type}
+                onToggle={(ht) => setForm((f) => ({ ...f, housing_type: ht }))}
+              />
 
-              <ChoiceGroup
+              <FormChoiceGroup
                 id="fh-animals"
-                label={t('fosterHomes:register.animalTypes')}
+                type="checkbox"
+                legend={t('fosterHomes:register.animalTypes')}
+                options={ANIMAL_TYPES.map((kind) => ({
+                  value: kind,
+                  label: t(`fosterHomes:animalType.${kind}`),
+                }))}
+                value={form.animal_types}
+                onToggle={toggleAnimalType}
                 required
+                requiredLabel={t('fosterHomes:register.required')}
                 error={fieldErrors.animal_types}
-              >
-                {ANIMAL_TYPES.map((kind) => (
-                  <Choice
-                    key={kind}
-                    type="checkbox"
-                    checked={form.animal_types.includes(kind)}
-                    onChange={() => toggleAnimalType(kind)}
-                    label={t(`fosterHomes:animalType.${kind}`)}
-                  />
-                ))}
-              </ChoiceGroup>
+              />
             </div>
           </FormSection>
 
@@ -305,89 +303,5 @@ function Field({
         />
       )}
     </FormField>
-  );
-}
-
-/**
- * Un grupo de radios o checkboxes, con su etiqueta y su error.
- *
- * NO usa `FormField`: esa primitiva pone un `htmlFor`, y acá no hay UN control
- * al que apuntar sino varios — un `htmlFor` a un id inexistente deja una
- * etiqueta huérfana, que es peor que no tenerla. Por eso replica el marcado de
- * la etiqueta a mano y ata el grupo con `role="group"` + `aria-labelledby`.
- *
- * Lo que esto arregla no es cosmético: antes el título del grupo era un `<span>`
- * suelto, así que un lector de pantalla leía "Perro, casilla, no marcada" sin
- * decir nunca **de qué** era la lista. Cada control individual sí tenía nombre;
- * el conjunto no tenía ninguno.
- */
-function ChoiceGroup({
-  id,
-  label,
-  required,
-  error,
-  children,
-}: {
-  id: string;
-  label: string;
-  required?: boolean;
-  error?: string;
-  children: React.ReactNode;
-}) {
-  const errorId = `${id}-error`;
-  return (
-    <div
-      role="group"
-      aria-labelledby={`${id}-label`}
-      {...(error ? { 'aria-describedby': errorId } : {})}
-    >
-      {/* Mismo marcado que la fila de etiqueta de `FormField`, y el asterisco
-          igual de fuera del texto: si entrara al nombre accesible, el grupo
-          pasaría a llamarse "Tipos de animales*". */}
-      <div className="flex items-baseline gap-1 mb-2">
-        <span id={`${id}-label`} className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-          {label}
-        </span>
-        {required && (
-          <span aria-hidden="true" className="text-danger">
-            *
-          </span>
-        )}
-      </div>
-      <div className="flex flex-wrap gap-x-6 gap-y-3">{children}</div>
-      {error && (
-        <p id={errorId} role="alert" className="text-danger text-sm mt-2">
-          {error}
-        </p>
-      )}
-    </div>
-  );
-}
-
-/** Una opción del grupo: el control y su texto, dentro del mismo `<label>`. */
-function Choice({
-  type,
-  name,
-  checked,
-  onChange,
-  label,
-}: {
-  type: 'radio' | 'checkbox';
-  name?: string;
-  checked: boolean;
-  onChange: () => void;
-  label: string;
-}) {
-  return (
-    <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
-      <input
-        type={type}
-        name={name}
-        checked={checked}
-        onChange={onChange}
-        className={`${type === 'checkbox' ? 'rounded' : ''} h-4 w-4 border-gray-300 dark:border-gray-600 text-primary focus:ring-2 focus:ring-primary/30`}
-      />
-      {label}
-    </label>
   );
 }
