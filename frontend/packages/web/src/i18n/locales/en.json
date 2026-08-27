@@ -332,6 +332,7 @@
       "found": "Found"
     },
     "successStories": {
+      "loadError": "We couldn't load the success stories",
       "title": "Success stories",
       "viewAll": "View all"
     },

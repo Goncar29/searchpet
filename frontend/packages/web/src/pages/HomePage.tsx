@@ -60,7 +60,7 @@ export function HomePage() {
   const todayStr = new Date().toLocaleDateString('en-CA');
   const { isAuthenticated } = useAuth();
   const { data: stats } = useStats();
-  const { data: featuredStories } = useStories({ limit: 3 });
+  const storiesQuery = useStories({ limit: 3 });
 
   // ── Draft filters (what the user is typing — not yet applied) ──
   const [draftType, setDraftType] = useState<PetType | ''>('');
@@ -453,8 +453,26 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* Historias de éxito */}
-      {featuredStories && featuredStories.length > 0 && (
+      {/* Historias de éxito.
+
+          `loading` y `empty` van en fragmento vacío, y son dos decisiones
+          distintas. `loading`: hoy no se dibuja nada mientras carga, y meterle
+          un esqueleto sería un cambio de diseño — esto es un porte. `empty`:
+          una landing sin historias todavía NO gana un encabezado "Historias de
+          éxito" con el vacío abajo; ese silencio es correcto y se queda. Lo
+          único que cambia es que ese MISMO silencio ya no se usa cuando la
+          consulta falló. */}
+      <ListState
+        query={storiesQuery}
+        // El default dice "no pudimos cargar esta LISTA". Acá el cartel aterriza
+        // en medio de la landing, donde el hero, las estadísticas y el feed
+        // cargaron bien, y en ese estado la tira no tiene encabezado propio:
+        // sin nombrarla, el visitante no sabe qué es lo que no se pudo leer.
+        errorTitle={t('home:successStories.loadError')}
+        loading={<></>}
+        empty={<></>}
+      >
+        {(featuredStories) => (
         <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
           <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-6">
             <h2 className="font-display text-headline sm:text-display-sm text-gray-900 dark:text-gray-100">
@@ -476,7 +494,8 @@ export function HomePage() {
             ))}
           </div>
         </section>
-      )}
+        )}
+      </ListState>
 
       {/* Buscar por foto */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">

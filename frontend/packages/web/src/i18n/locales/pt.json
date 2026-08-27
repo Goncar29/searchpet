@@ -332,6 +332,7 @@
       "found": "Encontrados"
     },
     "successStories": {
+      "loadError": "Não conseguimos carregar as histórias de sucesso",
       "title": "Histórias de sucesso",
       "viewAll": "Ver todas"
     },

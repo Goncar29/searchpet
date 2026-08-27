@@ -29,11 +29,29 @@ let mockSearchPets: { data: unknown[]; total?: number } | undefined = undefined;
 // porque el test de ListState necesita `mockReturnValue` para simular una
 // query caída — con una función normal, `vi.mocked(useSearchPets).mockReturnValue`
 // no existe.
+// La tira de historias se esconde cuando esta vacia, asi que su caida era
+// INVISIBLE. El mock tiene que poder fallar: `{ data, isLoading }` a secas deja
+// `isError` y `refetch` en undefined y ninguna rama de `ListState` fuera de la
+// feliz es representable.
+let mockStories: { data: unknown[] | undefined; isError: boolean } = {
+  data: [],
+  isError: false,
+};
+
 vi.mock('@shared/hooks', () => ({
   useStats: () => ({ data: mockStats }),
   useNearbyReports: () => ({ data: [], isLoading: false }),
   useSearchPets: vi.fn(),
-  useStories: () => ({ data: [], isLoading: false }),
+  useStories: () => ({
+    data: mockStories.isError ? undefined : mockStories.data,
+    isPending: false,
+    isFetching: false,
+    isLoading: false,
+    isPaused: false,
+    isError: mockStories.isError,
+    error: mockStories.isError ? new Error('boom') : null,
+    refetch: vi.fn(),
+  }),
   useImageClassify: () => ({ classify: mockClassify, isModelLoading: false, isClassifying: false, error: null }),
   useImageSearch: () => ({ mutateAsync: mockMutateAsync, isPending: false }),
 }));
@@ -56,6 +74,7 @@ describe('HomePage', () => {
   beforeEach(() => {
     mockAuth = { isAuthenticated: false, user: null };
     mockSearchPets = undefined;
+    mockStories = { data: [], isError: false };
     // `mockResolvedValueOnce` encola un valor que sobrevive al test si nadie lo
     // consume. Hoy siempre se consume porque el guard de auth deja pasar la
     // llamada, o sea que el aislamiento depende de una condicion de OTRO
@@ -75,6 +94,49 @@ describe('HomePage', () => {
     render(<HomePage />, { wrapper });
     // If it renders at all, this passes
     expect(document.body).toBeTruthy();
+  });
+
+  // ── La tira de historias: caída ≠ vacía ──
+
+  // La tira se esconde cuando no hay historias, así que su caída se veía
+  // EXACTAMENTE igual que "todavía no hay historias de éxito". Nadie se
+  // enteraba de nada.
+  it('con las historias caidas avisa, en vez de esconder la tira', () => {
+    mockStories = { data: undefined, isError: true };
+    render(<HomePage />, { wrapper });
+
+    // El cartel NOMBRA la tira: cae en medio de la landing, donde todo lo demás
+    // cargó bien, y en ese estado la sección no tiene encabezado propio.
+    expect(screen.getByText('home:successStories.loadError')).toBeInTheDocument();
+  });
+
+  // La otra mitad, que es la decisión de diseño que el porte NO puede cambiar:
+  // sin historias de verdad, la tira sigue sin dibujarse.
+  it('sin historias y sin error, la tira sigue sin dibujarse', () => {
+    render(<HomePage />, { wrapper });
+
+    expect(screen.queryByText('home:successStories.title')).not.toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('con historias las lista', () => {
+    mockStories = {
+      data: [
+        {
+          id: 's1',
+          title: 'Bruno volvió a casa',
+          pet_name: 'Bruno',
+          user_name: 'Carlos',
+          like_count: 3,
+          created_at: '2026-07-01T00:00:00Z',
+        },
+      ],
+      isError: false,
+    };
+    render(<HomePage />, { wrapper });
+
+    expect(screen.getByText('home:successStories.title')).toBeInTheDocument();
+    expect(screen.getByText('Bruno volvió a casa')).toBeInTheDocument();
   });
 
   it('muestra la sección de mascotas perdidas', () => {
