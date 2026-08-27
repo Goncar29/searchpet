@@ -646,6 +646,8 @@
       "goToPhoto": "Ir para a foto {{number}}"
     },
     "register": {
+      "sectionHome": "Seu lar",
+      "sectionContact": "Contato e descrição",
       "title": "Oferecer meu lar temporário",
       "intro": "Cadastre seu espaço para abrigar temporariamente um animal resgatado.",
       "emailUnverified": "Você precisa verificar seu e-mail antes de cadastrar seu lar.",

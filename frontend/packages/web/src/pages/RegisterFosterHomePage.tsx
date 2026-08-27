@@ -4,6 +4,11 @@ import { useTranslation } from 'react-i18next';
 import { useMyFosterHome, useRegisterFosterHome, useVerificationStatus } from '@shared/hooks';
 import { getErrorMessage } from '@shared/utils/apiErrors';
 import type { AnimalKind, HousingType } from '@shared/types';
+import { Icon } from '../components/Icon';
+import { FormPage } from '../components/form/FormPage';
+import { FormSection } from '../components/form/FormSection';
+import { FormField } from '../components/form/FormField';
+import { FormActions, formSubmitClass } from '../components/form/FormActions';
 
 const HOUSING_TYPES: HousingType[] = ['house', 'apartment'];
 const ANIMAL_TYPES: AnimalKind[] = ['dog', 'cat', 'other'];
@@ -98,11 +103,7 @@ export function RegisterFosterHomePage() {
   };
 
   return (
-    <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8">
-      <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6">
-        {t('fosterHomes:register.title')}
-      </h1>
-
+    <FormPage title={t('fosterHomes:register.title')}>
       {step === 'intro' && (
         <div>
           <p className="text-sm text-gray-600 dark:text-gray-300">{t('fosterHomes:register.intro')}</p>
@@ -132,113 +133,123 @@ export function RegisterFosterHomePage() {
       )}
 
       {step === 'form' && (
-        <form onSubmit={handleSubmit} noValidate className="space-y-5">
-          <Field
-            id="fh-city"
-            label={t('fosterHomes:register.city')}
-            value={form.city}
-            onChange={setField('city')}
-            error={fieldErrors.city}
-            maxLength={CITY_MAX_LEN}
-          />
+        <form onSubmit={handleSubmit} noValidate className="space-y-6">
+          <FormSection title={t('fosterHomes:register.sectionHome')}>
+            <div className="space-y-6">
+              {/* Ciudad y capacidad en una fila: dos campos cortos, igual que
+                  ciudad/teléfono en el registro de refugios. */}
+              <div className="grid sm:grid-cols-2 gap-6">
+                <Field
+                  id="fh-city"
+                  label={t('fosterHomes:register.city')}
+                  value={form.city}
+                  onChange={setField('city')}
+                  error={fieldErrors.city}
+                  maxLength={CITY_MAX_LEN}
+                  required
+                />
+                <Field
+                  id="fh-capacity"
+                  label={t('fosterHomes:register.capacity')}
+                  value={form.capacity}
+                  onChange={setField('capacity')}
+                  error={fieldErrors.capacity}
+                  type="number"
+                  required
+                />
+              </div>
 
-          <div>
-            <span className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              {t('fosterHomes:register.housingType')}
-            </span>
-            <div className="flex gap-4">
-              {HOUSING_TYPES.map((ht) => (
-                <label key={ht} className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-                  <input
+              <ChoiceGroup id="fh-housing" label={t('fosterHomes:register.housingType')}>
+                {HOUSING_TYPES.map((ht) => (
+                  <Choice
+                    key={ht}
                     type="radio"
                     name="housing_type"
-                    value={ht}
                     checked={form.housing_type === ht}
                     onChange={() => setForm((f) => ({ ...f, housing_type: ht }))}
-                    className="text-primary focus:ring-primary"
+                    label={t(`fosterHomes:housingType.${ht}`)}
                   />
-                  {t(`fosterHomes:housingType.${ht}`)}
-                </label>
-              ))}
-            </div>
-          </div>
+                ))}
+              </ChoiceGroup>
 
-          <div>
-            <span className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              {t('fosterHomes:register.animalTypes')}
-            </span>
-            <div className="flex flex-wrap gap-4">
-              {ANIMAL_TYPES.map((kind) => (
-                <label key={kind} className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-                  <input
+              <ChoiceGroup
+                id="fh-animals"
+                label={t('fosterHomes:register.animalTypes')}
+                required
+                error={fieldErrors.animal_types}
+              >
+                {ANIMAL_TYPES.map((kind) => (
+                  <Choice
+                    key={kind}
                     type="checkbox"
                     checked={form.animal_types.includes(kind)}
                     onChange={() => toggleAnimalType(kind)}
-                    className="rounded text-primary focus:ring-primary"
+                    label={t(`fosterHomes:animalType.${kind}`)}
                   />
-                  {t(`fosterHomes:animalType.${kind}`)}
-                </label>
-              ))}
+                ))}
+              </ChoiceGroup>
             </div>
-            {fieldErrors.animal_types && <p className="text-sm text-red-600 mt-1">{fieldErrors.animal_types}</p>}
-          </div>
+          </FormSection>
 
-          <Field
-            id="fh-capacity"
-            label={t('fosterHomes:register.capacity')}
-            value={form.capacity}
-            onChange={setField('capacity')}
-            error={fieldErrors.capacity}
-            type="number"
-          />
+          <FormSection title={t('fosterHomes:register.sectionContact')}>
+            <div className="space-y-6">
+              <FormField
+                label={t('fosterHomes:register.description')}
+                htmlFor="fh-description"
+                required
+                error={fieldErrors.description}
+              >
+                {(control) => (
+                  <>
+                    <textarea
+                      {...control}
+                      className={`${control.className} resize-y`}
+                      value={form.description}
+                      onChange={setField('description')}
+                      rows={4}
+                      maxLength={DESCRIPTION_MAX_LEN}
+                    />
+                    {/* El contador va DENTRO del render prop y después del
+                        control, no en una fila propia junto al error: la
+                        primitiva ya dibuja el error debajo, y sacarlo de ahí
+                        para compartir renglón le quitaría el `role="alert"` y
+                        el `aria-describedby` que lo conectan con el campo. */}
+                    <p className="mt-1 text-right text-xs text-gray-400 dark:text-gray-500">
+                      {form.description.length}/{DESCRIPTION_MAX_LEN}
+                    </p>
+                  </>
+                )}
+              </FormField>
 
-          <div>
-            <label htmlFor="fh-description" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              {t('fosterHomes:register.description')}
-            </label>
-            <textarea
-              id="fh-description"
-              value={form.description}
-              onChange={setField('description')}
-              rows={4}
-              maxLength={DESCRIPTION_MAX_LEN}
-              className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary"
-            />
-            <div className="flex justify-between mt-1">
-              {fieldErrors.description ? (
-                <p className="text-sm text-red-600">{fieldErrors.description}</p>
-              ) : (
-                <span />
-              )}
-              <span className="text-xs text-gray-400 dark:text-gray-500">
-                {form.description.length}/{DESCRIPTION_MAX_LEN}
-              </span>
+              <Field
+                id="fh-whatsapp"
+                label={t('fosterHomes:register.whatsapp')}
+                value={form.whatsapp_phone}
+                onChange={setField('whatsapp_phone')}
+                maxLength={WHATSAPP_MAX_LEN}
+              />
             </div>
-          </div>
+          </FormSection>
 
-          <Field
-            id="fh-whatsapp"
-            label={t('fosterHomes:register.whatsapp')}
-            value={form.whatsapp_phone}
-            onChange={setField('whatsapp_phone')}
-            maxLength={WHATSAPP_MAX_LEN}
+          {apiError && <p role="alert" className="text-sm text-danger">{apiError}</p>}
+
+          <FormActions
+            submit={
+              <button type="submit" disabled={registerFosterHome.isPending} className={formSubmitClass}>
+                {registerFosterHome.isPending
+                  ? t('fosterHomes:register.submitting')
+                  : t('fosterHomes:register.submit')}
+              </button>
+            }
           />
-
-          {apiError && <p className="text-sm text-red-600">{apiError}</p>}
-
-          <button
-            type="submit"
-            disabled={registerFosterHome.isPending}
-            className="w-full bg-primary text-white font-semibold py-3 rounded-xl hover:bg-primary-dark transition-colors disabled:opacity-50"
-          >
-            {registerFosterHome.isPending ? t('fosterHomes:register.submitting') : t('fosterHomes:register.submit')}
-          </button>
         </form>
       )}
 
       {step === 'done' && (
         <div className="text-center py-8">
-          <p className="text-4xl mb-4">🏠</p>
+          {/* `Icon` y no el emoji 🏠: un lector de pantalla lo anuncia por su
+              nombre Unicode ("house"), y el par del refugio ya usa el icono. */}
+          <Icon name="home" className="mx-auto mb-4 block text-4xl text-primary" />
           <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">
             {t('fosterHomes:register.successTitle')}
           </h2>
@@ -251,10 +262,17 @@ export function RegisterFosterHomePage() {
           </Link>
         </div>
       )}
-    </div>
+    </FormPage>
   );
 }
 
+/**
+ * Envoltorio fino sobre `FormField` para los campos de texto de esta pantalla.
+ *
+ * Antes era un componente COMPLETO con su etiqueta, su clase de control y su
+ * párrafo de error — una copia privada de lo que hace `FormField`, con otro
+ * padding y sin nada del cableado de accesibilidad. Ahora sólo adapta la firma.
+ */
 function Field({
   id,
   label,
@@ -263,6 +281,7 @@ function Field({
   error,
   type = 'text',
   maxLength,
+  required,
 }: {
   id: string;
   label: string;
@@ -271,22 +290,104 @@ function Field({
   error?: string;
   type?: string;
   maxLength?: number;
+  required?: boolean;
 }) {
   return (
-    <div>
-      <label htmlFor={id} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-        {label}
-      </label>
-      <input
-        id={id}
-        type={type}
-        value={value}
-        onChange={onChange}
-        min={type === 'number' ? 1 : undefined}
-        maxLength={maxLength}
-        className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary"
-      />
-      {error && <p className="text-sm text-red-600 mt-1">{error}</p>}
+    <FormField label={label} htmlFor={id} error={error} required={required}>
+      {(control) => (
+        <input
+          {...control}
+          type={type}
+          value={value}
+          onChange={onChange}
+          min={type === 'number' ? 1 : undefined}
+          maxLength={maxLength}
+        />
+      )}
+    </FormField>
+  );
+}
+
+/**
+ * Un grupo de radios o checkboxes, con su etiqueta y su error.
+ *
+ * NO usa `FormField`: esa primitiva pone un `htmlFor`, y acá no hay UN control
+ * al que apuntar sino varios — un `htmlFor` a un id inexistente deja una
+ * etiqueta huérfana, que es peor que no tenerla. Por eso replica el marcado de
+ * la etiqueta a mano y ata el grupo con `role="group"` + `aria-labelledby`.
+ *
+ * Lo que esto arregla no es cosmético: antes el título del grupo era un `<span>`
+ * suelto, así que un lector de pantalla leía "Perro, casilla, no marcada" sin
+ * decir nunca **de qué** era la lista. Cada control individual sí tenía nombre;
+ * el conjunto no tenía ninguno.
+ */
+function ChoiceGroup({
+  id,
+  label,
+  required,
+  error,
+  children,
+}: {
+  id: string;
+  label: string;
+  required?: boolean;
+  error?: string;
+  children: React.ReactNode;
+}) {
+  const errorId = `${id}-error`;
+  return (
+    <div
+      role="group"
+      aria-labelledby={`${id}-label`}
+      {...(error ? { 'aria-describedby': errorId } : {})}
+    >
+      {/* Mismo marcado que la fila de etiqueta de `FormField`, y el asterisco
+          igual de fuera del texto: si entrara al nombre accesible, el grupo
+          pasaría a llamarse "Tipos de animales*". */}
+      <div className="flex items-baseline gap-1 mb-2">
+        <span id={`${id}-label`} className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+          {label}
+        </span>
+        {required && (
+          <span aria-hidden="true" className="text-danger">
+            *
+          </span>
+        )}
+      </div>
+      <div className="flex flex-wrap gap-x-6 gap-y-3">{children}</div>
+      {error && (
+        <p id={errorId} role="alert" className="text-danger text-sm mt-2">
+          {error}
+        </p>
+      )}
     </div>
+  );
+}
+
+/** Una opción del grupo: el control y su texto, dentro del mismo `<label>`. */
+function Choice({
+  type,
+  name,
+  checked,
+  onChange,
+  label,
+}: {
+  type: 'radio' | 'checkbox';
+  name?: string;
+  checked: boolean;
+  onChange: () => void;
+  label: string;
+}) {
+  return (
+    <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
+      <input
+        type={type}
+        name={name}
+        checked={checked}
+        onChange={onChange}
+        className={`${type === 'checkbox' ? 'rounded' : ''} h-4 w-4 border-gray-300 dark:border-gray-600 text-primary focus:ring-2 focus:ring-primary/30`}
+      />
+      {label}
+    </label>
   );
 }
