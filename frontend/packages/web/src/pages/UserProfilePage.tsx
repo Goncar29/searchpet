@@ -187,10 +187,16 @@ export function UserProfilePage() {
   // de abajo dice que no se pudo leer), y bloquear el formulario mientras no se
   // sepa es otra decisión, no un porte.
   //
-  // El `?.` reemplaza al `?? []` que había: no hace falta un array vacío para
-  // buscar dentro de datos que no llegaron.
+  // Los `?.` reemplazan al `?? []` que había: no hace falta un array vacío para
+  // buscar dentro de datos que no llegaron. Van **dos**, y el segundo importa:
+  // `ListState` blinda `query.data` Y el retorno de `select` contra `null`
+  // justo porque es el único choke point que ven las 12 pantallas portadas,
+  // pero esta línea vive AFUERA. Con un solo `?.`, un cuerpo `{"reviews": null}`
+  // tira acá en pleno render y deja la pantalla en blanco vía `ErrorBoundary`:
+  // la falla exacta que este trabajo existe para evitar, reintroducida por el
+  // borrado de la única defensa que había en este punto.
   const myReview = canReview
-    ? reviewsQuery.data?.reviews.find((r) => r.reviewer_id === user?.id)
+    ? reviewsQuery.data?.reviews?.find((r) => r.reviewer_id === user?.id)
     : undefined;
 
   const handleOpenForm = () => {

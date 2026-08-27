@@ -4,8 +4,14 @@ import { MemoryRouter } from 'react-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { UserProfilePage } from './UserProfilePage';
 
+// Mutable: `myReview` sólo se calcula si `canReview` (sesión abierta y perfil
+// ajeno), así que con el anónimo de siempre esa línea ni se ejecuta.
+const authState = vi.hoisted(() => ({
+  current: { user: null as Record<string, unknown> | null, isAuthenticated: false },
+}));
+
 vi.mock('../context/AuthContext', () => ({
-  useAuth: () => ({ user: null, isAuthenticated: false }),
+  useAuth: () => authState.current,
 }));
 
 vi.mock('react-router', async (importOriginal) => {
@@ -36,7 +42,10 @@ const profileState = vi.hoisted(() => ({
 // Y el cuerpo de `useUserReviews` era `{ data: [] }`, una forma que el endpoint
 // no devuelve: la página lee `data.reviews`. Pasaba en verde porque el `?? []`
 // que este cambio borra tapaba la diferencia.
-const reviewsState = vi.hoisted(() => ({ reviews: [] as unknown[], isError: false }));
+const reviewsState = vi.hoisted(() => ({
+  reviews: [] as unknown[] | null,
+  isError: false,
+}));
 
 vi.mock('@shared/hooks', () => ({
   usePublicProfile: () => ({ data: profileState.current, isLoading: false, error: null }),
@@ -90,6 +99,7 @@ describe('UserProfilePage', () => {
   beforeEach(() => {
     reviewsState.reviews = [];
     reviewsState.isError = false;
+    authState.current = { user: null, isAuthenticated: false };
   });
 
   it('renderiza sin lanzar errores', () => {
@@ -115,6 +125,25 @@ describe('UserProfilePage', () => {
 
     expect(screen.getByText('Aún no hay reseñas.')).toBeInTheDocument();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  // `myReview` se calcula FUERA del `ListState`, así que el blindaje contra
+  // `null` de la primitiva no lo alcanza: un cuerpo `{"reviews": null}` tiraba
+  // en pleno render y dejaba la pantalla en blanco vía `ErrorBoundary` — la
+  // falla exacta que todo este trabajo existe para evitar. El backend hoy no lo
+  // puede emitir (`make([]dto.ReviewResponse, 0, ...)`), así que es defensa;
+  // pero el `?? []` que este PR borró era la única que había en este punto.
+  it('un cuerpo con reviews en null NO deja la pantalla en blanco', () => {
+    authState.current = {
+      user: { id: 'user-1', name: 'Carlos' },
+      isAuthenticated: true,
+    };
+    reviewsState.reviews = null;
+    render(<UserProfilePage />, { wrapper });
+
+    // La pantalla sigue en pie: el perfil se ve y la lista cae a su vacío.
+    expect(screen.getByText('Ana')).toBeInTheDocument();
+    expect(screen.getByText('Aún no hay reseñas.')).toBeInTheDocument();
   });
 
   it('con resenas las lista', () => {
