@@ -128,12 +128,23 @@ describe('HomePage', () => {
   // (regla #28), así que la landing se dibuja y las queries quedan en
   // `fetchStatus: 'paused'`. Sin esta rama la tira desaparecía en silencio,
   // igual que antes del porte.
-  it('sin conexion y sin datos, la tira avisa en vez de desaparecer', () => {
+  //
+  // El título es el de la SECCIÓN y no `common:offlineTitle`: desde el PR #194
+  // `errorTitle` también nombra el cartel de offline, justo para que dos
+  // secciones sin encabezado propio no dibujen dos carteles idénticos. Esta
+  // aserción decía `common:offlineTitle` y **quedó vieja al mergear los dos PRs
+  // juntos**: cada uno pasaba solo, y la combinación no la corrió nadie.
+  //
+  // El cuerpo SÍ sigue siendo el de offline, y por eso se afirma: el título es
+  // el mismo en la rama de error y en ésta, así que sin mirar el cuerpo este
+  // test pasaría sin haber entrado nunca en la rama que dice probar.
+  it('sin conexion y sin datos, la tira avisa nombrandose', () => {
     mockStories = { data: undefined, isError: false, isPaused: true };
     render(<HomePage />, { wrapper });
 
     expect(screen.getByRole('alert')).toBeInTheDocument();
-    expect(screen.getByText('common:offlineTitle')).toBeInTheDocument();
+    expect(screen.getByText('home:successStories.loadError')).toBeInTheDocument();
+    expect(screen.getByText('common:offlineBody')).toBeInTheDocument();
   });
 
   it('con historias las lista', () => {
