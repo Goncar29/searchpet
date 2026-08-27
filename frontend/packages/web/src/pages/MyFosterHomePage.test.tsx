@@ -113,7 +113,16 @@ describe('MyFosterHomePage', () => {
   // en que el `<fieldset disabled>` lo hace nativamente. Eso es una SUPOSICIÓN
   // hasta que algo la mide: si fuera falsa, un hogar suspendido quedaría
   // editable y el único freno sería el 409 del backend.
-  it('con el hogar suspendido, el fieldset deshabilita TODOS los controles', () => {
+  // OJO CON EL NOMBRE: dice "los del formulario" y no "todos" porque **las
+  // fotos NO se congelan**. El input de archivo y los botones de borrar viven
+  // fuera del `<form>` y siguen siendo interactivos, y el backend tampoco los
+  // frena: `UpdateMine` tiene el guard de suspendido
+  // (`foster_home_service.go:102`) pero `Upload` y `Delete` de fotos no tienen
+  // ninguno. O sea que un hogar suspendido SÍ puede agregar y borrar fotos, en
+  // las dos capas. Es preexistente y queda anotado en el PR; lo que este test
+  // NO puede hacer es llamarse "todos" y dejar a alguien creyendo que eso está
+  // cubierto.
+  it('con el hogar suspendido, el fieldset deshabilita los controles DEL FORMULARIO', () => {
     myFosterHomeState.data = { ...baseFosterHome, status: 'suspended' };
     renderPage();
 
@@ -135,6 +144,40 @@ describe('MyFosterHomePage', () => {
     // Y no se ofrece guardar.
     expect(screen.queryByText('fosterHomes:mine.save')).toBeNull();
     expect(screen.getByText('fosterHomes:mine.suspendedFrozen')).toBeTruthy();
+  });
+
+  // La otra mitad, escrita para que la afirmación de arriba sea exacta: el
+  // input de fotos NO queda deshabilitado. Si algún día se congela de verdad,
+  // este test se pone rojo y obliga a actualizar los dos.
+  it('pero las fotos NO se congelan — hoy siguen editables', () => {
+    myFosterHomeState.data = { ...baseFosterHome, status: 'suspended' };
+    const { container } = renderPage();
+
+    const archivo = container.querySelector('input[type="file"]');
+    expect(archivo).toBeTruthy();
+    expect(archivo).not.toBeDisabled();
+  });
+
+  // Un texto que el BACKEND aceptó tiene que poder editarse. El backend cuenta
+  // con `utf8.RuneCountInString` (puntos de código) y `String.length` cuenta
+  // unidades UTF-16: 400 emoji son 400 runas para Go y 800 para JS. Con el
+  // conteo viejo la pantalla mostraba "800/500" en rojo y bloqueaba CUALQUIER
+  // guardado de una descripción que el servidor había guardado feliz.
+  it('una descripcion de emojis guardada por el backend se puede seguir editando', () => {
+    const cuatrocientosEmojis = '🐶'.repeat(400);
+    myFosterHomeState.data = { ...baseFosterHome, description: cuatrocientosEmojis };
+    mutateMock.mockImplementation((_data, opts) => opts?.onSuccess?.());
+    renderPage();
+
+    expect(screen.getByText('400/500')).toBeTruthy();
+
+    fireEvent.change(screen.getByLabelText('fosterHomes:register.city'), {
+      target: { value: 'Salto' },
+    });
+    fireEvent.click(screen.getByText('fosterHomes:mine.save'));
+
+    expect(mutateMock).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText('fosterHomes:register.maxLengthError:500')).toBeNull();
   });
 
   it('el contador de la descripcion sigue estando', () => {

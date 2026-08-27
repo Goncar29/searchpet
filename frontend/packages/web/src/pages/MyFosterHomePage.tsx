@@ -38,6 +38,20 @@ const EMPTY_FORM: FormState = {
   whatsapp_phone: '',
 };
 
+/**
+ * Cuenta como cuenta el backend.
+ *
+ * `foster_home_dto.go:42` valida con `utf8.RuneCountInString`, o sea PUNTOS DE
+ * CÓDIGO, mientras que `String.length` cuenta unidades UTF-16. Una descripción
+ * de 400 emoji son 400 runas —que el backend acepta y guarda— y 800 para JS:
+ * la pantalla mostraba "800/500" en rojo y `validate()` bloqueaba CUALQUIER
+ * edición de un texto que el servidor había aceptado. Medido.
+ *
+ * Es la regla #36 del otro lado del cable: cada vez que un límite y quien lo
+ * mide hablan de "largo", hay que confirmar que hablen de la misma unidad.
+ */
+const largo = (texto: string) => [...texto].length;
+
 // Deben coincidir con los límites del backend (foster_home_dto.go) y del form de registro.
 const CITY_MAX_LEN = 100;
 const DESCRIPTION_MAX_LEN = 500;
@@ -148,12 +162,12 @@ export function MyFosterHomePage() {
   const validate = (): boolean => {
     const errs: Partial<Record<FieldErrorKey, string>> = {};
     if (!form.city.trim()) errs.city = t('fosterHomes:register.cityRequired');
-    else if (form.city.length > CITY_MAX_LEN) errs.city = t('fosterHomes:register.maxLengthError', { max: CITY_MAX_LEN });
+    else if (largo(form.city) > CITY_MAX_LEN) errs.city = t('fosterHomes:register.maxLengthError', { max: CITY_MAX_LEN });
     if (form.animal_types.length === 0) errs.animal_types = t('fosterHomes:register.animalTypesRequired');
     const capacityNum = Number(form.capacity);
     if (!Number.isInteger(capacityNum) || capacityNum < 1) errs.capacity = t('fosterHomes:register.capacityInvalid');
     if (!form.description.trim()) errs.description = t('fosterHomes:register.descriptionRequired');
-    else if (form.description.length > DESCRIPTION_MAX_LEN)
+    else if (largo(form.description) > DESCRIPTION_MAX_LEN)
       errs.description = t('fosterHomes:register.maxLengthError', { max: DESCRIPTION_MAX_LEN });
     setFieldErrors(errs);
     return Object.keys(errs).length === 0;
@@ -331,18 +345,21 @@ export function MyFosterHomePage() {
                       rows={4}
                       maxLength={DESCRIPTION_MAX_LEN}
                     />
-                    {/* El contador se pone rojo al pasarse. Con `maxLength` el
-                        navegador no deja llegar ahí tipeando, pero sí pegando
-                        en algunos casos, y la validación de `validate()`
-                        también lo contempla — el color no es adorno. */}
+                    {/* El rojo NO es inalcanzable, y el camino no es pegar
+                        texto —el navegador también trunca el pegado contra
+                        `maxLength`— sino ABRIR una descripción ya guardada: el
+                        `maxLength` no recorta lo que llega del servidor. Con
+                        `largo()` el número que se ve es el mismo que cuenta el
+                        backend, así que el rojo aparece sólo cuando de verdad
+                        se pasó. */}
                     <p
                       className={`mt-1 text-right text-xs ${
-                        form.description.length > DESCRIPTION_MAX_LEN
+                        largo(form.description) > DESCRIPTION_MAX_LEN
                           ? 'text-danger'
                           : 'text-gray-400 dark:text-gray-500'
                       }`}
                     >
-                      {form.description.length}/{DESCRIPTION_MAX_LEN}
+                      {largo(form.description)}/{DESCRIPTION_MAX_LEN}
                     </p>
                   </>
                 )}
@@ -410,7 +427,7 @@ export function MyFosterHomePage() {
           </div>
         )}
 
-        {photoError && <p className="text-sm text-red-600 mb-2">{photoError}</p>}
+        {photoError && <p role="alert" className="text-sm text-danger mb-2">{photoError}</p>}
 
         {canAddPhoto ? (
           <div>
