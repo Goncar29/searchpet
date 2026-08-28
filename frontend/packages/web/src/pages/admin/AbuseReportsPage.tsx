@@ -25,7 +25,12 @@ type PendingAction =
 const REASON_MAX_LEN = 500;
 
 export function AbuseReportsPage() {
-  const { t } = useTranslation('admin');
+  // `common` va declarado explícitamente porque los modales resuelven
+  // `common:cancel`. Con los recursos precargados el prefijo de namespace se
+  // resolvería igual, pero eso depende de cómo esté armado i18next — y el modo
+  // de falla es una CLAVE CRUDA en pantalla que ningún test ve, porque acá
+  // `t` está mockeado para devolver la clave.
+  const { t } = useTranslation(['admin', 'common']);
   const [filter, setFilter] = useState<FilterMode>('all');
   const [page, setPage] = useState(1);
   const queryClient = useQueryClient();
@@ -403,6 +408,7 @@ export function AbuseReportsPage() {
           title={t('abuse.modal.deleteTitle')}
           message={t('abuse.modal.deleteMessage', { name: pending.petName })}
           confirmLabel={t('abuse.modal.deleteConfirm')}
+          cancelLabel={t('common:cancel')}
           destructive
           loading={deleteMutation.isPending}
           onConfirm={() => deleteMutation.mutate(pending.reportId)}
@@ -415,6 +421,7 @@ export function AbuseReportsPage() {
           title={t('abuse.modal.banTitle')}
           message={t('abuse.modal.banMessage', { name: pending.userName })}
           confirmLabel={t('abuse.modal.banConfirm')}
+          cancelLabel={t('common:cancel')}
           destructive
           loading={banMutation.isPending}
           onConfirm={() => banMutation.mutate({ userId: pending.userId, reason })}
@@ -438,6 +445,7 @@ export function AbuseReportsPage() {
           title={t('abuse.modal.unbanTitle')}
           message={t('abuse.modal.unbanMessage', { name: pending.userName })}
           confirmLabel={t('abuse.modal.unbanConfirm')}
+          cancelLabel={t('common:cancel')}
           loading={unbanMutation.isPending}
           onConfirm={() => unbanMutation.mutate(pending.userId)}
           onCancel={closeModal}
@@ -449,6 +457,7 @@ export function AbuseReportsPage() {
           title={t('abuse.modal.suspendHomeTitle')}
           message={t('abuse.modal.suspendHomeMessage', { city: pending.city })}
           confirmLabel={t('abuse.modal.suspendHomeConfirm')}
+          cancelLabel={t('common:cancel')}
           destructive
           loading={suspendHomeMutation.isPending}
           confirmDisabled={!reason.trim()}
@@ -506,6 +515,7 @@ export function AbuseReportsPage() {
           title={t('abuse.modal.reinstateHomeTitle')}
           message={t('abuse.modal.reinstateHomeMessage', { city: pending.city })}
           confirmLabel={t('abuse.modal.reinstateHomeConfirm')}
+          cancelLabel={t('common:cancel')}
           loading={reinstateHomeMutation.isPending}
           onConfirm={() => reinstateHomeMutation.mutate(pending.homeId)}
           onCancel={closeModal}

@@ -3,8 +3,22 @@ import type { ReactNode } from 'react';
 interface ConfirmModalProps {
   title: string;
   message: string;
-  confirmLabel?: string;
-  cancelLabel?: string;
+  /**
+   * Los dos textos de los botones son OBLIGATORIOS a propósito, y no tienen
+   * default.
+   *
+   * Antes eran opcionales con `'Confirm'` / `'Cancel'` cableados en inglés, y
+   * `AbuseReportsPage` no pasaba `cancelLabel` en ninguno de sus modales: un
+   * admin con la app en español leía "Cancel" en los cinco. Nada lo señalaba —
+   * no es una clave i18n sin resolver, es una palabra inglesa de verdad, así
+   * que un barrido de claves crudas la deja pasar limpia.
+   *
+   * Un default que produce texto equivocado EN SILENCIO es peor que no tener
+   * default: omitir la prop se veía correcto. Sin default, olvidarse no
+   * compila, y la garantía deja de depender de que alguien se acuerde.
+   */
+  confirmLabel: string;
+  cancelLabel: string;
   /** Apply destructive (red) styling to the confirm button. */
   destructive?: boolean;
   /** Disable actions and show a busy state while the confirm mutation runs. */
@@ -24,8 +38,8 @@ interface ConfirmModalProps {
 export function ConfirmModal({
   title,
   message,
-  confirmLabel = 'Confirm',
-  cancelLabel = 'Cancel',
+  confirmLabel,
+  cancelLabel,
   destructive = false,
   loading = false,
   confirmDisabled = false,
