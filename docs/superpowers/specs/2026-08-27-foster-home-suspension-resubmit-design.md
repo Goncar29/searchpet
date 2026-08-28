@@ -123,10 +123,19 @@ se ofrezca re-enviar. Y se **elimina** el test *"pero las fotos NO se congelan"*
 existía para documentar una asimetría entre el formulario y las fotos, y con este
 cambio esa asimetría desaparece. Un test que ya no distingue nada es ruido.
 
-**Frontend mobile**: la pantalla **no tiene tests hoy**. Se agrega uno que cubra
-lo que el cambio decide: con el hogar suspendido el formulario es editable y
-guardar llama a la API. Correrlo con `pnpm test:run` — `pnpm test` es
-`jest --watchAll` y no termina nunca.
+**Frontend mobile**: la pantalla **sí tiene un test** (`__tests__/foster-homes.test.tsx`),
+que afirma que el cartel de estado suspendido aparece. Ese test **matchea contra
+la CLAVE i18n y no contra el texto** —mobile no inicializa i18next en jest— así
+que reescribir el string no lo rompe. Se agrega un archivo aparte con lo que
+este cambio decide: con el hogar suspendido el formulario es editable y guardar
+llama a la API. Correr con `pnpm test:run` — `pnpm test` es `jest --watchAll` y
+no termina nunca.
+
+> Una versión anterior de esta spec decía que la pantalla no tenía tests. Era
+> falso: el comando con el que lo "verifiqué" usaba `fd`, que no está instalado,
+> y su error quedó tapado por un `2>/dev/null` seguido de un `||` que imprimía
+> "sin tests". Es la regla #41 — una señal de éxito que también se emite cuando
+> el chequeo no ocurrió.
 
 ## Riesgo aceptado
 

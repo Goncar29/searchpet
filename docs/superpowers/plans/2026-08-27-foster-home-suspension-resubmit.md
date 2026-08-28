@@ -26,7 +26,7 @@
 | `frontend/packages/web/src/pages/MyFosterHomePage.test.tsx` | invertir el test del congelado; borrar el de las fotos |
 | `frontend/packages/mobile/i18n/locales/{es,en,pt}.json` | las mismas claves, en la copia propia de mobile |
 | `frontend/packages/mobile/app/foster-homes/mine.tsx` | el mismo cambio que la web: los dos `return`, el `editable`/`disabled`, el motivo, el cartel y el botón |
-| `frontend/packages/mobile/__tests__/foster-home-mine.test.tsx` | **nuevo** — la pantalla no tiene tests |
+| `frontend/packages/mobile/__tests__/foster-home-mine.test.tsx` | **nuevo**. Ojo: la pantalla YA tiene `foster-homes.test.tsx`, que afirma sobre la clave i18n y no sobre el texto |
 
 ## Comandos
 
@@ -622,7 +622,9 @@ En `app/foster-homes/mine.tsx`:
 
 - [ ] **Step 3: El test que no existe**
 
-Crear `__tests__/foster-home-mine.test.tsx` cubriendo lo que este cambio decide:
+Crear `__tests__/foster-home-mine.test.tsx` cubriendo lo que este cambio decide.
+**No es la primera prueba de esta pantalla**: ya existe `foster-homes.test.tsx`
+y hay que leerlo antes, para no duplicar ni contradecir. Cubre:
 con el hogar suspendido el formulario es **editable** y guardar **llama a la
 API**. Modelar el arnés sobre otro test de pantalla del mismo directorio: los
 smoke tests mockean `@shared/hooks` hook por hook, así que **todo hook que use
