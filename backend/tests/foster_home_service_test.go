@@ -185,7 +185,7 @@ func TestSuspend_RequiresReasonAndLogs(t *testing.T) {
 	}
 }
 
-func TestEditSuspended_IsFrozen(t *testing.T) {
+func TestEditSuspended_VuelveAPending(t *testing.T) {
 	ctx := context.Background()
 	ownerID, userRepo := newVerifiedUser()
 	fhRepo := newFakeFHRepo()
@@ -205,10 +205,22 @@ func TestEditSuspended_IsFrozen(t *testing.T) {
 		t.Fatalf("Suspend failed: %v", err)
 	}
 
+	// Suspender significa "esto está mal, arreglalo": el dueño corrige y su
+	// hogar vuelve a la cola por su cuenta, igual que un rejected.
 	city := "Salto"
-	_, err := svc.UpdateMine(ctx, ownerID.String(), &dto.UpdateMyFosterHomeRequest{City: &city})
-	if err != domain.ErrFosterHomeSuspended {
-		t.Fatalf("expected ErrFosterHomeSuspended, got %v", err)
+	got, err := svc.UpdateMine(ctx, ownerID.String(), &dto.UpdateMyFosterHomeRequest{City: &city})
+	if err != nil {
+		t.Fatalf("UpdateMine failed: %v", err)
+	}
+	if got.Status != domain.FosterHomeStatusPending {
+		t.Errorf("expected status pending, got %q", got.Status)
+	}
+	if got.City != "Salto" {
+		t.Errorf("expected the edit to apply, got city %q", got.City)
+	}
+	// El motivo se limpia: ya no describe el estado actual.
+	if got.RejectionReason != "" {
+		t.Errorf("expected the reason to be cleared, got %q", got.RejectionReason)
 	}
 }
 
