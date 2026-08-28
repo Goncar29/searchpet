@@ -40,6 +40,7 @@
         "ban": "Banear",
         "unban": "Desbanear",
         "suspendHome": "Suspender",
+        "rejectHome": "Rechazar",
         "reinstateHome": "Reinstaurar"
       },
       "targetUser": "usuario: {{id}}",
@@ -60,6 +61,10 @@
         "suspendHomeMessage": "¿Suspender el hogar de {{city}}? Dejará de aparecer en el directorio.",
         "suspendHomeConfirm": "Suspender",
         "suspendReasonLabel": "Motivo (requerido)",
+        "reasonOwnerNotice": "El dueño del hogar va a leer este texto tal cual. No incluyas quién lo denunció.",
+        "rejectHomeTitle": "Rechazar hogar",
+        "rejectHomeMessage": "¿Rechazar el hogar de {{city}}? El dueño verá el motivo y podrá corregirlo y volver a enviarlo.",
+        "rejectHomeConfirm": "Rechazar",
         "reinstateHomeTitle": "Reinstaurar hogar",
         "reinstateHomeMessage": "¿Reinstaurar el hogar de {{city}}? Volverá a aparecer en el directorio.",
         "reinstateHomeConfirm": "Reinstaurar"
@@ -711,6 +716,9 @@
       "suspend": "Suspender",
       "reinstate": "Reinstaurar",
       "reasonRequired": "El motivo es obligatorio",
+      "reasonLabel": "Motivo",
+      "reasonPlaceholder": "Explicá qué hay que corregir…",
+      "reasonOwnerNotice": "El dueño del hogar va a leer este texto tal cual. No incluyas quién lo denunció.",
       "viewLogs": "Ver moderación",
       "viewHistory": "Ver historial de ediciones",
       "logsTitle": "Rastro de moderación",

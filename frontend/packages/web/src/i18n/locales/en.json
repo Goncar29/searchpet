@@ -40,6 +40,7 @@
         "ban": "Ban",
         "unban": "Unban",
         "suspendHome": "Suspend",
+        "rejectHome": "Reject",
         "reinstateHome": "Reinstate"
       },
       "targetUser": "user: {{id}}",
@@ -60,6 +61,10 @@
         "suspendHomeMessage": "Suspend the {{city}} foster home? It will stop appearing in the directory.",
         "suspendHomeConfirm": "Suspend",
         "suspendReasonLabel": "Reason (required)",
+        "reasonOwnerNotice": "The home's owner will read this text verbatim. Do not include who reported it.",
+        "rejectHomeTitle": "Reject home",
+        "rejectHomeMessage": "Reject the {{city}} foster home? The owner will see the reason and can fix it and submit again.",
+        "rejectHomeConfirm": "Reject",
         "reinstateHomeTitle": "Reinstate home",
         "reinstateHomeMessage": "Reinstate the {{city}} foster home? It will appear in the directory again.",
         "reinstateHomeConfirm": "Reinstate"
@@ -711,6 +716,9 @@
       "suspend": "Suspend",
       "reinstate": "Reinstate",
       "reasonRequired": "Reason is required",
+      "reasonLabel": "Reason",
+      "reasonPlaceholder": "Explain what needs fixing…",
+      "reasonOwnerNotice": "The home's owner will read this text verbatim. Do not include who reported it.",
       "viewLogs": "View moderation",
       "viewHistory": "View edit history",
       "logsTitle": "Moderation trail",
