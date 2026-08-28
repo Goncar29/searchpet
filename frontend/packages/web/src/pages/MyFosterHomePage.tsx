@@ -177,10 +177,6 @@ export function MyFosterHomePage() {
     e.preventDefault();
     setApiError(null);
     setSaved(false);
-    // Defensa cliente: un hogar suspendido no se puede editar. El backend
-    // igual devuelve 409 foster_home_suspended si esto se saltea — se
-    // maneja abajo vía getErrorMessage (defense in depth, no solo UI).
-    if (isSuspended) return;
     if (!validate()) return;
     updateFosterHome.mutate(
       {
@@ -258,7 +254,10 @@ export function MyFosterHomePage() {
         >
           {t(STATUS_MESSAGE_KEY[fosterHome.status])}
         </p>
-        {isRejected && fosterHome.rejection_reason && (
+        {/* El motivo vale para los dos estados de los que se sale corrigiendo.
+            El campo se llama `rejection_reason` por historia; el backend lo
+            escribe también al suspender. */}
+        {(isRejected || isSuspended) && fosterHome.rejection_reason && (
           <p className="text-sm text-red-600 dark:text-red-400 mt-1">
             <span className="font-semibold">{t('fosterHomes:mine.rejectionReason')}:</span>{' '}
             {fosterHome.rejection_reason}
@@ -267,11 +266,7 @@ export function MyFosterHomePage() {
       </div>
 
       <form onSubmit={handleSubmit} noValidate className="mt-6 space-y-6">
-        {/* El `<fieldset disabled>` se queda, y no es decoración: deshabilita
-            NATIVAMENTE todo control que contenga, así que los `disabled` que
-            había repetidos en cada input eran redundantes y se fueron con el
-            marcado viejo. Hay un test que lo comprueba en vez de suponerlo. */}
-        <fieldset disabled={isSuspended} className="space-y-6 disabled:opacity-60">
+        <>
           <FormSection title={t('fosterHomes:register.sectionHome')}>
             <div className="space-y-6">
               <div className="grid sm:grid-cols-2 gap-6">
@@ -374,11 +369,11 @@ export function MyFosterHomePage() {
               />
             </div>
           </FormSection>
-        </fieldset>
+        </>
 
         {isSuspended && (
-          <p className="text-sm text-danger bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-900 rounded-xl p-3">
-            {t('fosterHomes:mine.suspendedFrozen')}
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            {t('fosterHomes:mine.resubmitHint')}
           </p>
         )}
 
@@ -389,15 +384,17 @@ export function MyFosterHomePage() {
           </p>
         )}
 
-        {!isSuspended && (
-          <FormActions
-            submit={
-              <button type="submit" disabled={updateFosterHome.isPending} className={formSubmitClass}>
-                {updateFosterHome.isPending ? t('fosterHomes:mine.saving') : t('fosterHomes:mine.save')}
-              </button>
-            }
-          />
-        )}
+        <FormActions
+          submit={
+            <button type="submit" disabled={updateFosterHome.isPending} className={formSubmitClass}>
+              {updateFosterHome.isPending
+                ? t('fosterHomes:mine.saving')
+                : isSuspended
+                  ? t('fosterHomes:mine.resubmit')
+                  : t('fosterHomes:mine.save')}
+            </button>
+          }
+        />
       </form>
 
       {/* Fotos — retención por diseño: no hay botón de borrar el hogar (§18).
