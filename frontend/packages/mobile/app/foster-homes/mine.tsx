@@ -1,7 +1,8 @@
 // ============================================================
 // SearchPet — My Foster Home Screen (edit + photos)
 // Mirrors MyFosterHomePage.tsx (web): moderation status banner,
-// editable form (frozen when suspended), photo management.
+// editable form (editing a suspended home resubmits it for review),
+// photo management.
 // ============================================================
 
 import {
@@ -163,7 +164,6 @@ export default function MyFosterHomeScreen() {
   const canAddPhoto = photoCount < MAX_PHOTOS;
 
   const toggleAnimalType = (kind: AnimalKind) => {
-    if (isSuspended) return;
     setAnimalTypes((prev) =>
       prev.includes(kind) ? prev.filter((k) => k !== kind) : [...prev, kind],
     );
@@ -190,10 +190,10 @@ export default function MyFosterHomeScreen() {
   };
 
   const handleSave = () => {
-    // Defense in depth: a suspended home cannot be edited. The backend still
-    // returns 409 foster_home_suspended if this is bypassed — handled below
-    // via getErrorMessage, not just the disabled UI.
-    if (isSuspended) return;
+    // Editing a suspended home IS resubmitting it: the backend moves it back
+    // to `pending` on a successful update. No `isSuspended` guard here —
+    // that used to freeze the form; now saving is exactly how the owner
+    // returns to the moderation queue.
     if (!validate()) return;
 
     const payload: UpdateMyFosterHomeRequest = {
@@ -258,7 +258,10 @@ export default function MyFosterHomeScreen() {
           {t(`fosterHomes:status.${status}`)}
         </Text>
         <Text style={styles.statusMessage}>{t(STATUS_MESSAGE_KEY[status])}</Text>
-        {status === 'rejected' && mine.rejection_reason ? (
+        {/* The reason applies to both statuses the owner edits out of — the
+            field is called `rejection_reason` for historical reasons; the
+            backend writes it on suspension too. */}
+        {(status === 'rejected' || isSuspended) && mine.rejection_reason ? (
           <Text style={styles.statusReason}>
             {t('fosterHomes:mine.rejectionReason')}: {mine.rejection_reason}
           </Text>
@@ -266,22 +269,19 @@ export default function MyFosterHomeScreen() {
       </View>
 
       {isSuspended && (
-        <View style={styles.suspendedNotice}>
-          <Text style={styles.suspendedNoticeText}>{t('fosterHomes:mine.suspendedFrozen')}</Text>
-        </View>
+        <Text style={styles.hint}>{t('fosterHomes:mine.resubmitHint')}</Text>
       )}
 
       {/* Edit form */}
       <View style={styles.section}>
         <Text style={styles.label}>{t('fosterHomes:register.city')}</Text>
         <TextInput
-          style={[styles.input, isSuspended && styles.inputDisabled]}
+          style={styles.input}
           value={city}
           onChangeText={(text) => {
             setCity(text);
             setErrors((prev) => ({ ...prev, city: undefined }));
           }}
-          editable={!isSuspended}
           placeholderTextColor={COLORS.placeholder}
           autoCapitalize="words"
           maxLength={CITY_MAX_LEN}
@@ -298,8 +298,7 @@ export default function MyFosterHomeScreen() {
               <TouchableOpacity
                 key={ht}
                 style={[styles.chipOption, active && styles.chipOptionActive]}
-                onPress={() => !isSuspended && setHousingType(ht)}
-                disabled={isSuspended}
+                onPress={() => setHousingType(ht)}
                 accessibilityRole="button"
               >
                 <Text style={[styles.chipLabel, active && styles.chipLabelActive]}>
@@ -321,7 +320,6 @@ export default function MyFosterHomeScreen() {
                 key={kind}
                 style={[styles.chipOption, active && styles.chipOptionActive]}
                 onPress={() => toggleAnimalType(kind)}
-                disabled={isSuspended}
                 accessibilityRole="button"
               >
                 <Text style={[styles.chipLabel, active && styles.chipLabelActive]}>
@@ -337,13 +335,12 @@ export default function MyFosterHomeScreen() {
       <View style={styles.section}>
         <Text style={styles.label}>{t('fosterHomes:register.capacity')}</Text>
         <TextInput
-          style={[styles.input, isSuspended && styles.inputDisabled]}
+          style={styles.input}
           value={capacity}
           onChangeText={(text) => {
             setCapacity(text);
             setErrors((prev) => ({ ...prev, capacity: undefined }));
           }}
-          editable={!isSuspended}
           keyboardType="number-pad"
         />
         {errors.capacity && <Text style={styles.error}>{errors.capacity}</Text>}
@@ -352,13 +349,12 @@ export default function MyFosterHomeScreen() {
       <View style={styles.section}>
         <Text style={styles.label}>{t('fosterHomes:register.description')}</Text>
         <TextInput
-          style={[styles.input, styles.textArea, isSuspended && styles.inputDisabled]}
+          style={[styles.input, styles.textArea]}
           value={description}
           onChangeText={(text) => {
             setDescription(text);
             setErrors((prev) => ({ ...prev, description: undefined }));
           }}
-          editable={!isSuspended}
           multiline
           numberOfLines={4}
           maxLength={DESCRIPTION_MAX_LEN}
@@ -376,29 +372,28 @@ export default function MyFosterHomeScreen() {
       <View style={styles.section}>
         <Text style={styles.label}>{t('fosterHomes:register.whatsapp')}</Text>
         <TextInput
-          style={[styles.input, isSuspended && styles.inputDisabled]}
+          style={styles.input}
           value={whatsappPhone}
           onChangeText={setWhatsappPhone}
-          editable={!isSuspended}
           keyboardType="phone-pad"
           maxLength={WHATSAPP_MAX_LEN}
         />
       </View>
 
-      {!isSuspended && (
-        <TouchableOpacity
-          style={[styles.primaryButton, updateFosterHome.isPending && styles.disabledButton]}
-          onPress={handleSave}
-          disabled={updateFosterHome.isPending}
-          accessibilityRole="button"
-        >
-          {updateFosterHome.isPending ? (
-            <ActivityIndicator size="small" color={COLORS.white} />
-          ) : (
-            <Text style={styles.primaryButtonText}>{t('fosterHomes:mine.save')}</Text>
-          )}
-        </TouchableOpacity>
-      )}
+      <TouchableOpacity
+        style={[styles.primaryButton, updateFosterHome.isPending && styles.disabledButton]}
+        onPress={handleSave}
+        disabled={updateFosterHome.isPending}
+        accessibilityRole="button"
+      >
+        {updateFosterHome.isPending ? (
+          <ActivityIndicator size="small" color={COLORS.white} />
+        ) : (
+          <Text style={styles.primaryButtonText}>
+            {t(isSuspended ? 'fosterHomes:mine.resubmit' : 'fosterHomes:mine.save')}
+          </Text>
+        )}
+      </TouchableOpacity>
 
       {/* Photos — retention by design: no "delete home" button (§18). */}
       <View style={styles.photosSection}>
@@ -498,15 +493,6 @@ const styles = StyleSheet.create({
   statusLabel: { fontSize: FONTS.sizes.md, fontWeight: '700', marginBottom: SPACING.xs },
   statusMessage: { fontSize: FONTS.sizes.sm, color: COLORS.textSecondary },
   statusReason: { fontSize: FONTS.sizes.sm, color: COLORS.danger, marginTop: SPACING.xs },
-  suspendedNotice: {
-    backgroundColor: COLORS.white,
-    borderWidth: 1,
-    borderColor: COLORS.danger,
-    borderRadius: RADIUS.md,
-    padding: SPACING.md,
-    marginBottom: SPACING.md,
-  },
-  suspendedNoticeText: { fontSize: FONTS.sizes.sm, color: COLORS.danger },
   section: { marginBottom: SPACING.md },
   label: {
     fontSize: FONTS.sizes.sm,
@@ -524,7 +510,6 @@ const styles = StyleSheet.create({
     fontSize: FONTS.sizes.sm,
     color: COLORS.textPrimary,
   },
-  inputDisabled: { opacity: 0.6 },
   textArea: { height: 90, textAlignVertical: 'top' },
   error: { fontSize: FONTS.sizes.xs, color: COLORS.danger, marginTop: SPACING.xs },
   fieldFooter: {
