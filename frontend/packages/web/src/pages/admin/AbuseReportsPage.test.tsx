@@ -125,6 +125,31 @@ describe('AbuseReportsPage', () => {
     await waitFor(() => expect(apiClient.banUser).toHaveBeenCalledWith('u-bob', 'spam account'));
   });
 
+  // El boton de cancelar de estos modales decia "Cancel" cableado en ingles,
+  // porque `ConfirmModal` lo traia como default y esta pagina nunca pasaba
+  // `cancelLabel`. Un admin con la app en español leia "Cancel" en los cinco.
+  //
+  // OJO CON LO QUE AFIRMA ESTE TEST: `t` esta mockeado para devolver la clave,
+  // asi que lo unico que puede comprobar es que el texto SALE DE `t` — no que
+  // la traduccion exista. Es exactamente la distincion que dejo vivo al bug:
+  // "Cancel" no es una clave sin resolver, es una palabra inglesa de verdad, y
+  // un barrido de claves crudas la deja pasar limpia.
+  it('el boton de cancelar sale de i18n y no de un texto cableado', async () => {
+    mockReports = [
+      makeReport({
+        reporter: { id: 'u-rep', name: 'Alice' },
+        target_user: { id: 'u-bob', name: 'Bob', is_banned: false },
+      }),
+    ];
+    render(<AbuseReportsPage />, { wrapper });
+
+    fireEvent.click(await screen.findByRole('button', { name: 'abuse.action.ban' }));
+
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByRole('button', { name: 'common:cancel' })).toBeTruthy();
+    expect(within(dialog).queryByRole('button', { name: 'Cancel' })).toBeNull();
+  });
+
   it('ofrece "Unban" para un target usuario baneado y llama unbanUser al confirmar', async () => {
     mockReports = [
       makeReport({

@@ -8,6 +8,8 @@ describe('ConfirmModal', () => {
       <ConfirmModal
         title="Ban user"
         message="This will block the user from logging in."
+        confirmLabel="Ban"
+        cancelLabel="Cancel"
         onConfirm={() => {}}
         onCancel={() => {}}
       />
@@ -20,7 +22,14 @@ describe('ConfirmModal', () => {
   it('fires onConfirm when the confirm button is clicked', () => {
     const onConfirm = vi.fn();
     render(
-      <ConfirmModal title="t" message="m" confirmLabel="Ban" onConfirm={onConfirm} onCancel={() => {}} />
+      <ConfirmModal
+        title="t"
+        message="m"
+        confirmLabel="Ban"
+        cancelLabel="Cancel"
+        onConfirm={onConfirm}
+        onCancel={() => {}}
+      />
     );
 
     fireEvent.click(screen.getByRole('button', { name: 'Ban' }));
@@ -29,7 +38,16 @@ describe('ConfirmModal', () => {
 
   it('fires onCancel when the cancel button is clicked', () => {
     const onCancel = vi.fn();
-    render(<ConfirmModal title="t" message="m" onConfirm={() => {}} onCancel={onCancel} />);
+    render(
+      <ConfirmModal
+        title="t"
+        message="m"
+        confirmLabel="Confirm"
+        cancelLabel="Cancel"
+        onConfirm={() => {}}
+        onCancel={onCancel}
+      />
+    );
 
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
     expect(onCancel).toHaveBeenCalledTimes(1);
@@ -42,6 +60,7 @@ describe('ConfirmModal', () => {
         title="t"
         message="m"
         confirmLabel="Delete"
+        cancelLabel="Cancel"
         loading
         onConfirm={onConfirm}
         onCancel={() => {}}
@@ -56,7 +75,14 @@ describe('ConfirmModal', () => {
 
   it('renders extra content passed as children (e.g. a reason field)', () => {
     render(
-      <ConfirmModal title="t" message="m" onConfirm={() => {}} onCancel={() => {}}>
+      <ConfirmModal
+        title="t"
+        message="m"
+        confirmLabel="Confirm"
+        cancelLabel="Cancel"
+        onConfirm={() => {}}
+        onCancel={() => {}}
+      >
         <input aria-label="reason" />
       </ConfirmModal>
     );
