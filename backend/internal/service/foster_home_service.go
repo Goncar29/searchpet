@@ -257,7 +257,10 @@ func (s *fosterHomeService) transition(ctx context.Context, adminID, id, action,
 		return nil, domain.ErrInvalidFosterHomeStatus
 	}
 	fh.Status = newStatus
-	if action == domain.FosterHomeActionReject {
+	// El motivo se guarda en las dos acciones que dejan al dueño con algo que
+	// corregir. El campo se llama `RejectionReason` por historia; lo que
+	// significa es "por qué un moderador lo bajó", y el dueño lo ve en las dos.
+	if action == domain.FosterHomeActionReject || action == domain.FosterHomeActionSuspend {
 		fh.RejectionReason = reason
 	}
 	if newStatus == domain.FosterHomeStatusApproved {

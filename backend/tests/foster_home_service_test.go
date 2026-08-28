@@ -174,6 +174,12 @@ func TestSuspend_RequiresReasonAndLogs(t *testing.T) {
 		t.Errorf("expected status suspended, got %q", got.Status)
 	}
 
+	// El log de moderación es admin-only. Si el motivo no llega TAMBIÉN al
+	// campo que ve el dueño, "arreglá y volvé" es una adivinanza.
+	if got.RejectionReason != "fraude" {
+		t.Errorf("expected the owner-visible reason to be %q, got %q", "fraude", got.RejectionReason)
+	}
+
 	found := false
 	for _, l := range auditRepo.modLogs {
 		if l.Action == domain.FosterHomeActionSuspend && l.Reason == "fraude" {
