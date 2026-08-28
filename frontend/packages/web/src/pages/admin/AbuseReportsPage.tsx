@@ -488,6 +488,7 @@ export function AbuseReportsPage() {
           title={t('abuse.modal.rejectHomeTitle')}
           message={t('abuse.modal.rejectHomeMessage', { city: pending.city })}
           confirmLabel={t('abuse.modal.rejectHomeConfirm')}
+          cancelLabel={t('common:cancel')}
           destructive
           loading={rejectHomeMutation.isPending}
           confirmDisabled={!reason.trim()}
