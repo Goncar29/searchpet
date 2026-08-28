@@ -174,6 +174,12 @@ func TestSuspend_RequiresReasonAndLogs(t *testing.T) {
 		t.Errorf("expected status suspended, got %q", got.Status)
 	}
 
+	// El log de moderación es admin-only. Si el motivo no llega TAMBIÉN al
+	// campo que ve el dueño, "arreglá y volvé" es una adivinanza.
+	if got.RejectionReason != "fraude" {
+		t.Errorf("expected the owner-visible reason to be %q, got %q", "fraude", got.RejectionReason)
+	}
+
 	found := false
 	for _, l := range auditRepo.modLogs {
 		if l.Action == domain.FosterHomeActionSuspend && l.Reason == "fraude" {
@@ -185,7 +191,7 @@ func TestSuspend_RequiresReasonAndLogs(t *testing.T) {
 	}
 }
 
-func TestEditSuspended_IsFrozen(t *testing.T) {
+func TestEditSuspended_VuelveAPending(t *testing.T) {
 	ctx := context.Background()
 	ownerID, userRepo := newVerifiedUser()
 	fhRepo := newFakeFHRepo()
@@ -205,10 +211,72 @@ func TestEditSuspended_IsFrozen(t *testing.T) {
 		t.Fatalf("Suspend failed: %v", err)
 	}
 
+	// Suspender significa "esto está mal, arreglalo": el dueño corrige y su
+	// hogar vuelve a la cola por su cuenta, igual que un rejected.
 	city := "Salto"
-	_, err := svc.UpdateMine(ctx, ownerID.String(), &dto.UpdateMyFosterHomeRequest{City: &city})
-	if err != domain.ErrFosterHomeSuspended {
-		t.Fatalf("expected ErrFosterHomeSuspended, got %v", err)
+	got, err := svc.UpdateMine(ctx, ownerID.String(), &dto.UpdateMyFosterHomeRequest{City: &city})
+	if err != nil {
+		t.Fatalf("UpdateMine failed: %v", err)
+	}
+	if got.Status != domain.FosterHomeStatusPending {
+		t.Errorf("expected status pending, got %q", got.Status)
+	}
+	if got.City != "Salto" {
+		t.Errorf("expected the edit to apply, got city %q", got.City)
+	}
+	// El motivo se limpia: ya no describe el estado actual.
+	if got.RejectionReason != "" {
+		t.Errorf("expected the reason to be cleared, got %q", got.RejectionReason)
+	}
+}
+
+// El reenvío no exige que el dueño haya tocado un campo — quien fue suspendido
+// por una FOTO no tiene ningún campo de este endpoint que cambiar. Pero eso deja
+// un agujero: sin cambios, `changed` queda vacío, se saltea el change log, y el
+// hogar vuelve a la cola sin una sola fila de historial. El moderador abre "Ver
+// historial de ediciones" y no ve NADA justo cuando lo que necesita saber es qué
+// se corrigió. La transición misma es el dato, y tiene que quedar registrada.
+func TestResubmitSinCambios_IgualDejaRastro(t *testing.T) {
+	ctx := context.Background()
+	ownerID, userRepo := newVerifiedUser()
+	fhRepo := newFakeFHRepo()
+	auditRepo := &fakeAuditRepo{}
+	svc := service.NewFosterHomeService(fhRepo, userRepo, auditRepo, nil)
+
+	fh := &domain.FosterHome{City: "Montevideo", HousingType: "house", AnimalTypes: []string{"dog"}, Capacity: 2, Description: "desc"}
+	if err := svc.RegisterOwn(ctx, ownerID.String(), fh); err != nil {
+		t.Fatalf("RegisterOwn failed: %v", err)
+	}
+	fhID := fhRepo.created.ID.String()
+	adminID := uuid.New().String()
+
+	if _, err := svc.Approve(ctx, adminID, fhID); err != nil {
+		t.Fatalf("Approve failed: %v", err)
+	}
+	if _, err := svc.Suspend(ctx, adminID, fhID, "fotos que no corresponden"); err != nil {
+		t.Fatalf("Suspend failed: %v", err)
+	}
+	auditRepo.changeLogs = nil
+
+	// Cuerpo vacío: ni un solo campo enviado. Es exactamente lo que manda la
+	// pantalla cuando el dueño aprieta "Guardar y reenviar" sin editar nada.
+	got, err := svc.UpdateMine(ctx, ownerID.String(), &dto.UpdateMyFosterHomeRequest{})
+	if err != nil {
+		t.Fatalf("UpdateMine failed: %v", err)
+	}
+	if got.Status != domain.FosterHomeStatusPending {
+		t.Fatalf("expected status pending, got %q", got.Status)
+	}
+	if len(auditRepo.changeLogs) != 1 {
+		t.Fatalf("expected the resubmit to leave exactly 1 change log, got %d", len(auditRepo.changeLogs))
+	}
+	// Y el rastro tiene que NOMBRAR la transición: una fila vacía no le dice
+	// nada al moderador que la abre.
+	fields := auditRepo.changeLogs[0].ChangedFields
+	if !strings.Contains(fields, "status") ||
+		!strings.Contains(fields, domain.FosterHomeStatusSuspended) ||
+		!strings.Contains(fields, domain.FosterHomeStatusPending) {
+		t.Errorf("expected ChangedFields to record the suspended->pending transition, got %q", fields)
 	}
 }
 

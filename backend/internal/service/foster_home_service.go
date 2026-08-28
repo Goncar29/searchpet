@@ -98,11 +98,6 @@ func (s *fosterHomeService) UpdateMine(ctx context.Context, userID string, req *
 	if err != nil {
 		return nil, err
 	}
-	// Un hogar suspendido queda CONGELADO: el dueño no puede editarlo.
-	if fh.Status == domain.FosterHomeStatusSuspended {
-		return nil, domain.ErrFosterHomeSuspended
-	}
-
 	changed := map[string][2]string{}
 	if req.City != nil && *req.City != fh.City {
 		changed["city"] = [2]string{fh.City, *req.City}
@@ -144,8 +139,24 @@ func (s *fosterHomeService) UpdateMine(ctx context.Context, userID string, req *
 		fh.Longitude = req.Longitude
 	}
 
-	// Un rejected que se edita vuelve a pending (resubmit).
-	if fh.Status == domain.FosterHomeStatusRejected {
+	// Editar ES re-someter, y vale para los dos estados de los que se sale
+	// corrigiendo: `rejected` (nunca llegó a publicarse) y `suspended` (estaba
+	// publicado y un moderador lo bajó). En los dos el hogar vuelve a la cola
+	// y el motivo se limpia, porque ya no describe el estado actual.
+	//
+	// No hay tope de rebotes a propósito: el hogar no vuelve a ser público sin
+	// que un moderador lo apruebe (`foster_home_repository.go` filtra por
+	// `approved`), así que lo peor que pasa es ruido en la cola.
+	if fh.Status == domain.FosterHomeStatusRejected || fh.Status == domain.FosterHomeStatusSuspended {
+		// El reenvío entra en el diff SIEMPRE, incluso si el dueño no tocó un
+		// solo campo. Sin esto, un "Guardar" sin cambios deja `changed` vacío,
+		// se saltea el change log, y el hogar vuelve a la cola sin una sola
+		// fila de historial: el moderador abre "Ver historial de ediciones" y
+		// no ve nada, justo cuando lo que necesita saber es qué se corrigió.
+		// Registrar la transición es más útil que prohibirla — exigir cambios
+		// dejaría sin salida a quien fue suspendido por una FOTO, que no viaja
+		// por este endpoint.
+		changed["status"] = [2]string{fh.Status, domain.FosterHomeStatusPending}
 		fh.Status = domain.FosterHomeStatusPending
 		fh.RejectionReason = ""
 	}
@@ -255,7 +266,10 @@ func (s *fosterHomeService) transition(ctx context.Context, adminID, id, action,
 		return nil, domain.ErrInvalidFosterHomeStatus
 	}
 	fh.Status = newStatus
-	if action == domain.FosterHomeActionReject {
+	// El motivo se guarda en las dos acciones que dejan al dueño con algo que
+	// corregir. El campo se llama `RejectionReason` por historia; lo que
+	// significa es "por qué un moderador lo bajó", y el dueño lo ve en las dos.
+	if action == domain.FosterHomeActionReject || action == domain.FosterHomeActionSuspend {
 		fh.RejectionReason = reason
 	}
 	if newStatus == domain.FosterHomeStatusApproved {

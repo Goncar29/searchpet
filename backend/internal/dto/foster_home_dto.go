@@ -124,8 +124,19 @@ func (r *UpdateMyFosterHomeRequest) Validate() error {
 }
 
 // ReasonRequest — reject/suspend comparten forma (motivo requerido).
+//
+// El `max` no es decoración. `foster_homes.rejection_reason` es `size:500`, y
+// suspender ahora escribe ahí (antes el motivo iba sólo al moderation log, que
+// es `text` y no tiene tope). Sin el bound, un motivo más largo hace fallar el
+// UPDATE con SQLSTATE 22001, cae en el `default` de `writeFHTransitionError` y
+// contesta 500 **con la suspensión sin aplicar**: el moderador cree que bajó el
+// hogar y no lo bajó. Con el bound es un 400, antes de mover un solo estado.
+//
+// 500 acá y 500 en la columna miden lo mismo: el tag `max` de validator cuenta
+// RUNAS y `varchar(n)` de Postgres cuenta CARACTERES (ver regla #36, que existe
+// porque bcrypt cuenta bytes y ahí sí divergen).
 type ReasonRequest struct {
-	Reason string `json:"reason" binding:"required"`
+	Reason string `json:"reason" binding:"required,max=500"`
 }
 
 type FosterHomePhotoResponse struct {

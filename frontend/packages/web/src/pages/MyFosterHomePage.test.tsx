@@ -109,53 +109,52 @@ describe('MyFosterHomePage', () => {
     }
   });
 
-  // El porte borró el `disabled` que estaba repetido en cada control, apoyándose
-  // en que el `<fieldset disabled>` lo hace nativamente. Eso es una SUPOSICIÓN
-  // hasta que algo la mide: si fuera falsa, un hogar suspendido quedaría
-  // editable y el único freno sería el 409 del backend.
-  // OJO CON EL NOMBRE: dice "los del formulario" y no "todos" porque **las
-  // fotos NO se congelan**. El input de archivo y los botones de borrar viven
-  // fuera del `<form>` y siguen siendo interactivos, y el backend tampoco los
-  // frena: `UpdateMine` tiene el guard de suspendido
-  // (`foster_home_service.go:102`) pero `Upload` y `Delete` de fotos no tienen
-  // ninguno. O sea que un hogar suspendido SÍ puede agregar y borrar fotos, en
-  // las dos capas. Es preexistente y queda anotado en el PR; lo que este test
-  // NO puede hacer es llamarse "todos" y dejar a alguien creyendo que eso está
-  // cubierto.
-  it('con el hogar suspendido, el fieldset deshabilita los controles DEL FORMULARIO', () => {
+  // Suspendido ya no es un callejón: el dueño corrige y guarda, y su hogar
+  // vuelve a la cola. Este test afirmaba lo contrario — que el formulario
+  // quedaba congelado — y se invierte junto con el comportamiento.
+  it('con el hogar suspendido el formulario es EDITABLE y ofrece reenviar', () => {
     myFosterHomeState.data = { ...baseFosterHome, status: 'suspended' };
     renderPage();
 
-    // `toBeDisabled()` y NO `.disabled`: la propiedad IDL refleja sólo el
-    // atributo PROPIO del control, así que da `false` aunque el elemento esté
-    // realmente deshabilitado por un `<fieldset disabled>` ancestro. El matcher
-    // de jest-dom sí camina hacia arriba, que es la pregunta que importa.
-    // Medido: con `.disabled` este test fallaba con el comportamiento correcto.
-    expect(screen.getByLabelText('fosterHomes:register.city')).toBeDisabled();
-    expect(screen.getByLabelText('fosterHomes:register.description')).toBeDisabled();
+    expect(screen.getByLabelText('fosterHomes:register.city')).not.toBeDisabled();
+    expect(screen.getByLabelText('fosterHomes:register.description')).not.toBeDisabled();
     for (const casilla of within(grupoAnimales()).getAllByRole('checkbox')) {
-      expect(casilla).toBeDisabled();
+      expect(casilla).not.toBeDisabled();
     }
-    for (const radio of within(
-      screen.getByRole('group', { name: 'fosterHomes:register.housingType' }),
-    ).getAllByRole('radio')) {
-      expect(radio).toBeDisabled();
-    }
-    // Y no se ofrece guardar.
+
+    // El botón cambia de texto: "guardar" y "guardar y reenviar" no son lo
+    // mismo, y el usuario tiene que saber que esto lo devuelve a revisión.
+    expect(screen.getByText('fosterHomes:mine.resubmit')).toBeTruthy();
     expect(screen.queryByText('fosterHomes:mine.save')).toBeNull();
-    expect(screen.getByText('fosterHomes:mine.suspendedFrozen')).toBeTruthy();
+    expect(screen.getByText('fosterHomes:mine.resubmitHint')).toBeTruthy();
   });
 
-  // La otra mitad, escrita para que la afirmación de arriba sea exacta: el
-  // input de fotos NO queda deshabilitado. Si algún día se congela de verdad,
-  // este test se pone rojo y obliga a actualizar los dos.
-  it('pero las fotos NO se congelan — hoy siguen editables', () => {
+  // Sin esto, alguien podría "arreglar" el test de arriba habilitando el
+  // formulario y dejando el `return` de `handleSubmit`: el botón se vería
+  // vivo y no haría nada.
+  it('y guardar un hogar suspendido SÍ llama a la API', () => {
     myFosterHomeState.data = { ...baseFosterHome, status: 'suspended' };
-    const { container } = renderPage();
+    mutateMock.mockImplementation((_data, opts) => opts?.onSuccess?.());
+    renderPage();
 
-    const archivo = container.querySelector('input[type="file"]');
-    expect(archivo).toBeTruthy();
-    expect(archivo).not.toBeDisabled();
+    fireEvent.change(screen.getByLabelText('fosterHomes:register.city'), {
+      target: { value: 'Salto' },
+    });
+    fireEvent.click(screen.getByText('fosterHomes:mine.resubmit'));
+
+    expect(mutateMock).toHaveBeenCalledTimes(1);
+    expect(mutateMock.mock.calls[0][0]).toMatchObject({ city: 'Salto' });
+  });
+
+  it('un hogar suspendido muestra el motivo, como uno rechazado', () => {
+    myFosterHomeState.data = {
+      ...baseFosterHome,
+      status: 'suspended',
+      rejection_reason: 'fotos que no corresponden',
+    };
+    renderPage();
+
+    expect(screen.getByText('fotos que no corresponden')).toBeTruthy();
   });
 
   // Un texto que el BACKEND aceptó tiene que poder editarse. El backend cuenta

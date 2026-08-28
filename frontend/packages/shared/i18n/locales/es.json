@@ -488,7 +488,6 @@
     "unknown_error": "Ocurrió un error inesperado. Por favor intentá de nuevo",
     "foster_home_not_found": "Hogar transitorio no encontrado",
     "foster_home_already_owned": "Ya tenés un hogar transitorio registrado",
-    "foster_home_suspended": "Este hogar está suspendido y no se puede editar",
     "invalid_foster_home_status": "Acción no válida para el estado actual del hogar",
     "suspension_reason_required": "El motivo de suspensión es obligatorio",
     "too_many_photos": "Alcanzaste el máximo de fotos",

@@ -5,6 +5,7 @@ package e2e_test
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 	"testing"
 
 	"gorm.io/gorm"
@@ -161,6 +162,28 @@ func TestFosterHomeFlow_RegisterApproveSuspend(t *testing.T) {
 	defer getByIDResp.Body.Close()
 	if getByIDResp.StatusCode != http.StatusOK {
 		t.Fatalf("get foster home by id (approved): want 200, got %d", getByIDResp.StatusCode)
+	}
+
+	// ── 5b. Un motivo más largo que la columna se rechaza ANTES de mover nada
+	//
+	// `rejection_reason` es varchar(500) y suspender escribe ahí. Sin el bound
+	// del DTO, un motivo más largo revienta el UPDATE con SQLSTATE 22001, cae
+	// en el `default` del handler y devuelve 500 **con el hogar sin suspender**:
+	// el moderador cree que lo bajó y no lo bajó. Esto sólo se puede probar
+	// contra Postgres de verdad — un mock de repositorio no tiene columnas y no
+	// falla por largo (regla #34).
+	tooLong := strings.Repeat("x", 501)
+	longResp := adoptionAuthedRequest(t, http.MethodPost, baseURL+"/api/foster-homes/"+created.ID+"/suspend", adminToken,
+		map[string]interface{}{"reason": tooLong})
+	defer longResp.Body.Close()
+	if longResp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("suspend with an over-long reason: want 400, got %d", longResp.StatusCode)
+	}
+	// Y lo que importa de verdad: el rechazo ocurre antes de tocar el estado.
+	stillApprovedResp := adoptionAuthedRequest(t, http.MethodGet, baseURL+"/api/foster-homes/"+created.ID, ownerToken, nil)
+	defer stillApprovedResp.Body.Close()
+	if stillApprovedResp.StatusCode != http.StatusOK {
+		t.Fatalf("after a rejected suspend the home must stay approved: want 200, got %d", stillApprovedResp.StatusCode)
 	}
 
 	// ── 6. Admin suspend ─────────────────────────────────────────────────

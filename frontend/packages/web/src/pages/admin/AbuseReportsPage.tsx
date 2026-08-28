@@ -18,7 +18,11 @@ type PendingAction =
   | { type: 'ban'; userId: string; userName: string }
   | { type: 'unban'; userId: string; userName: string }
   | { type: 'suspendHome'; homeId: string; city: string }
+  | { type: 'rejectHome'; homeId: string; city: string }
   | { type: 'reinstateHome'; homeId: string; city: string };
+
+// Espeja `foster_homes.rejection_reason` (varchar 500) y el `max=500` del DTO.
+const REASON_MAX_LEN = 500;
 
 export function AbuseReportsPage() {
   const { t } = useTranslation('admin');
@@ -100,6 +104,16 @@ export function AbuseReportsPage() {
   const suspendHomeMutation = useMutation({
     mutationFn: (vars: { homeId: string; reason: string }) =>
       apiClient.suspendFosterHome(vars.homeId, vars.reason),
+    onSuccess: afterHomeAction,
+  });
+  // Un hogar suspendido que el dueño corrige y reenvía vuelve a `pending`, y
+  // ahí `suspendHome` deja de servir: el backend sólo admite `approved →
+  // suspended`. Sin esta acción el moderador se queda SIN NINGUNA salida en la
+  // fila de la denuncia que está leyendo — tendría que irse a /admin/hogares a
+  // buscarlo. Rechazar es la transición que sí existe desde `pending`.
+  const rejectHomeMutation = useMutation({
+    mutationFn: (vars: { homeId: string; reason: string }) =>
+      apiClient.rejectFosterHome(vars.homeId, vars.reason),
     onSuccess: afterHomeAction,
   });
   const reinstateHomeMutation = useMutation({
@@ -320,6 +334,22 @@ export function AbuseReportsPage() {
                         </button>
                       )}
 
+                      {report.target_foster_home?.status === 'pending' && (
+                        <button
+                          onClick={() => {
+                            setReason('');
+                            setPending({
+                              type: 'rejectHome',
+                              homeId: report.target_foster_home!.id,
+                              city: report.target_foster_home!.city,
+                            });
+                          }}
+                          className="text-xs font-medium px-2 py-1 rounded bg-red-100 text-red-800 hover:bg-red-200 dark:bg-red-900/40 dark:text-red-300 dark:hover:bg-red-900/60 transition-colors"
+                        >
+                          {t('abuse.action.rejectHome')}
+                        </button>
+                      )}
+
                       {report.target_foster_home?.status === 'suspended' && (
                         <button
                           onClick={() =>
@@ -431,10 +461,43 @@ export function AbuseReportsPage() {
               aria-label={t('abuse.modal.suspendReasonLabel')}
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              maxLength={500}
+              maxLength={REASON_MAX_LEN}
               className="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
             />
           </label>
+          {/* Se escribe mientras el moderador lee la denuncia, así que el
+              riesgo concreto es tipear el nombre de quien denunció. El motivo
+              se le muestra al dueño palabra por palabra. */}
+          <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">
+            {t('abuse.modal.reasonOwnerNotice')}
+          </p>
+        </ConfirmModal>
+      )}
+
+      {pending?.type === 'rejectHome' && (
+        <ConfirmModal
+          title={t('abuse.modal.rejectHomeTitle')}
+          message={t('abuse.modal.rejectHomeMessage', { city: pending.city })}
+          confirmLabel={t('abuse.modal.rejectHomeConfirm')}
+          destructive
+          loading={rejectHomeMutation.isPending}
+          confirmDisabled={!reason.trim()}
+          onConfirm={() => rejectHomeMutation.mutate({ homeId: pending.homeId, reason: reason.trim() })}
+          onCancel={closeModal}
+        >
+          <label className="block text-sm">
+            <span className="text-gray-600 dark:text-gray-300">{t('abuse.modal.suspendReasonLabel')}</span>
+            <input
+              aria-label={t('abuse.modal.suspendReasonLabel')}
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              maxLength={REASON_MAX_LEN}
+              className="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
+            />
+          </label>
+          <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">
+            {t('abuse.modal.reasonOwnerNotice')}
+          </p>
         </ConfirmModal>
       )}
 

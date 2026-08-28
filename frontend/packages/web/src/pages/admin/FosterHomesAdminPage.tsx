@@ -27,6 +27,11 @@ const ACTION_LABEL_KEY: Record<FosterHomeModerationLog['action'], string> = {
   reinstate: 'fosterHomes:admin.action.reinstate',
 };
 
+// Espeja `foster_homes.rejection_reason` (varchar 500) y el `max=500` del DTO.
+// El backend igual devuelve 400 si esto se saltea; acá evitamos que el
+// moderador escriba 600 caracteres para enterarse recién al confirmar.
+const REASON_MAX_LEN = 500;
+
 type ReasonTarget = { type: 'reject' | 'suspend'; item: MyFosterHome };
 
 export function FosterHomesAdminPage() {
@@ -142,13 +147,21 @@ export function FosterHomesAdminPage() {
               {reasonTarget.item.city}
             </h3>
             <label htmlFor="foster-home-reason" className="block text-sm text-gray-600 dark:text-gray-300 mb-1">
-              {t('fosterHomes:report.reasonLabel')}
+              {t('fosterHomes:admin.reasonLabel')}
             </label>
+            {/* El moderador tiene que saber que esto NO es una nota interna. El
+                motivo se guarda en `rejection_reason` y se le muestra al dueño
+                palabra por palabra — si acá dice "Motivo de la denuncia", que es
+                lo que decía antes, alguien va a escribir quién denunció. */}
+            <p className="text-xs text-amber-700 dark:text-amber-400 mb-2">
+              {t('fosterHomes:admin.reasonOwnerNotice')}
+            </p>
             <textarea
               id="foster-home-reason"
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              placeholder={t('fosterHomes:report.reasonPlaceholder')}
+              placeholder={t('fosterHomes:admin.reasonPlaceholder')}
+              maxLength={REASON_MAX_LEN}
               rows={4}
               className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary"
             />
