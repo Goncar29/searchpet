@@ -266,110 +266,108 @@ export function MyFosterHomePage() {
       </div>
 
       <form onSubmit={handleSubmit} noValidate className="mt-6 space-y-6">
-        <>
-          <FormSection title={t('fosterHomes:register.sectionHome')}>
-            <div className="space-y-6">
-              <div className="grid sm:grid-cols-2 gap-6">
-                <EditField
-                  id="mine-city"
-                  label={t('fosterHomes:register.city')}
-                  value={form.city}
-                  onChange={setField('city')}
-                  error={fieldErrors.city}
-                  maxLength={CITY_MAX_LEN}
-                  required
-                />
-                <EditField
-                  id="mine-capacity"
-                  label={t('fosterHomes:register.capacity')}
-                  value={form.capacity}
-                  onChange={setField('capacity')}
-                  error={fieldErrors.capacity}
-                  type="number"
-                  required
-                />
-              </div>
-
-              <FormChoiceGroup
-                id="mine-housing"
-                type="radio"
-                legend={t('fosterHomes:register.housingType')}
-                options={HOUSING_TYPES.map((ht) => ({
-                  value: ht,
-                  label: t(`fosterHomes:housingType.${ht}`),
-                }))}
-                value={form.housing_type}
-                onToggle={(ht) => {
-                  setSaved(false);
-                  setForm((f) => ({ ...f, housing_type: ht }));
-                }}
-              />
-
-              <FormChoiceGroup
-                id="mine-animals"
-                type="checkbox"
-                legend={t('fosterHomes:register.animalTypes')}
-                options={ANIMAL_TYPES.map((kind) => ({
-                  value: kind,
-                  label: t(`fosterHomes:animalType.${kind}`),
-                }))}
-                value={form.animal_types}
-                onToggle={toggleAnimalType}
-                required
-                requiredLabel={t('fosterHomes:register.required')}
-                error={fieldErrors.animal_types}
-              />
-            </div>
-          </FormSection>
-
-          <FormSection title={t('fosterHomes:register.sectionContact')}>
-            <div className="space-y-6">
-              <FormField
-                label={t('fosterHomes:register.description')}
-                htmlFor="mine-description"
-                required
-                error={fieldErrors.description}
-              >
-                {(control) => (
-                  <>
-                    <textarea
-                      {...control}
-                      className={`${control.className} resize-y`}
-                      value={form.description}
-                      onChange={setField('description')}
-                      rows={4}
-                      maxLength={DESCRIPTION_MAX_LEN}
-                    />
-                    {/* El rojo NO es inalcanzable, y el camino no es pegar
-                        texto —el navegador también trunca el pegado contra
-                        `maxLength`— sino ABRIR una descripción ya guardada: el
-                        `maxLength` no recorta lo que llega del servidor. Con
-                        `largo()` el número que se ve es el mismo que cuenta el
-                        backend, así que el rojo aparece sólo cuando de verdad
-                        se pasó. */}
-                    <p
-                      className={`mt-1 text-right text-xs ${
-                        largo(form.description) > DESCRIPTION_MAX_LEN
-                          ? 'text-danger'
-                          : 'text-gray-400 dark:text-gray-500'
-                      }`}
-                    >
-                      {largo(form.description)}/{DESCRIPTION_MAX_LEN}
-                    </p>
-                  </>
-                )}
-              </FormField>
-
+        <FormSection title={t('fosterHomes:register.sectionHome')}>
+          <div className="space-y-6">
+            <div className="grid sm:grid-cols-2 gap-6">
               <EditField
-                id="mine-whatsapp"
-                label={t('fosterHomes:register.whatsapp')}
-                value={form.whatsapp_phone}
-                onChange={setField('whatsapp_phone')}
-                maxLength={WHATSAPP_MAX_LEN}
+                id="mine-city"
+                label={t('fosterHomes:register.city')}
+                value={form.city}
+                onChange={setField('city')}
+                error={fieldErrors.city}
+                maxLength={CITY_MAX_LEN}
+                required
+              />
+              <EditField
+                id="mine-capacity"
+                label={t('fosterHomes:register.capacity')}
+                value={form.capacity}
+                onChange={setField('capacity')}
+                error={fieldErrors.capacity}
+                type="number"
+                required
               />
             </div>
-          </FormSection>
-        </>
+
+            <FormChoiceGroup
+              id="mine-housing"
+              type="radio"
+              legend={t('fosterHomes:register.housingType')}
+              options={HOUSING_TYPES.map((ht) => ({
+                value: ht,
+                label: t(`fosterHomes:housingType.${ht}`),
+              }))}
+              value={form.housing_type}
+              onToggle={(ht) => {
+                setSaved(false);
+                setForm((f) => ({ ...f, housing_type: ht }));
+              }}
+            />
+
+            <FormChoiceGroup
+              id="mine-animals"
+              type="checkbox"
+              legend={t('fosterHomes:register.animalTypes')}
+              options={ANIMAL_TYPES.map((kind) => ({
+                value: kind,
+                label: t(`fosterHomes:animalType.${kind}`),
+              }))}
+              value={form.animal_types}
+              onToggle={toggleAnimalType}
+              required
+              requiredLabel={t('fosterHomes:register.required')}
+              error={fieldErrors.animal_types}
+            />
+          </div>
+        </FormSection>
+
+        <FormSection title={t('fosterHomes:register.sectionContact')}>
+          <div className="space-y-6">
+            <FormField
+              label={t('fosterHomes:register.description')}
+              htmlFor="mine-description"
+              required
+              error={fieldErrors.description}
+            >
+              {(control) => (
+                <>
+                  <textarea
+                    {...control}
+                    className={`${control.className} resize-y`}
+                    value={form.description}
+                    onChange={setField('description')}
+                    rows={4}
+                    maxLength={DESCRIPTION_MAX_LEN}
+                  />
+                  {/* El rojo NO es inalcanzable, y el camino no es pegar
+                      texto —el navegador también trunca el pegado contra
+                      `maxLength`— sino ABRIR una descripción ya guardada: el
+                      `maxLength` no recorta lo que llega del servidor. Con
+                      `largo()` el número que se ve es el mismo que cuenta el
+                      backend, así que el rojo aparece sólo cuando de verdad
+                      se pasó. */}
+                  <p
+                    className={`mt-1 text-right text-xs ${
+                      largo(form.description) > DESCRIPTION_MAX_LEN
+                        ? 'text-danger'
+                        : 'text-gray-400 dark:text-gray-500'
+                    }`}
+                  >
+                    {largo(form.description)}/{DESCRIPTION_MAX_LEN}
+                  </p>
+                </>
+              )}
+            </FormField>
+
+            <EditField
+              id="mine-whatsapp"
+              label={t('fosterHomes:register.whatsapp')}
+              value={form.whatsapp_phone}
+              onChange={setField('whatsapp_phone')}
+              maxLength={WHATSAPP_MAX_LEN}
+            />
+          </div>
+        </FormSection>
 
         {isSuspended && (
           <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -458,8 +456,9 @@ export function MyFosterHomePage() {
  * Misma forma que el `Field` de `RegisterFosterHomePage`: sólo adapta la firma
  * para no tocar los cuatro call sites.
  *
- * El `disabled` de cada control se fue: lo pone el `<fieldset disabled>` que
- * envuelve al formulario, nativamente y sin repetirlo campo por campo.
+ * Ningún control de este formulario se deshabilita por estado: el `<fieldset
+ * disabled>` que congelaba un hogar suspendido se fue cuando editar pasó a ser
+ * re-someter. Lo único que se apaga es el botón mientras la mutación viaja.
  */
 function EditField({
   id,

@@ -269,7 +269,7 @@ export default function MyFosterHomeScreen() {
       </View>
 
       {isSuspended && (
-        <Text style={styles.hint}>{t('fosterHomes:mine.resubmitHint')}</Text>
+        <Text style={[styles.hint, styles.resubmitHint]}>{t('fosterHomes:mine.resubmitHint')}</Text>
       )}
 
       {/* Edit form */}
@@ -574,4 +574,8 @@ const styles = StyleSheet.create({
   },
   addPhotoButtonText: { color: COLORS.primary, fontSize: FONTS.sizes.sm, fontWeight: '700' },
   hint: { fontSize: FONTS.sizes.xs, color: COLORS.textMuted, marginTop: SPACING.xs },
+  // `hint` lo comparte el tope de fotos, que va pegado a lo suyo. Éste separa
+  // del formulario que sigue: repone el `marginBottom` que traía el bloque
+  // `suspendedNotice` al que reemplaza, sin dárselo al otro call site.
+  resubmitHint: { marginBottom: SPACING.md },
 });
