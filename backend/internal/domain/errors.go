@@ -65,7 +65,6 @@ var (
 	ErrFosterHomeNotFound       = errors.New("foster_home_not_found")
 	ErrFosterHomeAlreadyOwned   = errors.New("foster_home_already_owned")
 	ErrInvalidFosterHomeStatus  = errors.New("invalid_foster_home_status")
-	ErrFosterHomeSuspended      = errors.New("foster_home_suspended")
 	ErrSuspensionReasonRequired = errors.New("suspension_reason_required")
 	ErrTooManyFosterPhotos      = errors.New("too_many_photos")
 	ErrSelfAbuseReport          = errors.New("self_abuse_report")
@@ -215,7 +214,6 @@ var ErrorCodes = map[error]string{
 	ErrFosterHomeNotFound:       "foster_home_not_found",
 	ErrFosterHomeAlreadyOwned:   "foster_home_already_owned",
 	ErrInvalidFosterHomeStatus:  "invalid_foster_home_status",
-	ErrFosterHomeSuspended:      "foster_home_suspended",
 	ErrSuspensionReasonRequired: "suspension_reason_required",
 	ErrTooManyFosterPhotos:      "too_many_photos",
 	ErrSelfAbuseReport:          "self_abuse_report",

@@ -78,8 +78,6 @@ func (h *FosterHomeHandler) UpdateMine(c *gin.Context) {
 		switch {
 		case errors.Is(err, domain.ErrFosterHomeNotFound):
 			writeError(c, http.StatusNotFound, err)
-		case errors.Is(err, domain.ErrFosterHomeSuspended):
-			writeError(c, http.StatusConflict, err)
 		case errors.Is(err, domain.ErrInvalidInput):
 			writeError(c, http.StatusBadRequest, err)
 		default:

@@ -488,7 +488,6 @@
     "unknown_error": "An unexpected error occurred. Please try again",
     "foster_home_not_found": "Foster home not found",
     "foster_home_already_owned": "You already have a foster home registered",
-    "foster_home_suspended": "This foster home is suspended and cannot be edited",
     "invalid_foster_home_status": "Action not valid for the foster home's current status",
     "suspension_reason_required": "A suspension reason is required",
     "too_many_photos": "You've reached the maximum number of photos",
