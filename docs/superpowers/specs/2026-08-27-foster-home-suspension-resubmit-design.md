@@ -77,7 +77,7 @@ va a creer que hay un caso que manejar.
 
 Se borra todo el conjunto, no sólo la línea del servicio.
 
-### Frontend — `pages/MyFosterHomePage.tsx`
+### Frontend web — `pages/MyFosterHomePage.tsx`
 
 - El `<fieldset>` deja de deshabilitarse cuando el hogar está suspendido.
 - El botón Guardar aparece también en ese estado, con texto de re-enviar.
@@ -93,17 +93,40 @@ Se borra todo el conjunto, no sólo la línea del servicio.
 
 Las fotos **no se tocan**: ya eran editables y siguen igual.
 
+### Frontend mobile — `mobile/app/foster-homes/mine.tsx`
+
+**Se sumó al alcance el 2026-08-28**, después de escribir esta spec: mobile
+tiene el congelado COMPLETO —dos `return` tempranos, `editable={!isSuspended}`
+en los inputs, `disabled` en los botones de opción y su propio cartel— y el plan
+original sólo hablaba de la web.
+
+Sin esto la feature queda entregada a la mitad de los clientes: desde el
+navegador corregís y volvés a la cola, y desde el celular la pantalla sigue de
+sólo lectura con un botón que no hace nada. **No sería una regresión** —mobile
+ya se comporta así— pero sí una asimetría permanente, del mismo tipo que hoy
+arrastra 15 archivos de mobile con la clase de `ListState`.
+
+Los cambios espejan los de la web: sacar los dos `return`, quitar el
+`editable`/`disabled`, mostrar el motivo, y cambiar el cartel y la etiqueta del
+botón. Mobile tiene **sus propias** claves i18n (`mobile/i18n/locales`), así que
+se editan aparte de las de la web.
+
 ## Tests
 
 **Backend** (`tests/`): un hogar suspendido que se edita queda en `pending`; y
 suspender persiste el motivo donde el dueño lo ve. Los dos vistos en rojo antes
 de confiar en el verde.
 
-**Frontend** (`MyFosterHomePage.test.tsx`): se **invierte** el test que hoy
+**Frontend web** (`MyFosterHomePage.test.tsx`): se **invierte** el test que hoy
 afirma que el formulario queda congelado — pasa a exigir que sea editable y que
 se ofrezca re-enviar. Y se **elimina** el test *"pero las fotos NO se congelan"*:
 existía para documentar una asimetría entre el formulario y las fotos, y con este
 cambio esa asimetría desaparece. Un test que ya no distingue nada es ruido.
+
+**Frontend mobile**: la pantalla **no tiene tests hoy**. Se agrega uno que cubra
+lo que el cambio decide: con el hogar suspendido el formulario es editable y
+guardar llama a la API. Correrlo con `pnpm test:run` — `pnpm test` es
+`jest --watchAll` y no termina nunca.
 
 ## Riesgo aceptado
 

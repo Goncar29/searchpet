@@ -24,6 +24,9 @@
 | `frontend/packages/web/src/i18n/locales/{es,en,pt}.json` | `mine.resubmit`, `mine.resubmitHint`; reescribir `mine.statusSuspended`; borrar `mine.suspendedFrozen` |
 | `frontend/packages/web/src/pages/MyFosterHomePage.tsx` | el guard de submit, el fieldset, el botón, el motivo y la pista |
 | `frontend/packages/web/src/pages/MyFosterHomePage.test.tsx` | invertir el test del congelado; borrar el de las fotos |
+| `frontend/packages/mobile/i18n/locales/{es,en,pt}.json` | las mismas claves, en la copia propia de mobile |
+| `frontend/packages/mobile/app/foster-homes/mine.tsx` | el mismo cambio que la web: los dos `return`, el `editable`/`disabled`, el motivo, el cartel y el botón |
+| `frontend/packages/mobile/__tests__/foster-home-mine.test.tsx` | **nuevo** — la pantalla no tiene tests |
 
 ## Comandos
 
@@ -581,7 +584,68 @@ Esperado: `EXIT=0`.
 
 ---
 
-### Task 7: Verificación final y PR
+### Task 7: Mobile — la misma pantalla, el mismo cambio
+
+**Se sumó el 2026-08-28.** El plan original sólo cubría la web; mobile tiene el
+congelado completo y sin esto la feature llega a la mitad de los clientes.
+
+**Files:**
+- Modify: `frontend/packages/mobile/i18n/locales/{es,en,pt}.json`
+- Modify: `frontend/packages/mobile/app/foster-homes/mine.tsx`
+- Create: `frontend/packages/mobile/__tests__/foster-home-mine.test.tsx`
+
+Mobile tiene **su propia** copia del namespace `fosterHomes` — las claves de la
+web no le llegan.
+
+- [ ] **Step 1: Las claves, en los tres locales de mobile**
+
+Dentro de `fosterHomes.mine`, borrar `suspendedFrozen` y dejar:
+
+`es`: `"statusSuspended": "Un administrador suspendió tu hogar. Corregí lo que haga falta y volvé a enviarlo."`, `"resubmit": "Guardar y reenviar"`, `"resubmitHint": "Al guardar, tu hogar vuelve a la cola de revisión."`
+
+`en`: `"statusSuspended": "An administrator suspended your foster home. Fix what's needed and submit it again."`, `"resubmit": "Save and resubmit"`, `"resubmitHint": "Saving sends your home back to the review queue."`
+
+`pt`: `"statusSuspended": "Um administrador suspendeu seu lar. Corrija o que for necessário e envie novamente."`, `"resubmit": "Salvar e reenviar"`, `"resubmitHint": "Ao salvar, seu lar volta para a fila de revisão."`
+
+- [ ] **Step 2: La pantalla**
+
+En `app/foster-homes/mine.tsx`:
+
+1. Borrar **los dos** `if (isSuspended) return;` (hay uno cerca de la línea 166 y
+   otro en `handleSave`, cerca de 196). **Sin esto el botón queda vivo y mudo.**
+2. Quitar `editable={!isSuspended}` de los inputs y `disabled={isSuspended}` de
+   los botones de opción, más los estilos `inputDisabled` que dependan de eso.
+3. El cartel de `suspendedFrozen` pasa a `resubmitHint`.
+4. Mostrar el motivo cuando está suspendido, no sólo cuando está rechazado —
+   igual que la web.
+5. La etiqueta del botón: `resubmit` si está suspendido, `save` si no.
+
+- [ ] **Step 3: El test que no existe**
+
+Crear `__tests__/foster-home-mine.test.tsx` cubriendo lo que este cambio decide:
+con el hogar suspendido el formulario es **editable** y guardar **llama a la
+API**. Modelar el arnés sobre otro test de pantalla del mismo directorio: los
+smoke tests mockean `@shared/hooks` hook por hook, así que **todo hook que use
+la pantalla tiene que estar en el mock**.
+
+- [ ] **Step 4: Correr la suite de mobile**
+
+```bash
+cd frontend/packages/mobile && pnpm test:run > /tmp/mob.log 2>&1; echo "EXIT=$?"
+```
+
+`pnpm test:run`, **nunca `pnpm test`**: ese es `jest --watchAll` y no termina.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add frontend/packages/mobile
+git commit -m "feat(mobile): un hogar suspendido se corrige y se reenvia"
+```
+
+---
+
+### Task 8: Verificación final y PR
 
 - [ ] **Step 1: Las dos suites y el typecheck, por exit code**
 
