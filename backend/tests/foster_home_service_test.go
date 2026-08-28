@@ -230,6 +230,56 @@ func TestEditSuspended_VuelveAPending(t *testing.T) {
 	}
 }
 
+// El reenvío no exige que el dueño haya tocado un campo — quien fue suspendido
+// por una FOTO no tiene ningún campo de este endpoint que cambiar. Pero eso deja
+// un agujero: sin cambios, `changed` queda vacío, se saltea el change log, y el
+// hogar vuelve a la cola sin una sola fila de historial. El moderador abre "Ver
+// historial de ediciones" y no ve NADA justo cuando lo que necesita saber es qué
+// se corrigió. La transición misma es el dato, y tiene que quedar registrada.
+func TestResubmitSinCambios_IgualDejaRastro(t *testing.T) {
+	ctx := context.Background()
+	ownerID, userRepo := newVerifiedUser()
+	fhRepo := newFakeFHRepo()
+	auditRepo := &fakeAuditRepo{}
+	svc := service.NewFosterHomeService(fhRepo, userRepo, auditRepo, nil)
+
+	fh := &domain.FosterHome{City: "Montevideo", HousingType: "house", AnimalTypes: []string{"dog"}, Capacity: 2, Description: "desc"}
+	if err := svc.RegisterOwn(ctx, ownerID.String(), fh); err != nil {
+		t.Fatalf("RegisterOwn failed: %v", err)
+	}
+	fhID := fhRepo.created.ID.String()
+	adminID := uuid.New().String()
+
+	if _, err := svc.Approve(ctx, adminID, fhID); err != nil {
+		t.Fatalf("Approve failed: %v", err)
+	}
+	if _, err := svc.Suspend(ctx, adminID, fhID, "fotos que no corresponden"); err != nil {
+		t.Fatalf("Suspend failed: %v", err)
+	}
+	auditRepo.changeLogs = nil
+
+	// Cuerpo vacío: ni un solo campo enviado. Es exactamente lo que manda la
+	// pantalla cuando el dueño aprieta "Guardar y reenviar" sin editar nada.
+	got, err := svc.UpdateMine(ctx, ownerID.String(), &dto.UpdateMyFosterHomeRequest{})
+	if err != nil {
+		t.Fatalf("UpdateMine failed: %v", err)
+	}
+	if got.Status != domain.FosterHomeStatusPending {
+		t.Fatalf("expected status pending, got %q", got.Status)
+	}
+	if len(auditRepo.changeLogs) != 1 {
+		t.Fatalf("expected the resubmit to leave exactly 1 change log, got %d", len(auditRepo.changeLogs))
+	}
+	// Y el rastro tiene que NOMBRAR la transición: una fila vacía no le dice
+	// nada al moderador que la abre.
+	fields := auditRepo.changeLogs[0].ChangedFields
+	if !strings.Contains(fields, "status") ||
+		!strings.Contains(fields, domain.FosterHomeStatusSuspended) ||
+		!strings.Contains(fields, domain.FosterHomeStatusPending) {
+		t.Errorf("expected ChangedFields to record the suspended->pending transition, got %q", fields)
+	}
+}
+
 func TestUpdateMine_WritesChangeLogWithDiff(t *testing.T) {
 	ctx := context.Background()
 	ownerID, userRepo := newVerifiedUser()

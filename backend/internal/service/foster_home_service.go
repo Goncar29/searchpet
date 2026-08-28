@@ -148,6 +148,15 @@ func (s *fosterHomeService) UpdateMine(ctx context.Context, userID string, req *
 	// que un moderador lo apruebe (`foster_home_repository.go` filtra por
 	// `approved`), así que lo peor que pasa es ruido en la cola.
 	if fh.Status == domain.FosterHomeStatusRejected || fh.Status == domain.FosterHomeStatusSuspended {
+		// El reenvío entra en el diff SIEMPRE, incluso si el dueño no tocó un
+		// solo campo. Sin esto, un "Guardar" sin cambios deja `changed` vacío,
+		// se saltea el change log, y el hogar vuelve a la cola sin una sola
+		// fila de historial: el moderador abre "Ver historial de ediciones" y
+		// no ve nada, justo cuando lo que necesita saber es qué se corrigió.
+		// Registrar la transición es más útil que prohibirla — exigir cambios
+		// dejaría sin salida a quien fue suspendido por una FOTO, que no viaja
+		// por este endpoint.
+		changed["status"] = [2]string{fh.Status, domain.FosterHomeStatusPending}
 		fh.Status = domain.FosterHomeStatusPending
 		fh.RejectionReason = ""
 	}
