@@ -138,6 +138,17 @@ export function AlertsPage() {
     ? { 'aria-invalid': true as const, 'aria-describedby': COORD_ERROR_ID }
     : {};
 
+  // Editar una coordenada retira el error, y no es cosmético: el mensaje dice
+  // "ingresá las coordenadas", así que dejarlo puesto mientras el usuario las
+  // ingresa deja a los dos campos anunciándose "inválido" con un motivo que su
+  // propio contenido desmiente. La revalidación sigue siendo en el submit —
+  // es lo que hacen `RegisterPage`, `LoginPage`, `EditPetPage` y
+  // `CreateReportPage`.
+  const editarCoordenada = (setter: (v: number | null) => void) => (valor: string) => {
+    setter(valor ? Number(valor) : null);
+    if (coordError) setCoordError('');
+  };
+
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Header */}
@@ -198,7 +209,7 @@ export function AlertsPage() {
                         type="number"
                         step="any"
                         value={formLat ?? ''}
-                        onChange={(e) => setFormLat(e.target.value ? Number(e.target.value) : null)}
+                        onChange={(e) => editarCoordenada(setFormLat)(e.target.value)}
                       />
                     )}
                   </FormField>
@@ -211,7 +222,7 @@ export function AlertsPage() {
                         type="number"
                         step="any"
                         value={formLng ?? ''}
-                        onChange={(e) => setFormLng(e.target.value ? Number(e.target.value) : null)}
+                        onChange={(e) => editarCoordenada(setFormLng)(e.target.value)}
                       />
                     )}
                   </FormField>

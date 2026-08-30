@@ -168,4 +168,34 @@ describe('AlertsPage — formulario de alta', () => {
       expect(campo).toHaveAttribute('aria-describedby', mensaje.id);
     }
   });
+
+  // El mensaje dice "ingresá las coordenadas". Dejarlo puesto MIENTRAS el
+  // usuario las ingresa deja a los dos campos anunciándose "inválido" con un
+  // motivo que su propio contenido desmiente — y ese anuncio es nuevo, porque
+  // antes del porte los inputs no llevaban `aria-invalid` en absoluto.
+  it('editar una coordenada retira el error, sin esperar a reenviar', async () => {
+    await abrirFormulario();
+    await userEvent.click(screen.getByRole('button', { name: 'createButton' }));
+    expect(screen.getByLabelText('latLabel')).toHaveAttribute('aria-invalid', 'true');
+
+    await userEvent.type(screen.getByLabelText('latLabel'), '-34.9');
+
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('latLabel')).not.toHaveAttribute('aria-invalid');
+    // El campo que NO se tocó también se despeja: el error era del par, no de uno.
+    expect(screen.getByLabelText('lngLabel')).not.toHaveAttribute('aria-invalid');
+  });
+
+  // El "(opcional)" se movió del texto del `<label>` al `hint`, y el hint vive en
+  // un `<span>` hermano. Sin `aria-describedby` el control pasa a llamarse sólo
+  // "Nombre" y la pista queda para quien MIRA: exactamente la asimetría ver/oír
+  // que este sistema de formularios existe para no tener.
+  it('el hint del campo opcional llega por aria-describedby', async () => {
+    await abrirFormulario();
+
+    const campo = screen.getByLabelText('nameLabel');
+    const hintId = campo.getAttribute('aria-describedby');
+    expect(hintId).toBeTruthy();
+    expect(document.getElementById(hintId!)).toHaveTextContent('optionalHint');
+  });
 });
