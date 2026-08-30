@@ -2,6 +2,9 @@ import { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { apiClient } from '@shared/api/client';
+import { FormSection } from '../../components/form/FormSection';
+import { FormField } from '../../components/form/FormField';
+import { FormActions, formSubmitClass } from '../../components/form/FormActions';
 
 export function GroupsAdminPage() {
   const { t } = useTranslation('admin');
@@ -34,82 +37,93 @@ export function GroupsAdminPage() {
 
   return (
     <div>
+      {/* El `<h2>` se queda FUERA de la card y no pasa a ser el título de la
+          `FormSection`: las ocho pantallas del panel llevan el suyo con este
+          mismo marcado, y el `<h1>` lo pone `AdminLayout`. Tampoco hay
+          `FormPage` — el frame lo pone el layout, igual que en `AlertsPage`. */}
       <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-6">{t('groups.title')}</h2>
 
-      <div className="max-w-md">
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label
-              htmlFor="group-name"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-            >
-              {t('groups.name')} <span className="text-red-500">*</span>
-            </label>
-            <input
-              id="group-name"
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder={t('groups.namePlaceholder')}
-              required
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-            />
-          </div>
+      {/* `max-w-2xl` y no el `max-w-md` de antes: con los 32px de padding de
+          `FormSection` a cada lado, 448px dejaban los campos en ~384px. */}
+      <div className="max-w-2xl">
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <FormSection>
+            <div className="space-y-6">
+              {/* El asterisco lo dibuja `FormField required` — el `<span>*</span>`
+                  que había en el JSX se va. Dejar los dos es el doble asterisco
+                  que el #185 ya tuvo que reparar una vez. */}
+              <FormField label={t('groups.name')} htmlFor="group-name" required>
+                {(control) => (
+                  <input
+                    {...control}
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder={t('groups.namePlaceholder')}
+                    required
+                  />
+                )}
+              </FormField>
 
-          <div>
-            <label
-              htmlFor="group-city"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-            >
-              {t('groups.city')} <span className="text-red-500">*</span>
-            </label>
-            <input
-              id="group-city"
-              type="text"
-              value={city}
-              onChange={(e) => setCity(e.target.value)}
-              placeholder={t('groups.cityPlaceholder')}
-              required
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-            />
-          </div>
+              <FormField label={t('groups.city')} htmlFor="group-city" required>
+                {(control) => (
+                  <input
+                    {...control}
+                    type="text"
+                    value={city}
+                    onChange={(e) => setCity(e.target.value)}
+                    placeholder={t('groups.cityPlaceholder')}
+                    required
+                  />
+                )}
+              </FormField>
 
-          <div>
-            <label
-              htmlFor="group-description"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-            >
-              {t('groups.description')} <span className="text-gray-400 font-normal">{t('groups.optional')}</span>
-            </label>
-            <textarea
-              id="group-description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder={t('groups.descPlaceholder')}
-              rows={3}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent resize-none"
-            />
-          </div>
+              <FormField
+                label={t('groups.description')}
+                htmlFor="group-description"
+                hint={t('groups.optional')}
+              >
+                {(control) => (
+                  <textarea
+                    {...control}
+                    className={`${control.className} resize-none`}
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder={t('groups.descPlaceholder')}
+                    rows={3}
+                  />
+                )}
+              </FormField>
+            </div>
+          </FormSection>
 
+          {/* Los dos avisos se ANUNCIAN. Antes eran `<p>` mudos: quien no mira la
+              pantalla enviaba el formulario y no recibía nada, ni el fallo ni la
+              confirmación. `role="alert"` interrumpe, `role="status"` espera —
+              que es la diferencia entre un error y un acuse. */}
           {createMutation.isError && (
-            <p className="text-sm text-red-600 dark:text-red-400">
+            <p role="alert" className="text-sm text-danger">
               {t('groups.error')}
             </p>
           )}
 
           {successMessage && (
-            <p className="text-sm text-green-600 dark:text-green-400 font-medium">
+            <p role="status" className="text-sm text-green-600 dark:text-green-400 font-medium">
               {successMessage}
             </p>
           )}
 
-          <button
-            type="submit"
-            disabled={createMutation.isPending || !name.trim() || !city.trim()}
-            className="w-full py-2 px-4 bg-primary hover:bg-primary-dark text-white text-sm font-semibold rounded-lg transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {createMutation.isPending ? t('groups.creating') : t('groups.submit')}
-          </button>
+          <FormActions
+            submit={
+              <button
+                type="submit"
+                disabled={createMutation.isPending || !name.trim() || !city.trim()}
+                className={formSubmitClass}
+              >
+                {createMutation.isPending ? t('groups.creating') : t('groups.submit')}
+              </button>
+            }
+          />
         </form>
       </div>
     </div>
