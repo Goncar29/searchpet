@@ -78,10 +78,22 @@ interface FormFieldProps {
  */
 export function FormField({ label, htmlFor, hint, required, error, children }: FormFieldProps) {
   const errorId = `${htmlFor}-error`;
+  const hintId = `${htmlFor}-hint`;
+
+  // El hint viaja por `aria-describedby` y NO por el nombre accesible. Vive en un
+  // `<span>` hermano del `<label>` a propósito —meterlo adentro cambiaría el
+  // `textContent` y rompería `getByLabelText`, que es justo por lo que el
+  // asterisco está afuera—, así que sin esta referencia el control se llama sólo
+  // "Nombre" y el "(opcional)" queda para quien MIRA. Es la misma asimetría
+  // ver/oír contra la que argumenta el comentario de `FormChoiceGroup`.
+  // El orden es hint y después error, que es el orden visual.
+  const describedBy = [hint ? hintId : null, error ? errorId : null].filter(Boolean).join(' ');
+
   const control: ControlProps = {
     id: htmlFor,
     className: controlClass(!!error),
-    ...(error ? { 'aria-describedby': errorId, 'aria-invalid': true as const } : {}),
+    ...(describedBy ? { 'aria-describedby': describedBy } : {}),
+    ...(error ? { 'aria-invalid': true as const } : {}),
     ...(required ? { 'aria-required': true as const } : {}),
   };
 
@@ -104,7 +116,11 @@ export function FormField({ label, htmlFor, hint, required, error, children }: F
             *
           </span>
         )}
-        {hint && <span className="text-sm text-gray-400 dark:text-gray-500">{hint}</span>}
+        {hint && (
+          <span id={hintId} className="text-sm text-gray-400 dark:text-gray-500">
+            {hint}
+          </span>
+        )}
       </div>
       {children(control)}
       {error && (
