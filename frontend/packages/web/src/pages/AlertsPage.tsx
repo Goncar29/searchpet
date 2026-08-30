@@ -9,19 +9,30 @@ import {
 import type { LocationAlert } from '@shared/types';
 import type { PetType } from '@shared/types';
 import { ListState } from '../components/list/ListState';
+import { FormSection } from '../components/form/FormSection';
+import { FormField, controlClass } from '../components/form/FormField';
+import { FormChoiceGroup } from '../components/form/FormChoiceGroup';
+import { FormActions, formSubmitClass, formCancelClass } from '../components/form/FormActions';
 
 const PET_TYPES: PetType[] = ['perro', 'gato', 'pajaro', 'otro'];
 
-const RADIUS_OPTIONS = [1, 2, 5, 10, 25] as const;
+// Los valores del radio son strings porque `FormChoiceGroup` trabaja sobre
+// `T extends string` — es lo que el `value` de un `<input type="radio">` nativo
+// lleva de todas formas. Se convierten a número una sola vez, al enviar.
+const RADIUS_OPTIONS = ['1', '2', '5', '10', '25'] as const;
 type RadiusKm = (typeof RADIUS_OPTIONS)[number];
-
-const INPUT_CLASS =
-  'border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-primary w-full';
 
 const MAX_ALERTS = 10;
 
+/** Un único nodo de error para el par de coordenadas, referenciado por los dos controles. */
+const COORD_ERROR_ID = 'alert-coords-error';
+
 export function AlertsPage() {
-  const { t } = useTranslation('alerts');
+  // Los dos namespaces se declaran explícitos en vez de confiar en que el
+  // prefijo `pets:` resuelva por recursos precargados: si algún día no
+  // resolviera, el modo de falla es una clave cruda en pantalla que ningún test
+  // ve, porque en los tests `t` está mockeado.
+  const { t } = useTranslation(['alerts', 'pets']);
   const alertsQuery = useAlerts();
   const createAlert = useCreateAlert();
   const updateAlert = useUpdateAlert();
@@ -42,7 +53,7 @@ export function AlertsPage() {
   // ── Form state ──────────────────────────────────────────────
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState('');
-  const [radiusKm, setRadiusKm] = useState<RadiusKm>(5);
+  const [radiusKm, setRadiusKm] = useState<RadiusKm>('5');
   const [petType, setPetType] = useState('');
   const [formLat, setFormLat] = useState<number | null>(null);
   const [formLng, setFormLng] = useState<number | null>(null);
@@ -84,7 +95,7 @@ export function AlertsPage() {
 
   const resetForm = () => {
     setName('');
-    setRadiusKm(5);
+    setRadiusKm('5');
     setPetType('');
     setCoordError('');
     setShowForm(false);
@@ -100,7 +111,7 @@ export function AlertsPage() {
     await createAlert.mutateAsync({
       latitude: formLat,
       longitude: formLng,
-      radius_km: radiusKm,
+      radius_km: Number(radiusKm),
       name: name.trim() || undefined,
       pet_type: petType || undefined,
     });
@@ -117,6 +128,15 @@ export function AlertsPage() {
       deleteAlert.mutate(alert.id);
     }
   };
+
+  // El error de coordenadas se cuelga de CADA input y no del `<fieldset>`: un
+  // `aria-describedby` en el contenedor no se anuncia cuando el foco entra al
+  // control, así que el usuario oiría el `role="alert"` una vez, tabularía para
+  // corregir y no recibiría nada. Es la misma regla que documenta
+  // `FormChoiceGroup`, y por eso el mensaje sigue siendo UN solo nodo.
+  const coordInvalid = coordError
+    ? { 'aria-invalid': true as const, 'aria-describedby': COORD_ERROR_ID }
+    : {};
 
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -138,130 +158,123 @@ export function AlertsPage() {
         )}
       </div>
 
-      {/* Create form */}
+      {/* Create form.
+          No usa `FormPage`: el frame lo pone esta página, que es una pantalla de
+          LISTA con un formulario plegable adentro, no una pantalla-formulario.
+          Mismo criterio que los pasos del wizard en el #180. */}
       {showForm && (
-        <form
-          onSubmit={handleSubmit}
-          className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-5 mb-6"
-        >
-          <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-4">{t('formTitle')}</h2>
+        <form onSubmit={handleSubmit} noValidate className="space-y-6 mb-6">
+          <FormSection title={t('formTitle')}>
+            <div className="space-y-6">
+              <FormField label={t('nameLabel')} htmlFor="alert-name" hint={t('optionalHint')}>
+                {(control) => (
+                  <input
+                    {...control}
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    maxLength={60}
+                    placeholder={t('namePlaceholder')}
+                  />
+                )}
+              </FormField>
 
-          {/* Name */}
-          <div className="mb-3">
-            <label htmlFor="alert-name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              {t('nameLabel')}
-            </label>
-            <input
-              id="alert-name"
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              maxLength={60}
-              placeholder={t('namePlaceholder')}
-              className={INPUT_CLASS}
-            />
-          </div>
-
-          {/* Coordinates */}
-          <div className="mb-1">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              {t('coordsLabel')}
-            </label>
-            <div className="flex gap-2 items-center">
-              <input
-                type="number"
-                step="any"
-                value={formLat ?? ''}
-                onChange={(e) => setFormLat(e.target.value ? Number(e.target.value) : null)}
-                placeholder={t('latPlaceholder')}
-                aria-label={t('latPlaceholder')}
-                className={INPUT_CLASS}
-              />
-              <input
-                type="number"
-                step="any"
-                value={formLng ?? ''}
-                onChange={(e) => setFormLng(e.target.value ? Number(e.target.value) : null)}
-                placeholder={t('lngPlaceholder')}
-                aria-label={t('lngPlaceholder')}
-                className={INPUT_CLASS}
-              />
-              <button
-                type="button"
-                onClick={handleGeolocate}
-                disabled={locating}
-                className="shrink-0 px-3 py-2 text-xs font-semibold text-primary border border-primary rounded-lg hover:bg-orange-50 dark:hover:bg-orange-950 transition-colors disabled:opacity-50"
-              >
-                {locating ? '...' : t('useMyLocation')}
-              </button>
-            </div>
-          </div>
-          {coordError && (
-            <p className="text-red-500 text-sm mt-1 mb-2">{coordError}</p>
-          )}
-
-          {/* Radius chips */}
-          <div className="mb-3 mt-3">
-            <label id="alert-radius-label" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              {t('radiusLabel')}
-            </label>
-            <div className="flex flex-wrap gap-2" role="radiogroup" aria-labelledby="alert-radius-label">
-              {RADIUS_OPTIONS.map((r) => (
+              {/* `<fieldset>` + `<legend>` y no un `<label>` suelto: "Coordenadas"
+                  agrupa dos controles, así que no puede etiquetar a ninguno con
+                  `htmlFor` sin dejar huérfano al otro. Cada input lleva ahora su
+                  propia etiqueta VISIBLE — antes su único nombre era el
+                  `aria-label`, con el placeholder haciendo de etiqueta. */}
+              <fieldset>
+                <legend className="mb-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
+                  {t('coordsLabel')}
+                </legend>
+                <div className="grid sm:grid-cols-2 gap-6">
+                  <FormField label={t('latLabel')} htmlFor="alert-lat">
+                    {(control) => (
+                      <input
+                        {...control}
+                        {...coordInvalid}
+                        className={controlClass(!!coordError)}
+                        type="number"
+                        step="any"
+                        value={formLat ?? ''}
+                        onChange={(e) => setFormLat(e.target.value ? Number(e.target.value) : null)}
+                      />
+                    )}
+                  </FormField>
+                  <FormField label={t('lngLabel')} htmlFor="alert-lng">
+                    {(control) => (
+                      <input
+                        {...control}
+                        {...coordInvalid}
+                        className={controlClass(!!coordError)}
+                        type="number"
+                        step="any"
+                        value={formLng ?? ''}
+                        onChange={(e) => setFormLng(e.target.value ? Number(e.target.value) : null)}
+                      />
+                    )}
+                  </FormField>
+                </div>
                 <button
-                  key={r}
                   type="button"
-                  role="radio"
-                  aria-checked={radiusKm === r}
-                  onClick={() => setRadiusKm(r)}
-                  className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${
-                    radiusKm === r
-                      ? 'bg-primary text-white border-primary'
-                      : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:border-primary'
-                  }`}
+                  onClick={handleGeolocate}
+                  disabled={locating}
+                  className="mt-3 inline-flex items-center justify-center px-4 py-2 rounded-lg border border-primary text-primary text-sm font-semibold hover:bg-orange-50 dark:hover:bg-orange-950 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  {r} km
+                  {locating ? t('locating') : t('useMyLocation')}
                 </button>
-              ))}
+                {coordError && (
+                  <p id={COORD_ERROR_ID} role="alert" className="text-danger text-sm mt-2">
+                    {coordError}
+                  </p>
+                )}
+              </fieldset>
+
+              {/* Radios nativos y no los botones con `role="radiogroup"` que había
+                  acá: ese patrón exige un único tab stop y navegación con flechas,
+                  y declararlo sin implementar el teclado promete un comportamiento
+                  que no está. Con controles nativos lo pone el navegador. */}
+              <FormChoiceGroup
+                id="alert-radius"
+                legend={t('radiusLabel')}
+                type="radio"
+                options={RADIUS_OPTIONS.map((r) => ({ value: r, label: `${r} km` }))}
+                value={radiusKm}
+                onToggle={setRadiusKm}
+              />
+
+              <FormField label={t('petTypeLabel')} htmlFor="alert-pet-type">
+                {(control) => (
+                  <select
+                    {...control}
+                    value={petType}
+                    onChange={(e) => setPetType(e.target.value)}
+                  >
+                    <option value="">{t('allTypes')}</option>
+                    {PET_TYPES.map((pt) => (
+                      <option key={pt} value={pt}>
+                        {t(`pets:types.${pt}`)}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </FormField>
             </div>
-          </div>
+          </FormSection>
 
-          {/* Pet type */}
-          <div className="mb-4">
-            <label htmlFor="alert-pet-type" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              {t('petTypeLabel')}
-            </label>
-            <select
-              id="alert-pet-type"
-              value={petType}
-              onChange={(e) => setPetType(e.target.value)}
-              className={INPUT_CLASS}
-            >
-              <option value="">{t('allTypes')}</option>
-              {PET_TYPES.map((pt) => (
-                <option key={pt} value={pt}>
-                  {t(`pets:types.${pt}`)}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Actions */}
-          <div className="flex gap-2">
-            <button
-              type="submit"
-              disabled={createAlert.isPending}
-              className="px-5 py-2 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary-dark transition-colors disabled:opacity-50"
-            >
-              {createAlert.isPending ? t('creating') : t('createButton')}
-            </button>
-            <button
-              type="button"
-              onClick={resetForm}
-              className="px-5 py-2 text-sm text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-            >
-              {t('cancel')}
-            </button>
-          </div>
+          <FormActions
+            cancel={
+              <button type="button" onClick={resetForm} className={formCancelClass}>
+                {t('cancel')}
+              </button>
+            }
+            submit={
+              <button type="submit" disabled={createAlert.isPending} className={formSubmitClass}>
+                {createAlert.isPending ? t('creating') : t('createButton')}
+              </button>
+            }
+          />
         </form>
       )}
 
