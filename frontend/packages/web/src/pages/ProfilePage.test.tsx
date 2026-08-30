@@ -380,7 +380,12 @@ describe('ProfilePage', () => {
     petsData.reportedStale = true;
     render(<ProfilePage />, { wrapper });
 
-    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    // Este assert era `queryByRole('status')`, y ese proxy dejó de valer cuando
+    // la tarjeta de perfil ganó su región `role="status"` PERMANENTE para el
+    // acuse de guardado: desde entonces la consulta encuentra esa región y ya no
+    // distingue nada. El discriminador exacto de la franja de `ListState` es su
+    // botón de reintentar, que sólo esa primitiva dibuja.
+    expect(screen.queryByText('common:retry')).not.toBeInTheDocument();
     expect(screen.queryByText('pets:reports.tabReported')).not.toBeInTheDocument();
   });
 
@@ -609,5 +614,100 @@ describe('ProfilePage', () => {
       expect(cloudinarias.length).toBeGreaterThan(0);
       expect(cloudinarias.every((s) => s.includes('c_lfill'))).toBe(true);
     });
+  });
+
+  // ── Sistema de formularios ──────────────────────────────────
+
+  describe('formulario de edicion', () => {
+    async function abrirEdicion() {
+      render(<ProfilePage />, { wrapper });
+      await userEvent.click(screen.getByText('profile:edit'));
+    }
+
+    // El JSX traia `{t('profile:name')} *` y `FormField required` dibuja el suyo:
+    // los dos juntos son el doble asterisco del #185.
+    it('Nombre muestra UN solo asterisco, y ninguno vive en el <label>', async () => {
+      await abrirEdicion();
+
+      const fila = document.querySelector('label[for="name"]')!.parentElement!;
+      expect(fila.textContent!.match(/\*/g) ?? []).toHaveLength(1);
+      expect(document.querySelector('label[for="name"]')!.textContent).not.toContain('*');
+      expect(screen.getByLabelText('profile:name')).toHaveAttribute('aria-required', 'true');
+    });
+
+    it('los campos opcionales no llevan asterisco ni aria-required', async () => {
+      await abrirEdicion();
+
+      for (const id of ['phone', 'city', 'profile-email']) {
+        expect(document.querySelector(`label[for="${id}"]`)!.parentElement!.textContent).not.toContain('*');
+        expect(document.getElementById(id)).not.toHaveAttribute('aria-required');
+      }
+    });
+
+    // Los avisos de "no se puede cambiar" y "es visible para otros" eran `<p>`
+    // sueltos: quien tabula hasta el campo no se enteraba de ninguno de los dos.
+    it('la ayuda de email y telefono llega por aria-describedby', async () => {
+      await abrirEdicion();
+
+      const casos: [string, string][] = [
+        ['profile-email', 'profile:emailReadOnly'],
+        ['phone', 'profile:phoneHint'],
+      ];
+      for (const [id, clave] of casos) {
+        const descId = document.getElementById(id)!.getAttribute('aria-describedby');
+        expect(descId).toBeTruthy();
+        expect(document.getElementById(descId!)).toHaveTextContent(clave);
+      }
+    });
+
+    it('el email sigue siendo de solo lectura', async () => {
+      await abrirEdicion();
+
+      expect(screen.getByLabelText('profile:email')).toBeDisabled();
+    });
+
+    // El codigo se nombraba SOLO con `aria-label`, con el placeholder "000000"
+    // haciendo de etiqueta. Y su clave es propia: un label que dijera lo mismo
+    // que el boton se leeria como duplicado.
+    it('el codigo OTP tiene etiqueta visible, distinta de la del boton', async () => {
+      verification.current = { is_verified: false };
+      sendEmailOTP.mutateAsync = vi.fn().mockResolvedValue(undefined);
+      render(<ProfilePage />, { wrapper });
+
+      await userEvent.click(screen.getByText('profile:verifyEmail'));
+      await userEvent.click(screen.getByText('profile:sendCode'));
+
+      const input = await screen.findByPlaceholderText('000000');
+      expect(input).not.toHaveAttribute('aria-label');
+      expect(document.querySelector('label[for="verify-code"]')).toHaveTextContent('profile:codeLabel');
+      expect(screen.getByLabelText('profile:codeLabel')).toBe(input);
+      // La clave del boton NO se reusa: si fueran la misma, `getByText` quedaria
+      // ambiguo y el label se leeria dos veces.
+      expect(screen.getByText('profile:confirmCode').tagName).toBe('BUTTON');
+    });
+
+    // Una region `polite` que entra al DOM ya con su texto se anuncia de forma
+    // poco confiable; por eso el acuse va montado SIEMPRE y el error, que el
+    // navegador maneja al insertarse, sigue condicional.
+    it('el acuse de guardado tiene su region montada desde el principio', async () => {
+      await abrirEdicion();
+
+      const region = screen.getByRole('status');
+      expect(region).toHaveAttribute('aria-live', 'polite');
+      expect(region).toHaveTextContent('');
+    });
+  });
+
+  // La otra mitad del guard de la franja: `common:retry` SI aparece cuando la
+  // franja se dibuja de verdad. Sin esto, el assert negativo de mas arriba
+  // podria estar mirando un texto que no existe en ningun estado.
+  it('con datos viejos en pantalla la franja SI se dibuja, con su reintentar', () => {
+    petsData.reported = [pet({ id: 'pet-9', name: 'Rex', status: 'stray' })];
+    petsData.reportedError = true;
+    petsData.reportedStale = true;
+
+    render(<ProfilePage />, { wrapper });
+
+    expect(screen.getByText('common:retry')).toBeInTheDocument();
   });
 });

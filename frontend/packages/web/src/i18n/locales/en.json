@@ -544,6 +544,7 @@
     "sendCode": "Send code",
     "checkEmail": "Check your email and enter the 6-digit code.",
     "verifying": "Verifying...",
+    "codeLabel": "Verification code",
     "confirmCode": "Confirm code",
     "resendIn": "Resend in {{seconds}}s",
     "resendCode": "Resend code",

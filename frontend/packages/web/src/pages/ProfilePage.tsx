@@ -23,6 +23,8 @@ import type { Badge, Pet } from '@shared/types';
 import { BADGE_META } from '@shared/types';
 import { Icon } from '../components/Icon';
 import { ListState } from '../components/list/ListState';
+import { FormField } from '../components/form/FormField';
+import { formSubmitClass } from '../components/form/FormActions';
 import { PawPlaceholder } from '../components/PawPlaceholder';
 import { statusBadgeBg } from '../utils/statusBadge';
 import { myPetsRoute } from '../routes';
@@ -613,15 +615,29 @@ export function ProfilePage() {
                 )}
               </div>
 
+              {/* `role="alert"` para el fallo de la foto: el navegador lo
+                  anuncia al insertarse, así que puede seguir siendo condicional. */}
               {photoError && (
-                <p className="text-danger text-sm mt-3 text-center">{photoError}</p>
-              )}
-
-              {success && (
-                <p className="text-green-600 dark:text-green-400 text-sm font-medium mt-4 text-center">
-                  {t('profile:saveSuccess')}
+                <p role="alert" className="text-danger text-sm mt-3 text-center">
+                  {photoError}
                 </p>
               )}
+
+              {/* El acuse, en cambio, va montado SIEMPRE. Una región `polite`
+                  que entra al DOM ya con su texto se anuncia de forma poco
+                  confiable en NVDA/JAWS — a diferencia de `alert`. Sin `min-h`:
+                  un `<p>` vacío no ocupa alto, así que la región existe desde el
+                  principio sin reservar espacio, y las clases de separación sólo
+                  se aplican cuando hay algo que separar. */}
+              <p
+                role="status"
+                aria-live="polite"
+                className={
+                  success ? 'text-green-600 dark:text-green-400 text-sm font-medium mt-4 text-center' : ''
+                }
+              >
+                {success ? t('profile:saveSuccess') : ''}
+              </p>
 
               {!editing ? (
                 <div className="mt-5 pt-4 border-t border-gray-100 dark:border-gray-800 divide-y divide-gray-100 dark:divide-gray-800">
@@ -639,89 +655,90 @@ export function ProfilePage() {
                   noValidate
                   className="mt-5 pt-5 border-t border-gray-100 dark:border-gray-800 space-y-4"
                 >
-                  {/* Email — sólo lectura */}
-                  <div>
-                    <label
-                      htmlFor="profile-email"
-                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-                    >
-                      {t('profile:email')}
-                    </label>
-                    <input
-                      id="profile-email"
-                      type="email"
-                      value={user.email}
-                      disabled
-                      className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-400 dark:text-gray-500 px-3 py-2.5 text-sm cursor-not-allowed"
-                    />
-                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                      {t('profile:emailReadOnly')}
+                  {/* Email — sólo lectura. El aviso va como `description` y no
+                      como un `<p>` suelto: así lo referencia el propio control
+                      por `aria-describedby` y quien tabula hasta acá se entera
+                      de que no se puede cambiar ANTES de intentar escribir. */}
+                  <FormField
+                    label={t('profile:email')}
+                    htmlFor="profile-email"
+                    description={t('profile:emailReadOnly')}
+                  >
+                    {(control) => (
+                      <input
+                        {...control}
+                        className={`${control.className} bg-gray-50 dark:bg-gray-800 text-gray-400 dark:text-gray-500 cursor-not-allowed`}
+                        type="email"
+                        value={user.email}
+                        disabled
+                      />
+                    )}
+                  </FormField>
+
+                  {/* El `*` que había acá en el JSX se va: lo dibuja
+                      `FormField required`, y los dos juntos son el doble
+                      asterisco del #185. */}
+                  <FormField
+                    label={t('profile:name')}
+                    htmlFor="name"
+                    required
+                    error={nameError}
+                  >
+                    {(control) => (
+                      <input
+                        {...control}
+                        type="text"
+                        value={name}
+                        onChange={(e) => {
+                          setName(e.target.value);
+                          if (nameError) setNameError('');
+                        }}
+                      />
+                    )}
+                  </FormField>
+
+                  <FormField
+                    label={t('profile:phone')}
+                    htmlFor="phone"
+                    description={t('profile:phoneHint')}
+                  >
+                    {(control) => (
+                      <input
+                        {...control}
+                        type="tel"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                        placeholder={t('profile:phonePlaceholder')}
+                      />
+                    )}
+                  </FormField>
+
+                  <FormField label={t('profile:city')} htmlFor="city">
+                    {(control) => (
+                      <input
+                        {...control}
+                        type="text"
+                        value={city}
+                        onChange={(e) => setCity(e.target.value)}
+                        placeholder={t('profile:cityPlaceholder')}
+                      />
+                    )}
+                  </FormField>
+
+                  {/* `role="alert"`: el fallo del guardado no pertenece a ningún
+                      campo, así que no lo cubre el `error` de ningún FormField y
+                      sin esto quien no mira la pantalla apretaba Guardar y no
+                      recibía nada. */}
+                  {apiError && (
+                    <p role="alert" className="text-danger text-sm">
+                      {apiError}
                     </p>
-                  </div>
-
-                  <div>
-                    <label
-                      htmlFor="name"
-                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-                    >
-                      {t('profile:name')} *
-                    </label>
-                    <input
-                      id="name"
-                      type="text"
-                      value={name}
-                      onChange={(e) => {
-                        setName(e.target.value);
-                        if (nameError) setNameError('');
-                      }}
-                      className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-3 py-2.5 text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-                    />
-                    {nameError && <p className="text-danger text-sm mt-1">{nameError}</p>}
-                  </div>
-
-                  <div>
-                    <label
-                      htmlFor="phone"
-                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-                    >
-                      {t('profile:phone')}
-                    </label>
-                    <input
-                      id="phone"
-                      type="tel"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      placeholder={t('profile:phonePlaceholder')}
-                      className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-3 py-2.5 text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-                    />
-                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                      {t('profile:phoneHint')}
-                    </p>
-                  </div>
-
-                  <div>
-                    <label
-                      htmlFor="city"
-                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-                    >
-                      {t('profile:city')}
-                    </label>
-                    <input
-                      id="city"
-                      type="text"
-                      value={city}
-                      onChange={(e) => setCity(e.target.value)}
-                      placeholder={t('profile:cityPlaceholder')}
-                      className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-3 py-2.5 text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-                    />
-                  </div>
-
-                  {apiError && <p className="text-danger text-sm">{apiError}</p>}
+                  )}
 
                   <button
                     type="submit"
                     disabled={updateMe.isPending}
-                    className="w-full bg-primary hover:bg-primary-dark disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold rounded-xl px-4 py-2.5 text-sm transition-colors"
+                    className={`${formSubmitClass} w-full`}
                   >
                     {updateMe.isPending ? t('common:loading') : t('profile:save')}
                   </button>
@@ -790,20 +807,36 @@ export function ProfilePage() {
                         <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
                           {t('profile:checkEmail')}
                         </p>
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          maxLength={6}
-                          value={verifyCode}
-                          onChange={(e) => {
-                            setVerifyCode(e.target.value.replace(/\D/g, '').slice(0, 6));
-                            setVerifyError('');
-                          }}
-                          placeholder="000000"
-                          aria-label={t('profile:confirmCode')}
-                          className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-3 py-2.5 text-center text-xl tracking-widest mb-2 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-                        />
-                        {verifyError && <p className="text-sm text-danger mb-2">{verifyError}</p>}
+                        {/* Etiqueta VISIBLE en vez del `aria-label` que tenía:
+                            su único nombre era ese atributo, con el placeholder
+                            "000000" haciendo de etiqueta para quien mira.
+                            La clave es propia (`codeLabel`) y NO `confirmCode`,
+                            que es la del botón: un label y un botón que dicen lo
+                            mismo se leen como duplicado — y además dejarían
+                            ambiguo cualquier `getByText`. */}
+                        <div className="mb-2">
+                          <FormField
+                            label={t('profile:codeLabel')}
+                            htmlFor="verify-code"
+                            error={verifyError}
+                          >
+                            {(control) => (
+                              <input
+                                {...control}
+                                className={`${control.className} text-center text-xl tracking-widest`}
+                                type="text"
+                                inputMode="numeric"
+                                maxLength={6}
+                                value={verifyCode}
+                                onChange={(e) => {
+                                  setVerifyCode(e.target.value.replace(/\D/g, '').slice(0, 6));
+                                  setVerifyError('');
+                                }}
+                                placeholder="000000"
+                              />
+                            )}
+                          </FormField>
+                        </div>
                         <button
                           type="submit"
                           disabled={confirmEmailOTP.isPending}

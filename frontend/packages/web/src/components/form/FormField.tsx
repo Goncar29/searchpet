@@ -54,6 +54,15 @@ interface FormFieldProps {
   htmlFor: string;
   /** Rendered after the label, muted — for "(optional)". Pass a translated string, never one built by casing another key. */
   hint?: string;
+  /**
+   * Helper text BELOW the control — for a sentence that would not fit beside the
+   * label ("this address cannot be changed", "visible to anyone contacting you").
+   *
+   * Separate from `hint` because the two differ in placement and in length, not
+   * in meaning: a short qualifier reads beside the label, a full sentence does
+   * not. Both end up in `aria-describedby`, so neither is visual-only.
+   */
+  description?: string;
   required?: boolean;
   error?: string;
   /**
@@ -76,9 +85,18 @@ interface FormFieldProps {
  * announces once and then goes silent — which is what this component did before
  * the wiring existed.
  */
-export function FormField({ label, htmlFor, hint, required, error, children }: FormFieldProps) {
+export function FormField({
+  label,
+  htmlFor,
+  hint,
+  description,
+  required,
+  error,
+  children,
+}: FormFieldProps) {
   const errorId = `${htmlFor}-error`;
   const hintId = `${htmlFor}-hint`;
+  const descriptionId = `${htmlFor}-description`;
 
   // El hint viaja por `aria-describedby` y NO por el nombre accesible. Vive en un
   // `<span>` hermano del `<label>` a propósito —meterlo adentro cambiaría el
@@ -86,8 +104,17 @@ export function FormField({ label, htmlFor, hint, required, error, children }: F
   // asterisco está afuera—, así que sin esta referencia el control se llama sólo
   // "Nombre" y el "(opcional)" queda para quien MIRA. Es la misma asimetría
   // ver/oír contra la que argumenta el comentario de `FormChoiceGroup`.
-  // El orden es hint y después error, que es el orden visual.
-  const describedBy = [hint ? hintId : null, error ? errorId : null].filter(Boolean).join(' ');
+  // El orden es el VISUAL: hint (al lado de la etiqueta), description (debajo
+  // del control) y error (al final). Un lector de pantalla lee `describedby` en
+  // el orden en que están listados los ids, así que cualquier otro orden le
+  // contaría la pantalla en una secuencia que nadie ve.
+  const describedBy = [
+    hint ? hintId : null,
+    description ? descriptionId : null,
+    error ? errorId : null,
+  ]
+    .filter(Boolean)
+    .join(' ');
 
   const control: ControlProps = {
     id: htmlFor,
@@ -123,6 +150,11 @@ export function FormField({ label, htmlFor, hint, required, error, children }: F
         )}
       </div>
       {children(control)}
+      {description && (
+        <p id={descriptionId} className="text-xs text-gray-400 dark:text-gray-500 mt-1.5">
+          {description}
+        </p>
+      )}
       {error && (
         <p id={errorId} role="alert" className="text-danger text-sm mt-2">
           {error}
