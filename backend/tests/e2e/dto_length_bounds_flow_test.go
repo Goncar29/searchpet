@@ -105,6 +105,13 @@ func TestDTOLengthBounds_UnLargoDeMasDa400YNo500(t *testing.T) {
 		{"devices/token / device_tokens.token(500)", "/api/devices/token", userToken, map[string]any{
 			"token": deMas(500), "platform": "android"}},
 
+		// pet_type NO tiene allowlist: el servicio lo asigna tal cual, así que
+		// el tope es lo único que lo separa del 22001.
+		{"alerts / location_alerts.pet_type(50)", "/api/alerts", userToken, map[string]any{
+			"latitude": -34.9011, "longitude": -56.1645, "pet_type": deMas(50)}},
+		{"alerts / location_alerts.name(100)", "/api/alerts", userToken, map[string]any{
+			"latitude": -34.9011, "longitude": -56.1645, "name": deMas(100)}},
+
 		// admin-only (router.go: admin.POST("/groups"))
 		{"groups / local_groups.city(100)", "/api/groups", adminToken, map[string]any{
 			"city": deMas(100), "name": "Grupo"}},
@@ -162,6 +169,46 @@ func TestDTOLengthBounds_UnLargoDeMasDa400YNo500(t *testing.T) {
 			// de la respuesta: devtools, logs y cualquier consumidor de la API.
 			if strings.Contains(e.Message, "Field validation") || strings.Contains(e.Message, "Key: '") {
 				t.Errorf("se filtra el error crudo del validador — body: %s", body)
+			}
+		})
+	}
+}
+
+// Editar el perfil escribe en las MISMAS columnas que registrarse.
+//
+// Va aparte de la tabla porque es un PUT. Existe porque la primera pasada de
+// este PR acotó `RegisterRequest` y se salteó `UpdateProfileRequest`: el censo
+// buscaba campos CON tag `binding` y estos no tenían ninguno, así que no
+// aparecían. Acotar el alta y no la edición deja la clase abierta en el otro
+// verbo — que es exactamente lo que el commit de mascotas decía evitar.
+func TestDTOLengthBounds_EditarElPerfilTambienEstaAcotado(t *testing.T) {
+	baseURL, _, cleanup := startTestServerWithDB(t)
+	defer cleanup()
+
+	token, _ := registerAndLogin(t, baseURL)
+
+	casos := []struct {
+		nombre string
+		cuerpo map[string]any
+	}{
+		{"users.name(100)", map[string]any{"name": strings.Repeat("a", 101)}},
+		{"users.phone(20)", map[string]any{"name": "E2E", "phone": strings.Repeat("9", 21)}},
+	}
+
+	for _, c := range casos {
+		t.Run(c.nombre, func(t *testing.T) {
+			b, _ := json.Marshal(c.cuerpo)
+			req, _ := http.NewRequest(http.MethodPut, baseURL+"/api/auth/me", bytes.NewReader(b))
+			req.Header.Set("Content-Type", "application/json")
+			req.Header.Set("Authorization", "Bearer "+token)
+			resp, err := http.DefaultClient.Do(req)
+			if err != nil {
+				t.Fatalf("PUT /auth/me: %v", err)
+			}
+			defer resp.Body.Close()
+			cuerpo, _ := io.ReadAll(resp.Body)
+			if resp.StatusCode != http.StatusBadRequest {
+				t.Errorf("want 400, got %d — body: %s", resp.StatusCode, cuerpo)
 			}
 		})
 	}

@@ -12,11 +12,19 @@ import (
 // CreateShelterRequest contiene los campos para crear un refugio desde la API admin.
 //
 // Los `max` replican el ancho de las columnas de domain.Shelter (Name size:255,
-// City size:100, Address/WebsiteURL/DonationURL size:500, Phone size:20, Email
+// City size:100, WebsiteURL y DonationURL size:500, Phone size:20, Email
 // size:255). Description no lleva tope porque su columna es `text`.
 //
 // Ojo con las dos URLs: validOptionalHTTPSURL acota el ESQUEMA, no el largo.
 // Una https:// de 600 caracteres pasaba esa validación y moría en Postgres.
+//
+// `Address` es la excepción y NO tiene columna detrás: domain.Shelter no
+// declara ese campo y nadie lee `req.Address`, así que hoy la API lo acepta,
+// contesta 201 y lo TIRA EN SILENCIO. Su `max=500` es inerte a propósito —
+// queda puesto para el día que exista la columna, y no se saca el campo del
+// DTO en este PR porque eso es un arreglo aparte: o se agrega la columna o se
+// deja de prometer un dato que no se guarda. Defecto preexistente, anotado acá
+// para que el próximo que lea este bloque no crea que 500 es un ancho real.
 type CreateShelterRequest struct {
 	Name        string   `json:"name" binding:"required,max=255"`
 	City        string   `json:"city" binding:"required,max=100"`
