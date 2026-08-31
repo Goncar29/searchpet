@@ -29,7 +29,7 @@ func (h *GroupHandler) Create(c *gin.Context) {
 
 	var req dto.CreateGroupRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		writeError(c, http.StatusBadRequest, err)
+		writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
 		return
 	}
 

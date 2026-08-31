@@ -25,7 +25,7 @@ func NewAuthHandler(authService service.AuthService) *AuthHandler {
 func (h *AuthHandler) Register(c *gin.Context) {
 	var req dto.RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		writeError(c, http.StatusBadRequest, err)
+		writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
 		return
 	}
 
@@ -50,7 +50,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 func (h *AuthHandler) Login(c *gin.Context) {
 	var req dto.LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		writeError(c, http.StatusBadRequest, err)
+		writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
 		return
 	}
 
@@ -155,7 +155,7 @@ func (h *AuthHandler) UpdateMe(c *gin.Context) {
 
 	var req dto.UpdateProfileRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		writeError(c, http.StatusBadRequest, err)
+		writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
 		return
 	}
 
@@ -183,7 +183,7 @@ func (h *AuthHandler) UpdatePreferences(c *gin.Context) {
 
 	var req dto.UpdatePreferencesRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		writeError(c, http.StatusBadRequest, err)
+		writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
 		return
 	}
 

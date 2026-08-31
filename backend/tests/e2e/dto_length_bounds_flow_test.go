@@ -136,6 +136,32 @@ func TestDTOLengthBounds_UnLargoDeMasDa400YNo500(t *testing.T) {
 
 			if resp.StatusCode != http.StatusBadRequest {
 				t.Errorf("want 400, got %d — body: %s", resp.StatusCode, body)
+				return
+			}
+
+			// El 400 solo no alcanza, y esto lo descubrió un /verify: tres de
+			// estos endpoints pasaban el error CRUDO del binding a writeError,
+			// y `CodeFor` devuelve "internal_error" para cualquier cosa que no
+			// sea un error de dominio. El frontend traduce por CODIGO, así que
+			// el usuario seguía leyendo "Ocurrió un error interno" — la misma
+			// frase que antes del arreglo, con otro número de status.
+			//
+			// Sin esta aserción, revertir los handlers deja el test VERDE.
+			var e struct {
+				Code    string `json:"code"`
+				Message string `json:"message"`
+			}
+			if err := json.Unmarshal(body, &e); err != nil {
+				t.Fatalf("cuerpo no es JSON: %s", body)
+			}
+			if e.Code == "internal_error" {
+				t.Errorf("un 400 no puede traer code=internal_error — body: %s", body)
+			}
+			// El string de go-playground nombra el struct y el tag. No llega a
+			// la pantalla (getErrorMessage ignora `message`), pero sí al cuerpo
+			// de la respuesta: devtools, logs y cualquier consumidor de la API.
+			if strings.Contains(e.Message, "Field validation") || strings.Contains(e.Message, "Key: '") {
+				t.Errorf("se filtra el error crudo del validador — body: %s", body)
 			}
 		})
 	}

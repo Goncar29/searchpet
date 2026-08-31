@@ -79,7 +79,7 @@ func (h *ReviewHandler) CreateReview(c *gin.Context) {
 
 	var req dto.CreateReviewRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		writeError(c, http.StatusBadRequest, err)
+		writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
 		return
 	}
 
@@ -147,7 +147,7 @@ func (h *ReviewHandler) UpdateReview(c *gin.Context) {
 
 	var req dto.UpdateReviewRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		writeError(c, http.StatusBadRequest, err)
+		writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
 		return
 	}
 

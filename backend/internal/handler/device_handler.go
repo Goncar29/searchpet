@@ -49,7 +49,7 @@ func (h *DeviceHandler) DeleteToken(c *gin.Context) {
 func (h *DeviceHandler) RegisterToken(c *gin.Context) {
 	var req dto.RegisterDeviceTokenRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		writeError(c, http.StatusBadRequest, err)
+		writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
 		return
 	}
 
