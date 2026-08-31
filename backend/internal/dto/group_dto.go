@@ -8,9 +8,14 @@ import (
 )
 
 // CreateGroupRequest contiene los datos para crear un grupo local.
+//
+// Los `max` replican el ancho de las columnas de domain.LocalGroup (City
+// size:100, Name size:255). Sin ellos un valor más largo llega hasta Postgres,
+// que lo rechaza con SQLSTATE 22001, y el handler colapsa cualquier error
+// no-dominio en 500. Description no lleva tope porque su columna es `text`.
 type CreateGroupRequest struct {
-	City        string `json:"city" binding:"required"`
-	Name        string `json:"name" binding:"required"`
+	City        string `json:"city" binding:"required,max=100"`
+	Name        string `json:"name" binding:"required,max=255"`
 	Description string `json:"description"`
 }
 

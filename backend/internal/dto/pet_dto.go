@@ -9,13 +9,20 @@ import (
 
 // CreatePetRequest contiene los datos para crear una mascota.
 // Es el input que viene del Handler — ya parseado, listo para usar.
+// Los `max` replican el ancho de las columnas de domain.Pet (Name size:100,
+// Type size:50, Breed y Color size:100, City size:120). Description no lleva
+// tope porque su columna es `text`, y Gender tampoco porque ya lo acota
+// ValidPetGenders — que es más estricto que su varchar(10).
 type CreatePetRequest struct {
-	Name        string  `json:"name" binding:"required"`
-	Type        string  `json:"type" binding:"required"`
-	Breed       string  `json:"breed"`
-	Color       string  `json:"color"`
+	Name string `json:"name" binding:"required,max=100"`
+	// El `max` evita el 500, pero NO es una allowlist: el alta sigue aceptando
+	// cualquier tipo de hasta 50 runas. domain.IsValidPetType existe y hoy sólo
+	// lo usa el filtro de búsqueda de report_handler.go.
+	Type        string  `json:"type" binding:"required,max=50"`
+	Breed       string  `json:"breed" binding:"max=100"`
+	Color       string  `json:"color" binding:"max=100"`
 	Description string  `json:"description"`
-	City        string  `json:"city"`
+	City        string  `json:"city" binding:"max=120"`
 	Gender      string  `json:"gender"`
 	// Opcional y acotado a 50 RUNAS por la columna (ver domain.IsValidMicrochipID).
 	// Un string vacío se guarda como NULL: la columna es uniqueIndex y los vacíos
@@ -69,14 +76,21 @@ type PublishLostRequest struct {
 
 // UpdatePetRequest contiene los datos para actualizar una mascota.
 type UpdatePetRequest struct {
-	Name string `json:"name"`
+	// Mismos anchos que en el alta: editar escribe en las mismas columnas, y
+	// acotar sólo una de las dos vías deja la clase abierta en la otra.
+	Name string `json:"name" binding:"max=100"`
 	// Optional fields use pointers so the server can tell "field omitted" (nil →
 	// leave as-is, e.g. a status-only update) apart from "field cleared" (&"" →
 	// blank it). Without this, a user could never empty an optional field.
-	Breed       *string `json:"breed"`
-	Color       *string `json:"color"`
+	//
+	// El `max` sobre un puntero se aplica al valor apuntado y se saltea cuando
+	// es nil, así que convive con el update parcial. Verificado con un caso de
+	// PUT en el e2e, no asumido — un tag que no se aplicara sería una prop que
+	// se ve correcta en el diff y no hace nada.
+	Breed       *string `json:"breed" binding:"omitempty,max=100"`
+	Color       *string `json:"color" binding:"omitempty,max=100"`
 	Description *string `json:"description"`
-	City        *string `json:"city"`
+	City        *string `json:"city" binding:"omitempty,max=120"`
 	Gender      *string `json:"gender"`
 	Status      string  `json:"status"`
 	// Día de calendario plano, igual que en el alta. `nil` = no enviado.

@@ -9,9 +9,15 @@ import (
 
 // RegisterRequest son los datos que el cliente manda para registrarse
 type RegisterRequest struct {
-	Email    string `json:"email" binding:"required,email"`
+	// Los `max` replican el ancho de las columnas de domain.User (Email
+	// size:255, Name size:100). Es el endpoint más expuesto de esta clase:
+	// público, sin auth, y sin ellos un nombre largo hacía que registrarse
+	// devolviera "ocurrió un error inesperado" (500 por SQLSTATE 22001).
+	// El de Password NO va acá: bcrypt corta por BYTES y no por runas, así que
+	// tiene su propio chequeo (regla #36).
+	Email    string `json:"email" binding:"required,email,max=255"`
 	Password string `json:"password" binding:"required,min=6"`
-	Name     string `json:"name" binding:"required"`
+	Name     string `json:"name" binding:"required,max=100"`
 	City     string `json:"city"`
 }
 
