@@ -126,6 +126,28 @@ func (s *petService) CreatePet(ownerID string, req dto.CreatePetRequest) (*domai
 	// reporter). For registered pets it stays false regardless of the request.
 	reporterContactPublic := status == domain.PetStatusStray && req.ReporterContactPublic
 
+	// El tipo también, y este se venía aceptando SIN mirar: `IsValidPetType`
+	// existía desde siempre pero sólo lo usaba el filtro de búsqueda de
+	// report_handler.go, así que el alta guardaba cualquier string de hasta 50
+	// runas. Una mascota de tipo "asdf" no rompe nada visible al crearla — se
+	// rompe después, en el filtro por tipo, que nunca la va a encontrar porque
+	// la UI sólo ofrece los cuatro válidos. Queda invisible para el dueño.
+	//
+	// Los clientes (web y mobile) mandan sólo los de PET_TYPES, así que esto no
+	// rechaza nada que hoy funcione.
+	//
+	// OJO: esto frena las ALTAS nuevas y NO repara las viejas. Una mascota
+	// guardada con un tipo fuera de la lista antes de este cierre queda
+	// invisible en el filtro por tipo, y su dueño NO la puede corregir por la
+	// API porque `UpdatePetRequest` no tiene campo `type` — o sea que el daño
+	// que este comentario describe sigue vivo para esas filas. Repararlo
+	// necesita un backfill o abrir el campo en la edición. No se hizo porque no
+	// se pudo medir cuántas hay: el endpoint público de búsqueda estaba caído
+	// (Render suspendido por cuota) al momento de escribir esto.
+	if !domain.IsValidPetType(req.Type) {
+		return nil, domain.ErrInvalidInput
+	}
+
 	// Sin allowlist, un gender largo llega hasta Postgres y explota con
 	// SQLSTATE 22001: el usuario recibe un 500 por un dato que el servidor
 	// tenía que rechazar con 400.

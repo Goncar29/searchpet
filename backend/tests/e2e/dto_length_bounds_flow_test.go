@@ -77,8 +77,13 @@ func TestDTOLengthBounds_UnLargoDeMasDa400YNo500(t *testing.T) {
 
 		{"pets / pets.name(100)", "/api/pets", userToken, map[string]any{
 			"name": deMas(100), "type": "perro"}},
-		{"pets / pets.type(50)", "/api/pets", userToken, map[string]any{
-			"name": "Firulais", "type": deMas(50)}},
+		// `pets.type` NO va en esta tabla, y es deliberado. Desde que el alta
+		// valida el tipo contra la allowlist, un tipo de 51 runas se rechaza
+		// por NO ESTAR EN LA LISTA, con el mismo 400 `invalid_input` — así que
+		// el caso pasaría verde aunque alguien borrara `max=50`, midiendo la
+		// otra guarda. Sería exactamente la señal de éxito emitida sin que el
+		// chequeo ocurra contra la que avisa el encabezado de este archivo.
+		// Su guarda real es TestPetType_SoloLosCuatroDeLaAllowlist.
 		{"pets / pets.breed(100)", "/api/pets", userToken, map[string]any{
 			"name": "Firulais", "type": "perro", "breed": deMas(100)}},
 		{"pets / pets.color(100)", "/api/pets", userToken, map[string]any{
@@ -169,6 +174,61 @@ func TestDTOLengthBounds_UnLargoDeMasDa400YNo500(t *testing.T) {
 			// de la respuesta: devtools, logs y cualquier consumidor de la API.
 			if strings.Contains(e.Message, "Field validation") || strings.Contains(e.Message, "Key: '") {
 				t.Errorf("se filtra el error crudo del validador — body: %s", body)
+			}
+		})
+	}
+}
+
+// El alta de mascota rechaza un tipo que no está en la allowlist.
+//
+// `domain.IsValidPetType` existía desde siempre pero sólo lo usaba el filtro de
+// búsqueda de report_handler.go, así que el alta guardaba cualquier string de
+// hasta 50 runas. El `max=50` que agregó este PR mata el 500, pero NO valida el
+// valor: una mascota de tipo "asdf" se creaba feliz.
+//
+// El daño no se ve al crearla, se ve después: el filtro por tipo de la UI sólo
+// ofrece los cuatro válidos, así que esa mascota queda invisible para su propio
+// dueño en la pantalla que existe para encontrarla.
+//
+// La mitad inversa no es decorativa: sin ella esto se satisface rechazando
+// TODOS los tipos, que rompería el alta entera. Y afirma 201 EXACTO, no
+// "distinto de 400": con `!= 400` un 401, un 403 o un 500 contarían como
+// "sigue andando", así que un refactor que hiciera fallar toda creación con
+// ErrInternal dejaría los cuatro subtests en verde. El único status que prueba
+// que la mascota se creó es el 201.
+func TestPetType_SoloLosCuatroDeLaAllowlist(t *testing.T) {
+	baseURL, db, cleanup := startTestServerWithDB(t)
+	defer cleanup()
+
+	token, email := registerAndLogin(t, baseURL)
+	markEmailVerified(t, db, email)
+
+	crear := func(t *testing.T, tipo string) int {
+		t.Helper()
+		b, _ := json.Marshal(map[string]any{"name": "Firulais", "type": tipo})
+		req, _ := http.NewRequest(http.MethodPost, baseURL+"/api/pets", bytes.NewReader(b))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+token)
+		r, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatalf("POST /pets: %v", err)
+		}
+		defer r.Body.Close()
+		cuerpo, _ := io.ReadAll(r.Body)
+		t.Logf("type=%q -> %d %s", tipo, r.StatusCode, cuerpo)
+		return r.StatusCode
+	}
+
+	t.Run("un tipo inventado da 400", func(t *testing.T) {
+		if got := crear(t, "asdf"); got != http.StatusBadRequest {
+			t.Errorf("want 400, got %d", got)
+		}
+	})
+
+	for _, tipo := range []string{"perro", "gato", "pajaro", "otro"} {
+		t.Run("sigue creando: "+tipo, func(t *testing.T) {
+			if got := crear(t, tipo); got != http.StatusCreated {
+				t.Errorf("%q es válido: want 201, got %d", tipo, got)
 			}
 		})
 	}

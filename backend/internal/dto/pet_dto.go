@@ -15,9 +15,16 @@ import (
 // ValidPetGenders — que es más estricto que su varchar(10).
 type CreatePetRequest struct {
 	Name string `json:"name" binding:"required,max=100"`
-	// El `max` evita el 500, pero NO es una allowlist: el alta sigue aceptando
-	// cualquier tipo de hasta 50 runas. domain.IsValidPetType existe y hoy sólo
-	// lo usa el filtro de búsqueda de report_handler.go.
+	// El VALOR lo valida `domain.IsValidPetType` en pet_service.CreatePet; este
+	// `max` es el ancho de la columna y queda como segunda barrera.
+	//
+	// Las dos son redundantes por diseño y protegen contra regresiones
+	// distintas: si alguien borra la allowlist, el `max` sigue evitando el
+	// SQLSTATE 22001; si alguien borra el `max`, la allowlist lo evita igual.
+	// Ninguna de las dos es observable por separado desde la API —las dos
+	// contestan 400 `invalid_input`— y por eso `pets.type` NO está en la tabla
+	// de largos: ahí sería un caso que pasa verde midiendo la otra cosa.
+	// Su guarda real es TestPetType_SoloLosCuatroDeLaAllowlist.
 	Type        string  `json:"type" binding:"required,max=50"`
 	Breed       string  `json:"breed" binding:"max=100"`
 	Color       string  `json:"color" binding:"max=100"`
