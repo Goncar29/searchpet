@@ -39,7 +39,7 @@ func (h *ReportHandler) CreateReport(c *gin.Context) {
 
 	var req service.CreateReportRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		writeError(c, http.StatusBadRequest, err)
+		writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
 		return
 	}
 

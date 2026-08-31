@@ -10,14 +10,29 @@ import (
 )
 
 // CreateShelterRequest contiene los campos para crear un refugio desde la API admin.
+//
+// Los `max` replican el ancho de las columnas de domain.Shelter (Name size:255,
+// City size:100, WebsiteURL y DonationURL size:500, Phone size:20, Email
+// size:255). Description no lleva tope porque su columna es `text`.
+//
+// Ojo con las dos URLs: validOptionalHTTPSURL acota el ESQUEMA, no el largo.
+// Una https:// de 600 caracteres pasaba esa validación y moría en Postgres.
+//
+// `Address` es la excepción y NO tiene columna detrás: domain.Shelter no
+// declara ese campo y nadie lee `req.Address`, así que hoy la API lo acepta,
+// contesta 201 y lo TIRA EN SILENCIO. Su `max=500` es inerte a propósito —
+// queda puesto para el día que exista la columna, y no se saca el campo del
+// DTO en este PR porque eso es un arreglo aparte: o se agrega la columna o se
+// deja de prometer un dato que no se guarda. Defecto preexistente, anotado acá
+// para que el próximo que lea este bloque no crea que 500 es un ancho real.
 type CreateShelterRequest struct {
-	Name        string   `json:"name" binding:"required"`
-	City        string   `json:"city" binding:"required"`
-	Address     string   `json:"address"`
-	Phone       string   `json:"phone"`
-	Email       string   `json:"email"`
-	WebsiteURL  string   `json:"website_url"`
-	DonationURL string   `json:"donation_url"`
+	Name        string   `json:"name" binding:"required,max=255"`
+	City        string   `json:"city" binding:"required,max=100"`
+	Address     string   `json:"address" binding:"max=500"`
+	Phone       string   `json:"phone" binding:"max=20"`
+	Email       string   `json:"email" binding:"max=255"`
+	WebsiteURL  string   `json:"website_url" binding:"max=500"`
+	DonationURL string   `json:"donation_url" binding:"max=500"`
 	Description string   `json:"description"`
 	Latitude    *float64 `json:"latitude"`
 	Longitude   *float64 `json:"longitude"`
@@ -26,13 +41,13 @@ type CreateShelterRequest struct {
 // UpdateShelterRequest contiene los campos opcionales para actualizar un refugio.
 // Todos los campos son punteros para distinguir "no enviado" de "enviado vacío".
 type UpdateShelterRequest struct {
-	Name        *string  `json:"name"`
-	City        *string  `json:"city"`
-	Address     *string  `json:"address"`
-	Phone       *string  `json:"phone"`
-	Email       *string  `json:"email"`
-	WebsiteURL  *string  `json:"website_url"`
-	DonationURL *string  `json:"donation_url"`
+	Name        *string  `json:"name" binding:"omitempty,max=255"`
+	City        *string  `json:"city" binding:"omitempty,max=100"`
+	Address     *string  `json:"address" binding:"omitempty,max=500"`
+	Phone       *string  `json:"phone" binding:"omitempty,max=20"`
+	Email       *string  `json:"email" binding:"omitempty,max=255"`
+	WebsiteURL  *string  `json:"website_url" binding:"omitempty,max=500"`
+	DonationURL *string  `json:"donation_url" binding:"omitempty,max=500"`
 	Description *string  `json:"description"`
 	Latitude    *float64 `json:"latitude"`
 	Longitude   *float64 `json:"longitude"`
@@ -182,12 +197,12 @@ func validOptionalHTTPSURL(s string) bool {
 
 // RegisterShelterRequest son los campos del auto-registro (POST /api/shelters).
 type RegisterShelterRequest struct {
-	Name        string   `json:"name" binding:"required"`
-	City        string   `json:"city" binding:"required"`
-	Phone       string   `json:"phone"`
-	Email       string   `json:"email"`
-	WebsiteURL  string   `json:"website_url"`
-	DonationURL string   `json:"donation_url"`
+	Name        string   `json:"name" binding:"required,max=255"`
+	City        string   `json:"city" binding:"required,max=100"`
+	Phone       string   `json:"phone" binding:"max=20"`
+	Email       string   `json:"email" binding:"max=255"`
+	WebsiteURL  string   `json:"website_url" binding:"max=500"`
+	DonationURL string   `json:"donation_url" binding:"max=500"`
 	Description string   `json:"description"`
 	Latitude    *float64 `json:"latitude"`
 	Longitude   *float64 `json:"longitude"`

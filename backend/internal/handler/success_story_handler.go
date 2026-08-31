@@ -30,7 +30,7 @@ func (h *SuccessStoryHandler) Create(c *gin.Context) {
 
 	var req dto.CreateStoryRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		writeError(c, http.StatusBadRequest, err)
+		writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
 		return
 	}
 
@@ -261,7 +261,7 @@ func (h *SuccessStoryHandler) SetFeatured(c *gin.Context) {
 
 	var req dto.SetFeaturedRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		writeError(c, http.StatusBadRequest, err)
+		writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
 		return
 	}
 

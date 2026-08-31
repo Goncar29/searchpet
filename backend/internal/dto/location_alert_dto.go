@@ -12,9 +12,12 @@ import (
 type CreateLocationAlertRequest struct {
 	Latitude  float64 `json:"latitude" binding:"required"`
 	Longitude float64 `json:"longitude" binding:"required"`
-	RadiusKm  float64 `json:"radius_km"`        // default 5 cuando omitido
-	PetType   string  `json:"pet_type"`         // opcional: "perro", "gato", etc.
-	Name      string  `json:"name"`             // etiqueta amigable, opcional
+	RadiusKm float64 `json:"radius_km"` // default 5 cuando omitido
+	// Los `max` replican location_alerts.pet_type (size:50) y name (size:100).
+	// PetType NO tiene allowlist —el servicio lo asigna tal cual— así que el
+	// tope es lo único que lo separa de un SQLSTATE 22001 y su 500.
+	PetType string `json:"pet_type" binding:"max=50"` // opcional: "perro", "gato", etc.
+	Name    string `json:"name" binding:"max=100"`    // etiqueta amigable, opcional
 }
 
 // UpdateLocationAlertRequest — body de PUT /api/alerts/:id.
@@ -23,8 +26,8 @@ type UpdateLocationAlertRequest struct {
 	Latitude  *float64 `json:"latitude"`
 	Longitude *float64 `json:"longitude"`
 	RadiusKm  *float64 `json:"radius_km"`
-	PetType   *string  `json:"pet_type"`
-	Name      *string  `json:"name"`
+	PetType   *string  `json:"pet_type" binding:"omitempty,max=50"`
+	Name      *string  `json:"name" binding:"omitempty,max=100"`
 	IsActive  *bool    `json:"is_active"`
 }
 

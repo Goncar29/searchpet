@@ -28,7 +28,7 @@ func (h *LocationAlertHandler) CreateAlert(c *gin.Context) {
 
 	var req dto.CreateLocationAlertRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		writeError(c, http.StatusBadRequest, err)
+		writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
 		return
 	}
 
@@ -102,7 +102,7 @@ func (h *LocationAlertHandler) UpdateAlert(c *gin.Context) {
 
 	var req dto.UpdateLocationAlertRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		writeError(c, http.StatusBadRequest, err)
+		writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
 		return
 	}
 

@@ -64,7 +64,7 @@ func (h *ShelterHandler) GetByID(c *gin.Context) {
 func (h *ShelterHandler) Create(c *gin.Context) {
 	var req dto.CreateShelterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		writeError(c, http.StatusBadRequest, err)
+		writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
 		return
 	}
 
@@ -106,7 +106,7 @@ func (h *ShelterHandler) Update(c *gin.Context) {
 
 	var req dto.UpdateShelterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		writeError(c, http.StatusBadRequest, err)
+		writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
 		return
 	}
 

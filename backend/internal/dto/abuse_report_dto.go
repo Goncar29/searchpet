@@ -36,7 +36,9 @@ type CreateAbuseReportRequest struct {
 	TargetUserID       *uuid.UUID `json:"target_user_id"`
 	TargetReportID     *uuid.UUID `json:"target_report_id"`
 	TargetFosterHomeID *uuid.UUID `json:"target_foster_home_id"`
-	Reason             string     `json:"reason" binding:"required"`
+	// El `max` replica report_abuses.reason (size:255). Sin él, denunciar con un
+	// motivo largo devolvía 500 y el usuario perdía la denuncia entera.
+	Reason string `json:"reason" binding:"required,max=255"`
 }
 
 // ResolveAbuseReportRequest contiene el nuevo status de la denuncia.

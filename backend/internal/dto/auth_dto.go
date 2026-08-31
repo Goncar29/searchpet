@@ -9,9 +9,15 @@ import (
 
 // RegisterRequest son los datos que el cliente manda para registrarse
 type RegisterRequest struct {
-	Email    string `json:"email" binding:"required,email"`
+	// Los `max` replican el ancho de las columnas de domain.User (Email
+	// size:255, Name size:100). Es el endpoint más expuesto de esta clase:
+	// público, sin auth, y sin ellos un nombre largo hacía que registrarse
+	// devolviera "ocurrió un error inesperado" (500 por SQLSTATE 22001).
+	// El de Password NO va acá: bcrypt corta por BYTES y no por runas, así que
+	// tiene su propio chequeo (regla #36).
+	Email    string `json:"email" binding:"required,email,max=255"`
 	Password string `json:"password" binding:"required,min=6"`
-	Name     string `json:"name" binding:"required"`
+	Name     string `json:"name" binding:"required,max=100"`
 	City     string `json:"city"`
 }
 
@@ -84,9 +90,17 @@ type UpdateLocationRequest struct {
 }
 
 // UpdateProfileRequest son los datos que el cliente manda para actualizar su perfil
+// Mismos anchos que en el alta (users.name size:100, users.phone size:20):
+// editar el perfil escribe en las MISMAS columnas que registrarse, y acotar
+// sólo una de las dos vías deja la clase abierta en la otra. Se salteó en la
+// primera pasada de este PR y lo encontró la revisión: el censo filtraba por
+// campos CON tag `binding`, y estos tres no tenían ninguno.
+//
+// City no lleva tope: `users.city` se declara sin `size`, así que no está
+// acotada en Postgres.
 type UpdateProfileRequest struct {
-	Name  string `json:"name"`
-	Phone string `json:"phone"`
+	Name  string `json:"name" binding:"max=100"`
+	Phone string `json:"phone" binding:"max=20"`
 	City  string `json:"city"`
 }
 

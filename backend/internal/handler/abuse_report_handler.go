@@ -29,7 +29,7 @@ func (h *AbuseReportHandler) Submit(c *gin.Context) {
 
 	var req dto.CreateAbuseReportRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		writeError(c, http.StatusBadRequest, err)
+		writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
 		return
 	}
 
@@ -127,7 +127,7 @@ func (h *AbuseReportHandler) Resolve(c *gin.Context) {
 
 	var req dto.ResolveAbuseReportRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		writeError(c, http.StatusBadRequest, err)
+		writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
 		return
 	}
 
