@@ -658,21 +658,19 @@ export function ProfilePage() {
                   {/* Email — sólo lectura. El aviso va como `description` y no
                       como un `<p>` suelto: así lo referencia el propio control
                       por `aria-describedby` y quien tabula hasta acá se entera
-                      de que no se puede cambiar ANTES de intentar escribir. */}
+                      de que no se puede cambiar ANTES de intentar escribir.
+                      Y para que esa frase sea cierta el campo va `readOnly` y no
+                      `disabled` — un control deshabilitado no se puede tabular,
+                      así que su descripción no se la anuncia nadie. El estilo
+                      gris lo pone `FormField`: apendear utilidades acá NO ganaba
+                      contra las de `controlClass()`. */}
                   <FormField
                     label={t('profile:email')}
                     htmlFor="profile-email"
                     description={t('profile:emailReadOnly')}
+                    readOnly
                   >
-                    {(control) => (
-                      <input
-                        {...control}
-                        className={`${control.className} bg-gray-50 dark:bg-gray-800 text-gray-400 dark:text-gray-500 cursor-not-allowed`}
-                        type="email"
-                        value={user.email}
-                        disabled
-                      />
-                    )}
+                    {(control) => <input {...control} type="email" value={user.email} />}
                   </FormField>
 
                   {/* El `*` que había acá en el JSX se va: lo dibuja
@@ -788,7 +786,18 @@ export function ProfilePage() {
                             components={{ 1: <strong /> }}
                           />
                         </p>
-                        {verifyError && <p className="text-sm text-danger mb-2">{verifyError}</p>}
+                        {/* `role="alert"` igual que el resto de los errores de la
+                            pantalla: si "Enviar código" falla con `otp_daily_limit`
+                            u `otp_channel_exhausted` no hay `retryAfter`, así que
+                            `otpSent` queda en false y nunca se llega al `FormField`
+                            del paso siguiente, que es el que trae el rol. Sin esto
+                            el mensaje aparece en pantalla, el foco se queda en el
+                            botón y quien no ve no se entera de nada. */}
+                        {verifyError && (
+                          <p role="alert" className="text-sm text-danger mb-2">
+                            {verifyError}
+                          </p>
+                        )}
                         <button
                           type="button"
                           onClick={handleSendOTP}

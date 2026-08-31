@@ -660,10 +660,20 @@ describe('ProfilePage', () => {
       }
     });
 
-    it('el email sigue siendo de solo lectura', async () => {
+    // `readOnly` y NO `disabled`. Los dos impiden escribir, pero el deshabilitado
+    // sale del tab order, y con el se va el `aria-describedby` del test de arriba:
+    // el aviso de "no se puede cambiar" queda solo para quien MIRA, que es justo
+    // la asimetria que ese cambio venia a cerrar. Por eso la asercion mira las DOS
+    // mitades — que no se pueda editar y que SI se pueda alcanzar. `toBeDisabled()`
+    // sola pasaba feliz con el campo inalcanzable.
+    it('el email es de solo lectura pero sigue siendo alcanzable', async () => {
       await abrirEdicion();
 
-      expect(screen.getByLabelText('profile:email')).toBeDisabled();
+      const email = screen.getByLabelText('profile:email');
+      expect(email).toHaveAttribute('readonly');
+      expect(email).not.toBeDisabled();
+      (email as HTMLInputElement).focus();
+      expect(email).toHaveFocus();
     });
 
     // El codigo se nombraba SOLO con `aria-label`, con el placeholder "000000"
