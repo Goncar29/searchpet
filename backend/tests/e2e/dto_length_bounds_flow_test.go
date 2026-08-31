@@ -77,8 +77,13 @@ func TestDTOLengthBounds_UnLargoDeMasDa400YNo500(t *testing.T) {
 
 		{"pets / pets.name(100)", "/api/pets", userToken, map[string]any{
 			"name": deMas(100), "type": "perro"}},
-		{"pets / pets.type(50)", "/api/pets", userToken, map[string]any{
-			"name": "Firulais", "type": deMas(50)}},
+		// `pets.type` NO va en esta tabla, y es deliberado. Desde que el alta
+		// valida el tipo contra la allowlist, un tipo de 51 runas se rechaza
+		// por NO ESTAR EN LA LISTA, con el mismo 400 `invalid_input` — así que
+		// el caso pasaría verde aunque alguien borrara `max=50`, midiendo la
+		// otra guarda. Sería exactamente la señal de éxito emitida sin que el
+		// chequeo ocurra contra la que avisa el encabezado de este archivo.
+		// Su guarda real es TestPetType_SoloLosCuatroDeLaAllowlist.
 		{"pets / pets.breed(100)", "/api/pets", userToken, map[string]any{
 			"name": "Firulais", "type": "perro", "breed": deMas(100)}},
 		{"pets / pets.color(100)", "/api/pets", userToken, map[string]any{
@@ -186,7 +191,11 @@ func TestDTOLengthBounds_UnLargoDeMasDa400YNo500(t *testing.T) {
 // dueño en la pantalla que existe para encontrarla.
 //
 // La mitad inversa no es decorativa: sin ella esto se satisface rechazando
-// TODOS los tipos, que rompería el alta entera.
+// TODOS los tipos, que rompería el alta entera. Y afirma 201 EXACTO, no
+// "distinto de 400": con `!= 400` un 401, un 403 o un 500 contarían como
+// "sigue andando", así que un refactor que hiciera fallar toda creación con
+// ErrInternal dejaría los cuatro subtests en verde. El único status que prueba
+// que la mascota se creó es el 201.
 func TestPetType_SoloLosCuatroDeLaAllowlist(t *testing.T) {
 	baseURL, db, cleanup := startTestServerWithDB(t)
 	defer cleanup()
@@ -217,9 +226,9 @@ func TestPetType_SoloLosCuatroDeLaAllowlist(t *testing.T) {
 	})
 
 	for _, tipo := range []string{"perro", "gato", "pajaro", "otro"} {
-		t.Run("sigue andando: "+tipo, func(t *testing.T) {
-			if got := crear(t, tipo); got == http.StatusBadRequest {
-				t.Errorf("%q es válido y fue rechazado", tipo)
+		t.Run("sigue creando: "+tipo, func(t *testing.T) {
+			if got := crear(t, tipo); got != http.StatusCreated {
+				t.Errorf("%q es válido: want 201, got %d", tipo, got)
 			}
 		})
 	}

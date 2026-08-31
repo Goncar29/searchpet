@@ -58,11 +58,20 @@ var AdoptionVisibleStatuses = []string{PetStatusAdoption}
 
 // ValidPetTypes son los cuatro tipos de mascota que ofrece la UI.
 //
-// OJO CON LA ASIMETRÍA: la CREACIÓN no valida el tipo (CreatePetRequest lo pide
-// con `required` y nada más), así que en la base puede haber cualquier string.
-// Esta lista existe para validar FILTROS, donde el cliente es un select con
-// estas cuatro opciones y cualquier otra cosa es un request malformado. No
-// cambia ni revalida datos ya guardados.
+// La usan DOS caminos: el filtro de búsqueda (`report_handler.go`), donde el
+// cliente es un select con estas cuatro opciones y cualquier otra cosa es un
+// request malformado; y desde 2026-08-31 también el ALTA (`pet_service.CreatePet`).
+//
+// Hasta ese día la creación NO validaba —el DTO pedía `required` y nada más— y
+// este comentario documentaba esa asimetría como si fuera deliberada. No lo
+// era: era un agujero. Se cerró.
+//
+// LO QUE SIGUE ABIERTO: la lista no revalida ni corrige datos YA GUARDADOS.
+// Una mascota creada antes de ese cierre puede tener cualquier string en
+// `type`, y como `UpdatePetRequest` no tiene campo `type`, su dueño no la puede
+// corregir por la API. Queda invisible en el filtro por tipo, que sólo ofrece
+// estas cuatro opciones. Repararlo necesita un backfill o abrir el campo en la
+// edición; no se hizo porque no se pudo medir cuántas filas así existen.
 //
 // Los valores son en ESPAÑOL y son cuatro. La unión canónica del lado del
 // frontend es `PetType` en shared/types/index.ts, con su espejo en PET_TYPES.

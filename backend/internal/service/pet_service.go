@@ -133,8 +133,17 @@ func (s *petService) CreatePet(ownerID string, req dto.CreatePetRequest) (*domai
 	// rompe después, en el filtro por tipo, que nunca la va a encontrar porque
 	// la UI sólo ofrece los cuatro válidos. Queda invisible para el dueño.
 	//
-	// Los cuatro clientes (web y mobile) mandan sólo los de PET_TYPES, así que
-	// esto no rechaza nada que hoy funcione.
+	// Los clientes (web y mobile) mandan sólo los de PET_TYPES, así que esto no
+	// rechaza nada que hoy funcione.
+	//
+	// OJO: esto frena las ALTAS nuevas y NO repara las viejas. Una mascota
+	// guardada con un tipo fuera de la lista antes de este cierre queda
+	// invisible en el filtro por tipo, y su dueño NO la puede corregir por la
+	// API porque `UpdatePetRequest` no tiene campo `type` — o sea que el daño
+	// que este comentario describe sigue vivo para esas filas. Repararlo
+	// necesita un backfill o abrir el campo en la edición. No se hizo porque no
+	// se pudo medir cuántas hay: el endpoint público de búsqueda estaba caído
+	// (Render suspendido por cuota) al momento de escribir esto.
 	if !domain.IsValidPetType(req.Type) {
 		return nil, domain.ErrInvalidInput
 	}
