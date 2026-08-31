@@ -7,6 +7,11 @@
 // listener on them at import time, so this has to be evaluated before ../store is.
 import '../polyfills/domEvents';
 
+// Feeds the device's connectivity into React Query's onlineManager. Without it
+// `query.isPaused` is never true on a device and ListState's offline card is
+// unreachable — see utils/onlineStatus.ts.
+import '../utils/onlineStatus';
+
 // Initialize i18next before any screen renders (synchronous — bundled resources)
 import '../i18n';
 
