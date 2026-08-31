@@ -90,8 +90,37 @@ function StateCard({
   const { t } = useTranslation('common');
 
   return (
-    <View style={styles.card}>
-      <Text style={styles.icon}>⚠️</Text>
+    // `assertive` y no `polite`: acá NO quedó nada en pantalla, así que el
+    // aviso es lo único que hay para leer y esperar al próximo hueco dejaría al
+    // usuario frente a algo que no anuncia nada. La web hace la misma
+    // distinción con `role="alert"` acá y `role="status"` en la franja; React
+    // Native NO tiene `status`, así que la distinción viaja en la urgencia del
+    // live region, que es el mecanismo que existe de verdad.
+    //
+    // NO va `accessibilityRole="alert"`, y no es un olvido. En React Native un
+    // View sólo es elemento de accesibilidad si lleva `accessible`, así que un
+    // rol suelto acá no lo lee nadie: sería una prop que se ve correcta en el
+    // diff y no hace absolutamente nada. Y `accessible` tampoco puede ir —
+    // agruparía a los hijos en un solo elemento y el botón "Reintentar"
+    // dejaría de ser enfocable, o sea que el anuncio se pagaría con la única
+    // salida de la pantalla.
+    //
+    // Lo que esto NO cubre: `accessibilityLiveRegion` es sólo de Android. En
+    // iOS haría falta `AccessibilityInfo.announceForAccessibility`, y iOS no
+    // está en alcance en este proyecto.
+    <View style={styles.card} accessibilityLiveRegion="assertive">
+      {/* Se esconde del lector: es decoración. Sin esto se lee literal —
+          "advertencia" o el nombre del emoji— antes de cada título, que es
+          ruido delante de la única frase que importa. Van las dos props porque
+          `accessibilityElementsHidden` es de iOS e `importantForAccessibility`
+          de Android. */}
+      <Text
+        style={styles.icon}
+        accessibilityElementsHidden
+        importantForAccessibility="no"
+      >
+        ⚠️
+      </Text>
       <Text style={styles.title}>{title}</Text>
       <Text style={styles.body}>{body}</Text>
       <TouchableOpacity style={styles.retry} onPress={onRetry}>
@@ -111,7 +140,10 @@ function StaleBanner({ message, onRetry }: { message: string; onRetry: () => voi
   const { t } = useTranslation('common');
 
   return (
-    <View style={styles.banner}>
+    // `polite` y NO `alert`: los datos siguen en pantalla, así que esto es una
+    // aclaración sobre lo que ya se está leyendo, no una interrupción. Cortar
+    // al usuario a mitad de una lista que sí puede usar es peor que esperar.
+    <View style={styles.banner} accessibilityLiveRegion="polite">
       <Text style={styles.bannerText}>{message}</Text>
       <TouchableOpacity onPress={onRetry} hitSlop={8}>
         <Text style={styles.bannerRetry}>{t('common:retry')}</Text>
