@@ -30,8 +30,7 @@ import { COLORS, SPACING, FONTS } from '../../constants';
  *    claim. When a screen needs it, it can port the web version.
  */
 
-interface ListStateProps<TData, TItem> {
-  query: UseQueryResult<TData>;
+interface BaseProps<TItem> {
   /** What shows while the query loads for the first time. */
   loading: ReactNode;
   /**
@@ -55,8 +54,29 @@ interface ListStateProps<TData, TItem> {
    * is different in each branch.
    */
   errorBody?: string;
-  select?: (data: TData) => TItem[];
 }
+
+/**
+ * `select` lo exige el tipo SOLO cuando hace falta.
+ *
+ * Los hooks del repo no coinciden en forma: `useNearbyReports` devuelve el array
+ * pelado y `useSearchPets` un sobre `{ data, total }`. Con `select?:` a secas, la
+ * próxima pantalla que envuelva un hook con sobre y se olvide de pasarla le
+ * termina dando el OBJETO a `<FlatList data={...}>`: la lista sale vacía, sin
+ * excepción y sin error de compilación — o sea idéntica a "no hay nada", que es
+ * exactamente la mentira que esta primitiva existe para matar, entrando por la
+ * puerta de atrás. La alternativa —que la pantalla pase `q.data?.data ?? []`—
+ * reintroduce el mismo `?? []` que se vino a borrar.
+ *
+ * Mismo tipo que `web/src/components/list/ListState.tsx`.
+ */
+type SelectProp<TData, TItem> = TData extends TItem[]
+  ? { select?: (data: TData) => TItem[] }
+  : { select: (data: TData) => TItem[] };
+
+export type ListStateProps<TData, TItem> = BaseProps<TItem> & {
+  query: UseQueryResult<TData>;
+} & SelectProp<TData, TItem>;
 
 function StateCard({
   title,
@@ -100,15 +120,14 @@ function StaleBanner({ message, onRetry }: { message: string; onRetry: () => voi
   );
 }
 
-export function ListState<TData, TItem = TData extends (infer U)[] ? U : never>({
-  query,
-  loading,
-  children,
-  errorTitle,
-  errorBody,
-  select,
-}: ListStateProps<TData, TItem>) {
+export function ListState<TData, TItem = TData extends (infer U)[] ? U : never>(
+  props: ListStateProps<TData, TItem>,
+) {
+  const { query, loading, children, errorTitle, errorBody } = props;
   const { t } = useTranslation('common');
+  // El cast es el precio del tipo condicional: `select` existe en las dos ramas
+  // de `SelectProp`, pero TS no lo puede estrechar sin saber cuál es `TData`.
+  const select = (props as { select?: (data: TData) => TItem[] }).select;
 
   // `select` nunca se llama con `undefined`/`null`, y el `?? []` de afuera cubre
   // el otro piso: una `select` que devuelve `null` sobre datos que SÍ llegaron
