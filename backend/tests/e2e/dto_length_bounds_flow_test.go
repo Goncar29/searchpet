@@ -174,6 +174,57 @@ func TestDTOLengthBounds_UnLargoDeMasDa400YNo500(t *testing.T) {
 	}
 }
 
+// El alta de mascota rechaza un tipo que no está en la allowlist.
+//
+// `domain.IsValidPetType` existía desde siempre pero sólo lo usaba el filtro de
+// búsqueda de report_handler.go, así que el alta guardaba cualquier string de
+// hasta 50 runas. El `max=50` que agregó este PR mata el 500, pero NO valida el
+// valor: una mascota de tipo "asdf" se creaba feliz.
+//
+// El daño no se ve al crearla, se ve después: el filtro por tipo de la UI sólo
+// ofrece los cuatro válidos, así que esa mascota queda invisible para su propio
+// dueño en la pantalla que existe para encontrarla.
+//
+// La mitad inversa no es decorativa: sin ella esto se satisface rechazando
+// TODOS los tipos, que rompería el alta entera.
+func TestPetType_SoloLosCuatroDeLaAllowlist(t *testing.T) {
+	baseURL, db, cleanup := startTestServerWithDB(t)
+	defer cleanup()
+
+	token, email := registerAndLogin(t, baseURL)
+	markEmailVerified(t, db, email)
+
+	crear := func(t *testing.T, tipo string) int {
+		t.Helper()
+		b, _ := json.Marshal(map[string]any{"name": "Firulais", "type": tipo})
+		req, _ := http.NewRequest(http.MethodPost, baseURL+"/api/pets", bytes.NewReader(b))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+token)
+		r, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatalf("POST /pets: %v", err)
+		}
+		defer r.Body.Close()
+		cuerpo, _ := io.ReadAll(r.Body)
+		t.Logf("type=%q -> %d %s", tipo, r.StatusCode, cuerpo)
+		return r.StatusCode
+	}
+
+	t.Run("un tipo inventado da 400", func(t *testing.T) {
+		if got := crear(t, "asdf"); got != http.StatusBadRequest {
+			t.Errorf("want 400, got %d", got)
+		}
+	})
+
+	for _, tipo := range []string{"perro", "gato", "pajaro", "otro"} {
+		t.Run("sigue andando: "+tipo, func(t *testing.T) {
+			if got := crear(t, tipo); got == http.StatusBadRequest {
+				t.Errorf("%q es válido y fue rechazado", tipo)
+			}
+		})
+	}
+}
+
 // Editar el perfil escribe en las MISMAS columnas que registrarse.
 //
 // Va aparte de la tabla porque es un PUT. Existe porque la primera pasada de

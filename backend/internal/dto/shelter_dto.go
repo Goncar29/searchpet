@@ -18,17 +18,16 @@ import (
 // Ojo con las dos URLs: validOptionalHTTPSURL acota el ESQUEMA, no el largo.
 // Una https:// de 600 caracteres pasaba esa validación y moría en Postgres.
 //
-// `Address` es la excepción y NO tiene columna detrás: domain.Shelter no
-// declara ese campo y nadie lee `req.Address`, así que hoy la API lo acepta,
-// contesta 201 y lo TIRA EN SILENCIO. Su `max=500` es inerte a propósito —
-// queda puesto para el día que exista la columna, y no se saca el campo del
-// DTO en este PR porque eso es un arreglo aparte: o se agrega la columna o se
-// deja de prometer un dato que no se guarda. Defecto preexistente, anotado acá
-// para que el próximo que lea este bloque no crea que 500 es un ancho real.
+// NO hay campo `Address`, y se sacó a propósito: domain.Shelter no declara esa
+// columna, nadie leía `req.Address` y ningún formulario del front lo manda, así
+// que la API venía aceptándolo, contestando 201 y TIRÁNDOLO EN SILENCIO. Sacar
+// el campo no cambia comportamiento —Gin ignora las claves JSON desconocidas,
+// así que antes se parseaba y se descartaba y ahora se ignora y se descarta—
+// pero deja de prometer en el contrato un dato que no se guarda. Si algún día
+// hace falta, es una feature con su columna, su UI y su migración.
 type CreateShelterRequest struct {
 	Name        string   `json:"name" binding:"required,max=255"`
 	City        string   `json:"city" binding:"required,max=100"`
-	Address     string   `json:"address" binding:"max=500"`
 	Phone       string   `json:"phone" binding:"max=20"`
 	Email       string   `json:"email" binding:"max=255"`
 	WebsiteURL  string   `json:"website_url" binding:"max=500"`
@@ -43,7 +42,6 @@ type CreateShelterRequest struct {
 type UpdateShelterRequest struct {
 	Name        *string  `json:"name" binding:"omitempty,max=255"`
 	City        *string  `json:"city" binding:"omitempty,max=100"`
-	Address     *string  `json:"address" binding:"omitempty,max=500"`
 	Phone       *string  `json:"phone" binding:"omitempty,max=20"`
 	Email       *string  `json:"email" binding:"omitempty,max=255"`
 	WebsiteURL  *string  `json:"website_url" binding:"omitempty,max=500"`
