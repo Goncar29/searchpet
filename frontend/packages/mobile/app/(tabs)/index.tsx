@@ -25,6 +25,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { useNearbyReports, useSearchPets, useStories, useImageClassify, useImageSearchNative } from '../../../shared/hooks';
 import { useLocationStore, useAuthStore } from '../../store';
 import { PetCard } from '../../components/PetCard';
+import { ListState } from '../../components/list/ListState';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS, MAP_DEFAULTS, PET_TYPES } from '../../constants';
 import type { PetType, SuccessStory, ClassifyResult, ImageSearchResult } from '../../../shared/types';
 import { ApiError } from '../../../shared/api/client';
@@ -94,7 +95,8 @@ export default function HomeScreen() {
     to: appliedTo ? new Date(appliedTo).toISOString() : undefined,
   });
 
-  const isLoading = isSearchMode ? searchQuery.isLoading : nearbyQuery.isLoading;
+  // El estado de carga ya no se deriva acá: lo decide `ListState`, que es el
+  // único que ve las cuatro ramas juntas (cargando, sin red, error y datos).
   const isRefetching = isSearchMode ? false : nearbyQuery.isRefetching;
 
   const handleRefetch = () => { if (!isSearchMode) nearbyQuery.refetch(); };
@@ -217,17 +219,31 @@ export default function HomeScreen() {
         />
       );
 
-  const data: any[] = isImageResultsMode
-    ? (imageResults ?? [])
-    : isSearchMode
-    ? (searchQuery.data?.data ?? [])
-    : (nearbyQuery.data ?? []);
+  // La lista principal la maneja `ListState`, así que acá ya NO se deriva un
+  // `?? []` para ella: ese colapso —"no pude leer" y "no hay nada" cayendo en el
+  // mismo `[]`— es exactamente el bug que este cambio cierra. Los resultados por
+  // foto sí siguen así, y está bien: no salen de una query sino de una mutación
+  // guardada en `useState`, donde `null` significa "no hay búsqueda por foto
+  // activa" y no ignorancia.
+  const listQuery: any = isSearchMode ? searchQuery : nearbyQuery;
 
-  const resultCount = isImageResultsMode
-    ? data.length
-    : isSearchMode
-    ? (searchQuery.data?.total ?? data.length)
-    : data.length;
+  // Los dos hooks devuelven formas distintas: `useNearbyReports` un array pelado
+  // y `useSearchPets` un sobre `{ data, total }`.
+  const selectItems = (d: any): any[] => (Array.isArray(d) ? d : (d?.data ?? []));
+
+  // Los contadores viven FUERA de la rama que `ListState` envuelve, así que la
+  // primitiva NO los protege — es la trampa que el porte de la web dejó
+  // documentada. `null` acá significa "no sabemos", y con eso el encabezado deja
+  // de afirmar un número: escribir "0 reportes activos" con la consulta caída es
+  // la misma mentira que la lista vacía, sólo que en el título y en negrita.
+  const knownCount: number | null =
+    listQuery.data == null
+      ? null
+      : isSearchMode
+      ? (searchQuery.data?.total ?? selectItems(searchQuery.data).length)
+      : selectItems(nearbyQuery.data).length;
+
+  const imageResultCount = imageResults?.length ?? 0;
 
   // ── Historias de éxito ───────────────────────────────────
   const storiesQuery = useStories({ limit: 10 });
@@ -404,7 +420,7 @@ export default function HomeScreen() {
         {isImageResultsMode ? (
           <View style={styles.headerRow}>
             <Text style={styles.greeting}>
-              {t('home:photoResultsTitle')} ({resultCount})
+              {t('home:photoResultsTitle')} ({imageResultCount})
             </Text>
             <TouchableOpacity onPress={clearImageResults}>
               <Text style={styles.clearText}>{t('home:clearPhotoResults')}</Text>
@@ -412,8 +428,14 @@ export default function HomeScreen() {
           </View>
         ) : isSearchMode ? (
           <View style={styles.headerRow}>
+            {/* Sin datos no se afirma un número: `home:results` diría
+                "0 resultados", que con la búsqueda caída es falso. El botón de
+                limpiar filtros se queda, porque es la única salida que le queda
+                al usuario si la búsqueda no vuelve. */}
             <Text style={styles.greeting}>
-              {t('home:results', { count: resultCount })}
+              {knownCount == null
+                ? t('home:resultsUnknown')
+                : t('home:results', { count: knownCount })}
             </Text>
             <TouchableOpacity onPress={clearFilters}>
               <Text style={styles.clearText}>{t('home:clearFilters')}</Text>
@@ -424,8 +446,13 @@ export default function HomeScreen() {
             <Text style={styles.greeting}>
               {isAuthenticated ? t('home:nearbyTitle') : t('home:lostTitle')}
             </Text>
+            {/* Mismo criterio que el contador de la búsqueda: con la consulta
+                caída el radio SÍ lo sabemos (lo eligió el usuario) y la cantidad
+                no, así que se muestra sólo lo que es cierto. */}
             <Text style={styles.subtitle}>
-              {t('home:activeReports', { count: data.length, radius })}
+              {knownCount == null
+                ? t('home:radiusOnly', { radius })
+                : t('home:activeReports', { count: knownCount, radius })}
             </Text>
           </>
         )}
@@ -463,16 +490,9 @@ export default function HomeScreen() {
       )}
 
       {/* ── Lista ── */}
-      {!isImageResultsMode && isLoading ? (
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color={COLORS.primary} />
-          <Text style={styles.loadingText}>
-            {isSearchMode ? t('home:searching') : t('home:loading')}
-          </Text>
-        </View>
-      ) : isImageResultsMode ? (
+      {isImageResultsMode ? (
         <FlatList
-          data={data}
+          data={imageResults ?? []}
           keyExtractor={(item: ImageSearchResult) => item.pet_id}
           renderItem={renderImageResult}
           contentContainerStyle={styles.list}
@@ -488,36 +508,56 @@ export default function HomeScreen() {
           }
         />
       ) : (
-        <FlatList
-          data={data}
-          keyExtractor={(item) => item.id}
-          renderItem={renderItem}
-          refreshControl={
-            <RefreshControl
-              refreshing={isRefetching}
-              onRefresh={handleRefetch}
-              tintColor={COLORS.primary}
-            />
-          }
-          contentContainerStyle={styles.list}
-          showsVerticalScrollIndicator={false}
-          ListEmptyComponent={
-            <View style={styles.empty}>
-              <View style={{ marginBottom: 12 }}><PawPlaceholder size={56} /></View>
-              <Text style={styles.emptyTitle}>
-                {isSearchMode ? t('home:noResultsTitle') : t('home:noNearbyTitle')}
+        // `ListEmptyComponent` se queda DENTRO de la FlatList y `ListState` no
+        // lo toca: "preguntamos y no hay nada" sigue siendo asunto de la lista,
+        // y sacarlo de ahí se llevaría el pull-to-refresh puesto, que en un
+        // teléfono es el gesto que la gente realmente usa. `ListState` sólo
+        // reemplaza la lista cuando NO pudimos llenarla.
+        <ListState
+          query={listQuery}
+          select={selectItems}
+          loading={
+            <View style={styles.center}>
+              <ActivityIndicator size="large" color={COLORS.primary} />
+              <Text style={styles.loadingText}>
+                {isSearchMode ? t('home:searching') : t('home:loading')}
               </Text>
-              <Text style={styles.emptyText}>
-                {isSearchMode ? t('home:noResultsText') : t('home:noNearbyText')}
-              </Text>
-              {isSearchMode && (
-                <TouchableOpacity style={styles.clearButton} onPress={clearFilters}>
-                  <Text style={styles.clearButtonText}>{t('home:clearFiltersButton')}</Text>
-                </TouchableOpacity>
-              )}
             </View>
           }
-        />
+        >
+          {(items) => (
+            <FlatList
+              data={items}
+              keyExtractor={(item) => item.id}
+              renderItem={renderItem}
+              refreshControl={
+                <RefreshControl
+                  refreshing={isRefetching}
+                  onRefresh={handleRefetch}
+                  tintColor={COLORS.primary}
+                />
+              }
+              contentContainerStyle={styles.list}
+              showsVerticalScrollIndicator={false}
+              ListEmptyComponent={
+                <View style={styles.empty}>
+                  <View style={{ marginBottom: 12 }}><PawPlaceholder size={56} /></View>
+                  <Text style={styles.emptyTitle}>
+                    {isSearchMode ? t('home:noResultsTitle') : t('home:noNearbyTitle')}
+                  </Text>
+                  <Text style={styles.emptyText}>
+                    {isSearchMode ? t('home:noResultsText') : t('home:noNearbyText')}
+                  </Text>
+                  {isSearchMode && (
+                    <TouchableOpacity style={styles.clearButton} onPress={clearFilters}>
+                      <Text style={styles.clearButtonText}>{t('home:clearFiltersButton')}</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              }
+            />
+          )}
+        </ListState>
       )}
     </View>
   );

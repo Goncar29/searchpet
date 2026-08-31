@@ -43,6 +43,14 @@ jest.mock('expo-notifications', () => ({
   addNotificationResponseReceivedListener: jest.fn(() => ({ remove: jest.fn() })),
 }));
 
+// @react-native-community/netinfo — the mock the package ships. Its
+// addEventListener is a jest.fn() that never calls the listener back, which is
+// what makes the bridge testable: a test can pull the listener out of
+// mock.calls and drive the device's connectivity by hand.
+jest.mock('@react-native-community/netinfo', () =>
+  require('@react-native-community/netinfo/jest/netinfo-mock.js')
+);
+
 // react-native-safe-area-context mock
 jest.mock('react-native-safe-area-context', () => ({
   SafeAreaProvider: ({ children }) => children,
