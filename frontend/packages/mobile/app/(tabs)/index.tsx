@@ -434,7 +434,7 @@ export default function HomeScreen() {
                 al usuario si la búsqueda no vuelve. */}
             <Text style={styles.greeting}>
               {knownCount == null
-                ? t('home:resultsTitle')
+                ? t('home:resultsUnknown')
                 : t('home:results', { count: knownCount })}
             </Text>
             <TouchableOpacity onPress={clearFilters}>
