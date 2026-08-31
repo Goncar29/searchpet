@@ -35,6 +35,24 @@ export function controlClass(hasError = false): string {
 }
 
 /**
+ * Extra classes for a read-only control.
+ *
+ * These are `read-only:` variants and NOT plain utilities, and that is the whole
+ * point. Appending a plain `bg-gray-50 text-gray-400` after `controlClass()`
+ * does not win: the order of the class attribute decides nothing, the order of
+ * the stylesheet does, and Tailwind emits `bg-gray-50` before `bg-white` and
+ * `text-gray-400` before `text-gray-900`. Measured by compiling this project's
+ * own Tailwind — the read-only email field came out white with full-contrast
+ * text in light mode while dark mode did grey it, which is exactly the signature
+ * of an override that never took. The variant appends `:read-only` to the
+ * selector, so it wins on specificity (0,2,0) over both the base utilities and
+ * the `dark:` ones, whose `:where(.dark, .dark *)` adds nothing.
+ */
+const readOnlyClass =
+  'read-only:bg-gray-50 read-only:text-gray-500 read-only:cursor-not-allowed ' +
+  'dark:read-only:bg-gray-900 dark:read-only:text-gray-400';
+
+/**
  * What `FormField` hands to its control. Spread it onto the element.
  *
  * It carries the id, the styling and — the part that matters — the wiring that
@@ -43,6 +61,7 @@ export function controlClass(hasError = false): string {
 export interface ControlProps {
   id: string;
   className: string;
+  readOnly?: true;
   'aria-describedby'?: string;
   'aria-invalid'?: true;
   'aria-required'?: true;
@@ -54,7 +73,29 @@ interface FormFieldProps {
   htmlFor: string;
   /** Rendered after the label, muted — for "(optional)". Pass a translated string, never one built by casing another key. */
   hint?: string;
+  /**
+   * Helper text BELOW the control — for a sentence that would not fit beside the
+   * label ("this address cannot be changed", "visible to anyone contacting you").
+   *
+   * Separate from `hint` because the two differ in placement and in length, not
+   * in meaning: a short qualifier reads beside the label, a full sentence does
+   * not. Both end up in `aria-describedby`, so neither is visual-only.
+   */
+  description?: string;
   required?: boolean;
+  /**
+   * The control shows a value the user cannot change here.
+   *
+   * `readOnly` and never `disabled`: a disabled control is not focusable, is out
+   * of the tab order and is skipped by screen-reader browse modes, so its
+   * `description` — the sentence explaining why it cannot be changed — is
+   * announced to nobody and stays visual-only. Read-only keeps it focusable and
+   * selectable (you can still copy your own email) while refusing edits.
+   *
+   * The native attribute carries the state on its own; no `aria-readonly` on top
+   * of it, which would only restate what the platform already exposes.
+   */
+  readOnly?: boolean;
   error?: string;
   /**
    * Receives the props the control must carry. A render prop and not plain
@@ -76,9 +117,19 @@ interface FormFieldProps {
  * announces once and then goes silent — which is what this component did before
  * the wiring existed.
  */
-export function FormField({ label, htmlFor, hint, required, error, children }: FormFieldProps) {
+export function FormField({
+  label,
+  htmlFor,
+  hint,
+  description,
+  required,
+  readOnly,
+  error,
+  children,
+}: FormFieldProps) {
   const errorId = `${htmlFor}-error`;
   const hintId = `${htmlFor}-hint`;
+  const descriptionId = `${htmlFor}-description`;
 
   // El hint viaja por `aria-describedby` y NO por el nombre accesible. Vive en un
   // `<span>` hermano del `<label>` a propósito —meterlo adentro cambiaría el
@@ -86,12 +137,22 @@ export function FormField({ label, htmlFor, hint, required, error, children }: F
   // asterisco está afuera—, así que sin esta referencia el control se llama sólo
   // "Nombre" y el "(opcional)" queda para quien MIRA. Es la misma asimetría
   // ver/oír contra la que argumenta el comentario de `FormChoiceGroup`.
-  // El orden es hint y después error, que es el orden visual.
-  const describedBy = [hint ? hintId : null, error ? errorId : null].filter(Boolean).join(' ');
+  // El orden es el VISUAL: hint (al lado de la etiqueta), description (debajo
+  // del control) y error (al final). Un lector de pantalla lee `describedby` en
+  // el orden en que están listados los ids, así que cualquier otro orden le
+  // contaría la pantalla en una secuencia que nadie ve.
+  const describedBy = [
+    hint ? hintId : null,
+    description ? descriptionId : null,
+    error ? errorId : null,
+  ]
+    .filter(Boolean)
+    .join(' ');
 
   const control: ControlProps = {
     id: htmlFor,
-    className: controlClass(!!error),
+    className: controlClass(!!error) + (readOnly ? ` ${readOnlyClass}` : ''),
+    ...(readOnly ? { readOnly: true as const } : {}),
     ...(describedBy ? { 'aria-describedby': describedBy } : {}),
     ...(error ? { 'aria-invalid': true as const } : {}),
     ...(required ? { 'aria-required': true as const } : {}),
@@ -123,6 +184,18 @@ export function FormField({ label, htmlFor, hint, required, error, children }: F
         )}
       </div>
       {children(control)}
+      {/* `text-gray-500 dark:text-gray-400` y no el `gray-400/gray-500` que usa
+          el hint de arriba: a 12px esa combinación da ~2,6:1 sobre blanco y
+          ~3,6:1 sobre gray-900, las dos por debajo del 4,5:1 que pide AA. El
+          hint puede permitírselo discutiblemente porque es un calificador corto
+          y redundante ("(opcional)"); esta descripción lleva información que no
+          está en ningún otro lado ("esta dirección no se puede cambiar"), y
+          además es el default que hereda toda pantalla que adopte el slot. */}
+      {description && (
+        <p id={descriptionId} className="text-xs text-gray-500 dark:text-gray-400 mt-1.5">
+          {description}
+        </p>
+      )}
       {error && (
         <p id={errorId} role="alert" className="text-danger text-sm mt-2">
           {error}
