@@ -91,7 +91,8 @@
         "unfeature": "Remover destaque",
         "delete": "Excluir"
       },
-      "confirmDelete": "Excluir a história \"{{name}}\"? Esta ação não pode ser desfeita."
+      "confirmDelete": "Excluir a história \"{{name}}\"? Esta ação não pode ser desfeita.",
+      "subtitle": "Modere as histórias que a comunidade publicou"
     },
     "groups": {
       "title": "Criar grupo local",
@@ -128,7 +129,8 @@
       "actionRevoke": "Revogou",
       "prevPage": "Anterior",
       "nextPage": "Próxima",
-      "pageOf": "Página {{page}} de {{pages}}"
+      "pageOf": "Página {{page}} de {{pages}}",
+      "subtitle": "Conceda ou remova o papel de administrador, e veja quem o alterou"
     },
     "sheltersQueue": {
       "title": "Abrigos pendentes",

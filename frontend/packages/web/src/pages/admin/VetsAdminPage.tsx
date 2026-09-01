@@ -25,7 +25,7 @@ export function VetsAdminPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{t('vets.title')}</h2>
+        <h2 className="font-display font-semibold text-xl text-gray-900 dark:text-gray-100">{t('vets.title')}</h2>
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{t('vets.description')}</p>
       </div>
 

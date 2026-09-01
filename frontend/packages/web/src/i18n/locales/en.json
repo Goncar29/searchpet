@@ -91,7 +91,8 @@
         "unfeature": "Unfeature",
         "delete": "Delete"
       },
-      "confirmDelete": "Delete story \"{{name}}\"? This cannot be undone."
+      "confirmDelete": "Delete story \"{{name}}\"? This cannot be undone.",
+      "subtitle": "Moderate the stories the community published"
     },
     "groups": {
       "title": "Create Local Group",
@@ -128,7 +129,8 @@
       "actionRevoke": "Revoked",
       "prevPage": "Previous",
       "nextPage": "Next",
-      "pageOf": "Page {{page}} of {{pages}}"
+      "pageOf": "Page {{page}} of {{pages}}",
+      "subtitle": "Grant or revoke the admin role, and see who changed it"
     },
     "sheltersQueue": {
       "title": "Pending shelters",
