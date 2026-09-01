@@ -80,11 +80,10 @@ beforeEach(() => {
 });
 
 describe('FosterHomesAdminPage', () => {
-  // Acotado a la LISTA a propósito. Las tarjetas de métrica del encabezado
-  // etiquetan sus contadores con las MISMAS claves `status.*` que el badge de
-  // cada ítem — es el vocabulario correcto y por eso se reusa, pero deja
-  // ambiguo cualquier `getByText` suelto sobre un estado. La intención de este
-  // test siempre fue el ítem de la cola, no el contador.
+  // Sigue acotado a la LISTA aunque ya no haya contadores en el encabezado que
+  // reusen las claves `status.*`: `within(lista)` afirma dónde vive el badge,
+  // no sólo que el texto exista en algún lado, y eso es más preciso que un
+  // `getByText` suelto.
   it('dibuja la cola con la ciudad, el estado y el dueño', () => {
     pintar();
 
@@ -94,15 +93,26 @@ describe('FosterHomesAdminPage', () => {
     expect(within(lista).getByText(/ana@test\.uy/)).toBeTruthy();
   });
 
-  // La otra mitad: que el contador exista y sea el del encabezado, no el badge.
-  it('el encabezado cuenta la cola por estado', () => {
-    cola = [hogar(), hogar({ id: 'fh-2', status: 'suspended' })];
+  // El guard que reemplaza al del contador borrado. Afirma la razón por la que
+  // esta pantalla NO lleva las métricas que sí lleva Refugios: su cola sólo
+  // puede traer `pending` (`GetPendingQueue` filtra por ese estado), así que un
+  // contador de `approved` o `suspended` marcaría cero para siempre.
+  //
+  // El test que había afirmaba lo contrario con un fixture que INVENTABA un
+  // hogar `suspended` — un estado que el endpoint real nunca devuelve. Pasaba
+  // verde sobre una rama que en producción no se ejecuta nunca.
+  it('no dibuja contadores de estados que la cola no puede traer', () => {
+    cola = [hogar(), hogar({ id: 'fh-2' })];
     pintar();
 
-    const enRevision = screen
-      .getAllByText('fosterHomes:status.pending')
-      .find((el) => !screen.getByRole('list').contains(el));
-    expect(enRevision?.closest('div')?.parentElement).toHaveTextContent('1');
+    // El único `status.pending` de la pantalla es el badge del ítem: uno por
+    // hogar, todos dentro de la lista. Ninguno suelto en el encabezado.
+    const lista = screen.getByRole('list');
+    const badges = screen.getAllByText('fosterHomes:status.pending');
+    expect(badges).toHaveLength(2);
+    badges.forEach((b) => expect(lista.contains(b)).toBe(true));
+    expect(screen.queryByText('fosterHomes:status.approved')).toBeNull();
+    expect(screen.queryByText('fosterHomes:status.suspended')).toBeNull();
   });
 
   it('con la cola vacía lo dice', () => {

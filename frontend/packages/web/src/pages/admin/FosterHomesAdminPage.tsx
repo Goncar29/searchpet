@@ -40,7 +40,6 @@ export function FosterHomesAdminPage() {
   const { t } = useTranslation(['fosterHomes', 'errors', 'common']);
 
   const queueQuery = usePendingFosterHomes();
-  const queue = queueQuery.data;
 
   const approveMutation = useApproveFosterHome();
   const rejectMutation = useRejectFosterHome();
@@ -81,17 +80,21 @@ export function FosterHomesAdminPage() {
 
   const reasonMutation = reasonTarget?.type === 'reject' ? rejectMutation : suspendMutation;
 
-  // Métricas por estado, contadas sobre la cola que ya está en memoria. Las
-  // etiquetas son las de `fosterHomes:status.*`, que ya existen traducidas: el
-  // encabezado no inventa vocabulario nuevo para nombrar lo mismo que dice el
-  // badge de cada tarjeta.
-  const cola = queue ?? [];
-  const porEstado = (estado: string) => cola.filter((i) => i.status === estado).length;
-  const stats = [
-    { estado: 'pending', icono: 'hourglass' as const },
-    { estado: 'approved', icono: 'check-circle' as const },
-    { estado: 'suspended', icono: 'warning' as const },
-  ];
+  // SIN TARJETAS DE MÉTRICAS, a diferencia de Refugios, y NO por simetría rota:
+  // esta cola sólo puede traer un estado. `GetPendingQueue` filtra
+  // `WHERE status = 'pending'` (`foster_home_repository.go`), así que contar
+  // `approved` y `suspended` sobre lo que llega da CERO siempre, en producción,
+  // haya los hogares que haya — y un moderador que lee "Suspendidos: 0" concluye
+  // que no hay ninguno. El tercer contador sería `cola.length`, que es lo mismo
+  // que la lista de abajo ya dice.
+  //
+  // Refugios sí las lleva porque SU cola trae dos poblaciones
+  // (`status = pending OR (approved AND hay cambios pendientes)`), así que ahí
+  // los contadores parten algo real. La forma se copió sin que las colas fueran
+  // comparables.
+  //
+  // Es el mismo criterio con el que el #207 descartó capacidad y ocupación del
+  // mock de Stitch: no se dibujan conceptos que los datos no tienen.
 
   return (
     <div>
@@ -107,27 +110,6 @@ export function FosterHomesAdminPage() {
           {t('fosterHomes:admin.pendingQueue')}
         </p>
       </div>
-
-      {/* Sólo con datos: un "0 en revisión" al lado del cartel de error afirma
-          que no hay nada que moderar, que es justo lo que no sabemos. */}
-      {queue && (
-        <div className="grid grid-cols-3 gap-3 mb-6">
-          {stats.map((s) => (
-            <div
-              key={s.estado}
-              className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-4"
-            >
-              <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
-                <Icon name={s.icono} className="h-4 w-4 flex-shrink-0" />
-                <span className="text-xs font-medium">{t(`fosterHomes:status.${s.estado}`)}</span>
-              </div>
-              <p className="font-display font-semibold text-2xl text-gray-900 dark:text-gray-100 mt-1">
-                {porEstado(s.estado)}
-              </p>
-            </div>
-          ))}
-        </div>
-      )}
 
       {actionError && (
         <p role="alert" className="text-sm text-red-600 mb-4">
