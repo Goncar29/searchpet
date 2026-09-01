@@ -145,6 +145,14 @@ func resetSeedData(db *gorm.DB) error {
 		// otherwise the User/Pet/Report deletes below fail with a FK violation when
 		// these tables hold app-created data (chat, share links, alerts, reviews).
 		&domain.Message{}, &domain.ShareLink{}, &domain.LocationAlert{}, &domain.UserReview{},
+		// El ledger de métricas NO tiene foreign key a pets — a propósito, para
+		// que borrar una mascota no baje los contadores históricos. Justamente
+		// por eso hay que borrarlo A MANO acá: sin esto los eventos sobreviven
+		// al reset, y como los IDs del seed son FIJOS, el `JOIN pets` del panel
+		// de impacto los vuelve a enganchar a las mascotas recreadas. Resultado
+		// medido: una Firulais `lost` figurando como reunida dos veces, y 290
+		// de 330 eventos apuntando a mascotas que ya no existen.
+		&domain.PlatformEvent{},
 		&domain.Report{}, &domain.Photo{},
 		&domain.Badge{}, &domain.UserPoints{}, &domain.StoryLike{}, &domain.SuccessStory{},
 		&domain.GroupMember{}, &domain.LocalGroup{}, &domain.ReportAbuse{},
