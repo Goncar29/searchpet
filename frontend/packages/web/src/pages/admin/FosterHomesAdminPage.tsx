@@ -11,6 +11,8 @@ import {
 } from '@shared/hooks';
 import { getErrorMessage } from '@shared/utils/apiErrors';
 import { cloudinaryThumb } from '@shared/utils/cloudinaryThumb';
+import { Icon } from '../../components/Icon';
+import { ListState } from '../../components/list/ListState';
 import type {
   AnimalKind,
   FosterHomeChangeLog,
@@ -37,7 +39,7 @@ type ReasonTarget = { type: 'reject' | 'suspend'; item: MyFosterHome };
 export function FosterHomesAdminPage() {
   const { t } = useTranslation(['fosterHomes', 'errors', 'common']);
 
-  const { data: queue, isLoading, isError, refetch } = usePendingFosterHomes();
+  const queueQuery = usePendingFosterHomes();
 
   const approveMutation = useApproveFosterHome();
   const rejectMutation = useRejectFosterHome();
@@ -76,45 +78,62 @@ export function FosterHomesAdminPage() {
     });
   };
 
-  if (isLoading) {
-    return (
-      <div className="text-center py-12">
-        <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4" />
-        <p className="text-gray-500 dark:text-gray-400">{t('common:loading')}</p>
-      </div>
-    );
-  }
-
-  if (isError) {
-    return (
-      <div className="text-center py-12">
-        <p className="text-red-500 dark:text-red-400 mb-4">{t('fosterHomes:mine.loadError')}</p>
-        <button
-          type="button"
-          onClick={() => refetch()}
-          className="text-sm font-semibold text-primary border border-primary px-4 py-2 rounded-lg hover:bg-primary/5"
-        >
-          {t('fosterHomes:mine.retry')}
-        </button>
-      </div>
-    );
-  }
-
-  const items = queue ?? [];
   const reasonMutation = reasonTarget?.type === 'reject' ? rejectMutation : suspendMutation;
+
+  // SIN TARJETAS DE MÉTRICAS, a diferencia de Refugios, y NO por simetría rota:
+  // esta cola sólo puede traer un estado. `GetPendingQueue` filtra
+  // `WHERE status = 'pending'` (`foster_home_repository.go`), así que contar
+  // `approved` y `suspended` sobre lo que llega da CERO siempre, en producción,
+  // haya los hogares que haya — y un moderador que lee "Suspendidos: 0" concluye
+  // que no hay ninguno. El tercer contador sería `cola.length`, que es lo mismo
+  // que la lista de abajo ya dice.
+  //
+  // Refugios sí las lleva porque SU cola trae dos poblaciones
+  // (`status = pending OR (approved AND hay cambios pendientes)`), así que ahí
+  // los contadores parten algo real. La forma se copió sin que las colas fueran
+  // comparables.
+  //
+  // Es el mismo criterio con el que el #207 descartó capacidad y ocupación del
+  // mock de Stitch: no se dibujan conceptos que los datos no tienen.
 
   return (
     <div>
-      <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">{t('fosterHomes:admin.title')}</h2>
-      <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-4">
-        {t('fosterHomes:admin.pendingQueue')}
-      </h3>
+      <div className="mb-6">
+        {/* `font-semibold` explícito: `font-display` fija la familia y el
+            preflight de Tailwind v4 deja los h1-h6 en `font-weight: inherit`. */}
+        <h2 className="font-display font-semibold text-xl text-gray-900 dark:text-gray-100">
+          {t('fosterHomes:admin.title')}
+        </h2>
+        {/* Era un `<h3>` usado como subtítulo: un encabezado que no encabeza
+            nada le mete un nivel falso al árbol que lee un lector de pantalla. */}
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+          {t('fosterHomes:admin.pendingQueue')}
+        </p>
+      </div>
 
-      {actionError && <p className="text-sm text-red-600 mb-4">{actionError}</p>}
+      {actionError && (
+        <p role="alert" className="text-sm text-red-600 mb-4">
+          {actionError}
+        </p>
+      )}
 
-      {items.length === 0 ? (
-        <p className="text-gray-400 dark:text-gray-500 py-8 text-center">{t('fosterHomes:directory.empty')}</p>
-      ) : (
+      <ListState
+        query={queueQuery}
+        loading={
+          <div className="text-center py-12">
+            <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4" />
+            <p className="text-gray-500 dark:text-gray-400">{t('common:loading')}</p>
+          </div>
+        }
+        empty={
+          <p className="text-gray-400 dark:text-gray-500 py-8 text-center">
+            {t('fosterHomes:directory.empty')}
+          </p>
+        }
+        errorTitle={t('fosterHomes:admin.title')}
+        errorBody={t('fosterHomes:mine.loadError')}
+      >
+        {(items) => (
         <ul className="space-y-4">
           {items.map((item) => (
             <FosterHomeAdminItem
@@ -137,7 +156,8 @@ export function FosterHomesAdminPage() {
             />
           ))}
         </ul>
-      )}
+        )}
+      </ListState>
 
       {reasonTarget && (
         <div role="dialog" aria-modal="true" className="fixed inset-0 z-30 flex items-center justify-center bg-black/40 px-4">
@@ -219,7 +239,14 @@ function FosterHomeAdminItem({
     <li className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-5">
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <h3 className="font-bold text-gray-900 dark:text-gray-100">📍 {item.city}</h3>
+          {/* El 📍 pasa a ícono. Es page-local, así que no arrastra a nadie
+              — los de `BADGE_META` viven en shared y los dibujan ocho archivos
+              entre web y mobile (#164). Va decorativo: la ciudad de al lado ya
+              dice qué es, y un lector no tiene por qué oír "pin". */}
+          <h3 className="flex items-center gap-1.5 font-display font-semibold text-gray-900 dark:text-gray-100">
+            <Icon name="location-on" className="h-4 w-4 flex-shrink-0" />
+            {item.city}
+          </h3>
           <p className="text-sm text-gray-500 dark:text-gray-400">
             {t(`fosterHomes:housingType.${item.housing_type}`)} · {t('fosterHomes:directory.capacity')}:{' '}
             {item.capacity}

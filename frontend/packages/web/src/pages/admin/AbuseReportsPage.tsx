@@ -6,6 +6,7 @@ import { apiClient } from '@shared/api/client';
 import type { AbuseReport } from '@shared/types';
 import { ConfirmModal } from '../../components/ConfirmModal';
 import { ListState } from '../../components/list/ListState';
+import { Icon } from '../../components/Icon';
 import { Pagination } from '../../components/Pagination';
 
 const PAGE_SIZE = 20;
@@ -134,7 +135,19 @@ export function AbuseReportsPage() {
 
   return (
     <div>
-      <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">{t('abuse.title')}</h2>
+      {/* Sin tarjetas de métricas, a diferencia de las otras dos pantallas de
+          esta tanda, y es deliberado: ésta pagina del lado del servidor, así
+          que sólo se tiene el total del filtro ACTIVO. Tres contadores serían
+          tres consultas nuevas — y las pestañas de abajo ya segmentan por
+          estado, que es la misma información sin pedirle nada al backend. */}
+      <div className="mb-6">
+        {/* `font-semibold` explícito: `font-display` fija la familia y el
+            preflight de Tailwind v4 deja los h1-h6 en `font-weight: inherit`. */}
+        <h2 className="font-display font-semibold text-xl text-gray-900 dark:text-gray-100">
+          {t('abuse.title')}
+        </h2>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{t('abuse.subtitle')}</p>
+      </div>
 
       {/* Filter tabs */}
       <div className="flex gap-2 mb-6">
@@ -228,9 +241,14 @@ export function AbuseReportsPage() {
                     ) : report.target_foster_home ? (
                       <Link
                         to={`/fosterhomes/${report.target_foster_home.id}`}
-                        className="text-primary hover:underline"
+                        className="inline-flex items-center gap-1.5 text-primary hover:underline"
                       >
-                        🏠 {report.target_foster_home.city}
+                        {/* El 🏠 pasa a ícono. Va decorativo, y acá importa más
+                            que en otras: es el contenido de un LINK, así que si
+                            se anunciara, el nombre accesible del enlace
+                            empezaría con "casa" antes de la ciudad. */}
+                        <Icon name="home" className="h-4 w-4 flex-shrink-0" />
+                        {report.target_foster_home.city}
                       </Link>
                     ) : (
                       <span className="font-mono text-xs text-gray-500 dark:text-gray-400">

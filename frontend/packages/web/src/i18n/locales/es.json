@@ -68,7 +68,8 @@
         "reinstateHomeTitle": "Reinstaurar hogar",
         "reinstateHomeMessage": "¿Reinstaurar el hogar de {{city}}? Volverá a aparecer en el directorio.",
         "reinstateHomeConfirm": "Reinstaurar"
-      }
+      },
+      "subtitle": "Revisá lo que la comunidad reportó y resolvé cada caso"
     },
     "stories": {
       "title": "Historias",
