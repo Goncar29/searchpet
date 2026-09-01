@@ -68,7 +68,8 @@
         "reinstateHomeTitle": "Reinstate home",
         "reinstateHomeMessage": "Reinstate the {{city}} foster home? It will appear in the directory again.",
         "reinstateHomeConfirm": "Reinstate"
-      }
+      },
+      "subtitle": "Review what the community reported and resolve each case"
     },
     "stories": {
       "title": "Stories",

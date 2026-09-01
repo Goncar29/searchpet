@@ -68,7 +68,8 @@
         "reinstateHomeTitle": "Reinstaurar lar",
         "reinstateHomeMessage": "Reinstaurar o lar de {{city}}? Voltará a aparecer no diretório.",
         "reinstateHomeConfirm": "Reinstaurar"
-      }
+      },
+      "subtitle": "Revise o que a comunidade denunciou e resolva cada caso"
     },
     "stories": {
       "title": "Histórias",

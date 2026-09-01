@@ -80,12 +80,29 @@ beforeEach(() => {
 });
 
 describe('FosterHomesAdminPage', () => {
+  // Acotado a la LISTA a propósito. Las tarjetas de métrica del encabezado
+  // etiquetan sus contadores con las MISMAS claves `status.*` que el badge de
+  // cada ítem — es el vocabulario correcto y por eso se reusa, pero deja
+  // ambiguo cualquier `getByText` suelto sobre un estado. La intención de este
+  // test siempre fue el ítem de la cola, no el contador.
   it('dibuja la cola con la ciudad, el estado y el dueño', () => {
     pintar();
 
-    expect(screen.getByText(/Montevideo/)).toBeTruthy();
-    expect(screen.getByText('fosterHomes:status.pending')).toBeTruthy();
-    expect(screen.getByText(/ana@test\.uy/)).toBeTruthy();
+    const lista = screen.getByRole('list');
+    expect(within(lista).getByText(/Montevideo/)).toBeTruthy();
+    expect(within(lista).getByText('fosterHomes:status.pending')).toBeTruthy();
+    expect(within(lista).getByText(/ana@test\.uy/)).toBeTruthy();
+  });
+
+  // La otra mitad: que el contador exista y sea el del encabezado, no el badge.
+  it('el encabezado cuenta la cola por estado', () => {
+    cola = [hogar(), hogar({ id: 'fh-2', status: 'suspended' })];
+    pintar();
+
+    const enRevision = screen
+      .getAllByText('fosterHomes:status.pending')
+      .find((el) => !screen.getByRole('list').contains(el));
+    expect(enRevision?.closest('div')?.parentElement).toHaveTextContent('1');
   });
 
   it('con la cola vacía lo dice', () => {
