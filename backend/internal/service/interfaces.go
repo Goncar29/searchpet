@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"io"
 	"mime/multipart"
 
 	"github.com/google/uuid"
@@ -85,6 +86,11 @@ type GroupService interface {
 // SuccessStoryService define el contrato para historias de éxito.
 type SuccessStoryService interface {
 	Create(ctx context.Context, userID uuid.UUID, req dto.CreateStoryRequest) (*domain.SuccessStory, error)
+	// UploadPhoto sube la foto del reencuentro y devuelve su URL, sin persistir
+	// nada: vuelve al cliente y se manda dentro de CreateStoryRequest. Exige el
+	// petID y repite la autorización de Create — ver el comentario de la
+	// implementación para por qué ese gate no es opcional.
+	UploadPhoto(ctx context.Context, userID uuid.UUID, petID string, file io.Reader, filename string) (string, error)
 	GetByID(ctx context.Context, id uuid.UUID) (*domain.SuccessStory, error)
 	GetByPetID(ctx context.Context, petID uuid.UUID) (*domain.SuccessStory, error)
 	List(ctx context.Context, featured *bool, limit, offset int) ([]domain.SuccessStory, error)

@@ -103,14 +103,14 @@ type mockPetRepoForStory struct {
 	findByIDFn func(id string) (*domain.Pet, error)
 }
 
-func (m *mockPetRepoForStory) Create(pet *domain.Pet) error                                   { return nil }
-func (m *mockPetRepoForStory) FindByOwnerID(ownerID string) ([]domain.Pet, error)             { return nil, nil }
+func (m *mockPetRepoForStory) Create(pet *domain.Pet) error                       { return nil }
+func (m *mockPetRepoForStory) FindByOwnerID(ownerID string) ([]domain.Pet, error) { return nil, nil }
 func (m *mockPetRepoForStory) FindByReporterID(reporterID string) ([]domain.Pet, error) {
 	return nil, nil
 }
-func (m *mockPetRepoForStory) Update(pet *domain.Pet) error                                   { return nil }
-func (m *mockPetRepoForStory) UpdateStatus(id string, status string) error                    { return nil }
-func (m *mockPetRepoForStory) Delete(id string) error                                         { return nil }
+func (m *mockPetRepoForStory) Update(pet *domain.Pet) error                { return nil }
+func (m *mockPetRepoForStory) UpdateStatus(id string, status string) error { return nil }
+func (m *mockPetRepoForStory) Delete(id string) error                      { return nil }
 func (m *mockPetRepoForStory) Search(criteria domain.PetSearchCriteria) ([]domain.Pet, int64, error) {
 	return nil, 0, nil
 }
@@ -130,7 +130,9 @@ func newSuccessStoryService(
 	storyRepo *mockSuccessStoryRepository,
 	petRepo *mockPetRepoForStory,
 ) service.SuccessStoryService {
-	return service.NewSuccessStoryService(storyRepo, petRepo)
+	// `nil` como uploader: estos tests no suben nada, y el service trata el nil
+	// devolviendo ErrStorageFailed sólo en UploadPhoto.
+	return service.NewSuccessStoryService(storyRepo, petRepo, nil)
 }
 
 // ============================================================

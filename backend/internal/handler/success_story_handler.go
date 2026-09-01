@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -16,6 +17,87 @@ import (
 // SuccessStoryHandler maneja las operaciones de historias de éxito.
 type SuccessStoryHandler struct {
 	storyService service.SuccessStoryService
+}
+
+// UploadPhoto godoc
+// POST /api/stories/photos
+// Acepta multipart/form-data con los campos "photo" y "pet_id".
+// Requiere autenticación JWT.
+//
+// Devuelve `{"url": "..."}` y NO persiste nada: la URL vuelve al formulario y se
+// manda dentro de CreateStoryRequest.photo_after. El `pet_id` es obligatorio
+// porque el service repite con él la autorización de Create — ver el comentario
+// de `successStoryService.UploadPhoto` para por qué ese gate no es opcional.
+//
+// La validación de tamaño y MIME es la MISMA que la de `PhotoHandler.Upload`,
+// reusando `maxUploadSize` y `allowedMIMETypes` de ese archivo: dos endpoints
+// que aceptan imágenes del público no pueden diferir en qué consideran una
+// imagen aceptable. El MIME se detecta leyendo los bytes, nunca del header que
+// manda el cliente.
+func (h *SuccessStoryHandler) UploadPhoto(c *gin.Context) {
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxUploadSize+1024)
+	if err := c.Request.ParseMultipartForm(maxUploadSize); err != nil {
+		writeError(c, http.StatusBadRequest, domain.ErrFileTooLarge)
+		return
+	}
+
+	petID := c.Request.FormValue("pet_id")
+	if petID == "" {
+		writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
+		return
+	}
+
+	file, header, err := c.Request.FormFile("photo")
+	if err != nil {
+		writeError(c, http.StatusBadRequest, domain.ErrPhotoFieldRequired)
+		return
+	}
+	defer file.Close()
+
+	if header.Size > maxUploadSize {
+		writeError(c, http.StatusBadRequest, domain.ErrFileTooLarge)
+		return
+	}
+
+	buf := make([]byte, 512)
+	n, err := file.Read(buf)
+	if err != nil && n == 0 {
+		writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
+		return
+	}
+	if !allowedMIMETypes[strings.Split(http.DetectContentType(buf[:n]), ";")[0]] {
+		writeError(c, http.StatusBadRequest, domain.ErrInvalidFileType)
+		return
+	}
+	if _, err := file.Seek(0, 0); err != nil {
+		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
+		return
+	}
+
+	userID, err := uuid.Parse(getUserID(c))
+	if err != nil {
+		writeError(c, http.StatusUnauthorized, domain.ErrUnauthorized)
+		return
+	}
+
+	url, err := h.storyService.UploadPhoto(c.Request.Context(), userID, petID, file, header.Filename)
+	if err != nil {
+		switch {
+		case errors.Is(err, domain.ErrPetNotFound):
+			writeError(c, http.StatusNotFound, err)
+		case errors.Is(err, domain.ErrForbidden):
+			writeError(c, http.StatusForbidden, err)
+		case errors.Is(err, domain.ErrPetNotFoundStatus):
+			writeError(c, http.StatusUnprocessableEntity, err)
+		case errors.Is(err, domain.ErrStorageFailed):
+			writeError(c, http.StatusBadGateway, err)
+		default:
+			writeError(c, http.StatusInternalServerError, domain.ErrInternal)
+		}
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{"url": url})
 }
 
 // NewSuccessStoryHandler crea una instancia del SuccessStoryHandler.

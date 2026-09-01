@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -31,7 +32,15 @@ type mockSuccessStoryService struct {
 	unlikeFn        func(ctx context.Context, storyID, userID uuid.UUID) (int, bool, error)
 	likedStoryIDsFn func(ctx context.Context, userID uuid.UUID, storyIDs []uuid.UUID) (map[uuid.UUID]bool, error)
 	setFeaturedFn   func(ctx context.Context, id uuid.UUID, featured bool, adminID uuid.UUID) error
+	uploadPhotoFn   func(ctx context.Context, userID uuid.UUID, petID string, file io.Reader, filename string) (string, error)
 	deleteFn        func(ctx context.Context, id uuid.UUID, callerID uuid.UUID, isAdmin bool) error
+}
+
+func (m *mockSuccessStoryService) UploadPhoto(ctx context.Context, userID uuid.UUID, petID string, file io.Reader, filename string) (string, error) {
+	if m.uploadPhotoFn != nil {
+		return m.uploadPhotoFn(ctx, userID, petID, file, filename)
+	}
+	return "https://res.cloudinary.com/demo/stories/x.webp", nil
 }
 
 func (m *mockSuccessStoryService) Create(ctx context.Context, userID uuid.UUID, req dto.CreateStoryRequest) (*domain.SuccessStory, error) {

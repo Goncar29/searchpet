@@ -2,6 +2,10 @@ package service
 
 import (
 	"context"
+	"fmt"
+	"io"
+	"log"
+	"time"
 
 	"github.com/google/uuid"
 	"lost-pets/internal/domain"
@@ -12,11 +16,73 @@ import (
 type successStoryService struct {
 	repo    repository.SuccessStoryRepository
 	petRepo repository.PetRepository
+	storage ImageUploader
 }
 
 // NewSuccessStoryService construye el SuccessStoryService con sus dependencias.
-func NewSuccessStoryService(repo repository.SuccessStoryRepository, petRepo repository.PetRepository) SuccessStoryService {
-	return &successStoryService{repo: repo, petRepo: petRepo}
+//
+// `storage` puede ser nil: si Cloudinary no está configurado el resto de las
+// historias sigue funcionando y sólo el upload responde ErrStorageFailed. Es el
+// mismo trato que le da PhotoService — un deploy sin credenciales de imágenes no
+// puede tumbar la creación de historias, que no las necesita.
+func NewSuccessStoryService(
+	repo repository.SuccessStoryRepository,
+	petRepo repository.PetRepository,
+	storage ImageUploader,
+) SuccessStoryService {
+	return &successStoryService{repo: repo, petRepo: petRepo, storage: storage}
+}
+
+// UploadPhoto sube la foto del reencuentro y devuelve su URL. NO persiste nada:
+// la URL viaja al cliente y vuelve dentro de CreateStoryRequest.photo_after.
+//
+// PIDE EL pet_id Y REPITE LA AUTORIZACIÓN DE Create, y eso es lo que lo hace
+// seguro. Los otros tres uploads del proyecto están acotados porque PERSISTEN y
+// cuentan (3 fotos por mascota, 5 por casa de acogida); éste no persiste, así
+// que sin gate sería una vía libre para quemar los 25 créditos mensuales de
+// Cloudinary — y la regla #1 del proyecto es $0/mes sin excepciones.
+//
+// Atarlo a `canManagePet` + `status == found` acota el abuso al conjunto de
+// mascotas reencontradas del propio usuario, que es chico y real. Reusa la regla
+// que ya existe en vez de agregar un rate limit nuevo, que además tendría la
+// clave equivocada: el del proyecto va por `ruta + ClientIP`, o sea acota un
+// ORIGEN y nunca una cuenta (regla #43).
+//
+// El formato lo decide `CloudinaryClient.UploadImage`, que aplica
+// `Format: "webp"` y `w_1200,c_limit,q_80` a TODO lo que sube. No se configura
+// acá: se hereda por usar la pieza correcta.
+func (s *successStoryService) UploadPhoto(
+	ctx context.Context,
+	userID uuid.UUID,
+	petID string,
+	file io.Reader,
+	filename string,
+) (string, error) {
+	pet, err := s.petRepo.FindByID(petID)
+	if err != nil {
+		return "", err
+	}
+	if !canManagePet(pet, userID.String()) {
+		return "", domain.ErrForbidden
+	}
+	if pet.Status != "found" {
+		return "", domain.ErrPetNotFoundStatus
+	}
+	if s.storage == nil {
+		return "", domain.ErrStorageFailed
+	}
+
+	// El timestamp evita que el browser sirva la foto anterior desde caché
+	// cuando el usuario reemplaza la que había elegido. Mismo motivo que en
+	// `sanitizePublicID`; el nombre del archivo NO entra en el public_id porque
+	// acá no hay galería que navegar, sólo una URL que viaja al formulario.
+	publicID := fmt.Sprintf("stories/%s/%d", petID, time.Now().UnixMilli())
+	secureURL, _, err := s.storage.UploadImage(ctx, file, publicID, "stories")
+	if err != nil {
+		log.Printf("[success_story_service] Error en Cloudinary: %v", err)
+		return "", domain.ErrStorageFailed
+	}
+	return secureURL, nil
 }
 
 // Create crea una nueva historia de éxito.
