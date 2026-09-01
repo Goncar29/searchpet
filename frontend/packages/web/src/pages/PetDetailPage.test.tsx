@@ -443,6 +443,19 @@ describe('PetDetailPage — ancla del historial', () => {
     expect(otro?.className).not.toMatch(/ring-2/);
   });
 
+  // Un hash malformado NO puede voltear la ficha. `decodeURIComponent('%')`
+  // lanza `URIError`, y una excepcion dentro de un `useEffect` propaga: con el
+  // `ErrorBoundary` de `main.tsx` la pagina entera se cae a la pantalla de
+  // error. O sea que `/pets/<id>#%` —un link mal copiado, un truncamiento—
+  // rompia toda la ficha de la mascota, no solo el salto.
+  it('un hash malformado no rompe la pagina', () => {
+    expect(() =>
+      render(<PetDetailPage />, { wrapper: wrapperConHash('#%') }),
+    ).not.toThrow();
+
+    expect(document.getElementById('reporte-r1')).not.toBeNull();
+  });
+
   it('sin hash no salta a ningún lado', () => {
     const saltos: string[] = [];
     const original = Element.prototype.scrollIntoView;

@@ -35,14 +35,6 @@ export function PetDetailPage() {
   const [showStoryNudge, setShowStoryNudge] = useState(false);
   const [activePhotoIndex, setActivePhotoIndex] = useState(0);
 
-  // El ancla `#reporte-<id>` NO se resuelve sola, y por eso existe este efecto.
-  // El navegador procesa el hash cuando termina de cargar el documento, pero
-  // los reportes llegan DESPUÉS, por una query: en ese momento el elemento
-  // todavía no está en el DOM, así que el salto no ocurre y el link parece no
-  // hacer nada. Hay que esperar a que los datos estén y recién ahí buscarlo.
-  //
-  // Depende de `reportsQuery.data` y no de `location.hash` a secas: el hash ya
-  // está desde el primer render — lo que cambia es que el destino aparezca.
   const { hash } = useLocation();
   // El resaltado va por ESTADO y no por la variante `target:` de CSS, y eso se
   // midió: llegando por URL directa `:target` pinta, pero llegando por CLICK
@@ -52,15 +44,28 @@ export function PetDetailPage() {
   // por click es justo el que la gente va a usar.
   const [reporteResaltado, setReporteResaltado] = useState<string | null>(null);
 
-  // El salto tampoco se resuelve solo, por la misma razón: el navegador procesa
-  // el hash al cargar el documento, cuando el destino todavía no está en el DOM.
-  // Depende de `reportsQuery.data` y no del hash a secas — el hash ya está desde
-  // el primer render; lo que cambia es que el destino aparezca.
+  // El ancla `#reporte-<id>` NO se resuelve sola, y por eso existe este efecto:
+  // el navegador procesa el hash cuando termina de cargar el documento, pero los
+  // reportes llegan DESPUÉS, por una query. En ese momento el elemento todavía
+  // no está en el DOM, así que el salto no ocurre y el link parece no hacer
+  // nada. Depende de `reportsQuery.data` y no del hash a secas: el hash ya está
+  // desde el primer render — lo que cambia es que el destino aparezca.
   useEffect(() => {
     if (!hash || !reportsQuery.data) return;
-    // `decodeURIComponent` porque un hash viaja escapado. `getElementById` no
-    // interpreta selectores, así que no hace falta escapar nada más.
-    const objetivo = decodeURIComponent(hash.slice(1));
+    // El decode va en try/catch porque `decodeURIComponent` LANZA `URIError`
+    // ante un escape malformado (`#%` alcanza), y una excepción dentro de un
+    // efecto propaga: con el `ErrorBoundary` de `main.tsx` se cae la ficha
+    // ENTERA por un hash basura — un link mal copiado o truncado. El fallback
+    // es el valor crudo, que simplemente no va a matchear ningún id.
+    //
+    // `getElementById` no interpreta selectores, así que no hace falta escapar
+    // nada más.
+    let objetivo: string;
+    try {
+      objetivo = decodeURIComponent(hash.slice(1));
+    } catch {
+      objetivo = hash.slice(1);
+    }
     const destino = document.getElementById(objetivo);
     if (!destino) return;
     // Marcar PRIMERO y scrollear después, no al revés: son dos cosas
@@ -741,7 +746,8 @@ export function PetDetailPage() {
                     // (`/pets/<id>#reporte-<reportId>`). `scroll-mt-24` deja
                     // aire para el navbar pegajoso: sin eso el reporte queda
                     // JUSTO debajo de la barra, tapado, y el link parece no
-                    // haber hecho nada. `target:` lo resalta al llegar.
+                    // haber hecho nada. El resaltado lo decide el estado, NO la
+                    // variante `target:` — ver el comentario del efecto.
                     <div
                       key={report.id}
                       id={`reporte-${report.id}`}
