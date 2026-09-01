@@ -424,6 +424,25 @@ describe('PetDetailPage — ancla del historial', () => {
     }
   });
 
+  // El resaltado NO puede depender de la variante `target:` de CSS. Medido en
+  // el navegador: por URL directa `:target` pinta, pero llegando por CLICK desde
+  // el panel de impacto NO — React Router navega con `pushState` y en ese
+  // instante el elemento del fragmento todavia no existe. El camino por click es
+  // el que la gente usa, asi que el resaltado va por estado.
+  //
+  // Este test se pone rojo si alguien vuelve a las clases `target:`: jsdom no
+  // aplica `:target` nunca, asi que la clase condicional es lo unico
+  // observable.
+  it('marca el reporte de destino con una clase propia, no con :target', () => {
+    render(<PetDetailPage />, { wrapper: wrapperConHash('#reporte-r2') });
+
+    const destino = document.getElementById('reporte-r2');
+    const otro = document.getElementById('reporte-r1');
+    expect(destino?.className).toMatch(/ring-2/);
+    expect(destino?.className).not.toMatch(/target:/);
+    expect(otro?.className).not.toMatch(/ring-2/);
+  });
+
   it('sin hash no salta a ningún lado', () => {
     const saltos: string[] = [];
     const original = Element.prototype.scrollIntoView;

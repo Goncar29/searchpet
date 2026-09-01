@@ -44,13 +44,32 @@ export function PetDetailPage() {
   // Depende de `reportsQuery.data` y no de `location.hash` a secas: el hash ya
   // está desde el primer render — lo que cambia es que el destino aparezca.
   const { hash } = useLocation();
+  // El resaltado va por ESTADO y no por la variante `target:` de CSS, y eso se
+  // midió: llegando por URL directa `:target` pinta, pero llegando por CLICK
+  // desde el panel de impacto NO. React Router navega con `pushState`, y en ese
+  // instante el elemento del fragmento todavía no existe —los reportes llegan
+  // después, por query—, así que el navegador no lo toma como target. El camino
+  // por click es justo el que la gente va a usar.
+  const [reporteResaltado, setReporteResaltado] = useState<string | null>(null);
+
+  // El salto tampoco se resuelve solo, por la misma razón: el navegador procesa
+  // el hash al cargar el documento, cuando el destino todavía no está en el DOM.
+  // Depende de `reportsQuery.data` y no del hash a secas — el hash ya está desde
+  // el primer render; lo que cambia es que el destino aparezca.
   useEffect(() => {
     if (!hash || !reportsQuery.data) return;
-    // `decodeURIComponent` porque un hash viaja escapado; y `CSS.escape` no
-    // hace falta si el id es `reporte-<uuid>`, pero `getElementById` no
-    // interpreta selectores, así que es el camino seguro de todos modos.
-    const destino = document.getElementById(decodeURIComponent(hash.slice(1)));
-    if (destino) destino.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    // `decodeURIComponent` porque un hash viaja escapado. `getElementById` no
+    // interpreta selectores, así que no hace falta escapar nada más.
+    const objetivo = decodeURIComponent(hash.slice(1));
+    const destino = document.getElementById(objetivo);
+    if (!destino) return;
+    // Marcar PRIMERO y scrollear después, no al revés: son dos cosas
+    // independientes y el resaltado no tiene por qué depender de que el scroll
+    // funcione. Con el orden invertido, un entorno sin `scrollIntoView` tiraba
+    // antes del `setState` y el reporte quedaba sin marcar — se vio en jsdom,
+    // que no lo implementa, pero la forma del acople es la que importa.
+    setReporteResaltado(objetivo);
+    destino.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
   }, [hash, reportsQuery.data]);
 
   if (isLoading) {
@@ -726,7 +745,11 @@ export function PetDetailPage() {
                     <div
                       key={report.id}
                       id={`reporte-${report.id}`}
-                      className="flex gap-3 relative scroll-mt-24 rounded-lg target:bg-primary/5 target:ring-2 target:ring-primary/30"
+                      className={`flex gap-3 relative scroll-mt-24 rounded-lg transition-colors ${
+                        reporteResaltado === `reporte-${report.id}`
+                          ? 'bg-primary/5 ring-2 ring-primary/30'
+                          : ''
+                      }`}
                     >
                       {/* Línea conectora — visible entre entradas consecutivas */}
                       {index < reports.length - 1 && (
