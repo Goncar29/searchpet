@@ -77,6 +77,46 @@ describe('MonthlyImpactSection', () => {
     expect(hrefs).toEqual(['/pets/p9#reporte-r1', '/pets/p9#reporte-r2']);
   });
 
+  // EL BUG REAL que apareció en local: con un backend previo al #210 —que no
+  // manda `pet_id`— el link se armaba igual y daba `/pets/undefined#reporte-c1`
+  // (medido, no supuesto). Esa ruta EXISTE y responde "Mascota no encontrada",
+  // así que el link no fallaba: llevaba a una MENTIRA, porque la mascota sí
+  // existe.
+  //
+  // Y no es sólo de desarrollo: Vercel y Render deployan por separado, así que
+  // en cada deploy hay una ventana con la web nueva contra el backend viejo.
+  it('sin pet_id NO arma un link roto: degrada a texto plano', () => {
+    useMonthlyImpact.mockReturnValue({
+      data: {
+        month: '2026-09',
+        totals: { reunions: 1, new_users: 0, reports: 1 },
+        // Los dos SIN su id, que es exactamente lo que manda un backend viejo.
+        reunited_pets: [{ name: 'Michi', type: 'gato', reunited_at: '2026-09-01T00:00:00Z' }],
+        reports: [{ id: 'c1', pet_name: 'Firulais', status: 'lost', created_at: '2026-09-01T00:00:00Z' }],
+        truncated: false,
+      },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    render(
+      <MemoryRouter>
+        <MonthlyImpactSection months={['2026-09']} nf={nf} lang="es" />
+      </MemoryRouter>,
+    );
+
+    // Los nombres SIGUEN VISIBLES: se pierde el link, nunca la información.
+    expect(screen.getByText('Firulais')).toBeInTheDocument();
+    expect(screen.getByText('Michi')).toBeInTheDocument();
+    expect(screen.getByText('Firulais').closest('a')).toBeNull();
+    expect(screen.getByText('Michi').closest('a')).toBeNull();
+    // Blindaje contra la cadena exacta que se vio en el navegador.
+    document.querySelectorAll('a').forEach((a) => {
+      expect(a.getAttribute('href') || '').not.toContain('undefined');
+    });
+  });
+
   it('renders an empty state when a month has no records', () => {
     useMonthlyImpact.mockReturnValue({
       data: {

@@ -15,6 +15,43 @@ function Tile({ value, label, accent }: { value: string; label: string; accent?:
   );
 }
 
+/**
+ * El nombre de la mascota: link cuando SE PUEDE llegar, texto plano cuando no.
+ *
+ * Sin el guard, un `pet_id` ausente producía `/pets/undefined#reporte-<id>` —
+ * medido, no supuesto— y esa ruta existe: `usePetByID('undefined')` da 404 y la
+ * pantalla dice "Mascota no encontrada". O sea que el link no fallaba, llevaba
+ * a una MENTIRA: la mascota existe, y la app decía que no.
+ *
+ * NO es un caso hipotético ni sólo de desarrollo. La web (Vercel) y el backend
+ * (Render) se deployan por separado, y Render tarda minutos entre build y
+ * arranque: en CADA deploy hay una ventana donde la web nueva le pega al
+ * backend viejo, que no manda `pet_id` porque el campo se agregó en el #210.
+ * Durante esa ventana TODOS los links de la tabla apuntaban a `undefined`. Se
+ * reprodujo exacto en local con un binario previo al merge.
+ *
+ * Degradar a texto plano devuelve la tabla a lo que era antes del #210, que es
+ * el peor caso aceptable: se pierde la comodidad del link, no la información.
+ * Un link que no puede funcionar es peor que ningún link.
+ *
+ * Cubre las DOS tablas. La de "Mascotas reunidas" usa `id`, que viaja desde
+ * mucho antes, así que ahí el guard es preventivo y no cierra ningún bug
+ * observado — pero la defensa es la misma y no cuesta más.
+ */
+function PetCell({ petId, name, anchor }: { petId?: string; name: string; anchor?: string }) {
+  if (!petId) {
+    return <span className="font-medium text-gray-700 dark:text-gray-300">{name}</span>;
+  }
+  return (
+    <Link
+      to={`/pets/${petId}${anchor ? `#${anchor}` : ''}`}
+      className="font-medium text-primary hover:underline"
+    >
+      {name}
+    </Link>
+  );
+}
+
 export function MonthlyImpactSection({
   months,
   nf,
@@ -91,9 +128,7 @@ export function MonthlyImpactSection({
                       // p.id alone is not unique — pair it with the event time.
                       <tr key={`${p.id}-${p.reunited_at}`} className="border-t border-gray-100 dark:border-gray-800">
                         <td className="py-2">
-                          <Link to={`/pets/${p.id}`} className="font-medium text-primary hover:underline">
-                            {p.name}
-                          </Link>
+                          <PetCell petId={p.id} name={p.name} />
                         </td>
                         <td className="py-2 text-gray-500 dark:text-gray-400">{p.type}</td>
                         <td className="py-2 text-right text-gray-500 dark:text-gray-400">{fmtDate(p.reunited_at)}</td>
@@ -127,12 +162,7 @@ export function MonthlyImpactSection({
                               es alcanzable como entrada del historial de su
                               mascota, y el ancla es lo que evita que el link
                               te deje arriba de la ficha buscándolo a ojo. */}
-                          <Link
-                            to={`/pets/${r.pet_id}#reporte-${r.id}`}
-                            className="font-medium text-primary hover:underline"
-                          >
-                            {r.pet_name}
-                          </Link>
+                          <PetCell petId={r.pet_id} name={r.pet_name} anchor={`reporte-${r.id}`} />
                         </td>
                         <td className="py-2 text-gray-500 dark:text-gray-400">{r.status}</td>
                         <td className="py-2 text-right text-gray-500 dark:text-gray-400">{fmtDate(r.created_at)}</td>
