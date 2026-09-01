@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net/url"
 	"time"
 
 	"github.com/google/uuid"
@@ -31,6 +32,34 @@ func NewSuccessStoryService(
 	storage ImageUploader,
 ) SuccessStoryService {
 	return &successStoryService{repo: repo, petRepo: petRepo, storage: storage}
+}
+
+// cloudinaryHost es el único origen del que se aceptan fotos de historia.
+const cloudinaryHost = "res.cloudinary.com"
+
+// esURLDeNuestroStorage acepta la cadena vacía (la foto es opcional) y, si hay
+// algo, exige que sea una URL https servida por Cloudinary.
+//
+// SE COMPARA CONTRA EL HOST PARSEADO, nunca con un prefijo de string: un
+// `strings.HasPrefix(u, "https://res.cloudinary.com")` lo pasa
+// `https://res.cloudinary.com.evil.tld/x.png`, que es de otro dominio entero.
+// `url.Parse` además normaliza el esquema a minúsculas, así que `HTTPS://` no
+// necesita un caso aparte (regla #54).
+//
+// QUÉ NO CIERRA, y conviene decirlo: alguien con su propia cuenta de Cloudinary
+// podría alojar una imagen ahí y pasar el filtro. Lo que sí elimina —que era el
+// impacto real— es el servidor arbitrario que registra la IP de cada visitante
+// de la historia. Atarlo además a nuestro cloud name exigiría inyectar config en
+// este service; si algún día importa, ese es el paso siguiente.
+func esURLDeNuestroStorage(raw string) bool {
+	if raw == "" {
+		return true
+	}
+	u, err := url.Parse(raw)
+	if err != nil || u.Scheme != "https" {
+		return false
+	}
+	return u.Hostname() == cloudinaryHost
 }
 
 // UploadPhoto sube la foto del reencuentro y devuelve su URL. NO persiste nada:
@@ -143,6 +172,21 @@ func (s *successStoryService) Create(ctx context.Context, userID uuid.UUID, req 
 	}
 	if existente != nil {
 		return nil, domain.ErrStoryAlreadyExists
+	}
+
+	// Las fotos tienen que venir de NUESTRO storage, no de cualquier lado.
+	//
+	// Los campos son texto libre acotado sólo por largo, y `StoryDetailPage` los
+	// pone directo en un `<img src>`: `cloudinaryThumb` devuelve intacta una URL
+	// que no sea de Cloudinary. Sin este chequeo, cualquiera podía publicar una
+	// historia con una imagen alojada en su propio servidor y quedarse con la IP
+	// y el User-Agent de CADA visitante — además de poder cambiar la imagen
+	// después de cualquier moderación, porque el contenido no es nuestro.
+	//
+	// El endpoint de upload existe justamente para producir estas URLs, así que
+	// no hay caso legítimo que esto rompa.
+	if !esURLDeNuestroStorage(req.PhotoBefore) || !esURLDeNuestroStorage(req.PhotoAfter) {
+		return nil, domain.ErrInvalidInput
 	}
 
 	story := &domain.SuccessStory{

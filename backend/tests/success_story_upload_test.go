@@ -241,3 +241,76 @@ func TestSuccessStoryCreate_noDuplicaLaHistoriaDeUnaMascota(t *testing.T) {
 		t.Errorf("insertó igual: %d creaciones", creaciones)
 	}
 }
+
+// La foto guardada tiene que venir de NUESTRO storage.
+//
+// Los campos son texto libre acotado sólo por largo y `StoryDetailPage` los pone
+// en un `<img src>`, con `cloudinaryThumb` devolviendo intacta cualquier URL que
+// no sea de Cloudinary. Sin este filtro, una historia podía embeber una imagen
+// del servidor del atacante y entregarle la IP de cada visitante.
+//
+// Los casos NO son decorativos: cada uno es un bypass concreto de la forma
+// ingenua de escribir este chequeo.
+func TestSuccessStoryCreate_soloAceptaFotosDeNuestroStorage(t *testing.T) {
+	casos := []struct {
+		nombre string
+		url    string
+		acepta bool
+	}{
+		{"vacío: la foto es opcional", "", true},
+		{"nuestra URL de Cloudinary", "https://res.cloudinary.com/demo/image/upload/v1/x.webp", true},
+		{"servidor arbitrario", "https://tracker.evil/pixel.png", false},
+		// El bypass del prefijo: `strings.HasPrefix(u, "https://res.cloudinary.com")`
+		// deja pasar esto, que es OTRO dominio entero. Por eso se compara contra
+		// el host parseado (regla #54).
+		{"dominio que EMPIEZA con el nuestro", "https://res.cloudinary.com.evil.tld/x.png", false},
+		{"http en vez de https", "http://res.cloudinary.com/demo/x.png", false},
+		{"esquema javascript", "javascript:alert(1)", false},
+		{"protocol-relative sin esquema", "//res.cloudinary.com/demo/x.png", false},
+		// `url.Parse` normaliza el esquema a minúsculas, así que esto SÍ pasa —
+		// se deja escrito para que nadie agregue un caso especial que no hace falta.
+		{"HTTPS en mayúsculas", "HTTPS://res.cloudinary.com/demo/x.png", true},
+	}
+
+	for _, c := range casos {
+		t.Run(c.nombre, func(t *testing.T) {
+			dueño := uuid.New()
+			pet := petParaHistoria(dueño, "found")
+			petRepo := &mockPetRepoForStory{}
+			petRepo.findByIDFn = func(id string) (*domain.Pet, error) { return pet, nil }
+
+			creaciones := 0
+			storyRepo := &mockSuccessStoryRepository{
+				getByPetIDFn: func(_ context.Context, _ uuid.UUID) (*domain.SuccessStory, error) {
+					return nil, nil
+				},
+				createFn: func(_ context.Context, s *domain.SuccessStory) error {
+					creaciones++
+					s.ID = uuid.New()
+					return nil
+				},
+			}
+
+			_, err := service.NewSuccessStoryService(storyRepo, petRepo, nil).
+				Create(context.Background(), dueño, dto.CreateStoryRequest{
+					PetID: pet.ID, Body: "volvió", PhotoAfter: c.url,
+				})
+
+			if c.acepta {
+				if errors.Is(err, domain.ErrInvalidInput) {
+					t.Fatalf("rechazó una URL válida: %q", c.url)
+				}
+				if creaciones != 1 {
+					t.Errorf("creaciones = %d, esperaba 1", creaciones)
+				}
+				return
+			}
+			if !errors.Is(err, domain.ErrInvalidInput) {
+				t.Fatalf("aceptó %q — error = %v", c.url, err)
+			}
+			if creaciones != 0 {
+				t.Errorf("guardó la historia igual: %d creaciones", creaciones)
+			}
+		})
+	}
+}
