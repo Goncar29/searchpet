@@ -41,9 +41,15 @@ type MonthlyReunion struct {
 	ReunitedAt time.Time `json:"reunited_at"`
 }
 
-// MonthlyReport is one report created in the month, with its pet's name.
+// MonthlyReport is one report created in the month, with its pet's name and id.
+//
+// PetID travels so the admin table can link each row to the pet's timeline
+// (`/pets/<pet_id>#reporte-<id>`). It is NOT redundant with ID: that one is the
+// report's, and there is no report detail page to link to — the report is
+// reachable only as an entry inside its pet's history.
 type MonthlyReport struct {
 	ID        uuid.UUID `json:"id"`
+	PetID     uuid.UUID `json:"pet_id"`
 	PetName   string    `json:"pet_name"`
 	Status    string    `json:"status"`
 	CreatedAt time.Time `json:"created_at"`
@@ -153,7 +159,7 @@ func (h *MonthlyImpactHandler) compute(month string, start, end time.Time) (*Mon
 
 	reports := make([]MonthlyReport, 0, monthlyRecordCap)
 	if err := h.db.Table("reports AS r").
-		Select("r.id AS id, p.name AS pet_name, r.status AS status, r.created_at AS created_at").
+		Select("r.id AS id, p.id AS pet_id, p.name AS pet_name, r.status AS status, r.created_at AS created_at").
 		Joins("JOIN pets p ON p.id = r.pet_id").
 		Where("r.created_at >= ? AND r.created_at < ?", start, end).
 		Order("r.created_at DESC").

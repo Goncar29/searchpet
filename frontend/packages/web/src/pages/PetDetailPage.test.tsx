@@ -367,3 +367,107 @@ describe('PetDetailPage — honest share gating', () => {
     expect(screen.queryByText(/loginToShare/)).toBeNull();
   });
 });
+
+// El destino del link que arma la tabla "Reportes creados" del panel de impacto.
+// Vive acá y no allá porque son las DOS MITADES de la misma cosa: aquel test
+// afirma que el href apunta a `#reporte-<id>`, y éste que ese id existe. Sin
+// los dos, renombrar el ancla de un lado deja el otro verde y el link muerto.
+describe('PetDetailPage — ancla del historial', () => {
+  function wrapperConHash(hash: string) {
+    return function W({ children }: { children: React.ReactNode }) {
+      return (
+        <HelmetProvider>
+          <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+            <MemoryRouter initialEntries={[`/pets/pet-123${hash}`]}>{children}</MemoryRouter>
+          </QueryClientProvider>
+        </HelmetProvider>
+      );
+    };
+  }
+
+  const dosReportes = [
+    { id: 'r1', pet_id: 'pet-123', status: 'lost', created_at: '2026-07-01T00:00:00Z' },
+    { id: 'r2', pet_id: 'pet-123', status: 'sighting', created_at: '2026-07-02T00:00:00Z' },
+  ];
+
+  beforeEach(() => {
+    authState.isAuthenticated = false;
+    authState.user = null;
+    petResult = { data: lostPetWithOwner({ status: 'lost' }), isLoading: false };
+    reportsState.data = dosReportes;
+    reportsState.isError = false;
+  });
+
+  it('cada entrada del historial lleva el id que el ancla busca', () => {
+    render(<PetDetailPage />, { wrapper: wrapperConHash('') });
+
+    expect(document.getElementById('reporte-r1')).not.toBeNull();
+    expect(document.getElementById('reporte-r2')).not.toBeNull();
+  });
+
+  // El efecto es lo que hace que el link funcione DE VERDAD: el navegador
+  // resuelve el hash al cargar el documento, pero los reportes llegan después
+  // por una query, así que en ese momento el elemento todavía no está en el
+  // DOM y el salto nunca ocurre. Sin esto el link navega y no pasa nada.
+  it('con el hash puesto, salta al reporte una vez que los datos llegaron', () => {
+    const saltos: string[] = [];
+    const original = Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = function () {
+      saltos.push((this as HTMLElement).id);
+    };
+
+    try {
+      render(<PetDetailPage />, { wrapper: wrapperConHash('#reporte-r2') });
+      expect(saltos).toEqual(['reporte-r2']);
+    } finally {
+      Element.prototype.scrollIntoView = original;
+    }
+  });
+
+  // El resaltado NO puede depender de la variante `target:` de CSS. Medido en
+  // el navegador: por URL directa `:target` pinta, pero llegando por CLICK desde
+  // el panel de impacto NO — React Router navega con `pushState` y en ese
+  // instante el elemento del fragmento todavia no existe. El camino por click es
+  // el que la gente usa, asi que el resaltado va por estado.
+  //
+  // Este test se pone rojo si alguien vuelve a las clases `target:`: jsdom no
+  // aplica `:target` nunca, asi que la clase condicional es lo unico
+  // observable.
+  it('marca el reporte de destino con una clase propia, no con :target', () => {
+    render(<PetDetailPage />, { wrapper: wrapperConHash('#reporte-r2') });
+
+    const destino = document.getElementById('reporte-r2');
+    const otro = document.getElementById('reporte-r1');
+    expect(destino?.className).toMatch(/ring-2/);
+    expect(destino?.className).not.toMatch(/target:/);
+    expect(otro?.className).not.toMatch(/ring-2/);
+  });
+
+  // Un hash malformado NO puede voltear la ficha. `decodeURIComponent('%')`
+  // lanza `URIError`, y una excepcion dentro de un `useEffect` propaga: con el
+  // `ErrorBoundary` de `main.tsx` la pagina entera se cae a la pantalla de
+  // error. O sea que `/pets/<id>#%` —un link mal copiado, un truncamiento—
+  // rompia toda la ficha de la mascota, no solo el salto.
+  it('un hash malformado no rompe la pagina', () => {
+    expect(() =>
+      render(<PetDetailPage />, { wrapper: wrapperConHash('#%') }),
+    ).not.toThrow();
+
+    expect(document.getElementById('reporte-r1')).not.toBeNull();
+  });
+
+  it('sin hash no salta a ningún lado', () => {
+    const saltos: string[] = [];
+    const original = Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = function () {
+      saltos.push((this as HTMLElement).id);
+    };
+
+    try {
+      render(<PetDetailPage />, { wrapper: wrapperConHash('') });
+      expect(saltos).toEqual([]);
+    } finally {
+      Element.prototype.scrollIntoView = original;
+    }
+  });
+});

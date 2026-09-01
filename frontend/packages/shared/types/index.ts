@@ -207,6 +207,12 @@ export interface MonthlyImpactReunion {
 
 export interface MonthlyImpactReport {
   id: string;
+  /**
+   * The pet the report belongs to — NOT the same as `id`, which is the
+   * report's. There is no report detail page, so a report is reachable only as
+   * an entry inside its pet's timeline: `/pets/<pet_id>#reporte-<id>`.
+   */
+  pet_id: string;
   pet_name: string;
   status: string;
   created_at: string; // ISO

@@ -20,8 +20,21 @@ const (
 
 // PlatformEvent is an append-only impact-metrics ledger entry. It deliberately
 // has NO foreign key to pets: deleting a pet must NOT remove its history, so the
-// lifetime counters never decrease. PetID is a plain value (nullable) used only
-// to deduplicate pets_reunited; it is never joined back to the pets table.
+// lifetime counters never decrease.
+//
+// PetID IS joined back to the pets table, and the comment here used to claim the
+// opposite ("never joined back"). monthly_impact_handler.go does
+// `JOIN pets p ON p.id = pe.pet_id` for BOTH monthly tables — reunited pets and
+// reports — so that join is what makes the admin impact panel work. Two
+// consequences follow from having no FK, and both are load-bearing:
+//
+//   - An event whose pet was hard-deleted is DROPPED by the join, so the monthly
+//     list is legitimately shorter than the lifetime counter. Intended.
+//   - Nothing cascades, so anything that deletes pets must delete these rows on
+//     its own. `cmd/seed`'s reset has to, and forgetting it re-attached stale
+//     events to recreated pets, because the seed's pet IDs are fixed.
+//
+// The lifetime counters (stats_handler.go) do NOT join — they count rows.
 type PlatformEvent struct {
 	ID        uuid.UUID  `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
 	EventType string     `gorm:"type:varchar(50);not null;index" json:"event_type"`
