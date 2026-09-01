@@ -111,6 +111,34 @@ describe('SheltersAdminPage', () => {
     await waitFor(() => expect(mockedApi.rejectShelterLinks).toHaveBeenCalledWith('sh-2'));
   });
 
+  // Las tres métricas del encabezado salen de la cola que ya está en memoria.
+  // El fixture trae dos: un alta nueva y un cambio de links.
+  it('las métricas parten la cola en altas nuevas y cambios de links', async () => {
+    renderPage();
+    await screen.findByText('Refugio Nuevo');
+
+    const enEspera = screen.getByText('admin:sheltersQueue.statPending').closest('div')?.parentElement;
+    const nuevas = screen.getByText('admin:sheltersQueue.statNew').closest('div')?.parentElement;
+    const links = screen.getByText('admin:sheltersQueue.statLinks').closest('div')?.parentElement;
+
+    expect(enEspera).toHaveTextContent('2');
+    expect(nuevas).toHaveTextContent('1');
+    expect(links).toHaveTextContent('1');
+  });
+
+  // El guard que importa: un "0 en espera" al lado del cartel de error afirma
+  // que la cola está vacía, que es justo lo que NO sabemos cuando la consulta
+  // falló. Es la regla #60 aplicada a lo que vive FUERA de la rama envuelta.
+  it('con la consulta caída las métricas no se dibujan', async () => {
+    mockedApi.getPendingShelters.mockRejectedValue(new Error('boom'));
+    renderPage();
+
+    await screen.findByText('admin:sheltersQueue.error');
+    expect(screen.queryByText('admin:sheltersQueue.statPending')).toBeNull();
+    expect(screen.queryByText('admin:sheltersQueue.statNew')).toBeNull();
+    expect(screen.queryByText('admin:sheltersQueue.statLinks')).toBeNull();
+  });
+
   it('shows the empty state when the queue is clear', async () => {
     mockedApi.getPendingShelters.mockResolvedValue([]);
     renderPage();
@@ -121,7 +149,12 @@ describe('SheltersAdminPage', () => {
     mockedApi.getPendingShelters.mockRejectedValue(new Error('boom'));
     renderPage();
     expect(await screen.findByText('admin:sheltersQueue.error')).toBeTruthy();
-    expect(screen.getByText('admin:sheltersQueue.retry')).toBeTruthy();
+    // `common:retry` y ya no `sheltersQueue.retry`: el botón lo dibuja ahora
+    // `ListState`, que es el mismo primitivo que usan las otras dos pantallas
+    // admin desde el #192. La clave propia quedó sin un solo consumidor y se
+    // borró de los tres locales — una clave que sólo su test usa es la forma
+    // en que `home:results_plural` sobrevivió muerta (regla #12).
+    expect(screen.getByText('common:retry')).toBeTruthy();
     expect(screen.queryByText('admin:sheltersQueue.empty')).toBeNull();
   });
 });

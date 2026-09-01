@@ -133,7 +133,6 @@
       "title": "Pending shelters",
       "loading": "Loading shelters...",
       "error": "Could not load the shelter queue.",
-      "retry": "Retry",
       "empty": "No shelters pending review.",
       "newRegistration": "New registration",
       "linkChange": "Link change",
@@ -150,7 +149,11 @@
       "reasonPlaceholder": "Explain why it is rejected…",
       "confirmReject": "Confirm rejection",
       "cancel": "Cancel",
-      "actionError": "The action could not be completed."
+      "actionError": "The action could not be completed.",
+      "subtitle": "Review new registrations and link changes before they go public",
+      "statPending": "Waiting",
+      "statNew": "New registrations",
+      "statLinks": "Link changes"
     },
     "vets": {
       "title": "Veterinary clinics (OpenStreetMap)",

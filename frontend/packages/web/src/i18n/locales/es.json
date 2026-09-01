@@ -133,7 +133,6 @@
       "title": "Refugios pendientes",
       "loading": "Cargando refugios...",
       "error": "No se pudo cargar la cola de refugios.",
-      "retry": "Reintentar",
       "empty": "No hay refugios pendientes de revisión.",
       "newRegistration": "Registro nuevo",
       "linkChange": "Cambio de links",
@@ -150,7 +149,11 @@
       "reasonPlaceholder": "Explicá por qué se rechaza…",
       "confirmReject": "Confirmar rechazo",
       "cancel": "Cancelar",
-      "actionError": "No se pudo completar la acción."
+      "actionError": "No se pudo completar la acción.",
+      "subtitle": "Revisá las altas nuevas y los cambios de links antes de que se publiquen",
+      "statPending": "En espera",
+      "statNew": "Altas nuevas",
+      "statLinks": "Cambios de links"
     },
     "vets": {
       "title": "Veterinarias (OpenStreetMap)",

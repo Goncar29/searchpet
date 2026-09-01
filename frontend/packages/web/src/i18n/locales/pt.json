@@ -133,7 +133,6 @@
       "title": "Abrigos pendentes",
       "loading": "Carregando abrigos...",
       "error": "Não foi possível carregar a fila de abrigos.",
-      "retry": "Tentar novamente",
       "empty": "Nenhum abrigo pendente de revisão.",
       "newRegistration": "Registro novo",
       "linkChange": "Alteração de links",
@@ -150,7 +149,11 @@
       "reasonPlaceholder": "Explique por que está sendo rejeitado…",
       "confirmReject": "Confirmar rejeição",
       "cancel": "Cancelar",
-      "actionError": "Não foi possível concluir a ação."
+      "actionError": "Não foi possível concluir a ação.",
+      "subtitle": "Revise os novos cadastros e as mudanças de links antes de publicá-los",
+      "statPending": "Na fila",
+      "statNew": "Novos cadastros",
+      "statLinks": "Mudanças de links"
     },
     "vets": {
       "title": "Veterinárias (OpenStreetMap)",
