@@ -91,7 +91,8 @@
         "unfeature": "Quitar destacado",
         "delete": "Eliminar"
       },
-      "confirmDelete": "¿Eliminar la historia \"{{name}}\"? Esta acción no se puede deshacer."
+      "confirmDelete": "¿Eliminar la historia \"{{name}}\"? Esta acción no se puede deshacer.",
+      "subtitle": "Moderá las historias que la comunidad publicó"
     },
     "groups": {
       "title": "Crear grupo local",
@@ -128,7 +129,8 @@
       "actionRevoke": "Revocó",
       "prevPage": "Anterior",
       "nextPage": "Siguiente",
-      "pageOf": "Página {{page}} de {{pages}}"
+      "pageOf": "Página {{page}} de {{pages}}",
+      "subtitle": "Otorgá o quitá el rol de administrador, y mirá quién lo cambió"
     },
     "sheltersQueue": {
       "title": "Refugios pendientes",

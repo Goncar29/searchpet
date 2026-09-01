@@ -59,7 +59,14 @@ export function StoriesAdminPage() {
 
   return (
     <div>
-      <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-6">{t('stories.title')}</h2>
+      <div className="mb-6">
+        {/* `font-semibold` explícito: `font-display` fija la familia y el
+            preflight de Tailwind v4 deja los h1-h6 en `font-weight: inherit`. */}
+        <h2 className="font-display font-semibold text-xl text-gray-900 dark:text-gray-100">
+          {t('stories.title')}
+        </h2>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{t('stories.subtitle')}</p>
+      </div>
 
       <ListState
         query={storiesQuery}

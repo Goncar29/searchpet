@@ -4,6 +4,8 @@ import { useTranslation } from 'react-i18next';
 import { apiClient } from '@shared/api/client';
 import { getErrorMessage } from '@shared/utils/apiErrors';
 import type { AdminAuditEntry, AdminRoleResult } from '@shared/types';
+import { FormSection } from '../../components/form/FormSection';
+import { FormField } from '../../components/form/FormField';
 
 const PAGE_SIZE = 10;
 
@@ -56,20 +58,39 @@ export function AdminsPage() {
 
   return (
     <div>
-      <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-6">{t('admins.title')}</h2>
+      <div className="mb-6">
+        {/* `font-semibold` explícito: `font-display` fija la familia y el
+            preflight de Tailwind v4 deja los h1-h6 en `font-weight: inherit`. */}
+        <h2 className="font-display font-semibold text-xl text-gray-900 dark:text-gray-100">
+          {t('admins.title')}
+        </h2>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{t('admins.subtitle')}</p>
+      </div>
 
-      <div className="max-w-md space-y-3">
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-          {t('admins.emailLabel')}
-        </label>
-        <input
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder={t('admins.emailPlaceholder')}
-          className="w-full px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
-        />
-        <div className="flex gap-2">
+      {/* `max-w-2xl` y no `max-w-md`: con los 32px de padding de `FormSection`
+          a cada lado, 448px dejaban el campo en ~384px (la medición del #201). */}
+      <div className="max-w-2xl mb-10">
+        <FormSection>
+          {/* El `<label>` que había acá NO tenía `htmlFor` y el `<input>` no
+              tenía `id`: el campo donde se escribe el email de alguien a quien
+              se le va a dar o sacar admin NO TENÍA NOMBRE ACCESIBLE. Se veía
+              perfecto y un lector anunciaba un cuadro de texto sin decir de
+              qué. `FormField` lo cierra por construcción — su render prop hace
+              imposible olvidarse el cableado. */}
+          <FormField label={t('admins.emailLabel')} htmlFor="admin-email">
+            {(control) => (
+              <input
+                {...control}
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder={t('admins.emailPlaceholder')}
+                className="w-full px-3 py-2 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
+              />
+            )}
+          </FormField>
+
+        <div className="flex gap-2 mt-4">
           <button
             onClick={() => submit(true)}
             disabled={mutation.isPending || !email.trim()}
@@ -85,11 +106,24 @@ export function AdminsPage() {
             {t('admins.revoke')}
           </button>
         </div>
-        {notice && <p className="text-sm text-green-600 dark:text-green-400">{notice}</p>}
-        {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+          {/* `role="status"` y `role="alert"`: el resultado de otorgar o revocar
+              admin no puede quedar sólo en el color de un párrafo que aparece
+              abajo — quien no ve la pantalla no se entera de si la acción
+              ocurrió. El aviso de éxito no interrumpe; el error sí. */}
+          {notice && (
+            <p role="status" className="text-sm text-green-600 dark:text-green-400 mt-3">
+              {notice}
+            </p>
+          )}
+          {error && (
+            <p role="alert" className="text-sm text-red-600 dark:text-red-400 mt-3">
+              {error}
+            </p>
+          )}
+        </FormSection>
       </div>
 
-      <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mt-10 mb-4">
+      <h3 className="font-display font-semibold text-lg text-gray-900 dark:text-gray-100 mb-4">
         {t('admins.recentTitle')}
       </h3>
       {isLoading ? (

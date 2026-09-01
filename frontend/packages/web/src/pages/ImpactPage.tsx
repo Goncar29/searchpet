@@ -6,6 +6,7 @@ import type { ImpactMonthlyCount } from '@shared/types';
 import { ImpactLineChart } from '../components/ImpactLineChart';
 import { MonthlyImpactSection } from '../components/MonthlyImpactSection';
 import { Logo } from '../components/Logo';
+import { Icon } from '../components/Icon';
 
 function StatTile({ value, label, accent }: { value: string; label: string; accent?: string }) {
   return (
@@ -175,10 +176,16 @@ export function ImpactPage() {
     <div className="mx-auto max-w-7xl">
       <header className="mb-8 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="flex items-center gap-2.5 text-3xl font-extrabold text-gray-900 dark:text-gray-50">
+          {/* `<h2>` y ya no `<h1>`. Esta pantalla vive DENTRO de `AdminLayout`,
+              que trae el `<h1>` del panel, así que `/admin/impact` tenía DOS h1
+              — el defecto es preexistente (el layout ya lo tenía antes de esta
+              tanda) y se cierra acá, que es donde vive el sobrante. Las otras
+              siete pantallas del panel ya usaban `<h2>`; ésta era la distinta,
+              porque nació como página pública y quedó admin-only después. */}
+          <h2 className="flex items-center gap-2.5 font-display text-3xl font-extrabold text-gray-900 dark:text-gray-50">
             {t('impact:title')}
             <Logo tight className="h-6 w-auto shrink-0 text-primary" />
-          </h1>
+          </h2>
           <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">{t('impact:subtitle')}</p>
         </div>
         <button
@@ -186,7 +193,14 @@ export function ImpactPage() {
           disabled={isSharing}
           className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {isSharing ? <span className="animate-spin">⏳</span> : '📸'}
+          {/* Los dos emojis pasan a íconos. El ⏳ era además el único indicador
+              de que la acción está en curso para quien no distingue el cambio
+              de texto: como ícono decorativo el estado sigue estando en el
+              texto del botón, que es lo que un lector anuncia. */}
+          <Icon
+            name={isSharing ? 'hourglass' : 'photo-camera'}
+            className={`h-4 w-4 flex-shrink-0${isSharing ? ' animate-spin' : ''}`}
+          />
           {isSharing ? t('impact:sharing') : t('impact:share')}
         </button>
       </header>
@@ -249,7 +263,14 @@ export function ImpactPage() {
                 <li key={slice.type}>
                   <div className="mb-1 flex items-center justify-between text-sm">
                     <span className="font-medium text-gray-700 dark:text-gray-300">
-                      {PET_TYPE_EMOJI[slice.type] ?? '🐾'} {petTypeLabel(slice.type)}
+                      {/* Estos cuatro NO se sustituyen por íconos, a diferencia
+                          de los del resto de la tanda: el set no tiene perro,
+                          gato ni ave — sólo la pata— así que mapearlos todos a
+                          `pets` borraría la distinción que el emoji aporta.
+                          Se esconden del lector porque la etiqueta de al lado
+                          ya dice la especie: sin esto se oye "perro perro". */}
+                      <span aria-hidden="true">{PET_TYPE_EMOJI[slice.type] ?? '🐾'}</span>{' '}
+                      {petTypeLabel(slice.type)}
                     </span>
                     <span className="tabular-nums text-gray-500 dark:text-gray-400">
                       {nf.format(slice.count)}
