@@ -1,8 +1,8 @@
 // ============================================================
 // PetDetailPage
 // ============================================================
-import { useParams, Link } from 'react-router';
-import { useState } from 'react';
+import { useParams, Link, useLocation } from 'react-router';
+import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { PawPlaceholder } from '../components/PawPlaceholder';
 import { Helmet } from 'react-helmet-async';
@@ -34,6 +34,24 @@ export function PetDetailPage() {
   const [showFoundConfirm, setShowFoundConfirm] = useState(false);
   const [showStoryNudge, setShowStoryNudge] = useState(false);
   const [activePhotoIndex, setActivePhotoIndex] = useState(0);
+
+  // El ancla `#reporte-<id>` NO se resuelve sola, y por eso existe este efecto.
+  // El navegador procesa el hash cuando termina de cargar el documento, pero
+  // los reportes llegan DESPUÉS, por una query: en ese momento el elemento
+  // todavía no está en el DOM, así que el salto no ocurre y el link parece no
+  // hacer nada. Hay que esperar a que los datos estén y recién ahí buscarlo.
+  //
+  // Depende de `reportsQuery.data` y no de `location.hash` a secas: el hash ya
+  // está desde el primer render — lo que cambia es que el destino aparezca.
+  const { hash } = useLocation();
+  useEffect(() => {
+    if (!hash || !reportsQuery.data) return;
+    // `decodeURIComponent` porque un hash viaja escapado; y `CSS.escape` no
+    // hace falta si el id es `reporte-<uuid>`, pero `getElementById` no
+    // interpreta selectores, así que es el camino seguro de todos modos.
+    const destino = document.getElementById(decodeURIComponent(hash.slice(1)));
+    if (destino) destino.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, [hash, reportsQuery.data]);
 
   if (isLoading) {
     return (
@@ -699,7 +717,17 @@ export function PetDetailPage() {
                 </h3>
                 <div className="space-y-0">
                   {reports.map((report: Report, index: number) => (
-                    <div key={report.id} className="flex gap-3 relative">
+                    // El `id` es el destino del ancla que arma la tabla de
+                    // "Reportes creados" del panel de impacto
+                    // (`/pets/<id>#reporte-<reportId>`). `scroll-mt-24` deja
+                    // aire para el navbar pegajoso: sin eso el reporte queda
+                    // JUSTO debajo de la barra, tapado, y el link parece no
+                    // haber hecho nada. `target:` lo resalta al llegar.
+                    <div
+                      key={report.id}
+                      id={`reporte-${report.id}`}
+                      className="flex gap-3 relative scroll-mt-24 rounded-lg target:bg-primary/5 target:ring-2 target:ring-primary/30"
+                    >
                       {/* Línea conectora — visible entre entradas consecutivas */}
                       {index < reports.length - 1 && (
                         <div

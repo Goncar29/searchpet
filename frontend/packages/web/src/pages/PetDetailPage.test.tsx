@@ -367,3 +367,75 @@ describe('PetDetailPage — honest share gating', () => {
     expect(screen.queryByText(/loginToShare/)).toBeNull();
   });
 });
+
+// El destino del link que arma la tabla "Reportes creados" del panel de impacto.
+// Vive acá y no allá porque son las DOS MITADES de la misma cosa: aquel test
+// afirma que el href apunta a `#reporte-<id>`, y éste que ese id existe. Sin
+// los dos, renombrar el ancla de un lado deja el otro verde y el link muerto.
+describe('PetDetailPage — ancla del historial', () => {
+  function wrapperConHash(hash: string) {
+    return function W({ children }: { children: React.ReactNode }) {
+      return (
+        <HelmetProvider>
+          <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+            <MemoryRouter initialEntries={[`/pets/pet-123${hash}`]}>{children}</MemoryRouter>
+          </QueryClientProvider>
+        </HelmetProvider>
+      );
+    };
+  }
+
+  const dosReportes = [
+    { id: 'r1', pet_id: 'pet-123', status: 'lost', created_at: '2026-07-01T00:00:00Z' },
+    { id: 'r2', pet_id: 'pet-123', status: 'sighting', created_at: '2026-07-02T00:00:00Z' },
+  ];
+
+  beforeEach(() => {
+    authState.isAuthenticated = false;
+    authState.user = null;
+    petResult = { data: lostPetWithOwner({ status: 'lost' }), isLoading: false };
+    reportsState.data = dosReportes;
+    reportsState.isError = false;
+  });
+
+  it('cada entrada del historial lleva el id que el ancla busca', () => {
+    render(<PetDetailPage />, { wrapper: wrapperConHash('') });
+
+    expect(document.getElementById('reporte-r1')).not.toBeNull();
+    expect(document.getElementById('reporte-r2')).not.toBeNull();
+  });
+
+  // El efecto es lo que hace que el link funcione DE VERDAD: el navegador
+  // resuelve el hash al cargar el documento, pero los reportes llegan después
+  // por una query, así que en ese momento el elemento todavía no está en el
+  // DOM y el salto nunca ocurre. Sin esto el link navega y no pasa nada.
+  it('con el hash puesto, salta al reporte una vez que los datos llegaron', () => {
+    const saltos: string[] = [];
+    const original = Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = function () {
+      saltos.push((this as HTMLElement).id);
+    };
+
+    try {
+      render(<PetDetailPage />, { wrapper: wrapperConHash('#reporte-r2') });
+      expect(saltos).toEqual(['reporte-r2']);
+    } finally {
+      Element.prototype.scrollIntoView = original;
+    }
+  });
+
+  it('sin hash no salta a ningún lado', () => {
+    const saltos: string[] = [];
+    const original = Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = function () {
+      saltos.push((this as HTMLElement).id);
+    };
+
+    try {
+      render(<PetDetailPage />, { wrapper: wrapperConHash('') });
+      expect(saltos).toEqual([]);
+    } finally {
+      Element.prototype.scrollIntoView = original;
+    }
+  });
+});

@@ -121,7 +121,19 @@ export function MonthlyImpactSection({
                   <tbody>
                     {data.reports.map((r) => (
                       <tr key={r.id} className="border-t border-gray-100 dark:border-gray-800">
-                        <td className="py-2 text-gray-700 dark:text-gray-300">{r.pet_name}</td>
+                        <td className="py-2">
+                          {/* Apunta a la MASCOTA con ancla al reporte, no a una
+                              página de reporte: esa no existe. Un reporte sólo
+                              es alcanzable como entrada del historial de su
+                              mascota, y el ancla es lo que evita que el link
+                              te deje arriba de la ficha buscándolo a ojo. */}
+                          <Link
+                            to={`/pets/${r.pet_id}#reporte-${r.id}`}
+                            className="font-medium text-primary hover:underline"
+                          >
+                            {r.pet_name}
+                          </Link>
+                        </td>
                         <td className="py-2 text-gray-500 dark:text-gray-400">{r.status}</td>
                         <td className="py-2 text-right text-gray-500 dark:text-gray-400">{fmtDate(r.created_at)}</td>
                       </tr>
