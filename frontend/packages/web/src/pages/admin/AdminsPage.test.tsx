@@ -3,6 +3,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router';
 import { apiClient } from '@shared/api/client';
+import { controlClass } from '../../components/form/FormField';
 import { AdminsPage } from './AdminsPage';
 
 /**
@@ -104,6 +105,22 @@ describe('AdminsPage', () => {
     pintar();
 
     expect(screen.getByLabelText('admins.emailLabel')).toBeTruthy();
+  });
+
+  // Se afirma contra `controlClass()` y NO contra un padding concreto: lo que
+  // importa es que el control lleve la clase que `FormField` le entrega, no
+  // cuánto mide. Atarlo a `px-6` se rompería el día que el sistema cambie su
+  // densidad, sin que nada se hubiera roto.
+  //
+  // Existe porque el control SÍ se pisaba: `{...control}` traía el className del
+  // sistema y un `className=` literal escrito después lo sobreescribía entero
+  // (en JSX gana la prop posterior). El campo quedaba con el estilado viejo y
+  // sin el `focus:ring` del sistema. Nada lo delataba: `id` y `htmlFor` no se
+  // pisan, así que el nombre accesible estaba bien y `getByLabelText` pasaba.
+  it('el input adopta el estilado que le entrega FormField', () => {
+    pintar();
+
+    expect(screen.getByLabelText('admins.emailLabel').className).toBe(controlClass());
   });
 
   it('sin email los dos botones están deshabilitados', () => {
