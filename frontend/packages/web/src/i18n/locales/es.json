@@ -835,7 +835,8 @@
       "heroPlaceholder": "Ej. la vecina del kiosco y el Refugio Esperanza",
       "photoSection": "La foto del reencuentro",
       "photoDropTitle": "Subí la foto del momento",
-      "photoDropHint": "JPG, PNG o WebP, hasta 5 MB"
+      "photoDropHint": "JPG, PNG o WebP, hasta 5 MB",
+      "alreadyHasStory": "Esta mascota ya tiene su historia publicada. Elegí otra para contar una nueva."
     },
     "title": "Historias de éxito",
     "subtitle": "Mascotas que volvieron a casa gracias a la comunidad.",

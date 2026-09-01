@@ -995,6 +995,32 @@ export const useCreateStory = () => {
 };
 
 /**
+ * La historia de una mascota, si la tiene.
+ *
+ * OJO CON EL CONTRATO: el endpoint devuelve **404 `story_not_found`** cuando no
+ * hay historia, así que la ausencia llega como ERROR y no como `data: null`.
+ * Quien consuma este hook tiene que distinguir tres estados y no dos:
+ *
+ *   - `data` presente  → la mascota YA tiene historia
+ *   - error `story_not_found` → NO tiene, y se puede escribir una
+ *   - cualquier otro error → NO SABEMOS
+ *
+ * Colapsar los dos últimos en "no tiene" es lo correcto por defecto (deja
+ * seguir), pero tratarlos como iguales al revés —bloquear ante cualquier
+ * error— le negaría la pantalla a alguien por un 500 pasajero.
+ *
+ * `retry: false` porque un 404 acá es una RESPUESTA, no un fallo: reintentarlo
+ * tres veces sólo demora el veredicto que ya tenemos.
+ */
+export const useStoryByPetID = (petId: string) =>
+  useQuery<SuccessStory>({
+    queryKey: ['stories', 'pet', petId],
+    queryFn: () => apiClient.getStoryByPetID(petId),
+    enabled: !!petId,
+    retry: false,
+  });
+
+/**
  * Sube la foto del reencuentro y devuelve su URL para meterla en el formulario.
  *
  * NO invalida ninguna query, y es a propósito: este upload no persiste nada del

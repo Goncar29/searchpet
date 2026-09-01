@@ -835,7 +835,8 @@
       "heroPlaceholder": "e.g. the neighbour at the corner shop and Refugio Esperanza",
       "photoSection": "The reunion photo",
       "photoDropTitle": "Upload the photo of the moment",
-      "photoDropHint": "JPG, PNG or WebP, up to 5 MB"
+      "photoDropHint": "JPG, PNG or WebP, up to 5 MB",
+      "alreadyHasStory": "This pet already has its story published. Pick another one to write a new story."
     },
     "title": "Success stories",
     "subtitle": "Pets that made it home thanks to the community.",

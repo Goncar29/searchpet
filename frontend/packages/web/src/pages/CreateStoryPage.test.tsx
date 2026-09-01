@@ -20,6 +20,7 @@ vi.mock('react-router', async (importOriginal) => {
 // `mutate`, no `mutateAsync`: la página llama al primero.
 const mutate = vi.fn();
 const uploadPhotoMutate = vi.fn();
+let historiaExistente: unknown = undefined;
 let myPets: unknown[] = [];
 let reportedPets: unknown[] = [];
 // Una query que FALLA devuelve `data: undefined`, no una lista vacía. El mock
@@ -39,6 +40,13 @@ vi.mock('@shared/hooks', () => ({
   // exhaustivo, así que olvidarse no da un error claro — tira las 20 pruebas
   // del archivo con "is not a function" (regla #17).
   useUploadStoryPhoto: () => ({ mutate: uploadPhotoMutate, isPending: false }),
+  // El endpoint devuelve 404 cuando NO hay historia, así que la ausencia llega
+  // como ERROR y no como `data: null`. El mock tiene que poder representar los
+  // TRES estados o el arnés no puede ver la diferencia que importa.
+  useStoryByPetID: () => ({
+    data: historiaExistente,
+    isError: !historiaExistente,
+  }),
   useMyPets: () => ({
     data: mineFailed ? undefined : myPets,
     isPending: false,
@@ -61,6 +69,7 @@ const perdida = { id: 'pet-lost', name: 'Toby', type: 'gato', status: 'lost' };
 beforeEach(() => {
   mutate.mockClear();
   uploadPhotoMutate.mockClear();
+  historiaExistente = undefined;
   refetchMine.mockClear();
   refetchReported.mockClear();
   searchParams = new URLSearchParams();
@@ -483,6 +492,55 @@ describe('CreateStoryPage', () => {
       elegirArchivo(grande);
 
       expect(screen.getByText(/create.photoTooLarge/)).toBeInTheDocument();
+    });
+  });
+
+  // ============================================================
+  // Una mascota, una historia
+  // ============================================================
+  describe('cuando la mascota ya tiene su historia', () => {
+    beforeEach(() => {
+      searchParams = new URLSearchParams({ petId: 'pet-found' });
+      myPets = [encontrada];
+    });
+
+    // El backend rechaza la segunda con 409. Sin este aviso el usuario escribe
+    // el relato entero para que se lo devuelvan — el mismo defecto que esta
+    // pantalla ya cerraba para el estado `found`, por otra causa.
+    it('avisa ANTES de escribir y no deja publicar', () => {
+      historiaExistente = { id: 'st-1', pet_id: 'pet-found' };
+      const { container } = render(<CreateStoryPage />, { wrapper });
+
+      expect(screen.getByText(/create.alreadyHasStory/)).toBeInTheDocument();
+      const submit = [...container.querySelectorAll('button')].find(
+        (b) => b.getAttribute('type') === 'submit',
+      );
+      expect(submit).toBeDisabled();
+    });
+
+    it('ni siquiera intenta publicar si se fuerza el submit', () => {
+      historiaExistente = { id: 'st-1', pet_id: 'pet-found' };
+      const { container } = render(<CreateStoryPage />, { wrapper });
+
+      fireEvent.change(container.querySelector('#story-body')!, { target: { value: 'otra vez' } });
+      fireEvent.submit(container.querySelector('form')!);
+
+      expect(mutate).not.toHaveBeenCalled();
+      expect(uploadPhotoMutate).not.toHaveBeenCalled();
+    });
+
+    // La distincion que importa: 404 significa "no tiene", no "fallo".
+    // Bloquear ante cualquier error le negaria la pantalla a alguien por un 500
+    // pasajero, y el backend rechaza igual con un mensaje claro.
+    it('sin historia (404) deja escribir con normalidad', () => {
+      historiaExistente = undefined;
+      const { container } = render(<CreateStoryPage />, { wrapper });
+
+      expect(screen.queryByText(/create.alreadyHasStory/)).toBeNull();
+      fireEvent.change(container.querySelector('#story-body')!, { target: { value: 'volvio' } });
+      fireEvent.submit(container.querySelector('form')!);
+
+      expect(mutate).toHaveBeenCalledTimes(1);
     });
   });
 });

@@ -5,7 +5,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { useTranslation } from 'react-i18next';
-import { useCreateStory, useMyPets, useReportedPets, useUploadStoryPhoto } from '@shared/hooks';
+import { useCreateStory, useMyPets, useReportedPets, useUploadStoryPhoto, useStoryByPetID } from '@shared/hooks';
 import { getErrorMessage } from '@shared/utils/apiErrors';
 import { MY_PETS_ROUTE, myPetsRoute } from '../routes';
 import { Icon } from '../components/Icon';
@@ -137,6 +137,21 @@ export function CreateStoryPage() {
   const presetEsReportada = !!presetPetId && (reportedPets ?? []).some((p) => p.id === presetPetId);
   const destinoDelCta = presetEsReportada ? myPetsRoute('reported') : MY_PETS_ROUTE;
 
+  // ¿Esta mascota YA tiene su historia?
+  //
+  // Se pregunta al ELEGIRLA y no al enviar, y ahí está todo el punto: el
+  // backend rechaza con 409 una segunda historia, así que sin este chequeo el
+  // usuario escribe el relato entero para que se lo devuelvan. Es exactamente
+  // el defecto que esta pantalla ya cerraba para el estado `found` —está en el
+  // comentario de `eligiblePets`— reaparecido por otra causa.
+  //
+  // El endpoint devuelve 404 cuando NO hay historia, así que la ausencia llega
+  // como error. `data` presente es la única señal positiva, y cualquier fallo
+  // deja seguir: negarle la pantalla a alguien por un 500 pasajero sería peor
+  // que el problema, y el backend rechaza igual con un mensaje claro.
+  const historiaQuery = useStoryByPetID(petId);
+  const yaTieneHistoria = !!historiaQuery.data;
+
   const [title, setTitle] = useState('');
   const [heroName, setHeroName] = useState('');
   const [body, setBody] = useState('');
@@ -205,6 +220,14 @@ export function CreateStoryPage() {
       return;
     }
     setBodyError('');
+
+    // Ultimo freno antes de gastar una subida y un insert que el backend va a
+    // rechazar con 409. El aviso ya esta en pantalla desde que se eligio la
+    // mascota; esto cubre el caso de que la respuesta llegue mientras escribia.
+    if (yaTieneHistoria) {
+      setApiError(t('create.alreadyHasStory'));
+      return;
+    }
 
     const publicar = (photoAfter?: string) =>
       createStory.mutate(
@@ -553,6 +576,15 @@ export function CreateStoryPage() {
           </FormField>
         </FormSection>
 
+        {yaTieneHistoria && (
+          <p
+            role="status"
+            className="rounded-xl border border-yellow-200 dark:border-yellow-900 bg-yellow-50 dark:bg-yellow-950 px-4 py-3 text-sm text-yellow-800 dark:text-yellow-200"
+          >
+            {t('create.alreadyHasStory')}
+          </p>
+        )}
+
         {apiError && (
           <div
             role="alert"
@@ -574,7 +606,11 @@ export function CreateStoryPage() {
             </button>
           }
           submit={
-            <button type="submit" disabled={createStory.isPending} className={formSubmitClass}>
+            <button
+              type="submit"
+              disabled={createStory.isPending || uploadPhoto.isPending || yaTieneHistoria}
+              className={formSubmitClass}
+            >
               {createStory.isPending ? t('create.submitting') : t('create.submit')}
             </button>
           }

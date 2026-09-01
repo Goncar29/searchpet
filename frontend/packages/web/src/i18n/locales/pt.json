@@ -835,7 +835,8 @@
       "heroPlaceholder": "Ex. a vizinha da banca e o Refugio Esperanza",
       "photoSection": "A foto do reencontro",
       "photoDropTitle": "Envie a foto do momento",
-      "photoDropHint": "JPG, PNG ou WebP, até 5 MB"
+      "photoDropHint": "JPG, PNG ou WebP, até 5 MB",
+      "alreadyHasStory": "Este pet já tem sua história publicada. Escolha outro para contar uma nova."
     },
     "title": "Histórias de sucesso",
     "subtitle": "Animais que voltaram para casa graças à comunidade.",
