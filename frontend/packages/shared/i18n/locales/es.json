@@ -497,7 +497,8 @@
     "google_email_unverified": "Tu cuenta de Google no tiene el email verificado. Verificalo en Google y volvé a intentar.",
     "google_signin_unavailable": "El inicio de sesión con Google no está disponible en este momento.",
     "google_account_mismatch": "Este email ya está vinculado a otra cuenta de Google.",
-    "session_expired": "Tu sesión expiró. Volvé a iniciar sesión."
+    "session_expired": "Tu sesión expiró. Volvé a iniciar sesión.",
+    "story_already_exists": "Esta mascota ya tiene su historia publicada"
   },
   "publish": {
     "back": "Volver a las opciones",
