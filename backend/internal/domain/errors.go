@@ -91,6 +91,7 @@ var (
 
 	// Community (V1.3)
 	ErrStoryNotFound       = errors.New("historia no encontrada")
+	ErrStoryAlreadyExists  = errors.New("esta mascota ya tiene su historia")
 	ErrGroupNotFound       = errors.New("grupo no encontrado")
 	ErrCityGroupExists     = errors.New("ya existe un grupo para esta ciudad")
 	ErrAlreadyMember       = errors.New("ya eres miembro de este grupo")
@@ -240,6 +241,7 @@ var ErrorCodes = map[error]string{
 
 	// Community
 	ErrStoryNotFound:       "story_not_found",
+	ErrStoryAlreadyExists:  "story_already_exists",
 	ErrGroupNotFound:       "group_not_found",
 	ErrCityGroupExists:     "city_group_exists",
 	ErrAlreadyMember:       "already_member",

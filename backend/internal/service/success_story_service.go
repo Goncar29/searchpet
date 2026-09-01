@@ -68,6 +68,25 @@ func (s *successStoryService) UploadPhoto(
 	if pet.Status != "found" {
 		return "", domain.ErrPetNotFoundStatus
 	}
+
+	// UNA MASCOTA, UNA HISTORIA, UNA FOTO.
+	//
+	// Con la historia ya publicada no queda dónde poner la foto, así que subirla
+	// sólo gastaría cuota. Este chequeo es lo que cierra el bucle del gate: antes
+	// de publicar, el usuario puede cambiar de foto mientras elige —uso legítimo—
+	// y una vez publicada, el endpoint deja de aceptarle nada para esa mascota.
+	//
+	// `GetByPetID` devuelve (nil, nil) cuando no hay historia, así que el error
+	// se propaga y la ausencia NO se confunde con un fallo de lectura: sin esa
+	// distinción, una base caída dejaría subir libremente.
+	existente, err := s.repo.GetByPetID(ctx, pet.ID)
+	if err != nil {
+		return "", err
+	}
+	if existente != nil {
+		return "", domain.ErrStoryAlreadyExists
+	}
+
 	if s.storage == nil {
 		return "", domain.ErrStorageFailed
 	}
@@ -104,6 +123,26 @@ func (s *successStoryService) Create(ctx context.Context, userID uuid.UUID, req 
 
 	if pet.Status != "found" {
 		return nil, domain.ErrPetNotFoundStatus
+	}
+
+	// Una mascota tiene UNA historia. No estaba chequeado: `Create` insertaba sin
+	// mirar, y `success_stories.pet_id` es `index` y no `uniqueIndex`, así que se
+	// podían acumular varias historias para la misma mascota. `GetByPetID`
+	// devuelve una sola, con lo cual las demás quedaban invisibles por ese
+	// endpoint pero visibles en la lista pública.
+	//
+	// El chequeo va en el service y NO en un índice único de la tabla, y la
+	// diferencia importa: un `uniqueIndex` nuevo hace fallar el AutoMigrate si la
+	// base YA tiene duplicados, y eso tumba el deploy (la familia de la regla
+	// #35). Local está en cero, pero producción no se pudo verificar. El índice
+	// es la garantía dura y va aparte, después de comprobar que no hay filas que
+	// lo violen.
+	existente, err := s.repo.GetByPetID(ctx, req.PetID)
+	if err != nil {
+		return nil, err
+	}
+	if existente != nil {
+		return nil, domain.ErrStoryAlreadyExists
 	}
 
 	story := &domain.SuccessStory{

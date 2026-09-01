@@ -89,6 +89,8 @@ func (h *SuccessStoryHandler) UploadPhoto(c *gin.Context) {
 			writeError(c, http.StatusForbidden, err)
 		case errors.Is(err, domain.ErrPetNotFoundStatus):
 			writeError(c, http.StatusUnprocessableEntity, err)
+		case errors.Is(err, domain.ErrStoryAlreadyExists):
+			writeError(c, http.StatusConflict, err)
 		case errors.Is(err, domain.ErrStorageFailed):
 			writeError(c, http.StatusBadGateway, err)
 		default:
@@ -118,15 +120,24 @@ func (h *SuccessStoryHandler) Create(c *gin.Context) {
 
 	story, err := h.storyService.Create(c.Request.Context(), callerID, req)
 	if err != nil {
-		if errors.Is(err, domain.ErrPetNotFound) {
+		switch {
+		case errors.Is(err, domain.ErrPetNotFound):
 			writeError(c, http.StatusNotFound, err)
-			return
-		}
-		if errors.Is(err, domain.ErrPetNotFoundStatus) {
+		case errors.Is(err, domain.ErrPetNotFoundStatus):
 			writeError(c, http.StatusUnprocessableEntity, err)
-			return
+		// `ErrForbidden` NO estaba mapeado: el service lo devuelve desde su
+		// chequeo de `canManagePet`, pero acá caía en el `default` y salía como
+		// 500 "ocurrió un error inesperado". Quien intentaba escribir la
+		// historia de una mascota ajena leía un error de servidor en vez de
+		// enterarse de que no le corresponde — y el código `internal_error` le
+		// dice al frontend que reintente algo que nunca va a funcionar.
+		case errors.Is(err, domain.ErrForbidden):
+			writeError(c, http.StatusForbidden, err)
+		case errors.Is(err, domain.ErrStoryAlreadyExists):
+			writeError(c, http.StatusConflict, err)
+		default:
+			writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		}
-		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		return
 	}
 
