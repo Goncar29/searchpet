@@ -818,7 +818,17 @@
       "optionalHint": "(opcional)",
       "submit": "Publicar história",
       "submitting": "Publicando…",
-      "cancel": "Cancelar"
+      "cancel": "Cancelar",
+      "photoLabel": "Foto do reencontro",
+      "photoHelp": "Aparece no topo da sua história. Até 5 MB — JPG, PNG ou WebP.",
+      "photoChoose": "Escolher uma foto",
+      "photoChange": "Trocar a foto",
+      "photoRemove": "Remover a foto",
+      "photoAlt": "Prévia da foto que você escolheu",
+      "photoTooLarge": "Essa foto tem mais de 5 MB. Tente uma mais leve.",
+      "photoWrongType": "Esse arquivo não é uma imagem. Aceitamos JPG, PNG ou WebP.",
+      "photoUploadFailed": "Não foi possível enviar a foto, então a história não foi publicada. Tente de novo ou remova a foto para publicar sem ela.",
+      "photoUploading": "Enviando a foto…"
     },
     "title": "Histórias de sucesso",
     "subtitle": "Animais que voltaram para casa graças à comunidade.",

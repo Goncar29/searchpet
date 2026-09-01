@@ -738,6 +738,19 @@ export interface CreateStoryRequest {
   title?: string;
   body: string;
   hero_name?: string;
+  /**
+   * URL de Cloudinary de la foto del reencuentro, OPCIONAL.
+   *
+   * No es el archivo: se sube antes con `uploadStoryPhoto`, que devuelve esta
+   * URL. El backend la acepta desde siempre (`CreateStoryRequest.PhotoBefore` /
+   * `PhotoAfter`, `size:500`) y `StoryDetailPage` ya la dibuja — lo único que
+   * faltaba era un formulario que la mandara.
+   *
+   * Se usa `photo_after` y no `photo_before` porque la foto que el usuario tiene
+   * a mano al contar la historia es la del reencuentro. `photo_before` sigue en
+   * el modelo, sin consumidor, para el día que se quiera el par completo.
+   */
+  photo_after?: string;
 }
 
 export type StoryListResponse = SuccessStory[];

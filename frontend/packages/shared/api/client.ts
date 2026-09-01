@@ -368,6 +368,41 @@ class APIClient {
     return response.json();
   }
 
+  /**
+   * Sube la foto del reencuentro y devuelve su URL, sin persistir nada.
+   *
+   * El `pet_id` viaja en el form y NO es decorativo: el backend repite con él la
+   * misma autorización que crear la historia (mascota propia o reportada, en
+   * estado `found`). Sin ese gate, el endpoint sería una vía libre para quemar
+   * la cuota de Cloudinary, porque a diferencia de los otros uploads éste no
+   * persiste y por lo tanto no tiene tope propio.
+   *
+   * El formato lo decide el backend: `UploadImage` convierte todo a webp con
+   * `w_1200,c_limit,q_80`. Acá no se optimiza nada.
+   */
+  async uploadStoryPhoto(petId: string, file: File): Promise<{ url: string }> {
+    const url = `${this.baseURL}/api/stories/photos`;
+    const formData = new FormData();
+    formData.append('photo', file);
+    formData.append('pet_id', petId);
+
+    const headers: Record<string, string> = {};
+    if (this.token) headers['Authorization'] = `Bearer ${this.token}`;
+
+    const response = await fetchWithTimeout(url, { method: 'POST', headers, body: formData }, UPLOAD_TIMEOUT_MS);
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      const code = body.code ?? 'unknown_error';
+      const message = body.message ?? `HTTP Error ${response.status}`;
+      if (response.status === 401) {
+        this.token = null;
+        notifySessionExpired(code);
+      }
+      throw new ApiError(code, response.status, message);
+    }
+    return response.json();
+  }
+
   // ============================================================
   // PETS
   // ============================================================

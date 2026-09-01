@@ -818,7 +818,17 @@
       "optionalHint": "(optional)",
       "submit": "Publish story",
       "submitting": "Publishing…",
-      "cancel": "Cancel"
+      "cancel": "Cancel",
+      "photoLabel": "Reunion photo",
+      "photoHelp": "Shown at the top of your story. Up to 5 MB — JPG, PNG or WebP.",
+      "photoChoose": "Choose a photo",
+      "photoChange": "Change photo",
+      "photoRemove": "Remove photo",
+      "photoAlt": "Preview of the photo you chose",
+      "photoTooLarge": "That photo is over 5 MB. Try a lighter one.",
+      "photoWrongType": "That file is not an image. JPG, PNG or WebP are accepted.",
+      "photoUploadFailed": "The photo could not be uploaded, so the story was not published. Try again, or remove the photo to publish without it.",
+      "photoUploading": "Uploading photo…"
     },
     "title": "Success stories",
     "subtitle": "Pets that made it home thanks to the community.",
