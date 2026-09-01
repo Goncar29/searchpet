@@ -828,7 +828,14 @@
       "photoTooLarge": "Essa foto tem mais de 5 MB. Tente uma mais leve.",
       "photoWrongType": "Esse arquivo não é uma imagem. Aceitamos JPG, PNG ou WebP.",
       "photoUploadFailed": "Não foi possível enviar a foto, então a história não foi publicada. Tente de novo ou remova a foto para publicar sem ela.",
-      "photoUploading": "Enviando a foto…"
+      "photoUploading": "Enviando a foto…",
+      "optionalChip": "Opcional",
+      "heroSection": "Agradecimentos",
+      "heroLabel": "Mencione quem ajudou você",
+      "heroPlaceholder": "Ex. a vizinha da banca e o Refugio Esperanza",
+      "photoSection": "A foto do reencontro",
+      "photoDropTitle": "Envie a foto do momento",
+      "photoDropHint": "JPG, PNG ou WebP, até 5 MB"
     },
     "title": "Histórias de sucesso",
     "subtitle": "Animais que voltaram para casa graças à comunidade.",

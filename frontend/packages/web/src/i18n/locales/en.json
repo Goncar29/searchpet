@@ -828,7 +828,14 @@
       "photoTooLarge": "That photo is over 5 MB. Try a lighter one.",
       "photoWrongType": "That file is not an image. JPG, PNG or WebP are accepted.",
       "photoUploadFailed": "The photo could not be uploaded, so the story was not published. Try again, or remove the photo to publish without it.",
-      "photoUploading": "Uploading photo…"
+      "photoUploading": "Uploading photo…",
+      "optionalChip": "Optional",
+      "heroSection": "Thanks",
+      "heroLabel": "Mention whoever helped you",
+      "heroPlaceholder": "e.g. the neighbour at the corner shop and Refugio Esperanza",
+      "photoSection": "The reunion photo",
+      "photoDropTitle": "Upload the photo of the moment",
+      "photoDropHint": "JPG, PNG or WebP, up to 5 MB"
     },
     "title": "Success stories",
     "subtitle": "Pets that made it home thanks to the community.",

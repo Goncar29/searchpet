@@ -319,11 +319,19 @@ type GroupMember struct {
 
 // SuccessStory representa una historia de éxito (mascota encontrada)
 type SuccessStory struct {
-	ID          uuid.UUID  `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
-	PetID       uuid.UUID  `gorm:"type:uuid;not null;index" json:"pet_id"`
-	UserID      uuid.UUID  `gorm:"type:uuid;not null;index" json:"user_id"` // quien crea la historia
-	Title       string     `gorm:"size:255" json:"title"`
-	Body        string     `gorm:"type:text;not null" json:"body"`
+	ID     uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+	PetID  uuid.UUID `gorm:"type:uuid;not null;index" json:"pet_id"`
+	UserID uuid.UUID `gorm:"type:uuid;not null;index" json:"user_id"` // quien crea la historia
+	Title  string    `gorm:"size:255" json:"title"`
+	Body   string    `gorm:"type:text;not null" json:"body"`
+	// HeroName es a quién agradece el autor: quien encontró a la mascota, el
+	// refugio que la cuidó, el vecino que la vio. OPCIONAL.
+	//
+	// El frontend lo declaraba en sus tipos y `StoryDetailPage` ya renderizaba
+	// "· Héroe: {hero_name}" — pero la columna NO existía, así que ese bloque
+	// era código muerto: el campo llegaba siempre undefined y el ternario nunca
+	// dibujaba nada. Esto lo hace real.
+	HeroName    string     `gorm:"size:255" json:"hero_name,omitempty"`
 	PhotoBefore string     `gorm:"size:500" json:"photo_before,omitempty"` // URL Cloudinary
 	PhotoAfter  string     `gorm:"size:500" json:"photo_after,omitempty"`  // URL Cloudinary
 	LikeCount   int        `gorm:"default:0" json:"like_count"`

@@ -110,6 +110,7 @@ func (s *successStoryService) Create(ctx context.Context, userID uuid.UUID, req 
 		PetID:       req.PetID,
 		UserID:      userID,
 		Title:       req.Title,
+		HeroName:    req.HeroName,
 		Body:        req.Body,
 		PhotoBefore: req.PhotoBefore,
 		PhotoAfter:  req.PhotoAfter,

@@ -321,11 +321,45 @@ describe('CreateStoryPage', () => {
       const { container } = render(<CreateStoryPage />, { wrapper });
       expect(container.querySelector('#story-title')).toBeTruthy();
       expect(container.querySelector('#story-body')).toBeTruthy();
-      // `hero_name` existe en el tipo de TypeScript y en el render de
-      // StoryDetailPage, pero NO en el backend: `rg -i hero backend/` da cero.
-      // Gin descarta el campo desconocido sin error, así que un input acá
-      // aceptaría texto que no se guarda — la regla #34 exacta.
-      expect(container.querySelector('#story-hero')).toBeNull();
+      // `#story-hero` AHORA SÍ, y la historia de esta línea vale contarla.
+      //
+      // Antes decía `toBeNull()`, y estaba bien: `hero_name` vivía en el tipo de
+      // TypeScript y en el render de StoryDetailPage, pero NO en el backend
+      // —`rg -i hero backend/` daba cero—, así que un input acá habría aceptado
+      // texto que Gin descarta sin error y nunca se guarda. Este test impidió
+      // que alguien agregara el campo mientras la columna no existía.
+      //
+      // La columna ya existe (`success_stories.hero_name`, size:255) y viaja de
+      // punta a punta, con su propio guard en
+      // `TestSuccessStoryCreate_heroNameViajaDePuntaAPunta`. Así que el guard se
+      // da vuelta: ahora protege que el campo ESTÉ.
+      expect(container.querySelector('#story-hero')).toBeTruthy();
+    });
+
+    // La otra mitad: que lo escrito llegue al payload. Sin esto, el input podría
+    // existir y no mandarse — exactamente el estado que el test de arriba
+    // impedía, sólo que con un campo de más en pantalla en vez de uno de menos.
+    it('el agradecimiento viaja en el payload, recortado', () => {
+      const { container } = render(<CreateStoryPage />, { wrapper });
+
+      fireEvent.change(container.querySelector('#story-hero')!, {
+        target: { value: '  la vecina del kiosco  ' },
+      });
+      fireEvent.change(container.querySelector('#story-body')!, { target: { value: 'volvió' } });
+      fireEvent.submit(container.querySelector('form')!);
+
+      expect(mutate.mock.calls[0][0].hero_name).toBe('la vecina del kiosco');
+    });
+
+    // Vacío se manda `undefined` y no `""`: es opcional, y una cadena vacía
+    // ocuparía la columna con nada en vez de dejarla ausente.
+    it('sin agradecimiento no manda el campo', () => {
+      const { container } = render(<CreateStoryPage />, { wrapper });
+
+      fireEvent.change(container.querySelector('#story-body')!, { target: { value: 'volvió' } });
+      fireEvent.submit(container.querySelector('form')!);
+
+      expect(mutate.mock.calls[0][0].hero_name).toBeUndefined();
     });
 
     it('marca el relato como obligatorio para tecnologia asistiva', () => {

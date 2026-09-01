@@ -21,11 +21,15 @@ import (
 // para este propósito son lo mismo. No es el caso de bcrypt, cuyo límite es de
 // bytes y por eso necesita un chequeo aparte.
 type CreateStoryRequest struct {
-	PetID       uuid.UUID `json:"pet_id" binding:"required"`
-	Title       string    `json:"title" binding:"max=255"`
-	Body        string    `json:"body" binding:"required"`
-	PhotoBefore string    `json:"photo_before" binding:"max=500"`
-	PhotoAfter  string    `json:"photo_after" binding:"max=500"`
+	PetID uuid.UUID `json:"pet_id" binding:"required"`
+	Title string    `json:"title" binding:"max=255"`
+	Body  string    `json:"body" binding:"required"`
+	// El `max` espeja `success_stories.hero_name` (size:255). Sin él, un valor
+	// más largo llega a Postgres, que lo rechaza con SQLSTATE 22001, y el
+	// handler colapsa el error en un 500 genérico (regla #34).
+	HeroName    string `json:"hero_name" binding:"max=255"`
+	PhotoBefore string `json:"photo_before" binding:"max=500"`
+	PhotoAfter  string `json:"photo_after" binding:"max=500"`
 }
 
 // SetFeaturedRequest contiene el flag para marcar/desmarcar featured.
@@ -40,6 +44,7 @@ type StoryResponse struct {
 	UserID      uuid.UUID  `json:"user_id"`
 	Title       string     `json:"title"`
 	Body        string     `json:"body"`
+	HeroName    string     `json:"hero_name,omitempty"`
 	PhotoBefore string     `json:"photo_before,omitempty"`
 	PhotoAfter  string     `json:"photo_after,omitempty"`
 	PetPhoto    string     `json:"pet_photo,omitempty"`
@@ -61,6 +66,7 @@ func ToStoryResponse(s *domain.SuccessStory) StoryResponse {
 		UserID:      s.UserID,
 		Title:       s.Title,
 		Body:        s.Body,
+		HeroName:    s.HeroName,
 		PhotoBefore: s.PhotoBefore,
 		PhotoAfter:  s.PhotoAfter,
 		LikeCount:   s.LikeCount,
