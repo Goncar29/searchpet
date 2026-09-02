@@ -85,6 +85,12 @@ func openIPv4(dsn string) (*sql.DB, error) {
 //   - Un `ALTER TABLE` pelado en una migración NO rompe un deploy sobre base
 //     limpia: la tabla ya existe cuando el SQL corre. Las guardas
 //     `IF EXISTS` de 000021 y 000024 son inofensivas pero innecesarias.
+//     MEDIDO, no deducido: con una base vacía y una migración
+//     `ALTER TABLE success_stories ADD COLUMN` SIN guarda, el server arranca
+//     ("Migraciones SQL aplicadas") y la columna queda creada. Si el orden
+//     fuera el inverso, ese ALTER habría fallado con "relation does not
+//     exist" y el `log.Fatal` de main.go habría matado el arranque — así que
+//     la prueba cubre el orden Y su consecuencia.
 //   - Una migración puede tapar un tag de struct equivocado en los DOS
 //     entornos, no sólo en tests. Antes se creía que en producción "manda el
 //     tag"; hoy no manda en ninguno, así que un tag equivocado con su
