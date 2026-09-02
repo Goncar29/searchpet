@@ -129,8 +129,21 @@ FindPublicByUserID(userID string) ([]domain.Pet, error)
 
 ### El tope
 
-`.Limit(50)`, y el handler acepta `?count=true` para setear **`X-Total-Count`**
-con el total real.
+`.Limit(50)` en el repositorio, y el handler setea **`X-Total-Count`** con el
+total real, **siempre y sin opt-in**.
+
+> **Sin `?count=true`, y el motivo es reusable.** El proyecto tiene ese opt-in
+> en `/api/stories` porque ahí UN endpoint sirve a dos llamadores con
+> necesidades distintas: una lista pública que no necesita el total y una tabla
+> admin que sí. Acá hay **un solo consumidor y siempre lo necesita**, así que un
+> flag que siempre va en `true` es una perilla que sólo se puede poner mal — la
+> regla #40 de nuevo. Un opt-in se justifica por tener dos llamadores distintos,
+> no por simetría con otro endpoint.
+>
+> El COUNT extra es barato acá: el compute de Neon ya está despierto por la
+> consulta principal del mismo request, así que el costo marginal de una segunda
+> consulta indexada es despreciable. Lo que cuesta en Neon es el **tiempo
+> despierto**, no la cantidad de queries (regla #59).
 
 El riesgo no es un atacante: es un **usuario exitoso**. La lista no muestra "las
 mascotas que tenés ahora" sino *todo lo que publicaste y no archivaste*, y
