@@ -108,6 +108,19 @@ func (r *PostgresPetRepository) FindByReporterID(reporterID string) ([]domain.Pe
 // mentira".
 const publicProfilePetLimit = 50
 
+// publicProfileScope es la ÚNICA definición de "lo que un tercero ve en el
+// perfil de esta persona". La comparten FindPublicByUserID y
+// CountPublicByUserID a propósito: si cada una tuviera su copia del WHERE,
+// divergirían en silencio y la pantalla diría "50 de N" contando N sobre
+// otro conjunto — y ninguno de los dos números se vería mal por separado.
+//
+// Devuelve un *gorm.DB nuevo, clonado de r.db, en cada llamada — no hay
+// estado que una invocación pueda dejarle a la siguiente.
+func (r *PostgresPetRepository) publicProfileScope(userID string) *gorm.DB {
+	return r.db.Model(&domain.Pet{}).
+		Where("(owner_id = ? OR reporter_id = ?) AND status IN ?", userID, userID, domain.PublicProfileVisibleStatuses)
+}
+
 // FindPublicByUserID — ver el contrato en repository/interfaces.go.
 //
 // Sin Preload("Owner") a propósito: CreatePet setea owner XOR reporter, así
@@ -117,9 +130,8 @@ const publicProfilePetLimit = 50
 // incondicional) en un endpoint público y sin auth.
 func (r *PostgresPetRepository) FindPublicByUserID(userID string) ([]domain.Pet, error) {
 	var pets []domain.Pet
-	err := r.db.
+	err := r.publicProfileScope(userID).
 		Preload("Photos", orderedPhotos).
-		Where("(owner_id = ? OR reporter_id = ?) AND status IN ?", userID, userID, domain.PublicProfileVisibleStatuses).
 		Order("created_at DESC").
 		Limit(publicProfilePetLimit).
 		Find(&pets).Error
@@ -127,13 +139,12 @@ func (r *PostgresPetRepository) FindPublicByUserID(userID string) ([]domain.Pet,
 }
 
 // CountPublicByUserID — ver el contrato en repository/interfaces.go. Mismo
-// WHERE que FindPublicByUserID, sin Limit ni Order (un COUNT no necesita
-// orden) y sin Preload (no trae filas, no hay nada que precargar).
+// scope que FindPublicByUserID (publicProfileScope), sin Limit ni Order (un
+// COUNT no necesita orden) y sin Preload (no trae filas, no hay nada que
+// precargar).
 func (r *PostgresPetRepository) CountPublicByUserID(userID string) (int64, error) {
 	var total int64
-	err := r.db.Model(&domain.Pet{}).
-		Where("(owner_id = ? OR reporter_id = ?) AND status IN ?", userID, userID, domain.PublicProfileVisibleStatuses).
-		Count(&total).Error
+	err := r.publicProfileScope(userID).Count(&total).Error
 	return total, err
 }
 
