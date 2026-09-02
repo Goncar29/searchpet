@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net/url"
 	"time"
 
 	"github.com/google/uuid"
@@ -31,6 +32,34 @@ func NewSuccessStoryService(
 	storage ImageUploader,
 ) SuccessStoryService {
 	return &successStoryService{repo: repo, petRepo: petRepo, storage: storage}
+}
+
+// cloudinaryHost es el único origen del que se aceptan fotos de historia.
+const cloudinaryHost = "res.cloudinary.com"
+
+// esURLDeNuestroStorage acepta la cadena vacía (la foto es opcional) y, si hay
+// algo, exige que sea una URL https servida por Cloudinary.
+//
+// SE COMPARA CONTRA EL HOST PARSEADO, nunca con un prefijo de string: un
+// `strings.HasPrefix(u, "https://res.cloudinary.com")` lo pasa
+// `https://res.cloudinary.com.evil.tld/x.png`, que es de otro dominio entero.
+// `url.Parse` además normaliza el esquema a minúsculas, así que `HTTPS://` no
+// necesita un caso aparte (regla #54).
+//
+// QUÉ NO CIERRA, y conviene decirlo: alguien con su propia cuenta de Cloudinary
+// podría alojar una imagen ahí y pasar el filtro. Lo que sí elimina —que era el
+// impacto real— es el servidor arbitrario que registra la IP de cada visitante
+// de la historia. Atarlo además a nuestro cloud name exigiría inyectar config en
+// este service; si algún día importa, ese es el paso siguiente.
+func esURLDeNuestroStorage(raw string) bool {
+	if raw == "" {
+		return true
+	}
+	u, err := url.Parse(raw)
+	if err != nil || u.Scheme != "https" {
+		return false
+	}
+	return u.Hostname() == cloudinaryHost
 }
 
 // UploadPhoto sube la foto del reencuentro y devuelve su URL. NO persiste nada:
@@ -68,6 +97,25 @@ func (s *successStoryService) UploadPhoto(
 	if pet.Status != "found" {
 		return "", domain.ErrPetNotFoundStatus
 	}
+
+	// UNA MASCOTA, UNA HISTORIA, UNA FOTO.
+	//
+	// Con la historia ya publicada no queda dónde poner la foto, así que subirla
+	// sólo gastaría cuota. Este chequeo es lo que cierra el bucle del gate: antes
+	// de publicar, el usuario puede cambiar de foto mientras elige —uso legítimo—
+	// y una vez publicada, el endpoint deja de aceptarle nada para esa mascota.
+	//
+	// `GetByPetID` devuelve (nil, nil) cuando no hay historia, así que el error
+	// se propaga y la ausencia NO se confunde con un fallo de lectura: sin esa
+	// distinción, una base caída dejaría subir libremente.
+	existente, err := s.repo.GetByPetID(ctx, pet.ID)
+	if err != nil {
+		return "", err
+	}
+	if existente != nil {
+		return "", domain.ErrStoryAlreadyExists
+	}
+
 	if s.storage == nil {
 		return "", domain.ErrStorageFailed
 	}
@@ -106,10 +154,46 @@ func (s *successStoryService) Create(ctx context.Context, userID uuid.UUID, req 
 		return nil, domain.ErrPetNotFoundStatus
 	}
 
+	// Una mascota tiene UNA historia. No estaba chequeado: `Create` insertaba sin
+	// mirar, y `success_stories.pet_id` es `index` y no `uniqueIndex`, así que se
+	// podían acumular varias historias para la misma mascota. `GetByPetID`
+	// devuelve una sola, con lo cual las demás quedaban invisibles por ese
+	// endpoint pero visibles en la lista pública.
+	//
+	// El chequeo va en el service y NO en un índice único de la tabla, y la
+	// diferencia importa: un `uniqueIndex` nuevo hace fallar el AutoMigrate si la
+	// base YA tiene duplicados, y eso tumba el deploy (la familia de la regla
+	// #35). Local está en cero, pero producción no se pudo verificar. El índice
+	// es la garantía dura y va aparte, después de comprobar que no hay filas que
+	// lo violen.
+	existente, err := s.repo.GetByPetID(ctx, req.PetID)
+	if err != nil {
+		return nil, err
+	}
+	if existente != nil {
+		return nil, domain.ErrStoryAlreadyExists
+	}
+
+	// Las fotos tienen que venir de NUESTRO storage, no de cualquier lado.
+	//
+	// Los campos son texto libre acotado sólo por largo, y `StoryDetailPage` los
+	// pone directo en un `<img src>`: `cloudinaryThumb` devuelve intacta una URL
+	// que no sea de Cloudinary. Sin este chequeo, cualquiera podía publicar una
+	// historia con una imagen alojada en su propio servidor y quedarse con la IP
+	// y el User-Agent de CADA visitante — además de poder cambiar la imagen
+	// después de cualquier moderación, porque el contenido no es nuestro.
+	//
+	// El endpoint de upload existe justamente para producir estas URLs, así que
+	// no hay caso legítimo que esto rompa.
+	if !esURLDeNuestroStorage(req.PhotoBefore) || !esURLDeNuestroStorage(req.PhotoAfter) {
+		return nil, domain.ErrInvalidInput
+	}
+
 	story := &domain.SuccessStory{
 		PetID:       req.PetID,
 		UserID:      userID,
 		Title:       req.Title,
+		HeroName:    req.HeroName,
 		Body:        req.Body,
 		PhotoBefore: req.PhotoBefore,
 		PhotoAfter:  req.PhotoAfter,

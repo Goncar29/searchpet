@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"lost-pets/internal/domain"
+	"lost-pets/internal/dto"
 	"lost-pets/internal/service"
 )
 
@@ -146,5 +147,170 @@ func TestSuccessStoryUploadPhoto_sinStorage(t *testing.T) {
 
 	if _, err := svc.UploadPhoto(context.Background(), dueño, pet.ID.String(), strings.NewReader("b"), "f.jpg"); !errors.Is(err, domain.ErrStorageFailed) {
 		t.Fatalf("error = %v, esperaba ErrStorageFailed", err)
+	}
+}
+
+// UNA MASCOTA, UNA HISTORIA, UNA FOTO.
+//
+// Con la historia ya publicada no queda dónde poner la foto, así que subirla
+// sólo gastaría cuota de Cloudinary. Este es el chequeo que cierra el bucle del
+// gate: antes de publicar el usuario puede cambiar de foto mientras elige —uso
+// legítimo—, y después el endpoint deja de aceptarle nada para esa mascota.
+func TestSuccessStoryUploadPhoto_conHistoriaYaPublicada(t *testing.T) {
+	dueño := uuid.New()
+	pet := petParaHistoria(dueño, "found")
+	espia := &uploaderEspia{}
+
+	petRepo := &mockPetRepoForStory{}
+	petRepo.findByIDFn = func(id string) (*domain.Pet, error) { return pet, nil }
+
+	storyRepo := &mockSuccessStoryRepository{
+		getByPetIDFn: func(_ context.Context, _ uuid.UUID) (*domain.SuccessStory, error) {
+			return &domain.SuccessStory{ID: uuid.New(), PetID: pet.ID}, nil
+		},
+	}
+
+	_, err := service.NewSuccessStoryService(storyRepo, petRepo, espia).
+		UploadPhoto(context.Background(), dueño, pet.ID.String(), strings.NewReader("b"), "f.jpg")
+
+	if !errors.Is(err, domain.ErrStoryAlreadyExists) {
+		t.Fatalf("error = %v, esperaba ErrStoryAlreadyExists", err)
+	}
+	if espia.llamadas != 0 {
+		t.Errorf("Cloudinary recibió %d llamadas: rechazar DESPUÉS de subir ya gastó la cuota", espia.llamadas)
+	}
+}
+
+// Una lectura FALLIDA no es "no hay historia".
+//
+// `GetByPetID` devuelve (nil, nil) cuando no existe, así que confundir el error
+// con la ausencia dejaría subir libremente justo cuando la base está caída —
+// exactamente el modo de falla de la regla #60, movido al backend.
+func TestSuccessStoryUploadPhoto_siLaLecturaFallaNoSube(t *testing.T) {
+	dueño := uuid.New()
+	pet := petParaHistoria(dueño, "found")
+	espia := &uploaderEspia{}
+
+	petRepo := &mockPetRepoForStory{}
+	petRepo.findByIDFn = func(id string) (*domain.Pet, error) { return pet, nil }
+
+	boom := errors.New("la base no responde")
+	storyRepo := &mockSuccessStoryRepository{
+		getByPetIDFn: func(_ context.Context, _ uuid.UUID) (*domain.SuccessStory, error) {
+			return nil, boom
+		},
+	}
+
+	_, err := service.NewSuccessStoryService(storyRepo, petRepo, espia).
+		UploadPhoto(context.Background(), dueño, pet.ID.String(), strings.NewReader("b"), "f.jpg")
+
+	if !errors.Is(err, boom) {
+		t.Fatalf("error = %v, esperaba que se propagara el de la base", err)
+	}
+	if espia.llamadas != 0 {
+		t.Errorf("subió con la base caída: %d llamadas", espia.llamadas)
+	}
+}
+
+// La misma regla del lado de crear: dos historias para la misma mascota no.
+func TestSuccessStoryCreate_noDuplicaLaHistoriaDeUnaMascota(t *testing.T) {
+	dueño := uuid.New()
+	pet := petParaHistoria(dueño, "found")
+
+	petRepo := &mockPetRepoForStory{}
+	petRepo.findByIDFn = func(id string) (*domain.Pet, error) { return pet, nil }
+
+	creaciones := 0
+	storyRepo := &mockSuccessStoryRepository{
+		getByPetIDFn: func(_ context.Context, _ uuid.UUID) (*domain.SuccessStory, error) {
+			return &domain.SuccessStory{ID: uuid.New(), PetID: pet.ID}, nil
+		},
+		createFn: func(_ context.Context, _ *domain.SuccessStory) error {
+			creaciones++
+			return nil
+		},
+	}
+
+	_, err := service.NewSuccessStoryService(storyRepo, petRepo, nil).
+		Create(context.Background(), dueño, dto.CreateStoryRequest{PetID: pet.ID, Body: "otra"})
+
+	if !errors.Is(err, domain.ErrStoryAlreadyExists) {
+		t.Fatalf("error = %v, esperaba ErrStoryAlreadyExists", err)
+	}
+	if creaciones != 0 {
+		t.Errorf("insertó igual: %d creaciones", creaciones)
+	}
+}
+
+// La foto guardada tiene que venir de NUESTRO storage.
+//
+// Los campos son texto libre acotado sólo por largo y `StoryDetailPage` los pone
+// en un `<img src>`, con `cloudinaryThumb` devolviendo intacta cualquier URL que
+// no sea de Cloudinary. Sin este filtro, una historia podía embeber una imagen
+// del servidor del atacante y entregarle la IP de cada visitante.
+//
+// Los casos NO son decorativos: cada uno es un bypass concreto de la forma
+// ingenua de escribir este chequeo.
+func TestSuccessStoryCreate_soloAceptaFotosDeNuestroStorage(t *testing.T) {
+	casos := []struct {
+		nombre string
+		url    string
+		acepta bool
+	}{
+		{"vacío: la foto es opcional", "", true},
+		{"nuestra URL de Cloudinary", "https://res.cloudinary.com/demo/image/upload/v1/x.webp", true},
+		{"servidor arbitrario", "https://tracker.evil/pixel.png", false},
+		// El bypass del prefijo: `strings.HasPrefix(u, "https://res.cloudinary.com")`
+		// deja pasar esto, que es OTRO dominio entero. Por eso se compara contra
+		// el host parseado (regla #54).
+		{"dominio que EMPIEZA con el nuestro", "https://res.cloudinary.com.evil.tld/x.png", false},
+		{"http en vez de https", "http://res.cloudinary.com/demo/x.png", false},
+		{"esquema javascript", "javascript:alert(1)", false},
+		{"protocol-relative sin esquema", "//res.cloudinary.com/demo/x.png", false},
+		// `url.Parse` normaliza el esquema a minúsculas, así que esto SÍ pasa —
+		// se deja escrito para que nadie agregue un caso especial que no hace falta.
+		{"HTTPS en mayúsculas", "HTTPS://res.cloudinary.com/demo/x.png", true},
+	}
+
+	for _, c := range casos {
+		t.Run(c.nombre, func(t *testing.T) {
+			dueño := uuid.New()
+			pet := petParaHistoria(dueño, "found")
+			petRepo := &mockPetRepoForStory{}
+			petRepo.findByIDFn = func(id string) (*domain.Pet, error) { return pet, nil }
+
+			creaciones := 0
+			storyRepo := &mockSuccessStoryRepository{
+				getByPetIDFn: func(_ context.Context, _ uuid.UUID) (*domain.SuccessStory, error) {
+					return nil, nil
+				},
+				createFn: func(_ context.Context, s *domain.SuccessStory) error {
+					creaciones++
+					s.ID = uuid.New()
+					return nil
+				},
+			}
+
+			_, err := service.NewSuccessStoryService(storyRepo, petRepo, nil).
+				Create(context.Background(), dueño, dto.CreateStoryRequest{
+					PetID: pet.ID, Body: "volvió", PhotoAfter: c.url,
+				})
+
+			if c.acepta {
+				if errors.Is(err, domain.ErrInvalidInput) {
+					t.Fatalf("rechazó una URL válida: %q", c.url)
+				}
+				if creaciones != 1 {
+					t.Errorf("creaciones = %d, esperaba 1", creaciones)
+				}
+				return
+			}
+			if !errors.Is(err, domain.ErrInvalidInput) {
+				t.Fatalf("aceptó %q — error = %v", c.url, err)
+			}
+			if creaciones != 0 {
+				t.Errorf("guardó la historia igual: %d creaciones", creaciones)
+			}
+		})
 	}
 }

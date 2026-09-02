@@ -20,6 +20,7 @@ vi.mock('react-router', async (importOriginal) => {
 // `mutate`, no `mutateAsync`: la página llama al primero.
 const mutate = vi.fn();
 const uploadPhotoMutate = vi.fn();
+let historiaExistente: unknown = undefined;
 let myPets: unknown[] = [];
 let reportedPets: unknown[] = [];
 // Una query que FALLA devuelve `data: undefined`, no una lista vacía. El mock
@@ -39,6 +40,13 @@ vi.mock('@shared/hooks', () => ({
   // exhaustivo, así que olvidarse no da un error claro — tira las 20 pruebas
   // del archivo con "is not a function" (regla #17).
   useUploadStoryPhoto: () => ({ mutate: uploadPhotoMutate, isPending: false }),
+  // El endpoint devuelve 404 cuando NO hay historia, así que la ausencia llega
+  // como ERROR y no como `data: null`. El mock tiene que poder representar los
+  // TRES estados o el arnés no puede ver la diferencia que importa.
+  useStoryByPetID: () => ({
+    data: historiaExistente,
+    isError: !historiaExistente,
+  }),
   useMyPets: () => ({
     data: mineFailed ? undefined : myPets,
     isPending: false,
@@ -61,6 +69,7 @@ const perdida = { id: 'pet-lost', name: 'Toby', type: 'gato', status: 'lost' };
 beforeEach(() => {
   mutate.mockClear();
   uploadPhotoMutate.mockClear();
+  historiaExistente = undefined;
   refetchMine.mockClear();
   refetchReported.mockClear();
   searchParams = new URLSearchParams();
@@ -321,11 +330,45 @@ describe('CreateStoryPage', () => {
       const { container } = render(<CreateStoryPage />, { wrapper });
       expect(container.querySelector('#story-title')).toBeTruthy();
       expect(container.querySelector('#story-body')).toBeTruthy();
-      // `hero_name` existe en el tipo de TypeScript y en el render de
-      // StoryDetailPage, pero NO en el backend: `rg -i hero backend/` da cero.
-      // Gin descarta el campo desconocido sin error, así que un input acá
-      // aceptaría texto que no se guarda — la regla #34 exacta.
-      expect(container.querySelector('#story-hero')).toBeNull();
+      // `#story-hero` AHORA SÍ, y la historia de esta línea vale contarla.
+      //
+      // Antes decía `toBeNull()`, y estaba bien: `hero_name` vivía en el tipo de
+      // TypeScript y en el render de StoryDetailPage, pero NO en el backend
+      // —`rg -i hero backend/` daba cero—, así que un input acá habría aceptado
+      // texto que Gin descarta sin error y nunca se guarda. Este test impidió
+      // que alguien agregara el campo mientras la columna no existía.
+      //
+      // La columna ya existe (`success_stories.hero_name`, size:255) y viaja de
+      // punta a punta, con su propio guard en
+      // `TestSuccessStoryCreate_heroNameViajaDePuntaAPunta`. Así que el guard se
+      // da vuelta: ahora protege que el campo ESTÉ.
+      expect(container.querySelector('#story-hero')).toBeTruthy();
+    });
+
+    // La otra mitad: que lo escrito llegue al payload. Sin esto, el input podría
+    // existir y no mandarse — exactamente el estado que el test de arriba
+    // impedía, sólo que con un campo de más en pantalla en vez de uno de menos.
+    it('el agradecimiento viaja en el payload, recortado', () => {
+      const { container } = render(<CreateStoryPage />, { wrapper });
+
+      fireEvent.change(container.querySelector('#story-hero')!, {
+        target: { value: '  la vecina del kiosco  ' },
+      });
+      fireEvent.change(container.querySelector('#story-body')!, { target: { value: 'volvió' } });
+      fireEvent.submit(container.querySelector('form')!);
+
+      expect(mutate.mock.calls[0][0].hero_name).toBe('la vecina del kiosco');
+    });
+
+    // Vacío se manda `undefined` y no `""`: es opcional, y una cadena vacía
+    // ocuparía la columna con nada en vez de dejarla ausente.
+    it('sin agradecimiento no manda el campo', () => {
+      const { container } = render(<CreateStoryPage />, { wrapper });
+
+      fireEvent.change(container.querySelector('#story-body')!, { target: { value: 'volvió' } });
+      fireEvent.submit(container.querySelector('form')!);
+
+      expect(mutate.mock.calls[0][0].hero_name).toBeUndefined();
     });
 
     it('marca el relato como obligatorio para tecnologia asistiva', () => {
@@ -449,6 +492,55 @@ describe('CreateStoryPage', () => {
       elegirArchivo(grande);
 
       expect(screen.getByText(/create.photoTooLarge/)).toBeInTheDocument();
+    });
+  });
+
+  // ============================================================
+  // Una mascota, una historia
+  // ============================================================
+  describe('cuando la mascota ya tiene su historia', () => {
+    beforeEach(() => {
+      searchParams = new URLSearchParams({ petId: 'pet-found' });
+      myPets = [encontrada];
+    });
+
+    // El backend rechaza la segunda con 409. Sin este aviso el usuario escribe
+    // el relato entero para que se lo devuelvan — el mismo defecto que esta
+    // pantalla ya cerraba para el estado `found`, por otra causa.
+    it('avisa ANTES de escribir y no deja publicar', () => {
+      historiaExistente = { id: 'st-1', pet_id: 'pet-found' };
+      const { container } = render(<CreateStoryPage />, { wrapper });
+
+      expect(screen.getByText(/create.alreadyHasStory/)).toBeInTheDocument();
+      const submit = [...container.querySelectorAll('button')].find(
+        (b) => b.getAttribute('type') === 'submit',
+      );
+      expect(submit).toBeDisabled();
+    });
+
+    it('ni siquiera intenta publicar si se fuerza el submit', () => {
+      historiaExistente = { id: 'st-1', pet_id: 'pet-found' };
+      const { container } = render(<CreateStoryPage />, { wrapper });
+
+      fireEvent.change(container.querySelector('#story-body')!, { target: { value: 'otra vez' } });
+      fireEvent.submit(container.querySelector('form')!);
+
+      expect(mutate).not.toHaveBeenCalled();
+      expect(uploadPhotoMutate).not.toHaveBeenCalled();
+    });
+
+    // La distincion que importa: 404 significa "no tiene", no "fallo".
+    // Bloquear ante cualquier error le negaria la pantalla a alguien por un 500
+    // pasajero, y el backend rechaza igual con un mensaje claro.
+    it('sin historia (404) deja escribir con normalidad', () => {
+      historiaExistente = undefined;
+      const { container } = render(<CreateStoryPage />, { wrapper });
+
+      expect(screen.queryByText(/create.alreadyHasStory/)).toBeNull();
+      fireEvent.change(container.querySelector('#story-body')!, { target: { value: 'volvio' } });
+      fireEvent.submit(container.querySelector('form')!);
+
+      expect(mutate).toHaveBeenCalledTimes(1);
     });
   });
 });

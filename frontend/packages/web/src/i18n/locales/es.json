@@ -828,7 +828,15 @@
       "photoTooLarge": "Esa foto pesa más de 5 MB. Probá con una más liviana.",
       "photoWrongType": "Ese archivo no es una imagen. Se aceptan JPG, PNG o WebP.",
       "photoUploadFailed": "No se pudo subir la foto, así que la historia no se publicó. Probá de nuevo o quitá la foto para publicar sin ella.",
-      "photoUploading": "Subiendo la foto…"
+      "photoUploading": "Subiendo la foto…",
+      "optionalChip": "Opcional",
+      "heroSection": "Agradecimientos",
+      "heroLabel": "Mencioná a quienes te ayudaron",
+      "heroPlaceholder": "Ej. la vecina del kiosco y el Refugio Esperanza",
+      "photoSection": "La foto del reencuentro",
+      "photoDropTitle": "Subí la foto del momento",
+      "photoDropHint": "JPG, PNG o WebP, hasta 5 MB",
+      "alreadyHasStory": "Esta mascota ya tiene su historia publicada. Elegí otra para contar una nueva."
     },
     "title": "Historias de éxito",
     "subtitle": "Mascotas que volvieron a casa gracias a la comunidad.",

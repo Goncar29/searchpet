@@ -5,9 +5,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { useTranslation } from 'react-i18next';
-import { useCreateStory, useMyPets, useReportedPets, useUploadStoryPhoto } from '@shared/hooks';
+import { useCreateStory, useMyPets, useReportedPets, useUploadStoryPhoto, useStoryByPetID } from '@shared/hooks';
 import { getErrorMessage } from '@shared/utils/apiErrors';
 import { MY_PETS_ROUTE, myPetsRoute } from '../routes';
+import { Icon } from '../components/Icon';
+import { PawPlaceholder } from '../components/PawPlaceholder';
+import { cloudinaryThumb } from '@shared/utils/cloudinaryThumb';
 import { FormPage } from '../components/form/FormPage';
 import { FormSection } from '../components/form/FormSection';
 import { FormField } from '../components/form/FormField';
@@ -134,7 +137,23 @@ export function CreateStoryPage() {
   const presetEsReportada = !!presetPetId && (reportedPets ?? []).some((p) => p.id === presetPetId);
   const destinoDelCta = presetEsReportada ? myPetsRoute('reported') : MY_PETS_ROUTE;
 
+  // ¿Esta mascota YA tiene su historia?
+  //
+  // Se pregunta al ELEGIRLA y no al enviar, y ahí está todo el punto: el
+  // backend rechaza con 409 una segunda historia, así que sin este chequeo el
+  // usuario escribe el relato entero para que se lo devuelvan. Es exactamente
+  // el defecto que esta pantalla ya cerraba para el estado `found` —está en el
+  // comentario de `eligiblePets`— reaparecido por otra causa.
+  //
+  // El endpoint devuelve 404 cuando NO hay historia, así que la ausencia llega
+  // como error. `data` presente es la única señal positiva, y cualquier fallo
+  // deja seguir: negarle la pantalla a alguien por un 500 pasajero sería peor
+  // que el problema, y el backend rechaza igual con un mensaje claro.
+  const historiaQuery = useStoryByPetID(petId);
+  const yaTieneHistoria = !!historiaQuery.data;
+
   const [title, setTitle] = useState('');
+  const [heroName, setHeroName] = useState('');
   const [body, setBody] = useState('');
   const [petError, setPetError] = useState('');
   const [bodyError, setBodyError] = useState('');
@@ -202,12 +221,21 @@ export function CreateStoryPage() {
     }
     setBodyError('');
 
+    // Ultimo freno antes de gastar una subida y un insert que el backend va a
+    // rechazar con 409. El aviso ya esta en pantalla desde que se eligio la
+    // mascota; esto cubre el caso de que la respuesta llegue mientras escribia.
+    if (yaTieneHistoria) {
+      setApiError(t('create.alreadyHasStory'));
+      return;
+    }
+
     const publicar = (photoAfter?: string) =>
       createStory.mutate(
         {
           pet_id: petId,
           title: title.trim() || undefined,
           body: body.trim(),
+          hero_name: heroName.trim() || undefined,
           photo_after: photoAfter,
         },
         {
@@ -346,14 +374,39 @@ export function CreateStoryPage() {
           {presetPet ? (
             /* Vino por URL desde el detalle de la mascota: no se puede cambiar,
                se muestra cual es. */
-            <div className="flex items-center gap-3 rounded-xl border border-primary/40 bg-primary/5 dark:bg-primary/10 px-6 py-4">
-              <div>
-                <p className="font-semibold text-gray-900 dark:text-gray-100">{presetPet.name}</p>
+            /* La tarjeta de resumen del diseño: foto, nombre, especie y raza, y
+               el badge de "encontrada".
+               QUÉ NO SE ADOPTA: el mockup dice "Reportada perdida hace 3 días",
+               que necesita datos del reporte que esta pantalla no tiene — y la
+               convención de esta tanda es no dibujar conceptos que los datos no
+               traen. La raza sólo aparece si la mascota la tiene cargada. */
+            <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 rounded-2xl border border-primary/40 bg-primary/5 dark:bg-primary/10 px-6 py-5">
+              {presetPet.photos?.[0]?.url ? (
+                <img
+                  src={cloudinaryThumb(presetPet.photos[0].url, 128, 128)}
+                  alt={presetPet.name}
+                  className="h-24 w-24 shrink-0 rounded-xl object-cover"
+                />
+              ) : (
+                <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-xl bg-white/60 dark:bg-gray-800">
+                  <PawPlaceholder className="w-10" />
+                </div>
+              )}
+              <div className="text-center sm:text-left">
+                <p className="font-display font-semibold text-lg text-gray-900 dark:text-gray-100">
+                  {presetPet.name}
+                </p>
                 {/* El valor crudo (`perro`, `gato`) es el que guarda la base.
                     Ver CreateReportPage y EditPetPage. */}
-                <p className="text-sm text-gray-500 dark:text-gray-400">
+                <p className="mt-0.5 flex items-center justify-center sm:justify-start gap-1.5 text-sm text-gray-500 dark:text-gray-400">
+                  <Icon name="pets" className="h-4 w-4 shrink-0" />
                   {t(`pets:types.${presetPet.type}`)}
+                  {presetPet.breed ? ` · ${presetPet.breed}` : ''}
                 </p>
+                <span className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-primary px-3 py-1 text-sm font-semibold text-white">
+                  <Icon name="celebration" className="h-4 w-4 shrink-0" />
+                  {t('pets:status.found')}
+                </span>
               </div>
             </div>
           ) : (
@@ -443,15 +496,36 @@ export function CreateStoryPage() {
             >
               {(control) => (
                 <div className="space-y-3">
-                  <input
-                    id={control.id}
-                    aria-describedby={control['aria-describedby']}
-                    aria-invalid={control['aria-invalid']}
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp"
-                    onChange={(e) => elegirFoto(e.target.files?.[0] ?? null)}
-                    className="block w-full text-sm text-gray-600 dark:text-gray-300 file:mr-4 file:rounded-lg file:border-0 file:bg-primary file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-primary-dark"
-                  />
+                  {/* La zona de arrastre del diseño, con el `<input>` REAL
+                      adentro y no escondido detrás de un div con onClick: el
+                      input nativo es lo que le da al campo su rol, su foco por
+                      teclado y su asociación con el label. Se lo hace invisible
+                      con `sr-only` —no con `display:none`, que lo saca del orden
+                      de tabulación— y el `<label>` de alrededor lo activa con
+                      click Y con Enter. */}
+                  <label
+                    htmlFor={control.id}
+                    className="flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/50 px-6 py-10 text-center transition-colors hover:border-primary/60 hover:bg-primary/5"
+                  >
+                    <span className="mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-white dark:bg-gray-700">
+                      <Icon name="photo-camera" className="h-8 w-8 text-gray-500 dark:text-gray-300" />
+                    </span>
+                    <span className="font-semibold text-gray-900 dark:text-gray-100">
+                      {t('create.photoDropTitle')}
+                    </span>
+                    <span className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                      {t('create.photoDropHint')}
+                    </span>
+                    <input
+                      id={control.id}
+                      aria-describedby={control['aria-describedby']}
+                      aria-invalid={control['aria-invalid']}
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      onChange={(e) => elegirFoto(e.target.files?.[0] ?? null)}
+                      className="sr-only"
+                    />
+                  </label>
 
                   {photoPreview && (
                     <div className="space-y-2">
@@ -475,6 +549,42 @@ export function CreateStoryPage() {
           </div>
         </FormSection>
 
+        {/* La sección de Agradecimientos del diseño. El campo `hero_name` ya lo
+            renderizaba `StoryDetailPage` como "· Héroe: …", pero el backend no
+            tenía la columna: era código muerto. Este PR lo hace real, así que
+            por primera vez hay algo que escribir ahí. */}
+        <FormSection title={t('create.heroSection')}>
+          <FormField
+            label={t('create.heroLabel')}
+            htmlFor="story-hero"
+            hint={t('create.optionalHint')}
+          >
+            {(control) => (
+              <input
+                {...control}
+                type="text"
+                /* Espeja `success_stories.hero_name` (size:255) y el `max=255`
+                   del DTO. Sin el tope, Postgres rechaza el insert con 22001 y
+                   el handler colapsa el error en un 500 genérico: se pierde el
+                   borrador sin saber qué campo falló (regla #34). */
+                maxLength={255}
+                value={heroName}
+                onChange={(e) => setHeroName(e.target.value)}
+                placeholder={t('create.heroPlaceholder')}
+              />
+            )}
+          </FormField>
+        </FormSection>
+
+        {yaTieneHistoria && (
+          <p
+            role="status"
+            className="rounded-xl border border-yellow-200 dark:border-yellow-900 bg-yellow-50 dark:bg-yellow-950 px-4 py-3 text-sm text-yellow-800 dark:text-yellow-200"
+          >
+            {t('create.alreadyHasStory')}
+          </p>
+        )}
+
         {apiError && (
           <div
             role="alert"
@@ -496,7 +606,11 @@ export function CreateStoryPage() {
             </button>
           }
           submit={
-            <button type="submit" disabled={createStory.isPending} className={formSubmitClass}>
+            <button
+              type="submit"
+              disabled={createStory.isPending || uploadPhoto.isPending || yaTieneHistoria}
+              className={formSubmitClass}
+            >
               {createStory.isPending ? t('create.submitting') : t('create.submit')}
             </button>
           }
