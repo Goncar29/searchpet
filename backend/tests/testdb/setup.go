@@ -56,7 +56,7 @@ var allTableNames = []string{
 	"users",
 }
 
-// SetupTestDB connects to the test database, runs SQL migrations then AutoMigrate
+// SetupTestDB connects to the test database, runs AutoMigrate then SQL migrations
 // for all domain models, and registers a t.Cleanup that truncates all tables so
 // each test starts clean.
 //
