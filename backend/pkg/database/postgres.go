@@ -26,7 +26,10 @@ import (
 // que resuelve al AAAA falla con "network is unreachable" de forma intermitente.
 // Forzar tcp4 hace el arranque determinístico.
 //
-// No ejecuta AutoMigrate — llamar RunAutoMigrate(db) después de RunMigrations.
+// No ejecuta AutoMigrate ni migraciones: el orden REAL lo fija cmd/server/main.go,
+// y es Connect → RunAutoMigrate → RunMigrations. Este comentario decía lo
+// contrario ("RunAutoMigrate después de RunMigrations") y era falso desde hace
+// tiempo — ver la nota de RunAutoMigrate para lo que eso implica.
 func Connect(dsn string) (*gorm.DB, error) {
 	sqlDB, err := openIPv4(dsn)
 	if err != nil {
@@ -70,8 +73,29 @@ func openIPv4(dsn string) (*sql.DB, error) {
 }
 
 // RunAutoMigrate aplica AutoMigrate para todos los modelos de dominio.
-// Debe llamarse DESPUÉS de RunMigrations para respetar el orden correcto:
-// Connect → RunMigrations → RunAutoMigrate.
+//
+// SE LLAMA ANTES QUE RunMigrations, no después. `cmd/server/main.go` hace
+// AutoMigrate primero (crea las tablas base desde los structs) y recién
+// entonces el DDL incremental. `tests/testdb/setup.go` hace lo mismo.
+//
+// Este comentario afirmaba el orden inverso, y CLAUDE.md (regla #35)
+// concluía de ahí que producción y tests migraban en orden OPUESTO. No es
+// así: hacen lo mismo. Dos consecuencias que cambian:
+//
+//   - Un `ALTER TABLE` pelado en una migración NO rompe un deploy sobre base
+//     limpia: la tabla ya existe cuando el SQL corre. Las guardas
+//     `IF EXISTS` de 000021 y 000024 son inofensivas pero innecesarias.
+//     MEDIDO, no deducido: con una base vacía y una migración
+//     `ALTER TABLE success_stories ADD COLUMN` SIN guarda, el server arranca
+//     ("Migraciones SQL aplicadas") y la columna queda creada. Si el orden
+//     fuera el inverso, ese ALTER habría fallado con "relation does not
+//     exist" y el `log.Fatal` de main.go habría matado el arranque — así que
+//     la prueba cubre el orden Y su consecuencia.
+//   - Una migración puede tapar un tag de struct equivocado en los DOS
+//     entornos, no sólo en tests. Antes se creía que en producción "manda el
+//     tag"; hoy no manda en ninguno, así que un tag equivocado con su
+//     migración correctora encima es INVISIBLE en todos lados. El tag y la
+//     migración tienen que decir lo mismo, y ninguno corrige al otro.
 func RunAutoMigrate(db *gorm.DB) error {
 	if err := migrate(db); err != nil {
 		return fmt.Errorf("error en AutoMigrate: %w", err)
