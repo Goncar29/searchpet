@@ -1,14 +1,28 @@
 import { useParams, Link } from 'react-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { usePublicProfile, useUserReviews, useCreateReview, useUpdateReview, useDeleteReview, useBlockUser, useBlockedUsers, useUnblockUser, useSubmitAbuseReport } from '@shared/hooks';
-import type { Badge, UserReview, AbuseReason } from '@shared/types';
+import {
+  usePublicProfile,
+  useUserPets,
+  useUserReviews,
+  useCreateReview,
+  useUpdateReview,
+  useDeleteReview,
+  useBlockUser,
+  useBlockedUsers,
+  useUnblockUser,
+  useSubmitAbuseReport,
+} from '@shared/hooks';
+import type { Badge, Pet, UserReview, AbuseReason } from '@shared/types';
 import { BADGE_META } from '@shared/types';
 import { ListState } from '../components/list/ListState';
 import { PawPlaceholder } from '../components/PawPlaceholder';
+import { Icon } from '../components/Icon';
 import { useAuth } from '../context/AuthContext';
 import { getErrorMessage } from '@shared/utils/apiErrors';
-import { cloudinaryThumb } from '@shared/utils/cloudinaryThumb';
+import { cloudinaryThumb, cloudinaryCardThumb } from '@shared/utils/cloudinaryThumb';
+import { splitOwnedPets } from '@shared/utils/ownedPetBuckets';
+import { statusBadgeBg } from '../utils/statusBadge';
 
 const BADGE_COLOR: Record<string, string> = {
   first_helper: 'bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300',
@@ -17,6 +31,8 @@ const BADGE_COLOR: Record<string, string> = {
   verified_finder: 'bg-orange-50 dark:bg-orange-950 border-orange-200 dark:border-orange-800 text-orange-700 dark:text-orange-300',
 };
 const DEFAULT_BADGE_COLOR = 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300';
+
+const CARD = 'bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-6';
 
 function BadgeCard({ badge }: { badge: Badge }) {
   const { t } = useTranslation('badges');
@@ -72,7 +88,83 @@ function StarSelector({ value, onChange }: { value: number; onChange: (n: number
   );
 }
 
+/**
+ * Tarjeta de mascota del perfil público.
+ *
+ * Vive acá y no en un componente compartido porque `PetCardWeb` se borró como
+ * código muerto y cada pantalla dibuja la suya: espeja la de `AdoptPage`.
+ */
+function ProfilePetCard({ pet }: { pet: Pet }) {
+  const { t } = useTranslation(['pets']);
+
+  return (
+    <Link to={`/pets/${pet.id}`} className="block group">
+      <div className="bg-white dark:bg-gray-900 rounded-2xl overflow-hidden shadow-sm border border-gray-100 dark:border-gray-800 hover:shadow-md transition-shadow">
+        <div className="h-48 bg-gray-100 dark:bg-gray-800 relative overflow-hidden">
+          {pet.photos?.[0]?.url ? (
+            <img
+              // Variante `feed` y no `adopt`, MEDIDO: esta grilla es de 2
+              // columnas dentro de una columna de ~789px, o sea tarjetas de
+              // ~376px — casi el doble que las ~280px de Adoptar, que por eso
+              // pide 450. `feed` es [600, 300] y además calza el 2:1 de `h-48`.
+              src={cloudinaryCardThumb(pet.photos[0].url, 'feed')}
+              loading="lazy"
+              alt={pet.name}
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center">
+              <PawPlaceholder className="w-2/5 max-w-20" />
+            </div>
+          )}
+          {/* La etiqueta SIEMPRE sale de `pets:status.<status>`: esta grilla
+              mezcla estados (perdida, callejera, encontrada), así que un texto
+              fijo mentiría en la mayoría de las tarjetas. */}
+          <span className={`absolute top-3 left-3 text-xs font-bold text-white px-2 py-1 rounded-md ${statusBadgeBg(pet.status)}`}>
+            {t(`pets:status.${pet.status}`).toUpperCase()}
+          </span>
+        </div>
+        <div className="p-4">
+          <h3 className="font-display text-lg font-semibold text-gray-900 dark:text-gray-100">{pet.name}</h3>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5 min-h-[1.25rem]">
+            {[pet.type && t(`pets:types.${pet.type}`), pet.breed, pet.color].filter(Boolean).join(' · ')}
+          </p>
+          <p className="flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400 mt-1 min-h-[1.25rem]">
+            {pet.city && (
+              <>
+                <Icon name="location-on" className="h-4 w-4 shrink-0" />
+                <span className="truncate">{pet.city}</span>
+              </>
+            )}
+          </p>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+function PetGridSkeleton() {
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      {[0, 1].map((i) => (
+        <div
+          key={i}
+          className="bg-white dark:bg-gray-900 rounded-2xl overflow-hidden shadow-sm border border-gray-100 dark:border-gray-800 animate-pulse"
+        >
+          <div className="h-48 bg-gray-100 dark:bg-gray-800" />
+          <div className="p-4">
+            <div className="h-7 w-2/3 bg-gray-100 dark:bg-gray-800 rounded" />
+            <div className="h-5 w-1/2 bg-gray-100 dark:bg-gray-800 rounded mt-0.5" />
+            <div className="h-5 w-1/3 bg-gray-100 dark:bg-gray-800 rounded mt-1" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function ReviewCard({ review, onDelete }: { review: UserReview; onDelete?: () => void }) {
+  const { t } = useTranslation(['profile']);
   const initials = review.reviewer_name.trim().charAt(0).toUpperCase();
   const date = new Date(review.created_at).toLocaleDateString('es-UY', {
     day: 'numeric', month: 'short', year: 'numeric',
@@ -105,7 +197,7 @@ function ReviewCard({ review, onDelete }: { review: UserReview; onDelete?: () =>
                 onClick={onDelete}
                 className="text-xs text-red-500 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 font-medium transition-colors"
               >
-                Eliminar
+                {t('profile:public.deleteReview')}
               </button>
             )}
           </div>
@@ -119,20 +211,15 @@ function ReviewCard({ review, onDelete }: { review: UserReview; onDelete?: () =>
   );
 }
 
-function StatPill({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="text-center">
-      <p className="text-2xl font-bold text-gray-900 dark:text-gray-50">{value}</p>
-      <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{label}</p>
-    </div>
-  );
-}
-
 export function UserProfilePage() {
   const { id } = useParams<{ id: string }>();
-  const { t } = useTranslation();
+  // Los namespaces van DECLARADOS y no confiados a los recursos precargados:
+  // si algún día `profile` dejara de estar registrado, el modo de falla es una
+  // clave cruda en pantalla que ningún test ve — acá `t` está mockeado.
+  const { t } = useTranslation(['profile', 'common', 'badges', 'pets']);
   const { user, isAuthenticated } = useAuth();
   const { data: profile, isLoading, error } = usePublicProfile(id ?? '');
+  const petsQuery = useUserPets(id ?? '');
   const reviewsQuery = useUserReviews(id ?? '');
 
   const [showForm, setShowForm] = useState(false);
@@ -155,11 +242,12 @@ export function UserProfilePage() {
   const isBlockedByMe = blockedList?.some((b) => b.blocked_id === id) ?? false;
 
   const handleBlockToggle = () => {
+    const name = profile?.name ?? '';
     if (isBlockedByMe) {
-      if (!window.confirm(`¿Querés desbloquear a ${profile?.name ?? 'este usuario'}?`)) return;
+      if (!window.confirm(t('profile:public.confirmUnblock', { name }))) return;
       unblockUser.mutate(id ?? '');
     } else {
-      if (!window.confirm(`¿Querés bloquear a ${profile?.name ?? 'este usuario'}? Ya no podrán enviarse mensajes.`)) return;
+      if (!window.confirm(t('profile:public.confirmBlock', { name }))) return;
       blockUser.mutate({ userId: id ?? '' });
     }
   };
@@ -199,6 +287,20 @@ export function UserProfilePage() {
     ? reviewsQuery.data?.reviews?.find((r) => r.reviewer_id === user?.id)
     : undefined;
 
+  // El aviso de lista recortada. Los DOS números salen del mismo sobre y
+  // describen el mismo conjunto —todo lo que esta persona publicó y no cerró—:
+  // `mostradas` cuenta las filas que el endpoint devolvió (las que se dibujan
+  // entre "Publicaciones" y "En adopción") y `total` es el conteo real sin
+  // tope. NO se compara contra el largo de una sola sección: el total del
+  // header incluye las de adopción, así que emparejarlo con el recorte de
+  // "Publicaciones" afirmaría una resta que nadie calculó.
+  //
+  // Con la query caída `petsQuery.data` es `null`, los dos quedan en 0 y el
+  // aviso no se dibuja: no afirma nada sobre una lista que no se pudo leer.
+  const petsShown = petsQuery.data?.data.length ?? 0;
+  const petsTotal = petsQuery.data?.total ?? 0;
+  const petsTruncated = petsTotal > petsShown;
+
   const handleOpenForm = () => {
     setFormError('');
     if (myReview) {
@@ -215,11 +317,11 @@ export function UserProfilePage() {
     e.preventDefault();
     setFormError('');
     if (formStars < 1 || formStars > 5) {
-      setFormError('Seleccioná entre 1 y 5 estrellas.');
+      setFormError(t('profile:public.starsRequired'));
       return;
     }
     if (!formText.trim()) {
-      setFormError('Escribí un comentario.');
+      setFormError(t('profile:public.textRequired'));
       return;
     }
     const payload = { stars: formStars, text: formText.trim() };
@@ -238,11 +340,18 @@ export function UserProfilePage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-950 py-10 px-4">
-        <div className="max-w-lg mx-auto space-y-4">
-          <div className="h-32 rounded-2xl bg-gray-200 dark:bg-gray-800 animate-pulse" />
-          <div className="h-24 rounded-2xl bg-gray-200 dark:bg-gray-800 animate-pulse" />
-          <div className="h-48 rounded-2xl bg-gray-200 dark:bg-gray-800 animate-pulse" />
+      <div className="bg-gray-50 dark:bg-gray-950 min-h-screen">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="lg:col-span-1 space-y-6">
+              <div className="h-72 rounded-2xl bg-gray-200 dark:bg-gray-800 animate-pulse" />
+              <div className="h-48 rounded-2xl bg-gray-200 dark:bg-gray-800 animate-pulse" />
+            </div>
+            <div className="lg:col-span-2 space-y-8">
+              <div className="h-64 rounded-2xl bg-gray-200 dark:bg-gray-800 animate-pulse" />
+              <div className="h-48 rounded-2xl bg-gray-200 dark:bg-gray-800 animate-pulse" />
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -253,269 +362,393 @@ export function UserProfilePage() {
       <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center px-4">
         <div className="text-center">
           <PawPlaceholder className="w-16 mx-auto mb-4" />
-          <h2 className="text-xl font-bold text-gray-900 dark:text-gray-50 mb-2">Perfil no encontrado</h2>
+          <h2 className="font-display text-xl font-semibold text-gray-900 dark:text-gray-50 mb-2">
+            {t('profile:public.notFound')}
+          </h2>
           <p className="text-gray-500 dark:text-gray-400 text-sm mb-6">
-            Este usuario no existe o su perfil no está disponible.
+            {t('profile:public.notFoundHint')}
           </p>
           <Link
             to="/"
             className="inline-block px-5 py-2 bg-primary hover:bg-primary-dark text-white font-semibold rounded-lg text-sm transition-colors"
           >
-            Volver al inicio
+            {t('profile:public.backHome')}
           </Link>
         </div>
       </div>
     );
   }
 
+  const stats = [
+    { value: profile.total_points, label: t('profile:public.points') },
+    { value: profile.total_reports, label: t('profile:public.reports') },
+    { value: profile.found_count, label: t('profile:public.reunited') },
+    { value: profile.share_count, label: t('profile:public.shared') },
+  ];
+
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 py-10 px-4">
-      <div className="max-w-lg mx-auto space-y-4">
+    <div className="bg-gray-50 dark:bg-gray-950 min-h-screen">
+      {/* Sin banda de encabezado: el nombre de la persona ya es el encabezado,
+          igual que en ProfilePage. */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* ── Columna izquierda: quién es ── */}
+          <aside className="lg:col-span-1 space-y-6">
+            {/* Identidad. SIN filas de contacto: el email es privado y no viaja
+                en ningún DTO público, y el teléfono tampoco lo expone este
+                endpoint — no es una omisión de diseño, es el contrato. */}
+            <section className={CARD}>
+              <div className="flex flex-col items-center text-center">
+                {profile.profile_photo_url ? (
+                  <img
+                    src={cloudinaryThumb(profile.profile_photo_url, 224)}
+                    alt=""
+                    className="h-28 w-28 rounded-full object-cover ring-4 ring-primary/20"
+                  />
+                ) : (
+                  <div className="h-28 w-28 rounded-full bg-primary/10 dark:bg-primary/20 ring-4 ring-primary/20 flex items-center justify-center font-display text-4xl font-bold text-primary">
+                    {profile.name.charAt(0).toUpperCase()}
+                  </div>
+                )}
 
-        {/* Header de perfil */}
-        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-          <div className="flex items-center gap-4">
-            {/* Avatar */}
-            {profile.profile_photo_url ? (
-              <img
-                src={cloudinaryThumb(profile.profile_photo_url, 192)}
-                alt={profile.name}
-                className="w-20 h-20 rounded-full object-cover border-2 border-gray-200 dark:border-gray-700 flex-shrink-0"
-              />
-            ) : (
-              <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center text-3xl font-bold text-primary flex-shrink-0">
-                {profile.name.charAt(0).toUpperCase()}
-              </div>
-            )}
+                <h1 className="font-display text-headline font-semibold text-gray-900 dark:text-gray-100 mt-4 break-words">
+                  {profile.name}
+                </h1>
 
-            {/* Info */}
-            <div className="flex-1 min-w-0">
-              <h1 className="text-xl font-bold text-gray-900 dark:text-gray-50 truncate">{profile.name}</h1>
-              {profile.city && (
-                <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">📍 {profile.city}</p>
-              )}
-              <div className="flex items-center gap-2 mt-2">
-                <span className="text-lg font-bold text-primary">{profile.total_points}</span>
-                <span className="text-xs text-gray-400 dark:text-gray-500">puntos totales</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Block / Unblock + Report — only for authenticated non-self users */}
-          {isAuthenticated && !isOwnProfile && (
-            <div className="mt-4 space-y-2">
-              <div className="flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => { setShowReportMenu((v) => !v); setReportSuccess(false); }}
-                  disabled={submitAbuseReport.isPending}
-                  className="text-sm font-semibold px-4 py-2 rounded-lg border border-orange-300 dark:border-orange-700 text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-950 transition-colors disabled:opacity-60"
-                >
-                  {submitAbuseReport.isPending ? 'Enviando...' : 'Denunciar'}
-                </button>
-                <button
-                  type="button"
-                  onClick={handleBlockToggle}
-                  disabled={blockUser.isPending || unblockUser.isPending}
-                  className={`text-sm font-semibold px-4 py-2 rounded-lg border transition-colors disabled:opacity-60 ${
-                    isBlockedByMe
-                      ? 'border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
-                      : 'border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950'
-                  }`}
-                >
-                  {blockUser.isPending || unblockUser.isPending
-                    ? 'Procesando...'
-                    : isBlockedByMe
-                    ? 'Desbloquear usuario'
-                    : 'Bloquear usuario'}
-                </button>
+                {profile.city && (
+                  <p className="flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400 mt-1">
+                    <Icon name="location-on" className="h-4 w-4 shrink-0" />
+                    <span className="break-words">{profile.city}</span>
+                  </p>
+                )}
               </div>
 
-              {/* Report reason picker */}
-              {showReportMenu && (
-                <div className="flex flex-col gap-1 p-3 bg-orange-50 dark:bg-orange-950 rounded-xl border border-orange-200 dark:border-orange-800">
-                  <p className="text-xs font-semibold text-orange-700 dark:text-orange-300 mb-1">Motivo de la denuncia:</p>
-                  {(['spam', 'fake', 'abuse', 'inappropriate', 'other'] as AbuseReason[]).map((reason) => (
+              {/* Denunciar / Bloquear — sólo para una sesión ajena. */}
+              {isAuthenticated && !isOwnProfile && (
+                <div className="mt-5 pt-4 border-t border-gray-100 dark:border-gray-800 space-y-2">
+                  <div className="flex flex-wrap justify-center gap-2">
                     <button
-                      key={reason}
                       type="button"
-                      onClick={() => handleReport(reason)}
+                      onClick={() => { setShowReportMenu((v) => !v); setReportSuccess(false); }}
                       disabled={submitAbuseReport.isPending}
-                      className="text-left text-sm px-3 py-1.5 rounded-lg hover:bg-orange-100 dark:hover:bg-orange-900 text-orange-800 dark:text-orange-200 disabled:opacity-60 transition-colors"
+                      aria-expanded={showReportMenu}
+                      className="text-sm font-semibold px-4 py-2 rounded-lg border border-orange-300 dark:border-orange-700 text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-950 transition-colors disabled:opacity-60"
                     >
-                      {{ spam: 'Spam', fake: 'Publicación falsa', abuse: 'Abuso', inappropriate: 'Contenido inapropiado', other: 'Otro' }[reason]}
+                      {submitAbuseReport.isPending
+                        ? t('profile:public.reporting')
+                        : t('profile:public.report')}
                     </button>
-                  ))}
-                  <button
-                    type="button"
-                    onClick={() => setShowReportMenu(false)}
-                    className="text-left text-xs px-3 py-1 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-400 transition-colors mt-1"
-                  >
-                    Cancelar
-                  </button>
+                    <button
+                      type="button"
+                      onClick={handleBlockToggle}
+                      disabled={blockUser.isPending || unblockUser.isPending}
+                      className={`text-sm font-semibold px-4 py-2 rounded-lg border transition-colors disabled:opacity-60 ${
+                        isBlockedByMe
+                          ? 'border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
+                          : 'border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950'
+                      }`}
+                    >
+                      {blockUser.isPending || unblockUser.isPending
+                        ? t('profile:public.processing')
+                        : isBlockedByMe
+                          ? t('profile:public.unblock')
+                          : t('profile:public.block')}
+                    </button>
+                  </div>
+
+                  {/* Motivo de la denuncia */}
+                  {showReportMenu && (
+                    <div className="flex flex-col gap-1 p-3 bg-orange-50 dark:bg-orange-950 rounded-xl border border-orange-200 dark:border-orange-800">
+                      <p className="text-xs font-semibold text-orange-700 dark:text-orange-300 mb-1">
+                        {t('profile:public.reportReason')}
+                      </p>
+                      {(['spam', 'fake', 'abuse', 'inappropriate', 'other'] as AbuseReason[]).map((reason) => (
+                        <button
+                          key={reason}
+                          type="button"
+                          onClick={() => handleReport(reason)}
+                          disabled={submitAbuseReport.isPending}
+                          className="text-left text-sm px-3 py-1.5 rounded-lg hover:bg-orange-100 dark:hover:bg-orange-900 text-orange-800 dark:text-orange-200 disabled:opacity-60 transition-colors"
+                        >
+                          {t(`profile:public.reasons.${reason}`)}
+                        </button>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => setShowReportMenu(false)}
+                        className="text-left text-xs px-3 py-1 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-400 transition-colors mt-1"
+                      >
+                        {t('common:cancel')}
+                      </button>
+                    </div>
+                  )}
+
+                  {reportSuccess && (
+                    <p className="text-xs text-green-600 dark:text-green-400 text-center font-medium">
+                      {t('profile:public.reportSent')}
+                    </p>
+                  )}
                 </div>
               )}
+            </section>
 
-              {/* Success feedback */}
-              {reportSuccess && (
-                <p className="text-xs text-green-600 dark:text-green-400 text-right font-medium">
-                  Denuncia enviada. Gracias por reportarlo.
+            {/* Actividad */}
+            <section className={CARD}>
+              <h2 className="font-display text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+                {t('profile:public.activity')}
+              </h2>
+              <div className="grid grid-cols-2 gap-3">
+                {stats.map((stat) => (
+                  <div key={stat.label} className="rounded-xl bg-primary/5 dark:bg-primary/10 p-4 text-center">
+                    <p className="text-2xl font-bold text-primary">{stat.value}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{stat.label}</p>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            {/* Logros — SÓLO los que ganó. `ProfilePage` también dibuja los que
+                faltan en gris, pero ese texto es motivacional para el dueño
+                ("Verificá tu identidad"): a un tercero le anunciaría lo que esta
+                persona NO logró.
+
+                Nada de `hidden sm:*` acá — con esa forma la sección entera
+                desaparecía por debajo de 640px, o sea justo en un teléfono.
+                `grid-cols-1 sm:grid-cols-2` degrada bien. */}
+            <section className={CARD}>
+              <h2 className="font-display text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+                {t('profile:public.achievements')} ({profile.badges.length})
+              </h2>
+              {profile.badges.length === 0 ? (
+                <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-4">
+                  {t('profile:public.noAchievements')}
                 </p>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {profile.badges.map((badge: Badge) => (
+                    <BadgeCard key={badge.id} badge={badge} />
+                  ))}
+                </div>
               )}
-            </div>
-          )}
-        </div>
+            </section>
+          </aside>
 
-        {/* Stats */}
-        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-5">
-          <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-4">
-            Actividad
-          </h2>
-          <div className="grid grid-cols-3 divide-x divide-gray-100 dark:divide-gray-800">
-            <StatPill label="Reportes" value={profile.total_reports} />
-            <StatPill label="Reunidos" value={profile.found_count} />
-            <StatPill label="Compartidos" value={profile.share_count} />
-          </div>
-        </div>
-
-        {/* Badges */}
-        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-5">
-          <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-4">
-            Logros ({profile.badges.length})
-          </h2>
-          {profile.badges.length === 0 ? (
-            <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-4">
-              Aún no tiene logros desbloqueados.
-            </p>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {profile.badges.map((badge: Badge) => (
-                <BadgeCard key={badge.id} badge={badge} />
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Rating summary */}
-        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-5">
-          <div className="flex items-center gap-3">
-            <span className="text-3xl font-bold text-gray-900 dark:text-gray-50">
-              {profile.avg_rating > 0 ? profile.avg_rating.toFixed(1) : '—'}
-            </span>
-            <div>
-              <StarDisplay stars={Math.round(profile.avg_rating)} size="text-lg" />
-              <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
-                {profile.review_count === 1 ? '1 reseña' : `${profile.review_count} reseñas`}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Reviews */}
-        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-              Reseñas
-            </h2>
-            {canReview && (
-              <button
-                type="button"
-                onClick={handleOpenForm}
-                className="text-sm font-semibold text-primary hover:text-primary-dark transition-colors"
+          {/* ── Columna derecha: qué publicó ── */}
+          <div className="lg:col-span-2 space-y-8">
+            {/* A. Publicaciones */}
+            <section>
+              <h2 className="font-display text-headline font-semibold text-gray-900 dark:text-gray-100 mb-4">
+                {t('profile:public.posts')}
+              </h2>
+              <ListState
+                query={petsQuery}
+                // El sobre es `{data, total}`: hay que atravesar `.data` ANTES
+                // de partir en baldes.
+                select={(paged) => splitOwnedPets(paged.data).owned}
+                errorTitle={t('profile:public.postsError')}
+                loading={<PetGridSkeleton />}
+                empty={
+                  <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 text-center py-12 px-6">
+                    <PawPlaceholder className="w-16 mx-auto mb-4" />
+                    <p className="text-gray-700 dark:text-gray-300 font-semibold">
+                      {t('profile:public.postsEmpty')}
+                    </p>
+                  </div>
+                }
               >
-                {myReview ? 'Editar reseña' : 'Dejar reseña'}
-              </button>
+                {(pets) => (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {pets.map((pet: Pet) => (
+                      <ProfilePetCard key={pet.id} pet={pet} />
+                    ))}
+                  </div>
+                )}
+              </ListState>
+            </section>
+
+            {/* B. En adopción — la sección entera desaparece cuando no hay nada
+                (`empty={<></>}`) y su encabezado vive DENTRO de los children.
+
+                El `petsQuery.data != null` de afuera es lo que le saca el cartel
+                de error propio: sale de la MISMA query que "Publicaciones", que
+                siempre se dibuja y por lo tanto ya carga el aviso cuando esa
+                query falla. Un segundo cartel sería el mismo fallo dicho dos
+                veces en la misma columna. Sin datos no se dibuja nada, que no
+                afirma nada. */}
+            {petsQuery.data != null && (
+              <ListState
+                query={petsQuery}
+                select={(paged) => splitOwnedPets(paged.data).adoption}
+                loading={<></>}
+                empty={<></>}
+              >
+                {(pets) => (
+                  <section>
+                    <h2 className="font-display text-headline font-semibold text-gray-900 dark:text-gray-100 mb-4">
+                      {t('profile:public.adoption')}
+                    </h2>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {pets.map((pet: Pet) => (
+                        <ProfilePetCard key={pet.id} pet={pet} />
+                      ))}
+                    </div>
+                  </section>
+                )}
+              </ListState>
             )}
-          </div>
 
-          {/* Inline form */}
-          {showForm && (
-            <form onSubmit={handleSubmit} className="mb-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-xl space-y-3">
-              <div>
-                <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tu calificación</p>
-                <StarSelector value={formStars} onChange={setFormStars} />
-              </div>
-              <textarea
-                value={formText}
-                onChange={(e) => setFormText(e.target.value)}
-                placeholder="Escribí tu reseña..."
-                maxLength={2000}
-                rows={4}
-                className="w-full text-sm border border-gray-200 dark:border-gray-700 rounded-lg p-2.5 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-50 placeholder-gray-400 resize-none focus:outline-none focus:ring-2 focus:ring-primary/30"
-              />
-              {formError && (
-                <p className="text-xs text-red-500">{formError}</p>
-              )}
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowForm(false)}
-                  className="flex-1 py-2 text-sm font-semibold border border-gray-200 dark:border-gray-700 rounded-lg text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={createReview.isPending || updateReview.isPending}
-                  className="flex-[2] py-2 text-sm font-semibold bg-primary text-white rounded-lg hover:bg-primary-dark disabled:opacity-60 transition-colors"
-                >
-                  {createReview.isPending || updateReview.isPending
-                    ? 'Guardando...'
-                    : myReview ? 'Guardar cambios' : 'Publicar reseña'}
-                </button>
-              </div>
-            </form>
-          )}
+            {/* El aviso de recorte va DEBAJO de todo lo publicado, no arriba:
+                arriba se lee como una advertencia antes de haber visto nada,
+                acá contesta la pregunta que el lector sí tiene en ese momento
+                — "¿esto es todo?".
 
-          {/* List */}
-          <ListState
-            query={reviewsQuery}
-            select={(res) => res.reviews}
-            // `useUserReviews` es `enabled: !!userId`. Sin `id` en la URL la
-            // query nunca se pide y cae al slot `empty`, igual que hoy — pero
-            // ese caso ya lo ataja la guarda de `!profile` de más arriba.
-            loading={
-              <div className="space-y-3 py-2">
-                {[1, 2].map((i) => (
-                  <div key={i} className="h-16 rounded-xl bg-gray-100 dark:bg-gray-800 animate-pulse" />
-                ))}
-              </div>
-            }
-            empty={
-              <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-4">
-                Aún no hay reseñas.
+                Una línea apagada y nada más: sin `role="alert"`, sin ícono y
+                sin caja de color. Promoverla a alerta afirmaría una urgencia
+                que no existe; esto es una nota al pie. Y sólo se dibuja cuando
+                el tope MUERDE: anunciar un recorte que no está pasando es ruido
+                que entrena a la gente a ignorar el mensaje el día que es
+                cierto. */}
+            {petsTruncated && (
+              <p className="text-sm text-gray-400 dark:text-gray-500 text-center pt-4">
+                {t('profile:public.postsCapped', { shown: petsShown, total: petsTotal })}
               </p>
-            }
-          >
-            {(reviews) => (
-              <div>
-                {reviews.map((review) => (
-                  <ReviewCard
-                    key={review.id}
-                    review={review}
-                    onDelete={
-                      user && review.reviewer_id === user.id
-                        ? () => {
-                            if (!window.confirm('¿Eliminar tu reseña?')) return;
-                            deleteReview.mutate(id ?? '');
-                          }
-                        : undefined
-                    }
-                  />
-                ))}
-              </div>
             )}
-          </ListState>
-        </div>
 
-        {/* Link al leaderboard */}
-        <div className="text-center">
-          <Link
-            to="/leaderboard"
-            className="text-sm text-primary hover:text-primary-dark font-medium transition-colors"
-          >
-            Ver ranking por ciudad →
-          </Link>
+            {/* C. Reseñas — el resumen y la lista en UNA sola tarjeta. Estaban
+                separadas, y el resumen dibujaba `—` en `text-3xl font-bold`
+                para quien no tiene ninguna: en pantalla se leía como una barra
+                negra suelta al lado de cinco estrellas grises. */}
+            <section className={CARD}>
+              <div className="flex items-start justify-between gap-4 mb-4">
+                <div className="min-w-0">
+                  <h2 className="font-display text-lg font-semibold text-gray-900 dark:text-gray-100">
+                    {t('profile:public.reviews')}
+                  </h2>
+                  {profile.review_count > 0 ? (
+                    <div className="flex items-center gap-3 mt-1">
+                      <span className="text-3xl font-bold text-gray-900 dark:text-gray-50">
+                        {profile.avg_rating.toFixed(1)}
+                      </span>
+                      <div>
+                        <StarDisplay stars={Math.round(profile.avg_rating)} size="text-lg" />
+                        <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+                          {t('profile:public.reviewCount', { count: profile.review_count })}
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    // Sin guion y sin estrellas: no hay nada que promediar, así
+                    // que no se dibuja un promedio vacío.
+                    <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">
+                      {t('profile:public.noRating')}
+                    </p>
+                  )}
+                </div>
+                {canReview && (
+                  <button
+                    type="button"
+                    onClick={handleOpenForm}
+                    className="shrink-0 text-sm font-semibold text-primary hover:text-primary-dark transition-colors"
+                  >
+                    {myReview ? t('profile:public.editReview') : t('profile:public.leaveReview')}
+                  </button>
+                )}
+              </div>
+
+              {/* Formulario inline */}
+              {showForm && (
+                <form onSubmit={handleSubmit} className="mb-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-xl space-y-3">
+                  <div>
+                    <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      {t('profile:public.yourRating')}
+                    </p>
+                    <StarSelector value={formStars} onChange={setFormStars} />
+                  </div>
+                  <textarea
+                    value={formText}
+                    onChange={(e) => setFormText(e.target.value)}
+                    placeholder={t('profile:public.reviewPlaceholder')}
+                    maxLength={2000}
+                    rows={4}
+                    className="w-full text-sm border border-gray-200 dark:border-gray-700 rounded-lg p-2.5 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-50 placeholder-gray-400 resize-none focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  />
+                  {formError && (
+                    <p role="alert" className="text-xs text-red-500">{formError}</p>
+                  )}
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowForm(false)}
+                      className="flex-1 py-2 text-sm font-semibold border border-gray-200 dark:border-gray-700 rounded-lg text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                    >
+                      {t('common:cancel')}
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={createReview.isPending || updateReview.isPending}
+                      className="flex-[2] py-2 text-sm font-semibold bg-primary text-white rounded-lg hover:bg-primary-dark disabled:opacity-60 transition-colors"
+                    >
+                      {createReview.isPending || updateReview.isPending
+                        ? t('profile:public.saving')
+                        : myReview
+                          ? t('profile:public.saveReview')
+                          : t('profile:public.publishReview')}
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              <ListState
+                query={reviewsQuery}
+                select={(res) => res.reviews}
+                // `useUserReviews` es `enabled: !!userId`. Sin `id` en la URL la
+                // query nunca se pide y cae al slot `empty`, igual que hoy — pero
+                // ese caso ya lo ataja la guarda de `!profile` de más arriba.
+                errorTitle={t('profile:public.reviewsError')}
+                loading={
+                  <div className="space-y-3 py-2">
+                    {[1, 2].map((i) => (
+                      <div key={i} className="h-16 rounded-xl bg-gray-100 dark:bg-gray-800 animate-pulse" />
+                    ))}
+                  </div>
+                }
+                empty={
+                  <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-4">
+                    {t('profile:public.reviewsEmpty')}
+                  </p>
+                }
+              >
+                {(reviews) => (
+                  <div>
+                    {reviews.map((review) => (
+                      <ReviewCard
+                        key={review.id}
+                        review={review}
+                        onDelete={
+                          user && review.reviewer_id === user.id
+                            ? () => {
+                                if (!window.confirm(t('profile:public.confirmDeleteReview'))) return;
+                                deleteReview.mutate(id ?? '');
+                              }
+                            : undefined
+                        }
+                      />
+                    ))}
+                  </div>
+                )}
+              </ListState>
+            </section>
+
+            {/* Link al leaderboard */}
+            <div className="text-center">
+              <Link
+                to="/leaderboard"
+                className="text-sm text-primary hover:text-primary-dark font-medium transition-colors"
+              >
+                {t('profile:public.seeRanking')}
+              </Link>
+            </div>
+          </div>
         </div>
       </div>
     </div>
