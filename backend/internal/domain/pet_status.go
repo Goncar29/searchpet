@@ -61,9 +61,25 @@ var AdoptionVisibleStatuses = []string{PetStatusAdoption}
 //
 // Excluye `registered` y `archived` por el mismo motivo que
 // PublicSearchableStatuses: publicarlos sería un inventario de qué animales
-// tiene esa persona y dónde vive. `archived` es además el interruptor con el
-// que el dueño baja cualquier publicación de esta vista — por eso no hace falta
-// una preferencia de privacidad por mascota.
+// tiene esa persona y dónde vive.
+//
+// `archived` es además el interruptor con el que se baja una publicación de
+// esta vista, PERO NO ALCANZA PARA TODAS. `stray` es el único estado del
+// sistema que no tiene arista hacia `archived` —ver AllowedTransitions, donde
+// los otros cinco sí la tienen— así que hoy quien reporta un callejero no lo
+// puede retirar de su perfil sin pasar por `found`, que es afirmar que el
+// animal apareció, o sin borrar la mascota entera.
+//
+// Duele justo donde más se acumula: `reporter_id` junta cada callejero que la
+// persona reportó en su vida, y es el motivo por el que la lista tiene tope.
+// La asimetría no tiene ninguna justificación escrita en ningún lado y parece
+// un olvido, no una decisión. Se deja anotada y no se arregla acá: tocar la
+// máquina de estados es superficie compartida con el feed, el mapa, la
+// búsqueda y adopción, y no entra en un cambio cuyo review tiene que mirar una
+// frontera de privacidad.
+//
+// NO deducir de esto que archivar cubre todo — esta línea existe porque yo lo
+// deduje y era falso.
 //
 // Incluye `found` y `adopted` a propósito: los dos son finales felices que ya
 // fueron públicos (found está en PublicSearchableStatuses; adopted estuvo
