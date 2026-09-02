@@ -367,3 +367,118 @@ func TestPetRepository_Delete_Cascade(t *testing.T) {
 		t.Errorf("want 0 photos after cascade delete, got %d", len(photos))
 	}
 }
+
+// Este test corre contra Postgres REAL y no contra un mock a propósito: los
+// mocks no tienen WHERE, así que no pueden ver un filtro que no se aplicó
+// (regla #34). Y afirma la NEGATIVA — que las privadas no vuelven— porque un
+// test que sólo comprueba que las cinco visibles vuelven pasa igual con el
+// filtro entero borrado.
+func TestPetRepository_FindPublicByUserID_NoDevuelveLasPrivadas(t *testing.T) {
+	gormDB := testdb.SetupTestDB(t)
+	userRepo := repository.NewUserRepository(gormDB)
+	petRepo := repository.NewPetRepository(gormDB)
+
+	owner := newTestUser(t, userRepo)
+
+	seed := func(name, status string) {
+		p := &domain.Pet{
+			ID:      uuid.New(),
+			OwnerID: ptrUUID(owner.ID),
+			Name:    name,
+			Type:    "perro",
+			Status:  status,
+		}
+		if err := petRepo.Create(p); err != nil {
+			t.Fatalf("sembrando %s/%s: %v", name, status, err)
+		}
+	}
+
+	seed("Visible-Lost", domain.PetStatusLost)
+	seed("Visible-Stray", domain.PetStatusStray)
+	seed("Visible-Found", domain.PetStatusFound)
+	seed("Visible-Adoption", domain.PetStatusAdoption)
+	seed("Visible-Adopted", domain.PetStatusAdopted)
+	seed("PRIVADA-Registered", domain.PetStatusRegistered)
+	seed("PRIVADA-Archived", domain.PetStatusArchived)
+
+	pets, err := petRepo.FindPublicByUserID(owner.ID.String(), domain.PublicProfileVisibleStatuses)
+	if err != nil {
+		t.Fatalf("FindPublicByUserID: %v", err)
+	}
+
+	for _, p := range pets {
+		if p.Status == domain.PetStatusRegistered || p.Status == domain.PetStatusArchived {
+			t.Errorf("FUGA: volvió %q en estado %q", p.Name, p.Status)
+		}
+	}
+	if len(pets) != 5 {
+		t.Fatalf("largo = %d, quiero 5: %v", len(pets), nombres(pets))
+	}
+}
+
+// Una mascota puede matchear los DOS vínculos: quien reporta un callejero y
+// después lo adopta queda como owner Y como reporter de la misma fila. Con dos
+// consultas concatenadas aparecería duplicada en el perfil.
+func TestPetRepository_FindPublicByUserID_NoDuplicaSiEsDueniaYReporter(t *testing.T) {
+	gormDB := testdb.SetupTestDB(t)
+	userRepo := repository.NewUserRepository(gormDB)
+	petRepo := repository.NewPetRepository(gormDB)
+
+	u := newTestUser(t, userRepo)
+
+	p := &domain.Pet{
+		ID:         uuid.New(),
+		OwnerID:    ptrUUID(u.ID),
+		ReporterID: ptrUUID(u.ID),
+		Name:       "Callejero Adoptado",
+		Type:       "perro",
+		Status:     domain.PetStatusAdopted,
+	}
+	if err := petRepo.Create(p); err != nil {
+		t.Fatalf("sembrando: %v", err)
+	}
+
+	pets, err := petRepo.FindPublicByUserID(u.ID.String(), domain.PublicProfileVisibleStatuses)
+	if err != nil {
+		t.Fatalf("FindPublicByUserID: %v", err)
+	}
+	if len(pets) != 1 {
+		t.Fatalf("largo = %d, quiero 1 (duplicado): %v", len(pets), nombres(pets))
+	}
+}
+
+// El callejero que reportó sin ser dueña: owner_id nil, reporter_id suyo.
+func TestPetRepository_FindPublicByUserID_IncluyeLosQueReporto(t *testing.T) {
+	gormDB := testdb.SetupTestDB(t)
+	userRepo := repository.NewUserRepository(gormDB)
+	petRepo := repository.NewPetRepository(gormDB)
+
+	reporter := newTestUser(t, userRepo)
+
+	p := &domain.Pet{
+		ID:         uuid.New(),
+		ReporterID: ptrUUID(reporter.ID),
+		Name:       "Callejero del Parque",
+		Type:       "gato",
+		Status:     domain.PetStatusStray,
+	}
+	if err := petRepo.Create(p); err != nil {
+		t.Fatalf("sembrando: %v", err)
+	}
+
+	pets, err := petRepo.FindPublicByUserID(reporter.ID.String(), domain.PublicProfileVisibleStatuses)
+	if err != nil {
+		t.Fatalf("FindPublicByUserID: %v", err)
+	}
+	if len(pets) != 1 || pets[0].Name != "Callejero del Parque" {
+		t.Fatalf("quiero el callejero reportado, tengo: %v", nombres(pets))
+	}
+}
+
+func nombres(pets []domain.Pet) []string {
+	out := make([]string, len(pets))
+	for i, p := range pets {
+		out[i] = p.Name + "/" + p.Status
+	}
+	return out
+}

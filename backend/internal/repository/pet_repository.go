@@ -95,6 +95,18 @@ func (r *PostgresPetRepository) FindByReporterID(reporterID string) ([]domain.Pe
 	return pets, err
 }
 
+// FindPublicByUserID — ver el contrato en repository/interfaces.go.
+func (r *PostgresPetRepository) FindPublicByUserID(userID string, statuses []string) ([]domain.Pet, error) {
+	var pets []domain.Pet
+	err := r.db.
+		Preload("Owner").
+		Preload("Photos", orderedPhotos).
+		Where("(owner_id = ? OR reporter_id = ?) AND status IN ?", userID, userID, statuses).
+		Order("created_at DESC").
+		Find(&pets).Error
+	return pets, err
+}
+
 // Update guarda los cambios de una mascota existente.
 func (r *PostgresPetRepository) Update(pet *domain.Pet) error {
 	return r.db.Save(pet).Error

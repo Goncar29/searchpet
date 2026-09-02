@@ -21,6 +21,17 @@ type PetRepository interface {
 	// FindByReporterID returns the pets a user reported (stray pets carry the
 	// reporter's id; they have no owner).
 	FindByReporterID(reporterID string) ([]domain.Pet, error)
+	// FindPublicByUserID devuelve las mascotas de un usuario que un TERCERO
+	// puede ver en su perfil público: las que publicó y todavía no cerró.
+	//
+	// La allowlist se aplica en el WHERE y no después: una fila `registered`
+	// no tiene que salir nunca de Postgres. Filtrar más arriba la cargaría a
+	// memoria para descartarla, y filtrar en el cliente no filtraría nada.
+	//
+	// Cubre los dos vínculos en UNA consulta —`owner_id` (las suyas) y
+	// `reporter_id` (los callejeros que reportó sin ser dueña)— porque una
+	// misma fila puede matchear ambos y dos listas pegadas la duplicarían.
+	FindPublicByUserID(userID string, statuses []string) ([]domain.Pet, error)
 	Update(pet *domain.Pet) error
 	UpdateStatus(id string, status string) error
 	Delete(id string) error
