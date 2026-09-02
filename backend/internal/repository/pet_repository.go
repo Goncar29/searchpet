@@ -96,12 +96,17 @@ func (r *PostgresPetRepository) FindByReporterID(reporterID string) ([]domain.Pe
 }
 
 // FindPublicByUserID — ver el contrato en repository/interfaces.go.
-func (r *PostgresPetRepository) FindPublicByUserID(userID string, statuses []string) ([]domain.Pet, error) {
+//
+// Sin Preload("Owner") a propósito: CreatePet setea owner XOR reporter, así
+// que la única persona que este preload podría traer es la dueña del perfil
+// que ya se está mirando — el cliente ya la tiene por GET /users/:id/profile.
+// Preloadearla acá filtraría su teléfono (PetOwnerResponse lo expone
+// incondicional) en un endpoint público y sin auth.
+func (r *PostgresPetRepository) FindPublicByUserID(userID string) ([]domain.Pet, error) {
 	var pets []domain.Pet
 	err := r.db.
-		Preload("Owner").
 		Preload("Photos", orderedPhotos).
-		Where("(owner_id = ? OR reporter_id = ?) AND status IN ?", userID, userID, statuses).
+		Where("(owner_id = ? OR reporter_id = ?) AND status IN ?", userID, userID, domain.PublicProfileVisibleStatuses).
 		Order("created_at DESC").
 		Find(&pets).Error
 	return pets, err

@@ -373,17 +373,24 @@ func TestPetRepository_Delete_Cascade(t *testing.T) {
 // (regla #34). Y afirma la NEGATIVA — que las privadas no vuelven— porque un
 // test que sólo comprueba que las cinco visibles vuelven pasa igual con el
 // filtro entero borrado.
+//
+// También siembra un SEGUNDO usuario con una mascota `lost` propia: sin esa
+// fila, "todas las filas visibles de la tabla" y "las filas visibles de ESTE
+// usuario" son indistinguibles, porque SetupTestDB trunca entre tests y cada
+// test de este archivo siembra un solo dueño. El corte por usuario tiene
+// tanta cobertura acá como el corte por estado.
 func TestPetRepository_FindPublicByUserID_NoDevuelveLasPrivadas(t *testing.T) {
 	gormDB := testdb.SetupTestDB(t)
 	userRepo := repository.NewUserRepository(gormDB)
 	petRepo := repository.NewPetRepository(gormDB)
 
 	owner := newTestUser(t, userRepo)
+	otro := newTestUser(t, userRepo)
 
-	seed := func(name, status string) {
+	seed := func(u *domain.User, name, status string) {
 		p := &domain.Pet{
 			ID:      uuid.New(),
-			OwnerID: ptrUUID(owner.ID),
+			OwnerID: ptrUUID(u.ID),
 			Name:    name,
 			Type:    "perro",
 			Status:  status,
@@ -393,15 +400,16 @@ func TestPetRepository_FindPublicByUserID_NoDevuelveLasPrivadas(t *testing.T) {
 		}
 	}
 
-	seed("Visible-Lost", domain.PetStatusLost)
-	seed("Visible-Stray", domain.PetStatusStray)
-	seed("Visible-Found", domain.PetStatusFound)
-	seed("Visible-Adoption", domain.PetStatusAdoption)
-	seed("Visible-Adopted", domain.PetStatusAdopted)
-	seed("PRIVADA-Registered", domain.PetStatusRegistered)
-	seed("PRIVADA-Archived", domain.PetStatusArchived)
+	seed(owner, "Visible-Lost", domain.PetStatusLost)
+	seed(owner, "Visible-Stray", domain.PetStatusStray)
+	seed(owner, "Visible-Found", domain.PetStatusFound)
+	seed(owner, "Visible-Adoption", domain.PetStatusAdoption)
+	seed(owner, "Visible-Adopted", domain.PetStatusAdopted)
+	seed(owner, "PRIVADA-Registered", domain.PetStatusRegistered)
+	seed(owner, "PRIVADA-Archived", domain.PetStatusArchived)
+	seed(otro, "AJENA-Lost", domain.PetStatusLost)
 
-	pets, err := petRepo.FindPublicByUserID(owner.ID.String(), domain.PublicProfileVisibleStatuses)
+	pets, err := petRepo.FindPublicByUserID(owner.ID.String())
 	if err != nil {
 		t.Fatalf("FindPublicByUserID: %v", err)
 	}
@@ -409,6 +417,9 @@ func TestPetRepository_FindPublicByUserID_NoDevuelveLasPrivadas(t *testing.T) {
 	for _, p := range pets {
 		if p.Status == domain.PetStatusRegistered || p.Status == domain.PetStatusArchived {
 			t.Errorf("FUGA: volvió %q en estado %q", p.Name, p.Status)
+		}
+		if p.Name == "AJENA-Lost" {
+			t.Errorf("FUGA: volvió una mascota visible de OTRO usuario: %q", p.Name)
 		}
 	}
 	if len(pets) != 5 {
@@ -419,6 +430,12 @@ func TestPetRepository_FindPublicByUserID_NoDevuelveLasPrivadas(t *testing.T) {
 // Una mascota puede matchear los DOS vínculos: quien reporta un callejero y
 // después lo adopta queda como owner Y como reporter de la misma fila. Con dos
 // consultas concatenadas aparecería duplicada en el perfil.
+//
+// Defensiva a propósito: hoy esta fila es INALCANZABLE — CreatePet setea
+// owner XOR reporter y nada más asigna Pet.OwnerID (pet_service.go:210-217),
+// y stray sólo tiene la transición a found (status_machine.go:11). Este test
+// construye a mano un estado que la app no produce hoy, para que el OR de la
+// query siga sin duplicar si eso cambia.
 func TestPetRepository_FindPublicByUserID_NoDuplicaSiEsDueniaYReporter(t *testing.T) {
 	gormDB := testdb.SetupTestDB(t)
 	userRepo := repository.NewUserRepository(gormDB)
@@ -438,7 +455,7 @@ func TestPetRepository_FindPublicByUserID_NoDuplicaSiEsDueniaYReporter(t *testin
 		t.Fatalf("sembrando: %v", err)
 	}
 
-	pets, err := petRepo.FindPublicByUserID(u.ID.String(), domain.PublicProfileVisibleStatuses)
+	pets, err := petRepo.FindPublicByUserID(u.ID.String())
 	if err != nil {
 		t.Fatalf("FindPublicByUserID: %v", err)
 	}
@@ -466,7 +483,7 @@ func TestPetRepository_FindPublicByUserID_IncluyeLosQueReporto(t *testing.T) {
 		t.Fatalf("sembrando: %v", err)
 	}
 
-	pets, err := petRepo.FindPublicByUserID(reporter.ID.String(), domain.PublicProfileVisibleStatuses)
+	pets, err := petRepo.FindPublicByUserID(reporter.ID.String())
 	if err != nil {
 		t.Fatalf("FindPublicByUserID: %v", err)
 	}

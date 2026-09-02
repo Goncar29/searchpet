@@ -28,10 +28,20 @@ type PetRepository interface {
 	// no tiene que salir nunca de Postgres. Filtrar más arriba la cargaría a
 	// memoria para descartarla, y filtrar en el cliente no filtraría nada.
 	//
+	// Qué estados puede ver un desconocido NO es un parámetro — es un
+	// invariante de seguridad, y un invariante configurable es peor que
+	// ninguno: el método lee `domain.PublicProfileVisibleStatuses` adentro,
+	// así que la firma no puede prometer "sólo lo público" y dejar que quien
+	// llama le pase una lista más ancha (o vacía, que hoy además callaría
+	// sin error).
+	//
 	// Cubre los dos vínculos en UNA consulta —`owner_id` (las suyas) y
 	// `reporter_id` (los callejeros que reportó sin ser dueña)— porque una
 	// misma fila puede matchear ambos y dos listas pegadas la duplicarían.
-	FindPublicByUserID(userID string, statuses []string) ([]domain.Pet, error)
+	// Defensiva: hoy esa fila es inalcanzable porque `CreatePet` setea owner
+	// XOR reporter y nada más asigna `Pet.OwnerID`; el OR está para no
+	// duplicar si algún día los datos lo permiten.
+	FindPublicByUserID(userID string) ([]domain.Pet, error)
 	Update(pet *domain.Pet) error
 	UpdateStatus(id string, status string) error
 	Delete(id string) error

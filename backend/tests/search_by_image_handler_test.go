@@ -50,7 +50,7 @@ func (n *nopPetRepoForHandler) Create(_ *domain.Pet) error                      
 func (n *nopPetRepoForHandler) FindByID(_ string) (*domain.Pet, error)             { return nil, nil }
 func (n *nopPetRepoForHandler) FindByOwnerID(_ string) ([]domain.Pet, error)       { return nil, nil }
 func (n *nopPetRepoForHandler) FindByReporterID(_ string) ([]domain.Pet, error)    { return nil, nil }
-func (n *nopPetRepoForHandler) FindPublicByUserID(_ string, _ []string) ([]domain.Pet, error) {
+func (n *nopPetRepoForHandler) FindPublicByUserID(_ string) ([]domain.Pet, error) {
 	return nil, nil
 }
 func (n *nopPetRepoForHandler) Update(_ *domain.Pet) error                         { return nil }

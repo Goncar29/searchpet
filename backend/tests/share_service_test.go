@@ -77,7 +77,7 @@ func (m *mockPetRepoForShare) FindByOwnerID(ownerID string) ([]domain.Pet, error
 func (m *mockPetRepoForShare) FindByReporterID(reporterID string) ([]domain.Pet, error) {
 	return nil, nil
 }
-func (m *mockPetRepoForShare) FindPublicByUserID(_ string, _ []string) ([]domain.Pet, error) {
+func (m *mockPetRepoForShare) FindPublicByUserID(_ string) ([]domain.Pet, error) {
 	return nil, nil
 }
 func (m *mockPetRepoForShare) Update(pet *domain.Pet) error                                   { return nil }
