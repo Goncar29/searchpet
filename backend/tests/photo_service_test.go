@@ -115,6 +115,7 @@ func (m *mockPetRepoForService) FindByReporterID(reporterID string) ([]domain.Pe
 func (m *mockPetRepoForService) FindPublicByUserID(_ string) ([]domain.Pet, error) {
 	return nil, nil
 }
+func (m *mockPetRepoForService) CountPublicByUserID(_ string) (int64, error) { return 0, nil }
 func (m *mockPetRepoForService) Search(c domain.PetSearchCriteria) ([]domain.Pet, int64, error) {
 	return nil, 0, nil
 }

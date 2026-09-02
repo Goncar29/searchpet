@@ -42,6 +42,12 @@ type PetRepository interface {
 	// XOR reporter y nada más asigna `Pet.OwnerID`; el OR está para no
 	// duplicar si algún día los datos lo permiten.
 	FindPublicByUserID(userID string) ([]domain.Pet, error)
+	// CountPublicByUserID cuenta el total real detrás de FindPublicByUserID, sin
+	// el LIMIT que la acota. Tiene que aplicar el MISMO WHERE — mismo OR, misma
+	// allowlist leída de domain.PublicProfileVisibleStatuses — o la pantalla
+	// mostraría "50 de N" con un N que cuenta un conjunto distinto del listado,
+	// y ninguno de los dos números se vería mal por sí solo.
+	CountPublicByUserID(userID string) (int64, error)
 	Update(pet *domain.Pet) error
 	UpdateStatus(id string, status string) error
 	Delete(id string) error

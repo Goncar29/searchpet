@@ -492,6 +492,61 @@ func TestPetRepository_FindPublicByUserID_IncluyeLosQueReporto(t *testing.T) {
 	}
 }
 
+// CountPublicByUserID tiene que ver EXACTAMENTE lo mismo que
+// FindPublicByUserID ve (cuando el resultado está por debajo del tope de 50):
+// mismo OR de owner_id/reporter_id, misma allowlist. Si las dos consultas
+// alguna vez divergen, el perfil público muestra "50 de N" con un N que cuenta
+// un conjunto distinto del listado, y ninguno de los dos números se ve mal por
+// sí solo — por eso este test afirma el ACUERDO entre las dos, no un número
+// fijo que alguien pudo haber tipeado mal en las dos consultas por igual.
+//
+// Siembra una mezcla de mascotas visibles y privadas de un usuario, más una
+// mascota de un SEGUNDO usuario, para que el corte por dueño tenga tanta
+// cobertura acá como el corte por estado.
+func TestPetRepository_CountPublicByUserID_CoincideConFindPublicByUserID(t *testing.T) {
+	gormDB := testdb.SetupTestDB(t)
+	userRepo := repository.NewUserRepository(gormDB)
+	petRepo := repository.NewPetRepository(gormDB)
+
+	owner := newTestUser(t, userRepo)
+	otro := newTestUser(t, userRepo)
+
+	seed := func(u *domain.User, name, status string) {
+		p := &domain.Pet{
+			ID:      uuid.New(),
+			OwnerID: ptrUUID(u.ID),
+			Name:    name,
+			Type:    "perro",
+			Status:  status,
+		}
+		if err := petRepo.Create(p); err != nil {
+			t.Fatalf("sembrando %s/%s: %v", name, status, err)
+		}
+	}
+
+	seed(owner, "Visible-Lost", domain.PetStatusLost)
+	seed(owner, "Visible-Stray", domain.PetStatusStray)
+	seed(owner, "PRIVADA-Registered", domain.PetStatusRegistered)
+	seed(owner, "PRIVADA-Archived", domain.PetStatusArchived)
+	seed(otro, "AJENA-Lost", domain.PetStatusLost)
+
+	pets, err := petRepo.FindPublicByUserID(owner.ID.String())
+	if err != nil {
+		t.Fatalf("FindPublicByUserID: %v", err)
+	}
+	total, err := petRepo.CountPublicByUserID(owner.ID.String())
+	if err != nil {
+		t.Fatalf("CountPublicByUserID: %v", err)
+	}
+
+	if int64(len(pets)) != total {
+		t.Fatalf("desacuerdo: FindPublicByUserID devolvió %d filas (%v), CountPublicByUserID contó %d", len(pets), nombres(pets), total)
+	}
+	if total != 2 {
+		t.Fatalf("total = %d, quiero 2 (Visible-Lost + Visible-Stray)", total)
+	}
+}
+
 func nombres(pets []domain.Pet) []string {
 	out := make([]string, len(pets))
 	for i, p := range pets {

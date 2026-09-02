@@ -20,6 +20,15 @@ type PetService interface {
 	GetMyPets(ownerID string) ([]domain.Pet, error)
 	// GetReportedPets returns the stray pets the user reported.
 	GetReportedPets(reporterID string) ([]domain.Pet, error)
+	// GetPublicPets retorna lo que un tercero ve en el perfil público de otro
+	// usuario, acotado por el tope del repositorio. CountPublicPets da el total
+	// real sin tope, para que la UI pueda decir "50 de N".
+	//
+	// La allowlist NO se pasa desde acá: la fija el repositorio leyéndola del
+	// dominio, para que el nombre del método no prometa una garantía que un
+	// llamador pueda romper pasando otra lista.
+	GetPublicPets(userID string) ([]domain.Pet, error)
+	CountPublicPets(userID string) (int64, error)
 	UpdatePet(ownerID string, petID string, req dto.UpdatePetRequest) (*domain.Pet, error)
 	DeletePet(ownerID string, petID string) error
 	MarkAsFound(ownerID string, petID string) (*domain.Pet, error)
@@ -296,6 +305,16 @@ func (s *petService) GetMyPets(ownerID string) ([]domain.Pet, error) {
 // GetReportedPets devuelve las mascotas callejeras (stray) que reportó el usuario.
 func (s *petService) GetReportedPets(reporterID string) ([]domain.Pet, error) {
 	return s.repo.FindByReporterID(reporterID)
+}
+
+// GetPublicPets y CountPublicPets son passthroughs al repositorio — ver el
+// contrato en PetService y en repository/interfaces.go.
+func (s *petService) GetPublicPets(userID string) ([]domain.Pet, error) {
+	return s.repo.FindPublicByUserID(userID)
+}
+
+func (s *petService) CountPublicPets(userID string) (int64, error) {
+	return s.repo.CountPublicByUserID(userID)
 }
 
 // UpdatePet actualiza una mascota — verifica que el usuario sea el dueño.

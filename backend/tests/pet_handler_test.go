@@ -24,6 +24,8 @@ type mockPetService struct {
 	getPetByIDFn  func(id string) (*domain.Pet, error)
 	getMyPetsFn       func(ownerID string) ([]domain.Pet, error)
 	getReportedPetsFn func(reporterID string) ([]domain.Pet, error)
+	getPublicPetsFn   func(userID string) ([]domain.Pet, error)
+	countPublicPetsFn func(userID string) (int64, error)
 	updatePetFn   func(ownerID, petID string, req dto.UpdatePetRequest) (*domain.Pet, error)
 	deletePetFn   func(ownerID, petID string) error
 	markAsFoundFn func(ownerID, petID string) (*domain.Pet, error)
@@ -57,6 +59,20 @@ func (m *mockPetService) GetReportedPets(reporterID string) ([]domain.Pet, error
 		return m.getReportedPetsFn(reporterID)
 	}
 	return nil, nil
+}
+
+func (m *mockPetService) GetPublicPets(userID string) ([]domain.Pet, error) {
+	if m.getPublicPetsFn != nil {
+		return m.getPublicPetsFn(userID)
+	}
+	return nil, nil
+}
+
+func (m *mockPetService) CountPublicPets(userID string) (int64, error) {
+	if m.countPublicPetsFn != nil {
+		return m.countPublicPetsFn(userID)
+	}
+	return 0, nil
 }
 
 func (m *mockPetService) UpdatePet(ownerID, petID string, req dto.UpdatePetRequest) (*domain.Pet, error) {
