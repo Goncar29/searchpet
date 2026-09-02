@@ -158,7 +158,11 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 	shelterService := service.NewShelterService(shelterRepo, userRepo, bus)
 	vetService := service.NewVetService(vetRepo)
 	blockService := service.NewBlockService(blockedUserRepo)
-	storyService := service.NewSuccessStoryService(repository.NewSuccessStoryRepository(db), petRepo)
+	// `photoStorage` y no `cloudinaryClient`: es la interfaz `ImageUploader` con
+	// el nil correcto. Un `*CloudinaryClient` nil metido en una interfaz NO es
+	// `== nil` y el guard `s.storage == nil` del service no lo atajaría — lo dice
+	// el comentario de arriba, donde esa variable se construye a propósito.
+	storyService := service.NewSuccessStoryService(repository.NewSuccessStoryRepository(db), petRepo, photoStorage)
 	groupRepo := repository.NewLocalGroupRepository(db)
 	groupMemberRepo := repository.NewGroupMemberRepository(db)
 	groupService := service.NewGroupService(groupRepo, groupMemberRepo)
@@ -486,6 +490,10 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 		protected.GET("/users/:id/block-status", blockHandler.GetBlockStatus)
 
 		protected.POST("/stories", storyHandler.Create)
+		// Va ANTES que cualquier ruta con wildcard en el mismo nivel: "photos"
+		// es un segmento literal y Gin rechaza el registro si choca con un
+		// `:param` hermano.
+		protected.POST("/stories/photos", storyHandler.UploadPhoto)
 		protected.POST("/stories/:id/like", storyHandler.Like)
 		protected.DELETE("/stories/:id/like", storyHandler.Unlike)
 		protected.DELETE("/stories/:id", storyHandler.Delete)

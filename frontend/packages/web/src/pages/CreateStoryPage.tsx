@@ -2,10 +2,10 @@
 // SearchPet - Create Success Story Page (Web)
 // ============================================================
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { useTranslation } from 'react-i18next';
-import { useCreateStory, useMyPets, useReportedPets } from '@shared/hooks';
+import { useCreateStory, useMyPets, useReportedPets, useUploadStoryPhoto } from '@shared/hooks';
 import { getErrorMessage } from '@shared/utils/apiErrors';
 import { MY_PETS_ROUTE, myPetsRoute } from '../routes';
 import { FormPage } from '../components/form/FormPage';
@@ -140,6 +140,52 @@ export function CreateStoryPage() {
   const [bodyError, setBodyError] = useState('');
   const [apiError, setApiError] = useState<string | null>(null);
 
+  // La foto es OPCIONAL y se sube recién al enviar, no al elegirla.
+  //
+  // El preview sale de `URL.createObjectURL`, que es local y gratis. Subir al
+  // elegir daría el mismo preview pero gastaría cuota de Cloudinary por cada
+  // usuario que abandona el formulario — y el plan gratuito son 25 créditos al
+  // mes para todo el proyecto (regla #1: $0/mes sin excepciones).
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [photoError, setPhotoError] = useState('');
+  const uploadPhoto = useUploadStoryPhoto();
+
+  // El objectURL se revoca cuando deja de usarse: cada `createObjectURL` retiene
+  // el archivo en memoria hasta que se lo suelta explícitamente. Elegir cinco
+  // fotos seguidas sin esto deja cuatro colgadas.
+  useEffect(() => {
+    if (!photoPreview) return;
+    return () => URL.revokeObjectURL(photoPreview);
+  }, [photoPreview]);
+
+  const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
+  const TIPOS_ACEPTADOS = ['image/jpeg', 'image/png', 'image/webp'];
+
+  // Se valida acá ADEMÁS de en el backend, y no en lugar de. El backend es la
+  // autoridad —detecta el MIME leyendo los bytes, no del header que manda el
+  // cliente— pero enterarse del rechazo recién al enviar significa perder el
+  // borrador entero por un archivo equivocado.
+  const elegirFoto = (file: File | null) => {
+    setPhotoError('');
+    setApiError(null);
+    if (!file) {
+      setPhotoFile(null);
+      setPhotoPreview(null);
+      return;
+    }
+    if (!TIPOS_ACEPTADOS.includes(file.type)) {
+      setPhotoError(t('create.photoWrongType'));
+      return;
+    }
+    if (file.size > MAX_PHOTO_BYTES) {
+      setPhotoError(t('create.photoTooLarge'));
+      return;
+    }
+    setPhotoFile(file);
+    setPhotoPreview(URL.createObjectURL(file));
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setApiError(null);
@@ -156,21 +202,42 @@ export function CreateStoryPage() {
     }
     setBodyError('');
 
-    createStory.mutate(
-      {
-        pet_id: petId,
-        title: title.trim() || undefined,
-        body: body.trim(),
-      },
-      {
-        onSuccess: () => {
-          navigate(-1);
+    const publicar = (photoAfter?: string) =>
+      createStory.mutate(
+        {
+          pet_id: petId,
+          title: title.trim() || undefined,
+          body: body.trim(),
+          photo_after: photoAfter,
         },
-        onError: (err) => {
-          // El mensaje crudo del error se le mostraba al usuario, en inglés y
-          // con jerga de API. `getErrorMessage` lo traduce por código (regla #11).
-          setApiError(getErrorMessage(err, t));
+        {
+          onSuccess: () => {
+            navigate(-1);
+          },
+          onError: (err) => {
+            // El mensaje crudo del error se le mostraba al usuario, en inglés y
+            // con jerga de API. `getErrorMessage` lo traduce por código (regla #11).
+            setApiError(getErrorMessage(err, t));
+          },
         },
+      );
+
+    if (!photoFile) {
+      publicar();
+      return;
+    }
+
+    // Si la foto falla, la historia NO se publica.
+    //
+    // La alternativa —publicar sin foto y seguir— es peor: el usuario eligió una
+    // foto, ve que la historia se creó, y nunca se entera de que quedó sin ella.
+    // Abortar con un mensaje que ofrece las dos salidas (reintentar o quitar la
+    // foto) es lo único que no le miente.
+    uploadPhoto.mutate(
+      { petId, file: photoFile },
+      {
+        onSuccess: ({ url }) => publicar(url),
+        onError: () => setApiError(t('create.photoUploadFailed')),
       },
     );
   };
@@ -359,6 +426,50 @@ export function CreateStoryPage() {
                   rows={6}
                   placeholder={t('create.bodyPlaceholder')}
                 />
+              )}
+            </FormField>
+
+            {/* La foto es opcional y lo dice el `hint`, igual que el título.
+                El `<input type="file">` NO recibe `{...control}` completo: su
+                `className` es el del sistema de formularios, pensado para un
+                campo de texto, y sobre un file input deja un control alto y
+                vacío. Se toma sólo el `id`, que es lo que lo ata a su label. */}
+            <FormField
+              label={t('create.photoLabel')}
+              htmlFor="story-photo"
+              hint={t('create.optionalHint')}
+              description={t('create.photoHelp')}
+              error={photoError || undefined}
+            >
+              {(control) => (
+                <div className="space-y-3">
+                  <input
+                    id={control.id}
+                    aria-describedby={control['aria-describedby']}
+                    aria-invalid={control['aria-invalid']}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    onChange={(e) => elegirFoto(e.target.files?.[0] ?? null)}
+                    className="block w-full text-sm text-gray-600 dark:text-gray-300 file:mr-4 file:rounded-lg file:border-0 file:bg-primary file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-primary-dark"
+                  />
+
+                  {photoPreview && (
+                    <div className="space-y-2">
+                      <img
+                        src={photoPreview}
+                        alt={t('create.photoAlt')}
+                        className="max-h-56 w-full rounded-xl object-contain bg-gray-50 dark:bg-gray-800"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => elegirFoto(null)}
+                        className="text-sm font-semibold text-danger hover:underline"
+                      >
+                        {t('create.photoRemove')}
+                      </button>
+                    </div>
+                  )}
+                </div>
               )}
             </FormField>
           </div>

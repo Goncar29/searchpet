@@ -19,6 +19,7 @@ vi.mock('react-router', async (importOriginal) => {
 
 // `mutate`, no `mutateAsync`: la página llama al primero.
 const mutate = vi.fn();
+const uploadPhotoMutate = vi.fn();
 let myPets: unknown[] = [];
 let reportedPets: unknown[] = [];
 // Una query que FALLA devuelve `data: undefined`, no una lista vacía. El mock
@@ -34,6 +35,10 @@ const refetchMine = vi.fn();
 const refetchReported = vi.fn();
 vi.mock('@shared/hooks', () => ({
   useCreateStory: () => ({ mutate, isPending: false }),
+  // Todo hook nuevo usado por la pantalla tiene que estar acá: el mock es
+  // exhaustivo, así que olvidarse no da un error claro — tira las 20 pruebas
+  // del archivo con "is not a function" (regla #17).
+  useUploadStoryPhoto: () => ({ mutate: uploadPhotoMutate, isPending: false }),
   useMyPets: () => ({
     data: mineFailed ? undefined : myPets,
     isPending: false,
@@ -55,6 +60,7 @@ const perdida = { id: 'pet-lost', name: 'Toby', type: 'gato', status: 'lost' };
 
 beforeEach(() => {
   mutate.mockClear();
+  uploadPhotoMutate.mockClear();
   refetchMine.mockClear();
   refetchReported.mockClear();
   searchParams = new URLSearchParams();
@@ -348,6 +354,101 @@ describe('CreateStoryPage', () => {
       const botones = screen.getAllByRole('button');
       expect(botones.filter((b) => b.getAttribute('type') === 'submit')).toHaveLength(1);
       expect(botones.filter((b) => b.getAttribute('type') === 'button')).toHaveLength(1);
+    });
+  });
+
+  // ============================================================
+  // La foto del reencuentro — OPCIONAL
+  // ============================================================
+  describe('la foto del reencuentro', () => {
+    function completarYEnviar(container: HTMLElement) {
+      fireEvent.change(screen.getByLabelText(/create.bodyLabel/), {
+        target: { value: 'La encontramos en la esquina' },
+      });
+      fireEvent.submit(container.querySelector('form')!);
+    }
+
+    function elegirArchivo(file: File) {
+      const input = document.getElementById('story-photo') as HTMLInputElement;
+      fireEvent.change(input, { target: { files: [file] } });
+    }
+
+    const jpg = () => new File(['x'], 'reencuentro.jpg', { type: 'image/jpeg' });
+
+    it('sin foto publica igual: es opcional', () => {
+      myPets = [encontrada];
+      searchParams = new URLSearchParams({ petId: 'pet-found' });
+      const { container } = render(<CreateStoryPage />, { wrapper });
+
+      completarYEnviar(container);
+
+      expect(uploadPhotoMutate).not.toHaveBeenCalled();
+      expect(mutate).toHaveBeenCalledTimes(1);
+      expect(mutate.mock.calls[0][0].photo_after).toBeUndefined();
+    });
+
+    // El orden importa: primero sube, y la historia se crea con la URL que
+    // devuelve. Al revés quedaría una historia sin su foto.
+    it('con foto sube primero y publica con la URL que vuelve', () => {
+      myPets = [encontrada];
+      searchParams = new URLSearchParams({ petId: 'pet-found' });
+      uploadPhotoMutate.mockImplementation((_vars, opts) =>
+        opts.onSuccess({ url: 'https://cloudinary/ok.webp' }),
+      );
+      const { container } = render(<CreateStoryPage />, { wrapper });
+
+      elegirArchivo(jpg());
+      completarYEnviar(container);
+
+      expect(uploadPhotoMutate).toHaveBeenCalledTimes(1);
+      expect(uploadPhotoMutate.mock.calls[0][0]).toMatchObject({ petId: 'pet-found' });
+      expect(mutate.mock.calls[0][0].photo_after).toBe('https://cloudinary/ok.webp');
+    });
+
+    // La decision de diseño que este test protege: si la foto falla, la historia
+    // NO se publica. Publicarla sin foto dejaria al usuario creyendo que subio
+    // una imagen que no esta — y no tendria como enterarse.
+    it('si la foto falla NO publica la historia, y lo dice', async () => {
+      myPets = [encontrada];
+      searchParams = new URLSearchParams({ petId: 'pet-found' });
+      uploadPhotoMutate.mockImplementation((_vars, opts) => opts.onError(new Error('boom')));
+      const { container } = render(<CreateStoryPage />, { wrapper });
+
+      elegirArchivo(jpg());
+      completarYEnviar(container);
+
+      expect(mutate).not.toHaveBeenCalled();
+      expect(await screen.findByText(/create.photoUploadFailed/)).toBeInTheDocument();
+    });
+
+    // Se rechaza en el cliente ANTES de gastar una subida. El backend valida
+    // igual —y es la autoridad, porque detecta el MIME leyendo los bytes— pero
+    // enterarse recien al enviar cuesta el borrador entero.
+    it('rechaza un archivo que no es imagen sin intentar subirlo', () => {
+      myPets = [encontrada];
+      searchParams = new URLSearchParams({ petId: 'pet-found' });
+      const { container } = render(<CreateStoryPage />, { wrapper });
+
+      elegirArchivo(new File(['x'], 'notas.pdf', { type: 'application/pdf' }));
+      expect(screen.getByText(/create.photoWrongType/)).toBeInTheDocument();
+
+      completarYEnviar(container);
+      expect(uploadPhotoMutate).not.toHaveBeenCalled();
+      expect(mutate).toHaveBeenCalledTimes(1);
+      expect(mutate.mock.calls[0][0].photo_after).toBeUndefined();
+    });
+
+    it('rechaza una foto de mas de 5 MB', () => {
+      myPets = [encontrada];
+      searchParams = new URLSearchParams({ petId: 'pet-found' });
+      render(<CreateStoryPage />, { wrapper });
+
+      const grande = new File([new Uint8Array(5 * 1024 * 1024 + 1)], 'grande.jpg', {
+        type: 'image/jpeg',
+      });
+      elegirArchivo(grande);
+
+      expect(screen.getByText(/create.photoTooLarge/)).toBeInTheDocument();
     });
   });
 });

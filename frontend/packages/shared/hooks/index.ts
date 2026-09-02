@@ -994,6 +994,19 @@ export const useCreateStory = () => {
   });
 };
 
+/**
+ * Sube la foto del reencuentro y devuelve su URL para meterla en el formulario.
+ *
+ * NO invalida ninguna query, y es a propósito: este upload no persiste nada del
+ * lado del servidor —sólo deja el archivo en Cloudinary y devuelve la URL—, así
+ * que no hay lista ni detalle que pueda haber quedado viejo. La historia recién
+ * existe cuando `useCreateStory` la crea, y ese sí invalida `['stories']`.
+ */
+export const useUploadStoryPhoto = () =>
+  useMutation<{ url: string }, Error, { petId: string; file: File }>({
+    mutationFn: ({ petId, file }) => apiClient.uploadStoryPhoto(petId, file),
+  });
+
 // ============================================================
 // REVIEW HOOKS
 // ============================================================
