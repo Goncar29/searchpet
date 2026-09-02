@@ -109,11 +109,69 @@ descartarlas después. Va un método nuevo con la allowlist en el `WHERE`.
 //
 // El OR cubre los dos vínculos: `owner_id` (las suyas) y `reporter_id` (los
 // callejeros que reportó sin ser dueña; `owner_id` queda nil en esos casos).
-// Va en UNA query y no en dos llamadas concatenadas a propósito: una mascota
-// puede matchear los dos lados —quien reporta un callejero y después lo
-// adopta— y dos listas pegadas la mostrarían duplicada.
-FindPublicByUserID(userID string, statuses []string) ([]domain.Pet, error)
+// Va en UNA query y no en dos llamadas concatenadas: es defensivo — hoy esa
+// fila es inalcanzable porque `CreatePet` setea owner XOR reporter — pero el
+// OR no tiene que duplicar si algún día los datos lo permiten.
+FindPublicByUserID(userID string) ([]domain.Pet, error)
 ```
+
+> **La allowlist NO es un parámetro, y eso lo decidió el code review.** La
+> primera versión era `FindPublicByUserID(userID string, statuses []string)`, y
+> con esa firma el nombre promete una garantía que no cumple: pasarle una lista
+> más amplia devuelve `registered` y `archived` sin chistar. Lo único entre un
+> endpoint público y el inventario privado de alguien sería que el llamador se
+> acuerde de la constante correcta. Peor: un slice vacío devuelve cero filas
+> **sin error**, así que un bug del servicio daría un perfil vacío en silencio.
+>
+> Qué estados ve un desconocido es una **invariante, no una perilla** — regla
+> #40, la misma por la que `DeleteExpired` no toma la retención por parámetro.
+> El método lee `domain.PublicProfileVisibleStatuses` adentro.
+
+### El tope
+
+`.Limit(50)`, y el handler acepta `?count=true` para setear **`X-Total-Count`**
+con el total real.
+
+El riesgo no es un atacante: es un **usuario exitoso**. La lista no muestra "las
+mascotas que tenés ahora" sino *todo lo que publicaste y no archivaste*, y
+`reporter_id` acumula cada callejero que esa persona reportó en su vida. Un
+refugio o alguien que rescata en serio junta cientos de filas con el tiempo, y
+cada tarjeta pide una miniatura: 300 tarjetas son ~9 MB de **bandwidth de
+Cloudinary** por visita, que es justo el cuello del plan gratuito (regla #55).
+O sea que **el perfil de nuestro mejor usuario sería el más caro de mirar**, y
+empeoraría solo.
+
+Lo que NO es el motivo, y no hay que escribirlo como si lo fuera: acotar por
+volumen para proteger a Neon sería teatro. Hay 18 endpoints públicos que
+consultan Postgres sin tope; poner uno cierra una puerta de diecinueve
+(regla #58).
+
+**Un `LIMIT` mudo sería peor que ninguno**: el refugio vería 50 de 300 sin nada
+que se lo diga, y cambiaríamos "es caro" por "es mentira". Por eso el tope viaja
+siempre con su cartel.
+
+**La infraestructura ya existe entera**, no se inventa nada: `requestWithTotal`
+en `shared/api/client.ts:272` ya lee `X-Total-Count` con guarda anti-NaN;
+`X-Total-Count` ya está en `middleware.ExposedResponseHeaders`; y
+`success_story_handler.go:186` ya tiene el patrón de `count=true` opcional para
+que un llamador que no necesita el total no pague el COUNT.
+
+**El cartel**: una línea de texto apagado **al final de la grilla**, debajo de
+la última tarjeta — *"Mostrando las 50 publicaciones más recientes de 312."*
+
+- **No es un modal.** Un modal interrumpe para dar información que el visitante
+  no pidió, sobre el perfil de otro, y sin ninguna decisión que tomar. Los
+  modales son para decisiones.
+- **Va abajo y no arriba.** Arriba es una advertencia antes de haber visto nada;
+  abajo es la respuesta a la pregunta que uno tiene en ese momento exacto —
+  *"¿esto es todo?"*.
+- **Sin `role="alert"`**: anunciar algo lo vuelve urgente, y esto es una nota al
+  pie. Texto plano.
+- **Sólo se dibuja cuando el tope corta de verdad** (`total > mostradas`).
+  Avisar antes entrena a la gente a ignorar el mensaje, así que no está cuando
+  sí importa. Y no hay ninguna acción que gatillar en nadie: el que sufre el
+  tope es el **dueño** del perfil, no quien lo mira, y el dueño ve su lista
+  completa en "Mis mascotas", que no tiene tope.
 
 ### La allowlist
 
@@ -145,20 +203,36 @@ publicó nada) y `404` si el usuario no existe — mismo contrato que el perfil.
 Reusa el DTO `PetResponse` que ya devuelve `/api/pets/search`. No inventar uno
 nuevo.
 
-> **Lo que ese DTO expone, medido y no supuesto:** `PetResponse` incluye
-> `owner: {id, name, phone, is_verified}`, y `GET /api/pets/search` es **público
-> y sin auth**. Verificado contra el backend local: una mascota `lost` devuelve
-> el teléfono de su dueño a cualquiera, sin sesión.
+> **CORREGIDO durante la implementación — la primera versión de este recuadro
+> era verdadera a medias, y la mitad que faltaba importaba.**
 >
-> Es **deliberado y preexistente**: el sentido de publicar una mascota perdida
-> es que te puedan llamar. El teléfono del *reporter* de un callejero, en
-> cambio, va sólo con opt-in explícito (`ReporterContactPublic`,
-> `dto/pet_dto.go:53`). El **email nunca** se expone en este DTO.
+> **El dato medido:** `PetResponse` incluye `owner: {id, name, phone,
+> is_verified}` cuando el repositorio hace `Preload("Owner")`, y
+> `GET /api/pets/search` es **público y sin auth**. Una mascota `lost` devuelve
+> el teléfono de su dueño a cualquiera, sin sesión. Eso es **deliberado y
+> preexistente**: el sentido de publicar una mascota perdida es que te llamen.
+> El teléfono del *reporter* de un callejero va sólo con opt-in
+> (`ReporterContactPublic`, `dto/pet_dto.go:53`), y el **email nunca** se
+> expone.
 >
-> Consecuencia para este diseño, y hay que decirla: esta pantalla **no puede
-> "proteger" el teléfono**, porque viaja dentro de cada tarjeta de mascota
-> perdida. Lo que se decide abajo sobre las filas de contacto es una decisión
-> de **superficie**, no de privacidad.
+> **Lo que la primera versión concluía mal:** que por eso esta pantalla "no
+> podía proteger el teléfono" y omitirlo era pura superficie. Es falso, y lo
+> levantó el code review trazando el preload hasta el DTO.
+>
+> **Por qué era exposición NUEVA:** `adopted` no lo devuelve **ningún otro
+> endpoint público** — `PublicSearchableStatuses` es {lost, stray, found} y
+> `ListAdoptions` nunca devuelve `adopted`. Así que `Preload("Owner")` acá
+> publicaba un teléfono en filas que antes no estaban listadas públicamente en
+> ninguna parte.
+>
+> **Decisión: `FindPublicByUserID` NO hace `Preload("Owner")`.** Sale gratis:
+> `CreatePet` setea owner **XOR** reporter, así que ese preload sólo puede
+> cargar al dueño del perfil que se está mirando — N copias de la persona que
+> el cliente ya tiene de `/api/users/:id/profile`. Sin el preload, el guard de
+> `pet_dto.go:217` no dispara y la clave `owner` desaparece por `omitempty`.
+> El endpoint hermano `FindByReporterID` ya omitía ese preload; el que sí lo
+> tiene, `FindByOwnerID`, respalda `/api/pets/mine`, que es autenticado y
+> self-scoped: otro modelo de amenaza, no un precedente.
 
 ## Frontend
 
@@ -174,14 +248,12 @@ encabezado — el nombre de la persona ya es el encabezado.
 1. **Identidad** — avatar `h-28 w-28 ring-4 ring-primary/20` vía
    `cloudinaryThumb(url, 224)`, nombre en `font-display text-headline`,
    "Miembro desde … · Ciudad", pill de Verificado.
-   **Sin las filas de contacto.** El motivo real, y no el que parece: el
-   **email** sí es privado y no está en ningún DTO público, así que mostrarlo
-   sería una fuga nueva. El **teléfono no** — ya viaja dentro de cada tarjeta de
-   mascota perdida de esta misma página (ver el recuadro de arriba), así que
-   omitirlo de la tarjeta de identidad **no lo protege**: sólo evita presentar
-   el número como un dato de la persona en vez de un dato del caso. Ponerlo
-   arriba lo convertiría en un directorio de teléfonos indexable por perfil, que
-   es una superficie distinta aunque el dato sea el mismo.
+   **Sin las filas de contacto**, y con el preload de owner fuera del
+   repositorio (ver el recuadro de arriba) esta pantalla **no expone el teléfono
+   por ningún camino**: ni arriba en la identidad, ni abajo dentro de las
+   tarjetas. El email tampoco está en ningún DTO público. Quien quiera contactar
+   al dueño de una mascota perdida sigue teniendo el camino de siempre — la
+   ficha de esa mascota, donde el número es un dato del caso y no del perfil.
    En ese lugar van *Denunciar* y *Bloquear*.
 2. **Actividad** — la grilla 2×2 de tiles del perfil propio. Entran justo
    cuatro: Puntos, Reportes, Reunidos, Compartidos.
