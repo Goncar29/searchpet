@@ -216,7 +216,10 @@ export function UserProfilePage() {
   // Los namespaces van DECLARADOS y no confiados a los recursos precargados:
   // si algún día `profile` dejara de estar registrado, el modo de falla es una
   // clave cruda en pantalla que ningún test ve — acá `t` está mockeado.
-  const { t } = useTranslation(['profile', 'common', 'badges', 'pets']);
+  // `badges` y `pets` NO van acá: `BadgeCard` y `ProfilePetCard` declaran los
+  // suyos propios. `errors` SÍ va: `getErrorMessage(err, t)` resuelve
+  // `errors:...` y esta página lo alcanza en `handleSubmit`.
+  const { t } = useTranslation(['profile', 'common', 'errors']);
   const { user, isAuthenticated } = useAuth();
   const { data: profile, isLoading, error } = usePublicProfile(id ?? '');
   const petsQuery = useUserPets(id ?? '');
@@ -299,6 +302,12 @@ export function UserProfilePage() {
   // aviso no se dibuja: no afirma nada sobre una lista que no se pudo leer.
   const petsShown = petsQuery.data?.data.length ?? 0;
   const petsTotal = petsQuery.data?.total ?? 0;
+  // `>` y NO `!==`: `pet_handler.go` setea `X-Total-Count` best-effort (sólo
+  // `if err == nil`) y `shared/api/client.ts` cae a `Number(header ?? '0')` →
+  // `0` cuando falta. Un COUNT caído (o un proxy que pele el header) deja
+  // `total = 0` con una lista NO vacía — con `!==` el aviso diría "mostrando
+  // las 3 publicaciones más recientes de 0", mintiendo justo en el mensaje que
+  // existe para no mentir. Con `>`, `0 > 3` es `false` y no se dibuja nada.
   const petsTruncated = petsTotal > petsShown;
 
   const handleOpenForm = () => {
@@ -566,36 +575,32 @@ export function UserProfilePage() {
               </ListState>
             </section>
 
-            {/* B. En adopción — la sección entera desaparece cuando no hay nada
-                (`empty={<></>}`) y su encabezado vive DENTRO de los children.
-
-                El `petsQuery.data != null` de afuera es lo que le saca el cartel
-                de error propio: sale de la MISMA query que "Publicaciones", que
-                siempre se dibuja y por lo tanto ya carga el aviso cuando esa
-                query falla. Un segundo cartel sería el mismo fallo dicho dos
-                veces en la misma columna. Sin datos no se dibuja nada, que no
-                afirma nada. */}
-            {petsQuery.data != null && (
-              <ListState
-                query={petsQuery}
-                select={(paged) => splitOwnedPets(paged.data).adoption}
-                loading={<></>}
-                empty={<></>}
-              >
-                {(pets) => (
-                  <section>
-                    <h2 className="font-display text-headline font-semibold text-gray-900 dark:text-gray-100 mb-4">
-                      {t('profile:public.adoption')}
-                    </h2>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      {pets.map((pet: Pet) => (
-                        <ProfilePetCard key={pet.id} pet={pet} />
-                      ))}
-                    </div>
-                  </section>
-                )}
-              </ListState>
-            )}
+            {/* B. En adopción — la sección entera desaparece cuando no hay nada.
+                Sin `ListState` propio A PROPÓSITO: la falla la reporta la
+                sección de arriba ("Publicaciones"), UNA sola vez, con la MISMA
+                query. Un segundo `ListState` acá alcanzaba su rama `isPaused`/
+                `isError` cada vez que la primera lo hacía —porque comparten
+                query— y dibujaba una SEGUNDA franja ámbar idéntica en la misma
+                columna: "una falla, un mensaje" quedaba en el papel. Esta
+                sección, si no dibuja nada, no afirma nada — a diferencia de un
+                cartel que diga "no tenés nada en adopción" estando la lista
+                caída. */}
+            {(() => {
+              const adoptionPets = petsQuery.data ? splitOwnedPets(petsQuery.data.data).adoption : [];
+              if (adoptionPets.length === 0) return null;
+              return (
+                <section>
+                  <h2 className="font-display text-headline font-semibold text-gray-900 dark:text-gray-100 mb-4">
+                    {t('profile:public.adoption')}
+                  </h2>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {adoptionPets.map((pet: Pet) => (
+                      <ProfilePetCard key={pet.id} pet={pet} />
+                    ))}
+                  </div>
+                </section>
+              );
+            })()}
 
             {/* El aviso de recorte va DEBAJO de todo lo publicado, no arriba:
                 arriba se lee como una advertencia antes de haber visto nada,
@@ -609,7 +614,12 @@ export function UserProfilePage() {
                 que entrena a la gente a ignorar el mensaje el día que es
                 cierto. */}
             {petsTruncated && (
-              <p className="text-sm text-gray-400 dark:text-gray-500 text-center pt-4">
+              // `text-gray-500 dark:text-gray-400` y no el `-400/-500` del
+              // resto de los textos apagados de esta página: a 14px ese par da
+              // ~2.5:1 en claro y ~4.0:1 en oscuro, los dos por debajo de las
+              // 4.5:1 de WCAG AA. Esta línea afirma algo real ("no estás viendo
+              // todo"), así que tiene que poder leerse.
+              <p className="text-sm text-gray-500 dark:text-gray-400 text-center pt-4">
                 {t('profile:public.postsCapped', { shown: petsShown, total: petsTotal })}
               </p>
             )}

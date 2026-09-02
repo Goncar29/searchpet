@@ -250,6 +250,19 @@ describe('UserProfilePage', () => {
     expect(screen.queryByText(/profile:public\.postsCapped/)).not.toBeInTheDocument();
   });
 
+  // Prueba que `petsTruncated` es `total > shown` y NO `total !== shown`: con
+  // `!==`, este mismo escenario (COUNT caído → `total: 0` con una lista NO
+  // vacía) inventaría un recorte de "0 publicaciones". `petsState.total = 0`
+  // pasa el `?? petsState.pets.length` del mock porque `??` sólo atrapa
+  // `null`/`undefined`, no `0`.
+  it('con el total perdido (COUNT caido) no inventa un recorte', () => {
+    petsState.pets = [pet({ id: 'p1', name: 'Bruno' }), pet({ id: 'p2', name: 'Lola' })];
+    petsState.total = 0;
+    render(<UserProfilePage />, { wrapper });
+
+    expect(screen.queryByText(/profile:public\.postsCapped/)).not.toBeInTheDocument();
+  });
+
   // ── Reseñas ────────────────────────────────────────────────────────────────
 
   // La pantalla no sabe si el usuario tiene reseñas cuando no pudo leerlas.
