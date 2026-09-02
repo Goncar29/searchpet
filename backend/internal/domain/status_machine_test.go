@@ -118,3 +118,27 @@ func TestAdoptionClusterTransitions(t *testing.T) {
 		t.Error("adoption statuses must NOT be in PublicSearchableStatuses")
 	}
 }
+
+func TestPublicProfileVisibleStatuses_NuncaIncluyeLosPrivados(t *testing.T) {
+	// El punto entero de la lista: `registered` es el inventario de animales de
+	// una persona y `archived` es lo que bajó a propósito. Si alguno entra acá,
+	// el perfil público los publica.
+	for _, s := range domain.PublicProfileVisibleStatuses {
+		if s == domain.PetStatusRegistered || s == domain.PetStatusArchived {
+			t.Fatalf("estado privado %q en PublicProfileVisibleStatuses", s)
+		}
+	}
+
+	want := map[string]bool{
+		domain.PetStatusLost: true, domain.PetStatusStray: true, domain.PetStatusFound: true,
+		domain.PetStatusAdoption: true, domain.PetStatusAdopted: true,
+	}
+	if len(domain.PublicProfileVisibleStatuses) != len(want) {
+		t.Fatalf("largo = %d, quiero %d: %v", len(domain.PublicProfileVisibleStatuses), len(want), domain.PublicProfileVisibleStatuses)
+	}
+	for _, s := range domain.PublicProfileVisibleStatuses {
+		if !want[s] {
+			t.Errorf("estado inesperado %q", s)
+		}
+	}
+}

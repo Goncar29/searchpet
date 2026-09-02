@@ -56,6 +56,32 @@ var MapVisibleStatuses = []string{PetStatusLost, PetStatusStray, PetStatusFound}
 // map, or public search.
 var AdoptionVisibleStatuses = []string{PetStatusAdoption}
 
+// PublicProfileVisibleStatuses son los estados que un TERCERO ve en el perfil
+// público de otra persona (GET /api/users/:id/pets).
+//
+// Excluye `registered` y `archived` por el mismo motivo que
+// PublicSearchableStatuses: publicarlos sería un inventario de qué animales
+// tiene esa persona y dónde vive. `archived` es además el interruptor con el
+// que el dueño baja cualquier publicación de esta vista — por eso no hace falta
+// una preferencia de privacidad por mascota.
+//
+// Incluye `found` y `adopted` a propósito: los dos son finales felices que ya
+// fueron públicos (found está en PublicSearchableStatuses; adopted estuvo
+// listado en /api/adoptions mientras fue adoption). La adopción NO transfiere
+// la mascota —el status machine sólo permite adoption ↔ adopted y → archived—
+// así que no hay un adoptante cuya privacidad proteger.
+//
+// EXPLÍCITA y no derivada, igual que las otras cuatro: si mañana se agrega un
+// estado, hay que decidir si entra. El default —quedar afuera— es el que no
+// publica nada de nadie.
+var PublicProfileVisibleStatuses = []string{
+	PetStatusLost,
+	PetStatusStray,
+	PetStatusFound,
+	PetStatusAdoption,
+	PetStatusAdopted,
+}
+
 // ValidPetTypes son los cuatro tipos de mascota que ofrece la UI.
 //
 // La usan DOS caminos: el filtro de búsqueda (`report_handler.go`), donde el
