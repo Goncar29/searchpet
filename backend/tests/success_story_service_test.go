@@ -118,7 +118,8 @@ func (m *mockPetRepoForStory) UpdateStatus(id string, status string) error { ret
 func (m *mockPetRepoForStory) TouchLastReported(id string, seen time.Time) error {
 	return nil
 }
-func (m *mockPetRepoForStory) Delete(id string) error                      { return nil }
+func (m *mockPetRepoForStory) RecomputeLastReported(id string) error { return nil }
+func (m *mockPetRepoForStory) Delete(id string) error                { return nil }
 func (m *mockPetRepoForStory) Search(criteria domain.PetSearchCriteria) ([]domain.Pet, int64, error) {
 	return nil, 0, nil
 }

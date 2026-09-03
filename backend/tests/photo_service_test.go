@@ -108,8 +108,8 @@ func (m *mockPetRepoForService) FindByID(id string) (*domain.Pet, error) {
 }
 
 // Partial implementation — remaining methods are no-ops for service tests.
-func (m *mockPetRepoForService) Create(pet *domain.Pet) error                        { return nil }
-func (m *mockPetRepoForService) FindByOwnerID(ownerID string) ([]domain.Pet, error)  { return nil, nil }
+func (m *mockPetRepoForService) Create(pet *domain.Pet) error                       { return nil }
+func (m *mockPetRepoForService) FindByOwnerID(ownerID string) ([]domain.Pet, error) { return nil, nil }
 func (m *mockPetRepoForService) FindByReporterID(reporterID string) ([]domain.Pet, error) {
 	return nil, nil
 }
@@ -128,6 +128,7 @@ func (m *mockPetRepoForService) UpdateStatus(id, status string) error { return n
 // verifica contra Postgres real (tests/report_last_reported_test.go), así que un
 // grabador acá no tendría quién lo leyera.
 func (m *mockPetRepoForService) TouchLastReported(id string, seen time.Time) error { return nil }
+func (m *mockPetRepoForService) RecomputeLastReported(_ string) error              { return nil }
 
 // Ensure interface compliance at compile time.
 var _ repository.PetRepository = (*mockPetRepoForService)(nil)
@@ -166,7 +167,7 @@ type stringFile struct {
 	r io.ReadSeeker
 }
 
-func (s *stringFile) Read(p []byte) (n int, err error)  { return s.r.Read(p) }
+func (s *stringFile) Read(p []byte) (n int, err error) { return s.r.Read(p) }
 func (s *stringFile) ReadAt(p []byte, off int64) (n int, err error) {
 	return 0, io.EOF
 }

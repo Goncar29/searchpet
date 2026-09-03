@@ -30,14 +30,23 @@ func TestMigracion000025_BackfillTomaElUltimoAvistamiento(t *testing.T) {
 
 	hace40 := time.Now().Add(-40 * 24 * time.Hour).UTC().Truncate(time.Second)
 	hace10 := time.Now().Add(-10 * 24 * time.Hour).UTC().Truncate(time.Second)
+	hace5 := time.Now().Add(-5 * 24 * time.Hour).UTC().Truncate(time.Second)
 
-	// Tres reportes. El más reciente es el que NO tiene occurred_at, así que
-	// sólo un COALESCE lo ve: con MAX(occurred_at) pelado ganaría el de hace 10
-	// días y el reloj quedaría diez días atrasado.
+	// Tres reportes elegidos para que CADA bug candidato dé un valor distinto:
+	//
+	//   MAX(COALESCE(occurred_at, created_at))  -> hace5   (correcto)
+	//   MAX(occurred_at)                        -> hace10  (pierde el que no tiene fecha)
+	//   now()                                   -> ahora   (ignora los reportes)
+	//
+	// El ganador es el que NO tiene occurred_at, y su created_at se siembra en
+	// el pasado A PROPÓSITO: si se creara "ahora", un backfill escrito como
+	// `SET last_reported_at = now()` —el bug que este test dice cazar— pasaría
+	// igual, porque no habría forma de distinguir "la fecha del reporte" de "la
+	// fecha del deploy".
 	reports := []domain.Report{
 		{ID: uuid.New(), PetID: pet.ID, ReporterID: reporter.ID, Status: "sighting", Latitude: -34.9, Longitude: -56.1, OccurredAt: &hace40},
 		{ID: uuid.New(), PetID: pet.ID, ReporterID: reporter.ID, Status: "sighting", Latitude: -34.9, Longitude: -56.1, OccurredAt: &hace10},
-		{ID: uuid.New(), PetID: pet.ID, ReporterID: reporter.ID, Status: "sighting", Latitude: -34.9, Longitude: -56.1},
+		{ID: uuid.New(), PetID: pet.ID, ReporterID: reporter.ID, Status: "sighting", Latitude: -34.9, Longitude: -56.1, CreatedAt: hace5},
 	}
 	for i := range reports {
 		if err := gormDB.Create(&reports[i]).Error; err != nil {
@@ -66,11 +75,10 @@ func TestMigracion000025_BackfillTomaElUltimoAvistamiento(t *testing.T) {
 	if got.LastReportedAt == nil {
 		t.Fatal("el backfill no llenó last_reported_at")
 	}
-	// El reporte sin occurred_at se creó recién, así que su created_at es el
-	// máximo. Margen amplio: lo que se afirma es que ganó ÉSE y no el de hace
-	// 10 días, no el instante exacto.
-	if got.LastReportedAt.Before(time.Now().Add(-1 * time.Hour)) {
-		t.Errorf("el backfill ignoró el reporte sin occurred_at: got %v, esperaba ~ahora", got.LastReportedAt.UTC())
+	// Igualdad exacta y no "es reciente": un margen amplio dejaría pasar
+	// `SET last_reported_at = now()`, que es justo uno de los bugs a cazar.
+	if !got.LastReportedAt.UTC().Truncate(time.Second).Equal(hace5) {
+		t.Errorf("want %v (el reporte más nuevo, visto vía COALESCE), got %v", hace5, got.LastReportedAt.UTC())
 	}
 }
 

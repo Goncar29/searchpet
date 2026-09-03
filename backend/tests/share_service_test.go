@@ -17,10 +17,10 @@ import (
 // ============================================================
 
 type mockShareLinkRepository struct {
-	createFn                func(ctx context.Context, link *domain.ShareLink) error
-	getByTokenFn            func(ctx context.Context, token string) (*domain.ShareLink, error)
-	getByPetIDFn            func(ctx context.Context, petID uuid.UUID) ([]domain.ShareLink, error)
-	incrementViewCountFn    func(ctx context.Context, id uuid.UUID) error
+	createFn                  func(ctx context.Context, link *domain.ShareLink) error
+	getByTokenFn              func(ctx context.Context, token string) (*domain.ShareLink, error)
+	getByPetIDFn              func(ctx context.Context, petID uuid.UUID) ([]domain.ShareLink, error)
+	incrementViewCountFn      func(ctx context.Context, id uuid.UUID) error
 	incrementClickedContactFn func(ctx context.Context, id uuid.UUID) error
 }
 
@@ -72,19 +72,20 @@ type mockPetRepoForShare struct {
 	findByIDFn func(id string) (*domain.Pet, error)
 }
 
-func (m *mockPetRepoForShare) Create(pet *domain.Pet) error                                   { return nil }
-func (m *mockPetRepoForShare) FindByOwnerID(ownerID string) ([]domain.Pet, error)             { return nil, nil }
+func (m *mockPetRepoForShare) Create(pet *domain.Pet) error                       { return nil }
+func (m *mockPetRepoForShare) FindByOwnerID(ownerID string) ([]domain.Pet, error) { return nil, nil }
 func (m *mockPetRepoForShare) FindByReporterID(reporterID string) ([]domain.Pet, error) {
 	return nil, nil
 }
 func (m *mockPetRepoForShare) FindPublicByUserID(_ string) ([]domain.Pet, error) {
 	return nil, nil
 }
-func (m *mockPetRepoForShare) CountPublicByUserID(_ string) (int64, error) { return 0, nil }
-func (m *mockPetRepoForShare) Update(pet *domain.Pet) error                                   { return nil }
-func (m *mockPetRepoForShare) UpdateStatus(id string, status string) error                    { return nil }
-func (m *mockPetRepoForShare) TouchLastReported(id string, seen time.Time) error              { return nil }
-func (m *mockPetRepoForShare) Delete(id string) error                                         { return nil }
+func (m *mockPetRepoForShare) CountPublicByUserID(_ string) (int64, error)       { return 0, nil }
+func (m *mockPetRepoForShare) Update(pet *domain.Pet) error                      { return nil }
+func (m *mockPetRepoForShare) UpdateStatus(id string, status string) error       { return nil }
+func (m *mockPetRepoForShare) TouchLastReported(id string, seen time.Time) error { return nil }
+func (m *mockPetRepoForShare) RecomputeLastReported(_ string) error              { return nil }
+func (m *mockPetRepoForShare) Delete(id string) error                            { return nil }
 func (m *mockPetRepoForShare) Search(criteria domain.PetSearchCriteria) ([]domain.Pet, int64, error) {
 	return nil, 0, nil
 }
@@ -150,9 +151,9 @@ func TestShareService_GenerateLink(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:       "pet not found — ErrPetNotFound",
-			petIDStr:   petID.String(),
-			ownerIDStr: ownerID.String(),
+			name:          "pet not found — ErrPetNotFound",
+			petIDStr:      petID.String(),
+			ownerIDStr:    ownerID.String(),
 			shareLinkRepo: &mockShareLinkRepository{},
 			petRepo: &mockPetRepoForShare{
 				findByIDFn: func(_ string) (*domain.Pet, error) {
@@ -162,9 +163,9 @@ func TestShareService_GenerateLink(t *testing.T) {
 			wantErr: domain.ErrPetNotFound,
 		},
 		{
-			name:       "non-owner — ErrNotPetOwner",
-			petIDStr:   petID.String(),
-			ownerIDStr: otherID.String(), // not the owner
+			name:          "non-owner — ErrNotPetOwner",
+			petIDStr:      petID.String(),
+			ownerIDStr:    otherID.String(), // not the owner
 			shareLinkRepo: &mockShareLinkRepository{},
 			petRepo: &mockPetRepoForShare{
 				findByIDFn: func(_ string) (*domain.Pet, error) {
@@ -369,9 +370,9 @@ func TestShareService_TrackContact(t *testing.T) {
 	petID := uuid.New()
 
 	baseLink := &domain.ShareLink{
-		ID:         linkID,
-		PetID:      petID,
-		ShareToken: "abc-token",
+		ID:             linkID,
+		PetID:          petID,
+		ShareToken:     "abc-token",
 		ClickedContact: 0,
 	}
 

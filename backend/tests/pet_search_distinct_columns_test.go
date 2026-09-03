@@ -11,17 +11,21 @@ import (
 )
 
 // La búsqueda con filtro geográfico hace JOIN a reports y deduplica con un
-// `SELECT DISTINCT <lista de columnas>` que se mantiene A MANO en
-// pet_repository.go. Toda columna que no esté en esa lista vuelve en CERO, sin
-// error y sin ninguna señal: el struct se llena igual, sólo que con el valor
-// vacío del tipo.
+// SELECT DISTINCT. Hasta el commit que trajo este test, ese DISTINCT enumeraba
+// las columnas A MANO y la lista ya había divergido: toda columna ausente volvía
+// EN CERO, sin error y sin ninguna señal, porque el struct se llena igual con el
+// valor vacío del tipo. Es la falla más traicionera posible para una columna
+// nueva, porque el camino SIN geo la devuelve perfecta.
 //
-// Es la falla más traicionera posible para una columna nueva, porque el camino
-// SIN geo la devuelve perfecta — o sea que la mitad de los tests la ven bien.
+// Hoy el código usa `pets.*`, así que no hay lista que se pueda olvidar. Este
+// test NO guarda esa lista —no existe— sino el ACUERDO entre los dos caminos de
+// Search, que es la propiedad que la lista rompía y la que cualquier reemplazo
+// futuro tiene que seguir cumpliendo.
 //
-// Este test afirma el ACUERDO entre los dos caminos de Search en vez de mirar
-// sólo uno: si mañana alguien agrega una columna y se olvida de la lista, acá
-// se pone rojo. Mirar un solo camino no lo detectaría nunca.
+// LO QUE ESTE TEST NO HACE, para que nadie se apoye en algo que no sostiene:
+// sólo afirma sobre `last_reported_at`. Si mañana alguien vuelve a enumerar
+// columnas y omite una distinta, acá NO se pone rojo. Cubrir esa clase entera
+// necesitaría comparar los dos structs completos, y eso todavía no está escrito.
 func TestPetRepository_Search_GeoNoPierdeColumnas(t *testing.T) {
 	if testing.Short() {
 		t.Skip("integration test — requires PostGIS")
