@@ -169,9 +169,45 @@ func (r *PostgresPetRepository) TouchLastReported(id string, seen time.Time) err
 		Update("last_reported_at", seen).Error
 }
 
+// RecomputeLastReported — ver el contrato en repository/interfaces.go.
+//
+// La subconsulta es LA MISMA que el backfill de la migración 000025:
+// MAX(COALESCE(occurred_at, created_at)) sobre los reportes de esa mascota. No
+// es duplicación por comodidad — es la condición para que borrar un reporte deje
+// la columna en el mismo valor que tendría si la migración volviera a correr.
+// Si alguna de las dos cambia, la otra tiene que cambiar igual.
+//
+// Sin WHERE de monotonía a propósito: éste es el único camino autorizado a bajar
+// el reloj, y ponerle la guarda lo volvería un no-op justo en el caso para el
+// que existe.
+func (r *PostgresPetRepository) RecomputeLastReported(id string) error {
+	return r.db.Model(&domain.Pet{}).
+		Where("id = ?", id).
+		Update("last_reported_at", r.db.
+			Table("reports").
+			Select("MAX(COALESCE(occurred_at, created_at))").
+			Where("pet_id = ?", id),
+		).Error
+}
+
 // Update guarda los cambios de una mascota existente.
+//
+// `Omit("last_reported_at")` no es una optimización: es lo que le da UN SOLO
+// ESCRITOR a esa columna. `Save` escribe todas las columnas del struct, y el
+// struct viene de un FindByID anterior a la mutación, así que sin el Omit un
+// guardado cualquiera reescribe el reloj con el valor que leyó — rodeando por
+// afuera la guarda de monotonía, que vive dentro del UPDATE de
+// TouchLastReported y no puede protegerse de un Save que no pasa por ahí.
+//
+// El caso no necesita mala suerte: el dueño abre el formulario de edición,
+// entra un avistamiento, y al guardar la descripción el reloj retrocede (o
+// vuelve a NULL, si estaba en NULL al cargar). Lo protege
+// TestPetRepository_Update_NoPisaElRelojDeUltimaVista.
+//
+// Corolario para cualquier columna que se agregue con su propio escritor: acá
+// hay que sumarla al Omit, o Save se la lleva puesta en silencio.
 func (r *PostgresPetRepository) Update(pet *domain.Pet) error {
-	return r.db.Save(pet).Error
+	return r.db.Omit("last_reported_at").Save(pet).Error
 }
 
 // UpdateStatus actualiza solo la columna status de una mascota.

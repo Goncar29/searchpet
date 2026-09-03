@@ -85,3 +85,59 @@ func TestPetRepository_TouchLastReported_NuncaRetrocede(t *testing.T) {
 		t.Errorf("el reloj retrocedió: want %v (el más reciente), got %v", reciente, got.LastReportedAt.UTC())
 	}
 }
+
+// Update usa db.Save, que escribe TODAS las columnas del struct — incluida
+// last_reported_at, cargada antes de mutar. Eso rodea por afuera la guarda de
+// monotonía: la comparación vive en el UPDATE de TouchLastReported, y un Save
+// no pasa por ahí.
+//
+// El escenario es real y no necesita mala suerte: el dueño abre el formulario
+// de edición, mientras tanto entra un avistamiento, y al guardar la descripción
+// el Save reescribe el valor que había cargado. El reloj retrocede, o vuelve a
+// NULL si estaba en NULL al cargar.
+func TestPetRepository_Update_NoPisaElRelojDeUltimaVista(t *testing.T) {
+	gormDB := testdb.SetupTestDB(t)
+	userRepo := repository.NewUserRepository(gormDB)
+	petRepo := repository.NewPetRepository(gormDB)
+
+	reporter := newTestUser(t, userRepo)
+	pet := newStrayForClock(t, petRepo, reporter.ID)
+
+	viejo := time.Now().Add(-10 * 24 * time.Hour).UTC().Truncate(time.Second)
+	if err := petRepo.TouchLastReported(pet.ID.String(), viejo); err != nil {
+		t.Fatalf("TouchLastReported viejo: %v", err)
+	}
+
+	// El dueño carga la mascota para editarla: se lleva el reloj viejo.
+	cargada, err := petRepo.FindByID(pet.ID.String())
+	if err != nil {
+		t.Fatalf("FindByID: %v", err)
+	}
+
+	// Mientras el formulario está abierto, entra un avistamiento.
+	nuevo := time.Now().Add(-1 * time.Hour).UTC().Truncate(time.Second)
+	if err := petRepo.TouchLastReported(pet.ID.String(), nuevo); err != nil {
+		t.Fatalf("TouchLastReported nuevo: %v", err)
+	}
+
+	// El dueño guarda su cambio, con el struct que cargó ANTES.
+	cargada.Description = "descripción editada"
+	if err := petRepo.Update(cargada); err != nil {
+		t.Fatalf("Update: %v", err)
+	}
+
+	got, err := petRepo.FindByID(pet.ID.String())
+	if err != nil {
+		t.Fatalf("FindByID final: %v", err)
+	}
+	if got.Description != "descripción editada" {
+		t.Errorf("el Update no guardó el cambio del usuario: %q", got.Description)
+	}
+	if got.LastReportedAt == nil {
+		t.Fatal("el Update dejó el reloj en NULL: pisó el avistamiento")
+	}
+	if !got.LastReportedAt.UTC().Truncate(time.Second).Equal(nuevo) {
+		t.Errorf("el Update hizo retroceder el reloj: want %v (el avistamiento), got %v",
+			nuevo, got.LastReportedAt.UTC())
+	}
+}
