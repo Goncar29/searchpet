@@ -257,7 +257,15 @@ func (s *petService) CreatePet(ownerID string, req dto.CreatePetRequest) (*domai
 				}
 				report.EpisodeID = &ep.ID
 			}
-			return tx.Reports.Create(report)
+			if err := tx.Reports.Create(report); err != nil {
+				return err
+			}
+			// El reporte inicial es un avistamiento como cualquier otro y su
+			// occurred_at lo provee el usuario: puede ser de hace semanas. Sin
+			// esto el reloj queda NULL, el lector cae a pets.created_at = hoy, y
+			// eso EXAGERA la frescura justo en la dirección que mantiene viva
+			// una publicación vieja.
+			return tx.Pets.TouchLastReported(pet.ID.String(), sightingTime(report))
 		})
 		if err != nil {
 			return nil, err
@@ -609,6 +617,17 @@ func (s *petService) MarkAsFound(ownerID string, petID string) (*domain.Pet, err
 		}
 		if err := s.reportRepo.Create(closureReport); err != nil {
 			log.Printf("[pet_service] Error creating closure report for pet %s: %v", petID, err)
+		} else if err := s.repo.TouchLastReported(petID, sightingTime(closureReport)); err != nil {
+			// Best-effort como todo este bloque: el cierre ya está aplicado y un
+			// reloj desactualizado no lo invalida.
+			//
+			// Se estampa igual aunque la mascota quede `found` y la caducidad
+			// hoy sólo mire callejeros: el reloj tiene que coincidir con la fila
+			// más nueva del historial de esa mascota SIEMPRE. Si sólo se moviera
+			// cuando hoy hace falta, el invariante pasaría a depender de qué
+			// estados filtra la consulta — y cambiar esa consulta rompería el
+			// reloj en silencio, sin tocar una línea de este archivo.
+			log.Printf("[pet_service] Error touching last_reported_at for pet %s: %v", petID, err)
 		}
 	}
 
@@ -689,7 +708,14 @@ func (s *petService) PublishLost(ownerID string, petID string, req dto.PublishLo
 			}
 			report.EpisodeID = &ep.ID
 		}
-		return tx.Reports.Create(report)
+		if err := tx.Reports.Create(report); err != nil {
+			return err
+		}
+		// Publicar como perdida crea un avistamiento con lat/lng y occurred_at,
+		// así que mueve el reloj como cualquier otro. Sin esto queda NULL y el
+		// lector cae a pets.created_at, que es CUÁNDO SE REGISTRÓ la mascota:
+		// una dada de alta hace un año y publicada hoy nacería vencida.
+		return tx.Pets.TouchLastReported(petID, sightingTime(report))
 	})
 	if err != nil {
 		return nil, err
