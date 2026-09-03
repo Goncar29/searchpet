@@ -178,6 +178,20 @@ export const useReportedPets = (enabled: boolean = true) => {
   });
 };
 
+// useUserPets — las publicaciones visibles de OTRA persona (perfil público).
+//
+// La queryKey lleva el userID para que dos perfiles no se pisen la caché.
+// Devuelve `{data, total}`: `total` es el conteo real sin tope, y la pantalla
+// lo compara contra `data.length` para decidir si dibuja el aviso de que la
+// lista está recortada.
+export const useUserPets = (userID: string) => {
+  return useQuery({
+    queryKey: ['pets', 'public', userID],
+    queryFn: () => apiClient.getUserPets(userID),
+    enabled: !!userID,
+  });
+};
+
 export const usePetByID = (id: string) => {
   return useQuery({
     queryKey: ['pets', id],

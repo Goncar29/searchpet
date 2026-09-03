@@ -56,6 +56,56 @@ var MapVisibleStatuses = []string{PetStatusLost, PetStatusStray, PetStatusFound}
 // map, or public search.
 var AdoptionVisibleStatuses = []string{PetStatusAdoption}
 
+// PublicProfileVisibleStatuses son los estados que un TERCERO ve en el perfil
+// público de otra persona (GET /api/users/:id/pets).
+//
+// Excluye `registered` y `archived` por el mismo motivo que
+// PublicSearchableStatuses: publicarlos sería un inventario de qué animales
+// tiene esa persona y dónde vive.
+//
+// `archived` es el interruptor con el que se baja una publicación de esta
+// vista, PERO NO LLEGA A LOS CALLEJEROS, y eso es DELIBERADO. `stray` es el
+// único estado sin arista hacia `archived`, y la prohibición está testeada
+// explícitamente en los dos lenguajes: `status_machine_test.go` la lista entre
+// las transiciones inválidas, y `petStatusTransitions.test.ts` afirma
+// `expect(options).not.toContain('archived')`. Alguien la cerró a propósito.
+//
+// El motivo que se sostiene: **un avistamiento de callejero no es propiedad de
+// quien lo reportó, es información de la comunidad.** Poder retirarlo sacaría
+// del mapa un dato que otra gente puede estar usando para buscar. Por eso la
+// única salida es `found`: que la historia se cierre porque el animal apareció,
+// no porque el que avisó se arrepintió.
+//
+// Y para un reporte equivocado la salida existe y es otra: el reporter puede
+// BORRAR la mascota (`canManagePet`, service/authorization.go).
+//
+// Lo que sí queda abierto es más chico y más profundo, y NO es un problema de
+// esta vista: un avistamiento no caduca nunca. Un `stray` de hace dos años ya
+// envejecía en el mapa antes de que existiera este endpoint; lo único que
+// cambió es que ahora además queda atribuido a una persona con nombre. Si algún
+// día se resuelve, se resuelve con caducidad de avistamientos y no dándole a
+// cada usuario la facultad de borrar datos del mapa de a uno. Ver el issue #218.
+//
+// NO deducir de esto que archivar cubre todo: no cubre los callejeros, a
+// propósito.
+//
+// Incluye `found` y `adopted` a propósito: los dos son finales felices que ya
+// fueron públicos (found está en PublicSearchableStatuses; adopted estuvo
+// listado en /api/adoptions mientras fue adoption). La adopción NO transfiere
+// la mascota —el status machine sólo permite adoption ↔ adopted y → archived—
+// así que no hay un adoptante cuya privacidad proteger.
+//
+// EXPLÍCITA y no derivada, igual que las otras cuatro: si mañana se agrega un
+// estado, hay que decidir si entra. El default —quedar afuera— es el que no
+// publica nada de nadie.
+var PublicProfileVisibleStatuses = []string{
+	PetStatusLost,
+	PetStatusStray,
+	PetStatusFound,
+	PetStatusAdoption,
+	PetStatusAdopted,
+}
+
 // ValidPetTypes son los cuatro tipos de mascota que ofrece la UI.
 //
 // La usan DOS caminos: el filtro de búsqueda (`report_handler.go`), donde el

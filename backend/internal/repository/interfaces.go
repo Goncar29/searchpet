@@ -21,6 +21,33 @@ type PetRepository interface {
 	// FindByReporterID returns the pets a user reported (stray pets carry the
 	// reporter's id; they have no owner).
 	FindByReporterID(reporterID string) ([]domain.Pet, error)
+	// FindPublicByUserID devuelve las mascotas de un usuario que un TERCERO
+	// puede ver en su perfil público: las que publicó y todavía no cerró.
+	//
+	// La allowlist se aplica en el WHERE y no después: una fila `registered`
+	// no tiene que salir nunca de Postgres. Filtrar más arriba la cargaría a
+	// memoria para descartarla, y filtrar en el cliente no filtraría nada.
+	//
+	// Qué estados puede ver un desconocido NO es un parámetro — es un
+	// invariante de seguridad, y un invariante configurable es peor que
+	// ninguno: el método lee `domain.PublicProfileVisibleStatuses` adentro,
+	// así que la firma no puede prometer "sólo lo público" y dejar que quien
+	// llama le pase una lista más ancha (o vacía, que hoy además callaría
+	// sin error).
+	//
+	// Cubre los dos vínculos en UNA consulta —`owner_id` (las suyas) y
+	// `reporter_id` (los callejeros que reportó sin ser dueña)— porque una
+	// misma fila puede matchear ambos y dos listas pegadas la duplicarían.
+	// Defensiva: hoy esa fila es inalcanzable porque `CreatePet` setea owner
+	// XOR reporter y nada más asigna `Pet.OwnerID`; el OR está para no
+	// duplicar si algún día los datos lo permiten.
+	FindPublicByUserID(userID string) ([]domain.Pet, error)
+	// CountPublicByUserID cuenta el total real detrás de FindPublicByUserID, sin
+	// el LIMIT que la acota. Tiene que aplicar el MISMO WHERE — mismo OR, misma
+	// allowlist leída de domain.PublicProfileVisibleStatuses — o la pantalla
+	// mostraría "50 de N" con un N que cuenta un conjunto distinto del listado,
+	// y ninguno de los dos números se vería mal por sí solo.
+	CountPublicByUserID(userID string) (int64, error)
 	Update(pet *domain.Pet) error
 	UpdateStatus(id string, status string) error
 	Delete(id string) error

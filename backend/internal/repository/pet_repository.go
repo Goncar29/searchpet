@@ -95,6 +95,59 @@ func (r *PostgresPetRepository) FindByReporterID(reporterID string) ([]domain.Pe
 	return pets, err
 }
 
+// publicProfilePetLimit acota la lista del perfil público.
+//
+// El riesgo no es un atacante, es un usuario EXITOSO: la lista no muestra "las
+// mascotas que tenés ahora" sino todo lo publicado y no archivado, y
+// `reporter_id` acumula cada callejero que esa persona reportó en su vida. Un
+// refugio junta cientos de filas con el tiempo, y cada tarjeta pide una
+// miniatura: el bandwidth de Cloudinary es el cuello del plan gratuito.
+//
+// El tope viaja SIEMPRE con su total (ver CountPublicByUserID): un LIMIT mudo
+// mostraría 50 de 300 sin que nada lo diga, y cambiaría "es caro" por "es
+// mentira".
+const publicProfilePetLimit = 50
+
+// publicProfileScope es la ÚNICA definición de "lo que un tercero ve en el
+// perfil de esta persona". La comparten FindPublicByUserID y
+// CountPublicByUserID a propósito: si cada una tuviera su copia del WHERE,
+// divergirían en silencio y la pantalla diría "50 de N" contando N sobre
+// otro conjunto — y ninguno de los dos números se vería mal por separado.
+//
+// Devuelve un *gorm.DB nuevo, clonado de r.db, en cada llamada — no hay
+// estado que una invocación pueda dejarle a la siguiente.
+func (r *PostgresPetRepository) publicProfileScope(userID string) *gorm.DB {
+	return r.db.Model(&domain.Pet{}).
+		Where("(owner_id = ? OR reporter_id = ?) AND status IN ?", userID, userID, domain.PublicProfileVisibleStatuses)
+}
+
+// FindPublicByUserID — ver el contrato en repository/interfaces.go.
+//
+// Sin Preload("Owner") a propósito: CreatePet setea owner XOR reporter, así
+// que la única persona que este preload podría traer es la dueña del perfil
+// que ya se está mirando — el cliente ya la tiene por GET /users/:id/profile.
+// Preloadearla acá filtraría su teléfono (PetOwnerResponse lo expone
+// incondicional) en un endpoint público y sin auth.
+func (r *PostgresPetRepository) FindPublicByUserID(userID string) ([]domain.Pet, error) {
+	var pets []domain.Pet
+	err := r.publicProfileScope(userID).
+		Preload("Photos", orderedPhotos).
+		Order("created_at DESC").
+		Limit(publicProfilePetLimit).
+		Find(&pets).Error
+	return pets, err
+}
+
+// CountPublicByUserID — ver el contrato en repository/interfaces.go. Mismo
+// scope que FindPublicByUserID (publicProfileScope), sin Limit ni Order (un
+// COUNT no necesita orden) y sin Preload (no trae filas, no hay nada que
+// precargar).
+func (r *PostgresPetRepository) CountPublicByUserID(userID string) (int64, error) {
+	var total int64
+	err := r.publicProfileScope(userID).Count(&total).Error
+	return total, err
+}
+
 // Update guarda los cambios de una mascota existente.
 func (r *PostgresPetRepository) Update(pet *domain.Pet) error {
 	return r.db.Save(pet).Error

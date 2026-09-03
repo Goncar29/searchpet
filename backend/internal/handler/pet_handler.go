@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"lost-pets/internal/domain"
 	"lost-pets/internal/dto"
 	"lost-pets/internal/service"
@@ -114,6 +115,38 @@ func (h *PetHandler) GetReportedPets(c *gin.Context) {
 	if err != nil {
 		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		return
+	}
+
+	c.JSON(http.StatusOK, dto.ToPetListResponse(pets))
+}
+
+// GetPublicPets godoc
+// GET /api/users/:id/pets — público, no requiere auth.
+//
+// Retorna lo que la persona publicó y todavía no cerró, acotado a 50. El total
+// real va en X-Total-Count para que la pantalla pueda decir "las 50 más
+// recientes de N" — un tope sin su total le mentiría al usuario.
+//
+// La allowlist de estados vive en el dominio y se aplica en SQL; este handler
+// no filtra nada.
+func (h *PetHandler) GetPublicPets(c *gin.Context) {
+	idStr := c.Param("id")
+	if _, err := uuid.Parse(idStr); err != nil {
+		writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
+		return
+	}
+
+	pets, err := h.petService.GetPublicPets(idStr)
+	if err != nil {
+		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
+		return
+	}
+
+	// Best-effort, igual que success_story_handler.go: si el COUNT falla, la
+	// lista se sirve igual y la pantalla se queda sin el "de N". Perder el
+	// total no justifica perder la página.
+	if total, err := h.petService.CountPublicPets(idStr); err == nil {
+		c.Header("X-Total-Count", strconv.FormatInt(total, 10))
 	}
 
 	c.JSON(http.StatusOK, dto.ToPetListResponse(pets))

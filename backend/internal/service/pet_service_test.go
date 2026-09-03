@@ -29,6 +29,10 @@ func (m *mockPetRepo) FindByID(_ string) (*domain.Pet, error) {
 }
 func (m *mockPetRepo) FindByOwnerID(_ string) ([]domain.Pet, error)    { return nil, nil }
 func (m *mockPetRepo) FindByReporterID(_ string) ([]domain.Pet, error) { return nil, nil }
+func (m *mockPetRepo) FindPublicByUserID(_ string) ([]domain.Pet, error) {
+	return nil, nil
+}
+func (m *mockPetRepo) CountPublicByUserID(_ string) (int64, error) { return 0, nil }
 func (m *mockPetRepo) Update(_ *domain.Pet) error                   { return m.updateErr }
 func (m *mockPetRepo) UpdateStatus(_ string, status string) error {
 	m.statusCalls = append(m.statusCalls, status)

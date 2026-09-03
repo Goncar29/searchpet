@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"lost-pets/internal/domain"
@@ -366,4 +367,296 @@ func TestPetRepository_Delete_Cascade(t *testing.T) {
 	if len(photos) != 0 {
 		t.Errorf("want 0 photos after cascade delete, got %d", len(photos))
 	}
+}
+
+// Este test corre contra Postgres REAL y no contra un mock a propósito: los
+// mocks no tienen WHERE, así que no pueden ver un filtro que no se aplicó
+// (regla #34). Y afirma la NEGATIVA — que las privadas no vuelven— porque un
+// test que sólo comprueba que las cinco visibles vuelven pasa igual con el
+// filtro entero borrado.
+//
+// También siembra un SEGUNDO usuario con una mascota `lost` propia: sin esa
+// fila, "todas las filas visibles de la tabla" y "las filas visibles de ESTE
+// usuario" son indistinguibles, porque SetupTestDB trunca entre tests y cada
+// test de este archivo siembra un solo dueño. El corte por usuario tiene
+// tanta cobertura acá como el corte por estado.
+func TestPetRepository_FindPublicByUserID_NoDevuelveLasPrivadas(t *testing.T) {
+	gormDB := testdb.SetupTestDB(t)
+	userRepo := repository.NewUserRepository(gormDB)
+	petRepo := repository.NewPetRepository(gormDB)
+
+	owner := newTestUser(t, userRepo)
+	otro := newTestUser(t, userRepo)
+
+	seed := func(u *domain.User, name, status string) {
+		p := &domain.Pet{
+			ID:      uuid.New(),
+			OwnerID: ptrUUID(u.ID),
+			Name:    name,
+			Type:    "perro",
+			Status:  status,
+		}
+		if err := petRepo.Create(p); err != nil {
+			t.Fatalf("sembrando %s/%s: %v", name, status, err)
+		}
+	}
+
+	seed(owner, "Visible-Lost", domain.PetStatusLost)
+	seed(owner, "Visible-Stray", domain.PetStatusStray)
+	seed(owner, "Visible-Found", domain.PetStatusFound)
+	seed(owner, "Visible-Adoption", domain.PetStatusAdoption)
+	seed(owner, "Visible-Adopted", domain.PetStatusAdopted)
+	seed(owner, "PRIVADA-Registered", domain.PetStatusRegistered)
+	seed(owner, "PRIVADA-Archived", domain.PetStatusArchived)
+	seed(otro, "AJENA-Lost", domain.PetStatusLost)
+
+	pets, err := petRepo.FindPublicByUserID(owner.ID.String())
+	if err != nil {
+		t.Fatalf("FindPublicByUserID: %v", err)
+	}
+
+	for _, p := range pets {
+		if p.Status == domain.PetStatusRegistered || p.Status == domain.PetStatusArchived {
+			t.Errorf("FUGA: volvió %q en estado %q", p.Name, p.Status)
+		}
+		if p.Name == "AJENA-Lost" {
+			t.Errorf("FUGA: volvió una mascota visible de OTRO usuario: %q", p.Name)
+		}
+	}
+	if len(pets) != 5 {
+		t.Fatalf("largo = %d, quiero 5: %v", len(pets), nombres(pets))
+	}
+}
+
+// Una mascota puede matchear los DOS vínculos: quien reporta un callejero y
+// después lo adopta queda como owner Y como reporter de la misma fila. Con dos
+// consultas concatenadas aparecería duplicada en el perfil.
+//
+// Defensiva a propósito: hoy esta fila es INALCANZABLE — CreatePet setea
+// owner XOR reporter y nada más asigna Pet.OwnerID (pet_service.go:210-217),
+// y stray sólo tiene la transición a found (status_machine.go:11). Este test
+// construye a mano un estado que la app no produce hoy, para que el OR de la
+// query siga sin duplicar si eso cambia.
+func TestPetRepository_FindPublicByUserID_NoDuplicaSiEsDueniaYReporter(t *testing.T) {
+	gormDB := testdb.SetupTestDB(t)
+	userRepo := repository.NewUserRepository(gormDB)
+	petRepo := repository.NewPetRepository(gormDB)
+
+	u := newTestUser(t, userRepo)
+
+	p := &domain.Pet{
+		ID:         uuid.New(),
+		OwnerID:    ptrUUID(u.ID),
+		ReporterID: ptrUUID(u.ID),
+		Name:       "Callejero Adoptado",
+		Type:       "perro",
+		Status:     domain.PetStatusAdopted,
+	}
+	if err := petRepo.Create(p); err != nil {
+		t.Fatalf("sembrando: %v", err)
+	}
+
+	pets, err := petRepo.FindPublicByUserID(u.ID.String())
+	if err != nil {
+		t.Fatalf("FindPublicByUserID: %v", err)
+	}
+	if len(pets) != 1 {
+		t.Fatalf("largo = %d, quiero 1 (duplicado): %v", len(pets), nombres(pets))
+	}
+}
+
+// El callejero que reportó sin ser dueña: owner_id nil, reporter_id suyo.
+func TestPetRepository_FindPublicByUserID_IncluyeLosQueReporto(t *testing.T) {
+	gormDB := testdb.SetupTestDB(t)
+	userRepo := repository.NewUserRepository(gormDB)
+	petRepo := repository.NewPetRepository(gormDB)
+
+	reporter := newTestUser(t, userRepo)
+
+	p := &domain.Pet{
+		ID:         uuid.New(),
+		ReporterID: ptrUUID(reporter.ID),
+		Name:       "Callejero del Parque",
+		Type:       "gato",
+		Status:     domain.PetStatusStray,
+	}
+	if err := petRepo.Create(p); err != nil {
+		t.Fatalf("sembrando: %v", err)
+	}
+
+	pets, err := petRepo.FindPublicByUserID(reporter.ID.String())
+	if err != nil {
+		t.Fatalf("FindPublicByUserID: %v", err)
+	}
+	if len(pets) != 1 || pets[0].Name != "Callejero del Parque" {
+		t.Fatalf("quiero el callejero reportado, tengo: %v", nombres(pets))
+	}
+}
+
+// CountPublicByUserID tiene que ver EXACTAMENTE lo mismo que
+// FindPublicByUserID ve (cuando el resultado está por debajo del tope de 50):
+// mismo OR de owner_id/reporter_id, misma allowlist. Si las dos consultas
+// alguna vez divergen, el perfil público muestra "50 de N" con un N que cuenta
+// un conjunto distinto del listado, y ninguno de los dos números se ve mal por
+// sí solo — por eso este test afirma el ACUERDO entre las dos, no un número
+// fijo que alguien pudo haber tipeado mal en las dos consultas por igual.
+//
+// Siembra una mezcla de mascotas visibles y privadas de un usuario, más una
+// mascota de un SEGUNDO usuario, para que el corte por dueño tenga tanta
+// cobertura acá como el corte por estado.
+func TestPetRepository_CountPublicByUserID_CoincideConFindPublicByUserID(t *testing.T) {
+	gormDB := testdb.SetupTestDB(t)
+	userRepo := repository.NewUserRepository(gormDB)
+	petRepo := repository.NewPetRepository(gormDB)
+
+	owner := newTestUser(t, userRepo)
+	otro := newTestUser(t, userRepo)
+
+	seed := func(u *domain.User, name, status string) {
+		p := &domain.Pet{
+			ID:      uuid.New(),
+			OwnerID: ptrUUID(u.ID),
+			Name:    name,
+			Type:    "perro",
+			Status:  status,
+		}
+		if err := petRepo.Create(p); err != nil {
+			t.Fatalf("sembrando %s/%s: %v", name, status, err)
+		}
+	}
+
+	seed(owner, "Visible-Lost", domain.PetStatusLost)
+	seed(owner, "Visible-Stray", domain.PetStatusStray)
+	seed(owner, "PRIVADA-Registered", domain.PetStatusRegistered)
+	seed(owner, "PRIVADA-Archived", domain.PetStatusArchived)
+	seed(otro, "AJENA-Lost", domain.PetStatusLost)
+
+	// Las de arriba sólo cubren el vínculo por owner_id — el seed() de este
+	// test nunca toca ReporterID. Con eso, una mutación que cambie el OR del
+	// WHERE de CountPublicByUserID por un AND-sólo-owner deja el acuerdo
+	// intacto: ninguna mascota sembrada depende de reporter_id para estar
+	// adentro. Estas dos filas cubren las otras dos ramas del OR: sólo
+	// reporter (el callejero que alguien reportó sin ser su dueño) y las dos
+	// a la vez (quien reporta un callejero y después lo adopta).
+	reporterOnly := &domain.Pet{
+		ID:         uuid.New(),
+		ReporterID: ptrUUID(owner.ID),
+		Name:       "Visible-SoloReporter",
+		Type:       "gato",
+		Status:     domain.PetStatusStray,
+	}
+	if err := petRepo.Create(reporterOnly); err != nil {
+		t.Fatalf("sembrando reporterOnly: %v", err)
+	}
+	ownerYReporter := &domain.Pet{
+		ID:         uuid.New(),
+		OwnerID:    ptrUUID(owner.ID),
+		ReporterID: ptrUUID(owner.ID),
+		Name:       "Visible-DueniaYReporter",
+		Type:       "perro",
+		Status:     domain.PetStatusAdopted,
+	}
+	if err := petRepo.Create(ownerYReporter); err != nil {
+		t.Fatalf("sembrando ownerYReporter: %v", err)
+	}
+
+	pets, err := petRepo.FindPublicByUserID(owner.ID.String())
+	if err != nil {
+		t.Fatalf("FindPublicByUserID: %v", err)
+	}
+	total, err := petRepo.CountPublicByUserID(owner.ID.String())
+	if err != nil {
+		t.Fatalf("CountPublicByUserID: %v", err)
+	}
+
+	if int64(len(pets)) != total {
+		t.Fatalf("desacuerdo: FindPublicByUserID devolvió %d filas (%v), CountPublicByUserID contó %d", len(pets), nombres(pets), total)
+	}
+	if total != 4 {
+		t.Fatalf("total = %d, quiero 4 (Visible-Lost + Visible-Stray + SoloReporter + DueniaYReporter)", total)
+	}
+}
+
+// El tope de 50 y el ORDER BY created_at DESC no son cosméticos: el tope
+// recorta SOBRE ese orden, así que sin un orden determinístico las 50 que
+// vuelven son una porción arbitraria e inestable de la tabla, y el rótulo de
+// la UI ("las 50 más recientes de N") queda siendo falso. Ningún test de
+// este archivo sembraba más de 8 mascotas, así que borrar el Limit,
+// cambiarlo a 5000, o invertir el Order a ASC dejaban toda la suite en
+// verde.
+//
+// created_at se fuerza EXPLÍCITO por fila — no se confía en el orden de
+// inserción ni en la resolución del reloj — para que el test sea
+// determinístico. GORM's autoCreateTime sólo pisa el campo cuando está en
+// su valor zero, así que un CreatedAt no-zero sobrevive el Create (mismo
+// patrón que impact_handler_test.go).
+func TestPetRepository_FindPublicByUserID_RespetaElTopeYElOrden(t *testing.T) {
+	gormDB := testdb.SetupTestDB(t)
+	userRepo := repository.NewUserRepository(gormDB)
+	petRepo := repository.NewPetRepository(gormDB)
+
+	owner := newTestUser(t, userRepo)
+
+	const totalSeeded = publicProfilePetLimitForTest + 1
+	base := time.Now().Add(-24 * time.Hour)
+	for i := 0; i < totalSeeded; i++ {
+		p := &domain.Pet{
+			ID:        uuid.New(),
+			OwnerID:   ptrUUID(owner.ID),
+			Name:      fmt.Sprintf("Pet-%02d", i),
+			Type:      "perro",
+			Status:    domain.PetStatusLost,
+			CreatedAt: base.Add(time.Duration(i) * time.Minute),
+		}
+		if err := petRepo.Create(p); err != nil {
+			t.Fatalf("sembrando Pet-%02d: %v", i, err)
+		}
+	}
+
+	pets, err := petRepo.FindPublicByUserID(owner.ID.String())
+	if err != nil {
+		t.Fatalf("FindPublicByUserID: %v", err)
+	}
+	total, err := petRepo.CountPublicByUserID(owner.ID.String())
+	if err != nil {
+		t.Fatalf("CountPublicByUserID: %v", err)
+	}
+
+	// El tope: la lista se recorta a 50 aunque haya 51 mascotas visibles.
+	if len(pets) != publicProfilePetLimitForTest {
+		t.Fatalf("largo = %d, quiero %d (el tope): %v", len(pets), publicProfilePetLimitForTest, nombres(pets))
+	}
+	// El conteo NO tiene tope: tiene que ver las 51, no las 50 recortadas.
+	if total != int64(totalSeeded) {
+		t.Fatalf("total = %d, quiero %d (CountPublicByUserID no debe estar topeado)", total, totalSeeded)
+	}
+	// El orden: el tope recorta sobre created_at DESC, así que la primera
+	// tiene que ser la más nueva (Pet-50) y la más vieja (Pet-00) tiene que
+	// haber quedado afuera. Esto es lo que distingue DESC de ASC: con ASC,
+	// pets[0] sería Pet-00 y Pet-50 (la más nueva) sería la descartada.
+	newest := fmt.Sprintf("Pet-%02d", totalSeeded-1)
+	oldest := fmt.Sprintf("Pet-%02d", 0)
+	if pets[0].Name != newest {
+		t.Fatalf("pets[0] = %q, quiero la más nueva (%s): orden roto", pets[0].Name, newest)
+	}
+	for _, p := range pets {
+		if p.Name == oldest {
+			t.Fatalf("FUGA: la más vieja (%s) entró en el tope de %d — orden roto", oldest, publicProfilePetLimitForTest)
+		}
+	}
+}
+
+// publicProfilePetLimitForTest espeja publicProfilePetLimit de
+// internal/repository/pet_repository.go (no exportada, no se puede importar
+// desde tests). Si el tope de producción cambia y este número no se
+// actualiza junto, el test sigue siendo válido igual: sólo prueba el tope
+// equivocado. Documentado acá para que quien toque uno se acuerde del otro.
+const publicProfilePetLimitForTest = 50
+
+func nombres(pets []domain.Pet) []string {
+	out := make([]string, len(pets))
+	for i, p := range pets {
+		out[i] = p.Name + "/" + p.Status
+	}
+	return out
 }

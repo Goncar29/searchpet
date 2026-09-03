@@ -427,6 +427,20 @@ class APIClient {
     return this.request<Pet[]>('GET', '/api/pets/reported');
   }
 
+  // getUserPets — lo que OTRA persona publicó y todavía no cerró
+  // (GET /api/users/:id/pets, público, sin auth).
+  //
+  // El backend aplica la allowlist de estados en SQL y acota la lista a 50:
+  // acá NO se filtra nada, y filtrar acá tampoco serviría de nada.
+  //
+  // Usa requestWithTotal y no request porque el total NO es decorativo: es lo
+  // único que distingue "publicó 50" de "publicó 312 y estás viendo 50". Sin
+  // él la pantalla mostraría una lista recortada sin poder decirlo, que es
+  // justo lo que el tope viene a evitar.
+  async getUserPets(userID: string): Promise<Paged<Pet>> {
+    return this.requestWithTotal<Pet[]>('GET', `/api/users/${userID}/pets`);
+  }
+
   async updatePet(id: string, data: UpdatePetRequest): Promise<Pet> {
     return this.request<Pet>('PUT', `/api/pets/${id}`, data);
   }
