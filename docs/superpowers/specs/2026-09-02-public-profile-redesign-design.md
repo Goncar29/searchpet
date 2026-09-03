@@ -169,8 +169,23 @@ en `shared/api/client.ts:272` ya lee `X-Total-Count` con guarda anti-NaN;
 `success_story_handler.go:186` ya tiene el patrón de `count=true` opcional para
 que un llamador que no necesita el total no pague el COUNT.
 
-**El cartel**: una línea de texto apagado **al final de la grilla**, debajo de
-la última tarjeta — *"Mostrando las 50 publicaciones más recientes de 312."*
+**El cartel**: una línea de texto apagado **debajo de las DOS secciones de
+mascotas** (Publicaciones y En adopción), antes de las reseñas —
+*"Mostrando las 50 publicaciones más recientes de 312."*
+
+> **CORREGIDO durante la implementación.** Este spec decía "al final de la
+> grilla" de Publicaciones, y ahí el cartel **habría mentido**. `total` sale de
+> `CountPublicByUserID`, que usa la misma `WHERE` que la lista e incluye las de
+> adopción; Publicaciones muestra sólo la tajada que NO es de adopción. Aparear
+> ese total con el largo de una sección afirma una resta que nadie calculó. Y
+> `total - adopción` tampoco sirve: la tajada de adopción también está recortada
+> por el mismo tope de 50.
+>
+> El único apareo honesto es **payload contra payload**: `shown` es el largo de
+> todo lo que devolvió el endpoint —que es exactamente lo que se dibuja, entre
+> las dos secciones— y `total` es el header. Por eso el cartel bajó a después de
+> las dos. La razón de ponerlo abajo no cambia: sigue respondiendo la pregunta
+> que uno tiene en ese momento, *"¿esto es todo?"*.
 
 - **No es un modal.** Un modal interrumpe para dar información que el visitante
   no pidió, sobre el perfil de otro, y sin ninguna decisión que tomar. Los
