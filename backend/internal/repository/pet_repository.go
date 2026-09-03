@@ -251,8 +251,26 @@ func (r *PostgresPetRepository) Search(filters domain.PetSearchCriteria) ([]doma
 			return nil, 0, err
 		}
 
-		// Evitamos duplicados si hay múltiples reports que matchean
-		q = q.Distinct("pets.id, pets.owner_id, pets.reporter_id, pets.name, pets.type, pets.breed, pets.color, pets.description, pets.gender, pets.microchip_id, pets.status, pets.version, pets.city, pets.created_at, pets.updated_at")
+		// Evitamos duplicados si hay múltiples reports que matchean.
+		//
+		// `pets.*` y NO una lista de columnas escrita a mano. Esa lista existió
+		// hasta hoy y ya había divergido en silencio: le faltaban birth_date,
+		// birth_date_precision, current_episode_id y reporter_contact_public,
+		// así que una búsqueda CON filtro geográfico devolvía esas cuatro en
+		// cero mientras la misma búsqueda SIN geo las devolvía bien. No hay
+		// error, no hay warning: el struct se llena igual, con el valor vacío
+		// del tipo.
+		//
+		// Es la peor forma de falla para una columna nueva, porque la mitad de
+		// los caminos la muestran correcta. Una lista que hay que acordarse de
+		// actualizar es una invariante disfrazada de configuración: olvidarse
+		// no da error, sólo pierde datos.
+		//
+		// Dedupe idéntico: `pets.id` es PK, así que DISTINCT sobre la fila
+		// entera de `pets` colapsa exactamente los mismos duplicados que la
+		// lista enumerada. Y el ORDER BY sigue siendo válido bajo DISTINCT
+		// porque `pets.created_at` está dentro de `pets.*`.
+		q = q.Distinct("pets.*")
 
 		// Paginación
 		var pets []domain.Pet
