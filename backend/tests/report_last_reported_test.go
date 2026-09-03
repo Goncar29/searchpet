@@ -7,7 +7,6 @@ import (
 	"lost-pets/internal/service"
 )
 
-
 // El avistamiento manda sobre la carga: si el reporte trae occurred_at, ése es
 // el momento en que se vio al animal. Medir por created_at haría parecer fresco
 // un avistamiento de hace meses sólo porque alguien lo cargó hoy.
