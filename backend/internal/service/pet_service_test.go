@@ -38,6 +38,8 @@ func (m *mockPetRepo) UpdateStatus(_ string, status string) error {
 	m.statusCalls = append(m.statusCalls, status)
 	return m.updateErr
 }
+
+func (m *mockPetRepo) TouchLastReported(_ string, _ time.Time) error { return nil }
 func (m *mockPetRepo) Delete(_ string) error { return nil }
 func (m *mockPetRepo) Search(_ domain.PetSearchCriteria) ([]domain.Pet, int64, error) {
 	return nil, 0, nil

@@ -2,6 +2,7 @@ package repository
 
 import (
 	"errors"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgconn"
 	"gorm.io/gorm"
@@ -146,6 +147,26 @@ func (r *PostgresPetRepository) CountPublicByUserID(userID string) (int64, error
 	var total int64
 	err := r.publicProfileScope(userID).Count(&total).Error
 	return total, err
+}
+
+// TouchLastReported — ver el contrato en repository/interfaces.go.
+//
+// La monotonía vive en el WHERE y no en Go a propósito. Leer el valor, comparar
+// en memoria y escribir sería un read-modify-write: dos reportes concurrentes de
+// la misma mascota leerían el mismo valor viejo y el último en escribir ganaría,
+// que es exactamente cómo se pierde el avistamiento más reciente. Acá la
+// comparación y la escritura son la misma sentencia.
+//
+// RowsAffected == 0 NO es un error: significa que el valor guardado ya era más
+// nuevo, que es el caso que esta guarda existe para producir. También cubre "la
+// mascota no existe", pero eso es inalcanzable desde el único llamador: el
+// reporte se inserta antes en la misma transacción y su FK a pets ya habría
+// fallado.
+func (r *PostgresPetRepository) TouchLastReported(id string, seen time.Time) error {
+	return r.db.Model(&domain.Pet{}).
+		Where("id = ?", id).
+		Where("last_reported_at IS NULL OR last_reported_at < ?", seen).
+		Update("last_reported_at", seen).Error
 }
 
 // Update guarda los cambios de una mascota existente.

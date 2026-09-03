@@ -83,6 +83,7 @@ func (m *mockPetRepoForShare) FindPublicByUserID(_ string) ([]domain.Pet, error)
 func (m *mockPetRepoForShare) CountPublicByUserID(_ string) (int64, error) { return 0, nil }
 func (m *mockPetRepoForShare) Update(pet *domain.Pet) error                                   { return nil }
 func (m *mockPetRepoForShare) UpdateStatus(id string, status string) error                    { return nil }
+func (m *mockPetRepoForShare) TouchLastReported(id string, seen time.Time) error              { return nil }
 func (m *mockPetRepoForShare) Delete(id string) error                                         { return nil }
 func (m *mockPetRepoForShare) Search(criteria domain.PetSearchCriteria) ([]domain.Pet, int64, error) {
 	return nil, 0, nil

@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -56,6 +57,7 @@ func (n *nopPetRepoForHandler) FindPublicByUserID(_ string) ([]domain.Pet, error
 func (n *nopPetRepoForHandler) CountPublicByUserID(_ string) (int64, error) { return 0, nil }
 func (n *nopPetRepoForHandler) Update(_ *domain.Pet) error                         { return nil }
 func (n *nopPetRepoForHandler) UpdateStatus(_ string, _ string) error              { return nil }
+func (n *nopPetRepoForHandler) TouchLastReported(_ string, _ time.Time) error      { return nil }
 func (n *nopPetRepoForHandler) Delete(_ string) error                              { return nil }
 func (n *nopPetRepoForHandler) Search(_ domain.PetSearchCriteria) ([]domain.Pet, int64, error) {
 	return nil, 0, nil

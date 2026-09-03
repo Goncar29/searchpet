@@ -50,6 +50,16 @@ type PetRepository interface {
 	CountPublicByUserID(userID string) (int64, error)
 	Update(pet *domain.Pet) error
 	UpdateStatus(id string, status string) error
+	// TouchLastReported avanza el reloj de última vista de una mascota.
+	//
+	// SÓLO AVANZA. `seen` sale de COALESCE(occurred_at, created_at) del reporte
+	// y occurred_at lo tipea el usuario, así que un avistamiento cargado hoy
+	// puede haber ocurrido hace dos meses. Si esa carga pisara el valor
+	// guardado, un animal visto ayer pasaría a parecer viejo y se apagaría
+	// solo. Por eso el UPDATE lleva la comparación adentro y no en Go: dos
+	// reportes concurrentes de la misma mascota harían un read-modify-write
+	// que puede perder el más reciente.
+	TouchLastReported(id string, seen time.Time) error
 	Delete(id string) error
 	// Search aplica filtros opcionales, devuelve los resultados paginados y el total.
 	Search(criteria domain.PetSearchCriteria) ([]domain.Pet, int64, error)

@@ -81,6 +81,7 @@ func (m *mockPetRepoForEmbedding) FindPublicByUserID(_ string) ([]domain.Pet, er
 func (m *mockPetRepoForEmbedding) CountPublicByUserID(_ string) (int64, error) { return 0, nil }
 func (m *mockPetRepoForEmbedding) Update(_ *domain.Pet) error                      { return nil }
 func (m *mockPetRepoForEmbedding) UpdateStatus(_ string, _ string) error           { return nil }
+func (m *mockPetRepoForEmbedding) TouchLastReported(_ string, _ time.Time) error   { return nil }
 func (m *mockPetRepoForEmbedding) Delete(_ string) error                           { return nil }
 func (m *mockPetRepoForEmbedding) Search(criteria domain.PetSearchCriteria) ([]domain.Pet, int64, error) {
 	if m.searchFn != nil {

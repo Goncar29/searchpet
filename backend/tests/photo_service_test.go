@@ -6,6 +6,7 @@ import (
 	"mime/multipart"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"lost-pets/internal/domain"
@@ -95,8 +96,15 @@ var _ repository.PhotoRepository = (*mockPhotoRepo)(nil)
 // function-pointer mock pattern. We define a local one here for service tests
 // since service tests use repository interfaces, not handler-level mocks.
 
+// touchCall es una llamada registrada a TouchLastReported.
+type touchCall struct {
+	PetID string
+	Seen  time.Time
+}
+
 type mockPetRepoForService struct {
-	findByIDFn func(id string) (*domain.Pet, error)
+	findByIDFn          func(id string) (*domain.Pet, error)
+	touchedLastReported []touchCall
 }
 
 func (m *mockPetRepoForService) FindByID(id string) (*domain.Pet, error) {
@@ -122,6 +130,14 @@ func (m *mockPetRepoForService) Search(c domain.PetSearchCriteria) ([]domain.Pet
 func (m *mockPetRepoForService) Update(pet *domain.Pet) error         { return nil }
 func (m *mockPetRepoForService) Delete(id string) error               { return nil }
 func (m *mockPetRepoForService) UpdateStatus(id, status string) error { return nil }
+
+// touchedLastReported registra las llamadas a TouchLastReported para que los
+// tests que verifican el estampado del reloj puedan afirmar CON QUÉ fecha se
+// llamó, no sólo que la llamada ocurrió.
+func (m *mockPetRepoForService) TouchLastReported(id string, seen time.Time) error {
+	m.touchedLastReported = append(m.touchedLastReported, touchCall{PetID: id, Seen: seen})
+	return nil
+}
 
 // Ensure interface compliance at compile time.
 var _ repository.PetRepository = (*mockPetRepoForService)(nil)
