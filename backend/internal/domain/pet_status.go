@@ -63,23 +63,31 @@ var AdoptionVisibleStatuses = []string{PetStatusAdoption}
 // PublicSearchableStatuses: publicarlos sería un inventario de qué animales
 // tiene esa persona y dónde vive.
 //
-// `archived` es además el interruptor con el que se baja una publicación de
-// esta vista, PERO NO ALCANZA PARA TODAS. `stray` es el único estado del
-// sistema que no tiene arista hacia `archived` —ver AllowedTransitions, donde
-// los otros cinco sí la tienen— así que hoy quien reporta un callejero no lo
-// puede retirar de su perfil sin pasar por `found`, que es afirmar que el
-// animal apareció, o sin borrar la mascota entera.
+// `archived` es el interruptor con el que se baja una publicación de esta
+// vista, PERO NO LLEGA A LOS CALLEJEROS, y eso es DELIBERADO. `stray` es el
+// único estado sin arista hacia `archived`, y la prohibición está testeada
+// explícitamente en los dos lenguajes: `status_machine_test.go` la lista entre
+// las transiciones inválidas, y `petStatusTransitions.test.ts` afirma
+// `expect(options).not.toContain('archived')`. Alguien la cerró a propósito.
 //
-// Duele justo donde más se acumula: `reporter_id` junta cada callejero que la
-// persona reportó en su vida, y es el motivo por el que la lista tiene tope.
-// La asimetría no tiene ninguna justificación escrita en ningún lado y parece
-// un olvido, no una decisión. Se deja anotada y no se arregla acá: tocar la
-// máquina de estados es superficie compartida con el feed, el mapa, la
-// búsqueda y adopción, y no entra en un cambio cuyo review tiene que mirar una
-// frontera de privacidad.
+// El motivo que se sostiene: **un avistamiento de callejero no es propiedad de
+// quien lo reportó, es información de la comunidad.** Poder retirarlo sacaría
+// del mapa un dato que otra gente puede estar usando para buscar. Por eso la
+// única salida es `found`: que la historia se cierre porque el animal apareció,
+// no porque el que avisó se arrepintió.
 //
-// NO deducir de esto que archivar cubre todo — esta línea existe porque yo lo
-// deduje y era falso.
+// Y para un reporte equivocado la salida existe y es otra: el reporter puede
+// BORRAR la mascota (`canManagePet`, service/authorization.go).
+//
+// Lo que sí queda abierto es más chico y más profundo, y NO es un problema de
+// esta vista: un avistamiento no caduca nunca. Un `stray` de hace dos años ya
+// envejecía en el mapa antes de que existiera este endpoint; lo único que
+// cambió es que ahora además queda atribuido a una persona con nombre. Si algún
+// día se resuelve, se resuelve con caducidad de avistamientos y no dándole a
+// cada usuario la facultad de borrar datos del mapa de a uno. Ver el issue #218.
+//
+// NO deducir de esto que archivar cubre todo: no cubre los callejeros, a
+// propósito.
 //
 // Incluye `found` y `adopted` a propósito: los dos son finales felices que ya
 // fueron públicos (found está en PublicSearchableStatuses; adopted estuvo
