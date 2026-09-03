@@ -226,9 +226,14 @@ func (s *reportService) CreateReport(reporterID string, req CreateReportRequest)
 		if err != nil {
 			return nil, err
 		}
+		// Best-effort, como el resto de esta rama. Acá el reporte YA está
+		// persistido y no hay transacción que revertir, así que devolver error
+		// le pediría al cliente reintentar algo que ya ocurrió: el reintento
+		// crearía un reporte duplicado. En la rama transaccional de arriba pasa
+		// lo contrario y por eso ahí sí se propaga — hay rollback.
 		if s.petRepo != nil {
 			if err := s.petRepo.TouchLastReported(req.PetID, sightingTime(report)); err != nil {
-				return nil, err
+				log.Printf("[report_service] TouchLastReported pet=%s: %v", req.PetID, err)
 			}
 		}
 		oldStatus = loaded.Pet.Status
@@ -327,6 +332,33 @@ func (s *reportService) VerifyReport(ctx context.Context, reportID, adminID uuid
 
 // Delete elimina un reporte (acción de moderación admin).
 // Admin-only enforcement se hace en el handler mediante RequireAdmin.
+//
+// El pet_id se lee ANTES de borrar porque después no hay de dónde sacarlo: el
+// borrado es duro (Report no tiene gorm.DeletedAt) y la firma sólo trae el id
+// del reporte.
+//
+// El recálculo del reloj es lo que hace que la moderación revierta también el
+// EFECTO del reporte y no sólo su evidencia: TouchLastReported sólo avanza, así
+// que sin esto un avistamiento falso borrado dejaría a la mascota estampada con
+// su fecha para siempre, sin ningún camino para bajarla.
 func (s *reportService) Delete(ctx context.Context, id uuid.UUID) error {
-	return s.repo.Delete(ctx, id)
+	var petID string
+	if rep, err := s.repo.FindByID(id.String()); err == nil {
+		petID = rep.PetID.String()
+	}
+
+	if err := s.repo.Delete(ctx, id); err != nil {
+		return err
+	}
+
+	// Best-effort y DESPUÉS del borrado: si falla, el reporte igual se fue —
+	// que es lo que el admin pidió— y el reloj queda adelantado, que es el
+	// estado que ya teníamos antes de esta función. Fallar acá revertiría una
+	// moderación exitosa por no poder hacer la limpieza.
+	if petID != "" && s.petRepo != nil {
+		if err := s.petRepo.RecomputeLastReported(petID); err != nil {
+			log.Printf("[report_service] RecomputeLastReported pet=%s: %v", petID, err)
+		}
+	}
+	return nil
 }

@@ -60,6 +60,16 @@ type PetRepository interface {
 	// reportes concurrentes de la misma mascota harían un read-modify-write
 	// que puede perder el más reciente.
 	TouchLastReported(id string, seen time.Time) error
+	// RecomputeLastReported recalcula el reloj desde los reportes que quedan, y
+	// es el ÚNICO camino que puede bajarlo. Existe porque TouchLastReported sólo
+	// avanza: sin esto, un avistamiento falso borrado por moderación dejaría a
+	// la mascota estampada con su fecha para siempre, o sea que la moderación
+	// sacaría la evidencia pero no su efecto.
+	//
+	// Deja NULL cuando no queda ningún reporte, que NO es "sin dato": es lo que
+	// el lector resuelve con COALESCE a pets.created_at, exactamente el estado
+	// "de esta mascota no hay ningún avistamiento".
+	RecomputeLastReported(id string) error
 	Delete(id string) error
 	// Search aplica filtros opcionales, devuelve los resultados paginados y el total.
 	Search(criteria domain.PetSearchCriteria) ([]domain.Pet, int64, error)
