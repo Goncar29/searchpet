@@ -53,4 +53,40 @@ describe('AdoptScreen', () => {
     render(<AdoptScreen />);
     expect(screen.getByText('Firulais')).toBeTruthy();
   });
+
+  // La mitad positiva la afirma el test de arriba, que sigue exigiendo el cartel
+  // de vacío con `data: { data: [] }`. Las dos hacen falta: sin la positiva, un
+  // guard escrito de más taparía también el vacío real y nadie se enteraría.
+  it('una consulta caída avisa que falló, y NO se ve como "no hay nada en adopción"', () => {
+    mockUseAdoptions.mockReturnValue({ data: undefined, isLoading: false, isError: true });
+    render(<AdoptScreen />);
+
+    expect(screen.queryByText(/common:loadErrorTitle/i)).toBeTruthy();
+    expect(screen.queryByText(/adoption:section.empty/i)).toBeNull();
+  });
+
+  // El contador vive FUERA de la lista, y ésa es la trampa que la primitiva no
+  // puede cerrar sola: con la consulta caída, `data?.total ?? pets.length` da
+  // CERO y la pantalla afirmaba "0 resultados". Un cartel de vacío no dice nada
+  // sobre por qué; un contador en cero AFIRMA que se preguntó y no había.
+  //
+  // Hoy no se dibuja porque el encabezado va dentro de la FlatList que
+  // `ListState` reemplaza. Este test existe para que siga siendo cierto si
+  // alguien mueve el encabezado afuera, que es justo lo que haría falta para
+  // conservar los filtros durante el error.
+  it('una consulta caída no afirma "0 resultados"', () => {
+    mockUseAdoptions.mockReturnValue({ data: undefined, isLoading: false, isError: true });
+    render(<AdoptScreen />);
+
+    expect(screen.queryByText(/adoption:section.resultCount/i)).toBeNull();
+  });
+
+  it('sin conexión avisa que es la red, no que no haya mascotas', () => {
+    mockUseAdoptions.mockReturnValue({ data: undefined, isLoading: false, isPaused: true });
+    render(<AdoptScreen />);
+
+    expect(screen.queryByText(/common:offlineTitle/i)).toBeTruthy();
+    expect(screen.queryByText(/adoption:section.empty/i)).toBeNull();
+    expect(screen.queryByText(/common:loadErrorTitle/i)).toBeNull();
+  });
 });

@@ -130,6 +130,39 @@ describe('PostScreen — lost path', () => {
     expect(getByText('publish:lostPet.empty')).toBeTruthy();
   });
 
+  // Una consulta CAIDA no puede decir "no tenes mascotas". Con `pets` en
+  // undefined, `eligiblePets` queda vacio y `ownsAnyPet` en false, asi que el
+  // paso mostraba el cartel de "registrate una" y mandaba a /pets/register: al
+  // dueno de una mascota se le pedia registrarla DE NUEVO, y el duplicado que
+  // sale de ahi nace de un error de red.
+  //
+  // La mitad positiva la afirma el test de arriba ("shows the empty state when
+  // there are no eligible pets"), que sigue exigiendo el cartel con `data: []`.
+  // Sin esa otra mitad, un guard escrito de mas —que tapara tambien el vacio
+  // real— pasaria verde y dejaria sin salida a quien de verdad no tiene ninguna.
+  it('una consulta caida avisa que fallo, y NO dice que no tenes mascotas', () => {
+    useMyPets.mockReturnValue({ data: undefined, isLoading: false, isError: true });
+    const { getByText, queryByText } = render(<PostScreen />);
+    fireEvent.press(getByText('publish:intent.lostTitle'));
+
+    expect(getByText('common:loadErrorTitle')).toBeTruthy();
+    expect(queryByText('publish:lostPet.empty')).toBeNull();
+    expect(queryByText('publish:lostPet.noneEligible')).toBeNull();
+  });
+
+  // Sin red el cartel tiene que hablar de la CONEXION. El de error de carga
+  // culpa al servidor, que offline es falso — y lo accionable ahi es "cuando
+  // vuelva la conexion", no "reintentar contra un servidor que no tiene la culpa".
+  it('sin conexion avisa que es la red, no que la lista este vacia', () => {
+    useMyPets.mockReturnValue({ data: undefined, isLoading: false, isPaused: true });
+    const { getByText, queryByText } = render(<PostScreen />);
+    fireEvent.press(getByText('publish:intent.lostTitle'));
+
+    expect(getByText('common:offlineTitle')).toBeTruthy();
+    expect(queryByText('publish:lostPet.empty')).toBeNull();
+    expect(queryByText('common:loadErrorTitle')).toBeNull();
+  });
+
   it('lists registered pets and selecting one advances to location', () => {
     useMyPets.mockReturnValue({
       data: [

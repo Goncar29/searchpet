@@ -19,8 +19,9 @@ import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useAdoptions } from '../../shared/hooks';
 import { PetCard } from '../components/PetCard';
+import { ListState } from '../components/list/ListState';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS, PET_TYPES } from '../constants';
-import type { Pet, PetType } from '../../shared/types';
+import type { Pet, PetType, PetListResponse } from '../../shared/types';
 
 export default function AdoptScreen() {
   const router = useRouter();
@@ -39,9 +40,12 @@ export default function AdoptScreen() {
     setAppliedType(draftType);
   };
 
-  const { data, isLoading } = useAdoptions({ city: appliedCity, type: appliedType });
-  const pets = data?.data ?? [];
-  const count = data?.total ?? pets.length;
+  const adoptionsQuery = useAdoptions({ city: appliedCity, type: appliedType });
+  // `total` y NO `data?.total ?? pets.length`: ese fallback daba CERO con la
+  // consulta caída y la pantalla afirmaba "0 resultados". Un cartel de vacío no
+  // explica por qué; un contador en cero AFIRMA que se preguntó y no había nada.
+  // Sólo se dibuja cuando hubo respuesta.
+  const total = adoptionsQuery.data?.total;
 
   const handlePetPress = (petId: string) => router.push(`/pet/${petId}`);
 
@@ -101,9 +105,9 @@ export default function AdoptScreen() {
         </TouchableOpacity>
       </View>
 
-      {!isLoading && (
+      {total != null && (
         <Text style={styles.resultCount}>
-          {t('adoption:section.resultCount', { count })}
+          {t('adoption:section.resultCount', { count: total })}
         </Text>
       )}
     </View>
@@ -111,28 +115,55 @@ export default function AdoptScreen() {
 
   return (
     <View style={styles.container}>
-      <FlatList
-        data={pets}
-        keyExtractor={(item: Pet) => item.id}
-        renderItem={({ item }: { item: Pet }) => (
-          <PetCard pet={item} onPress={() => handlePetPress(item.id)} />
-        )}
-        contentContainerStyle={styles.list}
-        showsVerticalScrollIndicator={false}
-        ListHeaderComponent={renderHeader}
-        ListEmptyComponent={
-          isLoading ? (
+      <ListState<PetListResponse, Pet>
+        query={adoptionsQuery}
+        // `select` es OBLIGATORIA acá: el hook devuelve el sobre `{data,total}`,
+        // no el array. Sin ella la FlatList recibiría el objeto y saldría vacía,
+        // sin excepción y sin error de compilación — o sea idéntica a "no hay
+        // nada", la misma mentira entrando por la puerta de atrás. El tipo la
+        // exige justamente para que no se pueda olvidar.
+        select={(res) => res.data}
+        // El encabezado va TAMBIÉN adentro del estado de carga, y no es adorno:
+        // antes de este cambio los filtros se veían mientras cargaba, porque el
+        // spinner vivía en `ListEmptyComponent` debajo del header. Dejarlos
+        // afuera se los llevaría en cada apertura de la pantalla.
+        loading={
+          <View>
+            {renderHeader()}
             <View style={styles.center}>
               <ActivityIndicator size="large" color={COLORS.primary} />
             </View>
-          ) : (
-            <View style={styles.empty}>
-              <View style={{ marginBottom: 12 }}><PawPlaceholder size={56} /></View>
-              <Text style={styles.emptyText}>{t('adoption:section.empty')}</Text>
-            </View>
-          )
+          </View>
         }
-      />
+      >
+        {(pets) => (
+          // `ListEmptyComponent` se queda DENTRO de la FlatList: "preguntamos y
+          // no hay nada" sigue siendo asunto de la lista.
+          //
+          // TRADE-OFF conocido: en la rama de error el encabezado se va con la
+          // lista, así que se pierden los filtros hasta que la consulta ande. Se
+          // aceptó porque la acción correcta ante un fallo de red es Reintentar
+          // —que el cartel sí ofrece— y no cambiar de ciudad. La alternativa era
+          // sacar el encabezado afuera como hace el feed, pero acá mide título +
+          // subtítulo + ciudad + chips + botón: fijo se comería la pantalla.
+          <FlatList
+            data={pets}
+            keyExtractor={(item: Pet) => item.id}
+            renderItem={({ item }: { item: Pet }) => (
+              <PetCard pet={item} onPress={() => handlePetPress(item.id)} />
+            )}
+            contentContainerStyle={styles.list}
+            showsVerticalScrollIndicator={false}
+            ListHeaderComponent={renderHeader}
+            ListEmptyComponent={
+              <View style={styles.empty}>
+                <View style={{ marginBottom: 12 }}><PawPlaceholder size={56} /></View>
+                <Text style={styles.emptyText}>{t('adoption:section.empty')}</Text>
+              </View>
+            }
+          />
+        )}
+      </ListState>
     </View>
   );
 }

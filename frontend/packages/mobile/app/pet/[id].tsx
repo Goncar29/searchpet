@@ -34,6 +34,8 @@ import { TimelineMap } from '../../components/TimelineMap';
 import { AdoptionPetBody } from '../../components/AdoptionPetBody';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
 import { cloudinaryThumb } from '@shared/utils/cloudinaryThumb';
+import { ListState } from '../../components/list/ListState';
+import type { Report } from '../../../shared/types';
 import { IMAGE_BOXES } from '../../constants/imageSizes';
 
 const { width } = Dimensions.get('window');
@@ -43,7 +45,10 @@ export default function PetDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { data: pet, isLoading } = usePetByID(id);
-  const { data: reports } = useReportsByPetID(id);
+  const reportsQuery = useReportsByPetID(id);
+  // Sigue disponible sin garantías para el volante PDF, que ya sabía tratar el
+  // `undefined`. El mapa y el timeline pasan por `ListState`.
+  const reports = reportsQuery.data;
   const markAsFound = useMarkPetAsFound();
   const { user, isAuthenticated } = useAuthStore();
 
@@ -392,54 +397,79 @@ export default function PetDetailScreen() {
         {/* Volante PDF */}
         <PdfFlyerButton pet={pet} reports={reports} />
 
-        {/* Mapa de avistamientos */}
-        <TimelineMap reports={reports ?? []} />
+        {/* Avistamientos: el mapa y el timeline salen de LA MISMA consulta, así
+            que van bajo UN solo `ListState` — una falla, un cartel. Con
+            `reports ?? []` el mapa se dibujaba vacío cuando la consulta fallaba,
+            o sea "nadie la vio", que es la pregunta entera de esta pantalla en
+            una app para encontrar mascotas perdidas.
 
-        {/* Timeline de reportes */}
-        {reports && reports.length > 0 && (
-          <View style={styles.timelineCard}>
-            <Text style={styles.sectionTitle}>
-              {t('pet_detail:timeline', { count: reports.length })}
-            </Text>
-            {reports.map((report, index) => {
-              // Fecha efectiva: occurred_at si existe, sino created_at
-              const dateStr = report.occurred_at ?? report.created_at;
-              const displayDate = new Date(dateStr).toLocaleDateString(getDateLocale(i18n.language), {
-                day: 'numeric',
-                month: 'long',
-                year: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit',
-              });
+            El timeline de texto sí se escondía solo, y eso NO era el bug: un
+            bloque que no aparece no afirma nada. El mapa vacío sí afirma.
 
-              return (
-                <View key={report.id} style={styles.timelineItem}>
-                  <View style={[
-                    styles.timelineDot,
-                    { backgroundColor: report.status === 'found' ? COLORS.found : report.status === 'sighting' ? COLORS.sighting : COLORS.lost },
-                  ]} />
-                  {index < reports.length - 1 && <View style={styles.timelineLine} />}
-                  <View style={styles.timelineContent}>
-                    <Text style={styles.timelineStatus}>
-                      {report.status === 'lost' ? t('pets:status.lost') : report.status === 'found' ? t('pets:status.found') : t('map:legendSighting')}
-                    </Text>
-                    {report.is_verified && (
-                      <Text style={styles.verifiedBadge}>✓ {t('pet_detail:verified')}</Text>
-                    )}
-                    {report.location_description && (
-                      <Text style={styles.timelineLocation}>
-                        📍 {report.location_description}
-                      </Text>
-                    )}
-                    <Text style={styles.timelineDate}>
-                      {displayDate}
-                    </Text>
-                  </View>
+            `errorTitle` nombra la SECCIÓN y no la causa. El título por defecto
+            dice "no pudimos cargar esta lista", que se entiende solo donde la
+            lista ES la página; acá el cartel aterriza en medio de un detalle
+            cuya foto, datos y contacto cargaron bien. Mismo criterio que la web.
+
+            `loading={<></>}`: el resto de la pantalla ya está dibujado y un
+            spinner suelto acá sólo agregaría ruido. */}
+        <ListState<Report[], Report>
+          query={reportsQuery}
+          errorTitle={t('pets:detail.timelineLoadError')}
+          loading={<></>}
+        >
+          {(reports) => (
+            <>
+              <TimelineMap reports={reports} />
+
+              {/* Timeline de reportes */}
+              {reports.length > 0 && (
+                <View style={styles.timelineCard}>
+                  <Text style={styles.sectionTitle}>
+                    {t('pet_detail:timeline', { count: reports.length })}
+                  </Text>
+                  {reports.map((report, index) => {
+                    // Fecha efectiva: occurred_at si existe, sino created_at
+                    const dateStr = report.occurred_at ?? report.created_at;
+                    const displayDate = new Date(dateStr).toLocaleDateString(getDateLocale(i18n.language), {
+                      day: 'numeric',
+                      month: 'long',
+                      year: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    });
+
+                    return (
+                      <View key={report.id} style={styles.timelineItem}>
+                        <View style={[
+                          styles.timelineDot,
+                          { backgroundColor: report.status === 'found' ? COLORS.found : report.status === 'sighting' ? COLORS.sighting : COLORS.lost },
+                        ]} />
+                        {index < reports.length - 1 && <View style={styles.timelineLine} />}
+                        <View style={styles.timelineContent}>
+                          <Text style={styles.timelineStatus}>
+                            {report.status === 'lost' ? t('pets:status.lost') : report.status === 'found' ? t('pets:status.found') : t('map:legendSighting')}
+                          </Text>
+                          {report.is_verified && (
+                            <Text style={styles.verifiedBadge}>✓ {t('pet_detail:verified')}</Text>
+                          )}
+                          {report.location_description && (
+                            <Text style={styles.timelineLocation}>
+                              📍 {report.location_description}
+                            </Text>
+                          )}
+                          <Text style={styles.timelineDate}>
+                            {displayDate}
+                          </Text>
+                        </View>
+                      </View>
+                    );
+                  })}
                 </View>
-              );
-            })}
-          </View>
-        )}
+              )}
+            </>
+          )}
+        </ListState>
           </>
         )}
 

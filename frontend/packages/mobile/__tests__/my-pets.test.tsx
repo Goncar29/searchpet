@@ -78,6 +78,94 @@ beforeEach(() => {
   mockUpdatePetMutateAsync.mockClear();
 });
 
+// Una consulta caída se pintaba igual que "no tenés nada". En la pestaña propia
+// es el peor caso de los tres, porque el cartel no sólo miente: trae el botón
+// "Registrar mascota", así que empuja al dueño a cargar de nuevo una mascota que
+// ya tiene. El duplicado que sale de ahí nace de un error de red.
+//
+// Cada pestaña se afirma con SU consulta rota y las DOS mitades: el cartel de
+// error aparece y el de vacío no. Sin la mitad positiva —los tests de vacío real
+// de más abajo— un guard escrito de más taparía también el vacío legítimo y
+// dejaría sin salida a quien de verdad no tiene ninguna.
+describe('MyPetsScreen — una consulta caída no se pinta como lista vacía', () => {
+  it('la pestaña propia avisa que falló, y NO dice "no tenés mascotas"', () => {
+    mockUseMyPets.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: true,
+      refetch: jest.fn(),
+      isRefetching: false,
+    });
+    render(<MyPetsScreen />);
+
+    expect(screen.getByText('common:loadErrorTitle')).toBeTruthy();
+    expect(screen.queryByText('my_pets:emptyTitle')).toBeNull();
+    expect(screen.queryByText('my_pets:registerPet')).toBeNull();
+  });
+
+  it('la pestaña de reportadas avisa con SU consulta, no con la de las propias', () => {
+    mockUseReportedPets.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: true,
+      refetch: jest.fn(),
+      isRefetching: false,
+    });
+    render(<MyPetsScreen />);
+    fireEvent.press(screen.getByText('pets:reports.tabReported'));
+
+    expect(screen.getByText('common:loadErrorTitle')).toBeTruthy();
+    expect(screen.queryByText('pets:reports.empty')).toBeNull();
+  });
+
+  it('la pestaña de adopción avisa cuando falla la consulta de las propias', () => {
+    mockUseMyPets.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: true,
+      refetch: jest.fn(),
+      isRefetching: false,
+    });
+    render(<MyPetsScreen />);
+    fireEvent.press(screen.getByText('adoption:profile.tab'));
+
+    expect(screen.getByText('common:loadErrorTitle')).toBeTruthy();
+    expect(screen.queryByText('adoption:profile.empty')).toBeNull();
+  });
+
+  // UNA falla, UN cartel. Las dos consultas son independientes y cada pestaña
+  // mira la suya: que se caiga la de reportadas no puede tapar las mascotas
+  // propias, que sí tenemos y sí se pueden mostrar.
+  it('una consulta caída no contamina la pestaña que sí cargó', () => {
+    mockUseReportedPets.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: true,
+      refetch: jest.fn(),
+      isRefetching: false,
+    });
+    render(<MyPetsScreen />);
+
+    expect(screen.getByText('Firulais')).toBeTruthy();
+    expect(screen.queryByText('common:loadErrorTitle')).toBeNull();
+  });
+
+  // La mitad positiva: un vacío REAL sigue diciendo que está vacío, con su
+  // botón para registrar. Es la salida de quien recién empieza.
+  it('un vacío real sigue ofreciendo registrar una mascota', () => {
+    mockUseMyPets.mockReturnValue({
+      data: [],
+      isLoading: false,
+      refetch: jest.fn(),
+      isRefetching: false,
+    });
+    render(<MyPetsScreen />);
+
+    expect(screen.getByText('my_pets:emptyTitle')).toBeTruthy();
+    expect(screen.queryByText('common:loadErrorTitle')).toBeNull();
+  });
+});
+
 describe('MyPetsScreen', () => {
   it('renderiza sin lanzar errores', () => {
     const { toJSON } = render(<MyPetsScreen />);
