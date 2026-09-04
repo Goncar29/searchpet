@@ -239,6 +239,15 @@ export function ListState<TData, TItem = TData extends (infer U)[] ? U : never>(
 const styles = StyleSheet.create({
   card: {
     flex: 1,
+    // `flex: 1` solo NO alcanza. Dentro de un `ScrollView` sin
+    // `contentContainerStyle` con `flexGrow`, resuelve a `flexBasis: 0` sin
+    // espacio libre donde crecer y el cartel queda en ALTURA CERO — presente en
+    // el árbol, invisible en el device. Es el caso del detalle de mascota.
+    //
+    // Es monótono: donde ya hay lugar (el feed, Adoptar, Mis mascotas, que
+    // ocupan la pantalla) `flex: 1` da más y esto no cambia nada. Lo protege
+    // `el cartel no puede colapsar a altura cero dentro de un ScrollView`.
+    minHeight: 220,
     alignItems: 'center',
     justifyContent: 'center',
     padding: SPACING.xl,

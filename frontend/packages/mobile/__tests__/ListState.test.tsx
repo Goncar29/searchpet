@@ -138,6 +138,45 @@ describe('ListState — lo que anuncia un lector de pantalla', () => {
     return out;
   }
 
+  // `flex: 1` NO alcanza para que el cartel se vea. Dentro de un `ScrollView`
+  // sin `contentContainerStyle` con `flexGrow`, un hijo con `flex: 1` resuelve a
+  // `flexBasis: 0` sin espacio libre donde crecer: queda en ALTURA CERO. Es el
+  // caso del detalle de mascota, donde el cartel del historial aterriza dentro
+  // de un ScrollView cuyo contenedor sólo tiene padding.
+  //
+  // Ningún otro test lo puede ver: todos afirman texto presente en el árbol, y
+  // un componente de alto cero SIGUE estando en el árbol. O sea que la suite
+  // entera daría verde con el cartel invisible en el device — un verde que no
+  // mide lo que uno cree.
+  //
+  // El `minHeight` es monótono: donde ya hay lugar (el feed, Adoptar, Mis
+  // mascotas, que ocupan la pantalla) `flex: 1` da más y esto no cambia nada.
+  it('el cartel no puede colapsar a altura cero dentro de un ScrollView', () => {
+    function estiloDelCartel(json: any): any {
+      if (!json || typeof json === 'string') return null;
+      if (Array.isArray(json)) {
+        for (const n of json) {
+          const hit = estiloDelCartel(n);
+          if (hit) return hit;
+        }
+        return null;
+      }
+      if (json.props?.accessibilityLiveRegion === 'assertive') return json.props.style;
+      return estiloDelCartel(json.children);
+    }
+
+    const { toJSON } = render(
+      <ListState query={estadoDeQuery({ isError: true })} loading={cargando}>
+        {lista}
+      </ListState>,
+    );
+
+    const estilo = estiloDelCartel(toJSON());
+    expect(estilo).toBeTruthy();
+    const aplanado = Array.isArray(estilo) ? Object.assign({}, ...estilo) : estilo;
+    expect(aplanado.minHeight).toBeGreaterThan(0);
+  });
+
   it('el cartel interrumpe: se anuncia assertive', () => {
     const { toJSON } = render(
       <ListState query={estadoDeQuery({ isError: true })} loading={cargando}>
