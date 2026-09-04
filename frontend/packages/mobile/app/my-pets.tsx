@@ -14,6 +14,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { PawPlaceholder } from '../components/PawPlaceholder';
+import { ListState } from '../components/list/ListState';
 import { useState } from 'react';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -34,19 +35,27 @@ export default function MyPetsScreen() {
   const [tab, setTab] = useState<'owned' | 'reported' | 'adoption'>('owned');
   const owned = useMyPets();
   const reported = useReportedPets();
+  // La pestaña elige QUÉ consulta mira, y `ListState` ramifica sobre ésa. Que
+  // se caiga la de reportadas no puede tapar las mascotas propias, que sí
+  // tenemos: una falla, un cartel, y sólo en la pestaña que falló.
   const activeQuery = tab === 'reported' ? reported : owned;
-  const { isLoading, refetch, isRefetching } = activeQuery;
+  const { refetch, isRefetching } = activeQuery;
 
-  // Adoption listings are owned pets too, but they get their own tab so they
-  // don't clutter "Mis mascotas" (which is for the owner's regular pets) —
-  // mirrors web's MyPetsPage split.
-  const ownedNonAdoption = (owned.data ?? []).filter(
-    (p: Pet) => p.status !== 'adoption' && p.status !== 'adopted'
-  );
-  const adoptionPets = (owned.data ?? []).filter(
-    (p: Pet) => p.status === 'adoption' || p.status === 'adopted'
-  );
-  const pets = tab === 'owned' ? ownedNonAdoption : tab === 'reported' ? reported.data : adoptionPets;
+  // El recorte por pestaña pasa a ser la `select` de `ListState` en vez de
+  // arrays derivados con `?? []`. Ese fallback era el defecto: con la consulta
+  // caída dejaba las tres pestañas en cero y la pantalla decía "no tenés nada".
+  // En la propia era el peor caso, porque ese cartel trae el botón "Registrar" y
+  // empujaba al dueño a cargar de nuevo una mascota que ya tiene.
+  //
+  // Las listas de adopción son mascotas propias igual, pero tienen su pestaña
+  // para no ensuciar "Mis mascotas" — mismo corte que el MyPetsPage de la web.
+  const selectForTab = (all: Pet[]): Pet[] => {
+    if (tab === 'reported') return all;
+    if (tab === 'adoption') {
+      return all.filter((p: Pet) => p.status === 'adoption' || p.status === 'adopted');
+    }
+    return all.filter((p: Pet) => p.status !== 'adoption' && p.status !== 'adopted');
+  };
 
   const deletePet = useDeletePet();
   const uploadPhoto = useUploadPhotoNative();
@@ -223,12 +232,17 @@ export default function MyPetsScreen() {
         {renderTab('adoption', t('adoption:profile.tab'))}
       </View>
 
-      {isLoading ? (
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color={COLORS.primary} />
-          <Text style={styles.loadingText}>{t('my_pets:loadingPets')}</Text>
-        </View>
-      ) : (
+      <ListState<Pet[], Pet>
+        query={activeQuery}
+        select={selectForTab}
+        loading={
+          <View style={styles.center}>
+            <ActivityIndicator size="large" color={COLORS.primary} />
+            <Text style={styles.loadingText}>{t('my_pets:loadingPets')}</Text>
+          </View>
+        }
+      >
+        {(pets) => (
       <FlatList
         data={pets}
         keyExtractor={(item) => item.id}
@@ -333,7 +347,7 @@ export default function MyPetsScreen() {
             tintColor={COLORS.primary}
           />
         }
-        contentContainerStyle={pets?.length === 0 ? styles.emptyContainer : styles.list}
+        contentContainerStyle={pets.length === 0 ? styles.emptyContainer : styles.list}
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
           tab === 'reported' ? (
@@ -361,7 +375,8 @@ export default function MyPetsScreen() {
           )
         }
       />
-      )}
+        )}
+      </ListState>
 
       {/* Registrar mascota, SIEMPRE alcanzable.
           Antes esta acción vivía únicamente dentro de ListEmptyComponent, o sea
@@ -372,7 +387,12 @@ export default function MyPetsScreen() {
           los dos caminos terminaban en la misma puerta cerrada.
           Va sólo en la pestaña de mascotas propias, que es la misma condición
           que ya tenía el botón del estado vacío. */}
-      {tab === 'owned' && !isLoading && (
+      {/* Se esconde sólo durante la carga inicial, cuando no hay nada más en
+          pantalla. Con la consulta CAÍDA sí se muestra, y es deliberado: un
+          botón es una acción, no una afirmación. El cartel de vacío miente
+          cuando no pudimos leer; este botón sigue siendo verdad —podés registrar
+          una mascota igual— y es la única salida que queda si la lista falló. */}
+      {tab === 'owned' && !activeQuery.isLoading && (
         <TouchableOpacity
           style={styles.fab}
           onPress={() => router.push('/pets/register')}
