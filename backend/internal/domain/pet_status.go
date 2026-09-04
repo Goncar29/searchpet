@@ -1,5 +1,7 @@
 package domain
 
+import "time"
+
 // Pet status constants — the only valid values for Pet.Status.
 // "active" is NOT a valid status; it is a legacy value replaced by "registered".
 const (
@@ -23,6 +25,31 @@ var ValidPetStatuses = map[string]bool{
 	PetStatusAdoption:   true,
 	PetStatusAdopted:    true,
 }
+
+// StraySightingTTL es cuánto vale un avistamiento de callejero sin que nadie lo
+// vuelva a ver. Pasado ese plazo la mascota se DEMOTA: sale del feed, del mapa y
+// del perfil público de quien la reportó, pero NO se cierra ni cambia de estado.
+//
+// Noventa días y no treinta, y el motivo no es el mapa. Treinta sería correcto
+// si la única pregunta fuera "¿esto sirve para salir a buscar ahora?", pero el
+// dato tiene un segundo consumidor que llega tarde por definición: alguien que
+// perdió su perro, encuentra la app tres semanas después y busca qué callejeros
+// se reportaron cerca en la fecha en que se le escapó. Ése es el camino de
+// reunificación, o sea la misión del proyecto. Por eso la búsqueda EXPLÍCITA
+// (?status=stray) sigue devolviendo los vencidos: el cruce histórico es
+// justamente lo que este plazo protege.
+//
+// El segundo motivo es más incómodo: hoy la app casi no tiene tráfico, así que
+// "nadie lo volvió a reportar" no prueba que el animal se fue — prueba que nadie
+// está mirando. La señal que justificaría caducar es una re-vista, y no hay
+// usuarios que la produzcan. Con esa incertidumbre el error barato es esperar de
+// más: con 90 se borra tarde un dato viejo, con 30 se borra temprano uno bueno.
+//
+// Cambiarlo es cambiar este número y nada más: el vencimiento se DERIVA en la
+// consulta comparando contra Pet.LastReportedAt, no lo estampa ningún job. No
+// hay filas que migrar ni cron que despierte el compute de Neon (reglas #47 y
+// #59). Decisión cerrada con el usuario el 2026-09-03; ver el issue #218.
+const StraySightingTTL = 90 * 24 * time.Hour
 
 // FeedVisibleStatuses are the statuses returned in the public feed by default
 // (when no explicit status filter is provided). Only lost and stray pets —
