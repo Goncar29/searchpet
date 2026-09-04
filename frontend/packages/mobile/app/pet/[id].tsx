@@ -420,53 +420,53 @@ export default function PetDetailScreen() {
         >
           {(reports) => (
             <>
-        <TimelineMap reports={reports} />
+              <TimelineMap reports={reports} />
 
-        {/* Timeline de reportes */}
-        {reports.length > 0 && (
-          <View style={styles.timelineCard}>
-            <Text style={styles.sectionTitle}>
-              {t('pet_detail:timeline', { count: reports.length })}
-            </Text>
-            {reports.map((report, index) => {
-              // Fecha efectiva: occurred_at si existe, sino created_at
-              const dateStr = report.occurred_at ?? report.created_at;
-              const displayDate = new Date(dateStr).toLocaleDateString(getDateLocale(i18n.language), {
-                day: 'numeric',
-                month: 'long',
-                year: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit',
-              });
+              {/* Timeline de reportes */}
+              {reports.length > 0 && (
+                <View style={styles.timelineCard}>
+                  <Text style={styles.sectionTitle}>
+                    {t('pet_detail:timeline', { count: reports.length })}
+                  </Text>
+                  {reports.map((report, index) => {
+                    // Fecha efectiva: occurred_at si existe, sino created_at
+                    const dateStr = report.occurred_at ?? report.created_at;
+                    const displayDate = new Date(dateStr).toLocaleDateString(getDateLocale(i18n.language), {
+                      day: 'numeric',
+                      month: 'long',
+                      year: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    });
 
-              return (
-                <View key={report.id} style={styles.timelineItem}>
-                  <View style={[
-                    styles.timelineDot,
-                    { backgroundColor: report.status === 'found' ? COLORS.found : report.status === 'sighting' ? COLORS.sighting : COLORS.lost },
-                  ]} />
-                  {index < reports.length - 1 && <View style={styles.timelineLine} />}
-                  <View style={styles.timelineContent}>
-                    <Text style={styles.timelineStatus}>
-                      {report.status === 'lost' ? t('pets:status.lost') : report.status === 'found' ? t('pets:status.found') : t('map:legendSighting')}
-                    </Text>
-                    {report.is_verified && (
-                      <Text style={styles.verifiedBadge}>✓ {t('pet_detail:verified')}</Text>
-                    )}
-                    {report.location_description && (
-                      <Text style={styles.timelineLocation}>
-                        📍 {report.location_description}
-                      </Text>
-                    )}
-                    <Text style={styles.timelineDate}>
-                      {displayDate}
-                    </Text>
-                  </View>
+                    return (
+                      <View key={report.id} style={styles.timelineItem}>
+                        <View style={[
+                          styles.timelineDot,
+                          { backgroundColor: report.status === 'found' ? COLORS.found : report.status === 'sighting' ? COLORS.sighting : COLORS.lost },
+                        ]} />
+                        {index < reports.length - 1 && <View style={styles.timelineLine} />}
+                        <View style={styles.timelineContent}>
+                          <Text style={styles.timelineStatus}>
+                            {report.status === 'lost' ? t('pets:status.lost') : report.status === 'found' ? t('pets:status.found') : t('map:legendSighting')}
+                          </Text>
+                          {report.is_verified && (
+                            <Text style={styles.verifiedBadge}>✓ {t('pet_detail:verified')}</Text>
+                          )}
+                          {report.location_description && (
+                            <Text style={styles.timelineLocation}>
+                              📍 {report.location_description}
+                            </Text>
+                          )}
+                          <Text style={styles.timelineDate}>
+                            {displayDate}
+                          </Text>
+                        </View>
+                      </View>
+                    );
+                  })}
                 </View>
-              );
-            })}
-          </View>
-        )}
+              )}
             </>
           )}
         </ListState>

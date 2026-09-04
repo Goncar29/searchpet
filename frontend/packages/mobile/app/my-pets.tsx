@@ -243,138 +243,138 @@ export default function MyPetsScreen() {
         }
       >
         {(pets) => (
-      <FlatList
-        data={pets}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => {
-          const primaryPhoto = item.photos?.find(p => p.is_primary) || item.photos?.[0];
-          return (
-            <TouchableOpacity
-              style={styles.card}
-              onPress={() => router.push(`/pet/${item.id}`)}
-              activeOpacity={0.7}
-            >
-              {/* Foto */}
-              <TouchableOpacity
-                style={styles.photoContainer}
-                onPress={() => !primaryPhoto && handleAddPhoto(item)}
-                activeOpacity={primaryPhoto ? 1 : 0.7}
-              >
-                {uploadPhoto.isPending && uploadPhoto.variables?.petId === item.id ? (
-                  <View style={styles.photoPlaceholder}>
-                    <ActivityIndicator color={COLORS.primary} />
-                  </View>
-                ) : primaryPhoto ? (
-                  <Image
-                    testID="my-pet-photo"
-                    source={{ uri: cloudinaryThumb(primaryPhoto.url, IMAGE_SIZES.thumbLg) }}
-                    style={styles.photo}
-                  />
-                ) : (
-                  <View style={styles.photoPlaceholder}>
-                    <Text style={styles.photoIcon}>{getPetIcon(item.type)}</Text>
-                    <Text style={styles.photoAddText}>{t('my_pets:addPhoto')}</Text>
-                  </View>
-                )}
-              </TouchableOpacity>
-
-              {/* Info */}
-              <View style={styles.info}>
-                <View style={styles.nameRow}>
-                  <Text style={styles.petName} numberOfLines={1}>{item.name}</Text>
-                  <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
-                    <Text style={styles.statusText}>{getStatusLabel(item.status)}</Text>
-                  </View>
-                </View>
-
-                <Text style={styles.petType}>
-                  {getPetIcon(item.type)} {item.type}
-                  {item.breed ? ` · ${item.breed}` : ''}
-                </Text>
-
-                {item.color && (
-                  <Text style={styles.petDetail} numberOfLines={1}>
-                    {t('my_pets:colorLabel', { color: item.color })}
-                  </Text>
-                )}
-
-                <Text style={styles.petDetail}>
-                  📷 {t('my_pets:photoCount', { current: item.photos?.length ?? 0 })}
-                </Text>
-              </View>
-
-              {/* Acciones */}
-              <View style={styles.actions}>
-                {item.status !== 'adoption' && item.status !== 'adopted' && (
-                  <TouchableOpacity
-                    style={styles.reportButton}
-                    onPress={() => handleReport(item)}
-                  >
-                    <Text style={styles.reportButtonText}>{t('my_pets:reportButton')}</Text>
-                  </TouchableOpacity>
-                )}
-                {(item.status === 'lost' || item.status === 'stray') && (
-                  <TouchableOpacity
-                    style={styles.foundButton}
-                    onPress={() => handleMarkAsFound(item)}
-                  >
-                    <Text style={styles.foundButtonText}>{t('my_pets:foundButton')}</Text>
-                  </TouchableOpacity>
-                )}
-                {item.status === 'adoption' && (
-                  <TouchableOpacity
-                    style={styles.foundButton}
-                    onPress={() => handleMarkAdopted(item)}
-                  >
-                    <Text style={styles.foundButtonText}>{t('adoption:profile.markAdopted')}</Text>
-                  </TouchableOpacity>
-                )}
+          <FlatList
+            data={pets}
+            keyExtractor={(item) => item.id}
+            renderItem={({ item }) => {
+              const primaryPhoto = item.photos?.find(p => p.is_primary) || item.photos?.[0];
+              return (
                 <TouchableOpacity
-                  style={styles.deleteButton}
-                  onPress={() => handleDelete(item)}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  style={styles.card}
+                  onPress={() => router.push(`/pet/${item.id}`)}
+                  activeOpacity={0.7}
                 >
-                  <Text style={styles.deleteIcon}>🗑️</Text>
+                  {/* Foto */}
+                  <TouchableOpacity
+                    style={styles.photoContainer}
+                    onPress={() => !primaryPhoto && handleAddPhoto(item)}
+                    activeOpacity={primaryPhoto ? 1 : 0.7}
+                  >
+                    {uploadPhoto.isPending && uploadPhoto.variables?.petId === item.id ? (
+                      <View style={styles.photoPlaceholder}>
+                        <ActivityIndicator color={COLORS.primary} />
+                      </View>
+                    ) : primaryPhoto ? (
+                      <Image
+                        testID="my-pet-photo"
+                        source={{ uri: cloudinaryThumb(primaryPhoto.url, IMAGE_SIZES.thumbLg) }}
+                        style={styles.photo}
+                      />
+                    ) : (
+                      <View style={styles.photoPlaceholder}>
+                        <Text style={styles.photoIcon}>{getPetIcon(item.type)}</Text>
+                        <Text style={styles.photoAddText}>{t('my_pets:addPhoto')}</Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+
+                  {/* Info */}
+                  <View style={styles.info}>
+                    <View style={styles.nameRow}>
+                      <Text style={styles.petName} numberOfLines={1}>{item.name}</Text>
+                      <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
+                        <Text style={styles.statusText}>{getStatusLabel(item.status)}</Text>
+                      </View>
+                    </View>
+
+                    <Text style={styles.petType}>
+                      {getPetIcon(item.type)} {item.type}
+                      {item.breed ? ` · ${item.breed}` : ''}
+                    </Text>
+
+                    {item.color && (
+                      <Text style={styles.petDetail} numberOfLines={1}>
+                        {t('my_pets:colorLabel', { color: item.color })}
+                      </Text>
+                    )}
+
+                    <Text style={styles.petDetail}>
+                      📷 {t('my_pets:photoCount', { current: item.photos?.length ?? 0 })}
+                    </Text>
+                  </View>
+
+                  {/* Acciones */}
+                  <View style={styles.actions}>
+                    {item.status !== 'adoption' && item.status !== 'adopted' && (
+                      <TouchableOpacity
+                        style={styles.reportButton}
+                        onPress={() => handleReport(item)}
+                      >
+                        <Text style={styles.reportButtonText}>{t('my_pets:reportButton')}</Text>
+                      </TouchableOpacity>
+                    )}
+                    {(item.status === 'lost' || item.status === 'stray') && (
+                      <TouchableOpacity
+                        style={styles.foundButton}
+                        onPress={() => handleMarkAsFound(item)}
+                      >
+                        <Text style={styles.foundButtonText}>{t('my_pets:foundButton')}</Text>
+                      </TouchableOpacity>
+                    )}
+                    {item.status === 'adoption' && (
+                      <TouchableOpacity
+                        style={styles.foundButton}
+                        onPress={() => handleMarkAdopted(item)}
+                      >
+                        <Text style={styles.foundButtonText}>{t('adoption:profile.markAdopted')}</Text>
+                      </TouchableOpacity>
+                    )}
+                    <TouchableOpacity
+                      style={styles.deleteButton}
+                      onPress={() => handleDelete(item)}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    >
+                      <Text style={styles.deleteIcon}>🗑️</Text>
+                    </TouchableOpacity>
+                  </View>
                 </TouchableOpacity>
-              </View>
-            </TouchableOpacity>
-          );
-        }}
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefetching}
-            onRefresh={refetch}
-            tintColor={COLORS.primary}
+              );
+            }}
+            refreshControl={
+              <RefreshControl
+                refreshing={isRefetching}
+                onRefresh={refetch}
+                tintColor={COLORS.primary}
+              />
+            }
+            contentContainerStyle={pets.length === 0 ? styles.emptyContainer : styles.list}
+            showsVerticalScrollIndicator={false}
+            ListEmptyComponent={
+              tab === 'reported' ? (
+                <View style={styles.empty}>
+                  <View style={{ marginBottom: 12 }}><PawPlaceholder size={56} /></View>
+                  <Text style={styles.emptyText}>{t('pets:reports.empty')}</Text>
+                </View>
+              ) : tab === 'adoption' ? (
+                <View style={styles.empty}>
+                  <View style={{ marginBottom: 12 }}><PawPlaceholder size={56} /></View>
+                  <Text style={styles.emptyText}>{t('adoption:profile.empty')}</Text>
+                </View>
+              ) : (
+                <View style={styles.empty}>
+                  <View style={{ marginBottom: 12 }}><PawPlaceholder size={56} /></View>
+                  <Text style={styles.emptyTitle}>{t('my_pets:emptyTitle')}</Text>
+                  <Text style={styles.emptyText}>{t('my_pets:emptyText')}</Text>
+                  <TouchableOpacity
+                    style={styles.createButton}
+                    onPress={() => router.push('/pets/register')}
+                  >
+                    <Text style={styles.createButtonText}>{t('my_pets:registerPet')}</Text>
+                  </TouchableOpacity>
+                </View>
+              )
+            }
           />
-        }
-        contentContainerStyle={pets.length === 0 ? styles.emptyContainer : styles.list}
-        showsVerticalScrollIndicator={false}
-        ListEmptyComponent={
-          tab === 'reported' ? (
-            <View style={styles.empty}>
-              <View style={{ marginBottom: 12 }}><PawPlaceholder size={56} /></View>
-              <Text style={styles.emptyText}>{t('pets:reports.empty')}</Text>
-            </View>
-          ) : tab === 'adoption' ? (
-            <View style={styles.empty}>
-              <View style={{ marginBottom: 12 }}><PawPlaceholder size={56} /></View>
-              <Text style={styles.emptyText}>{t('adoption:profile.empty')}</Text>
-            </View>
-          ) : (
-            <View style={styles.empty}>
-              <View style={{ marginBottom: 12 }}><PawPlaceholder size={56} /></View>
-              <Text style={styles.emptyTitle}>{t('my_pets:emptyTitle')}</Text>
-              <Text style={styles.emptyText}>{t('my_pets:emptyText')}</Text>
-              <TouchableOpacity
-                style={styles.createButton}
-                onPress={() => router.push('/pets/register')}
-              >
-                <Text style={styles.createButtonText}>{t('my_pets:registerPet')}</Text>
-              </TouchableOpacity>
-            </View>
-          )
-        }
-      />
         )}
       </ListState>
 
