@@ -99,16 +99,21 @@ func TestSearch_UnaPerdidaViejaNoCaduca(t *testing.T) {
 	}
 }
 
-// La búsqueda EXPLÍCITA conserva los vencidos, y ésta es la mitad que justifica
-// los 90 días: alguien que perdió su perro llega tres semanas tarde y busca qué
-// callejeros se reportaron cerca en la fecha de la pérdida. Si la búsqueda
-// también los apagara, el plazo largo no protegería nada.
-func TestSearch_LaBusquedaExplicitaConservaLosVencidos(t *testing.T) {
+// Elegir "Callejera" en el desplegable de la HOME no es buscar en el pasado: es
+// el feed con un filtro. Los vencidos NO tienen que reaparecer ahí.
+//
+// Esta era la premisa que sostenía el diseño y era FALSA. La escotilla estaba
+// atada a "vino un parámetro de estado", que mide otra cosa: HomePage ofrece
+// `stray` en su desplegable, así que un click desde la portada devolvía todos
+// los vencidos mezclados con los frescos y sin ningún cartel — o sea la queja
+// del #218 servida en la superficie que el PR decía proteger.
+func TestSearch_ElDesplegableDeLaHomeNoResucitaLosVencidos(t *testing.T) {
 	gormDB := testdb.SetupTestDB(t)
 	userRepo := repository.NewUserRepository(gormDB)
 	petRepo := repository.NewPetRepository(gormDB)
 	reporter := newTestUser(t, userRepo)
 
+	fresco := strayVistoHace(t, petRepo, reporter.ID, "Fresco", domain.StraySightingTTL-24*time.Hour)
 	vencido := strayVistoHace(t, petRepo, reporter.ID, "Vencido", domain.StraySightingTTL+24*time.Hour)
 
 	results, _, err := petRepo.Search(domain.PetSearchCriteria{
@@ -116,10 +121,54 @@ func TestSearch_LaBusquedaExplicitaConservaLosVencidos(t *testing.T) {
 		Page:     1, Limit: 100,
 	})
 	if err != nil {
-		t.Fatalf("Search explícita: %v", err)
+		t.Fatalf("Search: %v", err)
+	}
+	if !contiene(results, fresco.ID) {
+		t.Error("el filtro se llevó puesto un callejero FRESCO")
+	}
+	if contiene(results, vencido.ID) {
+		t.Error("filtrar por callejera desde la home resucitó los vencidos")
+	}
+}
+
+// Preguntar por una VENTANA DEL PASADO sí conserva los vencidos, y ésta es la
+// mitad que justifica los 90 días: alguien perdió su perro el 1 de abril, entra
+// en agosto y pide qué callejeros se reportaron esa semana. Todos están
+// vencidos por definición — si el rango no los devolviera, el plazo largo no
+// protegería absolutamente nada.
+//
+// La escotilla va atada al rango de fechas y no al estado porque es el rango el
+// que expresa "estoy mirando hacia atrás". El estado sólo dice qué tipo de
+// mascota, y se puede elegir desde el feed.
+func TestSearch_UnRangoDeFechasConservaLosVencidos(t *testing.T) {
+	gormDB := testdb.SetupTestDB(t)
+	userRepo := repository.NewUserRepository(gormDB)
+	petRepo := repository.NewPetRepository(gormDB)
+	reportRepo := repository.NewReportRepository(gormDB)
+	reporter := newTestUser(t, userRepo)
+
+	vencido := strayVistoHace(t, petRepo, reporter.ID, "Vencido", domain.StraySightingTTL+30*24*time.Hour)
+
+	visto := time.Now().Add(-(domain.StraySightingTTL + 30*24*time.Hour))
+	rep := &domain.Report{
+		ID: uuid.New(), PetID: vencido.ID, ReporterID: reporter.ID, Status: "sighting",
+		Latitude: mvdLat, Longitude: mvdLng, OccurredAt: &visto,
+	}
+	if err := reportRepo.Create(rep); err != nil {
+		t.Fatalf("Create report: %v", err)
+	}
+
+	desde := visto.Add(-48 * time.Hour)
+	hasta := visto.Add(48 * time.Hour)
+	results, _, err := petRepo.Search(domain.PetSearchCriteria{
+		From: &desde, To: &hasta,
+		Page: 1, Limit: 100,
+	})
+	if err != nil {
+		t.Fatalf("Search con rango: %v", err)
 	}
 	if !contiene(results, vencido.ID) {
-		t.Error("la búsqueda explícita perdió un vencido: se rompe el cruce histórico que motiva los 90 días")
+		t.Error("el rango de fechas no devolvió el vencido: se rompe el cruce histórico que motiva los 90 días")
 	}
 }
 
@@ -244,5 +293,208 @@ func TestPerfilPublico_NoMuestraCallejerosVencidos(t *testing.T) {
 	if int(total) != len(lista) {
 		t.Errorf("la lista y el conteo no coinciden: lista %d, total %d — el filtro entró en una sola",
 			len(lista), total)
+	}
+}
+
+// El mapa también levanta la caducidad con un rango de fechas. Es el mismo
+// cruce histórico que en Search, sólo que dibujado: alguien pide "qué se vio
+// cerca de mi casa la semana que se me escapó", y todo lo que busca está
+// vencido por definición.
+//
+// Aplicarlo incondicional hacía que ese filtro devolviera vacío, y un mapa
+// vacío se lee como "nadie vio nada" — una mentira peor que el pin viejo que se
+// quería sacar.
+func TestFindNearby_UnRangoDeFechasConservaLosVencidos(t *testing.T) {
+	gormDB := testdb.SetupTestDB(t)
+	userRepo := repository.NewUserRepository(gormDB)
+	petRepo := repository.NewPetRepository(gormDB)
+	reportRepo := repository.NewReportRepository(gormDB)
+	episodeRepo := repository.NewEpisodeRepository(gormDB)
+	reporter := newTestUser(t, userRepo)
+
+	vencido := strayVistoHace(t, petRepo, reporter.ID, "Vencido", domain.StraySightingTTL+30*24*time.Hour)
+	ep, err := episodeRepo.Open(vencido.ID.String())
+	if err != nil {
+		t.Fatalf("Open episode: %v", err)
+	}
+
+	visto := time.Now().Add(-(domain.StraySightingTTL + 30*24*time.Hour))
+	rep := &domain.Report{
+		ID: uuid.New(), PetID: vencido.ID, ReporterID: reporter.ID, Status: "sighting",
+		Latitude: mvdLat, Longitude: mvdLng, OccurredAt: &visto, EpisodeID: &ep.ID,
+	}
+	if err := reportRepo.Create(rep); err != nil {
+		t.Fatalf("Create report: %v", err)
+	}
+
+	desde := visto.Add(-48 * time.Hour)
+	hasta := visto.Add(48 * time.Hour)
+
+	// Sin rango: el mapa lo demota.
+	sinRango, err := reportRepo.FindNearby(domain.NearbyReportCriteria{
+		Lat: mvdLat, Lng: mvdLng, RadiusMeters: 5000,
+	})
+	if err != nil {
+		t.Fatalf("FindNearby sin rango: %v", err)
+	}
+	for _, r := range sinRango {
+		if r.PetID == vencido.ID {
+			t.Error("el mapa sin rango sigue mostrando un vencido")
+		}
+	}
+
+	// Con rango: lo devuelve, porque preguntar por el pasado es el cruce.
+	conRango, err := reportRepo.FindNearby(domain.NearbyReportCriteria{
+		Lat: mvdLat, Lng: mvdLng, RadiusMeters: 5000, From: &desde, To: &hasta,
+	})
+	if err != nil {
+		t.Fatalf("FindNearby con rango: %v", err)
+	}
+	encontrado := false
+	for _, r := range conRango {
+		if r.PetID == vencido.ID {
+			encontrado = true
+		}
+	}
+	if !encontrado {
+		t.Error("el rango de fechas del mapa devolvió vacío: se lee como 'nadie vio nada' en vez de 'lo escondimos'")
+	}
+}
+
+// `to` sin `from` NO es preguntar por el pasado: no pone piso, así que la
+// ventana llega hasta el origen de los tiempos. La escotilla miraba "vino un
+// rango" (`From == nil && To == nil`) y por eso se levantaba igual, devolviendo
+// el histórico vencido ENTERO en la superficie que este filtro existe para
+// proteger. Y es alcanzable desde la portada: HomePage manda `from` y `to` por
+// separado, con dos inputs independientes, así que llenar sólo "Hasta" lo
+// dispara.
+//
+// Lo que expresa "estoy mirando hacia atrás" es la COTA INFERIOR, no que exista
+// un rango. Con `from` puesto el propio filtro de fechas ya hace el trabajo: si
+// es reciente, los reportes de un vencido quedan fuera solos; si es antiguo, es
+// un cruce histórico legítimo. Por eso la guarda mira `From` y nada más.
+//
+// Se afirman LAS DOS FORMAS a propósito. Con sólo la negativa, una guarda
+// escrita de más —que aplicara la caducidad ante cualquier rango— pasaría verde
+// y rompería el cruce histórico, que es el bug peor de los dos.
+func TestSearch_UnRangoSinCotaInferiorNoLevantaLaCaducidad(t *testing.T) {
+	gormDB := testdb.SetupTestDB(t)
+	userRepo := repository.NewUserRepository(gormDB)
+	petRepo := repository.NewPetRepository(gormDB)
+	reportRepo := repository.NewReportRepository(gormDB)
+	reporter := newTestUser(t, userRepo)
+
+	// Los dos con reporte: sin uno, el JOIN por fechas los dejaría fuera a los
+	// dos y el test pasaría sin haber medido la caducidad.
+	conReporte := func(nombre string, hace time.Duration) *domain.Pet {
+		t.Helper()
+		pet := strayVistoHace(t, petRepo, reporter.ID, nombre, hace)
+		visto := time.Now().Add(-hace)
+		rep := &domain.Report{
+			ID: uuid.New(), PetID: pet.ID, ReporterID: reporter.ID, Status: "sighting",
+			Latitude: mvdLat, Longitude: mvdLng, OccurredAt: &visto,
+		}
+		if err := reportRepo.Create(rep); err != nil {
+			t.Fatalf("Create report %s: %v", nombre, err)
+		}
+		return pet
+	}
+
+	fresco := conReporte("Fresco", 24*time.Hour)
+	vencido := conReporte("Vencido", domain.StraySightingTTL+30*24*time.Hour)
+
+	// Sólo `to`: es el feed con techo, no un cruce histórico. Demota.
+	ahora := time.Now()
+	soloHasta, _, err := petRepo.Search(domain.PetSearchCriteria{
+		To:   &ahora,
+		Page: 1, Limit: 100,
+	})
+	if err != nil {
+		t.Fatalf("Search sólo con `to`: %v", err)
+	}
+	if !contiene(soloHasta, fresco.ID) {
+		t.Error("`to` solo se llevó puesto un callejero FRESCO")
+	}
+	if contiene(soloHasta, vencido.ID) {
+		t.Error("`to` sin `from` levantó la caducidad: la ventana no tiene piso, así que devuelve el histórico vencido entero")
+	}
+
+	// Sólo `from`: hay cota inferior, o sea que sí se está mirando hacia atrás.
+	desde := time.Now().Add(-(domain.StraySightingTTL + 60*24*time.Hour))
+	soloDesde, _, err := petRepo.Search(domain.PetSearchCriteria{
+		From: &desde,
+		Page: 1, Limit: 100,
+	})
+	if err != nil {
+		t.Fatalf("Search sólo con `from`: %v", err)
+	}
+	if !contiene(soloDesde, vencido.ID) {
+		t.Error("`from` solo no devolvió el vencido: se rompe el cruce histórico que motiva los 90 días")
+	}
+}
+
+// El mapa tiene el mismo agujero y se cierra con la misma condición: una sola
+// regla para las dos consultas, no dos criterios que se puedan desincronizar.
+func TestFindNearby_UnRangoSinCotaInferiorNoLevantaLaCaducidad(t *testing.T) {
+	gormDB := testdb.SetupTestDB(t)
+	userRepo := repository.NewUserRepository(gormDB)
+	petRepo := repository.NewPetRepository(gormDB)
+	reportRepo := repository.NewReportRepository(gormDB)
+	episodeRepo := repository.NewEpisodeRepository(gormDB)
+	reporter := newTestUser(t, userRepo)
+
+	conPin := func(nombre string, hace time.Duration) *domain.Pet {
+		t.Helper()
+		pet := strayVistoHace(t, petRepo, reporter.ID, nombre, hace)
+		ep, err := episodeRepo.Open(pet.ID.String())
+		if err != nil {
+			t.Fatalf("Open episode %s: %v", nombre, err)
+		}
+		visto := time.Now().Add(-hace)
+		rep := &domain.Report{
+			ID: uuid.New(), PetID: pet.ID, ReporterID: reporter.ID, Status: "sighting",
+			Latitude: mvdLat, Longitude: mvdLng, OccurredAt: &visto, EpisodeID: &ep.ID,
+		}
+		if err := reportRepo.Create(rep); err != nil {
+			t.Fatalf("Create report %s: %v", nombre, err)
+		}
+		return pet
+	}
+
+	fresco := conPin("Fresco", 24*time.Hour)
+	vencido := conPin("Vencido", domain.StraySightingTTL+30*24*time.Hour)
+
+	tienePinDe := func(reports []domain.Report, petID uuid.UUID) bool {
+		for _, r := range reports {
+			if r.PetID == petID {
+				return true
+			}
+		}
+		return false
+	}
+
+	ahora := time.Now()
+	soloHasta, err := reportRepo.FindNearby(domain.NearbyReportCriteria{
+		Lat: mvdLat, Lng: mvdLng, RadiusMeters: 5000, To: &ahora,
+	})
+	if err != nil {
+		t.Fatalf("FindNearby sólo con `to`: %v", err)
+	}
+	if !tienePinDe(soloHasta, fresco.ID) {
+		t.Error("`to` solo se llevó puesto el pin de un callejero FRESCO")
+	}
+	if tienePinDe(soloHasta, vencido.ID) {
+		t.Error("`to` sin `from` levantó la caducidad en el mapa: la ventana no tiene piso")
+	}
+
+	desde := time.Now().Add(-(domain.StraySightingTTL + 60*24*time.Hour))
+	soloDesde, err := reportRepo.FindNearby(domain.NearbyReportCriteria{
+		Lat: mvdLat, Lng: mvdLng, RadiusMeters: 5000, From: &desde,
+	})
+	if err != nil {
+		t.Fatalf("FindNearby sólo con `from`: %v", err)
+	}
+	if !tienePinDe(soloDesde, vencido.ID) {
+		t.Error("`from` solo no devolvió el pin del vencido: se rompe el cruce histórico en el mapa")
 	}
 }

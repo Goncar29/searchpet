@@ -143,13 +143,24 @@ func (r *PostgresReportRepository) FindNearby(c domain.NearbyReportCriteria) ([]
 	// Por eso van como Where encadenados y no como parte de esa expresión:
 	// acotan dentro de la allowlist y no pueden alcanzar un reporte que ella
 	// ya excluyó. Lo protege TestReportRepository_FindNearby_ElFiltroNoEnsanchaLaAllowlist.
-	// La caducidad de avistamientos va con los WHERE incondicionales de arriba,
-	// no con los filtros del usuario: el mapa demota lo viejo siempre, igual que
-	// el feed. "El dato viejo es viejo en todas las superficies" — que una
-	// mascota aparezca en una pantalla y no en otra es peor que cualquiera de
-	// las dos respuestas por separado, porque ninguna se ve mal sola.
-	expiryClause, expiryArgs := straySightingNotExpired()
-	q = q.Where(expiryClause, expiryArgs...)
+	// La caducidad se levanta con una cota INFERIOR de fechas, exactamente igual
+	// que en Search — misma condición, no dos criterios que se desincronicen. El
+	// mapa tiene su propio From y ÉSE es el cruce histórico acá: alguien pide
+	// "qué se vio cerca de mi casa desde la semana que se me escapó", y todo lo
+	// que busca está vencido por definición.
+	//
+	// La primera versión lo aplicaba incondicional, y ese filtro de fechas
+	// devolvía vacío: se leía como "nadie vio nada" en vez de "lo escondimos",
+	// una mentira peor que el pin viejo que se quería sacar. La segunda lo ató a
+	// "vino algún rango", y ahí `to` sin `from` —una ventana sin piso— resucitaba
+	// el histórico vencido entero. Ver el comentario largo en Search.
+	//
+	// Sin cota inferior, el mapa demota igual que el feed: el dato viejo es viejo
+	// en todas las superficies.
+	if c.From == nil {
+		expiryClause, expiryArgs := straySightingNotExpired()
+		q = q.Where(expiryClause, expiryArgs...)
+	}
 
 	if len(c.ReportStatuses) > 0 {
 		q = q.Where("reports.status IN (?)", c.ReportStatuses)
