@@ -23,7 +23,7 @@ type mockPetRepo struct {
 	statusCalls []string // últimos statuses pasados a UpdateStatus
 }
 
-func (m *mockPetRepo) Create(pet *domain.Pet) error        { return nil }
+func (m *mockPetRepo) Create(pet *domain.Pet) error { return nil }
 func (m *mockPetRepo) FindByID(_ string) (*domain.Pet, error) {
 	return m.pet, m.findErr
 }
@@ -33,12 +33,15 @@ func (m *mockPetRepo) FindPublicByUserID(_ string) ([]domain.Pet, error) {
 	return nil, nil
 }
 func (m *mockPetRepo) CountPublicByUserID(_ string) (int64, error) { return 0, nil }
-func (m *mockPetRepo) Update(_ *domain.Pet) error                   { return m.updateErr }
+func (m *mockPetRepo) Update(_ *domain.Pet) error                  { return m.updateErr }
 func (m *mockPetRepo) UpdateStatus(_ string, status string) error {
 	m.statusCalls = append(m.statusCalls, status)
 	return m.updateErr
 }
-func (m *mockPetRepo) Delete(_ string) error { return nil }
+
+func (m *mockPetRepo) TouchLastReported(_ string, _ time.Time) error { return nil }
+func (m *mockPetRepo) RecomputeLastReported(_ string) error          { return nil }
+func (m *mockPetRepo) Delete(_ string) error                         { return nil }
 func (m *mockPetRepo) Search(_ domain.PetSearchCriteria) ([]domain.Pet, int64, error) {
 	return nil, 0, nil
 }

@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -46,17 +47,19 @@ var _ repository.PetEmbeddingRepository = (*mockEmbeddingRepoForHandler)(nil)
 
 type nopPetRepoForHandler struct{}
 
-func (n *nopPetRepoForHandler) Create(_ *domain.Pet) error                         { return nil }
-func (n *nopPetRepoForHandler) FindByID(_ string) (*domain.Pet, error)             { return nil, nil }
-func (n *nopPetRepoForHandler) FindByOwnerID(_ string) ([]domain.Pet, error)       { return nil, nil }
-func (n *nopPetRepoForHandler) FindByReporterID(_ string) ([]domain.Pet, error)    { return nil, nil }
+func (n *nopPetRepoForHandler) Create(_ *domain.Pet) error                      { return nil }
+func (n *nopPetRepoForHandler) FindByID(_ string) (*domain.Pet, error)          { return nil, nil }
+func (n *nopPetRepoForHandler) FindByOwnerID(_ string) ([]domain.Pet, error)    { return nil, nil }
+func (n *nopPetRepoForHandler) FindByReporterID(_ string) ([]domain.Pet, error) { return nil, nil }
 func (n *nopPetRepoForHandler) FindPublicByUserID(_ string) ([]domain.Pet, error) {
 	return nil, nil
 }
-func (n *nopPetRepoForHandler) CountPublicByUserID(_ string) (int64, error) { return 0, nil }
-func (n *nopPetRepoForHandler) Update(_ *domain.Pet) error                         { return nil }
-func (n *nopPetRepoForHandler) UpdateStatus(_ string, _ string) error              { return nil }
-func (n *nopPetRepoForHandler) Delete(_ string) error                              { return nil }
+func (n *nopPetRepoForHandler) CountPublicByUserID(_ string) (int64, error)   { return 0, nil }
+func (n *nopPetRepoForHandler) Update(_ *domain.Pet) error                    { return nil }
+func (n *nopPetRepoForHandler) UpdateStatus(_ string, _ string) error         { return nil }
+func (n *nopPetRepoForHandler) TouchLastReported(_ string, _ time.Time) error { return nil }
+func (n *nopPetRepoForHandler) RecomputeLastReported(_ string) error          { return nil }
+func (n *nopPetRepoForHandler) Delete(_ string) error                         { return nil }
 func (n *nopPetRepoForHandler) Search(_ domain.PetSearchCriteria) ([]domain.Pet, int64, error) {
 	return nil, 0, nil
 }
@@ -65,14 +68,18 @@ var _ repository.PetRepository = (*nopPetRepoForHandler)(nil)
 
 type nopPhotoRepoForHandler struct{}
 
-func (n *nopPhotoRepoForHandler) Create(_ *domain.Photo) error                  { return nil }
-func (n *nopPhotoRepoForHandler) FindByPetID(_ string) ([]domain.Photo, error)  { return []domain.Photo{}, nil }
-func (n *nopPhotoRepoForHandler) FindByID(_ string) (*domain.Photo, error)      { return &domain.Photo{}, nil }
-func (n *nopPhotoRepoForHandler) HasPrimaryPhoto(_ string) (bool, error)        { return false, nil }
-func (n *nopPhotoRepoForHandler) UnsetPrimaryPhotos(_ string) error             { return nil }
-func (n *nopPhotoRepoForHandler) CountByPetID(_ string) (int64, error)          { return 0, nil }
-func (n *nopPhotoRepoForHandler) DeleteByPetID(_ string) error                  { return nil }
-func (n *nopPhotoRepoForHandler) DeleteByID(_ string) error                     { return nil }
+func (n *nopPhotoRepoForHandler) Create(_ *domain.Photo) error { return nil }
+func (n *nopPhotoRepoForHandler) FindByPetID(_ string) ([]domain.Photo, error) {
+	return []domain.Photo{}, nil
+}
+func (n *nopPhotoRepoForHandler) FindByID(_ string) (*domain.Photo, error) {
+	return &domain.Photo{}, nil
+}
+func (n *nopPhotoRepoForHandler) HasPrimaryPhoto(_ string) (bool, error) { return false, nil }
+func (n *nopPhotoRepoForHandler) UnsetPrimaryPhotos(_ string) error      { return nil }
+func (n *nopPhotoRepoForHandler) CountByPetID(_ string) (int64, error)   { return 0, nil }
+func (n *nopPhotoRepoForHandler) DeleteByPetID(_ string) error           { return nil }
+func (n *nopPhotoRepoForHandler) DeleteByID(_ string) error              { return nil }
 
 var _ repository.PhotoRepository = (*nopPhotoRepoForHandler)(nil)
 

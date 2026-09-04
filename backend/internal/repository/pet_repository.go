@@ -2,6 +2,7 @@ package repository
 
 import (
 	"errors"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgconn"
 	"gorm.io/gorm"
@@ -148,9 +149,65 @@ func (r *PostgresPetRepository) CountPublicByUserID(userID string) (int64, error
 	return total, err
 }
 
+// TouchLastReported — ver el contrato en repository/interfaces.go.
+//
+// La monotonía vive en el WHERE y no en Go a propósito. Leer el valor, comparar
+// en memoria y escribir sería un read-modify-write: dos reportes concurrentes de
+// la misma mascota leerían el mismo valor viejo y el último en escribir ganaría,
+// que es exactamente cómo se pierde el avistamiento más reciente. Acá la
+// comparación y la escritura son la misma sentencia.
+//
+// RowsAffected == 0 NO es un error: significa que el valor guardado ya era más
+// nuevo, que es el caso que esta guarda existe para producir. También cubre "la
+// mascota no existe", pero eso es inalcanzable desde el único llamador: el
+// reporte se inserta antes en la misma transacción y su FK a pets ya habría
+// fallado.
+func (r *PostgresPetRepository) TouchLastReported(id string, seen time.Time) error {
+	return r.db.Model(&domain.Pet{}).
+		Where("id = ?", id).
+		Where("last_reported_at IS NULL OR last_reported_at < ?", seen).
+		Update("last_reported_at", seen).Error
+}
+
+// RecomputeLastReported — ver el contrato en repository/interfaces.go.
+//
+// La subconsulta es LA MISMA que el backfill de la migración 000025:
+// MAX(COALESCE(occurred_at, created_at)) sobre los reportes de esa mascota. No
+// es duplicación por comodidad — es la condición para que borrar un reporte deje
+// la columna en el mismo valor que tendría si la migración volviera a correr.
+// Si alguna de las dos cambia, la otra tiene que cambiar igual.
+//
+// Sin WHERE de monotonía a propósito: éste es el único camino autorizado a bajar
+// el reloj, y ponerle la guarda lo volvería un no-op justo en el caso para el
+// que existe.
+func (r *PostgresPetRepository) RecomputeLastReported(id string) error {
+	return r.db.Model(&domain.Pet{}).
+		Where("id = ?", id).
+		Update("last_reported_at", r.db.
+			Table("reports").
+			Select("MAX(COALESCE(occurred_at, created_at))").
+			Where("pet_id = ?", id),
+		).Error
+}
+
 // Update guarda los cambios de una mascota existente.
+//
+// `Omit("last_reported_at")` no es una optimización: es lo que le da UN SOLO
+// ESCRITOR a esa columna. `Save` escribe todas las columnas del struct, y el
+// struct viene de un FindByID anterior a la mutación, así que sin el Omit un
+// guardado cualquiera reescribe el reloj con el valor que leyó — rodeando por
+// afuera la guarda de monotonía, que vive dentro del UPDATE de
+// TouchLastReported y no puede protegerse de un Save que no pasa por ahí.
+//
+// El caso no necesita mala suerte: el dueño abre el formulario de edición,
+// entra un avistamiento, y al guardar la descripción el reloj retrocede (o
+// vuelve a NULL, si estaba en NULL al cargar). Lo protege
+// TestPetRepository_Update_NoPisaElRelojDeUltimaVista.
+//
+// Corolario para cualquier columna que se agregue con su propio escritor: acá
+// hay que sumarla al Omit, o Save se la lleva puesta en silencio.
 func (r *PostgresPetRepository) Update(pet *domain.Pet) error {
-	return r.db.Save(pet).Error
+	return r.db.Omit("last_reported_at").Save(pet).Error
 }
 
 // UpdateStatus actualiza solo la columna status de una mascota.
@@ -230,8 +287,26 @@ func (r *PostgresPetRepository) Search(filters domain.PetSearchCriteria) ([]doma
 			return nil, 0, err
 		}
 
-		// Evitamos duplicados si hay múltiples reports que matchean
-		q = q.Distinct("pets.id, pets.owner_id, pets.reporter_id, pets.name, pets.type, pets.breed, pets.color, pets.description, pets.gender, pets.microchip_id, pets.status, pets.version, pets.city, pets.created_at, pets.updated_at")
+		// Evitamos duplicados si hay múltiples reports que matchean.
+		//
+		// `pets.*` y NO una lista de columnas escrita a mano. Esa lista existió
+		// hasta hoy y ya había divergido en silencio: le faltaban birth_date,
+		// birth_date_precision, current_episode_id y reporter_contact_public,
+		// así que una búsqueda CON filtro geográfico devolvía esas cuatro en
+		// cero mientras la misma búsqueda SIN geo las devolvía bien. No hay
+		// error, no hay warning: el struct se llena igual, con el valor vacío
+		// del tipo.
+		//
+		// Es la peor forma de falla para una columna nueva, porque la mitad de
+		// los caminos la muestran correcta. Una lista que hay que acordarse de
+		// actualizar es una invariante disfrazada de configuración: olvidarse
+		// no da error, sólo pierde datos.
+		//
+		// Dedupe idéntico: `pets.id` es PK, así que DISTINCT sobre la fila
+		// entera de `pets` colapsa exactamente los mismos duplicados que la
+		// lista enumerada. Y el ORDER BY sigue siendo válido bajo DISTINCT
+		// porque `pets.created_at` está dentro de `pets.*`.
+		q = q.Distinct("pets.*")
 
 		// Paginación
 		var pets []domain.Pet

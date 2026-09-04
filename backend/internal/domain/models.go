@@ -128,9 +128,33 @@ type Pet struct {
 	// reporter's profile phone is exposed publicly so logged-out finders can
 	// reach them. Defaults false — a good-samaritan's number is never published
 	// without explicit consent.
-	ReporterContactPublic bool      `gorm:"default:false" json:"reporter_contact_public"`
-	CreatedAt             time.Time `gorm:"autoCreateTime" json:"created_at"`
-	UpdatedAt             time.Time `gorm:"autoUpdateTime" json:"updated_at"`
+	ReporterContactPublic bool `gorm:"default:false" json:"reporter_contact_public"`
+	// LastReportedAt es cuándo se vio a este animal por última vez, medido con
+	// COALESCE(occurred_at, created_at) del reporte igual que el resto del
+	// proyecto (ver FindByPetID y los filtros de fecha de FindNearby).
+	//
+	// Guarda un HECHO, no un VEREDICTO: si un avistamiento está vencido se
+	// deriva en la query comparando esta fecha contra el plazo de caducidad, y
+	// por eso cambiar ese plazo no necesita migrar una sola fila y un reporte
+	// nuevo devuelve la mascota al mapa sin ningún código de revival que
+	// alguien se pueda olvidar de escribir.
+	//
+	// Nullable a propósito, y quien lo LEA tiene que hacer
+	// COALESCE(last_reported_at, created_at): una mascota sin ningún reporte no
+	// tiene última vista, y las dos alternativas mienten — NULL tratado como
+	// "nunca vence" deja viva para siempre a una callejera que nadie vio nunca,
+	// y un cero disfrazado de fecha (1970) la mata al nacer. La fecha de alta es
+	// la única respuesta honesta a "¿desde cuándo no se sabe nada?".
+	//
+	// SIN ÍNDICE a propósito: la consulta que lo usa compara
+	// COALESCE(last_reported_at, created_at), y un btree sobre la columna pelada
+	// no puede servir a una expresión. Un índice que la consulta real no usa no
+	// es gratis ni neutro: cuesta escritura en cada UPDATE y afirma que algo
+	// está optimizado cuando no lo está. Si hace falta, va uno de expresión que
+	// matchee el predicado exacto, y medido.
+	LastReportedAt *time.Time `json:"last_reported_at,omitempty"`
+	CreatedAt      time.Time  `gorm:"autoCreateTime" json:"created_at"`
+	UpdatedAt      time.Time  `gorm:"autoUpdateTime" json:"updated_at"`
 
 	// Relaciones
 	Owner    User     `gorm:"foreignKey:OwnerID" json:"owner,omitempty"`
