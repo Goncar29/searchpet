@@ -117,9 +117,16 @@ const publicProfilePetLimit = 50
 //
 // Devuelve un *gorm.DB nuevo, clonado de r.db, en cada llamada — no hay
 // estado que una invocación pueda dejarle a la siguiente.
+// El vencimiento de avistamientos entra ACÁ y no en cada método por el mismo
+// motivo que existe este scope: si lo aplicara sólo la lista, la pantalla diría
+// "N de M" con un M que cuenta otro conjunto, y ninguno de los dos números se
+// vería mal por separado. Entrando en el scope compartido, el acuerdo entre
+// FindPublicByUserID y CountPublicByUserID se mantiene solo.
 func (r *PostgresPetRepository) publicProfileScope(userID string) *gorm.DB {
+	expiryClause, expiryArgs := straySightingNotExpired()
 	return r.db.Model(&domain.Pet{}).
-		Where("(owner_id = ? OR reporter_id = ?) AND status IN ?", userID, userID, domain.PublicProfileVisibleStatuses)
+		Where("(pets.owner_id = ? OR pets.reporter_id = ?) AND pets.status IN ?", userID, userID, domain.PublicProfileVisibleStatuses).
+		Where(expiryClause, expiryArgs...)
 }
 
 // FindPublicByUserID — ver el contrato en repository/interfaces.go.
@@ -244,6 +251,51 @@ func (r *PostgresPetRepository) Search(filters domain.PetSearchCriteria) ([]doma
 		Preload("Owner").
 		Preload("Photos", orderedPhotos).
 		Where("pets.status IN (?)", statuses)
+
+	// La caducidad se levanta cuando quien consulta pregunta por una VENTANA DEL
+	// PASADO, y sólo entonces.
+	//
+	// La primera versión ató la escotilla a `len(filters.Statuses) == 0`,
+	// afirmando que era "exactamente esa distinción y no un proxy". Era un proxy,
+	// y de los malos: lo que medía es "vino un parámetro de estado", no "alguien
+	// está buscando a propósito". HomePage ofrece `stray` en su desplegable de
+	// filtros, así que un click desde la portada devolvía TODOS los vencidos
+	// mezclados con los frescos, ordenados por fecha de alta y sin ningún cartel
+	// — la queja del #218 servida en la superficie que este filtro protege.
+	//
+	// La cota INFERIOR sí expresa la intención. Alguien que perdió su perro el 1
+	// de abril, entra en agosto y pide desde esa semana está haciendo el cruce
+	// histórico, y TODO lo que busca está vencido por definición: si el rango no
+	// se los devolviera, el plazo de 90 días no protegería nada. En cambio elegir
+	// un estado sólo dice qué tipo de mascota querés ver, y se puede hacer sin
+	// salir del feed.
+	//
+	// Mira `From` y NO "vino algún rango", y esa diferencia es el hallazgo
+	// R3-asymmetric-range: las dos cotas no significan lo mismo. `to` sin `from`
+	// no pone piso, así que la ventana llega hasta el origen de los tiempos —
+	// levantar la caducidad ahí devuelve el histórico vencido ENTERO, que es
+	// justo lo que este filtro existe para evitar. Y es alcanzable desde la
+	// portada: HomePage manda las dos cotas por separado, con inputs
+	// independientes, así que llenar sólo "Hasta" lo disparaba.
+	//
+	// Con `from` puesto no hace falta mirar nada más: si es reciente, los
+	// reportes de un vencido quedan fuera por el propio filtro de fechas; si es
+	// antiguo, es un cruce histórico legítimo. Correcto en los dos casos.
+	//
+	// Comparar `To` contra el corte cerraría también el caso "todo lo visto antes
+	// del 15/4", pero ataría el predicado al PLAZO, que se dejó fuera de los
+	// parámetros a propósito. Se prefiere la condición simple.
+	//
+	// La misma regla vale para el mapa (FindNearby), que tiene su propio From/To.
+	// Una sola condición para las dos consultas, no dos criterios distintos.
+	//
+	// Va acá y no más arriba en el servicio ni en el cliente: una fila que no se
+	// tiene que ver no tiene que salir de Postgres. Mismo criterio que la
+	// allowlist del perfil público.
+	if filters.From == nil {
+		expiryClause, expiryArgs := straySightingNotExpired()
+		q = q.Where(expiryClause, expiryArgs...)
+	}
 
 	// Filtros exactos / parciales
 	if filters.Type != "" {
