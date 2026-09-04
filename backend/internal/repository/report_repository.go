@@ -143,6 +143,14 @@ func (r *PostgresReportRepository) FindNearby(c domain.NearbyReportCriteria) ([]
 	// Por eso van como Where encadenados y no como parte de esa expresión:
 	// acotan dentro de la allowlist y no pueden alcanzar un reporte que ella
 	// ya excluyó. Lo protege TestReportRepository_FindNearby_ElFiltroNoEnsanchaLaAllowlist.
+	// La caducidad de avistamientos va con los WHERE incondicionales de arriba,
+	// no con los filtros del usuario: el mapa demota lo viejo siempre, igual que
+	// el feed. "El dato viejo es viejo en todas las superficies" — que una
+	// mascota aparezca en una pantalla y no en otra es peor que cualquiera de
+	// las dos respuestas por separado, porque ninguna se ve mal sola.
+	expiryClause, expiryArgs := straySightingNotExpired()
+	q = q.Where(expiryClause, expiryArgs...)
+
 	if len(c.ReportStatuses) > 0 {
 		q = q.Where("reports.status IN (?)", c.ReportStatuses)
 	}

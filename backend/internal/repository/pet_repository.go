@@ -117,9 +117,16 @@ const publicProfilePetLimit = 50
 //
 // Devuelve un *gorm.DB nuevo, clonado de r.db, en cada llamada — no hay
 // estado que una invocación pueda dejarle a la siguiente.
+// El vencimiento de avistamientos entra ACÁ y no en cada método por el mismo
+// motivo que existe este scope: si lo aplicara sólo la lista, la pantalla diría
+// "N de M" con un M que cuenta otro conjunto, y ninguno de los dos números se
+// vería mal por separado. Entrando en el scope compartido, el acuerdo entre
+// FindPublicByUserID y CountPublicByUserID se mantiene solo.
 func (r *PostgresPetRepository) publicProfileScope(userID string) *gorm.DB {
+	expiryClause, expiryArgs := straySightingNotExpired()
 	return r.db.Model(&domain.Pet{}).
-		Where("(owner_id = ? OR reporter_id = ?) AND status IN ?", userID, userID, domain.PublicProfileVisibleStatuses)
+		Where("(pets.owner_id = ? OR pets.reporter_id = ?) AND pets.status IN ?", userID, userID, domain.PublicProfileVisibleStatuses).
+		Where(expiryClause, expiryArgs...)
 }
 
 // FindPublicByUserID — ver el contrato en repository/interfaces.go.
@@ -244,6 +251,23 @@ func (r *PostgresPetRepository) Search(filters domain.PetSearchCriteria) ([]doma
 		Preload("Owner").
 		Preload("Photos", orderedPhotos).
 		Where("pets.status IN (?)", statuses)
+
+	// La caducidad de avistamientos aplica al FEED, no a la búsqueda.
+	//
+	// `len(filters.Statuses) == 0` es exactamente esa distinción y no un proxy:
+	// el feed no manda estado (la home arranca con el filtro vacío), y pedir
+	// ?status=stray es alguien buscando a propósito. Ese segundo caso conserva
+	// los vencidos porque ES el cruce histórico —quien perdió su mascota y llega
+	// semanas tarde a mirar qué callejeros se reportaron cerca— y es la mitad
+	// que justifica que el plazo sea de 90 días y no de 30.
+	//
+	// Va acá y no más arriba en el servicio ni en el cliente: una fila que no se
+	// tiene que ver no tiene que salir de Postgres. Mismo criterio que la
+	// allowlist del perfil público.
+	if len(filters.Statuses) == 0 {
+		expiryClause, expiryArgs := straySightingNotExpired()
+		q = q.Where(expiryClause, expiryArgs...)
+	}
 
 	// Filtros exactos / parciales
 	if filters.Type != "" {
