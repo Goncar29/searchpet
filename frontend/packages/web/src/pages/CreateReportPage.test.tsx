@@ -203,9 +203,21 @@ describe('CreateReportPage — despues de publicar como perdida', () => {
     ).toBe('2026-08-04');
   });
 
-  // Un avistamiento no abre ninguna busqueda ni cambia el estado de la
-  // mascota, asi que no hay aviso propio que compartir: sigue yendo al listado.
-  it('un avistamiento sigue volviendo al listado, sin panel de compartir', () => {
+  // Un avistamiento no abre ninguna busqueda, asi que no hay aviso propio que
+  // compartir. Pero VOLVER A LA FICHA de la mascota, no al listado propio.
+  //
+  // El boton que abre este formulario NO esta detras de `canManage`
+  // (PetDetailPage: `isAuthenticated && (lost || stray)`), asi que quien
+  // reporta un avistamiento casi nunca es el dueno — ese es el producto:
+  // alguien ve al perro por la calle y avisa. Mandarlo a "Mis mascotas" lo
+  // deja en un listado de SUS mascotas, que para un reporter suele estar
+  // vacio, y le saca de vista la mascota que estaba mirando.
+  //
+  // La version anterior mandaba a /pets/mine con este razonamiento escrito al
+  // lado: "los otros dos estados no abren ninguna busqueda, asi que siguen
+  // yendo al listado". El criterio medía el TIPO DE REPORTE; para decidir a
+  // donde mandar a una persona la pregunta es DE QUIEN ES LA MASCOTA.
+  it('un avistamiento vuelve a la FICHA de la mascota, sin panel de compartir', () => {
     mocks.search = 'petId=pet-1&status=sighting';
     render(<CreateReportPage />, { wrapper });
     marcarUbicacion();
@@ -213,10 +225,28 @@ describe('CreateReportPage — despues de publicar como perdida', () => {
 
     expect(mocks.mutate).toHaveBeenCalledTimes(1);
     // `replace` no es un detalle: sin el, la entrada de este formulario queda
-    // viva en el history y el boton atras desde /pets/mine lo devuelve listo
-    // para re-enviar — el mismo doble reporte por la otra puerta.
-    expect(mocks.navigate).toHaveBeenCalledWith('/pets/mine', { replace: true });
+    // viva en el history y el boton atras la devuelve lista para re-enviar —
+    // el mismo doble reporte por la otra puerta.
+    expect(mocks.navigate).toHaveBeenCalledWith('/pets/pet-1', { replace: true });
     expect(screen.queryByTestId('share-panel')).not.toBeInTheDocument();
+  });
+
+  // `found` compartia la rama de `sighting` y se mueve con ella. Aca el dueno
+  // SI es quien reporta, asi que "Mis mascotas" no era absurdo — pero la ficha
+  // sigue siendo mejor destino: es donde se ve el badge nuevo y la entrada en
+  // el historial, o sea la confirmacion de que lo que hizo surtio efecto. Un
+  // listado no confirma nada.
+  //
+  // Va con test propio y no apoyado en el de arriba: son dos caminos distintos
+  // por la misma linea, y afirmar uno solo dejaria al otro libre de cambiar sin
+  // que nada se ponga rojo.
+  it('marcar encontrada tambien vuelve a la ficha, no al listado', () => {
+    mocks.search = 'petId=pet-1&status=found';
+    render(<CreateReportPage />, { wrapper });
+    marcarUbicacion();
+    enviar();
+
+    expect(mocks.navigate).toHaveBeenCalledWith('/pets/pet-1', { replace: true });
   });
 
   // ── Regresion: el doble reporte ────────────────────────────────────────────
@@ -322,6 +352,27 @@ describe('CreateReportPage — una mascota ajena', () => {
       expect.objectContaining({ pet_id: 'pet-9', status: 'sighting' }),
       expect.anything(),
     );
+  });
+
+  // ESTE es el escenario que motiva el destino, y sin este test no estaba
+  // cubierto: un TERCERO reportando lo que vio. Los otros dos tests de
+  // navegacion corren con la mascota del propio usuario (`PET.owner_id ===
+  // USER_ID`), asi que describian al dueno — justo el caso que NO es el
+  // problema. Una rama futura del tipo `if (!puedeCambiarEstado) navigate('/')`
+  // los dejaria verdes mientras rompe el camino real.
+  //
+  // Y va con `pet-9` a proposito: los otros usan `pet-1`, que es el unico id del
+  // fixture, asi que un destino cableado a '/pets/pet-1' pasaria igual. Con otra
+  // mascota se afirma que el destino se DERIVA de la que se reporto.
+  it('un tercero vuelve a la ficha de la mascota que reporto, no a la suya', () => {
+    mocks.pet = ajena;
+    mocks.search = 'petId=pet-9';
+
+    render(<CreateReportPage />, { wrapper });
+    marcarUbicacion();
+    enviar();
+
+    expect(mocks.navigate).toHaveBeenCalledWith('/pets/pet-9', { replace: true });
   });
 });
 
