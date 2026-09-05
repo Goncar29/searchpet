@@ -353,6 +353,27 @@ describe('CreateReportPage — una mascota ajena', () => {
       expect.anything(),
     );
   });
+
+  // ESTE es el escenario que motiva el destino, y sin este test no estaba
+  // cubierto: un TERCERO reportando lo que vio. Los otros dos tests de
+  // navegacion corren con la mascota del propio usuario (`PET.owner_id ===
+  // USER_ID`), asi que describian al dueno — justo el caso que NO es el
+  // problema. Una rama futura del tipo `if (!puedeCambiarEstado) navigate('/')`
+  // los dejaria verdes mientras rompe el camino real.
+  //
+  // Y va con `pet-9` a proposito: los otros usan `pet-1`, que es el unico id del
+  // fixture, asi que un destino cableado a '/pets/pet-1' pasaria igual. Con otra
+  // mascota se afirma que el destino se DERIVA de la que se reporto.
+  it('un tercero vuelve a la ficha de la mascota que reporto, no a la suya', () => {
+    mocks.pet = ajena;
+    mocks.search = 'petId=pet-9';
+
+    render(<CreateReportPage />, { wrapper });
+    marcarUbicacion();
+    enviar();
+
+    expect(mocks.navigate).toHaveBeenCalledWith('/pets/pet-9', { replace: true });
+  });
 });
 
 // La mascota no llega en el primer render. Con un useEffect que pisaba `status`
