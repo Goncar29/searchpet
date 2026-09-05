@@ -183,7 +183,7 @@ export function CreateReportPage() {
     //
     // Sin esto: el dueño abre ?status=lost, `GET /api/pets/:id` falla —un
     // arranque en frío de Render devolviendo 502 alcanza—, `statusEfectivo` cae
-    // a `sighting`, el backend contesta 201 y lo mandamos a /pets/mine como si
+    // a `sighting`, el backend contesta 201 y lo sacamos del formulario como si
     // hubiera salido bien. La búsqueda nunca se abrió y nadie se lo dijo.
     //
     // Con la mascota sin resolver no se reescribe el pedido: se corta y se
@@ -223,7 +223,8 @@ export function CreateReportPage() {
           // /pets/mine, así que quien publicaba su mascota como perdida se
           // quedaba sin el link para compartir — que es el producto entero de
           // publicar. Los otros dos estados (`found`, `sighting`) no abren
-          // ninguna búsqueda, así que siguen yendo al listado como antes.
+          // ninguna búsqueda, así que no tienen aviso propio que compartir y
+          // caen en la rama de abajo.
           //
           // `replace: true` es la mitad del arreglo, y no es cosmético: la
           // entrada del formulario se REEMPLAZA, así que después de publicar no
@@ -238,9 +239,32 @@ export function CreateReportPage() {
             );
             return;
           }
-          // Mismo motivo que arriba: sin `replace`, el atrás desde /pets/mine
+          // Se vuelve a la FICHA de la mascota, no al listado propio.
+          //
+          // Antes esto iba a /pets/mine con este razonamiento: "los otros dos
+          // estados no abren ninguna búsqueda, así que siguen yendo al listado
+          // como antes". Ese criterio mide el TIPO DE REPORTE, y para decidir a
+          // dónde mandar a una persona la pregunta es otra: DE QUIÉN ES LA
+          // MASCOTA. Un `lost` lo publica el dueño y por eso su listado tenía
+          // sentido; un `sighting` lo publica un tercero y deja de tenerlo.
+          //
+          // El botón que abre este formulario NO está detrás de `canManage`
+          // (`PetDetailPage`: `isAuthenticated && (lost || stray)`), y es
+          // deliberado: alguien ve al perro por la calle y avisa. Ése es el
+          // producto. Mandarlo a un listado de SUS mascotas —vacío, para un
+          // reporter típico— le sacaba de vista justo la mascota que estaba
+          // mirando.
+          //
+          // `found` viaja en la misma rama y también mejora: la ficha es donde
+          // se ve el badge nuevo y la entrada en el historial, o sea la
+          // confirmación de que la acción surtió efecto. Un listado no confirma
+          // nada.
+          //
+          // `petId` está garantizado acá: `validate()` corta si falta.
+          //
+          // Mismo motivo que arriba para el `replace`: sin él, el atrás
           // devuelve este formulario y deja re-enviarlo.
-          navigate('/pets/mine', { replace: true });
+          navigate(`/pets/${petId}`, { replace: true });
         },
         onError: (err) => {
           setApiError(getErrorMessage(err, t));
