@@ -566,6 +566,17 @@
       "registerTab": "Create account",
       "continue": "Continue and publish"
     },
+    "candidates": {
+      "title": "Is it one of these?",
+      "subtitle": "We found sightings near where you saw it. If it is the same animal, add your sighting to its page instead of creating a new one.",
+      "lastSeen": "Seen around here {{when}}",
+      "distance": "{{meters}} m away",
+      "isThisOne": "This is the one",
+      "noneOfThem": "None of these, it is a different animal",
+      "errorTitle": "We could not look for nearby sightings",
+      "errorBody": "There may already be a page for this animal. You can retry or publish anyway.",
+      "publishAnyway": "Publish anyway"
+    },
     "success": {
       "lostTitle": "Done! Your pet is marked as lost",
       "strayTitle": "Thanks for reporting!",

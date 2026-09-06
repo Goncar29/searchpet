@@ -178,6 +178,28 @@ export const useReportedPets = (enabled: boolean = true) => {
   });
 };
 
+// useStrayCandidates — callejeros cercanos para el paso "¿no es alguno de
+// estos?" del alta (GET /api/pets/stray-candidates).
+//
+// `enabled` existe porque el paso sólo consulta cuando ya hay ubicación: sin
+// ella no hay nada que preguntar. Ojo con el efecto de esa bandera — una query
+// deshabilitada queda en `pending` PARA SIEMPRE, así que quien la consuma tiene
+// que ramificar por `isLoading` y nunca por `isPending` (ver ListState).
+export const useStrayCandidates = (
+  params: { lat: number; lng: number; type?: string } | null,
+  enabled: boolean = true,
+) => {
+  return useQuery({
+    queryKey: ['stray-candidates', params?.lat, params?.lng, params?.type],
+    queryFn: () => apiClient.getStrayCandidates(params!),
+    enabled: enabled && params !== null,
+    // No se cachea entre altas: dos publicaciones seguidas desde el mismo punto
+    // son dos preguntas distintas, y la segunda tiene que ver la mascota que
+    // creó la primera.
+    staleTime: 0,
+  });
+};
+
 // useUserPets — las publicaciones visibles de OTRA persona (perfil público).
 //
 // La queryKey lleva el userID para que dos perfiles no se pisen la caché.

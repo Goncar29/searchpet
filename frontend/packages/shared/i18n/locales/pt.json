@@ -566,6 +566,17 @@
       "registerTab": "Criar conta",
       "continue": "Continuar e publicar"
     },
+    "candidates": {
+      "title": "Não é algum destes?",
+      "subtitle": "Encontramos avistamentos perto de onde você o viu. Se for o mesmo animal, some o seu avistamento à ficha dele em vez de criar uma nova.",
+      "lastSeen": "Visto por aqui {{when}}",
+      "distance": "a {{meters}} m",
+      "isThisOne": "É este",
+      "noneOfThem": "Nenhum, é outro animal",
+      "errorTitle": "Não conseguimos buscar avistamentos próximos",
+      "errorBody": "Pode já existir uma ficha deste animal. Você pode tentar de novo ou publicar mesmo assim.",
+      "publishAnyway": "Publicar mesmo assim"
+    },
     "success": {
       "lostTitle": "Pronto! Seu animal está marcado como perdido",
       "strayTitle": "Obrigado por avisar!",
