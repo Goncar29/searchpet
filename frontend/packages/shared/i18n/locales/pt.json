@@ -570,6 +570,7 @@
       "title": "Não é algum destes?",
       "subtitle": "Encontramos avistamentos perto de onde você o viu. Se for o mesmo animal, some o seu avistamento à ficha dele em vez de criar uma nova.",
       "lastSeen": "Visto por aqui {{when}}",
+      "lastSeenOn": "Visto por aqui em {{date}}",
       "distance": "a {{meters}} m",
       "isThisOne": "É este",
       "noneOfThem": "Nenhum, é outro animal",

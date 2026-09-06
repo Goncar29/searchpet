@@ -6,6 +6,7 @@ import type { StrayCandidate } from '../../../shared/types';
 import { cloudinaryThumb } from '../../../shared/utils/cloudinaryThumb';
 import { ListState } from '../list/ListState';
 import { IMAGE_SIZES } from '../../constants/imageSizes';
+import { getDateLocale } from '../../i18n/dateLocale';
 import { COLORS, SPACING, FONTS } from '../../constants';
 
 interface CandidatesStepProps {
@@ -58,24 +59,41 @@ export function CandidatesStep({ query, onSelect, onSkip, isPublishing }: Candid
   const yaSalteo = useRef(false);
 
   useEffect(() => {
-    if (!sinCandidatos || yaSalteo.current) return;
+    // `isPublishing` frena el salteo igual que frena el botón, y por el mismo
+    // motivo: `onSkip` PUBLICA. El ref solo—que era lo que había—cubre el
+    // re-render, no el cambio de respuesta. Con la consulta caída, quien toca
+    // "Publicar igual" deja un alta en vuelo mientras `sinCandidatos` sigue en
+    // false; si un refetch (el "Reintentar" del ListState, o el reconnect que
+    // cablea `utils/onlineStatus`) devuelve `[]`, el flanco enciende el efecto
+    // con `yaSalteo` todavía en false y sale un SEGUNDO alta.
+    if (!sinCandidatos || yaSalteo.current || isPublishing) return;
     yaSalteo.current = true;
     onSkip();
-  }, [sinCandidatos, onSkip]);
+  }, [sinCandidatos, onSkip, isPublishing]);
 
   if (sinCandidatos) return null;
 
-  // "hace 4 meses" en el idioma del usuario. Se calcula en días y se deja que
-  // Intl elija la unidad: 120 días es "hace 4 meses", no "hace 120 días".
-  const cuandoSeLoVio = (iso: string): string => {
-    const dias = Math.round((Date.now() - new Date(iso).getTime()) / 86400000);
-    // `|| undefined` y no el idioma pelado: con un string vacío
-    // `Intl.RelativeTimeFormat` tira RangeError, y esto corre en el cuerpo del
-    // render — una excepción acá deja en blanco el paso que evita duplicados.
-    const fmt = new Intl.RelativeTimeFormat(i18n.language || undefined, { numeric: 'auto' });
-    if (Math.abs(dias) >= 30) return fmt.format(-Math.round(dias / 30), 'month');
-    return fmt.format(-dias, 'day');
-  };
+  // La fecha en que se lo vio, en el idioma del usuario.
+  //
+  // `toLocaleDateString` y NO `Intl.RelativeTimeFormat`, que es lo que hacía la
+  // web y se portó tal cual acá. Hermes —el motor de Expo SDK 52, y no hay
+  // polyfill en este paquete— implementa un subconjunto de `Intl`, y este es el
+  // ÚNICO lugar de mobile que pedía ese constructor: los otros seis sitios que
+  // formatean fechas usan `toLocaleDateString`. Como esto corre en el cuerpo del
+  // render, un constructor ausente no degrada la fecha, revienta el paso entero
+  // — y justo cuando SÍ hay un candidato, que es el único caso en que se dibuja.
+  //
+  // El codebase no podía avisar: el otro `Intl` exótico que mobile toca es el
+  // `Intl.PluralRules` de i18next, que va envuelto en try/catch con fallback, así
+  // que los plurales andando no probaban nada sobre el motor.
+  //
+  // `getDateLocale` en vez del idioma pelado: siempre devuelve un tag válido, lo
+  // que de paso cierra el RangeError que el código anterior esquivaba a mano.
+  const cuandoSeLoVio = (iso: string): string =>
+    new Date(iso).toLocaleDateString(getDateLocale(i18n.language), {
+      day: 'numeric',
+      month: 'long',
+    });
 
   return (
     <View>
@@ -115,15 +133,25 @@ export function CandidatesStep({ query, onSelect, onSkip, isPublishing }: Candid
                       acá" porque el reloj es la última vista DENTRO del radio
                       consultado, no la última vista en cualquier lado. */}
                   <Text style={styles.meta}>
-                    {t('publish:candidates.lastSeen', { when: cuandoSeLoVio(c.last_seen_nearby_at) })}
+                    {/* `lastSeenOn` y no `lastSeen`: la web pasa un relativo
+                        ("hace 4 meses") y acá va una fecha, así que cada frase
+                        necesita su preposición. Comparten el resto del
+                        namespace; se separan sólo en esta línea. */}
+                    {t('publish:candidates.lastSeenOn', { date: cuandoSeLoVio(c.last_seen_nearby_at) })}
                   </Text>
                   <Text style={styles.distance}>
                     {t('publish:candidates.distance', { meters: Math.round(c.distance_meters) })}
                   </Text>
                 </View>
+                {/* Deshabilitado mientras hay un alta en vuelo, por lo mismo
+                    que el botón de salida: si no, tocar "Publicar igual" y
+                    después "Es este" deja una mascota nueva Y un avistamiento
+                    sobre la vieja — las dos cosas que el paso existe para que
+                    no pasen a la vez. */}
                 <TouchableOpacity
-                  style={styles.selectButton}
+                  style={[styles.selectButton, isPublishing && styles.skipDisabled]}
                   onPress={() => onSelect(c)}
+                  disabled={isPublishing}
                   accessibilityRole="button"
                 >
                   <Text style={styles.selectText}>{t('publish:candidates.isThisOne')}</Text>

@@ -4,6 +4,7 @@ import { Alert } from 'react-native';
 import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
 import * as ImagePicker from 'expo-image-picker';
 import PostScreen from '../app/(tabs)/post';
+import { calendarDayToISO } from '../../shared/utils/reportDate';
 
 // El mock global de `jest.setup.js` devuelve un `jest.fn()` NUEVO en cada
 // llamada a useRouter(), así que no se puede afirmar nada sobre él desde
@@ -274,7 +275,17 @@ describe('PostScreen — el paso de candidatos intercepta el alta', () => {
     });
   };
 
+  // El día que se carga en el mapa. Se escribe en el input y se compara contra
+  // `calendarDayToISO`, NO contra un ISO literal: el helper convierte a la
+  // medianoche LOCAL, así que una constante haría pasar el test en Montevideo y
+  // fallar en cualquier runner con otra zona horaria.
+  const DIA = '2026-08-30';
+
   // Deja el wizard parado en el paso de candidatos, con el borrador completo.
+  //
+  // Carga la nota y la fecha a propósito: son los dos campos que "es este" se
+  // estaba comiendo, y con el formulario vacío la aserción del payload pasaría
+  // sin probar que viajan.
   const llegarACandidatos = async () => {
     (ImagePicker.launchImageLibraryAsync as jest.Mock).mockResolvedValue({
       canceled: false,
@@ -287,6 +298,8 @@ describe('PostScreen — el paso de candidatos intercepta el alta', () => {
     });
     fireEvent.press(utils.getByText('pets:types.perro'));
     fireEvent.press(utils.getByText('publish:strayForm.next'));
+    fireEvent.changeText(utils.getByTestId('location-note-input'), 'Estaba atrás del kiosco');
+    fireEvent.changeText(utils.getByTestId('location-date-input'), DIA);
     await act(async () => {
       fireEvent.press(utils.getByText('publish:location.publish'));
     });
@@ -330,11 +343,16 @@ describe('PostScreen — el paso de candidatos intercepta el alta', () => {
       await botones.find((b: { text: string }) => b.text === 'publish:candidates.confirmAction').onPress();
     });
 
+    // La nota y la fecha viajan. Sin ellas el backend estampa `created_at` como
+    // hora del avistamiento, y un reporte de hace días revive la ficha con un
+    // reloj falso — que es justo el dato que este paso le muestra al próximo.
     expect(mockCreateReportMutateAsync).toHaveBeenCalledWith({
       pet_id: 'pet-vecino',
       status: 'sighting',
       latitude: -34.9011,
       longitude: -56.1645,
+      location_description: 'Estaba atrás del kiosco',
+      occurred_at: calendarDayToISO(DIA),
     });
     expect(mockPublishStrayMutateAsync).not.toHaveBeenCalled();
     expect(mockPush).toHaveBeenCalledWith('/pet/pet-vecino');
@@ -353,6 +371,28 @@ describe('PostScreen — el paso de candidatos intercepta el alta', () => {
       fireEvent.press(getByText('publish:candidates.publishAnyway'));
     });
     expect(mockPublishStrayMutateAsync).toHaveBeenCalledTimes(1);
+  });
+
+  // El cartel de error se dibuja FUERA del switch de pasos, así que sobrevive a
+  // la transición: sin limpiarlo, acertar después de fallar dejaba un error rojo
+  // arriba de la pantalla de "¡Listo!".
+  it('un reintento exitoso no deja el error del intento anterior', async () => {
+    conCandidatos();
+    mockPublishStrayMutateAsync.mockRejectedValueOnce(new Error('boom'));
+    const { getByText, queryByText } = await llegarACandidatos();
+
+    await act(async () => {
+      fireEvent.press(getByText('publish:candidates.noneOfThem'));
+    });
+    const elError = queryByText('errors:unknown_error');
+    expect(elError).toBeTruthy();
+
+    await act(async () => {
+      fireEvent.press(getByText('publish:candidates.noneOfThem'));
+    });
+
+    expect(getByText('publish:success.strayTitle')).toBeTruthy();
+    expect(queryByText('errors:unknown_error')).toBeNull();
   });
 
   // Los dos botones del paso siguen ADELANTE (publicar igual / es este), así

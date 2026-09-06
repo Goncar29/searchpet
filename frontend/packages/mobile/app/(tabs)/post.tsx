@@ -147,6 +147,13 @@ export default function PostScreen() {
   };
 
   const submitStray = async (location: NonNullable<typeof wizard.location>) => {
+    // Limpiar acá y no en cada llamador: el reintento desde el paso de
+    // candidatos no pasa por `handlePublish`, que era el único que limpiaba. Sin
+    // esto, fallar y después acertar dejaba el cartel ROJO arriba de la pantalla
+    // de "¡Listo!" — el error se dibuja fuera del switch de pasos, así que
+    // sobrevive a la transición. Que la limpieza sea propiedad del intento y no
+    // del camino que lo dispara es lo que evita que el próximo se olvide.
+    setPublishError(null);
     try {
       const result = await publishStray.mutateAsync({
         pet: {
@@ -270,12 +277,29 @@ export default function PostScreen() {
         {
           text: t('publish:candidates.confirmAction'),
           onPress: async () => {
+            // Mismo motivo que en submitStray, y acá encima el wizard se
+            // resetea al terminar: sin esto, un fallo previo dejaba el cartel
+            // rojo colgado sobre el selector intacto al reabrir la pestaña.
+            setPublishError(null);
             try {
               await createReport.mutateAsync({
                 pet_id: candidate.id,
                 status: 'sighting',
                 latitude: wizard.location!.latitude,
                 longitude: wizard.location!.longitude,
+                // La nota y la fecha viajan igual que en el alta, que las manda
+                // enteras dentro de `initial_report`. Sin esto, las dos salidas
+                // del mismo paso estaban en DESACUERDO sobre lo que la persona
+                // escribió: "ninguno" las conservaba y "es este" las tiraba.
+                //
+                // `occurred_at` no es cosmético. Si no va, el backend cae a
+                // `created_at` (`report_service.go:sightingTime`), así que un
+                // avistamiento de hace cinco días revive `last_reported_at` con
+                // un reloj falso — y el próximo que llegue a este mismo paso lo
+                // va a ver listado como visto hoy. Es el dato que el paso existe
+                // para mostrar bien.
+                location_description: wizard.location!.note || undefined,
+                occurred_at: wizard.location!.occurred_at,
               });
               // Se limpia el borrador ANTES de navegar: el wizard vive en un
               // tab, así que sin esto volver a "Publicar" reabre el formulario

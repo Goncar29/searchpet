@@ -138,4 +138,78 @@ describe('CandidatesStep', () => {
     fireEvent.press(screen.getByText('publish:candidates.noneOfThem'));
     expect(onSkip).not.toHaveBeenCalled();
   });
+
+  // El mismo invariante en su tercera vía, y la única que NADIE toca: la
+  // respuesta cambia sola.
+  //
+  // Con la consulta caída la persona toca "Publicar igual", el alta viaja, y en
+  // esa ventana un refetch —el "Reintentar" del ListState, o el reconnect que
+  // cablea `utils/onlineStatus`— devuelve `[]`. `sinCandidatos` pasa a true con
+  // `yaSalteo` todavía en false, el efecto se enciende, y sale un SEGUNDO alta.
+  // El ref cubre el re-render; no cubre el flanco.
+  it('con un alta en vuelo, una lista que llega vacía NO dispara el salteo', () => {
+    const onSkip = jest.fn();
+    const { rerender } = render(
+      <CandidatesStep
+        query={queryStub({ isError: true, data: undefined })}
+        onSelect={jest.fn()}
+        onSkip={onSkip}
+        isPublishing
+      />,
+    );
+
+    // El refetch aterriza mientras el alta sigue viajando.
+    rerender(
+      <CandidatesStep
+        query={queryStub({ data: [] })}
+        onSelect={jest.fn()}
+        onSkip={() => onSkip()}
+        isPublishing
+      />,
+    );
+
+    expect(onSkip).not.toHaveBeenCalled();
+  });
+
+  // Mientras publica, "es este" tampoco: si no, un toque en cada botón deja una
+  // mascota nueva Y un avistamiento sobre la vieja.
+  it('mientras publica, "es este" no responde', () => {
+    const onSelect = jest.fn();
+    render(
+      <CandidatesStep
+        query={queryStub({ data: [candidato] })}
+        onSelect={onSelect}
+        onSkip={jest.fn()}
+        isPublishing
+      />,
+    );
+
+    fireEvent.press(screen.getByText('publish:candidates.isThisOne'));
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+
+  // La fecha sale de `toLocaleDateString`, no de `Intl.RelativeTimeFormat`:
+  // Hermes implementa un subconjunto de Intl y este componente corría el
+  // constructor en el cuerpo del render, así que su ausencia no degradaba la
+  // fecha, reventaba el paso. El test afirma el material —que la fecha se
+  // dibujó— y no el nombre del formateador.
+  it('dibuja la fecha del avistamiento sin depender de Intl.RelativeTimeFormat', () => {
+    // Por el índice y no por la propiedad: para TypeScript `Intl` es de sólo
+    // lectura, y borrarla/reponerla directo no compila aunque babel lo permita.
+    const intl = Intl as unknown as Record<string, unknown>;
+    const rtf = intl.RelativeTimeFormat;
+    delete intl.RelativeTimeFormat;
+    try {
+      render(
+        <CandidatesStep
+          query={queryStub({ data: [candidato] })}
+          onSelect={jest.fn()}
+          onSkip={jest.fn()}
+        />,
+      );
+      expect(screen.getByText(/publish:candidates.lastSeenOn/)).toBeTruthy();
+    } finally {
+      intl.RelativeTimeFormat = rtf;
+    }
+  });
 });
