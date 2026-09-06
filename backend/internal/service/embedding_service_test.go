@@ -78,6 +78,9 @@ func (m *mockPetRepoForEmbedding) FindByReporterID(_ string) ([]domain.Pet, erro
 func (m *mockPetRepoForEmbedding) FindPublicByUserID(_ string) ([]domain.Pet, error) {
 	return nil, nil
 }
+func (m *mockPetRepoForEmbedding) FindStrayCandidates(_ domain.StrayCandidateCriteria) ([]domain.StrayCandidate, error) {
+	return nil, nil
+}
 func (m *mockPetRepoForEmbedding) CountPublicByUserID(_ string) (int64, error)   { return 0, nil }
 func (m *mockPetRepoForEmbedding) Update(_ *domain.Pet) error                    { return nil }
 func (m *mockPetRepoForEmbedding) UpdateStatus(_ string, _ string) error         { return nil }

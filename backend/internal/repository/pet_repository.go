@@ -2,6 +2,7 @@ package repository
 
 import (
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgconn"
@@ -94,6 +95,81 @@ func (r *PostgresPetRepository) FindByReporterID(reporterID string) ([]domain.Pe
 	var pets []domain.Pet
 	err := r.db.Preload("Photos", orderedPhotos).Where("reporter_id = ?", reporterID).Order("created_at DESC").Find(&pets).Error
 	return pets, err
+}
+
+// FindStrayCandidates — ver el contrato completo en repository/interfaces.go.
+//
+// La única consulta de mascotas que NO pasa por straySightingNotExpired: el
+// mapa, el feed y el perfil público existen para no mostrar avistamientos
+// viejos, y ésta existe justo para lo contrario — mostrarle a quien va a
+// publicar los avistamientos vencidos que las otras tres pantallas esconden,
+// para que no termine duplicando un animal que la comunidad ya reportó.
+func (r *PostgresPetRepository) FindStrayCandidates(c domain.StrayCandidateCriteria) ([]domain.StrayCandidate, error) {
+	var cands []domain.StrayCandidate
+
+	// El SELECT y el ORDER BY usan fmt.Sprintf para embeber los float64
+	// directo, igual que en FindNearby (report_repository.go): gorm.Expr con
+	// `?` puede perder el ORDER BY en expresiones PostGIS en algunas versiones
+	// de GORM. Sin riesgo de inyección — el tipo no es texto controlado por el
+	// usuario.
+	distExpr := fmt.Sprintf(
+		"ST_Distance(ST_SetSRID(ST_MakePoint(reports.longitude, reports.latitude), 4326)::geography, ST_SetSRID(ST_MakePoint(%g, %g), 4326)::geography)",
+		c.Lng, c.Lat,
+	)
+
+	// DISTINCT ON (pets.id): una mascota con varios reportes dentro del radio
+	// no se repite — se queda con su reporte MÁS CERCANO. Postgres exige que el
+	// ORDER BY de un DISTINCT ON arranque por la(s) misma(s) columna(s) del
+	// DISTINCT ON, así que este orden interno (pets.id primero) no sirve para
+	// la pantalla. Por eso la consulta de más abajo envuelve ésta en una
+	// subconsulta y recién ahí reordena por distancia y aplica el Limit.
+	inner := r.db.Table("pets").
+		Select(fmt.Sprintf(
+			"DISTINCT ON (pets.id) pets.id AS pet_id, pets.name AS name, pets.type AS type, COALESCE(photos.url, '') AS photo_url, COALESCE(pets.last_reported_at, pets.created_at) AS last_seen_at, %s AS distance_meters",
+			distExpr,
+		)).
+		Joins("JOIN reports ON reports.pet_id = pets.id").
+		// LEFT JOIN: una mascota sin foto primaria sigue siendo un candidato
+		// válido, sólo que PhotoURL llega vacío en vez de descartarla.
+		Joins("LEFT JOIN photos ON photos.pet_id = pets.id AND photos.is_primary = true").
+		Where("pets.status = ?", domain.PetStatusStray).
+		Where(`
+			ST_DWithin(
+				ST_SetSRID(ST_MakePoint(reports.longitude, reports.latitude), 4326)::geography,
+				ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography,
+				?
+			)
+		`, c.Lng, c.Lat, domain.StrayCandidateRadiusMeters).
+		Order(fmt.Sprintf("pets.id, %s ASC", distExpr))
+
+	if c.PetType != "" {
+		inner = inner.Where("pets.type = ?", c.PetType)
+	}
+
+	// A propósito, tres cosas que esta consulta NO hace y las demás sí:
+	//
+	//   - Sin filtro de episodio (a diferencia de FindNearby). Ese filtro
+	//     existe para que el mapa de una búsqueda activa no mezcle pines de
+	//     episodios viejos; acá la pregunta es "¿este animal ya está
+	//     registrado?" y un episodio cerrado no cambia la respuesta. Además
+	//     current_episode_id es NULLABLE y compararlo contra NULL da NULL —
+	//     eso excluiría en SILENCIO a todo callejero sin episodio abierto,
+	//     justo lo contrario de lo que esta consulta necesita mostrar.
+	//
+	//   - Sin Preload de Owner ni Reporter. Esta lista se muestra para
+	//     RECONOCER un animal, no para contactar a nadie, y PetResponse expone
+	//     el teléfono del dueño sin condición (ver la lección del preload de
+	//     Owner en el perfil público: "el dato ya es público en otro lado" no
+	//     equivale a "este camino no agrega exposición").
+	//
+	//   - Sin straySightingNotExpired. Es la razón de ser de esta consulta —
+	//     ver el contrato completo en interfaces.go.
+	err := r.db.Table("(?) AS candidates", inner).
+		Order("distance_meters ASC").
+		Limit(domain.StrayCandidateLimit).
+		Find(&cands).Error
+
+	return cands, err
 }
 
 // publicProfilePetLimit acota la lista del perfil público.
