@@ -575,7 +575,10 @@
       "noneOfThem": "Nenhum, é outro animal",
       "errorTitle": "Não conseguimos buscar avistamentos próximos",
       "errorBody": "Pode já existir uma ficha deste animal. Você pode tentar de novo ou publicar mesmo assim.",
-      "publishAnyway": "Publicar mesmo assim"
+      "publishAnyway": "Publicar mesmo assim",
+      "confirmTitle": "É este o animal que você viu?",
+      "confirmBody": "Vamos somar o seu avistamento à ficha de {{name}}, no lugar que você marcou. Nenhuma publicação nova é criada.",
+      "confirmAction": "Sim, reportar"
     },
     "success": {
       "lostTitle": "Pronto! Seu animal está marcado como perdido",

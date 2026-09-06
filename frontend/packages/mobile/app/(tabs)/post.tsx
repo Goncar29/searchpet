@@ -3,7 +3,7 @@
 // ============================================================
 
 import { useState } from 'react';
-import { View, ScrollView, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, ScrollView, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
 import { IntentStep } from '../../components/publish/IntentStep';
@@ -12,16 +12,17 @@ import { StrayFormStep } from '../../components/publish/StrayFormStep';
 import { AdoptionFormStep } from '../../components/publish/AdoptionFormStep';
 import { LocationStep } from '../../components/publish/LocationStep';
 import { InlineAuthStep } from '../../components/publish/InlineAuthStep';
+import { CandidatesStep } from '../../components/publish/CandidatesStep';
 import { SuccessStep } from '../../components/publish/SuccessStep';
-import { usePublishLost, usePublishStrayNative, useCreatePet, useUploadPhotoNative } from '@shared/hooks';
+import { usePublishLost, usePublishStrayNative, useCreatePet, useUploadPhotoNative, useStrayCandidates, useCreateReport } from '@shared/hooks';
 import { useAuthStore } from '../../store';
 import { getErrorMessage } from '@shared/utils/apiErrors';
 import { composeBirthDate } from '@shared/utils/petBirthDate';
 import type { PetIdentityValue } from '../../components/PetIdentityFields';
 import { COLORS, SPACING, FONTS } from '../../constants';
-import type { Pet, CreatePetRequest, InitialReportRequest, PetType } from '../../../shared/types';
+import type { Pet, CreatePetRequest, InitialReportRequest, PetType, StrayCandidate } from '../../../shared/types';
 
-export type PublishStep = 'intent' | 'lost-pet' | 'stray-form' | 'adoption-form' | 'location' | 'auth' | 'success';
+export type PublishStep = 'intent' | 'lost-pet' | 'stray-form' | 'adoption-form' | 'location' | 'auth' | 'candidates' | 'success';
 export type PublishIntent = 'lost' | 'stray' | 'adoption';
 
 export interface StrayFormState {
@@ -75,6 +76,21 @@ export default function PostScreen() {
   const publishStray = usePublishStrayNative();
   const createPet = useCreatePet();
   const uploadPhotoNative = useUploadPhotoNative();
+  const createReport = useCreateReport();
+
+  // Los callejeros que ya están registrados cerca del punto que la persona
+  // acaba de marcar. Sólo consulta parada en el paso: es una lectura protegida
+  // y no tiene sentido pedirla mientras todavía llena el formulario.
+  const candidatesQuery = useStrayCandidates(
+    wizard.location
+      ? {
+          lat: wizard.location.latitude,
+          lng: wizard.location.longitude,
+          type: wizard.strayForm.type || undefined,
+        }
+      : null,
+    step === 'candidates',
+  );
 
   const handleIntentSelect = (intent: PublishIntent) => {
     setWizard((prev) => ({ ...prev, intent }));
@@ -108,11 +124,6 @@ export default function PostScreen() {
   // completado. Como backToIntent resetea el borrador, mandarlos al selector
   // les borraria lo cargado: peor que el callejon sin salida que esto cierra.
   const resolveBack = (): { onBack: () => void; label: string } | null => {
-    if (step === 'lost-pet' || step === 'stray-form' || step === 'adoption-form') {
-      return { onBack: backToIntent, label: t('publish:back') };
-    }
-    if (step !== 'auth') return null;
-    if (wizard.intent === 'lost') return { onBack: backToIntent, label: t('publish:back') };
     // Limpia el error igual que backToIntent: si un intento anterior fallo, el
     // cartel rojo sobrevive al cambio de paso y queda arriba de un formulario
     // que no tiene nada de malo.
@@ -120,6 +131,17 @@ export default function PostScreen() {
       setPublishError(null);
       setStep(target);
     };
+    if (step === 'lost-pet' || step === 'stray-form' || step === 'adoption-form') {
+      return { onBack: backToIntent, label: t('publish:back') };
+    }
+    // `candidates` tambien necesita salida propia: sus dos botones siguen
+    // ADELANTE (publicar igual / es este), asi que sin esto la unica forma de
+    // corregir una ubicacion mal puesta seria salirse de la pestana. Vuelve a
+    // `location` y no al selector: el borrador esta completo y perderlo seria
+    // peor que el callejon.
+    if (step === 'candidates') return { onBack: backTo('location'), label: t('publish:backStep') };
+    if (step !== 'auth') return null;
+    if (wizard.intent === 'lost') return { onBack: backToIntent, label: t('publish:back') };
     if (wizard.intent === 'adoption') return { onBack: backTo('adoption-form'), label: t('publish:backStep') };
     return { onBack: backTo('location'), label: t('publish:backStep') };
   };
@@ -216,7 +238,58 @@ export default function PostScreen() {
       return;
     }
 
-    await submitStray(location);
+    // Ya no publica de una: primero pregunta si el animal no está registrado.
+    // El paso va DESPUÉS del login a propósito — reportar sobre una ficha ajena
+    // exige cuenta igual, así que con la sesión resuelta el endpoint puede ser
+    // protegido y "es este" no rebota contra un 401.
+    setStep('candidates');
+  };
+
+  // "Ninguno" y "Publicar igual" terminan en lo mismo: el alta que la persona
+  // vino a hacer. Un fallo de la consulta NUNCA la bloquea — un 500 no puede
+  // impedir que se publique un animal que está en la calle ahora.
+  const handleSkipCandidates = () => {
+    if (wizard.location) submitStray(wizard.location);
+  };
+
+  // "Es este": el avistamiento va sobre la ficha EXISTENTE y no se crea nada
+  // nuevo. No hay código de revival — POST /api/reports estampa
+  // `last_reported_at` y la mascota vuelve sola al feed, al mapa y al perfil.
+  //
+  // A diferencia de la web, que deriva a /reports/create, acá se reporta en un
+  // solo toque: la ubicación ya está cargada del paso anterior, así que mandar
+  // a la persona a marcarla de nuevo sería pedirle dos veces el mismo dato.
+  // `status: 'sighting'` porque quien reporta no es el dueño.
+  const handleSelectCandidate = (candidate: StrayCandidate) => {
+    if (!wizard.location) return;
+    Alert.alert(
+      t('publish:candidates.confirmTitle'),
+      t('publish:candidates.confirmBody', { name: candidate.name }),
+      [
+        { text: t('common:cancel'), style: 'cancel' },
+        {
+          text: t('publish:candidates.confirmAction'),
+          onPress: async () => {
+            try {
+              await createReport.mutateAsync({
+                pet_id: candidate.id,
+                status: 'sighting',
+                latitude: wizard.location!.latitude,
+                longitude: wizard.location!.longitude,
+              });
+              // Se limpia el borrador ANTES de navegar: el wizard vive en un
+              // tab, así que sin esto volver a "Publicar" reabre el formulario
+              // con las fotos del animal que se acaba de descartar.
+              setStep('intent');
+              setWizard(initialWizardState);
+              router.push(`/pet/${candidate.id}`);
+            } catch (err) {
+              setPublishError(getErrorMessage(err, (key) => t(key)));
+            }
+          },
+        },
+      ],
+    );
   };
 
   const handleGoToFeed = () => {
@@ -282,8 +355,18 @@ export default function PostScreen() {
                 submitAdoption();
                 return;
               }
-              if (wizard.location) submitStray(wizard.location);
+              // Igual que handlePublish: con la sesión recién resuelta, la
+              // pregunta por duplicados va antes del alta.
+              if (wizard.location) setStep('candidates');
             }}
+          />
+        )}
+        {step === 'candidates' && (
+          <CandidatesStep
+            query={candidatesQuery}
+            onSelect={handleSelectCandidate}
+            onSkip={handleSkipCandidates}
+            isPublishing={publishStray.isPending || createReport.isPending}
           />
         )}
         {step === 'success' && publishedPet && wizard.intent && (
