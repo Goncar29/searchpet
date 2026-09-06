@@ -70,7 +70,7 @@ export function CandidatesStep({ query, onSelect, onSkip }: CandidatesStepProps)
   };
 
   return (
-    <div>
+    <div data-testid="candidates-step">
       <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">
         {t('publish:candidates.title')}
       </h2>
@@ -93,6 +93,8 @@ export function CandidatesStep({ query, onSelect, onSkip }: CandidatesStepProps)
             {items.map((c) => (
               <li
                 key={c.id}
+                data-testid="candidate-card"
+                data-pet-id={c.id}
                 className="flex items-center gap-4 rounded-xl border border-gray-200 dark:border-gray-700 p-3"
               >
                 <div className="h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-gray-100 dark:bg-gray-800">
@@ -128,6 +130,7 @@ export function CandidatesStep({ query, onSelect, onSkip }: CandidatesStepProps)
                 </div>
                 <button
                   type="button"
+                  data-testid="candidate-select"
                   onClick={() => onSelect(c)}
                   className="shrink-0 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-dark"
                 >
@@ -144,6 +147,7 @@ export function CandidatesStep({ query, onSelect, onSkip }: CandidatesStepProps)
           tarjeta y necesita una salida. */}
       <button
         type="button"
+        data-testid="candidates-skip"
         onClick={onSkip}
         className="mt-6 w-full rounded-xl border border-gray-300 dark:border-gray-600 px-4 py-3 text-sm font-semibold text-gray-700 dark:text-gray-300 transition-colors hover:bg-gray-50 dark:hover:bg-gray-800"
       >
