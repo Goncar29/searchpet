@@ -8,20 +8,21 @@ import { AdoptionFormStep } from '../components/publish/AdoptionFormStep';
 import { LocationStep } from '../components/publish/LocationStep';
 import { SuccessStep } from '../components/publish/SuccessStep';
 import { InlineAuthStep } from '../components/publish/InlineAuthStep';
+import { CandidatesStep } from '../components/publish/CandidatesStep';
 import { Icon } from '../components/Icon';
 import { useAuth } from '../context/AuthContext';
-import { useCreatePet, usePublishStray, useUploadPhoto } from '@shared/hooks';
+import { useCreatePet, usePublishStray, useUploadPhoto, useStrayCandidates } from '@shared/hooks';
 import { composeBirthDate } from '@shared/utils/petBirthDate';
 import type { PetIdentityValue } from '../components/PetIdentityFields';
 import { apiClient } from '@shared/api/client';
 import { getErrorMessage } from '@shared/utils/apiErrors';
-import type { Pet, CreatePetRequest, InitialReportRequest } from '@shared/types';
+import type { Pet, CreatePetRequest, InitialReportRequest, StrayCandidate } from '@shared/types';
 
-export type PublishStep = 'intent' | 'lost-pet' | 'stray-form' | 'adoption-form' | 'location' | 'auth' | 'success';
+export type PublishStep = 'intent' | 'lost-pet' | 'stray-form' | 'adoption-form' | 'location' | 'auth' | 'candidates' | 'success';
 export type PublishIntent = 'lost' | 'stray' | 'adoption';
 
 // Los pasos validos, para filtrar lo que venga por la URL.
-const PUBLISH_STEPS: PublishStep[] = ['intent', 'lost-pet', 'stray-form', 'adoption-form', 'location', 'auth', 'success'];
+const PUBLISH_STEPS: PublishStep[] = ['intent', 'lost-pet', 'stray-form', 'adoption-form', 'location', 'auth', 'candidates', 'success'];
 
 // Tres pasos llevan el intent implícito en su propio nombre, y a `location`
 // sólo se llega desde el de callejera. Con esto, un paso pedido por URL puede
@@ -31,6 +32,11 @@ const STEP_INTENT: Partial<Record<PublishStep, PublishIntent>> = {
   'stray-form': 'stray',
   'adoption-form': 'adoption',
   location: 'stray',
+  // A `candidates` sólo se llega desde el camino de callejera, igual que a
+  // `location`. Sin esto, un F5 en ?paso=candidates deja el intent en null y se
+  // repite el agujero de la regla #52: la mascota se crea, y el guard de render
+  // de `success` —que exige intent— deja la pantalla en blanco.
+  candidates: 'stray',
 };
 
 export interface StrayFormState {
@@ -121,6 +127,11 @@ export function PublishWizardPage() {
     // De acá para abajo, publishedPet es null.
     if (pasoPedido === 'success') return 'intent';
     if (pasoPedido === 'location' && !wizard.strayForm.type) return 'intent';
+    // `candidates` consulta POR UBICACIÓN: sin ella el hook queda deshabilitado
+    // y el paso se quedaría vacío para siempre, con el usuario mirando una
+    // pantalla que nunca va a cargar. Es la guarda que siempre falta cuando se
+    // suma un paso a la URL (regla #52).
+    if (pasoPedido === 'candidates' && !wizard.location) return 'intent';
     if (pasoPedido === 'auth' && !wizard.intent) return 'intent';
     return pasoPedido;
   })();
@@ -173,20 +184,28 @@ export function PublishWizardPage() {
   // que acaban de cargar — perder el trabajo sería peor que el callejón que
   // esto viene a cerrar. Así que cada camino vuelve al paso del que vino.
   const resolveBack = (): { onBack: () => void; label: string } | null => {
-    if (step === 'lost-pet' || step === 'stray-form' || step === 'adoption-form') {
-      return { onBack: backToIntent, label: t('back') };
-    }
-    if (step !== 'auth') return null;
-    // Desde el selector: no hay nada cargado que perder.
-    if (wizard.intent === 'lost') return { onBack: backToIntent, label: t('back') };
-    // Desde un formulario ya completado: vuelve al formulario, no al selector.
-    // Limpia el error igual que backToIntent: si un intento anterior falló, el
-    // cartel rojo sobrevive al cambio de paso y queda arriba de un formulario
-    // que no tiene nada de malo.
+    // Vuelve a un paso anterior conservando el borrador. Limpia el error igual
+    // que backToIntent: si un intento anterior falló, el cartel rojo sobrevive
+    // al cambio de paso y queda arriba de un formulario que no tiene nada de
+    // malo.
     const backTo = (target: PublishStep) => () => {
       setPublishError(null);
       setStep(target);
     };
+    if (step === 'lost-pet' || step === 'stray-form' || step === 'adoption-form') {
+      return { onBack: backToIntent, label: t('back') };
+    }
+    // `candidates` también necesita salida propia. Sus dos botones siguen
+    // ADELANTE (publicar igual / es este), así que sin esto la única forma de
+    // corregir una ubicación mal puesta sería el botón atrás del navegador —
+    // el mismo callejón sin salida que cerró el #132, un paso más abajo.
+    // Vuelve a `location` y no al selector: el borrador está completo y
+    // perderlo sería peor que el callejón.
+    if (step === 'candidates') return { onBack: backTo('location'), label: t('backStep') };
+    if (step !== 'auth') return null;
+    // Desde el selector: no hay nada cargado que perder.
+    if (wizard.intent === 'lost') return { onBack: backToIntent, label: t('back') };
+    // Desde un formulario ya completado: vuelve al formulario, no al selector.
     if (wizard.intent === 'adoption') return { onBack: backTo('adoption-form'), label: t('backStep') };
     return { onBack: backTo('location'), label: t('backStep') };
   };
@@ -234,6 +253,20 @@ export function PublishWizardPage() {
   const publishStray = usePublishStray();
   const createPet = useCreatePet();
   const uploadPhoto = useUploadPhoto();
+
+  // Los callejeros que ya están registrados cerca del punto que la persona
+  // acaba de marcar. Sólo consulta parada en el paso: es una lectura protegida
+  // y no tiene sentido pedirla mientras el usuario todavía llena el formulario.
+  const candidatesQuery = useStrayCandidates(
+    wizard.location
+      ? {
+          lat: wizard.location.latitude,
+          lng: wizard.location.longitude,
+          type: wizard.strayForm.type || undefined,
+        }
+      : null,
+    step === 'candidates',
+  );
 
   const buildAdoptionPayload = (): CreatePetRequest => ({
     name: t('strayForm.unnamedPet'),
@@ -338,7 +371,29 @@ export function PublishWizardPage() {
       return;
     }
 
-    await submitStray(location);
+    // Ya no publica de una: primero pregunta si el animal no está registrado.
+    // El paso va DESPUÉS del login a propósito — reportar sobre una ficha ajena
+    // exige cuenta igual, así que con la sesión ya resuelta el endpoint puede
+    // ser protegido y la respuesta a "es este" no rebota contra un 401.
+    setStep('candidates');
+  };
+
+  // "Ninguno" y "Publicar igual" terminan en lo mismo: el alta que la persona
+  // vino a hacer. Un fallo de la consulta NUNCA la bloquea — un 500 no puede
+  // impedir que se publique un animal que está en la calle ahora.
+  const handleSkipCandidates = () => {
+    if (wizard.location) submitStray(wizard.location);
+  };
+
+  // "Es este": el reporte va sobre la ficha EXISTENTE y no se crea nada nuevo.
+  // No hay código de revival — POST /api/reports estampa last_reported_at y la
+  // mascota vuelve sola al feed, al mapa y al perfil.
+  //
+  // `status=sighting` y no `lost`: quien reporta no es el dueño. CreateReportPage
+  // igual fuerza `sighting` para quien no puede cambiar el estado, así que el
+  // parámetro coincide con lo que esa pantalla va a hacer en vez de contradecirla.
+  const handleSelectCandidate = (candidate: StrayCandidate) => {
+    navigate(`/reports/create?petId=${candidate.id}&status=sighting`);
   };
 
   // El reset lo hace el efecto del paso `intent`, igual que backToIntent.
@@ -443,8 +498,17 @@ export function PublishWizardPage() {
                 submitAdoption();
                 return;
               }
-              if (wizard.location) submitStray(wizard.location);
+              // Igual que handlePublish: con la sesión recién resuelta, la
+              // pregunta por duplicados va antes del alta.
+              if (wizard.location) setStep('candidates');
             }}
+          />
+        )}
+        {step === 'candidates' && (
+          <CandidatesStep
+            query={candidatesQuery}
+            onSelect={handleSelectCandidate}
+            onSkip={handleSkipCandidates}
           />
         )}
         {step === 'success' && publishedPet && wizard.intent && (

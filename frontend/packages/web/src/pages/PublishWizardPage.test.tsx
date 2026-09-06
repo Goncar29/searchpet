@@ -3,7 +3,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter, useLocation, useNavigate, Link } from 'react-router';
 import { QueryClientProvider, QueryClient } from '@tanstack/react-query';
 import { PublishWizardPage } from './PublishWizardPage';
-import { useMyPets, useCreatePet, usePublishStray } from '@shared/hooks';
+import { useMyPets, useCreatePet, usePublishStray, useStrayCandidates } from '@shared/hooks';
 import { LostPetStep } from '../components/publish/LostPetStep';
 import { apiClient } from '@shared/api/client';
 
@@ -41,6 +41,18 @@ vi.mock('@shared/hooks', () => ({
   usePublishStray: vi.fn(() => ({ mutateAsync: vi.fn().mockResolvedValue({ pet: { id: 'pet-2', name: 'Sin nombre', type: 'perro', status: 'stray', photos: [] }, failedPhotoIndexes: [] }), isPending: false })),
   useCreatePet: vi.fn(() => ({ mutateAsync: mockCreatePetMutateAsync, isPending: false })),
   useUploadPhoto: vi.fn(() => ({ mutateAsync: vi.fn(), isPending: false })),
+  // Por default: NO hay callejeros cerca. Con eso el paso de candidatos se
+  // saltea solo y los casos de abajo siguen midiendo lo que siempre midieron —
+  // el default del mock preserva el flujo anterior en vez de reescribirlo.
+  // Los casos que SÍ ejercitan el paso pisan este valor.
+  useStrayCandidates: vi.fn(() => ({
+    data: [],
+    isLoading: false,
+    isPending: false,
+    isPaused: false,
+    isError: false,
+    refetch: vi.fn(),
+  })),
 }));
 
 vi.mock('@shared/api/client', () => ({
@@ -457,6 +469,122 @@ describe('PublishWizardPage — success step', () => {
     expect(await screen.findByText('publish:success.strayTitle')).toBeInTheDocument();
     expect(apiClient.getPetByID).toHaveBeenCalledWith('pet-2');
     expect(screen.getByTestId('share-panel')).toHaveAttribute('data-photo-count', '1');
+  });
+});
+
+// El paso sólo cumple su función si INTERCEPTA: mostrar la lista sin frenar el
+// alta no evitaría ningún duplicado. Por eso lo que se afirma acá es que NO se
+// publicó, no que la tarjeta se dibuja — eso ya lo cubre CandidatesStep.test.
+describe('PublishWizardPage — el paso de candidatos intercepta el alta', () => {
+  const candidato = {
+    id: 'pet-vecino',
+    name: 'Marrón',
+    type: 'perro' as const,
+    photo_url: '',
+    last_seen_nearby_at: new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString(),
+    distance_meters: 312,
+  };
+
+  // Las implementaciones por default se restauran en afterEach, igual que hace
+  // el bloque de fechas más arriba. `mockReset` no sirve: borra la
+  // implementación entera y el hook pasa a devolver undefined en los describes
+  // siguientes — que fue exactamente cómo estos tests rompieron dos casos
+  // preexistentes de más abajo.
+  const candidatosPorDefecto = vi.mocked(useStrayCandidates).getMockImplementation();
+  const strayPorDefecto = vi.mocked(usePublishStray).getMockImplementation();
+
+  const conCandidatos = () => {
+    vi.mocked(useStrayCandidates).mockReturnValue({
+      data: [candidato],
+      isLoading: false,
+      isPending: false,
+      isPaused: false,
+      isError: false,
+      refetch: vi.fn(),
+    } as never);
+  };
+
+  // Deja el wizard parado en el paso de candidatos, con el borrador completo.
+  const llegarACandidatos = () => {
+    render(<PublishWizardPage />, { wrapper });
+    fireEvent.click(screen.getByText('publish:intent.strayTitle'));
+    const file = new File(['fake'], 'stray.jpg', { type: 'image/jpeg' });
+    fireEvent.change(screen.getByLabelText('publish:strayForm.photoLabel'), {
+      target: { files: [file] },
+    });
+    fireEvent.change(screen.getByLabelText('publish:strayForm.typeLabel'), {
+      target: { value: 'perro' },
+    });
+    fireEvent.click(screen.getByText('publish:strayForm.next'));
+    fireEvent.click(screen.getByText('publish:location.publish'));
+  };
+
+  afterEach(() => {
+    if (candidatosPorDefecto) vi.mocked(useStrayCandidates).mockImplementation(candidatosPorDefecto);
+    if (strayPorDefecto) vi.mocked(usePublishStray).mockImplementation(strayPorDefecto);
+  });
+
+  it('con un callejero cerca pregunta ANTES de publicar, y no publica', () => {
+    conCandidatos();
+    const publish = vi.fn();
+    vi.mocked(usePublishStray).mockReturnValue({
+      mutateAsync: publish,
+      isPending: false,
+    } as never);
+
+    llegarACandidatos();
+
+    expect(screen.getByText('publish:candidates.title')).toBeInTheDocument();
+    expect(screen.getByText('Marrón')).toBeInTheDocument();
+    // Lo que importa: la mascota NO se creó.
+    expect(publish).not.toHaveBeenCalled();
+    expect(screen.queryByText('publish:success.strayTitle')).not.toBeInTheDocument();
+  });
+
+  it('"ninguno" publica el callejero nuevo', async () => {
+    conCandidatos();
+    llegarACandidatos();
+
+    fireEvent.click(screen.getByText('publish:candidates.noneOfThem'));
+
+    expect(await screen.findByText('publish:success.strayTitle')).toBeInTheDocument();
+  });
+
+  it('"es este" deriva al reporte sobre la ficha existente y NO crea nada', () => {
+    conCandidatos();
+    const publish = vi.fn();
+    vi.mocked(usePublishStray).mockReturnValue({
+      mutateAsync: publish,
+      isPending: false,
+    } as never);
+
+    llegarACandidatos();
+    fireEvent.click(screen.getByText('publish:candidates.isThisOne'));
+
+    expect(screen.getByTestId('location-probe')).toHaveTextContent(
+      '/reports/create?petId=pet-vecino&status=sighting',
+    );
+    expect(publish).not.toHaveBeenCalled();
+  });
+
+  // Una consulta caída no puede dejar a nadie sin publicar un animal que está
+  // en la calle ahora: se muestra el cartel y la salida sigue publicando.
+  it('con la consulta caída ofrece publicar igual, y publica', async () => {
+    vi.mocked(useStrayCandidates).mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isPending: false,
+      isPaused: false,
+      isError: true,
+      refetch: vi.fn(),
+    } as never);
+
+    llegarACandidatos();
+
+    expect(screen.getByRole('alert')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('publish:candidates.publishAnyway'));
+
+    expect(await screen.findByText('publish:success.strayTitle')).toBeInTheDocument();
   });
 });
 
