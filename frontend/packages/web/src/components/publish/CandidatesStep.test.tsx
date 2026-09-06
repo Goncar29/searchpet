@@ -108,6 +108,27 @@ describe('CandidatesStep', () => {
     expect(onSelect).toHaveBeenCalledWith(candidato);
   });
 
+  // Mismo invariante que el salteo automático, por la vía manual: la salida
+  // PUBLICA, y publicar es asíncrono. Sin deshabilitar, dos clicks seguidos son
+  // dos mascotas. `LocationStep` ya protegía su botón así; al mover la
+  // publicación a este paso había que traerse la protección con ella.
+  it('mientras publica, la salida queda deshabilitada', () => {
+    const onSkip = vi.fn();
+    render(
+      <CandidatesStep
+        query={queryStub({ data: [candidato] })}
+        onSelect={vi.fn()}
+        onSkip={onSkip}
+        isPublishing
+      />,
+    );
+
+    const salida = screen.getByTestId('candidates-skip');
+    expect(salida).toBeDisabled();
+    fireEvent.click(salida);
+    expect(onSkip).not.toHaveBeenCalled();
+  });
+
   it('con candidatos el botón de salida dice "ninguno", no "publicar igual"', () => {
     render(
       <CandidatesStep

@@ -12,6 +12,15 @@ interface CandidatesStepProps {
   onSelect: (candidate: StrayCandidate) => void;
   /** No hay nada que preguntar, o el usuario decidió seguir igual: al alta. */
   onSkip: () => void;
+  /**
+   * El alta está en vuelo. Deshabilita la salida, que es la que PUBLICA.
+   *
+   * No es cosmético: `LocationStep` ya protegía su botón de publicar así, y al
+   * mover la publicación a este paso había que traerse la protección con ella.
+   * Sin esto, dos clicks seguidos son dos mascotas — el mismo duplicado que el
+   * paso viene a evitar, por la vía manual en vez de la del efecto.
+   */
+  isPublishing?: boolean;
 }
 
 /**
@@ -31,7 +40,7 @@ interface CandidatesStepProps {
  * 3. **Nunca bloquea.** Un 500 no puede impedir que alguien publique un animal
  *    que está en la calle ahora.
  */
-export function CandidatesStep({ query, onSelect, onSkip }: CandidatesStepProps) {
+export function CandidatesStep({ query, onSelect, onSkip, isPublishing }: CandidatesStepProps) {
   const { t, i18n } = useTranslation(['publish', 'common']);
 
   // `query.data` y no `items.length`: una lista vacía que SÍ llegó es una
@@ -64,7 +73,11 @@ export function CandidatesStep({ query, onSelect, onSkip }: CandidatesStepProps)
   // Intl elija la unidad: 120 días es "hace 4 meses" y no "hace 120 días".
   const cuandoSeLoVio = (iso: string): string => {
     const dias = Math.round((Date.now() - new Date(iso).getTime()) / 86400000);
-    const fmt = new Intl.RelativeTimeFormat(i18n.language, { numeric: 'auto' });
+    // `|| undefined` y no `i18n.language` pelado: con un string vacío
+    // `Intl.RelativeTimeFormat` tira RangeError, y como esto corre en el cuerpo
+    // del render, una excepción acá deja EN BLANCO el paso que evita
+    // duplicados. `undefined` cae al locale del navegador, que siempre existe.
+    const fmt = new Intl.RelativeTimeFormat(i18n.language || undefined, { numeric: 'auto' });
     if (Math.abs(dias) >= 30) return fmt.format(-Math.round(dias / 30), 'month');
     return fmt.format(-dias, 'day');
   };
@@ -149,7 +162,8 @@ export function CandidatesStep({ query, onSelect, onSkip }: CandidatesStepProps)
         type="button"
         data-testid="candidates-skip"
         onClick={onSkip}
-        className="mt-6 w-full rounded-xl border border-gray-300 dark:border-gray-600 px-4 py-3 text-sm font-semibold text-gray-700 dark:text-gray-300 transition-colors hover:bg-gray-50 dark:hover:bg-gray-800"
+        disabled={isPublishing}
+        className="mt-6 w-full rounded-xl border border-gray-300 dark:border-gray-600 px-4 py-3 text-sm font-semibold text-gray-700 dark:text-gray-300 transition-colors hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {/* El texto sigue a lo que el usuario TIENE DELANTE. Sin datos no vio
             ninguna tarjeta, así que "ninguno de estos" no se refiere a nada:

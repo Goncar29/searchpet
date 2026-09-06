@@ -509,6 +509,7 @@ export function PublishWizardPage() {
             query={candidatesQuery}
             onSelect={handleSelectCandidate}
             onSkip={handleSkipCandidates}
+            isPublishing={publishStray.isPending}
           />
         )}
         {step === 'success' && publishedPet && wizard.intent && (
