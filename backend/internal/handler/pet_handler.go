@@ -333,6 +333,45 @@ func (h *PetHandler) SearchPets(c *gin.Context) {
 	c.JSON(http.StatusOK, result)
 }
 
+// StrayCandidates godoc
+// GET /api/pets/stray-candidates?lat=&lng=&type=
+// Protegido. Devuelve los callejeros cercanos —vencidos y vivos— para
+// preguntarle a quien va a publicar si no es alguno de esos.
+//
+// El radio NO se acepta por query: vive en domain.StrayCandidateRadiusMeters.
+func (h *PetHandler) StrayCandidates(c *gin.Context) {
+	lat, errLat := strconv.ParseFloat(c.Query("lat"), 64)
+	lng, errLng := strconv.ParseFloat(c.Query("lng"), 64)
+	if errLat != nil || errLng != nil || !validCoordinates(lat, lng) {
+		writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
+		return
+	}
+
+	candidates, err := h.petService.FindStrayCandidates(domain.StrayCandidateCriteria{
+		Lat:     lat,
+		Lng:     lng,
+		PetType: c.Query("type"),
+	})
+	if err != nil {
+		// validCoordinates ya descarta NaN/±Inf antes de llegar acá — en Go toda
+		// comparación con NaN da false, así que `lat >= -90` (y las otras tres)
+		// son falsas para NaN sin importar el orden, y ±Inf cae fuera de rango
+		// como cualquier float normal. Esta rama es profundidad defensiva, no un
+		// camino vivo a través de ESTE handler: cubre a un futuro llamador del
+		// repositorio (o un cambio en validCoordinates) que no repita la misma
+		// guarda, igual que CreatePet y UpdatePet ya hacen con su propio
+		// ErrInvalidInput.
+		if errors.Is(err, domain.ErrInvalidInput) {
+			writeError(c, http.StatusBadRequest, err)
+			return
+		}
+		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
+		return
+	}
+
+	c.JSON(http.StatusOK, dto.ToStrayCandidateList(candidates))
+}
+
 // ListAdoptions godoc
 // GET /api/adoptions
 // Public — lists pets available for adoption (status "adoption" only).

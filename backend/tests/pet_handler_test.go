@@ -31,6 +31,7 @@ type mockPetService struct {
 	markAsFoundFn func(ownerID, petID string) (*domain.Pet, error)
 	publishLostFn func(ownerID, petID string, req dto.PublishLostRequest) (*domain.Pet, error)
 	searchPetsFn  func(criteria domain.PetSearchCriteria) (dto.PetSearchResponse, error)
+	findStrayCandidatesFn func(c domain.StrayCandidateCriteria) ([]domain.StrayCandidate, error)
 }
 
 func (m *mockPetService) CreatePet(ownerID string, req dto.CreatePetRequest) (*domain.Pet, error) {
@@ -108,6 +109,13 @@ func (m *mockPetService) SearchPets(criteria domain.PetSearchCriteria) (dto.PetS
 		return m.searchPetsFn(criteria)
 	}
 	return dto.PetSearchResponse{}, nil
+}
+
+func (m *mockPetService) FindStrayCandidates(c domain.StrayCandidateCriteria) ([]domain.StrayCandidate, error) {
+	if m.findStrayCandidatesFn != nil {
+		return m.findStrayCandidatesFn(c)
+	}
+	return nil, nil
 }
 
 // ============================================================

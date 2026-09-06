@@ -429,6 +429,14 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 		protected.POST("/pets", petHandler.CreatePet)
 		protected.GET("/pets/mine", petHandler.GetMyPets)
 		protected.GET("/pets/reported", petHandler.GetReportedPets)
+		// Estática, así que Gin la prioriza sobre cualquier /pets/:id — mismo
+		// criterio que /pets/mine y /pets/reported. Verificado: no hay ningún
+		// GET /pets/:id en el grupo protected (el único vive en public), y de
+		// todos modos Gin arma un único árbol de rutas por método HTTP
+		// combinando TODOS los grupos del engine, no uno por grupo — lo
+		// confirman /pets/search y /pets/mine, que ya conviven en producción
+		// con public.GET("/pets/:id", ...) sin panic ni conflicto.
+		protected.GET("/pets/stray-candidates", petHandler.StrayCandidates)
 		protected.PUT("/pets/:id", petHandler.UpdatePet)
 		protected.DELETE("/pets/:id", petHandler.DeletePet)
 		protected.PATCH("/pets/:id/found", petHandler.MarkAsFound)
