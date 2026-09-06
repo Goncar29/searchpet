@@ -258,11 +258,11 @@ func TestStrayCandidates_NoDevuelveMascotasPerdidas(t *testing.T) {
 
 // La distancia y la última vista llegan resueltas: la UI no tiene que elegir.
 //
-// LastSeenAt se afirma contra el VALOR sembrado (±1s), no sólo contra
-// "no está en cero": `IsZero()` pasa igual contra el COALESCE correcto,
-// contra `created_at` solo, o contra `last_reported_at` solo — porque acá
-// ninguno de los dos es cero. La afirmación de valor es la única que
-// distingue las tres.
+// LastSeenNearbyAt se afirma contra el VALOR sembrado (±1s), no sólo contra
+// "no está en cero": `IsZero()` pasa igual contra el MAX correcto o contra
+// cualquier otro fallback que devuelva un timestamp no-cero. La afirmación de
+// valor es la única que distingue el cálculo correcto de uno que devuelve
+// cualquier otra cosa no-cero.
 func TestStrayCandidates_TraeDistanciaYUltimaVista(t *testing.T) {
 	gormDB := testdb.SetupTestDB(t)
 	petRepo := repository.NewPetRepository(gormDB)
@@ -287,16 +287,19 @@ func TestStrayCandidates_TraeDistanciaYUltimaVista(t *testing.T) {
 	if encontrado.DistanceMeters < 250 || encontrado.DistanceMeters > 350 {
 		t.Errorf("DistanceMeters fuera de rango: %v (esperado ~300)", encontrado.DistanceMeters)
 	}
-	if diff := encontrado.LastSeenAt.Sub(lastSeen); diff < -time.Second || diff > time.Second {
-		t.Errorf("LastSeenAt = %v, esperado ~%v (el lastSeen sembrado)", encontrado.LastSeenAt, lastSeen)
+	if diff := encontrado.LastSeenNearbyAt.Sub(lastSeen); diff < -time.Second || diff > time.Second {
+		t.Errorf("LastSeenNearbyAt = %v, esperado ~%v (el lastSeen sembrado)", encontrado.LastSeenNearbyAt, lastSeen)
 	}
 }
 
-// El caso que el COALESCE(last_reported_at, created_at) existe para
-// resolver: un callejero SIN NINGÚN reloj de última vista propio
-// (LastReportedAt nil). El fallback tiene que caer en CreatedAt — y el test
-// de arriba no lo cubre, porque sembrarStray siempre estampa LastReportedAt.
-func TestStrayCandidates_SinUltimaVistaCaeEnCreatedAt(t *testing.T) {
+// El caso que el COALESCE(reports.occurred_at, reports.created_at) existe
+// para resolver: un reporte SIN OccurredAt propio. El fallback tiene que caer
+// en el CreatedAt de ESE REPORTE — no en el de la mascota, que es lo que
+// hacía la versión vieja de esta consulta (COALESCE sobre
+// pets.last_reported_at/pets.created_at) y dejó de hacer con el fix del
+// hallazgo #3: ahora el reloj sale de MAX(...) sobre los reportes dentro del
+// radio, así que el fallback por-fila tiene que ser el de report.CreatedAt.
+func TestStrayCandidates_SinOccurredAtCaeEnCreatedAtDelReporte(t *testing.T) {
 	gormDB := testdb.SetupTestDB(t)
 	petRepo := repository.NewPetRepository(gormDB)
 	userRepo := repository.NewUserRepository(gormDB)
@@ -311,8 +314,6 @@ func TestStrayCandidates_SinUltimaVistaCaeEnCreatedAt(t *testing.T) {
 		Name:       "SinUltimaVista",
 		Type:       "perro",
 		Status:     domain.PetStatusStray,
-		// LastReportedAt queda nil A PROPÓSITO: es el caso que resuelve el
-		// COALESCE de la consulta.
 	}
 	if err := petRepo.Create(pet); err != nil {
 		t.Fatalf("Create pet: %v", err)
@@ -325,6 +326,8 @@ func TestStrayCandidates_SinUltimaVistaCaeEnCreatedAt(t *testing.T) {
 		Status:     "sighting",
 		Latitude:   lat,
 		Longitude:  lng,
+		// OccurredAt queda nil A PROPÓSITO: es el caso que resuelve el
+		// COALESCE de la consulta.
 	}
 	if err := reportRepo.Create(rep); err != nil {
 		t.Fatalf("Create report: %v", err)
@@ -344,8 +347,176 @@ func TestStrayCandidates_SinUltimaVistaCaeEnCreatedAt(t *testing.T) {
 	if encontrado == nil {
 		t.Fatalf("no se encontró el candidato sembrado")
 	}
-	if diff := encontrado.LastSeenAt.Sub(pet.CreatedAt); diff < -time.Second || diff > time.Second {
-		t.Errorf("LastSeenAt = %v, esperado ~CreatedAt (%v): el COALESCE no está cayendo en created_at", encontrado.LastSeenAt, pet.CreatedAt)
+	if diff := encontrado.LastSeenNearbyAt.Sub(rep.CreatedAt); diff < -time.Second || diff > time.Second {
+		t.Errorf("LastSeenNearbyAt = %v, esperado ~report.CreatedAt (%v): el COALESCE no está cayendo en el created_at del reporte", encontrado.LastSeenNearbyAt, rep.CreatedAt)
+	}
+}
+
+// El hallazgo #3: el reloj y la distancia tienen que describir el MISMO
+// avistamiento. Se siembra una mascota con DOS reportes — uno ADENTRO del
+// radio pero VIEJO, y uno AFUERA del radio pero RECIENTE. Antes del fix, el
+// reloj salía de pets.last_reported_at (actualizado por TouchLastReported sin
+// ninguna cláusula de geografía — ver pet_repository.go), así que el reporte
+// lejano y reciente ganaba el reloj mientras el reporte cercano y viejo ganaba
+// la distancia: la tarjeta mostraría "a 300 m · visto hace 1 hora", una
+// combinación que nunca pasó. Con el fix, LastSeenNearbyAt se calcula sólo
+// sobre los reportes que ya pasaron el ST_DWithin, así que tiene que devolver
+// el timestamp del reporte VIEJO — el mismo que aporta la distancia — nunca
+// el reciente, que está fuera del radio.
+func TestStrayCandidates_ElRelojUsaSoloReportesDentroDelRadio(t *testing.T) {
+	gormDB := testdb.SetupTestDB(t)
+	petRepo := repository.NewPetRepository(gormDB)
+	userRepo := repository.NewUserRepository(gormDB)
+	reportRepo := repository.NewReportRepository(gormDB)
+
+	reporter := newTestUser(t, userRepo)
+
+	viejo := time.Now().Add(-90 * 24 * time.Hour) // hace 90 días, adentro del radio
+	reciente := time.Now().Add(-1 * time.Hour)    // hace 1 hora, AFUERA del radio
+
+	// Reporte viejo, DENTRO del radio (300m — bien adentro de 1km).
+	id := sembrarStray(t, gormDB, "DosReportes", "perro", desplazar(300), mvdLng, viejo)
+
+	// Reporte reciente, muy AFUERA del radio (30 km — 30x el radio de 1km).
+	// Se inserta directo, no vía agregarReporte, porque necesita su propio
+	// OccurredAt distinto del que siembra sembrarStray.
+	lejano := &domain.Report{
+		ID:         uuid.New(),
+		PetID:      id,
+		ReporterID: reporter.ID,
+		Status:     "sighting",
+		Latitude:   desplazar(30000),
+		Longitude:  mvdLng,
+		OccurredAt: &reciente,
+	}
+	if err := reportRepo.Create(lejano); err != nil {
+		t.Fatalf("Create reporte lejano: %v", err)
+	}
+	// reportRepo.Create (repositorio puro) NO toca pets.last_reported_at —
+	// eso lo hace el SERVICIO al crear un reporte (ver report_service.go /
+	// pet_service.go, que llaman TouchLastReported después de crear el
+	// reporte). Para que este test reproduzca de verdad la condición de
+	// producción — la que hacía fallar a la consulta vieja — hay que simular
+	// ese mismo paso: el reporte lejano y reciente SÍ avanza el reloj global
+	// de la mascota, monótono y sin geografía, exactamente como documenta
+	// TouchLastReported.
+	if err := petRepo.TouchLastReported(id.String(), reciente); err != nil {
+		t.Fatalf("TouchLastReported: %v", err)
+	}
+
+	cands, err := petRepo.FindStrayCandidates(domain.StrayCandidateCriteria{Lat: mvdLat, Lng: mvdLng})
+	if err != nil {
+		t.Fatalf("FindStrayCandidates: %v", err)
+	}
+
+	var encontrado *domain.StrayCandidate
+	for i := range cands {
+		if cands[i].PetID == id {
+			encontrado = &cands[i]
+		}
+	}
+	if encontrado == nil {
+		t.Fatalf("no se encontró el candidato sembrado")
+	}
+
+	// La distancia tiene que ser la del reporte CERCANO (~300m), no del lejano.
+	if encontrado.DistanceMeters < 250 || encontrado.DistanceMeters > 350 {
+		t.Errorf("DistanceMeters = %v, esperado ~300 (el reporte cercano): el lejano se está colando en el radio", encontrado.DistanceMeters)
+	}
+	// El reloj tiene que ser el del reporte VIEJO (el que está en el radio),
+	// NO el reciente que está a 30km de distancia.
+	if diff := encontrado.LastSeenNearbyAt.Sub(viejo); diff < -time.Second || diff > time.Second {
+		t.Errorf("LastSeenNearbyAt = %v, esperado ~%v (el reporte VIEJO, que es el único dentro del radio) — si dio algo cerca de %v, el reloj está mirando fuera del radio otra vez", encontrado.LastSeenNearbyAt, viejo, reciente)
+	}
+}
+
+// El hallazgo #2, mitad "hay primaria": si una mascota tiene una foto marcada
+// como primaria, esa es la que gana — sin importar el orden de inserción.
+func TestStrayCandidates_FotoPrimariaGana(t *testing.T) {
+	gormDB := testdb.SetupTestDB(t)
+	petRepo := repository.NewPetRepository(gormDB)
+	userRepo := repository.NewUserRepository(gormDB)
+	photoRepo := repository.NewPhotoRepository(gormDB)
+
+	lastSeen := time.Now().Add(-24 * time.Hour)
+	id := sembrarStray(t, gormDB, "ConPrimaria", "perro", desplazar(300), mvdLng, lastSeen)
+	uploader := newTestUser(t, userRepo)
+
+	base := time.Now().Add(-time.Hour).UTC()
+	vieja := &domain.Photo{ID: uuid.New(), PetID: id, URL: "https://cdn/vieja.jpg", UploadedBy: uploader.ID, CreatedAt: base, IsPrimary: false}
+	primaria := &domain.Photo{ID: uuid.New(), PetID: id, URL: "https://cdn/primaria.jpg", UploadedBy: uploader.ID, CreatedAt: base.Add(time.Minute), IsPrimary: true}
+	for _, p := range []*domain.Photo{vieja, primaria} {
+		if err := photoRepo.Create(p); err != nil {
+			t.Fatalf("Create photo: %v", err)
+		}
+	}
+
+	cands, err := petRepo.FindStrayCandidates(domain.StrayCandidateCriteria{Lat: mvdLat, Lng: mvdLng})
+	if err != nil {
+		t.Fatalf("FindStrayCandidates: %v", err)
+	}
+
+	var encontrado *domain.StrayCandidate
+	for i := range cands {
+		if cands[i].PetID == id {
+			encontrado = &cands[i]
+		}
+	}
+	if encontrado == nil {
+		t.Fatalf("no se encontró el candidato sembrado")
+	}
+	if encontrado.PhotoURL != "https://cdn/primaria.jpg" {
+		t.Errorf("PhotoURL = %q, esperado la primaria (https://cdn/primaria.jpg) aunque se haya subido después", encontrado.PhotoURL)
+	}
+}
+
+// El hallazgo #2, mitad "no hay primaria" — el caso real que motivó el fix:
+// photo_service.go DeletePhoto borra una foto sin promover reemplazo, así que
+// una mascota puede tener fotos y NINGUNA marcada primaria. Antes, el LEFT
+// JOIN con `is_primary = true` no matcheaba ninguna fila y PhotoURL llegaba
+// "" — una tarjeta sin foto es la más fácil de descartar en una pantalla cuyo
+// único trabajo es "¿es este animal?". El fix cae a la MÁS VIEJA.
+func TestStrayCandidates_SinPrimariaCaeEnLaMasVieja(t *testing.T) {
+	gormDB := testdb.SetupTestDB(t)
+	petRepo := repository.NewPetRepository(gormDB)
+	userRepo := repository.NewUserRepository(gormDB)
+	photoRepo := repository.NewPhotoRepository(gormDB)
+
+	lastSeen := time.Now().Add(-24 * time.Hour)
+	id := sembrarStray(t, gormDB, "SinPrimaria", "perro", desplazar(300), mvdLng, lastSeen)
+	uploader := newTestUser(t, userRepo)
+
+	base := time.Now().Add(-time.Hour).UTC()
+	// Ninguna de las dos es primaria: IsPrimary queda en su default false.
+	vieja := &domain.Photo{ID: uuid.New(), PetID: id, URL: "https://cdn/vieja.jpg", UploadedBy: uploader.ID, CreatedAt: base}
+	nueva := &domain.Photo{ID: uuid.New(), PetID: id, URL: "https://cdn/nueva.jpg", UploadedBy: uploader.ID, CreatedAt: base.Add(time.Minute)}
+	// Insertadas fuera de orden cronológico para probar que el orden lo da
+	// created_at y no el orden de inserción — mismo patrón que photo_order_test.go.
+	for _, p := range []*domain.Photo{nueva, vieja} {
+		if err := photoRepo.Create(p); err != nil {
+			t.Fatalf("Create photo: %v", err)
+		}
+	}
+
+	cands, err := petRepo.FindStrayCandidates(domain.StrayCandidateCriteria{Lat: mvdLat, Lng: mvdLng})
+	if err != nil {
+		t.Fatalf("FindStrayCandidates: %v", err)
+	}
+
+	var encontrado *domain.StrayCandidate
+	for i := range cands {
+		if cands[i].PetID == id {
+			encontrado = &cands[i]
+		}
+	}
+	if encontrado == nil {
+		t.Fatalf("no se encontró el candidato sembrado")
+	}
+	if encontrado.PhotoURL == "" {
+		t.Error("PhotoURL vino vacío con dos fotos sembradas y ninguna primaria: el fallback a la más vieja no está funcionando")
+	}
+	if encontrado.PhotoURL != "https://cdn/vieja.jpg" {
+		t.Errorf("PhotoURL = %q, esperado la MÁS VIEJA (https://cdn/vieja.jpg) al no haber primaria", encontrado.PhotoURL)
 	}
 }
 

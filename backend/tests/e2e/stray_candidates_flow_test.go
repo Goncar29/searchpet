@@ -88,18 +88,18 @@ func TestStrayCandidatesFlow_ExigeSesionYDevuelveElCallejeroCercano(t *testing.T
 	}
 
 	var candidates []struct {
-		ID             string    `json:"id"`
-		LastSeenAt     time.Time `json:"last_seen_at"`
-		DistanceMeters float64   `json:"distance_meters"`
+		ID               string    `json:"id"`
+		LastSeenNearbyAt time.Time `json:"last_seen_nearby_at"`
+		DistanceMeters   float64   `json:"distance_meters"`
 	}
 	if err := json.NewDecoder(getResp.Body).Decode(&candidates); err != nil {
 		t.Fatalf("get con token: decode failed: %v", err)
 	}
 
 	var match *struct {
-		ID             string    `json:"id"`
-		LastSeenAt     time.Time `json:"last_seen_at"`
-		DistanceMeters float64   `json:"distance_meters"`
+		ID               string    `json:"id"`
+		LastSeenNearbyAt time.Time `json:"last_seen_nearby_at"`
+		DistanceMeters   float64   `json:"distance_meters"`
 	}
 	for i := range candidates {
 		if candidates[i].ID == created.ID {
@@ -113,8 +113,8 @@ func TestStrayCandidatesFlow_ExigeSesionYDevuelveElCallejeroCercano(t *testing.T
 	if match.DistanceMeters < 250 || match.DistanceMeters > 350 {
 		t.Errorf("expected distance_meters entre 250 y 350 (desplazamos ~300m), got %f", match.DistanceMeters)
 	}
-	if match.LastSeenAt.IsZero() {
-		t.Error("expected last_seen_at distinto de cero")
+	if match.LastSeenNearbyAt.IsZero() {
+		t.Error("expected last_seen_nearby_at distinto de cero")
 	}
 }
 
@@ -154,5 +154,32 @@ func TestStrayCandidatesFlow_CoordenadasInvalidasSon400(t *testing.T) {
 			t.Errorf("query %q: want 400, got %d", query, resp.StatusCode)
 		}
 		resp.Body.Close()
+	}
+}
+
+// TestStrayCandidatesFlow_TipoInvalidoEs400 cubre el hallazgo #1 del code
+// review: `type` llegaba sin validar hasta el WHERE, así que "dog" (inglés) o
+// cualquier typo no daban una lista rara — daban `200 []`. En este endpoint
+// eso es peor que en cualquier otro filtro del proyecto: es un falso negativo
+// de un guardia anti-duplicados, indistinguible de "no hay avistamientos". El
+// wizard mostraría "no hay candidatos", la persona publicaría, y se crearía
+// exactamente el duplicado que este endpoint existe para evitar.
+func TestStrayCandidatesFlow_TipoInvalidoEs400(t *testing.T) {
+	baseURL, cleanup := startTestServer(t)
+	defer cleanup()
+
+	token, _ := registerAndLogin(t, baseURL)
+
+	const lat, lng = -34.9011, -56.1645
+	url := fmt.Sprintf("%s/api/pets/stray-candidates?lat=%f&lng=%f&type=dog", baseURL, lat, lng)
+	req, _ := http.NewRequest(http.MethodGet, url, nil)
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Errorf("type=dog (inglés, no está en la lista válida): want 400, got %d", resp.StatusCode)
 	}
 }

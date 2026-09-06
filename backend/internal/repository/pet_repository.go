@@ -138,21 +138,60 @@ func (r *PostgresPetRepository) FindStrayCandidates(c domain.StrayCandidateCrite
 		c.Lng, c.Lat,
 	)
 
-	// DISTINCT ON (pets.id): una mascota con varios reportes dentro del radio
-	// no se repite — se queda con su reporte MÁS CERCANO. Postgres exige que el
-	// ORDER BY de un DISTINCT ON arranque por la(s) misma(s) columna(s) del
-	// DISTINCT ON, así que este orden interno (pets.id primero) no sirve para
-	// la pantalla. Por eso la consulta de más abajo envuelve ésta en una
-	// subconsulta y recién ahí reordena por distancia y aplica el Limit.
+	// photoSubquery elige la foto de la tarjeta: la primaria si existe,
+	// si no la más vieja (mismo criterio que fotoDelMarcador en
+	// dto/report_dto.go). Va en una subconsulta CORRELACIONADA aparte, no en
+	// un LEFT JOIN como antes: con el GROUP BY de más abajo, un LEFT JOIN a
+	// photos multiplicaría cada fila de reports por cada foto de la mascota y
+	// arruinaría el MIN/MAX — agregación y selección de fila no se mezclan
+	// bien en un solo JOIN, así que se resuelven por separado.
+	//
+	// Antes esto era `LEFT JOIN photos ON ... AND photos.is_primary = true`,
+	// que da photo_url = '' apenas NINGUNA fila tiene el flag — y eso es
+	// alcanzable: photo_service.go DeletePhoto borra una foto sin promover
+	// reemplazo, así que una mascota puede tener fotos y ninguna primaria.
+	photoSubquery := `COALESCE((
+		SELECT photos.url FROM photos
+		WHERE photos.pet_id = pets.id
+		ORDER BY photos.is_primary DESC, photos.created_at ASC, photos.id ASC
+		LIMIT 1
+	), '') AS photo_url`
+
+	// GROUP BY reemplaza al DISTINCT ON de antes, y no es un cambio cosmético
+	// — es el fix del hallazgo #3. Con DISTINCT ON, last_seen_at salía de
+	// COALESCE(pets.last_reported_at, pets.created_at): una columna que
+	// TouchLastReported actualiza comparando SÓLO timestamps, sin geografía
+	// (ver más abajo en este archivo), así que agrega TODOS los reportes de
+	// la mascota sin importar dónde. distance_meters, en cambio, ya sólo veía
+	// los reportes DENTRO del radio (por el WHERE ST_DWithin). Esa mezcla
+	// podía mostrar "a 120 m · visto hace 2 horas" cuando el avistamiento de
+	// hace 2 horas fue en realidad a 30 km — una combinación que nunca
+	// ocurrió, y que un usuario lee como "está activo acá cerca".
+	//
+	// Agregando sobre el JOIN a reports (que YA está acotado por el mismo
+	// WHERE ST_DWithin que acota distance_meters), MIN(dist) y
+	// MAX(COALESCE(occurred_at, created_at)) leen exactamente el mismo
+	// conjunto de reportes: los que están dentro del radio. El reloj y la
+	// distancia vuelven a describir el mismo avistamiento.
+	//
+	// `GROUP BY pets.id` alcanza para poder seleccionar pets.name y pets.type
+	// sin agregarlas: Postgres permite referenciar cualquier columna de una
+	// tabla agrupada por su PRIMARY KEY (dependencia funcional, desde 9.1), y
+	// pets.id lo es.
+	//
+	// Nota: esto es estrictamente MÁS ANGOSTO que antes — nunca va a mostrar
+	// una fecha más reciente que la que ya mostraba, porque el máximo ahora
+	// corre sobre un subconjunto de los reportes que antes entraban en el
+	// COALESCE. No puede resucitar nada que la caducidad de 90 días escondiera
+	// en otra pantalla: sigue siendo la misma consulta que ignora
+	// straySightingNotExpired a propósito, sólo que el reloj que muestra ahora
+	// es honesto sobre A QUÉ avistamiento pertenece.
 	inner := r.db.Table("pets").
 		Select(fmt.Sprintf(
-			"DISTINCT ON (pets.id) pets.id AS pet_id, pets.name AS name, pets.type AS type, COALESCE(photos.url, '') AS photo_url, COALESCE(pets.last_reported_at, pets.created_at) AS last_seen_at, %s AS distance_meters",
-			distExpr,
+			"pets.id AS pet_id, pets.name AS name, pets.type AS type, %s, MIN(%s) AS distance_meters, MAX(COALESCE(reports.occurred_at, reports.created_at)) AS last_seen_nearby_at",
+			photoSubquery, distExpr,
 		)).
 		Joins("JOIN reports ON reports.pet_id = pets.id").
-		// LEFT JOIN: una mascota sin foto primaria sigue siendo un candidato
-		// válido, sólo que PhotoURL llega vacío en vez de descartarla.
-		Joins("LEFT JOIN photos ON photos.pet_id = pets.id AND photos.is_primary = true").
 		Where("pets.status = ?", domain.PetStatusStray).
 		Where(`
 			ST_DWithin(
@@ -161,7 +200,7 @@ func (r *PostgresPetRepository) FindStrayCandidates(c domain.StrayCandidateCrite
 				?
 			)
 		`, c.Lng, c.Lat, domain.StrayCandidateRadiusMeters).
-		Order(fmt.Sprintf("pets.id, %s ASC", distExpr))
+		Group("pets.id")
 
 	if c.PetType != "" {
 		inner = inner.Where("pets.type = ?", c.PetType)

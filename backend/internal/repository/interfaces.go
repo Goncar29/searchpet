@@ -53,6 +53,11 @@ type PetRepository interface {
 	//
 	// El radio y el tope tampoco son parámetros: viven en el dominio
 	// (StrayCandidateRadiusMeters, StrayCandidateLimit).
+	//
+	// LastSeenNearbyAt (ver domain.StrayCandidate) se calcula sobre los MISMOS
+	// reportes que DistanceMeters — los que caen dentro del radio — y no sobre
+	// pets.last_reported_at, que es global. Ver el comentario en la
+	// implementación para el bug concreto que evita.
 	FindStrayCandidates(c domain.StrayCandidateCriteria) ([]domain.StrayCandidate, error)
 	// CountPublicByUserID cuenta el total real detrás de FindPublicByUserID, sin
 	// el LIMIT que la acota. Tiene que aplicar el MISMO WHERE — mismo OR, misma
