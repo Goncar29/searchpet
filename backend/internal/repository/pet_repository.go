@@ -3,6 +3,7 @@ package repository
 import (
 	"errors"
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgconn"
@@ -105,13 +106,33 @@ func (r *PostgresPetRepository) FindByReporterID(reporterID string) ([]domain.Pe
 // publicar los avistamientos vencidos que las otras tres pantallas esconden,
 // para que no termine duplicando un animal que la comunidad ya reportó.
 func (r *PostgresPetRepository) FindStrayCandidates(c domain.StrayCandidateCriteria) ([]domain.StrayCandidate, error) {
+	// c.Lat/c.Lng se embeben más abajo como literal numérico vía fmt.Sprintf
+	// ("%g"), no como parámetro `?`. Eso no es una inyección — el tipo no es
+	// texto controlado por el usuario — pero SÍ es un 500 alcanzable desde un
+	// parámetro de query real: "%g" de NaN/+Inf/-Inf imprime literalmente
+	// "NaN"/"+Inf"/"-Inf", y Postgres interpreta eso como un IDENTIFICADOR de
+	// columna suelto, no como un número — devuelve
+	// `column "nan" does not exist` (42703) en vez de un 400 legible.
+	// Y strconv.ParseFloat("NaN", 64) TIENE ÉXITO: cada handler de lat/lng de
+	// este repo parsea así, sin chequeo de finitud, así que el día que el
+	// handler de este endpoint exista, `?lat=NaN` se cuela derecho hasta acá.
+	// El invariante ("las coordenadas son finitas") vive en el mismo lugar
+	// que arma el SQL a partir de ellas — no en cada llamador futuro, que es
+	// exactamente el tipo de guardia que este repo trata como no-parámetro
+	// (ver StrayCandidateRadiusMeters/StrayCandidateLimit): si dependiera de
+	// que cada caller recuerde validar, un caller que se olvide lo rompe.
+	if math.IsNaN(c.Lat) || math.IsNaN(c.Lng) || math.IsInf(c.Lat, 0) || math.IsInf(c.Lng, 0) {
+		return nil, domain.ErrInvalidInput
+	}
+
 	var cands []domain.StrayCandidate
 
 	// El SELECT y el ORDER BY usan fmt.Sprintf para embeber los float64
 	// directo, igual que en FindNearby (report_repository.go): gorm.Expr con
 	// `?` puede perder el ORDER BY en expresiones PostGIS en algunas versiones
 	// de GORM. Sin riesgo de inyección — el tipo no es texto controlado por el
-	// usuario.
+	// usuario. (La guarda de arriba es la que cubre el otro riesgo: un literal
+	// no-finito colándose como identificador.)
 	distExpr := fmt.Sprintf(
 		"ST_Distance(ST_SetSRID(ST_MakePoint(reports.longitude, reports.latitude), 4326)::geography, ST_SetSRID(ST_MakePoint(%g, %g), 4326)::geography)",
 		c.Lng, c.Lat,
