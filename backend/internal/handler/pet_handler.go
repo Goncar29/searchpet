@@ -333,6 +333,60 @@ func (h *PetHandler) SearchPets(c *gin.Context) {
 	c.JSON(http.StatusOK, result)
 }
 
+// StrayCandidates godoc
+// GET /api/pets/stray-candidates?lat=&lng=&type=
+// Protegido. Devuelve los callejeros cercanos —vencidos y vivos— para
+// preguntarle a quien va a publicar si no es alguno de esos.
+//
+// El radio NO se acepta por query: vive en domain.StrayCandidateRadiusMeters.
+func (h *PetHandler) StrayCandidates(c *gin.Context) {
+	lat, errLat := strconv.ParseFloat(c.Query("lat"), 64)
+	lng, errLng := strconv.ParseFloat(c.Query("lng"), 64)
+	if errLat != nil || errLng != nil || !validCoordinates(lat, lng) {
+		writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
+		return
+	}
+
+	// `type` es OPCIONAL igual que en report_handler.go, y se valida igual:
+	// un valor desconocido responde 400 en vez de colarse crudo al WHERE. Acá
+	// el silencio pesa más que en cualquier otro filtro del proyecto — este
+	// endpoint es un guardia anti-duplicados, y "type=dog" (inglés) o un typo
+	// no daría una lista rara, daría `200 []`. El wizard mostraría "no hay
+	// candidatos", la persona publicaría, y listo: se creó exactamente el
+	// duplicado que este endpoint existe para evitar. Un falso negativo acá es
+	// indistinguible de "no hay avistamientos", así que no puede resolverse
+	// ignorando el filtro.
+	petType := c.Query("type")
+	if petType != "" && !domain.IsValidPetType(petType) {
+		writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
+		return
+	}
+
+	candidates, err := h.petService.FindStrayCandidates(domain.StrayCandidateCriteria{
+		Lat:     lat,
+		Lng:     lng,
+		PetType: petType,
+	})
+	if err != nil {
+		// validCoordinates ya descarta NaN/±Inf antes de llegar acá — en Go toda
+		// comparación con NaN da false, así que `lat >= -90` (y las otras tres)
+		// son falsas para NaN sin importar el orden, y ±Inf cae fuera de rango
+		// como cualquier float normal. Esta rama es profundidad defensiva, no un
+		// camino vivo a través de ESTE handler: cubre a un futuro llamador del
+		// repositorio (o un cambio en validCoordinates) que no repita la misma
+		// guarda, igual que CreatePet y UpdatePet ya hacen con su propio
+		// ErrInvalidInput.
+		if errors.Is(err, domain.ErrInvalidInput) {
+			writeError(c, http.StatusBadRequest, err)
+			return
+		}
+		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
+		return
+	}
+
+	c.JSON(http.StatusOK, dto.ToStrayCandidateList(candidates))
+}
+
 // ListAdoptions godoc
 // GET /api/adoptions
 // Public — lists pets available for adoption (status "adoption" only).

@@ -2,6 +2,8 @@ package repository
 
 import (
 	"errors"
+	"fmt"
+	"math"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgconn"
@@ -94,6 +96,140 @@ func (r *PostgresPetRepository) FindByReporterID(reporterID string) ([]domain.Pe
 	var pets []domain.Pet
 	err := r.db.Preload("Photos", orderedPhotos).Where("reporter_id = ?", reporterID).Order("created_at DESC").Find(&pets).Error
 	return pets, err
+}
+
+// FindStrayCandidates — ver el contrato completo en repository/interfaces.go.
+//
+// La única consulta de mascotas que NO pasa por straySightingNotExpired: el
+// mapa, el feed y el perfil público existen para no mostrar avistamientos
+// viejos, y ésta existe justo para lo contrario — mostrarle a quien va a
+// publicar los avistamientos vencidos que las otras tres pantallas esconden,
+// para que no termine duplicando un animal que la comunidad ya reportó.
+func (r *PostgresPetRepository) FindStrayCandidates(c domain.StrayCandidateCriteria) ([]domain.StrayCandidate, error) {
+	// c.Lat/c.Lng se embeben más abajo como literal numérico vía fmt.Sprintf
+	// ("%g"), no como parámetro `?`. Eso no es una inyección — el tipo no es
+	// texto controlado por el usuario — pero SÍ es un 500 alcanzable desde un
+	// parámetro de query real: "%g" de NaN/+Inf/-Inf imprime literalmente
+	// "NaN"/"+Inf"/"-Inf", y Postgres interpreta eso como un IDENTIFICADOR de
+	// columna suelto, no como un número — devuelve
+	// `column "nan" does not exist` (42703) en vez de un 400 legible.
+	// Y strconv.ParseFloat("NaN", 64) TIENE ÉXITO: cada handler de lat/lng de
+	// este repo parsea así, sin chequeo de finitud, así que el día que el
+	// handler de este endpoint exista, `?lat=NaN` se cuela derecho hasta acá.
+	// El invariante ("las coordenadas son finitas") vive en el mismo lugar
+	// que arma el SQL a partir de ellas — no en cada llamador futuro, que es
+	// exactamente el tipo de guardia que este repo trata como no-parámetro
+	// (ver StrayCandidateRadiusMeters/StrayCandidateLimit): si dependiera de
+	// que cada caller recuerde validar, un caller que se olvide lo rompe.
+	if math.IsNaN(c.Lat) || math.IsNaN(c.Lng) || math.IsInf(c.Lat, 0) || math.IsInf(c.Lng, 0) {
+		return nil, domain.ErrInvalidInput
+	}
+
+	var cands []domain.StrayCandidate
+
+	// El SELECT y el ORDER BY usan fmt.Sprintf para embeber los float64
+	// directo, igual que en FindNearby (report_repository.go): gorm.Expr con
+	// `?` puede perder el ORDER BY en expresiones PostGIS en algunas versiones
+	// de GORM. Sin riesgo de inyección — el tipo no es texto controlado por el
+	// usuario. (La guarda de arriba es la que cubre el otro riesgo: un literal
+	// no-finito colándose como identificador.)
+	distExpr := fmt.Sprintf(
+		"ST_Distance(ST_SetSRID(ST_MakePoint(reports.longitude, reports.latitude), 4326)::geography, ST_SetSRID(ST_MakePoint(%g, %g), 4326)::geography)",
+		c.Lng, c.Lat,
+	)
+
+	// photoSubquery elige la foto de la tarjeta: la primaria si existe,
+	// si no la más vieja (mismo criterio que fotoDelMarcador en
+	// dto/report_dto.go). Va en una subconsulta CORRELACIONADA aparte, no en
+	// un LEFT JOIN como antes: con el GROUP BY de más abajo, un LEFT JOIN a
+	// photos multiplicaría cada fila de reports por cada foto de la mascota y
+	// arruinaría el MIN/MAX — agregación y selección de fila no se mezclan
+	// bien en un solo JOIN, así que se resuelven por separado.
+	//
+	// Antes esto era `LEFT JOIN photos ON ... AND photos.is_primary = true`,
+	// que da photo_url = '' apenas NINGUNA fila tiene el flag — y eso es
+	// alcanzable: photo_service.go DeletePhoto borra una foto sin promover
+	// reemplazo, así que una mascota puede tener fotos y ninguna primaria.
+	photoSubquery := `COALESCE((
+		SELECT photos.url FROM photos
+		WHERE photos.pet_id = pets.id
+		ORDER BY photos.is_primary DESC, photos.created_at ASC, photos.id ASC
+		LIMIT 1
+	), '') AS photo_url`
+
+	// GROUP BY reemplaza al DISTINCT ON de antes, y no es un cambio cosmético
+	// — es el fix del hallazgo #3. Con DISTINCT ON, last_seen_at salía de
+	// COALESCE(pets.last_reported_at, pets.created_at): una columna que
+	// TouchLastReported actualiza comparando SÓLO timestamps, sin geografía
+	// (ver más abajo en este archivo), así que agrega TODOS los reportes de
+	// la mascota sin importar dónde. distance_meters, en cambio, ya sólo veía
+	// los reportes DENTRO del radio (por el WHERE ST_DWithin). Esa mezcla
+	// podía mostrar "a 120 m · visto hace 2 horas" cuando el avistamiento de
+	// hace 2 horas fue en realidad a 30 km — una combinación que nunca
+	// ocurrió, y que un usuario lee como "está activo acá cerca".
+	//
+	// Agregando sobre el JOIN a reports (que YA está acotado por el mismo
+	// WHERE ST_DWithin que acota distance_meters), MIN(dist) y
+	// MAX(COALESCE(occurred_at, created_at)) leen exactamente el mismo
+	// conjunto de reportes: los que están dentro del radio. El reloj y la
+	// distancia vuelven a describir el mismo avistamiento.
+	//
+	// `GROUP BY pets.id` alcanza para poder seleccionar pets.name y pets.type
+	// sin agregarlas: Postgres permite referenciar cualquier columna de una
+	// tabla agrupada por su PRIMARY KEY (dependencia funcional, desde 9.1), y
+	// pets.id lo es.
+	//
+	// Nota: esto es estrictamente MÁS ANGOSTO que antes — nunca va a mostrar
+	// una fecha más reciente que la que ya mostraba, porque el máximo ahora
+	// corre sobre un subconjunto de los reportes que antes entraban en el
+	// COALESCE. No puede resucitar nada que la caducidad de 90 días escondiera
+	// en otra pantalla: sigue siendo la misma consulta que ignora
+	// straySightingNotExpired a propósito, sólo que el reloj que muestra ahora
+	// es honesto sobre A QUÉ avistamiento pertenece.
+	inner := r.db.Table("pets").
+		Select(fmt.Sprintf(
+			"pets.id AS pet_id, pets.name AS name, pets.type AS type, %s, MIN(%s) AS distance_meters, MAX(COALESCE(reports.occurred_at, reports.created_at)) AS last_seen_nearby_at",
+			photoSubquery, distExpr,
+		)).
+		Joins("JOIN reports ON reports.pet_id = pets.id").
+		Where("pets.status = ?", domain.PetStatusStray).
+		Where(`
+			ST_DWithin(
+				ST_SetSRID(ST_MakePoint(reports.longitude, reports.latitude), 4326)::geography,
+				ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography,
+				?
+			)
+		`, c.Lng, c.Lat, domain.StrayCandidateRadiusMeters).
+		Group("pets.id")
+
+	if c.PetType != "" {
+		inner = inner.Where("pets.type = ?", c.PetType)
+	}
+
+	// A propósito, tres cosas que esta consulta NO hace y las demás sí:
+	//
+	//   - Sin filtro de episodio (a diferencia de FindNearby). Ese filtro
+	//     existe para que el mapa de una búsqueda activa no mezcle pines de
+	//     episodios viejos; acá la pregunta es "¿este animal ya está
+	//     registrado?" y un episodio cerrado no cambia la respuesta. Además
+	//     current_episode_id es NULLABLE y compararlo contra NULL da NULL —
+	//     eso excluiría en SILENCIO a todo callejero sin episodio abierto,
+	//     justo lo contrario de lo que esta consulta necesita mostrar.
+	//
+	//   - Sin Preload de Owner ni Reporter. Esta lista se muestra para
+	//     RECONOCER un animal, no para contactar a nadie, y PetResponse expone
+	//     el teléfono del dueño sin condición (ver la lección del preload de
+	//     Owner en el perfil público: "el dato ya es público en otro lado" no
+	//     equivale a "este camino no agrega exposición").
+	//
+	//   - Sin straySightingNotExpired. Es la razón de ser de esta consulta —
+	//     ver el contrato completo en interfaces.go.
+	err := r.db.Table("(?) AS candidates", inner).
+		Order("distance_meters ASC").
+		Limit(domain.StrayCandidateLimit).
+		Find(&cands).Error
+
+	return cands, err
 }
 
 // publicProfilePetLimit acota la lista del perfil público.

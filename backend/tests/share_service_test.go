@@ -80,6 +80,9 @@ func (m *mockPetRepoForShare) FindByReporterID(reporterID string) ([]domain.Pet,
 func (m *mockPetRepoForShare) FindPublicByUserID(_ string) ([]domain.Pet, error) {
 	return nil, nil
 }
+func (m *mockPetRepoForShare) FindStrayCandidates(_ domain.StrayCandidateCriteria) ([]domain.StrayCandidate, error) {
+	return nil, nil
+}
 func (m *mockPetRepoForShare) CountPublicByUserID(_ string) (int64, error)       { return 0, nil }
 func (m *mockPetRepoForShare) Update(pet *domain.Pet) error                      { return nil }
 func (m *mockPetRepoForShare) UpdateStatus(id string, status string) error       { return nil }

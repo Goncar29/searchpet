@@ -42,6 +42,23 @@ type PetRepository interface {
 	// XOR reporter y nada más asigna `Pet.OwnerID`; el OR está para no
 	// duplicar si algún día los datos lo permiten.
 	FindPublicByUserID(userID string) ([]domain.Pet, error)
+	// FindStrayCandidates devuelve los callejeros cercanos al punto consultado
+	// para preguntarle a quien va a publicar si no es uno de esos.
+	//
+	// Es la ÚNICA consulta de mascotas que NO aplica straySightingNotExpired, y
+	// eso es su contrato entero: existe para ver justo lo que el feed, el mapa y
+	// el perfil público esconden. No aplicarla NO es un parámetro — un
+	// `include_expired` colgado de un endpoint compartido sería una perilla que
+	// apaga la protección desde la superficie que la protección cuida.
+	//
+	// El radio y el tope tampoco son parámetros: viven en el dominio
+	// (StrayCandidateRadiusMeters, StrayCandidateLimit).
+	//
+	// LastSeenNearbyAt (ver domain.StrayCandidate) se calcula sobre los MISMOS
+	// reportes que DistanceMeters — los que caen dentro del radio — y no sobre
+	// pets.last_reported_at, que es global. Ver el comentario en la
+	// implementación para el bug concreto que evita.
+	FindStrayCandidates(c domain.StrayCandidateCriteria) ([]domain.StrayCandidate, error)
 	// CountPublicByUserID cuenta el total real detrás de FindPublicByUserID, sin
 	// el LIMIT que la acota. Tiene que aplicar el MISMO WHERE — mismo OR, misma
 	// allowlist leída de domain.PublicProfileVisibleStatuses — o la pantalla

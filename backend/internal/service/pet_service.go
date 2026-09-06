@@ -39,6 +39,9 @@ type PetService interface {
 	PublishLost(ownerID string, petID string, req dto.PublishLostRequest) (*domain.Pet, error)
 	// SearchPets aplica filtros opcionales y devuelve resultados paginados.
 	SearchPets(criteria domain.PetSearchCriteria) (dto.PetSearchResponse, error)
+	// FindStrayCandidates devuelve los callejeros cercanos para la pregunta
+	// "¿no es alguno de estos?" del alta. Ver el contrato del repositorio.
+	FindStrayCandidates(c domain.StrayCandidateCriteria) ([]domain.StrayCandidate, error)
 }
 
 // petService es la implementación concreta del PetService.
@@ -545,6 +548,12 @@ func (s *petService) SearchPets(criteria domain.PetSearchCriteria) (dto.PetSearc
 		Page:  page,
 		Limit: limit,
 	}, nil
+}
+
+// FindStrayCandidates es un passthrough al repositorio — la consulta, el
+// radio y el tope viven ahí (ver domain.StrayCandidateCriteria).
+func (s *petService) FindStrayCandidates(c domain.StrayCandidateCriteria) ([]domain.StrayCandidate, error) {
+	return s.repo.FindStrayCandidates(c)
 }
 
 // MarkAsFound marca una mascota como encontrada usando el state machine.
