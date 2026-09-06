@@ -77,6 +77,30 @@ export interface Pet {
   created_at: string;
 }
 
+/**
+ * Un avistamiento de callejero cercano, para la pregunta "¿no es alguno de
+ * estos?" del alta (GET /api/pets/stray-candidates).
+ *
+ * NO hay ningún campo "vencido", y es deliberado: la pantalla muestra la fecha,
+ * que es el HECHO que la persona usa para reconocer al animal. "Vencido" es
+ * jerga nuestra, no significa nada para quien lo lee, y sugiere que el animal ya
+ * no está — que es justo lo que nadie sabe.
+ *
+ * `last_seen_nearby_at` dice "nearby" a propósito y viene siempre con valor (el
+ * backend resuelve el COALESCE). Es la última vista **dentro del radio
+ * consultado**, no la última vista en cualquier lado: sale de los mismos
+ * reportes-en-radio de los que sale `distance_meters`. Aparearlo con un reloj
+ * global presentaría dos datos de reportes distintos como un solo hecho.
+ */
+export interface StrayCandidate {
+  id: string;
+  name: string;
+  type: PetType;
+  photo_url?: string;
+  last_seen_nearby_at: string;
+  distance_meters: number;
+}
+
 export interface Report {
   id: string;
   pet_id: string;

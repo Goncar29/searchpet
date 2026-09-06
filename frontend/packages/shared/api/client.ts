@@ -49,6 +49,7 @@ import type {
   User,
   UserPreferences,
   Pet,
+  StrayCandidate,
   CreatePetRequest,
   UpdatePetRequest,
   PublishLostRequest,
@@ -425,6 +426,23 @@ class APIClient {
 
   async getReportedPets(): Promise<Pet[]> {
     return this.request<Pet[]>('GET', '/api/pets/reported');
+  }
+
+  // getStrayCandidates — callejeros cercanos para la pregunta "¿no es alguno de
+  // estos?" del alta (GET /api/pets/stray-candidates, protegido).
+  //
+  // El radio NO se manda y el tope tampoco: los dos viven en el backend
+  // (domain.StrayCandidateRadiusMeters, domain.StrayCandidateLimit). Un radio
+  // por query sería una perilla que, puesta en cero, apagaría la búsqueda entera
+  // sin que nada avise.
+  async getStrayCandidates(params: {
+    lat: number;
+    lng: number;
+    type?: string;
+  }): Promise<StrayCandidate[]> {
+    const query: Record<string, string | number> = { lat: params.lat, lng: params.lng };
+    if (params.type) query['type'] = params.type;
+    return this.request<StrayCandidate[]>('GET', '/api/pets/stray-candidates', undefined, query);
   }
 
   // getUserPets — lo que OTRA persona publicó y todavía no cerró
