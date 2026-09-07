@@ -1,8 +1,19 @@
 // Post (Publish wizard) screen smoke test
 import React from 'react';
+import { Alert } from 'react-native';
 import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
 import * as ImagePicker from 'expo-image-picker';
 import PostScreen from '../app/(tabs)/post';
+import { calendarDayToISO } from '../../shared/utils/reportDate';
+
+// El mock global de `jest.setup.js` devuelve un `jest.fn()` NUEVO en cada
+// llamada a useRouter(), así que no se puede afirmar nada sobre él desde
+// afuera. Acá hace falta una referencia estable para verificar a dónde deriva
+// "es este".
+const mockPush = jest.fn();
+jest.mock('expo-router', () => ({
+  useRouter: () => ({ push: mockPush, back: jest.fn(), replace: jest.fn(), navigate: jest.fn() }),
+}));
 
 jest.mock('@maplibre/maplibre-react-native', () => {
   const React = require('react');
@@ -58,19 +69,53 @@ jest.mock('../store', () => ({
 
 const mockPublishLostMutateAsync = jest.fn();
 const mockCreatePetMutateAsync = jest.fn();
+const mockCreateReportMutateAsync = jest.fn();
+const mockPublishStrayMutateAsync = jest.fn();
 
 jest.mock('@shared/hooks', () => ({
   useMyPets: jest.fn(() => ({ data: [], isLoading: false })),
   usePublishLost: jest.fn(() => ({ mutateAsync: mockPublishLostMutateAsync, isPending: false })),
-  usePublishStrayNative: jest.fn(() => ({ mutateAsync: jest.fn(), isPending: false })),
+  usePublishStrayNative: jest.fn(() => ({ mutateAsync: mockPublishStrayMutateAsync, isPending: false })),
   useCreatePet: jest.fn(() => ({ mutateAsync: mockCreatePetMutateAsync, isPending: false })),
   useUploadPhotoNative: jest.fn(() => ({ mutateAsync: jest.fn(), isPending: false })),
+  // Por default: NO hay callejeros cerca. Con eso el paso de candidatos se
+  // saltea solo y los casos de abajo siguen midiendo lo que siempre midieron —
+  // el default del mock preserva el flujo anterior en vez de reescribirlo.
+  // Los casos que SÍ ejercitan el paso pisan este valor.
+  useStrayCandidates: jest.fn(() => ({
+    data: [],
+    isLoading: false,
+    isPending: false,
+    isPaused: false,
+    isError: false,
+    refetch: jest.fn(),
+  })),
+  useCreateReport: jest.fn(() => ({ mutateAsync: mockCreateReportMutateAsync, isPending: false })),
 }));
 
-const { useMyPets } = jest.requireMock('@shared/hooks');
+const { useMyPets, useStrayCandidates } = jest.requireMock('@shared/hooks');
 
 beforeEach(() => {
   useMyPets.mockReturnValue({ data: [], isLoading: false });
+  // Vuelve al default "no hay callejeros cerca", así el paso se saltea y los
+  // casos que no lo ejercitan miden lo que siempre midieron.
+  useStrayCandidates.mockReturnValue({
+    data: [],
+    isLoading: false,
+    isPending: false,
+    isPaused: false,
+    isError: false,
+    refetch: jest.fn(),
+  });
+  mockPublishStrayMutateAsync.mockReset();
+  mockPublishStrayMutateAsync.mockResolvedValue({
+    pet: { id: 'pet-2', name: 'Sin nombre', type: 'perro', status: 'stray', photos: [] },
+    failedPhotoIndexes: [],
+  });
+  mockCreateReportMutateAsync.mockReset();
+  mockCreateReportMutateAsync.mockResolvedValue({ id: 'report-1' });
+  mockPush.mockReset();
+  jest.spyOn(Alert, 'alert').mockImplementation(() => {});
   mockPublishLostMutateAsync.mockReset();
   mockPublishLostMutateAsync.mockResolvedValue({ id: 'pet-1', status: 'lost' });
   mockCreatePetMutateAsync.mockReset();
@@ -202,6 +247,174 @@ describe('PostScreen — stray path', () => {
     fireEvent.press(getByText('pets:types.perro'));
     fireEvent.press(getByText('publish:strayForm.next'));
     expect(getByText('publish:location.title')).toBeTruthy();
+  });
+});
+
+// El paso sólo cumple su función si INTERCEPTA: mostrar la lista sin frenar el
+// alta no evitaría ningún duplicado. Por eso lo que se afirma acá es que NO se
+// publicó — que la tarjeta se dibuje ya lo cubre CandidatesStep.test.
+describe('PostScreen — el paso de candidatos intercepta el alta', () => {
+  const candidato = {
+    id: 'pet-vecino',
+    name: 'Marroncito',
+    type: 'perro',
+    photo_url: '',
+    last_seen_nearby_at: new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString(),
+    distance_meters: 312,
+  };
+
+  const conCandidatos = (over: Record<string, unknown> = {}) => {
+    useStrayCandidates.mockReturnValue({
+      data: [candidato],
+      isLoading: false,
+      isPending: false,
+      isPaused: false,
+      isError: false,
+      refetch: jest.fn(),
+      ...over,
+    });
+  };
+
+  // El día que se carga en el mapa. Se escribe en el input y se compara contra
+  // `calendarDayToISO`, NO contra un ISO literal: el helper convierte a la
+  // medianoche LOCAL, así que una constante haría pasar el test en Montevideo y
+  // fallar en cualquier runner con otra zona horaria.
+  const DIA = '2026-08-30';
+
+  // Deja el wizard parado en el paso de candidatos, con el borrador completo.
+  //
+  // Carga la nota y la fecha a propósito: son los dos campos que "es este" se
+  // estaba comiendo, y con el formulario vacío la aserción del payload pasaría
+  // sin probar que viajan.
+  const llegarACandidatos = async () => {
+    (ImagePicker.launchImageLibraryAsync as jest.Mock).mockResolvedValue({
+      canceled: false,
+      assets: [{ uri: 'file:///stray.jpg' }],
+    });
+    const utils = render(<PostScreen />);
+    fireEvent.press(utils.getByText('publish:intent.strayTitle'));
+    await act(async () => {
+      fireEvent.press(utils.getByText('publish:strayForm.gallery'));
+    });
+    fireEvent.press(utils.getByText('pets:types.perro'));
+    fireEvent.press(utils.getByText('publish:strayForm.next'));
+    fireEvent.changeText(utils.getByTestId('location-note-input'), 'Estaba atrás del kiosco');
+    fireEvent.changeText(utils.getByTestId('location-date-input'), DIA);
+    await act(async () => {
+      fireEvent.press(utils.getByText('publish:location.publish'));
+    });
+    return utils;
+  };
+
+  it('con un callejero cerca pregunta ANTES de publicar, y no publica', async () => {
+    conCandidatos();
+    const { getByText, queryByText } = await llegarACandidatos();
+
+    expect(getByText('publish:candidates.title')).toBeTruthy();
+    expect(getByText('Marroncito')).toBeTruthy();
+    // Lo que importa: la mascota NO se creó.
+    expect(mockPublishStrayMutateAsync).not.toHaveBeenCalled();
+    expect(queryByText('publish:success.strayTitle')).toBeNull();
+  });
+
+  it('"ninguno" publica el callejero nuevo', async () => {
+    conCandidatos();
+    const { getByText } = await llegarACandidatos();
+
+    await act(async () => {
+      fireEvent.press(getByText('publish:candidates.noneOfThem'));
+    });
+
+    expect(mockPublishStrayMutateAsync).toHaveBeenCalledTimes(1);
+    expect(getByText('publish:success.strayTitle')).toBeTruthy();
+  });
+
+  // "Es este" reporta sobre la ficha existente CON la ubicación que la persona
+  // ya marcó, y no crea ninguna mascota. Un tap, sin volver a pedir el dato.
+  it('"es este" reporta sobre la ficha existente y NO crea nada', async () => {
+    conCandidatos();
+    const { getByText } = await llegarACandidatos();
+
+    fireEvent.press(getByText('publish:candidates.isThisOne'));
+
+    // El Alert de confirmación: se dispara el botón de confirmar.
+    const [, , botones] = (Alert.alert as jest.Mock).mock.calls.at(-1);
+    await act(async () => {
+      await botones.find((b: { text: string }) => b.text === 'publish:candidates.confirmAction').onPress();
+    });
+
+    // La nota y la fecha viajan. Sin ellas el backend estampa `created_at` como
+    // hora del avistamiento, y un reporte de hace días revive la ficha con un
+    // reloj falso — que es justo el dato que este paso le muestra al próximo.
+    expect(mockCreateReportMutateAsync).toHaveBeenCalledWith({
+      pet_id: 'pet-vecino',
+      status: 'sighting',
+      latitude: -34.9011,
+      longitude: -56.1645,
+      location_description: 'Estaba atrás del kiosco',
+      occurred_at: calendarDayToISO(DIA),
+    });
+    expect(mockPublishStrayMutateAsync).not.toHaveBeenCalled();
+    expect(mockPush).toHaveBeenCalledWith('/pet/pet-vecino');
+  });
+
+  // Una consulta caída no puede dejar a nadie sin publicar un animal que está
+  // en la calle ahora: se muestra el cartel y la salida sigue publicando.
+  it('con la consulta caída ofrece publicar igual, y publica', async () => {
+    conCandidatos({ data: undefined, isError: true });
+    const { getByText } = await llegarACandidatos();
+
+    expect(getByText('publish:candidates.errorTitle')).toBeTruthy();
+    expect(mockPublishStrayMutateAsync).not.toHaveBeenCalled();
+
+    await act(async () => {
+      fireEvent.press(getByText('publish:candidates.publishAnyway'));
+    });
+    expect(mockPublishStrayMutateAsync).toHaveBeenCalledTimes(1);
+  });
+
+  // El cartel de error se dibuja FUERA del switch de pasos, así que sobrevive a
+  // la transición: sin limpiarlo, acertar después de fallar dejaba un error rojo
+  // arriba de la pantalla de "¡Listo!".
+  it('un reintento exitoso no deja el error del intento anterior', async () => {
+    conCandidatos();
+    mockPublishStrayMutateAsync.mockRejectedValueOnce(new Error('boom'));
+    const { getByText, queryByText } = await llegarACandidatos();
+
+    await act(async () => {
+      fireEvent.press(getByText('publish:candidates.noneOfThem'));
+    });
+    const elError = queryByText('errors:unknown_error');
+    expect(elError).toBeTruthy();
+
+    await act(async () => {
+      fireEvent.press(getByText('publish:candidates.noneOfThem'));
+    });
+
+    expect(getByText('publish:success.strayTitle')).toBeTruthy();
+    expect(queryByText('errors:unknown_error')).toBeNull();
+  });
+
+  // Los dos botones del paso siguen ADELANTE (publicar igual / es este), así
+  // que sin la flecha una ubicación mal marcada no tiene arreglo salvo salirse
+  // de la pestaña. Y tiene que volver a `location` con el borrador VIVO: si
+  // rebotara al selector, corregir el pin costaría cargar las fotos de nuevo.
+  it('la flecha vuelve al mapa sin perder el borrador', async () => {
+    conCandidatos();
+    const { getByText, queryByText } = await llegarACandidatos();
+
+    fireEvent.press(getByText('← publish:backStep'));
+
+    expect(getByText('publish:location.publish')).toBeTruthy();
+    expect(queryByText('publish:intent.strayTitle')).toBeNull();
+
+    // El borrador sobrevivió: volver a publicar reabre el paso de candidatos
+    // en vez de rebotar por falta de datos.
+    await act(async () => {
+      fireEvent.press(getByText('publish:location.publish'));
+    });
+    expect(getByText('publish:candidates.title')).toBeTruthy();
+    expect(mockPublishStrayMutateAsync).not.toHaveBeenCalled();
   });
 });
 

@@ -570,12 +570,16 @@
       "title": "Is it one of these?",
       "subtitle": "We found sightings near where you saw it. If it is the same animal, add your sighting to its page instead of creating a new one.",
       "lastSeen": "Seen around here {{when}}",
+      "lastSeenOn": "Seen around here on {{date}}",
       "distance": "{{meters}} m away",
       "isThisOne": "This is the one",
       "noneOfThem": "None of these, it is a different animal",
       "errorTitle": "We could not look for nearby sightings",
       "errorBody": "There may already be a page for this animal. You can retry or publish anyway.",
-      "publishAnyway": "Publish anyway"
+      "publishAnyway": "Publish anyway",
+      "confirmTitle": "Is this the animal you saw?",
+      "confirmBody": "We will add your sighting to {{name}}'s page, at the spot you marked. No new post is created.",
+      "confirmAction": "Yes, report it"
     },
     "success": {
       "lostTitle": "Done! Your pet is marked as lost",
