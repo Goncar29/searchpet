@@ -95,6 +95,48 @@ func SetupTestDB(t *testing.T) *gorm.DB {
 		t.Fatalf("testdb: failed to connect after 5 attempts: %v", err)
 	}
 
+	// El candado ANTES de migrar y de tocar una fila. `go test ./...` corre los
+	// paquetes en PARALELO sobre esta única base, y el t.Cleanup de abajo trunca
+	// TODAS las tablas: sin esto, un test de `cmd/seed` que termina le vacía la
+	// base por debajo a uno de `tests` que está a mitad de camino. No es
+	// hipotético — así se veía `TestAbuseReportRepository_CreateAndGetByID`
+	// fallando en la corrida completa y pasando aislado (issue #226).
+	//
+	// Va acá y no como `-p 1` en el workflow a propósito: `-p 1` arregla el CI y
+	// deja la carrera viva en cada `go test ./...` local, y encima hay que
+	// acordarse de ponerlo en cada invocación nueva — olvidarse NO da error,
+	// simplemente vuelve la carrera. Puesto donde se toma la base, no hay dónde
+	// olvidarlo. Es la misma lección que la regla #44.
+	//
+	// De paso cierra la otra mitad, que el issue no nombraba: dos paquetes
+	// corriendo AutoMigrate y golang-migrate a la vez sobre el mismo schema.
+	//
+	// DESPUÉS del bucle de reintentos de arriba y no antes, y no es un detalle
+	// de orden: el bucle existe para tolerar el arranque lento del contenedor de
+	// Postgres, y tomar el candado primero lo puenteaba — la primera conexión
+	// del candado fallaba sin reintento y mataba la suite entera contra una base
+	// que iba a estar lista un segundo después. El bucle sólo conecta y hace
+	// ping, no toca schema ni filas, así que correrlo sin el candado es seguro.
+
+	// El cierre del pool se registra ANTES de pedir el candado, y no junto al
+	// truncate de más abajo. Motivo: si `acquireSuiteLock` falla, este t.Fatalf
+	// se va sin que exista todavía ningún cleanup que cierre el pool que el
+	// bucle de reintentos ya abrió con un Ping exitoso — y son ~250 los tests
+	// que llaman a SetupTestDB. Un fallo sistémico (Postgres reiniciando a mitad
+	// de la suite) filtraría una conexión ociosa por test hasta agotar
+	// max_connections, y la cascada de "too many clients already" TAPA el error
+	// original. Es el mismo pool que cierra el cleanup de abajo; cerrarlo dos
+	// veces es inofensivo.
+	t.Cleanup(func() {
+		if sqlDB, err := db.DB(); err == nil {
+			sqlDB.Close()
+		}
+	})
+
+	if err := acquireSuiteLock(dsn, t.Logf); err != nil {
+		t.Fatalf("%v", err)
+	}
+
 	// AutoMigrate first — creates all base tables from domain models.
 	// SQL migrations run after so that ALTER TABLE statements find existing tables.
 	// Uses database.Models (the SAME canonical list production migrates) so the

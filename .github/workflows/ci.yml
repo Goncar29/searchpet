@@ -50,12 +50,29 @@ jobs:
         working-directory: ./backend
         run: go mod download
 
+      # `-timeout 12m` explícito, y no el default de 10m, por el advisory lock
+      # de `tests/testdb`: los paquetes se serializan contra la base, y el
+      # timeout de Go se cuenta desde que arranca cada binario — la espera en la
+      # cola INCLUIDA. O sea que el paquete que espera gasta su presupuesto
+      # haciendo cola, aunque sus propios tests duren un segundo.
+      #
+      # 12m y NO 20m, y el techo del job de arriba es el motivo: con
+      # `timeout-minutes: 20`, un `-timeout 20m` no puede dispararse nunca —
+      # checkout, setup-go y `go mod download` ya comieron parte de esos 20
+      # minutos antes de que este paso arranque. Si el candado alguna vez se
+      # traba, GitHub mata el runner y perdemos el `panic: test timed out` con
+      # su volcado de goroutines, que es exactamente el diagnóstico que hace
+      # falta para entender por qué se trabó. El timeout de Go tiene que quedar
+      # POR DEBAJO del techo del job para que llegue a hablar.
+      #
+      # Hoy sobra igual: con el candado puesto el paso tarda 210s medidos
+      # (eran 162s sin candado, o sea que serializar cuesta ~48s).
       - name: Run tests
         working-directory: ./backend
         env:
           DATABASE_URL: postgres://postgres:postgres@localhost:5432/lostpets_test?sslmode=disable
           JWT_SECRET: test-secret
-        run: go test ./... -v
+        run: go test ./... -v -timeout 12m
 
       - name: Build
         working-directory: ./backend
