@@ -23,6 +23,13 @@ const candidato: StrayCandidate = {
 };
 
 // El sobre mínimo de UseQueryResult que consume ListState.
+//
+// `isFetching` se DERIVA de `isLoading` salvo que el caso lo diga explícito, y
+// eso no es comodidad: en React Query `isLoading === isPending && isFetching`,
+// así que un stub con `isLoading: true, isFetching: false` es un estado que NO
+// EXISTE. Dejarlo construible hizo que estos tests pasaran contra un predicado
+// que la app real nunca satisface — un mock que modela lo imposible da verde
+// sobre código que no se ejecuta.
 const queryStub = (over: Record<string, unknown>) =>
   ({
     data: undefined,
@@ -30,6 +37,7 @@ const queryStub = (over: Record<string, unknown>) =>
     isPending: false,
     isPaused: false,
     isError: false,
+    isFetching: over.isLoading === true,
     refetch: jest.fn(),
     ...over,
   }) as never;
@@ -254,5 +262,48 @@ describe('la salida mientras la consulta carga', () => {
     );
     fireEvent.press(getByText('publish:candidates.publishWithoutWaiting'));
     expect(onSkip).toHaveBeenCalledTimes(1);
+  });
+
+  // Sin conectividad React Query PAUSA la consulta: `isFetching` es false y
+  // `isLoading` también, pero la consulta nunca contestó y va a correr sola al
+  // volver la red. `ListState` ya pinta acá su cartel de sin conexión, así que
+  // con el predicado angosto el botón decía "publicar igual" AL LADO de un
+  // cartel que explica que no se pudo consultar.
+  it('offline (isPaused) tampoco dice "publicar igual"', () => {
+    const { getByText } = render(
+      <CandidatesStep
+        query={queryStub({ isPaused: true, data: undefined })}
+        onSelect={jest.fn()}
+        onSkip={jest.fn()}
+      />,
+    );
+    expect(getByText('publish:candidates.publishWithoutWaiting')).toBeTruthy();
+  });
+
+  // Reintentar después de un error deja `status` en 'error', así que
+  // `isLoading` se queda en false mientras la petición está viva — en este
+  // deployment, los 30s o más que tarda Render en despertar.
+  it('un reintento en vuelo tras un error tampoco dice "publicar igual"', () => {
+    const { getByText } = render(
+      <CandidatesStep
+        query={queryStub({ isError: true, isFetching: true, data: undefined })}
+        onSelect={jest.fn()}
+        onSkip={jest.fn()}
+      />,
+    );
+    expect(getByText('publish:candidates.publishWithoutWaiting')).toBeTruthy();
+  });
+
+  // Y el contraejemplo que fija el `data == null`: con las tarjetas YA en
+  // pantalla, un refetch no cambia lo que la persona tiene delante.
+  it('un refetch con datos ya visibles sigue diciendo "ninguno de estos"', () => {
+    const { getByText } = render(
+      <CandidatesStep
+        query={queryStub({ isFetching: true, data: [candidato] })}
+        onSelect={jest.fn()}
+        onSkip={jest.fn()}
+      />,
+    );
+    expect(getByText('publish:candidates.noneOfThem')).toBeTruthy();
   });
 });

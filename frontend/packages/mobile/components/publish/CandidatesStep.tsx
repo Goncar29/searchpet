@@ -195,11 +195,31 @@ export function CandidatesStep({ query, onSelect, onSkip, isPublishing }: Candid
             El botón NO se deshabilita durante la carga, y es deliberado: este
             paso nunca bloquea a alguien apurado con un animal en la calle.
 
-            `isLoading` y NUNCA `isPending`: en React Query v5 una query con
-            `enabled: false` queda en `pending` para siempre, y ésta está
-            gateada por el paso (regla #60). */}
+            La condición es "hay una consulta que TODAVÍA no contestó", y eso
+            NO es sólo `isLoading`: ése cubre únicamente el primer intento.
+            Faltaban dos caminos, los dos alcanzables acá:
+
+              - `isPaused` — sin conectividad, React Query pausa la consulta y
+                `isFetching` es false. `ListState` ya pinta su cartel de sin
+                conexión, así que el botón decía "publicar igual" AL LADO de un
+                cartel que explica que no se pudo consultar.
+              - un refetch después de un error — el usuario toca "Reintentar",
+                `status` sigue en `'error'` y por eso `isLoading` se queda en
+                false durante todo el despertar de Render, que son 30s o más.
+
+            `isFetching || isPaused` y no `isFetching` solo: son estados
+            MUTUAMENTE EXCLUYENTES de `fetchStatus` ('fetching' contra
+            'paused'), así que el primero no implica al segundo.
+
+            El `data == null` es el que deja "ninguno de estos" para cuando la
+            persona SÍ vio las tarjetas: un refetch con datos ya en pantalla no
+            cambia lo que tiene delante.
+
+            Nunca `isPending`: en React Query v5 una query con `enabled: false`
+            queda en `pending` para siempre, y ésta está gateada por el paso
+            (regla #60). */}
         <Text style={styles.skipText}>
-          {query.isLoading
+          {(query.isFetching || query.isPaused) && query.data == null
             ? t('publish:candidates.publishWithoutWaiting')
             : query.data == null
               ? t('publish:candidates.publishAnyway')
