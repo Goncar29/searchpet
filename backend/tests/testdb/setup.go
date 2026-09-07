@@ -117,6 +117,22 @@ func SetupTestDB(t *testing.T) *gorm.DB {
 	// del candado fallaba sin reintento y mataba la suite entera contra una base
 	// que iba a estar lista un segundo después. El bucle sólo conecta y hace
 	// ping, no toca schema ni filas, así que correrlo sin el candado es seguro.
+
+	// El cierre del pool se registra ANTES de pedir el candado, y no junto al
+	// truncate de más abajo. Motivo: si `acquireSuiteLock` falla, este t.Fatalf
+	// se va sin que exista todavía ningún cleanup que cierre el pool que el
+	// bucle de reintentos ya abrió con un Ping exitoso — y son ~250 los tests
+	// que llaman a SetupTestDB. Un fallo sistémico (Postgres reiniciando a mitad
+	// de la suite) filtraría una conexión ociosa por test hasta agotar
+	// max_connections, y la cascada de "too many clients already" TAPA el error
+	// original. Es el mismo pool que cierra el cleanup de abajo; cerrarlo dos
+	// veces es inofensivo.
+	t.Cleanup(func() {
+		if sqlDB, err := db.DB(); err == nil {
+			sqlDB.Close()
+		}
+	})
+
 	if err := acquireSuiteLock(dsn, t.Logf); err != nil {
 		t.Fatalf("%v", err)
 	}

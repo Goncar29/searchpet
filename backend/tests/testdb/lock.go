@@ -43,6 +43,10 @@ var (
 	//
 	// Distinto de nil ES la señal de "ya lo tenemos": sólo se guarda el ÉXITO.
 	suiteLockRelease func()
+	// El backend pid de la sesión que tiene el candado de la suite. Lo lee
+	// TestAcquireSuiteLock_TomaLaClaveDeLaSuite para afirmar IDENTIDAD y no
+	// mera ocupación — ver el comentario de ese test.
+	suiteLockPID int
 )
 
 // esperaAvisadaTras es cuánto se tolera en la cola del candado antes de avisar
@@ -70,22 +74,33 @@ const esperaAvisadaTras = 30 * time.Second
 // conexión dedicada es que el candado sea de quien creemos mientras se lo
 // tiene; que se suelte al final está sostenido por el cierre del pool, no por
 // esto. Si algún día alguien saca ese cierre, esta línea NO lo salva.
-func lockDatabase(ctx context.Context, dsn string, key int64) (func(), error) {
+func lockDatabase(ctx context.Context, dsn string, key int64) (func(), int, error) {
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Silent),
 	})
 	if err != nil {
-		return nil, fmt.Errorf("testdb: conectando para el candado: %w", err)
+		return nil, 0, fmt.Errorf("testdb: conectando para el candado: %w", err)
 	}
 	sqlDB, err := db.DB()
 	if err != nil {
-		return nil, fmt.Errorf("testdb: pool para el candado: %w", err)
+		return nil, 0, fmt.Errorf("testdb: pool para el candado: %w", err)
 	}
 
 	conn, err := sqlDB.Conn(ctx)
 	if err != nil {
 		sqlDB.Close()
-		return nil, fmt.Errorf("testdb: conexión dedicada para el candado: %w", err)
+		return nil, 0, fmt.Errorf("testdb: conexión dedicada para el candado: %w", err)
+	}
+
+	// El pid de ESTA sesión, leído sobre la conexión dedicada. Es lo que permite
+	// a un test afirmar que el candado es NUESTRO y no de cualquiera: sin él,
+	// un `pg_try_advisory_lock` que devuelve false sólo dice que alguien lo
+	// tiene, y en `go test ./...` ese alguien es el paquete `tests`.
+	var pid int
+	if err := conn.QueryRowContext(ctx, "SELECT pg_backend_pid()").Scan(&pid); err != nil {
+		conn.Close()
+		sqlDB.Close()
+		return nil, 0, fmt.Errorf("testdb: pid de la sesión del candado: %w", err)
 	}
 
 	// `pg_advisory_lock` y NO `pg_try_advisory_lock`: el segundo devuelve false
@@ -94,7 +109,7 @@ func lockDatabase(ctx context.Context, dsn string, key int64) (func(), error) {
 	if _, err := conn.ExecContext(ctx, "SELECT pg_advisory_lock($1)", key); err != nil {
 		conn.Close()
 		sqlDB.Close()
-		return nil, fmt.Errorf("testdb: tomando el candado: %w", err)
+		return nil, 0, fmt.Errorf("testdb: tomando el candado: %w", err)
 	}
 
 	// Idempotente: los tests lo difieren Y lo llaman explícitamente en el medio
@@ -104,7 +119,7 @@ func lockDatabase(ctx context.Context, dsn string, key int64) (func(), error) {
 	var una sync.Once
 	return func() {
 		una.Do(func() { liberar(conn, sqlDB, key) })
-	}, nil
+	}, pid, nil
 }
 
 // liberar suelta el candado y desarma la conexión que lo tenía.
@@ -171,12 +186,13 @@ func acquireSuiteLock(dsn string, avisar func(string, ...any)) error {
 	// de la vida del test, sincrónicamente, y ese modo de falla no existe.
 	type resultado struct {
 		release func()
+		pid     int
 		err     error
 	}
 	hecho := make(chan resultado, 1)
 	go func() {
-		release, err := lockDatabase(context.Background(), dsn, suiteLockKey)
-		hecho <- resultado{release, err}
+		release, pid, err := lockDatabase(context.Background(), dsn, suiteLockKey)
+		hecho <- resultado{release, pid, err}
 	}()
 
 	var res resultado
@@ -195,5 +211,6 @@ func acquireSuiteLock(dsn string, avisar func(string, ...any)) error {
 		return res.err
 	}
 	suiteLockRelease = res.release
+	suiteLockPID = res.pid
 	return nil
 }

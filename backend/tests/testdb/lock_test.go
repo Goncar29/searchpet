@@ -85,7 +85,7 @@ func TestSuiteLock_TomaYSuelta(t *testing.T) {
 		t.Fatal("el candado ya estaba tomado antes de empezar: el test no puede medir nada")
 	}
 
-	release, err := lockDatabase(context.Background(), dsn, testLockKey)
+	release, _, err := lockDatabase(context.Background(), dsn, testLockKey)
 	if err != nil {
 		t.Fatalf("lockDatabase: %v", err)
 	}
@@ -113,7 +113,7 @@ func TestSuiteLock_TomaYSuelta(t *testing.T) {
 func TestSuiteLock_ElSegundoEsperaEnVezDeFallar(t *testing.T) {
 	dsn := dsnOrSkip(t)
 
-	primero, err := lockDatabase(context.Background(), dsn, testLockKey)
+	primero, _, err := lockDatabase(context.Background(), dsn, testLockKey)
 	if err != nil {
 		t.Fatalf("lockDatabase (primero): %v", err)
 	}
@@ -121,8 +121,20 @@ func TestSuiteLock_ElSegundoEsperaEnVezDeFallar(t *testing.T) {
 
 	llego := make(chan error, 1)
 	soltarSegundo := make(chan func(), 1)
+	// Ante CUALQUIER salida —incluido un t.Fatal en las aserciones de abajo— el
+	// segundo candado tiene que soltarse. Sin esto, un fallo intermedio libera
+	// el primero, deja que la goroutine tome `testLockKey`, y su `release`
+	// queda parqueado en el canal sin que nadie lo llame: la clave y su
+	// conexión quedan tomadas por el resto del binario.
+	defer func() {
+		select {
+		case release := <-soltarSegundo:
+			release()
+		default:
+		}
+	}()
 	go func() {
-		release, err := lockDatabase(context.Background(), dsn, testLockKey)
+		release, _, err := lockDatabase(context.Background(), dsn, testLockKey)
 		if release != nil {
 			soltarSegundo <- release
 		}
@@ -154,12 +166,6 @@ func TestSuiteLock_ElSegundoEsperaEnVezDeFallar(t *testing.T) {
 	case <-time.After(10 * time.Second):
 		t.Fatal("el segundo nunca entró después de soltar: quedó colgado")
 	}
-
-	select {
-	case release := <-soltarSegundo:
-		release()
-	default:
-	}
 }
 
 // esperarEnLaCola bloquea hasta que Postgres reporte una espera PENDIENTE sobre
@@ -181,9 +187,13 @@ func esperarEnLaCola(t *testing.T, dsn string, key int64) {
 	}
 	defer sqlDB.Close()
 
-	// La clave bigint se parte en (classid, objid) de 32 bits, con objsubid = 1.
+	// La clave bigint se parte en (classid, objid) de 32 bits. `objsubid = 1` NO
+	// es decorativo: identifica a la forma bigint de pg_advisory_lock, y la de
+	// dos enteros usa 2 — verificado contra Postgres. Sin ese filtro, un candado
+	// de dos enteros que casualmente componga los mismos 64 bits contaría como
+	// si fuera el nuestro.
 	const q = `SELECT count(*) FROM pg_locks
-	           WHERE locktype = 'advisory' AND NOT granted
+	           WHERE locktype = 'advisory' AND NOT granted AND objsubid = 1
 	             AND ((classid::bigint << 32) | objid::bigint) = $1`
 
 	limite := time.Now().Add(10 * time.Second)
@@ -217,34 +227,81 @@ func TestAcquireSuiteLock_UnFalloNoEnvenenaLosIntentosSiguientes(t *testing.T) {
 		t.Fatal("acquireSuiteLock contra un puerto cerrado devolvió nil")
 	}
 
-	if err := acquireSuiteLock(dsn, nil); err != nil {
+	// t.Logf y no nil: en `go test ./...` ESTA es la llamada que espera a que el
+	// paquete `tests` suelte el candado, o sea la espera más larga de la suite.
+	// Con nil sería justamente el hang mudo que `esperaAvisadaTras` existe para
+	// evitar.
+	if err := acquireSuiteLock(dsn, t.Logf); err != nil {
 		t.Fatalf("el fallo anterior quedó cacheado: el reintento contra la base viva falló con %v", err)
 	}
 }
 
-// Los dos tests de arriba prueban el MECANISMO con una clave de juguete, así
-// que los dos seguirían verdes si alguien le cambiara la clave a
-// `acquireSuiteLock` — y ahí el candado dejaría de excluir a nadie sin que un
-// solo test se ponga rojo. Eso es exactamente lo que el comentario de
-// `suiteLockKey` promete que no puede pasar, y una promesa sin aserción es un
-// comentario (regla #37).
+// Los tests de arriba prueban el MECANISMO con una clave de juguete, así que
+// seguirían verdes si alguien le cambiara la clave a `acquireSuiteLock` — y ahí
+// el candado dejaría de excluir a nadie sin que un solo test se ponga rojo. Eso
+// es exactamente lo que el comentario de `suiteLockKey` promete que no puede
+// pasar, y una promesa sin aserción es un comentario (regla #37).
 //
-// Este test cierra esa punta: llama al camino REAL, el mismo que usa
-// SetupTestDB, y comprueba desde una sesión independiente que lo que quedó
-// tomado es `suiteLockKey`.
+// Este test cierra esa punta llamando al camino REAL, el mismo que usa
+// SetupTestDB.
 //
-// Va último a propósito. Toma el candado de la suite y —por diseño— no lo
-// suelta, así que a partir de acá este paquete serializa contra los demás. Si
-// el paquete `tests` lo tiene, esta llamada ESPERA: eso no es un cuelgue, es el
-// candado funcionando.
+// AFIRMA IDENTIDAD Y NO OCUPACIÓN, y esa distinción es todo el test. La primera
+// versión preguntaba `pg_try_advisory_lock(suiteLockKey)` desde afuera y exigía
+// false, o sea "alguien lo tiene". Bajo `go test ./...` el paquete `tests`
+// retiene esa clave durante TODA su vida, así que con la clave mutada en el call
+// site el false lo producía ÉL y el test pasaba igual. Reproducido: con una
+// sesión externa reteniendo la clave real, el mutante daba `EXIT=0`. El rojo que
+// yo había medido sólo existía corriendo este paquete aislado — que no es como
+// corre el CI. Misma forma que la regla #41: una señal de éxito que también se
+// emite cuando el chequeo no ocurrió.
+//
+// Por eso pregunta por el `pid`: la fila de `pg_locks` tiene que estar GRANTED a
+// la sesión que abrió NUESTRO candado. Ningún otro proceso puede satisfacer eso.
+//
+// Sobre el orden: el candado de la suite lo toma el PRIMER test que llame a
+// `acquireSuiteLock` con éxito, que hoy es el de más arriba. No importa cuál
+// sea, y este test no depende de eso — `acquireSuiteLock` es idempotente y
+// `suiteLockPID` queda apuntando a la sesión que lo tomó, sea cual sea.
 func TestAcquireSuiteLock_TomaLaClaveDeLaSuite(t *testing.T) {
 	dsn := dsnOrSkip(t)
 
-	if err := acquireSuiteLock(dsn, nil); err != nil {
+	if err := acquireSuiteLock(dsn, t.Logf); err != nil {
 		t.Fatalf("acquireSuiteLock: %v", err)
 	}
-
-	if tryLockDesdeAfuera(t, dsn, suiteLockKey) {
-		t.Fatal("después de acquireSuiteLock, suiteLockKey seguía libre: el camino real NO usa la clave de la suite")
+	if suiteLockPID == 0 {
+		t.Fatal("acquireSuiteLock no dejó registrado el pid de la sesión del candado")
 	}
+
+	if !candadoGranted(t, dsn, suiteLockKey, suiteLockPID) {
+		t.Fatalf("la sesión del candado (pid %d) NO tiene granted la clave de la suite (%d): "+
+			"el camino real está usando otra clave", suiteLockPID, suiteLockKey)
+	}
+}
+
+// candadoGranted responde si `pid` tiene CONCEDIDO el advisory lock `key`.
+//
+// Se pregunta por (key, pid) juntos a propósito: `key` sola sólo dice que el
+// candado está ocupado, y bajo `go test ./...` siempre lo está — por otro
+// paquete. La conjunción es lo único que distingue "lo tenemos nosotros" de
+// "lo tiene alguien".
+func candadoGranted(t *testing.T, dsn string, key int64, pid int) bool {
+	t.Helper()
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
+	if err != nil {
+		t.Fatalf("conectando para mirar pg_locks: %v", err)
+	}
+	sqlDB, err := db.DB()
+	if err != nil {
+		t.Fatalf("sqlDB: %v", err)
+	}
+	defer sqlDB.Close()
+
+	var n int
+	const q = `SELECT count(*) FROM pg_locks
+	           WHERE locktype = 'advisory' AND granted AND objsubid = 1 AND pid = $1
+	             AND ((classid::bigint << 32) | objid::bigint) = $2`
+	if err := sqlDB.QueryRow(q, pid, key).Scan(&n); err != nil {
+		t.Fatalf("consultando pg_locks: %v", err)
+	}
+	return n > 0
 }
