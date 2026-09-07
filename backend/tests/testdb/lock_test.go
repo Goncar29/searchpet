@@ -89,6 +89,12 @@ func TestSuiteLock_TomaYSuelta(t *testing.T) {
 	if err != nil {
 		t.Fatalf("lockDatabase: %v", err)
 	}
+	// Diferido ADEMÁS de la llamada explícita de abajo, que es la que se está
+	// midiendo. Sin esto, un t.Fatal entre medio se va sin soltar y deja la
+	// clave tomada por una sesión viva: el test siguiente se cuelga para
+	// siempre esperándola, y una aserción clara se convierte en un timeout de
+	// todo el paquete atribuido a otro test. `release` es idempotente.
+	defer release()
 
 	if tryLockDesdeAfuera(t, dsn, testLockKey) {
 		t.Fatal("otra sesión pudo tomar el candado mientras lo teníamos: NO excluye")
@@ -111,20 +117,31 @@ func TestSuiteLock_ElSegundoEsperaEnVezDeFallar(t *testing.T) {
 	if err != nil {
 		t.Fatalf("lockDatabase (primero): %v", err)
 	}
+	defer primero() // idempotente; la llamada que se mide es la de más abajo
 
 	llego := make(chan error, 1)
-	var soltarSegundo func()
+	soltarSegundo := make(chan func(), 1)
 	go func() {
 		release, err := lockDatabase(context.Background(), dsn, testLockKey)
-		soltarSegundo = release
+		if release != nil {
+			soltarSegundo <- release
+		}
 		llego <- err
 	}()
 
-	// Con el primero puesto, el segundo NO puede haber entrado.
+	// El segundo tiene que estar EN LA COLA, y eso se le pregunta a Postgres.
+	//
+	// La versión anterior esperaba 300ms y concluía "no llegó ⇒ hay exclusión".
+	// Eso no se sostiene: antes de poder pedir el candado, la goroutine hace
+	// TCP + auth + ping, y en un runner cargado ese handshake solo puede pasarse
+	// de 300ms. O sea que el test habría pasado con la exclusión COMPLETAMENTE
+	// removida — medía la latencia de conexión y la reportaba como exclusión.
+	esperarEnLaCola(t, dsn, testLockKey)
+
 	select {
 	case err := <-llego:
 		t.Fatalf("el segundo entró con el candado tomado (err=%v): no hay exclusión", err)
-	case <-time.After(300 * time.Millisecond):
+	default:
 	}
 
 	primero()
@@ -134,12 +151,74 @@ func TestSuiteLock_ElSegundoEsperaEnVezDeFallar(t *testing.T) {
 		if err != nil {
 			t.Fatalf("el segundo falló en vez de entrar: %v", err)
 		}
-	case <-time.After(5 * time.Second):
+	case <-time.After(10 * time.Second):
 		t.Fatal("el segundo nunca entró después de soltar: quedó colgado")
 	}
 
-	if soltarSegundo != nil {
-		soltarSegundo()
+	select {
+	case release := <-soltarSegundo:
+		release()
+	default:
+	}
+}
+
+// esperarEnLaCola bloquea hasta que Postgres reporte una espera PENDIENTE sobre
+// `key`, o falla el test.
+//
+// `pg_locks` con `granted = false` es la afirmación exacta que hace falta: hay
+// una sesión formada en la cola de esa clave. Un sleep no puede afirmar eso —
+// sólo puede afirmar que algo no pasó todavía, que es compatible con que nunca
+// hubiera intentado.
+func esperarEnLaCola(t *testing.T, dsn string, key int64) {
+	t.Helper()
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
+	if err != nil {
+		t.Fatalf("conectando para mirar pg_locks: %v", err)
+	}
+	sqlDB, err := db.DB()
+	if err != nil {
+		t.Fatalf("sqlDB: %v", err)
+	}
+	defer sqlDB.Close()
+
+	// La clave bigint se parte en (classid, objid) de 32 bits, con objsubid = 1.
+	const q = `SELECT count(*) FROM pg_locks
+	           WHERE locktype = 'advisory' AND NOT granted
+	             AND ((classid::bigint << 32) | objid::bigint) = $1`
+
+	limite := time.Now().Add(10 * time.Second)
+	for time.Now().Before(limite) {
+		var enCola int
+		if err := sqlDB.QueryRow(q, key).Scan(&enCola); err != nil {
+			t.Fatalf("consultando pg_locks: %v", err)
+		}
+		if enCola > 0 {
+			return
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	t.Fatal("nadie quedó esperando en la cola del candado: el segundo no llegó a pedirlo, o no hay exclusión")
+}
+
+// Un fallo al tomar el candado NO puede quedar cacheado. Con `sync.Once` sí
+// quedaba: un Postgres que todavía no aceptaba conexiones —justo lo que el
+// bucle de reintentos de SetupTestDB existe para tolerar— envenenaba el
+// binario entero, y cada SetupTestDB posterior moría con el mismo error viejo
+// contra una base que ya estaba arriba.
+//
+// Verificado en su momento con una sonda: tras un primer intento contra un
+// puerto muerto, el intento siguiente contra la base VIVA seguía devolviendo el
+// error del puerto muerto.
+func TestAcquireSuiteLock_UnFalloNoEnvenenaLosIntentosSiguientes(t *testing.T) {
+	dsn := dsnOrSkip(t)
+
+	muerto := "postgres://postgres:postgres@127.0.0.1:59999/nada?sslmode=disable&connect_timeout=2"
+	if err := acquireSuiteLock(muerto, nil); err == nil {
+		t.Fatal("acquireSuiteLock contra un puerto cerrado devolvió nil")
+	}
+
+	if err := acquireSuiteLock(dsn, nil); err != nil {
+		t.Fatalf("el fallo anterior quedó cacheado: el reintento contra la base viva falló con %v", err)
 	}
 }
 
@@ -161,7 +240,7 @@ func TestSuiteLock_ElSegundoEsperaEnVezDeFallar(t *testing.T) {
 func TestAcquireSuiteLock_TomaLaClaveDeLaSuite(t *testing.T) {
 	dsn := dsnOrSkip(t)
 
-	if err := acquireSuiteLock(dsn); err != nil {
+	if err := acquireSuiteLock(dsn, nil); err != nil {
 		t.Fatalf("acquireSuiteLock: %v", err)
 	}
 

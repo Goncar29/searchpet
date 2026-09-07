@@ -36,11 +36,17 @@ mobile: ## Iniciar app React Native
 # TESTS
 # ============================================
 
+# `-timeout 30m` y no el default de 10m: `tests/testdb` serializa los paquetes
+# con un advisory lock, y el timeout de Go incluye la espera en la cola. Acá el
+# numero es MUY superior al de CI (12m) a proposito — no es descuido: en una
+# maquina de desarrollo el paquete `tests` tarda ~750s solo, contra ~210s en el
+# runner, asi que el que hace cola detras necesita ese margen. Sin esto, un
+# paquete sin nada roto muere con `panic: test timed out`.
 test: ## Ejecutar todos los tests
-	cd backend && go test ./... -v -cover
+	cd backend && go test ./... -v -cover -timeout 30m
 
 test-backend: ## Ejecutar tests del backend
-	cd backend && go test ./... -v -cover -count=1
+	cd backend && go test ./... -v -cover -count=1 -timeout 30m
 
 # ============================================
 # BUILD

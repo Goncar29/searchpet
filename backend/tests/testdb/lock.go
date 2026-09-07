@@ -2,8 +2,10 @@ package testdb
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"sync"
+	"time"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -30,8 +32,7 @@ import (
 const suiteLockKey int64 = 8_090_921_226
 
 var (
-	suiteLockOnce sync.Once
-	suiteLockErr  error
+	suiteLockMu sync.Mutex
 	// El release del candado de la suite, guardado y NUNCA llamado.
 	//
 	// Se guarda por dos motivos, y el segundo es el que importa: mantiene viva
@@ -39,8 +40,18 @@ var (
 	// función existe y que la decisión es no invocarla. Una variable descartada
 	// con `_` diría lo mismo pero no se puede leer desde un test ni desde una
 	// revisión.
-	suiteLockRelease func() //nolint:unused // sostiene la sesión que tiene el candado
+	//
+	// Distinto de nil ES la señal de "ya lo tenemos": sólo se guarda el ÉXITO.
+	suiteLockRelease func()
 )
+
+// esperaAvisadaTras es cuánto se tolera en la cola del candado antes de avisar
+// por qué no pasa nada. El candado NO tiene deadline a propósito (ver
+// acquireSuiteLock), así que sin este aviso una espera legítima y un cuelgue de
+// verdad se ven exactamente igual: cero salida hasta que `go test -timeout`
+// mata el proceso, y el panic apunta al test que casualmente llamó primero a
+// SetupTestDB.
+const esperaAvisadaTras = 30 * time.Second
 
 // lockDatabase toma el advisory lock `key` sobre una conexión DEDICADA y
 // devuelve la función que lo suelta. Quién elige `key` está explicado en el
@@ -86,21 +97,31 @@ func lockDatabase(ctx context.Context, dsn string, key int64) (func(), error) {
 		return nil, fmt.Errorf("testdb: tomando el candado: %w", err)
 	}
 
+	// Idempotente: los tests lo difieren Y lo llaman explícitamente en el medio
+	// (el diferido es la red para un t.Fatal entre medio, que si no dejaría la
+	// clave tomada y colgaría al test siguiente). Sin el Once, la segunda vuelta
+	// pegaría contra un pool ya cerrado.
+	var una sync.Once
 	return func() {
-		// DOS vías que sueltan, y cada una alcanza sola: el unlock explícito
-		// sobre la MISMA conexión que lo tomó, y el cierre del pool, que termina
-		// la sesión y hace que Postgres lo suelte. Medido con mutantes: sacando
-		// cualquiera de las dos el test sigue verde, y sacando las dos se pone
-		// rojo. O sea que son redundantes a propósito y el test afirma el
-		// RESULTADO —que el candado quedó libre— y no una línea en particular.
-		//
-		// `conn.Close()` NO es una tercera vía: devuelve la conexión al pool sin
-		// terminar la sesión, así que por sí solo no suelta nada. Es el mutante
-		// que pone el test en rojo.
-		_, _ = conn.ExecContext(context.Background(), "SELECT pg_advisory_unlock($1)", key)
-		conn.Close()
-		sqlDB.Close()
+		una.Do(func() { liberar(conn, sqlDB, key) })
 	}, nil
+}
+
+// liberar suelta el candado y desarma la conexión que lo tenía.
+func liberar(conn *sql.Conn, sqlDB *sql.DB, key int64) {
+	// DOS vías que sueltan, y cada una alcanza sola: el unlock explícito
+	// sobre la MISMA conexión que lo tomó, y el cierre del pool, que termina
+	// la sesión y hace que Postgres lo suelte. Medido con mutantes: sacando
+	// cualquiera de las dos el test sigue verde, y sacando las dos se pone
+	// rojo. O sea que son redundantes a propósito y el test afirma el
+	// RESULTADO —que el candado quedó libre— y no una línea en particular.
+	//
+	// `conn.Close()` NO es una tercera vía: devuelve la conexión al pool sin
+	// terminar la sesión, así que por sí solo no suelta nada. Es el mutante
+	// que pone el test en rojo.
+	_, _ = conn.ExecContext(context.Background(), "SELECT pg_advisory_unlock($1)", key)
+	conn.Close()
+	sqlDB.Close()
 }
 
 // acquireSuiteLock toma el candado UNA vez por proceso y no lo suelta nunca.
@@ -121,14 +142,58 @@ func lockDatabase(ctx context.Context, dsn string, key int64) (func(), error) {
 // Llama a `lockDatabase` en vez de repetir su cuerpo, y eso NO es prolijidad:
 // antes eran dos implementaciones, y los tests del candado probaban la que la
 // suite no usa. Un verde sobre una copia no dice nada del original.
-func acquireSuiteLock(dsn string) error {
-	suiteLockOnce.Do(func() {
+//
+// Cachea el ÉXITO y NO el error, y por eso es un mutex y no un `sync.Once`.
+// Con `Once` el primer fallo quedaba cacheado para siempre: un Postgres que
+// todavía no aceptaba conexiones envenenaba el resto del binario, y CADA
+// SetupTestDB posterior moría con el mismo error viejo aunque la base hubiera
+// levantado un segundo después. Lo protege
+// TestAcquireSuiteLock_UnFalloNoEnvenenaLosIntentosSiguientes.
+//
+// `avisar` recibe la explicación de por qué se está esperando; puede ser nil.
+func acquireSuiteLock(dsn string, avisar func(string, ...any)) error {
+	suiteLockMu.Lock()
+	defer suiteLockMu.Unlock()
+
+	if suiteLockRelease != nil {
+		return nil
+	}
+
+	// El candado no tiene deadline (ver arriba), así que la única defensa contra
+	// un hang mudo es contar lo que está pasando mientras pasa.
+	//
+	// Quien espera es ESTA función y quien toma el candado es la goroutine, y no
+	// al revés. Con el reparto invertido —goroutine que avisa, hilo que toma— el
+	// aviso sale desde una goroutine, y `avisar` es el `t.Logf` del test que
+	// llamó a SetupTestDB: si el test termina antes de que esa goroutine llegue
+	// a escribir, Go entra en pánico con "Log in goroutine after test has
+	// completed" y se lleva puesta la suite. Así el aviso ocurre siempre dentro
+	// de la vida del test, sincrónicamente, y ese modo de falla no existe.
+	type resultado struct {
+		release func()
+		err     error
+	}
+	hecho := make(chan resultado, 1)
+	go func() {
 		release, err := lockDatabase(context.Background(), dsn, suiteLockKey)
-		if err != nil {
-			suiteLockErr = err
-			return
+		hecho <- resultado{release, err}
+	}()
+
+	var res resultado
+	select {
+	case res = <-hecho:
+	case <-time.After(esperaAvisadaTras):
+		if avisar != nil {
+			avisar("testdb: esperando el candado de la suite (advisory lock %d) desde hace %s. "+
+				"Otro proceso de test está usando esta base; esto es el candado funcionando, no un cuelgue.",
+				suiteLockKey, esperaAvisadaTras)
 		}
-		suiteLockRelease = release
-	})
-	return suiteLockErr
+		res = <-hecho
+	}
+
+	if res.err != nil {
+		return res.err
+	}
+	suiteLockRelease = res.release
+	return nil
 }
