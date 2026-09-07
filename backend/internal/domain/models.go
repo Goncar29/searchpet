@@ -564,3 +564,34 @@ const (
 	DefaultRoleChangeLimit = 50
 	MaxRoleChangeLimit     = 200
 )
+
+// LastSeen devuelve cuándo se vio por última vez a este animal, o nil si la
+// pregunta no aplica a su estado.
+//
+// El fallback a CreatedAt no es un default de conveniencia: un animal sin
+// reportes SÍ fue visto — alguien lo publicó porque lo vio. Tratar el NULL como
+// "sin información" dejaría en blanco justo el caso que hoy es ciego en la
+// ficha: el callejero que nadie volvió a reportar.
+//
+// OJO: este fallback existe TAMBIÉN en SQL, dentro de straySightingNotExpired
+// (`COALESCE(pets.last_reported_at, pets.created_at)`). Son dos definiciones de
+// la misma regla en dos lenguajes y no se pueden unificar —filtrar exige el SQL,
+// exponer exige el Go—, así que lo que las mantiene juntas es un test de
+// ACUERDO: TestPetLastSeen_CoincideConElCoalesceDelScope. Si tocás una, mirá la
+// otra.
+func (p *Pet) LastSeen() *time.Time {
+	relevante := false
+	for _, s := range LastSeenRelevantStatuses {
+		if p.Status == s {
+			relevante = true
+			break
+		}
+	}
+	if !relevante {
+		return nil
+	}
+	if p.LastReportedAt != nil {
+		return p.LastReportedAt
+	}
+	return &p.CreatedAt
+}
