@@ -5,6 +5,9 @@ import (
 	"time"
 
 	"lost-pets/internal/domain"
+	"lost-pets/tests/testdb"
+
+	"github.com/google/uuid"
 )
 
 // La allowlist tiene que decir que SÍ a los dos estados que se están buscando y
@@ -67,6 +70,57 @@ func TestPetLastSeen_NilFueraDeLaAllowlist(t *testing.T) {
 		p := &domain.Pet{Status: s, CreatedAt: visto, LastReportedAt: &visto}
 		if got := p.LastSeen(); got != nil {
 			t.Errorf("status %q: esperaba nil, obtuve %v", s, got)
+		}
+	}
+}
+
+// Go y SQL tienen que resolver la MISMA fecha.
+//
+// `Pet.LastSeen()` y el COALESCE de straySightingNotExpired son la misma regla
+// escrita dos veces. Una divergencia sería invisible mirándolas por separado:
+// los dos valores seguirían pareciendo razonables, mientras la ficha muestra una
+// fecha distinta de la que decidió si la mascota aparece en el feed.
+//
+// Va contra Postgres real y no contra un mock a propósito: lo que se compara es
+// el resultado de una expresión SQL, y un mock no tiene expresiones.
+func TestPetLastSeen_CoincideConElCoalesceDelScope(t *testing.T) {
+	db := testdb.SetupTestDB(t)
+
+	alta := time.Date(2026, 1, 10, 12, 0, 0, 0, time.UTC)
+	visto := time.Date(2026, 5, 3, 9, 30, 0, 0, time.UTC)
+
+	casos := []struct {
+		nombre string
+		pet    domain.Pet
+	}{
+		{"con reporte", domain.Pet{ID: uuid.New(), Name: "Con", Type: "perro", Status: domain.PetStatusStray, CreatedAt: alta, LastReportedAt: &visto}},
+		{"sin reporte", domain.Pet{ID: uuid.New(), Name: "Sin", Type: "perro", Status: domain.PetStatusStray, CreatedAt: alta}},
+		{"perdida sin reporte", domain.Pet{ID: uuid.New(), Name: "Perdida", Type: "gato", Status: domain.PetStatusLost, CreatedAt: alta}},
+	}
+
+	for _, c := range casos {
+		pet := c.pet
+		if err := db.Create(&pet).Error; err != nil {
+			t.Fatalf("%s: creando: %v", c.nombre, err)
+		}
+
+		// La MISMA expresión que usa straySightingNotExpired.
+		var desdeSQL time.Time
+		err := db.Raw(
+			"SELECT COALESCE(pets.last_reported_at, pets.created_at) FROM pets WHERE pets.id = ?",
+			pet.ID,
+		).Scan(&desdeSQL).Error
+		if err != nil {
+			t.Fatalf("%s: consultando: %v", c.nombre, err)
+		}
+
+		desdeGo := pet.LastSeen()
+		if desdeGo == nil {
+			t.Fatalf("%s: LastSeen() dio nil para un estado de la allowlist", c.nombre)
+		}
+		if !desdeGo.UTC().Round(time.Millisecond).Equal(desdeSQL.UTC().Round(time.Millisecond)) {
+			t.Errorf("%s: Go dice %v y SQL dice %v — las dos definiciones divergieron",
+				c.nombre, desdeGo.UTC(), desdeSQL.UTC())
 		}
 	}
 }
