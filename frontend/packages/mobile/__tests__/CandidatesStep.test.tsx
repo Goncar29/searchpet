@@ -213,3 +213,46 @@ describe('CandidatesStep', () => {
     }
   });
 });
+
+// Espeja los tests de la web: las dos plataformas tienen el mismo componente y
+// el mismo comportamiento, y la única forma de que no diverjan en silencio es
+// que las dos afirmen lo mismo.
+describe('la salida mientras la consulta carga', () => {
+  it('no dice "publicar igual" antes de que el chequeo haya contestado', () => {
+    const { getByText } = render(
+      <CandidatesStep
+        query={queryStub({ isLoading: true, data: undefined })}
+        onSelect={jest.fn()}
+        onSkip={jest.fn()}
+      />,
+    );
+    expect(getByText('publish:candidates.publishWithoutWaiting')).toBeTruthy();
+  });
+
+  // La mitad que fija la distinción: con la consulta CAÍDA sí corresponde
+  // "publicar igual", porque ahí no hay nada que esperar.
+  it('con la consulta caída sí dice "publicar igual"', () => {
+    const { getByText } = render(
+      <CandidatesStep
+        query={queryStub({ isError: true, data: undefined })}
+        onSelect={jest.fn()}
+        onSkip={jest.fn()}
+      />,
+    );
+    expect(getByText('publish:candidates.publishAnyway')).toBeTruthy();
+  });
+
+  // Y sigue sin bloquear.
+  it('la salida sigue habilitada mientras carga', () => {
+    const onSkip = jest.fn();
+    const { getByText } = render(
+      <CandidatesStep
+        query={queryStub({ isLoading: true, data: undefined })}
+        onSelect={jest.fn()}
+        onSkip={onSkip}
+      />,
+    );
+    fireEvent.press(getByText('publish:candidates.publishWithoutWaiting'));
+    expect(onSkip).toHaveBeenCalledTimes(1);
+  });
+});

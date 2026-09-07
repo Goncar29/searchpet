@@ -589,6 +589,7 @@
       "errorTitle": "No pudimos buscar avistamientos cercanos",
       "errorBody": "Puede que ya haya una ficha de este animal. Podés reintentar o publicar igual.",
       "publishAnyway": "Publicar igual",
+      "publishWithoutWaiting": "Publicar sin esperar",
       "confirmTitle": "¿Es este el animal que viste?",
       "confirmBody": "Vamos a sumar tu avistamiento a la ficha de {{name}}, en el lugar que marcaste. No se crea una publicación nueva.",
       "confirmAction": "Sí, reportar"

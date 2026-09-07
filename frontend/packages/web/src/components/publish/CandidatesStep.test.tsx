@@ -142,3 +142,55 @@ describe('CandidatesStep', () => {
     expect(screen.queryByText('publish:candidates.publishAnyway')).not.toBeInTheDocument();
   });
 });
+
+// La salida existe SIEMPRE (el paso nunca bloquea), pero su texto no puede
+// decir lo mismo mientras carga que cuando la consulta falló.
+//
+// Con `data == null` a secas los dos estados son indistinguibles: en los dos
+// `data` es undefined. El usuario ve el esqueleto y, al lado, un botón que dice
+// "publicar igual" — que afirma que ya miró los candidatos y ninguno era. No
+// miró ninguno: todavía no llegaron.
+describe('la salida mientras la consulta carga', () => {
+  it('no dice "publicar igual" antes de que el chequeo haya contestado', () => {
+    render(
+      <CandidatesStep
+        query={queryStub({ isLoading: true, data: undefined })}
+        onSelect={vi.fn()}
+        onSkip={vi.fn()}
+      />,
+    );
+    expect(screen.getByTestId('candidates-skip')).toHaveTextContent(
+      'publish:candidates.publishWithoutWaiting',
+    );
+  });
+
+  // La mitad que fija la distinción: con la consulta CAÍDA sí corresponde
+  // "publicar igual", porque ahí no hay nada que esperar.
+  it('con la consulta caída sí dice "publicar igual"', () => {
+    render(
+      <CandidatesStep
+        query={queryStub({ isError: true, data: undefined })}
+        onSelect={vi.fn()}
+        onSkip={vi.fn()}
+      />,
+    );
+    expect(screen.getByTestId('candidates-skip')).toHaveTextContent(
+      'publish:candidates.publishAnyway',
+    );
+  });
+
+  // Y sigue sin bloquear: el paso nunca deja a alguien encerrado con un animal
+  // en la calle esperando una consulta.
+  it('la salida sigue habilitada mientras carga', () => {
+    const onSkip = vi.fn();
+    render(
+      <CandidatesStep
+        query={queryStub({ isLoading: true, data: undefined })}
+        onSelect={vi.fn()}
+        onSkip={onSkip}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('candidates-skip'));
+    expect(onSkip).toHaveBeenCalledTimes(1);
+  });
+});

@@ -179,13 +179,31 @@ export function CandidatesStep({ query, onSelect, onSkip, isPublishing }: Candid
         disabled={isPublishing}
         accessibilityRole="button"
       >
-        {/* El texto sigue a lo que la persona TIENE DELANTE. Sin datos no vio
-            ninguna tarjeta, así que "ninguno de estos" no se refiere a nada:
-            ahí la salida honesta es "publicar igual". */}
+        {/* El texto sigue a lo que la persona TIENE DELANTE, y son TRES
+            estados, no dos. Sin datos no vio ninguna tarjeta, así que "ninguno
+            de estos" no se refiere a nada — pero "publicar igual" tampoco vale
+            mientras la consulta sigue en vuelo: afirma que ya miró y descartó,
+            cuando lo que pasa es que todavía no llegaron. Con `data == null` a
+            secas los dos son indistinguibles, porque en los dos `data` es
+            undefined.
+
+            Acá pesa MÁS que en la web: en red móvil la ventana de carga es
+            larga y la gente toca rápido, así que ésta es la vía más probable de
+            que el paso no cumpla su función — más que un 500, que al menos
+            muestra un cartel explicando qué pasó.
+
+            El botón NO se deshabilita durante la carga, y es deliberado: este
+            paso nunca bloquea a alguien apurado con un animal en la calle.
+
+            `isLoading` y NUNCA `isPending`: en React Query v5 una query con
+            `enabled: false` queda en `pending` para siempre, y ésta está
+            gateada por el paso (regla #60). */}
         <Text style={styles.skipText}>
-          {query.data == null
-            ? t('publish:candidates.publishAnyway')
-            : t('publish:candidates.noneOfThem')}
+          {query.isLoading
+            ? t('publish:candidates.publishWithoutWaiting')
+            : query.data == null
+              ? t('publish:candidates.publishAnyway')
+              : t('publish:candidates.noneOfThem')}
         </Text>
       </TouchableOpacity>
     </View>

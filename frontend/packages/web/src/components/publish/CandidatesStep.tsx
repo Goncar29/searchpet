@@ -165,12 +165,26 @@ export function CandidatesStep({ query, onSelect, onSkip, isPublishing }: Candid
         disabled={isPublishing}
         className="mt-6 w-full rounded-xl border border-gray-300 dark:border-gray-600 px-4 py-3 text-sm font-semibold text-gray-700 dark:text-gray-300 transition-colors hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        {/* El texto sigue a lo que el usuario TIENE DELANTE. Sin datos no vio
-            ninguna tarjeta, así que "ninguno de estos" no se refiere a nada:
-            ahí la salida honesta es "publicar igual". */}
-        {query.data == null
-          ? t('publish:candidates.publishAnyway')
-          : t('publish:candidates.noneOfThem')}
+        {/* El texto sigue a lo que el usuario TIENE DELANTE, y son TRES
+            estados, no dos. Sin datos no vio ninguna tarjeta, así que "ninguno
+            de estos" no se refiere a nada — pero "publicar igual" tampoco vale
+            mientras la consulta sigue en vuelo: afirma que ya miró y descartó,
+            cuando lo que pasa es que todavía no llegaron. Con `data == null` a
+            secas los dos son indistinguibles, porque en los dos `data` es
+            undefined.
+
+            El botón NO se deshabilita durante la carga, y es deliberado: este
+            paso nunca bloquea a alguien apurado con un animal en la calle. Lo
+            que cambia es que deje de mentir sobre por qué está ahí.
+
+            `isLoading` y NUNCA `isPending`: en React Query v5 una query con
+            `enabled: false` queda en `pending` para siempre, y ésta está
+            gateada por el paso (regla #60). */}
+        {query.isLoading
+          ? t('publish:candidates.publishWithoutWaiting')
+          : query.data == null
+            ? t('publish:candidates.publishAnyway')
+            : t('publish:candidates.noneOfThem')}
       </button>
     </div>
   );
