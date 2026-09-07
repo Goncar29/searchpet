@@ -69,6 +69,25 @@ func SetupTestDB(t *testing.T) *gorm.DB {
 		t.Skip("DATABASE_URL not set — skipping integration test")
 	}
 
+	// El candado ANTES de migrar y de tocar una fila. `go test ./...` corre los
+	// paquetes en PARALELO sobre esta única base, y el t.Cleanup de abajo trunca
+	// TODAS las tablas: sin esto, un test de `cmd/seed` que termina le vacía la
+	// base por debajo a uno de `tests` que está a mitad de camino. No es
+	// hipotético — así se veía `TestAbuseReportRepository_CreateAndGetByID`
+	// fallando en la corrida completa y pasando aislado (issue #226).
+	//
+	// Va acá y no como `-p 1` en el workflow a propósito: `-p 1` arregla el CI y
+	// deja la carrera viva en cada `go test ./...` local, y encima hay que
+	// acordarse de ponerlo en cada invocación nueva — olvidarse NO da error,
+	// simplemente vuelve la carrera. Puesto donde se toma la base, no hay dónde
+	// olvidarlo. Es la misma lección que la regla #44.
+	//
+	// De paso cierra la otra mitad, que el issue no nombraba: dos paquetes
+	// corriendo AutoMigrate y golang-migrate a la vez sobre el mismo schema.
+	if err := acquireSuiteLock(dsn); err != nil {
+		t.Fatalf("testdb: %v", err)
+	}
+
 	var db *gorm.DB
 	var err error
 
