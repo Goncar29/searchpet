@@ -53,7 +53,6 @@ const mockAuthState = {
   token: 'jwt-token' as string | null,
   isAuthenticated: true,
   isLoading: false,
-    isFetching: false,
   login: jest.fn(),
   register: jest.fn(),
 };
@@ -220,7 +219,7 @@ describe('PostScreen — lost path', () => {
         { id: 'pet-2', name: 'Michi', type: 'gato', status: 'lost', photos: [] },
       ],
       isLoading: false,
-    isFetching: false,
+      isFetching: false,
     });
     const { getByText, queryByText } = render(<PostScreen />);
     fireEvent.press(getByText('publish:intent.lostTitle'));
@@ -273,7 +272,7 @@ describe('PostScreen — el paso de candidatos intercepta el alta', () => {
     useStrayCandidates.mockReturnValue({
       data: [candidato],
       isLoading: false,
-    isFetching: false,
+      isFetching: false,
       isPending: false,
       isPaused: false,
       isError: false,
@@ -470,7 +469,7 @@ describe('PostScreen — location step', () => {
     useMyPets.mockReturnValue({
       data: [{ id: 'pet-1', name: 'Firulais', type: 'perro', status: 'registered', photos: [] }],
       isLoading: false,
-    isFetching: false,
+      isFetching: false,
     });
     const { getByText, getByTestId } = render(<PostScreen />);
     fireEvent.press(getByText('publish:intent.lostTitle'));
@@ -504,7 +503,7 @@ describe('PostScreen — unauthenticated lost path', () => {
     useMyPets.mockReturnValue({
       data: [{ id: 'pet-1', name: 'Firulais', type: 'perro', status: 'registered', photos: [] }],
       isLoading: false,
-    isFetching: false,
+      isFetching: false,
     });
 
     const { getByText, queryByText, getByPlaceholderText } = render(<PostScreen />);
@@ -534,7 +533,7 @@ describe('PostScreen — salir del paso elegido', () => {
     useMyPets.mockReturnValue({
       data: [{ id: 'pet-1', name: 'Firulais', type: 'perro', status: 'registered', photos: [] }],
       isLoading: false,
-    isFetching: false,
+      isFetching: false,
     });
     const { getByText } = render(<PostScreen />);
     fireEvent.press(getByText('publish:intent.lostTitle'));
@@ -578,7 +577,7 @@ describe('PostScreen — el usuario ya tiene mascotas propias', () => {
     useMyPets.mockReturnValue({
       data: [{ id: 'pet-1', name: 'Nala', type: 'perro', status: 'lost', photos: [] }],
       isLoading: false,
-    isFetching: false,
+      isFetching: false,
     });
     const { getByText, queryByText } = render(<PostScreen />);
     fireEvent.press(getByText('publish:intent.lostTitle'));
@@ -594,7 +593,7 @@ describe('PostScreen — el usuario ya tiene mascotas propias', () => {
     useMyPets.mockReturnValue({
       data: [{ id: 'pet-1', name: 'Toby', type: 'perro', status: 'adoption', photos: [] }],
       isLoading: false,
-    isFetching: false,
+      isFetching: false,
     });
     const { getByText, queryByText } = render(<PostScreen />);
     fireEvent.press(getByText('publish:intent.lostTitle'));
@@ -612,7 +611,7 @@ describe('PostScreen — fecha del reporte', () => {
     useMyPets.mockReturnValue({
       data: [{ id: 'pet-1', name: 'Firulais', type: 'perro', status: 'registered', photos: [] }],
       isLoading: false,
-    isFetching: false,
+      isFetching: false,
     });
     const utils = render(<PostScreen />);
     fireEvent.press(utils.getByText('publish:intent.lostTitle'));

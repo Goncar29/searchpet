@@ -309,3 +309,37 @@ describe('la salida mientras la consulta carga', () => {
     expect(getByText('publish:candidates.noneOfThem')).toBeTruthy();
   });
 });
+
+// El salteo automático NO puede correr con un alta en vuelo, y con "no correr"
+// alcanza sólo si además QUEDA consumido.
+//
+// El tercer render es el que separa SUPRIMIR de DIFERIR: si el guard sale sin
+// marcar el ref, cuando la publicación FALLA (`isPublishing` vuelve a false con
+// el paso todavía en 'candidates') el efecto se reanuda y dispara un segundo
+// `onSkip()` sin que nadie toque nada — encima borrando el error que la persona
+// tenía que leer. Si la primera request llegó al server, son dos mascotas.
+it('no saltea automáticamente si ya hay un alta en vuelo, ni cuando esa alta falla', () => {
+  const onSkip = jest.fn();
+  const props = (q: never, pub: boolean) => ({
+    query: q,
+    onSelect: jest.fn(),
+    onSkip,
+    isPublishing: pub,
+  });
+
+  const { rerender, getByText } = render(
+    <CandidatesStep {...props(queryStub({ isLoading: true }), false)} />,
+  );
+
+  // La persona toca la salida: el alta arranca.
+  fireEvent.press(getByText('publish:candidates.publishWithoutWaiting'));
+  expect(onSkip).toHaveBeenCalledTimes(1);
+
+  // La consulta contesta vacío con la publicación todavía en vuelo.
+  rerender(<CandidatesStep {...props(queryStub({ data: [] }), true)} />);
+  expect(onSkip).toHaveBeenCalledTimes(1);
+
+  // Y el alta FALLA.
+  rerender(<CandidatesStep {...props(queryStub({ data: [] }), false)} />);
+  expect(onSkip).toHaveBeenCalledTimes(1);
+});

@@ -253,6 +253,8 @@ describe('la salida mientras la consulta carga', () => {
     );
   });
 
+});
+
 // El salteo automático NO puede correr con un alta en vuelo.
 //
 // Mobile ya tenía este guard (se aplicó en el #230) y la web NO — divergieron
@@ -289,5 +291,20 @@ it('no saltea automáticamente si ya hay un alta en vuelo', () => {
   );
 
   expect(onSkip).toHaveBeenCalledTimes(1);
-});
+
+  // Y AHORA el alta FALLA: `isPublishing` vuelve a false con el paso todavía
+  // en 'candidates'. Este tercer render es el que separa SUPRIMIR de DIFERIR —
+  // sin él, el test certifica un guard que no se sostiene: la primera versión
+  // salía sin marcar el ref y acá disparaba un segundo `onSkip()`, borrando de
+  // paso el error que la persona tenía que leer.
+  rerender(
+    <CandidatesStep
+      query={queryStub({ data: [] })}
+      onSelect={vi.fn()}
+      onSkip={onSkip}
+      isPublishing={false}
+    />,
+  );
+
+  expect(onSkip).toHaveBeenCalledTimes(1);
 });

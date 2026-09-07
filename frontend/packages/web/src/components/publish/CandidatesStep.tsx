@@ -71,7 +71,22 @@ export function CandidatesStep({ query, onSelect, onSkip, isPublishing }: Candid
     //
     // Mobile ya lo tenía desde el #230 y acá faltaba: las dos plataformas
     // divergieron en silencio durante dos PRs.
-    if (!sinCandidatos || yaSalteo.current || isPublishing) return;
+    if (!sinCandidatos || yaSalteo.current) return;
+    // Con un alta EN VUELO el salteo se consume igual, no se pospone. Marcar el
+    // ref y salir —en vez de sólo salir— es la diferencia entre suprimir y
+    // DIFERIR: `isPublishing` está en las deps, así que si la publicación FALLA
+    // (500, offline, timeout del cold start de Render) vuelve a false, el efecto
+    // se re-ejecuta con `yaSalteo` todavía en false y dispara un SEGUNDO
+    // `onSkip()` sin que nadie toque nada — encima borrando el error que la
+    // persona tenía que leer. Si la primera request llegó al server, son dos
+    // mascotas.
+    //
+    // El click manual YA consumió el salteo automático: no queda nada que
+    // saltear después.
+    if (isPublishing) {
+      yaSalteo.current = true;
+      return;
+    }
     yaSalteo.current = true;
     onSkip();
   }, [sinCandidatos, onSkip, isPublishing]);

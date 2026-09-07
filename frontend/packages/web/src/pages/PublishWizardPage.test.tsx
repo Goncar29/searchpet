@@ -185,7 +185,7 @@ describe('PublishWizardPage — lost path', () => {
         { id: 'pet-2', name: 'Michi', type: 'gato', status: 'lost', photos: [] },
       ],
       isLoading: false,
-    isFetching: false,
+      isFetching: false,
     } as unknown as ReturnType<typeof useMyPets>);
 
     render(<PublishWizardPage />, { wrapper });
@@ -499,7 +499,7 @@ describe('PublishWizardPage — el paso de candidatos intercepta el alta', () =>
     vi.mocked(useStrayCandidates).mockReturnValue({
       data: [candidato],
       isLoading: false,
-    isFetching: false,
+      isFetching: false,
       isPending: false,
       isPaused: false,
       isError: false,
@@ -576,7 +576,7 @@ describe('PublishWizardPage — el paso de candidatos intercepta el alta', () =>
     vi.mocked(useStrayCandidates).mockReturnValue({
       data: undefined,
       isLoading: false,
-    isFetching: false,
+      isFetching: false,
       isPending: false,
       isPaused: false,
       isError: true,
@@ -669,7 +669,7 @@ describe('PublishWizardPage — unauthenticated lost path', () => {
     vi.mocked(useMyPets).mockReturnValue({
       data: [{ id: 'pet-1', name: 'Firulais', type: 'perro', status: 'registered', photos: [] }],
       isLoading: false,
-    isFetching: false,
+      isFetching: false,
     } as unknown as ReturnType<typeof useMyPets>);
 
     render(<PublishWizardPage />, { wrapper });
@@ -720,7 +720,7 @@ describe('PublishWizardPage — el usuario ya tiene mascotas propias', () => {
     vi.mocked(useMyPets).mockReturnValue({
       data: [{ id: 'pet-1', name: 'Holly', type: 'perro', status: 'lost', photos: [] }],
       isLoading: false,
-    isFetching: false,
+      isFetching: false,
     } as unknown as ReturnType<typeof useMyPets>);
 
     render(<PublishWizardPage />, { wrapper });
@@ -743,7 +743,7 @@ describe('PublishWizardPage — el usuario ya tiene mascotas propias', () => {
     vi.mocked(useMyPets).mockReturnValue({
       data: [{ id: 'pet-1', name: 'Toby', type: 'perro', status: 'adoption', photos: [] }],
       isLoading: false,
-    isFetching: false,
+      isFetching: false,
     } as unknown as ReturnType<typeof useMyPets>);
 
     render(<PublishWizardPage />, { wrapper });
@@ -775,7 +775,7 @@ describe('PublishWizardPage — salir del paso elegido', () => {
     vi.mocked(useMyPets).mockReturnValue({
       data: [{ id: 'pet-1', name: 'Firulais', type: 'perro', status: 'registered', photos: [] }],
       isLoading: false,
-    isFetching: false,
+      isFetching: false,
     } as unknown as ReturnType<typeof useMyPets>);
 
     render(<PublishWizardPage />, { wrapper });
