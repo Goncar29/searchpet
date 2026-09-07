@@ -732,6 +732,15 @@ func (s *petService) PublishLost(ownerID string, petID string, req dto.PublishLo
 
 	pet.Status = domain.PetStatusLost
 	pet.Version++
+	// El mismo instante que acaba de estampar TouchLastReported adentro de la
+	// transacción. `pet` se cargó ANTES, así que sin esta línea la respuesta 200
+	// de publish-lost sale sin `last_seen_at` mientras la base sí lo tiene: el
+	// cliente que confíe en el cuerpo de la mutación —en vez de invalidar y
+	// refetchear, que es lo que hace `usePublishLost` hoy— vería "sin dato"
+	// justo después de generar el dato.
+	if visto := sightingTime(report); !visto.IsZero() {
+		pet.LastReportedAt = &visto
+	}
 
 	// Publicamos los eventos DESPUÉS del commit — fallos aquí no afectan la transacción ya confirmada
 	if s.eventBus != nil {

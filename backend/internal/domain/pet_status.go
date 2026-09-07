@@ -133,6 +133,18 @@ var PublicProfileVisibleStatuses = []string{
 	PetStatusAdopted,
 }
 
+// LastSeenRelevantStatuses son los estados en los que "visto por última vez"
+// significa algo: los dos en los que hay una búsqueda abierta.
+//
+// Queda afuera `registered` (no se está buscando), `found` y `adopted` (la
+// historia ya cerró) y `adoption` (nunca se perdió). Mostrar la frase ahí sería
+// ruido, y en `registered` además sugeriría una búsqueda que nadie abrió.
+//
+// EXPLÍCITA y no derivada, igual que las otras cinco de este archivo: si mañana
+// se agrega un estado hay que decidir si entra, y el default —quedar afuera— es
+// el que no afirma nada.
+var LastSeenRelevantStatuses = []string{PetStatusLost, PetStatusStray}
+
 // ValidPetTypes son los cuatro tipos de mascota que ofrece la UI.
 //
 // La usan DOS caminos: el filtro de búsqueda (`report_handler.go`), donde el

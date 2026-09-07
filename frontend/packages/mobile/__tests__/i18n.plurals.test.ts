@@ -42,6 +42,12 @@ describe('plurales del feed', () => {
     const casos: [string, Record<string, unknown>][] = [
       ['home:results', {}],
       ['home:activeReports', { radius: 10 }],
+      // Las tres unidades de "visto por última vez" (issue #221). Van acá y no
+      // en un test de pantalla por el motivo del encabezado: con `t()`
+      // mockeado nadie vería que una forma plural no resuelve.
+      ['pets:lastSeen.days', {}],
+      ['pets:lastSeen.months', {}],
+      ['pets:lastSeen.years', {}],
     ];
     const sinNumeros = (s: string) => s.replace(/\d+/g, 'N');
 

@@ -156,3 +156,30 @@ describe('PetDetailScreen', () => {
     expect(queryByTestId('login-gate')).toBeTruthy();
   });
 });
+
+// Cuándo se vio por última vez al animal (issue #221).
+//
+// Igual que en la ficha web, estos tests NO verifican el texto traducido: el
+// arnés devuelve la clave. Afirman la DECISIÓN DE RENDERIZAR. El texto lo cubren
+// los tests del helper y los plurales i18n.plurals.test.ts.
+describe('ultima vista', () => {
+  it('muestra el bloque cuando el backend manda la fecha', () => {
+    mockUsePetByID.mockReturnValue({
+      data: { ...mockPetBase, status: 'stray', last_seen_at: '2026-05-03T09:30:00Z' },
+      isLoading: false,
+    });
+    const { getByTestId } = render(<PetDetailScreen />);
+    expect(getByTestId('last-seen')).toBeTruthy();
+  });
+
+  // La mitad negativa: un bloque que se renderiza siempre con texto vacío no se
+  // ve como un error, se ve como un hueco sin explicación.
+  it('no muestra nada cuando el backend no manda last_seen_at', () => {
+    mockUsePetByID.mockReturnValue({
+      data: { ...mockPetBase, status: 'found', last_seen_at: undefined },
+      isLoading: false,
+    });
+    const { queryByTestId } = render(<PetDetailScreen />);
+    expect(queryByTestId('last-seen')).toBeNull();
+  });
+});

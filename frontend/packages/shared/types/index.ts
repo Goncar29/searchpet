@@ -74,6 +74,15 @@ export interface Pet {
   // Stray opt-in: true when the reporter agreed to expose their WhatsApp.
   reporter_contact_public?: boolean;
   reporter?: PetReporter;
+  /**
+   * Cuándo se vio por última vez a este animal, ya resuelto por el backend
+   * (su último reporte, o su alta si todavía no tiene ninguno).
+   *
+   * Llega SÓLO en `lost` y `stray`. Su ausencia no es un error: significa que la
+   * pregunta no aplica a ese estado. No derivar caducidad de acá — el plazo vive
+   * en el backend y el cliente sólo muestra el hecho, nunca el juicio.
+   */
+  last_seen_at?: string;
   created_at: string;
 }
 

@@ -25,12 +25,12 @@ type CreatePetRequest struct {
 	// contestan 400 `invalid_input`— y por eso `pets.type` NO está en la tabla
 	// de largos: ahí sería un caso que pasa verde midiendo la otra cosa.
 	// Su guarda real es TestPetType_SoloLosCuatroDeLaAllowlist.
-	Type        string  `json:"type" binding:"required,max=50"`
-	Breed       string  `json:"breed" binding:"max=100"`
-	Color       string  `json:"color" binding:"max=100"`
-	Description string  `json:"description"`
-	City        string  `json:"city" binding:"max=120"`
-	Gender      string  `json:"gender"`
+	Type        string `json:"type" binding:"required,max=50"`
+	Breed       string `json:"breed" binding:"max=100"`
+	Color       string `json:"color" binding:"max=100"`
+	Description string `json:"description"`
+	City        string `json:"city" binding:"max=120"`
+	Gender      string `json:"gender"`
 	// Opcional y acotado a 50 RUNAS por la columna (ver domain.IsValidMicrochipID).
 	// Un string vacío se guarda como NULL: la columna es uniqueIndex y los vacíos
 	// sí colisionan entre sí, los NULL no. No hay campo espejo en
@@ -149,17 +149,17 @@ type PetPhotoResponse struct {
 
 // PetResponse son los datos de la mascota que retornamos al cliente.
 type PetResponse struct {
-	ID          uuid.UUID          `json:"id"`
-	OwnerID     *uuid.UUID         `json:"owner_id,omitempty"`
-	ReporterID  *uuid.UUID         `json:"reporter_id,omitempty"`
-	Name        string             `json:"name"`
-	Type        string             `json:"type"`
-	Breed       string             `json:"breed,omitempty"`
-	Color       string             `json:"color,omitempty"`
-	Description string             `json:"description,omitempty"`
-	City        string             `json:"city,omitempty"`
-	Gender      string             `json:"gender,omitempty"`
-	Status      string             `json:"status"`
+	ID          uuid.UUID  `json:"id"`
+	OwnerID     *uuid.UUID `json:"owner_id,omitempty"`
+	ReporterID  *uuid.UUID `json:"reporter_id,omitempty"`
+	Name        string     `json:"name"`
+	Type        string     `json:"type"`
+	Breed       string     `json:"breed,omitempty"`
+	Color       string     `json:"color,omitempty"`
+	Description string     `json:"description,omitempty"`
+	City        string     `json:"city,omitempty"`
+	Gender      string     `json:"gender,omitempty"`
+	Status      string     `json:"status"`
 	// La edad NO viaja: viaja la fecha con su precisión y el cliente deriva.
 	// Calcularla acá la congelaría en el instante de la respuesta y además
 	// obligaría al backend a pluralizar "año/años" en tres idiomas.
@@ -170,9 +170,22 @@ type PetResponse struct {
 	// de dueño, que es un cambio aparte.
 	BirthDate          string             `json:"birth_date,omitempty"`
 	BirthDatePrecision string             `json:"birth_date_precision,omitempty"`
-	Version     int                `json:"version"`
-	Photos      []PetPhotoResponse `json:"photos"`
-	Owner       *PetOwnerResponse  `json:"owner,omitempty"`
+	Version            int                `json:"version"`
+	Photos             []PetPhotoResponse `json:"photos"`
+	Owner              *PetOwnerResponse  `json:"owner,omitempty"`
+	// LastSeenAt es cuándo se vio a este animal por última vez, YA RESUELTO: es
+	// LastReportedAt, o CreatedAt cuando todavía no tiene ningún reporte.
+	//
+	// Se emite sólo para domain.LastSeenRelevantStatuses. Con `omitempty` el
+	// cliente no necesita conocer esa lista: si el campo viene lo muestra, y si
+	// no viene no muestra nada. Ni el umbral de caducidad, ni el fallback, ni la
+	// lista de estados salen de acá — el plazo vive en domain.StraySightingTTL y
+	// no cruza al cliente.
+	//
+	// Viaja la FECHA y no el texto, igual que la edad y por el mismo motivo: un
+	// "hace 4 meses" calculado acá se congelaría en el instante de la respuesta,
+	// y obligaría al backend a pluralizar en tres idiomas.
+	LastSeenAt *time.Time `json:"last_seen_at,omitempty"`
 	// ReporterContactPublic mirrors the pet flag so the UI knows whether the
 	// public reporter-contact channel is available. Reporter is only populated
 	// (with the phone) when the opt-in is on AND a phone exists.
@@ -222,6 +235,9 @@ func ToPetResponse(pet *domain.Pet) PetResponse {
 			IsVerified: pet.Owner.IsVerified,
 		}
 	}
+
+	// El estado y el fallback los decide el dominio, no este mapper.
+	resp.LastSeenAt = pet.LastSeen()
 
 	// Reporter (stray) — privacidad: solo exponemos el teléfono cuando el
 	// reporter hizo opt-in Y efectivamente tiene un teléfono cargado. Sin

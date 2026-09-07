@@ -564,3 +564,49 @@ const (
 	DefaultRoleChangeLimit = 50
 	MaxRoleChangeLimit     = 200
 )
+
+// LastSeen devuelve cuándo se vio por última vez a este animal, o nil si no
+// tenemos con qué responder.
+//
+// EL FALLBACK A CreatedAt VALE SÓLO PARA `stray`, y la asimetría es el corazón
+// de este método. La fila de un callejero NACE del avistamiento —alguien la creó
+// porque vio al animal—, así que su alta ES una vista. La de una mascota
+// perdida no: se registró cuando su dueño la dio de alta, que puede ser años
+// antes de que se perdiera. `registered → lost` es una transición válida
+// (status_machine.go) y `UpdatePet` no estampa `last_reported_at`, así que una
+// mascota registrada en 2023 y publicada como perdida hoy diría "visto por
+// última vez hace 3 años" — exactamente lo contrario de lo que esta feature
+// existe para mostrar.
+//
+// Por eso un `lost` sin reportes devuelve nil y la ficha no muestra nada. No
+// afirmar nada es la única respuesta honesta cuando no sabemos: el camino
+// normal (`POST /api/pets/:id/publish-lost`) sí estampa la fecha vía
+// TouchLastReported, así que el hueco queda sólo donde el dato genuinamente no
+// existe.
+//
+// OJO: el fallback de `stray` existe TAMBIÉN en SQL, dentro de
+// straySightingNotExpired. Son dos definiciones de la misma regla en dos
+// lenguajes y no se pueden unificar —filtrar exige el SQL, exponer exige el
+// Go—, así que las mantiene juntas TestPetLastSeen_CoincideConElCoalesceDelScope,
+// que ejercita la expresión REAL vía repository.LastSeenExpr. Si tocás una,
+// mirá la otra.
+func (p *Pet) LastSeen() *time.Time {
+	relevante := false
+	for _, s := range LastSeenRelevantStatuses {
+		if p.Status == s {
+			relevante = true
+			break
+		}
+	}
+	if !relevante {
+		return nil
+	}
+	if p.LastReportedAt != nil {
+		return p.LastReportedAt
+	}
+	// Sólo el callejero hereda su alta como vista. Ver el párrafo de arriba.
+	if p.Status == PetStatusStray {
+		return &p.CreatedAt
+	}
+	return nil
+}
