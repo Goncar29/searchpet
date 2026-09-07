@@ -21,6 +21,7 @@ import { useState, useRef, useCallback } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { formatPetAge } from '@shared/utils/petAge';
+import { formatLastSeen } from '@shared/utils/lastSeen';
 import i18next from 'i18next';
 import { usePetByID, useReportsByPetID, useMarkPetAsFound, useBlockUser, useSubmitAbuseReport } from '@shared/hooks';
 import { buildWhatsAppContactURL } from '@shared/utils/whatsappTemplates';
@@ -88,6 +89,15 @@ export default function PetDetailScreen() {
   // "aprox." es un invariante, no presentacion, asi que vive en shared/ y no se
   // duplica por plataforma.
   const edadTexto = formatPetAge(t, pet.birth_date, pet.birth_date_precision);
+
+  // null cuando el backend no manda el campo — o sea cuando la pregunta no
+  // aplica a ese estado. Nunca dice "vencido": eso es jerga nuestra y sugeriría
+  // que el animal ya no está, que es justo lo que no sabemos.
+  //
+  // getDateLocale y NO i18n.language crudo: esta pantalla ya formatea sus otras
+  // fechas así ('es' -> 'es-UY'), y pasarle el idioma pelado daría un formato
+  // distinto al del resto de la misma ficha.
+  const vistoPorUltimaVez = formatLastSeen(t, pet.last_seen_at, getDateLocale(i18n.language));
   const latestReport = reports?.[0];
   const isOwner = isAuthenticated && user?.id === pet.owner_id;
   // canManage: owner (owned pets) or reporter (stray pets, no owner) may manage.
@@ -316,6 +326,13 @@ export default function PetDetailScreen() {
             </View>
           )}
         </View>
+
+        {vistoPorUltimaVez && (
+          <View style={styles.lastSeen} testID="last-seen">
+            <Text style={styles.lastSeenRelative}>{vistoPorUltimaVez.relative}</Text>
+            <Text style={styles.lastSeenAbsolute}>{vistoPorUltimaVez.absolute}</Text>
+          </View>
+        )}
 
         {/* Descripción */}
         {pet.description && (
@@ -564,6 +581,17 @@ const styles = StyleSheet.create({
   },
   detailLabel: { fontSize: FONTS.sizes.sm, color: COLORS.textSecondary, fontWeight: '500' },
   detailValue: { fontSize: FONTS.sizes.sm, color: COLORS.textPrimary, fontWeight: '600' },
+  lastSeen: {
+    marginHorizontal: 16,
+    marginBottom: 16,
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: COLORS.card,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  lastSeenRelative: { fontSize: 15, fontWeight: '600', color: COLORS.textPrimary },
+  lastSeenAbsolute: { fontSize: 13, color: COLORS.textSecondary, marginTop: 2 },
   descriptionCard: {
     backgroundColor: COLORS.white,
     borderRadius: RADIUS.lg,
