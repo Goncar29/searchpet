@@ -20,21 +20,20 @@ const candidato: StrayCandidate = {
 };
 
 // El sobre mínimo de UseQueryResult que consume ListState.
-//
-// `isFetching` se DERIVA de `isLoading` salvo que el caso lo diga explícito, y
-// eso no es comodidad: en React Query `isLoading === isPending && isFetching`,
-// así que un stub con `isLoading: true, isFetching: false` es un estado que NO
-// EXISTE. Dejarlo construible hizo que estos tests pasaran contra un predicado
-// que la app real nunca satisface — un mock que modela lo imposible da verde
-// sobre código que no se ejecuta.
 const queryStub = (over: Record<string, unknown>) =>
   ({
     data: undefined,
     isLoading: false,
-    isPending: false,
     isPaused: false,
     isError: false,
+    // `isPending` e `isFetching` se DERIVAN salvo que el caso los diga
+    // explícito. React Query define `isLoading === isPending && isFetching`, y
+    // una primera carga sin datos siempre es `pending`: un stub con
+    // `isLoading: true, isPending: false` es un estado que NO EXISTE. Dejarlos
+    // libres hizo que estos tests pasaran contra un predicado que la app real
+    // nunca satisface.
     isFetching: over.isLoading === true,
+    isPending: over.isLoading === true || over.isPaused === true,
     refetch: vi.fn(),
     ...over,
   }) as never;
@@ -202,12 +201,15 @@ describe('la salida mientras la consulta carga', () => {
     expect(onSkip).toHaveBeenCalledTimes(1);
   });
 
-  // Sin conectividad React Query PAUSA la consulta: `isFetching` es false y
-  // `isLoading` también, pero la consulta nunca contestó y va a correr sola al
-  // volver la red. `ListState` ya pinta acá su cartel de sin conexión, así que
-  // con el predicado angosto el botón decía "publicar igual" AL LADO de un
-  // cartel que explica que no se pudo consultar.
-  it('offline (isPaused) tampoco dice "publicar igual"', () => {
+  // Sin conectividad React Query PAUSA la consulta: no hay NADA en vuelo y no
+  // lo va a haber hasta que vuelva la red. `ListState` ya pinta acá "cuando
+  // vuelva la conexión, probá de nuevo", así que "publicar sin esperar"
+  // anunciaría una espera que no está ocurriendo. Corresponde "publicar igual",
+  // igual que ante un error.
+  //
+  // Este test estuvo un rato afirmando lo contrario. Se deja explícito porque
+  // la distinción es fina: "no contestó" y "está contestando" no son lo mismo.
+  it('offline (isPaused) dice "publicar igual", no "sin esperar"', () => {
     render(
       <CandidatesStep
         query={queryStub({ isPaused: true, data: undefined })}
@@ -216,7 +218,7 @@ describe('la salida mientras la consulta carga', () => {
       />,
     );
     expect(screen.getByTestId('candidates-skip')).toHaveTextContent(
-      'publish:candidates.publishWithoutWaiting',
+      'publish:candidates.publishAnyway',
     );
   });
 
@@ -250,4 +252,42 @@ describe('la salida mientras la consulta carga', () => {
       'publish:candidates.noneOfThem',
     );
   });
+
+// El salteo automático NO puede correr con un alta en vuelo.
+//
+// Mobile ya tenía este guard (se aplicó en el #230) y la web NO — divergieron
+// en silencio, que es justo lo que el bloque de arriba dice que no puede pasar.
+//
+// El camino: la persona toca la salida mientras la consulta está en vuelo, eso
+// PUBLICA y el alta tarda (Render despertando, 30s+). Mientras tanto la
+// consulta contesta `[]`, `sinCandidatos` pasa a true y `yaSalteo` sigue en
+// false —el click manual nunca lo tocó—, así que el efecto dispara `onSkip()`
+// otra vez: DOS mascotas, el duplicado exacto que este paso existe para evitar.
+it('no saltea automáticamente si ya hay un alta en vuelo', () => {
+  const onSkip = vi.fn();
+  const { rerender } = render(
+    <CandidatesStep
+      query={queryStub({ isLoading: true, data: undefined })}
+      onSelect={vi.fn()}
+      onSkip={onSkip}
+      isPublishing={false}
+    />,
+  );
+
+  // La persona toca "publicar sin esperar": el alta arranca.
+  fireEvent.click(screen.getByTestId('candidates-skip'));
+  expect(onSkip).toHaveBeenCalledTimes(1);
+
+  // Y AHORA la consulta contesta vacío, con la publicación todavía en vuelo.
+  rerender(
+    <CandidatesStep
+      query={queryStub({ data: [] })}
+      onSelect={vi.fn()}
+      onSkip={onSkip}
+      isPublishing
+    />,
+  );
+
+  expect(onSkip).toHaveBeenCalledTimes(1);
+});
 });
