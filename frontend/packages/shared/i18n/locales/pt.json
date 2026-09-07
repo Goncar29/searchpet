@@ -302,6 +302,18 @@
       "days_one": "{{count}} dia",
       "days_other": "{{count}} dias",
       "approximate": "aprox. {{age}}"
+    },
+    "lastSeen": {
+      "line": "Visto pela última vez {{when}}",
+      "today": "hoje",
+      "yesterday": "ontem",
+      "ago": "há {{time}}",
+      "days_one": "{{count}} dia",
+      "days_other": "{{count}} dias",
+      "months_one": "{{count}} mês",
+      "months_other": "{{count}} meses",
+      "years_one": "{{count}} ano",
+      "years_other": "{{count}} anos"
     }
   },
   "chat": {
