@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"lost-pets/internal/domain"
+	"lost-pets/internal/repository"
 	"lost-pets/tests/testdb"
 
 	"github.com/google/uuid"
@@ -37,22 +38,36 @@ func TestLastSeenRelevantStatuses_SoloLosQueSeEstanBuscando(t *testing.T) {
 	}
 }
 
-// El fallback a CreatedAt NO es un default de conveniencia: un animal sin
-// reportes SÍ fue visto — alguien lo publicó porque lo vio. Es además el único
-// caso hoy ciego en la ficha, así que si el fallback no está, el cambio entero
-// no sirve para el escenario que lo motivó.
-func TestPetLastSeen_UsaElReporteYCaeAlAlta(t *testing.T) {
-	alta := time.Date(2026, 1, 10, 12, 0, 0, 0, time.UTC)
+// El fallback al alta es ASIMÉTRICO, y las dos mitades importan por igual.
+//
+// Un callejero SÍ hereda su alta: la fila nace del avistamiento, alguien la
+// creó porque vio al animal. Una mascota perdida NO: se registró cuando su
+// dueño la dio de alta, que puede ser años antes de que se perdiera. Sin esta
+// asimetría, una mascota registrada en 2023 y publicada como perdida hoy diría
+// "visto por última vez hace 3 años", que es lo contrario de lo que la ficha
+// existe para mostrar.
+func TestPetLastSeen_ElAltaCuentaSoloParaElCallejero(t *testing.T) {
+	alta := time.Date(2023, 1, 10, 12, 0, 0, 0, time.UTC)
 	visto := time.Date(2026, 5, 3, 9, 30, 0, 0, time.UTC)
 
-	conReporte := &domain.Pet{Status: domain.PetStatusStray, CreatedAt: alta, LastReportedAt: &visto}
-	if got := conReporte.LastSeen(); got == nil || !got.Equal(visto) {
-		t.Errorf("con reporte esperaba %v, obtuve %v", visto, got)
+	// Con reporte, los dos estados devuelven el reporte.
+	for _, st := range []string{domain.PetStatusStray, domain.PetStatusLost} {
+		p := &domain.Pet{Status: st, CreatedAt: alta, LastReportedAt: &visto}
+		if got := p.LastSeen(); got == nil || !got.Equal(visto) {
+			t.Errorf("%s con reporte: esperaba %v, obtuve %v", st, visto, got)
+		}
 	}
 
-	sinReporte := &domain.Pet{Status: domain.PetStatusStray, CreatedAt: alta}
-	if got := sinReporte.LastSeen(); got == nil || !got.Equal(alta) {
-		t.Errorf("sin reporte esperaba el alta %v, obtuve %v", alta, got)
+	// Sin reporte: el callejero cae al alta...
+	strayPelado := &domain.Pet{Status: domain.PetStatusStray, CreatedAt: alta}
+	if got := strayPelado.LastSeen(); got == nil || !got.Equal(alta) {
+		t.Errorf("stray sin reporte: esperaba el alta %v, obtuve %v", alta, got)
+	}
+
+	// ...y la perdida NO, porque su alta no es una vista.
+	lostPelada := &domain.Pet{Status: domain.PetStatusLost, CreatedAt: alta}
+	if got := lostPelada.LastSeen(); got != nil {
+		t.Errorf("lost sin reporte: esperaba nil (su alta no es una vista), obtuve %v", *got)
 	}
 }
 
@@ -95,7 +110,7 @@ func TestPetLastSeen_CoincideConElCoalesceDelScope(t *testing.T) {
 	}{
 		{"con reporte", domain.Pet{ID: uuid.New(), Name: "Con", Type: "perro", Status: domain.PetStatusStray, CreatedAt: alta, LastReportedAt: &visto}},
 		{"sin reporte", domain.Pet{ID: uuid.New(), Name: "Sin", Type: "perro", Status: domain.PetStatusStray, CreatedAt: alta}},
-		{"perdida sin reporte", domain.Pet{ID: uuid.New(), Name: "Perdida", Type: "gato", Status: domain.PetStatusLost, CreatedAt: alta}},
+		{"perdida con reporte", domain.Pet{ID: uuid.New(), Name: "Perdida", Type: "gato", Status: domain.PetStatusLost, CreatedAt: alta, LastReportedAt: &visto}},
 	}
 
 	for _, c := range casos {
@@ -104,10 +119,13 @@ func TestPetLastSeen_CoincideConElCoalesceDelScope(t *testing.T) {
 			t.Fatalf("%s: creando: %v", c.nombre, err)
 		}
 
-		// La MISMA expresión que usa straySightingNotExpired.
+		// LA MISMA expresión que usa straySightingNotExpired, tomada de la
+		// constante exportada y NO copiada acá: con el SQL escrito a mano este
+		// test seguiría verde ante cualquier cambio de la función real, que es
+		// justo lo que dice custodiar.
 		var desdeSQL time.Time
 		err := db.Raw(
-			"SELECT COALESCE(pets.last_reported_at, pets.created_at) FROM pets WHERE pets.id = ?",
+			"SELECT "+repository.LastSeenExpr+" FROM pets WHERE pets.id = ?",
 			pet.ID,
 		).Scan(&desdeSQL).Error
 		if err != nil {

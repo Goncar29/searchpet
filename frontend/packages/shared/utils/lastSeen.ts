@@ -39,8 +39,15 @@ export function computeLastSeen(
   // Se compara por día de CALENDARIO y no por instante: si no, algo visto
   // "ayer a las 23:00" mirado hoy a las 08:00 daría 0 días y diría "hoy", que
   // es una afirmación falsa sobre cuándo se vio al animal.
-  const aDia = (d: Date) => Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
-  const dias = Math.floor((aDia(now) - aDia(visto)) / DIA_MS);
+  //
+  // Y el calendario es el LOCAL, no el UTC, porque la otra línea de la misma
+  // tarjeta sale de `toLocaleDateString`, que es local. Con UTC acá las dos
+  // líneas se contradecían entre sí: medido en Montevideo (UTC-3), un
+  // avistamiento a las 01:00Z daba "hoy" arriba y "6 de septiembre" abajo, el
+  // mismo día. Un solo calendario para las dos, o la tarjeta discute consigo
+  // misma en la franja de 00:00 a 03:00 UTC.
+  const aDia = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const dias = Math.round((aDia(now) - aDia(visto)) / DIA_MS);
 
   // Una fecha futura es alcanzable con relojes desfasados entre el server y el
   // device. "hace -3 días" es peor que decir "hoy".

@@ -41,6 +41,19 @@ import (
 // se llama `pets`. Sin el prefijo, las que joinean serían ambiguas.
 func straySightingNotExpired() (string, []any) {
 	corte := time.Now().Add(-domain.StraySightingTTL)
-	return "NOT (pets.status = ? AND COALESCE(pets.last_reported_at, pets.created_at) < ?)",
+	return "NOT (pets.status = ? AND " + LastSeenExpr + " < ?)",
 		[]any{domain.PetStatusStray, corte}
 }
+
+// LastSeenExpr es la expresión SQL de "cuándo se vio por última vez a este
+// callejero". La usa straySightingNotExpired para decidir la visibilidad, y
+// `Pet.LastSeen()` la replica en Go para exponer el dato en la ficha.
+//
+// Está EXPORTADA sólo para que el test de acuerdo pueda ejercitar ESTA
+// expresión y no una copia. La primera versión de ese test se llamaba
+// "CoincideConElCoalesceDelScope" y tenía el SQL escrito a mano adentro: como
+// straySightingNotExpired no era alcanzable desde `package tests`, cambiar esta
+// línea habría dejado el test VERDE mientras la ficha y el feed pasaban a
+// discrepar sobre la misma mascota. Un test que copia lo que dice custodiar no
+// custodia nada.
+const LastSeenExpr = "COALESCE(pets.last_reported_at, pets.created_at)"
