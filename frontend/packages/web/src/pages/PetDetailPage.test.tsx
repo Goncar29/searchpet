@@ -471,3 +471,33 @@ describe('PetDetailPage — ancla del historial', () => {
     }
   });
 });
+
+// Cuándo se vio por última vez al animal (issue #221).
+//
+// Estos tests NO pueden verificar el texto traducido: el archivo mockea
+// react-i18next con `t: (key) => key`, así que al DOM llegan las claves crudas.
+// Lo que afirman es la DECISIÓN DE RENDERIZAR — que el bloque aparece cuando el
+// backend manda la fecha y desaparece cuando no. El texto real lo cubren los
+// tests del helper, y los plurales i18n.plurals.test.ts contra los locales.
+describe('última vista', () => {
+  it('muestra el bloque cuando el backend manda la fecha', () => {
+    petResult = {
+      data: lostPetWithOwner({ status: 'stray', last_seen_at: '2026-05-03T09:30:00Z' }),
+      isLoading: false,
+    };
+    render(<PetDetailPage />, { wrapper });
+    expect(screen.getByTestId('last-seen')).toBeInTheDocument();
+  });
+
+  // La mitad negativa, y es la que atrapa el modo de falla real: un bloque que
+  // se renderiza siempre con texto vacío no se ve como un error, se ve como un
+  // hueco sin explicación.
+  it('no muestra nada cuando el backend no manda last_seen_at', () => {
+    petResult = {
+      data: lostPetWithOwner({ status: 'found', last_seen_at: undefined }),
+      isLoading: false,
+    };
+    render(<PetDetailPage />, { wrapper });
+    expect(screen.queryByTestId('last-seen')).not.toBeInTheDocument();
+  });
+});

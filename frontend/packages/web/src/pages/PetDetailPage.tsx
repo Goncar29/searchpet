@@ -20,6 +20,7 @@ import { ListState } from '../components/list/ListState';
 import { AdoptionPetBody } from '../components/AdoptionPetBody';
 import { Icon } from '../components/Icon';
 import { cloudinaryFit } from '@shared/utils/cloudinaryThumb';
+import { formatLastSeen } from '@shared/utils/lastSeen';
 
 export function PetDetailPage() {
   const { t, i18n } = useTranslation(['pets', 'common']);
@@ -265,6 +266,29 @@ export function PetDetailPage() {
     </div>
   ) : null;
 
+  // Cuándo se lo vio por última vez. `null` cuando el backend no manda el campo
+  // —o sea cuando la pregunta no aplica a ese estado— y entonces no se renderiza
+  // NADA: igual que factCards y descriptionCard, un wrapper que sobrevive a su
+  // propio contenido igual aporta su margen y deja un hueco sin explicación.
+  //
+  // Las dos formas y en dos líneas: el relativo se lee de un vistazo y la fecha
+  // es consulta, así que la jerarquía vertical dice cuál es cuál. Nunca dice
+  // "vencido" — eso es jerga nuestra y sugeriría que el animal ya no está, que
+  // es justo lo que no sabemos.
+  const vistoPorUltimaVez = formatLastSeen(t, pet.last_seen_at, i18n.language);
+  const lastSeenCard = vistoPorUltimaVez ? (
+    <div
+      data-testid="last-seen"
+      className="mb-6 flex items-start gap-3 rounded-2xl border border-gray-100 bg-white p-4 dark:border-gray-800 dark:bg-gray-900"
+    >
+      <Icon name="visibility" className="mt-0.5 shrink-0 text-primary" />
+      <div>
+        <p className="font-medium text-gray-900 dark:text-gray-100">{vistoPorUltimaVez.relative}</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400">{vistoPorUltimaVez.absolute}</p>
+      </div>
+    </div>
+  ) : null;
+
   return (
     <>
       <Helmet>
@@ -386,6 +410,7 @@ export function PetDetailPage() {
             {isAdoptionListing && (
               <>
                 {factCards}
+                {lastSeenCard}
                 {descriptionCard}
                 <AdoptionPetBody pet={pet} />
               </>
@@ -408,6 +433,7 @@ export function PetDetailPage() {
               >
                 <div className="min-w-0">
                 {factCards}
+                {lastSeenCard}
                 {descriptionCard}
             {/* Action buttons.
                 Sharing works logged-out for lost/stray (public endpoint); for any
