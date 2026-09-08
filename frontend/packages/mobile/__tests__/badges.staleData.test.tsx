@@ -46,12 +46,10 @@ describe('Mis logros — un refetch fallido no puede borrar la lista', () => {
     const { queryByText } = render(<BadgesScreen />);
 
     expect(queryByText('logro_de_prueba')).toBeTruthy();
+    expect(queryByText('common:loadErrorTitle')).toBeNull();
   });
 
-  it('sin datos y con error, no muestra logros', () => {
-    // La otra mitad: si el arreglo fuera "no mostrar nunca el error", esto
-    // seguiría pasando, pero el test de arriba pasaría por el motivo
-    // equivocado. Se afirman las dos para que la distinción exista de verdad.
+  it('sin datos y con error, muestra el cartel en vez de los logros', () => {
     mockUseMyBadges.mockReturnValue({
       data: undefined,
       isLoading: false,
@@ -61,6 +59,11 @@ describe('Mis logros — un refetch fallido no puede borrar la lista', () => {
     });
 
     const { queryByText } = render(<BadgesScreen />);
+    // El cartel APARECE. Sin esta línea, "no mostrar nunca el error" pasaría
+    // el test igual — que es lo que pasaba antes de que lo levantara un code
+    // review. El texto es la clave literal porque el arnés no inicializa
+    // i18next, y eso lo vuelve estable.
+    expect(queryByText('common:loadErrorTitle')).toBeTruthy();
     expect(queryByText('logro_de_prueba')).toBeNull();
   });
 });

@@ -152,6 +152,33 @@ function StaleBanner({ message, onRetry }: { message: string; onRetry: () => voi
   );
 }
 
+/**
+ * La misma franja de "esto puede no ser lo último", para pantallas de DETALLE.
+ *
+ * `ListState` no sirve ahí: envuelve listas y entrega `items` a un `children`.
+ * Pero el problema es idéntico — una pantalla que muestra datos cacheados tras
+ * un refetch fallido tiene que decirlo. Sin esto, el `RefreshControl` deja de
+ * girar y no pasa nada más: se cambia un error falso por uno invisible.
+ *
+ * Devuelve `null` cuando no hay nada que avisar, así el call site es un
+ * `<StaleDataNotice query={q} />` suelto arriba del contenido y nadie tiene que
+ * acordarse de la condición.
+ */
+export function StaleDataNotice<TData>({ query }: { query: UseQueryResult<TData> }) {
+  const { t } = useTranslation('common');
+
+  // Sólo cuando HAY datos en pantalla: sin datos, la pantalla ya está mostrando
+  // su propio estado de error y una franja encima sería ruido duplicado.
+  if (query.data == null) return null;
+  if (query.isPaused) {
+    return <StaleBanner message={t('common:offlineStale')} onRetry={() => query.refetch()} />;
+  }
+  if (query.isError) {
+    return <StaleBanner message={t('common:staleTitle')} onRetry={() => query.refetch()} />;
+  }
+  return null;
+}
+
 export function ListState<TData, TItem = TData extends (infer U)[] ? U : never>(
   props: ListStateProps<TData, TItem>,
 ) {

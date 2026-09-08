@@ -178,17 +178,17 @@ export default function GroupDetailScreen() {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>👥 {t('groups:membersTitle')}</Text>
 
-        {/* `errorTitle` nombra la SECCIÓN y no la causa, que es lo que pide
-            `ListState`: la prop pisa el título de la rama de error Y el de la
-            offline, así que un texto tipo "el servidor no contestó" sería falso
-            sin conexión.
+        {/* SIN `errorTitle`: la sección ya se anuncia dos líneas arriba con
+            "👥 Miembros", así que pasar ese mismo texto repetía el título y
+            dejaba al cartel sin decir qué pasó. El default de `common` ("No
+            pudimos cargar esta lista") sí lo dice, y es cierto también en la
+            rama offline.
 
             El vacío se decide adentro y sigue siendo `length === 0`: acá eso ya
             NO puede significar "falló", porque el fallo se lo quedó la rama de
             arriba. Antes `!members` mezclaba las dos cosas. */}
         <ListState<GroupMember[], GroupMember>
           query={membersQuery}
-          errorTitle={t('groups:membersTitle')}
           loading={
             <ActivityIndicator
               size="small"

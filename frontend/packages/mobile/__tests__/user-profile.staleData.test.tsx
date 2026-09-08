@@ -69,9 +69,15 @@ describe('Perfil público — un refetch fallido no puede borrar el perfil', () 
 
     const { queryByText } = render(<UserProfileScreen />);
     expect(queryByText('Marina Torres')).toBeTruthy();
+    // El cartel que reemplaza la pantalla NO aparece...
+    expect(queryByText('users:loadError')).toBeNull();
+    // ...y en su lugar sí avisa la franja de datos viejos. Sin ella el
+    // RefreshControl deja de girar y nada le dice al usuario que lo que ve
+    // puede no ser lo último: un error invisible en vez de uno falso.
+    expect(queryByText('common:staleTitle')).toBeTruthy();
   });
 
-  it('sin perfil y con error, no muestra el perfil', () => {
+  it('sin perfil y con error, muestra el cartel en vez del perfil', () => {
     mockUsePublicProfile.mockReturnValue({
       data: undefined,
       isLoading: false,
@@ -81,6 +87,9 @@ describe('Perfil público — un refetch fallido no puede borrar el perfil', () 
     });
 
     const { queryByText } = render(<UserProfileScreen />);
+    // Se afirma que el cartel APARECE, no sólo que el nombre no está: sin
+    // perfil y sin cartel el `toBeNull()` de abajo también pasaría.
+    expect(queryByText('users:loadError')).toBeTruthy();
     expect(queryByText('Marina Torres')).toBeNull();
   });
 });

@@ -6,6 +6,8 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useStory, useLikeStory, useUnlikeStory } from '../../../shared/hooks';
+import { ApiError } from '../../../shared/api/client';
+import { StaleDataNotice } from '../../components/list/ListState';
 import { getDateLocale } from '../../i18n/dateLocale';
 import { useAuthStore } from '../../store';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
@@ -15,7 +17,17 @@ export default function StoryDetailScreen() {
   const router = useRouter();
   const { t, i18n } = useTranslation('story');
   const { isAuthenticated } = useAuthStore();
-  const { data: story, isLoading, isError, refetch } = useStory(id ?? '');
+  const storyQuery = useStory(id ?? '');
+  const { data: story, isLoading, isError, error, refetch } = storyQuery;
+
+  // `isError` NO alcanza para saber si la historia existe: `apiClient` tira
+  // `ApiError` ante CUALQUIER respuesta no-ok (`client.ts`), así que una
+  // historia borrada llega acá como error igual que un 502. Sin mirar el
+  // status, el cartel le diría "no es que no exista, no llegamos a leerla"
+  // justamente cuando NO existe — y ofrecería reintentar tres veces
+  // (`retry: 2`) contra un 404 que nunca va a cambiar.
+  const noExiste = error instanceof ApiError && error.status === 404;
+  const falloLaLectura = isError && !noExiste;
   const likeStory = useLikeStory();
   const unlikeStory = useUnlikeStory();
   const isToggling = likeStory.isPending || unlikeStory.isPending;
@@ -57,24 +69,31 @@ export default function StoryDetailScreen() {
     return (
       <View style={styles.center}>
         <Text style={styles.errorIcon}>{isError ? '⚠️' : '😢'}</Text>
-        {/* Claves propias del DETALLE: `story:loadError` es del listado y dice
+        {/* `fallóLaLectura` y no `isError`: un 404 ES una respuesta, y decirle
+            "no llegamos a leerla" a alguien cuya historia fue borrada es
+            afirmar lo contrario de lo que pasó.
+
+            Claves propias del DETALLE: `story:loadError` es del listado y dice
             "no se pudieron cargar las historias", en plural. Reusarla acá
             hablaría de un conjunto cuando falló una sola. */}
         <Text style={styles.errorTitle}>
-          {isError ? t('story:detailLoadError') : t('story:notFound')}
+          {falloLaLectura ? t('story:detailLoadError') : t('story:notFound')}
         </Text>
         <Text style={styles.errorText}>
-          {isError ? t('story:detailLoadErrorText') : t('story:notFoundText')}
+          {falloLaLectura ? t('story:detailLoadErrorText') : t('story:notFoundText')}
         </Text>
-        {isError ? (
+        {/* Volver está SIEMPRE, y reintentar se suma sólo cuando reintentar
+            puede servir de algo. Antes el botón de reintentar REEMPLAZABA al de
+            volver, así que esa rama se quedaba sin salida — y encima ofrecía
+            reintentar contra un 404. */}
+        {falloLaLectura && (
           <TouchableOpacity style={styles.backButton} onPress={() => refetch()}>
             <Text style={styles.backButtonText}>{t('story:retry')}</Text>
           </TouchableOpacity>
-        ) : (
-          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-            <Text style={styles.backButtonText}>{t('story:back')}</Text>
-          </TouchableOpacity>
         )}
+        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+          <Text style={styles.backButtonText}>{t('story:back')}</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -83,6 +102,10 @@ export default function StoryDetailScreen() {
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+      {/* Un like/unlike invalida esta query, así que un refetch fallido es
+          alcanzable aunque la pantalla no tenga pull-to-refresh. */}
+      <StaleDataNotice query={storyQuery} />
+
       {/* Back navigation */}
       <TouchableOpacity style={styles.backRow} onPress={() => router.back()}>
         <Text style={styles.backChevron}>‹</Text>

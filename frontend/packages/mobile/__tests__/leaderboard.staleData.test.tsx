@@ -44,12 +44,12 @@ describe('Ranking — un refetch fallido no puede borrar la lista', () => {
     // desaparezca es peor que un dato viejo: se lleva puesto lo único útil que
     // había en la pantalla, y encima por un fallo que suele durar segundos.
     expect(queryByText('Ana Pérez')).toBeTruthy();
+    // Y el cartel de "no pudimos cargar" NO está: los datos siguen ahí, así que
+    // el aviso correcto es la franja, no el cartel que reemplaza todo.
+    expect(queryByText('common:loadErrorTitle')).toBeNull();
   });
 
   it('sin datos y con error, sí muestra el cartel', () => {
-    // La otra mitad, y no es de adorno: si el arreglo fuera "no mostrar nunca
-    // el error", este test se pondría rojo. Lo que se busca es que el cartel
-    // aparezca SÓLO cuando no hay nada que mostrar.
     mockUseLeaderboard.mockReturnValue({
       data: undefined,
       isLoading: false,
@@ -59,6 +59,16 @@ describe('Ranking — un refetch fallido no puede borrar la lista', () => {
     });
 
     const { queryByText } = render(<LeaderboardScreen />);
+    // Se afirma que el cartel APARECE, no sólo que la fila no está.
+    //
+    // La versión anterior de este test tenía únicamente el `toBeNull()` de
+    // abajo y un comentario diciendo que se pondría rojo si el arreglo fuera
+    // "no mostrar nunca el error". Era falso: sin fila y sin cartel también
+    // pasa. Lo levantó un code review.
+    //
+    // El texto es la clave literal porque el arnés no inicializa i18next
+    // (`NO_I18NEXT_INSTANCE`), y eso es justamente lo que lo hace estable.
+    expect(queryByText('common:loadErrorTitle')).toBeTruthy();
     expect(queryByText('Ana Pérez')).toBeNull();
   });
 });

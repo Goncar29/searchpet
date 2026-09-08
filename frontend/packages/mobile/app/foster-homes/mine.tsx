@@ -36,6 +36,7 @@ import type {
   UpdateMyFosterHomeRequest,
 } from '@shared/types';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
+import { StaleDataNotice } from '../../components/list/ListState';
 import { cloudinaryThumb } from '@shared/utils/cloudinaryThumb';
 import { IMAGE_SIZES } from '../../constants/imageSizes';
 
@@ -86,7 +87,8 @@ export default function MyFosterHomeScreen() {
   const { t } = useTranslation(['fosterHomes', 'errors', 'common']);
   const router = useRouter();
 
-  const { data: mine, error, isLoading, isError, refetch } = useMyFosterHome();
+  const mineQuery = useMyFosterHome();
+  const { data: mine, error, isLoading, isError, refetch } = mineQuery;
   const updateFosterHome = useUpdateMyFosterHome();
   const uploadPhoto = useUploadFosterHomePhoto();
   const deletePhoto = useDeleteFosterHomePhoto();
@@ -254,6 +256,8 @@ export default function MyFosterHomeScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <StaleDataNotice query={mineQuery} />
+
       <Text style={styles.title}>{t('fosterHomes:mine.title')}</Text>
 
       {/* Status banner */}

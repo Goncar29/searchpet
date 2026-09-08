@@ -25,6 +25,7 @@ import { getErrorMessage } from '@shared/utils/apiErrors';
 import type { FosterHomePhoto, AnimalKind } from '@shared/types';
 import { useAuthStore } from '../../store';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
+import { StaleDataNotice } from '../../components/list/ListState';
 import { cloudinaryThumb } from '@shared/utils/cloudinaryThumb';
 import { IMAGE_BOXES } from '../../constants/imageSizes';
 
@@ -42,7 +43,8 @@ export default function FosterHomeDetailScreen() {
   // afirma algo sobre el mundo que no podemos saber si no llegamos a leerlo.
   // Distinguirlo necesita copy propia en los tres idiomas, como se hizo en
   // `story/[id]`. Se deja fuera para no ampliar el alcance sin avisar.
-  const { data: fosterHome, isLoading } = useFosterHomeByID(id);
+  const fosterHomeQuery = useFosterHomeByID(id);
+  const { data: fosterHome, isLoading } = fosterHomeQuery;
   const { user } = useAuthStore();
 
   const submitAbuseReport = useSubmitAbuseReport();
@@ -108,6 +110,8 @@ export default function FosterHomeDetailScreen() {
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+      <StaleDataNotice query={fosterHomeQuery} />
+
       {/* Photo gallery */}
       <View style={styles.carouselContainer}>
         {photos.length > 0 ? (
