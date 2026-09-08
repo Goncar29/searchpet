@@ -354,38 +354,19 @@ it('elegir un candidato también consume el salteo automático', () => {
   expect(onSkip).not.toHaveBeenCalled();
 });
 
-// Si el alta falla y la consulta ya contestó vacío, el paso NO puede
-// desaparecer: el wizard sólo pinta el error en rojo y un link de volver, así
-// que sin la salida la persona queda mirando un mensaje sin forma de reintentar
-// desde donde está. Choca con la regla 3 del componente ("nunca bloquea").
-//
-// El `return null` sigue existiendo para el caso normal —sin candidatos y sin
-// acción previa, el efecto saltea solo y no hay que mostrar un flash— pero deja
-// de aplicarse una vez que el salteo se consumió.
-it('si el alta falla con la lista vacía, la salida sigue en pantalla', () => {
-  const onSkip = vi.fn();
-  const p = (q: never, pub: boolean) => ({
-    query: q,
-    onSelect: vi.fn(),
-    onSkip,
-    isPublishing: pub,
-  });
-
-  const { rerender } = render(<CandidatesStep {...p(queryStub({ isLoading: true }), false)} />);
-  fireEvent.click(screen.getByTestId('candidates-skip'));
-
-  rerender(<CandidatesStep {...p(queryStub({ data: [] }), true)} />);
-  rerender(<CandidatesStep {...p(queryStub({ data: [] }), false)} />);
-
-  expect(screen.getByTestId('candidates-skip')).toBeInTheDocument();
-});
-
-// Y el contraejemplo, que es el que deja vivo el `return null`: sin acción
-// previa el paso sí desaparece, para que no haya un parpadeo mientras el efecto
-// saltea y el wizard cambia de paso.
-it('sin acción previa y sin candidatos, el paso no renderiza nada', () => {
-  const { container } = render(
+// El `return null` con cero candidatos: el efecto saltea solo y no tiene que
+// haber ningún flash del paso mientras el wizard cambia. Estuvo relajado un
+// commit para dejar la salida como reintento tras un fallo de publicación, y se
+// revirtió: desocultaba el paso también en el camino automático —el más común—
+// pintando el encabezado con cero tarjetas durante toda la publicación.
+it('sin candidatos el paso no renderiza nada, ni siquiera publicando', () => {
+  const { container, rerender } = render(
     <CandidatesStep query={queryStub({ data: [] })} onSelect={vi.fn()} onSkip={vi.fn()} />,
+  );
+  expect(container).toBeEmptyDOMElement();
+
+  rerender(
+    <CandidatesStep query={queryStub({ data: [] })} onSelect={vi.fn()} onSkip={vi.fn()} isPublishing />,
   );
   expect(container).toBeEmptyDOMElement();
 });

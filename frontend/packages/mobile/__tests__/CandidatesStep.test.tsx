@@ -371,10 +371,23 @@ it('tampoco saltea si el alta falla ANTES de que la consulta conteste', () => {
   expect(onSkip).toHaveBeenCalledTimes(1);
 });
 
-// Elegir "es este" también consume el salteo: la persona ya dijo que el animal
-// tiene ficha, así que auto-publicar una nueva porque un refetch devolvió []
-// crearía exactamente lo que acaba de decir que no hacía falta.
-it('elegir un candidato también consume el salteo automático', () => {
+// El `return null` con cero candidatos, igual que en la web.
+it('sin candidatos el paso no renderiza nada, ni siquiera publicando', () => {
+  const { toJSON, rerender } = render(
+    <CandidatesStep query={queryStub({ data: [] })} onSelect={jest.fn()} onSkip={jest.fn()} />,
+  );
+  expect(toJSON()).toBeNull();
+
+  rerender(
+    <CandidatesStep query={queryStub({ data: [] })} onSelect={jest.fn()} onSkip={jest.fn()} isPublishing />,
+  );
+  expect(toJSON()).toBeNull();
+});
+
+// Acá "es este" NO consume el salteo, al revés que en la web: `onSelect` abre un
+// Alert de confirmación con Cancel, así que el toque todavía no es una decisión.
+// Quien cancela tiene que conservar el salteo automático intacto.
+it('tocar "es este" y cancelar no consume el salteo', () => {
   const onSkip = jest.fn();
   const onSelect = jest.fn();
 
@@ -385,42 +398,10 @@ it('elegir un candidato también consume el salteo automático', () => {
   fireEvent.press(getByText('publish:candidates.isThisOne'));
   expect(onSelect).toHaveBeenCalledTimes(1);
 
+  // La persona cancela el Alert (el wizard no publica nada) y un refetch deja la
+  // lista vacía: el salteo automático tiene que seguir disponible.
   rerender(
     <CandidatesStep query={queryStub({ data: [] })} onSelect={onSelect} onSkip={onSkip} />,
   );
-  expect(onSkip).not.toHaveBeenCalled();
-});
-
-// Si el alta falla y la consulta ya contestó vacío, el paso NO puede
-// desaparecer: sin la salida la persona queda con el error y sin forma de
-// reintentar desde donde está. Choca con la regla 3 ("nunca bloquea").
-it('si el alta falla con la lista vacía, la salida sigue en pantalla', () => {
-  const onSkip = jest.fn();
-  const p = (q: never, pub: boolean) => ({
-    query: q,
-    onSelect: jest.fn(),
-    onSkip,
-    isPublishing: pub,
-  });
-
-  const { rerender, getByText, queryByText } = render(
-    <CandidatesStep {...p(queryStub({ isLoading: true }), false)} />,
-  );
-  fireEvent.press(getByText('publish:candidates.publishWithoutWaiting'));
-
-  rerender(<CandidatesStep {...p(queryStub({ data: [] }), true)} />);
-  rerender(<CandidatesStep {...p(queryStub({ data: [] }), false)} />);
-
-  // El texto es `noneOfThem`, no `publishAnyway`: una lista vacía SÍ es una
-  // respuesta de la consulta. Lo que se afirma acá es que el botón EXISTE, no
-  // qué dice.
-  expect(queryByText('publish:candidates.noneOfThem')).toBeTruthy();
-});
-
-// El contraejemplo que deja vivo el `return null`.
-it('sin acción previa y sin candidatos, el paso no renderiza nada', () => {
-  const { toJSON } = render(
-    <CandidatesStep query={queryStub({ data: [] })} onSelect={jest.fn()} onSkip={jest.fn()} />,
-  );
-  expect(toJSON()).toBeNull();
+  expect(onSkip).toHaveBeenCalledTimes(1);
 });

@@ -92,14 +92,18 @@ export function CandidatesStep({ query, onSelect, onSkip, isPublishing }: Candid
   // devolver null evita el flash de una pantalla vacía mientras el wizard cambia
   // de paso.
   //
-  // PERO sólo mientras el salteo no se haya consumido ya. Si se consumió y
-  // seguimos acá, es porque la publicación FALLÓ: el wizard pinta su error en
-  // rojo y su link de volver, y sin esta condición el paso no aporta nada más —
-  // la persona queda mirando un mensaje sin ninguna forma de reintentar desde
-  // donde está. Con el salteo consumido, la salida se sigue mostrando y ES el
-  // reintento. Choca de frente con la regla 3 de este componente ("nunca
-  // bloquea") dejarla afuera.
-  if (sinCandidatos && !yaSalteo.current) return null;
+  // Esto estuvo relajado a `sinCandidatos && !yaSalteo.current` para que, si la
+  // publicación fallaba, la salida siguiera en pantalla como reintento. Se
+  // REVIRTIÓ: desocultaba el paso también en el camino automático —el más
+  // común, porque la mayoría de los callejeros no tienen candidatos cerca— y
+  // pintaba el encabezado con CERO tarjetas durante toda la publicación, que es
+  // justo el flash que esta línea existe para evitar. Un arreglo que costaba
+  // cuatro defectos para cerrar uno que ya tenía salida (volver al selector).
+  //
+  // Si el reintento tras un fallo importa, es del WIZARD: él tiene el error y el
+  // estado. Este componente pregunta por candidatos y no debería estar
+  // decidiendo nada sobre una publicación fallida.
+  if (sinCandidatos) return null;
 
   // La fecha en que se lo vio, en el idioma del usuario.
   //
@@ -178,10 +182,17 @@ export function CandidatesStep({ query, onSelect, onSkip, isPublishing }: Candid
                     no pasen a la vez. */}
                 <TouchableOpacity
                   style={[styles.selectButton, isPublishing && styles.skipDisabled]}
-                  onPress={() => {
-                    consumirSalteo();
-                    onSelect(c);
-                  }}
+                  // NO consume el salteo, a diferencia de la web, y la
+                  // asimetría es deliberada: acá `onSelect` abre un Alert de
+                  // confirmación con Cancel, así que tocar este botón todavía no
+                  // es una decisión. Consumirlo en el press dejaba el salteo
+                  // gastado a quien cancelaba. En la web `onSelect` navega en el
+                  // acto y no hay nada que cancelar.
+                  //
+                  // Mientras el reporte está en vuelo lo cubre el guard
+                  // `isPublishing` del efecto, que en mobile incluye
+                  // `createReport.isPending`.
+                  onPress={() => onSelect(c)}
                   disabled={isPublishing}
                   accessibilityRole="button"
                 >
