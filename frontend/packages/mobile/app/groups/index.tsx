@@ -18,6 +18,7 @@ import { useTranslation } from 'react-i18next';
 import i18next from 'i18next';
 import { useAuthStore } from '../../store';
 import { useGroups, useJoinGroup, useLeaveGroup } from '../../../shared/hooks';
+import { ListState } from '../../components/list/ListState';
 import { getErrorMessage } from '../../../shared/utils/apiErrors';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
 import type { LocalGroup } from '../../../shared/types';
@@ -122,7 +123,8 @@ export default function GroupsScreen() {
   const [cityFilter, setCityFilter] = useState('');
   const [submittedCity, setSubmittedCity] = useState('');
 
-  const { data: groups, isLoading, isError, refetch } = useGroups(submittedCity || undefined);
+  // La query entera: `ListState` necesita `isPaused`, `isError` y `refetch`.
+  const groupsQuery = useGroups(submittedCity || undefined);
 
   const handleSearch = () => {
     setSubmittedCity(cityFilter.trim());
@@ -131,26 +133,6 @@ export default function GroupsScreen() {
   const handleUnauthenticated = () => {
     router.push('/login');
   };
-
-  if (isLoading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
-      </View>
-    );
-  }
-
-  if (isError) {
-    return (
-      <View style={styles.center}>
-        <Text style={styles.stateIcon}>⚠️</Text>
-        <Text style={styles.stateTitle}>{t('groups:loadError')}</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={() => refetch()}>
-          <Text style={styles.retryButtonText}>{t('groups:retry')}</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
 
   return (
     <View style={styles.container}>
@@ -170,8 +152,24 @@ export default function GroupsScreen() {
         </TouchableOpacity>
       </View>
 
+      {/* El buscador queda AFUERA a propósito: antes vivía debajo del early
+          return de error, así que un fallo de red se llevaba puesta la única
+          forma de reintentar con otra ciudad.
+
+          Y el cartel sale sólo si no hay nada que mostrar: con `isError` a
+          secas, un refetch fallido borraba los grupos ya dibujados. De paso se
+          va el `as LocalGroup[]`, un cast que escondía el `undefined`. */}
+      <ListState<LocalGroup[], LocalGroup>
+        query={groupsQuery}
+        loading={
+          <View style={styles.center}>
+            <ActivityIndicator size="large" color={COLORS.primary} />
+          </View>
+        }
+      >
+        {(groups) => (
       <FlatList
-        data={groups as LocalGroup[]}
+        data={groups}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
           <GroupCard
@@ -195,6 +193,8 @@ export default function GroupsScreen() {
           </View>
         }
       />
+        )}
+      </ListState>
     </View>
   );
 }

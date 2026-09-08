@@ -22,6 +22,7 @@ import { useGroup, useGroupMembers, useJoinGroup, useLeaveGroup } from '../../..
 import { getErrorMessage } from '../../../shared/utils/apiErrors';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
 import type { GroupMember } from '../../../shared/types';
+import { ListState } from '../../components/list/ListState';
 import { cloudinaryThumb } from '@shared/utils/cloudinaryThumb';
 import { IMAGE_SIZES } from '../../constants/imageSizes';
 
@@ -71,7 +72,10 @@ export default function GroupDetailScreen() {
   const { isAuthenticated } = useAuthStore();
 
   const { data: group, isLoading: groupLoading, isError: groupError } = useGroup(id ?? '');
-  const { data: members, isLoading: membersLoading } = useGroupMembers(id ?? '');
+  // La query entera. Antes se tomaba sólo `data` e `isLoading`, así que un fallo
+  // de esta consulta caía en la rama `!members` y la sección decía "no hay
+  // miembros" sobre un grupo que puede estar lleno.
+  const membersQuery = useGroupMembers(id ?? '');
   const joinMutation = useJoinGroup(id ?? '');
   const leaveMutation = useLeaveGroup(id ?? '');
 
@@ -174,22 +178,38 @@ export default function GroupDetailScreen() {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>👥 {t('groups:membersTitle')}</Text>
 
-        {membersLoading ? (
-          <ActivityIndicator
-            size="small"
-            color={COLORS.primary}
-            style={{ marginTop: SPACING.md }}
-          />
-        ) : !members || members.length === 0 ? (
-          <View style={styles.emptyMembers}>
-            <Text style={styles.stateIcon}>🤷</Text>
-            <Text style={styles.stateText}>{t('groups:noMembers')}</Text>
-          </View>
-        ) : (
-          members.map((member) => (
-            <MemberRow key={member.user_id} member={member} />
-          ))
-        )}
+        {/* `errorTitle` nombra la SECCIÓN y no la causa, que es lo que pide
+            `ListState`: la prop pisa el título de la rama de error Y el de la
+            offline, así que un texto tipo "el servidor no contestó" sería falso
+            sin conexión.
+
+            El vacío se decide adentro y sigue siendo `length === 0`: acá eso ya
+            NO puede significar "falló", porque el fallo se lo quedó la rama de
+            arriba. Antes `!members` mezclaba las dos cosas. */}
+        <ListState<GroupMember[], GroupMember>
+          query={membersQuery}
+          errorTitle={t('groups:membersTitle')}
+          loading={
+            <ActivityIndicator
+              size="small"
+              color={COLORS.primary}
+              style={{ marginTop: SPACING.md }}
+            />
+          }
+        >
+          {(members) =>
+            members.length === 0 ? (
+              <View style={styles.emptyMembers}>
+                <Text style={styles.stateIcon}>🤷</Text>
+                <Text style={styles.stateText}>{t('groups:noMembers')}</Text>
+              </View>
+            ) : (
+              members.map((member) => (
+                <MemberRow key={member.user_id} member={member} />
+              ))
+            )
+          }
+        </ListState>
       </View>
 
       <View style={{ height: 80 }} />

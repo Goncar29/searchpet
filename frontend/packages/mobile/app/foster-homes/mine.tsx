@@ -139,7 +139,11 @@ export default function MyFosterHomeScreen() {
     );
   }
 
-  if (isError || !mine) {
+  // `!mine` y NO `isError || !mine`: con el `||`, un refetch fallido reemplazaba
+  // el hogar propio ya cargado por el cartel de error. Ojo con el orden — la
+  // rama `foster_home_not_found` de arriba sigue primero, porque ese 404 SÍ es
+  // una respuesta y no una falla de lectura.
+  if (!mine) {
     return (
       <View style={styles.center}>
         <Text style={styles.loadErrorText}>{t('fosterHomes:mine.loadError')}</Text>

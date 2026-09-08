@@ -335,7 +335,13 @@ export default function PublicProfileScreen() {
     );
   }
 
-  if (isError || !profile) {
+  // `!profile` y NO `isError || !profile`: React Query conserva lo cacheado
+  // cuando falla un refetch, y esta pantalla tiene pull-to-refresh. Con el `||`,
+  // un 502 pasajero de Render reemplazaba el perfil que el usuario estaba
+  // mirando por un cartel de error. Ahora el cartel sale sólo cuando no hay
+  // perfil que mostrar, y el texto de adentro sigue distinguiendo "no pudimos
+  // leerlo" de "no existe" con el mismo `isError`.
+  if (!profile) {
     return (
       <View style={styles.center}>
         <Text style={styles.stateIcon}>🔍</Text>

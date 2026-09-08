@@ -34,7 +34,15 @@ export default function FosterHomeDetailScreen() {
   const { t } = useTranslation(['fosterHomes', 'errors', 'common']);
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { data: fosterHome, isLoading, isError } = useFosterHomeByID(id);
+  // `isError` ya no se lee: la guarda de abajo mira `!fosterHome`, que es lo
+  // que decide si hay algo para mostrar.
+  //
+  // PENDIENTE ANOTADO, distinto de este arreglo: cuando NO hay hogar y encima
+  // hubo error, el cartel dice `common:noResults` ("sin resultados"), que
+  // afirma algo sobre el mundo que no podemos saber si no llegamos a leerlo.
+  // Distinguirlo necesita copy propia en los tres idiomas, como se hizo en
+  // `story/[id]`. Se deja fuera para no ampliar el alcance sin avisar.
+  const { data: fosterHome, isLoading } = useFosterHomeByID(id);
   const { user } = useAuthStore();
 
   const submitAbuseReport = useSubmitAbuseReport();
@@ -50,7 +58,10 @@ export default function FosterHomeDetailScreen() {
     );
   }
 
-  if (isError || !fosterHome) {
+  // `!fosterHome` y NO `isError || !fosterHome`: con el `||`, un refetch fallido
+  // tapaba el hogar ya cargado con "sin resultados", que es una afirmación
+  // falsa sobre algo que sí existe.
+  if (!fosterHome) {
     return (
       <View style={styles.center}>
         <Text style={{ fontSize: 48 }}>🏠</Text>

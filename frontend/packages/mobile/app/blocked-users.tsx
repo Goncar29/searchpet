@@ -16,6 +16,7 @@ import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import i18next from 'i18next';
 import { useBlockedUsers, useUnblockUser } from '../../shared/hooks';
+import { ListState } from '../components/list/ListState';
 import { getErrorMessage } from '../../shared/utils/apiErrors';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../constants';
 import type { BlockedUser } from '../../shared/types';
@@ -55,7 +56,8 @@ function BlockedUserItem({ item, onUnblock }: { item: BlockedUser; onUnblock: (i
 export default function BlockedUsersScreen() {
   const router = useRouter();
   const { t } = useTranslation(['blocked_users', 'common']);
-  const { data: blockedUsers, isLoading, isError } = useBlockedUsers();
+  // La query entera: `ListState` necesita `isPaused`, `isError` y `refetch`.
+  const blockedQuery = useBlockedUsers();
   const unblockUser = useUnblockUser();
 
   const handleUnblock = (userId: string) => {
@@ -66,25 +68,6 @@ export default function BlockedUsersScreen() {
     });
   };
 
-  if (isLoading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
-      </View>
-    );
-  }
-
-  if (isError) {
-    return (
-      <View style={styles.center}>
-        <Text style={styles.errorText}>{t('blocked_users:loadError')}</Text>
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-          <Text style={styles.backBtnText}>{t('blocked_users:back')}</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -94,14 +77,27 @@ export default function BlockedUsersScreen() {
         <Text style={styles.title}>{t('blocked_users:title')}</Text>
       </View>
 
+      {/* El encabezado con la flecha de volver queda AFUERA: antes vivía debajo
+          del early return de error, así que un fallo de red dejaba al usuario
+          sin la salida. El cartel además sale sólo si no hay nada que mostrar —
+          con `isError` a secas un refetch fallido borraba la lista dibujada. */}
+      <ListState<BlockedUser[], BlockedUser>
+        query={blockedQuery}
+        loading={
+          <View style={styles.center}>
+            <ActivityIndicator size="large" color={COLORS.primary} />
+          </View>
+        }
+      >
+        {(blockedUsers) => (
       <FlatList
-        data={blockedUsers ?? []}
+        data={blockedUsers}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
           <BlockedUserItem item={item} onUnblock={handleUnblock} />
         )}
         contentContainerStyle={
-          (blockedUsers ?? []).length === 0 ? styles.emptyContainer : styles.listContent
+          blockedUsers.length === 0 ? styles.emptyContainer : styles.listContent
         }
         ListEmptyComponent={
           <View style={styles.empty}>
@@ -111,6 +107,8 @@ export default function BlockedUsersScreen() {
           </View>
         }
       />
+        )}
+      </ListState>
     </View>
   );
 }

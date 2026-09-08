@@ -15,7 +15,7 @@ export default function StoryDetailScreen() {
   const router = useRouter();
   const { t, i18n } = useTranslation('story');
   const { isAuthenticated } = useAuthStore();
-  const { data: story, isLoading, isError } = useStory(id ?? '');
+  const { data: story, isLoading, isError, refetch } = useStory(id ?? '');
   const likeStory = useLikeStory();
   const unlikeStory = useUnlikeStory();
   const isToggling = likeStory.isPending || unlikeStory.isPending;
@@ -42,15 +42,39 @@ export default function StoryDetailScreen() {
     );
   }
 
-  if (isError || !story) {
+  // `!story` y NO `isError || !story`: React Query conserva lo cacheado cuando
+  // falla un refetch, así que con el `||` un fallo pasajero reemplazaba la
+  // historia que el usuario estaba leyendo por "no encontrada" — que además es
+  // FALSO: la historia existe, sólo no pudimos releerla.
+  if (!story) {
+    // Y ADEMÁS distingue las dos causas, que antes se pintaban igual: sin
+    // historia y con error decía "no encontrada", una afirmación sobre el mundo
+    // que no podemos hacer si no llegamos a leerlo. El caso de error ofrece
+    // reintentar; el de verdad-no-existe, volver.
+    //
+    // Las claves `story:loadError` y `story:retry` ya existían en los tres
+    // idiomas: las usaba el listado antes de portarse a `ListState`.
     return (
       <View style={styles.center}>
-        <Text style={styles.errorIcon}>😢</Text>
-        <Text style={styles.errorTitle}>{t('story:notFound')}</Text>
-        <Text style={styles.errorText}>{t('story:notFoundText')}</Text>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <Text style={styles.backButtonText}>{t('story:back')}</Text>
-        </TouchableOpacity>
+        <Text style={styles.errorIcon}>{isError ? '⚠️' : '😢'}</Text>
+        {/* Claves propias del DETALLE: `story:loadError` es del listado y dice
+            "no se pudieron cargar las historias", en plural. Reusarla acá
+            hablaría de un conjunto cuando falló una sola. */}
+        <Text style={styles.errorTitle}>
+          {isError ? t('story:detailLoadError') : t('story:notFound')}
+        </Text>
+        <Text style={styles.errorText}>
+          {isError ? t('story:detailLoadErrorText') : t('story:notFoundText')}
+        </Text>
+        {isError ? (
+          <TouchableOpacity style={styles.backButton} onPress={() => refetch()}>
+            <Text style={styles.backButtonText}>{t('story:retry')}</Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+            <Text style={styles.backButtonText}>{t('story:back')}</Text>
+          </TouchableOpacity>
+        )}
       </View>
     );
   }
