@@ -9,12 +9,21 @@ import (
 	"lost-pets/internal/domain"
 )
 
-// Spatial index recomendado para FindActiveAlertsNear (ejecutar una vez, fuera de AutoMigrate):
+// El índice espacial de FindActiveAlertsNear vive en la migración 000026
+// (`idx_location_alerts_geog`), junto con los de `reports` y `vets`.
 //
-//	CREATE INDEX IF NOT EXISTS idx_location_alerts_geo
-//	  ON location_alerts USING GIST (
-//	    ST_SetSRID(ST_MakePoint(alert_longitude, alert_latitude), 4326)::geography
-//	  );
+// Acá había una nota que RECOMENDABA crearlo "ejecutar una vez, fuera de
+// AutoMigrate", y nunca se ejecutó: describía un índice que no existía. Si tocás
+// la expresión geográfica de la consulta de abajo, tocá también la del índice —
+// si dejan de coincidir Postgres no lo usa, y un índice que el planner ignora es
+// peor que ninguno porque parece resuelto.
+//
+// Lo protegen DOS tests, y ninguno de los dos es el de `reports`: este comentario
+// llegó a citar TestGeoIndexes_ElPlannerUsaElDeReports, que sólo siembra y
+// explica la consulta de reports — no habría visto nada de acá.
+// TestGeoIndexes_ElPlannerUsaElDeAlertas mira el plan de ESTA consulta, y
+// TestFindActiveAlertsNear_ElPrefiltroNoDescartaElRadioMaximo cuida que el
+// prefiltro no se coma alertas válidas.
 
 type locationAlertRepository struct {
 	db *gorm.DB
@@ -72,18 +81,41 @@ func (r *locationAlertRepository) Delete(ctx context.Context, id uuid.UUID) erro
 // — retorna verdadero si la distancia geodésica entre el centro de la alerta
 // y el punto del reporte es <= radius_km km.
 //
-// Requiere índice GIST en (alert_longitude, alert_latitude) para performance.
-// DDL sugerido (ejecutar una vez, fuera de AutoMigrate):
+// El índice espacial es `idx_location_alerts_geog` (migración 000026), y esta
+// consulta sólo puede usarlo gracias al prefiltro constante de abajo.
 //
-//	CREATE INDEX IF NOT EXISTS idx_location_alerts_geo
-//	  ON location_alerts USING GIST (
-//	    ST_SetSRID(ST_MakePoint(alert_longitude, alert_latitude), 4326)::geography
-//	  );
+// Acá había un DDL "sugerido (ejecutar una vez, fuera de AutoMigrate)" que
+// nombraba `idx_location_alerts_geo` — SIN la g final, o sea un nombre distinto
+// del que la migración crea. Su `IF NOT EXISTS` no habría disparado: quien lo
+// siguiera se quedaba con DOS índices GiST byte por byte iguales, pagando dos
+// veces la escritura. Se borró.
 func (r *locationAlertRepository) FindActiveAlertsNear(ctx context.Context, lat, lng float64, petType string) ([]domain.LocationAlert, error) {
 	var alerts []domain.LocationAlert
 
+	// DOS condiciones geográficas, y la primera existe SÓLO para que el índice
+	// sirva. No es una optimización de más: sin ella el plan es un Seq Scan
+	// sobre la tabla entera, medido.
+	//
+	// El motivo es que el radio real es una COLUMNA (`radius_km * 1000`), y
+	// PostGIS expande ST_DWithin a `geog && _ST_Expand(punto, d)`: cuando `d`
+	// depende de la fila, la cláusula deja de ser indexable y degrada a filtro.
+	// El prefiltro usa una cota CONSTANTE —el radio máximo que una alerta puede
+	// pedir— y por eso sí entra por el índice; después la condición exacta
+	// descarta las que quedaron dentro de la cota pero fuera de su propio radio.
+	//
+	// La cota sale de domain.MaxAlertRadiusKm, la MISMA que valida la entrada.
+	// Si fueran dos números, subir el máximo sin tocar acá dejaría de disparar
+	// las alertas del rango nuevo EN SILENCIO — sin error y sin lentitud.
 	query := r.db.WithContext(ctx).
 		Where("is_active = true").
+		Where(
+			"ST_DWithin("+
+				"ST_SetSRID(ST_MakePoint(alert_longitude, alert_latitude), 4326)::geography, "+
+				"ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography, "+
+				"?"+
+				")",
+			lng, lat, domain.MaxAlertRadiusKm*1000,
+		).
 		Where(
 			"ST_DWithin("+
 				"ST_SetSRID(ST_MakePoint(alert_longitude, alert_latitude), 4326)::geography, "+

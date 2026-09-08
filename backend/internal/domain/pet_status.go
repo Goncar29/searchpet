@@ -191,3 +191,17 @@ func IsValidReportStatus(s string) bool {
 	}
 	return false
 }
+
+// MaxAlertRadiusKm es el radio máximo que puede pedir una alerta de ubicación.
+//
+// NO es sólo una validación de entrada: `FindActiveAlertsNear` la usa como cota
+// del PREFILTRO que hace utilizable su índice GiST. El radio real de la consulta
+// es una columna por fila (`radius_km * 1000`), y PostGIS no puede indexar un
+// ST_DWithin cuyo radio depende de la fila —el planner cae a Seq Scan, medido—,
+// así que la consulta acota primero con esta constante y después filtra exacto.
+//
+// POR ESO NO PUEDE HABER DOS. Si alguien sube el máximo acá y el prefiltro se
+// queda en el valor viejo, las alertas del rango nuevo dejan de dispararse EN
+// SILENCIO: no hay error, no hay lentitud, simplemente no llega la notificación.
+// Lo protege TestFindActiveAlertsNear_ElPrefiltroNoDescartaElRadioMaximo.
+const MaxAlertRadiusKm = 50
