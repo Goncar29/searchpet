@@ -50,6 +50,7 @@ i18n
         fosterHomes: es.fosterHomes,
         impact: es.impact,
         stories: es.stories,
+        download: es.download,
       },
       en: {
         // Shared namespaces
@@ -79,6 +80,7 @@ i18n
         fosterHomes: en.fosterHomes,
         impact: en.impact,
         stories: en.stories,
+        download: en.download,
       },
       pt: {
         // Shared namespaces
@@ -108,6 +110,7 @@ i18n
         fosterHomes: pt.fosterHomes,
         impact: pt.impact,
         stories: pt.stories,
+        download: pt.download,
       },
     },
     interpolation: {

@@ -904,5 +904,41 @@
     "unlike": "Remover curtida",
     "likeCount_one": "{{count}} curtida",
     "likeCount_other": "{{count}} curtidas"
+  },
+  "download": {
+    "title": "Baixar o SearchPet",
+    "subtitle": "100% gratuito, sem passar por lojas",
+    "android": {
+      "title": "Android (APK)",
+      "description": "Baixe e instale diretamente no seu celular Android. Não precisa do Google Play.",
+      "cta": "Baixar APK",
+      "ctaLabel": "Baixar APK pelo GitHub Releases",
+      "note": "Vem do GitHub Releases — sempre a versão mais recente"
+    },
+    "webApp": {
+      "title": "Web App (iOS + Android)",
+      "description": "Instale pelo navegador. Funciona no iOS e no Android sem passar por nenhuma loja.",
+      "step1": "Abra esta página no Safari (iOS) ou no Chrome (Android)",
+      "step2": "Toque no botão compartilhar",
+      "step3": "Escolha \"Adicionar à Tela de Início\"",
+      "step4": "Pronto! O ícone fica na sua tela de início",
+      "cta": "Abrir agora",
+      "ctaLabel": "Abrir agora (Web App)"
+    },
+    "expo": {
+      "title": "Expo Go (Testing)",
+      "description": "Para testadores e desenvolvedores. Instale o app e escaneie o QR.",
+      "android": "Android",
+      "androidLabel": "Expo Go para Android",
+      "ios": "iOS",
+      "iosLabel": "Expo Go para iOS"
+    },
+    "sideload": {
+      "title": "Para instalar o APK no Android",
+      "step1": "Vá em Configurações → Segurança (ou Apps)",
+      "step2": "Ative \"Instalar apps de fontes desconhecidas\"",
+      "step3": "Baixe e abra o APK",
+      "step4": "Toque em \"Instalar\""
+    }
   }
 }
