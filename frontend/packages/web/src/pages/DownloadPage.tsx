@@ -70,10 +70,16 @@ export function DownloadPage() {
                     de la traduccion: el ⬆️ que estaba ahi lo pinta la fuente de
                     emoji del sistema —en Windows sale como un cuadrito de
                     color— y desentonaba con los tres iconos monocromo de las
-                    tarjetas. Aca ademas hereda el color del texto. */}
+                    tarjetas. Aca ademas hereda el color del texto.
+
+                    `ios-share` y NO `share`: el paso 1 manda a Safari, y en iOS
+                    el control es una caja con flecha hacia arriba. El `share`
+                    de Material Symbols es la marca de tres nodos de Android,
+                    que en iOS no existe — el usuario la buscaria en la barra y
+                    no la encontraria. */}
                 <li>
                   2. {t('webApp.step2')}{' '}
-                  <Icon name="share" className="inline align-text-bottom" />
+                  <Icon name="ios-share" className="inline align-text-bottom" />
                 </li>
                 <li>3. {t('webApp.step3')}</li>
                 <li>4. {t('webApp.step4')}</li>

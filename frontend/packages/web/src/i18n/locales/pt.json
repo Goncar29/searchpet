@@ -912,7 +912,7 @@
       "title": "Android (APK)",
       "description": "Baixe e instale diretamente no seu celular Android. Não precisa do Google Play.",
       "cta": "Baixar APK",
-      "ctaLabel": "Baixar o APK pelo GitHub Releases",
+      "ctaLabel": "Baixar APK pelo GitHub Releases",
       "note": "Vem do GitHub Releases — sempre a versão mais recente"
     },
     "webApp": {
@@ -923,7 +923,7 @@
       "step3": "Escolha \"Adicionar à Tela de Início\"",
       "step4": "Pronto! O ícone fica na sua tela de início",
       "cta": "Abrir agora",
-      "ctaLabel": "Abrir o Web App"
+      "ctaLabel": "Abrir agora (Web App)"
     },
     "expo": {
       "title": "Expo Go (Testing)",
