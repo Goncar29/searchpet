@@ -343,3 +343,84 @@ it('no saltea automáticamente si ya hay un alta en vuelo, ni cuando esa alta fa
   rerender(<CandidatesStep {...props(queryStub({ data: [] }), false)} />);
   expect(onSkip).toHaveBeenCalledTimes(1);
 });
+
+// El MISMO escenario en el ORDEN INVERSO: la publicación falla ANTES de que la
+// consulta conteste.
+//
+// Es la mitad que delató que el guard dependía del orden. Con `isPublishing`
+// como única defensa, el efecto sólo consumía el ref si la publicación seguía
+// en vuelo justo cuando `sinCandidatos` cambiaba; si fallaba primero y la
+// consulta contestaba después, salía un segundo `onSkip()`.
+it('tampoco saltea si el alta falla ANTES de que la consulta conteste', () => {
+  const onSkip = jest.fn();
+  const p = (q: never, pub: boolean) => ({
+    query: q,
+    onSelect: jest.fn(),
+    onSkip,
+    isPublishing: pub,
+  });
+
+  const { rerender, getByText } = render(
+    <CandidatesStep {...p(queryStub({ isLoading: true }), false)} />,
+  );
+  fireEvent.press(getByText('publish:candidates.publishWithoutWaiting'));
+  rerender(<CandidatesStep {...p(queryStub({ isLoading: true }), true)} />);
+  rerender(<CandidatesStep {...p(queryStub({ isLoading: true }), false)} />);
+  rerender(<CandidatesStep {...p(queryStub({ data: [] }), false)} />);
+
+  expect(onSkip).toHaveBeenCalledTimes(1);
+});
+
+// Elegir "es este" también consume el salteo: la persona ya dijo que el animal
+// tiene ficha, así que auto-publicar una nueva porque un refetch devolvió []
+// crearía exactamente lo que acaba de decir que no hacía falta.
+it('elegir un candidato también consume el salteo automático', () => {
+  const onSkip = jest.fn();
+  const onSelect = jest.fn();
+
+  const { rerender, getByText } = render(
+    <CandidatesStep query={queryStub({ data: [candidato] })} onSelect={onSelect} onSkip={onSkip} />,
+  );
+
+  fireEvent.press(getByText('publish:candidates.isThisOne'));
+  expect(onSelect).toHaveBeenCalledTimes(1);
+
+  rerender(
+    <CandidatesStep query={queryStub({ data: [] })} onSelect={onSelect} onSkip={onSkip} />,
+  );
+  expect(onSkip).not.toHaveBeenCalled();
+});
+
+// Si el alta falla y la consulta ya contestó vacío, el paso NO puede
+// desaparecer: sin la salida la persona queda con el error y sin forma de
+// reintentar desde donde está. Choca con la regla 3 ("nunca bloquea").
+it('si el alta falla con la lista vacía, la salida sigue en pantalla', () => {
+  const onSkip = jest.fn();
+  const p = (q: never, pub: boolean) => ({
+    query: q,
+    onSelect: jest.fn(),
+    onSkip,
+    isPublishing: pub,
+  });
+
+  const { rerender, getByText, queryByText } = render(
+    <CandidatesStep {...p(queryStub({ isLoading: true }), false)} />,
+  );
+  fireEvent.press(getByText('publish:candidates.publishWithoutWaiting'));
+
+  rerender(<CandidatesStep {...p(queryStub({ data: [] }), true)} />);
+  rerender(<CandidatesStep {...p(queryStub({ data: [] }), false)} />);
+
+  // El texto es `noneOfThem`, no `publishAnyway`: una lista vacía SÍ es una
+  // respuesta de la consulta. Lo que se afirma acá es que el botón EXISTE, no
+  // qué dice.
+  expect(queryByText('publish:candidates.noneOfThem')).toBeTruthy();
+});
+
+// El contraejemplo que deja vivo el `return null`.
+it('sin acción previa y sin candidatos, el paso no renderiza nada', () => {
+  const { toJSON } = render(
+    <CandidatesStep query={queryStub({ data: [] })} onSelect={jest.fn()} onSkip={jest.fn()} />,
+  );
+  expect(toJSON()).toBeNull();
+});

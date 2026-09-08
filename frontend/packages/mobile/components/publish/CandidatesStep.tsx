@@ -58,6 +58,17 @@ export function CandidatesStep({ query, onSelect, onSkip, isPublishing }: Candid
   // disparar y crearía una SEGUNDA mascota.
   const yaSalteo = useRef(false);
 
+  // Cualquier acción manual en este paso consume el salteo automático, y se
+  // marca ACÁ y no adentro del efecto: el efecto sólo ve el estado del render en
+  // que corre, así que atarlo a `isPublishing` lo hacía depender del ORDEN en
+  // que llegaran la respuesta de la consulta y el fallo de la publicación. En el
+  // orden inverso —falla primero, contesta después— el ref seguía en false y
+  // salía un segundo `onSkip()`. Una vez que la persona eligió —publicar igual,
+  // o "es este"— ya no queda nada que saltear, pase lo que pase después.
+  const consumirSalteo = () => {
+    yaSalteo.current = true;
+  };
+
   useEffect(() => {
     // `isPublishing` frena el salteo igual que frena el botón, y por el mismo
     // motivo: `onSkip` PUBLICA. El ref solo—que era lo que había—cubre el
@@ -66,27 +77,29 @@ export function CandidatesStep({ query, onSelect, onSkip, isPublishing }: Candid
     // false; si un refetch (el "Reintentar" del ListState, o el reconnect que
     // cablea `utils/onlineStatus`) devuelve `[]`, el flanco enciende el efecto
     // con `yaSalteo` todavía en false y sale un SEGUNDO alta.
-    if (!sinCandidatos || yaSalteo.current) return;
-    // Con un alta EN VUELO el salteo se consume igual, no se pospone. Marcar el
-    // ref y salir —en vez de sólo salir— es la diferencia entre suprimir y
-    // DIFERIR: `isPublishing` está en las deps, así que si la publicación FALLA
-    // (500, offline, timeout del cold start de Render) vuelve a false, el efecto
-    // se re-ejecuta con `yaSalteo` todavía en false y dispara un SEGUNDO
-    // `onSkip()` sin que nadie toque nada — encima borrando el error que la
-    // persona tenía que leer. Si la primera request llegó al server, son dos
-    // mascotas.
-    //
-    // El click manual YA consumió el salteo automático: no queda nada que
-    // saltear después.
-    if (isPublishing) {
-      yaSalteo.current = true;
-      return;
-    }
+    // `isPublishing` sigue acá como red, pero NO es lo que sostiene la
+    // corrección: el ref lo consume la acción manual (ver `consumirSalteo`).
+    // Ponerlo sólo acá ataba el arreglo al ORDEN de dos eventos independientes
+    // —que la consulta conteste y que la publicación falle— y en el orden
+    // inverso (falla primero, contesta después) `yaSalteo` seguía en false y
+    // salía un segundo `onSkip()`. Reproducido con 4 renders.
+    if (!sinCandidatos || yaSalteo.current || isPublishing) return;
     yaSalteo.current = true;
     onSkip();
   }, [sinCandidatos, onSkip, isPublishing]);
 
-  if (sinCandidatos) return null;
+  // Sin candidatos no hay nada que preguntar y el efecto ya llamó a `onSkip`:
+  // devolver null evita el flash de una pantalla vacía mientras el wizard cambia
+  // de paso.
+  //
+  // PERO sólo mientras el salteo no se haya consumido ya. Si se consumió y
+  // seguimos acá, es porque la publicación FALLÓ: el wizard pinta su error en
+  // rojo y su link de volver, y sin esta condición el paso no aporta nada más —
+  // la persona queda mirando un mensaje sin ninguna forma de reintentar desde
+  // donde está. Con el salteo consumido, la salida se sigue mostrando y ES el
+  // reintento. Choca de frente con la regla 3 de este componente ("nunca
+  // bloquea") dejarla afuera.
+  if (sinCandidatos && !yaSalteo.current) return null;
 
   // La fecha en que se lo vio, en el idioma del usuario.
   //
@@ -165,7 +178,10 @@ export function CandidatesStep({ query, onSelect, onSkip, isPublishing }: Candid
                     no pasen a la vez. */}
                 <TouchableOpacity
                   style={[styles.selectButton, isPublishing && styles.skipDisabled]}
-                  onPress={() => onSelect(c)}
+                  onPress={() => {
+                    consumirSalteo();
+                    onSelect(c);
+                  }}
                   disabled={isPublishing}
                   accessibilityRole="button"
                 >
@@ -183,7 +199,10 @@ export function CandidatesStep({ query, onSelect, onSkip, isPublishing }: Candid
       <TouchableOpacity
         testID="candidates-skip"
         style={[styles.skipButton, isPublishing && styles.skipDisabled]}
-        onPress={onSkip}
+        onPress={() => {
+          consumirSalteo();
+          onSkip();
+        }}
         // `disabled` es la ÚNICA fuente, y eso es deliberado: TouchableOpacity
         // ya deriva de él `accessibilityState.disabled`. Pasar además el
         // accessibilityState a mano no agrega nada Y ROMPE EL TEST — medido:

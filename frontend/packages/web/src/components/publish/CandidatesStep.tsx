@@ -61,6 +61,17 @@ export function CandidatesStep({ query, onSelect, onSkip, isPublishing }: Candid
   // acuerde de envolver la función (el modo de falla de la regla #40).
   const yaSalteo = useRef(false);
 
+  // Cualquier acción manual en este paso consume el salteo automático, y se
+  // marca ACÁ y no adentro del efecto: el efecto sólo ve el estado del render en
+  // que corre, así que atarlo a `isPublishing` lo hacía depender del ORDEN en
+  // que llegaran la respuesta de la consulta y el fallo de la publicación. En el
+  // orden inverso —falla primero, contesta después— el ref seguía en false y
+  // salía un segundo `onSkip()`. Una vez que la persona eligió —publicar igual,
+  // o "es este"— ya no queda nada que saltear, pase lo que pase después.
+  const consumirSalteo = () => {
+    yaSalteo.current = true;
+  };
+
   useEffect(() => {
     // `isPublishing` frena el salteo igual que frena el botón, y por el mismo
     // motivo: `onSkip` PUBLICA. El ref solo cubre el re-render, no el cambio de
@@ -71,27 +82,29 @@ export function CandidatesStep({ query, onSelect, onSkip, isPublishing }: Candid
     //
     // Mobile ya lo tenía desde el #230 y acá faltaba: las dos plataformas
     // divergieron en silencio durante dos PRs.
-    if (!sinCandidatos || yaSalteo.current) return;
-    // Con un alta EN VUELO el salteo se consume igual, no se pospone. Marcar el
-    // ref y salir —en vez de sólo salir— es la diferencia entre suprimir y
-    // DIFERIR: `isPublishing` está en las deps, así que si la publicación FALLA
-    // (500, offline, timeout del cold start de Render) vuelve a false, el efecto
-    // se re-ejecuta con `yaSalteo` todavía en false y dispara un SEGUNDO
-    // `onSkip()` sin que nadie toque nada — encima borrando el error que la
-    // persona tenía que leer. Si la primera request llegó al server, son dos
-    // mascotas.
-    //
-    // El click manual YA consumió el salteo automático: no queda nada que
-    // saltear después.
-    if (isPublishing) {
-      yaSalteo.current = true;
-      return;
-    }
+    // `isPublishing` sigue acá como red, pero NO es lo que sostiene la
+    // corrección: el ref lo consume la acción manual (ver `consumirSalteo`).
+    // Ponerlo sólo acá ataba el arreglo al ORDEN de dos eventos independientes
+    // —que la consulta conteste y que la publicación falle— y en el orden
+    // inverso (falla primero, contesta después) `yaSalteo` seguía en false y
+    // salía un segundo `onSkip()`. Reproducido con 4 renders.
+    if (!sinCandidatos || yaSalteo.current || isPublishing) return;
     yaSalteo.current = true;
     onSkip();
   }, [sinCandidatos, onSkip, isPublishing]);
 
-  if (sinCandidatos) return null;
+  // Sin candidatos no hay nada que preguntar y el efecto ya llamó a `onSkip`:
+  // devolver null evita el flash de una pantalla vacía mientras el wizard cambia
+  // de paso.
+  //
+  // PERO sólo mientras el salteo no se haya consumido ya. Si se consumió y
+  // seguimos acá, es porque la publicación FALLÓ: el wizard pinta su error en
+  // rojo y su link de volver, y sin esta condición el paso no aporta nada más —
+  // la persona queda mirando un mensaje sin ninguna forma de reintentar desde
+  // donde está. Con el salteo consumido, la salida se sigue mostrando y ES el
+  // reintento. Choca de frente con la regla 3 de este componente ("nunca
+  // bloquea") dejarla afuera.
+  if (sinCandidatos && !yaSalteo.current) return null;
 
   // "hace 4 meses" en el idioma del usuario. Se calcula en días y se deja que
   // Intl elija la unidad: 120 días es "hace 4 meses" y no "hace 120 días".
@@ -168,7 +181,11 @@ export function CandidatesStep({ query, onSelect, onSkip, isPublishing }: Candid
                 <button
                   type="button"
                   data-testid="candidate-select"
-                  onClick={() => onSelect(c)}
+                  onClick={() => {
+                    consumirSalteo();
+                    onSelect(c);
+                  }}
+                  disabled={isPublishing}
                   className="shrink-0 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-dark"
                 >
                   {t('publish:candidates.isThisOne')}
@@ -185,7 +202,10 @@ export function CandidatesStep({ query, onSelect, onSkip, isPublishing }: Candid
       <button
         type="button"
         data-testid="candidates-skip"
-        onClick={onSkip}
+        onClick={() => {
+          consumirSalteo();
+          onSkip();
+        }}
         disabled={isPublishing}
         className="mt-6 w-full rounded-xl border border-gray-300 dark:border-gray-600 px-4 py-3 text-sm font-semibold text-gray-700 dark:text-gray-300 transition-colors hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
       >

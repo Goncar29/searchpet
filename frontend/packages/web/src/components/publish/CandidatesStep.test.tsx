@@ -308,3 +308,84 @@ it('no saltea automáticamente si ya hay un alta en vuelo', () => {
 
   expect(onSkip).toHaveBeenCalledTimes(1);
 });
+
+// El MISMO escenario en el ORDEN INVERSO: la publicación falla ANTES de que la
+// consulta conteste.
+//
+// Es la mitad que delató que el guard dependía del orden. Con `isPublishing`
+// como única defensa, el efecto sólo consumía el ref si la publicación seguía
+// en vuelo justo cuando `sinCandidatos` cambiaba; si fallaba primero y la
+// consulta contestaba después, salía un segundo `onSkip()`.
+it('tampoco saltea si el alta falla ANTES de que la consulta conteste', () => {
+  const onSkip = vi.fn();
+  const p = (q: never, pub: boolean) => ({
+    query: q,
+    onSelect: vi.fn(),
+    onSkip,
+    isPublishing: pub,
+  });
+
+  const { rerender } = render(<CandidatesStep {...p(queryStub({ isLoading: true }), false)} />);
+  fireEvent.click(screen.getByTestId('candidates-skip'));
+  rerender(<CandidatesStep {...p(queryStub({ isLoading: true }), true)} />);
+  rerender(<CandidatesStep {...p(queryStub({ isLoading: true }), false)} />);
+  rerender(<CandidatesStep {...p(queryStub({ data: [] }), false)} />);
+
+  expect(onSkip).toHaveBeenCalledTimes(1);
+});
+
+// Elegir "es este" también consume el salteo: la persona ya dijo que el animal
+// tiene ficha, así que auto-publicar una nueva porque un refetch devolvió []
+// crearía exactamente lo que acaba de decir que no hacía falta.
+it('elegir un candidato también consume el salteo automático', () => {
+  const onSkip = vi.fn();
+  const onSelect = vi.fn();
+
+  const { rerender } = render(
+    <CandidatesStep query={queryStub({ data: [candidato] })} onSelect={onSelect} onSkip={onSkip} />,
+  );
+
+  fireEvent.click(screen.getByTestId('candidate-select'));
+  expect(onSelect).toHaveBeenCalledTimes(1);
+
+  rerender(
+    <CandidatesStep query={queryStub({ data: [] })} onSelect={onSelect} onSkip={onSkip} />,
+  );
+  expect(onSkip).not.toHaveBeenCalled();
+});
+
+// Si el alta falla y la consulta ya contestó vacío, el paso NO puede
+// desaparecer: el wizard sólo pinta el error en rojo y un link de volver, así
+// que sin la salida la persona queda mirando un mensaje sin forma de reintentar
+// desde donde está. Choca con la regla 3 del componente ("nunca bloquea").
+//
+// El `return null` sigue existiendo para el caso normal —sin candidatos y sin
+// acción previa, el efecto saltea solo y no hay que mostrar un flash— pero deja
+// de aplicarse una vez que el salteo se consumió.
+it('si el alta falla con la lista vacía, la salida sigue en pantalla', () => {
+  const onSkip = vi.fn();
+  const p = (q: never, pub: boolean) => ({
+    query: q,
+    onSelect: vi.fn(),
+    onSkip,
+    isPublishing: pub,
+  });
+
+  const { rerender } = render(<CandidatesStep {...p(queryStub({ isLoading: true }), false)} />);
+  fireEvent.click(screen.getByTestId('candidates-skip'));
+
+  rerender(<CandidatesStep {...p(queryStub({ data: [] }), true)} />);
+  rerender(<CandidatesStep {...p(queryStub({ data: [] }), false)} />);
+
+  expect(screen.getByTestId('candidates-skip')).toBeInTheDocument();
+});
+
+// Y el contraejemplo, que es el que deja vivo el `return null`: sin acción
+// previa el paso sí desaparece, para que no haya un parpadeo mientras el efecto
+// saltea y el wizard cambia de paso.
+it('sin acción previa y sin candidatos, el paso no renderiza nada', () => {
+  const { container } = render(
+    <CandidatesStep query={queryStub({ data: [] })} onSelect={vi.fn()} onSkip={vi.fn()} />,
+  );
+  expect(container).toBeEmptyDOMElement();
+});
