@@ -587,8 +587,9 @@
       "isThisOne": "É este",
       "noneOfThem": "Nenhum, é outro animal",
       "errorTitle": "Não conseguimos buscar avistamentos próximos",
-      "errorBody": "Pode já existir uma ficha deste animal. Você pode tentar de novo ou publicar mesmo assim.",
+      "errorBody": "Pode já existir uma ficha deste animal. Você pode tentar buscar de novo, ou seguir em frente com a publicação.",
       "publishAnyway": "Publicar mesmo assim",
+      "publishWithoutWaiting": "Publicar sem esperar",
       "confirmTitle": "É este o animal que você viu?",
       "confirmBody": "Vamos somar o seu avistamento à ficha de {{name}}, no lugar que você marcou. Nenhuma publicação nova é criada.",
       "confirmAction": "Sim, reportar"

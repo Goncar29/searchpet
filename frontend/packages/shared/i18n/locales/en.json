@@ -587,8 +587,9 @@
       "isThisOne": "This is the one",
       "noneOfThem": "None of these, it is a different animal",
       "errorTitle": "We could not look for nearby sightings",
-      "errorBody": "There may already be a page for this animal. You can retry or publish anyway.",
+      "errorBody": "There may already be a listing for this animal. You can retry the search, or go ahead with your post.",
       "publishAnyway": "Publish anyway",
+      "publishWithoutWaiting": "Publish without waiting",
       "confirmTitle": "Is this the animal you saw?",
       "confirmBody": "We will add your sighting to {{name}}'s page, at the spot you marked. No new post is created.",
       "confirmAction": "Yes, report it"

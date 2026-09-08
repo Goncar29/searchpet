@@ -61,12 +61,53 @@ export function CandidatesStep({ query, onSelect, onSkip, isPublishing }: Candid
   // acuerde de envolver la función (el modo de falla de la regla #40).
   const yaSalteo = useRef(false);
 
+  // Cualquier acción manual en este paso consume el salteo automático, y se
+  // marca ACÁ y no adentro del efecto: el efecto sólo ve el estado del render en
+  // que corre, así que atarlo a `isPublishing` lo hacía depender del ORDEN en
+  // que llegaran la respuesta de la consulta y el fallo de la publicación. En el
+  // orden inverso —falla primero, contesta después— el ref seguía en false y
+  // salía un segundo `onSkip()`. Una vez que la persona eligió —publicar igual,
+  // o "es este"— ya no queda nada que saltear, pase lo que pase después.
+  const consumirSalteo = () => {
+    yaSalteo.current = true;
+  };
+
   useEffect(() => {
-    if (!sinCandidatos || yaSalteo.current) return;
+    // `isPublishing` frena el salteo igual que frena el botón, y por el mismo
+    // motivo: `onSkip` PUBLICA. El ref solo cubre el re-render, no el cambio de
+    // respuesta. Quien toca la salida con la consulta en vuelo deja un alta
+    // corriendo mientras `sinCandidatos` sigue en false; cuando la consulta
+    // contesta `[]`, el flanco enciende el efecto con `yaSalteo` todavía en
+    // false y sale un SEGUNDO alta.
+    //
+    // Mobile ya lo tenía desde el #230 y acá faltaba: las dos plataformas
+    // divergieron en silencio durante dos PRs.
+    // `isPublishing` sigue acá como red, pero NO es lo que sostiene la
+    // corrección: el ref lo consume la acción manual (ver `consumirSalteo`).
+    // Ponerlo sólo acá ataba el arreglo al ORDEN de dos eventos independientes
+    // —que la consulta conteste y que la publicación falle— y en el orden
+    // inverso (falla primero, contesta después) `yaSalteo` seguía en false y
+    // salía un segundo `onSkip()`. Reproducido con 4 renders.
+    if (!sinCandidatos || yaSalteo.current || isPublishing) return;
     yaSalteo.current = true;
     onSkip();
-  }, [sinCandidatos, onSkip]);
+  }, [sinCandidatos, onSkip, isPublishing]);
 
+  // Sin candidatos no hay nada que preguntar y el efecto ya llamó a `onSkip`:
+  // devolver null evita el flash de una pantalla vacía mientras el wizard cambia
+  // de paso.
+  //
+  // Esto estuvo relajado a `sinCandidatos && !yaSalteo.current` para que, si la
+  // publicación fallaba, la salida siguiera en pantalla como reintento. Se
+  // REVIRTIÓ: desocultaba el paso también en el camino automático —el más
+  // común, porque la mayoría de los callejeros no tienen candidatos cerca— y
+  // pintaba el encabezado con CERO tarjetas durante toda la publicación, que es
+  // justo el flash que esta línea existe para evitar. Un arreglo que costaba
+  // cuatro defectos para cerrar uno que ya tenía salida (volver al selector).
+  //
+  // Si el reintento tras un fallo importa, es del WIZARD: él tiene el error y el
+  // estado. Este componente pregunta por candidatos y no debería estar
+  // decidiendo nada sobre una publicación fallida.
   if (sinCandidatos) return null;
 
   // "hace 4 meses" en el idioma del usuario. Se calcula en días y se deja que
@@ -144,8 +185,12 @@ export function CandidatesStep({ query, onSelect, onSkip, isPublishing }: Candid
                 <button
                   type="button"
                   data-testid="candidate-select"
-                  onClick={() => onSelect(c)}
-                  className="shrink-0 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-dark"
+                  onClick={() => {
+                    consumirSalteo();
+                    onSelect(c);
+                  }}
+                  disabled={isPublishing}
+                  className="shrink-0 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-dark disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-primary"
                 >
                   {t('publish:candidates.isThisOne')}
                 </button>
@@ -161,16 +206,51 @@ export function CandidatesStep({ query, onSelect, onSkip, isPublishing }: Candid
       <button
         type="button"
         data-testid="candidates-skip"
-        onClick={onSkip}
+        onClick={() => {
+          consumirSalteo();
+          onSkip();
+        }}
         disabled={isPublishing}
         className="mt-6 w-full rounded-xl border border-gray-300 dark:border-gray-600 px-4 py-3 text-sm font-semibold text-gray-700 dark:text-gray-300 transition-colors hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        {/* El texto sigue a lo que el usuario TIENE DELANTE. Sin datos no vio
-            ninguna tarjeta, así que "ninguno de estos" no se refiere a nada:
-            ahí la salida honesta es "publicar igual". */}
-        {query.data == null
-          ? t('publish:candidates.publishAnyway')
-          : t('publish:candidates.noneOfThem')}
+        {/* El texto sigue a lo que el usuario TIENE DELANTE, y son TRES
+            estados, no dos. Sin datos no vio ninguna tarjeta, así que "ninguno
+            de estos" no se refiere a nada — pero "publicar igual" tampoco vale
+            mientras la consulta sigue en vuelo: afirma que ya miró y descartó,
+            cuando lo que pasa es que todavía no llegaron. Con `data == null` a
+            secas los dos son indistinguibles, porque en los dos `data` es
+            undefined.
+
+            El botón NO se deshabilita durante la carga, y es deliberado: este
+            paso nunca bloquea a alguien apurado con un animal en la calle. Lo
+            que cambia es que deje de mentir sobre por qué está ahí.
+
+            La condición es "hay una consulta EN VUELO ahora mismo", y eso no
+            es lo mismo que `isLoading`: ése cubre sólo el PRIMER intento, y
+            deja afuera el refetch después de un error — la persona toca
+            "Reintentar", `status` sigue en `'error'`, y por eso `isLoading`
+            se queda en false durante todo el despertar de Render, que son 30s
+            o más.
+
+            `isPaused` NO va acá, y estuvo un rato puesto por error. Sin
+            conectividad la consulta está detenida: no hay ninguna espera en
+            curso, y `ListState` ya pinta "cuando vuelva la conexión, probá de
+            nuevo". Decir "publicar sin esperar" ahí anuncia una espera que no
+            está ocurriendo; lo honesto es "publicar igual", igual que ante un
+            error.
+
+            El `data == null` es el que deja "ninguno de estos" para cuando la
+            persona SÍ vio las tarjetas: un refetch con datos ya en pantalla no
+            cambia lo que tiene delante.
+
+            Nunca `isPending`: en React Query v5 una query con `enabled: false`
+            queda en `pending` para siempre, y ésta está gateada por el paso
+            (regla #60). */}
+        {query.isFetching && query.data == null
+          ? t('publish:candidates.publishWithoutWaiting')
+          : query.data == null
+            ? t('publish:candidates.publishAnyway')
+            : t('publish:candidates.noneOfThem')}
       </button>
     </div>
   );

@@ -27,9 +27,16 @@ const queryStub = (over: Record<string, unknown>) =>
   ({
     data: undefined,
     isLoading: false,
-    isPending: false,
     isPaused: false,
     isError: false,
+    // `isPending` e `isFetching` se DERIVAN salvo que el caso los diga
+    // explícito. React Query define `isLoading === isPending && isFetching`, y
+    // una primera carga sin datos siempre es `pending`: un stub con
+    // `isLoading: true, isPending: false` es un estado que NO EXISTE. Dejarlos
+    // libres hizo que estos tests pasaran contra un predicado que la app real
+    // nunca satisface.
+    isFetching: over.isLoading === true,
+    isPending: over.isLoading === true || over.isPaused === true,
     refetch: jest.fn(),
     ...over,
   }) as never;
@@ -212,4 +219,189 @@ describe('CandidatesStep', () => {
       intl.RelativeTimeFormat = rtf;
     }
   });
+});
+
+// Espeja los tests de la web: las dos plataformas tienen el mismo componente y
+// el mismo comportamiento, y la única forma de que no diverjan en silencio es
+// que las dos afirmen lo mismo.
+describe('la salida mientras la consulta carga', () => {
+  it('no dice "publicar igual" antes de que el chequeo haya contestado', () => {
+    const { getByText } = render(
+      <CandidatesStep
+        query={queryStub({ isLoading: true, data: undefined })}
+        onSelect={jest.fn()}
+        onSkip={jest.fn()}
+      />,
+    );
+    expect(getByText('publish:candidates.publishWithoutWaiting')).toBeTruthy();
+  });
+
+  // La mitad que fija la distinción: con la consulta CAÍDA sí corresponde
+  // "publicar igual", porque ahí no hay nada que esperar.
+  it('con la consulta caída sí dice "publicar igual"', () => {
+    const { getByText } = render(
+      <CandidatesStep
+        query={queryStub({ isError: true, data: undefined })}
+        onSelect={jest.fn()}
+        onSkip={jest.fn()}
+      />,
+    );
+    expect(getByText('publish:candidates.publishAnyway')).toBeTruthy();
+  });
+
+  // Y sigue sin bloquear.
+  it('la salida sigue habilitada mientras carga', () => {
+    const onSkip = jest.fn();
+    const { getByText } = render(
+      <CandidatesStep
+        query={queryStub({ isLoading: true, data: undefined })}
+        onSelect={jest.fn()}
+        onSkip={onSkip}
+      />,
+    );
+    fireEvent.press(getByText('publish:candidates.publishWithoutWaiting'));
+    expect(onSkip).toHaveBeenCalledTimes(1);
+  });
+
+  // Sin conectividad React Query PAUSA la consulta: no hay NADA en vuelo y no
+  // lo va a haber hasta que vuelva la red. `ListState` ya pinta acá "cuando
+  // vuelva la conexión, probá de nuevo", así que "publicar sin esperar"
+  // anunciaría una espera que no está ocurriendo. Corresponde "publicar igual",
+  // igual que ante un error.
+  //
+  // Este test estuvo un rato afirmando lo contrario. Se deja explícito porque
+  // la distinción es fina: "no contestó" y "está contestando" no son lo mismo.
+  it('offline (isPaused) dice "publicar igual", no "sin esperar"', () => {
+    const { getByText } = render(
+      <CandidatesStep
+        query={queryStub({ isPaused: true, data: undefined })}
+        onSelect={jest.fn()}
+        onSkip={jest.fn()}
+      />,
+    );
+    expect(getByText('publish:candidates.publishAnyway')).toBeTruthy();
+  });
+
+  // Reintentar después de un error deja `status` en 'error', así que
+  // `isLoading` se queda en false mientras la petición está viva — en este
+  // deployment, los 30s o más que tarda Render en despertar.
+  it('un reintento en vuelo tras un error tampoco dice "publicar igual"', () => {
+    const { getByText } = render(
+      <CandidatesStep
+        query={queryStub({ isError: true, isFetching: true, data: undefined })}
+        onSelect={jest.fn()}
+        onSkip={jest.fn()}
+      />,
+    );
+    expect(getByText('publish:candidates.publishWithoutWaiting')).toBeTruthy();
+  });
+
+  // Y el contraejemplo que fija el `data == null`: con las tarjetas YA en
+  // pantalla, un refetch no cambia lo que la persona tiene delante.
+  it('un refetch con datos ya visibles sigue diciendo "ninguno de estos"', () => {
+    const { getByText } = render(
+      <CandidatesStep
+        query={queryStub({ isFetching: true, data: [candidato] })}
+        onSelect={jest.fn()}
+        onSkip={jest.fn()}
+      />,
+    );
+    expect(getByText('publish:candidates.noneOfThem')).toBeTruthy();
+  });
+});
+
+// El salteo automático NO puede correr con un alta en vuelo, y con "no correr"
+// alcanza sólo si además QUEDA consumido.
+//
+// El tercer render es el que separa SUPRIMIR de DIFERIR: si el guard sale sin
+// marcar el ref, cuando la publicación FALLA (`isPublishing` vuelve a false con
+// el paso todavía en 'candidates') el efecto se reanuda y dispara un segundo
+// `onSkip()` sin que nadie toque nada — encima borrando el error que la persona
+// tenía que leer. Si la primera request llegó al server, son dos mascotas.
+it('no saltea automáticamente si ya hay un alta en vuelo, ni cuando esa alta falla', () => {
+  const onSkip = jest.fn();
+  const props = (q: never, pub: boolean) => ({
+    query: q,
+    onSelect: jest.fn(),
+    onSkip,
+    isPublishing: pub,
+  });
+
+  const { rerender, getByText } = render(
+    <CandidatesStep {...props(queryStub({ isLoading: true }), false)} />,
+  );
+
+  // La persona toca la salida: el alta arranca.
+  fireEvent.press(getByText('publish:candidates.publishWithoutWaiting'));
+  expect(onSkip).toHaveBeenCalledTimes(1);
+
+  // La consulta contesta vacío con la publicación todavía en vuelo.
+  rerender(<CandidatesStep {...props(queryStub({ data: [] }), true)} />);
+  expect(onSkip).toHaveBeenCalledTimes(1);
+
+  // Y el alta FALLA.
+  rerender(<CandidatesStep {...props(queryStub({ data: [] }), false)} />);
+  expect(onSkip).toHaveBeenCalledTimes(1);
+});
+
+// El MISMO escenario en el ORDEN INVERSO: la publicación falla ANTES de que la
+// consulta conteste.
+//
+// Es la mitad que delató que el guard dependía del orden. Con `isPublishing`
+// como única defensa, el efecto sólo consumía el ref si la publicación seguía
+// en vuelo justo cuando `sinCandidatos` cambiaba; si fallaba primero y la
+// consulta contestaba después, salía un segundo `onSkip()`.
+it('tampoco saltea si el alta falla ANTES de que la consulta conteste', () => {
+  const onSkip = jest.fn();
+  const p = (q: never, pub: boolean) => ({
+    query: q,
+    onSelect: jest.fn(),
+    onSkip,
+    isPublishing: pub,
+  });
+
+  const { rerender, getByText } = render(
+    <CandidatesStep {...p(queryStub({ isLoading: true }), false)} />,
+  );
+  fireEvent.press(getByText('publish:candidates.publishWithoutWaiting'));
+  rerender(<CandidatesStep {...p(queryStub({ isLoading: true }), true)} />);
+  rerender(<CandidatesStep {...p(queryStub({ isLoading: true }), false)} />);
+  rerender(<CandidatesStep {...p(queryStub({ data: [] }), false)} />);
+
+  expect(onSkip).toHaveBeenCalledTimes(1);
+});
+
+// El `return null` con cero candidatos, igual que en la web.
+it('sin candidatos el paso no renderiza nada, ni siquiera publicando', () => {
+  const { toJSON, rerender } = render(
+    <CandidatesStep query={queryStub({ data: [] })} onSelect={jest.fn()} onSkip={jest.fn()} />,
+  );
+  expect(toJSON()).toBeNull();
+
+  rerender(
+    <CandidatesStep query={queryStub({ data: [] })} onSelect={jest.fn()} onSkip={jest.fn()} isPublishing />,
+  );
+  expect(toJSON()).toBeNull();
+});
+
+// Acá "es este" NO consume el salteo, al revés que en la web: `onSelect` abre un
+// Alert de confirmación con Cancel, así que el toque todavía no es una decisión.
+// Quien cancela tiene que conservar el salteo automático intacto.
+it('tocar "es este" y cancelar no consume el salteo', () => {
+  const onSkip = jest.fn();
+  const onSelect = jest.fn();
+
+  const { rerender, getByText } = render(
+    <CandidatesStep query={queryStub({ data: [candidato] })} onSelect={onSelect} onSkip={onSkip} />,
+  );
+
+  fireEvent.press(getByText('publish:candidates.isThisOne'));
+  expect(onSelect).toHaveBeenCalledTimes(1);
+
+  // La persona cancela el Alert (el wizard no publica nada) y un refetch deja la
+  // lista vacía: el salteo automático tiene que seguir disponible.
+  rerender(
+    <CandidatesStep query={queryStub({ data: [] })} onSelect={onSelect} onSkip={onSkip} />,
+  );
+  expect(onSkip).toHaveBeenCalledTimes(1);
 });

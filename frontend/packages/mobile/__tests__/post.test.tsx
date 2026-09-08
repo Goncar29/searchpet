@@ -85,6 +85,7 @@ jest.mock('@shared/hooks', () => ({
   useStrayCandidates: jest.fn(() => ({
     data: [],
     isLoading: false,
+    isFetching: false,
     isPending: false,
     isPaused: false,
     isError: false,
@@ -102,6 +103,7 @@ beforeEach(() => {
   useStrayCandidates.mockReturnValue({
     data: [],
     isLoading: false,
+    isFetching: false,
     isPending: false,
     isPaused: false,
     isError: false,
@@ -186,7 +188,8 @@ describe('PostScreen — lost path', () => {
   // Sin esa otra mitad, un guard escrito de mas —que tapara tambien el vacio
   // real— pasaria verde y dejaria sin salida a quien de verdad no tiene ninguna.
   it('una consulta caida avisa que fallo, y NO dice que no tenes mascotas', () => {
-    useMyPets.mockReturnValue({ data: undefined, isLoading: false, isError: true });
+    useMyPets.mockReturnValue({ data: undefined, isLoading: false,
+    isFetching: false, isError: true });
     const { getByText, queryByText } = render(<PostScreen />);
     fireEvent.press(getByText('publish:intent.lostTitle'));
 
@@ -199,7 +202,8 @@ describe('PostScreen — lost path', () => {
   // culpa al servidor, que offline es falso — y lo accionable ahi es "cuando
   // vuelva la conexion", no "reintentar contra un servidor que no tiene la culpa".
   it('sin conexion avisa que es la red, no que la lista este vacia', () => {
-    useMyPets.mockReturnValue({ data: undefined, isLoading: false, isPaused: true });
+    useMyPets.mockReturnValue({ data: undefined, isLoading: false,
+    isFetching: false, isPaused: true });
     const { getByText, queryByText } = render(<PostScreen />);
     fireEvent.press(getByText('publish:intent.lostTitle'));
 
@@ -215,6 +219,7 @@ describe('PostScreen — lost path', () => {
         { id: 'pet-2', name: 'Michi', type: 'gato', status: 'lost', photos: [] },
       ],
       isLoading: false,
+      isFetching: false,
     });
     const { getByText, queryByText } = render(<PostScreen />);
     fireEvent.press(getByText('publish:intent.lostTitle'));
@@ -267,6 +272,7 @@ describe('PostScreen — el paso de candidatos intercepta el alta', () => {
     useStrayCandidates.mockReturnValue({
       data: [candidato],
       isLoading: false,
+      isFetching: false,
       isPending: false,
       isPaused: false,
       isError: false,
@@ -463,6 +469,7 @@ describe('PostScreen — location step', () => {
     useMyPets.mockReturnValue({
       data: [{ id: 'pet-1', name: 'Firulais', type: 'perro', status: 'registered', photos: [] }],
       isLoading: false,
+      isFetching: false,
     });
     const { getByText, getByTestId } = render(<PostScreen />);
     fireEvent.press(getByText('publish:intent.lostTitle'));
@@ -496,6 +503,7 @@ describe('PostScreen — unauthenticated lost path', () => {
     useMyPets.mockReturnValue({
       data: [{ id: 'pet-1', name: 'Firulais', type: 'perro', status: 'registered', photos: [] }],
       isLoading: false,
+      isFetching: false,
     });
 
     const { getByText, queryByText, getByPlaceholderText } = render(<PostScreen />);
@@ -525,6 +533,7 @@ describe('PostScreen — salir del paso elegido', () => {
     useMyPets.mockReturnValue({
       data: [{ id: 'pet-1', name: 'Firulais', type: 'perro', status: 'registered', photos: [] }],
       isLoading: false,
+      isFetching: false,
     });
     const { getByText } = render(<PostScreen />);
     fireEvent.press(getByText('publish:intent.lostTitle'));
@@ -568,6 +577,7 @@ describe('PostScreen — el usuario ya tiene mascotas propias', () => {
     useMyPets.mockReturnValue({
       data: [{ id: 'pet-1', name: 'Nala', type: 'perro', status: 'lost', photos: [] }],
       isLoading: false,
+      isFetching: false,
     });
     const { getByText, queryByText } = render(<PostScreen />);
     fireEvent.press(getByText('publish:intent.lostTitle'));
@@ -583,6 +593,7 @@ describe('PostScreen — el usuario ya tiene mascotas propias', () => {
     useMyPets.mockReturnValue({
       data: [{ id: 'pet-1', name: 'Toby', type: 'perro', status: 'adoption', photos: [] }],
       isLoading: false,
+      isFetching: false,
     });
     const { getByText, queryByText } = render(<PostScreen />);
     fireEvent.press(getByText('publish:intent.lostTitle'));
@@ -600,6 +611,7 @@ describe('PostScreen — fecha del reporte', () => {
     useMyPets.mockReturnValue({
       data: [{ id: 'pet-1', name: 'Firulais', type: 'perro', status: 'registered', photos: [] }],
       isLoading: false,
+      isFetching: false,
     });
     const utils = render(<PostScreen />);
     fireEvent.press(utils.getByText('publish:intent.lostTitle'));
