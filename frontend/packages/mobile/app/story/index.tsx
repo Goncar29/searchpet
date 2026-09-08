@@ -9,6 +9,7 @@ import { useStories } from '../../../shared/hooks';
 import { getDateLocale } from '../../i18n/dateLocale';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
 import { PawPlaceholder } from '../../components/PawPlaceholder';
+import { ListState } from '../../components/list/ListState';
 import type { SuccessStory } from '../../../../shared/types';
 import { cloudinaryThumb } from '@shared/utils/cloudinaryThumb';
 import { IMAGE_BOXES } from '../../constants/imageSizes';
@@ -16,7 +17,8 @@ import { IMAGE_BOXES } from '../../constants/imageSizes';
 export default function StoriesScreen() {
   const router = useRouter();
   const { t, i18n } = useTranslation('story');
-  const { data: stories, isLoading, isError, refetch } = useStories({ limit: 20 });
+  // La query entera: `ListState` necesita `isPaused`, `isError` y `refetch`.
+  const storiesQuery = useStories({ limit: 20 });
   const dateLocale = getDateLocale(i18n.language);
 
   const renderItem = ({ item }: { item: SuccessStory }) => (
@@ -44,31 +46,23 @@ export default function StoriesScreen() {
     </TouchableOpacity>
   );
 
-  if (isLoading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text style={styles.loadingText}>{t('story:loading')}</Text>
-      </View>
-    );
-  }
-
-  if (isError) {
-    return (
-      <View style={styles.center}>
-        <Text style={styles.errorIcon}>⚠️</Text>
-        <Text style={styles.errorText}>{t('story:loadError')}</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={() => refetch()}>
-          <Text style={styles.retryButtonText}>{t('story:retry')}</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
   return (
     <View style={styles.container}>
+      {/* El cartel de error sale SÓLO si no hay nada que mostrar. Con `isError`
+          a secas, un refetch fallido borraba la lista ya dibujada; ahora eso
+          cae en la franja de "datos de hace un rato". */}
+      <ListState<SuccessStory[], SuccessStory>
+        query={storiesQuery}
+        loading={
+          <View style={styles.center}>
+            <ActivityIndicator size="large" color={COLORS.primary} />
+            <Text style={styles.loadingText}>{t('story:loading')}</Text>
+          </View>
+        }
+      >
+        {(stories) => (
       <FlatList
-        data={stories ?? []}
+        data={stories}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
         contentContainerStyle={styles.list}
@@ -84,6 +78,8 @@ export default function StoriesScreen() {
           </View>
         }
       />
+        )}
+      </ListState>
     </View>
   );
 }

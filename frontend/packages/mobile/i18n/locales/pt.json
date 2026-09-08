@@ -284,9 +284,6 @@
     "rank": "#{{position}}",
     "cityLabel": "Cidade",
     "cityPlaceholder": "Ex: Montevidéu, São Paulo...",
-    "loadError": "Erro ao carregar",
-    "loadErrorText": "Não foi possível obter o ranking. Tente novamente.",
-    "retry": "Tentar novamente",
     "emptyTitle": "Sem resultados"
   },
   "alerts": {
@@ -350,6 +347,8 @@
     "loadingDetail": "Carregando história...",
     "notFound": "História não encontrada",
     "notFoundText": "Esta história não existe ou foi excluída.",
+    "detailLoadError": "Não conseguimos carregar a história",
+    "detailLoadErrorText": "Não é que ela não exista: não conseguimos lê-la. Tente novamente.",
     "back": "Histórias",
     "by": "Por {{name}}",
     "loginHint": "Faça login para curtir",

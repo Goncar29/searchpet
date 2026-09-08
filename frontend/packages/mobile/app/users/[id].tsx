@@ -25,6 +25,7 @@ import { usePublicProfile, useUserReviews, useCreateReview, useUpdateReview, use
 import { getErrorMessage } from '../../../shared/utils/apiErrors';
 import { useAuthStore } from '../../store';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
+import { StaleDataNotice } from '../../components/list/ListState';
 import { getDateLocale } from '../../i18n/dateLocale';
 import type { Badge, UserReview } from '../../../shared/types';
 import { BADGE_META } from '../../../shared/types';
@@ -169,7 +170,8 @@ export default function PublicProfileScreen() {
   const navigation = useNavigation();
   const { t, i18n } = useTranslation(['users', 'badges', 'common']);
 
-  const { data: profile, isLoading, isError, refetch, isFetching } = usePublicProfile(id ?? '');
+  const profileQuery = usePublicProfile(id ?? '');
+  const { data: profile, isLoading, isError, refetch, isFetching } = profileQuery;
   const { data: reviewsData, isLoading: reviewsLoading } = useUserReviews(id ?? '');
 
   const [showForm, setShowForm] = useState(false);
@@ -335,7 +337,13 @@ export default function PublicProfileScreen() {
     );
   }
 
-  if (isError || !profile) {
+  // `!profile` y NO `isError || !profile`: React Query conserva lo cacheado
+  // cuando falla un refetch, y esta pantalla tiene pull-to-refresh. Con el `||`,
+  // un 502 pasajero de Render reemplazaba el perfil que el usuario estaba
+  // mirando por un cartel de error. Ahora el cartel sale sólo cuando no hay
+  // perfil que mostrar, y el texto de adentro sigue distinguiendo "no pudimos
+  // leerlo" de "no existe" con el mismo `isError`.
+  if (!profile) {
     return (
       <View style={styles.center}>
         <Text style={styles.stateIcon}>🔍</Text>
@@ -367,6 +375,13 @@ export default function PublicProfileScreen() {
         />
       }
     >
+      {/* Si el pull-to-refresh falló, el perfil ya no se borra (ver la guarda
+          `!profile` de arriba) — pero sin esto el RefreshControl simplemente
+          dejaría de girar y nada le diría al usuario que está viendo datos de
+          hace un rato. Un error invisible en vez de uno falso sigue siendo un
+          problema. */}
+      <StaleDataNotice query={profileQuery} />
+
       {/* ── User card ── */}
       <View style={styles.userCard}>
         {profile.profile_photo_url ? (

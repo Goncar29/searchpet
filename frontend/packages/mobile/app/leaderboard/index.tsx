@@ -16,6 +16,7 @@ import {
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useLeaderboard } from '../../../shared/hooks';
+import { ListState } from '../../components/list/ListState';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
 import { BADGE_META } from '../../../shared/types';
 import type { LeaderboardEntry } from '../../../shared/types';
@@ -88,7 +89,10 @@ export default function LeaderboardScreen() {
   const [city, setCity] = useState('Montevideo');
   const [inputCity, setInputCity] = useState('Montevideo');
 
-  const { data: entries, isLoading, isError, refetch, isFetching } = useLeaderboard(city);
+  // La query entera y no sólo `data`: `ListState` necesita `isPaused`,
+  // `isError` y `refetch` para decidir entre cartel, franja y lista.
+  const leaderboardQuery = useLeaderboard(city);
+  const { isLoading, isFetching, refetch } = leaderboardQuery;
 
   const applyCity = () => {
     const trimmed = inputCity.trim();
@@ -112,22 +116,34 @@ export default function LeaderboardScreen() {
         />
       </View>
 
-      {isLoading ? (
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color={COLORS.primary} />
-        </View>
-      ) : isError ? (
-        <View style={styles.center}>
-          <Text style={styles.guardIcon}>⚠️</Text>
-          <Text style={styles.guardTitle}>{t('leaderboard:loadError')}</Text>
-          <Text style={styles.guardText}>{t('leaderboard:loadErrorText')}</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={() => refetch()}>
-            <Text style={styles.retryButtonText}>{t('leaderboard:retry')}</Text>
-          </TouchableOpacity>
-        </View>
-      ) : (
+      {/* El cartel de error se muestra SÓLO si no hay nada que mostrar. Antes
+          era `isError ?` a secas y reemplazaba la tabla entera: React Query
+          conserva lo cacheado cuando falla un refetch, y esta pantalla tiene
+          pull-to-refresh, o sea que un 502 pasajero de Render —el cold start—
+          borraba el ranking que el usuario estaba mirando. Ahora eso cae en la
+          franja de "datos de hace un rato" y la tabla se queda.
+
+          El filtro de ciudad queda AFUERA a propósito: es lo que permite
+          reintentar con otra ciudad, y perderlo en la rama de error dejaría la
+          pantalla sin salida.
+
+          Sin `errorTitle`/`errorBody`: los defaults de `common` ("No pudimos
+          cargar esta lista") son ciertos también en la rama offline, mientras
+          que `leaderboard:loadError` decía sólo "Error al cargar". */}
+      {/* Los genéricos van EXPLÍCITOS: sin ellos `TItem` infiere `unknown` y la
+          `FlatList` de abajo lo rechaza (TS2769). Jest no lo ve —Babel no
+          chequea tipos— así que esto sólo aparece corriendo `tsc`. */}
+      <ListState<LeaderboardEntry[], LeaderboardEntry>
+        query={leaderboardQuery}
+        loading={
+          <View style={styles.center}>
+            <ActivityIndicator size="large" color={COLORS.primary} />
+          </View>
+        }
+      >
+        {(entries) => (
         <FlatList<LeaderboardEntry>
-          data={entries ?? []}
+          data={entries}
           keyExtractor={(item) => item.user_id}
           refreshing={isFetching && !isLoading}
           onRefresh={refetch}
@@ -155,7 +171,8 @@ export default function LeaderboardScreen() {
           )}
           contentContainerStyle={styles.listContent}
         />
-      )}
+        )}
+      </ListState>
     </View>
   );
 }

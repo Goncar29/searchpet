@@ -284,9 +284,6 @@
     "rank": "#{{position}}",
     "cityLabel": "City",
     "cityPlaceholder": "E.g. Montevideo, Buenos Aires...",
-    "loadError": "Error loading",
-    "loadErrorText": "Could not get the ranking. Please try again.",
-    "retry": "Retry",
     "emptyTitle": "No results"
   },
   "alerts": {
@@ -350,6 +347,8 @@
     "loadingDetail": "Loading story...",
     "notFound": "Story not found",
     "notFoundText": "This story does not exist or was deleted.",
+    "detailLoadError": "We couldn't load this story",
+    "detailLoadErrorText": "It's not that it doesn't exist: we couldn't read it. Please try again.",
     "back": "Stories",
     "by": "By {{name}}",
     "loginHint": "Sign in to leave a like",

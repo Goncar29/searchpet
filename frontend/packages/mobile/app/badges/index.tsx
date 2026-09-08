@@ -16,6 +16,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../store';
 import { getDateLocale } from '../../i18n/dateLocale';
 import { useMyBadges } from '../../../shared/hooks';
+import { ListState } from '../../components/list/ListState';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
 import type { Badge } from '../../../shared/types';
 import { BADGE_META } from '../../../shared/types';
@@ -47,7 +48,9 @@ export default function BadgesScreen() {
   const { t } = useTranslation(['badges', 'common']);
   const { isAuthenticated } = useAuthStore();
 
-  const { data: badges, isLoading, isError, refetch, isFetching } = useMyBadges();
+  // La query entera: `ListState` necesita `isPaused`, `isError` y `refetch`.
+  const badgesQuery = useMyBadges();
+  const { isLoading, isFetching, refetch } = badgesQuery;
 
   // Auth guard
   if (!isAuthenticated) {
@@ -66,31 +69,28 @@ export default function BadgesScreen() {
     );
   }
 
-  if (isLoading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
-      </View>
-    );
-  }
-
-  if (isError) {
-    return (
-      <View style={styles.center}>
-        <Text style={styles.guardIcon}>⚠️</Text>
-        <Text style={styles.guardTitle}>{t('badges:loadError')}</Text>
-        <Text style={styles.guardText}>{t('badges:loadErrorText')}</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={() => refetch()}>
-          <Text style={styles.retryButtonText}>{t('common:reload')}</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
   return (
     <View style={styles.container}>
+      {/* El cartel de error aparece SÓLO si no hay nada que mostrar. Antes era
+          un early return con `isError` a secas: React Query conserva lo
+          cacheado cuando falla un refetch, y esta pantalla tiene
+          pull-to-refresh, así que un 502 pasajero borraba los logros que el
+          usuario estaba mirando. Ahora eso cae en la franja de "datos de hace
+          un rato" y la lista se queda.
+
+          Los genéricos van explícitos: sin ellos `TItem` infiere `unknown` y la
+          `FlatList` tira TS2769, que jest no ve porque Babel no chequea tipos. */}
+      <ListState<Badge[], Badge>
+        query={badgesQuery}
+        loading={
+          <View style={styles.center}>
+            <ActivityIndicator size="large" color={COLORS.primary} />
+          </View>
+        }
+      >
+        {(badges) => (
       <FlatList<Badge>
-        data={badges ?? []}
+        data={badges}
         keyExtractor={(item) => item.id}
         refreshing={isFetching && !isLoading}
         onRefresh={refetch}
@@ -111,6 +111,8 @@ export default function BadgesScreen() {
         renderItem={({ item }) => <BadgeCard badge={item} />}
         contentContainerStyle={styles.listContent}
       />
+        )}
+      </ListState>
     </View>
   );
 }

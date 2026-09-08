@@ -284,9 +284,6 @@
     "rank": "#{{position}}",
     "cityLabel": "Ciudad",
     "cityPlaceholder": "Ej: Montevideo, Buenos Aires...",
-    "loadError": "Error al cargar",
-    "loadErrorText": "No se pudo obtener el ranking. Intentá de nuevo.",
-    "retry": "Reintentar",
     "emptyTitle": "Sin resultados"
   },
   "alerts": {
@@ -350,6 +347,8 @@
     "loadingDetail": "Cargando historia...",
     "notFound": "Historia no encontrada",
     "notFoundText": "Esta historia no existe o fue eliminada.",
+    "detailLoadError": "No pudimos cargar la historia",
+    "detailLoadErrorText": "No es que no exista: no llegamos a leerla. Probá de nuevo.",
     "back": "Historias",
     "by": "Por {{name}}",
     "loginHint": "Iniciá sesión para dejar un \"me gusta\"",

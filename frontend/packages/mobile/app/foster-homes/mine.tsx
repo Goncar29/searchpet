@@ -36,6 +36,7 @@ import type {
   UpdateMyFosterHomeRequest,
 } from '@shared/types';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
+import { StaleDataNotice } from '../../components/list/ListState';
 import { cloudinaryThumb } from '@shared/utils/cloudinaryThumb';
 import { IMAGE_SIZES } from '../../constants/imageSizes';
 
@@ -86,7 +87,8 @@ export default function MyFosterHomeScreen() {
   const { t } = useTranslation(['fosterHomes', 'errors', 'common']);
   const router = useRouter();
 
-  const { data: mine, error, isLoading, isError, refetch } = useMyFosterHome();
+  const mineQuery = useMyFosterHome();
+  const { data: mine, error, isLoading, isError, refetch } = mineQuery;
   const updateFosterHome = useUpdateMyFosterHome();
   const uploadPhoto = useUploadFosterHomePhoto();
   const deletePhoto = useDeleteFosterHomePhoto();
@@ -139,7 +141,11 @@ export default function MyFosterHomeScreen() {
     );
   }
 
-  if (isError || !mine) {
+  // `!mine` y NO `isError || !mine`: con el `||`, un refetch fallido reemplazaba
+  // el hogar propio ya cargado por el cartel de error. Ojo con el orden — la
+  // rama `foster_home_not_found` de arriba sigue primero, porque ese 404 SÍ es
+  // una respuesta y no una falla de lectura.
+  if (!mine) {
     return (
       <View style={styles.center}>
         <Text style={styles.loadErrorText}>{t('fosterHomes:mine.loadError')}</Text>
@@ -250,6 +256,8 @@ export default function MyFosterHomeScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <StaleDataNotice query={mineQuery} />
+
       <Text style={styles.title}>{t('fosterHomes:mine.title')}</Text>
 
       {/* Status banner */}
