@@ -9,12 +9,15 @@ import (
 	"lost-pets/internal/domain"
 )
 
-// Spatial index recomendado para FindActiveAlertsNear (ejecutar una vez, fuera de AutoMigrate):
+// El índice espacial de FindActiveAlertsNear vive en la migración 000026
+// (`idx_location_alerts_geog`), junto con los de `reports` y `vets`.
 //
-//	CREATE INDEX IF NOT EXISTS idx_location_alerts_geo
-//	  ON location_alerts USING GIST (
-//	    ST_SetSRID(ST_MakePoint(alert_longitude, alert_latitude), 4326)::geography
-//	  );
+// Acá había una nota que RECOMENDABA crearlo "ejecutar una vez, fuera de
+// AutoMigrate", y nunca se ejecutó: describía un índice que no existía. Si tocás
+// la expresión geográfica de la consulta de abajo, tocá también la del índice —
+// si dejan de coincidir Postgres no lo usa, y un índice que el planner ignora es
+// peor que ninguno porque parece resuelto. Lo protege
+// TestGeoIndexes_ElPlannerUsaElDeReports.
 
 type locationAlertRepository struct {
 	db *gorm.DB
