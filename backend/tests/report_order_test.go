@@ -21,9 +21,14 @@ import (
 //
 // El frontend no puede notar si el orden cambia: recibe una lista y agarra el
 // primero. Si alguien toca el `Order(...)` —refactorizando, agregando
-// paginación, metiendo un Preload que cambie el plan— el volante empieza a
-// imprimir la fecha del avistamiento MÁS VIEJO bajo la etiqueta "Visto". Un dato
-// falso, en papel, en la calle, sin que nada se caiga.
+// paginación, cambiando un Preload por un `Joins`— el volante empieza a imprimir
+// la fecha del avistamiento MÁS VIEJO bajo la etiqueta "Visto". Un dato falso,
+// en papel, en la calle, sin que nada se caiga.
+//
+// `Joins` y NO `Preload`, que es lo que decía acá: en GORM v2 un Preload emite
+// SIEMPRE un `SELECT ... IN (...)` aparte y no puede tocar el orden de la
+// consulta principal. `Joins` sí la modifica. Nombrar el mecanismo equivocado
+// enseña a temer un cambio seguro y a confiar en uno que no lo es.
 //
 // LOS TESTS QUE YA EXISTÍAN NO PODÍAN VERLO. TestPublishLost_PersisteLaFecha...,
 // TestCreatePetCallejera_PersisteLaFecha... y TestPublishLost_SinFechaSigueAndando
@@ -38,7 +43,8 @@ func TestFindByPetID_DevuelveDelMasNuevoAlMasViejo(t *testing.T) {
 	petID := uuid.New()
 	if err := db.Exec(`
 		INSERT INTO users (id, email, password_hash, name, created_at, updated_at)
-		VALUES (?, 'orden@test.local', 'x', 'Orden', now(), now())`, userID).Error; err != nil {
+		VALUES (?, ?, 'x', 'Orden', now(), now())`,
+		userID, "orden-"+uuid.New().String()[:8]+"@test.local").Error; err != nil {
 		t.Fatalf("sembrando usuario: %v", err)
 	}
 	if err := db.Exec(`

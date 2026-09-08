@@ -4,6 +4,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/uuid"
+
 	"lost-pets/internal/domain"
 	"lost-pets/tests/testdb"
 )
@@ -48,11 +50,12 @@ func TestGeoIndexes_ElPlannerUsaElDeReports(t *testing.T) {
 	db := testdb.SetupTestDB(t)
 
 	// Un dueño y una mascota para colgar los reportes (FKs).
-	ownerID := "11111111-1111-1111-1111-111111111111"
-	petID := "22222222-2222-2222-2222-222222222222"
+	ownerID := uuid.New().String()
+	petID := uuid.New().String()
 	if err := db.Exec(`
 		INSERT INTO users (id, email, password_hash, name, created_at, updated_at)
-		VALUES (?, 'geo-bench@test.local', 'x', 'Bench', now(), now())`, ownerID).Error; err != nil {
+		VALUES (?, ?, 'x', 'Bench', now(), now())`,
+		ownerID, "bench-"+uuid.New().String()[:8]+"@test.local").Error; err != nil {
 		t.Fatalf("sembrando usuario: %v", err)
 	}
 	if err := db.Exec(`
@@ -125,10 +128,11 @@ func TestGeoIndexes_ElPlannerUsaElDeReports(t *testing.T) {
 func TestGeoIndexes_ElPlannerUsaElDeAlertas(t *testing.T) {
 	db := testdb.SetupTestDB(t)
 
-	userID := "33333333-3333-3333-3333-333333333333"
+	userID := uuid.New().String()
 	if err := db.Exec(`
 		INSERT INTO users (id, email, password_hash, name, created_at, updated_at)
-		VALUES (?, 'alert-plan@test.local', 'x', 'Plan', now(), now())`, userID).Error; err != nil {
+		VALUES (?, ?, 'x', 'Plan', now(), now())`,
+		userID, "plan-"+uuid.New().String()[:8]+"@test.local").Error; err != nil {
 		t.Fatalf("sembrando usuario: %v", err)
 	}
 	if err := db.Exec(`

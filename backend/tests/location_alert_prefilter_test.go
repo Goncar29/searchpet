@@ -34,7 +34,8 @@ func TestFindActiveAlertsNear_ElPrefiltroNoDescartaElRadioMaximo(t *testing.T) {
 	userID := uuid.New()
 	if err := db.Exec(`
 		INSERT INTO users (id, email, password_hash, name, created_at, updated_at)
-		VALUES (?, 'alert-bound@test.local', 'x', 'Bound', now(), now())`, userID).Error; err != nil {
+		VALUES (?, ?, 'x', 'Bound', now(), now())`,
+		userID, "bound-"+uuid.New().String()[:8]+"@test.local").Error; err != nil {
 		t.Fatalf("sembrando usuario: %v", err)
 	}
 
