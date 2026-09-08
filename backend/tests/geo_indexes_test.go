@@ -1,10 +1,10 @@
 package tests
 
 import (
-	"fmt"
 	"strings"
 	"testing"
 
+	"lost-pets/internal/domain"
 	"lost-pets/tests/testdb"
 )
 
@@ -99,9 +99,77 @@ func TestGeoIndexes_ElPlannerUsaElDeReports(t *testing.T) {
 	if strings.Contains(completo, "Seq Scan on reports") {
 		t.Errorf("sigue habiendo un Seq Scan sobre reports:\n%s", completo)
 	}
-	fmt.Fprintf(nopWriter{}, "%s", completo) // el plan queda disponible si hace falta depurar
+	// Al log de verdad: `t.Logf` sólo imprime con -v o cuando el test falla, que
+	// es exactamente cuando hace falta. Acá había un `fmt.Fprintf` a un sumidero
+	// que DESCARTABA el plan mientras el comentario decía que quedaba disponible.
+	t.Logf("plan:\n%s", completo)
 }
 
-type nopWriter struct{}
+// El planner elige el índice de ALERTAS, que es un caso distinto y más frágil
+// que el de reports.
+//
+// Su consulta lleva el radio en una COLUMNA (`radius_km * 1000`), y PostGIS no
+// puede indexar un ST_DWithin cuyo radio depende de la fila: expande a
+// `geog && _ST_Expand(punto, d)` y con `d` variable la cláusula deja de ser
+// indexable. Medido: con radio por fila el plan es un Seq Scan sobre la tabla
+// entera.
+//
+// Por eso la consulta lleva un PREFILTRO de radio constante
+// (domain.MaxAlertRadiusKm) que sí entra por el índice. Este test verifica que
+// esa mitad funcione; que el prefiltro no se coma alertas válidas lo cuida
+// TestFindActiveAlertsNear_ElPrefiltroNoDescartaElRadioMaximo.
+//
+// Sin este test, el índice de alertas podía existir, ser un GiST perfectamente
+// válido, y no usarse nunca — que es la consulta que más importa, porque corre
+// en CADA creación de reporte.
+func TestGeoIndexes_ElPlannerUsaElDeAlertas(t *testing.T) {
+	db := testdb.SetupTestDB(t)
 
-func (nopWriter) Write(p []byte) (int, error) { return len(p), nil }
+	userID := "33333333-3333-3333-3333-333333333333"
+	if err := db.Exec(`
+		INSERT INTO users (id, email, password_hash, name, created_at, updated_at)
+		VALUES (?, 'alert-plan@test.local', 'x', 'Plan', now(), now())`, userID).Error; err != nil {
+		t.Fatalf("sembrando usuario: %v", err)
+	}
+	if err := db.Exec(`
+		INSERT INTO location_alerts (id, user_id, alert_latitude, alert_longitude, radius_km, pet_type, is_active, created_at, updated_at)
+		SELECT gen_random_uuid(), ?,
+		       (-34.9 + (random()-0.5)*3)::numeric(10,8),
+		       (-56.2 + (random()-0.5)*3)::numeric(11,8),
+		       1 + floor(random()*50)::int, '', true, now(), now()
+		FROM generate_series(1, 20000)`, userID).Error; err != nil {
+		t.Fatalf("sembrando alertas: %v", err)
+	}
+	if err := db.Exec("ANALYZE location_alerts").Error; err != nil {
+		t.Fatalf("ANALYZE: %v", err)
+	}
+
+	// Las MISMAS dos condiciones que arma FindActiveAlertsNear: el prefiltro
+	// constante y la exacta por fila.
+	var plan []string
+	err := db.Raw(`
+		EXPLAIN SELECT count(*) FROM location_alerts
+		WHERE is_active = true
+		  AND ST_DWithin(
+		        ST_SetSRID(ST_MakePoint(alert_longitude, alert_latitude), 4326)::geography,
+		        ST_SetSRID(ST_MakePoint(-56.1645, -34.9011), 4326)::geography,
+		        ?)
+		  AND ST_DWithin(
+		        ST_SetSRID(ST_MakePoint(alert_longitude, alert_latitude), 4326)::geography,
+		        ST_SetSRID(ST_MakePoint(-56.1645, -34.9011), 4326)::geography,
+		        radius_km * 1000)`, domain.MaxAlertRadiusKm*1000).Scan(&plan).Error
+	if err != nil {
+		t.Fatalf("EXPLAIN: %v", err)
+	}
+
+	completo := strings.Join(plan, "\n")
+	if !strings.Contains(completo, "idx_location_alerts_geog") {
+		t.Errorf("el planner NO usa idx_location_alerts_geog — el índice existe pero es decorativo.\n"+
+			"Suele significar que se perdió el prefiltro de radio CONSTANTE: con el radio por fila\n"+
+			"la cláusula no es indexable y degrada a filtro.\nPlan:\n%s", completo)
+	}
+	if strings.Contains(completo, "Seq Scan on location_alerts") {
+		t.Errorf("sigue habiendo un Seq Scan sobre location_alerts:\n%s", completo)
+	}
+	t.Logf("plan:\n%s", completo)
+}

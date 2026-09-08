@@ -250,8 +250,8 @@ func validateAlertCoords(lat, lng float64) error {
 }
 
 func validateRadiusKm(r float64) error {
-	if r < 1 || r > 50 {
-		return fmt.Errorf("%w: radius_km debe estar entre 1 y 50", domain.ErrInvalidInput)
+	if r < 1 || r > domain.MaxAlertRadiusKm {
+		return fmt.Errorf("%w: radius_km debe estar entre 1 y %d", domain.ErrInvalidInput, domain.MaxAlertRadiusKm)
 	}
 	return nil
 }
