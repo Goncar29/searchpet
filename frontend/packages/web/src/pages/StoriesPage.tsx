@@ -1,10 +1,11 @@
-import { useNavigate } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
-import { useStories, useLikeStory, useUnlikeStory } from '@shared/hooks';
+import { useStories, useLikeStory, useUnlikeStory, useStats } from '@shared/hooks';
 import { useAuth } from '../context/AuthContext';
 import type { SuccessStory } from '@shared/types';
 import { PawPlaceholder } from '../components/PawPlaceholder';
 import { StoryCard } from '../components/StoryCard';
+import { Icon } from '../components/Icon';
 import { ListState } from '../components/list/ListState';
 
 export function StoriesPage() {
@@ -18,6 +19,19 @@ export function StoriesPage() {
   const likeStory = useLikeStory();
   const unlikeStory = useUnlikeStory();
   const isToggling = likeStory.isPending || unlikeStory.isPending;
+
+  // The design's headline number. It is read from `/api/stats`, a separate
+  // query from the list, so it must fail on its own terms: when stats do not
+  // load, the counter is simply absent. Rendering a placeholder zero would
+  // state that nobody has ever been reunited — a claim we cannot make from a
+  // failed request, and the exact mistake `ListState` exists to prevent one
+  // level up.
+  //
+  // A real zero is hidden too: there is nothing to celebrate yet, and the
+  // list's own empty state already says so without a giant 0 above it.
+  const stats = useStats();
+  const reunited = stats.data?.pets_reunited;
+  const showCounter = typeof reunited === 'number' && reunited > 0;
 
   const toggleLike = (e: React.MouseEvent, story: SuccessStory) => {
     e.preventDefault();
@@ -35,12 +49,22 @@ export function StoriesPage() {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 bg-gray-50 dark:bg-gray-950 min-h-screen">
       <div className="text-center mb-10">
-        <h1 className="font-display text-display-sm md:text-display text-gray-900 dark:text-gray-100 mb-3">
+        <h1 className="font-display text-display-sm md:text-display font-semibold text-primary mb-3">
           {t('stories:title')}
         </h1>
         <p className="text-gray-500 dark:text-gray-400 max-w-2xl mx-auto">
           {t('stories:subtitle')}
         </p>
+        {showCounter && (
+          <div className="mt-8">
+            <p className="font-display text-display-sm md:text-display font-semibold text-primary">
+              {reunited.toLocaleString()}
+            </p>
+            <p className="mt-1 text-xs font-semibold uppercase tracking-widest text-gray-500 dark:text-gray-400">
+              {t('stories:reunitedLabel')}
+            </p>
+          </div>
+        )}
       </div>
 
       <ListState
@@ -70,11 +94,35 @@ export function StoriesPage() {
                 to={`/stories/${story.id}`}
                 onToggleLike={toggleLike}
                 likeBusy={isToggling}
+                variant="panel"
               />
             ))}
           </div>
         )}
       </ListState>
+
+      {/* Outside the ListState on purpose: the invitation to write a story is
+          true whether the list loaded, failed or came back empty — and it is
+          most useful precisely when there is nothing to read yet. */}
+      <section className="mt-12 rounded-2xl border border-gray-100 bg-white p-8 text-center shadow-sm dark:border-gray-800 dark:bg-gray-900">
+        <h2 className="font-display text-headline font-semibold text-gray-900 dark:text-gray-100">
+          {t('stories:cta.title')}
+        </h2>
+        <p className="mx-auto mt-2 max-w-xl text-sm text-gray-500 dark:text-gray-400">
+          {t('stories:cta.body')}
+        </p>
+        {/* Always shown, never gated on the session: /stories/create is a
+            protected route, so an anonymous visitor lands on login and comes
+            back. Hiding it would leave the page with no way in for exactly the
+            person we are trying to invite. */}
+        <Link
+          to="/stories/create"
+          className="mt-6 inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-3 font-semibold text-white transition-colors hover:bg-primary/90"
+        >
+          <Icon name="celebration" />
+          {t('stories:cta.button')}
+        </Link>
+      </section>
     </div>
   );
 }

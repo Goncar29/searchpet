@@ -10,6 +10,7 @@ const mockNavigate = vi.fn();
 let mockStories: unknown[] | undefined = [];
 let mockStoriesError = false;
 let mockIsAuthenticated = true;
+let mockStats: { pets_reunited: number } | undefined = { pets_reunited: 1200 };
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (key: string) => key, i18n: { language: 'es' } }),
@@ -28,6 +29,10 @@ vi.mock('@shared/hooks', () => ({
   }),
   useLikeStory: () => ({ mutate: likeMutate, isPending: false }),
   useUnlikeStory: () => ({ mutate: unlikeMutate, isPending: false }),
+  // Every hook the page calls has to be in this mock: the factory REPLACES the
+  // module, so a hook left out is `undefined` and the render dies with
+  // "is not a function" — a failure that reads like a bug in the page.
+  useStats: () => ({ data: mockStats }),
 }));
 
 vi.mock('../context/AuthContext', () => ({
@@ -70,6 +75,77 @@ describe('StoriesPage', () => {
     mockStories = [];
     mockStoriesError = false;
     mockIsAuthenticated = true;
+    mockStats = { pets_reunited: 1200 };
+  });
+
+  // The counter reads a SECOND query (`/api/stats`), independent from the list.
+  // These four cases pin that it never states something the data does not say.
+  describe('el contador de vidas reencontradas', () => {
+    it('se dibuja cuando el dato llegó', () => {
+      render(<StoriesPage />, { wrapper });
+      expect(screen.getByText('stories:reunitedLabel')).toBeInTheDocument();
+      expect(screen.getByText((1200).toLocaleString())).toBeInTheDocument();
+    });
+
+    // The whole reason the counter is conditional. With `?? 0` this renders a
+    // giant "0" over the word "reunited" — a page-level claim that nobody has
+    // ever been found, built out of a request that simply failed.
+    it('NO se dibuja cuando /api/stats no cargó', () => {
+      mockStats = undefined;
+      render(<StoriesPage />, { wrapper });
+      expect(screen.queryByText('stories:reunitedLabel')).not.toBeInTheDocument();
+    });
+
+    it('NO se dibuja en cero', () => {
+      mockStats = { pets_reunited: 0 };
+      render(<StoriesPage />, { wrapper });
+      expect(screen.queryByText('stories:reunitedLabel')).not.toBeInTheDocument();
+    });
+
+    // A failed LIST must not take the counter down with it: they are separate
+    // queries and the counter is still true.
+    it('sobrevive a que la lista se caiga', () => {
+      mockStories = undefined;
+      mockStoriesError = true;
+      render(<StoriesPage />, { wrapper });
+      expect(screen.getByText('stories:reunitedLabel')).toBeInTheDocument();
+    });
+  });
+
+  // The invitation to write lives OUTSIDE ListState, so it has to survive every
+  // branch — and it matters most in the two where there is nothing to read.
+  describe('la invitación a contar una historia', () => {
+    it.each([
+      ['con historias', () => { mockStories = [makeStory()]; }],
+      ['con la lista vacía', () => { mockStories = []; }],
+      ['con la lista caída', () => { mockStories = undefined; mockStoriesError = true; }],
+    ])('se muestra %s', (_caso, setup) => {
+      setup();
+      render(<StoriesPage />, { wrapper });
+      expect(screen.getByRole('link', { name: /stories:cta.button/ })).toHaveAttribute(
+        'href',
+        '/stories/create'
+      );
+    });
+
+    // /stories/create is a protected route that bounces to login, so gating the
+    // link on the session would hide the entry point from exactly the visitor
+    // it is meant to convert.
+    it('se muestra también sin sesión', () => {
+      mockIsAuthenticated = false;
+      mockStories = [makeStory()];
+      render(<StoriesPage />, { wrapper });
+      expect(screen.getByRole('link', { name: /stories:cta.button/ })).toBeInTheDocument();
+    });
+  });
+
+  // The other half of the home's assertion: this page asks for the panel
+  // variant. Testing only "the home stays overlay" would still pass if the
+  // panel were never wired up anywhere.
+  it('dibuja las historias en la variante panel', () => {
+    mockStories = [makeStory()];
+    render(<StoriesPage />, { wrapper });
+    expect(screen.getByText('readMore')).toBeInTheDocument();
   });
 
   it('renderiza el estado vacío cuando no hay historias', () => {

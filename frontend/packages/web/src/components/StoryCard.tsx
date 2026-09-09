@@ -34,6 +34,16 @@ type StoryCardProps = {
    */
   onToggleLike?: (e: MouseEvent, story: SuccessStory) => void;
   likeBusy?: boolean;
+  /**
+   * Which of the two designs to draw. The two Stitch screens differ on purpose:
+   * the home ("Happy Reunions") stacks four tall photo tiles with the text over
+   * a gradient, while /stories ("Finales Felices") uses a white panel with the
+   * photo on top so the body copy gets room to breathe.
+   *
+   * `overlay` is the default so that adding this prop cannot change the home by
+   * omission — the page that wants the new look has to ask for it.
+   */
+  variant?: 'overlay' | 'panel';
 };
 
 /**
@@ -42,7 +52,13 @@ type StoryCardProps = {
  * fields while /stories read only `pet_photo`, so the same story rendered with
  * a photo on one page and without on the other.
  */
-export function StoryCard({ story, to, onToggleLike, likeBusy }: StoryCardProps) {
+export function StoryCard({
+  story,
+  to,
+  onToggleLike,
+  likeBusy,
+  variant = 'overlay',
+}: StoryCardProps) {
   const { t } = useTranslation('stories');
   const cover = storyCover(story);
 
@@ -85,6 +101,57 @@ export function StoryCard({ story, to, onToggleLike, likeBusy }: StoryCardProps)
     </span>
   );
 
+  const date = <span>{new Date(story.created_at).toLocaleDateString()}</span>;
+
+  if (variant === 'panel') {
+    return (
+      // `h-full` for the same reason as below: the grid stretches its items only
+      // if the item fills the track.
+      <Link
+        to={to}
+        className="group flex h-full flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm transition-shadow hover:shadow-md dark:border-gray-800 dark:bg-gray-900"
+      >
+        {cover && (
+          <div className="relative aspect-[4/3] overflow-hidden">
+            <img
+              src={cover}
+              alt={story.pet_name}
+              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+            />
+            <div className="absolute left-4 top-4">{badge}</div>
+          </div>
+        )}
+        <div className="flex flex-1 flex-col p-5">
+          {/* Without a photo there is no image to pin the badge onto, so it
+              leads the body instead — the same fallback the overlay uses. */}
+          {!cover && <div className="mb-2 flex">{badge}</div>}
+          <h3 className="font-display text-headline line-clamp-2 font-semibold text-gray-900 dark:text-gray-100">
+            {story.title || story.pet_name}
+          </h3>
+          <p className="mt-0.5 text-sm font-semibold text-primary">{story.pet_name}</p>
+          <p className="mt-2 line-clamp-3 flex-1 text-sm text-gray-600 dark:text-gray-300">
+            {story.body}
+          </p>
+          <div className="mt-4 flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+            {date}
+            {likes}
+          </div>
+          {/* A <span>, not a link or a button: the whole card is already an
+              anchor, so a real one would nest interactive content inside an
+              <a> (invalid HTML) and make a screen reader announce the same
+              destination twice. It is aria-hidden for that second reason — the
+              card's own accessible name already says where this goes. */}
+          <span
+            aria-hidden="true"
+            className="mt-4 block rounded-lg border border-primary/30 py-2 text-center text-sm font-semibold text-primary transition-colors group-hover:bg-primary group-hover:text-white"
+          >
+            {t('readMore')}
+          </span>
+        </div>
+      </Link>
+    );
+  }
+
   return (
     // `h-full` matters: the grid stretches its items, but only if the item
     // itself fills the track. Without it the cards step down like a staircase.
@@ -109,7 +176,7 @@ export function StoryCard({ story, to, onToggleLike, likeBusy }: StoryCardProps)
             </h3>
             <p className="line-clamp-2 text-sm text-white/80">{story.body}</p>
             <div className="mt-3 flex items-center justify-between text-xs text-white/70">
-              <span>{new Date(story.created_at).toLocaleDateString()}</span>
+              {date}
               {likes}
             </div>
           </div>
