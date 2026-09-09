@@ -68,13 +68,21 @@ describe('profile.public — paridad de claves en los tres idiomas', () => {
 // TRES. Ese caso —el de escribir `t('profile:public.postsErrors')` cuando el
 // locale dice `postsError`— sólo lo caza leyendo los call sites reales.
 describe('profile.public — las claves que la página usa existen de verdad', () => {
-  const ESTATICAS = /\bt\(\s*'profile:public\.([a-zA-Z0-9_.]+)'/g;
+  // DOS formas, no una: la pantalla hace `useTranslation(['profile'])`, así que
+  // `profile` es el namespace POR DEFECTO y `t('public.x')` —sin prefijo—
+  // renderiza igual de bien en runtime. Un regex que sólo mira el prefijo deja
+  // esa forma fuera del barrido sin avisar. Hoy no se usa; mañana sí.
+  const ESTATICAS = /\bt\(\s*'(?:profile:)?public\.([a-zA-Z0-9_.]+)'/g;
   // Backtick = clave armada en runtime. El barrido estático NO la puede
   // resolver, así que cada una necesita su verificación a mano (abajo).
-  const DINAMICAS = /\bt\(\s*`profile:public\.[^`]*\$\{/g;
+  const DINAMICAS = /\bt\(\s*`(?:profile:)?public\.[^`]*\$\{/g;
+  // Cualquier `t(` que apunte a este namespace, en la forma que sea. Sirve para
+  // exigir que el barrido las haya visto TODAS en vez de "más de N".
+  const CANDIDATAS = /\bt\(\s*['`](?:profile:)?public\./g;
 
   const usadas = [...userProfileSource.matchAll(ESTATICAS)].map((m) => m[1]).sort();
   const dinamicas = [...userProfileSource.matchAll(DINAMICAS)];
+  const candidatas = [...userProfileSource.matchAll(CANDIDATAS)];
 
   function resolve(dict: Record<string, unknown>, path: string): unknown {
     return path.split('.').reduce<unknown>(
@@ -84,10 +92,17 @@ describe('profile.public — las claves que la página usa existen de verdad', (
     );
   }
 
-  it('el barrido encontró llamadas (si da 0, dejó de barrer)', () => {
-    // Sin esta guarda, cambiar las comillas simples por otra cosa vaciaría
-    // `usadas` y todos los asserts de abajo pasarían por vacuidad.
-    expect(usadas.length).toBeGreaterThan(25);
+  it('el barrido vio TODAS las llamadas al namespace, no "más de N"', () => {
+    // Contra el total de candidatas y NO contra un número mágico. Un `>25` con
+    // 41 call sites deja que 16 desaparezcan del barrido en silencio: alcanza
+    // con que alguien escriba una llamada en una forma que el regex no cubre
+    // para que esa clave deje de verificarse mientras el test sigue verde.
+    //
+    // No se puede comparar contra "todos los `t(` del archivo" como hace
+    // `downloadKeys.test.ts`, porque acá conviven varios namespaces: de 48
+    // llamadas, 7 son de `pets`/`common` y no deben barrerse.
+    expect(usadas.length + dinamicas.length).toBe(candidatas.length);
+    expect(candidatas.length, 'el barrido quedó vacío — dejó de matchear').toBeGreaterThan(25);
   });
 
   it('cada clave estática usada existe en los tres idiomas', () => {
@@ -133,7 +148,18 @@ describe('profile.public — las claves que la página usa existen de verdad', (
     // al botón y se olvida del locale, esto lo caza.
     const m = userProfileSource.match(/\[([^\]]+)\]\s*as\s+AbuseReason\[\]/);
     expect(m, 'no encontré la lista de AbuseReason en UserProfilePage.tsx').not.toBeNull();
-    const motivos = [...(m?.[1] ?? '').matchAll(/'([a-z]+)'/g)].map((x) => x[1]);
+    // `[a-zA-Z_]` y no `[a-z]`: con el regex angosto, un motivo nuevo como
+    // `'hate_speech'` o `'fakeProfile'` no matchea y desaparece de la lista
+    // ENTERA — el botón lo ofrecería sin traducir y este test seguiría verde,
+    // que es justo lo contrario de lo que promete.
+    const crudos = m?.[1] ?? '';
+    const motivos = [...crudos.matchAll(/'([a-zA-Z_]+)'/g)].map((x) => x[1]);
+    // Y se cuenta contra las comillas del propio fragmento: si algún valor no
+    // matchea el regex, el barrido queda corto y esto lo delata en vez de
+    // dejarlo pasar.
+    const comillas = (crudos.match(/'/g) ?? []).length / 2;
+    expect(motivos.length, `el regex de motivos dejó fuera ${comillas - motivos.length} valor(es)`)
+      .toBe(comillas);
     expect(motivos.length, 'la lista de motivos salió vacía — el regex dejó de matchear').toBeGreaterThan(2);
 
     for (const [lang, dict] of [['es', es], ['en', en], ['pt', pt]] as const) {
@@ -150,6 +176,28 @@ describe('profile.public — las claves que la página usa existen de verdad', (
   // `i18n/index.ts`, o la página renderiza las claves crudas en producción
   // (regla #21). Los asserts de arriba leen los JSON directamente, así que
   // ninguno lo vería.
+  it('el namespace está registrado en LOS TRES bloques', async () => {
+    // `hasResourceBundle` y no `t()`, y esta es la diferencia entera:
+    // `i18n/index.ts` tiene `fallbackLng: 'es'`, así que con `profile` faltando
+    // SÓLO en el bloque `en`, `t('profile:public.x')` devuelve el string EN
+    // ESPAÑOL — una cadena perfectamente válida que ninguna comparación contra
+    // la clave puede distinguir.
+    //
+    // O sea que el usuario en inglés ve el perfil público entero en español y
+    // los tests no se enteran. Verificado: borrando esa única línea, las 9
+    // aserciones seguían verdes. El borrado TOTAL sí fallaba — por eso el
+    // comentario anterior decía "verificado" y era cierto sólo para el caso
+    // menos probable. Lo levantó un code review.
+    const i18n = (await import('./index')).default;
+    for (const lang of ['es', 'en', 'pt'] as const) {
+      expect(
+        i18n.hasResourceBundle(lang, 'profile'),
+        `el namespace 'profile' no está registrado para "${lang}" en i18n/index.ts — ` +
+          `con fallbackLng esa pantalla se ve en español y nada más falla`
+      ).toBe(true);
+    }
+  });
+
   it('el namespace resuelve en la instancia real de i18next', async () => {
     const i18n = (await import('./index')).default;
     for (const lang of ['es', 'en', 'pt'] as const) {

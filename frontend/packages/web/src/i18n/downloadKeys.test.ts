@@ -100,12 +100,37 @@ describe('download — las claves que la página usa existen de verdad', () => {
 
   it('cada clave usada existe en los tres idiomas', () => {
     for (const [lang, dict] of [['es', es], ['en', en], ['pt', pt]] as const) {
+      const d = dict.download as unknown as Record<string, unknown>;
       for (const key of used) {
+        // La rama plural también acá, y no sólo en la verificación contra
+        // i18next: una clave `foo_one`/`foo_other` no existe como `foo`, así
+        // que este assert fallaría PRIMERO y el `{ count: 1 }` de más abajo
+        // nunca llegaría a evitar nada. `download` hoy no tiene plurales; esto
+        // es para que el día que tenga una, el test diga la verdad.
+        if (typeof resolve(d, key) === 'string') continue;
+        const one = resolve(d, `${key}_one`);
+        const other = resolve(d, `${key}_other`);
         expect(
-          resolve(dict.download as unknown as Record<string, unknown>, key),
-          `${lang}.download.${key} — la usa DownloadPage.tsx y no está en el locale`
-        ).toBeTypeOf('string');
+          typeof one === 'string' && typeof other === 'string',
+          `${lang}.download.${key} — la usa DownloadPage.tsx y no está en el locale ` +
+            `(ni como clave directa ni como plural _one/_other)`
+        ).toBe(true);
       }
+    }
+  });
+
+  it('el namespace está registrado en LOS TRES bloques', async () => {
+    // `hasResourceBundle` y no `t()`: con `fallbackLng: 'es'`, un namespace que
+    // falta SÓLO en `en` devuelve el string en español — una cadena válida que
+    // ninguna comparación contra la clave distingue. El usuario en inglés ve la
+    // página en español y nada falla. Mismo agujero que se encontró en
+    // `publicProfileKeys.test.ts`.
+    const i18n = (await import('./index')).default;
+    for (const lang of ['es', 'en', 'pt'] as const) {
+      expect(
+        i18n.hasResourceBundle(lang, 'download'),
+        `el namespace 'download' no está registrado para "${lang}" en i18n/index.ts`
+      ).toBe(true);
     }
   });
 
