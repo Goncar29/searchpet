@@ -1,4 +1,8 @@
 import { describe, it, expect } from 'vitest';
+// `?raw` de Vite y NO `readFileSync(new URL(..., import.meta.url))`: bajo vitest
+// ese `import.meta.url` no es scheme `file:` y tira "The URL must be of scheme
+// file". Esto además no depende del cwd desde el que se corran los tests.
+import userProfileSource from '../pages/UserProfilePage.tsx?raw';
 import es from './locales/es.json';
 import en from './locales/en.json';
 import pt from './locales/pt.json';
@@ -54,6 +58,116 @@ describe('profile.public — paridad de claves en los tres idiomas', () => {
         for (const p of placeholders) {
           expect(value, `${lang}.profile.public.${key}`).toContain(p);
         }
+      }
+    }
+  });
+});
+
+// LO QUE ESTE BLOQUE AGREGA sobre la paridad de arriba, y es el hueco que
+// `CLAUDE.md` anotaba: comparar en/pt contra es NO ve una clave que falta en LOS
+// TRES. Ese caso —el de escribir `t('profile:public.postsErrors')` cuando el
+// locale dice `postsError`— sólo lo caza leyendo los call sites reales.
+describe('profile.public — las claves que la página usa existen de verdad', () => {
+  const ESTATICAS = /\bt\(\s*'profile:public\.([a-zA-Z0-9_.]+)'/g;
+  // Backtick = clave armada en runtime. El barrido estático NO la puede
+  // resolver, así que cada una necesita su verificación a mano (abajo).
+  const DINAMICAS = /\bt\(\s*`profile:public\.[^`]*\$\{/g;
+
+  const usadas = [...userProfileSource.matchAll(ESTATICAS)].map((m) => m[1]).sort();
+  const dinamicas = [...userProfileSource.matchAll(DINAMICAS)];
+
+  function resolve(dict: Record<string, unknown>, path: string): unknown {
+    return path.split('.').reduce<unknown>(
+      (acc, part) =>
+        acc !== null && typeof acc === 'object' ? (acc as Record<string, unknown>)[part] : undefined,
+      dict
+    );
+  }
+
+  it('el barrido encontró llamadas (si da 0, dejó de barrer)', () => {
+    // Sin esta guarda, cambiar las comillas simples por otra cosa vaciaría
+    // `usadas` y todos los asserts de abajo pasarían por vacuidad.
+    expect(usadas.length).toBeGreaterThan(25);
+  });
+
+  it('cada clave estática usada existe en los tres idiomas', () => {
+    for (const [lang, dict] of [['es', es], ['en', en], ['pt', pt]] as const) {
+      const p = dict.profile.public as unknown as Record<string, unknown>;
+      for (const key of usadas) {
+        // Una clave PLURAL no existe con su nombre pelado: i18next la resuelve
+        // a `<key>_one` / `<key>_other` según el `count`. `reviewCount` es así,
+        // y sin esta rama el test la reportaba como faltante — un falso
+        // positivo del barrido, no un defecto de la página.
+        //
+        // Y exigir las DOS formas no es de más: con sólo `_one` en el locale, un
+        // conteo de 2 cae al fallback y muestra "2 reseña".
+        const directa = resolve(p, key);
+        if (typeof directa === 'string') continue;
+
+        const one = resolve(p, `${key}_one`);
+        const other = resolve(p, `${key}_other`);
+        expect(
+          typeof one === 'string' && typeof other === 'string',
+          `${lang}.profile.public.${key} — la usa UserProfilePage.tsx y no está en el locale ` +
+            `(ni como clave directa ni como plural _one/_other)`
+        ).toBe(true);
+      }
+    }
+  });
+
+  // Las claves dinámicas son el punto ciego del barrido. En vez de ignorarlas,
+  // se cuentan: hoy hay UNA (`reasons.${reason}`) y está verificada abajo. Si
+  // aparece una segunda, este test se cae y obliga a mirarla en vez de dejarla
+  // pasar en silencio — que es exactamente cómo un barrido "completo" empieza a
+  // cubrir menos de lo que dice.
+  it('sólo hay una clave dinámica, y es la de los motivos de denuncia', () => {
+    expect(
+      dinamicas.length,
+      `apareció una llamada dinámica nueva a profile:public — agregá su verificación acá`
+    ).toBe(1);
+  });
+
+  it('los motivos de denuncia existen en los tres idiomas', () => {
+    // La lista vive inline en el JSX (`['spam','fake',...] as AbuseReason[]`),
+    // así que se lee del fuente en vez de copiarse: si alguien agrega un motivo
+    // al botón y se olvida del locale, esto lo caza.
+    const m = userProfileSource.match(/\[([^\]]+)\]\s*as\s+AbuseReason\[\]/);
+    expect(m, 'no encontré la lista de AbuseReason en UserProfilePage.tsx').not.toBeNull();
+    const motivos = [...(m?.[1] ?? '').matchAll(/'([a-z]+)'/g)].map((x) => x[1]);
+    expect(motivos.length, 'la lista de motivos salió vacía — el regex dejó de matchear').toBeGreaterThan(2);
+
+    for (const [lang, dict] of [['es', es], ['en', en], ['pt', pt]] as const) {
+      for (const motivo of motivos) {
+        expect(
+          resolve(dict.profile.public as unknown as Record<string, unknown>, `reasons.${motivo}`),
+          `${lang}.profile.public.reasons.${motivo} — el botón lo ofrece y no está traducido`
+        ).toBeTypeOf('string');
+      }
+    }
+  });
+
+  // El namespace `profile` tiene que estar registrado en los tres bloques de
+  // `i18n/index.ts`, o la página renderiza las claves crudas en producción
+  // (regla #21). Los asserts de arriba leen los JSON directamente, así que
+  // ninguno lo vería.
+  it('el namespace resuelve en la instancia real de i18next', async () => {
+    const i18n = (await import('./index')).default;
+    for (const lang of ['es', 'en', 'pt'] as const) {
+      await i18n.changeLanguage(lang);
+      for (const key of usadas) {
+        const full = `profile:public.${key}`;
+        // `count` SIEMPRE, y no sólo para las plurales: sin él, i18next no
+        // puede elegir entre `_one` y `_other` y devuelve la clave — que este
+        // test leería como "el namespace no resuelve". Es inofensivo para las
+        // demás: si la traducción no usa `{{count}}`, el dato se ignora.
+        const value = i18n.t(full, { count: 1 });
+        // Las DOS formas, y la segunda es la que importa: cuando el namespace
+        // no está registrado, i18next devuelve la clave SIN el prefijo
+        // (`public.title`), no la cadena completa. Comparando sólo contra
+        // `full`, este test pasaba con el namespace borrado — verificado.
+        expect(value, `${full} no resuelve en "${lang}"`).not.toBe(full);
+        expect(value, `${full} no resuelve en "${lang}" (namespace sin registrar)`)
+          .not.toBe(`public.${key}`);
       }
     }
   });

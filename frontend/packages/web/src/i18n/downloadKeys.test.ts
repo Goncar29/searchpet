@@ -124,7 +124,11 @@ describe('download — las claves que la página usa existen de verdad', () => {
     for (const lang of ['es', 'en', 'pt'] as const) {
       await i18n.changeLanguage(lang);
       for (const key of used) {
-        const value = i18n.t(`download:${key}`);
+        // `count` SIEMPRE: sin él, i18next no puede elegir entre `_one` y
+        // `_other` en una clave plural y devuelve la clave, que este test
+        // leería como "el namespace no resuelve". Hoy `download` no tiene
+        // plurales — esto evita el falso positivo el día que tenga una.
+        const value = i18n.t(`download:${key}`, { count: 1 });
         expect(value, `download:${key} no resuelve en "${lang}"`).not.toBe(key);
         expect(value, `download:${key} no resuelve en "${lang}"`).not.toBe(`download:${key}`);
       }
