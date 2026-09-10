@@ -101,10 +101,22 @@ const imagenes = archivos(RAIZ).flatMap((abs) => {
 });
 
 describe('cobertura de miniaturas de Cloudinary (mobile)', () => {
+  // OJO CON LA FORMA DE ESTAS ASERCIONES: acá corre **Jest**, no Vitest, y Jest
+  // IGNORA el segundo argumento de `expect` (el mensaje). El gemelo de web lo
+  // usa, así que copiar su forma daba un guard que al fallar sólo dice
+  // "expected [...] to equal []": nombra el archivo, pero no dice qué hacer, y
+  // el que se lo encuentre en CI dentro de seis meses tiene que reconstruir el
+  // motivo. Por eso el mensaje va DENTRO del valor comparado, que Jest sí
+  // imprime en el diff.
   it('el barrido encontró imágenes — si baja, dejó de medir', () => {
     // Contra el total de IMÁGENES. Si el escáner deja de reconocer una forma,
     // el número cae y esto lo delata en vez de cubrir menos en silencio.
-    expect(imagenes.length).toBeGreaterThan(14);
+    const suficientes =
+      imagenes.length > 14
+        ? 'ok'
+        : `el escáner encontró ${imagenes.length} <Image source={{...}}>, y hay más: ` +
+          'probablemente dejó de reconocer alguna forma. Revisá fuentes().';
+    expect(suficientes).toBe('ok');
   });
 
   it('toda <Image> usa el helper, o está exenta con motivo escrito', () => {
@@ -115,7 +127,17 @@ describe('cobertura de miniaturas de Cloudinary (mobile)', () => {
       .filter(({ rel, expr }) => !USA_HELPER.test(expr) && !exenta(rel, expr))
       .map(({ rel, expr }) => `${rel}  ->  source={{ ${expr} }}`);
 
-    expect(crudas).toEqual([]);
+    const veredicto =
+      crudas.length === 0
+        ? 'ninguna'
+        : `Estas <Image> sirven su URI sin pasar por cloudinaryThumb:\n  ${crudas.join('\n  ')}\n\n` +
+          `Si la URI sale de Cloudinary, achicala: elegí el tamaño en ` +
+          `constants/imageSizes.ts (IMAGE_SIZES para cajas cuadradas, IMAGE_BOXES ` +
+          `para las apaisadas) y NO escribas números sueltos.\n` +
+          `Si NO sale de Cloudinary —un preview del ImagePicker, un asset local—, ` +
+          `sumala a EXENTOS con el motivo escrito.`;
+
+    expect(veredicto).toBe('ninguna');
   });
 
   it('ninguna exención quedó obsoleta', () => {
@@ -123,14 +145,25 @@ describe('cobertura de miniaturas de Cloudinary (mobile)', () => {
     // la sensación de estar al día mientras deja de cubrir.
     const vivas = new Set(imagenes.map(({ rel, expr }) => `${rel}|${expr}`));
     const muertas = EXENTOS.filter((e) => !vivas.has(`${e.archivo}|${e.expr}`)).map(
-      (e) => `${e.archivo} -> ${e.expr}`
+      (e) => `${e.archivo} -> source={{ ${e.expr} }}`
     );
-    expect(muertas).toEqual([]);
+
+    const veredicto =
+      muertas.length === 0
+        ? 'ninguna'
+        : `EXENTOS nombra imágenes que ya no existen o que cambiaron de expresión:\n  ` +
+          `${muertas.join('\n  ')}\n\nSacá esas entradas: una allowlist que envejece ` +
+          `da la sensación de estar al día mientras deja de cubrir.`;
+
+    expect(veredicto).toBe('ninguna');
   });
 
   it('cada exención trae un motivo de verdad, no un placeholder', () => {
-    for (const e of EXENTOS) {
-      expect(e.motivo.trim().length).toBeGreaterThan(30);
-    }
+    const flojos = EXENTOS.filter((e) => e.motivo.trim().length <= 30).map((e) => e.archivo);
+    const veredicto =
+      flojos.length === 0
+        ? 'ninguna'
+        : `estas exenciones no explican por qué lo son: ${flojos.join(', ')}`;
+    expect(veredicto).toBe('ninguna');
   });
 });
