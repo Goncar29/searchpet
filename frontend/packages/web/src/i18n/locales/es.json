@@ -708,7 +708,11 @@
       "notFound": "Hogar transitorio no encontrado",
       "prevPhoto": "Foto anterior",
       "nextPhoto": "Foto siguiente",
-      "goToPhoto": "Ir a la foto {{number}}"
+      "goToPhoto": "Ir a la foto {{number}}",
+      "loadError": "No pudimos cargar el hogar",
+      "loadErrorText": "No es que no exista: no llegamos a leerlo. Probá de nuevo.",
+      "notFoundText": "Este hogar de tránsito no existe o fue dado de baja.",
+      "retry": "Reintentar"
     },
     "register": {
       "required": "obligatorio",

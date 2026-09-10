@@ -124,7 +124,7 @@ describe('Detalle de hogar — 404 no es lo mismo que "no pudimos leerlo"', () =
   // para cualquiera que ya lo hubiera abierto.
   it('un 404 en refetch descarta lo cacheado', () => {
     mockUseFosterHomeByID.mockReturnValue({
-      data: { id: 'fh-1', owner_user_id: 'u-9', title: 'Casa de Ana', photos: [], animal_types: [] },
+      data: { id: 'fh-1', owner_user_id: 'u-9', city: 'Montevideo', photos: [], animal_types: [] },
       isLoading: false,
       isError: true,
       error: new ApiError('not_found', 404, 'not found'),
@@ -134,7 +134,7 @@ describe('Detalle de hogar — 404 no es lo mismo que "no pudimos leerlo"', () =
     const { queryByText } = render(<FosterHomeDetailScreen />);
 
     expect(queryByText('fosterHomes:detail.notFound')).toBeTruthy();
-    expect(queryByText('Casa de Ana')).toBeNull();
+    expect(queryByText(/Montevideo/)).toBeNull();
     expect(queryByText('fosterHomes:detail.contactChat')).toBeNull();
   });
 
@@ -146,7 +146,7 @@ describe('Detalle de hogar — 404 no es lo mismo que "no pudimos leerlo"', () =
       data: {
         id: 'fh-1',
         owner_user_id: 'u-9',
-        title: 'Casa de Ana',
+        city: 'Montevideo',
         photos: [],
         animal_types: [],
       },
