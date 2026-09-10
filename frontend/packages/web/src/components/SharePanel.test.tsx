@@ -28,6 +28,24 @@ vi.mock('@shared/hooks', () => ({
   useAutoShareLink: () => ({ mutateAsync: autoMutateAsync, isPending: autoPending.value }),
 }));
 
+// En jsdom una `<img>` nunca resuelve —`complete` queda en false y no dispara ni
+// `load` ni `error`, porque jsdom no carga recursos—, así que la espera real
+// colgaría hasta su timeout y estos tests morirían sin que nada esté mal. La
+// lógica de la espera tiene su propio test en `utils/esperarImagenes.test.ts`.
+// Mutable para poder simular, desde un test, que el template se desmonta
+// MIENTRAS se espera la foto.
+const alEsperarImagenes = { hacer: (_nodo: HTMLElement) => {} };
+
+vi.mock('../utils/esperarImagenes', () => ({
+  esperarImagenes: vi.fn(async (nodo: HTMLElement) => {
+    alEsperarImagenes.hacer(nodo);
+  }),
+  // `cederAlRender` también: sin él en el mock el import queda `undefined` y el
+  // handler revienta con "is not a function", una falla que se lee como bug del
+  // componente. Su lógica (dos rAF) vive en `utils/esperarImagenes.test.ts`.
+  cederAlRender: vi.fn(async () => undefined),
+}));
+
 const basePet: Pet = {
   id: 'pet-1',
   name: 'Firulais',
@@ -179,20 +197,65 @@ describe('SharePanel — Instagram Story share (user cancels share sheet)', () =
 });
 
 describe('SharePanel — adoption poster header', () => {
-  it('shows EN ADOPCIÓN in the story template for adoption pets', () => {
-    const { container } = render(
+  it('shows EN ADOPCIÓN in the story template for adoption pets', async () => {
+    // Hay que abrir el panel: el template ya no se monta de entrada. Se afirma
+    // sobre el TEMPLATE y no sobre el container entero, porque ahora el panel
+    // abierto también aporta texto y un `container.textContent` mediría las dos
+    // cosas juntas.
+    const { getByRole, getByTestId } = render(
       <SharePanel petId="pet-2" petName="Michi" pet={{ ...basePet, name: 'Michi', status: 'adoption' }} />
     );
-    expect(container.textContent).toContain('¡EN ADOPCIÓN!');
-    expect(container.textContent).not.toContain('¡MASCOTA PERDIDA!');
+
+    await userEvent.click(getByRole('button', { name: /pets:share.button/i }));
+    await waitFor(() => expect(getByTestId('story-template')).toBeTruthy());
+
+    const template = getByTestId('story-template');
+    expect(template.textContent).toContain('¡EN ADOPCIÓN!');
+    expect(template.textContent).not.toContain('¡MASCOTA PERDIDA!');
+  });
+});
+
+describe('SharePanel — el template sólo existe con el panel abierto', () => {
+  // La mitad nueva. Montado siempre, su <img> servía la foto ORIGINAL —a
+  // propósito, porque la story se rasteriza a 1080x1920— en cada visita a la
+  // página de detalle, la compartiera alguien o no. Sin esta aserción, volver a
+  // montarlo de entrada pasaría sin que nada falle.
+  it('NO lo monta antes de abrir el panel', () => {
+    const { container } = render(
+      <SharePanel petId="pet-3" petName="Firulais" pet={basePet} />
+    );
+    expect(container.querySelector('[data-testid="story-template"]')).toBeNull();
+    expect(container.querySelector('img[alt="Firulais"]')).toBeNull();
+  });
+
+  // LA OTRA MITAD, y la que faltaba: en modo `inline` no hay botón que abra
+  // nada, porque el toggle se renderiza `{!inline && ...}`. O sea que `open`
+  // queda en `false` PARA SIEMPRE y el panel se muestra por `abierto = inline
+  // || open`.
+  //
+  // Gatear el template por `open` lo dejaba sin montar justo acá, y esto es
+  // `SuccessStep` y `CreateReportPage`: las dos pantallas donde compartir ES la
+  // acción principal. `generateStoryBlob` salía por `if (!nodo)` y la story de
+  // Instagram caía al link pelado, en silencio y sin error.
+  it('SÍ lo monta en modo inline, donde no hay botón que abrir', () => {
+    const { container } = render(
+      <SharePanel petId="pet-4" petName="Firulais" pet={basePet} inline />
+    );
+    expect(
+      container.querySelector('[data-testid="story-template"]'),
+      'sin el template, compartir a Instagram cae al link pelado'
+    ).toBeTruthy();
   });
 });
 
 describe('SharePanel — the story template is invisible to assistive tech', () => {
-  it('keeps the offscreen story template out of the accessibility tree', () => {
-    const { getByTestId } = render(
+  it('keeps the offscreen story template out of the accessibility tree', async () => {
+    const { getByTestId, getByRole } = render(
       <SharePanel petId="pet-3" petName="Firulais" pet={basePet} />
     );
+
+    await userEvent.click(getByRole('button', { name: /pets:share.button/i }));
+    await waitFor(() => expect(getByTestId('story-template')).toBeTruthy());
 
     const template = getByTestId('story-template');
 
@@ -232,5 +295,47 @@ describe('SharePanel — modo inline', () => {
 
     await waitFor(() => expect(autoMutateAsync).toHaveBeenCalledTimes(2));
     await waitFor(() => expect(queryByText('pets:share.loadError')).toBeNull());
+  });
+});
+
+describe('SharePanel — el template desmontado a mitad de la generación', () => {
+  afterEach(() => {
+    alEsperarImagenes.hacer = () => {};
+    vi.doUnmock('html2canvas');
+    stubShareApis({ share: undefined, canShare: undefined });
+    vi.restoreAllMocks();
+  });
+
+  // El overlay de "click afuera" NO se deshabilita mientras se genera, así que
+  // cerrar el panel a mitad desmonta el template. Capturar el nodo una sola vez
+  // evita el `html2canvas(null)`, pero deja un div HUÉRFANO: html2canvas no
+  // tira sobre un elemento desconectado, mide 0 y devuelve un lienzo vacío. Sin
+  // la guarda de `isConnected` el usuario compartía una story EN BLANCO como si
+  // todo hubiera salido bien.
+  //
+  // No se pudo provocar en el navegador —el panel no llegaba a cerrarse dentro
+  // de la ventana— así que se reproduce acá, que es donde el momento del
+  // desmonte se puede controlar: el mock de `esperarImagenes` saca el nodo del
+  // DOM antes de resolver, que es exactamente el estado que deja el cierre.
+  it('NO comparte una imagen cuando el nodo quedó fuera del DOM', async () => {
+    mockHtml2Canvas();
+    const shareMock = vi.fn().mockResolvedValue(undefined);
+    stubShareApis({ share: shareMock, canShare: vi.fn().mockReturnValue(true) });
+    alEsperarImagenes.hacer = (nodo) => nodo.remove();
+
+    const { getByRole, getAllByRole } = render(
+      <SharePanel petId="pet-9" petName="Firulais" pet={basePet} />
+    );
+
+    await userEvent.click(getByRole('button', { name: /pets:share.button/i }));
+    await waitFor(() => expect(mutateAsync).toHaveBeenCalled());
+    await userEvent.click(getAllByRole('button', { name: /instagram/i })[0]);
+
+    await waitFor(() => expect(shareMock).toHaveBeenCalled());
+    const conArchivos = shareMock.mock.calls.filter((c) => Array.isArray(c[0]?.files));
+    expect(
+      conArchivos,
+      'se compartió un archivo generado sobre un nodo desconectado: es la story en blanco'
+    ).toHaveLength(0);
   });
 });
