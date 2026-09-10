@@ -197,18 +197,46 @@ describe('cobertura de miniaturas de Cloudinary', () => {
   });
 
   // Los consumidores que NO son `<img>` y por eso el barrido de arriba no ve.
-  // Es una lista corta y explícita en vez de un parser por cada forma de servir
-  // una imagen: cubre la regresión de los dos que existen hoy, y el docblock
-  // dice que un tercero nuevo no estaría cubierto.
-  it('los consumidores que no son <img> siguen usando el helper', () => {
-    const noImg = [
-      ['../components/map/rastroMarker.tsx', 'la foto del pin va en un <image href> de SVG'],
-      ['../pages/PetDetailPage.tsx', 'el fondo borroso va en background-image'],
-    ] as const;
+  //
+  // Se afirma LA CONSTRUCCIÓN CONCRETA y no "el archivo menciona el helper",
+  // que es el error que este mismo commit vino a arreglar y que la primera
+  // versión de este bloque reintrodujo tres funciones más abajo: `PetDetailPage`
+  // sirve la MISMA foto dos veces —un `<img>` y el fondo borroso— así que con
+  // granularidad de archivo se podía dejar el fondo crudo y el test seguía
+  // verde, porque el `<img>` de al lado usaba el helper. Comprobado.
+  const NO_IMG = [
+    {
+      archivo: '../pages/PetDetailPage.tsx',
+      que: 'el fondo borroso, en background-image',
+      // La llamada tiene que estar DENTRO del `url(...)`, no en cualquier parte.
+      patrones: [/backgroundImage:\s*`url\(\$\{cloudinary(CardThumb|Fit|Thumb)\(/],
+    },
+    {
+      archivo: '../components/map/rastroMarker.tsx',
+      que: 'la foto del pin, en un <image href> de SVG',
+      // Acá la URL se calcula en una variable y se interpola después, así que
+      // hay que afirmar LAS DOS MITADES: que `thumb` sale del helper, y que el
+      // href interpola `thumb` y no la URL cruda. Con una sola, cambiar la otra
+      // pasa sin ser vista.
+      patrones: [
+        /const thumb = cloudinary(CardThumb|Fit|Thumb)\(/,
+        /<image href="\$\{escaparHtml\(thumb\)\}"/,
+      ],
+    },
+  ] as const;
 
-    for (const [ruta, que] of noImg) {
-      expect(fuentes[ruta], `${ruta} ya no existe — actualizá esta lista`).toBeTypeOf('string');
-      expect(USA_HELPER.test(fuentes[ruta]), `${ruta}: ${que}, y dejó de usar el helper`).toBe(true);
+  it('los consumidores que no son <img> siguen usando el helper', () => {
+    for (const { archivo, que, patrones } of NO_IMG) {
+      const src = fuentes[archivo];
+      expect(src, `${archivo} ya no existe — actualizá esta lista`).toBeTypeOf('string');
+      for (const p of patrones) {
+        expect(
+          p.test(src),
+          `${archivo}: ${que} — dejó de coincidir con ${p}. Si la construcción ` +
+            `cambió a propósito, actualizá el patrón; si dejó de usar el helper, ` +
+            `esa imagen se está sirviendo cruda.`
+        ).toBe(true);
+      }
     }
   });
 });
