@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useMyPets } from '@shared/hooks';
 import { useAuth } from '../../context/AuthContext';
 import type { Pet, Photo } from '@shared/types';
+import { cloudinaryThumb } from '@shared/utils/cloudinaryThumb';
 import { PawPlaceholder } from '../PawPlaceholder';
 import { ListState } from '../list/ListState';
 
@@ -103,8 +104,16 @@ export function LostPetStep({ onSelect }: LostPetStepProps) {
               className="w-full flex items-center gap-4 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-primary p-4 bg-white dark:bg-gray-900 transition-colors text-left"
             >
               {primaryPhoto ? (
+                // 112 = 56px de caja a 2x, el mismo criterio que el avatar del
+                // navbar (32px -> 64). Es `cloudinaryThumb` con un número y no
+                // `cloudinaryCardThumb`: las variantes de `LISTING_SIZES` son
+                // para las cajas apaisadas de los listados, y esta es cuadrada.
+                //
+                // Acá el desperdicio era el peor de la web: ~107-198 KB de
+                // original para pintar 56x56 px, y una vez por mascota de la
+                // lista.
                 <img
-                  src={primaryPhoto.url}
+                  src={cloudinaryThumb(primaryPhoto.url, 112)}
                   alt={pet.name}
                   className="h-14 w-14 rounded-lg object-cover flex-shrink-0"
                 />

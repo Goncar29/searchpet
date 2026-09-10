@@ -52,6 +52,31 @@ export function PhotoBanner({ photoUrl, petName, heightPx }: PhotoBannerProps) {
       }}
     >
       {photoUrl ? (
+        // EXENTO de `cloudinaryThumb` A PROPÓSITO — no es un olvido, y si un
+        // barrido de "fotos servidas crudas" te trajo hasta acá, MINIATURIZARLO
+        // ES LA RESPUESTA EQUIVOCADA.
+        //
+        // Este banner no se mira en pantalla: lo rasterizan `PdfFlyerButton`
+        // (volante que se IMPRIME en papel) y `SharePanel` (story de Instagram,
+        // 1080x1920). Los dos necesitan la resolución del original, así que una
+        // miniatura de listado degradaría el impreso.
+        //
+        // PERO SÍ HAY UN COSTO REAL ACÁ, y es peor de lo que parece: los dos
+        // consumidores montan su template offscreen (`position:fixed; top:-9999px`)
+        // SIN condicionar al estado de abierto/generando, así que este `<img>`
+        // baja el original en CADA visita a la página de detalle, la imprima
+        // alguien o no. Y como lleva `crossOrigin`, tiene su propia cache key:
+        // es un request aparte del que la página ya hace para mostrar la foto.
+        //
+        // O sea que hoy es el mayor costo por vista que queda en esa pantalla.
+        // La salida correcta es GATEAR EL TEMPLATE detrás del click —
+        // conservando esta URL cruda—, no achicar la imagen. Queda anotado y sin
+        // hacer: html2canvas necesita el nodo en el DOM al momento de capturar,
+        // así que el gating tiene que coordinarse con el render y merece su
+        // propia verificación (generar un PDF y una story de verdad).
+        //
+        // El `crossOrigin` de abajo no es opcional: html2canvas necesita leer
+        // los píxeles, y sin eso el canvas queda tainted.
         <img
           src={photoUrl}
           alt={petName}

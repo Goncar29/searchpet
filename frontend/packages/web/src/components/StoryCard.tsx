@@ -193,8 +193,12 @@ export function StoryCard({
     >
       {cover ? (
         <>
+          {/* Misma variante que el panel, y por medida equivalente: acá la caja
+              es 389x288 (1,352) contra 389x292 (1,333) allá. Ver la tabla de
+              `LISTING_SIZES`, que ya comparte `compact` entre 2,43 y 2,47 con
+              el mismo criterio. */}
           <img
-            src={cover}
+            src={cloudinaryCardThumb(cover, 'story')}
             alt={story.pet_name}
             className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
           />
