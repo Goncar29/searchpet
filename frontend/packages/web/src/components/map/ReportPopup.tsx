@@ -2,6 +2,7 @@ import { Link } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { statusBadgeBg } from '../../utils/statusBadge';
 import { formatTimeAgo } from '@shared/utils/mapFormat';
+import { cloudinaryCardThumb } from '@shared/utils/cloudinaryThumb';
 import type { Report } from '@shared/types';
 
 // Movido tal cual desde MapPage: mismas clases, mismas claves, mismo markup.
@@ -31,8 +32,13 @@ export function ReportPopup({ report }: { report: Report }) {
   return (
     <div className="w-52">
       {photo && (
+        // Miniatura y no el original: la caja mide 208x112 y el backend sube a
+        // `w_1200,c_limit` (~107-198 KB por foto). Un mapa con muchos pines abre
+        // un popup por click, así que esto se paga una vez por avistamiento
+        // mirado. `cloudinaryCardThumb` (`c_lfill`) porque la caja es
+        // `object-cover`: el `object-fit` decide la transformación (regla #55).
         <img
-          src={photo}
+          src={cloudinaryCardThumb(photo, 'popup')}
           alt={report.pet?.name || t('map:pet')}
           className="w-full h-28 object-cover rounded-md mb-2"
         />

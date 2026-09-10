@@ -76,8 +76,16 @@ export function cloudinaryThumb(
  *   adopt      AdoptPage     xl:4 gap-6                            286x192   1,49:1
  *   compact    MyPetsPage    lg:3 gap-4                            395x160   2,47:1
  *   compact    ProfilePage   sm:2 gap-6 dentro de lg:col-span-2    388x160   2,43:1
+ *   story      StoriesPage   lg:3 gap-6, caja aspect-[4/3]         389x292   1,33:1
+ *   story      HomePage      lg:3 gap-6, overlay con min-h-72      389x288   1,35:1
+ *   popup      ReportPopup   no es grilla: w-52 con la foto h-28   208x112   1,86:1
  *
- * OJO con la última fila: `ProfilePage` NO tiene la grilla de `MyPetsPage`. La
+ * `popup` es la excepción a la regla de la grilla densa, y por eso está anotada:
+ * un popup de Leaflet tiene ancho FIJO, así que su caja no depende de ningún
+ * breakpoint y es la única medida de esta tabla que no se deriva del contenedor
+ * de 1216 px.
+ *
+ * OJO con la cuarta fila: `ProfilePage` NO tiene la grilla de `MyPetsPage`. La
  * suya es `sm:grid-cols-2 gap-6` anidada en el `lg:col-span-2` de un layout
  * `lg:grid-cols-3 gap-8`, así que su caja se deriva distinto y da 388x160.
  * Comparten variante porque 2,43 y 2,47 son la misma medida a los fines
@@ -110,7 +118,16 @@ const LISTING_SIZES = {
   // (1280 - 64 - 48) / 3 = 389px de ancho, y la caja es 4:3 -> 292px de alto.
   // A ~1.5x son 584x438; se redondea a 600x450, que conserva el 4:3 exacto y
   // comparte el ancho con `feed`.
+  //
+  // La comparte la tarjeta OVERLAY de la home, y por medida equivalente y no
+  // por compartir grilla: ahí la caja es 389x288 (`min-h-72`), o sea 1,352
+  // contra el 1,333 de esta variante. La diferencia es menor que la de
+  // `compact`, que ya se comparte entre 2,43 y 2,47.
   story: [600, 450],
+  // Popup del mapa (`ReportPopup`): contenedor `w-52` con la foto en `h-28`,
+  // o sea 208x112. A 1,5x exacto son 312x168, y los dos son múltiplos de 8.
+  // No comparte con ninguna: a 1,857 es la más apaisada de todas.
+  popup: [312, 168],
 } as const;
 
 export type ListingVariant = keyof typeof LISTING_SIZES;

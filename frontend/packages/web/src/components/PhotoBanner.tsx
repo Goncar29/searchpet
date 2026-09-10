@@ -52,6 +52,18 @@ export function PhotoBanner({ photoUrl, petName, heightPx }: PhotoBannerProps) {
       }}
     >
       {photoUrl ? (
+        // EXENTO de `cloudinaryThumb` A PROPÓSITO — no es un olvido, y si un
+        // barrido de "fotos servidas crudas" te trajo hasta acá, la respuesta es
+        // dejarlo así.
+        //
+        // Este banner no se mira en pantalla: lo rasterizan `PdfFlyerButton`
+        // (volante que se IMPRIME en papel) y `SharePanel` (story de Instagram,
+        // 1080x1920). Los dos necesitan la resolución del original, así que una
+        // miniatura de listado degradaría el impreso para ahorrar bytes que
+        // igual se gastan una sola vez por descarga, no por vista.
+        //
+        // El `crossOrigin` de abajo es de la misma familia: html2canvas necesita
+        // leer los píxeles, y sin eso el canvas queda tainted.
         <img
           src={photoUrl}
           alt={petName}
