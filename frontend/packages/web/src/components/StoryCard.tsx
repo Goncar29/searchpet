@@ -65,6 +65,16 @@ export function StoryCard({
 
   // One badge, not two: `featured` is rarer and editorial, so it wins over the
   // generic "reunited" label when a story has both.
+  //
+  // El caso sin foto lleva `dark:text-primary-light` por el mismo motivo que el
+  // nombre de la mascota y la franja de abajo, y es el PEOR de los tres: sobre
+  // `bg-primary/10` compuesto contra `dark:bg-gray-900` el fondo queda en
+  // rgb(34,29,39), donde `text-primary` da 3.45:1 — y esto es texto de 10.4px,
+  // o sea normal, así que AA pide 4.5. Con primary-light son 7.35:1.
+  //
+  // Los otros dos casos no lo necesitan y por eso no lo llevan: `bg-accent` es
+  // un amarillo claro con texto `yellow-950`, y `bg-primary` con texto blanco es
+  // justo la dirección para la que el primary fue calibrado (4.77:1).
   const badge = (
     <span
       className={`self-start rounded-full px-2.5 py-1 text-[0.65rem] font-bold uppercase tracking-widest ${
@@ -72,7 +82,7 @@ export function StoryCard({
           ? 'bg-accent text-yellow-950'
           : cover
           ? 'bg-primary text-white'
-          : 'bg-primary/10 text-primary'
+          : 'bg-primary/10 text-primary dark:text-primary-light'
       }`}
     >
       {story.featured ? t('badge.featured') : t('badge.reunited')}
@@ -220,7 +230,7 @@ export function StoryCard({
             {story.body}
           </p>
           <div className="mt-4 flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
-            <span>{new Date(story.created_at).toLocaleDateString()}</span>
+            {date}
             {likes}
           </div>
         </div>
