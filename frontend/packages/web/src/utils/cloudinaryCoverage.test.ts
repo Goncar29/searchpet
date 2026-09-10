@@ -4,90 +4,211 @@ import { describe, it, expect } from 'vitest';
  * Ningún `<img src={...}>` de la web sirve una foto de Cloudinary sin achicar.
  *
  * POR QUÉ EXISTE: `CLAUDE.md` afirmaba, desde el PR #171, que "no queda una sola
- * foto de Cloudinary servida cruda, ni en web ni en mobile". Era falso. Nada
- * obligaba a una pantalla nueva a usar el helper, así que en los meses
- * siguientes aparecieron TRES consumidores crudos —`StoryCard` (las dos ramas),
- * `ReportPopup` y `LostPetStep`— y ninguno rompió nada: una foto sin achicar se
- * ve idéntica, sólo gasta distinto. El bandwidth de Cloudinary es el recurso que
- * se paga (regla #55), así que el único síntoma es la factura.
+ * foto de Cloudinary servida cruda". Era falso: aparecieron tres consumidores
+ * crudos y ninguno rompió nada, porque una foto sin achicar se ve idéntica y
+ * sólo gasta distinto. El bandwidth es el recurso que se paga (regla #55), así
+ * que el único síntoma es la factura.
  *
- * Una afirmación que nadie verifica envejece hasta ser mentira. Esto la
- * convierte en algo que se rompe solo.
+ * POR QUÉ ES POR `<img>` Y NO POR ARCHIVO — la primera versión de este test
+ * preguntaba "¿este ARCHIVO menciona el helper?", y con eso una sola llamada en
+ * cualquier parte blanqueaba todas las demás imágenes del archivo. Era ciego al
+ * defecto exacto que vino a cerrar: `StoryCard` tiene DOS `<img>`, el panel ya
+ * usaba el helper, y con la rama overlay servida cruda el test daba VERDE.
+ *
+ * Lo peor no fue el bug sino la verificación: el rojo se comprobó revirtiendo
+ * `ReportPopup`, un archivo de UNA sola imagen, donde revertir borra la única
+ * llamada al helper. *Se eligió el sujeto que hacía pasar la prueba.* Medido
+ * después: por archivo se veían 26 unidades, por `<img>` son 38, y tres crudas
+ * (`CreateStoryPage`, `EditPetPage`, `HomePage`) eran invisibles.
+ *
+ * LO QUE ESTE BARRIDO **NO** CUBRE, para que nadie lea de más: sólo mira
+ * `<img src={...}>` en `.tsx`. Una foto servida por `background-image` o por un
+ * `<image href>` de SVG no la ve — los dos consumidores conocidos de esa clase
+ * tienen su propia aserción abajo, pero un tercero nuevo pasaría sin ser visto.
  */
 
 // `import.meta.glob` y no `fd`/`rg`: el barrido tiene que correr en CI sin
 // depender de qué binarios haya instalados, y `eager` lo resuelve en build time.
-const fuentes = import.meta.glob('../**/*.tsx', { query: '?raw', import: 'default', eager: true }) as Record<string, string>;
+const fuentes = import.meta.glob('../**/*.tsx', {
+  query: '?raw',
+  import: 'default',
+  eager: true,
+}) as Record<string, string>;
 
-/** Usa el helper en cualquiera de sus tres formas. */
 const USA_HELPER = /cloudinary(CardThumb|Fit|Thumb)\s*\(/;
-/** Un `src` con expresión, o sea dinámico. `src="/icons/x.png"` no cuenta. */
-const SRC_DINAMICO = /<img[^>]*\ssrc=\{/s;
 
 /**
- * Los que pueden servir una URL sin pasarla por el helper, CON el motivo.
+ * Extrae cada tag `<img ...>` completo.
  *
- * Una entrada acá es una decisión, no una excepción de trámite: si agregás una,
- * escribí por qué, porque el próximo que lea esta lista va a confiar en ella.
+ * Un escáner y no un regex, porque `/<img[^>]*src=\{/` **no puede cruzar un
+ * `>`**: con `<img onError={(e) => ...} src={foto} />` —un patrón de lo más
+ * común— el `=>` corta el match y la imagen desaparece del barrido *sin que
+ * nada falle*, porque además deja de contar para el canario de abajo. Esto
+ * cuenta llaves y comillas, así que los `>` dentro de una expresión o de un
+ * string no terminan el tag.
  */
-const EXENTOS: Record<string, string> = {
-  '../components/PhotoBanner.tsx':
-    'No se mira en pantalla: lo rasterizan PdfFlyerButton (volante IMPRESO) y ' +
-    'SharePanel (story 1080x1920). Los dos necesitan la resolución del original, ' +
-    'y el costo se paga una vez por descarga, no por vista.',
-  '../components/publish/AdoptionFormStep.tsx':
-    'Preview local de un archivo recién elegido (URL.createObjectURL). No sale de Cloudinary.',
-  '../components/publish/StrayFormStep.tsx':
-    'Preview local de un archivo recién elegido (URL.createObjectURL). No sale de Cloudinary.',
-  '../pages/CreatePetPage.tsx':
-    'Preview local de un archivo recién elegido (URL.createObjectURL). No sale de Cloudinary.',
-};
+function imgTags(src: string): string[] {
+  const out: string[] = [];
+  let i = 0;
+  while ((i = src.indexOf('<img', i)) !== -1) {
+    let j = i + 4;
+    let depth = 0;
+    let quote: string | null = null;
+    while (j < src.length) {
+      const c = src[j];
+      if (quote) {
+        if (c === quote && src[j - 1] !== '\\') quote = null;
+      } else if (c === '"' || c === "'" || c === '`') quote = c;
+      else if (c === '{') depth++;
+      else if (c === '}') depth--;
+      else if (c === '>' && depth === 0) break;
+      j++;
+    }
+    out.push(src.slice(i, j + 1));
+    i = j + 1;
+  }
+  return out;
+}
 
-describe('cobertura de miniaturas de Cloudinary', () => {
-  const conImagen = Object.entries(fuentes).filter(
-    ([ruta, src]) => !ruta.endsWith('.test.tsx') && SRC_DINAMICO.test(src)
+/** La expresión de adentro de `src={...}`, o null si el `src` es un literal. */
+function srcExpr(tag: string): string | null {
+  const m = tag.indexOf('src={');
+  if (m === -1) return null;
+  let j = m + 5;
+  let depth = 1;
+  while (j < tag.length && depth > 0) {
+    if (tag[j] === '{') depth++;
+    else if (tag[j] === '}') depth--;
+    j++;
+  }
+  return tag.slice(m + 5, j - 1).replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * Las imágenes que pueden servir una URL sin pasarla por el helper, CON motivo.
+ *
+ * La clave es el par archivo + expresión, no el archivo: una exención tiene que
+ * nombrar exactamente QUÉ imagen se perdona, o vuelve a tapar a sus vecinas.
+ */
+const EXENTOS: Array<{ archivo: string; expr: string; motivo: string }> = [
+  {
+    archivo: '../components/PhotoBanner.tsx',
+    expr: 'photoUrl',
+    motivo:
+      'Lo rasterizan PdfFlyerButton (volante que se IMPRIME) y SharePanel (story ' +
+      '1080x1920): necesita la resolución del original, y una miniatura de listado ' +
+      'degradaría el impreso. OJO: hoy el template se monta SIEMPRE, no al generar ' +
+      '— ver el comentario del archivo, que explica el costo real.',
+  },
+  {
+    archivo: '../components/publish/AdoptionFormStep.tsx',
+    expr: 'url',
+    motivo: 'Preview local de un archivo recién elegido (URL.createObjectURL). No sale de Cloudinary.',
+  },
+  {
+    archivo: '../components/publish/StrayFormStep.tsx',
+    expr: 'url',
+    motivo: 'Preview local de un archivo recién elegido (URL.createObjectURL). No sale de Cloudinary.',
+  },
+  {
+    archivo: '../pages/CreatePetPage.tsx',
+    expr: 'url',
+    motivo: 'Preview local de un archivo recién elegido (URL.createObjectURL). No sale de Cloudinary.',
+  },
+  {
+    archivo: '../pages/CreateStoryPage.tsx',
+    expr: 'photoPreview',
+    motivo: 'Preview local: se libera con URL.revokeObjectURL. No sale de Cloudinary.',
+  },
+  {
+    archivo: '../pages/EditPetPage.tsx',
+    expr: 'previewURL',
+    motivo: 'Preview local del archivo recién elegido. No sale de Cloudinary.',
+  },
+  {
+    archivo: '../pages/HomePage.tsx',
+    expr: 'HERO_IMAGE_SRC',
+    motivo: "Asset propio servido desde public/ ('/hero.jpg'). No pasa por Cloudinary.",
+  },
+];
+
+/** Todas las imágenes del proyecto, una entrada por `<img src={...}>`. */
+const imagenes = Object.entries(fuentes)
+  .filter(([ruta]) => !ruta.endsWith('.test.tsx'))
+  .flatMap(([ruta, src]) =>
+    imgTags(src)
+      .map((tag) => srcExpr(tag))
+      .filter((expr): expr is string => expr !== null)
+      .map((expr) => ({ ruta, expr }))
   );
 
-  it('el barrido encontró archivos — si da vacío dejó de medir', () => {
-    // Sin esto, un glob mal escrito hace que el test pase revisando CERO
-    // archivos, que es la forma de falla contra la que existe todo esto.
-    expect(conImagen.length, 'el glob no matcheó ningún .tsx con <img src={...}>').toBeGreaterThan(15);
+describe('cobertura de miniaturas de Cloudinary', () => {
+  it('el barrido encontró imágenes — si baja, dejó de medir', () => {
+    // Contra el total de IMÁGENES y no de archivos. Al pasar de archivo a `<img>`
+    // el número saltó de 26 a 38: si vuelve a caer, el escáner dejó de ver
+    // formas que antes veía, que es la falla que este canario cubre.
+    expect(imagenes.length, 'el escáner no encontró <img src={...}>').toBeGreaterThan(30);
   });
 
-  it('todo consumidor de fotos usa el helper, o está exento con motivo escrito', () => {
-    const crudos = conImagen
-      .filter(([ruta, src]) => !USA_HELPER.test(src) && !(ruta in EXENTOS))
-      .map(([ruta]) => ruta);
+  it('toda imagen usa el helper, o está exenta con motivo escrito', () => {
+    const exenta = (ruta: string, expr: string) =>
+      EXENTOS.some((e) => e.archivo === ruta && e.expr === expr);
+
+    const crudas = imagenes
+      .filter(({ ruta, expr }) => !USA_HELPER.test(expr) && !exenta(ruta, expr))
+      .map(({ ruta, expr }) => `${ruta}  ->  src={${expr}}`);
 
     expect(
-      crudos,
-      `Estos archivos dibujan un <img src={...}> sin pasar por cloudinaryThumb/` +
-        `cloudinaryCardThumb/cloudinaryFit:\n  ${crudos.join('\n  ')}\n\n` +
+      crudas,
+      `Estas imágenes sirven su URL sin pasar por cloudinaryThumb/` +
+        `cloudinaryCardThumb/cloudinaryFit:\n  ${crudas.join('\n  ')}\n\n` +
         `Si la URL sale de Cloudinary, miniaturizala (ver LISTING_SIZES). Si NO ` +
-        `sale de Cloudinary (un preview local con URL.createObjectURL) o necesita ` +
-        `la resolución del original, sumalo a EXENTOS con el motivo escrito.`
+        `sale de Cloudinary (un preview de URL.createObjectURL, un asset de ` +
+        `public/) o necesita la resolución del original, sumala a EXENTOS con el ` +
+        `motivo escrito.`
     ).toEqual([]);
   });
 
-  it('ningún exento quedó obsoleto', () => {
-    // Una allowlist que nombra archivos borrados o ya arreglados es peor que
-    // ninguna: da la sensación de estar al día mientras deja de cubrir.
-    const rutas = new Set(Object.keys(fuentes));
-    const fantasmas = Object.keys(EXENTOS).filter((r) => !rutas.has(r));
-    expect(fantasmas, `EXENTOS nombra archivos que ya no existen: ${fantasmas.join(', ')}`).toEqual([]);
-
-    const yaNoHaceFalta = Object.keys(EXENTOS).filter(
-      (r) => rutas.has(r) && USA_HELPER.test(fuentes[r])
+  it('ninguna exención quedó obsoleta', () => {
+    // Una allowlist que nombra cosas que ya no existen es peor que ninguna: da la
+    // sensación de estar al día mientras deja de cubrir.
+    //
+    // Se compara contra el par archivo+expresión REAL, no contra el archivo: con
+    // granularidad de archivo, que una imagen vecina se arreglara marcaba la
+    // exención como sobrante y obligaba a borrarla — y una vez borrada, la imagen
+    // que sí seguía cruda pasaba en silencio.
+    const vivas = new Set(imagenes.map(({ ruta, expr }) => `${ruta}|${expr}`));
+    const muertas = EXENTOS.filter((e) => !vivas.has(`${e.archivo}|${e.expr}`)).map(
+      (e) => `${e.archivo} -> src={${e.expr}}`
     );
     expect(
-      yaNoHaceFalta,
-      `estos ya usan el helper y sobran en EXENTOS: ${yaNoHaceFalta.join(', ')}`
+      muertas,
+      `EXENTOS nombra imágenes que ya no existen o que cambiaron de expresión:\n  ${muertas.join('\n  ')}`
     ).toEqual([]);
   });
 
-  it('cada exento trae un motivo de verdad, no un placeholder', () => {
-    for (const [ruta, motivo] of Object.entries(EXENTOS)) {
-      expect(motivo.trim().length, `${ruta} está exento sin explicar por qué`).toBeGreaterThan(30);
+  it('cada exención trae un motivo de verdad, no un placeholder', () => {
+    for (const e of EXENTOS) {
+      expect(
+        e.motivo.trim().length,
+        `${e.archivo} -> src={${e.expr}} está exenta sin explicar por qué`
+      ).toBeGreaterThan(30);
+    }
+  });
+
+  // Los consumidores que NO son `<img>` y por eso el barrido de arriba no ve.
+  // Es una lista corta y explícita en vez de un parser por cada forma de servir
+  // una imagen: cubre la regresión de los dos que existen hoy, y el docblock
+  // dice que un tercero nuevo no estaría cubierto.
+  it('los consumidores que no son <img> siguen usando el helper', () => {
+    const noImg = [
+      ['../components/map/rastroMarker.tsx', 'la foto del pin va en un <image href> de SVG'],
+      ['../pages/PetDetailPage.tsx', 'el fondo borroso va en background-image'],
+    ] as const;
+
+    for (const [ruta, que] of noImg) {
+      expect(fuentes[ruta], `${ruta} ya no existe — actualizá esta lista`).toBeTypeOf('string');
+      expect(USA_HELPER.test(fuentes[ruta]), `${ruta}: ${que}, y dejó de usar el helper`).toBe(true);
     }
   });
 });
