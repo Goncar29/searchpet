@@ -2,6 +2,7 @@ import type { MouseEvent } from 'react';
 import { Link } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import type { SuccessStory } from '@shared/types';
+import { cloudinaryCardThumb } from '@shared/utils/cloudinaryThumb';
 import { Icon } from './Icon';
 
 /**
@@ -113,8 +114,16 @@ export function StoryCard({
       >
         {cover && (
           <div className="relative aspect-[4/3] overflow-hidden">
+            {/* `cloudinaryCardThumb` y no `cover` crudo: el backend sube a
+                `w_1200,c_limit` (~107-198 KB por foto en producción), así que
+                20 historias servidas al original son ~2-4 MB para llenar cajas
+                de 389px. El bandwidth de Cloudinary es el recurso que se paga
+                (regla #55).
+                `cloudinaryCardThumb` (`c_lfill`) y no `cloudinaryFit` porque
+                esta caja es `object-cover`: el `object-fit` decide la
+                transformación, no el tamaño. */}
             <img
-              src={cover}
+              src={cloudinaryCardThumb(cover, 'story')}
               alt={story.pet_name}
               className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
             />
@@ -128,7 +137,13 @@ export function StoryCard({
           <h3 className="font-display text-headline line-clamp-2 font-semibold text-gray-900 dark:text-gray-100">
             {story.title || story.pet_name}
           </h3>
-          <p className="mt-0.5 text-sm font-semibold text-primary">{story.pet_name}</p>
+          {/* Mismo motivo de contraste que la franja de abajo. Este renglón
+              es PREEXISTENTE en la rama sin foto: se arregla acá porque es el
+              mismo defecto a tres líneas de distancia, y dejar una mitad sin
+              tocar es peor que no haber mirado. */}
+          <p className="mt-0.5 text-sm font-semibold text-primary dark:text-primary-light">
+            {story.pet_name}
+          </p>
           <p className="mt-2 line-clamp-3 flex-1 text-sm text-gray-600 dark:text-gray-300">
             {story.body}
           </p>
@@ -141,9 +156,16 @@ export function StoryCard({
               <a> (invalid HTML) and make a screen reader announce the same
               destination twice. It is aria-hidden for that second reason — the
               card's own accessible name already says where this goes. */}
+          {/* `dark:text-primary-light` y no `text-primary` a secas: el primary
+              está calibrado para BLANCO SOBRE primary (4.77:1), no para primary
+              sobre casi-negro, que da 3.72:1 contra `dark:bg-gray-900`. Esto es
+              texto de 14px semibold, o sea texto normal, así que WCAG AA pide
+              4.5 y no el 3:1 del texto grande — el h1 y el contador sí son
+              display y por eso se quedan en `text-primary`. Con primary-light
+              son 7.92:1. */}
           <span
             aria-hidden="true"
-            className="mt-4 block rounded-lg border border-primary/30 py-2 text-center text-sm font-semibold text-primary transition-colors group-hover:bg-primary group-hover:text-white"
+            className="mt-4 block rounded-lg border border-primary/30 py-2 text-center text-sm font-semibold text-primary transition-colors group-hover:bg-primary group-hover:text-white dark:text-primary-light dark:group-hover:text-white"
           >
             {t('readMore')}
           </span>
@@ -187,7 +209,13 @@ export function StoryCard({
           <h3 className="font-display text-headline mt-2 line-clamp-2 text-gray-900 dark:text-gray-100">
             {story.title || story.pet_name}
           </h3>
-          <p className="mt-0.5 text-sm font-semibold text-primary">{story.pet_name}</p>
+          {/* Mismo motivo de contraste que la franja de abajo. Este renglón
+              es PREEXISTENTE en la rama sin foto: se arregla acá porque es el
+              mismo defecto a tres líneas de distancia, y dejar una mitad sin
+              tocar es peor que no haber mirado. */}
+          <p className="mt-0.5 text-sm font-semibold text-primary dark:text-primary-light">
+            {story.pet_name}
+          </p>
           <p className="mt-2 line-clamp-3 flex-1 text-sm text-gray-600 dark:text-gray-300">
             {story.body}
           </p>

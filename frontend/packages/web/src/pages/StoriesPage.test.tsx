@@ -84,7 +84,16 @@ describe('StoriesPage', () => {
     it('se dibuja cuando el dato llegó', () => {
       render(<StoriesPage />, { wrapper });
       expect(screen.getByText('stories:reunitedLabel')).toBeInTheDocument();
-      expect(screen.getByText((1200).toLocaleString())).toBeInTheDocument();
+      // El literal '1.200' a propósito, y NO `(1200).toLocaleString()`: esa
+      // forma lee el locale del SISTEMA, así que el test afirmaría lo mismo que
+      // la página hace y las dos podrían estar mal juntas. Acá el mock declara
+      // `language: 'es'`, y en español agrupado eso es `1.200`.
+      //
+      // El número también es a propósito: `toLocaleString('es')` de 1200 da
+      // `1200` SIN separador —CLDR no agrupa 4 dígitos en español— mientras
+      // Impacto muestra `1.200`. Con 12000 las dos formas coinciden y este
+      // test no vería nada.
+      expect(screen.getByText('1.200')).toBeInTheDocument();
     });
 
     // The whole reason the counter is conditional. With `?? 0` this renders a

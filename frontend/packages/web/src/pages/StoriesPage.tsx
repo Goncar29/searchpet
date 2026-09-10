@@ -10,7 +10,7 @@ import { ListState } from '../components/list/ListState';
 
 export function StoriesPage() {
   const navigate = useNavigate();
-  const { t } = useTranslation(['stories', 'common']);
+  const { t, i18n } = useTranslation(['stories', 'common']);
   const { isAuthenticated } = useAuth();
   // Sin `select`: `StoryListResponse` es un alias de `SuccessStory[]`, no un
   // sobre paginado — el sobre lo devuelve `getStoriesAdmin`, que es otro
@@ -29,6 +29,12 @@ export function StoriesPage() {
   //
   // A real zero is hidden too: there is nothing to celebrate yet, and the
   // list's own empty state already says so without a giant 0 above it.
+  //
+  // The label is `Reencuentros` and NOT "pets reunited", because
+  // `stats_handler.go` is explicit that this counts EPISODES: a pet that goes
+  // missing twice adds +1 each time. "Lives" or "pets" would turn a count of
+  // events into a count of individuals — the same class of overstatement this
+  // counter's own visibility guard exists to avoid, one word to the right.
   const stats = useStats();
   const reunited = stats.data?.pets_reunited;
   const showCounter = typeof reunited === 'number' && reunited > 0;
@@ -57,8 +63,20 @@ export function StoriesPage() {
         </p>
         {showCounter && (
           <div className="mt-8">
+            {/* `Intl.NumberFormat(i18n.language, { useGrouping: true })`, que es
+                exactamente lo que hace `ImpactPage` para esta MISMA métrica.
+                Las dos mitades importan:
+                - `i18n.language` y no `toLocaleString()` pelado, que agrupa
+                  según el locale del NAVEGADOR: con Chrome en `en-US` y la app
+                  en español se leía `1,200` acá y `1.200` en Impacto.
+                - `useGrouping: true` explícito, porque en español CLDR NO
+                  agrupa los números de CUATRO dígitos: `toLocaleString('es')`
+                  de 1200 da `1200` pelado mientras Impacto muestra `1.200`.
+                  Medido — y sólo pasa en español y sólo con 4 dígitos: con
+                  12000 las dos formas coinciden, así que un ejemplo más grande
+                  habría escondido la diferencia. */}
             <p className="font-display text-display-sm md:text-display font-semibold text-primary">
-              {reunited.toLocaleString()}
+              {new Intl.NumberFormat(i18n.language, { useGrouping: true }).format(reunited)}
             </p>
             <p className="mt-1 text-xs font-semibold uppercase tracking-widest text-gray-500 dark:text-gray-400">
               {t('stories:reunitedLabel')}

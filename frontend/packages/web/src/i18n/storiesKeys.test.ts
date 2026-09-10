@@ -91,13 +91,34 @@ describe('stories — las claves que la pantalla usa existen de verdad', () => {
     ...[...storyCardSource.matchAll(EN_TARJETA)].map((m) => m[1]),
   ].sort();
 
-  it('el barrido no quedó vacío', () => {
-    // Contra el total de `t('` de la tarjeta, que sólo tiene este namespace: si
-    // alguien escribe una llamada en una forma que el regex no cubre, el
-    // barrido se acorta y esto lo delata en vez de seguir verde cubriendo menos.
+  it('el barrido vio TODAS las llamadas de las DOS fuentes', () => {
+    // La tarjeta: contra el total de `t('`, porque ahí sólo vive este namespace.
     const candidatasTarjeta = [...storyCardSource.matchAll(/\bt\(\s*'/g)].length;
-    expect([...storyCardSource.matchAll(EN_TARJETA)].length).toBe(candidatasTarjeta);
-    expect(usadas.length, 'el barrido dejó de matchear').toBeGreaterThan(6);
+    expect(
+      [...storyCardSource.matchAll(EN_TARJETA)].length,
+      'una llamada de StoryCard quedó fuera del barrido'
+    ).toBe(candidatasTarjeta);
+
+    // La página NO se puede contar igual: convive con `common`, así que un
+    // `t('common:x')` no debe barrerse. Se cuentan sólo las que nombran este
+    // namespace, pero **en cualquier comilla** — más ancho que el extractor, que
+    // sólo lee comilla simple. Ésa es la única forma de que el guard vea lo que
+    // el extractor NO ve: con `t("stories:cta.title")` en comillas dobles,
+    // `EN_PAGINA` matchea una clave menos y sin esto la suite quedaba verde
+    // cubriendo menos — exactamente el modo de falla que este test promete
+    // cerrar.
+    const candidatasPagina = [...storiesPageSource.matchAll(/\bt\(\s*['"`]stories:/g)].length;
+    expect(
+      [...storiesPageSource.matchAll(EN_PAGINA)].length,
+      'una llamada de StoriesPage quedó fuera del barrido (¿comillas dobles o backtick?)'
+    ).toBe(candidatasPagina);
+
+    // Y contra el total de las dos, no contra un número mágico: `> 6` lo
+    // satisfacía la tarjeta sola, así que las claves de la página podían
+    // desaparecer del barrido sin que nada fallara.
+    expect(usadas.length, 'el barrido dejó de matchear').toBe(
+      candidatasTarjeta + candidatasPagina
+    );
   });
 
   it('cada clave usada existe en los tres idiomas', () => {

@@ -106,6 +106,11 @@ const LISTING_SIZES = {
   feed: [600, 300],
   adopt: [450, 300],
   compact: [600, 240],
+  // Historias de éxito: grilla de 3 en `max-w-7xl` con `gap-6`, o sea
+  // (1280 - 64 - 48) / 3 = 389px de ancho, y la caja es 4:3 -> 292px de alto.
+  // A ~1.5x son 584x438; se redondea a 600x450, que conserva el 4:3 exacto y
+  // comparte el ancho con `feed`.
+  story: [600, 450],
 } as const;
 
 export type ListingVariant = keyof typeof LISTING_SIZES;
