@@ -12,7 +12,7 @@ import type { Pet, ShareLink } from '@shared/types';
 import { buildWhatsAppMessage } from '@shared/utils/whatsappTemplates';
 import { getExpiryInfo } from '@shared/utils/shareExpiry';
 import { PhotoBanner } from './PhotoBanner';
-import { esperarImagenes } from '../utils/esperarImagenes';
+import { esperarImagenes, cederAlRender } from '../utils/esperarImagenes';
 import { Icon, type IconName } from './Icon';
 
 interface SharePanelProps {
@@ -161,15 +161,25 @@ export function SharePanel({ petId, petName, pet, inline = false }: SharePanelPr
 
   // Genera la imagen de Story (PNG) a partir del template oculto
   async function generateStoryBlob(): Promise<Blob | null> {
-    if (!storyRef.current) return null;
+    // Se captura el nodo UNA vez y se usa esa referencia el resto de la
+    // función. Releer `storyRef.current` después de cada `await` es una
+    // carrera real: el overlay de "click afuera" no está deshabilitado durante
+    // la generación, así que cerrar el panel a mitad desmonta el template y
+    // anula el ref — y `html2canvas(null)` tira, lo come el `catch` de abajo, y
+    // el usuario cae al link pelado sin ninguna explicación.
+    const nodo = storyRef.current;
+    if (!nodo) return null;
     try {
       const { default: html2canvas } = await import('html2canvas');
       // El template se monta al abrir el panel, así que normalmente la foto ya
       // bajó para cuando se llega acá. "Normalmente" no es "siempre": con una
       // conexión lenta y un click rápido, html2canvas dibujaría el hueco y la
       // story saldría sin la mascota.
-      await esperarImagenes(storyRef.current);
-      const canvas = await html2canvas(storyRef.current, {
+      await esperarImagenes(nodo);
+      // Igual que en el volante, y por el mismo motivo: defensa en profundidad
+      // sobre el render que la carga dispara. Ver `cederAlRender`.
+      await cederAlRender();
+      const canvas = await html2canvas(nodo, {
         useCORS: true,
         allowTaint: false,
         scale: 2,
@@ -456,11 +466,19 @@ export function SharePanel({ petId, petName, pet, inline = false }: SharePanelPr
           —a propósito, porque la story se rasteriza a 1080x1920 y una miniatura
           la degradaría— así que montada de entrada bajaba ~107-198 KB en cada
           visita a la página de detalle, la compartiera alguien o no.
-          Acá alcanza con `open` en vez de gatear por la captura misma: abrir el
-          panel es una acción deliberada, y de paso le da a la foto todo el
-          tiempo que el usuario tarda en elegir "Instagram" para terminar de
-          bajar. `generateStoryBlob` igual espera, por si ese tiempo es cero. */}
-      {open && (
+          Va con `abierto` y NO con `open`, y la diferencia no es cosmética:
+          `abierto = inline || open`, y el botón que setea `open` sólo se
+          renderiza cuando NO es inline. O sea que en modo inline `open` es
+          `false` para siempre, y gatear por él dejaba el template sin montar
+          justo en las dos pantallas donde compartir es la acción principal
+          (`SuccessStep` y `CreateReportPage`): `generateStoryBlob` salía por
+          `if (!storyRef.current)` y la story de Instagram caía al link pelado,
+          en silencio.
+          Alcanza con esto en vez de gatear por la captura misma: abrir el panel
+          —o entrar a la pantalla inline— es deliberado, y de paso le da a la
+          foto el tiempo que el usuario tarda en elegir "Instagram".
+          `generateStoryBlob` igual espera, por si ese tiempo es cero. */}
+      {abierto && (
       <div
         ref={storyRef}
         data-testid="story-template"

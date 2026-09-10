@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { esperarImagenes } from './esperarImagenes';
+import { esperarImagenes, cederAlRender } from './esperarImagenes';
 
 /**
  * OJO CON EL ARNÉS, que es lo que hace este archivo necesario: en jsdom una
@@ -116,5 +116,71 @@ describe('esperarImagenes', () => {
     // Sin avanzar un solo tick del timeout.
     await vi.advanceTimersByTimeAsync(0);
     expect(resuelto).toBe(true);
+  });
+
+  // `Promise.race` descarta al perdedor pero NO lo cancela: sin el `clearTimeout`
+  // cada captura exitosa dejaba un timer vivo diez segundos, sosteniendo su
+  // closure. Se mide con los timers pendientes del fake scheduler.
+  it('cancela el timer cuando las imágenes ganan la carrera', async () => {
+    vi.useFakeTimers();
+    const pendiente = img(false);
+    const p = esperarImagenes(contenedor(pendiente), 10_000);
+
+    expect(vi.getTimerCount(), 'debería haber un timer de timeout armado').toBe(1);
+
+    pendiente.dispatchEvent(new Event('load'));
+    await p;
+
+    expect(vi.getTimerCount(), 'el timer del timeout quedó vivo tras resolver').toBe(0);
+  });
+
+  // Y en la rama del timeout `listo` no corre nunca, así que sin la limpieza los
+  // listeners quedaban colgados del nodo.
+  it('suelta los listeners también cuando gana el timeout', async () => {
+    vi.useFakeTimers();
+    const zombi = img(false);
+    const quitar = vi.spyOn(zombi, 'removeEventListener');
+
+    const p = esperarImagenes(contenedor(zombi), 500);
+    await vi.advanceTimersByTimeAsync(501);
+    await p;
+
+    const quitados = quitar.mock.calls.map((c) => c[0]);
+    expect(quitados).toContain('load');
+    expect(quitados).toContain('error');
+  });
+});
+
+describe('cederAlRender', () => {
+  // No es un `sleep` de conveniencia: `esperarImagenes` resuelve desde un
+  // listener de `load` y el `await` sigue como MICROTASK, o sea antes de que
+  // React commitee lo que ese `load` disparó. `PhotoBanner` fija ahí las
+  // dimensiones "contain" en píxeles —html2canvas ignora `object-fit`— y el QR
+  // se dibuja en un `useEffect` que `flushSync` no alcanza.
+  it('espera DOS frames, no uno', async () => {
+    const frames: Array<() => void> = [];
+    const raf = vi
+      .spyOn(globalThis, 'requestAnimationFrame')
+      .mockImplementation((cb: FrameRequestCallback) => {
+        frames.push(() => cb(0));
+        return frames.length;
+      });
+
+    let resuelto = false;
+    cederAlRender().then(() => {
+      resuelto = true;
+    });
+
+    // Primer frame: todavía no.
+    frames.shift()!();
+    await Promise.resolve();
+    expect(resuelto, 'resolvió con un solo frame').toBe(false);
+
+    // Segundo frame: ahora sí.
+    frames.shift()!();
+    await Promise.resolve();
+    expect(resuelto).toBe(true);
+
+    raf.mockRestore();
   });
 });

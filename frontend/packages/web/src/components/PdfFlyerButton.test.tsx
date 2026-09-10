@@ -43,6 +43,10 @@ vi.mock('jspdf', () => ({
 // la espera tiene su propio test en `utils/esperarImagenes.test.ts`.
 vi.mock('../utils/esperarImagenes', () => ({
   esperarImagenes: vi.fn(async () => undefined),
+  // `cederAlRender` también: sin él en el mock el import queda `undefined` y el
+  // handler revienta con "is not a function", una falla que se lee como bug del
+  // componente. Su lógica (dos rAF) vive en `utils/esperarImagenes.test.ts`.
+  cederAlRender: vi.fn(async () => undefined),
 }));
 
 vi.mock('@shared/hooks', () => ({
@@ -120,11 +124,22 @@ describe('PdfFlyerButton — lo que html2canvas rasteriza', () => {
     expect(nodo.querySelector('[aria-label="SearchPet"]')).toBeTruthy();
   });
 
-  it('rasteriza el QR ya resuelto, no vacío', async () => {
+  it('rasteriza el QR y el link ya resueltos', async () => {
     // El template se monta DESPUÉS de tener el share link, a propósito: montarlo
-    // antes capturaría el volante con el QR sin resolver.
+    // antes capturaría el volante sin el destino resuelto.
     const nodo = await generar(basePet);
+
+    // Las DOS aserciones, y la del canvas es la que tiene valor: la del texto
+    // sale del `<p>{shareUrl}</p>`, no del QR, así que sola pasaba con el
+    // bloque `<QRCodeCanvas>` BORRADO — verificado sacándolo y mirando el verde.
     expect(nodo.textContent).toContain('https://searchpet.app/share/abc');
+    expect(nodo.querySelector('canvas'), 'el volante salió sin el QR').toBeTruthy();
+
+    // LO QUE ESTE TEST NO PUEDE AFIRMAR, y hay que saberlo: que el QR esté
+    // DIBUJADO. `capturado.nodo` es un `cloneNode(true)` y clonar un `<canvas>`
+    // nunca copia sus píxeles; además jsdom no tiene contexto 2D real. Que el
+    // canvas llegue pintado depende de `cederAlRender` y sólo se comprueba en
+    // runtime, generando un PDF de verdad.
   });
 });
 

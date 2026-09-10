@@ -34,6 +34,10 @@ vi.mock('@shared/hooks', () => ({
 // lógica de la espera tiene su propio test en `utils/esperarImagenes.test.ts`.
 vi.mock('../utils/esperarImagenes', () => ({
   esperarImagenes: vi.fn(async () => undefined),
+  // `cederAlRender` también: sin él en el mock el import queda `undefined` y el
+  // handler revienta con "is not a function", una falla que se lee como bug del
+  // componente. Su lógica (dos rAF) vive en `utils/esperarImagenes.test.ts`.
+  cederAlRender: vi.fn(async () => undefined),
 }));
 
 const basePet: Pet = {
@@ -216,6 +220,25 @@ describe('SharePanel — el template sólo existe con el panel abierto', () => {
     );
     expect(container.querySelector('[data-testid="story-template"]')).toBeNull();
     expect(container.querySelector('img[alt="Firulais"]')).toBeNull();
+  });
+
+  // LA OTRA MITAD, y la que faltaba: en modo `inline` no hay botón que abra
+  // nada, porque el toggle se renderiza `{!inline && ...}`. O sea que `open`
+  // queda en `false` PARA SIEMPRE y el panel se muestra por `abierto = inline
+  // || open`.
+  //
+  // Gatear el template por `open` lo dejaba sin montar justo acá, y esto es
+  // `SuccessStep` y `CreateReportPage`: las dos pantallas donde compartir ES la
+  // acción principal. `generateStoryBlob` salía por `if (!nodo)` y la story de
+  // Instagram caía al link pelado, en silencio y sin error.
+  it('SÍ lo monta en modo inline, donde no hay botón que abrir', () => {
+    const { container } = render(
+      <SharePanel petId="pet-4" petName="Firulais" pet={basePet} inline />
+    );
+    expect(
+      container.querySelector('[data-testid="story-template"]'),
+      'sin el template, compartir a Instagram cae al link pelado'
+    ).toBeTruthy();
   });
 });
 

@@ -11,7 +11,7 @@ import { QRCodeCanvas } from 'qrcode.react';
 import { useShareLink } from '@shared/hooks';
 import type { Pet, Report } from '@shared/types';
 import { PhotoBanner } from './PhotoBanner';
-import { esperarImagenes } from '../utils/esperarImagenes';
+import { esperarImagenes, cederAlRender } from '../utils/esperarImagenes';
 import { Icon } from './Icon';
 
 interface PdfFlyerButtonProps {
@@ -110,6 +110,12 @@ export function PdfFlyerButton({ pet, reports = [] }: PdfFlyerButtonProps) {
       // sale SIN la mascota — peor que el costo que este montaje diferido vino a
       // eliminar.
       await esperarImagenes(flyerRef.current);
+      // Y después del render que esa carga dispara: `PhotoBanner` fija las
+      // dimensiones "contain" en píxeles desde su `onLoad` —html2canvas ignora
+      // `object-fit`— y el QR se dibuja en un `useEffect`, que `flushSync` no
+      // alcanza. Es defensa en profundidad: medido, la carrera NO se reproduce
+      // (ver `cederAlRender`, que explica qué se midió y por qué se deja).
+      await cederAlRender();
 
       const canvas = await html2canvas(flyerRef.current, {
         useCORS: true,       // permite imágenes de Cloudinary con crossOrigin="anonymous"
