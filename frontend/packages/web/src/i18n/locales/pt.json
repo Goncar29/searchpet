@@ -903,7 +903,14 @@
     "like": "Curtir",
     "unlike": "Remover curtida",
     "likeCount_one": "{{count}} curtida",
-    "likeCount_other": "{{count}} curtidas"
+    "likeCount_other": "{{count}} curtidas",
+    "readMore": "Ler a história completa",
+    "reunitedLabel": "Reencontros",
+    "cta": {
+      "title": "Você tem um final feliz para contar?",
+      "body": "Sua história dá esperança às famílias que ainda estão procurando. Compartilhe e vamos celebrar juntos.",
+      "button": "Conte sua história"
+    }
   },
   "download": {
     "title": "Baixar o SearchPet",

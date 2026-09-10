@@ -903,7 +903,14 @@
     "like": "Me gusta",
     "unlike": "Quitar me gusta",
     "likeCount_one": "{{count}} me gusta",
-    "likeCount_other": "{{count}} me gusta"
+    "likeCount_other": "{{count}} me gusta",
+    "readMore": "Leer historia completa",
+    "reunitedLabel": "Reencuentros",
+    "cta": {
+      "title": "¿Tenés un final feliz que contar?",
+      "body": "Tu historia le da esperanza a las familias que todavía están buscando. Compartila y celebremos juntos.",
+      "button": "Contá tu historia"
+    }
   },
   "download": {
     "title": "Descargar SearchPet",

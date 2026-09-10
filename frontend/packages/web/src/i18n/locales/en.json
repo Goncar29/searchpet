@@ -903,7 +903,14 @@
     "like": "Like",
     "unlike": "Remove like",
     "likeCount_one": "{{count}} like",
-    "likeCount_other": "{{count}} likes"
+    "likeCount_other": "{{count}} likes",
+    "readMore": "Read the full story",
+    "reunitedLabel": "Reunions",
+    "cta": {
+      "title": "Do you have a happy ending to share?",
+      "body": "Your story gives hope to the families still searching. Share it and let's celebrate together.",
+      "button": "Share your story"
+    }
   },
   "download": {
     "title": "Download SearchPet",

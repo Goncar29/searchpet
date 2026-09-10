@@ -168,6 +168,36 @@ describe('HomePage', () => {
     expect(screen.getByText('Bruno volvió a casa')).toBeInTheDocument();
   });
 
+  // The home and /stories draw the SAME component with two different Stitch
+  // designs: overlay tiles here, white panels there. `StoryCard`'s `variant`
+  // defaults to `overlay` precisely so that the home cannot change by omission,
+  // and this pins that default from the consumer side — the only place where a
+  // silent flip would actually be visible to a user.
+  //
+  // `readMore` is the discriminator because it exists only in the panel: it is
+  // the full-width "Leer historia completa" strip. StoryCard binds its own
+  // namespace, so under the key-returning mock the text is the bare key.
+  it('dibuja las historias en la variante overlay, no en la de /stories', () => {
+    mockStories = {
+      data: [
+        {
+          id: 's1',
+          title: 'Bruno volvió a casa',
+          pet_name: 'Bruno',
+          user_name: 'Carlos',
+          like_count: 3,
+          created_at: '2026-07-01T00:00:00Z',
+        },
+      ],
+      isError: false,
+      isPaused: false,
+    };
+    render(<HomePage />, { wrapper });
+
+    expect(screen.getByText('Bruno volvió a casa')).toBeInTheDocument();
+    expect(screen.queryByText('readMore')).not.toBeInTheDocument();
+  });
+
   it('muestra la sección de mascotas perdidas', () => {
     render(<HomePage />, { wrapper });
     // Page renders with filter/search area
