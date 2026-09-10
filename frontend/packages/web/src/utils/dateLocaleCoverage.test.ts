@@ -74,21 +74,40 @@ function sinComentarios(src: string): string {
         if (linea.includes('*/')) dentroDeBloque = false;
         return '';
       }
-      const abre = linea.indexOf('/*');
-      if (abre !== -1 && !linea.includes('*/', abre)) {
+      // SÓLO abre bloque un `/*` AL INICIO de la línea (o tras el `{` de un
+      // comentario JSX). Ésa es la forma en que se escriben los comentarios
+      // reales, y la restricción elimina de raíz el modo de falla peligroso: un
+      // `/*` dentro de un string —`'algo /* raro'`— abría un bloque falso y
+      // borraba EL RESTO DEL ARCHIVO del barrido, en silencio y sin que el
+      // conteo global lo notara, porque los otros archivos lo sostenían.
+      //
+      // Se prefiere no reconocer un comentario raro (falso positivo, visible)
+      // antes que dejar de revisar un archivo entero (falso negativo, mudo).
+      const abreBloque = /^\s*\{?\s*\/\*/.test(linea);
+      if (abreBloque && !linea.includes('*/')) {
         dentroDeBloque = true;
-        return linea.slice(0, abre);
+        return '';
       }
-      if (abre !== -1) return linea.replace(/\/\*[\s\S]*?\*\//g, '');
+      if (abreBloque) return linea.replace(/\/\*[\s\S]*?\*\//g, '');
       return /^\s*\/\//.test(linea) ? '' : linea;
     })
     .join('\n');
 }
 
+/**
+ * `Date` y NO `Number`: los patrones nombran `toLocaleDateString` y
+ * `toLocaleTimeString` explícitamente en vez de un `toLocale(Date|Time)?String`
+ * con el grupo opcional, que también matchea `Number.prototype.toLocaleString`.
+ *
+ * La diferencia importa por el MENSAJE: ante un `count.toLocaleString(
+ * i18n.language)` el guard empujaría a usar `getDateLocale`, que para números es
+ * el arreglo EQUIVOCADO — el docblock de arriba dice que ahí `i18n.language` es
+ * lo correcto. Un guard que da la instrucción errónea es peor que uno ausente.
+ */
 const MALAS = [
-  { patron: /toLocale(Date|Time)?String\(\s*\)/g, que: 'sin locale (usa el del navegador)' },
-  { patron: /toLocale(Date|Time)?String\(\s*['"`]/g, que: 'con un locale clavado' },
-  { patron: /toLocale(Date|Time)?String\(\s*i18n\.language\s*[,)]/g, que: 'con i18n.language sin el mapa' },
+  { patron: /toLocale(Date|Time)String\(\s*\)/g, que: 'sin locale (usa el del navegador)' },
+  { patron: /toLocale(Date|Time)String\(\s*['"`]/g, que: 'con un locale clavado' },
+  { patron: /toLocale(Date|Time)String\(\s*i18n\.language\s*[,)]/g, que: 'con i18n.language sin el mapa' },
 ];
 
 /**
@@ -153,6 +172,46 @@ describe('cobertura de locale en fechas (web)', () => {
       'el escáner no encontró ni una llamada correcta: dejó de ver el código ' +
         '(¿se rompió sinComentarios(), o cambió la forma de llamar al helper?)'
     ).toBeGreaterThan(10);
+  });
+
+  // LA CAUSA, testeada directamente en vez de por sus consecuencias.
+  //
+  // Un `/*` dentro de un string abría un bloque falso y borraba EL RESTO DEL
+  // ARCHIVO del barrido — en silencio, y sin que el conteo global lo notara,
+  // porque los otros archivos lo sostenían. La primera versión de este test
+  // buscaba las CONSECUENCIAS (líneas con código desaparecidas) y era ruidosa
+  // por construcción: no puede distinguir una línea borrada dentro de un bloque
+  // legítimo de una borrada por un bloque falso, así que marcaba prosa como
+  // "…usa `id='report-reason'`;".
+  //
+  // Se testea la propiedad: sólo abre bloque un `/*` al inicio de la línea.
+  it('un /* dentro de un string NO abre un bloque de comentario', () => {
+    const codigo = [
+      "const a = 1;",
+      "const s = 'algo /* raro';",
+      "const b = new Date().toLocaleDateString();",
+    ].join('\n');
+
+    const limpio = sinComentarios(codigo);
+
+    expect(
+      limpio,
+      'el `/*` del string abrió un bloque falso y se comió el resto del archivo'
+    ).toContain('toLocaleDateString()');
+  });
+
+  it('un bloque real SÍ se borra, incluidas sus líneas interiores', () => {
+    const codigo = [
+      "/**",
+      " * toLocaleDateString() en prosa, que no debe contar.",
+      " */",
+      "const b = new Date().toLocaleDateString(getDateLocale(x));",
+    ].join('\n');
+
+    const limpio = sinComentarios(codigo);
+
+    expect(limpio).not.toContain('en prosa');
+    expect(limpio).toContain('getDateLocale(x)');
   });
 
   it('ninguna fecha se formatea sin getDateLocale', () => {

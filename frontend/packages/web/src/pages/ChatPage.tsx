@@ -250,7 +250,10 @@ function Conversation({ userId, otherName, sendEnvelope, remoteTyping }: Convers
   };
 
   const timeLabel = (iso: string): string =>
-    new Date(iso).toLocaleTimeString(getDateLocale(i18n.language), { hour: '2-digit', minute: '2-digit' });
+    // `hour: 'numeric'` y no `'2-digit'`: al pasar a `es-UY` el reloj es de 12
+    // horas, y ahí el cero a la izquierda da `03:04 p. m.` en vez de
+    // `3:04 p. m.`. Con `es` no se notaba porque era de 24 horas.
+    new Date(iso).toLocaleTimeString(getDateLocale(i18n.language), { hour: 'numeric', minute: '2-digit' });
 
   return (
     <>

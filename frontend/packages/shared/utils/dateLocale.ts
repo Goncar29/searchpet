@@ -20,10 +20,27 @@
  * tiene por qué coincidir con el idioma elegido en la app)—. `mobile/i18n/
  * dateLocale.ts` reexporta desde acá para no tocar sus siete call sites.
  */
-const DATE_LOCALE_MAP: Record<string, string> = {
-  es: 'es-UY',
-  en: 'en-US',
-  pt: 'pt-BR',
+/**
+ * Un locale ya mapeado, listo para `toLocaleDateString`.
+ *
+ * ES UN TIPO Y NO UN `string` A SECAS PORQUE EL REGEX NO ALCANZA. El barrido de
+ * `dateLocaleCoverage.test.ts` sólo ve las llamadas inline: en cuanto el locale
+ * viaja por una prop (`<Badge language={i18n.language}>`) o por un parámetro
+ * (`formatLastSeen(t, iso, locale)`), el guard queda ciego — y se descubrió que
+ * SIETE sitios lo evadían así mientras el test daba verde. Peor: el mensaje de
+ * error del propio guard recomendaba pasar el locale por parámetro, o sea
+ * prescribía la forma de evadirlo.
+ *
+ * Con un tipo distinguible, quien exige un `DateLocale` no acepta el
+ * `i18n.language` pelado, y el error aparece en el borde exacto donde está el
+ * problema. Lo que un regex no puede seguir, el compilador sí.
+ */
+export type DateLocale = string & { readonly __dateLocale: unique symbol };
+
+const DATE_LOCALE_MAP: Record<string, DateLocale> = {
+  es: 'es-UY' as DateLocale,
+  en: 'en-US' as DateLocale,
+  pt: 'pt-BR' as DateLocale,
 };
 
 /**
@@ -32,6 +49,6 @@ const DATE_LOCALE_MAP: Record<string, string> = {
  * algo inesperado — y ahí es mejor una fecha uruguaya que una cadena que
  * `toLocaleDateString` podría rechazar con RangeError.
  */
-export function getDateLocale(lang: string): string {
-  return DATE_LOCALE_MAP[lang] ?? 'es-UY';
+export function getDateLocale(lang: string): DateLocale {
+  return DATE_LOCALE_MAP[lang] ?? ('es-UY' as DateLocale);
 }

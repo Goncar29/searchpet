@@ -7,6 +7,7 @@ import { ImpactLineChart } from '../components/ImpactLineChart';
 import { MonthlyImpactSection } from '../components/MonthlyImpactSection';
 import { Logo } from '../components/Logo';
 import { Icon } from '../components/Icon';
+import { getDateLocale, type DateLocale } from '@shared/utils/dateLocale';
 
 function StatTile({ value, label, accent }: { value: string; label: string; accent?: string }) {
   return (
@@ -47,7 +48,7 @@ function TimeSeriesCard({
   data: ImpactMonthlyCount[];
   color: string;
   nf: Intl.NumberFormat;
-  lang: string;
+  lang: DateLocale;
   latestLabel: string;
   totalLabel: string;
 }) {
@@ -226,7 +227,7 @@ export function ImpactPage() {
           data={reunions_by_month}
           color="#22c55e"
           nf={nf}
-          lang={i18n.language}
+          lang={getDateLocale(i18n.language)}
           latestLabel={t('impact:latestMonth')}
           totalLabel={t('impact:last12Months')}
         />
@@ -236,7 +237,7 @@ export function ImpactPage() {
             data={new_users_by_month}
             color="#8b5cf6"
             nf={nf}
-            lang={i18n.language}
+            lang={getDateLocale(i18n.language)}
             latestLabel={t('impact:latestMonth')}
             totalLabel={t('impact:last12Months')}
           />
@@ -245,7 +246,7 @@ export function ImpactPage() {
             data={reports_by_month}
             color="#f59e0b"
             nf={nf}
-            lang={i18n.language}
+            lang={getDateLocale(i18n.language)}
             latestLabel={t('impact:latestMonth')}
             totalLabel={t('impact:last12Months')}
           />
@@ -314,7 +315,7 @@ export function ImpactPage() {
       <MonthlyImpactSection
         months={reunions_by_month.map((d) => d.month)}
         nf={nf}
-        lang={i18n.language}
+        lang={getDateLocale(i18n.language)}
       />
 
       {/* ---- Offscreen share card (fixed light design, 1080x1080) ---- */}

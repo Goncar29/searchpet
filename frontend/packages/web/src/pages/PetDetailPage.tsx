@@ -189,7 +189,9 @@ export function PetDetailPage() {
   const getReportDate = (report: Report): string => {
     const dateStr = report.occurred_at ?? report.created_at;
     return new Date(dateStr).toLocaleDateString(getDateLocale(i18n.language), {
-      day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit',
+      // `hour: 'numeric'`: ver ChatPage — con `es-UY` el reloj es de 12 horas y
+      // el cero a la izquierda daría `03:04 p. m.`.
+      day: 'numeric', month: 'long', year: 'numeric', hour: 'numeric', minute: '2-digit',
     });
   };
 
@@ -276,7 +278,10 @@ export function PetDetailPage() {
   // es consulta, así que la jerarquía vertical dice cuál es cuál. Nunca dice
   // "vencido" — eso es jerga nuestra y sugeriría que el animal ya no está, que
   // es justo lo que no sabemos.
-  const vistoPorUltimaVez = formatLastSeen(t, pet.last_seen_at, i18n.language);
+  // `getDateLocale` y NO `i18n.language` crudo: mobile ya lo pasaba mapeado en
+  // su gemelo (`app/pet/[id].tsx`), así que la MISMA pantalla con el MISMO
+  // helper estaba formateando con dos locales distintos según la plataforma.
+  const vistoPorUltimaVez = formatLastSeen(t, pet.last_seen_at, getDateLocale(i18n.language));
   const lastSeenCard = vistoPorUltimaVez ? (
     <div
       data-testid="last-seen"

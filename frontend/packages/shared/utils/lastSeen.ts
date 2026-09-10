@@ -12,6 +12,8 @@
 // es jerga nuestra y sugiere que el animal ya no está — que es justo lo que no
 // sabemos.
 
+import type { DateLocale } from './dateLocale';
+
 export type LastSeenUnit = 'year' | 'month' | 'day';
 
 export interface LastSeenAmount {
@@ -72,7 +74,7 @@ export function computeLastSeen(
 export function formatLastSeen(
   t: (key: string, options?: Record<string, unknown>) => string,
   iso: string | undefined,
-  locale: string,
+  locale: DateLocale,
   now: Date = new Date()
 ): { relative: string; absolute: string } | null {
   const amount = computeLastSeen(iso, now);

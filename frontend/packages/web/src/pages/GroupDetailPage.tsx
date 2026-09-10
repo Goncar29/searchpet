@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import type { GroupMember } from '@shared/types';
 import { useTranslation } from 'react-i18next';
 import { cloudinaryThumb } from '@shared/utils/cloudinaryThumb';
-import { getDateLocale } from '@shared/utils/dateLocale';
+import { getDateLocale, type DateLocale } from '@shared/utils/dateLocale';
 
 // ============================================================
 // Helpers
@@ -17,7 +17,7 @@ function getInitials(name: string): string {
 // El locale entra por parámetro porque esta función vive a nivel de módulo y
 // no puede leer el hook. Pasarlo es preferible a clavar 'es-UY': así la fecha
 // sigue el idioma que el usuario eligió en la app.
-function formatDate(dateString: string, locale: string): string {
+function formatDate(dateString: string, locale: DateLocale): string {
   return new Date(dateString).toLocaleDateString(locale, {
     day: 'numeric',
     month: 'long',
