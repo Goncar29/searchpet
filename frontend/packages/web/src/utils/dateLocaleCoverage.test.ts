@@ -46,9 +46,43 @@ const fuentes = import.meta.glob('../**/*.{ts,tsx}', {
  * correctos entrena a la gente a ignorarlo.
  */
 function sinComentarios(src: string): string {
+  // POR LÍNEAS ENTERAS, y no borrando desde el `//` hasta el fin de línea.
+  //
+  // La primera versión usaba `/(^|[^:])\/\/.*$/gm` y **se comía código real**:
+  // con `const s = 'a // b'; const d = x.toLocaleDateString();` cortaba en el
+  // `//` del STRING y el resto de la línea desaparecía del barrido. Medido, y
+  // lo mismo con una regex que contenga `//`.
+  //
+  // Un guard ciego falla en silencio; uno ruidoso, no. Así que se elige el error
+  // que se ve: acá sólo desaparece la línea cuyo PRIMER token es `//`, `/*` o
+  // `*`, o sea un comentario de línea completa —la forma que usa este repo—. Un
+  // comentario al final de una línea de código sobrevive y puede dar un falso
+  // positivo, que es visible y se arregla; lo contrario no.
+  // Los bloques `/* */` SÍ se rastrean como bloques y no por línea: los
+  // comentarios largos de este repo son JSX (`{/* … */}`) y sus líneas
+  // interiores empiezan con texto o con `-`, así que un filtro por línea no las
+  // reconoce — y son justo las que explican estos patrones.
+  //
+  // Abrir un bloque falso desde un string sería el riesgo de esto, pero el
+  // canario de abajo lo detecta: si el stripping se descontrola, el conteo de
+  // llamadas CORRECTAS se desploma y el test se cae.
+  let dentroDeBloque = false;
   return src
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/(^|[^:])\/\/.*$/gm, '$1');
+    .split('\n')
+    .map((linea) => {
+      if (dentroDeBloque) {
+        if (linea.includes('*/')) dentroDeBloque = false;
+        return '';
+      }
+      const abre = linea.indexOf('/*');
+      if (abre !== -1 && !linea.includes('*/', abre)) {
+        dentroDeBloque = true;
+        return linea.slice(0, abre);
+      }
+      if (abre !== -1) return linea.replace(/\/\*[\s\S]*?\*\//g, '');
+      return /^\s*\/\//.test(linea) ? '' : linea;
+    })
+    .join('\n');
 }
 
 const MALAS = [
@@ -96,10 +130,29 @@ describe('cobertura de locale en fechas (web)', () => {
       )
     );
 
-  it('el barrido leyó archivos — si da vacío, dejó de medir', () => {
-    // Sin esto, un glob mal escrito hace que el test pase revisando CERO
-    // archivos, que es la forma de falla contra la que existe todo esto.
-    expect(Object.keys(fuentes).length).toBeGreaterThan(50);
+  it('el barrido sigue VIENDO llamadas, no sólo leyendo archivos', () => {
+    // Cuenta LLAMADAS y no archivos, y la diferencia es todo el guard: contando
+    // archivos, si `sinComentarios()` se comiera el contenido —o si el regex de
+    // `MALAS` dejara de matchear— los archivos seguirían ahí, el canario seguiría
+    // verde, y el barrido no encontraría nada. Un guard que revisa cero casos
+    // reporta lo mismo que uno donde está todo bien.
+    //
+    // Se cuentan las BUENAS: son las que deben existir siempre. Si este número
+    // cae a cero, el escáner dejó de ver, y eso se nota antes de que alguien
+    // introduzca una mala.
+    const buenas = Object.entries(fuentes)
+      .filter(([ruta]) => !ruta.endsWith('.test.ts') && !ruta.endsWith('.test.tsx'))
+      .reduce(
+        (n, [, src]) =>
+          n + (sinComentarios(src).match(/toLocale(Date|Time)?String\(\s*getDateLocale\(/g) ?? []).length,
+        0
+      );
+
+    expect(
+      buenas,
+      'el escáner no encontró ni una llamada correcta: dejó de ver el código ' +
+        '(¿se rompió sinComentarios(), o cambió la forma de llamar al helper?)'
+    ).toBeGreaterThan(10);
   });
 
   it('ninguna fecha se formatea sin getDateLocale', () => {
