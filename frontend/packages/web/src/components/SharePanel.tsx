@@ -179,6 +179,16 @@ export function SharePanel({ petId, petName, pet, inline = false }: SharePanelPr
       // Igual que en el volante, y por el mismo motivo: defensa en profundidad
       // sobre el render que la carga dispara. Ver `cederAlRender`.
       await cederAlRender();
+
+      // Capturar el nodo una vez evita el `html2canvas(null)`, pero abre el caso
+      // de al lado: si el panel se cerró durante las esperas, `nodo` sigue
+      // siendo un div HUÉRFANO. Ahí html2canvas no tira —mide un elemento
+      // desconectado y devuelve un lienzo vacío—, o sea que el crash ruidoso se
+      // habría convertido en una story EN BLANCO compartida como si nada.
+      // Devolver `null` reproduce el fallback de siempre, que al menos comparte
+      // el link.
+      if (!nodo.isConnected) return null;
+
       const canvas = await html2canvas(nodo, {
         useCORS: true,
         allowTaint: false,
@@ -474,10 +484,19 @@ export function SharePanel({ petId, petName, pet, inline = false }: SharePanelPr
           (`SuccessStep` y `CreateReportPage`): `generateStoryBlob` salía por
           `if (!storyRef.current)` y la story de Instagram caía al link pelado,
           en silencio.
+          LO QUE ESTO **NO** LOGRA, y conviene decirlo porque el título del
+          cambio se lee más ambicioso de lo que es: en modo `inline` `abierto` es
+          `true` desde el montaje, así que ahí el template —y su descarga del
+          original— siguen ocurriendo al ENTRAR a la pantalla, no al compartir.
+          Se acepta, y no por descuido: son `SuccessStep` y `CreateReportPage`,
+          donde compartir es la única acción que la pantalla pide, así que
+          precargar es además lo que hace que el click salga instantáneo. El
+          costo por vista se elimina donde era gratuito: el detalle de mascota,
+          que es la pantalla de tráfico alto y donde casi nadie comparte.
           Alcanza con esto en vez de gatear por la captura misma: abrir el panel
-          —o entrar a la pantalla inline— es deliberado, y de paso le da a la
-          foto el tiempo que el usuario tarda en elegir "Instagram".
-          `generateStoryBlob` igual espera, por si ese tiempo es cero. */}
+          es deliberado, y de paso le da a la foto el tiempo que el usuario tarda
+          en elegir "Instagram". `generateStoryBlob` igual espera, por si ese
+          tiempo es cero. */}
       {abierto && (
       <div
         ref={storyRef}
