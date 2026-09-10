@@ -14,6 +14,7 @@ import { getExpiryInfo } from '@shared/utils/shareExpiry';
 import { PhotoBanner } from './PhotoBanner';
 import { esperarImagenes, cederAlRender } from '../utils/esperarImagenes';
 import { Icon, type IconName } from './Icon';
+import { getDateLocale } from '@shared/utils/dateLocale';
 
 interface SharePanelProps {
   petId: string;
@@ -407,7 +408,7 @@ export function SharePanel({ petId, petName, pet, inline = false }: SharePanelPr
               return (
                 <p className={`text-xs mt-1 mb-2 ${expiry.isWarning ? 'text-orange-500 font-semibold' : 'text-gray-500'}`}>
                   {t('pets:share.expiresOn', {
-                    date: expiry.expiresAt!.toLocaleDateString(i18n.language, {
+                    date: expiry.expiresAt!.toLocaleDateString(getDateLocale(i18n.language), {
                       day: 'numeric',
                       month: 'short',
                       year: 'numeric',

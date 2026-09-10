@@ -21,6 +21,7 @@ import { AdoptionPetBody } from '../components/AdoptionPetBody';
 import { Icon } from '../components/Icon';
 import { cloudinaryFit } from '@shared/utils/cloudinaryThumb';
 import { formatLastSeen } from '@shared/utils/lastSeen';
+import { getDateLocale } from '@shared/utils/dateLocale';
 
 export function PetDetailPage() {
   const { t, i18n } = useTranslation(['pets', 'common']);
@@ -187,7 +188,7 @@ export function PetDetailPage() {
   // Fecha efectiva del reporte: occurred_at si existe, sino created_at
   const getReportDate = (report: Report): string => {
     const dateStr = report.occurred_at ?? report.created_at;
-    return new Date(dateStr).toLocaleDateString(i18n.language, {
+    return new Date(dateStr).toLocaleDateString(getDateLocale(i18n.language), {
       day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit',
     });
   };
