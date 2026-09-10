@@ -507,7 +507,13 @@
       "contactChat": "Contatar por chat",
       "contactWhatsapp": "WhatsApp",
       "reportCta": "Denunciar",
-      "photos": "Fotos do local"
+      "photos": "Fotos do local",
+      "loadError": "Não conseguimos carregar o lar",
+      "loadErrorText": "Não é que não exista: não conseguimos lê-lo. Tente de novo.",
+      "notFound": "Lar não encontrado",
+      "notFoundText": "Este lar temporário não existe ou foi removido.",
+      "retry": "Tentar de novo",
+      "back": "Voltar"
     },
     "register": {
       "title": "Oferecer meu lar temporário",
