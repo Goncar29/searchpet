@@ -44,7 +44,17 @@ export default function FosterHomeDetailScreen() {
   // llega acá igual que un 502. Sin mirar el status, el cartel diría "no
   // llegamos a leerlo" justamente cuando NO existe, y ofrecería reintentar
   // contra un 404 que nunca va a cambiar.
-  const noExiste = error instanceof ApiError && error.status === 404;
+  // 404 Y TAMBIÉN 400: `GetApprovedByID` hace `uuid.Parse(id)` antes que nada y
+  // un id malformado sale por `ErrInvalidInput`, que `writeFHNotFoundOr500`
+  // traduce a 400. O sea que un deep link roto —`searchpet://foster-home/abc`—
+  // caía en "no llegamos a leerlo" con un botón de reintentar contra una
+  // respuesta que nunca va a cambiar: exactamente el modo de falla que esta
+  // pantalla vino a cerrar, un status más allá.
+  //
+  // No se toma todo 4xx: un 401/403 sería "no tenés permiso", que no es lo
+  // mismo que "no existe" y merecería su propia copy el día que aparezca.
+  const noExiste =
+    error instanceof ApiError && (error.status === 404 || error.status === 400);
   const falloLaLectura = isError && !noExiste;
   const { user } = useAuthStore();
 
@@ -64,7 +74,16 @@ export default function FosterHomeDetailScreen() {
   // `!fosterHome` y NO `isError || !fosterHome`: con el `||`, un refetch fallido
   // tapaba el hogar ya cargado con "sin resultados", que es una afirmación
   // falsa sobre algo que sí existe.
-  if (!fosterHome) {
+  // `|| noExiste` y no sólo `!fosterHome`: React Query CONSERVA lo cacheado
+  // cuando falla un refetch, así que un hogar dado de baja por moderación
+  // seguía mostrándose entero —con los botones de contacto— a cualquiera que
+  // ya lo hubiera abierto, con apenas la franja neutra de datos viejos encima.
+  //
+  // Un 404 es una respuesta DEFINITIVA de que la fila no está; un 502 no dice
+  // nada sobre el hogar. Por eso sólo el primero descarta lo cacheado, y el
+  // test de "con datos y un refetch fallido no se pinta nada" sigue valiendo
+  // para el 502.
+  if (!fosterHome || noExiste) {
     // Las DOS causas se distinguen, que antes se pintaban igual: sin hogar y con
     // error decía `common:noResults` ("sin resultados"), una afirmación sobre el
     // mundo que no podemos hacer si no llegamos a leerlo.

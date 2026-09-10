@@ -89,9 +89,58 @@ describe('Detalle de hogar — 404 no es lo mismo que "no pudimos leerlo"', () =
     expect(queryByText('fosterHomes:detail.retry')).toBeNull();
   });
 
+  // Un id malformado NO llega como 404: `GetApprovedByID` hace `uuid.Parse`
+  // antes que nada y sale por `ErrInvalidInput`, que el handler traduce a 400.
+  // Sin contemplarlo, un deep link roto ofrecía reintentar contra una respuesta
+  // definitiva — el mismo modo de falla, un status más allá.
+  it('un 400 por id malformado también dice que no existe', () => {
+    mockUseFosterHomeByID.mockReturnValue(
+      sinDatos(new ApiError('invalid_input', 400, 'invalid uuid'))
+    );
+
+    const { queryByText } = render(<FosterHomeDetailScreen />);
+
+    expect(queryByText('fosterHomes:detail.notFound')).toBeTruthy();
+    expect(queryByText('fosterHomes:detail.retry')).toBeNull();
+  });
+
+  // El caso que el test hermano de `story/[id]` sí tenía y este porte había
+  // perdido: una conexión que se corta ANTES de cualquier respuesta no produce
+  // un `ApiError`. Es lo que pin­ea el `error instanceof ApiError` frente a un
+  // `(error as ApiError)?.status === 404` más laxo, que trataría cualquier error
+  // sin status como "no existe".
+  it('un error sin ApiError (red caída) se trata como fallo de lectura', () => {
+    mockUseFosterHomeByID.mockReturnValue(sinDatos(new TypeError('Network request failed')));
+
+    const { queryByText } = render(<FosterHomeDetailScreen />);
+
+    expect(queryByText('fosterHomes:detail.loadError')).toBeTruthy();
+    expect(queryByText('fosterHomes:detail.notFound')).toBeNull();
+    expect(queryByText('fosterHomes:detail.retry')).toBeTruthy();
+  });
+
+  // LA RUTA DE MODERACIÓN: un hogar dado de baja tiene que DESAPARECER aunque
+  // esté cacheado. Sin esto seguía visible entero —con los botones de contacto—
+  // para cualquiera que ya lo hubiera abierto.
+  it('un 404 en refetch descarta lo cacheado', () => {
+    mockUseFosterHomeByID.mockReturnValue({
+      data: { id: 'fh-1', owner_user_id: 'u-9', title: 'Casa de Ana', photos: [], animal_types: [] },
+      isLoading: false,
+      isError: true,
+      error: new ApiError('not_found', 404, 'not found'),
+      refetch: mockRefetch,
+    });
+
+    const { queryByText } = render(<FosterHomeDetailScreen />);
+
+    expect(queryByText('fosterHomes:detail.notFound')).toBeTruthy();
+    expect(queryByText('Casa de Ana')).toBeNull();
+    expect(queryByText('fosterHomes:detail.contactChat')).toBeNull();
+  });
+
   // Y la que motivó el arreglo hermano: React Query CONSERVA lo cacheado cuando
-  // falla un refetch, así que con datos en mano no se pinta ningún cartel — el
-  // hogar existe y se está mirando.
+  // falla un refetch. Con un 502 —que no dice NADA sobre el hogar— no se pinta
+  // ningún cartel: el hogar existe y se está mirando.
   it('con datos cacheados y un refetch fallido NO muestra ningún cartel', () => {
     mockUseFosterHomeByID.mockReturnValue({
       data: {
