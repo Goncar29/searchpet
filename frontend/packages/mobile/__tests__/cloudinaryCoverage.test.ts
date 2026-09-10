@@ -77,23 +77,106 @@ function fuentes(src: string): string[] {
  * primera versión de este guard era por archivo y daba verde con el defecto que
  * venía a cerrar.)
  */
-const EXENTOS: Array<{ archivo: string; expr: string; motivo: string }> = [
+const EXENTOS: Array<{ archivo: string; expr: string; veces: number; motivo: string }> = [
   {
     archivo: 'components/publish/StrayFormStep.tsx',
     expr: 'uri',
+    veces: 1,
     motivo: 'Preview local del ImagePicker (file://). No sale de Cloudinary.',
   },
   {
     archivo: 'components/publish/AdoptionFormStep.tsx',
     expr: 'uri',
+    veces: 1,
     motivo: 'Preview local del ImagePicker (file://). No sale de Cloudinary.',
   },
   {
     archivo: 'app/pets/register.tsx',
     expr: 'uri',
+    veces: 1,
     motivo: 'Preview local del ImagePicker (file://). No sale de Cloudinary.',
   },
 ];
+
+/**
+ * El VALOR de la clave `uri` dentro del objeto de `source`.
+ *
+ * Hace falta separarlo del objeto entero antes de buscar ramas: `ramas()` parte
+ * por `:`, y el `:` de `uri:` no es un ternario. Sin esto las catorce imágenes
+ * correctas se reportaban como crudas — un falso positivo que, de haberse
+ * "arreglado" relajando la regla, habría dejado el guard sin filo.
+ *
+ * Con el shorthand `{ uri }` el valor ES el identificador `uri`.
+ */
+function valorUri(objeto: string): string {
+  const m = objeto.match(/(^|[,{\s])uri\s*:/);
+  if (!m) return objeto.trim(); // shorthand `{ uri }`
+  let j = (m.index ?? 0) + m[0].length;
+  let depth = 0;
+  let quote: string | null = null;
+  const desde = j;
+  for (; j < objeto.length; j++) {
+    const c = objeto[j];
+    if (quote) {
+      if (c === quote && objeto[j - 1] !== '\\') quote = null;
+      continue;
+    }
+    if (c === '"' || c === "'" || c === '`') { quote = c; continue; }
+    if (c === '(' || c === '[' || c === '{') depth++;
+    else if (c === ')' || c === ']' || c === '}') depth--;
+    else if (c === ',' && depth === 0) break;
+  }
+  return objeto.slice(desde, j).trim();
+}
+
+/**
+ * Las ramas de una expresión, partida por los operadores que eligen entre
+ * valores (`? :`, `||`, `??`) al nivel más externo.
+ *
+ * Existe porque probar el helper contra la expresión ENTERA deja pasar
+ * `uri: foto ? cloudinaryThumb(foto, X) : perfil.photo_url`: hay una llamada al
+ * helper, el regex la encuentra, y la otra rama sirve el original igual. Es la
+ * misma clase que el bug por-archivo del gemelo de web, un nivel más adentro.
+ */
+function ramas(expr: string): string[] {
+  const out: string[] = [];
+  let actual = '';
+  let depth = 0;
+  let quote: string | null = null;
+  for (let i = 0; i < expr.length; i++) {
+    const c = expr[i];
+    if (quote) {
+      if (c === quote && expr[i - 1] !== '\\') quote = null;
+      actual += c;
+      continue;
+    }
+    if (c === '"' || c === "'" || c === '`') { quote = c; actual += c; continue; }
+    if (c === '(' || c === '[' || c === '{') depth++;
+    if (c === ')' || c === ']' || c === '}') depth--;
+    if (depth === 0) {
+      // `?.` y `??` NO son ternarios: el primero es optional chaining y el
+      // segundo un nullish que sí separa ramas pero ocupa dos caracteres.
+      if (c === '?' && expr[i + 1] === '?') { out.push(actual); actual = ''; i++; continue; }
+      if (c === '?' && expr[i + 1] === '.') { actual += c; continue; }
+      if (c === '?' || c === ':') { out.push(actual); actual = ''; continue; }
+      if (c === '|' && expr[i + 1] === '|') { out.push(actual); actual = ''; i++; continue; }
+    }
+    actual += c;
+  }
+  out.push(actual);
+  return out.map((r) => r.trim()).filter((r) => r.length > 0);
+}
+
+/**
+ * Una rama que no puede estar sirviendo una URL de Cloudinary.
+ *
+ * Literales, `undefined`/`null` y los identificadores que el propio componente
+ * recibe ya resueltos. Todo lo demás —un acceso a propiedad tipo
+ * `perfil.photo_url`— tiene que pasar por el helper.
+ */
+function inofensiva(rama: string): boolean {
+  return /^(['"`].*['"`]|undefined|null)$/.test(rama);
+}
 
 const imagenes = archivos(RAIZ).flatMap((abs) => {
   const rel = path.relative(RAIZ, abs).replace(/\\/g, '/');
@@ -108,23 +191,47 @@ describe('cobertura de miniaturas de Cloudinary (mobile)', () => {
   // el que se lo encuentre en CI dentro de seis meses tiene que reconstruir el
   // motivo. Por eso el mensaje va DENTRO del valor comparado, que Jest sí
   // imprime en el diff.
-  it('el barrido encontró imágenes — si baja, dejó de medir', () => {
-    // Contra el total de IMÁGENES. Si el escáner deja de reconocer una forma,
-    // el número cae y esto lo delata en vez de cubrir menos en silencio.
-    const suficientes =
-      imagenes.length > 14
+  // ACUERDO ENTRE DOS MEDICIONES, y no un umbral con holgura. La versión
+  // anterior era `imagenes.length > 14` con 17 imágenes, o sea que toleraba
+  // perder TRES — exactamente la ceguera que decía detectar. Acá el escáner se
+  // compara contra un conteo crudo e independiente: si ve menos `source={{` de
+  // los que hay en el texto, es que dejó de reconocer una forma.
+  it('el escáner ve TODOS los source={{ que hay en el árbol', () => {
+    const crudo = archivos(RAIZ).reduce(
+      (n, abs) => n + (fs.readFileSync(abs, 'utf8').match(/source=\{\{/g) ?? []).length,
+      0
+    );
+    const veredicto =
+      imagenes.length === crudo
         ? 'ok'
-        : `el escáner encontró ${imagenes.length} <Image source={{...}}>, y hay más: ` +
-          'probablemente dejó de reconocer alguna forma. Revisá fuentes().';
-    expect(suficientes).toBe('ok');
+        : `el escáner extrajo ${imagenes.length} fuentes pero en el texto hay ${crudo} ` +
+          'ocurrencias de source={{ — se le escapó alguna forma, revisá fuentes().';
+    expect(veredicto).toBe('ok');
   });
 
   it('toda <Image> usa el helper, o está exenta con motivo escrito', () => {
-    const exenta = (rel: string, expr: string) =>
-      EXENTOS.some((e) => e.archivo === rel && e.expr === expr);
+    // El conteo POR PAR importa: con la clave `(archivo, expr)` sola, y siendo
+    // `uri` la expresión más probable de esos archivos, una exención perdonaba
+    // TODAS las imágenes del archivo que la repitieran. Verificado duplicando
+    // la línea exenta de `register.tsx`: la suite seguía verde. Declarar cuántas
+    // se perdonan hace que la copia número dos falle.
+    const usadas = new Map<string, number>();
+    const exenta = (rel: string, expr: string) => {
+      const e = EXENTOS.find((x) => x.archivo === rel && x.expr === expr);
+      if (!e) return false;
+      const clave = `${rel}|${expr}`;
+      const vistas = (usadas.get(clave) ?? 0) + 1;
+      usadas.set(clave, vistas);
+      return vistas <= e.veces;
+    };
 
     const crudas = imagenes
-      .filter(({ rel, expr }) => !USA_HELPER.test(expr) && !exenta(rel, expr))
+      .filter(({ rel, expr }) => {
+        // Cada rama por separado: una llamada al helper en el lado verdadero de
+        // un ternario no cubre el falso.
+        const sinCubrir = ramas(valorUri(expr)).filter((r) => !USA_HELPER.test(r) && !inofensiva(r));
+        return sinCubrir.length > 0 && !exenta(rel, expr);
+      })
       .map(({ rel, expr }) => `${rel}  ->  source={{ ${expr} }}`);
 
     const veredicto =
