@@ -507,13 +507,7 @@
       "contactChat": "Contactar por chat",
       "contactWhatsapp": "WhatsApp",
       "reportCta": "Denunciar",
-      "photos": "Fotos del lugar",
-      "loadError": "No pudimos cargar el hogar",
-      "loadErrorText": "No es que no exista: no llegamos a leerlo. Probá de nuevo.",
-      "notFound": "Hogar no encontrado",
-      "notFoundText": "Este hogar de tránsito no existe o fue dado de baja.",
-      "retry": "Reintentar",
-      "back": "Volver"
+      "photos": "Fotos del lugar"
     },
     "register": {
       "title": "Ofrecer mi hogar transitorio",
