@@ -12,6 +12,7 @@ import type { Pet, ShareLink } from '@shared/types';
 import { buildWhatsAppMessage } from '@shared/utils/whatsappTemplates';
 import { getExpiryInfo } from '@shared/utils/shareExpiry';
 import { PhotoBanner } from './PhotoBanner';
+import { esperarImagenes } from '../utils/esperarImagenes';
 import { Icon, type IconName } from './Icon';
 
 interface SharePanelProps {
@@ -163,6 +164,11 @@ export function SharePanel({ petId, petName, pet, inline = false }: SharePanelPr
     if (!storyRef.current) return null;
     try {
       const { default: html2canvas } = await import('html2canvas');
+      // El template se monta al abrir el panel, así que normalmente la foto ya
+      // bajó para cuando se llega acá. "Normalmente" no es "siempre": con una
+      // conexión lenta y un click rápido, html2canvas dibujaría el hueco y la
+      // story saldría sin la mascota.
+      await esperarImagenes(storyRef.current);
       const canvas = await html2canvas(storyRef.current, {
         useCORS: true,
         allowTaint: false,
@@ -445,7 +451,16 @@ export function SharePanel({ petId, petName, pet, inline = false }: SharePanelPr
         </>
       )}
 
-      {/* Plantilla oculta para generar la imagen de Instagram Story (9:16) */}
+      {/* Plantilla oculta para generar la imagen de Instagram Story (9:16).
+          Colgada de `open` y no montada siempre: su <img> sirve la foto ORIGINAL
+          —a propósito, porque la story se rasteriza a 1080x1920 y una miniatura
+          la degradaría— así que montada de entrada bajaba ~107-198 KB en cada
+          visita a la página de detalle, la compartiera alguien o no.
+          Acá alcanza con `open` en vez de gatear por la captura misma: abrir el
+          panel es una acción deliberada, y de paso le da a la foto todo el
+          tiempo que el usuario tarda en elegir "Instagram" para terminar de
+          bajar. `generateStoryBlob` igual espera, por si ese tiempo es cero. */}
+      {open && (
       <div
         ref={storyRef}
         data-testid="story-template"
@@ -533,6 +548,7 @@ export function SharePanel({ petId, petName, pet, inline = false }: SharePanelPr
           </div>
         )}
       </div>
+      )}
     </div>
   );
 }

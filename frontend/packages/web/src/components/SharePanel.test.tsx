@@ -28,6 +28,14 @@ vi.mock('@shared/hooks', () => ({
   useAutoShareLink: () => ({ mutateAsync: autoMutateAsync, isPending: autoPending.value }),
 }));
 
+// En jsdom una `<img>` nunca resuelve —`complete` queda en false y no dispara ni
+// `load` ni `error`, porque jsdom no carga recursos—, así que la espera real
+// colgaría hasta su timeout y estos tests morirían sin que nada esté mal. La
+// lógica de la espera tiene su propio test en `utils/esperarImagenes.test.ts`.
+vi.mock('../utils/esperarImagenes', () => ({
+  esperarImagenes: vi.fn(async () => undefined),
+}));
+
 const basePet: Pet = {
   id: 'pet-1',
   name: 'Firulais',
@@ -179,20 +187,46 @@ describe('SharePanel — Instagram Story share (user cancels share sheet)', () =
 });
 
 describe('SharePanel — adoption poster header', () => {
-  it('shows EN ADOPCIÓN in the story template for adoption pets', () => {
-    const { container } = render(
+  it('shows EN ADOPCIÓN in the story template for adoption pets', async () => {
+    // Hay que abrir el panel: el template ya no se monta de entrada. Se afirma
+    // sobre el TEMPLATE y no sobre el container entero, porque ahora el panel
+    // abierto también aporta texto y un `container.textContent` mediría las dos
+    // cosas juntas.
+    const { getByRole, getByTestId } = render(
       <SharePanel petId="pet-2" petName="Michi" pet={{ ...basePet, name: 'Michi', status: 'adoption' }} />
     );
-    expect(container.textContent).toContain('¡EN ADOPCIÓN!');
-    expect(container.textContent).not.toContain('¡MASCOTA PERDIDA!');
+
+    await userEvent.click(getByRole('button', { name: /pets:share.button/i }));
+    await waitFor(() => expect(getByTestId('story-template')).toBeTruthy());
+
+    const template = getByTestId('story-template');
+    expect(template.textContent).toContain('¡EN ADOPCIÓN!');
+    expect(template.textContent).not.toContain('¡MASCOTA PERDIDA!');
+  });
+});
+
+describe('SharePanel — el template sólo existe con el panel abierto', () => {
+  // La mitad nueva. Montado siempre, su <img> servía la foto ORIGINAL —a
+  // propósito, porque la story se rasteriza a 1080x1920— en cada visita a la
+  // página de detalle, la compartiera alguien o no. Sin esta aserción, volver a
+  // montarlo de entrada pasaría sin que nada falle.
+  it('NO lo monta antes de abrir el panel', () => {
+    const { container } = render(
+      <SharePanel petId="pet-3" petName="Firulais" pet={basePet} />
+    );
+    expect(container.querySelector('[data-testid="story-template"]')).toBeNull();
+    expect(container.querySelector('img[alt="Firulais"]')).toBeNull();
   });
 });
 
 describe('SharePanel — the story template is invisible to assistive tech', () => {
-  it('keeps the offscreen story template out of the accessibility tree', () => {
-    const { getByTestId } = render(
+  it('keeps the offscreen story template out of the accessibility tree', async () => {
+    const { getByTestId, getByRole } = render(
       <SharePanel petId="pet-3" petName="Firulais" pet={basePet} />
     );
+
+    await userEvent.click(getByRole('button', { name: /pets:share.button/i }));
+    await waitFor(() => expect(getByTestId('story-template')).toBeTruthy());
 
     const template = getByTestId('story-template');
 

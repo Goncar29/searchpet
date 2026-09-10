@@ -5,11 +5,13 @@
 // ============================================================
 
 import { useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { QRCodeCanvas } from 'qrcode.react';
 import { useShareLink } from '@shared/hooks';
 import type { Pet, Report } from '@shared/types';
 import { PhotoBanner } from './PhotoBanner';
+import { esperarImagenes } from '../utils/esperarImagenes';
 import { Icon } from './Icon';
 
 interface PdfFlyerButtonProps {
@@ -24,6 +26,17 @@ export function PdfFlyerButton({ pet, reports = [] }: PdfFlyerButtonProps) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [shareError, setShareError] = useState(false);
+  /**
+   * El template offscreen sólo existe mientras se lo captura.
+   *
+   * Antes se montaba siempre, así que su `<img>` bajaba la foto ORIGINAL
+   * (~107-198 KB, sin miniaturizar a propósito porque el volante se imprime) en
+   * cada visita a la página de detalle, la imprimiera alguien o no. Medido en
+   * runtime: era el mayor costo por vista de esa pantalla, y como lleva
+   * `crossOrigin` tiene cache key propia, o sea ni siquiera compartía el request
+   * con la foto que la página ya muestra.
+   */
+  const [montarTemplate, setMontarTemplate] = useState(false);
   const generateLink = useShareLink();
   const flyerRef = useRef<HTMLDivElement>(null);
 
@@ -53,7 +66,10 @@ export function PdfFlyerButton({ pet, reports = [] }: PdfFlyerButtonProps) {
     : null;
 
   const handleGenerate = async () => {
-    if (!flyerRef.current || isGenerating) return;
+    // Ya NO se chequea `flyerRef.current` acá: el template todavía no existe en
+    // este punto, se monta más abajo. Con la guarda vieja este handler salía
+    // siempre por el early return.
+    if (isGenerating) return;
     setIsGenerating(true);
     setShareError(false);
 
@@ -68,14 +84,32 @@ export function PdfFlyerButton({ pet, reports = [] }: PdfFlyerButtonProps) {
           return;
         }
         url = link.share_url;
-        setShareUrl(url);
       }
+
+      // Los DOS estados en un solo `flushSync`, y recién DESPUÉS de tener la
+      // URL: el template dibuja el QR a partir de `shareUrl`, así que montarlo
+      // antes lo capturaría con el QR vacío. `flushSync` garantiza que al volver
+      // de esta línea el DOM ya está actualizado — sin él habría que confiar en
+      // que los `await` de abajo le den tiempo a React, que es justo la clase de
+      // suposición temporal que rompe el día que la máquina está rápida.
+      flushSync(() => {
+        setShareUrl(url);
+        setMontarTemplate(true);
+      });
+
+      if (!flyerRef.current) return;
 
       // Importaciones dinámicas — evitan que el bundle de mobile incluya estas libs
       const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
         import('html2canvas'),
         import('jspdf'),
       ]);
+
+      // La foto recién empieza a bajar cuando el template entra al DOM, y
+      // html2canvas dibuja lo que haya en ese instante. Sin esperar, el volante
+      // sale SIN la mascota — peor que el costo que este montaje diferido vino a
+      // eliminar.
+      await esperarImagenes(flyerRef.current);
 
       const canvas = await html2canvas(flyerRef.current, {
         useCORS: true,       // permite imágenes de Cloudinary con crossOrigin="anonymous"
@@ -132,6 +166,10 @@ export function PdfFlyerButton({ pet, reports = [] }: PdfFlyerButtonProps) {
       }
     } finally {
       setIsGenerating(false);
+      // En el `finally` y no al final del `try`: si la captura explota, el
+      // template tiene que desmontarse igual, o el costo por vista vuelve por la
+      // puerta de atrás para todo el que haya tenido un error una vez.
+      setMontarTemplate(false);
     }
   };
 
@@ -162,8 +200,11 @@ export function PdfFlyerButton({ pet, reports = [] }: PdfFlyerButtonProps) {
         )}
       </button>
 
-      {/* Div oculto que html2canvas captura */}
-      {/* Posicionado fuera del viewport pero en el DOM para que html2canvas lo renderice */}
+      {/* Div oculto que html2canvas captura. */}
+      {/* Sólo existe MIENTRAS se genera: fuera del viewport pero en el DOM, que
+          es lo que html2canvas necesita, y nada más que en ese rato. Montado
+          siempre, su <img> bajaba el original en cada visita a la página. */}
+      {montarTemplate && (
       <div
         style={{
           position: 'fixed',
@@ -278,6 +319,7 @@ export function PdfFlyerButton({ pet, reports = [] }: PdfFlyerButtonProps) {
           </div>
         </div>
       </div>
+      )}
     </>
   );
 }
