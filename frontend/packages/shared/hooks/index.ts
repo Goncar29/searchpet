@@ -7,7 +7,7 @@ export * from './useWebSocket';
 export * from './useImageClassify';
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiClient } from '../api/client';
+import { apiClient, ApiError } from '../api/client';
 // El default de useNearbyVets sale de aca y no de un 5000 propio: el bug que se
 // arreglo fue esa misma constante copiada en dos lugares que despues divergieron.
 import { VET_LAYER_MIN_RADIUS_METERS } from '../utils/vetLayerRadius';
@@ -803,6 +803,20 @@ export const useFosterHomeByID = (id: string) => {
     queryKey: ['fosterHome', id],
     queryFn: () => apiClient.getFosterHomeByID(id),
     enabled: !!id,
+    // Sin esto hereda el `retry: 2` del root, o sea CUATRO pedidos y dos esperas
+    // de backoff contra un 404 que nunca va a cambiar — con el spinner puesto
+    // todo ese rato antes de mostrar "Hogar no encontrado". La pantalla ya
+    // esconde el botón de reintentar por ese motivo; reintentar por debajo lo
+    // contradecía.
+    //
+    // Condicional y no `retry: false` como el vecino `useMyFosterHome`: contra
+    // un 502 reintentar SÍ sirve, y ésa es justo la rama que la pantalla
+    // distingue. Se corta sólo en 4xx, que son respuestas definitivas.
+    retry: (intentos, error) => {
+      const definitivo =
+        error instanceof ApiError && error.status >= 400 && error.status < 500;
+      return !definitivo && intentos < 2;
+    },
   });
 };
 

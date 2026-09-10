@@ -20,6 +20,7 @@ import { useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import i18next from 'i18next';
+import { ApiError } from '../../../shared/api/client';
 import { useFosterHomeByID, useSubmitAbuseReport } from '@shared/hooks';
 import { getErrorMessage } from '@shared/utils/apiErrors';
 import type { FosterHomePhoto, AnimalKind } from '@shared/types';
@@ -35,16 +36,26 @@ export default function FosterHomeDetailScreen() {
   const { t } = useTranslation(['fosterHomes', 'errors', 'common']);
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  // `isError` ya no se lee: la guarda de abajo mira `!fosterHome`, que es lo
-  // que decide si hay algo para mostrar.
-  //
-  // PENDIENTE ANOTADO, distinto de este arreglo: cuando NO hay hogar y encima
-  // hubo error, el cartel dice `common:noResults` ("sin resultados"), que
-  // afirma algo sobre el mundo que no podemos saber si no llegamos a leerlo.
-  // Distinguirlo necesita copy propia en los tres idiomas, como se hizo en
-  // `story/[id]`. Se deja fuera para no ampliar el alcance sin avisar.
   const fosterHomeQuery = useFosterHomeByID(id);
-  const { data: fosterHome, isLoading } = fosterHomeQuery;
+  const { data: fosterHome, isLoading, isError, error, refetch } = fosterHomeQuery;
+
+  // `isError` NO alcanza para saber si el hogar existe: `apiClient` tira
+  // `ApiError` ante CUALQUIER respuesta no-ok, así que un hogar dado de baja
+  // llega acá igual que un 502. Sin mirar el status, el cartel diría "no
+  // llegamos a leerlo" justamente cuando NO existe, y ofrecería reintentar
+  // contra un 404 que nunca va a cambiar.
+  // 404 Y TAMBIÉN 400: `GetApprovedByID` hace `uuid.Parse(id)` antes que nada y
+  // un id malformado sale por `ErrInvalidInput`, que `writeFHNotFoundOr500`
+  // traduce a 400. O sea que un deep link roto —`searchpet://foster-home/abc`—
+  // caía en "no llegamos a leerlo" con un botón de reintentar contra una
+  // respuesta que nunca va a cambiar: exactamente el modo de falla que esta
+  // pantalla vino a cerrar, un status más allá.
+  //
+  // No se toma todo 4xx: un 401/403 sería "no tenés permiso", que no es lo
+  // mismo que "no existe" y merecería su propia copy el día que aparezca.
+  const noExiste =
+    error instanceof ApiError && (error.status === 404 || error.status === 400);
+  const falloLaLectura = isError && !noExiste;
   const { user } = useAuthStore();
 
   const submitAbuseReport = useSubmitAbuseReport();
@@ -63,11 +74,41 @@ export default function FosterHomeDetailScreen() {
   // `!fosterHome` y NO `isError || !fosterHome`: con el `||`, un refetch fallido
   // tapaba el hogar ya cargado con "sin resultados", que es una afirmación
   // falsa sobre algo que sí existe.
-  if (!fosterHome) {
+  // `|| noExiste` y no sólo `!fosterHome`: React Query CONSERVA lo cacheado
+  // cuando falla un refetch, así que un hogar dado de baja por moderación
+  // seguía mostrándose entero —con los botones de contacto— a cualquiera que
+  // ya lo hubiera abierto, con apenas la franja neutra de datos viejos encima.
+  //
+  // Un 404 es una respuesta DEFINITIVA de que la fila no está; un 502 no dice
+  // nada sobre el hogar. Por eso sólo el primero descarta lo cacheado, y el
+  // test de "con datos y un refetch fallido no se pinta nada" sigue valiendo
+  // para el 502.
+  if (!fosterHome || noExiste) {
+    // Las DOS causas se distinguen, que antes se pintaban igual: sin hogar y con
+    // error decía `common:noResults` ("sin resultados"), una afirmación sobre el
+    // mundo que no podemos hacer si no llegamos a leerlo.
+    //
+    // Volver está SIEMPRE y reintentar se suma sólo cuando puede servir de algo:
+    // contra un 404, reintentar es prometer algo que no va a pasar.
     return (
       <View style={styles.center}>
-        <Text style={{ fontSize: 48 }}>🏠</Text>
-        <Text style={styles.notFoundText}>{t('common:noResults')}</Text>
+        <Text style={{ fontSize: 48 }}>{falloLaLectura ? '⚠️' : '🏠'}</Text>
+        <Text style={styles.notFoundText}>
+          {falloLaLectura ? t('fosterHomes:detail.loadError') : t('fosterHomes:detail.notFound')}
+        </Text>
+        <Text style={styles.notFoundSubtext}>
+          {falloLaLectura
+            ? t('fosterHomes:detail.loadErrorText')
+            : t('fosterHomes:detail.notFoundText')}
+        </Text>
+        {falloLaLectura && (
+          <TouchableOpacity style={styles.notFoundButton} onPress={() => refetch()}>
+            <Text style={styles.notFoundButtonText}>{t('fosterHomes:detail.retry')}</Text>
+          </TouchableOpacity>
+        )}
+        <TouchableOpacity style={styles.notFoundButton} onPress={() => router.back()}>
+          <Text style={styles.notFoundButtonText}>{t('fosterHomes:detail.back')}</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -263,6 +304,25 @@ const styles = StyleSheet.create({
     fontSize: FONTS.sizes.lg,
     color: COLORS.textSecondary,
     marginTop: SPACING.md,
+  },
+  notFoundSubtext: {
+    fontSize: FONTS.sizes.md,
+    color: COLORS.textSecondary,
+    marginTop: SPACING.xs,
+    textAlign: 'center',
+    paddingHorizontal: SPACING.xl,
+  },
+  notFoundButton: {
+    marginTop: SPACING.md,
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.lg,
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.primary,
+  },
+  notFoundButtonText: {
+    color: '#fff',
+    fontSize: FONTS.sizes.md,
+    fontWeight: '600',
   },
   carouselContainer: { width, height: 260, position: 'relative' },
   carouselImage: { width, height: 260, resizeMode: 'cover' },

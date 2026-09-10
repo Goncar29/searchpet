@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { useFosterHomeByID } from '@shared/hooks';
+import { ApiError } from '@shared/api/client';
 import { useAuth } from '../context/AuthContext';
 import { ReportFosterHomeModal } from '../components/ReportFosterHomeModal';
 import { cloudinaryFit } from '@shared/utils/cloudinaryThumb';
@@ -11,7 +12,18 @@ export function FosterHomeDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { data: fosterHome, isLoading, isError } = useFosterHomeByID(id || '');
+  const { data: fosterHome, isLoading, isError, error, refetch } = useFosterHomeByID(id || '');
+
+  // Espeja `mobile/app/foster-home/[id].tsx`, que es la MISMA pantalla: sin
+  // esto, web se quedaba con el defecto que este PR arregla en mobile.
+  //
+  // `apiClient` tira `ApiError` ante cualquier respuesta no-ok, así que un hogar
+  // dado de baja llega igual que un 502. Y el 400 entra en "no existe" porque
+  // `GetApprovedByID` hace `uuid.Parse(id)` antes que nada: una URL con un id
+  // roto no es un fallo de lectura.
+  const noExiste =
+    error instanceof ApiError && (error.status === 404 || error.status === 400);
+  const falloLaLectura = isError && !noExiste;
   const [showReportModal, setShowReportModal] = useState(false);
   const [activePhotoIndex, setActivePhotoIndex] = useState(0);
 
@@ -36,14 +48,41 @@ export function FosterHomeDetailPage() {
     );
   }
 
-  // 404 (not found or not approved) and network errors both land here — the
-  // backend intentionally 404s non-approved homes, so there's no distinct
-  // "not approved" state to show the visitor.
-  if (isError || !fosterHome) {
+  // `!fosterHome || noExiste` y NO `isError || !fosterHome`.
+  //
+  // Con el `||` viejo, un refetch fallido TAPABA un hogar ya cargado y visible
+  // con "Hogar no encontrado": React Query conserva lo cacheado, así que había
+  // datos en pantalla y el cartel mentía sobre ellos.
+  //
+  // Y `noExiste` sí descarta lo cacheado, porque un 404 es una respuesta
+  // definitiva de que la fila no está — el caso de un hogar suspendido por
+  // moderación, que no puede seguir mostrándose a quien ya lo tenía abierto.
+  // Un 502 no dice nada sobre el hogar, así que ahí se conserva.
+  //
+  // El backend 404ea también los no aprobados, así que no hay un estado
+  // "pendiente de aprobación" distinto para mostrarle al visitante.
+  if (!fosterHome || noExiste) {
     return (
       <div className="text-center py-20">
-        <p className="text-5xl mb-4">🏠</p>
-        <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">{t('fosterHomes:detail.notFound')}</h2>
+        <p className="text-5xl mb-4">{falloLaLectura ? '⚠️' : '🏠'}</p>
+        <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">
+          {falloLaLectura ? t('fosterHomes:detail.loadError') : t('fosterHomes:detail.notFound')}
+        </h2>
+        <p className="text-gray-500 dark:text-gray-400 mt-2">
+          {falloLaLectura
+            ? t('fosterHomes:detail.loadErrorText')
+            : t('fosterHomes:detail.notFoundText')}
+        </p>
+        {/* Volver está SIEMPRE; reintentar sólo cuando puede servir de algo.
+            Contra un 404 sería prometer algo que no va a pasar. */}
+        {falloLaLectura && (
+          <button
+            onClick={() => refetch()}
+            className="text-primary font-semibold mt-4 inline-block mr-4"
+          >
+            {t('fosterHomes:detail.retry')}
+          </button>
+        )}
         <Link to="/fosterhomes" className="text-primary font-semibold mt-4 inline-block">{t('common:back')}</Link>
       </div>
     );
