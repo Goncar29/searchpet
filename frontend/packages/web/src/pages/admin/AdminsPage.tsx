@@ -6,6 +6,7 @@ import { getErrorMessage } from '@shared/utils/apiErrors';
 import type { AdminAuditEntry, AdminRoleResult } from '@shared/types';
 import { FormSection } from '../../components/form/FormSection';
 import { FormField } from '../../components/form/FormField';
+import { getDateLocale } from '@shared/utils/dateLocale';
 
 const PAGE_SIZE = 10;
 
@@ -151,7 +152,7 @@ export function AdminsPage() {
                 {entries.map((c: AdminAuditEntry) => (
                   <tr key={c.id} className="border-b border-gray-100 dark:border-gray-800">
                     <td className="py-2 px-3 text-gray-500 dark:text-gray-400">
-                      {new Date(c.created_at).toLocaleString(i18n.language)}
+                      {new Date(c.created_at).toLocaleString(getDateLocale(i18n.language))}
                     </td>
                     <td className="py-2 px-3 text-gray-600 dark:text-gray-400">{c.actor_email}</td>
                     <td className="py-2 px-3 text-gray-900 dark:text-gray-100">

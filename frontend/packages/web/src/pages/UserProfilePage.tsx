@@ -23,6 +23,7 @@ import { getErrorMessage } from '@shared/utils/apiErrors';
 import { cloudinaryThumb, cloudinaryCardThumb } from '@shared/utils/cloudinaryThumb';
 import { splitOwnedPets } from '@shared/utils/ownedPetBuckets';
 import { statusBadgeBg } from '../utils/statusBadge';
+import { getDateLocale } from '@shared/utils/dateLocale';
 
 const BADGE_COLOR: Record<string, string> = {
   first_helper: 'bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300',
@@ -35,7 +36,7 @@ const DEFAULT_BADGE_COLOR = 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:bo
 const CARD = 'bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-6';
 
 function BadgeCard({ badge }: { badge: Badge }) {
-  const { t } = useTranslation('badges');
+  const { t, i18n } = useTranslation('badges');
   const meta = BADGE_META[badge.badge_type] ?? {
     emoji: '🏅',
     labelKey: badge.badge_type,
@@ -52,7 +53,7 @@ function BadgeCard({ badge }: { badge: Badge }) {
           <p className="text-xs opacity-75 mt-0.5">{t(meta.descriptionKey)}</p>
         )}
         <p className="text-xs opacity-50 mt-1">
-          {new Date(badge.earned_at).toLocaleDateString('es-UY', { day: 'numeric', month: 'short', year: 'numeric' })}
+          {new Date(badge.earned_at).toLocaleDateString(getDateLocale(i18n.language), { day: 'numeric', month: 'short', year: 'numeric' })}
         </p>
       </div>
     </div>
@@ -164,9 +165,9 @@ function PetGridSkeleton() {
 }
 
 function ReviewCard({ review, onDelete }: { review: UserReview; onDelete?: () => void }) {
-  const { t } = useTranslation(['profile']);
+  const { t, i18n } = useTranslation(['profile']);
   const initials = review.reviewer_name.trim().charAt(0).toUpperCase();
-  const date = new Date(review.created_at).toLocaleDateString('es-UY', {
+  const date = new Date(review.created_at).toLocaleDateString(getDateLocale(i18n.language), {
     day: 'numeric', month: 'short', year: 'numeric',
   });
 

@@ -24,6 +24,7 @@ import { ApiError } from '../../shared/api/client';
 import { COLORS, SPACING, FONTS, RADIUS } from '../constants';
 import type { Pet, Report } from '../../shared/types';
 import { posterFraming } from '../utils/adoptionFraming';
+import { getDateLocale } from '../i18n/dateLocale';
 
 interface PdfFlyerButtonProps {
   pet: Pet;
@@ -40,7 +41,7 @@ export function PdfFlyerButton({ pet, reports = [] }: PdfFlyerButtonProps) {
 
   const latestReport = reports[0];
   const lastSeenDate = latestReport
-    ? new Date(latestReport.occurred_at ?? latestReport.created_at).toLocaleDateString(i18next.language, {
+    ? new Date(latestReport.occurred_at ?? latestReport.created_at).toLocaleDateString(getDateLocale(i18next.language), {
         day: 'numeric',
         month: 'long',
         year: 'numeric',

@@ -2,7 +2,9 @@ import { useParams, useNavigate } from 'react-router';
 import { useGroup, useGroupMembers, useJoinGroup, useLeaveGroup } from '@shared/hooks';
 import { useAuth } from '../context/AuthContext';
 import type { GroupMember } from '@shared/types';
+import { useTranslation } from 'react-i18next';
 import { cloudinaryThumb } from '@shared/utils/cloudinaryThumb';
+import { getDateLocale, type DateLocale } from '@shared/utils/dateLocale';
 
 // ============================================================
 // Helpers
@@ -12,8 +14,11 @@ function getInitials(name: string): string {
   return name.trim().charAt(0).toUpperCase();
 }
 
-function formatDate(dateString: string): string {
-  return new Date(dateString).toLocaleDateString('es-UY', {
+// El locale entra por parámetro porque esta función vive a nivel de módulo y
+// no puede leer el hook. Pasarlo es preferible a clavar 'es-UY': así la fecha
+// sigue el idioma que el usuario eligió en la app.
+function formatDate(dateString: string, locale: DateLocale): string {
+  return new Date(dateString).toLocaleDateString(locale, {
     day: 'numeric',
     month: 'long',
     year: 'numeric',
@@ -25,6 +30,9 @@ function formatDate(dateString: string): string {
 // ============================================================
 
 function MemberCard({ member }: { member: GroupMember }) {
+  // Igual que en BlockedUsersPage: `useTranslation` acá es sólo para el
+  // idioma. El copy de esta pantalla sigue hardcodeado y es trabajo aparte.
+  const { i18n } = useTranslation();
   return (
     <div className="flex items-center gap-3 p-3 bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-700">
       {member.profile_photo_url ? (
@@ -44,7 +52,7 @@ function MemberCard({ member }: { member: GroupMember }) {
           {member.name}
         </p>
         <p className="text-xs text-gray-400 dark:text-gray-500">
-          Miembro desde {formatDate(member.joined_at)}
+          Miembro desde {formatDate(member.joined_at, getDateLocale(i18n.language))}
         </p>
       </div>
     </div>

@@ -1,5 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import { computeLastSeen, formatLastSeen } from './lastSeen';
+// `getDateLocale('es')` y no el literal `'es-UY'`: desde que `DateLocale` es un
+// tipo marcado, el literal NO compila (`TS2345`). Vitest no typechequea y el
+// `tsconfig` de web sólo incluye `src`, así que esto pasaba verde mientras el
+// archivo dejaba de typechequear — un rojo que aparecería después, en otra rama,
+// pareciendo no tener nada que ver.
+import { getDateLocale } from './dateLocale';
+
+const ES_UY = getDateLocale('es');
 
 // "Ahora" en calendario LOCAL, que es el mismo que usa el helper. Construirlo
 // con Date.UTC haría que los casos pasen o fallen según el huso del runner.
@@ -85,7 +93,7 @@ describe('las dos líneas no se contradicen', () => {
     for (let hora = 0; hora < 24; hora++) {
       const visto = new Date(2026, 8, 7, hora, 0, 0);
       const mirandoALas17 = new Date(2026, 8, 7, 17, 0, 0);
-      const salida = formatLastSeen(t, visto.toISOString(), 'es-UY', mirandoALas17);
+      const salida = formatLastSeen(t, visto.toISOString(), ES_UY, mirandoALas17);
       expect(salida).not.toBeNull();
       expect(salida!.relative, `hora local ${hora}`).toBe('Visto hoy');
       // El día del mes de la línea absoluta tiene que ser el 7.
@@ -97,7 +105,7 @@ describe('las dos líneas no se contradicen', () => {
     for (let hora = 0; hora < 24; hora++) {
       const visto = new Date(2026, 8, 6, hora, 0, 0);
       const mirandoALas17 = new Date(2026, 8, 7, 17, 0, 0);
-      const salida = formatLastSeen(t, visto.toISOString(), 'es-UY', mirandoALas17);
+      const salida = formatLastSeen(t, visto.toISOString(), ES_UY, mirandoALas17);
       expect(salida!.relative, `hora local ${hora}`).toBe('Visto ayer');
       expect(salida!.absolute, `hora local ${hora}`).toMatch(/\b6\b/);
     }

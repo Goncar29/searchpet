@@ -5,11 +5,12 @@ import { apiClient } from '@shared/api/client';
 import type { SuccessStory } from '@shared/types';
 import { ListState } from '../../components/list/ListState';
 import { Pagination } from '../../components/Pagination';
+import { getDateLocale } from '@shared/utils/dateLocale';
 
 const PAGE_SIZE = 20;
 
 export function StoriesAdminPage() {
-  const { t } = useTranslation('admin');
+  const { t, i18n } = useTranslation('admin');
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
 
@@ -119,7 +120,7 @@ export function StoriesAdminPage() {
                     </span>
                   </td>
                   <td className="py-2 px-3 text-gray-500 dark:text-gray-400">
-                    {new Date(story.created_at).toLocaleDateString()}
+                    {new Date(story.created_at).toLocaleDateString(getDateLocale(i18n.language))}
                   </td>
                   <td className="py-2 px-3">
                     <div className="flex gap-2">

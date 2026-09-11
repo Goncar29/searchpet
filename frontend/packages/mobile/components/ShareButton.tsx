@@ -22,6 +22,7 @@ import { getExpiryInfo } from '../../shared/utils/shareExpiry';
 import { shareStatusLabel } from '../utils/adoptionFraming';
 import { getErrorMessage } from '../../shared/utils/apiErrors';
 import { COLORS, SPACING, FONTS, RADIUS } from '../constants';
+import { getDateLocale } from '../i18n/dateLocale';
 
 interface ShareButtonProps {
   petId: string;
@@ -160,7 +161,7 @@ export function ShareButton({ petId, petName, petType, status, pet }: ShareButto
                 return (
                   <Text style={expiry.isWarning ? styles.expiryWarning : styles.expiryOk}>
                     {i18next.t('pets:share.expiresOn', {
-                      date: expiry.expiresAt!.toLocaleDateString(i18next.language, {
+                      date: expiry.expiresAt!.toLocaleDateString(getDateLocale(i18next.language), {
                         day: 'numeric',
                         month: 'short',
                         year: 'numeric',

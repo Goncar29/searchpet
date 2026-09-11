@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next';
+import { getDateLocale } from '@shared/utils/dateLocale';
 import { controlClass as formControlClass } from './form/FormField';
 import type { PetGender } from '@shared/types';
 import {
@@ -71,8 +72,13 @@ export function PetIdentityFields({ value, onChange, disabled, birthDateError, h
   // Los nombres de mes salen de Intl con el idioma activo, no de 36 claves de
   // traduccion. Menos que mantener, y siempre correcto: si maniana entra otro
   // idioma, los meses ya estan.
+  // `getDateLocale` y no `i18n.language` pelado: es la tercera forma de
+  // formatear una fecha y quedaba fuera del mapa. Hoy `es` y `es-UY` dan los
+  // mismos nombres de mes, así que no cambia lo que se ve — pero el invariante
+  // "toda fecha sale del helper" tiene que valer también donde no se nota, o
+  // deja de ser un invariante.
   const monthNames = Array.from({ length: 12 }, (_, i) =>
-    new Intl.DateTimeFormat(i18n.language, { month: 'long' }).format(new Date(2000, i, 1))
+    new Intl.DateTimeFormat(getDateLocale(i18n.language), { month: 'long' }).format(new Date(2000, i, 1))
   );
 
   const years = birthDateYears();

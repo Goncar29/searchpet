@@ -13,6 +13,7 @@ import { getErrorMessage } from '@shared/utils/apiErrors';
 import { cloudinaryThumb } from '@shared/utils/cloudinaryThumb';
 import { Icon } from '../../components/Icon';
 import { ListState } from '../../components/list/ListState';
+import { getDateLocale } from '@shared/utils/dateLocale';
 import type {
   AnimalKind,
   FosterHomeChangeLog,
@@ -417,18 +418,21 @@ function OwnerSnapshot({
 }
 
 function ModerationLogEntry({ log }: { log: FosterHomeModerationLog }) {
-  const { t } = useTranslation(['fosterHomes']);
+  const { t, i18n } = useTranslation(['fosterHomes']);
   return (
     <li className="text-xs border-b border-gray-200 dark:border-gray-700 pb-2 last:border-0 last:pb-0">
       <p className="font-semibold text-gray-800 dark:text-gray-100">{t(ACTION_LABEL_KEY[log.action])}</p>
       {log.reason && <p className="text-gray-600 dark:text-gray-300 mt-0.5">{log.reason}</p>}
       <OwnerSnapshot email={log.owner_email} phone={log.owner_phone} whatsapp={log.owner_whatsapp} />
-      <p className="text-gray-400 dark:text-gray-500 mt-0.5">{new Date(log.created_at).toLocaleString()}</p>
+      <p className="text-gray-400 dark:text-gray-500 mt-0.5">{new Date(log.created_at).toLocaleString(getDateLocale(i18n.language))}</p>
     </li>
   );
 }
 
 function ChangeLogEntry({ entry }: { entry: FosterHomeChangeLog }) {
+  // Sólo para leer `i18n.language`: la fecha de abajo lleva HORA, y ahí el
+  // locale sí cambia el resultado (es -> 15:04, es-UY -> 3:04 p. m.).
+  const { i18n } = useTranslation();
   const fields = entry.changed_fields ? Object.entries(entry.changed_fields) : [];
   return (
     <li className="text-xs border-b border-gray-200 dark:border-gray-700 pb-2 last:border-0 last:pb-0">
@@ -445,7 +449,7 @@ function ChangeLogEntry({ entry }: { entry: FosterHomeChangeLog }) {
         </ul>
       )}
       <OwnerSnapshot email={entry.owner_email} phone={entry.owner_phone} whatsapp={entry.owner_whatsapp} />
-      <p className="text-gray-400 dark:text-gray-500 mt-0.5">{new Date(entry.created_at).toLocaleString()}</p>
+      <p className="text-gray-400 dark:text-gray-500 mt-0.5">{new Date(entry.created_at).toLocaleString(getDateLocale(i18n.language))}</p>
     </li>
   );
 }

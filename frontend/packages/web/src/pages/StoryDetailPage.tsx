@@ -2,12 +2,17 @@
 // StoryDetailPage — /stories/:id
 // ============================================================
 import { useParams, useNavigate, Link } from 'react-router';
+import { useTranslation } from 'react-i18next';
 import { useStory, useLikeStory, useUnlikeStory } from '@shared/hooks';
 import { useAuth } from '../context/AuthContext';
 import { PawPlaceholder } from '../components/PawPlaceholder';
 import { cloudinaryThumb } from '@shared/utils/cloudinaryThumb';
+import { getDateLocale } from '@shared/utils/dateLocale';
 
 export function StoryDetailPage() {
+  // Sólo para leer el idioma: la fecha de abajo estaba clavada en 'es' y por
+  // lo tanto ignoraba lo que el usuario eligió.
+  const { i18n } = useTranslation();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
@@ -112,7 +117,7 @@ export function StoryDetailPage() {
 
         {/* Date */}
         <p className="text-xs text-gray-400 dark:text-gray-500 mb-6">
-          {new Date(story.created_at).toLocaleDateString('es', {
+          {new Date(story.created_at).toLocaleDateString(getDateLocale(i18n.language), {
             day: 'numeric',
             month: 'long',
             year: 'numeric',
