@@ -171,7 +171,7 @@ export function SheltersPage() {
             indicio de que el filtro seguía puesto era el texto en el input. */}
         {appliedCity && (
           <div className="flex items-center gap-2 mb-6">
-            <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 dark:bg-primary/20 px-3 py-1 text-sm font-semibold text-primary">
+            <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 dark:bg-primary/20 px-3 py-1 text-sm font-semibold text-primary dark:text-primary-light">
               <Icon name="location-on" className="h-4 w-4" />
               {appliedCity}
             </span>
@@ -266,7 +266,7 @@ export function SheltersPage() {
                     {shelter.name}
                   </h3>
                   {shelter.is_verified && (
-                    <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-primary/10 dark:bg-primary/20 px-2 py-0.5 text-xs font-semibold text-primary">
+                    <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-primary/10 dark:bg-primary/20 px-2 py-0.5 text-xs font-semibold text-primary dark:text-primary-light">
                       <Icon name="check-circle" className="h-3.5 w-3.5" />
                       {t('shelters:verified')}
                     </span>
@@ -286,7 +286,7 @@ export function SheltersPage() {
                   {shelter.phone && (
                     <>
                       <Icon name="call" className="h-4 w-4 shrink-0" />
-                      <a href={`tel:${shelter.phone}`} className="text-primary hover:underline">
+                      <a href={`tel:${shelter.phone}`} className="text-primary dark:text-primary-light hover:underline">
                         {shelter.phone}
                       </a>
                     </>
@@ -312,7 +312,7 @@ export function SheltersPage() {
                         triggerRef.current = e.currentTarget;
                         setDetail(shelter);
                       }}
-                      className="self-start mt-2 inline-flex items-center gap-1 text-sm font-semibold text-primary hover:underline"
+                      className="self-start mt-2 inline-flex items-center gap-1 text-sm font-semibold text-primary dark:text-primary-light hover:underline"
                     >
                       {t('shelters:seeMore')}
                       <Icon name="chevron-right" className="h-4 w-4" />
@@ -330,7 +330,7 @@ export function SheltersPage() {
                       target="_blank"
                       rel="noopener noreferrer"
                       aria-label={t('shelters:visitWebAria', { name: shelter.name })}
-                      className="flex-1 text-center text-sm font-semibold text-primary border border-primary py-2 rounded-xl hover:bg-primary/5 transition-colors"
+                      className="flex-1 text-center text-sm font-semibold text-primary dark:text-primary-light border border-primary py-2 rounded-xl hover:bg-primary/5 transition-colors"
                     >
                       {t('shelters:visitWeb')}
                     </a>
@@ -415,7 +415,7 @@ export function SheltersPage() {
                 {detail.name}
               </h3>
               {detail.is_verified && (
-                <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-primary/10 dark:bg-primary/20 px-2 py-0.5 text-xs font-semibold text-primary">
+                <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-primary/10 dark:bg-primary/20 px-2 py-0.5 text-xs font-semibold text-primary dark:text-primary-light">
                   <Icon name="check-circle" className="h-3.5 w-3.5" />
                   {t('shelters:verified')}
                 </span>
@@ -437,7 +437,7 @@ export function SheltersPage() {
               {detail.phone && (
                 <p className="flex items-center gap-1">
                   <Icon name="call" className="h-4 w-4 shrink-0" />
-                  <a href={`tel:${detail.phone}`} className="text-primary hover:underline">
+                  <a href={`tel:${detail.phone}`} className="text-primary dark:text-primary-light hover:underline">
                     {detail.phone}
                   </a>
                 </p>
@@ -447,7 +447,7 @@ export function SheltersPage() {
                   <Icon name="mail" className="h-4 w-4 shrink-0" />
                   <a
                     href={`mailto:${detail.email}`}
-                    className="text-primary hover:underline break-all"
+                    className="text-primary dark:text-primary-light hover:underline break-all"
                   >
                     {detail.email}
                   </a>
@@ -462,7 +462,7 @@ export function SheltersPage() {
                     href={detail.website_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex-1 text-center text-sm font-semibold text-primary border border-primary py-2 rounded-xl hover:bg-primary/5 transition-colors"
+                    className="flex-1 text-center text-sm font-semibold text-primary dark:text-primary-light border border-primary py-2 rounded-xl hover:bg-primary/5 transition-colors"
                   >
                     {t('shelters:visitWeb')}
                   </a>
