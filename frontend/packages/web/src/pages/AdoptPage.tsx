@@ -239,7 +239,7 @@ export function AdoptPage() {
                       className={`text-sm line-clamp-2 min-h-[2.5rem] mt-2 ${
                         pet.description
                           ? 'text-gray-500 dark:text-gray-400'
-                          : 'italic text-gray-400 dark:text-gray-500'
+                          : 'italic text-gray-400 dark:text-gray-400'
                       }`}
                     >
                       {pet.description || t('pets:card.noComment')}
@@ -250,7 +250,7 @@ export function AdoptPage() {
                         HTML invalido y le da dos destinos al mismo destino a un
                         lector de pantalla. Esto es la senal visual del diseño;
                         lo clickeable sigue siendo toda la tarjeta. */}
-                    <span className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-primary">
+                    <span className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-primary dark:text-primary-light">
                       {t('adoption:section.viewProfile')}
                       <Icon name="chevron-right" className="h-4 w-4" />
                     </span>

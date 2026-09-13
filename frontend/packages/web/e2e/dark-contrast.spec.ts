@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { uniqueEmail, seedUser, getToken, seedStray, markFound, seedStory } from './helpers';
 
 /**
  * NINGÚN TEXTO DE LAS RUTAS PÚBLICAS BAJA DEL UMBRAL WCAG AA EN MODO OSCURO.
@@ -23,16 +24,48 @@ import { test, expect, type Page } from '@playwright/test';
  */
 
 /** Los paths REALES de `App.tsx`. Ver el comentario de `CANARIO` abajo. */
-const RUTAS_PUBLICAS = [
-  '/',
-  '/map',
-  '/adopt',
-  '/shelters',
-  '/leaderboard',
-  '/stories',
-  '/login',
-  '/register',
+interface Ruta {
+  path: string;
+  /**
+   * Un texto que SÓLO aparece si la lista de esa ruta renderizó de verdad.
+   *
+   * ES LA MITAD QUE FALTABA DEL CANARIO. `CANARIO` prueba que montó el shell —
+   * navbar, footer, encabezado— pero **no distingue "la lista se dibujó y está
+   * limpia" de "la lista está vacía"**. Y esa diferencia no es teórica: con la
+   * base del e2e recién creada, `/`, `/adopt`, `/leaderboard` y `/stories`
+   * llegan sin datos, así que "cero hallazgos" sólo certificaba el estado
+   * vacío. Por eso ocho instancias del MISMO defecto sobrevivieron a un guard
+   * que daba verde — las encontró un code review, no el guard.
+   *
+   * `/shelters` fue la excepción, y es la prueba del mecanismo: el seed del CI
+   * le da 7 refugios, sus tarjetas se dibujan, y ahí el guard SÍ encontró los
+   * 26 textos que motivaron el segundo commit de este PR.
+   *
+   * Donde se puede sembrar, se siembra y se exige el ancla. Donde no, queda
+   * escrito abajo qué región no se está midiendo.
+   */
+  ancla?: () => RegExp;
+  /** Qué queda SIN medir en esta ruta, para no leer su verde como cobertura. */
+  sinCubrir?: string;
+}
+
+const RUTAS_PUBLICAS: Ruta[] = [
+  // Sembradas en `beforeAll`: sus tarjetas se miden de verdad.
+  { path: '/', ancla: () => new RegExp(nombreMascota) },
+  { path: '/stories', ancla: () => new RegExp(tituloHistoria) },
+  // El seed del CI le pone 7 refugios; localmente puede venir vacía, así que el
+  // ancla es opcional y lo que se afirma es el `sinCubrir`.
+  { path: '/shelters', sinCubrir: 'las tarjetas sólo se miden si la base tiene refugios' },
+  { path: '/map', sinCubrir: 'los marcadores viven en el canvas de Leaflet, no son texto' },
+  { path: '/adopt', sinCubrir: 'las tarjetas de adopción: el e2e no siembra ninguna' },
+  { path: '/leaderboard', sinCubrir: 'la tabla: pide una ciudad, y sin buscarla queda en su estado idle' },
+  { path: '/login' },
+  { path: '/register' },
 ];
+
+// Datos sembrados una sola vez para que `/` y `/stories` tengan contenido real.
+let nombreMascota = '';
+let tituloHistoria = '';
 
 /**
  * Piso de nodos con texto por ruta.
@@ -60,9 +93,14 @@ interface Resultado {
   }>;
   medidos: number;
   oscuro: boolean;
+  noMedibles: string[];
 }
 
 function medirContraste(): Resultado {
+  // Paradas de gradiente que el navegador no reconoce como color. Se reportan:
+  // un fondo que no se pudo medir no es un fondo aprobado.
+  const noMedibles: string[] = [];
+
   const cv = document.createElement('canvas');
   cv.width = cv.height = 1;
   const cx = cv.getContext('2d', { willReadFrequently: true })!;
@@ -175,18 +213,33 @@ function medirContraste(): Resultado {
     // alfa, y ahí lo que se ve es la mezcla.
     const candidatos = [plano!];
     for (const g of gradientes) {
-      try {
-        candidatos.push(componer(g, plano));
-      } catch {
-        // Una notación que el canvas no entienda no debe tumbar el barrido.
-      }
+      // `CSS.supports` Y NO UN try/catch, y la diferencia es todo.
+      //
+      // Asignar un valor inválido a `canvas.fillStyle` **NO LANZA**: el spec de
+      // HTML dice que se ignora y el atributo conserva lo que tenía. Medido —
+      // tras asignarle basura, `fillStyle` seguía valiendo `#010203`.
+      //
+      // Como `componer` pinta `debajo` justo antes, una parada que el regex
+      // mutile (el `color-mix(in oklab, …)` que emite Tailwind v4 para
+      // `from-primary/80`, por ejemplo) producía un candidato IDÉNTICO al fondo
+      // plano: el peor caso nunca se evaluaba y el guard aprobaba. O sea, el
+      // mismo falso negativo silencioso que la medición de gradientes vino a
+      // cerrar, reintroducido en su propio arreglo.
+      //
+      // Ahora lo que no se puede medir se DENUNCIA en vez de aprobarse.
+      if (CSS.supports('color', g)) candidatos.push(componer(g, plano));
+      else noMedibles.push(g.slice(0, 60));
     }
     return candidatos;
   }
 
   const visible = (el: Element) => {
     const r = el.getBoundingClientRect();
-    if (r.width < 1 || r.height < 1) return false;
+    // `<= 1` y no `< 1`: `sr-only` de Tailwind mide 1x1 px EXACTO y después se
+    // clipea a nada. Con `< 1` sobrevivía al filtro, y cualquier texto para
+    // lector de pantalla que heredara un color flojo haría fallar el guard por
+    // algo que nadie ve. Hoy no hay ninguno en las rutas cubiertas: es latente.
+    if (r.width <= 1 || r.height <= 1) return false;
     const s = getComputedStyle(el);
     return s.visibility !== 'hidden' && s.display !== 'none' && Number(s.opacity) > 0.05;
   };
@@ -246,18 +299,70 @@ function medirContraste(): Resultado {
     }
   }
 
-  return { hallazgos, medidos, oscuro: document.documentElement.classList.contains('dark') };
+  return {
+    hallazgos,
+    medidos,
+    oscuro: document.documentElement.classList.contains('dark'),
+    noMedibles: [...new Set(noMedibles)],
+  };
 }
 
-async function enModoOscuro(page: Page, ruta: string): Promise<Resultado> {
-  await page.goto(ruta);
-  // `networkidle` y no `load`: las listas llegan por query y su texto es
-  // justamente el que interesa medir.
-  await page.waitForLoadState('networkidle');
+async function enModoOscuro(page: Page, ruta: Ruta): Promise<Resultado> {
+  await page.goto(ruta.path);
+
+  // SIN TRANSICIONES, o se mide un color A MITAD DE CAMINO. Va acá y no en un
+  // `beforeEach`, porque un `<style>` inyectado muere con la navegación.
+  //
+  // Media web lleva `transition-colors`, y `getComputedStyle().color` durante
+  // una transición devuelve el valor INTERPOLADO, no el final. Al cambiar el
+  // `networkidle` por una espera más temprana esto salió a la luz de golpe: el
+  // link inactivo del navbar —`text-gray-600 dark:text-gray-300`, que en reposo
+  // da ~9:1— se reportó en **2.35:1**, que es el gris intermedio entre los dos
+  // temas. Siete hallazgos fantasma en una sola ruta.
+  //
+  // `networkidle` lo tapaba por accidente, dando tiempo de sobra. Tapar no es
+  // resolver: la medición tiene que ser independiente de CUÁNDO se hace.
+  await page.addStyleTag({
+    content: '*, *::before, *::after { transition: none !important; animation: none !important; }',
+  });
+  // `networkidle` está desaconsejado por Playwright y en `/map` es directamente
+  // el criterio equivocado: Leaflet sigue pidiendo tiles de OSM mientras el
+  // viewport se asienta, así que la espera podía comerse el timeout de 30s y
+  // teñir de rojo el guard entero por un motivo que no es contraste.
+  //
+  // Se espera el ancla cuando la hay —que además es la señal de que la lista
+  // renderizó— y el `<footer>` cuando no: es lo último del árbol, así que verlo
+  // significa que la página está armada.
+  if (ruta.ancla) await page.getByText(ruta.ancla(), { exact: false }).first().waitFor({ timeout: 20_000 });
+  else await page.locator('footer').first().waitFor({ timeout: 20_000 });
+
   return page.evaluate(medirContraste);
 }
 
 test.describe('contraste WCAG AA en modo oscuro', () => {
+  test.beforeAll(async () => {
+    // Una mascota y una historia REALES, para que `/` y `/stories` midan
+    // tarjetas y no su estado vacío. Ver el docblock de `Ruta.ancla`.
+    const email = uniqueEmail();
+    const password = 'contrasten4';
+    await seedUser(email, password);
+    const token = await getToken(email, password);
+
+    nombreMascota = `Contraste-${Date.now()}`;
+    const petId = await seedStray(token, nombreMascota);
+    await markFound(token, petId);
+
+    tituloHistoria = `Historia de contraste ${Date.now()}`;
+    await seedStory(token, petId, tituloHistoria, 'Volvió a casa gracias a la comunidad.');
+
+    // EL CANARIO DEL CANARIO. Si la siembra fallara sin lanzar, estas variables
+    // quedarían vacías y `new RegExp('')` MATCHEA CUALQUIER COSA: el ancla
+    // pasaría contra una página en blanco y el guard volvería a certificar el
+    // estado vacío, que es exactamente lo que el ancla vino a impedir.
+    expect(nombreMascota, 'la siembra no dejó nombre de mascota').not.toBe('');
+    expect(tituloHistoria, 'la siembra no dejó título de historia').not.toBe('');
+  });
+
   test.beforeEach(async ({ context }) => {
     // El tema sale de `localStorage` (`ThemeContext.getInitialTheme`), así que
     // se siembra ANTES de que cargue cualquier documento. Con `emulateMedia` no
@@ -269,15 +374,23 @@ test.describe('contraste WCAG AA en modo oscuro', () => {
   });
 
   for (const ruta of RUTAS_PUBLICAS) {
-    test(`${ruta} — ningún texto por debajo del umbral`, async ({ page }) => {
-      const { hallazgos, medidos, oscuro } = await enModoOscuro(page, ruta);
+    test(`${ruta.path} — ningún texto por debajo del umbral`, async ({ page }) => {
+      const { hallazgos, medidos, oscuro, noMedibles } = await enModoOscuro(page, ruta);
 
-      // LAS DOS AFIRMACIONES QUE TIENEN QUE IR ANTES DEL RESULTADO. Sin ellas,
-      // "cero hallazgos" también se emite cuando la app no montó o cuando el
-      // tema no se aplicó — la misma forma que un `curl` sin `--fail`.
-      expect(oscuro, `${ruta}: la raíz no tiene la clase .dark`).toBe(true);
-      expect(medidos, `${ruta}: sólo ${medidos} nodos con texto — ¿montó la app?`)
+      // LAS AFIRMACIONES QUE VAN ANTES DEL RESULTADO. Sin ellas, "cero
+      // hallazgos" también se emite cuando la app no montó, cuando el tema no se
+      // aplicó, o cuando un fondo no se pudo medir — la misma forma que un
+      // `curl` sin `--fail`.
+      expect(oscuro, `${ruta.path}: la raíz no tiene la clase .dark`).toBe(true);
+      expect(medidos, `${ruta.path}: sólo ${medidos} nodos con texto — ¿montó la app?`)
         .toBeGreaterThanOrEqual(CANARIO);
+      expect(
+        noMedibles,
+        `${ruta.path}: hay paradas de gradiente que el navegador no reconoce como ` +
+          `color, así que su contraste NO se midió:\n  ${noMedibles.join('\n  ')}\n\n` +
+          `Un fondo que no se pudo medir no es un fondo aprobado: arreglá el regex ` +
+          `de paradas en fondosDe(), no exentes el caso.`
+      ).toEqual([]);
 
       const detalle = hallazgos
         .map((h) => `  ${h.ratio}:1 < ${h.umbral}  ${h.px}px/${h.peso}  <${h.tag}> "${h.texto}"  [${h.clases}]`)
@@ -285,7 +398,7 @@ test.describe('contraste WCAG AA en modo oscuro', () => {
 
       expect(
         hallazgos,
-        `${ruta}: ${hallazgos.length} textos por debajo del umbral AA en modo oscuro:\n${detalle}\n\n` +
+        `${ruta.path}: ${hallazgos.length} textos por debajo del umbral AA en modo oscuro:\n${detalle}\n\n` +
           `Para texto, en oscuro usá \`dark:text-primary-light\` (el \`primary\` está ` +
           `calibrado para llevar blanco encima, no para SER el texto) y \`dark:text-gray-400\` ` +
           `en vez de \`gray-500\` (el gris del modo oscuro va más CLARO, no más oscuro).`

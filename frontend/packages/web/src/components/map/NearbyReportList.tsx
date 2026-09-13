@@ -107,7 +107,7 @@ export function NearbyReportList({ reports, isLoading, isError }: Props) {
                       </span>
                     </div>
                     {cuando && (
-                      <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{cuando}</p>
+                      <p className="text-xs text-gray-400 dark:text-gray-400 mt-0.5">{cuando}</p>
                     )}
                     {report.location_description && (
                       <p className="text-xs text-gray-500 dark:text-gray-400 truncate">

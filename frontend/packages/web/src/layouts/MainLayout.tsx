@@ -327,7 +327,7 @@ export function MainLayout() {
                   key={link.to}
                   to={link.to}
                   className={`text-sm font-medium py-2 px-3 rounded-md ${isActive(link.to)
-                    ? 'text-primary bg-orange-50 dark:bg-orange-950'
+                    ? 'text-primary dark:text-primary-light bg-orange-50 dark:bg-orange-950'
                     : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
                     } transition-colors duration-150`}
                 >
@@ -340,7 +340,7 @@ export function MainLayout() {
                   <Link
                     to="/pets/mine"
                     className={`text-sm font-medium py-2 px-3 rounded-md ${isActive('/pets/mine')
-                      ? 'text-primary bg-orange-50 dark:bg-orange-950'
+                      ? 'text-primary dark:text-primary-light bg-orange-50 dark:bg-orange-950'
                       : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
                       } transition-colors duration-150`}
                   >
@@ -349,7 +349,7 @@ export function MainLayout() {
                   <Link
                     to="/messages"
                     className={`text-sm font-medium py-2 px-3 rounded-md flex items-center ${isActive('/messages')
-                      ? 'text-primary bg-orange-50 dark:bg-orange-950'
+                      ? 'text-primary dark:text-primary-light bg-orange-50 dark:bg-orange-950'
                       : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
                       } transition-colors duration-150`}
                   >
@@ -359,7 +359,7 @@ export function MainLayout() {
                   <Link
                     to="/alerts"
                     className={`text-sm font-medium py-2 px-3 rounded-md ${isActive('/alerts')
-                      ? 'text-primary bg-orange-50 dark:bg-orange-950'
+                      ? 'text-primary dark:text-primary-light bg-orange-50 dark:bg-orange-950'
                       : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
                       } transition-colors duration-150`}
                   >
@@ -369,7 +369,7 @@ export function MainLayout() {
                     <Link
                       to="/shelters/mine"
                       className={`text-sm font-medium py-2 px-3 rounded-md ${isActive('/shelters/mine')
-                        ? 'text-primary bg-orange-50 dark:bg-orange-950'
+                        ? 'text-primary dark:text-primary-light bg-orange-50 dark:bg-orange-950'
                         : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
                         } transition-colors duration-150`}
                     >
@@ -379,7 +379,7 @@ export function MainLayout() {
                   <Link
                     to="/fosterhomes"
                     className={`text-sm font-medium py-2 px-3 rounded-md ${isActive('/fosterhomes')
-                      ? 'text-primary bg-orange-50 dark:bg-orange-950'
+                      ? 'text-primary dark:text-primary-light bg-orange-50 dark:bg-orange-950'
                       : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
                       } transition-colors duration-150`}
                   >
@@ -389,7 +389,7 @@ export function MainLayout() {
                     <Link
                       to="/admin/abuse-reports"
                       className={`text-sm font-medium py-2 px-3 rounded-md ${location.pathname.startsWith('/admin')
-                        ? 'text-primary bg-orange-50 dark:bg-orange-950'
+                        ? 'text-primary dark:text-primary-light bg-orange-50 dark:bg-orange-950'
                         : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
                         } transition-colors duration-150`}
                     >
@@ -463,10 +463,10 @@ export function MainLayout() {
                 {t('footer:links')}
               </h4>
               <div className="flex flex-col gap-2">
-                <Link to="/map" className="text-sm text-gray-500 dark:text-gray-400 hover:text-primary transition-colors">
+                <Link to="/map" className="text-sm text-gray-500 dark:text-gray-400 hover:text-primary dark:hover:text-primary-light transition-colors">
                   {t('map')}
                 </Link>
-                <Link to="/shelters" className="text-sm text-gray-500 dark:text-gray-400 hover:text-primary transition-colors">
+                <Link to="/shelters" className="text-sm text-gray-500 dark:text-gray-400 hover:text-primary dark:hover:text-primary-light transition-colors">
                   {t('shelters')}
                 </Link>
               </div>
