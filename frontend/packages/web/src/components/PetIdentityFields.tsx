@@ -73,10 +73,22 @@ export function PetIdentityFields({ value, onChange, disabled, birthDateError, h
   // traduccion. Menos que mantener, y siempre correcto: si maniana entra otro
   // idioma, los meses ya estan.
   // `getDateLocale` y no `i18n.language` pelado: es la tercera forma de
-  // formatear una fecha y quedaba fuera del mapa. Hoy `es` y `es-UY` dan los
-  // mismos nombres de mes, así que no cambia lo que se ve — pero el invariante
-  // "toda fecha sale del helper" tiene que valer también donde no se nota, o
-  // deja de ser un invariante.
+  // formatear una fecha y quedaba fuera del mapa.
+  //
+  // Y SÍ CAMBIA LO QUE SE VE, contra lo que decía la primera versión de este
+  // comentario. Medido en Chromium 148 y en Node, `es` contra `es-UY`:
+  //
+  //     es     → enero … septiembre … diciembre
+  //     es-UY  → Enero … Setiembre  … Diciembre
+  //
+  // O sea inicial mayúscula y "setiembre", que es la forma rioplatense. El
+  // cambio CIERRA una incoherencia en vez de crearla: el resto de la app ya
+  // formatea con `es-UY`, así que el detalle de una mascota decía "23 de
+  // setiembre" mientras este selector ofrecía "septiembre" — la misma app
+  // escribiendo el mes de dos maneras según la pantalla.
+  //
+  // Se anota porque ningún test lo puede ver: los suites mockean `t`, no `Intl`.
+  // Salió de mirar el selector renderizado en el navegador.
   const monthNames = Array.from({ length: 12 }, (_, i) =>
     new Intl.DateTimeFormat(getDateLocale(i18n.language), { month: 'long' }).format(new Date(2000, i, 1))
   );
