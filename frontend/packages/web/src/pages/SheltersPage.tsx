@@ -242,7 +242,10 @@ export function SheltersPage() {
                 {t('shelters:emptyForCity', { city: appliedCity })}
               </p>
             ) : (
-              <p className="text-gray-400 dark:text-gray-500">{t('shelters:empty')}</p>
+              // `dark:text-gray-400`: el 500 da 4.16:1 sobre el fondo oscuro.
+              // Es el cartel de "no hay refugios", o sea la única cosa en
+              // pantalla cuando la lista está vacía.
+              <p className="text-gray-400 dark:text-gray-400">{t('shelters:empty')}</p>
             )}
           </div>
         )}

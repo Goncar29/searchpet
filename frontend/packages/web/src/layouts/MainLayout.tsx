@@ -109,7 +109,11 @@ export function MainLayout() {
 
   const isActive = (path: string) => location.pathname === path;
 
-  const activeLinkClass = 'text-primary font-semibold';
+  // `dark:text-primary-light` y no `text-primary` a secas: el primary está
+  // calibrado para llevar texto BLANCO ENCIMA (4.77:1), no para ser el color del
+  // texto. Sobre el fondo oscuro da 3.72:1, por debajo del 4.5 que pide AA —
+  // medido, es el mismo número que el #240 encontró en `StoryCard`.
+  const activeLinkClass = 'text-primary dark:text-primary-light font-semibold';
   const inactiveLinkClass =
     'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-50 transition-colors duration-150';
 
@@ -129,7 +133,7 @@ export function MainLayout() {
             <Link to="/" className="inline-flex items-center gap-2 pr-2 sm:pr-6">
               <Logo tight className="h-6 w-auto shrink-0 text-primary" />
               <span className="text-xl sm:text-2xl font-brand font-semibold tracking-tight text-gray-900 dark:text-gray-50">
-                Search<span className="text-primary">Pet</span>
+                Search<span className="text-primary dark:text-primary-light">Pet</span>
               </span>
             </Link>
 
@@ -447,7 +451,7 @@ export function MainLayout() {
               <div className="flex items-center gap-2 mb-3">
                 <Logo className="h-6 w-6 text-primary" />
                 <span className="font-brand font-semibold tracking-tight text-gray-900 dark:text-gray-50">
-                  Search<span className="text-primary">Pet</span>
+                  Search<span className="text-primary dark:text-primary-light">Pet</span>
                 </span>
               </div>
               <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -478,7 +482,7 @@ export function MainLayout() {
                 href="https://github.com/Goncar29/searchpet"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-sm text-primary hover:underline mt-1 inline-block"
+                className="text-sm text-primary dark:text-primary-light hover:underline mt-1 inline-block"
               >
                 {t('footer:contactRepo')}
               </a>

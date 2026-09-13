@@ -138,7 +138,7 @@ export function LoginPage() {
                 if (fieldErrors.password) setFieldErrors((prev) => ({ ...prev, password: undefined }));
               }}
               labelAction={
-                <Link to="/forgot-password" className="text-sm text-primary hover:underline">
+                <Link to="/forgot-password" className="text-sm text-primary dark:text-primary-light hover:underline">
                   {t('auth:forgotPassword.link')}
                 </Link>
               }
@@ -154,7 +154,7 @@ export function LoginPage() {
             </button>
 
             <p className="text-center text-sm text-gray-500 dark:text-gray-400">
-              <Link to="/register" className="text-primary font-semibold hover:underline">
+              <Link to="/register" className="text-primary dark:text-primary-light font-semibold hover:underline">
                 {t('auth:login.noAccount')}
               </Link>
             </p>
