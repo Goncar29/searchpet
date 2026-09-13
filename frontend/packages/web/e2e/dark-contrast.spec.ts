@@ -102,23 +102,87 @@ function medirContraste(): Resultado {
   };
 
   /**
-   * El fondo EFECTIVO, compuesto desde la raíz hacia abajo.
+   * Los fondos CANDIDATOS detrás de un elemento. El veredicto usa el PEOR.
    *
-   * No alcanza con el `background-color` del elemento ni con el del padre: un
-   * `bg-primary/15` sobre `dark:bg-gray-900` no es ninguno de los dos, y es
-   * justo el caso del badge que el #240 midió mal la primera vez.
+   * Devuelve una lista y no un color por los GRADIENTES. Un elemento con
+   * `bg-gradient-to-br from-primary to-primary-dark` tiene `backgroundColor`
+   * TRANSPARENTE: el color vive en `background-image`. Una cadena que sólo mira
+   * `backgroundColor` se lo saltea y termina midiendo contra el fondo de más
+   * atrás — que no es el que se ve.
+   *
+   * Y eso no era teórico: los héroes de `/`, `/adopt`, `/shelters` y
+   * `/leaderboard` son gradientes naranjas con texto blanco encima. Medido, un
+   * `text-white/70` ahí da **3.13:1** contra el gradiente real y **9.80:1**
+   * contra el `gray-950` que la cadena alcanzaba. O sea que el guard aprobaba
+   * con holgura un texto que en la pantalla no se lee — un falso negativo
+   * silencioso, que es el peor modo de falla que puede tener un guard.
+   *
+   * Las paradas del gradiente se sacan del `background-image` y se pintan en el
+   * canvas como cualquier otro color (así se resuelven `oklch`/`oklab` sin
+   * parsearlos). Tomar el ratio MÍNIMO contra todas las paradas es lo correcto:
+   * si el texto se lee contra la parada más desfavorable, se lee en todo el
+   * gradiente.
+   *
+   * Lo que sigue sin cubrir: una IMAGEN de fondo (`url(...)`), cuyo color no se
+   * puede conocer sin muestrear píxeles. Ahí la cadena se la saltea igual que
+   * antes, y queda anotado en vez de fingir que se midió.
    */
-  const fondoDe = (el: Element): number[] => {
-    const cadena: string[] = [];
-    for (let n: Element | null = el; n && n !== document.documentElement; n = n.parentElement) {
-      const bg = getComputedStyle(n).backgroundColor;
-      if (bg && bg !== 'transparent' && bg !== 'rgba(0, 0, 0, 0)') cadena.push(bg);
-    }
-    cadena.push(getComputedStyle(document.documentElement).backgroundColor || 'rgb(255,255,255)');
-    let acumulado: number[] | null = null;
-    for (const bg of cadena.reverse()) acumulado = componer(bg, acumulado);
-    return acumulado!;
+  /**
+   * ¿Este color tapa por completo lo que tenga detrás?
+   *
+   * Se resuelve pintándolo sobre blanco y sobre negro: si los dos dan lo mismo,
+   * no deja pasar nada. No se parsea el alfa de la cadena — con `oklch()` y
+   * `color(...)` ese parseo es justamente lo que este archivo evita.
+   */
+  const esOpaco = (color: string): boolean => {
+    const sobreBlanco = componer(color, [255, 255, 255]);
+    const sobreNegro = componer(color, [0, 0, 0]);
+    return sobreBlanco.every((v, i) => v === sobreNegro[i]);
   };
+
+  const fondosDe = (el: Element): number[][] => {
+    const capas: string[] = [];
+    const gradientes: string[] = [];
+    for (let n: Element | null = el; n && n !== document.documentElement; n = n.parentElement) {
+      const s = getComputedStyle(n);
+      const bi = s.backgroundImage;
+      if (bi && bi !== 'none' && bi.includes('gradient')) {
+        // Las paradas de color, sin la dirección ni los porcentajes.
+        const stops = bi.match(/(?:oklch|oklab|rgba?|hsla?|color)\([^()]*(?:\([^()]*\)[^()]*)*\)|#[0-9a-f]{3,8}/gi);
+        if (stops) gradientes.push(...stops);
+      }
+      const bg = s.backgroundColor;
+      if (bg && bg !== 'transparent' && bg !== 'rgba(0, 0, 0, 0)') {
+        capas.push(bg);
+        // SE CORTA EN EL PRIMER FONDO OPACO, y esto no es una optimización.
+        // Sin el corte, el botón `bg-white text-primary` que va ENCIMA del hero
+        // arrastraba las paradas del gradiente de su ancestro y el peor caso
+        // daba 1:1 — un falso positivo sobre un botón perfectamente legible. Lo
+        // que está detrás de una capa opaca no se ve, y por lo tanto no cuenta.
+        if (esOpaco(bg)) return terminar(capas, gradientes);
+      }
+    }
+    capas.push(getComputedStyle(document.documentElement).backgroundColor || 'rgb(255,255,255)');
+    return terminar(capas, gradientes);
+  };
+
+  function terminar(capas: string[], gradientes: string[]): number[][] {
+
+    let plano: number[] | null = null;
+    for (const bg of capas.reverse()) plano = componer(bg, plano);
+
+    // Cada parada se compone sobre el fondo plano: un gradiente puede llevar
+    // alfa, y ahí lo que se ve es la mezcla.
+    const candidatos = [plano!];
+    for (const g of gradientes) {
+      try {
+        candidatos.push(componer(g, plano));
+      } catch {
+        // Una notación que el canvas no entienda no debe tumbar el barrido.
+      }
+    }
+    return candidatos;
+  }
 
   const visible = (el: Element) => {
     const r = el.getBoundingClientRect();
@@ -155,9 +219,19 @@ function medirContraste(): Resultado {
     const grande = px >= 24 || (px >= 18.66 && peso >= 700);
     const umbral = grande ? 3 : 4.5;
 
-    const fondo = fondoDe(el);
-    const texto = componer(s.color, fondo);
-    const r = ratio(texto, fondo);
+    // EL PEOR de los fondos candidatos, no el primero: con un gradiente detrás,
+    // "se lee" tiene que valer en toda su extensión, no en la parada que más
+    // convenga.
+    const candidatos = fondosDe(el);
+    let r = Infinity;
+    let fondo = candidatos[0];
+    for (const c of candidatos) {
+      const actual = ratio(componer(s.color, c), c);
+      if (actual < r) {
+        r = actual;
+        fondo = c;
+      }
+    }
 
     if (r < umbral) {
       hallazgos.push({

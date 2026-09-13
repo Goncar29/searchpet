@@ -317,7 +317,7 @@ export function LeaderboardPage() {
           <h1 className="font-display text-display-sm md:text-display mb-3">
             {t('leaderboard:title')}
           </h1>
-          <p className="text-lg text-white/80 max-w-2xl mx-auto">{t('leaderboard:subtitle')}</p>
+          <p className="text-lg text-white max-w-2xl mx-auto">{t('leaderboard:subtitle')}</p>
         </div>
       </section>
 
@@ -501,7 +501,7 @@ export function LeaderboardPage() {
             <div className="rounded-2xl bg-gradient-to-br from-primary to-primary-dark text-white p-6">
               <Icon name="celebration" className="h-7 w-7 mb-3" />
               <p className="font-display text-display-sm">{stats?.pets_reunited ?? 0}</p>
-              <p className="text-sm text-white/70">{t('leaderboard:statReunited')}</p>
+              <p className="text-sm text-white">{t('leaderboard:statReunited')}</p>
             </div>
 
             <div className="rounded-2xl bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 p-6">

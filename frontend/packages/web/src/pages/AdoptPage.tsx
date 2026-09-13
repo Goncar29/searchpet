@@ -62,7 +62,7 @@ export function AdoptPage() {
           <h1 className="font-display text-display-sm md:text-display mb-3">
             {t('adoption:section.title')}
           </h1>
-          <p className="text-lg text-white/80 max-w-2xl mx-auto">
+          <p className="text-lg text-white max-w-2xl mx-auto">
             {t('adoption:section.subtitle')}
           </p>
         </div>

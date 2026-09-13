@@ -88,7 +88,7 @@ export function SheltersPage() {
           <h1 className="font-display text-display-sm md:text-display mb-3">
             {t('shelters:title')}
           </h1>
-          <p className="text-lg text-white/80 max-w-2xl mx-auto">
+          <p className="text-lg text-white max-w-2xl mx-auto">
             {t('shelters:description')}
           </p>
         </div>
@@ -143,19 +143,19 @@ export function SheltersPage() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="text-center">
               <p className="font-display text-display-sm">{stats?.pets_reunited || 0}</p>
-              <p className="text-sm text-white/70">{t('shelters:impactFound')}</p>
+              <p className="text-sm text-white">{t('shelters:impactFound')}</p>
             </div>
             <div className="text-center">
               <p className="font-display text-display-sm">{stats?.total_users || 0}</p>
-              <p className="text-sm text-white/70">{t('shelters:impactUsers')}</p>
+              <p className="text-sm text-white">{t('shelters:impactUsers')}</p>
             </div>
             <div className="text-center">
               <p className="font-display text-display-sm">{stats?.searches_started || 0}</p>
-              <p className="text-sm text-white/70">{t('shelters:impactReports')}</p>
+              <p className="text-sm text-white">{t('shelters:impactReports')}</p>
             </div>
             <div className="text-center">
               <p className="font-display text-display-sm">{stats?.total_pets || 0}</p>
-              <p className="text-sm text-white/70">{t('shelters:impactPets')}</p>
+              <p className="text-sm text-white">{t('shelters:impactPets')}</p>
             </div>
           </div>
         </div>

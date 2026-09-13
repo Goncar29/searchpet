@@ -350,7 +350,7 @@ export function HomePage() {
               <h1 className="font-display text-display-sm md:text-display mb-4">
                 {t('home:hero.title')}
               </h1>
-              <p className="text-base sm:text-lg text-white/80 max-w-2xl mx-auto lg:mx-0 mb-8">
+              <p className="text-base sm:text-lg text-white max-w-2xl mx-auto lg:mx-0 mb-8">
                 {t('home:hero.subtitle')}
               </p>
               <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center lg:justify-start">
