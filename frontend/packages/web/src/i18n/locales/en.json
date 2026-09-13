@@ -708,7 +708,12 @@
       "notFound": "Foster home not found",
       "prevPhoto": "Previous photo",
       "nextPhoto": "Next photo",
-      "goToPhoto": "Go to photo {{number}}"
+      "goToPhoto": "Go to photo {{number}}",
+      "loadError": "We could not load this home",
+      "loadErrorText": "It's not that it doesn't exist: we couldn't read it. Try again.",
+      "offlineText": "We couldn't read this home. Try again when your connection is back.",
+      "notFoundText": "This foster home does not exist or was taken down.",
+      "retry": "Retry"
     },
     "register": {
       "required": "required",

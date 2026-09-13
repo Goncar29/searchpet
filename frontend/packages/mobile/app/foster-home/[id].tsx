@@ -20,6 +20,16 @@ import { useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import i18next from 'i18next';
+// LA RUTA RELATIVA ES DELIBERADA Y NO SE PUEDE "NORMALIZAR" A `@shared/...`.
+//
+// `jest.config.js` mapea `^(\.\./)+shared/api/client$` al mock de
+// `__mocks__/shared-api-client.js` y `^@shared/(.*)$` al módulo REAL, así que
+// las dos grafías son DOS CLASES distintas bajo Jest. Escribir `@shared/api/
+// client` acá —lo natural, y lo que hace el gemelo de web— dejaría el
+// `instanceof ApiError` comparando contra otra clase que la del test, y los
+// casos de 404/400 se irían en silencio a la rama de "no pudimos leerlo".
+// Compila, corre, y el test sigue verde sobre el comportamiento equivocado.
+import { ApiError } from '../../../shared/api/client';
 import { useFosterHomeByID, useSubmitAbuseReport } from '@shared/hooks';
 import { getErrorMessage } from '@shared/utils/apiErrors';
 import type { FosterHomePhoto, AnimalKind } from '@shared/types';
@@ -35,22 +45,45 @@ export default function FosterHomeDetailScreen() {
   const { t } = useTranslation(['fosterHomes', 'errors', 'common']);
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  // `isError` ya no se lee: la guarda de abajo mira `!fosterHome`, que es lo
-  // que decide si hay algo para mostrar.
-  //
-  // PENDIENTE ANOTADO, distinto de este arreglo: cuando NO hay hogar y encima
-  // hubo error, el cartel dice `common:noResults` ("sin resultados"), que
-  // afirma algo sobre el mundo que no podemos saber si no llegamos a leerlo.
-  // Distinguirlo necesita copy propia en los tres idiomas, como se hizo en
-  // `story/[id]`. Se deja fuera para no ampliar el alcance sin avisar.
   const fosterHomeQuery = useFosterHomeByID(id);
-  const { data: fosterHome, isLoading } = fosterHomeQuery;
+  const { data: fosterHome, isLoading, isError, error, isPaused, isFetching, refetch } =
+    fosterHomeQuery;
+
+  // `isError` NO alcanza para saber si el hogar existe: `apiClient` tira
+  // `ApiError` ante CUALQUIER respuesta no-ok, así que un hogar dado de baja
+  // llega acá igual que un 502. Sin mirar el status, el cartel diría "no
+  // llegamos a leerlo" justamente cuando NO existe, y ofrecería reintentar
+  // contra un 404 que nunca va a cambiar.
+  // 404 Y TAMBIÉN 400: `GetApprovedByID` hace `uuid.Parse(id)` antes que nada y
+  // un id malformado sale por `ErrInvalidInput`, que `writeFHNotFoundOr500`
+  // traduce a 400. O sea que un deep link roto —`searchpet://foster-home/abc`—
+  // caía en "no llegamos a leerlo" con un botón de reintentar contra una
+  // respuesta que nunca va a cambiar: exactamente el modo de falla que esta
+  // pantalla vino a cerrar, un status más allá.
+  //
+  // No se toma todo 4xx: un 401/403 sería "no tenés permiso", que no es lo
+  // mismo que "no existe" y merecería su propia copy el día que aparezca.
+  const noExiste =
+    error instanceof ApiError && (error.status === 404 || error.status === 400);
+  const falloLaLectura = isError && !noExiste;
   const { user } = useAuthStore();
 
   const submitAbuseReport = useSubmitAbuseReport();
 
   const [reportModalVisible, setReportModalVisible] = useState(false);
   const [reportReason, setReportReason] = useState('');
+
+  // `router.back()` a secas ES UN NO-OP cuando no hay historial, y en silencio:
+  // expo-router llama `navigationRef.goBack()`, que no hace nada y sólo avisa en
+  // desarrollo. Justo el escenario que este archivo nombra —un deep link roto,
+  // `searchpet://foster-home/abc`— llega EN FRÍO, así que esta pantalla queda al
+  // fondo del stack (no hay `unstable_settings.initialRouteName` en ningún
+  // layout) y el botón "Volver" no lleva a ninguna parte. O sea que la salida
+  // que estas ramas prometen no existía exactamente donde más hace falta.
+  const volver = () => {
+    if (router.canGoBack()) router.back();
+    else router.replace('/');
+  };
 
   if (isLoading) {
     return (
@@ -63,11 +96,77 @@ export default function FosterHomeDetailScreen() {
   // `!fosterHome` y NO `isError || !fosterHome`: con el `||`, un refetch fallido
   // tapaba el hogar ya cargado con "sin resultados", que es una afirmación
   // falsa sobre algo que sí existe.
-  if (!fosterHome) {
+  // `|| noExiste` y no sólo `!fosterHome`: React Query CONSERVA lo cacheado
+  // cuando falla un refetch, así que un hogar dado de baja por moderación
+  // seguía mostrándose entero —con los botones de contacto— a cualquiera que
+  // ya lo hubiera abierto, con apenas la franja neutra de datos viejos encima.
+  //
+  // Un 404 es una respuesta DEFINITIVA de que la fila no está; un 502 no dice
+  // nada sobre el hogar. Por eso sólo el primero descarta lo cacheado, y el
+  // test de "con datos y un refetch fallido no se pinta nada" sigue valiendo
+  // para el 502.
+  // OFFLINE VA ANTES QUE "no existe", y ésta es la rama que faltaba.
+  //
+  // React Query PAUSA la query sin conexión —mobile cablea NetInfo al
+  // `onlineManager` en `utils/onlineStatus.ts`—, y una query pausada queda con
+  // `isFetching` false, o sea `isLoading` false (`isLoading = isPending &&
+  // isFetching`), `isError` false y `data` undefined. Sin esta rama, abrir un
+  // hogar en modo avión con la caché fría afirmaba "este hogar no existe o fue
+  // dado de baja": la MISMA mentira que esta pantalla vino a matar, un estado
+  // más allá, y encima sin botón de reintentar.
+  //
+  // `components/list/ListState.tsx` ya evalúa `isPaused` antes que `isPending`
+  // por este motivo exacto; esto no es una lista, así que la rama venía a mano.
+  if (isPaused && !fosterHome) {
     return (
       <View style={styles.center}>
-        <Text style={{ fontSize: 48 }}>🏠</Text>
-        <Text style={styles.notFoundText}>{t('common:noResults')}</Text>
+        <Text style={{ fontSize: 48 }}>📡</Text>
+        <Text style={styles.notFoundText}>{t('common:offlineTitle')}</Text>
+        <Text style={styles.notFoundSubtext}>{t('fosterHomes:detail.offlineText')}</Text>
+        <TouchableOpacity style={styles.notFoundButton} onPress={volver}>
+          <Text style={styles.notFoundButtonText}>{t('fosterHomes:detail.back')}</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  if (!fosterHome || noExiste) {
+    // Las DOS causas se distinguen, que antes se pintaban igual: sin hogar y con
+    // error decía `common:noResults` ("sin resultados"), una afirmación sobre el
+    // mundo que no podemos hacer si no llegamos a leerlo.
+    //
+    // Volver está SIEMPRE y reintentar se suma sólo cuando puede servir de algo:
+    // contra un 404, reintentar es prometer algo que no va a pasar.
+    return (
+      <View style={styles.center}>
+        <Text style={{ fontSize: 48 }}>{falloLaLectura ? '⚠️' : '🏠'}</Text>
+        <Text style={styles.notFoundText}>
+          {falloLaLectura ? t('fosterHomes:detail.loadError') : t('fosterHomes:detail.notFound')}
+        </Text>
+        <Text style={styles.notFoundSubtext}>
+          {falloLaLectura
+            ? t('fosterHomes:detail.loadErrorText')
+            : t('fosterHomes:detail.notFoundText')}
+        </Text>
+        {/* `disabled` mientras `isFetching`: desde el estado de error la query
+            ya está en `status: 'error'`, así que un refetch NO vuelve a pasar
+            por `isLoading` y la pantalla se queda congelada. Sin esto el
+            usuario toca, no cambia nada durante segundos, y si vuelve a fallar
+            no cambia nada nunca — indistinguible de un botón roto. */}
+        {falloLaLectura && (
+          <TouchableOpacity
+            style={[styles.notFoundButton, isFetching && { opacity: 0.5 }]}
+            disabled={isFetching}
+            onPress={() => refetch()}
+          >
+            <Text style={styles.notFoundButtonText}>
+              {isFetching ? t('common:loading') : t('fosterHomes:detail.retry')}
+            </Text>
+          </TouchableOpacity>
+        )}
+        <TouchableOpacity style={styles.notFoundButton} onPress={volver}>
+          <Text style={styles.notFoundButtonText}>{t('fosterHomes:detail.back')}</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -263,6 +362,25 @@ const styles = StyleSheet.create({
     fontSize: FONTS.sizes.lg,
     color: COLORS.textSecondary,
     marginTop: SPACING.md,
+  },
+  notFoundSubtext: {
+    fontSize: FONTS.sizes.md,
+    color: COLORS.textSecondary,
+    marginTop: SPACING.xs,
+    textAlign: 'center',
+    paddingHorizontal: SPACING.xl,
+  },
+  notFoundButton: {
+    marginTop: SPACING.md,
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.lg,
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.primary,
+  },
+  notFoundButtonText: {
+    color: '#fff',
+    fontSize: FONTS.sizes.md,
+    fontWeight: '600',
   },
   carouselContainer: { width, height: 260, position: 'relative' },
   carouselImage: { width, height: 260, resizeMode: 'cover' },
