@@ -510,6 +510,7 @@
       "photos": "Fotos do local",
       "loadError": "Não conseguimos carregar o lar",
       "loadErrorText": "Não é que não exista: não conseguimos lê-lo. Tente de novo.",
+      "offlineText": "Não conseguimos ler este lar. Tente de novo quando a conexão voltar.",
       "notFound": "Lar não encontrado",
       "notFoundText": "Este lar temporário não existe ou foi removido.",
       "retry": "Tentar de novo",

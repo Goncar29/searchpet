@@ -149,6 +149,32 @@ function StaleBanner({ message, onRetry }: { message: string; onRetry: () => voi
 }
 
 /**
+ * La franja de datos viejos, para una pantalla que NO es una lista.
+ *
+ * Gemela exacta de `mobile/components/list/ListState.tsx`, que la exporta desde
+ * el principio: web la tenía encerrada adentro de `ListState`, así que un
+ * DETALLE —el de un hogar de tránsito, por ejemplo— se comía un refetch fallido
+ * en silencio. El usuario deja la pestaña abierta, `refetchOnWindowFocus`
+ * dispara contra un Render dormido, falla, y sigue leyendo un teléfono de
+ * contacto que puede estar viejo sin manera de enterarse ni de reintentar.
+ *
+ * SÓLO cuando HAY datos en pantalla: sin datos la pantalla ya dibuja su propio
+ * cartel de error, y esta franja encima sería el mismo aviso dos veces.
+ */
+export function StaleDataNotice<TData>({ query }: { query: UseQueryResult<TData> }) {
+  const { t } = useTranslation('common');
+
+  if (query.data == null) return null;
+  if (query.isPaused) {
+    return <StaleBanner message={t('common:offlineStale')} onRetry={() => query.refetch()} />;
+  }
+  if (query.isError) {
+    return <StaleBanner message={t('common:staleTitle')} onRetry={() => query.refetch()} />;
+  }
+  return null;
+}
+
+/**
  * `select` lo exige el tipo SOLO cuando hace falta.
  *
  * Los hooks del repo no coinciden en forma: `useMyPets` devuelve el array

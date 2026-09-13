@@ -711,6 +711,7 @@
       "goToPhoto": "Ir a la foto {{number}}",
       "loadError": "No pudimos cargar el hogar",
       "loadErrorText": "No es que no exista: no llegamos a leerlo. Probá de nuevo.",
+      "offlineText": "No pudimos leer este hogar. Cuando vuelva la conexión, probá de nuevo.",
       "notFoundText": "Este hogar de tránsito no existe o fue dado de baja.",
       "retry": "Reintentar"
     },

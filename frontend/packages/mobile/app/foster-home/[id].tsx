@@ -20,6 +20,15 @@ import { useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import i18next from 'i18next';
+// LA RUTA RELATIVA ES DELIBERADA Y NO SE PUEDE "NORMALIZAR" A `@shared/...`.
+//
+// `jest.config.js` mapea `^(\.\./)+shared/api/client$` al mock de
+// `__mocks__/shared-api-client.js` y `^@shared/(.*)$` al módulo REAL, así que
+// las dos grafías son DOS CLASES distintas bajo Jest. Escribir `@shared/api/
+// client` acá —lo natural, y lo que hace el gemelo de web— dejaría el
+// `instanceof ApiError` comparando contra otra clase que la del test, y los
+// casos de 404/400 se irían en silencio a la rama de "no pudimos leerlo".
+// Compila, corre, y el test sigue verde sobre el comportamiento equivocado.
 import { ApiError } from '../../../shared/api/client';
 import { useFosterHomeByID, useSubmitAbuseReport } from '@shared/hooks';
 import { getErrorMessage } from '@shared/utils/apiErrors';
@@ -37,7 +46,8 @@ export default function FosterHomeDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const fosterHomeQuery = useFosterHomeByID(id);
-  const { data: fosterHome, isLoading, isError, error, refetch } = fosterHomeQuery;
+  const { data: fosterHome, isLoading, isError, error, isPaused, isFetching, refetch } =
+    fosterHomeQuery;
 
   // `isError` NO alcanza para saber si el hogar existe: `apiClient` tira
   // `ApiError` ante CUALQUIER respuesta no-ok, así que un hogar dado de baja
@@ -63,6 +73,18 @@ export default function FosterHomeDetailScreen() {
   const [reportModalVisible, setReportModalVisible] = useState(false);
   const [reportReason, setReportReason] = useState('');
 
+  // `router.back()` a secas ES UN NO-OP cuando no hay historial, y en silencio:
+  // expo-router llama `navigationRef.goBack()`, que no hace nada y sólo avisa en
+  // desarrollo. Justo el escenario que este archivo nombra —un deep link roto,
+  // `searchpet://foster-home/abc`— llega EN FRÍO, así que esta pantalla queda al
+  // fondo del stack (no hay `unstable_settings.initialRouteName` en ningún
+  // layout) y el botón "Volver" no lleva a ninguna parte. O sea que la salida
+  // que estas ramas prometen no existía exactamente donde más hace falta.
+  const volver = () => {
+    if (router.canGoBack()) router.back();
+    else router.replace('/');
+  };
+
   if (isLoading) {
     return (
       <View style={styles.center}>
@@ -83,6 +105,31 @@ export default function FosterHomeDetailScreen() {
   // nada sobre el hogar. Por eso sólo el primero descarta lo cacheado, y el
   // test de "con datos y un refetch fallido no se pinta nada" sigue valiendo
   // para el 502.
+  // OFFLINE VA ANTES QUE "no existe", y ésta es la rama que faltaba.
+  //
+  // React Query PAUSA la query sin conexión —mobile cablea NetInfo al
+  // `onlineManager` en `utils/onlineStatus.ts`—, y una query pausada queda con
+  // `isFetching` false, o sea `isLoading` false (`isLoading = isPending &&
+  // isFetching`), `isError` false y `data` undefined. Sin esta rama, abrir un
+  // hogar en modo avión con la caché fría afirmaba "este hogar no existe o fue
+  // dado de baja": la MISMA mentira que esta pantalla vino a matar, un estado
+  // más allá, y encima sin botón de reintentar.
+  //
+  // `components/list/ListState.tsx` ya evalúa `isPaused` antes que `isPending`
+  // por este motivo exacto; esto no es una lista, así que la rama venía a mano.
+  if (isPaused && !fosterHome) {
+    return (
+      <View style={styles.center}>
+        <Text style={{ fontSize: 48 }}>📡</Text>
+        <Text style={styles.notFoundText}>{t('common:offlineTitle')}</Text>
+        <Text style={styles.notFoundSubtext}>{t('fosterHomes:detail.offlineText')}</Text>
+        <TouchableOpacity style={styles.notFoundButton} onPress={volver}>
+          <Text style={styles.notFoundButtonText}>{t('fosterHomes:detail.back')}</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
   if (!fosterHome || noExiste) {
     // Las DOS causas se distinguen, que antes se pintaban igual: sin hogar y con
     // error decía `common:noResults` ("sin resultados"), una afirmación sobre el
@@ -101,12 +148,23 @@ export default function FosterHomeDetailScreen() {
             ? t('fosterHomes:detail.loadErrorText')
             : t('fosterHomes:detail.notFoundText')}
         </Text>
+        {/* `disabled` mientras `isFetching`: desde el estado de error la query
+            ya está en `status: 'error'`, así que un refetch NO vuelve a pasar
+            por `isLoading` y la pantalla se queda congelada. Sin esto el
+            usuario toca, no cambia nada durante segundos, y si vuelve a fallar
+            no cambia nada nunca — indistinguible de un botón roto. */}
         {falloLaLectura && (
-          <TouchableOpacity style={styles.notFoundButton} onPress={() => refetch()}>
-            <Text style={styles.notFoundButtonText}>{t('fosterHomes:detail.retry')}</Text>
+          <TouchableOpacity
+            style={[styles.notFoundButton, isFetching && { opacity: 0.5 }]}
+            disabled={isFetching}
+            onPress={() => refetch()}
+          >
+            <Text style={styles.notFoundButtonText}>
+              {isFetching ? t('common:loading') : t('fosterHomes:detail.retry')}
+            </Text>
           </TouchableOpacity>
         )}
-        <TouchableOpacity style={styles.notFoundButton} onPress={() => router.back()}>
+        <TouchableOpacity style={styles.notFoundButton} onPress={volver}>
           <Text style={styles.notFoundButtonText}>{t('fosterHomes:detail.back')}</Text>
         </TouchableOpacity>
       </View>

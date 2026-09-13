@@ -5,6 +5,7 @@ import { useFosterHomeByID } from '@shared/hooks';
 import { ApiError } from '@shared/api/client';
 import { useAuth } from '../context/AuthContext';
 import { ReportFosterHomeModal } from '../components/ReportFosterHomeModal';
+import { StaleDataNotice } from '../components/list/ListState';
 import { cloudinaryFit } from '@shared/utils/cloudinaryThumb';
 
 export function FosterHomeDetailPage() {
@@ -12,7 +13,9 @@ export function FosterHomeDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { data: fosterHome, isLoading, isError, error, refetch } = useFosterHomeByID(id || '');
+  const fosterHomeQuery = useFosterHomeByID(id || '');
+  const { data: fosterHome, isLoading, isError, error, isPaused, isFetching, refetch } =
+    fosterHomeQuery;
 
   // Espeja `mobile/app/foster-home/[id].tsx`, que es la MISMA pantalla: sin
   // esto, web se quedaba con el defecto que este PR arregla en mobile.
@@ -61,6 +64,35 @@ export function FosterHomeDetailPage() {
   //
   // El backend 404ea también los no aprobados, así que no hay un estado
   // "pendiente de aprobación" distinto para mostrarle al visitante.
+  // OFFLINE VA ANTES QUE "no existe", y ésta es la rama que faltaba.
+  //
+  // React Query PAUSA la query cuando el navegador está offline: queda
+  // `status: 'pending'` con `fetchStatus: 'paused'`, o sea `isFetching` false y
+  // por lo tanto `isLoading` false (`isLoading = isPending && isFetching`),
+  // `isError` false y `data` undefined. Sin esta rama caía derecho en
+  // `!fosterHome` con `falloLaLectura` en false y afirmaba "este hogar no existe
+  // o fue dado de baja" cuando lo único que pasó es que no hay señal — la MISMA
+  // mentira que este PR vino a matar, un estado más allá. Y encima sin botón de
+  // reintentar.
+  //
+  // `ListState` de las dos plataformas ya evalúa `isPaused` antes que
+  // `isPending` por este motivo exacto; esta pantalla no es una lista, así que
+  // tenía que traer la rama a mano.
+  if (isPaused && !fosterHome) {
+    return (
+      <div className="text-center py-20">
+        <p className="text-5xl mb-4">📡</p>
+        <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">
+          {t('common:offlineTitle')}
+        </h2>
+        <p className="text-gray-500 dark:text-gray-400 mt-2">
+          {t('fosterHomes:detail.offlineText')}
+        </p>
+        <Link to="/fosterhomes" className="text-primary font-semibold mt-4 inline-block">{t('common:back')}</Link>
+      </div>
+    );
+  }
+
   if (!fosterHome || noExiste) {
     return (
       <div className="text-center py-20">
@@ -74,13 +106,20 @@ export function FosterHomeDetailPage() {
             : t('fosterHomes:detail.notFoundText')}
         </p>
         {/* Volver está SIEMPRE; reintentar sólo cuando puede servir de algo.
-            Contra un 404 sería prometer algo que no va a pasar. */}
+            Contra un 404 sería prometer algo que no va a pasar.
+
+            `disabled` mientras `isFetching`: desde el estado de error la query
+            ya está en `status: 'error'`, así que un refetch NO vuelve a pasar
+            por `isLoading` y la tarjeta se queda congelada. Sin esto el usuario
+            clickea, no cambia nada durante segundos, y si vuelve a fallar no
+            cambia nada nunca — indistinguible de un botón roto. */}
         {falloLaLectura && (
           <button
             onClick={() => refetch()}
-            className="text-primary font-semibold mt-4 inline-block mr-4"
+            disabled={isFetching}
+            className="text-primary font-semibold mt-4 inline-block mr-4 disabled:opacity-50"
           >
-            {t('fosterHomes:detail.retry')}
+            {isFetching ? t('common:loading') : t('fosterHomes:detail.retry')}
           </button>
         )}
         <Link to="/fosterhomes" className="text-primary font-semibold mt-4 inline-block">{t('common:back')}</Link>
@@ -100,6 +139,12 @@ export function FosterHomeDetailPage() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {/* Con datos cacheados y un refetch fallido la pantalla seguía entera y
+          MUDA: el usuario deja la pestaña abierta, `refetchOnWindowFocus`
+          dispara contra un Render dormido, falla, y él sigue leyendo un
+          teléfono de contacto que puede estar viejo sin enterarse ni poder
+          reintentar. Mobile ya tenía esta franja; web no la exportaba. */}
+      <StaleDataNotice query={fosterHomeQuery} />
       <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-lg">
         {/* Galería de fotos — una a la vez con navegación (mismo patrón que el detalle de mascota) */}
         {photos.length > 0 && activePhoto ? (

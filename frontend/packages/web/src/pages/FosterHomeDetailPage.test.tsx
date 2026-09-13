@@ -113,6 +113,48 @@ describe('FosterHomeDetailPage — 404 no es lo mismo que "no pudimos leerlo"', 
     expect(screen.queryByText(/Montevideo/)).not.toBeInTheDocument();
   });
 
+  // OFFLINE NO ES "NO EXISTE", y es la mentira que quedaba viva.
+  //
+  // React Query pausa la query sin conexión: `isLoading` false (porque
+  // `isFetching` es false), `isError` false, `data` undefined. Sin la rama de
+  // `isPaused` eso caía en `!fosterHome` y afirmaba que el hogar no existe.
+  it('sin conexión y sin caché dice que estás offline, NO que no existe', () => {
+    mockQuery = {
+      data: undefined,
+      isLoading: false,
+      isError: false,
+      isPaused: true,
+      error: null,
+      refetch: mockRefetch,
+    };
+    render(<FosterHomeDetailPage />, { wrapper });
+
+    expect(screen.getByText('common:offlineTitle')).toBeInTheDocument();
+    expect(screen.queryByText('fosterHomes:detail.notFound')).not.toBeInTheDocument();
+    expect(screen.queryByText('fosterHomes:detail.loadError')).not.toBeInTheDocument();
+    // Volver tiene que seguir estando: sin conexión, sin datos y sin salida
+    // sería el peor de los tres estados.
+    expect(screen.getByText('common:back')).toBeInTheDocument();
+  });
+
+  // La otra mitad, sin la cual bastaría con `isPaused` a secas: con datos
+  // cacheados, estar offline NO esconde el hogar. Lo que corresponde ahí es la
+  // franja de datos viejos, no un cartel que tape lo que sí tenemos.
+  it('sin conexión pero CON caché sigue mostrando el hogar', () => {
+    mockQuery = {
+      data: hogar,
+      isLoading: false,
+      isError: false,
+      isPaused: true,
+      error: null,
+      refetch: mockRefetch,
+    };
+    render(<FosterHomeDetailPage />, { wrapper });
+
+    expect(screen.getByText(/Montevideo/)).toBeInTheDocument();
+    expect(screen.queryByText('common:offlineTitle')).not.toBeInTheDocument();
+  });
+
   // EL DEFECTO QUE ESTE PORTE CIERRA: con `isError || !fosterHome`, un refetch
   // fallido tapaba un hogar ya cargado con "no encontrado" — un cartel que
   // miente sobre algo que está en pantalla.

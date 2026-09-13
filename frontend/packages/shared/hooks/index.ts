@@ -803,15 +803,25 @@ export const useFosterHomeByID = (id: string) => {
     queryKey: ['fosterHome', id],
     queryFn: () => apiClient.getFosterHomeByID(id),
     enabled: !!id,
-    // Sin esto hereda el `retry: 2` del root, o sea CUATRO pedidos y dos esperas
+    // Sin esto hereda el `retry: 2` del root, o sea TRES pedidos y dos esperas
     // de backoff contra un 404 que nunca va a cambiar — con el spinner puesto
     // todo ese rato antes de mostrar "Hogar no encontrado". La pantalla ya
     // esconde el botón de reintentar por ese motivo; reintentar por debajo lo
     // contradecía.
     //
+    // TRES Y NO CUATRO, y el número importa porque de él sale el `< 2` de abajo:
+    // `createRetryer` arranca `failureCount` en 0 y lo incrementa DESPUÉS de
+    // consultar el predicado, así que `retry: 2` reintenta con 0 y con 1 — dos
+    // reintentos sobre el pedido original. Verificado en el `retryer.js`
+    // instalado, no de memoria. Una versión anterior de este comentario decía
+    // "CUATRO pedidos": exageraba el costo que el cambio elimina, y con eso
+    // invitaba a proteger un número que nunca existió (regla #37).
+    //
     // Condicional y no `retry: false` como el vecino `useMyFosterHome`: contra
     // un 502 reintentar SÍ sirve, y ésa es justo la rama que la pantalla
-    // distingue. Se corta sólo en 4xx, que son respuestas definitivas.
+    // distingue. `intentos < 2` reproduce EXACTAMENTE el `retry: 2` heredado, o
+    // sea que lo único que este predicado cambia es el corte en 4xx — que es
+    // todo el punto.
     retry: (intentos, error) => {
       const definitivo =
         error instanceof ApiError && error.status >= 400 && error.status < 500;

@@ -119,6 +119,51 @@ describe('Detalle de hogar — 404 no es lo mismo que "no pudimos leerlo"', () =
     expect(queryByText('fosterHomes:detail.retry')).toBeTruthy();
   });
 
+  // OFFLINE NO ES "NO EXISTE", y es la mentira que quedaba viva.
+  //
+  // React Query pausa la query sin conexión —mobile cablea NetInfo al
+  // `onlineManager`—, y ahí `isLoading` es false (porque `isFetching` lo es),
+  // `isError` false y `data` undefined. Sin la rama de `isPaused`, abrir un
+  // hogar en modo avión afirmaba que no existe.
+  //
+  // OJO: el test de acá arriba ("sin error y sin datos dice que no existe")
+  // describe un estado con `isPaused` en FALSE. Los dos conviven a propósito.
+  it('sin conexión y sin caché dice que estás offline, NO que no existe', () => {
+    mockUseFosterHomeByID.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: false,
+      isPaused: true,
+      error: null,
+      refetch: mockRefetch,
+    });
+
+    const { queryByText } = render(<FosterHomeDetailScreen />);
+
+    expect(queryByText('common:offlineTitle')).toBeTruthy();
+    expect(queryByText('fosterHomes:detail.notFound')).toBeNull();
+    expect(queryByText('fosterHomes:detail.loadError')).toBeNull();
+    expect(queryByText('fosterHomes:detail.back')).toBeTruthy();
+  });
+
+  // La otra mitad, sin la cual bastaría con `isPaused` a secas: con datos
+  // cacheados, estar offline NO esconde el hogar.
+  it('sin conexión pero CON caché sigue mostrando el hogar', () => {
+    mockUseFosterHomeByID.mockReturnValue({
+      data: { id: 'fh-1', owner_user_id: 'u-9', city: 'Montevideo', photos: [], animal_types: [] },
+      isLoading: false,
+      isError: false,
+      isPaused: true,
+      error: null,
+      refetch: mockRefetch,
+    });
+
+    const { queryByText } = render(<FosterHomeDetailScreen />);
+
+    expect(queryByText(/Montevideo/)).toBeTruthy();
+    expect(queryByText('common:offlineTitle')).toBeNull();
+  });
+
   // LA RUTA DE MODERACIÓN: un hogar dado de baja tiene que DESAPARECER aunque
   // esté cacheado. Sin esto seguía visible entero —con los botones de contacto—
   // para cualquiera que ya lo hubiera abierto.
