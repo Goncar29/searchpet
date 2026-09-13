@@ -132,7 +132,11 @@ export function FosterHomesPage() {
       {!isLoading && !isError && fosterHomes && fosterHomes.length === 0 && (
         <div className="text-center py-12">
           <p className="text-5xl mb-4">🏠</p>
-          <p className="text-gray-400 dark:text-gray-500">{t('fosterHomes:directory.empty')}</p>
+          {/* `dark:text-gray-400`: el 500 da 4.16:1 sobre el fondo oscuro. Este
+              cartel lo encontró el CI y no la corrida local, porque acá la base
+              TIENE hogares y el estado vacío nunca se dibuja — el espejo exacto
+              de `/shelters`, donde pasó al revés. */}
+          <p className="text-gray-400 dark:text-gray-400">{t('fosterHomes:directory.empty')}</p>
         </div>
       )}
 

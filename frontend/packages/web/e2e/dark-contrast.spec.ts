@@ -31,8 +31,8 @@ import {
  * con un test que la marque cuando deje de aplicar.
  */
 
-/** Los paths REALES de `App.tsx`. Ver el comentario de `CANARIO` abajo. */
 interface Ruta {
+  /** El path REAL de `App.tsx`. Ver el comentario de `CANARIO` más abajo. */
   path: string;
   /**
    * Un texto que SÓLO aparece si la lista de esa ruta renderizó de verdad.
@@ -57,12 +57,30 @@ interface Ruta {
   sinCubrir?: string;
 }
 
+/**
+ * PENDIENTE CONOCIDO: los ESTADOS VACÍOS no se fuerzan, se heredan de la base.
+ *
+ * Este guard mide lo que la base tenga, y eso le da una cobertura distinta en
+ * cada máquina. Pasó en las dos direcciones, con un ciclo de CI cada una:
+ *
+ *   `/shelters`     local vacío / CI con datos  → el CI encontró 26 en tarjetas
+ *   `/fosterhomes`  local con datos / CI vacío  → el CI encontró el cartel vacío
+ *
+ * O sea que ninguna de las dos bases cubre la pantalla entera, y "verde acá" no
+ * implica "verde allá". Lo que lo cerraría de raíz es interceptar los GET de
+ * lista con `page.route` y medir cada ruta DOS veces, con datos y con `[]`.
+ *
+ * No se hace todavía a propósito: es una ampliación que merece su propio PR y
+ * su propia revisión, y este guard ya cambió lo suficiente en éste.
+ */
+
 const RUTAS_PUBLICAS: Ruta[] = [
   // Sembradas en `beforeAll`: sus tarjetas se miden de verdad.
   { path: '/', ancla: () => new RegExp(nombreMascota) },
   { path: '/stories', ancla: () => new RegExp(tituloHistoria) },
-  // El seed del CI le pone 7 refugios; localmente puede venir vacía, así que el
-  // ancla es opcional y lo que se afirma es el `sinCubrir`.
+  // El seed del CI le pone 7 refugios, pero localmente la base puede venir
+  // vacía, así que no se puede exigir el ancla sin volver el guard dependiente
+  // de qué datos haya. Lo que sí se hace es DECIR qué no se midió.
   { path: '/shelters', sinCubrir: 'las tarjetas sólo se miden si la base tiene refugios' },
   { path: '/map', sinCubrir: 'los marcadores viven en el canvas de Leaflet, no son texto' },
   { path: '/adopt', sinCubrir: 'las tarjetas de adopción: el e2e no siembra ninguna' },
@@ -148,6 +166,19 @@ function medirContraste(): Resultado {
   };
 
   /**
+   * ¿Este color tapa por completo lo que tenga detrás?
+   *
+   * Se resuelve pintándolo sobre blanco y sobre negro: si los dos dan lo mismo,
+   * no deja pasar nada. No se parsea el alfa de la cadena — con `oklch()` y
+   * `color(...)` ese parseo es justamente lo que este archivo evita.
+   */
+  const esOpaco = (color: string): boolean => {
+    const sobreBlanco = componer(color, [255, 255, 255]);
+    const sobreNegro = componer(color, [0, 0, 0]);
+    return sobreBlanco.every((v, i) => v === sobreNegro[i]);
+  };
+
+  /**
    * Los fondos CANDIDATOS detrás de un elemento. El veredicto usa el PEOR.
    *
    * Devuelve una lista y no un color por los GRADIENTES. Un elemento con
@@ -173,19 +204,6 @@ function medirContraste(): Resultado {
    * puede conocer sin muestrear píxeles. Ahí la cadena se la saltea igual que
    * antes, y queda anotado en vez de fingir que se midió.
    */
-  /**
-   * ¿Este color tapa por completo lo que tenga detrás?
-   *
-   * Se resuelve pintándolo sobre blanco y sobre negro: si los dos dan lo mismo,
-   * no deja pasar nada. No se parsea el alfa de la cadena — con `oklch()` y
-   * `color(...)` ese parseo es justamente lo que este archivo evita.
-   */
-  const esOpaco = (color: string): boolean => {
-    const sobreBlanco = componer(color, [255, 255, 255]);
-    const sobreNegro = componer(color, [0, 0, 0]);
-    return sobreBlanco.every((v, i) => v === sobreNegro[i]);
-  };
-
   const fondosDe = (el: Element): number[][] => {
     const capas: string[] = [];
     const gradientes: string[] = [];
@@ -383,6 +401,16 @@ test.describe('contraste WCAG AA en modo oscuro', () => {
 
   for (const ruta of RUTAS_PUBLICAS) {
     test(`${ruta.path} — ningún texto por debajo del umbral`, async ({ page }) => {
+      // `sinCubrir` SE PUBLICA, no decora. Declararlo y no leerlo nunca es la
+      // misma forma que la exención muerta que este PR ya tuvo que sacar: un
+      // texto que dice "esto no está cubierto" y que nadie imprime envejece
+      // igual que una allowlist, y encima se lee como si el guard hiciera algo
+      // con él. Como anotación sale en el reporte de Playwright y en el log de
+      // CI, así que el verde de la ruta viene con su letra chica al lado.
+      if (ruta.sinCubrir) {
+        test.info().annotations.push({ type: 'sin cubrir', description: ruta.sinCubrir });
+      }
+
       const { hallazgos, medidos, oscuro, noMedibles } = await enModoOscuro(page, ruta);
 
       // LAS AFIRMACIONES QUE VAN ANTES DEL RESULTADO. Sin ellas, "cero
@@ -470,6 +498,16 @@ test.describe('contraste WCAG AA en modo oscuro — con sesión', () => {
 
   for (const ruta of RUTAS_CON_SESION) {
     test(`${ruta.path} — ningún texto por debajo del umbral`, async ({ page }) => {
+      // `sinCubrir` SE PUBLICA, no decora. Declararlo y no leerlo nunca es la
+      // misma forma que la exención muerta que este PR ya tuvo que sacar: un
+      // texto que dice "esto no está cubierto" y que nadie imprime envejece
+      // igual que una allowlist, y encima se lee como si el guard hiciera algo
+      // con él. Como anotación sale en el reporte de Playwright y en el log de
+      // CI, así que el verde de la ruta viene con su letra chica al lado.
+      if (ruta.sinCubrir) {
+        test.info().annotations.push({ type: 'sin cubrir', description: ruta.sinCubrir });
+      }
+
       const { hallazgos, medidos, oscuro, noMedibles } = await enModoOscuro(page, ruta);
 
       expect(oscuro, `${ruta.path}: la raíz no tiene la clase .dark`).toBe(true);
