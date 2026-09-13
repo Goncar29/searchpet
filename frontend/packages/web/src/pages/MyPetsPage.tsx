@@ -329,7 +329,7 @@ export function MyPetsPage() {
       aria-current={tab === key ? 'page' : undefined}
       className={`px-4 py-2 text-sm font-semibold border-b-2 transition-colors ${
         tab === key
-          ? 'border-primary text-primary'
+          ? 'border-primary text-primary dark:text-primary-light'
           : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
       }`}
     >

@@ -1,5 +1,13 @@
 import { test, expect, type Page } from '@playwright/test';
-import { uniqueEmail, seedUser, getToken, seedStray, markFound, seedStory } from './helpers';
+import {
+  uniqueEmail,
+  seedUser,
+  getToken,
+  getSession,
+  seedStray,
+  markFound,
+  seedStory,
+} from './helpers';
 
 /**
  * NINGÚN TEXTO DE LAS RUTAS PÚBLICAS BAJA DEL UMBRAL WCAG AA EN MODO OSCURO.
@@ -402,6 +410,87 @@ test.describe('contraste WCAG AA en modo oscuro', () => {
           `Para texto, en oscuro usá \`dark:text-primary-light\` (el \`primary\` está ` +
           `calibrado para llevar blanco encima, no para SER el texto) y \`dark:text-gray-400\` ` +
           `en vez de \`gray-500\` (el gris del modo oscuro va más CLARO, no más oscuro).`
+      ).toEqual([]);
+    });
+  }
+});
+
+/**
+ * LAS PANTALLAS CON SESIÓN.
+ *
+ * Van en su propio `describe` porque necesitan un `localStorage` sembrado antes
+ * de cargar, y porque su cobertura es distinta: acá no se siembran listas, así
+ * que varias miden su estado vacío. Lo que importa es que el CHROME de cada
+ * pantalla —encabezados, etiquetas, botones, formularios— sí se mide, y ahí es
+ * donde vivía el resto de los `dark:text-gray-500`.
+ *
+ * El admin queda afuera: hace falta un usuario con `is_admin`, que sólo da el
+ * CLI `promote-admin`. Anotado, no fingido.
+ */
+const RUTAS_CON_SESION: Ruta[] = [
+  { path: '/profile', sinCubrir: 'las mascotas propias: el usuario sembrado tiene una sola' },
+  { path: '/pets/mine' },
+  { path: '/messages', sinCubrir: 'la conversación: no se siembra ningún mensaje' },
+  { path: '/alerts', sinCubrir: 'la lista de alertas: no se siembra ninguna' },
+  { path: '/fosterhomes', sinCubrir: 'las tarjetas de hogares: no se siembra ninguno' },
+  { path: '/blocked-users', sinCubrir: 'la lista de bloqueados: no se siembra ninguno' },
+  { path: '/stories/create' },
+  { path: '/reports/create' },
+];
+
+test.describe('contraste WCAG AA en modo oscuro — con sesión', () => {
+  let token = '';
+  let usuario = '';
+
+  test.beforeAll(async () => {
+    const email = uniqueEmail();
+    const password = 'contrasten4';
+    await seedUser(email, password);
+    const sesion = await getSession(email, password);
+    token = sesion.token;
+    usuario = JSON.stringify(sesion.user);
+
+    // El mismo canario que arriba: sin sesión, `ProtectedRoute` redirige a
+    // `/login` y las ocho rutas medirían la MISMA pantalla de login, en verde.
+    expect(token, 'no se obtuvo token de sesión').not.toBe('');
+    expect(usuario, 'no se obtuvo el usuario de la sesión').not.toBe('');
+  });
+
+  test.beforeEach(async ({ context }) => {
+    await context.addInitScript(
+      ([tk, u]) => {
+        localStorage.setItem('searchpet-theme', 'dark');
+        localStorage.setItem('searchpet-lang', 'es');
+        localStorage.setItem('token', tk);
+        localStorage.setItem('user', u);
+      },
+      [token, usuario]
+    );
+  });
+
+  for (const ruta of RUTAS_CON_SESION) {
+    test(`${ruta.path} — ningún texto por debajo del umbral`, async ({ page }) => {
+      const { hallazgos, medidos, oscuro, noMedibles } = await enModoOscuro(page, ruta);
+
+      expect(oscuro, `${ruta.path}: la raíz no tiene la clase .dark`).toBe(true);
+      expect(medidos, `${ruta.path}: sólo ${medidos} nodos con texto — ¿montó la app?`)
+        .toBeGreaterThanOrEqual(CANARIO);
+      // Y que NO nos hayan rebotado al login: si la sesión no prendió, las ocho
+      // rutas medirían la misma pantalla y darían verde sin cubrir nada.
+      expect(new URL(page.url()).pathname, `${ruta.path}: rebotó al login, la sesión no prendió`)
+        .not.toBe('/login');
+      expect(
+        noMedibles,
+        `${ruta.path}: paradas de gradiente no medibles:\n  ${noMedibles.join('\n  ')}`
+      ).toEqual([]);
+
+      const detalle = hallazgos
+        .map((h) => `  ${h.ratio}:1 < ${h.umbral}  ${h.px}px/${h.peso}  <${h.tag}> "${h.texto}"  [${h.clases}]`)
+        .join('\n');
+
+      expect(
+        hallazgos,
+        `${ruta.path}: ${hallazgos.length} textos por debajo del umbral AA en modo oscuro:\n${detalle}`
       ).toEqual([]);
     });
   }

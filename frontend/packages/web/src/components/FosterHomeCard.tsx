@@ -45,7 +45,7 @@ export function FosterHomeCard({ fosterHome }: FosterHomeCardProps) {
                 {t(`fosterHomes:animalType.${kind}`)}
               </span>
             ))}
-            <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-semibold">
+            <span className="text-xs bg-primary/10 text-primary dark:text-primary-light px-2 py-0.5 rounded-full font-semibold">
               {t('fosterHomes:directory.capacity')}: {fosterHome.capacity}
             </span>
           </div>

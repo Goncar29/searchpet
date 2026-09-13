@@ -76,7 +76,7 @@ function ContactRow({
       <span
         className={`text-sm text-right truncate ${
           muted
-            ? 'italic text-gray-400 dark:text-gray-500'
+            ? 'italic text-gray-400 dark:text-gray-400'
             : 'font-medium text-gray-900 dark:text-gray-100'
         }`}
       >
@@ -149,7 +149,7 @@ function AchievementTile({
       </p>
       {/* Obtenido: cuándo. Pendiente: cómo. Nunca las dos, y nunca ninguna —
           la altura tiene que ser la misma en los cuatro cuadrantes. */}
-      <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5 line-clamp-2 min-h-[2rem]">
+      <p className="text-xs text-gray-400 dark:text-gray-400 mt-0.5 line-clamp-2 min-h-[2rem]">
         {earned
           ? new Date(earnedAt!).toLocaleDateString(language, { day: 'numeric', month: 'short' })
           : t(meta.howToEarnKey)}
@@ -761,7 +761,7 @@ export function ProfilePage() {
                     <button
                       type="button"
                       onClick={() => setAccordionOpen((o) => !o)}
-                      className="text-sm font-semibold text-primary flex items-center gap-1"
+                      className="text-sm font-semibold text-primary dark:text-primary-light flex items-center gap-1"
                       aria-expanded={accordionOpen}
                     >
                       {t('profile:verifyEmail')}
