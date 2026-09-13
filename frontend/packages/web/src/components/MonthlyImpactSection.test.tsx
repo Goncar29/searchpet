@@ -11,6 +11,7 @@ vi.mock('@shared/hooks', () => ({ useMonthlyImpact: (m: string) => useMonthlyImp
 vi.mock('@shared/utils/apiErrors', () => ({ getErrorMessage: () => 'err' }));
 
 import { MonthlyImpactSection } from './MonthlyImpactSection';
+import { getDateLocale } from '@shared/utils/dateLocale';
 
 const nf = new Intl.NumberFormat('es');
 
@@ -31,7 +32,7 @@ describe('MonthlyImpactSection', () => {
 
     render(
       <MemoryRouter>
-        <MonthlyImpactSection months={['2026-06', '2026-07']} nf={nf} lang="es" />
+        <MonthlyImpactSection months={['2026-06', '2026-07']} nf={nf} lang={getDateLocale('es')} />
       </MemoryRouter>,
     );
 
@@ -66,7 +67,7 @@ describe('MonthlyImpactSection', () => {
 
     render(
       <MemoryRouter>
-        <MonthlyImpactSection months={['2026-07']} nf={nf} lang="es" />
+        <MonthlyImpactSection months={['2026-07']} nf={nf} lang={getDateLocale('es')} />
       </MemoryRouter>,
     );
 
@@ -102,7 +103,7 @@ describe('MonthlyImpactSection', () => {
 
     render(
       <MemoryRouter>
-        <MonthlyImpactSection months={['2026-09']} nf={nf} lang="es" />
+        <MonthlyImpactSection months={['2026-09']} nf={nf} lang={getDateLocale('es')} />
       </MemoryRouter>,
     );
 
@@ -133,7 +134,7 @@ describe('MonthlyImpactSection', () => {
 
     render(
       <MemoryRouter>
-        <MonthlyImpactSection months={['2020-01']} nf={nf} lang="es" />
+        <MonthlyImpactSection months={['2020-01']} nf={nf} lang={getDateLocale('es')} />
       </MemoryRouter>,
     );
 

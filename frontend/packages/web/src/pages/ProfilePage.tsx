@@ -28,6 +28,7 @@ import { formSubmitClass } from '../components/form/FormActions';
 import { PawPlaceholder } from '../components/PawPlaceholder';
 import { statusBadgeBg } from '../utils/statusBadge';
 import { myPetsRoute } from '../routes';
+import { getDateLocale, type DateLocale } from '@shared/utils/dateLocale';
 
 /**
  * Cuántas mascotas muestra cada sección antes de derivar a "Mis mascotas" (`/pets/mine`).
@@ -47,7 +48,7 @@ const SUMMARY_LIMIT = 4;
  * cual — el usuario leería literalmente "Miembro desde Invalid Date". Un dato
  * ausente tiene que desaparecer, no mostrarse roto.
  */
-function formatMemberSince(createdAt: string | undefined, language: string): string {
+function formatMemberSince(createdAt: string | undefined, language: DateLocale): string {
   if (!createdAt) return '';
   const date = new Date(createdAt);
   if (Number.isNaN(date.getTime())) return '';
@@ -106,7 +107,7 @@ function AchievementTile({
 }: {
   type: string;
   earnedAt?: string;
-  language: string;
+  language: DateLocale;
   t: TFunction;
 }) {
   // Sin `return null` ante un tipo desconocido: la grilla recorre `BADGE_META`,
@@ -524,7 +525,7 @@ export function ProfilePage() {
 
   if (!user) return null;
 
-  const memberSince = formatMemberSince(user.created_at, i18n.language);
+  const memberSince = formatMemberSince(user.created_at, getDateLocale(i18n.language));
   const earnedAt = new Map((badges ?? []).map((b: Badge) => [b.badge_type, b.earned_at]));
 
   return (
@@ -931,7 +932,7 @@ export function ProfilePage() {
                     key={type}
                     type={type}
                     earnedAt={earnedAt.get(type)}
-                    language={i18n.language}
+                    language={getDateLocale(i18n.language)}
                     t={t}
                   />
                 ))}
@@ -948,7 +949,7 @@ export function ProfilePage() {
                       key={b.id}
                       type={b.badge_type}
                       earnedAt={b.earned_at}
-                      language={i18n.language}
+                      language={getDateLocale(i18n.language)}
                       t={t}
                     />
                   ))}

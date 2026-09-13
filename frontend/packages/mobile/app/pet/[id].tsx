@@ -452,7 +452,13 @@ export default function PetDetailScreen() {
                       day: 'numeric',
                       month: 'long',
                       year: 'numeric',
-                      hour: '2-digit',
+                      // `hour: 'numeric'` y no `'2-digit'`: `es-UY` es un reloj
+                      // de 12 horas y el cero a la izquierda da `03:04 p. m.`.
+                      // Mobile viene con `es-UY` desde siempre, así que acá el
+                      // defecto estuvo todo el tiempo — se veía sólo porque
+                      // nadie miraba esta línea al lado de la de web. Es la
+                      // MISMA pantalla que `web/PetDetailPage`.
+                      hour: 'numeric',
                       minute: '2-digit',
                     });
 

@@ -8,6 +8,7 @@ import { ConfirmModal } from '../../components/ConfirmModal';
 import { ListState } from '../../components/list/ListState';
 import { Icon } from '../../components/Icon';
 import { Pagination } from '../../components/Pagination';
+import { getDateLocale } from '@shared/utils/dateLocale';
 
 const PAGE_SIZE = 20;
 
@@ -31,7 +32,7 @@ export function AbuseReportsPage() {
   // resolvería igual, pero eso depende de cómo esté armado i18next — y el modo
   // de falla es una CLAVE CRUDA en pantalla que ningún test ve, porque acá
   // `t` está mockeado para devolver la clave.
-  const { t } = useTranslation(['admin', 'common']);
+  const { t, i18n } = useTranslation(['admin', 'common']);
   const [filter, setFilter] = useState<FilterMode>('all');
   const [page, setPage] = useState(1);
   const queryClient = useQueryClient();
@@ -263,7 +264,7 @@ export function AbuseReportsPage() {
                     )}
                   </td>
                   <td className="py-2 px-3 text-gray-500 dark:text-gray-400">
-                    {new Date(report.created_at).toLocaleDateString()}
+                    {new Date(report.created_at).toLocaleDateString(getDateLocale(i18n.language))}
                   </td>
                   <td className="py-2 px-3">
                     <div className="flex flex-wrap gap-2">

@@ -1,4 +1,6 @@
+import { useTranslation } from 'react-i18next';
 import { useBlockedUsers, useUnblockUser } from '@shared/hooks';
+import { getDateLocale } from '@shared/utils/dateLocale';
 import type { BlockedUser } from '@shared/types';
 
 function BlockedUserCard({ item, onUnblock, isPending }: {
@@ -6,8 +8,13 @@ function BlockedUserCard({ item, onUnblock, isPending }: {
   onUnblock: (id: string) => void;
   isPending: boolean;
 }) {
+  // `useTranslation` acá es SÓLO para leer `i18n.language`: esta pantalla
+  // todavía tiene su copy hardcodeado en español (mirá el `window.confirm` de
+  // abajo), y traducirla es un trabajo aparte. Lo que se arregla es la fecha,
+  // que estaba clavada en 'es-UY' y por lo tanto ignoraba el idioma elegido.
+  const { i18n } = useTranslation();
   const initial = item.name.trim().charAt(0).toUpperCase();
-  const date = new Date(item.blocked_at).toLocaleDateString('es-UY', {
+  const date = new Date(item.blocked_at).toLocaleDateString(getDateLocale(i18n.language), {
     day: 'numeric', month: 'short', year: 'numeric',
   });
 

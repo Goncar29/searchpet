@@ -9,6 +9,7 @@ import type { Report, Pet } from '../../shared/types';
 import { PawPlaceholder } from './PawPlaceholder';
 import { cloudinaryThumb } from '@shared/utils/cloudinaryThumb';
 import { IMAGE_BOXES } from '../constants/imageSizes';
+import { getDateLocale } from '../i18n/dateLocale';
 
 interface PetCardProps {
   /** Modo feed: reporte con mascota anidada (nearby reports) */
@@ -85,7 +86,7 @@ export function PetCard({ report, pet: petProp, onPress }: PetCardProps) {
     if (diffMins < 60) return t('common:timeAgo.minutesAgo', { count: diffMins });
     if (diffHours < 24) return t('common:timeAgo.hoursAgo', { count: diffHours });
     if (diffDays < 7) return t('common:timeAgo.daysAgo', { count: diffDays });
-    return date.toLocaleDateString(i18n.language);
+    return date.toLocaleDateString(getDateLocale(i18n.language));
   };
 
   const primaryPhoto = pet?.photos?.find(p => p.is_primary) || pet?.photos?.[0];

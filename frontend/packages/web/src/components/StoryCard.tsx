@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import type { SuccessStory } from '@shared/types';
 import { cloudinaryCardThumb } from '@shared/utils/cloudinaryThumb';
 import { Icon } from './Icon';
+import { getDateLocale } from '@shared/utils/dateLocale';
 
 /**
  * Photo for a success story, in the order that tells the story best: the
@@ -60,7 +61,7 @@ export function StoryCard({
   likeBusy,
   variant = 'overlay',
 }: StoryCardProps) {
-  const { t } = useTranslation('stories');
+  const { t, i18n } = useTranslation('stories');
   const cover = storyCover(story);
 
   // One badge, not two: `featured` is rarer and editorial, so it wins over the
@@ -112,7 +113,12 @@ export function StoryCard({
     </span>
   );
 
-  const date = <span>{new Date(story.created_at).toLocaleDateString()}</span>;
+  // `getDateLocale(i18n.language)` y no `toLocaleDateString()` pelado: sin
+  // argumento el formato sale del NAVEGADOR, que no tiene por qué coincidir
+  // con el idioma elegido en la app.
+  const date = (
+    <span>{new Date(story.created_at).toLocaleDateString(getDateLocale(i18n.language))}</span>
+  );
 
   if (variant === 'panel') {
     return (

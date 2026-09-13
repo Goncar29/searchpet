@@ -1,6 +1,8 @@
 import { useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
+import { getDateLocale } from '@shared/utils/dateLocale';
 
 interface ValidReport {
   id: string;
@@ -66,6 +68,8 @@ const chronological = (reports: ValidReport[]) =>
   [...reports].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
 export default function TimelineMapInner({ reports }: TimelineMapInnerProps) {
+  // Sólo para el idioma de la fecha del popup, que estaba clavada en 'es'.
+  const { i18n } = useTranslation();
   const sorted = chronological(reports);
   const center: [number, number] = [sorted[0].latitude, sorted[0].longitude];
   const polylinePositions: [number, number][] = sorted.map((r) => [r.latitude, r.longitude]);
@@ -91,7 +95,7 @@ export default function TimelineMapInner({ reports }: TimelineMapInnerProps) {
             {r.label && <><br />{r.label}</>}
             <br />
             <span className="text-xs text-gray-500">
-              {new Date(r.date).toLocaleDateString('es', { day: 'numeric', month: 'long', year: 'numeric' })}
+              {new Date(r.date).toLocaleDateString(getDateLocale(i18n.language), { day: 'numeric', month: 'long', year: 'numeric' })}
             </span>
           </Popup>
         </Marker>

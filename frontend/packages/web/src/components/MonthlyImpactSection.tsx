@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 import { useMonthlyImpact } from '@shared/hooks';
 import { getErrorMessage } from '@shared/utils/apiErrors';
+import type { DateLocale } from '@shared/utils/dateLocale';
 
 function Tile({ value, label, accent }: { value: string; label: string; accent?: string }) {
   return (
@@ -59,7 +60,7 @@ export function MonthlyImpactSection({
 }: {
   months: string[];
   nf: Intl.NumberFormat;
-  lang: string;
+  lang: DateLocale;
 }) {
   const { t } = useTranslation('impact');
   const [month, setMonth] = useState(months.length ? months[months.length - 1] : '');

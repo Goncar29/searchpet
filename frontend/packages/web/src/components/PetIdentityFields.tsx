@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next';
+import { getDateLocale } from '@shared/utils/dateLocale';
 import { controlClass as formControlClass } from './form/FormField';
 import type { PetGender } from '@shared/types';
 import {
@@ -71,8 +72,25 @@ export function PetIdentityFields({ value, onChange, disabled, birthDateError, h
   // Los nombres de mes salen de Intl con el idioma activo, no de 36 claves de
   // traduccion. Menos que mantener, y siempre correcto: si maniana entra otro
   // idioma, los meses ya estan.
+  // `getDateLocale` y no `i18n.language` pelado: es la tercera forma de
+  // formatear una fecha y quedaba fuera del mapa.
+  //
+  // Y SÍ CAMBIA LO QUE SE VE, contra lo que decía la primera versión de este
+  // comentario. Medido en Chromium 148 y en Node, `es` contra `es-UY`:
+  //
+  //     es     → enero … septiembre … diciembre
+  //     es-UY  → Enero … Setiembre  … Diciembre
+  //
+  // O sea inicial mayúscula y "setiembre", que es la forma rioplatense. El
+  // cambio CIERRA una incoherencia en vez de crearla: el resto de la app ya
+  // formatea con `es-UY`, así que el detalle de una mascota decía "23 de
+  // setiembre" mientras este selector ofrecía "septiembre" — la misma app
+  // escribiendo el mes de dos maneras según la pantalla.
+  //
+  // Se anota porque ningún test lo puede ver: los suites mockean `t`, no `Intl`.
+  // Salió de mirar el selector renderizado en el navegador.
   const monthNames = Array.from({ length: 12 }, (_, i) =>
-    new Intl.DateTimeFormat(i18n.language, { month: 'long' }).format(new Date(2000, i, 1))
+    new Intl.DateTimeFormat(getDateLocale(i18n.language), { month: 'long' }).format(new Date(2000, i, 1))
   );
 
   const years = birthDateYears();
