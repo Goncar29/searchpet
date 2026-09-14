@@ -136,7 +136,7 @@ function Avatar({
   }
   return (
     <div
-      className={`${className} rounded-full bg-primary/10 dark:bg-primary/20 flex items-center justify-center font-display font-semibold text-primary`}
+      className={`${className} rounded-full bg-primary/10 dark:bg-primary/20 flex items-center justify-center font-display font-semibold text-primary-dark dark:text-primary-light`}
     >
       {entry.name.charAt(0).toUpperCase()}
     </div>
@@ -219,7 +219,7 @@ function PodiumPlace({ entry, place }: { entry: LeaderboardEntry; place: number 
             (#C24E1A) el blanco pleno da 4.77:1 y al 80% cae a 3.63:1, debajo
             del 4.5:1 que pide WCAG AA. Y esto no es texto decorativo — es el
             puntaje del primer puesto, el dato central del podio. */}
-        <p className={`text-sm font-semibold ${first ? 'text-white' : 'text-primary'}`}>
+        <p className={`text-sm font-semibold ${first ? 'text-white' : 'text-primary dark:text-primary-light'}`}>
           {entry.total_points} {t('leaderboard:pts')}
         </p>
         {/* El podio tiene lugar, asi que muestra TODOS los logros; el tope de
@@ -257,7 +257,7 @@ function LeaderboardRow({ entry }: { entry: LeaderboardEntry }) {
       )}
       className="flex items-center gap-3 sm:gap-4 p-4 bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 hover:border-primary/40 hover:shadow-sm transition-all"
     >
-      <span className="w-8 shrink-0 text-center font-display text-lg font-bold text-gray-400 dark:text-gray-500">
+      <span className="w-8 shrink-0 text-center font-display text-lg font-bold text-gray-500 dark:text-gray-400">
         {entry.rank}
       </span>
 
@@ -287,8 +287,8 @@ function LeaderboardRow({ entry }: { entry: LeaderboardEntry }) {
       </div>
 
       <div className="shrink-0 text-right">
-        <p className="font-display text-base font-bold text-primary">{entry.total_points}</p>
-        <p className="text-xs text-gray-400 dark:text-gray-500">{t('leaderboard:pts')}</p>
+        <p className="font-display text-base font-bold text-primary dark:text-primary-light">{entry.total_points}</p>
+        <p className="text-xs text-gray-500 dark:text-gray-400">{t('leaderboard:pts')}</p>
       </div>
     </Link>
   );
@@ -317,7 +317,7 @@ export function LeaderboardPage() {
           <h1 className="font-display text-display-sm md:text-display mb-3">
             {t('leaderboard:title')}
           </h1>
-          <p className="text-lg text-white/80 max-w-2xl mx-auto">{t('leaderboard:subtitle')}</p>
+          <p className="text-lg text-white max-w-2xl mx-auto">{t('leaderboard:subtitle')}</p>
         </div>
       </section>
 
@@ -335,7 +335,7 @@ export function LeaderboardPage() {
             <div className="relative flex-1">
               <Icon
                 name="location-on"
-                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 dark:text-gray-500"
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-500 dark:text-gray-400"
               />
               <input
                 type="text"
@@ -501,11 +501,11 @@ export function LeaderboardPage() {
             <div className="rounded-2xl bg-gradient-to-br from-primary to-primary-dark text-white p-6">
               <Icon name="celebration" className="h-7 w-7 mb-3" />
               <p className="font-display text-display-sm">{stats?.pets_reunited ?? 0}</p>
-              <p className="text-sm text-white/70">{t('leaderboard:statReunited')}</p>
+              <p className="text-sm text-white">{t('leaderboard:statReunited')}</p>
             </div>
 
             <div className="rounded-2xl bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 p-6">
-              <Icon name="person" className="h-7 w-7 mb-3 text-primary" />
+              <Icon name="person" className="h-7 w-7 mb-3 text-primary dark:text-primary-light" />
               <p className="font-display text-display-sm text-gray-900 dark:text-gray-100">
                 {stats?.total_users ?? 0}
               </p>

@@ -109,7 +109,11 @@ export function MainLayout() {
 
   const isActive = (path: string) => location.pathname === path;
 
-  const activeLinkClass = 'text-primary font-semibold';
+  // `dark:text-primary-light` y no `text-primary` a secas: el primary está
+  // calibrado para llevar texto BLANCO ENCIMA (4.77:1), no para ser el color del
+  // texto. Sobre el fondo oscuro da 3.72:1, por debajo del 4.5 que pide AA —
+  // medido, es el mismo número que el #240 encontró en `StoryCard`.
+  const activeLinkClass = 'text-primary dark:text-primary-light font-semibold';
   const inactiveLinkClass =
     'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-50 transition-colors duration-150';
 
@@ -129,7 +133,7 @@ export function MainLayout() {
             <Link to="/" className="inline-flex items-center gap-2 pr-2 sm:pr-6">
               <Logo tight className="h-6 w-auto shrink-0 text-primary" />
               <span className="text-xl sm:text-2xl font-brand font-semibold tracking-tight text-gray-900 dark:text-gray-50">
-                Search<span className="text-primary">Pet</span>
+                Search<span className="text-primary dark:text-primary-light">Pet</span>
               </span>
             </Link>
 
@@ -236,7 +240,7 @@ export function MainLayout() {
                                 to={link.to}
                                 role="menuitem"
                                 className={`flex items-center justify-between px-4 py-2 text-sm ${isActive(link.to)
-                                  ? 'text-primary font-semibold bg-orange-50 dark:bg-orange-950'
+                                  ? 'text-primary dark:text-primary-light font-semibold bg-orange-50 dark:bg-orange-950'
                                   : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
                                   } transition-colors`}
                               >
@@ -323,7 +327,7 @@ export function MainLayout() {
                   key={link.to}
                   to={link.to}
                   className={`text-sm font-medium py-2 px-3 rounded-md ${isActive(link.to)
-                    ? 'text-primary bg-orange-50 dark:bg-orange-950'
+                    ? 'text-primary dark:text-primary-light bg-orange-50 dark:bg-orange-950'
                     : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
                     } transition-colors duration-150`}
                 >
@@ -336,7 +340,7 @@ export function MainLayout() {
                   <Link
                     to="/pets/mine"
                     className={`text-sm font-medium py-2 px-3 rounded-md ${isActive('/pets/mine')
-                      ? 'text-primary bg-orange-50 dark:bg-orange-950'
+                      ? 'text-primary dark:text-primary-light bg-orange-50 dark:bg-orange-950'
                       : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
                       } transition-colors duration-150`}
                   >
@@ -345,7 +349,7 @@ export function MainLayout() {
                   <Link
                     to="/messages"
                     className={`text-sm font-medium py-2 px-3 rounded-md flex items-center ${isActive('/messages')
-                      ? 'text-primary bg-orange-50 dark:bg-orange-950'
+                      ? 'text-primary dark:text-primary-light bg-orange-50 dark:bg-orange-950'
                       : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
                       } transition-colors duration-150`}
                   >
@@ -355,7 +359,7 @@ export function MainLayout() {
                   <Link
                     to="/alerts"
                     className={`text-sm font-medium py-2 px-3 rounded-md ${isActive('/alerts')
-                      ? 'text-primary bg-orange-50 dark:bg-orange-950'
+                      ? 'text-primary dark:text-primary-light bg-orange-50 dark:bg-orange-950'
                       : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
                       } transition-colors duration-150`}
                   >
@@ -365,7 +369,7 @@ export function MainLayout() {
                     <Link
                       to="/shelters/mine"
                       className={`text-sm font-medium py-2 px-3 rounded-md ${isActive('/shelters/mine')
-                        ? 'text-primary bg-orange-50 dark:bg-orange-950'
+                        ? 'text-primary dark:text-primary-light bg-orange-50 dark:bg-orange-950'
                         : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
                         } transition-colors duration-150`}
                     >
@@ -375,7 +379,7 @@ export function MainLayout() {
                   <Link
                     to="/fosterhomes"
                     className={`text-sm font-medium py-2 px-3 rounded-md ${isActive('/fosterhomes')
-                      ? 'text-primary bg-orange-50 dark:bg-orange-950'
+                      ? 'text-primary dark:text-primary-light bg-orange-50 dark:bg-orange-950'
                       : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
                       } transition-colors duration-150`}
                   >
@@ -385,7 +389,7 @@ export function MainLayout() {
                     <Link
                       to="/admin/abuse-reports"
                       className={`text-sm font-medium py-2 px-3 rounded-md ${location.pathname.startsWith('/admin')
-                        ? 'text-primary bg-orange-50 dark:bg-orange-950'
+                        ? 'text-primary dark:text-primary-light bg-orange-50 dark:bg-orange-950'
                         : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
                         } transition-colors duration-150`}
                     >
@@ -401,7 +405,7 @@ export function MainLayout() {
                   <div className="border-t border-gray-100 dark:border-gray-800 mt-2 pt-2">
                     <Link
                       to="/profile"
-                      className="block text-xs font-medium text-primary px-3 mb-1 hover:underline"
+                      className="block text-xs font-medium text-primary dark:text-primary-light px-3 mb-1 hover:underline"
                     >
                       {t('greeting', { name: user?.name })}
                     </Link>
@@ -447,7 +451,7 @@ export function MainLayout() {
               <div className="flex items-center gap-2 mb-3">
                 <Logo className="h-6 w-6 text-primary" />
                 <span className="font-brand font-semibold tracking-tight text-gray-900 dark:text-gray-50">
-                  Search<span className="text-primary">Pet</span>
+                  Search<span className="text-primary dark:text-primary-light">Pet</span>
                 </span>
               </div>
               <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -459,10 +463,10 @@ export function MainLayout() {
                 {t('footer:links')}
               </h4>
               <div className="flex flex-col gap-2">
-                <Link to="/map" className="text-sm text-gray-500 dark:text-gray-400 hover:text-primary transition-colors">
+                <Link to="/map" className="text-sm text-gray-500 dark:text-gray-400 hover:text-primary dark:hover:text-primary-light transition-colors">
                   {t('map')}
                 </Link>
-                <Link to="/shelters" className="text-sm text-gray-500 dark:text-gray-400 hover:text-primary transition-colors">
+                <Link to="/shelters" className="text-sm text-gray-500 dark:text-gray-400 hover:text-primary dark:hover:text-primary-light transition-colors">
                   {t('shelters')}
                 </Link>
               </div>
@@ -478,7 +482,7 @@ export function MainLayout() {
                 href="https://github.com/Goncar29/searchpet"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-sm text-primary hover:underline mt-1 inline-block"
+                className="text-sm text-primary dark:text-primary-light hover:underline mt-1 inline-block"
               >
                 {t('footer:contactRepo')}
               </a>

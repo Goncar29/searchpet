@@ -350,7 +350,7 @@ export function HomePage() {
               <h1 className="font-display text-display-sm md:text-display mb-4">
                 {t('home:hero.title')}
               </h1>
-              <p className="text-base sm:text-lg text-white/80 max-w-2xl mx-auto lg:mx-0 mb-8">
+              <p className="text-base sm:text-lg text-white max-w-2xl mx-auto lg:mx-0 mb-8">
                 {t('home:hero.subtitle')}
               </p>
               <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center lg:justify-start">
@@ -491,7 +491,12 @@ export function HomePage() {
             </h2>
             <Link
               to="/stories"
-              className="inline-flex items-center gap-1 text-sm font-semibold text-primary hover:text-primary-dark transition-colors"
+              // `dark:hover:text-primary-light`: el hover claro va a
+              // `primary-dark`, que sobre fondo oscuro es AÚN peor que el base.
+              // En oscuro el hover conserva el color legible en vez de
+              // oscurecerse; inventarle otro color a la paleta sería una
+              // decisión de marca que nadie midió.
+              className="inline-flex items-center gap-1 text-sm font-semibold text-primary dark:text-primary-light hover:text-primary-dark dark:hover:text-primary-light transition-colors"
             >
               {t('home:successStories.viewAll')}
               <Icon name="arrow-forward" className="text-base" />
@@ -523,10 +528,18 @@ export function HomePage() {
                 <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">
                   {t('home:photoSearch.title')}
                 </h2>
-                <span className="text-xs font-bold bg-primary/15 text-primary px-2 py-0.5 rounded-full">{t('home:photoSearch.aiBadge')}</span>
+                {/* El mismo caso que el badge de `StoryCard` en el #240: el
+                    `bg-primary/15` compuesto sobre el fondo oscuro deja el
+                    primary en 3.83:1, y a 12px bold es texto NORMAL para WCAG
+                    (el umbral de "grande" son 18.66px), así que pide 4.5. */}
+                <span className="text-xs font-bold bg-primary/15 text-primary-dark dark:text-primary-light px-2 py-0.5 rounded-full">{t('home:photoSearch.aiBadge')}</span>
                 <span className="text-xs font-semibold bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 px-2 py-0.5 rounded-full">Beta</span>
               </div>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
+              {/* `text-gray-600` y no `500`: esta tarjeta tiene fondo teñido
+                  (`from-primary/5 to-blue-50`), y ahí el gris-500 cae a 4.32:1.
+                  Sobre blanco puro daría 4.83 y pasaría — el fondo se come el
+                  margen. */}
+              <p className="text-sm text-gray-600 dark:text-gray-400">
                 {t('home:photoSearch.description')}
               </p>
               {classifyResult?.type && (
@@ -734,8 +747,12 @@ export function HomePage() {
                   <option key={km} value={km}>{t('home:distance.upToKm', { km })}</option>
                 ))}
               </select>
+              {/* El gemelo del de más abajo: misma clase, mismo 3.67:1. Éste no
+                  sale en el sondeo porque sólo aparece con un radio elegido, y
+                  arreglar una mitad del mismo defecto es peor que no haber
+                  mirado — el criterio ya estaba escrito en el #240. */}
               {filterRadius && (
-                <span className="mt-1 block text-xs text-gray-400 dark:text-gray-500">
+                <span className="mt-1 block text-xs text-gray-500 dark:text-gray-400">
                   {filterGeoCenter
                     ? t('home:distanceCenter.gps')
                     : t('home:distanceCenter.fallback')}
@@ -900,7 +917,11 @@ export function HomePage() {
                           className={`text-sm line-clamp-2 min-h-[2.5rem] ${
                             pet.description
                               ? 'text-gray-500 dark:text-gray-400'
-                              : 'italic text-gray-400 dark:text-gray-500'
+                              // `dark:text-gray-400` y no `500`: el 500 sobre el
+                              // fondo oscuro da 3.67:1. El gris del modo oscuro
+                              // tiene que ir más CLARO que el del claro, no más
+                              // oscuro — acá estaba al revés.
+                              : 'italic text-gray-500 dark:text-gray-400'
                           }`}
                         >
                           {pet.description || t('pets:card.noComment')}

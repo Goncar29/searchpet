@@ -191,7 +191,9 @@ export function RegisterPage() {
             </button>
 
             <p className="text-center text-sm text-gray-500 dark:text-gray-400">
-              <Link to="/login" className="text-primary font-semibold hover:underline">
+              {/* El gemelo exacto del de `LoginPage`: arreglar uno y dejar el
+                  otro sería el mismo defecto a una pantalla de distancia. */}
+              <Link to="/login" className="text-primary dark:text-primary-light font-semibold hover:underline">
                 {t('auth:register.hasAccount')}
               </Link>
             </p>

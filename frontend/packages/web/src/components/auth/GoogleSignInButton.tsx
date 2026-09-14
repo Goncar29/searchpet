@@ -143,7 +143,7 @@ export function GoogleSignInButton({ onCredential, onError }: GoogleSignInButton
     <div className="flex flex-col items-center gap-2">
       <div ref={containerRef} data-testid="google-signin-button" />
       {!ready && (
-        <p className="text-sm text-gray-400 dark:text-gray-500">{t('auth:google.loading')}</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400">{t('auth:google.loading')}</p>
       )}
     </div>
   );

@@ -88,7 +88,7 @@ export function SheltersPage() {
           <h1 className="font-display text-display-sm md:text-display mb-3">
             {t('shelters:title')}
           </h1>
-          <p className="text-lg text-white/80 max-w-2xl mx-auto">
+          <p className="text-lg text-white max-w-2xl mx-auto">
             {t('shelters:description')}
           </p>
         </div>
@@ -143,19 +143,19 @@ export function SheltersPage() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="text-center">
               <p className="font-display text-display-sm">{stats?.pets_reunited || 0}</p>
-              <p className="text-sm text-white/70">{t('shelters:impactFound')}</p>
+              <p className="text-sm text-white">{t('shelters:impactFound')}</p>
             </div>
             <div className="text-center">
               <p className="font-display text-display-sm">{stats?.total_users || 0}</p>
-              <p className="text-sm text-white/70">{t('shelters:impactUsers')}</p>
+              <p className="text-sm text-white">{t('shelters:impactUsers')}</p>
             </div>
             <div className="text-center">
               <p className="font-display text-display-sm">{stats?.searches_started || 0}</p>
-              <p className="text-sm text-white/70">{t('shelters:impactReports')}</p>
+              <p className="text-sm text-white">{t('shelters:impactReports')}</p>
             </div>
             <div className="text-center">
               <p className="font-display text-display-sm">{stats?.total_pets || 0}</p>
-              <p className="text-sm text-white/70">{t('shelters:impactPets')}</p>
+              <p className="text-sm text-white">{t('shelters:impactPets')}</p>
             </div>
           </div>
         </div>
@@ -171,7 +171,7 @@ export function SheltersPage() {
             indicio de que el filtro seguía puesto era el texto en el input. */}
         {appliedCity && (
           <div className="flex items-center gap-2 mb-6">
-            <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 dark:bg-primary/20 px-3 py-1 text-sm font-semibold text-primary">
+            <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 dark:bg-primary/20 px-3 py-1 text-sm font-semibold text-primary-dark dark:text-primary-light">
               <Icon name="location-on" className="h-4 w-4" />
               {appliedCity}
             </span>
@@ -242,7 +242,10 @@ export function SheltersPage() {
                 {t('shelters:emptyForCity', { city: appliedCity })}
               </p>
             ) : (
-              <p className="text-gray-400 dark:text-gray-500">{t('shelters:empty')}</p>
+              // `dark:text-gray-400`: el 500 da 4.16:1 sobre el fondo oscuro.
+              // Es el cartel de "no hay refugios", o sea la única cosa en
+              // pantalla cuando la lista está vacía.
+              <p className="text-gray-500 dark:text-gray-400">{t('shelters:empty')}</p>
             )}
           </div>
         )}
@@ -263,7 +266,7 @@ export function SheltersPage() {
                     {shelter.name}
                   </h3>
                   {shelter.is_verified && (
-                    <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-primary/10 dark:bg-primary/20 px-2 py-0.5 text-xs font-semibold text-primary">
+                    <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-primary/10 dark:bg-primary/20 px-2 py-0.5 text-xs font-semibold text-primary-dark dark:text-primary-light">
                       <Icon name="check-circle" className="h-3.5 w-3.5" />
                       {t('shelters:verified')}
                     </span>
@@ -283,7 +286,7 @@ export function SheltersPage() {
                   {shelter.phone && (
                     <>
                       <Icon name="call" className="h-4 w-4 shrink-0" />
-                      <a href={`tel:${shelter.phone}`} className="text-primary hover:underline">
+                      <a href={`tel:${shelter.phone}`} className="text-primary dark:text-primary-light hover:underline">
                         {shelter.phone}
                       </a>
                     </>
@@ -309,7 +312,7 @@ export function SheltersPage() {
                         triggerRef.current = e.currentTarget;
                         setDetail(shelter);
                       }}
-                      className="self-start mt-2 inline-flex items-center gap-1 text-sm font-semibold text-primary hover:underline"
+                      className="self-start mt-2 inline-flex items-center gap-1 text-sm font-semibold text-primary dark:text-primary-light hover:underline"
                     >
                       {t('shelters:seeMore')}
                       <Icon name="chevron-right" className="h-4 w-4" />
@@ -327,7 +330,7 @@ export function SheltersPage() {
                       target="_blank"
                       rel="noopener noreferrer"
                       aria-label={t('shelters:visitWebAria', { name: shelter.name })}
-                      className="flex-1 text-center text-sm font-semibold text-primary border border-primary py-2 rounded-xl hover:bg-primary/5 transition-colors"
+                      className="flex-1 text-center text-sm font-semibold text-primary dark:text-primary-light border border-primary py-2 rounded-xl hover:bg-primary/5 transition-colors"
                     >
                       {t('shelters:visitWeb')}
                     </a>
@@ -412,7 +415,7 @@ export function SheltersPage() {
                 {detail.name}
               </h3>
               {detail.is_verified && (
-                <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-primary/10 dark:bg-primary/20 px-2 py-0.5 text-xs font-semibold text-primary">
+                <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-primary/10 dark:bg-primary/20 px-2 py-0.5 text-xs font-semibold text-primary-dark dark:text-primary-light">
                   <Icon name="check-circle" className="h-3.5 w-3.5" />
                   {t('shelters:verified')}
                 </span>
@@ -434,7 +437,7 @@ export function SheltersPage() {
               {detail.phone && (
                 <p className="flex items-center gap-1">
                   <Icon name="call" className="h-4 w-4 shrink-0" />
-                  <a href={`tel:${detail.phone}`} className="text-primary hover:underline">
+                  <a href={`tel:${detail.phone}`} className="text-primary dark:text-primary-light hover:underline">
                     {detail.phone}
                   </a>
                 </p>
@@ -444,7 +447,7 @@ export function SheltersPage() {
                   <Icon name="mail" className="h-4 w-4 shrink-0" />
                   <a
                     href={`mailto:${detail.email}`}
-                    className="text-primary hover:underline break-all"
+                    className="text-primary dark:text-primary-light hover:underline break-all"
                   >
                     {detail.email}
                   </a>
@@ -459,7 +462,7 @@ export function SheltersPage() {
                     href={detail.website_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex-1 text-center text-sm font-semibold text-primary border border-primary py-2 rounded-xl hover:bg-primary/5 transition-colors"
+                    className="flex-1 text-center text-sm font-semibold text-primary dark:text-primary-light border border-primary py-2 rounded-xl hover:bg-primary/5 transition-colors"
                   >
                     {t('shelters:visitWeb')}
                   </a>

@@ -80,3 +80,20 @@ export async function seedStory(
   const data = await res.json();
   return data.id as string;
 }
+
+// Login + perfil en una sola llamada, para sembrar la sesión en `localStorage`
+// sin pasar por el formulario. `loginAs` navega y espera un redirect; cuando hay
+// que visitar ocho rutas autenticadas, eso son ocho logins por UI.
+export async function getSession(
+  email: string,
+  password: string,
+): Promise<{ token: string; user: unknown }> {
+  const res = await fetch(`${API_URL}/api/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  });
+  if (!res.ok) throw new Error(`getSession failed: ${res.status}`);
+  const data = await res.json();
+  return { token: data.token as string, user: data.user };
+}

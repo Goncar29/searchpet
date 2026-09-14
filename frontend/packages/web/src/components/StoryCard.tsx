@@ -83,7 +83,7 @@ export function StoryCard({
           ? 'bg-accent text-yellow-950'
           : cover
           ? 'bg-primary text-white'
-          : 'bg-primary/10 text-primary dark:text-primary-light'
+          : 'bg-primary/10 text-primary-dark dark:text-primary-light'
       }`}
     >
       {story.featured ? t('badge.featured') : t('badge.reunited')}
