@@ -38,7 +38,7 @@ export function GoogleAuthPanel({ error, onCredential, onError }: GoogleAuthPane
         {/* `dark:text-gray-400`: el 500 sobre el fondo oscuro da 4.16:1, abajo
             del 4.5. Es el "o" que separa Google de email+contraseña, y aunque
             sea una palabra, es la que explica que hay dos caminos. */}
-        <span className="text-xs uppercase tracking-wide text-gray-400 dark:text-gray-400">
+        <span className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
           {t('auth:google.divider')}
         </span>
         <span className="h-px flex-1 bg-gray-200 dark:bg-gray-700" />

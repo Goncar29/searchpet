@@ -257,7 +257,7 @@ function LeaderboardRow({ entry }: { entry: LeaderboardEntry }) {
       )}
       className="flex items-center gap-3 sm:gap-4 p-4 bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 hover:border-primary/40 hover:shadow-sm transition-all"
     >
-      <span className="w-8 shrink-0 text-center font-display text-lg font-bold text-gray-400 dark:text-gray-400">
+      <span className="w-8 shrink-0 text-center font-display text-lg font-bold text-gray-500 dark:text-gray-400">
         {entry.rank}
       </span>
 
@@ -288,7 +288,7 @@ function LeaderboardRow({ entry }: { entry: LeaderboardEntry }) {
 
       <div className="shrink-0 text-right">
         <p className="font-display text-base font-bold text-primary dark:text-primary-light">{entry.total_points}</p>
-        <p className="text-xs text-gray-400 dark:text-gray-400">{t('leaderboard:pts')}</p>
+        <p className="text-xs text-gray-500 dark:text-gray-400">{t('leaderboard:pts')}</p>
       </div>
     </Link>
   );
@@ -335,7 +335,7 @@ export function LeaderboardPage() {
             <div className="relative flex-1">
               <Icon
                 name="location-on"
-                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 dark:text-gray-400"
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-500 dark:text-gray-400"
               />
               <input
                 type="text"

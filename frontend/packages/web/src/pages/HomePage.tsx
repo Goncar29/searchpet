@@ -532,10 +532,14 @@ export function HomePage() {
                     `bg-primary/15` compuesto sobre el fondo oscuro deja el
                     primary en 3.83:1, y a 12px bold es texto NORMAL para WCAG
                     (el umbral de "grande" son 18.66px), así que pide 4.5. */}
-                <span className="text-xs font-bold bg-primary/15 text-primary dark:text-primary-light px-2 py-0.5 rounded-full">{t('home:photoSearch.aiBadge')}</span>
+                <span className="text-xs font-bold bg-primary/15 text-primary-dark dark:text-primary-light px-2 py-0.5 rounded-full">{t('home:photoSearch.aiBadge')}</span>
                 <span className="text-xs font-semibold bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 px-2 py-0.5 rounded-full">Beta</span>
               </div>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
+              {/* `text-gray-600` y no `500`: esta tarjeta tiene fondo teñido
+                  (`from-primary/5 to-blue-50`), y ahí el gris-500 cae a 4.32:1.
+                  Sobre blanco puro daría 4.83 y pasaría — el fondo se come el
+                  margen. */}
+              <p className="text-sm text-gray-600 dark:text-gray-400">
                 {t('home:photoSearch.description')}
               </p>
               {classifyResult?.type && (
@@ -748,7 +752,7 @@ export function HomePage() {
                   arreglar una mitad del mismo defecto es peor que no haber
                   mirado — el criterio ya estaba escrito en el #240. */}
               {filterRadius && (
-                <span className="mt-1 block text-xs text-gray-400 dark:text-gray-400">
+                <span className="mt-1 block text-xs text-gray-500 dark:text-gray-400">
                   {filterGeoCenter
                     ? t('home:distanceCenter.gps')
                     : t('home:distanceCenter.fallback')}
@@ -917,7 +921,7 @@ export function HomePage() {
                               // fondo oscuro da 3.67:1. El gris del modo oscuro
                               // tiene que ir más CLARO que el del claro, no más
                               // oscuro — acá estaba al revés.
-                              : 'italic text-gray-400 dark:text-gray-400'
+                              : 'italic text-gray-500 dark:text-gray-400'
                           }`}
                         >
                           {pet.description || t('pets:card.noComment')}

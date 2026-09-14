@@ -240,7 +240,7 @@ export function MainLayout() {
                                 to={link.to}
                                 role="menuitem"
                                 className={`flex items-center justify-between px-4 py-2 text-sm ${isActive(link.to)
-                                  ? 'text-primary font-semibold bg-orange-50 dark:bg-orange-950'
+                                  ? 'text-primary dark:text-primary-light font-semibold bg-orange-50 dark:bg-orange-950'
                                   : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
                                   } transition-colors`}
                               >
@@ -405,7 +405,7 @@ export function MainLayout() {
                   <div className="border-t border-gray-100 dark:border-gray-800 mt-2 pt-2">
                     <Link
                       to="/profile"
-                      className="block text-xs font-medium text-primary px-3 mb-1 hover:underline"
+                      className="block text-xs font-medium text-primary dark:text-primary-light px-3 mb-1 hover:underline"
                     >
                       {t('greeting', { name: user?.name })}
                     </Link>

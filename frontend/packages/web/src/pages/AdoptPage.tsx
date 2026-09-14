@@ -239,7 +239,7 @@ export function AdoptPage() {
                       className={`text-sm line-clamp-2 min-h-[2.5rem] mt-2 ${
                         pet.description
                           ? 'text-gray-500 dark:text-gray-400'
-                          : 'italic text-gray-400 dark:text-gray-400'
+                          : 'italic text-gray-500 dark:text-gray-400'
                       }`}
                     >
                       {pet.description || t('pets:card.noComment')}

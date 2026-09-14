@@ -136,7 +136,7 @@ export function FosterHomesPage() {
               cartel lo encontró el CI y no la corrida local, porque acá la base
               TIENE hogares y el estado vacío nunca se dibuja — el espejo exacto
               de `/shelters`, donde pasó al revés. */}
-          <p className="text-gray-400 dark:text-gray-400">{t('fosterHomes:directory.empty')}</p>
+          <p className="text-gray-500 dark:text-gray-400">{t('fosterHomes:directory.empty')}</p>
         </div>
       )}
 

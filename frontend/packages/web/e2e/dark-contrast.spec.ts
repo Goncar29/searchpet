@@ -9,6 +9,9 @@ import {
   seedStory,
 } from './helpers';
 
+// Mismo default que `helpers.ts`: el backend del e2e.
+const API_E2E = process.env.API_URL ?? 'http://localhost:8081';
+
 /**
  * NINGÚN TEXTO DE LAS RUTAS PÚBLICAS BAJA DEL UMBRAL WCAG AA EN MODO OSCURO.
  *
@@ -226,7 +229,18 @@ function medirContraste(): Resultado {
         if (esOpaco(bg)) return terminar(capas, gradientes);
       }
     }
-    capas.push(getComputedStyle(document.documentElement).backgroundColor || 'rgb(255,255,255)');
+    // EL FALLBACK NO PUEDE SER `|| ...`: `backgroundColor` del `<html>` devuelve
+    // `"rgba(0, 0, 0, 0)"` cuando no hay fondo, NUNCA la cadena vacía. Medido.
+    // Con `||` el fallback jamás se disparaba, se empujaba un transparente a la
+    // cadena, y `componer` lo leía del canvas limpio como **NEGRO** — o sea que
+    // la base de todo el cálculo era negra en vez de blanca.
+    //
+    // Hoy está tapado porque `MainLayout` pone un `dark:bg-gray-950` opaco y el
+    // recorrido corta ahí, pero muerde apenas se mida una pantalla fuera del
+    // layout (`SharedPetPage`) o se reutilice esto para el modo claro.
+    const raiz = getComputedStyle(document.documentElement).backgroundColor;
+    const raizOpaca = raiz && raiz !== 'transparent' && raiz !== 'rgba(0, 0, 0, 0)';
+    capas.push(raizOpaca ? raiz : 'rgb(255,255,255)');
     return terminar(capas, gradientes);
   };
 
@@ -237,7 +251,21 @@ function medirContraste(): Resultado {
 
     // Cada parada se compone sobre el fondo plano: un gradiente puede llevar
     // alfa, y ahí lo que se ve es la mezcla.
-    const candidatos = [plano!];
+    // EL PLANO NO ES CANDIDATO SI UN GRADIENTE OPACO LO TAPA, y esto lo destapó
+    // una corrida en modo CLARO: ahí el fondo del layout es `bg-gray-50` (casi
+    // blanco), el héroe le pone encima un gradiente naranja opaco, y el texto
+    // blanco del héroe se reportaba en **1.05:1** — blanco contra blanco, un
+    // fondo que nadie ve.
+    //
+    // En modo oscuro el error existía IGUAL y no cambiaba el veredicto de pura
+    // casualidad: el plano era `gray-950`, y contra un texto claro daba un ratio
+    // alto, así que el mínimo lo seguía marcando el gradiente. Es el mismo
+    // criterio que `esOpaco` ya aplicaba a los colores, que no se había llevado
+    // a los gradientes.
+    const gradienteTapa = gradientes.length > 0 && gradientes.every(
+      (g) => CSS.supports('color', g) && esOpaco(g)
+    );
+    const candidatos = gradienteTapa ? [] : [plano!];
     for (const g of gradientes) {
       // `CSS.supports` Y NO UN try/catch, y la diferencia es todo.
       //
@@ -365,7 +393,21 @@ async function enModoOscuro(page: Page, ruta: Ruta): Promise<Resultado> {
   return page.evaluate(medirContraste);
 }
 
-test.describe('contraste WCAG AA en modo oscuro', () => {
+/**
+ * LOS DOS TEMAS, y no sólo el oscuro.
+ *
+ * El guard nació mirando sólo `dark` porque el defecto que lo motivó era de
+ * modo oscuro. Pero al medir en claro apareció que el par de grises estaba
+ * INVERTIDO en todo el sitio: `text-gray-400 dark:text-gray-500` da 2.60:1
+ * sobre blanco y 4.25:1 sobre el fondo oscuro — o sea flojo en los dos lados,
+ * con el gris CLARO puesto donde iba el oscuro y viceversa. Lo correcto es
+ * `text-gray-500 dark:text-gray-400`: 4.83 y 7.79.
+ *
+ * Arreglar una sola mitad era, otra vez, el error que este PR viene señalando.
+ */
+for (const tema of ['dark', 'light'] as const) {
+
+test.describe(`contraste WCAG AA — tema ${tema}`, () => {
   test.beforeAll(async () => {
     // Una mascota y una historia REALES, para que `/` y `/stories` midan
     // tarjetas y no su estado vacío. Ver el docblock de `Ruta.ancla`.
@@ -374,29 +416,51 @@ test.describe('contraste WCAG AA en modo oscuro', () => {
     await seedUser(email, password);
     const token = await getToken(email, password);
 
-    nombreMascota = `Contraste-${Date.now()}`;
-    const petId = await seedStray(token, nombreMascota);
-    await markFound(token, petId);
+    // DOS mascotas, y la razón es el defecto que esto arregla.
+    //
+    // Antes se sembraba UNA, se le hacía `markFound` y su nombre servía de ancla
+    // para `/`. Pero el feed sólo muestra `FeedVisibleStatuses` —lost y stray—,
+    // así que una mascota `found` NO aparece ahí. El ancla matcheaba igual…
+    // porque `StoryCard` dibuja `story.pet_name` en la tira de historias.
+    //
+    // O sea: el ancla de `/` daba verde sin que la grilla de mascotas se hubiera
+    // medido nunca, incluida la descripción que este mismo PR arregla en
+    // `HomePage`. Exactamente el falso verde que el ancla vino a matar, con el
+    // ancla como cómplice.
+    //
+    // Ahora una queda en `stray` (y es la que ancla `/`) y la otra va a `found`
+    // para poder tener historia (el backend exige una mascota encontrada).
+    nombreMascota = `ContrasteFeed-${Date.now()}`;
+    await seedStray(token, nombreMascota);
 
+    const petHistoria = await seedStray(token, `ContrasteHistoria-${Date.now()}`);
+    await markFound(token, petHistoria);
     tituloHistoria = `Historia de contraste ${Date.now()}`;
-    await seedStory(token, petId, tituloHistoria, 'Volvió a casa gracias a la comunidad.');
+    await seedStory(token, petHistoria, tituloHistoria, 'Volvió a casa gracias a la comunidad.');
 
-    // EL CANARIO DEL CANARIO. Si la siembra fallara sin lanzar, estas variables
-    // quedarían vacías y `new RegExp('')` MATCHEA CUALQUIER COSA: el ancla
-    // pasaría contra una página en blanco y el guard volvería a certificar el
-    // estado vacío, que es exactamente lo que el ancla vino a impedir.
-    expect(nombreMascota, 'la siembra no dejó nombre de mascota').not.toBe('');
-    expect(tituloHistoria, 'la siembra no dejó título de historia').not.toBe('');
+    // EL CANARIO DEL CANARIO — y la primera versión era TAUTOLÓGICA: afirmaba
+    // que `nombreMascota` no estuviera vacío, cuando se le asigna un template
+    // literal no vacío tres líneas más arriba y nunca se resetea. Un chequeo que
+    // sólo puede dar verde no es un chequeo.
+    //
+    // Lo que sí puede fallar es preguntarle a la API si la mascota quedó
+    // REALMENTE en el feed. Si `FeedVisibleStatuses` cambia, o el alta se hace
+    // con otro estado, esto se pone rojo en vez de dejar que el ancla matchee
+    // por otro lado.
+    const feed = await fetch(`${API_E2E}/api/pets/search`).then((r) => r.json());
+    const enElFeed = JSON.stringify(feed).includes(nombreMascota);
+    expect(enElFeed, `"${nombreMascota}" no aparece en el feed: el ancla de "/" mediría otra cosa`)
+      .toBe(true);
   });
 
   test.beforeEach(async ({ context }) => {
     // El tema sale de `localStorage` (`ThemeContext.getInitialTheme`), así que
     // se siembra ANTES de que cargue cualquier documento. Con `emulateMedia` no
     // alcanza: la preferencia guardada le gana a la del sistema.
-    await context.addInitScript(() => {
-      localStorage.setItem('searchpet-theme', 'dark');
+    await context.addInitScript((t) => {
+      localStorage.setItem('searchpet-theme', t);
       localStorage.setItem('searchpet-lang', 'es');
-    });
+    }, tema);
   });
 
   for (const ruta of RUTAS_PUBLICAS) {
@@ -417,7 +481,8 @@ test.describe('contraste WCAG AA en modo oscuro', () => {
       // hallazgos" también se emite cuando la app no montó, cuando el tema no se
       // aplicó, o cuando un fondo no se pudo medir — la misma forma que un
       // `curl` sin `--fail`.
-      expect(oscuro, `${ruta.path}: la raíz no tiene la clase .dark`).toBe(true);
+      expect(oscuro, `${ruta.path}: la clase .dark de la raíz no coincide con el tema ${tema}`)
+        .toBe(tema === 'dark');
       expect(medidos, `${ruta.path}: sólo ${medidos} nodos con texto — ¿montó la app?`)
         .toBeGreaterThanOrEqual(CANARIO);
       expect(
@@ -456,17 +521,17 @@ test.describe('contraste WCAG AA en modo oscuro', () => {
  * CLI `promote-admin`. Anotado, no fingido.
  */
 const RUTAS_CON_SESION: Ruta[] = [
-  { path: '/profile', sinCubrir: 'las mascotas propias: el usuario sembrado tiene una sola' },
-  { path: '/pets/mine' },
+  { path: '/profile', sinCubrir: 'las mascotas propias y el acordeón de verificación: el usuario de este bloque no tiene NINGUNA mascota y el acordeón arranca cerrado' },
+  { path: '/pets/mine', sinCubrir: 'los badges de estado: sin mascotas no se dibuja ninguno' },
   { path: '/messages', sinCubrir: 'la conversación: no se siembra ningún mensaje' },
   { path: '/alerts', sinCubrir: 'la lista de alertas: no se siembra ninguna' },
   { path: '/fosterhomes', sinCubrir: 'las tarjetas de hogares: no se siembra ninguno' },
   { path: '/blocked-users', sinCubrir: 'la lista de bloqueados: no se siembra ninguno' },
-  { path: '/stories/create' },
+  { path: '/stories/create', sinCubrir: 'el formulario: sin mascotas elegibles la pantalla corta antes de dibujarlo' },
   { path: '/reports/create' },
 ];
 
-test.describe('contraste WCAG AA en modo oscuro — con sesión', () => {
+test.describe(`contraste WCAG AA — tema ${tema}, con sesión`, () => {
   let token = '';
   let usuario = '';
 
@@ -486,13 +551,13 @@ test.describe('contraste WCAG AA en modo oscuro — con sesión', () => {
 
   test.beforeEach(async ({ context }) => {
     await context.addInitScript(
-      ([tk, u]) => {
-        localStorage.setItem('searchpet-theme', 'dark');
+      ([tk, u, t]) => {
+        localStorage.setItem('searchpet-theme', t);
         localStorage.setItem('searchpet-lang', 'es');
         localStorage.setItem('token', tk);
         localStorage.setItem('user', u);
       },
-      [token, usuario]
+      [token, usuario, tema]
     );
   });
 
@@ -510,7 +575,8 @@ test.describe('contraste WCAG AA en modo oscuro — con sesión', () => {
 
       const { hallazgos, medidos, oscuro, noMedibles } = await enModoOscuro(page, ruta);
 
-      expect(oscuro, `${ruta.path}: la raíz no tiene la clase .dark`).toBe(true);
+      expect(oscuro, `${ruta.path}: la clase .dark de la raíz no coincide con el tema ${tema}`)
+        .toBe(tema === 'dark');
       expect(medidos, `${ruta.path}: sólo ${medidos} nodos con texto — ¿montó la app?`)
         .toBeGreaterThanOrEqual(CANARIO);
       // Y que NO nos hayan rebotado al login: si la sesión no prendió, las ocho
@@ -533,3 +599,5 @@ test.describe('contraste WCAG AA en modo oscuro — con sesión', () => {
     });
   }
 });
+
+}

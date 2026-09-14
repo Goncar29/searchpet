@@ -294,7 +294,7 @@ export function MapPage() {
           y sin scrollear. Repetirlo abajo del mapa seria decir dos veces lo
           mismo, y ademas en el unico lugar donde hay que bajar para leerlo. */}
       {(!isLoading && reports && reports.length > 0) && (
-        <p className="hidden lg:block text-sm text-gray-400 dark:text-gray-400 mt-3 text-center">
+        <p className="hidden lg:block text-sm text-gray-500 dark:text-gray-400 mt-3 text-center">
           {t('map:reports', { count: reports.length })}
         </p>
       )}
