@@ -171,7 +171,7 @@ export function SheltersPage() {
             indicio de que el filtro seguía puesto era el texto en el input. */}
         {appliedCity && (
           <div className="flex items-center gap-2 mb-6">
-            <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 dark:bg-primary/20 px-3 py-1 text-sm font-semibold text-primary dark:text-primary-light">
+            <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 dark:bg-primary/20 px-3 py-1 text-sm font-semibold text-primary-dark dark:text-primary-light">
               <Icon name="location-on" className="h-4 w-4" />
               {appliedCity}
             </span>
@@ -266,7 +266,7 @@ export function SheltersPage() {
                     {shelter.name}
                   </h3>
                   {shelter.is_verified && (
-                    <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-primary/10 dark:bg-primary/20 px-2 py-0.5 text-xs font-semibold text-primary dark:text-primary-light">
+                    <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-primary/10 dark:bg-primary/20 px-2 py-0.5 text-xs font-semibold text-primary-dark dark:text-primary-light">
                       <Icon name="check-circle" className="h-3.5 w-3.5" />
                       {t('shelters:verified')}
                     </span>
@@ -415,7 +415,7 @@ export function SheltersPage() {
                 {detail.name}
               </h3>
               {detail.is_verified && (
-                <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-primary/10 dark:bg-primary/20 px-2 py-0.5 text-xs font-semibold text-primary dark:text-primary-light">
+                <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-primary/10 dark:bg-primary/20 px-2 py-0.5 text-xs font-semibold text-primary-dark dark:text-primary-light">
                   <Icon name="check-circle" className="h-3.5 w-3.5" />
                   {t('shelters:verified')}
                 </span>

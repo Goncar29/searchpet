@@ -136,7 +136,7 @@ function Avatar({
   }
   return (
     <div
-      className={`${className} rounded-full bg-primary/10 dark:bg-primary/20 flex items-center justify-center font-display font-semibold text-primary dark:text-primary-light`}
+      className={`${className} rounded-full bg-primary/10 dark:bg-primary/20 flex items-center justify-center font-display font-semibold text-primary-dark dark:text-primary-light`}
     >
       {entry.name.charAt(0).toUpperCase()}
     </div>
