@@ -140,6 +140,7 @@ func TestAuthHandler_Register(t *testing.T) {
 				"email":    "ana@test.com",
 				"password": "pass123",
 				"name":     "Ana",
+				"city":     "Montevideo",
 			},
 			setupMock: func(m *mockAuthService) {
 				m.registerFn = func(_ context.Context, _, _, _, _ string) (*domain.User, string, error) {
@@ -153,6 +154,7 @@ func TestAuthHandler_Register(t *testing.T) {
 			body: map[string]interface{}{
 				"password": "pass123",
 				"name":     "Ana",
+				"city":     "Montevideo",
 			},
 			setupMock:  func(m *mockAuthService) {},
 			wantStatus: http.StatusBadRequest,
@@ -162,6 +164,7 @@ func TestAuthHandler_Register(t *testing.T) {
 			body: map[string]interface{}{
 				"email": "ana@test.com",
 				"name":  "Ana",
+				"city":  "Montevideo",
 			},
 			setupMock:  func(m *mockAuthService) {},
 			wantStatus: http.StatusBadRequest,
@@ -171,6 +174,20 @@ func TestAuthHandler_Register(t *testing.T) {
 			body: map[string]interface{}{
 				"email":    "ana@test.com",
 				"password": "pass123",
+				"city":     "Montevideo",
+			},
+			setupMock:  func(m *mockAuthService) {},
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			// La ciudad es obligatoria desde que existe el ranking por ciudad:
+			// sin ella la cuenta queda fuera de su propio ranking, del feed
+			// cercano y de las alertas por zona.
+			name: "missing city returns 400",
+			body: map[string]interface{}{
+				"email":    "ana@test.com",
+				"password": "pass123",
+				"name":     "Ana",
 			},
 			setupMock:  func(m *mockAuthService) {},
 			wantStatus: http.StatusBadRequest,
@@ -181,6 +198,7 @@ func TestAuthHandler_Register(t *testing.T) {
 				"email":    "duplicate@test.com",
 				"password": "pass123",
 				"name":     "Ana",
+				"city":     "Montevideo",
 			},
 			setupMock: func(m *mockAuthService) {
 				m.registerFn = func(_ context.Context, _, _, _, _ string) (*domain.User, string, error) {
@@ -195,6 +213,7 @@ func TestAuthHandler_Register(t *testing.T) {
 				"email":    "not-an-email",
 				"password": "pass123",
 				"name":     "Ana",
+				"city":     "Montevideo",
 			},
 			setupMock:  func(m *mockAuthService) {},
 			wantStatus: http.StatusBadRequest,
@@ -205,6 +224,7 @@ func TestAuthHandler_Register(t *testing.T) {
 				"email":    "ana@test.com",
 				"password": "abc",
 				"name":     "Ana",
+				"city":     "Montevideo",
 			},
 			setupMock:  func(m *mockAuthService) {},
 			wantStatus: http.StatusBadRequest,
@@ -215,6 +235,7 @@ func TestAuthHandler_Register(t *testing.T) {
 				"email":    "ana@test.com",
 				"password": "pass123",
 				"name":     "Ana",
+				"city":     "Montevideo",
 			},
 			setupMock: func(m *mockAuthService) {
 				m.registerFn = func(_ context.Context, _, _, _, _ string) (*domain.User, string, error) {
@@ -256,7 +277,7 @@ func TestAuthHandler_Register_ResponseShape(t *testing.T) {
 	r := setupAuthRouter(newAuthHandler(svc))
 
 	body, _ := json.Marshal(map[string]interface{}{
-		"email": "ana@test.com", "password": "pass123", "name": "Ana",
+		"email": "ana@test.com", "password": "pass123", "name": "Ana", "city": "Montevideo",
 	})
 	req := httptest.NewRequest(http.MethodPost, "/api/auth/register", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")

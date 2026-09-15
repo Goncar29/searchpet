@@ -16,6 +16,7 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 interface FieldErrors {
   name?: string;
   email?: string;
+  city?: string;
   password?: string;
   confirm?: string;
 }
@@ -37,6 +38,20 @@ export function RegisterPage() {
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [city, setCity] = useState('');
+  /**
+   * El paso de ubicación tras el alta con EMAIL.
+   *
+   * Es un estado aparte del `showLocationStep` de `useGoogleSignIn` porque los
+   * dos caminos lo prenden por motivos distintos y en momentos distintos: Google
+   * cuando el backend dice `is_new_user`, y éste cuando el registro propio
+   * resuelve. Compartir una sola bandera obligaría a que el hook de Google
+   * supiera de un flujo que no es suyo.
+   *
+   * Y NO es redundante con el campo de ciudad del formulario: ese da la CIUDAD
+   * (texto), y este paso ofrece el GPS, que llena `latitude`/`longitude` — lo
+   * que usa PostGIS para el feed cercano y las alertas por zona. Son dos datos.
+   */
+  const [showLocationAfterSignup, setShowLocationAfterSignup] = useState(false);
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
@@ -49,7 +64,10 @@ export function RegisterPage() {
   // show onboarding. googleLoading covers that in-flight window; showLocationStep
   // covers the step itself. Without them this guard redirects away and the whole
   // new-user flow never renders.
-  if (!isLoading && isAuthenticated && !googleLoading && !showLocationStep) {
+  // `showLocationAfterSignup` se suma por el MISMO motivo que los otros dos: el
+  // alta con email deja al usuario autenticado, así que sin esta exclusión el
+  // guard redirige a `/` y el paso de ubicación no se renderiza nunca.
+  if (!isLoading && isAuthenticated && !googleLoading && !showLocationStep && !showLocationAfterSignup) {
     navigate('/', { replace: true });
     return null;
   }
@@ -67,6 +85,10 @@ export function RegisterPage() {
     } else if (password.length < 6) {
       errors.password = t('auth:register.passwordMin');
     }
+    // Obligatoria: sin ciudad la cuenta queda fuera de su propio ranking, del
+    // feed cercano y de las alertas por zona. Medido antes de este cambio: 4 de
+    // 7 cuentas la tenían vacía, todas de alta por email.
+    if (!city.trim()) errors.city = t('common:required');
     if (!confirm) {
       errors.confirm = t('common:required');
     } else if (password !== confirm) {
@@ -82,8 +104,9 @@ export function RegisterPage() {
     if (!validate()) return;
     setLoading(true);
     try {
-      await register(email, password, name, phone || undefined, city || undefined);
-      navigate('/');
+      await register(email, password, name, phone || undefined, city);
+      // Al paso de ubicación, no directo a la app: acá es donde se ofrece el GPS.
+      setShowLocationAfterSignup(true);
     } catch (err) {
       setApiError(getErrorMessage(err, t));
     } finally {
@@ -93,8 +116,10 @@ export function RegisterPage() {
 
   return (
     <AuthLayout title={t('auth:register.title')} subtitle={t('auth:register.subtitle')}>
-      {showLocationStep ? (
-        <LocationOnboardingStep onDone={finishOnboarding} />
+      {showLocationStep || showLocationAfterSignup ? (
+        <LocationOnboardingStep
+          onDone={showLocationAfterSignup ? () => navigate('/', { replace: true }) : finishOnboarding}
+        />
       ) : (
         <>
           <GoogleAuthPanel
@@ -145,14 +170,22 @@ export function RegisterPage() {
               onChange={setPhone}
             />
 
+            {/* El `*` no es decoración: es lo único que distingue un campo
+                obligatorio de uno opcional ANTES de intentar enviar. Sin él,
+                `validate()` rechaza por un motivo que la pantalla nunca
+                anunció. */}
             <AuthField
-              label={t('auth:register.city')}
+              label={`${t('auth:register.city')} *`}
               type="text"
               icon="location-on"
               autoComplete="address-level2"
               placeholder="Ej: Montevideo, Buenos Aires..."
               value={city}
-              onChange={setCity}
+              error={fieldErrors.city}
+              onChange={(next) => {
+                setCity(next);
+                if (fieldErrors.city) setFieldErrors((prev) => ({ ...prev, city: undefined }));
+              }}
             />
 
             <AuthField

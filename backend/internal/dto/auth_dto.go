@@ -18,7 +18,16 @@ type RegisterRequest struct {
 	Email    string `json:"email" binding:"required,email,max=255"`
 	Password string `json:"password" binding:"required,min=6"`
 	Name     string `json:"name" binding:"required,max=100"`
-	City     string `json:"city"`
+	// OBLIGATORIA desde que el ranking por ciudad existe: sin ella el usuario
+	// queda fuera de su propio ranking, del feed cercano y de las alertas por
+	// zona. Medido antes de este cambio: 4 de 7 cuentas la tenían vacía, todas
+	// de alta por email — las de Google la cargan en su paso de ubicación.
+	//
+	// El `max` NO replica un ancho de columna: `domain.User.City` no declara
+	// `size`, así que GORM la crea como `text` y no hay SQLSTATE 22001 que
+	// evitar (a diferencia de Email y Name, arriba). Es un tope de cordura para
+	// no aceptar un nombre de ciudad de diez mil caracteres.
+	City     string `json:"city" binding:"required,max=100"`
 }
 
 // LoginRequest son los datos que el cliente manda para iniciar sesión
