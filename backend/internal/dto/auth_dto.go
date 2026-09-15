@@ -27,6 +27,15 @@ type RegisterRequest struct {
 	// `size`, así que GORM la crea como `text` y no hay SQLSTATE 22001 que
 	// evitar (a diferencia de Email y Name, arriba). Es un tope de cordura para
 	// no aceptar un nombre de ciudad de diez mil caracteres.
+	//
+	// ROMPE A LOS APK YA INSTALADOS, y se aceptó a conciencia: el APK se
+	// distribuye por GitHub Releases y no se actualiza solo (regla #31), así que
+	// un build previo omite el campo vacío y recibe 400. Lo que acota el daño es
+	// que lo omite SÓLO si la ciudad quedó vacía — el alta que esto viene a
+	// impedir. Quien la completa se registra bien en cualquier versión; lo que
+	// queda mal es el MENSAJE, genérico en vez de señalar el campo. La salida,
+	// si molesta, es un código propio (`city_required`) que los clientes
+	// traduzcan a "actualizá la app".
 	City     string `json:"city" binding:"required,max=100"`
 }
 

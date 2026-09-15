@@ -64,10 +64,13 @@ export function RegisterPage() {
   // show onboarding. googleLoading covers that in-flight window; showLocationStep
   // covers the step itself. Without them this guard redirects away and the whole
   // new-user flow never renders.
-  // `showLocationAfterSignup` se suma por el MISMO motivo que los otros dos: el
-  // alta con email deja al usuario autenticado, así que sin esta exclusión el
-  // guard redirige a `/` y el paso de ubicación no se renderiza nunca.
-  if (!isLoading && isAuthenticated && !googleLoading && !showLocationStep && !showLocationAfterSignup) {
+  // `loading` y `showLocationAfterSignup` son las dos mitades de la misma
+  // ventana, y el equivalente exacto de `googleLoading`/`showLocationStep`:
+  // `register` guarda el token —prendiendo `isAuthenticated`— ANTES de resolver,
+  // así que el render de `setLoading(true)` ya ve sesión con la bandera todavía
+  // en false, y sin `!loading` el guard redirige ahí y el paso no se renderiza
+  // nunca. Lo reprodujo el test "con la sesión ya abierta NO rebota a la app".
+  if (!isLoading && isAuthenticated && !loading && !googleLoading && !showLocationStep && !showLocationAfterSignup) {
     navigate('/', { replace: true });
     return null;
   }
@@ -106,6 +109,7 @@ export function RegisterPage() {
     try {
       await register(email, password, name, phone || undefined, city);
       // Al paso de ubicación, no directo a la app: acá es donde se ofrece el GPS.
+      //
       setShowLocationAfterSignup(true);
     } catch (err) {
       setApiError(getErrorMessage(err, t));

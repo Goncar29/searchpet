@@ -10,11 +10,23 @@ vi.mock('react-i18next', () => ({
 
 const mockRegister = vi.fn();
 
+/**
+ * `isAuthenticated` es VARIABLE, y esa es toda la diferencia.
+ *
+ * Con el `false` clavado que tenía antes, la rama `isAuthenticated && …` del
+ * guard de redirección no podía evaluar truthy en ningún test — o sea que la
+ * suite no distinguía entre el guard funcionando y el guard roto. Justo la
+ * regresión que el comentario de esa línea dice venir a impedir.
+ */
+let mockAutenticado = false;
+
 vi.mock('../context/AuthContext', () => ({
   useAuth: () => ({
     loginWithGoogle: vi.fn(),
     register: mockRegister,
-    isAuthenticated: false,
+    get isAuthenticated() {
+      return mockAutenticado;
+    },
     isLoading: false,
   }),
 }));
@@ -26,12 +38,19 @@ vi.mock('../components/auth/LocationOnboardingStep', () => ({
 
 vi.mock('react-router', async (importOriginal) => {
   const actual = await importOriginal<typeof import('react-router')>();
-  return { ...actual, useNavigate: () => vi.fn() };
+  return { ...actual, useNavigate: () => mockNavigate };
 });
+
+const mockNavigate = vi.fn();
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockAutenticado = false;
   mockRegister.mockResolvedValue(undefined);
+  // El alta deja al usuario AUTENTICADO: es la condición que dispara el guard.
+  mockRegister.mockImplementation(async () => {
+    mockAutenticado = true;
+  });
 });
 
 describe('RegisterPage', () => {
@@ -115,5 +134,28 @@ describe('RegisterPage — ciudad obligatoria y paso de ubicación', () => {
     expect(mockRegister.mock.calls[0][4]).toBe('Montevideo');
     // Y el alta NO termina en la app: termina ofreciendo el GPS.
     await waitFor(() => expect(screen.getByText('paso-de-ubicacion')).toBeInTheDocument());
+  });
+
+  /**
+   * EL TEST QUE FALTABA, y sin el cual el guard no estaba protegido por nada.
+   *
+   * `RegisterPage` redirige a `/` apenas detecta sesión. El alta con email deja
+   * al usuario AUTENTICADO, así que sin la exclusión `!showLocationAfterSignup`
+   * el guard dispara y el paso de ubicación no llega a renderizarse nunca.
+   *
+   * Los dos casos de arriba no podían ver eso: con `isAuthenticated` clavado en
+   * `false`, la condición del guard era inalcanzable y la suite daba verde con
+   * la exclusión puesta o sacada. Acá el `register` mockeado PRENDE la sesión,
+   * que es lo que hace el real.
+   */
+  it('con la sesión ya abierta NO rebota a la app: el paso se renderiza igual', async () => {
+    const user = userEvent.setup();
+    render(<MemoryRouter><RegisterPage /></MemoryRouter>);
+
+    await llenar(user, true);
+
+    await waitFor(() => expect(screen.getByText('paso-de-ubicacion')).toBeInTheDocument());
+    // La prueba de que el guard NO disparó: nadie navegó a `/`.
+    expect(mockNavigate).not.toHaveBeenCalledWith('/', { replace: true });
   });
 });
