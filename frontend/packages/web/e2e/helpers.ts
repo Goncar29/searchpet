@@ -10,7 +10,10 @@ export async function seedUser(email: string, password: string): Promise<void> {
   const res = await fetch(`${API_URL}/api/auth/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password, name: 'Test User' }),
+    // `city` es OBLIGATORIA en el alta desde que existe el ranking por ciudad.
+    // Sin esto, todo spec que siembre un usuario muere con 400 — incluido el
+    // guard de contraste, que siembra en su `beforeAll`.
+    body: JSON.stringify({ email, password, name: 'Test User', city: 'Montevideo' }),
   });
   if (!res.ok) {
     const text = await res.text();

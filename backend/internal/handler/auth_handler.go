@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
 	"lost-pets/internal/domain"
 	"lost-pets/internal/dto"
@@ -20,12 +21,41 @@ func NewAuthHandler(authService service.AuthService) *AuthHandler {
 	return &AuthHandler{authService: authService}
 }
 
+// registerBindError nombra el único fallo de binding que un cliente ya
+// instalado puede encontrarse sin haber hecho nada mal: la ciudad pasó a ser
+// obligatoria y los APK distribuidos no se actualizan solos (regla #31), así
+// que un build viejo la omite si quedó vacía y leía "los datos no son válidos"
+// sin saber cuál. Completarla funciona en cualquier versión: nombrar el campo
+// es todo lo que hace falta, no hay que reinstalar. Sólo cuando es la ÚNICA
+// violación — si además falta el email, nombrarla tapa el otro campo.
+func registerBindError(err error) error {
+	var verrs validator.ValidationErrors
+	if !errors.As(err, &verrs) {
+		return domain.ErrInvalidInput
+	}
+	// Se barren TODAS en vez de mirar `verrs[0]`: el validador las devuelve en
+	// el orden del struct y City es el último, así que mirando la primera
+	// "City falló" equivalía a "fue la única" por casualidad del layout, y el
+	// tope de abajo no lo verificaba nadie (comprobado en verde sacándolo).
+	// Field() da el campo del struct, no el del JSON: gin no pone TagNameFunc.
+	ciudadFaltante := false
+	for _, fe := range verrs {
+		if fe.Field() == "City" && fe.Tag() == "required" {
+			ciudadFaltante = true
+		}
+	}
+	if ciudadFaltante && len(verrs) == 1 {
+		return domain.ErrCityRequired
+	}
+	return domain.ErrInvalidInput
+}
+
 // Register godoc
 // POST /api/auth/register
 func (h *AuthHandler) Register(c *gin.Context) {
 	var req dto.RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
+		writeError(c, http.StatusBadRequest, registerBindError(err))
 		return
 	}
 
