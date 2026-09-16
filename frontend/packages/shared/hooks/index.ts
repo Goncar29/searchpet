@@ -12,6 +12,7 @@ import { apiClient, ApiError } from '../api/client';
 // arreglo fue esa misma constante copiada en dos lugares que despues divergieron.
 import { VET_LAYER_MIN_RADIUS_METERS } from '../utils/vetLayerRadius';
 import type {
+  RegisterRequest,
   CreatePetRequest,
   UpdatePetRequest,
   UpdateProfileRequest,
@@ -150,10 +151,13 @@ export const useLogin = () => {
   });
 };
 
+// El parámetro es `RegisterRequest` y NO un shape repetido a mano: el de antes
+// omitía `city`, así que divergió del backend sin que nada lo notara — este hook
+// hoy no tiene ningún consumidor, que es por qué nadie se enteró. Atarlo al tipo
+// canónico hace que la próxima divergencia sea un error de compilación.
 export const useRegister = () => {
   return useMutation({
-    mutationFn: (data: { email: string; password: string; name: string; phone?: string }) =>
-      apiClient.register(data),
+    mutationFn: (data: RegisterRequest) => apiClient.register(data),
   });
 };
 

@@ -24,7 +24,7 @@ import pt from './locales/pt.json';
  * produccion, hay que bajar la asercion al nivel donde el dato vive.
  */
 
-// Estas cuatro son MOBILE-ONLY (`mobile/app/register.tsx`) y ahi el asterisco del
+// Estas cinco son MOBILE-ONLY (`mobile/app/register.tsx`) y ahi el asterisco del
 // texto es la unica senal de obligatorio: no hay FormField en React Native que lo
 // agregue. Exentas a proposito, no por olvido.
 //
@@ -41,6 +41,9 @@ const CLAVES_EXENTAS = [
   'auth.register.emailLabelRequired',
   'auth.register.passwordLabelRequired',
   'auth.register.confirmLabelRequired',
+  // `city` se sumo cuando paso a ser obligatoria: sin ciudad la cuenta queda
+  // fuera de su propio ranking, del feed cercano y de las alertas por zona.
+  'auth.register.cityLabelRequired',
 ];
 
 function textosConAsterisco(obj: unknown, ruta: string[] = []): string[] {

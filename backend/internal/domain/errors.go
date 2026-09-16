@@ -158,6 +158,8 @@ var (
 	ErrImageFieldRequired     = errors.New("campo 'image' requerido")
 	ErrImageSearchUnavailable = errors.New("servicio de búsqueda por imagen no disponible temporalmente")
 	ErrBindingFailed          = errors.New("datos de entrada inválidos")
+	// Distinto de ErrInvalidInput a propósito: ver registerBindError.
+	ErrCityRequired = errors.New("la ciudad es obligatoria")
 )
 
 // ErrorCodes maps every sentinel error to its machine-readable snake_case code.
@@ -292,6 +294,7 @@ var ErrorCodes = map[error]string{
 	ErrImageFieldRequired:     "image_field_required",
 	ErrImageSearchUnavailable: "image_search_unavailable",
 	ErrBindingFailed:          "binding_failed",
+	ErrCityRequired:           "city_required",
 }
 
 // CodeFor returns the machine-readable error code for err.

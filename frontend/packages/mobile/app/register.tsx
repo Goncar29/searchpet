@@ -54,7 +54,7 @@ export default function RegisterScreen() {
   const [isLoading, setIsLoading] = useState(false);
 
   const handleRegister = async () => {
-    if (!name.trim() || !email.trim() || !password) {
+    if (!name.trim() || !email.trim() || !password || !city.trim()) {
       Alert.alert(i18next.t('common:error'), i18next.t('auth:register.requiredFields'));
       return;
     }
@@ -71,7 +71,7 @@ export default function RegisterScreen() {
 
     setIsLoading(true);
     try {
-      await register(email.trim(), password, name.trim(), phone.trim() || undefined, city.trim() || undefined);
+      await register(email.trim(), password, name.trim(), phone.trim() || undefined, city.trim());
       Alert.alert(i18next.t('auth:register.createdTitle'), i18next.t('auth:register.createdMessage'), [
         { text: 'OK', onPress: () => router.back() },
       ]);
@@ -125,7 +125,7 @@ export default function RegisterScreen() {
           autoComplete="tel"
         />
 
-        <Text style={styles.label}>{t('register.city')}</Text>
+        <Text style={styles.label}>{t('register.cityLabelRequired')}</Text>
         <TextInput
           style={styles.input}
           placeholder={t('register.cityPlaceholder')}

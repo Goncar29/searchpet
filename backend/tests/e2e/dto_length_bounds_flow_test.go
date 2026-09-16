@@ -68,12 +68,16 @@ func TestDTOLengthBounds_UnLargoDeMasDa400YNo500(t *testing.T) {
 		cuerpo map[string]any
 	}{
 		// users.name size:100 — público y sin auth: cualquiera puede provocarlo.
+		// La `city` va en los dos cuerpos de alta y NO es relleno: sin ella el
+		// 400 llegaría por la ciudad faltante, así que borrar el `max` del
+		// campo que cada caso dice probar los dejaría verdes igual — la guarda
+		// que deja de guardar contra la que está escrito este archivo.
 		{"register / users.name(100)", "/api/auth/register", "", map[string]any{
-			"email": uniqueEmail(), "password": "password123", "name": deMas(100)}},
+			"email": uniqueEmail(), "password": "password123", "name": deMas(100), "city": "Montevideo"}},
 		// users.email size:255. El local part largo sigue siendo un email
 		// sintácticamente válido, así que pasa el validador `email` y llega.
 		{"register / users.email(255)", "/api/auth/register", "", map[string]any{
-			"email": strings.Repeat("a", 250) + "@example.com", "password": "password123", "name": "E2E"}},
+			"email": strings.Repeat("a", 250) + "@example.com", "password": "password123", "name": "E2E", "city": "Montevideo"}},
 
 		{"pets / pets.name(100)", "/api/pets", userToken, map[string]any{
 			"name": deMas(100), "type": "perro"}},

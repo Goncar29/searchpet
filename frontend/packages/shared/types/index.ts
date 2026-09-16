@@ -494,7 +494,12 @@ export interface RegisterRequest {
   password: string;
   name: string;
   phone?: string;
-  city?: string;
+  // REQUERIDA, igual que en el backend (`binding:"required"` en RegisterRequest).
+  // Mientras fue opcional acá, los dos `InlineAuthStep` del wizard llamaban a
+  // `register` sin ciudad y compilaban limpio: el alta quedaba muerta en runtime
+  // con un 400 que esas pantallas no podían arreglar, porque no tienen el campo.
+  // Un tipo laxo no ahorra trabajo, lo muda a producción.
+  city: string;
 }
 
 export interface LoginRequest {

@@ -9,7 +9,7 @@ interface AuthContextType {
   user: User | null;
   token: string | null;
   login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string, name: string, phone?: string, city?: string) => Promise<void>;
+  register: (email: string, password: string, name: string, phone: string | undefined, city: string) => Promise<void>;
   /** Resolves to `is_new_user` so the caller can decide whether to run onboarding. */
   loginWithGoogle: (idToken: string) => Promise<boolean>;
   logout: () => void;
@@ -211,7 +211,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     registerWebPushToken();
   };
 
-  const register = async (email: string, password: string, name: string, phone?: string, city?: string) => {
+  // `phone: string | undefined` en vez de `phone?: string`, y NO es un capricho
+  // de estilo: TypeScript no deja un parámetro requerido después de uno
+  // opcional, y reordenarlos sería peor — `phone` y `city` son los dos `string`,
+  // así que un swap posicional compilaría en silencio y guardaría el teléfono
+  // como ciudad. Así, omitir argumentos o pasar `undefined` como ciudad es un
+  // error de compilación, que es como se descubrió que los dos `InlineAuthStep`
+  // llamaban a esto sin ciudad.
+  const register = async (email: string, password: string, name: string, phone: string | undefined, city: string) => {
     const resp = await apiClient.register({ email, password, name, phone, city });
     setToken(resp.token);
     setUser(resp.user);

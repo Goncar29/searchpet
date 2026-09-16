@@ -41,18 +41,43 @@ describe('InlineAuthStep', () => {
     await waitFor(() => expect(onAuthenticated).toHaveBeenCalled());
   });
 
-  it('switches to the register tab and calls register with name, email, and password', async () => {
+  it('switches to the register tab and calls register with name, email, city, and password', async () => {
     const onAuthenticated = jest.fn();
     render(<InlineAuthStep onAuthenticated={onAuthenticated} />);
 
     fireEvent.press(screen.getByText('publish:auth.registerTab'));
 
     fireEvent.changeText(screen.getByPlaceholderText('auth:register.name'), 'Carlos');
+    fireEvent.changeText(screen.getByPlaceholderText('auth:register.cityPlaceholder'), 'Montevideo');
     fireEvent.changeText(screen.getByPlaceholderText('auth:register.email'), 'carlos@test.com');
     fireEvent.changeText(screen.getByPlaceholderText('auth:register.password'), 'password123');
     fireEvent.press(screen.getByText('publish:auth.continue'));
 
-    await waitFor(() => expect(mockRegister).toHaveBeenCalledWith('carlos@test.com', 'password123', 'Carlos'));
+    // La ciudad viaja como quinto argumento: el backend la exige, y sin ella
+    // esta pantalla mandaba un alta que moría en 400 sin campo donde arreglarlo.
+    await waitFor(() =>
+      expect(mockRegister).toHaveBeenCalledWith(
+        'carlos@test.com',
+        'password123',
+        'Carlos',
+        undefined,
+        'Montevideo',
+      ),
+    );
     await waitFor(() => expect(onAuthenticated).toHaveBeenCalled());
+  });
+
+  // La otra mitad: sin esto, mandar siempre la ciudad vacía pasaría igual.
+  it('sin ciudad NO llama a register', async () => {
+    render(<InlineAuthStep onAuthenticated={jest.fn()} />);
+
+    fireEvent.press(screen.getByText('publish:auth.registerTab'));
+    fireEvent.changeText(screen.getByPlaceholderText('auth:register.name'), 'Carlos');
+    fireEvent.changeText(screen.getByPlaceholderText('auth:register.email'), 'carlos@test.com');
+    fireEvent.changeText(screen.getByPlaceholderText('auth:register.password'), 'password123');
+    fireEvent.press(screen.getByText('publish:auth.continue'));
+
+    await waitFor(() => expect(screen.getByText('common:required')).toBeTruthy());
+    expect(mockRegister).not.toHaveBeenCalled();
   });
 });

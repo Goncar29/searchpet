@@ -5,6 +5,16 @@ import { apiClient } from '@shared/api/client';
 interface LocationOnboardingStepProps {
   /** Called once the step is over — saved, skipped, or failed. Never blocks. */
   onDone: () => void;
+  /**
+   * Si el paso puede pedir la ciudad a mano cuando el GPS no está disponible.
+   *
+   * `true` para el alta con Google, que no nos da ninguna ciudad. `false` para
+   * el alta por email, donde el formulario ya la pidió y es obligatoria: ahí el
+   * fallback preguntaba DE NUEVO y `updateMyLocation({city})` pisaba el valor
+   * recién validado, así que quien escribía "Montevideo" y denegaba el permiso
+   * podía terminar guardado en otra ciudad sin enterarse.
+   */
+  askForCity?: boolean;
 }
 
 /**
@@ -16,7 +26,7 @@ interface LocationOnboardingStepProps {
  * profile. A failed save also finishes the step — a network error at this point
  * must not trap someone inside a signup they already completed.
  */
-export function LocationOnboardingStep({ onDone }: LocationOnboardingStepProps) {
+export function LocationOnboardingStep({ onDone, askForCity = true }: LocationOnboardingStepProps) {
   const { t } = useTranslation(['auth', 'common']);
   const [showCityFallback, setShowCityFallback] = useState(false);
   const [permissionDenied, setPermissionDenied] = useState(false);
@@ -38,7 +48,7 @@ export function LocationOnboardingStep({ onDone }: LocationOnboardingStepProps) 
 
   const requestGeolocation = () => {
     if (!navigator.geolocation) {
-      setShowCityFallback(true);
+      setShowCityFallback(askForCity);
       return;
     }
     setSaving(true);
@@ -50,7 +60,7 @@ export function LocationOnboardingStep({ onDone }: LocationOnboardingStepProps) 
       () => {
         setSaving(false);
         setPermissionDenied(true);
-        setShowCityFallback(true);
+        setShowCityFallback(askForCity);
       },
       { timeout: 10_000 },
     );

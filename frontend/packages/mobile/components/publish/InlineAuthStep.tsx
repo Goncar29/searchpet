@@ -28,6 +28,7 @@ export function InlineAuthStep({ onAuthenticated }: InlineAuthStepProps) {
   const [tab, setTab] = useState<'login' | 'register'>('login');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [city, setCity] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -36,6 +37,13 @@ export function InlineAuthStep({ onAuthenticated }: InlineAuthStepProps) {
     setError(null);
 
     if (tab === 'register' && !name.trim()) {
+      setError(t('common:required'));
+      return;
+    }
+    // Sólo en el alta: el login no la pide. Sin esto el submit salía a buscar
+    // un 400 que esta pantalla no podía explicar ni arreglar, porque no tenía
+    // el campo.
+    if (tab === 'register' && !city.trim()) {
       setError(t('common:required'));
       return;
     }
@@ -49,7 +57,7 @@ export function InlineAuthStep({ onAuthenticated }: InlineAuthStepProps) {
       if (tab === 'login') {
         await login(email.trim(), password);
       } else {
-        await register(email.trim(), password, name.trim());
+        await register(email.trim(), password, name.trim(), undefined, city.trim());
       }
       onAuthenticated();
     } catch (err) {
@@ -95,6 +103,18 @@ export function InlineAuthStep({ onAuthenticated }: InlineAuthStepProps) {
           value={name}
           onChangeText={setName}
           autoCapitalize="words"
+        />
+      )}
+
+      {tab === 'register' && (
+        <TextInput
+          style={styles.input}
+          placeholder={t('auth:register.cityPlaceholder')}
+          placeholderTextColor={COLORS.placeholder}
+          value={city}
+          onChangeText={setCity}
+          autoCapitalize="words"
+          autoComplete="postal-address-locality"
         />
       )}
 
