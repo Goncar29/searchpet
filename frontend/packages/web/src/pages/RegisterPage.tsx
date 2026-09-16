@@ -107,7 +107,12 @@ export function RegisterPage() {
     if (!validate()) return;
     setLoading(true);
     try {
-      await register(email, password, name, phone || undefined, city);
+      // `city.trim()` y no `city`: `validate()` valida el recortado pero acá se
+      // mandaba el crudo, así que " Montevideo " se guardaba con espacios. El
+      // ranking filtra con `LOWER(users.city) = LOWER(?)` — igualdad exacta, sin
+      // trim— así que esa cuenta quedaba fuera de su propia ciudad: exactamente
+      // lo que este cambio existe para impedir. Mobile ya mandaba el recortado.
+      await register(email, password, name, phone || undefined, city.trim());
       // Al paso de ubicación, no directo a la app: acá es donde se ofrece el GPS.
       //
       setShowLocationAfterSignup(true);
@@ -123,6 +128,11 @@ export function RegisterPage() {
       {showLocationStep || showLocationAfterSignup ? (
         <LocationOnboardingStep
           onDone={showLocationAfterSignup ? () => navigate('/', { replace: true }) : finishOnboarding}
+          // El alta por email YA pidió la ciudad y es obligatoria, así que acá
+          // el paso ofrece SÓLO el GPS — que es lo que el comentario de arriba
+          // afirma. Sin esto, denegar el permiso mostraba un segundo campo de
+          // ciudad cuyo guardado pisaba el valor recién validado.
+          askForCity={!showLocationAfterSignup}
         />
       ) : (
         <>

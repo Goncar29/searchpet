@@ -634,11 +634,16 @@ describe('PublishWizardPage — unauthenticated stray path', () => {
     fireEvent.click(screen.getByText('publish:auth.registerTab'));
     fireEvent.change(screen.getByLabelText('auth:register.name'), { target: { value: 'Carlos' } });
     fireEvent.change(screen.getByLabelText('auth:register.email'), { target: { value: 'carlos@test.com' } });
+    fireEvent.change(screen.getByLabelText('auth:register.city'), { target: { value: 'Montevideo' } });
     fireEvent.change(screen.getByLabelText('auth:register.password'), { target: { value: 'password123' } });
     fireEvent.click(screen.getByText('publish:auth.continue'));
 
     expect(await screen.findByText('publish:success.strayTitle')).toBeInTheDocument();
-    expect(registerMock).toHaveBeenCalledWith('carlos@test.com', 'password123', 'Carlos', undefined, undefined);
+    // La ciudad, y NO `undefined`. Esta aserción afirmaba el bug: pedía que el
+    // alta saliera sin ciudad, que es justo lo que el backend rechaza con 400
+    // desde que es obligatoria. Un test puede no atrapar un defecto por
+    // descuido; éste lo certificaba.
+    expect(registerMock).toHaveBeenCalledWith('carlos@test.com', 'password123', 'Carlos', undefined, 'Montevideo');
   });
 });
 

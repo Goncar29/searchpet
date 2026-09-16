@@ -94,6 +94,9 @@ func registerAndLogin(t *testing.T, baseURL string) (token string, email string)
 		"email":    email,
 		"password": password,
 		"name":     "E2E User",
+		// La ciudad es obligatoria desde que existe el ranking por ciudad. Sin
+		// esto CADA flujo e2e muere en el alta, porque todos pasan por acá.
+		"city": "Montevideo",
 	})
 	regResp, err := http.Post(baseURL+"/api/auth/register", "application/json", bytes.NewReader(regBody))
 	if err != nil {

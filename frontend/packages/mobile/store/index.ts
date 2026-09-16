@@ -37,7 +37,11 @@ interface AuthState {
   login: (email: string, password: string) => Promise<void>;
   /** Devuelve `is_new_user` para que la pantalla decida si pedir ubicación. */
   loginWithGoogle: (idToken: string) => Promise<boolean>;
-  register: (email: string, password: string, name: string, phone?: string, city?: string) => Promise<void>;
+  // `phone: string | undefined` y `city: string`: TypeScript no deja un
+  // requerido después de un opcional, y reordenarlos permitiría un swap
+  // posicional silencioso (los dos son `string`). Así, llamar sin ciudad no
+  // compila — que es lo que dejaba muerto el alta del wizard de publicación.
+  register: (email: string, password: string, name: string, phone: string | undefined, city: string) => Promise<void>;
   logout: () => Promise<void>;
   loadToken: () => Promise<void>;
   setUser: (user: User) => Promise<void>;

@@ -10,6 +10,7 @@ interface InlineAuthStepProps {
 interface FieldErrors {
   name?: string;
   email?: string;
+  city?: string;
   password?: string;
 }
 
@@ -22,6 +23,7 @@ export function InlineAuthStep({ onAuthenticated }: InlineAuthStepProps) {
   const [tab, setTab] = useState<'login' | 'register'>('login');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [city, setCity] = useState('');
   const [password, setPassword] = useState('');
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [apiError, setApiError] = useState('');
@@ -30,6 +32,9 @@ export function InlineAuthStep({ onAuthenticated }: InlineAuthStepProps) {
   const validate = (): boolean => {
     const errors: FieldErrors = {};
     if (tab === 'register' && !name.trim()) errors.name = t('common:required');
+    // Sólo en el alta: el login no la pide. Sin esto el submit salía a buscar
+    // un 400 que esta pantalla no podía explicar ni arreglar.
+    if (tab === 'register' && !city.trim()) errors.city = t('common:required');
     if (!email.trim()) errors.email = t('common:required');
     if (!password) errors.password = t('common:required');
     setFieldErrors(errors);
@@ -46,7 +51,7 @@ export function InlineAuthStep({ onAuthenticated }: InlineAuthStepProps) {
       if (tab === 'login') {
         await login(email.trim(), password);
       } else {
-        await register(email.trim(), password, name.trim(), undefined, undefined);
+        await register(email.trim(), password, name.trim(), undefined, city.trim());
       }
       onAuthenticated();
     } catch (err) {
@@ -110,6 +115,23 @@ export function InlineAuthStep({ onAuthenticated }: InlineAuthStepProps) {
           />
           {fieldErrors.email && <p className="text-red-500 dark:text-red-400 text-sm mt-1">{fieldErrors.email}</p>}
         </div>
+
+        {tab === 'register' && (
+          <div>
+            <label htmlFor="inline-auth-city" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              {tAuth('register.city')}
+            </label>
+            <input
+              id="inline-auth-city"
+              type="text"
+              autoComplete="address-level2"
+              value={city}
+              onChange={(e) => setCity(e.target.value)}
+              className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+            {fieldErrors.city && <p className="text-red-500 dark:text-red-400 text-sm mt-1">{fieldErrors.city}</p>}
+          </div>
+        )}
 
         <div>
           <label htmlFor="inline-auth-password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
