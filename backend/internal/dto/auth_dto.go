@@ -20,8 +20,14 @@ type RegisterRequest struct {
 	Name     string `json:"name" binding:"required,max=100"`
 	// OBLIGATORIA desde que el ranking por ciudad existe: sin ella el usuario
 	// queda fuera de su propio ranking, del feed cercano y de las alertas por
-	// zona. Medido antes de este cambio: 4 de 7 cuentas la tenían vacía, todas
-	// de alta por email — las de Google la cargan en su paso de ubicación.
+	// zona. Las altas por Google la cargan en su paso de ubicación.
+	//
+	// Acá decía "4 de 7 cuentas la tenían vacía" y ERA FALSO: ese `count(*)`
+	// contaba filas de pruebas contra producción. Limpiadas el 2026-09-16
+	// quedaron 5 cuentas reales y NINGUNA sin ciudad. El motivo de exigirla es
+	// el de arriba y se sostiene solo; el número nunca fue la razón, era
+	// decoración — y decoración equivocada. **Un agregado sobre producción no
+	// distingue un usuario real de un residuo de test: mirá las FILAS.**
 	//
 	// El `max` NO replica un ancho de columna: `domain.User.City` no declara
 	// `size`, así que GORM la crea como `text` y no hay SQLSTATE 22001 que
