@@ -89,8 +89,14 @@ export function RegisterPage() {
       errors.password = t('auth:register.passwordMin');
     }
     // Obligatoria: sin ciudad la cuenta queda fuera de su propio ranking, del
-    // feed cercano y de las alertas por zona. Medido antes de este cambio: 4 de
-    // 7 cuentas la tenían vacía, todas de alta por email.
+    // feed cercano y de las alertas por zona. Ese es el motivo entero — no hace
+    // falta ningún conteo para sostenerlo.
+    //
+    // Acá decía "4 de 7 cuentas la tenían vacía, todas de alta por email", y
+    // ERA FALSO: ese `count(*)` incluía filas de pruebas contra producción. Al
+    // limpiarlas (2026-09-16) quedaron 5 cuentas reales y NINGUNA sin ciudad.
+    // Un agregado no distingue un usuario de un residuo de test; con siete
+    // filas, listarlas costaba una consulta.
     if (!city.trim()) errors.city = t('common:required');
     if (!confirm) {
       errors.confirm = t('common:required');

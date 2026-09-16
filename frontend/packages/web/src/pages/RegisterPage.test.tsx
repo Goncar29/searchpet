@@ -98,8 +98,11 @@ describe('RegisterPage', () => {
  * ranking) y el paso ofrece el GPS, que llena latitude/longitude — lo que usa
  * PostGIS para el feed cercano. Son dos datos distintos, no uno repetido.
  *
- * Medido antes de esto: 4 de 7 cuentas tenían la ciudad vacía, todas de alta
- * por email. Las de Google la cargan en su propio paso.
+ * Las de Google la cargan en su propio paso.
+ *
+ * Acá decía "medido antes de esto: 4 de 7 cuentas tenían la ciudad vacía" y era
+ * FALSO — ese conteo incluía filas de pruebas contra producción. Limpiadas el
+ * 2026-09-16: 5 cuentas reales, ninguna sin ciudad.
  */
 describe('RegisterPage — ciudad obligatoria y paso de ubicación', () => {
   const llenar = async (user: ReturnType<typeof userEvent.setup>, conCiudad: boolean) => {

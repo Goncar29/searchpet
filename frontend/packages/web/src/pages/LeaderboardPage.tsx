@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router';
 import { useTranslation } from 'react-i18next';
+import { useAuth } from '../context/AuthContext';
 import { cloudinaryThumb } from '@shared/utils/cloudinaryThumb';
 import type { TFunction } from 'i18next';
 import { useLeaderboard, useStats } from '@shared/hooks';
@@ -297,10 +298,41 @@ function LeaderboardRow({ entry }: { entry: LeaderboardEntry }) {
 export function LeaderboardPage() {
   const { t } = useTranslation(['leaderboard', 'badges']);
   const { data: stats } = useStats();
+  const { user } = useAuth();
 
   // Borrador/aplicado: tipear no consulta, solo el submit.
   const [cityDraft, setCityDraft] = useState('');
   const [city, setCity] = useState('');
+
+  /**
+   * La ciudad del usuario se siembra UNA sola vez, y con un efecto en vez del
+   * valor inicial de `useState`.
+   *
+   * `AuthContext` arranca con `user` en `null` y lo hidrata en un efecto, así
+   * que `useState(user?.city ?? '')` capturaría la cadena vacía en el primer
+   * render y no se enteraría nunca de que llegó la sesión: el ranking seguiría
+   * pidiendo que tipees tu propia ciudad.
+   *
+   * El ref significa "la ciudad YA ESTÁ DECIDIDA", no "ya sembré", y esa
+   * diferencia es el bug que casi se cuela: la sesión hidrata después del
+   * primer render, así que quien entra y busca de una lo hace con el ref
+   * todavía en false — con la pregunta equivocada, el perfil aterrizaba encima
+   * y le pisaba la búsqueda. Buscar a mano también decide, así que el submit
+   * marca el ref igual que la siembra.
+   *
+   * Y no se siembra con ciudad vacía a propósito: quien todavía no la tiene
+   * —las cuentas anteriores a que fuera obligatoria en el alta— tiene que
+   * seguir viendo el pedido de ciudad, no un ranking de la nada.
+   */
+  const ciudadDecidida = useRef(false);
+  useEffect(() => {
+    if (ciudadDecidida.current) return;
+    const propia = user?.city?.trim();
+    if (!propia) return;
+    ciudadDecidida.current = true;
+    setCityDraft(propia);
+    setCity(propia);
+  }, [user?.city]);
 
   const { data: entries, isLoading, error } = useLeaderboard(city, 20);
 
@@ -328,7 +360,17 @@ export function LeaderboardPage() {
           <form
             onSubmit={(e) => {
               e.preventDefault();
-              setCity(cityDraft.trim());
+              // Un submit VACÍO no decide nada, y por eso el guard va ANTES de
+              // tocar el ref: el input no tiene `required`, así que un Enter en
+              // el campo vacío —o con un solo espacio— llega hasta acá. Marcar
+              // la ciudad como decidida ahí quemaría la siembra para siempre y
+              // la página quedaría pidiendo una ciudad que ya tenemos.
+              const buscada = cityDraft.trim();
+              if (!buscada) return;
+              // Buscar a mano DECIDE la ciudad: a partir de acá el perfil que
+              // llegue tarde ya no puede pisarla.
+              ciudadDecidida.current = true;
+              setCity(buscada);
             }}
             className="flex flex-col sm:flex-row gap-3 sm:items-center max-w-2xl mx-auto"
           >

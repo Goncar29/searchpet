@@ -3,7 +3,7 @@
 // Muestra el ranking de usuarios por puntos en una ciudad.
 // ============================================================
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -16,6 +16,7 @@ import {
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useLeaderboard } from '../../../shared/hooks';
+import { useAuthStore } from '../../store';
 import { ListState } from '../../components/list/ListState';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
 import { BADGE_META } from '../../../shared/types';
@@ -86,8 +87,35 @@ export default function LeaderboardScreen() {
   const router = useRouter();
   const { t } = useTranslation('leaderboard');
 
+  // 'Montevideo' es el DEFAULT del proyecto (regla #10), no la ciudad de quien
+  // mira: a alguien de Salto le mostraba un ranking ajeno como si fuera el
+  // suyo. Se conserva sólo para las cuentas sin ciudad — las anteriores a que
+  // fuera obligatoria en el alta.
   const [city, setCity] = useState('Montevideo');
   const [inputCity, setInputCity] = useState('Montevideo');
+
+  /**
+   * La ciudad propia se siembra UNA sola vez, y con un efecto.
+   *
+   * El store hidrata el usuario desde SecureStore de forma asíncrona, así que
+   * en el primer render todavía no hay sesión: el valor inicial de `useState`
+   * se quedaría con el default para siempre.
+   *
+   * El ref significa "la ciudad YA ESTÁ DECIDIDA", no "ya sembré": el store
+   * hidrata después del primer render, así que quien entra y busca de una lo
+   * hace con el ref todavía en false — con la pregunta equivocada, el perfil
+   * aterrizaba encima y le pisaba la búsqueda. Buscar a mano también decide.
+   */
+  const usuario = useAuthStore((state) => state.user);
+  const ciudadDecidida = useRef(false);
+  useEffect(() => {
+    if (ciudadDecidida.current) return;
+    const propia = usuario?.city?.trim();
+    if (!propia) return;
+    ciudadDecidida.current = true;
+    setCity(propia);
+    setInputCity(propia);
+  }, [usuario?.city]);
 
   // La query entera y no sólo `data`: `ListState` necesita `isPaused`,
   // `isError` y `refetch` para decidir entre cartel, franja y lista.
@@ -96,7 +124,10 @@ export default function LeaderboardScreen() {
 
   const applyCity = () => {
     const trimmed = inputCity.trim();
-    if (trimmed) setCity(trimmed);
+    if (!trimmed) return;
+    // Buscar a mano DECIDE la ciudad: el perfil que llegue tarde ya no la pisa.
+    ciudadDecidida.current = true;
+    setCity(trimmed);
   };
 
   return (
