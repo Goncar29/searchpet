@@ -217,7 +217,16 @@ func (h *ImpactHandler) monthlySeries(base *gorm.DB) ([]MonthlyCount, error) {
 // total_pets. Types are stored as free-ish text ("perro", "gato", "ave", …);
 // the frontend maps known keys and shows the rest verbatim.
 func (h *ImpactHandler) petsByType() ([]TypeCount, error) {
-	var rows []TypeCount
+	// `make` y NO `var`: con cero mascotas el Scan no toca el slice, y un slice
+	// nil de Go se serializa como `null`, no como `[]`. El frontend hacía
+	// `pets_by_type.map(...)` y la pantalla entera caía al ErrorBoundary — o
+	// sea que el panel sólo andaba mientras hubiera datos. Es un caso alcanzable
+	// de verdad: producción quedó en `total_pets: 0` al limpiar los datos de
+	// prueba, y ahí se rompió.
+	//
+	// Las tres series mensuales de acá arriba ya usan `make`, así que éste era
+	// el único campo del payload que podía viajar nulo.
+	rows := make([]TypeCount, 0)
 	err := h.db.Model(&domain.Pet{}).
 		Select("COALESCE(NULLIF(type, ''), 'otro') AS type, COUNT(*) AS count").
 		Group("COALESCE(NULLIF(type, ''), 'otro')").

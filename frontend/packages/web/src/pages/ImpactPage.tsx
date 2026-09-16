@@ -166,7 +166,18 @@ export function ImpactPage() {
     );
   }
 
-  const { totals, reunions_by_month, new_users_by_month, reports_by_month, pets_by_type, moderation } = data;
+  const { totals, reunions_by_month, new_users_by_month, reports_by_month, moderation } = data;
+
+  // El conjunto vacío puede llegar como `null` — un slice nil de Go se
+  // serializa así— y de hecho llegó: con la base sin mascotas, esta pantalla se
+  // caía entera al ErrorBoundary haciendo `.map()` sobre null.
+  //
+  // Se normaliza UNA vez y acá, no en cada uso: abajo hay tres consumidores y
+  // repararlos de a uno es garantizar que el próximo se olvide. Y no equivale a
+  // tapar un error: "no pude cargar" ya lo atajó el guard de `isError || !data`
+  // de arriba, así que a esta altura `null` significa exactamente cero
+  // mascotas, que es un dato y no ignorancia.
+  const pets_by_type = data.pets_by_type ?? [];
 
   const petTypeLabel = (type: string) =>
     i18n.exists(`impact:petType.${type}`) ? t(`impact:petType.${type}`) : type;

@@ -227,7 +227,19 @@ export interface ImpactStats {
   reunions_by_month: ImpactMonthlyCount[];
   new_users_by_month: ImpactMonthlyCount[];
   reports_by_month: ImpactMonthlyCount[];
-  pets_by_type: ImpactTypeCount[];
+  /**
+   * `| null` a propósito, aunque el backend hoy garantice `[]`.
+   *
+   * Un slice nil de Go se serializa como `null`, y este campo ya viajó nulo en
+   * producción: la pantalla entera se caía haciendo `.map()` sobre él. El
+   * backend quedó arreglado, pero el tipo describe lo que la API PUEDE
+   * devolver, no lo que la versión desplegada hoy devuelve — y mientras diga
+   * `ImpactTypeCount[]` a secas, TypeScript da por buena la línea que rompió.
+   *
+   * Con el `| null` el guard deja de depender de que alguien se acuerde:
+   * olvidarlo es un error de compilación.
+   */
+  pets_by_type: ImpactTypeCount[] | null;
   moderation: ImpactModeration;
 }
 
