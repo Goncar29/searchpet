@@ -484,6 +484,7 @@
     "unauthorized": "No estás autenticado. Iniciá sesión para continuar",
     "forbidden": "No tenés permisos para realizar esta acción",
     "invalid_input": "Los datos ingresados no son válidos",
+    "city_required": "Ingresá tu ciudad para continuar",
     "internal_error": "Ocurrió un error interno. Por favor intentá de nuevo",
     "photo_field_required": "El campo 'foto' es obligatorio",
     "invalid_search_radius": "El radio debe estar entre 1000 y 50000 metros",

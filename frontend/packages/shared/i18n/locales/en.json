@@ -484,6 +484,7 @@
     "unauthorized": "You are not authenticated. Please sign in to continue",
     "forbidden": "You do not have permission to perform this action",
     "invalid_input": "The provided data is not valid",
+    "city_required": "Enter your city to continue",
     "internal_error": "An internal error occurred. Please try again",
     "photo_field_required": "The 'photo' field is required",
     "invalid_search_radius": "The radius must be between 1000 and 50000 meters",

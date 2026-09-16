@@ -266,6 +266,54 @@ func TestAuthHandler_Register(t *testing.T) {
 	}
 }
 
+// TestAuthHandler_Register_CodigoDeCiudadFaltante afirma el CÓDIGO, no el
+// status: la tabla de arriba sólo mira el 400 y no distingue "te falta la
+// ciudad" de "los datos no son válidos", que es lo que veía un APK ya instalado.
+//
+// Las DOS mitades: sin la segunda, devolver city_required SIEMPRE pasaría.
+func TestAuthHandler_Register_CodigoDeCiudadFaltante(t *testing.T) {
+	casos := []struct {
+		nombre   string
+		body     map[string]interface{}
+		wantCode string
+	}{
+		{
+			nombre:   "sólo falta la ciudad: se la nombra",
+			body:     map[string]interface{}{"email": "ana@test.com", "password": "pass123", "name": "Ana"},
+			wantCode: "city_required",
+		},
+		{
+			nombre:   "falta la ciudad Y el email: genérico, para no tapar el otro campo",
+			body:     map[string]interface{}{"password": "pass123", "name": "Ana"},
+			wantCode: "invalid_input",
+		},
+	}
+
+	for _, tc := range casos {
+		t.Run(tc.nombre, func(t *testing.T) {
+			r := setupAuthRouter(newAuthHandler(&mockAuthService{}))
+			body, _ := json.Marshal(tc.body)
+			req := httptest.NewRequest(http.MethodPost, "/api/auth/register", bytes.NewReader(body))
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+			r.ServeHTTP(w, req)
+
+			if w.Code != http.StatusBadRequest {
+				t.Fatalf("want 400, got %d: %s", w.Code, w.Body.String())
+			}
+			var resp struct {
+				Code string `json:"code"`
+			}
+			if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+				t.Fatalf("respuesta ilegible: %v — %s", err, w.Body.String())
+			}
+			if resp.Code != tc.wantCode {
+				t.Errorf("want code %q, got %q", tc.wantCode, resp.Code)
+			}
+		})
+	}
+}
+
 // TestAuthHandler_Register_ResponseShape verifies the 201 response contains user + token.
 func TestAuthHandler_Register_ResponseShape(t *testing.T) {
 	fixedID := uuid.New()
