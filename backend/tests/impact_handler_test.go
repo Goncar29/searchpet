@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -352,5 +353,39 @@ func TestImpactHandler_ReunionsByMonth_WindowAndGapFill(t *testing.T) {
 	// Last month (gap) = 0.
 	if got := resp.ReunionsByMonth[10]; got.Count != 0 {
 		t.Errorf("gap month: want count 0, got %d (month %s)", got.Count, got.Month)
+	}
+}
+
+// Con la base sin una sola mascota, `pets_by_type` tiene que viajar como `[]`
+// y NUNCA como `null`.
+//
+// Era un bug real en producción (2026-09-16, `total_pets: 0` tras limpiar los
+// datos de prueba): `petsByType` declaraba `var rows []TypeCount`, y un slice
+// nil de Go se serializa como `null`. `ImpactPage` hacía
+// `pets_by_type.map(...)` y la pantalla entera caía al ErrorBoundary — o sea
+// que el panel de impacto sólo funcionaba mientras hubiera datos.
+//
+// LO QUE SE AFIRMA SON LOS BYTES, y ese es el punto: deserializar `null` sobre
+// un `[]TypeCount` da un slice nil, cuyo `len()` también es 0. Un assert sobre
+// la struct deserializada pasa con el bug puesto — comprobado en verde. La
+// distinción entre `[]` y `null` sólo existe en el JSON crudo.
+func TestImpactHandler_PetsByTypeVacioViajaComoArrayYNoComoNull(t *testing.T) {
+	db := testdb.SetupTestDB(t)
+
+	r := setupImpactRouter(db)
+	req := httptest.NewRequest(http.MethodGet, "/api/stats/impact", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status: want 200, got %d (%s)", w.Code, w.Body.String())
+	}
+
+	body := w.Body.String()
+	if strings.Contains(body, `"pets_by_type":null`) {
+		t.Errorf("pets_by_type viajó como null; el frontend hace .map() sobre eso\nbody: %s", body)
+	}
+	if !strings.Contains(body, `"pets_by_type":[]`) {
+		t.Errorf("pets_by_type: want `[]`, body: %s", body)
 	}
 }
