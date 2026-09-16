@@ -212,6 +212,32 @@ describe('LeaderboardPage', () => {
       expect(lastCity()).toBe('Salto');
       expect(screen.getByLabelText('leaderboard:cityLabel')).toHaveValue('Salto');
     });
+
+    /**
+     * Un submit VACIO no decide nada, asi que no puede quemar la siembra.
+     *
+     * El input no tiene `required`, asi que un Enter en el campo vacio —o con
+     * un solo espacio— llega al handler igual. Si ese submit marcara la ciudad
+     * como decidida, el perfil que llegara despues ya no entraria nunca: la
+     * pagina quedaria pidiendo la ciudad para siempre, que es exactamente la
+     * feature de este cambio anulandose sola.
+     *
+     * OJO CON LA AFIRMACION: mirar solo `lastCity()` justo despues del submit
+     * no prueba nada — con guarda y sin guarda da '' igual. Lo que distingue
+     * las dos versiones es lo que pasa DESPUES, cuando llega el perfil.
+     */
+    it('un submit vacio no quema la siembra: la ciudad que llega despues si entra', () => {
+      const { rerender } = render(<LeaderboardPage />, { wrapper });
+
+      search('   ');
+      expect(lastCity()).toBe('');
+
+      mockUser = { city: 'Montevideo' };
+      rerender(<LeaderboardPage />);
+
+      expect(lastCity()).toBe('Montevideo');
+      expect(screen.getByLabelText('leaderboard:cityLabel')).toHaveValue('Montevideo');
+    });
   });
 
   describe('podio', () => {

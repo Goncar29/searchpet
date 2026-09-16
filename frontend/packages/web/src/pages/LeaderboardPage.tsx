@@ -360,10 +360,17 @@ export function LeaderboardPage() {
           <form
             onSubmit={(e) => {
               e.preventDefault();
+              // Un submit VACÍO no decide nada, y por eso el guard va ANTES de
+              // tocar el ref: el input no tiene `required`, así que un Enter en
+              // el campo vacío —o con un solo espacio— llega hasta acá. Marcar
+              // la ciudad como decidida ahí quemaría la siembra para siempre y
+              // la página quedaría pidiendo una ciudad que ya tenemos.
+              const buscada = cityDraft.trim();
+              if (!buscada) return;
               // Buscar a mano DECIDE la ciudad: a partir de acá el perfil que
               // llegue tarde ya no puede pisarla.
               ciudadDecidida.current = true;
-              setCity(cityDraft.trim());
+              setCity(buscada);
             }}
             className="flex flex-col sm:flex-row gap-3 sm:items-center max-w-2xl mx-auto"
           >
