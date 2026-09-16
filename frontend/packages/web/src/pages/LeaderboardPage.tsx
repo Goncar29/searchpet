@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router';
 import { useTranslation } from 'react-i18next';
+import { useAuth } from '../context/AuthContext';
 import { cloudinaryThumb } from '@shared/utils/cloudinaryThumb';
 import type { TFunction } from 'i18next';
 import { useLeaderboard, useStats } from '@shared/hooks';
@@ -297,10 +298,38 @@ function LeaderboardRow({ entry }: { entry: LeaderboardEntry }) {
 export function LeaderboardPage() {
   const { t } = useTranslation(['leaderboard', 'badges']);
   const { data: stats } = useStats();
+  const { user } = useAuth();
 
   // Borrador/aplicado: tipear no consulta, solo el submit.
   const [cityDraft, setCityDraft] = useState('');
   const [city, setCity] = useState('');
+
+  /**
+   * La ciudad del usuario se siembra UNA sola vez, y con un efecto en vez del
+   * valor inicial de `useState`.
+   *
+   * `AuthContext` arranca con `user` en `null` y lo hidrata en un efecto, así
+   * que `useState(user?.city ?? '')` capturaría la cadena vacía en el primer
+   * render y no se enteraría nunca de que llegó la sesión: el ranking seguiría
+   * pidiendo que tipees tu propia ciudad.
+   *
+   * El ref es lo que hace que sea "una sola vez". Sin él, un usuario que busca
+   * OTRA ciudad vería su búsqueda pisada por la suya propia en cada re-render
+   * que refresque el perfil — su elección explícita perdiendo contra un default.
+   *
+   * Y no se siembra con ciudad vacía a propósito: quien todavía no la tiene
+   * —las cuentas anteriores a que fuera obligatoria en el alta— tiene que
+   * seguir viendo el pedido de ciudad, no un ranking de la nada.
+   */
+  const ciudadSembrada = useRef(false);
+  useEffect(() => {
+    if (ciudadSembrada.current) return;
+    const propia = user?.city?.trim();
+    if (!propia) return;
+    ciudadSembrada.current = true;
+    setCityDraft(propia);
+    setCity(propia);
+  }, [user?.city]);
 
   const { data: entries, isLoading, error } = useLeaderboard(city, 20);
 

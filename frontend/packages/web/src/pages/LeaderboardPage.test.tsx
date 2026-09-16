@@ -31,6 +31,14 @@ vi.mock('@shared/hooks', () => ({
   useStats: () => ({ data: { pets_reunited: 128, total_users: 940 } }),
 }));
 
+// La sesion es VARIABLE: la pagina precarga la ciudad del usuario, asi que un
+// mock con `user` fijo no distinguiria "precargo" de "no precargo".
+let mockUser: { city?: string } | null = null;
+
+vi.mock('../context/AuthContext', () => ({
+  useAuth: () => ({ user: mockUser }),
+}));
+
 function wrapper({ children }: { children: React.ReactNode }) {
   return (
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
@@ -64,6 +72,7 @@ describe('LeaderboardPage', () => {
     isLoading = false;
     error = null;
     cityCalls.length = 0;
+    mockUser = null;
   });
 
   it('renderiza sin lanzar errores', () => {
@@ -93,6 +102,88 @@ describe('LeaderboardPage', () => {
     render(<LeaderboardPage />, { wrapper });
     search('  Montevideo  ');
     expect(lastCity()).toBe('Montevideo');
+  });
+
+  /**
+   * La ciudad propia se precarga: el ranking por ciudad no le sirve a nadie si
+   * hay que tipear la ciudad de uno mismo para verlo.
+   *
+   * Las cuatro mitades se testean por separado porque cada una puede romperse
+   * sola, y tres de ellas fallarían MOSTRANDO algo plausible.
+   */
+  describe('precarga de la ciudad del usuario', () => {
+    it('con sesion y ciudad, consulta sin que nadie toque nada', () => {
+      mockUser = { city: 'Montevideo' };
+      render(<LeaderboardPage />, { wrapper });
+
+      expect(lastCity()).toBe('Montevideo');
+      // Y el input la muestra: si consultara sin llenarlo, el usuario veria un
+      // ranking sin saber de donde salio ni como cambiarlo.
+      expect(screen.getByLabelText('leaderboard:cityLabel')).toHaveValue('Montevideo');
+      expect(screen.queryByText('leaderboard:enterCity')).toBeNull();
+    });
+
+    it('sin sesion NO precarga: sigue pidiendo la ciudad', () => {
+      render(<LeaderboardPage />, { wrapper });
+      expect(lastCity()).toBe('');
+      expect(screen.getByText('leaderboard:enterCity')).toBeTruthy();
+    });
+
+    // Las cuentas anteriores a que la ciudad fuera obligatoria en el alta la
+    // tienen vacia.
+    //
+    // OJO CON COMO SE AFIRMA: con ciudad vacia, sembrar y no sembrar producen
+    // el MISMO `lastCity()` (''), asi que un test que mire solo eso pasa con la
+    // guarda puesta o sacada — lo comprobe en verde. Lo que la guarda cuida de
+    // verdad es no QUEMAR la siembra: si sembrara con '', el ref quedaria
+    // marcado y la ciudad que llegue despues ya no entraria nunca.
+    it('con ciudad vacia no gasta la siembra: la que llega despues si entra', () => {
+      mockUser = { city: '   ' };
+      const { rerender } = render(<LeaderboardPage />, { wrapper });
+      expect(lastCity()).toBe('');
+      expect(screen.getByText('leaderboard:enterCity')).toBeTruthy();
+
+      mockUser = { city: 'Paysandu' };
+      rerender(<LeaderboardPage />);
+
+      expect(lastCity()).toBe('Paysandu');
+    });
+
+    // `AuthContext` arranca con `user` en null y lo hidrata en un efecto, asi
+    // que la sesion llega DESPUES del primer render. Con el valor inicial de
+    // `useState` esto quedaria en '' para siempre — y la pagina se veria igual
+    // de sana que si nunca hubiera habido sesion.
+    it('siembra aunque la sesion llegue despues del primer render', () => {
+      const { rerender } = render(<LeaderboardPage />, { wrapper });
+      expect(lastCity()).toBe('');
+
+      mockUser = { city: 'Salto' };
+      rerender(<LeaderboardPage />);
+
+      expect(lastCity()).toBe('Salto');
+    });
+
+    // La mitad que protege la ELECCION del usuario contra el default.
+    //
+    // La ciudad del perfil tiene que CAMBIAR para que esto pruebe algo: las
+    // dependencias del efecto son `[user?.city]`, asi que con el mismo valor no
+    // vuelve a correr y el test pasaria sin el ref — lo comprobe en verde. El
+    // caso real es alguien que edita su ciudad en el perfil, o un `refreshUser`
+    // que trae otra, mientras mira el ranking de otra ciudad a proposito.
+    it('NO pisa la busqueda del usuario cuando cambia la ciudad de su perfil', () => {
+      mockUser = { city: 'Montevideo' };
+      const { rerender } = render(<LeaderboardPage />, { wrapper });
+      expect(lastCity()).toBe('Montevideo');
+
+      search('Salto');
+      expect(lastCity()).toBe('Salto');
+
+      mockUser = { city: 'Rivera' };
+      rerender(<LeaderboardPage />);
+
+      expect(lastCity()).toBe('Salto');
+      expect(screen.getByLabelText('leaderboard:cityLabel')).toHaveValue('Salto');
+    });
   });
 
   describe('podio', () => {
