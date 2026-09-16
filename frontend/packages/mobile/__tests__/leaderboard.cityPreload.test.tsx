@@ -4,7 +4,7 @@
 // usuario: a alguien de Salto la pantalla le mostraba un ranking ajeno como si
 // fuera el suyo — plausible, silencioso y equivocado.
 import React from 'react';
-import { render } from '@testing-library/react-native';
+import { render, fireEvent } from '@testing-library/react-native';
 import LeaderboardScreen from '../app/leaderboard/index';
 
 const mockUseLeaderboard = jest.fn();
@@ -103,6 +103,31 @@ describe('Ranking — precarga de la ciudad del usuario', () => {
     const { rerender } = render(<LeaderboardScreen />);
     expect(ultimaCiudad()).toBe('Salto');
 
+    mockUsuario = { city: 'Rivera' };
+    rerender(<LeaderboardScreen />);
+
+    expect(ultimaCiudad()).toBe('Salto');
+  });
+
+  // EL ORDEN MÁS PROBABLE, y el que la primera versión rompía.
+  //
+  // El store hidrata desde SecureStore de forma asíncrona, así que la pantalla
+  // se dibuja antes de que llegue el perfil: quien busca una ciudad apenas
+  // entra lo hace con la sesión todavía en vuelo. Ahí el ref sigue en false, y
+  // una guarda que sólo pregunta "¿ya sembré?" deja que el perfil aterrice
+  // encima y le pise la búsqueda.
+  //
+  // El test de arriba no alcanza: busca DESPUÉS de que la siembra ocurrió.
+  it('el perfil que llega TARDE no pisa una búsqueda ya hecha', () => {
+    const { getByPlaceholderText, rerender } = render(<LeaderboardScreen />);
+
+    // No hay botón: la pantalla aplica con `onSubmitEditing` y `onBlur`.
+    const input = getByPlaceholderText('leaderboard:cityPlaceholder');
+    fireEvent.changeText(input, 'Salto');
+    fireEvent(input, 'submitEditing');
+    expect(ultimaCiudad()).toBe('Salto');
+
+    // Recién ahora hidrata la sesión.
     mockUsuario = { city: 'Rivera' };
     rerender(<LeaderboardScreen />);
 

@@ -101,17 +101,18 @@ export default function LeaderboardScreen() {
    * en el primer render todavía no hay sesión: el valor inicial de `useState`
    * se quedaría con el default para siempre.
    *
-   * El ref es lo que lo vuelve "una sola vez". Sin él, quien mira a propósito
-   * el ranking de otra ciudad vería su elección pisada por la propia en cuanto
-   * el perfil se refresque.
+   * El ref significa "la ciudad YA ESTÁ DECIDIDA", no "ya sembré": el store
+   * hidrata después del primer render, así que quien entra y busca de una lo
+   * hace con el ref todavía en false — con la pregunta equivocada, el perfil
+   * aterrizaba encima y le pisaba la búsqueda. Buscar a mano también decide.
    */
   const usuario = useAuthStore((state) => state.user);
-  const ciudadSembrada = useRef(false);
+  const ciudadDecidida = useRef(false);
   useEffect(() => {
-    if (ciudadSembrada.current) return;
+    if (ciudadDecidida.current) return;
     const propia = usuario?.city?.trim();
     if (!propia) return;
-    ciudadSembrada.current = true;
+    ciudadDecidida.current = true;
     setCity(propia);
     setInputCity(propia);
   }, [usuario?.city]);
@@ -123,7 +124,10 @@ export default function LeaderboardScreen() {
 
   const applyCity = () => {
     const trimmed = inputCity.trim();
-    if (trimmed) setCity(trimmed);
+    if (!trimmed) return;
+    // Buscar a mano DECIDE la ciudad: el perfil que llegue tarde ya no la pisa.
+    ciudadDecidida.current = true;
+    setCity(trimmed);
   };
 
   return (

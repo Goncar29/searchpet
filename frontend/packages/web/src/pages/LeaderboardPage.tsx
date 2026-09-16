@@ -313,20 +313,23 @@ export function LeaderboardPage() {
    * render y no se enteraría nunca de que llegó la sesión: el ranking seguiría
    * pidiendo que tipees tu propia ciudad.
    *
-   * El ref es lo que hace que sea "una sola vez". Sin él, un usuario que busca
-   * OTRA ciudad vería su búsqueda pisada por la suya propia en cada re-render
-   * que refresque el perfil — su elección explícita perdiendo contra un default.
+   * El ref significa "la ciudad YA ESTÁ DECIDIDA", no "ya sembré", y esa
+   * diferencia es el bug que casi se cuela: la sesión hidrata después del
+   * primer render, así que quien entra y busca de una lo hace con el ref
+   * todavía en false — con la pregunta equivocada, el perfil aterrizaba encima
+   * y le pisaba la búsqueda. Buscar a mano también decide, así que el submit
+   * marca el ref igual que la siembra.
    *
    * Y no se siembra con ciudad vacía a propósito: quien todavía no la tiene
    * —las cuentas anteriores a que fuera obligatoria en el alta— tiene que
    * seguir viendo el pedido de ciudad, no un ranking de la nada.
    */
-  const ciudadSembrada = useRef(false);
+  const ciudadDecidida = useRef(false);
   useEffect(() => {
-    if (ciudadSembrada.current) return;
+    if (ciudadDecidida.current) return;
     const propia = user?.city?.trim();
     if (!propia) return;
-    ciudadSembrada.current = true;
+    ciudadDecidida.current = true;
     setCityDraft(propia);
     setCity(propia);
   }, [user?.city]);
@@ -357,6 +360,9 @@ export function LeaderboardPage() {
           <form
             onSubmit={(e) => {
               e.preventDefault();
+              // Buscar a mano DECIDE la ciudad: a partir de acá el perfil que
+              // llegue tarde ya no puede pisarla.
+              ciudadDecidida.current = true;
               setCity(cityDraft.trim());
             }}
             className="flex flex-col sm:flex-row gap-3 sm:items-center max-w-2xl mx-auto"

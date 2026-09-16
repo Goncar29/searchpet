@@ -184,6 +184,34 @@ describe('LeaderboardPage', () => {
       expect(lastCity()).toBe('Salto');
       expect(screen.getByLabelText('leaderboard:cityLabel')).toHaveValue('Salto');
     });
+
+    /**
+     * EL ORDEN MÁS PROBABLE, y el que la primera versión rompía.
+     *
+     * `AuthContext` hidrata `user` de forma asíncrona, así que la página se
+     * dibuja ANTES de que llegue el perfil: quien entra, ve el pedido de
+     * ciudad, tipea la suya y busca, lo hace todo con la sesión todavía en
+     * vuelo. Ahí el ref sigue en false, y una guarda que sólo pregunta "¿ya
+     * sembré?" deja que el perfil aterrice encima y le pise la búsqueda.
+     *
+     * La pregunta correcta no es "¿ya sembré?" sino "¿ya está decidida la
+     * ciudad?" — y buscar a mano también la decide.
+     *
+     * El test de arriba no alcanza: busca DESPUÉS de que la siembra ocurrió.
+     */
+    it('el perfil que llega TARDE no pisa una busqueda ya hecha', () => {
+      const { rerender } = render(<LeaderboardPage />, { wrapper });
+
+      search('Salto');
+      expect(lastCity()).toBe('Salto');
+
+      // Recién ahora hidrata la sesión.
+      mockUser = { city: 'Montevideo' };
+      rerender(<LeaderboardPage />);
+
+      expect(lastCity()).toBe('Salto');
+      expect(screen.getByLabelText('leaderboard:cityLabel')).toHaveValue('Salto');
+    });
   });
 
   describe('podio', () => {
