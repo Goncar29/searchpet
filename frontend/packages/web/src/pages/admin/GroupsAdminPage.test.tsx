@@ -68,6 +68,37 @@ describe('GroupsAdminPage — formulario', () => {
     } as never);
   });
 
+  // ── Encabezado: el lenguaje del panel ───────────────────────
+
+  // `font-display` fija la FAMILIA y el preflight de Tailwind v4 deja los h1-h6
+  // en `font-weight: inherit`, así que sin `font-semibold` explícito el título
+  // sale en peso normal — la regresión del #161, que el #206 volvió a nombrar.
+  //
+  // SE AFIRMAN LAS DOS CLASES, no una: con sólo `font-display` el peso se cae, y
+  // con sólo un peso el título queda en la familia equivocada. Esta pantalla
+  // llegaba con `font-bold` sin `font-display`: se veía grueso y era la única de
+  // las ocho fuera de línea, que es justo lo que un assert de "está en negrita"
+  // no habría distinguido.
+  it('el titulo usa la familia del panel Y un peso explicito', () => {
+    montar();
+
+    const titulo = screen.getByRole('heading', { level: 2, name: 'groups.title' });
+    expect(titulo.className).toContain('font-display');
+    expect(titulo.className).toContain('font-semibold');
+    // Y `font-bold` AUSENTE, que es la mitad que faltaba: con las dos clases de
+    // peso puestas gana el orden del stylesheet de Tailwind, no el del atributo,
+    // así que el resultado deja de estar decidido acá. Sin esta línea, volver a
+    // meter `font-bold` al lado —el defecto exacto contra el que existe este
+    // guard— pasaba en verde.
+    expect(titulo.className).not.toContain('font-bold');
+  });
+
+  // Las otras siete del panel llevan subtítulo; ésta era la única sin él.
+  it('el encabezado trae el subtitulo que dice que hace la pantalla', () => {
+    montar();
+    expect(screen.getByText('groups.subtitle')).toBeTruthy();
+  });
+
   // ── Marcado del sistema de formularios ──────────────────────
 
   // El guard del #185: el asterisco lo dibuja `FormField required` y el JSX

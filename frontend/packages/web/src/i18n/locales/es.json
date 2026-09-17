@@ -96,6 +96,7 @@
     },
     "groups": {
       "title": "Crear grupo local",
+      "subtitle": "Creá un grupo local para que la gente de una ciudad se organice. Cada ciudad puede tener uno solo.",
       "name": "Nombre",
       "city": "Ciudad",
       "description": "Descripción",
