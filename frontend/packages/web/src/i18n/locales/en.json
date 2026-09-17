@@ -195,6 +195,7 @@
   "alerts": {
     "title": "My alerts ({{count}}/{{max}})",
     "titleNoCount": "My alerts",
+    "subtitle": "Pick an area and we will let you know when someone reports a pet nearby.",
     "newAlert": "+ New alert",
     "formTitle": "New alert",
     "nameLabel": "Name",

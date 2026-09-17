@@ -150,24 +150,53 @@ export function AlertsPage() {
   };
 
   return (
-    <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-          {alertCount !== undefined
-            ? t('title', { count: alertCount, max: MAX_ALERTS })
-            : t('titleNoCount')}
-        </h1>
-        {!showForm && (
-          <button
-            onClick={() => setShowForm(true)}
-            disabled={(alertCount ?? 0) >= MAX_ALERTS}
-            className="px-4 py-2 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {t('newAlert')}
-          </button>
-        )}
-      </div>
+    <div className="bg-gray-50 dark:bg-gray-950 min-h-screen">
+      {/* La banda del lenguaje de las públicas (`AdoptPage`, `LeaderboardPage`).
+          Esta pantalla no la tenía: arrancaba directo en un `<h1>` de
+          `text-2xl font-bold`, sin `font-display`.
+
+          El `<h1>` NO lleva peso explícito, y es a propósito: `--text-display` y
+          `--text-display-sm` ya declaran `font-weight: 700` (ver `index.css`),
+          así que acá agregarlo sería ruido. Es lo contrario del caso del panel
+          admin, donde `text-xl` no trae peso y sin `font-semibold` el título se
+          caía a 400 — la regresión del #161. La regla no es "poné siempre el
+          peso": es "asegurate de que ALGUIEN lo declare". */}
+      <section className="bg-gradient-to-br from-primary to-primary-dark text-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 text-center">
+          {/* El conteo se queda DENTRO del `<h1>`, y eso no es inercia: dos
+              tests lo afirman, incluido que con la query caída el título NO
+              afirme un conteo. Un "Mis alertas (0/5)" cuando la lectura falló
+              es la misma mentira que una lista vacía sobre un error. */}
+          <h1 className="font-display text-display-sm md:text-display mb-3">
+            {alertCount !== undefined
+              ? t('title', { count: alertCount, max: MAX_ALERTS })
+              : t('titleNoCount')}
+          </h1>
+          <p className="text-lg text-white max-w-2xl mx-auto">{t('subtitle')}</p>
+        </div>
+      </section>
+
+      {/* `max-w-7xl` como el navbar (la convención aprobada el 2026-08-05); la
+          columna interna se queda angosta porque acá adentro hay un FORMULARIO,
+          y un campo de 1216px no se llena cómodo. Lo que la regla corrige es que
+          la PÁGINA fuera ~450px más angosta que su propia barra, no que el
+          contenido tenga que estirarse hasta el borde. */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="max-w-3xl mx-auto">
+          {/* El botón sale del encabezado: en la banda no entra —las hermanas no
+              ponen acciones ahí— y acá queda pegado a la lista sobre la que
+              actúa. */}
+          {!showForm && (
+            <div className="flex justify-end mb-6">
+              <button
+                onClick={() => setShowForm(true)}
+                disabled={(alertCount ?? 0) >= MAX_ALERTS}
+                className="px-4 py-2 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {t('newAlert')}
+              </button>
+            </div>
+          )}
 
       {/* Create form.
           No usa `FormPage`: el frame lo pone esta página, que es una pantalla de
@@ -364,6 +393,8 @@ export function AlertsPage() {
         </div>
         )}
       </ListState>
+        </div>
+      </section>
     </div>
   );
 }
