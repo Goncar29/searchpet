@@ -111,10 +111,26 @@ describe('tokens de color', () => {
  * declare nadie.
  */
 describe('tokens de tipografía', () => {
-  /** Lee el peso declarado para una escala, o `null` si no hay ninguno. */
+  /**
+   * Lee el peso declarado para una escala, o `null` si no hay ninguno.
+   *
+   * `String.raw` y NO un template literal común: adentro de uno normal `\s` no
+   * es una secuencia de escape válida, así que JS la colapsa a `s` y el patrón
+   * queda `:s*(...)` — cero o más letras ESE, no espacios. Comprobado:
+   * `` `x:\s*y` `` da `"x:s*y"`.
+   *
+   * La primera versión tenía justo ese error y PASABA IGUAL, porque la captura
+   * era `([^;]+)`: se tragaba el espacio y el `.trim()` lo limpiaba. O sea que
+   * ninguna verificación en rojo lo habría mostrado — el verde coincidía en las
+   * dos versiones. Lo encontró una revisión leyendo el regex.
+   *
+   * Por eso la captura ahora es `([0-9]+)`: además de ser lo correcto —un peso
+   * es un número— vuelve PORTANTE al `\s*`. Con el escape colapsado, `:s*[0-9]+`
+   * no matchea `: 700` y el guard se cae, que es como tiene que comportarse.
+   */
   const pesoDe = (escala: string): string | null => {
-    const m = css.match(new RegExp(`${escala}--font-weight:\s*([^;]+);`));
-    return m ? m[1].trim() : null;
+    const m = css.match(new RegExp(String.raw`${escala}--font-weight:\s*([0-9]+);`));
+    return m ? m[1] : null;
   };
 
   // Las tres escalas que alguna pantalla usa SIN declarar peso propio.
