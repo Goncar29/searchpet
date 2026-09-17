@@ -212,6 +212,44 @@ describe('useCiudadDecidida', () => {
       expect(aplicadas).toEqual([]);
     });
 
+    // DECISIÓN, no accidente: al desloguearse, el fallback vuelve a aplicarse
+    // AUNQUE la ciudad la hubiera elegido la persona a mano.
+    //
+    // Sale del cruce de dos piezas que por separado están bien —el reset por
+    // identidad y el fallback demorado—, y ningún otro test lo tocaba: los de
+    // identidad usan decisiones sembradas del perfil, y el del logout no pasa
+    // `fallback`. Lo levantó la revisión nativa.
+    //
+    // Se deja así a propósito. Después del logout no hay a quién pertenecerle la
+    // elección, y el #248 ya había decidido que sin sesión mobile muestra el
+    // default del proyecto. El arreglo "obvio" —preservar la elección manual a
+    // través del cambio de identidad— es PEOR: si después entra otra persona,
+    // vería la ciudad que eligió la anterior, que es una versión más suave del
+    // bug que este hook vino a matar.
+    //
+    // Ojo con el modelo del test: `decidirManualmente` NO aplica —devuelve, y
+    // aplica la pantalla—, así que la elección manual no aparece en `aplicadas`.
+    // Lo que se afirma es que DESPUÉS del logout el hook aplica el default.
+    it('el logout re-aplica el fallback, incluso sobre una elección manual', () => {
+      const { aplicadas, vista } = montar({
+        userId: 'a',
+        ciudadDelPerfil: 'Salto',
+        sesionResuelta: true,
+        fallback: 'Montevideo',
+      });
+      expect(aplicadas).toEqual(['Salto']);
+
+      vista.result.current.decidirManualmente('Melo');
+      vista.rerender({
+        userId: null,
+        ciudadDelPerfil: null,
+        sesionResuelta: true,
+        fallback: 'Montevideo',
+      });
+
+      expect(aplicadas).toEqual(['Salto', 'Montevideo']);
+    });
+
     // BORDE DOCUMENTADO, no bendecido: con el id ausente en las dos identidades
     // el reset no puede dispararse, porque no hay con qué distinguirlas.
     //
