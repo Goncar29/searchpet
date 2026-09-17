@@ -195,6 +195,7 @@
   "alerts": {
     "title": "Mis alertas ({{count}}/{{max}})",
     "titleNoCount": "Mis alertas",
+    "subtitle": "Elegí una zona y te avisamos cuando alguien reporte una mascota cerca.",
     "newAlert": "+ Nueva alerta",
     "formTitle": "Nueva alerta",
     "nameLabel": "Nombre",

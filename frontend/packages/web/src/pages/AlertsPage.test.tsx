@@ -104,6 +104,52 @@ describe('AlertsPage', () => {
  * el marcado anterior no daba — las coordenadas se nombraban con `aria-label` y
  * el radio era un grupo de botones con `role="radiogroup"` escrito a mano.
  */
+describe('AlertsPage — el lenguaje de las públicas', () => {
+  beforeEach(() => {
+    state.data = [];
+    state.isError = false;
+  });
+
+  // Las públicas rediseñadas (`AdoptPage`, `LeaderboardPage`) abren con una
+  // banda de color y el título en la familia display. Esta pantalla entraba con
+  // un `<h1>` de `text-2xl font-bold`, sin `font-display`.
+  //
+  // NO se afirma un peso acá, y es deliberado: `--text-display` y
+  // `--text-display-sm` ya declaran `font-weight: 700` en `index.css`. Exigir
+  // `font-semibold` obligaría a escribir algo redundante, y exigir `font-bold`
+  // ataría el test a un detalle que el token puede cambiar. Lo que importa es
+  // que el tamaño venga de un token que SÍ trae peso — por eso se afirma el
+  // token, no el peso.
+  it('el titulo usa la familia display y el tamaño de las hermanas', () => {
+    render(<AlertsPage />);
+
+    const titulo = screen.getByRole('heading', { level: 1 });
+    expect(titulo.className).toContain('font-display');
+    expect(titulo.className).toContain('text-display-sm');
+    expect(titulo.className).not.toContain('font-bold');
+  });
+
+  it('la banda lleva subtitulo, como las otras publicas', () => {
+    render(<AlertsPage />);
+    expect(screen.getByText('subtitle')).toBeTruthy();
+  });
+
+  // La convención aprobada el 2026-08-05: toda página de contenido va en
+  // `max-w-7xl`, el mismo cap que el navbar. Esta estaba en `max-w-3xl`, o sea
+  // a menos de la mitad — el mismo defecto que se corrigió en `MyPetsPage` y
+  // `GroupsPage`.
+  //
+  // Se cuentan las secciones ancladas al cap, no "que exista un max-w-7xl":
+  // con un solo `toContain` sobre el documento, dejar la banda al ancho viejo
+  // pasaría igual mientras el contenido estuviera bien.
+  it('la banda Y el contenido estan anclados al ancho del navbar', () => {
+    const { container } = render(<AlertsPage />);
+
+    expect(container.querySelectorAll('.max-w-7xl').length).toBe(2);
+    expect(container.querySelector('.max-w-3xl.mx-auto')).toBeTruthy();
+  });
+});
+
 describe('AlertsPage — formulario de alta', () => {
   beforeEach(() => {
     state.data = [];
