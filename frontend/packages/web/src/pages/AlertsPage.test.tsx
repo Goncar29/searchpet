@@ -139,13 +139,32 @@ describe('AlertsPage — el lenguaje de las públicas', () => {
   // a menos de la mitad — el mismo defecto que se corrigió en `MyPetsPage` y
   // `GroupsPage`.
   //
-  // Se cuentan las secciones ancladas al cap, no "que exista un max-w-7xl":
-  // con un solo `toContain` sobre el documento, dejar la banda al ancho viejo
-  // pasaría igual mientras el contenido estuviera bien.
+  // Se afirma CADA sección por separado, y no un conteo global.
+  //
+  // La primera versión hacía `querySelectorAll('.max-w-7xl').length === 2`. Eso
+  // pasa el caso que verifiqué en rojo —dejar la banda al ancho viejo— pero
+  // NO el que me marcó la revisión: sacarlo de la banda y meter dos en el
+  // contenido da 2 igual. El test contaba lo que su propio comentario decía
+  // que no contaba.
+  //
+  // Anclarse a la banda por su gradiente y al contenido por ser el `<section>`
+  // que NO es la banda ata cada aserción a la cosa que protege.
   it('la banda Y el contenido estan anclados al ancho del navbar', () => {
     const { container } = render(<AlertsPage />);
 
-    expect(container.querySelectorAll('.max-w-7xl').length).toBe(2);
+    const banda = container.querySelector('section.bg-gradient-to-br');
+    expect(banda, 'no encontré la banda').toBeTruthy();
+    expect(banda!.querySelector('.max-w-7xl')).toBeTruthy();
+    // Y que la banda sea DE VERDAD el encabezado, no cualquier gradiente: si
+    // el `<h1>` se fuera a otro lado, anclar acá dejaría de significar algo.
+    expect(banda!.querySelector('h1')).toBeTruthy();
+
+    // El contenido lleva el cap en el `<section>` mismo; la banda lo lleva en un
+    // div interno, porque el gradiente va a todo el ancho de la ventana.
+    const contenido = [...container.querySelectorAll('section')].find((s) => s !== banda);
+    expect(contenido, 'no encontré la sección de contenido').toBeTruthy();
+    expect(contenido!.className).toContain('max-w-7xl');
+
     expect(container.querySelector('.max-w-3xl.mx-auto')).toBeTruthy();
   });
 });
