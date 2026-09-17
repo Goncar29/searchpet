@@ -13,8 +13,25 @@ const mockUseLeaderboard = jest.fn();
 
 // La pantalla importa por ruta relativa (`../../../shared/hooks`), no por el
 // alias `@shared/hooks` que usan los otros tests. Resuelven al mismo módulo.
+// `useCiudadDecidida` va real: esta suite mira los estados de la lista, no la
+// política de ciudad, pero la pantalla lo importa del mismo módulo y un mock
+// parcial lo dejaría en `undefined`. Se toma de su propio archivo para no
+// arrastrar react-query ni el cliente HTTP.
 jest.mock('../../shared/hooks', () => ({
   useLeaderboard: (...args: unknown[]) => mockUseLeaderboard(...args),
+  useCiudadDecidida: jest.requireActual('../../shared/hooks/useCiudadDecidida')
+    .useCiudadDecidida,
+}));
+
+// Sesión YA RESUELTA y con ciudad, porque esta suite mira los estados de la
+// LISTA y no la hidratación. Sin el mock corre contra el store real, donde
+// `isLoading` arranca en `true`: la pantalla se queda esperando saber qué ciudad
+// corresponde y muestra el spinner, que tapa todo lo que estos tests afirman.
+jest.mock('../store', () => ({
+  useAuthStore: (selector: (state: unknown) => unknown) => {
+    const state = { user: { id: 'u-1', city: 'Montevideo' }, isLoading: false };
+    return typeof selector === 'function' ? selector(state) : state;
+  },
 }));
 
 const entrada = {

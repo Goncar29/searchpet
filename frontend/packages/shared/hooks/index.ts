@@ -5,6 +5,7 @@
 
 export * from './useWebSocket';
 export * from './useImageClassify';
+export * from './useCiudadDecidida';
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient, ApiError } from '../api/client';

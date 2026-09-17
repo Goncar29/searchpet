@@ -3,7 +3,7 @@
 // Muestra el ranking de usuarios por puntos en una ciudad.
 // ============================================================
 
-import { useState, useEffect, useRef } from 'react';
+import { useState } from 'react';
 import {
   View,
   Text,
@@ -15,12 +15,24 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { useLeaderboard } from '../../../shared/hooks';
+import { useLeaderboard, useCiudadDecidida } from '../../../shared/hooks';
 import { useAuthStore } from '../../store';
 import { ListState } from '../../components/list/ListState';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
 import { BADGE_META } from '../../../shared/types';
 import type { LeaderboardEntry } from '../../../shared/types';
+
+/**
+ * La caída para las cuentas SIN ciudad — las anteriores a que fuera obligatoria
+ * en el alta. Es el default del proyecto (regla #10), y esta pantalla lo usa
+ * porque no tiene estado vacío para "todavía no sé tu ciudad"; web sí lo tiene
+ * y por eso no pasa ninguno.
+ *
+ * Estaba escrito dos veces en los `useState` de abajo. Acá arriba y con nombre
+ * queda claro que es una CAÍDA y no la ciudad de quien mira, que es justo la
+ * confusión que rompía la pantalla.
+ */
+const DEFAULT_CITY = 'Montevideo';
 
 const MEDAL: Record<number, string> = {
   1: '🥇',
@@ -87,47 +99,59 @@ export default function LeaderboardScreen() {
   const router = useRouter();
   const { t } = useTranslation('leaderboard');
 
-  // 'Montevideo' es el DEFAULT del proyecto (regla #10), no la ciudad de quien
-  // mira: a alguien de Salto le mostraba un ranking ajeno como si fuera el
-  // suyo. Se conserva sólo para las cuentas sin ciudad — las anteriores a que
-  // fuera obligatoria en el alta.
-  const [city, setCity] = useState('Montevideo');
-  const [inputCity, setInputCity] = useState('Montevideo');
+  // Arranca VACÍA, no en 'Montevideo'.
+  //
+  // El default del proyecto (regla #10) sigue siendo la caída para las cuentas
+  // sin ciudad, pero ahora lo aplica el hook y sólo DESPUÉS de que la sesión se
+  // resolvió. Cableado en el `useState` inicial, la query salía disparada en el
+  // primer render: alguien de Salto veía un ranking de Montevideo, rotulado
+  // como propio, mientras su sesión viajaba. Es el mismo "plausible, silencioso
+  // y equivocado" que esta pantalla vino a eliminar, en una ventana más corta.
+  //
+  // Con `''` la query queda deshabilitada (`enabled: !!city`), así que no se
+  // consulta nada hasta saber qué ciudad corresponde.
+  const [city, setCity] = useState('');
+  const [inputCity, setInputCity] = useState('');
 
-  /**
-   * La ciudad propia se siembra UNA sola vez, y con un efecto.
-   *
-   * El store hidrata el usuario desde SecureStore de forma asíncrona, así que
-   * en el primer render todavía no hay sesión: el valor inicial de `useState`
-   * se quedaría con el default para siempre.
-   *
-   * El ref significa "la ciudad YA ESTÁ DECIDIDA", no "ya sembré": el store
-   * hidrata después del primer render, así que quien entra y busca de una lo
-   * hace con el ref todavía en false — con la pregunta equivocada, el perfil
-   * aterrizaba encima y le pisaba la búsqueda. Buscar a mano también decide.
-   */
   const usuario = useAuthStore((state) => state.user);
-  const ciudadDecidida = useRef(false);
-  useEffect(() => {
-    if (ciudadDecidida.current) return;
-    const propia = usuario?.city?.trim();
-    if (!propia) return;
-    ciudadDecidida.current = true;
-    setCity(propia);
-    setInputCity(propia);
-  }, [usuario?.city]);
+  // `isLoading` del store es lo que distingue "todavía no sé tu ciudad" de "sé
+  // que no tenés": sin ese dato no se puede decidir si corresponde el default.
+  const cargandoSesion = useAuthStore((state) => state.isLoading);
+
+  // La política vive en `useCiudadDecidida`, compartido con web. Acá sólo queda
+  // qué estado tocar y cuál es la caída.
+  const { decidirManualmente } = useCiudadDecidida({
+    userId: usuario?.id,
+    ciudadDelPerfil: usuario?.city,
+    sesionResuelta: !cargandoSesion,
+    fallback: DEFAULT_CITY,
+    aplicar: (ciudad) => {
+      setCity(ciudad);
+      setInputCity(ciudad);
+    },
+  });
 
   // La query entera y no sólo `data`: `ListState` necesita `isPaused`,
   // `isError` y `refetch` para decidir entre cartel, franja y lista.
   const leaderboardQuery = useLeaderboard(city);
   const { isLoading, isFetching, refetch } = leaderboardQuery;
 
+  // El mismo nodo para las dos esperas —la sesión que todavía no resolvió y la
+  // consulta en vuelo— porque para quien mira son la misma cosa.
+  const cargando = (
+    <View style={styles.center}>
+      <ActivityIndicator size="large" color={COLORS.primary} />
+    </View>
+  );
+
+  // Buscar a mano DECIDE la ciudad: el perfil que llegue tarde ya no la pisa.
+  // La guarda del vacío vive en el hook y devuelve `null` — acá importa más que
+  // en web, porque esto cuelga también de `onBlur`: alcanza con tocar afuera
+  // del campo para dispararlo.
   const applyCity = () => {
-    const trimmed = inputCity.trim();
-    if (!trimmed) return;
-    // Buscar a mano DECIDE la ciudad: el perfil que llegue tarde ya no la pisa.
-    ciudadDecidida.current = true;
-    setCity(trimmed);
+    const buscada = decidirManualmente(inputCity);
+    if (!buscada) return;
+    setCity(buscada);
   };
 
   return (
@@ -164,13 +188,22 @@ export default function LeaderboardScreen() {
       {/* Los genéricos van EXPLÍCITOS: sin ellos `TItem` infiere `unknown` y la
           `FlatList` de abajo lo rechaza (TS2769). Jest no lo ve —Babel no
           chequea tipos— así que esto sólo aparece corriendo `tsc`. */}
+      {/* MIENTRAS NO SEPAMOS QUÉ CIUDAD CORRESPONDE, va el spinner y no la
+          lista.
+          Sin ciudad la query está deshabilitada (`enabled: !!city`), y una query
+          deshabilitada NO es `isLoading`: queda `pending` con `isFetching` en
+          false, así que `ListState` la deja pasar hasta la lista vacía y el
+          `ListEmptyComponent` dibuja "no hay nadie en ." — con la ciudad en
+          blanco y afirmando algo que nadie preguntó.
+          Este estado NO existía antes de que la pantalla arrancara vacía: con
+          'Montevideo' cableado la query salía siempre habilitada. Lo destapó el
+          code review de este mismo PR. */}
+      {!city ? (
+        cargando
+      ) : (
       <ListState<LeaderboardEntry[], LeaderboardEntry>
         query={leaderboardQuery}
-        loading={
-          <View style={styles.center}>
-            <ActivityIndicator size="large" color={COLORS.primary} />
-          </View>
-        }
+        loading={cargando}
       >
         {(entries) => (
         <FlatList<LeaderboardEntry>
@@ -204,6 +237,7 @@ export default function LeaderboardScreen() {
         />
         )}
       </ListState>
+      )}
     </View>
   );
 }
