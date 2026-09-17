@@ -168,6 +168,30 @@ describe('Ranking — precarga de la ciudad del usuario', () => {
     expect(ciudadesPedidas).not.toContain('Montevideo');
   });
 
+  // Sin ciudad todavía, la pantalla NO puede afirmar que no hay nadie.
+  //
+  // Lo destapó el code review de este PR, y era una regresión que introdujo el
+  // arranque en vacío: sin ciudad la query queda deshabilitada, y una query
+  // deshabilitada NO es `isLoading` —queda `pending` con `isFetching` en
+  // false—, así que `ListState` la dejaba pasar hasta la lista vacía y el
+  // `ListEmptyComponent` dibujaba "no hay nadie en ." con la ciudad en blanco.
+  //
+  // Antes no se alcanzaba: con 'Montevideo' cableado la query salía siempre
+  // habilitada. O sea que arreglar un cartel que mentía había creado otro.
+  it('mientras no sepa la ciudad no dice que no hay nadie', () => {
+    mockCargandoSesion = true;
+    const { queryByText, rerender } = render(<LeaderboardScreen />);
+
+    expect(queryByText('leaderboard:emptyTitle')).toBeNull();
+
+    mockCargandoSesion = false;
+    mockUsuario = { id: 'a', city: 'Salto' };
+    rerender(<LeaderboardScreen />);
+
+    // Y con la ciudad ya sabida y la lista vacía, sí corresponde decirlo.
+    expect(queryByText('leaderboard:emptyTitle')).not.toBeNull();
+  });
+
   // La guarda del submit vacío, que en web estaba testeada y acá NO.
   //
   // Y acá es MÁS alcanzable que en web: `applyCity` cuelga también de `onBlur`,

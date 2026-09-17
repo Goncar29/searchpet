@@ -136,6 +136,14 @@ export default function LeaderboardScreen() {
   const leaderboardQuery = useLeaderboard(city);
   const { isLoading, isFetching, refetch } = leaderboardQuery;
 
+  // El mismo nodo para las dos esperas —la sesión que todavía no resolvió y la
+  // consulta en vuelo— porque para quien mira son la misma cosa.
+  const cargando = (
+    <View style={styles.center}>
+      <ActivityIndicator size="large" color={COLORS.primary} />
+    </View>
+  );
+
   // Buscar a mano DECIDE la ciudad: el perfil que llegue tarde ya no la pisa.
   // La guarda del vacío vive en el hook y devuelve `null` — acá importa más que
   // en web, porque esto cuelga también de `onBlur`: alcanza con tocar afuera
@@ -180,13 +188,22 @@ export default function LeaderboardScreen() {
       {/* Los genéricos van EXPLÍCITOS: sin ellos `TItem` infiere `unknown` y la
           `FlatList` de abajo lo rechaza (TS2769). Jest no lo ve —Babel no
           chequea tipos— así que esto sólo aparece corriendo `tsc`. */}
+      {/* MIENTRAS NO SEPAMOS QUÉ CIUDAD CORRESPONDE, va el spinner y no la
+          lista.
+          Sin ciudad la query está deshabilitada (`enabled: !!city`), y una query
+          deshabilitada NO es `isLoading`: queda `pending` con `isFetching` en
+          false, así que `ListState` la deja pasar hasta la lista vacía y el
+          `ListEmptyComponent` dibuja "no hay nadie en ." — con la ciudad en
+          blanco y afirmando algo que nadie preguntó.
+          Este estado NO existía antes de que la pantalla arrancara vacía: con
+          'Montevideo' cableado la query salía siempre habilitada. Lo destapó el
+          code review de este mismo PR. */}
+      {!city ? (
+        cargando
+      ) : (
       <ListState<LeaderboardEntry[], LeaderboardEntry>
         query={leaderboardQuery}
-        loading={
-          <View style={styles.center}>
-            <ActivityIndicator size="large" color={COLORS.primary} />
-          </View>
-        }
+        loading={cargando}
       >
         {(entries) => (
         <FlatList<LeaderboardEntry>
@@ -220,6 +237,7 @@ export default function LeaderboardScreen() {
         />
         )}
       </ListState>
+      )}
     </View>
   );
 }

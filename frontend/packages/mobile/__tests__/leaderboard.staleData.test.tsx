@@ -23,6 +23,17 @@ jest.mock('../../shared/hooks', () => ({
     .useCiudadDecidida,
 }));
 
+// Sesión YA RESUELTA y con ciudad, porque esta suite mira los estados de la
+// LISTA y no la hidratación. Sin el mock corre contra el store real, donde
+// `isLoading` arranca en `true`: la pantalla se queda esperando saber qué ciudad
+// corresponde y muestra el spinner, que tapa todo lo que estos tests afirman.
+jest.mock('../store', () => ({
+  useAuthStore: (selector: (state: unknown) => unknown) => {
+    const state = { user: { id: 'u-1', city: 'Montevideo' }, isLoading: false };
+    return typeof selector === 'function' ? selector(state) : state;
+  },
+}));
+
 const entrada = {
   user_id: 'u-1',
   rank: 1,
