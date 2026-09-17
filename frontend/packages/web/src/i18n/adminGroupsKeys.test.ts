@@ -25,6 +25,16 @@ function flatten(obj: Record<string, unknown>, prefix = ''): string[] {
     .sort();
 }
 
+function resolve(dict: Record<string, unknown>, path: string): unknown {
+  return path
+    .split('.')
+    .reduce<unknown>(
+      (acc, part) =>
+        acc !== null && typeof acc === 'object' ? (acc as Record<string, unknown>)[part] : undefined,
+      dict
+    );
+}
+
 const grupos = (dict: { admin: { groups: Record<string, unknown> } }) => dict.admin.groups;
 
 describe('admin.groups — paridad de claves en los tres idiomas', () => {
@@ -38,9 +48,16 @@ describe('admin.groups — paridad de claves en los tres idiomas', () => {
 
   // Una traducción vacía NO es una clave faltante: pasa la comparación de
   // arriba y en pantalla deja un hueco.
+  //
+  // Recorre las hojas APLANADAS y no `Object.entries` a secas: el día que
+  // `admin.groups` tenga un objeto anidado —que `flatten` ya contempla—, la
+  // versión chata fallaría con "esto no es un string" sobre el objeto, en vez de
+  // señalar la hoja vacía. Un guard que falla por el motivo equivocado manda a
+  // buscar el problema al lugar equivocado.
   it('ninguna traduccion quedo vacia', () => {
     for (const [idioma, dict] of [['es', es], ['en', en], ['pt', pt]] as const) {
-      for (const [clave, valor] of Object.entries(grupos(dict))) {
+      for (const clave of flatten(grupos(dict))) {
+        const valor = resolve(grupos(dict), clave);
         expect(typeof valor, `${idioma}: admin.groups.${clave}`).toBe('string');
         expect((valor as string).trim(), `${idioma}: admin.groups.${clave}`).not.toBe('');
       }

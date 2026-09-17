@@ -85,6 +85,12 @@ describe('GroupsAdminPage — formulario', () => {
     const titulo = screen.getByRole('heading', { level: 2, name: 'groups.title' });
     expect(titulo.className).toContain('font-display');
     expect(titulo.className).toContain('font-semibold');
+    // Y `font-bold` AUSENTE, que es la mitad que faltaba: con las dos clases de
+    // peso puestas gana el orden del stylesheet de Tailwind, no el del atributo,
+    // así que el resultado deja de estar decidido acá. Sin esta línea, volver a
+    // meter `font-bold` al lado —el defecto exacto contra el que existe este
+    // guard— pasaba en verde.
+    expect(titulo.className).not.toContain('font-bold');
   });
 
   // Las otras siete del panel llevan subtítulo; ésta era la única sin él.
