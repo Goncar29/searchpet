@@ -89,3 +89,42 @@ describe('tokens de color', () => {
     expect(contraste(tema['primary-dark'], '#ffffff')).toBeGreaterThanOrEqual(AA_TEXTO_NORMAL);
   });
 });
+
+/**
+ * Los tokens de tipografía, por el mismo motivo que los de color: un peso que
+ * nadie declara no se ve roto, se ve normal.
+ *
+ * Los títulos hero de `AlertsPage`, `AdoptPage` y `LeaderboardPage` se escriben
+ * `font-display text-display-sm md:text-display` SIN peso explícito, porque el
+ * token ya lo trae. Esa omisión es correcta mientras el token lo declare — y
+ * nada lo estaba obligando.
+ *
+ * El precedente es real: el #161 dejó títulos en peso 400 porque `font-display`
+ * fija la FAMILIA y el preflight de Tailwind v4 deja los h1-h6 en
+ * `font-weight: inherit`. Si alguien borra estas líneas del CSS, TRES heroes
+ * caen a la vez y ningún test de pantalla lo ve: todos afirman CLASES, y las
+ * clases seguirían ahí.
+ *
+ * La regla que esto compila: **el peso lo tiene que declarar ALGUIEN.** En el
+ * panel admin lo declara la clase (`font-semibold`, porque `text-xl` no trae
+ * peso); en los heroes lo declara el token. Lo que no puede pasar es que no lo
+ * declare nadie.
+ */
+describe('tokens de tipografía', () => {
+  /** Lee el peso declarado para una escala, o `null` si no hay ninguno. */
+  const pesoDe = (escala: string): string | null => {
+    const m = css.match(new RegExp(`${escala}--font-weight:\s*([^;]+);`));
+    return m ? m[1].trim() : null;
+  };
+
+  // Las tres escalas que alguna pantalla usa SIN declarar peso propio.
+  for (const escala of ['--text-display', '--text-display-sm', '--text-headline']) {
+    it(`${escala} declara su font-weight`, () => {
+      const peso = pesoDe(escala);
+      expect(peso, `${escala}--font-weight no está declarado en index.css`).not.toBeNull();
+      // 400 es el default del navegador: declararlo en 400 es lo mismo que no
+      // declararlo, y dejaría los títulos en peso normal igual que el #161.
+      expect(Number(peso)).toBeGreaterThan(400);
+    });
+  }
+});
