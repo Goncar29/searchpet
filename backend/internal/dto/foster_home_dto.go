@@ -163,12 +163,23 @@ func ToFosterHomeResponse(fh *domain.FosterHome) FosterHomeResponse {
 	for _, p := range fh.Photos {
 		photos = append(photos, FosterHomePhotoResponse{ID: p.ID, URL: p.URL})
 	}
+	// `append` sobre un slice vacío y NO la conversión `[]string(...)` a secas:
+	// un `pq.StringArray` nil se convierte en un `[]string` nil, que se
+	// serializa como `null` y no como `[]`. Hay cinco consumidores que hacen
+	// `animal_types.map(...)` sin guard (web y mobile), o sea la misma forma
+	// que tumbó `/admin/impact` en el PR #249.
+	//
+	// Hoy no es alcanzable: la columna es `not null` y las dos validaciones
+	// exigen al menos un tipo. Se cierra igual porque cuesta una línea y así la
+	// garantía no depende de que esas tres cosas sigan siendo ciertas — que es
+	// exactamente el razonamiento que dejó pasar el bug del impacto.
+	animalTypes := append([]string{}, fh.AnimalTypes...)
 	return FosterHomeResponse{
 		ID:            fh.ID,
 		OwnerUserID:   fh.OwnerUserID,
 		City:          fh.City,
 		HousingType:   fh.HousingType,
-		AnimalTypes:   []string(fh.AnimalTypes),
+		AnimalTypes:   animalTypes,
 		Capacity:      fh.Capacity,
 		Description:   fh.Description,
 		WhatsappPhone: fh.WhatsappPhone,
