@@ -70,13 +70,28 @@ describe('admin.groups — las claves que la pantalla usa existen de verdad', ()
   // arriba prueba que los tres idiomas COINCIDEN; esto prueba que coinciden con
   // lo que la pantalla realmente pide, que es otra pregunta: las tres podrían
   // estar de acuerdo en no tener la clave que se usa.
-  const usadas = [...groupsAdminSource.matchAll(/t\('groups\.([a-zA-Z0-9_]+)'/g)].map((m) => m[1]);
+  // `\s*` después de `t(`: sin eso el regex exige que `t(` y la clave estén
+  // PEGADOS, y una llamada larga que Prettier parta en varias líneas dejaría de
+  // matchear. Esa clave se caía del barrido en silencio.
+  const usadas = [...groupsAdminSource.matchAll(/t\(\s*'groups\.([a-zA-Z0-9_]+)'/g)].map(
+    (m) => m[1]
+  );
 
-  // Sin esta aserción, un cambio de comillas o de forma de llamada dejaría el
-  // barrido en CERO y los tests de abajo pasarían sobre una lista vacía — verde
-  // sin haber mirado nada.
-  it('el barrido ve las llamadas a t(), no una lista vacia', () => {
-    expect(usadas.length).toBeGreaterThanOrEqual(10);
+  // El centinela NO es un umbral mágico, y ésa es la diferencia.
+  //
+  // Antes decía `>= 10` sobre 13 claves reales: perder una —justo lo que provoca
+  // una llamada reformateada— pasaba en verde, o sea que el guard se debilitaba
+  // sin avisar. Un número fijo tampoco sirve: agregar una clave lo rompería sin
+  // que nada esté mal.
+  //
+  // Lo que se compara es el barrido contra la MISMA fuente contada de otra
+  // forma: cada `'groups.` literal del archivo tiene que haber sido parseado. Si
+  // el regex deja de ver una llamada, el literal sigue ahí y los números se
+  // separan.
+  it('el barrido parsea TODAS las llamadas a t(), no una parte', () => {
+    const literales = (groupsAdminSource.match(/'groups\./g) ?? []).length;
+    expect(usadas.length).toBe(literales);
+    expect(usadas.length).toBeGreaterThan(0);
     expect(usadas).toContain('subtitle');
     expect(usadas).toContain('title');
   });
