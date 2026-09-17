@@ -14,11 +14,16 @@ const ciudadesPedidas: string[] = [];
 
 // La pantalla importa por ruta relativa (`../../../shared/hooks`), igual que el
 // otro test de esta pantalla.
+// `useCiudadDecidida` va REAL, no mockeado: es justamente la política que estos
+// tests miden. Se toma de su propio archivo para no arrastrar el resto de
+// `shared/hooks`, que importa react-query y el cliente HTTP.
 jest.mock('../../shared/hooks', () => ({
   useLeaderboard: (city: string) => {
     ciudadesPedidas.push(city);
     return mockUseLeaderboard(city);
   },
+  useCiudadDecidida: jest.requireActual('../../shared/hooks/useCiudadDecidida')
+    .useCiudadDecidida,
 }));
 
 // La sesión es VARIABLE: con un `user` fijo el test no distinguiría "sembró"
@@ -26,11 +31,16 @@ jest.mock('../../shared/hooks', () => ({
 // de `jest.mock` por encima de las declaraciones y sólo permite referenciar
 // variables con ese prefijo — sin él, el suite no compila y falla con
 // `Test suite failed to run`, que se ve igual que un test en rojo.
-let mockUsuario: { city?: string } | null = null;
+let mockUsuario: { id?: string; city?: string } | null = null;
+
+// `isLoading` del store es lo que distingue "todavía no sé tu ciudad" de "sé
+// que no tenés". Con un valor fijo no se podría probar el default adelantado:
+// la pantalla arrancaba consultando Montevideo antes de que llegara la sesión.
+let mockCargandoSesion = false;
 
 jest.mock('../store', () => ({
   useAuthStore: (selector: (state: unknown) => unknown) => {
-    const state = { user: mockUsuario };
+    const state = { user: mockUsuario, isLoading: mockCargandoSesion };
     return typeof selector === 'function' ? selector(state) : state;
   },
 }));
@@ -40,6 +50,7 @@ const ultimaCiudad = () => ciudadesPedidas[ciudadesPedidas.length - 1];
 beforeEach(() => {
   ciudadesPedidas.length = 0;
   mockUsuario = null;
+  mockCargandoSesion = false;
   mockUseLeaderboard.mockReturnValue({
     data: [],
     isLoading: false,
@@ -132,5 +143,69 @@ describe('Ranking — precarga de la ciudad del usuario', () => {
     rerender(<LeaderboardScreen />);
 
     expect(ultimaCiudad()).toBe('Salto');
+  });
+
+  // El default NO se adelanta a la sesión.
+  //
+  // Con 'Montevideo' en el `useState` inicial, la query salía en el PRIMER
+  // render: alguien de Salto veía un ranking de Montevideo rotulado como propio
+  // durante toda la hidratación. Es el mismo "plausible, silencioso y
+  // equivocado" que esta pantalla vino a eliminar, en una ventana más corta.
+  //
+  // LO QUE SE AFIRMA ES QUE MONTEVIDEO NUNCA SE PIDIÓ, no sólo cuál es la
+  // última ciudad: mirar el final no distingue "no se adelantó" de "se adelantó
+  // y después lo corrigió", que es exactamente el defecto.
+  it('no consulta el default mientras la sesión no se resolvió', () => {
+    mockCargandoSesion = true;
+    const { rerender } = render(<LeaderboardScreen />);
+    expect(ultimaCiudad()).toBe('');
+
+    mockCargandoSesion = false;
+    mockUsuario = { id: 'a', city: 'Salto' };
+    rerender(<LeaderboardScreen />);
+
+    expect(ultimaCiudad()).toBe('Salto');
+    expect(ciudadesPedidas).not.toContain('Montevideo');
+  });
+
+  // La guarda del submit vacío, que en web estaba testeada y acá NO.
+  //
+  // Y acá es MÁS alcanzable que en web: `applyCity` cuelga también de `onBlur`,
+  // así que alcanza con tocar afuera del campo — no hace falta ni apretar
+  // Enter. Si un blur vacío marcara la ciudad como decidida, la siembra quedaría
+  // quemada y la pantalla se clavaría en el default para siempre.
+  it('un blur con el campo vacío no quema la siembra', () => {
+    mockCargandoSesion = true;
+    const { getByPlaceholderText, rerender } = render(<LeaderboardScreen />);
+
+    const input = getByPlaceholderText('leaderboard:cityPlaceholder');
+    fireEvent.changeText(input, '   ');
+    fireEvent(input, 'blur');
+
+    mockCargandoSesion = false;
+    mockUsuario = { id: 'a', city: 'Durazno' };
+    rerender(<LeaderboardScreen />);
+
+    expect(ultimaCiudad()).toBe('Durazno');
+  });
+
+  // Cambio de IDENTIDAD, que es distinto de un cambio de ciudad.
+  //
+  // En web esto no se veía porque el logout hace `navigate('/')` y la página se
+  // desmonta con su ref. Acá la pantalla sobrevive, así que sin soltar la
+  // decisión B entraba y veía el ranking de la ciudad de A como si fuera suyo.
+  //
+  // Ojo con la diferencia contra el test de "no la vuelve a pisar": ahí cambia
+  // la ciudad del MISMO usuario y no tiene que sembrar; acá cambia la persona y
+  // sí tiene que hacerlo.
+  it('al cambiar de usuario suelta la decisión y siembra la nueva ciudad', () => {
+    mockUsuario = { id: 'a', city: 'Salto' };
+    const { rerender } = render(<LeaderboardScreen />);
+    expect(ultimaCiudad()).toBe('Salto');
+
+    mockUsuario = { id: 'b', city: 'Melo' };
+    rerender(<LeaderboardScreen />);
+
+    expect(ultimaCiudad()).toBe('Melo');
   });
 });

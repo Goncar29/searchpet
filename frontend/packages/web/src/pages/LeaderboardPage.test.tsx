@@ -23,7 +23,17 @@ let error: unknown = null;
 /** Cada ciudad que la página le pidió al hook, en orden. */
 const cityCalls: string[] = [];
 
-vi.mock('@shared/hooks', () => ({
+// `useCiudadDecidida` va REAL, no mockeado: es la politica que estos tests
+// miden. Se toma de su propio archivo para no arrastrar el resto de
+// `shared/hooks`, que importa react-query y el cliente HTTP.
+// Mock PARCIAL con `importOriginal`: `useCiudadDecidida` va real porque es la
+// politica que estos tests miden — mockearlo dejaria la precarga sin verificar.
+//
+// Se usa `importOriginal` y no `vi.importActual` con una ruta a mano: la fabrica
+// de `vi.mock` se hoistea, asi que un especificador relativo se resuelve contra
+// otra base y da ERR_MODULE_NOT_FOUND. `importOriginal` resuelve el id original.
+vi.mock('@shared/hooks', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@shared/hooks')>()),
   useLeaderboard: (city: string) => {
     cityCalls.push(city);
     return { data: entries, isLoading, error };

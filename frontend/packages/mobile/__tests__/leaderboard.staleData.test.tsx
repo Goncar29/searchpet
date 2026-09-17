@@ -13,8 +13,14 @@ const mockUseLeaderboard = jest.fn();
 
 // La pantalla importa por ruta relativa (`../../../shared/hooks`), no por el
 // alias `@shared/hooks` que usan los otros tests. Resuelven al mismo módulo.
+// `useCiudadDecidida` va real: esta suite mira los estados de la lista, no la
+// política de ciudad, pero la pantalla lo importa del mismo módulo y un mock
+// parcial lo dejaría en `undefined`. Se toma de su propio archivo para no
+// arrastrar react-query ni el cliente HTTP.
 jest.mock('../../shared/hooks', () => ({
   useLeaderboard: (...args: unknown[]) => mockUseLeaderboard(...args),
+  useCiudadDecidida: jest.requireActual('../../shared/hooks/useCiudadDecidida')
+    .useCiudadDecidida,
 }));
 
 const entrada = {
