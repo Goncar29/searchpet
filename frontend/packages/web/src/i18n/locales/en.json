@@ -96,6 +96,7 @@
     },
     "groups": {
       "title": "Create Local Group",
+      "subtitle": "Create a local group so people in a city can organize. Each city can have only one.",
       "name": "Name",
       "city": "City",
       "description": "Description",

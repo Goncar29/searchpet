@@ -65,7 +65,21 @@ export function GroupsAdminPage() {
           `FormSection`: las ocho pantallas del panel llevan el suyo con este
           mismo marcado, y el `<h1>` lo pone `AdminLayout`. Tampoco hay
           `FormPage` — el frame lo pone el layout, igual que en `AlertsPage`. */}
-      <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-6">{t('groups.title')}</h2>
+      <div className="mb-6">
+        {/* `font-semibold` explícito: `font-display` fija la FAMILIA y el
+            preflight de Tailwind v4 deja los h1-h6 en `font-weight: inherit`,
+            así que sin él el título sale en peso normal — la regresión del #161.
+            Era `font-bold` sin `font-display`: se veía grueso, pero con la
+            familia equivocada, y esta pantalla quedaba como la única de las ocho
+            fuera de línea. */}
+        <h2 className="font-display font-semibold text-xl text-gray-900 dark:text-gray-100">
+          {t('groups.title')}
+        </h2>
+        {/* El subtítulo no es decoración: es la diferencia entre un título
+            suelto y una sección que dice qué hace. Las otras siete del panel lo
+            tienen, ésta era la única sin él. */}
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{t('groups.subtitle')}</p>
+      </div>
 
       {/* `max-w-2xl` y no el `max-w-md` de antes: con los 32px de padding de
           `FormSection` a cada lado, 448px dejaban los campos en ~384px. */}
