@@ -86,7 +86,7 @@ revirtiendo cada cambio por separado. Runner: `pnpm vitest` desde
   - Checks: `pnpm vitest run src/pages/AlertsPage.test.tsx src/components/alerts`
     y `pnpm build`. Los cuatro tests de coordenadas del #253 tienen que seguir
     verdes SIN tocarlos — si hay que editarlos, la vía accesible se rompió.
-- [ ] **T2 — La lista se lee en un mapa y en tarjetas.** Mapa de resumen con el
+- [x] **T2 — La lista se lee en un mapa y en tarjetas.** ✅ `d275ad04` Mapa de resumen con el
   círculo de cada alerta (activa y pausada distinguibles por algo que no sea
   sólo el color), tarjetas en grilla con pill de estado, badge de radio y tipo,
   y el vacío con el lenguaje de las públicas.
@@ -136,7 +136,37 @@ la reacción. Meterlo adentro anida `<fieldset>`s y deja la leyenda
 renombrar esa leyenda a algo como "Zona a vigilar", y eso toca un test del
 #253. Se difiere a T2, donde el formulario se mira entero.
 
+### T2 — hecho, commit `d275ad04` (rama `feat/alertas-lista-y-mapa`)
+
+`AlertsMap` (un mapa, todos los círculos) + tarjetas en grilla con pill de
+estado, badges de radio y tipo, y las coordenadas convertidas en el botón que
+lleva el mapa a esa zona.
+
+Evidencia observada:
+
+- `pnpm test:run` → **EXIT 0**, 990 web + 317 shared. `pnpm build` → **EXIT 0**.
+- **Ocho guards vistos en rojo por separado** entre componente y página: el
+  punteado de la pausada, el encuadre del conjunto, el encuadre al enfocar, la
+  conversión km→m, el `role="switch"`, el enfoque de la tarjeta tocada, el mapa
+  recibiendo las alertas, y —el que más importa— **el mapa dibujándose sobre la
+  consulta caída**.
+
+Riesgo del candidato (`--base-ref db2cb437 --committed-only`): **medium**, 7
+archivos / 464 líneas. Es su propia rebanada.
+
+## Estado de las ramas
+
+```
+refactor/alertas-banda-y-contenedor   #253, abierto  ← no se tocó
+  └── feat/alertas-mapa-zona          T1  16ec7720 + db2cb437
+        └── feat/alertas-lista-y-mapa T2  d275ad04
+```
+
 ## Next step
 
-Verificar T1 en el navegador, cerrar la rebanada A (revisión + PR sobre
-`refactor/alertas-banda-y-contenedor`), y recién ahí T2.
+1. Pasar las dos por el **navegador** — jsdom no pinta tiles ni mide nada, así
+   que de que el mapa se VEA bien no hay una sola prueba. Va antes de congelar
+   el candidato para la revisión nativa.
+2. Abrir los dos PRs encadenados, cada uno con su revisión (los dos dieron
+   `medium`, o sea que cada uno va a pedir consentimiento).
+3. El merge lo decide el usuario, y el #253 va primero.
