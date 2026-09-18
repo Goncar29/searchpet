@@ -78,7 +78,7 @@ revirtiendo cada cambio por separado. Runner: `pnpm vitest` desde
 
 ## Tasks
 
-- [ ] **T1 — El alta elige la zona sobre el mapa.** Componente
+- [x] **T1 — El alta elige la zona sobre el mapa.** ✅ `16ec7720` Componente
   `components/alerts/AlertZonePicker.tsx` (marcador arrastrable + `<Circle>`
   atado al radio elegido + recentrado). Se monta dentro del `<fieldset>` de
   coordenadas, encima de los dos inputs, que siguen editables y sincronizados en
@@ -103,8 +103,40 @@ revirtiendo cada cambio por separado. Runner: `pnpm vitest` desde
 
 ## Progress
 
-- Nada empezado todavía.
+### T1 — hecho, commit `16ec7720`
+
+Evidencia observada, no afirmada:
+
+- `pnpm test:run` → **EXIT 0**, 981 web + 317 shared.
+- `pnpm build` → **EXIT 0**. Cazó un error que los tests no veían: el mock de
+  `getBounds` infería el literal `true` y el caso contrario no compilaba.
+- **Los seis guards vistos en rojo por separado**, revirtiendo un cambio cada
+  vez: la conversión km→m, el anti-salto de la cámara, el marcador ausente sin
+  punto elegido, el click sobre el mapa, el `dragend`, y el picker montado en la
+  página.
+- Los cuatro tests de coordenadas del #253 siguen verdes **sin tocarles una
+  aserción**. Lo único que se agregó a ese archivo es un test nuevo.
+
+Riesgo del candidato (`gentle-ai review assess`, `--base-ref d72ddeb6
+--committed-only`): **medium**, 8 archivos / 498 líneas. Por el protocolo el
+candidato es la rebanada, y con 498 líneas la rebanada se cierra acá.
+
+**Lo que los tests NO pueden ver**: que el mapa se vea bien. jsdom no pinta
+tiles ni mide posiciones. Falta pasarlo por el navegador antes de congelar el
+candidato para la revisión — la normalización que muta fuente va ANTES del
+freeze.
+
+### Pendiente en T1, anotado para no redescubrirlo
+
+El control de radio quedó **fuera** del `<fieldset>` de coordenadas, o sea
+debajo del mapa pero en otro bloque. En un teléfono eso significa que al
+cambiar el radio el círculo puede quedar fuera de pantalla y el usuario no ve
+la reacción. Meterlo adentro anida `<fieldset>`s y deja la leyenda
+"Coordenadas" cubriendo algo que no son coordenadas; el arreglo honesto es
+renombrar esa leyenda a algo como "Zona a vigilar", y eso toca un test del
+#253. Se difiere a T2, donde el formulario se mira entero.
 
 ## Next step
 
-T1.
+Verificar T1 en el navegador, cerrar la rebanada A (revisión + PR sobre
+`refactor/alertas-banda-y-contenedor`), y recién ahí T2.
