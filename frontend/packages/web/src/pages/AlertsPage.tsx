@@ -11,6 +11,7 @@ import type { PetType } from '@shared/types';
 import { ListState } from '../components/list/ListState';
 import { AlertZonePicker } from '../components/alerts/AlertZonePicker';
 import { AlertsMap } from '../components/alerts/AlertsMap';
+import { redondearCoordenada } from '../components/alerts/coordenadas';
 import { Icon } from '../components/Icon';
 import { FormSection } from '../components/form/FormSection';
 import { FormField, controlClass } from '../components/form/FormField';
@@ -87,9 +88,15 @@ export function AlertsPage() {
   // mapa (arrastrar el pin o tocar) y el botón de geolocalización. Tener dos
   // caminos que escriben el mismo estado con reglas distintas es exactamente
   // cómo uno de los dos se olvida de retirar el mensaje de error.
+  //
+  // Y redondea, porque los dos orígenes traen basura: Leaflet devuelve el
+  // click con toda la precisión del `double` y la geolocalización del
+  // navegador otro tanto. Ese valor cae crudo en un `<input type="number">`
+  // que el usuario tiene que poder leer y corregir — `-34,899025460930744` no
+  // se lee ni se tipea. Lo vi en el navegador; ningún test lo miraba.
   const elegirZona = (latitude: number, longitude: number) => {
-    setFormLat(latitude);
-    setFormLng(longitude);
+    setFormLat(redondearCoordenada(latitude));
+    setFormLng(redondearCoordenada(longitude));
     setCoordError('');
   };
 
