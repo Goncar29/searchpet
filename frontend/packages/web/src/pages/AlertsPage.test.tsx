@@ -13,6 +13,22 @@ const state = vi.hoisted(() => ({
   isError: false,
 }));
 
+// El mapa de resumen se moquea para poder afirmar QUÉ recibe: su propio
+// comportamiento (círculos, encuadre, punteado de la pausada) lo cubre
+// `AlertsMap.test.tsx`. Acá lo que se prueba es el cableado de la página.
+const mapaResumen = vi.hoisted(() => ({
+  props: null as { alerts: unknown[]; focused: string | null } | null,
+  montado: 0,
+}));
+
+vi.mock('../components/alerts/AlertsMap', () => ({
+  AlertsMap: (props: { alerts: unknown[]; focused: string | null }) => {
+    mapaResumen.props = { alerts: props.alerts, focused: props.focused };
+    mapaResumen.montado += 1;
+    return <div data-testid="alerts-map" />;
+  },
+}));
+
 vi.mock('@shared/hooks', () => ({
   useAlerts: () => ({
     data: state.data,
@@ -104,6 +120,79 @@ describe('AlertsPage', () => {
  * el marcado anterior no daba — las coordenadas se nombraban con `aria-label` y
  * el radio era un grupo de botones con `role="radiogroup"` escrito a mano.
  */
+/**
+ * La lista después del rediseño: un mapa de resumen y tarjetas en grilla.
+ *
+ * Lo que se afirma no es que se vea distinto —eso sólo lo ve el navegador—
+ * sino las dos cosas que pueden mentirle al usuario: que el mapa NO aparezca
+ * cuando no sabemos nada, y que el estado se anuncie por lo que es.
+ */
+describe('AlertsPage — el mapa de resumen', () => {
+  beforeEach(() => {
+    state.data = [];
+    state.isError = false;
+    mapaResumen.props = null;
+    mapaResumen.montado = 0;
+  });
+
+  it('con alertas, el mapa recibe todas las zonas', () => {
+    state.data = [alert(), alert({ id: 'alert-2', name: 'Casa de mamá' })];
+
+    render(<AlertsPage />);
+
+    expect(screen.getByTestId('alerts-map')).toBeInTheDocument();
+    expect(mapaResumen.props?.alerts).toHaveLength(2);
+    expect(mapaResumen.props?.focused).toBeNull();
+  });
+
+  // La mitad que importa: un mapa vacío sobre una consulta caída diría "no
+  // estás vigilando ninguna zona", que es exactamente la mentira que
+  // `ListState` existe para matar. Y sobre la lista vacía tampoco va: no hay
+  // nada que dibujar.
+  it('NO dibuja el mapa cuando la consulta se cayo, ni cuando no hay alertas', () => {
+    const { unmount } = render(<AlertsPage />);
+    expect(screen.queryByTestId('alerts-map')).not.toBeInTheDocument();
+    unmount();
+
+    state.data = undefined;
+    state.isError = true;
+    render(<AlertsPage />);
+
+    expect(screen.queryByTestId('alerts-map')).not.toBeInTheDocument();
+    // Y no es que se montó y devolvió null: no se montó nunca.
+    expect(mapaResumen.montado).toBe(0);
+  });
+
+  it('tocar la ubicacion de una tarjeta enfoca ESA zona, no la primera', async () => {
+    state.data = [alert(), alert({ id: 'alert-2', name: 'Casa de mamá' })];
+    render(<AlertsPage />);
+
+    // Con `t` mockeado los dos botones se llaman igual, así que hay que tomar
+    // el SEGUNDO: si el click enfocara cualquier cosa menos la tarjeta tocada,
+    // afirmar sobre el primero no lo notaría.
+    const botones = screen.getAllByRole('button', { name: 'showOnMap' });
+    expect(botones).toHaveLength(2);
+    await userEvent.click(botones[1]);
+
+    expect(mapaResumen.props?.focused).toBe('alert-2');
+  });
+
+  // `role="switch"` sobre el checkbox nativo: lo que se anuncia es
+  // "activa / pausada" y no "casilla marcada". Sigue siendo un input nativo, o
+  // sea que el foco, el teclado y la barra espaciadora los pone el navegador —
+  // que es la misma razón por la que el radio del formulario dejó de ser un
+  // grupo de botones con `role` escrito a mano.
+  it('el estado de la alerta se anuncia como interruptor, y sigue siendo nativo', () => {
+    state.data = [alert({ is_active: true })];
+
+    render(<AlertsPage />);
+
+    const interruptor = screen.getByRole('switch');
+    expect(interruptor.tagName).toBe('INPUT');
+    expect(interruptor).toBeChecked();
+  });
+});
+
 describe('AlertsPage — el lenguaje de las públicas', () => {
   beforeEach(() => {
     state.data = [];

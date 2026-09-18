@@ -219,6 +219,8 @@
     "emptyText": "Create an alert to get notified when pets are reported near your area.",
     "createFirst": "Create first alert",
     "unnamed": "Unnamed",
+    "radiusBadge": "{{km}} km",
+    "showOnMap": "Show \"{{name}}\" on the map",
     "active": "Active",
     "inactive": "Inactive",
     "delete": "Delete",
