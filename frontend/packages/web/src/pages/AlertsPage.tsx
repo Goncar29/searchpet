@@ -10,6 +10,9 @@ import type { LocationAlert } from '@shared/types';
 import type { PetType } from '@shared/types';
 import { ListState } from '../components/list/ListState';
 import { AlertZonePicker } from '../components/alerts/AlertZonePicker';
+import { AlertsMap } from '../components/alerts/AlertsMap';
+import { redondearCoordenada } from '../components/alerts/coordenadas';
+import { Icon } from '../components/Icon';
 import { FormSection } from '../components/form/FormSection';
 import { FormField, controlClass } from '../components/form/FormField';
 import { FormChoiceGroup } from '../components/form/FormChoiceGroup';
@@ -51,6 +54,9 @@ export function AlertsPage() {
   //     sacaría al usuario una acción válida por un fallo nuestro.
   const alertCount = alertsQuery.data?.length;
 
+  // Qué zona está mirando el mapa de resumen. `null` = el conjunto entero.
+  const [focused, setFocused] = useState<string | null>(null);
+
   // ── Form state ──────────────────────────────────────────────
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState('');
@@ -82,9 +88,15 @@ export function AlertsPage() {
   // mapa (arrastrar el pin o tocar) y el botón de geolocalización. Tener dos
   // caminos que escriben el mismo estado con reglas distintas es exactamente
   // cómo uno de los dos se olvida de retirar el mensaje de error.
+  //
+  // Y redondea, porque los dos orígenes traen basura: Leaflet devuelve el
+  // click con toda la precisión del `double` y la geolocalización del
+  // navegador otro tanto. Ese valor cae crudo en un `<input type="number">`
+  // que el usuario tiene que poder leer y corregir — `-34,899025460930744` no
+  // se lee ni se tipea. Lo vi en el navegador; ningún test lo miraba.
   const elegirZona = (latitude: number, longitude: number) => {
-    setFormLat(latitude);
-    setFormLng(longitude);
+    setFormLat(redondearCoordenada(latitude));
+    setFormLng(redondearCoordenada(longitude));
     setCoordError('');
   };
 
@@ -365,7 +377,11 @@ export function AlertsPage() {
           // es información nueva, y el usuario la necesita igual.
           !showForm ? (
             <div className="text-center py-16">
-              <p className="text-5xl mb-4">🔔</p>
+              {/* Decorativo: el texto de abajo ya dice todo. Sin `aria-hidden`
+                  un lector de pantalla anuncia "campana" antes del mensaje.
+                  Se queda como emoji porque el set de `Icon` no tiene campana,
+                  y mapearlo a `campaign` (un megáfono) diría otra cosa. */}
+              <p className="text-5xl mb-4" aria-hidden="true">🔔</p>
               <p className="text-gray-700 dark:text-gray-300 font-semibold mb-2">{t('emptyTitle')}</p>
               <p className="text-gray-500 dark:text-gray-400 mb-4 text-sm">
                 {t('emptyText')}
@@ -381,43 +397,93 @@ export function AlertsPage() {
         }
       >
         {(alerts: LocationAlert[]) => (
-        <div className="space-y-3">
-          {alerts.map((alert) => (
-            <div
-              key={alert.id}
-              className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-4 flex items-center justify-between gap-4"
-            >
-              <div className="flex-1 min-w-0">
-                <p className="font-semibold text-gray-900 dark:text-gray-100 truncate">
-                  {alert.name ?? t('unnamed')}
-                </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                  {alert.alert_latitude.toFixed(3)}, {alert.alert_longitude.toFixed(3)}
-                  {' · '}{alert.radius_km} km
-                  {alert.pet_type ? ` · ${t(`pets:types.${alert.pet_type}`)}` : ''}
-                </p>
-              </div>
-              <div className="flex items-center gap-3 shrink-0">
-                <label className="flex items-center gap-1.5 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={alert.is_active}
-                    onChange={() => handleToggle(alert)}
-                    className="w-4 h-4 accent-primary"
-                  />
-                  <span className="text-xs text-gray-600 dark:text-gray-400">
-                    {alert.is_active ? t('active') : t('inactive')}
+        <div className="space-y-6">
+          {/* El mapa vive DENTRO de la rama de datos, así que no puede aparecer
+              sobre un error ni sobre la lista vacía: un mapa sin un solo
+              círculo diría "no estás vigilando nada" justo cuando lo que pasa
+              es que no pudimos leer. */}
+          <AlertsMap
+            alerts={alerts}
+            focused={focused}
+            labelFor={(alert) => alert.name ?? t('unnamed')}
+          />
+
+          <div className="grid sm:grid-cols-2 gap-4">
+            {alerts.map((alert) => (
+              <div
+                key={alert.id}
+                className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-4 flex flex-col gap-3"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <h2 className="font-semibold text-gray-900 dark:text-gray-100 truncate">
+                    {alert.name ?? t('unnamed')}
+                  </h2>
+                  {/* El estado se anuncia como interruptor y no como casilla:
+                      lo que se dice es "activa / pausada", no "marcada". Sigue
+                      siendo un `<input type="checkbox">` nativo —el `role` sólo
+                      cambia cómo se nombra— así que el teclado, el foco y el
+                      espacio los sigue poniendo el navegador. */}
+                  <label className="flex items-center gap-2 cursor-pointer select-none shrink-0">
+                    <input
+                      type="checkbox"
+                      role="switch"
+                      checked={alert.is_active}
+                      onChange={() => handleToggle(alert)}
+                      className="w-4 h-4 accent-primary"
+                    />
+                    <span
+                      className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                        alert.is_active
+                          ? 'bg-primary/10 text-primary'
+                          : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400'
+                      }`}
+                    >
+                      {alert.is_active ? t('active') : t('inactive')}
+                    </span>
+                  </label>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs font-medium px-2 py-1 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300">
+                    {t('radiusBadge', { km: alert.radius_km })}
                   </span>
-                </label>
-                <button
-                  onClick={() => handleDelete(alert)}
-                  className="text-xs font-medium text-red-500 hover:text-red-700 dark:hover:text-red-400 transition-colors"
-                >
-                  {t('delete')}
-                </button>
+                  {alert.pet_type && (
+                    <span className="text-xs font-medium px-2 py-1 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300">
+                      {t(`pets:types.${alert.pet_type}`)}
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-between gap-3 mt-auto">
+                  {/* Las coordenadas eran texto inerte: tres decimales que
+                      nadie puede ubicar. Ahora son el control que lleva el mapa
+                      de arriba a ESTA zona — el dato sigue estando, y encima
+                      hace algo. */}
+                  {/* El nombre accesible dice QUÉ hace el botón; las coordenadas
+                      son lo que se ve. Al revés —un botón que se llama
+                      "-34.901, -56.164"— quien lo oye no tiene forma de saber
+                      que sirve para algo. */}
+                  <button
+                    type="button"
+                    onClick={() => setFocused(alert.id)}
+                    aria-label={t('showOnMap', { name: alert.name ?? t('unnamed') })}
+                    className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 hover:text-primary transition-colors min-w-0"
+                  >
+                    <Icon name="location-on" className="w-4 h-4 shrink-0" />
+                    <span className="truncate">
+                      {alert.alert_latitude.toFixed(3)}, {alert.alert_longitude.toFixed(3)}
+                    </span>
+                  </button>
+                  <button
+                    onClick={() => handleDelete(alert)}
+                    className="text-xs font-medium text-red-500 hover:text-red-700 dark:hover:text-red-400 transition-colors shrink-0"
+                  >
+                    {t('delete')}
+                  </button>
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
         )}
       </ListState>

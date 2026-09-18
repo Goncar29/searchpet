@@ -219,6 +219,8 @@
     "emptyText": "Creá una alerta para recibir notificaciones cuando haya mascotas reportadas cerca de tu zona.",
     "createFirst": "Crear primera alerta",
     "unnamed": "Sin nombre",
+    "radiusBadge": "{{km}} km",
+    "showOnMap": "Ver «{{name}}» en el mapa",
     "active": "Activa",
     "inactive": "Inactiva",
     "delete": "Eliminar",

@@ -36,18 +36,29 @@ interface CameraProps {
 function Camera({ latitude, longitude, radiusKm }: CameraProps) {
   const map = useMap();
 
-  // (1) Cambió el radio: se encuadra el círculo entero. Sin esto, elegir 25 km
-  // dibuja una circunferencia más grande que el viewport y el control de radio
-  // deja de dar cualquier señal de cuánto abarca sobre el terreno — que es la
-  // mitad del motivo por el que este mapa existe.
+  // (1) Apareció el primer punto, o cambió el radio: se encuadra el círculo
+  // entero. Sin esto, elegir 25 km dibuja una circunferencia más grande que el
+  // viewport y el control de radio deja de dar cualquier señal de cuánto abarca
+  // sobre el terreno — que es la mitad del motivo por el que este mapa existe.
+  const elegido = latitude !== null && longitude !== null;
   useEffect(() => {
     if (latitude === null || longitude === null) return;
     map.fitBounds(L.latLng(latitude, longitude).toBounds(radiusKm * 2 * 1000));
-    // `latitude`/`longitude` quedan fuera a propósito: este efecto es la
-    // reacción al RADIO. Incluirlas lo convertiría en el `setView` por posición
-    // que el bloque de arriba explica por qué no va.
+    // La dependencia es `elegido` (el BOOLEANO) y no las coordenadas, y esa
+    // distinción es el efecto entero:
+    //
+    //   · `null → punto` cambia el booleano, así que el primer círculo se
+    //     encuadra. Antes no: las deps eran `[map, radiusKm]`, que no se movían
+    //     en esa transición, y el otro efecto tampoco hacía nada porque un
+    //     click cae siempre DENTRO de la vista. El primer círculo se dibujaba
+    //     sin que la cámara lo mirara. Lo levantó la revisión nativa.
+    //   · mover un punto ya elegido NO cambia el booleano, así que el arrastre
+    //     sigue sin reencuadrar. Con `latitude`/`longitude` acá, el mapa
+    //     saltaría en cada suelta y el gesto pelearía contra la vista.
+    //
+    // Las dos mitades están testeadas por separado.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [map, radiusKm]);
+  }, [map, radiusKm, elegido]);
 
   // (2) El punto quedó fuera de pantalla: pasa al tipear una coordenada lejana
   // en los inputs, y sin esto el usuario escribe y el mapa se queda mostrando
