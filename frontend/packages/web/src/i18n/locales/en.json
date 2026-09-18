@@ -202,6 +202,7 @@
     "optionalHint": "(optional)",
     "namePlaceholder": "e.g. My neighborhood",
     "coordsLabel": "Coordinates",
+    "mapHint": "Tap the map to choose the area, or type the coordinates.",
     "latLabel": "Latitude",
     "lngLabel": "Longitude",
     "useMyLocation": "Use my location",

@@ -255,6 +255,23 @@ describe('AlertsPage — formulario de alta', () => {
   // un `<span>` hermano. Sin `aria-describedby` el control pasa a llamarse sólo
   // "Nombre" y la pista queda para quien MIRA: exactamente la asimetría ver/oír
   // que este sistema de formularios existe para no tener.
+  // El mapa NO reemplaza a los inputs de coordenadas: los acompaña. Los tests
+  // de arriba siguen afirmando la vía accesible entera —etiqueta propia,
+  // `aria-invalid` y el mensaje compartido— y este afirma que además apareció
+  // la vía visual, con la pista que nombra las dos.
+  //
+  // Se afirma el `.leaflet-container` y no un mock: acá react-leaflet corre de
+  // verdad contra jsdom, así que ese nodo es la prueba de que el mapa se montó
+  // dentro del formulario y no quedó colgado de un import sin usar.
+  it('el formulario trae un mapa para elegir la zona, sin quitar los inputs', async () => {
+    await abrirFormulario();
+
+    expect(document.querySelector('.leaflet-container')).toBeTruthy();
+    expect(screen.getByText('mapHint')).toBeInTheDocument();
+    expect(screen.getByLabelText('latLabel')).toBeInTheDocument();
+    expect(screen.getByLabelText('lngLabel')).toBeInTheDocument();
+  });
+
   it('el hint del campo opcional llega por aria-describedby', async () => {
     await abrirFormulario();
 
