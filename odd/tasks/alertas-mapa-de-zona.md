@@ -126,15 +126,34 @@ tiles ni mide posiciones. Falta pasarlo por el navegador antes de congelar el
 candidato para la revisión — la normalización que muta fuente va ANTES del
 freeze.
 
-### Pendiente en T1, anotado para no redescubrirlo
+### El pendiente de T1: MEDIDO, y no era un problema
 
 El control de radio quedó **fuera** del `<fieldset>` de coordenadas, o sea
-debajo del mapa pero en otro bloque. En un teléfono eso significa que al
-cambiar el radio el círculo puede quedar fuera de pantalla y el usuario no ve
-la reacción. Meterlo adentro anida `<fieldset>`s y deja la leyenda
-"Coordenadas" cubriendo algo que no son coordenadas; el arreglo honesto es
-renombrar esa leyenda a algo como "Zona a vigilar", y eso toca un test del
-#253. Se difiere a T2, donde el formulario se mira entero.
+debajo del mapa pero en otro bloque. Se anotó la sospecha de que en un teléfono
+eso dejara el círculo fuera de pantalla al cambiar el radio, sin que el usuario
+viera la reacción, y se difirió a T2.
+
+**Medido en el navegador, y la sospecha no se cumple.** El layout entra: el mapa
+mide 286px, la separación hasta el control de radio es 349px, o sea **635px**
+contra los **667px** del viewport más chico que se probó. Con el control de
+radio pegado al borde de abajo se ven **286/286px del mapa** y 200px del círculo
+de 25 km —el más grande— en los tres teléfonos:
+
+| Viewport | Del mapa se ve | Del círculo | Radio en pantalla |
+|---|---|---|---|
+| iPhone 14 Pro Max (430×932) | 286/286 px | 200 px | sí |
+| iPhone SE / Android chico (375×667) | 286/286 px | 200 px | sí |
+| Galaxy S8 angosto (360×740) | 286/286 px | 200 px | sí |
+
+**No se toca nada**, y así se evita el cambio que el propio pendiente advertía
+que era caro: anidar `<fieldset>`s y renombrar la leyenda "Coordenadas", que
+además rompía un test del #253.
+
+**La medición correcta no es dónde quedan las cosas tras un scroll cualquiera,
+sino si EXISTE un scroll que las muestre juntas.** La primera aserción usaba
+`scrollIntoViewIfNeeded` sobre el radio, que lo pega arriba y saca el mapa del
+viewport: daba "0/286px visibles" y **confirmaba el pendiente por construcción**.
+Eso mide el scroll, no el layout.
 
 ### T2 — hecho, commit `d275ad04` (rama `feat/alertas-lista-y-mapa`)
 
@@ -154,7 +173,16 @@ Evidencia observada:
 Riesgo del candidato (`--base-ref db2cb437 --committed-only`): **medium**, 7
 archivos / 464 líneas. Es su propia rebanada.
 
-### Las dos revisiones nativas
+### Las cuatro revisiones nativas
+
+Fueron **cuatro**, no dos: cada commit nuevo reabre el candidato (ver el bloque
+"Ojo con el ciclo de revisiones" más abajo). Las dos primeras están detalladas
+acá; las otras dos, resumidas al final de esta sección.
+
+**Y las cuatro fueron LA MISMA LENTE**, `review-reliability` — se reconoce en el
+prefijo de sus hallazgos, todos `R3-*`. Nunca corrió `risk` (R1), `readability`
+(R2) ni `resilience` (R4). Cuatro pasadas de la misma pregunta no son cuatro
+revisiones, y por eso el `/code-review` sigue teniendo algo que aportar.
 
 **`review-37f7f2e88298a8e9`** (lente `review-reliability`, `medium`) → `approved`,
 `authority: burned`. Tres `SUGGESTION`, y **una era un defecto de verdad**:
@@ -187,6 +215,30 @@ verificado contra el código antes de descartarlo:
   VISIBILIDAD de la revisión, no un defecto: ese archivo viene del #253
   (`1147d54b`) y el test lo lee de verdad en cada corrida.
 
+**`review-fd0716c3b74f99a8`** (misma lente) → `approved`, `authority: burned`.
+Un `SUGGESTION` sobre `AlertsMap.tsx:30-51`: la clave de la cámara
+(`ids.join(',')`) no incluye la geografía, así que mover una alerta sin cambiar
+el conjunto de ids no reencuadra. **No se arregló, a propósito**: hoy nada edita
+la zona de una alerta existente, y el propio bloque de hallazgos lo marcó como
+trabajo posterior.
+
+**`review-5776bb2d3f0fb7f4`** (misma lente) → `approved`, `authority: burned`.
+Un `WARNING` R3-1: *"las coordenadas de una alerta no las acota nadie, ni el
+front ni el backend"*, citando `internal/dto/location_alert_dto.go:13-14`.
+
+> **La mitad del backend de ese hallazgo es FALSA**, verificada contra el código:
+> `internal/service/location_alert_service.go:242-250` define
+> `validateAlertCoords` (−90..90 y −180..180) y se la llama en `Create` (121) y
+> en las **dos** ramas de `Update` (193 y 199); `validateRadiusKm:252` acota
+> 1..`domain.MaxAlertRadiusKm`.
+>
+> Lo cierto es más chico: la validación no está en el **DTO**, está en el
+> servicio — que es donde la pone esta arquitectura. La lente miró el archivo
+> donde ESPERABA encontrarla y concluyó ausencia sin mirar la capa de al lado.
+> **Una ausencia observada en un archivo no es una ausencia en el sistema**:
+> antes de aceptar un "nadie valida X", buscá el predicado por NOMBRE en todo el
+> paquete.
+
 ### Ojo con el ciclo de revisiones en esta pila
 
 El `--base-ref` que elige el preflight es la punta de `main`, así que **cada
@@ -204,11 +256,47 @@ refactor/alertas-banda-y-contenedor   #253, abierto  ← no se tocó
                                       fix 3fded060 (hallazgo de la revisión)
 ```
 
+## La verificación en el navegador — hecha, 41/41
+
+Sonda de Playwright contra `pnpm dev`, **41 aserciones, dos corridas seguidas en
+verde** (`EXIT=0` las dos). Cubre lo que jsdom no puede ver:
+
+- **Los tiles de OSM se pintan de verdad** (8/8 cargadas) en los dos mapas, y el
+  pin de `raw.githubusercontent.com` carga. Los tres orígenes están en el
+  `img-src` de `vercel.json` — verificado leyendo la CSP, no supuesto.
+- **El arreglo de `59d8ca58` anda por los TRES caminos que escriben coordenadas**:
+  tocar el mapa (`-34.902123`), arrastrar el pin (`-34.927601`) y "Usar mi
+  ubicación" alimentado con `-34.899025460930744` → `-34.899025`. Los tres a 6
+  decimales. Este arreglo **nació de un `/verify` y nunca había vuelto al
+  navegador**: una verificación que termina en un cambio de código no verifica el
+  código que dejó.
+- Sin punto elegido no hay marcador ni círculo, y la pista se va al elegir.
+- Tipear una coordenada lejana trae la cámara al punto; cambiar el radio
+  reencuadra sin que el círculo se salga.
+- El submit sin coordenadas marca `aria-invalid` y `aria-describedby` en los
+  **dos** inputs contra un único `role="alert"`.
+- En el resumen: un círculo por alerta, la pausada con `stroke-dasharray="6 6"`,
+  las tres zonas dentro del encuadre inicial, y enfocar una la acerca (80px →
+  638px de ancho).
+- Con la consulta caída: **cero mapas dibujados**, el título dice "Mis alertas"
+  sin conteo, y no aparece "Sin alertas".
+- **Cero claves i18n crudas en es, en y pt**, afirmando las cadenas EXACTAS de
+  cada locale (incluidas las comillas: `«Mi barrio»` en es, `"Mi barrio"` en
+  en/pt).
+
+**No encontró un solo defecto de la app.** Los dos fallos que reportó eran
+defectos de la sonda, cada uno verificado antes de reportarlo: un click que
+flaqueó una vez (refutado con dos corridas de debug independientes) y la
+medición del pendiente de T1 que confirmaba su propia hipótesis (ver arriba).
+
 ## Next step
 
-1. Pasar las dos por el **navegador** — jsdom no pinta tiles ni mide nada, así
-   que de que el mapa se VEA bien no hay una sola prueba. Va antes de congelar
-   el candidato para la revisión nativa.
-2. Abrir los dos PRs encadenados, cada uno con su revisión (los dos dieron
-   `medium`, o sea que cada uno va a pedir consentimiento).
-3. El merge lo decide el usuario, y el #253 va primero.
+1. `/code-review` sobre la pila. Las cuatro revisiones nativas fueron **todas la
+   misma lente** (`review-reliability` — sus hallazgos salen numerados `R3-*`):
+   nunca corrió `risk`, `readability` ni `resilience`.
+2. `/security-review` **no va**, y el motivo está medido: 12 archivos, todos
+   `frontend/packages/web`; cero `href`, `dangerouslySetInnerHTML`, `innerHTML`,
+   `fetch`, `eval` o `localStorage` en `components/alerts/`; ningún origen nuevo
+   para la CSP; y nada que toque auth ni endpoints.
+3. Abrir los dos PRs encadenados. El merge lo decide el usuario, y el #253 va
+   primero.
