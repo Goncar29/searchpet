@@ -162,6 +162,66 @@ describe('AlertZonePicker', () => {
       expect(mapa.setView).not.toHaveBeenCalled();
     });
 
+    // El PRIMER punto también encuadra, y este caso lo levantó la revisión
+    // nativa: el efecto del radio dependía sólo de `[map, radiusKm]`, así que
+    // en la transición `null → punto` no volvía a correr, y el otro efecto
+    // tampoco hacía nada porque un click siempre cae DENTRO de la vista.
+    // Resultado: el primer círculo se dibujaba sin que la cámara lo mirara, y
+    // con 25 km eso es una circunferencia más grande que la pantalla.
+    it('encuadra el PRIMER punto elegido, no solo los cambios de radio', () => {
+      const onPick = vi.fn();
+      const { rerender } = render(
+        <AlertZonePicker
+          latitude={null}
+          longitude={null}
+          radiusKm={5}
+          onPick={onPick}
+          hint="Tocá el mapa"
+        />
+      );
+      mapa.fitBounds.mockClear();
+
+      rerender(
+        <AlertZonePicker
+          latitude={-34.9011}
+          longitude={-56.1645}
+          radiusKm={5}
+          onPick={onPick}
+          hint="Tocá el mapa"
+        />
+      );
+
+      expect(mapa.fitBounds).toHaveBeenCalledTimes(1);
+    });
+
+    // Y la otra mitad, que es la que el arreglo de arriba no puede romper:
+    // mover un punto YA elegido sigue sin reencuadrar.
+    it('mover un punto ya elegido NO reencuadra', () => {
+      const onPick = vi.fn();
+      const { rerender } = render(
+        <AlertZonePicker
+          latitude={-34.9011}
+          longitude={-56.1645}
+          radiusKm={5}
+          onPick={onPick}
+          hint="Tocá el mapa"
+        />
+      );
+      mapa.fitBounds.mockClear();
+
+      rerender(
+        <AlertZonePicker
+          latitude={-34.89}
+          longitude={-56.16}
+          radiusKm={5}
+          onPick={onPick}
+          hint="Tocá el mapa"
+        />
+      );
+
+      expect(mapa.fitBounds).not.toHaveBeenCalled();
+    });
+
     // ...pero sí la mueve cuando el punto quedó fuera de pantalla, que es lo
     // que pasa al tipear una coordenada lejana en los inputs: sin esto el
     // usuario escribe y el mapa se queda mostrando otra ciudad.

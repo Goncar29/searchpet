@@ -122,6 +122,29 @@ describe('AlertsMap', () => {
     expect(bounds.contains([-34.9, -56.16])).toBe(false);
   });
 
+  // La página nunca limpia `focused`, así que borrar la alerta enfocada deja un
+  // id que ya no existe. Por construcción eso no rompe —`find` devuelve
+  // `undefined` y se cae al encuadre del conjunto— pero "no rompe por
+  // construcción" es un razonamiento, no una prueba. Lo levantó la revisión
+  // nativa y acá queda demostrado.
+  it('con un id enfocado que ya no existe, vuelve a encuadrar el conjunto', () => {
+    render(
+      <AlertsMap
+        alerts={[
+          alerta({ id: 'a1', alert_latitude: -34.9, alert_longitude: -56.16 }),
+          alerta({ id: 'a2', alert_latitude: -34.4, alert_longitude: -55.2 }),
+        ]}
+        focused="la-que-borre"
+        labelFor={(a) => a.name ?? 'sin nombre'}
+      />
+    );
+
+    expect(mapa.fitBounds).toHaveBeenCalledTimes(1);
+    const bounds = mapa.fitBounds.mock.calls[0][0] as L.LatLngBounds;
+    expect(bounds.contains([-34.9, -56.16])).toBe(true);
+    expect(bounds.contains([-34.4, -55.2])).toBe(true);
+  });
+
   it('cada zona dice de cual alerta es', () => {
     const { getByText } = render(
       <AlertsMap
