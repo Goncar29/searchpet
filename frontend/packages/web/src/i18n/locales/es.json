@@ -202,6 +202,7 @@
     "optionalHint": "(opcional)",
     "namePlaceholder": "ej: Mi barrio",
     "coordsLabel": "Coordenadas",
+    "mapHint": "Tocá el mapa para elegir la zona, o escribí las coordenadas.",
     "latLabel": "Latitud",
     "lngLabel": "Longitud",
     "useMyLocation": "Usar mi ubicación",

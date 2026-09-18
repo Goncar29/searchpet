@@ -9,6 +9,7 @@ import {
 import type { LocationAlert } from '@shared/types';
 import type { PetType } from '@shared/types';
 import { ListState } from '../components/list/ListState';
+import { AlertZonePicker } from '../components/alerts/AlertZonePicker';
 import { FormSection } from '../components/form/FormSection';
 import { FormField, controlClass } from '../components/form/FormField';
 import { FormChoiceGroup } from '../components/form/FormChoiceGroup';
@@ -77,15 +78,23 @@ export function AlertsPage() {
     }
   }, []);
 
+  // La ÚNICA puerta por la que entra un par de coordenadas completo: la usan el
+  // mapa (arrastrar el pin o tocar) y el botón de geolocalización. Tener dos
+  // caminos que escriben el mismo estado con reglas distintas es exactamente
+  // cómo uno de los dos se olvida de retirar el mensaje de error.
+  const elegirZona = (latitude: number, longitude: number) => {
+    setFormLat(latitude);
+    setFormLng(longitude);
+    setCoordError('');
+  };
+
   const handleGeolocate = () => {
     if (!navigator.geolocation) return;
     setLocating(true);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        setFormLat(pos.coords.latitude);
-        setFormLng(pos.coords.longitude);
+        elegirZona(pos.coords.latitude, pos.coords.longitude);
         setLocating(false);
-        setCoordError('');
       },
       () => {
         setLocating(false);
@@ -228,6 +237,25 @@ export function AlertsPage() {
                 <legend className="mb-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
                   {t('coordsLabel')}
                 </legend>
+
+                {/* El mapa es la vía VISUAL de elegir la zona; los dos inputs de
+                    abajo son la vía accesible, y siguen siendo los que llevan
+                    etiqueta, `aria-invalid` y el mensaje de error. Los dos
+                    escriben el mismo estado, así que cualquiera alcanza para
+                    crear la alerta.
+
+                    El círculo dibuja el radio elegido: antes ese control iba de
+                    1 a 25 sin ninguna referencia de cuánto era eso en la calle. */}
+                <div className="mb-4">
+                  <AlertZonePicker
+                    latitude={formLat}
+                    longitude={formLng}
+                    radiusKm={Number(radiusKm)}
+                    onPick={elegirZona}
+                    hint={t('mapHint')}
+                  />
+                </div>
+
                 <div className="grid sm:grid-cols-2 gap-6">
                   <FormField label={t('latLabel')} htmlFor="alert-lat">
                     {(control) => (
