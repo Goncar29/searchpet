@@ -355,9 +355,48 @@ propia, y `alertsKeys.test.ts` afirma que esa clave interpola `{{name}}` en los
 tres idiomas. Sin la segunda, traducir `toggleLabel` como "Alerta" a secas
 dejaría todo verde y devolvería el defecto exacto.
 
+## La revisión nativa del candidato arreglado
+
+`review-4af07c3f42c2ad02`, lente `review-reliability`, `medium`, 14 archivos /
+2016 líneas. Consentida `granted` por el usuario → **`approved`**, acuse
+ejecutado, `authority: burned`. Tres hallazgos, **los tres advisory**: ninguno
+abrió corrección ni reabre esta revisión.
+
+**R3-1 (WARNING) — era real, y apuntaba a un test que acababa de escribir yo.**
+El efecto de `AlertsMap` excluye `alerts` de sus deps y usa `ids.join(',')`, y
+el motivo declarado es que `AlertsPage` recalcula `alerts` en cada render. Pero
+mis dos tests nuevos **reusaban el mismo objeto `props.alerts`** en el render y
+en el rerender, así que un `[alerts]` ingenuo los dejaba verdes igual: no podían
+distinguir la memoización de no tenerla. Cerrado con un test que pasa una
+referencia NUEVA de mismo contenido. *Un guard que reusa la referencia no puede
+probar una memoización por contenido.*
+
+**R3-2 (SUGGESTION) — cobertura, no defecto.** Faltaba la rama del punto lejano
+con el MISMO radio. Se agregó afirmando las dos mitades: panea (`setView`) y
+**no** reencuadra. Que eso sea correcto no es casualidad — el encuadre lo
+determina el radio (`toBounds(radiusKm * 2 * 1000)`), así que con el mismo radio
+el zoom anterior enmarca el círculo nuevo igual, y reencuadrar sólo le
+devolvería el salto al camino accesible.
+
+**R3-3 (SUGGESTION) — sin cambio, y con evidencia de por qué.** Dice que
+`index.css.test.ts` afirma sobre `index.css`, que no está en el manifiesto del
+candidato. Es cierto y es **inherente**: ese test es un guard de REGRESIÓN sobre
+contenido que ya vive en `main`, y su trabajo es caerse si alguien lo saca
+después. Es el mismo hallazgo que la revisión anterior registró como `R3-002`.
+
+Lo que sí había que comprobar, porque es la única forma en que sería un defecto
+de verdad, es si puede pasar **en vacío**. No puede: `pesoDe` devuelve `null`
+cuando el token no está y el test tiene `expect(peso).not.toBeNull()` antes de
+comparar el número, y `readFileSync` tira si la ruta deja de resolver. O sea que
+no hay un camino donde las aserciones pasen sin haber leído nada. *Una
+limitación de visibilidad de la revisión no es un defecto del código — pero eso
+hay que medirlo, no declararlo.*
+
 ## Next step
 
-1. ~~`/code-review` sobre la pila.~~ **HECHO**, ver arriba. Las cuatro revisiones nativas fueron **todas la
+1. ~~`/code-review` sobre la pila.~~ **HECHO**, ver arriba.
+2. ~~Revisión nativa del candidato arreglado.~~ **HECHA**: `approved` + burned,
+   y sus tres advisory cerrados (dos con test, uno con evidencia). Las cuatro revisiones nativas fueron **todas la
    misma lente** (`review-reliability` — sus hallazgos salen numerados `R3-*`):
    nunca corrió `risk`, `readability` ni `resilience`.
 2. `/security-review` **no va**, y el motivo está medido: 12 archivos, todos

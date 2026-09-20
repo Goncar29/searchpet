@@ -199,4 +199,33 @@ describe('AlertsMap', () => {
 
     expect(mapa.fitBounds).not.toHaveBeenCalled();
   });
+
+  // POR QUÉ EXISTE, y es un agujero que levantó la revisión nativa sobre los
+  // dos tests de arriba: los dos reusan el MISMO objeto `props.alerts` en el
+  // render y en el rerender, así que un `[alerts]` ingenuo en las deps los
+  // dejaría verdes igual. O sea que no podían distinguir la memoización por
+  // `ids` de no tener memoización ninguna.
+  //
+  // Y la memoización es lo único que sostiene el motivo que el comentario del
+  // efecto declara: `AlertsPage` recalcula `alerts` en CADA render, así que con
+  // `[alerts]` el mapa se reencuadraría con cada tecla que se escriba en el
+  // formulario de arriba. Eso es lo que este test afirma, y es el ÚNICO que
+  // puede: hace falta una referencia nueva con el mismo contenido.
+  it('un array NUEVO con los mismos ids no mueve la camara', () => {
+    const labelFor = (a: LocationAlert) => a.name ?? 'sin nombre';
+    const primera = [alerta({ id: 'a1' }), alerta({ id: 'a2', alert_latitude: -34.4 })];
+    // Mismo contenido, objetos distintos: exactamente lo que produce un render
+    // nuevo de la página.
+    const segunda = [alerta({ id: 'a1' }), alerta({ id: 'a2', alert_latitude: -34.4 })];
+    expect(segunda).not.toBe(primera);
+
+    const { rerender } = render(
+      <AlertsMap alerts={primera} focused={null} focusTick={0} labelFor={labelFor} />
+    );
+    mapa.fitBounds.mockClear();
+
+    rerender(<AlertsMap alerts={segunda} focused={null} focusTick={0} labelFor={labelFor} />);
+
+    expect(mapa.fitBounds).not.toHaveBeenCalled();
+  });
 });

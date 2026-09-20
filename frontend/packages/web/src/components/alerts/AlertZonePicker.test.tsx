@@ -305,6 +305,31 @@ describe('AlertZonePicker', () => {
       expect(screen.getByText('Tocá el mapa')).toBeInTheDocument();
     });
 
+    // POR QUÉ EXISTE, y lo pidió la revisión nativa: el test de arriba prueba el
+    // hueco con un punto CERCANO, que se recupera dentro de la vista. Faltaba la
+    // otra rama — el mismo radio aterrizando LEJOS—, donde además entra en juego
+    // el paneo. Lo que se afirma son las dos mitades juntas: la cámara panea al
+    // punto nuevo y NO vuelve a encuadrar.
+    //
+    // Que eso sea correcto no es casualidad: el encuadre lo determina el RADIO
+    // (`toBounds(radiusKm * 2 * 1000)`), así que con el mismo radio el zoom que
+    // quedó del encuadre anterior enmarca el círculo nuevo igual. Reencuadrar
+    // acá no arreglaría nada y le devolvería el salto al camino accesible.
+    it('un punto lejano con el MISMO radio panea, y no reencuadra', () => {
+      const onPick = vi.fn();
+      const { rerender } = render(conPunto(-34.9011, -56.1645, onPick));
+      mapa.fitBounds.mockClear();
+      mapa.setView.mockClear();
+      // El punto nuevo cae fuera de la vista: es lo que pasa al tipear una
+      // coordenada de otra ciudad.
+      mapa.getBounds.mockReturnValue({ contains: () => false });
+
+      rerender(conPunto(-30.0, -51.2, onPick));
+
+      expect(mapa.setView).toHaveBeenCalledWith([-30.0, -51.2]);
+      expect(mapa.fitBounds).not.toHaveBeenCalled();
+    });
+
     it('cambiar el radio SI reencuadra, con un punto ya elegido', () => {
       // La otra mitad: el guard del ref no puede apagar el reencuadre del radio,
       // que es la mitad del motivo por el que este mapa existe.
