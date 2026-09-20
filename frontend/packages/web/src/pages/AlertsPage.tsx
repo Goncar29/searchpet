@@ -9,6 +9,10 @@ import {
 import type { LocationAlert } from '@shared/types';
 import type { PetType } from '@shared/types';
 import { ListState } from '../components/list/ListState';
+import { AlertZonePicker } from '../components/alerts/AlertZonePicker';
+import { AlertsMap } from '../components/alerts/AlertsMap';
+import { redondearCoordenada } from '../components/alerts/coordenadas';
+import { Icon } from '../components/Icon';
 import { FormSection } from '../components/form/FormSection';
 import { FormField, controlClass } from '../components/form/FormField';
 import { FormChoiceGroup } from '../components/form/FormChoiceGroup';
@@ -50,6 +54,23 @@ export function AlertsPage() {
   //     sacaría al usuario una acción válida por un fallo nuestro.
   const alertCount = alertsQuery.data?.length;
 
+  // Qué zona está mirando el mapa de resumen. `null` = el conjunto entero.
+  const [focused, setFocused] = useState<string | null>(null);
+
+  // El contador existe porque `focused` solo NO alcanza para pedir un encuadre.
+  // Pedir la MISMA alerta dos veces no cambia el estado, React corta el render,
+  // y el efecto de la cámara —que depende de `focused`— no vuelve a correr. O
+  // sea que tras alejar el mapa a mano, el botón de esa tarjeta quedaba MUERTO:
+  // medido en el navegador, el círculo terminaba en el mismo píxel antes y
+  // después del segundo click. El contador convierte "qué mirar" en "mirá,
+  // ahora": cambia siempre, aunque el destino se repita.
+  const [focusTick, setFocusTick] = useState(0);
+
+  const mirarZona = (id: string | null) => {
+    setFocused(id);
+    setFocusTick((n) => n + 1);
+  };
+
   // ── Form state ──────────────────────────────────────────────
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState('');
@@ -60,14 +81,41 @@ export function AlertsPage() {
   const [locating, setLocating] = useState(false);
   const [coordError, setCoordError] = useState('');
 
-  // Pre-fill coordinates from browser geolocation on mount
+  // La ÚNICA puerta por la que entra un par de coordenadas completo. Son TRES
+  // los caminos que escriben este estado, y los tres pasan por acá: el mapa
+  // (tocar o arrastrar el pin), el botón de geolocalización, y el prefill de
+  // montaje. Tener caminos que escriben el mismo estado con reglas distintas es
+  // exactamente cómo uno se olvida de retirar el mensaje de error.
+  //
+  // Y redondea, porque los orígenes traen basura: Leaflet devuelve el click con
+  // toda la precisión del `double` y la geolocalización del navegador otro
+  // tanto. Ese valor cae crudo en un `<input type="number">` que el usuario
+  // tiene que poder leer y corregir — `-34,899025460930744` no se lee ni se
+  // tipea.
+  //
+  // Esta función se declara ANTES del efecto de montaje a propósito: el efecto
+  // la llama, y tenerla debajo invita a escribir `setFormLat` a mano ahí para
+  // no pelear con el orden. Que es justo lo que había pasado.
+  const elegirZona = (latitude: number, longitude: number) => {
+    setFormLat(redondearCoordenada(latitude));
+    setFormLng(redondearCoordenada(longitude));
+    setCoordError('');
+  };
+
+  // Pre-fill coordinates from browser geolocation on mount.
+  //
+  // Este camino escribía `pos.coords.latitude` CRUDO, salteando `elegirZona` —
+  // y el comentario de arriba afirmaba, desde su primer día, ser la única
+  // puerta. Con el permiso de ubicación concedido el input mostraba
+  // `-34.899025460930744`: 15 decimales, el mismo defecto que el redondeo vino
+  // a cerrar, vivo en el tercer camino. Lo levantó un `/code-review`; el
+  // `/verify` no lo vio porque probó el BOTÓN, no el montaje.
   useEffect(() => {
     if (navigator.geolocation) {
       setLocating(true);
       navigator.geolocation.getCurrentPosition(
         (pos) => {
-          setFormLat(pos.coords.latitude);
-          setFormLng(pos.coords.longitude);
+          elegirZona(pos.coords.latitude, pos.coords.longitude);
           setLocating(false);
         },
         () => {
@@ -75,6 +123,9 @@ export function AlertsPage() {
         }
       );
     }
+    // Sólo al montar. `elegirZona` se recrea en cada render, así que ponerla en
+    // deps volvería a pedir la ubicación en cada tecla que el usuario escriba.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleGeolocate = () => {
@@ -82,10 +133,8 @@ export function AlertsPage() {
     setLocating(true);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        setFormLat(pos.coords.latitude);
-        setFormLng(pos.coords.longitude);
+        elegirZona(pos.coords.latitude, pos.coords.longitude);
         setLocating(false);
-        setCoordError('');
       },
       () => {
         setLocating(false);
@@ -98,6 +147,14 @@ export function AlertsPage() {
     setRadiusKm('5');
     setPetType('');
     setCoordError('');
+    // Las coordenadas se limpian con el resto, y no es simetría: sin esto,
+    // reabrir el formulario después de crear una alerta monta el mapa con el
+    // marcador y el círculo de la zona ANTERIOR, y sin la pista. `AlertZonePicker`
+    // argumenta en su propio doc que dibujar un punto que el usuario no eligió
+    // "afirmaría una zona que el usuario no eligió" — este camino producía
+    // exactamente eso, y quien tocara "Crear" se llevaba una zona duplicada.
+    setFormLat(null);
+    setFormLng(null);
     setShowForm(false);
   };
 
@@ -150,24 +207,53 @@ export function AlertsPage() {
   };
 
   return (
-    <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-          {alertCount !== undefined
-            ? t('title', { count: alertCount, max: MAX_ALERTS })
-            : t('titleNoCount')}
-        </h1>
-        {!showForm && (
-          <button
-            onClick={() => setShowForm(true)}
-            disabled={(alertCount ?? 0) >= MAX_ALERTS}
-            className="px-4 py-2 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {t('newAlert')}
-          </button>
-        )}
-      </div>
+    <div className="bg-gray-50 dark:bg-gray-950 min-h-screen">
+      {/* La banda del lenguaje de las públicas (`AdoptPage`, `LeaderboardPage`).
+          Esta pantalla no la tenía: arrancaba directo en un `<h1>` de
+          `text-2xl font-bold`, sin `font-display`.
+
+          El `<h1>` NO lleva peso explícito, y es a propósito: `--text-display` y
+          `--text-display-sm` ya declaran `font-weight: 700` (ver `index.css`),
+          así que acá agregarlo sería ruido. Es lo contrario del caso del panel
+          admin, donde `text-xl` no trae peso y sin `font-semibold` el título se
+          caía a 400 — la regresión del #161. La regla no es "poné siempre el
+          peso": es "asegurate de que ALGUIEN lo declare". */}
+      <section className="bg-gradient-to-br from-primary to-primary-dark text-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 text-center">
+          {/* El conteo se queda DENTRO del `<h1>`, y eso no es inercia: dos
+              tests lo afirman, incluido que con la query caída el título NO
+              afirme un conteo. Un "Mis alertas (0/5)" cuando la lectura falló
+              es la misma mentira que una lista vacía sobre un error. */}
+          <h1 className="font-display text-display-sm md:text-display mb-3">
+            {alertCount !== undefined
+              ? t('title', { count: alertCount, max: MAX_ALERTS })
+              : t('titleNoCount')}
+          </h1>
+          <p className="text-lg text-white max-w-2xl mx-auto">{t('subtitle')}</p>
+        </div>
+      </section>
+
+      {/* `max-w-7xl` como el navbar (la convención aprobada el 2026-08-05); la
+          columna interna se queda angosta porque acá adentro hay un FORMULARIO,
+          y un campo de 1216px no se llena cómodo. Lo que la regla corrige es que
+          la PÁGINA fuera ~450px más angosta que su propia barra, no que el
+          contenido tenga que estirarse hasta el borde. */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="max-w-3xl mx-auto">
+          {/* El botón sale del encabezado: en la banda no entra —las hermanas no
+              ponen acciones ahí— y acá queda pegado a la lista sobre la que
+              actúa. */}
+          {!showForm && (
+            <div className="flex justify-end mb-6">
+              <button
+                onClick={() => setShowForm(true)}
+                disabled={(alertCount ?? 0) >= MAX_ALERTS}
+                className="px-4 py-2 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {t('newAlert')}
+              </button>
+            </div>
+          )}
 
       {/* Create form.
           No usa `FormPage`: el frame lo pone esta página, que es una pantalla de
@@ -199,6 +285,25 @@ export function AlertsPage() {
                 <legend className="mb-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
                   {t('coordsLabel')}
                 </legend>
+
+                {/* El mapa es la vía VISUAL de elegir la zona; los dos inputs de
+                    abajo son la vía accesible, y siguen siendo los que llevan
+                    etiqueta, `aria-invalid` y el mensaje de error. Los dos
+                    escriben el mismo estado, así que cualquiera alcanza para
+                    crear la alerta.
+
+                    El círculo dibuja el radio elegido: antes ese control iba de
+                    1 a 25 sin ninguna referencia de cuánto era eso en la calle. */}
+                <div className="mb-4">
+                  <AlertZonePicker
+                    latitude={formLat}
+                    longitude={formLng}
+                    radiusKm={Number(radiusKm)}
+                    onPick={elegirZona}
+                    hint={t('mapHint')}
+                  />
+                </div>
+
                 <div className="grid sm:grid-cols-2 gap-6">
                   <FormField label={t('latLabel')} htmlFor="alert-lat">
                     {(control) => (
@@ -308,7 +413,11 @@ export function AlertsPage() {
           // es información nueva, y el usuario la necesita igual.
           !showForm ? (
             <div className="text-center py-16">
-              <p className="text-5xl mb-4">🔔</p>
+              {/* Decorativo: el texto de abajo ya dice todo. Sin `aria-hidden`
+                  un lector de pantalla anuncia "campana" antes del mensaje.
+                  Se queda como emoji porque el set de `Icon` no tiene campana,
+                  y mapearlo a `campaign` (un megáfono) diría otra cosa. */}
+              <p className="text-5xl mb-4" aria-hidden="true">🔔</p>
               <p className="text-gray-700 dark:text-gray-300 font-semibold mb-2">{t('emptyTitle')}</p>
               <p className="text-gray-500 dark:text-gray-400 mb-4 text-sm">
                 {t('emptyText')}
@@ -324,46 +433,133 @@ export function AlertsPage() {
         }
       >
         {(alerts: LocationAlert[]) => (
-        <div className="space-y-3">
-          {alerts.map((alert) => (
-            <div
-              key={alert.id}
-              className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-4 flex items-center justify-between gap-4"
-            >
-              <div className="flex-1 min-w-0">
-                <p className="font-semibold text-gray-900 dark:text-gray-100 truncate">
-                  {alert.name ?? t('unnamed')}
-                </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                  {alert.alert_latitude.toFixed(3)}, {alert.alert_longitude.toFixed(3)}
-                  {' · '}{alert.radius_km} km
-                  {alert.pet_type ? ` · ${t(`pets:types.${alert.pet_type}`)}` : ''}
-                </p>
-              </div>
-              <div className="flex items-center gap-3 shrink-0">
-                <label className="flex items-center gap-1.5 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={alert.is_active}
-                    onChange={() => handleToggle(alert)}
-                    className="w-4 h-4 accent-primary"
-                  />
-                  <span className="text-xs text-gray-600 dark:text-gray-400">
-                    {alert.is_active ? t('active') : t('inactive')}
-                  </span>
-                </label>
+        <div className="space-y-6">
+          {/* El mapa vive DENTRO de la rama de datos, así que no puede aparecer
+              sobre un error ni sobre la lista vacía: un mapa sin un solo
+              círculo diría "no estás vigilando nada" justo cuando lo que pasa
+              es que no pudimos leer. */}
+          <div className="space-y-2">
+            {/* Sólo aparece cuando hay algo de lo que volver. Es un botón propio
+                y NO un toggle sobre el de la tarjeta: un toggle dejaría el
+                nombre accesible mintiendo la mitad de las veces —"Ver «A» en el
+                mapa" cuando lo que hace es alejarse de A—. Sin esta salida, el
+                primer click en una tarjeta dejaba la vista del conjunto
+                inalcanzable por el resto de la sesión de la página. */}
+            {focused !== null && (
+              <div className="flex justify-end">
                 <button
-                  onClick={() => handleDelete(alert)}
-                  className="text-xs font-medium text-red-500 hover:text-red-700 dark:hover:text-red-400 transition-colors"
+                  type="button"
+                  onClick={() => mirarZona(null)}
+                  className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:text-primary-dark transition-colors"
                 >
-                  {t('delete')}
+                  <Icon name="location-on" className="w-4 h-4 shrink-0" />
+                  {t('viewAll')}
                 </button>
               </div>
-            </div>
-          ))}
+            )}
+            <AlertsMap
+              alerts={alerts}
+              focused={focused}
+              focusTick={focusTick}
+              labelFor={(alert) => alert.name ?? t('unnamed')}
+            />
+          </div>
+
+          <div className="grid sm:grid-cols-2 gap-4">
+            {alerts.map((alert) => (
+              <div
+                key={alert.id}
+                className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-4 flex flex-col gap-3"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <h2 className="font-semibold text-gray-900 dark:text-gray-100 truncate">
+                    {alert.name ?? t('unnamed')}
+                  </h2>
+                  {/* El estado se anuncia como interruptor y no como casilla:
+                      lo que se dice es "activa / pausada", no "marcada". Sigue
+                      siendo un `<input type="checkbox">` nativo —el `role` sólo
+                      cambia cómo se nombra— así que el teclado, el foco y el
+                      espacio los sigue poniendo el navegador. */}
+                  <label className="flex items-center gap-2 cursor-pointer select-none shrink-0">
+                    {/* El `aria-label` lleva el NOMBRE, y en una grilla de hasta
+                        10 tarjetas eso no es cosmético: sin él, el nombre
+                        accesible del interruptor es la pill —"Activa"— repetida
+                        en todas, y quien navega por teclado oye "Activa,
+                        interruptor, marcado" diez veces sin saber cuál está por
+                        pausar. `confirmDelete` ya interpolaba el nombre, así que
+                        las dos superficies se contradecían sobre si el nombre
+                        importa. Pisa el texto de la `<label>`, que sigue visible. */}
+                    <input
+                      type="checkbox"
+                      role="switch"
+                      aria-label={t('toggleLabel', { name: alert.name ?? t('unnamed') })}
+                      checked={alert.is_active}
+                      onChange={() => handleToggle(alert)}
+                      className="w-4 h-4 accent-primary"
+                    />
+                    <span
+                      className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                        alert.is_active
+                          ? 'bg-primary/10 text-primary'
+                          : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400'
+                      }`}
+                    >
+                      {alert.is_active ? t('active') : t('inactive')}
+                    </span>
+                  </label>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs font-medium px-2 py-1 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300">
+                    {t('radiusBadge', { km: alert.radius_km })}
+                  </span>
+                  {alert.pet_type && (
+                    <span className="text-xs font-medium px-2 py-1 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300">
+                      {t(`pets:types.${alert.pet_type}`)}
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-between gap-3 mt-auto">
+                  {/* Las coordenadas eran texto inerte: tres decimales que
+                      nadie puede ubicar. Ahora son el control que lleva el mapa
+                      de arriba a ESTA zona — el dato sigue estando, y encima
+                      hace algo. */}
+                  {/* El nombre accesible dice QUÉ hace el botón; las coordenadas
+                      son lo que se ve. Al revés —un botón que se llama
+                      "-34.901, -56.164"— quien lo oye no tiene forma de saber
+                      que sirve para algo. */}
+                  <button
+                    type="button"
+                    onClick={() => mirarZona(alert.id)}
+                    aria-label={t('showOnMap', { name: alert.name ?? t('unnamed') })}
+                    className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 hover:text-primary transition-colors min-w-0"
+                  >
+                    <Icon name="location-on" className="w-4 h-4 shrink-0" />
+                    <span className="truncate">
+                      {alert.alert_latitude.toFixed(3)}, {alert.alert_longitude.toFixed(3)}
+                    </span>
+                  </button>
+                  {/* Mismo motivo que el interruptor: "Eliminar" a secas se
+                      repite en cada tarjeta. El texto visible se queda corto
+                      porque el espacio es corto; el nombre accesible no tiene
+                      ese límite. */}
+                  <button
+                    onClick={() => handleDelete(alert)}
+                    aria-label={t('deleteLabel', { name: alert.name ?? t('unnamed') })}
+                    className="text-xs font-medium text-red-500 hover:text-red-700 dark:hover:text-red-400 transition-colors shrink-0"
+                  >
+                    {t('delete')}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
         )}
       </ListState>
+        </div>
+      </section>
     </div>
   );
 }

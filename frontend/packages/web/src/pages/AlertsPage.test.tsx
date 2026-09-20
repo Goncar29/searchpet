@@ -13,6 +13,22 @@ const state = vi.hoisted(() => ({
   isError: false,
 }));
 
+// El mapa de resumen se moquea para poder afirmar QUÉ recibe: su propio
+// comportamiento (círculos, encuadre, punteado de la pausada) lo cubre
+// `AlertsMap.test.tsx`. Acá lo que se prueba es el cableado de la página.
+const mapaResumen = vi.hoisted(() => ({
+  props: null as { alerts: unknown[]; focused: string | null; focusTick: number } | null,
+  montado: 0,
+}));
+
+vi.mock('../components/alerts/AlertsMap', () => ({
+  AlertsMap: (props: { alerts: unknown[]; focused: string | null; focusTick: number }) => {
+    mapaResumen.props = { alerts: props.alerts, focused: props.focused, focusTick: props.focusTick };
+    mapaResumen.montado += 1;
+    return <div data-testid="alerts-map" />;
+  },
+}));
+
 vi.mock('@shared/hooks', () => ({
   useAlerts: () => ({
     data: state.data,
@@ -104,6 +120,144 @@ describe('AlertsPage', () => {
  * el marcado anterior no daba — las coordenadas se nombraban con `aria-label` y
  * el radio era un grupo de botones con `role="radiogroup"` escrito a mano.
  */
+/**
+ * La lista después del rediseño: un mapa de resumen y tarjetas en grilla.
+ *
+ * Lo que se afirma no es que se vea distinto —eso sólo lo ve el navegador—
+ * sino las dos cosas que pueden mentirle al usuario: que el mapa NO aparezca
+ * cuando no sabemos nada, y que el estado se anuncie por lo que es.
+ */
+describe('AlertsPage — el mapa de resumen', () => {
+  beforeEach(() => {
+    state.data = [];
+    state.isError = false;
+    mapaResumen.props = null;
+    mapaResumen.montado = 0;
+  });
+
+  it('con alertas, el mapa recibe todas las zonas', () => {
+    state.data = [alert(), alert({ id: 'alert-2', name: 'Casa de mamá' })];
+
+    render(<AlertsPage />);
+
+    expect(screen.getByTestId('alerts-map')).toBeInTheDocument();
+    expect(mapaResumen.props?.alerts).toHaveLength(2);
+    expect(mapaResumen.props?.focused).toBeNull();
+  });
+
+  // La mitad que importa: un mapa vacío sobre una consulta caída diría "no
+  // estás vigilando ninguna zona", que es exactamente la mentira que
+  // `ListState` existe para matar. Y sobre la lista vacía tampoco va: no hay
+  // nada que dibujar.
+  it('NO dibuja el mapa cuando la consulta se cayo, ni cuando no hay alertas', () => {
+    const { unmount } = render(<AlertsPage />);
+    expect(screen.queryByTestId('alerts-map')).not.toBeInTheDocument();
+    unmount();
+
+    state.data = undefined;
+    state.isError = true;
+    render(<AlertsPage />);
+
+    expect(screen.queryByTestId('alerts-map')).not.toBeInTheDocument();
+    // Y no es que se montó y devolvió null: no se montó nunca.
+    expect(mapaResumen.montado).toBe(0);
+  });
+
+  it('tocar la ubicacion de una tarjeta enfoca ESA zona, no la primera', async () => {
+    state.data = [alert(), alert({ id: 'alert-2', name: 'Casa de mamá' })];
+    render(<AlertsPage />);
+
+    // Con `t` mockeado los dos botones se llaman igual, así que hay que tomar
+    // el SEGUNDO: si el click enfocara cualquier cosa menos la tarjeta tocada,
+    // afirmar sobre el primero no lo notaría.
+    const botones = screen.getAllByRole('button', { name: 'showOnMap' });
+    expect(botones).toHaveLength(2);
+    await userEvent.click(botones[1]);
+
+    expect(mapaResumen.props?.focused).toBe('alert-2');
+  });
+
+  // `role="switch"` sobre el checkbox nativo: lo que se anuncia es
+  // "activa / pausada" y no "casilla marcada". Sigue siendo un input nativo, o
+  // sea que el foco, el teclado y la barra espaciadora los pone el navegador —
+  // que es la misma razón por la que el radio del formulario dejó de ser un
+  // grupo de botones con `role` escrito a mano.
+  it('el estado de la alerta se anuncia como interruptor, y sigue siendo nativo', () => {
+    state.data = [alert({ is_active: true })];
+
+    render(<AlertsPage />);
+
+    const interruptor = screen.getByRole('switch');
+    expect(interruptor.tagName).toBe('INPUT');
+    expect(interruptor).toBeChecked();
+  });
+});
+
+describe('AlertsPage — el lenguaje de las públicas', () => {
+  beforeEach(() => {
+    state.data = [];
+    state.isError = false;
+  });
+
+  // Las públicas rediseñadas (`AdoptPage`, `LeaderboardPage`) abren con una
+  // banda de color y el título en la familia display. Esta pantalla entraba con
+  // un `<h1>` de `text-2xl font-bold`, sin `font-display`.
+  //
+  // NO se afirma un peso acá, y es deliberado: `--text-display` y
+  // `--text-display-sm` ya declaran `font-weight: 700` en `index.css`. Exigir
+  // `font-semibold` obligaría a escribir algo redundante, y exigir `font-bold`
+  // ataría el test a un detalle que el token puede cambiar. Lo que importa es
+  // que el tamaño venga de un token que SÍ trae peso — por eso se afirma el
+  // token, no el peso.
+  it('el titulo usa la familia display y el tamaño de las hermanas', () => {
+    render(<AlertsPage />);
+
+    const titulo = screen.getByRole('heading', { level: 1 });
+    expect(titulo.className).toContain('font-display');
+    expect(titulo.className).toContain('text-display-sm');
+    expect(titulo.className).not.toContain('font-bold');
+  });
+
+  it('la banda lleva subtitulo, como las otras publicas', () => {
+    render(<AlertsPage />);
+    expect(screen.getByText('subtitle')).toBeTruthy();
+  });
+
+  // La convención aprobada el 2026-08-05: toda página de contenido va en
+  // `max-w-7xl`, el mismo cap que el navbar. Esta estaba en `max-w-3xl`, o sea
+  // a menos de la mitad — el mismo defecto que se corrigió en `MyPetsPage` y
+  // `GroupsPage`.
+  //
+  // Se afirma CADA sección por separado, y no un conteo global.
+  //
+  // La primera versión hacía `querySelectorAll('.max-w-7xl').length === 2`. Eso
+  // pasa el caso que verifiqué en rojo —dejar la banda al ancho viejo— pero
+  // NO el que me marcó la revisión: sacarlo de la banda y meter dos en el
+  // contenido da 2 igual. El test contaba lo que su propio comentario decía
+  // que no contaba.
+  //
+  // Anclarse a la banda por su gradiente y al contenido por ser el `<section>`
+  // que NO es la banda ata cada aserción a la cosa que protege.
+  it('la banda Y el contenido estan anclados al ancho del navbar', () => {
+    const { container } = render(<AlertsPage />);
+
+    const banda = container.querySelector('section.bg-gradient-to-br');
+    expect(banda, 'no encontré la banda').toBeTruthy();
+    expect(banda!.querySelector('.max-w-7xl')).toBeTruthy();
+    // Y que la banda sea DE VERDAD el encabezado, no cualquier gradiente: si
+    // el `<h1>` se fuera a otro lado, anclar acá dejaría de significar algo.
+    expect(banda!.querySelector('h1')).toBeTruthy();
+
+    // El contenido lleva el cap en el `<section>` mismo; la banda lo lleva en un
+    // div interno, porque el gradiente va a todo el ancho de la ventana.
+    const contenido = [...container.querySelectorAll('section')].find((s) => s !== banda);
+    expect(contenido, 'no encontré la sección de contenido').toBeTruthy();
+    expect(contenido!.className).toContain('max-w-7xl');
+
+    expect(container.querySelector('.max-w-3xl.mx-auto')).toBeTruthy();
+  });
+});
+
 describe('AlertsPage — formulario de alta', () => {
   beforeEach(() => {
     state.data = [];
@@ -190,6 +344,23 @@ describe('AlertsPage — formulario de alta', () => {
   // un `<span>` hermano. Sin `aria-describedby` el control pasa a llamarse sólo
   // "Nombre" y la pista queda para quien MIRA: exactamente la asimetría ver/oír
   // que este sistema de formularios existe para no tener.
+  // El mapa NO reemplaza a los inputs de coordenadas: los acompaña. Los tests
+  // de arriba siguen afirmando la vía accesible entera —etiqueta propia,
+  // `aria-invalid` y el mensaje compartido— y este afirma que además apareció
+  // la vía visual, con la pista que nombra las dos.
+  //
+  // Se afirma el `.leaflet-container` y no un mock: acá react-leaflet corre de
+  // verdad contra jsdom, así que ese nodo es la prueba de que el mapa se montó
+  // dentro del formulario y no quedó colgado de un import sin usar.
+  it('el formulario trae un mapa para elegir la zona, sin quitar los inputs', async () => {
+    await abrirFormulario();
+
+    expect(document.querySelector('.leaflet-container')).toBeTruthy();
+    expect(screen.getByText('mapHint')).toBeInTheDocument();
+    expect(screen.getByLabelText('latLabel')).toBeInTheDocument();
+    expect(screen.getByLabelText('lngLabel')).toBeInTheDocument();
+  });
+
   it('el hint del campo opcional llega por aria-describedby', async () => {
     await abrirFormulario();
 
@@ -197,5 +368,121 @@ describe('AlertsPage — formulario de alta', () => {
     const hintId = campo.getAttribute('aria-describedby');
     expect(hintId).toBeTruthy();
     expect(document.getElementById(hintId!)).toHaveTextContent('optionalHint');
+  });
+
+  // ─── Los cinco hallazgos del /code-review, cada uno con su guard ───
+
+  describe('la ubicacion del navegador', () => {
+    const conGeolocalizacion = (coords: { latitude: number; longitude: number }) => {
+      Object.defineProperty(navigator, 'geolocation', {
+        configurable: true,
+        value: {
+          getCurrentPosition: (ok: (p: unknown) => void) => ok({ coords }),
+          watchPosition: () => 0,
+          clearWatch: () => {},
+        },
+      });
+    };
+
+    // POR QUÉ EXISTE: el prefill de MONTAJE escribía `pos.coords.latitude`
+    // crudo, salteando `elegirZona` — mientras el comentario de `elegirZona`
+    // afirmaba, desde su primer día, ser "la ÚNICA puerta". Con el permiso
+    // concedido el input mostraba `-34.899025460930744`: 15 decimales, el mismo
+    // defecto que el redondeo vino a cerrar, vivo en un tercer camino.
+    //
+    // Lo levantó un /code-review. El /verify no lo vio porque probó el BOTÓN
+    // "usar mi ubicación", no el montaje: dos caminos, y sólo uno mirado.
+    it('el prefill de montaje redondea la coordenada', async () => {
+      conGeolocalizacion({ latitude: -34.899025460930744, longitude: -56.164173829174611 });
+      render(<AlertsPage />);
+      await userEvent.click(screen.getByRole('button', { name: 'newAlert' }));
+
+      expect(screen.getByLabelText('latLabel')).toHaveValue(-34.899025);
+      expect(screen.getByLabelText('lngLabel')).toHaveValue(-56.164174);
+    });
+  });
+
+  // POR QUÉ EXISTE: `resetForm` limpiaba nombre, radio y tipo pero NO las
+  // coordenadas, así que reabrir el formulario montaba el mapa con el marcador
+  // y el círculo de la zona anterior — y sin la pista, porque para el picker ya
+  // había un punto elegido. Quien tocara "Crear" se llevaba una zona duplicada.
+  it('cerrar el formulario limpia las coordenadas elegidas', async () => {
+    state.data = [];
+    render(<AlertsPage />);
+    await userEvent.click(screen.getByRole('button', { name: 'newAlert' }));
+    await userEvent.type(screen.getByLabelText('latLabel'), '-34.9011');
+    await userEvent.type(screen.getByLabelText('lngLabel'), '-56.1645');
+
+    await userEvent.click(screen.getByRole('button', { name: 'cancel' }));
+    await userEvent.click(screen.getByRole('button', { name: 'newAlert' }));
+
+    expect(screen.getByLabelText('latLabel')).toHaveValue(null);
+    expect(screen.getByLabelText('lngLabel')).toHaveValue(null);
+  });
+
+  describe('volver al conjunto de zonas', () => {
+    // POR QUÉ EXISTE: `setFocused` sólo recibía ids, nunca `null`, y no había
+    // ningún control que devolviera la vista del conjunto. El primer click en
+    // una tarjeta dejaba el resumen inalcanzable por el resto de la sesión.
+    it('el control aparece recien cuando hay una zona enfocada', async () => {
+      state.data = [alert({ id: 'a1' }), alert({ id: 'a2', name: 'Casa' })];
+      render(<AlertsPage />);
+
+      expect(screen.queryByRole('button', { name: 'viewAll' })).not.toBeInTheDocument();
+
+      await userEvent.click(screen.getAllByRole('button', { name: 'showOnMap' })[0]);
+      expect(screen.getByRole('button', { name: 'viewAll' })).toBeInTheDocument();
+      expect(mapaResumen.props?.focused).toBe('a1');
+    });
+
+    it('el control devuelve el mapa al conjunto y se esconde', async () => {
+      state.data = [alert({ id: 'a1' }), alert({ id: 'a2', name: 'Casa' })];
+      render(<AlertsPage />);
+      await userEvent.click(screen.getAllByRole('button', { name: 'showOnMap' })[0]);
+
+      await userEvent.click(screen.getByRole('button', { name: 'viewAll' }));
+
+      expect(mapaResumen.props?.focused).toBeNull();
+      expect(screen.queryByRole('button', { name: 'viewAll' })).not.toBeInTheDocument();
+    });
+
+    // POR QUÉ EXISTE: pedir la MISMA zona dos veces dejaba `focused` igual, y
+    // el efecto de la cámara no volvía a correr. Tras alejar el mapa a mano el
+    // botón quedaba muerto — medido en el navegador, mismo píxel antes y
+    // después. La página tiene que emitir un pedido NUEVO, no sólo un destino.
+    it('pedir la misma zona dos veces emite un pedido nuevo', async () => {
+      state.data = [alert({ id: 'a1' })];
+      render(<AlertsPage />);
+      const boton = screen.getAllByRole('button', { name: 'showOnMap' })[0];
+
+      await userEvent.click(boton);
+      const primero = mapaResumen.props!.focusTick;
+      await userEvent.click(boton);
+
+      expect(mapaResumen.props?.focused).toBe('a1');
+      expect(mapaResumen.props?.focusTick).toBeGreaterThan(primero);
+    });
+  });
+
+  // POR QUÉ EXISTE: en una grilla de hasta 10 tarjetas, el interruptor se
+  // llamaba "Activa" y el botón "Eliminar" en TODAS. Quien navega por teclado
+  // oía lo mismo diez veces sin saber cuál iba a pausar o borrar, mientras
+  // `confirmDelete` sí interpolaba el nombre: las dos superficies se
+  // contradecían sobre si el nombre importa.
+  //
+  // ACÁ NO SE PUEDE AFIRMAR QUE LOS NOMBRES DIFIERAN, y decirlo importa: el
+  // mock de `t` devuelve la clave, así que las dos tarjetas rinden el mismo
+  // texto por construcción. Lo que este test afirma es que el nombre accesible
+  // sale de una clave PROPIA y no del texto repetido; que esa clave lleve el
+  // nombre adentro lo afirma `alertsKeys.test.ts`, que sí mira los locales.
+  it('el interruptor y el borrado se nombran con una clave propia', () => {
+    state.data = [alert({ id: 'a1' }), alert({ id: 'a2', name: 'Casa' })];
+    render(<AlertsPage />);
+
+    expect(screen.getAllByRole('switch', { name: 'toggleLabel' })).toHaveLength(2);
+    expect(screen.getAllByRole('button', { name: 'deleteLabel' })).toHaveLength(2);
+    // El texto visible se queda corto a propósito: el espacio de la tarjeta es
+    // corto, el nombre accesible no tiene ese límite.
+    expect(screen.getAllByText('delete')).toHaveLength(2);
   });
 });
