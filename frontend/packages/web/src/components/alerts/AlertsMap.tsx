@@ -17,9 +17,10 @@ function zonaDe(alert: LocationAlert): L.LatLngBounds {
 interface CameraProps {
   alerts: LocationAlert[];
   focused: string | null;
+  focusTick: number;
 }
 
-function Camera({ alerts, focused }: CameraProps) {
+function Camera({ alerts, focused, focusTick }: CameraProps) {
   const map = useMap();
 
   // La alerta enfocada manda; si no hay ninguna, se encuadra el conjunto.
@@ -47,8 +48,13 @@ function Camera({ alerts, focused }: CameraProps) {
     if (todas) map.fitBounds(todas);
     // `alerts` fuera de deps a propósito: lo que identifica al conjunto es
     // `ids`. Ver el bloque de arriba.
+    //
+    // `focusTick` SÍ está, y sin él este efecto no puede atender un pedido
+    // repetido: pedir la misma alerta dos veces deja `focused` igual, React
+    // corta el render y acá no vuelve a pasar nada. El usuario aleja el mapa,
+    // toca otra vez el mismo botón, y no se mueve nada.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [map, ids, focused]);
+  }, [map, ids, focused, focusTick]);
 
   return null;
 }
@@ -57,6 +63,12 @@ export interface AlertsMapProps {
   alerts: LocationAlert[];
   /** Id de la alerta a encuadrar, o `null` para ver el conjunto. */
   focused: string | null;
+  /**
+   * Cambia cada vez que se PIDE un encuadre, aunque el destino se repita.
+   * Es lo que distingue "mirá A" de "mirá A otra vez": sin esto, el segundo
+   * pedido sobre la misma alerta no mueve nada.
+   */
+  focusTick: number;
   /** Cómo nombrar una alerta. Lo traduce la página. */
   labelFor: (alert: LocationAlert) => string;
 }
@@ -68,7 +80,7 @@ export interface AlertsMapProps {
  * tiles contra la política de uso de OpenStreetMap, para mostrar diez veces la
  * misma ciudad.
  */
-export function AlertsMap({ alerts, focused, labelFor }: AlertsMapProps) {
+export function AlertsMap({ alerts, focused, focusTick, labelFor }: AlertsMapProps) {
   return (
     <div className="h-72 sm:h-80 rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-800">
       <MapContainer center={MONTEVIDEO} zoom={12} style={{ height: '100%', width: '100%' }}>
@@ -76,7 +88,7 @@ export function AlertsMap({ alerts, focused, labelFor }: AlertsMapProps) {
           attribution="&copy; OpenStreetMap contributors"
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
-        <Camera alerts={alerts} focused={focused} />
+        <Camera alerts={alerts} focused={focused} focusTick={focusTick} />
         {alerts.map((alert) => (
           <Circle
             key={alert.id}

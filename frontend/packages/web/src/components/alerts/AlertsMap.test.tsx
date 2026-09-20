@@ -52,6 +52,7 @@ describe('AlertsMap', () => {
       <AlertsMap
         alerts={[alerta(), alerta({ id: 'a2', radius_km: 2, alert_latitude: -34.88 })]}
         focused={null}
+        focusTick={0}
         labelFor={(a) => a.name ?? 'sin nombre'}
       />
     );
@@ -69,6 +70,7 @@ describe('AlertsMap', () => {
       <AlertsMap
         alerts={[alerta({ id: 'viva', is_active: true }), alerta({ id: 'quieta', is_active: false })]}
         focused={null}
+        focusTick={0}
         labelFor={(a) => a.name ?? 'sin nombre'}
       />
     );
@@ -89,6 +91,7 @@ describe('AlertsMap', () => {
           alerta({ id: 'a2', alert_latitude: -34.4, alert_longitude: -55.2 }),
         ]}
         focused={null}
+        focusTick={0}
         labelFor={(a) => a.name ?? 'sin nombre'}
       />
     );
@@ -110,10 +113,10 @@ describe('AlertsMap', () => {
       ],
       labelFor: (a: LocationAlert) => a.name ?? 'sin nombre',
     };
-    const { rerender } = render(<AlertsMap {...props} focused={null} />);
+    const { rerender } = render(<AlertsMap {...props} focused={null} focusTick={0} />);
     mapa.fitBounds.mockClear();
 
-    rerender(<AlertsMap {...props} focused="a2" />);
+    rerender(<AlertsMap {...props} focused="a2" focusTick={1} />);
 
     expect(mapa.fitBounds).toHaveBeenCalledTimes(1);
     const bounds = mapa.fitBounds.mock.calls[0][0] as L.LatLngBounds;
@@ -135,6 +138,7 @@ describe('AlertsMap', () => {
           alerta({ id: 'a2', alert_latitude: -34.4, alert_longitude: -55.2 }),
         ]}
         focused="la-que-borre"
+        focusTick={0}
         labelFor={(a) => a.name ?? 'sin nombre'}
       />
     );
@@ -150,10 +154,49 @@ describe('AlertsMap', () => {
       <AlertsMap
         alerts={[alerta({ name: 'Casa de mamá' })]}
         focused={null}
+        focusTick={0}
         labelFor={(a) => a.name ?? 'sin nombre'}
       />
     );
 
     expect(getByText('Casa de mamá')).toBeInTheDocument();
+  });
+
+  // POR QUÉ EXISTE: `focused` solo no distingue "mirá A" de "mirá A otra vez".
+  // Pedir la misma alerta dos veces no cambia el estado en la página, React
+  // corta el render, y este efecto no vuelve a correr — el botón de la tarjeta
+  // quedaba MUERTO después de alejar el mapa a mano. Medido en el navegador: el
+  // círculo terminaba en el mismo píxel antes y después del segundo click.
+  //
+  // El test afirma el pedido REPETIDO, que es la mitad que estaba rota. La otra
+  // —cambiar de alerta— ya la cubre "enfocar una alerta encuadra ESA zona".
+  it('pedir la MISMA zona otra vez vuelve a encuadrarla', () => {
+    const props = {
+      alerts: [alerta({ id: 'a1', alert_latitude: -34.9, alert_longitude: -56.16 })],
+      labelFor: (a: LocationAlert) => a.name ?? 'sin nombre',
+    };
+    const { rerender } = render(<AlertsMap {...props} focused="a1" focusTick={1} />);
+    mapa.fitBounds.mockClear();
+
+    // Mismo destino, pedido nuevo: es exactamente lo que hace el segundo click.
+    rerender(<AlertsMap {...props} focused="a1" focusTick={2} />);
+
+    expect(mapa.fitBounds).toHaveBeenCalledTimes(1);
+  });
+
+  // La otra mitad del mismo arreglo: un re-render que NO pide nada no puede
+  // mover la cámara. Sin esto, "andá siempre" pasaría el test de arriba y
+  // reencuadraría el mapa en cada tecla que el usuario escriba en el formulario.
+  it('un re-render sin pedido nuevo NO mueve la camara', () => {
+    const props = {
+      alerts: [alerta({ id: 'a1' })],
+      labelFor: (a: LocationAlert) => a.name ?? 'sin nombre',
+    };
+    const { rerender } = render(<AlertsMap {...props} focused="a1" focusTick={1} />);
+    mapa.fitBounds.mockClear();
+
+    rerender(<AlertsMap {...props} focused="a1" focusTick={1} />);
+
+    expect(mapa.fitBounds).not.toHaveBeenCalled();
   });
 });

@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Circle, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 
@@ -27,7 +27,7 @@ interface CameraProps {
 }
 
 /**
- * Las dos únicas razones por las que esta cámara se mueve sola.
+ * Las tres únicas razones por las que esta cámara se mueve sola.
  *
  * Deliberadamente NO se mueve en cada cambio de posición. Un `setView` por cada
  * coordenada nueva centra el pin en cada suelta del arrastre: el mapa salta, el
@@ -36,31 +36,44 @@ interface CameraProps {
 function Camera({ latitude, longitude, radiusKm }: CameraProps) {
   const map = useMap();
 
-  // (1) Apareció el primer punto, o cambió el radio: se encuadra el círculo
-  // entero. Sin esto, elegir 25 km dibuja una circunferencia más grande que el
-  // viewport y el control de radio deja de dar cualquier señal de cuánto abarca
-  // sobre el terreno — que es la mitad del motivo por el que este mapa existe.
-  const elegido = latitude !== null && longitude !== null;
+  // El encuadre inicial es un evento que ocurre UNA vez en la vida del
+  // componente, así que se recuerda en un ref y no se deriva del estado.
+  //
+  // Antes la condición era el booleano `elegido`, y eso era correcto para el
+  // mapa pero FALSO para el teclado: `editarCoordenada` pone el estado en
+  // `null` cuando el input queda vacío, y un `<input type="number">` reporta
+  // `value === ''` para todo estado intermedio inválido —`-`, `-34.`— además
+  // del campo borrado. Editar una latitud ya elegida hacía `true→false→true` y
+  // reencuadraba en cada recuperación: el mapa saltaba a mitad de tipeo, justo
+  // en el camino accesible que este componente existe para proteger. Medido en
+  // el navegador; el comentario que había acá afirmaba el invariante contrario.
+  // Guarda el radio con el que se encuadró por última vez, y `null` significa
+  // "todavía no se encuadró nunca". Ese único valor alcanza para separar los
+  // tres casos, que es todo el efecto:
+  //
+  //   · `null` → es el PRIMER punto: se encuadra.
+  //   · un radio distinto → el usuario cambió el radio: se encuadra.
+  //   · el mismo radio → o arrastró el pin, o volvió de un hueco de tipeo:
+  //     NO se encuadra.
+  //
+  // Se intentó antes con dos efectos y un booleano "ya encuadré". No sirve:
+  // React corre TODOS los efectos en el primer render, así que el segundo veía
+  // el booleano que el primero acababa de poner y encuadraba de nuevo —
+  // `fitBounds` dos veces sobre el mismo estado. Lo cazó el test, no la lectura.
+  const radioEncuadrado = useRef<number | null>(null);
+
   useEffect(() => {
     if (latitude === null || longitude === null) return;
-    map.fitBounds(L.latLng(latitude, longitude).toBounds(radiusKm * 2 * 1000));
-    // La dependencia es `elegido` (el BOOLEANO) y no las coordenadas, y esa
-    // distinción es el efecto entero:
-    //
-    //   · `null → punto` cambia el booleano, así que el primer círculo se
-    //     encuadra. Antes no: las deps eran `[map, radiusKm]`, que no se movían
-    //     en esa transición, y el otro efecto tampoco hacía nada porque un
-    //     click cae siempre DENTRO de la vista. El primer círculo se dibujaba
-    //     sin que la cámara lo mirara. Lo levantó la revisión nativa.
-    //   · mover un punto ya elegido NO cambia el booleano, así que el arrastre
-    //     sigue sin reencuadrar. Con `latitude`/`longitude` acá, el mapa
-    //     saltaría en cada suelta y el gesto pelearía contra la vista.
-    //
-    // Las dos mitades están testeadas por separado.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [map, radiusKm, elegido]);
+    if (radioEncuadrado.current === radiusKm) return;
+    radioEncuadrado.current = radiusKm;
 
-  // (2) El punto quedó fuera de pantalla: pasa al tipear una coordenada lejana
+    // Sin esto, elegir 25 km dibuja una circunferencia más grande que el
+    // viewport y el control de radio deja de dar cualquier señal de cuánto
+    // abarca sobre el terreno — que es la mitad del motivo de este mapa.
+    map.fitBounds(L.latLng(latitude, longitude).toBounds(radiusKm * 2 * 1000));
+  }, [map, latitude, longitude, radiusKm]);
+
+  // (3) El punto quedó fuera de pantalla: pasa al tipear una coordenada lejana
   // en los inputs, y sin esto el usuario escribe y el mapa se queda mostrando
   // otra ciudad. Arrastrar o tocar cae siempre DENTRO de la vista, así que esos
   // dos gestos no la mueven.
@@ -106,6 +119,18 @@ export function AlertZonePicker({
   hint,
 }: AlertZonePickerProps) {
   const elegido = latitude !== null && longitude !== null;
+
+  // La pista es una INSTRUCCIÓN, y por eso se retira apenas hubo un punto y no
+  // vuelve. El marcador puede desaparecer a mitad de tipeo —sin un par completo
+  // no hay punto que dibujar, y eso es honesto—, pero "tocá el mapa para elegir
+  // la zona" sobre el mapa de alguien que está corrigiendo su zona a mano es
+  // una indicación equivocada. Un dato ausente no miente; una instrucción
+  // equivocada sí.
+  const [huboPunto, setHuboPunto] = useState(false);
+  useEffect(() => {
+    if (elegido) setHuboPunto(true);
+  }, [elegido]);
+
   // El centro inicial del mapa NO es un punto elegido: es desde dónde mirar.
   // Por eso cuando no hay coordenadas no se dibuja ningún marcador — plantarlo
   // en Montevideo "para que se vea algo" afirmaría una zona que el usuario no
@@ -144,7 +169,7 @@ export function AlertZonePicker({
         )}
       </MapContainer>
 
-      {!elegido && (
+      {!elegido && !huboPunto && (
         // Sin `aria-hidden`: la pista nombra las DOS vías —tocar el mapa y
         // escribir las coordenadas— así que también le sirve a quien no puede
         // usar la primera. Una pista que sólo dijera "tocá el mapa" sí habría

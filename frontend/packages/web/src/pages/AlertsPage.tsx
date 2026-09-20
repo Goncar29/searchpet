@@ -57,6 +57,20 @@ export function AlertsPage() {
   // Qué zona está mirando el mapa de resumen. `null` = el conjunto entero.
   const [focused, setFocused] = useState<string | null>(null);
 
+  // El contador existe porque `focused` solo NO alcanza para pedir un encuadre.
+  // Pedir la MISMA alerta dos veces no cambia el estado, React corta el render,
+  // y el efecto de la cámara —que depende de `focused`— no vuelve a correr. O
+  // sea que tras alejar el mapa a mano, el botón de esa tarjeta quedaba MUERTO:
+  // medido en el navegador, el círculo terminaba en el mismo píxel antes y
+  // después del segundo click. El contador convierte "qué mirar" en "mirá,
+  // ahora": cambia siempre, aunque el destino se repita.
+  const [focusTick, setFocusTick] = useState(0);
+
+  const mirarZona = (id: string | null) => {
+    setFocused(id);
+    setFocusTick((n) => n + 1);
+  };
+
   // ── Form state ──────────────────────────────────────────────
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState('');
@@ -67,14 +81,41 @@ export function AlertsPage() {
   const [locating, setLocating] = useState(false);
   const [coordError, setCoordError] = useState('');
 
-  // Pre-fill coordinates from browser geolocation on mount
+  // La ÚNICA puerta por la que entra un par de coordenadas completo. Son TRES
+  // los caminos que escriben este estado, y los tres pasan por acá: el mapa
+  // (tocar o arrastrar el pin), el botón de geolocalización, y el prefill de
+  // montaje. Tener caminos que escriben el mismo estado con reglas distintas es
+  // exactamente cómo uno se olvida de retirar el mensaje de error.
+  //
+  // Y redondea, porque los orígenes traen basura: Leaflet devuelve el click con
+  // toda la precisión del `double` y la geolocalización del navegador otro
+  // tanto. Ese valor cae crudo en un `<input type="number">` que el usuario
+  // tiene que poder leer y corregir — `-34,899025460930744` no se lee ni se
+  // tipea.
+  //
+  // Esta función se declara ANTES del efecto de montaje a propósito: el efecto
+  // la llama, y tenerla debajo invita a escribir `setFormLat` a mano ahí para
+  // no pelear con el orden. Que es justo lo que había pasado.
+  const elegirZona = (latitude: number, longitude: number) => {
+    setFormLat(redondearCoordenada(latitude));
+    setFormLng(redondearCoordenada(longitude));
+    setCoordError('');
+  };
+
+  // Pre-fill coordinates from browser geolocation on mount.
+  //
+  // Este camino escribía `pos.coords.latitude` CRUDO, salteando `elegirZona` —
+  // y el comentario de arriba afirmaba, desde su primer día, ser la única
+  // puerta. Con el permiso de ubicación concedido el input mostraba
+  // `-34.899025460930744`: 15 decimales, el mismo defecto que el redondeo vino
+  // a cerrar, vivo en el tercer camino. Lo levantó un `/code-review`; el
+  // `/verify` no lo vio porque probó el BOTÓN, no el montaje.
   useEffect(() => {
     if (navigator.geolocation) {
       setLocating(true);
       navigator.geolocation.getCurrentPosition(
         (pos) => {
-          setFormLat(pos.coords.latitude);
-          setFormLng(pos.coords.longitude);
+          elegirZona(pos.coords.latitude, pos.coords.longitude);
           setLocating(false);
         },
         () => {
@@ -82,23 +123,10 @@ export function AlertsPage() {
         }
       );
     }
+    // Sólo al montar. `elegirZona` se recrea en cada render, así que ponerla en
+    // deps volvería a pedir la ubicación en cada tecla que el usuario escriba.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  // La ÚNICA puerta por la que entra un par de coordenadas completo: la usan el
-  // mapa (arrastrar el pin o tocar) y el botón de geolocalización. Tener dos
-  // caminos que escriben el mismo estado con reglas distintas es exactamente
-  // cómo uno de los dos se olvida de retirar el mensaje de error.
-  //
-  // Y redondea, porque los dos orígenes traen basura: Leaflet devuelve el
-  // click con toda la precisión del `double` y la geolocalización del
-  // navegador otro tanto. Ese valor cae crudo en un `<input type="number">`
-  // que el usuario tiene que poder leer y corregir — `-34,899025460930744` no
-  // se lee ni se tipea. Lo vi en el navegador; ningún test lo miraba.
-  const elegirZona = (latitude: number, longitude: number) => {
-    setFormLat(redondearCoordenada(latitude));
-    setFormLng(redondearCoordenada(longitude));
-    setCoordError('');
-  };
 
   const handleGeolocate = () => {
     if (!navigator.geolocation) return;
@@ -119,6 +147,14 @@ export function AlertsPage() {
     setRadiusKm('5');
     setPetType('');
     setCoordError('');
+    // Las coordenadas se limpian con el resto, y no es simetría: sin esto,
+    // reabrir el formulario después de crear una alerta monta el mapa con el
+    // marcador y el círculo de la zona ANTERIOR, y sin la pista. `AlertZonePicker`
+    // argumenta en su propio doc que dibujar un punto que el usuario no eligió
+    // "afirmaría una zona que el usuario no eligió" — este camino producía
+    // exactamente eso, y quien tocara "Crear" se llevaba una zona duplicada.
+    setFormLat(null);
+    setFormLng(null);
     setShowForm(false);
   };
 
@@ -402,11 +438,32 @@ export function AlertsPage() {
               sobre un error ni sobre la lista vacía: un mapa sin un solo
               círculo diría "no estás vigilando nada" justo cuando lo que pasa
               es que no pudimos leer. */}
-          <AlertsMap
-            alerts={alerts}
-            focused={focused}
-            labelFor={(alert) => alert.name ?? t('unnamed')}
-          />
+          <div className="space-y-2">
+            {/* Sólo aparece cuando hay algo de lo que volver. Es un botón propio
+                y NO un toggle sobre el de la tarjeta: un toggle dejaría el
+                nombre accesible mintiendo la mitad de las veces —"Ver «A» en el
+                mapa" cuando lo que hace es alejarse de A—. Sin esta salida, el
+                primer click en una tarjeta dejaba la vista del conjunto
+                inalcanzable por el resto de la sesión de la página. */}
+            {focused !== null && (
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => mirarZona(null)}
+                  className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:text-primary-dark transition-colors"
+                >
+                  <Icon name="location-on" className="w-4 h-4 shrink-0" />
+                  {t('viewAll')}
+                </button>
+              </div>
+            )}
+            <AlertsMap
+              alerts={alerts}
+              focused={focused}
+              focusTick={focusTick}
+              labelFor={(alert) => alert.name ?? t('unnamed')}
+            />
+          </div>
 
           <div className="grid sm:grid-cols-2 gap-4">
             {alerts.map((alert) => (
@@ -424,9 +481,18 @@ export function AlertsPage() {
                       cambia cómo se nombra— así que el teclado, el foco y el
                       espacio los sigue poniendo el navegador. */}
                   <label className="flex items-center gap-2 cursor-pointer select-none shrink-0">
+                    {/* El `aria-label` lleva el NOMBRE, y en una grilla de hasta
+                        10 tarjetas eso no es cosmético: sin él, el nombre
+                        accesible del interruptor es la pill —"Activa"— repetida
+                        en todas, y quien navega por teclado oye "Activa,
+                        interruptor, marcado" diez veces sin saber cuál está por
+                        pausar. `confirmDelete` ya interpolaba el nombre, así que
+                        las dos superficies se contradecían sobre si el nombre
+                        importa. Pisa el texto de la `<label>`, que sigue visible. */}
                     <input
                       type="checkbox"
                       role="switch"
+                      aria-label={t('toggleLabel', { name: alert.name ?? t('unnamed') })}
                       checked={alert.is_active}
                       onChange={() => handleToggle(alert)}
                       className="w-4 h-4 accent-primary"
@@ -465,7 +531,7 @@ export function AlertsPage() {
                       que sirve para algo. */}
                   <button
                     type="button"
-                    onClick={() => setFocused(alert.id)}
+                    onClick={() => mirarZona(alert.id)}
                     aria-label={t('showOnMap', { name: alert.name ?? t('unnamed') })}
                     className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 hover:text-primary transition-colors min-w-0"
                   >
@@ -474,8 +540,13 @@ export function AlertsPage() {
                       {alert.alert_latitude.toFixed(3)}, {alert.alert_longitude.toFixed(3)}
                     </span>
                   </button>
+                  {/* Mismo motivo que el interruptor: "Eliminar" a secas se
+                      repite en cada tarjeta. El texto visible se queda corto
+                      porque el espacio es corto; el nombre accesible no tiene
+                      ese límite. */}
                   <button
                     onClick={() => handleDelete(alert)}
+                    aria-label={t('deleteLabel', { name: alert.name ?? t('unnamed') })}
                     className="text-xs font-medium text-red-500 hover:text-red-700 dark:hover:text-red-400 transition-colors shrink-0"
                   >
                     {t('delete')}

@@ -17,13 +17,13 @@ const state = vi.hoisted(() => ({
 // comportamiento (círculos, encuadre, punteado de la pausada) lo cubre
 // `AlertsMap.test.tsx`. Acá lo que se prueba es el cableado de la página.
 const mapaResumen = vi.hoisted(() => ({
-  props: null as { alerts: unknown[]; focused: string | null } | null,
+  props: null as { alerts: unknown[]; focused: string | null; focusTick: number } | null,
   montado: 0,
 }));
 
 vi.mock('../components/alerts/AlertsMap', () => ({
-  AlertsMap: (props: { alerts: unknown[]; focused: string | null }) => {
-    mapaResumen.props = { alerts: props.alerts, focused: props.focused };
+  AlertsMap: (props: { alerts: unknown[]; focused: string | null; focusTick: number }) => {
+    mapaResumen.props = { alerts: props.alerts, focused: props.focused, focusTick: props.focusTick };
     mapaResumen.montado += 1;
     return <div data-testid="alerts-map" />;
   },
@@ -368,5 +368,121 @@ describe('AlertsPage — formulario de alta', () => {
     const hintId = campo.getAttribute('aria-describedby');
     expect(hintId).toBeTruthy();
     expect(document.getElementById(hintId!)).toHaveTextContent('optionalHint');
+  });
+
+  // ─── Los cinco hallazgos del /code-review, cada uno con su guard ───
+
+  describe('la ubicacion del navegador', () => {
+    const conGeolocalizacion = (coords: { latitude: number; longitude: number }) => {
+      Object.defineProperty(navigator, 'geolocation', {
+        configurable: true,
+        value: {
+          getCurrentPosition: (ok: (p: unknown) => void) => ok({ coords }),
+          watchPosition: () => 0,
+          clearWatch: () => {},
+        },
+      });
+    };
+
+    // POR QUÉ EXISTE: el prefill de MONTAJE escribía `pos.coords.latitude`
+    // crudo, salteando `elegirZona` — mientras el comentario de `elegirZona`
+    // afirmaba, desde su primer día, ser "la ÚNICA puerta". Con el permiso
+    // concedido el input mostraba `-34.899025460930744`: 15 decimales, el mismo
+    // defecto que el redondeo vino a cerrar, vivo en un tercer camino.
+    //
+    // Lo levantó un /code-review. El /verify no lo vio porque probó el BOTÓN
+    // "usar mi ubicación", no el montaje: dos caminos, y sólo uno mirado.
+    it('el prefill de montaje redondea la coordenada', async () => {
+      conGeolocalizacion({ latitude: -34.899025460930744, longitude: -56.164173829174611 });
+      render(<AlertsPage />);
+      await userEvent.click(screen.getByRole('button', { name: 'newAlert' }));
+
+      expect(screen.getByLabelText('latLabel')).toHaveValue(-34.899025);
+      expect(screen.getByLabelText('lngLabel')).toHaveValue(-56.164174);
+    });
+  });
+
+  // POR QUÉ EXISTE: `resetForm` limpiaba nombre, radio y tipo pero NO las
+  // coordenadas, así que reabrir el formulario montaba el mapa con el marcador
+  // y el círculo de la zona anterior — y sin la pista, porque para el picker ya
+  // había un punto elegido. Quien tocara "Crear" se llevaba una zona duplicada.
+  it('cerrar el formulario limpia las coordenadas elegidas', async () => {
+    state.data = [];
+    render(<AlertsPage />);
+    await userEvent.click(screen.getByRole('button', { name: 'newAlert' }));
+    await userEvent.type(screen.getByLabelText('latLabel'), '-34.9011');
+    await userEvent.type(screen.getByLabelText('lngLabel'), '-56.1645');
+
+    await userEvent.click(screen.getByRole('button', { name: 'cancel' }));
+    await userEvent.click(screen.getByRole('button', { name: 'newAlert' }));
+
+    expect(screen.getByLabelText('latLabel')).toHaveValue(null);
+    expect(screen.getByLabelText('lngLabel')).toHaveValue(null);
+  });
+
+  describe('volver al conjunto de zonas', () => {
+    // POR QUÉ EXISTE: `setFocused` sólo recibía ids, nunca `null`, y no había
+    // ningún control que devolviera la vista del conjunto. El primer click en
+    // una tarjeta dejaba el resumen inalcanzable por el resto de la sesión.
+    it('el control aparece recien cuando hay una zona enfocada', async () => {
+      state.data = [alert({ id: 'a1' }), alert({ id: 'a2', name: 'Casa' })];
+      render(<AlertsPage />);
+
+      expect(screen.queryByRole('button', { name: 'viewAll' })).not.toBeInTheDocument();
+
+      await userEvent.click(screen.getAllByRole('button', { name: 'showOnMap' })[0]);
+      expect(screen.getByRole('button', { name: 'viewAll' })).toBeInTheDocument();
+      expect(mapaResumen.props?.focused).toBe('a1');
+    });
+
+    it('el control devuelve el mapa al conjunto y se esconde', async () => {
+      state.data = [alert({ id: 'a1' }), alert({ id: 'a2', name: 'Casa' })];
+      render(<AlertsPage />);
+      await userEvent.click(screen.getAllByRole('button', { name: 'showOnMap' })[0]);
+
+      await userEvent.click(screen.getByRole('button', { name: 'viewAll' }));
+
+      expect(mapaResumen.props?.focused).toBeNull();
+      expect(screen.queryByRole('button', { name: 'viewAll' })).not.toBeInTheDocument();
+    });
+
+    // POR QUÉ EXISTE: pedir la MISMA zona dos veces dejaba `focused` igual, y
+    // el efecto de la cámara no volvía a correr. Tras alejar el mapa a mano el
+    // botón quedaba muerto — medido en el navegador, mismo píxel antes y
+    // después. La página tiene que emitir un pedido NUEVO, no sólo un destino.
+    it('pedir la misma zona dos veces emite un pedido nuevo', async () => {
+      state.data = [alert({ id: 'a1' })];
+      render(<AlertsPage />);
+      const boton = screen.getAllByRole('button', { name: 'showOnMap' })[0];
+
+      await userEvent.click(boton);
+      const primero = mapaResumen.props!.focusTick;
+      await userEvent.click(boton);
+
+      expect(mapaResumen.props?.focused).toBe('a1');
+      expect(mapaResumen.props?.focusTick).toBeGreaterThan(primero);
+    });
+  });
+
+  // POR QUÉ EXISTE: en una grilla de hasta 10 tarjetas, el interruptor se
+  // llamaba "Activa" y el botón "Eliminar" en TODAS. Quien navega por teclado
+  // oía lo mismo diez veces sin saber cuál iba a pausar o borrar, mientras
+  // `confirmDelete` sí interpolaba el nombre: las dos superficies se
+  // contradecían sobre si el nombre importa.
+  //
+  // ACÁ NO SE PUEDE AFIRMAR QUE LOS NOMBRES DIFIERAN, y decirlo importa: el
+  // mock de `t` devuelve la clave, así que las dos tarjetas rinden el mismo
+  // texto por construcción. Lo que este test afirma es que el nombre accesible
+  // sale de una clave PROPIA y no del texto repetido; que esa clave lleve el
+  // nombre adentro lo afirma `alertsKeys.test.ts`, que sí mira los locales.
+  it('el interruptor y el borrado se nombran con una clave propia', () => {
+    state.data = [alert({ id: 'a1' }), alert({ id: 'a2', name: 'Casa' })];
+    render(<AlertsPage />);
+
+    expect(screen.getAllByRole('switch', { name: 'toggleLabel' })).toHaveLength(2);
+    expect(screen.getAllByRole('button', { name: 'deleteLabel' })).toHaveLength(2);
+    // El texto visible se queda corto a propósito: el espacio de la tarjeta es
+    // corto, el nombre accesible no tiene ese límite.
+    expect(screen.getAllByText('delete')).toHaveLength(2);
   });
 });

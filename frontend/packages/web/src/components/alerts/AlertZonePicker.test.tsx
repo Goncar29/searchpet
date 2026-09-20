@@ -243,4 +243,86 @@ describe('AlertZonePicker', () => {
       expect(mapa.setView).toHaveBeenCalledWith([-30.0, -51.2]);
     });
   });
+
+  // POR QUÉ EXISTE, y es la parte que ningún test veía: `editarCoordenada` pone
+  // el estado en `null` cuando el input queda vacío, y un `<input type="number">`
+  // reporta `value === ''` para TODO estado intermedio inválido — `-`, `-34.` —
+  // además del campo borrado. O sea que editar a mano una latitud ya elegida
+  // pasa por `null` varias veces, y con la cámara atada al booleano `elegido`
+  // eso reencuadraba en cada recuperación: el mapa saltaba a mitad de tipeo.
+  //
+  // Es el camino ACCESIBLE, el que este componente existe para proteger, y el
+  // comentario que había en el código afirmaba el invariante contrario.
+  describe('editar las coordenadas a mano', () => {
+    // El tipo de `onPick` va ANOTADO con la firma real y no con
+    // `ReturnType<typeof vi.fn>`: ese alias incluye `Constructable`, no matchea
+    // `(lat, lng) => void`, y `tsc` lo rechaza. Los tests pasaban igual —lo
+    // cazó `pnpm build`, como la vez anterior en este mismo archivo.
+    const conPunto = (
+      lat: number | null,
+      lng: number | null,
+      onPick: (latitude: number, longitude: number) => void
+    ) => (
+      <AlertZonePicker
+        latitude={lat}
+        longitude={lng}
+        radiusKm={5}
+        onPick={onPick}
+        hint="Tocá el mapa"
+      />
+    );
+
+    it('el hueco de un tipeo NO vuelve a encuadrar la camara', () => {
+      const onPick = vi.fn();
+      const { rerender } = render(conPunto(-34.9011, -56.1645, onPick));
+      expect(mapa.fitBounds).toHaveBeenCalledTimes(1); // el primer punto, sí
+      mapa.fitBounds.mockClear();
+
+      rerender(conPunto(null, -56.1645, onPick)); // el usuario borra la latitud
+      rerender(conPunto(-3, -56.1645, onPick)); // y empieza a escribir de nuevo
+
+      expect(mapa.fitBounds).not.toHaveBeenCalled();
+    });
+
+    it('la pista no reaparece sobre un mapa que ya tuvo punto', () => {
+      const onPick = vi.fn();
+      const { rerender } = render(conPunto(-34.9011, -56.1645, onPick));
+      expect(screen.queryByText('Tocá el mapa')).not.toBeInTheDocument();
+
+      rerender(conPunto(null, -56.1645, onPick));
+
+      // El marcador SÍ puede irse —sin par completo no hay punto que dibujar, y
+      // eso es honesto—, pero "tocá el mapa para elegir la zona" es una
+      // INSTRUCCIÓN, y sobre alguien que está corrigiendo su zona a mano es una
+      // instrucción equivocada. Un dato ausente no miente; una instrucción sí.
+      expect(screen.queryByText('Tocá el mapa')).not.toBeInTheDocument();
+    });
+
+    it('sin ningun punto todavia, la pista SI se muestra', () => {
+      // El centinela del test de arriba: sin esto, esconder la pista para
+      // siempre lo dejaría verde y el estado vacío se quedaría mudo.
+      render(conPunto(null, null, vi.fn()));
+      expect(screen.getByText('Tocá el mapa')).toBeInTheDocument();
+    });
+
+    it('cambiar el radio SI reencuadra, con un punto ya elegido', () => {
+      // La otra mitad: el guard del ref no puede apagar el reencuadre del radio,
+      // que es la mitad del motivo por el que este mapa existe.
+      const onPick = vi.fn();
+      const { rerender } = render(conPunto(-34.9011, -56.1645, onPick));
+      mapa.fitBounds.mockClear();
+
+      rerender(
+        <AlertZonePicker
+          latitude={-34.9011}
+          longitude={-56.1645}
+          radiusKm={25}
+          onPick={onPick}
+          hint="Tocá el mapa"
+        />
+      );
+
+      expect(mapa.fitBounds).toHaveBeenCalledTimes(1);
+    });
+  });
 });

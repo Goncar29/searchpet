@@ -289,9 +289,75 @@ defectos de la sonda, cada uno verificado antes de reportarlo: un click que
 flaqueó una vez (refutado con dos corridas de debug independientes) y la
 medición del pendiente de T1 que confirmaba su propia hipótesis (ver arriba).
 
+## El `/code-review`: 5 hallazgos, los 5 reales, los 5 arreglados
+
+Corrió ANTES de congelar el candidato, y esa decisión se pagó sola: **encontró
+un defecto que el `/verify` no podía ver.**
+
+| # | Qué | Evidencia |
+|---|---|---|
+| 1 | El prefill de geolocalización de **montaje** escribía la coordenada cruda | el input mostraba `-34.899025460930744`, 15 decimales |
+| 2 | Editar la latitud a mano borraba el punto y saltaba la cámara | traza de tecleo: `Backspace`→`-`→`3`, marcador y círculo en 0, pista reaparecida |
+| 3 | No había vuelta al conjunto, y re-clickear la misma tarjeta era un botón muerto | el círculo en `{x:-40,y:-150}` antes **y después** del segundo click |
+| 4 | `resetForm` no limpiaba las coordenadas | reabrir el alta dibujaba la zona anterior, sin pista |
+| 5 | Nombres accesibles repetidos en la grilla | `["Activa","Activa"]` y `["Eliminar","Eliminar"]` |
+
+**El #1 es el que justifica el orden.** `59d8ca58` existe para que la coordenada
+sea legible, y su propio comentario afirmaba ser *"la ÚNICA puerta por la que
+entra un par de coordenadas completo"* — desde el primer día había tres caminos
+y uno no pasaba por ahí. El `/verify` probó el **botón** "usar mi ubicación", no
+el **montaje**: dos caminos y sólo uno mirado. *Un comentario que afirma un
+invariante no es evidencia de que se cumpla* (regla #37), y esta vez la víctima
+fue el comentario del propio arreglo anterior.
+
+**El #2 tiene la lección técnica.** La cámara se ataba al booleano `elegido`, lo
+cual es correcto para el mapa y **falso para el teclado**: un
+`<input type="number">` reporta `value === ''` para todo estado intermedio
+inválido —`-`, `-34.`— así que editar una latitud ya elegida hace
+`true→false→true` y reencuadraba en cada recuperación. Y el comentario de al
+lado afirmaba el invariante contrario. *El camino accesible es el que más
+fácilmente queda sin probar, porque el camino visual es el que uno usa para
+probar.*
+
+Y el arreglo se equivocó una vez antes de salir: con **dos** efectos y un
+booleano "ya encuadré", React corre los dos en el primer render, el segundo ve
+el booleano que el primero acababa de poner, y `fitBounds` salía dos veces.
+Quedó **un** efecto con un ref que guarda *el radio con el que se encuadró*, y
+`null` = "nunca". Ese único valor separa los tres casos. Lo cazó el test, no la
+lectura.
+
+### La evidencia
+
+- **9 guards nuevos, los 9 vistos en ROJO** revirtiendo cada arreglo por
+  separado, con un script que restaura el árbol entre corrida y corrida y exige
+  que caiga **el test nombrado**, no cualquier cosa.
+- `pnpm test:run` → **EXIT 0**, 1010 web + 317 shared. `pnpm build` → **EXIT 0**,
+  y cazó lo que los tests no: un `ReturnType<typeof vi.fn>` que no matchea la
+  firma real. Segunda vez en este mismo archivo.
+- **13 aserciones en el navegador**, las mismas que midieron los defectos pero
+  invertidas. La que más vale: re-clickear el botón tras arrastrar el mapa
+  devuelve el círculo a `{x:255,y:31}`, exactamente donde lo había dejado el
+  primer enfoque.
+- Cero claves i18n crudas en es/en/pt, con las cadenas exactas de cada locale.
+
+**Una aserción del probe no prueba lo que su nombre dice**, y queda anotado en
+vez de tapado: `H2b · la vista quedó donde el usuario la dejó` compara
+`typeof x === 'string'`, que es cierto siempre. El invariante de "no reencuadra"
+lo prueba el test unitario (`fitBounds` no llamado), que sí se vio en rojo.
+
+### Por qué el #5 se prueba en DOS lugares
+
+El mock de `t` en `AlertsPage.test.tsx` devuelve la clave, así que las diez
+tarjetas rinden el mismo texto pase lo que pase: **desde el componente es
+imposible afirmar que los nombres difieran.** Se parte en dos aserciones que
+juntas sí lo prueban: el componente afirma que el nombre sale de una clave
+propia, y `alertsKeys.test.ts` afirma que esa clave interpola `{{name}}` en los
+tres idiomas. Sin la segunda, traducir `toggleLabel` como "Alerta" a secas
+dejaría todo verde y devolvería el defecto exacto.
+
 ## Next step
 
-1. `/code-review` sobre la pila. Las cuatro revisiones nativas fueron **todas la
+1. ~~`/code-review` sobre la pila.~~ **HECHO**, ver arriba. Las cuatro revisiones nativas fueron **todas la
    misma lente** (`review-reliability` — sus hallazgos salen numerados `R3-*`):
    nunca corrió `risk`, `readability` ni `resilience`.
 2. `/security-review` **no va**, y el motivo está medido: 12 archivos, todos

@@ -69,4 +69,25 @@ describe('alerts — paridad de claves en los tres idiomas', () => {
     expect(flatten(alertas(es))).toContain('subtitle');
     expect(flatten(alertas(es))).toContain('titleNoCount');
   });
+
+  // POR QUÉ ESTÁ ACÁ Y NO EN EL TEST DEL COMPONENTE: estas tres claves son
+  // nombres ACCESIBLES de controles que se repiten en cada tarjeta de una
+  // grilla de hasta 10. Lo único que los vuelve distinguibles es que lleven el
+  // nombre de la alerta adentro.
+  //
+  // `AlertsPage.test.tsx` no puede afirmarlo: su mock de `t` devuelve la clave,
+  // así que las diez tarjetas rinden el mismo texto pase lo que pase. El
+  // componente puede probar que el nombre sale de una clave propia; que esa
+  // clave interpole, sólo se ve mirando el locale.
+  //
+  // Sin esto, traducir `toggleLabel` como "Alerta" a secas dejaría todo verde y
+  // devolvería el defecto exacto que estas claves vinieron a cerrar.
+  it('los nombres accesibles que se repiten por tarjeta interpolan el nombre', () => {
+    for (const [idioma, dict] of [['es', es], ['en', en], ['pt', pt]] as const) {
+      for (const clave of ['showOnMap', 'toggleLabel', 'deleteLabel']) {
+        const valor = resolve(alertas(dict), clave) as string;
+        expect(valor, `${idioma}: alerts.${clave}`).toContain('{{name}}');
+      }
+    }
+  });
 });
