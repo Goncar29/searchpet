@@ -392,11 +392,62 @@ no hay un camino donde las aserciones pasen sin haber leído nada. *Una
 limitación de visibilidad de la revisión no es un defecto del código — pero eso
 hay que medirlo, no declararlo.*
 
+## La segunda revisión nativa, y dónde se corta
+
+`review-2dd4255915feeb42` → **`approved`**, acuse ejecutado, `authority: burned`.
+Otros tres advisory, ninguno bloqueante. **Se midió la alcanzabilidad de cada
+uno antes de decidir**, y sólo uno tenía sustancia.
+
+**`R3-camera-effect-ordering` (SUGGESTION) — el único accionable, y se cerró.**
+La garantía "el primer punto se encuadra y NO se panea encima" descansa en que
+el tercer efecto vea el `fitBounds` que el primero acaba de invocar, dentro del
+mismo commit. Los mocks daban `fitBounds`, `getBounds` y `setView` como
+`vi.fn()` **independientes**, así que esa suposición no se verificaba nunca:
+cualquier orden de efectos daba el mismo verde.
+
+Ahora el mapa falso tiene **una vista**: `fitBounds()` la fija y `getBounds()`
+la devuelve. Sin vista fijada responde `contains: () => false` —"todavía no miro
+a ningún lado"— y **esa elección es la que le da filo**: con `true` por default,
+el orden equivocado pasaría igual. Probado invirtiendo los dos efectos en el
+componente: el test nuevo se cae.
+
+De yapa, los dos tests del punto lejano dejaron de forzar
+`mockReturnValue({ contains: () => false })` y ahora lo decide la **geometría
+real** — forzarlo saltearía justo el acople que el arnés existe para modelar.
+
+**`R3-alertsmap-ids-geometry` (WARNING) — NO es alcanzable, sin cambio.** Dice
+que si la geometría de una alerta cambia con el mismo id, la cámara no
+reencuadra. Es cierto sobre el código, pero **la única mutación de una alerta
+existente es `{ is_active }`** (`AlertsPage.tsx:179`): no hay edición de
+coordenadas ni de radio en ninguna pantalla. El escenario no existe.
+
+**`R3-redondear-nonfinite` (SUGGESTION) — tampoco, sin cambio.**
+`redondearCoordenada` se llama desde dos líneas, las dos dentro de
+`elegirZona`, alimentadas por tres orígenes: el click de Leaflet
+(`e.latlng.lat`), el `dragend` del marcador (`getLatLng()`) y
+`pos.coords.latitude`. Los tres producen dobles finitos. Un guard contra `NaN`
+sería **una rama que sólo un test puede encender**, con ese test certificando
+código muerto.
+
+### Por qué se corta acá
+
+Cada commit abre un candidato nuevo, y cada revisión produce advisories nuevos:
+la primera vuelta dio 3, se cerraron, y la segunda dio otros 3. **Ninguno
+bloqueó nunca**, y el propio bloque de hallazgos lo dice — son *"trabajo
+posterior separado, nunca un motivo para re-correr la revisión"*.
+
+Esto no converge solo. La decisión del usuario fue: una última vuelta con lo que
+tenga sustancia, y lo que salga después se anota sin tocarlo.
+
 ## Next step
 
-1. ~~`/code-review` sobre la pila.~~ **HECHO**, ver arriba.
-2. ~~Revisión nativa del candidato arreglado.~~ **HECHA**: `approved` + burned,
-   y sus tres advisory cerrados (dos con test, uno con evidencia). Las cuatro revisiones nativas fueron **todas la
+1. ~~`/code-review` sobre la pila.~~ **HECHO**.
+2. ~~Revisión nativa del candidato arreglado.~~ **HECHA**: `approved` + burned.
+3. ~~Segunda revisión + sus tres advisory.~~ **HECHA**: uno cerrado con test, dos
+   descartados con evidencia de que no son alcanzables.
+4. **Mergear los tres PRs**, y acá va el cuidado que importa (regla #49): el
+   primero se mergea **sin** `--delete-branch`, después `gh pr edit --base main`
+   en los hijos, y recién ahí se borra la rama. El orden es #253 → #254 → #255. Las cuatro revisiones nativas fueron **todas la
    misma lente** (`review-reliability` — sus hallazgos salen numerados `R3-*`):
    nunca corrió `risk`, `readability` ni `resilience`.
 2. `/security-review` **no va**, y el motivo está medido: 12 archivos, todos

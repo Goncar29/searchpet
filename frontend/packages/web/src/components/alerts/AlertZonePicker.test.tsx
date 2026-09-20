@@ -8,17 +8,42 @@ import { AlertZonePicker } from './AlertZonePicker';
  * pide a Leaflet — dónde pone el marcador, de qué tamaño pide el círculo y
  * cuándo mueve la vista — no los píxeles, que sólo puede ver Playwright.
  */
-const mapa = vi.hoisted(() => ({
-  setView: vi.fn(),
-  fitBounds: vi.fn(),
-  // Por defecto el punto entra en la vista: es el caso normal de arrastrar el
-  // marcador, y es el que NO tiene que mover la cámara.
-  //
-  // El tipo de retorno va ANOTADO: sin él TypeScript infiere el literal `true`
-  // y el `mockReturnValue({ contains: () => false })` del caso contrario no
-  // compila. Lo destapó `pnpm build`, no los tests.
-  getBounds: vi.fn((): { contains: (p: unknown) => boolean } => ({ contains: () => true })),
-}));
+/**
+ * El mapa falso tiene UNA vista, y `getBounds()` devuelve la que `fitBounds()`
+ * dejó. Ese acople no es adorno: es lo único que hace verificable el orden de
+ * los efectos de `Camera`.
+ *
+ * Antes los tres eran `vi.fn()` independientes y `getBounds` devolvía un valor
+ * fijo por test, sin relación con `fitBounds`. Con eso, la garantía "el primer
+ * punto se encuadra y NO se panea encima" era incomprobable: descansa en que
+ * `getBounds()` del tercer efecto ya refleje el `fitBounds()` del primero,
+ * dentro del mismo commit, y un mock desacoplado da el mismo verde con los
+ * efectos en cualquier orden. Lo levantó la revisión nativa.
+ *
+ * El default sin vista fijada es `contains: () => false` —"todavía no miro a
+ * ningún lado"— y esa elección es la que le da filo: si el efecto que panea
+ * corriera ANTES del que encuadra, `setView` se dispararía y el test se cae.
+ * Con `true` por default, el orden equivocado pasaría igual.
+ */
+const mapa = vi.hoisted(() => {
+  type Vista = { contains: (p: unknown) => boolean };
+  const estado = { vista: null as Vista | null };
+  return {
+    estado,
+    setView: vi.fn(),
+    // El `as` es necesario y acotado: lo que llega es un `L.LatLngBounds` real
+    // —el componente usa Leaflet de verdad, sólo react-leaflet está moqueado—
+    // y su `contains` acepta un `[lat, lng]`. Tiparlo como `(p: unknown)` de
+    // frente no compila por contravarianza de parámetros.
+    fitBounds: vi.fn((b: unknown) => {
+      estado.vista = b as Vista;
+    }),
+    // El tipo de retorno va ANOTADO: sin él TypeScript infiere el literal `true`
+    // y el `mockReturnValue({ contains: () => false })` del caso contrario no
+    // compila. Lo destapó `pnpm build`, no los tests.
+    getBounds: vi.fn((): Vista => estado.vista ?? { contains: () => false }),
+  };
+});
 
 const capturado = vi.hoisted(() => ({
   circulo: null as { center?: unknown; radius?: number } | null,
@@ -66,7 +91,11 @@ function pintar(props: Partial<React.ComponentProps<typeof AlertZonePicker>> = {
 describe('AlertZonePicker', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mapa.getBounds.mockReturnValue({ contains: () => true });
+    // Se restaura la implementación ACOPLADA, no un valor fijo: `clearAllMocks`
+    // limpia las llamadas pero NO las implementaciones, así que un
+    // `mockReturnValue` de un test anterior sobreviviría al siguiente.
+    mapa.estado.vista = null;
+    mapa.getBounds.mockImplementation(() => mapa.estado.vista ?? { contains: () => false });
     capturado.circulo = null;
     capturado.marcador = null;
     capturado.onDragEnd = undefined;
@@ -196,6 +225,22 @@ describe('AlertZonePicker', () => {
 
     // Y la otra mitad, que es la que el arreglo de arriba no puede romper:
     // mover un punto YA elegido sigue sin reencuadrar.
+    // POR QUÉ EXISTE: la garantía es que el primer punto se ENCUADRA y no se
+    // panea encima, y eso descansa en que el tercer efecto —el que chequea si
+    // el punto quedó fuera de vista— ya vea el `fitBounds` que el primero acaba
+    // de invocar, dentro del mismo commit. Esa suposición nunca se verificaba:
+    // con mocks desacoplados, cualquier orden de efectos daba el mismo verde.
+    //
+    // Ahora `getBounds()` devuelve lo que `fitBounds()` dejó, y sin vista
+    // fijada responde que no contiene nada. Con eso, un orden invertido dispara
+    // `setView` y este test se cae.
+    it('el PRIMER punto se encuadra y no se panea encima', () => {
+      pintar({ latitude: -34.9011, longitude: -56.1645 });
+
+      expect(mapa.fitBounds).toHaveBeenCalledTimes(1);
+      expect(mapa.setView).not.toHaveBeenCalled();
+    });
+
     it('mover un punto ya elegido NO reencuadra', () => {
       const onPick = vi.fn();
       const { rerender } = render(
@@ -228,7 +273,10 @@ describe('AlertZonePicker', () => {
     it('SI mueve la vista cuando el punto nuevo quedo fuera', () => {
       const { rerender, onPick } = pintar();
       mapa.setView.mockClear();
-      mapa.getBounds.mockReturnValue({ contains: () => false });
+      // Sin forzar nada: el punto nuevo está a cientos de km del encuadre que
+      // dejó el `fitBounds` inicial, así que el mapa falso responde que NO lo
+      // contiene por GEOMETRÍA. Un `mockReturnValue` acá saltearía justo el
+      // acople que este arnés existe para modelar.
 
       rerender(
         <AlertZonePicker
@@ -322,7 +370,10 @@ describe('AlertZonePicker', () => {
       mapa.setView.mockClear();
       // El punto nuevo cae fuera de la vista: es lo que pasa al tipear una
       // coordenada de otra ciudad.
-      mapa.getBounds.mockReturnValue({ contains: () => false });
+      // Sin forzar nada: el punto nuevo está a cientos de km del encuadre que
+      // dejó el `fitBounds` inicial, así que el mapa falso responde que NO lo
+      // contiene por GEOMETRÍA. Un `mockReturnValue` acá saltearía justo el
+      // acople que este arnés existe para modelar.
 
       rerender(conPunto(-30.0, -51.2, onPick));
 
