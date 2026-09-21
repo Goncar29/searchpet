@@ -150,7 +150,9 @@ pnpm start
 
 | Método | Ruta | Descripción |
 |--------|------|-------------|
-| GET | `/health` | Health check |
+| GET | `/health` | Liveness — 200 siempre, no toca ninguna dependencia |
+| GET | `/health/ready` | Readiness — `SELECT 1` con timeout de 2 s, **503** si la base no contesta |
+| GET | `/api/ops/quota` | Cuota de mail consumida (gateado por `OPS_STATUS_TOKEN`; sin token, 404) |
 | GET | `/api/ws` | Conexión WebSocket |
 | POST | `/api/auth/register` | Registrar usuario |
 | POST | `/api/auth/login` | Iniciar sesión |
@@ -171,6 +173,7 @@ pnpm start
 | GET | `/api/shelters` | Listar refugios |
 | GET | `/api/shelters/:id` | Detalle de refugio |
 | GET | `/api/users/:id/profile` | Perfil público |
+| GET | `/api/users/:id/pets` | Lo que esa persona publicó y no cerró (nunca `registered` ni `archived`) |
 | GET | `/api/leaderboard` | Leaderboard |
 | GET | `/api/users/:id/reviews` | Reseñas de usuario |
 | GET | `/api/groups` | Listar grupos locales |
@@ -183,6 +186,7 @@ pnpm start
 |--------|------|-------------|
 | GET | `/api/auth/me` | Perfil propio |
 | PUT | `/api/auth/me` | Actualizar perfil |
+| PATCH | `/api/auth/me/location` | Setear ubicación (lat+lng y/o ciudad) |
 | POST | `/api/auth/me/photo` | Subir foto de perfil |
 | PUT | `/api/users/me/preferences` | Actualizar preferencias |
 | POST | `/api/pets` | Crear mascota |
@@ -204,10 +208,10 @@ pnpm start
 | POST | `/api/share/generate/:petId` | Generar link compartible |
 | POST | `/api/devices/token` | Registrar token FCM |
 | DELETE | `/api/devices/:token` | Eliminar token FCM |
-| POST | `/api/alerts` | Crear alerta de zona |
-| GET | `/api/alerts` | Mis alertas |
-| PUT | `/api/alerts/:id` | Actualizar alerta |
-| DELETE | `/api/alerts/:id` | Eliminar alerta |
+| POST | `/api/alerts` | Crear alerta de zona (máximo 10 por usuario, activas **y** pausadas) |
+| GET | `/api/alerts` | Mis alertas, activas y pausadas |
+| PUT | `/api/alerts/:id` | Actualizar alerta — `is_active: false` la **pausa**, no la borra |
+| DELETE | `/api/alerts/:id` | Borrar alerta (soft delete real vía `deleted_at`) |
 | POST | `/api/users/:id/block` | Bloquear usuario |
 | DELETE | `/api/users/:id/block` | Desbloquear usuario |
 | GET | `/api/users/blocked` | Usuarios bloqueados |
@@ -236,6 +240,7 @@ pnpm start
 | PATCH | `/api/admin/users/:id/ban` | Banear / desbanear usuario |
 | POST | `/api/admin/users/admin-role` | Otorgar o revocar admin por email (auditado) |
 | GET | `/api/admin/role-changes` | Historial de cambios de rol |
+| POST | `/api/admin/vets/import` | Reimportar veterinarias desde OpenStreetMap (síncrono, una corrida a la vez) |
 | GET | `/api/stats/impact/monthly` | Métricas de impacto mensuales |
 | GET | `/api/foster-homes/pending` | Cola de moderación de casas de acogida |
 | GET | `/api/admin/shelters/pending` | Cola de moderación de refugios |
@@ -303,6 +308,12 @@ rojo en cualquiera frena el deploy a producción.
 - [x] Casas de acogida con flujo de moderación
 - [x] Recuperación de contraseña por OTP, con cupo diario por cuenta y por canal
 - [x] Dashboard de impacto (`/admin/impact` + `GET /api/stats/impact/monthly`), admin-gated
+- [x] Import de veterinarias desde el panel admin, con barrido de las que OSM dejó de listar
+- [x] Miniaturas de Cloudinary en todos los consumidores (web y mobile): una sesión bajó de ~4,3 MB a ~647 KB
+- [x] Una consulta caída dejó de pintarse como una lista vacía — primitiva `ListState` en las 12 pantallas web y las 15 de mobile
+- [x] Perfil público: lo que una persona publicó y no cerró (`GET /api/users/:id/pets`)
+- [x] Los avistamientos de callejeros caducan a los 90 días sin reportes
+- [x] Rediseño con el lenguaje visual de Stitch: autenticación, mapa, home, perfil, mensajes, detalle de mascota, alertas y el panel admin completo
 
 **El dashboard de impacto es admin-only a propósito, y no va a haber versión
 pública.** El diseño arrancó siendo público y durante la implementación se pivoteó

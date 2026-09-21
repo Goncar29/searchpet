@@ -2,7 +2,17 @@
 
 Una guía práctica y pedagógica de cómo funciona Go en este proyecto. Diseñada para alguien que viene de JavaScript y quiere entender Go de verdad, no solo copiar código.
 
-> **Nota de vigencia**: algunos snippets reflejan versiones anteriores del código (por ejemplo el status de mascotas `'active'`, hoy reemplazado por el ciclo `registered|lost|stray|found|archived` con default `'registered'`, o `FavoriteRepository`, que ya no existe). Los conceptos de Go que se enseñan siguen siendo válidos, pero la fuente de verdad del código actual es siempre `internal/domain/models.go` y el resto del código fuente, no esta guía.
+> **Nota de vigencia**: esta guía enseña **Go**, no el estado del proyecto. Los
+> conceptos del lenguaje siguen siendo válidos, pero algunos snippets citan
+> código que cambió (por ejemplo `FavoriteRepository`, que ya no existe).
+>
+> **La fuente de verdad es siempre el código fuente, nunca esta guía.** Y ojo
+> con cuál: para el estado de una mascota es `internal/domain/pet_status.go`,
+> **no** `models.go` — son **siete** estados
+> (`registered|lost|stray|found|archived|adoption|adopted`, default
+> `registered`) y el comentario del campo `Status` en `models.go` todavía lista
+> cinco. Lo importante es que **qué se ve dónde NO se deriva del estado**: se
+> decide con cinco allowlists explícitas en `pet_status.go`.
 
 ---
 
@@ -197,7 +207,7 @@ type Pet struct {
     OwnerID     uuid.UUID `gorm:"type:uuid;not null;index" json:"owner_id"`
     Name        string    `gorm:"not null;size:100" json:"name"`
     Type        string    `gorm:"not null;size:50" json:"type"`
-    Status      string    `gorm:"size:50;default:'active';index" json:"status"`
+    Status      string    `gorm:"size:50;default:'registered';index" json:"status"`
     CreatedAt   time.Time `gorm:"autoCreateTime" json:"created_at"`
 
     // Relaciones — GORM las popula con Preload()
@@ -301,7 +311,7 @@ func (s *petService) CreatePet(ownerID string, req CreatePetRequest) (*domain.Pe
         Name:    req.Name,
         Type:    req.Type,
         Breed:   req.Breed,
-        Status:  "active",
+        Status:  domain.PetStatusRegistered,
     }
 
     if err := s.repo.Create(pet); err != nil {
@@ -947,7 +957,7 @@ En el proyecto los strings son ubicuos — IDs, nombres, emails, URLs:
 type Pet struct {
     Name        string `gorm:"not null;size:100" json:"name"`
     Type        string `gorm:"not null;size:50" json:"type"`   // "perro", "gato"
-    Status      string `gorm:"size:50;default:'active'" json:"status"`
+    Status      string `gorm:"size:50;default:'registered'" json:"status"`
 }
 ```
 
@@ -1008,7 +1018,7 @@ En el proyecto, GORM aprovecha los zero values de Go para los defaults de la DB:
 
 ```go
 type Pet struct {
-    Status string `gorm:"size:50;default:'active'"` // default en DB
+    Status string `gorm:"size:50;default:'registered'"` // default en DB
 }
 
 // Cuando hacés:
@@ -1016,7 +1026,12 @@ pet := &domain.Pet{
     Name: "Rex",
     // Status no se inicializa — queda ""
 }
-// PERO GORM usa el default de la DB al insertar, así que en DB queda "active"
+// PERO GORM usa el default de la DB al insertar, así que en DB queda "registered"
+//
+// ⚠️ El mismo mecanismo muerde al revés: si el campo es un bool con
+// `default:true` y le pasás `false`, GORM OMITE el campo del INSERT (porque
+// false es su zero value) y la base aplica el default. Resultado: pedís algo
+// desactivado y se crea activado. Fue un bug real con las alertas de ubicación.
 ```
 
 ```go
@@ -1169,7 +1184,7 @@ type Pet struct {
 pet := domain.Pet{
     Name:   "Rex",
     Type:   "perro",
-    Status: "active",
+    Status: domain.PetStatusRegistered,
 }
 
 // Con puntero — &Pet{} crea el struct y devuelve su dirección
@@ -1255,9 +1270,9 @@ OwnerID uuid.UUID `gorm:"type:uuid;not null;index"`
 // not null          → constraint NOT NULL en la DB
 // index             → crea un índice para búsquedas rápidas
 
-Status  string    `gorm:"size:50;default:'active';index"`
+Status  string    `gorm:"size:50;default:'registered';index"`
 // size:50           → VARCHAR(50) en la DB
-// default:'active'  → valor por defecto al insertar
+// default:'registered'  → valor por defecto al insertar
 
 Owner   User      `gorm:"foreignKey:OwnerID"`
 // foreignKey:OwnerID → relación: Pet.OwnerID apunta a User.ID
@@ -1660,9 +1675,9 @@ if err := s.repo.Create(pet); err != nil {
 // err solo existe dentro de este if/else — no contamina el scope exterior
 
 // if / else if / else
-if pet.Status == "active" {
+if pet.Status == domain.PetStatusLost {
     // ...
-} else if pet.Status == "found" {
+} else if pet.Status == domain.PetStatusFound {
     // ...
 } else {
     // ...
