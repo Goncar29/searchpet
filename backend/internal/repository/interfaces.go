@@ -443,7 +443,11 @@ type LocationAlertRepository interface {
 	// Usa PostGIS ST_DWithin con geography para cálculo geodésico preciso (single DB call).
 	// petType "" coincide con cualquier tipo de mascota.
 	FindActiveAlertsNear(ctx context.Context, lat, lng float64, petType string) ([]domain.LocationAlert, error)
-	// CountActiveByUserID retorna cuántas alertas activas tiene el usuario.
-	// Usado para aplicar el cap de 10 alertas por usuario.
-	CountActiveByUserID(ctx context.Context, userID uuid.UUID) (int64, error)
+	// CountByUserID retorna cuántas alertas NO BORRADAS tiene el usuario:
+	// activas y pausadas. Aplica el tope de `domain.MaxAlertsPerUser`.
+	//
+	// Se llamaba `CountActiveByUserID` mientras pausar equivalía a borrar. Con
+	// los dos conceptos separados ese nombre pasó a prometer que pausar libera
+	// un lugar, y no lo libera.
+	CountByUserID(ctx context.Context, userID uuid.UUID) (int64, error)
 }

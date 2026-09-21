@@ -130,12 +130,14 @@ func (s *locationAlertService) CreateAlert(ctx context.Context, userID uuid.UUID
 		return nil, err
 	}
 
-	// Cap: máximo 10 alertas activas por usuario
-	count, err := s.repo.CountActiveByUserID(ctx, userID)
+	// Tope por usuario, contando activas Y pausadas: pausar no libera lugar.
+	// El número sale de `domain.MaxAlertsPerUser`, que es el mismo que arma el
+	// texto del error — antes eran dos literales sueltos que podían divergir.
+	count, err := s.repo.CountByUserID(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
-	if count >= 10 {
+	if count >= domain.MaxAlertsPerUser {
 		return nil, domain.ErrAlertLimitExceeded
 	}
 
@@ -225,7 +227,10 @@ func (s *locationAlertService) UpdateAlert(ctx context.Context, userID, alertID 
 	return &resp, nil
 }
 
-// DeleteAlert hace soft-delete (IsActive = false), verificando ownership.
+// DeleteAlert borra la alerta (soft-delete vía `DeletedAt`), verificando
+// ownership. NO la pausa: pausar es un `UpdateAlert` con `is_active`, y desde
+// que los dos conceptos viven en columnas distintas una alerta pausada se
+// sigue viendo y se puede volver a encender.
 func (s *locationAlertService) DeleteAlert(ctx context.Context, userID, alertID uuid.UUID) error {
 	alert, err := s.repo.GetByID(ctx, alertID)
 	if err != nil {

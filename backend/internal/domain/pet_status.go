@@ -205,3 +205,12 @@ func IsValidReportStatus(s string) bool {
 // SILENCIO: no hay error, no hay lentitud, simplemente no llega la notificación.
 // Lo protege TestFindActiveAlertsNear_ElPrefiltroNoDescartaElRadioMaximo.
 const MaxAlertRadiusKm = 50
+
+// MaxAlertsPerUser es el tope de alertas por usuario, y cuenta las ACTIVAS Y
+// LAS PAUSADAS: pausar no libera un lugar.
+//
+// Existe como constante y no como dos literales porque el número aparecía en
+// dos lados —el `>= 10` del servicio y el texto del error— y nada obligaba a
+// que coincidieran. Subir uno sin el otro deja al usuario leyendo un límite que
+// no es el que se le aplica. Mismo motivo que `MaxAlertRadiusKm`.
+const MaxAlertsPerUser = 10
