@@ -23,7 +23,7 @@ type mockLocationAlertRepository struct {
 	updateFn               func(ctx context.Context, alert *domain.LocationAlert) error
 	deleteFn               func(ctx context.Context, id uuid.UUID) error
 	findActiveAlertsNearFn func(ctx context.Context, lat, lng float64, petType string) ([]domain.LocationAlert, error)
-	countActiveByUserIDFn  func(ctx context.Context, userID uuid.UUID) (int64, error)
+	countByUserIDFn  func(ctx context.Context, userID uuid.UUID) (int64, error)
 }
 
 func (m *mockLocationAlertRepository) Create(ctx context.Context, alert *domain.LocationAlert) error {
@@ -69,9 +69,9 @@ func (m *mockLocationAlertRepository) FindActiveAlertsNear(ctx context.Context, 
 	return []domain.LocationAlert{}, nil
 }
 
-func (m *mockLocationAlertRepository) CountActiveByUserID(ctx context.Context, userID uuid.UUID) (int64, error) {
-	if m.countActiveByUserIDFn != nil {
-		return m.countActiveByUserIDFn(ctx, userID)
+func (m *mockLocationAlertRepository) CountByUserID(ctx context.Context, userID uuid.UUID) (int64, error) {
+	if m.countByUserIDFn != nil {
+		return m.countByUserIDFn(ctx, userID)
 	}
 	return 0, nil
 }
@@ -185,7 +185,7 @@ func TestLocationAlertService_CreateAlert(t *testing.T) {
 		{
 			name: "at alert limit (10) — ErrAlertLimitExceeded",
 			alertRepo: &mockLocationAlertRepository{
-				countActiveByUserIDFn: func(_ context.Context, _ uuid.UUID) (int64, error) {
+				countByUserIDFn: func(_ context.Context, _ uuid.UUID) (int64, error) {
 					return 10, nil
 				},
 			},

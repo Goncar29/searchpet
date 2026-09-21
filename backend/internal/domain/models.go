@@ -5,6 +5,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/pgvector/pgvector-go"
+	"gorm.io/gorm"
 )
 
 // ============================================================
@@ -284,9 +285,21 @@ type LocationAlert struct {
 	AlertLatitude  float64    `gorm:"type:decimal(10,8);not null" json:"alert_latitude"`
 	AlertLongitude float64    `gorm:"type:decimal(11,8);not null" json:"alert_longitude"`
 	RadiusKm       float64    `gorm:"type:decimal(5,2);default:5" json:"radius_km"`
-	IsActive       bool       `gorm:"default:true;index" json:"is_active"`
-	CreatedAt      time.Time  `gorm:"autoCreateTime" json:"created_at"`
-	UpdatedAt      time.Time  `gorm:"autoUpdateTime" json:"updated_at"`
+	// IsActive significa PAUSADA, y nada más. Una alerta pausada se sigue
+	// viendo en la lista de su dueño y se puede volver a encender; lo único
+	// que pierde es disparar notificaciones (`FindActiveAlertsNear`).
+	//
+	// Antes esta columna cargaba DOS conceptos: `Delete` la ponía en `false` y
+	// `GetByUserID` filtraba por ella, así que destildar "Activa" para pausar
+	// aplicaba el mismo estado que Eliminar y la alerta desaparecía sin camino
+	// de vuelta. Borrar ahora es `DeletedAt`.
+	IsActive bool `gorm:"default:true;index" json:"is_active"`
+	// El borrado va acá y no en `IsActive`. Mismo mecanismo que `vets`.
+	// `json:"-"` porque es estado interno: una alerta borrada no se serializa
+	// nunca, no hay endpoint que las devuelva.
+	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
+	CreatedAt time.Time      `gorm:"autoCreateTime" json:"created_at"`
+	UpdatedAt time.Time      `gorm:"autoUpdateTime" json:"updated_at"`
 }
 
 // ============================================================

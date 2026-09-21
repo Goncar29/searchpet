@@ -162,7 +162,12 @@ func resetSeedData(db *gorm.DB) error {
 		&domain.FosterHomeChangeLog{}, &domain.FosterHome{},
 		&domain.BlockedUser{}, &domain.Pet{}, &domain.User{},
 	} {
-		if err := db.Where("1 = 1").Delete(m).Error; err != nil {
+		// `Unscoped` porque un RESET tiene que vaciar la tabla de verdad. Para
+		// los modelos sin `gorm.DeletedAt` no cambia nada; para los que lo
+		// tienen —`LocationAlert` desde que pausar dejó de borrar— un `Delete`
+		// normal sólo estampa la columna y las filas sobreviven al reset,
+		// listas para chocar con el borrado de sus padres que viene abajo.
+		if err := db.Unscoped().Where("1 = 1").Delete(m).Error; err != nil {
 			return err
 		}
 	}

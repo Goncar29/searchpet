@@ -205,3 +205,18 @@ func IsValidReportStatus(s string) bool {
 // SILENCIO: no hay error, no hay lentitud, simplemente no llega la notificación.
 // Lo protege TestFindActiveAlertsNear_ElPrefiltroNoDescartaElRadioMaximo.
 const MaxAlertRadiusKm = 50
+
+// MaxAlertsPerUser es el tope de alertas por usuario, y cuenta las ACTIVAS Y
+// LAS PAUSADAS: pausar no libera un lugar.
+//
+// Existe como constante y no como dos literales porque el número aparecía en
+// dos lados del backend —el `>= 10` del servicio y el texto del error— y nada
+// obligaba a que coincidieran.
+//
+// OJO CON LO QUE ESTO **NO** GARANTIZA: el usuario nunca lee el mensaje de Go.
+// Por la regla #11 los handlers emiten `{code,message}` y el frontend resuelve
+// `alert_limit_exceeded` por i18n, donde el 10 está escrito a mano en SEIS
+// archivos JSON (tres de `shared`, tres de `mobile`). Subir esta constante a 20
+// sin tocarlos le sigue mostrando "el límite de 10 alertas" a todo el mundo.
+// La constante unifica el backend; el número que se VE no lo unifica nadie.
+const MaxAlertsPerUser = 10

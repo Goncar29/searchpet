@@ -460,7 +460,7 @@
     "share_link_not_found": "Share link not found",
     "share_link_expired": "The share link has expired",
     "alert_not_found": "Alert not found",
-    "alert_limit_exceeded": "The limit of 10 active alerts has been reached",
+    "alert_limit_exceeded": "The limit of 10 alerts has been reached",
     "not_alert_owner": "You are not the owner of this alert",
     "story_not_found": "Story not found",
     "group_not_found": "Group not found",

@@ -1,6 +1,9 @@
 package domain
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+)
 
 // Errores de dominio - centralizados para consistencia
 var (
@@ -86,7 +89,10 @@ var (
 
 	// Alert
 	ErrAlertNotFound      = errors.New("alerta no encontrada")
-	ErrAlertLimitExceeded = errors.New("límite de 10 alertas activas alcanzado")
+	// Dice "alertas" y ya no "alertas activas": el tope cuenta también las
+	// pausadas, así que prometer lo otro sería mentirle al usuario que pausó
+	// tres y sigue sin poder crear.
+	ErrAlertLimitExceeded = fmt.Errorf("límite de %d alertas alcanzado", MaxAlertsPerUser)
 	ErrNotAlertOwner      = errors.New("no eres el dueño de esta alerta")
 
 	// Community (V1.3)

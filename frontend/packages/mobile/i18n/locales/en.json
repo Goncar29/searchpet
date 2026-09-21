@@ -291,7 +291,7 @@
     "empty": "You don't have any active alerts.",
     "add": "New alert",
     "introTitle": "Zone alerts",
-    "introText": "We notify you when someone reports a pet near a zone you define. Maximum 10 active alerts.",
+    "introText": "We notify you when someone reports a pet near a zone you define. Maximum 10 alerts.",
     "formTitle": "New alert",
     "locationLabel": "Location",
     "createError": "Could not create alert",

@@ -50,10 +50,17 @@ func (r *locationAlertRepository) GetByID(ctx context.Context, id uuid.UUID) (*d
 	return &alert, nil
 }
 
+// GetByUserID retorna las alertas del usuario que NO fueron borradas, estén
+// activas o pausadas.
+//
+// El filtro por `is_active` se fue de acá a propósito: mientras estuvo, pausar
+// una alerta la hacía desaparecer de la única pantalla que la mostraba, y
+// entonces no había forma de volver a encenderla. Las borradas las excluye GORM
+// solo, por `DeletedAt`.
 func (r *locationAlertRepository) GetByUserID(ctx context.Context, userID uuid.UUID) ([]domain.LocationAlert, error) {
 	var alerts []domain.LocationAlert
 	err := r.db.WithContext(ctx).
-		Where("user_id = ? AND is_active = true", userID).
+		Where("user_id = ?", userID).
 		Order("created_at DESC").
 		Find(&alerts).Error
 	return alerts, err
@@ -63,12 +70,17 @@ func (r *locationAlertRepository) Update(ctx context.Context, alert *domain.Loca
 	return r.db.WithContext(ctx).Save(alert).Error
 }
 
-// Delete hace soft-delete: marca is_active = false.
+// Delete hace soft-delete de verdad: estampa `deleted_at` y GORM la excluye de
+// toda consulta desde ahí.
+//
+// Antes esto era `Update("is_active", false)` — o sea, el MISMO estado que
+// produce pausar la alerta desde el interruptor de la tarjeta. Como
+// `GetByUserID` filtraba por `is_active`, pausar y borrar eran indistinguibles
+// para el usuario: las dos cosas la hacían desaparecer para siempre.
 func (r *locationAlertRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	return r.db.WithContext(ctx).
-		Model(&domain.LocationAlert{}).
 		Where("id = ?", id).
-		Update("is_active", false).Error
+		Delete(&domain.LocationAlert{}).Error
 }
 
 // FindActiveAlertsNear retorna todas las alertas activas cuyo centro se encuentra
@@ -135,12 +147,18 @@ func (r *locationAlertRepository) FindActiveAlertsNear(ctx context.Context, lat,
 	return alerts, err
 }
 
-// CountActiveByUserID cuenta alertas activas de un usuario.
-func (r *locationAlertRepository) CountActiveByUserID(ctx context.Context, userID uuid.UUID) (int64, error) {
+// CountByUserID cuenta las alertas NO BORRADAS de un usuario: las activas y las
+// pausadas. Es lo que acota el tope de `MaxAlertsPerUser`.
+//
+// Se llamaba `CountActiveByUserID` y contaba sólo `is_active = true`. El nombre
+// dejó de ser cierto cuando pausar dejó de borrar, y un nombre que miente es
+// peor que ninguno: alguien que lo lea va a creer que pausar libera un lugar.
+// No lo libera — decisión tomada a propósito, ver el documento de la feature.
+func (r *locationAlertRepository) CountByUserID(ctx context.Context, userID uuid.UUID) (int64, error) {
 	var count int64
 	err := r.db.WithContext(ctx).
 		Model(&domain.LocationAlert{}).
-		Where("user_id = ? AND is_active = true", userID).
+		Where("user_id = ?", userID).
 		Count(&count).Error
 	return count, err
 }
