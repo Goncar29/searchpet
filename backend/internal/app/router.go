@@ -308,7 +308,10 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 	// ========================================
 	// ROUTER
 	// ========================================
-	if cfg.Environment == "production" {
+	// config.IsProduction and not a local compare: three spellings of this
+	// predicate used to coexist, so ENVIRONMENT=Production left gin in debug
+	// mode while the mailer guard enforced production rules.
+	if config.IsProduction(cfg.Environment) {
 		gin.SetMode(gin.ReleaseMode)
 	}
 

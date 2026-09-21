@@ -4,6 +4,8 @@ import (
 	"sync"
 
 	"go.uber.org/zap"
+
+	"lost-pets/config"
 )
 
 var (
@@ -12,11 +14,16 @@ var (
 )
 
 // Init initializes the logger once. Call from main() before anything else.
-// environment: "production" → JSON structured logs; anything else → development console logs.
+// Production → JSON structured logs; anything else → development console logs.
+//
+// The production test is config.IsProduction and NOT a local string compare:
+// this used to read `environment == "production"`, which disagreed with the
+// mailer's case-insensitive guard, so ENVIRONMENT=Production produced console
+// logs in a deployment the mailer was treating as production.
 func Init(environment string) *zap.Logger {
 	once.Do(func() {
 		var err error
-		if environment == "production" {
+		if config.IsProduction(environment) {
 			instance, err = zap.NewProduction()
 		} else {
 			instance, err = zap.NewDevelopment()

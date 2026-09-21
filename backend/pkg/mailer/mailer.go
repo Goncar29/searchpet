@@ -9,6 +9,8 @@ import (
 	"io"
 	"net/http"
 	"strings"
+
+	"lost-pets/config"
 )
 
 // DefaultBrevoEndpoint is the Brevo transactional email API endpoint.
@@ -80,8 +82,15 @@ func MissingConfig(apiKey, fromEmail string) []string {
 // SECURITY: the error names the missing variables, never their values. apiKey
 // is in scope here and must stay out of the message — see
 // TestRequireConfigured_NoFiltraElSecreto.
+//
+// "Is this production?" is config.IsProduction and nothing local. This function
+// originally carried its own case-insensitive compare while pkg/logger and
+// internal/app used a case-sensitive one, so ENVIRONMENT=Production enforced
+// the mailer guard in a deployment the other two treated as development —
+// the same duplicated-condition failure MissingConfig exists to prevent, one
+// level up.
 func RequireConfigured(apiKey, fromEmail, environment string) error {
-	if !strings.EqualFold(environment, "production") {
+	if !config.IsProduction(environment) {
 		return nil
 	}
 	missing := MissingConfig(apiKey, fromEmail)
