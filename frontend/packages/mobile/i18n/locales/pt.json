@@ -291,7 +291,7 @@
     "empty": "Você não tem alertas ativos.",
     "add": "Novo alerta",
     "introTitle": "Alertas de zona",
-    "introText": "Avisamos você quando alguém reportar um pet perto de uma zona que você definir. Máximo 10 alertas ativos.",
+    "introText": "Avisamos você quando alguém reportar um pet perto de uma zona que você definir. Máximo 10 alertas.",
     "formTitle": "Novo alerta",
     "locationLabel": "Localização",
     "createError": "Não foi possível criar o alerta",

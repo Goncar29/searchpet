@@ -291,7 +291,7 @@
     "empty": "No tenés alertas activas.",
     "add": "Nueva alerta",
     "introTitle": "Alertas de zona",
-    "introText": "Te notificamos cuando alguien reporta una mascota cerca de una zona que definís. Máximo 10 alertas activas.",
+    "introText": "Te notificamos cuando alguien reporta una mascota cerca de una zona que definís. Máximo 10 alertas.",
     "formTitle": "Nueva alerta",
     "locationLabel": "Ubicación",
     "createError": "No se pudo crear la alerta",

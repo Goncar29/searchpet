@@ -151,6 +151,59 @@ Sin ese chequeo, el test puede volver a pasar sobre algo que nunca se pausó.
 
 *Un fallo que se ve raro puede estar denunciando a sus tests hermanos.*
 
+## Las verificaciones
+
+**`/verify` contra el backend REAL** (servidor + Postgres local, no mocks), 11
+aserciones sobre el flujo entero: crear → pausar → **sigue en la lista con
+`is_active=false`** → reactivar → borrar → no vuelve → un update sobre la
+borrada da 404. En la base, la fila borrada quedó con `deleted_at` estampado y
+**`is_active` intacto en `true`**. El backfill se vio correr: 6 de 7 filas.
+
+*Cuidado con el server viejo*: el primer `go run` no pudo bindear el 8081 porque
+había otro backend corriendo, y ese `health=200` venía de un binario **anterior
+al cambio**. Hubo que matarlo y confirmar en el log que el que escucha es el
+nuevo. **Un 200 no dice de quién.**
+
+**`/security-review` descartado con medición**: las dos consultas de lista
+filtran `user_id = ?`, `GetByID` va seguido del chequeo de ownership en el
+servicio, el `userID` sale siempre del JWT (`getUserUUID`), y `DeletedAt` lleva
+`json:"-"`. Sin exposición nueva.
+
+## El `/code-review`: 6 hallazgos, 5 reales
+
+**El que importa — `gorm.DeletedAt` convirtió EN SILENCIO dos borrados duros
+preexistentes en blandos**: el cascade de `PetRepository.Delete` y
+`resetSeedData`. Nadie lo notó porque ningún test miraba la tabla *después* de
+borrar una mascota. Los dos llevan `Unscoped()` ahora, con su guard —visto en
+rojo: *"want 0 filas tras borrar la mascota, got 1 (quedaron soft-deleted)"*.
+
+*Agregar un `DeletedAt` a un modelo cambia el significado de TODO `Delete` que
+lo mencione, en cualquier archivo. Hay que buscarlos.*
+
+**La guarda de la migración fallaba ABIERTO.** Si la columna no estaba, el
+`DO $$` no hacía nada, golang-migrate igual registraba la versión 27, el
+backfill quedaba imposible de reintentar, y en el arranque siguiente AutoMigrate
+creaba `deleted_at` toda en NULL → **cada alerta borrada reaparecía como
+pausada**, justo lo que el comentario del archivo llama peor que el bug. Ahora
+`RAISE EXCEPTION`. Comprobado en los dos sentidos contra Postgres: dispara con
+una columna inexistente, pasa con la real.
+
+**El comentario de `MaxAlertsPerUser` sobreafirmaba.** Decía que el número ya no
+puede divergir. Falso para lo que el usuario VE: por la regla #11 el mensaje de
+Go nunca le llega, y el 10 está escrito a mano en **seis** JSON de i18n. La
+constante unifica el backend; el número visible no lo unifica nadie, y ahora el
+comentario lo dice.
+
+**Dos comentarios del servicio quedaron mintiendo** (`Máximo 10 alertas
+activas`, `GetAlerts devuelve todas las alertas activas`) y **el copy de mobile
+también** — arreglé las tres cadenas de `shared` y me olvidé de
+`alerts.introText` en los tres locales de mobile.
+
+**El sexto es falso positivo**: reportaba un diff de `gofmt` en un test. `gofmt
+-l ./internal/` lista **154 archivos**, de los que toqué 4 — el repo tiene
+`core.autocrlf=true` y gofmt marca todo. No es de este cambio, y "arreglarlo"
+sería rehacer el repo entero.
+
 ## Next step
 
-Verificaciones y PR.
+PR y merge.

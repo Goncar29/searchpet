@@ -530,7 +530,15 @@ func (r *PostgresPetRepository) Delete(id string) error {
 		if err := tx.Where("pet_id = ?", id).Delete(&domain.SuccessStory{}).Error; err != nil {
 			return err
 		}
-		if err := tx.Where("pet_id = ?", id).Delete(&domain.LocationAlert{}).Error; err != nil {
+		// `Unscoped` porque este borrado en cascada tiene que ser DURO. Desde que
+		// `LocationAlert` lleva `gorm.DeletedAt`, un `Delete` normal acá sólo
+		// estampa la columna: las filas sobreviven apuntando con su `pet_id` a
+		// una mascota que ya no existe, y se acumulan para siempre.
+		//
+		// El soft-delete de las alertas existe para que el DUEÑO pueda borrar la
+		// suya sin perder la distinción con pausarla. Acá no hay nada que
+		// distinguir: la mascota se va entera.
+		if err := tx.Unscoped().Where("pet_id = ?", id).Delete(&domain.LocationAlert{}).Error; err != nil {
 			return err
 		}
 		if err := tx.Where("pet_id = ?", id).Delete(&domain.ShareLink{}).Error; err != nil {

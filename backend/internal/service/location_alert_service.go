@@ -116,7 +116,8 @@ func (s *locationAlertService) onReportCreated(payload interface{}) {
 //   - Latitude: –90 a 90
 //   - Longitude: –180 a 180
 //   - RadiusKm: 1 a 50 (default 5 si se omite)
-//   - Máximo 10 alertas activas por usuario
+//   - Máximo `domain.MaxAlertsPerUser` alertas por usuario, contando las
+//     pausadas: pausar no libera lugar.
 func (s *locationAlertService) CreateAlert(ctx context.Context, userID uuid.UUID, req dto.CreateLocationAlertRequest) (*dto.LocationAlertResponse, error) {
 	if err := validateAlertCoords(req.Latitude, req.Longitude); err != nil {
 		return nil, err
@@ -159,7 +160,8 @@ func (s *locationAlertService) CreateAlert(ctx context.Context, userID uuid.UUID
 	return &resp, nil
 }
 
-// GetAlerts devuelve todas las alertas activas del usuario.
+// GetAlerts devuelve las alertas NO BORRADAS del usuario: las activas y las
+// pausadas. Decia "activas" y era cierto mientras pausar equivalia a borrar.
 func (s *locationAlertService) GetAlerts(ctx context.Context, userID uuid.UUID) ([]dto.LocationAlertResponse, error) {
 	alerts, err := s.repo.GetByUserID(ctx, userID)
 	if err != nil {

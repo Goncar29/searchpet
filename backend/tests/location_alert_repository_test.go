@@ -402,6 +402,57 @@ func TestLocationAlertRepository_FindActiveAlertsNear_IgnoraLasPausadas(t *testi
 	}
 }
 
+// POR QUÉ EXISTE: agregarle `gorm.DeletedAt` al modelo convirtió EN SILENCIO
+// dos borrados duros preexistentes en soft-deletes. Uno es este, el cascade de
+// `PetRepository.Delete`; el otro es `resetSeedData`.
+//
+// Acá el soft-delete está mal: la mascota se borra de verdad, así que sus
+// alertas quedarían con `pet_id` apuntando a una fila que ya no existe, y se
+// acumularían para siempre. El soft-delete de alertas existe para que el DUEÑO
+// pueda borrar la suya sin perder la distinción con pausarla — nada que
+// distinguir cuando se va la mascota entera.
+//
+// Lo levantó un `/code-review`. No lo vio ningún test porque nadie miraba la
+// tabla DESPUÉS de borrar una mascota.
+func TestPetRepository_Delete_BorraLasAlertasDeVerdad(t *testing.T) {
+	gormDB := testdb.SetupTestDB(t)
+	userRepo := repository.NewUserRepository(gormDB)
+	petRepo := repository.NewPetRepository(gormDB)
+	alertRepo := repository.NewLocationAlertRepository(gormDB)
+	ctx := context.Background()
+
+	user := newTestUser(t, userRepo)
+	pet := newTestPet(user.ID)
+	if err := petRepo.Create(pet); err != nil {
+		t.Fatalf("Create pet: %v", err)
+	}
+
+	petID := pet.ID
+	alert := &domain.LocationAlert{
+		ID: uuid.New(), UserID: user.ID, PetID: &petID, Name: "por esta mascota",
+		AlertLatitude: mvdLat, AlertLongitude: mvdLng, RadiusKm: 3.0, IsActive: true,
+	}
+	if err := alertRepo.Create(ctx, alert); err != nil {
+		t.Fatalf("Create alert: %v", err)
+	}
+
+	if err := petRepo.Delete(pet.ID.String()); err != nil {
+		t.Fatalf("Delete pet: %v", err)
+	}
+
+	// `Unscoped` a propósito: la pregunta no es si el usuario la ve —no la ve
+	// ni soft ni hard— sino si la FILA sigue ahí. Sin `Unscoped` este test
+	// pasaría con el borrado blando puesto, que es justo el defecto.
+	var quedan int64
+	if err := gormDB.Unscoped().Model(&domain.LocationAlert{}).
+		Where("pet_id = ?", petID).Count(&quedan).Error; err != nil {
+		t.Fatalf("contar alertas: %v", err)
+	}
+	if quedan != 0 {
+		t.Errorf("want 0 filas tras borrar la mascota, got %d (quedaron soft-deleted)", quedan)
+	}
+}
+
 // El tope cuenta activas Y pausadas —pausar no libera lugar, decidido a
 // propósito— pero NO cuenta las borradas. Las dos mitades en un solo test,
 // porque contar de más y contar de menos son errores distintos.
