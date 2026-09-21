@@ -122,9 +122,18 @@ type Pet struct {
 	// (tests) y la que arma el SQL (producción) divergen en silencio.
 	BirthDate          *time.Time `gorm:"type:date" json:"birth_date,omitempty"`
 	BirthDatePrecision string     `gorm:"size:10;not null;default:''" json:"birth_date_precision,omitempty"`
-	Status             string     `gorm:"size:50;default:'registered';index:idx_pets_type_status,composite:status" json:"status"` // registered, lost, stray, found, archived
-	Version            int        `gorm:"default:1" json:"version"`                                                               // optimistic concurrency — increment on each status change
-	CurrentEpisodeID   *uuid.UUID `gorm:"type:uuid;index" json:"current_episode_id,omitempty"`
+	// Status: the authoritative set of values is PetStatus* in pet_status.go,
+	// not a list here. This comment used to enumerate five states when there
+	// were already seven (adoption and adopted were missing), and nothing
+	// failed — a duplicated enum drifts silently.
+	//
+	// Do not derive visibility from this field either: what shows up where is
+	// decided by the explicit allowlists in pet_status.go (feed, map, public
+	// search, adoption, public profile), which deliberately disagree with each
+	// other. Adding a status means touching the relevant allowlist too.
+	Status           string     `gorm:"size:50;default:'registered';index:idx_pets_type_status,composite:status" json:"status"`
+	Version          int        `gorm:"default:1" json:"version"` // optimistic concurrency — increment on each status change
+	CurrentEpisodeID *uuid.UUID `gorm:"type:uuid;index" json:"current_episode_id,omitempty"`
 	// ReporterContactPublic is an opt-in (stray pets only): when true, the
 	// reporter's profile phone is exposed publicly so logged-out finders can
 	// reach them. Defaults false — a good-samaritan's number is never published

@@ -264,4 +264,15 @@ rojo devolviéndole a la migración su versión que fallaba abierta.
 
 ## Next step
 
-Mergear.
+**CERRADO.** Mergeado como PR #258, squash **`d99eceb2`**, y verificado en
+producción por el usuario el 2026-09-21: *"al desactivar no se elimina y el mapa
+queda marcado en gris"*.
+
+Ese gesto de diez segundos prueba las tres propiedades de una vez — la pausada
+sigue en la lista, no se borra, y el `is_active: false` llega al frontend, que
+estaba escrito para ese estado desde el rediseño de `/alerts` y nunca lo había
+recibido. No había discriminador público (todo detrás de JWT), así que pedirle a
+una persona que mirara la pantalla era la verificación correcta, y no dar por
+bueno el `success` del job de deploy, que sólo prueba que Render aceptó el hook.
+
+Los dos advisory de arriba siguen **abiertos a conciencia**.

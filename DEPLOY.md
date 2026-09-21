@@ -12,10 +12,12 @@
 3. Render detecta el Dockerfile automáticamente
 
 ### Variables de entorno en Render
+
 ```
 PORT=8080
 ENVIRONMENT=production
-DATABASE_URL=<se genera automáticamente con PostgreSQL de Render>
+# La base NO es de Render — es Neon. Ver la sección 3.
+DATABASE_URL=<connection string de Neon, host DIRECTO, sslmode=require>
 JWT_SECRET=<generar un secret fuerte>
 # APP_URL debe ser el dominio del FRONTEND (Vercel), NO el del backend.
 # Los share links se arman como APP_URL/share/:token y ese path lo sirve la
@@ -23,26 +25,74 @@ JWT_SECRET=<generar un secret fuerte>
 # con foto de la mascota). Si apunta a onrender.com, el crawler recibe un 404
 # sin OG tags y el preview sale vacío.
 APP_URL=https://searchpet.vercel.app
+CORS_ALLOWED_ORIGINS=https://searchpet.vercel.app
 CLOUDINARY_CLOUD_NAME=<tu cloud name>
 CLOUDINARY_API_KEY=<tu api key>
 CLOUDINARY_API_SECRET=<tu api secret>
 FIREBASE_KEY=<tu key JSON de Firebase>
-CORS_ALLOWED_ORIGINS=https://searchpet.vercel.app
+# Email (OTP de verificación y de recuperación de contraseña)
+BREVO_API_KEY=<API key xkeysib-..., NO una SMTP key>
+MAIL_FROM_EMAIL=<el single sender verificado en Brevo>
+# Búsqueda por imagen
+JINA_API_KEY=<key del free tier de Jina>
+# Google Sign-In (web y Android comparten el client id WEB como audiencia)
+GOOGLE_CLIENT_ID=<client id web de Google Cloud>
+# Opcionales / gateados — ver docs/github-secrets.md
+OPS_STATUS_TOKEN=<gatea GET /api/ops/quota; vacía = 404 a todo>
+REDIS_URL=<sólo si corrés múltiples instancias; ver sección 8>
 ```
 
-### Agregar PostgreSQL + PostGIS
-1. En Render dashboard → New → PostgreSQL
-2. Conectar a tu Web Service vía `DATABASE_URL`
-3. Instalar PostGIS (solo primera vez):
-   ```sql
-   CREATE EXTENSION IF NOT EXISTS postgis;
-   CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-   ```
+**Si `BREVO_API_KEY` o `MAIL_FROM_EMAIL` faltan, el mailer cae en un noop
+silencioso** y el OTP no se envía nunca, sin ningún error visible. Fue un bug
+real en producción.
 
-### Trigger de deploy manual (CI)
-El workflow `ci.yml` hace trigger automático en Render al pushear a `main` via webhook.
+### Trigger de deploy (CI)
 
-### Costo: $0 (plan free — se duerme tras 15 min de inactividad)
+El workflow `ci.yml` dispara el deploy hook de Render al pushear a `main`,
+**después** de que pasen los cuatro jobs de test.
+
+**El Auto-Deploy por commit del servicio está APAGADO a propósito**
+(`autoDeployTrigger: "off"`), y el sentido importa: se apaga el autoDeploy y se
+conserva el hook, nunca al revés. El hook corre después de los tests; el
+autoDeploy por commit no espera nada. Con los dos prendidos, cada push
+deployaba **dos veces** y el segundo deploy pisaba al primero.
+
+> El MCP de Render no expone cambiar `autoDeploy` de un servicio existente —
+> hay que ir al dashboard.
+
+### Costo: $0 (plan free)
+
+El servicio free se duerme tras 15 minutos de inactividad. Lo mantiene despierto
+un monitor de UptimeRobot que pega a `/health` cada 300 s.
+
+> **No uses un cron de GitHub Actions para esto.** Se probó: `*/5` disparaba
+> cada **29,7 min en promedio, con huecos de hasta 49,7** — todos por encima del
+> spin-down de 15 min, o sea que no evitaba un solo cold start. El workflow se
+> borró en el PR #172.
+
+---
+
+## 1.b Monitoreo — y por qué el intervalo NO es libre
+
+Hay dos endpoints de salud y son **deliberadamente distintos**:
+
+| Ruta | Qué responde | Para qué |
+|------|--------------|----------|
+| `GET /health` | 200 siempre, sin tocar ninguna dependencia | ¿El proceso está vivo? |
+| `GET /health/ready` | `SELECT 1` con timeout de 2 s; **503** si la base no contesta | ¿La base contesta? |
+
+**No las fusiones.** Juntarlas destruye la distinción entre "el proceso murió" y
+"la base no contesta", que son dos fallas con respuestas opuestas. Hay un test
+e2e que lo obliga (`TestHealthReady_HealthSigueTontoConLaBaseCaida`).
+
+**El intervalo del poll lo fija el presupuesto de compute, no las ganas de
+enterarte rápido.** Neon cobra por **tiempo despierto**: cada consulta despierta
+el compute y lo sostiene 5 minutos más. Un monitor cada 300 s mantiene la base
+despierta 24/7 y funde la cuota mensual sin un solo usuario — pasó de verdad en
+agosto de 2026, con dos monitores consumiendo el 98% del mes.
+
+Los tres monitores que tocan la base corren a **21600 s (6 h)**. El precio está
+pagado a conciencia: **detectar una base caída puede tardar hasta 6 horas.**
 
 ---
 
@@ -71,19 +121,51 @@ Los headers de seguridad (CSP, X-Frame-Options, nosniff, Referrer-Policy, Permis
 
 ---
 
-## 3. Base de Datos (Supabase - alternativa)
+## 3. Base de Datos (Neon) ← PRODUCCIÓN ACTUAL
 
-Si prefieres Supabase en lugar de Render PostgreSQL:
+**La base NO está en Render.** Se migró a [Neon](https://neon.tech) el
+2026-06-16, y el motivo es terminante: **la PostgreSQL free de Render se
+suspende a los 30 días.** La de Neon no expira.
 
-1. Ir a [supabase.com](https://supabase.com)
-2. Crear proyecto → Obtener connection string
-3. Habilitar PostGIS:
-   ```sql
-   CREATE EXTENSION IF NOT EXISTS postgis;
-   ```
-4. Usar la URL en `DATABASE_URL`
+### Setup
 
-### Costo: $0 (500 MB gratis)
+1. Crear proyecto en Neon (trae PostGIS y pgvector disponibles).
+2. Copiar el connection string.
+3. Pegarlo como `DATABASE_URL` en el Web Service de Render.
+
+Las extensiones y el schema **no se crean a mano**: el backend los arma solo al
+deployar (AutoMigrate + migraciones SQL, que incluyen PostGIS, pgvector y el
+seed de refugios).
+
+### El formato del `DATABASE_URL` no es negociable
+
+Tiene que usar el host **directo** (sin `-pooler`), `sslmode=require` y **SIN**
+`channel_binding`:
+
+```
+postgres://<user>:<pass>@ep-xxxx.<region>.aws.neon.tech/<db>?sslmode=require
+```
+
+**Por qué tanta precisión:** el backend usa **dos drivers sobre la misma URL**.
+GORM en runtime (`pgx/v5`) tolera cualquier variante, pero golang-migrate
+(`lib/pq`) rompe con el pooler PgBouncer por los advisory locks **y** rechaza
+`channel_binding`. Con la URL equivocada, el servidor no arranca.
+
+### Neon es el techo del proyecto, y cobra por TIEMPO DESPIERTO
+
+El free da **100 CU-hours por proyecto**, que a 0,25 CU (el mínimo) son **400
+horas de compute** contra las ~730 que tiene un mes. O sea: **la base no puede
+estar despierta todo el mes.** Autosuspende a los 5 minutos de inactividad.
+
+La consecuencia es contraintuitiva y conviene entenderla antes de tocar nada:
+dos visitantes simultáneos cuestan lo mismo que uno, y una visita sola cuesta 5
+minutos enteros aunque dure 20 segundos. **La concentración es gratis; la
+dispersión es la que mata.**
+
+Cuando entre tráfico real, la palanca para subir el techo **no es optimizar
+queries: es reducir las horas en que la base está despierta.**
+
+### Costo: $0 (free, no expira)
 
 ---
 
@@ -129,25 +211,55 @@ Error: GOOGLE_SERVICES_JSON secret is not set
 
 ---
 
-## 6. Mobile App (Expo)
+## 6. Mobile App — el APK lo construye GitHub Actions, NO EAS
 
-### Build
+**No se publica en Play Store ni App Store.** La distribución es el APK directo
+(más la PWA instalable desde la web).
+
+| Camino | Quién lo construye | Para qué |
+|--------|-------------------|----------|
+| **Release** | `build-apk.yml` en GitHub Actions: `expo prebuild` + `./gradlew assembleRelease`, firmado con el keystore del secret | El APK que se distribuye |
+| **Dev build** | EAS (`eas build --profile development`) | Desarrollo con dev client |
+
+Se dispara pusheando un tag `v*`, y publica el APK en una GitHub Release.
+
+### Tres consecuencias de que sea así
+
+1. **Toda variable `EXPO_PUBLIC_*` que necesite el APK distribuido va en
+   `build-apk.yml`.** Ponerla sólo en `eas.json` no alcanza.
+2. **Hay dos keystores distintos**, y cada uno necesita su propio OAuth client
+   de Android en Google Cloud con package `com.searchpet.app`: el de
+   development (EAS) y el de production (CI).
+3. **El keystore de release existe sólo dentro de un secret de GitHub**, que no
+   se puede leer de vuelta. Si se pierde, la app nunca más se actualiza con la
+   misma firma.
+
+Los secrets están documentados en [`docs/github-secrets.md`](docs/github-secrets.md).
+
+### Dev builds: las `EXPO_PUBLIC_*` salen del `.env` local
+
+Un build con `developmentClient: true` **no empaqueta el JS** — lo sirve Metro
+desde tu máquina, así que babel lee `mobile/.env` al bundlear. El bloque `env`
+del perfil `development` en `eas.json` sólo afecta la cáscara nativa.
+
+Si probás en el celular y la app le pega a la API equivocada, mirá el `.env`, no
+`eas.json`. Y en un device `localhost` es el celular: para un backend local va
+la IP de LAN.
+
+### La config del build nativo va en `app.json`, nunca parcheada en el workflow
+
+Si te ves escribiendo un `sed` sobre un archivo que generó `expo prebuild`,
+pará: hay un config plugin que lo hace bien. Un `sed` en `build-apk.yml` sólo
+corre en CI, así que el pipeline del APK compila y EAS no — y nadie se entera.
+
+Para verificar antes de encolar un build (30 segundos contra ~50 min de cola):
+
 ```bash
-cd frontend/packages/mobile
-npx eas build --platform android  # APK/AAB
-npx eas build --platform ios      # IPA
+npx expo prebuild --platform android --clean --no-install
+# y leer android/gradle.properties y android/build.gradle
 ```
 
-### Publicar
-```bash
-# Play Store
-npx eas submit --platform android
-
-# App Store
-npx eas submit --platform ios
-```
-
-### Costo: $0 (Expo free tier: 30 builds/mes)
+### Costo: $0 (GitHub Actions free en repo público; EAS free: 30 builds/mes)
 
 ---
 
@@ -204,16 +316,28 @@ Esto es comportamiento esperado y seguro para instancias únicas.
 
 ## Resumen de Costos
 
-| Servicio | Proveedor | Costo |
-|----------|-----------|-------|
-| Backend | **Render** | $0 |
-| Web | Vercel | $0 |
-| BD | **Render** PostgreSQL | $0 |
-| Imágenes | Cloudinary | $0 |
-| Push | Firebase | $0 |
-| App builds | Expo EAS | $0 |
-| CI/CD | GitHub Actions | $0 |
-| **Total** | | **$0/mes** |
+| Servicio | Proveedor | Plan | Límite real |
+|----------|-----------|------|-------------|
+| Backend | **Render** | Free | 750 instance-hours **por workspace**, duerme a los 15 min |
+| BD + PostGIS + pgvector | **Neon** | Free | **100 CU-hours** — el techo del proyecto |
+| Web | Vercel | Hobby | Ilimitado |
+| Imágenes | Cloudinary | Free | 25 créditos/mes; el cuello es **bandwidth**, no uploads |
+| Email (OTP) | Brevo | Free | **300 mails/día**, repartidos entre dos canales |
+| Push | Firebase FCM | Spark | Ilimitado |
+| Búsqueda por imagen | Jina AI | Free | 10M tokens |
+| APK release | GitHub Actions | Free | 2000 min/mes (repo público) |
+| Dev builds | Expo EAS | Free | 30 builds/mes |
+| **Total** | | | **$0/mes** |
+
+**El que se agota primero es Neon**, y no por tráfico sino por horas despierto —
+ver la sección 3. Cloudinary dejó de ser el techo cuando todos los consumidores
+pasaron a pedir miniaturas: una sesión bajó de ~4,3 MB a ~647 KB, o sea de ~165
+a ~1.100 sesiones/día.
+
+> **Sin monetización, sin excepciones.** Es lo que sacó a Twilio del proyecto:
+> el SMS cuesta plata por mensaje, así que se quitó entero (alertas **y** OTP) y
+> la verificación quedó sólo por email. Las alertas de ubicación viajan por push,
+> que es gratis e ilimitado.
 
 ---
 

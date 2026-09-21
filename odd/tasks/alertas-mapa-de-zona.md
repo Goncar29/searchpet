@@ -456,3 +456,24 @@ tenga sustancia, y lo que salga después se anota sin tocarlo.
    para la CSP; y nada que toque auth ni endpoints.
 3. Abrir los dos PRs encadenados. El merge lo decide el usuario, y el #253 va
    primero.
+
+---
+
+## CERRADO
+
+La pila entró en **un solo squash**: **`dca41d37`** (PR #255). Los #253 y #254
+quedaron `CLOSED`, no `MERGED`, porque el #255 se reapuntó a `main` y se llevó
+los 15 commits de la pila.
+
+**No intentes "arreglar" eso reabriéndolos y mergeándolos.** Se midió: sus ramas
+no contienen los arreglos posteriores, así que mergearlas ahora **revertiría
+trabajo**. `CLOSED` es el estado correcto para un PR cuyo contenido entró por
+otro lado.
+
+Después salieron dos arreglos encima, los dos ya en producción:
+
+- **#257** (`70e19e77`) — borrar la alerta enfocada dejaba el botón "Ver todas"
+  afirmando un enfoque inexistente. Es el pendiente que este mismo documento
+  había anotado como "de bajo impacto".
+- **#258** (`d99eceb2`) — pausar una alerta la borraba. Ver
+  `pausar-alerta-no-la-borra.md`.
