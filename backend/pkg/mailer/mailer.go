@@ -36,12 +36,75 @@ type brevoMailer struct {
 	endpoint  string
 }
 
+// MissingConfig reports which mailer settings are absent, named as the env vars
+// an operator would actually set. Empty result means "fully configured".
+//
+// This exists as a function, rather than the startup guard re-stating the
+// condition, because two copies of "is the mailer configured?" drift. The guard
+// below exists precisely to notice a noop mailer, so a guard that disagreed
+// with the constructor would be blind to the one case it was written for.
+// NewBrevoMailer degrades to a noop under exactly this condition — the
+// agreement is pinned by TestMissingConfig_CoincideConElConstructor.
+func MissingConfig(apiKey, fromEmail string) []string {
+	var missing []string
+	if apiKey == "" {
+		missing = append(missing, "BREVO_API_KEY")
+	}
+	if fromEmail == "" {
+		missing = append(missing, "MAIL_FROM_EMAIL")
+	}
+	return missing
+}
+
+// RequireConfigured refuses a production boot with an unconfigured mailer.
+//
+// The noop is a deliberate affordance everywhere else: local runs, `make seed`
+// and the e2e suite all boot without Brevo credentials on purpose, and breaking
+// that would cost more than the bug this closes. So the check is scoped to
+// production and nowhere else.
+//
+// Why fatal rather than a warning: without a mailer, nobody can verify an email
+// or recover a password, and the API reports success the whole way through —
+// RequestReset deliberately swallows its error so it cannot leak whether an
+// account exists, which means the anti-enumeration defence and the blindness to
+// the breakage are the same line of code. A process that refuses to start is
+// visible in Render's log within seconds; the silent version went unnoticed
+// until a user complained that the code never arrived.
+//
+// The tradeoff is real and deliberate: a typo'd env var takes down endpoints
+// that never needed mail. It is accepted because these are static config values
+// — a correctly configured service never hits this path — and because an API
+// that accepts signups it can never verify is broken in a way that costs more
+// to discover.
+//
+// SECURITY: the error names the missing variables, never their values. apiKey
+// is in scope here and must stay out of the message — see
+// TestRequireConfigured_NoFiltraElSecreto.
+func RequireConfigured(apiKey, fromEmail, environment string) error {
+	if !strings.EqualFold(environment, "production") {
+		return nil
+	}
+	missing := MissingConfig(apiKey, fromEmail)
+	if len(missing) == 0 {
+		return nil
+	}
+	return fmt.Errorf(
+		"mailer no configurado en producción: falta %s. "+
+			"Sin esto el envío de OTP queda en no-op silencioso: "+
+			"la verificación de email y la recuperación de contraseña dejan de funcionar "+
+			"sin ningún error visible",
+		strings.Join(missing, " y "),
+	)
+}
+
 // NewBrevoMailer construye el mailer de Brevo.
 // Si apiKey o fromEmail están vacíos, retorna un NoopMailer (degradación
 // graceful): Brevo requiere un remitente verificado, así que sin FROM
 // configurado no hay forma válida de enviar.
+//
+// En producción esa degradación la ataja RequireConfigured antes de llegar acá.
 func NewBrevoMailer(apiKey, fromEmail string) Mailer {
-	if apiKey == "" || fromEmail == "" {
+	if len(MissingConfig(apiKey, fromEmail)) > 0 {
 		return &noopMailer{}
 	}
 	return &brevoMailer{

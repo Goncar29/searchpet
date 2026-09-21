@@ -156,3 +156,126 @@ func TestBrevoMailer_SendOTP_ConnectionError(t *testing.T) {
 		t.Fatal("expected error when upstream is unreachable, got nil")
 	}
 }
+
+// --- Startup guard ------------------------------------------------------
+//
+// The noop mailer is a legitimate development affordance: local runs, the seed
+// and the e2e suite all boot without Brevo credentials on purpose. What was
+// missing is that production booted into that same noop SILENTLY — the user
+// asked for a code, read "te enviamos un código", and nothing was ever sent.
+// These tests pin the guard that closes it.
+
+func TestMissingConfig_NombraLaEnvQueFalta(t *testing.T) {
+	cases := []struct {
+		name      string
+		apiKey    string
+		fromEmail string
+		want      []string
+	}{
+		{"todo configurado", "key", "sender@example.com", nil},
+		{"falta la api key", "", "sender@example.com", []string{"BREVO_API_KEY"}},
+		{"falta el remitente", "key", "", []string{"MAIL_FROM_EMAIL"}},
+		{"faltan las dos", "", "", []string{"BREVO_API_KEY", "MAIL_FROM_EMAIL"}},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := MissingConfig(tc.apiKey, tc.fromEmail)
+
+			if len(got) != len(tc.want) {
+				t.Fatalf("MissingConfig(%q, %q) = %v, want %v", tc.apiKey, tc.fromEmail, got, tc.want)
+			}
+			for i := range tc.want {
+				if got[i] != tc.want[i] {
+					t.Errorf("MissingConfig()[%d] = %q, want %q", i, got[i], tc.want[i])
+				}
+			}
+		})
+	}
+}
+
+// TestRequireConfigured_SoloFallaEnProduccion pins BOTH halves. Only asserting
+// that production fails would pass against a guard that fails everywhere — and
+// that guard would break local dev, the seed and the e2e suite, all of which
+// boot without Brevo credentials deliberately.
+func TestRequireConfigured_SoloFallaEnProduccion(t *testing.T) {
+	cases := []struct {
+		name        string
+		apiKey      string
+		fromEmail   string
+		environment string
+		wantErr     bool
+	}{
+		{"produccion sin credenciales", "", "", "production", true},
+		{"produccion sin api key", "", "sender@example.com", "production", true},
+		{"produccion sin remitente", "key", "", "production", true},
+		{"produccion configurada", "key", "sender@example.com", "production", false},
+		{"development sin credenciales", "", "", "development", false},
+		{"test sin credenciales", "", "", "test", false},
+		{"string vacio sin credenciales", "", "", "", false},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := RequireConfigured(tc.apiKey, tc.fromEmail, tc.environment)
+
+			if tc.wantErr && err == nil {
+				t.Fatalf("RequireConfigured(%q, %q, %q) = nil, want error",
+					tc.apiKey, tc.fromEmail, tc.environment)
+			}
+			if !tc.wantErr && err != nil {
+				t.Fatalf("RequireConfigured(%q, %q, %q) = %v, want nil",
+					tc.apiKey, tc.fromEmail, tc.environment, err)
+			}
+		})
+	}
+}
+
+// TestRequireConfigured_NombraLaEnvEnElError: the whole point of failing at
+// boot is that the operator can fix it without reading source. An error that
+// says "mailer misconfigured" and nothing else sends them digging.
+func TestRequireConfigured_NombraLaEnvEnElError(t *testing.T) {
+	err := RequireConfigured("", "sender@example.com", "production")
+	if err == nil {
+		t.Fatal("expected an error when BREVO_API_KEY is missing in production")
+	}
+	if !strings.Contains(err.Error(), "BREVO_API_KEY") {
+		t.Errorf("error should name the missing env var, got: %v", err)
+	}
+}
+
+// TestRequireConfigured_NoFiltraElSecreto: the guard reads the API key, so it
+// is one careless %v away from printing it into Render's logs.
+func TestRequireConfigured_NoFiltraElSecreto(t *testing.T) {
+	const secret = "xkeysib-super-secret-value"
+
+	// Missing sender, key present: the key is in scope and must stay out.
+	err := RequireConfigured(secret, "", "production")
+	if err == nil {
+		t.Fatal("expected an error when MAIL_FROM_EMAIL is missing in production")
+	}
+	if strings.Contains(err.Error(), secret) {
+		t.Errorf("the API key must never reach the error message, got: %v", err)
+	}
+}
+
+// TestMissingConfig_CoincideConElConstructor is the anti-drift test, and the
+// reason MissingConfig exists as a function instead of the guard re-stating the
+// condition. Two copies of "is the mailer configured?" is exactly how a guard
+// ends up disagreeing with the thing it guards — and this guard's whole job is
+// to notice a noop, so a disagreement makes it blind to the case it exists for.
+func TestMissingConfig_CoincideConElConstructor(t *testing.T) {
+	values := []string{"", "set"}
+
+	for _, apiKey := range values {
+		for _, fromEmail := range values {
+			missing := len(MissingConfig(apiKey, fromEmail)) > 0
+			_, isNoop := NewBrevoMailer(apiKey, fromEmail).(*noopMailer)
+
+			if missing != isNoop {
+				t.Errorf("apiKey=%q fromEmail=%q: MissingConfig says missing=%v but constructor noop=%v — the guard and the constructor disagree",
+					apiKey, fromEmail, missing, isNoop)
+			}
+		}
+	}
+}
