@@ -204,6 +204,35 @@ también** — arreglé las tres cadenas de `shared` y me olvidé de
 `core.autocrlf=true` y gofmt marca todo. No es de este cambio, y "arreglarlo"
 sería rehacer el repo entero.
 
+## La revisión nativa: 2 advisory, los 2 cerrados
+
+`review-5ca12d262695f0ad` → `approved`, acuse quemado. Los dos eran **huecos de
+cobertura reales**, y el primero lo abrió este mismo cambio.
+
+**`R3-find-active-near-deleted-coverage` (WARNING).** Antes, que una alerta
+BORRADA no pudiera notificar estaba garantizado **por accidente**: `Delete`
+escribía `is_active = false` y `FindActiveAlertsNear` filtra por esa columna.
+Este cambio quitó esa escritura a propósito, así que una alerta borrada conserva
+`is_active = true` y lo único que la excluye es el `deleted_at IS NULL` que GORM
+agrega solo.
+
+Y ese "solo" es frágil: el día que alguien pase esa consulta a SQL crudo —es una
+query PostGIS, el candidato natural— el scoping desaparece y **cada alerta
+borrada vuelve a notificar, para siempre y en silencio**. Nada lo probaba.
+
+Ahora sí, y el test **afirma la precondición** (que la borrada siga con
+`is_active = true`) para no pasar por el motivo viejo. Visto en rojo poniéndole
+`Unscoped()` a la consulta, que es exactamente lo que simula perder el scoping.
+
+**`R3-migration-backfill-no-automated-test` (SUGGESTION).** La correctitud de la
+`000027` sólo la respaldaba una pasada manual. El test nuevo **lee el SQL del
+ARCHIVO** en vez de copiarlo —una copia probaría una migración que no es la que
+corre en producción— reconstruye el estado pre-migración y afirma **las dos
+mitades**: la fila vieja queda marcada, y una alerta activa NO se toca.
+
+Visto en rojo dos veces: con la migración sin backfillear nada, y con el
+backfill de más (sin el `is_active = false` en el `WHERE`).
+
 ## Next step
 
 PR y merge.

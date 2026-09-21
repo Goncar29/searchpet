@@ -3,6 +3,7 @@ package tests
 import (
 	"context"
 	"errors"
+	"os"
 	"testing"
 
 	"github.com/google/uuid"
@@ -399,6 +400,123 @@ func TestLocationAlertRepository_FindActiveAlertsNear_IgnoraLasPausadas(t *testi
 		if a.ID == pausada.ID {
 			t.Error("una alerta pausada no puede disparar notificaciones")
 		}
+	}
+}
+
+// POR QUÉ EXISTE, y es la garantía que este cambio se llevó puesta sin querer:
+// una alerta BORRADA no puede seguir disparando notificaciones.
+//
+// Antes eso estaba garantizado por accidente: `Delete` escribía
+// `is_active = false`, y `FindActiveAlertsNear` filtra por esa columna. Ahora
+// `Delete` NO la toca —a propósito, es todo el punto del cambio— así que una
+// alerta borrada conserva `is_active = true`. Lo único que la excluye es el
+// `deleted_at IS NULL` que GORM agrega solo.
+//
+// Y ese "solo" es la parte frágil: el día que alguien convierta esta consulta a
+// SQL crudo —es una query PostGIS, el candidato natural para eso— el scoping
+// desaparece y **cada alerta borrada vuelve a notificar, para siempre y en
+// silencio**. Lo levantó la revisión nativa.
+func TestLocationAlertRepository_FindActiveAlertsNear_IgnoraLasBorradas(t *testing.T) {
+	gormDB := testdb.SetupTestDB(t)
+	userRepo := repository.NewUserRepository(gormDB)
+	alertRepo := repository.NewLocationAlertRepository(gormDB)
+	ctx := context.Background()
+
+	user := newTestUser(t, userRepo)
+	alert := &domain.LocationAlert{
+		ID: uuid.New(), UserID: user.ID, Name: "borrada",
+		AlertLatitude: mvdLat, AlertLongitude: mvdLng, RadiusKm: 10.0, IsActive: true,
+	}
+	if err := alertRepo.Create(ctx, alert); err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	if err := alertRepo.Delete(ctx, alert.ID); err != nil {
+		t.Fatalf("Delete: %v", err)
+	}
+
+	// La precondición se AFIRMA: la fila tiene que seguir con `is_active = true`.
+	// Si estuviera en false, este test pasaría por el motivo viejo y no probaría
+	// nada de lo que vino a proteger.
+	var cruda domain.LocationAlert
+	if err := gormDB.Unscoped().Where("id = ?", alert.ID).First(&cruda).Error; err != nil {
+		t.Fatalf("releer la borrada: %v", err)
+	}
+	if !cruda.IsActive {
+		t.Fatalf("precondición rota: la borrada quedó con is_active=false, el test no probaría el scoping")
+	}
+
+	encontradas, err := alertRepo.FindActiveAlertsNear(ctx, mvdLat, mvdLng, "")
+	if err != nil {
+		t.Fatalf("FindActiveAlertsNear: %v", err)
+	}
+	for _, a := range encontradas {
+		if a.ID == alert.ID {
+			t.Error("una alerta BORRADA no puede disparar notificaciones")
+		}
+	}
+}
+
+// POR QUÉ EXISTE: la migración 000027 es lo único que evita que las alertas que
+// se borraron ANTES de este cambio reaparezcan en la lista de su dueño como
+// pausadas. El propio archivo llama a eso "peor que el bug", y hasta acá su
+// correctitud sólo la respaldaba una pasada manual.
+//
+// El test lee el SQL DEL ARCHIVO en vez de copiarlo: una copia probaría una
+// migración que no es la que corre en producción, y las dos podrían divergir
+// sin que nada avise.
+func TestMigracion000027_BackfilleaLasBorradasViejas(t *testing.T) {
+	gormDB := testdb.SetupTestDB(t)
+	userRepo := repository.NewUserRepository(gormDB)
+	alertRepo := repository.NewLocationAlertRepository(gormDB)
+	ctx := context.Background()
+
+	user := newTestUser(t, userRepo)
+	vieja := &domain.LocationAlert{
+		ID: uuid.New(), UserID: user.ID, Name: "borrada antes de la migracion",
+		AlertLatitude: mvdLat, AlertLongitude: mvdLng, RadiusKm: 3.0, IsActive: true,
+	}
+	sobreviviente := &domain.LocationAlert{
+		ID: uuid.New(), UserID: user.ID, Name: "activa",
+		AlertLatitude: mvdLat, AlertLongitude: mvdLng, RadiusKm: 3.0, IsActive: true,
+	}
+	for _, a := range []*domain.LocationAlert{vieja, sobreviviente} {
+		if err := alertRepo.Create(ctx, a); err != nil {
+			t.Fatalf("Create %s: %v", a.Name, err)
+		}
+	}
+
+	// Se reconstruye el estado PRE-migración: así quedaba una fila borrada con
+	// el modelo viejo, donde borrar era escribir `is_active = false`.
+	if err := gormDB.Exec(
+		"UPDATE location_alerts SET is_active = false, deleted_at = NULL WHERE id = ?",
+		vieja.ID,
+	).Error; err != nil {
+		t.Fatalf("simular el estado viejo: %v", err)
+	}
+
+	sql, err := os.ReadFile("../migrations/000027_split_alert_paused_from_deleted.up.sql")
+	if err != nil {
+		t.Fatalf("leer la migración: %v", err)
+	}
+	if err := gormDB.Exec(string(sql)).Error; err != nil {
+		t.Fatalf("correr la migración: %v", err)
+	}
+
+	var borrada, intacta domain.LocationAlert
+	if err := gormDB.Unscoped().Where("id = ?", vieja.ID).First(&borrada).Error; err != nil {
+		t.Fatalf("releer la vieja: %v", err)
+	}
+	if !borrada.DeletedAt.Valid {
+		t.Error("la fila con is_active=false tenía que quedar marcada como borrada")
+	}
+
+	// La otra mitad: el backfill NO puede tocar las que estaban bien. Sin esta
+	// aserción, un `WHERE` de más marcaría todo y el test pasaría igual.
+	if err := gormDB.Unscoped().Where("id = ?", sobreviviente.ID).First(&intacta).Error; err != nil {
+		t.Fatalf("releer la activa: %v", err)
+	}
+	if intacta.DeletedAt.Valid {
+		t.Error("el backfill no puede borrar una alerta activa")
 	}
 }
 
