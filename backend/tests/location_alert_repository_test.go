@@ -520,6 +520,60 @@ func TestMigracion000027_BackfilleaLasBorradasViejas(t *testing.T) {
 	}
 }
 
+// POR QUÉ EXISTE: la migración 000027 tiene una guarda que FRENA el deploy si
+// `deleted_at` no existe todavía, y esa guarda es lo único que evita el peor
+// desenlace posible — que golang-migrate registre la versión 27 sin haber
+// backfilleado nada, el backfill quede imposible de reintentar, y en el
+// arranque siguiente **cada alerta borrada reaparezca como pausada**.
+//
+// El test de arriba no la ejercita: corre sobre una base donde AutoMigrate ya
+// creó la columna, así que la rama del `RAISE` nunca se toca. Un refactor que
+// la debilite pasaría el CI sin despeinarse. Lo levantó la revisión nativa.
+//
+// Se puede probar porque **el DDL de Postgres es transaccional**: se tira la
+// columna dentro de una transacción, se corre la migración de verdad, y se
+// deshace todo. La última aserción comprueba que la columna volvió — sin eso,
+// un rollback que fallara dejaría la base de tests rota para lo que siga.
+func TestMigracion000027_FrenaSiFaltaLaColumna(t *testing.T) {
+	gormDB := testdb.SetupTestDB(t)
+
+	sql, err := os.ReadFile("../migrations/000027_split_alert_paused_from_deleted.up.sql")
+	if err != nil {
+		t.Fatalf("leer la migración: %v", err)
+	}
+
+	// Centinela: se devuelve siempre para forzar el ROLLBACK. Esto es un
+	// experimento sobre la base, no un cambio.
+	deshacer := errors.New("deshacer el experimento")
+
+	var migracionFreno bool
+	if err := gormDB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Exec("ALTER TABLE location_alerts DROP COLUMN deleted_at").Error; err != nil {
+			t.Errorf("tirar la columna: %v", err)
+			return deshacer
+		}
+		migracionFreno = tx.Exec(string(sql)).Error != nil
+		return deshacer
+	}); err != nil && !errors.Is(err, deshacer) {
+		t.Fatalf("la transacción del experimento: %v", err)
+	}
+
+	if !migracionFreno {
+		t.Error("sin la columna, la migración TIENE que fallar: si pasa en silencio, el backfill se pierde y las borradas reaparecen")
+	}
+
+	// Higiene: la base de tests queda como estaba.
+	var columnas int64
+	if err := gormDB.Raw(
+		"SELECT count(*) FROM information_schema.columns WHERE table_name = 'location_alerts' AND column_name = 'deleted_at'",
+	).Scan(&columnas).Error; err != nil {
+		t.Fatalf("verificar la columna: %v", err)
+	}
+	if columnas != 1 {
+		t.Fatalf("el rollback no restauró deleted_at: la base de tests quedó rota")
+	}
+}
+
 // POR QUÉ EXISTE: agregarle `gorm.DeletedAt` al modelo convirtió EN SILENCIO
 // dos borrados duros preexistentes en soft-deletes. Uno es este, el cascade de
 // `PetRepository.Delete`; el otro es `resetSeedData`.

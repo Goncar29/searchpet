@@ -233,6 +233,35 @@ mitades**: la fila vieja queda marcada, y una alerta activa NO se toca.
 Visto en rojo dos veces: con la migración sin backfillear nada, y con el
 backfill de más (sin el `is_active = false` en el `WHERE`).
 
+## La segunda revisión nativa, y dónde se corta
+
+`review-68d29f61dae31634` → `approved`, acuse quemado. Tres advisory, y **ninguno
+era un defecto**: los tres decían "no está testeado". Ése fue el criterio para
+cortar — las dos rondas anteriores habían encontrado cosas serias (los borrados
+duros convertidos en blandos, la guarda que fallaba abierta), ésta ya sólo
+enumera cobertura faltante, y eso es infinito.
+
+**Se cerró uno solo, el `WARNING`**: la rama del `RAISE EXCEPTION` de la
+migración no la ejercitaba nadie, porque el test del backfill corre sobre una
+base donde AutoMigrate ya creó la columna. Un refactor que debilitara la guarda
+habría pasado el CI sin despeinarse — y esa guarda es lo único que evita que
+golang-migrate registre la versión 27 sin backfillear, dejando el arreglo
+imposible de reintentar.
+
+**Se puede testear porque el DDL de Postgres es transaccional**: se tira la
+columna dentro de una transacción, se corre la migración de verdad, y se deshace
+todo. El test además comprueba que la columna volvió — sin esa aserción, un
+rollback fallido dejaría la base de tests rota para todo lo que siga. Visto en
+rojo devolviéndole a la migración su versión que fallaba abierta.
+
+**Los dos que NO se cerraron, anotados para no redescubrirlos:**
+
+- El `down.sql` no tiene cobertura. Es el camino que nadie corre y que el propio
+  archivo documenta como con pérdida.
+- Nada falla si `MaxAlertsPerUser` cambia sin tocar los seis JSON de i18n.
+  Cierto, y el comentario de la constante ya lo dice; un guard cruzando Go→JSON
+  sería frágil.
+
 ## Next step
 
-PR y merge.
+Mergear.
