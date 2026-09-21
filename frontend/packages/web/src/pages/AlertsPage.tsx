@@ -183,6 +183,16 @@ export function AlertsPage() {
     const label = alert.name ?? t('thisAlert');
     if (window.confirm(t('confirmDelete', { name: label }))) {
       deleteAlert.mutate(alert.id);
+      // Si la que se va es la que el mapa estaba mirando, se vuelve al
+      // conjunto. Sin esto `focused` queda apuntando a un id muerto: el mapa
+      // degrada bien —su camara no encuentra el id y encuadra todas— pero el
+      // guard `focused !== null` de mas abajo sigue dando true, y el boton
+      // "Ver todas" queda visible afirmando un enfoque que ya no existe.
+      //
+      // La condicion NO es decorativa: limpiar siempre sacaria al usuario de la
+      // zona que esta mirando cada vez que borra CUALQUIER otra alerta. Las dos
+      // mitades estan testeadas.
+      if (focused === alert.id) mirarZona(null);
     }
   };
 

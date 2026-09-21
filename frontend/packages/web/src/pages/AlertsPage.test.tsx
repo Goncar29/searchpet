@@ -462,6 +462,66 @@ describe('AlertsPage — formulario de alta', () => {
       expect(mapaResumen.props?.focused).toBe('a1');
       expect(mapaResumen.props?.focusTick).toBeGreaterThan(primero);
     });
+
+    // POR QUÉ EXISTEN LOS DOS DE ABAJO (issue #256): `handleDelete` no limpiaba
+    // `focused`, así que borrar la alerta que estabas mirando dejaba el estado
+    // apuntando a un id muerto. `AlertsMap` degrada bien —su cámara no
+    // encuentra el id y encuadra el conjunto— pero acá el guard
+    // `focused !== null` seguía dando true, y el boton "Ver todas" quedaba
+    // visible afirmando un enfoque que ya no existe.
+    //
+    // Lo introdujo ese mismo botón, agregado para cerrar un hallazgo de la
+    // revisión anterior: un control nuevo trae estados nuevos que alguien tiene
+    // que limpiar.
+    //
+    // SON DOS TESTS Y NO UNO a propósito. Con sólo el primero, "limpiar SIEMPRE
+    // al borrar" pasaría igual — y eso sacaría al usuario de la zona que está
+    // mirando cada vez que borra cualquier otra alerta. El arreglo crea una
+    // distinción (la borrada ES la enfocada, o no lo es), así que hay que
+    // afirmar las dos mitades.
+    it('borrar la alerta ENFOCADA devuelve el mapa al conjunto', async () => {
+      const confirmar = vi.spyOn(window, 'confirm').mockReturnValue(true);
+      state.data = [alert({ id: 'a1' }), alert({ id: 'a2', name: 'Casa' })];
+      render(<AlertsPage />);
+      await userEvent.click(screen.getAllByRole('button', { name: 'showOnMap' })[0]);
+      expect(screen.getByRole('button', { name: 'viewAll' })).toBeInTheDocument();
+
+      await userEvent.click(screen.getAllByRole('button', { name: 'deleteLabel' })[0]);
+
+      expect(mapaResumen.props?.focused).toBeNull();
+      expect(screen.queryByRole('button', { name: 'viewAll' })).not.toBeInTheDocument();
+      confirmar.mockRestore();
+    });
+
+    it('borrar OTRA alerta no saca al usuario de la zona que mira', async () => {
+      const confirmar = vi.spyOn(window, 'confirm').mockReturnValue(true);
+      state.data = [alert({ id: 'a1' }), alert({ id: 'a2', name: 'Casa' })];
+      render(<AlertsPage />);
+      await userEvent.click(screen.getAllByRole('button', { name: 'showOnMap' })[0]);
+
+      // La segunda tarjeta, que NO es la enfocada.
+      await userEvent.click(screen.getAllByRole('button', { name: 'deleteLabel' })[1]);
+
+      expect(mapaResumen.props?.focused).toBe('a1');
+      expect(screen.getByRole('button', { name: 'viewAll' })).toBeInTheDocument();
+      confirmar.mockRestore();
+    });
+
+    // El centinela de los dos de arriba: si el usuario CANCELA el dialogo, no se
+    // borra nada, asi que tampoco puede moverse el enfoque. Sin esto, limpiar
+    // `focused` antes de mirar la respuesta del `confirm` pasaria el primer test.
+    it('cancelar el borrado no toca el enfoque', async () => {
+      const confirmar = vi.spyOn(window, 'confirm').mockReturnValue(false);
+      state.data = [alert({ id: 'a1' }), alert({ id: 'a2', name: 'Casa' })];
+      render(<AlertsPage />);
+      await userEvent.click(screen.getAllByRole('button', { name: 'showOnMap' })[0]);
+
+      await userEvent.click(screen.getAllByRole('button', { name: 'deleteLabel' })[0]);
+
+      expect(mapaResumen.props?.focused).toBe('a1');
+      expect(screen.getByRole('button', { name: 'viewAll' })).toBeInTheDocument();
+      confirmar.mockRestore();
+    });
   });
 
   // POR QUÉ EXISTE: en una grilla de hasta 10 tarjetas, el interruptor se
