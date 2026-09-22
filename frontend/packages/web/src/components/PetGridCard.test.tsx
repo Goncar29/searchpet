@@ -104,15 +104,44 @@ describe('PetGridCard', () => {
 
   // La línea de ciudad reserva su alto aunque esté vacía: sin eso, una tarjeta
   // sin ciudad queda más baja que sus vecinas y la grilla se desparrama.
-  it('sin ciudad conserva el alto reservado de la linea', () => {
+  //
+  // Se fija LA LÍNEA DE CIUDAD, no un conteo de elementos con la clase: un
+  // conteo pasaría igual si esta línea perdiera su `min-h` y otra ganara un
+  // duplicado, y se rompería sin motivo el día que alguien agregue un tercer
+  // elemento que también reserve alto.
+  it('sin ciudad la linea sigue existiendo y con su alto reservado', () => {
     const { container } = dibujar({ pet: mascota({ city: undefined }) });
-    const lineas = container.querySelectorAll('.min-h-\\[1\\.25rem\\]');
-    expect(lineas.length).toBe(2);
+
+    // La última línea del bloque de info es la de ciudad.
+    const lineas = container.querySelectorAll('.p-4 > p');
+    const ciudad = lineas[lineas.length - 1];
+
+    expect(ciudad.textContent).toBe('');
+    expect(ciudad.className).toContain('min-h-[1.25rem]');
   });
 
   it('enlaza al detalle de la mascota', () => {
     const { container } = dibujar();
     expect(container.querySelector('a')?.getAttribute('href')).toBe('/pets/p1');
+  });
+
+  // La tarjeta ENTERA es el enlace, así que nada de lo que dibuje puede ser
+  // interactivo. Un `<a>` dentro de otro es HTML inválido y le da al mismo
+  // destino dos entradas en la lista de enlaces de un lector de pantalla.
+  //
+  // El guard cuenta los anclas en vez de mirar el primero: `querySelector('a')`
+  // devuelve uno aunque haya tres, así que no puede ver este defecto. Se afirma
+  // CON children, que es el único camino por el que puede entrar uno de más.
+  it('la tarjeta es UN solo enlace, aun con contenido extra', () => {
+    const { container } = dibujar({
+      children: (
+        <span>
+          ver perfil <span aria-hidden>›</span>
+        </span>
+      ),
+    });
+
+    expect(container.querySelectorAll('a').length).toBe(1);
   });
 
   // Adoptar agrega descripción y un CTA debajo de la ciudad; Perfil no agrega

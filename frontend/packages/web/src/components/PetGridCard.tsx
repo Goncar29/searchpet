@@ -37,6 +37,15 @@ type PetGridCardProps = {
    * "ver perfil"; el perfil público no agrega nada. Es `children` y no un
    * booleano porque **no agregar nada no es una decisión que alguien tenga
    * que tomar** — a diferencia de las dos props de arriba.
+   *
+   * **Esto se renderiza DENTRO del `<a>` de la tarjeta, así que no puede
+   * contener nada interactivo**: ni `<Link>`, ni `<button>`, ni un `input`.
+   * Anidar un interactivo dentro de otro es HTML inválido y le da al mismo
+   * destino dos entradas distintas en la lista de enlaces de un lector de
+   * pantalla. Si el diseño pide un "ver más", va como `<span>` — la tarjeta
+   * entera ya es el link, así que la señal visual alcanza. Lo protege
+   * `la tarjeta es UN solo enlace` en el test de este archivo y su gemelo en
+   * `AdoptPage.test.tsx`, que lo mide sobre el llamador real.
    */
   children?: ReactNode;
 };

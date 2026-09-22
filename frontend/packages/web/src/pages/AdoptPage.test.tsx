@@ -132,4 +132,24 @@ describe('AdoptPage', () => {
 
     expect((screen.getByAltText('Bruno') as HTMLImageElement).src).toBe(ajena);
   });
+
+  // Esta pantalla es la unica que le pasa `children` a `PetGridCard`, y ese
+  // contenido se dibuja DENTRO del `<a>` de la tarjeta. Por eso el CTA "ver
+  // perfil" es un `<span>` y no un `<Link>`: un ancla dentro de otra es HTML
+  // invalido y le da al mismo destino dos entradas en la lista de enlaces de
+  // un lector de pantalla.
+  //
+  // El guard vive ACA y no solo en el test del componente porque el componente
+  // no puede impedirlo — recibe `children` ya construido. El unico lugar donde
+  // el defecto puede entrar es este llamador.
+  it('cada tarjeta es UN solo enlace', () => {
+    state.data = { data: [pet()], total: 1 };
+
+    const { container } = render(<AdoptPage />, { wrapper });
+
+    // Se acota a la grilla: el resto de la pagina (navbar, filtros) tiene sus
+    // propios enlaces y contarlos no diria nada sobre la tarjeta.
+    const grilla = container.querySelector('.grid');
+    expect(grilla?.querySelectorAll('a').length).toBe(1);
+  });
 });
