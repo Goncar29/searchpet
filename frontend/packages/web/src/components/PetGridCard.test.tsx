@@ -90,8 +90,16 @@ describe('PetGridCard', () => {
     expect(screen.getByText('EN ADOPCION')).toBeTruthy();
   });
 
+  // El nombre promete DOS cosas, así que se afirman las DOS. Afirmar sólo la
+  // ausencia de la `<img>` dejaba pasar que alguien borrara la rama `else`:
+  // cada tarjeta sin foto quedaría como un rectángulo gris vacío, el alto ni
+  // se movería —lo sostiene `h-48`— y la suite seguiría verde.
   it('sin foto dibuja el placeholder y ninguna imagen', () => {
     dibujar({ pet: mascota({ photos: [] }) });
+
+    // El placeholder es el `Logo`, que se anuncia con `role="img"` y este
+    // `aria-label`; es el mismo handle que usa `PhotoBanner.test.tsx`.
+    expect(screen.getByLabelText('SearchPet')).toBeTruthy();
     expect(screen.queryByAltText('Luna')).toBeNull();
   });
 
