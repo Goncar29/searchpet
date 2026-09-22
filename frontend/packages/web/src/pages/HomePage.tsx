@@ -840,7 +840,7 @@ export function HomePage() {
                       </span>
                     </div>
                     <div className="p-4">
-                      <h3 className="font-bold text-gray-900 dark:text-gray-100 text-lg mb-1">{result.name}</h3>
+                      <h3 className="font-display text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">{result.name}</h3>
                       {result.type && (
                         <span className="text-xs bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 px-2 py-0.5 rounded-full">{t(`pets:types.${result.type}`)}</span>
                       )}
@@ -905,7 +905,7 @@ export function HomePage() {
                       </div>
                       {/* Info */}
                       <div className="p-4">
-                        <h3 className="font-bold text-gray-900 dark:text-gray-100 text-lg mb-1">{pet.name}</h3>
+                        <h3 className="font-display text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">{pet.name}</h3>
                         <div className="flex flex-wrap gap-1 mb-2">
                           {pet.type && <span className="text-xs bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 px-2 py-0.5 rounded-full">{t(`pets:types.${pet.type}`)}</span>}
                           {pet.breed && <span className="text-xs bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 px-2 py-0.5 rounded-full">{pet.breed}</span>}

@@ -273,6 +273,56 @@ describe('HomePage', () => {
     expect(img.src).toContain('w_600,h_300,c_lfill,g_auto');
   });
 
+  // ── Tipografia de los titulos de tarjeta ─────────────────────────────
+  // El #128 ("redisenar la home con el lenguaje visual de Stitch") convirtio
+  // `font-bold` -> `font-display` en TODOS los titulos de la home: el h1 del
+  // hero, los cuatro contadores de stats, el h2 de seccion y los tres h3 de
+  // "como funciona". Las dos tarjetas quedaron afuera del barrido y siguieron
+  // en `font-bold text-lg`, o sea en la familia del CUERPO mientras el resto
+  // de la home y las tarjetas hermanas (`AdoptPage`, `UserProfilePage`,
+  // `ProfilePage`, `SheltersPage`) van en la display.
+  //
+  // El peso va EXPLICITO y eso no es redundante: `font-display` fija solo la
+  // FAMILIA, el preflight de Tailwind v4 deja los h1-h6 en
+  // `font-weight: inherit`, y a diferencia de `text-headline`/`text-display`
+  // el token `text-lg` NO trae peso propio. Sin `font-semibold` el nombre
+  // cae a 400 — es la regresion del #161, ya vivida.
+
+  it('el titulo de la tarjeta del feed usa la familia display con peso explicito', () => {
+    mockSearchPets = {
+      data: [{ id: 'p1', name: 'Luna', status: 'lost', photos: [{ url: FOTO_CLOUDINARY }] }],
+      total: 1,
+    };
+
+    render(<HomePage />, { wrapper });
+
+    const titulo = screen.getByRole('heading', { name: 'Luna' });
+    expect(titulo.className).toContain('font-display');
+    expect(titulo.className).toContain('text-lg');
+    // `text-lg` no declara peso, asi que acá alguien tiene que declararlo.
+    expect(titulo.className).toContain('font-semibold');
+    expect(titulo.className).not.toContain('font-bold');
+  });
+
+  it('el titulo de la tarjeta de busqueda por foto tambien', async () => {
+    mockAuth = { isAuthenticated: true, user: { id: 'u1' } };
+    mockMutateAsync.mockResolvedValueOnce({
+      results: [{ pet_id: 'p2', name: 'Rocco', similarity: 0.91, photo_url: FOTO_CLOUDINARY }],
+    });
+
+    const { container } = render(<HomePage />, { wrapper });
+    const input = container.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(input, {
+      target: { files: [new File(['x'], 'pet.png', { type: 'image/png' })] },
+    });
+
+    const titulo = await screen.findByRole('heading', { name: 'Rocco' });
+    expect(titulo.className).toContain('font-display');
+    expect(titulo.className).toContain('text-lg');
+    expect(titulo.className).toContain('font-semibold');
+    expect(titulo.className).not.toContain('font-bold');
+  });
+
   it('una foto que no es de Cloudinary se dibuja intacta', () => {
     // El seed usa picsum. Recortar una URL ajena romperia la imagen en vez de
     // achicarla, asi que el feed tiene que dejarla pasar.
