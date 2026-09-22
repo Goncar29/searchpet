@@ -23,9 +23,15 @@ type Config struct {
 	// V1.3 — User Verification (OTP). Email migrated from SendGrid to Brevo
 	// (SendGrid retired its free-forever plan; Brevo: 300 emails/day free,
 	// single-sender verification works without owning a domain).
+	// Empty is fatal in production — see mailer.RequireConfigured.
 	BrevoAPIKey string
 	// MailFromEmail is the verified single sender in Brevo. Empty disables
 	// email sending (noop mailer) — Brevo rejects unverified senders.
+	//
+	// That noop is a development affordance only: local runs, `make seed` and
+	// the e2e suite boot without Brevo credentials on purpose. In production an
+	// empty value refuses the boot (mailer.RequireConfigured), because the API
+	// otherwise reports success while no OTP is ever sent.
 	MailFromEmail string
 	// BrevoEndpoint optionally overrides the default Brevo API endpoint
 	// (mailer.DefaultBrevoEndpoint). Empty means "use the default" — set this

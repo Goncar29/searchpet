@@ -42,9 +42,38 @@ OPS_STATUS_TOKEN=<gatea GET /api/ops/quota; vacía = 404 a todo>
 REDIS_URL=<sólo si corrés múltiples instancias; ver sección 8>
 ```
 
-**Si `BREVO_API_KEY` o `MAIL_FROM_EMAIL` faltan, el mailer cae en un noop
-silencioso** y el OTP no se envía nunca, sin ningún error visible. Fue un bug
-real en producción.
+**Si `BREVO_API_KEY` o `MAIL_FROM_EMAIL` faltan, el backend NO ARRANCA en
+producción.** Muere en el primer milisegundo con un mensaje que nombra la
+variable que falta:
+
+```
+FATAL  Configuración de mailer inválida
+       mailer no configurado en producción: falta BREVO_API_KEY y MAIL_FROM_EMAIL.
+       Sin esto el envío de OTP queda en no-op silencioso: la verificación de
+       email y la recuperación de contraseña dejan de funcionar sin ningún
+       error visible
+```
+
+Si ves eso en los logs de Render, seteá la variable y redeployá. **Es el
+comportamiento correcto, no un bug.**
+
+**Por qué el proceso se niega a arrancar en vez de avisar.** Sin mailer nadie
+puede verificar un email ni recuperar su contraseña, y la API responde éxito
+todo el camino: `RequestReset` se traga su error a propósito para no filtrar si
+la cuenta existe, así que **la defensa anti-enumeración y la ceguera ante la
+rotura son la misma línea de código**. Fue un bug real en producción y nadie se
+enteró hasta que un usuario avisó que el código no le llegaba. Un proceso que no
+arranca se ve en Render en segundos.
+
+El trade-off está aceptado a conciencia: una env con un typo tumba también los
+endpoints que nunca necesitaron mail. Se paga porque son valores de
+configuración estáticos —un servicio bien configurado jamás pasa por ahí— y
+porque una API que acepta altas que nunca va a poder verificar está rota de una
+forma que cuesta mucho más descubrir.
+
+**Fuera de producción sólo avisa** (`WARN`, sigue arrancando). El no-op es
+deliberado en local, en `make seed` y en los e2e, que bootean sin credenciales
+de Brevo a propósito.
 
 ### Trigger de deploy (CI)
 
