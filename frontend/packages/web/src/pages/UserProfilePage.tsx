@@ -17,12 +17,12 @@ import type { Badge, Pet, UserReview, AbuseReason } from '@shared/types';
 import { BADGE_META } from '@shared/types';
 import { ListState } from '../components/list/ListState';
 import { PawPlaceholder } from '../components/PawPlaceholder';
+import { PetGridCard } from '../components/PetGridCard';
 import { Icon } from '../components/Icon';
 import { useAuth } from '../context/AuthContext';
 import { getErrorMessage } from '@shared/utils/apiErrors';
-import { cloudinaryThumb, cloudinaryCardThumb } from '@shared/utils/cloudinaryThumb';
+import { cloudinaryThumb } from '@shared/utils/cloudinaryThumb';
 import { splitOwnedPets } from '@shared/utils/ownedPetBuckets';
-import { statusBadgeBg } from '../utils/statusBadge';
 import { getDateLocale } from '@shared/utils/dateLocale';
 
 const BADGE_COLOR: Record<string, string> = {
@@ -92,55 +92,25 @@ function StarSelector({ value, onChange }: { value: number; onChange: (n: number
 /**
  * Tarjeta de mascota del perfil público.
  *
- * Vive acá y no en un componente compartido porque `PetCardWeb` se borró como
- * código muerto y cada pantalla dibuja la suya: espeja la de `AdoptPage`.
+ * La etiqueta SIEMPRE sale de `pets:status.<status>`: esta grilla mezcla
+ * estados (perdida, callejera, encontrada, adoptada), así que un texto fijo
+ * mentiría en la mayoría de las tarjetas — al revés que `AdoptPage`, cuya
+ * allowlist tiene un solo estado y por eso lo fija.
+ *
+ * La variante `feed` y no `adopt` está MEDIDA: esta grilla es de 2 columnas
+ * dentro de una columna de ~789px, o sea tarjetas de ~376px — casi el doble
+ * que las ~280px de Adoptar, que por eso pide 450. `feed` es [600, 300] y
+ * además calza el 2:1 de `h-48`.
  */
 function ProfilePetCard({ pet }: { pet: Pet }) {
   const { t } = useTranslation(['pets']);
 
   return (
-    <Link to={`/pets/${pet.id}`} className="block group">
-      <div className="bg-white dark:bg-gray-900 rounded-2xl overflow-hidden shadow-sm border border-gray-100 dark:border-gray-800 hover:shadow-md transition-shadow">
-        <div className="h-48 bg-gray-100 dark:bg-gray-800 relative overflow-hidden">
-          {pet.photos?.[0]?.url ? (
-            <img
-              // Variante `feed` y no `adopt`, MEDIDO: esta grilla es de 2
-              // columnas dentro de una columna de ~789px, o sea tarjetas de
-              // ~376px — casi el doble que las ~280px de Adoptar, que por eso
-              // pide 450. `feed` es [600, 300] y además calza el 2:1 de `h-48`.
-              src={cloudinaryCardThumb(pet.photos[0].url, 'feed')}
-              loading="lazy"
-              alt={pet.name}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center">
-              <PawPlaceholder className="w-2/5 max-w-20" />
-            </div>
-          )}
-          {/* La etiqueta SIEMPRE sale de `pets:status.<status>`: esta grilla
-              mezcla estados (perdida, callejera, encontrada), así que un texto
-              fijo mentiría en la mayoría de las tarjetas. */}
-          <span className={`absolute top-3 left-3 text-xs font-bold text-white px-2 py-1 rounded-md ${statusBadgeBg(pet.status)}`}>
-            {t(`pets:status.${pet.status}`).toUpperCase()}
-          </span>
-        </div>
-        <div className="p-4">
-          <h3 className="font-display text-lg font-semibold text-gray-900 dark:text-gray-100">{pet.name}</h3>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5 min-h-[1.25rem]">
-            {[pet.type && t(`pets:types.${pet.type}`), pet.breed, pet.color].filter(Boolean).join(' · ')}
-          </p>
-          <p className="flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400 mt-1 min-h-[1.25rem]">
-            {pet.city && (
-              <>
-                <Icon name="location-on" className="h-4 w-4 shrink-0" />
-                <span className="truncate">{pet.city}</span>
-              </>
-            )}
-          </p>
-        </div>
-      </div>
-    </Link>
+    <PetGridCard
+      pet={pet}
+      thumb="feed"
+      badgeLabel={t(`pets:status.${pet.status}`).toUpperCase()}
+    />
   );
 }
 
