@@ -1,12 +1,10 @@
-import { Link } from 'react-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { cloudinaryCardThumb } from '@shared/utils/cloudinaryThumb';
 import { useAdoptions } from '@shared/hooks';
-import { statusBadgeBg } from '../utils/statusBadge';
 import type { Pet, PetType } from '@shared/types';
 import { Icon } from '../components/Icon';
 import { PawPlaceholder } from '../components/PawPlaceholder';
+import { PetGridCard } from '../components/PetGridCard';
 import { ListState } from '../components/list/ListState';
 
 const PET_TYPES: { value: PetType; labelKey: string; icon: string }[] = [
@@ -182,81 +180,39 @@ export function AdoptPage() {
         >
           {(pets) => (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {/* La etiqueta va FIJA y no derivada del status: esta grilla la
+                alimenta `GET /api/adoptions`, cuya allowlist
+                (`AdoptionVisibleStatuses`) tiene un solo estado. El color sí
+                sale del status, adentro del componente. */}
             {pets.map((pet: Pet) => (
-              <Link key={pet.id} to={`/pets/${pet.id}`} className="block group">
-                <div className="bg-white dark:bg-gray-900 rounded-2xl overflow-hidden shadow-sm border border-gray-100 dark:border-gray-800 hover:shadow-md transition-shadow">
-                  {/* Foto */}
-                  <div className="h-48 bg-gray-100 dark:bg-gray-800 relative overflow-hidden">
-                    {pet.photos?.[0]?.url ? (
-                      <img
-                        src={cloudinaryCardThumb(pet.photos[0].url, 'adopt')}
-                        loading="lazy"
-                        alt={pet.name}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center"><PawPlaceholder className="w-2/5 max-w-20" /></div>
-                    )}
-                    <span className={`absolute top-3 left-3 text-xs font-bold text-white px-2 py-1 rounded-md ${statusBadgeBg(pet.status)}`}>
-                      {t('pets:status.adoption').toUpperCase()}
-                    </span>
-                  </div>
-                  {/* Info */}
-                  <div className="p-4">
-                    {/* El peso va explicito. `font-display` fija la FAMILIA, no el
-                        peso, y el preflight de Tailwind v4 pone los h1-h6 en
-                        `font-weight: inherit`, asi que cambiar `font-bold` por
-                        `font-display` a secas dejaba el nombre en 400: el mismo
-                        peso que la linea de metadatos de abajo, distinguiendose
-                        solo por tamaño. Medido. Los tokens `text-headline` y
-                        `text-display` si traen peso propio; `text-lg` no. */}
-                    <h3 className="font-display text-lg font-semibold text-gray-900 dark:text-gray-100">
-                      {pet.name}
-                    </h3>
+              <PetGridCard
+                key={pet.id}
+                pet={pet}
+                thumb="adopt"
+                badgeLabel={t('pets:status.adoption').toUpperCase()}
+              >
+                {/* Reserve the comment height (2 lines) and show a placeholder
+                    when empty so every card stays the same height. */}
+                <p
+                  className={`text-sm line-clamp-2 min-h-[2.5rem] mt-2 ${
+                    pet.description
+                      ? 'text-gray-500 dark:text-gray-400'
+                      : 'italic text-gray-500 dark:text-gray-400'
+                  }`}
+                >
+                  {pet.description || t('pets:card.noComment')}
+                </p>
 
-                    {/* Una linea de metadatos en vez de cuatro chips, como en el
-                        diseño. Se conservan los mismos datos: tipo, raza y color
-                        van juntos, y la ciudad baja a su propia linea con el
-                        icono de ubicacion en lugar del emoji. */}
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5 min-h-[1.25rem]">
-                      {[pet.type && t(`pets:types.${pet.type}`), pet.breed, pet.color]
-                        .filter(Boolean)
-                        .join(' · ')}
-                    </p>
-
-                    <p className="flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400 mt-1 min-h-[1.25rem]">
-                      {pet.city && (
-                        <>
-                          <Icon name="location-on" className="h-4 w-4 shrink-0" />
-                          <span className="truncate">{pet.city}</span>
-                        </>
-                      )}
-                    </p>
-
-                    {/* Reserve the comment height (2 lines) and show a placeholder
-                        when empty so every card stays the same height. */}
-                    <p
-                      className={`text-sm line-clamp-2 min-h-[2.5rem] mt-2 ${
-                        pet.description
-                          ? 'text-gray-500 dark:text-gray-400'
-                          : 'italic text-gray-500 dark:text-gray-400'
-                      }`}
-                    >
-                      {pet.description || t('pets:card.noComment')}
-                    </p>
-
-                    {/* Un <span>, no un <Link> ni un <button>: la tarjeta ENTERA
-                        ya es el link, y anidar un interactivo dentro de otro es
-                        HTML invalido y le da dos destinos al mismo destino a un
-                        lector de pantalla. Esto es la senal visual del diseño;
-                        lo clickeable sigue siendo toda la tarjeta. */}
-                    <span className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-primary dark:text-primary-light">
-                      {t('adoption:section.viewProfile')}
-                      <Icon name="chevron-right" className="h-4 w-4" />
-                    </span>
-                  </div>
-                </div>
-              </Link>
+                {/* Un <span>, no un <Link> ni un <button>: la tarjeta ENTERA
+                    ya es el link, y anidar un interactivo dentro de otro es
+                    HTML invalido y le da dos destinos al mismo destino a un
+                    lector de pantalla. Esto es la senal visual del diseño;
+                    lo clickeable sigue siendo toda la tarjeta. */}
+                <span className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-primary dark:text-primary-light">
+                  {t('adoption:section.viewProfile')}
+                  <Icon name="chevron-right" className="h-4 w-4" />
+                </span>
+              </PetGridCard>
             ))}
           </div>
           )}
