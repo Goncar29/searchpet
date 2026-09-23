@@ -75,6 +75,12 @@ func (h *PetHandler) CreatePet(c *gin.Context) {
 
 // GetPet godoc
 // GET /api/pets/:id
+//
+// Ruta pública con auth OPCIONAL (middleware.OptionalAuth en router.go):
+// owner.phone sólo viaja si el status está en domain.ContactVisibleStatuses
+// o si el viewer autenticado es el propio dueño — ver
+// dto.ScrubOwnerPhoneForViewer. Sin token, getUserUUID devuelve uuid.Nil, que
+// nunca matchea un OwnerID real.
 func (h *PetHandler) GetPet(c *gin.Context) {
 	id := c.Param("id")
 
@@ -88,7 +94,9 @@ func (h *PetHandler) GetPet(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, dto.ToPetResponse(pet))
+	resp := dto.ToPetResponse(pet)
+	dto.ScrubOwnerPhoneForViewer(&resp, getUserUUID(c))
+	c.JSON(http.StatusOK, resp)
 }
 
 // GetMyPets godoc

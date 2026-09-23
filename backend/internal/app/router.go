@@ -368,7 +368,6 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 		public.GET("/stats", statsHandler.GetStats)
 
 		public.GET("/pets/search", petHandler.SearchPets)
-		public.GET("/pets/:id", petHandler.GetPet)
 
 		public.GET("/adoptions", petHandler.ListAdoptions)
 
@@ -418,6 +417,17 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 	}
 
 	// ----------------------------------------
+	// DETALLE DE MASCOTA — público con auth opcional. Anónimo o logueado, la
+	// mascota se ve igual; lo que cambia con el viewer es owner.phone
+	// (dto.ScrubOwnerPhoneForViewer, ver domain.ContactVisibleStatuses).
+	// ----------------------------------------
+	petDetailPublic := router.Group("/api")
+	petDetailPublic.Use(middleware.OptionalAuth(cfg.JWTSecret, passwordChangedAt))
+	{
+		petDetailPublic.GET("/pets/:id", petHandler.GetPet)
+	}
+
+	// ----------------------------------------
 	// RUTAS PROTEGIDAS
 	// ----------------------------------------
 	protected := router.Group("/api")
@@ -434,11 +444,12 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 		protected.GET("/pets/reported", petHandler.GetReportedPets)
 		// Estática, así que Gin la prioriza sobre cualquier /pets/:id — mismo
 		// criterio que /pets/mine y /pets/reported. Verificado: no hay ningún
-		// GET /pets/:id en el grupo protected (el único vive en public), y de
-		// todos modos Gin arma un único árbol de rutas por método HTTP
-		// combinando TODOS los grupos del engine, no uno por grupo — lo
-		// confirman /pets/search y /pets/mine, que ya conviven en producción
-		// con public.GET("/pets/:id", ...) sin panic ni conflicto.
+		// GET /pets/:id en el grupo protected (el único vive en petDetailPublic,
+		// con OptionalAuth), y de todos modos Gin arma un único árbol de rutas
+		// por método HTTP combinando TODOS los grupos del engine, no uno por
+		// grupo — lo confirman /pets/search y /pets/mine, que ya conviven en
+		// producción con petDetailPublic.GET("/pets/:id", ...) sin panic ni
+		// conflicto.
 		protected.GET("/pets/stray-candidates", petHandler.StrayCandidates)
 		protected.PUT("/pets/:id", petHandler.UpdatePet)
 		protected.DELETE("/pets/:id", petHandler.DeletePet)

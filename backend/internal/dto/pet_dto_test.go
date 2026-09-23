@@ -69,6 +69,67 @@ func TestToPetResponseIncludesCity(t *testing.T) {
 	}
 }
 
+// ScrubOwnerPhoneForViewer: owner.phone viaja sólo en domain.ContactVisibleStatuses
+// (lost/stray/adoption) o cuando el viewer es el propio dueño. Las dos mitades:
+// visible en los tres que exponen contacto, oculto en los cuatro que no.
+func petWithOwnerPhone(status string, ownerID uuid.UUID, phone string) PetResponse {
+	return PetResponse{
+		Status:  status,
+		OwnerID: &ownerID,
+		Owner: &PetOwnerResponse{
+			ID:    ownerID,
+			Name:  "Dueño",
+			Phone: phone,
+		},
+	}
+}
+
+func TestScrubOwnerPhoneForViewer_ExposesPhone_AnonimoEnEstadosDeContactoActivo(t *testing.T) {
+	ownerID := uuid.New()
+	for _, status := range []string{domain.PetStatusLost, domain.PetStatusStray, domain.PetStatusAdoption} {
+		resp := petWithOwnerPhone(status, ownerID, "+59899123456")
+		ScrubOwnerPhoneForViewer(&resp, uuid.Nil) // viewer anónimo
+		if resp.Owner.Phone != "+59899123456" {
+			t.Errorf("status %q anónimo: esperaba teléfono presente, vino %q", status, resp.Owner.Phone)
+		}
+	}
+}
+
+func TestScrubOwnerPhoneForViewer_OcultaPhone_AnonimoFueraDeContactoActivo(t *testing.T) {
+	ownerID := uuid.New()
+	for _, status := range []string{
+		domain.PetStatusRegistered,
+		domain.PetStatusArchived,
+		domain.PetStatusFound,
+		domain.PetStatusAdopted,
+	} {
+		resp := petWithOwnerPhone(status, ownerID, "+59899123456")
+		ScrubOwnerPhoneForViewer(&resp, uuid.Nil) // viewer anónimo
+		if resp.Owner.Phone != "" {
+			t.Errorf("status %q anónimo: esperaba teléfono ausente, vino %q", status, resp.Owner.Phone)
+		}
+	}
+}
+
+func TestScrubOwnerPhoneForViewer_ExponeAlDueno_AunEnEstadoNoActivo(t *testing.T) {
+	ownerID := uuid.New()
+	resp := petWithOwnerPhone(domain.PetStatusRegistered, ownerID, "+59899123456")
+	ScrubOwnerPhoneForViewer(&resp, ownerID) // viewer = dueño
+	if resp.Owner.Phone != "+59899123456" {
+		t.Errorf("dueño autenticado: esperaba teléfono presente, vino %q", resp.Owner.Phone)
+	}
+}
+
+func TestScrubOwnerPhoneForViewer_OcultaAOtroUsuarioAutenticado_EnEstadoNoActivo(t *testing.T) {
+	ownerID := uuid.New()
+	otherUserID := uuid.New()
+	resp := petWithOwnerPhone(domain.PetStatusRegistered, ownerID, "+59899123456")
+	ScrubOwnerPhoneForViewer(&resp, otherUserID) // viewer autenticado, no es el dueño
+	if resp.Owner.Phone != "" {
+		t.Errorf("otro usuario autenticado: esperaba teléfono ausente, vino %q", resp.Owner.Phone)
+	}
+}
+
 // Las dos mitades. Sólo la primera pasaría con la allowlist invertida, y sólo la
 // segunda pasaría con el campo nunca poblado.
 func TestToPetResponse_LastSeenAt_SoloEnLostYStray(t *testing.T) {
