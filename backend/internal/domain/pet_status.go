@@ -133,6 +133,34 @@ var PublicProfileVisibleStatuses = []string{
 	PetStatusAdopted,
 }
 
+// ContactVisibleStatuses son los estados en los que el teléfono del DUEÑO se
+// expone en GET /api/pets/:id a un visitante anónimo o a otro usuario
+// autenticado que no es el dueño. Existe para que quien encuentra una
+// mascota perdida o quiere adoptarla pueda contactar al dueño — decisión del
+// usuario, hallazgo de la auditoría de seguridad del 2026-09-23.
+//
+// Fuera de esta lista (registered, archived, found, adopted) no hay búsqueda
+// activa que el teléfono sirva: exponerlo sería el mismo "inventario de qué
+// animales tiene y dónde vive" que la regla #63 prohíbe para el perfil
+// público. El dueño autenticado sigue viendo su propio teléfono en
+// cualquier estado — eso lo decide el caller (dto.ScrubOwnerPhoneForViewer),
+// no esta lista.
+//
+// EXPLÍCITA y no derivada, igual que las otras seis de este archivo: si
+// mañana se agrega un estado hay que decidir si entra, y el default —quedar
+// afuera— es el que no publica nada de nadie.
+var ContactVisibleStatuses = []string{PetStatusLost, PetStatusStray, PetStatusAdoption}
+
+// IsContactVisible dice si status está en ContactVisibleStatuses.
+func IsContactVisible(status string) bool {
+	for _, v := range ContactVisibleStatuses {
+		if v == status {
+			return true
+		}
+	}
+	return false
+}
+
 // LastSeenRelevantStatuses son los estados en los que "visto por última vez"
 // significa algo: los dos en los que hay una búsqueda abierta.
 //

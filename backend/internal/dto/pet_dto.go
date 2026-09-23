@@ -254,6 +254,30 @@ func ToPetResponse(pet *domain.Pet) PetResponse {
 	return resp
 }
 
+// ScrubOwnerPhoneForViewer borra owner.phone de un PetResponse salvo que el
+// status de la mascota esté en domain.ContactVisibleStatuses o el viewer sea
+// el propio dueño. Separada de ToPetResponse a propósito: esa función la usan
+// el feed, /pets/mine, la búsqueda pública, adopciones y el perfil, y
+// NINGUNO de esos callers tiene (ni debe tener) la noción de "viewer
+// autenticado" que esto necesita. Sólo GET /api/pets/:id —el único camino
+// público que resuelve una mascota por ID sin acotar por estado— la llama,
+// así que el resto de ToPetResponse queda sin tocar (ver
+// odd/tasks/telefono-solo-en-busqueda-activa.md).
+//
+// Lee Status y OwnerID de resp, no de un *domain.Pet aparte: ToPetResponse ya
+// los copió 1:1, y pedir el pet de nuevo sería una segunda fuente de verdad
+// que podría desalinearse.
+func ScrubOwnerPhoneForViewer(resp *PetResponse, viewerID uuid.UUID) {
+	if resp.Owner == nil {
+		return
+	}
+	isOwner := resp.OwnerID != nil && viewerID != uuid.Nil && *resp.OwnerID == viewerID
+	if domain.IsContactVisible(resp.Status) || isOwner {
+		return
+	}
+	resp.Owner.Phone = ""
+}
+
 // ToPetListResponse convierte un slice de domain.Pet en un slice de PetResponse.
 func ToPetListResponse(pets []domain.Pet) []PetResponse {
 	result := make([]PetResponse, len(pets))
