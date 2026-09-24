@@ -12,7 +12,7 @@ import (
 // newTestHandler builds a Handler whose error paths (missing/invalid ticket)
 // return before any Hub interaction, so a non-running Hub is sufficient.
 func newTestHandler() *Handler {
-	return NewHandler(NewHub(nil), NewTicketStore())
+	return NewHandler(NewHub(nil), NewTicketStore(), nil)
 }
 
 // runConnect drives Connect with the given ticket query value and returns the
