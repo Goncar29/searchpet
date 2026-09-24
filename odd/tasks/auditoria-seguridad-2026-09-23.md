@@ -78,10 +78,22 @@ recuperación, key de Jina, `/api/ops/quota`, `phone_verified`) NO entran acá.
 - [ ] **S5 — `/api/reports/nearby` acepta `lat=nan`.**
   `handler/report_handler.go:163` sin `validCoordinates` (sus hermanos
   `pet_handler`/`vet_handler` sí) → 500 + despierta Neon. Test del 400.
-- [ ] **S6 — WebSocket `InsecureSkipVerify: true`.**
-  `websocket/handler.go:68`. Reemplazar por `OriginPatterns` desde
-  `CORSAllowedOrigins`. Mitigado por ticket de un solo uso, pero es defensa
-  en profundidad.
+- [x] **S6 — WebSocket sin chequeo de origen.** `InsecureSkipVerify` →
+  `OriginPatterns` de `middleware.WebSocketOriginPatterns`, que sale de la
+  MISMA `CORS_ALLOWED_ORIGINS` que CORS (host sin esquema; en development
+  suma `localhost:*`). Mobile no se rompe: React Native 0.76 en Android
+  manda un Origin con el host de la propia URL del socket
+  (`WebSocketModule.getDefaultOrigin`) y `websocket.Accept` acepta el mismo
+  host; sin Origin también entra. Tests con handshake real (403 ajeno, 101
+  configurado / sin Origin / mismo host). Mutaciones: volver a
+  `InsecureSkipVerify` → cae el test del origen ajeno; sacar el filtro de
+  host vacío o el comodín de dev → cae su caso. `/verify` con el backend en
+  `ENVIRONMENT=production`: el chat web conecta y recibe `chat_message` en
+  vivo (5/5 por el socket); `curl` con Origin ajeno → 403, `localhost:3000`
+  → 403 (sin comodín en prod), mismo host → 101.
+  **Hallazgo lateral, no de S6:** en 2 de 5 corridas el `chat_message` llegó
+  por los tres sockets pero el texto no apareció en 8 s. El frame llega
+  igual; lo intermitente es el render de la web. A investigar aparte.
 
 ### Baja
 - [ ] **S7 — `DELETE /api/devices/:token` sin chequeo de dueño.**
