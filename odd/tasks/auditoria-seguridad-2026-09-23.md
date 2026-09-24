@@ -91,9 +91,15 @@ recuperación, key de Jina, `/api/ops/quota`, `phone_verified`) NO entran acá.
   `ENVIRONMENT=production`: el chat web conecta y recibe `chat_message` en
   vivo (5/5 por el socket); `curl` con Origin ajeno → 403, `localhost:3000`
   → 403 (sin comodín en prod), mismo host → 101.
-  **Hallazgo lateral, no de S6:** en 2 de 5 corridas el `chat_message` llegó
-  por los tres sockets pero el texto no apareció en 8 s. El frame llega
-  igual; lo intermitente es el render de la web. A investigar aparte.
+  **CORREGIDO: el "render intermitente" del chat NO existe; era la sonda.**
+  El `getByText` de Playwright es estricto: el mensaje aparece DOS veces
+  (vista previa de la lista + burbuja del hilo), eso tira error, el `catch`
+  lo leía como "no apareció", y la corrida "exitosa" en realidad había
+  matcheado sólo la lista. Medido bien (burbujas del hilo + cuerpo de cada
+  `GET /api/messages/:id`): 5/5, el hilo lo muestra en 170–225 ms y los GET
+  ya lo traen. Lo único real: cada pestaña abre 3 WebSockets y cada mensaje
+  dispara 3 GET idénticos (cada `useWebSocket` abre su propia conexión).
+  Funciona; es ineficiencia, no defecto.
 
 ### Baja
 - [ ] **S7 — `DELETE /api/devices/:token` sin chequeo de dueño.**
