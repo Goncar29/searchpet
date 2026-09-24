@@ -24,7 +24,7 @@ recuperación, key de Jina, `/api/ops/quota`, `phone_verified`) NO entran acá.
 ## Tasks
 
 ### Alta
-- [ ] **S1 — `X-Forwarded-For` spoofeable.** Gin v1.9.1 sin
+- [x] **S1 — `X-Forwarded-For` spoofeable.** Gin v1.9.1 sin
   `SetTrustedProxies` confía en XFF de cualquiera → los rate limits por IP
   (`middleware/rate_limit.go:31`) se saltean. Fix investigado:
   `SetTrustedProxies([]string{"10.0.0.0/8"})` +
@@ -126,8 +126,20 @@ recuperación, key de Jina, `/api/ops/quota`, `phone_verified`) NO entran acá.
   `952976c1`). S1 en implementación (writer delegado, rama
   `fix/trusted-proxies-client-ip`).
 
-- 2026-09-23: S1 implementado y revisado (`3567d3ec` + `20c938e1`); falta
-  PR, merge y la verificación en prod.
+- 2026-09-23: S1 implementado y revisado (`3567d3ec` + `20c938e1`).
+- 2026-09-24: **S1 mergeado (#265, squash `7986cee8`)**, CI de `main` 6/6 con
+  Deploy (run 35946363831). **Verificado en prod por comportamiento**: antes
+  del deploy, 7 logins rotando `X-Forwarded-For` en un minuto → siete 401
+  (límite 5, el bug reproducido); después, ronda de 6 → cinco 401 y **429**.
+  Hallazgo lateral: Cloudflare rechaza con `error code: 1000` todo request
+  que trae su propio `CF-Connecting-IP` — el header no es inyectable desde
+  afuera. Pendiente: leer `remote_addr` en los logs de Render para confirmar
+  el 10.x (el MCP de Render no conectaba). Sugerencias de la revisión
+  diferidas como S1b.
+- [ ] **S1b — dos sugerencias de la revisión de S1:** (1) el test del orden
+  RequestLog/Recovery arma su propia cadena, así que reordenar `router.go` no
+  lo rompe — extraer el setup base a una función usada por los dos; (2) el
+  camino de error de `ConfigureClientIP` (CIDR inválido) no tiene test.
 
 ## Next step
 
