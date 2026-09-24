@@ -7,7 +7,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"testing"
+	"time"
 )
 
 // TestPetOwnerPhoneVisibility_FullFlow reproduce contra Postgres real el
@@ -161,9 +163,15 @@ func TestSearchPets_OwnerPhoneVisibility_FullFlow(t *testing.T) {
 		t.Fatalf("update profile: want 200, got %d", profileResp.StatusCode)
 	}
 
+	// Raza única por corrida: la búsqueda filtra por ella (ILIKE) para que el
+	// resultado dependa sólo de ESTA mascota y no de cuántas otras haya en la
+	// base — sin el filtro, con más de una página de lost/found el test daba
+	// un falso "no apareció" (sugerencia de la revisión de S2b, S2c).
+	breed := fmt.Sprintf("raza-e2e-%d", time.Now().UnixNano())
 	createBody, _ := json.Marshal(map[string]interface{}{
-		"name": "SearchPhoneVisibilityPet",
-		"type": "perro",
+		"name":  "SearchPhoneVisibilityPet",
+		"type":  "perro",
+		"breed": breed,
 	})
 	createReq, _ := http.NewRequest(http.MethodPost, baseURL+"/api/pets", bytes.NewReader(createBody))
 	createReq.Header.Set("Authorization", fmt.Sprintf("Bearer %s", ownerToken))
@@ -205,7 +213,7 @@ func TestSearchPets_OwnerPhoneVisibility_FullFlow(t *testing.T) {
 	// ausente o sin phone).
 	searchPhone := func(t *testing.T, status string) string {
 		t.Helper()
-		req, _ := http.NewRequest(http.MethodGet, baseURL+"/api/pets/search?status="+status+"&limit=100", nil)
+		req, _ := http.NewRequest(http.MethodGet, baseURL+"/api/pets/search?status="+status+"&breed="+url.QueryEscape(breed), nil)
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
 			t.Fatalf("search status=%s: request failed: %v", status, err)
