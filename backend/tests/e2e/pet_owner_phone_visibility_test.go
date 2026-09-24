@@ -133,3 +133,126 @@ func TestPetOwnerPhoneVisibility_FullFlow(t *testing.T) {
 		t.Errorf("lost + anónimo: esperaba %q, vino %q", ownerPhone, phone)
 	}
 }
+
+// TestSearchPets_OwnerPhoneVisibility_FullFlow reproduce el hallazgo lateral
+// S2b de la auditoría del 2026-09-23 contra el router real: GET
+// /api/pets/search precarga Owner (pet_repository.go Search) y "found" es un
+// valor aceptado por ?status= (domain.PublicSearchableStatuses) que queda
+// FUERA de domain.ContactVisibleStatuses. Sigue la transición real de la
+// misma mascota — publish-lost, después found — en vez de fabricar el estado,
+// igual que TestPetOwnerPhoneVisibility_FullFlow de arriba.
+func TestSearchPets_OwnerPhoneVisibility_FullFlow(t *testing.T) {
+	baseURL, cleanup := startTestServer(t)
+	defer cleanup()
+
+	ownerToken, _ := registerAndLogin(t, baseURL)
+
+	const ownerPhone = "+59899123457"
+	profileBody, _ := json.Marshal(map[string]interface{}{"phone": ownerPhone})
+	profileReq, _ := http.NewRequest(http.MethodPut, baseURL+"/api/auth/me", bytes.NewReader(profileBody))
+	profileReq.Header.Set("Authorization", fmt.Sprintf("Bearer %s", ownerToken))
+	profileReq.Header.Set("Content-Type", "application/json")
+	profileResp, err := http.DefaultClient.Do(profileReq)
+	if err != nil {
+		t.Fatalf("update profile: request failed: %v", err)
+	}
+	defer profileResp.Body.Close()
+	if profileResp.StatusCode != http.StatusOK {
+		t.Fatalf("update profile: want 200, got %d", profileResp.StatusCode)
+	}
+
+	createBody, _ := json.Marshal(map[string]interface{}{
+		"name": "SearchPhoneVisibilityPet",
+		"type": "perro",
+	})
+	createReq, _ := http.NewRequest(http.MethodPost, baseURL+"/api/pets", bytes.NewReader(createBody))
+	createReq.Header.Set("Authorization", fmt.Sprintf("Bearer %s", ownerToken))
+	createReq.Header.Set("Content-Type", "application/json")
+	createResp, err := http.DefaultClient.Do(createReq)
+	if err != nil {
+		t.Fatalf("create pet: request failed: %v", err)
+	}
+	defer createResp.Body.Close()
+	if createResp.StatusCode != http.StatusCreated {
+		t.Fatalf("create pet: want 201, got %d", createResp.StatusCode)
+	}
+	var created struct {
+		ID string `json:"id"`
+	}
+	if err := json.NewDecoder(createResp.Body).Decode(&created); err != nil {
+		t.Fatalf("create pet: decode failed: %v", err)
+	}
+
+	publishBody, _ := json.Marshal(map[string]interface{}{
+		"latitude":  -34.9011,
+		"longitude": -56.1645,
+		"note":      "se escapó por el patio",
+	})
+	publishReq, _ := http.NewRequest(http.MethodPost, baseURL+"/api/pets/"+created.ID+"/publish-lost", bytes.NewReader(publishBody))
+	publishReq.Header.Set("Authorization", fmt.Sprintf("Bearer %s", ownerToken))
+	publishReq.Header.Set("Content-Type", "application/json")
+	publishResp, err := http.DefaultClient.Do(publishReq)
+	if err != nil {
+		t.Fatalf("publish-lost: request failed: %v", err)
+	}
+	defer publishResp.Body.Close()
+	if publishResp.StatusCode != http.StatusOK {
+		t.Fatalf("publish-lost: want 200, got %d", publishResp.StatusCode)
+	}
+
+	// searchPhone busca la mascota creada dentro de los resultados de
+	// ?status=<status> y devuelve su owner.phone ("" si el bloque owner vino
+	// ausente o sin phone).
+	searchPhone := func(t *testing.T, status string) string {
+		t.Helper()
+		req, _ := http.NewRequest(http.MethodGet, baseURL+"/api/pets/search?status="+status+"&limit=100", nil)
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatalf("search status=%s: request failed: %v", status, err)
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("search status=%s: want 200, got %d", status, resp.StatusCode)
+		}
+		var body struct {
+			Data []struct {
+				ID    string `json:"id"`
+				Owner *struct {
+					Phone string `json:"phone"`
+				} `json:"owner"`
+			} `json:"data"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+			t.Fatalf("search status=%s: decode failed: %v", status, err)
+		}
+		for _, item := range body.Data {
+			if item.ID == created.ID {
+				if item.Owner == nil {
+					return ""
+				}
+				return item.Owner.Phone
+			}
+		}
+		t.Fatalf("search status=%s: la mascota %s no apareció entre %d resultados", status, created.ID, len(body.Data))
+		return ""
+	}
+
+	if phone := searchPhone(t, "lost"); phone != ownerPhone {
+		t.Errorf("search ?status=lost: esperaba %q, vino %q", ownerPhone, phone)
+	}
+
+	markFoundReq, _ := http.NewRequest(http.MethodPatch, baseURL+"/api/pets/"+created.ID+"/found", nil)
+	markFoundReq.Header.Set("Authorization", fmt.Sprintf("Bearer %s", ownerToken))
+	markFoundResp, err := http.DefaultClient.Do(markFoundReq)
+	if err != nil {
+		t.Fatalf("mark as found: request failed: %v", err)
+	}
+	defer markFoundResp.Body.Close()
+	if markFoundResp.StatusCode != http.StatusOK {
+		t.Fatalf("mark as found: want 200, got %d", markFoundResp.StatusCode)
+	}
+
+	if phone := searchPhone(t, "found"); phone != "" {
+		t.Errorf("search ?status=found (S2b): esperaba owner.phone vacío para un anónimo, vino %q", phone)
+	}
+}

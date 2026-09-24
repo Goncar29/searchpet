@@ -94,3 +94,61 @@ func TestToShareLinkPublicResponse_NoExponeElMicrochip(t *testing.T) {
 }
 
 func strPtr(s string) *string { return &s }
+
+// La landing de share es publica y SIN sesion — cualquiera con el token la
+// lee. Hallazgo lateral S2b de la auditoria de seguridad 2026-09-23, mismo
+// patron que pet_service.SearchPets: el link no expira mientras la mascota
+// esta en lost/stray (regla #16 de CLAUDE.md) y tampoco inmediatamente
+// despues de resolverse (ExpiresAt da un margen de 30 dias), asi que un link
+// para una mascota "found" sigue siendo un link vivo. Antes del fix,
+// ToShareLinkPublicResponse copiaba Owner.Phone sin mirar el estado.
+func TestToShareLinkPublicResponse_OcultaTelefonoFueraDeContactoActivo(t *testing.T) {
+	for _, status := range []string{
+		domain.PetStatusFound,
+		domain.PetStatusRegistered,
+		domain.PetStatusArchived,
+		domain.PetStatusAdopted,
+	} {
+		link := &domain.ShareLink{
+			ShareToken: "tok",
+			Pet: domain.Pet{
+				Name:   "Koda",
+				Type:   "perro",
+				Status: status,
+				Owner:  domain.User{Name: "Dueño", Phone: "+59899123456"},
+			},
+		}
+
+		resp := ToShareLinkPublicResponse(link)
+
+		if resp.Owner.Phone != "" {
+			t.Errorf("status %q: esperaba owner.phone vacío (fuera de búsqueda activa), vino %q", status, resp.Owner.Phone)
+		}
+	}
+}
+
+// La otra mitad: lost/stray/adoption SÍ tienen que seguir mostrando el
+// teléfono — es lo que permite contactar al dueño desde un link compartido.
+func TestToShareLinkPublicResponse_ExponeTelefonoEnContactoActivo(t *testing.T) {
+	for _, status := range []string{
+		domain.PetStatusLost,
+		domain.PetStatusStray,
+		domain.PetStatusAdoption,
+	} {
+		link := &domain.ShareLink{
+			ShareToken: "tok",
+			Pet: domain.Pet{
+				Name:   "Koda",
+				Type:   "perro",
+				Status: status,
+				Owner:  domain.User{Name: "Dueño", Phone: "+59899123456"},
+			},
+		}
+
+		resp := ToShareLinkPublicResponse(link)
+
+		if resp.Owner.Phone != "+59899123456" {
+			t.Errorf("status %q: esperaba owner.phone presente (búsqueda activa), vino %q", status, resp.Owner.Phone)
+		}
+	}
+}

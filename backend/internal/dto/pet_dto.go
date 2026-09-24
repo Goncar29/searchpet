@@ -259,10 +259,16 @@ func ToPetResponse(pet *domain.Pet) PetResponse {
 // el propio dueño. Separada de ToPetResponse a propósito: esa función la usan
 // el feed, /pets/mine, la búsqueda pública, adopciones y el perfil, y
 // NINGUNO de esos callers tiene (ni debe tener) la noción de "viewer
-// autenticado" que esto necesita. Sólo GET /api/pets/:id —el único camino
-// público que resuelve una mascota por ID sin acotar por estado— la llama,
-// así que el resto de ToPetResponse queda sin tocar (ver
-// odd/tasks/telefono-solo-en-busqueda-activa.md).
+// autenticado" que esto necesita.
+//
+// La llaman GET /api/pets/:id (con el viewer real, si hay token — ver
+// dto.ScrubOwnerPhonesForViewer para la variante en lista) y
+// pet_service.SearchPets con uuid.Nil, porque /api/pets/search y
+// /api/adoptions son públicos SIN OptionalAuth: no hay viewer que pudiera ser
+// el dueño, así que uuid.Nil nunca matchea y el scrub se aplica siempre según
+// el estado (hallazgo lateral S2b de la auditoría del 2026-09-23:
+// /pets/search precargaba Owner y "found" —alcanzable con ?status=found—
+// queda fuera de ContactVisibleStatuses).
 //
 // Lee Status y OwnerID de resp, no de un *domain.Pet aparte: ToPetResponse ya
 // los copió 1:1, y pedir el pet de nuevo sería una segunda fuente de verdad
@@ -276,6 +282,16 @@ func ScrubOwnerPhoneForViewer(resp *PetResponse, viewerID uuid.UUID) {
 		return
 	}
 	resp.Owner.Phone = ""
+}
+
+// ScrubOwnerPhonesForViewer es la variante en lista de ScrubOwnerPhoneForViewer,
+// para pet_service.SearchPets (la búsqueda pública y /api/adoptions comparten
+// ese código). Muta resps in place — cada PetResponse.Owner es un puntero, así
+// que iterar por índice alcanza.
+func ScrubOwnerPhonesForViewer(resps []PetResponse, viewerID uuid.UUID) {
+	for i := range resps {
+		ScrubOwnerPhoneForViewer(&resps[i], viewerID)
+	}
 }
 
 // ToPetListResponse convierte un slice de domain.Pet en un slice de PetResponse.

@@ -126,6 +126,7 @@ var noSonRespuestas = map[string]string{
 	"ToUpdateShelterDomain":      "request → entidad de dominio; nunca se serializa a JSON de vuelta",
 	"ToRegisterShelterDomain":    "request → entidad de dominio; nunca se serializa a JSON de vuelta",
 	"ScrubOwnerPhoneForViewer":   "muta un *PetResponse ya armado (borra owner.phone); no arma ni devuelve un cuerpo de respuesta, así que no hay nada que llamar con entrada vacía",
+	"ScrubOwnerPhonesForViewer":  "variante en lista de ScrubOwnerPhoneForViewer (pet_service.SearchPets) — muta []PetResponse ya armado, mismo motivo",
 }
 
 func TestDTO_MappersVaciosNoProducenSlicesNil(t *testing.T) {

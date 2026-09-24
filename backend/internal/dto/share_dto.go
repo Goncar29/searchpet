@@ -67,8 +67,29 @@ func ToGenerateShareLinkResponse(token string, baseURL string, expiresAt time.Ti
 	}
 }
 
+// shareLinkOwnerResponse arma el bloque owner de la landing pública: el
+// nombre siempre viaja (identifica al dueño), el teléfono sólo si el status
+// de la mascota está en domain.ContactVisibleStatuses. Separada de
+// ToShareLinkPublicResponse para que la guarda de estado quede en un solo
+// lugar, igual que dto.ScrubOwnerPhoneForViewer para GET /api/pets/:id.
+func shareLinkOwnerResponse(pet domain.Pet) ShareLinkOwnerResponse {
+	resp := ShareLinkOwnerResponse{Name: pet.Owner.Name}
+	if domain.IsContactVisible(pet.Status) {
+		resp.Phone = pet.Owner.Phone
+	}
+	return resp
+}
+
 // ToShareLinkPublicResponse convierte un domain.ShareLink en un ShareLinkPublicResponse.
 // Requiere que el share link haya sido cargado con su Pet, Pet.Owner y Pet.Photos (Preload).
+//
+// owner.phone sólo viaja si el status está en domain.ContactVisibleStatuses
+// (hallazgo lateral S2b de la auditoría de seguridad 2026-09-23). Esta ruta es
+// pública y SIN sesión (GET /api/share/:token) — no hay noción de "viewer
+// dueño" como en dto.ScrubOwnerPhoneForViewer, así que la condición es sólo el
+// estado. El link no expira mientras la mascota está en lost/stray (regla #16
+// de CLAUDE.md) y sigue vivo hasta 30 días después de resolverse, así que un
+// link para una mascota "found" es un camino real, no hipotético.
 func ToShareLinkPublicResponse(link *domain.ShareLink) ShareLinkPublicResponse {
 	photos := make([]PetPhotoResponse, len(link.Pet.Photos))
 	for i, p := range link.Pet.Photos {
@@ -99,10 +120,7 @@ func ToShareLinkPublicResponse(link *domain.ShareLink) ShareLinkPublicResponse {
 			Status:             link.Pet.Status,
 			Photos:             photos,
 		},
-		Owner: ShareLinkOwnerResponse{
-			Name:  link.Pet.Owner.Name,
-			Phone: link.Pet.Owner.Phone,
-		},
+		Owner: shareLinkOwnerResponse(link.Pet),
 		ExpiresAt: link.ExpiresAt,
 		ViewCount: link.ViewCount,
 	}
