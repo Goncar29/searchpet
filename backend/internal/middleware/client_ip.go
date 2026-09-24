@@ -90,6 +90,31 @@ func ConfigureClientIP(engine *gin.Engine) error {
 // ConfigureClientIP en silencio — ClientIP() volvería a devolver el peer
 // crudo en vez del visitante real — y nadie lo notaría hasta investigar por
 // qué el rate limit se puede volver a saltear.
+// NewBaseEngine construye el *gin.Engine base que usa SetupRouter: crea el
+// engine, aplica ConfigureClientIP y encadena RequestLog seguido de
+// gin.Recovery(), EN ESE ORDEN.
+//
+// Por qué existe como función propia y no como código suelto en router.go:
+// TestRequestLog_PorFueraDeRecoveryLogueaLosPanics arma su propia cadena de
+// middlewares desde cero, así que reordenar router.go NO rompe ningún test —
+// nada ata ese orden al router real (hallazgo de la revisión de S1, ver
+// odd/tasks/auditoria-seguridad-2026-09-23.md, S1b). Con esta función,
+// SetupRouter y el test de integración comparten el mismo código: reordenar
+// acá rompe tanto al test como al router.
+func NewBaseEngine(log *zap.Logger) (*gin.Engine, error) {
+	engine := gin.New()
+	if err := ConfigureClientIP(engine); err != nil {
+		return nil, err
+	}
+	// RequestLog va POR FUERA de Recovery, como el Logger de gin.Default():
+	// si fuera por dentro, un handler que paniquea desenrolla RequestLog antes
+	// de que loguee y el 500 no deja línea de acceso — justo la que trae
+	// client_ip y remote_addr.
+	engine.Use(RequestLog(log))
+	engine.Use(gin.Recovery())
+	return engine, nil
+}
+
 func RequestLog(log *zap.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		start := time.Now()
