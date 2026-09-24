@@ -10,6 +10,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"lost-pets/internal/middleware"
 	"nhooyr.io/websocket"
 )
 
@@ -22,6 +23,9 @@ func dialWithOrigin(t *testing.T, patterns []string, origin func(serverURL strin
 
 	hub := NewHub(nil)
 	go hub.Run()
+	// Registrado antes que srv.Close: los cleanups corren en orden inverso, así
+	// que el servidor cierra sus conexiones y recién después se para el Hub.
+	t.Cleanup(hub.Close)
 	store := NewTicketStore()
 	h := NewHandler(hub, store, patterns)
 
@@ -83,5 +87,29 @@ func TestConnect_AcceptsMissingOrigin(t *testing.T) {
 func TestConnect_AcceptsSameHostOrigin_ReactNativeAndroid(t *testing.T) {
 	if _, err := dialWithOrigin(t, prodPatterns, func(serverURL string) string { return serverURL }); err != nil {
 		t.Fatalf("upgrade with a same-host Origin (React Native Android) failed: %v", err)
+	}
+}
+
+// En development el socket acepta cualquier puerto de localhost, igual que
+// CORS. Usa los patrones que produce el código de verdad: el servidor de
+// prueba escucha en 127.0.0.1, así que "localhost:3000" NO es el mismo host y
+// sólo entra si el comodín matchea en websocket.Accept.
+func TestConnect_DevAcceptsLocalhostAnyPort(t *testing.T) {
+	dev := middleware.WebSocketOriginPatterns("development", "")
+	if _, err := dialWithOrigin(t, dev, func(string) string { return "http://localhost:3000" }); err != nil {
+		t.Fatalf("development: upgrade from localhost:3000 failed: %v", err)
+	}
+}
+
+// El comodín es de puerto, no de dominio: un host que sólo "contiene"
+// localhost no entra.
+func TestConnect_DevRejectsLocalhostLookalike(t *testing.T) {
+	dev := middleware.WebSocketOriginPatterns("development", "")
+	resp, err := dialWithOrigin(t, dev, func(string) string { return "http://evil.localhost:3000" })
+	if err == nil {
+		t.Fatal("development: upgrade from evil.localhost:3000 succeeded; want it rejected")
+	}
+	if resp == nil || resp.StatusCode != http.StatusForbidden {
+		t.Errorf("want 403 for a localhost look-alike, got resp=%v err=%v", resp, err)
 	}
 }
