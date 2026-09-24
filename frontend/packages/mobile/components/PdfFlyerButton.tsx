@@ -25,6 +25,7 @@ import { COLORS, SPACING, FONTS, RADIUS } from '../constants';
 import type { Pet, Report } from '../../shared/types';
 import { posterFraming } from '../utils/adoptionFraming';
 import { getDateLocale } from '../i18n/dateLocale';
+import { escapeHtml } from '../utils/escapeHtml';
 
 interface PdfFlyerButtonProps {
   pet: Pet;
@@ -67,23 +68,28 @@ export function PdfFlyerButton({ pet, reports = [] }: PdfFlyerButtonProps) {
 
       const { color: statusColor, header: statusText } = posterFraming(pet.status);
 
+      // Todo valor que no escribimos nosotros pasa por escapeHtml: el botón no
+      // es sólo del dueño, así que el texto lo publica una persona y el HTML se
+      // dibuja en el teléfono de otra (S4 de la auditoría 2026-09-23). El tipo
+      // también: sin traducción, i18next devuelve la clave con el valor crudo.
+      //
       // El volante se IMPRIME y se reparte, así que es la superficie donde el
       // idioma equivocado más molesta: no lo podés cambiar después de pegarlo
       // en un poste.
       const detailRows = [
-        pet.type ? `<tr><td class="lbl">${i18next.t('pets:share.flyerType')}</td><td class="val">${i18next.t(`pets:types.${pet.type}`)}</td></tr>` : '',
-        pet.breed ? `<tr><td class="lbl">${i18next.t('pets:share.flyerBreed')}</td><td class="val">${pet.breed}</td></tr>` : '',
-        pet.color ? `<tr><td class="lbl">${i18next.t('pets:share.flyerColor')}</td><td class="val">${pet.color}</td></tr>` : '',
-        pet.status === 'adoption' && pet.city ? `<tr><td class="lbl">${i18next.t('pets:share.flyerZone')}</td><td class="val">${pet.city}</td></tr>` : '',
-        lastSeenDate ? `<tr><td class="lbl">${i18next.t('pets:share.flyerSeen')}</td><td class="val">${lastSeenDate}</td></tr>` : '',
+        pet.type ? `<tr><td class="lbl">${i18next.t('pets:share.flyerType')}</td><td class="val">${escapeHtml(i18next.t(`pets:types.${pet.type}`))}</td></tr>` : '',
+        pet.breed ? `<tr><td class="lbl">${i18next.t('pets:share.flyerBreed')}</td><td class="val">${escapeHtml(pet.breed)}</td></tr>` : '',
+        pet.color ? `<tr><td class="lbl">${i18next.t('pets:share.flyerColor')}</td><td class="val">${escapeHtml(pet.color)}</td></tr>` : '',
+        pet.status === 'adoption' && pet.city ? `<tr><td class="lbl">${i18next.t('pets:share.flyerZone')}</td><td class="val">${escapeHtml(pet.city)}</td></tr>` : '',
+        lastSeenDate ? `<tr><td class="lbl">${i18next.t('pets:share.flyerSeen')}</td><td class="val">${escapeHtml(lastSeenDate)}</td></tr>` : '',
       ].filter(Boolean).join('');
 
       const photoHtml = primaryPhoto?.url
-        ? `<img src="${primaryPhoto.url}" class="photo" />`
+        ? `<img src="${escapeHtml(primaryPhoto.url)}" class="photo" />`
         : `<div class="photo-ph"><svg viewBox="6 38 122 72" width="150" fill="#C24E1A" xmlns="http://www.w3.org/2000/svg"><g transform="translate(4,20)"><circle cx="10" cy="82" r="4"/><circle cx="28" cy="72" r="5.5"/><circle cx="47" cy="61" r="7"/><g transform="translate(44.65,6.86) scale(0.85)"><ellipse cx="51" cy="64" rx="23" ry="19"/><circle cx="23" cy="43" r="9.5"/><circle cx="41" cy="28" r="10.5"/><circle cx="61" cy="28" r="10.5"/><circle cx="79" cy="43" r="9.5"/></g></g></svg></div>`;
 
       const descriptionHtml = description
-        ? `<div class="desc">${description}</div>`
+        ? `<div class="desc">${escapeHtml(description)}</div>`
         : '';
 
       // 3. HTML del volante — A4-ish layout con estilos inline-friendly
@@ -126,7 +132,7 @@ export function PdfFlyerButton({ pet, reports = [] }: PdfFlyerButtonProps) {
   <div class="main">
     ${photoHtml}
     <div class="info">
-      <h1>${pet.name}</h1>
+      <h1>${escapeHtml(pet.name)}</h1>
       <table><tbody>${detailRows}</tbody></table>
     </div>
   </div>
@@ -137,7 +143,7 @@ export function PdfFlyerButton({ pet, reports = [] }: PdfFlyerButtonProps) {
     <img src="${qrDataUri}" class="qr" />
     <div class="ft-text">
       <p class="ft-label">${i18next.t('pets:share.flyerScan')}</p>
-      <p class="ft-url">${shareUrl}</p>
+      <p class="ft-url">${escapeHtml(shareUrl)}</p>
       <p class="ft-brand">${i18next.t('pets:share.flyerBrand')}</p>
     </div>
   </div>
