@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"testing"
 	"time"
 
@@ -184,8 +185,8 @@ func TestRequestLog_LoguearemoteAddrJuntoAlClientIP(t *testing.T) {
 // TestNewBaseEngine_OrdenYConfigDeClientIPQuedanAtadosAlRouter usa la MISMA
 // función que SetupRouter (middleware.NewBaseEngine), no una cadena armada a
 // mano, para que reordenar router.go rompa este test tal como rompería al
-// router real (S1b: TestRequestLog_PorFueraDeRecoveryLogueaLosPanics de acá
-// abajo arma su propia cadena y no detecta un reorder en router.go).
+// router real (S1b: un test con la cadena armada a mano no detecta un
+// reorder en router.go).
 // Cubre dos cosas en un solo request: (1) RequestLog sigue por FUERA de
 // Recovery — un handler que paniquea deja una línea de acceso con status 500
 // — y (2) ConfigureClientIP quedó aplicado — un peer confiable sin
@@ -202,7 +203,7 @@ func TestNewBaseEngine_OrdenYConfigDeClientIPQuedanAtadosAlRouter(t *testing.T) 
 	r.GET("/boom", func(c *gin.Context) { panic("boom") })
 
 	req := httptest.NewRequest(http.MethodGet, "/boom", nil)
-	req.RemoteAddr = "10.1.2.3:4444"              // peer confiable, SIN CF-Connecting-IP
+	req.RemoteAddr = "10.1.2.3:4444"             // peer confiable, SIN CF-Connecting-IP
 	req.Header.Set("X-Forwarded-For", "9.9.9.9") // spoofeado
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
@@ -245,34 +246,7 @@ func TestConfigureClientIP_CIDRInvalidoNoAplicaRemoteIPHeaders(t *testing.T) {
 		t.Fatal("ConfigureClientIP con un CIDR inválido tenía que devolver error")
 	}
 
-	if len(r.RemoteIPHeaders) != len(before) {
+	if !slices.Equal(r.RemoteIPHeaders, before) {
 		t.Fatalf("RemoteIPHeaders = %v, no debía haberse tocado tras un CIDR inválido (antes: %v)", r.RemoteIPHeaders, before)
-	}
-}
-
-// TestRequestLog_PorFueraDeRecoveryLogueaLosPanics fija el orden que usa
-// SetupRouter: RequestLog por FUERA de gin.Recovery(). Así un handler que
-// paniquea igual deja su línea de acceso con status 500 (y con client_ip y
-// remote_addr), como hacía el Logger de gin.Default().
-func TestRequestLog_PorFueraDeRecoveryLogueaLosPanics(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	core, logs := observer.New(zap.InfoLevel)
-
-	r := gin.New()
-	r.Use(middleware.RequestLog(zap.New(core)))
-	r.Use(gin.Recovery())
-	r.GET("/boom", func(c *gin.Context) { panic("boom") })
-
-	req := httptest.NewRequest(http.MethodGet, "/boom", nil)
-	req.RemoteAddr = "10.0.0.1:5555"
-	w := httptest.NewRecorder()
-	r.ServeHTTP(w, req)
-
-	entries := logs.All()
-	if len(entries) != 1 {
-		t.Fatalf("un request que paniquea tiene que dejar 1 línea de acceso, hubo %d", len(entries))
-	}
-	if got := entries[0].ContextMap()["status"]; got != int64(http.StatusInternalServerError) {
-		t.Fatalf("status logueado = %v, quería 500", got)
 	}
 }

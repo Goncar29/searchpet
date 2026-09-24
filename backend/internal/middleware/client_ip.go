@@ -80,27 +80,16 @@ func ConfigureClientIP(engine *gin.Engine) error {
 	return nil
 }
 
-// RequestLog registra cada request en JSON estructurado (zap) con el
-// ClientIP() que gin resuelve (post ConfigureClientIP) Y el remote_addr
-// crudo del socket TCP, uno junto al otro.
-//
-// remote_addr existe por un solo motivo: TrustedProxyCIDRs (10.0.0.0/8) está
-// OBSERVADO en logs de producción, no documentado por Render. Sin loguearlo
-// acá, un cambio futuro en la red interna de Render rompería
-// ConfigureClientIP en silencio — ClientIP() volvería a devolver el peer
-// crudo en vez del visitante real — y nadie lo notaría hasta investigar por
-// qué el rate limit se puede volver a saltear.
 // NewBaseEngine construye el *gin.Engine base que usa SetupRouter: crea el
 // engine, aplica ConfigureClientIP y encadena RequestLog seguido de
 // gin.Recovery(), EN ESE ORDEN.
 //
 // Por qué existe como función propia y no como código suelto en router.go:
-// TestRequestLog_PorFueraDeRecoveryLogueaLosPanics arma su propia cadena de
-// middlewares desde cero, así que reordenar router.go NO rompe ningún test —
-// nada ata ese orden al router real (hallazgo de la revisión de S1, ver
-// odd/tasks/auditoria-seguridad-2026-09-23.md, S1b). Con esta función,
-// SetupRouter y el test de integración comparten el mismo código: reordenar
-// acá rompe tanto al test como al router.
+// un test que arma su propia cadena de middlewares no detecta que alguien
+// reordene router.go (hallazgo de la revisión de S1, S1b en
+// odd/tasks/auditoria-seguridad-2026-09-23.md). Con esta función, SetupRouter
+// y TestNewBaseEngine_OrdenYConfigDeClientIPQuedanAtadosAlRouter comparten el
+// mismo código: reordenar acá rompe tanto al test como al router.
 func NewBaseEngine(log *zap.Logger) (*gin.Engine, error) {
 	engine := gin.New()
 	if err := ConfigureClientIP(engine); err != nil {
@@ -115,6 +104,16 @@ func NewBaseEngine(log *zap.Logger) (*gin.Engine, error) {
 	return engine, nil
 }
 
+// RequestLog registra cada request en JSON estructurado (zap) con el
+// ClientIP() que gin resuelve (post ConfigureClientIP) Y el remote_addr
+// crudo del socket TCP, uno junto al otro.
+//
+// remote_addr existe por un solo motivo: TrustedProxyCIDRs (10.0.0.0/8) está
+// OBSERVADO en logs de producción, no documentado por Render. Sin loguearlo
+// acá, un cambio futuro en la red interna de Render rompería
+// ConfigureClientIP en silencio — ClientIP() volvería a devolver el peer
+// crudo en vez del visitante real — y nadie lo notaría hasta investigar por
+// qué el rate limit se puede volver a saltear.
 func RequestLog(log *zap.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		start := time.Now()
