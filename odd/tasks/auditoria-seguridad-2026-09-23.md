@@ -78,10 +78,28 @@ recuperación, key de Jina, `/api/ops/quota`, `phone_verified`) NO entran acá.
 - [ ] **S5 — `/api/reports/nearby` acepta `lat=nan`.**
   `handler/report_handler.go:163` sin `validCoordinates` (sus hermanos
   `pet_handler`/`vet_handler` sí) → 500 + despierta Neon. Test del 400.
-- [ ] **S6 — WebSocket `InsecureSkipVerify: true`.**
-  `websocket/handler.go:68`. Reemplazar por `OriginPatterns` desde
-  `CORSAllowedOrigins`. Mitigado por ticket de un solo uso, pero es defensa
-  en profundidad.
+- [x] **S6 — WebSocket sin chequeo de origen.** `InsecureSkipVerify` →
+  `OriginPatterns` de `middleware.WebSocketOriginPatterns`, que sale de la
+  MISMA `CORS_ALLOWED_ORIGINS` que CORS (host sin esquema; en development
+  suma `localhost:*`). Mobile no se rompe: React Native 0.76 en Android
+  manda un Origin con el host de la propia URL del socket
+  (`WebSocketModule.getDefaultOrigin`) y `websocket.Accept` acepta el mismo
+  host; sin Origin también entra. Tests con handshake real (403 ajeno, 101
+  configurado / sin Origin / mismo host). Mutaciones: volver a
+  `InsecureSkipVerify` → cae el test del origen ajeno; sacar el filtro de
+  host vacío o el comodín de dev → cae su caso. `/verify` con el backend en
+  `ENVIRONMENT=production`: el chat web conecta y recibe `chat_message` en
+  vivo (5/5 por el socket); `curl` con Origin ajeno → 403, `localhost:3000`
+  → 403 (sin comodín en prod), mismo host → 101.
+  **CORREGIDO: el "render intermitente" del chat NO existe; era la sonda.**
+  El `getByText` de Playwright es estricto: el mensaje aparece DOS veces
+  (vista previa de la lista + burbuja del hilo), eso tira error, el `catch`
+  lo leía como "no apareció", y la corrida "exitosa" en realidad había
+  matcheado sólo la lista. Medido bien (burbujas del hilo + cuerpo de cada
+  `GET /api/messages/:id`): 5/5, el hilo lo muestra en 170–225 ms y los GET
+  ya lo traen. Lo único real: cada pestaña abre 3 WebSockets y cada mensaje
+  dispara 3 GET idénticos (cada `useWebSocket` abre su propia conexión).
+  Funciona; es ineficiencia, no defecto.
 
 ### Baja
 - [ ] **S7 — `DELETE /api/devices/:token` sin chequeo de dueño.**

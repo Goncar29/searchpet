@@ -12,13 +12,16 @@ import (
 
 // Handler holds the Gin HTTP handlers for WebSocket ticket issuance and connection upgrade.
 type Handler struct {
-	hub   *Hub
-	store *TicketStore
+	hub            *Hub
+	store          *TicketStore
+	originPatterns []string
 }
 
 // NewHandler creates a Handler with the given Hub and TicketStore.
-func NewHandler(hub *Hub, store *TicketStore) *Handler {
-	return &Handler{hub: hub, store: store}
+// originPatterns are the hosts allowed to open the socket from a browser; build
+// them with middleware.WebSocketOriginPatterns so they match CORS.
+func NewHandler(hub *Hub, store *TicketStore, originPatterns []string) *Handler {
+	return &Handler{hub: hub, store: store, originPatterns: originPatterns}
 }
 
 // IssueTicket handles POST /api/ws/ticket (JWT auth required).
@@ -63,9 +66,12 @@ func (h *Handler) Connect(c *gin.Context) {
 		return
 	}
 
+	// Antes era InsecureSkipVerify: cualquier página podía abrir el socket si
+	// conseguía un ticket (S6 de la auditoría 2026-09-23). Un Origin del mismo
+	// host o ausente (clientes nativos) se acepta; el resto tiene que estar en
+	// originPatterns, o Accept responde 403.
 	conn, err := websocket.Accept(c.Writer, c.Request, &websocket.AcceptOptions{
-		// InsecureSkipVerify: true for development — remove or restrict in production.
-		InsecureSkipVerify: true,
+		OriginPatterns: h.originPatterns,
 	})
 	if err != nil {
 		log.Printf("[ws] Accept error userID=%s: %v", userID, err)
