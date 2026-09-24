@@ -54,8 +54,8 @@ function pet(overrides: Partial<Pet>): Pet {
 async function flyerHtml(p: Pet): Promise<string> {
   const printMock = Print.printToFileAsync as jest.Mock;
   printMock.mockClear();
-  const { getByText } = render(<PdfFlyerButton pet={p} />);
-  fireEvent.press(getByText(/📄/));
+  const { getByTestId } = render(<PdfFlyerButton pet={p} />);
+  fireEvent.press(getByTestId('pdf-flyer-button'));
   await waitFor(() => expect(printMock).toHaveBeenCalledTimes(1));
   return printMock.mock.calls[0][0].html as string;
 }
@@ -68,6 +68,13 @@ beforeAll(async () => {
 });
 
 describe('PdfFlyerButton — HTML escaping (S4)', () => {
+  // The TYPE assertion below only proves the raw-key leak while i18next has no
+  // translation for the type. If a setup file ever loads real resources, this
+  // fails first and says why, instead of the TYPE assertion failing obscurely.
+  it('precondition: a pet type without a translation comes back as its raw key', () => {
+    expect(i18next.t('pets:types.<b>x')).toBe('types.<b>x');
+  });
+
   it('escapes every user-controlled text field', async () => {
     const html = await flyerHtml(pet({}));
 

@@ -194,6 +194,7 @@ export function PdfFlyerButton({ pet, reports = [] }: PdfFlyerButtonProps) {
 
   return (
     <TouchableOpacity
+      testID="pdf-flyer-button"
       style={[styles.button, isGenerating && styles.disabled]}
       onPress={handleGenerate}
       disabled={isGenerating}
