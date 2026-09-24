@@ -21,6 +21,10 @@ type mockPetRepo struct {
 	findErr     error
 	updateErr   error
 	statusCalls []string // últimos statuses pasados a UpdateStatus
+
+	searchPets  []domain.Pet
+	searchTotal int64
+	searchErr   error
 }
 
 func (m *mockPetRepo) Create(pet *domain.Pet) error { return nil }
@@ -46,7 +50,7 @@ func (m *mockPetRepo) TouchLastReported(_ string, _ time.Time) error { return ni
 func (m *mockPetRepo) RecomputeLastReported(_ string) error          { return nil }
 func (m *mockPetRepo) Delete(_ string) error                         { return nil }
 func (m *mockPetRepo) Search(_ domain.PetSearchCriteria) ([]domain.Pet, int64, error) {
-	return nil, 0, nil
+	return m.searchPets, m.searchTotal, m.searchErr
 }
 
 // ============================================================
@@ -1049,5 +1053,94 @@ func TestPublishLost_PublishesEventsWithCorrectPayload(t *testing.T) {
 		}
 	case <-time.After(500 * time.Millisecond):
 		t.Error("timeout: report.created event was not published after PublishLost")
+	}
+}
+
+// petWithOwnerAndPhone arma una mascota con su dueño cargado (como devuelve
+// PostgresPetRepository.Search con Preload("Owner")) y un teléfono no vacío,
+// para poder distinguir "se ocultó" de "nunca hubo nada que ocultar".
+func petWithOwnerAndPhone(status string) domain.Pet {
+	ownerID := uuid.New()
+	return domain.Pet{
+		ID:      uuid.New(),
+		OwnerID: &ownerID,
+		Name:    "Firulais",
+		Type:    "perro",
+		Status:  status,
+		Owner: domain.User{
+			ID:    ownerID,
+			Name:  "Dueño",
+			Phone: "+59899123456",
+		},
+	}
+}
+
+// TestSearchPets_OcultaTelefonoFueraDeContactoActivo cubre el hallazgo lateral
+// S2b de la auditoría del 2026-09-23: GET /api/pets/search precarga Owner
+// (pet_repository.go Search) y "found" — alcanzable con ?status=found, un
+// valor de PublicSearchableStatuses — queda FUERA de
+// domain.ContactVisibleStatuses. Antes del fix, dto.ToPetListResponse copiaba
+// el teléfono sin mirar el estado, así que un visitante anónimo obtenía el
+// teléfono del dueño de cualquier mascota "found" (y de cualquier otro estado
+// que algún día se agregue a PublicSearchableStatuses sin ser contacto activo).
+//
+// Va a nivel de SERVICIO, no de handler: SearchPets es el único código
+// compartido por /pets/search y /api/adoptions (ver ListAdoptions), así que
+// scrubear acá cubre a los dos con una sola guarda.
+func TestSearchPets_OcultaTelefonoFueraDeContactoActivo(t *testing.T) {
+	for _, status := range []string{
+		domain.PetStatusFound,
+		domain.PetStatusRegistered,
+		domain.PetStatusArchived,
+		domain.PetStatusAdopted,
+	} {
+		pet := petWithOwnerAndPhone(status)
+		repo := &mockPetRepo{searchPets: []domain.Pet{pet}, searchTotal: 1}
+		svc := service.NewPetService(repo, nil, nil, nil, nil, nil, nil, nil)
+
+		result, err := svc.SearchPets(domain.PetSearchCriteria{Statuses: []string{status}})
+		if err != nil {
+			t.Fatalf("status %q: unexpected error: %v", status, err)
+		}
+		if len(result.Data) != 1 {
+			t.Fatalf("status %q: esperaba 1 resultado, hubo %d", status, len(result.Data))
+		}
+		if result.Data[0].Owner == nil {
+			t.Fatalf("status %q: esperaba el bloque owner presente (sin phone), vino nil", status)
+		}
+		if result.Data[0].Owner.Phone != "" {
+			t.Errorf("status %q: esperaba owner.phone vacío (fuera de búsqueda activa), vino %q", status, result.Data[0].Owner.Phone)
+		}
+	}
+}
+
+// TestSearchPets_ExponeTelefonoEnContactoActivo es la otra mitad: lost/stray
+// (feed público) y adoption (listado de /api/adoptions, que reusa SearchPets
+// con Statuses=[adoption]) SÍ tienen que seguir mostrando el teléfono — es
+// justo lo que permite contactar al dueño o preguntar por la mascota.
+func TestSearchPets_ExponeTelefonoEnContactoActivo(t *testing.T) {
+	for _, status := range []string{
+		domain.PetStatusLost,
+		domain.PetStatusStray,
+		domain.PetStatusAdoption,
+	} {
+		pet := petWithOwnerAndPhone(status)
+		repo := &mockPetRepo{searchPets: []domain.Pet{pet}, searchTotal: 1}
+		svc := service.NewPetService(repo, nil, nil, nil, nil, nil, nil, nil)
+
+		result, err := svc.SearchPets(domain.PetSearchCriteria{Statuses: []string{status}})
+		if err != nil {
+			t.Fatalf("status %q: unexpected error: %v", status, err)
+		}
+		if len(result.Data) != 1 {
+			t.Fatalf("status %q: esperaba 1 resultado, hubo %d", status, len(result.Data))
+		}
+		if result.Data[0].Owner == nil || result.Data[0].Owner.Phone != "+59899123456" {
+			var got string
+			if result.Data[0].Owner != nil {
+				got = result.Data[0].Owner.Phone
+			}
+			t.Errorf("status %q: esperaba owner.phone presente (búsqueda activa), vino %q", status, got)
+		}
 	}
 }

@@ -542,6 +542,14 @@ func (s *petService) SearchPets(criteria domain.PetSearchCriteria) (dto.PetSearc
 
 	data := dto.ToPetListResponse(pets)
 
+	// /pets/search y /api/adoptions (ListAdoptions reusa este método con
+	// Statuses=[adoption]) son públicos SIN OptionalAuth — no hay viewer, de
+	// ahí uuid.Nil. Sin esto, "found" (alcanzable con ?status=found, ver
+	// domain.PublicSearchableStatuses) exponía el teléfono del dueño a
+	// cualquier anónimo: hallazgo lateral S2b de la auditoría de seguridad
+	// 2026-09-23. Para adoption es un no-op — ya está en ContactVisibleStatuses.
+	dto.ScrubOwnerPhonesForViewer(data, uuid.Nil)
+
 	return dto.PetSearchResponse{
 		Data:  data,
 		Total: total,
