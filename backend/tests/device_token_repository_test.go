@@ -137,3 +137,42 @@ func TestDeviceTokenRepository_Upsert_TokenReassignment(t *testing.T) {
 		t.Fatalf("want 1 token for user2 after reassignment, got %d", len(tokens2))
 	}
 }
+
+// S7 (auditoria 2026-09-23): DELETE /api/devices/:token borraba el token de
+// cualquier usuario. Contra Postgres real porque el acotamiento vive en el
+// WHERE: un mock no puede probar qué filas toca una consulta.
+func TestDeviceTokenRepository_DeleteByTokenForUser_OnlyTheOwner(t *testing.T) {
+	gormDB := testdb.SetupTestDB(t)
+	userRepo := repository.NewUserRepository(gormDB)
+	tokenRepo := repository.NewDeviceTokenRepository(gormDB)
+	ctx := context.Background()
+
+	owner := newTestUser(t, userRepo)
+	other := newTestUser(t, userRepo)
+	rawToken := fmt.Sprintf("owned-token-%s", uuid.New().String())
+	if err := tokenRepo.Upsert(ctx, &domain.DeviceToken{ID: uuid.New(), UserID: owner.ID, Token: rawToken, Platform: "android"}); err != nil {
+		t.Fatalf("Upsert: %v", err)
+	}
+
+	if err := tokenRepo.DeleteByTokenForUser(ctx, rawToken, other.ID); err != nil {
+		t.Fatalf("DeleteByTokenForUser (other user): %v", err)
+	}
+	tokens, err := tokenRepo.FindByUserID(ctx, owner.ID)
+	if err != nil {
+		t.Fatalf("FindByUserID: %v", err)
+	}
+	if len(tokens) != 1 {
+		t.Fatalf("another user deleted the owner's token: want 1 token left, got %d", len(tokens))
+	}
+
+	if err := tokenRepo.DeleteByTokenForUser(ctx, rawToken, owner.ID); err != nil {
+		t.Fatalf("DeleteByTokenForUser (owner): %v", err)
+	}
+	tokens, err = tokenRepo.FindByUserID(ctx, owner.ID)
+	if err != nil {
+		t.Fatalf("FindByUserID after owner delete: %v", err)
+	}
+	if len(tokens) != 0 {
+		t.Errorf("the owner could not delete their own token: want 0, got %d", len(tokens))
+	}
+}

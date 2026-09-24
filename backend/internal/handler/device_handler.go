@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"lost-pets/internal/domain"
 	"lost-pets/internal/dto"
 	"lost-pets/internal/repository"
@@ -28,15 +29,22 @@ func NewDeviceHandler(deviceTokenRepo repository.DeviceTokenRepository) *DeviceH
 
 // DeleteToken maneja DELETE /api/devices/:token.
 // Elimina el token FCM del dispositivo — usado al hacer logout.
-// Cualquier usuario autenticado puede eliminar su propio token.
+// Sólo borra el token si es del usuario autenticado. Si es de otro, responde
+// 200 igual y no borra nada: el resultado no revela si el token existe.
 func (h *DeviceHandler) DeleteToken(c *gin.Context) {
+	userID := getUserUUID(c)
+	if userID == uuid.Nil {
+		writeError(c, http.StatusUnauthorized, domain.ErrUnauthorized)
+		return
+	}
+
 	token := c.Param("token")
 	if token == "" {
 		writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
 		return
 	}
 
-	if err := h.deviceTokenRepo.DeleteByToken(context.Background(), token); err != nil {
+	if err := h.deviceTokenRepo.DeleteByTokenForUser(context.Background(), token, userID); err != nil {
 		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		return
 	}
