@@ -84,8 +84,28 @@ recuperación, key de Jina, `/api/ops/quota`, `phone_verified`) NO entran acá.
   en profundidad.
 
 ### Baja
-- [ ] **S7 — `DELETE /api/devices/:token` sin chequeo de dueño.**
-  `handler/device_handler.go:32-45`. Cargar el token y comparar `UserID`.
+- [x] **S7 — `DELETE /api/devices/:token` sin chequeo de dueño.**
+  `DeviceTokenRepository.DeleteByTokenForUser` (`WHERE token = ? AND
+  user_id = ?`) lo usa el handler; `DeleteByToken` sin dueño queda sólo para
+  la limpieza de tokens que FCM rechaza. Sin usuario → 401 sin tocar el
+  repositorio; token ajeno → 200 sin borrar nada (no revela si existe). El
+  test `DeleteToken_NoAuth_RepoStillCalled` EXIGÍA borrar sin usuario
+  ("doesn't check ownership") — certificaba el hueco; se reemplazó. Test de
+  repositorio contra Postgres real (B no borra el token de A).
+  **Riesgo aceptado (decisión del usuario, 2026-09-24):** `Upsert` reasigna
+  un token existente a quien lo registra. Con el token robado de la víctima,
+  un atacante recibiría las notificaciones de ella. No se cambia: es el
+  camino legítimo de cerrar sesión y entrar con otra cuenta en el mismo
+  teléfono, y un token no se puede probar como propio. Misma precondición
+  que S7: conocer un token que ninguna respuesta de la API expone.
+  **La "carrera" del logout de mobile NO existe, y ahora un test lo fija.**
+  El logout manda el DELETE sin `await` y borra la sesión en la línea
+  siguiente, pero `deleteDeviceToken → request → doFetch` arma el header
+  `Authorization` antes del primer `await` (una función async corre
+  sincrónica hasta ahí). El riesgo era latente: un `await` antes de los
+  headers haría salir el DELETE anónimo, y el `.catch(() => {})` del logout
+  se tragaría el 401. `shared/api/client.test.ts` lo fija; con un
+  `await Promise.resolve()` antes de los headers cae.
 - [ ] **S8 — Comparaciones no constant-time.** `reindex_handler.go:45`,
   `ops_quota_handler.go:46` (header vs token) y
   `verification_service.go:266` (OTP de email) → `subtle.ConstantTimeCompare`

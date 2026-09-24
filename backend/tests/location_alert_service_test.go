@@ -91,6 +91,10 @@ func (m *mockDeviceTokenRepository) FindByUserID(ctx context.Context, userID uui
 	return []domain.DeviceToken{}, nil
 }
 
+func (m *mockDeviceTokenRepository) DeleteByTokenForUser(_ context.Context, _ string, _ uuid.UUID) error {
+	return nil
+}
+
 func (m *mockDeviceTokenRepository) DeleteByToken(ctx context.Context, token string) error {
 	return nil
 }
