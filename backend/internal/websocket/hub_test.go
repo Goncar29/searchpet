@@ -162,19 +162,22 @@ func TestHub_FullBuffer_ForceClose(t *testing.T) {
 	hub.register <- slowClient
 	eventually(t, func() bool { return hub.IsConnected("slow-user") }, "expected slow-user to be registered")
 
-	// SendToUser triggers the default (force-close) branch, which closes the
-	// send channel synchronously before returning — no wait needed to read it.
+	// SendToUser triggers the default (force-close) branch. Today it closes the
+	// send channel before returning, but the test polls instead of relying on
+	// that: if the close ever moves to Run's goroutine, a no-wait read would
+	// become the scheduler-dependent failure this file got rid of.
 	hub.SendToUser("slow-user", []byte(`{"test":"msg"}`))
 
-	// Reading from a closed channel returns the zero value immediately.
-	select {
-	case _, ok := <-slowClient.send:
-		if ok {
-			t.Fatal("expected send channel to be closed after force-close")
+	// A closed channel yields (zero, false) immediately; an open, empty one
+	// would block, hence the default.
+	eventually(t, func() bool {
+		select {
+		case _, ok := <-slowClient.send:
+			return !ok
+		default:
+			return false
 		}
-	default:
-		t.Fatal("send channel was not closed — force-close did not trigger")
-	}
+	}, "send channel was not closed — force-close did not trigger")
 	eventually(t, func() bool { return !hub.IsConnected("slow-user") }, "expected the force-closed client to be unregistered")
 }
 
