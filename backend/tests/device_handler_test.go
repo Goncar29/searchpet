@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -23,6 +24,8 @@ type mockDeviceTokenRepo struct {
 	upsertFn       func(ctx context.Context, token *domain.DeviceToken) error
 	findByUserIDFn func(ctx context.Context, userID uuid.UUID) ([]domain.DeviceToken, error)
 	deleteByTokenFn func(ctx context.Context, token string) error
+
+	deleteByTokenForUserFn func(ctx context.Context, token string, userID uuid.UUID) error
 }
 
 func (m *mockDeviceTokenRepo) Upsert(ctx context.Context, token *domain.DeviceToken) error {
@@ -42,6 +45,13 @@ func (m *mockDeviceTokenRepo) FindByUserID(ctx context.Context, userID uuid.UUID
 func (m *mockDeviceTokenRepo) DeleteByToken(ctx context.Context, token string) error {
 	if m.deleteByTokenFn != nil {
 		return m.deleteByTokenFn(ctx, token)
+	}
+	return nil
+}
+
+func (m *mockDeviceTokenRepo) DeleteByTokenForUser(ctx context.Context, token string, userID uuid.UUID) error {
+	if m.deleteByTokenForUserFn != nil {
+		return m.deleteByTokenForUserFn(ctx, token, userID)
 	}
 	return nil
 }
@@ -151,13 +161,20 @@ func TestDeviceHandler_RegisterToken_InvalidPlatform(t *testing.T) {
 // DeleteToken tests
 // ============================================================
 
-func TestDeviceHandler_DeleteToken_OK(t *testing.T) {
+// S7 (auditoria 2026-09-23): el borrado va acotado al dueño. El handler le
+// pasa al repositorio el usuario autenticado, nunca borra sólo por el string.
+func TestDeviceHandler_DeleteToken_PassesCallerAsOwner(t *testing.T) {
 	callerID := uuid.New()
-	var deletedToken string
+	var gotToken string
+	var gotUser uuid.UUID
 
 	repo := &mockDeviceTokenRepo{
-		deleteByTokenFn: func(_ context.Context, token string) error {
-			deletedToken = token
+		deleteByTokenForUserFn: func(_ context.Context, token string, userID uuid.UUID) error {
+			gotToken, gotUser = token, userID
+			return nil
+		},
+		deleteByTokenFn: func(_ context.Context, _ string) error {
+			t.Error("handler used the unscoped DeleteByToken; it must delete only the caller's token")
 			return nil
 		},
 	}
@@ -171,22 +188,20 @@ func TestDeviceHandler_DeleteToken_OK(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Errorf("expected 200, got %d: %s", w.Code, w.Body.String())
 	}
-	if deletedToken != "fcm-token-to-delete" {
-		t.Errorf("expected token 'fcm-token-to-delete' passed to repo, got %q", deletedToken)
+	if gotToken != "fcm-token-to-delete" || gotUser != callerID {
+		t.Errorf("want token %q for owner %s, got token %q for owner %s", "fcm-token-to-delete", callerID, gotToken, gotUser)
 	}
 }
 
-func TestDeviceHandler_DeleteToken_NoAuth_RepoStillCalled(t *testing.T) {
-	// Without auth middleware, getUserUUID returns uuid.Nil but DeleteToken
-	// doesn't check ownership — it deletes by token string.
-	// In production, the JWT middleware would gate this endpoint.
-	// We verify the handler calls the repo even without a userID in context.
-	var deleteWasCalled bool
+// Reemplaza a TestDeviceHandler_DeleteToken_NoAuth_RepoStillCalled, que
+// EXIGÍA el borrado sin usuario ("doesn't check ownership") y así certificaba
+// el hueco de S7. Sin usuario no hay dueño contra el cual acotar: 401 y el
+// repositorio no se toca.
+func TestDeviceHandler_DeleteToken_NoAuth_Returns401WithoutDeleting(t *testing.T) {
+	var called bool
 	repo := &mockDeviceTokenRepo{
-		deleteByTokenFn: func(_ context.Context, _ string) error {
-			deleteWasCalled = true
-			return nil
-		},
+		deleteByTokenForUserFn: func(_ context.Context, _ string, _ uuid.UUID) error { called = true; return nil },
+		deleteByTokenFn:        func(_ context.Context, _ string) error { called = true; return nil },
 	}
 	h := handler.NewDeviceHandler(repo)
 
@@ -198,10 +213,30 @@ func TestDeviceHandler_DeleteToken_NoAuth_RepoStillCalled(t *testing.T) {
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
-	if w.Code != http.StatusOK {
-		t.Errorf("expected 200, got %d: %s", w.Code, w.Body.String())
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("expected 401, got %d: %s", w.Code, w.Body.String())
 	}
-	if !deleteWasCalled {
-		t.Error("expected repo.DeleteByToken to be called")
+	if called {
+		t.Error("repository was called without an authenticated user")
+	}
+}
+
+// A repository failure must not be reported as a successful logout: the 200 is
+// what tells the client the token is gone.
+func TestDeviceHandler_DeleteToken_RepoError_Returns500(t *testing.T) {
+	repo := &mockDeviceTokenRepo{
+		deleteByTokenForUserFn: func(_ context.Context, _ string, _ uuid.UUID) error {
+			return errors.New("db down")
+		},
+	}
+	h := handler.NewDeviceHandler(repo)
+	r := setupDeviceRouter(h, uuid.New())
+
+	req := httptest.NewRequest(http.MethodDelete, "/api/devices/some-token", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("expected 500 when the repository fails, got %d: %s", w.Code, w.Body.String())
 	}
 }
