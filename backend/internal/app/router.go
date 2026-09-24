@@ -315,7 +315,18 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 		gin.SetMode(gin.ReleaseMode)
 	}
 
-	router := gin.Default()
+	router := gin.New()
+	router.Use(gin.Recovery())
+
+	// ClientIP() sin esto confía en el X-Forwarded-For de CUALQUIER peer, y
+	// rate_limit.go arma la clave del limiter con ClientIP() — ver el
+	// comentario de middleware.ConfigureClientIP (hallazgo S1, auditoría de
+	// seguridad 2026-09-23). Falla el arranque antes que servir con una
+	// config a medias, mismo criterio que los demás log.Fatal de acá abajo.
+	if err := middleware.ConfigureClientIP(router); err != nil {
+		log.Fatal("No se pudo configurar TrustedProxies/RemoteIPHeaders", zap.Error(err))
+	}
+	router.Use(middleware.RequestLog(log))
 	router.Use(middleware.CORS(cfg.Environment, cfg.CORSAllowedOrigins))
 
 	// ----------------------------------------
