@@ -332,6 +332,57 @@ func TestReportHandler_GetNearbyReports(t *testing.T) {
 			setupMock:  func(m *mockReportService) {},
 			wantStatus: http.StatusUnprocessableEntity,
 		},
+		// S5 (auditoria 2026-09-23): strconv.ParseFloat acepta "NaN"/"Inf", y
+		// sin validCoordinates llegaban a PostGIS → 500 y Neon despierto. El
+		// mock devuelve error para que un valor que se cuele se vea como 500.
+		{
+			name:  "lat NaN returns 400",
+			query: "?lat=NaN&lng=-56.1645",
+			setupMock: func(m *mockReportService) {
+				m.getNearbyFn = func(_ domain.NearbyReportCriteria) ([]domain.Report, error) { return nil, domain.ErrInternal }
+			},
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:  "lng nan (lowercase) returns 400",
+			query: "?lat=-34.9011&lng=nan",
+			setupMock: func(m *mockReportService) {
+				m.getNearbyFn = func(_ domain.NearbyReportCriteria) ([]domain.Report, error) { return nil, domain.ErrInternal }
+			},
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:  "lat +Inf returns 400",
+			query: "?lat=Inf&lng=-56.1645",
+			setupMock: func(m *mockReportService) {
+				m.getNearbyFn = func(_ domain.NearbyReportCriteria) ([]domain.Report, error) { return nil, domain.ErrInternal }
+			},
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:  "lng -Inf returns 400",
+			query: "?lat=-34.9011&lng=-Inf",
+			setupMock: func(m *mockReportService) {
+				m.getNearbyFn = func(_ domain.NearbyReportCriteria) ([]domain.Report, error) { return nil, domain.ErrInternal }
+			},
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:  "lat out of range returns 400",
+			query: "?lat=91&lng=-56.1645",
+			setupMock: func(m *mockReportService) {
+				m.getNearbyFn = func(_ domain.NearbyReportCriteria) ([]domain.Report, error) { return nil, domain.ErrInternal }
+			},
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:  "lng out of range returns 400",
+			query: "?lat=-34.9011&lng=-181",
+			setupMock: func(m *mockReportService) {
+				m.getNearbyFn = func(_ domain.NearbyReportCriteria) ([]domain.Report, error) { return nil, domain.ErrInternal }
+			},
+			wantStatus: http.StatusBadRequest,
+		},
 		{
 			name:  "internal error returns 500",
 			query: "?lat=-34.9011&lng=-56.1645",
