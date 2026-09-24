@@ -11,7 +11,7 @@ Aplicación de causa social para ayudar a encontrar mascotas perdidas.
 |------|-----------|
 | **Mobile** | React Native + Expo 52 |
 | **Web** | React + Vite + Tailwind CSS |
-| **Backend** | Go 1.25 + Gin |
+| **Backend** | Go 1.26 + Gin |
 | **Base de datos** | PostgreSQL 15 + PostGIS |
 | **Migraciones** | golang-migrate (SQL) + GORM AutoMigrate |
 | **Imágenes** | Cloudinary (signed URLs) |
@@ -96,7 +96,7 @@ Handler (HTTP/WS) → Service (Lógica) → Repository (BD) → Domain (Entidad)
 
 ### Prerrequisitos
 
-- Go 1.25+ (ver `backend/go.mod`)
+- Go 1.26.8+ (ver `backend/go.mod`)
 - Docker + Docker Compose
 - Node.js 24+ (LTS)
 - pnpm 11+ (`npm install -g pnpm`)
