@@ -286,7 +286,10 @@ func (h *PetHandler) SearchPets(c *gin.Context) {
 		lat, errLat := strconv.ParseFloat(latStr, 64)
 		lng, errLng := strconv.ParseFloat(lngStr, 64)
 		radius, errRadius := strconv.ParseFloat(radiusStr, 64)
-		if errLat != nil || errLng != nil || errRadius != nil || radius <= 0 {
+		// `!(radius > 0)` y no `radius <= 0`: ParseFloat acepta "NaN", y toda
+		// comparación con NaN da false — `NaN <= 0` lo dejaba pasar, y también
+		// el rango de abajo (S5 de la auditoría 2026-09-23).
+		if errLat != nil || errLng != nil || errRadius != nil || !(radius > 0) {
 			writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
 			return
 		}

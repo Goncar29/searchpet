@@ -29,6 +29,10 @@ func getUserID(c *gin.Context) string {
 
 // validCoordinates reports whether lat/lng fall within valid geographic bounds:
 // latitude in [-90, 90] and longitude in [-180, 180].
+//
+// Rechaza también NaN y ±Inf sin chequearlos aparte: toda comparación con NaN
+// da false, e Inf cae fuera del rango. strconv.ParseFloat acepta "NaN" e "Inf"
+// sin error, así que los handlers dependen de esto para no mandarlos a PostGIS.
 func validCoordinates(lat, lng float64) bool {
 	return lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180
 }

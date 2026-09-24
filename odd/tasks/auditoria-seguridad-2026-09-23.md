@@ -75,9 +75,16 @@ recuperación, key de Jina, `/api/ops/quota`, `phone_verified`) NO entran acá.
   `mobile/components/PdfFlyerButton.tsx:75-129` interpola `name`, `breed`,
   `color`, `city`, `description` crudos en HTML de `Print.printToFileAsync`.
   Aplicar un `esc()` como el de `web/api/share.js`, con test.
-- [ ] **S5 — `/api/reports/nearby` acepta `lat=nan`.**
-  `handler/report_handler.go:163` sin `validCoordinates` (sus hermanos
-  `pet_handler`/`vet_handler` sí) → 500 + despierta Neon. Test del 400.
+- [x] **S5 — Coordenadas y radio no finitos.** `/reports/nearby` ahora
+  llama a `validCoordinates` (400 ante `NaN`, `Inf` o fuera de rango). Barrido
+  de la clase —todo `ParseFloat` de query en handlers— encontró uno más que la
+  auditoría no vio: `/pets/search?radius=NaN` pasaba `radius <= 0` y el rango
+  1000–50000 (toda comparación con NaN da false) y llegaba al servicio; ahora
+  `!(radius > 0)`. `validCoordinates` documenta que rechaza NaN/Inf por la
+  forma de sus comparaciones. Mutaciones: sacar la llamada → 6 casos rojos;
+  volver a `radius <= 0` → el caso NaN rojo; reescribir `validCoordinates`
+  como `!(lat < -90 || ...)` (igual para números, acepta NaN) → los casos NaN
+  rojos.
 - [ ] **S6 — WebSocket `InsecureSkipVerify: true`.**
   `websocket/handler.go:68`. Reemplazar por `OriginPatterns` desde
   `CORSAllowedOrigins`. Mitigado por ticket de un solo uso, pero es defensa
