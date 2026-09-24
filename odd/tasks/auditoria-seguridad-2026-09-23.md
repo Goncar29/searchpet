@@ -67,10 +67,18 @@ recuperación, key de Jina, `/api/ops/quota`, `phone_verified`) NO entran acá.
   Hallazgo lateral del writer de S2: la búsqueda pública precarga Owner y
   `found` está fuera de `ContactVisibleStatuses`. Decidir si se aplica el
   mismo scrub a la búsqueda (y revisar feed/mapa/adopciones con el mismo ojo).
-- [ ] **S3 — CVEs alcanzables.** `golang-jwt/jwt/v5` 5.2.0→5.2.2
-  (GO-2025-3553, en cada request autenticado), `pgx/v5` 5.5.4→5.9.2
-  (GO-2026-5004), `go-jose/v4` 4.1.3→4.1.4, y patch del toolchain Go
-  (`go.mod` / `go-version-file`). Verificar con `govulncheck ./...`.
+- [x] **S3 — CVEs alcanzables.** `govulncheck ./...` pasó de **26
+  vulnerabilidades alcanzables a 0**. Módulos: `golang-jwt/jwt/v5`
+  5.2.0→5.2.2, `pgx/v5` 5.5.4→5.9.2, `go-jose/v4` 4.1.3→4.1.4, y cuatro que
+  la auditoría no había visto: `grpc` 1.80→1.83.1, `x/image` 0.43→0.45,
+  `x/net` 0.53→0.55, `x/text` 0.38→0.41. **Go 1.25.0 → 1.26.8**: con 1.27
+  publicado, la línea 1.25 dejó de recibir parches (soportadas: 1.27 y 1.26),
+  y CI compilaba con 1.25.0 exacto vía `go-version-file`. El `Dockerfile`
+  queda en `golang:1.26.8-alpine` — la imagen trae `GOTOOLCHAIN=local`, así
+  que `go.mod` y la imagen se suben juntos o el build falla. Verificado:
+  build+vet, `go test ./...` (tests contra Postgres real, 867s, sin skips),
+  e2e, `docker build` local y `go version -m` del binario → `go1.26.8`.
+  Fuera de alcance: el runtime `alpine:3.19` (EOL) va con S10.
 - [ ] **S4 — Volante PDF de mobile sin escapar.**
   `mobile/components/PdfFlyerButton.tsx:75-129` interpola `name`, `breed`,
   `color`, `city`, `description` crudos en HTML de `Print.printToFileAsync`.
