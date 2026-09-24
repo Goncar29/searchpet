@@ -24,7 +24,7 @@ recuperación, key de Jina, `/api/ops/quota`, `phone_verified`) NO entran acá.
 ## Tasks
 
 ### Alta
-- [ ] **S1 — `X-Forwarded-For` spoofeable.** Gin v1.9.1 sin
+- [x] **S1 — `X-Forwarded-For` spoofeable.** Gin v1.9.1 sin
   `SetTrustedProxies` confía en XFF de cualquiera → los rate limits por IP
   (`middleware/rate_limit.go:31`) se saltean. Fix investigado:
   `SetTrustedProxies([]string{"10.0.0.0/8"})` +
@@ -44,6 +44,12 @@ recuperación, key de Jina, `/api/ops/quota`, `phone_verified`) NO entran acá.
   comparó contra un `main` con el fix del teléfono → falsos hallazgos de
   "regresión". Rebasear siempre sobre `origin/main` antes de revisar.
 
+- [x] **S1b — dos sugerencias de la revisión de S1.** (1) `NewBaseEngine`
+  arma el engine base (ClientIP + RequestLog por fuera de Recovery) y lo usan
+  `SetupRouter` y el test, así que reordenar rompe el test; (2) test del
+  camino de error de `ConfigureClientIP` con CIDR inválido, comparando el
+  contenido de `RemoteIPHeaders`. Commits `95d6adc7` + `36b7f459`.
+
 ### Media
 - [x] **S2 — Teléfono del dueño en `GET /api/pets/:id` para cualquier estado.**
   En curso → ver `odd/tasks/telefono-solo-en-busqueda-activa.md`
@@ -51,7 +57,13 @@ recuperación, key de Jina, `/api/ops/quota`, `phone_verified`) NO entran acá.
   squash `74d9ee24`**, CI de `main` verde 6/6 con Deploy Backend (run
   35899009452). Verificación por comportamiento en prod: pendiente de un UUID
   `registered` real.
-- [ ] **S2b — `GET /api/pets/search?status=found` devuelve `owner.phone`.**
+- [x] **S2b — `GET /api/pets/search?status=found` devuelve `owner.phone`.**
+  Hecho en `597b6f15`: scrub en `pet_service.SearchPets` (cubre
+  `/pets/search` y `/adoptions`) y en la landing `/api/share/:token`. El
+  resto de endpoints mapeados no expone el teléfono.
+- [ ] **S2c — sugerencias de la revisión de S2b:** agregar una mascota sin
+  dueño (callejero) al test de `SearchPets`; el e2e busca sólo en la primera
+  página (`limit=100`) — acotar la consulta.
   Hallazgo lateral del writer de S2: la búsqueda pública precarga Owner y
   `found` está fuera de `ContactVisibleStatuses`. Decidir si se aplica el
   mismo scrub a la búsqueda (y revisar feed/mapa/adopciones con el mismo ojo).
@@ -126,8 +138,19 @@ recuperación, key de Jina, `/api/ops/quota`, `phone_verified`) NO entran acá.
   `952976c1`). S1 en implementación (writer delegado, rama
   `fix/trusted-proxies-client-ip`).
 
-- 2026-09-23: S1 implementado y revisado (`3567d3ec` + `20c938e1`); falta
-  PR, merge y la verificación en prod.
+- 2026-09-23: S1 implementado y revisado (`3567d3ec` + `20c938e1`).
+- 2026-09-24: **S1 mergeado (#265, squash `7986cee8`)**, CI de `main` 6/6 con
+  Deploy (run 35946363831). **Verificado en prod por comportamiento**: antes
+  del deploy, 7 logins rotando `X-Forwarded-For` en un minuto → siete 401
+  (límite 5, el bug reproducido); después, ronda de 6 → cinco 401 y **429**.
+  Hallazgo lateral: Cloudflare rechaza con `error code: 1000` todo request
+  que trae su propio `CF-Connecting-IP` — el header no es inyectable desde
+  afuera. Pendiente: leer `remote_addr` en los logs de Render para confirmar
+  el 10.x (el MCP de Render no conectaba). Sugerencias de la revisión
+  diferidas como S1b.
+- 2026-09-24: S1b hecho en `fix/client-ip-review-followups` (`95d6adc7` +
+  `36b7f459`); S2b hecho en `fix/search-phone-visibility` (`597b6f15`). Las
+  dos revisiones nativas aprobadas.
 
 ## Next step
 

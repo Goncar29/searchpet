@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"testing"
 	"time"
 
@@ -181,29 +182,71 @@ func TestRequestLog_LoguearemoteAddrJuntoAlClientIP(t *testing.T) {
 	}
 }
 
-// TestRequestLog_PorFueraDeRecoveryLogueaLosPanics fija el orden que usa
-// SetupRouter: RequestLog por FUERA de gin.Recovery(). Así un handler que
-// paniquea igual deja su línea de acceso con status 500 (y con client_ip y
-// remote_addr), como hacía el Logger de gin.Default().
-func TestRequestLog_PorFueraDeRecoveryLogueaLosPanics(t *testing.T) {
+// TestNewBaseEngine_OrdenYConfigDeClientIPQuedanAtadosAlRouter usa la MISMA
+// función que SetupRouter (middleware.NewBaseEngine), no una cadena armada a
+// mano, para que reordenar router.go rompa este test tal como rompería al
+// router real (S1b: un test con la cadena armada a mano no detecta un
+// reorder en router.go).
+// Cubre dos cosas en un solo request: (1) RequestLog sigue por FUERA de
+// Recovery — un handler que paniquea deja una línea de acceso con status 500
+// — y (2) ConfigureClientIP quedó aplicado — un peer confiable sin
+// CF-Connecting-IP nunca lee el X-Forwarded-For spoofeado.
+func TestNewBaseEngine_OrdenYConfigDeClientIPQuedanAtadosAlRouter(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	core, logs := observer.New(zap.InfoLevel)
+	log := zap.New(core)
 
-	r := gin.New()
-	r.Use(middleware.RequestLog(zap.New(core)))
-	r.Use(gin.Recovery())
+	r, err := middleware.NewBaseEngine(log)
+	if err != nil {
+		t.Fatalf("NewBaseEngine: %v", err)
+	}
 	r.GET("/boom", func(c *gin.Context) { panic("boom") })
 
 	req := httptest.NewRequest(http.MethodGet, "/boom", nil)
-	req.RemoteAddr = "10.0.0.1:5555"
+	req.RemoteAddr = "10.1.2.3:4444"             // peer confiable, SIN CF-Connecting-IP
+	req.Header.Set("X-Forwarded-For", "9.9.9.9") // spoofeado
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
+	if w.Code != http.StatusInternalServerError {
+		t.Fatalf("status HTTP = %d, queria 500 (gin.Recovery tiene que seguir activo)", w.Code)
+	}
+
 	entries := logs.All()
 	if len(entries) != 1 {
-		t.Fatalf("un request que paniquea tiene que dejar 1 línea de acceso, hubo %d", len(entries))
+		t.Fatalf("un handler que paniquea tiene que dejar 1 línea de acceso, hubo %d — RequestLog tiene que estar POR FUERA de Recovery", len(entries))
 	}
-	if got := entries[0].ContextMap()["status"]; got != int64(http.StatusInternalServerError) {
-		t.Fatalf("status logueado = %v, quería 500", got)
+
+	fields := entries[0].ContextMap()
+	if fields["status"] != int64(http.StatusInternalServerError) {
+		t.Fatalf("status logueado = %v, queria 500", fields["status"])
+	}
+	if fields["client_ip"] != "10.1.2.3" {
+		t.Fatalf("client_ip logueado = %v, queria el peer (10.1.2.3) — sin CF-Connecting-IP, el X-Forwarded-For spoofeado NUNCA se tiene que leer, ni atado al router real vía NewBaseEngine", fields["client_ip"])
+	}
+}
+
+// TestConfigureClientIP_CIDRInvalidoNoAplicaRemoteIPHeaders cubre el camino
+// de error de ConfigureClientIP: TrustedProxyCIDRs es un var exportado, y
+// nadie probaba qué pasa si algún CIDR es inválido. Tiene que devolver error
+// Y no dejar el engine a medio configurar (RemoteIPHeaders sin tocar).
+//
+// Muta estado de paquete (TrustedProxyCIDRs) — no correr en paralelo.
+func TestConfigureClientIP_CIDRInvalidoNoAplicaRemoteIPHeaders(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	original := middleware.TrustedProxyCIDRs
+	middleware.TrustedProxyCIDRs = []string{"esto-no-es-un-cidr"}
+	t.Cleanup(func() { middleware.TrustedProxyCIDRs = original })
+
+	r := gin.New()
+	before := append([]string(nil), r.RemoteIPHeaders...)
+
+	err := middleware.ConfigureClientIP(r)
+	if err == nil {
+		t.Fatal("ConfigureClientIP con un CIDR inválido tenía que devolver error")
+	}
+
+	if !slices.Equal(r.RemoteIPHeaders, before) {
+		t.Fatalf("RemoteIPHeaders = %v, no debía haberse tocado tras un CIDR inválido (antes: %v)", r.RemoteIPHeaders, before)
 	}
 }

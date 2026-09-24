@@ -80,6 +80,30 @@ func ConfigureClientIP(engine *gin.Engine) error {
 	return nil
 }
 
+// NewBaseEngine construye el *gin.Engine base que usa SetupRouter: crea el
+// engine, aplica ConfigureClientIP y encadena RequestLog seguido de
+// gin.Recovery(), EN ESE ORDEN.
+//
+// Por qué existe como función propia y no como código suelto en router.go:
+// un test que arma su propia cadena de middlewares no detecta que alguien
+// reordene router.go (hallazgo de la revisión de S1, S1b en
+// odd/tasks/auditoria-seguridad-2026-09-23.md). Con esta función, SetupRouter
+// y TestNewBaseEngine_OrdenYConfigDeClientIPQuedanAtadosAlRouter comparten el
+// mismo código: reordenar acá rompe tanto al test como al router.
+func NewBaseEngine(log *zap.Logger) (*gin.Engine, error) {
+	engine := gin.New()
+	if err := ConfigureClientIP(engine); err != nil {
+		return nil, err
+	}
+	// RequestLog va POR FUERA de Recovery, como el Logger de gin.Default():
+	// si fuera por dentro, un handler que paniquea desenrolla RequestLog antes
+	// de que loguee y el 500 no deja línea de acceso — justo la que trae
+	// client_ip y remote_addr.
+	engine.Use(RequestLog(log))
+	engine.Use(gin.Recovery())
+	return engine, nil
+}
+
 // RequestLog registra cada request en JSON estructurado (zap) con el
 // ClientIP() que gin resuelve (post ConfigureClientIP) Y el remote_addr
 // crudo del socket TCP, uno junto al otro.
