@@ -180,3 +180,30 @@ func TestRequestLog_LoguearemoteAddrJuntoAlClientIP(t *testing.T) {
 		t.Fatalf("remote_addr = %v, queria el peer crudo \"10.0.0.1:5555\" — sin esto no se puede confirmar el CIDR de Render en produccion", fields["remote_addr"])
 	}
 }
+
+// TestRequestLog_PorFueraDeRecoveryLogueaLosPanics fija el orden que usa
+// SetupRouter: RequestLog por FUERA de gin.Recovery(). Así un handler que
+// paniquea igual deja su línea de acceso con status 500 (y con client_ip y
+// remote_addr), como hacía el Logger de gin.Default().
+func TestRequestLog_PorFueraDeRecoveryLogueaLosPanics(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	core, logs := observer.New(zap.InfoLevel)
+
+	r := gin.New()
+	r.Use(middleware.RequestLog(zap.New(core)))
+	r.Use(gin.Recovery())
+	r.GET("/boom", func(c *gin.Context) { panic("boom") })
+
+	req := httptest.NewRequest(http.MethodGet, "/boom", nil)
+	req.RemoteAddr = "10.0.0.1:5555"
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	entries := logs.All()
+	if len(entries) != 1 {
+		t.Fatalf("un request que paniquea tiene que dejar 1 línea de acceso, hubo %d", len(entries))
+	}
+	if got := entries[0].ContextMap()["status"]; got != int64(http.StatusInternalServerError) {
+		t.Fatalf("status logueado = %v, quería 500", got)
+	}
+}

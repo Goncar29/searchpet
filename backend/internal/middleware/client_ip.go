@@ -61,6 +61,14 @@ const ClientIPHeader = "CF-Connecting-IP"
 //     Render saltándose Cloudflare podría mandar su propio CF-Connecting-IP
 //     y sería creído sin ningún control.
 //
+// SUPUESTO QUE ESTO NO PUEDE VERIFICAR: que al origen de Render sólo se llegue
+// a través de Cloudflare. Un request que llegara al balanceador interno SIN
+// pasar por Cloudflare vendría igual desde un peer 10.x, y su CF-Connecting-IP
+// forjado sería creído. *.onrender.com resuelve a Cloudflare y Render no
+// publica una IP de origen directa, así que hoy no hay camino conocido; si
+// aparece uno, este fix vuelve a quedar abierto. Riesgo aceptado, anotado en
+// odd/tasks/auditoria-seguridad-2026-09-23.md (S1).
+//
 // SetTrustedProxies devuelve error si algún CIDR es inválido; se propaga
 // para que el caller decida fallar el arranque en vez de seguir con una
 // config a medias (mismo criterio que los demás log.Fatal de SetupRouter).
