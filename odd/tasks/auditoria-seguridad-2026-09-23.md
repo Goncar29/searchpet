@@ -71,10 +71,18 @@ recuperación, key de Jina, `/api/ops/quota`, `phone_verified`) NO entran acá.
   (GO-2025-3553, en cada request autenticado), `pgx/v5` 5.5.4→5.9.2
   (GO-2026-5004), `go-jose/v4` 4.1.3→4.1.4, y patch del toolchain Go
   (`go.mod` / `go-version-file`). Verificar con `govulncheck ./...`.
-- [ ] **S4 — Volante PDF de mobile sin escapar.**
-  `mobile/components/PdfFlyerButton.tsx:75-129` interpola `name`, `breed`,
-  `color`, `city`, `description` crudos en HTML de `Print.printToFileAsync`.
-  Aplicar un `esc()` como el de `web/api/share.js`, con test.
+- [x] **S4 — Volante PDF de mobile sin escapar.** `mobile/utils/escapeHtml.ts`
+  (mismo contrato que `esc()` de `web/api/share.js`, más `'`) aplicado a
+  cada valor que no escribimos nosotros. El botón NO es sólo del dueño: el
+  texto lo publica una persona y el HTML se dibuja en el teléfono de otra.
+  Además de los cinco campos listados, se escaparon dos que la auditoría no
+  vio: el `src` de la foto (unas comillas cerraban el atributo) y el tipo —
+  sin traducción, i18next devuelve la clave con el valor crudo, probado con
+  un i18next real en el test. Test contra el componente real
+  (`__tests__/PdfFlyerButton.escape.test.tsx`, lee el HTML que recibe
+  `Print.printToFileAsync`). Mutación por sitio: 7 de 9 caen con test con
+  nombre; `lastSeenDate` y `shareUrl` quedan verdes porque no los escribe un
+  usuario (defensa en profundidad, no cobertura).
 - [ ] **S5 — `/api/reports/nearby` acepta `lat=nan`.**
   `handler/report_handler.go:163` sin `validCoordinates` (sus hermanos
   `pet_handler`/`vet_handler` sí) → 500 + despierta Neon. Test del 400.
