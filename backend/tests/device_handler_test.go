@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -217,5 +218,25 @@ func TestDeviceHandler_DeleteToken_NoAuth_Returns401WithoutDeleting(t *testing.T
 	}
 	if called {
 		t.Error("repository was called without an authenticated user")
+	}
+}
+
+// A repository failure must not be reported as a successful logout: the 200 is
+// what tells the client the token is gone.
+func TestDeviceHandler_DeleteToken_RepoError_Returns500(t *testing.T) {
+	repo := &mockDeviceTokenRepo{
+		deleteByTokenForUserFn: func(_ context.Context, _ string, _ uuid.UUID) error {
+			return errors.New("db down")
+		},
+	}
+	h := handler.NewDeviceHandler(repo)
+	r := setupDeviceRouter(h, uuid.New())
+
+	req := httptest.NewRequest(http.MethodDelete, "/api/devices/some-token", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("expected 500 when the repository fails, got %d: %s", w.Code, w.Body.String())
 	}
 }
