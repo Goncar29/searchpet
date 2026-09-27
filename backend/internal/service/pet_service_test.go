@@ -1144,3 +1144,47 @@ func TestSearchPets_ExponeTelefonoEnContactoActivo(t *testing.T) {
 		}
 	}
 }
+
+// TestSearchPets_ListaMixtaConCallejeroSinDueno cubre la sugerencia de la
+// revisión de S2b (S2c): una página real de /pets/search mezcla callejeros
+// sin dueño (OwnerID nil, Owner sin cargar → resp.Owner nil) con mascotas que
+// sí lo tienen.
+//
+// El caso filoso es el callejero ya resuelto: stray → found es su única
+// transición (domain/status_machine.go) y ?status=found lo devuelve. "found"
+// está FUERA de ContactVisibleStatuses, así que el scrub llega a escribir
+// Owner.Phone — y sin la guarda de Owner nil eso es un panic que tumba la
+// búsqueda pública entera. Un stray sin dueño NO ejercita esa guarda (el
+// estado visible retorna antes), por eso van los dos.
+func TestSearchPets_ListaMixtaConCallejeroSinDueno(t *testing.T) {
+	ownerless := func(status string) domain.Pet {
+		return domain.Pet{ID: uuid.New(), Name: "Callejero", Type: "perro", Status: status}
+	}
+	pets := []domain.Pet{
+		ownerless(domain.PetStatusStray),
+		ownerless(domain.PetStatusFound),
+		petWithOwnerAndPhone(domain.PetStatusFound),
+		petWithOwnerAndPhone(domain.PetStatusLost),
+	}
+	repo := &mockPetRepo{searchPets: pets, searchTotal: int64(len(pets))}
+	svc := service.NewPetService(repo, nil, nil, nil, nil, nil, nil, nil)
+
+	result, err := svc.SearchPets(domain.PetSearchCriteria{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(result.Data) != len(pets) {
+		t.Fatalf("esperaba %d resultados, hubo %d", len(pets), len(result.Data))
+	}
+	for i, status := range []string{"stray", "found"} {
+		if result.Data[i].Owner != nil {
+			t.Errorf("callejero sin dueño (%s): esperaba owner ausente, vino %+v", status, result.Data[i].Owner)
+		}
+	}
+	if result.Data[2].Owner == nil || result.Data[2].Owner.Phone != "" {
+		t.Errorf("found con dueño: esperaba owner presente con phone vacío, vino %+v", result.Data[2].Owner)
+	}
+	if result.Data[3].Owner == nil || result.Data[3].Owner.Phone != "+59899123456" {
+		t.Errorf("lost con dueño: esperaba owner.phone presente, vino %+v", result.Data[3].Owner)
+	}
+}

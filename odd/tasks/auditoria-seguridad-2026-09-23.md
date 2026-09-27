@@ -61,12 +61,15 @@ recuperación, key de Jina, `/api/ops/quota`, `phone_verified`) NO entran acá.
   Hecho en `597b6f15`: scrub en `pet_service.SearchPets` (cubre
   `/pets/search` y `/adoptions`) y en la landing `/api/share/:token`. El
   resto de endpoints mapeados no expone el teléfono.
-- [ ] **S2c — sugerencias de la revisión de S2b:** agregar una mascota sin
-  dueño (callejero) al test de `SearchPets`; el e2e busca sólo en la primera
-  página (`limit=100`) — acotar la consulta.
-  Hallazgo lateral del writer de S2: la búsqueda pública precarga Owner y
-  `found` está fuera de `ContactVisibleStatuses`. Decidir si se aplica el
-  mismo scrub a la búsqueda (y revisar feed/mapa/adopciones con el mismo ojo).
+- [x] **S2c — sugerencias de la revisión de S2b.** Test de servicio con una
+  página mixta que incluye callejeros sin dueño; el caso filoso es el
+  callejero ya `found` (única transición de `stray`, fuera de
+  `ContactVisibleStatuses`): sin la guarda de `Owner == nil` el scrub
+  paniquea. Un `stray` sin dueño solo NO ejercita esa guarda — la primera
+  mutación dio verde y así se vio. El e2e ahora filtra por una raza única por
+  corrida en vez de depender de `limit=100`; mutando la raza cae por "no
+  apareció entre 0 resultados". El hallazgo lateral (scrub en la búsqueda)
+  ya lo había cerrado S2b.
 - [ ] **S3 — CVEs alcanzables.** `golang-jwt/jwt/v5` 5.2.0→5.2.2
   (GO-2025-3553, en cada request autenticado), `pgx/v5` 5.5.4→5.9.2
   (GO-2026-5004), `go-jose/v4` 4.1.3→4.1.4, y patch del toolchain Go
@@ -152,6 +155,8 @@ recuperación, key de Jina, `/api/ops/quota`, `phone_verified`) NO entran acá.
   `36b7f459`); S2b hecho en `fix/search-phone-visibility` (`597b6f15`). Las
   dos revisiones nativas aprobadas.
 
+- 2026-09-24: S2c hecho en `test/search-phone-review-followups` (sólo tests).
+
 ## Next step
 
-Cerrar S2 → S1 → S3…S6 → bajas → basura.
+S3 (CVEs) → S4…S6 → bajas → basura.
