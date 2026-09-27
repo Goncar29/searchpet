@@ -166,6 +166,21 @@ test nuevo protege algo; `pnpm test:run` en web y mobile con `EXIT` explícito;
   tiene prueba en runtime acá (no se levanta un device); lo cubre la suite
   (259, `EXIT=0` tras T1) y la interfaz del hook no cambió.
 
+- 2026-09-27: revisión nativa del slice T2 (`review-0999f5697751c6f0`)
+  aprobada con una sugerencia, aplicada en `29a822d6`: el guard de rutas
+  ahora exige que cada ruta exista UNA vez en todo el árbol (un duplicado
+  afuera de `MainLayout` podía matchear primero). Mutación con un duplicado
+  cuyo `element` no es `MainLayout`: el guard viejo seguía verde, el nuevo cae
+  con `total: 2`.
+
+## Delivery
+
+Rama `refactor/websocket-compartido`, 6 commits sobre `origin/main`:
+1383 líneas cambiadas, de las cuales **803 son tests** y ~150 este documento.
+Estrategia propuesta: **un solo PR** — T1 y T2 son una sola unidad de
+comportamiento (T2 depende de que la conexión sea compartida), y partirlo
+dejaría un PR intermedio con las invalidaciones todavía duplicadas.
+
 ## Next step
 
-Revisión nativa del slice T2 y apertura del PR.
+Push y PR, a decisión del usuario.
