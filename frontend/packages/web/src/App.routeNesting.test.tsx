@@ -46,6 +46,13 @@ function subtreeHasPath(node: ReactElement, path: string): boolean {
   return toArray(props.children).some((child) => subtreeHasPath(child, path));
 }
 
+/** Cuantos Route de este subarbol declaran `path`, a cualquier profundidad. */
+function countPath(node: ReactElement, path: string): number {
+  const props = node.props as { path?: string; children?: unknown };
+  const own = props.path === path ? 1 : 0;
+  return own + toArray(props.children).reduce((n, child) => n + countPath(child, path), 0);
+}
+
 /** Encuentra el `<Route element={<MainLayout />}>`, a cualquier profundidad. */
 function findMainLayoutRoute(node: ReactElement): ReactElement | null {
   const props = node.props as { element?: ReactElement; children?: unknown };
@@ -65,5 +72,19 @@ describe('App — nesting de rutas bajo MainLayout', () => {
     expect(mainLayoutRoute).not.toBeNull();
     expect(subtreeHasPath(mainLayoutRoute!, '/messages')).toBe(true);
     expect(subtreeHasPath(mainLayoutRoute!, '/messages/:userId')).toBe(true);
+  });
+
+  // Que aparezcan bajo MainLayout no alcanza: un duplicado del mismo `path`
+  // declarado AFUERA podria matchear primero, y esa pantalla quedaria sin
+  // MainLayout — o sea sin nadie que invalide ante chat_message. Cada ruta
+  // tiene que existir UNA sola vez en todo el arbol, y esa vez adentro.
+  it('/messages y /messages/:userId no estan declaradas en ningun otro lado', () => {
+    const tree = (App as () => ReactElement)();
+    const mainLayoutRoute = findMainLayoutRoute(tree)!;
+
+    for (const path of ['/messages', '/messages/:userId']) {
+      expect({ path, total: countPath(tree, path) }).toEqual({ path, total: 1 });
+      expect({ path, underMainLayout: countPath(mainLayoutRoute, path) }).toEqual({ path, underMainLayout: 1 });
+    }
   });
 });
