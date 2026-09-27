@@ -111,7 +111,9 @@ recuperación, key de Jina, `/api/ops/quota`, `phone_verified`) NO entran acá.
     `main` está limpio de CVEs, así que saltear no esconde nada; con `false` el
     camino del salteo nunca se probaría (tercera revisión).
     **Hecho el 2026-09-27**: run `36356785223` (`workflow_dispatch` en `main`)
-    — el paso del motivo imprimió `skip_vulncheck=true (aplicado: true)`,
+    — el paso `id: dispatch` (en ese run se llamaba "Motivo del disparo
+    manual"; después se renombró a "Decidir salteo de govulncheck y registrar
+    el disparo manual") imprimió `skip_vulncheck=true (aplicado: true)`,
     `govulncheck` quedó `skipped`, `E2E Tests (Web)` corrió y `Deploy Backend`
     dio `success`; Render levantó `dep-daspus3bc2fs738bvimg` (`live`, mismo
     commit `14b77e9a`).
@@ -267,6 +269,11 @@ recuperación, key de Jina, `/api/ops/quota`, `phone_verified`) NO entran acá.
   legítimo) lo confirma el usuario abriendo el chat. Pendiente de S1 que
   sigue abierto: leer `remote_addr` en los logs de Render para confirmar el
   10.x.
+- 2026-09-27: el paso `id: dispatch` de `ci.yml` se renombró a "Decidir
+  salteo de govulncheck y registrar el disparo manual" (sugerencia de la
+  quinta revisión del #269): el nombre viejo sólo hablaba del motivo y
+  escondía que ese paso es el que decide el salteo. El `id` no cambió, así
+  que la condición de `govulncheck` sigue leyendo la misma salida.
 
 ## Next step
 
