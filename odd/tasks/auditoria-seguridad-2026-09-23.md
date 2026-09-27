@@ -105,7 +105,7 @@ recuperación, key de Jina, `/api/ops/quota`, `phone_verified`) NO entran acá.
   deploy); y el disparo exige un `reason` que queda impreso en el run (una
   sola persona con permiso de escritura puede saltear el control: riesgo
   aceptado, ahora con registro). **Pendiente post-merge**: disparar una vez
-  sobre `main` con `skip_vulncheck=false` para probar que el camino deploya.
+  sobre `main` con `skip_vulncheck=true` (tercera revisión: con `false` el camino del salteo nunca se probaría); `main` está limpio de CVEs, así que saltear no esconde nada, y prueba el camino real de emergencia hasta el deploy.
 - [x] **S4 — Volante PDF de mobile sin escapar.** `mobile/utils/escapeHtml.ts`
   (mismo contrato que `esc()` de `web/api/share.js`, más `'`) aplicado a
   cada valor que no escribimos nosotros. El botón NO es sólo del dueño: el

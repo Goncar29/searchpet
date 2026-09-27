@@ -68,17 +68,22 @@ jobs:
         working-directory: ./backend
         run: go mod download
 
-      # go.mod/go.sum tienen que coincidir con los imports reales. Sin esto un
-      # go.mod desfasado pasa inadvertido hasta que alguien corre `go mod tidy`
-      # y aparece un cambio ajeno a su PR (paso con validator/v10 en el #269).
+      # Deja escrito en el run quien disparo a mano, en que rama, con que motivo
+      # y si el salteo de govulncheck se APLICA: fuera de main el flag se
+      # ignora, y mostrar solo el valor crudo haria mentir al registro.
       - name: Motivo del disparo manual
         if: ${{ github.event_name == 'workflow_dispatch' }}
         env:
           REASON: ${{ inputs.reason }}
           SKIP: ${{ inputs.skip_vulncheck }}
         run: |
-          echo "workflow_dispatch en $GITHUB_REF por $GITHUB_ACTOR, skip_vulncheck=$SKIP, motivo: $REASON"
+          applied=false
+          if [ "$SKIP" = "true" ] && [ "$GITHUB_REF" = "refs/heads/main" ]; then applied=true; fi
+          echo "workflow_dispatch en $GITHUB_REF por $GITHUB_ACTOR, skip_vulncheck=$SKIP (aplicado: $applied), motivo: $REASON"
 
+      # go.mod/go.sum tienen que coincidir con los imports reales. Sin esto un
+      # go.mod desfasado pasa inadvertido hasta que alguien corre `go mod tidy`
+      # y aparece un cambio ajeno a su PR (paso con validator/v10 en el #269).
       - name: go mod tidy sin cambios
         working-directory: ./backend
         run: go mod tidy -diff
