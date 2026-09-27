@@ -1,7 +1,10 @@
 package middleware_test
 
 import (
+	"bytes"
+	"log"
 	"reflect"
+	"strings"
 	"testing"
 
 	"lost-pets/internal/middleware"
@@ -50,5 +53,26 @@ func TestWebSocketOriginPatterns(t *testing.T) {
 				t.Errorf("want %q, got %q", tc.want, got)
 			}
 		})
+	}
+}
+
+// Una entrada sin host se descarta (nunca se vuelve comodín), pero en
+// silencio el único síntoma sería un 403 en el upgrade del chat en runtime.
+// Sugerencia de la revisión nativa del #272: avisar al arrancar, nombrando la
+// entrada, para que un CORS_ALLOWED_ORIGINS mal escrito se vea en el log.
+func TestWebSocketOriginPatterns_LogsSkippedEntries(t *testing.T) {
+	var buf bytes.Buffer
+	prev := log.Writer()
+	log.SetOutput(&buf)
+	t.Cleanup(func() { log.SetOutput(prev) })
+
+	middleware.WebSocketOriginPatterns("production", "searchpet.vercel.app,https://ok.example")
+
+	out := buf.String()
+	if !strings.Contains(out, "searchpet.vercel.app") {
+		t.Errorf("want a log line naming the skipped entry %q, got %q", "searchpet.vercel.app", out)
+	}
+	if strings.Contains(out, "ok.example") {
+		t.Errorf("a valid entry must not be reported as skipped, got %q", out)
 	}
 }

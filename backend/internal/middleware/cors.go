@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"log"
 	"net/url"
 	"strings"
 
@@ -95,7 +96,9 @@ func isAllowed(origin string, allowed []string) bool {
 //
 // La librería compara sólo el HOST, sin esquema, así que el esquema se
 // descarta. Una entrada sin host (por ejemplo "searchpet.vercel.app" sin
-// "https://") se ignora: nunca se convierte en comodín.
+// "https://") se ignora: nunca se convierte en comodín. Se avisa en el log
+// nombrando la entrada, porque si no el único síntoma de un
+// CORS_ALLOWED_ORIGINS mal escrito sería un 403 en el upgrade del chat.
 //
 // No hace falta listar el host de la propia API: websocket.Accept ya acepta un
 // Origin del mismo host, que es lo que manda React Native en Android.
@@ -104,6 +107,7 @@ func WebSocketOriginPatterns(environment string, allowedOrigins string) []string
 	for _, o := range parseOrigins(allowedOrigins) {
 		u, err := url.Parse(o)
 		if err != nil || u.Host == "" {
+			log.Printf("[ws] CORS_ALLOWED_ORIGINS entry %q has no host (missing scheme?); the WebSocket will not accept it", o)
 			continue
 		}
 		hosts = append(hosts, u.Host)
