@@ -17,12 +17,16 @@ import (
 // propio gin.New(); si alguien borra o mueve la llamada en router.go, esos
 // siguen verdes y producción vuelve a creerle a X-Forwarded-For.
 //
-// El peer de httptest es 127.0.0.1, que NO está en TrustedProxyCIDRs: gin
-// tiene que ignorar tanto el X-Forwarded-For como el CF-Connecting-IP que
-// manda el cliente y usar el peer. Así, rotar los dos headers en cada
-// request no estrena balde y el login cae en 429 al pasar el tope. Sin la
-// config, gin v1.9.1 confía en cualquier peer y cada request estrenaría un
-// balde nuevo: nunca 429.
+// El peer de httptest es 127.0.0.1: el mismo loopback por el que el proxy de
+// Render le llega a la app en producción (S1c, observado el 2026-09-27), y por
+// eso ahora está en TrustedProxyCIDRs. Con la config, gin lee SÓLO
+// CF-Connecting-IP: rotar X-Forwarded-For con el mismo CF-Connecting-IP no
+// estrena balde y el login cae en 429. Sin la config, gin v1.9.1 le cree al
+// X-Forwarded-For de cualquier peer y cada request estrenaría balde: nunca 429.
+//
+// La segunda mitad es la que S1 no tenía: un CF-Connecting-IP distinto tiene
+// su propio balde. Con el loopback sin confiar (el bug de S1c) todos los
+// clientes compartían uno y ese request también daba 429.
 func TestClientIPWiring_RateLimitDeLoginNoSeSalteaRotandoHeaders(t *testing.T) {
 	const limit = 3
 	baseURL, _, cleanup := startTestServerWithConfig(t, func(cfg *config.Config) {
@@ -31,30 +35,35 @@ func TestClientIPWiring_RateLimitDeLoginNoSeSalteaRotandoHeaders(t *testing.T) {
 	defer cleanup()
 
 	body := []byte(`{"email":"nadie@searchpet.test","password":"incorrecta"}`)
+	login := func(cfConnectingIP, xff string) int {
+		t.Helper()
+		req, err := http.NewRequest(http.MethodPost, baseURL+"/api/auth/login", bytes.NewReader(body))
+		if err != nil {
+			t.Fatalf("armando el request: %v", err)
+		}
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("CF-Connecting-IP", cfConnectingIP)
+		req.Header.Set("X-Forwarded-For", xff)
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatalf("request: %v", err)
+		}
+		resp.Body.Close()
+		return resp.StatusCode
+	}
 
 	var last int
 	for i := 0; i <= limit; i++ {
-		req, err := http.NewRequest(http.MethodPost, baseURL+"/api/auth/login", bytes.NewReader(body))
-		if err != nil {
-			t.Fatalf("armando el request %d: %v", i+1, err)
-		}
-		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("X-Forwarded-For", fmt.Sprintf("1.2.3.%d", i))
-		req.Header.Set("CF-Connecting-IP", fmt.Sprintf("6.6.6.%d", i))
-
-		resp, err := http.DefaultClient.Do(req)
-		if err != nil {
-			t.Fatalf("request %d: %v", i+1, err)
-		}
-		resp.Body.Close()
-		last = resp.StatusCode
-
+		last = login("203.0.113.9", fmt.Sprintf("1.2.3.%d", i))
 		if i < limit && last == http.StatusTooManyRequests {
 			t.Fatalf("request %d dio 429 antes de llegar al tope de %d", i+1, limit)
 		}
 	}
-
 	if last != http.StatusTooManyRequests {
-		t.Fatalf("request %d rotando X-Forwarded-For y CF-Connecting-IP: esperaba 429, got %d — SetupRouter no está aplicando ConfigureClientIP y el rate limit se saltea", limit+1, last)
+		t.Fatalf("request %d con el mismo CF-Connecting-IP rotando X-Forwarded-For: esperaba 429, got %d — SetupRouter no está aplicando ConfigureClientIP y el rate limit se saltea", limit+1, last)
+	}
+
+	if code := login("198.51.100.5", "9.9.9.9"); code == http.StatusTooManyRequests {
+		t.Fatalf("otro CF-Connecting-IP recibió el 429 del anterior: el rate limit por IP es global detrás del proxy loopback (S1c)")
 	}
 }
