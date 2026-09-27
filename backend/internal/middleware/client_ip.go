@@ -11,11 +11,20 @@ import (
 // puede leer un header de IP en vez de devolver la conexión cruda.
 //
 // Render sirve detrás de Cloudflare, y el peer TCP que gin ve en
-// c.Request.RemoteAddr es el load balancer INTERNO de Render — este rango está
-// OBSERVADO en logs reales, NO documentado por Render (de ahí RequestLog más
-// abajo: si Render cambia su red interna, la única forma de enterarse es leer
-// remote_addr en producción, no releer una doc que nunca lo confirmó).
-var TrustedProxyCIDRs = []string{"10.0.0.0/8"}
+// c.Request.RemoteAddr es el proxy de Render. OBSERVADO en los logs de
+// producción el 2026-09-27 (remote_addr en RequestLog): el proxy le llega a la
+// app por LOOPBACK — "[::1]:puerto" en el 100% de los requests, externos
+// incluidos. S1 sólo confiaba en 10.0.0.0/8, un rango que se había SUPUESTO y
+// nunca se leyó en un log: con el peer ::1 fuera de la lista, gin ignoraba
+// CF-Connecting-IP, ClientIP() daba "::1" para todo el mundo y cada rate limit
+// por IP era un único balde global (S1c de la auditoría 2026-09-23).
+//
+// El loopback es seguro de confiar: desde afuera nadie abre una conexión TCP
+// que llegue como ::1 o 127.0.0.1. 10.0.0.0/8 se conserva por si Render enruta
+// por su red interna en otra topología; también es inalcanzable desde afuera.
+// Si Render vuelve a cambiar, el síntoma es client_ip igual al remote_addr en
+// los logs: por eso RequestLog loguea los dos.
+var TrustedProxyCIDRs = []string{"10.0.0.0/8", "127.0.0.1/32", "::1/128"}
 
 // ClientIPHeader es el ÚNICO header del que ClientIP() puede leer la IP real
 // del visitante, y sólo cuando el peer está en TrustedProxyCIDRs.
@@ -63,7 +72,8 @@ const ClientIPHeader = "CF-Connecting-IP"
 //
 // SUPUESTO QUE ESTO NO PUEDE VERIFICAR: que al origen de Render sólo se llegue
 // a través de Cloudflare. Un request que llegara al balanceador interno SIN
-// pasar por Cloudflare vendría igual desde un peer 10.x, y su CF-Connecting-IP
+// pasar por Cloudflare vendría igual desde el proxy de Render (hoy por
+// loopback), y su CF-Connecting-IP
 // forjado sería creído. *.onrender.com resuelve a Cloudflare y Render no
 // publica una IP de origen directa, así que hoy no hay camino conocido; si
 // aparece uno, este fix vuelve a quedar abierto. Riesgo aceptado, anotado en

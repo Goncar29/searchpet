@@ -145,11 +145,11 @@ func TestConfigureClientIP_RateLimitPorIPResisteSpoofingDeXFF(t *testing.T) {
 // logging de requests deja, en el mismo registro, el ClientIP() que gin
 // resuelve (post ConfigureClientIP) Y el remote_addr crudo del socket TCP.
 //
-// remote_addr existe por un solo motivo: el 10.0.0.0/8 que ConfigureClientIP
-// da por confiable esta OBSERVADO en produccion, no documentado por Render.
-// Si Render cambia ese rango interno, la unica forma de confirmarlo es leer
-// remote_addr en un log real — sin este campo, un cambio de infraestructura
-// rompe el fix de S1 en silencio.
+// remote_addr existe por un solo motivo: los proxies que ConfigureClientIP
+// da por confiables no los documenta Render, hay que observarlos. Y paso: S1
+// SUPUSO 10.0.0.0/8, y recien leyendo remote_addr en produccion
+// (2026-09-27) se vio que el proxy llega por loopback ([::1]) y que ClientIP()
+// daba "::1" para todos (S1c). Sin este campo, ese error seguia invisible.
 func TestRequestLog_LoguearemoteAddrJuntoAlClientIP(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	core, logs := observer.New(zap.InfoLevel)
@@ -248,5 +248,109 @@ func TestConfigureClientIP_CIDRInvalidoNoAplicaRemoteIPHeaders(t *testing.T) {
 
 	if !slices.Equal(r.RemoteIPHeaders, before) {
 		t.Fatalf("RemoteIPHeaders = %v, no debía haberse tocado tras un CIDR inválido (antes: %v)", r.RemoteIPHeaders, before)
+	}
+}
+
+// S1c (auditoria 2026-09-23). Los logs de produccion (2026-09-27) muestran
+// que el proxy de Render le llega a la app por LOOPBACK: remote_addr
+// "[::1]:51006" en el 100% de los requests, externos incluidos. S1 solo
+// confiaba en 10.0.0.0/8, asi que gin ignoraba CF-Connecting-IP y ClientIP()
+// daba "::1" para todo el mundo.
+func TestConfigureClientIP_ConfiaEnElProxyLoopbackDeRender(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	if err := middleware.ConfigureClientIP(r); err != nil {
+		t.Fatalf("ConfigureClientIP: %v", err)
+	}
+
+	var got string
+	r.GET("/test", func(c *gin.Context) { got = c.ClientIP() })
+
+	for _, peer := range []string{"[::1]:51006", "127.0.0.1:51006"} {
+		got = ""
+		req := httptest.NewRequest(http.MethodGet, "/test", nil)
+		req.RemoteAddr = peer
+		req.Header.Set("CF-Connecting-IP", "203.0.113.9")
+		req.Header.Set("X-Forwarded-For", "1.2.3.4")
+		r.ServeHTTP(httptest.NewRecorder(), req)
+
+		if got != "203.0.113.9" {
+			t.Errorf("peer %s: ClientIP() = %q, queria el CF-Connecting-IP (203.0.113.9)", peer, got)
+		}
+	}
+}
+
+// Lo que el test de rate limit de S1 no probaba: que el limite sea POR IP
+// detras del proxy real. Con el peer en loopback y el loopback sin confiar,
+// los dos clientes caian en el mismo bucket y el segundo recibia el 429 del
+// primero — el limite de login se volvia global.
+func TestConfigureClientIP_RateLimitPorIPDetrasDelLoopbackAislaClientes(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	if err := middleware.ConfigureClientIP(r); err != nil {
+		t.Fatalf("ConfigureClientIP: %v", err)
+	}
+
+	const limit = 3
+	store := ratelimit.NewInMemoryStore()
+	r.GET("/login", middleware.RateLimit(store, limit, time.Minute), func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"ok": true})
+	})
+
+	hit := func(cfConnectingIP string) int {
+		req := httptest.NewRequest(http.MethodGet, "/login", nil)
+		req.RemoteAddr = "[::1]:51006" // como llega en produccion
+		req.Header.Set("CF-Connecting-IP", cfConnectingIP)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		return w.Code
+	}
+
+	for i := 0; i < limit; i++ {
+		if code := hit("203.0.113.9"); code != http.StatusOK {
+			t.Fatalf("request %d dentro del cupo de %d deberia pasar, got %d", i+1, limit, code)
+		}
+	}
+	if code := hit("203.0.113.9"); code != http.StatusTooManyRequests {
+		t.Fatalf("el cliente que agoto su cupo deberia recibir 429, got %d", code)
+	}
+	if code := hit("198.51.100.5"); code != http.StatusOK {
+		t.Fatalf("otro cliente detras del mismo proxy loopback deberia tener su propio bucket, got %d — el rate limit es global", code)
+	}
+}
+
+// El otro lado de confiar en el loopback: un request que llega por el proxy
+// SIN CF-Connecting-IP (un probe interno, o algo que entra a Render sin pasar
+// por Cloudflare) no tiene de donde sacar la IP real y cae al peer crudo.
+// Todos esos comparten el balde "::1" — el modo de falla de S1c, acotado al
+// trafico sin el header. Se acepta a conciencia: inventar una IP seria peor,
+// y el trafico de usuarios siempre trae el header. Este test lo fija para que
+// un cambio de comportamiento no pase en silencio.
+func TestConfigureClientIP_LoopbackSinHeaderCaeAlPeer(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	if err := middleware.ConfigureClientIP(r); err != nil {
+		t.Fatalf("ConfigureClientIP: %v", err)
+	}
+
+	var got string
+	r.GET("/test", func(c *gin.Context) { got = c.ClientIP() })
+
+	for _, tc := range []struct{ name, header string }{
+		{"sin header", ""},
+		{"header invalido", "no-es-una-ip"},
+	} {
+		got = ""
+		req := httptest.NewRequest(http.MethodGet, "/test", nil)
+		req.RemoteAddr = "[::1]:51006"
+		if tc.header != "" {
+			req.Header.Set("CF-Connecting-IP", tc.header)
+		}
+		req.Header.Set("X-Forwarded-For", "1.2.3.4") // nunca se lee
+		r.ServeHTTP(httptest.NewRecorder(), req)
+
+		if got != "::1" {
+			t.Errorf("%s: ClientIP() = %q, queria el peer crudo ::1", tc.name, got)
+		}
 	}
 }

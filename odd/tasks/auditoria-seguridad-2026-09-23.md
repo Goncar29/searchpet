@@ -50,6 +50,35 @@ recuperación, key de Jina, `/api/ops/quota`, `phone_verified`) NO entran acá.
   camino de error de `ConfigureClientIP` con CIDR inválido, comparando el
   contenido de `RemoteIPHeaders`. Commits `95d6adc7` + `36b7f459`.
 
+- [x] **S1c — el rate limit por IP era GLOBAL en producción.** Leyendo los
+  logs de Render (2026-09-27, el pendiente de S1 que nunca se había hecho):
+  `remote_addr` y `client_ip` son `[::1]` / `::1` en el **100%** de los
+  requests, externos incluidos. El proxy de Render le llega a la app por
+  **loopback**, no por `10.x` como SUPUSO S1. Con `::1` fuera de
+  `TrustedProxyCIDRs`, gin ignoraba `CF-Connecting-IP` y todos los usuarios
+  compartían un único balde: cualquiera que fallara 5 logins en un minuto
+  dejaba a todos con 429 (igual el envío de OTP y la recuperación). Arreglo:
+  `TrustedProxyCIDRs` suma `127.0.0.1/32` y `::1/128` (se conserva
+  `10.0.0.0/8`); el loopback es inalcanzable desde afuera. Tests nuevos con el
+  peer `[::1]:51006` tal cual lo muestra el log, y el que le faltaba a S1:
+  **dos clientes detrás del mismo proxy tienen baldes separados** (rojo
+  reproducía el 429 compartido). El e2e de wiring se apoyaba en que
+  `127.0.0.1` NO fuera confiable y se rediseñó: mismo `CF-Connecting-IP` con
+  XFF rotando → 429; otro `CF-Connecting-IP` → su propio balde. Mutaciones:
+  sin `::1/128` o sin `127.0.0.1/32` → caen los tests de middleware; sin
+  loopback o sin `ConfigureClientIP` → cae su mitad del e2e.
+  **La verificación de S1 era falsa**: "6 logins → el 6º da 429" también da
+  así con un balde global; probaba que el límite existe, no que sea por IP.
+  Revisión nativa `review-1e5a098f0ae2c8e4` aprobada con 3 sugerencias,
+  todas aplicadas: el e2e afirma 401 (no "cualquier cosa menos 429") en las
+  dos mitades; el calentamiento del test unitario afirma 200; y un test nuevo
+  fija que un request por loopback SIN `CF-Connecting-IP` (o con uno
+  inválido) cae al peer `::1` — riesgo aceptado: ese tráfico comparte balde,
+  el de usuarios siempre trae el header (mutación leyendo XFF → cae por
+  nombre).
+  **Pendiente post-merge**: una sonda mía tiene que aparecer en el log de
+  Render con mi IP pública, no con `::1`.
+
 ### Media
 - [x] **S2 — Teléfono del dueño en `GET /api/pets/:id` para cualquier estado.**
   En curso → ver `odd/tasks/telefono-solo-en-busqueda-activa.md`
@@ -239,7 +268,8 @@ recuperación, key de Jina, `/api/ops/quota`, `phone_verified`) NO entran acá.
 
 - 2026-09-23: S1 implementado y revisado (`3567d3ec` + `20c938e1`).
 - 2026-09-24: **S1 mergeado (#265, squash `7986cee8`)**, CI de `main` 6/6 con
-  Deploy (run 35946363831). **Verificado en prod por comportamiento**: antes
+  Deploy (run 35946363831). **Verificado en prod por comportamiento** (CORREGIDO
+  en S1c: esta prueba no distinguía un límite por IP de uno global): antes
   del deploy, 7 logins rotando `X-Forwarded-For` en un minuto → siete 401
   (límite 5, el bug reproducido); después, ronda de 6 → cinco 401 y **429**.
   Hallazgo lateral: Cloudflare rechaza con `error code: 1000` todo request
