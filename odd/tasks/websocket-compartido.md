@@ -80,7 +80,7 @@ de ver ventajas y riesgos.
   (qué sigue invalidando y qué ya no), y `MainLayout.test.tsx` para fijar que
   `chat_message` invalida el prefijo `['messages']` — es el invariante del que
   ahora dependen las otras dos. _Ruta: delegated direct (writer)._
-- [ ] **T3 — Verificación en runtime.** `/verify`: con el chat abierto, UN
+- [x] **T3 — Verificación en runtime.** `/verify`: con el chat abierto, UN
   socket a `/api/ws` por pestaña (también en dev con StrictMode) y UN GET por
   query por mensaje; el mensaje aparece en vivo; logout cierra el socket y no
   reconecta. Suites completas web + mobile.
@@ -147,6 +147,25 @@ test nuevo protege algo; `pnpm test:run` en web y mobile con `EXIT` explícito;
   'unread-count']`, así que cada `chat_message` también refetchea el contador
   (comportamiento previo, no duplicado).
 
+- 2026-09-27: **T3 hecho.** `/verify` con backend local (8082) y la web en
+  dev (4300, **con StrictMode**), usuario B en `/messages/<A>` y A mandando
+  por la API. Dos corridas, idénticas:
+
+  | Medición | Antes (2026-09-24) | Ahora |
+  |---|---|---|
+  | Sockets a `/api/ws` con el chat abierto | 3 (dev) | **1** |
+  | Pedidos de ticket al cargar | — | **1** (la carrera de StrictMode no abre huérfanos) |
+  | GET del hilo por mensaje | 3 | **1** |
+  | GET de la lista por mensaje | — | **1** |
+  | GET de `unread-count` por mensaje | — | 1 (prefijo de `MainLayout`, no duplicado) |
+  | Mensaje en la burbuja del hilo | 170–225 ms | 69–99 ms |
+  | Logout sin recarga (`auth:session-expired` con `unauthorized`) | — | socket cerrado al instante; **0** tickets y **0** sockets en 35 s |
+
+  Sonda sin `catch` que traduzca errores (lección de `verify-probe-gotchas`):
+  cuenta la burbuja específica del hilo, no el texto de la página. Mobile no
+  tiene prueba en runtime acá (no se levanta un device); lo cubre la suite
+  (259, `EXIT=0` tras T1) y la interfaz del hook no cambió.
+
 ## Next step
 
-T3.
+Revisión nativa del slice T2 y apertura del PR.
