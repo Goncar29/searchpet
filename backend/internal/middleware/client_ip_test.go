@@ -307,12 +307,50 @@ func TestConfigureClientIP_RateLimitPorIPDetrasDelLoopbackAislaClientes(t *testi
 	}
 
 	for i := 0; i < limit; i++ {
-		hit("203.0.113.9")
+		if code := hit("203.0.113.9"); code != http.StatusOK {
+			t.Fatalf("request %d dentro del cupo de %d deberia pasar, got %d", i+1, limit, code)
+		}
 	}
 	if code := hit("203.0.113.9"); code != http.StatusTooManyRequests {
 		t.Fatalf("el cliente que agoto su cupo deberia recibir 429, got %d", code)
 	}
 	if code := hit("198.51.100.5"); code != http.StatusOK {
 		t.Fatalf("otro cliente detras del mismo proxy loopback deberia tener su propio bucket, got %d — el rate limit es global", code)
+	}
+}
+
+// El otro lado de confiar en el loopback: un request que llega por el proxy
+// SIN CF-Connecting-IP (un probe interno, o algo que entra a Render sin pasar
+// por Cloudflare) no tiene de donde sacar la IP real y cae al peer crudo.
+// Todos esos comparten el balde "::1" — el modo de falla de S1c, acotado al
+// trafico sin el header. Se acepta a conciencia: inventar una IP seria peor,
+// y el trafico de usuarios siempre trae el header. Este test lo fija para que
+// un cambio de comportamiento no pase en silencio.
+func TestConfigureClientIP_LoopbackSinHeaderCaeAlPeer(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	if err := middleware.ConfigureClientIP(r); err != nil {
+		t.Fatalf("ConfigureClientIP: %v", err)
+	}
+
+	var got string
+	r.GET("/test", func(c *gin.Context) { got = c.ClientIP() })
+
+	for _, tc := range []struct{ name, header string }{
+		{"sin header", ""},
+		{"header invalido", "no-es-una-ip"},
+	} {
+		got = ""
+		req := httptest.NewRequest(http.MethodGet, "/test", nil)
+		req.RemoteAddr = "[::1]:51006"
+		if tc.header != "" {
+			req.Header.Set("CF-Connecting-IP", tc.header)
+		}
+		req.Header.Set("X-Forwarded-For", "1.2.3.4") // nunca se lee
+		r.ServeHTTP(httptest.NewRecorder(), req)
+
+		if got != "::1" {
+			t.Errorf("%s: ClientIP() = %q, queria el peer crudo ::1", tc.name, got)
+		}
 	}
 }

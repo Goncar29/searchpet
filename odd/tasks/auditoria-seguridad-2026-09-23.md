@@ -69,6 +69,13 @@ recuperación, key de Jina, `/api/ops/quota`, `phone_verified`) NO entran acá.
   loopback o sin `ConfigureClientIP` → cae su mitad del e2e.
   **La verificación de S1 era falsa**: "6 logins → el 6º da 429" también da
   así con un balde global; probaba que el límite existe, no que sea por IP.
+  Revisión nativa `review-1e5a098f0ae2c8e4` aprobada con 3 sugerencias,
+  todas aplicadas: el e2e afirma 401 (no "cualquier cosa menos 429") en las
+  dos mitades; el calentamiento del test unitario afirma 200; y un test nuevo
+  fija que un request por loopback SIN `CF-Connecting-IP` (o con uno
+  inválido) cae al peer `::1` — riesgo aceptado: ese tráfico comparte balde,
+  el de usuarios siempre trae el header (mutación leyendo XFF → cae por
+  nombre).
   **Pendiente post-merge**: una sonda mía tiene que aparecer en el log de
   Render con mi IP pública, no con `::1`.
 

@@ -55,15 +55,17 @@ func TestClientIPWiring_RateLimitDeLoginNoSeSalteaRotandoHeaders(t *testing.T) {
 	var last int
 	for i := 0; i <= limit; i++ {
 		last = login("203.0.113.9", fmt.Sprintf("1.2.3.%d", i))
-		if i < limit && last == http.StatusTooManyRequests {
-			t.Fatalf("request %d dio 429 antes de llegar al tope de %d", i+1, limit)
+		if i < limit && last != http.StatusUnauthorized {
+			t.Fatalf("request %d dentro del tope de %d: esperaba 401 (credenciales malas), got %d", i+1, limit, last)
 		}
 	}
 	if last != http.StatusTooManyRequests {
 		t.Fatalf("request %d con el mismo CF-Connecting-IP rotando X-Forwarded-For: esperaba 429, got %d — SetupRouter no está aplicando ConfigureClientIP y el rate limit se saltea", limit+1, last)
 	}
 
-	if code := login("198.51.100.5", "9.9.9.9"); code == http.StatusTooManyRequests {
-		t.Fatalf("otro CF-Connecting-IP recibió el 429 del anterior: el rate limit por IP es global detrás del proxy loopback (S1c)")
+	// 401 y no "cualquier cosa menos 429": prueba que el request llegó al
+	// handler de login con su propio balde, no sólo que el limiter no lo frenó.
+	if code := login("198.51.100.5", "9.9.9.9"); code != http.StatusUnauthorized {
+		t.Fatalf("otro CF-Connecting-IP: esperaba 401 con su propio balde, got %d — si es 429, el rate limit por IP es global detrás del proxy loopback (S1c)", code)
 	}
 }
