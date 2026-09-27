@@ -1,6 +1,8 @@
 package middleware
 
 import (
+	"log"
+	"net/url"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -82,6 +84,38 @@ func isAllowed(origin string, allowed []string) bool {
 		}
 	}
 	return false
+}
+
+// WebSocketOriginPatterns devuelve los hosts desde los que el upgrade del
+// WebSocket acepta conexiones (websocket.AcceptOptions.OriginPatterns).
+//
+// Sale de la MISMA variable que CORS (CORS_ALLOWED_ORIGINS) y con el mismo
+// parseo: dos listas de orígenes permitidos terminan divergiendo, y la que se
+// queda atrás rompe el chat en runtime sin que falle ningún build. En
+// development suma cualquier puerto de localhost, igual que isLocalhost.
+//
+// La librería compara sólo el HOST, sin esquema, así que el esquema se
+// descarta. Una entrada sin host (por ejemplo "searchpet.vercel.app" sin
+// "https://") se ignora: nunca se convierte en comodín. Se avisa en el log
+// nombrando la entrada, porque si no el único síntoma de un
+// CORS_ALLOWED_ORIGINS mal escrito sería un 403 en el upgrade del chat.
+//
+// No hace falta listar el host de la propia API: websocket.Accept ya acepta un
+// Origin del mismo host, que es lo que manda React Native en Android.
+func WebSocketOriginPatterns(environment string, allowedOrigins string) []string {
+	var hosts []string
+	for _, o := range parseOrigins(allowedOrigins) {
+		u, err := url.Parse(o)
+		if err != nil || u.Host == "" {
+			log.Printf("[ws] CORS_ALLOWED_ORIGINS entry %q has no host (missing scheme?); the WebSocket will not accept it", o)
+			continue
+		}
+		hosts = append(hosts, u.Host)
+	}
+	if environment == "development" {
+		hosts = append(hosts, "localhost:*", "127.0.0.1:*")
+	}
+	return hosts
 }
 
 func isLocalhost(origin string) bool {

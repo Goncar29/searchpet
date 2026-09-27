@@ -234,7 +234,8 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 	notificationService.SetPresence(wsHub)
 	notificationService.SetPusher(wsHub)
 
-	wsHandler := ws.NewHandler(wsHub, wsTicketStore)
+	wsHandler := ws.NewHandler(wsHub, wsTicketStore,
+		middleware.WebSocketOriginPatterns(cfg.Environment, cfg.CORSAllowedOrigins))
 
 	// PR4: Location Alerts
 	locationAlertService := service.NewLocationAlertService(locationAlertRepo, deviceTokenRepo, bus)
