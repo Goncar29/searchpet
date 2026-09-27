@@ -74,7 +74,7 @@ jobs:
       # sin la otra y el registro volviera a mentir. Fuera de main el flag se
       # ignora. Si este paso no corre (no es un disparo manual), la salida queda
       # vacia y govulncheck corre.
-      - name: Motivo del disparo manual
+      - name: Decidir salteo de govulncheck y registrar el disparo manual
         id: dispatch
         if: ${{ github.event_name == 'workflow_dispatch' }}
         env:
