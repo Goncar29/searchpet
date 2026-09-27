@@ -420,6 +420,10 @@ describe('useWebSocket — shared connection', () => {
     const deferred = createDeferred<{ ticket: string; expires_in: number }>();
     issueWsTicketSpy.mockReturnValue(deferred.promise);
 
+    // A disabled witness never subscribes, so it cannot keep the socket
+    // alive, but it reads the SHARED connectionState — the only way to
+    // observe "report connected" once the real consumer is gone.
+    const witness = renderHook(() => useWebSocket({ enabled: false, onMessage: vi.fn() }));
     const { unmount } = renderHook(() => useWebSocket({ onMessage: vi.fn() }));
 
     await act(async () => {
@@ -434,12 +438,14 @@ describe('useWebSocket — shared connection', () => {
     unmount(); // last subscriber leaves before the socket ever opened
 
     expect(abandoned.closed).toBe(true); // stop() closed it proactively
+    expect(witness.result.current.connectionState).toBe('disconnected');
 
     // A "late" open event slipping through must be inert.
     act(() => abandoned.open());
 
     expect(issueWsTicketSpy).toHaveBeenCalledTimes(1); // no reconnect attempt
     expect(FakeWebSocket.instances).toHaveLength(1); // no new socket
+    expect(witness.result.current.connectionState).toBe('disconnected'); // not 'connected'
   });
 
   it('12. onerror closes the socket, which then reconnects after the backoff delay', async () => {
