@@ -231,7 +231,13 @@ type FosterHomeAuditRepository interface {
 type DeviceTokenRepository interface {
 	Upsert(ctx context.Context, token *domain.DeviceToken) error
 	FindByUserID(ctx context.Context, userID uuid.UUID) ([]domain.DeviceToken, error)
+	// DeleteByToken borra sin mirar el dueño: sólo para la limpieza interna de
+	// tokens que FCM rechaza. Un endpoint que borre a pedido del usuario usa
+	// DeleteByTokenForUser.
 	DeleteByToken(ctx context.Context, token string) error
+	// DeleteByTokenForUser borra el token sólo si pertenece a userID. Si no es
+	// suyo (o no existe) no borra nada y no devuelve error.
+	DeleteByTokenForUser(ctx context.Context, token string, userID uuid.UUID) error
 }
 
 // VerificationTokenRepository define el contrato para tokens OTP de verificación.

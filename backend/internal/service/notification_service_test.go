@@ -40,6 +40,10 @@ func (m *mockDeviceTokenRepo) FindByUserID(_ context.Context, userID uuid.UUID) 
 	return m.tokens[userID], nil
 }
 
+func (m *mockDeviceTokenRepo) DeleteByTokenForUser(_ context.Context, _ string, _ uuid.UUID) error {
+	return nil
+}
+
 func (m *mockDeviceTokenRepo) DeleteByToken(_ context.Context, token string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()

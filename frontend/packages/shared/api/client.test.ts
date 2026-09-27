@@ -544,3 +544,38 @@ describe('401 handling without DOM event APIs (React Native global shape)', () =
     expect(headers.Authorization).toBeUndefined();
   });
 });
+
+// The mobile logout (mobile/store/index.ts) fires deleteDeviceToken WITHOUT
+// awaiting it and clears the session on the very next line. That only works
+// because the Authorization header is built synchronously, before the first
+// await in doFetch. If an await ever lands before the headers (a token
+// refresh, say), the DELETE goes out anonymous, gets a 401, and the logout's
+// `.catch(() => {})` swallows it: the phone keeps receiving the closed
+// account's notifications and nothing reports it. This pins the invariant.
+describe('APIClient.deleteDeviceToken during logout', () => {
+  let fetchMock: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ success: true }) });
+    vi.stubGlobal('fetch', fetchMock);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('sends the session token even when the session is cleared right after the call', async () => {
+    const client = new APIClient('http://api.test');
+    client.setToken('session-token');
+
+    const pending = client.deleteDeviceToken('fcm-token-1');
+    client.setToken(null); // what logout does next, without awaiting the DELETE
+    await pending;
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe('http://api.test/api/devices/fcm-token-1');
+    expect(init.method).toBe('DELETE');
+    expect(init.headers.Authorization).toBe('Bearer session-token');
+  });
+});

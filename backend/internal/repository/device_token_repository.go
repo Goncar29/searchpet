@@ -47,5 +47,15 @@ func (r *postgresDeviceTokenRepository) DeleteByToken(ctx context.Context, token
 		Delete(&domain.DeviceToken{}).Error
 }
 
+// DeleteByTokenForUser elimina el token sólo si pertenece a userID. Lo usa
+// DELETE /api/devices/:token: antes borraba por el string solo, así que
+// cualquier usuario autenticado podía cortarle las notificaciones a otro si
+// conocía su token (S7 de la auditoría 2026-09-23).
+func (r *postgresDeviceTokenRepository) DeleteByTokenForUser(ctx context.Context, token string, userID uuid.UUID) error {
+	return r.db.WithContext(ctx).
+		Where("token = ? AND user_id = ?", token, userID).
+		Delete(&domain.DeviceToken{}).Error
+}
+
 // Verificación estática: postgresDeviceTokenRepository satisface DeviceTokenRepository.
 var _ DeviceTokenRepository = (*postgresDeviceTokenRepository)(nil)
