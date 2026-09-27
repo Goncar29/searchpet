@@ -778,6 +778,20 @@ func TestPetHandler_SearchPets_GeoParams(t *testing.T) {
 		}
 	})
 
+	// S5 (auditoria 2026-09-23): "NaN" parsea sin error y toda comparación con
+	// NaN da false, así que `radius <= 0` y el rango 1000–50000 lo dejaban
+	// pasar hasta la consulta. Tiene que cortarse ANTES del servicio.
+	t.Run("NaN radius → 400 and never reaches the service", func(t *testing.T) {
+		captured = domain.PetSearchCriteria{}
+		w := doGet("?lat=-34.9&lng=-56.1&radius=NaN")
+		if w.Code != http.StatusBadRequest {
+			t.Errorf("want 400 for radius=NaN, got %d: %s", w.Code, w.Body.String())
+		}
+		if captured.RadiusMeters != nil {
+			t.Errorf("radius=NaN reached the service: %v", *captured.RadiusMeters)
+		}
+	})
+
 	// FIX 2: lat/lng range validation — out-of-range coords must be rejected 400
 	t.Run("out-of-range lat/lng → 400", func(t *testing.T) {
 		w := doGet("?lat=999&lng=999&radius=5000")

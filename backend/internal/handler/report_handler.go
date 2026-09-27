@@ -172,6 +172,13 @@ func (h *ReportHandler) GetNearbyReports(c *gin.Context) {
 		return
 	}
 
+	// ParseFloat acepta "NaN" e "Inf" sin error; sin este chequeo llegaban a
+	// PostGIS y el endpoint respondía 500 (S5 de la auditoría 2026-09-23).
+	if !validCoordinates(lat, lng) {
+		writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
+		return
+	}
+
 	// Resolver radio con precedencia: param explícito > pref de usuario > default
 	radiusMeters := defaultSearchRadius
 
