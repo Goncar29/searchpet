@@ -4,7 +4,10 @@
 # ============================================
 
 # Stage 1: Build
-FROM golang:1.25-alpine AS builder
+# Mismo patch que la directiva `go` de go.mod. La imagen oficial trae
+# GOTOOLCHAIN=local: con una imagen más vieja que go.mod el build falla en vez
+# de bajar el toolchain, así que los dos se suben juntos.
+FROM golang:1.26.8-alpine AS builder
 
 WORKDIR /app
 

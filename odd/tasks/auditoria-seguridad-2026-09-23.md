@@ -70,10 +70,46 @@ recuperación, key de Jina, `/api/ops/quota`, `phone_verified`) NO entran acá.
   corrida en vez de depender de `limit=100`; mutando la raza cae por "no
   apareció entre 0 resultados". El hallazgo lateral (scrub en la búsqueda)
   ya lo había cerrado S2b.
-- [ ] **S3 — CVEs alcanzables.** `golang-jwt/jwt/v5` 5.2.0→5.2.2
-  (GO-2025-3553, en cada request autenticado), `pgx/v5` 5.5.4→5.9.2
-  (GO-2026-5004), `go-jose/v4` 4.1.3→4.1.4, y patch del toolchain Go
-  (`go.mod` / `go-version-file`). Verificar con `govulncheck ./...`.
+- [x] **S3 — CVEs alcanzables.** `govulncheck ./...` pasó de **26
+  vulnerabilidades alcanzables a 0**. Módulos: `golang-jwt/jwt/v5`
+  5.2.0→5.2.2, `pgx/v5` 5.5.4→5.9.2, `go-jose/v4` 4.1.3→4.1.4, y cuatro que
+  la auditoría no había visto: `grpc` 1.80→1.83.1, `x/image` 0.43→0.45,
+  `x/net` 0.53→0.55, `x/text` 0.38→0.41. **Go 1.25.0 → 1.26.8**: con 1.27
+  publicado, la línea 1.25 dejó de recibir parches (soportadas: 1.27 y 1.26),
+  y CI compilaba con 1.25.0 exacto vía `go-version-file`. El `Dockerfile`
+  queda en `golang:1.26.8-alpine` — la imagen trae `GOTOOLCHAIN=local`, así
+  que `go.mod` y la imagen se suben juntos o el build falla. Verificado:
+  build+vet, `go test ./...` (tests contra Postgres real, 867s, sin skips),
+  e2e, `docker build` local y `go version -m` del binario → `go1.26.8`.
+  Fuera de alcance: el runtime `alpine:3.19` (EOL) va con S10.
+  **Lista completa de lo que se movió** (revisión de 4 lentes
+  `review-624fe81f081681e3`): además de los siete módulos de arriba, `go get`
+  arrastró como indirectas `x/crypto` 0.50→0.51, `x/sys`, `x/sync`, la
+  familia `otel`, `genproto`, `envoy`, `spiffe` y `cel.dev/expr`. Y
+  `go-playground/validator/v10` pasó de indirecta a directa **sin cambiar de
+  versión**: `go mod tidy` corrigió un `go.mod` que ya estaba desfasado de los
+  imports reales (el código lo importaba directo). Por eso CI suma un paso
+  `go mod tidy -diff`, que falla si vuelve a desfasarse.
+  **`govulncheck` fijado en `v1.8.0`**: es la versión que corrió local
+  (`go version -m` del binario) y la que corrió en CI (*"No vulnerabilities
+  found"*).
+  **Salida de emergencia (decisión del usuario, 2026-09-27)**: la revisión
+  advirtió que el paso frena TODO deploy —también un hotfix— ante un CVE
+  nuevo o si `vuln.go.dev` está caído. Se mantiene el bloqueo por defecto y se
+  agrega `workflow_dispatch` con `skip_vulncheck=true`: corre el resto y
+  deploya. `e2e-web` también acepta ese disparo, porque si se salteara, GitHub
+  saltearía el deploy que lo espera. Segunda revisión de 4 lentes
+  (`review-48d0c39712f0ab1b`): **corregido** que esto cubriera una caída del
+  proxy de módulos — no la cubre, `go mod download` corre antes y también lo
+  necesita; el salteo quedó acotado a `main` (en otra rama daba un verde sin
+  deploy); y el disparo exige un `reason` que queda impreso en el run (una
+  sola persona con permiso de escritura puede saltear el control: riesgo
+  aceptado, ahora con registro).
+  - [ ] **S3 post-merge**: disparar `ci.yml` a mano sobre `main` con
+    `skip_vulncheck=true` y un `reason`, y confirmar en el run que el salteo
+    figura aplicado, que `govulncheck` se saltea y que `Deploy Backend` corre.
+    `main` está limpio de CVEs, así que saltear no esconde nada; con `false` el
+    camino del salteo nunca se probaría (tercera revisión).
 - [x] **S4 — Volante PDF de mobile sin escapar.** `mobile/utils/escapeHtml.ts`
   (mismo contrato que `esc()` de `web/api/share.js`, más `'`) aplicado a
   cada valor que no escribimos nosotros. El botón NO es sólo del dueño: el

@@ -12,6 +12,24 @@ on:
   # exige `github.ref == 'refs/heads/main'`, y en un evento pull_request ese ref
   # es `refs/pull/<n>/merge`.
   pull_request:
+  # Salida de emergencia de govulncheck (decision del usuario, 2026-09-27).
+  # Por defecto un CVE alcanzable frena el deploy; en un hotfix urgente con un
+  # CVE nuevo todavia sin arreglar, o con vuln.go.dev caido, se dispara este
+  # workflow a mano SOBRE MAIN con skip_vulncheck=true: corre todo lo demas y
+  # deploya. NO cubre una caida del proxy de modulos: `go mod download` corre
+  # antes y tambien lo necesita. El salteo solo aplica en main (en otra rama
+  # daria un verde sin deploy que se podria confundir con un build validado),
+  # y exige un motivo, que queda escrito en el run.
+  workflow_dispatch:
+    inputs:
+      skip_vulncheck:
+        description: 'Saltear govulncheck (solo emergencias: hotfix con un CVE nuevo sin arreglar, o vuln.go.dev caido). Solo tiene efecto sobre main.'
+        type: boolean
+        default: false
+      reason:
+        description: 'Motivo del disparo manual (queda registrado en el run)'
+        type: string
+        required: true
 
 jobs:
   # ============================================
@@ -50,6 +68,31 @@ jobs:
         working-directory: ./backend
         run: go mod download
 
+      # UNICO lugar donde se decide si govulncheck se saltea: el paso de
+      # govulncheck solo lee `steps.dispatch.outputs.skip`. Escribir la regla dos
+      # veces (en el `if` del YAML y aca, para el log) dejaba que una cambiara
+      # sin la otra y el registro volviera a mentir. Fuera de main el flag se
+      # ignora. Si este paso no corre (no es un disparo manual), la salida queda
+      # vacia y govulncheck corre.
+      - name: Motivo del disparo manual
+        id: dispatch
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        env:
+          REASON: ${{ inputs.reason }}
+          SKIP: ${{ inputs.skip_vulncheck }}
+        run: |
+          applied=false
+          if [ "$SKIP" = "true" ] && [ "$GITHUB_REF" = "refs/heads/main" ]; then applied=true; fi
+          echo "skip=$applied" >> "$GITHUB_OUTPUT"
+          echo "workflow_dispatch en $GITHUB_REF por $GITHUB_ACTOR, skip_vulncheck=$SKIP (aplicado: $applied), motivo: $REASON"
+
+      # go.mod/go.sum tienen que coincidir con los imports reales. Sin esto un
+      # go.mod desfasado pasa inadvertido hasta que alguien corre `go mod tidy`
+      # y aparece un cambio ajeno a su PR (paso con validator/v10 en el #269).
+      - name: go mod tidy sin cambios
+        working-directory: ./backend
+        run: go mod tidy -diff
+
       # `-timeout 12m` explícito, y no el default de 10m, por el advisory lock
       # de `tests/testdb`: los paquetes se serializan contra la base, y el
       # timeout de Go se cuenta desde que arranca cada binario — la espera en la
@@ -77,6 +120,19 @@ jobs:
       - name: Build
         working-directory: ./backend
         run: go build -o main ./cmd/server
+
+      # Vulnerabilidades ALCANZABLES en dependencias y en la stdlib (S3 de la
+      # auditoría 2026-09-23: CI compilaba con Go 1.25.0 exacto y nadie lo veía).
+      # Va después de los tests para no esconder sus resultados, pero en este
+      # job: Deploy Backend lo espera, así que un CVE alcanzable frena el deploy
+      # hasta el bump. Es a propósito — la política es arreglar en el momento.
+      # Versión fija, no @latest: es una herramienta de la cadena de suministro.
+      - name: govulncheck
+        if: ${{ steps.dispatch.outputs.skip != 'true' }}
+        working-directory: ./backend
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@v1.8.0
+          govulncheck ./...
 
   # ============================================
   # Backend E2E Tests (Go, contra Postgres real)
@@ -236,7 +292,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20  # observado 2m31s
     needs: [frontend-web]
-    if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    # workflow_dispatch sobre main tambien: deploy-backend espera a este job, y
+    # si se saltea, GitHub saltea el deploy — la salida de emergencia de
+    # govulncheck no deployaria nada.
+    if: github.event_name == 'pull_request' || ((github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main')
 
     services:
       postgres:
