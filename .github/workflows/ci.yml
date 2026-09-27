@@ -68,10 +68,14 @@ jobs:
         working-directory: ./backend
         run: go mod download
 
-      # Deja escrito en el run quien disparo a mano, en que rama, con que motivo
-      # y si el salteo de govulncheck se APLICA: fuera de main el flag se
-      # ignora, y mostrar solo el valor crudo haria mentir al registro.
+      # UNICO lugar donde se decide si govulncheck se saltea: el paso de
+      # govulncheck solo lee `steps.dispatch.outputs.skip`. Escribir la regla dos
+      # veces (en el `if` del YAML y aca, para el log) dejaba que una cambiara
+      # sin la otra y el registro volviera a mentir. Fuera de main el flag se
+      # ignora. Si este paso no corre (no es un disparo manual), la salida queda
+      # vacia y govulncheck corre.
       - name: Motivo del disparo manual
+        id: dispatch
         if: ${{ github.event_name == 'workflow_dispatch' }}
         env:
           REASON: ${{ inputs.reason }}
@@ -79,6 +83,7 @@ jobs:
         run: |
           applied=false
           if [ "$SKIP" = "true" ] && [ "$GITHUB_REF" = "refs/heads/main" ]; then applied=true; fi
+          echo "skip=$applied" >> "$GITHUB_OUTPUT"
           echo "workflow_dispatch en $GITHUB_REF por $GITHUB_ACTOR, skip_vulncheck=$SKIP (aplicado: $applied), motivo: $REASON"
 
       # go.mod/go.sum tienen que coincidir con los imports reales. Sin esto un
@@ -123,7 +128,7 @@ jobs:
       # hasta el bump. Es a propósito — la política es arreglar en el momento.
       # Versión fija, no @latest: es una herramienta de la cadena de suministro.
       - name: govulncheck
-        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.skip_vulncheck && github.ref == 'refs/heads/main') }}
+        if: ${{ steps.dispatch.outputs.skip != 'true' }}
         working-directory: ./backend
         run: |
           go install golang.org/x/vuln/cmd/govulncheck@v1.8.0
