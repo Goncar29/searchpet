@@ -73,7 +73,7 @@ de ver ventajas y riesgos.
   con el ticket pendiente → un solo socket abierto; `enabled=false` no conecta;
   cierre inesperado → reconecta; todos deshabilitados → no reconecta.
   _Ruta: delegated direct (writer), 2+ archivos no triviales._
-- [ ] **T2 — Invalidaciones sin duplicar (web).** `ChatPage` y `MessagesPage`
+- [x] **T2 — Invalidaciones sin duplicar (web).** `ChatPage` y `MessagesPage`
   dejan de invalidar ante `chat_message` (lo cubre el prefijo de
   `MainLayout`); conservan `badge_update` → lista. Actualizar
   `ChatPage.test.tsx` / `MessagesPage.test.tsx` para afirmar las dos mitades
@@ -130,6 +130,23 @@ test nuevo protege algo; `pnpm test:run` en web y mobile con `EXIT` explícito;
   `MessagesPage`, `MessagesShell`) — afirman "useWebSocket abre una conexión
   por montaje" (regla #37).
 
+- 2026-09-27: test 11 del hook (sugerencia de la revisión
+  `review-817541ea84c197c0`, que aprobó T1 completo): un testigo con
+  `enabled=false` afirma que un socket abandonado no deja el estado en
+  `'connected'` (`37fda3f2`; mutación → `expected 'connected' to be
+  'disconnected'`).
+- 2026-09-27: **T2 hecho** (writer delegado). `ChatPage` y `MessagesPage` ya no
+  invalidan ante `chat_message` (lo cubre el prefijo de `MainLayout`);
+  conservan `badge_update` → lista. Comentarios falsos reescritos en
+  `ChatPage`, `MessagesPage`, `MainLayout` y `MessagesShell`. Tests de las dos
+  mitades; `MainLayout.test` fija que `chat_message` invalida el PREFIJO;
+  guard nuevo `App.routeNesting.test.tsx` (las dos rutas cuelgan de
+  `MainLayout`). Rojo observado contra el código previo; mutaciones (a)–(d)
+  caen por nombre. Suites web 1035 + shared 330 `EXIT=0`, `tsc` 0.
+  Nota para T3: el prefijo `['messages']` incluye `['messages',
+  'unread-count']`, así que cada `chat_message` también refetchea el contador
+  (comportamiento previo, no duplicado).
+
 ## Next step
 
-T2.
+T3.

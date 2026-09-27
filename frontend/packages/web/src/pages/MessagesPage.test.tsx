@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { act, render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter, useLocation } from 'react-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MessagesPage } from './MessagesPage';
+import type { WsEnvelope, WsConnectionState, UseWebSocketOptions } from '@shared/hooks';
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (key: string) => key, i18n: { language: 'es' } }),
@@ -14,11 +15,11 @@ vi.mock('../context/AuthContext', () => ({
 
 vi.mock('@shared/hooks', () => ({
   useConversations: vi.fn(),
-  useWebSocket: () => ({ connectionState: 'connected', sendEnvelope: vi.fn() }),
+  useWebSocket: vi.fn(() => ({ connectionState: 'connected' as WsConnectionState, sendEnvelope: vi.fn() })),
 }));
 
 // Import after mock registration so vi.fn() is in place
-import { useConversations } from '@shared/hooks';
+import { useConversations, useWebSocket } from '@shared/hooks';
 
 // Props-capturing stub, mirroring ChatPage.test.tsx's pattern: asserts the
 // per-row integration (which ids/names reach the menu, and that the button
@@ -365,5 +366,76 @@ describe('MessagesPage', () => {
     fireEvent.click(screen.getByLabelText('chat:actions.menuLabel-user-2'));
 
     expect(screen.getByTestId('location').textContent).toBe('/messages');
+  });
+
+  it('un chat_message NO invalida la lista: lo cubre el prefijo de MainLayout', () => {
+    // ANTES esta pantalla invalidaba `['messages']` (sin exact) ante
+    // chat_message Y badge_update, por su cuenta. Desde que useWebSocket
+    // comparte UNA sola conexion por sesion, MainLayout esta SIEMPRE suscrito
+    // mientras hay sesion y su propio onMessage ya invalida ese mismo prefijo
+    // ante chat_message — repetirlo aca era la misma consulta dos veces.
+    // Depender de MainLayout es seguro solo porque esta pantalla se monta
+    // SIEMPRE dentro de el (ver el guard de nesting en
+    // App.routeNesting.test.tsx).
+    let capturedOnMessage: ((env: WsEnvelope) => void) | null = null;
+    vi.mocked(useWebSocket).mockImplementationOnce(({ onMessage }: UseWebSocketOptions) => {
+      capturedOnMessage = onMessage;
+      return { connectionState: 'connected' as WsConnectionState, sendEnvelope: vi.fn() };
+    });
+    vi.mocked(useConversations).mockReturnValue({ data: [], isLoading: false } as unknown as ReturnType<
+      typeof useConversations
+    >);
+
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const spy = vi.spyOn(client, 'invalidateQueries');
+
+    render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter initialEntries={['/messages']}>
+          <MessagesPage />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    act(() => {
+      capturedOnMessage?.({
+        type: 'chat_message',
+        payload: { id: 'm', from: 'user-2', to: 'user-1', body: 'hola', timestamp: '' },
+      });
+    });
+
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it('un badge_update SI invalida la lista, y es lo UNICO que invalida', () => {
+    // La mitad que NO cambio: MainLayout no toca la lista ante un
+    // badge_update (solo el contador de no leidos), asi que MessagesPage
+    // sigue siendo quien tiene que hacerlo.
+    let capturedOnMessage: ((env: WsEnvelope) => void) | null = null;
+    vi.mocked(useWebSocket).mockImplementationOnce(({ onMessage }: UseWebSocketOptions) => {
+      capturedOnMessage = onMessage;
+      return { connectionState: 'connected' as WsConnectionState, sendEnvelope: vi.fn() };
+    });
+    vi.mocked(useConversations).mockReturnValue({ data: [], isLoading: false } as unknown as ReturnType<
+      typeof useConversations
+    >);
+
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const spy = vi.spyOn(client, 'invalidateQueries');
+
+    render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter initialEntries={['/messages']}>
+          <MessagesPage />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    act(() => {
+      capturedOnMessage?.({ type: 'badge_update', payload: { count: 3 } } as unknown as WsEnvelope);
+    });
+
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(spy).toHaveBeenCalledWith({ queryKey: ['messages'] });
   });
 });

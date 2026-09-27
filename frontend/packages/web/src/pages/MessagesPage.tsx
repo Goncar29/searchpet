@@ -13,9 +13,13 @@ import { MessagesShell } from '../components/chat/MessagesShell';
  * celular sólo la lista. La conversación en sí vive en `/messages/:userId`
  * (`ChatPage`), que monta el mismo shell con la columna derecha llena.
  *
- * El socket se abre ACÁ y no en el shell: `useWebSocket` abre una conexión por
- * montaje, así que el hook va una vez por ruta. Ver el encabezado de
- * `MessagesShell`.
+ * El socket se abre ACÁ, y no porque cueste: desde que `useWebSocket`
+ * comparte UNA sola conexión por sesión (ver `shared/hooks/useWebSocket.ts`),
+ * sumar un suscriptor más acá es gratis — no abre un segundo socket. Se abre
+ * acá porque esta pantalla necesita reaccionar a `badge_update` para refrescar
+ * la lista, y `MainLayout` (que también está suscrito mientras hay sesión) NO
+ * lo hace: su `onMessage` sólo actualiza el contador de no leídos ante ese
+ * evento. Ver el encabezado de `MessagesShell`.
  */
 export function MessagesPage() {
   const { t } = useTranslation(['messages']);
@@ -23,7 +27,12 @@ export function MessagesPage() {
   const queryClient = useQueryClient();
 
   const onMessage = (envelope: WsEnvelope) => {
-    if (envelope.type === 'chat_message' || envelope.type === 'badge_update') {
+    // `chat_message` NO invalida nada acá: `MainLayout` ya invalida el
+    // PREFIJO `['messages']` ante cada `chat_message` (lista y todos los
+    // hilos), y esta pantalla se monta SIEMPRE dentro de `MainLayout` (ver
+    // `App.tsx` y el guard en `App.routeNesting.test.tsx`). Repetirlo acá
+    // sería la misma consulta dos veces.
+    if (envelope.type === 'badge_update') {
       queryClient.invalidateQueries({ queryKey: ['messages'] });
     }
   };

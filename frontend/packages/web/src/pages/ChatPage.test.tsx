@@ -514,10 +514,15 @@ describe('ChatPage', () => {
     expect(capturedMenuList.filter((p) => p.otherUserId === 'user-9')).toHaveLength(1);
   });
 
-  it('un mensaje entrante refresca TAMBIEN la lista de la izquierda, no solo el hilo', () => {
-    // La lista y el hilo ahora comparten pantalla. `['messages', userId]` sola
-    // dejaria la fila de al lado mostrando el mensaje anterior como ultimo, y
-    // eso no se ve como un bug: se ve como una fila desactualizada.
+  it('un chat_message de la conversacion abierta YA NO invalida nada: lo cubre el prefijo de MainLayout', () => {
+    // ANTES esta pantalla invalidaba `['messages']` exact (la lista) Y
+    // `['messages', userId]` (el hilo) por su cuenta ante un chat_message
+    // propio. Desde que `useWebSocket` comparte UNA sola conexion por sesion,
+    // `MainLayout` esta SIEMPRE suscrito mientras hay sesion y su propio
+    // onMessage invalida el PREFIJO `['messages']` — eso ya matchea la lista Y
+    // cualquier hilo. Repetirlo aca era invalidar dos veces lo mismo, y
+    // depender de MainLayout es seguro solo porque ChatPage se monta SIEMPRE
+    // dentro de el (ver el guard de nesting en App.routeNesting.test.tsx).
     let capturedOnMessage: ((env: WsEnvelope) => void) | null = null;
     vi.mocked(useWebSocket).mockImplementationOnce(({ onMessage }: UseWebSocketOptions) => {
       capturedOnMessage = onMessage;
@@ -547,20 +552,14 @@ describe('ChatPage', () => {
       });
     });
 
-    const claves = spy.mock.calls.map((c) => JSON.stringify(c[0]));
-    expect(claves).toContain(JSON.stringify({ queryKey: ['messages', 'user-2'] }));
-    expect(claves).toContain(JSON.stringify({ queryKey: ['messages'], exact: true }));
+    expect(spy).not.toHaveBeenCalled();
   });
 
-  // El test de arriba manda un mensaje DE LA CONVERSACION ABIERTA, o sea el
-  // unico caso donde la guarda de `from/to` daba true — por eso pasaba con el
-  // defecto puesto. Estos dos cubren lo que quedaba afuera.
+  // El test de arriba manda un mensaje DE LA CONVERSACION ABIERTA. Este cubre
+  // el caso de un TERCERO — antes tenia un tratamiento distinto (invalidaba la
+  // lista pero no el hilo); ahora tampoco hace nada, por el mismo motivo.
 
-  it('un mensaje de un TERCERO refresca la lista, aunque no sea de esta conversacion', () => {
-    // El caso que importa es el contrario al que uno piensa: si escribe alguien
-    // con quien NO estas hablando, su fila es la que queda vieja —sin punto de
-    // no leido y con el mensaje anterior como ultimo— y es la fila que el
-    // usuario esta mirando en la columna de al lado.
+  it('un chat_message de un TERCERO tampoco invalida nada: es MainLayout quien refresca la lista', () => {
     let capturedOnMessage: ((env: WsEnvelope) => void) | null = null;
     vi.mocked(useWebSocket).mockImplementationOnce(({ onMessage }: UseWebSocketOptions) => {
       capturedOnMessage = onMessage;
@@ -587,13 +586,16 @@ describe('ChatPage', () => {
       });
     });
 
-    const claves = spy.mock.calls.map((c) => JSON.stringify(c[0]));
-    expect(claves).toContain(JSON.stringify({ queryKey: ['messages'], exact: true }));
-    // Y el hilo abierto NO se toca: ese mensaje no es de esta conversacion.
-    expect(claves).not.toContain(JSON.stringify({ queryKey: ['messages', 'user-2'] }));
+    expect(spy).not.toHaveBeenCalled();
   });
 
-  it('un badge_update tambien refresca la lista, igual que en MessagesPage', () => {
+  it('un badge_update SI sigue invalidando la lista (exact), y es lo UNICO que invalida', () => {
+    // La mitad que NO cambio: MainLayout no toca la lista ante un badge_update
+    // (solo el contador de no leidos), asi que ChatPage sigue siendo quien
+    // tiene que hacerlo. Afirmar `toHaveBeenCalledTimes(1)` (y no solo
+    // `toContain`) es lo que prueba que esta es la UNICA invalidacion — si
+    // alguna vez volviera la del hilo o la de la lista non-exact, este test lo
+    // veria.
     let capturedOnMessage: ((env: WsEnvelope) => void) | null = null;
     vi.mocked(useWebSocket).mockImplementationOnce(({ onMessage }: UseWebSocketOptions) => {
       capturedOnMessage = onMessage;
@@ -616,8 +618,8 @@ describe('ChatPage', () => {
       capturedOnMessage?.({ type: 'badge_update', payload: { count: 3 } } as unknown as WsEnvelope);
     });
 
-    const claves = spy.mock.calls.map((c) => JSON.stringify(c[0]));
-    expect(claves).toContain(JSON.stringify({ queryKey: ['messages'], exact: true }));
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(spy).toHaveBeenCalledWith({ queryKey: ['messages'], exact: true });
   });
 
   it('un tercero tecleando NO apaga el indicador de la conversacion abierta', () => {

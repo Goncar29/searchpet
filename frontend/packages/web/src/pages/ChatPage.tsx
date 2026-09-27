@@ -9,7 +9,7 @@ import {
   usePublicProfile,
   useBlockStatus,
 } from '@shared/hooks';
-import type { WsEnvelope, WsChatMessage, WsTypingEvent } from '@shared/hooks';
+import type { WsEnvelope, WsTypingEvent } from '@shared/hooks';
 import type { Message } from '@shared/types';
 import { getErrorMessage } from '@shared/utils/apiErrors';
 import { useAuth } from '../context/AuthContext';
@@ -81,24 +81,30 @@ export function ChatPage() {
   const [typingFrom, setTypingFrom] = useState<string | null>(null);
 
   const onMessage = (envelope: WsEnvelope) => {
-    // LA LISTA SE REFRESCA ANTE CUALQUIER MENSAJE, no sólo los de la
-    // conversación abierta. Ahora se dibuja en ESTA pantalla, así que el caso
-    // que importa es justo el contrario al que uno piensa: si escribe un
-    // TERCERO, su fila es la que queda vieja —sin punto de no leído y con el
-    // mensaje anterior como último— hasta que caiga el poll de 15s. Este
-    // handler tiene que hacer lo mismo que el de `MessagesPage`, que invalida
-    // ante `chat_message` Y `badge_update`; mientras estuvo metido adentro de
-    // la guarda de `from/to` no cubría ninguno de los dos casos ajenos.
-    if (envelope.type === 'chat_message' || envelope.type === 'badge_update') {
+    // `chat_message` YA NO INVALIDA NADA ACA. Antes esta pantalla invalidaba
+    // `['messages']` exact (la lista) Y, si el mensaje era de esta
+    // conversación, `['messages', userId]` (el hilo) — las dos por su
+    // cuenta. Desde que `useWebSocket` comparte UNA sola conexión por sesión
+    // (ver `shared/hooks/useWebSocket.ts`), `MainLayout` está SIEMPRE
+    // suscrito mientras hay sesión, y su propio `onMessage` invalida el
+    // PREFIJO `['messages']` ante cada `chat_message` — eso matchea la lista
+    // Y CUALQUIER hilo (`['messages', <id>]` empieza con ese prefijo), sea o
+    // no el que está abierto. Repetirlo acá era invalidar dos veces lo mismo.
+    //
+    // Confiar en esa invalidación es seguro sólo porque `ChatPage` se monta
+    // SIEMPRE dentro de `MainLayout` (ver `App.tsx`: la ruta
+    // `/messages/:userId` cuelga de `<Route element={<MainLayout />}>`), y
+    // hay un guard que prueba justamente eso en `App.routeNesting.test.tsx`
+    // — si algún día esta ruta se moviera afuera, el guard lo detecta antes
+    // de que el chat deje de refrescarse en silencio.
+    //
+    // `badge_update` SÍ se invalida acá, con la lista `exact`: MainLayout
+    // ante ese evento sólo actualiza el contador de no leídos, nunca la
+    // lista, y un `badge_update` puede reflejar que cambió el estado "sin
+    // leer" de una fila que no es la abierta (p. ej. se leyó una
+    // conversación desde otra pestaña).
+    if (envelope.type === 'badge_update') {
       queryClient.invalidateQueries({ queryKey: ['messages'], exact: true });
-    }
-
-    if (envelope.type === 'chat_message') {
-      const payload = envelope.payload as WsChatMessage;
-      // El HILO, en cambio, sí es sólo el de esta conversación.
-      if (payload.from === userId || payload.to === userId) {
-        queryClient.invalidateQueries({ queryKey: ['messages', userId] });
-      }
     }
 
     if (envelope.type === 'typing_start') {

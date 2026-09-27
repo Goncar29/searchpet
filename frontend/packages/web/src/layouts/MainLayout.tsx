@@ -26,12 +26,21 @@ export function MainLayout() {
   const { data: myShelter } = useMyShelter(isAuthenticated);
 
   // Badge de mensajes sin leer: REST para el valor inicial, WebSocket
-  // (badge_update) para tiempo real. El Hub soporta múltiples conexiones
-  // por usuario, así que esta conexión app-wide convive con la del chat.
+  // (badge_update) para tiempo real. La conexión es COMPARTIDA — una sola
+  // por sesión (ver `shared/hooks/useWebSocket.ts`) — así que este
+  // suscriptor convive gratis con el de ChatPage/MessagesPage: sumar un
+  // listener más no abre un socket nuevo.
   const { data: unreadData } = useUnreadCount(isAuthenticated);
   const unreadCount = unreadData?.count ?? 0;
   const unreadLabel = unreadCount > 9 ? '9+' : String(unreadCount);
 
+  // Este onMessage es también el dueño de la invalidación de `chat_message`
+  // para TODA la app: invalida el PREFIJO `['messages']` (sin `exact`), que
+  // matchea la lista Y cualquier hilo (`['messages', <id>]` empieza con ese
+  // prefijo). ChatPage y MessagesPage confían en esto y ya no repiten su
+  // propia invalidación ante `chat_message` — sólo se montan DENTRO de este
+  // layout (ver `App.tsx`), así que la dependencia es segura, y un guard en
+  // `App.routeNesting.test.tsx` prueba justamente ese nesting.
   useWebSocket({
     enabled: isAuthenticated,
     onMessage: (envelope: WsEnvelope) => {
