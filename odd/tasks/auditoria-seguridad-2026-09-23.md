@@ -82,6 +82,23 @@ recuperación, key de Jina, `/api/ops/quota`, `phone_verified`) NO entran acá.
   build+vet, `go test ./...` (tests contra Postgres real, 867s, sin skips),
   e2e, `docker build` local y `go version -m` del binario → `go1.26.8`.
   Fuera de alcance: el runtime `alpine:3.19` (EOL) va con S10.
+  **Lista completa de lo que se movió** (revisión de 4 lentes
+  `review-624fe81f081681e3`): además de los siete módulos de arriba, `go get`
+  arrastró como indirectas `x/crypto` 0.50→0.51, `x/sys`, `x/sync`, la
+  familia `otel`, `genproto`, `envoy`, `spiffe` y `cel.dev/expr`. Y
+  `go-playground/validator/v10` pasó de indirecta a directa **sin cambiar de
+  versión**: `go mod tidy` corrigió un `go.mod` que ya estaba desfasado de los
+  imports reales (el código lo importaba directo). Por eso CI suma un paso
+  `go mod tidy -diff`, que falla si vuelve a desfasarse.
+  **`govulncheck` fijado en `v1.8.0`**: es la versión que corrió local
+  (`go version -m` del binario) y la que corrió en CI (*"No vulnerabilities
+  found"*).
+  **Salida de emergencia (decisión del usuario, 2026-09-27)**: la revisión
+  advirtió que el paso frena TODO deploy —también un hotfix— ante un CVE
+  nuevo o si `vuln.go.dev` / el proxy están caídos. Se mantiene el bloqueo por
+  defecto y se agrega `workflow_dispatch` con `skip_vulncheck=true`: corre el
+  resto y deploya. `e2e-web` también acepta ese disparo, porque si se
+  salteara, GitHub saltearía el deploy que lo espera.
 - [x] **S4 — Volante PDF de mobile sin escapar.** `mobile/utils/escapeHtml.ts`
   (mismo contrato que `esc()` de `web/api/share.js`, más `'`) aplicado a
   cada valor que no escribimos nosotros. El botón NO es sólo del dueño: el
