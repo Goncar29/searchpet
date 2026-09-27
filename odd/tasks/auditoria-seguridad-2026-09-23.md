@@ -105,11 +105,16 @@ recuperación, key de Jina, `/api/ops/quota`, `phone_verified`) NO entran acá.
   deploy); y el disparo exige un `reason` que queda impreso en el run (una
   sola persona con permiso de escritura puede saltear el control: riesgo
   aceptado, ahora con registro).
-  - [ ] **S3 post-merge**: disparar `ci.yml` a mano sobre `main` con
+  - [x] **S3 post-merge**: disparar `ci.yml` a mano sobre `main` con
     `skip_vulncheck=true` y un `reason`, y confirmar en el run que el salteo
     figura aplicado, que `govulncheck` se saltea y que `Deploy Backend` corre.
     `main` está limpio de CVEs, así que saltear no esconde nada; con `false` el
     camino del salteo nunca se probaría (tercera revisión).
+    **Hecho el 2026-09-27**: run `36356785223` (`workflow_dispatch` en `main`)
+    — el paso del motivo imprimió `skip_vulncheck=true (aplicado: true)`,
+    `govulncheck` quedó `skipped`, `E2E Tests (Web)` corrió y `Deploy Backend`
+    dio `success`; Render levantó `dep-daspus3bc2fs738bvimg` (`live`, mismo
+    commit `14b77e9a`).
 - [x] **S4 — Volante PDF de mobile sin escapar.** `mobile/utils/escapeHtml.ts`
   (mismo contrato que `esc()` de `web/api/share.js`, más `'`) aplicado a
   cada valor que no escribimos nosotros. El botón NO es sólo del dueño: el
@@ -245,7 +250,27 @@ recuperación, key de Jina, `/api/ops/quota`, `phone_verified`) NO entran acá.
   dos revisiones nativas aprobadas.
 
 - 2026-09-24: S2c hecho en `test/search-phone-review-followups` (sólo tests).
+- 2026-09-27: **S2c–S7 mergeados** (squash): #268 S2c `c4d273e4`, #271 S5
+  `1f93ca0a`, #270 S4 `4691dd54`, #272 S6 `1a2f268e`, #273 S7 `8bf62224`,
+  #269 S3 `14b77e9a` (más #274, el WebSocket compartido, `2faa253a`). CI de
+  `main` verde con deploy (run `36356124811`). **Los PRs chocaban** entre sí
+  por editar ítems contiguos de este archivo: cada rebase resolvió sólo el
+  documento y se verificó que el código fuera byte por byte el revisado. El
+  #269 pasó cinco revisiones de 4 lentes sobre `ci.yml`, todas aprobadas.
+- 2026-09-27: verificado en producción por contenido — S3: el build del
+  deploy vivo usó `FROM golang:1.26.8-alpine`; S5: `nearby?lat=NaN` → 400 y
+  `search?...&radius=NaN` → 400 (control válido → 200); salida de emergencia
+  de `govulncheck` probada de punta a punta (ver "S3 post-merge"). **S6 no
+  se puede sondear sin sesión**: el backend valida el ticket antes que el
+  origen, así que sin ticket da 401; el rechazo del origen ajeno está probado
+  local con `ENVIRONMENT=production`, y lo que S6 podía romper (el chat
+  legítimo) lo confirma el usuario abriendo el chat. Pendiente de S1 que
+  sigue abierto: leer `remote_addr` en los logs de Render para confirmar el
+  10.x.
 
 ## Next step
 
-S3 (CVEs) → S4…S6 → bajas → basura.
+S8 (comparaciones constant-time) → S9 (bcrypt 72 bytes en `Register`) → S10
+(Docker no-root + `alpine:3.19` EOL) → S11 (CI `permissions:`) → S12
+(`returnUrl`) → S13–S15 → G1–G5. **Aprendido**: no marcar el backlog en cada
+PR — los ítems contiguos chocan; se actualiza al cerrar, en un commit aparte.
