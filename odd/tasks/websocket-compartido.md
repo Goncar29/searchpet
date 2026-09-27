@@ -113,6 +113,19 @@ test nuevo protege algo; `pnpm test:run` en web y mobile con `EXIT` explícito;
   el test 4; sin `stop()` al quedar en 0 → cae el 3; conexión por suscriptor →
   cae el 1. Suites: web 1030 + shared 325 + mobile 259, todo `EXIT=0`; `tsc`
   web 0→0, mobile 44→44.
+  Revisión nativa `review-449545faa85b1772` aprobada con **2 advertencias**
+  (los tests 3 y 5 afirmaban "no reconecta" con timers reales tras dos
+  microtareas, y la reconexión es un `setTimeout` ≥1 s: ciegos) y 2
+  sugerencias. **Todas aplicadas** en el commit de seguimiento: 13 tests
+  (antes 8) con fake timers; backoff 1→2→4→8→16→30 s con tope y reset;
+  último suscriptor que se va durante un backoff; `onerror`; y
+  `connectionState` emite `'disconnected'` al cerrar (como el hook viejo) y
+  queda documentado como estado COMPARTIDO. Hallazgos del writer: las guardas
+  de "no reconectar" son redundantes a propósito (hubo que sacar tres a la
+  vez para que la mutación mordiera) y la rama de generación vieja en
+  `onopen` es inalcanzable desde la API pública (`stop()` desengancha antes);
+  se testeó la garantía real en vez de mutar código muerto. Suites: web 1030
+  + shared 330 + mobile 259 `EXIT=0`; `tsc` web 0, mobile 44 (sin cambio).
   **Para T2:** tres comentarios quedaron desactualizados (`MainLayout`,
   `MessagesPage`, `MessagesShell`) — afirman "useWebSocket abre una conexión
   por montaje" (regla #37).

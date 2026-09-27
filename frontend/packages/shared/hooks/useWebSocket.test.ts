@@ -65,6 +65,11 @@ class FakeWebSocket {
     this.onclose?.();
   }
 
+  /** Simulates a network error event (real browsers always follow this with a close event). */
+  triggerError(): void {
+    this.onerror?.();
+  }
+
   close(): void {
     this.readyState = FakeWebSocket.CLOSED;
     this.closed = true;
@@ -75,6 +80,15 @@ class FakeWebSocket {
     this.sent.push(data);
   }
 }
+
+// Source constants (MIN_DELAY_MS / MAX_DELAY_MS) aren't exported — mirrored
+// here from useWebSocket.ts so the backoff-timing tests stay readable and
+// don't depend on magic numbers scattered across assertions.
+const MIN_DELAY_MS = 1_000;
+const MAX_DELAY_MS = 30_000;
+// Comfortably past the 30s cap, with room for several would-be retries —
+// used to prove "no further reconnect attempts", not just "not yet".
+const WELL_PAST_MAX_DELAY_MS = MAX_DELAY_MS * 4;
 
 function createDeferred<T>() {
   let resolve!: (value: T) => void;
@@ -142,12 +156,24 @@ describe('useWebSocket — shared connection', () => {
   });
 
   it('3. keeps the socket open when one of two consumers unmounts, and closes without reconnecting when the last one does', async () => {
+    // Fake timers + advancing WELL past MAX_DELAY_MS is load-bearing here:
+    // a regression that schedules a delayed reconnect (setTimeout >= 1s)
+    // would be invisible to a test that only drains microtasks with real
+    // timers, since the timer callback would simply never fire during the
+    // test's lifetime. Advancing past the cap gives every possible retry
+    // (including ones queued by a broken backoff that never resets) a
+    // chance to fire before we assert none did.
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
     issueWsTicketSpy.mockResolvedValue({ ticket: 't1', expires_in: 60 });
 
     const hookA = renderHook(() => useWebSocket({ onMessage: vi.fn() }));
     const hookB = renderHook(() => useWebSocket({ onMessage: vi.fn() }));
 
-    await waitFor(() => expect(FakeWebSocket.instances).toHaveLength(1));
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(FakeWebSocket.instances).toHaveLength(1);
     const socket = FakeWebSocket.instances[0];
     act(() => socket.open());
 
@@ -157,10 +183,8 @@ describe('useWebSocket — shared connection', () => {
     act(() => hookB.unmount());
     expect(socket.closed).toBe(true);
 
-    // Give an incorrect reconnect attempt a chance to fire.
     await act(async () => {
-      await Promise.resolve();
-      await Promise.resolve();
+      await vi.advanceTimersByTimeAsync(WELL_PAST_MAX_DELAY_MS);
     });
     expect(FakeWebSocket.instances).toHaveLength(1);
     expect(issueWsTicketSpy).toHaveBeenCalledTimes(1);
@@ -208,6 +232,11 @@ describe('useWebSocket — shared connection', () => {
   });
 
   it('5. enabled=false never connects; flipping to true connects; flipping back to false (as the only consumer) closes without reconnecting', async () => {
+    // Same "invisible delayed reconnect" gap as test 3 — see its comment.
+    // This is what mobile logout relies on: no session recovery UI, so a
+    // ghost reconnect after `enabled` flips to false would silently keep
+    // a revoked session's socket alive.
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
     issueWsTicketSpy.mockResolvedValue({ ticket: 't1', expires_in: 60 });
 
     const { rerender, unmount } = renderHook(
@@ -219,17 +248,21 @@ describe('useWebSocket — shared connection', () => {
     expect(FakeWebSocket.instances).toHaveLength(0);
 
     rerender({ enabled: true });
-    await waitFor(() => expect(FakeWebSocket.instances).toHaveLength(1));
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(FakeWebSocket.instances).toHaveLength(1);
     act(() => FakeWebSocket.instances[0].open());
 
     rerender({ enabled: false });
     expect(FakeWebSocket.instances[0].closed).toBe(true);
 
     await act(async () => {
-      await Promise.resolve();
-      await Promise.resolve();
+      await vi.advanceTimersByTimeAsync(WELL_PAST_MAX_DELAY_MS);
     });
     expect(FakeWebSocket.instances).toHaveLength(1);
+    expect(issueWsTicketSpy).toHaveBeenCalledTimes(1);
 
     unmount();
   });
@@ -296,5 +329,174 @@ describe('useWebSocket — shared connection', () => {
 
     expect(throwing).toHaveBeenCalledWith(envelope);
     expect(ok).toHaveBeenCalledWith(envelope);
+  });
+
+  it('9. a rejected ticket retries with exponential backoff 1s→2s→4s→8s→16s, capped at 30s, and resets to 1s after a successful open', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    issueWsTicketSpy
+      .mockRejectedValueOnce(new Error('401'))
+      .mockRejectedValueOnce(new Error('401'))
+      .mockRejectedValueOnce(new Error('401'))
+      .mockRejectedValueOnce(new Error('401'))
+      .mockRejectedValueOnce(new Error('401'))
+      .mockRejectedValueOnce(new Error('401'))
+      .mockResolvedValueOnce({ ticket: 't7', expires_in: 60 });
+
+    renderHook(() => useWebSocket({ onMessage: vi.fn() }));
+
+    // Attempt 1 (immediate) fails and schedules a retry at 1s.
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(issueWsTicketSpy).toHaveBeenCalledTimes(1);
+    expect(FakeWebSocket.instances).toHaveLength(0); // ticket never resolved, no socket
+
+    // Each failing attempt's OWN delay before the NEXT attempt: 1s, 2s, 4s,
+    // 8s, 16s, then 30s (uncapped math would want 32s here — this last step
+    // is the one that actually exercises MAX_DELAY_MS).
+    const delays = [1_000, 2_000, 4_000, 8_000, 16_000, 30_000];
+    for (let i = 0; i < delays.length; i++) {
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(delays[i]);
+      });
+      expect(issueWsTicketSpy).toHaveBeenCalledTimes(i + 2);
+    }
+
+    // Attempt 7 (fired after the capped 30s wait) succeeds.
+    expect(FakeWebSocket.instances).toHaveLength(1);
+    act(() => FakeWebSocket.instances[0].open());
+
+    // Force an unexpected close. If the backoff had kept growing instead
+    // of resetting on success, nothing would fire at 1s.
+    act(() => FakeWebSocket.instances[0].serverClose());
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(999);
+    });
+    expect(issueWsTicketSpy).toHaveBeenCalledTimes(7); // not yet — still short of 1s
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2);
+    });
+    expect(issueWsTicketSpy).toHaveBeenCalledTimes(8); // reset to MIN_DELAY_MS
+  });
+
+  it('10. no further retries after the last subscriber leaves during a pending backoff', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    issueWsTicketSpy.mockRejectedValue(new Error('401'));
+
+    const { unmount } = renderHook(() => useWebSocket({ onMessage: vi.fn() }));
+
+    // First attempt fails; a retry is now pending 1s in the future.
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(issueWsTicketSpy).toHaveBeenCalledTimes(1);
+
+    // Unmount while that reconnect is still pending.
+    act(() => unmount());
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(WELL_PAST_MAX_DELAY_MS);
+    });
+
+    expect(issueWsTicketSpy).toHaveBeenCalledTimes(1); // no more retries
+    expect(FakeWebSocket.instances).toHaveLength(0);
+  });
+
+  it('11. a socket abandoned before it opens (last subscriber left while still connecting) is inert: a late open event does not reconnect or report connected', async () => {
+    // Exercises the OBSERVABLE guarantee behind the ws.onopen stale-
+    // generation branch. Note: under this module's subscribe/unsubscribe
+    // design, generation only changes on a 0<->1 subscriber transition,
+    // and stop() always proactively nulls the currently-assigned socket's
+    // handlers before closing it — so by the time a "late" open event
+    // could fire, onopen is already null and the internal
+    // `myGeneration !== generation` check inside it is unreachable dead
+    // code via the public API. What's still real and worth pinning: a
+    // late open event on an abandoned socket must be a no-op — no
+    // 'connected' state, no reconnect, no new ticket, no new socket.
+    const deferred = createDeferred<{ ticket: string; expires_in: number }>();
+    issueWsTicketSpy.mockReturnValue(deferred.promise);
+
+    const { unmount } = renderHook(() => useWebSocket({ onMessage: vi.fn() }));
+
+    await act(async () => {
+      deferred.resolve({ ticket: 't1', expires_in: 60 });
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(FakeWebSocket.instances).toHaveLength(1);
+    const abandoned = FakeWebSocket.instances[0];
+    expect(abandoned.closed).toBe(false); // still CONNECTING, never opened
+
+    unmount(); // last subscriber leaves before the socket ever opened
+
+    expect(abandoned.closed).toBe(true); // stop() closed it proactively
+
+    // A "late" open event slipping through must be inert.
+    act(() => abandoned.open());
+
+    expect(issueWsTicketSpy).toHaveBeenCalledTimes(1); // no reconnect attempt
+    expect(FakeWebSocket.instances).toHaveLength(1); // no new socket
+  });
+
+  it('12. onerror closes the socket, which then reconnects after the backoff delay', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    issueWsTicketSpy.mockResolvedValue({ ticket: 't1', expires_in: 60 });
+
+    renderHook(() => useWebSocket({ onMessage: vi.fn() }));
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(FakeWebSocket.instances).toHaveLength(1);
+    const socket = FakeWebSocket.instances[0];
+    act(() => socket.open());
+
+    act(() => socket.triggerError());
+    expect(socket.closed).toBe(true); // onerror must close the socket
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(MIN_DELAY_MS);
+    });
+
+    expect(issueWsTicketSpy).toHaveBeenCalledTimes(2);
+    expect(FakeWebSocket.instances).toHaveLength(2);
+  });
+
+  it("13. connectionState is shared: 'idle' before any subscriber, 'connecting'→'connected', 'disconnected' after the last subscriber leaves, and a disabled consumer observes it too", async () => {
+    const deferred = createDeferred<{ ticket: string; expires_in: number }>();
+    issueWsTicketSpy.mockReturnValue(deferred.promise);
+
+    // A disabled consumer never subscribes but still reads the shared state.
+    const disabled = renderHook(() => useWebSocket({ enabled: false, onMessage: vi.fn() }));
+    expect(disabled.result.current.connectionState).toBe('idle');
+
+    const active = renderHook(() => useWebSocket({ onMessage: vi.fn() }));
+    expect(active.result.current.connectionState).toBe('connecting');
+    await waitFor(() => expect(disabled.result.current.connectionState).toBe('connecting'));
+
+    await act(async () => {
+      deferred.resolve({ ticket: 't1', expires_in: 60 });
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(FakeWebSocket.instances).toHaveLength(1);
+    act(() => FakeWebSocket.instances[0].open());
+
+    await waitFor(() => expect(active.result.current.connectionState).toBe('connected'));
+    await waitFor(() => expect(disabled.result.current.connectionState).toBe('connected'));
+
+    act(() => active.unmount());
+
+    // active's own snapshot is stale post-unmount (it no longer
+    // re-renders); the still-mounted `disabled` instance is the reliable
+    // witness of the shared state.
+    await waitFor(() => expect(disabled.result.current.connectionState).toBe('disconnected'));
+
+    disabled.unmount();
   });
 });

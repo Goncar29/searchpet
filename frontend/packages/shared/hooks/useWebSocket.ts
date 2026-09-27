@@ -214,7 +214,12 @@ function stop(): void {
     socket.close();
     socket = null;
   }
-  setConnectionState('idle');
+  // 'disconnected' (not 'idle'): the connection was actually torn down
+  // because the last subscriber left. 'idle' is reserved for "nobody has
+  // ever subscribed yet" (the module-init value) and for the test-only
+  // reset below — keeping them distinct preserves the value set the old
+  // per-mount hook emitted on its own unmount cleanup.
+  setConnectionState('disconnected');
 }
 
 function subscribe(listener: EnvelopeListener): () => void {
@@ -270,12 +275,31 @@ export function __resetWsConnectionForTests(): void {
 // --- Hook ---
 
 export interface UseWebSocketOptions {
-  /** Set to false to skip connecting (e.g. user not authenticated). Default: true */
+  /**
+   * Set to false to skip connecting (e.g. user not authenticated).
+   * Default: true. Only affects THIS instance's own subscription — it
+   * does not close the shared connection if other consumers are still
+   * subscribed, and it does not stop this instance from observing the
+   * shared `connectionState` other consumers' subscriptions produce.
+   */
   enabled?: boolean;
   /** Called for every incoming envelope. Stable ref — updates without re-subscribing. */
   onMessage: (envelope: WsEnvelope) => void;
 }
 
+/**
+ * `connectionState` is SHARED across every `useWebSocket()` instance in
+ * this runtime — it reflects the one underlying socket, not "is THIS
+ * component's listener registered". A consumer with `enabled: false`
+ * still observes whatever state other consumers' subscriptions produced
+ * (e.g. 'connected' if another screen already has one open); it just
+ * doesn't affect it itself.
+ *
+ * Values: 'idle' (nobody has subscribed yet, or a test reset ran),
+ * 'connecting', 'connected', 'disconnected' (the last subscriber left
+ * and the socket was torn down), 'reconnecting' (backoff in progress
+ * after an unexpected close or a ticket-issuance failure).
+ */
 export function useWebSocket({ enabled = true, onMessage }: UseWebSocketOptions): {
   connectionState: WsConnectionState;
   sendEnvelope: (env: WsEnvelope) => void;
