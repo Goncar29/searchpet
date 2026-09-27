@@ -95,10 +95,17 @@ recuperación, key de Jina, `/api/ops/quota`, `phone_verified`) NO entran acá.
   found"*).
   **Salida de emergencia (decisión del usuario, 2026-09-27)**: la revisión
   advirtió que el paso frena TODO deploy —también un hotfix— ante un CVE
-  nuevo o si `vuln.go.dev` / el proxy están caídos. Se mantiene el bloqueo por
-  defecto y se agrega `workflow_dispatch` con `skip_vulncheck=true`: corre el
-  resto y deploya. `e2e-web` también acepta ese disparo, porque si se
-  salteara, GitHub saltearía el deploy que lo espera.
+  nuevo o si `vuln.go.dev` está caído. Se mantiene el bloqueo por defecto y se
+  agrega `workflow_dispatch` con `skip_vulncheck=true`: corre el resto y
+  deploya. `e2e-web` también acepta ese disparo, porque si se salteara, GitHub
+  saltearía el deploy que lo espera. Segunda revisión de 4 lentes
+  (`review-48d0c39712f0ab1b`): **corregido** que esto cubriera una caída del
+  proxy de módulos — no la cubre, `go mod download` corre antes y también lo
+  necesita; el salteo quedó acotado a `main` (en otra rama daba un verde sin
+  deploy); y el disparo exige un `reason` que queda impreso en el run (una
+  sola persona con permiso de escritura puede saltear el control: riesgo
+  aceptado, ahora con registro). **Pendiente post-merge**: disparar una vez
+  sobre `main` con `skip_vulncheck=false` para probar que el camino deploya.
 - [x] **S4 — Volante PDF de mobile sin escapar.** `mobile/utils/escapeHtml.ts`
   (mismo contrato que `esc()` de `web/api/share.js`, más `'`) aplicado a
   cada valor que no escribimos nosotros. El botón NO es sólo del dueño: el

@@ -13,15 +13,23 @@ on:
   # es `refs/pull/<n>/merge`.
   pull_request:
   # Salida de emergencia de govulncheck (decision del usuario, 2026-09-27).
-  # Por defecto un CVE alcanzable frena el deploy; en un hotfix urgente, o si
-  # vuln.go.dev / el proxy de modulos estan caidos, se dispara este workflow a
-  # mano sobre main con skip_vulncheck=true: corre todo lo demas y deploya.
+  # Por defecto un CVE alcanzable frena el deploy; en un hotfix urgente con un
+  # CVE nuevo todavia sin arreglar, o con vuln.go.dev caido, se dispara este
+  # workflow a mano SOBRE MAIN con skip_vulncheck=true: corre todo lo demas y
+  # deploya. NO cubre una caida del proxy de modulos: `go mod download` corre
+  # antes y tambien lo necesita. El salteo solo aplica en main (en otra rama
+  # daria un verde sin deploy que se podria confundir con un build validado),
+  # y exige un motivo, que queda escrito en el run.
   workflow_dispatch:
     inputs:
       skip_vulncheck:
-        description: 'Saltear govulncheck (solo emergencias: hotfix con un CVE nuevo sin arreglar, o vuln.go.dev caido)'
+        description: 'Saltear govulncheck (solo emergencias: hotfix con un CVE nuevo sin arreglar, o vuln.go.dev caido). Solo tiene efecto sobre main.'
         type: boolean
         default: false
+      reason:
+        description: 'Motivo del disparo manual (queda registrado en el run)'
+        type: string
+        required: true
 
 jobs:
   # ============================================
@@ -63,6 +71,14 @@ jobs:
       # go.mod/go.sum tienen que coincidir con los imports reales. Sin esto un
       # go.mod desfasado pasa inadvertido hasta que alguien corre `go mod tidy`
       # y aparece un cambio ajeno a su PR (paso con validator/v10 en el #269).
+      - name: Motivo del disparo manual
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        env:
+          REASON: ${{ inputs.reason }}
+          SKIP: ${{ inputs.skip_vulncheck }}
+        run: |
+          echo "workflow_dispatch en $GITHUB_REF por $GITHUB_ACTOR, skip_vulncheck=$SKIP, motivo: $REASON"
+
       - name: go mod tidy sin cambios
         working-directory: ./backend
         run: go mod tidy -diff
@@ -102,7 +118,7 @@ jobs:
       # hasta el bump. Es a propósito — la política es arreglar en el momento.
       # Versión fija, no @latest: es una herramienta de la cadena de suministro.
       - name: govulncheck
-        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.skip_vulncheck) }}
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.skip_vulncheck && github.ref == 'refs/heads/main') }}
         working-directory: ./backend
         run: |
           go install golang.org/x/vuln/cmd/govulncheck@v1.8.0
