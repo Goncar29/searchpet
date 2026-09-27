@@ -105,13 +105,18 @@ interface MessagesShellProps {
  * los links de afuera y el botón de atrás del celular, que es el único gesto que
  * tiene un usuario para volver de una conversación.
  *
- * ESTE COMPONENTE NO ABRE EL WEBSOCKET, y no es un olvido: `useWebSocket` abre
- * una conexión POR MONTAJE (lo dice su propio encabezado), así que si el shell
- * llamara al hook además de la página, cada pantalla de chat sostendría DOS
- * sockets contra un backend gratuito. La página dueña de la ruta abre uno solo y
- * su `onMessage` invalida tanto `['messages']` (esta lista) como
- * `['messages', userId]` (el hilo). Si alguna vez hace falta refrescar la lista
- * desde acá, se agrega una prop — no un segundo hook.
+ * ESTE COMPONENTE NO ABRE EL WEBSOCKET, y no es un olvido. Ya no es por costo:
+ * desde que `useWebSocket` comparte UNA sola conexión por sesión (ver
+ * `shared/hooks/useWebSocket.ts`), sumar un suscriptor más acá sería gratis —
+ * no abriría un segundo socket. La razón real es de responsabilidad: qué
+ * invalidar depende de qué pantalla es. `ChatPage` necesita saber a quién le
+ * llegó el mensaje para el indicador de tecleo; `MessagesPage` necesita
+ * reaccionar a `badge_update` para refrescar la lista; y `MainLayout` (siempre
+ * montado, siempre suscrito) ya invalida el prefijo `['messages']` ante
+ * `chat_message` para las dos — ninguna repite esa invalidación por su cuenta.
+ * Meter un tercer `onMessage` acá duplicaría esa lógica sin necesidad. Si
+ * alguna vez hace falta refrescar la lista desde acá, se agrega una prop — no
+ * un segundo hook.
  */
 export function MessagesShell({ selectedUserId, selectedUserName, children }: MessagesShellProps) {
   const { t } = useTranslation(['messages', 'common']);

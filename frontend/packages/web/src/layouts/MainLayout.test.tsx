@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { act, render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MainLayout } from './MainLayout';
+import type { WsEnvelope, WsConnectionState, UseWebSocketOptions } from '@shared/hooks';
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (key: string) => key, i18n: { language: 'es' } }),
@@ -31,11 +32,12 @@ vi.mock('../components/LanguageSwitcher', () => ({
 
 vi.mock('@shared/hooks', () => ({
   useUnreadCount: vi.fn(),
-  useWebSocket: () => ({ connectionState: 'connected', sendEnvelope: vi.fn() }),
+  useWebSocket: vi.fn(() => ({ connectionState: 'connected' as WsConnectionState, sendEnvelope: vi.fn() })),
   useMyShelter: () => ({ data: undefined }),
+  UNREAD_COUNT_KEY: ['messages', 'unread-count'],
 }));
 
-import { useUnreadCount } from '@shared/hooks';
+import { useUnreadCount, useWebSocket, UNREAD_COUNT_KEY } from '@shared/hooks';
 
 function renderLayout() {
   return render(
@@ -128,6 +130,79 @@ describe('MainLayout — los links del nav salen de i18n', () => {
       expect(label).not.toMatch(/\p{Extended_Pictographic}/u);
     }
     expect(labels).toContain('leaderboard');
+  });
+});
+
+describe('MainLayout — WebSocket compartido: invalidaciones', () => {
+  beforeEach(() => {
+    vi.mocked(useUnreadCount).mockReturnValue({ data: { count: 0 } } as unknown as ReturnType<
+      typeof useUnreadCount
+    >);
+  });
+
+  it('un chat_message invalida el PREFIJO ["messages"] — es el invariante del que dependen ChatPage y MessagesPage', () => {
+    // ChatPage y MessagesPage dejaron de invalidar por su cuenta ante
+    // chat_message, confiando en que ESTE onMessage invalida SIN `exact`, asi
+    // que matchea la lista (`['messages']`) Y cualquier hilo
+    // (`['messages', <id>]` empieza con ese prefijo). Si esto se volviera
+    // `exact: true`, los hilos abiertos dejarian de refrescarse y nadie mas
+    // lo haria por ellos — por eso el guard de mutacion de este test es tan
+    // importante como el propio test.
+    let capturedOnMessage: ((env: WsEnvelope) => void) | null = null;
+    vi.mocked(useWebSocket).mockImplementationOnce(({ onMessage }: UseWebSocketOptions) => {
+      capturedOnMessage = onMessage;
+      return { connectionState: 'connected' as WsConnectionState, sendEnvelope: vi.fn() };
+    });
+
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const spy = vi.spyOn(client, 'invalidateQueries');
+
+    render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter>
+          <MainLayout />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    act(() => {
+      capturedOnMessage?.({
+        type: 'chat_message',
+        payload: { id: 'm', from: 'user-2', to: 'user-1', body: 'hola', timestamp: '' },
+      });
+    });
+
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(spy).toHaveBeenCalledWith({ queryKey: ['messages'] });
+    // Y sin `exact`: un `exact: true` dejaria afuera cualquier hilo.
+    expect(spy.mock.calls[0][0]).not.toHaveProperty('exact');
+  });
+
+  it('un badge_update actualiza el contador de no leidos, y NO toca la lista de mensajes', () => {
+    let capturedOnMessage: ((env: WsEnvelope) => void) | null = null;
+    vi.mocked(useWebSocket).mockImplementationOnce(({ onMessage }: UseWebSocketOptions) => {
+      capturedOnMessage = onMessage;
+      return { connectionState: 'connected' as WsConnectionState, sendEnvelope: vi.fn() };
+    });
+
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const invalidateSpy = vi.spyOn(client, 'invalidateQueries');
+    const setSpy = vi.spyOn(client, 'setQueryData');
+
+    render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter>
+          <MainLayout />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    act(() => {
+      capturedOnMessage?.({ type: 'badge_update', payload: { user_id: 'user-1', unread_count: 5 } });
+    });
+
+    expect(setSpy).toHaveBeenCalledWith(UNREAD_COUNT_KEY, { count: 5 });
+    expect(invalidateSpy).not.toHaveBeenCalled();
   });
 });
 
