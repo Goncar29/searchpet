@@ -271,6 +271,11 @@ recuperación, key de Jina, `/api/ops/quota`, `phone_verified`) NO entran acá.
 - [ ] **S11 — CI sin `permissions:`.** `ci.yml` sin bloque → agregar
   `contents: read`. Considerar pinnear por SHA las actions de terceros,
   sobre todo `softprops/action-gh-release` (corre con `contents: write`).
+- [ ] **S11b — CI no construye la imagen del backend.** Sugerencia de la
+  revisión de S10 (`review-50b1eeb506747a91`, R3-002): hoy un Dockerfile roto
+  recién aparece en el deploy de Render. Agregar a `ci.yml` un `docker build`
+  + arranque contra el Postgres del job + `/health/ready` = 200, y que
+  `deploy-backend` lo espere. Va junto con S11 (mismo archivo).
 - [ ] **S12 — `returnUrl` sin validar.** `LoginPage.tsx:53`,
   `useGoogleSignIn.ts:26`: exigir `/` y no `//`. Hoy no explotable
   (`navigate()` no cambia de origen); hardening.
