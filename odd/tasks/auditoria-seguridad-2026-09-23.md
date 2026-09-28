@@ -266,16 +266,43 @@ recuperación, key de Jina, `/api/ops/quota`, `phone_verified`) NO entran acá.
   pasa a `handler/password_limits.go` (la comparten dos handlers), el
   comentario del DTO deja la historia para este documento, y el test afirma
   el código `invalid_input` (mutación a `binding_failed` → cae por nombre).
-- [ ] **S10 — Docker corre como root.** `backend/Dockerfile`: `adduser` +
-  `USER`.
-- [ ] **S11 — CI sin `permissions:`.** `ci.yml` sin bloque → agregar
+- [x] **S10 — Docker corre como root.** `backend/Dockerfile`: `adduser` +
+  `USER`. Hecho junto con el runtime `alpine:3.19` (EOL 2025-11) →
+  `alpine:3.24` (soporte hasta 2028-06): corre como uid 10001, y el binario no
+  escribe a disco, así que los archivos quedan de root en sólo lectura. Rojo
+  con la imagen vieja (`uid=0`, `3.19.9`); verde con la nueva, y arranca
+  contra Postgres real (`/health/ready` 200). Dos revisiones nativas aprobadas
+  (`review-50b1eeb506747a91`, `review-423be2f4dcd202ca`); su sugerencia de
+  construir la imagen en CI quedó como S11b. **PR #279, squash `a383da73`**,
+  deploy `dep-dat9vijncjis73dmqm40` live: el log del build de Render muestra
+  `FROM alpine:3.24` y el `adduser -u 10001`. Render construye sin cache
+  (`no-cache`), así que en producción la base siempre se baja fresca.
+- [x] **S11 — CI sin `permissions:`.** `ci.yml` sin bloque → agregar
   `contents: read`. Considerar pinnear por SHA las actions de terceros,
   sobre todo `softprops/action-gh-release` (corre con `contents: write`).
-- [ ] **S11b — CI no construye la imagen del backend.** Sugerencia de la
+  Hecho: `permissions: contents: read` a nivel de workflow (ningún job
+  escribe en el repo). Las tres actions de terceros (`pnpm/action-setup`,
+  `android-actions/setup-android`, `softprops/action-gh-release`) quedan
+  fijadas al SHA de la versión exacta que resolvía su tag (`v6.0.10`,
+  `v4.0.4`, `v3.0.3`), así que el comportamiento no cambia; las `actions/*`
+  de GitHub siguen por tag. `build-apk.yml` sólo corre con tags: sus SHAs se
+  prueban en el próximo release.
+- [x] **S11b — CI no construye la imagen del backend.** Sugerencia de la
   revisión de S10 (`review-50b1eeb506747a91`, R3-002): hoy un Dockerfile roto
   recién aparece en el deploy de Render. Agregar a `ci.yml` un `docker build`
   + arranque contra el Postgres del job + `/health/ready` = 200, y que
   `deploy-backend` lo espere. Va junto con S11 (mismo archivo).
+  Hecho: job `backend-image` con `docker build --pull`, uid 10001 exigido en
+  la imagen y en el proceso corriendo, y espera de `/health/ready` con plazo
+  por reloj (90s, `curl --max-time 5`) que corta apenas el contenedor muere.
+  Los tres caminos probados local: listo (3s), contenedor caído (1s) y
+  servidor colgado que acepta la conexión y no responde (94s, en vez de los
+  15 min del techo del job). Rojo con la imagen vieja en los dos chequeos de
+  uid; verde en CI (run `36457577891`). Revisión de 4 lentes
+  `review-1a7c0137972e8e1b` aprobada; sus sugerencias aplicadas salvo una:
+  **no se agrega reintento al `docker build`** — el deploy ya dependía del
+  registro de imágenes antes de este job (el Postgres de `backend-test` sale
+  del mismo registro), así que un reintento acá no quita esa dependencia.
 - [ ] **S12 — `returnUrl` sin validar.** `LoginPage.tsx:53`,
   `useGoogleSignIn.ts:26`: exigir `/` y no `//`. Hoy no explotable
   (`navigate()` no cambia de origen); hardening.
