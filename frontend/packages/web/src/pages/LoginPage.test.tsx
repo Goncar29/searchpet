@@ -19,11 +19,16 @@ vi.mock('react-i18next', () => ({
 
 // Mock del contexto de auth
 const mockLogin = vi.fn();
+const routerState = vi.hoisted(() => ({
+  navigate: vi.fn(),
+  search: new URLSearchParams(),
+  isAuthenticated: false,
+}));
 vi.mock('../context/AuthContext', () => ({
   useAuth: () => ({
     loginWithGoogle: vi.fn(),
     login: mockLogin,
-    isAuthenticated: false,
+    isAuthenticated: routerState.isAuthenticated,
     isLoading: false,
   }),
 }));
@@ -33,13 +38,15 @@ vi.mock('react-router', async (importOriginal) => {
   const actual = await importOriginal<typeof import('react-router')>();
   return {
     ...actual,
-    useNavigate: () => vi.fn(),
-    useSearchParams: () => [new URLSearchParams()],
+    useNavigate: () => routerState.navigate,
+    useSearchParams: () => [routerState.search],
   };
 });
 
 beforeEach(() => {
   vi.clearAllMocks();
+  routerState.search = new URLSearchParams();
+  routerState.isAuthenticated = false;
 });
 
 function renderLoginPage() {
@@ -125,5 +132,44 @@ describe('LoginPage — validación de formulario', () => {
     await user.click(screen.getByRole('button', { name: 'auth:login.submit' }));
 
     expect(await screen.findByText('Credenciales inválidas')).toBeInTheDocument();
+  });
+});
+
+// S12: `returnUrl` sale de la URL, así que cualquiera puede armar un link a
+// /login con el valor que quiera. Sólo se navega a un path del mismo origen.
+describe('LoginPage — returnUrl', () => {
+  async function submitLogin() {
+    mockLogin.mockResolvedValue(undefined);
+    const user = userEvent.setup();
+    renderLoginPage();
+    await user.type(screen.getByLabelText('auth:login.email'), 'carlos@example.com');
+    await user.type(screen.getByLabelText('auth:login.password'), 'mi-password');
+    await user.click(screen.getByRole('button', { name: 'auth:login.submit' }));
+  }
+
+  it('después del login vuelve al path del mismo origen que trae returnUrl', async () => {
+    routerState.search = new URLSearchParams({ returnUrl: '/pets/123' });
+    await submitLogin();
+    expect(routerState.navigate).toHaveBeenCalledWith('/pets/123');
+  });
+
+  it('después del login ignora un returnUrl a otro origen y va a /', async () => {
+    routerState.search = new URLSearchParams({ returnUrl: '//evil.example' });
+    await submitLogin();
+    expect(routerState.navigate).toHaveBeenCalledWith('/');
+  });
+
+  it('con sesión ya iniciada vuelve al path del mismo origen que trae returnUrl', () => {
+    routerState.isAuthenticated = true;
+    routerState.search = new URLSearchParams({ returnUrl: '/messages' });
+    renderLoginPage();
+    expect(routerState.navigate).toHaveBeenCalledWith('/messages', { replace: true });
+  });
+
+  it('con sesión ya iniciada ignora un returnUrl a otro origen y va a /', () => {
+    routerState.isAuthenticated = true;
+    routerState.search = new URLSearchParams({ returnUrl: 'https://evil.example' });
+    renderLoginPage();
+    expect(routerState.navigate).toHaveBeenCalledWith('/', { replace: true });
   });
 });
