@@ -35,11 +35,28 @@ allowBuilds:
 # the override drift to 4.x or 5.x breaks the build. 3.3.18 still ships
 # index.cjs, so the whole 3.x line stays safe to float within.
 overrides:
+  dompurify: '>=3.4.13 <4'
   form-data: '>=4.0.6'
   nanoid: '>=3.3.17 <4'
   postcss: '>=8.5.18'
+  protobufjs: '>=7.6.5 <8'
   undici: '>=7.29.0 <8'
   websocket-driver: '>=0.7.5'
+
+# dompurify y protobufjs llegan transitivos (jspdf y firebase/firestore), asi
+# que no hay version top-level que subir. Los dos se ARREGLAN en vez de
+# ignorarse: el parche entra en el rango que ya pide su padre.
+#
+# dompurify: jspdf pide ^3.3.1. Los cinco advisories (GHSA-c2j3-45gr-mqc4,
+# GHSA-cmwh-pvxp-8882, GHSA-vxr8-fq34-vvx9, GHSA-gvmj-g25r-r7wr,
+# GHSA-55q2-fjhq-7xh7) llegan como mucho a 3.4.12. La app nunca llama a
+# `.html()` de jsPDF, que es el unico camino que usa DOMPurify, pero arreglarlo
+# cuesta menos que sostener cinco ignores. Tope <4: el rango de jspdf.
+#
+# protobufjs: @grpc/proto-loader pide ^7.5.5. GHSA-f38q-mgvj-vph7 se parcha en
+# 7.6.3 y GHSA-j3f2-48v5-ccww en 7.6.5, asi que el piso es 7.6.5. La web no
+# importa firestore, pero la dependencia esta en el arbol igual. Tope <8: la
+# linea 8 tiene su propio parche y no entra en el rango de proto-loader.
 
 # El override de undici estuvo clavado en 7.27.2 con el motivo de que la
 # version parcheada era incompatible con jsdom@29.1.1. Ese motivo quedo
