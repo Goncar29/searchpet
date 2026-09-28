@@ -85,7 +85,7 @@ export function LocationStep({ value, onPublish, onBack, isPending }: LocationSt
       <Text style={styles.instructions}>{t('publish:location.instructions')}</Text>
 
       <View style={styles.mapContainer}>
-        <MapLibreGL.MapView style={styles.map} styleURL={MAP_STYLE}>
+        <MapLibreGL.MapView style={styles.map} mapStyle={MAP_STYLE}>
           <MapLibreGL.Camera zoomLevel={13} centerCoordinate={coordinate} />
           <MapLibreGL.UserLocation visible />
           <MapLibreGL.PointAnnotation
