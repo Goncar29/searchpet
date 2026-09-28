@@ -41,4 +41,16 @@ describe('MapLibre style prop', () => {
       .map((f) => path.relative(ROOT, f));
     expect(offenders).toEqual([]);
   });
+
+  // The check above only proves the wrong prop is gone. Deleting the style
+  // prop altogether would pass it and still fall back to the demo tiles, so
+  // every file that renders a MapView must also pass mapStyle.
+  it('gives every rendered MapView a mapStyle', () => {
+    const mapFiles = files.filter((f) => /<[\w.]*\bMapView\b/.test(fs.readFileSync(f, 'utf8')));
+    expect(mapFiles.length).toBeGreaterThanOrEqual(3);
+    const withoutStyle = mapFiles
+      .filter((f) => !/\bmapStyle\s*=/.test(fs.readFileSync(f, 'utf8')))
+      .map((f) => path.relative(ROOT, f));
+    expect(withoutStyle).toEqual([]);
+  });
 });
