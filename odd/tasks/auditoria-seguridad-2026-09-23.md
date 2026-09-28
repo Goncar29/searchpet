@@ -405,9 +405,28 @@ recuperación, key de Jina, `/api/ops/quota`, `phone_verified`) NO entran acá.
 - [ ] **G4 — Deprecaciones (decisión, no limpieza):** `nhooyr.io/websocket` →
   `github.com/coder/websocket`; `option.WithCredentialsJSON` en
   `pkg/notification/firebase.go:60`.
-- [ ] **G5 — Errores de tipos en mobile** que salieron en `tsc` (~15:
+- [x] **G5 — Errores de tipos en mobile** que salieron en `tsc` (~15:
   implicit any, MapLibreGL, import roto en `story/index.tsx`). Fuera del
   alcance de "basura", pero son reales.
+  Eran **44**, no ~15, y uno era un **bug visible en todos los APK**: los
+  tres mapas pasaban `styleURL`, que MapLibre RN 10 descarta en silencio
+  (sólo lee `mapStyle`), así que caían al mapa de demo sin calles y el
+  principal nunca usó MapTiler. El usuario confirmó que nunca vio calles.
+  Arreglado en **#287** (`3703b0ae`) con un guard que barre `app/` y
+  `components/`. **Causa de 19 errores**: mobile compilaba con TypeScript
+  5.3.3 y React Query 5 necesita 5.4 o más; con 5.9.3 se van, y aparecen 2
+  que el viejo no veía. Los de pantallas: `CameraRef`, el tipo de
+  `onRegionDidChange`, `pet.owner.id` dentro del bloque que ya lo exige, un
+  cast innecesario a `hero_name` (el tipo ya lo declara), un import que
+  subía una carpeta de más (dejaba `SuccessStory` sin chequear) y
+  `"module": "esnext"` para el `import()` dinámico (el tsconfig base de Expo
+  no declara `module`; Babel no la lee). Los de tests: mocks sin tipo y dos
+  fixtures forzadas con `as Pet` que escondían campos faltantes. **Nuevo
+  paso `Typecheck` en el job de mobile**: con el import roto repuesto, sale
+  2 y nombra el error. `tsc` 44 → 0, Jest 271/271, `expo export` arma.
+  **Pendiente de ver en un APK nuevo** (el usuario junta varios arreglos
+  antes de construirlo): los mapas con calles, y con eso la restricción
+  User-Agent de MapTiler (S15), que el mapa de demo nunca usó.
 - [ ] **G6 — `pnpm lint` de web apunta a nada.** `web/package.json` tiene
   `"lint": "eslint . --ext ts,tsx"`, pero `eslint` no está instalado, no hay
   config y el CI no lo corre; aun así el código trae
