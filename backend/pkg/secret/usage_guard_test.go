@@ -52,6 +52,11 @@ func TestNoSecretComparedWithEqualityOperators(t *testing.T) {
 		if err != nil {
 			return err
 		}
+		// testdata y vendor no son codigo de produccion; un fixture Go roto a
+		// proposito en testdata pondria rojo este guard sin motivo.
+		if d.IsDir() && (d.Name() == "testdata" || d.Name() == "vendor") {
+			return filepath.SkipDir
+		}
 		if d.IsDir() || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
 			return nil
 		}

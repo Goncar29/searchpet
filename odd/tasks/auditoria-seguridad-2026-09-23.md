@@ -230,10 +230,15 @@ recuperación, key de Jina, `/api/ops/quota`, `phone_verified`) NO entran acá.
   "")` es true a propósito. **Excepción de TDD declarada**: el tiempo no se
   afirma con un test determinista, y `Equal` es indistinguible de `==` por
   comportamiento. Lo que sí tiene rojo es el guard
-  `TestNoSecretComparedWithEqualityOperators`: barre `internal/` por AST y
-  falla ante `==`/`!=` sobre un header, un `CodeHash` o un `token` (no contra
-  literales ni `nil`). Rojo observado contra el código previo: nombró
-  exactamente los tres sitios de arriba.
+  `TestNoSecretComparedWithEqualityOperators`: barre todo el módulo backend
+  (`internal/`, `pkg/`, `cmd/`; sin `testdata` ni `vendor`) por AST y falla
+  ante `==`/`!=`, `bytes.Equal` o `strings.Compare` sobre un header, un
+  `CodeHash` o un `token` (no contra literales ni `nil`). Verifica su raíz
+  exigiendo haber leído los cuatro sitios por nombre. Rojo observado contra el
+  código previo: nombró exactamente los tres sitios de arriba. Tres rondas de
+  revisión nativa (`review-248d2fe7a6fb6742`, `review-2e54f5ec5e0be40d`,
+  `review-a4519d69436f5b94`), todas aprobadas, 6 sugerencias aplicadas, todas
+  sobre el guard o el texto.
 - [ ] **S9 — `Register` sin tope de 72 bytes de bcrypt.**
   `auth_service.go:100` → 500 en vez de 400; el comentario de
   `dto/auth_dto.go:16` afirma que ya está cubierto y es falso (regla #36).
