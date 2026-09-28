@@ -105,7 +105,7 @@ describe('AuthContext', () => {
       token: 'jwt-token',
       user: { id: '1', email: 'test@test.com', name: 'Carlos', is_verified: false, created_at: '' },
     };
-    vi.mocked(apiClient.login).mockResolvedValue(mockResponse as any);
+    vi.mocked(apiClient.login).mockResolvedValue(mockResponse);
 
     function LoginTrigger() {
       const { login } = useAuth();

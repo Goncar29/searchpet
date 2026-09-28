@@ -209,7 +209,6 @@ export function MapPage() {
               <TileLayer
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                // @ts-ignore — style is a valid prop for the underlying <img> elements
                 className={theme === 'dark' ? 'dark-tiles' : undefined}
               />
               {/* Dark mode tile filter overlay */}

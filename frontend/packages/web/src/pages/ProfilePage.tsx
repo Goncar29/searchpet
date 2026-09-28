@@ -345,7 +345,7 @@ export function ProfilePage() {
   const [verifyCode, setVerifyCode] = useState('');
   const [verifyError, setVerifyError] = useState('');
   const [resendCountdown, setResendCountdown] = useState(0);
-  const verificationDisabled = (verificationError as any)?.status === 501;
+  const verificationDisabled = (verificationError as { status?: number } | null)?.status === 501;
 
   // Se sincroniza desde el servidor SÓLO fuera del modo edición.
   //

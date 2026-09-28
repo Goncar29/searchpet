@@ -331,13 +331,8 @@ function medirContraste(): Resultado {
     // convenga.
     const candidatos = fondosDe(el);
     let r = Infinity;
-    let fondo = candidatos[0];
     for (const c of candidatos) {
-      const actual = ratio(componer(s.color, c), c);
-      if (actual < r) {
-        r = actual;
-        fondo = c;
-      }
+      r = Math.min(r, ratio(componer(s.color, c), c));
     }
 
     if (r < umbral) {
