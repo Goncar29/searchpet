@@ -10,6 +10,7 @@ import { AUTH_CARD } from '../components/auth/authStyles';
 import { GoogleAuthPanel } from '../components/auth/GoogleAuthPanel';
 import { LocationOnboardingStep } from '../components/auth/LocationOnboardingStep';
 import { useGoogleSignIn } from '../hooks/useGoogleSignIn';
+import { safeReturnPath } from '../utils/safeReturnPath';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -50,7 +51,7 @@ export function LoginPage() {
   // covers the step itself. Without them this guard redirects away and the whole
   // new-user flow never renders.
   if (!isLoading && isAuthenticated && !googleLoading && !showLocationStep) {
-    const returnUrl = searchParams.get('returnUrl') || '/';
+    const returnUrl = safeReturnPath(searchParams.get('returnUrl'));
     navigate(returnUrl, { replace: true });
     return null;
   }
@@ -76,7 +77,7 @@ export function LoginPage() {
     setLoading(true);
     try {
       await login(email, password);
-      const returnUrl = searchParams.get('returnUrl') || '/';
+      const returnUrl = safeReturnPath(searchParams.get('returnUrl'));
       navigate(returnUrl);
     } catch (err) {
       setApiError(getErrorMessage(err, t));

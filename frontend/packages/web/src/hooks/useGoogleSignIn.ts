@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { getErrorMessage } from '@shared/utils/apiErrors';
 import { useAuth } from '../context/AuthContext';
+import { safeReturnPath } from '../utils/safeReturnPath';
 
 /**
  * The Google sign-in flow shared by LoginPage and RegisterPage: exchange the ID
@@ -23,7 +24,7 @@ export function useGoogleSignIn() {
   const [showLocationStep, setShowLocationStep] = useState(false);
 
   const goToApp = useCallback(() => {
-    navigate(searchParams.get('returnUrl') || '/', { replace: true });
+    navigate(safeReturnPath(searchParams.get('returnUrl')), { replace: true });
   }, [navigate, searchParams]);
 
   const handleCredential = useCallback(
