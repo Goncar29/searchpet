@@ -12,3 +12,34 @@ packages:
 allowBuilds:
   core-js: false
   unrs-resolver: false
+
+# Security patches for transitive dependencies (S14 of the 2026-09-23 audit).
+# Every floor below is the first patched release of the advisories that hit
+# the installed version, and every ceiling keeps the same major line, so the
+# override stays inside the range the parent already declares (checked
+# against each parent's package.json, not assumed). Packages with more than
+# one major line installed get one selector per line.
+#
+# Left out on purpose, because the fix needs a major bump the parent does not
+# accept: tar 6, @xmldom/xmldom 0.7, uuid 7/8, postcss (~8.4 in
+# @expo/metro-config), decode-uri-component 0.2, image-size 1, ajv 8.11.0
+# (pinned by expo-dev-launcher) and fast-xml-parser 4.
+#
+# shell-quote: the advisory lists 1.8.5 as patched, but 1.8.5 was never
+# published; GitHub's advisory database gives 1.9.0.
+overrides:
+  '@xmldom/xmldom@0.9': '>=0.9.12 <0.10'
+  baseline-browser-mapping: '>=2.11.0 <3'
+  brace-expansion@1: '>=1.1.18 <2'
+  brace-expansion@2: '>=2.1.4 <3'
+  brace-expansion@5: '>=5.0.9 <6'
+  browserslist: '>=4.28.7 <5'
+  fast-uri: '>=3.1.6 <4'
+  form-data@3: '>=3.0.5 <4'
+  form-data@4: '>=4.0.6 <5'
+  joi: '>=17.13.6 <18'
+  js-yaml@3: '>=3.15.2 <4'
+  js-yaml@4: '>=4.3.2 <5'
+  nanoid: '>=3.3.18 <4'
+  shell-quote: '>=1.9.0 <2'
+  undici@6: '>=6.28.0 <7'
