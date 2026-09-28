@@ -50,8 +50,14 @@ overrides:
 # reach. Every package here except decode-uri-component runs only at build
 # time or on a developer machine (Expo CLI, prebuild, Metro, the React Native
 # CLI); none of them ships in the app bundle. The CI audit runs with
-# --audit-level=high, so a NEW advisory still fails it: re-evaluate these
-# whenever Expo SDK is upgraded, since that is what moves the parents.
+# --audit-level=high, so a NEW high or critical advisory still fails it (a new
+# low or moderate one does not). Re-evaluate these whenever Expo SDK is
+# upgraded, since that is what moves the parents.
+#
+# An ignore is keyed by advisory ID only, not by the path that pulls the
+# package: if a runtime dependency later brings in one of these packages, the
+# ignore covers it too and "build time only" stops being true without any
+# signal. Check `pnpm why <package>` for these when adding runtime deps.
 auditConfig:
   ignoreGhsas:
     # tar 6.2.1, via @expo/cli and cacache (^6). Every fix is in tar 7.5.x.
