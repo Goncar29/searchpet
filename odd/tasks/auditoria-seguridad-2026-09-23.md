@@ -371,8 +371,10 @@ recuperación, key de Jina, `/api/ops/quota`, `phone_verified`) NO entran acá.
   en sus consolas que estén restringidas por app. Manual, del usuario.
 
 ### Código basura
-- [ ] **G1 — `invokeWriteError`** en `backend/tests/write_error_test.go:18`:
+- [x] **G1 — `invokeWriteError`** en `backend/tests/write_error_test.go:18`:
   stub que devuelve `nil`, cero llamadas. Borrar.
+  Hecho: borrado junto con el import de `handler`, que sólo usaba él. `go
+  vet` limpio y los 61 casos del archivo (con subtests) siguen corriendo.
 - [ ] **G2 — 7 imports/variables sin uso en mobile** (`tsc
   --noUnusedLocals`): `(tabs)/messages.tsx:22`, `(tabs)/post.tsx:23`,
   `alerts/index.tsx:12,33`, `pet/[id].tsx:121`, `story/create.tsx:52`,
