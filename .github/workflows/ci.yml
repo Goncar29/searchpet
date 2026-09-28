@@ -216,6 +216,10 @@ jobs:
     name: Backend Docker Image
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      # Fuente de verdad: el `adduser -u` de la etapa de runtime de
+      # backend/Dockerfile. Si cambia ahi, cambia aca.
+      APP_UID: "10001"
 
     services:
       postgres:
@@ -235,8 +239,9 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      # --pull: la etapa de runtime fija una rama menor (alpine:3.24) para que
-      # cada rebuild traiga los parches de seguridad; una capa base cacheada no.
+      # --pull: la etapa de runtime del Dockerfile fija una rama menor de Alpine
+      # (no un patch) para que cada rebuild traiga los parches de seguridad; una
+      # capa base cacheada no los traeria.
       - name: Build image
         run: docker build --pull -t searchpet-api:ci ./backend
 
@@ -244,7 +249,7 @@ jobs:
         run: |
           uid="$(docker run --rm --entrypoint id searchpet-api:ci -u)"
           echo "uid=$uid"
-          test "$uid" = "10001"
+          test "$uid" = "$APP_UID"
 
       # --network host: el contenedor llega al Postgres del servicio por
       # localhost:5432, igual que el runner.
@@ -258,15 +263,26 @@ jobs:
 
       # /health/ready corre SELECT 1: un 200 prueba que el binario arranco,
       # corrio las migraciones y llego a la base desde adentro de la imagen.
+      # Si el contenedor muere (migracion rota, env faltante) se corta ahi
+      # mismo en vez de agotar los 90s, y los logs quedan a la vista.
       - name: Wait for readiness
         run: |
-          timeout 90 bash -c 'until curl -sf http://localhost:8080/health/ready; do sleep 2; done' || \
-          (echo "=== CONTAINER LOGS ===" && docker logs api && exit 1)
+          for _ in $(seq 1 45); do
+            if curl -sf http://localhost:8080/health/ready; then exit 0; fi
+            if [ "$(docker inspect -f '{{.State.Running}}' api)" != "true" ]; then
+              echo "::error::el contenedor termino antes de estar listo"
+              break
+            fi
+            sleep 2
+          done
+          echo "=== CONTAINER LOGS ==="
+          docker logs api
+          exit 1
 
       - name: Server process runs as the non-root user
         run: |
           docker exec api grep '^Uid:' /proc/1/status
-          docker exec api grep -qE '^Uid:[[:space:]]+10001[[:space:]]' /proc/1/status
+          docker exec api grep -qE "^Uid:[[:space:]]+${APP_UID}[[:space:]]" /proc/1/status
 
   # ============================================
   # Frontend Lint & Build (Web)
@@ -568,7 +584,8 @@ jobs:
     # cubierto de rebote, asi que sin nombrarlo aca produccion podria recibir
     # codigo cuyos e2e nunca corrieron.
     #
-    # `backend-image` es lo unico que construye la imagen que Render deploya.
+    # `backend-image` valida el mismo Dockerfile con el que Render construye
+    # produccion: si no construye o no arranca, no se deploya.
     needs: [backend-test, e2e-backend, backend-image, frontend-web, mobile-test, e2e-web]
     if: github.ref == 'refs/heads/main'
     steps:

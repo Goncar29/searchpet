@@ -277,14 +277,29 @@ recuperación, key de Jina, `/api/ops/quota`, `phone_verified`) NO entran acá.
   deploy `dep-dat9vijncjis73dmqm40` live: el log del build de Render muestra
   `FROM alpine:3.24` y el `adduser -u 10001`. Render construye sin cache
   (`no-cache`), así que en producción la base siempre se baja fresca.
-- [ ] **S11 — CI sin `permissions:`.** `ci.yml` sin bloque → agregar
+- [x] **S11 — CI sin `permissions:`.** `ci.yml` sin bloque → agregar
   `contents: read`. Considerar pinnear por SHA las actions de terceros,
   sobre todo `softprops/action-gh-release` (corre con `contents: write`).
-- [ ] **S11b — CI no construye la imagen del backend.** Sugerencia de la
+  Hecho: `permissions: contents: read` a nivel de workflow (ningún job
+  escribe en el repo). Las tres actions de terceros (`pnpm/action-setup`,
+  `android-actions/setup-android`, `softprops/action-gh-release`) quedan
+  fijadas al SHA de la versión exacta que resolvía su tag (`v6.0.10`,
+  `v4.0.4`, `v3.0.3`), así que el comportamiento no cambia; las `actions/*`
+  de GitHub siguen por tag. `build-apk.yml` sólo corre con tags: sus SHAs se
+  prueban en el próximo release.
+- [x] **S11b — CI no construye la imagen del backend.** Sugerencia de la
   revisión de S10 (`review-50b1eeb506747a91`, R3-002): hoy un Dockerfile roto
   recién aparece en el deploy de Render. Agregar a `ci.yml` un `docker build`
   + arranque contra el Postgres del job + `/health/ready` = 200, y que
   `deploy-backend` lo espere. Va junto con S11 (mismo archivo).
+  Hecho: job `backend-image` con `docker build --pull`, uid 10001 exigido en
+  la imagen y en el proceso corriendo, y espera de `/health/ready` que corta
+  apenas el contenedor muere. Rojo con la imagen vieja en los dos chequeos de
+  uid; verde en CI (run `36457577891`). Revisión de 4 lentes
+  `review-1a7c0137972e8e1b` aprobada; sus sugerencias aplicadas salvo una:
+  **no se agrega reintento al `docker build`** — el deploy ya dependía del
+  registro de imágenes antes de este job (el Postgres de `backend-test` sale
+  del mismo registro), así que un reintento acá no quita esa dependencia.
 - [ ] **S12 — `returnUrl` sin validar.** `LoginPage.tsx:53`,
   `useGoogleSignIn.ts:26`: exigir `/` y no `//`. Hoy no explotable
   (`navigate()` no cambia de origen); hardening.
