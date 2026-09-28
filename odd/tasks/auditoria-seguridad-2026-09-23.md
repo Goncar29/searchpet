@@ -453,7 +453,30 @@ recuperación, key de Jina, `/api/ops/quota`, `phone_verified`) NO entran acá.
   variables escritas y nunca leídas en dos e2e. El script corre con
   `--max-warnings=0`: sin eso eslint sale 0 con warnings y el CI quedaba
   verde; probado con una dependencia faltante, sale 1. Paso `Lint` en el job
-  de web. **Límite**: no revisa `shared/`, que está fuera de `web/`.
+  de web. Límites que tenía: no revisaba `shared/` ni los `.js` (G6b).
+- [x] **G6b — eslint también en `shared/` y en los `.js` de web.** Eslint 10
+  busca la config subiendo desde cada archivo y `basePath` no acepta un
+  directorio padre, así que `shared/` (hermano de `web/`, sin
+  `node_modules`) no tenía cómo lintearse. Solución: el script corre desde
+  `frontend/packages/` con `--config web/eslint.config.js web shared`; el
+  directorio base pasa a ser el padre y los imports de la config se siguen
+  resolviendo desde `web/`. Un bloque por entorno: TS de web y `shared/`
+  (navegador + react-hooks), service workers (`sourceType: script`, globals de
+  worker, más `firebase` en la plantilla), Node (`api/share.js`, `scripts/`,
+  la config) y los stubs. Pasa de 237 a **292 archivos**. 9 hallazgos, ninguno
+  `exhaustive-deps`: los 7 `@ts-ignore` de `shared/` son **a propósito**
+  (`shared/` lo compilan dos TypeScripts y la línea falla en uno solo; un
+  `@ts-expect-error` rompería el otro), así que en `shared/` la regla acepta
+  `@ts-ignore` con descripción y se la agregué a los 3 que no la tenían; un
+  escape de más en una regex (`[+\s\-]` → `[+\s-]`, cubierta por los tests
+  de `buildWhatsAppContactURL`); y `document` dentro de un `page.evaluate`
+  de Playwright. Probado con tres errores puestos a propósito (una dependencia
+  faltante en un hook de `shared/`, un `@ts-ignore` sin motivo, una variable
+  indefinida en `sw.js`): los tres caen.
+- [ ] **G6c — Lint de mobile: 80 problemas (52 errores) que nadie ve.**
+  Mobile tiene eslint 8 con `.eslintrc.js` y `eslint-config-expo`, y funciona,
+  pero el CI no lo corre. Mismo patrón que los 44 errores de tipos de G5.
+  Va con el barrido de mobile (orden acordado con el usuario el 2026-09-28).
 
 ## Progress
 
