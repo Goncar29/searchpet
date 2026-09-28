@@ -10,8 +10,12 @@
 // from when --config is given. shared/ sits next to web/, not inside it, and it
 // is not a package with its own node_modules (CLAUDE.md rule #15), so it cannot
 // hold a config of its own. Running from the parent puts web/ and shared/ both
-// under the base path; this file's own imports still resolve from web/. Every
-// path below is therefore relative to frontend/packages/.
+// under the base path; this file's own imports still resolve from web/.
+//
+// Every pattern starts with **/ so it matches from BOTH places: from the
+// parent (the lint script) and from web/ (an editor, or `npx eslint .` inside
+// web/). A pattern like 'web/**' only matches from the parent, and from web/
+// the files are skipped without a word: 9 files linted instead of 237.
 import js from '@eslint/js';
 import reactHooks from 'eslint-plugin-react-hooks';
 import globals from 'globals';
@@ -22,17 +26,17 @@ export default tseslint.config(
     ignores: [
       '**/dist/',
       '**/coverage/',
-      'web/playwright-report/',
-      'web/test-results/',
+      '**/playwright-report/',
+      '**/test-results/',
       // Generated from src/firebase-messaging-sw.template.js at build time.
-      'web/public/firebase-messaging-sw.js',
+      '**/public/firebase-messaging-sw.js',
     ],
   },
 
   // The React app and the code it shares with mobile (hooks, API client,
   // utils). shared/ is where the React Query hooks live.
   {
-    files: ['web/**/*.{ts,tsx}', 'shared/**/*.ts'],
+    files: ['**/*.{ts,tsx}'],
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     languageOptions: {
       globals: globals.browser,
@@ -57,7 +61,7 @@ export default tseslint.config(
   // and not the other, so @ts-expect-error would break the side where it does
   // not error. @ts-ignore is the right tool there, but it must say why.
   {
-    files: ['shared/**/*.ts'],
+    files: ['shared/**/*.{ts,tsx}'],
     rules: {
       '@typescript-eslint/ban-ts-comment': [
         'error',
@@ -70,7 +74,7 @@ export default tseslint.config(
   // clients, importScripts). The Firebase one also gets `firebase`, which it
   // loads with importScripts.
   {
-    files: ['web/public/sw.js', 'web/src/firebase-messaging-sw.template.js'],
+    files: ['**/public/sw.js', '**/src/firebase-messaging-sw.template.js'],
     extends: [js.configs.recommended],
     languageOptions: {
       sourceType: 'script',
@@ -78,7 +82,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ['web/src/firebase-messaging-sw.template.js'],
+    files: ['**/src/firebase-messaging-sw.template.js'],
     languageOptions: {
       globals: { firebase: 'readonly' },
     },
@@ -86,7 +90,7 @@ export default tseslint.config(
 
   // Node: the Vercel function behind /share, the build scripts, this config.
   {
-    files: ['web/api/**/*.js', 'web/scripts/**/*.mjs', 'web/eslint.config.js'],
+    files: ['**/api/**/*.js', '**/scripts/**/*.mjs', '**/eslint.config.js'],
     extends: [js.configs.recommended],
     languageOptions: {
       globals: globals.node,
@@ -95,7 +99,7 @@ export default tseslint.config(
 
   // Browser-side JS stubs that stand in for mobile-only packages.
   {
-    files: ['web/src/stubs/**/*.js'],
+    files: ['**/src/stubs/**/*.js'],
     extends: [js.configs.recommended],
     languageOptions: {
       globals: globals.browser,
