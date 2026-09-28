@@ -320,9 +320,18 @@ recuperación, key de Jina, `/api/ops/quota`, `phone_verified`) NO entran acá.
   Google que vuelve) aplicada. **PR #281.**
 
 ### Info / a decidir
-- [ ] **S13 — Advisories sin ignore documentado (web).** `dompurify` (vía
+- [x] **S13 — Advisories sin ignore documentado (web).** `dompurify` (vía
   jsPDF; la app nunca llama `.html()`) y `protobufjs` (vía firestore, no
   importado). Agregar `ignoreGhsas` con motivo escrito (regla #27) o bump.
+  Hecho con **bump, ningún ignore nuevo**: los parches entran en el rango que
+  ya pide cada padre. Overrides `dompurify: '>=3.4.13 <4'` (jspdf pide
+  ^3.3.1; los cinco advisories llegan hasta 3.4.12) y `protobufjs: '>=7.6.5
+  <8'` (@grpc/proto-loader pide ^7.5.5). El audit mostraba además uno que la
+  auditoría no listó: `vitest` <4.1.11 (GHSA-82fw-gwwq-j7x9, path traversal
+  en `@vitest/mocker`), resuelto subiendo `vitest` y `@vitest/coverage-v8` a
+  ^4.1.11. `pnpm audit`: de 10 advisories a 1, el de react-router que ya
+  estaba ignorado con motivo. Las cuatro versiones tienen más de 3 días
+  (`minimum-release-age=4320`). Suite web 1059 + shared 331 y build verdes.
 - [ ] **S14 — 91 advisories en mobile**, casi todos tooling de build
   (`@expo/cli`, `tar`). Evaluar un archivo de ignores con motivo, como web.
 - [ ] **S15 — Restricción de keys públicas** (Firebase, MapTiler): confirmar
