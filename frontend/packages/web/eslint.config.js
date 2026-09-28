@@ -20,6 +20,10 @@ export default tseslint.config(
       'public/firebase-messaging-sw.js',
     ],
   },
+  // Only TS/TSX, on purpose. The .js sources run elsewhere and would need
+  // their own globals: public/sw.js is a service worker, api/share.js a Vercel
+  // Node function, and the Firebase service-worker template another worker.
+  // Linting them is a separate step, not an oversight.
   {
     files: ['**/*.{ts,tsx}'],
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
