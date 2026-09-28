@@ -10,24 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"lost-pets/internal/domain"
 	"lost-pets/internal/dto"
-	"lost-pets/internal/handler"
 )
-
-// invokeWriteError builds a minimal Gin context, calls the handler helper
-// through a real endpoint wired to the test router, and returns the recorder.
-func invokeWriteError(t *testing.T, status int, err error) *httptest.ResponseRecorder {
-	t.Helper()
-	gin.SetMode(gin.TestMode)
-	r := gin.New()
-	// Expose writeError indirectly via a real handler that hits a known code path.
-	// We use auth register with a mock that returns the desired error.
-	_ = handler.NewAuthHandler(nil) // just to confirm the package compiles
-	// Use a raw endpoint to call writeError via the public-facing helper.
-	// Since writeError is unexported, we test it via the handler layer.
-	// We test CodeFor directly (it is exported) and validate the contract.
-	_ = r
-	return nil
-}
 
 // ============================================================
 // CodeFor tests
