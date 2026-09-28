@@ -263,18 +263,24 @@ jobs:
 
       # /health/ready corre SELECT 1: un 200 prueba que el binario arranco,
       # corrio las migraciones y llego a la base desde adentro de la imagen.
-      # Si el contenedor muere (migracion rota, env faltante) se corta ahi
-      # mismo en vez de agotar los 90s, y los logs quedan a la vista.
+      # Plazo por reloj, no por cantidad de intentos: `--max-time` evita que un
+      # request colgado (acepta la conexion y nunca responde) se coma el techo
+      # de 15 min del job sin mostrar los logs. Si el contenedor muere
+      # (migracion rota, env faltante) se corta ahi mismo. Cada salida deja su
+      # propio `::error::`, y las dos terminan con los logs a la vista.
       - name: Wait for readiness
         run: |
-          for _ in $(seq 1 45); do
-            if curl -sf http://localhost:8080/health/ready; then exit 0; fi
+          deadline=$((SECONDS + 90))
+          reason="no respondio /health/ready en 90s"
+          while [ "$SECONDS" -lt "$deadline" ]; do
+            if curl -sf --max-time 5 http://localhost:8080/health/ready; then exit 0; fi
             if [ "$(docker inspect -f '{{.State.Running}}' api)" != "true" ]; then
-              echo "::error::el contenedor termino antes de estar listo"
+              reason="el contenedor termino antes de estar listo"
               break
             fi
             sleep 2
           done
+          echo "::error::$reason"
           echo "=== CONTAINER LOGS ==="
           docker logs api
           exit 1

@@ -293,8 +293,11 @@ recuperación, key de Jina, `/api/ops/quota`, `phone_verified`) NO entran acá.
   + arranque contra el Postgres del job + `/health/ready` = 200, y que
   `deploy-backend` lo espere. Va junto con S11 (mismo archivo).
   Hecho: job `backend-image` con `docker build --pull`, uid 10001 exigido en
-  la imagen y en el proceso corriendo, y espera de `/health/ready` que corta
-  apenas el contenedor muere. Rojo con la imagen vieja en los dos chequeos de
+  la imagen y en el proceso corriendo, y espera de `/health/ready` con plazo
+  por reloj (90s, `curl --max-time 5`) que corta apenas el contenedor muere.
+  Los tres caminos probados local: listo (3s), contenedor caído (1s) y
+  servidor colgado que acepta la conexión y no responde (94s, en vez de los
+  15 min del techo del job). Rojo con la imagen vieja en los dos chequeos de
   uid; verde en CI (run `36457577891`). Revisión de 4 lentes
   `review-1a7c0137972e8e1b` aprobada; sus sugerencias aplicadas salvo una:
   **no se agrega reintento al `docker build`** — el deploy ya dependía del
