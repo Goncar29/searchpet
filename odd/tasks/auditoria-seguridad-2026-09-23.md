@@ -354,6 +354,19 @@ recuperación, key de Jina, `/api/ops/quota`, `phone_verified`) NO entran acá.
   que lo abre (disponibilidad; sin datos ni ejecución). Mitigación posible
   si alguna vez importa: rechazar URLs demasiado largas en
   `+native-intent` de expo-router antes de que lleguen al parser.
+  La revisión de 4 lentes (`review-952c3b8c4c274be7`) aprobó; sus dos avisos
+  coincidían: con el audit adentro de `Mobile Tests`, una caída del registro
+  de npm o un advisory nuevo frenaban el deploy del BACKEND (que espera ese
+  job) por un paquete de mobile. Se movió a un job propio, `Mobile Security
+  Audit`, fuera de los `needs` del deploy. Corre sin `pnpm install`: el audit
+  lee el lockfile (probado en un directorio sin `node_modules`).
+- [ ] **S14b — Acotar el riesgo aceptado de `decode-uri-component`.**
+  Sugerencia de la misma revisión: el ignore de GHSA-vcc3-ghjq-m6fr es el
+  único que corre en la app y queda abierto sin fecha. Rechazar o truncar las
+  URLs de deep link demasiado largas en `+native-intent` de expo-router, antes
+  de que las decodifique `query-string`. Y, cuando se actualice Expo SDK,
+  revisar si react-navigation ya trae `query-string` 8+ (que usa el
+  `decode-uri-component` parcheado) y sacar el ignore.
 - [ ] **S15 — Restricción de keys públicas** (Firebase, MapTiler): confirmar
   en sus consolas que estén restringidas por app. Manual, del usuario.
 
