@@ -49,7 +49,8 @@ overrides:
 # part 2). Each group names who pulls the package and why the fix is out of
 # reach. Every package here except decode-uri-component runs only at build
 # time or on a developer machine (Expo CLI, prebuild, Metro, the React Native
-# CLI); none of them ships in the app bundle. The CI audit runs with
+# CLI); none of them ships in the app bundle. decode-uri-component does ship,
+# but deep links do not reach it (see its entry). The CI audit runs with
 # --audit-level=high, so a NEW high or critical advisory still fails it (a new
 # low or moderate one does not). Re-evaluate these whenever Expo SDK is
 # upgraded, since that is what moves the parents.
@@ -111,10 +112,15 @@ auditConfig:
     # 11.x. Only affects v3/v5/v6 called with a caller-supplied buffer.
     - GHSA-w5hq-g745-h8pq # missing buffer bounds check
     # decode-uri-component 0.2.2, via query-string 7 in @react-navigation/core.
-    # THE ONE THAT SHIPS IN THE APP: react-navigation decodes deep link URLs
-    # with it. The fix, 0.5.0, is ESM-only, and query-string 7 loads it with
-    # require() and calls it as a function, so an override would break every
-    # deep link at runtime. Residual risk, accepted: a crafted link with a long
-    # malformed percent-encoding can freeze the app on the device that opens
-    # it. Availability only; no data or code-execution impact.
+    # It ships in the bundle but deep links never reach it: expo-router hands
+    # React Navigation its own getStateFromPath, which parses the query with
+    # the native URL API (parseQueryParams in getStateFromPath-forks) and
+    # decodes with decodeURIComponent. query-string.parse is only in React
+    # Navigation's default parser, which expo-router replaces, and no app
+    # code imports query-string. Measured on 2026-09-28: a 60,000-char
+    # malformed percent-encoded query goes through expo-router's parser in
+    # 8 ms with zero calls into decode-uri-component. The fix (0.5.0) is
+    # ESM-only and query-string 7 require()s it, so an override is not an
+    # option anyway. Re-check if the app ever imports query-string or stops
+    # using expo-router's linking.
     - GHSA-vcc3-ghjq-m6fr # DoS via exponential decoding
