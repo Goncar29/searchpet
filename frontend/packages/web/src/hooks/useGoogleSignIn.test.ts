@@ -5,6 +5,7 @@ import { useGoogleSignIn } from './useGoogleSignIn';
 const routerState = vi.hoisted(() => ({
   navigate: vi.fn(),
   search: new URLSearchParams(),
+  loginWithGoogle: vi.fn(),
 }));
 
 vi.mock('react-router', () => ({
@@ -17,7 +18,7 @@ vi.mock('react-i18next', () => ({
 }));
 
 vi.mock('../context/AuthContext', () => ({
-  useAuth: () => ({ loginWithGoogle: vi.fn() }),
+  useAuth: () => ({ loginWithGoogle: routerState.loginWithGoogle }),
 }));
 
 beforeEach(() => {
@@ -39,5 +40,32 @@ describe('useGoogleSignIn — returnUrl', () => {
     const { result } = renderHook(() => useGoogleSignIn());
     act(() => result.current.finishOnboarding());
     expect(routerState.navigate).toHaveBeenCalledWith('/', { replace: true });
+  });
+
+  // El usuario que vuelve no pasa por el paso de ubicacion: navega directo
+  // desde handleCredential.
+  it('un usuario que vuelve navega a returnUrl apenas entra', async () => {
+    routerState.loginWithGoogle.mockResolvedValue(false);
+    routerState.search = new URLSearchParams({ returnUrl: '/messages' });
+    const { result } = renderHook(() => useGoogleSignIn());
+    await act(() => result.current.handleCredential('id-token'));
+    expect(routerState.navigate).toHaveBeenCalledWith('/messages', { replace: true });
+  });
+
+  it('un usuario que vuelve ignora un returnUrl a otro origen y va a /', async () => {
+    routerState.loginWithGoogle.mockResolvedValue(false);
+    routerState.search = new URLSearchParams({ returnUrl: '//evil.example' });
+    const { result } = renderHook(() => useGoogleSignIn());
+    await act(() => result.current.handleCredential('id-token'));
+    expect(routerState.navigate).toHaveBeenCalledWith('/', { replace: true });
+  });
+
+  it('un usuario nuevo no navega: primero va al paso de ubicacion', async () => {
+    routerState.loginWithGoogle.mockResolvedValue(true);
+    routerState.search = new URLSearchParams({ returnUrl: '/messages' });
+    const { result } = renderHook(() => useGoogleSignIn());
+    await act(() => result.current.handleCredential('id-token'));
+    expect(routerState.navigate).not.toHaveBeenCalled();
+    expect(result.current.showLocationStep).toBe(true);
   });
 });
