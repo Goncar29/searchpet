@@ -266,8 +266,17 @@ recuperación, key de Jina, `/api/ops/quota`, `phone_verified`) NO entran acá.
   pasa a `handler/password_limits.go` (la comparten dos handlers), el
   comentario del DTO deja la historia para este documento, y el test afirma
   el código `invalid_input` (mutación a `binding_failed` → cae por nombre).
-- [ ] **S10 — Docker corre como root.** `backend/Dockerfile`: `adduser` +
-  `USER`.
+- [x] **S10 — Docker corre como root.** `backend/Dockerfile`: `adduser` +
+  `USER`. Hecho junto con el runtime `alpine:3.19` (EOL 2025-11) →
+  `alpine:3.24` (soporte hasta 2028-06): corre como uid 10001, y el binario no
+  escribe a disco, así que los archivos quedan de root en sólo lectura. Rojo
+  con la imagen vieja (`uid=0`, `3.19.9`); verde con la nueva, y arranca
+  contra Postgres real (`/health/ready` 200). Dos revisiones nativas aprobadas
+  (`review-50b1eeb506747a91`, `review-423be2f4dcd202ca`); su sugerencia de
+  construir la imagen en CI quedó como S11b. **PR #279, squash `a383da73`**,
+  deploy `dep-dat9vijncjis73dmqm40` live: el log del build de Render muestra
+  `FROM alpine:3.24` y el `adduser -u 10001`. Render construye sin cache
+  (`no-cache`), así que en producción la base siempre se baja fresca.
 - [ ] **S11 — CI sin `permissions:`.** `ci.yml` sin bloque → agregar
   `contents: read`. Considerar pinnear por SHA las actions de terceros,
   sobre todo `softprops/action-gh-release` (corre con `contents: write`).
