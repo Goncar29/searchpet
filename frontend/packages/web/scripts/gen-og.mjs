@@ -50,6 +50,7 @@ const out = path.resolve(here, '..', 'public', 'og', 'og-cover.png');
 const browser = await chromium.launch({ args: ['--no-sandbox', '--force-color-profile=srgb'] });
 const page = await browser.newPage({ viewport: { width: 1200, height: 630 } });
 await page.setContent(html, { waitUntil: 'networkidle' });
+// eslint-disable-next-line no-undef -- runs inside the page, not in Node
 await page.evaluate(() => document.fonts.ready);
 await page.waitForTimeout(300);
 fs.mkdirSync(path.dirname(out), { recursive: true });

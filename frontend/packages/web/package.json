@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "lint": "eslint . --max-warnings=0",
+    "lint": "cd .. && eslint --config web/eslint.config.js --max-warnings=0 web shared",
     "test": "vitest",
     "test:run": "vitest run && vitest run --config vitest.shared.config.ts",
     "coverage": "vitest run --coverage",

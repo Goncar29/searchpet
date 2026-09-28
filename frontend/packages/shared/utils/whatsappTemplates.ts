@@ -94,7 +94,7 @@ export function buildWhatsAppContactURL(
   shareUrl?: string,
 ): string {
   // Normalizamos el teléfono: eliminamos +, espacios y guiones
-  const normalizedPhone = phone.replace(/[+\s\-]/g, '');
+  const normalizedPhone = phone.replace(/[+\s-]/g, '');
   const message = buildWhatsAppMessage(pet, shareUrl);
   return `https://wa.me/${normalizedPhone}?text=${encodeURIComponent(message)}`;
 }
