@@ -9,7 +9,6 @@ import {
   View,
   Text,
   StyleSheet,
-  FlatList,
   TouchableOpacity,
   TextInput,
   Switch,
@@ -17,7 +16,6 @@ import {
   ActivityIndicator,
   ScrollView,
 } from 'react-native';
-import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import i18next from 'i18next';
 import * as Location from 'expo-location';
@@ -30,7 +28,6 @@ import type { LocationAlert, PetType } from '../../../shared/types';
 const RADIUS_OPTIONS = [1, 2, 5, 10, 25] as const;
 
 export default function AlertsScreen() {
-  const router = useRouter();
   const { t } = useTranslation('alerts');
   const { latitude, longitude } = useLocationStore();
 

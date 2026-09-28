@@ -20,7 +20,7 @@ import { getErrorMessage } from '@shared/utils/apiErrors';
 import { composeBirthDate } from '@shared/utils/petBirthDate';
 import type { PetIdentityValue } from '../../components/PetIdentityFields';
 import { COLORS, SPACING, FONTS } from '../../constants';
-import type { Pet, CreatePetRequest, InitialReportRequest, PetType, StrayCandidate } from '../../../shared/types';
+import type { Pet, InitialReportRequest, PetType, StrayCandidate } from '../../../shared/types';
 
 export type PublishStep = 'intent' | 'lost-pet' | 'stray-form' | 'adoption-form' | 'location' | 'auth' | 'candidates' | 'success';
 export type PublishIntent = 'lost' | 'stray' | 'adoption';
