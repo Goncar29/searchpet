@@ -490,9 +490,37 @@ recuperación, key de Jina, `/api/ops/quota`, `phone_verified`) NO entran acá.
   escondía que ese paso es el que decide el salteo. El `id` no cambió, así
   que la condición de `govulncheck` sigue leyendo la misma salida.
 
+- 2026-09-28: **S10 a S15, G1, G2 y G5 cerrados**, uno por PR (#279 a
+  #288). CI de `main` verde en cada merge. Lo que cambió de fondo, más allá de
+  cada ítem:
+  - **Protección de `main`**: los checks obligatorios pasaron de 4 a 6 (se
+    suman `Backend Docker Image` y `Backend E2E Tests`). `Mobile Security
+    Audit` queda opcional a propósito: un advisory nuevo no relacionado
+    bloquearía todos los merges.
+  - **Mobile ahora tiene dos controles que no tenía**: `Typecheck` (`tsc
+    --noEmit`, adentro de `Mobile Tests`) y `Mobile Security Audit` (job
+    propio, fuera de los `needs` del deploy).
+  - **Bug visible hallado por G5**: los tres mapas de mobile pasaban
+    `styleURL`, que MapLibre RN 10 descarta; nunca mostraron calles (lo
+    confirmó el usuario). Arreglado en #287. `tsc` lo venía marcando desde
+    junio.
+  - **Keys públicas (S15)**: restringidas y verificadas sin tocar datos.
+  - **Pendiente de un APK nuevo** (el usuario junta arreglos antes de
+    construirlo; `build-apk.yml` acepta `workflow_dispatch` y deja el APK
+    como artifact sin crear release): (1) el mapa principal con calles de
+    MapTiler, que es también la primera prueba real de la restricción por
+    User-Agent de S15; (2) los mapas de "ubicación" al publicar y de
+    avistamientos, con calles; (3) el menú ⋮ del detalle: bloquear y
+    denunciar al dueño.
+
 ## Next step
 
-S8 (comparaciones constant-time) → S9 (bcrypt 72 bytes en `Register`) → S10
-(Docker no-root + `alpine:3.19` EOL) → S11 (CI `permissions:`) → S12
-(`returnUrl`) → S13–S15 → G1–G5. **Aprendido**: no marcar el backlog en cada
-PR — los ítems contiguos chocan; se actualiza al cerrar, en un commit aparte.
+Abiertos: **S14b** (acotar el riesgo de `decode-uri-component` en los deep
+links), **G3** (claves i18n huérfanas), **G4** (dos dependencias deprecadas,
+es una decisión), **G6** (eslint en web: anotado, no implementado). Por fuera
+de este backlog, lo siguiente acordado es retomar el **PR #74** (feed
+unificado del home de mobile y el badge de callejeras), pasándolo antes por el
+`Typecheck` nuevo, y juntar todo en un APK para verificarlo en el teléfono.
+
+**Aprendido**: no marcar el backlog en cada PR — los ítems contiguos chocan;
+se actualiza al cerrar, en un commit aparte.
