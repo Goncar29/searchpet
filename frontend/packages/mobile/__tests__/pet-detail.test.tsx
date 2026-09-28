@@ -1,6 +1,6 @@
 // Pet Detail screen smoke test
 import React from 'react';
-import { render } from '@testing-library/react-native';
+import { render, screen, fireEvent } from '@testing-library/react-native';
 import PetDetailScreen from '../app/pet/[id]';
 
 // expo-router setup: useLocalSearchParams returns { id: 'pet-123' }
@@ -26,13 +26,14 @@ jest.mock('../store', () => ({
 }));
 
 const mockUsePetByID = jest.fn();
+const mockBlockMutate = jest.fn();
 const mockUseReportsByPetID = jest.fn();
 
 jest.mock('@shared/hooks', () => ({
   usePetByID: (...args: unknown[]) => mockUsePetByID(...args),
   useReportsByPetID: () => mockUseReportsByPetID(),
   useMarkPetAsFound: () => ({ mutate: jest.fn(), isPending: false }),
-  useBlockUser: () => ({ mutate: jest.fn(), isPending: false }),
+  useBlockUser: () => ({ mutate: mockBlockMutate, isPending: false }),
   useSubmitAbuseReport: () => ({ mutate: jest.fn(), isPending: false }),
 }));
 
@@ -181,5 +182,45 @@ describe('ultima vista', () => {
     });
     const { queryByTestId } = render(<PetDetailScreen />);
     expect(queryByTestId('last-seen')).toBeNull();
+  });
+});
+
+// El menu del dueno (bloquear / denunciar) toma el id de `pet.owner.id` desde
+// que G5 tipo la pantalla; antes lo tomaba de `pet.owner_id`. Es el unico
+// cambio de comportamiento de ese PR, asi que se fija aca: bloquear desde el
+// menu bloquea al dueno de la mascota, no a otro ni a nadie.
+describe('PetDetailScreen — menu del dueno', () => {
+  it('bloquear desde el menu bloquea al dueno de la mascota', () => {
+    const { Alert, ActionSheetIOS } = require('react-native');
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    const sheetSpy = jest
+      .spyOn(ActionSheetIOS, 'showActionSheetWithOptions')
+      .mockImplementation(() => {});
+    mockUsePetByID.mockReturnValue({
+      data: {
+        ...mockPetBase,
+        status: 'lost',
+        owner: { id: 'owner-1', name: 'Ana', is_verified: false },
+      },
+      isLoading: false,
+    });
+
+    render(<PetDetailScreen />);
+    fireEvent.press(screen.getByText('⋮'));
+
+    // iOS abre un action sheet y Android un Alert con botones: se elige
+    // "bloquear" en el que se haya abierto.
+    if (sheetSpy.mock.calls.length > 0) {
+      const onSelect = sheetSpy.mock.calls[0][1] as (index: number) => void;
+      onSelect(1);
+    } else {
+      const buttons = alertSpy.mock.calls[0][2] as { onPress?: () => void }[];
+      buttons[1].onPress?.();
+    }
+
+    expect(mockBlockMutate).toHaveBeenCalledTimes(1);
+    expect(mockBlockMutate.mock.calls[0][0]).toEqual({ userId: 'owner-1' });
+    alertSpy.mockRestore();
+    sheetSpy.mockRestore();
   });
 });
