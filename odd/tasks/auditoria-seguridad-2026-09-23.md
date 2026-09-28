@@ -77,7 +77,8 @@ recuperación, key de Jina, `/api/ops/quota`, `phone_verified`) NO entran acá.
   el de usuarios siempre trae el header (mutación leyendo XFF → cae por
   nombre).
   **PR #276, squash `325ca5f1`.** **Verificado en prod** (deploy
-  `dep-dasqqph7lnhs73adebg0`, 2026-09-28): mi sonda a `/api/reports/nearby`
+  `dep-dasqqph7lnhs73adebg0`, live 2026-09-27 23:59 UTC; sonda a las
+  00:08 UTC del 28, o sea 21:08 del 27 en hora de Uruguay): mi sonda a `/api/reports/nearby`
   aparece en el log de Render con `client_ip` = mi IP pública y
   `remote_addr` `[::1]`; el monitor de UptimeRobot, con la suya. Dos clientes,
   dos IPs: esta vez sí distingue por-IP de global.
