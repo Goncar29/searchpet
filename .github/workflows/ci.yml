@@ -375,6 +375,43 @@ jobs:
         run: pnpm run test:run
 
   # ============================================
+  # Mobile Security Audit
+  # ============================================
+  # Mobile no se auditaba: tenia 91 advisories (1 critico) sin que nada lo
+  # dijera (S14 de la auditoria 2026-09-23). Los que tienen arreglo dentro del
+  # rango van como overrides y los que no, como ignores con su motivo, los dos
+  # en pnpm-workspace.yaml.
+  #
+  # Job PROPIO y fuera de los `needs` de deploy-backend, a proposito: el
+  # resultado depende del registro de npm en el momento de correr, no solo del
+  # PR. Un advisory alto o critico nuevo, o el endpoint de audit caido, lo
+  # ponen en rojo en un PR que no toco dependencias. Adentro de `Mobile Tests`
+  # eso se leia igual que un test roto, y como el deploy espera a ese job,
+  # frenaba el backend por un paquete de mobile.
+  mobile-audit:
+    name: Mobile Security Audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: frontend/packages/mobile
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+        with:
+          version: 11.5.3
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      # Sin install: `pnpm audit` lee el lockfile y le pregunta al registro.
+      - name: Security audit
+        run: pnpm audit --audit-level=high
+
+  # ============================================
   # E2E Tests (Web — Playwright contra el backend real)
   #
   # SOLO Playwright. Los e2e de Go se mudaron a `e2e-backend` para que dejen de

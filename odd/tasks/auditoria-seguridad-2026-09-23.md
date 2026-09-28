@@ -332,8 +332,41 @@ recuperación, key de Jina, `/api/ops/quota`, `phone_verified`) NO entran acá.
   ^4.1.11. `pnpm audit`: de 10 advisories a 1, el de react-router que ya
   estaba ignorado con motivo. Las cuatro versiones tienen más de 3 días
   (`minimum-release-age=4320`). Suite web 1059 + shared 331 y build verdes.
-- [ ] **S14 — 91 advisories en mobile**, casi todos tooling de build
+- [x] **S14 — 91 advisories en mobile**, casi todos tooling de build
   (`@expo/cli`, `tar`). Evaluar un archivo de ignores con motivo, como web.
+  Hecho en dos PRs. **Parte 1 (#283, `4f9ade55`)**: overrides para todo lo
+  que tiene parche dentro de la misma mayor, con el rango de cada padre leído
+  de su `package.json` (así salió `postcss` del grupo: `@expo/metro-config`
+  lo fija con tilde, `~8.4.32`). Cada clave acotada a su mayor (`nanoid@3`,
+  no `nanoid`), para no bajar en silencio una mayor nueva que traiga otra
+  dependencia. De 91 a 37. Verificado con jest, `expo export` (bundle de
+  Metro) y `expo prebuild`. **Parte 2**: los 37 restantes como `ignoreGhsas`
+  con motivo, agrupados por paquete (`tar` 6, `xmldom` 0.7, `postcss` 8.4,
+  `image-size` 1, `fast-xml-parser` 4, `ajv` 8.11.0, `uuid` 7/8,
+  `decode-uri-component` 0.2), y un paso `pnpm audit --audit-level=high` en
+  el job de mobile, que no existía. Quitando un ignore alto, el audit cae y
+  nombra el advisory.
+  **Riesgo residual aceptado**: `decode-uri-component` es el único que corre
+  DENTRO de la app (react-navigation decodifica los deep links con él). Su
+  parche, 0.5.0, es sólo ESM y `query-string` 7 lo carga con `require()`: un
+  override rompería todos los deep links. Un link armado con un
+  percent-encoding largo y malformado puede congelar la app en el teléfono
+  que lo abre (disponibilidad; sin datos ni ejecución). Mitigación posible
+  si alguna vez importa: rechazar URLs demasiado largas en
+  `+native-intent` de expo-router antes de que lleguen al parser.
+  La revisión de 4 lentes (`review-952c3b8c4c274be7`) aprobó; sus dos avisos
+  coincidían: con el audit adentro de `Mobile Tests`, una caída del registro
+  de npm o un advisory nuevo frenaban el deploy del BACKEND (que espera ese
+  job) por un paquete de mobile. Se movió a un job propio, `Mobile Security
+  Audit`, fuera de los `needs` del deploy. Corre sin `pnpm install`: el audit
+  lee el lockfile (probado en un directorio sin `node_modules`).
+- [ ] **S14b — Acotar el riesgo aceptado de `decode-uri-component`.**
+  Sugerencia de la misma revisión: el ignore de GHSA-vcc3-ghjq-m6fr es el
+  único que corre en la app y queda abierto sin fecha. Rechazar o truncar las
+  URLs de deep link demasiado largas en `+native-intent` de expo-router, antes
+  de que las decodifique `query-string`. Y, cuando se actualice Expo SDK,
+  revisar si react-navigation ya trae `query-string` 8+ (que usa el
+  `decode-uri-component` parcheado) y sacar el ignore.
 - [ ] **S15 — Restricción de keys públicas** (Firebase, MapTiler): confirmar
   en sus consolas que estén restringidas por app. Manual, del usuario.
 

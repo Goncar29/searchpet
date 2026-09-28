@@ -44,3 +44,77 @@ overrides:
   nanoid@3: '>=3.3.18 <4'
   shell-quote@1: '>=1.9.0 <2'
   undici@6: '>=6.28.0 <7'
+
+# Advisories with no fix inside the major line their parent accepts (S14,
+# part 2). Each group names who pulls the package and why the fix is out of
+# reach. Every package here except decode-uri-component runs only at build
+# time or on a developer machine (Expo CLI, prebuild, Metro, the React Native
+# CLI); none of them ships in the app bundle. The CI audit runs with
+# --audit-level=high, so a NEW high or critical advisory still fails it (a new
+# low or moderate one does not). Re-evaluate these whenever Expo SDK is
+# upgraded, since that is what moves the parents.
+#
+# An ignore is keyed by advisory ID only, not by the path that pulls the
+# package: if a runtime dependency later brings in one of these packages, the
+# ignore covers it too and "build time only" stops being true without any
+# signal. Check `pnpm why <package>` for these when adding runtime deps.
+auditConfig:
+  ignoreGhsas:
+    # tar 6.2.1, via @expo/cli and cacache (^6). Every fix is in tar 7.5.x.
+    # Extracts npm and Expo template tarballs on the developer machine or CI.
+    - GHSA-23hp-3jrh-7fpw # critical: decompression DoS via unlimited input
+    - GHSA-34x7-hfp2-rc4v # hardlink path traversal
+    - GHSA-8qq5-rm4j-mr97 # file overwrite and symlink poisoning
+    - GHSA-83g3-92jg-28cx # hardlink target escape through a symlink chain
+    - GHSA-qffp-2rhf-9h96 # hardlink traversal via drive-relative linkpath
+    - GHSA-9ppj-qmqm-q256 # symlink traversal via drive-relative linkpath
+    - GHSA-r6q2-hw4h-h46w # path reservation race on macOS APFS
+    - GHSA-8x88-c5mf-7j5w # negative entry size loops forever
+    - GHSA-r292-9mhp-454m # uncontrolled recursion in mapHas/filesFilter
+    - GHSA-vmf3-w455-68vh # PAX size override on GNU long headers
+    - GHSA-w8wr-v893-vjvp # crash via PAX numeric path type confusion
+    - GHSA-gvwx-54wh-qm9j # uncaught exception on a NUL byte in PAX paths
+    # @xmldom/xmldom 0.7.13, via @expo/plist (~0.7.7). Fixes are in 0.8/0.9.
+    # Reads and writes our own plist files during prebuild.
+    - GHSA-wh4c-j3r5-mjhp # CDATA serialization injection
+    - GHSA-2v35-w6hq-6mfw # recursion DoS in serialization
+    - GHSA-f6ww-3ggp-fr8h # DocumentType serialization injection
+    - GHSA-x6wf-f3px-wcqx # processing instruction serialization injection
+    - GHSA-j759-j44w-7fr8 # comment serialization injection
+    - GHSA-w2rr-34g9-rvrj # element name injection via createElement
+    - GHSA-4w3w-2rp5-g8jm # attribute name injection via setAttribute
+    - GHSA-c7q8-3ch8-vqpv # processing instruction target injection
+    - GHSA-27p8-2357-5qqv # DocType name injection
+    - GHSA-8344-3jmq-59r6 # quadratic attribute deduplication
+    - GHSA-x4fp-j954-r2f4 # end-tag whitespace regex ReDoS
+    - GHSA-965w-775f-mr7g # quadratic memory consumption
+    - GHSA-93r5-fhx6-vmg9 # quadratic parsing on malformed input
+    - GHSA-6gmq-8vp8-gcm6 # fragment injection via EntityReference name
+    - GHSA-6h8r-xr42-gp59 # accepts a malformed end tag
+    # postcss 8.4.49, via @expo/metro-config (~8.4.32, tilde). Fixes are in
+    # 8.5.x. Metro runs it over our own CSS while bundling.
+    - GHSA-6g55-p6wh-862q # file read via attacker-controlled sourceMappingURL
+    - GHSA-r28c-9q8g-f849 # path traversal in source map auto-loading
+    - GHSA-qx2v-qp2m-jg93 # XSS via an unescaped </style> in stringify output
+    - GHSA-fxqj-rqcc-2cmp # incomplete fix of GHSA-6g55-p6wh-862q
+    # image-size 1.2.1, via metro (^1). Fixes are in 2.x. Metro reads the
+    # dimensions of our own image assets while bundling.
+    - GHSA-5p2g-fcmc-qvqq # JXL and HEIF parser infinite loop
+    - GHSA-w3rx-r6r6-pgpr # ICNS parser infinite loop
+    # fast-xml-parser 4.5.6, via the React Native CLI (^4). Fix is in 5.x.
+    # Builds our own Android manifest XML.
+    - GHSA-gh4j-gqv2-49f6 # comment and CDATA injection in XMLBuilder
+    # ajv 8.11.0, pinned exactly by expo-dev-launcher. Only reachable with the
+    # `$data` option on untrusted schemas; the dev launcher validates its own.
+    - GHSA-2g4f-4pwh-qvx6 # ReDoS with the $data option
+    # uuid 7/8, via xcode, @expo/bunyan and @expo/rudder-sdk-node. Fix is in
+    # 11.x. Only affects v3/v5/v6 called with a caller-supplied buffer.
+    - GHSA-w5hq-g745-h8pq # missing buffer bounds check
+    # decode-uri-component 0.2.2, via query-string 7 in @react-navigation/core.
+    # THE ONE THAT SHIPS IN THE APP: react-navigation decodes deep link URLs
+    # with it. The fix, 0.5.0, is ESM-only, and query-string 7 loads it with
+    # require() and calls it as a function, so an override would break every
+    # deep link at runtime. Residual risk, accepted: a crafted link with a long
+    # malformed percent-encoding can freeze the app on the device that opens
+    # it. Availability only; no data or code-execution impact.
+    - GHSA-vcc3-ghjq-m6fr # DoS via exponential decoding
