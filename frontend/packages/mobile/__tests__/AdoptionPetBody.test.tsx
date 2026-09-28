@@ -30,9 +30,9 @@ const adoptionPet: Pet = {
   status: 'adoption',
   city: 'Montevideo',
   photos: [],
-  owner: { id: 'owner-1', name: 'Ana' },
+  owner: { id: 'owner-1', name: 'Ana', is_verified: false },
   created_at: new Date().toISOString(),
-} as Pet;
+};
 
 beforeEach(() => {
   authState.user = null;
@@ -84,7 +84,7 @@ describe('AdoptionPetBody', () => {
     expect(noPhone.queryByTestId('whatsapp-contact')).toBeNull();
 
     const withPhone = render(
-      <AdoptionPetBody pet={{ ...adoptionPet, owner: { id: 'owner-1', name: 'Ana', phone: '+59899' } } as Pet} />,
+      <AdoptionPetBody pet={{ ...adoptionPet, owner: { id: 'owner-1', name: 'Ana', phone: '+59899', is_verified: false } }} />,
     );
     expect(withPhone.queryByTestId('whatsapp-contact')).toBeTruthy();
   });

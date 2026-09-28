@@ -12,7 +12,7 @@ jest.mock('expo-router', () => ({
 
 jest.mock('../store', () => ({
   useLocationStore: () => ({ latitude: null, longitude: null, setLocation: jest.fn() }),
-  useAuthStore: (selector) => {
+  useAuthStore: (selector?: (state: Record<string, unknown>) => unknown) => {
     const state = { user: { id: 'user-1', name: 'Me' }, isAuthenticated: true };
     return typeof selector === 'function' ? selector(state) : state;
   },

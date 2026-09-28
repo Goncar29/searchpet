@@ -20,7 +20,7 @@ jest.mock('@tanstack/react-query', () => ({
 }));
 
 jest.mock('../store', () => ({
-  useAuthStore: (selector) => {
+  useAuthStore: (selector?: (state: Record<string, unknown>) => unknown) => {
     const state = {
       user: { id: 'user-1', name: 'Me' },
       token: 'tok',

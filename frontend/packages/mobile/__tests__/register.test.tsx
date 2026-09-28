@@ -13,7 +13,7 @@ jest.mock('react-i18next', () => ({
 }));
 
 jest.mock('../store', () => ({
-  useAuthStore: (selector) => {
+  useAuthStore: (selector?: (state: Record<string, unknown>) => unknown) => {
     const state = {
       login: jest.fn(),
       register: jest.fn(),

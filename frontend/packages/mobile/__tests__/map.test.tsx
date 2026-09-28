@@ -7,13 +7,13 @@ import { createCircleGeoJSON } from '../app/(tabs)/map';
 jest.mock('@maplibre/maplibre-react-native', () => {
   const React = require('react');
   const { View } = require('react-native');
-  const MockMapView = (props) => React.createElement(View, { testID: 'map-view', ...props });
-  const MockCamera = React.forwardRef((props, _ref) => React.createElement(View, props));
-  const MockShapeSource = (props) => React.createElement(View, props);
+  const MockMapView = (props: Record<string, unknown>) => React.createElement(View, { testID: 'map-view', ...props });
+  const MockCamera = React.forwardRef((props: Record<string, unknown>, _ref: unknown) => React.createElement(View, props));
+  const MockShapeSource = (props: Record<string, unknown>) => React.createElement(View, props);
   const MockFillLayer = () => null;
   const MockLineLayer = () => null;
   const MockUserLocation = () => null;
-  const MockPointAnnotation = (props) => React.createElement(View, props);
+  const MockPointAnnotation = (props: Record<string, unknown>) => React.createElement(View, props);
   return {
     __esModule: true,
     default: {
@@ -41,7 +41,7 @@ jest.mock('@maplibre/maplibre-react-native', () => {
 // expo-router is mocked via jest.setup.js
 
 jest.mock('../store', () => ({
-  useAuthStore: (selector) => {
+  useAuthStore: (selector?: (state: Record<string, unknown>) => unknown) => {
     const state = {
       user: null,
       token: null,
@@ -51,18 +51,18 @@ jest.mock('../store', () => ({
     };
     return typeof selector === 'function' ? selector(state) : state;
   },
-  useLocationStore: (selector) => {
+  useLocationStore: (selector?: (state: Record<string, unknown>) => unknown) => {
     const state = { latitude: -34.9011, longitude: -56.1645, setLocation: jest.fn() };
     return typeof selector === 'function' ? selector(state) : state;
   },
 }));
 
 // Named with the `mock` prefix so jest's hoisting allows referencing it inside the factory.
-const mockUseNearbyReports = jest.fn(() => ({ data: [], isLoading: false }));
+const mockUseNearbyReports = jest.fn((..._args: unknown[]) => ({ data: [], isLoading: false }));
 // Idem, y NO un jest.fn() suelto dentro del factory: asi definido, nadie puede
 // leer con que argumentos se llamo, y el bug que se arreglo aca era justamente
 // un argumento equivocado en el call site.
-const mockUseNearbyVets = jest.fn(() => ({ data: [], isLoading: false }));
+const mockUseNearbyVets = jest.fn((..._args: unknown[]) => ({ data: [], isLoading: false }));
 
 jest.mock('@shared/hooks', () => ({
   useNearbyReports: (...args: unknown[]) => mockUseNearbyReports(...args),

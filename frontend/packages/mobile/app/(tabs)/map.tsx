@@ -11,7 +11,7 @@ import {
   ActivityIndicator,
   Linking,
 } from 'react-native';
-import MapLibreGL from '@maplibre/maplibre-react-native';
+import MapLibreGL, { type CameraRef } from '@maplibre/maplibre-react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import i18next from 'i18next';
@@ -81,7 +81,7 @@ class MapErrorBoundary extends Component<{ children: ReactNode }, { hasError: bo
 export default function MapScreen() {
   const router = useRouter();
   const { t } = useTranslation('map');
-  const cameraRef = useRef<MapLibreGL.Camera>(null);
+  const cameraRef = useRef<CameraRef>(null);
   const { latitude, longitude, setLocation } = useLocationStore();
   const [selectedReport, setSelectedReport] = useState<Report | null>(null);
 
@@ -183,7 +183,7 @@ export default function MapScreen() {
           style={styles.map}
           mapStyle={MAP_STYLE}
           onPress={() => { setSelectedReport(null); setSelectedVet(null); }}
-          onRegionDidChange={(feature: { geometry: { coordinates: [number, number] } }) => {
+          onRegionDidChange={(feature) => {
             const [regionLng, regionLat] = feature.geometry.coordinates;
             setMapCenter([regionLat, regionLng]);
           }}

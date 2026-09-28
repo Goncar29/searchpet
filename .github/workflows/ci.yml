@@ -374,6 +374,15 @@ jobs:
       - name: Run tests
         run: pnpm run test:run
 
+      # Mobile llego a acumular 44 errores de tipos sin que nada los mostrara
+      # (G5 de la auditoria 2026-09-23). Uno era un bug visible en todos los
+      # APK: los mapas pasaban `styleURL`, una prop que MapLibre 10 descarta,
+      # y nunca mostraron calles; tsc lo venia marcando desde junio. Babel
+      # compila la app sin chequear tipos, asi que este paso es el unico que
+      # los mira.
+      - name: Typecheck
+        run: pnpm run typecheck
+
   # ============================================
   # Mobile Security Audit
   # ============================================
