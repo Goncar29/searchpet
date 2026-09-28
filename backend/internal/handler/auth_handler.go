@@ -59,6 +59,14 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		return
 	}
 
+	// bcrypt rechaza más de 72 BYTES y el servicio lo devolvía como 500 (S9 de
+	// la auditoría 2026-09-23). El DTO no puede acotarlo: `max` cuenta runas
+	// (regla #36). Mismo chequeo y misma constante que el reset de contraseña.
+	if len(req.Password) > bcryptMaxPasswordBytes {
+		writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
+		return
+	}
+
 	user, token, err := h.authService.Register(c.Request.Context(), req.Email, req.Password, req.Name, req.City)
 	if err != nil {
 		if errors.Is(err, domain.ErrEmailAlreadyExists) {

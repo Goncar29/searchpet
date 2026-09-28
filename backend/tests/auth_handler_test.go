@@ -8,6 +8,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -756,5 +757,64 @@ func TestUpdateLocation_MalformedBody(t *testing.T) {
 	}
 	if errResp.Code != "binding_failed" {
 		t.Errorf("expected code %q, got %q", "binding_failed", errResp.Code)
+	}
+}
+
+// TestAuthHandler_Register_PasswordPorBytesDeBcrypt: S9 de la auditoría
+// 2026-09-23. bcrypt.GenerateFromPassword rechaza más de 72 BYTES con
+// ErrPasswordTooLong, y Register lo devolvía como 500 ("ocurrió un error
+// inesperado") en el endpoint público más expuesto. El DTO no puede ponerle
+// tope: el `max` del validador cuenta runas (regla #36).
+//
+// Las dos mitades: el límite es de bytes y es INCLUSIVO. 36 "ñ" son 72 bytes y
+// tienen que llegar al servicio; sin esa mitad, rechazar toda contraseña
+// multibyte pasaría este test.
+func TestAuthHandler_Register_PasswordPorBytesDeBcrypt(t *testing.T) {
+	casos := []struct {
+		nombre      string
+		password    string
+		wantStatus  int
+		wantService bool
+	}{
+		{"73 bytes ASCII: 400 sin tocar el servicio", strings.Repeat("a", 73), http.StatusBadRequest, false},
+		{"37 ñ son 74 bytes aunque sean 37 runas: 400", strings.Repeat("ñ", 37), http.StatusBadRequest, false},
+		{"36 ñ son 72 bytes justos: pasa", strings.Repeat("ñ", 36), http.StatusCreated, true},
+		{"72 bytes ASCII: pasa", strings.Repeat("a", 72), http.StatusCreated, true},
+	}
+
+	for _, tc := range casos {
+		t.Run(tc.nombre, func(t *testing.T) {
+			called := false
+			svc := &mockAuthService{
+				registerFn: func(_ context.Context, email, _, name, _ string) (*domain.User, string, error) {
+					called = true
+					return &domain.User{ID: uuid.New(), Email: email, Name: name}, "tok", nil
+				},
+			}
+			r := setupAuthRouter(newAuthHandler(svc))
+			body, _ := json.Marshal(map[string]interface{}{
+				"email": "ana@test.com", "password": tc.password, "name": "Ana", "city": "Montevideo",
+			})
+			req := httptest.NewRequest(http.MethodPost, "/api/auth/register", bytes.NewReader(body))
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+			r.ServeHTTP(w, req)
+
+			if w.Code != tc.wantStatus {
+				t.Fatalf("want %d, got %d: %s", tc.wantStatus, w.Code, w.Body.String())
+			}
+			if called != tc.wantService {
+				t.Errorf("servicio llamado = %v, want %v", called, tc.wantService)
+			}
+			if tc.wantStatus == http.StatusBadRequest {
+				var errResp dto.ErrorResponse
+				if err := json.Unmarshal(w.Body.Bytes(), &errResp); err != nil {
+					t.Fatalf("respuesta ilegible: %v — %s", err, w.Body.String())
+				}
+				if errResp.Code != "invalid_input" {
+					t.Errorf("want code invalid_input, got %q", errResp.Code)
+				}
+			}
+		})
 	}
 }

@@ -238,10 +238,34 @@ recuperación, key de Jina, `/api/ops/quota`, `phone_verified`) NO entran acá.
   código previo: nombró exactamente los tres sitios de arriba. Tres rondas de
   revisión nativa (`review-248d2fe7a6fb6742`, `review-2e54f5ec5e0be40d`,
   `review-a4519d69436f5b94`), todas aprobadas, 6 sugerencias aplicadas, todas
-  sobre el guard o el texto.
-- [ ] **S9 — `Register` sin tope de 72 bytes de bcrypt.**
+  sobre el guard o el texto. **PR #277, squash `6a5a0b40`**, deploy
+  `dep-dasshhe0tbcc738s3s80` live. Sin discriminador en prod: un token
+  equivocado da 404 antes y después.
+  **Límite conocido, a conciencia**: una cuarta revisión
+  (`review-c7512c0a509a6f36`, aprobada) sugirió cazar también un `switch`
+  sobre el header y `strings.EqualFold`. **No se aplicó por decisión del
+  usuario**: cada ronda encontraba otra forma de escribir la comparación y el
+  ciclo no convergía. El guard decide por la forma y su comentario lo dice.
+- [x] **S9 — `Register` sin tope de 72 bytes de bcrypt.**
   `auth_service.go:100` → 500 en vez de 400; el comentario de
   `dto/auth_dto.go:16` afirma que ya está cubierto y es falso (regla #36).
+  Hecho: `AuthHandler.Register` chequea `len(req.Password) >
+  bcryptMaxPasswordBytes` (la misma constante del reset) y responde 400
+  `invalid_input` antes de llamar al servicio. El comentario del DTO ahora dice
+  dónde vive el chequeo. Test de las dos mitades: 73 bytes
+  ASCII y 37 `ñ` (74 bytes, 37 runas) → 400 sin tocar el servicio; 72 bytes
+  ASCII y 36 `ñ` (72 bytes justos) → 201. Rojo observado en las dos primeras;
+  mutación `>=` → caen las dos del borde. `Login` no se toca:
+  `CompareHashAndPassword` no rechaza por largo.
+  **Fuera de alcance, anotado**: ningún formulario (web ni mobile, alta ni
+  reset) le pone tope a la contraseña, así que quien use una frase de más de
+  72 bytes ve el mensaje genérico de datos inválidos, no uno que diga
+  "demasiado larga". Antes veía "error inesperado".
+  Revisión nativa de 4 lentes (`review-ef75b419fa66981d`, riesgo alto por
+  tocar autenticación) aprobada con 3 sugerencias, aplicadas: la constante
+  pasa a `handler/password_limits.go` (la comparten dos handlers), el
+  comentario del DTO deja la historia para este documento, y el test afirma
+  el código `invalid_input` (mutación a `binding_failed` → cae por nombre).
 - [ ] **S10 — Docker corre como root.** `backend/Dockerfile`: `adduser` +
   `USER`.
 - [ ] **S11 — CI sin `permissions:`.** `ci.yml` sin bloque → agregar

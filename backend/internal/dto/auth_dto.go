@@ -14,7 +14,8 @@ type RegisterRequest struct {
 	// público, sin auth, y sin ellos un nombre largo hacía que registrarse
 	// devolviera "ocurrió un error inesperado" (500 por SQLSTATE 22001).
 	// El de Password NO va acá: bcrypt corta por BYTES y no por runas, así que
-	// tiene su propio chequeo (regla #36).
+	// el tope de 72 bytes lo chequea el handler (AuthHandler.Register, con
+	// bcryptMaxPasswordBytes; regla #36).
 	Email    string `json:"email" binding:"required,email,max=255"`
 	Password string `json:"password" binding:"required,min=6"`
 	Name     string `json:"name" binding:"required,max=100"`
