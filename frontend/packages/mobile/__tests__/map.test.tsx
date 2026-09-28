@@ -136,6 +136,18 @@ describe('MapScreen', () => {
     expect(screen.getByText('10km')).toBeTruthy();
   });
 
+  // MapLibre RN 10 reads the style ONLY from `mapStyle` (MapView.tsx, the
+  // `const { mapStyle, ...otherProps } = props` in render). A `styleURL` prop
+  // is dropped without a warning, and the native side falls back to
+  // demotiles.maplibre.org: country outlines, no streets. That shipped in
+  // every APK up to v1.0.6.
+  it('passes the MapTiler style through mapStyle, the prop MapLibre 10 reads', () => {
+    render(<MapScreen />);
+    const mapView = screen.getByTestId('map-view');
+    expect(mapView.props.mapStyle).toMatch(/^https:\/\/api\.maptiler\.com\/maps\/.+\/style\.json\?key=/);
+    expect(mapView.props.styleURL).toBeUndefined();
+  });
+
   it('shows the "search this area" button after panning beyond the threshold', () => {
     render(<MapScreen />);
     // not panned yet

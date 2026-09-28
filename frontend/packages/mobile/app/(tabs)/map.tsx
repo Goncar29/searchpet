@@ -181,7 +181,7 @@ export default function MapScreen() {
       <View style={styles.container}>
         <MapLibreGL.MapView
           style={styles.map}
-          styleURL={MAP_STYLE}
+          mapStyle={MAP_STYLE}
           onPress={() => { setSelectedReport(null); setSelectedVet(null); }}
           onRegionDidChange={(feature: { geometry: { coordinates: [number, number] } }) => {
             const [regionLng, regionLat] = feature.geometry.coordinates;

@@ -88,7 +88,7 @@ export function TimelineMap({ reports }: TimelineMapProps) {
         <View style={styles.mapWrapper}>
           <MapLibreGL.default.MapView
             style={styles.map}
-            styleURL="https://tiles.openfreemap.org/styles/liberty"
+            mapStyle="https://tiles.openfreemap.org/styles/liberty"
           >
             <MapLibreGL.default.Camera
               zoomLevel={12}
