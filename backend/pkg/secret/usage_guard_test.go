@@ -11,7 +11,7 @@ import (
 )
 
 // TestNoSecretComparedWithEqualityOperators barre el codigo de produccion de
-// internal/ y falla ante un `==` o `!=` sobre un secreto (hallazgo S8 de la
+// todo el modulo backend (internal/, pkg/, cmd/) y falla ante un `==` o `!=` sobre un secreto (hallazgo S8 de la
 // auditoria 2026-09-23). La comparacion de strings de Go corta en el primer
 // byte distinto, asi que el tiempo de respuesta filtra cuanto del secreto
 // acerto el atacante; secret.Equal no.
@@ -35,9 +35,17 @@ import (
 // Es un barrido por AST y no por texto: un grep no distingue `h.token == ""`
 // de `header != h.token`.
 func TestNoSecretComparedWithEqualityOperators(t *testing.T) {
-	root := filepath.Join("..", "..", "internal")
+	root := filepath.Join("..", "..")
+	// Sitios que tienen que estar en el barrido: si falta alguno, la raiz esta
+	// mal y el verde no significaria nada. Nombrarlos es mas firme que contar
+	// archivos, que cambia con cada refactor sin tener nada que ver con esto.
+	mustScan := map[string]bool{
+		filepath.Join("internal", "handler", "reindex_handler.go"):        false,
+		filepath.Join("internal", "handler", "ops_quota_handler.go"):      false,
+		filepath.Join("internal", "service", "verification_service.go"):   false,
+		filepath.Join("internal", "service", "password_reset_service.go"): false,
+	}
 	fset := token.NewFileSet()
-	scanned := 0
 	var hits []string
 
 	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
@@ -51,7 +59,11 @@ func TestNoSecretComparedWithEqualityOperators(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		scanned++
+		if rel, err := filepath.Rel(root, path); err == nil {
+			if _, ok := mustScan[rel]; ok {
+				mustScan[rel] = true
+			}
+		}
 		ast.Inspect(file, func(n ast.Node) bool {
 			if call, ok := n.(*ast.CallExpr); ok && isEarlyExitCompare(call) {
 				for _, arg := range call.Args {
@@ -79,9 +91,10 @@ func TestNoSecretComparedWithEqualityOperators(t *testing.T) {
 	if err != nil {
 		t.Fatalf("recorriendo %s: %v", root, err)
 	}
-	// Sin esto, una ruta equivocada daria verde sin haber leido nada.
-	if scanned < 50 {
-		t.Fatalf("solo se leyeron %d archivos de %s: el barrido no esta mirando el codigo real", scanned, root)
+	for rel, seen := range mustScan {
+		if !seen {
+			t.Fatalf("el barrido no leyo %s: la raiz %s no es el modulo backend y un verde no probaria nada", rel, root)
+		}
 	}
 	for _, h := range hits {
 		t.Errorf("%s: secreto comparado sin tiempo constante, usar secret.Equal", h)
