@@ -12,7 +12,7 @@ jest.mock('expo-router', () => ({
 }));
 
 jest.mock('../store', () => ({
-  useAuthStore: (selector) => {
+  useAuthStore: (selector?: (state: Record<string, unknown>) => unknown) => {
     const state = {
       user: null,
       token: null,

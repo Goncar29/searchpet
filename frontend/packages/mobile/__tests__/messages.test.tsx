@@ -19,7 +19,7 @@ jest.mock('@tanstack/react-query', () => ({
 let mockAuthState: { isAuthenticated: boolean; user: { id: string; name: string } | null };
 
 jest.mock('../store', () => ({
-  useAuthStore: (selector) =>
+  useAuthStore: (selector?: (state: Record<string, unknown>) => unknown) =>
     typeof selector === 'function' ? selector(mockAuthState) : mockAuthState,
 }));
 

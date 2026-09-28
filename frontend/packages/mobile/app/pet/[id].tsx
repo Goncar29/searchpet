@@ -389,7 +389,7 @@ export default function PetDetailScreen() {
               </View>
               {!isOwner && (
                 <TouchableOpacity
-                  onPress={() => showKebabSheet(pet.owner_id, pet.id)}
+                  onPress={() => pet.owner && showKebabSheet(pet.owner.id, pet.id)}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
                   <Text style={styles.kebabIcon}>⋮</Text>

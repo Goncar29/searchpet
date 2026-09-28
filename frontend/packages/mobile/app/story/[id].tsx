@@ -98,7 +98,7 @@ export default function StoryDetailScreen() {
     );
   }
 
-  const authorName = story.user_name ?? (story as Record<string, unknown>).hero_name as string | undefined;
+  const authorName = story.user_name ?? story.hero_name;
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>

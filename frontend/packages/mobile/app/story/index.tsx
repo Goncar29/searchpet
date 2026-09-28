@@ -10,7 +10,7 @@ import { getDateLocale } from '../../i18n/dateLocale';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
 import { PawPlaceholder } from '../../components/PawPlaceholder';
 import { ListState } from '../../components/list/ListState';
-import type { SuccessStory } from '../../../../shared/types';
+import type { SuccessStory } from '@shared/types';
 import { cloudinaryThumb } from '@shared/utils/cloudinaryThumb';
 import { IMAGE_BOXES } from '../../constants/imageSizes';
 

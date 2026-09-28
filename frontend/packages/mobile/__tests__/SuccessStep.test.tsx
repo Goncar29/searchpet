@@ -19,7 +19,8 @@ const mockPet: Pet = {
   type: 'perro',
   status: 'stray',
   photos: [],
-} as Pet;
+  created_at: '2026-01-01T00:00:00Z',
+};
 
 jest.mock('../components/ShareButton', () => ({
   ShareButton: () => null,
