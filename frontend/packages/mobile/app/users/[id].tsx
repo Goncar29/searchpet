@@ -168,7 +168,7 @@ export default function PublicProfileScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user, isAuthenticated } = useAuthStore();
   const navigation = useNavigation();
-  const { t, i18n } = useTranslation(['users', 'badges', 'common']);
+  const { t } = useTranslation(['users', 'badges', 'common']);
 
   const profileQuery = usePublicProfile(id ?? '');
   const { data: profile, isLoading, isError, refetch, isFetching } = profileQuery;

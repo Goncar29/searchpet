@@ -19,7 +19,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '../../store';
 import { useConversations, useWebSocket } from '../../../shared/hooks';
 import type { WsEnvelope } from '../../../shared/hooks';
-import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
+import { COLORS, SPACING, FONTS, RADIUS } from '../../constants';
 import type { Message } from '../../../shared/types';
 
 export default function MessagesScreen() {

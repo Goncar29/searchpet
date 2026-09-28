@@ -367,18 +367,38 @@ recuperación, key de Jina, `/api/ops/quota`, `phone_verified`) NO entran acá.
   de que las decodifique `query-string`. Y, cuando se actualice Expo SDK,
   revisar si react-navigation ya trae `query-string` 8+ (que usa el
   `decode-uri-component` parcheado) y sacar el ignore.
-- [ ] **S15 — Restricción de keys públicas** (Firebase, MapTiler): confirmar
+- [x] **S15 — Restricción de keys públicas** (Firebase, MapTiler): confirmar
   en sus consolas que estén restringidas por app. Manual, del usuario.
+  Hecho por el usuario el 2026-09-28. **MapTiler** sólo lo usa mobile (la web
+  usa OpenStreetMap): *Allowed User-Agent* `com.searchpet.app/`, porque
+  MapLibre Android manda `<package>/<versión> (<código>) MapLibre...`
+  (verificado en su código); *HTTP origins* vacío, porque MapTiler exige los
+  dos a la vez si están cargados. El mapa carga en el APK. Límite: un
+  User-Agent se puede falsificar; frena el reuso casual, no a alguien
+  decidido. **Firebase** (Google Cloud, proyecto `searchpet-566f0`): key
+  Android → package más los dos SHA-1 de la regla #31; key web →
+  `searchpet.vercel.app` y `localhost:3000`. Se **sacó** `*.vercel.app`, que
+  cubría cualquier proyecto de Vercel de cualquier persona; Google no acepta
+  un comodín parcial (`searchpet-*`), así que las push no andan en los
+  previews. Verificado sin tocar datos, con un POST a Firebase Installations
+  con un id falso: los clientes legítimos pasan el chequeo de key (400 por el
+  id falso) y los demás dan 403 `API_KEY_HTTP_REFERRER_BLOCKED` /
+  `API_KEY_ANDROID_APP_BLOCKED`.
 
 ### Código basura
 - [x] **G1 — `invokeWriteError`** en `backend/tests/write_error_test.go:18`:
   stub que devuelve `nil`, cero llamadas. Borrar.
   Hecho: borrado junto con el import de `handler`, que sólo usaba él. `go
   vet` limpio y los 61 casos del archivo (con subtests) siguen corriendo.
-- [ ] **G2 — 7 imports/variables sin uso en mobile** (`tsc
+- [x] **G2 — 7 imports/variables sin uso en mobile** (`tsc
   --noUnusedLocals`): `(tabs)/messages.tsx:22`, `(tabs)/post.tsx:23`,
   `alerts/index.tsx:12,33`, `pet/[id].tsx:121`, `story/create.tsx:52`,
   `users/[id].tsx:171`.
+  Hecho: quedaban **5**; los de `pet/[id].tsx` y `story/create.tsx` ya no
+  existían. En `alerts/index.tsx` sale también el import de `useRouter`, que
+  sólo usaba ese `router`. `tsc --noUnusedLocals` queda sin reportes y los
+  errores de tipos preexistentes siguen en 44 (G5), ni uno nuevo. Jest
+  267/267.
 - [ ] **G3 — ~84 claves i18n huérfanas** (web 14, mobile ~60, shared 10), en
   los tres idiomas. Salen de grep — verificar cada una (claves dinámicas,
   plurales) antes de borrar. Idealmente con un guard AST, no con lista.
