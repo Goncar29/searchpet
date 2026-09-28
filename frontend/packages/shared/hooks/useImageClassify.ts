@@ -84,7 +84,7 @@ export function useImageClassify(): UseImageClassifyReturn {
           // Web path: standard TF.js
           // @ts-ignore — resolved from web/node_modules at runtime
           await import(/* @vite-ignore */ '@tensorflow/tfjs');
-          // @ts-ignore
+          // @ts-ignore — resolved from web/node_modules at runtime
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const mobilenet = await import(/* @vite-ignore */ '@tensorflow-models/mobilenet') as any;
           modelRef = await mobilenet.load();
@@ -93,10 +93,10 @@ export function useImageClassify(): UseImageClassifyReturn {
           // @ts-ignore — resolved from mobile/node_modules at runtime
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const tf = await import(/* @vite-ignore */ '@tensorflow/tfjs') as any;
-          // @ts-ignore
+          // @ts-ignore — resolved from mobile/node_modules at runtime
           await import(/* @vite-ignore */ '@tensorflow/tfjs-react-native');
           await tf.ready();
-          // @ts-ignore
+          // @ts-ignore — resolved from mobile/node_modules at runtime
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const mobilenet = await import(/* @vite-ignore */ '@tensorflow-models/mobilenet') as any;
           modelRef = await mobilenet.load();
@@ -144,7 +144,7 @@ export function useImageClassify(): UseImageClassifyReturn {
         predictions = await modelRef.classify(input as HTMLImageElement | HTMLCanvasElement | ImageData);
       } else {
         // React Native: decode URI to tensor then run inference
-        // @ts-ignore
+        // @ts-ignore — resolved from mobile/node_modules at runtime
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { decodeJpeg } = await import(/* @vite-ignore */ '@tensorflow/tfjs-react-native') as any;
         const uri = input as string;
