@@ -17,8 +17,9 @@ allowBuilds:
 # Every floor below is the first patched release of the advisories that hit
 # the installed version, and every ceiling keeps the same major line, so the
 # override stays inside the range the parent already declares (checked
-# against each parent's package.json, not assumed). Packages with more than
-# one major line installed get one selector per line.
+# against each parent's package.json, not assumed). Every key is scoped to the
+# major it patches: an unscoped key would also catch a newer major that some
+# dependency adds later (nanoid 5, say) and silently downgrade it.
 #
 # Left out on purpose, because the fix needs a major bump the parent does not
 # accept: tar 6, @xmldom/xmldom 0.7, uuid 7/8, postcss (~8.4 in
@@ -29,17 +30,17 @@ allowBuilds:
 # published; GitHub's advisory database gives 1.9.0.
 overrides:
   '@xmldom/xmldom@0.9': '>=0.9.12 <0.10'
-  baseline-browser-mapping: '>=2.11.0 <3'
+  baseline-browser-mapping@2: '>=2.11.0 <3'
   brace-expansion@1: '>=1.1.18 <2'
   brace-expansion@2: '>=2.1.4 <3'
   brace-expansion@5: '>=5.0.9 <6'
-  browserslist: '>=4.28.7 <5'
-  fast-uri: '>=3.1.6 <4'
+  browserslist@4: '>=4.28.7 <5'
+  fast-uri@3: '>=3.1.6 <4'
   form-data@3: '>=3.0.5 <4'
   form-data@4: '>=4.0.6 <5'
-  joi: '>=17.13.6 <18'
+  joi@17: '>=17.13.6 <18'
   js-yaml@3: '>=3.15.2 <4'
   js-yaml@4: '>=4.3.2 <5'
-  nanoid: '>=3.3.18 <4'
-  shell-quote: '>=1.9.0 <2'
+  nanoid@3: '>=3.3.18 <4'
+  shell-quote@1: '>=1.9.0 <2'
   undici@6: '>=6.28.0 <7'
