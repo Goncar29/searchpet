@@ -31,6 +31,13 @@ on:
         type: string
         required: true
 
+# Permiso minimo del token para todos los jobs. Ninguno escribe en el repo: el
+# deploy usa un hook de Render que sale de un secret, y las actions de cache y
+# de artifacts usan el token propio del runner, no GITHUB_TOKEN. Un job que
+# necesite mas lo declara el mismo, a nivel de job.
+permissions:
+  contents: read
+
 jobs:
   # ============================================
   # Backend Tests (Go)
@@ -200,6 +207,68 @@ jobs:
         run: go test -tags e2e -count=1 -v ./tests/e2e/...
 
   # ============================================
+  # Backend Docker Image
+  # ============================================
+  # Render construye produccion con backend/Dockerfile y ningun otro job de este
+  # workflow lo usa: los demas compilan con `go build` en el runner. Sin este job,
+  # un Dockerfile roto aparecia recien como un deploy fallido en Render.
+  backend-image:
+    name: Backend Docker Image
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgis/postgis:15-3.4
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: lostpets_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v6
+
+      # --pull: la etapa de runtime fija una rama menor (alpine:3.24) para que
+      # cada rebuild traiga los parches de seguridad; una capa base cacheada no.
+      - name: Build image
+        run: docker build --pull -t searchpet-api:ci ./backend
+
+      - name: Image runs as the non-root user
+        run: |
+          uid="$(docker run --rm --entrypoint id searchpet-api:ci -u)"
+          echo "uid=$uid"
+          test "$uid" = "10001"
+
+      # --network host: el contenedor llega al Postgres del servicio por
+      # localhost:5432, igual que el runner.
+      - name: Start container
+        run: |
+          docker run -d --name api --network host \
+            -e PORT=8080 \
+            -e DATABASE_URL="postgres://postgres:postgres@localhost:5432/lostpets_test?sslmode=disable" \
+            -e JWT_SECRET=test-secret-image \
+            searchpet-api:ci
+
+      # /health/ready corre SELECT 1: un 200 prueba que el binario arranco,
+      # corrio las migraciones y llego a la base desde adentro de la imagen.
+      - name: Wait for readiness
+        run: |
+          timeout 90 bash -c 'until curl -sf http://localhost:8080/health/ready; do sleep 2; done' || \
+          (echo "=== CONTAINER LOGS ===" && docker logs api && exit 1)
+
+      - name: Server process runs as the non-root user
+        run: |
+          docker exec api grep '^Uid:' /proc/1/status
+          docker exec api grep -qE '^Uid:[[:space:]]+10001[[:space:]]' /proc/1/status
+
+  # ============================================
   # Frontend Lint & Build (Web)
   # ============================================
   frontend-web:
@@ -211,7 +280,7 @@ jobs:
       - uses: actions/checkout@v6
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v6
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
         with:
           version: 11.5.3
 
@@ -260,7 +329,7 @@ jobs:
       - uses: actions/checkout@v6
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v6
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
         with:
           version: 11.5.3
 
@@ -348,7 +417,7 @@ jobs:
           (echo "=== BACKEND LOGS ===" && cat /tmp/backend.log && exit 1)
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v6
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
         with:
           version: 11.5.3
 
@@ -498,7 +567,9 @@ jobs:
     # falta explicitamente: al salir de adentro de `e2e-web` dejo de estar
     # cubierto de rebote, asi que sin nombrarlo aca produccion podria recibir
     # codigo cuyos e2e nunca corrieron.
-    needs: [backend-test, e2e-backend, frontend-web, mobile-test, e2e-web]
+    #
+    # `backend-image` es lo unico que construye la imagen que Render deploya.
+    needs: [backend-test, e2e-backend, backend-image, frontend-web, mobile-test, e2e-web]
     if: github.ref == 'refs/heads/main'
     steps:
       - name: Trigger Render deploy
