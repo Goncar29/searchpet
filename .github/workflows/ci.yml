@@ -267,20 +267,27 @@ jobs:
       # request colgado (acepta la conexion y nunca responde) se coma el techo
       # de 15 min del job sin mostrar los logs. Si el contenedor muere
       # (migracion rota, env faltante) se corta ahi mismo. Cada salida deja su
-      # propio `::error::`, y las dos terminan con los logs a la vista.
+      # propio `::error::`, y las dos terminan con los logs a la vista. El error
+      # del ultimo intento de curl distingue un servidor colgado (timeout) de
+      # uno que contesta 503 porque la base no responde.
       - name: Wait for readiness
         run: |
-          deadline=$((SECONDS + 90))
-          reason="no respondio /health/ready en 90s"
+          timeout_s=90
+          deadline=$((SECONDS + timeout_s))
+          reason="no respondio /health/ready en ${timeout_s}s"
+          last=""
           while [ "$SECONDS" -lt "$deadline" ]; do
-            if curl -sf --max-time 5 http://localhost:8080/health/ready; then exit 0; fi
+            if last=$(curl -sSf --max-time 5 http://localhost:8080/health/ready 2>&1); then
+              echo "$last"
+              exit 0
+            fi
             if [ "$(docker inspect -f '{{.State.Running}}' api)" != "true" ]; then
               reason="el contenedor termino antes de estar listo"
               break
             fi
             sleep 2
           done
-          echo "::error::$reason"
+          echo "::error::$reason (ultimo intento: ${last:-sin respuesta})"
           echo "=== CONTAINER LOGS ==="
           docker logs api
           exit 1
