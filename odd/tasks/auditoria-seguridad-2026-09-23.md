@@ -303,9 +303,21 @@ recuperación, key de Jina, `/api/ops/quota`, `phone_verified`) NO entran acá.
   **no se agrega reintento al `docker build`** — el deploy ya dependía del
   registro de imágenes antes de este job (el Postgres de `backend-test` sale
   del mismo registro), así que un reintento acá no quita esa dependencia.
-- [ ] **S12 — `returnUrl` sin validar.** `LoginPage.tsx:53`,
+- [x] **S12 — `returnUrl` sin validar.** `LoginPage.tsx:53`,
   `useGoogleSignIn.ts:26`: exigir `/` y no `//`. Hoy no explotable
   (`navigate()` no cambia de origen); hardening.
+  Hecho: `web/src/utils/safeReturnPath.ts` acepta sólo un path que empieza
+  con UNA `/` y sin caracteres de control; si no, `/`. Rechaza también
+  `/\host` (el parser de URL trata la barra invertida como barra) y
+  `/<tab>/host` (el parser borra tab y salto de línea, así que queda `//host`),
+  dos formas que "exigir `/` y no `//`" dejaba pasar. Son tres puntos de uso,
+  no dos: `LoginPage` navega a `returnUrl` tras el submit **y** en el guard de
+  "ya tenés sesión". Test de las dos mitades en cada uno, y en el hook tanto al
+  terminar el alta como para el usuario que vuelve. Mutaciones: cada punto de
+  uso sin validar, sin el chequeo de barra invertida y sin el de control →
+  cae un test con nombre en cada caso. Revisión nativa
+  `review-e4d21de6151900af` aprobada; su sugerencia (cubrir al usuario de
+  Google que vuelve) aplicada. **PR #281.**
 
 ### Info / a decidir
 - [ ] **S13 — Advisories sin ignore documentado (web).** `dompurify` (vía
@@ -332,6 +344,19 @@ recuperación, key de Jina, `/api/ops/quota`, `phone_verified`) NO entran acá.
 - [ ] **G5 — Errores de tipos en mobile** que salieron en `tsc` (~15:
   implicit any, MapLibreGL, import roto en `story/index.tsx`). Fuera del
   alcance de "basura", pero son reales.
+- [ ] **G6 — `pnpm lint` de web apunta a nada.** `web/package.json` tiene
+  `"lint": "eslint . --ext ts,tsx"`, pero `eslint` no está instalado, no hay
+  config y el CI no lo corre; aun así el código trae
+  `eslint-disable-next-line react-hooks/exhaustive-deps` (`AlertsMap.tsx`,
+  `SharePanel.tsx`) para un linter que no existe. El valor está sobre todo en
+  `react-hooks/exhaustive-deps`: dependencias faltantes en efectos y
+  callbacks, que ni `tsc` ni los tests ven. Plan: `eslint` +
+  `typescript-eslint` + `eslint-plugin-react-hooks` con config plana y sólo
+  las reglas recomendadas + react-hooks; la primera corrida va a marcar
+  bastante (el código se escribió sin linter), así que arreglar o documentar
+  eso ANTES de sumarlo como paso bloqueante al job `Frontend Web Build`. Las
+  dependencias nuevas pasan por el `pnpm audit` del CI (regla #27). Decisión
+  del usuario, 2026-09-28.
 
 ## Progress
 
