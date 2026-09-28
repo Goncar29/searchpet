@@ -14,10 +14,6 @@ import (
 // the address exists would undo the service-level enumeration defence.
 const forgotPasswordMessage = "Si el email está registrado, te enviamos un código."
 
-// bcryptMaxPasswordBytes is the hard input limit of bcrypt.GenerateFromPassword.
-// It is a BYTE count, which is why the DTO's rune-based `max=72` cannot enforce it.
-const bcryptMaxPasswordBytes = 72
-
 // PasswordResetHandler expone la recuperación de contraseña. Ambas rutas son
 // públicas: por definición el usuario no puede iniciar sesión.
 type PasswordResetHandler struct {
