@@ -14,6 +14,7 @@ import (
 	"lost-pets/internal/event"
 	"lost-pets/internal/repository"
 	"lost-pets/pkg/mailer"
+	"lost-pets/pkg/secret"
 )
 
 const (
@@ -261,10 +262,9 @@ func (s *verificationService) ConfirmOTP(ctx context.Context, userID uuid.UUID, 
 		return domain.ErrOTPInvalid
 	}
 
-	// Comparar hash del código recibido con el almacenado
-	// SECURITY: comparamos hashes — nunca almacenamos ni logueamos el plaintext
-	inputHash := hashOTPCode(code)
-	if inputHash != token.CodeHash {
+	// Comparar hash del código recibido con el almacenado, en tiempo constante
+	// (S8). SECURITY: comparamos hashes — nunca almacenamos ni logueamos el plaintext
+	if !secret.Equal(hashOTPCode(code), token.CodeHash) {
 		return domain.ErrOTPInvalid
 	}
 
