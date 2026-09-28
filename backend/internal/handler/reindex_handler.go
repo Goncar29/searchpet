@@ -5,6 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"lost-pets/internal/service"
+	"lost-pets/pkg/secret"
 )
 
 // reindexTokenHeader is the request header carrying the shared secret that
@@ -31,7 +32,8 @@ func NewReindexHandler(embeddingService *service.EmbeddingService, token string)
 
 // BackfillEmbeddings runs a full embeddings backfill across all lost/stray pets.
 //
-// Authorization: a constant-time-ish shared secret in the X-Reindex-Token header.
+// Authorization: a shared secret in the X-Reindex-Token header, compared in
+// constant time (secret.Equal).
 // When the endpoint is disabled (empty configured token) or the supplied token
 // does not match, it returns a bare 404 to avoid revealing that the route exists.
 func (h *ReindexHandler) BackfillEmbeddings(c *gin.Context) {
@@ -42,7 +44,7 @@ func (h *ReindexHandler) BackfillEmbeddings(c *gin.Context) {
 	}
 
 	// Wrong/missing token: indistinguishable from "route does not exist".
-	if c.GetHeader(reindexTokenHeader) != h.token {
+	if !secret.Equal(c.GetHeader(reindexTokenHeader), h.token) {
 		c.JSON(http.StatusNotFound, gin.H{"code": "not_found", "message": "not found"})
 		return
 	}

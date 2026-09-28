@@ -76,8 +76,12 @@ recuperación, key de Jina, `/api/ops/quota`, `phone_verified`) NO entran acá.
   inválido) cae al peer `::1` — riesgo aceptado: ese tráfico comparte balde,
   el de usuarios siempre trae el header (mutación leyendo XFF → cae por
   nombre).
-  **Pendiente post-merge**: una sonda mía tiene que aparecer en el log de
-  Render con mi IP pública, no con `::1`.
+  **PR #276, squash `325ca5f1`.** **Verificado en prod** (deploy
+  `dep-dasqqph7lnhs73adebg0`, live 2026-09-27 23:59 UTC; sonda a las
+  00:08 UTC del 28, o sea 21:08 del 27 en hora de Uruguay): mi sonda a `/api/reports/nearby`
+  aparece en el log de Render con `client_ip` = mi IP pública y
+  `remote_addr` `[::1]`; el monitor de UptimeRobot, con la suya. Dos clientes,
+  dos IPs: esta vez sí distingue por-IP de global.
 
 ### Media
 - [x] **S2 — Teléfono del dueño en `GET /api/pets/:id` para cualquier estado.**
@@ -214,10 +218,27 @@ recuperación, key de Jina, `/api/ops/quota`, `phone_verified`) NO entran acá.
   headers haría salir el DELETE anónimo, y el `.catch(() => {})` del logout
   se tragaría el 401. `shared/api/client.test.ts` lo fija; con un
   `await Promise.resolve()` antes de los headers cae.
-- [ ] **S8 — Comparaciones no constant-time.** `reindex_handler.go:45`,
+- [x] **S8 — Comparaciones no constant-time.** `reindex_handler.go:45`,
   `ops_quota_handler.go:46` (header vs token) y
   `verification_service.go:266` (OTP de email) → `subtle.ConstantTimeCompare`
   como ya hace `password_reset_service.go:390`.
+  Hecho con un helper único, `pkg/secret.Equal`: hashea los dos lados con
+  SHA-256 y compara los digests con `subtle.ConstantTimeCompare`, porque
+  `ConstantTimeCompare` sola devuelve al instante si los largos difieren y
+  filtra el largo del token. Lo usan los cuatro sitios (el reset incluido).
+  Las guardas de "token no configurado" quedan aparte (regla #18): `Equal("",
+  "")` es true a propósito. **Excepción de TDD declarada**: el tiempo no se
+  afirma con un test determinista, y `Equal` es indistinguible de `==` por
+  comportamiento. Lo que sí tiene rojo es el guard
+  `TestNoSecretComparedWithEqualityOperators`: barre todo el módulo backend
+  (`internal/`, `pkg/`, `cmd/`; sin `testdata` ni `vendor`) por AST y falla
+  ante `==`/`!=`, `bytes.Equal` o `strings.Compare` sobre un header, un
+  `CodeHash` o un `token` (no contra literales ni `nil`). Verifica su raíz
+  exigiendo haber leído los cuatro sitios por nombre. Rojo observado contra el
+  código previo: nombró exactamente los tres sitios de arriba. Tres rondas de
+  revisión nativa (`review-248d2fe7a6fb6742`, `review-2e54f5ec5e0be40d`,
+  `review-a4519d69436f5b94`), todas aprobadas, 6 sugerencias aplicadas, todas
+  sobre el guard o el texto.
 - [ ] **S9 — `Register` sin tope de 72 bytes de bcrypt.**
   `auth_service.go:100` → 500 en vez de 400; el comentario de
   `dto/auth_dto.go:16` afirma que ya está cubierto y es falso (regla #36).

@@ -5,6 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"lost-pets/internal/service"
+	"lost-pets/pkg/secret"
 )
 
 // opsTokenHeader lleva el secreto compartido que autoriza el reporte de cupo.
@@ -43,7 +44,7 @@ func (h *OpsQuotaHandler) Report(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"code": "not_found", "message": "not found"})
 		return
 	}
-	if c.GetHeader(opsTokenHeader) != h.token {
+	if !secret.Equal(c.GetHeader(opsTokenHeader), h.token) {
 		c.JSON(http.StatusNotFound, gin.H{"code": "not_found", "message": "not found"})
 		return
 	}

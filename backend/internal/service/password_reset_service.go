@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"crypto/subtle"
 	"errors"
 	"log"
 	"time"
@@ -12,6 +11,7 @@ import (
 	"lost-pets/internal/domain"
 	"lost-pets/internal/repository"
 	"lost-pets/pkg/mailer"
+	"lost-pets/pkg/secret"
 )
 
 // ChannelPasswordReset scopes reset tokens inside the shared verification_tokens
@@ -387,7 +387,7 @@ func (s *passwordResetService) ConfirmReset(ctx context.Context, email, code, ne
 
 	// Constant-time comparison: with only 5 attempts a prefix-timing attack is
 	// impractical anyway, but the guarantee costs one line.
-	if subtle.ConstantTimeCompare([]byte(hashOTPCode(code)), []byte(token.CodeHash)) != 1 {
+	if !secret.Equal(hashOTPCode(code), token.CodeHash) {
 		return domain.ErrOTPInvalid
 	}
 
