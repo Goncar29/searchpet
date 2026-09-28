@@ -427,7 +427,7 @@ recuperación, key de Jina, `/api/ops/quota`, `phone_verified`) NO entran acá.
   **Pendiente de ver en un APK nuevo** (el usuario junta varios arreglos
   antes de construirlo): los mapas con calles, y con eso la restricción
   User-Agent de MapTiler (S15), que el mapa de demo nunca usó.
-- [ ] **G6 — `pnpm lint` de web apunta a nada.** `web/package.json` tiene
+- [x] **G6 — `pnpm lint` de web apunta a nada.** `web/package.json` tiene
   `"lint": "eslint . --ext ts,tsx"`, pero `eslint` no está instalado, no hay
   config y el CI no lo corre; aun así el código trae
   `eslint-disable-next-line react-hooks/exhaustive-deps` (`AlertsMap.tsx`,
@@ -440,6 +440,20 @@ recuperación, key de Jina, `/api/ops/quota`, `phone_verified`) NO entran acá.
   eso ANTES de sumarlo como paso bloqueante al job `Frontend Web Build`. Las
   dependencias nuevas pasan por el `pnpm audit` del CI (regla #27). Decisión
   del usuario, 2026-09-28.
+  Hecho: eslint 10 con config plana, `typescript-eslint` 8.70.1 (la última
+  con más de 3 días; soporta TypeScript 6) y de react-hooks **sólo**
+  `rules-of-hooks` y `exhaustive-deps` (el preset de la v7 trae las reglas
+  del React Compiler, otra clase de problema). La primera corrida dio **13**,
+  no cientos, y **ningún** `exhaustive-deps` real: el único relacionado era un
+  `eslint-disable` que ya no silenciaba nada en `AlertsPage`. Probado por qué:
+  la regla trata como estable una función que sólo usa setters, así que no la
+  pide; con una prop sí avisa. El resto: dos `as any` y un `@ts-ignore` que no
+  escondían nada (`tsc` limpio sin ellos), dos `&&` constantes que SON el caso
+  bajo prueba, un literal con más dígitos de los que un double representa, y
+  variables escritas y nunca leídas en dos e2e. El script corre con
+  `--max-warnings=0`: sin eso eslint sale 0 con warnings y el CI quedaba
+  verde; probado con una dependencia faltante, sale 1. Paso `Lint` en el job
+  de web. **Límite**: no revisa `shared/`, que está fuera de `web/`.
 
 ## Progress
 

@@ -14,7 +14,6 @@ test.describe('Stray management', () => {
 
   // Reporter A — owns a single still-stray report (dropdown test).
   let emailA: string;
-  let strayId: string;
 
   // Reporter B — owns a single report that has been marked found (story test).
   let emailB: string;
@@ -24,7 +23,7 @@ test.describe('Stray management', () => {
     emailA = uniqueEmail();
     await seedUser(emailA, password);
     const tokenA = await getToken(emailA, password);
-    strayId = await seedStray(tokenA, `Stray-${Date.now()}`);
+    await seedStray(tokenA, `Stray-${Date.now()}`);
 
     emailB = `b-${uniqueEmail()}`;
     await seedUser(emailB, password);

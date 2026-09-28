@@ -125,7 +125,10 @@ export function AlertsPage() {
     }
     // Sólo al montar. `elegirZona` se recrea en cada render, así que ponerla en
     // deps volvería a pedir la ubicación en cada tecla que el usuario escriba.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // react-hooks/exhaustive-deps no la pide porque sólo usa setters, que son
+    // estables; si algún día lee una prop o un estado, va a avisar. Ante ese
+    // aviso NO la agregues a deps (volvería a pedir la ubicación en cada
+    // tecla): estabilizala con useCallback.
   }, []);
 
   const handleGeolocate = () => {

@@ -184,7 +184,7 @@ describe('MessagesPage', () => {
           content: 'Hola, encontré tu perro',
           is_read: false,
           created_at: new Date().toISOString(),
-          sender: { id: 'user-2', name: 'Juan' } as any,
+          sender: { id: 'user-2', name: 'Juan' },
         },
       ],
       isLoading: false,

@@ -314,6 +314,9 @@ describe('ListState', () => {
   // estaba contemplado en el nivel de arriba y no un piso más abajo, o sea que
   // la función era inconsistente consigo misma.
   it.each([
+    // El `false &&` constante ES el caso bajo prueba: así se ve un render
+    // condicional que no dibuja nada.
+    // eslint-disable-next-line no-constant-binary-expression
     ['un fragmento con children false', <>{false && <p>algo</p>}</>],
     ['un fragmento con un array vacio', <>{[].map(() => <p key="x">algo</p>)}</>],
     ['un array vacio pelado', []],
@@ -341,6 +344,8 @@ describe('ListState', () => {
         query={fakeQuery<{ data: string[] }>({ data: { data: ['perro'] }, isError: true })}
         select={() => []}
         loading={<p>cargando</p>}
+        // El `true &&` constante ES el caso: un empty que sí dibuja algo.
+        // eslint-disable-next-line no-constant-binary-expression
         empty={<>{true && <p>no tenes nada</p>}</>}
       >
         {(items) => <p>{items.join(',')}</p>}

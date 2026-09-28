@@ -393,7 +393,7 @@ describe('AlertsPage — formulario de alta', () => {
     // Lo levantó un /code-review. El /verify no lo vio porque probó el BOTÓN
     // "usar mi ubicación", no el montaje: dos caminos, y sólo uno mirado.
     it('el prefill de montaje redondea la coordenada', async () => {
-      conGeolocalizacion({ latitude: -34.899025460930744, longitude: -56.164173829174611 });
+      conGeolocalizacion({ latitude: -34.899025460930744, longitude: -56.16417382917461 });
       render(<AlertsPage />);
       await userEvent.click(screen.getByRole('button', { name: 'newAlert' }));
 
