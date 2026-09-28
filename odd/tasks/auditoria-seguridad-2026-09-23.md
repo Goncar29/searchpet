@@ -252,7 +252,7 @@ recuperación, key de Jina, `/api/ops/quota`, `phone_verified`) NO entran acá.
   Hecho: `AuthHandler.Register` chequea `len(req.Password) >
   bcryptMaxPasswordBytes` (la misma constante del reset) y responde 400
   `invalid_input` antes de llamar al servicio. El comentario del DTO ahora dice
-  dónde vive el chequeo y que antes mentía. Test de las dos mitades: 73 bytes
+  dónde vive el chequeo. Test de las dos mitades: 73 bytes
   ASCII y 37 `ñ` (74 bytes, 37 runas) → 400 sin tocar el servicio; 72 bytes
   ASCII y 36 `ñ` (72 bytes justos) → 201. Rojo observado en las dos primeras;
   mutación `>=` → caen las dos del borde. `Login` no se toca:
