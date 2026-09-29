@@ -22,7 +22,7 @@ import { useTranslation } from 'react-i18next';
 import i18next from 'i18next';
 import * as Location from 'expo-location';
 import * as ImagePicker from 'expo-image-picker';
-import { useNearbyReports, useSearchPets, useStories, useImageClassify, useImageSearchNative } from '../../../shared/hooks';
+import { useSearchPets, useStories, useImageClassify, useImageSearchNative } from '../../../shared/hooks';
 import { useLocationStore, useAuthStore } from '../../store';
 import { PetCard } from '../../components/PetCard';
 import { ListState } from '../../components/list/ListState';
@@ -46,7 +46,9 @@ export default function HomeScreen() {
   const [draftBreed, setDraftBreed] = useState('');
   const [draftFrom, setDraftFrom] = useState('');
   const [draftTo, setDraftTo] = useState('');
-  const [radius, setRadius] = useState<5 | 10 | 25 | 50>(10);
+  // Filtro de distancia OPCIONAL (como en web): undefined = feed global sin
+  // radio. El feed en sí sale SIEMPRE de useSearchPets — ver más abajo.
+  const [radius, setRadius] = useState<5 | 10 | 25 | 50 | undefined>(undefined);
   const [showFilters, setShowFilters] = useState(false);
 
   // ── Applied state — drives the actual API calls ──────────
@@ -56,8 +58,8 @@ export default function HomeScreen() {
   const [appliedFrom, setAppliedFrom] = useState('');
   const [appliedTo, setAppliedTo] = useState('');
 
-  const isSearchMode = !!appliedType || appliedColor.trim().length > 0
-    || appliedBreed.trim().length > 0 || !!appliedFrom || !!appliedTo;
+  const hasActiveFilters = !!appliedType || appliedColor.trim().length > 0
+    || appliedBreed.trim().length > 0 || !!appliedFrom || !!appliedTo || !!radius;
 
   // ── Búsqueda por foto ──
   const [classifyResult, setClassifyResult] = useState<ClassifyResult | null>(null);
@@ -91,20 +93,28 @@ export default function HomeScreen() {
   }, []);
 
   // ── Datos ────────────────────────────────────────────────
-  const nearbyQuery = useNearbyReports(lat, lng, radius, !isSearchMode);
+  // Feed único unificado (como en web): SIEMPRE /pets/search (lost+stray por
+  // defecto, orden por recencia). El filtro de distancia es opcional y se suma
+  // encima: centro = GPS del usuario ya resuelto arriba (`lat`/`lng`, con
+  // fallback a Montevideo), radio en metros. Sin radio elegido, lat/lng/radius
+  // van `undefined` y la búsqueda queda global — ya no hay un modo "cercanía"
+  // separado con su propio hook.
   const searchQuery = useSearchPets({
     type: appliedType,
     color: appliedColor.trim() || undefined,
     breed: appliedBreed.trim() || undefined,
     from: appliedFrom ? new Date(appliedFrom).toISOString() : undefined,
     to: appliedTo ? new Date(appliedTo).toISOString() : undefined,
+    lat: radius ? lat : undefined,
+    lng: radius ? lng : undefined,
+    radiusMeters: radius ? radius * 1000 : undefined,
   });
 
   // El estado de carga ya no se deriva acá: lo decide `ListState`, que es el
   // único que ve las cuatro ramas juntas (cargando, sin red, error y datos).
-  const isRefetching = isSearchMode ? false : nearbyQuery.isRefetching;
+  const isRefetching = searchQuery.isRefetching;
 
-  const handleRefetch = () => { if (!isSearchMode) nearbyQuery.refetch(); };
+  const handleRefetch = () => { searchQuery.refetch(); };
 
   const handlePetPress = (petId: string) => router.push(`/pet/${petId}`);
 
@@ -129,6 +139,7 @@ export default function HomeScreen() {
     setAppliedBreed('');
     setAppliedFrom('');
     setAppliedTo('');
+    setRadius(undefined);
     setClassifyResult(null);
     setPhotoNoMatch(false);
     setImageResults(null);
@@ -188,7 +199,8 @@ export default function HomeScreen() {
   };
 
   // ── Render items ─────────────────────────────────────────
-  // Modo foto → ImageSearchResult[]; modo búsqueda → Pet[]; modo nearby → Report[]
+  // Modo foto → ImageSearchResult[]; feed/búsqueda → Pet[] (el feed unificado
+  // sólo conoce la variante `pet` de PetCard — ya no hay un modo `report`).
   const isImageResultsMode = !!imageResults;
 
   const renderImageResult = ({ item }: { item: ImageSearchResult }) => (
@@ -210,19 +222,12 @@ export default function HomeScreen() {
     </TouchableOpacity>
   );
 
-  const renderItem = isSearchMode
-    ? ({ item }: { item: any }) => (
-        <PetCard
-          pet={item}
-          onPress={() => handlePetPress(item.id)}
-        />
-      )
-    : ({ item }: { item: any }) => (
-        <PetCard
-          report={item}
-          onPress={() => handlePetPress(item.pet?.id || item.pet_id)}
-        />
-      );
+  const renderItem = ({ item }: { item: any }) => (
+    <PetCard
+      pet={item}
+      onPress={() => handlePetPress(item.id)}
+    />
+  );
 
   // La lista principal la maneja `ListState`, así que acá ya NO se deriva un
   // `?? []` para ella: ese colapso —"no pude leer" y "no hay nada" cayendo en el
@@ -230,23 +235,16 @@ export default function HomeScreen() {
   // foto sí siguen así, y está bien: no salen de una query sino de una mutación
   // guardada en `useState`, donde `null` significa "no hay búsqueda por foto
   // activa" y no ignorancia.
-  const listQuery: any = isSearchMode ? searchQuery : nearbyQuery;
+  const selectItems = (d: { data: any[]; total: number }): any[] => d?.data ?? [];
 
-  // Los dos hooks devuelven formas distintas: `useNearbyReports` un array pelado
-  // y `useSearchPets` un sobre `{ data, total }`.
-  const selectItems = (d: any): any[] => (Array.isArray(d) ? d : (d?.data ?? []));
-
-  // Los contadores viven FUERA de la rama que `ListState` envuelve, así que la
-  // primitiva NO los protege — es la trampa que el porte de la web dejó
+  // El contador vive FUERA de la rama que `ListState` envuelve, así que la
+  // primitiva NO lo cubre — es la trampa que el porte de la web dejó
   // documentada. `null` acá significa "no sabemos", y con eso el encabezado deja
-  // de afirmar un número: escribir "0 reportes activos" con la consulta caída es
-  // la misma mentira que la lista vacía, sólo que en el título y en negrita.
+  // de afirmar un número: escribir "0 resultados" o "0 mascotas en búsqueda" con
+  // la consulta caída es la misma mentira que la lista vacía, sólo que en el
+  // título y en negrita.
   const knownCount: number | null =
-    listQuery.data == null
-      ? null
-      : isSearchMode
-      ? (searchQuery.data?.total ?? selectItems(searchQuery.data).length)
-      : selectItems(nearbyQuery.data).length;
+    searchQuery.data == null ? null : searchQuery.data.total;
 
   const imageResultCount = imageResults?.length ?? 0;
 
@@ -399,23 +397,21 @@ export default function HomeScreen() {
               <Text style={styles.applyButtonText}>{t('common:search')}</Text>
             </TouchableOpacity>
 
-            {/* Radio (solo en modo nearby) */}
-            {!isSearchMode && (
-              <View style={styles.radiusRow}>
-                <Text style={styles.radiusLabel}>{t('home:radius')}</Text>
-                {RADII.map((r) => (
-                  <TouchableOpacity
-                    key={r}
-                    style={[styles.radiusChip, radius === r && styles.radiusChipActive]}
-                    onPress={() => setRadius(r)}
-                  >
-                    <Text style={[styles.radiusChipText, radius === r && styles.radiusChipTextActive]}>
-                      {r} km
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
+            {/* Filtro de distancia opcional — tap en el chip activo lo deselecciona */}
+            <View style={styles.radiusRow}>
+              <Text style={styles.radiusLabel}>{t('home:distanceLabel')}</Text>
+              {RADII.map((r) => (
+                <TouchableOpacity
+                  key={r}
+                  style={[styles.radiusChip, radius === r && styles.radiusChipActive]}
+                  onPress={() => setRadius(radius === r ? undefined : r)}
+                >
+                  <Text style={[styles.radiusChipText, radius === r && styles.radiusChipTextActive]}>
+                    {r} km
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
         )}
       </View>
@@ -431,7 +427,7 @@ export default function HomeScreen() {
               <Text style={styles.clearText}>{t('home:clearPhotoResults')}</Text>
             </TouchableOpacity>
           </View>
-        ) : isSearchMode ? (
+        ) : hasActiveFilters ? (
           <View style={styles.headerRow}>
             {/* Sin datos no se afirma un número: `home:results` diría
                 "0 resultados", que con la búsqueda caída es falso. El botón de
@@ -448,23 +444,22 @@ export default function HomeScreen() {
           </View>
         ) : (
           <>
-            <Text style={styles.greeting}>
-              {isAuthenticated ? t('home:nearbyTitle') : t('home:lostTitle')}
-            </Text>
-            {/* Mismo criterio que el contador de la búsqueda: con la consulta
-                caída el radio SÍ lo sabemos (lo eligió el usuario) y la cantidad
-                no, así que se muestra sólo lo que es cierto. */}
+            <Text style={styles.greeting}>{t('home:feedTitle')}</Text>
+            {/* Sin filtros no hay ningún otro dato cierto que mostrar (a
+                diferencia del radio de antes, que el usuario elegía): con la
+                consulta caída se reusa `resultsUnknown` en vez de inventar una
+                tercera clave para el mismo concepto de "no sabemos el conteo". */}
             <Text style={styles.subtitle}>
               {knownCount == null
-                ? t('home:radiusOnly', { radius })
-                : t('home:activeReports', { count: knownCount, radius })}
+                ? t('home:resultsUnknown')
+                : t('home:feedCount', { count: knownCount })}
             </Text>
           </>
         )}
       </View>
 
       {/* ── CTA para no autenticados ── */}
-      {!isAuthenticated && !isSearchMode && (
+      {!isAuthenticated && !hasActiveFilters && (
         <TouchableOpacity
           style={styles.ctaBanner}
           onPress={() => router.push('/login')}
@@ -519,13 +514,13 @@ export default function HomeScreen() {
         // teléfono es el gesto que la gente realmente usa. `ListState` sólo
         // reemplaza la lista cuando NO pudimos llenarla.
         <ListState
-          query={listQuery}
+          query={searchQuery}
           select={selectItems}
           loading={
             <View style={styles.center}>
               <ActivityIndicator size="large" color={COLORS.primary} />
               <Text style={styles.loadingText}>
-                {isSearchMode ? t('home:searching') : t('home:loading')}
+                {hasActiveFilters ? t('home:searching') : t('home:loading')}
               </Text>
             </View>
           }
@@ -548,12 +543,12 @@ export default function HomeScreen() {
                 <View style={styles.empty}>
                   <View style={{ marginBottom: 12 }}><PawPlaceholder size={56} /></View>
                   <Text style={styles.emptyTitle}>
-                    {isSearchMode ? t('home:noResultsTitle') : t('home:noNearbyTitle')}
+                    {hasActiveFilters ? t('home:noResultsTitle') : t('home:emptyFeedTitle')}
                   </Text>
                   <Text style={styles.emptyText}>
-                    {isSearchMode ? t('home:noResultsText') : t('home:noNearbyText')}
+                    {hasActiveFilters ? t('home:noResultsText') : t('home:emptyFeedText')}
                   </Text>
-                  {isSearchMode && (
+                  {hasActiveFilters && (
                     <TouchableOpacity style={styles.clearButton} onPress={clearFilters}>
                       <Text style={styles.clearButtonText}>{t('home:clearFiltersButton')}</Text>
                     </TouchableOpacity>

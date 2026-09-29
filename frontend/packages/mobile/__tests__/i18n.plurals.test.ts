@@ -41,7 +41,7 @@ describe('plurales del feed', () => {
   it('la frase, no sólo el número, cambia entre singular y plural', async () => {
     const casos: [string, Record<string, unknown>][] = [
       ['home:results', {}],
-      ['home:activeReports', { radius: 10 }],
+      ['home:feedCount', {}],
       // Las tres unidades de "visto por última vez" (issue #221). Van acá y no
       // en un test de pantalla por el motivo del encabezado: con `t()`
       // mockeado nadie vería que una forma plural no resuelve.
@@ -63,15 +63,11 @@ describe('plurales del feed', () => {
     }
   });
 
-  it('el español no dice "1 reportes activos"', async () => {
+  it('el español no dice "1 mascotas en búsqueda"', async () => {
     await i18n.changeLanguage('es');
 
-    expect(i18n.t('home:activeReports', { count: 1, radius: 10 })).toBe(
-      '1 reporte activo · radio 10 km',
-    );
-    expect(i18n.t('home:activeReports', { count: 2, radius: 10 })).toBe(
-      '2 reportes activos · radio 10 km',
-    );
+    expect(i18n.t('home:feedCount', { count: 1 })).toBe('1 mascota en búsqueda');
+    expect(i18n.t('home:feedCount', { count: 2 })).toBe('2 mascotas en búsqueda');
     expect(i18n.t('home:results', { count: 2 })).toBe('2 resultados');
   });
 
@@ -93,13 +89,14 @@ describe('plurales del feed', () => {
 
   // La clave que se muestra cuando NO sabemos el conteo. Se llama igual que en
   // la web (`home:resultsUnknown`) porque es el mismo concepto: dos nombres
-  // para lo mismo es cómo la próxima pantalla inventa un tercero.
-  it('resultsUnknown y radiusOnly existen en los tres idiomas', async () => {
+  // para lo mismo es cómo la próxima pantalla inventa un tercero. El feed sin
+  // filtros la reusa para su propio "no sabemos cuántas hay" — no existe una
+  // clave separada tipo `feedCountUnknown`, a propósito (mismo motivo).
+  it('resultsUnknown existe en los tres idiomas', async () => {
     for (const lng of ['es', 'en', 'pt']) {
       await i18n.changeLanguage(lng);
       expect(i18n.t('home:resultsUnknown')).not.toContain(':');
       expect(i18n.t('home:resultsUnknown')).not.toBe('resultsUnknown');
-      expect(i18n.t('home:radiusOnly', { radius: 10 })).toContain('10');
     }
   });
 });
