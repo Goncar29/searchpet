@@ -104,3 +104,10 @@ resolution is how one of those gets lost silently. #74 is the SPEC (commit
   GREEN: `pnpm lint` EXIT=0, `pnpm typecheck` EXIT=0, `pnpm test:run` EXIT=0,
   283 tests (baseline 279 + 4 net new). Not committed — left in the working
   tree per the task's instructions.
+- 2026-09-29: commit `a232de75`, native review (reliability lens) APPROVED
+  and acknowledged. Suggestions applied: `mockPetCardRender` cleared in
+  beforeEach (the pet-variant test passed on a previous test's calls);
+  pull-to-refresh test (the retry test only covers ListState's button:
+  mutating `handleRefetch` left all green, the new test catches it);
+  `total` falls back to the visible list length again, with a test (RED
+  seen removing the fallback). 286 tests.

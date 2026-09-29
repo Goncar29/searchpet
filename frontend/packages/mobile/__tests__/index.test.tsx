@@ -1,6 +1,7 @@
 // Home/Feed screen — feed unificado vía useSearchPets (como web)
 import React from 'react';
-import { render, fireEvent } from '@testing-library/react-native';
+import { RefreshControl } from 'react-native';
+import { render, fireEvent, act } from '@testing-library/react-native';
 
 import HomeScreen from '../app/(tabs)/index';
 
@@ -85,6 +86,9 @@ const mascota = (name: string) => ({
 beforeEach(() => {
   refetch.mockClear();
   mockUseSearchPets.mockClear();
+  // Sin esto, las cards dibujadas por un test anterior satisfacen las
+  // aserciones del siguiente.
+  mockPetCardRender.mockClear();
   Object.assign(search, estadoDeQuery());
 });
 
@@ -174,6 +178,18 @@ describe('HomeScreen (Feed)', () => {
       expect(queryByText(/common:retry/)).toBeTruthy();
     });
 
+    // Antes sólo se reintentaba en el modo cercanía; ahora el feed es la
+    // búsqueda, así que reintentar tiene que volver a pedir ESA query.
+    it('reintentar vuelve a pedir la búsqueda', () => {
+      Object.assign(search, estadoDeQuery({ isError: true }));
+
+      const { getByText } = render(<HomeScreen />);
+      expect(refetch).not.toHaveBeenCalled();
+      fireEvent.press(getByText(/common:retry/));
+
+      expect(refetch).toHaveBeenCalled();
+    });
+
     // El encabezado vive FUERA de la rama que envuelve `ListState`, así que la
     // primitiva no lo cubre: es la trampa que dejó documentada el porte de la
     // web. Sin este arreglo la pantalla mostraba el cartel de error Y, tres
@@ -223,6 +239,31 @@ describe('HomeScreen (Feed)', () => {
 
       expect(queryByText('pet:Rex')).toBeTruthy();
       expect(queryByText(/home:emptyFeedTitle/)).toBeNull();
+    });
+
+    // Deslizar para refrescar es el otro camino, fuera de `ListState`: antes
+    // sólo refrescaba el modo cercanía.
+    it('deslizar para refrescar vuelve a pedir la búsqueda', () => {
+      Object.assign(search, estadoDeQuery({ data: { data: [mascota('Rex')], total: 1 } }));
+
+      const { UNSAFE_getByType } = render(<HomeScreen />);
+      expect(refetch).not.toHaveBeenCalled();
+      act(() => {
+        UNSAFE_getByType(RefreshControl).props.onRefresh();
+      });
+
+      expect(refetch).toHaveBeenCalled();
+    });
+
+    // La lista está en pantalla: si la respuesta no trae `total`, el conteo
+    // sale de lo que se ve, no de "no sabemos".
+    it('sin total en la respuesta, cuenta lo que se ve', () => {
+      Object.assign(search, estadoDeQuery({ data: { data: [mascota('Rex')] } }));
+
+      const { queryByText } = render(<HomeScreen />);
+
+      expect(queryByText(/home:feedCount/)).toBeTruthy();
+      expect(queryByText(/home:resultsUnknown/)).toBeNull();
     });
 
     // React Query CONSERVA lo cacheado cuando falla un refetch. Con `isError` a

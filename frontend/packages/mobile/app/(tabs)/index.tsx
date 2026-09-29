@@ -244,7 +244,9 @@ export default function HomeScreen() {
   // la consulta caída es la misma mentira que la lista vacía, sólo que en el
   // título y en negrita.
   const knownCount: number | null =
-    searchQuery.data == null ? null : searchQuery.data.total;
+    searchQuery.data == null
+      ? null
+      : (searchQuery.data.total ?? selectItems(searchQuery.data).length);
 
   const imageResultCount = imageResults?.length ?? 0;
 
