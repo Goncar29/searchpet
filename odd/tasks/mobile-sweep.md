@@ -44,3 +44,17 @@ Backend changes only if a defect needs them, with the owner's OK.
   mockReset instead of mockClear (implementations leaked too: RED seen,
   Received "leaked"), non-mock fields skipped, and the guard no longer
   depends on test order (second test passes alone with -t).
+- 2026-09-29: T2 audit returned (full list in engram topic
+  `odd/mobile-sweep/audit`). Parent verified against the code: M1-M4 have no
+  isError/ListState at all (grep count 0 in messages, chat, alerts, map); map
+  counter is `reports?.length || 0`; PetCard.tsx:132 renders `pet.type` raw;
+  mobile users/[id].tsx never calls useUserPets (web does, line 196);
+  story/create.tsx:111 shows `error.message` raw. All confirmed.
+
+## Next step
+
+Next session: batch 1 = M1-M4 (ListState on messages, chat, alerts, map),
+M5 (pet type via `pets:types.*`) and M7 (`getErrorMessage` in story/create),
+each with RED first. Then M6 (public profile pets, separate PR), M8. Also
+pending from the review of `9046a262`: a note in `jest.setup.js` that router
+mock implementations must be set in beforeEach or in the test.
