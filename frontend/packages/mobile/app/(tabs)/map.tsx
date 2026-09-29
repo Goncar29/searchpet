@@ -116,24 +116,29 @@ export default function MapScreen() {
     radius * 1000,
   );
 
+  // Only used here — inlined instead of a separate function so there is no
+  // missing-dependency question and no reference-before-declaration order
+  // to reason about.
   useEffect(() => {
-    requestLocation();
-  }, []);
-
-  const requestLocation = async () => {
-    try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status === 'granted') {
-        const location = await Location.getCurrentPositionAsync({});
-        const here: [number, number] = [location.coords.latitude, location.coords.longitude];
-        setLocation(here[0], here[1]);
-        setSearchCenter(here);
-        setMapCenter(here);
+    (async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status === 'granted') {
+          const location = await Location.getCurrentPositionAsync({});
+          const here: [number, number] = [location.coords.latitude, location.coords.longitude];
+          setLocation(here[0], here[1]);
+          setSearchCenter(here);
+          setMapCenter(here);
+        }
+      } catch {
+        // silencioso — el mapa igual carga con la ubicación default
       }
-    } catch {
-      // silencioso — el mapa igual carga con la ubicación default
-    }
-  };
+    })();
+    // Request location once on mount only — not on every render. setLocation
+    // is a zustand store action and setSearchCenter/setMapCenter are
+    // useState setters; none of their references change across renders.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const getMarkerColor = (status: string) => {
     switch (status) {

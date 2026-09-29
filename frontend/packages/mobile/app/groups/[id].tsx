@@ -85,6 +85,10 @@ export default function GroupDetailScreen() {
     if (group?.city) {
       navigation.setOptions({ title: group.city });
     }
+    // navigation is the React Navigation navigation prop for this screen —
+    // React Navigation guarantees it keeps the same identity across
+    // re-renders, so omitting it never risks a stale closure.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [group?.city]);
 
   const handleJoin = () => {

@@ -77,7 +77,7 @@ function fuentes(src: string): string[] {
  * primera versión de este guard era por archivo y daba verde con el defecto que
  * venía a cerrar.)
  */
-const EXENTOS: Array<{ archivo: string; expr: string; veces: number; motivo: string }> = [
+const EXENTOS: { archivo: string; expr: string; veces: number; motivo: string }[] = [
   {
     archivo: 'components/publish/StrayFormStep.tsx',
     expr: 'uri',

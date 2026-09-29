@@ -2,6 +2,33 @@ module.exports = {
   extends: ['expo', 'plugin:i18next/recommended'],
   plugins: ['i18next'],
   rules: {
+    // `expo` pulls in react-hooks' "recommended" preset (via
+    // eslint-config-expo/utils/react.js), which in v7 also enables the React
+    // Compiler rules on top of the two classic ones. Web made the same call
+    // for the same reason (see the header comment in
+    // frontend/packages/web/eslint.config.js): those rules flag a different
+    // class of problem — compiler-safety, not stale closures — and would
+    // bury exhaustive-deps, the one that actually catches bugs here. Turn
+    // off every compiler rule the preset enables (react-hooks@7.1.1's
+    // `configs.recommended.rules`), not just the ones with current
+    // findings, so a future one doesn't silently start firing.
+    'react-hooks/static-components': 'off',
+    'react-hooks/use-memo': 'off',
+    'react-hooks/preserve-manual-memoization': 'off',
+    'react-hooks/incompatible-library': 'off',
+    'react-hooks/immutability': 'off',
+    'react-hooks/globals': 'off',
+    'react-hooks/refs': 'off',
+    'react-hooks/set-state-in-effect': 'off',
+    'react-hooks/error-boundaries': 'off',
+    'react-hooks/purity': 'off',
+    'react-hooks/set-state-in-render': 'off',
+    'react-hooks/unsupported-syntax': 'off',
+    'react-hooks/config': 'off',
+    'react-hooks/gating': 'off',
+    // The two classic rules — kept on, matching web.
+    'react-hooks/rules-of-hooks': 'error',
+    'react-hooks/exhaustive-deps': 'warn',
     // Catch hardcoded user-facing strings that should go through i18n.
     // mode: 'jsx-text-only' — only JSX text nodes, not attributes or JS strings.
     'i18next/no-literal-string': [
@@ -55,5 +82,33 @@ module.exports = {
       },
     ],
   },
+  overrides: [
+    // Jest setup and mock files run under Node, in the jest global — the
+    // base config has neither env, so `jest`, `setTimeout`, `clearTimeout`
+    // etc. are all `no-undef`.
+    {
+      files: ['__tests__/**', '__mocks__/**', 'jest.setup.js', '*.test.*'],
+      env: { jest: true, node: true },
+      rules: {
+        // jest.mock() factories are hoisted above imports, so requiring
+        // React/RN inside the factory (instead of importing them at the top
+        // and referencing an out-of-scope variable) is the only way to
+        // build a mock component — see __tests__/index.test.tsx and
+        // __tests__/map.test.tsx.
+        '@typescript-eslint/no-require-imports': 'off',
+        // Test placeholder copy (e.g. '[esqueleto]', '[lista: N]') is never
+        // shown to a real user — it exists only to make jest output legible.
+        'i18next/no-literal-string': 'off',
+        // Anonymous mock components assigned to a const (MockMapView, the
+        // headerRight-style inline mocks) trip display-name; naming them
+        // adds nothing a test reads.
+        'react/display-name': 'off',
+        // jest.mock() calls before an ES `import` are the documented
+        // hoisting pattern (mocks must be registered before the module
+        // under test is imported) — see __tests__/map.test.tsx.
+        'import/first': 'off',
+      },
+    },
+  ],
   ignorePatterns: ['node_modules/', 'i18n/locales/', '.expo/', 'dist/'],
 };

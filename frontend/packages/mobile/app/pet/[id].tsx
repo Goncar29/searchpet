@@ -59,7 +59,7 @@ export default function PetDetailScreen() {
   const [activePhotoIndex, setActivePhotoIndex] = useState(0);
   const viewabilityConfig = useRef({ viewAreaCoveragePercentThreshold: 50 });
   const onViewableItemsChanged = useCallback(
-    ({ viewableItems }: { viewableItems: Array<{ index: number | null }> }) => {
+    ({ viewableItems }: { viewableItems: { index: number | null }[] }) => {
       if (viewableItems[0]?.index != null) {
         setActivePhotoIndex(viewableItems[0].index);
       }
@@ -119,7 +119,7 @@ export default function PetDetailScreen() {
   };
 
   const handleReport = (ownerUserId: string, petId: string) => {
-    const reasons: Array<{ label: string; value: string }> = [
+    const reasons: { label: string; value: string }[] = [
       { label: i18next.t('pet_detail:spam'), value: 'spam' },
       { label: i18next.t('pet_detail:fake'), value: 'fake' },
       { label: i18next.t('pet_detail:abuse'), value: 'abuse' },

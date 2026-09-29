@@ -121,7 +121,7 @@ export default function ChatScreen() {
   };
 
   const handleReportUser = () => {
-    const reasons: Array<{ label: string; value: string }> = [
+    const reasons: { label: string; value: string }[] = [
       { label: i18next.t('pet_detail:spam'), value: 'spam' },
       { label: i18next.t('pet_detail:fake'), value: 'fake' },
       { label: i18next.t('pet_detail:abuse'), value: 'abuse' },
@@ -176,6 +176,10 @@ export default function ChatScreen() {
     if (userName) {
       navigation.setOptions({ title: userName });
     }
+    // navigation is the React Navigation navigation prop for this screen —
+    // React Navigation guarantees it keeps the same identity across
+    // re-renders, so omitting it never risks a stale closure.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userName]);
 
   // Obtener el nombre del otro usuario desde el primer mensaje donde sea sender
@@ -198,15 +202,34 @@ export default function ChatScreen() {
     } else {
       navigation.setOptions({ headerRight });
     }
-  }, [messages]);
+    // `user?.id` is listed because the effect reads it. It cannot change
+    // while messages are loaded today (loadToken sets the API token and
+    // `user` in the same tick, and the conversation endpoint needs the
+    // token), so this adds no re-runs. navigation is stable (see above).
+    // showKebabSheet is a plain
+    // function recreated every render — everything it closes over (route
+    // params, stable mutate refs, i18next.t) is itself effectively static
+    // for the screen's lifetime, so including it would only make this
+    // header-setting effect re-run on every render for no behavioral gain.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages, user?.id]);
 
-  // Mark unread received messages as read when conversation loads
+  // Mark unread received messages as read when conversation loads.
+  // `user` is listed because the effect reads it; see the header effect above
+  // for why it does not change while messages are loaded.
+  // `markAsRead` itself is intentionally left out: react-query's useMutation
+  // returns a new result object every render, but its `.mutate` (the only
+  // member this effect calls) is memoized via useCallback on a stable
+  // observer for the mutation's lifetime (see @tanstack/react-query's
+  // useMutation.js) — including the whole object would re-run this effect,
+  // and re-POST every already-read message, on every unrelated re-render.
   useEffect(() => {
     if (!messages || !user) return;
     messages
       .filter((m) => m.receiver_id === user.id && !m.is_read)
       .forEach((m) => markAsRead.mutate(m.id));
-  }, [messages]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages, user]);
 
   const handleTyping = useCallback((value: string) => {
     setText(value);
