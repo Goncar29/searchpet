@@ -8,10 +8,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/coder/websocket"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"lost-pets/internal/middleware"
-	"nhooyr.io/websocket"
 )
 
 // S6 (auditoria 2026-09-23): Connect aceptaba el upgrade desde cualquier

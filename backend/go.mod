@@ -7,6 +7,7 @@ require (
 	github.com/DATA-DOG/go-sqlmock v1.5.2
 	github.com/alicebob/miniredis/v2 v2.38.0
 	github.com/cloudinary/cloudinary-go/v2 v2.15.0
+	github.com/coder/websocket v1.8.15
 	github.com/gin-gonic/gin v1.9.1
 	github.com/go-playground/validator/v10 v10.14.0
 	github.com/golang-jwt/jwt/v5 v5.2.2
@@ -24,7 +25,6 @@ require (
 	google.golang.org/api v0.278.0
 	gorm.io/driver/postgres v1.5.4
 	gorm.io/gorm v1.25.5
-	nhooyr.io/websocket v1.8.17
 )
 
 require (

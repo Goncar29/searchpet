@@ -4,10 +4,10 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/coder/websocket"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"lost-pets/internal/domain"
-	"nhooyr.io/websocket"
 )
 
 // Handler holds the Gin HTTP handlers for WebSocket ticket issuance and connection upgrade.
