@@ -615,14 +615,34 @@ recuperación, key de Jina, `/api/ops/quota`, `phone_verified`) NO entran acá.
     avistamientos, con calles; (3) el menú ⋮ del detalle: bloquear y
     denunciar al dueño.
 
+- 2026-09-29: **G6, G6b, S14b, G4 y G3 cerrados** (#290 a #295). Lo que
+  cambió de fondo:
+  - **Web ahora tiene lint en CI** (`Lint`, en `Frontend Web Build`), que
+    cubre `web/`, `shared/` y los `.js`, con `--max-warnings=0`. Primer
+    hallazgo real: ninguno de `exhaustive-deps`; el resto era estilo.
+  - **Controles de claves de traducción** (`usedKeysExist.test.ts`, en web y
+    en mobile): toda clave que el código pide con un literal existe en los
+    recursos que la app carga. Preguntan a la instancia real de i18next y
+    parsean con el compilador de TypeScript.
+  - **Tres supuestos corregidos al verificarlos**: el riesgo aceptado de
+    `decode-uri-component` no existía (S14b); el reemplazo recomendado de
+    `WithCredentialsJSON` no valida el tipo (G4); y una clave que un test
+    exigía sólo aparecía en un comentario (G3).
+  - `FIREBASE_KEY` verificada en producción: es service account (G4).
+  - Ramas viejas: se borraron las 5 de alertas (local y remoto), verificadas
+    contra `main` antes de borrar (tres con PR mergeado y la punta idéntica;
+    #253 y #254 contenidas en el squash del #255). Queda sólo la del #74.
+
 ## Next step
 
-Abiertos: **S14b** (acotar el riesgo de `decode-uri-component` en los deep
-links), **G3** (claves i18n huérfanas), **G4** (dos dependencias deprecadas,
-es una decisión), **G6** (eslint en web: anotado, no implementado). Por fuera
-de este backlog, lo siguiente acordado es retomar el **PR #74** (feed
-unificado del home de mobile y el badge de callejeras), pasándolo antes por el
-`Typecheck` nuevo, y juntar todo en un APK para verificarlo en el teléfono.
+Abiertos de este backlog: **G6c** (lint de mobile, 80 problemas: va con el
+barrido de mobile), **G4b** (FCM `Token` → `Fid`, al subir
+`firebase-admin-go`) y **S16** (subir `x/crypto` y compañía; vulnerabilidades
+no alcanzables). Con fecha fija: la verificación del **4 de octubre** de la
+caducidad de avistamientos. Lo siguiente acordado con el usuario: **mobile**
+(G6c, retomar el **PR #74**, barrido de bugs) y después **un APK** para
+verificar todo junto en el teléfono (la lista de qué mirar está en Progress,
+2026-09-28).
 
 **Aprendido**: no marcar el backlog en cada PR — los ítems contiguos chocan;
 se actualiza al cerrar, en un commit aparte.
