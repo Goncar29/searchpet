@@ -73,7 +73,15 @@ describe('admin.groups — las claves que la pantalla usa existen de verdad', ()
   // `\s*` después de `t(`: sin eso el regex exige que `t(` y la clave estén
   // PEGADOS, y una llamada larga que Prettier parta en varias líneas dejaría de
   // matchear. Esa clave se caía del barrido en silencio.
-  const usadas = [...groupsAdminSource.matchAll(/t\(\s*'groups\.([a-zA-Z0-9_]+)'/g)].map(
+  //
+  // Sin comentarios: uno puede nombrar una clave que ya NO se usa (el de "El
+  // fallo dice POR QUÉ falló" cita `t('groups.error')` justo para explicar por
+  // qué se dejó), y contarla como usada obliga a mantener una traducción
+  // muerta. `(^|[^:])` para no comerse las URLs (`https://`).
+  const codigo = groupsAdminSource
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/(^|[^:])\/\/.*$/gm, '$1');
+  const usadas = [...codigo.matchAll(/t\(\s*'groups\.([a-zA-Z0-9_]+)'/g)].map(
     (m) => m[1]
   );
 
@@ -89,7 +97,7 @@ describe('admin.groups — las claves que la pantalla usa existen de verdad', ()
   // el regex deja de ver una llamada, el literal sigue ahí y los números se
   // separan.
   it('el barrido parsea TODAS las llamadas a t(), no una parte', () => {
-    const literales = (groupsAdminSource.match(/'groups\./g) ?? []).length;
+    const literales = (codigo.match(/'groups\./g) ?? []).length;
     expect(usadas.length).toBe(literales);
     expect(usadas.length).toBeGreaterThan(0);
     expect(usadas).toContain('subtitle');

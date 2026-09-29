@@ -104,7 +104,6 @@
       "namePlaceholder": "Ex: Resgatistas Montevidéu",
       "cityPlaceholder": "Ex: Montevidéu",
       "descPlaceholder": "Breve descrição do grupo...",
-      "error": "Não foi possível criar o grupo. Tente novamente.",
       "success": "Grupo \"{{name}}\" criado com sucesso em {{city}}.",
       "creating": "Criando...",
       "submit": "Criar grupo"
@@ -183,7 +182,6 @@
       "sweepForceIgnoredNotice": "Você pediu para retirar mesmo assim, mas esta nova execução quer retirar {{wouldRetire}} — mais do que você tinha aprovado — então o pedido não foi aplicado. Veja esse número antes de insistir: o botão aprova como teto o que ESTA execução informar, não a anterior.",
       "forceUnavailableEmptyRun": "Esta execução não tem linhas para retirar, então não há nada a forçar. Se você esperava o contrário, importe de novo em alguns minutos — o servidor pode ainda não estar informando esse número.",
       "sweepSkipped_unknown": "Nada foi retirado. O servidor informou um motivo que esta tela ainda não sabe explicar: {{reason}}.",
-      "error": "Não foi possível concluir a importação.",
       "sweepSkipped_stale_count_failed": "Não foi possível consultar quantas veterinárias seriam retiradas, então nada foi apagado. Atenção: as que esta execução importou FORAM salvas. Tente de novo daqui a pouco."
     }
   },
@@ -277,8 +275,7 @@
   "home": {
     "hero": {
       "title": "Reunindo pets perdidos com suas famílias",
-      "subtitle": "Reporte, busque e compartilhe. Juntos encontramos o seu companheiro.",
-      "cta": "Ver pets perdidos"
+      "subtitle": "Reporte, busque e compartilhe. Juntos encontramos o seu companheiro."
     },
     "stats": {
       "reunited": "Pets reencontrados",
@@ -367,15 +364,9 @@
     "searchButton": "Buscar",
     "searchActive": "Busca ativa",
     "recentReports": "Reportes recentes",
-    "noReports": "Nenhum reporte recente na sua área",
     "viewAll": "Ver todos no mapa",
     "viewMap": "Ver mapa",
-    "publish": "Publicar um pet",
-    "cta": {
-      "title": "Perdeu seu pet?",
-      "subtitle": "Publique um reporte agora e alcance milhares de pessoas na sua área.",
-      "button": "Publicar pet perdido"
-    }
+    "publish": "Publicar um pet"
   },
   "reports": {
     "create": {
@@ -641,7 +632,6 @@
   "vets": {
     "toggle": "Mostrar veterinárias",
     "hide": "Ocultar veterinárias",
-    "searchArea": "Buscar nesta área",
     "directions": "Como chegar",
     "call": "Ligar",
     "website": "Site",
@@ -760,10 +750,8 @@
       "resubmit": "Salvar e reenviar",
       "resubmitHint": "Ao salvar, seu lar volta para a fila de revisão.",
       "rejectionReason": "Motivo",
-      "edit": "Editar",
       "save": "Salvar",
       "saving": "Salvando...",
-      "cancel": "Cancelar",
       "addPhoto": "Adicionar foto",
       "photoLimit": "Máximo de 5 fotos",
       "deletePhoto": "Excluir",
