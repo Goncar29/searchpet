@@ -176,11 +176,7 @@ export default function ChatScreen() {
     if (userName) {
       navigation.setOptions({ title: userName });
     }
-    // navigation is the React Navigation navigation prop for this screen —
-    // React Navigation guarantees it keeps the same identity across
-    // re-renders, so omitting it never risks a stale closure.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userName]);
+  }, [navigation, userName]);
 
   // Obtener el nombre del otro usuario desde el primer mensaje donde sea sender
   // (fallback when userName param is not available)
@@ -202,11 +198,7 @@ export default function ChatScreen() {
     } else {
       navigation.setOptions({ headerRight });
     }
-    // `user?.id` is listed because the effect reads it. It cannot change
-    // while messages are loaded today (loadToken sets the API token and
-    // `user` in the same tick, and the conversation endpoint needs the
-    // token), so this adds no re-runs. navigation is stable (see above).
-    // showKebabSheet is a plain
+    // navigation keeps its identity across renders. showKebabSheet is a plain
     // function recreated every render — everything it closes over (route
     // params, stable mutate refs, i18next.t) is itself effectively static
     // for the screen's lifetime, so including it would only make this
@@ -215,21 +207,18 @@ export default function ChatScreen() {
   }, [messages, user?.id]);
 
   // Mark unread received messages as read when conversation loads.
-  // `user` is listed because the effect reads it; see the header effect above
-  // for why it does not change while messages are loaded.
-  // `markAsRead` itself is intentionally left out: react-query's useMutation
-  // returns a new result object every render, but its `.mutate` (the only
-  // member this effect calls) is memoized via useCallback on a stable
-  // observer for the mutation's lifetime (see @tanstack/react-query's
-  // useMutation.js) — including the whole object would re-run this effect,
-  // and re-POST every already-read message, on every unrelated re-render.
+  // Depends on the user's id, not the user object: a new object with the same
+  // id (a profile refresh) must not re-POST messages the cache still shows as
+  // unread. `mutate` is taken out of the mutation result because the result
+  // is a new object every render, while react-query keeps `mutate` stable.
+  const markAsReadMutate = markAsRead.mutate;
+  const currentUserId = user?.id;
   useEffect(() => {
-    if (!messages || !user) return;
+    if (!messages || !currentUserId) return;
     messages
-      .filter((m) => m.receiver_id === user.id && !m.is_read)
-      .forEach((m) => markAsRead.mutate(m.id));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [messages, user]);
+      .filter((m) => m.receiver_id === currentUserId && !m.is_read)
+      .forEach((m) => markAsReadMutate(m.id));
+  }, [messages, currentUserId, markAsReadMutate]);
 
   const handleTyping = useCallback((value: string) => {
     setText(value);

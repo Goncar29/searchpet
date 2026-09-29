@@ -54,3 +54,17 @@ No behavior change except where an exhaustive-deps finding is a real bug.
   Checks: lint EXIT=0, typecheck EXIT=0, test:run EXIT=0 (277). Writer's
   mutation (drop `sendEnvelope` from a useCallback) → lint EXIT=1 naming
   exhaustive-deps.
+- 2026-09-29: commit `97a343e5`, native review (4 lenses) APPROVED and
+  acknowledged. Its suggestions applied in a follow-up commit:
+  - WARNING: mark-as-read depended on the whole `user` object, so a new object
+    with the same id re-POSTed messages the cache still shows unread. Now
+    depends on the id and on `markAsRead.mutate` pulled into a const (no
+    disable). Tests cover both halves (same id → no re-POST; other id →
+    re-evaluates); RED observed putting `user` back (2 calls instead of 1).
+  - Blanket disables: `navigation` now listed in the chat title and group
+    title effects (its mock is stable too). Disables that remain, each with
+    its reason: `router` and `loadToken` in `_layout` (the router mock is a new
+    object per render, and the listener would re-subscribe), the two location
+    effects (`setLocation` from zustand; run once on mount), and the two
+    header effects that pass `showKebabSheet`, a plain function recreated each
+    render.

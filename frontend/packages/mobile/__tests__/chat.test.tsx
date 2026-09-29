@@ -19,10 +19,13 @@ jest.mock('@tanstack/react-query', () => ({
   useQueryClient: () => ({ setQueryData: jest.fn(), invalidateQueries: jest.fn() }),
 }));
 
+// Read on every render, so a test can hand the screen a new user object.
+let mockUser: { id: string; name: string } = { id: 'user-1', name: 'Me' };
+
 jest.mock('../store', () => ({
   useAuthStore: (selector?: (state: Record<string, unknown>) => unknown) => {
     const state = {
-      user: { id: 'user-1', name: 'Me' },
+      user: mockUser,
       token: 'tok',
       isAuthenticated: true,
       isLoading: false,
@@ -33,6 +36,8 @@ jest.mock('../store', () => ({
 }));
 
 const mockUseConversation = jest.fn();
+// One function for every render, like react-query's `mutate`.
+const mockMarkAsReadMutate = jest.fn();
 
 // The screen imports hooks via the relative '../../../shared/hooks'; from this
 // test that same module resolves through '../../shared/hooks'. Jest dedups by
@@ -40,7 +45,7 @@ const mockUseConversation = jest.fn();
 jest.mock('../../shared/hooks', () => ({
   useConversation: (...args: unknown[]) => mockUseConversation(...args),
   useSendMessageTo: () => ({ mutate: jest.fn(), isPending: false }),
-  useMarkAsRead: () => ({ mutate: jest.fn() }),
+  useMarkAsRead: () => ({ mutate: mockMarkAsReadMutate }),
   useBlockUser: () => ({ mutate: jest.fn(), isPending: false }),
   useBlockStatus: () => ({ isBlocked: false }),
   useSubmitAbuseReport: () => ({ mutate: jest.fn(), isPending: false }),
@@ -58,6 +63,8 @@ const mockMessage = {
 
 beforeEach(() => {
   mockUseConversation.mockReturnValue({ data: undefined, isLoading: true });
+  mockMarkAsReadMutate.mockClear();
+  mockUser = { id: 'user-1', name: 'Me' };
 });
 
 describe('ChatScreen', () => {
@@ -76,5 +83,35 @@ describe('ChatScreen', () => {
     mockUseConversation.mockReturnValue({ data: [], isLoading: false });
     const { queryByText } = render(<ChatScreen />);
     expect(queryByText(/chat:startConversation/i)).toBeTruthy();
+  });
+
+  // The mark-as-read effect depends on the user's id, not the user object.
+  // Until the conversation refetches, the cache still shows the message as
+  // unread, so re-running on a new object would POST it again.
+  it('no vuelve a marcar como leído si el usuario cambia de objeto pero no de id', () => {
+    mockUseConversation.mockReturnValue({ data: [mockMessage], isLoading: false });
+    const { rerender } = render(<ChatScreen />);
+    expect(mockMarkAsReadMutate).toHaveBeenCalledTimes(1);
+
+    mockUser = { id: 'user-1', name: 'Me (renamed)' };
+    rerender(<ChatScreen />);
+
+    expect(mockMarkAsReadMutate).toHaveBeenCalledTimes(1);
+  });
+
+  it('vuelve a evaluar los mensajes si cambia el id del usuario', () => {
+    mockUseConversation.mockReturnValue({
+      data: [mockMessage, { ...mockMessage, id: 'msg-2', receiver_id: 'user-3' }],
+      isLoading: false,
+    });
+    const { rerender } = render(<ChatScreen />);
+    expect(mockMarkAsReadMutate).toHaveBeenCalledWith('msg-1');
+
+    mockMarkAsReadMutate.mockClear();
+    mockUser = { id: 'user-3', name: 'Other' };
+    rerender(<ChatScreen />);
+
+    expect(mockMarkAsReadMutate).toHaveBeenCalledTimes(1);
+    expect(mockMarkAsReadMutate).toHaveBeenCalledWith('msg-2');
   });
 });
