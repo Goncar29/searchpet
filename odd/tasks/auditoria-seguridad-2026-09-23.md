@@ -538,10 +538,15 @@ recuperación, key de Jina, `/api/ops/quota`, `phone_verified`) NO entran acá.
   de Playwright. Probado con tres errores puestos a propósito (una dependencia
   faltante en un hook de `shared/`, un `@ts-ignore` sin motivo, una variable
   indefinida en `sw.js`): los tres caen.
-- [ ] **G6c — Lint de mobile: 80 problemas (52 errores) que nadie ve.**
+- [x] **G6c — Lint de mobile: 80 problemas (52 errores) que nadie ve.**
   Mobile tiene eslint 8 con `.eslintrc.js` y `eslint-config-expo`, y funciona,
   pero el CI no lo corre. Mismo patrón que los 44 errores de tipos de G5.
-  Va con el barrido de mobile (orden acordado con el usuario el 2026-09-28).
+  **Hecho** (rama `chore/mobile-lint-ci`, detalle en
+  `odd/tasks/mobile-lint-ci.md`): medidos 81; 47 eran el entorno de jest sin
+  declarar. Reglas del React Compiler apagadas como en web, `--max-warnings=0`,
+  paso `Lint` en `Mobile Tests`. De los 9 `exhaustive-deps`, el único defecto
+  real lo encontró la revisión: marcar como leído dependía del objeto `user` y
+  reenviaba los POST si cambiaba el objeto con el mismo id.
 
 ## Progress
 
@@ -635,12 +640,11 @@ recuperación, key de Jina, `/api/ops/quota`, `phone_verified`) NO entran acá.
 
 ## Next step
 
-Abiertos de este backlog: **G6c** (lint de mobile, 80 problemas: va con el
-barrido de mobile), **G4b** (FCM `Token` → `Fid`, al subir
+Abiertos de este backlog: **G4b** (FCM `Token` → `Fid`, al subir
 `firebase-admin-go`) y **S16** (subir `x/crypto` y compañía; vulnerabilidades
 no alcanzables). Con fecha fija: la verificación del **4 de octubre** de la
 caducidad de avistamientos. Lo siguiente acordado con el usuario: **mobile**
-(G6c, retomar el **PR #74**, barrido de bugs) y después **un APK** para
+(retomar el **PR #74**, barrido de bugs) y después **un APK** para
 verificar todo junto en el teléfono (la lista de qué mirar está en Progress,
 2026-09-28).
 

@@ -383,6 +383,15 @@ jobs:
       - name: Run tests
         run: pnpm run test:run
 
+      # G6c de la auditoria 2026-09-23: `pnpm lint` existia (eslint 8 +
+      # eslint-config-expo) pero nada lo corria, y junto 81 problemas sin
+      # que nadie los viera, igual que G6 en web. Lo que importa es
+      # react-hooks/exhaustive-deps: dependencias faltantes en efectos que
+      # ni tsc ni los tests ven. Es un warning, asi que el script corre con
+      # --max-warnings=0; sin eso eslint sale 0 y el CI queda verde igual.
+      - name: Lint
+        run: pnpm run lint
+
       # Mobile llego a acumular 44 errores de tipos sin que nada los mostrara
       # (G5 de la auditoria 2026-09-23). Uno era un bug visible en todos los
       # APK: los mapas pasaban `styleURL`, una prop que MapLibre 10 descarta,

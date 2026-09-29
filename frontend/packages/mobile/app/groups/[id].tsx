@@ -85,7 +85,7 @@ export default function GroupDetailScreen() {
     if (group?.city) {
       navigation.setOptions({ title: group.city });
     }
-  }, [group?.city]);
+  }, [navigation, group?.city]);
 
   const handleJoin = () => {
     if (!isAuthenticated) {

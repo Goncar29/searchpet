@@ -49,6 +49,9 @@ export default function RootLayout() {
 
   useEffect(() => {
     loadToken();
+    // Rehydrate the session once on mount only. loadToken is a zustand
+    // store action; its reference never changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -78,7 +81,9 @@ export default function RootLayout() {
     });
 
     return () => subscription.remove();
-  }, []);
+    // `router` is stable (expo-router memoizes useRouter() with an empty
+    // dependency array), so the listener registers once.
+  }, [router]);
 
   if (!isReady) {
     return <View style={{ flex: 1 }} />;

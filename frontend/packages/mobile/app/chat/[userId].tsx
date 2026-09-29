@@ -121,7 +121,7 @@ export default function ChatScreen() {
   };
 
   const handleReportUser = () => {
-    const reasons: Array<{ label: string; value: string }> = [
+    const reasons: { label: string; value: string }[] = [
       { label: i18next.t('pet_detail:spam'), value: 'spam' },
       { label: i18next.t('pet_detail:fake'), value: 'fake' },
       { label: i18next.t('pet_detail:abuse'), value: 'abuse' },
@@ -176,7 +176,7 @@ export default function ChatScreen() {
     if (userName) {
       navigation.setOptions({ title: userName });
     }
-  }, [userName]);
+  }, [navigation, userName]);
 
   // Obtener el nombre del otro usuario desde el primer mensaje donde sea sender
   // (fallback when userName param is not available)
@@ -198,15 +198,28 @@ export default function ChatScreen() {
     } else {
       navigation.setOptions({ headerRight });
     }
-  }, [messages]);
+    // `user?.id` picks which message names the other person. `userId` and
+    // `userName` are the route params showKebabSheet closes over: if the
+    // screen is reused for another conversation, the ⋮ menu must follow it.
+    // showKebabSheet itself is a plain function recreated every render;
+    // listing it would re-run this effect on every render. Everything else
+    // it reads (mutate functions, i18next.t) keeps its identity.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages, user?.id, userId, userName]);
 
-  // Mark unread received messages as read when conversation loads
+  // Mark unread received messages as read when conversation loads.
+  // Depends on the user's id, not the user object: a new object with the same
+  // id (a profile refresh) must not re-POST messages the cache still shows as
+  // unread. `mutate` is taken out of the mutation result because the result
+  // is a new object every render, while react-query keeps `mutate` stable.
+  const markAsReadMutate = markAsRead.mutate;
+  const currentUserId = user?.id;
   useEffect(() => {
-    if (!messages || !user) return;
+    if (!messages || !currentUserId) return;
     messages
-      .filter((m) => m.receiver_id === user.id && !m.is_read)
-      .forEach((m) => markAsRead.mutate(m.id));
-  }, [messages]);
+      .filter((m) => m.receiver_id === currentUserId && !m.is_read)
+      .forEach((m) => markAsReadMutate(m.id));
+  }, [messages, currentUserId, markAsReadMutate]);
 
   const handleTyping = useCallback((value: string) => {
     setText(value);

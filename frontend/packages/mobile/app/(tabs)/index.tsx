@@ -73,17 +73,22 @@ export default function HomeScreen() {
   const lat = latitude || MAP_DEFAULTS.defaultLatitude;
   const lng = longitude || MAP_DEFAULTS.defaultLongitude;
 
-  useEffect(() => { requestLocation(); }, []);
-
-  const requestLocation = async () => {
-    try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status === 'granted') {
-        const loc = await Location.getCurrentPositionAsync({});
-        setLocation(loc.coords.latitude, loc.coords.longitude);
-      }
-    } catch {}
-  };
+  // Only used here — inlined so the effect no longer calls a function that is
+  // declared below it.
+  useEffect(() => {
+    (async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status === 'granted') {
+          const loc = await Location.getCurrentPositionAsync({});
+          setLocation(loc.coords.latitude, loc.coords.longitude);
+        }
+      } catch {}
+    })();
+    // Request location once on mount only — not on every render.
+    // setLocation is a zustand store action; its reference never changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── Datos ────────────────────────────────────────────────
   const nearbyQuery = useNearbyReports(lat, lng, radius, !isSearchMode);

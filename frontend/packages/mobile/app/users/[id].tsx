@@ -226,7 +226,7 @@ export default function PublicProfileScreen() {
   };
 
   const handleReportUser = () => {
-    const reasons: Array<{ label: string; value: string }> = [
+    const reasons: { label: string; value: string }[] = [
       { label: 'Spam', value: 'spam' },
       { label: i18next.t('pet_detail:fake'), value: 'fake' },
       { label: i18next.t('pet_detail:abuse'), value: 'abuse' },
@@ -276,7 +276,13 @@ export default function PublicProfileScreen() {
     }
   };
 
-  // Wire kebab into header — only when viewing another user's profile
+  // Wire kebab into header — only when viewing another user's profile.
+  // navigation is stable (React Navigation guarantees identity across
+  // re-renders). showKebabSheet is a plain function recreated every render,
+  // but everything it closes over (route id, i18next.t, the stable mutate
+  // refs behind handleBlockUser/handleReportUser) is effectively static for
+  // the screen's lifetime — including it would only make this effect
+  // re-run on every render for no behavioral gain.
   useEffect(() => {
     if (!isOwnProfile && isAuthenticated) {
       const headerRight = () => (
@@ -286,6 +292,7 @@ export default function PublicProfileScreen() {
       );
       navigation.setOptions({ headerRight });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOwnProfile, isAuthenticated, id]);
 
   // Find existing review by current user (reviewer_id matches user.id)
