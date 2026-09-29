@@ -1,3 +1,17 @@
+// The react-hooks plugin is resolved from eslint-config-expo, which is what
+// loads it: the same copy, so the same rule list eslint applies.
+const reactHooks = require(
+  require.resolve('eslint-plugin-react-hooks', {
+    paths: [require.resolve('eslint-config-expo')],
+  }),
+);
+const CLASSIC_HOOK_RULES = ['react-hooks/rules-of-hooks', 'react-hooks/exhaustive-deps'];
+const compilerRulesOff = Object.fromEntries(
+  Object.keys(reactHooks.configs.recommended.rules)
+    .filter((rule) => !CLASSIC_HOOK_RULES.includes(rule))
+    .map((rule) => [rule, 'off']),
+);
+
 module.exports = {
   extends: ['expo', 'plugin:i18next/recommended'],
   plugins: ['i18next'],
@@ -8,24 +22,10 @@ module.exports = {
     // for the same reason (see the header comment in
     // frontend/packages/web/eslint.config.js): those rules flag a different
     // class of problem — compiler-safety, not stale closures — and would
-    // bury exhaustive-deps, the one that actually catches bugs here. Turn
-    // off every compiler rule the preset enables (react-hooks@7.1.1's
-    // `configs.recommended.rules`), not just the ones with current
-    // findings, so a future one doesn't silently start firing.
-    'react-hooks/static-components': 'off',
-    'react-hooks/use-memo': 'off',
-    'react-hooks/preserve-manual-memoization': 'off',
-    'react-hooks/incompatible-library': 'off',
-    'react-hooks/immutability': 'off',
-    'react-hooks/globals': 'off',
-    'react-hooks/refs': 'off',
-    'react-hooks/set-state-in-effect': 'off',
-    'react-hooks/error-boundaries': 'off',
-    'react-hooks/purity': 'off',
-    'react-hooks/set-state-in-render': 'off',
-    'react-hooks/unsupported-syntax': 'off',
-    'react-hooks/config': 'off',
-    'react-hooks/gating': 'off',
+    // bury exhaustive-deps, the one that actually catches bugs here. Every
+    // rule the preset enables is turned off, read from the plugin itself so
+    // a compiler rule added in a future version is off too.
+    ...compilerRulesOff,
     // The two classic rules — kept on, matching web.
     'react-hooks/rules-of-hooks': 'error',
     'react-hooks/exhaustive-deps': 'warn',

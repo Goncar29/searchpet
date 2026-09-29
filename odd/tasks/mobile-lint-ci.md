@@ -71,3 +71,8 @@ No behavior change except where an exhaustive-deps finding is a real bug.
 - 2026-09-29: second native review (whole branch) APPROVED and acknowledged;
   its three comment findings fixed (router disable states the real reason;
   the location comments no longer claim inlining removed the disable).
+- 2026-09-29: third review (whole branch) APPROVED and acknowledged; its 4
+  suggestions applied, then the cycle was cut by the user: compiler rules
+  read from the plugin (same 14 off, checked with --print-config); router
+  mock memoized so `_layout` lists `router` with no disable; chat header
+  lists the route params `userId`/`userName` and says why `user?.id`.

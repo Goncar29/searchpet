@@ -81,13 +81,9 @@ export default function RootLayout() {
     });
 
     return () => subscription.remove();
-    // Register the notification-tap listener once on mount only. In the app
     // `router` is stable (expo-router memoizes useRouter() with an empty
-    // dependency array), but the jest.setup.js mock returns a new object on
-    // every render: listing it would re-subscribe the listener on each render
-    // in tests. So it stays out, on purpose.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    // dependency array), so the listener registers once.
+  }, [router]);
 
   if (!isReady) {
     return <View style={{ flex: 1 }} />;

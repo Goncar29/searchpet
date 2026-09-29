@@ -198,13 +198,14 @@ export default function ChatScreen() {
     } else {
       navigation.setOptions({ headerRight });
     }
-    // navigation keeps its identity across renders. showKebabSheet is a plain
-    // function recreated every render — everything it closes over (route
-    // params, stable mutate refs, i18next.t) is itself effectively static
-    // for the screen's lifetime, so including it would only make this
-    // header-setting effect re-run on every render for no behavioral gain.
+    // `user?.id` picks which message names the other person. `userId` and
+    // `userName` are the route params showKebabSheet closes over: if the
+    // screen is reused for another conversation, the ⋮ menu must follow it.
+    // showKebabSheet itself is a plain function recreated every render;
+    // listing it would re-run this effect on every render. Everything else
+    // it reads (mutate functions, i18next.t) keeps its identity.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [messages, user?.id]);
+  }, [messages, user?.id, userId, userName]);
 
   // Mark unread received messages as read when conversation loads.
   // Depends on the user's id, not the user object: a new object with the same

@@ -9,29 +9,34 @@
 require('./polyfills/domEvents');
 
 // expo-router mocks — must be declared with jest.mock (not vi)
-jest.mock('expo-router', () => ({
-  useRouter: () => ({
+jest.mock('expo-router', () => {
+  // One object for every render, like the real useRouter() (memoized with an
+  // empty dependency array), so effects can list `router` as a dependency.
+  const hookRouter = {
     push: jest.fn(),
     back: jest.fn(),
     replace: jest.fn(),
     navigate: jest.fn(),
-  }),
-  useLocalSearchParams: () => ({}),
-  useSegments: () => [],
-  Link: ({ children }) => children,
-  Stack: { Screen: () => null },
-  Tabs: { Screen: () => null },
-  Redirect: () => null,
-  // Imperative singleton (usable outside components, e.g. from a Zustand
-  // store) — unlike useRouter() above, this is the same object across the
-  // whole test file, so a test can assert on it after the fact.
-  router: {
-    push: jest.fn(),
-    back: jest.fn(),
-    replace: jest.fn(),
-    navigate: jest.fn(),
-  },
-}));
+  };
+  return {
+    useRouter: () => hookRouter,
+    useLocalSearchParams: () => ({}),
+    useSegments: () => [],
+    Link: ({ children }) => children,
+    Stack: { Screen: () => null },
+    Tabs: { Screen: () => null },
+    Redirect: () => null,
+    // Imperative singleton (usable outside components, e.g. from a Zustand
+    // store) — the same object across the whole test file, so a test can
+    // assert on it after the fact. It is a separate object from useRouter()'s.
+    router: {
+      push: jest.fn(),
+      back: jest.fn(),
+      replace: jest.fn(),
+      navigate: jest.fn(),
+    },
+  };
+});
 
 // expo-notifications mock
 jest.mock('expo-notifications', () => ({
