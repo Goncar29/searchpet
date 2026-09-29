@@ -4,7 +4,7 @@ import (
 	"context"
 	"log"
 
-	"nhooyr.io/websocket"
+	"github.com/coder/websocket"
 )
 
 const sendBufSize = 256

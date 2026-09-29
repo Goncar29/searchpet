@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"nhooyr.io/websocket"
+	"github.com/coder/websocket"
 )
 
 // MessageServicer defines the minimal message-service contract needed by Hub.
