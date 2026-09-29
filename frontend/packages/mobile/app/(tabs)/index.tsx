@@ -73,9 +73,8 @@ export default function HomeScreen() {
   const lat = latitude || MAP_DEFAULTS.defaultLatitude;
   const lng = longitude || MAP_DEFAULTS.defaultLongitude;
 
-  // Only used here — inlined instead of a separate function so there is no
-  // missing-dependency question and no reference-before-declaration order
-  // to reason about.
+  // Only used here — inlined so the effect no longer calls a function that is
+  // declared below it.
   useEffect(() => {
     (async () => {
       try {

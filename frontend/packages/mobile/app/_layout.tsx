@@ -81,10 +81,11 @@ export default function RootLayout() {
     });
 
     return () => subscription.remove();
-    // Register the notification-tap listener once on mount only. router is
-    // expo-router's useRouter() result, memoized with an empty dependency
-    // array internally (see expo-router's hooks.ts) — its identity never
-    // changes for the component's lifetime.
+    // Register the notification-tap listener once on mount only. In the app
+    // `router` is stable (expo-router memoizes useRouter() with an empty
+    // dependency array), but the jest.setup.js mock returns a new object on
+    // every render: listing it would re-subscribe the listener on each render
+    // in tests. So it stays out, on purpose.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

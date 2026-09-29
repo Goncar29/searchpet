@@ -68,3 +68,6 @@ No behavior change except where an exhaustive-deps finding is a real bug.
     effects (`setLocation` from zustand; run once on mount), and the two
     header effects that pass `showKebabSheet`, a plain function recreated each
     render.
+- 2026-09-29: second native review (whole branch) APPROVED and acknowledged;
+  its three comment findings fixed (router disable states the real reason;
+  the location comments no longer claim inlining removed the disable).

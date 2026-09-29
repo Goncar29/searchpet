@@ -116,9 +116,8 @@ export default function MapScreen() {
     radius * 1000,
   );
 
-  // Only used here — inlined instead of a separate function so there is no
-  // missing-dependency question and no reference-before-declaration order
-  // to reason about.
+  // Only used here — inlined so the effect no longer calls a function that is
+  // declared below it.
   useEffect(() => {
     (async () => {
       try {
