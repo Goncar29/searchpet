@@ -425,9 +425,34 @@ recuperación, key de Jina, `/api/ops/quota`, `phone_verified`) NO entran acá.
 - [ ] **G3 — ~84 claves i18n huérfanas** (web 14, mobile ~60, shared 10), en
   los tres idiomas. Salen de grep — verificar cada una (claves dinámicas,
   plurales) antes de borrar. Idealmente con un guard AST, no con lista.
-- [ ] **G4 — Deprecaciones (decisión, no limpieza):** `nhooyr.io/websocket` →
+- [x] **G4 — Deprecaciones (decisión, no limpieza):** `nhooyr.io/websocket` →
   `github.com/coder/websocket`; `option.WithCredentialsJSON` en
   `pkg/notification/firebase.go:60`.
+  **WebSocket (#293)**: misma librería, transferida a Coder en 2024; la ruta
+  vieja quedó congelada en v1.8.17 y los arreglos siguen en la nueva
+  (v1.8.15). Cambio de import en 4 archivos. Antes se leyeron los tres
+  releases: v1.8.14 compara también el esquema del Origin, pero sólo si el
+  patrón lo trae; los nuestros son sólo host, así que S6 no cambia (leído en
+  `accept.go` de v1.8.15). **Firebase**: `WithAuthCredentialsJSON(
+  option.ServiceAccount, ...)` promete validar el tipo y **no lo hace**:
+  activa la librería de auth nueva y ese camino descarta el tipo
+  (`internal/creds.go`, verificado en google-api v0.278 y v0.299). Un test lo
+  mostró: con la opción nueva, una credencial `authorized_user` se seguía
+  aceptando. Así que `NewFirebaseClient` valida `type == service_account`
+  antes de pasársela a Firebase; si no, no-op con log. Tests de las dos
+  mitades (service account con clave RSA generada → cliente real; otro tipo y
+  JSON inválido → no-op); sin la validación, cae el de otro tipo.
+  **Post-deploy**: confirmar en los logs de Render que FCM inicializó (que la
+  `FIREBASE_KEY` de producción sea de verdad una service account).
+- [ ] **G4b — FCM: `Token` → `Fid`.** `firebase-admin-go` v4.21.0 deprecó
+  `Token`/`Tokens` como destino de `Send` a favor de `Fid` (Firebase
+  Installation ID). Hoy estamos en v4.19.0, que no lo trae. Migrar no es una
+  línea: web y mobile tendrían que registrar el FID en vez del token de FCM.
+  Encarar cuando se suba `firebase-admin-go`.
+- [ ] **S16 — `golang.org/x/crypto` 0.51.0 acumuló 17 vulnerabilidades** (y
+  `x/net` 0.55.0 y `grpc` 1.83.1, una cada una) desde S3. `govulncheck` dice
+  que el código no las alcanza, así que el CI no frena; conviene subirlas
+  igual en una tanda, como S3.
 - [x] **G5 — Errores de tipos en mobile** que salieron en `tsc` (~15:
   implicit any, MapLibreGL, import roto en `story/index.tsx`). Fuera del
   alcance de "basura", pero son reales.

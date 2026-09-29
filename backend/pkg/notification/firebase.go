@@ -2,6 +2,7 @@ package notification
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"strings"
@@ -56,8 +57,27 @@ func NewFirebaseClient(credentialsJSON string) (NotificationClient, error) {
 		return &noopNotificationClient{}, nil
 	}
 
+	// FIREBASE_KEY tiene que ser una service account, y el tipo lo validamos
+	// acá porque la librería no lo hace. WithCredentialsJSON está deprecada por
+	// aceptar cualquier tipo de credencial; su reemplazo,
+	// WithAuthCredentialsJSON(option.ServiceAccount, ...), promete chequearlo,
+	// pero activa la librería de auth nueva y ese camino descarta el tipo
+	// (google.golang.org/api internal/creds.go, verificado en v0.278 y v0.299).
+	var cred struct {
+		Type string `json:"type"`
+	}
+	if err := json.Unmarshal([]byte(credentialsJSON), &cred); err != nil {
+		// El error de encoding/json dice dónde falló el parseo, no el contenido.
+		log.Printf("[FCM] FIREBASE_KEY no es JSON válido (%v) — usando no-op client", err)
+		return &noopNotificationClient{}, nil
+	}
+	if cred.Type != "service_account" {
+		log.Printf("[FCM] FIREBASE_KEY no es una service account (type=%q) — usando no-op client", cred.Type)
+		return &noopNotificationClient{}, nil
+	}
+
 	ctx := context.Background()
-	opt := option.WithCredentialsJSON([]byte(credentialsJSON))
+	opt := option.WithAuthCredentialsJSON(option.ServiceAccount, []byte(credentialsJSON))
 
 	app, err := firebase.NewApp(ctx, nil, opt)
 	if err != nil {
