@@ -40,3 +40,7 @@ Backend changes only if a defect needs them, with the owner's OK.
   instead: `jest.setup.js` exposes `__hookRouter` and clears only its mocks in
   a `beforeEach`. Guard `__tests__/routerMockIsolation.test.ts` (RED seen
   removing the clear: Expected 0 / Received 1). 288 tests.
+- 2026-09-29: native review of T1 approved; its 3 suggestions applied:
+  mockReset instead of mockClear (implementations leaked too: RED seen,
+  Received "leaked"), non-mock fields skipped, and the guard no longer
+  depends on test order (second test passes alone with -t).
