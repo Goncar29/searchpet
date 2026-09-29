@@ -19,6 +19,7 @@ jest.mock('expo-router', () => {
     navigate: jest.fn(),
   };
   return {
+    __hookRouter: hookRouter,
     useRouter: () => hookRouter,
     useLocalSearchParams: () => ({}),
     useSegments: () => [],
@@ -36,6 +37,16 @@ jest.mock('expo-router', () => {
       navigate: jest.fn(),
     },
   };
+});
+
+// The useRouter() object above lives for the whole test file, so its jest.fn()s
+// would carry calls from one test into the next. Clear only those: a global
+// `clearMocks` would also wipe calls some modules make AT IMPORT time, which
+// their tests read later (onlineStatus subscribes to NetInfo on import).
+// A test file that mocks expo-router itself has no __hookRouter; left alone.
+beforeEach(() => {
+  const hookRouter = require('expo-router').__hookRouter;
+  if (hookRouter) Object.values(hookRouter).forEach((fn) => fn.mockClear());
 });
 
 // expo-notifications mock
