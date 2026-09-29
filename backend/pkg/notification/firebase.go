@@ -66,7 +66,12 @@ func NewFirebaseClient(credentialsJSON string) (NotificationClient, error) {
 	var cred struct {
 		Type string `json:"type"`
 	}
-	if err := json.Unmarshal([]byte(credentialsJSON), &cred); err != nil || cred.Type != "service_account" {
+	if err := json.Unmarshal([]byte(credentialsJSON), &cred); err != nil {
+		// El error de encoding/json dice dónde falló el parseo, no el contenido.
+		log.Printf("[FCM] FIREBASE_KEY no es JSON válido (%v) — usando no-op client", err)
+		return &noopNotificationClient{}, nil
+	}
+	if cred.Type != "service_account" {
 		log.Printf("[FCM] FIREBASE_KEY no es una service account (type=%q) — usando no-op client", cred.Type)
 		return &noopNotificationClient{}, nil
 	}
