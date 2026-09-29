@@ -8,9 +8,10 @@ import i18n from './index';
 // (G3): deleting a key that is still in use makes this test fail.
 //
 // It asks the real i18next instance (`i18n.exists`) instead of rebuilding the
-// resource map, because index.ts decides which file each namespace comes from:
-// `publish`, for instance, is registered from shared/, and a copy of it in web's
-// own locales is never loaded.
+// resource map, because index.ts decides which file each namespace comes from
+// (`publish`, for instance, is registered from shared/, not from web's own
+// locales). Rebuilding that choice by hand is where a copy of this check went
+// wrong while it was being written.
 //
 // Calls are found with the TypeScript parser, not with regexes over the text:
 // a key named in a comment is not a use, and stripping comments by hand breaks
