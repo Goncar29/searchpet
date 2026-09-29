@@ -10,6 +10,14 @@ import path from 'path';
 const mockDecode = jest.fn((value: string) => decodeURIComponent(value));
 jest.mock('decode-uri-component', () => mockDecode);
 
+function sourceFiles(dir: string): string[] {
+  return fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
+    const full = path.join(dir, e.name);
+    if (e.isDirectory()) return e.name === 'node_modules' ? [] : sourceFiles(full);
+    return /\.(ts|tsx|js)$/.test(e.name) ? [full] : [];
+  });
+}
+
 const MALICIOUS_QUERY = '/pet/1?q=' + '%E0%A4%A'.repeat(20000);
 
 beforeEach(() => mockDecode.mockClear());
@@ -38,13 +46,7 @@ describe('deep links and decode-uri-component', () => {
     const files = dirs
       .map((d) => path.join(root, d))
       .filter((d) => fs.existsSync(d))
-      .flatMap(function walk(dir: string): string[] {
-        return fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
-          const full = path.join(dir, e.name);
-          if (e.isDirectory()) return e.name === 'node_modules' ? [] : walk(full);
-          return /\.(ts|tsx|js)$/.test(e.name) ? [full] : [];
-        });
-      });
+      .flatMap(sourceFiles);
     expect(files.length).toBeGreaterThan(50);
     const importers = files
       .filter((f) => /['"]query-string['"]/.test(fs.readFileSync(f, 'utf8')))
