@@ -360,13 +360,36 @@ recuperación, key de Jina, `/api/ops/quota`, `phone_verified`) NO entran acá.
   job) por un paquete de mobile. Se movió a un job propio, `Mobile Security
   Audit`, fuera de los `needs` del deploy. Corre sin `pnpm install`: el audit
   lee el lockfile (probado en un directorio sin `node_modules`).
-- [ ] **S14b — Acotar el riesgo aceptado de `decode-uri-component`.**
+- [x] **S14b — Acotar el riesgo aceptado de `decode-uri-component`.**
   Sugerencia de la misma revisión: el ignore de GHSA-vcc3-ghjq-m6fr es el
   único que corre en la app y queda abierto sin fecha. Rechazar o truncar las
   URLs de deep link demasiado largas en `+native-intent` de expo-router, antes
   de que las decodifique `query-string`. Y, cuando se actualice Expo SDK,
   revisar si react-navigation ya trae `query-string` 8+ (que usa el
   `decode-uri-component` parcheado) y sacar el ignore.
+  **Cerrado sin mitigación, porque el riesgo no existía: el motivo del ignore
+  estaba MAL.** S14 afirmó que react-navigation decodifica los deep links con
+  `decode-uri-component`. Leído el código, no: expo-router le pasa a React
+  Navigation su propio `getStateFromPath` (`getLinkingConfig.js`), que parsea
+  la query con la API `URL` nativa (`parseQueryParams` en
+  `getStateFromPath-forks.js`) y decodifica con `decodeURIComponent`. El
+  `queryString.parse` de expo-router está comentado, el de React Navigation
+  queda reemplazado, y ni la app ni `shared/` importan `query-string`.
+  **Medido**: un link con 60.000 caracteres de percent-encoding malformado pasa
+  por el parser real en 8 ms y con **cero** llamadas a `decode-uri-component`.
+  El ignore se queda (el paquete sigue en el bundle, inalcanzable desde un deep
+  link) con el motivo corregido en `mobile/pnpm-workspace.yaml`. Construir el
+  guard de `+native-intent` habría sido código contra un camino que no existe.
+  **Lección**: un motivo de ignore también es una afirmación, y hay que
+  verificarla como cualquier otra.
+  La revisión (`review-a7c0277f8902539b`) pidió que la medición no quedara
+  como algo hecho una vez: `mobile/__tests__/deepLinkDecode.test.ts` la
+  corre siempre. Un control positivo prueba que el espía ve a `query-string`
+  llamar a `decode-uri-component`; después, el parser real de expo-router
+  procesa el link malicioso sin llamarla; y un barrido exige que ningún
+  archivo de la app ni de `shared/` importe `query-string`. Mutaciones: el
+  parser pasando por `query-string` y un archivo nuevo que lo importa, cada
+  una cae por nombre.
 - [x] **S15 — Restricción de keys públicas** (Firebase, MapTiler): confirmar
   en sus consolas que estén restringidas por app. Manual, del usuario.
   Hecho por el usuario el 2026-09-28. **MapTiler** sólo lo usa mobile (la web
