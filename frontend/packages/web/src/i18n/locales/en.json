@@ -104,7 +104,6 @@
       "namePlaceholder": "e.g. Montevideo Pet Rescue",
       "cityPlaceholder": "e.g. Montevideo",
       "descPlaceholder": "Brief description of the group...",
-      "error": "Failed to create group. Please try again.",
       "success": "Group \"{{name}}\" created successfully in {{city}}.",
       "creating": "Creating...",
       "submit": "Create Group"
@@ -183,7 +182,6 @@
       "sweepForceIgnoredNotice": "You asked to retire them anyway, but this new run wants to retire {{wouldRetire}} — more than you had approved — so the request was not applied. Read that number before insisting: the button approves whatever THIS run reports as the ceiling, not the previous one.",
       "forceUnavailableEmptyRun": "This run has no rows to retire, so there is nothing to force. If you expected otherwise, import again in a few minutes — the server may not be reporting that number yet.",
       "sweepSkipped_unknown": "Nothing was retired. The server reported a reason this screen cannot explain yet: {{reason}}.",
-      "error": "The import could not be completed.",
       "sweepSkipped_stale_count_failed": "We could not read how many clinics would be retired, so nothing was deleted. Note that the clinics this run imported WERE saved. Try again in a few minutes."
     }
   },
@@ -277,8 +275,7 @@
   "home": {
     "hero": {
       "title": "Reuniting lost pets with their families",
-      "subtitle": "Report, search and share. Together we find your companion.",
-      "cta": "See lost pets"
+      "subtitle": "Report, search and share. Together we find your companion."
     },
     "stats": {
       "reunited": "Pets reunited",
@@ -367,15 +364,9 @@
     "searchButton": "Search",
     "searchActive": "Active search",
     "recentReports": "Recent reports",
-    "noReports": "No recent reports in your area",
     "viewAll": "View all on map",
     "viewMap": "View map",
-    "publish": "Post a pet",
-    "cta": {
-      "title": "Lost your pet?",
-      "subtitle": "Post a report now and reach thousands of people in your area.",
-      "button": "Post lost pet"
-    }
+    "publish": "Post a pet"
   },
   "reports": {
     "create": {
@@ -641,7 +632,6 @@
   "vets": {
     "toggle": "Show veterinaries",
     "hide": "Hide veterinaries",
-    "searchArea": "Search this area",
     "directions": "Directions",
     "call": "Call",
     "website": "Website",
@@ -760,10 +750,8 @@
       "resubmit": "Save and resubmit",
       "resubmitHint": "Saving sends your home back to the review queue.",
       "rejectionReason": "Reason",
-      "edit": "Edit",
       "save": "Save",
       "saving": "Saving...",
-      "cancel": "Cancel",
       "addPhoto": "Add photo",
       "photoLimit": "Maximum 5 photos",
       "deletePhoto": "Delete",

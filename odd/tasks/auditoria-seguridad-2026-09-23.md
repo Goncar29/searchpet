@@ -422,9 +422,26 @@ recuperación, key de Jina, `/api/ops/quota`, `phone_verified`) NO entran acá.
   sólo usaba ese `router`. `tsc --noUnusedLocals` queda sin reportes y los
   errores de tipos preexistentes siguen en 44 (G5), ni uno nuevo. Jest
   267/267.
-- [ ] **G3 — ~84 claves i18n huérfanas** (web 14, mobile ~60, shared 10), en
+- [x] **G3 — ~84 claves i18n huérfanas** (web 14, mobile ~60, shared 10), en
   los tres idiomas. Salen de grep — verificar cada una (claves dinámicas,
   plurales) antes de borrar. Idealmente con un guard AST, no con lista.
+  Hecho: eran **47** (web 10, mobile 37, shared 0), borradas en los tres
+  idiomas. El análisis fue conservador (ante la duda, usada): cuenta como uso
+  un literal `ns:ruta`, `ns.ruta` o `ruta`; un prefijo dinámico
+  (`pets:types.${x}`, `'pets:status.' + s`); la base de un plural; y todo el
+  namespace `errors`, que se alimenta de los códigos del backend. Las 12
+  llamadas totalmente dinámicas resultaron ser de tests (y una URL). Cada
+  candidata se revisó a mano: las coincidencias eran de otras claves con el
+  mismo final (`pets:mine.edit` no es `fosterHomes.mine.edit`). El diff de
+  los JSON es sólo de borrados (más la coma que se corre).
+  **Un test exigía una clave muerta**: `adminGroupsKeys.test.ts` extraía las
+  claves con una regex sobre el fuente CON comentarios, y el comentario que
+  explica por qué `t('groups.error')` se dejó de usar la contaba como usada.
+  Ahora saca los comentarios antes de las dos cuentas (la extracción y el
+  centinela); con un uso real de la clave repuesto, cae nombrándola.
+  **Sin guard permanente**: el análisis es heurístico, y como paso de CI
+  fallaría ante un uso que no reconozca (p. ej. `keyPrefix`, hoy sin uso en el
+  repo). Queda como script, no como control.
 - [x] **G4 — Deprecaciones (decisión, no limpieza):** `nhooyr.io/websocket` →
   `github.com/coder/websocket`; `option.WithCredentialsJSON` en
   `pkg/notification/firebase.go:60`.

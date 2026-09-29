@@ -104,7 +104,6 @@
       "namePlaceholder": "Ej: Rescatistas Montevideo",
       "cityPlaceholder": "Ej: Montevideo",
       "descPlaceholder": "Breve descripción del grupo...",
-      "error": "No se pudo crear el grupo. Intentá de nuevo.",
       "success": "Grupo \"{{name}}\" creado correctamente en {{city}}.",
       "creating": "Creando...",
       "submit": "Crear grupo"
@@ -183,7 +182,6 @@
       "sweepForceIgnoredNotice": "Pediste dar de baja igual, pero esta corrida nueva quiere dar de baja {{wouldRetire}} — más de las que habías aprobado — así que el pedido no se aplicó. Mirá ese número antes de insistir: el botón aprueba como tope lo que diga ESTA corrida, no la anterior.",
       "forceUnavailableEmptyRun": "Esta corrida no tiene filas para dar de baja, así que no hay nada que forzar. Si esperabas que las hubiera, volvé a importar en unos minutos: puede que el servidor todavía no esté informando ese número.",
       "sweepSkipped_unknown": "No se dio de baja nada. El servidor informó un motivo que esta pantalla todavía no sabe explicar: {{reason}}.",
-      "error": "No se pudo completar la importación.",
       "sweepSkipped_stale_count_failed": "No se pudo consultar cuántas veterinarias se darían de baja, así que no se borró nada. Ojo: las que esta corrida importó SÍ se guardaron. Probá de nuevo en un rato."
     }
   },
@@ -277,8 +275,7 @@
   "home": {
     "hero": {
       "title": "Reunimos mascotas perdidas con sus familias",
-      "subtitle": "Reportá, buscá y compartí. Juntos encontramos a tu compañero.",
-      "cta": "Ver mascotas perdidas"
+      "subtitle": "Reportá, buscá y compartí. Juntos encontramos a tu compañero."
     },
     "stats": {
       "reunited": "Mascotas reencontradas",
@@ -367,15 +364,9 @@
     "searchButton": "Buscar",
     "searchActive": "Búsqueda activa",
     "recentReports": "Reportes recientes",
-    "noReports": "No hay reportes recientes en tu zona",
     "viewAll": "Ver todos en el mapa",
     "viewMap": "Ver mapa",
-    "publish": "Publicar mascota",
-    "cta": {
-      "title": "¿Perdiste a tu mascota?",
-      "subtitle": "Publicá un reporte ahora y llegá a miles de personas en tu zona.",
-      "button": "Publicar mascota perdida"
-    }
+    "publish": "Publicar mascota"
   },
   "reports": {
     "create": {
@@ -641,7 +632,6 @@
   "vets": {
     "toggle": "Mostrar veterinarias",
     "hide": "Ocultar veterinarias",
-    "searchArea": "Buscar en esta zona",
     "directions": "Cómo llegar",
     "call": "Llamar",
     "website": "Sitio web",
@@ -760,10 +750,8 @@
       "resubmit": "Guardar y reenviar",
       "resubmitHint": "Al guardar, tu hogar vuelve a la cola de revisión.",
       "rejectionReason": "Motivo",
-      "edit": "Editar",
       "save": "Guardar",
       "saving": "Guardando...",
-      "cancel": "Cancelar",
       "addPhoto": "Agregar foto",
       "photoLimit": "Máximo 5 fotos",
       "deletePhoto": "Eliminar",
