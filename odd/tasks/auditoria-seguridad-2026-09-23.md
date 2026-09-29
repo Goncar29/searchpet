@@ -382,6 +382,14 @@ recuperación, key de Jina, `/api/ops/quota`, `phone_verified`) NO entran acá.
   guard de `+native-intent` habría sido código contra un camino que no existe.
   **Lección**: un motivo de ignore también es una afirmación, y hay que
   verificarla como cualquier otra.
+  La revisión (`review-a7c0277f8902539b`) pidió que la medición no quedara
+  como algo hecho una vez: `mobile/__tests__/deepLinkDecode.test.ts` la
+  corre siempre. Un control positivo prueba que el espía ve a `query-string`
+  llamar a `decode-uri-component`; después, el parser real de expo-router
+  procesa el link malicioso sin llamarla; y un barrido exige que ningún
+  archivo de la app ni de `shared/` importe `query-string`. Mutaciones: el
+  parser pasando por `query-string` y un archivo nuevo que lo importa, cada
+  una cae por nombre.
 - [x] **S15 — Restricción de keys públicas** (Firebase, MapTiler): confirmar
   en sus consolas que estén restringidas por app. Manual, del usuario.
   Hecho por el usuario el 2026-09-28. **MapTiler** sólo lo usa mobile (la web
