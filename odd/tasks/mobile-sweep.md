@@ -36,7 +36,8 @@ Backend changes only if a defect needs them, with the owner's OK.
 - [x] T5 — M6: public profile lists the person's published pets
   (`useUserPets`), separate PR. Route: delegated writer (screen + tests +
   3 locales).
-- [ ] T6 — M8: StaleDataNotice on foster-homes and shelters.
+- [x] T6 — M8: StaleDataNotice on foster-homes and shelters. Route: inline
+  (2 screens, same mechanical change, already understood).
 
 ## Checks
 
@@ -129,6 +130,16 @@ Backend changes only if a defect needs them, with the owner's OK.
   on a failed refetch; each new test seen red under its own mutation. Parent:
   lint/typecheck/test EXIT=0, 325/325. Review cycle cut here.
 
+- 2026-09-30: #301 merged (`0d5e47a6`). T6 on `fix/mobile-stale-notice-lists`:
+  both directories render `StaleDataNotice` in the list header, and the
+  error card only shows with no data (a cached empty list is an answer: empty
+  text plus the notice). RED: the 4 notice/empty cases failed (after fixing two
+  harness mistakes of mine: two `jest.mock` factories on the same module, and
+  shelters' bare `t` keys). Each piece reverted alone turns its own tests red.
+  Parent: lint/typecheck/test EXIT=0, 333/333.
+
 ## Next step
 
-Merge PR #301 (T5), then T6 (M8).
+Merge the T6 PR. The sweep's audited findings are done; next the owner asked
+for G4b, S16, then replacing emoji with icons in mobile (and the web navbar
+dark-mode toggle) before the APK.
