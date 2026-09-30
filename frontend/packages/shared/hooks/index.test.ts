@@ -19,6 +19,7 @@ import {
   useLikeStory,
   useUnlikeStory,
   useSendMessageTo,
+  useConversation,
   useNearbyReports,
   useBlockStatus,
   useMarkPetAsFound,
@@ -503,6 +504,71 @@ describe('useSendMessageTo', () => {
 
     const invalidatedKeys = invalidateSpy.mock.calls.map((call) => call[0]?.queryKey);
     expect(invalidatedKeys).toEqual(expect.arrayContaining([['messages', 'them'], ['messages']]));
+  });
+
+  // Owner's requirement: a message sent while the conversation FAILED TO LOAD
+  // (no cache at all — ChatScreen keeps the composer enabled in that state,
+  // rule #60) must not linger on screen looking sent when it was not.
+  it('sends while the conversation never loaded (no cache) and the send fails: the temp message does not stick', async () => {
+    vi.spyOn(apiClient, 'sendMessageTo').mockRejectedValue(new Error('boom'));
+
+    // No queryClient.setQueryData(['messages', 'them'], ...) — this is the
+    // "conversation failed to load" case: `useConversation`'s query has no
+    // cached data at all, so onMutate's `previous` is undefined.
+    const { queryClient, wrapper: wrapperWithClient } = createWrapperWithClient();
+
+    const { result } = renderHook(() => useSendMessageTo(), { wrapper: wrapperWithClient });
+
+    result.current.mutate({ receiverID: 'them', senderID: 'me', content: 'hola' });
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+
+    // Not `[]` either (rule #60): an empty array would render as "start the
+    // conversation", which is just as false as showing the unsent message.
+    // `undefined` is what sends the screen back through ListState's
+    // loading/error branches instead of a lie in either direction.
+    expect(queryClient.getQueryData(['messages', 'them'])).toBeUndefined();
+  });
+
+  it('sends while the conversation never loaded (no cache) and the send succeeds: a later refetch lands in server order', async () => {
+    const earlierFromThem: Message = {
+      ...serverMessage,
+      id: 'msg-0',
+      sender_id: 'them',
+      receiver_id: 'me',
+      content: 'antes',
+      created_at: '2025-12-31T00:00:00Z',
+    };
+    // The server is the single source of truth for order (rule: backend
+    // orders by created_at ASC) — the sent message included, in its real
+    // chronological place, not appended after whatever the client guessed.
+    const serverThread: Message[] = [earlierFromThem, serverMessage];
+
+    vi.spyOn(apiClient, 'sendMessageTo').mockResolvedValue(serverMessage);
+    // First call is the failed initial load (the "never loaded" scenario);
+    // every call after that — the refetch onSettled triggers — resolves
+    // with the real thread.
+    vi.spyOn(apiClient, 'getConversation')
+      .mockRejectedValueOnce(new Error('load failed'))
+      .mockResolvedValue(serverThread);
+
+    const { queryClient, wrapper: wrapperWithClient } = createWrapperWithClient();
+
+    // An active `useConversation` observer is what makes onSettled's
+    // invalidateQueries actually refetch — without one, invalidation just
+    // marks the query stale and nothing re-runs `getConversation`.
+    const conversation = renderHook(() => useConversation('them'), { wrapper: wrapperWithClient });
+    await waitFor(() => expect(conversation.result.current.isError).toBe(true));
+    expect(queryClient.getQueryData(['messages', 'them'])).toBeUndefined();
+
+    const send = renderHook(() => useSendMessageTo(), { wrapper: wrapperWithClient });
+    send.result.current.mutate({ receiverID: 'them', senderID: 'me', content: 'hola' });
+
+    await waitFor(() => expect(send.result.current.isSuccess).toBe(true));
+    await waitFor(() =>
+      expect(queryClient.getQueryData<Message[]>(['messages', 'them'])).toEqual(serverThread),
+    );
+    await waitFor(() => expect(conversation.result.current.data).toEqual(serverThread));
   });
 });
 

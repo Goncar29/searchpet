@@ -583,7 +583,20 @@ export const useSendMessageTo = () => {
       if (!mismaSesion(context)) return;
 
       const ctx = context as { previous: Message[] | undefined } | undefined;
-      if (ctx?.previous) queryClient.setQueryData(['messages', receiverID], ctx.previous);
+      if (ctx?.previous) {
+        queryClient.setQueryData(['messages', receiverID], ctx.previous);
+        return;
+      }
+      // There was no cached thread before this send — the conversation
+      // failed to load, or never fetched at all (ChatScreen keeps the
+      // composer enabled either way, rule #60). Leaving the optimistic
+      // `temp-` message in the cache would show it as sent when it was not.
+      // Clearing it to `[]` is just as wrong: it would draw the false
+      // "start the conversation" empty state instead of the real
+      // loading/error state. Reset the query so any active screen goes back
+      // to loading and lands on whichever is true — the real thread or the
+      // error card.
+      queryClient.resetQueries({ queryKey: ['messages', receiverID], exact: true });
     },
     onSettled: (_, __, { receiverID }) => {
       queryClient.invalidateQueries({ queryKey: ['messages', receiverID] });
