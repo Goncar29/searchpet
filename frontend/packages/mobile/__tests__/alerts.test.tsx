@@ -141,7 +141,12 @@ describe('AlertsScreen', () => {
       data: [{ ...mockAlert, pet_type: 'perro' }],
       isLoading: false,
     });
-    const { queryByText } = render(<AlertsScreen />);
-    expect(queryByText(/Perro/)).toBeTruthy();
+    const { getByText } = render(<AlertsScreen />);
+    // Exact match on the alert card's own meta line — 📍 lat, lng · radius
+    // km · type, all one <Text> — not a loose /Perro/ regex that would
+    // equally pass if some unrelated element elsewhere on the screen
+    // happened to render "Perro" (as my-pets.test.tsx and
+    // index.photoSearch.test.tsx do for the same reason).
+    expect(getByText('📍 -34.901, -56.164 · 5 km · Perro')).toBeTruthy();
   });
 });

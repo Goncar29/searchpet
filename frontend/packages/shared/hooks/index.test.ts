@@ -534,13 +534,23 @@ describe('useSendMessageTo', () => {
   // `resetQueries` already refetches the failed conversation. `onSettled`'s
   // `invalidateQueries` for the same key is then redundant — it fires a
   // second `getConversation` call for the same single failure.
-  it('with an active observer and no cache, a failed send triggers exactly one getConversation call', async () => {
+  //
+  // This used to prove "no duplicate refetch" by waiting a fixed 50ms and
+  // hoping that was long enough for a would-be duplicate to fire — a timing
+  // guess, not a proof. Two things replace it, neither timing-dependent:
+  // (1) a structural check on the `predicate` onSettled's invalidateQueries
+  // actually receives (it must exclude the conversation key onError already
+  // refetched, while still matching the list and the unread-count badge),
+  // and (2) waiting for every `['messages'*]` query to go idle instead of a
+  // fixed sleep — deterministic regardless of how fast/slow the runner is.
+  it('with an active observer and no cache, a failed send skips a duplicate getConversation refetch', async () => {
     vi.spyOn(apiClient, 'sendMessageTo').mockRejectedValue(new Error('boom'));
     const getConversationSpy = vi
       .spyOn(apiClient, 'getConversation')
       .mockRejectedValue(new Error('load failed'));
 
     const { queryClient, wrapper: wrapperWithClient } = createWrapperWithClient();
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
 
     // Mount the conversation first so its initial (failing) load doesn't
     // count toward the assertion below.
@@ -553,9 +563,15 @@ describe('useSendMessageTo', () => {
     send.result.current.mutate({ receiverID: 'them', senderID: 'me', content: 'hola' });
 
     await waitFor(() => expect(send.result.current.isError).toBe(true));
-    await waitFor(() => expect(getConversationSpy).toHaveBeenCalledTimes(1));
-    // Give a would-be duplicate refetch a beat to fire before trusting the count above.
-    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    const predicateCall = invalidateSpy.mock.calls.find((call) => typeof call[0]?.predicate === 'function');
+    expect(predicateCall).toBeDefined();
+    const predicate = predicateCall![0]!.predicate as (query: { queryKey: readonly unknown[] }) => boolean;
+    expect(predicate({ queryKey: ['messages', 'them'] })).toBe(false);
+    expect(predicate({ queryKey: ['messages'] })).toBe(true);
+    expect(predicate({ queryKey: ['messages', 'unread-count'] })).toBe(true);
+
+    await waitFor(() => expect(queryClient.isFetching({ queryKey: ['messages'] })).toBe(0));
     expect(getConversationSpy).toHaveBeenCalledTimes(1);
   });
 
