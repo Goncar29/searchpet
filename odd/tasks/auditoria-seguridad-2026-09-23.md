@@ -466,10 +466,16 @@ recuperación, key de Jina, `/api/ops/quota`, `phone_verified`) NO entran acá.
   Installation ID). Hoy estamos en v4.19.0, que no lo trae. Migrar no es una
   línea: web y mobile tendrían que registrar el FID en vez del token de FCM.
   Encarar cuando se suba `firebase-admin-go`.
-- [ ] **S16 — `golang.org/x/crypto` 0.51.0 acumuló 17 vulnerabilidades** (y
+- [x] **S16 — `golang.org/x/crypto` 0.51.0 acumuló 17 vulnerabilidades** (y
   `x/net` 0.55.0 y `grpc` 1.83.1, una cada una) desde S3. `govulncheck` dice
   que el código no las alcanza, así que el CI no frena; conviene subirlas
   igual en una tanda, como S3.
+  Hecho el 2026-09-30: `x/crypto` 0.57.0, `x/net` 0.59.0, `grpc` 1.84.0 (y
+  `x/sys`, `x/text`, `x/sync`, genproto por arrastre). `govulncheck` pasa de
+  19 a 2, ninguna alcanzable: GO-2026-6443 (grpc, el arreglo sólo existe en
+  una pseudo-versión `v1.85.0-dev`; se toma cuando salga 1.85.0) y
+  GO-2026-5932 (`x/crypto/openpgp` abandonado, sin arreglo; no lo usamos).
+  Backend completo contra `lostpets_test`: EXIT=0, 18 paquetes, 0 skips.
 - [x] **G5 — Errores de tipos en mobile** que salieron en `tsc` (~15:
   implicit any, MapLibreGL, import roto en `story/index.tsx`). Fuera del
   alcance de "basura", pero son reales.
