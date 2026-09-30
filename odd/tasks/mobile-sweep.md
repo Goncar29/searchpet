@@ -26,7 +26,7 @@ Backend changes only if a defect needs them, with the owner's OK.
   Route: delegated (4+ files).
 - [x] T3 — Note in `jest.setup.js`: router mock implementations go in
   beforeEach or the test (review suggestion on `9046a262`). Route: inline.
-- [ ] T4 — Batch 1: M1-M4 (failed list ≠ empty list in messages, chat,
+- [x] T4 — Batch 1: M1-M4 (failed list ≠ empty list in messages, chat,
   alerts, map counter), M5 (pet type via `pets:types.*` in PetCard, my-pets,
   home image results, alerts), M7 (`getErrorMessage` in story/create).
   Route: delegated writer (6+ non-trivial files).
@@ -59,10 +59,15 @@ Backend changes only if a defect needs them, with the owner's OK.
   mobile users/[id].tsx never calls useUserPets (web does, line 196);
   story/create.tsx:111 shows `error.message` raw. All confirmed.
 
+- 2026-09-30: T3 done (`e2bb85de`). T4 done by a delegated writer:
+  `215d0713` (M1-M4), `ba91d63c` (M5, plus a 5th raw type site in the home
+  classify chip), `7857ee03` (M7). RED seen per finding. Map: the map stays
+  visible; the counter shows the error/offline card when there is no data and
+  a StaleDataNotice with cached data. Chat: composer stays enabled on a load
+  error (writer's call, flagged to the owner). Writer: lint/typecheck/test
+  EXIT=0; parent re-ran `pnpm test:run`: EXIT=0, 306/306.
+
 ## Next step
 
-Next session: batch 1 = M1-M4 (ListState on messages, chat, alerts, map),
-M5 (pet type via `pets:types.*`) and M7 (`getErrorMessage` in story/create),
-each with RED first. Then M6 (public profile pets, separate PR), M8. Also
-pending from the review of `9046a262`: a note in `jest.setup.js` that router
-mock implementations must be set in beforeEach or in the test.
+Native review of the branch slice, then T5 (M6, public profile pets,
+separate PR) and T6 (M8).
