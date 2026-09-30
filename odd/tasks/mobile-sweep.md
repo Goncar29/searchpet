@@ -33,8 +33,9 @@ Backend changes only if a defect needs them, with the owner's OK.
 - [x] T4b — Review suggestions of batch 1 and the owner's chat rule: a
   message sent while the thread failed to load must end up in the real
   chronological order once it loads. Route: delegated writer.
-- [ ] T5 — M6: public profile lists the person's published pets
-  (`useUserPets`), separate PR.
+- [x] T5 — M6: public profile lists the person's published pets
+  (`useUserPets`), separate PR. Route: delegated writer (screen + tests +
+  3 locales).
 - [ ] T6 — M8: StaleDataNotice on foster-homes and shelters.
 
 ## Checks
@@ -103,7 +104,22 @@ Backend changes only if a defect needs them, with the owner's OK.
   overlapping-send tests seen red first. `465363cb` removes a 50 ms wait and
   a substring match from two tests. Parent re-ran shared: EXIT=0, 341/341.
 
+- 2026-09-30: PR #300 (undici floor 7.29.1 + grpc-js ignore with reason)
+  unblocked `pnpm audit`; #299 rebased (same 23 commits, tree diff = only the
+  #300 files), fifth native review approved with no findings, merged as
+  `6992f7b8`.
+- 2026-09-30: T5 done on `fix/mobile-public-profile-pets` (`533d19e1`).
+  `app/users/[id].tsx` calls `useUserPets`: "Publicaciones" in `ListState`
+  (split with shared `splitOwnedPets`, same as web), "En adopción" without
+  its own `ListState` (one failure, one card), capped notice below both with
+  `total > shown`. Keys in mobile `users` ns (es/en/pt): `profile:public.*`
+  exists only in web locales. RED: 5 named tests failed before the
+  implementation; mutating `>` to `!==` turned "no avisa recorte con total =
+  0 y lista NO vacía" red. Writer: lint/typecheck/test EXIT=0; parent re-ran
+  `pnpm test:run`: EXIT=0, 321/321. Known, inherited from web: a person with
+  only adoption pets sees "No tiene publicaciones activas" above the
+  adoption section.
+
 ## Next step
 
-T5 (M6, public profile pets,
-separate PR) and T6 (M8).
+Merge the T5 PR, then T6 (M8).
