@@ -84,7 +84,18 @@ Backend changes only if a defect needs them, with the owner's OK.
   it now resets the query (back to loading, then thread or error card),
   never `[]`. Parent re-ran shared vitest: EXIT=0, 337/337.
 
+- 2026-09-30: third review approved (review-4b0ced29919b816f) with 2
+  suggestions; owner chose "apply and cut" (no further review of this
+  slice). `7310025a`: map counter shows `common:loading`, never "0", while
+  there is no data yet. `12deae7a`: a failed send with no cache refetched the
+  thread twice (the `['messages']` prefix invalidation also matched it).
+  Parent fixed that fix: the mark was a `useRef` shared by every send of the
+  hook, so two sends in flight could clobber it; moved to the mutation
+  context. Mutation check: dropping the mark turns
+  `...exactly one getConversation call` red (called 2 times). Parent ran
+  shared 338/338, web build+lint, mobile typecheck and 313/313: all EXIT=0.
+
 ## Next step
 
-Review of the T4b slice, then T5 (M6, public profile pets,
+T5 (M6, public profile pets,
 separate PR) and T6 (M8).
