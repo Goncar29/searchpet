@@ -7,6 +7,7 @@ export * from './useWebSocket';
 export * from './useImageClassify';
 export * from './useCiudadDecidida';
 
+import { useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient, ApiError } from '../api/client';
 // El default de useNearbyVets sale de aca y no de un 5000 propio: el bug que se
@@ -552,10 +553,19 @@ export const useSendMessage = () => {
 
 export const useSendMessageTo = () => {
   const queryClient = useQueryClient();
+  // `onError` and `onSettled` are two separate callbacks of the SAME
+  // mutation execution — this ref is how the former tells the latter "I
+  // already reset+refetched this conversation, don't invalidate it again".
+  // A ref (not a local `let`) because it has to survive across the
+  // onMutate -> onError -> onSettled sequence of one `mutate()` call, and a
+  // plain closure variable declared inside the config object would be
+  // recreated every render, not shared between these three callbacks.
+  const skipConversationInvalidate = useRef(false);
   return useMutation<Message, Error, { receiverID: string; senderID: string; content: string; reportID?: string }>({
     mutationFn: ({ receiverID, content, reportID }) =>
       apiClient.sendMessageTo(receiverID, content, reportID),
     onMutate: async ({ receiverID, senderID, content }) => {
+      skipConversationInvalidate.current = false;
       await queryClient.cancelQueries({ queryKey: ['messages', receiverID] });
       const previous = queryClient.getQueryData<Message[]>(['messages', receiverID]);
       // Con qué sesión arrancó este envío. Ver el guard de `onError`.
@@ -597,9 +607,36 @@ export const useSendMessageTo = () => {
       // to loading and lands on whichever is true — the real thread or the
       // error card.
       queryClient.resetQueries({ queryKey: ['messages', receiverID], exact: true });
+      // `resetQueries` on an active observer already refetches it —
+      // `onSettled`'s `invalidateQueries` for the exact same key would be a
+      // second, redundant `getConversation` call for this one failure.
+      skipConversationInvalidate.current = true;
     },
     onSettled: (_, __, { receiverID }) => {
+      if (skipConversationInvalidate.current) {
+        skipConversationInvalidate.current = false;
+        // `resetQueries` already refetched ['messages', receiverID] in
+        // onError. A plain `invalidateQueries({ queryKey: ['messages'] })`
+        // is NOT a safe substitute for skipping the specific-key call above
+        // — by default it fuzzy-matches by PREFIX, so it still matches
+        // ['messages', receiverID] and would refetch it a second time
+        // anyway (confirmed empirically: removing only the specific-key
+        // call left the duplicate `getConversation` call in place). The
+        // conversation LIST and the unread-count badge (`UNREAD_COUNT_KEY`
+        // = ['messages', 'unread-count']) are separate queries that DO
+        // still need invalidating on this failure — only the one query
+        // onError already handled is excluded.
+        queryClient.invalidateQueries({
+          predicate: (query) =>
+            query.queryKey[0] === 'messages' &&
+            !(query.queryKey.length === 2 && query.queryKey[1] === receiverID),
+        });
+        return;
+      }
       queryClient.invalidateQueries({ queryKey: ['messages', receiverID] });
+      // The conversation LIST (previews, unread badges) is a different
+      // query key from the one above and isn't touched by the reset —
+      // still needed on every settle, success or failure alike.
       queryClient.invalidateQueries({ queryKey: ['messages'] });
     },
   });

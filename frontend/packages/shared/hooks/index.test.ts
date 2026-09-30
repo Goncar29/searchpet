@@ -530,6 +530,35 @@ describe('useSendMessageTo', () => {
     expect(queryClient.getQueryData(['messages', 'them'])).toBeUndefined();
   });
 
+  // With an active `useConversation` observer and no cache, `onError`'s
+  // `resetQueries` already refetches the failed conversation. `onSettled`'s
+  // `invalidateQueries` for the same key is then redundant — it fires a
+  // second `getConversation` call for the same single failure.
+  it('with an active observer and no cache, a failed send triggers exactly one getConversation call', async () => {
+    vi.spyOn(apiClient, 'sendMessageTo').mockRejectedValue(new Error('boom'));
+    const getConversationSpy = vi
+      .spyOn(apiClient, 'getConversation')
+      .mockRejectedValue(new Error('load failed'));
+
+    const { queryClient, wrapper: wrapperWithClient } = createWrapperWithClient();
+
+    // Mount the conversation first so its initial (failing) load doesn't
+    // count toward the assertion below.
+    const conversation = renderHook(() => useConversation('them'), { wrapper: wrapperWithClient });
+    await waitFor(() => expect(conversation.result.current.isError).toBe(true));
+    expect(queryClient.getQueryData(['messages', 'them'])).toBeUndefined();
+    getConversationSpy.mockClear();
+
+    const send = renderHook(() => useSendMessageTo(), { wrapper: wrapperWithClient });
+    send.result.current.mutate({ receiverID: 'them', senderID: 'me', content: 'hola' });
+
+    await waitFor(() => expect(send.result.current.isError).toBe(true));
+    await waitFor(() => expect(getConversationSpy).toHaveBeenCalledTimes(1));
+    // Give a would-be duplicate refetch a beat to fire before trusting the count above.
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(getConversationSpy).toHaveBeenCalledTimes(1);
+  });
+
   it('sends while the conversation never loaded (no cache) and the send succeeds: a later refetch lands in server order', async () => {
     const earlierFromThem: Message = {
       ...serverMessage,
