@@ -120,6 +120,15 @@ Backend changes only if a defect needs them, with the owner's OK.
   only adoption pets sees "No tiene publicaciones activas" above the
   adoption section.
 
+- 2026-09-30: T5 native reviews approved (review-7128c4d5cc7343b9,
+  review-190a1db5f8023865). Applied: `183dffbd` tests loading and
+  failed-refetch-with-cache. Owner decision: keep the adoption-only copy as
+  in web (verified on web with a temporary test: `postsEmpty` does render in
+  `/users/:id` for an adoption-only person; the owner's own `/profile` is a
+  different page without that copy). Pinned as deliberate, plus capped notice
+  on a failed refetch; each new test seen red under its own mutation. Parent:
+  lint/typecheck/test EXIT=0, 325/325. Review cycle cut here.
+
 ## Next step
 
-Merge the T5 PR, then T6 (M8).
+Merge PR #301 (T5), then T6 (M8).

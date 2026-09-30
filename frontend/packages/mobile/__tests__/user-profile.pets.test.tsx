@@ -155,6 +155,18 @@ describe('Perfil público — mascotas publicadas', () => {
     expect(queryByText('users:postsEmpty')).toBeNull();
   });
 
+  // Deliberado y alineado con la web (decisión del dueño, 2026-09-30):
+  // "Publicaciones" cuenta sólo lo que no está en adopción, así que alguien con
+  // únicamente mascotas en adopción ve el texto de vacío arriba de esa sección.
+  it('sólo adopción: texto de vacío en Publicaciones y la sección de adopción con sus mascotas', () => {
+    mockUseUserPets.mockReturnValue(petsOk([pet('p9', 'Toby', 'adoption')], 1));
+    const { queryByText } = render(<UserProfileScreen />);
+    expect(queryByText('users:postsEmpty')).toBeTruthy();
+    expect(queryByText('users:adoption')).toBeTruthy();
+    expect(queryByText('Toby')).toBeTruthy();
+    expect(queryByText('users:postsError')).toBeNull();
+  });
+
   it('datos vacíos: texto de vacío, NO el cartel de error', () => {
     mockUseUserPets.mockReturnValue(petsOk([], 0));
     const { queryByText } = render(<UserProfileScreen />);
@@ -168,6 +180,19 @@ describe('Perfil público — mascotas publicadas', () => {
     );
     const { queryByText } = render(<UserProfileScreen />);
     expect(queryByText('users:postsCapped')).toBeTruthy();
+  });
+
+  // El aviso describe lo que está en pantalla: con datos cacheados y una recarga
+  // caída la lista mostrada sigue recortada, así que el aviso se mantiene.
+  it('recarga caída con lista recortada: sigue el aviso de recorte junto a la franja', () => {
+    mockUseUserPets.mockReturnValue({
+      ...petsOk([pet('p1', 'Firulais', 'lost')], 300),
+      isError: true,
+    });
+    const { queryByText, queryAllByText } = render(<UserProfileScreen />);
+    expect(queryByText('users:postsCapped')).toBeTruthy();
+    expect(queryAllByText('common:staleTitle')).toHaveLength(1);
+    expect(queryByText('Firulais')).toBeTruthy();
   });
 
   it('no avisa recorte cuando total == mostradas', () => {
