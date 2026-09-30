@@ -122,9 +122,13 @@ describe('PetCard', () => {
   // and #21. `defaultValue` keeps the old pre-translation behaviour: show
   // the raw value.
   it('un tipo de mascota sin traducción muestra el valor crudo, no la ruta de la clave', () => {
+    // `PetType` is a closed union at compile time, but the backend can still
+    // send a value outside it — that drift is exactly what this test
+    // simulates, so the `as any` is deliberate.
+    const petConTipoDesconocido = { ...baseReport.pet!, type: 'hamster' as any };
     render(
       <PetCard
-        report={{ ...baseReport, pet: { ...baseReport.pet!, type: 'hamster' } }}
+        report={{ ...baseReport, pet: petConTipoDesconocido }}
         onPress={() => {}}
       />,
     );
