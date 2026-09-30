@@ -20,7 +20,7 @@ import { splitOwnedPets } from '@shared/utils/ownedPetBuckets';
 import { cloudinaryCardThumb, cloudinaryThumb } from '@shared/utils/cloudinaryThumb';
 import { useAuth } from '../context/AuthContext';
 import type { Badge, Pet } from '@shared/types';
-import { BADGE_META } from '@shared/types';
+import { BADGE_META, BADGE_FALLBACK_ICON } from '@shared/types';
 import { Icon } from '../components/Icon';
 import { ListState } from '../components/list/ListState';
 import { FormField } from '../components/form/FormField';
@@ -93,11 +93,9 @@ function ContactRow({
  * esconderse: un tablero que sólo lista lo ya conseguido no dice qué hacer
  * después. Los seis tienen esa clave en es/en/pt.
  *
- * El emoji de `BADGE_META` NO se sustituye por un `Icon`: lo comparten ocho
- * archivos entre web y mobile, y cambiarlo sólo acá haría que el mismo logro se
- * vea distinto en el ranking, en el perfil y en el celular. Lo que sí lleva es
- * `role="img"` con su nombre, porque un lector de pantalla anuncia el nombre
- * Unicode del glifo ("handshake"), no "Primer ayudante".
+ * El glifo sale de `BADGE_META.icon`, el mismo registro que usan el ranking, el
+ * perfil público y mobile. Lleva `role="img"` con su nombre porque el `Icon` es
+ * decorativo: sin eso un lector de pantalla no anunciaría "Primer ayudante".
  */
 function AchievementTile({
   type,
@@ -118,7 +116,7 @@ function AchievementTile({
   // seis". La etiqueta cae al tipo crudo, que es feo pero honesto: mejor un
   // nombre técnico que un logro invisible.
   const meta = BADGE_META[type] ?? {
-    emoji: '🏅',
+    icon: BADGE_FALLBACK_ICON,
     labelKey: type,
     descriptionKey: '',
     howToEarnKey: '',
@@ -138,7 +136,7 @@ function AchievementTile({
         aria-label={t(meta.labelKey)}
         className={`block text-2xl leading-none mb-2 ${earned ? '' : 'grayscale opacity-50'}`}
       >
-        {meta.emoji}
+        <Icon name={meta.icon} />
       </span>
       <p
         className={`text-xs font-semibold truncate ${

@@ -19,7 +19,8 @@ import { useMyBadges } from '../../../shared/hooks';
 import { ListState } from '../../components/list/ListState';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
 import type { Badge } from '../../../shared/types';
-import { BADGE_META } from '../../../shared/types';
+import { BADGE_META, BADGE_FALLBACK_ICON } from '../../../shared/types';
+import { Icon } from '../../components/Icon';
 
 function BadgeCard({ badge }: { badge: Badge }) {
   const { t, i18n } = useTranslation(['badges', 'common']);
@@ -31,7 +32,9 @@ function BadgeCard({ badge }: { badge: Badge }) {
 
   return (
     <View style={styles.badgeCard}>
-      <Text style={styles.badgeEmoji}>{meta?.emoji ?? '🏅'}</Text>
+      <View style={styles.badgeIcon}>
+        <Icon name={meta?.icon ?? BADGE_FALLBACK_ICON} size={40} color={COLORS.primary} />
+      </View>
       <View style={styles.badgeInfo}>
         <Text style={styles.badgeLabel}>{label}</Text>
         {description ? (
@@ -167,7 +170,7 @@ const styles = StyleSheet.create({
     padding: SPACING.md,
     ...SHADOWS.sm,
   },
-  badgeEmoji: { fontSize: 40, marginRight: SPACING.md },
+  badgeIcon: { marginRight: SPACING.md },
   badgeInfo: { flex: 1 },
   badgeLabel: { fontSize: FONTS.sizes.md, fontWeight: '700', color: COLORS.textPrimary },
   badgeDescription: { fontSize: FONTS.sizes.sm, color: COLORS.textSecondary, marginTop: 2 },

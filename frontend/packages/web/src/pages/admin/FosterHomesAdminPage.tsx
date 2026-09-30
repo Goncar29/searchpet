@@ -240,10 +240,8 @@ function FosterHomeAdminItem({
     <li className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 p-5">
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
-          {/* El 📍 pasa a ícono. Es page-local, así que no arrastra a nadie
-              — los de `BADGE_META` viven en shared y los dibujan ocho archivos
-              entre web y mobile (#164). Va decorativo: la ciudad de al lado ya
-              dice qué es, y un lector no tiene por qué oír "pin". */}
+          {/* El 📍 pasa a ícono. Va decorativo: la ciudad de al lado ya dice
+              qué es, y un lector no tiene por qué oír "pin". */}
           <h3 className="flex items-center gap-1.5 font-display font-semibold text-gray-900 dark:text-gray-100">
             <Icon name="location-on" className="h-4 w-4 flex-shrink-0" />
             {item.city}

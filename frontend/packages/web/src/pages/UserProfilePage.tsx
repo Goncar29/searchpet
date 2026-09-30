@@ -14,7 +14,7 @@ import {
   useSubmitAbuseReport,
 } from '@shared/hooks';
 import type { Badge, Pet, UserReview, AbuseReason } from '@shared/types';
-import { BADGE_META } from '@shared/types';
+import { BADGE_META, BADGE_FALLBACK_ICON } from '@shared/types';
 import { ListState } from '../components/list/ListState';
 import { PawPlaceholder } from '../components/PawPlaceholder';
 import { PetGridCard } from '../components/PetGridCard';
@@ -38,7 +38,7 @@ const CARD = 'bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray
 function BadgeCard({ badge }: { badge: Badge }) {
   const { t, i18n } = useTranslation('badges');
   const meta = BADGE_META[badge.badge_type] ?? {
-    emoji: '🏅',
+    icon: BADGE_FALLBACK_ICON,
     labelKey: badge.badge_type,
     descriptionKey: '',
   };
@@ -46,7 +46,9 @@ function BadgeCard({ badge }: { badge: Badge }) {
 
   return (
     <div className={`flex items-start gap-3 p-3 rounded-xl border ${color}`}>
-      <span className="text-2xl flex-shrink-0">{meta.emoji}</span>
+      <span className="text-2xl flex-shrink-0 leading-none" aria-hidden="true">
+        <Icon name={meta.icon} />
+      </span>
       <div>
         <p className="text-sm font-semibold">{t(meta.labelKey)}</p>
         {meta.descriptionKey && (

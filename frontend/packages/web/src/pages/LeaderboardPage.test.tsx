@@ -3,6 +3,7 @@ import { render, screen, fireEvent, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { LeaderboardPage } from './LeaderboardPage';
+import { drawnPaths, iconPath, EMOJI } from '../test/icons';
 
 // El mock interpola: devuelve `clave|valores`. Con `t: (key) => key` a secas
 // los nombres accesibles de las filas salen todos idénticos aunque el
@@ -368,6 +369,16 @@ describe('LeaderboardPage', () => {
       search('Montevideo');
 
       expect(screen.getAllByLabelText('badges:first_helper.label').length).toBeGreaterThan(0);
+    });
+
+    it('cada logro dibuja su icono del registro, sin emoji', () => {
+      entries = [entry(1, { badges: ['first_helper'] }), entry(2), entry(3)];
+      render(<LeaderboardPage />, { wrapper });
+      search('Montevideo');
+
+      const glyph = screen.getAllByLabelText('badges:first_helper.label')[0];
+      expect(drawnPaths(glyph)).toEqual([iconPath('handshake')]);
+      expect(glyph.textContent).not.toMatch(EMOJI);
     });
 
     it('ignora un tipo de logro desconocido en vez de romper', () => {

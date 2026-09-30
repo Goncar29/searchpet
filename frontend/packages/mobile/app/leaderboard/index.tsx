@@ -20,6 +20,7 @@ import { useAuthStore } from '../../store';
 import { ListState } from '../../components/list/ListState';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
 import { BADGE_META } from '../../../shared/types';
+import { Icon } from '../../components/Icon';
 import type { LeaderboardEntry } from '../../../shared/types';
 
 /**
@@ -34,10 +35,10 @@ import type { LeaderboardEntry } from '../../../shared/types';
  */
 const DEFAULT_CITY = 'Montevideo';
 
-const MEDAL: Record<number, string> = {
-  1: '🥇',
-  2: '🥈',
-  3: '🥉',
+const MEDAL_COLOR: Record<number, string> = {
+  1: COLORS.medalGold,
+  2: COLORS.medalSilver,
+  3: COLORS.medalBronze,
 };
 
 function getInitials(name: string): string {
@@ -53,7 +54,9 @@ function AchievementsLegend() {
       <Text style={styles.achievementsSubtitle}>{t('badges:achievementsSubtitle')}</Text>
       {Object.entries(BADGE_META).map(([key, meta]) => (
         <View key={key} style={styles.achievementRow}>
-          <Text style={styles.achievementEmoji}>{meta.emoji}</Text>
+          <View style={styles.achievementIcon}>
+            <Icon name={meta.icon} size={20} color={COLORS.primary} />
+          </View>
           <View style={styles.achievementTextWrap}>
             <Text style={styles.achievementName}>{t(meta.labelKey)}</Text>
             <Text style={styles.achievementHow}>{t(meta.howToEarnKey)}</Text>
@@ -65,14 +68,19 @@ function AchievementsLegend() {
 }
 
 function LeaderboardRow({ entry, onPress }: { entry: LeaderboardEntry; onPress: () => void }) {
-  const medal = MEDAL[entry.rank];
+  const medal = MEDAL_COLOR[entry.rank];
 
   return (
     <TouchableOpacity style={styles.row} onPress={onPress} activeOpacity={0.7}>
       {/* Rank */}
       <View style={styles.rankContainer}>
         {medal ? (
-          <Text style={styles.medalEmoji}>{medal}</Text>
+          <Icon
+            name="workspace-premium"
+            size={26}
+            color={medal}
+            accessibilityLabel={`#${entry.rank}`}
+          />
         ) : (
           <Text style={styles.rankNumber}>{entry.rank}</Text>
         )}
@@ -312,7 +320,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     marginBottom: SPACING.sm,
   },
-  achievementEmoji: { fontSize: 20, marginRight: SPACING.sm, marginTop: 1 },
+  achievementIcon: { marginRight: SPACING.sm, marginTop: 1 },
   achievementTextWrap: { flex: 1 },
   achievementName: { fontSize: FONTS.sizes.sm, fontWeight: '600', color: COLORS.textPrimary },
   achievementHow: { fontSize: FONTS.sizes.xs, color: COLORS.textSecondary },
@@ -340,7 +348,6 @@ const styles = StyleSheet.create({
     ...SHADOWS.sm,
   },
   rankContainer: { width: 32, alignItems: 'center', marginRight: SPACING.sm },
-  medalEmoji: { fontSize: 22 },
   rankNumber: { fontSize: FONTS.sizes.md, fontWeight: '700', color: COLORS.textSecondary },
 
   avatar: {

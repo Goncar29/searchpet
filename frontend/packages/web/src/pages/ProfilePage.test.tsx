@@ -7,6 +7,7 @@ import { ApiError } from '@shared/api/client';
 import { ProfilePage } from './ProfilePage';
 import { MyPetsPage } from './MyPetsPage';
 import { MY_PETS_ROUTE } from '../routes';
+import { drawnPaths, iconPath, EMOJI } from '../test/icons';
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -110,7 +111,7 @@ vi.mock('@shared/types', async (importOriginal) => {
     ...actual,
     BADGE_META: {
       first_helper: {
-        emoji: '🤝',
+        icon: 'handshake',
         labelKey: 'badges:first_helper.label',
         descriptionKey: 'badges:first_helper.description',
         howToEarnKey: 'badges:first_helper.howToEarn',
@@ -511,6 +512,22 @@ describe('ProfilePage', () => {
     render(<ProfilePage />, { wrapper });
 
     expect(screen.getByText('septimo_logro')).toBeInTheDocument();
+  });
+
+  it('un logro conocido dibuja su icono y uno desconocido dibuja military-tech', () => {
+    badgesData.current = [
+      { id: 'b1', badge_type: 'first_helper', earned_at: '2026-08-01T00:00:00Z' },
+      { id: 'b2', badge_type: 'septimo_logro', earned_at: '2026-08-01T00:00:00Z' },
+    ];
+    render(<ProfilePage />, { wrapper });
+
+    const tile = (label: string) => screen.getByText(label).closest('div') as HTMLElement;
+    const known = tile('badges:first_helper.label');
+    const unknown = tile('septimo_logro');
+    expect(drawnPaths(known)).toEqual([iconPath('handshake')]);
+    expect(drawnPaths(unknown)).toEqual([iconPath('military-tech')]);
+    expect(known.textContent).not.toMatch(EMOJI);
+    expect(unknown.textContent).not.toMatch(EMOJI);
   });
 
   // `ownedPets` excluye adopción, así que a quien tiene TODAS sus mascotas en
