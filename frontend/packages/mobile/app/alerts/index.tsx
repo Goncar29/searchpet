@@ -277,7 +277,7 @@ export default function AlertsScreen() {
                           {/* Translated (rule #12/#60-adjacent M5): the raw
                               literal ('perro', 'gato'...) showed untranslated
                               regardless of the app's language. */}
-                          {alert.pet_type ? `  ·  ${t(`pets:types.${alert.pet_type}`)}` : ''}
+                          {alert.pet_type ? `  ·  ${t(`pets:types.${alert.pet_type}`, { defaultValue: alert.pet_type })}` : ''}
                         </Text>
                       </View>
                       <Switch

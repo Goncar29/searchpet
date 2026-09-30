@@ -21,16 +21,21 @@ jest.mock('react-i18next', () => {
   const mobile = require('../i18n/locales/es.json');
   const recursos: Record<string, any> = { ...shared, ...mobile };
 
-  const resolver = (clave: string): string => {
+  const resolver = (clave: string): string | undefined => {
     const [ns, resto] = clave.includes(':') ? clave.split(':') : ['translation', clave];
     const valor = resto.split('.').reduce((o: any, p: string) => o?.[p], recursos[ns]);
-    return typeof valor === 'string' ? valor : clave;
+    return typeof valor === 'string' ? valor : undefined;
   };
 
   return {
     useTranslation: () => ({
+      // `opts.defaultValue` mirrors real i18next: when the key has no
+      // translation, i18next returns the default instead of the key path.
+      // Without this the mock can only ever affirm "raw key shown", never
+      // "raw value shown", and the suggestion-1 fallback would be untestable.
       t: (clave: string, opts?: Record<string, unknown>) => {
-        const texto = resolver(clave);
+        const encontrado = resolver(clave);
+        const texto = encontrado ?? (typeof opts?.defaultValue === 'string' ? opts.defaultValue : clave);
         return opts
           ? texto.replace(/\{\{(\w+)\}\}/g, (_m, k: string) => String(opts[k] ?? ''))
           : texto;
@@ -109,6 +114,22 @@ describe('PetCard', () => {
     render(<PetCard report={baseReport} onPress={() => {}} />);
     expect(screen.getByText('Perro')).toBeTruthy();
     expect(screen.queryByText('perro')).toBeNull();
+  });
+
+  // If the backend ever sends a type with no `pets:types.*` key, i18next
+  // must not render the raw key path ('pets:types.hamster') — that's a
+  // literal i18n key leaking to the screen, the recurring bug of rules #12
+  // and #21. `defaultValue` keeps the old pre-translation behaviour: show
+  // the raw value.
+  it('un tipo de mascota sin traducción muestra el valor crudo, no la ruta de la clave', () => {
+    render(
+      <PetCard
+        report={{ ...baseReport, pet: { ...baseReport.pet!, type: 'hamster' } }}
+        onPress={() => {}}
+      />,
+    );
+    expect(screen.getByText('hamster')).toBeTruthy();
+    expect(screen.queryByText('pets:types.hamster')).toBeNull();
   });
 
   it('muestra el placeholder de marca cuando no hay fotos', () => {

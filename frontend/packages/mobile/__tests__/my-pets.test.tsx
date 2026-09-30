@@ -10,6 +10,33 @@ jest.mock('../store', () => ({
   useLocationStore: () => ({ latitude: -34.9011, longitude: -56.1645, setLocation: jest.fn() }),
 }));
 
+// This file otherwise relies on react-i18next's uninitialized-instance
+// passthrough (`t(key)` -> `key`, or `opts.defaultValue` when given — see
+// react-i18next's `notReadyT`). Suggestion 1 added `{ defaultValue: item.type }`
+// to the `pets:types.*` call, and in that passthrough that makes ANY type
+// ('perro', unmapped or not) render as its raw value, so the old regex proxy
+// (`/pets:types\.perro/`, proving `t()` was actually called) can no longer
+// tell a real translation apart from a raw literal never routed through
+// i18n. Resolving `pets:types.*` against the real locale — same idea as
+// PetCard.test.tsx's mock — restores that: a known type genuinely
+// translates ('perro' -> 'Perro'), while every other key keeps the original
+// passthrough behaviour so no other assertion in this file is affected.
+jest.mock('react-i18next', () => {
+  const petTypes = require('../../shared/i18n/locales/es.json').pets.types;
+  return {
+    useTranslation: () => ({
+      t: (key: string, opts?: Record<string, unknown>) => {
+        if (key.startsWith('pets:types.')) {
+          const known = petTypes[key.slice('pets:types.'.length)];
+          if (known) return known;
+        }
+        if (opts && typeof opts.defaultValue === 'string') return opts.defaultValue;
+        return key;
+      },
+    }),
+  };
+});
+
 const mockUseMyPets = jest.fn();
 const mockUseReportedPets = jest.fn();
 const mockUpdatePetMutateAsync = jest.fn();
@@ -176,7 +203,7 @@ describe('MyPetsScreen', () => {
   // must go through i18next, not render as-is.
   it('el tipo de mascota sale de i18n, no el literal crudo', () => {
     render(<MyPetsScreen />);
-    expect(screen.getByText(/pets:types\.perro/)).toBeTruthy();
+    expect(screen.getByText(/Perro/)).toBeTruthy();
   });
 
   it('el tab "owned" excluye mascotas en adopción', () => {

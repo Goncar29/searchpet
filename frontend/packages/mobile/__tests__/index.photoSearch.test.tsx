@@ -57,6 +57,32 @@ jest.mock('../components/PetCard', () => {
   return { PetCard: (props: any) => React.createElement(Text, null, `pet:${props.pet?.name ?? '?'}`) };
 });
 
+// This file otherwise relies on react-i18next's uninitialized-instance
+// passthrough (`t(key)` -> `key`, or `opts.defaultValue` when given — see
+// react-i18next's `notReadyT`). Suggestion 1 added `{ defaultValue: type }`
+// to the two `pets:types.*` calls in this screen, and in that passthrough
+// that makes ANY type ('perro', unmapped or not) render as its raw value —
+// so the exact-match proxy below (translated key vs. raw literal) could no
+// longer tell them apart. Resolving `pets:types.*` against the real locale —
+// same idea as PetCard.test.tsx's mock — restores that: a known type
+// genuinely translates ('perro' -> 'Perro'), while every other key keeps the
+// original passthrough behaviour so no other assertion is affected.
+jest.mock('react-i18next', () => {
+  const petTypes = require('../../shared/i18n/locales/es.json').pets.types;
+  return {
+    useTranslation: () => ({
+      t: (key: string, opts?: Record<string, unknown>) => {
+        if (key.startsWith('pets:types.')) {
+          const known = petTypes[key.slice('pets:types.'.length)];
+          if (known) return known;
+        }
+        if (opts && typeof opts.defaultValue === 'string') return opts.defaultValue;
+        return key;
+      },
+    }),
+  };
+});
+
 beforeEach(() => {
   mockClassify.mockReset();
   mockImageSearchMutateAsync.mockReset();
@@ -85,11 +111,12 @@ describe('HomeScreen — el tipo de mascota de la búsqueda por foto sale de i18
     fireEvent.press(screen.getByText(/home:byPhoto/));
 
     // Exact match, not a substring regex: the unrelated type-filter chip row
-    // ALSO renders `t('pets:types.perro')` (as "🐶 pets:types.perro"), which
-    // would satisfy a loose /pets:types\.perro/ match regardless of this fix.
-    // The image-result row's Text has no icon prefix, so its exact content is
-    // 'pets:types.perro' when translated and 'perro' when raw.
-    expect(await screen.findByText('pets:types.perro')).toBeTruthy();
+    // ALSO renders `t('pets:types.perro')` (as "🐶 Perro" — icon + text as
+    // sibling nodes in the same <Text>), which would satisfy a loose /Perro/
+    // match regardless of this fix. The image-result row's Text has no icon
+    // prefix, so its exact content is 'Perro' when translated and 'perro'
+    // when raw/untranslated.
+    expect(await screen.findByText('Perro')).toBeTruthy();
   });
 
   it('resultado de clasificación local (sin sesión): traduce el tipo cuando no hay raza', async () => {
@@ -103,9 +130,9 @@ describe('HomeScreen — el tipo de mascota de la búsqueda por foto sale de i18
     render(<HomeScreen />);
     fireEvent.press(screen.getByText(/home:byPhoto/));
 
-    // Exact content of the classify chip's single Text node: 'pets:types.perro
-    // · 87%' when translated, 'perro · 87%' when raw. See note above on why
-    // this can't be a loose substring match.
-    expect(await screen.findByText('pets:types.perro · 87%')).toBeTruthy();
+    // Exact content of the classify chip's single Text node: 'Perro · 87%'
+    // when translated, 'perro · 87%' when raw. See note above on why this
+    // can't be a loose substring match.
+    expect(await screen.findByText('Perro · 87%')).toBeTruthy();
   });
 });

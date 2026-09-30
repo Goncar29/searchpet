@@ -34,6 +34,33 @@ jest.mock('../../shared/utils/apiErrors', () => ({
   getErrorMessage: () => 'error',
 }));
 
+// This file otherwise relies on react-i18next's uninitialized-instance
+// passthrough (`t(key)` -> `key`, or `opts.defaultValue` when given — see
+// react-i18next's `notReadyT`). Suggestion 1 added `{ defaultValue: type }`
+// to the `pets:types.*` call, and in that passthrough that makes ANY type
+// ('perro', unmapped or not) render as its raw value, so the old regex proxy
+// (`/pets:types\.perro/`, proving `t()` was actually called) can no longer
+// tell a real translation apart from a raw literal never routed through
+// i18n. Resolving `pets:types.*` against the real locale — same idea as
+// PetCard.test.tsx's mock — restores that: a known type genuinely
+// translates ('perro' -> 'Perro'), while every other key keeps the original
+// passthrough behaviour so no other assertion in this file is affected.
+jest.mock('react-i18next', () => {
+  const petTypes = require('../../shared/i18n/locales/es.json').pets.types;
+  return {
+    useTranslation: () => ({
+      t: (key: string, opts?: Record<string, unknown>) => {
+        if (key.startsWith('pets:types.')) {
+          const known = petTypes[key.slice('pets:types.'.length)];
+          if (known) return known;
+        }
+        if (opts && typeof opts.defaultValue === 'string') return opts.defaultValue;
+        return key;
+      },
+    }),
+  };
+});
+
 const mockAlert = {
   id: 'alert-1',
   name: 'Casa',
@@ -101,6 +128,6 @@ describe('AlertsScreen', () => {
       isLoading: false,
     });
     const { queryByText } = render(<AlertsScreen />);
-    expect(queryByText(/pets:types\.perro/)).toBeTruthy();
+    expect(queryByText(/Perro/)).toBeTruthy();
   });
 });
