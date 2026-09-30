@@ -18,16 +18,18 @@ import {
   ActionSheetIOS,
 } from 'react-native';
 import { useState, useEffect } from 'react';
-import { useLocalSearchParams, useNavigation } from 'expo-router';
+import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import i18next from 'i18next';
-import { usePublicProfile, useUserReviews, useCreateReview, useUpdateReview, useDeleteReview, useBlockUser, useBlockedUsers, useSubmitAbuseReport } from '../../../shared/hooks';
+import { usePublicProfile, useUserPets, useUserReviews, useCreateReview, useUpdateReview, useDeleteReview, useBlockUser, useBlockedUsers, useSubmitAbuseReport } from '../../../shared/hooks';
 import { getErrorMessage } from '../../../shared/utils/apiErrors';
 import { useAuthStore } from '../../store';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
-import { StaleDataNotice } from '../../components/list/ListState';
+import { StaleDataNotice, ListState } from '../../components/list/ListState';
+import { PetCard } from '../../components/PetCard';
 import { getDateLocale } from '../../i18n/dateLocale';
-import type { Badge, UserReview } from '../../../shared/types';
+import type { Badge, Pet, UserReview } from '../../../shared/types';
+import { splitOwnedPets } from '../../../shared/utils/ownedPetBuckets';
 import { BADGE_META } from '../../../shared/types';
 import { cloudinaryThumb } from '@shared/utils/cloudinaryThumb';
 import { IMAGE_SIZES } from '../../constants/imageSizes';
@@ -168,11 +170,13 @@ export default function PublicProfileScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user, isAuthenticated } = useAuthStore();
   const navigation = useNavigation();
+  const router = useRouter();
   const { t } = useTranslation(['users', 'badges', 'common']);
 
   const profileQuery = usePublicProfile(id ?? '');
   const { data: profile, isLoading, isError, refetch, isFetching } = profileQuery;
   const { data: reviewsData, isLoading: reviewsLoading } = useUserReviews(id ?? '');
+  const petsQuery = useUserPets(id ?? '');
 
   const [showForm, setShowForm] = useState(false);
   const [formStars, setFormStars] = useState(0);
@@ -190,6 +194,16 @@ export default function PublicProfileScreen() {
   const isOwnProfile = !!user && user.id === id;
   const canReview = isAuthenticated && !isOwnProfile;
   const isBlocked = blockedList?.some((b) => b.blocked_id === id) ?? false;
+
+  // `mostradas` y `total` describen el MISMO conjunto (todo lo publicado y no
+  // cerrado, las dos secciones juntas); no se compara contra una sola sección.
+  // `>` y NO `!==`: `X-Total-Count` es best-effort y el cliente cae a 0 si falta,
+  // lo que dejaría "3 de 0" con `!==`. Con la query caída ambos son 0 y el aviso
+  // no afirma nada sobre una lista que no se pudo leer.
+  const petsShown = petsQuery.data?.data.length ?? 0;
+  const petsTotal = petsQuery.data?.total ?? 0;
+  const petsTruncated = petsTotal > petsShown;
+  const adoptionPets = petsQuery.data ? splitOwnedPets(petsQuery.data.data).adoption : [];
 
   const handleDeleteReview = () => {
     Alert.alert(
@@ -453,6 +467,52 @@ export default function PublicProfileScreen() {
         )}
       </View>
 
+      {/* ── Publicaciones ── */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>{t('users:posts')}</Text>
+        <ListState
+          query={petsQuery}
+          // El sobre es `{data, total}`: se atraviesa `.data` antes de partir.
+          select={(paged) => splitOwnedPets(paged.data).owned}
+          errorTitle={t('users:postsError')}
+          loading={<ActivityIndicator size="small" color={COLORS.primary} style={{ marginTop: SPACING.md }} />}
+        >
+          {(pets: Pet[]) =>
+            pets.length === 0 ? (
+              <View style={styles.emptyBadges}>
+                <Text style={styles.emptyBadgesIcon}>🐾</Text>
+                <Text style={styles.emptyBadgesText}>{t('users:postsEmpty')}</Text>
+              </View>
+            ) : (
+              pets.map((pet) => (
+                <PetCard key={pet.id} pet={pet} onPress={() => router.push(`/pet/${pet.id}`)} />
+              ))
+            )
+          }
+        </ListState>
+      </View>
+
+      {/* En adopción: sin `ListState` propio A PROPÓSITO. Comparte query con
+          "Publicaciones", que ya reporta la falla UNA vez; si acá no hay nada
+          no se dibuja nada, y así no afirma "no tiene nada en adopción" con la
+          lista caída. */}
+      {adoptionPets.length > 0 && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>{t('users:adoption')}</Text>
+          {adoptionPets.map((pet) => (
+            <PetCard key={pet.id} pet={pet} onPress={() => router.push(`/pet/${pet.id}`)} />
+          ))}
+        </View>
+      )}
+
+      {/* El aviso de recorte va DEBAJO de las dos secciones, y sólo cuando el
+          tope muerde realmente. */}
+      {petsTruncated && (
+        <Text style={styles.petsCapped}>
+          {t('users:postsCapped', { shown: petsShown, total: petsTotal })}
+        </Text>
+      )}
+
       {/* ── Blocked banner ── */}
       {isBlocked && (
         <View style={styles.blockedBanner}>
@@ -667,6 +727,14 @@ const styles = StyleSheet.create({
   badgeLabel: { fontSize: FONTS.sizes.md, fontWeight: '700', color: COLORS.textPrimary },
   badgeDescription: { fontSize: FONTS.sizes.sm, color: COLORS.textSecondary, marginTop: 2 },
   badgeDate: { fontSize: FONTS.sizes.xs, color: COLORS.textMuted, marginTop: 4 },
+
+  petsCapped: {
+    marginHorizontal: SPACING.lg,
+    marginTop: SPACING.sm,
+    fontSize: FONTS.sizes.sm,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+  },
 
   // ── Empty ──
   emptyBadges: {

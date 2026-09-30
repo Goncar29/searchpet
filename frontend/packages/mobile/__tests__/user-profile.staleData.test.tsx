@@ -20,12 +20,14 @@ jest.mock('expo-router', () => ({
 
 const mockUsePublicProfile = jest.fn();
 const mockUseUserReviews = jest.fn();
+const mockUseUserPets = jest.fn();
 const mockUseBlockedUsers = jest.fn();
 const mockUseAuthStore = jest.fn();
 
 jest.mock('../../shared/hooks', () => ({
   usePublicProfile: (...a: unknown[]) => mockUsePublicProfile(...a),
   useUserReviews: (...a: unknown[]) => mockUseUserReviews(...a),
+  useUserPets: (...a: unknown[]) => mockUseUserPets(...a),
   useBlockedUsers: (...a: unknown[]) => mockUseBlockedUsers(...a),
   useCreateReview: () => ({ mutate: jest.fn(), mutateAsync: jest.fn(), isPending: false }),
   useUpdateReview: () => ({ mutate: jest.fn(), mutateAsync: jest.fn(), isPending: false }),
@@ -52,6 +54,14 @@ const perfil = {
 };
 
 beforeEach(() => {
+  mockUseUserPets.mockReturnValue({
+    data: { data: [], total: 0 },
+    isLoading: false,
+    isPending: false,
+    isError: false,
+    isPaused: false,
+    refetch: jest.fn(),
+  });
   mockUseAuthStore.mockReturnValue({ user: { id: 'yo' }, isAuthenticated: true });
   mockUseUserReviews.mockReturnValue({ data: { reviews: [] }, isLoading: false, isError: false });
   mockUseBlockedUsers.mockReturnValue({ data: [], isLoading: false, isError: false });
