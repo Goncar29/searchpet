@@ -37,12 +37,14 @@ Mobile: next task, after the web PR.
 - [x] T2 — Web A + B + `<option>` emoji, plus a click test proving the toggle
   still calls `toggleTheme` (review suggestion). Route: delegated writer
   (15+ files). `6c8dbb49`.
-- [ ] T3 — Shared icon registry: move the path map to `shared/icons/` so web
+- [x] T3 — Shared icon registry: move the path map to `shared/icons/` so web
   and a new mobile `Icon` (react-native-svg, already installed) read ONE
   source. When the owner connects the `icons0` MCP, only that file changes.
-  Route: delegated writer.
-- [ ] T4 — Mobile catalog: every rendered emoji, where it renders, keep vs
-  replace, icon name. Route: delegated read-only mapper (running).
+  Route: delegated writer. `85682099`, `c2033ecc`.
+- [x] T4 — Mobile catalog: every rendered emoji, where it renders, keep vs
+  replace, icon name. Route: delegated read-only mapper. Saved in engram
+  `odd/emoji-to-icons/mobile-catalog`: ~95 UI glyphs to replace, 6 kept
+  (WhatsApp template text).
 - [ ] T5 — Mobile screens + shared `BADGE_META` → icons. Waits for the owner
   to confirm the icon source (icons0 MCP vs current Iconify Material
   Symbols).
@@ -71,7 +73,21 @@ Mobile: next task, after the web PR.
   re-ran web 1089/1089 + shared 341/341. Owner: the `icons0` MCP is down
   (401); prepare everything so its icons can be plugged in later.
 
+- 2026-09-30: #304 (T1+T2) merged as `f4d634ea`; its native review escalated
+  one finding (`R3-missing-icon-imports`, unknown causality) that was a false
+  positive: all 50 files importing `<Icon` import it, and removing the import
+  from VetPopup makes `tsc` fail with TS2304, so the green build rules it out.
+- 2026-09-30: T3 done on `feat/shared-icon-registry`: `shared/icons/paths.ts`
+  is the single registry (pure data, header documents the 24x24 single-path
+  contract a new source must meet); web `Icon` imports it unchanged (no web
+  test edited, 1089 green); mobile `components/Icon.tsx` (react-native-svg,
+  decorative by default, labelled → role image). 19 new icons for mobile, all
+  single-path. RED: mobile test failed on the missing module first. Parent
+  re-ran mobile 337/337 and shared 413/413. The `icons0` MCP still fails to
+  connect in this session (reconnect: connection closed).
+
 ## Next step
 
-Open the web PR (T1+T2). Then T3 (shared registry + mobile Icon) once the
-T4 catalog lands.
+Merge the T3 PR. T5 (mobile screens + BADGE_META) waits for the icon source
+decision: current Iconify registry, or icons from the `icons0` MCP once it
+connects (it could keep dog/cat/bird distinct, which Material Symbols lacks).
