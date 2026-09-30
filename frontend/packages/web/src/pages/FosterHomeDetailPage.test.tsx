@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { FosterHomeDetailPage } from './FosterHomeDetailPage';
 import { ApiError } from '@shared/api/client';
+import { drawnPaths, iconPath, EMOJI } from '../test/icons';
 
 /**
  * ESPEJO DE `mobile/__tests__/foster-home-detail.notFound.test.tsx`.
@@ -171,5 +172,63 @@ describe('FosterHomeDetailPage — 404 no es lo mismo que "no pudimos leerlo"', 
     expect(screen.getByText(/Montevideo/)).toBeInTheDocument();
     expect(screen.queryByText('fosterHomes:detail.notFound')).not.toBeInTheDocument();
     expect(screen.queryByText('fosterHomes:detail.loadError')).not.toBeInTheDocument();
+  });
+});
+
+// Emoji rendered as illustrations and button glyphs ignore `currentColor` and
+// dark mode. The page draws Material Symbols instead.
+describe('FosterHomeDetailPage — sin emoji', () => {
+  const conFoto = {
+    ...hogar,
+    whatsapp_phone: '+59899123456',
+    photos: [
+      { id: 'p1', url: 'https://cdn/a.jpg' },
+      { id: 'p2', url: 'https://cdn/b.jpg' },
+    ],
+  };
+
+  it('el estado offline dibuja el ícono wifi-off, sin emoji', () => {
+    mockQuery = { data: undefined, isLoading: false, isError: false, isPaused: true, error: null, refetch: mockRefetch };
+    const { container } = render(<FosterHomeDetailPage />, { wrapper });
+
+    expect(container.textContent).not.toMatch(EMOJI);
+    expect(drawnPaths(container)).toContain(iconPath('wifi-off'));
+  });
+
+  it('un fallo de lectura dibuja warning y un 404 dibuja home, sin emoji', () => {
+    mockQuery = sinDatos(new ApiError('server_error', 502, 'bad gateway'));
+    const fallo = render(<FosterHomeDetailPage />, { wrapper });
+    expect(fallo.container.textContent).not.toMatch(EMOJI);
+    expect(drawnPaths(fallo.container)).toContain(iconPath('warning'));
+    expect(drawnPaths(fallo.container)).not.toContain(iconPath('home'));
+    fallo.unmount();
+
+    mockQuery = sinDatos(new ApiError('not_found', 404, 'not found'));
+    const noExiste = render(<FosterHomeDetailPage />, { wrapper });
+    expect(noExiste.container.textContent).not.toMatch(EMOJI);
+    expect(drawnPaths(noExiste.container)).toContain(iconPath('home'));
+    expect(drawnPaths(noExiste.container)).not.toContain(iconPath('warning'));
+  });
+
+  it('sin fotos dibuja el placeholder home y la ciudad con el pin, sin emoji', () => {
+    mockQuery = { data: hogar, isLoading: false, isError: false, refetch: mockRefetch };
+    const { container } = render(<FosterHomeDetailPage />, { wrapper });
+
+    expect(container.textContent).not.toMatch(EMOJI);
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Montevideo');
+    expect(drawnPaths(container)).toContain(iconPath('home'));
+    expect(drawnPaths(container)).toContain(iconPath('location-on'));
+  });
+
+  it('con fotos dibuja el contador con la cámara, y los tres botones de contacto con su ícono', () => {
+    mockQuery = { data: conFoto, isLoading: false, isError: false, refetch: mockRefetch };
+    const { container } = render(<FosterHomeDetailPage />, { wrapper });
+
+    expect(container.textContent).not.toMatch(EMOJI);
+    expect(screen.getByText('1/2')).toBeInTheDocument();
+    const paths = drawnPaths(container);
+    for (const name of ['photo-camera', 'chat-bubble', 'whatsapp', 'flag'] as const) {
+      expect(paths).toContain(iconPath(name));
+    }
   });
 });

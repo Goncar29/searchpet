@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { LanguageSwitcher } from '../components/LanguageSwitcher';
 import { Logo } from '../components/Logo';
+import { Icon } from '../components/Icon';
 import { useQueryClient } from '@tanstack/react-query';
 import { useUnreadCount, useWebSocket, useMyShelter, UNREAD_COUNT_KEY } from '@shared/hooks';
 import type { WsEnvelope, WsBadgeUpdate } from '@shared/hooks';
@@ -169,7 +170,7 @@ export function MainLayout() {
                 aria-label={t('darkMode')}
                 className="p-1.5 rounded-md text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-150"
               >
-                {theme === 'dark' ? '☀️' : '🌙'}
+                <Icon name={theme === 'dark' ? 'light-mode' : 'dark-mode'} className="h-5 w-5" />
               </button>
               <LanguageSwitcher />
 

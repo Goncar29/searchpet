@@ -4,6 +4,7 @@ import { MemoryRouter } from 'react-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { HomePage } from './HomePage';
 import { useSearchPets } from '@shared/hooks';
+import { EMOJI } from '../test/icons';
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (key: string) => key, i18n: { language: 'es' } }),
@@ -196,6 +197,22 @@ describe('HomePage', () => {
 
     expect(screen.getByText('Bruno volvió a casa')).toBeInTheDocument();
     expect(screen.queryByText('readMore')).not.toBeInTheDocument();
+  });
+
+  // The emoji used to sit inside <option>; a browser strips markup there, so an
+  // icon can't replace it. The type options are plain text now.
+  it('las opciones del filtro de tipo son texto plano, sin emoji', () => {
+    render(<HomePage />, { wrapper });
+
+    const options = [...(screen.getByLabelText('home:filters.labels.type') as HTMLSelectElement).options];
+    expect(options.map((o) => o.textContent)).toEqual([
+      'home:filters.allTypes',
+      'home:petTypes.perro',
+      'home:petTypes.gato',
+      'home:petTypes.pajaro',
+      'home:petTypes.otro',
+    ]);
+    for (const o of options) expect(o.textContent).not.toMatch(EMOJI);
   });
 
   it('muestra la sección de mascotas perdidas', () => {

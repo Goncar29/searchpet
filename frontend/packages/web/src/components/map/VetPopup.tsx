@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next';
 import { formatDistance } from '@shared/utils/mapFormat';
 import { safeExternalUrl } from '@shared/utils/safeExternalUrl';
 import type { Vet } from '@shared/types';
+import { Icon } from '../Icon';
 
 // Movido tal cual desde MapPage, con su helper de direcciones.
 export function VetPopup({ vet }: { vet: Vet }) {
@@ -17,9 +18,17 @@ export function VetPopup({ vet }: { vet: Vet }) {
   return (
     <div className="w-52">
       <h3 className="font-bold text-base leading-tight">{vet.name || tv('defaultName')}</h3>
-      <p className="text-xs font-semibold text-primary mt-0.5">📍 {formatDistance(vet.distance_meters)}</p>
+      <p className="text-xs font-semibold text-primary mt-0.5 flex items-center gap-1">
+        <Icon name="location-on" className="h-3.5 w-3.5 flex-shrink-0" />
+        {formatDistance(vet.distance_meters)}
+      </p>
       {vet.address && <p className="text-sm text-gray-600 mt-1">{vet.address}</p>}
-      {vet.opening_hours && <p className="text-xs text-gray-500 mt-1">🕐 {vet.opening_hours}</p>}
+      {vet.opening_hours && (
+        <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
+          <Icon name="schedule" className="h-3.5 w-3.5 flex-shrink-0" />
+          {vet.opening_hours}
+        </p>
+      )}
       <div className="flex gap-3 mt-2 flex-wrap">
         <a
           href={directionsUrl(vet.latitude, vet.longitude)}

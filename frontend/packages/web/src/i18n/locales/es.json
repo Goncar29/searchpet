@@ -582,6 +582,8 @@
       "reviewCount_one": "{{count}} reseña",
       "reviewCount_other": "{{count}} reseñas",
       "noRating": "Sin calificaciones",
+      "starCount_one": "{{count}} estrella",
+      "starCount_other": "{{count}} estrellas",
       "yourRating": "Tu calificación",
       "reviewPlaceholder": "Escribí tu reseña...",
       "publishReview": "Publicar reseña",

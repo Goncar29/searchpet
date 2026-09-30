@@ -28,14 +28,14 @@ const DEFAULT_LNG = -56.1645;
 // `hidden lg:block` and a phone still downloads it — see the note below.
 const HERO_IMAGE_SRC = '/hero.jpg';
 
-// The icon here is an emoji on purpose: these render inside native <option>
-// elements, and a browser strips any markup there — an inline <svg> would
-// simply not draw. Replacing it needs a custom combobox, not an icon swap.
-const PET_TYPES: { value: PetType; labelKey: string; icon: string }[] = [
-  { value: 'perro', labelKey: 'home:petTypes.perro', icon: '🐕' },
-  { value: 'gato', labelKey: 'home:petTypes.gato', icon: '🐱' },
-  { value: 'pajaro', labelKey: 'home:petTypes.pajaro', icon: '🐦' },
-  { value: 'otro', labelKey: 'home:petTypes.otro', icon: '🐾' },
+// Plain text on purpose: these render inside native <option> elements, and a
+// browser strips any markup there — an inline <svg> would not draw, and an
+// emoji would bring back the OS color font. An icon needs a custom combobox.
+const PET_TYPES: { value: PetType; labelKey: string }[] = [
+  { value: 'perro', labelKey: 'home:petTypes.perro' },
+  { value: 'gato', labelKey: 'home:petTypes.gato' },
+  { value: 'pajaro', labelKey: 'home:petTypes.pajaro' },
+  { value: 'otro', labelKey: 'home:petTypes.otro' },
 ];
 
 // Only feed-visible statuses are offered. `registered`/`archived` are private
@@ -662,7 +662,7 @@ export function HomePage() {
               >
                 <option value="">{t('home:filters.allTypes')}</option>
                 {PET_TYPES.map((pt) => (
-                  <option key={pt.value} value={pt.value}>{pt.icon} {t(pt.labelKey)}</option>
+                  <option key={pt.value} value={pt.value}>{t(pt.labelKey)}</option>
                 ))}
               </select>
             </div>

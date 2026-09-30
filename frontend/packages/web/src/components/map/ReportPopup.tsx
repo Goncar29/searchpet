@@ -4,6 +4,7 @@ import { statusBadgeBg } from '../../utils/statusBadge';
 import { formatTimeAgo } from '@shared/utils/mapFormat';
 import { cloudinaryCardThumb } from '@shared/utils/cloudinaryThumb';
 import type { Report } from '@shared/types';
+import { Icon } from '../Icon';
 
 // Movido tal cual desde MapPage: mismas clases, mismas claves, mismo markup.
 // Los tres helpers vinieron con él porque no tenían otro consumidor.
@@ -53,7 +54,10 @@ export function ReportPopup({ report }: { report: Report }) {
         <p className="text-xs text-gray-500 mt-1 capitalize">{subtitle}</p>
       )}
       {timeAgo && (
-        <p className="text-xs text-gray-400 mt-1">🕑 {timeAgo}</p>
+        <p className="text-xs text-gray-400 mt-1 inline-flex items-center gap-1">
+          <Icon name="schedule" className="h-3.5 w-3.5 flex-shrink-0" />
+          {timeAgo}
+        </p>
       )}
       {report.location_description && (
         <p className="text-sm text-gray-600 mt-2">{report.location_description}</p>

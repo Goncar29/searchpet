@@ -6,6 +6,7 @@ import { useMyPets, useReportedPets, useDeletePet, useUpdatePet } from '@shared/
 import type { Pet, PetStatus, Photo } from '@shared/types';
 import { getErrorMessage } from '@shared/utils/apiErrors';
 import { PawPlaceholder } from '../components/PawPlaceholder';
+import { Icon } from '../components/Icon';
 import { selectableStatuses } from '@shared/utils/petStatusTransitions';
 import { splitOwnedPets } from '@shared/utils/ownedPetBuckets';
 import { ListState } from '../components/list/ListState';
@@ -106,8 +107,9 @@ function PetCard({
         <span className={`absolute top-2 right-2 text-xs font-medium px-2 py-0.5 rounded-full ${statusCfg.className}`}>
           {t(statusCfg.labelKey)}
         </span>
-        <span className="absolute bottom-2 left-2 text-xs font-medium px-2 py-0.5 rounded-full bg-black/60 text-white">
-          📷 {t('pets:mine.photoCount', { current: pet.photos?.length ?? 0 })}
+        <span className="absolute bottom-2 left-2 text-xs font-medium px-2 py-0.5 rounded-full bg-black/60 text-white inline-flex items-center gap-1">
+          <Icon name="photo-camera" className="h-3.5 w-3.5 flex-shrink-0" />
+          {t('pets:mine.photoCount', { current: pet.photos?.length ?? 0 })}
         </span>
       </Link>
 

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { act, render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -22,8 +22,13 @@ vi.mock('../context/AuthContext', () => ({
   }),
 }));
 
+const themeState = vi.hoisted(() => ({ current: 'light' as 'light' | 'dark' }));
+// Un solo mock para toda la suite (no uno nuevo por render) para poder afirmar
+// que el botón lo llama; se limpia en el afterEach del describe del toggle.
+const toggleTheme = vi.hoisted(() => vi.fn());
+
 vi.mock('../context/ThemeContext', () => ({
-  useTheme: () => ({ theme: 'light', toggleTheme: vi.fn() }),
+  useTheme: () => ({ theme: themeState.current, toggleTheme }),
 }));
 
 vi.mock('../components/LanguageSwitcher', () => ({
@@ -38,6 +43,7 @@ vi.mock('@shared/hooks', () => ({
 }));
 
 import { useUnreadCount, useWebSocket, UNREAD_COUNT_KEY } from '@shared/hooks';
+import { Icon } from '../components/Icon';
 
 function renderLayout() {
   return render(
@@ -233,5 +239,60 @@ describe('MainLayout — miniatura del avatar', () => {
   it('sin foto cae en la inicial, sin romper', () => {
     renderLayout();
     expect(screen.queryByAltText('Me')).toBeNull();
+  });
+});
+
+// El toggle de tema dibujaba un emoji (☀️/🌙): cada sistema lo pinta con su
+// propia fuente, en color, y no sigue el `currentColor` del resto del navbar.
+// Ahora es un ícono de Material Symbols, como los demás controles.
+describe('MainLayout — toggle de tema', () => {
+  beforeEach(() => {
+    vi.mocked(useUnreadCount).mockReturnValue({ data: { count: 0 } } as unknown as ReturnType<
+      typeof useUnreadCount
+    >);
+  });
+
+  // En un afterEach y no al final del test: si una aserción falla antes, el
+  // tema oscuro no se filtra a los tests que siguen.
+  afterEach(() => {
+    themeState.current = 'light';
+    toggleTheme.mockClear();
+  });
+
+  function pathOf(name: 'light-mode' | 'dark-mode') {
+    const { container, unmount } = render(<Icon name={name} />);
+    const d = container.querySelector('path')?.getAttribute('d');
+    unmount();
+    return d;
+  }
+
+  it.each([
+    // En claro ofrece pasar a oscuro (luna); en oscuro, pasar a claro (sol).
+    ['light', 'dark-mode'],
+    ['dark', 'light-mode'],
+  ] as const)('en tema %s dibuja el ícono %s, sin emoji', (theme, icon) => {
+    themeState.current = theme;
+    const expected = pathOf(icon);
+    renderLayout();
+
+    const button = screen.getByRole('button', { name: 'darkMode' });
+    expect(button.textContent).toBe('');
+    expect(button.querySelector('svg path')?.getAttribute('d')).toBe(expected);
+  });
+
+  // Cambiar el emoji por un ícono no puede dejar el botón sin su acción.
+  it('el botón del toggle llama a toggleTheme una sola vez por click', () => {
+    renderLayout();
+    expect(toggleTheme).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'darkMode' }));
+
+    expect(toggleTheme).toHaveBeenCalledTimes(1);
+  });
+
+  // Sin esto, dos íconos idénticos pasarían los dos casos de arriba.
+  it('los íconos de claro y oscuro son distintos', () => {
+    expect(pathOf('light-mode')).toBeTruthy();
+    expect(pathOf('light-mode')).not.toBe(pathOf('dark-mode'));
   });
 });

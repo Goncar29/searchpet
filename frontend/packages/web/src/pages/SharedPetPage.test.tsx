@@ -4,6 +4,7 @@ import { MemoryRouter } from 'react-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { HelmetProvider } from 'react-helmet-async';
 import { SharedPetPage } from './SharedPetPage';
+import { drawnPaths, iconPath, EMOJI } from '../test/icons';
 
 const { mockUseSharedPet } = vi.hoisted(() => ({ mockUseSharedPet: vi.fn() }));
 
@@ -45,6 +46,16 @@ describe('SharedPetPage', () => {
     mockUseSharedPet.mockReturnValue({ data: null, isLoading: true });
     render(<SharedPetPage />, { wrapper });
     expect(document.body).toBeTruthy();
+  });
+
+  // Emoji ignore `currentColor` and dark mode; the not-found state draws an icon.
+  it('el estado "no encontrada" dibuja la lupa, sin emoji', () => {
+    mockUseSharedPet.mockReturnValue({ data: null, isLoading: false });
+    const { container } = render(<SharedPetPage />, { wrapper });
+
+    expect(screen.getByText('sharedPet:notFoundTitle')).toBeInTheDocument();
+    expect(container.textContent).not.toMatch(EMOJI);
+    expect(drawnPaths(container)).toContain(iconPath('search'));
   });
 
   describe('cuando hay datos de la mascota', () => {

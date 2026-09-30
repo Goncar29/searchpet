@@ -60,19 +60,26 @@ function BadgeCard({ badge }: { badge: Badge }) {
   );
 }
 
+// El ícono mide 1em, así que `size` (una clase `text-*`) lo dimensiona igual que
+// al glifo de texto que reemplaza. El conjunto se anuncia con su valor; las
+// estrellas sueltas son decorativas (`Icon` es aria-hidden).
 function StarDisplay({ stars, size = 'text-sm' }: { stars: number; size?: string }) {
+  const { t } = useTranslation(['profile']);
   return (
-    <span className="flex gap-0.5">
+    <span className="flex gap-0.5" role="img" aria-label={t('profile:public.starCount', { count: stars })}>
       {[1, 2, 3, 4, 5].map((i) => (
-        <span key={i} className={`${size} ${i <= stars ? 'text-yellow-400' : 'text-gray-300 dark:text-gray-600'}`}>
-          ★
-        </span>
+        <Icon
+          key={i}
+          name="star-filled"
+          className={`${size} ${i <= stars ? 'text-yellow-400' : 'text-gray-300 dark:text-gray-600'}`}
+        />
       ))}
     </span>
   );
 }
 
 function StarSelector({ value, onChange }: { value: number; onChange: (n: number) => void }) {
+  const { t } = useTranslation(['profile']);
   return (
     <span className="flex gap-1">
       {[1, 2, 3, 4, 5].map((i) => (
@@ -80,9 +87,10 @@ function StarSelector({ value, onChange }: { value: number; onChange: (n: number
           key={i}
           type="button"
           onClick={() => onChange(i)}
+          aria-label={t('profile:public.starCount', { count: i })}
           className={`text-3xl leading-none transition-colors ${i <= value ? 'text-yellow-400' : 'text-gray-300 dark:text-gray-600 hover:text-yellow-300'}`}
         >
-          ★
+          <Icon name="star-filled" />
         </button>
       ))}
     </span>

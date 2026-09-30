@@ -426,11 +426,9 @@ export function AlertsPage() {
           // es información nueva, y el usuario la necesita igual.
           !showForm ? (
             <div className="text-center py-16">
-              {/* Decorativo: el texto de abajo ya dice todo. Sin `aria-hidden`
-                  un lector de pantalla anuncia "campana" antes del mensaje.
-                  Se queda como emoji porque el set de `Icon` no tiene campana,
-                  y mapearlo a `campaign` (un megáfono) diría otra cosa. */}
-              <p className="text-5xl mb-4" aria-hidden="true">🔔</p>
+              {/* Decorativo: el texto de abajo ya dice todo (`Icon` es aria-hidden).
+                  `notifications` y no `campaign`: ese es un megáfono y diría otra cosa. */}
+              <Icon name="notifications" className="mx-auto mb-4 h-12 w-12 text-gray-300 dark:text-gray-600" />
               <p className="text-gray-700 dark:text-gray-300 font-semibold mb-2">{t('emptyTitle')}</p>
               <p className="text-gray-500 dark:text-gray-400 mb-4 text-sm">
                 {t('emptyText')}

@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next';
 import type { PetType, ReportStatus } from '@shared/types';
 import type { MapFilterDraft } from '../../hooks/useMapFilters';
 import { PlaceSearch } from './PlaceSearch';
+import { Icon } from '../Icon';
 
 const TIPOS: PetType[] = ['perro', 'gato', 'pajaro', 'otro'];
 
@@ -202,13 +203,14 @@ export function MapFilterPanel({
           data-testid="vets-toggle"
           onClick={onToggleVets}
           aria-pressed={showVets}
-          className={`px-3 py-1.5 rounded-full text-sm font-semibold border transition-colors self-start ${
+          className={`px-3 py-1.5 rounded-full text-sm font-semibold border transition-colors self-start inline-flex items-center gap-1.5 ${
             showVets
               ? 'bg-secondary text-white border-secondary'
               : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600'
           }`}
         >
-          🏥 {showVets ? t('vets:hide') : t('vets:toggle')}
+          <Icon name="local-hospital" className="h-4 w-4 flex-shrink-0" />
+          {showVets ? t('vets:hide') : t('vets:toggle')}
         </button>
       </div>
     </div>

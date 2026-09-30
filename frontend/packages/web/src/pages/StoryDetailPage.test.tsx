@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { StoryDetailPage } from './StoryDetailPage';
+import { drawnPaths, iconPath, EMOJI } from '../test/icons';
 
 const likeMutate = vi.fn();
 const unlikeMutate = vi.fn();
@@ -81,6 +82,21 @@ describe('StoryDetailPage', () => {
 
     expect(unlikeMutate).toHaveBeenCalledWith('s1');
     expect(likeMutate).not.toHaveBeenCalled();
+  });
+
+  // Emoji ignore `currentColor` and dark mode; the like button draws a heart icon
+  // whose fill carries the liked state (aria-pressed keeps announcing it).
+  it.each([
+    [false, 'favorite'],
+    [true, 'favorite-filled'],
+  ] as const)('con liked_by_me=%s el botón dibuja %s, sin emoji', (liked, icon) => {
+    mockStory = makeStory({ liked_by_me: liked });
+    render(<StoryDetailPage />, { wrapper });
+
+    const button = screen.getByRole('button', { name: /gusta/i });
+    expect(button).toHaveAttribute('aria-pressed', String(liked));
+    expect(button.textContent).not.toMatch(EMOJI);
+    expect(drawnPaths(button)).toEqual([iconPath(icon)]);
   });
 
   it('muestra la foto de la mascota como hero cuando pet_photo está presente', () => {
