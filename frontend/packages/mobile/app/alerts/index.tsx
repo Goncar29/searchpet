@@ -24,6 +24,7 @@ import { getErrorMessage } from '../../../shared/utils/apiErrors';
 import { ListState } from '../../components/list/ListState';
 import { useLocationStore } from '../../store';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS, PET_TYPES } from '../../constants';
+import { IconLabel } from '../../components/IconLabel';
 import type { LocationAlert, PetType } from '../../../shared/types';
 
 const RADIUS_OPTIONS = [1, 2, 5, 10, 25] as const;
@@ -217,9 +218,15 @@ export default function AlertsScreen() {
                   style={[styles.typeChip, petType === petTypeOption.value && styles.typeChipActive]}
                   onPress={() => setPetType(petType === petTypeOption.value ? '' : petTypeOption.value as PetType)}
                 >
-                  <Text style={[styles.typeChipText, petType === petTypeOption.value && styles.typeChipTextActive]}>
-                    {petTypeOption.icon} {t(petTypeOption.labelKey)}
-                  </Text>
+                  <IconLabel
+                    icon={petTypeOption.icon}
+                    size={18}
+                    color={petType === petTypeOption.value ? COLORS.white : COLORS.textSecondary}
+                  >
+                    <Text style={[styles.typeChipText, petType === petTypeOption.value && styles.typeChipTextActive]}>
+                      {t(petTypeOption.labelKey)}
+                    </Text>
+                  </IconLabel>
                 </TouchableOpacity>
               ))}
             </View>

@@ -1,7 +1,10 @@
 // Adopt screen smoke test
 import React from 'react';
-import { render, screen } from '@testing-library/react-native';
+import { render, screen, fireEvent } from '@testing-library/react-native';
 import AdoptScreen from '../app/adopt';
+import { drawnIcons, fillsOf } from './support/icons';
+import { COLORS } from '../constants';
+import { Text } from 'react-native';
 
 // expo-router is mocked globally in jest.setup.js
 
@@ -88,5 +91,33 @@ describe('AdoptScreen', () => {
     expect(screen.queryByText(/common:offlineTitle/i)).toBeTruthy();
     expect(screen.queryByText(/adoption:section.empty/i)).toBeNull();
     expect(screen.queryByText(/common:loadErrorTitle/i)).toBeNull();
+  });
+});
+const TYPE_ICONS = ['dog', 'cat', 'bird', 'pets'];
+const ICONS_OF_TYPES = (ui: Parameters<typeof drawnIcons>[0]) => drawnIcons(ui).filter((n) => TYPE_ICONS.includes(n));
+const TYPE_EMOJI = /[🐾🐕🐱🐦]/u;
+
+describe('AdoptScreen — type chips draw icons', () => {
+  const listed = () =>
+    mockUseAdoptions.mockReturnValue({
+      data: { data: [], total: 0, page: 1, limit: 20 },
+      isLoading: false,
+    });
+
+  it('the all-types chip and each type draw their own icon, no emoji', () => {
+    listed();
+    const ui = render(<AdoptScreen />);
+    expect(ICONS_OF_TYPES(ui)).toEqual(['pets', 'dog', 'cat', 'bird', 'pets']);
+    const texts = ui.UNSAFE_getAllByType(Text).map((t) => [t.props.children].flat(Infinity).join(''));
+    expect(texts.filter((s) => TYPE_EMOJI.test(s))).toEqual([]);
+  });
+
+  it('the selected chip tints its icon white and the others stay secondary (both halves)', () => {
+    listed();
+    const ui = render(<AdoptScreen />);
+    fireEvent.press(ui.getByText('pets:types.gato'));
+    expect(fillsOf(ui, 'cat')).toEqual([COLORS.white]);
+    expect(fillsOf(ui, 'dog')).toEqual([COLORS.textSecondary]);
+    expect(fillsOf(ui, 'bird')).toEqual([COLORS.textSecondary]);
   });
 });

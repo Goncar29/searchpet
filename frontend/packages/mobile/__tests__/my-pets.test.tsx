@@ -3,6 +3,8 @@ import React from 'react';
 import { Alert } from 'react-native';
 import { render, screen, fireEvent } from '@testing-library/react-native';
 import MyPetsScreen from '../app/my-pets';
+import { drawnIcons } from './support/icons';
+import { Text } from 'react-native';
 
 // expo-router is mocked globally in jest.setup.js
 
@@ -209,7 +211,8 @@ describe('MyPetsScreen', () => {
   // match, this fails if `item.type` ever stops going through `t()`.
   it('el tipo de mascota sale de i18n, no el literal crudo', () => {
     render(<MyPetsScreen />);
-    expect(screen.getByText('🐕 Perro · Labrador')).toBeTruthy();
+    // The type icon is drawn separately (`dog`), so the text is the label only.
+    expect(screen.getByText('Perro · Labrador')).toBeTruthy();
   });
 
   it('el tab "owned" excluye mascotas en adopción', () => {
@@ -267,5 +270,34 @@ describe('MyPetsScreen', () => {
     });
 
     alertSpy.mockRestore();
+  });
+});
+
+describe('MyPetsScreen — pet type icons', () => {
+  const only = (ui: Parameters<typeof drawnIcons>[0]) =>
+    drawnIcons(ui).filter((n) => ['dog', 'cat', 'bird', 'pets'].includes(n));
+
+  it('draws the icon of each pet type in the photo slot and on the type line', () => {
+    mockUseMyPets.mockReturnValue({
+      data: [ownedPet, { ...ownedPet, id: 'pet-9', name: 'Mishi', type: 'gato' }],
+      isLoading: false,
+      refetch: jest.fn(),
+      isRefetching: false,
+    });
+    const ui = render(<MyPetsScreen />);
+    expect(only(ui).sort()).toEqual(['cat', 'cat', 'dog', 'dog']);
+    const texts = ui.UNSAFE_getAllByType(Text).map((t) => [t.props.children].flat(Infinity).join(''));
+    expect(texts.filter((s) => /[🐾🐕🐱🐦]/u.test(s))).toEqual([]);
+  });
+
+  it('an unknown type falls back to the paw icon (pets)', () => {
+    mockUseMyPets.mockReturnValue({
+      data: [{ ...ownedPet, type: 'hamster' }],
+      isLoading: false,
+      refetch: jest.fn(),
+      isRefetching: false,
+    });
+    const ui = render(<MyPetsScreen />);
+    expect(only(ui)).toEqual(['pets', 'pets']);
   });
 });

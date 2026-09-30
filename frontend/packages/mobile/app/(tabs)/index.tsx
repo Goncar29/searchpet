@@ -27,6 +27,7 @@ import { useLocationStore, useAuthStore } from '../../store';
 import { PetCard } from '../../components/PetCard';
 import { ListState } from '../../components/list/ListState';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS, MAP_DEFAULTS, PET_TYPES } from '../../constants';
+import { IconLabel } from '../../components/IconLabel';
 import type { PetType, SuccessStory, ClassifyResult, ImageSearchResult } from '../../../shared/types';
 import { ApiError } from '../../../shared/api/client';
 import { cloudinaryThumb } from '@shared/utils/cloudinaryThumb';
@@ -287,9 +288,11 @@ export default function HomeScreen() {
             style={[styles.chip, !draftType && styles.chipActive]}
             onPress={() => { setDraftType(undefined); setAppliedType(undefined); }}
           >
-            <Text style={[styles.chipText, !draftType && styles.chipTextActive]}>
-              🐾 {t('home:all')}
-            </Text>
+            <IconLabel icon="pets" size={18} color={!draftType ? COLORS.white : COLORS.textSecondary}>
+              <Text style={[styles.chipText, !draftType && styles.chipTextActive]}>
+                {t('home:all')}
+              </Text>
+            </IconLabel>
           </TouchableOpacity>
 
           {PET_TYPES.map((petType) => (
@@ -302,9 +305,15 @@ export default function HomeScreen() {
                 setAppliedType(next);
               }}
             >
-              <Text style={[styles.chipText, draftType === petType.value && styles.chipTextActive]}>
-                {petType.icon} {t(`pets:types.${petType.value}`)}
-              </Text>
+              <IconLabel
+                icon={petType.icon}
+                size={18}
+                color={draftType === petType.value ? COLORS.white : COLORS.textSecondary}
+              >
+                <Text style={[styles.chipText, draftType === petType.value && styles.chipTextActive]}>
+                  {t(`pets:types.${petType.value}`)}
+                </Text>
+              </IconLabel>
             </TouchableOpacity>
           ))}
 
