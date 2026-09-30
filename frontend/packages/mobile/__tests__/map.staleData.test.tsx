@@ -168,6 +168,27 @@ describe('MapScreen — el contador de reportes no afirma "0" cuando la consulta
     expect(screen.queryByText('common:staleTitle')).toBeNull();
   });
 
+  it('sin caché, sin error ni offline y sin `isLoading` (primera carga pendiente/consulta deshabilitada), no afirma "0"', () => {
+    // Esto reproduce el estado real de una query DESHABILITADA (o cualquier
+    // "todavía no sabemos" que no sea ni fetch en curso ni paused ni error):
+    // `data` sigue undefined pero `isLoading` (isPending && isFetching) es
+    // false porque nunca arrancó a buscar. Antes del fix, el contador caía en
+    // el branch por default y afirmaba "0" — exactamente lo que la regla #60
+    // prohíbe.
+    mockUseNearbyReports.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: false,
+      isPaused: false,
+      refetch: jest.fn(),
+    });
+
+    render(<MapScreen />);
+
+    expect(screen.queryByText('counter')).toBeNull();
+    expect(screen.getByText('common:loading')).toBeTruthy();
+  });
+
   it('sin fallas, muestra el conteo normal y ninguna franja', () => {
     mockUseNearbyReports.mockReturnValue({
       data: [report],

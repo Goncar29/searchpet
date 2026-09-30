@@ -305,8 +305,19 @@ export default function MapScreen() {
         </View>
 
         {/* Contador — nunca afirma "0" cuando en realidad no sabemos (rule
-            #60). El mapa se queda visible en los dos casos: sólo cambia este
-            widget, nunca la pantalla entera. */}
+            #60). El mapa se queda visible en los tres casos: sólo cambia
+            este widget, nunca la pantalla entera.
+            Tres estados posibles con `reportsMissing` (data == null):
+              1. paused/error → fila de error con reintentar.
+              2. ninguno de los dos, pero SIGUE sin data → todavía no
+                 sabemos (primera carga pendiente, o una query deshabilitada
+                 que nunca llegó a arrancar — hoy esta pantalla no
+                 deshabilita `useNearbyReports`, pero el contador no debe
+                 asumirlo). Muestra `common:loading`, nunca "0" y nunca un
+                 spinner que gire para siempre: es sólo texto neutro, así
+                 que una query deshabilitada por diseño no queda mintiendo
+                 "cargando" con una animación activa.
+              3. hay data real → el conteo. */}
         <View style={styles.counter}>
           {reportsMissing && (reportsQuery.isPaused || reportsQuery.isError) ? (
             <TouchableOpacity
@@ -319,6 +330,8 @@ export default function MapScreen() {
               </Text>
               <Text style={styles.counterRetryText}>{t('common:retry')}</Text>
             </TouchableOpacity>
+          ) : reportsMissing ? (
+            <Text style={styles.counterText}>{t('common:loading')}</Text>
           ) : (
             <Text style={styles.counterText}>
               {t('counter', { count: reports?.length || 0 })}
