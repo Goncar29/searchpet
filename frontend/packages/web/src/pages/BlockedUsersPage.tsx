@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next';
 import { useBlockedUsers, useUnblockUser } from '@shared/hooks';
 import { getDateLocale } from '@shared/utils/dateLocale';
 import type { BlockedUser } from '@shared/types';
+import { Icon } from '../components/Icon';
 
 function BlockedUserCard({ item, onUnblock, isPending }: {
   item: BlockedUser;
@@ -68,7 +69,7 @@ export function BlockedUsersPage() {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center px-4">
         <div className="text-center">
-          <p className="text-5xl mb-4">⚠️</p>
+          <Icon name="warning" className="mx-auto mb-4 h-12 w-12 text-gray-300 dark:text-gray-600" />
           <h2 className="text-xl font-bold text-gray-900 dark:text-gray-50 mb-2">Error al cargar</h2>
           <p className="text-gray-500 dark:text-gray-400 text-sm">
             No se pudo obtener la lista de usuarios bloqueados. Intentá de nuevo más tarde.
@@ -87,7 +88,7 @@ export function BlockedUsersPage() {
 
         {(blockedUsers ?? []).length === 0 ? (
           <div className="text-center py-16">
-            <p className="text-5xl mb-4">✅</p>
+            <Icon name="check-circle" className="mx-auto mb-4 h-12 w-12 text-gray-300 dark:text-gray-600" />
             <h2 className="text-lg font-bold text-gray-900 dark:text-gray-50 mb-2">
               No tenés usuarios bloqueados
             </h2>

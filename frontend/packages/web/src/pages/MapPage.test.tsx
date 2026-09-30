@@ -301,7 +301,7 @@ describe('MapPage', () => {
     render(<MapPage />, { wrapper });
     await userEvent.click(screen.getByRole('button', { name: /toggle/ }));
 
-    expect(screen.getByText('📍 1.2 km')).toBeInTheDocument();
+    expect(screen.getByText('1.2 km')).toBeInTheDocument();
     expect(screen.getByText('website')).toHaveAttribute('href', 'https://vet.example');
   });
 

@@ -582,6 +582,8 @@
       "reviewCount_one": "{{count}} avaliação",
       "reviewCount_other": "{{count}} avaliações",
       "noRating": "Sem avaliações",
+      "starCount_one": "{{count}} estrela",
+      "starCount_other": "{{count}} estrelas",
       "yourRating": "Sua avaliação",
       "reviewPlaceholder": "Escreva sua avaliação...",
       "publishReview": "Publicar avaliação",

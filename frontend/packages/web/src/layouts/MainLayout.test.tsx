@@ -23,9 +23,12 @@ vi.mock('../context/AuthContext', () => ({
 }));
 
 const themeState = vi.hoisted(() => ({ current: 'light' as 'light' | 'dark' }));
+// Un solo mock para toda la suite (no uno nuevo por render) para poder afirmar
+// que el botón lo llama; se limpia en el afterEach del describe del toggle.
+const toggleTheme = vi.hoisted(() => vi.fn());
 
 vi.mock('../context/ThemeContext', () => ({
-  useTheme: () => ({ theme: themeState.current, toggleTheme: vi.fn() }),
+  useTheme: () => ({ theme: themeState.current, toggleTheme }),
 }));
 
 vi.mock('../components/LanguageSwitcher', () => ({
@@ -253,6 +256,7 @@ describe('MainLayout — toggle de tema', () => {
   // tema oscuro no se filtra a los tests que siguen.
   afterEach(() => {
     themeState.current = 'light';
+    toggleTheme.mockClear();
   });
 
   function pathOf(name: 'light-mode' | 'dark-mode') {
@@ -274,6 +278,16 @@ describe('MainLayout — toggle de tema', () => {
     const button = screen.getByRole('button', { name: 'darkMode' });
     expect(button.textContent).toBe('');
     expect(button.querySelector('svg path')?.getAttribute('d')).toBe(expected);
+  });
+
+  // Cambiar el emoji por un ícono no puede dejar el botón sin su acción.
+  it('el botón del toggle llama a toggleTheme una sola vez por click', () => {
+    renderLayout();
+    expect(toggleTheme).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'darkMode' }));
+
+    expect(toggleTheme).toHaveBeenCalledTimes(1);
   });
 
   // Sin esto, dos íconos idénticos pasarían los dos casos de arriba.

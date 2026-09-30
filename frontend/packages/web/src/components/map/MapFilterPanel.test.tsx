@@ -1,6 +1,7 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import { MapFilterPanel } from './MapFilterPanel';
+import { drawnPaths, iconPath, EMOJI } from '../../test/icons';
 
 // Convencion de los tests de web: `t` devuelve la clave. Aca las claves son
 // SELECTORES, no aserciones de texto — lo que se verifica son los callbacks.
@@ -61,6 +62,20 @@ describe('MapFilterPanel', () => {
     // Prende una CAPA del mapa; no filtra reportes.
     expect(onToggleVets).toHaveBeenCalled();
     expect(onApply).not.toHaveBeenCalled();
+  });
+
+  // Emoji ignore `currentColor`, so the toggle's white-on-secondary "on" state
+  // would keep a colored glyph. The toggle draws an icon in both states.
+  it.each([
+    [false, 'vets:toggle'],
+    [true, 'vets:hide'],
+  ] as const)('el toggle de veterinarias con showVets=%s dice %s y dibuja el ícono, sin emoji', (showVets, label) => {
+    render(<MapFilterPanel {...base} showVets={showVets} />);
+
+    const toggle = screen.getByTestId('vets-toggle');
+    expect(toggle.textContent).toBe(label);
+    expect(toggle.textContent).not.toMatch(EMOJI);
+    expect(drawnPaths(toggle)).toEqual([iconPath('local-hospital')]);
   });
 
   it('el tipo si espera a Aplicar', () => {

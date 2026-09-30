@@ -6,6 +6,7 @@ import { ApiError } from '@shared/api/client';
 import { useAuth } from '../context/AuthContext';
 import { ReportFosterHomeModal } from '../components/ReportFosterHomeModal';
 import { StaleDataNotice } from '../components/list/ListState';
+import { Icon } from '../components/Icon';
 import { cloudinaryFit } from '@shared/utils/cloudinaryThumb';
 
 export function FosterHomeDetailPage() {
@@ -81,7 +82,7 @@ export function FosterHomeDetailPage() {
   if (isPaused && !fosterHome) {
     return (
       <div className="text-center py-20">
-        <p className="text-5xl mb-4">📡</p>
+        <Icon name="wifi-off" className="mx-auto mb-4 h-12 w-12 text-gray-300 dark:text-gray-600" />
         <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">
           {t('common:offlineTitle')}
         </h2>
@@ -96,7 +97,7 @@ export function FosterHomeDetailPage() {
   if (!fosterHome || noExiste) {
     return (
       <div className="text-center py-20">
-        <p className="text-5xl mb-4">{falloLaLectura ? '⚠️' : '🏠'}</p>
+        <Icon name={falloLaLectura ? 'warning' : 'home'} className="mx-auto mb-4 h-12 w-12 text-gray-300 dark:text-gray-600" />
         <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">
           {falloLaLectura ? t('fosterHomes:detail.loadError') : t('fosterHomes:detail.notFound')}
         </h2>
@@ -169,7 +170,7 @@ export function FosterHomeDetailPage() {
                   ›
                 </button>
                 <span className="absolute bottom-3 right-3 text-xs font-medium px-2 py-0.5 rounded-full bg-black/60 text-white">
-                  📷 {safePhotoIndex + 1}/{photos.length}
+                  <span className="inline-flex items-center gap-1"><Icon name="photo-camera" className="h-3.5 w-3.5 flex-shrink-0" />{safePhotoIndex + 1}/{photos.length}</span>
                 </span>
                 <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
                   {photos.map((p, i) => (
@@ -188,12 +189,12 @@ export function FosterHomeDetailPage() {
           </div>
         ) : (
           <div className="h-56 bg-gray-100 dark:bg-gray-800 rounded-t-2xl flex items-center justify-center">
-            <span className="text-7xl">🏠</span>
+            <Icon name="home" className="h-16 w-16 text-gray-300 dark:text-gray-600" />
           </div>
         )}
 
         <div className="p-6 md:p-8">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-4">📍 {fosterHome.city}</h1>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-4 inline-flex items-center gap-2"><Icon name="location-on" className="h-7 w-7 flex-shrink-0 text-primary" />{fosterHome.city}</h1>
 
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
             <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3">
@@ -237,7 +238,8 @@ export function FosterHomeDetailPage() {
                 onClick={() => navigate(`/messages/${fosterHome.owner_user_id}`)}
                 className="inline-flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary/90 text-white font-bold rounded-lg transition-colors"
               >
-                💬 {t('fosterHomes:detail.contactChat')}
+                <Icon name="chat-bubble" className="h-4 w-4 flex-shrink-0" />
+                {t('fosterHomes:detail.contactChat')}
               </button>
               {fosterHome.whatsapp_phone && whatsappDigits && (
                 <a
@@ -246,7 +248,8 @@ export function FosterHomeDetailPage() {
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-2 px-4 py-2 bg-green-500 dark:bg-green-600 hover:bg-green-600 dark:hover:bg-green-700 text-white font-bold rounded-lg transition-colors"
                 >
-                  📱 {t('fosterHomes:detail.contactWhatsapp')}
+                  <Icon name="whatsapp" className="h-4 w-4 flex-shrink-0" />
+                  {t('fosterHomes:detail.contactWhatsapp')}
                 </a>
               )}
               <button
@@ -254,7 +257,8 @@ export function FosterHomeDetailPage() {
                 onClick={() => setShowReportModal(true)}
                 className="inline-flex items-center gap-2 px-4 py-2 border border-orange-300 dark:border-orange-700 text-orange-600 dark:text-orange-400 font-semibold rounded-lg hover:bg-orange-50 dark:hover:bg-orange-950 transition-colors"
               >
-                🚩 {t('fosterHomes:detail.reportCta')}
+                <Icon name="flag" className="h-4 w-4 flex-shrink-0" />
+                {t('fosterHomes:detail.reportCta')}
               </button>
             </div>
           )}

@@ -311,8 +311,9 @@ export function CreatePetPage() {
           {/* Error no-bloqueante de upload (la mascota YA fue creada) */}
           {uploadError && createdPetId && (
             <div className="rounded-lg border border-yellow-300 bg-yellow-50 dark:bg-yellow-900/20 dark:border-yellow-700 p-3 space-y-2">
-              <p className="text-yellow-800 dark:text-yellow-300 text-sm font-medium">
-                ✓ La mascota fue registrada, pero la foto no pudo subirse.
+              <p className="text-yellow-800 dark:text-yellow-300 text-sm font-medium inline-flex items-center gap-1">
+                <Icon name="check" className="h-4 w-4 flex-shrink-0" />
+                La mascota fue registrada, pero la foto no pudo subirse.
               </p>
               <p className="text-yellow-700 dark:text-yellow-400 text-sm">
                 {uploadError} — Podés agregarla desde el perfil de la mascota.

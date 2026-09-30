@@ -7,11 +7,11 @@ import { PawPlaceholder } from '../components/PawPlaceholder';
 import { PetGridCard } from '../components/PetGridCard';
 import { ListState } from '../components/list/ListState';
 
-const PET_TYPES: { value: PetType; labelKey: string; icon: string }[] = [
-  { value: 'perro', labelKey: 'pets:types.perro', icon: '🐕' },
-  { value: 'gato', labelKey: 'pets:types.gato', icon: '🐱' },
-  { value: 'pajaro', labelKey: 'pets:types.pajaro', icon: '🐦' },
-  { value: 'otro', labelKey: 'pets:types.otro', icon: '🐾' },
+const PET_TYPES: { value: PetType; labelKey: string }[] = [
+  { value: 'perro', labelKey: 'pets:types.perro' },
+  { value: 'gato', labelKey: 'pets:types.gato' },
+  { value: 'pajaro', labelKey: 'pets:types.pajaro' },
+  { value: 'otro', labelKey: 'pets:types.otro' },
 ];
 
 export function AdoptPage() {
@@ -100,7 +100,7 @@ export function AdoptPage() {
             >
               <option value="">{t('adoption:section.allTypes')}</option>
               {PET_TYPES.map((pt) => (
-                <option key={pt.value} value={pt.value}>{pt.icon} {t(pt.labelKey)}</option>
+                <option key={pt.value} value={pt.value}>{t(pt.labelKey)}</option>
               ))}
             </select>
 

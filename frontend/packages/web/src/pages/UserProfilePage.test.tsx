@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, within, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { UserProfilePage } from './UserProfilePage';
+import { drawnPaths, iconPath, EMOJI } from '../test/icons';
 
 // `t` devuelve la clave, como el resto de los tests de páginas. Las opciones se
 // serializan al lado a propósito: el aviso de lista recortada existe para NO
@@ -326,5 +327,52 @@ describe('UserProfilePage', () => {
 
     expect(screen.getByText('4.3')).toBeInTheDocument();
     expect(screen.queryByText('profile:public.noRating')).not.toBeInTheDocument();
+  });
+});
+
+// Las estrellas eran el glifo de texto `★`: sin `currentColor` fiable y leído
+// por un lector de pantalla como "estrella negra" cinco veces. Ahora son el
+// ícono de Material Symbols, y el rating se anuncia con su valor.
+describe('UserProfilePage — estrellas de la calificación', () => {
+  const yellow = (el: Element) => el.getAttribute('class')?.includes('text-yellow-400');
+
+  // Este describe es hermano del principal y no hereda su `beforeEach`: sin
+  // esto, la reseña del test anterior haría que el botón diga "editar".
+  beforeEach(() => {
+    reviewsState.reviews = [];
+    reviewsState.isError = false;
+    authState.current = { user: null, isAuthenticated: false };
+  });
+
+  it('la reseña dibuja cinco estrellas llenas, y sólo `stars` de ellas amarillas', () => {
+    reviewsState.reviews = [review({ id: 'r1', stars: 3 })];
+    const { container } = render(<UserProfilePage />, { wrapper });
+
+    const rating = screen.getByRole('img', { name: 'profile:public.starCount {"count":3}' });
+    expect(rating.textContent).not.toMatch(EMOJI);
+    const svgs = [...rating.querySelectorAll('svg')];
+    expect(svgs).toHaveLength(5);
+    expect(drawnPaths(rating)).toEqual(Array(5).fill(iconPath('star-filled')));
+    expect(svgs.map(yellow)).toEqual([true, true, true, false, false]);
+    expect(container.textContent).not.toMatch(EMOJI);
+  });
+
+  it('el selector del formulario dibuja cinco botones con nombre y marca hasta la elegida', () => {
+    authState.current = { user: { id: 'user-1', name: 'Carlos' }, isAuthenticated: true };
+    render(<UserProfilePage />, { wrapper });
+    fireEvent.click(screen.getByText('profile:public.leaveReview'));
+
+    const button = (n: number) =>
+      screen.getByRole('button', { name: `profile:public.starCount {"count":${n}}` });
+    for (const n of [1, 2, 3, 4, 5]) {
+      expect(button(n).textContent).not.toMatch(EMOJI);
+      expect(drawnPaths(button(n))).toEqual([iconPath('star-filled')]);
+    }
+
+    fireEvent.click(button(4));
+
+    expect([1, 2, 3, 4, 5].map((n) => yellow(button(n)))).toEqual([
+      true, true, true, true, false,
+    ]);
   });
 });

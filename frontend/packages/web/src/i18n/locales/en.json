@@ -582,6 +582,8 @@
       "reviewCount_one": "{{count}} review",
       "reviewCount_other": "{{count}} reviews",
       "noRating": "No ratings",
+      "starCount_one": "{{count}} star",
+      "starCount_other": "{{count}} stars",
       "yourRating": "Your rating",
       "reviewPlaceholder": "Write your review...",
       "publishReview": "Post review",

@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MyPetsPage } from './MyPetsPage';
 import { useMyPets } from '@shared/hooks';
 import type { Pet, PetStatus } from '@shared/types';
+import { drawnPaths, iconPath, EMOJI } from '../test/icons';
 
 const state = vi.hoisted(() => ({ owned: [] as Pet[], reported: [] as Pet[] }));
 
@@ -81,6 +82,16 @@ describe('MyPetsPage', () => {
   it('renderiza sin lanzar errores', () => {
     render(<MyPetsPage />, { wrapper });
     expect(document.body).toBeTruthy();
+  });
+
+  // Emoji ignore `currentColor`; the photo-count chip draws a camera icon.
+  it('el contador de fotos de la tarjeta dibuja la cámara, sin emoji', () => {
+    state.owned = [makePet('registered')];
+    render(<MyPetsPage />, { wrapper });
+
+    const chip = screen.getByText(/pets:mine.photoCount/);
+    expect(chip.textContent).not.toMatch(EMOJI);
+    expect(drawnPaths(chip)).toEqual([iconPath('photo-camera')]);
   });
 
   it('no ofrece "lost" como destino en el selector de estado (se usa "Publicar como perdida")', () => {

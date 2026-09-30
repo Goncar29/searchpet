@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { AlertsPage } from './AlertsPage';
 import type { LocationAlert } from '@shared/types';
+import { drawnPaths, iconPath, EMOJI } from '../test/icons';
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (key: string) => key, i18n: { language: 'es' } }),
@@ -77,6 +78,14 @@ describe('AlertsPage', () => {
 
     expect(screen.getByText('emptyTitle')).toBeInTheDocument();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  // Emoji ignore `currentColor` and dark mode; the empty state draws a bell.
+  it('el estado vacío dibuja la campana, sin emoji', () => {
+    const { container } = render(<AlertsPage />);
+
+    expect(container.textContent).not.toMatch(EMOJI);
+    expect(drawnPaths(container)).toContain(iconPath('notifications'));
   });
 
   it('con la query caida NO dice que no tenes alertas', () => {

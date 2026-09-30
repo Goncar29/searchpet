@@ -4,6 +4,7 @@ import { MemoryRouter } from 'react-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AdoptPage } from './AdoptPage';
 import type { Pet } from '@shared/types';
+import { EMOJI } from '../test/icons';
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (key: string) => key, i18n: { language: 'es' } }),
@@ -59,6 +60,22 @@ describe('AdoptPage', () => {
   beforeEach(() => {
     state.data = { data: [], total: 0 };
     state.isError = false;
+  });
+
+  // The emoji used to sit inside <option>; a browser strips markup there, so an
+  // icon can't replace it. The type options are plain text now.
+  it('las opciones del filtro de tipo son texto plano, sin emoji', () => {
+    render(<AdoptPage />, { wrapper });
+
+    const options = [...(screen.getByLabelText('adoption:section.typeFilter') as HTMLSelectElement).options];
+    expect(options.map((o) => o.textContent)).toEqual([
+      'adoption:section.allTypes',
+      'pets:types.perro',
+      'pets:types.gato',
+      'pets:types.pajaro',
+      'pets:types.otro',
+    ]);
+    for (const o of options) expect(o.textContent).not.toMatch(EMOJI);
   });
 
   it('con la query caida NO dice que no hay mascotas en adopcion', () => {

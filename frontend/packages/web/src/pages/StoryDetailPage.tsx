@@ -2,6 +2,7 @@
 // StoryDetailPage — /stories/:id
 // ============================================================
 import { useParams, useNavigate, Link } from 'react-router';
+import { Icon } from '../components/Icon';
 import { useTranslation } from 'react-i18next';
 import { useStory, useLikeStory, useUnlikeStory } from '@shared/hooks';
 import { useAuth } from '../context/AuthContext';
@@ -168,7 +169,7 @@ export function StoryDetailPage() {
             title={isAuthenticated ? 'Me gusta' : 'Inicia sesión para dar me gusta'}
             className="flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 text-sm font-semibold text-gray-600 dark:text-gray-300 hover:border-red-300 dark:hover:border-red-700 hover:text-red-500 dark:hover:text-red-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <span>{story.liked_by_me ? '❤️' : '🤍'}</span>
+            <Icon name={story.liked_by_me ? 'favorite-filled' : 'favorite'} className={`h-5 w-5 flex-shrink-0 ${story.liked_by_me ? 'text-red-500 dark:text-red-400' : ''}`} />
             <span>{story.like_count}</span>
             <span className="hidden sm:inline">
               {isAuthenticated ? 'Me gusta' : 'Iniciá sesión para dar me gusta'}

@@ -4,6 +4,7 @@ import { Link } from 'react-router';
 import { useFosterHomes } from '@shared/hooks';
 import type { AnimalKind } from '@shared/types';
 import { FosterHomeCard } from '../components/FosterHomeCard';
+import { Icon } from '../components/Icon';
 
 const ANIMAL_TYPES: AnimalKind[] = ['dog', 'cat', 'other'];
 
@@ -97,9 +98,10 @@ export function FosterHomesPage() {
             <button
               type="button"
               onClick={clearFilters}
-              className="px-4 py-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 border border-gray-200 dark:border-gray-700 rounded-lg transition-colors"
+              className="px-4 py-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 border border-gray-200 dark:border-gray-700 rounded-lg transition-colors inline-flex items-center gap-1"
             >
-              ✕ {t('fosterHomes:directory.clearFilters')}
+              <Icon name="close" className="h-4 w-4 flex-shrink-0" />
+              {t('fosterHomes:directory.clearFilters')}
             </button>
           )}
         </div>
@@ -131,7 +133,7 @@ export function FosterHomesPage() {
 
       {!isLoading && !isError && fosterHomes && fosterHomes.length === 0 && (
         <div className="text-center py-12">
-          <p className="text-5xl mb-4">🏠</p>
+          <Icon name="home" className="mx-auto mb-4 h-12 w-12 text-gray-300 dark:text-gray-600" />
           {/* `dark:text-gray-400`: el 500 da 4.16:1 sobre el fondo oscuro. Este
               cartel lo encontró el CI y no la corrida local, porque acá la base
               TIENE hogares y el estado vacío nunca se dibuja — el espejo exacto

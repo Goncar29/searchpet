@@ -47,7 +47,7 @@ export function SharedPetPage() {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center px-4">
         <div className="text-center">
-          <p className="text-6xl mb-4">🔍</p>
+          <Icon name="search" className="mx-auto mb-4 h-16 w-16 text-gray-300 dark:text-gray-600" />
           <h1 className="font-display text-headline text-gray-900 dark:text-gray-100 mb-2">
             {t('sharedPet:notFoundTitle')}
           </h1>

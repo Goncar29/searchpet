@@ -2,6 +2,7 @@ import { Link } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import type { FosterHome } from '@shared/types';
 import { cloudinaryCardThumb } from '@shared/utils/cloudinaryThumb';
+import { Icon } from './Icon';
 
 interface FosterHomeCardProps {
   fosterHome: FosterHome;
@@ -24,14 +25,17 @@ export function FosterHomeCard({ fosterHome }: FosterHomeCardProps) {
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center text-5xl">🏠</div>
+            <div className="w-full h-full flex items-center justify-center">
+              <Icon name="home" className="h-12 w-12 text-gray-300 dark:text-gray-600" />
+            </div>
           )}
         </div>
 
         {/* Info */}
         <div className="p-4">
           <h3 className="font-bold text-gray-900 dark:text-gray-100 text-lg mb-1 break-words line-clamp-2">
-            📍 {fosterHome.city}
+            <Icon name="location-on" className="mr-1 inline h-5 w-5 align-text-bottom text-primary" />
+            {fosterHome.city}
           </h3>
           <div className="flex flex-wrap gap-1 mb-2">
             <span className="text-xs bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 px-2 py-0.5 rounded-full">
