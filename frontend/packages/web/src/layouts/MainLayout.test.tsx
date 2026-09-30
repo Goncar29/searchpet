@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { act, render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -249,6 +249,12 @@ describe('MainLayout — toggle de tema', () => {
     >);
   });
 
+  // En un afterEach y no al final del test: si una aserción falla antes, el
+  // tema oscuro no se filtra a los tests que siguen.
+  afterEach(() => {
+    themeState.current = 'light';
+  });
+
   function pathOf(name: 'light-mode' | 'dark-mode') {
     const { container, unmount } = render(<Icon name={name} />);
     const d = container.querySelector('path')?.getAttribute('d');
@@ -268,6 +274,11 @@ describe('MainLayout — toggle de tema', () => {
     const button = screen.getByRole('button', { name: 'darkMode' });
     expect(button.textContent).toBe('');
     expect(button.querySelector('svg path')?.getAttribute('d')).toBe(expected);
-    themeState.current = 'light';
+  });
+
+  // Sin esto, dos íconos idénticos pasarían los dos casos de arriba.
+  it('los íconos de claro y oscuro son distintos', () => {
+    expect(pathOf('light-mode')).toBeTruthy();
+    expect(pathOf('light-mode')).not.toBe(pathOf('dark-mode'));
   });
 });
