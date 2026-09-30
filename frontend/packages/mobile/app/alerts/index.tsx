@@ -21,6 +21,7 @@ import i18next from 'i18next';
 import * as Location from 'expo-location';
 import { useAlerts, useCreateAlert, useUpdateAlert, useDeleteAlert } from '../../../shared/hooks';
 import { getErrorMessage } from '../../../shared/utils/apiErrors';
+import { ListState } from '../../components/list/ListState';
 import { useLocationStore } from '../../store';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS, PET_TYPES } from '../../constants';
 import type { LocationAlert, PetType } from '../../../shared/types';
@@ -31,7 +32,8 @@ export default function AlertsScreen() {
   const { t } = useTranslation('alerts');
   const { latitude, longitude } = useLocationStore();
 
-  const { data: alerts, isLoading } = useAlerts();
+  const alertsQuery = useAlerts();
+  const { isLoading } = alertsQuery;
   const createAlert = useCreateAlert();
   const updateAlert = useUpdateAlert();
   const deleteAlert = useDeleteAlert();
@@ -244,48 +246,65 @@ export default function AlertsScreen() {
           </View>
         )}
 
-        {/* ── Lista de alertas ── */}
-        {alerts && alerts.length > 0 ? (
-          <View style={styles.alertsList}>
-            <Text style={styles.sectionTitle}>
-              {t('alerts:myAlertsCount', { count: alerts.length })}
-            </Text>
-            {alerts.map((alert) => (
-              <View key={alert.id} style={styles.alertCard}>
-                <View style={styles.alertHeader}>
-                  <View style={styles.alertInfo}>
-                    <Text style={styles.alertName}>
-                      {alert.name || t('alerts:noName')}
-                    </Text>
-                    <Text style={styles.alertMeta}>
-                      📍 {alert.alert_latitude?.toFixed(3)}, {alert.alert_longitude?.toFixed(3)}
-                      {'  ·  '}{alert.radius_km} km
-                      {alert.pet_type ? `  ·  ${alert.pet_type}` : ''}
-                    </Text>
+        {/* ── Lista de alertas ──
+            Wrapped with ListState (rule #60): a failed `useAlerts` used to
+            fall through to the empty state and tell the user "no active
+            alerts", which is false when we simply could not read them. */}
+        <ListState<LocationAlert[], LocationAlert>
+          query={alertsQuery}
+          loading={
+            <View style={styles.center}>
+              <ActivityIndicator size="large" color={COLORS.primary} />
+            </View>
+          }
+        >
+          {(alerts) =>
+            alerts.length > 0 ? (
+              <View style={styles.alertsList}>
+                <Text style={styles.sectionTitle}>
+                  {t('alerts:myAlertsCount', { count: alerts.length })}
+                </Text>
+                {alerts.map((alert) => (
+                  <View key={alert.id} style={styles.alertCard}>
+                    <View style={styles.alertHeader}>
+                      <View style={styles.alertInfo}>
+                        <Text style={styles.alertName}>
+                          {alert.name || t('alerts:noName')}
+                        </Text>
+                        <Text style={styles.alertMeta}>
+                          📍 {alert.alert_latitude?.toFixed(3)}, {alert.alert_longitude?.toFixed(3)}
+                          {'  ·  '}{alert.radius_km} km
+                          {/* Translated (rule #12/#60-adjacent M5): the raw
+                              literal ('perro', 'gato'...) showed untranslated
+                              regardless of the app's language. */}
+                          {alert.pet_type ? `  ·  ${t(`pets:types.${alert.pet_type}`, { defaultValue: alert.pet_type })}` : ''}
+                        </Text>
+                      </View>
+                      <Switch
+                        value={alert.is_active}
+                        onValueChange={() => handleToggle(alert)}
+                        trackColor={{ false: COLORS.border, true: COLORS.primary + '80' }}
+                        thumbColor={alert.is_active ? COLORS.primary : COLORS.textMuted}
+                      />
+                    </View>
+                    <TouchableOpacity
+                      style={styles.deleteButton}
+                      onPress={() => handleDelete(alert)}
+                    >
+                      <Text style={styles.deleteText}>{t('alerts:delete')}</Text>
+                    </TouchableOpacity>
                   </View>
-                  <Switch
-                    value={alert.is_active}
-                    onValueChange={() => handleToggle(alert)}
-                    trackColor={{ false: COLORS.border, true: COLORS.primary + '80' }}
-                    thumbColor={alert.is_active ? COLORS.primary : COLORS.textMuted}
-                  />
-                </View>
-                <TouchableOpacity
-                  style={styles.deleteButton}
-                  onPress={() => handleDelete(alert)}
-                >
-                  <Text style={styles.deleteText}>{t('alerts:delete')}</Text>
-                </TouchableOpacity>
+                ))}
               </View>
-            ))}
-          </View>
-        ) : !showForm ? (
-          <View style={styles.empty}>
-            <Text style={styles.emptyIcon}>🔕</Text>
-            <Text style={styles.emptyTitle}>{t('alerts:emptyTitle')}</Text>
-            <Text style={styles.emptyText}>{t('alerts:emptyText')}</Text>
-          </View>
-        ) : null}
+            ) : !showForm ? (
+              <View style={styles.empty}>
+                <Text style={styles.emptyIcon}>🔕</Text>
+                <Text style={styles.emptyTitle}>{t('alerts:emptyTitle')}</Text>
+                <Text style={styles.emptyText}>{t('alerts:emptyText')}</Text>
+              </View>
+            ) : null
+          }
+        </ListState>
 
         <View style={{ height: 80 }} />
       </ScrollView>

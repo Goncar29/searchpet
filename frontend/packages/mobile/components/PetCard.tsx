@@ -129,7 +129,12 @@ export function PetCard({ report, pet: petProp, onPress }: PetCardProps) {
         <View style={styles.detailsRow}>
           {pet?.type && (
             <View style={styles.tag}>
-              <Text style={styles.tagText}>{pet.type}</Text>
+              {/* Translated (rule #12/M5): the raw domain literal ('perro',
+                  'gato'...) showed untranslated regardless of app language.
+                  `defaultValue` keeps an unmapped backend type visible as
+                  its raw value instead of the i18n key path leaking to
+                  screen (rules #12/#21). */}
+              <Text style={styles.tagText}>{t(`pets:types.${pet.type}`, { defaultValue: pet.type })}</Text>
             </View>
           )}
           {pet?.breed && (

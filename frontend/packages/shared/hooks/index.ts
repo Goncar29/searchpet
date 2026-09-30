@@ -550,9 +550,44 @@ export const useSendMessage = () => {
   });
 };
 
+interface SendMessageContext {
+  /**
+   * Whether a conversation thread was already cached when THIS send
+   * started — no longer the snapshot itself. Two sends can be in flight for
+   * the same conversation at once, each with its own context (never a ref
+   * shared by the hook — see the comment on `conversationReset` below). If
+   * `onError` restored the ENTIRE-thread snapshot instead of rolling back
+   * by identity, a later send's snapshot already contains an earlier send's
+   * own optimistic message: when the earlier send then fails first, writing
+   * the later snapshot back resurrects it — a message that was never sent,
+   * shown as sent. The mirror bug: writing an earlier snapshot back on a
+   * later failure erases a sibling send's own optimistic message that is
+   * still pending. Both measured with overlapping sends — see
+   * hooks/index.test.ts, "two overlapping sends...".
+   */
+  hadCache: boolean;
+  /** This execution's own optimistic message id, so `onError` can remove
+   * exactly this send's entry from the CURRENT cache instead of restoring a
+   * stale snapshot. */
+  optimisticId: string;
+  sesion: string | null;
+  /** Set by `onError` when it reset (and so already refetched) the thread. */
+  conversationReset: boolean;
+}
+
+// Module-level counter so two optimistic messages created in the same
+// millisecond (the whole point of tracking per-send identity — overlapping
+// sends) still get distinct ids; `Date.now()` alone can collide.
+let optimisticMessageSeq = 0;
+
 export const useSendMessageTo = () => {
   const queryClient = useQueryClient();
-  return useMutation<Message, Error, { receiverID: string; senderID: string; content: string; reportID?: string }>({
+  return useMutation<
+    Message,
+    Error,
+    { receiverID: string; senderID: string; content: string; reportID?: string },
+    SendMessageContext
+  >({
     mutationFn: ({ receiverID, content, reportID }) =>
       apiClient.sendMessageTo(receiverID, content, reportID),
     onMutate: async ({ receiverID, senderID, content }) => {
@@ -560,8 +595,9 @@ export const useSendMessageTo = () => {
       const previous = queryClient.getQueryData<Message[]>(['messages', receiverID]);
       // Con qué sesión arrancó este envío. Ver el guard de `onError`.
       const { sesion } = anotarSesion();
+      const optimisticId = `temp-${Date.now()}-${optimisticMessageSeq++}`;
       const optimistic: Message = {
-        id: `temp-${Date.now()}`,
+        id: optimisticId,
         sender_id: senderID,
         receiver_id: receiverID,
         content,
@@ -569,11 +605,11 @@ export const useSendMessageTo = () => {
         created_at: new Date().toISOString(),
       };
       queryClient.setQueryData<Message[]>(['messages', receiverID], (old) => [...(old ?? []), optimistic]);
-      return { previous, sesion };
+      return { hadCache: previous !== undefined, optimisticId, sesion, conversationReset: false };
     },
     onError: (_err, { receiverID }, context) => {
-      // `previous` es el hilo ENTERO de quien mandó — el dato más sensible que
-      // escribe cualquiera de estos hooks. Sin este guard, la secuencia
+      // El hilo entero de quien mandó es el dato más sensible que escribe
+      // cualquiera de estos hooks. Sin este guard, la secuencia
       //
       //     A manda → el POST queda colgado (hasta 45s, REQUEST_TIMEOUT_MS)
       //     A cierra sesión → B entra → recién ahí el POST rechaza
@@ -582,10 +618,46 @@ export const useSendMessageTo = () => {
       // Ver el bloque del principio del archivo.
       if (!mismaSesion(context)) return;
 
-      const ctx = context as { previous: Message[] | undefined } | undefined;
-      if (ctx?.previous) queryClient.setQueryData(['messages', receiverID], ctx.previous);
+      if (context?.hadCache) {
+        // Roll back by IDENTITY, not by snapshot: remove only THIS send's
+        // optimistic message from whatever the cache holds right now.
+        // Writing back the whole-thread snapshot taken in `onMutate` is
+        // exactly the bug this replaces — see the comment on
+        // `SendMessageContext.hadCache` above.
+        queryClient.setQueryData<Message[]>(['messages', receiverID], (old) =>
+          old?.filter((m) => m.id !== context.optimisticId),
+        );
+        return;
+      }
+      // There was no cached thread before THIS send started — the
+      // conversation failed to load, or never fetched at all (ChatScreen
+      // keeps the composer enabled either way, rule #60). Leaving the
+      // optimistic `temp-` message in the cache would show it as sent when
+      // it was not. Clearing it to `[]` is just as wrong: it would draw the
+      // false "start the conversation" empty state instead of the real
+      // loading/error state. Reset the query so any active screen goes back
+      // to loading and lands on whichever is true — the real thread or the
+      // error card.
+      queryClient.resetQueries({ queryKey: ['messages', receiverID], exact: true });
+      // The mark lives on THIS execution's context, never on a ref shared by
+      // the hook: two sends in flight would overwrite each other's mark.
+      if (context) context.conversationReset = true;
     },
-    onSettled: (_, __, { receiverID }) => {
+    onSettled: (_, __, { receiverID }, context) => {
+      if (context?.conversationReset) {
+        // `resetQueries` already refetched ['messages', receiverID] in
+        // onError, so skip that one query. Dropping only the exact-key call
+        // below would NOT be enough: `invalidateQueries({ queryKey:
+        // ['messages'] })` matches by PREFIX and would refetch the
+        // conversation a second time. The list and the unread-count badge
+        // (['messages', 'unread-count']) still need invalidating.
+        queryClient.invalidateQueries({
+          predicate: (query) =>
+            query.queryKey[0] === 'messages' &&
+            !(query.queryKey.length === 2 && query.queryKey[1] === receiverID),
+        });
+        return;
+      }
       queryClient.invalidateQueries({ queryKey: ['messages', receiverID] });
       queryClient.invalidateQueries({ queryKey: ['messages'] });
     },

@@ -10,6 +10,33 @@ jest.mock('../store', () => ({
   useLocationStore: () => ({ latitude: -34.9011, longitude: -56.1645, setLocation: jest.fn() }),
 }));
 
+// This file otherwise relies on react-i18next's uninitialized-instance
+// passthrough (`t(key)` -> `key`, or `opts.defaultValue` when given — see
+// react-i18next's `notReadyT`). Suggestion 1 added `{ defaultValue: item.type }`
+// to the `pets:types.*` call, and in that passthrough that makes ANY type
+// ('perro', unmapped or not) render as its raw value, so the old regex proxy
+// (`/pets:types\.perro/`, proving `t()` was actually called) can no longer
+// tell a real translation apart from a raw literal never routed through
+// i18n. Resolving `pets:types.*` against the real locale — same idea as
+// PetCard.test.tsx's mock — restores that: a known type genuinely
+// translates ('perro' -> 'Perro'), while every other key keeps the original
+// passthrough behaviour so no other assertion in this file is affected.
+jest.mock('react-i18next', () => {
+  const petTypes = require('../../shared/i18n/locales/es.json').pets.types;
+  return {
+    useTranslation: () => ({
+      t: (key: string, opts?: Record<string, unknown>) => {
+        if (key.startsWith('pets:types.')) {
+          const known = petTypes[key.slice('pets:types.'.length)];
+          if (known) return known;
+        }
+        if (opts && typeof opts.defaultValue === 'string') return opts.defaultValue;
+        return key;
+      },
+    }),
+  };
+});
+
 const mockUseMyPets = jest.fn();
 const mockUseReportedPets = jest.fn();
 const mockUpdatePetMutateAsync = jest.fn();
@@ -170,6 +197,19 @@ describe('MyPetsScreen', () => {
   it('renderiza sin lanzar errores', () => {
     const { toJSON } = render(<MyPetsScreen />);
     expect(toJSON()).toBeTruthy();
+  });
+
+  // Rule #12/M5: `item.type` is a raw domain literal ('perro', 'gato'...); it
+  // must go through i18next, not render as-is.
+  //
+  // Exact match on the pet row's own text, not a loose /Perro/ over the
+  // whole screen (see __tests__/index.photoSearch.test.tsx): the row's
+  // <Text> is `${icon} ${type} · ${breed}` as sibling expressions in one
+  // node, so its full content is deterministic — and unlike a substring
+  // match, this fails if `item.type` ever stops going through `t()`.
+  it('el tipo de mascota sale de i18n, no el literal crudo', () => {
+    render(<MyPetsScreen />);
+    expect(screen.getByText('🐕 Perro · Labrador')).toBeTruthy();
   });
 
   it('el tab "owned" excluye mascotas en adopción', () => {

@@ -12,6 +12,7 @@ import {
   Linking,
 } from 'react-native';
 import MapLibreGL, { type CameraRef } from '@maplibre/maplibre-react-native';
+import type { UseQueryResult } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import i18next from 'i18next';
@@ -19,6 +20,7 @@ import * as Location from 'expo-location';
 import { useNearbyReports, useNearbyVets } from '../../../shared/hooks';
 import { shouldShowSearchHere } from '../../../shared/utils/searchArea';
 import { vetLayerRadiusMeters } from '../../../shared/utils/vetLayerRadius';
+import { StaleDataNotice } from '../../components/list/ListState';
 import { useLocationStore } from '../../store';
 import { COLORS, SPACING, FONTS, MAP_DEFAULTS } from '../../constants';
 import type { Report, Vet } from '../../../shared/types';
@@ -80,7 +82,7 @@ class MapErrorBoundary extends Component<{ children: ReactNode }, { hasError: bo
 
 export default function MapScreen() {
   const router = useRouter();
-  const { t } = useTranslation('map');
+  const { t } = useTranslation(['map', 'common']);
   const cameraRef = useRef<CameraRef>(null);
   const { latitude, longitude, setLocation } = useLocationStore();
   const [selectedReport, setSelectedReport] = useState<Report | null>(null);
@@ -97,7 +99,12 @@ export default function MapScreen() {
   const [mapCenter, setMapCenter] = useState<[number, number]>([lat, lng]);
 
   const [radius, setRadius] = useState(3);
-  const { data: reports, isLoading } = useNearbyReports(searchCenter[0], searchCenter[1], radius, true);
+  const reportsQuery = useNearbyReports(searchCenter[0], searchCenter[1], radius, true);
+  const { data: reports, isLoading } = reportsQuery;
+  // `null` here means "we don't know", never "zero". Mirrors ListState's own
+  // `sinDatos` (rule #60): React Query keeps `data` on a failed refetch, so
+  // this is only true when there is genuinely nothing cached to fall back on.
+  const reportsMissing = reportsQuery.data == null;
 
   const [showVets, setShowVets] = useState(false);
   const [selectedVet, setSelectedVet] = useState<Vet | null>(null);
@@ -297,12 +304,55 @@ export default function MapScreen() {
           </View>
         </View>
 
-        {/* Contador */}
+        {/* Contador — nunca afirma "0" cuando en realidad no sabemos (rule
+            #60). El mapa se queda visible en los tres casos: sólo cambia
+            este widget, nunca la pantalla entera.
+            Tres estados posibles con `reportsMissing` (data == null):
+              1. paused/error → fila de error con reintentar.
+              2. ninguno de los dos, pero SIGUE sin data → todavía no
+                 sabemos (primera carga pendiente, o una query deshabilitada
+                 que nunca llegó a arrancar — hoy esta pantalla no
+                 deshabilita `useNearbyReports`, pero el contador no debe
+                 asumirlo). Muestra `common:loading`, nunca "0" y nunca un
+                 spinner que gire para siempre: es sólo texto neutro, así
+                 que una query deshabilitada por diseño no queda mintiendo
+                 "cargando" con una animación activa.
+              3. hay data real → el conteo. */}
         <View style={styles.counter}>
-          <Text style={styles.counterText}>
-            {t('counter', { count: reports?.length || 0 })}
-          </Text>
+          {reportsMissing && (reportsQuery.isPaused || reportsQuery.isError) ? (
+            <TouchableOpacity
+              style={styles.counterErrorRow}
+              onPress={() => reportsQuery.refetch()}
+              accessibilityRole="button"
+            >
+              <Text style={styles.counterText}>
+                {reportsQuery.isPaused ? t('common:offlineTitle') : t('common:loadErrorTitle')}
+              </Text>
+              <Text style={styles.counterRetryText}>{t('common:retry')}</Text>
+            </TouchableOpacity>
+          ) : reportsMissing ? (
+            <Text style={styles.counterText}>{t('common:loading')}</Text>
+          ) : (
+            <Text style={styles.counterText}>
+              {t('counter', { count: reports?.length || 0 })}
+            </Text>
+          )}
         </View>
+
+        {/* Cached reports + a failed/paused refetch: the count above stays
+            correct (it's still reading real cached data), and this banner is
+            the only thing that says it might not be the latest. */}
+        {!reportsMissing && (reportsQuery.isPaused || reportsQuery.isError) && (
+          <View style={styles.staleBanner}>
+            {/* `useNearbyReports` spreads the raw query and overrides `data`
+                (Report[] | undefined) for backward compatibility, so its
+                `refetch` return type no longer matches a plain
+                UseQueryResult<Report[]>. StaleDataNotice only ever reads
+                `data`/`isPaused`/`isError`/`refetch()`, all of which line up
+                at runtime — the cast is just working around that shape. */}
+            <StaleDataNotice query={reportsQuery as unknown as UseQueryResult<Report[] | undefined>} />
+          </View>
+        )}
 
         {/* Card del reporte seleccionado — mejor UX que callout popup */}
         {selectedReport && (
@@ -454,6 +504,23 @@ const styles = StyleSheet.create({
     color: COLORS.white,
     fontSize: FONTS.sizes.xs,
     fontWeight: '600',
+  },
+  counterErrorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  counterRetryText: {
+    color: COLORS.white,
+    fontSize: FONTS.sizes.xs,
+    fontWeight: '700',
+    textDecorationLine: 'underline',
+  },
+  staleBanner: {
+    position: 'absolute',
+    bottom: 156,
+    left: SPACING.lg,
+    right: SPACING.lg,
   },
   reportCard: {
     position: 'absolute',

@@ -19,6 +19,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import i18next from 'i18next';
 import { useCreateStory } from '../../../shared/hooks';
+import { getErrorMessage } from '../../../shared/utils/apiErrors';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
 
 export default function CreateStoryScreen() {
@@ -107,8 +108,12 @@ export default function CreateStoryScreen() {
         {/* Error de mutación */}
         {createStory.isError && (
           <View style={styles.errorBanner}>
+            {/* Rule #11: never the raw `err.message` — resolved through
+                getErrorMessage/i18next like every other mobile screen.
+                fallbackKey keeps 'story:submitError' as the fallback for
+                unmapped codes instead of the generic errors:unknown_error. */}
             <Text style={styles.errorBannerText}>
-              {(createStory.error as any)?.message || t('story:submitError')}
+              {getErrorMessage(createStory.error, t, 'story:submitError')}
             </Text>
           </View>
         )}

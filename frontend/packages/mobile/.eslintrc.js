@@ -23,8 +23,9 @@ module.exports = {
     // frontend/packages/web/eslint.config.js): those rules flag a different
     // class of problem — compiler-safety, not stale closures — and would
     // bury exhaustive-deps, the one that actually catches bugs here. Every
-    // rule the preset enables is turned off, read from the plugin itself so
-    // a compiler rule added in a future version is off too.
+    // rule the preset enables EXCEPT the two classic ones is turned off, read
+    // from the plugin itself so a compiler rule added in a future version is
+    // off too. The two classic ones never enter that list; they are set below.
     ...compilerRulesOff,
     // The two classic rules — kept on, matching web.
     'react-hooks/rules-of-hooks': 'error',

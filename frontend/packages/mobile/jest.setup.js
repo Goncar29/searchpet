@@ -19,6 +19,7 @@ jest.mock('expo-router', () => {
     navigate: jest.fn(),
   };
   return {
+    __hookRouter: hookRouter,
     useRouter: () => hookRouter,
     useLocalSearchParams: () => ({}),
     useSegments: () => [],
@@ -36,6 +37,31 @@ jest.mock('expo-router', () => {
       navigate: jest.fn(),
     },
   };
+});
+
+// The useRouter() object above lives for the whole test file, so its jest.fn()s
+// would carry calls — and any mockImplementation a test sets — from one test
+// into the next. Reset only those: a global `clearMocks` would also wipe calls
+// some modules make AT IMPORT time, which their tests read later (onlineStatus
+// subscribes to NetInfo on import). A test file that mocks expo-router itself
+// has no __hookRouter and is left alone; non-mock fields are skipped.
+// Because this runs before every test, set router mock implementations inside
+// the test or in a beforeEach: one set in beforeAll or at module scope is
+// wiped before the first test runs.
+//
+// The same warning applies to the factory above: do NOT give any of these
+// router fields (push/back/replace/navigate) a default implementation there
+// (e.g. `push: jest.fn(() => true)`). `mockReset()` below wipes an
+// implementation set at creation just as it wipes one set by a test, and this
+// hook also runs before the FIRST test — so a "default" written there never
+// reaches any test at all. None of the current fields have one;
+// keep it that way and set behavior per test or in a beforeEach instead.
+beforeEach(() => {
+  const hookRouter = require('expo-router').__hookRouter;
+  if (!hookRouter) return;
+  Object.values(hookRouter).forEach((fn) => {
+    if (typeof fn?.mockReset === 'function') fn.mockReset();
+  });
 });
 
 // expo-notifications mock

@@ -288,7 +288,7 @@ export default function MyPetsScreen() {
                     </View>
 
                     <Text style={styles.petType}>
-                      {getPetIcon(item.type)} {item.type}
+                      {getPetIcon(item.type)} {t(`pets:types.${item.type}`, { defaultValue: item.type })}
                       {item.breed ? ` · ${item.breed}` : ''}
                     </Text>
 

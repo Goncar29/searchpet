@@ -85,6 +85,47 @@ describe('ChatScreen', () => {
     expect(queryByText(/chat:startConversation/i)).toBeTruthy();
   });
 
+  // Rule #60: a failed query must never render like an empty list.
+  it('la consulta caída sin datos muestra un cartel de error, no la invitación a escribir', () => {
+    mockUseConversation.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: true,
+      isPaused: false,
+      refetch: jest.fn(),
+    });
+    const { queryByText } = render(<ChatScreen />);
+    expect(queryByText('common:loadErrorTitle')).toBeTruthy();
+    expect(queryByText(/chat:startConversation/i)).toBeNull();
+  });
+
+  // Rule #60: offline (isPaused) must not render like the empty state either.
+  it('sin caché y offline (isPaused), muestra el estado offline en vez de la invitación a escribir', () => {
+    mockUseConversation.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: false,
+      isPaused: true,
+      refetch: jest.fn(),
+    });
+    const { queryByText } = render(<ChatScreen />);
+    expect(queryByText('common:offlineTitle')).toBeTruthy();
+    expect(queryByText(/chat:startConversation/i)).toBeNull();
+  });
+
+  it('con mensajes cacheados y un refetch fallido, la conversación sigue en pantalla', () => {
+    mockUseConversation.mockReturnValue({
+      data: [mockMessage],
+      isLoading: false,
+      isError: true,
+      isPaused: false,
+      refetch: jest.fn(),
+    });
+    const { queryByText } = render(<ChatScreen />);
+    expect(queryByText('Hola, vi a tu mascota')).toBeTruthy();
+    expect(queryByText('common:loadErrorTitle')).toBeNull();
+  });
+
   // The mark-as-read effect depends on the user's id, not the user object.
   // Until the conversation refetches, the cache still shows the message as
   // unread, so re-running on a new object would POST it again.
