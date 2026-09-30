@@ -30,6 +30,9 @@ Backend changes only if a defect needs them, with the owner's OK.
   alerts, map counter), M5 (pet type via `pets:types.*` in PetCard, my-pets,
   home image results, alerts), M7 (`getErrorMessage` in story/create).
   Route: delegated writer (6+ non-trivial files).
+- [x] T4b — Review suggestions of batch 1 and the owner's chat rule: a
+  message sent while the thread failed to load must end up in the real
+  chronological order once it loads. Route: delegated writer.
 - [ ] T5 — M6: public profile lists the person's published pets
   (`useUserPets`), separate PR.
 - [ ] T6 — M8: StaleDataNotice on foster-homes and shelters.
@@ -67,7 +70,21 @@ Backend changes only if a defect needs them, with the owner's OK.
   error (writer's call, flagged to the owner). Writer: lint/typecheck/test
   EXIT=0; parent re-ran `pnpm test:run`: EXIT=0, 306/306.
 
+- 2026-09-30: native review of batch 1 approved (lineage
+  review-3c63cdc88a1e1e57), 3 suggestions applied: `24aa85ae`/`8488336c`
+  (unmapped pet type falls back to the raw value), `06680176` (map offline
+  stale banner test), `e44e4e85` (`getErrorMessage` gains an optional
+  fallback key; story/create falls back to `story:submitError` again).
+  Second review approved (review-0438037c9e31cfe7) with 1 latent warning and
+  2 suggestions, applied in `f8030ec4`.
+- 2026-09-30: owner's chat rule. The backend orders the thread ASC and the
+  send invalidates it, so a successful reload already restores real order;
+  now proven by a shared test. Bug found and fixed in `7b1b94d5`: a failed
+  send with NO cached thread left the optimistic message on screen as sent;
+  it now resets the query (back to loading, then thread or error card),
+  never `[]`. Parent re-ran shared vitest: EXIT=0, 337/337.
+
 ## Next step
 
-Native review of the branch slice, then T5 (M6, public profile pets,
+Review of the T4b slice, then T5 (M6, public profile pets,
 separate PR) and T6 (M8).

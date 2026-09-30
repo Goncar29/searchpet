@@ -52,10 +52,9 @@ jest.mock('expo-router', () => {
 // The same warning applies to the factory above: do NOT give any of these
 // router fields (push/back/replace/navigate) a default implementation there
 // (e.g. `push: jest.fn(() => true)`). `mockReset()` below wipes an
-// implementation set at creation just as it wipes one set by a test — the
-// factory only runs once, for the whole file, so a "default" written there
-// would survive exactly one test (whichever runs first) and silently
-// disappear for every test after it. None of the current fields have one;
+// implementation set at creation just as it wipes one set by a test, and this
+// hook also runs before the FIRST test — so a "default" written there never
+// reaches any test at all. None of the current fields have one;
 // keep it that way and set behavior per test or in a beforeEach instead.
 beforeEach(() => {
   const hookRouter = require('expo-router').__hookRouter;
