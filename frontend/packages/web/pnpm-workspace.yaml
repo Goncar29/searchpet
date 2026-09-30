@@ -6,7 +6,7 @@ allowBuilds:
 # Force the patched form-data across transitive paths (CRLF injection,
 # GHSA-hmw2-7cc7-3qxx) — pulled in via @tensorflow/tfjs.
 #
-# Force undici to >=7.29.0 <8. The upper bound is a measured limit, not
+# Force undici to >=7.29.1 <8. The upper bound is a measured limit, not
 # caution: jsdom's dispatcher requires undici/lib/handler/wrap-handler.js,
 # which exists throughout 7.x and was removed in 8.x. The long note below
 # records how that was verified and why the old advisory ignores were dropped.
@@ -40,7 +40,7 @@ overrides:
   nanoid: '>=3.3.17 <4'
   postcss: '>=8.5.18'
   protobufjs: '>=7.6.5 <8'
-  undici: '>=7.29.0 <8'
+  undici: '>=7.29.1 <8'
   websocket-driver: '>=0.7.5'
 
 # dompurify y protobufjs llegan transitivos (jspdf y firebase/firestore), asi
@@ -82,6 +82,11 @@ overrides:
 # tests mockean la red y nunca llegan al dispatcher de jsdom—, asi que el verde
 # no habria detectado la incompatibilidad.
 #
+# Piso subido a 7.29.1 el 2026-09-30: GHSA-w293-vg96-wgc3 (TLS bypass en
+# BalancedPool) y GHSA-rfgv-xxqx-mfg5 (DoS por subprotocolo WebSocket no
+# pedido) afectan <7.29.1 y rompian `pnpm audit` en todas las ramas. Solo
+# llega via jsdom (tests), y el tope <8 sigue valiendo por el mismo motivo.
+#
 # Also ignore the react-router RSC CSRF advisory. Its own text states: "This
 # only affects your application if you are using the unstable RSC APIs." The
 # web app is a declarative SPA — BrowserRouter + Routes/Route/Link/useNavigate,
@@ -90,6 +95,18 @@ overrides:
 # The advisory has no fix in the 7.x line (patched >=8.3.0), so clearing it
 # would mean a react-router major upgrade across ~40 files for a flaw we
 # cannot reach. Revisit if the app ever adopts RSC or framework mode.
+#
+# Also ignore GHSA-m9gg-hp2v-232j (@grpc/grpc-js, published 2026-09-30). The
+# flaw is server-side only: with server credentials created with
+# requireClientCertificate=false, getAuthContext reports unauthorized client
+# certificates as authorized. The web app never creates a gRPC server, never
+# calls getAuthContext, and never imports firestore (grpc-js arrives only as
+# firebase > @firebase/firestore > @grpc/grpc-js; the browser build of
+# firestore uses WebChannel, not grpc-js). The patch (1.13.6 / 1.14.5) is
+# outside the ~1.9.0 range firestore pins, so an override would force four
+# minors onto a package whose parent never asked for them. Revisit when
+# firebase moves firestore to a patched grpc-js line.
 auditConfig:
   ignoreGhsas:
     - GHSA-qwww-vcr4-c8h2 # react-router CSRF bypass in unstable RSC mode (unused)
+    - GHSA-m9gg-hp2v-232j # grpc-js server-side getAuthContext; web runs no gRPC server
