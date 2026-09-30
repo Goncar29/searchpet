@@ -15,7 +15,9 @@ describe('ICON_PATHS', () => {
     expect(d.trim()).not.toBe('');
     // Path data must start with a move command.
     expect(d).toMatch(/^[Mm]/);
-    // Single-path contract: no markup leaked in from the icon source.
-    expect(d).not.toMatch(/[<>"]/);
+    // Single-element contract: the value is the `d` of ONE <path>, so it may
+    // hold many subpaths (several M/m) but only path commands, numbers and
+    // separators — no markup, attributes or other elements from the source.
+    expect(d).toMatch(/^[MmLlHhVvCcSsQqTtAaZz0-9.,eE+\-\s]+$/);
   });
 });

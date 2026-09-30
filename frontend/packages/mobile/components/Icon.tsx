@@ -1,5 +1,6 @@
 import Svg, { Path } from 'react-native-svg';
 import { ICON_PATHS, type IconName } from '../../shared/icons/paths';
+import { COLORS } from '../constants';
 
 export type { IconName };
 
@@ -17,7 +18,14 @@ interface IconProps {
  * pass `accessibilityLabel` only when the icon is the sole content of a control
  * and the control itself isn't labelled.
  */
-export function Icon({ name, size = 24, color, testID, accessibilityLabel }: IconProps) {
+// Without a fill react-native-svg paints black, unlike the web's currentColor.
+export function Icon({
+  name,
+  size = 24,
+  color = COLORS.textPrimary,
+  testID,
+  accessibilityLabel,
+}: IconProps) {
   const a11y = accessibilityLabel
     ? { accessible: true, accessibilityRole: 'image' as const, accessibilityLabel }
     : {

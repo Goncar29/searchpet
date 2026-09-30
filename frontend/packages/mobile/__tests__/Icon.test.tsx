@@ -3,6 +3,7 @@ import { render } from '@testing-library/react-native';
 import Svg, { Path } from 'react-native-svg';
 import { Icon } from '../components/Icon';
 import { ICON_PATHS } from '../../shared/icons/paths';
+import { COLORS } from '../constants';
 
 describe('Icon (mobile)', () => {
   it('is hidden from accessibility when there is no label', () => {
@@ -33,6 +34,13 @@ describe('Icon (mobile)', () => {
     rerender(<Icon name="home" size={40} />);
     expect(UNSAFE_getByType(Svg).props.width).toBe(40);
     expect(UNSAFE_getByType(Svg).props.height).toBe(40);
+  });
+
+  // Without a color react-native-svg paints black, which vanishes on dark
+  // surfaces; the default is the app's primary text color instead.
+  it('defaults the fill to the primary text color, not black', () => {
+    const { UNSAFE_getByType } = render(<Icon name="search" />);
+    expect(UNSAFE_getByType(Path).props.fill).toBe(COLORS.textPrimary);
   });
 
   it('draws the registry path in the given color', () => {
