@@ -99,6 +99,20 @@ describe('ChatScreen', () => {
     expect(queryByText(/chat:startConversation/i)).toBeNull();
   });
 
+  // Rule #60: offline (isPaused) must not render like the empty state either.
+  it('sin caché y offline (isPaused), muestra el estado offline en vez de la invitación a escribir', () => {
+    mockUseConversation.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: false,
+      isPaused: true,
+      refetch: jest.fn(),
+    });
+    const { queryByText } = render(<ChatScreen />);
+    expect(queryByText('common:offlineTitle')).toBeTruthy();
+    expect(queryByText(/chat:startConversation/i)).toBeNull();
+  });
+
   it('con mensajes cacheados y un refetch fallido, la conversación sigue en pantalla', () => {
     mockUseConversation.mockReturnValue({
       data: [mockMessage],

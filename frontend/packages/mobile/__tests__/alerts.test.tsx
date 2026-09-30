@@ -107,6 +107,20 @@ describe('AlertsScreen', () => {
     expect(queryByText(/alerts:emptyTitle/i)).toBeNull();
   });
 
+  // Rule #60: offline (isPaused) must not render like the empty state either.
+  it('sin caché y offline (isPaused), muestra el estado offline en vez del vacío de "sin alertas"', () => {
+    mockUseAlerts.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: false,
+      isPaused: true,
+      refetch: jest.fn(),
+    });
+    const { queryByText } = render(<AlertsScreen />);
+    expect(queryByText('common:offlineTitle')).toBeTruthy();
+    expect(queryByText(/alerts:emptyTitle/i)).toBeNull();
+  });
+
   it('con alertas cacheadas y un refetch fallido, la lista sigue en pantalla', () => {
     mockUseAlerts.mockReturnValue({
       data: [mockAlert],

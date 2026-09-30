@@ -201,9 +201,15 @@ describe('MyPetsScreen', () => {
 
   // Rule #12/M5: `item.type` is a raw domain literal ('perro', 'gato'...); it
   // must go through i18next, not render as-is.
+  //
+  // Exact match on the pet row's own text, not a loose /Perro/ over the
+  // whole screen (see __tests__/index.photoSearch.test.tsx): the row's
+  // <Text> is `${icon} ${type} · ${breed}` as sibling expressions in one
+  // node, so its full content is deterministic — and unlike a substring
+  // match, this fails if `item.type` ever stops going through `t()`.
   it('el tipo de mascota sale de i18n, no el literal crudo', () => {
     render(<MyPetsScreen />);
-    expect(screen.getByText(/Perro/)).toBeTruthy();
+    expect(screen.getByText('🐕 Perro · Labrador')).toBeTruthy();
   });
 
   it('el tab "owned" excluye mascotas en adopción', () => {

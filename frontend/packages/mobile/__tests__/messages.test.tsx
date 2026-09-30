@@ -95,6 +95,23 @@ describe('MessagesScreen', () => {
     expect(queryByText('messages:emptyTitle')).toBeNull();
   });
 
+  // Rule #60: offline (isPaused) must not render like the empty state either
+  // — ListState checks `isPaused` before `isError`/`isPending` precisely so a
+  // first load with no connection doesn't say "no conversations".
+  it('sin caché y offline (isPaused), muestra el estado offline en vez del vacío de "sin conversaciones"', () => {
+    mockUseConversations.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: false,
+      isPaused: true,
+      refetch: jest.fn(),
+      isRefetching: false,
+    });
+    const { queryByText } = render(<MessagesScreen />);
+    expect(queryByText('common:offlineTitle')).toBeTruthy();
+    expect(queryByText('messages:emptyTitle')).toBeNull();
+  });
+
   it('con conversaciones cacheadas y un refetch fallido, la lista sigue en pantalla', () => {
     mockUseConversations.mockReturnValue({
       data: [mockConversation],
