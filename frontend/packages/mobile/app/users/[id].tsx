@@ -475,7 +475,7 @@ export default function PublicProfileScreen() {
           // El sobre es `{data, total}`: se atraviesa `.data` antes de partir.
           select={(paged) => splitOwnedPets(paged.data).owned}
           errorTitle={t('users:postsError')}
-          loading={<ActivityIndicator size="small" color={COLORS.primary} style={{ marginTop: SPACING.md }} />}
+          loading={<ActivityIndicator testID="user-pets-loading" size="small" color={COLORS.primary} style={{ marginTop: SPACING.md }} />}
         >
           {(pets: Pet[]) =>
             pets.length === 0 ? (

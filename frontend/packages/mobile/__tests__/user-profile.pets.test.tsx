@@ -87,7 +87,8 @@ describe('Perfil público — mascotas publicadas', () => {
     mockUseUserPets.mockReturnValue(
       petsOk([pet('p1', 'Firulais', 'lost'), pet('p2', 'Michi', 'adoption')], 2),
     );
-    const { queryByText } = render(<UserProfileScreen />);
+    const { queryByText, queryByTestId } = render(<UserProfileScreen />);
+    expect(queryByTestId('user-pets-loading')).toBeNull();
     expect(queryByText('users:posts')).toBeTruthy();
     expect(queryByText('users:adoption')).toBeTruthy();
     expect(queryByText('Firulais')).toBeTruthy();
@@ -124,6 +125,34 @@ describe('Perfil público — mascotas publicadas', () => {
     // Una falla, un cartel: la sección de adopción no lleva el suyo.
     expect(queryAllByText('users:postsError')).toHaveLength(1);
     expect(queryByText('users:adoption')).toBeNull();
+  });
+
+  it('cargando: indicador, sin afirmar vacío ni error', () => {
+    mockUseUserPets.mockReturnValue({
+      data: undefined,
+      isLoading: true,
+      isPending: true,
+      isError: false,
+      isPaused: false,
+      refetch: jest.fn(),
+    });
+    const { queryByText, queryByTestId } = render(<UserProfileScreen />);
+    expect(queryByTestId('user-pets-loading')).toBeTruthy();
+    expect(queryByText('users:postsEmpty')).toBeNull();
+    expect(queryByText('users:postsError')).toBeNull();
+  });
+
+  it('refetch caído CON datos: la lista sigue y aparece el aviso, no el cartel', () => {
+    mockUseUserPets.mockReturnValue({
+      ...petsOk([pet('p1', 'Firulais', 'lost'), pet('p2', 'Michi', 'adoption')], 2),
+      isError: true,
+    });
+    const { queryByText, queryAllByText } = render(<UserProfileScreen />);
+    expect(queryByText('Firulais')).toBeTruthy();
+    expect(queryByText('Michi')).toBeTruthy();
+    expect(queryAllByText('common:staleTitle')).toHaveLength(1);
+    expect(queryByText('users:postsError')).toBeNull();
+    expect(queryByText('users:postsEmpty')).toBeNull();
   });
 
   it('datos vacíos: texto de vacío, NO el cartel de error', () => {
