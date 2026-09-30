@@ -80,6 +80,35 @@ describe('MessagesScreen', () => {
     expect(queryByText('Encontré a tu perro')).toBeTruthy();
   });
 
+  // Rule #60: a failed query must never render like an empty list.
+  it('la consulta caída sin datos muestra el cartel de error, no el vacío de "sin conversaciones"', () => {
+    mockUseConversations.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: true,
+      isPaused: false,
+      refetch: jest.fn(),
+      isRefetching: false,
+    });
+    const { queryByText } = render(<MessagesScreen />);
+    expect(queryByText('common:loadErrorTitle')).toBeTruthy();
+    expect(queryByText('messages:emptyTitle')).toBeNull();
+  });
+
+  it('con conversaciones cacheadas y un refetch fallido, la lista sigue en pantalla', () => {
+    mockUseConversations.mockReturnValue({
+      data: [mockConversation],
+      isLoading: false,
+      isError: true,
+      isPaused: false,
+      refetch: jest.fn(),
+      isRefetching: false,
+    });
+    const { queryByText } = render(<MessagesScreen />);
+    expect(queryByText('Alice')).toBeTruthy();
+    expect(queryByText('common:loadErrorTitle')).toBeNull();
+  });
+
   it('muestra el nombre del receptor cuando el usuario actual envió el último mensaje', () => {
     mockUseConversations.mockReturnValue({
       data: [

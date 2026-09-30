@@ -31,6 +31,7 @@ import {
   useWebSocket,
 } from '../../../shared/hooks';
 import type { WsEnvelope, WsChatMessage, WsTypingEvent } from '../../../shared/hooks';
+import { ListState } from '../../components/list/ListState';
 import { COLORS, SPACING, FONTS, RADIUS } from '../../constants';
 import type { Message } from '../../../shared/types';
 
@@ -45,7 +46,8 @@ export default function ChatScreen() {
   const flatListRef = useRef<FlatList>(null);
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const { data: messages, isLoading } = useConversation(userId);
+  const conversationQuery = useConversation(userId);
+  const { data: messages, isLoading } = conversationQuery;
   const { mutate: sendMessage, isPending: isSending } = useSendMessageTo();
   const markAsRead = useMarkAsRead();
   const blockUser = useBlockUser();
@@ -280,24 +282,41 @@ export default function ChatScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
     >
-      <FlatList
-        ref={flatListRef}
-        data={messages}
-        keyExtractor={(item) => item.id}
-        renderItem={renderMessage}
-        contentContainerStyle={styles.messagesList}
-        onContentSizeChange={() =>
-          flatListRef.current?.scrollToEnd({ animated: false })
-        }
-        ListEmptyComponent={
+      {/* Wrapped with ListState (rule #60): a failed `useConversation` used to
+          fall through to `ListEmptyComponent` and invite the user to "start
+          the conversation" — false when we simply could not read the
+          history. The composer below stays reachable either way: not
+          knowing the history is not a reason to stop someone from sending a
+          new message. */}
+      <ListState<Message[], Message>
+        query={conversationQuery}
+        loading={
           <View style={styles.center}>
-            <Text style={{ fontSize: 48, marginBottom: SPACING.md }}>💬</Text>
-            <Text style={styles.emptyText}>
-              {t('chat:startConversation')}
-            </Text>
+            <ActivityIndicator size="large" color={COLORS.primary} />
           </View>
         }
-      />
+      >
+        {(items) => (
+          <FlatList
+            ref={flatListRef}
+            data={items}
+            keyExtractor={(item) => item.id}
+            renderItem={renderMessage}
+            contentContainerStyle={styles.messagesList}
+            onContentSizeChange={() =>
+              flatListRef.current?.scrollToEnd({ animated: false })
+            }
+            ListEmptyComponent={
+              <View style={styles.center}>
+                <Text style={{ fontSize: 48, marginBottom: SPACING.md }}>💬</Text>
+                <Text style={styles.emptyText}>
+                  {t('chat:startConversation')}
+                </Text>
+              </View>
+            }
+          />
+        )}
+      </ListState>
 
       {/* Typing indicator */}
       {isTyping && (

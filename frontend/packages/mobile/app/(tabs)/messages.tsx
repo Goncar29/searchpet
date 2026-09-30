@@ -19,6 +19,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '../../store';
 import { useConversations, useWebSocket } from '../../../shared/hooks';
 import type { WsEnvelope } from '../../../shared/hooks';
+import { ListState } from '../../components/list/ListState';
 import { COLORS, SPACING, FONTS, RADIUS } from '../../constants';
 import type { Message } from '../../../shared/types';
 
@@ -27,7 +28,8 @@ export default function MessagesScreen() {
   const { t } = useTranslation(['common', 'messages']);
   const { isAuthenticated, user } = useAuthStore();
   const queryClient = useQueryClient();
-  const { data: conversations, isLoading, refetch, isRefetching } = useConversations();
+  const conversationsQuery = useConversations();
+  const { refetch, isRefetching } = conversationsQuery;
 
   // WS subscription: invalidate conversation list on badge_update or new chat_message.
   const handleWsMessage = useCallback((envelope: WsEnvelope) => {
@@ -53,14 +55,6 @@ export default function MessagesScreen() {
         >
           <Text style={styles.loginText}>{t('messages:loginButton')}</Text>
         </TouchableOpacity>
-      </View>
-    );
-  }
-
-  if (isLoading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
       </View>
     );
   }
@@ -95,66 +89,80 @@ export default function MessagesScreen() {
 
   return (
     <View style={styles.container}>
-      <FlatList
-        data={conversations}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => {
-          const other = getOtherUser(item);
-          const isUnread = !item.is_read && item.receiver_id === user?.id;
-
-          return (
-            <TouchableOpacity
-              style={styles.conversationItem}
-              onPress={() => router.push(`/chat/${other.id}?userName=${encodeURIComponent(other.name)}` as `/${string}`)}
-              activeOpacity={0.7}
-            >
-              {/* Avatar */}
-              <View style={styles.avatar}>
-                <Text style={styles.avatarText}>
-                  {other.name.charAt(0).toUpperCase()}
-                </Text>
-              </View>
-
-              {/* Info */}
-              <View style={styles.conversationInfo}>
-                <View style={styles.conversationHeader}>
-                  <Text style={[styles.userName, isUnread && styles.userNameUnread]}>
-                    {other.name}
-                  </Text>
-                  <Text style={styles.timeText}>{getTimeAgo(item.created_at)}</Text>
-                </View>
-                <View style={styles.messageRow}>
-                  <Text
-                    style={[styles.lastMessage, isUnread && styles.lastMessageUnread]}
-                    numberOfLines={1}
-                  >
-                    {item.sender_id === user?.id ? t('messages:youPrefix') : ''}{item.content}
-                  </Text>
-                  {isUnread && <View style={styles.unreadDot} />}
-                </View>
-              </View>
-            </TouchableOpacity>
-          );
-        }}
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefetching}
-            onRefresh={refetch}
-            tintColor={COLORS.primary}
-          />
-        }
-        ItemSeparatorComponent={() => <View style={styles.separator} />}
-        ListEmptyComponent={
+      {/* Wrapped with ListState (rule #60): a failed `useConversations` used to
+          fall through to `ListEmptyComponent` and tell the user "no
+          conversations", which is false when we simply could not read them. */}
+      <ListState<Message[], Message>
+        query={conversationsQuery}
+        loading={
           <View style={styles.center}>
-            <Text style={{ fontSize: 48, marginBottom: SPACING.md }}>📭</Text>
-            <Text style={styles.title}>{t('messages:emptyTitle')}</Text>
-            <Text style={styles.subtitle}>{t('messages:emptySubtitle')}</Text>
+            <ActivityIndicator size="large" color={COLORS.primary} />
           </View>
         }
-        contentContainerStyle={
-          !conversations?.length ? { flex: 1 } : undefined
-        }
-      />
+      >
+        {(conversations) => (
+          <FlatList
+            data={conversations}
+            keyExtractor={(item) => item.id}
+            renderItem={({ item }) => {
+              const other = getOtherUser(item);
+              const isUnread = !item.is_read && item.receiver_id === user?.id;
+
+              return (
+                <TouchableOpacity
+                  style={styles.conversationItem}
+                  onPress={() => router.push(`/chat/${other.id}?userName=${encodeURIComponent(other.name)}` as `/${string}`)}
+                  activeOpacity={0.7}
+                >
+                  {/* Avatar */}
+                  <View style={styles.avatar}>
+                    <Text style={styles.avatarText}>
+                      {other.name.charAt(0).toUpperCase()}
+                    </Text>
+                  </View>
+
+                  {/* Info */}
+                  <View style={styles.conversationInfo}>
+                    <View style={styles.conversationHeader}>
+                      <Text style={[styles.userName, isUnread && styles.userNameUnread]}>
+                        {other.name}
+                      </Text>
+                      <Text style={styles.timeText}>{getTimeAgo(item.created_at)}</Text>
+                    </View>
+                    <View style={styles.messageRow}>
+                      <Text
+                        style={[styles.lastMessage, isUnread && styles.lastMessageUnread]}
+                        numberOfLines={1}
+                      >
+                        {item.sender_id === user?.id ? t('messages:youPrefix') : ''}{item.content}
+                      </Text>
+                      {isUnread && <View style={styles.unreadDot} />}
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              );
+            }}
+            refreshControl={
+              <RefreshControl
+                refreshing={isRefetching}
+                onRefresh={refetch}
+                tintColor={COLORS.primary}
+              />
+            }
+            ItemSeparatorComponent={() => <View style={styles.separator} />}
+            ListEmptyComponent={
+              <View style={styles.center}>
+                <Text style={{ fontSize: 48, marginBottom: SPACING.md }}>📭</Text>
+                <Text style={styles.title}>{t('messages:emptyTitle')}</Text>
+                <Text style={styles.subtitle}>{t('messages:emptySubtitle')}</Text>
+              </View>
+            }
+            contentContainerStyle={
+              conversations.length === 0 ? { flex: 1 } : undefined
+            }
+          />
+        )}
+      </ListState>
     </View>
   );
 }

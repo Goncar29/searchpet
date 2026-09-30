@@ -65,4 +65,42 @@ describe('AlertsScreen', () => {
     const { queryByText } = render(<AlertsScreen />);
     expect(queryByText('Casa')).toBeTruthy();
   });
+
+  // Rule #60: a failed query must never render like an empty list.
+  it('la consulta caída sin datos muestra el cartel de error, no el vacío de "sin alertas"', () => {
+    mockUseAlerts.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: true,
+      isPaused: false,
+      refetch: jest.fn(),
+    });
+    const { queryByText } = render(<AlertsScreen />);
+    expect(queryByText('common:loadErrorTitle')).toBeTruthy();
+    expect(queryByText(/alerts:emptyTitle/i)).toBeNull();
+  });
+
+  it('con alertas cacheadas y un refetch fallido, la lista sigue en pantalla', () => {
+    mockUseAlerts.mockReturnValue({
+      data: [mockAlert],
+      isLoading: false,
+      isError: true,
+      isPaused: false,
+      refetch: jest.fn(),
+    });
+    const { queryByText } = render(<AlertsScreen />);
+    expect(queryByText('Casa')).toBeTruthy();
+    expect(queryByText('common:loadErrorTitle')).toBeNull();
+  });
+
+  // Rule #12/M5: the pet type is a raw domain literal ('perro', 'gato'...);
+  // it must go through i18next, not render untranslated.
+  it('traduce el tipo de mascota de la alerta en vez de mostrar el literal crudo', () => {
+    mockUseAlerts.mockReturnValue({
+      data: [{ ...mockAlert, pet_type: 'perro' }],
+      isLoading: false,
+    });
+    const { queryByText } = render(<AlertsScreen />);
+    expect(queryByText(/pets:types\.perro/)).toBeTruthy();
+  });
 });
