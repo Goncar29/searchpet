@@ -164,6 +164,21 @@ describe('UserProfilePage', () => {
     authState.current = { user: null, isAuthenticated: false };
   });
 
+  // BADGE_META está vacío en este archivo: todo logro es "desconocido" y cae al
+  // icono de respaldo, no al emoji de medalla que había antes.
+  it('un logro desconocido dibuja military-tech, sin emoji', () => {
+    profileState.current = {
+      ...profileState.current,
+      badges: [{ id: 'b1', badge_type: 'logro_raro', earned_at: '2026-08-01T00:00:00Z' }],
+    };
+    render(<UserProfilePage />, { wrapper });
+
+    const card = screen.getByText('logro_raro').closest('div.rounded-xl') as HTMLElement;
+    expect(card).not.toBeNull();
+    expect(drawnPaths(card)).toEqual([iconPath('military-tech')]);
+    expect(card.textContent).not.toMatch(EMOJI);
+  });
+
   it('renderiza sin lanzar errores', () => {
     render(<UserProfilePage />, { wrapper });
     expect(document.body).toBeTruthy();

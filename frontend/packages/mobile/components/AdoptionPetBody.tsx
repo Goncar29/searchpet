@@ -14,6 +14,8 @@ import { useAuthStore } from '../store';
 import { ShareButton } from './ShareButton';
 import { PdfFlyerButton } from './PdfFlyerButton';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../constants';
+import { Icon } from './Icon';
+import { IconLabel } from './IconLabel';
 
 interface AdoptionPetBodyProps {
   pet: Pet;
@@ -28,7 +30,9 @@ export function AdoptionPetBody({ pet }: AdoptionPetBodyProps) {
   if (pet.status === 'adopted') {
     return (
       <View testID="adopted-banner" style={styles.adoptedBanner}>
-        <Text style={styles.adoptedEmoji}>🎉</Text>
+        <View style={styles.adoptedIcon}>
+          <Icon name="celebration" size={48} color="#047857" />
+        </View>
         <Text style={styles.adoptedTitle}>{t('adoption:detail.adoptedTitle', { name: pet.name })}</Text>
         <Text style={styles.adoptedSubtitle}>{t('adoption:detail.adoptedSubtitle')}</Text>
       </View>
@@ -44,7 +48,7 @@ export function AdoptionPetBody({ pet }: AdoptionPetBodyProps) {
           <Text style={styles.sectionTitle}>{t('pet_detail:ownerContact')}</Text>
           <View style={styles.ownerInfo}>
             <View style={styles.ownerAvatar}>
-              <Text style={{ fontSize: 24 }}>👤</Text>
+              <Icon name="person" size={28} color={COLORS.textSecondary} />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.ownerName}>{pet.owner.name}</Text>
@@ -69,7 +73,9 @@ export function AdoptionPetBody({ pet }: AdoptionPetBodyProps) {
                 style={styles.messageButton}
                 onPress={() => router.push(`/chat/${pet.owner_id}?userName=${encodeURIComponent(pet.owner?.name ?? '')}` as `/${string}`)}
               >
-                <Text style={styles.messageButtonText}>💬 {t('pets:detail.sendMessage')}</Text>
+                <IconLabel icon="chat-bubble" size={18} color={COLORS.white}>
+                  <Text style={styles.messageButtonText}>{t('pets:detail.sendMessage')}</Text>
+                </IconLabel>
               </TouchableOpacity>
             ) : (
               <TouchableOpacity
@@ -77,7 +83,9 @@ export function AdoptionPetBody({ pet }: AdoptionPetBodyProps) {
                 style={styles.loginButton}
                 onPress={() => router.push('/login')}
               >
-                <Text style={styles.loginButtonText}>🔒 {t('pets:detail.loginToContact')}</Text>
+                <IconLabel icon="lock" size={18} color={COLORS.textSecondary}>
+                  <Text style={styles.loginButtonText}>{t('pets:detail.loginToContact')}</Text>
+                </IconLabel>
               </TouchableOpacity>
             )
           )}
@@ -105,7 +113,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     ...SHADOWS.sm,
   },
-  adoptedEmoji: { fontSize: 40, marginBottom: SPACING.sm },
+  adoptedIcon: { marginBottom: SPACING.sm },
   adoptedTitle: { fontSize: FONTS.sizes.md, fontWeight: '800', color: '#065f46', textAlign: 'center' },
   adoptedSubtitle: { fontSize: FONTS.sizes.sm, color: '#047857', textAlign: 'center', marginTop: 4 },
   ownerCard: {

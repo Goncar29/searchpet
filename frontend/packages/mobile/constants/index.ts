@@ -2,6 +2,8 @@
 // SearchPet - Constantes
 // ============================================================
 
+import type { IconName } from '../../shared/icons/paths';
+
 export const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8081';
 
 // OAuth 2.0 Web client id para el login con Google. Es el MISMO valor que usa la
@@ -37,6 +39,11 @@ export const COLORS = {
   sighting: '#F59E0B',
   adoption: '#7E22CE',
   adopted: '#0F766E',
+
+  // Leaderboard medals (ranks 1-3)
+  medalGold: '#D4A017',
+  medalSilver: '#9CA3AF',
+  medalBronze: '#B4713A',
 
   // Social
   whatsapp: '#25D366',
@@ -101,12 +108,13 @@ export const SHADOWS = {
   },
 };
 
+// `icon` is a registry name (shared/icons/paths.ts): render it with `<Icon>`.
 export const PET_TYPES = [
-  { value: 'perro', labelKey: 'pets:types.perro', icon: '🐕' },
-  { value: 'gato', labelKey: 'pets:types.gato', icon: '🐱' },
-  { value: 'pajaro', labelKey: 'pets:types.pajaro', icon: '🐦' },
-  { value: 'otro', labelKey: 'pets:types.otro', icon: '🐾' },
-] as const;
+  { value: 'perro', labelKey: 'pets:types.perro', icon: 'dog' },
+  { value: 'gato', labelKey: 'pets:types.gato', icon: 'cat' },
+  { value: 'pajaro', labelKey: 'pets:types.pajaro', icon: 'bird' },
+  { value: 'otro', labelKey: 'pets:types.otro', icon: 'pets' },
+] as const satisfies readonly { value: string; labelKey: string; icon: IconName }[];
 
 export const REPORT_STATUSES = [
   { value: 'lost', labelKey: 'pets:status.lost', color: COLORS.lost },

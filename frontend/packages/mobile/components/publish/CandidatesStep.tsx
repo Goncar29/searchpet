@@ -8,6 +8,7 @@ import { ListState } from '../list/ListState';
 import { IMAGE_SIZES } from '../../constants/imageSizes';
 import { getDateLocale } from '../../i18n/dateLocale';
 import { COLORS, SPACING, FONTS } from '../../constants';
+import { Icon } from '../Icon';
 
 interface CandidatesStepProps {
   query: UseQueryResult<StrayCandidate[]>;
@@ -152,7 +153,7 @@ export function CandidatesStep({ query, onSelect, onSkip, isPublishing }: Candid
                   />
                 ) : (
                   <View style={[styles.photo, styles.photoEmpty]}>
-                    <Text style={styles.paw}>🐾</Text>
+                    <Icon name="pets" size={24} color={COLORS.textMuted} />
                   </View>
                 )}
                 <View style={styles.info}>
@@ -312,9 +313,6 @@ const styles = StyleSheet.create({
   photoEmpty: {
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  paw: {
-    fontSize: 24,
   },
   info: {
     flex: 1,

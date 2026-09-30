@@ -25,6 +25,8 @@ import { useMyPets, useReportedPets, useDeletePet, useUploadPhotoNative, useCrea
 import { getErrorMessage } from '../../shared/utils/apiErrors';
 import { useLocationStore } from '../store';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS, PET_TYPES } from '../constants';
+import { Icon, type IconName } from '../components/Icon';
+import { IconLabel } from '../components/IconLabel';
 import type { Pet } from '../../shared/types';
 import { cloudinaryThumb } from '@shared/utils/cloudinaryThumb';
 import { IMAGE_SIZES } from '../constants/imageSizes';
@@ -90,8 +92,8 @@ export default function MyPetsScreen() {
     }
   };
 
-  const getPetIcon = (type: string) => {
-    return PET_TYPES.find(t => t.value === type)?.icon || '🐾';
+  const getPetIcon = (type: string): IconName => {
+    return PET_TYPES.find(t => t.value === type)?.icon ?? 'pets';
   };
 
   const handleAddPhoto = async (pet: Pet) => {
@@ -272,7 +274,7 @@ export default function MyPetsScreen() {
                       />
                     ) : (
                       <View style={styles.photoPlaceholder}>
-                        <Text style={styles.photoIcon}>{getPetIcon(item.type)}</Text>
+                        <Icon name={getPetIcon(item.type)} size={32} color={COLORS.textMuted} />
                         <Text style={styles.photoAddText}>{t('my_pets:addPhoto')}</Text>
                       </View>
                     )}
@@ -287,10 +289,16 @@ export default function MyPetsScreen() {
                       </View>
                     </View>
 
-                    <Text style={styles.petType}>
-                      {getPetIcon(item.type)} {t(`pets:types.${item.type}`, { defaultValue: item.type })}
-                      {item.breed ? ` · ${item.breed}` : ''}
-                    </Text>
+                    <IconLabel
+                      icon={getPetIcon(item.type)}
+                      color={COLORS.textSecondary}
+                      style={styles.petTypeRow}
+                    >
+                      <Text style={styles.petType}>
+                        {t(`pets:types.${item.type}`, { defaultValue: item.type })}
+                        {item.breed ? ` · ${item.breed}` : ''}
+                      </Text>
+                    </IconLabel>
 
                     {item.color && (
                       <Text style={styles.petDetail} numberOfLines={1}>
@@ -502,7 +510,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  photoIcon: { fontSize: 28 },
   photoAddText: {
     fontSize: FONTS.sizes.xs,
     color: COLORS.textMuted,
@@ -532,10 +539,11 @@ const styles = StyleSheet.create({
     fontSize: FONTS.sizes.xs,
     fontWeight: '700',
   },
+  petTypeRow: { marginBottom: 2 },
   petType: {
+    flexShrink: 1,
     fontSize: FONTS.sizes.sm,
     color: COLORS.textSecondary,
-    marginBottom: 2,
     textTransform: 'capitalize',
   },
   petDetail: {

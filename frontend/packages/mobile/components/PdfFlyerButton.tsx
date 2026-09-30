@@ -22,6 +22,7 @@ import { useGenerateShareLink } from '../../shared/hooks';
 import { getErrorMessage } from '../../shared/utils/apiErrors';
 import { ApiError } from '../../shared/api/client';
 import { COLORS, SPACING, FONTS, RADIUS } from '../constants';
+import { IconLabel } from './IconLabel';
 import type { Pet, Report } from '../../shared/types';
 import { posterFraming } from '../utils/adoptionFraming';
 import { getDateLocale } from '../i18n/dateLocale';
@@ -203,7 +204,9 @@ export function PdfFlyerButton({ pet, reports = [] }: PdfFlyerButtonProps) {
       {isGenerating ? (
         <ActivityIndicator size="small" color={COLORS.white} />
       ) : (
-        <Text style={styles.label}>📄 {i18next.t('pets:share.flyerButton')}</Text>
+        <IconLabel icon="description" size={18} color={COLORS.white}>
+          <Text style={styles.label}>{i18next.t('pets:share.flyerButton')}</Text>
+        </IconLabel>
       )}
     </TouchableOpacity>
   );

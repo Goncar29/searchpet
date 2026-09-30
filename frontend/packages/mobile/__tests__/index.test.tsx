@@ -4,6 +4,9 @@ import { RefreshControl } from 'react-native';
 import { render, fireEvent, act } from '@testing-library/react-native';
 
 import HomeScreen from '../app/(tabs)/index';
+import { drawnIcons, fillsOf } from './support/icons';
+import { COLORS } from '../constants';
+import { Text } from 'react-native';
 
 // expo-router is mocked in jest.setup.js
 
@@ -279,5 +282,27 @@ describe('HomeScreen (Feed)', () => {
       expect(queryByText(/common:staleTitle/)).toBeTruthy();
       expect(queryByText(/common:loadErrorTitle/)).toBeNull();
     });
+  });
+});
+const TYPE_ICONS = ['dog', 'cat', 'bird', 'pets'];
+const ICONS_OF_TYPES = (ui: Parameters<typeof drawnIcons>[0]) => drawnIcons(ui).filter((n) => TYPE_ICONS.includes(n));
+const TYPE_EMOJI = /[🐾🐕🐱🐦]/u;
+
+describe('HomeScreen — type chips draw icons', () => {
+  it('the all chip and each type draw their own icon, no emoji', () => {
+    Object.assign(search, estadoDeQuery({ data: { data: [], total: 0 } }));
+    const ui = render(<HomeScreen />);
+    expect(ICONS_OF_TYPES(ui)).toEqual(['pets', 'dog', 'cat', 'bird', 'pets']);
+    const texts = ui.UNSAFE_getAllByType(Text).map((t) => [t.props.children].flat(Infinity).join(''));
+    expect(texts.filter((s) => TYPE_EMOJI.test(s))).toEqual([]);
+  });
+
+  it('the selected chip tints its icon white and the others stay secondary (both halves)', () => {
+    Object.assign(search, estadoDeQuery({ data: { data: [], total: 0 } }));
+    const ui = render(<HomeScreen />);
+    fireEvent.press(ui.getByText('pets:types.pajaro'));
+    expect(fillsOf(ui, 'bird')).toEqual([COLORS.white]);
+    expect(fillsOf(ui, 'dog')).toEqual([COLORS.textSecondary]);
+    expect(fillsOf(ui, 'cat')).toEqual([COLORS.textSecondary]);
   });
 });

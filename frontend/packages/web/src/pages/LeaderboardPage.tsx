@@ -35,19 +35,14 @@ function withBadgeCount(base: string, badges: string[], t: TFunction): string {
 }
 
 /**
- * Los emojis de badge NO se sustituyen por iconos.
+ * El glifo de un badge. Los iconos salen de `BADGE_META.icon`, el mismo registro
+ * que dibuja mobile, asi que el logro se ve igual en el ranking, en el perfil y
+ * en el celular.
  *
- * `BADGE_META.emoji` vive en `shared/types` y lo consumen ocho archivos de web
- * Y de mobile (ProfilePage, UserProfilePage, esta pagina y tres pantallas
- * nativas). Cambiarlos solo aca haria que el mismo logro se vea distinto en el
- * ranking, en el perfil y en el celular — peor que dejarlos. Es un cambio
- * transversal con su propio PR, y mobile ni siquiera tiene el componente Icon.
- *
- * Lo que si se arregla aca es la ULTIMA PULGADA, que era lo roto: el emoji iba
- * suelto en un <span title=...>. `title` no existe en touch —y el celular es el
- * caso de uso principal— y un lector de pantalla anuncia el nombre Unicode del
- * caracter ("handshake"), no "Primer ayudante". Con `role="img"` y `aria-label`
- * el glifo se queda y el significado por fin viaja.
+ * La ultima pulgada: `title` no existe en touch —y el celular es el caso de uso
+ * principal— y un lector de pantalla no anuncia un SVG decorativo. Con
+ * `role="img"` y `aria-label` el significado viaja ("Primer ayudante"); el
+ * `Icon` de adentro queda oculto para que no se anuncie dos veces.
  */
 function BadgeGlyph({ type, className = '' }: { type: string; className?: string }) {
   const { t } = useTranslation('badges');
@@ -61,7 +56,7 @@ function BadgeGlyph({ type, className = '' }: { type: string; className?: string
       title={label}
       className={`inline-flex items-center justify-center rounded-full bg-primary/10 dark:bg-primary/20 leading-none ${className}`}
     >
-      {meta.emoji}
+      <Icon name={meta.icon} />
     </span>
   );
 }

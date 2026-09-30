@@ -30,7 +30,8 @@ import { PetCard } from '../../components/PetCard';
 import { getDateLocale } from '../../i18n/dateLocale';
 import type { Badge, Pet, UserReview } from '../../../shared/types';
 import { splitOwnedPets } from '../../../shared/utils/ownedPetBuckets';
-import { BADGE_META } from '../../../shared/types';
+import { BADGE_META, BADGE_FALLBACK_ICON } from '../../../shared/types';
+import { Icon } from '../../components/Icon';
 import { cloudinaryThumb } from '@shared/utils/cloudinaryThumb';
 import { IMAGE_SIZES } from '../../constants/imageSizes';
 
@@ -54,7 +55,7 @@ function formatDate(dateString: string, lang: string): string {
 function BadgeRow({ badge }: { badge: Badge }) {
   const { t, i18n } = useTranslation(['badges', 'users']);
   const meta = BADGE_META[badge.badge_type] ?? {
-    emoji: '🏅',
+    icon: BADGE_FALLBACK_ICON,
     labelKey: badge.badge_type,
     descriptionKey: '',
   };
@@ -63,7 +64,9 @@ function BadgeRow({ badge }: { badge: Badge }) {
 
   return (
     <View style={styles.badgeCard}>
-      <Text style={styles.badgeEmoji}>{meta.emoji}</Text>
+      <View style={styles.badgeIcon}>
+        <Icon name={meta.icon} size={36} color={COLORS.primary} />
+      </View>
       <View style={styles.badgeInfo}>
         <Text style={styles.badgeLabel}>{label}</Text>
         {description ? (
@@ -722,7 +725,7 @@ const styles = StyleSheet.create({
     padding: SPACING.md,
     ...SHADOWS.sm,
   },
-  badgeEmoji: { fontSize: 40, marginRight: SPACING.md },
+  badgeIcon: { marginRight: SPACING.md },
   badgeInfo: { flex: 1 },
   badgeLabel: { fontSize: FONTS.sizes.md, fontWeight: '700', color: COLORS.textPrimary },
   badgeDescription: { fontSize: FONTS.sizes.sm, color: COLORS.textSecondary, marginTop: 2 },

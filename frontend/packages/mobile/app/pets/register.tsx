@@ -30,6 +30,7 @@ import { useCreatePet, useUploadPhotoNative } from '@shared/hooks';
 import { getErrorMessage } from '@shared/utils/apiErrors';
 import { useAuthStore } from '../../store';
 import { COLORS, SPACING, FONTS, RADIUS, PET_TYPES } from '../../constants';
+import { Icon } from '../../components/Icon';
 import type { PetType } from '../../../shared/types';
 
 export default function RegisterPetScreen() {
@@ -228,7 +229,11 @@ export default function RegisterPetScreen() {
               style={[styles.typeButton, type === petType.value && styles.typeButtonActive]}
               onPress={() => setType(petType.value as PetType)}
             >
-              <Text style={{ fontSize: 20 }}>{petType.icon}</Text>
+              <Icon
+                name={petType.icon}
+                size={24}
+                color={type === petType.value ? COLORS.primary : COLORS.textSecondary}
+              />
               <Text style={[styles.typeLabel, type === petType.value && styles.typeLabelActive]}>
                 {t(`pets:types.${petType.value}`)}
               </Text>

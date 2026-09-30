@@ -5,6 +5,7 @@ import { PetIdentityFields } from '../PetIdentityFields';
 import * as ImagePicker from 'expo-image-picker';
 import type { StrayFormState } from '../../app/(tabs)/post';
 import { COLORS, SPACING, FONTS, RADIUS, PET_TYPES } from '../../constants';
+import { Icon } from '../Icon';
 
 interface StrayFormStepProps {
   value: StrayFormState;
@@ -87,7 +88,7 @@ export function StrayFormStep({ value, onChange, onNext }: StrayFormStepProps) {
             <TouchableOpacity key={`${uri}-${i}`} onPress={() => removePhoto(i)} accessibilityRole="button" accessibilityLabel={t('publish:strayForm.removePhoto')}>
               <Image source={{ uri }} style={styles.photoThumb} />
               <View style={styles.photoRemove}>
-                <Text style={styles.photoRemoveText}>✕</Text>
+                <Icon name="close" size={14} color={COLORS.white} />
               </View>
             </TouchableOpacity>
           ))}
@@ -106,7 +107,7 @@ export function StrayFormStep({ value, onChange, onNext }: StrayFormStepProps) {
             disabled={atLimit}
             accessibilityRole="button"
           >
-            <Text style={styles.addPhotoIcon}>📷</Text>
+            <Icon name="photo-camera" size={24} color={COLORS.textMuted} />
             <Text style={styles.addPhotoLabel}>{t('publish:strayForm.camera')}</Text>
           </TouchableOpacity>
         </ScrollView>
@@ -134,7 +135,13 @@ export function StrayFormStep({ value, onChange, onNext }: StrayFormStepProps) {
                 }}
                 accessibilityRole="button"
               >
-                <Text style={styles.typeIcon}>{petType.icon}</Text>
+                <View style={styles.typeIcon}>
+                  <Icon
+                    name={petType.icon}
+                    size={18}
+                    color={active ? COLORS.primary : COLORS.textSecondary}
+                  />
+                </View>
                 <Text style={[styles.typeLabel, active && styles.typeLabelActive]}>
                   {t(`pets:types.${petType.value}`)}
                 </Text>
@@ -210,7 +217,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  photoRemoveText: { color: COLORS.white, fontSize: 12, fontWeight: '700' },
   addPhoto: {
     width: 72,
     height: 72,
@@ -238,7 +244,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.sm,
   },
   typeOptionActive: { borderColor: COLORS.primary, backgroundColor: COLORS.primaryLight + '22' },
-  typeIcon: { fontSize: FONTS.sizes.md, marginRight: SPACING.xs },
+  typeIcon: { marginRight: SPACING.xs },
   typeLabel: { fontSize: FONTS.sizes.sm, color: COLORS.textSecondary },
   typeLabelActive: { color: COLORS.primary, fontWeight: '700' },
   input: {

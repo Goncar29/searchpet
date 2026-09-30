@@ -21,6 +21,7 @@ import { useAdoptions } from '../../shared/hooks';
 import { PetCard } from '../components/PetCard';
 import { ListState } from '../components/list/ListState';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS, PET_TYPES } from '../constants';
+import { IconLabel } from '../components/IconLabel';
 import type { Pet, PetType, PetListResponse } from '../../shared/types';
 
 export default function AdoptScreen() {
@@ -78,9 +79,11 @@ export default function AdoptScreen() {
             style={[styles.chip, !draftType && styles.chipActive]}
             onPress={() => setDraftType(undefined)}
           >
-            <Text style={[styles.chipText, !draftType && styles.chipTextActive]}>
-              🐾 {t('adoption:section.allTypes')}
-            </Text>
+            <IconLabel icon="pets" size={18} color={!draftType ? COLORS.white : COLORS.textSecondary}>
+              <Text style={[styles.chipText, !draftType && styles.chipTextActive]}>
+                {t('adoption:section.allTypes')}
+              </Text>
+            </IconLabel>
           </TouchableOpacity>
 
           {PET_TYPES.map((petType) => (
@@ -91,11 +94,17 @@ export default function AdoptScreen() {
                 setDraftType(draftType === petType.value ? undefined : (petType.value as PetType))
               }
             >
-              <Text
-                style={[styles.chipText, draftType === petType.value && styles.chipTextActive]}
+              <IconLabel
+                icon={petType.icon}
+                size={18}
+                color={draftType === petType.value ? COLORS.white : COLORS.textSecondary}
               >
-                {petType.icon} {t(`pets:types.${petType.value}`)}
-              </Text>
+                <Text
+                  style={[styles.chipText, draftType === petType.value && styles.chipTextActive]}
+                >
+                  {t(`pets:types.${petType.value}`)}
+                </Text>
+              </IconLabel>
             </TouchableOpacity>
           ))}
         </ScrollView>

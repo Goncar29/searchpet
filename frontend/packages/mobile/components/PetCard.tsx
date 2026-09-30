@@ -5,6 +5,7 @@
 import { View, Text, Image, StyleSheet, TouchableOpacity } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../constants';
+import { IconLabel } from './IconLabel';
 import type { Report, Pet } from '../../shared/types';
 import { PawPlaceholder } from './PawPlaceholder';
 import { cloudinaryThumb } from '@shared/utils/cloudinaryThumb';
@@ -150,9 +151,11 @@ export function PetCard({ report, pet: petProp, onPress }: PetCardProps) {
         </View>
 
         {locationDesc && (
-          <Text style={styles.location} numberOfLines={1}>
-            📍 {locationDesc}
-          </Text>
+          <IconLabel icon="location-on" color={COLORS.textSecondary} style={styles.locationRow}>
+            <Text style={styles.location} numberOfLines={1}>
+              {locationDesc}
+            </Text>
+          </IconLabel>
         )}
 
         {pet?.description && (
@@ -240,10 +243,11 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     fontWeight: '500',
   },
+  locationRow: { marginBottom: 4 },
   location: {
+    flexShrink: 1,
     fontSize: FONTS.sizes.sm,
     color: COLORS.textSecondary,
-    marginBottom: 4,
   },
   description: {
     fontSize: FONTS.sizes.sm,

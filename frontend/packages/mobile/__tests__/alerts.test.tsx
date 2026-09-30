@@ -2,6 +2,10 @@
 import React from 'react';
 import { render } from '@testing-library/react-native';
 import AlertsScreen from '../app/alerts/index';
+import { drawnIcons, fillsOf } from './support/icons';
+import { COLORS } from '../constants';
+import { Text } from 'react-native';
+import { fireEvent } from '@testing-library/react-native';
 
 jest.mock('expo-router', () => ({
   useRouter: () => ({ push: jest.fn(), back: jest.fn(), replace: jest.fn(), navigate: jest.fn() }),
@@ -148,5 +152,31 @@ describe('AlertsScreen', () => {
     // happened to render "Perro" (as my-pets.test.tsx and
     // index.photoSearch.test.tsx do for the same reason).
     expect(getByText('📍 -34.901, -56.164 · 5 km · Perro')).toBeTruthy();
+  });
+});
+const TYPE_ICONS = ['dog', 'cat', 'bird', 'pets'];
+const ICONS_OF_TYPES = (ui: Parameters<typeof drawnIcons>[0]) => drawnIcons(ui).filter((n) => TYPE_ICONS.includes(n));
+const TYPE_EMOJI = /[🐾🐕🐱🐦]/u;
+
+describe('AlertsScreen — type chips draw icons', () => {
+  const openForm = () => {
+    mockUseAlerts.mockReturnValue({ data: [], isLoading: false });
+    const ui = render(<AlertsScreen />);
+    fireEvent.press(ui.getByText(/alerts:add/));
+    return ui;
+  };
+
+  it('each type chip draws its own icon, no emoji', () => {
+    const ui = openForm();
+    expect(ICONS_OF_TYPES(ui)).toEqual(['dog', 'cat', 'bird', 'pets']);
+    const texts = ui.UNSAFE_getAllByType(Text).map((t) => [t.props.children].flat(Infinity).join(''));
+    expect(texts.filter((s) => TYPE_EMOJI.test(s))).toEqual([]);
+  });
+
+  it('the selected chip tints its icon white and the others stay secondary (both halves)', () => {
+    const ui = openForm();
+    fireEvent.press(ui.getByText('Gato'));
+    expect(fillsOf(ui, 'cat')).toEqual([COLORS.white]);
+    expect(fillsOf(ui, 'dog')).toEqual([COLORS.textSecondary]);
   });
 });

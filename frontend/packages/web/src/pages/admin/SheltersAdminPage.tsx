@@ -153,10 +153,7 @@ export function SheltersAdminPage() {
                     <h3 className="font-display font-semibold text-gray-900 dark:text-gray-100">
                       {shelter.name}
                     </h3>
-                    {/* Los emojis 📍📱✉️ pasan a íconos. Son page-local, así que
-                        no arrastran a nadie — a diferencia de los de
-                        `BADGE_META`, que viven en shared y los dibujan ocho
-                        archivos entre web y mobile (#164). Van decorativos: el
+                    {/* Los emojis 📍📱✉️ pasan a íconos. Van decorativos: el
                         texto de al lado ya dice qué es. */}
                     <p className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400">
                       <Icon name="location-on" className="h-4 w-4 flex-shrink-0" />

@@ -2,6 +2,8 @@
 // Lost Pets - Tipos compartidos entre Mobile y Web
 // ============================================================
 
+import type { IconName } from '../icons/paths';
+
 export interface User {
   id: string;
   email: string;
@@ -827,14 +829,19 @@ export interface UserReview {
   updated_at: string;
 }
 
-export const BADGE_META: Record<string, { emoji: string; labelKey: string; descriptionKey: string; howToEarnKey: string }> = {
-  first_helper:       { emoji: '🤝', labelKey: 'badges:first_helper.label',       descriptionKey: 'badges:first_helper.description',       howToEarnKey: 'badges:first_helper.howToEarn' },
-  pet_rescuer:        { emoji: '🦸', labelKey: 'badges:pet_rescuer.label',        descriptionKey: 'badges:pet_rescuer.description',        howToEarnKey: 'badges:pet_rescuer.howToEarn' },
-  social_butterfly:   { emoji: '📣', labelKey: 'badges:social_butterfly.label',   descriptionKey: 'badges:social_butterfly.description',   howToEarnKey: 'badges:social_butterfly.howToEarn' },
-  verified_finder:    { emoji: '✅', labelKey: 'badges:verified_finder.label',    descriptionKey: 'badges:verified_finder.description',    howToEarnKey: 'badges:verified_finder.howToEarn' },
-  community_guardian: { emoji: '🛡️', labelKey: 'badges:community_guardian.label', descriptionKey: 'badges:community_guardian.description', howToEarnKey: 'badges:community_guardian.howToEarn' },
-  super_finder:       { emoji: '🌟', labelKey: 'badges:super_finder.label',       descriptionKey: 'badges:super_finder.description',       howToEarnKey: 'badges:super_finder.howToEarn' },
+// `icon` is a registry name (shared/icons/paths.ts), drawn by the web and mobile
+// `Icon` components. Badges missing from this map fall back to `military-tech`.
+export const BADGE_META: Record<string, { icon: IconName; labelKey: string; descriptionKey: string; howToEarnKey: string }> = {
+  first_helper:       { icon: 'handshake',     labelKey: 'badges:first_helper.label',       descriptionKey: 'badges:first_helper.description',       howToEarnKey: 'badges:first_helper.howToEarn' },
+  pet_rescuer:        { icon: 'emoji-events',  labelKey: 'badges:pet_rescuer.label',        descriptionKey: 'badges:pet_rescuer.description',        howToEarnKey: 'badges:pet_rescuer.howToEarn' },
+  social_butterfly:   { icon: 'campaign',      labelKey: 'badges:social_butterfly.label',   descriptionKey: 'badges:social_butterfly.description',   howToEarnKey: 'badges:social_butterfly.howToEarn' },
+  verified_finder:    { icon: 'check-circle',  labelKey: 'badges:verified_finder.label',    descriptionKey: 'badges:verified_finder.description',    howToEarnKey: 'badges:verified_finder.howToEarn' },
+  community_guardian: { icon: 'shield',        labelKey: 'badges:community_guardian.label', descriptionKey: 'badges:community_guardian.description', howToEarnKey: 'badges:community_guardian.howToEarn' },
+  super_finder:       { icon: 'star-filled',   labelKey: 'badges:super_finder.label',       descriptionKey: 'badges:super_finder.description',       howToEarnKey: 'badges:super_finder.howToEarn' },
 };
+
+/** Icon for a badge type nobody mapped yet. */
+export const BADGE_FALLBACK_ICON: IconName = 'military-tech';
 
 export interface CreateReviewRequest {
   stars: number;
