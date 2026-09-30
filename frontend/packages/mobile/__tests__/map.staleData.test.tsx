@@ -147,6 +147,27 @@ describe('MapScreen — el contador de reportes no afirma "0" cuando la consulta
     expect(screen.getByText('common:staleTitle')).toBeTruthy();
   });
 
+  it('con reportes cacheados y offline (isPaused), el contador sigue correcto y aparece la franja offline', () => {
+    mockUseNearbyReports.mockReturnValue({
+      data: [report],
+      isLoading: false,
+      isError: false,
+      isPaused: true,
+      refetch: jest.fn(),
+    });
+
+    render(<MapScreen />);
+
+    // The count text is still rendered from real cached data.
+    expect(screen.getByText('counter')).toBeTruthy();
+    // It is not the no-cache error state.
+    expect(screen.queryByText('common:loadErrorTitle')).toBeNull();
+    // StaleDataNotice checks `isPaused` before `isError` (see ListState.tsx):
+    // offline shows `common:offlineStale`, never the generic `common:staleTitle`.
+    expect(screen.getByText('common:offlineStale')).toBeTruthy();
+    expect(screen.queryByText('common:staleTitle')).toBeNull();
+  });
+
   it('sin fallas, muestra el conteo normal y ninguna franja', () => {
     mockUseNearbyReports.mockReturnValue({
       data: [report],
