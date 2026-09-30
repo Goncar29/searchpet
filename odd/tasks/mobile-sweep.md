@@ -95,6 +95,14 @@ Backend changes only if a defect needs them, with the owner's OK.
   `...exactly one getConversation call` red (called 2 times). Parent ran
   shared 338/338, web build+lint, mobile typecheck and 313/313: all EXIT=0.
 
+- 2026-09-30: PR #299 opened. A fourth review (review-803b02820e0d7456,
+  approved) found a real, pre-existing chat bug: the rollback restored a
+  whole-thread snapshot, so with two overlapping failed sends a never-sent
+  message came back as sent (and a sibling's pending one could vanish).
+  `4701ccf3` rolls back by optimistic id (ids now unique per send); three
+  overlapping-send tests seen red first. `465363cb` removes a 50 ms wait and
+  a substring match from two tests. Parent re-ran shared: EXIT=0, 341/341.
+
 ## Next step
 
 T5 (M6, public profile pets,
