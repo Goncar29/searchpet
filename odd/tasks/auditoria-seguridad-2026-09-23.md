@@ -466,6 +466,15 @@ recuperación, key de Jina, `/api/ops/quota`, `phone_verified`) NO entran acá.
   Installation ID). Hoy estamos en v4.19.0, que no lo trae. Migrar no es una
   línea: web y mobile tendrían que registrar el FID en vez del token de FCM.
   Encarar cuando se suba `firebase-admin-go`.
+  **Decisión del dueño (2026-09-30): se queda con `Token`, a propósito.**
+  Verificado en v4.22.0: `Token` está marcado `Deprecated: Use Fid instead`
+  pero sigue funcionando, y no hay fecha de retiro anunciada. Migrar exige en
+  mobile `@react-native-firebase/app` + `installations` (`expo-notifications`
+  no expone el FID), o sea un módulo nativo nuevo y re-registrar todos los
+  dispositivos, a cambio de nada visible. La alternativa de mandar las push de
+  mobile por el servicio de Expo se descartó por sumar un segundo camino de
+  envío. Se retoma sólo cuando Google anuncie el retiro de `Token`; el único
+  uso está en `backend/pkg/notification/firebase.go` (`SendPush`).
 - [x] **S16 — `golang.org/x/crypto` 0.51.0 acumuló 17 vulnerabilidades** (y
   `x/net` 0.55.0 y `grpc` 1.83.1, una cada una) desde S3. `govulncheck` dice
   que el código no las alcanza, así que el CI no frena; conviene subirlas
