@@ -62,6 +62,36 @@ describe('getErrorMessage', () => {
   });
 });
 
+describe('getErrorMessage — optional fallbackKey (3rd param)', () => {
+  it('a known ApiError code still translates via errors:{code}, ignoring fallbackKey', () => {
+    const err = new ApiError('pet_not_found', 404, 'mascota no encontrada');
+    expect(getErrorMessage(err, tTranslate, 'story:submitError')).toBe('Pet not found');
+  });
+
+  it('an unmapped ApiError code falls back to the given fallbackKey, not errors:unknown_error', () => {
+    const t = vi.fn().mockImplementation((key: string) => {
+      if (key === 'story:submitError') return 'Could not post story';
+      return key; // identity for everything else, including errors:*
+    });
+    const err = new ApiError('some_unmapped_code', 500, 'raw message');
+    const result = getErrorMessage(err, t, 'story:submitError');
+    expect(t).toHaveBeenCalledWith('story:submitError');
+    expect(t).not.toHaveBeenCalledWith('errors:unknown_error');
+    expect(result).toBe('Could not post story');
+  });
+
+  it('a non-ApiError value falls back to the given fallbackKey too', () => {
+    const t = vi.fn().mockImplementation((key: string) => (key === 'story:submitError' ? 'Could not post story' : key));
+    expect(getErrorMessage(new Error('network error'), t, 'story:submitError')).toBe('Could not post story');
+  });
+
+  it('every existing 2-arg call site is unchanged: default fallback stays errors:unknown_error', () => {
+    const err = new ApiError('some_unmapped_code', 500, 'raw message');
+    // No 3rd argument — backwards-compatible with every caller that predates this param.
+    expect(getErrorMessage(err, tTranslate)).toBe('An unexpected error occurred');
+  });
+});
+
 describe('ApiError', () => {
   it('sets code and status correctly', () => {
     const err = new ApiError('user_banned', 403, 'usuario bloqueado');

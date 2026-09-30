@@ -109,9 +109,11 @@ export default function CreateStoryScreen() {
         {createStory.isError && (
           <View style={styles.errorBanner}>
             {/* Rule #11: never the raw `err.message` — resolved through
-                getErrorMessage/i18next like every other mobile screen. */}
+                getErrorMessage/i18next like every other mobile screen.
+                fallbackKey keeps 'story:submitError' as the fallback for
+                unmapped codes instead of the generic errors:unknown_error. */}
             <Text style={styles.errorBannerText}>
-              {getErrorMessage(createStory.error, t)}
+              {getErrorMessage(createStory.error, t, 'story:submitError')}
             </Text>
           </View>
         )}
