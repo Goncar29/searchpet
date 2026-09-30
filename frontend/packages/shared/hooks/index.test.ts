@@ -599,6 +599,132 @@ describe('useSendMessageTo', () => {
     );
     await waitFor(() => expect(conversation.result.current.data).toEqual(serverThread));
   });
+
+  // ============================================================
+  // Overlapping sends. `onError` used to roll back to `context.previous` — an
+  // ENTIRE-THREAD snapshot taken when THIS send started. With a second send
+  // in flight, that snapshot is already stale: it either contains the other
+  // send's own optimistic message (resurrecting it after that other send
+  // already failed and was rolled back) or lacks the other send's message
+  // entirely (erasing a still-pending sibling). The fix rolls back by this
+  // send's own optimistic id instead, filtering the CURRENT cache.
+  // ============================================================
+
+  it('two overlapping sends over no cache: if both fail, no temp message from either survives', async () => {
+    let rejectFirst!: (e: Error) => void;
+    let rejectSecond!: (e: Error) => void;
+    vi.spyOn(apiClient, 'sendMessageTo')
+      .mockImplementationOnce(
+        () =>
+          new Promise((_res, rej) => {
+            rejectFirst = rej;
+          }),
+      )
+      .mockImplementationOnce(
+        () =>
+          new Promise((_res, rej) => {
+            rejectSecond = rej;
+          }),
+      );
+
+    const { queryClient, wrapper: wrapperWithClient } = createWrapperWithClient();
+    // No queryClient.setQueryData — the conversation never loaded, same
+    // starting point as the single-send "no cache" case above.
+
+    const first = renderHook(() => useSendMessageTo(), { wrapper: wrapperWithClient });
+    const second = renderHook(() => useSendMessageTo(), { wrapper: wrapperWithClient });
+
+    first.result.current.mutate({ receiverID: 'them', senderID: 'me', content: 'uno' });
+    second.result.current.mutate({ receiverID: 'them', senderID: 'me', content: 'dos' });
+
+    // Both optimistic messages landed before either request settles.
+    await waitFor(() =>
+      expect(queryClient.getQueryData<Message[]>(['messages', 'them'])).toHaveLength(2),
+    );
+
+    rejectFirst(new Error('boom-1'));
+    await waitFor(() => expect(first.result.current.isError).toBe(true));
+    rejectSecond(new Error('boom-2'));
+    await waitFor(() => expect(second.result.current.isError).toBe(true));
+
+    const cached = queryClient.getQueryData<Message[]>(['messages', 'them']);
+    // Neither send ever succeeded — nothing sent-looking may remain.
+    expect((cached ?? []).some((m) => m.id.startsWith('temp-'))).toBe(false);
+  });
+
+  it('two overlapping sends over a cached thread: send 1 failing must not touch send 2 which is still pending', async () => {
+    const existing: Message = { ...serverMessage, id: 'msg-existing', content: 'previo' };
+    let rejectFirst!: (e: Error) => void;
+    vi.spyOn(apiClient, 'sendMessageTo')
+      .mockImplementationOnce(
+        () =>
+          new Promise((_res, rej) => {
+            rejectFirst = rej;
+          }),
+      )
+      // Send 2 never resolves during the assertion window — it is still in flight.
+      .mockImplementationOnce(() => new Promise(() => {}));
+
+    const { queryClient, wrapper: wrapperWithClient } = createWrapperWithClient();
+    queryClient.setQueryData<Message[]>(['messages', 'them'], [existing]);
+
+    const first = renderHook(() => useSendMessageTo(), { wrapper: wrapperWithClient });
+    const second = renderHook(() => useSendMessageTo(), { wrapper: wrapperWithClient });
+
+    first.result.current.mutate({ receiverID: 'them', senderID: 'me', content: 'uno' });
+    second.result.current.mutate({ receiverID: 'them', senderID: 'me', content: 'dos' });
+
+    await waitFor(() =>
+      expect(queryClient.getQueryData<Message[]>(['messages', 'them'])).toHaveLength(3),
+    );
+    const beforeFailure = queryClient.getQueryData<Message[]>(['messages', 'them'])!;
+    const temp2Id = beforeFailure.find((m) => m.content === 'dos')!.id;
+
+    rejectFirst(new Error('boom-1'));
+    await waitFor(() => expect(first.result.current.isError).toBe(true));
+
+    const cached = queryClient.getQueryData<Message[]>(['messages', 'them']);
+    expect(cached).toEqual([existing, expect.objectContaining({ id: temp2Id, content: 'dos' })]);
+  });
+
+  it('two overlapping sends over a cached thread: if both fail, the cache ends up exactly as it started', async () => {
+    const existing: Message = { ...serverMessage, id: 'msg-existing', content: 'previo' };
+    let rejectFirst!: (e: Error) => void;
+    let rejectSecond!: (e: Error) => void;
+    vi.spyOn(apiClient, 'sendMessageTo')
+      .mockImplementationOnce(
+        () =>
+          new Promise((_res, rej) => {
+            rejectFirst = rej;
+          }),
+      )
+      .mockImplementationOnce(
+        () =>
+          new Promise((_res, rej) => {
+            rejectSecond = rej;
+          }),
+      );
+
+    const { queryClient, wrapper: wrapperWithClient } = createWrapperWithClient();
+    queryClient.setQueryData<Message[]>(['messages', 'them'], [existing]);
+
+    const first = renderHook(() => useSendMessageTo(), { wrapper: wrapperWithClient });
+    const second = renderHook(() => useSendMessageTo(), { wrapper: wrapperWithClient });
+
+    first.result.current.mutate({ receiverID: 'them', senderID: 'me', content: 'uno' });
+    second.result.current.mutate({ receiverID: 'them', senderID: 'me', content: 'dos' });
+
+    await waitFor(() =>
+      expect(queryClient.getQueryData<Message[]>(['messages', 'them'])).toHaveLength(3),
+    );
+
+    rejectFirst(new Error('boom-1'));
+    await waitFor(() => expect(first.result.current.isError).toBe(true));
+    rejectSecond(new Error('boom-2'));
+    await waitFor(() => expect(second.result.current.isError).toBe(true));
+
+    expect(queryClient.getQueryData<Message[]>(['messages', 'them'])).toEqual([existing]);
+  });
 });
 
 // ============================================================
