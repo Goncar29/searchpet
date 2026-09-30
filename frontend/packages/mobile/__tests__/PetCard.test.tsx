@@ -103,6 +103,14 @@ describe('PetCard', () => {
     expect(screen.getByText('EN ADOPCIÓN')).toBeTruthy();
   });
 
+  // Rule #12/M5: `pet.type` is a raw domain literal ('perro', 'gato'...); it
+  // must go through i18next, not render as-is.
+  it('el tipo de mascota sale de i18n, no el literal crudo', () => {
+    render(<PetCard report={baseReport} onPress={() => {}} />);
+    expect(screen.getByText('Perro')).toBeTruthy();
+    expect(screen.queryByText('perro')).toBeNull();
+  });
+
   it('muestra el placeholder de marca cuando no hay fotos', () => {
     render(<PetCard report={baseReport} onPress={() => {}} />);
     expect(screen.getByTestId('paw-placeholder')).toBeTruthy();

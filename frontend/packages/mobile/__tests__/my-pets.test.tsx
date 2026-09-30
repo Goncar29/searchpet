@@ -172,6 +172,13 @@ describe('MyPetsScreen', () => {
     expect(toJSON()).toBeTruthy();
   });
 
+  // Rule #12/M5: `item.type` is a raw domain literal ('perro', 'gato'...); it
+  // must go through i18next, not render as-is.
+  it('el tipo de mascota sale de i18n, no el literal crudo', () => {
+    render(<MyPetsScreen />);
+    expect(screen.getByText(/pets:types\.perro/)).toBeTruthy();
+  });
+
   it('el tab "owned" excluye mascotas en adopción', () => {
     render(<MyPetsScreen />);
     expect(screen.getByText('Firulais')).toBeTruthy();

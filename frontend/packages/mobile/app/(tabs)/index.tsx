@@ -214,7 +214,7 @@ export default function HomeScreen() {
       )}
       <View style={styles.imageResultInfo}>
         <Text style={styles.imageResultName} numberOfLines={1}>{item.name}</Text>
-        {item.type && <Text style={styles.imageResultType}>{item.type}</Text>}
+        {item.type && <Text style={styles.imageResultType}>{t(`pets:types.${item.type}`)}</Text>}
       </View>
       <Text style={styles.imageResultSimilarity}>
         {t('pets:card.similarityMatch', { percent: Math.round(item.similarity * 100) })}
@@ -338,7 +338,7 @@ export default function HomeScreen() {
         {classifyResult?.type && (
           <View style={styles.classifyResultRow}>
             <Text style={styles.classifyResultText}>
-              {classifyResult.breed ?? classifyResult.type} · {Math.round(classifyResult.confidence * 100)}%
+              {classifyResult.breed ?? t(`pets:types.${classifyResult.type}`)} · {Math.round(classifyResult.confidence * 100)}%
             </Text>
             <TouchableOpacity onPress={clearFilters}>
               <Text style={styles.classifyResultClear}>✕</Text>
