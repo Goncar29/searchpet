@@ -45,6 +45,9 @@ jest.mock('expo-router', () => {
 // some modules make AT IMPORT time, which their tests read later (onlineStatus
 // subscribes to NetInfo on import). A test file that mocks expo-router itself
 // has no __hookRouter and is left alone; non-mock fields are skipped.
+// Because this runs before every test, set router mock implementations inside
+// the test or in a beforeEach: one set in beforeAll or at module scope is
+// wiped before the first test runs.
 beforeEach(() => {
   const hookRouter = require('expo-router').__hookRouter;
   if (!hookRouter) return;

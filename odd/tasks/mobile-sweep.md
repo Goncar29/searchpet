@@ -22,9 +22,17 @@ Backend changes only if a defect needs them, with the owner's OK.
 - [x] T1 — The two leftovers from the #297 review: the `.eslintrc.js`
   comment ("every rule" → "every rule except the two classic ones"), and the
   router mock's calls cleared between tests. Route: inline (2 small files).
-- [ ] T2 — Read-only audit of the app: ranked findings with evidence.
+- [x] T2 — Read-only audit of the app: ranked findings with evidence.
   Route: delegated (4+ files).
-- [ ] T3+ — Fixes, one task per finding or group the owner picks.
+- [x] T3 — Note in `jest.setup.js`: router mock implementations go in
+  beforeEach or the test (review suggestion on `9046a262`). Route: inline.
+- [ ] T4 — Batch 1: M1-M4 (failed list ≠ empty list in messages, chat,
+  alerts, map counter), M5 (pet type via `pets:types.*` in PetCard, my-pets,
+  home image results, alerts), M7 (`getErrorMessage` in story/create).
+  Route: delegated writer (6+ non-trivial files).
+- [ ] T5 — M6: public profile lists the person's published pets
+  (`useUserPets`), separate PR.
+- [ ] T6 — M8: StaleDataNotice on foster-homes and shelters.
 
 ## Checks
 
