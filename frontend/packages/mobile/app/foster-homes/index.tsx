@@ -18,6 +18,7 @@ import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFosterHomes } from '@shared/hooks';
+import { StaleDataNotice } from '../../components/list/ListState';
 import { FosterHome } from '@shared/types';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
 import { cloudinaryThumb } from '@shared/utils/cloudinaryThumb';
@@ -115,10 +116,8 @@ export default function FosterHomesScreen() {
     return () => clearTimeout(timer);
   }, [cityInput]);
 
-  const { data: fosterHomes, isLoading, isError, refetch } = useFosterHomes(
-    debouncedCity || undefined,
-    undefined
-  );
+  const fosterHomesQuery = useFosterHomes(debouncedCity || undefined, undefined);
+  const { data: fosterHomes, isLoading, isError, refetch } = fosterHomesQuery;
 
   const renderItem = ({ item }: { item: FosterHome }) => (
     <FosterHomeCard
@@ -130,7 +129,9 @@ export default function FosterHomesScreen() {
 
   const renderEmpty = () => {
     if (isLoading) return null;
-    if (isError) {
+    // Sólo sin datos: una lista cacheada vacía es una respuesta, no ignorancia,
+    // y el refetch fallido lo avisa la franja del header.
+    if (isError && fosterHomes == null) {
       return (
         <View style={styles.emptyContainer}>
           <Text style={styles.emptyTitle}>{t('common:error')}</Text>
@@ -149,6 +150,9 @@ export default function FosterHomesScreen() {
 
   const renderHeader = () => (
     <>
+      {/* A failed refetch with cached data keeps the list and says so. */}
+      <StaleDataNotice query={fosterHomesQuery} />
+
       {/* Page subtitle */}
       <Text style={styles.subtitle}>{t('fosterHomes:directory.subtitle')}</Text>
 

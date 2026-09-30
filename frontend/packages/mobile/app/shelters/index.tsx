@@ -18,6 +18,7 @@ import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useShelters } from '../../../shared/hooks';
+import { StaleDataNotice } from '../../components/list/ListState';
 import { Shelter } from '../../../shared/types';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
 
@@ -131,9 +132,8 @@ export default function SheltersScreen() {
     return () => clearTimeout(timer);
   }, [cityInput]);
 
-  const { data: shelters, isLoading, isError, refetch } = useShelters(
-    debouncedCity || undefined
-  );
+  const sheltersQuery = useShelters(debouncedCity || undefined);
+  const { data: shelters, isLoading, isError, refetch } = sheltersQuery;
 
   const renderItem = ({ item }: { item: Shelter }) => (
     <ShelterCard shelter={item} t={t} />
@@ -141,7 +141,9 @@ export default function SheltersScreen() {
 
   const renderEmpty = () => {
     if (isLoading) return null;
-    if (isError) {
+    // Sólo sin datos: una lista cacheada vacía es una respuesta, no ignorancia,
+    // y el refetch fallido lo avisa la franja del header.
+    if (isError && shelters == null) {
       return (
         <View style={styles.emptyContainer}>
           <Text style={styles.emptyTitle}>{t('errorMessage')}</Text>
@@ -161,6 +163,9 @@ export default function SheltersScreen() {
 
   const renderHeader = () => (
     <>
+      {/* A failed refetch with cached data keeps the list and says so. */}
+      <StaleDataNotice query={sheltersQuery} />
+
       {/* Page subtitle */}
       <Text style={styles.subtitle}>{t('subtitle')}</Text>
 
