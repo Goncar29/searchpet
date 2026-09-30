@@ -45,9 +45,14 @@ Mobile: next task, after the web PR.
   replace, icon name. Route: delegated read-only mapper. Saved in engram
   `odd/emoji-to-icons/mobile-catalog`: ~95 UI glyphs to replace, 6 kept
   (WhatsApp template text).
-- [ ] T5 — Mobile screens + shared `BADGE_META` → icons. Waits for the owner
-  to confirm the icon source (icons0 MCP vs current Iconify Material
-  Symbols).
+- [x] T5a — Mobile base: registry `dog`/`cat`/`bird` (icons0 `mdi:*`), tab
+  bar, PET_TYPES consumers, BADGE_META on web + mobile (7 sites), leaderboard
+  medals, common components. Route: delegated writer. `63a53e93`, `d66c688b`,
+  `ebf23fc3`.
+- [ ] T5b — Remaining mobile screens (profile menu, home, pet detail, alerts,
+  badges, leaderboard, users/[id], pets/register, my-pets, map, messages,
+  chat, foster homes, groups, stories, post, shelters, blocked users).
+  Route: delegated writer.
 
 ## Checks
 
@@ -86,8 +91,17 @@ Mobile: next task, after the web PR.
   re-ran mobile 337/337 and shared 413/413. The `icons0` MCP still fails to
   connect in this session (reconnect: connection closed).
 
+- 2026-09-30: #305 (T3) merged as `56676a87`. The `icons0` MCP connected;
+  it supplied `mdi:dog/cat/bird` (Material Symbols has none). Owner accepted
+  the whole proposed set from a specimen page (engram
+  `odd/emoji-to-icons/decisions`).
+- 2026-09-30: T5a done by a delegated writer (3 commits). RED seen in every
+  new suite (tabs 8/8, badges+medals 11/11, common components 13/14, chips);
+  web badge tests written alongside and proven by mutation. Mutations each
+  failed a named test (badge icon, inactive tab tint, silver medal, cat→dog).
+  New `components/IconLabel.tsx` for icon+text rows. Parent verified the three
+  MDI paths byte-equal to the MCP output and re-ran mobile 381/381.
+
 ## Next step
 
-Merge the T3 PR. T5 (mobile screens + BADGE_META) waits for the icon source
-decision: current Iconify registry, or icons from the `icons0` MCP once it
-connects (it could keep dog/cat/bird distinct, which Material Symbols lacks).
+Open the T5a PR, then T5b (remaining screens) before the APK.
