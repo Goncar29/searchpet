@@ -210,7 +210,8 @@ describe('lo que lee el usuario cuando el puente dice que no hay red', () => {
       expect(partes.join(' ')).not.toContain('[lista:');
       // Ninguna clave sin resolver (`common:offlineTitle` y familia).
       expect(partes.join(' ')).not.toMatch(/[a-z_]+:[a-zA-Z.]+/);
-      expect(partes).toHaveLength(4);
+      // Título, cuerpo y botón: el ícono es un SVG, no texto.
+      expect(partes).toHaveLength(3);
     }
 
     // La aserción que protege los locales, y va CAMPO POR CAMPO — la escribí
@@ -219,16 +220,15 @@ describe('lo que lee el usuario cuando el puente dice que no hay red', () => {
     // portugués y las tres cadenas completas siguen difiriendo. Comparar el
     // total esconde exactamente el hueco que se quiere encontrar.
     //
-    // El índice 0 se saltea a propósito: es el ⚠️, que no es texto traducible.
-    for (const campo of [1, 2, 3]) {
+    for (const campo of [0, 1, 2]) {
       const valores = [...porIdioma.values()].map((partes) => partes[campo]);
       expect(new Set(valores).size).toBe(3);
     }
   });
 
-  it('el cartel es ícono, título, cuerpo y botón — en ese orden', async () => {
+  it('el cartel es título, cuerpo y botón — en ese orden', async () => {
     expect((await cartelOfflineEn('es')).join(' ')).toBe(
-      '⚠️ Estás sin conexión No pudimos leer esta lista. Cuando vuelva la conexión, probá de nuevo. Reintentar',
+      'Estás sin conexión No pudimos leer esta lista. Cuando vuelva la conexión, probá de nuevo. Reintentar',
     );
   });
 });

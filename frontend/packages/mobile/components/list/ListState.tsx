@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import type { UseQueryResult } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { COLORS, SPACING, FONTS } from '../../constants';
+import { Icon } from '../Icon';
 
 /**
  * Decides what a list screen shows: loading, offline, load error, or the data.
@@ -114,13 +115,10 @@ function StateCard({
           ruido delante de la única frase que importa. Van las dos props porque
           `accessibilityElementsHidden` es de iOS e `importantForAccessibility`
           de Android. */}
-      <Text
-        style={styles.icon}
-        accessibilityElementsHidden
-        importantForAccessibility="no"
-      >
-        ⚠️
-      </Text>
+      <View style={styles.icon}>
+        {/* `Icon` is hidden from screen readers by default (no label). */}
+        <Icon name="warning" size={44} color={COLORS.warning} />
+      </View>
       <Text style={styles.title}>{title}</Text>
       <Text style={styles.body}>{body}</Text>
       <TouchableOpacity style={styles.retry} onPress={onRetry}>
@@ -280,7 +278,6 @@ const styles = StyleSheet.create({
     padding: SPACING.xl,
   },
   icon: {
-    fontSize: 44,
     marginBottom: SPACING.md,
   },
   title: {

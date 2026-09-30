@@ -11,6 +11,7 @@
 import React from 'react';
 import { Text } from 'react-native';
 import { render } from '@testing-library/react-native';
+import Svg from 'react-native-svg';
 import type { UseQueryResult } from '@tanstack/react-query';
 
 import { ListState } from '../components/list/ListState';
@@ -203,19 +204,21 @@ describe('ListState — lo que anuncia un lector de pantalla', () => {
   });
 
   // Se afirma el EFECTO y no la prop: por default RNTL excluye de sus queries
-  // lo que está oculto al árbol de accesibilidad, así que no encontrar el emoji
-  // ES la prueba de que un lector tampoco lo encuentra. Afirmar
-  // `props.importantForAccessibility === 'no'` pasaría igual si esa prop no
-  // llegara nunca al componente nativo.
-  it('el ⚠️ no se lee: es decoración delante de la frase que importa', () => {
-    const { queryByText, getByText } = render(
+  // lo que está oculto al árbol de accesibilidad, así que no encontrar el ícono
+  // por rol ES la prueba de que un lector tampoco lo encuentra. Afirmar
+  // `props.importantForAccessibility === 'no-hide-descendants'` pasaría igual
+  // si esa prop no llegara nunca al componente nativo.
+  it('el ícono de advertencia no se lee: es decoración delante de la frase que importa', () => {
+    const { queryByRole, getByText, UNSAFE_getByType } = render(
       <ListState query={estadoDeQuery({ isError: true })} loading={cargando}>
         {lista}
       </ListState>,
     );
 
-    expect(queryByText('⚠️')).toBeNull();
+    expect(queryByRole('image')).toBeNull();
     // Y sigue dibujado en pantalla: esconderlo del lector no es borrarlo.
-    expect(getByText('⚠️', { includeHiddenElements: true })).toBeTruthy();
+    expect(UNSAFE_getByType(Svg)).toBeTruthy();
+    // La frase que importa sí está en el árbol accesible.
+    expect(getByText('common:loadErrorTitle')).toBeTruthy();
   });
 });

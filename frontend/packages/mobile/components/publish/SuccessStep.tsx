@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next';
 import { ShareButton } from '../ShareButton';
 import { useUploadPhotoNative } from '@shared/hooks';
 import { COLORS, SPACING, FONTS, RADIUS } from '../../constants';
+import { Icon } from '../Icon';
 import type { Pet } from '../../../shared/types';
 
 interface SuccessStepProps {
@@ -54,7 +55,9 @@ export function SuccessStep({ pet, intent, failedPhotoIndexes, photoUris, onRetr
 
   return (
     <View>
-      <Text style={styles.icon}>✅</Text>
+      <View style={styles.icon}>
+        <Icon name="check-circle" size={56} color={COLORS.success} />
+      </View>
       <Text style={styles.title}>
         {t(TITLE_KEY[intent])}
       </Text>
@@ -99,7 +102,7 @@ export function SuccessStep({ pet, intent, failedPhotoIndexes, photoUris, onRetr
 }
 
 const styles = StyleSheet.create({
-  icon: { fontSize: 48, textAlign: 'center', marginBottom: SPACING.sm },
+  icon: { alignItems: 'center', marginBottom: SPACING.sm },
   title: {
     fontSize: FONTS.sizes.xl,
     fontWeight: '700',
