@@ -53,7 +53,6 @@ export default function AdoptScreen() {
   const renderHeader = () => (
     <View>
       <View style={styles.header}>
-        <Text style={styles.title}>{t('adoption:section.title')}</Text>
         <Text style={styles.subtitle}>{t('adoption:section.subtitle')}</Text>
       </View>
 
@@ -186,7 +185,6 @@ const styles = StyleSheet.create({
     paddingTop: SPACING.md,
     paddingBottom: SPACING.sm,
   },
-  title: { fontSize: FONTS.sizes.xl, fontWeight: '700', color: COLORS.textPrimary },
   subtitle: { fontSize: FONTS.sizes.sm, color: COLORS.textSecondary, marginTop: 4 },
 
   // ── Filtros ──

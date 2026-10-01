@@ -184,15 +184,7 @@ export default function FosterHomesScreen() {
   );
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      {/* Header with back arrow */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backArrow}>
-          <Text style={styles.backArrowText}>‹</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>{t('fosterHomes:directory.title')}</Text>
-      </View>
-
+    <SafeAreaView style={styles.safeArea} edges={['bottom', 'left', 'right']}>
       {/* Loading state: show skeleton cards */}
       {isLoading ? (
         <View style={styles.listContent}>
@@ -228,29 +220,6 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: COLORS.background,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.md,
-    backgroundColor: COLORS.background,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-  },
-  backArrow: {
-    marginRight: SPACING.sm,
-    padding: SPACING.xs,
-  },
-  backArrowText: {
-    fontSize: 28,
-    color: COLORS.primary,
-    lineHeight: 32,
-  },
-  headerTitle: {
-    fontSize: FONTS.sizes.lg,
-    fontWeight: '700',
-    color: COLORS.textPrimary,
   },
   listContent: {
     padding: SPACING.md,
