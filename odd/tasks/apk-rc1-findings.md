@@ -33,11 +33,14 @@ on a real phone, then build another APK.
 
 ## Tasks
 
-- [ ] T1 — Headers: register every route with an i18n title, remove duplicate
+- [x] T1 — Headers: register every route with an i18n title, remove duplicate
   in-screen headers/arrows (keep Adopt's subtitle). Route: delegated writer.
-- [ ] T2 — Adopt: chips wrap instead of horizontal scroll. Route: same writer.
-- [ ] T3 — Map: controls in one bottom-anchored container; `map:vetsToggle`
-  verified against the real i18n instance. Route: same writer.
+  Commit 7a9d9ff3.
+- [x] T2 — Adopt: chips wrap instead of horizontal scroll. Route: same writer.
+  Commit aabcf29a.
+- [x] T3 — Map: controls in one bottom-anchored container; `map:vetsToggle`
+  verified against the real i18n instance. Route: same writer (delegated).
+  Commit e87609f7.
 - [ ] T4 — Profile stats: decision pending with the owner.
 - [ ] T5 — Dark mode in mobile via Settings. Separate feature (size L).
 - [ ] T6 — New APK and owner re-check.
@@ -50,6 +53,22 @@ where a test applies; on-device check in the next APK.
 ## Progress
 
 - 2026-10-01: doc created after the mapper report.
+- 2026-10-01: T1-T3 done by the delegated writer on `fix/mobile-apk-rc1-findings`.
+  - T1 RED: `__tests__/stackHeaders.test.ts` failed 4 named tests (registers
+    every Stack route, gives every route a title or hides the header, draws no
+    second back arrow [blocked-users], plus the route list) before the fix; the
+    8 routes are now registered (`fosterHomes:detail.title` added in es/en/pt;
+    `google-location` uses `auth:location.title`). Titles resolve with the real
+    i18n instance in es/en/pt; mutating a key to a missing one failed the three
+    named "titles in <lng>" tests.
+  - T2 RED: two named adopt tests failed (not inside a horizontal ScrollView;
+    wrap in one container with every chip), green after `flexWrap: 'wrap'`.
+  - T3 RED: five "MapScreen controls" tests failed; controls, banners and cards
+    now live in `map-bottom-controls`. Vets label: the code and keys were right
+    in all 3 languages; the only defect was the English copy ("Veterinaries",
+    not English), now "Vets". `__tests__/map.i18n.test.ts` fails without it.
+  - Checks (mobile): `pnpm test:run` EXIT=0 (63 suites, 438 tests), `npx tsc
+    --noEmit` EXIT=0, `pnpm lint` EXIT=0.
 
 ## Next step
 
