@@ -2,6 +2,7 @@ package tests
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/google/uuid"
@@ -79,10 +80,18 @@ func TestReportRepository_CountByReporter_UnFoundDeQuienLaEncontroSiCuenta(t *te
 	// discriminante es la estructura, no el string.
 	mkReport(t, reports, pet.ID, owner.ID, "found", "cualquier texto")
 
-	if got, _ := reports.CountByReporter(ctx, finder.ID); got != 2 {
+	got, err := reports.CountByReporter(ctx, finder.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != 2 {
 		t.Fatalf("finder: want 2, got %d", got)
 	}
-	if got, _ := reports.CountByReporter(ctx, owner.ID); got != 0 {
+	got, err = reports.CountByReporter(ctx, owner.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != 0 {
 		t.Fatalf("owner: want 0 (solo cierre), got %d", got)
 	}
 }
@@ -99,13 +108,21 @@ func TestReportRepository_CountByReporter_BorrarBajaElConteo(t *testing.T) {
 	r1 := mkReport(t, reports, pet.ID, u.ID, "lost", "")
 	mkReport(t, reports, pet.ID, u.ID, "sighting", "")
 
-	if got, _ := reports.CountByReporter(ctx, u.ID); got != 2 {
+	got, err := reports.CountByReporter(ctx, u.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != 2 {
 		t.Fatalf("want 2, got %d", got)
 	}
 	if err := reports.Delete(ctx, r1.ID); err != nil {
 		t.Fatal(err)
 	}
-	if got, _ := reports.CountByReporter(ctx, u.ID); got != 1 {
+	got, err = reports.CountByReporter(ctx, u.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != 1 {
 		t.Fatalf("after delete want 1, got %d", got)
 	}
 }
@@ -123,13 +140,21 @@ func TestPetRepository_CountFoundByUser(t *testing.T) {
 	mkPet(t, pets, ptrUUID(x.ID), nil, domain.PetStatusLost)  // perdida: no
 	mkPet(t, pets, ptrUUID(y.ID), nil, domain.PetStatusFound) // de otro: no
 
-	if got, _ := pets.CountFoundByUser(x.ID.String()); got != 2 {
+	got, err := pets.CountFoundByUser(x.ID.String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != 2 {
 		t.Fatalf("want 2, got %d", got)
 	}
 	if err := pets.Delete(owned.ID.String()); err != nil {
 		t.Fatal(err)
 	}
-	if got, _ := pets.CountFoundByUser(x.ID.String()); got != 1 {
+	got, err = pets.CountFoundByUser(x.ID.String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != 1 {
 		t.Fatalf("after delete want 1, got %d", got)
 	}
 }
@@ -139,17 +164,19 @@ func TestPetRepository_CountFoundByUser(t *testing.T) {
 
 type stubReports struct {
 	repository.ReportRepository
-	n int64
+	n   int64
+	err error
 }
 
-func (s stubReports) CountByReporter(context.Context, uuid.UUID) (int64, error) { return s.n, nil }
+func (s stubReports) CountByReporter(context.Context, uuid.UUID) (int64, error) { return s.n, s.err }
 
 type stubPets struct {
 	repository.PetRepository
-	n int64
+	n   int64
+	err error
 }
 
-func (s stubPets) CountFoundByUser(string) (int64, error) { return s.n, nil }
+func (s stubPets) CountFoundByUser(string) (int64, error) { return s.n, s.err }
 
 func TestGamificationService_GetPublicProfile_ContadoresDesdeFilas(t *testing.T) {
 	userID := uuid.New()
@@ -174,5 +201,41 @@ func TestGamificationService_GetPublicProfile_ContadoresDesdeFilas(t *testing.T)
 	}
 	if resp.TotalPoints != 77 || resp.ShareCount != 5 {
 		t.Errorf("points/shares must stay counter-based, got %d/%d", resp.TotalPoints, resp.ShareCount)
+	}
+}
+
+func TestGamificationService_GetPublicProfile_PropagaErrorDeConteo(t *testing.T) {
+	boom := errors.New("count failed")
+	cases := []struct {
+		name    string
+		reports stubReports
+		pets    stubPets
+	}{
+		{"CountByReporter", stubReports{err: boom}, stubPets{n: 1}},
+		{"CountFoundByUser", stubReports{n: 2}, stubPets{err: boom}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			userID := uuid.New()
+			svc := service.NewGamificationService(
+				&mockBadgeRepository{},
+				&mockUserPointsRepository{getByUserIDFn: func(context.Context, uuid.UUID) (*domain.UserPoints, error) {
+					return &domain.UserPoints{UserID: userID, Points: 77}, nil
+				}},
+				&mockUserRepository{getByIDFn: func(_ context.Context, id uuid.UUID) (*domain.User, error) {
+					return &domain.User{ID: id, Name: "T"}, nil
+				}},
+				&mockGamificationReviewRepository{},
+				tc.reports,
+				tc.pets,
+			)
+			resp, err := svc.GetPublicProfile(context.Background(), userID)
+			if !errors.Is(err, boom) {
+				t.Fatalf("want error %v propagated, got %v", boom, err)
+			}
+			if resp != nil {
+				t.Fatalf("want nil profile on count failure, got %+v", resp)
+			}
+		})
 	}
 }
