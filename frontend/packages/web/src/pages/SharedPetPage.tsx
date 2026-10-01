@@ -271,9 +271,10 @@ export function SharedPetPage() {
                   <p className="text-sm text-gray-600 dark:text-gray-300">{t('sharedPet:helpTitle')}</p>
                   <Link
                     to="/"
-                    className="mt-3 block w-full rounded-xl bg-primary py-3 font-bold text-white transition-colors hover:bg-primary-dark"
+                    className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-3 font-bold text-white transition-colors hover:bg-primary-dark"
                   >
                     {t('sharedPet:exploreApp')}
+                    <Icon name="arrow-forward" className="shrink-0" data-testid="explore-app-arrow" />
                   </Link>
                   <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
                     {t('sharedPet:or')}{' '}

@@ -58,6 +58,9 @@ describe('ImpactPage', () => {
     // Number is locale-formatted; assert the grouped digits appear. It shows in
     // both the on-page tile and the offscreen share card, so match one-or-more.
     expect(screen.getAllByText(/1[.,]247/).length).toBeGreaterThan(0);
+    // The reunited tile (page and share card) draws a heart icon, not an emoji.
+    expect(screen.getAllByTestId('stat-tile-icon')).toHaveLength(1);
+    expect(screen.getAllByTestId('share-card-reunited-icon')).toHaveLength(1);
     // New sections render their headings.
     expect(screen.getByText('impact:petsByType')).toBeInTheDocument();
     expect(screen.getByText('impact:moderation')).toBeInTheDocument();

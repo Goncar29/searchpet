@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router';
-import { useTranslation } from 'react-i18next';
+import { useTranslation, Trans } from 'react-i18next';
 import { cloudinaryThumb } from '@shared/utils/cloudinaryThumb';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -500,7 +500,10 @@ export function MainLayout() {
           </div>
           <div className="border-t border-gray-200 dark:border-gray-700 mt-8 pt-6">
             <p className="text-center text-sm text-gray-500 dark:text-gray-400">
-              {t('footer:madeWith')}
+              <Trans
+                i18nKey="footer:madeWith"
+                components={{ heart: <Icon name="favorite-filled" className="inline align-[-0.15em] text-red-500" data-testid="footer-heart" /> }}
+              />
             </p>
           </div>
         </div>

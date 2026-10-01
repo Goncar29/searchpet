@@ -6,10 +6,10 @@ import type { ImpactMonthlyCount } from '@shared/types';
 import { ImpactLineChart } from '../components/ImpactLineChart';
 import { MonthlyImpactSection } from '../components/MonthlyImpactSection';
 import { Logo } from '../components/Logo';
-import { Icon } from '../components/Icon';
+import { Icon, type IconName } from '../components/Icon';
 import { getDateLocale, type DateLocale } from '@shared/utils/dateLocale';
 
-function StatTile({ value, label, accent }: { value: string; label: string; accent?: string }) {
+function StatTile({ value, label, accent, icon }: { value: string; label: string; accent?: string; icon?: IconName }) {
   return (
     <div className="rounded-xl border border-gray-200 p-4 text-center dark:border-gray-700">
       <div
@@ -18,7 +18,10 @@ function StatTile({ value, label, accent }: { value: string; label: string; acce
       >
         {value}
       </div>
-      <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">{label}</div>
+      <div className="mt-1 flex items-center justify-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+        {label}
+        {icon && <Icon name={icon} className="shrink-0 text-green-500" data-testid="stat-tile-icon" />}
+      </div>
     </div>
   );
 }
@@ -225,7 +228,7 @@ export function ImpactPage() {
 
       {/* Headline tiles */}
       <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <StatTile value={nf.format(totals.pets_reunited)} label={t('impact:reunited')} accent="#22c55e" />
+        <StatTile value={nf.format(totals.pets_reunited)} label={t('impact:reunited')} accent="#22c55e" icon="favorite-filled" />
         <StatTile value={nf.format(totals.searches_started)} label={t('impact:searches')} accent="#3b82f6" />
         <StatTile value={nf.format(totals.total_users)} label={t('impact:community')} />
         <StatTile value={nf.format(totals.total_pets)} label={t('impact:registered')} />
@@ -364,7 +367,7 @@ export function ImpactPage() {
           }}
         >
           {[
-            { v: nf.format(totals.pets_reunited), l: t('impact:reunited'), c: '#22c55e' },
+            { v: nf.format(totals.pets_reunited), l: t('impact:reunited'), c: '#22c55e', icon: 'favorite-filled' as IconName },
             { v: nf.format(totals.searches_started), l: t('impact:searches'), c: '#3b82f6' },
             { v: nf.format(totals.total_users), l: t('impact:community'), c: '#111827' },
             { v: reunionRatePct, l: t('impact:reunionRate'), c: '#22c55e' },
@@ -379,7 +382,12 @@ export function ImpactPage() {
               }}
             >
               <div style={{ fontSize: '80px', fontWeight: 800, color: tile.c }}>{tile.v}</div>
-              <div style={{ fontSize: '26px', color: '#6b7280', marginTop: '12px' }}>{tile.l}</div>
+              <div style={{ fontSize: '26px', color: '#6b7280', marginTop: '12px' }}>
+                {tile.l}
+                {tile.icon && (
+                  <Icon name={tile.icon} style={{ marginLeft: '10px', verticalAlign: '-0.15em', color: '#22c55e' }} data-testid="share-card-reunited-icon" />
+                )}
+              </div>
             </div>
           ))}
         </div>

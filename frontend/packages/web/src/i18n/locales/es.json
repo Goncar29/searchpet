@@ -468,7 +468,7 @@
   },
   "footer": {
     "description": "SearchPet — ayudando a reunir mascotas con sus familias.",
-    "madeWith": "Hecho con ❤️ para las mascotas de Uruguay",
+    "madeWith": "Hecho con <heart/> para las mascotas de Uruguay",
     "links": "Enlaces",
     "contact": "Contacto",
     "contactText": "¿Querés contribuir? Este es un proyecto open source.",
@@ -610,7 +610,7 @@
       "notFound": "Perfil no encontrado",
       "notFoundHint": "Este usuario no existe o su perfil no está disponible.",
       "backHome": "Volver al inicio",
-      "seeRanking": "Ver ranking por ciudad →"
+      "seeRanking": "Ver ranking por ciudad"
     }
   },
   "sharedPet": {
@@ -618,7 +618,7 @@
     "notFoundSubtitle": "Este link puede haber expirado",
     "contactOwner": "Contactar al dueño por WhatsApp",
     "helpTitle": "¿Querés ayudar a encontrar más mascotas?",
-    "exploreApp": "Explorar SearchPet →",
+    "exploreApp": "Explorar SearchPet",
     "or": "o",
     "downloadApp": "descargá la app móvil",
     "seoTitleLost": "{{name}} — Mascota Perdida | SearchPet",
@@ -669,7 +669,7 @@
       "empty": "No tenés mascotas en adopción"
     },
     "detail": {
-      "adoptedTitle": "¡{{name}} encontró un hogar! 🎉",
+      "adoptedTitle": "¡{{name}} encontró un hogar!",
       "adoptedSubtitle": "Gracias a la comunidad por difundir."
     }
   },
@@ -799,7 +799,7 @@
   "impact": {
     "title": "El impacto de SearchPet",
     "subtitle": "Panel interno de métricas. Los números completos de la plataforma.",
-    "reunited": "Mascotas reunidas 💚",
+    "reunited": "Mascotas reunidas",
     "searches": "Búsquedas iniciadas",
     "community": "Familias en la comunidad",
     "registered": "Mascotas registradas",

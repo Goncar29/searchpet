@@ -734,9 +734,10 @@ export function UserProfilePage() {
             <div className="text-center">
               <Link
                 to="/leaderboard"
-                className="text-sm text-primary hover:text-primary-dark font-medium transition-colors"
+                className="inline-flex items-center gap-1 text-sm text-primary hover:text-primary-dark font-medium transition-colors"
               >
                 {t('profile:public.seeRanking')}
+                <Icon name="arrow-forward" className="shrink-0" data-testid="see-ranking-arrow" />
               </Link>
             </div>
           </div>

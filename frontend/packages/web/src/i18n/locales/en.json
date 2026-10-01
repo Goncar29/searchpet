@@ -468,7 +468,7 @@
   },
   "footer": {
     "description": "SearchPet — helping reunite pets with their families.",
-    "madeWith": "Made with ❤️ for the pets of Uruguay",
+    "madeWith": "Made with <heart/> for the pets of Uruguay",
     "links": "Links",
     "contact": "Contact",
     "contactText": "Want to contribute? This is an open source project.",
@@ -610,7 +610,7 @@
       "notFound": "Profile not found",
       "notFoundHint": "This user doesn't exist or their profile isn't available.",
       "backHome": "Back to home",
-      "seeRanking": "View ranking by city →"
+      "seeRanking": "View ranking by city"
     }
   },
   "sharedPet": {
@@ -618,7 +618,7 @@
     "notFoundSubtitle": "This link may have expired",
     "contactOwner": "Contact the owner on WhatsApp",
     "helpTitle": "Want to help find more pets?",
-    "exploreApp": "Explore SearchPet →",
+    "exploreApp": "Explore SearchPet",
     "or": "or",
     "downloadApp": "download the mobile app",
     "seoTitleLost": "{{name}} — Lost Pet | SearchPet",
@@ -669,7 +669,7 @@
       "empty": "You have no pets up for adoption"
     },
     "detail": {
-      "adoptedTitle": "{{name}} found a home! 🎉",
+      "adoptedTitle": "{{name}} found a home!",
       "adoptedSubtitle": "Thanks to the community for spreading the word."
     }
   },
@@ -799,7 +799,7 @@
   "impact": {
     "title": "SearchPet's impact",
     "subtitle": "Internal metrics panel. The platform's full numbers.",
-    "reunited": "Pets reunited 💚",
+    "reunited": "Pets reunited",
     "searches": "Searches started",
     "community": "Families in the community",
     "registered": "Pets registered",
