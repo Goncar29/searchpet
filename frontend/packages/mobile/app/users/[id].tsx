@@ -32,6 +32,7 @@ import type { Badge, Pet, UserReview } from '../../../shared/types';
 import { splitOwnedPets } from '../../../shared/utils/ownedPetBuckets';
 import { BADGE_META, BADGE_FALLBACK_ICON } from '../../../shared/types';
 import { Icon } from '../../components/Icon';
+import { IconLabel } from '../../components/IconLabel';
 import { cloudinaryThumb } from '@shared/utils/cloudinaryThumb';
 import { IMAGE_SIZES } from '../../constants/imageSizes';
 
@@ -98,12 +99,21 @@ interface StarDisplayProps {
 }
 
 function StarDisplay({ stars, size = 14 }: StarDisplayProps) {
+  const { t } = useTranslation('users');
   return (
-    <View style={styles.starRow}>
+    <View
+      style={styles.starRow}
+      accessible
+      accessibilityRole="image"
+      accessibilityLabel={t('users:starCount', { count: stars })}
+    >
       {[1, 2, 3, 4, 5].map((i) => (
-        <Text key={i} style={{ fontSize: size, color: i <= stars ? COLORS.accent : COLORS.placeholder }}>
-          ★
-        </Text>
+        <Icon
+          key={i}
+          name={i <= stars ? 'star-filled' : 'star'}
+          size={size}
+          color={i <= stars ? COLORS.accent : COLORS.placeholder}
+        />
       ))}
     </View>
   );
@@ -115,11 +125,22 @@ interface StarSelectorProps {
 }
 
 function StarSelector({ value, onChange }: StarSelectorProps) {
+  const { t } = useTranslation('users');
   return (
     <View style={styles.starRow}>
       {[1, 2, 3, 4, 5].map((i) => (
-        <TouchableOpacity key={i} onPress={() => onChange(i)} hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}>
-          <Text style={{ fontSize: 32, color: i <= value ? COLORS.accent : COLORS.placeholder }}>★</Text>
+        <TouchableOpacity
+          key={i}
+          onPress={() => onChange(i)}
+          hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+          accessibilityRole="button"
+          accessibilityLabel={t('users:starCount', { count: i })}
+        >
+          <Icon
+            name={i <= value ? 'star-filled' : 'star'}
+            size={32}
+            color={i <= value ? COLORS.accent : COLORS.placeholder}
+          />
         </TouchableOpacity>
       ))}
     </View>
@@ -370,7 +391,7 @@ export default function PublicProfileScreen() {
   if (!profile) {
     return (
       <View style={styles.center}>
-        <Text style={styles.stateIcon}>🔍</Text>
+        <View style={styles.stateIcon}><Icon name="search" size={56} color={COLORS.textMuted} /></View>
         <Text style={styles.stateTitle}>{isError ? t('users:loadError') : t('users:notFound')}</Text>
         <Text style={styles.stateText}>
           {isError
@@ -420,7 +441,9 @@ export default function PublicProfileScreen() {
         )}
         <Text style={styles.userName}>{profile.name}</Text>
         {profile.city ? (
-          <Text style={styles.userCity}>📍 {profile.city}</Text>
+          <IconLabel icon="location-on" size={14} color={COLORS.textSecondary} style={{ marginTop: 4 }}>
+            <Text style={[styles.userCity, { marginTop: 0 }]}>{profile.city}</Text>
+          </IconLabel>
         ) : null}
       </View>
 
@@ -456,11 +479,13 @@ export default function PublicProfileScreen() {
 
       {/* ── Badges ── */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>{t('users:achievements')}</Text>
+        <IconLabel icon="emoji-events" size={20} color={COLORS.textPrimary} gap={SPACING.sm} style={{ marginBottom: SPACING.md }}>
+          <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>{t('users:achievements')}</Text>
+        </IconLabel>
 
         {profile.badges.length === 0 ? (
           <View style={styles.emptyBadges}>
-            <Text style={styles.emptyBadgesIcon}>🏅</Text>
+            <Icon name="military-tech" size={32} color={COLORS.textMuted} />
             <Text style={styles.emptyBadgesText}>{t('users:noBadges')}</Text>
           </View>
         ) : (
@@ -483,7 +508,7 @@ export default function PublicProfileScreen() {
           {(pets: Pet[]) =>
             pets.length === 0 ? (
               <View style={styles.emptyBadges}>
-                <Text style={styles.emptyBadgesIcon}>🐾</Text>
+                <Icon name="pets" size={32} color={COLORS.textMuted} />
                 <Text style={styles.emptyBadgesText}>{t('users:postsEmpty')}</Text>
               </View>
             ) : (
@@ -526,7 +551,9 @@ export default function PublicProfileScreen() {
       {/* ── Reviews section ── */}
       <View style={styles.section}>
         <View style={styles.reviewSectionHeader}>
-          <Text style={styles.sectionTitle}>{t('users:reviews')}</Text>
+          <IconLabel icon="star-filled" size={20} color={COLORS.accent} gap={SPACING.sm}>
+            <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>{t('users:reviews')}</Text>
+          </IconLabel>
           {canReview && (
             <TouchableOpacity
               style={styles.reviewButton}
@@ -586,7 +613,7 @@ export default function PublicProfileScreen() {
           <ActivityIndicator size="small" color={COLORS.primary} style={{ marginTop: SPACING.md }} />
         ) : reviews.length === 0 ? (
           <View style={styles.emptyBadges}>
-            <Text style={styles.emptyBadgesIcon}>💬</Text>
+            <Icon name="chat-bubble" size={32} color={COLORS.textMuted} />
             <Text style={styles.emptyBadgesText}>{t('users:noReviews')}</Text>
           </View>
         ) : (
@@ -614,7 +641,7 @@ const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: SPACING.xl },
 
   // ── States ──
-  stateIcon: { fontSize: 56, marginBottom: SPACING.md },
+  stateIcon: { marginBottom: SPACING.md },
   stateTitle: { fontSize: FONTS.sizes.lg, fontWeight: '700', color: COLORS.textPrimary, marginBottom: SPACING.sm },
   stateText: { fontSize: FONTS.sizes.sm, color: COLORS.textSecondary, textAlign: 'center', marginBottom: SPACING.lg },
   retryButton: {
@@ -749,7 +776,6 @@ const styles = StyleSheet.create({
     ...SHADOWS.sm,
     gap: SPACING.md,
   },
-  emptyBadgesIcon: { fontSize: 32 },
   emptyBadgesText: { fontSize: FONTS.sizes.sm, color: COLORS.textSecondary },
 
   // ── Reviews section header ──
