@@ -11,6 +11,8 @@ import { StaleDataNotice } from '../../components/list/ListState';
 import { getDateLocale } from '../../i18n/dateLocale';
 import { useAuthStore } from '../../store';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
+import { IconLabel } from '../../components/IconLabel';
+import { Icon } from '../../components/Icon';
 
 export default function StoryDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -68,7 +70,7 @@ export default function StoryDetailScreen() {
     // idiomas: las usaba el listado antes de portarse a `ListState`.
     return (
       <View style={styles.center}>
-        <Text style={styles.errorIcon}>{isError ? '⚠️' : '😢'}</Text>
+        <View style={styles.errorIcon}><Icon name={isError ? 'warning' : 'sentiment-dissatisfied'} size={48} color={COLORS.textMuted} /></View>
         {/* `fallóLaLectura` y no `isError`: un 404 ES una respuesta, y decirle
             "no llegamos a leerla" a alguien cuya historia fue borrada es
             afirmar lo contrario de lo que pasó.
@@ -115,7 +117,9 @@ export default function StoryDetailScreen() {
       <View style={styles.content}>
         {/* Pet name badge */}
         <View style={styles.petBadge}>
-          <Text style={styles.petBadgeText}>🐾 {story.pet_name}</Text>
+          <IconLabel icon="pets" size={14} color={COLORS.primary} gap={4}>
+            <Text style={styles.petBadgeText}>{story.pet_name}</Text>
+          </IconLabel>
         </View>
 
         {/* Title */}
@@ -148,9 +152,9 @@ export default function StoryDetailScreen() {
           disabled={isToggling}
           activeOpacity={0.7}
         >
-          <Text style={styles.likeButtonText}>
-            {story.liked_by_me ? '❤️' : '🤍'} {t('story:likes', { count: story.like_count })}
-          </Text>
+          <IconLabel icon={story.liked_by_me ? 'favorite-filled' : 'favorite'} size={18} color={COLORS.white}>
+            <Text style={styles.likeButtonText}>{t('story:likes', { count: story.like_count })}</Text>
+          </IconLabel>
         </TouchableOpacity>
 
         {!isAuthenticated && (
@@ -176,7 +180,7 @@ const styles = StyleSheet.create({
     fontSize: FONTS.sizes.md,
     color: COLORS.textSecondary,
   },
-  errorIcon: { fontSize: 48, marginBottom: SPACING.sm },
+  errorIcon: { marginBottom: SPACING.sm },
   errorTitle: {
     fontSize: FONTS.sizes.lg,
     fontWeight: '700',

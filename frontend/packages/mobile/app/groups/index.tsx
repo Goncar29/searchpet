@@ -21,6 +21,7 @@ import { useGroups, useJoinGroup, useLeaveGroup } from '../../../shared/hooks';
 import { ListState } from '../../components/list/ListState';
 import { getErrorMessage } from '../../../shared/utils/apiErrors';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
+import { Icon } from '../../components/Icon';
 import type { LocalGroup } from '../../../shared/types';
 
 // ============================================================
@@ -69,7 +70,7 @@ function GroupCard({ group, isAuthenticated, onPress, onUnauthenticated }: Group
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.8}>
       <View style={styles.cardHeader}>
         <View style={styles.cardTitleRow}>
-          <Text style={styles.cardIcon}>📍</Text>
+          <Icon name="location-on" size={16} color={COLORS.primary} />
           <Text style={styles.cardCity} numberOfLines={1}>{group.city}</Text>
           {group.is_member && (
             <View style={styles.memberBadge}>
@@ -183,7 +184,7 @@ export default function GroupsScreen() {
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
           <View style={styles.emptyState}>
-            <Text style={styles.stateIcon}>👥</Text>
+            <View style={styles.stateIcon}><Icon name="group" size={48} color={COLORS.textMuted} /></View>
             <Text style={styles.stateTitle}>{t('groups:emptyTitle')}</Text>
             <Text style={styles.stateText}>
               {submittedCity
@@ -259,7 +260,6 @@ const styles = StyleSheet.create({
     gap: SPACING.xs,
     marginRight: SPACING.sm,
   },
-  cardIcon: { fontSize: 16 },
   cardCity: {
     fontSize: FONTS.sizes.md,
     fontWeight: '700',
@@ -312,7 +312,7 @@ const styles = StyleSheet.create({
   leaveButtonText: { color: COLORS.danger },
 
   // States
-  stateIcon: { fontSize: 48, marginBottom: SPACING.sm },
+  stateIcon: { marginBottom: SPACING.sm },
   stateTitle: {
     fontSize: FONTS.sizes.lg,
     fontWeight: '700',

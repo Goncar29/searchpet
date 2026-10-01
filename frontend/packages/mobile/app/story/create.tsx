@@ -21,6 +21,7 @@ import i18next from 'i18next';
 import { useCreateStory } from '../../../shared/hooks';
 import { getErrorMessage } from '../../../shared/utils/apiErrors';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
+import { Icon } from '../../components/Icon';
 
 export default function CreateStoryScreen() {
   const router = useRouter();
@@ -67,7 +68,7 @@ export default function CreateStoryScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.emoji}>🎉</Text>
+        <View style={styles.emoji}><Icon name="celebration" size={52} color={COLORS.primary} /></View>
         <Text style={styles.title}>{t('story:createTitle')}</Text>
         <Text style={styles.subtitle}>
           {t('story:createSubtitle')}
@@ -155,8 +156,7 @@ const styles = StyleSheet.create({
     padding: SPACING.lg,
   },
   emoji: {
-    fontSize: 52,
-    textAlign: 'center',
+    alignItems: 'center',
     marginTop: SPACING.lg,
     marginBottom: SPACING.sm,
   },

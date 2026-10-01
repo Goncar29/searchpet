@@ -20,6 +20,7 @@ import { getErrorMessage } from '@shared/utils/apiErrors';
 import { composeBirthDate } from '@shared/utils/petBirthDate';
 import type { PetIdentityValue } from '../../components/PetIdentityFields';
 import { COLORS, SPACING, FONTS } from '../../constants';
+import { IconLabel } from '../../components/IconLabel';
 import type { Pet, InitialReportRequest, PetType, StrayCandidate } from '../../../shared/types';
 
 export type PublishStep = 'intent' | 'lost-pet' | 'stray-form' | 'adoption-form' | 'location' | 'auth' | 'candidates' | 'success';
@@ -332,7 +333,9 @@ export default function PostScreen() {
       <View>
         {back && (
           <TouchableOpacity onPress={back.onBack} style={styles.backButton} accessibilityRole="button">
-            <Text style={styles.backButtonText}>{`← ${back.label}`}</Text>
+            <IconLabel icon="arrow-back" size={16} color={COLORS.textSecondary} gap={4}>
+              <Text style={styles.backButtonText}>{back.label}</Text>
+            </IconLabel>
           </TouchableOpacity>
         )}
         {step === 'intent' && <IntentStep onSelect={handleIntentSelect} />}

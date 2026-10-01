@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next';
 import { useStories } from '../../../shared/hooks';
 import { getDateLocale } from '../../i18n/dateLocale';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
+import { IconLabel } from '../../components/IconLabel';
 import { PawPlaceholder } from '../../components/PawPlaceholder';
 import { ListState } from '../../components/list/ListState';
 import type { SuccessStory } from '@shared/types';
@@ -32,7 +33,9 @@ export default function StoriesScreen() {
       ) : null}
       <View style={styles.cardHeader}>
         <Text style={styles.petName}>{item.pet_name}</Text>
-        <Text style={styles.likes}>❤️ {item.like_count}</Text>
+        <IconLabel icon="favorite-filled" size={14} color={COLORS.textMuted} gap={4}>
+          <Text style={styles.likes}>{item.like_count}</Text>
+        </IconLabel>
       </View>
       {item.title ? (
         <Text style={styles.title} numberOfLines={1}>{item.title}</Text>

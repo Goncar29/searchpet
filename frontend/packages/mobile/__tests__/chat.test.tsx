@@ -2,6 +2,8 @@
 import React from 'react';
 import { render } from '@testing-library/react-native';
 import ChatScreen from '../app/chat/[userId]';
+import { COLORS } from '../constants';
+import { drawnIcons, emojiTexts, fillsOf } from './support/icons';
 
 // expo-router: this conversation is with userId 'user-2'.
 // useNavigation must expose setOptions — the screen calls it on mount.
@@ -154,5 +156,26 @@ describe('ChatScreen', () => {
 
     expect(mockMarkAsReadMutate).toHaveBeenCalledTimes(1);
     expect(mockMarkAsReadMutate).toHaveBeenCalledWith('msg-2');
+  });
+
+  it('draws the send arrow as an icon with an accessible label, and no emoji', () => {
+    mockUseConversation.mockReturnValue({ data: [mockMessage], isLoading: false });
+    const ui = render(<ChatScreen />);
+    expect(drawnIcons(ui)).toContain('send');
+    expect(fillsOf(ui, 'send')).toEqual([COLORS.white]);
+    expect(ui.getByLabelText('chat:send')).toBeTruthy();
+    expect(emojiTexts(ui)).toEqual([]);
+  });
+
+  it('draws the chat bubble in the empty conversation, and not once there are messages', () => {
+    mockUseConversation.mockReturnValue({ data: [], isLoading: false });
+    const empty = render(<ChatScreen />);
+    expect(drawnIcons(empty)).toContain('chat-bubble');
+    expect(emojiTexts(empty)).toEqual([]);
+    empty.unmount();
+
+    mockUseConversation.mockReturnValue({ data: [mockMessage], isLoading: false });
+    const full = render(<ChatScreen />);
+    expect(drawnIcons(full)).not.toContain('chat-bubble');
   });
 });

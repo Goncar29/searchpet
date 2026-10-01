@@ -21,6 +21,7 @@ import { useShelters } from '../../../shared/hooks';
 import { StaleDataNotice } from '../../components/list/ListState';
 import { Shelter } from '../../../shared/types';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
+import { IconLabel } from '../../components/IconLabel';
 
 // ============================================================
 // ShelterCard — inline component
@@ -52,7 +53,9 @@ function ShelterCard({ shelter, t }: ShelterCardProps) {
 
       {/* City */}
       {shelter.city ? (
-        <Text style={styles.shelterCity}>📍 {shelter.city}</Text>
+        <IconLabel icon="location-on" size={14} color={COLORS.textSecondary} gap={4} style={{ marginBottom: SPACING.xs }}>
+          <Text style={[styles.shelterCity, { marginBottom: 0 }]}>{shelter.city}</Text>
+        </IconLabel>
       ) : null}
 
       {/* Description */}

@@ -25,6 +25,7 @@ import { ListState } from '../../components/list/ListState';
 import { useLocationStore } from '../../store';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS, PET_TYPES } from '../../constants';
 import { IconLabel } from '../../components/IconLabel';
+import { Icon } from '../../components/Icon';
 import type { LocationAlert, PetType } from '../../../shared/types';
 
 const RADIUS_OPTIONS = [1, 2, 5, 10, 25] as const;
@@ -135,7 +136,9 @@ export default function AlertsScreen() {
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* ── Intro ── */}
         <View style={styles.intro}>
-          <Text style={styles.introTitle}>🔔 {t('alerts:introTitle')}</Text>
+          <IconLabel icon="notifications" size={18} color={COLORS.primary} gap={SPACING.xs} style={{ marginBottom: 4 }}>
+            <Text style={[styles.introTitle, { marginBottom: 0 }]}>{t('alerts:introTitle')}</Text>
+          </IconLabel>
           <Text style={styles.introText}>{t('alerts:introText')}</Text>
         </View>
 
@@ -179,11 +182,13 @@ export default function AlertsScreen() {
               {locating ? (
                 <ActivityIndicator size="small" color={COLORS.primary} />
               ) : (
-                <Text style={styles.locationButtonText}>
-                  {formLat && formLng
-                    ? `📍 ${t('alerts:locationSet', { lat: formLat.toFixed(4), lng: formLng.toFixed(4) })}`
-                    : `📍 ${t('alerts:useCurrentLocation')}`}
-                </Text>
+                <IconLabel icon="location-on" size={16} color={COLORS.primary}>
+                  <Text style={styles.locationButtonText}>
+                    {formLat && formLng
+                      ? t('alerts:locationSet', { lat: formLat.toFixed(4), lng: formLng.toFixed(4) })
+                      : t('alerts:useCurrentLocation')}
+                  </Text>
+                </IconLabel>
               )}
             </TouchableOpacity>
 
@@ -278,14 +283,16 @@ export default function AlertsScreen() {
                         <Text style={styles.alertName}>
                           {alert.name || t('alerts:noName')}
                         </Text>
-                        <Text style={styles.alertMeta}>
-                          📍 {alert.alert_latitude?.toFixed(3)}, {alert.alert_longitude?.toFixed(3)}
-                          {'  ·  '}{alert.radius_km} km
-                          {/* Translated (rule #12/#60-adjacent M5): the raw
-                              literal ('perro', 'gato'...) showed untranslated
-                              regardless of the app's language. */}
-                          {alert.pet_type ? `  ·  ${t(`pets:types.${alert.pet_type}`, { defaultValue: alert.pet_type })}` : ''}
-                        </Text>
+                        <IconLabel icon="location-on" size={13} color={COLORS.textSecondary} gap={2}>
+                          <Text style={[styles.alertMeta, { flexShrink: 1 }]}>
+                            {alert.alert_latitude?.toFixed(3)}, {alert.alert_longitude?.toFixed(3)}
+                            {'  ·  '}{alert.radius_km} km
+                            {/* Translated (rule #12/#60-adjacent M5): the raw
+                                literal ('perro', 'gato'...) showed untranslated
+                                regardless of the app's language. */}
+                            {alert.pet_type ? `  ·  ${t(`pets:types.${alert.pet_type}`, { defaultValue: alert.pet_type })}` : ''}
+                          </Text>
+                        </IconLabel>
                       </View>
                       <Switch
                         value={alert.is_active}
@@ -305,7 +312,7 @@ export default function AlertsScreen() {
               </View>
             ) : !showForm ? (
               <View style={styles.empty}>
-                <Text style={styles.emptyIcon}>🔕</Text>
+                <View style={styles.emptyIcon}><Icon name="notifications-off" size={56} color={COLORS.textMuted} /></View>
                 <Text style={styles.emptyTitle}>{t('alerts:emptyTitle')}</Text>
                 <Text style={styles.emptyText}>{t('alerts:emptyText')}</Text>
               </View>
@@ -429,7 +436,7 @@ const styles = StyleSheet.create({
 
   // ── Empty ──
   empty: { alignItems: 'center', padding: SPACING.xl, marginTop: SPACING.lg },
-  emptyIcon: { fontSize: 56, marginBottom: SPACING.md },
+  emptyIcon: { marginBottom: SPACING.md },
   emptyTitle: { fontSize: FONTS.sizes.lg, fontWeight: '700', color: COLORS.textPrimary, marginBottom: SPACING.sm },
   emptyText: { fontSize: FONTS.sizes.sm, color: COLORS.textSecondary, textAlign: 'center', lineHeight: 22 },
 });

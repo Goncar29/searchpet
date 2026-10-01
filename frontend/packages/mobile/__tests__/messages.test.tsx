@@ -2,6 +2,7 @@
 import React from 'react';
 import { render } from '@testing-library/react-native';
 import MessagesScreen from '../app/(tabs)/messages';
+import { drawnIcons, emojiTexts } from './support/icons';
 
 jest.mock('expo-router', () => ({
   useRouter: () => ({ push: jest.fn(), back: jest.fn(), replace: jest.fn(), navigate: jest.fn() }),
@@ -147,5 +148,19 @@ describe('MessagesScreen', () => {
     const { queryByText } = render(<MessagesScreen />);
     expect(queryByText('Carla')).toBeTruthy();
     expect(queryByText(/unknownUser/)).toBeNull();
+  });
+
+  it('draws the chat bubble for a signed-out visitor and the inbox for an empty list', () => {
+    mockAuthState = { isAuthenticated: false, user: null };
+    const out = render(<MessagesScreen />);
+    expect(drawnIcons(out)).toEqual(['chat-bubble']);
+    expect(emojiTexts(out)).toEqual([]);
+    out.unmount();
+
+    mockAuthState = { isAuthenticated: true, user: { id: 'user-1', name: 'Me' } };
+    mockUseConversations.mockReturnValue({ data: [], isLoading: false, refetch: jest.fn(), isRefetching: false });
+    const empty = render(<MessagesScreen />);
+    expect(drawnIcons(empty)).toEqual(['inbox']);
+    expect(emojiTexts(empty)).toEqual([]);
   });
 });

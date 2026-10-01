@@ -5,6 +5,7 @@ import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
 import * as ImagePicker from 'expo-image-picker';
 import PostScreen from '../app/(tabs)/post';
 import { calendarDayToISO } from '../../shared/utils/reportDate';
+import { drawnIcons, emojiTexts } from './support/icons';
 
 // El mock global de `jest.setup.js` devuelve un `jest.fn()` NUEVO en cada
 // llamada a useRouter(), así que no se puede afirmar nada sobre él desde
@@ -409,7 +410,7 @@ describe('PostScreen — el paso de candidatos intercepta el alta', () => {
     conCandidatos();
     const { getByText, queryByText } = await llegarACandidatos();
 
-    fireEvent.press(getByText('← publish:backStep'));
+    fireEvent.press(getByText('publish:backStep'));
 
     expect(getByText('publish:location.publish')).toBeTruthy();
     expect(queryByText('publish:intent.strayTitle')).toBeNull();
@@ -539,8 +540,17 @@ describe('PostScreen — salir del paso elegido', () => {
     fireEvent.press(getByText('publish:intent.lostTitle'));
     expect(getByText('publish:lostPet.title')).toBeTruthy();
 
-    fireEvent.press(getByText('← publish:back'));
+    fireEvent.press(getByText('publish:back'));
     expect(getByText('publish:intent.title')).toBeTruthy();
+  });
+
+  it('el botón de volver dibuja la flecha como ícono, sólo fuera del selector', () => {
+    const ui = render(<PostScreen />);
+    // On the intent selector there is nothing to go back to.
+    expect(drawnIcons(ui)).not.toContain('arrow-back');
+    fireEvent.press(ui.getByText('publish:intent.strayTitle'));
+    expect(drawnIcons(ui)).toContain('arrow-back');
+    expect(emojiTexts(ui)).toEqual([]);
   });
 
   it('vuelve a las tres opciones desde el formulario de callejera', () => {
@@ -548,7 +558,7 @@ describe('PostScreen — salir del paso elegido', () => {
     fireEvent.press(getByText('publish:intent.strayTitle'));
     expect(getByText('publish:strayForm.title')).toBeTruthy();
 
-    fireEvent.press(getByText('← publish:back'));
+    fireEvent.press(getByText('publish:back'));
     expect(getByText('publish:intent.title')).toBeTruthy();
   });
 
@@ -557,7 +567,7 @@ describe('PostScreen — salir del paso elegido', () => {
     fireEvent.press(getByText('adoption:publish.intentOption'));
     expect(getByText('adoption:publish.title')).toBeTruthy();
 
-    fireEvent.press(getByText('← publish:back'));
+    fireEvent.press(getByText('publish:back'));
     expect(getByText('publish:intent.title')).toBeTruthy();
   });
 
@@ -567,7 +577,7 @@ describe('PostScreen — salir del paso elegido', () => {
     fireEvent.press(getByText('publish:intent.lostTitle'));
     expect(getByText('publish:auth.title')).toBeTruthy();
 
-    fireEvent.press(getByText('← publish:back'));
+    fireEvent.press(getByText('publish:back'));
     expect(getByText('publish:intent.title')).toBeTruthy();
   });
 });

@@ -2,6 +2,7 @@
 import React from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
 import StoryDetailScreen from '../app/story/[id]';
+import { drawnIcons, emojiTexts } from './support/icons';
 
 jest.mock('expo-router', () => ({
   useRouter: () => ({ push: jest.fn(), back: jest.fn(), replace: jest.fn(), navigate: jest.fn() }),
@@ -50,9 +51,13 @@ describe('StoryDetailScreen', () => {
 
   it('muestra corazón en outline y dispara like cuando liked_by_me es false', () => {
     mockUseStory.mockReturnValue({ data: { ...storyBase, liked_by_me: false }, isLoading: false });
-    const { getByTestId, getByText } = render(<StoryDetailScreen />);
+    const ui = render(<StoryDetailScreen />);
+    const { getByTestId } = ui;
 
-    expect(getByText(/🤍/)).toBeTruthy();
+    // outline heart on the button, and no filled one
+    expect(drawnIcons(ui)).toContain('favorite');
+    expect(drawnIcons(ui)).not.toContain('favorite-filled');
+    expect(emojiTexts(ui)).toEqual([]);
     fireEvent.press(getByTestId('story-like-button'));
     expect(mockLikeMutate).toHaveBeenCalledWith('story-1');
     expect(mockUnlikeMutate).not.toHaveBeenCalled();
@@ -60,9 +65,13 @@ describe('StoryDetailScreen', () => {
 
   it('muestra corazón relleno y dispara unlike cuando liked_by_me es true', () => {
     mockUseStory.mockReturnValue({ data: { ...storyBase, liked_by_me: true }, isLoading: false });
-    const { getByTestId, getByText } = render(<StoryDetailScreen />);
+    const ui = render(<StoryDetailScreen />);
+    const { getByTestId } = ui;
 
-    expect(getByText(/❤️/)).toBeTruthy();
+    // filled heart on the button, and no outline one
+    expect(drawnIcons(ui)).toContain('favorite-filled');
+    expect(drawnIcons(ui)).not.toContain('favorite');
+    expect(emojiTexts(ui)).toEqual([]);
     fireEvent.press(getByTestId('story-like-button'));
     expect(mockUnlikeMutate).toHaveBeenCalledWith('story-1');
     expect(mockLikeMutate).not.toHaveBeenCalled();

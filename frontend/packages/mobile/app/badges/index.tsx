@@ -18,6 +18,7 @@ import { getDateLocale } from '../../i18n/dateLocale';
 import { useMyBadges } from '../../../shared/hooks';
 import { ListState } from '../../components/list/ListState';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
+import { IconLabel } from '../../components/IconLabel';
 import type { Badge } from '../../../shared/types';
 import { BADGE_META, BADGE_FALLBACK_ICON } from '../../../shared/types';
 import { Icon } from '../../components/Icon';
@@ -59,7 +60,7 @@ export default function BadgesScreen() {
   if (!isAuthenticated) {
     return (
       <View style={styles.center}>
-        <Text style={styles.guardIcon}>🔒</Text>
+        <View style={styles.guardIcon}><Icon name="lock" size={56} color={COLORS.textMuted} /></View>
         <Text style={styles.guardTitle}>{t('badges:authRequired')}</Text>
         <Text style={styles.guardText}>{t('badges:authText')}</Text>
         <TouchableOpacity
@@ -100,13 +101,15 @@ export default function BadgesScreen() {
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
           <View style={styles.intro}>
-            <Text style={styles.introTitle}>🏆 {t('badges:myAchievements')}</Text>
+            <IconLabel icon="emoji-events" size={20} color={COLORS.textPrimary} gap={SPACING.xs} style={{ marginBottom: 4 }}>
+              <Text style={[styles.introTitle, { marginBottom: 0 }]}>{t('badges:myAchievements')}</Text>
+            </IconLabel>
             <Text style={styles.introText}>{t('badges:introText')}</Text>
           </View>
         }
         ListEmptyComponent={
           <View style={styles.empty}>
-            <Text style={styles.emptyIcon}>🏅</Text>
+            <View style={styles.emptyIcon}><Icon name="military-tech" size={56} color={COLORS.textMuted} /></View>
             <Text style={styles.emptyTitle}>{t('badges:emptyTitle')}</Text>
             <Text style={styles.emptyText}>{t('badges:emptyText')}</Text>
           </View>
@@ -125,7 +128,7 @@ const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: SPACING.xl },
 
   // ── Auth guard / Error states ──
-  guardIcon: { fontSize: 56, marginBottom: SPACING.md },
+  guardIcon: { marginBottom: SPACING.md },
   guardTitle: { fontSize: FONTS.sizes.lg, fontWeight: '700', color: COLORS.textPrimary, marginBottom: SPACING.sm },
   guardText: { fontSize: FONTS.sizes.sm, color: COLORS.textSecondary, textAlign: 'center', marginBottom: SPACING.lg },
 
@@ -178,7 +181,7 @@ const styles = StyleSheet.create({
 
   // ── Empty state ──
   empty: { alignItems: 'center', padding: SPACING.xl, marginTop: SPACING.lg },
-  emptyIcon: { fontSize: 56, marginBottom: SPACING.md },
+  emptyIcon: { marginBottom: SPACING.md },
   emptyTitle: { fontSize: FONTS.sizes.lg, fontWeight: '700', color: COLORS.textPrimary, marginBottom: SPACING.sm },
   emptyText: { fontSize: FONTS.sizes.sm, color: COLORS.textSecondary, textAlign: 'center', lineHeight: 22 },
 });
