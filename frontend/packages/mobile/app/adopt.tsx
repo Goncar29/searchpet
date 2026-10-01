@@ -13,7 +13,6 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   TextInput,
-  ScrollView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -68,12 +67,7 @@ export default function AdoptScreen() {
           onSubmitEditing={applyFilters}
         />
 
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.chipsRow}
-          accessibilityLabel={t('adoption:section.typeFilter')}
-        >
+        <View style={styles.chipsRow} accessibilityLabel={t('adoption:section.typeFilter')}>
           <TouchableOpacity
             style={[styles.chip, !draftType && styles.chipActive]}
             onPress={() => setDraftType(undefined)}
@@ -106,7 +100,7 @@ export default function AdoptScreen() {
               </IconLabel>
             </TouchableOpacity>
           ))}
-        </ScrollView>
+        </View>
 
         <TouchableOpacity style={styles.applyButton} onPress={applyFilters}>
           <Text style={styles.applyButtonText}>{t('adoption:section.apply')}</Text>
@@ -208,6 +202,8 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.sm,
   },
   chipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: SPACING.sm,
     paddingBottom: SPACING.sm,
   },
