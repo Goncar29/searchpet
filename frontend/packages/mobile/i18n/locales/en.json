@@ -56,10 +56,10 @@
     "defaultPetName": "Pet",
     "viewDetails": "Tap to see details",
     "centerOnMe": "Center on my location",
-    "vetsToggle": "Veterinaries",
+    "vetsToggle": "Vets",
     "vetDirections": "Directions",
     "vetCall": "Call",
-    "vetEmpty": "No veterinaries in this area",
+    "vetEmpty": "No vets in this area",
     "vetDefaultName": "Veterinary",
     "vetAttribution": "© OpenStreetMap contributors",
     "searchHere": "Search this area"
