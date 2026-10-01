@@ -108,12 +108,6 @@ export default function StoryDetailScreen() {
           alcanzable aunque la pantalla no tenga pull-to-refresh. */}
       <StaleDataNotice query={storyQuery} />
 
-      {/* Back navigation */}
-      <TouchableOpacity style={styles.backRow} onPress={() => router.back()}>
-        <Text style={styles.backChevron}>‹</Text>
-        <Text style={styles.backLabel}>{t('story:title')}</Text>
-      </TouchableOpacity>
-
       <View style={styles.content}>
         {/* Pet name badge */}
         <View style={styles.petBadge}>
@@ -200,26 +194,9 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.md,
   },
   backButtonText: { color: COLORS.white, fontWeight: '700', fontSize: FONTS.sizes.sm },
-  backRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: SPACING.lg,
-    paddingTop: SPACING.lg,
-    paddingBottom: SPACING.sm,
-  },
-  backChevron: {
-    fontSize: 28,
-    color: COLORS.primary,
-    lineHeight: 30,
-    marginRight: 4,
-  },
-  backLabel: {
-    fontSize: FONTS.sizes.md,
-    color: COLORS.primary,
-    fontWeight: '600',
-  },
   content: {
     backgroundColor: COLORS.white,
+    marginTop: SPACING.lg,
     marginHorizontal: SPACING.lg,
     borderRadius: RADIUS.lg,
     padding: SPACING.lg,

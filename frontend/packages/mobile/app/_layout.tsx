@@ -166,6 +166,38 @@ export default function RootLayout() {
           name="story/create"
           options={{ title: i18next.t('story:createTitle'), presentation: 'modal' }}
         />
+        <Stack.Screen
+          name="foster-homes/index"
+          options={{ title: i18next.t('fosterHomes:directory.title') }}
+        />
+        <Stack.Screen
+          name="foster-homes/mine"
+          options={{ title: i18next.t('fosterHomes:mine.title') }}
+        />
+        <Stack.Screen
+          name="foster-homes/register"
+          options={{ title: i18next.t('fosterHomes:register.title') }}
+        />
+        <Stack.Screen
+          name="foster-home/[id]"
+          options={{ title: i18next.t('fosterHomes:detail.title') }}
+        />
+        <Stack.Screen
+          name="edit-profile"
+          options={{ title: i18next.t('profile:editProfile.title') }}
+        />
+        <Stack.Screen
+          name="story/index"
+          options={{ title: i18next.t('story:title') }}
+        />
+        <Stack.Screen
+          name="story/[id]"
+          options={{ title: i18next.t('story:title') }}
+        />
+        <Stack.Screen
+          name="google-location"
+          options={{ title: i18next.t('auth:location.title') }}
+        />
         <Stack.Screen name="shelters/index" options={{ headerShown: false }} />
       </Stack>
     </QueryClientProvider>

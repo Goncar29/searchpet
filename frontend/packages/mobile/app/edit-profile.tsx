@@ -53,19 +53,11 @@ export default function EditProfileScreen() {
   const isDisabled = updateMe.isPending || name.trim() === '';
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['bottom', 'left', 'right']}>
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backArrow}>
-            <Text style={styles.backArrowText}>‹</Text>
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>{t('editProfile.title')}</Text>
-        </View>
-
         <ScrollView
           style={styles.flex}
           contentContainerStyle={styles.content}
@@ -139,29 +131,6 @@ const styles = StyleSheet.create({
   },
   flex: {
     flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.md,
-    backgroundColor: COLORS.background,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-  },
-  backArrow: {
-    marginRight: SPACING.sm,
-    padding: SPACING.xs,
-  },
-  backArrowText: {
-    fontSize: 28,
-    color: COLORS.primary,
-    lineHeight: 32,
-  },
-  headerTitle: {
-    fontSize: FONTS.sizes.lg,
-    fontWeight: '700',
-    color: COLORS.textPrimary,
   },
   content: {
     padding: SPACING.lg,

@@ -12,7 +12,6 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
-import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import i18next from 'i18next';
 import { useBlockedUsers, useUnblockUser } from '../../shared/hooks';
@@ -55,7 +54,6 @@ function BlockedUserItem({ item, onUnblock }: { item: BlockedUser; onUnblock: (i
 }
 
 export default function BlockedUsersScreen() {
-  const router = useRouter();
   const { t } = useTranslation(['blocked_users', 'common']);
   // La query entera: `ListState` necesita `isPaused`, `isError` y `refetch`.
   const blockedQuery = useBlockedUsers();
@@ -71,17 +69,10 @@ export default function BlockedUsersScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backArrow}>
-          <Text style={styles.backArrowText}>‹</Text>
-        </TouchableOpacity>
-        <Text style={styles.title}>{t('blocked_users:title')}</Text>
-      </View>
-
-      {/* El encabezado con la flecha de volver queda AFUERA: antes vivía debajo
-          del early return de error, así que un fallo de red dejaba al usuario
-          sin la salida. El cartel además sale sólo si no hay nada que mostrar —
-          con `isError` a secas un refetch fallido borraba la lista dibujada. */}
+      {/* El título y la flecha de volver los pone el header nativo (registrado
+          en app/_layout.tsx), así que un fallo de red no deja al usuario sin la
+          salida. El cartel sale sólo si no hay nada que mostrar — con `isError`
+          a secas un refetch fallido borraba la lista dibujada. */}
       <ListState<BlockedUser[], BlockedUser>
         query={blockedQuery}
         loading={
@@ -124,30 +115,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: SPACING.xl,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: SPACING.md,
-    paddingTop: SPACING.xl,
-    paddingBottom: SPACING.md,
-    backgroundColor: COLORS.background,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-  },
-  backArrow: {
-    marginRight: SPACING.sm,
-    padding: SPACING.xs,
-  },
-  backArrowText: {
-    fontSize: 28,
-    color: COLORS.primary,
-    lineHeight: 32,
-  },
-  title: {
-    fontSize: FONTS.sizes.lg,
-    fontWeight: '700',
-    color: COLORS.textPrimary,
   },
   listContent: {
     padding: SPACING.md,
