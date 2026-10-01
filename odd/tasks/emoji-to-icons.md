@@ -134,3 +134,12 @@ Mobile: next task, after the web PR.
 ## Next step
 
 Open the T5b PR, then build the APK and check the icons on a device.
+
+- 2026-10-01: T7 (mobile locale guard) inline on `test/mobile-locale-glyph-guard`,
+  applying the two native-review suggestions on #308/#309. `noEmojiInScreens`
+  now also walks `mobile/i18n/locales/*.json` (shared stays guarded on the web
+  side) and covers U+25A0-25FF geometric shapes. Mobile locales were already
+  clean, so proof is by mutation: an emoji in `es.json:tabs.home` fails the
+  locale test naming that key; `▶` in `shelters/index.tsx:88` fails the screen
+  test, and with the new range removed the same mutation passes, so the range
+  is what catches it. Mobile 420/420, `tsc` 0, lint 0.
