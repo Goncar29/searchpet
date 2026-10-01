@@ -65,12 +65,25 @@ function registrations(): Registration[] {
   return out;
 }
 
-// A back arrow drawn inside a screen that already has a native header.
+// A back arrow drawn inside a screen that already has a native header: either a
+// text glyph or, since the emoji-to-icons work, a registry icon passed as
+// `name`/`icon` to <Icon> or <IconLabel>.
+const BACK_ICONS = new Set(['arrow-back', 'chevron-left']);
+
 function drawsOwnBackArrow(file: string): boolean {
   const sf = ts.createSourceFile(file, fs.readFileSync(file, 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
   let found = false;
   const visit = (node: ts.Node) => {
     if ((ts.isJsxText(node) || ts.isStringLiteral(node)) && /[‹←]/.test(node.text)) found = true;
+    if (
+      ts.isJsxAttribute(node) &&
+      ['name', 'icon'].includes(node.name.getText(sf)) &&
+      node.initializer &&
+      ts.isStringLiteral(node.initializer) &&
+      BACK_ICONS.has(node.initializer.text)
+    ) {
+      found = true;
+    }
     ts.forEachChild(node, visit);
   };
   visit(sf);
