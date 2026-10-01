@@ -28,6 +28,7 @@ import { PetCard } from '../../components/PetCard';
 import { ListState } from '../../components/list/ListState';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS, MAP_DEFAULTS, PET_TYPES } from '../../constants';
 import { IconLabel } from '../../components/IconLabel';
+import { Icon, type IconName } from '../../components/Icon';
 import type { PetType, SuccessStory, ClassifyResult, ImageSearchResult } from '../../../shared/types';
 import { ApiError } from '../../../shared/api/client';
 import { cloudinaryThumb } from '@shared/utils/cloudinaryThumb';
@@ -268,10 +269,19 @@ export default function HomeScreen() {
       >
         <Text style={styles.storyPetName}>{item.pet_name}</Text>
         <Text style={styles.storyBody} numberOfLines={2}>{displayText}</Text>
-        <Text style={styles.storyLikes}>❤️ {item.like_count}</Text>
+        <IconLabel icon="favorite-filled" size={12} color={COLORS.textMuted} gap={4}>
+          <Text style={styles.storyLikes}>{item.like_count}</Text>
+        </IconLabel>
       </TouchableOpacity>
     );
   };
+
+  const photoChip: { icon: IconName; label: string } =
+    imageSearchMutation.isPending || isClassifying
+      ? { icon: 'search', label: t('home:analyzing') }
+      : isModelLoading
+      ? { icon: 'hourglass', label: t('home:loadingModel') }
+      : { icon: 'photo-camera', label: t('home:byPhoto') };
 
   return (
     <View style={styles.container}>
@@ -322,9 +332,11 @@ export default function HomeScreen() {
             style={[styles.chip, showFilters && styles.chipActive]}
             onPress={() => setShowFilters(!showFilters)}
           >
-            <Text style={[styles.chipText, showFilters && styles.chipTextActive]}>
-              ⚙️ {t('home:more')}
-            </Text>
+            <IconLabel icon="tune" size={16} color={showFilters ? COLORS.white : COLORS.textSecondary}>
+              <Text style={[styles.chipText, showFilters && styles.chipTextActive]}>
+                {t('home:more')}
+              </Text>
+            </IconLabel>
           </TouchableOpacity>
 
           {/* Buscar por foto */}
@@ -333,13 +345,9 @@ export default function HomeScreen() {
             onPress={handleImageSearch}
             disabled={isModelLoading || isClassifying || imageSearchMutation.isPending}
           >
-            <Text style={styles.chipText}>
-              {imageSearchMutation.isPending || isClassifying
-                ? `🔍 ${t('home:analyzing')}`
-                : isModelLoading
-                ? `⏳ ${t('home:loadingModel')}`
-                : `📷 ${t('home:byPhoto')}`}
-            </Text>
+            <IconLabel icon={photoChip.icon} size={16} color={COLORS.textSecondary}>
+              <Text style={styles.chipText}>{photoChip.label}</Text>
+            </IconLabel>
           </TouchableOpacity>
         </ScrollView>
 
@@ -349,8 +357,8 @@ export default function HomeScreen() {
             <Text style={styles.classifyResultText}>
               {classifyResult.breed ?? t(`pets:types.${classifyResult.type}`, { defaultValue: classifyResult.type })} · {Math.round(classifyResult.confidence * 100)}%
             </Text>
-            <TouchableOpacity onPress={clearFilters}>
-              <Text style={styles.classifyResultClear}>✕</Text>
+            <TouchableOpacity onPress={clearFilters} accessibilityRole="button" accessibilityLabel={t('common:close')}>
+              <Icon name="close" size={18} color={COLORS.primary} />
             </TouchableOpacity>
           </View>
         )}
@@ -358,8 +366,8 @@ export default function HomeScreen() {
         {photoNoMatch && (
           <View style={styles.noMatchRow}>
             <Text style={styles.noMatchText}>{t('home:noMatchText')}</Text>
-            <TouchableOpacity onPress={() => setPhotoNoMatch(false)}>
-              <Text style={styles.classifyResultClear}>✕</Text>
+            <TouchableOpacity onPress={() => setPhotoNoMatch(false)} accessibilityRole="button" accessibilityLabel={t('common:close')}>
+              <Icon name="close" size={18} color={COLORS.primary} />
             </TouchableOpacity>
           </View>
         )}
@@ -450,7 +458,9 @@ export default function HomeScreen() {
                 : t('home:results', { count: knownCount })}
             </Text>
             <TouchableOpacity onPress={clearFilters}>
-              <Text style={styles.clearText}>{t('home:clearFilters')}</Text>
+              <IconLabel icon="close" size={14} color={COLORS.primary} gap={4}>
+                <Text style={styles.clearText}>{t('home:clearFilters')}</Text>
+              </IconLabel>
             </TouchableOpacity>
           </View>
         ) : (
@@ -476,7 +486,7 @@ export default function HomeScreen() {
           onPress={() => router.push('/login')}
         >
           <Text style={styles.ctaText}>{t('home:loginCta')}</Text>
-          <Text style={styles.ctaArrow}>→</Text>
+          <View style={styles.ctaArrow}><Icon name="arrow-forward" size={22} color={COLORS.white} /></View>
         </TouchableOpacity>
       )}
 
@@ -510,7 +520,7 @@ export default function HomeScreen() {
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
             <View style={styles.empty}>
-              <Text style={styles.emptyIcon}>🔍</Text>
+              <View style={styles.emptyIcon}><Icon name="search" size={60} color={COLORS.textMuted} /></View>
               <Text style={styles.emptyTitle}>{t('home:photoNoResults')}</Text>
               <TouchableOpacity style={styles.clearButton} onPress={clearImageResults}>
                 <Text style={styles.clearButtonText}>{t('home:clearPhotoResults')}</Text>
@@ -688,12 +698,12 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   ctaText: { color: COLORS.white, fontSize: FONTS.sizes.md, fontWeight: '600', flex: 1 },
-  ctaArrow: { color: COLORS.white, fontSize: FONTS.sizes.xl, fontWeight: '700', marginLeft: SPACING.sm },
+  ctaArrow: { marginLeft: SPACING.sm },
 
   // ── Lista ──
   list: { paddingHorizontal: SPACING.lg, paddingBottom: 100 },
   empty: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: SPACING.xxl * 2 },
-  emptyIcon: { fontSize: 60, marginBottom: SPACING.md },
+  emptyIcon: { marginBottom: SPACING.md },
   emptyTitle: { fontSize: FONTS.sizes.lg, fontWeight: '600', color: COLORS.textPrimary, marginBottom: SPACING.sm },
   emptyText: { fontSize: FONTS.sizes.sm, color: COLORS.textSecondary, textAlign: 'center', paddingHorizontal: SPACING.xl },
   clearButton: {
@@ -785,11 +795,6 @@ const styles = StyleSheet.create({
     fontSize: FONTS.sizes.sm,
     fontWeight: '600',
     color: COLORS.primary,
-  },
-  classifyResultClear: {
-    fontSize: FONTS.sizes.sm,
-    color: COLORS.primary,
-    fontWeight: '700',
   },
   noMatchRow: {
     flexDirection: 'row',

@@ -2,6 +2,8 @@
 import React from 'react';
 import { render, screen, fireEvent, act } from '@testing-library/react-native';
 import { createCircleGeoJSON } from '../app/(tabs)/map';
+import { COLORS } from '../constants';
+import { drawnIcons, emojiTexts, fillsOf } from './support/icons';
 
 // Mock @maplibre/maplibre-react-native — native module not available in Jest
 jest.mock('@maplibre/maplibre-react-native', () => {
@@ -201,7 +203,22 @@ describe('MapScreen', () => {
     // vets are off by default — no empty message yet
     expect(screen.queryByText('vetEmpty')).toBeNull();
     // enable the vets layer (useNearbyVets mock returns an empty list)
-    fireEvent.press(screen.getByText('🏥 vetsToggle'));
+    fireEvent.press(screen.getByText('vetsToggle'));
     expect(screen.getByText('vetEmpty')).toBeTruthy();
+  });
+
+  it('draws the vets toggle and the center-on-me button as icons, with no emoji', () => {
+    const ui = render(<MapScreen />);
+    expect(drawnIcons(ui)).toEqual(expect.arrayContaining(['local-hospital', 'location-on']));
+    expect(emojiTexts(ui)).toEqual([]);
+    // The icon-only button carries a label for screen readers.
+    expect(screen.getByLabelText('centerOnMe')).toBeTruthy();
+  });
+
+  it('tints the vets icon with the toggle state: muted when off, white when on', () => {
+    const ui = render(<MapScreen />);
+    expect(fillsOf(ui, 'local-hospital')).toEqual([COLORS.textSecondary]);
+    fireEvent.press(screen.getByText('vetsToggle'));
+    expect(fillsOf(ui, 'local-hospital')).toEqual([COLORS.white]);
   });
 });

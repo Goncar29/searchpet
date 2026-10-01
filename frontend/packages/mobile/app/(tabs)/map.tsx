@@ -23,6 +23,8 @@ import { vetLayerRadiusMeters } from '../../../shared/utils/vetLayerRadius';
 import { StaleDataNotice } from '../../components/list/ListState';
 import { useLocationStore } from '../../store';
 import { COLORS, SPACING, FONTS, MAP_DEFAULTS } from '../../constants';
+import { Icon } from '../../components/Icon';
+import { IconLabel } from '../../components/IconLabel';
 import type { Report, Vet } from '../../../shared/types';
 
 // MapLibre no necesita token de Mapbox
@@ -65,7 +67,7 @@ class MapErrorBoundary extends Component<{ children: ReactNode }, { hasError: bo
     if (this.state.hasError) {
       return (
         <View style={styles.errorContainer}>
-          <Text style={styles.errorIcon}>🗺️</Text>
+          <View style={styles.errorIcon}><Icon name="map" size={48} color={COLORS.textMuted} /></View>
           <Text style={styles.errorText}>
             {i18next.t('map:unavailable')}
           </Text>
@@ -266,9 +268,11 @@ export default function MapScreen() {
           style={[styles.vetToggle, showVets && styles.vetToggleActive]}
           onPress={() => setShowVets((v) => !v)}
         >
-          <Text style={[styles.vetToggleText, showVets && styles.vetToggleTextActive]}>
-            🏥 {t('vetsToggle')}
-          </Text>
+          <IconLabel icon="local-hospital" size={14} color={showVets ? COLORS.white : COLORS.textSecondary}>
+            <Text style={[styles.vetToggleText, showVets && styles.vetToggleTextActive]}>
+              {t('vetsToggle')}
+            </Text>
+          </IconLabel>
         </TouchableOpacity>
 
         {showVets && vets && vets.length === 0 && (
@@ -284,8 +288,13 @@ export default function MapScreen() {
         )}
 
         {/* Botón centrar en usuario */}
-        <TouchableOpacity style={styles.centerButton} onPress={centerOnUser}>
-          <Text style={styles.centerIcon}>📍</Text>
+        <TouchableOpacity
+          style={styles.centerButton}
+          onPress={centerOnUser}
+          accessibilityRole="button"
+          accessibilityLabel={t('centerOnMe')}
+        >
+          <Icon name="location-on" size={22} color={COLORS.primary} />
         </TouchableOpacity>
 
         {/* Leyenda */}
@@ -381,7 +390,9 @@ export default function MapScreen() {
                 {selectedReport.location_description}
               </Text>
             )}
-            <Text style={styles.reportAction}>{t('viewDetails')}</Text>
+            <IconLabel icon="arrow-forward" size={16} color={COLORS.primary} gap={4}>
+              <Text style={styles.reportAction}>{t('viewDetails')}</Text>
+            </IconLabel>
           </TouchableOpacity>
         )}
 
@@ -431,7 +442,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: SPACING.xl,
   },
-  errorIcon: { fontSize: 48, marginBottom: SPACING.md },
+  errorIcon: { marginBottom: SPACING.md },
   errorText: {
     fontSize: FONTS.sizes.md,
     color: COLORS.textSecondary,
@@ -461,7 +472,6 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 5,
   },
-  centerIcon: { fontSize: 22 },
   legend: {
     position: 'absolute',
     top: SPACING.lg,

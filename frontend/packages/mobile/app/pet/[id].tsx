@@ -38,6 +38,8 @@ import { cloudinaryThumb } from '@shared/utils/cloudinaryThumb';
 import { ListState } from '../../components/list/ListState';
 import type { Report } from '../../../shared/types';
 import { IMAGE_BOXES } from '../../constants/imageSizes';
+import { Icon } from '../../components/Icon';
+import { IconLabel } from '../../components/IconLabel';
 
 const { width } = Dimensions.get('window');
 
@@ -78,7 +80,7 @@ export default function PetDetailScreen() {
   if (!pet) {
     return (
       <View style={styles.center}>
-        <Text style={{ fontSize: 48 }}>🔍</Text>
+        <Icon name="search" size={48} color={COLORS.textMuted} />
         <Text style={styles.notFoundText}>{t('pet_detail:notFound')}</Text>
       </View>
     );
@@ -356,7 +358,9 @@ export default function PetDetailScreen() {
             {markAsFound.isPending ? (
               <ActivityIndicator size="small" color={COLORS.white} />
             ) : (
-              <Text style={styles.markFoundButtonText}>✅ {t('pet_detail:markAsFound')}</Text>
+              <IconLabel icon="check-circle" size={18} color={COLORS.white}>
+                <Text style={styles.markFoundButtonText}>{t('pet_detail:markAsFound')}</Text>
+              </IconLabel>
             )}
           </TouchableOpacity>
         )}
@@ -369,7 +373,9 @@ export default function PetDetailScreen() {
             onPress={() => router.push(`/story/create?petId=${pet.id}`)}
             activeOpacity={0.8}
           >
-            <Text style={styles.storyButtonText}>🎉 {t('story:create')}</Text>
+            <IconLabel icon="celebration" size={18} color={COLORS.white}>
+              <Text style={styles.storyButtonText}>{t('story:create')}</Text>
+            </IconLabel>
           </TouchableOpacity>
         )}
 
@@ -379,7 +385,7 @@ export default function PetDetailScreen() {
             <Text style={styles.sectionTitle}>{t('pet_detail:ownerContact')}</Text>
             <View style={styles.ownerInfo}>
               <View style={styles.ownerAvatar}>
-                <Text style={{ fontSize: 24 }}>👤</Text>
+                <Icon name="person" size={24} color={COLORS.textMuted} />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.ownerName}>{pet.owner.name}</Text>
@@ -476,12 +482,16 @@ export default function PetDetailScreen() {
                             {report.status === 'lost' ? t('pets:status.lost') : report.status === 'found' ? t('pets:status.found') : t('map:legendSighting')}
                           </Text>
                           {report.is_verified && (
-                            <Text style={styles.verifiedBadge}>✓ {t('pet_detail:verified')}</Text>
+                            <IconLabel icon="check" size={13} color="#16a34a" gap={2} style={{ marginTop: 2 }}>
+                              <Text style={[styles.verifiedBadge, { marginTop: 0 }]}>{t('pet_detail:verified')}</Text>
+                            </IconLabel>
                           )}
                           {report.location_description && (
-                            <Text style={styles.timelineLocation}>
-                              📍 {report.location_description}
-                            </Text>
+                            <IconLabel icon="location-on" size={12} color={COLORS.textSecondary} gap={2} style={{ marginTop: 2 }}>
+                              <Text style={[styles.timelineLocation, { marginTop: 0, flexShrink: 1 }]}>
+                                {report.location_description}
+                              </Text>
+                            </IconLabel>
                           )}
                           <Text style={styles.timelineDate}>
                             {displayDate}

@@ -17,6 +17,8 @@ import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
 import { LANG_KEY } from '../../i18n';
 import { cloudinaryThumb } from '@shared/utils/cloudinaryThumb';
 import { IMAGE_SIZES } from '../../constants/imageSizes';
+import { Icon } from '../../components/Icon';
+import { IconLabel } from '../../components/IconLabel';
 
 export default function ProfileScreen() {
   const { t } = useTranslation('profile');
@@ -131,7 +133,7 @@ export default function ProfileScreen() {
   if (!isAuthenticated) {
     return (
       <View style={styles.center}>
-        <Text style={{ fontSize: 48, marginBottom: SPACING.md }}>👤</Text>
+        <View style={{ marginBottom: SPACING.md }}><Icon name="person" size={48} color={COLORS.textMuted} /></View>
         <Text style={styles.title}>{t('title')}</Text>
         <Text style={styles.subtitle}>{t('subtitle')}</Text>
         <TouchableOpacity
@@ -203,7 +205,7 @@ export default function ProfileScreen() {
             <Image source={{ uri: cloudinaryThumb(user.profile_photo_url, IMAGE_SIZES.avatarMd) }} style={styles.avatarImage} />
           ) : (
             <View style={styles.avatar}>
-              <Text style={{ fontSize: 36 }}>👤</Text>
+              <Icon name="person" size={36} color={COLORS.textMuted} />
             </View>
           )}
         </TouchableOpacity>
@@ -213,7 +215,9 @@ export default function ProfileScreen() {
         <Text style={styles.userName}>{user?.name}</Text>
         <Text style={styles.userEmail}>{user?.email}</Text>
         {user?.city ? (
-          <Text style={styles.userCity}>📍 {user.city}</Text>
+          <IconLabel icon="location-on" color={COLORS.textSecondary} size={14} style={{ marginTop: 2 }}>
+            <Text style={[styles.userCity, { marginTop: 0 }]}>{user.city}</Text>
+          </IconLabel>
         ) : null}
         {user?.is_verified && (
           <View style={styles.verifiedBadge}>
@@ -339,7 +343,7 @@ export default function ProfileScreen() {
           style={styles.menuItem}
           onPress={() => router.push('/edit-profile')}
         >
-          <Text style={styles.menuIcon}>✏️</Text>
+          <View style={styles.menuIcon}><Icon name="edit" size={22} color={COLORS.textSecondary} /></View>
           <Text style={styles.menuText}>{t('editProfile.title')}</Text>
           <Text style={styles.menuArrow}>›</Text>
         </TouchableOpacity>
@@ -348,7 +352,7 @@ export default function ProfileScreen() {
           style={styles.menuItem}
           onPress={() => router.push('/my-pets')}
         >
-          <Text style={styles.menuIcon}>🐾</Text>
+          <View style={styles.menuIcon}><Icon name="pets" size={22} color={COLORS.textSecondary} /></View>
           <Text style={styles.menuText}>{t('menuMyPets')}</Text>
           <Text style={styles.menuArrow}>›</Text>
         </TouchableOpacity>
@@ -357,7 +361,7 @@ export default function ProfileScreen() {
           style={styles.menuItem}
           onPress={() => router.push('/adopt' as any)}
         >
-          <Text style={styles.menuIcon}>🏡</Text>
+          <View style={styles.menuIcon}><Icon name="home" size={22} color={COLORS.textSecondary} /></View>
           <Text style={styles.menuText}>{t('adoption:section.title')}</Text>
           <Text style={styles.menuArrow}>›</Text>
         </TouchableOpacity>
@@ -366,7 +370,7 @@ export default function ProfileScreen() {
           style={styles.menuItem}
           onPress={() => router.push('/badges')}
         >
-          <Text style={styles.menuIcon}>🏆</Text>
+          <View style={styles.menuIcon}><Icon name="emoji-events" size={22} color={COLORS.textSecondary} /></View>
           <Text style={styles.menuText}>{t('menuBadges')}</Text>
           <Text style={styles.menuArrow}>›</Text>
         </TouchableOpacity>
@@ -375,7 +379,7 @@ export default function ProfileScreen() {
           style={styles.menuItem}
           onPress={() => router.push('/leaderboard')}
         >
-          <Text style={styles.menuIcon}>🥇</Text>
+          <View style={styles.menuIcon}><Icon name="workspace-premium" size={22} color={COLORS.textSecondary} /></View>
           <Text style={styles.menuText}>{t('menuLeaderboard')}</Text>
           <Text style={styles.menuArrow}>›</Text>
         </TouchableOpacity>
@@ -384,7 +388,7 @@ export default function ProfileScreen() {
           style={styles.menuItem}
           onPress={() => router.push('/alerts')}
         >
-          <Text style={styles.menuIcon}>🔔</Text>
+          <View style={styles.menuIcon}><Icon name="notifications" size={22} color={COLORS.textSecondary} /></View>
           <Text style={styles.menuText}>{t('menuAlerts')}</Text>
           <Text style={styles.menuArrow}>›</Text>
         </TouchableOpacity>
@@ -393,7 +397,7 @@ export default function ProfileScreen() {
           style={styles.menuItem}
           onPress={() => router.push('/groups' as any)}
         >
-          <Text style={styles.menuIcon}>👥</Text>
+          <View style={styles.menuIcon}><Icon name="group" size={22} color={COLORS.textSecondary} /></View>
           <Text style={styles.menuText}>{t('menuGroups')}</Text>
           <Text style={styles.menuArrow}>›</Text>
         </TouchableOpacity>
@@ -402,7 +406,7 @@ export default function ProfileScreen() {
           style={styles.menuItem}
           onPress={() => router.push('/shelters' as any)}
         >
-          <Text style={styles.menuIcon}>🏠</Text>
+          <View style={styles.menuIcon}><Icon name="home-work" size={22} color={COLORS.textSecondary} /></View>
           <Text style={styles.menuText}>{t('menuShelters')}</Text>
           <Text style={styles.menuArrow}>›</Text>
         </TouchableOpacity>
@@ -411,7 +415,7 @@ export default function ProfileScreen() {
           style={styles.menuItem}
           onPress={() => router.push('/foster-homes' as any)}
         >
-          <Text style={styles.menuIcon}>🏘️</Text>
+          <View style={styles.menuIcon}><Icon name="location-city" size={22} color={COLORS.textSecondary} /></View>
           <Text style={styles.menuText}>{t('fosterHomes:nav')}</Text>
           <Text style={styles.menuArrow}>›</Text>
         </TouchableOpacity>
@@ -420,7 +424,7 @@ export default function ProfileScreen() {
           style={styles.menuItem}
           onPress={() => router.push('/blocked-users' as any)}
         >
-          <Text style={styles.menuIcon}>🚫</Text>
+          <View style={styles.menuIcon}><Icon name="block" size={22} color={COLORS.textSecondary} /></View>
           <Text style={styles.menuText}>{t('menuBlockedUsers')}</Text>
           <Text style={styles.menuArrow}>›</Text>
         </TouchableOpacity>
@@ -429,7 +433,7 @@ export default function ProfileScreen() {
           style={styles.menuItem}
           onPress={() => Alert.alert(i18next.t('profile:comingSoon'), i18next.t('profile:settingsComingSoon'))}
         >
-          <Text style={styles.menuIcon}>⚙️</Text>
+          <View style={styles.menuIcon}><Icon name="settings" size={22} color={COLORS.textSecondary} /></View>
           <Text style={styles.menuText}>{t('menuSettings')}</Text>
           <Text style={styles.menuArrow}>›</Text>
         </TouchableOpacity>
@@ -438,7 +442,7 @@ export default function ProfileScreen() {
           style={styles.menuItem}
           onPress={handleLanguageSwitch}
         >
-          <Text style={styles.menuIcon}>🌐</Text>
+          <View style={styles.menuIcon}><Icon name="language" size={22} color={COLORS.textSecondary} /></View>
           <Text style={styles.menuText}>{t('menuLanguage')}</Text>
           <Text style={styles.menuArrow}>›</Text>
         </TouchableOpacity>
@@ -447,7 +451,7 @@ export default function ProfileScreen() {
           style={styles.menuItem}
           onPress={() => Linking.openURL('https://github.com/Goncar29/searchpet')}
         >
-          <Text style={styles.menuIcon}>🔗</Text>
+          <View style={styles.menuIcon}><Icon name="link" size={22} color={COLORS.textSecondary} /></View>
           <Text style={styles.menuText}>{t('menuGitHub')}</Text>
           <Text style={styles.menuArrow}>›</Text>
         </TouchableOpacity>
@@ -600,7 +604,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
   },
-  menuIcon: { fontSize: 22, marginRight: SPACING.md },
+  menuIcon: { marginRight: SPACING.md },
   menuText: {
     flex: 1,
     fontSize: FONTS.sizes.md,
