@@ -249,53 +249,11 @@ export default function MapScreen() {
           ))}
         </MapLibreGL.MapView>
 
-        {/* Selector de radio */}
-        <View style={styles.radiusSelector}>
-          {[1, 3, 5, 10].map((km) => (
-            <TouchableOpacity
-              key={km}
-              style={[styles.radiusButton, radius === km && styles.radiusButtonActive]}
-              onPress={() => setRadius(km)}
-            >
-              <Text style={[styles.radiusButtonText, radius === km && styles.radiusButtonTextActive]}>
-                {km}km
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        <TouchableOpacity
-          style={[styles.vetToggle, showVets && styles.vetToggleActive]}
-          onPress={() => setShowVets((v) => !v)}
-        >
-          <IconLabel icon="local-hospital" size={14} color={showVets ? COLORS.white : COLORS.textSecondary}>
-            <Text style={[styles.vetToggleText, showVets && styles.vetToggleTextActive]}>
-              {t('vetsToggle')}
-            </Text>
-          </IconLabel>
-        </TouchableOpacity>
-
-        {showVets && vets && vets.length === 0 && (
-          <View style={styles.vetEmptyBanner}>
-            <Text style={styles.vetEmptyText}>{t('vetEmpty')}</Text>
-          </View>
-        )}
-
         {canSearchHere && (
           <TouchableOpacity style={styles.searchHereButton} onPress={() => setSearchCenter(mapCenter)}>
             <Text style={styles.searchHereText}>{t('searchHere')}</Text>
           </TouchableOpacity>
         )}
-
-        {/* Botón centrar en usuario */}
-        <TouchableOpacity
-          style={styles.centerButton}
-          onPress={centerOnUser}
-          accessibilityRole="button"
-          accessibilityLabel={t('centerOnMe')}
-        >
-          <Icon name="location-on" size={22} color={COLORS.primary} />
-        </TouchableOpacity>
 
         {/* Leyenda */}
         <View style={styles.legend}>
@@ -313,110 +271,162 @@ export default function MapScreen() {
           </View>
         </View>
 
-        {/* Contador — nunca afirma "0" cuando en realidad no sabemos (rule
-            #60). El mapa se queda visible en los tres casos: sólo cambia
-            este widget, nunca la pantalla entera.
-            Tres estados posibles con `reportsMissing` (data == null):
-              1. paused/error → fila de error con reintentar.
-              2. ninguno de los dos, pero SIGUE sin data → todavía no
-                 sabemos (primera carga pendiente, o una query deshabilitada
-                 que nunca llegó a arrancar — hoy esta pantalla no
-                 deshabilita `useNearbyReports`, pero el contador no debe
-                 asumirlo). Muestra `common:loading`, nunca "0" y nunca un
-                 spinner que gire para siempre: es sólo texto neutro, así
-                 que una query deshabilitada por diseño no queda mintiendo
-                 "cargando" con una animación activa.
-              3. hay data real → el conteo. */}
-        <View style={styles.counter}>
-          {reportsMissing && (reportsQuery.isPaused || reportsQuery.isError) ? (
-            <TouchableOpacity
-              style={styles.counterErrorRow}
-              onPress={() => reportsQuery.refetch()}
-              accessibilityRole="button"
-            >
-              <Text style={styles.counterText}>
-                {reportsQuery.isPaused ? t('common:offlineTitle') : t('common:loadErrorTitle')}
-              </Text>
-              <Text style={styles.counterRetryText}>{t('common:retry')}</Text>
-            </TouchableOpacity>
-          ) : reportsMissing ? (
-            <Text style={styles.counterText}>{t('common:loading')}</Text>
-          ) : (
-            <Text style={styles.counterText}>
-              {t('counter', { count: reports?.length || 0 })}
-            </Text>
-          )}
-        </View>
-
-        {/* Cached reports + a failed/paused refetch: the count above stays
-            correct (it's still reading real cached data), and this banner is
-            the only thing that says it might not be the latest. */}
-        {!reportsMissing && (reportsQuery.isPaused || reportsQuery.isError) && (
-          <View style={styles.staleBanner}>
-            {/* `useNearbyReports` spreads the raw query and overrides `data`
-                (Report[] | undefined) for backward compatibility, so its
-                `refetch` return type no longer matches a plain
-                UseQueryResult<Report[]>. StaleDataNotice only ever reads
-                `data`/`isPaused`/`isError`/`refetch()`, all of which line up
-                at runtime — the cast is just working around that shape. */}
-            <StaleDataNotice query={reportsQuery as unknown as UseQueryResult<Report[] | undefined>} />
-          </View>
-        )}
-
-        {/* Card del reporte seleccionado — mejor UX que callout popup */}
-        {selectedReport && (
-          <TouchableOpacity
-            style={styles.reportCard}
-            onPress={() =>
-              router.push(`/pet/${selectedReport.pet?.id || selectedReport.pet_id}`)
-            }
-            activeOpacity={0.85}
-          >
-            <View
-              style={[
-                styles.statusBadge,
-                { backgroundColor: getMarkerColor(selectedReport.status) },
-              ]}
-            >
-              <Text style={styles.statusText}>
-                {getStatusLabel(selectedReport.status)}
-              </Text>
+        {/* Everything that sits over the bottom of the map lives in ONE
+            container anchored to the bottom. The banners and cards are its
+            first children, so they stack above the controls and can never
+            overlap them. `box-none` lets touches reach the map between them. */}
+        <View style={styles.bottomControls} pointerEvents="box-none" testID="map-bottom-controls">
+          {/* Cached reports + a failed/paused refetch: the count below stays
+              correct (it's still reading real cached data), and this banner is
+              the only thing that says it might not be the latest. */}
+          {!reportsMissing && (reportsQuery.isPaused || reportsQuery.isError) && (
+            <View>
+              {/* `useNearbyReports` spreads the raw query and overrides `data`
+                  (Report[] | undefined) for backward compatibility, so its
+                  `refetch` return type no longer matches a plain
+                  UseQueryResult<Report[]>. StaleDataNotice only ever reads
+                  `data`/`isPaused`/`isError`/`refetch()`, all of which line up
+                  at runtime — the cast is just working around that shape. */}
+              <StaleDataNotice query={reportsQuery as unknown as UseQueryResult<Report[] | undefined>} />
             </View>
-            <Text style={styles.reportName}>
-              {selectedReport.pet?.name || t('defaultPetName')}
-            </Text>
-            {selectedReport.location_description && (
-              <Text style={styles.reportDesc}>
-                {selectedReport.location_description}
+          )}
+
+          {/* Card del reporte seleccionado — mejor UX que callout popup */}
+          {selectedReport && (
+            <TouchableOpacity
+              style={styles.reportCard}
+              onPress={() =>
+                router.push(`/pet/${selectedReport.pet?.id || selectedReport.pet_id}`)
+              }
+              activeOpacity={0.85}
+            >
+              <View
+                style={[
+                  styles.statusBadge,
+                  { backgroundColor: getMarkerColor(selectedReport.status) },
+                ]}
+              >
+                <Text style={styles.statusText}>
+                  {getStatusLabel(selectedReport.status)}
+                </Text>
+              </View>
+              <Text style={styles.reportName}>
+                {selectedReport.pet?.name || t('defaultPetName')}
               </Text>
-            )}
-            <IconLabel icon="arrow-forward" size={16} color={COLORS.primary} gap={4}>
-              <Text style={styles.reportAction}>{t('viewDetails')}</Text>
+              {selectedReport.location_description && (
+                <Text style={styles.reportDesc}>
+                  {selectedReport.location_description}
+                </Text>
+              )}
+              <IconLabel icon="arrow-forward" size={16} color={COLORS.primary} gap={4}>
+                <Text style={styles.reportAction}>{t('viewDetails')}</Text>
+              </IconLabel>
+            </TouchableOpacity>
+          )}
+
+          {selectedVet && (
+            <View style={styles.reportCard}>
+              <Text style={styles.reportName}>{selectedVet.name || t('vetDefaultName')}</Text>
+              {selectedVet.address ? <Text style={styles.reportDesc}>{selectedVet.address}</Text> : null}
+              <View style={{ flexDirection: 'row', gap: SPACING.md }}>
+                <TouchableOpacity
+                  onPress={() =>
+                    Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${selectedVet.latitude},${selectedVet.longitude}`)
+                  }
+                >
+                  <Text style={styles.reportAction}>{t('vetDirections')}</Text>
+                </TouchableOpacity>
+                {selectedVet.phone ? (
+                  <TouchableOpacity onPress={() => Linking.openURL(`tel:${selectedVet.phone}`)}>
+                    <Text style={styles.reportAction}>{t('vetCall')}</Text>
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+              <Text style={{ fontSize: 10, color: COLORS.textSecondary, marginTop: 6 }}>{t('vetAttribution')}</Text>
+            </View>
+          )}
+          {showVets && vets && vets.length === 0 && (
+            <View style={styles.vetEmptyBanner}>
+              <Text style={styles.vetEmptyText}>{t('vetEmpty')}</Text>
+            </View>
+          )}
+
+          <View style={styles.controlsRow}>
+          {/* Selector de radio */}
+          <View style={styles.radiusSelector}>
+            {[1, 3, 5, 10].map((km) => (
+              <TouchableOpacity
+                key={km}
+                style={[styles.radiusButton, radius === km && styles.radiusButtonActive]}
+                onPress={() => setRadius(km)}
+              >
+                <Text style={[styles.radiusButtonText, radius === km && styles.radiusButtonTextActive]}>
+                  {km}km
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <TouchableOpacity
+            style={[styles.vetToggle, showVets && styles.vetToggleActive]}
+            onPress={() => setShowVets((v) => !v)}
+          >
+            <IconLabel icon="local-hospital" size={14} color={showVets ? COLORS.white : COLORS.textSecondary}>
+              <Text style={[styles.vetToggleText, showVets && styles.vetToggleTextActive]}>
+                {t('map:vetsToggle')}
+              </Text>
             </IconLabel>
           </TouchableOpacity>
-        )}
 
-        {selectedVet && (
-          <View style={styles.reportCard}>
-            <Text style={styles.reportName}>{selectedVet.name || t('vetDefaultName')}</Text>
-            {selectedVet.address ? <Text style={styles.reportDesc}>{selectedVet.address}</Text> : null}
-            <View style={{ flexDirection: 'row', gap: SPACING.md }}>
-              <TouchableOpacity
-                onPress={() =>
-                  Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${selectedVet.latitude},${selectedVet.longitude}`)
-                }
-              >
-                <Text style={styles.reportAction}>{t('vetDirections')}</Text>
-              </TouchableOpacity>
-              {selectedVet.phone ? (
-                <TouchableOpacity onPress={() => Linking.openURL(`tel:${selectedVet.phone}`)}>
-                  <Text style={styles.reportAction}>{t('vetCall')}</Text>
-                </TouchableOpacity>
-              ) : null}
-            </View>
-            <Text style={{ fontSize: 10, color: COLORS.textSecondary, marginTop: 6 }}>{t('vetAttribution')}</Text>
           </View>
-        )}
+          <View style={styles.controlsRow}>
+          {/* Contador — nunca afirma "0" cuando en realidad no sabemos (rule
+              #60). El mapa se queda visible en los tres casos: sólo cambia
+              este widget, nunca la pantalla entera.
+              Tres estados posibles con `reportsMissing` (data == null):
+                1. paused/error → fila de error con reintentar.
+                2. ninguno de los dos, pero SIGUE sin data → todavía no
+                   sabemos (primera carga pendiente, o una query deshabilitada
+                   que nunca llegó a arrancar — hoy esta pantalla no
+                   deshabilita `useNearbyReports`, pero el contador no debe
+                   asumirlo). Muestra `common:loading`, nunca "0" y nunca un
+                   spinner que gire para siempre: es sólo texto neutro, así
+                   que una query deshabilitada por diseño no queda mintiendo
+                   "cargando" con una animación activa.
+                3. hay data real → el conteo. */}
+          <View style={styles.counter}>
+            {reportsMissing && (reportsQuery.isPaused || reportsQuery.isError) ? (
+              <TouchableOpacity
+                style={styles.counterErrorRow}
+                onPress={() => reportsQuery.refetch()}
+                accessibilityRole="button"
+              >
+                <Text style={styles.counterText}>
+                  {reportsQuery.isPaused ? t('common:offlineTitle') : t('common:loadErrorTitle')}
+                </Text>
+                <Text style={styles.counterRetryText}>{t('common:retry')}</Text>
+              </TouchableOpacity>
+            ) : reportsMissing ? (
+              <Text style={styles.counterText}>{t('common:loading')}</Text>
+            ) : (
+              <Text style={styles.counterText}>
+                {t('counter', { count: reports?.length || 0 })}
+              </Text>
+            )}
+          </View>
+
+          {/* Botón centrar en usuario */}
+          <TouchableOpacity
+            style={styles.centerButton}
+            onPress={centerOnUser}
+            accessibilityRole="button"
+            accessibilityLabel={t('centerOnMe')}
+          >
+            <Icon name="location-on" size={22} color={COLORS.primary} />
+          </TouchableOpacity>
+
+          </View>
+        </View>
       </View>
     </MapErrorBoundary>
   );
@@ -424,6 +434,23 @@ export default function MapScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  // One bottom-anchored column: banners and cards first, then the two control
+  // rows. Children flow upward from SPACING.lg, so nothing needs its own
+  // magic bottom offset.
+  bottomControls: {
+    position: 'absolute',
+    bottom: SPACING.lg,
+    left: SPACING.lg,
+    right: SPACING.lg,
+    gap: SPACING.sm,
+  },
+  controlsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: SPACING.sm,
+  },
   map: { flex: 1 },
   center: {
     flex: 1,
@@ -457,9 +484,6 @@ const styles = StyleSheet.create({
     borderColor: COLORS.white,
   },
   centerButton: {
-    position: 'absolute',
-    bottom: 180,
-    right: SPACING.lg,
     backgroundColor: COLORS.white,
     width: 50,
     height: 50,
@@ -502,9 +526,6 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   counter: {
-    position: 'absolute',
-    bottom: 120,
-    left: SPACING.lg,
     backgroundColor: 'rgba(0,0,0,0.7)',
     paddingVertical: SPACING.xs,
     paddingHorizontal: SPACING.md,
@@ -526,17 +547,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     textDecorationLine: 'underline',
   },
-  staleBanner: {
-    position: 'absolute',
-    bottom: 156,
-    left: SPACING.lg,
-    right: SPACING.lg,
-  },
   reportCard: {
-    position: 'absolute',
-    bottom: 140,
-    left: SPACING.lg,
-    right: SPACING.lg,
     backgroundColor: COLORS.white,
     borderRadius: 16,
     padding: SPACING.md,
@@ -571,9 +582,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   radiusSelector: {
-    position: 'absolute',
-    bottom: 240,
-    left: SPACING.lg,
     flexDirection: 'row',
     gap: 8,
   },
@@ -598,9 +606,6 @@ const styles = StyleSheet.create({
     color: COLORS.white,
   },
   vetToggle: {
-    position: 'absolute',
-    bottom: 290,
-    left: SPACING.lg,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 20,
@@ -612,10 +617,6 @@ const styles = StyleSheet.create({
   vetToggleText: { fontSize: FONTS.sizes.xs, fontWeight: '600', color: COLORS.textSecondary },
   vetToggleTextActive: { color: COLORS.white },
   vetEmptyBanner: {
-    position: 'absolute',
-    bottom: 80,
-    left: SPACING.lg,
-    right: SPACING.lg,
     backgroundColor: 'rgba(0,0,0,0.7)',
     paddingVertical: SPACING.sm,
     paddingHorizontal: SPACING.md,

@@ -1,8 +1,9 @@
 // Map screen tests — createCircleGeoJSON unit tests + MapScreen smoke test
 import React from 'react';
-import { render, screen, fireEvent, act } from '@testing-library/react-native';
+import { render, screen, fireEvent, act, within } from '@testing-library/react-native';
 import { createCircleGeoJSON } from '../app/(tabs)/map';
-import { COLORS } from '../constants';
+import { StyleSheet } from 'react-native';
+import { COLORS, SPACING } from '../constants';
 import { drawnIcons, emojiTexts, fillsOf } from './support/icons';
 
 // Mock @maplibre/maplibre-react-native — native module not available in Jest
@@ -60,7 +61,7 @@ jest.mock('../store', () => ({
 }));
 
 // Named with the `mock` prefix so jest's hoisting allows referencing it inside the factory.
-const mockUseNearbyReports = jest.fn((..._args: unknown[]) => ({ data: [], isLoading: false }));
+const mockUseNearbyReports = jest.fn((..._args: unknown[]): Record<string, unknown> => ({ data: [], isLoading: false }));
 // Idem, y NO un jest.fn() suelto dentro del factory: asi definido, nadie puede
 // leer con que argumentos se llamo, y el bug que se arreglo aca era justamente
 // un argumento equivocado en el call site.
@@ -203,7 +204,7 @@ describe('MapScreen', () => {
     // vets are off by default — no empty message yet
     expect(screen.queryByText('vetEmpty')).toBeNull();
     // enable the vets layer (useNearbyVets mock returns an empty list)
-    fireEvent.press(screen.getByText('vetsToggle'));
+    fireEvent.press(screen.getByText('map:vetsToggle'));
     expect(screen.getByText('vetEmpty')).toBeTruthy();
   });
 
@@ -218,7 +219,79 @@ describe('MapScreen', () => {
   it('tints the vets icon with the toggle state: muted when off, white when on', () => {
     const ui = render(<MapScreen />);
     expect(fillsOf(ui, 'local-hospital')).toEqual([COLORS.textSecondary]);
-    fireEvent.press(screen.getByText('vetsToggle'));
+    fireEvent.press(screen.getByText('map:vetsToggle'));
     expect(fillsOf(ui, 'local-hospital')).toEqual([COLORS.white]);
+  });
+});
+
+// ============================================================
+// Bottom-anchored controls
+// ============================================================
+
+describe('MapScreen controls', () => {
+  const report = {
+    id: 'r1', pet_id: 'p1', status: 'lost', latitude: -34.9, longitude: -56.16,
+    location_description: 'Cerca del parque', pet: { id: 'p1', name: 'Firulais' },
+  };
+
+  it('keeps radius chips, vets toggle, center button and counter in ONE container at the bottom', () => {
+    render(<MapScreen />);
+    const controls = screen.getByTestId('map-bottom-controls');
+    const flat = StyleSheet.flatten(controls.props.style);
+    expect(flat.position).toBe('absolute');
+    expect(flat.bottom).toBe(SPACING.lg);
+    expect(flat.left).toBe(SPACING.lg);
+    expect(flat.right).toBe(SPACING.lg);
+
+    const inside = within(controls);
+    for (const km of ['1km', '3km', '5km', '10km']) expect(inside.getByText(km)).toBeTruthy();
+    expect(inside.getByText('map:vetsToggle')).toBeTruthy();
+    expect(inside.getByLabelText('centerOnMe')).toBeTruthy();
+    expect(inside.getByText('counter')).toBeTruthy();
+  });
+
+  it('leaves no control floating with its own absolute bottom offset', () => {
+    render(<MapScreen />);
+    for (const label of ['centerOnMe']) {
+      let node = screen.getByLabelText(label);
+      // Walk up to the controls container: nothing in between may be absolute.
+      while (node.props.testID !== 'map-bottom-controls') {
+        expect(StyleSheet.flatten(node.props.style)?.position).not.toBe('absolute');
+        node = node.parent as typeof node;
+      }
+    }
+    for (const text of ['1km', 'map:vetsToggle', 'counter']) {
+      let node = screen.getByText(text);
+      while (node.props.testID !== 'map-bottom-controls') {
+        expect(StyleSheet.flatten(node.props.style)?.position).not.toBe('absolute');
+        node = node.parent as typeof node;
+      }
+    }
+  });
+
+  it('puts the selected-report card inside the container, so it can never overlap the controls', () => {
+    mockUseNearbyReports.mockReturnValue({ data: [report], isLoading: false });
+    render(<MapScreen />);
+    act(() => {
+      screen.UNSAFE_getByProps({ id: 'marker-r1' }).props.onSelected();
+    });
+    const inside = within(screen.getByTestId('map-bottom-controls'));
+    expect(inside.getByText('Firulais')).toBeTruthy();
+    expect(inside.getByText('1km')).toBeTruthy();
+    mockUseNearbyReports.mockReturnValue({ data: [], isLoading: false });
+  });
+
+  it('puts the stale-data banner inside the container too', () => {
+    mockUseNearbyReports.mockReturnValue({ data: [report], isLoading: false, isError: true, refetch: jest.fn() });
+    render(<MapScreen />);
+    const inside = within(screen.getByTestId('map-bottom-controls'));
+    expect(inside.getByText('common:staleTitle')).toBeTruthy();
+    mockUseNearbyReports.mockReturnValue({ data: [], isLoading: false });
+  });
+
+  it('puts the empty-vets banner inside the container', () => {
+    render(<MapScreen />);
+    fireEvent.press(screen.getByText('map:vetsToggle'));
+    expect(within(screen.getByTestId('map-bottom-controls')).getByText('vetEmpty')).toBeTruthy();
   });
 });

@@ -4,7 +4,7 @@ import { render, screen, fireEvent } from '@testing-library/react-native';
 import AdoptScreen from '../app/adopt';
 import { drawnIcons, fillsOf } from './support/icons';
 import { COLORS } from '../constants';
-import { Text } from 'react-native';
+import { Text, ScrollView, StyleSheet } from 'react-native';
 
 // expo-router is mocked globally in jest.setup.js
 
@@ -34,6 +34,38 @@ beforeEach(() => {
 });
 
 describe('AdoptScreen', () => {
+
+  // The type chips used to live in a horizontal ScrollView and overflowed the
+  // card sideways. They wrap now, so every one is visible without scrolling.
+  describe('type filter chips', () => {
+    beforeEach(() => {
+      mockUseAdoptions.mockReturnValue({
+        data: { data: [mockPet], total: 1, page: 1, limit: 20 },
+        isLoading: false,
+      });
+    });
+
+    it('are not inside a horizontal ScrollView', () => {
+      render(<AdoptScreen />);
+      const horizontal = screen.UNSAFE_getAllByType(ScrollView).filter((sv) => sv.props.horizontal);
+      expect(horizontal).toEqual([]);
+    });
+
+    it('wrap in one container that holds every type chip', () => {
+      render(<AdoptScreen />);
+      const row = screen.getByLabelText('adoption:section.typeFilter');
+      expect(StyleSheet.flatten(row.props.style).flexWrap).toBe('wrap');
+      for (const label of [
+        'adoption:section.allTypes',
+        'pets:types.perro',
+        'pets:types.gato',
+        'pets:types.pajaro',
+        'pets:types.otro',
+      ]) {
+        expect(screen.getByText(label)).toBeTruthy();
+      }
+    });
+  });
   it('renderiza sin lanzar errores (estado de carga)', () => {
     const { toJSON } = render(<AdoptScreen />);
     expect(toJSON()).toBeTruthy();
