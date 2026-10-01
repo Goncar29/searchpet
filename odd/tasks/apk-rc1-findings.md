@@ -41,9 +41,14 @@ on a real phone, then build another APK.
 - [x] T3 — Map: controls in one bottom-anchored container; `map:vetsToggle`
   verified against the real i18n instance. Route: same writer (delegated).
   Commit e87609f7.
-- [ ] T4 — Profile stats: decision pending with the owner.
+- [ ] T4 — Profile stats from REAL ROWS (owner chose option b on 2026-10-01;
+  option a, a one-off UPDATE in prod, was rejected because testing re-inflates
+  the counters). Design being mapped. Own PR (backend). Route: delegated.
 - [ ] T5 — Dark mode in mobile via Settings. Separate feature (size L).
 - [ ] T6 — New APK and owner re-check.
+- [ ] T7 — Stack header titles are computed once with `i18next.t` in
+  `app/_layout.tsx`, so they keep the old language after a runtime language
+  change. Pre-existing for every title (native review of #311). Not started.
 
 ## Checks
 
@@ -70,6 +75,19 @@ where a test applies; on-device check in the next APK.
   - Checks (mobile): `pnpm test:run` EXIT=0 (63 suites, 438 tests), `npx tsc
     --noEmit` EXIT=0, `pnpm lint` EXIT=0.
 
+- 2026-10-01: split into stacked PRs **#311** (`fix/mobile-stack-headers`: T1 +
+  guard now also catches a back arrow drawn as `arrow-back`/`chevron-left`
+  icon; 428/428 on its own) and **#312** (`fix/mobile-adopt-map`: T2 + T3 +
+  this doc; 438/438), tree identical to the reviewed one. Native reviews
+  `review-a752e47b6009f00e` (whole branch) and `review-0339e26369a1a69b`
+  (#311) approved. Unused imports after the header removal: none
+  (`tsc --noUnusedLocals` EXIT=0, proven by a planted import → TS6133).
+- 2026-10-01: stats diagnosis. Prod `GET /api/users/<id>/profile` returns
+  total_reports 41, found_count 12, total_points 1443, share_count 19 = what the
+  APK shows. What the owner saw as "correct" on searchpet.vercel.app were the
+  GLOBAL home stats (`/api/stats`, real rows: 0 pets), a different endpoint.
+
 ## Next step
 
-T1-T3 writer; T4 decision.
+Merge #311 (without --delete-branch) → retarget #312 → merge. T4 design from
+the mapper, then a delegated backend writer. Then T6 APK. T5 and T7 later.
