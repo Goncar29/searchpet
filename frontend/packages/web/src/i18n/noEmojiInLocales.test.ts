@@ -65,15 +65,23 @@ describe('locale copy has no emoji or decorative glyphs', () => {
   });
 
   it('every KEPT entry still exists and still carries a glyph', () => {
+    const byName = new Map<string, unknown>();
+    for (const [prefix, files] of [['web', webFiles], ['shared', sharedFiles]] as const) {
+      for (const [file, json] of Object.entries(files)) byName.set(`${prefix}/${file.split('/').pop()}`, json);
+    }
     const stale: string[] = [];
     for (const entry of Object.keys(KEPT)) {
       const [name, key] = entry.split(':');
-      const file = Object.entries(webFiles).find(([f]) => name.endsWith(f.split('/').pop()!))?.[1];
+      if (!byName.has(name)) {
+        stale.push(`${entry} -> no locale file named ${name}`);
+        continue;
+      }
       const strings: Array<{ key: string; value: string }> = [];
-      walk(file, [], strings);
+      walk(byName.get(name), [], strings);
       const hit = strings.find((s) => s.key === key);
-      if (!hit || !hasGlyph(hit.value)) stale.push(entry);
+      if (!hit) stale.push(`${entry} -> key not found`);
+      else if (!hasGlyph(hit.value)) stale.push(`${entry} -> no glyph left`);
     }
-    expect(stale, 'KEPT entry no longer matches a glyph; remove it').toEqual([]);
+    expect(stale, 'KEPT entry is stale; fix or remove it').toEqual([]);
   });
 });
