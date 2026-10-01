@@ -127,36 +127,78 @@ func TestReportRepository_CountByReporter_BorrarBajaElConteo(t *testing.T) {
 	}
 }
 
-func TestPetRepository_CountFoundByUser(t *testing.T) {
+func TestPetRepository_CountHelpedFound(t *testing.T) {
 	db := testdb.SetupTestDB(t)
 	users := repository.NewUserRepository(db)
 	pets := repository.NewPetRepository(db)
+	reports := repository.NewReportRepository(db)
 
 	x := newTestUser(t, users)
 	y := newTestUser(t, users)
 
-	owned := mkPet(t, pets, ptrUUID(x.ID), nil, domain.PetStatusFound)
-	mkPet(t, pets, nil, ptrUUID(x.ID), domain.PetStatusFound) // callejero encontrado
-	mkPet(t, pets, ptrUUID(x.ID), nil, domain.PetStatusLost)  // perdida: no
-	mkPet(t, pets, ptrUUID(y.ID), nil, domain.PetStatusFound) // de otro: no
+	count := func(t *testing.T) int64 {
+		t.Helper()
+		got, err := pets.CountHelpedFound(x.ID.String())
+		if err != nil {
+			t.Fatal(err)
+		}
+		return got
+	}
 
-	got, err := pets.CountFoundByUser(x.ID.String())
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got != 2 {
-		t.Fatalf("want 2, got %d", got)
-	}
-	if err := pets.Delete(owned.ID.String()); err != nil {
-		t.Fatal(err)
-	}
-	got, err = pets.CountFoundByUser(x.ID.String())
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got != 1 {
-		t.Fatalf("after delete want 1, got %d", got)
-	}
+	t.Run("reported on another user's pet now found counts once", func(t *testing.T) {
+		p := mkPet(t, pets, ptrUUID(y.ID), nil, domain.PetStatusFound)
+		mkReport(t, reports, p.ID, x.ID, "sighting", "")
+		if got := count(t); got != 1 {
+			t.Fatalf("want 1, got %d", got)
+		}
+		// Two more reports on the same pet: still one pet.
+		mkReport(t, reports, p.ID, x.ID, "sighting", "")
+		mkReport(t, reports, p.ID, x.ID, "found", "tengo")
+		if got := count(t); got != 1 {
+			t.Fatalf("same pet, many reports: want 1, got %d", got)
+		}
+	})
+
+	t.Run("another user's found pet without a report by X does not count", func(t *testing.T) {
+		mkPet(t, pets, ptrUUID(y.ID), nil, domain.PetStatusFound)
+		if got := count(t); got != 1 {
+			t.Fatalf("want still 1, got %d", got)
+		}
+	})
+
+	t.Run("X's own found pet never counts, even with X's reports", func(t *testing.T) {
+		own := mkPet(t, pets, ptrUUID(x.ID), nil, domain.PetStatusFound)
+		mkReport(t, reports, own.ID, x.ID, "found", "Closure report")
+		mkReport(t, reports, own.ID, x.ID, "sighting", "")
+		if got := count(t); got != 1 {
+			t.Fatalf("want still 1, got %d", got)
+		}
+	})
+
+	t.Run("X's own stray found never counts", func(t *testing.T) {
+		stray := mkPet(t, pets, nil, ptrUUID(x.ID), domain.PetStatusFound)
+		mkReport(t, reports, stray.ID, x.ID, "found", "Closure report")
+		if got := count(t); got != 1 {
+			t.Fatalf("want still 1, got %d", got)
+		}
+	})
+
+	t.Run("reported on another user's pet still lost does not count", func(t *testing.T) {
+		p := mkPet(t, pets, ptrUUID(y.ID), nil, domain.PetStatusLost)
+		mkReport(t, reports, p.ID, x.ID, "sighting", "")
+		if got := count(t); got != 1 {
+			t.Fatalf("want still 1, got %d", got)
+		}
+	})
+
+	t.Run("another user's stray found with a report by X counts", func(t *testing.T) {
+		z := newTestUser(t, users)
+		stray := mkPet(t, pets, nil, ptrUUID(z.ID), domain.PetStatusFound)
+		mkReport(t, reports, stray.ID, x.ID, "sighting", "")
+		if got := count(t); got != 2 {
+			t.Fatalf("want 2, got %d", got)
+		}
+	})
 }
 
 // Fixes the prod bug: user_points holds inflated counters, the profile must
@@ -176,7 +218,7 @@ type stubPets struct {
 	err error
 }
 
-func (s stubPets) CountFoundByUser(string) (int64, error) { return s.n, s.err }
+func (s stubPets) CountHelpedFound(string) (int64, error) { return s.n, s.err }
 
 func TestGamificationService_GetPublicProfile_ContadoresDesdeFilas(t *testing.T) {
 	userID := uuid.New()
@@ -212,7 +254,7 @@ func TestGamificationService_GetPublicProfile_PropagaErrorDeConteo(t *testing.T)
 		pets    stubPets
 	}{
 		{"CountByReporter", stubReports{err: boom}, stubPets{n: 1}},
-		{"CountFoundByUser", stubReports{n: 2}, stubPets{err: boom}},
+		{"CountHelpedFound", stubReports{n: 2}, stubPets{err: boom}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

@@ -21,7 +21,7 @@ type gamificationService struct {
 	userRepo   repository.UserRepository
 	reviewRepo repository.UserReviewRepository // V1.5 — para avg_rating en perfiles
 	reportRepo repository.ReportRepository      // total_reports del perfil, desde las filas
-	petRepo    repository.PetRepository         // found_count del perfil, desde las filas
+	petRepo    repository.PetRepository         // found_count del perfil (CountHelpedFound), desde las filas
 }
 
 // NewGamificationService construye el GamificationService con sus dependencias.
@@ -47,11 +47,15 @@ func NewGamificationService(
 // Debe llamarse una vez durante el arranque del servidor, después de crear el EventBus.
 func (s *gamificationService) RegisterListeners(bus *event.EventBus) {
 	bus.Subscribe("report.created", s.onReportCreated)
-	bus.Subscribe("pet.found", s.onPetFound)
 	bus.Subscribe("share.created", s.onShareCreated)
 	bus.Subscribe("review.created", s.onReviewCreated)
 	bus.Subscribe("review.deleted", s.onReviewDeleted)
 	bus.Subscribe("user.verified", s.onUserVerified)
+	// "pet.found" NO se escucha a propósito: el dueño que marca su propia mascota
+	// como encontrada no gana puntos ni badges (antes: +100, found_count,
+	// pet_rescuer, super_finder). El found_count del perfil es informativo y sale
+	// de las filas (CountHelpedFound). Un paso posterior acreditará a los
+	// ayudantes que el dueño confirme.
 }
 
 // onReportCreated maneja el evento "report.created".
@@ -84,35 +88,6 @@ func (s *gamificationService) onReportCreated(payload interface{}) {
 	if points.TotalReports >= 10 {
 		if err := s.AwardBadgeIfEligible(ctx, ev.ReporterID, "community_guardian"); err != nil {
 			log.Printf("[GamificationService] onReportCreated: award community_guardian para %s: %v", ev.ReporterID, err)
-		}
-	}
-}
-
-// onPetFound maneja el evento "pet.found".
-// Suma 100 puntos al dueño, incrementa FoundCount, y otorga el badge "pet_rescuer".
-func (s *gamificationService) onPetFound(payload interface{}) {
-	ev, ok := payload.(event.PetFoundEvent)
-	if !ok {
-		log.Printf("[GamificationService] onPetFound: payload inesperado: %T", payload)
-		return
-	}
-
-	ctx := context.Background()
-
-	points, err := s.pointsRepo.Upsert(ctx, ev.OwnerID, 100, "found_count")
-	if err != nil {
-		log.Printf("[GamificationService] onPetFound: upsert points para %s: %v", ev.OwnerID, err)
-		return
-	}
-
-	if err := s.AwardBadgeIfEligible(ctx, ev.OwnerID, "pet_rescuer"); err != nil {
-		log.Printf("[GamificationService] onPetFound: award pet_rescuer para %s: %v", ev.OwnerID, err)
-	}
-
-	// Otorgar badge "super_finder" al llegar a 5 mascotas encontradas.
-	if points.FoundCount >= 5 {
-		if err := s.AwardBadgeIfEligible(ctx, ev.OwnerID, "super_finder"); err != nil {
-			log.Printf("[GamificationService] onPetFound: award super_finder para %s: %v", ev.OwnerID, err)
 		}
 	}
 }
@@ -240,7 +215,7 @@ func (s *gamificationService) GetPublicProfile(ctx context.Context, userID uuid.
 	if err != nil {
 		return nil, err
 	}
-	foundPets, err := s.petRepo.CountFoundByUser(userID.String())
+	foundPets, err := s.petRepo.CountHelpedFound(userID.String())
 	if err != nil {
 		return nil, err
 	}

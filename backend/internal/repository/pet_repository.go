@@ -292,15 +292,19 @@ func (r *PostgresPetRepository) CountPublicByUserID(userID string) (int64, error
 	return total, err
 }
 
-// CountFoundByUser — ver el contrato en repository/interfaces.go. Reusa
-// publicProfileScope: `found` está en PublicProfileVisibleStatuses y el
-// vencimiento de callejeros sólo mira status stray, así que ninguno de los dos
-// filtros recorta un found; se conservan para que el número coincida con la
-// lista aunque esas reglas cambien.
-func (r *PostgresPetRepository) CountFoundByUser(userID string) (int64, error) {
+// CountHelpedFound — ver el contrato en repository/interfaces.go.
+//
+// Predicado: la mascota NO es del usuario (ni dueño ni quien la reportó; los
+// callejeros tienen owner_id NULL, de ahí IS DISTINCT FROM), hoy está en
+// `found`, y el usuario dejó al menos un reporte sobre ella. EXISTS en vez de
+// JOIN para que varios reportes sobre la misma mascota cuenten una sola vez.
+func (r *PostgresPetRepository) CountHelpedFound(userID string) (int64, error) {
 	var total int64
-	err := r.publicProfileScope(userID).
+	err := r.db.Model(&domain.Pet{}).
 		Where("pets.status = ?", domain.PetStatusFound).
+		Where("pets.owner_id IS DISTINCT FROM ?", userID).
+		Where("pets.reporter_id IS DISTINCT FROM ?", userID).
+		Where("EXISTS (SELECT 1 FROM reports WHERE reports.pet_id = pets.id AND reports.reporter_id = ?)", userID).
 		Count(&total).Error
 	return total, err
 }

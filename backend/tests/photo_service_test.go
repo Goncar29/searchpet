@@ -120,7 +120,7 @@ func (m *mockPetRepoForService) FindStrayCandidates(_ domain.StrayCandidateCrite
 	return nil, nil
 }
 func (m *mockPetRepoForService) CountPublicByUserID(_ string) (int64, error) { return 0, nil }
-func (m *mockPetRepoForService) CountFoundByUser(_ string) (int64, error) { return 0, nil }
+func (m *mockPetRepoForService) CountHelpedFound(_ string) (int64, error) { return 0, nil }
 func (m *mockPetRepoForService) Search(c domain.PetSearchCriteria) ([]domain.Pet, int64, error) {
 	return nil, 0, nil
 }
