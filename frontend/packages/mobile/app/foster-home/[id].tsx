@@ -35,6 +35,8 @@ import { getErrorMessage } from '@shared/utils/apiErrors';
 import type { FosterHomePhoto, AnimalKind } from '@shared/types';
 import { useAuthStore } from '../../store';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
+import { IconLabel } from '../../components/IconLabel';
+import { Icon } from '../../components/Icon';
 import { StaleDataNotice } from '../../components/list/ListState';
 import { cloudinaryThumb } from '@shared/utils/cloudinaryThumb';
 import { IMAGE_BOXES } from '../../constants/imageSizes';
@@ -120,7 +122,7 @@ export default function FosterHomeDetailScreen() {
   if (isPaused && !fosterHome) {
     return (
       <View style={styles.center}>
-        <Text style={{ fontSize: 48 }}>📡</Text>
+        <Icon name="wifi-off" size={48} color={COLORS.textMuted} />
         <Text style={styles.notFoundText}>{t('common:offlineTitle')}</Text>
         <Text style={styles.notFoundSubtext}>{t('fosterHomes:detail.offlineText')}</Text>
         <TouchableOpacity style={styles.notFoundButton} onPress={volver}>
@@ -139,7 +141,7 @@ export default function FosterHomeDetailScreen() {
     // contra un 404, reintentar es prometer algo que no va a pasar.
     return (
       <View style={styles.center}>
-        <Text style={{ fontSize: 48 }}>{falloLaLectura ? '⚠️' : '🏠'}</Text>
+        <Icon name={falloLaLectura ? 'warning' : 'home'} size={48} color={COLORS.textMuted} />
         <Text style={styles.notFoundText}>
           {falloLaLectura ? t('fosterHomes:detail.loadError') : t('fosterHomes:detail.notFound')}
         </Text>
@@ -225,14 +227,16 @@ export default function FosterHomeDetailScreen() {
           </ScrollView>
         ) : (
           <View style={styles.imagePlaceholder}>
-            <Text style={{ fontSize: 60 }}>🏠</Text>
+            <Icon name="home" size={60} color={COLORS.textMuted} />
           </View>
         )}
       </View>
 
       <View style={styles.content}>
         {/* City */}
-        <Text style={styles.cityText}>📍 {fosterHome.city}</Text>
+        <IconLabel icon="location-on" size={24} color={COLORS.textPrimary} gap={SPACING.xs} style={{ marginBottom: SPACING.md }}>
+          <Text style={[styles.cityText, { marginBottom: 0 }]}>{fosterHome.city}</Text>
+        </IconLabel>
 
         {/* Details */}
         <View style={styles.detailsCard}>

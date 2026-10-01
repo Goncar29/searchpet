@@ -21,6 +21,8 @@ import { useFosterHomes } from '@shared/hooks';
 import { StaleDataNotice } from '../../components/list/ListState';
 import { FosterHome } from '@shared/types';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
+import { IconLabel } from '../../components/IconLabel';
+import { Icon } from '../../components/Icon';
 import { cloudinaryThumb } from '@shared/utils/cloudinaryThumb';
 import { IMAGE_BOXES } from '../../constants/imageSizes';
 
@@ -44,12 +46,14 @@ function FosterHomeCard({ fosterHome, t, onPress }: FosterHomeCardProps) {
         <Image source={{ uri: cloudinaryThumb(photo.url, ...IMAGE_BOXES.card) }} style={styles.cardImage} />
       ) : (
         <View style={styles.cardImagePlaceholder}>
-          <Text style={{ fontSize: 40 }}>🏠</Text>
+          <Icon name="home" size={40} color={COLORS.textMuted} />
         </View>
       )}
 
       {/* City */}
-      <Text style={styles.fosterHomeCity}>📍 {fosterHome.city}</Text>
+      <IconLabel icon="location-on" size={16} color={COLORS.textPrimary} gap={4} style={{ marginBottom: SPACING.xs }}>
+        <Text style={[styles.fosterHomeCity, { marginBottom: 0 }]}>{fosterHome.city}</Text>
+      </IconLabel>
 
       {/* Housing type */}
       <Text style={styles.housingType}>

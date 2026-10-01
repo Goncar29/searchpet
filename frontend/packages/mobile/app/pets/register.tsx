@@ -57,7 +57,7 @@ export default function RegisterPetScreen() {
   if (!isAuthenticated) {
     return (
       <View style={styles.authRequired}>
-        <Text style={{ fontSize: 48, marginBottom: SPACING.md }}>🔒</Text>
+        <View style={{ marginBottom: SPACING.md }}><Icon name="lock" size={48} color={COLORS.textMuted} /></View>
         <Text style={styles.authTitle}>{t('post:authRequired')}</Text>
         <Text style={styles.authText}>{t('post:authText')}</Text>
         <TouchableOpacity
@@ -195,14 +195,14 @@ export default function RegisterPetScreen() {
         <Text style={styles.label}>{t('post:photos')} ({photos.length}/3)</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.photoRow}>
           {photos.map((uri, i) => (
-            <TouchableOpacity key={i} onPress={() => removePhoto(i)}>
+            <TouchableOpacity key={i} onPress={() => removePhoto(i)} accessibilityRole="button" accessibilityLabel={t('common:delete')}>
               <Image source={{ uri }} style={styles.photoThumb} />
               <View style={styles.photoRemove}>
-                <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>✕</Text>
+                <Icon name="close" size={14} color="#fff" />
               </View>
               {photoErrors[i] && (
                 <View style={styles.photoErrorOverlay}>
-                  <Text style={styles.photoErrorIcon}>⚠</Text>
+                  <Icon name="warning" size={22} color="#fff" />
                 </View>
               )}
             </TouchableOpacity>
@@ -212,7 +212,7 @@ export default function RegisterPetScreen() {
             <Text style={{ fontSize: 11, color: COLORS.textMuted, marginTop: 2 }}>{t('post:gallery')}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={[styles.addPhoto, atLimit && styles.addPhotoDisabled]} onPress={takePhoto} disabled={atLimit}>
-            <Text style={{ fontSize: 28, color: COLORS.textMuted }}>📷</Text>
+            <Icon name="photo-camera" size={28} color={COLORS.textMuted} />
             <Text style={{ fontSize: 11, color: COLORS.textMuted, marginTop: 2 }}>{t('post:camera')}</Text>
           </TouchableOpacity>
         </ScrollView>
@@ -293,7 +293,6 @@ const styles = StyleSheet.create({
   photoThumb: { width: 80, height: 80, borderRadius: RADIUS.md, marginRight: SPACING.sm },
   photoRemove: { position: 'absolute', top: -4, right: 4, backgroundColor: COLORS.danger, width: 20, height: 20, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
   photoErrorOverlay: { position: 'absolute', bottom: 0, left: 0, right: 0, top: 0, borderRadius: RADIUS.md, backgroundColor: 'rgba(200, 0, 0, 0.45)', justifyContent: 'center', alignItems: 'center' },
-  photoErrorIcon: { fontSize: 22, color: '#fff' },
   addPhoto: { width: 80, height: 80, borderRadius: RADIUS.md, borderWidth: 2, borderColor: COLORS.border, borderStyle: 'dashed', justifyContent: 'center', alignItems: 'center', marginRight: SPACING.sm },
   addPhotoDisabled: { opacity: 0.4 },
   photoLimitText: { fontSize: FONTS.sizes.xs, color: COLORS.textMuted, marginTop: SPACING.xs, marginBottom: SPACING.xs },

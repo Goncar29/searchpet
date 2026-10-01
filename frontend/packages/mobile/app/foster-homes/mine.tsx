@@ -36,6 +36,7 @@ import type {
   UpdateMyFosterHomeRequest,
 } from '@shared/types';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
+import { Icon } from '../../components/Icon';
 import { StaleDataNotice } from '../../components/list/ListState';
 import { cloudinaryThumb } from '@shared/utils/cloudinaryThumb';
 import { IMAGE_SIZES } from '../../constants/imageSizes';
@@ -128,7 +129,7 @@ export default function MyFosterHomeScreen() {
   if (isError && errorCode === 'foster_home_not_found') {
     return (
       <View style={styles.center}>
-        <Text style={{ fontSize: 48 }}>🏠</Text>
+        <Icon name="home" size={48} color={COLORS.textMuted} />
         <Text style={styles.emptyTitle}>{t('fosterHomes:mine.noFosterHomeTitle')}</Text>
         <TouchableOpacity
           style={styles.primaryButton}
@@ -422,7 +423,7 @@ export default function MyFosterHomeScreen() {
                   {deletingPhotoId === photo.id ? (
                     <ActivityIndicator size="small" color={COLORS.white} />
                   ) : (
-                    <Text style={styles.photoDeleteButtonText}>✕</Text>
+                    <Icon name="close" size={14} color={COLORS.white} />
                   )}
                 </TouchableOpacity>
               </View>
@@ -571,7 +572,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  photoDeleteButtonText: { color: COLORS.white, fontSize: 12, fontWeight: '700' },
   addPhotoButton: {
     borderWidth: 1,
     borderColor: COLORS.primary,

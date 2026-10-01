@@ -306,9 +306,11 @@ export default function MyPetsScreen() {
                       </Text>
                     )}
 
-                    <Text style={styles.petDetail}>
-                      📷 {t('my_pets:photoCount', { current: item.photos?.length ?? 0 })}
-                    </Text>
+                    <IconLabel icon="photo-camera" size={13} color={COLORS.textSecondary} gap={4}>
+                      <Text style={styles.petDetail}>
+                        {t('my_pets:photoCount', { current: item.photos?.length ?? 0 })}
+                      </Text>
+                    </IconLabel>
                   </View>
 
                   {/* Acciones */}
@@ -341,8 +343,10 @@ export default function MyPetsScreen() {
                       style={styles.deleteButton}
                       onPress={() => handleDelete(item)}
                       hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                      accessibilityRole="button"
+                      accessibilityLabel={t('common:delete')}
                     >
-                      <Text style={styles.deleteIcon}>🗑️</Text>
+                      <Icon name="delete" size={20} color={COLORS.danger} />
                     </TouchableOpacity>
                   </View>
                 </TouchableOpacity>
@@ -579,7 +583,6 @@ const styles = StyleSheet.create({
   deleteButton: {
     padding: SPACING.xs,
   },
-  deleteIcon: { fontSize: 18 },
   empty: {
     flex: 1,
     justifyContent: 'center',

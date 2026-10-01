@@ -33,6 +33,7 @@ import {
 import type { WsEnvelope, WsChatMessage, WsTypingEvent } from '../../../shared/hooks';
 import { ListState } from '../../components/list/ListState';
 import { COLORS, SPACING, FONTS, RADIUS } from '../../constants';
+import { Icon } from '../../components/Icon';
 import type { Message } from '../../../shared/types';
 
 export default function ChatScreen() {
@@ -308,7 +309,7 @@ export default function ChatScreen() {
             }
             ListEmptyComponent={
               <View style={styles.center}>
-                <Text style={{ fontSize: 48, marginBottom: SPACING.md }}>💬</Text>
+                <View style={{ marginBottom: SPACING.md }}><Icon name="chat-bubble" size={48} color={COLORS.textMuted} /></View>
                 <Text style={styles.emptyText}>
                   {t('chat:startConversation')}
                 </Text>
@@ -350,11 +351,13 @@ export default function ChatScreen() {
           onPress={handleSend}
           disabled={!text.trim() || isSending || isBlocked}
           activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel={t('chat:send')}
         >
           {isSending ? (
             <ActivityIndicator size="small" color={COLORS.white} />
           ) : (
-            <Text style={styles.sendIcon}>➤</Text>
+            <View style={styles.sendIcon}><Icon name="send" size={18} color={COLORS.white} /></View>
           )}
         </TouchableOpacity>
       </View>
@@ -473,8 +476,6 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.border,
   },
   sendIcon: {
-    color: COLORS.white,
-    fontSize: 16,
     marginLeft: 2,
   },
   typingIndicator: {

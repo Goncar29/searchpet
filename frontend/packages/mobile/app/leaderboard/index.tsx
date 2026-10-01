@@ -19,6 +19,7 @@ import { useLeaderboard, useCiudadDecidida } from '../../../shared/hooks';
 import { useAuthStore } from '../../store';
 import { ListState } from '../../components/list/ListState';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
+import { IconLabel } from '../../components/IconLabel';
 import { BADGE_META } from '../../../shared/types';
 import { Icon } from '../../components/Icon';
 import type { LeaderboardEntry } from '../../../shared/types';
@@ -50,7 +51,9 @@ function AchievementsLegend() {
   const { t } = useTranslation('leaderboard');
   return (
     <View style={styles.achievements}>
-      <Text style={styles.achievementsTitle}>🏅 {t('badges:achievementsTitle')}</Text>
+      <IconLabel icon="military-tech" size={18} color={COLORS.textPrimary} gap={SPACING.xs} style={{ marginBottom: 2 }}>
+        <Text style={[styles.achievementsTitle, { marginBottom: 0 }]}>{t('badges:achievementsTitle')}</Text>
+      </IconLabel>
       <Text style={styles.achievementsSubtitle}>{t('badges:achievementsSubtitle')}</Text>
       {Object.entries(BADGE_META).map(([key, meta]) => (
         <View key={key} style={styles.achievementRow}>
@@ -223,14 +226,14 @@ export default function LeaderboardScreen() {
           ListHeaderComponent={
             <>
               <AchievementsLegend />
-              <Text style={styles.sectionTitle}>
-                🏙️ {city}
-              </Text>
+              <IconLabel icon="location-city" size={20} color={COLORS.textPrimary} gap={SPACING.xs}>
+                <Text style={styles.sectionTitle}>{city}</Text>
+              </IconLabel>
             </>
           }
           ListEmptyComponent={
             <View style={styles.empty}>
-              <Text style={styles.emptyIcon}>🔍</Text>
+              <View style={styles.emptyIcon}><Icon name="search" size={56} color={COLORS.textMuted} /></View>
               <Text style={styles.emptyTitle}>{t('leaderboard:emptyTitle')}</Text>
               <Text style={styles.emptyText}>{t('leaderboard:empty', { city })}</Text>
             </View>
@@ -370,7 +373,7 @@ const styles = StyleSheet.create({
 
   // ── Empty state ──
   empty: { alignItems: 'center', padding: SPACING.xl, marginTop: SPACING.lg },
-  emptyIcon: { fontSize: 56, marginBottom: SPACING.md },
+  emptyIcon: { marginBottom: SPACING.md },
   emptyTitle: { fontSize: FONTS.sizes.lg, fontWeight: '700', color: COLORS.textPrimary, marginBottom: SPACING.sm },
   emptyText: { fontSize: FONTS.sizes.sm, color: COLORS.textSecondary, textAlign: 'center', lineHeight: 22 },
 });

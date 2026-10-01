@@ -21,6 +21,8 @@ import { getDateLocale } from '../../i18n/dateLocale';
 import { useGroup, useGroupMembers, useJoinGroup, useLeaveGroup } from '../../../shared/hooks';
 import { getErrorMessage } from '../../../shared/utils/apiErrors';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
+import { IconLabel } from '../../components/IconLabel';
+import { Icon } from '../../components/Icon';
 import type { GroupMember } from '../../../shared/types';
 import { ListState } from '../../components/list/ListState';
 import { cloudinaryThumb } from '@shared/utils/cloudinaryThumb';
@@ -119,7 +121,7 @@ export default function GroupDetailScreen() {
   if (groupError || !group) {
     return (
       <View style={styles.center}>
-        <Text style={styles.stateIcon}>🔍</Text>
+        <View style={styles.stateIcon}><Icon name="search" size={48} color={COLORS.textMuted} /></View>
         <Text style={styles.stateTitle}>{t('groups:notFound')}</Text>
         <Text style={styles.stateText}>{t('groups:notFoundText')}</Text>
         <TouchableOpacity style={styles.retryButton} onPress={() => router.back()}>
@@ -134,7 +136,7 @@ export default function GroupDetailScreen() {
       {/* Group header */}
       <View style={styles.headerCard}>
         <View style={styles.headerTop}>
-          <Text style={styles.headerIcon}>📍</Text>
+          <Icon name="location-on" size={20} color={COLORS.primary} />
           <Text style={styles.headerCity}>{group.city}</Text>
           {group.is_member && (
             <View style={styles.memberBadge}>
@@ -176,10 +178,12 @@ export default function GroupDetailScreen() {
 
       {/* Members list */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>👥 {t('groups:membersTitle')}</Text>
+        <IconLabel icon="group" size={20} color={COLORS.textPrimary} gap={SPACING.xs} style={{ marginBottom: SPACING.md }}>
+          <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>{t('groups:membersTitle')}</Text>
+        </IconLabel>
 
         {/* SIN `errorTitle`: la sección ya se anuncia dos líneas arriba con
-            "👥 Miembros", así que pasar ese mismo texto repetía el título y
+            "Miembros", así que pasar ese mismo texto repetía el título y
             dejaba al cartel sin decir qué pasó. El default de `common` ("No
             pudimos cargar esta lista") sí lo dice, y es cierto también en la
             rama offline.
@@ -200,7 +204,7 @@ export default function GroupDetailScreen() {
           {(members) =>
             members.length === 0 ? (
               <View style={styles.emptyMembers}>
-                <Text style={styles.stateIcon}>🤷</Text>
+                <View style={styles.stateIcon}><Icon name="help" size={48} color={COLORS.textMuted} /></View>
                 <Text style={styles.stateText}>{t('groups:noMembers')}</Text>
               </View>
             ) : (
@@ -237,7 +241,6 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.sm,
     flexWrap: 'wrap',
   },
-  headerIcon: { fontSize: 20 },
   headerCity: {
     fontSize: FONTS.sizes.xl,
     fontWeight: '700',
@@ -341,7 +344,7 @@ const styles = StyleSheet.create({
   },
 
   // States
-  stateIcon: { fontSize: 48, marginBottom: SPACING.sm, textAlign: 'center' },
+  stateIcon: { marginBottom: SPACING.sm, alignItems: 'center' },
   stateTitle: {
     fontSize: FONTS.sizes.lg,
     fontWeight: '700',

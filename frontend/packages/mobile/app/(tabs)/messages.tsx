@@ -21,6 +21,7 @@ import { useConversations, useWebSocket } from '../../../shared/hooks';
 import type { WsEnvelope } from '../../../shared/hooks';
 import { ListState } from '../../components/list/ListState';
 import { COLORS, SPACING, FONTS, RADIUS } from '../../constants';
+import { Icon } from '../../components/Icon';
 import type { Message } from '../../../shared/types';
 
 export default function MessagesScreen() {
@@ -46,7 +47,7 @@ export default function MessagesScreen() {
   if (!isAuthenticated) {
     return (
       <View style={styles.center}>
-        <Text style={{ fontSize: 48, marginBottom: SPACING.md }}>💬</Text>
+        <View style={{ marginBottom: SPACING.md }}><Icon name="chat-bubble" size={48} color={COLORS.textMuted} /></View>
         <Text style={styles.title}>{t('messages:title')}</Text>
         <Text style={styles.subtitle}>{t('messages:loginSubtitle')}</Text>
         <TouchableOpacity
@@ -152,7 +153,7 @@ export default function MessagesScreen() {
             ItemSeparatorComponent={() => <View style={styles.separator} />}
             ListEmptyComponent={
               <View style={styles.center}>
-                <Text style={{ fontSize: 48, marginBottom: SPACING.md }}>📭</Text>
+                <View style={{ marginBottom: SPACING.md }}><Icon name="inbox" size={48} color={COLORS.textMuted} /></View>
                 <Text style={styles.title}>{t('messages:emptyTitle')}</Text>
                 <Text style={styles.subtitle}>{t('messages:emptySubtitle')}</Text>
               </View>

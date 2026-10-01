@@ -19,6 +19,7 @@ import { useBlockedUsers, useUnblockUser } from '../../shared/hooks';
 import { ListState } from '../components/list/ListState';
 import { getErrorMessage } from '../../shared/utils/apiErrors';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../constants';
+import { Icon } from '../components/Icon';
 import type { BlockedUser } from '../../shared/types';
 
 function BlockedUserItem({ item, onUnblock }: { item: BlockedUser; onUnblock: (id: string) => void }) {
@@ -101,7 +102,7 @@ export default function BlockedUsersScreen() {
         }
         ListEmptyComponent={
           <View style={styles.empty}>
-            <Text style={styles.emptyIcon}>✅</Text>
+            <View style={styles.emptyIcon}><Icon name="check-circle" size={48} color={COLORS.success} /></View>
             <Text style={styles.emptyTitle}>{t('blocked_users:empty')}</Text>
             <Text style={styles.emptySubtitle}>{t('blocked_users:emptySubtitle')}</Text>
           </View>
@@ -204,7 +205,6 @@ const styles = StyleSheet.create({
     padding: SPACING.xl,
   },
   emptyIcon: {
-    fontSize: 48,
     marginBottom: SPACING.md,
   },
   emptyTitle: {
