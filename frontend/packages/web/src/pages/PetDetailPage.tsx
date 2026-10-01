@@ -521,7 +521,8 @@ export function PetDetailPage() {
                   the peak-emotion moment and offer telling the success story. */}
               {showStoryNudge && (
                 <div className="flex flex-col gap-2 p-4 bg-green-50 dark:bg-green-950 rounded-xl border border-green-200 dark:border-green-800">
-                  <p className="text-sm font-bold text-green-800 dark:text-green-200">
+                  <p className="flex items-center gap-1.5 text-sm font-bold text-green-800 dark:text-green-200">
+                    <Icon name="celebration" className="shrink-0 text-base" data-testid="found-nudge-icon" />
                     {t('pets:detail.foundNudgeTitle')}
                   </p>
                   <p className="text-sm text-green-700 dark:text-green-300">

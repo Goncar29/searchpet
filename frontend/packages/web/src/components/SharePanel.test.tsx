@@ -165,6 +165,29 @@ describe('SharePanel — Instagram Story share (desktop, no file sharing)', () =
   });
 });
 
+describe('SharePanel — copy link feedback', () => {
+  it('draws a check icon only after copying, with no glyph in the text', async () => {
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText: vi.fn().mockResolvedValue(undefined) },
+      configurable: true,
+    });
+    const { getByRole, queryByTestId } = render(
+      <SharePanel petId="pet-1" petName="Firulais" pet={basePet} />
+    );
+    await userEvent.click(getByRole('button', { name: /pets:share.button/i }));
+    await waitFor(() => expect(mutateAsync).toHaveBeenCalled());
+
+    const copyBtn = await waitFor(() => getByRole('button', { name: /pets:share.copy$/ }));
+    expect(queryByTestId('share-copied-icon')).toBeNull();
+
+    await userEvent.click(copyBtn);
+
+    const copied = getByRole('button', { name: /pets:share.copied$/ });
+    expect(copied.querySelector('[data-testid="share-copied-icon"]')).not.toBeNull();
+    expect(copied.textContent).toBe('pets:share.copied');
+  });
+});
+
 describe('SharePanel — Instagram Story share (user cancels share sheet)', () => {
   afterEach(() => {
     vi.doUnmock('html2canvas');

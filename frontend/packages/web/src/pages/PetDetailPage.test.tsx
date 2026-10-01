@@ -327,6 +327,10 @@ describe('PetDetailPage — found story nudge', () => {
 
     // Aparece el nudge con el CTA que lleva a crear la historia de esta mascota
     expect(screen.getByText('pets:detail.foundNudgeTitle')).toBeInTheDocument();
+    // La fiesta la dibuja un icono junto al título, no un emoji dentro del texto.
+    expect(screen.getByTestId('found-nudge-icon').closest('p')).toBe(
+      screen.getByText('pets:detail.foundNudgeTitle'),
+    );
     const cta = screen.getByRole('link', { name: /foundNudgeCta/i });
     expect(cta.getAttribute('href')).toBe('/stories/create?petId=pet-123');
   });

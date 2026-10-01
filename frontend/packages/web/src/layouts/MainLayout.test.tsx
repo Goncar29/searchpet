@@ -7,6 +7,14 @@ import type { WsEnvelope, WsConnectionState, UseWebSocketOptions } from '@shared
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (key: string) => key, i18n: { language: 'es' } }),
+  // Renders the key and every named component, so a test can see which icon
+  // the real <Trans> would slot into the copy.
+  Trans: ({ i18nKey, components }: { i18nKey: string; components?: Record<string, React.ReactNode> }) => (
+    <>
+      {i18nKey}
+      {Object.values(components ?? {})}
+    </>
+  ),
 }));
 
 const mockUser = vi.hoisted(
@@ -54,6 +62,17 @@ function renderLayout() {
     </QueryClientProvider>,
   );
 }
+
+describe('MainLayout — pie de página', () => {
+  it('dibuja el corazón con un icono dentro del texto, no con un emoji', () => {
+    vi.mocked(useUnreadCount).mockReturnValue({ data: { count: 0 } } as unknown as ReturnType<
+      typeof useUnreadCount
+    >);
+    renderLayout();
+    const heart = screen.getByTestId('footer-heart');
+    expect(heart.closest('p')?.textContent).toBe('footer:madeWith');
+  });
+});
 
 describe('MainLayout — badge de mensajes sin leer', () => {
   it('muestra el contador junto a Mensajes cuando hay mensajes sin leer', () => {

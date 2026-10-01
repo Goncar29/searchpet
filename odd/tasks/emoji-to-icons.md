@@ -117,6 +117,20 @@ Mobile: next task, after the web PR.
   `map:centerOnMe`. No registry change. Results: mobile 418/418, `tsc` 0,
   lint 0. Kept: only comments contain glyphs.
 
+- 2026-10-01: T6 (locale copy) done by a delegated writer on
+  `fix/web-locale-emoji`. The sweeps scanned source, never the JSON locales:
+  8 keys (x3 languages, 24 strings) still carried glyphs. Glyphs stripped from the
+  copy and drawn with registry icons (no icon added): favorite-filled
+  (footer heart via `<Trans>`, reunited tile), arrow-forward (exploreApp,
+  seeRanking), check (copied), celebration (found nudge; adoptedTitle already
+  had one above it). `pets:share.storyDownloaded` 📲 dropped, no icon (inline
+  hint text). KEPT by owner decision: `impact.shareText` (leaves the app via
+  share) and `download.sideload.step1` (menu-path instruction). Mobile renders
+  none of the shared keys. Guard `web/src/i18n/noEmojiInLocales.test.ts`: RED
+  first (24 offenders named file:key), mutations each fail a named test
+  (re-added emoji, FE0F, KEPT entry removed, KEPT entry stale).
+  web 1099 + shared 416, build and lint exit 0.
+
 ## Next step
 
 Open the T5b PR, then build the APK and check the icons on a device.

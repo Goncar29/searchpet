@@ -76,6 +76,13 @@ describe('SharedPetPage', () => {
       expect(logo.getAttribute('href')).toBe('/');
     });
 
+    it('el botón Explorar dibuja la flecha con un icono, no con un glifo', () => {
+      render(<SharedPetPage />, { wrapper });
+      const explorar = screen.getByRole('link', { name: 'sharedPet:exploreApp' });
+      expect(explorar.querySelector('[data-testid="explore-app-arrow"]')).not.toBeNull();
+      expect(explorar.textContent).toBe('sharedPet:exploreApp');
+    });
+
     it('ofrece un acceso a la web (home) y otro a la descarga de la app', () => {
       render(<SharedPetPage />, { wrapper });
       const hrefs = screen.getAllByRole('link').map((l) => l.getAttribute('href'));

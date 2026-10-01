@@ -387,8 +387,9 @@ export function SharePanel({ petId, petName, pet, inline = false }: SharePanelPr
                 </span>
                 <button
                   onClick={handleCopy}
-                  className="text-xs font-semibold text-primary hover:text-primary-dark flex-shrink-0"
+                  className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:text-primary-dark flex-shrink-0"
                 >
+                  {copied && <Icon name="check" className="shrink-0" data-testid="share-copied-icon" />}
                   {copied ? t('pets:share.copied') : t('pets:share.copy')}
                 </button>
               </div>

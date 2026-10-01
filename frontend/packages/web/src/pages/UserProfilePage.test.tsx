@@ -179,6 +179,14 @@ describe('UserProfilePage', () => {
     expect(card.textContent).not.toMatch(EMOJI);
   });
 
+  it('el link al ranking dibuja la flecha con un icono, no con un glifo', () => {
+    render(<UserProfilePage />, { wrapper });
+    const link = screen.getByRole('link', { name: 'profile:public.seeRanking' });
+    expect(link.getAttribute('href')).toBe('/leaderboard');
+    expect(link.querySelector('[data-testid="see-ranking-arrow"]')).not.toBeNull();
+    expect(link.textContent).toBe('profile:public.seeRanking');
+  });
+
   it('renderiza sin lanzar errores', () => {
     render(<UserProfilePage />, { wrapper });
     expect(document.body).toBeTruthy();
