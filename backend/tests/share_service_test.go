@@ -84,6 +84,7 @@ func (m *mockPetRepoForShare) FindStrayCandidates(_ domain.StrayCandidateCriteri
 	return nil, nil
 }
 func (m *mockPetRepoForShare) CountPublicByUserID(_ string) (int64, error)       { return 0, nil }
+func (m *mockPetRepoForShare) CountHelpedFound(_ string) (int64, error) { return 0, nil }
 func (m *mockPetRepoForShare) Update(pet *domain.Pet) error                      { return nil }
 func (m *mockPetRepoForShare) UpdateStatus(id string, status string) error       { return nil }
 func (m *mockPetRepoForShare) TouchLastReported(id string, seen time.Time) error { return nil }

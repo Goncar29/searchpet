@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -121,7 +122,7 @@ func newTestGamificationService(
 	userRepo *mockUserRepository,
 	reviewRepo *mockGamificationReviewRepository,
 ) service.GamificationService {
-	return service.NewGamificationService(badgeRepo, pointsRepo, userRepo, reviewRepo)
+	return service.NewGamificationService(badgeRepo, pointsRepo, userRepo, reviewRepo, stubReports{}, stubPets{})
 }
 
 // waitForEvent blocks until ch receives a value or the timeout elapses.
@@ -225,29 +226,35 @@ func TestGamificationService_OnReportCreated_DoesNotReAwardFirstHelper(t *testin
 	}
 }
 
-func TestGamificationService_OnPetFound_AwardsPetRescuerAndPoints(t *testing.T) {
+// Deliberate behavior change: the owner marking their own pet found used to
+// earn +100 points, found_count and the pet_rescuer / super_finder badges.
+// Now pet.found credits nobody.
+func TestGamificationService_OnPetFound_CreditsNobody(t *testing.T) {
 	ownerID := uuid.New()
 
-	badgeCreated := make(chan struct{}, 1)
-	pointsUpserted := make(chan struct{}, 1)
+	var mu sync.Mutex
+	var upserts, badgeCreates, badgeChecks int
 
 	badgeRepo := &mockBadgeRepository{
 		hasBadgeFn: func(_ context.Context, _ uuid.UUID, _ string) (bool, error) {
+			mu.Lock()
+			defer mu.Unlock()
+			badgeChecks++
 			return false, nil
 		},
-		createFn: func(_ context.Context, b *domain.Badge) error {
-			if b.BadgeType == "pet_rescuer" {
-				badgeCreated <- struct{}{}
-			}
+		createFn: func(_ context.Context, _ *domain.Badge) error {
+			mu.Lock()
+			defer mu.Unlock()
+			badgeCreates++
 			return nil
 		},
 	}
 	pointsRepo := &mockUserPointsRepository{
-		upsertFn: func(_ context.Context, _ uuid.UUID, delta int, field string) (*domain.UserPoints, error) {
-			if delta == 100 && field == "found_count" {
-				pointsUpserted <- struct{}{}
-			}
-			return &domain.UserPoints{UserID: ownerID, Points: 100, FoundCount: 1}, nil
+		upsertFn: func(_ context.Context, _ uuid.UUID, _ int, _ string) (*domain.UserPoints, error) {
+			mu.Lock()
+			defer mu.Unlock()
+			upserts++
+			return &domain.UserPoints{UserID: ownerID, Points: 100, FoundCount: 5}, nil
 		},
 	}
 
@@ -261,11 +268,12 @@ func TestGamificationService_OnPetFound_AwardsPetRescuerAndPoints(t *testing.T) 
 		PetName: "Firulais",
 	})
 
-	if !waitForEvent(pointsUpserted) {
-		t.Error("expected 100 points upsert within 500ms")
-	}
-	if !waitForEvent(badgeCreated) {
-		t.Error("expected pet_rescuer badge to be created within 500ms")
+	time.Sleep(300 * time.Millisecond)
+
+	mu.Lock()
+	defer mu.Unlock()
+	if upserts != 0 || badgeCreates != 0 || badgeChecks != 0 {
+		t.Fatalf("pet.found must credit nobody: upserts=%d badgeCreates=%d badgeChecks=%d", upserts, badgeCreates, badgeChecks)
 	}
 }
 
