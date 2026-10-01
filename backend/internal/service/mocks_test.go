@@ -125,6 +125,7 @@ func (m *mockReportRepo) Delete(ctx context.Context, id uuid.UUID) error {
 }
 
 func (m *mockReportRepo) SetEpisodeID(_ string, _ uuid.UUID) error { return nil }
+func (m *mockReportRepo) CountByReporter(_ context.Context, _ uuid.UUID) (int64, error) { return 0, nil }
 
 // Compile-time guard: the mock must stay in sync with the ReportRepository interface.
 var _ repository.ReportRepository = (*mockReportRepo)(nil)

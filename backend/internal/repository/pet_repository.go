@@ -292,6 +292,19 @@ func (r *PostgresPetRepository) CountPublicByUserID(userID string) (int64, error
 	return total, err
 }
 
+// CountFoundByUser — ver el contrato en repository/interfaces.go. Reusa
+// publicProfileScope: `found` está en PublicProfileVisibleStatuses y el
+// vencimiento de callejeros sólo mira status stray, así que ninguno de los dos
+// filtros recorta un found; se conservan para que el número coincida con la
+// lista aunque esas reglas cambien.
+func (r *PostgresPetRepository) CountFoundByUser(userID string) (int64, error) {
+	var total int64
+	err := r.publicProfileScope(userID).
+		Where("pets.status = ?", domain.PetStatusFound).
+		Count(&total).Error
+	return total, err
+}
+
 // TouchLastReported — ver el contrato en repository/interfaces.go.
 //
 // La monotonía vive en el WHERE y no en Go a propósito. Leer el valor, comparar

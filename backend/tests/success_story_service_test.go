@@ -116,6 +116,7 @@ func (m *mockPetRepoForStory) FindStrayCandidates(_ domain.StrayCandidateCriteri
 	return nil, nil
 }
 func (m *mockPetRepoForStory) CountPublicByUserID(_ string) (int64, error) { return 0, nil }
+func (m *mockPetRepoForStory) CountFoundByUser(_ string) (int64, error) { return 0, nil }
 func (m *mockPetRepoForStory) Update(pet *domain.Pet) error                { return nil }
 func (m *mockPetRepoForStory) UpdateStatus(id string, status string) error { return nil }
 func (m *mockPetRepoForStory) TouchLastReported(id string, seen time.Time) error {
