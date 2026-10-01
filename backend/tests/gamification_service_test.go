@@ -121,7 +121,7 @@ func newTestGamificationService(
 	userRepo *mockUserRepository,
 	reviewRepo *mockGamificationReviewRepository,
 ) service.GamificationService {
-	return service.NewGamificationService(badgeRepo, pointsRepo, userRepo, reviewRepo)
+	return service.NewGamificationService(badgeRepo, pointsRepo, userRepo, reviewRepo, stubReports{}, stubPets{})
 }
 
 // waitForEvent blocks until ch receives a value or the timeout elapses.

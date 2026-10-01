@@ -20,6 +20,8 @@ type gamificationService struct {
 	pointsRepo repository.UserPointsRepository
 	userRepo   repository.UserRepository
 	reviewRepo repository.UserReviewRepository // V1.5 — para avg_rating en perfiles
+	reportRepo repository.ReportRepository      // total_reports del perfil, desde las filas
+	petRepo    repository.PetRepository         // found_count del perfil, desde las filas
 }
 
 // NewGamificationService construye el GamificationService con sus dependencias.
@@ -28,12 +30,16 @@ func NewGamificationService(
 	pointsRepo repository.UserPointsRepository,
 	userRepo repository.UserRepository,
 	reviewRepo repository.UserReviewRepository,
+	reportRepo repository.ReportRepository,
+	petRepo repository.PetRepository,
 ) *gamificationService {
 	return &gamificationService{
 		badgeRepo:  badgeRepo,
 		pointsRepo: pointsRepo,
 		userRepo:   userRepo,
 		reviewRepo: reviewRepo,
+		reportRepo: reportRepo,
+		petRepo:    petRepo,
 	}
 }
 
@@ -214,7 +220,7 @@ func (s *gamificationService) GetPublicProfile(ctx context.Context, userID uuid.
 	}
 
 	// Puntos: manejar graciosamente el caso donde el usuario aún no tiene puntos.
-	var pts, totalReports, foundCount, shareCount int
+	var pts, shareCount int
 	points, err := s.pointsRepo.GetByUserID(ctx, userID)
 	if err != nil {
 		if !errors.Is(err, domain.ErrPointsNotFound) {
@@ -223,10 +229,22 @@ func (s *gamificationService) GetPublicProfile(ctx context.Context, userID uuid.
 		// Sin puntos aún — usar ceros (valores ya inicializados en cero arriba).
 	} else {
 		pts = points.Points
-		totalReports = points.TotalReports
-		foundCount = points.FoundCount
 		shareCount = points.ShareCount
 	}
+
+	// total_reports y found_count salen de las filas, no de user_points: esos
+	// contadores los suben los eventos y nunca bajan, así que borrar un reporte
+	// o una mascota los dejaba inflados (en prod, 41/12 con ~0 filas reales).
+	// Puntos, shares, badges y leaderboard siguen siendo por contador.
+	reportsCount, err := s.reportRepo.CountByReporter(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	foundPets, err := s.petRepo.CountFoundByUser(userID.String())
+	if err != nil {
+		return nil, err
+	}
+	totalReports, foundCount := int(reportsCount), int(foundPets)
 
 	badges, err := s.badgeRepo.FindByUserID(ctx, userID)
 	if err != nil {

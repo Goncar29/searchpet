@@ -82,6 +82,7 @@ func (m *mockPetRepoForEmbedding) FindStrayCandidates(_ domain.StrayCandidateCri
 	return nil, nil
 }
 func (m *mockPetRepoForEmbedding) CountPublicByUserID(_ string) (int64, error)   { return 0, nil }
+func (m *mockPetRepoForEmbedding) CountFoundByUser(_ string) (int64, error) { return 0, nil }
 func (m *mockPetRepoForEmbedding) Update(_ *domain.Pet) error                    { return nil }
 func (m *mockPetRepoForEmbedding) UpdateStatus(_ string, _ string) error         { return nil }
 func (m *mockPetRepoForEmbedding) TouchLastReported(_ string, _ time.Time) error { return nil }

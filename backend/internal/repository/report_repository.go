@@ -184,3 +184,30 @@ func (r *PostgresReportRepository) FindNearby(c domain.NearbyReportCriteria) ([]
 
 	return reports, err
 }
+
+// CountByReporter — ver el contrato en repository/interfaces.go.
+//
+// Excluye el reporte de cierre. MarkAsFound lo crea automáticamente con
+// status 'found' y como reporter a quien administra la mascota (dueño, o quien
+// reportó el callejero). El único marcador textual es la descripción
+// "Closure report", pero esa columna la escribe el usuario en un reporte
+// común, así que no sirve de discriminante. El predicado estructural es:
+// un reporte 'found' cuyo autor es el dueño o el reportante de la mascota. Es
+// el mismo acto que ya cuenta en found_count (el dueño cierra la búsqueda), y
+// excluir también el "found" manual de un dueño sobre su propia mascota evita
+// contarlo dos veces. Un reporte 'found' de OTRA persona (quien la encontró)
+// sí cuenta, igual que 'lost' y 'sighting', y el reporte inicial de un
+// callejero ('sighting') también.
+//
+// IS DISTINCT FROM y no `<>`/IN: owner_id es NULL en los callejeros, y con NULL
+// el NOT(...) daría NULL y la fila se perdería en silencio.
+func (r *PostgresReportRepository) CountByReporter(ctx context.Context, reporterID uuid.UUID) (int64, error) {
+	var total int64
+	err := r.db.WithContext(ctx).
+		Table("reports").
+		Joins("JOIN pets ON pets.id = reports.pet_id").
+		Where("reports.reporter_id = ?", reporterID).
+		Where("(reports.status <> 'found' OR (reports.reporter_id IS DISTINCT FROM pets.owner_id AND reports.reporter_id IS DISTINCT FROM pets.reporter_id))").
+		Count(&total).Error
+	return total, err
+}
