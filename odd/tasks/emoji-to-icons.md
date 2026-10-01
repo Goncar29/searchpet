@@ -49,10 +49,10 @@ Mobile: next task, after the web PR.
   bar, PET_TYPES consumers, BADGE_META on web + mobile (7 sites), leaderboard
   medals, common components. Route: delegated writer. `63a53e93`, `d66c688b`,
   `ebf23fc3`.
-- [ ] T5b — Remaining mobile screens (profile menu, home, pet detail, alerts,
+- [x] T5b — Remaining mobile screens (profile menu, home, pet detail, alerts,
   badges, leaderboard, users/[id], pets/register, my-pets, map, messages,
   chat, foster homes, groups, stories, post, shelters, blocked users).
-  Route: delegated writer.
+  Route: delegated writer. `1e9ed255`, `1b6da346`.
 
 ## Checks
 
@@ -102,6 +102,21 @@ Mobile: next task, after the web PR.
   New `components/IconLabel.tsx` for icon+text rows. Parent verified the three
   MDI paths byte-equal to the MCP output and re-ran mobile 381/381.
 
+- 2026-10-01: T5b done by a delegated writer on `feat/mobile-icons-screens`
+  (2 commits). RED seen: group 1 tests 15 failed on the old screens, group 2
+  30 failed (alerts, badges, blocked users, chat, messages, foster homes,
+  groups, leaderboard, my pets, register, shelters, stories, post back arrow,
+  plus the guard). Mutations each failed a named test: always-filled heart
+  (liked=false test), emoji re-added in shelters (guard names
+  `app/shelters/index.tsx:56`). New `noEmojiInScreens.test.ts` parses every
+  screen and component with the TS compiler, so no emoji or UI glyph can return
+  as rendered text. Glyphs that lived INSIDE i18n copy (users section titles,
+  clear filters, view details, adopted title, Alert buttons and photo-failure
+  text) were removed from es/en/pt and drawn as icon rows; native Alerts are
+  text-only. New keys: `users:starCount_*` (rating row label) and
+  `map:centerOnMe`. No registry change. Results: mobile 418/418, `tsc` 0,
+  lint 0. Kept: only comments contain glyphs.
+
 ## Next step
 
-Open the T5a PR, then T5b (remaining screens) before the APK.
+Open the T5b PR, then build the APK and check the icons on a device.
