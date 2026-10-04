@@ -31,7 +31,7 @@ function routeFiles(dir = APP): string[] {
 const routeName = (file: string) =>
   path.relative(APP, file).split(path.sep).join('/').replace(/\.tsx$/, '');
 
-type Registration = { name: string; title?: string; headerHidden: boolean };
+type Registration = { name: string; title?: string; titleCallee?: string; headerHidden: boolean };
 
 function registrations(): Registration[] {
   const file = path.join(APP, '_layout.tsx');
@@ -53,6 +53,7 @@ function registrations(): Registration[] {
             if (key === 'title' && ts.isCallExpression(prop.initializer)) {
               const arg = prop.initializer.arguments[0];
               if (arg && ts.isStringLiteralLike(arg)) reg.title = arg.text;
+              reg.titleCallee = prop.initializer.expression.getText(sf);
             }
           }
         }
@@ -117,6 +118,10 @@ describe('Stack routes and their headers', () => {
   it('draws no second back arrow in a screen with a native header', () => {
     const doubled = routes.filter((r) => byName.get(r.name)?.title && drawsOwnBackArrow(r.file)).map((r) => r.name);
     expect(doubled).toEqual([]);
+  });
+
+  it('reads every native title through the language-aware t from useTranslation', () => {
+    expect(regs.filter((r) => r.title && r.titleCallee !== 't').map((r) => `${r.name}: ${r.titleCallee}`)).toEqual([]);
   });
 
   describe.each(['es', 'en', 'pt'])('titles in %s', (lng) => {
