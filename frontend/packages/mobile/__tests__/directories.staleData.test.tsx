@@ -20,10 +20,14 @@ const mockUseShelters = jest.fn();
 jest.mock('@shared/hooks', () => ({
   useFosterHomes: (...args: unknown[]) => mockUseFosterHomes(...args),
   useShelters: (...args: unknown[]) => mockUseShelters(...args),
+  // The directory footer (register CTA) reads the owner view.
+  useMyShelter: () => ({ data: undefined, isLoading: false }),
 }));
 jest.mock('../../shared/hooks', () => ({
   useFosterHomes: (...args: unknown[]) => mockUseFosterHomes(...args),
   useShelters: (...args: unknown[]) => mockUseShelters(...args),
+  // The directory footer (register CTA) reads the owner view.
+  useMyShelter: () => ({ data: undefined, isLoading: false }),
 }));
 
 const fosterHome = {

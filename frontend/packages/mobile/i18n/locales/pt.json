@@ -403,7 +403,43 @@
     "errorMessage": "Não foi possível carregar os abrigos.",
     "retryButton": "Tentar novamente",
     "contactPhone": "Telefone",
-    "contactEmail": "Email"
+    "contactEmail": "Email",
+    "registerCta": "Você é um abrigo e quer aparecer aqui?",
+    "registerCtaBody": "Junte-se à rede para que mais pessoas conheçam seu trabalho e possam doar diretamente ao seu abrigo.",
+    "registerButton": "Registrar meu abrigo",
+    "loginToRegister": "Entre para registrar seu abrigo",
+    "myShelter": {
+      "title": "Seu abrigo",
+      "status": {
+        "pending": "Em revisão",
+        "approved": "Publicado",
+        "rejected": "Rejeitado"
+      },
+      "rejectedReason": "Motivo: {{reason}}"
+    },
+    "register": {
+      "reviewNote": "Revisamos especialmente o link de doações e o site para prevenir fraudes.",
+      "noMoneyNote": "O SearchPet nunca arrecada dinheiro: apenas linkamos para a sua própria página de doações.",
+      "oneShelterNote": "Você só pode registrar um abrigo por conta. Depois poderá editá-lo pelo seu perfil.",
+      "emailUnverified": "Você precisa verificar seu e-mail antes de registrar um abrigo.",
+      "verifyEmailLink": "Verificar meu e-mail",
+      "name": "Nome do abrigo",
+      "city": "Cidade",
+      "phone": "Telefone",
+      "email": "E-mail de contato",
+      "description": "Descrição",
+      "websiteUrl": "Site (https://...)",
+      "donationUrl": "Link de doações (https://...)",
+      "invalidUrl": "O link deve começar com https://",
+      "nameRequired": "O nome é obrigatório",
+      "cityRequired": "A cidade é obrigatória",
+      "submit": "Enviar para revisão",
+      "submitting": "Enviando...",
+      "successTitle": "Abrigo enviado!",
+      "successBody": "Seu abrigo está em revisão. Avisamos quando for aprovado.",
+      "title": "Registre seu abrigo",
+      "goToList": "Voltar aos abrigos"
+    }
   },
   "messages": {
     "title": "Mensagens",

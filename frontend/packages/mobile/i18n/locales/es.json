@@ -403,7 +403,43 @@
     "errorMessage": "No pudimos cargar los refugios.",
     "retryButton": "Reintentar",
     "contactPhone": "Teléfono",
-    "contactEmail": "Email"
+    "contactEmail": "Email",
+    "registerCta": "¿Sos un refugio y querés aparecer acá?",
+    "registerCtaBody": "Sumate a la red para que más gente conozca tu trabajo y pueda donar directamente a tu refugio.",
+    "registerButton": "Registrar mi refugio",
+    "loginToRegister": "Iniciá sesión para registrar tu refugio",
+    "myShelter": {
+      "title": "Tu refugio",
+      "status": {
+        "pending": "En revisión",
+        "approved": "Publicado",
+        "rejected": "Rechazado"
+      },
+      "rejectedReason": "Motivo: {{reason}}"
+    },
+    "register": {
+      "reviewNote": "Revisamos especialmente el link de donaciones y la web para prevenir fraudes.",
+      "noMoneyNote": "SearchPet nunca recauda dinero: solo enlazamos a tu propia página de donaciones.",
+      "oneShelterNote": "Solo podés registrar un refugio por cuenta. Después vas a poder editarlo desde tu perfil.",
+      "emailUnverified": "Necesitás verificar tu email antes de registrar un refugio.",
+      "verifyEmailLink": "Verificar mi email",
+      "name": "Nombre del refugio",
+      "city": "Ciudad",
+      "phone": "Teléfono",
+      "email": "Email de contacto",
+      "description": "Descripción",
+      "websiteUrl": "Sitio web (https://...)",
+      "donationUrl": "Link de donaciones (https://...)",
+      "invalidUrl": "El link debe empezar con https://",
+      "nameRequired": "El nombre es obligatorio",
+      "cityRequired": "La ciudad es obligatoria",
+      "submit": "Enviar para revisión",
+      "submitting": "Enviando...",
+      "successTitle": "¡Refugio enviado!",
+      "successBody": "Tu refugio está en revisión. Te avisamos cuando esté aprobado.",
+      "title": "Registrá tu refugio",
+      "goToList": "Volver a refugios"
+    }
   },
   "messages": {
     "title": "Mensajes",

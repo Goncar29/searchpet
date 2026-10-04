@@ -201,6 +201,10 @@ export default function RootLayout() {
           options={{ title: t('auth:location.title') }}
         />
         <Stack.Screen name="shelters/index" options={{ headerShown: false }} />
+        <Stack.Screen
+          name="shelters/register"
+          options={{ title: t('shelters:register.title') }}
+        />
       </Stack>
     </QueryClientProvider>
   );

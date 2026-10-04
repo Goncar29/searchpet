@@ -22,6 +22,7 @@ import { StaleDataNotice } from '../../components/list/ListState';
 import { Shelter } from '../../../shared/types';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
 import { IconLabel } from '../../components/IconLabel';
+import { ShelterRegisterCta } from '../../components/ShelterRegisterCta';
 
 // ============================================================
 // ShelterCard — inline component
@@ -214,6 +215,7 @@ export default function SheltersScreen() {
           renderItem={renderItem}
           ListHeaderComponent={renderHeader}
           ListEmptyComponent={renderEmpty}
+          ListFooterComponent={<ShelterRegisterCta />}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
         />
