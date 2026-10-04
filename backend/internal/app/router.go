@@ -186,7 +186,7 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 	}
 	embeddingService.RegisterListeners(bus)
 
-	gamSvc := service.NewGamificationService(badgeRepo, pointsRepo, userRepo, reviewRepo)
+	gamSvc := service.NewGamificationService(badgeRepo, pointsRepo, userRepo, reviewRepo, reportRepo, petRepo)
 	gamSvc.RegisterListeners(bus)
 
 	reviewSvc := service.NewReviewService(reviewRepo, blockedUserRepo, userRepo, bus)

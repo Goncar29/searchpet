@@ -20,6 +20,8 @@ type gamificationService struct {
 	pointsRepo repository.UserPointsRepository
 	userRepo   repository.UserRepository
 	reviewRepo repository.UserReviewRepository // V1.5 — para avg_rating en perfiles
+	reportRepo repository.ReportRepository      // total_reports del perfil, desde las filas
+	petRepo    repository.PetRepository         // found_count del perfil (CountHelpedFound), desde las filas
 }
 
 // NewGamificationService construye el GamificationService con sus dependencias.
@@ -28,12 +30,16 @@ func NewGamificationService(
 	pointsRepo repository.UserPointsRepository,
 	userRepo repository.UserRepository,
 	reviewRepo repository.UserReviewRepository,
+	reportRepo repository.ReportRepository,
+	petRepo repository.PetRepository,
 ) *gamificationService {
 	return &gamificationService{
 		badgeRepo:  badgeRepo,
 		pointsRepo: pointsRepo,
 		userRepo:   userRepo,
 		reviewRepo: reviewRepo,
+		reportRepo: reportRepo,
+		petRepo:    petRepo,
 	}
 }
 
@@ -41,11 +47,15 @@ func NewGamificationService(
 // Debe llamarse una vez durante el arranque del servidor, después de crear el EventBus.
 func (s *gamificationService) RegisterListeners(bus *event.EventBus) {
 	bus.Subscribe("report.created", s.onReportCreated)
-	bus.Subscribe("pet.found", s.onPetFound)
 	bus.Subscribe("share.created", s.onShareCreated)
 	bus.Subscribe("review.created", s.onReviewCreated)
 	bus.Subscribe("review.deleted", s.onReviewDeleted)
 	bus.Subscribe("user.verified", s.onUserVerified)
+	// "pet.found" NO se escucha a propósito: el dueño que marca su propia mascota
+	// como encontrada no gana puntos ni badges (antes: +100, found_count,
+	// pet_rescuer, super_finder). El found_count del perfil es informativo y sale
+	// de las filas (CountHelpedFound). Un paso posterior acreditará a los
+	// ayudantes que el dueño confirme.
 }
 
 // onReportCreated maneja el evento "report.created".
@@ -78,35 +88,6 @@ func (s *gamificationService) onReportCreated(payload interface{}) {
 	if points.TotalReports >= 10 {
 		if err := s.AwardBadgeIfEligible(ctx, ev.ReporterID, "community_guardian"); err != nil {
 			log.Printf("[GamificationService] onReportCreated: award community_guardian para %s: %v", ev.ReporterID, err)
-		}
-	}
-}
-
-// onPetFound maneja el evento "pet.found".
-// Suma 100 puntos al dueño, incrementa FoundCount, y otorga el badge "pet_rescuer".
-func (s *gamificationService) onPetFound(payload interface{}) {
-	ev, ok := payload.(event.PetFoundEvent)
-	if !ok {
-		log.Printf("[GamificationService] onPetFound: payload inesperado: %T", payload)
-		return
-	}
-
-	ctx := context.Background()
-
-	points, err := s.pointsRepo.Upsert(ctx, ev.OwnerID, 100, "found_count")
-	if err != nil {
-		log.Printf("[GamificationService] onPetFound: upsert points para %s: %v", ev.OwnerID, err)
-		return
-	}
-
-	if err := s.AwardBadgeIfEligible(ctx, ev.OwnerID, "pet_rescuer"); err != nil {
-		log.Printf("[GamificationService] onPetFound: award pet_rescuer para %s: %v", ev.OwnerID, err)
-	}
-
-	// Otorgar badge "super_finder" al llegar a 5 mascotas encontradas.
-	if points.FoundCount >= 5 {
-		if err := s.AwardBadgeIfEligible(ctx, ev.OwnerID, "super_finder"); err != nil {
-			log.Printf("[GamificationService] onPetFound: award super_finder para %s: %v", ev.OwnerID, err)
 		}
 	}
 }
@@ -214,7 +195,7 @@ func (s *gamificationService) GetPublicProfile(ctx context.Context, userID uuid.
 	}
 
 	// Puntos: manejar graciosamente el caso donde el usuario aún no tiene puntos.
-	var pts, totalReports, foundCount, shareCount int
+	var pts, shareCount int
 	points, err := s.pointsRepo.GetByUserID(ctx, userID)
 	if err != nil {
 		if !errors.Is(err, domain.ErrPointsNotFound) {
@@ -223,10 +204,22 @@ func (s *gamificationService) GetPublicProfile(ctx context.Context, userID uuid.
 		// Sin puntos aún — usar ceros (valores ya inicializados en cero arriba).
 	} else {
 		pts = points.Points
-		totalReports = points.TotalReports
-		foundCount = points.FoundCount
 		shareCount = points.ShareCount
 	}
+
+	// total_reports y found_count salen de las filas, no de user_points: esos
+	// contadores los suben los eventos y nunca bajan, así que borrar un reporte
+	// o una mascota los dejaba inflados (en prod, 41/12 con ~0 filas reales).
+	// Puntos, shares, badges y leaderboard siguen siendo por contador.
+	reportsCount, err := s.reportRepo.CountByReporter(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	foundPets, err := s.petRepo.CountHelpedFound(userID.String())
+	if err != nil {
+		return nil, err
+	}
+	totalReports, foundCount := int(reportsCount), int(foundPets)
 
 	badges, err := s.badgeRepo.FindByUserID(ctx, userID)
 	if err != nil {

@@ -40,6 +40,7 @@ func (m *mockPetRepo) FindStrayCandidates(_ domain.StrayCandidateCriteria) ([]do
 	return nil, nil
 }
 func (m *mockPetRepo) CountPublicByUserID(_ string) (int64, error) { return 0, nil }
+func (m *mockPetRepo) CountHelpedFound(_ string) (int64, error) { return 0, nil }
 func (m *mockPetRepo) Update(_ *domain.Pet) error                  { return m.updateErr }
 func (m *mockPetRepo) UpdateStatus(_ string, status string) error {
 	m.statusCalls = append(m.statusCalls, status)

@@ -41,14 +41,30 @@ on a real phone, then build another APK.
 - [x] T3 — Map: controls in one bottom-anchored container; `map:vetsToggle`
   verified against the real i18n instance. Route: same writer (delegated).
   Commit e87609f7.
-- [ ] T4 — Profile stats from REAL ROWS (owner chose option b on 2026-10-01;
+- [~] T4 — Profile stats from REAL ROWS (owner chose option b on 2026-10-01;
   option a, a one-off UPDATE in prod, was rejected because testing re-inflates
-  the counters). Design being mapped. Own PR (backend). Route: delegated.
+  the counters). Own PR #313 (backend). Route: delegated. Decisions:
+  - `total_reports` = `CountByReporter`, closure reports excluded (unchanged).
+  - `found_count` ("Encontradas"/"Reunidos") = PETS I HELPED FIND: distinct pets
+    that are not mine (`owner_id` and `reporter_id` both `IS DISTINCT FROM` me;
+    strays have NULL owner), currently `found`, with at least one report by me
+    (`CountHelpedFound`, SQL EXISTS). Own pets and own strays never count.
+    Informational: no points, no badges derive from it.
+  - The owner marking their own pet found earns NOTHING: `onPetFound` and its
+    `pet.found` subscription were removed from `gamification_service.go`
+    (before: +100 points, `found_count`, `pet_rescuer`, `super_finder`).
+    Deliberate behavior change; other `pet.found` listeners untouched.
 - [ ] T5 — Dark mode in mobile via Settings. Separate feature (size L).
 - [ ] T6 — New APK and owner re-check.
 - [ ] T7 — Stack header titles are computed once with `i18next.t` in
   `app/_layout.tsx`, so they keep the old language after a runtime language
   change. Pre-existing for every title (native review of #311). Not started.
+- [ ] T8 — Helper confirmation feature (step 2): when a pet goes found the
+  owner must choose the helpers among the reporters of the current episode.
+  Enforced in ONE backend function used by the three doors that fire
+  `pet.found` (`UpdatePet` ~481, `MarkAsFound` ~658, `report_service` ~272); UI
+  picker on every path in web and mobile. Open question: a non-owner found
+  report (door 3). That feature is what will credit helpers (points/badges).
 
 ## Checks
 
@@ -86,6 +102,13 @@ where a test applies; on-device check in the next APK.
   total_reports 41, found_count 12, total_points 1443, share_count 19 = what the
   APK shows. What the owner saw as "correct" on searchpet.vercel.app were the
   GLOBAL home stats (`/api/stats`, real rows: 0 pets), a different endpoint.
+- 2026-10-01: T4 redefined by the owner (see T4). Backend: `CountFoundByUser`
+  replaced by `CountHelpedFound`; gamification no longer listens to `pet.found`.
+  Tests (real Postgres): `TestPetRepository_CountHelpedFound` (6 subtests),
+  `TestGamificationService_OnPetFound_CreditsNobody` (replaces the old
+  owner-credit test), profile service tests updated. Mutation proofs: dropping
+  the `owner_id IS DISTINCT FROM` line failed `CountHelpedFound` (want 1 got 2);
+  re-adding an owner +100 upsert failed `OnPetFound_CreditsNobody`.
 
 ## Next step
 
