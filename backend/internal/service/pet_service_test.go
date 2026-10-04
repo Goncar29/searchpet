@@ -40,7 +40,6 @@ func (m *mockPetRepo) FindStrayCandidates(_ domain.StrayCandidateCriteria) ([]do
 	return nil, nil
 }
 func (m *mockPetRepo) CountPublicByUserID(_ string) (int64, error) { return 0, nil }
-func (m *mockPetRepo) CountHelpedFound(_ string) (int64, error) { return 0, nil }
 func (m *mockPetRepo) Update(_ *domain.Pet) error                  { return m.updateErr }
 func (m *mockPetRepo) UpdateStatus(_ string, status string) error {
 	m.statusCalls = append(m.statusCalls, status)
@@ -121,7 +120,7 @@ func TestMarkAsFound_HappyPath(t *testing.T) {
 	bus := event.NewEventBus()
 
 	svc := service.NewPetService(repo, bus, nil, nil, nil, nil, nil, nil)
-	pet, err := svc.MarkAsFound(ownerID.String(), repo.pet.ID.String())
+	pet, err := svc.MarkAsFound(ownerID.String(), repo.pet.ID.String(), nil)
 
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
@@ -141,7 +140,7 @@ func TestMarkAsFound_NonOwner_Returns403(t *testing.T) {
 	bus := event.NewEventBus()
 
 	svc := service.NewPetService(repo, bus, nil, nil, nil, nil, nil, nil)
-	_, err := svc.MarkAsFound(anotherUser.String(), repo.pet.ID.String())
+	_, err := svc.MarkAsFound(anotherUser.String(), repo.pet.ID.String(), nil)
 
 	if err == nil {
 		t.Fatal("expected error for non-owner, got nil")
@@ -160,7 +159,7 @@ func TestMarkAsFound_AlreadyFound_IsIdempotent(t *testing.T) {
 	bus := event.NewEventBus()
 
 	svc := service.NewPetService(repo, bus, nil, nil, nil, nil, nil, nil)
-	pet, err := svc.MarkAsFound(ownerID.String(), repo.pet.ID.String())
+	pet, err := svc.MarkAsFound(ownerID.String(), repo.pet.ID.String(), nil)
 
 	if err != nil {
 		t.Fatalf("expected no error for idempotent call, got %v", err)
@@ -179,7 +178,7 @@ func TestMarkAsFound_ArchivedPet_ReturnsInvalidTransition(t *testing.T) {
 	bus := event.NewEventBus()
 
 	svc := service.NewPetService(repo, bus, nil, nil, nil, nil, nil, nil)
-	_, err := svc.MarkAsFound(ownerID.String(), repo.pet.ID.String())
+	_, err := svc.MarkAsFound(ownerID.String(), repo.pet.ID.String(), nil)
 
 	if err == nil {
 		t.Fatal("expected error for archived pet, got nil")
@@ -202,7 +201,7 @@ func TestMarkAsFound_PublishesEvent(t *testing.T) {
 	})
 
 	svc := service.NewPetService(repo, bus, nil, nil, nil, nil, nil, nil)
-	_, err := svc.MarkAsFound(ownerID.String(), repo.pet.ID.String())
+	_, err := svc.MarkAsFound(ownerID.String(), repo.pet.ID.String(), nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -574,7 +573,7 @@ func TestMarkAsFound_StrayReporterCanMarkFound(t *testing.T) {
 	repo := &mockPetRepo{pet: pet}
 	svc := service.NewPetService(repo, nil, nil, nil, nil, nil, nil, nil)
 
-	result, err := svc.MarkAsFound(reporterID.String(), pet.ID.String())
+	result, err := svc.MarkAsFound(reporterID.String(), pet.ID.String(), nil)
 	if err != nil {
 		t.Fatalf("reporter should be allowed to mark stray as found, got: %v", err)
 	}
@@ -595,7 +594,7 @@ func TestMarkAsFound_NonReporterCannotMarkStrayFound(t *testing.T) {
 	repo := &mockPetRepo{pet: pet}
 	svc := service.NewPetService(repo, nil, nil, nil, nil, nil, nil, nil)
 
-	_, err := svc.MarkAsFound(otherUser.String(), pet.ID.String())
+	_, err := svc.MarkAsFound(otherUser.String(), pet.ID.String(), nil)
 	if err != domain.ErrForbidden {
 		t.Errorf("expected ErrForbidden for non-reporter, got %v", err)
 	}
@@ -615,7 +614,7 @@ func TestMarkAsFound_AlreadyFoundStray_ReporterIdempotent(t *testing.T) {
 	repo := &mockPetRepo{pet: pet}
 	svc := service.NewPetService(repo, nil, nil, nil, nil, nil, nil, nil)
 
-	result, err := svc.MarkAsFound(reporterID.String(), pet.ID.String())
+	result, err := svc.MarkAsFound(reporterID.String(), pet.ID.String(), nil)
 	if err != nil {
 		t.Fatalf("reporter should be allowed to retry on an already-found stray, got: %v", err)
 	}

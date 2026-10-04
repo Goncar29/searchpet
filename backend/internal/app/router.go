@@ -152,7 +152,7 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 		log.Warn("GOOGLE_CLIENT_ID no configurado — el login con Google responderá 502 google_signin_unavailable")
 	}
 	photoService := service.NewPhotoService(photoRepo, petRepo, photoStorage, bus)
-	petService := service.NewPetService(petRepo, bus, photoService, reportRepo, petUow, statEventRepo, episodeService, episodeRepo)
+	petService := service.NewPetService(petRepo, bus, photoService, reportRepo, petUow, statEventRepo, episodeService, episodeRepo, service.WithHelperCredits(helperCreditRepo))
 	reportService := service.NewReportService(reportRepo, petRepo, bus, statEventRepo, episodeService, episodeRepo, petUow)
 	messageService := service.NewMessageService(messageRepo, blockedUserRepo, conversationHideRepo, userRepo, bus)
 	shareLinkService := service.NewShareLinkService(shareLinkRepo, petRepo, bus)
@@ -464,6 +464,7 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 		protected.PUT("/pets/:id", petHandler.UpdatePet)
 		protected.DELETE("/pets/:id", petHandler.DeletePet)
 		protected.PATCH("/pets/:id/found", petHandler.MarkAsFound)
+		protected.GET("/pets/:id/helper-candidates", petHandler.GetHelperCandidates)
 		protected.POST("/pets/:id/publish-lost", petHandler.PublishLost)
 
 		protected.POST("/pets/search/image", petHandler.SearchByImage)

@@ -44,7 +44,7 @@ func TestPublishLostThenFound_RecordsLifetimeEvents_SurvivesDelete(t *testing.T)
 	}); err != nil {
 		t.Fatalf("publish lost: %v", err)
 	}
-	if _, err := svc.MarkAsFound(owner.ID.String(), pet.ID.String()); err != nil {
+	if _, err := svc.MarkAsFound(owner.ID.String(), pet.ID.String(), nil); err != nil {
 		t.Fatalf("mark found: %v", err)
 	}
 

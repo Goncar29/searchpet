@@ -100,6 +100,10 @@ type UpdatePetRequest struct {
 	City        *string `json:"city" binding:"omitempty,max=120"`
 	Gender      *string `json:"gender"`
 	Status      string  `json:"status"`
+	// HelperIDs contesta "¿quién ayudó?" cuando este update pasa la mascota a
+	// `found`. nil = no enviado (con candidatos, 400 helper_ids_required); `[]` =
+	// nadie ayudó. Se ignora si el update no es una transición a found.
+	HelperIDs *[]string `json:"helper_ids"`
 	// Día de calendario plano, igual que en el alta. `nil` = no enviado.
 	//
 	// Un string vacío en CUALQUIERA de los dos borra el par, pero sólo pisa lo
@@ -321,4 +325,17 @@ func ToPhotoListResponse(photos []domain.Photo) []PetPhotoResponse {
 		result[i] = ToPhotoResponse(&p)
 	}
 	return result
+}
+
+// MarkFoundRequest es el cuerpo OPCIONAL de PATCH /api/pets/:id/found. Un pedido
+// sin cuerpo sigue valiendo cuando la mascota no tiene candidatos a ayudante.
+type MarkFoundRequest struct {
+	HelperIDs *[]string `json:"helper_ids"`
+}
+
+// HelperCandidateResponse es un candidato a ayudante para el selector del dueño.
+type HelperCandidateResponse struct {
+	ID              uuid.UUID `json:"id"`
+	Name            string    `json:"name"`
+	ProfilePhotoURL string    `json:"profile_photo_url,omitempty"`
 }

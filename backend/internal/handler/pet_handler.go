@@ -209,11 +209,21 @@ func (h *PetHandler) UpdatePet(c *gin.Context) {
 			writeError(c, http.StatusBadRequest, err)
 			return
 		}
+		if isHelperError(err) {
+			writeError(c, http.StatusBadRequest, err)
+			return
+		}
 		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		return
 	}
 
 	c.JSON(http.StatusOK, dto.ToPetResponse(pet))
+}
+
+// isHelperError reporta si err viene de la confirmación de ayudantes: el cliente
+// no mandó `helper_ids` cuando hacía falta, o mandó ids que no son candidatos.
+func isHelperError(err error) bool {
+	return errors.Is(err, domain.ErrHelperIDsRequired) || errors.Is(err, domain.ErrInvalidHelpers)
 }
 
 // DeletePet godoc
@@ -446,12 +456,22 @@ func (h *PetHandler) ListAdoptions(c *gin.Context) {
 // MarkAsFound godoc
 // PATCH /api/pets/:id/found
 // Marca una mascota como encontrada. Solo el dueño puede llamarlo.
-// Idempotente si el status ya es "found". 409 si está archivada.
+// Cuerpo OPCIONAL {"helper_ids": [...]}: con candidatos a ayudante es obligatorio
+// (400 helper_ids_required), `[]` significa "nadie ayudó" y un id que no es
+// candidato da 400 invalid_helpers.
+// Idempotente si el status ya es "found" (ignora la lista). 409 si está archivada.
 func (h *PetHandler) MarkAsFound(c *gin.Context) {
 	ownerID := getUserID(c)
 	petID := c.Param("id")
 
-	pet, err := h.petService.MarkAsFound(ownerID, petID)
+	var body dto.MarkFoundRequest
+	// Sin cuerpo (io.EOF) es válido: sólo hace falta cuando hay candidatos.
+	if err := c.ShouldBindJSON(&body); err != nil && !errors.Is(err, io.EOF) {
+		writeError(c, http.StatusBadRequest, domain.ErrInvalidInput)
+		return
+	}
+
+	pet, err := h.petService.MarkAsFound(ownerID, petID, body.HelperIDs)
 	if err != nil {
 		if errors.Is(err, domain.ErrPetNotFound) {
 			writeError(c, http.StatusNotFound, err)
@@ -465,11 +485,41 @@ func (h *PetHandler) MarkAsFound(c *gin.Context) {
 			writeError(c, http.StatusConflict, err)
 			return
 		}
+		if isHelperError(err) {
+			writeError(c, http.StatusBadRequest, err)
+			return
+		}
 		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		return
 	}
 
 	c.JSON(http.StatusOK, dto.ToPetResponse(pet))
+}
+
+// GetHelperCandidates godoc
+// GET /api/pets/:id/helper-candidates
+// Los usuarios que el dueño (o quien reportó el callejero) puede elegir como
+// ayudantes: los que reportaron sobre la mascota en la búsqueda actual.
+func (h *PetHandler) GetHelperCandidates(c *gin.Context) {
+	candidates, err := h.petService.GetHelperCandidates(getUserID(c), c.Param("id"))
+	if err != nil {
+		if errors.Is(err, domain.ErrPetNotFound) {
+			writeError(c, http.StatusNotFound, err)
+			return
+		}
+		if errors.Is(err, domain.ErrForbidden) {
+			writeError(c, http.StatusForbidden, err)
+			return
+		}
+		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
+		return
+	}
+
+	out := make([]dto.HelperCandidateResponse, 0, len(candidates))
+	for _, cand := range candidates {
+		out = append(out, dto.HelperCandidateResponse{ID: cand.ID, Name: cand.Name, ProfilePhotoURL: cand.ProfilePhotoURL})
+	}
+	c.JSON(http.StatusOK, out)
 }
 
 // PublishLost godoc
