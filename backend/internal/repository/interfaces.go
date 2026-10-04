@@ -117,6 +117,25 @@ type ReportRepository interface {
 	CountByReporter(ctx context.Context, reporterID uuid.UUID) (int64, error)
 }
 
+// PetHelperCreditRepository guarda y consulta a quién confirmó el dueño como
+// ayudante cuando una mascota pasa a `found`.
+type PetHelperCreditRepository interface {
+	// FindCandidates devuelve los usuarios DISTINTOS con al menos un reporte
+	// sobre la mascota dentro de ese episodio, sin el dueño ni quien reportó el
+	// callejero. La exclusión usa IS DISTINCT FROM porque un callejero tiene
+	// owner_id NULL (y un `<>` con NULL no es verdadero ni falso, descartaría
+	// todas las filas). Cualquier estado de reporte cuenta.
+	FindCandidates(petID string, episodeID uuid.UUID) ([]domain.HelperCandidate, error)
+	// InsertCredits acredita a cada ayudante con ON CONFLICT DO NOTHING y
+	// devuelve SÓLO los ids que realmente se insertaron: quien ya estaba
+	// acreditado por esa mascota no vuelve en la lista, y por eso no vuelve a
+	// cobrar puntos (user_points.Upsert no es idempotente).
+	InsertCredits(credits []domain.PetHelperCredit) ([]uuid.UUID, error)
+	// CountByHelper cuenta las mascotas DISTINTAS por las que el usuario fue
+	// acreditado. Alimenta `found_count` del perfil y el badge super_finder.
+	CountByHelper(userID uuid.UUID) (int64, error)
+}
+
 // PhotoRepository define el contrato para acceder a datos de fotos de mascotas.
 type PhotoRepository interface {
 	Create(photo *domain.Photo) error

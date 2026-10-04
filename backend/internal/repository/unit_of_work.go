@@ -10,6 +10,9 @@ type UnitOfWorkRepos struct {
 	Pets     PetRepository
 	Reports  ReportRepository
 	Episodes EpisodeRepository
+	// HelperCredits commits with the status flip: a pet can never be `found`
+	// with the helper answer missing, nor credit helpers for a flip that rolled back.
+	HelperCredits PetHelperCreditRepository
 }
 
 // UnitOfWork runs a function within a single database transaction, giving it
@@ -31,9 +34,10 @@ func NewUnitOfWork(db *gorm.DB) UnitOfWork {
 func (u *gormUnitOfWork) Execute(fn func(repos UnitOfWorkRepos) error) error {
 	return u.db.Transaction(func(tx *gorm.DB) error {
 		repos := UnitOfWorkRepos{
-			Pets:     NewPetRepository(tx),
-			Reports:  NewReportRepository(tx),
-			Episodes: NewEpisodeRepository(tx),
+			Pets:          NewPetRepository(tx),
+			Reports:       NewReportRepository(tx),
+			Episodes:      NewEpisodeRepository(tx),
+			HelperCredits: NewPetHelperCreditRepository(tx),
 		}
 		return fn(repos)
 	})

@@ -30,6 +30,7 @@ import (
 // allTableNames lists table names matching database.Models for truncation.
 // Must be in reverse FK dependency order (children first).
 var allTableNames = []string{
+	"pet_helper_credits",
 	"platform_events",
 	"admin_audit_logs",
 	"vets",
