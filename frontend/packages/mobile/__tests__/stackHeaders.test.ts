@@ -91,6 +91,28 @@ function drawsOwnBackArrow(file: string): boolean {
   return found;
 }
 
+// Translation keys a screen renders in-screen, qualified with the namespace its
+// `useTranslation('ns')` declares when the key itself carries none.
+function renderedKeys(file: string): string[] {
+  const sf = ts.createSourceFile(file, fs.readFileSync(file, 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  let defaultNs: string | undefined;
+  const calls: string[] = [];
+  const visit = (node: ts.Node) => {
+    if (ts.isCallExpression(node)) {
+      const callee = node.expression.getText(sf);
+      const arg = node.arguments[0];
+      if (callee === 'useTranslation' && arg && ts.isStringLiteralLike(arg)) defaultNs ??= arg.text;
+      // Only text drawn as a JSX child (`<Text>{t('k')}</Text>`): an Alert title or
+      // an accessibility label reusing the key is not a second on-screen title.
+      const drawn = ts.isJsxExpression(node.parent) && (ts.isJsxElement(node.parent.parent) || ts.isJsxFragment(node.parent.parent));
+      if (drawn && (callee === 't' || callee === 'i18next.t') && arg && ts.isStringLiteralLike(arg)) calls.push(arg.text);
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sf);
+  return calls.map((k) => (k.includes(':') || !defaultNs ? k : `${defaultNs}:${k}`));
+}
+
 describe('Stack routes and their headers', () => {
   const regs = registrations();
   const byName = new Map(regs.map((r) => [r.name, r]));
@@ -122,6 +144,14 @@ describe('Stack routes and their headers', () => {
 
   it('reads every native title through the language-aware t from useTranslation', () => {
     expect(regs.filter((r) => r.title && r.titleCallee !== 't').map((r) => `${r.name}: ${r.titleCallee}`)).toEqual([]);
+  });
+
+  it('does not repeat the native title as an in-screen title', () => {
+    const repeated = routes
+      .filter((r) => byName.get(r.name)?.title)
+      .filter((r) => renderedKeys(r.file).includes(byName.get(r.name)?.title as string))
+      .map((r) => `${r.name}: ${byName.get(r.name)?.title}`);
+    expect(repeated).toEqual([]);
   });
 
   describe.each(['es', 'en', 'pt'])('titles in %s', (lng) => {

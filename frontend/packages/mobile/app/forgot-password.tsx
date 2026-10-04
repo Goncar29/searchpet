@@ -115,7 +115,6 @@ export default function ForgotPasswordScreen() {
     >
       <View style={styles.content}>
         <View style={styles.logo}><Logo size={64} /></View>
-        <Text style={styles.title}>{t('forgotPassword.title')}</Text>
         <Text style={styles.subtitle}>
           {step === 'email' ? t('forgotPassword.emailStepDescription') : t('forgotPassword.codeStepDescription')}
         </Text>
@@ -228,13 +227,6 @@ const styles = StyleSheet.create({
     fontSize: 60,
     textAlign: 'center',
     marginBottom: SPACING.md,
-  },
-  title: {
-    fontSize: FONTS.sizes.xxl,
-    fontWeight: '700',
-    color: COLORS.textPrimary,
-    textAlign: 'center',
-    marginBottom: SPACING.xs,
   },
   subtitle: {
     fontSize: FONTS.sizes.md,

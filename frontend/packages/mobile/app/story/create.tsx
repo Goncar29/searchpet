@@ -69,7 +69,6 @@ export default function CreateStoryScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.emoji}><Icon name="celebration" size={52} color={COLORS.primary} /></View>
-        <Text style={styles.title}>{t('story:createTitle')}</Text>
         <Text style={styles.subtitle}>
           {t('story:createSubtitle')}
         </Text>
@@ -159,13 +158,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: SPACING.lg,
     marginBottom: SPACING.sm,
-  },
-  title: {
-    fontSize: FONTS.sizes.xxl,
-    fontWeight: '700',
-    color: COLORS.textPrimary,
-    textAlign: 'center',
-    marginBottom: SPACING.xs,
   },
   subtitle: {
     fontSize: FONTS.sizes.sm,
