@@ -23,6 +23,9 @@ import {
   useNearbyReports,
   useBlockStatus,
   useMarkPetAsFound,
+  useHelperCandidates,
+  useUpdatePet,
+  useCreateReport,
   useNearbyVets,
   useUpdateMe,
   useUploadProfilePhoto,
@@ -875,6 +878,120 @@ describe('useMarkPetAsFound', () => {
     const invalidatedKeys = invalidateSpy.mock.calls.map((call) => call[0]?.queryKey);
     // ['stats'] refreshes the home "pets reunited" lifetime counter.
     expect(invalidatedKeys).toEqual(expect.arrayContaining([['pets'], ['reports'], ['stats']]));
+  });
+
+  it('still accepts the legacy string argument (mobile callers) and sends no helper ids', async () => {
+    const spy = vi.spyOn(apiClient, 'markPetAsFound').mockResolvedValue(foundPet);
+
+    const { wrapper: wrapperWithClient } = createWrapperWithClient();
+    const { result } = renderHook(() => useMarkPetAsFound(), { wrapper: wrapperWithClient });
+
+    result.current.mutate('pet-9');
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(spy).toHaveBeenCalledWith('pet-9', undefined);
+  });
+
+  it('forwards helperIds from the object form, including the empty "nobody" answer', async () => {
+    const spy = vi.spyOn(apiClient, 'markPetAsFound').mockResolvedValue(foundPet);
+
+    const { wrapper: wrapperWithClient } = createWrapperWithClient();
+    const { result } = renderHook(() => useMarkPetAsFound(), { wrapper: wrapperWithClient });
+
+    result.current.mutate({ id: 'pet-9', helperIds: [] });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(spy).toHaveBeenLastCalledWith('pet-9', []);
+
+    result.current.mutate({ id: 'pet-9', helperIds: ['u1'] });
+    await waitFor(() => expect(spy).toHaveBeenCalledTimes(2));
+    expect(spy).toHaveBeenLastCalledWith('pet-9', ['u1']);
+  });
+
+  it('invalidates profile, badges and leaderboard: the helpers just earned points', async () => {
+    vi.spyOn(apiClient, 'markPetAsFound').mockResolvedValue(foundPet);
+
+    const { queryClient, wrapper: wrapperWithClient } = createWrapperWithClient();
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
+    const { result } = renderHook(() => useMarkPetAsFound(), { wrapper: wrapperWithClient });
+
+    result.current.mutate({ id: 'pet-9', helperIds: ['u1'] });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    const keys = invalidateSpy.mock.calls.map((call) => call[0]?.queryKey);
+    expect(keys).toEqual(
+      expect.arrayContaining([['profile'], ['badges'], ['leaderboard']]),
+    );
+  });
+});
+
+// ============================================================
+// useHelperCandidates — gated by `enabled`, so the picker only fetches when open.
+// ============================================================
+describe('useHelperCandidates', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('fetches the candidates of the pet when enabled', async () => {
+    const spy = vi
+      .spyOn(apiClient, 'getHelperCandidates')
+      .mockResolvedValue([{ id: 'u1', name: 'Ana' }]);
+
+    const { result } = renderHook(() => useHelperCandidates('pet-1', true), { wrapper });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(spy).toHaveBeenCalledWith('pet-1');
+    expect(result.current.data).toEqual([{ id: 'u1', name: 'Ana' }]);
+  });
+
+  it('does not fetch while disabled', async () => {
+    const spy = vi.spyOn(apiClient, 'getHelperCandidates').mockResolvedValue([]);
+
+    renderHook(() => useHelperCandidates('pet-1', false), { wrapper });
+
+    await new Promise((r) => setTimeout(r, 20));
+    expect(spy).not.toHaveBeenCalled();
+  });
+});
+
+// ============================================================
+// helper-credit invalidation on the two other doors that turn a pet found.
+// ============================================================
+describe('found via update or report invalidates helper-credit views', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('useUpdatePet invalidates profile, badges and leaderboard', async () => {
+    vi.spyOn(apiClient, 'updatePet').mockResolvedValue({ ...mockPet, status: 'found' } as Pet);
+    const { queryClient, wrapper: wrapperWithClient } = createWrapperWithClient();
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
+    const { result } = renderHook(() => useUpdatePet(), { wrapper: wrapperWithClient });
+
+    result.current.mutate({ id: 'pet-1', data: { status: 'found', helper_ids: [] } });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    const keys = invalidateSpy.mock.calls.map((call) => call[0]?.queryKey);
+    expect(keys).toEqual(expect.arrayContaining([['profile'], ['badges'], ['leaderboard']]));
+  });
+
+  it('useCreateReport invalidates profile, badges and leaderboard', async () => {
+    vi.spyOn(apiClient, 'createReport').mockResolvedValue({ id: 'r1' } as Report);
+    const { queryClient, wrapper: wrapperWithClient } = createWrapperWithClient();
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
+    const { result } = renderHook(() => useCreateReport(), { wrapper: wrapperWithClient });
+
+    result.current.mutate({
+      pet_id: 'pet-1',
+      status: 'found',
+      latitude: 1,
+      longitude: 2,
+      helper_ids: ['u1'],
+    });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    const keys = invalidateSpy.mock.calls.map((call) => call[0]?.queryKey);
+    expect(keys).toEqual(expect.arrayContaining([['profile'], ['badges'], ['leaderboard']]));
   });
 });
 

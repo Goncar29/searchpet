@@ -579,3 +579,50 @@ describe('APIClient.deleteDeviceToken during logout', () => {
     expect(init.headers.Authorization).toBe('Bearer session-token');
   });
 });
+
+describe('APIClient helper confirmation', () => {
+  let client: APIClient;
+  let fetchMock: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    client = new APIClient('http://api.test');
+    fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({}) });
+    vi.stubGlobal('fetch', fetchMock);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('getHelperCandidates GETs /api/pets/:id/helper-candidates', async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => [{ id: 'u1', name: 'Ana' }],
+    });
+
+    const result = await client.getHelperCandidates('pet-1');
+
+    expect(result).toEqual([{ id: 'u1', name: 'Ana' }]);
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe('http://api.test/api/pets/pet-1/helper-candidates');
+    expect(init.method).toBe('GET');
+  });
+
+  it('markPetAsFound sends NO body when helperIds is undefined (backward compatible)', async () => {
+    await client.markPetAsFound('pet-1');
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe('http://api.test/api/pets/pet-1/found');
+    expect(init.method).toBe('PATCH');
+    expect(init.body).toBeUndefined();
+  });
+
+  it('markPetAsFound sends {helper_ids} when provided, including the empty "nobody" answer', async () => {
+    await client.markPetAsFound('pet-1', ['u1', 'u2']);
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ helper_ids: ['u1', 'u2'] });
+
+    await client.markPetAsFound('pet-1', []);
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ helper_ids: [] });
+  });
+});
