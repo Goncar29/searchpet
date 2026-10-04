@@ -73,6 +73,9 @@ describe('HelperPickerModal — candidate states', () => {
 
     expect(screen.getByText('common:loading')).toBeInTheDocument();
     expect(confirmButton()).toBeDisabled();
+    // Still unknown whether anyone helped: the zero-candidates question must
+    // not be asked yet.
+    expect(screen.queryByText('pets:detail.markFoundConfirm')).not.toBeInTheDocument();
   });
 
   // Regla #60: una consulta caída NO se pinta como "no hay candidatos". Si lo
@@ -85,6 +88,7 @@ describe('HelperPickerModal — candidate states', () => {
     const { onConfirm } = renderModal();
 
     expect(screen.getByRole('alert')).toHaveTextContent('pets:helpers.loadError');
+    expect(screen.queryByText('pets:detail.markFoundConfirm')).not.toBeInTheDocument();
     expect(confirmButton()).toBeDisabled();
     fireEvent.click(confirmButton());
     expect(onConfirm).not.toHaveBeenCalled();

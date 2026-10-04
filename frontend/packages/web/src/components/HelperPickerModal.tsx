@@ -87,13 +87,17 @@ export function HelperPickerModal({
     onConfirm(nobody ? [] : candidates.filter((c) => selected.has(c.id)).map((c) => c.id));
   };
 
+  // The plain "are you sure?" copy belongs only to a list that was READ and came
+  // back empty; while loading or after a failed read we still don't know.
+  const knownEmpty = candidates != null && candidates.length === 0;
+
   return (
     <ConfirmModal
-      title={hasCandidates ? t('pets:helpers.title', { name: petName }) : t('pets:detail.markFound')}
+      title={knownEmpty ? t('pets:detail.markFound') : t('pets:helpers.title', { name: petName })}
       message={
-        hasCandidates
-          ? t('pets:helpers.message')
-          : t('pets:detail.markFoundConfirm', { name: petName })
+        knownEmpty
+          ? t('pets:detail.markFoundConfirm', { name: petName })
+          : t('pets:helpers.message')
       }
       confirmLabel={t('common:confirm')}
       cancelLabel={t('common:cancel')}
