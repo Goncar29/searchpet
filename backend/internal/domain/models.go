@@ -206,6 +206,31 @@ type SearchEpisode struct {
 	Resolution *string    `gorm:"size:50" json:"resolution,omitempty"`
 }
 
+// PetHelperCredit registra que el dueño (o quien reportó el callejero) confirmó
+// a HelperUserID como alguien que ayudó a reunir la mascota. Es lo único que da
+// puntos, badges y el contador "Encontradas" del perfil.
+//
+// UNA fila por (mascota, ayudante), no por episodio: un ciclo found → lost →
+// found nunca acredita dos veces al mismo ayudante. EpisodeID guarda en qué
+// búsqueda se acreditó, sólo como dato. Las FK las agrega la migración 000028.
+type PetHelperCredit struct {
+	ID           uuid.UUID  `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+	PetID        uuid.UUID  `gorm:"type:uuid;not null;uniqueIndex:ux_pet_helper_credits_pet_helper" json:"pet_id"`
+	EpisodeID    *uuid.UUID `gorm:"type:uuid" json:"episode_id,omitempty"`
+	HelperUserID uuid.UUID  `gorm:"type:uuid;not null;uniqueIndex:ux_pet_helper_credits_pet_helper;index" json:"helper_user_id"`
+	CreditedBy   uuid.UUID  `gorm:"type:uuid;not null" json:"credited_by"`
+	CreditedAt   time.Time  `gorm:"autoCreateTime" json:"credited_at"`
+}
+
+// HelperCandidate es quien puede ser acreditado como ayudante: dejó al menos un
+// reporte sobre la mascota durante la búsqueda actual. Sólo lo que el selector
+// necesita mostrar — nunca email ni teléfono.
+type HelperCandidate struct {
+	ID              uuid.UUID
+	Name            string
+	ProfilePhotoURL string
+}
+
 // Photo representa una foto de mascota
 type Photo struct {
 	ID         uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`

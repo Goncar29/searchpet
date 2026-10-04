@@ -173,6 +173,7 @@ var Models = []interface{}{
 	&domain.Vet{},
 	&domain.AdminAuditLog{},
 	&domain.ConversationHide{},
+	&domain.PetHelperCredit{},
 }
 
 // migrate crea o actualiza las tablas en base a los structs de dominio
