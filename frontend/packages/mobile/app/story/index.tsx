@@ -70,9 +70,6 @@ export default function StoriesScreen() {
         renderItem={renderItem}
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
-        ListHeaderComponent={
-          <Text style={styles.sectionTitle}>{t('story:title')}</Text>
-        }
         ListEmptyComponent={
           <View style={styles.empty}>
             <View style={{ marginBottom: 12 }}><PawPlaceholder size={56} /></View>
@@ -100,14 +97,6 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.md,
   },
   retryButtonText: { color: COLORS.white, fontWeight: '700', fontSize: FONTS.sizes.sm },
-  sectionTitle: {
-    fontSize: FONTS.sizes.xl,
-    fontWeight: '700',
-    color: COLORS.textPrimary,
-    paddingHorizontal: SPACING.lg,
-    paddingTop: SPACING.lg,
-    paddingBottom: SPACING.md,
-  },
   list: { paddingBottom: 100 },
   card: {
     backgroundColor: COLORS.white,

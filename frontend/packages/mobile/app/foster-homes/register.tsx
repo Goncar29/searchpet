@@ -130,7 +130,6 @@ export default function RegisterFosterHomeScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.title}>{t('fosterHomes:register.title')}</Text>
       <Text style={styles.intro}>{t('fosterHomes:register.intro')}</Text>
 
       {!emailVerified ? (
@@ -286,12 +285,6 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background,
   },
   content: { padding: SPACING.lg, paddingBottom: SPACING.xxl },
-  title: {
-    fontSize: FONTS.sizes.xl,
-    fontWeight: '700',
-    color: COLORS.textPrimary,
-    marginBottom: SPACING.xs,
-  },
   intro: {
     fontSize: FONTS.sizes.sm,
     color: COLORS.textSecondary,

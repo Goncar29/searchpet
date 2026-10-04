@@ -45,7 +45,6 @@ export default function GoogleLocationScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>{t('location.title')}</Text>
       <Text style={styles.subtitle}>{t('location.subtitle')}</Text>
 
       <TouchableOpacity
@@ -74,12 +73,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: SPACING.xl,
     backgroundColor: COLORS.background,
-  },
-  title: {
-    fontSize: FONTS.sizes.xl,
-    fontWeight: '700',
-    color: COLORS.textPrimary,
-    marginBottom: SPACING.sm,
   },
   subtitle: {
     fontSize: FONTS.sizes.md,

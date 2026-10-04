@@ -20,8 +20,8 @@ import { View } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import * as Notifications from 'expo-notifications';
-import i18next from 'i18next';
 import { useAuthStore } from '../store';
 import { COLORS } from '../constants';
 import { configureNotificationHandler } from '../utils/notifications';
@@ -42,6 +42,8 @@ export default function RootLayout() {
   const loadToken = useAuthStore((state) => state.loadToken);
   const router = useRouter();
   const [isReady, setIsReady] = useState(false);
+  // Subscribes the layout to the language: the native titles below are read in render.
+  const { t } = useTranslation();
 
   useEffect(() => {
     setIsReady(true);
@@ -104,99 +106,99 @@ export default function RootLayout() {
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen
           name="login"
-          options={{ title: i18next.t('profile:loginButton'), presentation: 'modal' }}
+          options={{ title: t('profile:loginButton'), presentation: 'modal' }}
         />
         <Stack.Screen
           name="register"
-          options={{ title: i18next.t('profile:createAccount'), presentation: 'modal' }}
+          options={{ title: t('profile:createAccount'), presentation: 'modal' }}
         />
         <Stack.Screen
           name="forgot-password"
-          options={{ title: i18next.t('auth:forgotPassword.title'), presentation: 'modal' }}
+          options={{ title: t('auth:forgotPassword.title'), presentation: 'modal' }}
         />
         <Stack.Screen
           name="pet/[id]"
-          options={{ title: i18next.t('pet_detail:loading') }}
+          options={{ title: t('pet_detail:loading') }}
         />
         <Stack.Screen
           name="chat/[userId]"
-          options={{ title: i18next.t('tabs:messages') }}
+          options={{ title: t('tabs:messages') }}
         />
         <Stack.Screen
           name="my-pets"
-          options={{ title: i18next.t('my_pets:title') }}
+          options={{ title: t('my_pets:title') }}
         />
         <Stack.Screen
           name="adopt"
-          options={{ title: i18next.t('adoption:section.title') }}
+          options={{ title: t('adoption:section.title') }}
         />
         <Stack.Screen
           name="pets/register"
-          options={{ title: i18next.t('post:title') }}
+          options={{ title: t('post:title') }}
         />
         <Stack.Screen
           name="alerts/index"
-          options={{ title: i18next.t('alerts:title') }}
+          options={{ title: t('alerts:title') }}
         />
         <Stack.Screen
           name="badges/index"
-          options={{ title: i18next.t('profile:menuBadges') }}
+          options={{ title: t('profile:menuBadges') }}
         />
         <Stack.Screen
           name="leaderboard/index"
-          options={{ title: i18next.t('leaderboard:title') }}
+          options={{ title: t('leaderboard:title') }}
         />
         <Stack.Screen
           name="users/[id]"
-          options={{ title: i18next.t('profile:title') }}
+          options={{ title: t('profile:title') }}
         />
         <Stack.Screen
           name="groups/index"
-          options={{ title: i18next.t('groups:title') }}
+          options={{ title: t('groups:title') }}
         />
         <Stack.Screen
           name="groups/[id]"
-          options={{ title: i18next.t('groups:groupDetail') }}
+          options={{ title: t('groups:groupDetail') }}
         />
         <Stack.Screen
           name="blocked-users"
-          options={{ title: i18next.t('blocked_users:title') }}
+          options={{ title: t('blocked_users:title') }}
         />
         <Stack.Screen
           name="story/create"
-          options={{ title: i18next.t('story:createTitle'), presentation: 'modal' }}
+          options={{ title: t('story:createTitle'), presentation: 'modal' }}
         />
         <Stack.Screen
           name="foster-homes/index"
-          options={{ title: i18next.t('fosterHomes:directory.title') }}
+          options={{ title: t('fosterHomes:directory.title') }}
         />
         <Stack.Screen
           name="foster-homes/mine"
-          options={{ title: i18next.t('fosterHomes:mine.title') }}
+          options={{ title: t('fosterHomes:mine.title') }}
         />
         <Stack.Screen
           name="foster-homes/register"
-          options={{ title: i18next.t('fosterHomes:register.title') }}
+          options={{ title: t('fosterHomes:register.title') }}
         />
         <Stack.Screen
           name="foster-home/[id]"
-          options={{ title: i18next.t('fosterHomes:detail.title') }}
+          options={{ title: t('fosterHomes:detail.title') }}
         />
         <Stack.Screen
           name="edit-profile"
-          options={{ title: i18next.t('profile:editProfile.title') }}
+          options={{ title: t('profile:editProfile.title') }}
         />
         <Stack.Screen
           name="story/index"
-          options={{ title: i18next.t('story:title') }}
+          options={{ title: t('story:title') }}
         />
         <Stack.Screen
           name="story/[id]"
-          options={{ title: i18next.t('story:title') }}
+          options={{ title: t('story:title') }}
         />
         <Stack.Screen
           name="google-location"
-          options={{ title: i18next.t('auth:location.title') }}
+          options={{ title: t('auth:location.title') }}
         />
         <Stack.Screen name="shelters/index" options={{ headerShown: false }} />
       </Stack>

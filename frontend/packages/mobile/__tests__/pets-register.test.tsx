@@ -30,7 +30,7 @@ describe('RegisterPetScreen', () => {
     fireEvent.press(getByText('post:submit'));
     // Alert is a no-op under the jest-expo preset — assert the validation guard blocked the submit.
     expect(mockCreatePetMutateAsync).not.toHaveBeenCalled();
-    expect(getByText('post:title')).toBeTruthy();
+    expect(getByText('post:nameLabel')).toBeTruthy();
   });
 });
 const TYPE_ICONS = ['dog', 'cat', 'bird', 'pets'];

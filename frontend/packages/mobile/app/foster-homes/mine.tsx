@@ -259,8 +259,6 @@ export default function MyFosterHomeScreen() {
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <StaleDataNotice query={mineQuery} />
 
-      <Text style={styles.title}>{t('fosterHomes:mine.title')}</Text>
-
       {/* Status banner */}
       <View style={[styles.statusCard, { borderColor: STATUS_COLORS[status] }]}>
         <Text style={[styles.statusLabel, { color: STATUS_COLORS[status] }]}>
@@ -463,12 +461,6 @@ const styles = StyleSheet.create({
     padding: SPACING.lg,
   },
   content: { padding: SPACING.lg, paddingBottom: SPACING.xxl },
-  title: {
-    fontSize: FONTS.sizes.xl,
-    fontWeight: '700',
-    color: COLORS.textPrimary,
-    marginBottom: SPACING.md,
-  },
   emptyTitle: {
     fontSize: FONTS.sizes.lg,
     fontWeight: '700',

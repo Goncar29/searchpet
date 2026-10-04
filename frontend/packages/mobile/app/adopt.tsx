@@ -51,11 +51,11 @@ export default function AdoptScreen() {
 
   const renderHeader = () => (
     <View>
-      <View style={styles.header}>
+      <View testID="adopt-header" style={styles.header}>
         <Text style={styles.subtitle}>{t('adoption:section.subtitle')}</Text>
       </View>
 
-      <View style={styles.filterCard}>
+      <View testID="adopt-filter-card" style={styles.filterCard}>
         <TextInput
           style={styles.cityInput}
           placeholder={t('adoption:section.cityPlaceholder')}
@@ -108,7 +108,7 @@ export default function AdoptScreen() {
       </View>
 
       {total != null && (
-        <Text style={styles.resultCount}>
+        <Text testID="adopt-result-count" style={styles.resultCount}>
           {t('adoption:section.resultCount', { count: total })}
         </Text>
       )}
@@ -130,7 +130,7 @@ export default function AdoptScreen() {
         // spinner vivía en `ListEmptyComponent` debajo del header. Dejarlos
         // afuera se los llevaría en cada apertura de la pantalla.
         loading={
-          <View>
+          <View testID="adopt-loading" style={styles.loadingWrap}>
             {renderHeader()}
             <View style={styles.center}>
               <ActivityIndicator size="large" color={COLORS.primary} />
@@ -173,9 +173,11 @@ export default function AdoptScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
   center: { paddingVertical: SPACING.xxl * 2, alignItems: 'center' },
+  // The loading branch renders outside the FlatList, so it supplies the same
+  // horizontal inset the list content container gives everything else.
+  loadingWrap: { paddingHorizontal: SPACING.lg },
 
   header: {
-    paddingHorizontal: SPACING.lg,
     paddingTop: SPACING.md,
     paddingBottom: SPACING.sm,
   },
@@ -184,7 +186,6 @@ const styles = StyleSheet.create({
   // ── Filtros ──
   filterCard: {
     backgroundColor: COLORS.white,
-    marginHorizontal: SPACING.lg,
     marginBottom: SPACING.md,
     padding: SPACING.md,
     borderRadius: RADIUS.lg,
@@ -240,7 +241,6 @@ const styles = StyleSheet.create({
     fontSize: FONTS.sizes.md,
     fontWeight: '700',
     color: COLORS.textPrimary,
-    paddingHorizontal: SPACING.lg,
     marginBottom: SPACING.sm,
   },
 
