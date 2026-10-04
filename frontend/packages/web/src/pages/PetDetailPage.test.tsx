@@ -5,9 +5,27 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { HelmetProvider } from 'react-helmet-async';
 import { PetDetailPage } from './PetDetailPage';
 import type { Pet, Photo } from '@shared/types';
+import { ApiError } from '@shared/api/client';
 
-vi.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (key: string) => key, i18n: { language: 'es' } }),
+// `t` devuelve la clave, salvo `errors:*`, que se resuelve contra el es.json
+// REAL (ver MyPetsPage.test.tsx): sin eso `getErrorMessage` no distingue una
+// clave traducida de una ausente y cae siempre al mensaje genérico.
+vi.mock('react-i18next', async () => {
+  const es = (await import('@shared/i18n/locales/es.json')).default as {
+    errors: Record<string, string>;
+  };
+  const t = (key: string) =>
+    key.startsWith('errors:') ? (es.errors[key.slice('errors:'.length)] ?? key) : key;
+  return { useTranslation: () => ({ t, i18n: { language: 'es' } }) };
+});
+
+const found = vi.hoisted(() => ({
+  // Por defecto el servidor acepta: dispara `onSuccess`, como el mock viejo.
+  mutate: vi.fn(
+    (_vars: unknown, opts?: { onSuccess?: () => void; onError?: (e: unknown) => void }) =>
+      opts?.onSuccess?.(),
+  ),
+  candidates: [] as { id: string; name: string }[],
 }));
 
 // Auth + pet are configurable per test (logged-out finder is the default).
@@ -44,7 +62,17 @@ vi.mock('@shared/hooks', () => ({
     error: reportsState.isError ? new Error('boom') : null,
     refetch: vi.fn(),
   }),
-  useMarkPetAsFound: () => ({ mutate: (_id: string, opts?: { onSuccess?: () => void }) => opts?.onSuccess?.() }),
+  useMarkPetAsFound: () => ({ mutate: found.mutate, isPending: false }),
+  useHelperCandidates: () => ({
+    data: found.candidates,
+    isPending: false,
+    isFetching: false,
+    isLoading: false,
+    isPaused: false,
+    isError: false,
+    error: null,
+    refetch: vi.fn(),
+  }),
   useSubmitAbuseReport: () => ({ mutate: vi.fn() }),
 }));
 
@@ -346,6 +374,96 @@ describe('PetDetailPage — found story nudge', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /foundNudgeDismiss/i }));
     expect(screen.queryByText('pets:detail.foundNudgeTitle')).toBeNull();
+  });
+});
+
+// ── Puerta 2: PATCH /api/pets/:id/found ───────────────────────────────────
+// Marcar encontrada acredita a quienes ayudaron; el dueño contesta antes.
+describe('PetDetailPage — marcar encontrada pregunta quién ayudó', () => {
+  beforeEach(() => {
+    authState.isAuthenticated = true;
+    authState.user = { id: 'owner-1' };
+    petResult = { data: lostPetWithOwner({ status: 'lost' }), isLoading: false };
+    found.mutate.mockClear();
+    found.candidates = [];
+  });
+
+  const abrirConfirmacion = () =>
+    fireEvent.click(screen.getByRole('button', { name: /pets:detail.markFound$/ }));
+
+  it('con candidatos abre el selector y NO manda el PATCH todavia', () => {
+    found.candidates = [{ id: 'u-ana', name: 'Ana' }];
+    render(<PetDetailPage />, { wrapper });
+
+    abrirConfirmacion();
+
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(screen.getByRole('checkbox', { name: 'Ana' })).toBeInTheDocument();
+    expect(found.mutate).not.toHaveBeenCalled();
+  });
+
+  it('manda los ids elegidos', () => {
+    found.candidates = [
+      { id: 'u-ana', name: 'Ana' },
+      { id: 'u-beto', name: 'Beto' },
+    ];
+    render(<PetDetailPage />, { wrapper });
+    abrirConfirmacion();
+
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Beto' }));
+    fireEvent.click(screen.getByRole('button', { name: 'common:confirm' }));
+
+    expect(found.mutate).toHaveBeenCalledTimes(1);
+    expect(found.mutate.mock.calls[0][0]).toEqual({ id: 'pet-123', helperIds: ['u-beto'] });
+  });
+
+  it('"nadie me ayudo" manda una lista vacia', () => {
+    found.candidates = [{ id: 'u-ana', name: 'Ana' }];
+    render(<PetDetailPage />, { wrapper });
+    abrirConfirmacion();
+
+    fireEvent.click(screen.getByRole('checkbox', { name: 'pets:helpers.nobody' }));
+    fireEvent.click(screen.getByRole('button', { name: 'common:confirm' }));
+
+    expect(found.mutate.mock.calls[0][0]).toEqual({ id: 'pet-123', helperIds: [] });
+  });
+
+  it('sin candidatos confirma como antes: helperIds undefined', () => {
+    render(<PetDetailPage />, { wrapper });
+    abrirConfirmacion();
+
+    fireEvent.click(screen.getByRole('button', { name: 'common:confirm' }));
+
+    expect(found.mutate.mock.calls[0][0]).toEqual({ id: 'pet-123', helperIds: undefined });
+  });
+
+  it('un 400 invalid_helpers se muestra traducido y el modal sigue abierto (sin nudge)', () => {
+    found.candidates = [{ id: 'u-ana', name: 'Ana' }];
+    found.mutate.mockImplementationOnce(
+      (_v: unknown, opts?: { onError?: (e: unknown) => void }) =>
+        opts?.onError?.(new ApiError('invalid_helpers', 400, 'x')),
+    );
+    render(<PetDetailPage />, { wrapper });
+    abrirConfirmacion();
+
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Ana' }));
+    fireEvent.click(screen.getByRole('button', { name: 'common:confirm' }));
+
+    expect(screen.getByRole('dialog')).toHaveTextContent(
+      'Alguna de las personas elegidas no puede recibir el crédito.',
+    );
+    expect(screen.queryByText('pets:detail.foundNudgeTitle')).toBeNull();
+  });
+
+  it('cancelar cierra el modal sin mandar nada', () => {
+    found.candidates = [{ id: 'u-ana', name: 'Ana' }];
+    render(<PetDetailPage />, { wrapper });
+    abrirConfirmacion();
+
+    fireEvent.click(screen.getByRole('button', { name: 'common:cancel' }));
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(found.mutate).not.toHaveBeenCalled();
   });
 });
 

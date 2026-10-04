@@ -10,6 +10,7 @@ import { Icon } from '../components/Icon';
 import { selectableStatuses } from '@shared/utils/petStatusTransitions';
 import { splitOwnedPets } from '@shared/utils/ownedPetBuckets';
 import { ListState } from '../components/list/ListState';
+import { HelperPickerModal } from '../components/HelperPickerModal';
 
 function SkeletonCard() {
   return (
@@ -82,12 +83,38 @@ function PetCard({
     if (next !== pet.status) setPendingStatus(next);
   };
 
+  const [foundError, setFoundError] = useState<string | null>(null);
+
   const confirmStatusChange = () => {
     if (!pendingStatus) return;
     updatePet.mutate(
       { id: pet.id, data: { status: pendingStatus } },
       { onSettled: () => setPendingStatus(null) },
     );
+  };
+
+  // Pasar a `found` acredita a quienes ayudaron, y eso lo decide el dueño: se
+  // pregunta ANTES del PUT (el backend rechaza con 400 si hay candidatos y no
+  // se contestó). `undefined` = no había candidatos, así que el pedido no
+  // lleva `helper_ids` y queda igual que antes.
+  const confirmFound = (helperIds: string[] | undefined) => {
+    setFoundError(null);
+    updatePet.mutate(
+      {
+        id: pet.id,
+        data: helperIds === undefined ? { status: 'found' } : { status: 'found', helper_ids: helperIds },
+      },
+      {
+        onSuccess: () => setPendingStatus(null),
+        // Se queda abierto: cerrarlo ante el fallo tiraría la selección del dueño.
+        onError: (err) => setFoundError(getErrorMessage(err, t)),
+      },
+    );
+  };
+
+  const cancelFound = () => {
+    setPendingStatus(null);
+    setFoundError(null);
   };
 
   return (
@@ -180,8 +207,20 @@ function PetCard({
             ))}
           </select>
 
+          {/* Encontrada: modal que pregunta quién ayudó (regla de ayudantes). */}
+          {pendingStatus === 'found' && (
+            <HelperPickerModal
+              petId={pet.id}
+              petName={pet.name}
+              loading={updatePet.isPending}
+              error={foundError}
+              onConfirm={confirmFound}
+              onCancel={cancelFound}
+            />
+          )}
+
           {/* Status change confirmation */}
-          {pendingStatus && (
+          {pendingStatus && pendingStatus !== 'found' && (
             <div className="flex gap-2 p-2 bg-amber-50 dark:bg-amber-950 rounded-lg border border-amber-200 dark:border-amber-800">
               <button
                 onClick={confirmStatusChange}

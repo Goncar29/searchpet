@@ -7,12 +7,27 @@ import { MyPetsPage } from './MyPetsPage';
 import { useMyPets } from '@shared/hooks';
 import type { Pet, PetStatus } from '@shared/types';
 import { drawnPaths, iconPath, EMOJI } from '../test/icons';
+import { ApiError } from '@shared/api/client';
 
-const state = vi.hoisted(() => ({ owned: [] as Pet[], reported: [] as Pet[] }));
-
-vi.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (key: string) => key, i18n: { language: 'es' } }),
+const state = vi.hoisted(() => ({
+  owned: [] as Pet[],
+  reported: [] as Pet[],
+  updateMutate: vi.fn(),
+  candidates: [] as { id: string; name: string }[],
 }));
+
+// `t` devuelve la clave, salvo para `errors:*`: esas se resuelven contra el
+// es.json REAL. Con la clave devuelta tal cual, `getErrorMessage` no puede
+// distinguir "traducida" de "sin traducción" y cae siempre al genérico — y
+// además un código nuevo sin entrada en el locale pasaría desapercibido.
+vi.mock('react-i18next', async () => {
+  const es = (await import('@shared/i18n/locales/es.json')).default as {
+    errors: Record<string, string>;
+  };
+  const t = (key: string) =>
+    key.startsWith('errors:') ? (es.errors[key.slice('errors:'.length)] ?? key) : key;
+  return { useTranslation: () => ({ t, i18n: { language: 'es' } }) };
+});
 
 vi.mock('react-router', async (importOriginal) => {
   const actual = await importOriginal<typeof import('react-router')>();
@@ -26,7 +41,17 @@ vi.mock('@shared/hooks', () => ({
   useMyPets: vi.fn(),
   useReportedPets: () => ({ data: state.reported, isLoading: false }),
   useDeletePet: () => ({ mutate: vi.fn(), isPending: false }),
-  useUpdatePet: () => ({ mutate: vi.fn(), isPending: false }),
+  useUpdatePet: () => ({ mutate: state.updateMutate, isPending: false }),
+  useHelperCandidates: () => ({
+    data: state.candidates,
+    isPending: false,
+    isFetching: false,
+    isLoading: false,
+    isPaused: false,
+    isError: false,
+    error: null,
+    refetch: vi.fn(),
+  }),
 }));
 
 function makePet(status: PetStatus): Pet {
@@ -71,6 +96,8 @@ describe('MyPetsPage', () => {
   beforeEach(() => {
     state.owned = [];
     state.reported = [];
+    state.candidates = [];
+    state.updateMutate.mockReset();
     // `mockImplementation` y no `mockReturnValue`: tiene que leer `state.owned`
     // en cada llamada, porque los tests reasignan `state.owned` DESPUÉS de este
     // `beforeEach` — con `mockReturnValue` quedaría pegado al array vacío inicial.
@@ -240,5 +267,109 @@ describe('MyPetsPage', () => {
     render(<MyPetsPage />, { wrapper });
     expect(screen.getByText('pets:mine.empty')).toBeInTheDocument();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  // ── Puerta 1: pasar a `found` por el selector de estado ───────────────────
+  // El dueño tiene que decir quién ayudó ANTES de que se mande el PUT. El
+  // backend lo exige (400 helper_ids_required), así que sin el picker la
+  // pantalla quedaba muda ante un rechazo.
+  describe('selector de estado → encontrada (acredita ayudantes)', () => {
+    const elegirEncontrada = () => {
+      fireEvent.change(screen.getByTestId('status-select'), { target: { value: 'found' } });
+    };
+
+    beforeEach(() => {
+      state.owned = [makePet('lost')];
+    });
+
+    it('abre el selector de ayudantes y NO manda el PUT todavia', () => {
+      state.candidates = [{ id: 'u-ana', name: 'Ana' }];
+      render(<MyPetsPage />, { wrapper });
+
+      elegirEncontrada();
+
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
+      expect(screen.getByRole('checkbox', { name: 'Ana' })).toBeInTheDocument();
+      expect(state.updateMutate).not.toHaveBeenCalled();
+    });
+
+    it('manda los ids elegidos junto al status', () => {
+      state.candidates = [{ id: 'u-ana', name: 'Ana' }];
+      render(<MyPetsPage />, { wrapper });
+      elegirEncontrada();
+
+      fireEvent.click(screen.getByRole('checkbox', { name: 'Ana' }));
+      fireEvent.click(screen.getByRole('button', { name: 'common:confirm' }));
+
+      expect(state.updateMutate).toHaveBeenCalledTimes(1);
+      expect(state.updateMutate.mock.calls[0][0]).toEqual({
+        id: 'pet-lost',
+        data: { status: 'found', helper_ids: ['u-ana'] },
+      });
+    });
+
+    it('"nadie me ayudo" manda helper_ids vacio', () => {
+      state.candidates = [{ id: 'u-ana', name: 'Ana' }];
+      render(<MyPetsPage />, { wrapper });
+      elegirEncontrada();
+
+      fireEvent.click(screen.getByRole('checkbox', { name: 'pets:helpers.nobody' }));
+      fireEvent.click(screen.getByRole('button', { name: 'common:confirm' }));
+
+      expect(state.updateMutate.mock.calls[0][0]).toEqual({
+        id: 'pet-lost',
+        data: { status: 'found', helper_ids: [] },
+      });
+    });
+
+    it('sin candidatos confirma como antes: sin helper_ids en el pedido', () => {
+      render(<MyPetsPage />, { wrapper });
+      elegirEncontrada();
+
+      fireEvent.click(screen.getByRole('button', { name: 'common:confirm' }));
+
+      const [vars] = state.updateMutate.mock.calls[0];
+      expect(vars).toEqual({ id: 'pet-lost', data: { status: 'found' } });
+      expect('helper_ids' in vars.data).toBe(false);
+    });
+
+    it('un 400 helper_ids_required se muestra traducido dentro del modal, que sigue abierto', () => {
+      render(<MyPetsPage />, { wrapper });
+      elegirEncontrada();
+      state.updateMutate.mockImplementation(
+        (_vars: unknown, opts?: { onError?: (e: unknown) => void }) =>
+          opts?.onError?.(new ApiError('helper_ids_required', 400, 'x')),
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: 'common:confirm' }));
+
+      expect(screen.getByRole('dialog')).toHaveTextContent(
+        'Tenés que indicar quién te ayudó, o elegir "Nadie me ayudó".',
+      );
+    });
+
+    it('cancelar cierra el modal sin mandar nada', () => {
+      state.candidates = [{ id: 'u-ana', name: 'Ana' }];
+      render(<MyPetsPage />, { wrapper });
+      elegirEncontrada();
+
+      fireEvent.click(screen.getByRole('button', { name: 'common:cancel' }));
+
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      expect(state.updateMutate).not.toHaveBeenCalled();
+    });
+
+    it('otros estados siguen con la confirmacion en linea, sin picker', () => {
+      render(<MyPetsPage />, { wrapper });
+
+      fireEvent.change(screen.getByTestId('status-select'), { target: { value: 'archived' } });
+
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: 'common:confirm' }));
+      expect(state.updateMutate.mock.calls[0][0]).toEqual({
+        id: 'pet-lost',
+        data: { status: 'archived' },
+      });
+    });
   });
 });

@@ -11,6 +11,7 @@ import { FormSection } from '../components/form/FormSection';
 import { FormField } from '../components/form/FormField';
 import { FormActions, formSubmitClass } from '../components/form/FormActions';
 import { ListState } from '../components/list/ListState';
+import { HelperPickerModal } from '../components/HelperPickerModal';
 import type { Pet, ReportStatus } from '@shared/types';
 import { getErrorMessage } from '@shared/utils/apiErrors';
 import { canManagePet } from '@shared/utils/petAuthorization';
@@ -200,12 +201,27 @@ export function CreateReportPage() {
     return Object.keys(errors).length === 0;
   };
 
+  // Un reporte `found` pasa la mascota a encontrada y acredita a quienes
+  // ayudaron: el dueño contesta quién (o "nadie") ANTES de crear el reporte.
+  const [preguntandoAyudantes, setPreguntandoAyudantes] = useState(false);
+  const [helperError, setHelperError] = useState<string | null>(null);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setApiError(null);
 
     if (!validate() || !coord) return;
 
+    if (statusEfectivo === 'found') {
+      setPreguntandoAyudantes(true);
+      return;
+    }
+    enviarReporte(coord, undefined);
+  };
+
+  // `helperIds === undefined` (no había candidatos) NO manda la clave: el
+  // pedido queda igual que antes del selector.
+  const enviarReporte = (coord: LatLng, helperIds: string[] | undefined) => {
     createReport.mutate(
       {
         pet_id: petId,
@@ -214,6 +230,7 @@ export function CreateReportPage() {
         longitude: coord.lng,
         location_description: description.trim() || undefined,
         occurred_at: calendarDayToISO(date),
+        ...(helperIds !== undefined ? { helper_ids: helperIds } : {}),
       },
       {
         onSuccess: (report) => {
@@ -267,7 +284,13 @@ export function CreateReportPage() {
           navigate(`/pets/${petId}`, { replace: true });
         },
         onError: (err) => {
-          setApiError(getErrorMessage(err, t));
+          // Con el selector abierto el error va DENTRO del modal (que sigue
+          // abierto para no tirar lo elegido); si no, en el formulario.
+          if (preguntandoAyudantes) {
+            setHelperError(getErrorMessage(err, t));
+          } else {
+            setApiError(getErrorMessage(err, t));
+          }
         },
       }
     );
@@ -562,6 +585,23 @@ export function CreateReportPage() {
           }
         />
       </form>
+
+      {preguntandoAyudantes && coord && (
+        <HelperPickerModal
+          petId={petId}
+          petName={petElegida?.name ?? ''}
+          loading={createReport.isPending}
+          error={helperError}
+          onConfirm={(helperIds) => {
+            setHelperError(null);
+            enviarReporte(coord, helperIds);
+          }}
+          onCancel={() => {
+            setPreguntandoAyudantes(false);
+            setHelperError(null);
+          }}
+        />
+      )}
     </FormPage>
   );
 }

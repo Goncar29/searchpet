@@ -3,6 +3,7 @@ import { render, screen, fireEvent, act } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { CreateReportPage } from './CreateReportPage';
+import { ApiError } from '@shared/api/client';
 
 // owner_id ata la mascota al usuario logueado: estos tests describen al DUEÑO
 // publicando la suya. Sin dueño, canManagePet da false y el formulario solo
@@ -21,8 +22,11 @@ const mocks = vi.hoisted(() => ({
   // secas, que no es el contrato de React Query (onSuccess(data, vars, ctx)) —
   // un arnes mas indulgente que el hook real: el componente pasó a leer
   // `report.id` y nada lo habria advertido hasta produccion.
-  mutate: vi.fn((_vars: unknown, opts?: { onSuccess?: (r: { id: string }) => void }) =>
-    opts?.onSuccess?.({ id: 'report-1' })
+  mutate: vi.fn(
+    (
+      _vars: Record<string, unknown>,
+      opts?: { onSuccess?: (r: { id: string }) => void; onError?: (e: unknown) => void },
+    ) => opts?.onSuccess?.({ id: 'report-1' }),
   ),
   // Registra las llamadas a setSearchParams para poder afirmar el `replace`,
   // que es la mitad del arreglo del doble reporte.
@@ -36,15 +40,25 @@ const mocks = vi.hoisted(() => ({
   rendersCargando: 0,
   myPetsVacio: false,
   myPetsError: false,
+  // Personas que reportaron sobre la mascota (candidatos a ayudante).
+  candidates: [] as { id: string; name: string }[],
 }));
 
 vi.mock('../context/AuthContext', () => ({
   useAuth: () => ({ user: { id: USER_ID, name: 'Carlos' }, isAuthenticated: true }),
 }));
 
-vi.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (key: string) => key, i18n: { language: 'es' } }),
-}));
+// `t` devuelve la clave, salvo `errors:*`, que se resuelve contra el es.json
+// REAL (ver MyPetsPage.test.tsx): sin eso `getErrorMessage` no distingue una
+// clave traducida de una ausente y cae siempre al mensaje genérico.
+vi.mock('react-i18next', async () => {
+  const es = (await import('@shared/i18n/locales/es.json')).default as {
+    errors: Record<string, string>;
+  };
+  const t = (key: string) =>
+    key.startsWith('errors:') ? (es.errors[key.slice('errors:'.length)] ?? key) : key;
+  return { useTranslation: () => ({ t, i18n: { language: 'es' } }) };
+});
 
 vi.mock('react-router', async (importOriginal) => {
   const actual = await importOriginal<typeof import('react-router')>();
@@ -117,6 +131,16 @@ vi.mock('@shared/hooks', () => ({
     refetch: vi.fn(),
   }),
   useCreateReport: () => ({ mutate: mocks.mutate, mutateAsync: vi.fn(), isPending: false }),
+  useHelperCandidates: () => ({
+    data: mocks.candidates,
+    isPending: false,
+    isFetching: false,
+    isLoading: false,
+    isPaused: false,
+    isError: false,
+    error: null,
+    refetch: vi.fn(),
+  }),
 }));
 
 function wrapper({ children }: { children: React.ReactNode }) {
@@ -152,6 +176,7 @@ beforeEach(() => {
   mocks.rendersCargando = 0;
   mocks.myPetsVacio = false;
   mocks.myPetsError = false;
+  mocks.candidates = [];
 });
 
 describe('CreateReportPage', () => {
@@ -245,8 +270,117 @@ describe('CreateReportPage — despues de publicar como perdida', () => {
     render(<CreateReportPage />, { wrapper });
     marcarUbicacion();
     enviar();
+    // Marcar encontrada pregunta quien ayudo antes de enviar; sin candidatos
+    // es una confirmacion simple.
+    fireEvent.click(screen.getByRole('button', { name: 'common:confirm' }));
 
     expect(mocks.navigate).toHaveBeenCalledWith('/pets/pet-1', { replace: true });
+  });
+
+  // ── Puerta 3: un reporte `found` acredita a quienes ayudaron ──────────────
+  // El backend exige la respuesta cuando hay candidatos (400
+  // helper_ids_required), asi que el envio se frena hasta que el dueno conteste.
+  describe('reporte found → selector de ayudantes', () => {
+    beforeEach(() => {
+      mocks.search = 'petId=pet-1&status=found';
+    });
+
+    it('enviar abre el selector y NO crea el reporte todavia', () => {
+      mocks.candidates = [{ id: 'u-ana', name: 'Ana' }];
+      render(<CreateReportPage />, { wrapper });
+      marcarUbicacion();
+      enviar();
+
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
+      expect(screen.getByRole('checkbox', { name: 'Ana' })).toBeInTheDocument();
+      expect(mocks.mutate).not.toHaveBeenCalled();
+    });
+
+    it('manda helper_ids con los elegidos', () => {
+      mocks.candidates = [
+        { id: 'u-ana', name: 'Ana' },
+        { id: 'u-beto', name: 'Beto' },
+      ];
+      render(<CreateReportPage />, { wrapper });
+      marcarUbicacion();
+      enviar();
+
+      fireEvent.click(screen.getByRole('checkbox', { name: 'Ana' }));
+      fireEvent.click(screen.getByRole('button', { name: 'common:confirm' }));
+
+      expect(mocks.mutate).toHaveBeenCalledTimes(1);
+      expect(mocks.mutate.mock.calls[0][0]).toEqual(
+        expect.objectContaining({ pet_id: 'pet-1', status: 'found', helper_ids: ['u-ana'] }),
+      );
+    });
+
+    it('"nadie me ayudo" manda helper_ids vacio', () => {
+      mocks.candidates = [{ id: 'u-ana', name: 'Ana' }];
+      render(<CreateReportPage />, { wrapper });
+      marcarUbicacion();
+      enviar();
+
+      fireEvent.click(screen.getByRole('checkbox', { name: 'pets:helpers.nobody' }));
+      fireEvent.click(screen.getByRole('button', { name: 'common:confirm' }));
+
+      expect(mocks.mutate.mock.calls[0][0]).toEqual(
+        expect.objectContaining({ status: 'found', helper_ids: [] }),
+      );
+    });
+
+    it('sin candidatos el pedido NO lleva helper_ids', () => {
+      render(<CreateReportPage />, { wrapper });
+      marcarUbicacion();
+      enviar();
+      fireEvent.click(screen.getByRole('button', { name: 'common:confirm' }));
+
+      const [vars] = mocks.mutate.mock.calls[0];
+      expect(vars.status).toBe('found');
+      expect('helper_ids' in vars).toBe(false);
+    });
+
+    it('un 400 helper_ids_required se muestra traducido en el modal, que sigue abierto', () => {
+      mocks.candidates = [{ id: 'u-ana', name: 'Ana' }];
+      mocks.mutate.mockImplementation(
+        (_v: unknown, o?: { onError?: (e: unknown) => void }) =>
+          o?.onError?.(new ApiError('helper_ids_required', 400, 'x')),
+      );
+      render(<CreateReportPage />, { wrapper });
+      marcarUbicacion();
+      enviar();
+
+      fireEvent.click(screen.getByRole('checkbox', { name: 'Ana' }));
+      fireEvent.click(screen.getByRole('button', { name: 'common:confirm' }));
+
+      expect(screen.getByRole('dialog')).toHaveTextContent(
+        'Tenés que indicar quién te ayudó, o elegir "Nadie me ayudó".',
+      );
+      expect(mocks.navigate).not.toHaveBeenCalled();
+    });
+
+    it('cancelar el selector vuelve al formulario sin crear nada', () => {
+      mocks.candidates = [{ id: 'u-ana', name: 'Ana' }];
+      render(<CreateReportPage />, { wrapper });
+      marcarUbicacion();
+      enviar();
+
+      fireEvent.click(screen.getByRole('button', { name: 'common:cancel' }));
+
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      expect(mocks.mutate).not.toHaveBeenCalled();
+    });
+
+    it('lost y sighting NO pasan por el selector', () => {
+      mocks.candidates = [{ id: 'u-ana', name: 'Ana' }];
+      mocks.search = 'petId=pet-1&status=lost';
+      render(<CreateReportPage />, { wrapper });
+      marcarUbicacion();
+      enviar();
+
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      expect(mocks.mutate).toHaveBeenCalledTimes(1);
+      expect('helper_ids' in mocks.mutate.mock.calls[0][0]).toBe(false);
+    });
   });
 
   // ── Regresion: el doble reporte ────────────────────────────────────────────
