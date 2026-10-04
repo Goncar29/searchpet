@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"testing"
-	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -228,31 +227,25 @@ func TestGamificationService_OnReportCreated_DoesNotReAwardFirstHelper(t *testin
 
 // Deliberate behavior change: the owner marking their own pet found used to
 // earn +100 points, found_count and the pet_rescuer / super_finder badges.
-// Now pet.found credits nobody.
+// Now pet.found credits nobody. Deterministic: the guarantee is that gamification
+// registers NO listener (sync or async) for pet.found, so there is nothing to
+// wait for and nothing racing the assertion.
 func TestGamificationService_OnPetFound_CreditsNobody(t *testing.T) {
 	ownerID := uuid.New()
 
-	var mu sync.Mutex
 	var upserts, badgeCreates, badgeChecks int
-
 	badgeRepo := &mockBadgeRepository{
 		hasBadgeFn: func(_ context.Context, _ uuid.UUID, _ string) (bool, error) {
-			mu.Lock()
-			defer mu.Unlock()
 			badgeChecks++
 			return false, nil
 		},
 		createFn: func(_ context.Context, _ *domain.Badge) error {
-			mu.Lock()
-			defer mu.Unlock()
 			badgeCreates++
 			return nil
 		},
 	}
 	pointsRepo := &mockUserPointsRepository{
 		upsertFn: func(_ context.Context, _ uuid.UUID, _ int, _ string) (*domain.UserPoints, error) {
-			mu.Lock()
-			defer mu.Unlock()
 			upserts++
 			return &domain.UserPoints{UserID: ownerID, Points: 100, FoundCount: 5}, nil
 		},
@@ -262,16 +255,12 @@ func TestGamificationService_OnPetFound_CreditsNobody(t *testing.T) {
 	bus := event.NewEventBus()
 	svc.RegisterListeners(bus)
 
-	bus.Publish("pet.found", event.PetFoundEvent{
-		PetID:   uuid.New(),
-		OwnerID: ownerID,
-		PetName: "Firulais",
-	})
+	if bus.HasSubscribers("pet.found") {
+		t.Fatal("gamification must not listen to pet.found: the owner earns nothing for finding their own pet")
+	}
 
-	time.Sleep(300 * time.Millisecond)
+	bus.Publish("pet.found", event.PetFoundEvent{PetID: uuid.New(), OwnerID: ownerID, PetName: "Firulais"})
 
-	mu.Lock()
-	defer mu.Unlock()
 	if upserts != 0 || badgeCreates != 0 || badgeChecks != 0 {
 		t.Fatalf("pet.found must credit nobody: upserts=%d badgeCreates=%d badgeChecks=%d", upserts, badgeCreates, badgeChecks)
 	}

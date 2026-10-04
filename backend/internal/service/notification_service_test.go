@@ -526,3 +526,53 @@ func TestNotificationService_ShelterRejected_PushesOwnerWithReason(t *testing.T)
 		t.Errorf("body should include the rejection reason, got %q", call.body)
 	}
 }
+
+// ============================================================
+// Tests: onPetHelpersCredited
+// ============================================================
+
+// Un push por TOKEN de cada ayudante acreditado, con el tipo y el entityId que
+// la app usa para abrir la mascota. El dueno no recibe nada de este evento.
+func TestNotificationService_OnPetHelpersCredited_PushesEachHelper(t *testing.T) {
+	bus := event.NewEventBus()
+	repo := newMockDeviceTokenRepo()
+	fcm := newMockFCMClient(3)
+
+	helperA, helperB, owner := uuid.New(), uuid.New(), uuid.New()
+	petID := uuid.New()
+	repo.tokens[helperA] = []domain.DeviceToken{{UserID: helperA, Token: "a-android", Platform: "android"}}
+	repo.tokens[helperB] = []domain.DeviceToken{
+		{UserID: helperB, Token: "b-android", Platform: "android"},
+		{UserID: helperB, Token: "b-ios", Platform: "ios"},
+	}
+	repo.tokens[owner] = []domain.DeviceToken{{UserID: owner, Token: "owner-token", Platform: "android"}}
+
+	ns := service.NewNotificationService(fcm, repo)
+	ns.RegisterListeners(bus)
+
+	bus.Publish("pet.helpers_credited", event.PetHelpersCreditedEvent{
+		PetID:     petID,
+		PetName:   "Luna",
+		HelperIDs: []uuid.UUID{helperA, helperB},
+	})
+
+	if !fcm.waitCalls(3, 2*time.Second) {
+		t.Fatal("timeout: esperaba 3 llamadas a SendPush (1 + 2 tokens)")
+	}
+	got := map[string]bool{}
+	for _, c := range fcm.getCalls() {
+		got[c.token] = true
+		if c.data["type"] != "pet.helpers_credited" {
+			t.Errorf("data.type incorrecto: %q", c.data["type"])
+		}
+		if c.data["entityId"] != petID.String() {
+			t.Errorf("data.entityId incorrecto: %q", c.data["entityId"])
+		}
+		if !strings.Contains(c.body, "Luna") {
+			t.Errorf("el cuerpo debe nombrar a la mascota: %q", c.body)
+		}
+	}
+	if len(got) != 3 || !got["a-android"] || !got["b-android"] || !got["b-ios"] || got["owner-token"] {
+		t.Fatalf("tokens notificados incorrectos: %v", got)
+	}
+}
