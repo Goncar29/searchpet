@@ -124,3 +124,14 @@ auditConfig:
     # option anyway. Re-check if the app ever imports query-string or stops
     # using expo-router's linking.
     - GHSA-vcc3-ghjq-m6fr # DoS via exponential decoding
+    # node-forge 1.4.0, via @expo/cli and @react-native/dev-middleware (the dev
+    # server). braces 3.0.3, via micromatch (jest, fast-glob, Metro, Expo CLI).
+    # Neither advisory has a patched release: node-forge stops at 1.4.0 and
+    # braces at 3.0.3, both with first_patched_version null (checked
+    # 2026-10-04), so an override has nothing to point at. Measured that
+    # neither ships: the source map of `expo export --platform android` lists
+    # 1648 modules, with 0 from node-forge, braces, micromatch or selfsigned,
+    # against 114 from react-native-svg and 76 from expo-router as controls.
+    # Replace these with overrides as soon as a fixed version is published.
+    - GHSA-86w9-cpqp-85rv # node-forge: RSA PKCS#1 v1.5 signature malleability
+    - GHSA-vfj7-8cjw-p6xm # braces: stack exhaustion on deeply nested patterns
