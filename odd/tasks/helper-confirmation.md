@@ -74,15 +74,21 @@ found the animal; the owner can.
 
 ## Tasks
 
-- [ ] T1 — Backend: model + migration 000028, candidates query, ConfirmHelpers
+- [x] T1 — Backend: model + migration 000028, candidates query, ConfirmHelpers
   in the three doors, errors, candidates endpoint, credited event + listeners,
-  profile count from credits. Tests against real Postgres. Route: delegated.
+  profile count from credits. Tests against real Postgres. Route: delegated
+  writer (trigger: 2+ non-trivial files, 4+ files to understand). Commits
+  `ec2a92c0` (model, migration, repository), `f654b824` (event listeners,
+  profile count), `060707c1` (the shared function in the three doors,
+  endpoint). Assessed tier and review outcome: pending (parent runs
+  `gentle-ai review assess` per commit).
 - [ ] T2 — Shared: types, client, hooks (`useHelperCandidates`, helper_ids on
   the three mutations), i18n keys. Route: delegated (with T3 or T4).
 - [ ] T3 — Web: picker component + the three paths. Route: delegated.
 - [ ] T4 — Mobile: picker component + the three paths. Route: delegated.
-- [ ] T5 — Replace `OnPetFound_CreditsNobody` sleep with sync dispatch (review
-  suggestion from #313).
+- [x] T5 — Replace `OnPetFound_CreditsNobody` sleep with sync dispatch (review
+  suggestion from #313). Done in `f654b824`: no sleep; asserts gamification
+  registers no `pet.found` listener (`EventBus.HasSubscribers`).
 
 ## Checks
 
@@ -95,7 +101,31 @@ first; mutation proofs must name a failing test.
 
 - 2026-10-04: mapper report; doc created on `feat/helper-confirmation`.
 - 2026-10-04: owner approved the five defaults as written.
+- 2026-10-04: T1 + T5 done by the delegated writer. API: `PUT /pets/:id`
+  (`helper_ids` next to `status`), `PATCH /pets/:id/found` (optional body
+  `{"helper_ids":[...]}`), `POST /reports` (`helper_ids` with status found);
+  400 `helper_ids_required` / `invalid_helpers`; `GET
+  /pets/:id/helper-candidates` -> `[{id,name,profile_photo_url}]` (200 owner or
+  stray reporter, 403 otherwise). Event `pet.helpers_credited`.
+  Evidence: tests were written AFTER the code in this pass, so there is no
+  RED run; the substitute is mutation proofs, each confirmed applied with a
+  numstat and caught by a named test: owner exclusion dropped -> 
+  `TestHelperCreditRepository_FindCandidates` and
+  `.../MarkAsFound/rejects_the_owner`; nil check dropped -> the
+  `nil_list_with_candidates...` subtest of all three doors; MarkAsFound door
+  stops calling the function -> only `.../MarkAsFound/{nil_list...,credits_the_chosen...}`
+  fail; insert returns every chosen id -> `TestHelperCreditRepository_InsertCredits_...`
+  and `TestHelperConfirmation_FoundLostFoundLoopCreditsOnce`; unique index per
+  episode -> the same two tests (found_count 2). Checks, from `backend/`:
+  `go test ./... -count=1 -p 1 -timeout 40m` EXIT=0 (tests pkg 884s),
+  `go test -tags e2e ./tests/e2e/... -count=1 -p 1` EXIT=0, `go vet ./...` and
+  with `-tags e2e` EXIT=0, `govulncheck@v1.8.0` EXIT=0 (0 affecting; 2
+  unreachable). Each commit also vets clean in an isolated worktree.
+  Size: ~330 production lines and ~840 test lines, over the 400 heuristic
+  because three doors times eight cases are tested with real Postgres.
 
 ## Next step
 
-T1 (backend) delegated.
+T2 (shared types, client, hooks, i18n) next. The Spanish copy of the push is
+"¡Ayudaste a reunir a una mascota!" / "Gracias a vos <pet> volvió con su
+familia".
