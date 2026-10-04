@@ -27,6 +27,7 @@ import { useLocationStore } from '../store';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS, PET_TYPES } from '../constants';
 import { Icon, type IconName } from '../components/Icon';
 import { IconLabel } from '../components/IconLabel';
+import { HelperPickerModal } from '../components/HelperPickerModal';
 import type { Pet } from '../../shared/types';
 import { cloudinaryThumb } from '@shared/utils/cloudinaryThumb';
 import { IMAGE_SIZES } from '../constants/imageSizes';
@@ -65,6 +66,16 @@ export default function MyPetsScreen() {
   const markAsFound = useMarkPetAsFound();
   const updatePet = useUpdatePet();
   const { latitude, longitude } = useLocationStore();
+
+  // Turning a pet `found` asks who helped first, and a native Alert cannot host
+  // a list. Two doors lead here: the "found" button (changes the status) and the
+  // "found" option of a report (the backend flips the pet on a `found` report).
+  const [foundPicker, setFoundPicker] = useState<{ pet: Pet; via: 'status' | 'report' } | null>(null);
+  const [foundError, setFoundError] = useState<string | null>(null);
+  const openFoundPicker = (pet: Pet, via: 'status' | 'report') => {
+    setFoundError(null);
+    setFoundPicker({ pet, via });
+  };
 
   const getStatusLabel = (status: string) => {
     switch (status) {
@@ -125,7 +136,7 @@ export default function MyPetsScreen() {
         },
         {
           text: i18next.t('my_pets:reportFoundOption'),
-          onPress: () => submitReport(pet.id, 'found'),
+          onPress: () => openFoundPicker(pet, 'report'),
         },
         {
           text: i18next.t('my_pets:reportSightingOption'),
@@ -135,7 +146,14 @@ export default function MyPetsScreen() {
     );
   };
 
-  const submitReport = async (petId: string, status: 'lost' | 'found' | 'sighting') => {
+  // `helperIds` only travels on a `found` report: undefined = no candidates,
+  // `[]` = the owner said nobody helped. Throws, so each caller decides where
+  // the error goes (an Alert for lost/sighting, the picker for found).
+  const sendReport = async (
+    petId: string,
+    status: 'lost' | 'found' | 'sighting',
+    helperIds?: string[],
+  ) => {
     let lat = latitude || -34.9011;
     let lng = longitude || -56.1645;
 
@@ -145,33 +163,44 @@ export default function MyPetsScreen() {
       lng = loc.coords.longitude;
     } catch {}
 
+    await createReport.mutateAsync({
+      pet_id: petId,
+      status,
+      latitude: lat,
+      longitude: lng,
+      ...(helperIds !== undefined && { helper_ids: helperIds }),
+    });
+  };
+
+  const submitReport = async (petId: string, status: 'lost' | 'sighting') => {
     try {
-      await createReport.mutateAsync({ pet_id: petId, status, latitude: lat, longitude: lng });
+      await sendReport(petId, status);
       Alert.alert(i18next.t('my_pets:reportCreated'), i18next.t('my_pets:reportCreatedText'));
     } catch (err) {
       Alert.alert(i18next.t('common:error'), getErrorMessage(err, (key) => i18next.t(key)));
     }
   };
 
-  const handleMarkAsFound = (pet: Pet) => {
-    Alert.alert(
-      i18next.t('my_pets:markFoundTitle'),
-      i18next.t('my_pets:markFoundConfirm', { name: pet.name }),
-      [
-        { text: i18next.t('common:cancel'), style: 'cancel' },
-        {
-          text: i18next.t('common:confirm'),
-          onPress: async () => {
-            try {
-              await markAsFound.mutateAsync(pet.id);
-            } catch (err: unknown) {
-              Alert.alert(i18next.t('common:error'), getErrorMessage(err, (key) => i18next.t(key)));
-            }
-          },
-        },
-      ]
-    );
+  const confirmFound = async (helperIds: string[] | undefined) => {
+    if (!foundPicker) return;
+    const { pet, via } = foundPicker;
+    try {
+      if (via === 'status') {
+        await markAsFound.mutateAsync({ id: pet.id, helperIds });
+      } else {
+        await sendReport(pet.id, 'found', helperIds);
+      }
+      setFoundPicker(null);
+      if (via === 'report') {
+        Alert.alert(i18next.t('my_pets:reportCreated'), i18next.t('my_pets:reportCreatedText'));
+      }
+    } catch (err: unknown) {
+      // The picker stays open with the selection so the owner can fix it.
+      setFoundError(getErrorMessage(err, (key) => t(key)));
+    }
   };
+
+  const handleMarkAsFound = (pet: Pet) => openFoundPicker(pet, 'status');
 
   const handleMarkAdopted = (pet: Pet) => {
     Alert.alert(
@@ -414,6 +443,17 @@ export default function MyPetsScreen() {
         >
           <Text style={styles.fabIcon}>+</Text>
         </TouchableOpacity>
+      )}
+
+      {foundPicker && (
+        <HelperPickerModal
+          petId={foundPicker.pet.id}
+          petName={foundPicker.pet.name}
+          loading={markAsFound.isPending || createReport.isPending}
+          error={foundError}
+          onConfirm={confirmFound}
+          onCancel={() => setFoundPicker(null)}
+        />
       )}
     </View>
   );

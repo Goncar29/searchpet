@@ -1,7 +1,7 @@
 // My Pets screen smoke test
 import React from 'react';
 import { Alert } from 'react-native';
-import { render, screen, fireEvent } from '@testing-library/react-native';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react-native';
 import MyPetsScreen from '../app/my-pets';
 import { drawnIcons } from './support/icons';
 import { Text } from 'react-native';
@@ -42,6 +42,9 @@ jest.mock('react-i18next', () => {
 const mockUseMyPets = jest.fn();
 const mockUseReportedPets = jest.fn();
 const mockUpdatePetMutateAsync = jest.fn();
+const mockMarkFoundMutateAsync = jest.fn();
+const mockCreateReportMutateAsync = jest.fn();
+const mockUseHelperCandidates = jest.fn();
 
 // Screen imports via relative '../../shared/hooks'; '../../shared/hooks'
 // from this test resolves to the same module.
@@ -50,8 +53,9 @@ jest.mock('../../shared/hooks', () => ({
   useReportedPets: () => mockUseReportedPets(),
   useDeletePet: () => ({ mutateAsync: jest.fn(), isPending: false }),
   useUploadPhotoNative: () => ({ mutateAsync: jest.fn(), isPending: false, variables: undefined }),
-  useCreateReport: () => ({ mutateAsync: jest.fn(), isPending: false }),
-  useMarkPetAsFound: () => ({ mutateAsync: jest.fn(), isPending: false }),
+  useCreateReport: () => ({ mutateAsync: mockCreateReportMutateAsync, isPending: false }),
+  useMarkPetAsFound: () => ({ mutateAsync: mockMarkFoundMutateAsync, isPending: false }),
+  useHelperCandidates: (...args: unknown[]) => mockUseHelperCandidates(...args),
   useUpdatePet: () => ({ mutateAsync: mockUpdatePetMutateAsync, isPending: false }),
 }));
 
@@ -105,6 +109,16 @@ beforeEach(() => {
     isRefetching: false,
   });
   mockUpdatePetMutateAsync.mockClear();
+  mockMarkFoundMutateAsync.mockReset();
+  mockMarkFoundMutateAsync.mockResolvedValue({});
+  mockCreateReportMutateAsync.mockReset();
+  mockCreateReportMutateAsync.mockResolvedValue({});
+  mockUseHelperCandidates.mockReset();
+  mockUseHelperCandidates.mockReturnValue({
+    data: [{ id: 'u-ana', name: 'Ana' }],
+    isError: false,
+    refetch: jest.fn(),
+  });
 });
 
 // Una consulta caída se pintaba igual que "no tenés nada". En la pestaña propia
@@ -299,5 +313,165 @@ describe('MyPetsScreen — pet type icons', () => {
     });
     const ui = render(<MyPetsScreen />);
     expect(only(ui)).toEqual(['pets', 'pets']);
+  });
+});
+
+// T8 — quien marca la mascota como encontrada tiene que decir quién ayudó. Dos
+// puertas en esta pantalla: el botón "Encontrada" (marca el estado) y la opción
+// "encontrada" del reporte (crea un reporte `found`, que también pasa la mascota
+// a found en el backend). Las dos pasan por el mismo modal.
+describe('MyPetsScreen — confirmar quién ayudó', () => {
+  const lostPet = { ...ownedPet, id: 'pet-lost', name: 'Luna', status: 'lost' };
+
+  beforeEach(() => {
+    mockUseMyPets.mockReturnValue({
+      data: [lostPet],
+      isLoading: false,
+      refetch: jest.fn(),
+      isRefetching: false,
+    });
+  });
+
+  // `i18next.t()` sobre el singleton devuelve undefined en este arnés, así que
+  // los botones del Alert se eligen por posición: [cancel, lost, found, sighting].
+  //
+  // El spy se restaura en `afterEach` y no al final de cada test: si un `expect`
+  // falla antes, el spy queda vivo y el test siguiente lee las llamadas viejas,
+  // con lo que un solo fallo real se multiplica en fallos que no son suyos.
+  let alertSpy: jest.SpyInstance | undefined;
+  afterEach(() => {
+    alertSpy?.mockRestore();
+    alertSpy = undefined;
+  });
+  const pressReportOption = (index: number) => {
+    alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    fireEvent.press(screen.getByText('my_pets:reportButton'));
+    const buttons = alertSpy.mock.calls[0][2] as { onPress?: () => void }[];
+    act(() => {
+      buttons[index].onPress?.();
+    });
+  };
+
+  it('el botón Encontrada abre el selector en vez de marcar directo', () => {
+    render(<MyPetsScreen />);
+    fireEvent.press(screen.getByText('my_pets:foundButton'));
+
+    expect(screen.getByText('pets:helpers.title')).toBeTruthy();
+    expect(mockMarkFoundMutateAsync).not.toHaveBeenCalled();
+  });
+
+  it('marcar encontrada con ayudantes manda helperIds por la mutación', async () => {
+    render(<MyPetsScreen />);
+    fireEvent.press(screen.getByText('my_pets:foundButton'));
+    fireEvent.press(screen.getByText('Ana'));
+    fireEvent.press(screen.getByText('common:confirm'));
+
+    await waitFor(() =>
+      expect(mockMarkFoundMutateAsync).toHaveBeenCalledWith({
+        id: 'pet-lost',
+        helperIds: ['u-ana'],
+      }),
+    );
+    await waitFor(() => expect(screen.queryByText('pets:helpers.title')).toBeNull());
+  });
+
+  it('"Nadie me ayudó" manda helperIds vacío', async () => {
+    render(<MyPetsScreen />);
+    fireEvent.press(screen.getByText('my_pets:foundButton'));
+    fireEvent.press(screen.getByText('pets:helpers.nobody'));
+    fireEvent.press(screen.getByText('common:confirm'));
+
+    await waitFor(() =>
+      expect(mockMarkFoundMutateAsync).toHaveBeenCalledWith({ id: 'pet-lost', helperIds: [] }),
+    );
+  });
+
+  it('sin candidatos no manda helperIds', async () => {
+    mockUseHelperCandidates.mockReturnValue({ data: [], isError: false, refetch: jest.fn() });
+    render(<MyPetsScreen />);
+    fireEvent.press(screen.getByText('my_pets:foundButton'));
+    fireEvent.press(screen.getByText('common:confirm'));
+
+    await waitFor(() =>
+      expect(mockMarkFoundMutateAsync).toHaveBeenCalledWith({
+        id: 'pet-lost',
+        helperIds: undefined,
+      }),
+    );
+  });
+
+  it('si la API rechaza, el modal sigue abierto con el error traducido y la selección', async () => {
+    const { ApiError } = require('../../shared/api/client');
+    mockMarkFoundMutateAsync.mockRejectedValue(new ApiError('invalid_helpers', 400, 'x'));
+    render(<MyPetsScreen />);
+    fireEvent.press(screen.getByText('my_pets:foundButton'));
+    fireEvent.press(screen.getByText('Ana'));
+    fireEvent.press(screen.getByText('common:confirm'));
+
+    await waitFor(() => expect(screen.getByText('errors:unknown_error')).toBeTruthy());
+    expect(screen.getByText('pets:helpers.title')).toBeTruthy();
+    expect(screen.getByRole('checkbox', { name: 'Ana' }).props.accessibilityState.checked).toBe(true);
+  });
+
+  it('cancelar cierra el modal sin marcar nada', () => {
+    render(<MyPetsScreen />);
+    fireEvent.press(screen.getByText('my_pets:foundButton'));
+    fireEvent.press(screen.getByText('common:cancel'));
+
+    expect(screen.queryByText('pets:helpers.title')).toBeNull();
+    expect(mockMarkFoundMutateAsync).not.toHaveBeenCalled();
+  });
+
+  it('el reporte "encontrada" pasa por el selector y manda helper_ids en el reporte', async () => {
+    render(<MyPetsScreen />);
+    pressReportOption(2);
+
+    expect(screen.getByText('pets:helpers.title')).toBeTruthy();
+    expect(mockCreateReportMutateAsync).not.toHaveBeenCalled();
+
+    fireEvent.press(screen.getByText('Ana'));
+    fireEvent.press(screen.getByText('common:confirm'));
+
+    await waitFor(() =>
+      expect(mockCreateReportMutateAsync).toHaveBeenCalledWith(
+        expect.objectContaining({ pet_id: 'pet-lost', status: 'found', helper_ids: ['u-ana'] }),
+      ),
+    );
+  });
+
+  it('el reporte "encontrada" sin candidatos no manda helper_ids', async () => {
+    mockUseHelperCandidates.mockReturnValue({ data: [], isError: false, refetch: jest.fn() });
+    render(<MyPetsScreen />);
+    pressReportOption(2);
+    fireEvent.press(screen.getByText('common:confirm'));
+
+    await waitFor(() => expect(mockCreateReportMutateAsync).toHaveBeenCalled());
+    expect(mockCreateReportMutateAsync.mock.calls[0][0]).not.toHaveProperty('helper_ids');
+  });
+
+  it('el reporte "encontrada" con error de API deja el modal abierto', async () => {
+    const { ApiError } = require('../../shared/api/client');
+    mockCreateReportMutateAsync.mockRejectedValue(new ApiError('helper_ids_required', 400, 'x'));
+    render(<MyPetsScreen />);
+    pressReportOption(2);
+    fireEvent.press(screen.getByText('Ana'));
+    fireEvent.press(screen.getByText('common:confirm'));
+
+    await waitFor(() => expect(screen.getByText('errors:unknown_error')).toBeTruthy());
+    expect(screen.getByText('pets:helpers.title')).toBeTruthy();
+  });
+
+  it.each([
+    ['perdida', 1, 'lost'],
+    ['avistamiento', 3, 'sighting'],
+  ])('el reporte de %s no abre el selector ni manda helper_ids', async (_n, index, status) => {
+    render(<MyPetsScreen />);
+    pressReportOption(index);
+
+    expect(screen.queryByText('pets:helpers.title')).toBeNull();
+    await waitFor(() => expect(mockCreateReportMutateAsync).toHaveBeenCalled());
+    const arg = mockCreateReportMutateAsync.mock.calls[0][0];
+    expect(arg.status).toBe(status);
+    expect(arg).not.toHaveProperty('helper_ids');
   });
 });

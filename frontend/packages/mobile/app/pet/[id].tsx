@@ -33,6 +33,7 @@ import { PawPlaceholder } from '../../components/PawPlaceholder';
 import { PdfFlyerButton } from '../../components/PdfFlyerButton';
 import { TimelineMap } from '../../components/TimelineMap';
 import { AdoptionPetBody } from '../../components/AdoptionPetBody';
+import { HelperPickerModal } from '../../components/HelperPickerModal';
 import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
 import { cloudinaryThumb } from '@shared/utils/cloudinaryThumb';
 import { ListState } from '../../components/list/ListState';
@@ -59,6 +60,9 @@ export default function PetDetailScreen() {
   const submitAbuseReport = useSubmitAbuseReport();
 
   const [activePhotoIndex, setActivePhotoIndex] = useState(0);
+  // Marking found asks who helped first: a native Alert cannot host the list.
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [foundError, setFoundError] = useState<string | null>(null);
   const viewabilityConfig = useRef({ viewAreaCoveragePercentThreshold: 50 });
   const onViewableItemsChanged = useCallback(
     ({ viewableItems }: { viewableItems: { index: number | null }[] }) => {
@@ -181,33 +185,34 @@ export default function PetDetailScreen() {
     }
   };
 
-  const handleMarkAsFound = () => {
-    Alert.alert(
-      i18next.t('pet_detail:markAsFound'),
-      i18next.t('pet_detail:foundConfirm', { name: pet.name }),
-      [
-        { text: i18next.t('common:cancel'), style: 'cancel' },
-        {
-          text: i18next.t('common:confirm'),
-          style: 'default',
-          onPress: () =>
-            markAsFound.mutate(pet.id, {
-              onSuccess: () => {
-                Alert.alert(
-                  i18next.t('pet_detail:foundSuccess', { name: pet.name }),
-                  i18next.t('pets:detail.foundNudgeText'),
-                  [
-                    {
-                      text: i18next.t('story:create'),
-                      onPress: () => router.push(`/story/create?petId=${pet.id}`),
-                    },
-                    { text: i18next.t('common:cancel'), style: 'cancel' },
-                  ],
-                );
+  const openFoundPicker = () => {
+    setFoundError(null);
+    setPickerOpen(true);
+  };
+
+  // `helperIds` undefined = there were no candidates (nothing to send); `[]` =
+  // the owner said nobody helped. The picker keeps the two apart.
+  const confirmFound = (helperIds: string[] | undefined) => {
+    markAsFound.mutate(
+      { id: pet.id, helperIds },
+      {
+        onSuccess: () => {
+          setPickerOpen(false);
+          Alert.alert(
+            i18next.t('pet_detail:foundSuccess', { name: pet.name }),
+            i18next.t('pets:detail.foundNudgeText'),
+            [
+              {
+                text: i18next.t('story:create'),
+                onPress: () => router.push(`/story/create?petId=${pet.id}`),
               },
-            }),
+              { text: i18next.t('common:cancel'), style: 'cancel' },
+            ],
+          );
         },
-      ],
+        // The modal stays open with the selection, so the owner can fix it.
+        onError: (err: unknown) => setFoundError(getErrorMessage(err, (key) => t(key))),
+      },
     );
   };
 
@@ -351,7 +356,7 @@ export default function PetDetailScreen() {
         {canManage && (pet.status === 'lost' || pet.status === 'stray') && (
           <TouchableOpacity
             style={[styles.markFoundButton, markAsFound.isPending && styles.disabledButton]}
-            onPress={handleMarkAsFound}
+            onPress={openFoundPicker}
             disabled={markAsFound.isPending}
             activeOpacity={0.8}
           >
@@ -510,6 +515,16 @@ export default function PetDetailScreen() {
 
         <View style={{ height: 80 }} />
       </View>
+      {pickerOpen && (
+        <HelperPickerModal
+          petId={pet.id}
+          petName={pet.name}
+          loading={markAsFound.isPending}
+          error={foundError}
+          onConfirm={confirmFound}
+          onCancel={() => setPickerOpen(false)}
+        />
+      )}
     </ScrollView>
   );
 }

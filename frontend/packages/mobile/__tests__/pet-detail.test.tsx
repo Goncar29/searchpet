@@ -5,18 +5,20 @@ import PetDetailScreen from '../app/pet/[id]';
 
 // expo-router setup: useLocalSearchParams returns { id: 'pet-123' }
 jest.mock('expo-router', () => ({
-  useRouter: () => ({ push: jest.fn(), back: jest.fn(), replace: jest.fn(), navigate: jest.fn() }),
+  useRouter: () => ({ push: (...a: unknown[]) => mockRouterPush(...a), back: jest.fn(), replace: jest.fn(), navigate: jest.fn() }),
   useLocalSearchParams: () => ({ id: 'pet-123' }),
   Link: ({ children }: { children: React.ReactNode }) => children,
   Stack: { Screen: () => null },
 }));
 
+let mockAuthUser: { id: string } | null = null;
+
 jest.mock('../store', () => ({
   useAuthStore: (selector?: (state: Record<string, unknown>) => unknown) => {
     const state = {
-      user: null,
+      user: mockAuthUser,
       token: null,
-      isAuthenticated: false,
+      isAuthenticated: mockAuthUser != null,
       isLoading: false,
       login: jest.fn(),
     };
@@ -28,11 +30,15 @@ jest.mock('../store', () => ({
 const mockUsePetByID = jest.fn();
 const mockBlockMutate = jest.fn();
 const mockUseReportsByPetID = jest.fn();
+const mockMarkFoundMutate = jest.fn();
+const mockUseHelperCandidates = jest.fn();
+const mockRouterPush = jest.fn();
 
 jest.mock('@shared/hooks', () => ({
   usePetByID: (...args: unknown[]) => mockUsePetByID(...args),
   useReportsByPetID: () => mockUseReportsByPetID(),
-  useMarkPetAsFound: () => ({ mutate: jest.fn(), isPending: false }),
+  useMarkPetAsFound: () => ({ mutate: mockMarkFoundMutate, isPending: false }),
+  useHelperCandidates: (...args: unknown[]) => mockUseHelperCandidates(...args),
   useBlockUser: () => ({ mutate: mockBlockMutate, isPending: false }),
   useSubmitAbuseReport: () => ({ mutate: jest.fn(), isPending: false }),
 }));
@@ -222,5 +228,106 @@ describe('PetDetailScreen — menu del dueno', () => {
     expect(mockBlockMutate.mock.calls[0][0]).toEqual({ userId: 'owner-1' });
     alertSpy.mockRestore();
     sheetSpy.mockRestore();
+  });
+});
+
+// T8 — marcar la mascota como encontrada pregunta quién ayudó. Mantiene el
+// empujón a contar la historia al terminar.
+describe('PetDetailScreen — confirmar quién ayudó', () => {
+  const lostPet = {
+    ...mockPetBase,
+    status: 'lost',
+    owner: { id: 'owner-1', name: 'Dueño', is_verified: false },
+  };
+
+  beforeEach(() => {
+    mockAuthUser = { id: 'owner-1' };
+    mockUsePetByID.mockReturnValue({ data: lostPet, isLoading: false });
+    mockMarkFoundMutate.mockReset();
+    mockRouterPush.mockReset();
+    mockUseHelperCandidates.mockReset();
+    mockUseHelperCandidates.mockReturnValue({
+      data: [{ id: 'u-ana', name: 'Ana' }],
+      isError: false,
+      refetch: jest.fn(),
+    });
+  });
+  afterEach(() => {
+    mockAuthUser = null;
+  });
+
+  it('el botón abre el selector en vez de marcar directo', () => {
+    render(<PetDetailScreen />);
+    fireEvent.press(screen.getByText('pet_detail:markAsFound'));
+
+    expect(screen.getByText('pets:helpers.title')).toBeTruthy();
+    expect(mockMarkFoundMutate).not.toHaveBeenCalled();
+  });
+
+  it('confirmar con ayudantes manda helperIds por la mutación', () => {
+    render(<PetDetailScreen />);
+    fireEvent.press(screen.getByText('pet_detail:markAsFound'));
+    fireEvent.press(screen.getByText('Ana'));
+    fireEvent.press(screen.getByText('common:confirm'));
+
+    expect(mockMarkFoundMutate.mock.calls[0][0]).toEqual({ id: 'pet-123', helperIds: ['u-ana'] });
+  });
+
+  it('"Nadie me ayudó" manda helperIds vacío', () => {
+    render(<PetDetailScreen />);
+    fireEvent.press(screen.getByText('pet_detail:markAsFound'));
+    fireEvent.press(screen.getByText('pets:helpers.nobody'));
+    fireEvent.press(screen.getByText('common:confirm'));
+
+    expect(mockMarkFoundMutate.mock.calls[0][0]).toEqual({ id: 'pet-123', helperIds: [] });
+  });
+
+  it('sin candidatos no manda helperIds', () => {
+    mockUseHelperCandidates.mockReturnValue({ data: [], isError: false, refetch: jest.fn() });
+    render(<PetDetailScreen />);
+    fireEvent.press(screen.getByText('pet_detail:markAsFound'));
+    fireEvent.press(screen.getByText('common:confirm'));
+
+    expect(mockMarkFoundMutate.mock.calls[0][0]).toEqual({ id: 'pet-123', helperIds: undefined });
+  });
+
+  it('si la API rechaza, el modal sigue abierto con el error y la selección', () => {
+    const { ApiError } = require('../../shared/api/client');
+    mockMarkFoundMutate.mockImplementation((_arg, opts) =>
+      opts.onError(new ApiError('invalid_helpers', 400, 'x')),
+    );
+    render(<PetDetailScreen />);
+    fireEvent.press(screen.getByText('pet_detail:markAsFound'));
+    fireEvent.press(screen.getByText('Ana'));
+    fireEvent.press(screen.getByText('common:confirm'));
+
+    expect(screen.getByText('errors:unknown_error')).toBeTruthy();
+    expect(screen.getByText('pets:helpers.title')).toBeTruthy();
+    expect(screen.getByRole('checkbox', { name: 'Ana' }).props.accessibilityState.checked).toBe(true);
+  });
+
+  it('al terminar cierra el modal y ofrece contar la historia', () => {
+    const { Alert } = require('react-native');
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    mockMarkFoundMutate.mockImplementation((_arg, opts) => opts.onSuccess());
+    render(<PetDetailScreen />);
+    fireEvent.press(screen.getByText('pet_detail:markAsFound'));
+    fireEvent.press(screen.getByText('Ana'));
+    fireEvent.press(screen.getByText('common:confirm'));
+
+    expect(screen.queryByText('pets:helpers.title')).toBeNull();
+    const buttons = alertSpy.mock.calls[0][2] as { onPress?: () => void }[];
+    buttons[0].onPress?.();
+    expect(mockRouterPush).toHaveBeenCalledWith('/story/create?petId=pet-123');
+    alertSpy.mockRestore();
+  });
+
+  it('cancelar cierra el modal sin marcar nada', () => {
+    render(<PetDetailScreen />);
+    fireEvent.press(screen.getByText('pet_detail:markAsFound'));
+    fireEvent.press(screen.getByText('common:cancel'));
+
+    expect(screen.queryByText('pets:helpers.title')).toBeNull();
+    expect(mockMarkFoundMutate).not.toHaveBeenCalled();
   });
 });
