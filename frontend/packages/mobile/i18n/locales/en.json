@@ -403,7 +403,43 @@
     "errorMessage": "Could not load shelters.",
     "retryButton": "Retry",
     "contactPhone": "Phone",
-    "contactEmail": "Email"
+    "contactEmail": "Email",
+    "registerCta": "Are you a shelter and want to be listed here?",
+    "registerCtaBody": "Join the network so more people learn about your work and can donate directly to your shelter.",
+    "registerButton": "Register my shelter",
+    "loginToRegister": "Log in to register your shelter",
+    "myShelter": {
+      "title": "Your shelter",
+      "status": {
+        "pending": "Under review",
+        "approved": "Published",
+        "rejected": "Rejected"
+      },
+      "rejectedReason": "Reason: {{reason}}"
+    },
+    "register": {
+      "reviewNote": "We especially review the donation link and website to prevent fraud.",
+      "noMoneyNote": "SearchPet never collects money: we only link to your own donation page.",
+      "oneShelterNote": "You can register only one shelter per account. You can edit it afterwards from your profile.",
+      "emailUnverified": "You need to verify your email before registering a shelter.",
+      "verifyEmailLink": "Verify my email",
+      "name": "Shelter name",
+      "city": "City",
+      "phone": "Phone",
+      "email": "Contact email",
+      "description": "Description",
+      "websiteUrl": "Website (https://...)",
+      "donationUrl": "Donation link (https://...)",
+      "invalidUrl": "The link must start with https://",
+      "nameRequired": "Name is required",
+      "cityRequired": "City is required",
+      "submit": "Submit for review",
+      "submitting": "Submitting...",
+      "successTitle": "Shelter submitted!",
+      "successBody": "Your shelter is under review. We will notify you once it is approved.",
+      "title": "Register your shelter",
+      "goToList": "Back to shelters"
+    }
   },
   "messages": {
     "title": "Messages",
