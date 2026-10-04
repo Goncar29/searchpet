@@ -3,7 +3,7 @@ import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react-native';
 import AdoptScreen from '../app/adopt';
 import { drawnIcons, fillsOf } from './support/icons';
-import { COLORS } from '../constants';
+import { COLORS, SPACING } from '../constants';
 import { Text, ScrollView, StyleSheet } from 'react-native';
 
 // expo-router is mocked globally in jest.setup.js
@@ -151,5 +151,39 @@ describe('AdoptScreen — type chips draw icons', () => {
     expect(fillsOf(ui, 'cat')).toEqual([COLORS.white]);
     expect(fillsOf(ui, 'dog')).toEqual([COLORS.textSecondary]);
     expect(fillsOf(ui, 'bird')).toEqual([COLORS.textSecondary]);
+  });
+});
+
+describe('AdoptScreen — header block aligns with the cards', () => {
+  // The FlatList content container already insets everything by SPACING.lg, so
+  // the header block must add no horizontal inset of its own: a second inset made
+  // the filter card narrower than the PetCards below it.
+  const horizontalInset = (el: { props: { style?: unknown } }) => {
+    const s = StyleSheet.flatten(el.props.style as never) as Record<string, number | undefined>;
+    return {
+      paddingHorizontal: s.paddingHorizontal ?? 0,
+      marginHorizontal: s.marginHorizontal ?? 0,
+      marginLeft: s.marginLeft ?? 0,
+      marginRight: s.marginRight ?? 0,
+    };
+  };
+  const NONE = { paddingHorizontal: 0, marginHorizontal: 0, marginLeft: 0, marginRight: 0 };
+
+  it('header, filter card and result count add no horizontal inset of their own', () => {
+    mockUseAdoptions.mockReturnValue({
+      data: { data: [], total: 3, page: 1, limit: 20 },
+      isLoading: false,
+    });
+    const ui = render(<AdoptScreen />);
+    expect(horizontalInset(ui.getByTestId('adopt-header'))).toEqual(NONE);
+    expect(horizontalInset(ui.getByTestId('adopt-filter-card'))).toEqual(NONE);
+    expect(horizontalInset(ui.getByTestId('adopt-result-count'))).toEqual(NONE);
+  });
+
+  it('the loading branch, drawn outside the FlatList, supplies the list inset itself', () => {
+    mockUseAdoptions.mockReturnValue({ data: undefined, isLoading: true });
+    const ui = render(<AdoptScreen />);
+    expect(horizontalInset(ui.getByTestId('adopt-loading')).paddingHorizontal).toBe(SPACING.lg);
+    expect(horizontalInset(ui.getByTestId('adopt-filter-card'))).toEqual(NONE);
   });
 });
