@@ -31,6 +31,9 @@ type CreateReportRequest struct {
 	Longitude           float64    `json:"longitude" binding:"required"`
 	LocationDescription string     `json:"location_description"`
 	OccurredAt          *time.Time `json:"occurred_at"` // opcional; si viene no puede ser futuro
+	// HelperIDs contesta "¿quién ayudó?" cuando este reporte (status found)
+	// pasa la mascota a `found`. nil = no enviado; `[]` = nadie. Ver confirmHelpers.
+	HelperIDs *[]string `json:"helper_ids"`
 }
 
 // reportService es la implementación concreta del ReportService.
@@ -157,6 +160,7 @@ func (s *reportService) CreateReport(reporterID string, req CreateReportRequest)
 		loaded           *domain.Report
 		oldStatus        string
 		shouldTransition bool
+		credited         []uuid.UUID
 	)
 
 	if s.uow != nil {
@@ -192,6 +196,14 @@ func (s *reportService) CreateReport(reporterID string, req CreateReportRequest)
 				}
 				if s.episodes != nil {
 					if err := s.episodes.HandleTransition(tx.Episodes, req.PetID, oldStatus, target); err != nil {
+						return err
+					}
+				}
+				if target == domain.PetStatusFound {
+					// Misma transacción que el cambio de estado: ver confirmHelpers.
+					var err error
+					credited, err = confirmHelpers(tx, pet, reporterID, req.HelperIDs)
+					if err != nil {
 						return err
 					}
 				}
@@ -274,6 +286,7 @@ func (s *reportService) CreateReport(reporterID string, req CreateReportRequest)
 					OwnerID: eventOwnerID,
 					PetName: loaded.Pet.Name,
 				})
+				publishHelpersCredited(s.eventBus, &loaded.Pet, credited)
 			}
 		}
 		if target == domain.PetStatusLost && oldStatus != domain.PetStatusLost && oldStatus != domain.PetStatusStray {

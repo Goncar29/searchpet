@@ -36,6 +36,14 @@ var (
 	ErrOwnerRequiredForStatus  = errors.New("owner_required_for_status")
 	ErrInitialReportRequired   = errors.New("initial_report_required")
 	ErrInitialReportNotAllowed = errors.New("initial_report_not_allowed")
+	// ErrHelperIDsRequired: la mascota pasa a `found`, hay candidatos a ayudante
+	// y el pedido no trajo `helper_ids`. Contestar es obligatorio; "nadie" es una
+	// lista vacía, no un campo ausente.
+	ErrHelperIDsRequired = errors.New("helper_ids_required")
+	// ErrInvalidHelpers: algún id de `helper_ids` no es un candidato de la
+	// búsqueda actual (otro usuario, el dueño, quien reportó el callejero, o un
+	// id mal formado).
+	ErrInvalidHelpers = errors.New("invalid_helpers")
 	// ErrMicrochipTaken: otra mascota ya está registrada con ese número. Es un
 	// conflicto con un recurso existente, no una falla del servidor: antes salía
 	// como 500 porque el 23505 de Postgres llegaba crudo al handler.
@@ -200,6 +208,8 @@ var ErrorCodes = map[error]string{
 	ErrOwnerRequiredForStatus:  "owner_required_for_status",
 	ErrInitialReportRequired:   "initial_report_required",
 	ErrInitialReportNotAllowed: "initial_report_not_allowed",
+	ErrHelperIDsRequired:       "helper_ids_required",
+	ErrInvalidHelpers:          "invalid_helpers",
 	ErrMicrochipTaken:          "microchip_taken",
 
 	// Report
