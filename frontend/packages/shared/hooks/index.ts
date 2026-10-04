@@ -1383,10 +1383,14 @@ export const useLeaveGroup = (groupId: string) => {
 // VERIFICATION HOOKS
 // ============================================================
 
-export const useVerificationStatus = () =>
+// `refetchOnMount: 'always'` is opt-in for gates that block an action on the
+// answer: a cached `email_verified: false` must not outlive the 5 min staleTime
+// (verifying on another device, or a different user logging in on the same app).
+export const useVerificationStatus = (options?: { refetchOnMount?: boolean | 'always' }) =>
   useQuery<VerificationStatus>({
     queryKey: ['verification-status'],
     queryFn: () => apiClient.getVerificationStatus(),
+    ...(options?.refetchOnMount !== undefined && { refetchOnMount: options.refetchOnMount }),
   });
 
 export const useSendEmailOTP = () => {
