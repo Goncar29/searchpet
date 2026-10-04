@@ -58,7 +58,6 @@ func (n *nopPetRepoForHandler) FindStrayCandidates(_ domain.StrayCandidateCriter
 	return nil, nil
 }
 func (n *nopPetRepoForHandler) CountPublicByUserID(_ string) (int64, error)   { return 0, nil }
-func (n *nopPetRepoForHandler) CountHelpedFound(_ string) (int64, error) { return 0, nil }
 func (n *nopPetRepoForHandler) Update(_ *domain.Pet) error                    { return nil }
 func (n *nopPetRepoForHandler) UpdateStatus(_ string, _ string) error         { return nil }
 func (n *nopPetRepoForHandler) TouchLastReported(_ string, _ time.Time) error { return nil }
