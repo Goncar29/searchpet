@@ -55,6 +55,7 @@ func (ns *NotificationService) RegisterListeners(bus *event.EventBus) {
 	bus.Subscribe("message.sent", ns.onMessageSent)
 	bus.Subscribe("alert.triggered", ns.onAlertTriggered)
 	bus.Subscribe("pet.found", ns.onPetFound)
+	bus.Subscribe("pet.helpers_credited", ns.onPetHelpersCredited)
 	bus.Subscribe("shelter.approved", ns.onShelterApproved)
 	bus.Subscribe("shelter.rejected", ns.onShelterRejected)
 }
@@ -239,6 +240,25 @@ func (ns *NotificationService) onPetFound(payload interface{}) {
 				}
 			}
 		}()
+	}
+}
+
+// onPetHelpersCredited maneja "pet.helpers_credited": un push a cada ayudante
+// recién acreditado avisándole que ayudó a reunir a la mascota con su familia.
+func (ns *NotificationService) onPetHelpersCredited(payload interface{}) {
+	ev, ok := payload.(event.PetHelpersCreditedEvent)
+	if !ok {
+		log.Printf("[NotificationService] onPetHelpersCredited: tipo de payload inesperado: %T", payload)
+		return
+	}
+	title := "¡Ayudaste a reunir a una mascota! 🎉"
+	body := fmt.Sprintf("Gracias a vos %s volvió con su familia", ev.PetName)
+	for _, helperID := range ev.HelperIDs {
+		ns.pushToUser(helperID, title, body, map[string]string{
+			"type":     "pet.helpers_credited",
+			"pet_id":   ev.PetID.String(),
+			"entityId": ev.PetID.String(),
+		})
 	}
 }
 

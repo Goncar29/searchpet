@@ -65,12 +65,6 @@ type PetRepository interface {
 	// mostraría "50 de N" con un N que cuenta un conjunto distinto del listado,
 	// y ninguno de los dos números se vería mal por sí solo.
 	CountPublicByUserID(userID string) (int64, error)
-	// CountHelpedFound cuenta las mascotas AJENAS que el usuario ayudó a
-	// encontrar: distintas, hoy en `found`, que no son suyas (ni como dueño ni
-	// como quien la reportó) y sobre las que dejó al menos un reporte. Alimenta
-	// el `found_count` del perfil público. Es informativo: no otorga puntos ni
-	// badges. Sale de las filas y no de user_points porque ese contador sólo sube.
-	CountHelpedFound(userID string) (int64, error)
 	Update(pet *domain.Pet) error
 	UpdateStatus(id string, status string) error
 	// TouchLastReported avanza el reloj de última vista de una mascota.

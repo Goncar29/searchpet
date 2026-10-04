@@ -46,6 +46,15 @@ func (eb *EventBus) SubscribeSync(event string, handler func(interface{})) {
 	eb.syncSubscribers[event] = append(eb.syncSubscribers[event], handler)
 }
 
+// HasSubscribers reporta si hay algún handler, síncrono o asíncrono, registrado
+// para el evento. Existe para poder afirmar "nadie escucha esto" de forma
+// determinista, sin dormir esperando a que un handler hipotético corra.
+func (eb *EventBus) HasSubscribers(event string) bool {
+	eb.mu.RLock()
+	defer eb.mu.RUnlock()
+	return len(eb.subscribers[event]) > 0 || len(eb.syncSubscribers[event]) > 0
+}
+
 // Publish dispara el evento a todos los handlers registrados.
 // Los handlers SÍNCRONOS (SubscribeSync) corren inline, en orden, ANTES de
 // retornar — su trabajo se completa dentro del request del caller. Los handlers
@@ -131,6 +140,16 @@ type PetFoundEvent struct {
 	PetID   uuid.UUID
 	OwnerID uuid.UUID
 	PetName string
+}
+
+// PetHelpersCreditedEvent se publica DESPUÉS del commit de una mascota que pasó
+// a `found`, con los ayudantes que el dueño confirmó. HelperIDs trae sólo los
+// recién acreditados: quien ya tenía crédito por esa mascota no figura, y por eso
+// no vuelve a cobrar puntos ni a recibir push.
+type PetHelpersCreditedEvent struct {
+	PetID     uuid.UUID
+	PetName   string
+	HelperIDs []uuid.UUID
 }
 
 // ShareCreatedEvent es el payload publicado cuando se genera un link compartible.

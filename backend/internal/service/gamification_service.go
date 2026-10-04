@@ -21,7 +21,7 @@ type gamificationService struct {
 	userRepo   repository.UserRepository
 	reviewRepo repository.UserReviewRepository // V1.5 — para avg_rating en perfiles
 	reportRepo repository.ReportRepository      // total_reports del perfil, desde las filas
-	petRepo    repository.PetRepository         // found_count del perfil (CountHelpedFound), desde las filas
+	creditRepo repository.PetHelperCreditRepository // found_count del perfil y super_finder, desde los créditos
 }
 
 // NewGamificationService construye el GamificationService con sus dependencias.
@@ -31,7 +31,7 @@ func NewGamificationService(
 	userRepo repository.UserRepository,
 	reviewRepo repository.UserReviewRepository,
 	reportRepo repository.ReportRepository,
-	petRepo repository.PetRepository,
+	creditRepo repository.PetHelperCreditRepository,
 ) *gamificationService {
 	return &gamificationService{
 		badgeRepo:  badgeRepo,
@@ -39,7 +39,7 @@ func NewGamificationService(
 		userRepo:   userRepo,
 		reviewRepo: reviewRepo,
 		reportRepo: reportRepo,
-		petRepo:    petRepo,
+		creditRepo: creditRepo,
 	}
 }
 
@@ -53,9 +53,54 @@ func (s *gamificationService) RegisterListeners(bus *event.EventBus) {
 	bus.Subscribe("user.verified", s.onUserVerified)
 	// "pet.found" NO se escucha a propósito: el dueño que marca su propia mascota
 	// como encontrada no gana puntos ni badges (antes: +100, found_count,
-	// pet_rescuer, super_finder). El found_count del perfil es informativo y sale
-	// de las filas (CountHelpedFound). Un paso posterior acreditará a los
-	// ayudantes que el dueño confirme.
+	// pet_rescuer, super_finder). Cobran los AYUDANTES que el dueño confirma, vía
+	// "pet.helpers_credited".
+	//
+	// SÍNCRONO: el crédito ya está commiteado y los puntos no se pueden perder si
+	// el instance se suspende tras la respuesta (free tier de Render).
+	bus.SubscribeSync("pet.helpers_credited", s.onPetHelpersCredited)
+}
+
+// helperAwardPoints son los puntos por ayudar a reunir una mascota.
+const helperAwardPoints = 100
+
+// onPetHelpersCredited maneja "pet.helpers_credited": por cada ayudante recién
+// acreditado, +100 puntos, el badge pet_rescuer y, desde 5 mascotas distintas,
+// super_finder. HelperIDs sólo trae a quienes el INSERT realmente agregó, y eso
+// es lo que hace seguro llamar a Upsert, que no es idempotente.
+//
+// El umbral de super_finder cuenta las filas de créditos y no el contador
+// user_points.found_count, que sólo sube y no sabe de borrados.
+func (s *gamificationService) onPetHelpersCredited(payload interface{}) {
+	ev, ok := payload.(event.PetHelpersCreditedEvent)
+	if !ok {
+		log.Printf("[GamificationService] onPetHelpersCredited: payload inesperado: %T", payload)
+		return
+	}
+
+	ctx := context.Background()
+
+	for _, helperID := range ev.HelperIDs {
+		if _, err := s.pointsRepo.Upsert(ctx, helperID, helperAwardPoints, "found_count"); err != nil {
+			log.Printf("[GamificationService] onPetHelpersCredited: upsert points para %s: %v", helperID, err)
+			continue
+		}
+
+		if err := s.AwardBadgeIfEligible(ctx, helperID, "pet_rescuer"); err != nil {
+			log.Printf("[GamificationService] onPetHelpersCredited: award pet_rescuer para %s: %v", helperID, err)
+		}
+
+		credits, err := s.creditRepo.CountByHelper(helperID)
+		if err != nil {
+			log.Printf("[GamificationService] onPetHelpersCredited: contar créditos de %s: %v", helperID, err)
+			continue
+		}
+		if credits >= 5 {
+			if err := s.AwardBadgeIfEligible(ctx, helperID, "super_finder"); err != nil {
+				log.Printf("[GamificationService] onPetHelpersCredited: award super_finder para %s: %v", helperID, err)
+			}
+		}
+	}
 }
 
 // onReportCreated maneja el evento "report.created".
@@ -210,12 +255,13 @@ func (s *gamificationService) GetPublicProfile(ctx context.Context, userID uuid.
 	// total_reports y found_count salen de las filas, no de user_points: esos
 	// contadores los suben los eventos y nunca bajan, así que borrar un reporte
 	// o una mascota los dejaba inflados (en prod, 41/12 con ~0 filas reales).
+	// found_count = mascotas por las que el dueño te confirmó como ayudante.
 	// Puntos, shares, badges y leaderboard siguen siendo por contador.
 	reportsCount, err := s.reportRepo.CountByReporter(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
-	foundPets, err := s.petRepo.CountHelpedFound(userID.String())
+	foundPets, err := s.creditRepo.CountByHelper(userID)
 	if err != nil {
 		return nil, err
 	}

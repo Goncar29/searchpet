@@ -110,6 +110,7 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 	photoRepo := repository.NewPhotoRepository(db)
 
 	episodeRepo := repository.NewEpisodeRepository(db)
+	helperCreditRepo := repository.NewPetHelperCreditRepository(db)
 	episodeService := service.NewEpisodeService()
 
 	shelterRepo := repository.NewShelterRepository(db)
@@ -186,7 +187,7 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 	}
 	embeddingService.RegisterListeners(bus)
 
-	gamSvc := service.NewGamificationService(badgeRepo, pointsRepo, userRepo, reviewRepo, reportRepo, petRepo)
+	gamSvc := service.NewGamificationService(badgeRepo, pointsRepo, userRepo, reviewRepo, reportRepo, helperCreditRepo)
 	gamSvc.RegisterListeners(bus)
 
 	reviewSvc := service.NewReviewService(reviewRepo, blockedUserRepo, userRepo, bus)
