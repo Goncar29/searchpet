@@ -34,7 +34,7 @@ func helperAwardRig(credits int64) (*event.EventBus, *[]upsertCall, *[]string) {
 			return &domain.UserPoints{UserID: id}, nil
 		},
 	}
-	svc := service.NewGamificationService(badgeRepo, pointsRepo, &mockUserRepository{}, &mockGamificationReviewRepository{}, stubReports{}, stubPets{n: credits})
+	svc := service.NewGamificationService(badgeRepo, pointsRepo, &mockUserRepository{}, &mockGamificationReviewRepository{}, stubReports{}, stubPets{n: credits}, stubShareCredits{fresh: true})
 	bus := event.NewEventBus()
 	svc.RegisterListeners(bus)
 	return bus, &upserts, &badges

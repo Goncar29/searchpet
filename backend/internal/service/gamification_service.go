@@ -22,6 +22,7 @@ type gamificationService struct {
 	reviewRepo repository.UserReviewRepository      // V1.5 — para avg_rating en perfiles
 	reportRepo repository.ReportRepository          // total_reports del perfil, desde las filas
 	creditRepo repository.PetHelperCreditRepository // found_count del perfil y super_finder, desde los créditos
+	shareRepo  repository.PetShareCreditRepository  // sharing pays once per (pet, user)
 }
 
 // NewGamificationService construye el GamificationService con sus dependencias.
@@ -32,6 +33,7 @@ func NewGamificationService(
 	reviewRepo repository.UserReviewRepository,
 	reportRepo repository.ReportRepository,
 	creditRepo repository.PetHelperCreditRepository,
+	shareRepo repository.PetShareCreditRepository,
 ) *gamificationService {
 	return &gamificationService{
 		badgeRepo:  badgeRepo,
@@ -40,6 +42,7 @@ func NewGamificationService(
 		reviewRepo: reviewRepo,
 		reportRepo: reportRepo,
 		creditRepo: creditRepo,
+		shareRepo:  shareRepo,
 	}
 }
 
@@ -155,6 +158,11 @@ func (s *gamificationService) onReportCreated(payload interface{}) {
 
 // onShareCreated maneja el evento "share.created".
 // Suma 2 puntos al sharer, incrementa ShareCount, y otorga el badge "social_butterfly" (idempotente).
+// Paga UNA vez por (mascota, usuario): generar más links de la misma mascota no
+// suma, así nadie sube en el ranking generando links en loop. Si el crédito no
+// se puede registrar no paga, porque pagar sin el registro dejaría que el
+// próximo link pague otra vez; y si el pago falla después de registrarlo, el
+// crédito se revoca para que el próximo link pueda pagar.
 func (s *gamificationService) onShareCreated(payload interface{}) {
 	ev, ok := payload.(event.ShareCreatedEvent)
 	if !ok {
@@ -164,8 +172,22 @@ func (s *gamificationService) onShareCreated(payload interface{}) {
 
 	ctx := context.Background()
 
+	fresh, err := s.shareRepo.CreditOnce(ctx, ev.PetID, ev.UserID)
+	if err != nil {
+		log.Printf("[GamificationService] onShareCreated: crédito de %s sobre %s: %v", ev.UserID, ev.PetID, err)
+		return
+	}
+	if !fresh {
+		return
+	}
+
 	if _, err := s.pointsRepo.Upsert(ctx, ev.UserID, 2, "share_count"); err != nil {
 		log.Printf("[GamificationService] onShareCreated: upsert points para %s: %v", ev.UserID, err)
+		// Undo the credit: otherwise the +2 is lost for good, because every
+		// later share of this pet finds the credit and pays nothing.
+		if rerr := s.shareRepo.Revoke(ctx, ev.PetID, ev.UserID); rerr != nil {
+			log.Printf("[GamificationService] onShareCreated: revocar crédito de %s sobre %s: %v", ev.UserID, ev.PetID, rerr)
+		}
 		return
 	}
 

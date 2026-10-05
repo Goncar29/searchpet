@@ -627,7 +627,7 @@
     "earn": {
       "title": "Como você ganha pontos",
       "report": "Publicar um relato de localização: +{{points}} pontos cada. Inclui o primeiro relato ao publicar um pet perdido ou de rua.",
-      "share": "Gerar um link de compartilhamento de um pet que você gerencia: +{{points}} pontos a cada vez.",
+      "share": "Gerar o link de compartilhamento de um pet que você gerencia: +{{points}} pontos, uma vez por pet. Gerar mais links do mesmo pet não soma.",
       "helper": "O dono confirma que você ajudou a encontrar o pet: +{{points}} pontos, uma vez por pet.",
       "review": "Receber uma avaliação de outro usuário: +{{points}} pontos."
     },

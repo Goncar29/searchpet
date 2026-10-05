@@ -60,7 +60,7 @@ describe('Leaderboard — points rules popup', () => {
     fireEvent.press(getByLabelText(OPEN));
 
     expect(getByText(new RegExp(`\\+${POINTS.report} points each`))).toBeTruthy();
-    expect(getByText(new RegExp(`\\+${POINTS.share} points each time`))).toBeTruthy();
+    expect(getByText(new RegExp(`\\+${POINTS.share} points, once per pet`))).toBeTruthy();
     expect(getByText(new RegExp(`\\+${POINTS.helper} points, once per pet`))).toBeTruthy();
     expect(getByText(new RegExp(`Receive a review.*\\+${POINTS.reviewReceived} points`))).toBeTruthy();
     expect(getByText(new RegExp(`takes its ${POINTS.reviewReceived} points back`))).toBeTruthy();

@@ -161,6 +161,7 @@ func TestGamificationService_GetPublicProfile_ContadoresDesdeFilas(t *testing.T)
 		&mockGamificationReviewRepository{},
 		stubReports{n: 2},
 		stubPets{n: 1},
+		stubShareCredits{fresh: true},
 	)
 	resp, err := svc.GetPublicProfile(context.Background(), userID)
 	if err != nil {
@@ -198,6 +199,7 @@ func TestGamificationService_GetPublicProfile_PropagaErrorDeConteo(t *testing.T)
 				&mockGamificationReviewRepository{},
 				tc.reports,
 				tc.pets,
+				stubShareCredits{fresh: true},
 			)
 			resp, err := svc.GetPublicProfile(context.Background(), userID)
 			if !errors.Is(err, boom) {
