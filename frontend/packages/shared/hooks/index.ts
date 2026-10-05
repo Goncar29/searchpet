@@ -262,6 +262,7 @@ export const useUpdatePet = () => {
       // A status change (e.g. lost/found via the PetCard selector) moves the home
       // lifetime impact counters — refresh them so they don't show a stale value.
       queryClient.invalidateQueries({ queryKey: ['stats'] });
+      invalidateHelperCreditViews(queryClient);
     },
   });
 };
@@ -276,10 +277,36 @@ export const useDeletePet = () => {
   });
 };
 
+// Pasar a `found` acredita a los ayudantes que el dueño confirma: sus puntos,
+// badges y el contador "Encontradas" de su perfil cambian. Las tres puertas
+// (esta, useUpdatePet y useCreateReport) refrescan lo mismo.
+const invalidateHelperCreditViews = (queryClient: ReturnType<typeof useQueryClient>) => {
+  queryClient.invalidateQueries({ queryKey: ['profile'] });
+  queryClient.invalidateQueries({ queryKey: ['badges'] });
+  queryClient.invalidateQueries({ queryKey: ['leaderboard'] });
+};
+
+/** Quienes reportaron sobre la mascota en la búsqueda actual (sólo quien la gestiona). */
+export const useHelperCandidates = (petId: string, enabled = true) => {
+  return useQuery({
+    queryKey: ['pets', petId, 'helper-candidates'],
+    queryFn: () => apiClient.getHelperCandidates(petId),
+    enabled: enabled && !!petId,
+    // Una respuesta vieja puede ofrecer a alguien que ya no corresponde, o
+    // esconder a quien reportó hace un minuto: cada apertura del picker re-lee.
+    staleTime: 0,
+    gcTime: 0,
+  });
+};
+
+// Acepta el id suelto (mobile, todavía sin picker) o `{ id, helperIds }`.
 export const useMarkPetAsFound = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => apiClient.markPetAsFound(id),
+    mutationFn: (arg: string | { id: string; helperIds?: string[] }) =>
+      typeof arg === 'string'
+        ? apiClient.markPetAsFound(arg, undefined)
+        : apiClient.markPetAsFound(arg.id, arg.helperIds),
     onSuccess: (updatedPet) => {
       queryClient.setQueryData(['pets', updatedPet.id], updatedPet);
       queryClient.invalidateQueries({ queryKey: ['pets'] });
@@ -287,6 +314,7 @@ export const useMarkPetAsFound = () => {
       queryClient.invalidateQueries({ queryKey: ['reports'] });
       // Marking found bumps the "pets reunited" home counter.
       queryClient.invalidateQueries({ queryKey: ['stats'] });
+      invalidateHelperCreditViews(queryClient);
     },
   });
 };
@@ -484,6 +512,7 @@ export const useCreateReport = () => {
       queryClient.invalidateQueries({ queryKey: ['stats'] });
       // Creating a report can change the pet's status — invalidate pet cache too.
       queryClient.invalidateQueries({ queryKey: ['pets'] });
+      invalidateHelperCreditViews(queryClient);
     },
   });
 };

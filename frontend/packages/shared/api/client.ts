@@ -52,6 +52,7 @@ import type {
   StrayCandidate,
   CreatePetRequest,
   UpdatePetRequest,
+  HelperCandidate,
   PublishLostRequest,
   UpdateProfileRequest,
   PetSearchFilters,
@@ -467,8 +468,18 @@ class APIClient {
     return this.request<void>('DELETE', `/api/pets/${id}`);
   }
 
-  async markPetAsFound(id: string): Promise<Pet> {
-    return this.request<Pet>('PATCH', `/api/pets/${id}/found`);
+  // Sin `helperIds` NO viaja body (compatible con quien no conoce el picker).
+  // `[]` sí viaja: es la respuesta "nadie me ayudó", distinta de no contestar.
+  async markPetAsFound(id: string, helperIds?: string[]): Promise<Pet> {
+    return this.request<Pet>(
+      'PATCH',
+      `/api/pets/${id}/found`,
+      helperIds === undefined ? undefined : { helper_ids: helperIds },
+    );
+  }
+
+  async getHelperCandidates(petId: string): Promise<HelperCandidate[]> {
+    return this.request<HelperCandidate[]>('GET', `/api/pets/${petId}/helper-candidates`);
   }
 
   async searchPets(filters: PetSearchFilters): Promise<PetListResponse> {

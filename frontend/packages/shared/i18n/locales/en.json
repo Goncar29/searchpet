@@ -304,6 +304,14 @@
       "days_other": "{{count}} days",
       "approximate": "about {{age}}"
     },
+    "helpers": {
+      "title": "Who helped find {{name}}?",
+      "message": "Pick the people who reported something useful. They get points and a notification. This cannot be changed later.",
+      "nobody": "Nobody helped me",
+      "selectLabel": "People who reported on {{name}}",
+      "loadError": "We couldn't load the people who helped.",
+      "answerRequired": "Pick at least one person or \"Nobody helped me\" to continue."
+    },
     "lastSeen": {
       "line": "Last seen {{when}}",
       "today": "today",
@@ -512,7 +520,9 @@
     "google_signin_unavailable": "Google sign-in is unavailable right now.",
     "google_account_mismatch": "This email is already linked to a different Google account.",
     "session_expired": "Your session expired. Please sign in again.",
-    "story_already_exists": "This pet already has its story published"
+    "story_already_exists": "This pet already has its story published",
+    "helper_ids_required": "You must say who helped you, or choose \"Nobody helped me\".",
+    "invalid_helpers": "One of the chosen people cannot receive the credit."
   },
   "publish": {
     "back": "Back to the options",

@@ -18,6 +18,8 @@ import { RevealContact } from '../components/RevealContact';
 import { TimelineMap } from '../components/TimelineMap';
 import { ListState } from '../components/list/ListState';
 import { AdoptionPetBody } from '../components/AdoptionPetBody';
+import { HelperPickerModal } from '../components/HelperPickerModal';
+import { getErrorMessage } from '@shared/utils/apiErrors';
 import { Icon } from '../components/Icon';
 import { cloudinaryFit } from '@shared/utils/cloudinaryThumb';
 import { formatLastSeen } from '@shared/utils/lastSeen';
@@ -34,6 +36,7 @@ export function PetDetailPage() {
   const [showPetReportMenu, setShowPetReportMenu] = useState(false);
   const [petReportSuccess, setPetReportSuccess] = useState(false);
   const [showFoundConfirm, setShowFoundConfirm] = useState(false);
+  const [foundError, setFoundError] = useState<string | null>(null);
   const [showStoryNudge, setShowStoryNudge] = useState(false);
   const [activePhotoIndex, setActivePhotoIndex] = useState(0);
 
@@ -492,28 +495,32 @@ export function PetDetailPage() {
                     )}
                   </button>
                   {showFoundConfirm && (
-                    <div className="flex flex-col gap-2 p-3 bg-green-50 dark:bg-green-950 rounded-xl border border-green-200 dark:border-green-800">
-                      <p className="text-sm font-semibold text-green-800 dark:text-green-200">
-                        {t('pets:detail.markFoundConfirm', { name: pet.name })}
-                      </p>
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          onClick={() => markAsFound.mutate(pet.id, { onSuccess: () => { setShowFoundConfirm(false); setShowStoryNudge(true); } })}
-                          disabled={markAsFound.isPending}
-                          className="px-4 py-1.5 bg-green-600 text-white text-sm font-semibold rounded-lg hover:bg-green-700 disabled:opacity-60 transition-colors"
-                        >
-                          {t('common:confirm')}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setShowFoundConfirm(false)}
-                          className="px-4 py-1.5 text-sm font-semibold text-gray-600 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                        >
-                          {t('common:cancel')}
-                        </button>
-                      </div>
-                    </div>
+                    // Pregunta quién ayudó ANTES del PATCH: el backend exige la
+                    // respuesta cuando hay candidatos (400 helper_ids_required).
+                    <HelperPickerModal
+                      petId={pet.id}
+                      petName={pet.name}
+                      loading={markAsFound.isPending}
+                      error={foundError}
+                      onConfirm={(helperIds) => {
+                        setFoundError(null);
+                        markAsFound.mutate(
+                          { id: pet.id, helperIds },
+                          {
+                            onSuccess: () => {
+                              setShowFoundConfirm(false);
+                              setShowStoryNudge(true);
+                            },
+                            // Abierto ante el fallo: cerrarlo tiraría lo elegido.
+                            onError: (err) => setFoundError(getErrorMessage(err, t)),
+                          },
+                        );
+                      }}
+                      onCancel={() => {
+                        setShowFoundConfirm(false);
+                        setFoundError(null);
+                      }}
+                    />
                   )}
                 </div>
               )}

@@ -304,6 +304,14 @@
       "days_other": "{{count}} dias",
       "approximate": "aprox. {{age}}"
     },
+    "helpers": {
+      "title": "Quem ajudou a encontrar {{name}}?",
+      "message": "Escolha as pessoas que reportaram algo útil. Elas recebem pontos e um aviso. Isso não pode ser alterado depois.",
+      "nobody": "Ninguém me ajudou",
+      "selectLabel": "Pessoas que reportaram sobre {{name}}",
+      "loadError": "Não foi possível carregar as pessoas que ajudaram.",
+      "answerRequired": "Escolha pelo menos uma pessoa ou \"Ninguém me ajudou\" para continuar."
+    },
     "lastSeen": {
       "line": "Visto pela última vez {{when}}",
       "today": "hoje",
@@ -512,7 +520,9 @@
     "google_signin_unavailable": "O login com Google não está disponível no momento.",
     "google_account_mismatch": "Este e-mail já está vinculado a outra conta do Google.",
     "session_expired": "Sua sessão expirou. Entre novamente.",
-    "story_already_exists": "Este pet já tem sua história publicada"
+    "story_already_exists": "Este pet já tem sua história publicada",
+    "helper_ids_required": "Você precisa indicar quem ajudou, ou escolher \"Ninguém me ajudou\".",
+    "invalid_helpers": "Uma das pessoas escolhidas não pode receber o crédito."
   },
   "publish": {
     "back": "Voltar às opções",

@@ -580,6 +580,9 @@ export interface UpdatePetRequest {
   birth_date?: string;
   birth_date_precision?: BirthDatePrecision | '';
   status?: PetStatus;
+  // Sólo se lee cuando `status` pasa a 'found'. Con candidatos, omitirlo es un
+  // 400 `helper_ids_required`; `[]` es la respuesta explícita "nadie me ayudó".
+  helper_ids?: string[];
 }
 
 export interface CreateReportRequest {
@@ -589,6 +592,15 @@ export interface CreateReportRequest {
   longitude: number;
   location_description?: string;
   occurred_at?: string; // ISO 8601, opcional; no puede ser fecha futura
+  // Igual que en UpdatePetRequest: sólo aplica con status 'found'.
+  helper_ids?: string[];
+}
+
+/** Persona que reportó sobre la mascota en la búsqueda actual. */
+export interface HelperCandidate {
+  id: string;
+  name: string;
+  profile_photo_url?: string;
 }
 
 /** Filtros opcionales de /api/reports/nearby. Ausentes = sin filtrar. */
