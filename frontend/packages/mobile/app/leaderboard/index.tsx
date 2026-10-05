@@ -22,6 +22,7 @@ import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
 import { IconLabel } from '../../components/IconLabel';
 import { BADGE_META } from '../../../shared/types';
 import { Icon } from '../../components/Icon';
+import { PointsRulesModal } from '../../components/PointsRulesModal';
 import type { LeaderboardEntry } from '../../../shared/types';
 
 /**
@@ -48,12 +49,24 @@ function getInitials(name: string): string {
 
 // Achievements legend: explains what each badge is and how a user earns it.
 function AchievementsLegend() {
-  const { t } = useTranslation('leaderboard');
+  const { t } = useTranslation(['leaderboard', 'pointsRules']);
+  const [rulesOpen, setRulesOpen] = useState(false);
   return (
     <View style={styles.achievements}>
-      <IconLabel icon="military-tech" size={18} color={COLORS.textPrimary} gap={SPACING.xs} style={{ marginBottom: 2 }}>
-        <Text style={[styles.achievementsTitle, { marginBottom: 0 }]}>{t('badges:achievementsTitle')}</Text>
-      </IconLabel>
+      <View style={styles.achievementsHeader}>
+        <IconLabel icon="military-tech" size={18} color={COLORS.textPrimary} gap={SPACING.xs} style={{ flex: 1 }}>
+          <Text style={[styles.achievementsTitle, { marginBottom: 0 }]}>{t('badges:achievementsTitle')}</Text>
+        </IconLabel>
+        <TouchableOpacity
+          onPress={() => setRulesOpen(true)}
+          accessibilityRole="button"
+          accessibilityLabel={t('pointsRules:open')}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <Icon name="help" size={22} color={COLORS.textSecondary} />
+        </TouchableOpacity>
+      </View>
+      <PointsRulesModal visible={rulesOpen} onClose={() => setRulesOpen(false)} />
       <Text style={styles.achievementsSubtitle}>{t('badges:achievementsSubtitle')}</Text>
       {Object.entries(BADGE_META).map(([key, meta]) => (
         <View key={key} style={styles.achievementRow}>
@@ -313,6 +326,12 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.lg,
     padding: SPACING.md,
     ...SHADOWS.sm,
+  },
+  achievementsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 2,
   },
   achievementsTitle: {
     fontSize: FONTS.sizes.md,
