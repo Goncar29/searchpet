@@ -2,7 +2,8 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-nativ
 import { useTranslation } from 'react-i18next';
 import type { PetGender } from '@shared/types';
 import type { BirthDateParts } from '@shared/utils/petBirthDate';
-import { COLORS, SPACING, FONTS, RADIUS } from '../constants';
+import { type ThemeColors, SPACING, FONTS, RADIUS } from '../constants';
+import { useTheme, useThemedStyles } from '../hooks/useTheme';
 
 // El equivalente NATIVO de web/src/components/PetIdentityFields.tsx. No se puede
 // compartir el de web: usa <select>, <fieldset> y clases de Tailwind, nada de lo
@@ -57,6 +58,8 @@ export function PetIdentityFields({
   birthDateError,
   hideBirthDate,
 }: Props) {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   const { t } = useTranslation(['pets']);
 
   // Sólo dígitos: el teclado numérico de Android igual deja pegar texto, y una
@@ -120,7 +123,7 @@ export function PetIdentityFields({
               editable={!disabled}
               onChangeText={(v) => setBirth({ year: soloDigitos(v, 4) })}
               placeholder={t('pets:create.birthYear')}
-              placeholderTextColor={COLORS.placeholder}
+              placeholderTextColor={colors.placeholder}
               keyboardType="number-pad"
               maxLength={4}
               accessibilityLabel={t('pets:create.birthYear')}
@@ -134,7 +137,7 @@ export function PetIdentityFields({
               editable={!disabled && !!value.birth.year}
               onChangeText={(v) => setBirth({ month: soloDigitos(v, 2) })}
               placeholder={t('pets:create.birthMonth')}
-              placeholderTextColor={COLORS.placeholder}
+              placeholderTextColor={colors.placeholder}
               keyboardType="number-pad"
               maxLength={2}
               accessibilityLabel={t('pets:create.birthMonth')}
@@ -146,7 +149,7 @@ export function PetIdentityFields({
               editable={!disabled && !!value.birth.month}
               onChangeText={(v) => setBirth({ day: soloDigitos(v, 2) })}
               placeholder={t('pets:create.birthDay')}
-              placeholderTextColor={COLORS.placeholder}
+              placeholderTextColor={colors.placeholder}
               keyboardType="number-pad"
               maxLength={2}
               accessibilityLabel={t('pets:create.birthDay')}
@@ -163,37 +166,38 @@ export function PetIdentityFields({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: ThemeColors) =>
+  StyleSheet.create({
   section: { marginBottom: SPACING.md },
   label: {
     fontSize: FONTS.sizes.sm,
     fontWeight: '600',
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
     marginBottom: SPACING.xs,
   },
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm },
   option: {
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: c.border,
     borderRadius: RADIUS.md,
     paddingVertical: SPACING.xs,
     paddingHorizontal: SPACING.sm,
   },
-  optionActive: { borderColor: COLORS.primary, backgroundColor: COLORS.primaryLight + '22' },
-  optionLabel: { fontSize: FONTS.sizes.sm, color: COLORS.textSecondary },
-  optionLabelActive: { color: COLORS.primary, fontWeight: '700' },
+  optionActive: { borderColor: c.primary, backgroundColor: c.primaryLight + '22' },
+  optionLabel: { fontSize: FONTS.sizes.sm, color: c.textSecondary },
+  optionLabelActive: { color: c.primary, fontWeight: '700' },
   input: {
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: c.border,
     borderRadius: RADIUS.md,
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.sm,
     fontSize: FONTS.sizes.sm,
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
   },
   inputDisabled: { opacity: 0.5 },
   year: { flex: 1.2 },
   short: { flex: 1 },
-  help: { fontSize: FONTS.sizes.xs, color: COLORS.textMuted, marginTop: SPACING.xs },
-  error: { fontSize: FONTS.sizes.xs, color: COLORS.danger, marginTop: SPACING.xs },
+  help: { fontSize: FONTS.sizes.xs, color: c.textMuted, marginTop: SPACING.xs },
+  error: { fontSize: FONTS.sizes.xs, color: c.danger, marginTop: SPACING.xs },
 });

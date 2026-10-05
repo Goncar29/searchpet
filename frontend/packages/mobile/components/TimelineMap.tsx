@@ -6,7 +6,8 @@ import {
   StyleSheet,
 } from 'react-native';
 import type { Report } from '../../shared/types';
-import { COLORS, SPACING, FONTS, RADIUS } from '../constants';
+import { type ThemeColors, SPACING, FONTS, RADIUS } from '../constants';
+import { useTheme, useThemedStyles } from '../hooks/useTheme';
 
 interface TimelineMapProps {
   reports: Report[];
@@ -21,11 +22,11 @@ interface ValidReport {
   date: string;
 }
 
-function getMarkerColor(status: string): string {
+function getMarkerColor(status: string, c: ThemeColors): string {
   switch (status) {
-    case 'found': return COLORS.found;
-    case 'sighting': return COLORS.sighting;
-    default: return COLORS.lost;
+    case 'found': return c.found;
+    case 'sighting': return c.sighting;
+    default: return c.lost;
   }
 }
 
@@ -34,6 +35,8 @@ function chronological(reports: ValidReport[]): ValidReport[] {
 }
 
 export function TimelineMap({ reports }: TimelineMapProps) {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   const [showMap, setShowMap] = useState(false);
   const [MapLibreGL, setMapLibreGL] = useState<typeof import('@maplibre/maplibre-react-native') | null>(null);
 
@@ -115,7 +118,7 @@ export function TimelineMap({ reports }: TimelineMapProps) {
                 id={`tl-marker-${r.id}`}
                 coordinate={[r.longitude, r.latitude]}
               >
-                <View style={[styles.marker, { backgroundColor: getMarkerColor(r.status) }]} />
+                <View style={[styles.marker, { backgroundColor: getMarkerColor(r.status, colors) }]} />
               </MapLibreGL.default.PointAnnotation>
             ))}
 
@@ -134,7 +137,8 @@ export function TimelineMap({ reports }: TimelineMapProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: ThemeColors) =>
+  StyleSheet.create({
   container: {
     marginTop: SPACING.md,
   },
@@ -144,14 +148,14 @@ const styles = StyleSheet.create({
   toggleText: {
     fontSize: FONTS.sizes.sm,
     fontWeight: '600',
-    color: COLORS.primary,
+    color: c.primary,
   },
   mapWrapper: {
     marginTop: SPACING.sm,
     borderRadius: RADIUS.lg,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: c.border,
   },
   map: {
     height: 240,
@@ -161,6 +165,6 @@ const styles = StyleSheet.create({
     height: 14,
     borderRadius: 7,
     borderWidth: 2,
-    borderColor: COLORS.white,
+    borderColor: c.white,
   },
 });

@@ -4,7 +4,8 @@
 
 import { View, Text, Image, StyleSheet, TouchableOpacity } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../constants';
+import { type ThemeColors, SPACING, FONTS, RADIUS, SHADOWS } from '../constants';
+import { useTheme, useThemedStyles } from '../hooks/useTheme';
 import { IconLabel } from './IconLabel';
 import type { Report, Pet } from '../../shared/types';
 import { PawPlaceholder } from './PawPlaceholder';
@@ -21,6 +22,8 @@ interface PetCardProps {
 }
 
 export function PetCard({ report, pet: petProp, onPress }: PetCardProps) {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   const { t, i18n } = useTranslation(['pets', 'common']);
   // report tiene prioridad; petProp es para resultados de búsqueda directa
   const pet = report?.pet ?? petProp;
@@ -34,11 +37,11 @@ export function PetCard({ report, pet: petProp, onPress }: PetCardProps) {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'lost': return COLORS.lost;
-      case 'found': return COLORS.found;
-      case 'sighting': return COLORS.sighting;
-      case 'adoption': return '#7E22CE';
-      default: return COLORS.primary;
+      case 'lost': return colors.lost;
+      case 'found': return colors.found;
+      case 'sighting': return colors.sighting;
+      case 'adoption': return colors.adoption;
+      default: return colors.primary;
     }
   };
 
@@ -151,7 +154,7 @@ export function PetCard({ report, pet: petProp, onPress }: PetCardProps) {
         </View>
 
         {locationDesc && (
-          <IconLabel icon="location-on" color={COLORS.textSecondary} style={styles.locationRow}>
+          <IconLabel icon="location-on" color={colors.textSecondary} style={styles.locationRow}>
             <Text style={styles.location} numberOfLines={1}>
               {locationDesc}
             </Text>
@@ -168,9 +171,10 @@ export function PetCard({ report, pet: petProp, onPress }: PetCardProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: ThemeColors) =>
+  StyleSheet.create({
   card: {
-    backgroundColor: COLORS.white,
+    backgroundColor: c.card,
     borderRadius: RADIUS.lg,
     marginBottom: SPACING.md,
     overflow: 'hidden',
@@ -188,7 +192,7 @@ const styles = StyleSheet.create({
   imagePlaceholder: {
     width: '100%',
     height: '100%',
-    backgroundColor: COLORS.background,
+    backgroundColor: c.background,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -201,7 +205,7 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.sm,
   },
   statusText: {
-    color: COLORS.white,
+    color: c.onPrimary,
     fontSize: 11,
     fontWeight: '800',
     letterSpacing: 0.5,
@@ -218,12 +222,12 @@ const styles = StyleSheet.create({
   petName: {
     fontSize: FONTS.sizes.lg,
     fontWeight: '700',
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
     flex: 1,
   },
   timeAgo: {
     fontSize: FONTS.sizes.xs,
-    color: COLORS.textMuted,
+    color: c.textMuted,
     marginLeft: SPACING.sm,
   },
   detailsRow: {
@@ -233,25 +237,25 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.xs,
   },
   tag: {
-    backgroundColor: COLORS.background,
+    backgroundColor: c.background,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: RADIUS.sm,
   },
   tagText: {
     fontSize: FONTS.sizes.xs,
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
     fontWeight: '500',
   },
   locationRow: { marginBottom: 4 },
   location: {
     flexShrink: 1,
     fontSize: FONTS.sizes.sm,
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
   },
   description: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
     lineHeight: 20,
   },
 });
