@@ -17,11 +17,13 @@ import i18next from 'i18next';
 import { useBlockedUsers, useUnblockUser } from '../../shared/hooks';
 import { ListState } from '../components/list/ListState';
 import { getErrorMessage } from '../../shared/utils/apiErrors';
-import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../constants';
+import { SPACING, FONTS, RADIUS, SHADOWS, type ThemeColors } from '../constants';
+import { useTheme, useThemedStyles } from '../hooks/useTheme';
 import { Icon } from '../components/Icon';
 import type { BlockedUser } from '../../shared/types';
 
 function BlockedUserItem({ item, onUnblock }: { item: BlockedUser; onUnblock: (id: string) => void }) {
+  const styles = useThemedStyles(makeStyles);
   const { t } = useTranslation(['blocked_users', 'common']);
   const initial = item.name.trim().charAt(0).toUpperCase();
 
@@ -54,6 +56,8 @@ function BlockedUserItem({ item, onUnblock }: { item: BlockedUser; onUnblock: (i
 }
 
 export default function BlockedUsersScreen() {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   const { t } = useTranslation(['blocked_users', 'common']);
   // La query entera: `ListState` necesita `isPaused`, `isError` y `refetch`.
   const blockedQuery = useBlockedUsers();
@@ -77,7 +81,7 @@ export default function BlockedUsersScreen() {
         query={blockedQuery}
         loading={
           <View style={styles.center}>
-            <ActivityIndicator size="large" color={COLORS.primary} />
+            <ActivityIndicator size="large" color={colors.primary} />
           </View>
         }
       >
@@ -93,7 +97,7 @@ export default function BlockedUsersScreen() {
         }
         ListEmptyComponent={
           <View style={styles.empty}>
-            <View style={styles.emptyIcon}><Icon name="check-circle" size={48} color={COLORS.success} /></View>
+            <View style={styles.emptyIcon}><Icon name="check-circle" size={48} color={colors.success} /></View>
             <Text style={styles.emptyTitle}>{t('blocked_users:empty')}</Text>
             <Text style={styles.emptySubtitle}>{t('blocked_users:emptySubtitle')}</Text>
           </View>
@@ -105,10 +109,10 @@ export default function BlockedUsersScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: c.background,
   },
   center: {
     flex: 1,
@@ -125,7 +129,7 @@ const styles = StyleSheet.create({
   item: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.card,
+    backgroundColor: c.card,
     borderRadius: RADIUS.md,
     padding: SPACING.md,
     marginBottom: SPACING.sm,
@@ -135,7 +139,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: COLORS.primary + '20',
+    backgroundColor: c.primary + '20',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: SPACING.md,
@@ -144,13 +148,13 @@ const styles = StyleSheet.create({
   avatarText: {
     fontSize: FONTS.sizes.lg,
     fontWeight: '700',
-    color: COLORS.primary,
+    color: c.primary,
   },
   name: {
     flex: 1,
     fontSize: FONTS.sizes.md,
     fontWeight: '500',
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
     marginRight: SPACING.sm,
   },
   unblockBtn: {
@@ -158,12 +162,12 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.xs,
     borderRadius: RADIUS.sm,
     borderWidth: 1,
-    borderColor: COLORS.primary,
+    borderColor: c.primary,
   },
   unblockText: {
     fontSize: FONTS.sizes.sm,
     fontWeight: '600',
-    color: COLORS.primary,
+    color: c.primary,
   },
   empty: {
     flex: 1,
@@ -177,30 +181,30 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: FONTS.sizes.lg,
     fontWeight: '700',
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
     textAlign: 'center',
     marginBottom: SPACING.sm,
   },
   emptySubtitle: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
     textAlign: 'center',
   },
   errorText: {
     fontSize: FONTS.sizes.md,
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
     marginBottom: SPACING.md,
     textAlign: 'center',
   },
   backBtn: {
     paddingHorizontal: SPACING.lg,
     paddingVertical: SPACING.sm,
-    backgroundColor: COLORS.primary,
+    backgroundColor: c.primary,
     borderRadius: RADIUS.md,
   },
   backBtnText: {
     fontSize: FONTS.sizes.md,
     fontWeight: '600',
-    color: '#fff',
+    color: c.onPrimary,
   },
 });

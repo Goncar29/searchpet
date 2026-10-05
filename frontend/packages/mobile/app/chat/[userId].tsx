@@ -32,11 +32,14 @@ import {
 } from '../../../shared/hooks';
 import type { WsEnvelope, WsChatMessage, WsTypingEvent } from '../../../shared/hooks';
 import { ListState } from '../../components/list/ListState';
-import { COLORS, SPACING, FONTS, RADIUS } from '../../constants';
+import { SPACING, FONTS, RADIUS, type ThemeColors } from '../../constants';
+import { useTheme, useThemedStyles } from '../../hooks/useTheme';
 import { Icon } from '../../components/Icon';
 import type { Message } from '../../../shared/types';
 
 export default function ChatScreen() {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   const { t } = useTranslation(['messages', 'common']);
   const { userId, userName } = useLocalSearchParams<{ userId: string; userName?: string }>();
   const navigation = useNavigation();
@@ -250,7 +253,7 @@ export default function ChatScreen() {
   if (isLoading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -293,7 +296,7 @@ export default function ChatScreen() {
         query={conversationQuery}
         loading={
           <View style={styles.center}>
-            <ActivityIndicator size="large" color={COLORS.primary} />
+            <ActivityIndicator size="large" color={colors.primary} />
           </View>
         }
       >
@@ -309,7 +312,7 @@ export default function ChatScreen() {
             }
             ListEmptyComponent={
               <View style={styles.center}>
-                <View style={{ marginBottom: SPACING.md }}><Icon name="chat-bubble" size={48} color={COLORS.textMuted} /></View>
+                <View style={{ marginBottom: SPACING.md }}><Icon name="chat-bubble" size={48} color={colors.textMuted} /></View>
                 <Text style={styles.emptyText}>
                   {t('chat:startConversation')}
                 </Text>
@@ -340,7 +343,7 @@ export default function ChatScreen() {
           value={text}
           onChangeText={handleTyping}
           placeholder={t('chat:inputPlaceholder')}
-          placeholderTextColor={COLORS.textMuted}
+          placeholderTextColor={colors.textMuted}
           multiline
           maxLength={1000}
           returnKeyType="default"
@@ -355,9 +358,9 @@ export default function ChatScreen() {
           accessibilityLabel={t('chat:send')}
         >
           {isSending ? (
-            <ActivityIndicator size="small" color={COLORS.white} />
+            <ActivityIndicator size="small" color={colors.onPrimary} />
           ) : (
-            <View style={styles.sendIcon}><Icon name="send" size={18} color={COLORS.white} /></View>
+            <View style={styles.sendIcon}><Icon name="send" size={18} color={colors.onPrimary} /></View>
           )}
         </TouchableOpacity>
       </View>
@@ -372,8 +375,8 @@ function formatTime(dateStr: string): string {
   return `${hours}:${mins}`;
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
+const makeStyles = (c: ThemeColors) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: c.background },
   center: {
     flex: 1,
     justifyContent: 'center',
@@ -388,7 +391,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: FONTS.sizes.md,
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
     textAlign: 'center',
   },
 
@@ -411,11 +414,11 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.lg,
   },
   bubbleMine: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: c.primary,
     borderBottomRightRadius: 4,
   },
   bubbleOther: {
-    backgroundColor: COLORS.white,
+    backgroundColor: c.card,
     borderBottomLeftRadius: 4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
@@ -425,20 +428,20 @@ const styles = StyleSheet.create({
   },
   bubbleText: {
     fontSize: FONTS.sizes.md,
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
     lineHeight: 20,
   },
   bubbleTextMine: {
-    color: COLORS.white,
+    color: c.onPrimary,
   },
   bubbleTime: {
     fontSize: FONTS.sizes.xs,
-    color: COLORS.textMuted,
+    color: c.textMuted,
     marginTop: 2,
     marginHorizontal: 4,
   },
   bubbleTimeMine: {
-    color: COLORS.textMuted,
+    color: c.textMuted,
   },
 
   // Input bar
@@ -448,19 +451,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.sm,
     paddingBottom: Platform.OS === 'ios' ? SPACING.md : SPACING.sm,
-    backgroundColor: COLORS.white,
+    backgroundColor: c.surface,
     borderTopWidth: 1,
-    borderTopColor: COLORS.border,
+    borderTopColor: c.border,
     gap: SPACING.sm,
   },
   input: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: c.background,
     borderRadius: RADIUS.lg,
     paddingHorizontal: SPACING.md,
     paddingVertical: Platform.OS === 'ios' ? 10 : 8,
     fontSize: FONTS.sizes.md,
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
     maxHeight: 100,
     minHeight: 40,
   },
@@ -468,12 +471,12 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: COLORS.primary,
+    backgroundColor: c.primary,
     justifyContent: 'center',
     alignItems: 'center',
   },
   sendButtonDisabled: {
-    backgroundColor: COLORS.border,
+    backgroundColor: c.border,
   },
   sendIcon: {
     marginLeft: 2,
@@ -484,7 +487,7 @@ const styles = StyleSheet.create({
   },
   typingText: {
     fontSize: FONTS.sizes.xs,
-    color: COLORS.textMuted,
+    color: c.textMuted,
     fontStyle: 'italic',
   },
   blockedBanner: {

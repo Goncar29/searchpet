@@ -35,7 +35,8 @@ import type {
   HousingType,
   UpdateMyFosterHomeRequest,
 } from '@shared/types';
-import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
+import { SPACING, FONTS, RADIUS, SHADOWS, type ThemeColors } from '../../constants';
+import { useTheme, useThemedStyles } from '../../hooks/useTheme';
 import { Icon } from '../../components/Icon';
 import { StaleDataNotice } from '../../components/list/ListState';
 import { cloudinaryThumb } from '@shared/utils/cloudinaryThumb';
@@ -59,12 +60,13 @@ const STATUS_MESSAGE_KEY: Record<FosterHomeStatus, string> = {
   suspended: 'fosterHomes:mine.statusSuspended',
 };
 
-const STATUS_COLORS: Record<FosterHomeStatus, string> = {
-  pending: COLORS.warning,
-  approved: COLORS.success,
-  rejected: COLORS.danger,
-  suspended: COLORS.danger,
-};
+// Built from the active palette: danger is lighter in dark mode.
+const statusColors = (c: ThemeColors): Record<FosterHomeStatus, string> => ({
+  pending: c.warning,
+  approved: c.success,
+  rejected: c.danger,
+  suspended: c.danger,
+});
 
 interface FieldErrors {
   city?: string;
@@ -85,6 +87,8 @@ function buildRNFile(uri: string): File {
 }
 
 export default function MyFosterHomeScreen() {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   const { t } = useTranslation(['fosterHomes', 'errors', 'common']);
   const router = useRouter();
 
@@ -119,7 +123,7 @@ export default function MyFosterHomeScreen() {
   if (isLoading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -129,7 +133,7 @@ export default function MyFosterHomeScreen() {
   if (isError && errorCode === 'foster_home_not_found') {
     return (
       <View style={styles.center}>
-        <Icon name="home" size={48} color={COLORS.textMuted} />
+        <Icon name="home" size={48} color={colors.textMuted} />
         <Text style={styles.emptyTitle}>{t('fosterHomes:mine.noFosterHomeTitle')}</Text>
         <TouchableOpacity
           style={styles.primaryButton}
@@ -260,8 +264,8 @@ export default function MyFosterHomeScreen() {
       <StaleDataNotice query={mineQuery} />
 
       {/* Status banner */}
-      <View style={[styles.statusCard, { borderColor: STATUS_COLORS[status] }]}>
-        <Text style={[styles.statusLabel, { color: STATUS_COLORS[status] }]}>
+      <View style={[styles.statusCard, { borderColor: statusColors(colors)[status] }]}>
+        <Text style={[styles.statusLabel, { color: statusColors(colors)[status] }]}>
           {t(`fosterHomes:status.${status}`)}
         </Text>
         <Text style={styles.statusMessage}>{t(STATUS_MESSAGE_KEY[status])}</Text>
@@ -289,7 +293,7 @@ export default function MyFosterHomeScreen() {
             setCity(text);
             setErrors((prev) => ({ ...prev, city: undefined }));
           }}
-          placeholderTextColor={COLORS.placeholder}
+          placeholderTextColor={colors.placeholder}
           autoCapitalize="words"
           maxLength={CITY_MAX_LEN}
         />
@@ -394,7 +398,7 @@ export default function MyFosterHomeScreen() {
         accessibilityRole="button"
       >
         {updateFosterHome.isPending ? (
-          <ActivityIndicator size="small" color={COLORS.white} />
+          <ActivityIndicator size="small" color={colors.onPrimary} />
         ) : (
           <Text style={styles.primaryButtonText}>
             {t(isSuspended ? 'fosterHomes:mine.resubmit' : 'fosterHomes:mine.save')}
@@ -419,9 +423,9 @@ export default function MyFosterHomeScreen() {
                   accessibilityLabel={t('fosterHomes:mine.deletePhoto')}
                 >
                   {deletingPhotoId === photo.id ? (
-                    <ActivityIndicator size="small" color={COLORS.white} />
+                    <ActivityIndicator size="small" color={colors.onPrimary} />
                   ) : (
-                    <Icon name="close" size={14} color={COLORS.white} />
+                    <Icon name="close" size={14} color={colors.onPrimary} />
                   )}
                 </TouchableOpacity>
               </View>
@@ -438,7 +442,7 @@ export default function MyFosterHomeScreen() {
           accessibilityRole="button"
         >
           {uploadPhoto.isPending ? (
-            <ActivityIndicator size="small" color={COLORS.primary} />
+            <ActivityIndicator size="small" color={colors.primary} />
           ) : (
             <Text style={styles.addPhotoButtonText}>{t('fosterHomes:mine.addPhoto')}</Text>
           )}
@@ -451,40 +455,40 @@ export default function MyFosterHomeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
+const makeStyles = (c: ThemeColors) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: c.background },
   center: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: COLORS.background,
+    backgroundColor: c.background,
     padding: SPACING.lg,
   },
   content: { padding: SPACING.lg, paddingBottom: SPACING.xxl },
   emptyTitle: {
     fontSize: FONTS.sizes.lg,
     fontWeight: '700',
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
     textAlign: 'center',
     marginTop: SPACING.md,
     marginBottom: SPACING.lg,
   },
   loadErrorText: {
     fontSize: FONTS.sizes.md,
-    color: COLORS.danger,
+    color: c.danger,
     textAlign: 'center',
     marginBottom: SPACING.md,
   },
   retryButton: {
     borderWidth: 1,
-    borderColor: COLORS.primary,
+    borderColor: c.primary,
     paddingVertical: SPACING.sm,
     paddingHorizontal: SPACING.lg,
     borderRadius: RADIUS.md,
   },
-  retryButtonText: { color: COLORS.primary, fontSize: FONTS.sizes.sm, fontWeight: '700' },
+  retryButtonText: { color: c.primary, fontSize: FONTS.sizes.sm, fontWeight: '700' },
   statusCard: {
-    backgroundColor: COLORS.white,
+    backgroundColor: c.card,
     borderWidth: 1,
     borderRadius: RADIUS.lg,
     padding: SPACING.md,
@@ -492,48 +496,48 @@ const styles = StyleSheet.create({
     ...SHADOWS.sm,
   },
   statusLabel: { fontSize: FONTS.sizes.md, fontWeight: '700', marginBottom: SPACING.xs },
-  statusMessage: { fontSize: FONTS.sizes.sm, color: COLORS.textSecondary },
-  statusReason: { fontSize: FONTS.sizes.sm, color: COLORS.danger, marginTop: SPACING.xs },
+  statusMessage: { fontSize: FONTS.sizes.sm, color: c.textSecondary },
+  statusReason: { fontSize: FONTS.sizes.sm, color: c.danger, marginTop: SPACING.xs },
   section: { marginBottom: SPACING.md },
   label: {
     fontSize: FONTS.sizes.sm,
     fontWeight: '600',
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
     marginBottom: SPACING.xs,
   },
   input: {
-    backgroundColor: COLORS.white,
+    backgroundColor: c.surface,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: c.border,
     borderRadius: RADIUS.md,
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.sm,
     fontSize: FONTS.sizes.sm,
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
   },
   textArea: { height: 90, textAlignVertical: 'top' },
-  error: { fontSize: FONTS.sizes.xs, color: COLORS.danger, marginTop: SPACING.xs },
+  error: { fontSize: FONTS.sizes.xs, color: c.danger, marginTop: SPACING.xs },
   fieldFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginTop: SPACING.xs,
   },
-  counter: { fontSize: FONTS.sizes.xs, color: COLORS.textMuted },
+  counter: { fontSize: FONTS.sizes.xs, color: c.textMuted },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm },
   chipOption: {
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: c.border,
     borderRadius: RADIUS.full,
     paddingVertical: SPACING.xs,
     paddingHorizontal: SPACING.md,
-    backgroundColor: COLORS.white,
+    backgroundColor: c.surface,
   },
-  chipOptionActive: { borderColor: COLORS.primary, backgroundColor: COLORS.primaryLight + '22' },
-  chipLabel: { fontSize: FONTS.sizes.sm, color: COLORS.textSecondary, fontWeight: '600' },
-  chipLabelActive: { color: COLORS.primary },
+  chipOptionActive: { borderColor: c.primary, backgroundColor: c.primaryLight + '22' },
+  chipLabel: { fontSize: FONTS.sizes.sm, color: c.textSecondary, fontWeight: '600' },
+  chipLabelActive: { color: c.primary },
   primaryButton: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: c.primary,
     borderRadius: RADIUS.md,
     paddingVertical: SPACING.md,
     paddingHorizontal: SPACING.lg,
@@ -542,12 +546,12 @@ const styles = StyleSheet.create({
     ...SHADOWS.sm,
   },
   disabledButton: { opacity: 0.6 },
-  primaryButtonText: { color: COLORS.white, fontWeight: '700', fontSize: FONTS.sizes.md },
+  primaryButtonText: { color: c.onPrimary, fontWeight: '700', fontSize: FONTS.sizes.md },
   photosSection: { marginTop: SPACING.lg },
   sectionTitle: {
     fontSize: FONTS.sizes.md,
     fontWeight: '700',
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
     marginBottom: SPACING.sm,
   },
   photoGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm, marginBottom: SPACING.sm },
@@ -560,20 +564,20 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: RADIUS.full,
-    backgroundColor: COLORS.danger,
+    backgroundColor: c.danger,
     alignItems: 'center',
     justifyContent: 'center',
   },
   addPhotoButton: {
     borderWidth: 1,
-    borderColor: COLORS.primary,
+    borderColor: c.primary,
     borderStyle: 'dashed',
     borderRadius: RADIUS.md,
     paddingVertical: SPACING.sm,
     alignItems: 'center',
   },
-  addPhotoButtonText: { color: COLORS.primary, fontSize: FONTS.sizes.sm, fontWeight: '700' },
-  hint: { fontSize: FONTS.sizes.xs, color: COLORS.textMuted, marginTop: SPACING.xs },
+  addPhotoButtonText: { color: c.primary, fontSize: FONTS.sizes.sm, fontWeight: '700' },
+  hint: { fontSize: FONTS.sizes.xs, color: c.textMuted, marginTop: SPACING.xs },
   // `hint` lo comparte el tope de fotos, que va pegado a lo suyo. Éste separa
   // del formulario que sigue: repone el `marginBottom` que traía el bloque
   // `suspendedNotice` al que reemplaza, sin dárselo al otro call site.

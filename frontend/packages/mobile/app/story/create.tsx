@@ -20,10 +20,13 @@ import { useTranslation } from 'react-i18next';
 import i18next from 'i18next';
 import { useCreateStory } from '../../../shared/hooks';
 import { getErrorMessage } from '../../../shared/utils/apiErrors';
-import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
+import { SPACING, FONTS, RADIUS, SHADOWS, type ThemeColors } from '../../constants';
+import { useTheme, useThemedStyles } from '../../hooks/useTheme';
 import { Icon } from '../../components/Icon';
 
 export default function CreateStoryScreen() {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   const router = useRouter();
   const { petId } = useLocalSearchParams<{ petId: string }>();
   const createStory = useCreateStory();
@@ -68,7 +71,7 @@ export default function CreateStoryScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.emoji}><Icon name="celebration" size={52} color={COLORS.primary} /></View>
+        <View style={styles.emoji}><Icon name="celebration" size={52} color={colors.primary} /></View>
         <Text style={styles.subtitle}>
           {t('story:createSubtitle')}
         </Text>
@@ -79,7 +82,7 @@ export default function CreateStoryScreen() {
           <TextInput
             style={[styles.textarea, bodyError ? styles.inputError : null]}
             placeholder={t('story:bodyPlaceholder')}
-            placeholderTextColor={COLORS.placeholder}
+            placeholderTextColor={colors.placeholder}
             value={body}
             onChangeText={(text) => {
               setBody(text);
@@ -98,7 +101,7 @@ export default function CreateStoryScreen() {
           <TextInput
             style={styles.input}
             placeholder={t('story:titlePlaceholder')}
-            placeholderTextColor={COLORS.placeholder}
+            placeholderTextColor={colors.placeholder}
             value={title}
             onChangeText={setTitle}
             returnKeyType="next"
@@ -126,7 +129,7 @@ export default function CreateStoryScreen() {
           activeOpacity={0.8}
         >
           {createStory.isPending ? (
-            <ActivityIndicator color={COLORS.white} />
+            <ActivityIndicator color={colors.onPrimary} />
           ) : (
             <Text style={styles.buttonText}>{t('story:submit')}</Text>
           )}
@@ -146,10 +149,10 @@ export default function CreateStoryScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: c.background,
   },
   content: {
     padding: SPACING.lg,
@@ -161,7 +164,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
     textAlign: 'center',
     marginBottom: SPACING.xl,
     lineHeight: 20,
@@ -172,45 +175,45 @@ const styles = StyleSheet.create({
   label: {
     fontSize: FONTS.sizes.sm,
     fontWeight: '600',
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
     marginBottom: SPACING.xs,
   },
   required: {
-    color: COLORS.danger,
+    color: c.danger,
   },
   optional: {
-    color: COLORS.textMuted,
+    color: c.textMuted,
     fontWeight: '400',
   },
   input: {
-    backgroundColor: COLORS.white,
+    backgroundColor: c.surface,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: c.border,
     borderRadius: RADIUS.md,
     paddingHorizontal: SPACING.md,
     paddingVertical: 14,
     fontSize: FONTS.sizes.md,
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
     ...SHADOWS.sm,
   },
   textarea: {
-    backgroundColor: COLORS.white,
+    backgroundColor: c.surface,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: c.border,
     borderRadius: RADIUS.md,
     paddingHorizontal: SPACING.md,
     paddingVertical: 14,
     fontSize: FONTS.sizes.md,
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
     minHeight: 120,
     ...SHADOWS.sm,
   },
   inputError: {
-    borderColor: COLORS.danger,
+    borderColor: c.danger,
   },
   errorText: {
     fontSize: FONTS.sizes.xs,
-    color: COLORS.danger,
+    color: c.danger,
     marginTop: SPACING.xs,
   },
   errorBanner: {
@@ -223,10 +226,10 @@ const styles = StyleSheet.create({
   },
   errorBannerText: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.danger,
+    color: c.danger,
   },
   button: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: c.primary,
     paddingVertical: 16,
     borderRadius: RADIUS.md,
     alignItems: 'center',
@@ -237,7 +240,7 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   buttonText: {
-    color: COLORS.white,
+    color: c.onPrimary,
     fontSize: FONTS.sizes.md,
     fontWeight: '700',
   },
@@ -248,7 +251,7 @@ const styles = StyleSheet.create({
   },
   cancelButtonText: {
     fontSize: FONTS.sizes.md,
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
     fontWeight: '500',
   },
 });

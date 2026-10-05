@@ -17,13 +17,16 @@ import { useAuthStore } from '../../store';
 import { getDateLocale } from '../../i18n/dateLocale';
 import { useMyBadges } from '../../../shared/hooks';
 import { ListState } from '../../components/list/ListState';
-import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
+import { SPACING, FONTS, RADIUS, SHADOWS, type ThemeColors } from '../../constants';
+import { useTheme, useThemedStyles } from '../../hooks/useTheme';
 import { IconLabel } from '../../components/IconLabel';
 import type { Badge } from '../../../shared/types';
 import { BADGE_META, BADGE_FALLBACK_ICON } from '../../../shared/types';
 import { Icon } from '../../components/Icon';
 
 function BadgeCard({ badge }: { badge: Badge }) {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   const { t, i18n } = useTranslation(['badges', 'common']);
   const meta = BADGE_META[badge.badge_type];
   const label = meta ? t(meta.labelKey) : badge.badge_type;
@@ -34,7 +37,7 @@ function BadgeCard({ badge }: { badge: Badge }) {
   return (
     <View style={styles.badgeCard}>
       <View style={styles.badgeIcon}>
-        <Icon name={meta?.icon ?? BADGE_FALLBACK_ICON} size={40} color={COLORS.primary} />
+        <Icon name={meta?.icon ?? BADGE_FALLBACK_ICON} size={40} color={colors.primary} />
       </View>
       <View style={styles.badgeInfo}>
         <Text style={styles.badgeLabel}>{label}</Text>
@@ -48,6 +51,8 @@ function BadgeCard({ badge }: { badge: Badge }) {
 }
 
 export default function BadgesScreen() {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   const router = useRouter();
   const { t } = useTranslation(['badges', 'common']);
   const { isAuthenticated } = useAuthStore();
@@ -60,7 +65,7 @@ export default function BadgesScreen() {
   if (!isAuthenticated) {
     return (
       <View style={styles.center}>
-        <View style={styles.guardIcon}><Icon name="lock" size={56} color={COLORS.textMuted} /></View>
+        <View style={styles.guardIcon}><Icon name="lock" size={56} color={colors.textMuted} /></View>
         <Text style={styles.guardTitle}>{t('badges:authRequired')}</Text>
         <Text style={styles.guardText}>{t('badges:authText')}</Text>
         <TouchableOpacity
@@ -88,7 +93,7 @@ export default function BadgesScreen() {
         query={badgesQuery}
         loading={
           <View style={styles.center}>
-            <ActivityIndicator size="large" color={COLORS.primary} />
+            <ActivityIndicator size="large" color={colors.primary} />
           </View>
         }
       >
@@ -101,7 +106,7 @@ export default function BadgesScreen() {
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
           <View style={styles.intro}>
-            <IconLabel icon="emoji-events" size={20} color={COLORS.textPrimary} gap={SPACING.xs} style={{ marginBottom: 4 }}>
+            <IconLabel icon="emoji-events" size={20} color={colors.textPrimary} gap={SPACING.xs} style={{ marginBottom: 4 }}>
               <Text style={[styles.introTitle, { marginBottom: 0 }]}>{t('badges:myAchievements')}</Text>
             </IconLabel>
             <Text style={styles.introText}>{t('badges:introText')}</Text>
@@ -109,7 +114,7 @@ export default function BadgesScreen() {
         }
         ListEmptyComponent={
           <View style={styles.empty}>
-            <View style={styles.emptyIcon}><Icon name="military-tech" size={56} color={COLORS.textMuted} /></View>
+            <View style={styles.emptyIcon}><Icon name="military-tech" size={56} color={colors.textMuted} /></View>
             <Text style={styles.emptyTitle}>{t('badges:emptyTitle')}</Text>
             <Text style={styles.emptyText}>{t('badges:emptyText')}</Text>
           </View>
@@ -123,50 +128,50 @@ export default function BadgesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
+const makeStyles = (c: ThemeColors) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: c.background },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: SPACING.xl },
 
   // ── Auth guard / Error states ──
   guardIcon: { marginBottom: SPACING.md },
-  guardTitle: { fontSize: FONTS.sizes.lg, fontWeight: '700', color: COLORS.textPrimary, marginBottom: SPACING.sm },
-  guardText: { fontSize: FONTS.sizes.sm, color: COLORS.textSecondary, textAlign: 'center', marginBottom: SPACING.lg },
+  guardTitle: { fontSize: FONTS.sizes.lg, fontWeight: '700', color: c.textPrimary, marginBottom: SPACING.sm },
+  guardText: { fontSize: FONTS.sizes.sm, color: c.textSecondary, textAlign: 'center', marginBottom: SPACING.lg },
 
   loginButton: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: c.primary,
     paddingHorizontal: SPACING.xl,
     paddingVertical: 14,
     borderRadius: RADIUS.md,
   },
-  loginButtonText: { color: COLORS.white, fontSize: FONTS.sizes.md, fontWeight: '700' },
+  loginButtonText: { color: c.onPrimary, fontSize: FONTS.sizes.md, fontWeight: '700' },
 
   retryButton: {
     borderWidth: 1,
-    borderColor: COLORS.primary,
+    borderColor: c.primary,
     paddingHorizontal: SPACING.xl,
     paddingVertical: 12,
     borderRadius: RADIUS.md,
   },
-  retryButtonText: { color: COLORS.primary, fontSize: FONTS.sizes.sm, fontWeight: '600' },
+  retryButtonText: { color: c.primary, fontSize: FONTS.sizes.sm, fontWeight: '600' },
 
   // ── Intro banner ──
   intro: {
     margin: SPACING.lg,
     padding: SPACING.md,
-    backgroundColor: COLORS.accent + '25',
+    backgroundColor: c.accent + '25',
     borderRadius: RADIUS.lg,
     borderLeftWidth: 3,
-    borderLeftColor: COLORS.accent,
+    borderLeftColor: c.accent,
   },
-  introTitle: { fontSize: FONTS.sizes.md, fontWeight: '700', color: COLORS.textPrimary, marginBottom: 4 },
-  introText: { fontSize: FONTS.sizes.sm, color: COLORS.textSecondary, lineHeight: 20 },
+  introTitle: { fontSize: FONTS.sizes.md, fontWeight: '700', color: c.textPrimary, marginBottom: 4 },
+  introText: { fontSize: FONTS.sizes.sm, color: c.textSecondary, lineHeight: 20 },
 
   // ── Badge card ──
   listContent: { paddingBottom: 80 },
   badgeCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.white,
+    backgroundColor: c.card,
     marginHorizontal: SPACING.lg,
     marginBottom: SPACING.md,
     borderRadius: RADIUS.lg,
@@ -175,13 +180,13 @@ const styles = StyleSheet.create({
   },
   badgeIcon: { marginRight: SPACING.md },
   badgeInfo: { flex: 1 },
-  badgeLabel: { fontSize: FONTS.sizes.md, fontWeight: '700', color: COLORS.textPrimary },
-  badgeDescription: { fontSize: FONTS.sizes.sm, color: COLORS.textSecondary, marginTop: 2 },
-  badgeDate: { fontSize: FONTS.sizes.xs, color: COLORS.textMuted, marginTop: 4 },
+  badgeLabel: { fontSize: FONTS.sizes.md, fontWeight: '700', color: c.textPrimary },
+  badgeDescription: { fontSize: FONTS.sizes.sm, color: c.textSecondary, marginTop: 2 },
+  badgeDate: { fontSize: FONTS.sizes.xs, color: c.textMuted, marginTop: 4 },
 
   // ── Empty state ──
   empty: { alignItems: 'center', padding: SPACING.xl, marginTop: SPACING.lg },
   emptyIcon: { marginBottom: SPACING.md },
-  emptyTitle: { fontSize: FONTS.sizes.lg, fontWeight: '700', color: COLORS.textPrimary, marginBottom: SPACING.sm },
-  emptyText: { fontSize: FONTS.sizes.sm, color: COLORS.textSecondary, textAlign: 'center', lineHeight: 22 },
+  emptyTitle: { fontSize: FONTS.sizes.lg, fontWeight: '700', color: c.textPrimary, marginBottom: SPACING.sm },
+  emptyText: { fontSize: FONTS.sizes.sm, color: c.textSecondary, textAlign: 'center', lineHeight: 22 },
 });

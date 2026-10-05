@@ -22,9 +22,12 @@ import i18next from 'i18next';
 import { useAuthStore } from '../store';
 import { getErrorMessage } from '@shared/utils/apiErrors';
 import { GoogleSignInButton } from '../components/GoogleSignInButton';
-import { COLORS, SPACING, FONTS, RADIUS, GOOGLE_WEB_CLIENT_ID } from '../constants';
+import { SPACING, FONTS, RADIUS, GOOGLE_WEB_CLIENT_ID, type ThemeColors } from '../constants';
+import { useTheme, useThemedStyles } from '../hooks/useTheme';
 
 export default function RegisterScreen() {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   const router = useRouter();
   const { t } = useTranslation('auth');
   const register = useAuthStore((state) => state.register);
@@ -96,7 +99,7 @@ export default function RegisterScreen() {
         <TextInput
           style={styles.input}
           placeholder={t('register.name')}
-          placeholderTextColor={COLORS.placeholder}
+          placeholderTextColor={colors.placeholder}
           value={name}
           onChangeText={setName}
           autoComplete="name"
@@ -106,7 +109,7 @@ export default function RegisterScreen() {
         <TextInput
           style={styles.input}
           placeholder={t('register.emailPlaceholder')}
-          placeholderTextColor={COLORS.placeholder}
+          placeholderTextColor={colors.placeholder}
           value={email}
           onChangeText={setEmail}
           keyboardType="email-address"
@@ -118,7 +121,7 @@ export default function RegisterScreen() {
         <TextInput
           style={styles.input}
           placeholder={t('register.phonePlaceholder')}
-          placeholderTextColor={COLORS.placeholder}
+          placeholderTextColor={colors.placeholder}
           value={phone}
           onChangeText={setPhone}
           keyboardType="phone-pad"
@@ -129,7 +132,7 @@ export default function RegisterScreen() {
         <TextInput
           style={styles.input}
           placeholder={t('register.cityPlaceholder')}
-          placeholderTextColor={COLORS.placeholder}
+          placeholderTextColor={colors.placeholder}
           value={city}
           onChangeText={setCity}
           autoComplete="address-line1"
@@ -139,7 +142,7 @@ export default function RegisterScreen() {
         <TextInput
           style={styles.input}
           placeholder={t('register.passwordPlaceholder')}
-          placeholderTextColor={COLORS.placeholder}
+          placeholderTextColor={colors.placeholder}
           value={password}
           onChangeText={setPassword}
           secureTextEntry
@@ -149,7 +152,7 @@ export default function RegisterScreen() {
         <TextInput
           style={styles.input}
           placeholder={t('register.confirm')}
-          placeholderTextColor={COLORS.placeholder}
+          placeholderTextColor={colors.placeholder}
           value={confirmPassword}
           onChangeText={setConfirmPassword}
           secureTextEntry
@@ -161,7 +164,7 @@ export default function RegisterScreen() {
           disabled={isLoading}
         >
           {isLoading ? (
-            <ActivityIndicator color={COLORS.white} />
+            <ActivityIndicator color={colors.onPrimary} />
           ) : (
             <Text style={styles.buttonText}>{t('register.submit')}</Text>
           )}
@@ -185,10 +188,10 @@ export default function RegisterScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: c.background,
   },
   content: {
     padding: SPACING.xl,
@@ -202,35 +205,35 @@ const styles = StyleSheet.create({
   title: {
     fontSize: FONTS.sizes.xxl,
     fontWeight: '700',
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
     textAlign: 'center',
     marginBottom: SPACING.xs,
   },
   subtitle: {
     fontSize: FONTS.sizes.md,
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
     textAlign: 'center',
     marginBottom: SPACING.xl,
   },
   label: {
     fontSize: FONTS.sizes.sm,
     fontWeight: '600',
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
     marginBottom: SPACING.xs,
     marginTop: SPACING.sm,
   },
   input: {
-    backgroundColor: COLORS.white,
+    backgroundColor: c.surface,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: c.border,
     borderRadius: RADIUS.md,
     paddingHorizontal: SPACING.md,
     paddingVertical: 14,
     fontSize: FONTS.sizes.md,
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
   },
   button: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: c.primary,
     paddingVertical: 16,
     borderRadius: RADIUS.md,
     alignItems: 'center',
@@ -238,7 +241,7 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: { opacity: 0.6 },
   buttonText: {
-    color: COLORS.white,
+    color: c.onPrimary,
     fontSize: FONTS.sizes.md,
     fontWeight: '700',
   },
@@ -248,10 +251,10 @@ const styles = StyleSheet.create({
   },
   linkText: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
   },
   linkBold: {
-    color: COLORS.primary,
+    color: c.primary,
     fontWeight: '700',
   },
 });

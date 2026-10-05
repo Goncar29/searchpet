@@ -20,7 +20,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFosterHomes } from '@shared/hooks';
 import { StaleDataNotice } from '../../components/list/ListState';
 import { FosterHome } from '@shared/types';
-import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
+import { SPACING, FONTS, RADIUS, SHADOWS, type ThemeColors } from '../../constants';
+import { useTheme, useThemedStyles } from '../../hooks/useTheme';
 import { IconLabel } from '../../components/IconLabel';
 import { Icon } from '../../components/Icon';
 import { cloudinaryThumb } from '@shared/utils/cloudinaryThumb';
@@ -37,6 +38,8 @@ type FosterHomeCardProps = {
 };
 
 function FosterHomeCard({ fosterHome, t, onPress }: FosterHomeCardProps) {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   const photo = fosterHome.photos?.[0];
 
   return (
@@ -46,12 +49,12 @@ function FosterHomeCard({ fosterHome, t, onPress }: FosterHomeCardProps) {
         <Image source={{ uri: cloudinaryThumb(photo.url, ...IMAGE_BOXES.card) }} style={styles.cardImage} />
       ) : (
         <View style={styles.cardImagePlaceholder}>
-          <Icon name="home" size={40} color={COLORS.textMuted} />
+          <Icon name="home" size={40} color={colors.textMuted} />
         </View>
       )}
 
       {/* City */}
-      <IconLabel icon="location-on" size={16} color={COLORS.textPrimary} gap={4} style={{ marginBottom: SPACING.xs }}>
+      <IconLabel icon="location-on" size={16} color={colors.textPrimary} gap={4} style={{ marginBottom: SPACING.xs }}>
         <Text style={[styles.fosterHomeCity, { marginBottom: 0 }]}>{fosterHome.city}</Text>
       </IconLabel>
 
@@ -91,6 +94,7 @@ function FosterHomeCard({ fosterHome, t, onPress }: FosterHomeCardProps) {
 // ============================================================
 
 function SkeletonCard() {
+  const styles = useThemedStyles(makeStyles);
   return (
     <View style={[styles.card, styles.skeletonCard]}>
       <View style={styles.skeletonImage} />
@@ -106,6 +110,8 @@ function SkeletonCard() {
 // ============================================================
 
 export default function FosterHomesScreen() {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   const { t } = useTranslation('fosterHomes');
   const router = useRouter();
 
@@ -166,7 +172,7 @@ export default function FosterHomesScreen() {
         value={cityInput}
         onChangeText={setCityInput}
         placeholder={t('fosterHomes:directory.filterPlaceholder')}
-        placeholderTextColor={COLORS.placeholder}
+        placeholderTextColor={colors.placeholder}
         autoCapitalize="words"
         returnKeyType="search"
       />
@@ -193,7 +199,7 @@ export default function FosterHomesScreen() {
           <SkeletonCard />
           <SkeletonCard />
           <ActivityIndicator
-            color={COLORS.primary}
+            color={colors.primary}
             style={{ marginTop: SPACING.md }}
           />
         </View>
@@ -216,10 +222,10 @@ export default function FosterHomesScreen() {
 // Styles
 // ============================================================
 
-const styles = StyleSheet.create({
+const makeStyles = (c: ThemeColors) => StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: c.background,
   },
   listContent: {
     padding: SPACING.md,
@@ -227,23 +233,23 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
     marginBottom: SPACING.md,
     lineHeight: 20,
   },
   filterInput: {
-    backgroundColor: COLORS.white,
+    backgroundColor: c.surface,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: c.border,
     borderRadius: RADIUS.md,
     padding: SPACING.md,
     fontSize: FONTS.sizes.md,
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
     marginBottom: SPACING.md,
     ...SHADOWS.sm,
   },
   registerButton: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: c.primary,
     paddingVertical: SPACING.md,
     borderRadius: RADIUS.md,
     alignItems: 'center',
@@ -251,12 +257,12 @@ const styles = StyleSheet.create({
     ...SHADOWS.sm,
   },
   registerButtonText: {
-    color: COLORS.white,
+    color: c.onPrimary,
     fontSize: FONTS.sizes.sm,
     fontWeight: '700',
   },
   card: {
-    backgroundColor: COLORS.white,
+    backgroundColor: c.card,
     borderRadius: RADIUS.lg,
     padding: SPACING.md,
     marginBottom: SPACING.md,
@@ -273,19 +279,19 @@ const styles = StyleSheet.create({
     height: 140,
     borderRadius: RADIUS.md,
     marginBottom: SPACING.sm,
-    backgroundColor: COLORS.background,
+    backgroundColor: c.background,
     justifyContent: 'center',
     alignItems: 'center',
   },
   fosterHomeCity: {
     fontSize: FONTS.sizes.md,
     fontWeight: '700',
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
     marginBottom: SPACING.xs,
   },
   housingType: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
     marginBottom: SPACING.xs,
   },
   chipRow: {
@@ -295,24 +301,24 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.xs,
   },
   chip: {
-    backgroundColor: COLORS.background,
+    backgroundColor: c.background,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: RADIUS.full,
   },
   chipText: {
     fontSize: FONTS.sizes.xs,
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
     fontWeight: '600',
   },
   capacity: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
     marginBottom: SPACING.xs,
   },
   description: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
     lineHeight: 20,
   },
   emptyContainer: {
@@ -322,23 +328,23 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: FONTS.sizes.lg,
     fontWeight: '700',
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
     marginBottom: SPACING.sm,
   },
   emptyMessage: {
     fontSize: FONTS.sizes.md,
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
     textAlign: 'center',
   },
   retryButton: {
     marginTop: SPACING.md,
-    backgroundColor: COLORS.primary,
+    backgroundColor: c.primary,
     paddingHorizontal: SPACING.lg,
     paddingVertical: SPACING.sm,
     borderRadius: RADIUS.md,
   },
   retryButtonText: {
-    color: COLORS.white,
+    color: c.onPrimary,
     fontSize: FONTS.sizes.sm,
     fontWeight: '600',
   },
@@ -349,20 +355,20 @@ const styles = StyleSheet.create({
   skeletonImage: {
     width: '100%',
     height: 140,
-    backgroundColor: COLORS.border,
+    backgroundColor: c.border,
     borderRadius: RADIUS.md,
     marginBottom: SPACING.sm,
   },
   skeletonTitle: {
     height: 18,
-    backgroundColor: COLORS.border,
+    backgroundColor: c.border,
     borderRadius: RADIUS.sm,
     width: '60%',
     marginBottom: SPACING.sm,
   },
   skeletonLine: {
     height: 14,
-    backgroundColor: COLORS.border,
+    backgroundColor: c.border,
     borderRadius: RADIUS.sm,
     width: '90%',
     marginBottom: SPACING.xs,

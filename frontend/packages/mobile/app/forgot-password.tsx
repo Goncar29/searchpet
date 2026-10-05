@@ -20,7 +20,8 @@ import { useTranslation } from 'react-i18next';
 import i18next from 'i18next';
 import { apiClient } from '../../shared/api/client';
 import { getErrorMessage } from '@shared/utils/apiErrors';
-import { COLORS, SPACING, FONTS, RADIUS } from '../constants';
+import { SPACING, FONTS, RADIUS, type ThemeColors } from '../constants';
+import { useTheme, useThemedStyles } from '../hooks/useTheme';
 
 type Step = 'email' | 'code';
 
@@ -29,6 +30,8 @@ type Step = 'email' | 'code';
 const MIN_PASSWORD_LENGTH = 6;
 
 export default function ForgotPasswordScreen() {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   const router = useRouter();
   const { t } = useTranslation('auth');
 
@@ -132,7 +135,7 @@ export default function ForgotPasswordScreen() {
             <TextInput
               style={styles.input}
               placeholder={t('forgotPassword.email')}
-              placeholderTextColor={COLORS.placeholder}
+              placeholderTextColor={colors.placeholder}
               value={email}
               onChangeText={setEmail}
               keyboardType="email-address"
@@ -146,7 +149,7 @@ export default function ForgotPasswordScreen() {
               disabled={isLoading || !email.trim()}
             >
               {isLoading ? (
-                <ActivityIndicator color={COLORS.white} />
+                <ActivityIndicator color={colors.onPrimary} />
               ) : (
                 <Text style={styles.buttonText}>{t('forgotPassword.sendCode')}</Text>
               )}
@@ -157,7 +160,7 @@ export default function ForgotPasswordScreen() {
             <TextInput
               style={styles.input}
               placeholder={t('forgotPassword.code')}
-              placeholderTextColor={COLORS.placeholder}
+              placeholderTextColor={colors.placeholder}
               value={code}
               onChangeText={setCode}
               keyboardType="number-pad"
@@ -168,7 +171,7 @@ export default function ForgotPasswordScreen() {
             <TextInput
               style={styles.input}
               placeholder={t('forgotPassword.newPassword')}
-              placeholderTextColor={COLORS.placeholder}
+              placeholderTextColor={colors.placeholder}
               value={newPassword}
               onChangeText={setNewPassword}
               secureTextEntry
@@ -197,7 +200,7 @@ export default function ForgotPasswordScreen() {
               disabled={isLoading || !code.trim() || !newPassword}
             >
               {isLoading ? (
-                <ActivityIndicator color={COLORS.white} />
+                <ActivityIndicator color={colors.onPrimary} />
               ) : (
                 <Text style={styles.buttonText}>{t('forgotPassword.submit')}</Text>
               )}
@@ -213,10 +216,10 @@ export default function ForgotPasswordScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: c.background,
   },
   content: {
     flex: 1,
@@ -230,44 +233,44 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: FONTS.sizes.md,
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
     textAlign: 'center',
     marginBottom: SPACING.xl,
   },
   input: {
-    backgroundColor: COLORS.white,
+    backgroundColor: c.surface,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: c.border,
     borderRadius: RADIUS.md,
     paddingHorizontal: SPACING.md,
     paddingVertical: 16,
     fontSize: FONTS.sizes.md,
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
     marginBottom: SPACING.md,
   },
   sessionsWarning: {
     fontSize: FONTS.sizes.xs,
-    color: COLORS.textMuted,
+    color: c.textMuted,
     textAlign: 'center',
     marginBottom: SPACING.md,
   },
   notice: {
     fontSize: FONTS.sizes.xs,
-    color: COLORS.textMuted,
+    color: c.textMuted,
     textAlign: 'center',
     marginBottom: SPACING.md,
   },
   resend: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.primary,
+    color: c.primary,
     textAlign: 'center',
     marginBottom: SPACING.sm,
   },
   resendDisabled: {
-    color: COLORS.textMuted,
+    color: c.textMuted,
   },
   button: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: c.primary,
     paddingVertical: 16,
     borderRadius: RADIUS.md,
     alignItems: 'center',
@@ -275,7 +278,7 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: { opacity: 0.6 },
   buttonText: {
-    color: COLORS.white,
+    color: c.onPrimary,
     fontSize: FONTS.sizes.md,
     fontWeight: '700',
   },
@@ -285,6 +288,6 @@ const styles = StyleSheet.create({
   },
   linkText: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
   },
 });
