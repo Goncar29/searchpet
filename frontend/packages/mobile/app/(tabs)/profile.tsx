@@ -10,6 +10,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import i18next from 'i18next';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore, useLanguageStore } from '../../store';
+import { useThemeStore } from '../../store/theme';
 import { getErrorMessage } from '@shared/utils/apiErrors';
 import { ApiError } from '../../../shared/api/client';
 import { useMyPets, usePublicProfile, useUploadProfilePhotoNative, useVerificationStatus, useSendEmailOTP, useConfirmEmailOTP } from '../../../shared/hooks';
@@ -25,6 +26,7 @@ export default function ProfileScreen() {
   const router = useRouter();
   const { user, isAuthenticated, logout } = useAuthStore();
   const setLanguage = useLanguageStore((state) => state.setLanguage);
+  const setThemePreference = useThemeStore((state) => state.setPreference);
   const { data: myPets } = useMyPets();
   const { data: myProfile } = usePublicProfile(user?.id ?? '');
   const uploadProfilePhoto = useUploadProfilePhotoNative();
@@ -159,6 +161,17 @@ export default function ProfileScreen() {
     Alert.alert(i18next.t('profile:logoutConfirmTitle'), i18next.t('profile:logoutConfirmMsg'), [
       { text: i18next.t('common:cancel'), style: 'cancel' },
       { text: i18next.t('profile:logoutYes'), style: 'destructive', onPress: () => logout() },
+    ]);
+  };
+
+  // Settings opens the theme choice. System follows the phone; Light and Dark
+  // override it until the user goes back to System.
+  const handleThemeSwitch = () => {
+    Alert.alert(i18next.t('profile:themeTitle'), '', [
+      { text: i18next.t('profile:themeSystem'), onPress: () => { setThemePreference('system'); } },
+      { text: i18next.t('profile:themeLight'), onPress: () => { setThemePreference('light'); } },
+      { text: i18next.t('profile:themeDark'), onPress: () => { setThemePreference('dark'); } },
+      { text: i18next.t('common:cancel'), style: 'cancel' },
     ]);
   };
 
@@ -431,7 +444,7 @@ export default function ProfileScreen() {
 
         <TouchableOpacity
           style={styles.menuItem}
-          onPress={() => Alert.alert(i18next.t('profile:comingSoon'), i18next.t('profile:settingsComingSoon'))}
+          onPress={handleThemeSwitch}
         >
           <View style={styles.menuIcon}><Icon name="settings" size={22} color={COLORS.textSecondary} /></View>
           <Text style={styles.menuText}>{t('menuSettings')}</Text>

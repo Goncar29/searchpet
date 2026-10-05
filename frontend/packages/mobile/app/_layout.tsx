@@ -23,7 +23,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import * as Notifications from 'expo-notifications';
 import { useAuthStore } from '../store';
-import { COLORS } from '../constants';
+import { useTheme } from '../hooks/useTheme';
+import { THEME_HYDRATE_TIMEOUT_MS, useThemeStore } from '../store/theme';
 import { configureNotificationHandler } from '../utils/notifications';
 
 // Configura cómo se muestran las notificaciones en foreground — una vez al arrancar
@@ -44,10 +45,21 @@ export default function RootLayout() {
   const [isReady, setIsReady] = useState(false);
   // Subscribes the layout to the language: the native titles below are read in render.
   const { t } = useTranslation();
+  const { scheme, colors } = useTheme();
+  const hydrateTheme = useThemeStore((state) => state.hydrate);
 
+  // Paint only after the saved theme is read, so a user who chose Dark never
+  // sees a light first frame. hydrate never rejects (a failed read keeps
+  // System), and a read that never settles is capped: past the timeout the app
+  // paints with System instead of staying blank.
   useEffect(() => {
-    setIsReady(true);
-  }, []);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const cap = new Promise<void>((resolve) => {
+      timer = setTimeout(resolve, THEME_HYDRATE_TIMEOUT_MS);
+    });
+    Promise.race([hydrateTheme(), cap]).finally(() => setIsReady(true));
+    return () => clearTimeout(timer);
+  }, [hydrateTheme]);
 
   useEffect(() => {
     loadToken();
@@ -93,14 +105,14 @@ export default function RootLayout() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <StatusBar style="dark" />
+      <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
       <Stack
         screenOptions={{
-          headerStyle: { backgroundColor: COLORS.white },
-          headerTintColor: COLORS.primary,
+          headerStyle: { backgroundColor: colors.surface },
+          headerTintColor: colors.primary,
           headerTitleStyle: { fontWeight: '700', fontSize: 18 },
           headerShadowVisible: false,
-          contentStyle: { backgroundColor: COLORS.background },
+          contentStyle: { backgroundColor: colors.background },
         }}
       >
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />

@@ -8,6 +8,13 @@
 // covering it would be testing nothing.
 require('./polyfills/domEvents');
 
+// The root layout reads the saved theme from AsyncStorage before it paints, so
+// every render of it needs a working AsyncStorage. The library ships this
+// in-memory mock; a test file that mocks AsyncStorage itself still wins.
+jest.mock('@react-native-async-storage/async-storage', () =>
+  require('@react-native-async-storage/async-storage/jest/async-storage-mock'),
+);
+
 // expo-router mocks — must be declared with jest.mock (not vi)
 jest.mock('expo-router', () => {
   // One object for every render, like the real useRouter() (memoized with an

@@ -11,7 +11,7 @@ export const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8081
 // Vacío = el botón de Google no se renderiza (ver GoogleSignInButton).
 export const GOOGLE_WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '';
 
-export const COLORS = {
+export const LIGHT_COLORS = {
   primary: '#FF6B35',
   primaryDark: '#E5551F',
   primaryLight: '#FF8F66',
@@ -23,8 +23,11 @@ export const COLORS = {
   warning: '#F59E0B',
   info: '#3B82F6',
 
-  // Neutrals
+  // Neutrals. `white` is LITERAL white in both themes (text and icons on brand
+  // colors). For a background that follows the theme use `surface` or `card`.
   white: '#FFFFFF',
+  onPrimary: '#FFFFFF',
+  surface: '#FFFFFF',
   background: '#F8F9FA',
   card: '#FFFFFF',
   border: '#E5E7EB',
@@ -51,6 +54,27 @@ export const COLORS = {
   instagram: '#E4405F',
   twitter: '#1DA1F2',
 };
+
+export type ThemeColors = typeof LIGHT_COLORS;
+
+// The web's `.dark` tokens (web/src/index.css), so both apps look the same.
+// Brand, status, medal and social colors are shared with the light theme.
+export const DARK_COLORS: ThemeColors = {
+  ...LIGHT_COLORS,
+  danger: '#F87171',
+  surface: '#1F2937',
+  background: '#111827',
+  card: '#1F2937',
+  border: '#374151',
+  textPrimary: '#F9FAFB',
+  textSecondary: '#D1D5DB',
+  textMuted: '#9CA3AF',
+  placeholder: '#6B7280',
+};
+
+// Light palette under its old name for files not migrated to the theme yet.
+// Reading COLORS does not follow dark mode; use useTheme() instead.
+export const COLORS = LIGHT_COLORS;
 
 export const FONTS = {
   regular: 'System',
