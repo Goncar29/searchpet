@@ -30,6 +30,7 @@ i18n
         chat: sharedEs.chat,
         messages: sharedEs.messages,
         badges: sharedEs.badges,
+        pointsRules: sharedEs.pointsRules,
         errors: sharedEs.errors,
         publish: sharedEs.publish,
         // Web-only namespaces
@@ -60,6 +61,7 @@ i18n
         chat: sharedEn.chat,
         messages: sharedEn.messages,
         badges: sharedEn.badges,
+        pointsRules: sharedEn.pointsRules,
         errors: sharedEn.errors,
         publish: sharedEn.publish,
         // Web-only namespaces
@@ -90,6 +92,7 @@ i18n
         chat: sharedPt.chat,
         messages: sharedPt.messages,
         badges: sharedPt.badges,
+        pointsRules: sharedPt.pointsRules,
         errors: sharedPt.errors,
         publish: sharedPt.publish,
         // Web-only namespaces

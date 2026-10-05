@@ -411,12 +411,12 @@
     "pet_rescuer": {
       "label": "Rescatador",
       "description": "Ayudó a reunir una mascota con su familia",
-      "howToEarn": "Una mascota tuya volvió a casa"
+      "howToEarn": "El dueño te confirmó como ayudante cuando su mascota apareció"
     },
     "social_butterfly": {
       "label": "Alma Social",
       "description": "Compartió reportes en redes sociales",
-      "howToEarn": "Compartí tu primer reporte"
+      "howToEarn": "Generá el link para compartir una mascota"
     },
     "verified_finder": {
       "label": "Verificado",
@@ -431,7 +431,7 @@
     "super_finder": {
       "label": "Súper Buscador",
       "description": "Encontró múltiples mascotas perdidas",
-      "howToEarn": "5 mascotas volvieron a casa"
+      "howToEarn": "Te confirmaron como ayudante en 5 mascotas"
     }
   },
   "errors": {
@@ -618,6 +618,38 @@
       "viewPet": "Ver mascota",
       "publishAnother": "Publicar otro aviso",
       "goToFeed": "Volver al feed"
+    }
+  },
+  "pointsRules": {
+    "open": "Cómo funcionan los puntos y logros",
+    "title": "Cómo funcionan los puntos y logros",
+    "close": "Cerrar",
+    "earn": {
+      "title": "Cómo ganás puntos",
+      "report": "Publicar un reporte de ubicación: +{{points}} puntos cada uno. Incluye el primer reporte al publicar una mascota perdida o callejera.",
+      "share": "Generar un link para compartir una mascota que gestionás: +{{points}} puntos cada vez.",
+      "helper": "El dueño confirma que ayudaste a encontrar su mascota: +{{points}} puntos, una vez por mascota.",
+      "review": "Recibir una reseña de otro usuario: +{{points}} puntos."
+    },
+    "notEarn": {
+      "title": "Qué NO suma puntos",
+      "ownFound": "Marcar tu propia mascota como encontrada. Sólo suman las personas que te ayudaron.",
+      "helperOnce": "Que te confirmen otra vez como ayudante de la misma mascota. Cada mascota paga a un ayudante una sola vez, aunque se pierda y se encuentre de nuevo.",
+      "reviewWritten": "Escribir una reseña. Los puntos son para la persona reseñada, nunca para quien la escribe.",
+      "reviewDeleted": "Una reseña borrada le quita sus {{points}} puntos a quien la recibió. El total nunca baja de 0."
+    },
+    "badges": {
+      "title": "Logros",
+      "first_helper": "Publicá tu primer reporte de ubicación.",
+      "community_guardian": "Llegá a {{threshold}} reportes de ubicación.",
+      "pet_rescuer": "Un dueño confirma por primera vez que ayudaste a encontrar su mascota.",
+      "super_finder": "Que te confirmen como ayudante en {{threshold}} mascotas distintas.",
+      "social_butterfly": "Generá tu primer link para compartir.",
+      "verified_finder": "Verificá tu email."
+    },
+    "ranking": {
+      "title": "Cómo funciona el ranking",
+      "body": "El ranking lista a las personas de la ciudad que buscás, ordenadas por puntos totales, de mayor a menor. Los logros no suman puntos."
     }
   }
 }

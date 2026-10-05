@@ -443,3 +443,49 @@ func TestHelperConfirmation_GetHelperCandidates(t *testing.T) {
 		t.Fatalf("a candidate must not read the candidate list either, got %v", err)
 	}
 }
+
+// Door 3 (a "found" report) must tell gamification whose pet it is, or the
+// owner's / stray reporter's closing report would earn +5 like real help. The
+// listener that pays is async, so this pins the payload instead of the points;
+// the predicate itself is covered in gamification_service_test.go.
+func TestHelperConfirmation_FoundReportCarriesWhoseSearchItCloses(t *testing.T) {
+	d := newHelperFlowDeps(t)
+	createReport := foundDoors[2]
+	if createReport.name != "CreateReport" {
+		t.Fatalf("door 3 moved: got %q", createReport.name)
+	}
+	var got []event.ReportCreatedEvent
+	d.bus.SubscribeSync("report.created", func(p interface{}) {
+		if ev, ok := p.(event.ReportCreatedEvent); ok && ev.Status == "found" {
+			got = append(got, ev)
+		}
+	})
+
+	owner := newTestUser(t, d.users)
+	pet := d.lostPet(t, owner)
+	if err := createReport.run(d, owner, pet, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	reporter := newTestUser(t, d.users)
+	stray, err := d.petSvc.CreatePet(reporter.ID.String(), dto.CreatePetRequest{
+		Name: "Callejero", Type: "perro", Status: domain.PetStatusStray,
+		InitialReport: &dto.InitialReportRequest{Latitude: mvdLat, Longitude: mvdLng},
+	})
+	if err != nil {
+		t.Fatalf("create stray: %v", err)
+	}
+	if err := createReport.run(d, reporter, stray, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	if len(got) != 2 {
+		t.Fatalf("want 2 found report events, got %d", len(got))
+	}
+	if got[0].PetOwnerID != owner.ID {
+		t.Errorf("owned pet: PetOwnerID = %s, want %s", got[0].PetOwnerID, owner.ID)
+	}
+	if got[1].PetReporterID != reporter.ID {
+		t.Errorf("stray: PetReporterID = %s, want %s", got[1].PetReporterID, reporter.ID)
+	}
+}

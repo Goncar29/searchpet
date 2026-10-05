@@ -305,16 +305,21 @@ func (s *reportService) CreateReport(reporterID string, req CreateReportRequest)
 		if loaded.Pet.OwnerID != nil {
 			petOwnerID = *loaded.Pet.OwnerID
 		}
+		var petReporterID uuid.UUID
+		if loaded.Pet.ReporterID != nil {
+			petReporterID = *loaded.Pet.ReporterID
+		}
 		s.eventBus.Publish("report.created", event.ReportCreatedEvent{
-			ReportID:   loaded.ID,
-			PetID:      loaded.PetID,
-			ReporterID: loaded.ReporterID,
-			PetOwnerID: petOwnerID,
-			PetName:    loaded.Pet.Name,
-			PetType:    loaded.Pet.Type,
-			Status:     loaded.Status,
-			Lat:        loaded.Latitude,
-			Lng:        loaded.Longitude,
+			ReportID:      loaded.ID,
+			PetID:         loaded.PetID,
+			ReporterID:    loaded.ReporterID,
+			PetOwnerID:    petOwnerID,
+			PetReporterID: petReporterID,
+			PetName:       loaded.Pet.Name,
+			PetType:       loaded.Pet.Type,
+			Status:        loaded.Status,
+			Lat:           loaded.Latitude,
+			Lng:           loaded.Longitude,
 		})
 	}
 

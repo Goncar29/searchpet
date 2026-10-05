@@ -391,6 +391,32 @@ describe('LeaderboardPage', () => {
     });
   });
 
+  describe('reglas de puntos', () => {
+    it('hay un boton "?" junto a la leyenda de logros y el popup arranca cerrado', () => {
+      render(<LeaderboardPage />, { wrapper });
+      const legend = screen.getByText('badges:achievementsTitle').closest('div');
+      expect(legend).not.toBeNull();
+      expect(
+        within(legend as HTMLElement).getByRole('button', { name: 'pointsRules:open' }),
+      ).toBeInTheDocument();
+      expect(screen.queryByRole('dialog')).toBeNull();
+    });
+
+    it('al tocarlo abre el popup con las cuatro secciones, y se cierra', () => {
+      render(<LeaderboardPage />, { wrapper });
+      fireEvent.click(screen.getByRole('button', { name: 'pointsRules:open' }));
+
+      const dialog = screen.getByRole('dialog', { name: 'pointsRules:title' });
+      expect(within(dialog).getByText('pointsRules:earn.title')).toBeInTheDocument();
+      expect(within(dialog).getByText('pointsRules:notEarn.title')).toBeInTheDocument();
+      expect(within(dialog).getByText('pointsRules:badges.title')).toBeInTheDocument();
+      expect(within(dialog).getByText('pointsRules:ranking.title')).toBeInTheDocument();
+
+      fireEvent.click(within(dialog).getByRole('button', { name: 'pointsRules:close' }));
+      expect(screen.queryByRole('dialog')).toBeNull();
+    });
+  });
+
   describe('avatar', () => {
     it('usa la foto cuando la hay', () => {
       entries = [entry(1, { profile_photo_url: 'https://cdn.test/a.webp' }), entry(2), entry(3)];
