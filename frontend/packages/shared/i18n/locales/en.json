@@ -619,5 +619,37 @@
       "publishAnother": "Publish another alert",
       "goToFeed": "Back to feed"
     }
+  },
+  "pointsRules": {
+    "open": "How points and badges work",
+    "title": "How points and badges work",
+    "close": "Close",
+    "earn": {
+      "title": "How you earn points",
+      "report": "Post a location report: +{{points}} points each. This includes the first report when you publish a lost or stray pet.",
+      "share": "Generate a share link for a pet you manage: +{{points}} points each time.",
+      "helper": "The owner confirms you helped find their pet: +{{points}} points, once per pet.",
+      "review": "Receive a review from another user: +{{points}} points."
+    },
+    "notEarn": {
+      "title": "What does NOT earn points",
+      "ownFound": "Marking your own pet as found. Only the people who helped you earn points.",
+      "helperOnce": "Being confirmed again as a helper for the same pet. Each pet pays a helper only once, even if it is lost and found again.",
+      "reviewWritten": "Writing a review. The points go to the person you reviewed, never to the author.",
+      "reviewDeleted": "A deleted review takes its {{points}} points back from the person who received it. The total never goes below 0."
+    },
+    "badges": {
+      "title": "Badges",
+      "first_helper": "Post your first location report.",
+      "community_guardian": "Reach {{threshold}} location reports.",
+      "pet_rescuer": "An owner confirms you helped find their pet, for the first time.",
+      "super_finder": "Be confirmed as a helper for {{threshold}} different pets.",
+      "social_butterfly": "Generate your first share link.",
+      "verified_finder": "Verify your email."
+    },
+    "ranking": {
+      "title": "How the ranking works",
+      "body": "The ranking lists the people of the city you search, ordered by total points, highest first. Badges do not add points."
+    }
   }
 }
