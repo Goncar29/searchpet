@@ -76,7 +76,7 @@ describe('ProfileScreen — Settings chooses the theme', () => {
   beforeEach(async () => {
     jest.spyOn(Alert, 'alert').mockImplementation(() => {});
     await AsyncStorage.clear();
-    useThemeStore.setState({ preference: 'system' });
+    useThemeStore.setState({ preference: 'system', userChose: false });
   });
 
   afterEach(() => {
@@ -101,7 +101,7 @@ describe('ProfileScreen — Settings chooses the theme', () => {
   });
 
   it('choosing System goes back to following the phone', async () => {
-    useThemeStore.setState({ preference: 'dark' });
+    useThemeStore.setState({ preference: 'dark', userChose: false });
     const buttons = openThemePicker();
     await buttons.find((b) => b.text === 'profile:themeSystem')!.onPress!();
     expect(useThemeStore.getState().preference).toBe('system');

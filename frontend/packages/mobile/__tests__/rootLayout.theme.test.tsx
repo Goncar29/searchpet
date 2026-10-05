@@ -33,7 +33,7 @@ describe('RootLayout follows the theme', () => {
     statusBarStyle = undefined;
     screenOptions = undefined;
     await AsyncStorage.clear();
-    useThemeStore.setState({ preference: 'system' });
+    useThemeStore.setState({ preference: 'system', userChose: false });
   });
 
   it('a saved Dark choice paints dark from the first frame', async () => {
