@@ -19,8 +19,8 @@ type gamificationService struct {
 	badgeRepo  repository.BadgeRepository
 	pointsRepo repository.UserPointsRepository
 	userRepo   repository.UserRepository
-	reviewRepo repository.UserReviewRepository // V1.5 — para avg_rating en perfiles
-	reportRepo repository.ReportRepository      // total_reports del perfil, desde las filas
+	reviewRepo repository.UserReviewRepository      // V1.5 — para avg_rating en perfiles
+	reportRepo repository.ReportRepository          // total_reports del perfil, desde las filas
 	creditRepo repository.PetHelperCreditRepository // found_count del perfil y super_finder, desde los créditos
 }
 
@@ -103,13 +103,29 @@ func (s *gamificationService) onPetHelpersCredited(payload interface{}) {
 	}
 }
 
+// isOwnClosure reports whether a "found" report was filed by the pet's owner
+// or by whoever reported the stray: that closes their own search, it is not
+// help. Same predicate that CountByReporter uses to keep it out of the profile.
+func isOwnClosure(ev event.ReportCreatedEvent) bool {
+	if ev.Status != string(domain.PetStatusFound) {
+		return false
+	}
+	return (ev.PetOwnerID != uuid.Nil && ev.ReporterID == ev.PetOwnerID) ||
+		(ev.PetReporterID != uuid.Nil && ev.ReporterID == ev.PetReporterID)
+}
+
 // onReportCreated maneja el evento "report.created".
 // Suma 5 puntos al reporter e incrementa TotalReports.
 // Si es el primer reporte, otorga el badge "first_helper".
+// El reporte con el que el dueño (o quien reportó al callejero) cierra su
+// propia búsqueda no suma nada: el dueño no gana puntos por encontrar lo suyo.
 func (s *gamificationService) onReportCreated(payload interface{}) {
 	ev, ok := payload.(event.ReportCreatedEvent)
 	if !ok {
 		log.Printf("[GamificationService] onReportCreated: payload inesperado: %T", payload)
+		return
+	}
+	if isOwnClosure(ev) {
 		return
 	}
 

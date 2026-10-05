@@ -729,3 +729,66 @@ func TestGamificationService_GetLeaderboard_ExponeLaFotoDePerfil(t *testing.T) {
 		t.Errorf("Bob no tiene foto: want \"\", got %q", got)
 	}
 }
+
+// A "found" report filed by the pet's owner (or by whoever reported the stray)
+// is how they close their own search, not help: it must not earn the +5, bump
+// total_reports or count toward first_helper / community_guardian. The same
+// predicate excludes it from the profile count (CountByReporter).
+func TestGamificationService_OnReportCreated_OwnerClosureEarnsNothing(t *testing.T) {
+	ownerID := uuid.New()
+	strayReporterID := uuid.New()
+	cases := []struct {
+		name string
+		ev   event.ReportCreatedEvent
+	}{
+		{"owner marks own pet found", event.ReportCreatedEvent{ReporterID: ownerID, PetOwnerID: ownerID, Status: "found"}},
+		{"stray reporter marks it found", event.ReportCreatedEvent{ReporterID: strayReporterID, PetReporterID: strayReporterID, Status: "found"}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			upserted := make(chan struct{}, 1)
+			pointsRepo := &mockUserPointsRepository{
+				upsertFn: func(_ context.Context, _ uuid.UUID, _ int, _ string) (*domain.UserPoints, error) {
+					upserted <- struct{}{}
+					return &domain.UserPoints{TotalReports: 1}, nil
+				},
+			}
+			svc := newTestGamificationService(&mockBadgeRepository{}, pointsRepo, &mockUserRepository{}, &mockGamificationReviewRepository{})
+			bus := event.NewEventBus()
+			svc.RegisterListeners(bus)
+
+			tc.ev.ReportID, tc.ev.PetID = uuid.New(), uuid.New()
+			bus.Publish("report.created", tc.ev)
+
+			if waitForEvent(upserted) {
+				t.Error("the closing report of the pet's own owner/reporter must not earn points")
+			}
+		})
+	}
+}
+
+// The other half: a "found" report from someone else is real help and still pays.
+func TestGamificationService_OnReportCreated_ThirdPartyFoundReportEarns(t *testing.T) {
+	helperID := uuid.New()
+	upserted := make(chan struct{}, 1)
+	pointsRepo := &mockUserPointsRepository{
+		upsertFn: func(_ context.Context, id uuid.UUID, delta int, field string) (*domain.UserPoints, error) {
+			if id == helperID && delta == 5 && field == "total_reports" {
+				upserted <- struct{}{}
+			}
+			return &domain.UserPoints{TotalReports: 2}, nil
+		},
+	}
+	svc := newTestGamificationService(&mockBadgeRepository{}, pointsRepo, &mockUserRepository{}, &mockGamificationReviewRepository{})
+	bus := event.NewEventBus()
+	svc.RegisterListeners(bus)
+
+	bus.Publish("report.created", event.ReportCreatedEvent{
+		ReportID: uuid.New(), PetID: uuid.New(),
+		ReporterID: helperID, PetOwnerID: uuid.New(), PetReporterID: uuid.New(), Status: "found",
+	})
+
+	if !waitForEvent(upserted) {
+		t.Error("a found report from a third party must still earn +5")
+	}
+}

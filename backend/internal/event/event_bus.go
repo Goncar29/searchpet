@@ -104,11 +104,14 @@ type ReportCreatedEvent struct {
 	PetID      uuid.UUID
 	ReporterID uuid.UUID
 	PetOwnerID uuid.UUID
-	PetName    string
-	PetType    string  // perro, gato, pajaro, otro — usado por el subscriber de alertas
-	Status     string  // lost, found, sighting
-	Lat        float64 // latitud del reporte — usado para ST_DWithin
-	Lng        float64 // longitud del reporte — usado para ST_DWithin
+	// PetReporterID is who reported the stray (uuid.Nil for owned pets). With
+	// PetOwnerID it lets gamification tell a closing report from real help.
+	PetReporterID uuid.UUID
+	PetName       string
+	PetType       string  // perro, gato, pajaro, otro — usado por el subscriber de alertas
+	Status        string  // lost, found, sighting
+	Lat           float64 // latitud del reporte — usado para ST_DWithin
+	Lng           float64 // longitud del reporte — usado para ST_DWithin
 }
 
 // AlertTriggeredEvent es el payload publicado cuando una alerta de ubicación
