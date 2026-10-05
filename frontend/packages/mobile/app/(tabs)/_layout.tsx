@@ -5,7 +5,7 @@
 import { Tabs } from 'expo-router';
 import { View } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { COLORS } from '../../constants';
+import { useTheme } from '../../hooks/useTheme';
 import { Icon, type IconName } from '../../components/Icon';
 import { useAuthStore } from '../../store';
 import { useUnreadCount } from '@shared/hooks';
@@ -28,23 +28,24 @@ export default function TabsLayout() {
   // mensajes invalida ['messages'] vía WebSocket, lo que refresca este count.
   const { data: unreadData } = useUnreadCount(isAuthenticated);
   const unreadCount = unreadData?.count ?? 0;
+  const { colors } = useTheme();
 
   return (
     <Tabs
       screenOptions={{
         tabBarShowLabel: false,
         tabBarStyle: {
-          backgroundColor: COLORS.white,
-          borderTopColor: COLORS.border,
+          backgroundColor: colors.surface,
+          borderTopColor: colors.border,
           borderTopWidth: 1,
           height: 56,
           paddingBottom: 4,
           paddingTop: 4,
         },
-        tabBarActiveTintColor: COLORS.primary,
-        tabBarInactiveTintColor: COLORS.textMuted,
-        headerStyle: { backgroundColor: COLORS.white },
-        headerTintColor: COLORS.textPrimary,
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.textMuted,
+        headerStyle: { backgroundColor: colors.surface },
+        headerTintColor: colors.textPrimary,
         headerTitleStyle: { fontWeight: '700' },
         headerShadowVisible: false,
       }}
@@ -76,7 +77,7 @@ export default function TabsLayout() {
           title: t('messages'),
           tabBarIcon: tabIcon('chat-bubble'),
           tabBarBadge: unreadCount > 0 ? (unreadCount > 9 ? '9+' : unreadCount) : undefined,
-          tabBarBadgeStyle: { backgroundColor: COLORS.primary, color: COLORS.white },
+          tabBarBadgeStyle: { backgroundColor: colors.primary, color: colors.onPrimary },
         }}
       />
       <Tabs.Screen
