@@ -24,7 +24,8 @@ import * as Location from 'expo-location';
 import { useMyPets, useReportedPets, useDeletePet, useUploadPhotoNative, useCreateReport, useMarkPetAsFound, useUpdatePet } from '../../shared/hooks';
 import { getErrorMessage } from '../../shared/utils/apiErrors';
 import { useLocationStore } from '../store';
-import { COLORS, SPACING, FONTS, RADIUS, SHADOWS, PET_TYPES } from '../constants';
+import { LIGHT_COLORS, SPACING, FONTS, RADIUS, SHADOWS, PET_TYPES, type ThemeColors } from '../constants';
+import { useTheme, useThemedStyles } from '../hooks/useTheme';
 import { Icon, type IconName } from '../components/Icon';
 import { IconLabel } from '../components/IconLabel';
 import { HelperPickerModal } from '../components/HelperPickerModal';
@@ -33,6 +34,8 @@ import { cloudinaryThumb } from '@shared/utils/cloudinaryThumb';
 import { IMAGE_SIZES } from '../constants/imageSizes';
 
 export default function MyPetsScreen() {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   const { t } = useTranslation(['my_pets', 'common', 'adoption']);
   const router = useRouter();
   const [tab, setTab] = useState<'owned' | 'reported' | 'adoption'>('owned');
@@ -90,16 +93,18 @@ export default function MyPetsScreen() {
     }
   };
 
+  // A badge fill behind white text, so the gray stays the light one in both
+  // themes: the dark textSecondary is a light gray that white text vanishes on.
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'registered': return COLORS.textSecondary;
-      case 'lost':       return COLORS.lost;
-      case 'stray':      return COLORS.warning;
-      case 'found':      return COLORS.success;
-      case 'archived':   return COLORS.textMuted;
-      case 'adoption':   return COLORS.primary;
-      case 'adopted':    return COLORS.success;
-      default: return COLORS.textSecondary;
+      case 'registered': return LIGHT_COLORS.textSecondary;
+      case 'lost':       return colors.lost;
+      case 'stray':      return colors.warning;
+      case 'found':      return colors.success;
+      case 'archived':   return colors.textMuted;
+      case 'adoption':   return colors.primary;
+      case 'adopted':    return colors.success;
+      default: return LIGHT_COLORS.textSecondary;
     }
   };
 
@@ -268,7 +273,7 @@ export default function MyPetsScreen() {
         select={selectForTab}
         loading={
           <View style={styles.center}>
-            <ActivityIndicator size="large" color={COLORS.primary} />
+            <ActivityIndicator size="large" color={colors.primary} />
             <Text style={styles.loadingText}>{t('my_pets:loadingPets')}</Text>
           </View>
         }
@@ -293,7 +298,7 @@ export default function MyPetsScreen() {
                   >
                     {uploadPhoto.isPending && uploadPhoto.variables?.petId === item.id ? (
                       <View style={styles.photoPlaceholder}>
-                        <ActivityIndicator color={COLORS.primary} />
+                        <ActivityIndicator color={colors.primary} />
                       </View>
                     ) : primaryPhoto ? (
                       <Image
@@ -303,7 +308,7 @@ export default function MyPetsScreen() {
                       />
                     ) : (
                       <View style={styles.photoPlaceholder}>
-                        <Icon name={getPetIcon(item.type)} size={32} color={COLORS.textMuted} />
+                        <Icon name={getPetIcon(item.type)} size={32} color={colors.textMuted} />
                         <Text style={styles.photoAddText}>{t('my_pets:addPhoto')}</Text>
                       </View>
                     )}
@@ -320,7 +325,7 @@ export default function MyPetsScreen() {
 
                     <IconLabel
                       icon={getPetIcon(item.type)}
-                      color={COLORS.textSecondary}
+                      color={colors.textSecondary}
                       style={styles.petTypeRow}
                     >
                       <Text style={styles.petType}>
@@ -335,7 +340,7 @@ export default function MyPetsScreen() {
                       </Text>
                     )}
 
-                    <IconLabel icon="photo-camera" size={13} color={COLORS.textSecondary} gap={4}>
+                    <IconLabel icon="photo-camera" size={13} color={colors.textSecondary} gap={4}>
                       <Text style={styles.petDetail}>
                         {t('my_pets:photoCount', { current: item.photos?.length ?? 0 })}
                       </Text>
@@ -375,7 +380,7 @@ export default function MyPetsScreen() {
                       accessibilityRole="button"
                       accessibilityLabel={t('common:delete')}
                     >
-                      <Icon name="delete" size={20} color={COLORS.danger} />
+                      <Icon name="delete" size={20} color={colors.danger} />
                     </TouchableOpacity>
                   </View>
                 </TouchableOpacity>
@@ -385,7 +390,7 @@ export default function MyPetsScreen() {
               <RefreshControl
                 refreshing={isRefetching}
                 onRefresh={refetch}
-                tintColor={COLORS.primary}
+                tintColor={colors.primary}
               />
             }
             contentContainerStyle={pets.length === 0 ? styles.emptyContainer : styles.list}
@@ -459,13 +464,13 @@ export default function MyPetsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
+const makeStyles = (c: ThemeColors) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: c.background },
   tabBar: {
     flexDirection: 'row',
-    backgroundColor: COLORS.white,
+    backgroundColor: c.surface,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.background,
+    borderBottomColor: c.background,
   },
   tab: {
     flex: 1,
@@ -475,26 +480,26 @@ const styles = StyleSheet.create({
     borderBottomColor: 'transparent',
   },
   tabActive: {
-    borderBottomColor: COLORS.primary,
+    borderBottomColor: c.primary,
   },
   tabText: {
     fontSize: FONTS.sizes.sm,
     fontWeight: '700',
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
   },
   tabTextActive: {
-    color: COLORS.primary,
+    color: c.primary,
   },
   center: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: COLORS.background,
+    backgroundColor: c.background,
   },
   loadingText: {
     marginTop: SPACING.md,
     fontSize: FONTS.sizes.md,
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
   },
   list: {
     padding: SPACING.lg,
@@ -511,7 +516,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: COLORS.primary,
+    backgroundColor: c.primary,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
@@ -521,7 +526,7 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   fabIcon: {
-    color: COLORS.white,
+    color: c.onPrimary,
     fontSize: 32,
     lineHeight: 36,
     fontWeight: '700',
@@ -533,7 +538,7 @@ const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.white,
+    backgroundColor: c.card,
     borderRadius: RADIUS.lg,
     marginBottom: SPACING.md,
     padding: SPACING.md,
@@ -550,13 +555,13 @@ const styles = StyleSheet.create({
   photoPlaceholder: {
     width: '100%',
     height: '100%',
-    backgroundColor: COLORS.background,
+    backgroundColor: c.background,
     justifyContent: 'center',
     alignItems: 'center',
   },
   photoAddText: {
     fontSize: FONTS.sizes.xs,
-    color: COLORS.textMuted,
+    color: c.textMuted,
     marginTop: 2,
   },
   info: { flex: 1 },
@@ -569,7 +574,7 @@ const styles = StyleSheet.create({
   petName: {
     fontSize: FONTS.sizes.lg,
     fontWeight: '700',
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
     flex: 1,
     marginRight: SPACING.sm,
   },
@@ -579,7 +584,7 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.full,
   },
   statusText: {
-    color: COLORS.white,
+    color: c.onPrimary,
     fontSize: FONTS.sizes.xs,
     fontWeight: '700',
   },
@@ -587,36 +592,36 @@ const styles = StyleSheet.create({
   petType: {
     flexShrink: 1,
     fontSize: FONTS.sizes.sm,
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
     textTransform: 'capitalize',
   },
   petDetail: {
     fontSize: FONTS.sizes.xs,
-    color: COLORS.textMuted,
+    color: c.textMuted,
   },
   actions: {
     alignItems: 'center',
     gap: SPACING.xs,
   },
   reportButton: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: c.primary,
     paddingHorizontal: SPACING.sm,
     paddingVertical: 4,
     borderRadius: RADIUS.sm,
   },
   reportButtonText: {
-    color: COLORS.white,
+    color: c.onPrimary,
     fontSize: FONTS.sizes.xs,
     fontWeight: '700',
   },
   foundButton: {
-    backgroundColor: COLORS.success,
+    backgroundColor: c.success,
     paddingHorizontal: SPACING.sm,
     paddingVertical: 4,
     borderRadius: RADIUS.sm,
   },
   foundButtonText: {
-    color: COLORS.white,
+    color: c.onPrimary,
     fontSize: FONTS.sizes.xs,
     fontWeight: '700',
   },
@@ -633,26 +638,26 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: FONTS.sizes.lg,
     fontWeight: '700',
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
     marginBottom: SPACING.sm,
     textAlign: 'center',
   },
   emptyText: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
     textAlign: 'center',
     paddingHorizontal: SPACING.xl,
     marginBottom: SPACING.lg,
     lineHeight: 22,
   },
   createButton: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: c.primary,
     paddingHorizontal: SPACING.xl,
     paddingVertical: 14,
     borderRadius: RADIUS.md,
   },
   createButtonText: {
-    color: COLORS.white,
+    color: c.onPrimary,
     fontSize: FONTS.sizes.md,
     fontWeight: '700',
   },
