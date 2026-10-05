@@ -8,6 +8,7 @@ import { useLeaderboard, useStats, useCiudadDecidida } from '@shared/hooks';
 import { BADGE_META } from '@shared/types';
 import type { LeaderboardEntry } from '@shared/types';
 import { Icon } from '../components/Icon';
+import { PointsRulesModal } from '../components/PointsRulesModal';
 
 /** Cuántos badges muestra una fila antes de resumir en "+N". */
 const ROW_BADGE_LIMIT = 3;
@@ -298,6 +299,7 @@ export function LeaderboardPage() {
   // Borrador/aplicado: tipear no consulta, solo el submit.
   const [cityDraft, setCityDraft] = useState('');
   const [city, setCity] = useState('');
+  const [rulesOpen, setRulesOpen] = useState(false);
 
   /**
    * La política entera —sembrar una vez, no pisar una búsqueda a mano, no
@@ -498,9 +500,20 @@ export function LeaderboardPage() {
               debajo del ranking, que es lo que la persona vino a ver. */}
           <aside className="lg:col-span-1 space-y-6">
             <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 p-6">
-              <h2 className="font-display text-headline text-gray-900 dark:text-gray-100 mb-1">
-                {t('badges:achievementsTitle')}
-              </h2>
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <h2 className="font-display text-headline text-gray-900 dark:text-gray-100">
+                  {t('badges:achievementsTitle')}
+                </h2>
+                <button
+                  type="button"
+                  onClick={() => setRulesOpen(true)}
+                  aria-label={t('pointsRules:open')}
+                  aria-haspopup="dialog"
+                  className="shrink-0 rounded-full p-1 text-gray-500 dark:text-gray-400 hover:text-primary dark:hover:text-primary-light focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                >
+                  <Icon name="help" className="h-6 w-6" />
+                </button>
+              </div>
               <p className="text-sm text-gray-500 dark:text-gray-400 mb-5">
                 {t('badges:achievementsSubtitle')}
               </p>
@@ -539,6 +552,7 @@ export function LeaderboardPage() {
           </aside>
         </div>
       </section>
+      {rulesOpen && <PointsRulesModal onClose={() => setRulesOpen(false)} />}
     </div>
   );
 }
