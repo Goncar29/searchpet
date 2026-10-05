@@ -15,6 +15,28 @@ vi.mock('react-i18next', () => ({
 }));
 
 describe('PointsRulesModal', () => {
+  // The parent passes a fresh inline onClose on every render: a re-render while
+  // the modal is open must not yank focus back to the close button.
+  it('keeps the user focus when the parent re-renders with a new onClose', () => {
+    const ui = (onClose: () => void) => (
+      <>
+        <button type="button">elsewhere</button>
+        <PointsRulesModal onClose={onClose} />
+      </>
+    );
+    const { rerender } = render(ui(() => {}));
+    expect(screen.getByRole('button', { name: 'pointsRules:close' })).toHaveFocus();
+
+    const elsewhere = screen.getByRole('button', { name: 'elsewhere' });
+    elsewhere.focus();
+    const latest = vi.fn();
+    rerender(ui(latest));
+
+    expect(elsewhere).toHaveFocus();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(latest).toHaveBeenCalledTimes(1);
+  });
+
   it('is a labelled modal dialog', () => {
     render(<PointsRulesModal onClose={() => {}} />);
     const dialog = screen.getByRole('dialog', { name: 'pointsRules:title' });

@@ -25,14 +25,22 @@ export function PointsRulesModal({ onClose }: PointsRulesModalProps) {
   const { t } = useTranslation(['pointsRules', 'badges']);
   const closeRef = useRef<HTMLButtonElement>(null);
 
+  // The parent passes a fresh inline onClose each render. Reading it through a
+  // ref keeps Escape calling the latest one without re-running the effect, which
+  // would steal focus back to the close button on every parent re-render.
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  });
+
   useEffect(() => {
     closeRef.current?.focus();
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') onCloseRef.current();
     };
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
-  }, [onClose]);
+  }, []);
 
   const earn = [
     t('pointsRules:earn.report', { points: POINTS.report }),
