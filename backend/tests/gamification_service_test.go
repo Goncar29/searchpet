@@ -121,7 +121,7 @@ func newTestGamificationService(
 	userRepo *mockUserRepository,
 	reviewRepo *mockGamificationReviewRepository,
 ) service.GamificationService {
-	return service.NewGamificationService(badgeRepo, pointsRepo, userRepo, reviewRepo, stubReports{}, stubPets{})
+	return service.NewGamificationService(badgeRepo, pointsRepo, userRepo, reviewRepo, stubReports{}, stubPets{}, stubShareCredits{fresh: true})
 }
 
 // waitForEvent blocks until ch receives a value or the timeout elapses.
@@ -790,5 +790,99 @@ func TestGamificationService_OnReportCreated_ThirdPartyFoundReportEarns(t *testi
 
 	if !waitForEvent(upserted) {
 		t.Error("a found report from a third party must still earn +5")
+	}
+}
+
+// stubShareCredits answers CreditOnce with a fixed result and records what it
+// was asked, so a test can check the listener asks about the right pair.
+type stubShareCredits struct {
+	fresh bool
+	err   error
+	asked chan [2]uuid.UUID
+}
+
+func (s stubShareCredits) CreditOnce(_ context.Context, petID, userID uuid.UUID) (bool, error) {
+	if s.asked != nil {
+		s.asked <- [2]uuid.UUID{petID, userID}
+	}
+	return s.fresh, s.err
+}
+
+func newShareTestService(share stubShareCredits, upserted, badged chan struct{}) service.GamificationService {
+	badgeRepo := &mockBadgeRepository{
+		hasBadgeFn: func(context.Context, uuid.UUID, string) (bool, error) { return false, nil },
+		createFn: func(_ context.Context, b *domain.Badge) error {
+			if b.BadgeType == "social_butterfly" {
+				badged <- struct{}{}
+			}
+			return nil
+		},
+	}
+	pointsRepo := &mockUserPointsRepository{
+		upsertFn: func(_ context.Context, _ uuid.UUID, _ int, _ string) (*domain.UserPoints, error) {
+			upserted <- struct{}{}
+			return &domain.UserPoints{}, nil
+		},
+	}
+	return service.NewGamificationService(badgeRepo, pointsRepo, &mockUserRepository{}, &mockGamificationReviewRepository{}, stubReports{}, stubPets{}, share)
+}
+
+// Sharing pays once per (pet, user): another link for a pet already credited
+// earns nothing.
+func TestGamificationService_OnShareCreated_SamePetPaysOnce(t *testing.T) {
+	upserted, badged := make(chan struct{}, 1), make(chan struct{}, 1)
+	svc := newShareTestService(stubShareCredits{fresh: false}, upserted, badged)
+	bus := event.NewEventBus()
+	svc.RegisterListeners(bus)
+
+	bus.Publish("share.created", event.ShareCreatedEvent{UserID: uuid.New(), PetID: uuid.New()})
+
+	if waitForEvent(upserted) {
+		t.Error("a pet already credited to this user must not pay +2 again")
+	}
+	select {
+	case <-badged:
+		t.Error("no badge work for a repeated share")
+	default:
+	}
+}
+
+// The other half: the first share of a pet pays, and the credit is keyed by
+// that pet and that user.
+func TestGamificationService_OnShareCreated_FirstShareOfAPetPays(t *testing.T) {
+	upserted, badged := make(chan struct{}, 1), make(chan struct{}, 1)
+	asked := make(chan [2]uuid.UUID, 1)
+	svc := newShareTestService(stubShareCredits{fresh: true, asked: asked}, upserted, badged)
+	bus := event.NewEventBus()
+	svc.RegisterListeners(bus)
+
+	userID, petID := uuid.New(), uuid.New()
+	bus.Publish("share.created", event.ShareCreatedEvent{UserID: userID, PetID: petID})
+
+	if !waitForEvent(upserted) {
+		t.Fatal("the first share of a pet must pay +2")
+	}
+	select {
+	case got := <-asked:
+		if got != [2]uuid.UUID{petID, userID} {
+			t.Errorf("credit asked for %v, want (pet %s, user %s)", got, petID, userID)
+		}
+	default:
+		t.Error("the listener paid without recording the credit")
+	}
+}
+
+// If the credit cannot be recorded, do not pay: paying without the record
+// would let the next share pay again.
+func TestGamificationService_OnShareCreated_CreditErrorPaysNothing(t *testing.T) {
+	upserted, badged := make(chan struct{}, 1), make(chan struct{}, 1)
+	svc := newShareTestService(stubShareCredits{fresh: true, err: context.DeadlineExceeded}, upserted, badged)
+	bus := event.NewEventBus()
+	svc.RegisterListeners(bus)
+
+	bus.Publish("share.created", event.ShareCreatedEvent{UserID: uuid.New(), PetID: uuid.New()})
+
+	if waitForEvent(upserted) {
+		t.Error("a failed credit write must not pay")
 	}
 }

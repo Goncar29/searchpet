@@ -50,7 +50,7 @@ func newHelperFlowDeps(t *testing.T) helperFlowDeps {
 	episodeSvc := service.NewEpisodeService()
 	d.petSvc = service.NewPetService(d.pets, d.bus, nil, d.reports, uow, repository.NewStatEventRepository(db), episodeSvc, d.episodes, service.WithHelperCredits(d.credits))
 	d.reportSvc = service.NewReportService(d.reports, d.pets, d.bus, repository.NewStatEventRepository(db), episodeSvc, d.episodes, uow)
-	gam := service.NewGamificationService(d.badges, d.points, d.users, repository.NewUserReviewRepository(db), d.reports, d.credits)
+	gam := service.NewGamificationService(d.badges, d.points, d.users, repository.NewUserReviewRepository(db), d.reports, d.credits, repository.NewPetShareCreditRepository(db))
 	gam.RegisterListeners(d.bus)
 	d.gamSvc = gam
 

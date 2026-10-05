@@ -222,6 +222,15 @@ type PetHelperCredit struct {
 	CreditedAt   time.Time  `gorm:"autoCreateTime" json:"credited_at"`
 }
 
+// PetShareCredit records that UserID already earned the points for sharing
+// PetID. Sharing pays once per (pet, user): generating more links for the same
+// pet must not climb the ranking. The FKs are added by migration 000029.
+type PetShareCredit struct {
+	PetID      uuid.UUID `gorm:"type:uuid;primaryKey" json:"pet_id"`
+	UserID     uuid.UUID `gorm:"type:uuid;primaryKey" json:"user_id"`
+	CreditedAt time.Time `gorm:"autoCreateTime" json:"credited_at"`
+}
+
 // HelperCandidate es quien puede ser acreditado como ayudante: dejó al menos un
 // reporte sobre la mascota durante la búsqueda actual. Sólo lo que el selector
 // necesita mostrar — nunca email ni teléfono.

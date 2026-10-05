@@ -174,6 +174,7 @@ var Models = []interface{}{
 	&domain.AdminAuditLog{},
 	&domain.ConversationHide{},
 	&domain.PetHelperCredit{},
+	&domain.PetShareCredit{},
 }
 
 // migrate crea o actualiza las tablas en base a los structs de dominio

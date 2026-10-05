@@ -111,6 +111,14 @@ type ReportRepository interface {
 	CountByReporter(ctx context.Context, reporterID uuid.UUID) (int64, error)
 }
 
+// PetShareCreditRepository records who already earned the share points for a
+// pet, so sharing pays once per (pet, user).
+type PetShareCreditRepository interface {
+	// CreditOnce stores the (pet, user) credit and reports whether it was new.
+	// Concurrent calls for the same pair: exactly one gets true.
+	CreditOnce(ctx context.Context, petID, userID uuid.UUID) (bool, error)
+}
+
 // PetHelperCreditRepository guarda y consulta a quién confirmó el dueño como
 // ayudante cuando una mascota pasa a `found`.
 type PetHelperCreditRepository interface {
