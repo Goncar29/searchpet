@@ -29,11 +29,13 @@ Branch base: `origin/main` (`584bad55`). Delivery: chained PRs (forecast well ov
 
 ## Tasks
 
-- [ ] T1 — Foundation: palettes, theme store (`system|light|dark` +
+- [x] T1 — Foundation: palettes, theme store (`system|light|dark` +
   AsyncStorage `searchpet-theme` + `useColorScheme`), `useTheme()` and
   `useThemedStyles(makeStyles)`, both layouts (Stack/Tabs options, StatusBar),
   Settings row with the three options, global jest mocks. Links S1, S2, S3, S6.
-  Route: inline.
+  Route: inline. Done in #330 (`09b62cc8`): 524/524 mobile, 3 review rounds
+  (cycle cut at round 3; its late-flip WARNING kept on purpose: a saved choice
+  that loads after the 1s cap still applies).
 - [ ] T2 — Migrate `app/(tabs)/*` and `app/pet/*`, `app/users/*`. Links S3.
   Route: delegated (parallel units, disjoint surfaces).
 - [ ] T3 — Migrate the remaining `app/**` screens. Links S3. Route: delegated.
@@ -54,3 +56,8 @@ Branch base: `origin/main` (`584bad55`). Delivery: chained PRs (forecast well ov
   `StatusBar style="dark"`. `COLORS.white` means both "surface" and "literal
   white on brand buttons": every use is decided by hand.
 - L3 (2026-10-05, owner): selector = "a" (System / Light / Dark, System default).
+- L4 (2026-10-05, owner): delivery = "b", a feature branch `feat/mobile-dark-mode`
+  that merges to `main` once at the end.
+- L5 (2026-10-05): T2-T4 split by folder, ~389 / ~476 / ~293 `COLORS` uses; each
+  unit also resolves the color literals inside its own files. Shared files
+  (`constants`, `hooks`, `store`, `jest.setup.js`, locales) stay with the parent.
