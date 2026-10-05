@@ -16,6 +16,13 @@ type PostgresReportRepository struct {
 	db *gorm.DB
 }
 
+// reportSightingTimeExpr is when a report's sighting happened: occurred_at when
+// the user entered it, otherwise when the report was filed. occurred_at is
+// optional and usually NULL, so filtering on the bare column silently drops
+// most reports. The map (FindNearby) and the search (PetRepository.Search) date
+// ranges both use this one expression so they cannot drift apart again.
+const reportSightingTimeExpr = "COALESCE(reports.occurred_at, reports.created_at)"
+
 // NewReportRepository es el constructor.
 func NewReportRepository(db *gorm.DB) ReportRepository {
 	return &PostgresReportRepository{db: db}
@@ -170,14 +177,11 @@ func (r *PostgresReportRepository) FindNearby(c domain.NearbyReportCriteria) ([]
 		q = q.Where("pets.type = ?", c.PetType)
 	}
 
-	// COALESCE, no la columna pelada: occurred_at es nullable y la pantalla
-	// muestra `occurred_at ?? created_at`. Filtrar por la columna sola haría
-	// desaparecer los reportes sin fecha de ocurrencia sin decir una palabra.
 	if c.From != nil {
-		q = q.Where("COALESCE(reports.occurred_at, reports.created_at) >= ?", *c.From)
+		q = q.Where(reportSightingTimeExpr+" >= ?", *c.From)
 	}
 	if c.To != nil {
-		q = q.Where("COALESCE(reports.occurred_at, reports.created_at) <= ?", *c.To)
+		q = q.Where(reportSightingTimeExpr+" <= ?", *c.To)
 	}
 
 	err := q.Order(orderExpr).Find(&reports).Error

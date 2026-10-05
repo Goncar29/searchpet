@@ -454,10 +454,10 @@ func (r *PostgresPetRepository) Search(filters domain.PetSearchCriteria) ([]doma
 	if filters.From != nil || filters.To != nil || hasGeo {
 		q = q.Joins("JOIN reports ON reports.pet_id = pets.id")
 		if filters.From != nil {
-			q = q.Where("reports.occurred_at >= ?", filters.From)
+			q = q.Where(reportSightingTimeExpr+" >= ?", filters.From)
 		}
 		if filters.To != nil {
-			q = q.Where("reports.occurred_at <= ?", filters.To)
+			q = q.Where(reportSightingTimeExpr+" <= ?", filters.To)
 		}
 		if hasGeo {
 			q = q.Where(
