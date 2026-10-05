@@ -80,12 +80,14 @@ found the animal; the owner can.
   writer (trigger: 2+ non-trivial files, 4+ files to understand). Commits
   `ec2a92c0` (model, migration, repository), `f654b824` (event listeners,
   profile count), `060707c1` (the shared function in the three doors,
-  endpoint). Assessed tier and review outcome: pending (parent runs
-  `gentle-ai review assess` per commit).
-- [ ] T2 — Shared: types, client, hooks (`useHelperCandidates`, helper_ids on
-  the three mutations), i18n keys. Route: delegated (with T3 or T4).
-- [ ] T3 — Web: picker component + the three paths. Route: delegated.
-- [ ] T4 — Mobile: picker component + the three paths. Route: delegated.
+  endpoint). Native review of the whole backend branch:
+  `review-36d2aae3c3b0fe25`, approved with no findings and acknowledged.
+- [x] T2 — Shared: types, client, hooks (`useHelperCandidates`, helper_ids on
+  the three mutations), i18n keys. Route: delegated (with T3 or T4). In #321.
+- [x] T3 — Web: picker component + the three paths. Route: delegated. #321
+  (`2db7b349`).
+- [x] T4 — Mobile: picker component + the three paths. Route: delegated. #322
+  (`8ecfc81a`). Verified locally end to end, 5/5 scenarios (2026-10-05).
 - [x] T5 — Replace `OnPetFound_CreditsNobody` sleep with sync dispatch (review
   suggestion from #313). Done in `f654b824`: no sleep; asserts gamification
   registers no `pet.found` listener (`EventBus.HasSubscribers`).
