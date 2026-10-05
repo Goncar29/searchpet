@@ -411,12 +411,12 @@
     "pet_rescuer": {
       "label": "Rescuer",
       "description": "Helped reunite a pet with their family",
-      "howToEarn": "One of your pets came home"
+      "howToEarn": "An owner confirmed you as a helper when their pet was found"
     },
     "social_butterfly": {
       "label": "Social Butterfly",
       "description": "Shared reports on social media",
-      "howToEarn": "Share your first report"
+      "howToEarn": "Create a share link for a pet"
     },
     "verified_finder": {
       "label": "Verified",
@@ -431,7 +431,7 @@
     "super_finder": {
       "label": "Super Finder",
       "description": "Found multiple lost pets",
-      "howToEarn": "5 pets came home"
+      "howToEarn": "Be confirmed as a helper for 5 pets"
     }
   },
   "errors": {

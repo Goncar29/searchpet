@@ -411,12 +411,12 @@
     "pet_rescuer": {
       "label": "Rescatador",
       "description": "Ayudó a reunir una mascota con su familia",
-      "howToEarn": "Una mascota tuya volvió a casa"
+      "howToEarn": "El dueño te confirmó como ayudante cuando su mascota apareció"
     },
     "social_butterfly": {
       "label": "Alma Social",
       "description": "Compartió reportes en redes sociales",
-      "howToEarn": "Compartí tu primer reporte"
+      "howToEarn": "Generá el link para compartir una mascota"
     },
     "verified_finder": {
       "label": "Verificado",
@@ -431,7 +431,7 @@
     "super_finder": {
       "label": "Súper Buscador",
       "description": "Encontró múltiples mascotas perdidas",
-      "howToEarn": "5 mascotas volvieron a casa"
+      "howToEarn": "Te confirmaron como ayudante en 5 mascotas"
     }
   },
   "errors": {
