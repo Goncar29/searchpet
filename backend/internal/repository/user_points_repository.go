@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 	"lost-pets/internal/domain"
 )
 
@@ -26,13 +27,20 @@ func NewUserPointsRepository(db *gorm.DB) UserPointsRepository {
 func (r *postgresUserPointsRepository) Upsert(ctx context.Context, userID uuid.UUID, pointsDelta int, field string) (*domain.UserPoints, error) {
 	var points domain.UserPoints
 
-	// FirstOrCreate garantiza que exista un registro para el usuario.
-	// Usamos un mapa en lugar de struct para evitar que GORM incluya campos zero-value en el WHERE.
-	result := r.db.WithContext(ctx).
-		Where("user_id = ?", userID).
-		FirstOrCreate(&points, map[string]interface{}{"user_id": userID})
-	if result.Error != nil {
-		return nil, result.Error
+	// La atomicidad sale de dos sentencias que no pueden fallar por carrera:
+	// 1) INSERT ... ON CONFLICT (user_id) DO NOTHING asegura la fila. Un
+	//    SELECT seguido de INSERT (FirstOrCreate) dejaba que dos eventos
+	//    simultáneos de un usuario nuevo insertaran a la vez y el perdedor
+	//    chocaba con idx_user_points_user_id (23505), perdiendo su incremento.
+	// 2) El UPDATE con expresiones SQL suma sobre el valor ya commiteado: el
+	//    bloqueo de fila serializa los incrementos concurrentes.
+	if err := r.db.WithContext(ctx).
+		Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "user_id"}},
+			DoNothing: true,
+		}).
+		Create(&domain.UserPoints{UserID: userID}).Error; err != nil {
+		return nil, err
 	}
 
 	// Construir el mapa de actualizaciones: siempre sumamos puntos + el campo específico.
