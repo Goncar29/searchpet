@@ -105,7 +105,7 @@ func TestEpisodeFlow_ReLostPet_MapShowsOnlyCurrentEpisode(t *testing.T) {
 	}
 
 	// Mark found → closes episode 1.
-	if _, err := deps.petService.MarkAsFound(owner.ID.String(), pet.ID.String()); err != nil {
+	if _, err := deps.petService.MarkAsFound(owner.ID.String(), pet.ID.String(), nil); err != nil {
 		t.Fatalf("mark found: %v", err)
 	}
 	// Reset to registered so we can publish lost again (found → lost is not in the state machine).
@@ -211,7 +211,7 @@ func TestEpisodeFlow_MarkAsFound_StampsClosureReport(t *testing.T) {
 		dto.PublishLostRequest{Latitude: mvdLat, Longitude: mvdLng}); err != nil {
 		t.Fatalf("publish lost: %v", err)
 	}
-	if _, err := deps.petService.MarkAsFound(owner.ID.String(), pet.ID.String()); err != nil {
+	if _, err := deps.petService.MarkAsFound(owner.ID.String(), pet.ID.String(), nil); err != nil {
 		t.Fatalf("mark found: %v", err)
 	}
 

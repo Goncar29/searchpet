@@ -29,6 +29,8 @@ type mockPetService struct {
 	updatePetFn   func(ownerID, petID string, req dto.UpdatePetRequest) (*domain.Pet, error)
 	deletePetFn   func(ownerID, petID string) error
 	markAsFoundFn func(ownerID, petID string) (*domain.Pet, error)
+	markAsFoundHelperIDs *[]string
+	helperCandidatesFn   func(userID, petID string) ([]domain.HelperCandidate, error)
 	publishLostFn func(ownerID, petID string, req dto.PublishLostRequest) (*domain.Pet, error)
 	searchPetsFn  func(criteria domain.PetSearchCriteria) (dto.PetSearchResponse, error)
 	findStrayCandidatesFn func(c domain.StrayCandidateCriteria) ([]domain.StrayCandidate, error)
@@ -97,9 +99,17 @@ func (m *mockPetService) PublishLost(ownerID, petID string, req dto.PublishLostR
 	return nil, nil
 }
 
-func (m *mockPetService) MarkAsFound(ownerID, petID string) (*domain.Pet, error) {
+func (m *mockPetService) MarkAsFound(ownerID, petID string, helperIDs *[]string) (*domain.Pet, error) {
+	m.markAsFoundHelperIDs = helperIDs
 	if m.markAsFoundFn != nil {
 		return m.markAsFoundFn(ownerID, petID)
+	}
+	return nil, nil
+}
+
+func (m *mockPetService) GetHelperCandidates(userID, petID string) ([]domain.HelperCandidate, error) {
+	if m.helperCandidatesFn != nil {
+		return m.helperCandidatesFn(userID, petID)
 	}
 	return nil, nil
 }

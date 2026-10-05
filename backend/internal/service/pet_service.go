@@ -31,7 +31,14 @@ type PetService interface {
 	CountPublicPets(userID string) (int64, error)
 	UpdatePet(ownerID string, petID string, req dto.UpdatePetRequest) (*domain.Pet, error)
 	DeletePet(ownerID string, petID string) error
-	MarkAsFound(ownerID string, petID string) (*domain.Pet, error)
+	// MarkAsFound pasa la mascota a `found`. helperIDs contesta "¿quién ayudó?":
+	// ver confirmHelpers. Un pedido repetido sobre una mascota ya encontrada
+	// devuelve temprano e ignora la lista, así que un reintento nunca acredita
+	// dos veces.
+	MarkAsFound(ownerID string, petID string, helperIDs *[]string) (*domain.Pet, error)
+	// GetHelperCandidates lista a quienes el dueño puede elegir como ayudantes
+	// (los de la búsqueda actual). Misma autorización que canManagePet.
+	GetHelperCandidates(userID string, petID string) ([]domain.HelperCandidate, error)
 	// PublishLost transitions an owned pet to "lost" and creates its initial
 	// location report atomically. Returns ErrForbidden if the caller does not
 	// own the pet, ErrInvalidStatusTransition if the pet's current status
@@ -54,6 +61,18 @@ type petService struct {
 	statEvents   repository.StatEventRepository
 	episodes     EpisodeService
 	episodeRepo  repository.EpisodeRepository
+	// helperCredits sirve el endpoint de candidatos (fuera de transacción). El
+	// camino transaccional usa tx.HelperCredits. Opcional: nil → sin candidatos.
+	helperCredits repository.PetHelperCreditRepository
+}
+
+// PetServiceOption configura dependencias opcionales de petService sin tocar la
+// firma de NewPetService.
+type PetServiceOption func(*petService)
+
+// WithHelperCredits inyecta el repositorio de créditos de ayudantes.
+func WithHelperCredits(r repository.PetHelperCreditRepository) PetServiceOption {
+	return func(s *petService) { s.helperCredits = r }
 }
 
 // NewPetService es el constructor — recibe el repository, el bus de eventos, el servicio de fotos,
@@ -64,8 +83,12 @@ type petService struct {
 // uow es opcional en tests unitarios que no ejercitan el camino stray/publish-lost,
 // pero requerido en producción para crear strays con initial_report (ver router.go).
 // episodes y episodeRepo son opcionales — si son nil, el manejo de episodios se omite.
-func NewPetService(repo repository.PetRepository, eventBus *event.EventBus, photoService PhotoService, reportRepo repository.ReportRepository, uow repository.UnitOfWork, statEvents repository.StatEventRepository, episodes EpisodeService, episodeRepo repository.EpisodeRepository) PetService {
-	return &petService{repo: repo, eventBus: eventBus, photoService: photoService, reportRepo: reportRepo, uow: uow, statEvents: statEvents, episodes: episodes, episodeRepo: episodeRepo}
+func NewPetService(repo repository.PetRepository, eventBus *event.EventBus, photoService PhotoService, reportRepo repository.ReportRepository, uow repository.UnitOfWork, statEvents repository.StatEventRepository, episodes EpisodeService, episodeRepo repository.EpisodeRepository, opts ...PetServiceOption) PetService {
+	s := &petService{repo: repo, eventBus: eventBus, photoService: photoService, reportRepo: reportRepo, uow: uow, statEvents: statEvents, episodes: episodes, episodeRepo: episodeRepo}
+	for _, opt := range opts {
+		opt(s)
+	}
+	return s
 }
 
 // recordStat appends a lifetime impact event synchronously, in-request.
@@ -443,12 +466,25 @@ func (s *petService) UpdatePet(ownerID string, petID string, req dto.UpdatePetRe
 	// on the map, and unrecoverable on retry (oldStatus would already equal the new
 	// status). Mirrors the transactional pattern in PublishLost/CreatePet.
 	statusChanged := req.Status != "" && req.Status != oldStatus
-	if statusChanged && s.episodes != nil && s.uow != nil {
+	toFound := statusChanged && pet.Status == domain.PetStatusFound
+	var credited []uuid.UUID
+	if statusChanged && s.uow != nil && (s.episodes != nil || toFound) {
 		if err := s.uow.Execute(func(tx repository.UnitOfWorkRepos) error {
 			if err := tx.Pets.Update(pet); err != nil {
 				return err
 			}
-			return s.episodes.HandleTransition(tx.Episodes, pet.ID.String(), oldStatus, pet.Status)
+			if s.episodes != nil {
+				if err := s.episodes.HandleTransition(tx.Episodes, pet.ID.String(), oldStatus, pet.Status); err != nil {
+					return err
+				}
+			}
+			if toFound {
+				// Misma transacción que el cambio de estado: ver confirmHelpers.
+				var err error
+				credited, err = confirmHelpers(tx, pet, ownerID, req.HelperIDs)
+				return err
+			}
+			return nil
 		}); err != nil {
 			return nil, err
 		}
@@ -483,6 +519,7 @@ func (s *petService) UpdatePet(ownerID string, petID string, req dto.UpdatePetRe
 			OwnerID: eventOwnerID,
 			PetName: pet.Name,
 		})
+		publishHelpersCredited(s.eventBus, pet, credited)
 	}
 
 	// Lifetime ledger: a transition into "found" reunites a pet.
@@ -567,7 +604,7 @@ func (s *petService) FindStrayCandidates(c domain.StrayCandidateCriteria) ([]dom
 // MarkAsFound marca una mascota como encontrada usando el state machine.
 // For owned pets: only the owner may call this.
 // For stray pets: only the user who reported the stray (ReporterID) may call this.
-func (s *petService) MarkAsFound(ownerID string, petID string) (*domain.Pet, error) {
+func (s *petService) MarkAsFound(ownerID string, petID string, helperIDs *[]string) (*domain.Pet, error) {
 	pet, err := s.repo.FindByID(petID)
 	if err != nil {
 		return nil, err
@@ -596,12 +633,21 @@ func (s *petService) MarkAsFound(ownerID string, petID string) (*domain.Pet, err
 	// Flip the status and close the search episode ATOMICALLY (same rationale as
 	// UpdatePet: a committed status with a still-open episode leaves a dangling
 	// open episode that the next re-lost cycle would orphan).
-	if s.episodes != nil && s.uow != nil {
+	var credited []uuid.UUID
+	if s.uow != nil {
 		if err := s.uow.Execute(func(tx repository.UnitOfWorkRepos) error {
 			if err := tx.Pets.UpdateStatus(petID, domain.PetStatusFound); err != nil {
 				return err
 			}
-			return s.episodes.HandleTransition(tx.Episodes, petID, oldStatus, domain.PetStatusFound)
+			if s.episodes != nil {
+				if err := s.episodes.HandleTransition(tx.Episodes, petID, oldStatus, domain.PetStatusFound); err != nil {
+					return err
+				}
+			}
+			// Misma transacción que el cambio de estado: ver confirmHelpers.
+			var err error
+			credited, err = confirmHelpers(tx, pet, ownerID, helperIDs)
+			return err
 		}); err != nil {
 			return nil, err
 		}
@@ -660,12 +706,37 @@ func (s *petService) MarkAsFound(ownerID string, petID string) (*domain.Pet, err
 			OwnerID: eventOwnerID,
 			PetName: pet.Name,
 		})
+		publishHelpersCredited(s.eventBus, pet, credited)
 	}
 
 	// Lifetime ledger: this pet was reunited with its family.
 	s.recordStat(domain.StatEventPetFound, pet.ID)
 
 	return pet, nil
+}
+
+// GetHelperCandidates devuelve los candidatos a ayudante de la búsqueda ACTUAL
+// de la mascota, para que el selector se dibuje antes de la transición. Sólo
+// quien puede gestionar la mascota los ve: es la lista de gente que le escribió.
+func (s *petService) GetHelperCandidates(userID string, petID string) ([]domain.HelperCandidate, error) {
+	pet, err := s.repo.FindByID(petID)
+	if err != nil {
+		return nil, err
+	}
+	if !canManagePet(pet, userID) {
+		return nil, domain.ErrForbidden
+	}
+	if s.helperCredits == nil || s.episodeRepo == nil {
+		return []domain.HelperCandidate{}, nil
+	}
+	ep, err := s.episodeRepo.FindCurrent(petID)
+	if err != nil {
+		return nil, err
+	}
+	if ep == nil {
+		return []domain.HelperCandidate{}, nil
+	}
+	return s.helperCredits.FindCandidates(petID, ep.ID)
 }
 
 // PublishLost transitions an owned, registered pet to "lost" and creates its

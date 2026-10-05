@@ -45,7 +45,7 @@ func (h *ReportHandler) CreateReport(c *gin.Context) {
 
 	report, err := h.reportService.CreateReport(reporterID, req)
 	if err != nil {
-		if errors.Is(err, domain.ErrInvalidInput) || errors.Is(err, domain.ErrInvalidStatus) {
+		if errors.Is(err, domain.ErrInvalidInput) || errors.Is(err, domain.ErrInvalidStatus) || isHelperError(err) {
 			writeError(c, http.StatusBadRequest, err)
 			return
 		}
