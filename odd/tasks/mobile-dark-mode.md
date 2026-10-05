@@ -44,7 +44,11 @@ Branch base: `origin/main` (`584bad55`). Delivery: chained PRs (forecast well ov
   (`4577eed1`).
 - [x] T5 — Hardcoded color literals, `SHADOWS`/`REPORT_STATUSES`, and the
   guard test. Links S4. Route: inline.
-- [ ] T6 — Dark map styles. Links S5. Route: inline.
+- [x] T6 — Dark map styles. Links S5. Route: inline. `constants/mapStyles.ts`:
+  MapTiler `streets-v4-dark` (its own dark variant, per maptiler-client-js
+  `src/mapstyle.ts`) and OpenFreeMap `dark` (200 at tiles.openfreemap.org).
+  The MapTiler dark style can only be seen in the APK (key restricted by
+  User-Agent).
 
 ## Log
 

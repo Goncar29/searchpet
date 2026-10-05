@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import MapLibreGL from '@maplibre/maplibre-react-native';
 import * as Location from 'expo-location';
 import { type ThemeColors, SPACING, FONTS, RADIUS, MAP_DEFAULTS } from '../../constants';
+import { openMapStyle } from '../../constants/mapStyles';
 import { useTheme, useThemedStyles } from '../../hooks/useTheme';
 import type { InitialReportRequest } from '../../../shared/types';
 import { calendarDayToISO, isFutureCalendarDay, isoToCalendarDay } from '../../../shared/utils/reportDate';
@@ -11,7 +12,6 @@ import { calendarDayToISO, isFutureCalendarDay, isoToCalendarDay } from '../../.
 // MapLibre no necesita token de Mapbox
 MapLibreGL.setAccessToken(null);
 
-const MAP_STYLE = 'https://tiles.openfreemap.org/styles/liberty';
 
 interface LocationStepProps {
   value: InitialReportRequest | null;
@@ -22,7 +22,7 @@ interface LocationStepProps {
 
 export function LocationStep({ value, onPublish, onBack, isPending }: LocationStepProps) {
   const styles = useThemedStyles(makeStyles);
-  const { colors } = useTheme();
+  const { colors, scheme } = useTheme();
   const { t } = useTranslation();
   const [coordinate, setCoordinate] = useState<[number, number]>(
     value ? [value.longitude, value.latitude] : [MAP_DEFAULTS.defaultLongitude, MAP_DEFAULTS.defaultLatitude]
@@ -88,7 +88,7 @@ export function LocationStep({ value, onPublish, onBack, isPending }: LocationSt
       <Text style={styles.instructions}>{t('publish:location.instructions')}</Text>
 
       <View style={styles.mapContainer}>
-        <MapLibreGL.MapView style={styles.map} mapStyle={MAP_STYLE}>
+        <MapLibreGL.MapView style={styles.map} mapStyle={openMapStyle(scheme)}>
           <MapLibreGL.Camera zoomLevel={13} centerCoordinate={coordinate} />
           <MapLibreGL.UserLocation visible />
           <MapLibreGL.PointAnnotation
