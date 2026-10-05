@@ -23,6 +23,7 @@ import { vetLayerRadiusMeters } from '../../../shared/utils/vetLayerRadius';
 import { StaleDataNotice } from '../../components/list/ListState';
 import { useLocationStore } from '../../store';
 import { SPACING, FONTS, MAP_DEFAULTS, type ThemeColors } from '../../constants';
+import { mainMapStyle } from '../../constants/mapStyles';
 import { useTheme, useThemedStyles } from '../../hooks/useTheme';
 import { Icon } from '../../components/Icon';
 import { IconLabel } from '../../components/IconLabel';
@@ -48,9 +49,6 @@ export function createCircleGeoJSON(lng: number, lat: number, radiusKm: number, 
   };
 }
 
-// Maptiler streets-v2 — calidad similar a Google Maps, key configurada en app.config.js
-const MAPTILER_KEY = process.env.EXPO_PUBLIC_MAPTILER_KEY;
-const MAP_STYLE = `https://api.maptiler.com/maps/streets-v4/style.json?key=${MAPTILER_KEY}`;
 
 // ============================================================
 // Error Boundary — evita que un crash del mapa cierre la app
@@ -94,7 +92,7 @@ function MapUnavailable() {
 export default function MapScreen() {
   const router = useRouter();
   const styles = useThemedStyles(makeStyles);
-  const { colors } = useTheme();
+  const { colors, scheme } = useTheme();
   const { t } = useTranslation(['map', 'common']);
   const cameraRef = useRef<CameraRef>(null);
   const { latitude, longitude, setLocation } = useLocationStore();
@@ -205,7 +203,7 @@ export default function MapScreen() {
       <View style={styles.container}>
         <MapLibreGL.MapView
           style={styles.map}
-          mapStyle={MAP_STYLE}
+          mapStyle={mainMapStyle(scheme)}
           onPress={() => { setSelectedReport(null); setSelectedVet(null); }}
           onRegionDidChange={(feature) => {
             const [regionLng, regionLat] = feature.geometry.coordinates;
@@ -512,7 +510,7 @@ const makeStyles = (c: ThemeColors) => StyleSheet.create({
     top: SPACING.lg,
     left: SPACING.lg,
     right: SPACING.lg,
-    backgroundColor: 'rgba(255,255,255,0.95)',
+    backgroundColor: c.floatingSurface,
     borderRadius: 12,
     paddingVertical: SPACING.sm,
     paddingHorizontal: SPACING.md,
@@ -600,7 +598,7 @@ const makeStyles = (c: ThemeColors) => StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.95)',
+    backgroundColor: c.floatingSurface,
     borderWidth: 1.5,
     borderColor: c.border,
   },
@@ -620,7 +618,7 @@ const makeStyles = (c: ThemeColors) => StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.95)',
+    backgroundColor: c.floatingSurface,
     borderWidth: 1.5,
     borderColor: c.border,
   },

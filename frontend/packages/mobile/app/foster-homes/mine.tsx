@@ -259,13 +259,15 @@ export default function MyFosterHomeScreen() {
     }
   };
 
+  const statusColor = statusColors(colors)[status];
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <StaleDataNotice query={mineQuery} />
 
       {/* Status banner */}
-      <View style={[styles.statusCard, { borderColor: statusColors(colors)[status] }]}>
-        <Text style={[styles.statusLabel, { color: statusColors(colors)[status] }]}>
+      <View style={[styles.statusCard, { borderColor: statusColor }]}>
+        <Text style={[styles.statusLabel, { color: statusColor }]}>
           {t(`fosterHomes:status.${status}`)}
         </Text>
         <Text style={styles.statusMessage}>{t(STATUS_MESSAGE_KEY[status])}</Text>

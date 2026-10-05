@@ -1,6 +1,6 @@
 import Svg, { Path } from 'react-native-svg';
 import { ICON_PATHS, type IconName } from '../../shared/icons/paths';
-import { COLORS } from '../constants';
+import { useTheme } from '../hooks/useTheme';
 
 export type { IconName };
 
@@ -22,10 +22,13 @@ interface IconProps {
 export function Icon({
   name,
   size = 24,
-  color = COLORS.textPrimary,
+  color,
   testID,
   accessibilityLabel,
 }: IconProps) {
+  // The default follows the theme: an icon without an explicit color reads as text.
+  const { colors } = useTheme();
+  const fill = color ?? colors.textPrimary;
   const a11y = accessibilityLabel
     ? { accessible: true, accessibilityRole: 'image' as const, accessibilityLabel }
     : {
@@ -35,7 +38,7 @@ export function Icon({
       };
   return (
     <Svg viewBox="0 0 24 24" width={size} height={size} testID={testID} {...a11y}>
-      <Path d={ICON_PATHS[name]} fill={color} />
+      <Path d={ICON_PATHS[name]} fill={fill} />
     </Svg>
   );
 }

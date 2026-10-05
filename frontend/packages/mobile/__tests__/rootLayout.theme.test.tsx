@@ -78,4 +78,32 @@ describe('RootLayout follows the theme', () => {
       jest.restoreAllMocks();
     }
   });
+
+  // Deliberate: a saved choice that loads after the cap still applies, rather
+  // than being ignored for the whole session (review of #330).
+  it('a saved choice that loads after the cap still applies', async () => {
+    jest.useFakeTimers();
+    try {
+      let release!: (v: string) => void;
+      jest.spyOn(AsyncStorage, 'getItem').mockImplementationOnce(
+        () => new Promise((resolve) => { release = resolve as (v: string) => void; }),
+      );
+      render(<RootLayout />);
+      await act(async () => {
+        jest.advanceTimersByTime(THEME_HYDRATE_TIMEOUT_MS);
+      });
+      expect(statusBarStyle).toBe('dark');
+
+      await act(async () => {
+        release('dark');
+      });
+
+      expect(useThemeStore.getState().preference).toBe('dark');
+      expect(statusBarStyle).toBe('light');
+      expect(screenOptions.contentStyle.backgroundColor).toBe(DARK_COLORS.background);
+    } finally {
+      jest.useRealTimers();
+      jest.restoreAllMocks();
+    }
+  });
 });

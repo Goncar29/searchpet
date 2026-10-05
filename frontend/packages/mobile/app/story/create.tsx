@@ -217,12 +217,12 @@ const makeStyles = (c: ThemeColors) => StyleSheet.create({
     marginTop: SPACING.xs,
   },
   errorBanner: {
-    backgroundColor: '#FEF2F2',
+    backgroundColor: c.dangerSoftBg,
     borderRadius: RADIUS.md,
     padding: SPACING.md,
     marginBottom: SPACING.md,
     borderWidth: 1,
-    borderColor: '#FECACA',
+    borderColor: c.dangerSoftBorder,
   },
   errorBannerText: {
     fontSize: FONTS.sizes.sm,

@@ -128,9 +128,9 @@ const makeStyles = (c: ThemeColors) =>
     marginBottom: SPACING.lg,
   },
   retryCard: {
-    backgroundColor: '#fffbeb',
+    backgroundColor: c.warningSoftBg,
     borderWidth: 1,
-    borderColor: '#fde68a',
+    borderColor: c.warningSoftBorder,
     borderRadius: RADIUS.md,
     padding: SPACING.md,
     marginBottom: SPACING.lg,
@@ -138,7 +138,7 @@ const makeStyles = (c: ThemeColors) =>
   },
   retryTitle: {
     fontSize: FONTS.sizes.sm,
-    color: '#92400e',
+    color: c.warningSoftTextAccent,
     fontWeight: '600',
     textAlign: 'center',
     marginBottom: SPACING.sm,
@@ -147,7 +147,7 @@ const makeStyles = (c: ThemeColors) =>
   retryButtonText: {
     fontSize: FONTS.sizes.sm,
     fontWeight: '700',
-    color: '#92400e',
+    color: c.warningSoftTextAccent,
     textDecorationLine: 'underline',
   },
   feedButton: {

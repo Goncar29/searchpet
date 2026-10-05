@@ -930,9 +930,9 @@ const makeStyles = (c: ThemeColors) => StyleSheet.create({
 
   // ── Blocked banner ──
   blockedBanner: {
-    backgroundColor: '#fef2f2',
+    backgroundColor: c.dangerSoftBg,
     borderWidth: 1,
-    borderColor: '#fecaca',
+    borderColor: c.dangerSoftBorder,
     marginHorizontal: SPACING.lg,
     marginTop: SPACING.md,
     borderRadius: RADIUS.md,
@@ -942,7 +942,7 @@ const makeStyles = (c: ThemeColors) => StyleSheet.create({
   },
   blockedBannerText: {
     fontSize: FONTS.sizes.sm,
-    color: '#dc2626',
+    color: c.dangerSoftText,
     fontWeight: '500',
   },
 });

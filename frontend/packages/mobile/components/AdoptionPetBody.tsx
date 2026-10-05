@@ -34,7 +34,7 @@ export function AdoptionPetBody({ pet }: AdoptionPetBodyProps) {
     return (
       <View testID="adopted-banner" style={styles.adoptedBanner}>
         <View style={styles.adoptedIcon}>
-          <Icon name="celebration" size={48} color="#047857" />
+          <Icon name="celebration" size={48} color={colors.successSoftText} />
         </View>
         <Text style={styles.adoptedTitle}>{t('adoption:detail.adoptedTitle', { name: pet.name })}</Text>
         <Text style={styles.adoptedSubtitle}>{t('adoption:detail.adoptedSubtitle')}</Text>
@@ -110,7 +110,7 @@ export function AdoptionPetBody({ pet }: AdoptionPetBodyProps) {
 const makeStyles = (c: ThemeColors) =>
   StyleSheet.create({
   adoptedBanner: {
-    backgroundColor: '#ecfdf5',
+    backgroundColor: c.successSoftBg,
     borderRadius: RADIUS.lg,
     padding: SPACING.lg,
     marginBottom: SPACING.md,
@@ -118,8 +118,8 @@ const makeStyles = (c: ThemeColors) =>
     ...SHADOWS.sm,
   },
   adoptedIcon: { marginBottom: SPACING.sm },
-  adoptedTitle: { fontSize: FONTS.sizes.md, fontWeight: '800', color: '#065f46', textAlign: 'center' },
-  adoptedSubtitle: { fontSize: FONTS.sizes.sm, color: '#047857', textAlign: 'center', marginTop: 4 },
+  adoptedTitle: { fontSize: FONTS.sizes.md, fontWeight: '800', color: c.successSoftTitle, textAlign: 'center' },
+  adoptedSubtitle: { fontSize: FONTS.sizes.sm, color: c.successSoftText, textAlign: 'center', marginTop: 4 },
   ownerCard: {
     backgroundColor: c.card,
     borderRadius: RADIUS.lg,

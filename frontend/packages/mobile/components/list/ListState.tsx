@@ -320,18 +320,18 @@ const makeStyles = (c: ThemeColors) =>
     paddingVertical: SPACING.sm,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#FDE68A',
-    backgroundColor: '#FFFBEB',
+    borderColor: c.warningSoftBorder,
+    backgroundColor: c.warningSoftBg,
   },
   bannerText: {
     flex: 1,
     fontSize: FONTS.sizes.sm,
-    color: '#78350F',
+    color: c.warningSoftText,
   },
   bannerRetry: {
     fontSize: FONTS.sizes.sm,
     fontWeight: '700',
-    color: '#78350F',
+    color: c.warningSoftText,
     textDecorationLine: 'underline',
   },
 });

@@ -7,6 +7,7 @@ import {
 } from 'react-native';
 import type { Report } from '../../shared/types';
 import { type ThemeColors, SPACING, FONTS, RADIUS } from '../constants';
+import { openMapStyle } from '../constants/mapStyles';
 import { useTheme, useThemedStyles } from '../hooks/useTheme';
 
 interface TimelineMapProps {
@@ -36,7 +37,7 @@ function chronological(reports: ValidReport[]): ValidReport[] {
 
 export function TimelineMap({ reports }: TimelineMapProps) {
   const styles = useThemedStyles(makeStyles);
-  const { colors } = useTheme();
+  const { colors, scheme } = useTheme();
   const [showMap, setShowMap] = useState(false);
   const [MapLibreGL, setMapLibreGL] = useState<typeof import('@maplibre/maplibre-react-native') | null>(null);
 
@@ -91,7 +92,7 @@ export function TimelineMap({ reports }: TimelineMapProps) {
         <View style={styles.mapWrapper}>
           <MapLibreGL.default.MapView
             style={styles.map}
-            mapStyle="https://tiles.openfreemap.org/styles/liberty"
+            mapStyle={openMapStyle(scheme)}
           >
             <MapLibreGL.default.Camera
               zoomLevel={12}

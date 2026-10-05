@@ -491,16 +491,16 @@ const makeStyles = (c: ThemeColors) => StyleSheet.create({
     fontStyle: 'italic',
   },
   blockedBanner: {
-    backgroundColor: '#fef2f2',
+    backgroundColor: c.dangerSoftBg,
     borderTopWidth: 1,
-    borderTopColor: '#fecaca',
+    borderTopColor: c.dangerSoftBorder,
     paddingVertical: SPACING.sm,
     paddingHorizontal: SPACING.md,
     alignItems: 'center',
   },
   blockedBannerText: {
     fontSize: FONTS.sizes.sm,
-    color: '#dc2626',
+    color: c.dangerSoftText,
     fontWeight: '500',
   },
   inputDisabled: {
