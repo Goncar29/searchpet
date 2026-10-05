@@ -64,7 +64,9 @@ describe('Leaderboard — points rules popup', () => {
     expect(getByText(new RegExp(`\\+${POINTS.helper} points, once per pet`))).toBeTruthy();
     expect(getByText(new RegExp(`Receive a review.*\\+${POINTS.reviewReceived} points`))).toBeTruthy();
     expect(getByText(new RegExp(`takes its ${POINTS.reviewReceived} points back`))).toBeTruthy();
-    expect(getByText(`Reach ${BADGE_THRESHOLDS.communityGuardianReports} location reports.`)).toBeTruthy();
+    expect(
+      getByText(new RegExp(`Post ${BADGE_THRESHOLDS.communityGuardianReports} location reports in total.*does not take the badge away`)),
+    ).toBeTruthy();
     expect(
       getByText(`Be confirmed as a helper for ${BADGE_THRESHOLDS.superFinderPets} different pets.`),
     ).toBeTruthy();
