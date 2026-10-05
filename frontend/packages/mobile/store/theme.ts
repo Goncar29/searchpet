@@ -14,6 +14,10 @@ export const THEME_KEY = 'searchpet-theme';
 
 export type ThemePreference = 'system' | 'light' | 'dark';
 
+// The root layout waits for the saved theme before painting, but never longer
+// than this: a storage read that never settles must not leave the app blank.
+export const THEME_HYDRATE_TIMEOUT_MS = 1000;
+
 const PREFERENCES: readonly ThemePreference[] = ['system', 'light', 'dark'];
 
 // Anything that is not a known preference (an old or corrupted value) reads as

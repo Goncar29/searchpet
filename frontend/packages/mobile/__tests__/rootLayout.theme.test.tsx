@@ -1,10 +1,11 @@
 // S3: the root layout paints the status bar, the header and the screen
 // background from the active theme, after reading the saved choice (S2).
 import React from 'react';
-import { render, waitFor } from '@testing-library/react-native';
+import { act, render, waitFor } from '@testing-library/react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { DARK_COLORS, LIGHT_COLORS } from '../constants';
 import { THEME_KEY, useThemeStore } from '../store/theme';
+import { THEME_HYDRATE_TIMEOUT_MS } from '../store/theme';
 
 jest.mock('../utils/notifications', () => ({ configureNotificationHandler: jest.fn() }));
 
@@ -55,5 +56,26 @@ describe('RootLayout follows the theme', () => {
     expect(screenOptions.headerStyle.backgroundColor).toBe(LIGHT_COLORS.white);
     expect(screenOptions.contentStyle.backgroundColor).toBe(LIGHT_COLORS.background);
     expect(screenOptions.headerTintColor).toBe(LIGHT_COLORS.primary);
+  });
+
+  // A storage read that never settles must not keep the app blank forever:
+  // past the cap it paints with System.
+  it('paints with System when the saved theme never loads', async () => {
+    jest.useFakeTimers();
+    try {
+      jest.spyOn(AsyncStorage, 'getItem').mockImplementationOnce(() => new Promise(() => {}));
+      render(<RootLayout />);
+      expect(screenOptions).toBeUndefined();
+
+      await act(async () => {
+        jest.advanceTimersByTime(THEME_HYDRATE_TIMEOUT_MS);
+      });
+
+      expect(screenOptions).toBeDefined();
+      expect(useThemeStore.getState().preference).toBe('system');
+    } finally {
+      jest.useRealTimers();
+      jest.restoreAllMocks();
+    }
   });
 });
