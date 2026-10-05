@@ -226,7 +226,14 @@ export default function LeaderboardScreen() {
           ListHeaderComponent={
             <>
               <AchievementsLegend />
-              <IconLabel icon="location-city" size={20} color={COLORS.textPrimary} gap={SPACING.xs}>
+              <IconLabel
+                testID="leaderboard-city-header"
+                icon="location-city"
+                size={20}
+                color={COLORS.textPrimary}
+                gap={SPACING.xs}
+                style={styles.sectionHeader}
+              >
                 <Text style={styles.sectionTitle}>{city}</Text>
               </IconLabel>
             </>
@@ -330,13 +337,17 @@ const styles = StyleSheet.create({
 
   // ── List ──
   listContent: { paddingBottom: 80 },
+  // The list has no horizontal padding, so the inset goes on the row that holds
+  // the icon AND the city: on the text alone it left the icon on the screen edge.
+  sectionHeader: {
+    marginHorizontal: SPACING.lg,
+    marginTop: SPACING.lg,
+    marginBottom: SPACING.md,
+  },
   sectionTitle: {
     fontSize: FONTS.sizes.lg,
     fontWeight: '700',
     color: COLORS.textPrimary,
-    marginHorizontal: SPACING.lg,
-    marginTop: SPACING.lg,
-    marginBottom: SPACING.md,
   },
 
   // ── Row ──
