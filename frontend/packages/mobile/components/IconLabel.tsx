@@ -10,6 +10,7 @@ interface IconLabelProps {
   size?: number;
   gap?: number;
   style?: StyleProp<ViewStyle>;
+  testID?: string;
   children: ReactNode;
 }
 
@@ -18,9 +19,9 @@ interface IconLabelProps {
  * `<Text>{emoji} {label}</Text>` pattern: an SVG cannot live inside a `<Text>`
  * string, so the pair becomes a row with an `Icon` and a `Text` child.
  */
-export function IconLabel({ icon, color, size = 16, gap = SPACING.xs, style, children }: IconLabelProps) {
+export function IconLabel({ icon, color, size = 16, gap = SPACING.xs, style, testID, children }: IconLabelProps) {
   return (
-    <View style={[{ flexDirection: 'row', alignItems: 'center', gap }, style]}>
+    <View testID={testID} style={[{ flexDirection: 'row', alignItems: 'center', gap }, style]}>
       <Icon name={icon} size={size} color={color} />
       {children}
     </View>
