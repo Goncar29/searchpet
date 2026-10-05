@@ -627,7 +627,7 @@
     "earn": {
       "title": "Cómo ganás puntos",
       "report": "Publicar un reporte de ubicación: +{{points}} puntos cada uno. Incluye el primer reporte al publicar una mascota perdida o callejera.",
-      "share": "Generar un link para compartir una mascota que gestionás: +{{points}} puntos cada vez.",
+      "share": "Generar el link para compartir una mascota que gestionás: +{{points}} puntos, una vez por mascota. Generar más links de la misma mascota no suma.",
       "helper": "El dueño confirma que ayudaste a encontrar su mascota: +{{points}} puntos, una vez por mascota.",
       "review": "Recibir una reseña de otro usuario: +{{points}} puntos."
     },
