@@ -641,7 +641,7 @@
     "badges": {
       "title": "Logros",
       "first_helper": "Publicá tu primer reporte de ubicación.",
-      "community_guardian": "Llegá a {{threshold}} reportes de ubicación.",
+      "community_guardian": "Publicá {{threshold}} reportes de ubicación en total. Cuentan todos los que publicaste alguna vez: borrar uno después no te quita el logro.",
       "pet_rescuer": "Un dueño confirma por primera vez que ayudaste a encontrar su mascota.",
       "super_finder": "Que te confirmen como ayudante en {{threshold}} mascotas distintas.",
       "social_butterfly": "Generá tu primer link para compartir.",
