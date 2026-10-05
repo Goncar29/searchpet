@@ -22,7 +22,8 @@ import { shouldShowSearchHere } from '../../../shared/utils/searchArea';
 import { vetLayerRadiusMeters } from '../../../shared/utils/vetLayerRadius';
 import { StaleDataNotice } from '../../components/list/ListState';
 import { useLocationStore } from '../../store';
-import { COLORS, SPACING, FONTS, MAP_DEFAULTS } from '../../constants';
+import { SPACING, FONTS, MAP_DEFAULTS, type ThemeColors } from '../../constants';
+import { useTheme, useThemedStyles } from '../../hooks/useTheme';
 import { Icon } from '../../components/Icon';
 import { IconLabel } from '../../components/IconLabel';
 import type { Report, Vet } from '../../../shared/types';
@@ -65,17 +66,25 @@ class MapErrorBoundary extends Component<{ children: ReactNode }, { hasError: bo
   }
   render() {
     if (this.state.hasError) {
-      return (
-        <View style={styles.errorContainer}>
-          <View style={styles.errorIcon}><Icon name="map" size={48} color={COLORS.textMuted} /></View>
-          <Text style={styles.errorText}>
-            {i18next.t('map:unavailable')}
-          </Text>
-        </View>
-      );
+      return <MapUnavailable />;
     }
     return this.props.children;
   }
+}
+
+// A class cannot call hooks, so the fallback is its own component to follow
+// the theme.
+function MapUnavailable() {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
+  return (
+    <View style={styles.errorContainer}>
+      <View style={styles.errorIcon}><Icon name="map" size={48} color={colors.textMuted} /></View>
+      <Text style={styles.errorText}>
+        {i18next.t('map:unavailable')}
+      </Text>
+    </View>
+  );
 }
 
 // ============================================================
@@ -84,6 +93,8 @@ class MapErrorBoundary extends Component<{ children: ReactNode }, { hasError: bo
 
 export default function MapScreen() {
   const router = useRouter();
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   const { t } = useTranslation(['map', 'common']);
   const cameraRef = useRef<CameraRef>(null);
   const { latitude, longitude, setLocation } = useLocationStore();
@@ -150,10 +161,10 @@ export default function MapScreen() {
 
   const getMarkerColor = (status: string) => {
     switch (status) {
-      case 'lost':     return COLORS.lost;
-      case 'found':    return COLORS.found;
-      case 'sighting': return COLORS.sighting;
-      default:         return COLORS.primary;
+      case 'lost':     return colors.lost;
+      case 'found':    return colors.found;
+      case 'sighting': return colors.sighting;
+      default:         return colors.primary;
     }
   };
 
@@ -183,7 +194,7 @@ export default function MapScreen() {
   if (isLoading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
+        <ActivityIndicator size="large" color={colors.primary} />
         <Text style={styles.loadingText}>{t('loading')}</Text>
       </View>
     );
@@ -244,7 +255,7 @@ export default function MapScreen() {
               coordinate={[vet.longitude, vet.latitude]}
               onSelected={() => { setSelectedVet(vet); setSelectedReport(null); }}
             >
-              <View style={[styles.marker, { backgroundColor: COLORS.primary }]} />
+              <View style={[styles.marker, { backgroundColor: colors.primary }]} />
             </MapLibreGL.PointAnnotation>
           ))}
         </MapLibreGL.MapView>
@@ -258,15 +269,15 @@ export default function MapScreen() {
         {/* Leyenda */}
         <View style={styles.legend}>
           <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: COLORS.lost }]} />
+            <View style={[styles.legendDot, { backgroundColor: colors.lost }]} />
             <Text style={styles.legendText}>{t('legendLost')}</Text>
           </View>
           <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: COLORS.found }]} />
+            <View style={[styles.legendDot, { backgroundColor: colors.found }]} />
             <Text style={styles.legendText}>{t('legendFound')}</Text>
           </View>
           <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: COLORS.sighting }]} />
+            <View style={[styles.legendDot, { backgroundColor: colors.sighting }]} />
             <Text style={styles.legendText}>{t('legendSighting')}</Text>
           </View>
         </View>
@@ -318,7 +329,7 @@ export default function MapScreen() {
                   {selectedReport.location_description}
                 </Text>
               )}
-              <IconLabel icon="arrow-forward" size={16} color={COLORS.primary} gap={4}>
+              <IconLabel icon="arrow-forward" size={16} color={colors.primary} gap={4}>
                 <Text style={styles.reportAction}>{t('viewDetails')}</Text>
               </IconLabel>
             </TouchableOpacity>
@@ -342,7 +353,7 @@ export default function MapScreen() {
                   </TouchableOpacity>
                 ) : null}
               </View>
-              <Text style={{ fontSize: 10, color: COLORS.textSecondary, marginTop: 6 }}>{t('vetAttribution')}</Text>
+              <Text style={{ fontSize: 10, color: colors.textSecondary, marginTop: 6 }}>{t('vetAttribution')}</Text>
             </View>
           )}
           {showVets && vets && vets.length === 0 && (
@@ -371,7 +382,7 @@ export default function MapScreen() {
             style={[styles.vetToggle, showVets && styles.vetToggleActive]}
             onPress={() => setShowVets((v) => !v)}
           >
-            <IconLabel icon="local-hospital" size={14} color={showVets ? COLORS.white : COLORS.textSecondary}>
+            <IconLabel icon="local-hospital" size={14} color={showVets ? colors.onPrimary : colors.textSecondary}>
               <Text style={[styles.vetToggleText, showVets && styles.vetToggleTextActive]}>
                 {t('map:vetsToggle')}
               </Text>
@@ -422,7 +433,7 @@ export default function MapScreen() {
             accessibilityRole="button"
             accessibilityLabel={t('centerOnMe')}
           >
-            <Icon name="location-on" size={22} color={COLORS.primary} />
+            <Icon name="location-on" size={22} color={colors.primary} />
           </TouchableOpacity>
 
           </View>
@@ -432,7 +443,7 @@ export default function MapScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: ThemeColors) => StyleSheet.create({
   container: { flex: 1 },
   // One bottom-anchored column: banners and cards first, then the two control
   // rows. Children flow upward from SPACING.lg, so nothing needs its own
@@ -456,12 +467,12 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: COLORS.background,
+    backgroundColor: c.background,
   },
   loadingText: {
     marginTop: SPACING.md,
     fontSize: FONTS.sizes.md,
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
   },
   errorContainer: {
     flex: 1,
@@ -472,7 +483,7 @@ const styles = StyleSheet.create({
   errorIcon: { marginBottom: SPACING.md },
   errorText: {
     fontSize: FONTS.sizes.md,
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
     textAlign: 'center',
     lineHeight: 24,
   },
@@ -481,10 +492,10 @@ const styles = StyleSheet.create({
     height: 18,
     borderRadius: 9,
     borderWidth: 2,
-    borderColor: COLORS.white,
+    borderColor: c.white,
   },
   centerButton: {
-    backgroundColor: COLORS.white,
+    backgroundColor: c.surface,
     width: 50,
     height: 50,
     borderRadius: 25,
@@ -522,7 +533,7 @@ const styles = StyleSheet.create({
   },
   legendText: {
     fontSize: FONTS.sizes.xs,
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
     fontWeight: '500',
   },
   counter: {
@@ -532,7 +543,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   counterText: {
-    color: COLORS.white,
+    color: c.white,
     fontSize: FONTS.sizes.xs,
     fontWeight: '600',
   },
@@ -542,13 +553,13 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   counterRetryText: {
-    color: COLORS.white,
+    color: c.white,
     fontSize: FONTS.sizes.xs,
     fontWeight: '700',
     textDecorationLine: 'underline',
   },
   reportCard: {
-    backgroundColor: COLORS.white,
+    backgroundColor: c.card,
     borderRadius: 16,
     padding: SPACING.md,
     shadowColor: '#000',
@@ -564,21 +575,21 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     marginBottom: 6,
   },
-  statusText: { color: COLORS.white, fontSize: 11, fontWeight: '700' },
+  statusText: { color: c.onPrimary, fontSize: 11, fontWeight: '700' },
   reportName: {
     fontSize: FONTS.sizes.md,
     fontWeight: '700',
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
     marginBottom: 2,
   },
   reportDesc: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
     marginBottom: 4,
   },
   reportAction: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.primary,
+    color: c.primary,
     fontWeight: '600',
   },
   radiusSelector: {
@@ -591,19 +602,19 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     backgroundColor: 'rgba(255,255,255,0.95)',
     borderWidth: 1.5,
-    borderColor: COLORS.border || '#e5e7eb',
+    borderColor: c.border,
   },
   radiusButtonActive: {
-    backgroundColor: COLORS.primary,
-    borderColor: COLORS.primary,
+    backgroundColor: c.primary,
+    borderColor: c.primary,
   },
   radiusButtonText: {
     fontSize: FONTS.sizes.xs,
     fontWeight: '600',
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
   },
   radiusButtonTextActive: {
-    color: COLORS.white,
+    color: c.onPrimary,
   },
   vetToggle: {
     paddingHorizontal: 12,
@@ -611,11 +622,11 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     backgroundColor: 'rgba(255,255,255,0.95)',
     borderWidth: 1.5,
-    borderColor: COLORS.border || '#e5e7eb',
+    borderColor: c.border,
   },
-  vetToggleActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
-  vetToggleText: { fontSize: FONTS.sizes.xs, fontWeight: '600', color: COLORS.textSecondary },
-  vetToggleTextActive: { color: COLORS.white },
+  vetToggleActive: { backgroundColor: c.primary, borderColor: c.primary },
+  vetToggleText: { fontSize: FONTS.sizes.xs, fontWeight: '600', color: c.textSecondary },
+  vetToggleTextActive: { color: c.onPrimary },
   vetEmptyBanner: {
     backgroundColor: 'rgba(0,0,0,0.7)',
     paddingVertical: SPACING.sm,
@@ -624,7 +635,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   vetEmptyText: {
-    color: COLORS.white,
+    color: c.white,
     fontSize: FONTS.sizes.xs,
     fontWeight: '600',
     textAlign: 'center',
@@ -633,7 +644,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: SPACING.lg + 48,
     alignSelf: 'center',
-    backgroundColor: COLORS.primary,
+    backgroundColor: c.primary,
     paddingVertical: SPACING.sm,
     paddingHorizontal: SPACING.lg,
     borderRadius: 20,
@@ -645,7 +656,7 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   searchHereText: {
-    color: COLORS.white,
+    color: c.onPrimary,
     fontSize: FONTS.sizes.sm,
     fontWeight: '700',
   },

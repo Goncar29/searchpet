@@ -24,7 +24,8 @@ import i18next from 'i18next';
 import { usePublicProfile, useUserPets, useUserReviews, useCreateReview, useUpdateReview, useDeleteReview, useBlockUser, useBlockedUsers, useSubmitAbuseReport } from '../../../shared/hooks';
 import { getErrorMessage } from '../../../shared/utils/apiErrors';
 import { useAuthStore } from '../../store';
-import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
+import { SPACING, FONTS, RADIUS, SHADOWS, type ThemeColors } from '../../constants';
+import { useTheme, useThemedStyles } from '../../hooks/useTheme';
 import { StaleDataNotice, ListState } from '../../components/list/ListState';
 import { PetCard } from '../../components/PetCard';
 import { getDateLocale } from '../../i18n/dateLocale';
@@ -54,6 +55,8 @@ function formatDate(dateString: string, lang: string): string {
 // ============================================================
 
 function BadgeRow({ badge }: { badge: Badge }) {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   const { t, i18n } = useTranslation(['badges', 'users']);
   const meta = BADGE_META[badge.badge_type] ?? {
     icon: BADGE_FALLBACK_ICON,
@@ -66,7 +69,7 @@ function BadgeRow({ badge }: { badge: Badge }) {
   return (
     <View style={styles.badgeCard}>
       <View style={styles.badgeIcon}>
-        <Icon name={meta.icon} size={36} color={COLORS.primary} />
+        <Icon name={meta.icon} size={36} color={colors.primary} />
       </View>
       <View style={styles.badgeInfo}>
         <Text style={styles.badgeLabel}>{label}</Text>
@@ -85,6 +88,7 @@ interface StatItemProps {
 }
 
 function StatItem({ value, label }: StatItemProps) {
+  const styles = useThemedStyles(makeStyles);
   return (
     <View style={styles.statItem}>
       <Text style={styles.statValue}>{value}</Text>
@@ -99,6 +103,8 @@ interface StarDisplayProps {
 }
 
 function StarDisplay({ stars, size = 14 }: StarDisplayProps) {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   const { t } = useTranslation('users');
   return (
     <View
@@ -112,7 +118,7 @@ function StarDisplay({ stars, size = 14 }: StarDisplayProps) {
           key={i}
           name={i <= stars ? 'star-filled' : 'star'}
           size={size}
-          color={i <= stars ? COLORS.accent : COLORS.placeholder}
+          color={i <= stars ? colors.accent : colors.placeholder}
         />
       ))}
     </View>
@@ -125,6 +131,8 @@ interface StarSelectorProps {
 }
 
 function StarSelector({ value, onChange }: StarSelectorProps) {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   const { t } = useTranslation('users');
   return (
     <View style={styles.starRow}>
@@ -139,7 +147,7 @@ function StarSelector({ value, onChange }: StarSelectorProps) {
           <Icon
             name={i <= value ? 'star-filled' : 'star'}
             size={32}
-            color={i <= value ? COLORS.accent : COLORS.placeholder}
+            color={i <= value ? colors.accent : colors.placeholder}
           />
         </TouchableOpacity>
       ))}
@@ -153,6 +161,7 @@ interface ReviewCardProps {
 }
 
 function ReviewCard({ review, onDelete }: ReviewCardProps) {
+  const styles = useThemedStyles(makeStyles);
   const { t, i18n } = useTranslation('users');
   const initials = review.reviewer_name.trim().charAt(0).toUpperCase();
 
@@ -191,6 +200,8 @@ function ReviewCard({ review, onDelete }: ReviewCardProps) {
 // ============================================================
 
 export default function PublicProfileScreen() {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user, isAuthenticated } = useAuthStore();
   const navigation = useNavigation();
@@ -377,7 +388,7 @@ export default function PublicProfileScreen() {
   if (isLoading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -391,7 +402,7 @@ export default function PublicProfileScreen() {
   if (!profile) {
     return (
       <View style={styles.center}>
-        <View style={styles.stateIcon}><Icon name="search" size={56} color={COLORS.textMuted} /></View>
+        <View style={styles.stateIcon}><Icon name="search" size={56} color={colors.textMuted} /></View>
         <Text style={styles.stateTitle}>{isError ? t('users:loadError') : t('users:notFound')}</Text>
         <Text style={styles.stateText}>
           {isError
@@ -415,8 +426,8 @@ export default function PublicProfileScreen() {
         <RefreshControl
           refreshing={isFetching && !isLoading}
           onRefresh={refetch}
-          colors={[COLORS.primary]}
-          tintColor={COLORS.primary}
+          colors={[colors.primary]}
+          tintColor={colors.primary}
         />
       }
     >
@@ -441,7 +452,7 @@ export default function PublicProfileScreen() {
         )}
         <Text style={styles.userName}>{profile.name}</Text>
         {profile.city ? (
-          <IconLabel icon="location-on" size={14} color={COLORS.textSecondary} style={{ marginTop: 4 }}>
+          <IconLabel icon="location-on" size={14} color={colors.textSecondary} style={{ marginTop: 4 }}>
             <Text style={[styles.userCity, { marginTop: 0 }]}>{profile.city}</Text>
           </IconLabel>
         ) : null}
@@ -479,13 +490,13 @@ export default function PublicProfileScreen() {
 
       {/* ── Badges ── */}
       <View style={styles.section}>
-        <IconLabel icon="emoji-events" size={20} color={COLORS.textPrimary} gap={SPACING.sm} style={{ marginBottom: SPACING.md }}>
+        <IconLabel icon="emoji-events" size={20} color={colors.textPrimary} gap={SPACING.sm} style={{ marginBottom: SPACING.md }}>
           <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>{t('users:achievements')}</Text>
         </IconLabel>
 
         {profile.badges.length === 0 ? (
           <View style={styles.emptyBadges}>
-            <Icon name="military-tech" size={32} color={COLORS.textMuted} />
+            <Icon name="military-tech" size={32} color={colors.textMuted} />
             <Text style={styles.emptyBadgesText}>{t('users:noBadges')}</Text>
           </View>
         ) : (
@@ -503,12 +514,12 @@ export default function PublicProfileScreen() {
           // El sobre es `{data, total}`: se atraviesa `.data` antes de partir.
           select={(paged) => splitOwnedPets(paged.data).owned}
           errorTitle={t('users:postsError')}
-          loading={<ActivityIndicator testID="user-pets-loading" size="small" color={COLORS.primary} style={{ marginTop: SPACING.md }} />}
+          loading={<ActivityIndicator testID="user-pets-loading" size="small" color={colors.primary} style={{ marginTop: SPACING.md }} />}
         >
           {(pets: Pet[]) =>
             pets.length === 0 ? (
               <View style={styles.emptyBadges}>
-                <Icon name="pets" size={32} color={COLORS.textMuted} />
+                <Icon name="pets" size={32} color={colors.textMuted} />
                 <Text style={styles.emptyBadgesText}>{t('users:postsEmpty')}</Text>
               </View>
             ) : (
@@ -551,7 +562,7 @@ export default function PublicProfileScreen() {
       {/* ── Reviews section ── */}
       <View style={styles.section}>
         <View style={styles.reviewSectionHeader}>
-          <IconLabel icon="star-filled" size={20} color={COLORS.accent} gap={SPACING.sm}>
+          <IconLabel icon="star-filled" size={20} color={colors.accent} gap={SPACING.sm}>
             <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>{t('users:reviews')}</Text>
           </IconLabel>
           {canReview && (
@@ -574,7 +585,7 @@ export default function PublicProfileScreen() {
             <TextInput
               style={styles.formInput}
               placeholder={t('users:writeReview')}
-              placeholderTextColor={COLORS.placeholder}
+              placeholderTextColor={colors.placeholder}
               multiline
               numberOfLines={4}
               value={formText}
@@ -597,7 +608,7 @@ export default function PublicProfileScreen() {
                 disabled={createReview.isPending || updateReview.isPending}
               >
                 {createReview.isPending || updateReview.isPending ? (
-                  <ActivityIndicator size="small" color={COLORS.white} />
+                  <ActivityIndicator size="small" color={colors.onPrimary} />
                 ) : (
                   <Text style={styles.formSubmitText}>
                     {myReview ? t('users:saveChanges') : t('users:postReview')}
@@ -610,10 +621,10 @@ export default function PublicProfileScreen() {
 
         {/* Reviews list */}
         {reviewsLoading ? (
-          <ActivityIndicator size="small" color={COLORS.primary} style={{ marginTop: SPACING.md }} />
+          <ActivityIndicator size="small" color={colors.primary} style={{ marginTop: SPACING.md }} />
         ) : reviews.length === 0 ? (
           <View style={styles.emptyBadges}>
-            <Icon name="chat-bubble" size={32} color={COLORS.textMuted} />
+            <Icon name="chat-bubble" size={32} color={colors.textMuted} />
             <Text style={styles.emptyBadgesText}>{t('users:noReviews')}</Text>
           </View>
         ) : (
@@ -636,27 +647,27 @@ export default function PublicProfileScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
+const makeStyles = (c: ThemeColors) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: c.background },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: SPACING.xl },
 
   // ── States ──
   stateIcon: { marginBottom: SPACING.md },
-  stateTitle: { fontSize: FONTS.sizes.lg, fontWeight: '700', color: COLORS.textPrimary, marginBottom: SPACING.sm },
-  stateText: { fontSize: FONTS.sizes.sm, color: COLORS.textSecondary, textAlign: 'center', marginBottom: SPACING.lg },
+  stateTitle: { fontSize: FONTS.sizes.lg, fontWeight: '700', color: c.textPrimary, marginBottom: SPACING.sm },
+  stateText: { fontSize: FONTS.sizes.sm, color: c.textSecondary, textAlign: 'center', marginBottom: SPACING.lg },
   retryButton: {
     borderWidth: 1,
-    borderColor: COLORS.primary,
+    borderColor: c.primary,
     paddingHorizontal: SPACING.xl,
     paddingVertical: 12,
     borderRadius: RADIUS.md,
   },
-  retryButtonText: { color: COLORS.primary, fontSize: FONTS.sizes.sm, fontWeight: '600' },
+  retryButtonText: { color: c.primary, fontSize: FONTS.sizes.sm, fontWeight: '600' },
 
   // ── User card ──
   userCard: {
     alignItems: 'center',
-    backgroundColor: COLORS.white,
+    backgroundColor: c.card,
     marginHorizontal: SPACING.lg,
     marginTop: SPACING.lg,
     borderRadius: RADIUS.lg,
@@ -673,7 +684,7 @@ const styles = StyleSheet.create({
     width: 88,
     height: 88,
     borderRadius: 44,
-    backgroundColor: COLORS.secondary + '20',
+    backgroundColor: c.secondary + '20',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: SPACING.md,
@@ -681,14 +692,14 @@ const styles = StyleSheet.create({
   initialsText: {
     fontSize: FONTS.sizes.xxl,
     fontWeight: '700',
-    color: COLORS.secondary,
+    color: c.secondary,
   },
-  userName: { fontSize: FONTS.sizes.xl, fontWeight: '700', color: COLORS.textPrimary },
-  userCity: { fontSize: FONTS.sizes.sm, color: COLORS.textSecondary, marginTop: 4 },
+  userName: { fontSize: FONTS.sizes.xl, fontWeight: '700', color: c.textPrimary },
+  userCity: { fontSize: FONTS.sizes.sm, color: c.textSecondary, marginTop: 4 },
 
   // ── Stats ──
   statsCard: {
-    backgroundColor: COLORS.white,
+    backgroundColor: c.card,
     marginHorizontal: SPACING.lg,
     marginTop: SPACING.md,
     borderRadius: RADIUS.lg,
@@ -697,14 +708,14 @@ const styles = StyleSheet.create({
   },
   statsRow: { flexDirection: 'row', alignItems: 'center' },
   statItem: { flex: 1, alignItems: 'center', paddingVertical: SPACING.sm },
-  statValue: { fontSize: FONTS.sizes.xxl, fontWeight: '700', color: COLORS.primary },
-  statLabel: { fontSize: FONTS.sizes.xs, color: COLORS.textSecondary, marginTop: 4 },
-  statDivider: { width: 1, height: 40, backgroundColor: COLORS.border },
-  statRowSeparator: { height: 1, backgroundColor: COLORS.border, marginVertical: SPACING.xs },
+  statValue: { fontSize: FONTS.sizes.xxl, fontWeight: '700', color: c.primary },
+  statLabel: { fontSize: FONTS.sizes.xs, color: c.textSecondary, marginTop: 4 },
+  statDivider: { width: 1, height: 40, backgroundColor: c.border },
+  statRowSeparator: { height: 1, backgroundColor: c.border, marginVertical: SPACING.xs },
 
   // ── Rating summary ──
   ratingCard: {
-    backgroundColor: COLORS.white,
+    backgroundColor: c.card,
     marginHorizontal: SPACING.lg,
     marginTop: SPACING.md,
     borderRadius: RADIUS.lg,
@@ -719,11 +730,11 @@ const styles = StyleSheet.create({
   ratingValue: {
     fontSize: FONTS.sizes.lg,
     fontWeight: '700',
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
   },
   ratingCount: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
   },
   starRow: {
     flexDirection: 'row',
@@ -738,7 +749,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: FONTS.sizes.lg,
     fontWeight: '700',
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
     marginBottom: SPACING.md,
   },
 
@@ -746,7 +757,7 @@ const styles = StyleSheet.create({
   badgeCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.white,
+    backgroundColor: c.card,
     marginBottom: SPACING.md,
     borderRadius: RADIUS.lg,
     padding: SPACING.md,
@@ -754,15 +765,15 @@ const styles = StyleSheet.create({
   },
   badgeIcon: { marginRight: SPACING.md },
   badgeInfo: { flex: 1 },
-  badgeLabel: { fontSize: FONTS.sizes.md, fontWeight: '700', color: COLORS.textPrimary },
-  badgeDescription: { fontSize: FONTS.sizes.sm, color: COLORS.textSecondary, marginTop: 2 },
-  badgeDate: { fontSize: FONTS.sizes.xs, color: COLORS.textMuted, marginTop: 4 },
+  badgeLabel: { fontSize: FONTS.sizes.md, fontWeight: '700', color: c.textPrimary },
+  badgeDescription: { fontSize: FONTS.sizes.sm, color: c.textSecondary, marginTop: 2 },
+  badgeDate: { fontSize: FONTS.sizes.xs, color: c.textMuted, marginTop: 4 },
 
   petsCapped: {
     marginHorizontal: SPACING.lg,
     marginTop: SPACING.sm,
     fontSize: FONTS.sizes.sm,
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
     textAlign: 'center',
   },
 
@@ -770,13 +781,13 @@ const styles = StyleSheet.create({
   emptyBadges: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.white,
+    backgroundColor: c.card,
     borderRadius: RADIUS.lg,
     padding: SPACING.md,
     ...SHADOWS.sm,
     gap: SPACING.md,
   },
-  emptyBadgesText: { fontSize: FONTS.sizes.sm, color: COLORS.textSecondary },
+  emptyBadgesText: { fontSize: FONTS.sizes.sm, color: c.textSecondary },
 
   // ── Reviews section header ──
   reviewSectionHeader: {
@@ -786,20 +797,20 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.md,
   },
   reviewButton: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: c.primary,
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.xs + 2,
     borderRadius: RADIUS.md,
   },
   reviewButtonText: {
-    color: COLORS.white,
+    color: c.onPrimary,
     fontSize: FONTS.sizes.sm,
     fontWeight: '600',
   },
 
   // ── Review form ──
   reviewForm: {
-    backgroundColor: COLORS.white,
+    backgroundColor: c.card,
     borderRadius: RADIUS.lg,
     padding: SPACING.md,
     marginBottom: SPACING.md,
@@ -808,18 +819,18 @@ const styles = StyleSheet.create({
   formLabel: {
     fontSize: FONTS.sizes.sm,
     fontWeight: '600',
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
     marginBottom: SPACING.sm,
   },
   formInput: {
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: c.border,
     borderRadius: RADIUS.md,
     padding: SPACING.sm,
     minHeight: 88,
     textAlignVertical: 'top',
     fontSize: FONTS.sizes.sm,
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
     marginTop: SPACING.sm,
     marginBottom: SPACING.md,
   },
@@ -830,7 +841,7 @@ const styles = StyleSheet.create({
   formCancelButton: {
     flex: 1,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: c.border,
     borderRadius: RADIUS.md,
     paddingVertical: 10,
     alignItems: 'center',
@@ -838,27 +849,27 @@ const styles = StyleSheet.create({
   formCancelText: {
     fontSize: FONTS.sizes.sm,
     fontWeight: '600',
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
   },
   formSubmitButton: {
     flex: 2,
-    backgroundColor: COLORS.primary,
+    backgroundColor: c.primary,
     borderRadius: RADIUS.md,
     paddingVertical: 10,
     alignItems: 'center',
   },
   formSubmitDisabled: {
-    backgroundColor: COLORS.primaryLight,
+    backgroundColor: c.primaryLight,
   },
   formSubmitText: {
-    color: COLORS.white,
+    color: c.onPrimary,
     fontSize: FONTS.sizes.sm,
     fontWeight: '700',
   },
 
   // ── Review card ──
   reviewCard: {
-    backgroundColor: COLORS.white,
+    backgroundColor: c.card,
     borderRadius: RADIUS.lg,
     padding: SPACING.md,
     marginBottom: SPACING.md,
@@ -879,14 +890,14 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: COLORS.secondary + '20',
+    backgroundColor: c.secondary + '20',
     justifyContent: 'center',
     alignItems: 'center',
   },
   reviewAvatarText: {
     fontSize: FONTS.sizes.sm,
     fontWeight: '700',
-    color: COLORS.secondary,
+    color: c.secondary,
   },
   reviewMeta: {
     flex: 1,
@@ -895,7 +906,7 @@ const styles = StyleSheet.create({
   reviewerName: {
     fontSize: FONTS.sizes.sm,
     fontWeight: '600',
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
   },
   reviewDateCol: {
     alignItems: 'flex-end',
@@ -903,16 +914,16 @@ const styles = StyleSheet.create({
   },
   reviewDate: {
     fontSize: FONTS.sizes.xs,
-    color: COLORS.textMuted,
+    color: c.textMuted,
   },
   deleteReviewText: {
     fontSize: FONTS.sizes.xs,
-    color: COLORS.danger,
+    color: c.danger,
     fontWeight: '600',
   },
   reviewText: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
     lineHeight: 20,
     marginTop: SPACING.xs,
   },
