@@ -7,7 +7,8 @@ import { Text, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 're
 import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 import { useTranslation } from 'react-i18next';
 import i18next from 'i18next';
-import { COLORS, SPACING, FONTS, RADIUS } from '../constants';
+import { type ThemeColors, SPACING, FONTS, RADIUS } from '../constants';
+import { useTheme, useThemedStyles } from '../hooks/useTheme';
 
 interface Props {
   /**
@@ -29,6 +30,8 @@ interface Props {
  * simplemente no ofrece Google, en vez de mostrar un botón que falla al tocarlo.
  */
 export function GoogleSignInButton({ clientId, onToken }: Props) {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   const { t } = useTranslation('auth');
   const [isLoading, setIsLoading] = useState(false);
 
@@ -83,7 +86,7 @@ export function GoogleSignInButton({ clientId, onToken }: Props) {
       disabled={isLoading}
     >
       {isLoading ? (
-        <ActivityIndicator color={COLORS.textPrimary} />
+        <ActivityIndicator color={colors.textPrimary} />
       ) : (
         <Text style={styles.label}>{t('google.signIn')}</Text>
       )}
@@ -91,13 +94,14 @@ export function GoogleSignInButton({ clientId, onToken }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: ThemeColors) =>
+  StyleSheet.create({
   button: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: c.border,
     borderRadius: RADIUS.md,
     paddingVertical: SPACING.md,
     marginTop: SPACING.md,
@@ -105,6 +109,6 @@ const styles = StyleSheet.create({
   label: {
     fontSize: FONTS.sizes.md,
     fontWeight: '600',
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
   },
 });

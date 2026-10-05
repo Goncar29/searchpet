@@ -3,7 +3,8 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-nativ
 import { useTranslation } from 'react-i18next';
 import MapLibreGL from '@maplibre/maplibre-react-native';
 import * as Location from 'expo-location';
-import { COLORS, SPACING, FONTS, RADIUS, MAP_DEFAULTS } from '../../constants';
+import { type ThemeColors, SPACING, FONTS, RADIUS, MAP_DEFAULTS } from '../../constants';
+import { useTheme, useThemedStyles } from '../../hooks/useTheme';
 import type { InitialReportRequest } from '../../../shared/types';
 import { calendarDayToISO, isFutureCalendarDay, isoToCalendarDay } from '../../../shared/utils/reportDate';
 
@@ -20,6 +21,8 @@ interface LocationStepProps {
 }
 
 export function LocationStep({ value, onPublish, onBack, isPending }: LocationStepProps) {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   const { t } = useTranslation();
   const [coordinate, setCoordinate] = useState<[number, number]>(
     value ? [value.longitude, value.latitude] : [MAP_DEFAULTS.defaultLongitude, MAP_DEFAULTS.defaultLatitude]
@@ -114,7 +117,7 @@ export function LocationStep({ value, onPublish, onBack, isPending }: LocationSt
           if (dateError) setDateError(null);
         }}
         placeholder="2026-08-04"
-        placeholderTextColor={COLORS.placeholder}
+        placeholderTextColor={colors.placeholder}
         autoCapitalize="none"
         autoCorrect={false}
         keyboardType="numbers-and-punctuation"
@@ -133,7 +136,7 @@ export function LocationStep({ value, onPublish, onBack, isPending }: LocationSt
         value={note}
         onChangeText={setNote}
         placeholder={t('publish:location.notePlaceholder')}
-        placeholderTextColor={COLORS.placeholder}
+        placeholderTextColor={colors.placeholder}
         multiline
         numberOfLines={2}
       />
@@ -150,26 +153,27 @@ export function LocationStep({ value, onPublish, onBack, isPending }: LocationSt
   );
 }
 
-const styles = StyleSheet.create({
-  title: { fontSize: FONTS.sizes.xl, fontWeight: '700', color: COLORS.textPrimary, marginBottom: SPACING.sm, textAlign: 'center' },
-  instructions: { fontSize: FONTS.sizes.sm, color: COLORS.textSecondary, textAlign: 'center', marginBottom: SPACING.md },
+const makeStyles = (c: ThemeColors) =>
+  StyleSheet.create({
+  title: { fontSize: FONTS.sizes.xl, fontWeight: '700', color: c.textPrimary, marginBottom: SPACING.sm, textAlign: 'center' },
+  instructions: { fontSize: FONTS.sizes.sm, color: c.textSecondary, textAlign: 'center', marginBottom: SPACING.md },
   mapContainer: { height: 280, borderRadius: RADIUS.lg, overflow: 'hidden', marginBottom: SPACING.md },
   map: { flex: 1 },
-  pin: { width: 24, height: 24, borderRadius: 12, backgroundColor: COLORS.lost, borderWidth: 2, borderColor: COLORS.white },
-  locationButton: { borderWidth: 2, borderColor: COLORS.primary, borderRadius: RADIUS.md, paddingVertical: SPACING.md, alignItems: 'center', marginBottom: SPACING.sm },
-  locationButtonText: { color: COLORS.primary, fontWeight: '700' },
-  error: { fontSize: FONTS.sizes.xs, color: COLORS.danger, textAlign: 'center', marginBottom: SPACING.sm },
-  label: { fontSize: FONTS.sizes.sm, fontWeight: '600', color: COLORS.textPrimary, marginBottom: SPACING.xs, marginTop: SPACING.sm },
-  help: { fontSize: FONTS.sizes.xs, color: COLORS.textSecondary, marginTop: SPACING.xs },
+  pin: { width: 24, height: 24, borderRadius: 12, backgroundColor: c.lost, borderWidth: 2, borderColor: c.white },
+  locationButton: { borderWidth: 2, borderColor: c.primary, borderRadius: RADIUS.md, paddingVertical: SPACING.md, alignItems: 'center', marginBottom: SPACING.sm },
+  locationButtonText: { color: c.primary, fontWeight: '700' },
+  error: { fontSize: FONTS.sizes.xs, color: c.danger, textAlign: 'center', marginBottom: SPACING.sm },
+  label: { fontSize: FONTS.sizes.sm, fontWeight: '600', color: c.textPrimary, marginBottom: SPACING.xs, marginTop: SPACING.sm },
+  help: { fontSize: FONTS.sizes.xs, color: c.textSecondary, marginTop: SPACING.xs },
   input: {
-    backgroundColor: COLORS.white, borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.md,
-    paddingHorizontal: SPACING.md, paddingVertical: 14, fontSize: FONTS.sizes.md, color: COLORS.textPrimary,
+    backgroundColor: c.surface, borderWidth: 1, borderColor: c.border, borderRadius: RADIUS.md,
+    paddingHorizontal: SPACING.md, paddingVertical: 14, fontSize: FONTS.sizes.md, color: c.textPrimary,
   },
   textArea: { minHeight: 60, paddingTop: 14, textAlignVertical: 'top' },
   actions: { flexDirection: 'row', gap: SPACING.sm, marginTop: SPACING.lg },
-  backButton: { flex: 1, borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.md, paddingVertical: SPACING.md, alignItems: 'center' },
-  backButtonText: { color: COLORS.textPrimary, fontWeight: '700' },
-  publishButton: { flex: 1, backgroundColor: COLORS.primary, borderRadius: RADIUS.md, paddingVertical: SPACING.md, alignItems: 'center' },
-  publishButtonText: { color: COLORS.white, fontWeight: '700' },
+  backButton: { flex: 1, borderWidth: 1, borderColor: c.border, borderRadius: RADIUS.md, paddingVertical: SPACING.md, alignItems: 'center' },
+  backButtonText: { color: c.textPrimary, fontWeight: '700' },
+  publishButton: { flex: 1, backgroundColor: c.primary, borderRadius: RADIUS.md, paddingVertical: SPACING.md, alignItems: 'center' },
+  publishButtonText: { color: c.onPrimary, fontWeight: '700' },
   disabled: { opacity: 0.6 },
 });

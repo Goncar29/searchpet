@@ -7,7 +7,8 @@ import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'rea
 import { useTranslation } from 'react-i18next';
 import { ShareButton } from '../ShareButton';
 import { useUploadPhotoNative } from '@shared/hooks';
-import { COLORS, SPACING, FONTS, RADIUS } from '../../constants';
+import { type ThemeColors, SPACING, FONTS, RADIUS } from '../../constants';
+import { useTheme, useThemedStyles } from '../../hooks/useTheme';
 import { Icon } from '../Icon';
 import type { Pet } from '../../../shared/types';
 
@@ -33,6 +34,8 @@ const DESCRIPTION_KEY: Record<SuccessStepProps['intent'], string> = {
 };
 
 export function SuccessStep({ pet, intent, failedPhotoIndexes, photoUris, onRetryComplete, onGoToFeed }: SuccessStepProps) {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   const { t } = useTranslation();
   const uploadPhoto = useUploadPhotoNative();
   const [isRetrying, setIsRetrying] = useState(false);
@@ -56,7 +59,7 @@ export function SuccessStep({ pet, intent, failedPhotoIndexes, photoUris, onRetr
   return (
     <View>
       <View style={styles.icon}>
-        <Icon name="check-circle" size={56} color={COLORS.success} />
+        <Icon name="check-circle" size={56} color={colors.success} />
       </View>
       <Text style={styles.title}>
         {t(TITLE_KEY[intent])}
@@ -78,7 +81,7 @@ export function SuccessStep({ pet, intent, failedPhotoIndexes, photoUris, onRetr
             accessibilityRole="button"
           >
             {isRetrying ? (
-              <ActivityIndicator color={COLORS.primary} />
+              <ActivityIndicator color={colors.primary} />
             ) : (
               <Text style={styles.retryButtonText}>{t('publish:success.photoRetryAction')}</Text>
             )}
@@ -101,25 +104,26 @@ export function SuccessStep({ pet, intent, failedPhotoIndexes, photoUris, onRetr
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: ThemeColors) =>
+  StyleSheet.create({
   icon: { alignItems: 'center', marginBottom: SPACING.sm },
   title: {
     fontSize: FONTS.sizes.xl,
     fontWeight: '700',
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
     textAlign: 'center',
     marginBottom: SPACING.xs,
   },
   petName: {
     fontSize: FONTS.sizes.md,
     fontWeight: '600',
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
     textAlign: 'center',
     marginBottom: SPACING.xs,
   },
   description: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
     textAlign: 'center',
     marginBottom: SPACING.lg,
   },
@@ -147,14 +151,14 @@ const styles = StyleSheet.create({
     textDecorationLine: 'underline',
   },
   feedButton: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: c.primary,
     paddingVertical: 16,
     borderRadius: RADIUS.md,
     alignItems: 'center',
     marginTop: SPACING.lg,
   },
   feedButtonText: {
-    color: COLORS.white,
+    color: c.onPrimary,
     fontSize: FONTS.sizes.md,
     fontWeight: '700',
   },

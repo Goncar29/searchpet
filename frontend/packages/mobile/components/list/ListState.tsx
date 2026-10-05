@@ -2,7 +2,8 @@ import type { ReactNode } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import type { UseQueryResult } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { COLORS, SPACING, FONTS } from '../../constants';
+import { type ThemeColors, SPACING, FONTS } from '../../constants';
+import { useTheme, useThemedStyles } from '../../hooks/useTheme';
 import { Icon } from '../Icon';
 
 /**
@@ -88,6 +89,8 @@ function StateCard({
   body: string;
   onRetry: () => void;
 }) {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   const { t } = useTranslation('common');
 
   return (
@@ -117,7 +120,7 @@ function StateCard({
           de Android. */}
       <View style={styles.icon}>
         {/* `Icon` is hidden from screen readers by default (no label). */}
-        <Icon name="warning" size={44} color={COLORS.warning} />
+        <Icon name="warning" size={44} color={colors.warning} />
       </View>
       <Text style={styles.title}>{title}</Text>
       <Text style={styles.body}>{body}</Text>
@@ -135,6 +138,7 @@ function StateCard({
 }
 
 function StaleBanner({ message, onRetry }: { message: string; onRetry: () => void }) {
+  const styles = useThemedStyles(makeStyles);
   const { t } = useTranslation('common');
 
   return (
@@ -261,7 +265,8 @@ export function ListState<TData, TItem = TData extends (infer U)[] ? U : never>(
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: ThemeColors) =>
+  StyleSheet.create({
   card: {
     flex: 1,
     // `flex: 1` solo NO alcanza. Dentro de un `ScrollView` sin
@@ -283,24 +288,24 @@ const styles = StyleSheet.create({
   title: {
     fontSize: FONTS.sizes.lg,
     fontWeight: '700',
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
     textAlign: 'center',
     marginBottom: SPACING.xs,
   },
   body: {
     fontSize: FONTS.sizes.md,
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
     textAlign: 'center',
     marginBottom: SPACING.lg,
   },
   retry: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: c.primary,
     paddingHorizontal: SPACING.lg,
     paddingVertical: SPACING.sm,
     borderRadius: 12,
   },
   retryText: {
-    color: COLORS.white,
+    color: c.onPrimary,
     fontWeight: '700',
     fontSize: FONTS.sizes.md,
   },

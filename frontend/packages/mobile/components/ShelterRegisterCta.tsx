@@ -9,9 +9,12 @@ import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useMyShelter } from '@shared/hooks';
 import { useAuthStore } from '../store';
-import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../constants';
+import { type ThemeColors, SPACING, FONTS, RADIUS, SHADOWS } from '../constants';
+import { useTheme, useThemedStyles } from '../hooks/useTheme';
 
 export function ShelterRegisterCta() {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   const { t } = useTranslation(['shelters']);
   const router = useRouter();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
@@ -34,7 +37,7 @@ export function ShelterRegisterCta() {
   if (isLoading) {
     return (
       <View style={styles.loading}>
-        <ActivityIndicator size="small" color={COLORS.primary} />
+        <ActivityIndicator size="small" color={colors.primary} />
       </View>
     );
   }
@@ -72,10 +75,11 @@ export function ShelterRegisterCta() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: ThemeColors) =>
+  StyleSheet.create({
   loading: { paddingVertical: SPACING.lg, alignItems: 'center' },
   card: {
-    backgroundColor: COLORS.white,
+    backgroundColor: c.card,
     borderRadius: RADIUS.lg,
     padding: SPACING.lg,
     marginTop: SPACING.md,
@@ -85,38 +89,38 @@ const styles = StyleSheet.create({
   title: {
     fontSize: FONTS.sizes.lg,
     fontWeight: '700',
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
     textAlign: 'center',
     marginBottom: SPACING.sm,
   },
   body: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
     textAlign: 'center',
     lineHeight: 20,
     marginBottom: SPACING.md,
   },
   button: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: c.primary,
     paddingVertical: SPACING.sm,
     paddingHorizontal: SPACING.lg,
     borderRadius: RADIUS.md,
   },
-  buttonText: { color: COLORS.white, fontSize: FONTS.sizes.sm, fontWeight: '700' },
-  label: { fontSize: FONTS.sizes.xs, color: COLORS.textMuted, marginBottom: SPACING.xs },
-  name: { fontSize: FONTS.sizes.md, fontWeight: '700', color: COLORS.textPrimary, marginBottom: SPACING.sm },
+  buttonText: { color: c.onPrimary, fontSize: FONTS.sizes.sm, fontWeight: '700' },
+  label: { fontSize: FONTS.sizes.xs, color: c.textMuted, marginBottom: SPACING.xs },
+  name: { fontSize: FONTS.sizes.md, fontWeight: '700', color: c.textPrimary, marginBottom: SPACING.sm },
   badge: {
-    backgroundColor: COLORS.warning,
+    backgroundColor: c.warning,
     paddingHorizontal: SPACING.md,
     paddingVertical: 3,
     borderRadius: RADIUS.full,
   },
-  badgeApproved: { backgroundColor: COLORS.success },
-  badgeRejected: { backgroundColor: COLORS.danger },
-  badgeText: { color: COLORS.white, fontSize: FONTS.sizes.xs, fontWeight: '700' },
+  badgeApproved: { backgroundColor: c.success },
+  badgeRejected: { backgroundColor: c.danger },
+  badgeText: { color: c.onPrimary, fontSize: FONTS.sizes.xs, fontWeight: '700' },
   reason: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
     textAlign: 'center',
     marginTop: SPACING.sm,
   },

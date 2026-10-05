@@ -21,7 +21,8 @@ import { buildWhatsAppMessage } from '../../shared/utils/whatsappTemplates';
 import { getExpiryInfo } from '../../shared/utils/shareExpiry';
 import { shareStatusLabel } from '../utils/adoptionFraming';
 import { getErrorMessage } from '../../shared/utils/apiErrors';
-import { COLORS, SPACING, FONTS, RADIUS } from '../constants';
+import { LIGHT_COLORS, type ThemeColors, SPACING, FONTS, RADIUS } from '../constants';
+import { useTheme, useThemedStyles } from '../hooks/useTheme';
 import { getDateLocale } from '../i18n/dateLocale';
 
 interface ShareButtonProps {
@@ -33,13 +34,15 @@ interface ShareButtonProps {
 }
 
 const PLATFORMS = [
-  { key: 'whatsapp', label: 'WhatsApp', color: COLORS.whatsapp },
-  { key: 'instagram', label: 'Instagram', color: COLORS.instagram },
-  { key: 'facebook', label: 'Facebook', color: COLORS.facebook },
-  { key: 'twitter', label: 'Twitter/X', color: COLORS.twitter },
+  { key: 'whatsapp', label: 'WhatsApp', colorKey: 'whatsapp' },
+  { key: 'instagram', label: 'Instagram', colorKey: 'instagram' },
+  { key: 'facebook', label: 'Facebook', colorKey: 'facebook' },
+  { key: 'twitter', label: 'Twitter/X', colorKey: 'twitter' },
 ] as const;
 
 export function ShareButton({ petId, petName, petType, status, pet }: ShareButtonProps) {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   // Toda la copy de compartir vive en `pets.share` de shared/i18n, que es de
   // donde ya la lee el SharePanel de web. Una sola fuente para las dos
   // plataformas: con dos, quien actualice una deja la otra con el texto viejo.
@@ -115,7 +118,7 @@ export function ShareButton({ petId, petName, petType, status, pet }: ShareButto
   if (isLoading) {
     return (
       <View style={styles.container}>
-        <ActivityIndicator color={COLORS.primary} />
+        <ActivityIndicator color={colors.primary} />
         <Text style={styles.loadingText}>{t('pets:share.generatingLink')}</Text>
       </View>
     );
@@ -130,7 +133,7 @@ export function ShareButton({ petId, petName, petType, status, pet }: ShareButto
         {PLATFORMS.map((p) => (
           <TouchableOpacity
             key={p.key}
-            style={[styles.platformButton, { backgroundColor: p.color }]}
+            style={[styles.platformButton, { backgroundColor: colors[p.colorKey] }]}
             onPress={() => handleShare(p.key)}
           >
             <Text style={styles.platformLabel}>{p.label}</Text>
@@ -145,10 +148,12 @@ export function ShareButton({ petId, petName, petType, status, pet }: ShareButto
       {showQR && (
         <View style={styles.qrCard}>
           {generateLink.isPending ? (
-            <ActivityIndicator size="large" color={COLORS.primary} />
+            <ActivityIndicator size="large" color={colors.primary} />
           ) : shareUrl ? (
             <>
-              <QRCode value={shareUrl} size={200} color={COLORS.textPrimary} backgroundColor={COLORS.white} />
+              {/* Dark ink on literal white in BOTH themes: a QR with light
+                  modules on a dark ground is inverted and many readers fail it. */}
+              <QRCode value={shareUrl} size={200} color={LIGHT_COLORS.textPrimary} backgroundColor={colors.white} />
               <Text style={styles.qrLabel}>{petName}</Text>
               {(() => {
                 const expiry = getExpiryInfo(expiresAt, pet?.status);
@@ -182,27 +187,28 @@ export function ShareButton({ petId, petName, petType, status, pet }: ShareButto
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: ThemeColors) =>
+  StyleSheet.create({
   container: {
     padding: SPACING.md,
-    backgroundColor: COLORS.white,
+    backgroundColor: c.surface,
     borderRadius: RADIUS.lg,
     marginVertical: SPACING.sm,
   },
   title: {
     fontSize: FONTS.sizes.md,
     fontWeight: '700',
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
     marginBottom: 4,
   },
   subtitle: {
     fontSize: FONTS.sizes.xs,
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
     marginBottom: SPACING.md,
   },
   loadingText: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
     marginTop: SPACING.sm,
     textAlign: 'center',
   },
@@ -219,7 +225,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   platformLabel: {
-    color: COLORS.white,
+    color: c.onPrimary,
     fontSize: FONTS.sizes.xs,
     fontWeight: '700',
   },
@@ -229,7 +235,7 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.sm,
   },
   moreText: {
-    color: COLORS.primary,
+    color: c.primary,
     fontSize: FONTS.sizes.sm,
     fontWeight: '600',
   },
@@ -240,7 +246,7 @@ const styles = StyleSheet.create({
   },
   qrToggleText: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.primary,
+    color: c.primary,
     fontWeight: '600',
   },
   qrCard: {
@@ -248,18 +254,18 @@ const styles = StyleSheet.create({
     marginTop: SPACING.md,
     paddingTop: SPACING.md,
     borderTopWidth: 1,
-    borderTopColor: COLORS.border,
+    borderTopColor: c.border,
   },
   qrLabel: {
     marginTop: SPACING.sm,
     fontSize: FONTS.sizes.sm,
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
     fontWeight: '500',
   },
   expiryOk: {
     marginTop: SPACING.xs,
     fontSize: FONTS.sizes.xs,
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
   },
   expiryWarning: {
     marginTop: SPACING.xs,
@@ -270,7 +276,7 @@ const styles = StyleSheet.create({
   expiryExpired: {
     marginTop: SPACING.xs,
     fontSize: FONTS.sizes.xs,
-    color: '#ef4444',
+    color: c.danger,
     fontWeight: '600',
   },
 });

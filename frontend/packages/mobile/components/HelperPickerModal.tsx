@@ -17,7 +17,8 @@ import { useTranslation } from 'react-i18next';
 import { useHelperCandidates } from '@shared/hooks';
 import { cloudinaryThumb } from '@shared/utils/cloudinaryThumb';
 import type { HelperCandidate } from '@shared/types';
-import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../constants';
+import { type ThemeColors, SPACING, FONTS, RADIUS, SHADOWS } from '../constants';
+import { useTheme, useThemedStyles } from '../hooks/useTheme';
 import { IMAGE_SIZES } from '../constants/imageSizes';
 import { Icon } from './Icon';
 
@@ -38,6 +39,7 @@ interface HelperPickerModalProps {
 }
 
 function Avatar({ candidate }: { candidate: HelperCandidate }) {
+  const styles = useThemedStyles(makeStyles);
   if (candidate.profile_photo_url) {
     return (
       <Image
@@ -54,9 +56,11 @@ function Avatar({ candidate }: { candidate: HelperCandidate }) {
 }
 
 function Checkbox({ checked }: { checked: boolean }) {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   return (
     <View style={[styles.checkbox, checked && styles.checkboxChecked]}>
-      {checked && <Icon name="check" size={16} color={COLORS.white} />}
+      {checked && <Icon name="check" size={16} color={colors.onPrimary} />}
     </View>
   );
 }
@@ -80,6 +84,8 @@ export function HelperPickerModal({
   onConfirm,
   onCancel,
 }: HelperPickerModalProps) {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   const { t } = useTranslation(['pets', 'common']);
   const query = useHelperCandidates(petId, true);
   const { refetch } = query;
@@ -161,7 +167,7 @@ export function HelperPickerModal({
 
           {candidates == null && !query.isError && (
             <View style={styles.stateBox}>
-              <ActivityIndicator color={COLORS.primary} />
+              <ActivityIndicator color={colors.primary} />
               <Text style={styles.stateText}>{t('common:loading')}</Text>
             </View>
           )}
@@ -223,7 +229,7 @@ export function HelperPickerModal({
               accessibilityState={{ disabled: confirmDisabled }}
             >
               {loading ? (
-                <ActivityIndicator size="small" color={COLORS.white} />
+                <ActivityIndicator size="small" color={colors.onPrimary} />
               ) : (
                 <Text style={styles.confirmText}>{t('common:confirm')}</Text>
               )}
@@ -235,7 +241,8 @@ export function HelperPickerModal({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: ThemeColors) =>
+  StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
@@ -244,7 +251,7 @@ const styles = StyleSheet.create({
     padding: SPACING.lg,
   },
   card: {
-    backgroundColor: COLORS.white,
+    backgroundColor: c.surface,
     borderRadius: RADIUS.lg,
     padding: SPACING.lg,
     width: '100%',
@@ -254,12 +261,12 @@ const styles = StyleSheet.create({
   title: {
     fontSize: FONTS.sizes.lg,
     fontWeight: '700',
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
     marginBottom: SPACING.xs,
   },
   message: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
     marginBottom: SPACING.md,
   },
   stateBox: {
@@ -269,23 +276,23 @@ const styles = StyleSheet.create({
   },
   stateText: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
   },
   errorText: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.danger,
+    color: c.danger,
     marginBottom: SPACING.sm,
   },
   retry: {
     paddingVertical: SPACING.xs,
     paddingHorizontal: SPACING.md,
     borderRadius: RADIUS.md,
-    backgroundColor: COLORS.background,
+    backgroundColor: c.background,
   },
   retryText: {
     fontSize: FONTS.sizes.sm,
     fontWeight: '600',
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
   },
   list: {
     flexGrow: 0,
@@ -296,7 +303,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: SPACING.sm,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: c.border,
     borderRadius: RADIUS.md,
     paddingHorizontal: SPACING.sm,
     paddingVertical: SPACING.sm,
@@ -309,26 +316,26 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: FONTS.sizes.sm,
     fontWeight: '600',
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
   },
   rowNobodyText: {
     flex: 1,
     fontSize: FONTS.sizes.sm,
     fontWeight: '600',
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
   },
   checkbox: {
     width: 22,
     height: 22,
     borderRadius: 6,
     borderWidth: 2,
-    borderColor: COLORS.textMuted,
+    borderColor: c.textMuted,
     alignItems: 'center',
     justifyContent: 'center',
   },
   checkboxChecked: {
-    backgroundColor: COLORS.primary,
-    borderColor: COLORS.primary,
+    backgroundColor: c.primary,
+    borderColor: c.primary,
   },
   avatar: {
     width: 32,
@@ -336,12 +343,12 @@ const styles = StyleSheet.create({
     borderRadius: 16,
   },
   avatarInitials: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: c.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarText: {
-    color: COLORS.white,
+    color: c.onPrimary,
     fontSize: FONTS.sizes.sm,
     fontWeight: '700',
   },
@@ -357,18 +364,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   cancelButton: {
-    backgroundColor: COLORS.background,
+    backgroundColor: c.background,
   },
   cancelText: {
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
     fontSize: FONTS.sizes.sm,
     fontWeight: '600',
   },
   confirmButton: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: c.primary,
   },
   confirmText: {
-    color: COLORS.white,
+    color: c.onPrimary,
     fontSize: FONTS.sizes.sm,
     fontWeight: '700',
   },
