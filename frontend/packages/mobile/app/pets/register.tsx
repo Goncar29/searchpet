@@ -299,7 +299,7 @@ const makeStyles = (c: ThemeColors) => StyleSheet.create({
   photoLimitText: { fontSize: FONTS.sizes.xs, color: c.textMuted, marginTop: SPACING.xs, marginBottom: SPACING.xs },
   typeRow: { flexDirection: 'row', gap: SPACING.sm, marginTop: SPACING.xs },
   typeButton: { flex: 1, alignItems: 'center', padding: SPACING.md, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border, borderRadius: RADIUS.md },
-  typeButtonActive: { borderColor: c.primary, backgroundColor: '#FFF0E8' },
+  typeButtonActive: { borderColor: c.primary, backgroundColor: c.primarySoft },
   typeLabel: { fontSize: FONTS.sizes.xs, color: c.textSecondary, marginTop: 4, fontWeight: '500' },
   typeLabelActive: { color: c.primary, fontWeight: '700' },
   submitButton: { backgroundColor: c.primary, paddingVertical: 16, borderRadius: RADIUS.md, alignItems: 'center', marginTop: SPACING.xl },

@@ -41,4 +41,40 @@ describe('palettes', () => {
     expect(DARK_COLORS.white).toBe('#FFFFFF');
     expect(DARK_COLORS.onPrimary).toBe('#FFFFFF');
   });
+
+  // The tinted keys replaced hex literals in the screens: in light they must be
+  // exactly those literals, or light mode changes for everyone (S6).
+  it('keeps the light value of every literal the tinted keys replaced', () => {
+    expect(LIGHT_COLORS).toMatchObject({
+      adoption: '#7E22CE',
+      dangerSoftBg: '#FEF2F2',
+      dangerSoftBorder: '#FECACA',
+      dangerSoftText: '#DC2626',
+      warningSoftBg: '#FFFBEB',
+      warningSoftBorder: '#FDE68A',
+      warningSoftText: '#78350F',
+      warningSoftTextAccent: '#92400E',
+      noticeBg: '#FFF3CD',
+      noticeBorder: '#FFEAA7',
+      noticeText: '#856404',
+      successSoftBg: '#ECFDF5',
+      successSoftTitle: '#065F46',
+      successSoftText: '#047857',
+      primarySoft: '#FFF0E8',
+      floatingSurface: 'rgba(255,255,255,0.95)',
+    });
+  });
+
+  // A tinted key that keeps its light value in dark is a pale patch on a dark
+  // page: every one of them must change.
+  it('gives every tinted key its own dark value', () => {
+    const tinted = [
+      'dangerSoftBg', 'dangerSoftBorder', 'dangerSoftText',
+      'warningSoftBg', 'warningSoftBorder', 'warningSoftText', 'warningSoftTextAccent',
+      'noticeBg', 'noticeBorder', 'noticeText',
+      'successSoftBg', 'successSoftTitle', 'successSoftText',
+      'primarySoft', 'floatingSurface',
+    ] as const;
+    for (const k of tinted) expect([k, DARK_COLORS[k]]).not.toEqual([k, LIGHT_COLORS[k]]);
+  });
 });

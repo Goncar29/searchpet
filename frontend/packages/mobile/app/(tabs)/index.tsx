@@ -807,14 +807,14 @@ const makeStyles = (c: ThemeColors) => StyleSheet.create({
     marginBottom: SPACING.sm,
     paddingHorizontal: SPACING.md,
     paddingVertical: 6,
-    backgroundColor: '#FFF3CD',
+    backgroundColor: c.noticeBg,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#FFEAA7',
+    borderColor: c.noticeBorder,
   },
   noMatchText: {
     fontSize: FONTS.sizes.sm,
-    color: '#856404',
+    color: c.noticeText,
     flex: 1,
   },
 

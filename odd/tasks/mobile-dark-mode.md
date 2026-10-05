@@ -36,11 +36,13 @@ Branch base: `origin/main` (`584bad55`). Delivery: chained PRs (forecast well ov
   Route: inline. Done in #330 (`09b62cc8`): 524/524 mobile, 3 review rounds
   (cycle cut at round 3; its late-flip WARNING kept on purpose: a saved choice
   that loads after the 1s cap still applies).
-- [ ] T2 — Migrate `app/(tabs)/*` and `app/pet/*`, `app/users/*`. Links S3.
-  Route: delegated (parallel units, disjoint surfaces).
-- [ ] T3 — Migrate the remaining `app/**` screens. Links S3. Route: delegated.
-- [ ] T4 — Migrate `components/**`. Links S3. Route: delegated.
-- [ ] T5 — Hardcoded color literals, `SHADOWS`/`REPORT_STATUSES`, and the
+- [x] T2 — Migrate `app/(tabs)/*` and `app/pet/*`, `app/users/*`. Links S3.
+  Route: delegated (parallel units, disjoint surfaces). #331 (`5c1d4a8e`).
+- [x] T3 — Migrate the remaining `app/**` screens. Links S3. Route: delegated.
+  #332 (`3858ef65`).
+- [x] T4 — Migrate `components/**`. Links S3. Route: delegated. #333
+  (`4577eed1`).
+- [x] T5 — Hardcoded color literals, `SHADOWS`/`REPORT_STATUSES`, and the
   guard test. Links S4. Route: inline.
 - [ ] T6 — Dark map styles. Links S5. Route: inline.
 
@@ -61,3 +63,14 @@ Branch base: `origin/main` (`584bad55`). Delivery: chained PRs (forecast well ov
 - L5 (2026-10-05): T2-T4 split by folder, ~389 / ~476 / ~293 `COLORS` uses; each
   unit also resolves the color literals inside its own files. Shared files
   (`constants`, `hooks`, `store`, `jest.setup.js`, locales) stay with the parent.
+- L6 (2026-10-05): T2-T4 ran as three parallel writers in isolated worktrees;
+  seam check on the combined tree: 532/532, tsc, lint. Each PR reviewed and
+  acknowledged (#332 first exceeded the reviewer context budget when measured
+  against `main`; re-assessed against the feature-branch boundary `d628b3cb`).
+- L7 (2026-10-05): T5 — tinted palette keys (danger/warning/notice/success soft,
+  primarySoft, floatingSurface) whose light values are exactly the old literals;
+  `Icon` default color follows the theme; guard `darkModeGuard.test.ts` (TS AST,
+  exact allowlists: no legacy `COLORS` in app/components, pinned palettes and
+  kept literals only with a reason). `SHADOWS` (black shadow) and
+  `REPORT_STATUSES` (status colors are the same in both palettes) need no
+  change. Mobile 539/539.
