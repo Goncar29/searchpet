@@ -641,7 +641,7 @@
     "badges": {
       "title": "Badges",
       "first_helper": "Post your first location report.",
-      "community_guardian": "Reach {{threshold}} location reports.",
+      "community_guardian": "Post {{threshold}} location reports in total. Every report you ever posted counts: deleting one later does not take the badge away.",
       "pet_rescuer": "An owner confirms you helped find their pet, for the first time.",
       "super_finder": "Be confirmed as a helper for {{threshold}} different pets.",
       "social_butterfly": "Generate your first share link.",

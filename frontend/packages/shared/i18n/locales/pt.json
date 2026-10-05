@@ -641,7 +641,7 @@
     "badges": {
       "title": "Conquistas",
       "first_helper": "Publique o seu primeiro relato de localização.",
-      "community_guardian": "Chegue a {{threshold}} relatos de localização.",
+      "community_guardian": "Publique {{threshold}} relatos de localização no total. Contam todos os que você já publicou: apagar um depois não tira a conquista.",
       "pet_rescuer": "Um dono confirma, pela primeira vez, que você ajudou a encontrar o pet.",
       "super_finder": "Ser confirmado como ajudante em {{threshold}} pets diferentes.",
       "social_butterfly": "Gere o seu primeiro link de compartilhamento.",
