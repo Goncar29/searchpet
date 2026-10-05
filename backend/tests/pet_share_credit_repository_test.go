@@ -77,3 +77,22 @@ func TestPetShareCreditRepository_ConcurrentCreditsPayOnce(t *testing.T) {
 		t.Fatalf("concurrent credits for one (pet, user): %d paid, want exactly 1", wins)
 	}
 }
+
+// Revoke frees the pair, so a later CreditOnce for it is new again.
+func TestPetShareCreditRepository_RevokeFreesThePair(t *testing.T) {
+	db := testdb.SetupTestDB(t)
+	repo := repository.NewPetShareCreditRepository(db)
+	user := newTestUser(t, repository.NewUserRepository(db))
+	pet := newSharePet(t, repository.NewPetRepository(db), user.ID)
+	ctx := context.Background()
+
+	if _, err := repo.CreditOnce(ctx, pet.ID, user.ID); err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.Revoke(ctx, pet.ID, user.ID); err != nil {
+		t.Fatalf("Revoke: %v", err)
+	}
+	if fresh, err := repo.CreditOnce(ctx, pet.ID, user.ID); err != nil || !fresh {
+		t.Fatalf("after Revoke: fresh=%v err=%v, want true nil", fresh, err)
+	}
+}

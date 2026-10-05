@@ -199,7 +199,7 @@ func TestGamificationService_GetPublicProfile_PropagaErrorDeConteo(t *testing.T)
 				&mockGamificationReviewRepository{},
 				tc.reports,
 				tc.pets,
-		stubShareCredits{fresh: true},
+				stubShareCredits{fresh: true},
 			)
 			resp, err := svc.GetPublicProfile(context.Background(), userID)
 			if !errors.Is(err, boom) {

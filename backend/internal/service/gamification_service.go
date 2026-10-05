@@ -161,7 +161,8 @@ func (s *gamificationService) onReportCreated(payload interface{}) {
 // Paga UNA vez por (mascota, usuario): generar más links de la misma mascota no
 // suma, así nadie sube en el ranking generando links en loop. Si el crédito no
 // se puede registrar no paga, porque pagar sin el registro dejaría que el
-// próximo link pague otra vez.
+// próximo link pague otra vez; y si el pago falla después de registrarlo, el
+// crédito se revoca para que el próximo link pueda pagar.
 func (s *gamificationService) onShareCreated(payload interface{}) {
 	ev, ok := payload.(event.ShareCreatedEvent)
 	if !ok {
@@ -182,6 +183,11 @@ func (s *gamificationService) onShareCreated(payload interface{}) {
 
 	if _, err := s.pointsRepo.Upsert(ctx, ev.UserID, 2, "share_count"); err != nil {
 		log.Printf("[GamificationService] onShareCreated: upsert points para %s: %v", ev.UserID, err)
+		// Undo the credit: otherwise the +2 is lost for good, because every
+		// later share of this pet finds the credit and pays nothing.
+		if rerr := s.shareRepo.Revoke(ctx, ev.PetID, ev.UserID); rerr != nil {
+			log.Printf("[GamificationService] onShareCreated: revocar crédito de %s sobre %s: %v", ev.UserID, ev.PetID, rerr)
+		}
 		return
 	}
 

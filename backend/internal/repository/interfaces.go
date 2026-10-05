@@ -117,6 +117,10 @@ type PetShareCreditRepository interface {
 	// CreditOnce stores the (pet, user) credit and reports whether it was new.
 	// Concurrent calls for the same pair: exactly one gets true.
 	CreditOnce(ctx context.Context, petID, userID uuid.UUID) (bool, error)
+	// Revoke removes the (pet, user) credit. The listener calls it when paying
+	// fails after CreditOnce, so the next share can pay instead of the points
+	// being lost for good.
+	Revoke(ctx context.Context, petID, userID uuid.UUID) error
 }
 
 // PetHelperCreditRepository guarda y consulta a quién confirmó el dueño como

@@ -796,16 +796,32 @@ func TestGamificationService_OnReportCreated_ThirdPartyFoundReportEarns(t *testi
 // stubShareCredits answers CreditOnce with a fixed result and records what it
 // was asked, so a test can check the listener asks about the right pair.
 type stubShareCredits struct {
-	fresh bool
-	err   error
-	asked chan [2]uuid.UUID
+	fresh   bool
+	err     error
+	asked   chan [2]uuid.UUID
+	revoked chan [2]uuid.UUID
+}
+
+// send never blocks: a test that does not drain a channel must not hang the
+// listener goroutine.
+func send(ch chan [2]uuid.UUID, v [2]uuid.UUID) {
+	if ch == nil {
+		return
+	}
+	select {
+	case ch <- v:
+	default:
+	}
 }
 
 func (s stubShareCredits) CreditOnce(_ context.Context, petID, userID uuid.UUID) (bool, error) {
-	if s.asked != nil {
-		s.asked <- [2]uuid.UUID{petID, userID}
-	}
+	send(s.asked, [2]uuid.UUID{petID, userID})
 	return s.fresh, s.err
+}
+
+func (s stubShareCredits) Revoke(_ context.Context, petID, userID uuid.UUID) error {
+	send(s.revoked, [2]uuid.UUID{petID, userID})
+	return nil
 }
 
 func newShareTestService(share stubShareCredits, upserted, badged chan struct{}) service.GamificationService {
@@ -884,5 +900,31 @@ func TestGamificationService_OnShareCreated_CreditErrorPaysNothing(t *testing.T)
 
 	if waitForEvent(upserted) {
 		t.Error("a failed credit write must not pay")
+	}
+}
+
+// Paying fails after the credit was recorded: the credit is undone, so the next
+// share of that pet can still pay instead of the +2 being lost for good.
+func TestGamificationService_OnShareCreated_FailedPaymentRevokesTheCredit(t *testing.T) {
+	revoked := make(chan [2]uuid.UUID, 1)
+	pointsRepo := &mockUserPointsRepository{
+		upsertFn: func(context.Context, uuid.UUID, int, string) (*domain.UserPoints, error) {
+			return nil, context.DeadlineExceeded
+		},
+	}
+	svc := service.NewGamificationService(&mockBadgeRepository{}, pointsRepo, &mockUserRepository{}, &mockGamificationReviewRepository{}, stubReports{}, stubPets{}, stubShareCredits{fresh: true, revoked: revoked})
+	bus := event.NewEventBus()
+	svc.RegisterListeners(bus)
+
+	userID, petID := uuid.New(), uuid.New()
+	bus.Publish("share.created", event.ShareCreatedEvent{UserID: userID, PetID: petID})
+
+	select {
+	case got := <-revoked:
+		if got != [2]uuid.UUID{petID, userID} {
+			t.Errorf("revoked %v, want (pet %s, user %s)", got, petID, userID)
+		}
+	case <-time.After(500 * time.Millisecond):
+		t.Error("a failed payment must revoke the credit it just recorded")
 	}
 }

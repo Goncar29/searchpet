@@ -28,3 +28,10 @@ func (r *PostgresPetShareCreditRepository) CreditOnce(ctx context.Context, petID
 	}
 	return res.RowsAffected == 1, nil
 }
+
+// Revoke — see the contract in repository/interfaces.go.
+func (r *PostgresPetShareCreditRepository) Revoke(ctx context.Context, petID, userID uuid.UUID) error {
+	return r.db.WithContext(ctx).
+		Where("pet_id = ? AND user_id = ?", petID, userID).
+		Delete(&domain.PetShareCredit{}).Error
+}
