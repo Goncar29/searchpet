@@ -7,7 +7,8 @@ import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useStories } from '../../../shared/hooks';
 import { getDateLocale } from '../../i18n/dateLocale';
-import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
+import { SPACING, FONTS, RADIUS, SHADOWS, type ThemeColors } from '../../constants';
+import { useTheme, useThemedStyles } from '../../hooks/useTheme';
 import { IconLabel } from '../../components/IconLabel';
 import { PawPlaceholder } from '../../components/PawPlaceholder';
 import { ListState } from '../../components/list/ListState';
@@ -16,6 +17,8 @@ import { cloudinaryThumb } from '@shared/utils/cloudinaryThumb';
 import { IMAGE_BOXES } from '../../constants/imageSizes';
 
 export default function StoriesScreen() {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   const router = useRouter();
   const { t, i18n } = useTranslation('story');
   // La query entera: `ListState` necesita `isPaused`, `isError` y `refetch`.
@@ -33,7 +36,7 @@ export default function StoriesScreen() {
       ) : null}
       <View style={styles.cardHeader}>
         <Text style={styles.petName}>{item.pet_name}</Text>
-        <IconLabel icon="favorite-filled" size={14} color={COLORS.textMuted} gap={4}>
+        <IconLabel icon="favorite-filled" size={14} color={colors.textMuted} gap={4}>
           <Text style={styles.likes}>{item.like_count}</Text>
         </IconLabel>
       </View>
@@ -58,7 +61,7 @@ export default function StoriesScreen() {
         query={storiesQuery}
         loading={
           <View style={styles.center}>
-            <ActivityIndicator size="large" color={COLORS.primary} />
+            <ActivityIndicator size="large" color={colors.primary} />
             <Text style={styles.loadingText}>{t('story:loading')}</Text>
           </View>
         }
@@ -84,22 +87,22 @@ export default function StoriesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
+const makeStyles = (c: ThemeColors) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: c.background },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: SPACING.xl },
-  loadingText: { marginTop: SPACING.md, fontSize: FONTS.sizes.md, color: COLORS.textSecondary },
+  loadingText: { marginTop: SPACING.md, fontSize: FONTS.sizes.md, color: c.textSecondary },
   errorIcon: { fontSize: 40, marginBottom: SPACING.sm },
-  errorText: { fontSize: FONTS.sizes.md, color: COLORS.textSecondary, marginBottom: SPACING.md, textAlign: 'center' },
+  errorText: { fontSize: FONTS.sizes.md, color: c.textSecondary, marginBottom: SPACING.md, textAlign: 'center' },
   retryButton: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: c.primary,
     paddingHorizontal: SPACING.xl,
     paddingVertical: 10,
     borderRadius: RADIUS.md,
   },
-  retryButtonText: { color: COLORS.white, fontWeight: '700', fontSize: FONTS.sizes.sm },
+  retryButtonText: { color: c.onPrimary, fontWeight: '700', fontSize: FONTS.sizes.sm },
   list: { paddingBottom: 100 },
   card: {
-    backgroundColor: COLORS.white,
+    backgroundColor: c.card,
     marginHorizontal: SPACING.lg,
     marginBottom: SPACING.md,
     borderRadius: RADIUS.lg,
@@ -121,29 +124,29 @@ const styles = StyleSheet.create({
   petName: {
     fontSize: FONTS.sizes.md,
     fontWeight: '700',
-    color: COLORS.primary,
+    color: c.primary,
     flex: 1,
   },
   likes: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.textMuted,
+    color: c.textMuted,
     fontWeight: '500',
   },
   title: {
     fontSize: FONTS.sizes.sm,
     fontWeight: '600',
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
     marginBottom: SPACING.xs,
   },
   body: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
     lineHeight: 20,
     marginBottom: SPACING.sm,
   },
   date: {
     fontSize: FONTS.sizes.xs,
-    color: COLORS.textMuted,
+    color: c.textMuted,
   },
   empty: {
     flex: 1,
@@ -156,12 +159,12 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: FONTS.sizes.lg,
     fontWeight: '600',
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
     marginBottom: SPACING.sm,
   },
   emptyText: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
     textAlign: 'center',
   },
 });

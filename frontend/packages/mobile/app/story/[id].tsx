@@ -10,11 +10,14 @@ import { ApiError } from '../../../shared/api/client';
 import { StaleDataNotice } from '../../components/list/ListState';
 import { getDateLocale } from '../../i18n/dateLocale';
 import { useAuthStore } from '../../store';
-import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
+import { SPACING, FONTS, RADIUS, SHADOWS, type ThemeColors } from '../../constants';
+import { useTheme, useThemedStyles } from '../../hooks/useTheme';
 import { IconLabel } from '../../components/IconLabel';
 import { Icon } from '../../components/Icon';
 
 export default function StoryDetailScreen() {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { t, i18n } = useTranslation('story');
@@ -50,7 +53,7 @@ export default function StoryDetailScreen() {
   if (isLoading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
+        <ActivityIndicator size="large" color={colors.primary} />
         <Text style={styles.loadingText}>{t('story:loadingDetail')}</Text>
       </View>
     );
@@ -70,7 +73,7 @@ export default function StoryDetailScreen() {
     // idiomas: las usaba el listado antes de portarse a `ListState`.
     return (
       <View style={styles.center}>
-        <View style={styles.errorIcon}><Icon name={isError ? 'warning' : 'sentiment-dissatisfied'} size={48} color={COLORS.textMuted} /></View>
+        <View style={styles.errorIcon}><Icon name={isError ? 'warning' : 'sentiment-dissatisfied'} size={48} color={colors.textMuted} /></View>
         {/* `fallóLaLectura` y no `isError`: un 404 ES una respuesta, y decirle
             "no llegamos a leerla" a alguien cuya historia fue borrada es
             afirmar lo contrario de lo que pasó.
@@ -111,7 +114,7 @@ export default function StoryDetailScreen() {
       <View style={styles.content}>
         {/* Pet name badge */}
         <View style={styles.petBadge}>
-          <IconLabel icon="pets" size={14} color={COLORS.primary} gap={4}>
+          <IconLabel icon="pets" size={14} color={colors.primary} gap={4}>
             <Text style={styles.petBadgeText}>{story.pet_name}</Text>
           </IconLabel>
         </View>
@@ -146,7 +149,7 @@ export default function StoryDetailScreen() {
           disabled={isToggling}
           activeOpacity={0.7}
         >
-          <IconLabel icon={story.liked_by_me ? 'favorite-filled' : 'favorite'} size={18} color={COLORS.white}>
+          <IconLabel icon={story.liked_by_me ? 'favorite-filled' : 'favorite'} size={18} color={colors.onPrimary}>
             <Text style={styles.likeButtonText}>{t('story:likes', { count: story.like_count })}</Text>
           </IconLabel>
         </TouchableOpacity>
@@ -161,8 +164,8 @@ export default function StoryDetailScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
+const makeStyles = (c: ThemeColors) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: c.background },
   center: {
     flex: 1,
     justifyContent: 'center',
@@ -172,30 +175,30 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: SPACING.md,
     fontSize: FONTS.sizes.md,
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
   },
   errorIcon: { marginBottom: SPACING.sm },
   errorTitle: {
     fontSize: FONTS.sizes.lg,
     fontWeight: '700',
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
     marginBottom: SPACING.sm,
   },
   errorText: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
     textAlign: 'center',
     marginBottom: SPACING.lg,
   },
   backButton: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: c.primary,
     paddingHorizontal: SPACING.xl,
     paddingVertical: 10,
     borderRadius: RADIUS.md,
   },
-  backButtonText: { color: COLORS.white, fontWeight: '700', fontSize: FONTS.sizes.sm },
+  backButtonText: { color: c.onPrimary, fontWeight: '700', fontSize: FONTS.sizes.sm },
   content: {
-    backgroundColor: COLORS.white,
+    backgroundColor: c.surface,
     marginTop: SPACING.lg,
     marginHorizontal: SPACING.lg,
     borderRadius: RADIUS.lg,
@@ -204,7 +207,7 @@ const styles = StyleSheet.create({
   },
   petBadge: {
     alignSelf: 'flex-start',
-    backgroundColor: COLORS.primary + '1A',
+    backgroundColor: c.primary + '1A',
     borderRadius: RADIUS.full,
     paddingHorizontal: 12,
     paddingVertical: 4,
@@ -212,13 +215,13 @@ const styles = StyleSheet.create({
   },
   petBadgeText: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.primary,
+    color: c.primary,
     fontWeight: '700',
   },
   title: {
     fontSize: FONTS.sizes.xl,
     fontWeight: '700',
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
     marginBottom: SPACING.sm,
     lineHeight: 28,
   },
@@ -230,16 +233,16 @@ const styles = StyleSheet.create({
   },
   metaText: {
     fontSize: FONTS.sizes.xs,
-    color: COLORS.textMuted,
+    color: c.textMuted,
     fontWeight: '500',
   },
   metaDate: {
     fontSize: FONTS.sizes.xs,
-    color: COLORS.textMuted,
+    color: c.textMuted,
   },
   body: {
     fontSize: FONTS.sizes.md,
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
     lineHeight: 24,
     marginBottom: SPACING.lg,
   },
@@ -247,7 +250,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: COLORS.primary,
+    backgroundColor: c.primary,
     borderRadius: RADIUS.md,
     paddingVertical: 12,
     paddingHorizontal: SPACING.lg,
@@ -257,14 +260,14 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   likeButtonText: {
-    color: COLORS.white,
+    color: c.onPrimary,
     fontSize: FONTS.sizes.md,
     fontWeight: '700',
   },
   loginHint: {
     textAlign: 'center',
     fontSize: FONTS.sizes.xs,
-    color: COLORS.textMuted,
+    color: c.textMuted,
     marginTop: SPACING.xs,
   },
 });

@@ -19,7 +19,8 @@ import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useMyShelter, useRegisterShelter } from '@shared/hooks';
 import { getErrorMessage } from '@shared/utils/apiErrors';
-import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
+import { SPACING, FONTS, RADIUS, SHADOWS, type ThemeColors } from '../../constants';
+import { useTheme, useThemedStyles } from '../../hooks/useTheme';
 import { Icon } from '../../components/Icon';
 import { VerifiedEmailGate } from '../../components/VerifiedEmailGate';
 
@@ -48,6 +49,8 @@ const EMPTY_FORM: FormState = {
 type FieldErrors = Partial<Record<keyof FormState, string>>;
 
 export default function RegisterShelterScreen() {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   const { t } = useTranslation(['shelters', 'errors', 'common']);
   const router = useRouter();
 
@@ -69,7 +72,7 @@ export default function RegisterShelterScreen() {
   if (done) {
     return (
       <ScrollView style={styles.container} contentContainerStyle={styles.doneContent}>
-        <Icon name="home" size={48} color={COLORS.primary} />
+        <Icon name="home" size={48} color={colors.primary} />
         <Text style={styles.doneTitle}>{t('shelters:register.successTitle')}</Text>
         <Text style={styles.doneBody}>{t('shelters:register.successBody')}</Text>
         <TouchableOpacity
@@ -86,7 +89,7 @@ export default function RegisterShelterScreen() {
   if (myShelterLoading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -145,7 +148,7 @@ export default function RegisterShelterScreen() {
         value={form[key]}
         onChangeText={setField(key)}
         accessibilityLabel={label}
-        placeholderTextColor={COLORS.placeholder}
+        placeholderTextColor={colors.placeholder}
         {...extra}
       />
       {errors[key] ? <Text style={styles.error}>{errors[key]}</Text> : null}
@@ -186,7 +189,7 @@ export default function RegisterShelterScreen() {
           accessibilityRole="button"
         >
           {registerShelter.isPending ? (
-            <ActivityIndicator size="small" color={COLORS.white} />
+            <ActivityIndicator size="small" color={colors.onPrimary} />
           ) : (
             <Text style={styles.submitButtonText}>{t('shelters:register.submit')}</Text>
           )}
@@ -196,32 +199,32 @@ export default function RegisterShelterScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
+const makeStyles = (c: ThemeColors) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: c.background },
   center: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: COLORS.background,
+    backgroundColor: c.background,
   },
   content: { padding: SPACING.lg, paddingBottom: SPACING.xxl },
   doneContent: { padding: SPACING.lg, paddingTop: SPACING.xxl, alignItems: 'center' },
   doneTitle: {
     fontSize: FONTS.sizes.lg,
     fontWeight: '700',
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
     marginTop: SPACING.md,
     marginBottom: SPACING.sm,
   },
   doneBody: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
     textAlign: 'center',
     marginBottom: SPACING.lg,
   },
   note: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
     marginBottom: SPACING.xs,
     lineHeight: 20,
   },
@@ -230,23 +233,23 @@ const styles = StyleSheet.create({
   label: {
     fontSize: FONTS.sizes.sm,
     fontWeight: '600',
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
     marginBottom: SPACING.xs,
   },
   input: {
-    backgroundColor: COLORS.white,
+    backgroundColor: c.surface,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: c.border,
     borderRadius: RADIUS.md,
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.sm,
     fontSize: FONTS.sizes.sm,
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
   },
   textArea: { height: 90, textAlignVertical: 'top' },
-  error: { fontSize: FONTS.sizes.xs, color: COLORS.danger, marginTop: SPACING.xs },
+  error: { fontSize: FONTS.sizes.xs, color: c.danger, marginTop: SPACING.xs },
   submitButton: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: c.primary,
     borderRadius: RADIUS.md,
     paddingVertical: SPACING.md,
     paddingHorizontal: SPACING.lg,
@@ -255,5 +258,5 @@ const styles = StyleSheet.create({
     ...SHADOWS.sm,
   },
   disabledButton: { opacity: 0.6 },
-  submitButtonText: { color: COLORS.white, fontWeight: '700', fontSize: FONTS.sizes.md },
+  submitButtonText: { color: c.onPrimary, fontWeight: '700', fontSize: FONTS.sizes.md },
 });

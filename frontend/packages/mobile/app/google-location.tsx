@@ -8,7 +8,8 @@ import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { apiClient } from '../../shared/api/client';
-import { COLORS, SPACING, FONTS, RADIUS } from '../constants';
+import { SPACING, FONTS, RADIUS, type ThemeColors } from '../constants';
+import { useTheme, useThemedStyles } from '../hooks/useTheme';
 
 /**
  * Una cuenta de Google llega sin ubicación, y la búsqueda cercana es el punto de
@@ -17,6 +18,8 @@ import { COLORS, SPACING, FONTS, RADIUS } from '../constants';
  * la ubicación también se carga después desde el perfil.
  */
 export default function GoogleLocationScreen() {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   const router = useRouter();
   const { t } = useTranslation('auth');
   const [isLoading, setIsLoading] = useState(false);
@@ -54,7 +57,7 @@ export default function GoogleLocationScreen() {
         disabled={isLoading}
       >
         {isLoading ? (
-          <ActivityIndicator color={COLORS.white} />
+          <ActivityIndicator color={colors.onPrimary} />
         ) : (
           <Text style={styles.primaryLabel}>{t('location.useMyLocation')}</Text>
         )}
@@ -67,32 +70,32 @@ export default function GoogleLocationScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: 'center',
     padding: SPACING.xl,
-    backgroundColor: COLORS.background,
+    backgroundColor: c.background,
   },
   subtitle: {
     fontSize: FONTS.sizes.md,
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
     marginBottom: SPACING.xl,
   },
   primary: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: c.primary,
     borderRadius: RADIUS.md,
     paddingVertical: SPACING.md,
     alignItems: 'center',
   },
   primaryLabel: {
-    color: COLORS.white,
+    color: c.onPrimary,
     fontSize: FONTS.sizes.md,
     fontWeight: '600',
   },
   skip: {
     textAlign: 'center',
     marginTop: SPACING.lg,
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
   },
 });

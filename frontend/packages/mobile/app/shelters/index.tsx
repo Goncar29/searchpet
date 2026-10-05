@@ -20,7 +20,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useShelters } from '../../../shared/hooks';
 import { StaleDataNotice } from '../../components/list/ListState';
 import { Shelter } from '../../../shared/types';
-import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
+import { SPACING, FONTS, RADIUS, SHADOWS, type ThemeColors } from '../../constants';
+import { useTheme, useThemedStyles } from '../../hooks/useTheme';
 import { IconLabel } from '../../components/IconLabel';
 import { ShelterRegisterCta } from '../../components/ShelterRegisterCta';
 
@@ -34,6 +35,8 @@ type ShelterCardProps = {
 };
 
 function ShelterCard({ shelter, t }: ShelterCardProps) {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   const openURL = (url: string) => {
     Linking.openURL(url).catch(() => {});
   };
@@ -54,7 +57,7 @@ function ShelterCard({ shelter, t }: ShelterCardProps) {
 
       {/* City */}
       {shelter.city ? (
-        <IconLabel icon="location-on" size={14} color={COLORS.textSecondary} gap={4} style={{ marginBottom: SPACING.xs }}>
+        <IconLabel icon="location-on" size={14} color={colors.textSecondary} gap={4} style={{ marginBottom: SPACING.xs }}>
           <Text style={[styles.shelterCity, { marginBottom: 0 }]}>{shelter.city}</Text>
         </IconLabel>
       ) : null}
@@ -108,6 +111,7 @@ function ShelterCard({ shelter, t }: ShelterCardProps) {
 // ============================================================
 
 function SkeletonCard() {
+  const styles = useThemedStyles(makeStyles);
   return (
     <View style={[styles.card, styles.skeletonCard]}>
       <View style={styles.skeletonTitle} />
@@ -122,6 +126,8 @@ function SkeletonCard() {
 // ============================================================
 
 export default function SheltersScreen() {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   const { t } = useTranslation('shelters');
   const router = useRouter();
 
@@ -179,7 +185,7 @@ export default function SheltersScreen() {
         value={cityInput}
         onChangeText={setCityInput}
         placeholder={t('filterPlaceholder')}
-        placeholderTextColor={COLORS.placeholder}
+        placeholderTextColor={colors.placeholder}
         autoCapitalize="words"
         returnKeyType="search"
       />
@@ -204,7 +210,7 @@ export default function SheltersScreen() {
           <SkeletonCard />
           <SkeletonCard />
           <ActivityIndicator
-            color={COLORS.primary}
+            color={colors.primary}
             style={{ marginTop: SPACING.md }}
           />
         </View>
@@ -228,19 +234,19 @@ export default function SheltersScreen() {
 // Styles
 // ============================================================
 
-const styles = StyleSheet.create({
+const makeStyles = (c: ThemeColors) => StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: c.background,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.md,
-    backgroundColor: COLORS.background,
+    backgroundColor: c.background,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomColor: c.border,
   },
   backArrow: {
     marginRight: SPACING.sm,
@@ -248,13 +254,13 @@ const styles = StyleSheet.create({
   },
   backArrowText: {
     fontSize: 28,
-    color: COLORS.primary,
+    color: c.primary,
     lineHeight: 32,
   },
   headerTitle: {
     fontSize: FONTS.sizes.lg,
     fontWeight: '700',
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
   },
   listContent: {
     padding: SPACING.md,
@@ -262,23 +268,23 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
     marginBottom: SPACING.md,
     lineHeight: 20,
   },
   filterInput: {
-    backgroundColor: COLORS.white,
+    backgroundColor: c.surface,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: c.border,
     borderRadius: RADIUS.md,
     padding: SPACING.md,
     fontSize: FONTS.sizes.md,
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
     marginBottom: SPACING.md,
     ...SHADOWS.sm,
   },
   card: {
-    backgroundColor: COLORS.white,
+    backgroundColor: c.card,
     borderRadius: RADIUS.lg,
     padding: SPACING.md,
     marginBottom: SPACING.md,
@@ -294,34 +300,34 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: FONTS.sizes.md,
     fontWeight: '700',
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
     marginRight: SPACING.sm,
   },
   verifiedBadge: {
-    backgroundColor: COLORS.success,
+    backgroundColor: c.success,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: RADIUS.full,
   },
   verifiedBadgeText: {
-    color: COLORS.white,
+    color: c.onPrimary,
     fontSize: FONTS.sizes.xs,
     fontWeight: '700',
   },
   shelterCity: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
     marginBottom: SPACING.xs,
   },
   shelterDescription: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
     lineHeight: 20,
     marginBottom: SPACING.sm,
   },
   contactInfo: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
     marginBottom: SPACING.xs,
   },
   buttonRow: {
@@ -337,18 +343,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   websiteButton: {
-    backgroundColor: COLORS.secondary,
+    backgroundColor: c.secondary,
   },
   websiteButtonText: {
-    color: COLORS.white,
+    color: c.onPrimary,
     fontSize: FONTS.sizes.sm,
     fontWeight: '600',
   },
   donateButton: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: c.primary,
   },
   donateButtonText: {
-    color: COLORS.white,
+    color: c.onPrimary,
     fontSize: FONTS.sizes.sm,
     fontWeight: '600',
   },
@@ -359,23 +365,23 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: FONTS.sizes.lg,
     fontWeight: '700',
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
     marginBottom: SPACING.sm,
   },
   emptyMessage: {
     fontSize: FONTS.sizes.md,
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
     textAlign: 'center',
   },
   retryButton: {
     marginTop: SPACING.md,
-    backgroundColor: COLORS.primary,
+    backgroundColor: c.primary,
     paddingHorizontal: SPACING.lg,
     paddingVertical: SPACING.sm,
     borderRadius: RADIUS.md,
   },
   retryButtonText: {
-    color: COLORS.white,
+    color: c.onPrimary,
     fontSize: FONTS.sizes.sm,
     fontWeight: '600',
   },
@@ -385,14 +391,14 @@ const styles = StyleSheet.create({
   },
   skeletonTitle: {
     height: 18,
-    backgroundColor: COLORS.border,
+    backgroundColor: c.border,
     borderRadius: RADIUS.sm,
     width: '60%',
     marginBottom: SPACING.sm,
   },
   skeletonLine: {
     height: 14,
-    backgroundColor: COLORS.border,
+    backgroundColor: c.border,
     borderRadius: RADIUS.sm,
     width: '90%',
     marginBottom: SPACING.xs,

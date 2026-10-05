@@ -34,7 +34,8 @@ import { useFosterHomeByID, useSubmitAbuseReport } from '@shared/hooks';
 import { getErrorMessage } from '@shared/utils/apiErrors';
 import type { FosterHomePhoto, AnimalKind } from '@shared/types';
 import { useAuthStore } from '../../store';
-import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
+import { SPACING, FONTS, RADIUS, SHADOWS, type ThemeColors } from '../../constants';
+import { useTheme, useThemedStyles } from '../../hooks/useTheme';
 import { IconLabel } from '../../components/IconLabel';
 import { Icon } from '../../components/Icon';
 import { StaleDataNotice } from '../../components/list/ListState';
@@ -44,6 +45,8 @@ import { IMAGE_BOXES } from '../../constants/imageSizes';
 const { width } = Dimensions.get('window');
 
 export default function FosterHomeDetailScreen() {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   const { t } = useTranslation(['fosterHomes', 'errors', 'common']);
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
@@ -90,7 +93,7 @@ export default function FosterHomeDetailScreen() {
   if (isLoading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -122,7 +125,7 @@ export default function FosterHomeDetailScreen() {
   if (isPaused && !fosterHome) {
     return (
       <View style={styles.center}>
-        <Icon name="wifi-off" size={48} color={COLORS.textMuted} />
+        <Icon name="wifi-off" size={48} color={colors.textMuted} />
         <Text style={styles.notFoundText}>{t('common:offlineTitle')}</Text>
         <Text style={styles.notFoundSubtext}>{t('fosterHomes:detail.offlineText')}</Text>
         <TouchableOpacity style={styles.notFoundButton} onPress={volver}>
@@ -141,7 +144,7 @@ export default function FosterHomeDetailScreen() {
     // contra un 404, reintentar es prometer algo que no va a pasar.
     return (
       <View style={styles.center}>
-        <Icon name={falloLaLectura ? 'warning' : 'home'} size={48} color={COLORS.textMuted} />
+        <Icon name={falloLaLectura ? 'warning' : 'home'} size={48} color={colors.textMuted} />
         <Text style={styles.notFoundText}>
           {falloLaLectura ? t('fosterHomes:detail.loadError') : t('fosterHomes:detail.notFound')}
         </Text>
@@ -227,14 +230,14 @@ export default function FosterHomeDetailScreen() {
           </ScrollView>
         ) : (
           <View style={styles.imagePlaceholder}>
-            <Icon name="home" size={60} color={COLORS.textMuted} />
+            <Icon name="home" size={60} color={colors.textMuted} />
           </View>
         )}
       </View>
 
       <View style={styles.content}>
         {/* City */}
-        <IconLabel icon="location-on" size={24} color={COLORS.textPrimary} gap={SPACING.xs} style={{ marginBottom: SPACING.md }}>
+        <IconLabel icon="location-on" size={24} color={colors.textPrimary} gap={SPACING.xs} style={{ marginBottom: SPACING.md }}>
           <Text style={[styles.cityText, { marginBottom: 0 }]}>{fosterHome.city}</Text>
         </IconLabel>
 
@@ -318,7 +321,7 @@ export default function FosterHomeDetailScreen() {
               value={reportReason}
               onChangeText={setReportReason}
               placeholder={t('fosterHomes:report.reasonPlaceholder')}
-              placeholderTextColor={COLORS.placeholder}
+              placeholderTextColor={colors.placeholder}
               multiline
               numberOfLines={4}
             />
@@ -339,7 +342,7 @@ export default function FosterHomeDetailScreen() {
                 disabled={!reportReason.trim() || submitAbuseReport.isPending}
               >
                 {submitAbuseReport.isPending ? (
-                  <ActivityIndicator size="small" color={COLORS.white} />
+                  <ActivityIndicator size="small" color={colors.onPrimary} />
                 ) : (
                   <Text style={styles.modalSubmitButtonText}>
                     {t('fosterHomes:report.submit')}
@@ -354,22 +357,22 @@ export default function FosterHomeDetailScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
+const makeStyles = (c: ThemeColors) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: c.background },
   center: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: COLORS.background,
+    backgroundColor: c.background,
   },
   notFoundText: {
     fontSize: FONTS.sizes.lg,
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
     marginTop: SPACING.md,
   },
   notFoundSubtext: {
     fontSize: FONTS.sizes.md,
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
     marginTop: SPACING.xs,
     textAlign: 'center',
     paddingHorizontal: SPACING.xl,
@@ -379,10 +382,10 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.sm,
     paddingHorizontal: SPACING.lg,
     borderRadius: RADIUS.md,
-    backgroundColor: COLORS.primary,
+    backgroundColor: c.primary,
   },
   notFoundButtonText: {
-    color: '#fff',
+    color: c.onPrimary,
     fontSize: FONTS.sizes.md,
     fontWeight: '600',
   },
@@ -391,7 +394,7 @@ const styles = StyleSheet.create({
   imagePlaceholder: {
     width: '100%',
     height: '100%',
-    backgroundColor: COLORS.background,
+    backgroundColor: c.background,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -399,11 +402,11 @@ const styles = StyleSheet.create({
   cityText: {
     fontSize: FONTS.sizes.xxl,
     fontWeight: '700',
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
     marginBottom: SPACING.md,
   },
   detailsCard: {
-    backgroundColor: COLORS.white,
+    backgroundColor: c.card,
     borderRadius: RADIUS.lg,
     padding: SPACING.md,
     marginBottom: SPACING.md,
@@ -414,10 +417,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomColor: c.border,
   },
-  detailLabel: { fontSize: FONTS.sizes.sm, color: COLORS.textSecondary, fontWeight: '500' },
-  detailValue: { fontSize: FONTS.sizes.sm, color: COLORS.textPrimary, fontWeight: '600' },
+  detailLabel: { fontSize: FONTS.sizes.sm, color: c.textSecondary, fontWeight: '500' },
+  detailValue: { fontSize: FONTS.sizes.sm, color: c.textPrimary, fontWeight: '600' },
   chipRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -425,7 +428,7 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.md,
   },
   chip: {
-    backgroundColor: COLORS.white,
+    backgroundColor: c.surface,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: RADIUS.full,
@@ -433,11 +436,11 @@ const styles = StyleSheet.create({
   },
   chipText: {
     fontSize: FONTS.sizes.xs,
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
     fontWeight: '600',
   },
   descriptionCard: {
-    backgroundColor: COLORS.white,
+    backgroundColor: c.card,
     borderRadius: RADIUS.lg,
     padding: SPACING.md,
     marginBottom: SPACING.md,
@@ -446,39 +449,39 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: FONTS.sizes.md,
     fontWeight: '700',
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
     marginBottom: SPACING.sm,
   },
-  descriptionText: { fontSize: FONTS.sizes.sm, color: COLORS.textSecondary, lineHeight: 22 },
+  descriptionText: { fontSize: FONTS.sizes.sm, color: c.textSecondary, lineHeight: 22 },
   contactCard: {
     marginBottom: SPACING.md,
     gap: SPACING.sm,
   },
   contactChatButton: {
-    backgroundColor: COLORS.secondary,
+    backgroundColor: c.secondary,
     paddingVertical: 14,
     borderRadius: RADIUS.md,
     alignItems: 'center',
     ...SHADOWS.sm,
   },
-  contactChatButtonText: { color: COLORS.white, fontSize: FONTS.sizes.md, fontWeight: '700' },
+  contactChatButtonText: { color: c.onPrimary, fontSize: FONTS.sizes.md, fontWeight: '700' },
   contactWhatsappButton: {
-    backgroundColor: COLORS.whatsapp,
+    backgroundColor: c.whatsapp,
     paddingVertical: 14,
     borderRadius: RADIUS.md,
     alignItems: 'center',
     ...SHADOWS.sm,
   },
-  contactWhatsappButtonText: { color: COLORS.white, fontSize: FONTS.sizes.md, fontWeight: '700' },
+  contactWhatsappButtonText: { color: c.onPrimary, fontSize: FONTS.sizes.md, fontWeight: '700' },
   reportButton: {
     borderWidth: 1,
-    borderColor: COLORS.danger,
+    borderColor: c.danger,
     paddingVertical: 12,
     borderRadius: RADIUS.md,
     alignItems: 'center',
     marginBottom: SPACING.md,
   },
-  reportButtonText: { color: COLORS.danger, fontSize: FONTS.sizes.sm, fontWeight: '700' },
+  reportButtonText: { color: c.danger, fontSize: FONTS.sizes.sm, fontWeight: '700' },
   disabledButton: { opacity: 0.6 },
   modalOverlay: {
     flex: 1,
@@ -488,7 +491,7 @@ const styles = StyleSheet.create({
     padding: SPACING.lg,
   },
   modalCard: {
-    backgroundColor: COLORS.white,
+    backgroundColor: c.card,
     borderRadius: RADIUS.lg,
     padding: SPACING.lg,
     width: '100%',
@@ -496,17 +499,17 @@ const styles = StyleSheet.create({
   },
   modalLabel: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
     marginBottom: SPACING.xs,
   },
   modalInput: {
-    backgroundColor: COLORS.background,
+    backgroundColor: c.background,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: c.border,
     borderRadius: RADIUS.md,
     padding: SPACING.md,
     fontSize: FONTS.sizes.md,
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
     minHeight: 90,
     textAlignVertical: 'top',
     marginBottom: SPACING.md,
@@ -522,18 +525,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalCancelButton: {
-    backgroundColor: COLORS.background,
+    backgroundColor: c.background,
   },
   modalCancelButtonText: {
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
     fontSize: FONTS.sizes.sm,
     fontWeight: '600',
   },
   modalSubmitButton: {
-    backgroundColor: COLORS.danger,
+    backgroundColor: c.danger,
   },
   modalSubmitButtonText: {
-    color: COLORS.white,
+    color: c.onPrimary,
     fontSize: FONTS.sizes.sm,
     fontWeight: '700',
   },

@@ -21,9 +21,12 @@ import i18next from 'i18next';
 import { useAuthStore } from '../store';
 import { getErrorMessage } from '@shared/utils/apiErrors';
 import { GoogleSignInButton } from '../components/GoogleSignInButton';
-import { COLORS, SPACING, FONTS, RADIUS, GOOGLE_WEB_CLIENT_ID } from '../constants';
+import { SPACING, FONTS, RADIUS, GOOGLE_WEB_CLIENT_ID, type ThemeColors } from '../constants';
+import { useTheme, useThemedStyles } from '../hooks/useTheme';
 
 export default function LoginScreen() {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   const router = useRouter();
   const { t } = useTranslation('auth');
   const login = useAuthStore((state) => state.login);
@@ -78,7 +81,7 @@ export default function LoginScreen() {
         <TextInput
           style={styles.input}
           placeholder={t('login.email')}
-          placeholderTextColor={COLORS.placeholder}
+          placeholderTextColor={colors.placeholder}
           value={email}
           onChangeText={setEmail}
           keyboardType="email-address"
@@ -89,7 +92,7 @@ export default function LoginScreen() {
         <TextInput
           style={styles.input}
           placeholder={t('login.password')}
-          placeholderTextColor={COLORS.placeholder}
+          placeholderTextColor={colors.placeholder}
           value={password}
           onChangeText={setPassword}
           secureTextEntry
@@ -101,7 +104,7 @@ export default function LoginScreen() {
           disabled={isLoading}
         >
           {isLoading ? (
-            <ActivityIndicator color={COLORS.white} />
+            <ActivityIndicator color={colors.onPrimary} />
           ) : (
             <Text style={styles.buttonText}>{t('login.submit')}</Text>
           )}
@@ -130,10 +133,10 @@ export default function LoginScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: c.background,
   },
   content: {
     flex: 1,
@@ -148,29 +151,29 @@ const styles = StyleSheet.create({
   title: {
     fontSize: FONTS.sizes.xxl,
     fontWeight: '700',
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
     textAlign: 'center',
     marginBottom: SPACING.xs,
   },
   subtitle: {
     fontSize: FONTS.sizes.md,
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
     textAlign: 'center',
     marginBottom: SPACING.xl,
   },
   input: {
-    backgroundColor: COLORS.white,
+    backgroundColor: c.surface,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: c.border,
     borderRadius: RADIUS.md,
     paddingHorizontal: SPACING.md,
     paddingVertical: 16,
     fontSize: FONTS.sizes.md,
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
     marginBottom: SPACING.md,
   },
   button: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: c.primary,
     paddingVertical: 16,
     borderRadius: RADIUS.md,
     alignItems: 'center',
@@ -178,7 +181,7 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: { opacity: 0.6 },
   buttonText: {
-    color: COLORS.white,
+    color: c.onPrimary,
     fontSize: FONTS.sizes.md,
     fontWeight: '700',
   },
@@ -188,10 +191,10 @@ const styles = StyleSheet.create({
   },
   linkText: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
   },
   linkBold: {
-    color: COLORS.primary,
+    color: c.primary,
     fontWeight: '700',
   },
 });
