@@ -461,7 +461,7 @@ recuperación, key de Jina, `/api/ops/quota`, `phone_verified`) NO entran acá.
   JSON inválido → no-op); sin la validación, cae el de otro tipo.
   **Post-deploy**: confirmar en los logs de Render que FCM inicializó (que la
   `FIREBASE_KEY` de producción sea de verdad una service account).
-- [ ] **G4b — FCM: `Token` → `Fid`.** `firebase-admin-go` v4.21.0 deprecó
+- [x] **G4b — FCM: `Token` → `Fid`.** `firebase-admin-go` v4.21.0 deprecó
   `Token`/`Tokens` como destino de `Send` a favor de `Fid` (Firebase
   Installation ID). Hoy estamos en v4.19.0, que no lo trae. Migrar no es una
   línea: web y mobile tendrían que registrar el FID en vez del token de FCM.

@@ -55,16 +55,19 @@ on a real phone, then build another APK.
     (before: +100 points, `found_count`, `pet_rescuer`, `super_finder`).
     Deliberate behavior change; other `pet.found` listeners untouched.
 - [ ] T5 — Dark mode in mobile via Settings. Separate feature (size L).
-- [ ] T6 — New APK and owner re-check.
-- [ ] T7 — Stack header titles are computed once with `i18next.t` in
+- [x] T6 — New APK and owner re-check. rc2 (run 37218390210) and rc3 (run
+  37248150280) built and checked on the phone by the owner (2026-10-05).
+- [x] T7 — Stack header titles are computed once with `i18next.t` in
   `app/_layout.tsx`, so they keep the old language after a runtime language
-  change. Pre-existing for every title (native review of #311). Not started.
-- [ ] T8 — Helper confirmation feature (step 2): when a pet goes found the
+  change. Pre-existing for every title (native review of #311). Done in #316
+  (`5226775b`), checked on the phone with rc3.
+- [x] T8 — Helper confirmation feature (step 2): when a pet goes found the
   owner must choose the helpers among the reporters of the current episode.
   Enforced in ONE backend function used by the three doors that fire
   `pet.found` (`UpdatePet` ~481, `MarkAsFound` ~658, `report_service` ~272); UI
   picker on every path in web and mobile. Open question: a non-owner found
   report (door 3). That feature is what will credit helpers (points/badges).
+  Done as its own feature, `odd/tasks/helper-confirmation.md` (#317-#322).
 
 ## Checks
 

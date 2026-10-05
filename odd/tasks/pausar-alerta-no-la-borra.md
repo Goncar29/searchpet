@@ -88,15 +88,17 @@ separado. Runner: `go test ./... -count=1` con `DATABASE_URL` apuntando a
 
 ## Tasks
 
-- [ ] **T1 — El dominio distingue pausada de borrada.** `DeletedAt` en el
+- [x] **T1 — El dominio distingue pausada de borrada.** `DeletedAt` en el
   modelo, `Delete` pasa a ser un borrado real de GORM, `GetByUserID` devuelve
   las no borradas (activas y pausadas), `CountActiveByUserID` → `CountByUserID`,
   y el mensaje del tope deja de decir "activas" en Go y en los tres locales.
   - Checks: `go test ./... -count=1` con `DATABASE_URL=lostpets_test`, leyendo
     el **exit code** y nunca un grep sobre la salida.
-- [ ] **T2 — La migración 000027 backfillea las filas viejas.** `deleted_at =
+- [x] **T2 — La migración 000027 backfillea las filas viejas.** `deleted_at =
   now()` donde `is_active = false`, con su `.down.sql`.
   - Checks: los tests de repositorio contra Postgres real.
+
+T1 y T2 entraron juntos en el #258 (`d99eceb2`).
 
 ## Acceptance
 
