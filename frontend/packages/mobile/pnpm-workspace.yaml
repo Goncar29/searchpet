@@ -28,6 +28,10 @@ allowBuilds:
 #
 # shell-quote: the advisory lists 1.8.5 as patched, but 1.8.5 was never
 # published; GitHub's advisory database gives 1.9.0.
+# 2026-10-06: raised to 1.11.0 for GHSA-pqg4-j6r4-53mv (critical, command
+# injection in quote() via a line terminator after a comment token). Dev
+# tooling only (React Native CLI and react-devtools-core). Parents declare
+# ^1.7.3 and ^1.6.1, so 1.11.0 stays inside their ranges.
 # 2026-10-06: compression (GHSA-vc2v-76pw-4v95, memory DoS) and source-map-js
 # (GHSA-68fv-2mgg-jv7q, event-loop DoS). Both are dev tooling (the Metro/Expo
 # dev server and source-map parsing), never in the APK. Parents: @expo/cli
@@ -49,7 +53,7 @@ overrides:
   js-yaml@3: '>=3.15.2 <4'
   js-yaml@4: '>=4.3.2 <5'
   nanoid@3: '>=3.3.18 <4'
-  shell-quote@1: '>=1.9.0 <2'
+  shell-quote@1: '>=1.11.0 <2'
   source-map-js@1: '>=1.2.2 <2'
   undici@6: '>=6.28.0 <7'
 
