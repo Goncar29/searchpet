@@ -34,9 +34,12 @@ export function DownloadPage() {
               <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
                 {t('android.description')}
               </p>
+              {/* Direct download: GitHub redirects releases/latest/download/<name>
+                  to that asset of the newest release, and build-apk.yml
+                  publishes every release's APK as SearchPet.apk too. Same tab
+                  on purpose: a download opened in a new tab leaves it empty. */}
               <a
-                href="https://github.com/Goncar29/searchpet/releases/latest"
-                target="_blank"
+                href="https://github.com/Goncar29/searchpet/releases/latest/download/SearchPet.apk"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 bg-green-500 text-white font-bold px-6 py-3 rounded-lg hover:bg-green-600 transition-colors"
                 aria-label={t('android.ctaLabel')}
