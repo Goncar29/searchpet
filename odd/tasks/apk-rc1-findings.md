@@ -41,7 +41,7 @@ on a real phone, then build another APK.
 - [x] T3 — Map: controls in one bottom-anchored container; `map:vetsToggle`
   verified against the real i18n instance. Route: same writer (delegated).
   Commit e87609f7.
-- [~] T4 — Profile stats from REAL ROWS (owner chose option b on 2026-10-01;
+- [x] T4 — Profile stats from REAL ROWS (owner chose option b on 2026-10-01;
   option a, a one-off UPDATE in prod, was rejected because testing re-inflates
   the counters). Own PR #313 (backend). Route: delegated. Decisions:
   - `total_reports` = `CountByReporter`, closure reports excluded (unchanged).
@@ -54,7 +54,11 @@ on a real phone, then build another APK.
     `pet.found` subscription were removed from `gamification_service.go`
     (before: +100 points, `found_count`, `pet_rescuer`, `super_finder`).
     Deliberate behavior change; other `pet.found` listeners untouched.
-- [ ] T5 — Dark mode in mobile via Settings. Separate feature (size L).
+  - Merged in #313 (`8cc0fe38`). `found_count` was later redefined by T8: it
+    now counts helper credits the owner confirms (`pet_helper_credits`).
+- [x] T5 — Dark mode in mobile via Settings. Separate feature (size L).
+  Tracked in `odd/tasks/mobile-dark-mode.md`; merged in #335 (`45cac0c5`)
+  after the owner checked APK 1.0.7-rc6, and shipped in release v1.1.0.
 - [x] T6 — New APK and owner re-check. rc2 (run 37218390210) and rc3 (run
   37248150280) built and checked on the phone by the owner (2026-10-05).
 - [x] T7 — Stack header titles are computed once with `i18next.t` in
