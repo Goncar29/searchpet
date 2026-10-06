@@ -270,7 +270,13 @@
     "alerts": "Alertas",
     "admin": "Admin",
     "myShelter": "Meu abrigo",
-    "userMenu": "Menu do usuário"
+    "userMenu": "Menu do usuário",
+    "installBanner": {
+      "title": "Instalar SearchPet",
+      "description": "Adicione à sua tela de início. Sem lojas, grátis.",
+      "dismiss": "Agora não",
+      "install": "Instalar"
+    }
   },
   "home": {
     "hero": {
