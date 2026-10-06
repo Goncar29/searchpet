@@ -174,3 +174,9 @@ jobs:
             Instala la web app desde el navegador: agrega a tu pantalla de inicio.
           draft: false
           prerelease: false
+
+      # The web /download button depends on this URL; fail loudly here rather
+      # than let a user find out.
+      - name: Verify the direct download link
+        if: startsWith(github.ref, 'refs/tags/')
+        run: bash .github/scripts/verify-release-download.sh SearchPet.apk

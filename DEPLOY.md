@@ -283,6 +283,11 @@ directo, sin pasar por la página de GitHub; ése es el link del botón de
 `/download`. No hay que tocar nada más para que la web ofrezca la versión
 nueva — y **si se renombra o se saca ese asset, el botón da 404**.
 
+El último paso del workflow (`.github/scripts/verify-release-download.sh`) baja
+ese link público y compara su SHA-256 con el APK recién construido. Si el link
+no responde o todavía entrega otra versión, el run queda en rojo: una descarga
+rota la ve el mantenedor en Actions, no un usuario en `/download`.
+
 ### Tres consecuencias de que sea así
 
 1. **Toda variable `EXPO_PUBLIC_*` que necesite el APK distribuido va en
