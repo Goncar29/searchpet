@@ -28,6 +28,12 @@ allowBuilds:
 #
 # shell-quote: the advisory lists 1.8.5 as patched, but 1.8.5 was never
 # published; GitHub's advisory database gives 1.9.0.
+# 2026-10-06: compression (GHSA-vc2v-76pw-4v95, memory DoS) and source-map-js
+# (GHSA-68fv-2mgg-jv7q, event-loop DoS). Both are dev tooling (the Metro/Expo
+# dev server and source-map parsing), never in the APK. Parents: @expo/cli
+# ^1.7.4 and @react-native-community/cli-server-api ^1.7.1 for compression,
+# ^1.2.x for source-map-js, so 1.8.2 and 1.2.2 stay inside their ranges.
+#
 overrides:
   '@xmldom/xmldom@0.9': '>=0.9.12 <0.10'
   baseline-browser-mapping@2: '>=2.11.0 <3'
@@ -35,6 +41,7 @@ overrides:
   brace-expansion@2: '>=2.1.4 <3'
   brace-expansion@5: '>=5.0.9 <6'
   browserslist@4: '>=4.28.7 <5'
+  compression@1: '>=1.8.2 <2'
   fast-uri@3: '>=3.1.6 <4'
   form-data@3: '>=3.0.5 <4'
   form-data@4: '>=4.0.6 <5'
@@ -43,6 +50,7 @@ overrides:
   js-yaml@4: '>=4.3.2 <5'
   nanoid@3: '>=3.3.18 <4'
   shell-quote@1: '>=1.9.0 <2'
+  source-map-js@1: '>=1.2.2 <2'
   undici@6: '>=6.28.0 <7'
 
 # Advisories with no fix inside the major line their parent accepts (S14,
