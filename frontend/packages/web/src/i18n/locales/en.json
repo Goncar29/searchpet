@@ -270,7 +270,13 @@
     "alerts": "Alerts",
     "admin": "Admin",
     "myShelter": "My shelter",
-    "userMenu": "User menu"
+    "userMenu": "User menu",
+    "installBanner": {
+      "title": "Install SearchPet",
+      "description": "Add it to your home screen. No app store, free.",
+      "dismiss": "Not now",
+      "install": "Install"
+    }
   },
   "home": {
     "hero": {

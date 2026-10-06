@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Logo } from './Logo';
 
 interface BeforeInstallPromptEvent extends Event {
@@ -7,6 +8,7 @@ interface BeforeInstallPromptEvent extends Event {
 }
 
 export function InstallPWA() {
+  const { t } = useTranslation('layout');
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isVisible, setIsVisible] = useState(false);
   const [isInstalled, setIsInstalled] = useState(false);
@@ -42,25 +44,23 @@ export function InstallPWA() {
     <div className="fixed bottom-4 left-4 right-4 bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 p-4 z-50 flex items-center gap-4">
       <Logo className="h-8 w-8 flex-shrink-0 text-primary" />
       <div className="flex-1">
-        <p className="font-bold text-gray-900 dark:text-white text-sm">Instalar SearchPet</p>
+        <p className="font-bold text-gray-900 dark:text-white text-sm">{t('installBanner.title')}</p>
         <p className="text-xs text-gray-500 dark:text-gray-400">
-          Agregar a tu pantalla de inicio. Sin stores, gratis.
+          {t('installBanner.description')}
         </p>
       </div>
       <div className="flex gap-2 flex-shrink-0">
         <button
           onClick={() => setIsVisible(false)}
           className="text-xs text-gray-400 hover:text-gray-600 px-2 py-2"
-          aria-label="Ahora no"
         >
-          Ahora no
+          {t('installBanner.dismiss')}
         </button>
         <button
           onClick={handleInstall}
           className="text-xs bg-primary text-white font-bold px-4 py-2 rounded-lg hover:bg-primary-dark transition-colors"
-          aria-label="Instalar"
         >
-          Instalar
+          {t('installBanner.install')}
         </button>
       </div>
     </div>
