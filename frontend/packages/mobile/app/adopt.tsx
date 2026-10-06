@@ -19,11 +19,14 @@ import { useTranslation } from 'react-i18next';
 import { useAdoptions } from '../../shared/hooks';
 import { PetCard } from '../components/PetCard';
 import { ListState } from '../components/list/ListState';
-import { COLORS, SPACING, FONTS, RADIUS, SHADOWS, PET_TYPES } from '../constants';
+import { SPACING, FONTS, RADIUS, SHADOWS, PET_TYPES, type ThemeColors } from '../constants';
+import { useTheme, useThemedStyles } from '../hooks/useTheme';
 import { IconLabel } from '../components/IconLabel';
 import type { Pet, PetType, PetListResponse } from '../../shared/types';
 
 export default function AdoptScreen() {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   const router = useRouter();
   const { t } = useTranslation(['adoption', 'pets', 'common']);
 
@@ -59,7 +62,7 @@ export default function AdoptScreen() {
         <TextInput
           style={styles.cityInput}
           placeholder={t('adoption:section.cityPlaceholder')}
-          placeholderTextColor={COLORS.textMuted}
+          placeholderTextColor={colors.textMuted}
           accessibilityLabel={t('adoption:section.cityFilter')}
           value={draftCity}
           onChangeText={setDraftCity}
@@ -72,7 +75,7 @@ export default function AdoptScreen() {
             style={[styles.chip, !draftType && styles.chipActive]}
             onPress={() => setDraftType(undefined)}
           >
-            <IconLabel icon="pets" size={18} color={!draftType ? COLORS.white : COLORS.textSecondary}>
+            <IconLabel icon="pets" size={18} color={!draftType ? colors.onPrimary : colors.textSecondary}>
               <Text style={[styles.chipText, !draftType && styles.chipTextActive]}>
                 {t('adoption:section.allTypes')}
               </Text>
@@ -90,7 +93,7 @@ export default function AdoptScreen() {
               <IconLabel
                 icon={petType.icon}
                 size={18}
-                color={draftType === petType.value ? COLORS.white : COLORS.textSecondary}
+                color={draftType === petType.value ? colors.onPrimary : colors.textSecondary}
               >
                 <Text
                   style={[styles.chipText, draftType === petType.value && styles.chipTextActive]}
@@ -133,7 +136,7 @@ export default function AdoptScreen() {
           <View testID="adopt-loading" style={styles.loadingWrap}>
             {renderHeader()}
             <View style={styles.center}>
-              <ActivityIndicator size="large" color={COLORS.primary} />
+              <ActivityIndicator size="large" color={colors.primary} />
             </View>
           </View>
         }
@@ -170,8 +173,8 @@ export default function AdoptScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
+const makeStyles = (c: ThemeColors) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: c.background },
   center: { paddingVertical: SPACING.xxl * 2, alignItems: 'center' },
   // The loading branch renders outside the FlatList, so it supplies the same
   // horizontal inset the list content container gives everything else.
@@ -181,25 +184,25 @@ const styles = StyleSheet.create({
     paddingTop: SPACING.md,
     paddingBottom: SPACING.sm,
   },
-  subtitle: { fontSize: FONTS.sizes.sm, color: COLORS.textSecondary, marginTop: 4 },
+  subtitle: { fontSize: FONTS.sizes.sm, color: c.textSecondary, marginTop: 4 },
 
   // ── Filtros ──
   filterCard: {
-    backgroundColor: COLORS.white,
+    backgroundColor: c.card,
     marginBottom: SPACING.md,
     padding: SPACING.md,
     borderRadius: RADIUS.lg,
     ...SHADOWS.sm,
   },
   cityInput: {
-    backgroundColor: COLORS.background,
+    backgroundColor: c.background,
     borderRadius: RADIUS.md,
     paddingHorizontal: SPACING.md,
     paddingVertical: 10,
     fontSize: FONTS.sizes.sm,
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: c.border,
     marginBottom: SPACING.sm,
   },
   chipsRow: {
@@ -212,35 +215,35 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 20,
-    backgroundColor: COLORS.background,
+    backgroundColor: c.background,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: c.border,
   },
   chipActive: {
-    backgroundColor: COLORS.primary,
-    borderColor: COLORS.primary,
+    backgroundColor: c.primary,
+    borderColor: c.primary,
   },
   chipText: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
     fontWeight: '500',
   },
   chipTextActive: {
-    color: COLORS.white,
+    color: c.onPrimary,
     fontWeight: '700',
   },
   applyButton: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: c.primary,
     paddingVertical: 10,
     borderRadius: RADIUS.md,
     alignItems: 'center',
   },
-  applyButtonText: { color: COLORS.white, fontWeight: '700', fontSize: FONTS.sizes.sm },
+  applyButtonText: { color: c.onPrimary, fontWeight: '700', fontSize: FONTS.sizes.sm },
 
   resultCount: {
     fontSize: FONTS.sizes.md,
     fontWeight: '700',
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
     marginBottom: SPACING.sm,
   },
 
@@ -248,5 +251,5 @@ const styles = StyleSheet.create({
   list: { paddingHorizontal: SPACING.lg, paddingBottom: 100 },
   empty: { alignItems: 'center', paddingVertical: SPACING.xxl * 2 },
   emptyIcon: { fontSize: 60, marginBottom: SPACING.md },
-  emptyText: { fontSize: FONTS.sizes.sm, color: COLORS.textSecondary, textAlign: 'center', paddingHorizontal: SPACING.xl },
+  emptyText: { fontSize: FONTS.sizes.sm, color: c.textSecondary, textAlign: 'center', paddingHorizontal: SPACING.xl },
 });

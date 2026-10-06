@@ -14,13 +14,16 @@ import {
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../store';
 import { getErrorMessage } from '@shared/utils/apiErrors';
-import { COLORS, SPACING, FONTS, RADIUS } from '../../constants';
+import { type ThemeColors, SPACING, FONTS, RADIUS } from '../../constants';
+import { useTheme, useThemedStyles } from '../../hooks/useTheme';
 
 interface InlineAuthStepProps {
   onAuthenticated: () => void;
 }
 
 export function InlineAuthStep({ onAuthenticated }: InlineAuthStepProps) {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   const { t } = useTranslation();
   const login = useAuthStore((state) => state.login);
   const register = useAuthStore((state) => state.register);
@@ -99,7 +102,7 @@ export function InlineAuthStep({ onAuthenticated }: InlineAuthStepProps) {
         <TextInput
           style={styles.input}
           placeholder={t('auth:register.name')}
-          placeholderTextColor={COLORS.placeholder}
+          placeholderTextColor={colors.placeholder}
           value={name}
           onChangeText={setName}
           autoCapitalize="words"
@@ -110,7 +113,7 @@ export function InlineAuthStep({ onAuthenticated }: InlineAuthStepProps) {
         <TextInput
           style={styles.input}
           placeholder={t('auth:register.cityPlaceholder')}
-          placeholderTextColor={COLORS.placeholder}
+          placeholderTextColor={colors.placeholder}
           value={city}
           onChangeText={setCity}
           autoCapitalize="words"
@@ -121,7 +124,7 @@ export function InlineAuthStep({ onAuthenticated }: InlineAuthStepProps) {
       <TextInput
         style={styles.input}
         placeholder={t(tab === 'login' ? 'auth:login.email' : 'auth:register.email')}
-        placeholderTextColor={COLORS.placeholder}
+        placeholderTextColor={colors.placeholder}
         value={email}
         onChangeText={setEmail}
         keyboardType="email-address"
@@ -132,7 +135,7 @@ export function InlineAuthStep({ onAuthenticated }: InlineAuthStepProps) {
       <TextInput
         style={styles.input}
         placeholder={t(tab === 'login' ? 'auth:login.password' : 'auth:register.password')}
-        placeholderTextColor={COLORS.placeholder}
+        placeholderTextColor={colors.placeholder}
         value={password}
         onChangeText={setPassword}
         secureTextEntry
@@ -147,7 +150,7 @@ export function InlineAuthStep({ onAuthenticated }: InlineAuthStepProps) {
         accessibilityRole="button"
       >
         {isLoading ? (
-          <ActivityIndicator color={COLORS.white} />
+          <ActivityIndicator color={colors.onPrimary} />
         ) : (
           <Text style={styles.buttonText}>{t('publish:auth.continue')}</Text>
         )}
@@ -156,24 +159,25 @@ export function InlineAuthStep({ onAuthenticated }: InlineAuthStepProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: ThemeColors) =>
+  StyleSheet.create({
   title: {
     fontSize: FONTS.sizes.xl,
     fontWeight: '700',
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
     textAlign: 'center',
     marginBottom: SPACING.xs,
   },
   description: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
     textAlign: 'center',
     marginBottom: SPACING.lg,
   },
   tabRow: {
     flexDirection: 'row',
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: c.border,
     borderRadius: RADIUS.md,
     overflow: 'hidden',
     marginBottom: SPACING.lg,
@@ -182,28 +186,28 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: SPACING.sm,
     alignItems: 'center',
-    backgroundColor: COLORS.white,
+    backgroundColor: c.surface,
   },
-  tabActive: { backgroundColor: COLORS.primary },
+  tabActive: { backgroundColor: c.primary },
   tabText: {
     fontSize: FONTS.sizes.sm,
     fontWeight: '700',
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
   },
-  tabTextActive: { color: COLORS.white },
+  tabTextActive: { color: c.onPrimary },
   input: {
-    backgroundColor: COLORS.white,
+    backgroundColor: c.surface,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: c.border,
     borderRadius: RADIUS.md,
     paddingHorizontal: SPACING.md,
     paddingVertical: 16,
     fontSize: FONTS.sizes.md,
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
     marginBottom: SPACING.md,
   },
   button: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: c.primary,
     paddingVertical: 16,
     borderRadius: RADIUS.md,
     alignItems: 'center',
@@ -211,13 +215,13 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: { opacity: 0.6 },
   buttonText: {
-    color: COLORS.white,
+    color: c.onPrimary,
     fontSize: FONTS.sizes.md,
     fontWeight: '700',
   },
   error: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.danger,
+    color: c.danger,
     textAlign: 'center',
     marginBottom: SPACING.md,
   },

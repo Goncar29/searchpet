@@ -3,7 +3,7 @@
 // first render (the saved choice is read from AsyncStorage asynchronously) or a
 // later switch leaves every native header frozen in the first language.
 import React from 'react';
-import { act, render } from '@testing-library/react-native';
+import { act, render, waitFor } from '@testing-library/react-native';
 import i18n from '../i18n';
 
 jest.mock('@react-native-async-storage/async-storage', () =>
@@ -38,7 +38,10 @@ describe('RootLayout header titles follow the language', () => {
     await act(async () => {
       await i18n.changeLanguage('es');
     });
+    // The layout paints after the saved theme is read (async), so let that
+    // settle before reading the titles.
     render(<RootLayout />);
+    await waitFor(() => expect(captured['my-pets']).toBeDefined());
     const es = captured['my-pets'];
     expect(es).toBe(i18n.t('my_pets:title', { lng: 'es' }));
 

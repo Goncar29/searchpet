@@ -11,7 +11,7 @@ export const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8081
 // Vacío = el botón de Google no se renderiza (ver GoogleSignInButton).
 export const GOOGLE_WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '';
 
-export const COLORS = {
+export const LIGHT_COLORS = {
   primary: '#FF6B35',
   primaryDark: '#E5551F',
   primaryLight: '#FF8F66',
@@ -23,8 +23,11 @@ export const COLORS = {
   warning: '#F59E0B',
   info: '#3B82F6',
 
-  // Neutrals
+  // Neutrals. `white` is LITERAL white in both themes (text and icons on brand
+  // colors). For a background that follows the theme use `surface` or `card`.
   white: '#FFFFFF',
+  onPrimary: '#FFFFFF',
+  surface: '#FFFFFF',
   background: '#F8F9FA',
   card: '#FFFFFF',
   border: '#E5E7EB',
@@ -50,7 +53,63 @@ export const COLORS = {
   facebook: '#1877F2',
   instagram: '#E4405F',
   twitter: '#1DA1F2',
+
+  // Tinted banners and chips. These used to be hex literals in the screens;
+  // the light values are exactly those literals (S6), the dark ones keep the
+  // same meaning on a dark page.
+  dangerSoftBg: '#FEF2F2',
+  dangerSoftBorder: '#FECACA',
+  dangerSoftText: '#DC2626',
+  warningSoftBg: '#FFFBEB',
+  warningSoftBorder: '#FDE68A',
+  warningSoftText: '#78350F',
+  warningSoftTextAccent: '#92400E',
+  noticeBg: '#FFF3CD',
+  noticeBorder: '#FFEAA7',
+  noticeText: '#856404',
+  successSoftBg: '#ECFDF5',
+  successSoftTitle: '#065F46',
+  successSoftText: '#047857',
+  primarySoft: '#FFF0E8',
+  // Floating controls over the map.
+  floatingSurface: 'rgba(255,255,255,0.95)',
 };
+
+export type ThemeColors = typeof LIGHT_COLORS;
+
+// The web's `.dark` tokens (web/src/index.css), so both apps look the same.
+// Brand, status, medal and social colors are shared with the light theme.
+export const DARK_COLORS: ThemeColors = {
+  ...LIGHT_COLORS,
+  danger: '#F87171',
+  surface: '#1F2937',
+  background: '#111827',
+  card: '#1F2937',
+  border: '#374151',
+  textPrimary: '#F9FAFB',
+  textSecondary: '#D1D5DB',
+  textMuted: '#9CA3AF',
+  placeholder: '#6B7280',
+  dangerSoftBg: '#3B1A1A',
+  dangerSoftBorder: '#7F1D1D',
+  dangerSoftText: '#FCA5A5',
+  warningSoftBg: '#33280A',
+  warningSoftBorder: '#78590F',
+  warningSoftText: '#FDE68A',
+  warningSoftTextAccent: '#FDE68A',
+  noticeBg: '#33280A',
+  noticeBorder: '#78590F',
+  noticeText: '#FDE68A',
+  successSoftBg: '#052E22',
+  successSoftTitle: '#A7F3D0',
+  successSoftText: '#6EE7B7',
+  primarySoft: '#3A2418',
+  floatingSurface: 'rgba(31,41,55,0.95)',
+};
+
+// Light palette under its old name for files not migrated to the theme yet.
+// Reading COLORS does not follow dark mode; use useTheme() instead.
+export const COLORS = LIGHT_COLORS;
 
 export const FONTS = {
   regular: 'System',

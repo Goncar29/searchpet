@@ -20,7 +20,8 @@ import { useAuthStore } from '../../store';
 import { getDateLocale } from '../../i18n/dateLocale';
 import { useGroup, useGroupMembers, useJoinGroup, useLeaveGroup } from '../../../shared/hooks';
 import { getErrorMessage } from '../../../shared/utils/apiErrors';
-import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
+import { SPACING, FONTS, RADIUS, SHADOWS, type ThemeColors } from '../../constants';
+import { useTheme, useThemedStyles } from '../../hooks/useTheme';
 import { IconLabel } from '../../components/IconLabel';
 import { Icon } from '../../components/Icon';
 import type { GroupMember } from '../../../shared/types';
@@ -41,6 +42,7 @@ function getInitials(name: string): string {
 // ============================================================
 
 function MemberRow({ member }: { member: GroupMember }) {
+  const styles = useThemedStyles(makeStyles);
   const { t, i18n } = useTranslation('groups');
   const dateLocale = getDateLocale(i18n.language);
   const dateStr = new Date(member.joined_at).toLocaleDateString(dateLocale, { day: 'numeric', month: 'long', year: 'numeric' });
@@ -67,6 +69,8 @@ function MemberRow({ member }: { member: GroupMember }) {
 // ============================================================
 
 export default function GroupDetailScreen() {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const navigation = useNavigation();
   const router = useRouter();
@@ -113,7 +117,7 @@ export default function GroupDetailScreen() {
   if (groupLoading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -121,7 +125,7 @@ export default function GroupDetailScreen() {
   if (groupError || !group) {
     return (
       <View style={styles.center}>
-        <View style={styles.stateIcon}><Icon name="search" size={48} color={COLORS.textMuted} /></View>
+        <View style={styles.stateIcon}><Icon name="search" size={48} color={colors.textMuted} /></View>
         <Text style={styles.stateTitle}>{t('groups:notFound')}</Text>
         <Text style={styles.stateText}>{t('groups:notFoundText')}</Text>
         <TouchableOpacity style={styles.retryButton} onPress={() => router.back()}>
@@ -136,7 +140,7 @@ export default function GroupDetailScreen() {
       {/* Group header */}
       <View style={styles.headerCard}>
         <View style={styles.headerTop}>
-          <Icon name="location-on" size={20} color={COLORS.primary} />
+          <Icon name="location-on" size={20} color={colors.primary} />
           <Text style={styles.headerCity}>{group.city}</Text>
           {group.is_member && (
             <View style={styles.memberBadge}>
@@ -166,7 +170,7 @@ export default function GroupDetailScreen() {
           {isPending ? (
             <ActivityIndicator
               size="small"
-              color={group.is_member ? COLORS.danger : COLORS.white}
+              color={group.is_member ? colors.danger : colors.onPrimary}
             />
           ) : (
             <Text style={[styles.actionButtonText, group.is_member && styles.leaveButtonText]}>
@@ -178,7 +182,7 @@ export default function GroupDetailScreen() {
 
       {/* Members list */}
       <View style={styles.section}>
-        <IconLabel icon="group" size={20} color={COLORS.textPrimary} gap={SPACING.xs} style={{ marginBottom: SPACING.md }}>
+        <IconLabel icon="group" size={20} color={colors.textPrimary} gap={SPACING.xs} style={{ marginBottom: SPACING.md }}>
           <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>{t('groups:membersTitle')}</Text>
         </IconLabel>
 
@@ -196,7 +200,7 @@ export default function GroupDetailScreen() {
           loading={
             <ActivityIndicator
               size="small"
-              color={COLORS.primary}
+              color={colors.primary}
               style={{ marginTop: SPACING.md }}
             />
           }
@@ -204,7 +208,7 @@ export default function GroupDetailScreen() {
           {(members) =>
             members.length === 0 ? (
               <View style={styles.emptyMembers}>
-                <View style={styles.stateIcon}><Icon name="help" size={48} color={COLORS.textMuted} /></View>
+                <View style={styles.stateIcon}><Icon name="help" size={48} color={colors.textMuted} /></View>
                 <Text style={styles.stateText}>{t('groups:noMembers')}</Text>
               </View>
             ) : (
@@ -221,13 +225,13 @@ export default function GroupDetailScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
+const makeStyles = (c: ThemeColors) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: c.background },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: SPACING.xl },
 
   // Header card
   headerCard: {
-    backgroundColor: COLORS.white,
+    backgroundColor: c.card,
     marginHorizontal: SPACING.lg,
     marginTop: SPACING.lg,
     borderRadius: RADIUS.lg,
@@ -244,29 +248,29 @@ const styles = StyleSheet.create({
   headerCity: {
     fontSize: FONTS.sizes.xl,
     fontWeight: '700',
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
     flex: 1,
   },
   memberBadge: {
-    backgroundColor: COLORS.primary + '20',
+    backgroundColor: c.primary + '20',
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: RADIUS.full,
   },
   memberBadgeText: {
     fontSize: FONTS.sizes.xs,
-    color: COLORS.primary,
+    color: c.primary,
     fontWeight: '600',
   },
   headerDescription: {
     fontSize: FONTS.sizes.md,
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
     lineHeight: 22,
     marginBottom: SPACING.sm,
   },
   headerMemberCount: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.textMuted,
+    color: c.textMuted,
     marginBottom: SPACING.md,
   },
 
@@ -276,19 +280,19 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.md,
     alignItems: 'center',
   },
-  joinButton: { backgroundColor: COLORS.primary },
+  joinButton: { backgroundColor: c.primary },
   leaveButton: {
     backgroundColor: 'transparent',
     borderWidth: 1,
-    borderColor: COLORS.danger,
+    borderColor: c.danger,
   },
   actionButtonDisabled: { opacity: 0.6 },
   actionButtonText: {
-    color: COLORS.white,
+    color: c.onPrimary,
     fontSize: FONTS.sizes.md,
     fontWeight: '700',
   },
-  leaveButtonText: { color: COLORS.danger },
+  leaveButtonText: { color: c.danger },
 
   // Section
   section: {
@@ -298,7 +302,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: FONTS.sizes.lg,
     fontWeight: '700',
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
     marginBottom: SPACING.md,
   },
 
@@ -306,7 +310,7 @@ const styles = StyleSheet.create({
   memberRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.white,
+    backgroundColor: c.surface,
     borderRadius: RADIUS.lg,
     padding: SPACING.md,
     marginBottom: SPACING.sm,
@@ -322,24 +326,24 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: COLORS.secondary + '20',
+    backgroundColor: c.secondary + '20',
     justifyContent: 'center',
     alignItems: 'center',
   },
   memberAvatarText: {
     fontSize: FONTS.sizes.lg,
     fontWeight: '700',
-    color: COLORS.secondary,
+    color: c.secondary,
   },
   memberInfo: { flex: 1 },
   memberName: {
     fontSize: FONTS.sizes.md,
     fontWeight: '600',
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
   },
   memberDate: {
     fontSize: FONTS.sizes.xs,
-    color: COLORS.textMuted,
+    color: c.textMuted,
     marginTop: 2,
   },
 
@@ -348,24 +352,24 @@ const styles = StyleSheet.create({
   stateTitle: {
     fontSize: FONTS.sizes.lg,
     fontWeight: '700',
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
     marginBottom: SPACING.xs,
     textAlign: 'center',
   },
   stateText: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
     textAlign: 'center',
   },
   retryButton: {
     marginTop: SPACING.md,
     borderWidth: 1,
-    borderColor: COLORS.primary,
+    borderColor: c.primary,
     paddingHorizontal: SPACING.xl,
     paddingVertical: 10,
     borderRadius: RADIUS.md,
   },
-  retryButtonText: { color: COLORS.primary, fontSize: FONTS.sizes.sm, fontWeight: '600' },
+  retryButtonText: { color: c.primary, fontSize: FONTS.sizes.sm, fontWeight: '600' },
   emptyMembers: {
     alignItems: 'center',
     paddingVertical: SPACING.xl,

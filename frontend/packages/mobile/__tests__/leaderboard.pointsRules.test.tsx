@@ -99,4 +99,22 @@ describe('Leaderboard — points rules popup', () => {
     fireEvent.press(getByLabelText('Close'));
     expect(queryByText('How you earn points')).toBeNull();
   });
+
+  // The rules are taller than a phone screen. rc4 and rc5 shipped a card with
+  // maxHeight: '85%' and a flexShrink ScrollView: on Android the percentage
+  // bound never reached the ScrollView, so it grew to its content and the end
+  // was cut off with nothing to scroll. The list now gets its own maxHeight in
+  // pixels, computed from the real window: a ScrollView with an explicit
+  // height bound scrolls on every platform.
+  it('the rules scroll inside a pixel height bound taken from the window', () => {
+    const { getByLabelText, UNSAFE_getAllByType } = render(<LeaderboardScreen />);
+    fireEvent.press(getByLabelText(i18n.t('pointsRules:open')));
+    const { ScrollView, StyleSheet, Dimensions } = require('react-native');
+    const rules = UNSAFE_getAllByType(ScrollView).find((sv: any) => sv.props.testID === 'points-rules-scroll');
+    expect(rules).toBeDefined();
+    const { maxHeight } = StyleSheet.flatten(rules.props.style);
+    expect(typeof maxHeight).toBe('number');
+    expect(maxHeight).toBeGreaterThan(0);
+    expect(maxHeight).toBeLessThan(Dimensions.get('window').height * 0.85);
+  });
 });

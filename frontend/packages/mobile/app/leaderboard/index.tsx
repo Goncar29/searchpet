@@ -18,7 +18,8 @@ import { useTranslation } from 'react-i18next';
 import { useLeaderboard, useCiudadDecidida } from '../../../shared/hooks';
 import { useAuthStore } from '../../store';
 import { ListState } from '../../components/list/ListState';
-import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
+import { LIGHT_COLORS, SPACING, FONTS, RADIUS, SHADOWS, type ThemeColors } from '../../constants';
+import { useTheme, useThemedStyles } from '../../hooks/useTheme';
 import { IconLabel } from '../../components/IconLabel';
 import { BADGE_META } from '../../../shared/types';
 import { Icon } from '../../components/Icon';
@@ -37,10 +38,11 @@ import type { LeaderboardEntry } from '../../../shared/types';
  */
 const DEFAULT_CITY = 'Montevideo';
 
+// Medal colors are shared by both palettes, so a module-level map is safe.
 const MEDAL_COLOR: Record<number, string> = {
-  1: COLORS.medalGold,
-  2: COLORS.medalSilver,
-  3: COLORS.medalBronze,
+  1: LIGHT_COLORS.medalGold,
+  2: LIGHT_COLORS.medalSilver,
+  3: LIGHT_COLORS.medalBronze,
 };
 
 function getInitials(name: string): string {
@@ -49,12 +51,14 @@ function getInitials(name: string): string {
 
 // Achievements legend: explains what each badge is and how a user earns it.
 function AchievementsLegend() {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   const { t } = useTranslation(['leaderboard', 'pointsRules']);
   const [rulesOpen, setRulesOpen] = useState(false);
   return (
     <View style={styles.achievements}>
       <View style={styles.achievementsHeader}>
-        <IconLabel icon="military-tech" size={18} color={COLORS.textPrimary} gap={SPACING.xs} style={{ flex: 1 }}>
+        <IconLabel icon="military-tech" size={18} color={colors.textPrimary} gap={SPACING.xs} style={{ flex: 1 }}>
           <Text style={[styles.achievementsTitle, { marginBottom: 0 }]}>{t('badges:achievementsTitle')}</Text>
         </IconLabel>
         <TouchableOpacity
@@ -63,7 +67,7 @@ function AchievementsLegend() {
           accessibilityLabel={t('pointsRules:open')}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <Icon name="help" size={22} color={COLORS.textSecondary} />
+          <Icon name="help" size={22} color={colors.textSecondary} />
         </TouchableOpacity>
       </View>
       <PointsRulesModal visible={rulesOpen} onClose={() => setRulesOpen(false)} />
@@ -71,7 +75,7 @@ function AchievementsLegend() {
       {Object.entries(BADGE_META).map(([key, meta]) => (
         <View key={key} style={styles.achievementRow}>
           <View style={styles.achievementIcon}>
-            <Icon name={meta.icon} size={20} color={COLORS.primary} />
+            <Icon name={meta.icon} size={20} color={colors.primary} />
           </View>
           <View style={styles.achievementTextWrap}>
             <Text style={styles.achievementName}>{t(meta.labelKey)}</Text>
@@ -84,6 +88,7 @@ function AchievementsLegend() {
 }
 
 function LeaderboardRow({ entry, onPress }: { entry: LeaderboardEntry; onPress: () => void }) {
+  const styles = useThemedStyles(makeStyles);
   const medal = MEDAL_COLOR[entry.rank];
 
   return (
@@ -120,6 +125,8 @@ function LeaderboardRow({ entry, onPress }: { entry: LeaderboardEntry; onPress: 
 }
 
 export default function LeaderboardScreen() {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   const router = useRouter();
   const { t } = useTranslation('leaderboard');
 
@@ -164,7 +171,7 @@ export default function LeaderboardScreen() {
   // consulta en vuelo— porque para quien mira son la misma cosa.
   const cargando = (
     <View style={styles.center}>
-      <ActivityIndicator size="large" color={COLORS.primary} />
+      <ActivityIndicator size="large" color={colors.primary} />
     </View>
   );
 
@@ -188,7 +195,7 @@ export default function LeaderboardScreen() {
           value={inputCity}
           onChangeText={setInputCity}
           placeholder={t('leaderboard:cityPlaceholder')}
-          placeholderTextColor={COLORS.textMuted}
+          placeholderTextColor={colors.textMuted}
           returnKeyType="search"
           onSubmitEditing={applyCity}
           onBlur={applyCity}
@@ -243,7 +250,7 @@ export default function LeaderboardScreen() {
                 testID="leaderboard-city-header"
                 icon="location-city"
                 size={20}
-                color={COLORS.textPrimary}
+                color={colors.textPrimary}
                 gap={SPACING.xs}
                 style={styles.sectionHeader}
               >
@@ -253,7 +260,7 @@ export default function LeaderboardScreen() {
           }
           ListEmptyComponent={
             <View style={styles.empty}>
-              <View style={styles.emptyIcon}><Icon name="search" size={56} color={COLORS.textMuted} /></View>
+              <View style={styles.emptyIcon}><Icon name="search" size={56} color={colors.textMuted} /></View>
               <Text style={styles.emptyTitle}>{t('leaderboard:emptyTitle')}</Text>
               <Text style={styles.emptyText}>{t('leaderboard:empty', { city })}</Text>
             </View>
@@ -273,27 +280,27 @@ export default function LeaderboardScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
+const makeStyles = (c: ThemeColors) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: c.background },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: SPACING.xl },
 
   // ── Auth guard / Error states ──
   guardIcon: { fontSize: 56, marginBottom: SPACING.md },
-  guardTitle: { fontSize: FONTS.sizes.lg, fontWeight: '700', color: COLORS.textPrimary, marginBottom: SPACING.sm },
-  guardText: { fontSize: FONTS.sizes.sm, color: COLORS.textSecondary, textAlign: 'center', marginBottom: SPACING.lg },
+  guardTitle: { fontSize: FONTS.sizes.lg, fontWeight: '700', color: c.textPrimary, marginBottom: SPACING.sm },
+  guardText: { fontSize: FONTS.sizes.sm, color: c.textSecondary, textAlign: 'center', marginBottom: SPACING.lg },
 
   retryButton: {
     borderWidth: 1,
-    borderColor: COLORS.primary,
+    borderColor: c.primary,
     paddingHorizontal: SPACING.xl,
     paddingVertical: 12,
     borderRadius: RADIUS.md,
   },
-  retryButtonText: { color: COLORS.primary, fontSize: FONTS.sizes.sm, fontWeight: '600' },
+  retryButtonText: { color: c.primary, fontSize: FONTS.sizes.sm, fontWeight: '600' },
 
   // ── City filter ──
   filterContainer: {
-    backgroundColor: COLORS.white,
+    backgroundColor: c.surface,
     paddingHorizontal: SPACING.lg,
     paddingTop: SPACING.md,
     paddingBottom: SPACING.sm,
@@ -302,25 +309,25 @@ const styles = StyleSheet.create({
   filterLabel: {
     fontSize: FONTS.sizes.xs,
     fontWeight: '600',
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
     marginBottom: 4,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   filterInput: {
-    backgroundColor: COLORS.background,
+    backgroundColor: c.background,
     borderRadius: RADIUS.md,
     paddingHorizontal: SPACING.md,
     paddingVertical: 10,
     fontSize: FONTS.sizes.sm,
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: c.border,
   },
 
   // ── Achievements legend ──
   achievements: {
-    backgroundColor: COLORS.white,
+    backgroundColor: c.card,
     marginHorizontal: SPACING.lg,
     marginTop: SPACING.lg,
     borderRadius: RADIUS.lg,
@@ -336,12 +343,12 @@ const styles = StyleSheet.create({
   achievementsTitle: {
     fontSize: FONTS.sizes.md,
     fontWeight: '700',
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
     marginBottom: 2,
   },
   achievementsSubtitle: {
     fontSize: FONTS.sizes.xs,
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
     marginBottom: SPACING.md,
   },
   achievementRow: {
@@ -351,8 +358,8 @@ const styles = StyleSheet.create({
   },
   achievementIcon: { marginRight: SPACING.sm, marginTop: 1 },
   achievementTextWrap: { flex: 1 },
-  achievementName: { fontSize: FONTS.sizes.sm, fontWeight: '600', color: COLORS.textPrimary },
-  achievementHow: { fontSize: FONTS.sizes.xs, color: COLORS.textSecondary },
+  achievementName: { fontSize: FONTS.sizes.sm, fontWeight: '600', color: c.textPrimary },
+  achievementHow: { fontSize: FONTS.sizes.xs, color: c.textSecondary },
 
   // ── List ──
   listContent: { paddingBottom: 80 },
@@ -366,14 +373,14 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: FONTS.sizes.lg,
     fontWeight: '700',
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
   },
 
   // ── Row ──
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.white,
+    backgroundColor: c.card,
     marginHorizontal: SPACING.lg,
     marginBottom: SPACING.sm,
     borderRadius: RADIUS.lg,
@@ -381,29 +388,29 @@ const styles = StyleSheet.create({
     ...SHADOWS.sm,
   },
   rankContainer: { width: 32, alignItems: 'center', marginRight: SPACING.sm },
-  rankNumber: { fontSize: FONTS.sizes.md, fontWeight: '700', color: COLORS.textSecondary },
+  rankNumber: { fontSize: FONTS.sizes.md, fontWeight: '700', color: c.textSecondary },
 
   avatar: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: COLORS.secondary + '20',
+    backgroundColor: c.secondary + '20',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: SPACING.md,
   },
-  avatarTop3: { backgroundColor: COLORS.accent + '30' },
-  avatarText: { fontSize: FONTS.sizes.md, fontWeight: '700', color: COLORS.secondary },
+  avatarTop3: { backgroundColor: c.accent + '30' },
+  avatarText: { fontSize: FONTS.sizes.md, fontWeight: '700', color: c.secondary },
 
-  rowName: { flex: 1, fontSize: FONTS.sizes.md, fontWeight: '500', color: COLORS.textPrimary },
+  rowName: { flex: 1, fontSize: FONTS.sizes.md, fontWeight: '500', color: c.textPrimary },
 
   pointsContainer: { alignItems: 'flex-end' },
-  pointsValue: { fontSize: FONTS.sizes.lg, fontWeight: '700', color: COLORS.primary },
-  pointsLabel: { fontSize: FONTS.sizes.xs, color: COLORS.textMuted },
+  pointsValue: { fontSize: FONTS.sizes.lg, fontWeight: '700', color: c.primary },
+  pointsLabel: { fontSize: FONTS.sizes.xs, color: c.textMuted },
 
   // ── Empty state ──
   empty: { alignItems: 'center', padding: SPACING.xl, marginTop: SPACING.lg },
   emptyIcon: { marginBottom: SPACING.md },
-  emptyTitle: { fontSize: FONTS.sizes.lg, fontWeight: '700', color: COLORS.textPrimary, marginBottom: SPACING.sm },
-  emptyText: { fontSize: FONTS.sizes.sm, color: COLORS.textSecondary, textAlign: 'center', lineHeight: 22 },
+  emptyTitle: { fontSize: FONTS.sizes.lg, fontWeight: '700', color: c.textPrimary, marginBottom: SPACING.sm },
+  emptyText: { fontSize: FONTS.sizes.sm, color: c.textSecondary, textAlign: 'center', lineHeight: 22 },
 });

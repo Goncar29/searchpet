@@ -10,7 +10,8 @@ import type { ReactNode } from 'react';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useVerificationStatus } from '@shared/hooks';
-import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../constants';
+import { type ThemeColors, SPACING, FONTS, RADIUS, SHADOWS } from '../constants';
+import { useTheme, useThemedStyles } from '../hooks/useTheme';
 
 interface Props {
   /** Shown when the answer is "email not verified". */
@@ -20,6 +21,8 @@ interface Props {
 }
 
 export function VerifiedEmailGate({ unverifiedMessage, verifyLabel, children }: Props) {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   const { t } = useTranslation(['common']);
   const router = useRouter();
   const { data, isLoading, isFetching, refetch } = useVerificationStatus({
@@ -32,7 +35,7 @@ export function VerifiedEmailGate({ unverifiedMessage, verifyLabel, children }: 
   if (pending) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="small" color={COLORS.primary} />
+        <ActivityIndicator size="small" color={colors.primary} />
       </View>
     );
   }
@@ -67,12 +70,13 @@ export function VerifiedEmailGate({ unverifiedMessage, verifyLabel, children }: 
   return <>{children}</>;
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: ThemeColors) =>
+  StyleSheet.create({
   center: { paddingVertical: SPACING.xl, alignItems: 'center' },
   card: {
-    backgroundColor: COLORS.white,
+    backgroundColor: c.card,
     borderWidth: 1,
-    borderColor: COLORS.warning,
+    borderColor: c.warning,
     borderRadius: RADIUS.lg,
     padding: SPACING.lg,
     alignItems: 'center',
@@ -80,15 +84,15 @@ const styles = StyleSheet.create({
   },
   text: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
     textAlign: 'center',
     marginBottom: SPACING.md,
   },
   button: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: c.primary,
     paddingVertical: SPACING.sm,
     paddingHorizontal: SPACING.lg,
     borderRadius: RADIUS.md,
   },
-  buttonText: { color: COLORS.white, fontSize: FONTS.sizes.sm, fontWeight: '700' },
+  buttonText: { color: c.onPrimary, fontSize: FONTS.sizes.sm, fontWeight: '700' },
 });

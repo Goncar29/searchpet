@@ -21,7 +21,8 @@ import i18next from 'i18next';
 import { useMyFosterHome, useRegisterFosterHome } from '@shared/hooks';
 import { getErrorMessage } from '@shared/utils/apiErrors';
 import type { AnimalKind, HousingType, RegisterFosterHomeRequest } from '@shared/types';
-import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
+import { SPACING, FONTS, RADIUS, SHADOWS, type ThemeColors } from '../../constants';
+import { useTheme, useThemedStyles } from '../../hooks/useTheme';
 import { VerifiedEmailGate } from '../../components/VerifiedEmailGate';
 
 const HOUSING_TYPES: HousingType[] = ['house', 'apartment'];
@@ -40,6 +41,8 @@ interface FieldErrors {
 }
 
 export default function RegisterFosterHomeScreen() {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   const { t } = useTranslation(['fosterHomes', 'errors', 'common']);
   const router = useRouter();
 
@@ -64,7 +67,7 @@ export default function RegisterFosterHomeScreen() {
   if (mineLoading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -144,7 +147,7 @@ export default function RegisterFosterHomeScreen() {
               setCity(text);
               setErrors((prev) => ({ ...prev, city: undefined }));
             }}
-            placeholderTextColor={COLORS.placeholder}
+            placeholderTextColor={colors.placeholder}
             autoCapitalize="words"
             maxLength={CITY_MAX_LEN}
           />
@@ -254,7 +257,7 @@ export default function RegisterFosterHomeScreen() {
           accessibilityRole="button"
         >
           {registerFosterHome.isPending ? (
-            <ActivityIndicator size="small" color={COLORS.white} />
+            <ActivityIndicator size="small" color={colors.onPrimary} />
           ) : (
             <Text style={styles.submitButtonText}>{t('fosterHomes:register.submit')}</Text>
           )}
@@ -264,18 +267,18 @@ export default function RegisterFosterHomeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
+const makeStyles = (c: ThemeColors) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: c.background },
   center: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: COLORS.background,
+    backgroundColor: c.background,
   },
   content: { padding: SPACING.lg, paddingBottom: SPACING.xxl },
   intro: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
     marginBottom: SPACING.lg,
     lineHeight: 20,
   },
@@ -283,42 +286,42 @@ const styles = StyleSheet.create({
   label: {
     fontSize: FONTS.sizes.sm,
     fontWeight: '600',
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
     marginBottom: SPACING.xs,
   },
   input: {
-    backgroundColor: COLORS.white,
+    backgroundColor: c.surface,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: c.border,
     borderRadius: RADIUS.md,
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.sm,
     fontSize: FONTS.sizes.sm,
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
   },
   textArea: { height: 90, textAlignVertical: 'top' },
-  error: { fontSize: FONTS.sizes.xs, color: COLORS.danger, marginTop: SPACING.xs },
+  error: { fontSize: FONTS.sizes.xs, color: c.danger, marginTop: SPACING.xs },
   fieldFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginTop: SPACING.xs,
   },
-  counter: { fontSize: FONTS.sizes.xs, color: COLORS.textMuted },
+  counter: { fontSize: FONTS.sizes.xs, color: c.textMuted },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm },
   chipOption: {
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: c.border,
     borderRadius: RADIUS.full,
     paddingVertical: SPACING.xs,
     paddingHorizontal: SPACING.md,
-    backgroundColor: COLORS.white,
+    backgroundColor: c.surface,
   },
-  chipOptionActive: { borderColor: COLORS.primary, backgroundColor: COLORS.primaryLight + '22' },
-  chipLabel: { fontSize: FONTS.sizes.sm, color: COLORS.textSecondary, fontWeight: '600' },
-  chipLabelActive: { color: COLORS.primary },
+  chipOptionActive: { borderColor: c.primary, backgroundColor: c.primaryLight + '22' },
+  chipLabel: { fontSize: FONTS.sizes.sm, color: c.textSecondary, fontWeight: '600' },
+  chipLabelActive: { color: c.primary },
   submitButton: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: c.primary,
     borderRadius: RADIUS.md,
     paddingVertical: SPACING.md,
     alignItems: 'center',
@@ -326,5 +329,5 @@ const styles = StyleSheet.create({
     ...SHADOWS.sm,
   },
   disabledButton: { opacity: 0.6 },
-  submitButtonText: { color: COLORS.white, fontWeight: '700', fontSize: FONTS.sizes.md },
+  submitButtonText: { color: c.onPrimary, fontWeight: '700', fontSize: FONTS.sizes.md },
 });

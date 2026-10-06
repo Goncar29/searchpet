@@ -13,7 +13,8 @@ import { buildWhatsAppContactURL } from '@shared/utils/whatsappTemplates';
 import { useAuthStore } from '../store';
 import { ShareButton } from './ShareButton';
 import { PdfFlyerButton } from './PdfFlyerButton';
-import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../constants';
+import { type ThemeColors, SPACING, FONTS, RADIUS, SHADOWS } from '../constants';
+import { useTheme, useThemedStyles } from '../hooks/useTheme';
 import { Icon } from './Icon';
 import { IconLabel } from './IconLabel';
 
@@ -22,6 +23,8 @@ interface AdoptionPetBodyProps {
 }
 
 export function AdoptionPetBody({ pet }: AdoptionPetBodyProps) {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   const { t } = useTranslation(['pets', 'pet_detail', 'adoption', 'common']);
   const { user, isAuthenticated } = useAuthStore();
   const router = useRouter();
@@ -31,7 +34,7 @@ export function AdoptionPetBody({ pet }: AdoptionPetBodyProps) {
     return (
       <View testID="adopted-banner" style={styles.adoptedBanner}>
         <View style={styles.adoptedIcon}>
-          <Icon name="celebration" size={48} color="#047857" />
+          <Icon name="celebration" size={48} color={colors.successSoftText} />
         </View>
         <Text style={styles.adoptedTitle}>{t('adoption:detail.adoptedTitle', { name: pet.name })}</Text>
         <Text style={styles.adoptedSubtitle}>{t('adoption:detail.adoptedSubtitle')}</Text>
@@ -48,7 +51,7 @@ export function AdoptionPetBody({ pet }: AdoptionPetBodyProps) {
           <Text style={styles.sectionTitle}>{t('pet_detail:ownerContact')}</Text>
           <View style={styles.ownerInfo}>
             <View style={styles.ownerAvatar}>
-              <Icon name="person" size={28} color={COLORS.textSecondary} />
+              <Icon name="person" size={28} color={colors.textSecondary} />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.ownerName}>{pet.owner.name}</Text>
@@ -73,7 +76,7 @@ export function AdoptionPetBody({ pet }: AdoptionPetBodyProps) {
                 style={styles.messageButton}
                 onPress={() => router.push(`/chat/${pet.owner_id}?userName=${encodeURIComponent(pet.owner?.name ?? '')}` as `/${string}`)}
               >
-                <IconLabel icon="chat-bubble" size={18} color={COLORS.white}>
+                <IconLabel icon="chat-bubble" size={18} color={colors.onPrimary}>
                   <Text style={styles.messageButtonText}>{t('pets:detail.sendMessage')}</Text>
                 </IconLabel>
               </TouchableOpacity>
@@ -83,7 +86,7 @@ export function AdoptionPetBody({ pet }: AdoptionPetBodyProps) {
                 style={styles.loginButton}
                 onPress={() => router.push('/login')}
               >
-                <IconLabel icon="lock" size={18} color={COLORS.textSecondary}>
+                <IconLabel icon="lock" size={18} color={colors.textSecondary}>
                   <Text style={styles.loginButtonText}>{t('pets:detail.loginToContact')}</Text>
                 </IconLabel>
               </TouchableOpacity>
@@ -104,9 +107,10 @@ export function AdoptionPetBody({ pet }: AdoptionPetBodyProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: ThemeColors) =>
+  StyleSheet.create({
   adoptedBanner: {
-    backgroundColor: '#ecfdf5',
+    backgroundColor: c.successSoftBg,
     borderRadius: RADIUS.lg,
     padding: SPACING.lg,
     marginBottom: SPACING.md,
@@ -114,49 +118,49 @@ const styles = StyleSheet.create({
     ...SHADOWS.sm,
   },
   adoptedIcon: { marginBottom: SPACING.sm },
-  adoptedTitle: { fontSize: FONTS.sizes.md, fontWeight: '800', color: '#065f46', textAlign: 'center' },
-  adoptedSubtitle: { fontSize: FONTS.sizes.sm, color: '#047857', textAlign: 'center', marginTop: 4 },
+  adoptedTitle: { fontSize: FONTS.sizes.md, fontWeight: '800', color: c.successSoftTitle, textAlign: 'center' },
+  adoptedSubtitle: { fontSize: FONTS.sizes.sm, color: c.successSoftText, textAlign: 'center', marginTop: 4 },
   ownerCard: {
-    backgroundColor: COLORS.white,
+    backgroundColor: c.card,
     borderRadius: RADIUS.lg,
     padding: SPACING.md,
     marginBottom: SPACING.md,
     ...SHADOWS.sm,
   },
-  sectionTitle: { fontSize: FONTS.sizes.md, fontWeight: '700', color: COLORS.textPrimary, marginBottom: SPACING.sm },
+  sectionTitle: { fontSize: FONTS.sizes.md, fontWeight: '700', color: c.textPrimary, marginBottom: SPACING.sm },
   ownerInfo: { flexDirection: 'row', alignItems: 'center', marginBottom: SPACING.md },
   ownerAvatar: {
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: COLORS.background,
+    backgroundColor: c.background,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: SPACING.md,
   },
-  ownerName: { fontSize: FONTS.sizes.md, fontWeight: '600', color: COLORS.textPrimary },
+  ownerName: { fontSize: FONTS.sizes.md, fontWeight: '600', color: c.textPrimary },
   contactButton: {
-    backgroundColor: COLORS.whatsapp,
+    backgroundColor: c.whatsapp,
     paddingVertical: 14,
     borderRadius: RADIUS.md,
     alignItems: 'center',
   },
-  contactButtonText: { color: COLORS.white, fontSize: FONTS.sizes.md, fontWeight: '700' },
+  contactButtonText: { color: c.onPrimary, fontSize: FONTS.sizes.md, fontWeight: '700' },
   messageButton: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: c.primary,
     paddingVertical: 14,
     borderRadius: RADIUS.md,
     alignItems: 'center',
     marginTop: SPACING.sm,
   },
-  messageButtonText: { color: COLORS.white, fontSize: FONTS.sizes.md, fontWeight: '700' },
+  messageButtonText: { color: c.onPrimary, fontSize: FONTS.sizes.md, fontWeight: '700' },
   loginButton: {
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: c.border,
     paddingVertical: 14,
     borderRadius: RADIUS.md,
     alignItems: 'center',
     marginTop: SPACING.sm,
   },
-  loginButtonText: { color: COLORS.textSecondary, fontSize: FONTS.sizes.md, fontWeight: '600' },
+  loginButtonText: { color: c.textSecondary, fontSize: FONTS.sizes.md, fontWeight: '600' },
 });

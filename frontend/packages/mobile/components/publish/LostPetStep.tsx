@@ -4,7 +4,8 @@ import { useTranslation } from 'react-i18next';
 import { useMyPets } from '@shared/hooks';
 import { useAuthStore } from '../../store';
 import type { Pet, Photo } from '../../../shared/types';
-import { COLORS, SPACING, FONTS, RADIUS } from '../../constants';
+import { type ThemeColors, SPACING, FONTS, RADIUS } from '../../constants';
+import { useThemedStyles } from '../../hooks/useTheme';
 import { PawPlaceholder } from '../PawPlaceholder';
 import { ListState } from '../list/ListState';
 import { cloudinaryThumb } from '@shared/utils/cloudinaryThumb';
@@ -15,6 +16,7 @@ interface LostPetStepProps {
 }
 
 export function LostPetStep({ onSelect }: LostPetStepProps) {
+  const styles = useThemedStyles(makeStyles);
   const { t } = useTranslation();
   const router = useRouter();
   const { isAuthenticated } = useAuthStore();
@@ -124,19 +126,20 @@ export function LostPetStep({ onSelect }: LostPetStepProps) {
   );
 }
 
-const styles = StyleSheet.create({
-  title: { fontSize: FONTS.sizes.xl, fontWeight: '700', color: COLORS.textPrimary, marginBottom: SPACING.lg, textAlign: 'center' },
-  loading: { textAlign: 'center', color: COLORS.textSecondary, padding: SPACING.lg },
-  emptyContainer: { backgroundColor: COLORS.white, borderRadius: RADIUS.lg, padding: SPACING.lg, alignItems: 'center' },
-  emptyText: { color: COLORS.textSecondary, marginBottom: SPACING.md, textAlign: 'center' },
-  emptyButton: { backgroundColor: COLORS.primary, borderRadius: RADIUS.md, paddingVertical: SPACING.sm, paddingHorizontal: SPACING.lg },
-  emptyButtonText: { color: COLORS.white, fontWeight: '700', fontSize: FONTS.sizes.sm },
+const makeStyles = (c: ThemeColors) =>
+  StyleSheet.create({
+  title: { fontSize: FONTS.sizes.xl, fontWeight: '700', color: c.textPrimary, marginBottom: SPACING.lg, textAlign: 'center' },
+  loading: { textAlign: 'center', color: c.textSecondary, padding: SPACING.lg },
+  emptyContainer: { backgroundColor: c.surface, borderRadius: RADIUS.lg, padding: SPACING.lg, alignItems: 'center' },
+  emptyText: { color: c.textSecondary, marginBottom: SPACING.md, textAlign: 'center' },
+  emptyButton: { backgroundColor: c.primary, borderRadius: RADIUS.md, paddingVertical: SPACING.sm, paddingHorizontal: SPACING.lg },
+  emptyButtonText: { color: c.onPrimary, fontWeight: '700', fontSize: FONTS.sizes.sm },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.white,
+    backgroundColor: c.card,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: c.border,
     borderRadius: RADIUS.lg,
     padding: SPACING.md,
     marginBottom: SPACING.sm,
@@ -147,13 +150,13 @@ const styles = StyleSheet.create({
     height: 56,
     borderRadius: RADIUS.md,
     marginRight: SPACING.md,
-    backgroundColor: COLORS.background,
+    backgroundColor: c.background,
     alignItems: 'center',
     justifyContent: 'center',
   },
   thumbPlaceholderText: { fontSize: 24 },
   rowInfo: { flex: 1 },
-  rowName: { fontSize: FONTS.sizes.md, fontWeight: '700', color: COLORS.textPrimary },
-  rowType: { fontSize: FONTS.sizes.sm, color: COLORS.textSecondary, marginTop: SPACING.xs },
-  selectLabel: { color: COLORS.primary, fontWeight: '700', fontSize: FONTS.sizes.sm },
+  rowName: { fontSize: FONTS.sizes.md, fontWeight: '700', color: c.textPrimary },
+  rowType: { fontSize: FONTS.sizes.sm, color: c.textSecondary, marginTop: SPACING.xs },
+  selectLabel: { color: c.primary, fontWeight: '700', fontSize: FONTS.sizes.sm },
 });

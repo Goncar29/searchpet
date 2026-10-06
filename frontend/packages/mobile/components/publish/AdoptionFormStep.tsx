@@ -5,7 +5,8 @@ import { PetIdentityFields } from '../PetIdentityFields';
 import { composeBirthDate } from '@shared/utils/petBirthDate';
 import * as ImagePicker from 'expo-image-picker';
 import type { AdoptionFormState } from '../../app/(tabs)/post';
-import { COLORS, SPACING, FONTS, RADIUS, PET_TYPES } from '../../constants';
+import { type ThemeColors, SPACING, FONTS, RADIUS, PET_TYPES } from '../../constants';
+import { useTheme, useThemedStyles } from '../../hooks/useTheme';
 import { Icon } from '../Icon';
 
 interface AdoptionFormStepProps {
@@ -28,6 +29,8 @@ interface FieldErrors {
 // minus the location step, plus a required `city` field — adoption pets are
 // owner-based and have no location report.
 export function AdoptionFormStep({ value, onChange, onSubmit, isPending }: AdoptionFormStepProps) {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   const { t } = useTranslation();
   const [errors, setErrors] = useState<FieldErrors>({});
 
@@ -104,7 +107,7 @@ export function AdoptionFormStep({ value, onChange, onSubmit, isPending }: Adopt
             <TouchableOpacity key={`${uri}-${i}`} onPress={() => removePhoto(i)} accessibilityRole="button" accessibilityLabel={t('publish:strayForm.removePhoto')}>
               <Image source={{ uri }} style={styles.photoThumb} />
               <View style={styles.photoRemove}>
-                <Icon name="close" size={14} color={COLORS.white} />
+                <Icon name="close" size={14} color={colors.white} />
               </View>
             </TouchableOpacity>
           ))}
@@ -123,7 +126,7 @@ export function AdoptionFormStep({ value, onChange, onSubmit, isPending }: Adopt
             disabled={atLimit}
             accessibilityRole="button"
           >
-            <Icon name="photo-camera" size={24} color={COLORS.textMuted} />
+            <Icon name="photo-camera" size={24} color={colors.textMuted} />
             <Text style={styles.addPhotoLabel}>{t('publish:strayForm.camera')}</Text>
           </TouchableOpacity>
         </ScrollView>
@@ -153,7 +156,7 @@ export function AdoptionFormStep({ value, onChange, onSubmit, isPending }: Adopt
                   <Icon
                     name={petType.icon}
                     size={18}
-                    color={active ? COLORS.primary : COLORS.textSecondary}
+                    color={active ? colors.primary : colors.textSecondary}
                   />
                 </View>
                 <Text style={[styles.typeLabel, active && styles.typeLabelActive]}>
@@ -217,7 +220,7 @@ export function AdoptionFormStep({ value, onChange, onSubmit, isPending }: Adopt
           value={value.city}
           onChangeText={(text) => onChange({ ...value, city: text })}
           placeholder={t('adoption:publish.cityPlaceholder')}
-          placeholderTextColor={COLORS.placeholder}
+          placeholderTextColor={colors.placeholder}
         />
         {errors.city && <Text style={styles.error}>{errors.city}</Text>}
       </View>
@@ -234,13 +237,14 @@ export function AdoptionFormStep({ value, onChange, onSubmit, isPending }: Adopt
   );
 }
 
-const styles = StyleSheet.create({
-  container: { backgroundColor: COLORS.white, borderRadius: RADIUS.lg, padding: SPACING.lg },
-  title: { fontSize: FONTS.sizes.xl, fontWeight: '700', color: COLORS.textPrimary, marginBottom: SPACING.lg, textAlign: 'center' },
+const makeStyles = (c: ThemeColors) =>
+  StyleSheet.create({
+  container: { backgroundColor: c.surface, borderRadius: RADIUS.lg, padding: SPACING.lg },
+  title: { fontSize: FONTS.sizes.xl, fontWeight: '700', color: c.textPrimary, marginBottom: SPACING.lg, textAlign: 'center' },
   section: { marginBottom: SPACING.md },
   labelRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.xs },
-  label: { fontSize: FONTS.sizes.sm, fontWeight: '600', color: COLORS.textPrimary, marginBottom: SPACING.xs },
-  photoCount: { fontSize: FONTS.sizes.xs, color: COLORS.textMuted },
+  label: { fontSize: FONTS.sizes.sm, fontWeight: '600', color: c.textPrimary, marginBottom: SPACING.xs },
+  photoCount: { fontSize: FONTS.sizes.xs, color: c.textMuted },
   photoRow: { flexDirection: 'row' },
   photoThumb: { width: 72, height: 72, borderRadius: RADIUS.md, marginRight: SPACING.sm },
   photoRemove: {
@@ -250,7 +254,7 @@ const styles = StyleSheet.create({
     width: 20,
     height: 20,
     borderRadius: RADIUS.full,
-    backgroundColor: COLORS.danger,
+    backgroundColor: c.danger,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -259,48 +263,48 @@ const styles = StyleSheet.create({
     height: 72,
     borderRadius: RADIUS.md,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: c.border,
     borderStyle: 'dashed',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: SPACING.sm,
   },
   addPhotoDisabled: { opacity: 0.4 },
-  addPhotoIcon: { fontSize: 24, color: COLORS.textMuted },
-  addPhotoLabel: { fontSize: 11, color: COLORS.textMuted, marginTop: 2 },
-  hint: { fontSize: FONTS.sizes.xs, color: COLORS.textMuted, marginTop: SPACING.xs },
-  error: { fontSize: FONTS.sizes.xs, color: COLORS.danger, marginTop: SPACING.xs },
+  addPhotoIcon: { fontSize: 24, color: c.textMuted },
+  addPhotoLabel: { fontSize: 11, color: c.textMuted, marginTop: 2 },
+  hint: { fontSize: FONTS.sizes.xs, color: c.textMuted, marginTop: SPACING.xs },
+  error: { fontSize: FONTS.sizes.xs, color: c.danger, marginTop: SPACING.xs },
   typeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm },
   typeOption: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: c.border,
     borderRadius: RADIUS.md,
     paddingVertical: SPACING.xs,
     paddingHorizontal: SPACING.sm,
   },
-  typeOptionActive: { borderColor: COLORS.primary, backgroundColor: COLORS.primaryLight + '22' },
+  typeOptionActive: { borderColor: c.primary, backgroundColor: c.primaryLight + '22' },
   typeIcon: { marginRight: SPACING.xs },
-  typeLabel: { fontSize: FONTS.sizes.sm, color: COLORS.textSecondary },
-  typeLabelActive: { color: COLORS.primary, fontWeight: '700' },
+  typeLabel: { fontSize: FONTS.sizes.sm, color: c.textSecondary },
+  typeLabelActive: { color: c.primary, fontWeight: '700' },
   input: {
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: c.border,
     borderRadius: RADIUS.md,
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.sm,
     fontSize: FONTS.sizes.sm,
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
   },
   textArea: { height: 80, textAlignVertical: 'top' },
   nextButton: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: c.primary,
     borderRadius: RADIUS.md,
     paddingVertical: SPACING.md,
     alignItems: 'center',
     marginTop: SPACING.sm,
   },
   disabled: { opacity: 0.6 },
-  nextButtonText: { color: COLORS.white, fontWeight: '700', fontSize: FONTS.sizes.md },
+  nextButtonText: { color: c.onPrimary, fontWeight: '700', fontSize: FONTS.sizes.md },
 });

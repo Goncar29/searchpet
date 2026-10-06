@@ -20,7 +20,8 @@ import { useAuthStore } from '../../store';
 import { useGroups, useJoinGroup, useLeaveGroup } from '../../../shared/hooks';
 import { ListState } from '../../components/list/ListState';
 import { getErrorMessage } from '../../../shared/utils/apiErrors';
-import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
+import { SPACING, FONTS, RADIUS, SHADOWS, type ThemeColors } from '../../constants';
+import { useTheme, useThemedStyles } from '../../hooks/useTheme';
 import { Icon } from '../../components/Icon';
 import type { LocalGroup } from '../../../shared/types';
 
@@ -36,6 +37,8 @@ interface GroupCardProps {
 }
 
 function GroupCard({ group, isAuthenticated, onPress, onUnauthenticated }: GroupCardProps) {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   const { t } = useTranslation('groups');
   const joinMutation = useJoinGroup(group.id);
   const leaveMutation = useLeaveGroup(group.id);
@@ -70,7 +73,7 @@ function GroupCard({ group, isAuthenticated, onPress, onUnauthenticated }: Group
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.8}>
       <View style={styles.cardHeader}>
         <View style={styles.cardTitleRow}>
-          <Icon name="location-on" size={16} color={COLORS.primary} />
+          <Icon name="location-on" size={16} color={colors.primary} />
           <Text style={styles.cardCity} numberOfLines={1}>{group.city}</Text>
           {group.is_member && (
             <View style={styles.memberBadge}>
@@ -90,7 +93,7 @@ function GroupCard({ group, isAuthenticated, onPress, onUnauthenticated }: Group
           {isPending ? (
             <ActivityIndicator
               size="small"
-              color={group.is_member ? COLORS.danger : COLORS.white}
+              color={group.is_member ? colors.danger : colors.onPrimary}
             />
           ) : (
             <Text style={[styles.actionButtonText, group.is_member && styles.leaveButtonText]}>
@@ -118,6 +121,8 @@ function GroupCard({ group, isAuthenticated, onPress, onUnauthenticated }: Group
 // ============================================================
 
 export default function GroupsScreen() {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   const router = useRouter();
   const { t } = useTranslation('groups');
   const { isAuthenticated } = useAuthStore();
@@ -142,7 +147,7 @@ export default function GroupsScreen() {
         <TextInput
           style={styles.searchInput}
           placeholder={t('groups:searchPlaceholder')}
-          placeholderTextColor={COLORS.placeholder}
+          placeholderTextColor={colors.placeholder}
           value={cityFilter}
           onChangeText={setCityFilter}
           onSubmitEditing={handleSearch}
@@ -164,7 +169,7 @@ export default function GroupsScreen() {
         query={groupsQuery}
         loading={
           <View style={styles.center}>
-            <ActivityIndicator size="large" color={COLORS.primary} />
+            <ActivityIndicator size="large" color={colors.primary} />
           </View>
         }
       >
@@ -184,7 +189,7 @@ export default function GroupsScreen() {
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
           <View style={styles.emptyState}>
-            <View style={styles.stateIcon}><Icon name="group" size={48} color={COLORS.textMuted} /></View>
+            <View style={styles.stateIcon}><Icon name="group" size={48} color={colors.textMuted} /></View>
             <Text style={styles.stateTitle}>{t('groups:emptyTitle')}</Text>
             <Text style={styles.stateText}>
               {submittedCity
@@ -200,8 +205,8 @@ export default function GroupsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
+const makeStyles = (c: ThemeColors) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: c.background },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: SPACING.xl },
 
   // Search bar
@@ -212,27 +217,27 @@ const styles = StyleSheet.create({
     paddingTop: SPACING.md,
     paddingBottom: SPACING.sm,
     gap: SPACING.sm,
-    backgroundColor: COLORS.white,
+    backgroundColor: c.surface,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomColor: c.border,
   },
   searchInput: {
     flex: 1,
     height: 40,
-    backgroundColor: COLORS.background,
+    backgroundColor: c.background,
     borderRadius: RADIUS.md,
     paddingHorizontal: SPACING.md,
     fontSize: FONTS.sizes.sm,
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
   },
   searchButton: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: c.primary,
     paddingHorizontal: SPACING.md,
     paddingVertical: 10,
     borderRadius: RADIUS.md,
   },
   searchButtonText: {
-    color: COLORS.white,
+    color: c.onPrimary,
     fontSize: FONTS.sizes.sm,
     fontWeight: '600',
   },
@@ -242,7 +247,7 @@ const styles = StyleSheet.create({
 
   // Card
   card: {
-    backgroundColor: COLORS.white,
+    backgroundColor: c.card,
     borderRadius: RADIUS.lg,
     padding: SPACING.md,
     ...SHADOWS.sm,
@@ -263,29 +268,29 @@ const styles = StyleSheet.create({
   cardCity: {
     fontSize: FONTS.sizes.md,
     fontWeight: '700',
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
     flex: 1,
   },
   memberBadge: {
-    backgroundColor: COLORS.primary + '20',
+    backgroundColor: c.primary + '20',
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: RADIUS.full,
   },
   memberBadgeText: {
     fontSize: FONTS.sizes.xs,
-    color: COLORS.primary,
+    color: c.primary,
     fontWeight: '600',
   },
   cardDescription: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
     marginBottom: SPACING.xs,
     lineHeight: 18,
   },
   cardMemberCount: {
     fontSize: FONTS.sizes.xs,
-    color: COLORS.textMuted,
+    color: c.textMuted,
     marginTop: SPACING.xs,
   },
 
@@ -297,43 +302,43 @@ const styles = StyleSheet.create({
     minWidth: 72,
     alignItems: 'center',
   },
-  joinButton: { backgroundColor: COLORS.primary },
+  joinButton: { backgroundColor: c.primary },
   leaveButton: {
     backgroundColor: 'transparent',
     borderWidth: 1,
-    borderColor: COLORS.danger,
+    borderColor: c.danger,
   },
   actionButtonDisabled: { opacity: 0.6 },
   actionButtonText: {
-    color: COLORS.white,
+    color: c.onPrimary,
     fontSize: FONTS.sizes.sm,
     fontWeight: '600',
   },
-  leaveButtonText: { color: COLORS.danger },
+  leaveButtonText: { color: c.danger },
 
   // States
   stateIcon: { marginBottom: SPACING.sm },
   stateTitle: {
     fontSize: FONTS.sizes.lg,
     fontWeight: '700',
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
     marginBottom: SPACING.xs,
     textAlign: 'center',
   },
   stateText: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
     textAlign: 'center',
   },
   retryButton: {
     marginTop: SPACING.md,
     borderWidth: 1,
-    borderColor: COLORS.primary,
+    borderColor: c.primary,
     paddingHorizontal: SPACING.xl,
     paddingVertical: 10,
     borderRadius: RADIUS.md,
   },
-  retryButtonText: { color: COLORS.primary, fontSize: FONTS.sizes.sm, fontWeight: '600' },
+  retryButtonText: { color: c.primary, fontSize: FONTS.sizes.sm, fontWeight: '600' },
   emptyState: {
     alignItems: 'center',
     paddingTop: SPACING.xl * 2,

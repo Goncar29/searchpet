@@ -23,7 +23,8 @@ import { useAlerts, useCreateAlert, useUpdateAlert, useDeleteAlert } from '../..
 import { getErrorMessage } from '../../../shared/utils/apiErrors';
 import { ListState } from '../../components/list/ListState';
 import { useLocationStore } from '../../store';
-import { COLORS, SPACING, FONTS, RADIUS, SHADOWS, PET_TYPES } from '../../constants';
+import { SPACING, FONTS, RADIUS, SHADOWS, PET_TYPES, type ThemeColors } from '../../constants';
+import { useTheme, useThemedStyles } from '../../hooks/useTheme';
 import { IconLabel } from '../../components/IconLabel';
 import { Icon } from '../../components/Icon';
 import type { LocationAlert, PetType } from '../../../shared/types';
@@ -31,6 +32,8 @@ import type { LocationAlert, PetType } from '../../../shared/types';
 const RADIUS_OPTIONS = [1, 2, 5, 10, 25] as const;
 
 export default function AlertsScreen() {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   const { t } = useTranslation('alerts');
   const { latitude, longitude } = useLocationStore();
 
@@ -126,7 +129,7 @@ export default function AlertsScreen() {
   if (isLoading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -136,7 +139,7 @@ export default function AlertsScreen() {
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* ── Intro ── */}
         <View style={styles.intro}>
-          <IconLabel icon="notifications" size={18} color={COLORS.primary} gap={SPACING.xs} style={{ marginBottom: 4 }}>
+          <IconLabel icon="notifications" size={18} color={colors.primary} gap={SPACING.xs} style={{ marginBottom: 4 }}>
             <Text style={[styles.introTitle, { marginBottom: 0 }]}>{t('alerts:introTitle')}</Text>
           </IconLabel>
           <Text style={styles.introText}>{t('alerts:introText')}</Text>
@@ -166,7 +169,7 @@ export default function AlertsScreen() {
             <TextInput
               style={styles.input}
               placeholder={t('alerts:namePlaceholder')}
-              placeholderTextColor={COLORS.textMuted}
+              placeholderTextColor={colors.textMuted}
               value={name}
               onChangeText={setName}
               maxLength={60}
@@ -180,9 +183,9 @@ export default function AlertsScreen() {
               disabled={locating}
             >
               {locating ? (
-                <ActivityIndicator size="small" color={COLORS.primary} />
+                <ActivityIndicator size="small" color={colors.primary} />
               ) : (
-                <IconLabel icon="location-on" size={16} color={COLORS.primary}>
+                <IconLabel icon="location-on" size={16} color={colors.primary}>
                   <Text style={styles.locationButtonText}>
                     {formLat && formLng
                       ? t('alerts:locationSet', { lat: formLat.toFixed(4), lng: formLng.toFixed(4) })
@@ -226,7 +229,7 @@ export default function AlertsScreen() {
                   <IconLabel
                     icon={petTypeOption.icon}
                     size={18}
-                    color={petType === petTypeOption.value ? COLORS.white : COLORS.textSecondary}
+                    color={petType === petTypeOption.value ? colors.onPrimary : colors.textSecondary}
                   >
                     <Text style={[styles.typeChipText, petType === petTypeOption.value && styles.typeChipTextActive]}>
                       {t(petTypeOption.labelKey)}
@@ -250,7 +253,7 @@ export default function AlertsScreen() {
                 disabled={createAlert.isPending}
               >
                 {createAlert.isPending
-                  ? <ActivityIndicator size="small" color={COLORS.white} />
+                  ? <ActivityIndicator size="small" color={colors.onPrimary} />
                   : <Text style={styles.saveButtonText}>{t('alerts:createButton')}</Text>
                 }
               </TouchableOpacity>
@@ -266,7 +269,7 @@ export default function AlertsScreen() {
           query={alertsQuery}
           loading={
             <View style={styles.center}>
-              <ActivityIndicator size="large" color={COLORS.primary} />
+              <ActivityIndicator size="large" color={colors.primary} />
             </View>
           }
         >
@@ -283,7 +286,7 @@ export default function AlertsScreen() {
                         <Text style={styles.alertName}>
                           {alert.name || t('alerts:noName')}
                         </Text>
-                        <IconLabel icon="location-on" size={13} color={COLORS.textSecondary} gap={2}>
+                        <IconLabel icon="location-on" size={13} color={colors.textSecondary} gap={2}>
                           <Text style={[styles.alertMeta, { flexShrink: 1 }]}>
                             {alert.alert_latitude?.toFixed(3)}, {alert.alert_longitude?.toFixed(3)}
                             {'  ·  '}{alert.radius_km} km
@@ -297,8 +300,8 @@ export default function AlertsScreen() {
                       <Switch
                         value={alert.is_active}
                         onValueChange={() => handleToggle(alert)}
-                        trackColor={{ false: COLORS.border, true: COLORS.primary + '80' }}
-                        thumbColor={alert.is_active ? COLORS.primary : COLORS.textMuted}
+                        trackColor={{ false: colors.border, true: colors.primary + '80' }}
+                        thumbColor={alert.is_active ? colors.primary : colors.textMuted}
                       />
                     </View>
                     <TouchableOpacity
@@ -312,7 +315,7 @@ export default function AlertsScreen() {
               </View>
             ) : !showForm ? (
               <View style={styles.empty}>
-                <View style={styles.emptyIcon}><Icon name="notifications-off" size={56} color={COLORS.textMuted} /></View>
+                <View style={styles.emptyIcon}><Icon name="notifications-off" size={56} color={colors.textMuted} /></View>
                 <Text style={styles.emptyTitle}>{t('alerts:emptyTitle')}</Text>
                 <Text style={styles.emptyText}>{t('alerts:emptyText')}</Text>
               </View>
@@ -326,102 +329,102 @@ export default function AlertsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
+const makeStyles = (c: ThemeColors) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: c.background },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 
   intro: {
     margin: SPACING.lg,
     padding: SPACING.md,
-    backgroundColor: COLORS.primary + '15',
+    backgroundColor: c.primary + '15',
     borderRadius: RADIUS.lg,
     borderLeftWidth: 3,
-    borderLeftColor: COLORS.primary,
+    borderLeftColor: c.primary,
   },
-  introTitle: { fontSize: FONTS.sizes.md, fontWeight: '700', color: COLORS.primary, marginBottom: 4 },
-  introText: { fontSize: FONTS.sizes.sm, color: COLORS.textSecondary, lineHeight: 20 },
+  introTitle: { fontSize: FONTS.sizes.md, fontWeight: '700', color: c.primary, marginBottom: 4 },
+  introText: { fontSize: FONTS.sizes.sm, color: c.textSecondary, lineHeight: 20 },
 
   createButton: {
     marginHorizontal: SPACING.lg,
     marginBottom: SPACING.md,
-    backgroundColor: COLORS.primary,
+    backgroundColor: c.primary,
     paddingVertical: 14,
     borderRadius: RADIUS.md,
     alignItems: 'center',
   },
-  createButtonText: { color: COLORS.white, fontSize: FONTS.sizes.md, fontWeight: '700' },
+  createButtonText: { color: c.onPrimary, fontSize: FONTS.sizes.md, fontWeight: '700' },
 
   // ── Formulario ──
   formCard: {
     margin: SPACING.lg,
     padding: SPACING.lg,
-    backgroundColor: COLORS.white,
+    backgroundColor: c.card,
     borderRadius: RADIUS.lg,
     ...SHADOWS.md,
   },
-  formTitle: { fontSize: FONTS.sizes.lg, fontWeight: '700', color: COLORS.textPrimary, marginBottom: SPACING.md },
-  fieldLabel: { fontSize: FONTS.sizes.sm, fontWeight: '600', color: COLORS.textSecondary, marginBottom: 6, marginTop: SPACING.sm },
+  formTitle: { fontSize: FONTS.sizes.lg, fontWeight: '700', color: c.textPrimary, marginBottom: SPACING.md },
+  fieldLabel: { fontSize: FONTS.sizes.sm, fontWeight: '600', color: c.textSecondary, marginBottom: 6, marginTop: SPACING.sm },
   input: {
-    backgroundColor: COLORS.background,
+    backgroundColor: c.background,
     borderRadius: RADIUS.md,
     paddingHorizontal: SPACING.md,
     paddingVertical: 10,
     fontSize: FONTS.sizes.sm,
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: c.border,
   },
   locationButton: {
-    backgroundColor: COLORS.background,
+    backgroundColor: c.background,
     borderRadius: RADIUS.md,
     paddingHorizontal: SPACING.md,
     paddingVertical: 12,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: c.border,
     alignItems: 'center',
   },
-  locationButtonText: { fontSize: FONTS.sizes.sm, color: COLORS.primary, fontWeight: '600' },
+  locationButtonText: { fontSize: FONTS.sizes.sm, color: c.primary, fontWeight: '600' },
   radiusRow: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm },
   radiusChip: {
     paddingHorizontal: 14,
     paddingVertical: 6,
     borderRadius: 20,
-    backgroundColor: COLORS.background,
+    backgroundColor: c.background,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: c.border,
   },
-  radiusChipActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
-  radiusChipText: { fontSize: FONTS.sizes.sm, color: COLORS.textSecondary, fontWeight: '500' },
-  radiusChipTextActive: { color: COLORS.white, fontWeight: '700' },
+  radiusChipActive: { backgroundColor: c.primary, borderColor: c.primary },
+  radiusChipText: { fontSize: FONTS.sizes.sm, color: c.textSecondary, fontWeight: '500' },
+  radiusChipTextActive: { color: c.onPrimary, fontWeight: '700' },
   typeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm },
   typeChip: {
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 20,
-    backgroundColor: COLORS.background,
+    backgroundColor: c.background,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: c.border,
   },
-  typeChipActive: { backgroundColor: COLORS.secondary, borderColor: COLORS.secondary },
-  typeChipText: { fontSize: FONTS.sizes.sm, color: COLORS.textSecondary, fontWeight: '500' },
-  typeChipTextActive: { color: COLORS.white, fontWeight: '700' },
+  typeChipActive: { backgroundColor: c.secondary, borderColor: c.secondary },
+  typeChipText: { fontSize: FONTS.sizes.sm, color: c.textSecondary, fontWeight: '500' },
+  typeChipTextActive: { color: c.onPrimary, fontWeight: '700' },
   formActions: { flexDirection: 'row', gap: SPACING.sm, marginTop: SPACING.lg },
   cancelButton: {
     flex: 1, paddingVertical: 12, borderRadius: RADIUS.md,
-    borderWidth: 1, borderColor: COLORS.border, alignItems: 'center',
+    borderWidth: 1, borderColor: c.border, alignItems: 'center',
   },
-  cancelButtonText: { color: COLORS.textSecondary, fontSize: FONTS.sizes.sm, fontWeight: '600' },
+  cancelButtonText: { color: c.textSecondary, fontSize: FONTS.sizes.sm, fontWeight: '600' },
   saveButton: {
     flex: 2, paddingVertical: 12, borderRadius: RADIUS.md,
-    backgroundColor: COLORS.primary, alignItems: 'center',
+    backgroundColor: c.primary, alignItems: 'center',
   },
-  saveButtonText: { color: COLORS.white, fontSize: FONTS.sizes.sm, fontWeight: '700' },
+  saveButtonText: { color: c.onPrimary, fontSize: FONTS.sizes.sm, fontWeight: '700' },
 
   // ── Lista ──
   alertsList: { marginHorizontal: SPACING.lg },
-  sectionTitle: { fontSize: FONTS.sizes.md, fontWeight: '700', color: COLORS.textPrimary, marginBottom: SPACING.md },
+  sectionTitle: { fontSize: FONTS.sizes.md, fontWeight: '700', color: c.textPrimary, marginBottom: SPACING.md },
   alertCard: {
-    backgroundColor: COLORS.white,
+    backgroundColor: c.card,
     borderRadius: RADIUS.lg,
     padding: SPACING.md,
     marginBottom: SPACING.md,
@@ -429,14 +432,14 @@ const styles = StyleSheet.create({
   },
   alertHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: SPACING.sm },
   alertInfo: { flex: 1, marginRight: SPACING.sm },
-  alertName: { fontSize: FONTS.sizes.md, fontWeight: '600', color: COLORS.textPrimary },
-  alertMeta: { fontSize: FONTS.sizes.xs, color: COLORS.textMuted, marginTop: 2 },
+  alertName: { fontSize: FONTS.sizes.md, fontWeight: '600', color: c.textPrimary },
+  alertMeta: { fontSize: FONTS.sizes.xs, color: c.textMuted, marginTop: 2 },
   deleteButton: { alignSelf: 'flex-start' },
-  deleteText: { fontSize: FONTS.sizes.xs, color: COLORS.danger, fontWeight: '600' },
+  deleteText: { fontSize: FONTS.sizes.xs, color: c.danger, fontWeight: '600' },
 
   // ── Empty ──
   empty: { alignItems: 'center', padding: SPACING.xl, marginTop: SPACING.lg },
   emptyIcon: { marginBottom: SPACING.md },
-  emptyTitle: { fontSize: FONTS.sizes.lg, fontWeight: '700', color: COLORS.textPrimary, marginBottom: SPACING.sm },
-  emptyText: { fontSize: FONTS.sizes.sm, color: COLORS.textSecondary, textAlign: 'center', lineHeight: 22 },
+  emptyTitle: { fontSize: FONTS.sizes.lg, fontWeight: '700', color: c.textPrimary, marginBottom: SPACING.sm },
+  emptyText: { fontSize: FONTS.sizes.sm, color: c.textSecondary, textAlign: 'center', lineHeight: 22 },
 });

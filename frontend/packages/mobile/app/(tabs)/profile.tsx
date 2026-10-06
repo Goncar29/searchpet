@@ -10,21 +10,27 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import i18next from 'i18next';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore, useLanguageStore } from '../../store';
+import { useThemeStore } from '../../store/theme';
 import { getErrorMessage } from '@shared/utils/apiErrors';
 import { ApiError } from '../../../shared/api/client';
 import { useMyPets, usePublicProfile, useUploadProfilePhotoNative, useVerificationStatus, useSendEmailOTP, useConfirmEmailOTP } from '../../../shared/hooks';
-import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
+import { SPACING, FONTS, RADIUS, SHADOWS, type ThemeColors } from '../../constants';
+import { useTheme, useThemedStyles } from '../../hooks/useTheme';
 import { LANG_KEY } from '../../i18n';
 import { cloudinaryThumb } from '@shared/utils/cloudinaryThumb';
 import { IMAGE_SIZES } from '../../constants/imageSizes';
 import { Icon } from '../../components/Icon';
 import { IconLabel } from '../../components/IconLabel';
+import { OptionPickerModal } from '../../components/OptionPickerModal';
 
 export default function ProfileScreen() {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   const { t } = useTranslation('profile');
   const router = useRouter();
   const { user, isAuthenticated, logout } = useAuthStore();
   const setLanguage = useLanguageStore((state) => state.setLanguage);
+  const setThemePreference = useThemeStore((state) => state.setPreference);
   const { data: myPets } = useMyPets();
   const { data: myProfile } = usePublicProfile(user?.id ?? '');
   const uploadProfilePhoto = useUploadProfilePhotoNative();
@@ -39,6 +45,9 @@ export default function ProfileScreen() {
   const [otpCode, setOtpCode] = useState('');
   const [otpError, setOtpError] = useState('');
   const [resendCountdown, setResendCountdown] = useState(0);
+  // Which choice picker is open (Settings → theme, Language → language).
+  const [picker, setPicker] = useState<'theme' | 'language' | null>(null);
+  const themePreference = useThemeStore((state) => state.preference);
 
   // Countdown timer for resend
   useEffect(() => {
@@ -133,7 +142,7 @@ export default function ProfileScreen() {
   if (!isAuthenticated) {
     return (
       <View style={styles.center}>
-        <View style={{ marginBottom: SPACING.md }}><Icon name="person" size={48} color={COLORS.textMuted} /></View>
+        <View style={{ marginBottom: SPACING.md }}><Icon name="person" size={48} color={colors.textMuted} /></View>
         <Text style={styles.title}>{t('title')}</Text>
         <Text style={styles.subtitle}>{t('subtitle')}</Text>
         <TouchableOpacity
@@ -162,34 +171,20 @@ export default function ProfileScreen() {
     ]);
   };
 
-  const handleLanguageSwitch = () => {
-    Alert.alert(i18next.t('profile:languageTitle'), '', [
-      {
-        text: i18next.t('profile:spanish'),
-        onPress: () => {
-          i18next.changeLanguage('es');
-          AsyncStorage.setItem(LANG_KEY, 'es');
-          setLanguage('es');
-        },
-      },
-      {
-        text: i18next.t('profile:english'),
-        onPress: () => {
-          i18next.changeLanguage('en');
-          AsyncStorage.setItem(LANG_KEY, 'en');
-          setLanguage('en');
-        },
-      },
-      {
-        text: i18next.t('profile:portuguese'),
-        onPress: () => {
-          i18next.changeLanguage('pt');
-          AsyncStorage.setItem(LANG_KEY, 'pt');
-          setLanguage('pt');
-        },
-      },
-      { text: i18next.t('common:cancel'), style: 'cancel' },
-    ]);
+  // Settings opens the theme choice and the Language row the language choice,
+  // both in OptionPickerModal: Alert.alert on Android shows at most three
+  // buttons (Cancel was dropped) and cannot be dismissed by tapping outside.
+  // System follows the phone; Light and Dark override it until the user goes
+  // back to System.
+
+  // A failed save still changes the language for this session; it just will
+  // not survive a restart.
+  const chooseLanguage = (lang: 'es' | 'en' | 'pt') => {
+    i18next.changeLanguage(lang);
+    AsyncStorage.setItem(LANG_KEY, lang).catch((err) => {
+      console.warn('[profile] could not save the language', err);
+    });
+    setLanguage(lang);
   };
 
   return (
@@ -199,13 +194,13 @@ export default function ProfileScreen() {
         <TouchableOpacity onPress={pickAndUploadAvatar} style={styles.avatarContainer}>
           {uploadProfilePhoto.isPending ? (
             <View style={styles.avatar}>
-              <ActivityIndicator color={COLORS.primary} />
+              <ActivityIndicator color={colors.primary} />
             </View>
           ) : user?.profile_photo_url ? (
             <Image source={{ uri: cloudinaryThumb(user.profile_photo_url, IMAGE_SIZES.avatarMd) }} style={styles.avatarImage} />
           ) : (
             <View style={styles.avatar}>
-              <Icon name="person" size={36} color={COLORS.textMuted} />
+              <Icon name="person" size={36} color={colors.textMuted} />
             </View>
           )}
         </TouchableOpacity>
@@ -215,7 +210,7 @@ export default function ProfileScreen() {
         <Text style={styles.userName}>{user?.name}</Text>
         <Text style={styles.userEmail}>{user?.email}</Text>
         {user?.city ? (
-          <IconLabel icon="location-on" color={COLORS.textSecondary} size={14} style={{ marginTop: 2 }}>
+          <IconLabel icon="location-on" color={colors.textSecondary} size={14} style={{ marginTop: 2 }}>
             <Text style={[styles.userCity, { marginTop: 0 }]}>{user.city}</Text>
           </IconLabel>
         ) : null}
@@ -288,7 +283,7 @@ export default function ProfileScreen() {
               disabled={sendEmailOTP.isPending || resendCountdown > 0}
             >
               {sendEmailOTP.isPending ? (
-                <ActivityIndicator color={COLORS.white} />
+                <ActivityIndicator color={colors.onPrimary} />
               ) : (
                 <Text style={styles.sheetPrimaryButtonText}>
                   {resendCountdown > 0 ? t('resendIn', { seconds: resendCountdown }) : t('sendCode')}
@@ -313,7 +308,7 @@ export default function ProfileScreen() {
                 disabled={confirmEmailOTP.isPending}
               >
                 {confirmEmailOTP.isPending ? (
-                  <ActivityIndicator color={COLORS.white} />
+                  <ActivityIndicator color={colors.onPrimary} />
                 ) : (
                   <Text style={styles.sheetPrimaryButtonText}>{t('confirm')}</Text>
                 )}
@@ -343,7 +338,7 @@ export default function ProfileScreen() {
           style={styles.menuItem}
           onPress={() => router.push('/edit-profile')}
         >
-          <View style={styles.menuIcon}><Icon name="edit" size={22} color={COLORS.textSecondary} /></View>
+          <View style={styles.menuIcon}><Icon name="edit" size={22} color={colors.textSecondary} /></View>
           <Text style={styles.menuText}>{t('editProfile.title')}</Text>
           <Text style={styles.menuArrow}>›</Text>
         </TouchableOpacity>
@@ -352,7 +347,7 @@ export default function ProfileScreen() {
           style={styles.menuItem}
           onPress={() => router.push('/my-pets')}
         >
-          <View style={styles.menuIcon}><Icon name="pets" size={22} color={COLORS.textSecondary} /></View>
+          <View style={styles.menuIcon}><Icon name="pets" size={22} color={colors.textSecondary} /></View>
           <Text style={styles.menuText}>{t('menuMyPets')}</Text>
           <Text style={styles.menuArrow}>›</Text>
         </TouchableOpacity>
@@ -361,7 +356,7 @@ export default function ProfileScreen() {
           style={styles.menuItem}
           onPress={() => router.push('/adopt' as any)}
         >
-          <View style={styles.menuIcon}><Icon name="home" size={22} color={COLORS.textSecondary} /></View>
+          <View style={styles.menuIcon}><Icon name="home" size={22} color={colors.textSecondary} /></View>
           <Text style={styles.menuText}>{t('adoption:section.title')}</Text>
           <Text style={styles.menuArrow}>›</Text>
         </TouchableOpacity>
@@ -370,7 +365,7 @@ export default function ProfileScreen() {
           style={styles.menuItem}
           onPress={() => router.push('/badges')}
         >
-          <View style={styles.menuIcon}><Icon name="emoji-events" size={22} color={COLORS.textSecondary} /></View>
+          <View style={styles.menuIcon}><Icon name="emoji-events" size={22} color={colors.textSecondary} /></View>
           <Text style={styles.menuText}>{t('menuBadges')}</Text>
           <Text style={styles.menuArrow}>›</Text>
         </TouchableOpacity>
@@ -379,7 +374,7 @@ export default function ProfileScreen() {
           style={styles.menuItem}
           onPress={() => router.push('/leaderboard')}
         >
-          <View style={styles.menuIcon}><Icon name="workspace-premium" size={22} color={COLORS.textSecondary} /></View>
+          <View style={styles.menuIcon}><Icon name="workspace-premium" size={22} color={colors.textSecondary} /></View>
           <Text style={styles.menuText}>{t('menuLeaderboard')}</Text>
           <Text style={styles.menuArrow}>›</Text>
         </TouchableOpacity>
@@ -388,7 +383,7 @@ export default function ProfileScreen() {
           style={styles.menuItem}
           onPress={() => router.push('/alerts')}
         >
-          <View style={styles.menuIcon}><Icon name="notifications" size={22} color={COLORS.textSecondary} /></View>
+          <View style={styles.menuIcon}><Icon name="notifications" size={22} color={colors.textSecondary} /></View>
           <Text style={styles.menuText}>{t('menuAlerts')}</Text>
           <Text style={styles.menuArrow}>›</Text>
         </TouchableOpacity>
@@ -397,7 +392,7 @@ export default function ProfileScreen() {
           style={styles.menuItem}
           onPress={() => router.push('/groups' as any)}
         >
-          <View style={styles.menuIcon}><Icon name="group" size={22} color={COLORS.textSecondary} /></View>
+          <View style={styles.menuIcon}><Icon name="group" size={22} color={colors.textSecondary} /></View>
           <Text style={styles.menuText}>{t('menuGroups')}</Text>
           <Text style={styles.menuArrow}>›</Text>
         </TouchableOpacity>
@@ -406,7 +401,7 @@ export default function ProfileScreen() {
           style={styles.menuItem}
           onPress={() => router.push('/shelters' as any)}
         >
-          <View style={styles.menuIcon}><Icon name="home-work" size={22} color={COLORS.textSecondary} /></View>
+          <View style={styles.menuIcon}><Icon name="home-work" size={22} color={colors.textSecondary} /></View>
           <Text style={styles.menuText}>{t('menuShelters')}</Text>
           <Text style={styles.menuArrow}>›</Text>
         </TouchableOpacity>
@@ -415,7 +410,7 @@ export default function ProfileScreen() {
           style={styles.menuItem}
           onPress={() => router.push('/foster-homes' as any)}
         >
-          <View style={styles.menuIcon}><Icon name="location-city" size={22} color={COLORS.textSecondary} /></View>
+          <View style={styles.menuIcon}><Icon name="location-city" size={22} color={colors.textSecondary} /></View>
           <Text style={styles.menuText}>{t('fosterHomes:nav')}</Text>
           <Text style={styles.menuArrow}>›</Text>
         </TouchableOpacity>
@@ -424,25 +419,25 @@ export default function ProfileScreen() {
           style={styles.menuItem}
           onPress={() => router.push('/blocked-users' as any)}
         >
-          <View style={styles.menuIcon}><Icon name="block" size={22} color={COLORS.textSecondary} /></View>
+          <View style={styles.menuIcon}><Icon name="block" size={22} color={colors.textSecondary} /></View>
           <Text style={styles.menuText}>{t('menuBlockedUsers')}</Text>
           <Text style={styles.menuArrow}>›</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={styles.menuItem}
-          onPress={() => Alert.alert(i18next.t('profile:comingSoon'), i18next.t('profile:settingsComingSoon'))}
+          onPress={() => setPicker('theme')}
         >
-          <View style={styles.menuIcon}><Icon name="settings" size={22} color={COLORS.textSecondary} /></View>
+          <View style={styles.menuIcon}><Icon name="settings" size={22} color={colors.textSecondary} /></View>
           <Text style={styles.menuText}>{t('menuSettings')}</Text>
           <Text style={styles.menuArrow}>›</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={styles.menuItem}
-          onPress={handleLanguageSwitch}
+          onPress={() => setPicker('language')}
         >
-          <View style={styles.menuIcon}><Icon name="language" size={22} color={COLORS.textSecondary} /></View>
+          <View style={styles.menuIcon}><Icon name="language" size={22} color={colors.textSecondary} /></View>
           <Text style={styles.menuText}>{t('menuLanguage')}</Text>
           <Text style={styles.menuArrow}>›</Text>
         </TouchableOpacity>
@@ -451,7 +446,7 @@ export default function ProfileScreen() {
           style={styles.menuItem}
           onPress={() => Linking.openURL('https://github.com/Goncar29/searchpet')}
         >
-          <View style={styles.menuIcon}><Icon name="link" size={22} color={COLORS.textSecondary} /></View>
+          <View style={styles.menuIcon}><Icon name="link" size={22} color={colors.textSecondary} /></View>
           <Text style={styles.menuText}>{t('menuGitHub')}</Text>
           <Text style={styles.menuArrow}>›</Text>
         </TouchableOpacity>
@@ -463,12 +458,40 @@ export default function ProfileScreen() {
       </TouchableOpacity>
 
       <View style={{ height: 100 }} />
+
+      <OptionPickerModal
+        visible={picker === 'theme'}
+        title={t('themeTitle')}
+        options={[
+          { value: 'system', label: t('themeSystem') },
+          { value: 'light', label: t('themeLight') },
+          { value: 'dark', label: t('themeDark') },
+        ]}
+        selected={themePreference}
+        onSelect={(value) => { setThemePreference(value); }}
+        onClose={() => setPicker(null)}
+        closeLabel={t('common:close')}
+      />
+      <OptionPickerModal
+        visible={picker === 'language'}
+        title={t('languageTitle')}
+        options={[
+          { value: 'es', label: t('spanish') },
+          { value: 'en', label: t('english') },
+          { value: 'pt', label: t('portuguese') },
+        ]}
+        // Base code: 'en-US' marks English.
+        selected={(i18next.language ?? '').slice(0, 2) as 'es' | 'en' | 'pt'}
+        onSelect={chooseLanguage}
+        onClose={() => setPicker(null)}
+        closeLabel={t('common:close')}
+      />
     </ScrollView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
+const makeStyles = (c: ThemeColors) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: c.background },
   center: {
     flex: 1,
     justifyContent: 'center',
@@ -478,36 +501,36 @@ const styles = StyleSheet.create({
   title: {
     fontSize: FONTS.sizes.xl,
     fontWeight: '700',
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
     marginBottom: SPACING.sm,
   },
   subtitle: {
     fontSize: FONTS.sizes.md,
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
     textAlign: 'center',
     marginBottom: SPACING.lg,
   },
   primaryButton: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: c.primary,
     paddingHorizontal: SPACING.xl,
     paddingVertical: 14,
     borderRadius: RADIUS.md,
     marginBottom: SPACING.md,
   },
   primaryButtonText: {
-    color: COLORS.white,
+    color: c.onPrimary,
     fontSize: FONTS.sizes.md,
     fontWeight: '700',
   },
   linkText: {
-    color: COLORS.primary,
+    color: c.primary,
     fontSize: FONTS.sizes.sm,
     fontWeight: '600',
   },
   userCard: {
     alignItems: 'center',
     padding: SPACING.xl,
-    backgroundColor: COLORS.white,
+    backgroundColor: c.card,
     marginHorizontal: SPACING.lg,
     marginTop: SPACING.lg,
     borderRadius: RADIUS.lg,
@@ -520,7 +543,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: COLORS.background,
+    backgroundColor: c.background,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -535,39 +558,39 @@ const styles = StyleSheet.create({
   },
   changePhotoText: {
     fontSize: FONTS.sizes.xs,
-    color: COLORS.primary,
+    color: c.primary,
     fontWeight: '600',
   },
   userName: {
     fontSize: FONTS.sizes.xl,
     fontWeight: '700',
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
   },
   userEmail: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
     marginTop: 4,
   },
   userCity: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
     marginTop: 2,
   },
   verifiedBadge: {
-    backgroundColor: COLORS.success,
+    backgroundColor: c.success,
     paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: RADIUS.full,
     marginTop: SPACING.sm,
   },
   verifiedText: {
-    color: COLORS.white,
+    color: c.onPrimary,
     fontSize: FONTS.sizes.xs,
     fontWeight: '700',
   },
   statsRow: {
     flexDirection: 'row',
-    backgroundColor: COLORS.white,
+    backgroundColor: c.card,
     marginHorizontal: SPACING.lg,
     marginTop: SPACING.md,
     borderRadius: RADIUS.lg,
@@ -578,20 +601,20 @@ const styles = StyleSheet.create({
   statNumber: {
     fontSize: FONTS.sizes.xxl,
     fontWeight: '700',
-    color: COLORS.primary,
+    color: c.primary,
   },
   statLabel: {
     fontSize: FONTS.sizes.xs,
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
     marginTop: 4,
   },
   statDivider: {
     width: 1,
-    backgroundColor: COLORS.border,
+    backgroundColor: c.border,
     marginVertical: 4,
   },
   menuSection: {
-    backgroundColor: COLORS.white,
+    backgroundColor: c.card,
     marginHorizontal: SPACING.lg,
     marginTop: SPACING.md,
     borderRadius: RADIUS.lg,
@@ -602,18 +625,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: SPACING.md,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomColor: c.border,
   },
   menuIcon: { marginRight: SPACING.md },
   menuText: {
     flex: 1,
     fontSize: FONTS.sizes.md,
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
     fontWeight: '500',
   },
   menuArrow: {
     fontSize: FONTS.sizes.xl,
-    color: COLORS.textMuted,
+    color: c.textMuted,
   },
   logoutButton: {
     marginHorizontal: SPACING.lg,
@@ -621,11 +644,11 @@ const styles = StyleSheet.create({
     padding: SPACING.md,
     borderRadius: RADIUS.md,
     borderWidth: 1,
-    borderColor: COLORS.danger,
+    borderColor: c.danger,
     alignItems: 'center',
   },
   logoutText: {
-    color: COLORS.danger,
+    color: c.danger,
     fontSize: FONTS.sizes.md,
     fontWeight: '600',
   },
@@ -633,7 +656,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: COLORS.white,
+    backgroundColor: c.card,
     marginHorizontal: SPACING.lg,
     marginTop: SPACING.md,
     borderRadius: RADIUS.lg,
@@ -642,41 +665,41 @@ const styles = StyleSheet.create({
   },
   verificationLabel: {
     fontSize: FONTS.sizes.md,
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
     fontWeight: '500',
   },
   verifiedBadgeRow: {
-    backgroundColor: COLORS.success,
+    backgroundColor: c.success,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: RADIUS.full,
   },
   verifiedBadgeText: {
-    color: COLORS.white,
+    color: c.onPrimary,
     fontSize: FONTS.sizes.xs,
     fontWeight: '700',
   },
   verifyButton: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: c.primary,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: RADIUS.md,
   },
   verifyButtonText: {
-    color: COLORS.white,
+    color: c.onPrimary,
     fontSize: FONTS.sizes.sm,
     fontWeight: '600',
   },
   sheetContainer: {
     flex: 1,
-    backgroundColor: COLORS.white,
+    backgroundColor: c.surface,
     padding: SPACING.xl,
     paddingTop: SPACING.lg,
   },
   sheetHandle: {
     width: 40,
     height: 4,
-    backgroundColor: COLORS.border,
+    backgroundColor: c.border,
     borderRadius: 2,
     alignSelf: 'center',
     marginBottom: SPACING.lg,
@@ -684,40 +707,40 @@ const styles = StyleSheet.create({
   sheetTitle: {
     fontSize: FONTS.sizes.xl,
     fontWeight: '700',
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
     marginBottom: SPACING.sm,
   },
   sheetSubtitle: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
     marginBottom: SPACING.xl,
   },
   otpInput: {
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: c.border,
     borderRadius: RADIUS.md,
     padding: SPACING.md,
     fontSize: 24,
     letterSpacing: 8,
     textAlign: 'center',
     marginBottom: SPACING.md,
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
   },
   otpError: {
-    color: COLORS.danger,
+    color: c.danger,
     fontSize: FONTS.sizes.sm,
     marginBottom: SPACING.sm,
     textAlign: 'center',
   },
   sheetPrimaryButton: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: c.primary,
     padding: SPACING.md,
     borderRadius: RADIUS.md,
     alignItems: 'center',
     marginBottom: SPACING.md,
   },
   sheetPrimaryButtonText: {
-    color: COLORS.white,
+    color: c.onPrimary,
     fontSize: FONTS.sizes.md,
     fontWeight: '700',
   },
@@ -726,13 +749,13 @@ const styles = StyleSheet.create({
   },
   resendCountdown: {
     textAlign: 'center',
-    color: COLORS.textMuted,
+    color: c.textMuted,
     fontSize: FONTS.sizes.sm,
     marginBottom: SPACING.sm,
   },
   resendLink: {
     textAlign: 'center',
-    color: COLORS.primary,
+    color: c.primary,
     fontSize: FONTS.sizes.sm,
     fontWeight: '600',
     marginBottom: SPACING.sm,
@@ -742,7 +765,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   sheetCancelText: {
-    color: COLORS.textMuted,
+    color: c.textMuted,
     fontSize: FONTS.sizes.sm,
   },
 });

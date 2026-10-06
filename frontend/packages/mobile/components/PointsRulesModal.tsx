@@ -6,11 +6,13 @@
 // and the amounts cannot drift apart.
 // ============================================================
 
-import { Modal, View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import { useState } from 'react';
+import { Modal, View, Text, ScrollView, TouchableOpacity, StyleSheet, useWindowDimensions } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { BADGE_META } from '../../shared/types';
 import { POINTS, BADGE_THRESHOLDS } from '../../shared/constants/gamification';
-import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../constants';
+import { type ThemeColors, SPACING, FONTS, RADIUS, SHADOWS } from '../constants';
+import { useTheme, useThemedStyles } from '../hooks/useTheme';
 import { Icon } from './Icon';
 
 /** Badges whose condition carries a number; the rest read the same everywhere. */
@@ -26,6 +28,7 @@ interface Props {
 
 /** A list item with a drawn dot: a text glyph would trip the no-glyph guard. */
 function Bullet({ text }: { text: string }) {
+  const styles = useThemedStyles(makeStyles);
   return (
     <View style={styles.bulletRow}>
       <View style={styles.bulletDot} />
@@ -34,7 +37,26 @@ function Bullet({ text }: { text: string }) {
   );
 }
 
+// The card never takes more than this share of the window height.
+const CARD_HEIGHT_SHARE = 0.85;
+// Header height before onLayout reports the real one (title on one line + X).
+const HEADER_ESTIMATE = 40;
+
 export function PointsRulesModal({ visible, onClose }: Props) {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
+  // The list gets its own maxHeight in pixels. A percentage maxHeight on the
+  // card does not reach the ScrollView on Android (rc4 and rc5: it grew to its
+  // content and the end was cut off with nothing to scroll); an explicit pixel
+  // bound on the ScrollView itself scrolls everywhere. Header height is
+  // measured, so a two-line title or a large font still fits.
+  const { height: windowHeight } = useWindowDimensions();
+  const [headerHeight, setHeaderHeight] = useState(HEADER_ESTIMATE);
+  const cardMaxHeight = Math.round(windowHeight * CARD_HEIGHT_SHARE);
+  const scrollMaxHeight = Math.max(
+    120,
+    cardMaxHeight - headerHeight - 2 * SPACING.lg - SPACING.sm,
+  );
   const { t } = useTranslation(['pointsRules', 'badges']);
 
   const earn = [
@@ -53,8 +75,11 @@ export function PointsRulesModal({ visible, onClose }: Props) {
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={styles.overlay}>
-        <View style={styles.card}>
-          <View style={styles.headerRow}>
+        <View style={[styles.card, { maxHeight: cardMaxHeight }]}>
+          <View
+            style={styles.headerRow}
+            onLayout={(e) => setHeaderHeight(e.nativeEvent.layout.height)}
+          >
             <Text style={styles.title}>{t('pointsRules:title')}</Text>
             <TouchableOpacity
               onPress={onClose}
@@ -62,11 +87,15 @@ export function PointsRulesModal({ visible, onClose }: Props) {
               accessibilityLabel={t('pointsRules:close')}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
-              <Icon name="close" size={22} color={COLORS.textSecondary} />
+              <Icon name="close" size={22} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
 
-          <ScrollView showsVerticalScrollIndicator={false}>
+          <ScrollView
+            testID="points-rules-scroll"
+            style={{ maxHeight: scrollMaxHeight }}
+            showsVerticalScrollIndicator
+          >
             <Text style={styles.sectionTitle}>{t('pointsRules:earn.title')}</Text>
             {earn.map((text) => (
               <Bullet key={text} text={text} />
@@ -101,7 +130,8 @@ export function PointsRulesModal({ visible, onClose }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: ThemeColors) =>
+  StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
@@ -110,11 +140,10 @@ const styles = StyleSheet.create({
     padding: SPACING.lg,
   },
   card: {
-    backgroundColor: COLORS.white,
+    backgroundColor: c.surface,
     borderRadius: RADIUS.lg,
     padding: SPACING.lg,
     width: '100%',
-    maxHeight: '85%',
     ...SHADOWS.lg,
   },
   headerRow: {
@@ -127,19 +156,19 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: FONTS.sizes.lg,
     fontWeight: '700',
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
     marginRight: SPACING.sm,
   },
   sectionTitle: {
     fontSize: FONTS.sizes.md,
     fontWeight: '700',
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
     marginTop: SPACING.md,
     marginBottom: SPACING.xs,
   },
   item: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
     marginBottom: SPACING.xs,
   },
   bulletRow: { flexDirection: 'row', alignItems: 'flex-start' },
@@ -147,12 +176,12 @@ const styles = StyleSheet.create({
     width: 5,
     height: 5,
     borderRadius: 3,
-    backgroundColor: COLORS.textSecondary,
+    backgroundColor: c.textSecondary,
     marginTop: 7,
     marginRight: SPACING.sm,
   },
   bulletText: { flex: 1 },
   lastItem: { marginBottom: SPACING.sm },
   badgeRow: { marginBottom: SPACING.sm },
-  badgeName: { fontSize: FONTS.sizes.sm, fontWeight: '600', color: COLORS.textPrimary },
+  badgeName: { fontSize: FONTS.sizes.sm, fontWeight: '600', color: c.textPrimary },
 });

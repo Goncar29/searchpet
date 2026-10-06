@@ -151,6 +151,23 @@ describe('MapScreen', () => {
     expect(mapView.props.styleURL).toBeUndefined();
   });
 
+  // S5: the main map follows dark mode with MapTiler's own dark variant.
+  it('uses the dark MapTiler style in dark mode and the light one otherwise', () => {
+    const { useThemeStore } = require('../store/theme');
+    try {
+      useThemeStore.setState({ preference: 'dark', userChose: true });
+      const { unmount } = render(<MapScreen />);
+      expect(screen.getByTestId('map-view').props.mapStyle).toContain('/maps/streets-v4-dark/');
+      unmount();
+
+      useThemeStore.setState({ preference: 'light', userChose: true });
+      render(<MapScreen />);
+      expect(screen.getByTestId('map-view').props.mapStyle).toContain('/maps/streets-v4/');
+    } finally {
+      useThemeStore.setState({ preference: 'system', userChose: false });
+    }
+  });
+
   it('shows the "search this area" button after panning beyond the threshold', () => {
     render(<MapScreen />);
     // not panned yet

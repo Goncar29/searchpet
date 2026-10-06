@@ -21,7 +21,8 @@ import i18next from 'i18next';
 import { useGenerateShareLink } from '../../shared/hooks';
 import { getErrorMessage } from '../../shared/utils/apiErrors';
 import { ApiError } from '../../shared/api/client';
-import { COLORS, SPACING, FONTS, RADIUS } from '../constants';
+import { type ThemeColors, SPACING, FONTS, RADIUS } from '../constants';
+import { useTheme, useThemedStyles } from '../hooks/useTheme';
 import { IconLabel } from './IconLabel';
 import type { Pet, Report } from '../../shared/types';
 import { posterFraming } from '../utils/adoptionFraming';
@@ -36,6 +37,8 @@ interface PdfFlyerButtonProps {
 const MAX_DESCRIPTION_CHARS = 300;
 
 export function PdfFlyerButton({ pet, reports = [] }: PdfFlyerButtonProps) {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   const [isGenerating, setIsGenerating] = useState(false);
   const generateLink = useGenerateShareLink();
 
@@ -202,9 +205,9 @@ export function PdfFlyerButton({ pet, reports = [] }: PdfFlyerButtonProps) {
       activeOpacity={0.8}
     >
       {isGenerating ? (
-        <ActivityIndicator size="small" color={COLORS.white} />
+        <ActivityIndicator size="small" color={colors.onPrimary} />
       ) : (
-        <IconLabel icon="description" size={18} color={COLORS.white}>
+        <IconLabel icon="description" size={18} color={colors.onPrimary}>
           <Text style={styles.label}>{i18next.t('pets:share.flyerButton')}</Text>
         </IconLabel>
       )}
@@ -212,9 +215,10 @@ export function PdfFlyerButton({ pet, reports = [] }: PdfFlyerButtonProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: ThemeColors) =>
+  StyleSheet.create({
   button: {
-    backgroundColor: COLORS.secondary,
+    backgroundColor: c.secondary,
     paddingVertical: 14,
     borderRadius: RADIUS.md,
     alignItems: 'center',
@@ -222,7 +226,7 @@ const styles = StyleSheet.create({
   },
   disabled: { opacity: 0.6 },
   label: {
-    color: COLORS.white,
+    color: c.onPrimary,
     fontSize: FONTS.sizes.md,
     fontWeight: '700',
   },

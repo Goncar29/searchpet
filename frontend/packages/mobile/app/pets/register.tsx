@@ -29,11 +29,14 @@ import * as ImagePicker from 'expo-image-picker';
 import { useCreatePet, useUploadPhotoNative } from '@shared/hooks';
 import { getErrorMessage } from '@shared/utils/apiErrors';
 import { useAuthStore } from '../../store';
-import { COLORS, SPACING, FONTS, RADIUS, PET_TYPES } from '../../constants';
+import { SPACING, FONTS, RADIUS, PET_TYPES, type ThemeColors } from '../../constants';
+import { useTheme, useThemedStyles } from '../../hooks/useTheme';
 import { Icon } from '../../components/Icon';
 import type { PetType } from '../../../shared/types';
 
 export default function RegisterPetScreen() {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   const router = useRouter();
   const { t } = useTranslation(['post', 'pets', 'common']);
   const { isAuthenticated } = useAuthStore();
@@ -57,7 +60,7 @@ export default function RegisterPetScreen() {
   if (!isAuthenticated) {
     return (
       <View style={styles.authRequired}>
-        <View style={{ marginBottom: SPACING.md }}><Icon name="lock" size={48} color={COLORS.textMuted} /></View>
+        <View style={{ marginBottom: SPACING.md }}><Icon name="lock" size={48} color={colors.textMuted} /></View>
         <Text style={styles.authTitle}>{t('post:authRequired')}</Text>
         <Text style={styles.authText}>{t('post:authText')}</Text>
         <TouchableOpacity
@@ -197,28 +200,28 @@ export default function RegisterPetScreen() {
             <TouchableOpacity key={i} onPress={() => removePhoto(i)} accessibilityRole="button" accessibilityLabel={t('common:delete')}>
               <Image source={{ uri }} style={styles.photoThumb} />
               <View style={styles.photoRemove}>
-                <Icon name="close" size={14} color="#fff" />
+                <Icon name="close" size={14} color={colors.onPrimary} />
               </View>
               {photoErrors[i] && (
                 <View style={styles.photoErrorOverlay}>
-                  <Icon name="warning" size={22} color="#fff" />
+                  <Icon name="warning" size={22} color={colors.onPrimary} />
                 </View>
               )}
             </TouchableOpacity>
           ))}
           <TouchableOpacity style={[styles.addPhoto, atLimit && styles.addPhotoDisabled]} onPress={pickImage} disabled={atLimit}>
-            <Text style={{ fontSize: 28, color: COLORS.textMuted }}>+</Text>
-            <Text style={{ fontSize: 11, color: COLORS.textMuted, marginTop: 2 }}>{t('post:gallery')}</Text>
+            <Text style={{ fontSize: 28, color: colors.textMuted }}>+</Text>
+            <Text style={{ fontSize: 11, color: colors.textMuted, marginTop: 2 }}>{t('post:gallery')}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={[styles.addPhoto, atLimit && styles.addPhotoDisabled]} onPress={takePhoto} disabled={atLimit}>
-            <Icon name="photo-camera" size={28} color={COLORS.textMuted} />
-            <Text style={{ fontSize: 11, color: COLORS.textMuted, marginTop: 2 }}>{t('post:camera')}</Text>
+            <Icon name="photo-camera" size={28} color={colors.textMuted} />
+            <Text style={{ fontSize: 11, color: colors.textMuted, marginTop: 2 }}>{t('post:camera')}</Text>
           </TouchableOpacity>
         </ScrollView>
         {atLimit && <Text style={styles.photoLimitText}>{t('post:photoLimit')}</Text>}
 
         <Text style={styles.label}>{t('post:nameLabel')}</Text>
-        <TextInput style={styles.input} placeholder={t('post:namePlaceholder')} placeholderTextColor={COLORS.placeholder} value={name} onChangeText={setName} />
+        <TextInput style={styles.input} placeholder={t('post:namePlaceholder')} placeholderTextColor={colors.placeholder} value={name} onChangeText={setName} />
 
         <Text style={styles.label}>{t('post:typeLabel')}</Text>
         <View style={styles.typeRow}>
@@ -231,7 +234,7 @@ export default function RegisterPetScreen() {
               <Icon
                 name={petType.icon}
                 size={24}
-                color={type === petType.value ? COLORS.primary : COLORS.textSecondary}
+                color={type === petType.value ? colors.primary : colors.textSecondary}
               />
               <Text style={[styles.typeLabel, type === petType.value && styles.typeLabelActive]}>
                 {t(`pets:types.${petType.value}`)}
@@ -251,16 +254,16 @@ export default function RegisterPetScreen() {
         />
 
         <Text style={styles.label}>{t('post:breedLabel')}</Text>
-        <TextInput style={styles.input} placeholder={t('post:breedPlaceholder')} placeholderTextColor={COLORS.placeholder} value={breed} onChangeText={setBreed} />
+        <TextInput style={styles.input} placeholder={t('post:breedPlaceholder')} placeholderTextColor={colors.placeholder} value={breed} onChangeText={setBreed} />
 
         <Text style={styles.label}>{t('post:colorLabel')}</Text>
-        <TextInput style={styles.input} placeholder={t('post:colorPlaceholder')} placeholderTextColor={COLORS.placeholder} value={color} onChangeText={setColor} />
+        <TextInput style={styles.input} placeholder={t('post:colorPlaceholder')} placeholderTextColor={colors.placeholder} value={color} onChangeText={setColor} />
 
         <Text style={styles.label}>{t('post:descriptionLabel')}</Text>
         <TextInput
           style={[styles.input, styles.textArea]}
           placeholder={t('post:descriptionPlaceholder')}
-          placeholderTextColor={COLORS.placeholder}
+          placeholderTextColor={colors.placeholder}
           value={description}
           onChangeText={setDescription}
           multiline
@@ -269,7 +272,7 @@ export default function RegisterPetScreen() {
         />
 
         <TouchableOpacity style={[styles.submitButton, isSubmitting && styles.submitDisabled]} onPress={handleSubmit} disabled={isSubmitting}>
-          {isSubmitting ? <ActivityIndicator color={COLORS.white} /> : <Text style={styles.submitText}>{t('post:submit')}</Text>}
+          {isSubmitting ? <ActivityIndicator color={colors.onPrimary} /> : <Text style={styles.submitText}>{t('post:submit')}</Text>}
         </TouchableOpacity>
 
         <View style={{ height: 80 }} />
@@ -278,63 +281,63 @@ export default function RegisterPetScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
+const makeStyles = (c: ThemeColors) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: c.background },
   content: { padding: SPACING.lg },
-  label: { fontSize: FONTS.sizes.sm, fontWeight: '600', color: COLORS.textPrimary, marginBottom: SPACING.xs, marginTop: SPACING.md },
+  label: { fontSize: FONTS.sizes.sm, fontWeight: '600', color: c.textPrimary, marginBottom: SPACING.xs, marginTop: SPACING.md },
   input: {
-    backgroundColor: COLORS.white, borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.md,
-    paddingHorizontal: SPACING.md, paddingVertical: 14, fontSize: FONTS.sizes.md, color: COLORS.textPrimary,
+    backgroundColor: c.surface, borderWidth: 1, borderColor: c.border, borderRadius: RADIUS.md,
+    paddingHorizontal: SPACING.md, paddingVertical: 14, fontSize: FONTS.sizes.md, color: c.textPrimary,
   },
   textArea: { minHeight: 100, paddingTop: 14 },
   photoRow: { flexDirection: 'row', marginVertical: SPACING.sm },
   photoThumb: { width: 80, height: 80, borderRadius: RADIUS.md, marginRight: SPACING.sm },
-  photoRemove: { position: 'absolute', top: -4, right: 4, backgroundColor: COLORS.danger, width: 20, height: 20, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
+  photoRemove: { position: 'absolute', top: -4, right: 4, backgroundColor: c.danger, width: 20, height: 20, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
   photoErrorOverlay: { position: 'absolute', bottom: 0, left: 0, right: 0, top: 0, borderRadius: RADIUS.md, backgroundColor: 'rgba(200, 0, 0, 0.45)', justifyContent: 'center', alignItems: 'center' },
-  addPhoto: { width: 80, height: 80, borderRadius: RADIUS.md, borderWidth: 2, borderColor: COLORS.border, borderStyle: 'dashed', justifyContent: 'center', alignItems: 'center', marginRight: SPACING.sm },
+  addPhoto: { width: 80, height: 80, borderRadius: RADIUS.md, borderWidth: 2, borderColor: c.border, borderStyle: 'dashed', justifyContent: 'center', alignItems: 'center', marginRight: SPACING.sm },
   addPhotoDisabled: { opacity: 0.4 },
-  photoLimitText: { fontSize: FONTS.sizes.xs, color: COLORS.textMuted, marginTop: SPACING.xs, marginBottom: SPACING.xs },
+  photoLimitText: { fontSize: FONTS.sizes.xs, color: c.textMuted, marginTop: SPACING.xs, marginBottom: SPACING.xs },
   typeRow: { flexDirection: 'row', gap: SPACING.sm, marginTop: SPACING.xs },
-  typeButton: { flex: 1, alignItems: 'center', padding: SPACING.md, backgroundColor: COLORS.white, borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.md },
-  typeButtonActive: { borderColor: COLORS.primary, backgroundColor: '#FFF0E8' },
-  typeLabel: { fontSize: FONTS.sizes.xs, color: COLORS.textSecondary, marginTop: 4, fontWeight: '500' },
-  typeLabelActive: { color: COLORS.primary, fontWeight: '700' },
-  submitButton: { backgroundColor: COLORS.primary, paddingVertical: 16, borderRadius: RADIUS.md, alignItems: 'center', marginTop: SPACING.xl },
+  typeButton: { flex: 1, alignItems: 'center', padding: SPACING.md, backgroundColor: c.surface, borderWidth: 1, borderColor: c.border, borderRadius: RADIUS.md },
+  typeButtonActive: { borderColor: c.primary, backgroundColor: c.primarySoft },
+  typeLabel: { fontSize: FONTS.sizes.xs, color: c.textSecondary, marginTop: 4, fontWeight: '500' },
+  typeLabelActive: { color: c.primary, fontWeight: '700' },
+  submitButton: { backgroundColor: c.primary, paddingVertical: 16, borderRadius: RADIUS.md, alignItems: 'center', marginTop: SPACING.xl },
   submitDisabled: { opacity: 0.6 },
-  submitText: { color: COLORS.white, fontSize: FONTS.sizes.md, fontWeight: '700' },
+  submitText: { color: c.onPrimary, fontSize: FONTS.sizes.md, fontWeight: '700' },
   authRequired: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: SPACING.xl,
-    backgroundColor: COLORS.background,
+    backgroundColor: c.background,
   },
   authTitle: {
     fontSize: FONTS.sizes.xl,
     fontWeight: '700',
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
     marginBottom: SPACING.sm,
   },
   authText: {
     fontSize: FONTS.sizes.md,
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
     textAlign: 'center',
     marginBottom: SPACING.lg,
   },
   authButton: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: c.primary,
     paddingHorizontal: SPACING.xl,
     paddingVertical: 14,
     borderRadius: RADIUS.md,
     marginBottom: SPACING.md,
   },
   authButtonText: {
-    color: COLORS.white,
+    color: c.onPrimary,
     fontSize: FONTS.sizes.md,
     fontWeight: '700',
   },
   registerLink: {
-    color: COLORS.primary,
+    color: c.primary,
     fontSize: FONTS.sizes.sm,
     fontWeight: '600',
   },

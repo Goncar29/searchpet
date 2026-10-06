@@ -34,7 +34,8 @@ import { PdfFlyerButton } from '../../components/PdfFlyerButton';
 import { TimelineMap } from '../../components/TimelineMap';
 import { AdoptionPetBody } from '../../components/AdoptionPetBody';
 import { HelperPickerModal } from '../../components/HelperPickerModal';
-import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../../constants';
+import { LIGHT_COLORS, SPACING, FONTS, RADIUS, SHADOWS, type ThemeColors } from '../../constants';
+import { useTheme, useThemedStyles } from '../../hooks/useTheme';
 import { cloudinaryThumb } from '@shared/utils/cloudinaryThumb';
 import { ListState } from '../../components/list/ListState';
 import type { Report } from '../../../shared/types';
@@ -45,6 +46,8 @@ import { IconLabel } from '../../components/IconLabel';
 const { width } = Dimensions.get('window');
 
 export default function PetDetailScreen() {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   const { t, i18n } = useTranslation(['pet_detail', 'common', 'pets', 'story', 'map', 'adoption']);
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
@@ -76,7 +79,7 @@ export default function PetDetailScreen() {
   if (isLoading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -84,7 +87,7 @@ export default function PetDetailScreen() {
   if (!pet) {
     return (
       <View style={styles.center}>
-        <Icon name="search" size={48} color={COLORS.textMuted} />
+        <Icon name="search" size={48} color={colors.textMuted} />
         <Text style={styles.notFoundText}>{t('pet_detail:notFound')}</Text>
       </View>
     );
@@ -261,17 +264,19 @@ export default function PetDetailScreen() {
         {/* Nombre y status */}
         <View style={styles.headerRow}>
           <Text style={styles.petName}>{pet.name}</Text>
+          {/* A badge fill behind white text: the gray stays the light one in both
+              themes, since white text vanishes on the dark textSecondary. */}
           <View style={[
             styles.statusBadge,
             {
               backgroundColor:
-                pet.status === 'found'      ? COLORS.found :
-                pet.status === 'adopted'    ? COLORS.adopted :
-                pet.status === 'adoption'   ? COLORS.adoption :
-                pet.status === 'archived'   ? COLORS.textMuted :
-                pet.status === 'registered' ? COLORS.textSecondary :
-                pet.status === 'stray'      ? COLORS.warning :
-                COLORS.lost,
+                pet.status === 'found'      ? colors.found :
+                pet.status === 'adopted'    ? colors.adopted :
+                pet.status === 'adoption'   ? colors.adoption :
+                pet.status === 'archived'   ? colors.textMuted :
+                pet.status === 'registered' ? LIGHT_COLORS.textSecondary :
+                pet.status === 'stray'      ? colors.warning :
+                colors.lost,
             },
           ]}>
             <Text style={styles.statusText}>
@@ -361,9 +366,9 @@ export default function PetDetailScreen() {
             activeOpacity={0.8}
           >
             {markAsFound.isPending ? (
-              <ActivityIndicator size="small" color={COLORS.white} />
+              <ActivityIndicator size="small" color={colors.onPrimary} />
             ) : (
-              <IconLabel icon="check-circle" size={18} color={COLORS.white}>
+              <IconLabel icon="check-circle" size={18} color={colors.onPrimary}>
                 <Text style={styles.markFoundButtonText}>{t('pet_detail:markAsFound')}</Text>
               </IconLabel>
             )}
@@ -378,7 +383,7 @@ export default function PetDetailScreen() {
             onPress={() => router.push(`/story/create?petId=${pet.id}`)}
             activeOpacity={0.8}
           >
-            <IconLabel icon="celebration" size={18} color={COLORS.white}>
+            <IconLabel icon="celebration" size={18} color={colors.onPrimary}>
               <Text style={styles.storyButtonText}>{t('story:create')}</Text>
             </IconLabel>
           </TouchableOpacity>
@@ -390,7 +395,7 @@ export default function PetDetailScreen() {
             <Text style={styles.sectionTitle}>{t('pet_detail:ownerContact')}</Text>
             <View style={styles.ownerInfo}>
               <View style={styles.ownerAvatar}>
-                <Icon name="person" size={24} color={COLORS.textMuted} />
+                <Icon name="person" size={24} color={colors.textMuted} />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.ownerName}>{pet.owner.name}</Text>
@@ -479,7 +484,7 @@ export default function PetDetailScreen() {
                       <View key={report.id} style={styles.timelineItem}>
                         <View style={[
                           styles.timelineDot,
-                          { backgroundColor: report.status === 'found' ? COLORS.found : report.status === 'sighting' ? COLORS.sighting : COLORS.lost },
+                          { backgroundColor: report.status === 'found' ? colors.found : report.status === 'sighting' ? colors.sighting : colors.lost },
                         ]} />
                         {index < reports.length - 1 && <View style={styles.timelineLine} />}
                         <View style={styles.timelineContent}>
@@ -492,7 +497,7 @@ export default function PetDetailScreen() {
                             </IconLabel>
                           )}
                           {report.location_description && (
-                            <IconLabel icon="location-on" size={12} color={COLORS.textSecondary} gap={2} style={{ marginTop: 2 }}>
+                            <IconLabel icon="location-on" size={12} color={colors.textSecondary} gap={2} style={{ marginTop: 2 }}>
                               <Text style={[styles.timelineLocation, { marginTop: 0, flexShrink: 1 }]}>
                                 {report.location_description}
                               </Text>
@@ -529,17 +534,17 @@ export default function PetDetailScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
+const makeStyles = (c: ThemeColors) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: c.background },
   center: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: COLORS.background,
+    backgroundColor: c.background,
   },
   notFoundText: {
     fontSize: FONTS.sizes.lg,
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
     marginTop: SPACING.md,
   },
   carouselContainer: { width, height: 300, position: 'relative' },
@@ -561,7 +566,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.55)',
   },
   activeDot: {
-    backgroundColor: '#ffffff',
+    backgroundColor: c.white,
     width: 9,
     height: 9,
     borderRadius: 5,
@@ -569,7 +574,7 @@ const styles = StyleSheet.create({
   imagePlaceholder: {
     width: '100%',
     height: '100%',
-    backgroundColor: COLORS.background,
+    backgroundColor: c.background,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -583,7 +588,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   foundBannerText: {
-    color: COLORS.white,
+    color: c.onPrimary,
     fontWeight: '800',
     fontSize: FONTS.sizes.sm,
     letterSpacing: 1,
@@ -595,11 +600,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: SPACING.md,
   },
-  petName: { fontSize: FONTS.sizes.xxl, fontWeight: '700', color: COLORS.textPrimary, flex: 1 },
+  petName: { fontSize: FONTS.sizes.xxl, fontWeight: '700', color: c.textPrimary, flex: 1 },
   statusBadge: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: RADIUS.sm },
-  statusText: { color: COLORS.white, fontSize: 12, fontWeight: '800' },
+  statusText: { color: c.onPrimary, fontSize: 12, fontWeight: '800' },
   detailsCard: {
-    backgroundColor: COLORS.white,
+    backgroundColor: c.card,
     borderRadius: RADIUS.lg,
     padding: SPACING.md,
     marginBottom: SPACING.md,
@@ -610,23 +615,23 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomColor: c.border,
   },
-  detailLabel: { fontSize: FONTS.sizes.sm, color: COLORS.textSecondary, fontWeight: '500' },
-  detailValue: { fontSize: FONTS.sizes.sm, color: COLORS.textPrimary, fontWeight: '600' },
+  detailLabel: { fontSize: FONTS.sizes.sm, color: c.textSecondary, fontWeight: '500' },
+  detailValue: { fontSize: FONTS.sizes.sm, color: c.textPrimary, fontWeight: '600' },
   lastSeen: {
     marginHorizontal: 16,
     marginBottom: 16,
     padding: 12,
     borderRadius: 12,
-    backgroundColor: COLORS.card,
+    backgroundColor: c.card,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: c.border,
   },
-  lastSeenRelative: { fontSize: 15, fontWeight: '600', color: COLORS.textPrimary },
-  lastSeenAbsolute: { fontSize: 13, color: COLORS.textSecondary, marginTop: 2 },
+  lastSeenRelative: { fontSize: 15, fontWeight: '600', color: c.textPrimary },
+  lastSeenAbsolute: { fontSize: 13, color: c.textSecondary, marginTop: 2 },
   descriptionCard: {
-    backgroundColor: COLORS.white,
+    backgroundColor: c.card,
     borderRadius: RADIUS.lg,
     padding: SPACING.md,
     marginBottom: SPACING.md,
@@ -635,10 +640,10 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: FONTS.sizes.md,
     fontWeight: '700',
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
     marginBottom: SPACING.sm,
   },
-  descriptionText: { fontSize: FONTS.sizes.sm, color: COLORS.textSecondary, lineHeight: 22 },
+  descriptionText: { fontSize: FONTS.sizes.sm, color: c.textSecondary, lineHeight: 22 },
   markFoundButton: {
     backgroundColor: '#16a34a',
     paddingVertical: 14,
@@ -651,7 +656,7 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   markFoundButtonText: {
-    color: COLORS.white,
+    color: c.onPrimary,
     fontSize: FONTS.sizes.md,
     fontWeight: '700',
   },
@@ -664,12 +669,12 @@ const styles = StyleSheet.create({
     ...SHADOWS.sm,
   },
   storyButtonText: {
-    color: COLORS.white,
+    color: c.onPrimary,
     fontSize: FONTS.sizes.md,
     fontWeight: '700',
   },
   ownerCard: {
-    backgroundColor: COLORS.white,
+    backgroundColor: c.card,
     borderRadius: RADIUS.lg,
     padding: SPACING.md,
     marginBottom: SPACING.md,
@@ -680,23 +685,23 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: COLORS.background,
+    backgroundColor: c.background,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: SPACING.md,
   },
-  ownerName: { fontSize: FONTS.sizes.md, fontWeight: '600', color: COLORS.textPrimary },
-  verifiedText: { fontSize: FONTS.sizes.xs, color: COLORS.success, fontWeight: '600', marginTop: 2 },
+  ownerName: { fontSize: FONTS.sizes.md, fontWeight: '600', color: c.textPrimary },
+  verifiedText: { fontSize: FONTS.sizes.xs, color: c.success, fontWeight: '600', marginTop: 2 },
   contactButton: {
-    backgroundColor: COLORS.whatsapp,
+    backgroundColor: c.whatsapp,
     paddingVertical: 14,
     borderRadius: RADIUS.md,
     alignItems: 'center',
   },
-  contactButtonText: { color: COLORS.white, fontSize: FONTS.sizes.md, fontWeight: '700' },
-  kebabIcon: { fontSize: 22, color: COLORS.textSecondary, paddingHorizontal: 4 },
+  contactButtonText: { color: c.onPrimary, fontSize: FONTS.sizes.md, fontWeight: '700' },
+  kebabIcon: { fontSize: 22, color: c.textSecondary, paddingHorizontal: 4 },
   timelineCard: {
-    backgroundColor: COLORS.white,
+    backgroundColor: c.card,
     borderRadius: RADIUS.lg,
     padding: SPACING.md,
     marginBottom: SPACING.md,
@@ -710,11 +715,11 @@ const styles = StyleSheet.create({
     top: 16,
     bottom: -SPACING.md,
     width: 2,
-    backgroundColor: COLORS.border,
+    backgroundColor: c.border,
   },
   timelineContent: { flex: 1 },
-  timelineStatus: { fontSize: FONTS.sizes.sm, fontWeight: '600', color: COLORS.textPrimary },
+  timelineStatus: { fontSize: FONTS.sizes.sm, fontWeight: '600', color: c.textPrimary },
   verifiedBadge: { fontSize: 11, color: '#16a34a', fontWeight: '700', marginTop: 2 },
-  timelineLocation: { fontSize: FONTS.sizes.xs, color: COLORS.textSecondary, marginTop: 2 },
-  timelineDate: { fontSize: FONTS.sizes.xs, color: COLORS.textMuted, marginTop: 2 },
+  timelineLocation: { fontSize: FONTS.sizes.xs, color: c.textSecondary, marginTop: 2 },
+  timelineDate: { fontSize: FONTS.sizes.xs, color: c.textMuted, marginTop: 2 },
 });

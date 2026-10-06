@@ -7,7 +7,8 @@ import { cloudinaryThumb } from '../../../shared/utils/cloudinaryThumb';
 import { ListState } from '../list/ListState';
 import { IMAGE_SIZES } from '../../constants/imageSizes';
 import { getDateLocale } from '../../i18n/dateLocale';
-import { COLORS, SPACING, FONTS } from '../../constants';
+import { type ThemeColors, SPACING, FONTS } from '../../constants';
+import { useTheme, useThemedStyles } from '../../hooks/useTheme';
 import { Icon } from '../Icon';
 
 interface CandidatesStepProps {
@@ -46,6 +47,8 @@ interface CandidatesStepProps {
  * se pasa. Da igual: el vacío ya se fue en la rama de arriba.
  */
 export function CandidatesStep({ query, onSelect, onSkip, isPublishing }: CandidatesStepProps) {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   const { t, i18n } = useTranslation();
 
   // `query.data` y no `items.length`: una lista vacía que SÍ llegó es una
@@ -153,7 +156,7 @@ export function CandidatesStep({ query, onSelect, onSkip, isPublishing }: Candid
                   />
                 ) : (
                   <View style={[styles.photo, styles.photoEmpty]}>
-                    <Icon name="pets" size={24} color={COLORS.textMuted} />
+                    <Icon name="pets" size={24} color={colors.textMuted} />
                   </View>
                 )}
                 <View style={styles.info}>
@@ -274,22 +277,23 @@ export function CandidatesStep({ query, onSelect, onSkip, isPublishing }: Candid
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: ThemeColors) =>
+  StyleSheet.create({
   title: {
     fontSize: FONTS.sizes.xl,
     fontWeight: '700',
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
     marginBottom: SPACING.xs,
   },
   subtitle: {
     fontSize: FONTS.sizes.md,
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
     marginBottom: SPACING.lg,
   },
   skeleton: {
     height: 160,
     borderRadius: 12,
-    backgroundColor: COLORS.border,
+    backgroundColor: c.border,
   },
   list: {
     gap: SPACING.sm,
@@ -301,14 +305,14 @@ const styles = StyleSheet.create({
     padding: SPACING.sm,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: COLORS.border,
-    backgroundColor: COLORS.white,
+    borderColor: c.border,
+    backgroundColor: c.card,
   },
   photo: {
     width: 56,
     height: 56,
     borderRadius: 8,
-    backgroundColor: COLORS.border,
+    backgroundColor: c.border,
   },
   photoEmpty: {
     alignItems: 'center',
@@ -321,24 +325,24 @@ const styles = StyleSheet.create({
   name: {
     fontSize: FONTS.sizes.md,
     fontWeight: '700',
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
   },
   meta: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
   },
   distance: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
   },
   selectButton: {
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.sm,
     borderRadius: 10,
-    backgroundColor: COLORS.primary,
+    backgroundColor: c.primary,
   },
   selectText: {
-    color: COLORS.white,
+    color: c.onPrimary,
     fontWeight: '700',
     fontSize: FONTS.sizes.sm,
   },
@@ -347,7 +351,7 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.md,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: c.border,
     alignItems: 'center',
   },
   skipDisabled: {
@@ -356,6 +360,6 @@ const styles = StyleSheet.create({
   skipText: {
     fontSize: FONTS.sizes.md,
     fontWeight: '700',
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
   },
 });

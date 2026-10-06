@@ -20,12 +20,15 @@ import { useAuthStore } from '../../store';
 import { useConversations, useWebSocket } from '../../../shared/hooks';
 import type { WsEnvelope } from '../../../shared/hooks';
 import { ListState } from '../../components/list/ListState';
-import { COLORS, SPACING, FONTS, RADIUS } from '../../constants';
+import { SPACING, FONTS, RADIUS, type ThemeColors } from '../../constants';
+import { useTheme, useThemedStyles } from '../../hooks/useTheme';
 import { Icon } from '../../components/Icon';
 import type { Message } from '../../../shared/types';
 
 export default function MessagesScreen() {
   const router = useRouter();
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   const { t } = useTranslation(['common', 'messages']);
   const { isAuthenticated, user } = useAuthStore();
   const queryClient = useQueryClient();
@@ -47,7 +50,7 @@ export default function MessagesScreen() {
   if (!isAuthenticated) {
     return (
       <View style={styles.center}>
-        <View style={{ marginBottom: SPACING.md }}><Icon name="chat-bubble" size={48} color={COLORS.textMuted} /></View>
+        <View style={{ marginBottom: SPACING.md }}><Icon name="chat-bubble" size={48} color={colors.textMuted} /></View>
         <Text style={styles.title}>{t('messages:title')}</Text>
         <Text style={styles.subtitle}>{t('messages:loginSubtitle')}</Text>
         <TouchableOpacity
@@ -97,7 +100,7 @@ export default function MessagesScreen() {
         query={conversationsQuery}
         loading={
           <View style={styles.center}>
-            <ActivityIndicator size="large" color={COLORS.primary} />
+            <ActivityIndicator size="large" color={colors.primary} />
           </View>
         }
       >
@@ -147,13 +150,13 @@ export default function MessagesScreen() {
               <RefreshControl
                 refreshing={isRefetching}
                 onRefresh={refetch}
-                tintColor={COLORS.primary}
+                tintColor={colors.primary}
               />
             }
             ItemSeparatorComponent={() => <View style={styles.separator} />}
             ListEmptyComponent={
               <View style={styles.center}>
-                <View style={{ marginBottom: SPACING.md }}><Icon name="inbox" size={48} color={COLORS.textMuted} /></View>
+                <View style={{ marginBottom: SPACING.md }}><Icon name="inbox" size={48} color={colors.textMuted} /></View>
                 <Text style={styles.title}>{t('messages:emptyTitle')}</Text>
                 <Text style={styles.subtitle}>{t('messages:emptySubtitle')}</Text>
               </View>
@@ -168,8 +171,8 @@ export default function MessagesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.white },
+const makeStyles = (c: ThemeColors) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: c.surface },
   center: {
     flex: 1,
     justifyContent: 'center',
@@ -179,23 +182,23 @@ const styles = StyleSheet.create({
   title: {
     fontSize: FONTS.sizes.xl,
     fontWeight: '700',
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
     marginBottom: SPACING.sm,
   },
   subtitle: {
     fontSize: FONTS.sizes.md,
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
     textAlign: 'center',
     marginBottom: SPACING.lg,
   },
   loginButton: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: c.primary,
     paddingHorizontal: SPACING.xl,
     paddingVertical: 14,
     borderRadius: RADIUS.md,
   },
   loginText: {
-    color: COLORS.white,
+    color: c.onPrimary,
     fontSize: FONTS.sizes.md,
     fontWeight: '700',
   },
@@ -209,13 +212,13 @@ const styles = StyleSheet.create({
     width: 52,
     height: 52,
     borderRadius: 26,
-    backgroundColor: COLORS.primary,
+    backgroundColor: c.primary,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: SPACING.md,
   },
   avatarText: {
-    color: COLORS.white,
+    color: c.onPrimary,
     fontSize: FONTS.sizes.xl,
     fontWeight: '700',
   },
@@ -229,12 +232,12 @@ const styles = StyleSheet.create({
   userName: {
     fontSize: FONTS.sizes.md,
     fontWeight: '500',
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
   },
   userNameUnread: { fontWeight: '700' },
   timeText: {
     fontSize: FONTS.sizes.xs,
-    color: COLORS.textMuted,
+    color: c.textMuted,
   },
   messageRow: {
     flexDirection: 'row',
@@ -244,22 +247,22 @@ const styles = StyleSheet.create({
   lastMessage: {
     flex: 1,
     fontSize: FONTS.sizes.sm,
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
   },
   lastMessageUnread: {
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
     fontWeight: '600',
   },
   unreadDot: {
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: COLORS.primary,
+    backgroundColor: c.primary,
     marginLeft: SPACING.sm,
   },
   separator: {
     height: 1,
-    backgroundColor: COLORS.border,
+    backgroundColor: c.border,
     marginLeft: 52 + SPACING.lg + SPACING.md,
   },
 });

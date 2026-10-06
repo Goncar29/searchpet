@@ -26,7 +26,8 @@ import { useSearchPets, useStories, useImageClassify, useImageSearchNative } fro
 import { useLocationStore, useAuthStore } from '../../store';
 import { PetCard } from '../../components/PetCard';
 import { ListState } from '../../components/list/ListState';
-import { COLORS, SPACING, FONTS, RADIUS, SHADOWS, MAP_DEFAULTS, PET_TYPES } from '../../constants';
+import { SPACING, FONTS, RADIUS, SHADOWS, MAP_DEFAULTS, PET_TYPES, type ThemeColors } from '../../constants';
+import { useTheme, useThemedStyles } from '../../hooks/useTheme';
 import { IconLabel } from '../../components/IconLabel';
 import { Icon, type IconName } from '../../components/Icon';
 import type { PetType, SuccessStory, ClassifyResult, ImageSearchResult } from '../../../shared/types';
@@ -38,6 +39,8 @@ const RADII = [5, 10, 25, 50] as const;
 
 export default function HomeScreen() {
   const router = useRouter();
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   const { t } = useTranslation(['home', 'common', 'pets']);
   const { isAuthenticated } = useAuthStore();
   const { latitude, longitude, setLocation } = useLocationStore();
@@ -269,7 +272,7 @@ export default function HomeScreen() {
       >
         <Text style={styles.storyPetName}>{item.pet_name}</Text>
         <Text style={styles.storyBody} numberOfLines={2}>{displayText}</Text>
-        <IconLabel icon="favorite-filled" size={12} color={COLORS.textMuted} gap={4}>
+        <IconLabel icon="favorite-filled" size={12} color={colors.textMuted} gap={4}>
           <Text style={styles.storyLikes}>{item.like_count}</Text>
         </IconLabel>
       </TouchableOpacity>
@@ -298,7 +301,7 @@ export default function HomeScreen() {
             style={[styles.chip, !draftType && styles.chipActive]}
             onPress={() => { setDraftType(undefined); setAppliedType(undefined); }}
           >
-            <IconLabel icon="pets" size={18} color={!draftType ? COLORS.white : COLORS.textSecondary}>
+            <IconLabel icon="pets" size={18} color={!draftType ? colors.onPrimary : colors.textSecondary}>
               <Text style={[styles.chipText, !draftType && styles.chipTextActive]}>
                 {t('home:all')}
               </Text>
@@ -318,7 +321,7 @@ export default function HomeScreen() {
               <IconLabel
                 icon={petType.icon}
                 size={18}
-                color={draftType === petType.value ? COLORS.white : COLORS.textSecondary}
+                color={draftType === petType.value ? colors.onPrimary : colors.textSecondary}
               >
                 <Text style={[styles.chipText, draftType === petType.value && styles.chipTextActive]}>
                   {t(`pets:types.${petType.value}`)}
@@ -332,7 +335,7 @@ export default function HomeScreen() {
             style={[styles.chip, showFilters && styles.chipActive]}
             onPress={() => setShowFilters(!showFilters)}
           >
-            <IconLabel icon="tune" size={16} color={showFilters ? COLORS.white : COLORS.textSecondary}>
+            <IconLabel icon="tune" size={16} color={showFilters ? colors.onPrimary : colors.textSecondary}>
               <Text style={[styles.chipText, showFilters && styles.chipTextActive]}>
                 {t('home:more')}
               </Text>
@@ -345,7 +348,7 @@ export default function HomeScreen() {
             onPress={handleImageSearch}
             disabled={isModelLoading || isClassifying || imageSearchMutation.isPending}
           >
-            <IconLabel icon={photoChip.icon} size={16} color={COLORS.textSecondary}>
+            <IconLabel icon={photoChip.icon} size={16} color={colors.textSecondary}>
               <Text style={styles.chipText}>{photoChip.label}</Text>
             </IconLabel>
           </TouchableOpacity>
@@ -358,7 +361,7 @@ export default function HomeScreen() {
               {classifyResult.breed ?? t(`pets:types.${classifyResult.type}`, { defaultValue: classifyResult.type })} · {Math.round(classifyResult.confidence * 100)}%
             </Text>
             <TouchableOpacity onPress={clearFilters} accessibilityRole="button" accessibilityLabel={t('common:close')}>
-              <Icon name="close" size={18} color={COLORS.primary} />
+              <Icon name="close" size={18} color={colors.primary} />
             </TouchableOpacity>
           </View>
         )}
@@ -367,7 +370,7 @@ export default function HomeScreen() {
           <View style={styles.noMatchRow}>
             <Text style={styles.noMatchText}>{t('home:noMatchText')}</Text>
             <TouchableOpacity onPress={() => setPhotoNoMatch(false)} accessibilityRole="button" accessibilityLabel={t('common:close')}>
-              <Icon name="close" size={18} color={COLORS.primary} />
+              <Icon name="close" size={18} color={colors.primary} />
             </TouchableOpacity>
           </View>
         )}
@@ -378,7 +381,7 @@ export default function HomeScreen() {
             <TextInput
               style={styles.colorInput}
               placeholder={t('home:colorPlaceholder')}
-              placeholderTextColor={COLORS.textMuted}
+              placeholderTextColor={colors.textMuted}
               value={draftColor}
               onChangeText={setDraftColor}
               returnKeyType="search"
@@ -387,7 +390,7 @@ export default function HomeScreen() {
             <TextInput
               style={styles.colorInput}
               placeholder={t('home:breedPlaceholder')}
-              placeholderTextColor={COLORS.textMuted}
+              placeholderTextColor={colors.textMuted}
               value={draftBreed}
               onChangeText={setDraftBreed}
               returnKeyType="search"
@@ -396,7 +399,7 @@ export default function HomeScreen() {
             <TextInput
               style={styles.colorInput}
               placeholder={t('home:fromPlaceholder')}
-              placeholderTextColor={COLORS.textMuted}
+              placeholderTextColor={colors.textMuted}
               value={draftFrom}
               onChangeText={setDraftFrom}
               returnKeyType="next"
@@ -405,7 +408,7 @@ export default function HomeScreen() {
             <TextInput
               style={styles.colorInput}
               placeholder={t('home:toPlaceholder')}
-              placeholderTextColor={COLORS.textMuted}
+              placeholderTextColor={colors.textMuted}
               value={draftTo}
               onChangeText={setDraftTo}
               returnKeyType="search"
@@ -458,7 +461,7 @@ export default function HomeScreen() {
                 : t('home:results', { count: knownCount })}
             </Text>
             <TouchableOpacity onPress={clearFilters}>
-              <IconLabel icon="close" size={14} color={COLORS.primary} gap={4}>
+              <IconLabel icon="close" size={14} color={colors.primary} gap={4}>
                 <Text style={styles.clearText}>{t('home:clearFilters')}</Text>
               </IconLabel>
             </TouchableOpacity>
@@ -486,14 +489,14 @@ export default function HomeScreen() {
           onPress={() => router.push('/login')}
         >
           <Text style={styles.ctaText}>{t('home:loginCta')}</Text>
-          <View style={styles.ctaArrow}><Icon name="arrow-forward" size={22} color={COLORS.white} /></View>
+          <View style={styles.ctaArrow}><Icon name="arrow-forward" size={22} color={colors.onPrimary} /></View>
         </TouchableOpacity>
       )}
 
       {/* ── Historias de éxito ── */}
       {storiesQuery.isLoading && (
         <View style={styles.storiesLoadingRow}>
-          <ActivityIndicator size="small" color={COLORS.primary} />
+          <ActivityIndicator size="small" color={colors.primary} />
         </View>
       )}
       {!storiesQuery.isLoading && stories.length > 0 && (
@@ -520,7 +523,7 @@ export default function HomeScreen() {
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
             <View style={styles.empty}>
-              <View style={styles.emptyIcon}><Icon name="search" size={60} color={COLORS.textMuted} /></View>
+              <View style={styles.emptyIcon}><Icon name="search" size={60} color={colors.textMuted} /></View>
               <Text style={styles.emptyTitle}>{t('home:photoNoResults')}</Text>
               <TouchableOpacity style={styles.clearButton} onPress={clearImageResults}>
                 <Text style={styles.clearButtonText}>{t('home:clearPhotoResults')}</Text>
@@ -539,7 +542,7 @@ export default function HomeScreen() {
           select={selectItems}
           loading={
             <View style={styles.center}>
-              <ActivityIndicator size="large" color={COLORS.primary} />
+              <ActivityIndicator size="large" color={colors.primary} />
               <Text style={styles.loadingText}>
                 {hasActiveFilters ? t('home:searching') : t('home:loading')}
               </Text>
@@ -555,7 +558,7 @@ export default function HomeScreen() {
                 <RefreshControl
                   refreshing={isRefetching}
                   onRefresh={handleRefetch}
-                  tintColor={COLORS.primary}
+                  tintColor={colors.primary}
                 />
               }
               contentContainerStyle={styles.list}
@@ -584,16 +587,16 @@ export default function HomeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
+const makeStyles = (c: ThemeColors) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: c.background },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  loadingText: { marginTop: SPACING.md, fontSize: FONTS.sizes.md, color: COLORS.textSecondary },
+  loadingText: { marginTop: SPACING.md, fontSize: FONTS.sizes.md, color: c.textSecondary },
 
   // ── Filtros ──
   filterBar: {
-    backgroundColor: COLORS.white,
+    backgroundColor: c.surface,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomColor: c.border,
     paddingTop: SPACING.sm,
   },
   chipsRow: {
@@ -606,21 +609,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 20,
-    backgroundColor: COLORS.background,
+    backgroundColor: c.background,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: c.border,
   },
   chipActive: {
-    backgroundColor: COLORS.primary,
-    borderColor: COLORS.primary,
+    backgroundColor: c.primary,
+    borderColor: c.primary,
   },
   chipText: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
     fontWeight: '500',
   },
   chipTextActive: {
-    color: COLORS.white,
+    color: c.onPrimary,
     fontWeight: '700',
   },
   extraFilters: {
@@ -629,14 +632,14 @@ const styles = StyleSheet.create({
     gap: SPACING.sm,
   },
   colorInput: {
-    backgroundColor: COLORS.background,
+    backgroundColor: c.background,
     borderRadius: 10,
     paddingHorizontal: SPACING.md,
     paddingVertical: 8,
     fontSize: FONTS.sizes.sm,
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: c.border,
   },
   radiusRow: {
     flexDirection: 'row',
@@ -645,28 +648,28 @@ const styles = StyleSheet.create({
   },
   radiusLabel: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
     fontWeight: '600',
   },
   radiusChip: {
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 16,
-    backgroundColor: COLORS.background,
+    backgroundColor: c.background,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: c.border,
   },
   radiusChipActive: {
-    backgroundColor: COLORS.secondary,
-    borderColor: COLORS.secondary,
+    backgroundColor: c.secondary,
+    borderColor: c.secondary,
   },
   radiusChipText: {
     fontSize: FONTS.sizes.xs,
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
     fontWeight: '500',
   },
   radiusChipTextActive: {
-    color: COLORS.white,
+    color: c.onPrimary,
     fontWeight: '700',
   },
 
@@ -681,48 +684,48 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  greeting: { fontSize: FONTS.sizes.xl, fontWeight: '700', color: COLORS.textPrimary },
-  subtitle: { fontSize: FONTS.sizes.sm, color: COLORS.textSecondary, marginTop: 4 },
-  clearText: { fontSize: FONTS.sizes.sm, color: COLORS.primary, fontWeight: '600' },
+  greeting: { fontSize: FONTS.sizes.xl, fontWeight: '700', color: c.textPrimary },
+  subtitle: { fontSize: FONTS.sizes.sm, color: c.textSecondary, marginTop: 4 },
+  clearText: { fontSize: FONTS.sizes.sm, color: c.primary, fontWeight: '600' },
 
   // ── CTA ──
   ctaBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: COLORS.primary,
+    backgroundColor: c.primary,
     marginHorizontal: SPACING.lg,
     marginVertical: SPACING.sm,
     paddingVertical: SPACING.md,
     paddingHorizontal: SPACING.lg,
     borderRadius: 12,
   },
-  ctaText: { color: COLORS.white, fontSize: FONTS.sizes.md, fontWeight: '600', flex: 1 },
+  ctaText: { color: c.onPrimary, fontSize: FONTS.sizes.md, fontWeight: '600', flex: 1 },
   ctaArrow: { marginLeft: SPACING.sm },
 
   // ── Lista ──
   list: { paddingHorizontal: SPACING.lg, paddingBottom: 100 },
   empty: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: SPACING.xxl * 2 },
   emptyIcon: { marginBottom: SPACING.md },
-  emptyTitle: { fontSize: FONTS.sizes.lg, fontWeight: '600', color: COLORS.textPrimary, marginBottom: SPACING.sm },
-  emptyText: { fontSize: FONTS.sizes.sm, color: COLORS.textSecondary, textAlign: 'center', paddingHorizontal: SPACING.xl },
+  emptyTitle: { fontSize: FONTS.sizes.lg, fontWeight: '600', color: c.textPrimary, marginBottom: SPACING.sm },
+  emptyText: { fontSize: FONTS.sizes.sm, color: c.textSecondary, textAlign: 'center', paddingHorizontal: SPACING.xl },
   clearButton: {
     marginTop: SPACING.lg,
     paddingHorizontal: SPACING.xl,
     paddingVertical: 10,
-    backgroundColor: COLORS.primary,
+    backgroundColor: c.primary,
     borderRadius: 8,
   },
-  clearButtonText: { color: COLORS.white, fontWeight: '700', fontSize: FONTS.sizes.sm },
+  clearButtonText: { color: c.onPrimary, fontWeight: '700', fontSize: FONTS.sizes.sm },
 
   // ── Apply filters button ──
   applyButton: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: c.primary,
     paddingVertical: 10,
     borderRadius: 8,
     alignItems: 'center',
   },
-  applyButtonText: { color: COLORS.white, fontWeight: '700', fontSize: FONTS.sizes.sm },
+  applyButtonText: { color: c.onPrimary, fontWeight: '700', fontSize: FONTS.sizes.sm },
 
   // ── Historias de éxito ──
   storiesLoadingRow: {
@@ -730,16 +733,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   storiesSection: {
-    backgroundColor: COLORS.white,
+    backgroundColor: c.surface,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomColor: c.border,
     paddingTop: SPACING.sm,
     paddingBottom: SPACING.md,
   },
   storiesSectionTitle: {
     fontSize: FONTS.sizes.md,
     fontWeight: '700',
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
     paddingHorizontal: SPACING.lg,
     marginBottom: SPACING.sm,
   },
@@ -749,28 +752,28 @@ const styles = StyleSheet.create({
   },
   storyCard: {
     width: 180,
-    backgroundColor: COLORS.background,
+    backgroundColor: c.background,
     borderRadius: 12,
     padding: SPACING.md,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: c.border,
   },
   storyPetName: {
     fontSize: FONTS.sizes.sm,
     fontWeight: '700',
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
     marginBottom: SPACING.xs,
   },
   storyBody: {
     fontSize: FONTS.sizes.xs,
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
     lineHeight: 18,
     marginBottom: SPACING.sm,
     flex: 1,
   },
   storyLikes: {
     fontSize: FONTS.sizes.xs,
-    color: COLORS.textMuted,
+    color: c.textMuted,
     fontWeight: '500',
   },
 
@@ -786,15 +789,15 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.sm,
     paddingHorizontal: SPACING.md,
     paddingVertical: 6,
-    backgroundColor: COLORS.primary + '1A',
+    backgroundColor: c.primary + '1A',
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: COLORS.primary + '33',
+    borderColor: c.primary + '33',
   },
   classifyResultText: {
     fontSize: FONTS.sizes.sm,
     fontWeight: '600',
-    color: COLORS.primary,
+    color: c.primary,
   },
   noMatchRow: {
     flexDirection: 'row',
@@ -804,14 +807,14 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.sm,
     paddingHorizontal: SPACING.md,
     paddingVertical: 6,
-    backgroundColor: '#FFF3CD',
+    backgroundColor: c.noticeBg,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#FFEAA7',
+    borderColor: c.noticeBorder,
   },
   noMatchText: {
     fontSize: FONTS.sizes.sm,
-    color: '#856404',
+    color: c.noticeText,
     flex: 1,
   },
 
@@ -819,7 +822,7 @@ const styles = StyleSheet.create({
   imageResultRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.white,
+    backgroundColor: c.card,
     borderRadius: RADIUS.lg,
     marginBottom: SPACING.md,
     padding: SPACING.sm,
@@ -831,7 +834,7 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.sm,
   },
   imageResultPhotoPlaceholder: {
-    backgroundColor: COLORS.background,
+    backgroundColor: c.background,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -842,17 +845,17 @@ const styles = StyleSheet.create({
   imageResultName: {
     fontSize: FONTS.sizes.md,
     fontWeight: '700',
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
   },
   imageResultType: {
     fontSize: FONTS.sizes.sm,
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
     marginTop: 2,
   },
   imageResultSimilarity: {
     fontSize: FONTS.sizes.sm,
     fontWeight: '700',
-    color: COLORS.primary,
+    color: c.primary,
     marginLeft: SPACING.sm,
   },
 });

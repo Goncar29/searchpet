@@ -21,9 +21,12 @@ import { useTranslation } from 'react-i18next';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuthStore } from '../store';
 import { useUpdateMe } from '../../shared/hooks';
-import { COLORS, SPACING, FONTS, RADIUS, SHADOWS } from '../constants';
+import { SPACING, FONTS, RADIUS, SHADOWS, type ThemeColors } from '../constants';
+import { useTheme, useThemedStyles } from '../hooks/useTheme';
 
 export default function EditProfileScreen() {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   const { t } = useTranslation('profile');
   const router = useRouter();
 
@@ -73,7 +76,7 @@ export default function EditProfileScreen() {
               onChangeText={setName}
               autoCapitalize="words"
               returnKeyType="next"
-              placeholderTextColor={COLORS.placeholder}
+              placeholderTextColor={colors.placeholder}
             />
           </View>
 
@@ -86,7 +89,7 @@ export default function EditProfileScreen() {
               onChangeText={setPhone}
               keyboardType="phone-pad"
               returnKeyType="next"
-              placeholderTextColor={COLORS.placeholder}
+              placeholderTextColor={colors.placeholder}
             />
           </View>
 
@@ -100,7 +103,7 @@ export default function EditProfileScreen() {
               autoCapitalize="words"
               returnKeyType="done"
               onSubmitEditing={!isDisabled ? handleSave : undefined}
-              placeholderTextColor={COLORS.placeholder}
+              placeholderTextColor={colors.placeholder}
             />
           </View>
 
@@ -111,7 +114,7 @@ export default function EditProfileScreen() {
             disabled={isDisabled}
           >
             {updateMe.isPending ? (
-              <ActivityIndicator color={COLORS.white} />
+              <ActivityIndicator color={colors.onPrimary} />
             ) : (
               <Text style={styles.saveButtonText}>
                 {updateMe.isPending ? t('editProfile.saving') : t('editProfile.save')}
@@ -124,10 +127,10 @@ export default function EditProfileScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (c: ThemeColors) => StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: c.background,
   },
   flex: {
     flex: 1,
@@ -142,23 +145,23 @@ const styles = StyleSheet.create({
   label: {
     fontSize: FONTS.sizes.sm,
     fontWeight: '600',
-    color: COLORS.textSecondary,
+    color: c.textSecondary,
     marginBottom: SPACING.xs,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   input: {
-    backgroundColor: COLORS.white,
+    backgroundColor: c.surface,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: c.border,
     borderRadius: RADIUS.md,
     padding: SPACING.md,
     fontSize: FONTS.sizes.md,
-    color: COLORS.textPrimary,
+    color: c.textPrimary,
     ...SHADOWS.sm,
   },
   saveButton: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: c.primary,
     padding: SPACING.md,
     borderRadius: RADIUS.md,
     alignItems: 'center',
@@ -169,7 +172,7 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   saveButtonText: {
-    color: COLORS.white,
+    color: c.onPrimary,
     fontSize: FONTS.sizes.md,
     fontWeight: '700',
   },

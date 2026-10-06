@@ -19,7 +19,8 @@ import { useAuthStore } from '../../store';
 import { getErrorMessage } from '@shared/utils/apiErrors';
 import { composeBirthDate } from '@shared/utils/petBirthDate';
 import type { PetIdentityValue } from '../../components/PetIdentityFields';
-import { COLORS, SPACING, FONTS } from '../../constants';
+import { SPACING, FONTS, type ThemeColors } from '../../constants';
+import { useTheme, useThemedStyles } from '../../hooks/useTheme';
 import { IconLabel } from '../../components/IconLabel';
 import type { Pet, InitialReportRequest, PetType, StrayCandidate } from '../../../shared/types';
 
@@ -65,6 +66,8 @@ export const initialWizardState: PublishWizardState = {
 
 export default function PostScreen() {
   const { t } = useTranslation();
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   const router = useRouter();
   const [step, setStep] = useState<PublishStep>('intent');
   const [wizard, setWizard] = useState<PublishWizardState>(initialWizardState);
@@ -333,7 +336,7 @@ export default function PostScreen() {
       <View>
         {back && (
           <TouchableOpacity onPress={back.onBack} style={styles.backButton} accessibilityRole="button">
-            <IconLabel icon="arrow-back" size={16} color={COLORS.textSecondary} gap={4}>
+            <IconLabel icon="arrow-back" size={16} color={colors.textSecondary} gap={4}>
               <Text style={styles.backButtonText}>{back.label}</Text>
             </IconLabel>
           </TouchableOpacity>
@@ -411,10 +414,10 @@ export default function PostScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
+const makeStyles = (c: ThemeColors) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: c.background },
   content: { padding: SPACING.lg },
-  error: { fontSize: FONTS.sizes.sm, color: COLORS.danger, textAlign: 'center', marginBottom: SPACING.md },
+  error: { fontSize: FONTS.sizes.sm, color: c.danger, textAlign: 'center', marginBottom: SPACING.md },
   backButton: { alignSelf: 'flex-start', paddingVertical: SPACING.xs, marginBottom: SPACING.md },
-  backButtonText: { fontSize: FONTS.sizes.sm, fontWeight: '600', color: COLORS.textSecondary },
+  backButtonText: { fontSize: FONTS.sizes.sm, fontWeight: '600', color: c.textSecondary },
 });
