@@ -38,12 +38,27 @@ describe('DownloadPage', () => {
   // Los cuatro pasos de cada lista: si alguien agrega un `step5` al locale y se
   // olvida de renderizarlo, o borra un `<li>`, esto se cae. La numeracion vive
   // en el markup, asi que se afirma junto al texto.
-  it('renderiza los cuatro pasos de cada instructivo, numerados', () => {
+  it('renderiza los pasos de cada instructivo, numerados', () => {
     render(<DownloadPage />);
     for (const n of [1, 2, 3, 4]) {
-      expect(screen.getByText(`${n}. webApp.step${n}`)).toBeInTheDocument();
       expect(screen.getByText(`${n}. sideload.step${n}`)).toBeInTheDocument();
+      expect(screen.getByText(`${n}. webApp.ios.step${n}`)).toBeInTheDocument();
     }
+    for (const n of [1, 2, 3]) {
+      expect(screen.getByText(`${n}. webApp.android.step${n}`)).toBeInTheDocument();
+    }
+  });
+
+  // Android and iOS install a web app in different ways: Chrome shows an
+  // install banner (InstallPWA, fed by `beforeinstallprompt`), Safari has no
+  // such event and only offers Share -> Add to Home Screen. One shared list
+  // sent Android users to a share button that does not install anything.
+  it('separa la instalación de la web app por plataforma', () => {
+    render(<DownloadPage />);
+    expect(screen.getByRole('heading', { name: 'webApp.android.title' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'webApp.ios.title' })).toBeInTheDocument();
+    expect(screen.getByText('webApp.android.fallback')).toBeInTheDocument();
+    expect(screen.queryByText(/webApp\.step\d/)).toBeNull();
   });
 
   // Los destinos externos son el punto de la pagina: si uno se rompe, la pagina

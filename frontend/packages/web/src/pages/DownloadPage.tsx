@@ -64,28 +64,49 @@ export function DownloadPage() {
               <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
                 {t('webApp.description')}
               </p>
-              {/* La numeracion queda en el markup y NO en la traduccion: un
+              {/* Una lista por plataforma porque se instala distinto: Chrome en
+                  Android muestra un aviso de instalacion (InstallPWA, que sale
+                  del evento `beforeinstallprompt`), y Safari no implementa ese
+                  evento, asi que en iOS el unico camino es Compartir -> Agregar
+                  a pantalla de inicio. Con una sola lista, a quien usaba
+                  Android se lo mandaba a un boton compartir que no instala.
+
+                  La numeracion queda en el markup y NO en la traduccion: un
                   traductor no puede desordenarla ni perderla, y el orden de los
                   pasos es el mismo en los tres idiomas. */}
+              <h3 className="font-semibold text-sm text-gray-900 dark:text-white mb-1">
+                {t('webApp.android.title')}
+              </h3>
+              <ol className="text-sm text-gray-600 dark:text-gray-400 space-y-1 mb-2 list-none">
+                <li>1. {t('webApp.android.step1')}</li>
+                <li>2. {t('webApp.android.step2')}</li>
+                <li>3. {t('webApp.android.step3')}</li>
+              </ol>
+              <p className="text-xs text-gray-400 dark:text-gray-500 mb-4">
+                {t('webApp.android.fallback')}
+              </p>
+              <h3 className="font-semibold text-sm text-gray-900 dark:text-white mb-1">
+                {t('webApp.ios.title')}
+              </h3>
               <ol className="text-sm text-gray-600 dark:text-gray-400 space-y-1 mb-4 list-none">
-                <li>1. {t('webApp.step1')}</li>
+                <li>1. {t('webApp.ios.step1')}</li>
                 {/* El icono de compartir va como marcado y NO como emoji dentro
                     de la traduccion: el ⬆️ que estaba ahi lo pinta la fuente de
                     emoji del sistema —en Windows sale como un cuadrito de
                     color— y desentonaba con los tres iconos monocromo de las
                     tarjetas. Aca ademas hereda el color del texto.
 
-                    `ios-share` y NO `share`: el paso 1 manda a Safari, y en iOS
-                    el control es una caja con flecha hacia arriba. El `share`
-                    de Material Symbols es la marca de tres nodos de Android,
-                    que en iOS no existe — el usuario la buscaria en la barra y
-                    no la encontraria. */}
+                    `ios-share` y NO `share`: es el paso de Safari, y en iOS el
+                    control es una caja con flecha hacia arriba. El `share` de
+                    Material Symbols es la marca de tres nodos de Android, que
+                    en iOS no existe — el usuario la buscaria en la barra y no
+                    la encontraria. */}
                 <li>
-                  2. {t('webApp.step2')}{' '}
+                  2. {t('webApp.ios.step2')}{' '}
                   <Icon name="ios-share" className="inline align-text-bottom" />
                 </li>
-                <li>3. {t('webApp.step3')}</li>
-                <li>4. {t('webApp.step4')}</li>
+                <li>3. {t('webApp.ios.step3')}</li>
+                <li>4. {t('webApp.ios.step4')}</li>
               </ol>
               <a
                 href="/"

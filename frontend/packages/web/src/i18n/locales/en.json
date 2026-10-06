@@ -928,10 +928,20 @@
     "webApp": {
       "title": "Web App (iOS + Android)",
       "description": "Install straight from your browser. Works on iOS and Android without any app store.",
-      "step1": "Open this page in Safari (iOS) or Chrome (Android)",
-      "step2": "Tap the share button",
-      "step3": "Choose \"Add to Home Screen\"",
-      "step4": "Done! The icon stays on your home screen",
+      "android": {
+        "title": "Android (Chrome)",
+        "step1": "Open this page in Chrome",
+        "step2": "Tap the install button on the banner that appears at the bottom of the screen",
+        "step3": "Done! The icon stays on your home screen",
+        "fallback": "Closed the banner? Open the Chrome menu (⋮) and choose to install the app."
+      },
+      "ios": {
+        "title": "iPhone and iPad (Safari)",
+        "step1": "Open this page in Safari",
+        "step2": "Tap the share button",
+        "step3": "Choose \"Add to Home Screen\"",
+        "step4": "Done! The icon stays on your home screen"
+      },
       "cta": "Open now",
       "ctaLabel": "Open now (Web App)"
     },

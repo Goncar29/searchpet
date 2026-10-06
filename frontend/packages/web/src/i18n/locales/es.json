@@ -928,10 +928,20 @@
     "webApp": {
       "title": "Web App (iOS + Android)",
       "description": "Instalá desde el navegador. Funciona en iOS y Android sin pasar por ningún store.",
-      "step1": "Abrí esta página en Safari (iOS) o Chrome (Android)",
-      "step2": "Tocá el botón compartir",
-      "step3": "Seleccioná \"Agregar a pantalla de inicio\"",
-      "step4": "¡Listo! El ícono queda en tu pantalla de inicio",
+      "android": {
+        "title": "Android (Chrome)",
+        "step1": "Abrí esta página en Chrome",
+        "step2": "Tocá el botón de instalar en el aviso que aparece abajo en la pantalla",
+        "step3": "¡Listo! El ícono queda en tu pantalla de inicio",
+        "fallback": "¿Cerraste el aviso? Abrí el menú de Chrome (⋮) y elegí instalar la app."
+      },
+      "ios": {
+        "title": "iPhone y iPad (Safari)",
+        "step1": "Abrí esta página en Safari",
+        "step2": "Tocá el botón compartir",
+        "step3": "Seleccioná \"Agregar a pantalla de inicio\"",
+        "step4": "¡Listo! El ícono queda en tu pantalla de inicio"
+      },
       "cta": "Abrir ahora",
       "ctaLabel": "Abrir ahora la Web App"
     },
