@@ -276,8 +276,12 @@ del backend o de la web no cambia el APK. Cuando se decide sacar versión:
 `build-apk.yml` arranca con un guard (`.github/scripts/check-release-version.sh`)
 que falla en segundos si el tag no coincide con `expo.version` o si el
 `versionCode` no creció respecto del tag anterior. Si pasa, construye, firma y
-publica la release, y `/download` en la web apunta a `releases/latest`: no hay
-que tocar nada más para que la descarga ofrezca la versión nueva.
+publica la release con dos copias del mismo APK: `SearchPet-v1.2.0.apk` y
+`SearchPet.apk`. La segunda tiene nombre fijo para que
+`releases/latest/download/SearchPet.apk` descargue siempre la última versión
+directo, sin pasar por la página de GitHub; ése es el link del botón de
+`/download`. No hay que tocar nada más para que la web ofrezca la versión
+nueva — y **si se renombra o se saca ese asset, el botón da 404**.
 
 ### Tres consecuencias de que sea así
 
