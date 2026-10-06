@@ -4,12 +4,9 @@ on:
   push:
     tags:
       - 'v*'
+  # Manual runs build a test APK (artifact only, no release) from any branch.
+  # A release is a deliberate `v*` tag; see "Releasing the app" in DEPLOY.md.
   workflow_dispatch:
-    inputs:
-      version:
-        description: 'Version (ej: 1.0.0)'
-        required: true
-        default: '1.0.0'
 
 # Google Sign-In OAuth 2.0 Web client id — the audience the backend verifies.
 # Public by design (CLAUDE.md rule #25: GIS is a public client, there is no
@@ -31,6 +28,16 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
+        with:
+          # Full history and tags: the release guard reads app.json at the
+          # previous v* tag to check that versionCode grew.
+          fetch-depth: 0
+
+      # Fails in seconds instead of after the Gradle build when the tag and
+      # app.json disagree, or when versionCode did not grow.
+      - name: Check release version
+        if: startsWith(github.ref, 'refs/tags/')
+        run: bash .github/scripts/check-release-version.sh "$GITHUB_REF_NAME"
 
       - name: Setup pnpm
         uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
@@ -147,7 +154,7 @@ jobs:
             >
             > Las versiones hasta la v1.0.5 salieron firmadas con la clave de
             > depuración pública de Android por un error del pipeline de build.
-            > Desde esta versión se firman con la clave real del proyecto, y
+            > Desde la v1.0.6 se firman con la clave real del proyecto, y
             > Android no permite actualizar una app cuando cambia la firma: la
             > instalación falla con "aplicación no instalada" hasta que borres
             > la anterior. Es un único paso, y solo esta vez.

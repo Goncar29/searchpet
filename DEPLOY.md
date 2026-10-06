@@ -251,6 +251,33 @@ Error: GOOGLE_SERVICES_JSON secret is not set
 | **Dev build** | EAS (`eas build --profile development`) | Desarrollo con dev client |
 
 Se dispara pusheando un tag `v*`, y publica el APK en una GitHub Release.
+Lanzarlo a mano (`workflow_dispatch`) construye un APK de prueba desde
+cualquier rama: queda como artifact del run y **no** crea release.
+
+### Sacar una versión de la app
+
+Una versión es un paso **deliberado**, no un efecto de cada merge: un cambio
+del backend o de la web no cambia el APK. Cuando se decide sacar versión:
+
+1. **Elegir el número** con versionado semántico, mirando los commits de
+   mobile/shared desde el último tag
+   (`git log --oneline <último-tag>..origin/main -- frontend/packages/mobile frontend/packages/shared`):
+   - sólo `fix` → **patch** (`1.1.0` → `1.1.1`)
+   - algún `feat` → **minor** (`1.1.1` → `1.2.0`)
+   - algo que obliga a reinstalar o rompe compatibilidad con el backend
+     desplegado → **major** (`1.2.0` → `2.0.0`)
+2. **Subir en `mobile/app.json`** `expo.version` al número nuevo **y**
+   `expo.android.versionCode` en uno. Android decide si un APK es una
+   actualización sólo por el `versionCode`.
+3. Mergear ese cambio a `main` por PR, como cualquier otro.
+4. **Taguear el commit de `main`** y pushear el tag:
+   `git tag v1.2.0 origin/main && git push origin v1.2.0`.
+
+`build-apk.yml` arranca con un guard (`.github/scripts/check-release-version.sh`)
+que falla en segundos si el tag no coincide con `expo.version` o si el
+`versionCode` no creció respecto del tag anterior. Si pasa, construye, firma y
+publica la release, y `/download` en la web apunta a `releases/latest`: no hay
+que tocar nada más para que la descarga ofrezca la versión nueva.
 
 ### Tres consecuencias de que sea así
 
