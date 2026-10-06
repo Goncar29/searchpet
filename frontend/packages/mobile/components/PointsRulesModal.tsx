@@ -6,7 +6,8 @@
 // and the amounts cannot drift apart.
 // ============================================================
 
-import { Modal, View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import { useState } from 'react';
+import { Modal, View, Text, ScrollView, TouchableOpacity, StyleSheet, useWindowDimensions } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { BADGE_META } from '../../shared/types';
 import { POINTS, BADGE_THRESHOLDS } from '../../shared/constants/gamification';
@@ -36,9 +37,26 @@ function Bullet({ text }: { text: string }) {
   );
 }
 
+// The card never takes more than this share of the window height.
+const CARD_HEIGHT_SHARE = 0.85;
+// Header height before onLayout reports the real one (title on one line + X).
+const HEADER_ESTIMATE = 40;
+
 export function PointsRulesModal({ visible, onClose }: Props) {
   const styles = useThemedStyles(makeStyles);
   const { colors } = useTheme();
+  // The list gets its own maxHeight in pixels. A percentage maxHeight on the
+  // card does not reach the ScrollView on Android (rc4 and rc5: it grew to its
+  // content and the end was cut off with nothing to scroll); an explicit pixel
+  // bound on the ScrollView itself scrolls everywhere. Header height is
+  // measured, so a two-line title or a large font still fits.
+  const { height: windowHeight } = useWindowDimensions();
+  const [headerHeight, setHeaderHeight] = useState(HEADER_ESTIMATE);
+  const cardMaxHeight = Math.round(windowHeight * CARD_HEIGHT_SHARE);
+  const scrollMaxHeight = Math.max(
+    120,
+    cardMaxHeight - headerHeight - 2 * SPACING.lg - SPACING.sm,
+  );
   const { t } = useTranslation(['pointsRules', 'badges']);
 
   const earn = [
@@ -57,8 +75,11 @@ export function PointsRulesModal({ visible, onClose }: Props) {
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={styles.overlay}>
-        <View style={styles.card}>
-          <View style={styles.headerRow}>
+        <View style={[styles.card, { maxHeight: cardMaxHeight }]}>
+          <View
+            style={styles.headerRow}
+            onLayout={(e) => setHeaderHeight(e.nativeEvent.layout.height)}
+          >
             <Text style={styles.title}>{t('pointsRules:title')}</Text>
             <TouchableOpacity
               onPress={onClose}
@@ -70,12 +91,9 @@ export function PointsRulesModal({ visible, onClose }: Props) {
             </TouchableOpacity>
           </View>
 
-          {/* flexShrink lets the list take only the card's remaining height and
-              scroll; without it, on Android it grows to its content and the end
-              of the rules is cut off with nothing to scroll. */}
           <ScrollView
             testID="points-rules-scroll"
-            style={styles.scroll}
+            style={{ maxHeight: scrollMaxHeight }}
             showsVerticalScrollIndicator
           >
             <Text style={styles.sectionTitle}>{t('pointsRules:earn.title')}</Text>
@@ -126,7 +144,6 @@ const makeStyles = (c: ThemeColors) =>
     borderRadius: RADIUS.lg,
     padding: SPACING.lg,
     width: '100%',
-    maxHeight: '85%',
     ...SHADOWS.lg,
   },
   headerRow: {
@@ -163,7 +180,6 @@ const makeStyles = (c: ThemeColors) =>
     marginTop: 7,
     marginRight: SPACING.sm,
   },
-  scroll: { flexShrink: 1 },
   bulletText: { flex: 1 },
   lastItem: { marginBottom: SPACING.sm },
   badgeRow: { marginBottom: SPACING.sm },
