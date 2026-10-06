@@ -190,6 +190,8 @@ openspec/
 memory/
 CLAUDE.md
 CLAUDE-historia.md
+# Personal Go study notes; kept locally, not part of the project docs.
+backend/GUIDE.md
 
 # Superpowers — worktrees + brainstorming companion artifacts
 .worktrees/
