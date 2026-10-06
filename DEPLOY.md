@@ -99,6 +99,24 @@ un monitor de UptimeRobot que pega a `/health` cada 300 s.
 > spin-down de 15 min, o sea que no evitaba un solo cold start. El workflow se
 > borró en el PR #172.
 
+**Ventana nocturna de sueño (de 04:00 a 06:00 en Uruguay).** Despierto 24/7, un mes de 31 días son
+744 instance-hours de las 750 que Render da **por workspace**, y ese workspace
+lo comparte con otro servicio. El 2026-08-31 se pasó y Render suspendió el
+backend ~4 h ("Free Tier Usage Exceeded"). Desde entonces
+`keepalive-window.yml` pausa el monitor de `/health` de 07:00 a 09:00 UTC
+(04:00–06:00 en Uruguay) y lo reactiva después: el servicio duerme ~1,5 h por
+noche y el mes de 31 días deja ~50 h de margen. En esa ventana la app sigue
+andando; el primer request espera el arranque en frío (~50 s), y una caída
+no la avisa UptimeRobot.
+
+Acá el cron de GitHub sí sirve porque el job **reconcilia** en vez de
+disparar acciones sueltas: corre cada hora, calcula en qué estado tiene que
+estar el monitor a esa hora y lo deja así. Una corrida que GitHub atrasa o
+pierde la corrige la siguiente. Necesita el secret `UPTIMEROBOT_API_KEY` (la
+API key **principal** de la cuenta: las de solo lectura no pueden pausar) y
+falla en rojo si falta. Ojo: si pausás ese monitor a mano fuera de la
+ventana, el job lo vuelve a activar en la hora siguiente.
+
 ---
 
 ## 1.b Monitoreo — y por qué el intervalo NO es libre

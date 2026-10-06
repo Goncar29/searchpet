@@ -1,0 +1,40 @@
+name: Keepalive Night Window
+
+# Pauses the UptimeRobot /health monitor from 07:00 to 09:00 UTC (04:00-06:00
+# in Uruguay) so Render can put the free backend to sleep, and resumes it after.
+# Saves ~45 instance-hours in a 31-day month: without it SearchPet alone uses
+# 744 of the workspace's 750, and on 2026-08-31 Render suspended the backend.
+# The logic and the reasons live in .github/scripts/keepalive-window.sh.
+#
+# Hourly on purpose, not "pause at 07, resume at 09": GitHub's cron is
+# best-effort and can drop or delay a run, and the script reconciles the
+# monitor to the state the current hour calls for, so the next run fixes a
+# missed one.
+
+on:
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: keepalive-window
+  cancel-in-progress: false
+
+jobs:
+  reconcile:
+    name: Reconcile monitor state
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set the /health monitor for this hour
+        env:
+          UPTIMEROBOT_API_KEY: ${{ secrets.UPTIMEROBOT_API_KEY }}
+          # UptimeRobot monitor that pings searchpet.onrender.com/health every
+          # 5 minutes (CLAUDE.md rule #57).
+          MONITOR_ID: '803088073'
+        run: bash .github/scripts/keepalive-window.sh

@@ -16,6 +16,12 @@ El pipeline principal (`ci.yml`) usa además:
 |--------|-------------|
 | `RENDER_DEPLOY_HOOK_URL` | Deploy hook de Render. Lo dispara `deploy-backend` en push a `main`, después de que pasen los cuatro jobs de test. El Auto-Deploy por commit del servicio está **apagado** a propósito: si estuviera prendido, cada push deployaría dos veces y el deploy automático no esperaría a los tests |
 
+`keepalive-window.yml` (la ventana nocturna de sueño del backend, ver DEPLOY.md) usa:
+
+| Secret | Descripción |
+|--------|-------------|
+| `UPTIMEROBOT_API_KEY` | API key **principal** de UptimeRobot (My Settings → API Settings → Main API Key). Hace falta la principal: las de solo lectura o por monitor no pueden pausar. Sin ella el job falla en rojo cada hora, a propósito |
+
 ## Variables de entorno de Render (no son secrets de GitHub)
 
 Estas se setean en el servicio de Render, no acá. Se documentan en este archivo porque
