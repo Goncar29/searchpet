@@ -103,12 +103,17 @@ describe('ProfileScreen — Language row', () => {
     await AsyncStorage.clear();
   });
 
+  // Restoring here instead of at the end of each test: an inline restore after
+  // a failing assertion never runs, and the spy leaks into the next test.
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   it('marks the current language, even when i18next reports a regional code', () => {
-    const lang = jest.replaceProperty(i18next, 'language', 'en-US');
+    jest.replaceProperty(i18next, 'language', 'en-US');
     render(<ProfileScreen />);
     fireEvent.press(screen.getByText('menuLanguage'));
     expect(screen.getByTestId('option-check-en')).toBeTruthy();
-    lang.restore();
   });
 
   it('a failed save still changes the language and does not reject', async () => {
@@ -120,7 +125,6 @@ describe('ProfileScreen — Language row', () => {
     fireEvent.press(screen.getByText('portuguese'));
     expect(change).toHaveBeenCalledWith('pt');
     await waitFor(() => expect(warn).toHaveBeenCalled());
-    jest.restoreAllMocks();
   });
 
   it('offers the three languages at once', () => {
@@ -139,7 +143,6 @@ describe('ProfileScreen — Language row', () => {
     fireEvent.press(screen.getByText('english'));
     expect(change).toHaveBeenCalledWith('en');
     await waitFor(async () => expect(await AsyncStorage.getItem(LANG_KEY)).toBe('en'));
-    change.mockRestore();
   });
 
   it('closes without choosing', () => {
@@ -149,6 +152,5 @@ describe('ProfileScreen — Language row', () => {
     fireEvent.press(screen.getByLabelText('common:close'));
     expect(screen.queryByText('languageTitle')).toBeNull();
     expect(change).not.toHaveBeenCalled();
-    change.mockRestore();
   });
 });
