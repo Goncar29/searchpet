@@ -42,14 +42,23 @@ fi
 
 # Previous release tag: the newest v* tag that is not this one and is an
 # ancestor of this commit.
-PREV_TAG=$(git describe --tags --abbrev=0 --match 'v[0-9]*' "${TAG}^" 2>/dev/null || true)
-if [[ -z "$PREV_TAG" ]]; then
-  echo "No previous v* tag found; skipping the versionCode comparison."
-  echo "OK: $TAG matches app.json $APP_VERSION (versionCode $APP_CODE)"
-  exit 0
+# A missing previous tag is an error, not a reason to skip: this repository
+# has had release tags since v1.0.0, so not finding one means the checkout did
+# not fetch them (fetch-depth: 0) and the comparison would silently not run.
+if ! PREV_TAG=$(git describe --tags --abbrev=0 --match 'v[0-9]*' "${TAG}^" 2>/dev/null); then
+  echo "::error::No previous v* tag reachable from $TAG. The checkout must fetch tags (fetch-depth: 0) for the versionCode check to run."
+  exit 1
 fi
 
 PREV_CODE=$(git show "$PREV_TAG:$APP_JSON" | read_field android.versionCode)
+# (( )) treats a non-number as an unset variable, i.e. 0, so a malformed
+# versionCode would compare without any error. Check both are integers first.
+for code in "$APP_CODE" "$PREV_CODE"; do
+  if [[ ! "$code" =~ ^[0-9]+$ ]]; then
+    echo "::error::versionCode '$code' is not a positive integer."
+    exit 1
+  fi
+done
 if (( APP_CODE <= PREV_CODE )); then
   echo "::error::versionCode $APP_CODE is not greater than $PREV_CODE at $PREV_TAG. Android would not treat this APK as an update."
   exit 1
