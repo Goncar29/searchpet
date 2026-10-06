@@ -401,6 +401,14 @@ jobs:
       - name: Typecheck
         run: pnpm run typecheck
 
+      # The two scripts build-apk.yml runs around a release: the guard before
+      # the build and the direct-download check after publishing. A release is
+      # the only place they run otherwise, so without this a broken guard would
+      # surface on the next tag, or pass a bad release. Repo root, not mobile/.
+      - name: Release scripts
+        working-directory: .
+        run: bash .github/scripts/release-scripts.test.sh
+
   # ============================================
   # Mobile Security Audit
   # ============================================

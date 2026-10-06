@@ -40,11 +40,11 @@ if [[ "$APP_VERSION" != "$TAG_VERSION" ]]; then
   exit 1
 fi
 
-# Previous release tag: the newest v* tag that is not this one and is an
-# ancestor of this commit.
-# A missing previous tag is an error, not a reason to skip: this repository
-# has had release tags since v1.0.0, so not finding one means the checkout did
-# not fetch them (fetch-depth: 0) and the comparison would silently not run.
+# Previous release tag: the newest v* tag that is an ancestor of this commit
+# and is not this tag. Not finding one is an error, never a reason to skip:
+# this repository has had release tags since v1.0.0, so a miss means the
+# checkout did not fetch them (fetch-depth: 0) and the comparison would
+# silently not run.
 if ! PREV_TAG=$(git describe --tags --abbrev=0 --match 'v[0-9]*' "${TAG}^" 2>/dev/null); then
   echo "::error::No previous v* tag reachable from $TAG. The checkout must fetch tags (fetch-depth: 0) for the versionCode check to run."
   exit 1
