@@ -99,4 +99,16 @@ describe('Leaderboard — points rules popup', () => {
     fireEvent.press(getByLabelText('Close'));
     expect(queryByText('How you earn points')).toBeNull();
   });
+
+  // The rules are taller than a phone screen. A ScrollView inside a card with
+  // maxHeight grows to its content on Android unless it can shrink, so the end
+  // of the text was cut off with nothing to scroll (APK rc4).
+  it('the rules scroll inside the card instead of overflowing it', () => {
+    const { getByLabelText, UNSAFE_getAllByType } = render(<LeaderboardScreen />);
+    fireEvent.press(getByLabelText(i18n.t('pointsRules:open')));
+    const { ScrollView, StyleSheet } = require('react-native');
+    const rules = UNSAFE_getAllByType(ScrollView).find((sv: any) => sv.props.testID === 'points-rules-scroll');
+    expect(rules).toBeDefined();
+    expect(StyleSheet.flatten(rules.props.style)).toMatchObject({ flexShrink: 1 });
+  });
 });

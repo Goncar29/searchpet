@@ -1,10 +1,13 @@
-// S1: the profile Settings row chooses the theme (System / Light / Dark).
+// S1: the profile Settings row chooses the theme (System / Light / Dark), and
+// the Language row the language, both in OptionPickerModal: all options at
+// once, and it closes without choosing (X, outside, back button).
 import React from 'react';
-import { Alert } from 'react-native';
-import { render, screen, fireEvent } from '@testing-library/react-native';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ProfileScreen from '../app/(tabs)/profile';
 import { THEME_KEY, useThemeStore } from '../store/theme';
+import { LANG_KEY } from '../i18n';
+import i18next from 'i18next';
 
 // expo-router is mocked globally in jest.setup.js
 
@@ -62,49 +65,70 @@ jest.mock('react-i18next', () => ({
 
 jest.setTimeout(25000);
 
-type AlertButton = { text?: string; style?: string; onPress?: () => void };
-
-function openThemePicker(): AlertButton[] {
-  render(<ProfileScreen />);
-  fireEvent.press(screen.getByText('menuSettings'));
-  const call = (Alert.alert as jest.Mock).mock.calls.find((c) => c[0] === 'profile:themeTitle');
-  if (!call) throw new Error('Settings did not open the theme picker');
-  return call[2] as AlertButton[];
-}
-
 describe('ProfileScreen — Settings chooses the theme', () => {
   beforeEach(async () => {
-    jest.spyOn(Alert, 'alert').mockImplementation(() => {});
     await AsyncStorage.clear();
     useThemeStore.setState({ preference: 'system', userChose: false });
   });
 
-  afterEach(() => {
-    jest.restoreAllMocks();
-  });
-
-  it('offers System, Light and Dark, plus cancel', () => {
-    const buttons = openThemePicker();
-    expect(buttons.map((b) => b.text)).toEqual([
-      'profile:themeSystem',
-      'profile:themeLight',
-      'profile:themeDark',
-      'common:cancel',
-    ]);
+  it('offers System, Light and Dark at once, with the current one marked', () => {
+    render(<ProfileScreen />);
+    fireEvent.press(screen.getByText('menuSettings'));
+    expect(screen.getByText('themeTitle')).toBeTruthy();
+    for (const label of ['themeSystem', 'themeLight', 'themeDark']) {
+      expect(screen.getByRole('radio', { name: label })).toBeTruthy();
+    }
+    expect(screen.getByTestId('option-check-system')).toBeTruthy();
   });
 
   it('choosing Dark applies it and saves it', async () => {
-    const buttons = openThemePicker();
-    await buttons.find((b) => b.text === 'profile:themeDark')!.onPress!();
+    render(<ProfileScreen />);
+    fireEvent.press(screen.getByText('menuSettings'));
+    fireEvent.press(screen.getByText('themeDark'));
     expect(useThemeStore.getState().preference).toBe('dark');
-    expect(await AsyncStorage.getItem(THEME_KEY)).toBe('dark');
+    await waitFor(async () => expect(await AsyncStorage.getItem(THEME_KEY)).toBe('dark'));
   });
 
-  it('choosing System goes back to following the phone', async () => {
-    useThemeStore.setState({ preference: 'dark', userChose: false });
-    const buttons = openThemePicker();
-    await buttons.find((b) => b.text === 'profile:themeSystem')!.onPress!();
+  it('closes without choosing', () => {
+    render(<ProfileScreen />);
+    fireEvent.press(screen.getByText('menuSettings'));
+    fireEvent.press(screen.getByLabelText('common:close'));
+    expect(screen.queryByText('themeTitle')).toBeNull();
     expect(useThemeStore.getState().preference).toBe('system');
-    expect(await AsyncStorage.getItem(THEME_KEY)).toBe('system');
+  });
+});
+
+describe('ProfileScreen — Language row', () => {
+  beforeEach(async () => {
+    await AsyncStorage.clear();
+  });
+
+  it('offers the three languages at once', () => {
+    render(<ProfileScreen />);
+    fireEvent.press(screen.getByText('menuLanguage'));
+    expect(screen.getByText('languageTitle')).toBeTruthy();
+    for (const label of ['spanish', 'english', 'portuguese']) {
+      expect(screen.getByRole('radio', { name: label })).toBeTruthy();
+    }
+  });
+
+  it('choosing English changes and saves the language', async () => {
+    const change = jest.spyOn(i18next, 'changeLanguage');
+    render(<ProfileScreen />);
+    fireEvent.press(screen.getByText('menuLanguage'));
+    fireEvent.press(screen.getByText('english'));
+    expect(change).toHaveBeenCalledWith('en');
+    await waitFor(async () => expect(await AsyncStorage.getItem(LANG_KEY)).toBe('en'));
+    change.mockRestore();
+  });
+
+  it('closes without choosing', () => {
+    const change = jest.spyOn(i18next, 'changeLanguage');
+    render(<ProfileScreen />);
+    fireEvent.press(screen.getByText('menuLanguage'));
+    fireEvent.press(screen.getByLabelText('common:close'));
+    expect(screen.queryByText('languageTitle')).toBeNull();
+    expect(change).not.toHaveBeenCalled();
+    change.mockRestore();
   });
 });

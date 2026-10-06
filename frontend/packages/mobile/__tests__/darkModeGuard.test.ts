@@ -74,6 +74,7 @@ const KEPT_COLORS: Record<string, Record<string, string>> = {
   'app/pets/register.tsx': { 'rgba(200, 0, 0, 0.45)': 'upload error overlay over the photo' },
   'components/HelperPickerModal.tsx': { 'rgba(0, 0, 0, 0.5)': 'modal backdrop' },
   'components/Logo.tsx': { '#C24E1A': 'brand mark' },
+  'components/OptionPickerModal.tsx': { 'rgba(0, 0, 0, 0.5)': 'modal backdrop' },
   'components/PawPlaceholder.tsx': { '#C24E1A': 'brand mark' },
   'components/PointsRulesModal.tsx': { 'rgba(0, 0, 0, 0.5)': 'modal backdrop' },
   'components/ShareButton.tsx': { '#f97316': 'link-expiry warning, orange reads on both' },

@@ -21,6 +21,7 @@ import { cloudinaryThumb } from '@shared/utils/cloudinaryThumb';
 import { IMAGE_SIZES } from '../../constants/imageSizes';
 import { Icon } from '../../components/Icon';
 import { IconLabel } from '../../components/IconLabel';
+import { OptionPickerModal } from '../../components/OptionPickerModal';
 
 export default function ProfileScreen() {
   const styles = useThemedStyles(makeStyles);
@@ -44,6 +45,9 @@ export default function ProfileScreen() {
   const [otpCode, setOtpCode] = useState('');
   const [otpError, setOtpError] = useState('');
   const [resendCountdown, setResendCountdown] = useState(0);
+  // Which choice picker is open (Settings → theme, Language → language).
+  const [picker, setPicker] = useState<'theme' | 'language' | null>(null);
+  const themePreference = useThemeStore((state) => state.preference);
 
   // Countdown timer for resend
   useEffect(() => {
@@ -167,45 +171,16 @@ export default function ProfileScreen() {
     ]);
   };
 
-  // Settings opens the theme choice. System follows the phone; Light and Dark
-  // override it until the user goes back to System.
-  const handleThemeSwitch = () => {
-    Alert.alert(i18next.t('profile:themeTitle'), '', [
-      { text: i18next.t('profile:themeSystem'), onPress: () => { setThemePreference('system'); } },
-      { text: i18next.t('profile:themeLight'), onPress: () => { setThemePreference('light'); } },
-      { text: i18next.t('profile:themeDark'), onPress: () => { setThemePreference('dark'); } },
-      { text: i18next.t('common:cancel'), style: 'cancel' },
-    ]);
-  };
+  // Settings opens the theme choice and the Language row the language choice,
+  // both in OptionPickerModal: Alert.alert on Android shows at most three
+  // buttons (Cancel was dropped) and cannot be dismissed by tapping outside.
+  // System follows the phone; Light and Dark override it until the user goes
+  // back to System.
 
-  const handleLanguageSwitch = () => {
-    Alert.alert(i18next.t('profile:languageTitle'), '', [
-      {
-        text: i18next.t('profile:spanish'),
-        onPress: () => {
-          i18next.changeLanguage('es');
-          AsyncStorage.setItem(LANG_KEY, 'es');
-          setLanguage('es');
-        },
-      },
-      {
-        text: i18next.t('profile:english'),
-        onPress: () => {
-          i18next.changeLanguage('en');
-          AsyncStorage.setItem(LANG_KEY, 'en');
-          setLanguage('en');
-        },
-      },
-      {
-        text: i18next.t('profile:portuguese'),
-        onPress: () => {
-          i18next.changeLanguage('pt');
-          AsyncStorage.setItem(LANG_KEY, 'pt');
-          setLanguage('pt');
-        },
-      },
-      { text: i18next.t('common:cancel'), style: 'cancel' },
-    ]);
+  const chooseLanguage = (lang: 'es' | 'en' | 'pt') => {
+    i18next.changeLanguage(lang);
+    AsyncStorage.setItem(LANG_KEY, lang);
+    setLanguage(lang);
   };
 
   return (
@@ -447,7 +422,7 @@ export default function ProfileScreen() {
 
         <TouchableOpacity
           style={styles.menuItem}
-          onPress={handleThemeSwitch}
+          onPress={() => setPicker('theme')}
         >
           <View style={styles.menuIcon}><Icon name="settings" size={22} color={colors.textSecondary} /></View>
           <Text style={styles.menuText}>{t('menuSettings')}</Text>
@@ -456,7 +431,7 @@ export default function ProfileScreen() {
 
         <TouchableOpacity
           style={styles.menuItem}
-          onPress={handleLanguageSwitch}
+          onPress={() => setPicker('language')}
         >
           <View style={styles.menuIcon}><Icon name="language" size={22} color={colors.textSecondary} /></View>
           <Text style={styles.menuText}>{t('menuLanguage')}</Text>
@@ -479,6 +454,33 @@ export default function ProfileScreen() {
       </TouchableOpacity>
 
       <View style={{ height: 100 }} />
+
+      <OptionPickerModal
+        visible={picker === 'theme'}
+        title={t('themeTitle')}
+        options={[
+          { value: 'system', label: t('themeSystem') },
+          { value: 'light', label: t('themeLight') },
+          { value: 'dark', label: t('themeDark') },
+        ]}
+        selected={themePreference}
+        onSelect={(value) => { setThemePreference(value); }}
+        onClose={() => setPicker(null)}
+        closeLabel={t('common:close')}
+      />
+      <OptionPickerModal
+        visible={picker === 'language'}
+        title={t('languageTitle')}
+        options={[
+          { value: 'es', label: t('spanish') },
+          { value: 'en', label: t('english') },
+          { value: 'pt', label: t('portuguese') },
+        ]}
+        selected={i18next.language as 'es' | 'en' | 'pt'}
+        onSelect={chooseLanguage}
+        onClose={() => setPicker(null)}
+        closeLabel={t('common:close')}
+      />
     </ScrollView>
   );
 }

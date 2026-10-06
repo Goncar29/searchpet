@@ -70,7 +70,14 @@ export function PointsRulesModal({ visible, onClose }: Props) {
             </TouchableOpacity>
           </View>
 
-          <ScrollView showsVerticalScrollIndicator={false}>
+          {/* flexShrink lets the list take only the card's remaining height and
+              scroll; without it, on Android it grows to its content and the end
+              of the rules is cut off with nothing to scroll. */}
+          <ScrollView
+            testID="points-rules-scroll"
+            style={styles.scroll}
+            showsVerticalScrollIndicator
+          >
             <Text style={styles.sectionTitle}>{t('pointsRules:earn.title')}</Text>
             {earn.map((text) => (
               <Bullet key={text} text={text} />
@@ -156,6 +163,7 @@ const makeStyles = (c: ThemeColors) =>
     marginTop: 7,
     marginRight: SPACING.sm,
   },
+  scroll: { flexShrink: 1 },
   bulletText: { flex: 1 },
   lastItem: { marginBottom: SPACING.sm },
   badgeRow: { marginBottom: SPACING.sm },
