@@ -50,10 +50,16 @@ describe('DownloadPage', () => {
   // no sirve para nada aunque renderice perfecto.
   it('los enlaces apuntan a los destinos correctos', () => {
     render(<DownloadPage />);
-    expect(screen.getByRole('link', { name: 'android.ctaLabel' })).toHaveAttribute(
+    const apk = screen.getByRole('link', { name: 'android.ctaLabel' });
+    // The stable asset name from build-apk.yml: GitHub redirects this URL to
+    // the newest release's SearchPet.apk, so the click downloads the file
+    // instead of opening the release page.
+    expect(apk).toHaveAttribute(
       'href',
-      'https://github.com/Goncar29/searchpet/releases/latest'
+      'https://github.com/Goncar29/searchpet/releases/latest/download/SearchPet.apk'
     );
+    // A direct download in a new tab leaves an empty tab behind.
+    expect(apk).not.toHaveAttribute('target');
     expect(screen.getByRole('link', { name: 'expo.androidLabel' })).toHaveAttribute(
       'href',
       'https://play.google.com/store/apps/details?id=host.exp.exponent'
