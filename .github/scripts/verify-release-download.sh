@@ -14,17 +14,20 @@ set -euo pipefail
 
 LOCAL_APK="${1:?usage: verify-release-download.sh <local apk> [url]}"
 URL="${2:-https://github.com/${GITHUB_REPOSITORY:-Goncar29/searchpet}/releases/latest/download/SearchPet.apk}"
-ATTEMPTS="${ATTEMPTS:-6}"
-WAIT_SECONDS="${WAIT_SECONDS:-10}"
+# About five minutes in total: a new release can take a while to become
+# `latest` behind GitHub's cache, and a red run without a real problem would
+# teach everyone to ignore this check.
+ATTEMPTS="${ATTEMPTS:-10}"
+WAIT_SECONDS="${WAIT_SECONDS:-30}"
 
 EXPECTED=$(sha256sum "$LOCAL_APK" | cut -d' ' -f1)
 TMP=$(mktemp)
 trap 'rm -f "$TMP"' EXIT
 
-# A just-published release can take a few seconds to become `latest`, so retry
-# before failing.
+# Bounded curl: without a limit a stalled connection would hold the job until
+# its 45-minute timeout instead of moving on to the next attempt.
 for attempt in $(seq 1 "$ATTEMPTS"); do
-  if curl -sSL --fail -o "$TMP" "$URL"; then
+  if curl -sSL --fail --connect-timeout 15 --max-time 300 -o "$TMP" "$URL"; then
     ACTUAL=$(sha256sum "$TMP" | cut -d' ' -f1)
     if [[ "$ACTUAL" == "$EXPECTED" ]]; then
       echo "OK: $URL serves this build (sha256 $EXPECTED)"
