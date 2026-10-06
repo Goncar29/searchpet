@@ -103,6 +103,26 @@ describe('ProfileScreen — Language row', () => {
     await AsyncStorage.clear();
   });
 
+  it('marks the current language, even when i18next reports a regional code', () => {
+    const lang = jest.replaceProperty(i18next, 'language', 'en-US');
+    render(<ProfileScreen />);
+    fireEvent.press(screen.getByText('menuLanguage'));
+    expect(screen.getByTestId('option-check-en')).toBeTruthy();
+    lang.restore();
+  });
+
+  it('a failed save still changes the language and does not reject', async () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    jest.spyOn(AsyncStorage, 'setItem').mockRejectedValueOnce(new Error('disk full'));
+    const change = jest.spyOn(i18next, 'changeLanguage');
+    render(<ProfileScreen />);
+    fireEvent.press(screen.getByText('menuLanguage'));
+    fireEvent.press(screen.getByText('portuguese'));
+    expect(change).toHaveBeenCalledWith('pt');
+    await waitFor(() => expect(warn).toHaveBeenCalled());
+    jest.restoreAllMocks();
+  });
+
   it('offers the three languages at once', () => {
     render(<ProfileScreen />);
     fireEvent.press(screen.getByText('menuLanguage'));

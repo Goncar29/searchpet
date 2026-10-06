@@ -177,9 +177,13 @@ export default function ProfileScreen() {
   // System follows the phone; Light and Dark override it until the user goes
   // back to System.
 
+  // A failed save still changes the language for this session; it just will
+  // not survive a restart.
   const chooseLanguage = (lang: 'es' | 'en' | 'pt') => {
     i18next.changeLanguage(lang);
-    AsyncStorage.setItem(LANG_KEY, lang);
+    AsyncStorage.setItem(LANG_KEY, lang).catch((err) => {
+      console.warn('[profile] could not save the language', err);
+    });
     setLanguage(lang);
   };
 
@@ -476,7 +480,8 @@ export default function ProfileScreen() {
           { value: 'en', label: t('english') },
           { value: 'pt', label: t('portuguese') },
         ]}
-        selected={i18next.language as 'es' | 'en' | 'pt'}
+        // Base code: 'en-US' marks English.
+        selected={(i18next.language ?? '').slice(0, 2) as 'es' | 'en' | 'pt'}
         onSelect={chooseLanguage}
         onClose={() => setPicker(null)}
         closeLabel={t('common:close')}
