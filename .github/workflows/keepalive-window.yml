@@ -11,7 +11,8 @@ name: Keepalive Night Window
 # current hour calls for, so any later run fixes a missed one. It used to run
 # hourly, and on 2026-10-07 GitHub dropped 11 of 14 runs: the 09:17 resume
 # never came and the monitor stayed paused until 14:34. More runs per hour
-# shrink that gap; the minutes skip :00, GitHub's busiest slot.
+# shrink that gap. It fires at :07, :17, :27, :37, :47 and :57, skipping :00,
+# GitHub's busiest slot.
 
 on:
   schedule:
