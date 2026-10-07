@@ -153,6 +153,15 @@ export interface Message {
   created_at: string;
 }
 
+// A row of GET /api/messages: the conversation's latest message plus how many of
+// its received messages are still unread. The unread dot reads `unread_count`,
+// never the latest message: when the viewer answered last, the latest message is
+// theirs and never "unread" for them, even after "mark unread" un-read an
+// earlier one. The API always sends it, 0 included.
+export interface Conversation extends Message {
+  unread_count: number;
+}
+
 export interface ShareLink {
   share_token: string;
   share_url: string;

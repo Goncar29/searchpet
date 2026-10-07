@@ -77,9 +77,21 @@ func (h *MessageHandler) GetConversations(c *gin.Context) {
 		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
 		return
 	}
+	// Sin los conteos la lista falla entera: mandar 0 pintaría todo como leído,
+	// que es afirmar algo que nadie verificó.
+	unread, err := h.messageService.CountUnreadBySender(c.Request.Context(), userID)
+	if err != nil {
+		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
+		return
+	}
+	callerID, err := uuid.Parse(userID)
+	if err != nil {
+		writeError(c, http.StatusInternalServerError, domain.ErrInternal)
+		return
+	}
 
 	// Siempre retornar array (nunca null)
-	c.JSON(http.StatusOK, dto.ToMessageListResponse(messages))
+	c.JSON(http.StatusOK, dto.ToConversationListResponse(messages, unread, callerID))
 }
 
 // GetConversation godoc

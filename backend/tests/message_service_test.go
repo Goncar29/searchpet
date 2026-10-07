@@ -25,6 +25,7 @@ type mockMessageRepository struct {
 	markAsReadFn        func(ctx context.Context, messageID uuid.UUID) error
 	markConvReadFn      func(ctx context.Context, receiverID, senderID uuid.UUID) error
 	countUnreadFn       func(ctx context.Context, userID uuid.UUID) (int64, error)
+	countBySenderFn     func(ctx context.Context, userID uuid.UUID) (map[uuid.UUID]int64, error)
 	// tracking
 	markConvReadCalled bool
 	markConvReadArgs   [2]uuid.UUID
@@ -95,6 +96,13 @@ func (m *mockMessageRepository) CountUnread(ctx context.Context, userID uuid.UUI
 		return m.countUnreadFn(ctx, userID)
 	}
 	return 0, nil
+}
+
+func (m *mockMessageRepository) CountUnreadBySender(ctx context.Context, userID uuid.UUID) (map[uuid.UUID]int64, error) {
+	if m.countBySenderFn != nil {
+		return m.countBySenderFn(ctx, userID)
+	}
+	return map[uuid.UUID]int64{}, nil
 }
 
 // ============================================================

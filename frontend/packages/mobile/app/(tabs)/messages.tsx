@@ -23,7 +23,7 @@ import { ListState } from '../../components/list/ListState';
 import { SPACING, FONTS, RADIUS, type ThemeColors } from '../../constants';
 import { useTheme, useThemedStyles } from '../../hooks/useTheme';
 import { Icon } from '../../components/Icon';
-import type { Message } from '../../../shared/types';
+import type { Conversation } from '../../../shared/types';
 
 export default function MessagesScreen() {
   const router = useRouter();
@@ -63,7 +63,7 @@ export default function MessagesScreen() {
     );
   }
 
-  const getOtherUser = (msg: Message) => {
+  const getOtherUser = (msg: Conversation) => {
     // El "otro" en la conversación es quien no soy yo
     if (msg.sender_id === user?.id) {
       return {
@@ -96,7 +96,7 @@ export default function MessagesScreen() {
       {/* Wrapped with ListState (rule #60): a failed `useConversations` used to
           fall through to `ListEmptyComponent` and tell the user "no
           conversations", which is false when we simply could not read them. */}
-      <ListState<Message[], Message>
+      <ListState<Conversation[], Conversation>
         query={conversationsQuery}
         loading={
           <View style={styles.center}>
@@ -110,7 +110,10 @@ export default function MessagesScreen() {
             keyExtractor={(item) => item.id}
             renderItem={({ item }) => {
               const other = getOtherUser(item);
-              const isUnread = !item.is_read && item.receiver_id === user?.id;
+              // From the conversation's count, never its latest message: when I
+              // answered last, the latest message is mine and never "unread" for
+              // me, even after "mark unread" un-read an earlier one of theirs.
+              const isUnread = item.unread_count > 0;
 
               return (
                 <TouchableOpacity
@@ -140,7 +143,7 @@ export default function MessagesScreen() {
                       >
                         {item.sender_id === user?.id ? t('messages:youPrefix') : ''}{item.content}
                       </Text>
-                      {isUnread && <View style={styles.unreadDot} />}
+                      {isUnread && <View testID="unread-dot" style={styles.unreadDot} />}
                     </View>
                   </View>
                 </TouchableOpacity>

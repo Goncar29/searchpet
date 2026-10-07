@@ -64,6 +64,7 @@ var respuestasDesdeVacio = map[string]func() any{
 	"ToLocationAlertResponseList":           func() any { return dto.ToLocationAlertResponseList(nil) },
 	"ToMemberListResponse":                  func() any { return dto.ToMemberListResponse(nil) },
 	"ToMessageListResponse":                 func() any { return dto.ToMessageListResponse(nil) },
+	"ToConversationListResponse":            func() any { return dto.ToConversationListResponse(nil, nil, uuid.Nil) },
 	"ToMyFosterHomeListResponse":            func() any { return dto.ToMyFosterHomeListResponse(nil) },
 	"ToPetListResponse":                     func() any { return dto.ToPetListResponse(nil) },
 	"ToPhotoListResponse":                   func() any { return dto.ToPhotoListResponse(nil) },

@@ -31,6 +31,14 @@ type mockMessageService struct {
 	countUnreadFn      func(ctx context.Context, userID string) (int64, error)
 	hideConversationFn func(ctx context.Context, userID, otherUserID string) error
 	markConvUnreadFn   func(ctx context.Context, userID, otherUserID string) error
+	countBySenderFn    func(ctx context.Context, userID string) (map[uuid.UUID]int64, error)
+}
+
+func (m *mockMessageService) CountUnreadBySender(ctx context.Context, userID string) (map[uuid.UUID]int64, error) {
+	if m.countBySenderFn != nil {
+		return m.countBySenderFn(ctx, userID)
+	}
+	return map[uuid.UUID]int64{}, nil
 }
 
 func (m *mockMessageService) Send(ctx context.Context, senderID string, req dto.SendMessageRequest) (*domain.Message, error) {
@@ -354,6 +362,79 @@ func TestMessageHandler_GetConversations_Returns200(t *testing.T) {
 
 	if w.Code != http.StatusOK {
 		t.Errorf("expected 200, got %d", w.Code)
+	}
+}
+
+// Each conversation carries how many of its received messages are unread, so the
+// list's dot does not have to guess from the latest message. The count is the
+// OTHER participant's: they sent what I received. Both rows below have the
+// latest message the other way round, to prove the side does not matter.
+func TestMessageHandler_GetConversations_IncluyeUnreadCountPorConversacion(t *testing.T) {
+	callerID := uuid.New()
+	alice := uuid.New() // I replied last: the latest message is mine.
+	bob := uuid.New()   // bob wrote last.
+
+	svc := &mockMessageService{
+		getConversationsFn: func(_ context.Context, _ string) ([]domain.Message, error) {
+			return []domain.Message{
+				*newTestMessage(callerID, alice, "mi respuesta"),
+				*newTestMessage(bob, callerID, "hola"),
+			}, nil
+		},
+		countBySenderFn: func(_ context.Context, userID string) (map[uuid.UUID]int64, error) {
+			if userID != callerID.String() {
+				t.Errorf("counts asked for %s, want the caller %s", userID, callerID)
+			}
+			return map[uuid.UUID]int64{alice: 1}, nil
+		},
+	}
+	r := setupMessageRouter(handler.NewMessageHandler(svc, nil), callerID)
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/api/messages", nil))
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	var body []map[string]any
+	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if len(body) != 2 {
+		t.Fatalf("want 2 conversations, got %d", len(body))
+	}
+	if got := body[0]["unread_count"]; got != float64(1) {
+		t.Errorf("alice: want unread_count 1, got %v", got)
+	}
+	// Zero is sent, not omitted: a missing field would read as "unknown".
+	if got, ok := body[1]["unread_count"]; !ok || got != float64(0) {
+		t.Errorf("bob: want unread_count 0 present, got %v (present=%v)", got, ok)
+	}
+	// The message fields are still there, flat, as before.
+	if body[1]["content"] != "hola" {
+		t.Errorf("message fields must stay flat, got content=%v", body[1]["content"])
+	}
+}
+
+// If the counts cannot be read, the list fails: a 0 there would paint every
+// conversation as read, which is a claim nobody verified.
+func TestMessageHandler_GetConversations_FallaSiNoPuedeContarNoLeidos(t *testing.T) {
+	callerID := uuid.New()
+	svc := &mockMessageService{
+		getConversationsFn: func(_ context.Context, _ string) ([]domain.Message, error) {
+			return []domain.Message{*newTestMessage(uuid.New(), callerID, "hola")}, nil
+		},
+		countBySenderFn: func(_ context.Context, _ string) (map[uuid.UUID]int64, error) {
+			return nil, context.DeadlineExceeded
+		},
+	}
+	r := setupMessageRouter(handler.NewMessageHandler(svc, nil), callerID)
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/api/messages", nil))
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("expected 500, got %d", w.Code)
 	}
 }
 

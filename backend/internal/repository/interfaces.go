@@ -190,6 +190,11 @@ type MessageRepository interface {
 	MarkConversationUnread(ctx context.Context, receiverID, senderID uuid.UUID) error
 	// CountUnread retorna la cantidad de mensajes no leídos recibidos por userID.
 	CountUnread(ctx context.Context, userID uuid.UUID) (int64, error)
+	// CountUnreadBySender retorna, por remitente, cuántos mensajes recibidos por
+	// userID siguen sin leer. Cuenta exactamente lo mismo que CountUnread, sólo
+	// que agrupado: la suma de los valores es el badge. Un remitente sin no
+	// leídos no aparece en el mapa.
+	CountUnreadBySender(ctx context.Context, userID uuid.UUID) (map[uuid.UUID]int64, error)
 }
 
 // ConversationHideRepository define el contrato para ocultamientos de conversación.

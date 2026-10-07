@@ -67,6 +67,37 @@ func ToMessageResponse(msg *domain.Message) MessageResponse {
 	}
 }
 
+// ConversationResponse es una fila de la lista de conversaciones: el último
+// mensaje, con sus campos planos como siempre, más cuántos mensajes recibidos de
+// esa conversación siguen sin leer.
+//
+// UnreadCount existe porque el último mensaje NO alcanza para saberlo: si el
+// usuario contestó último, el último mensaje es suyo y nunca está "sin leer"
+// para él, aunque "marcar como no leída" haya desmarcado uno anterior. Se manda
+// siempre, también en 0: un campo ausente se leería como "no sé".
+type ConversationResponse struct {
+	MessageResponse
+	UnreadCount int64 `json:"unread_count"`
+}
+
+// ToConversationListResponse arma la lista de conversaciones de callerID.
+// unreadBySender viene de CountUnreadBySender; el conteo de cada fila es el de la
+// contraparte, que es quien mandó lo que callerID recibió. Nunca retorna nil.
+func ToConversationListResponse(messages []domain.Message, unreadBySender map[uuid.UUID]int64, callerID uuid.UUID) []ConversationResponse {
+	result := make([]ConversationResponse, len(messages))
+	for i, msg := range messages {
+		other := msg.SenderID
+		if msg.SenderID == callerID {
+			other = msg.ReceiverID
+		}
+		result[i] = ConversationResponse{
+			MessageResponse: ToMessageResponse(&msg),
+			UnreadCount:     unreadBySender[other],
+		}
+	}
+	return result
+}
+
 // ToMessageListResponse convierte un slice de domain.Message en un slice de MessageResponse.
 // Siempre retorna un slice inicializado (nunca nil) para que JSON serialice como [] en vez de null.
 func ToMessageListResponse(messages []domain.Message) []MessageResponse {
