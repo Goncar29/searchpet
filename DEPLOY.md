@@ -110,12 +110,15 @@ andando; el primer request espera el arranque en frío (~50 s), y una caída
 no la avisa UptimeRobot.
 
 Acá el cron de GitHub sí sirve porque el job **reconcilia** en vez de
-disparar acciones sueltas: corre cada hora, calcula en qué estado tiene que
-estar el monitor a esa hora y lo deja así. Una corrida que GitHub atrasa o
-pierde la corrige la siguiente. Necesita el secret `UPTIMEROBOT_API_KEY` (la
+disparar acciones sueltas: corre cada 10 minutos, calcula en qué estado tiene
+que estar el monitor a esa hora y lo deja así. Una corrida que GitHub atrasa o
+pierde la corrige una posterior. Antes corría cada hora, y el 2026-10-07 GitHub
+perdió 11 de 14 corridas: la reanudación de las 09:17 no llegó y el monitor
+quedó pausado hasta las 14:34. Más corridas por hora achican ese hueco, pero no
+lo garantizan: el cron de GitHub sigue siendo best-effort. Necesita el secret `UPTIMEROBOT_API_KEY` (la
 API key **principal** de la cuenta: las de solo lectura no pueden pausar) y
 falla en rojo si falta. Ojo: si pausás ese monitor a mano fuera de la
-ventana, el job lo vuelve a activar en la hora siguiente.
+ventana, el job lo vuelve a activar en la corrida siguiente.
 
 ---
 

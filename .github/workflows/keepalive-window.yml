@@ -6,14 +6,16 @@ name: Keepalive Night Window
 # 744 of the workspace's 750, and on 2026-08-31 Render suspended the backend.
 # The logic and the reasons live in .github/scripts/keepalive-window.sh.
 #
-# Hourly on purpose, not "pause at 07, resume at 09": GitHub's cron is
-# best-effort and can drop or delay a run, and the script reconciles the
-# monitor to the state the current hour calls for, so the next run fixes a
-# missed one.
+# Every 10 minutes on purpose, not "pause at 07, resume at 09": GitHub's cron
+# is best-effort, and the script reconciles the monitor to the state the
+# current hour calls for, so any later run fixes a missed one. It used to run
+# hourly, and on 2026-10-07 GitHub dropped 11 of 14 runs: the 09:17 resume
+# never came and the monitor stayed paused until 14:34. More runs per hour
+# shrink that gap; the minutes skip :00, GitHub's busiest slot.
 
 on:
   schedule:
-    - cron: '17 * * * *'
+    - cron: '7-59/10 * * * *'
   workflow_dispatch:
 
 permissions:

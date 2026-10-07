@@ -9,9 +9,9 @@
 # service to sleep after its 15 idle minutes. A request in the window still
 # works; it just waits for a cold start.
 #
-# Runs every hour and RECONCILES: it computes the state the monitor should be
-# in for the current hour and sets it. A run GitHub drops or delays (its cron
-# is best-effort) is corrected by the next one. A "pause at 4, resume at 6"
+# Runs every 10 minutes and RECONCILES: it computes the state the monitor
+# should be in for the current hour and sets it. A run GitHub drops or delays
+# (its cron is best-effort) is corrected by a later one. A "pause at 4, resume at 6"
 # pair would leave the monitor paused for good if the resume run never came.
 #
 # Fails loudly when the API key is missing or the API does not answer "ok": a
