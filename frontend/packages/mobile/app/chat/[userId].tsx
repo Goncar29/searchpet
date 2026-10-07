@@ -16,7 +16,7 @@ import {
   Alert,
   ActionSheetIOS,
 } from 'react-native';
-import { useLocalSearchParams, useNavigation } from 'expo-router';
+import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import i18next from 'i18next';
@@ -43,6 +43,7 @@ export default function ChatScreen() {
   const { t } = useTranslation(['messages', 'common']);
   const { userId, userName } = useLocalSearchParams<{ userId: string; userName?: string }>();
   const navigation = useNavigation();
+  const router = useRouter();
   const { user } = useAuthStore();
   const queryClient = useQueryClient();
   const [text, setText] = useState('');
@@ -155,22 +156,33 @@ export default function ChatScreen() {
     );
   };
 
+  // The public profile needs no session: it lets the other person be checked
+  // (reviews, badges, other posts), as the conversation menu does on the web.
+  const handleViewProfile = () => router.push(`/users/${userId}`);
+
   const showKebabSheet = () => {
     if (Platform.OS === 'ios') {
       ActionSheetIOS.showActionSheetWithOptions(
         {
-          options: [i18next.t('common:cancel'), i18next.t('chat:blockUser'), i18next.t('chat:report')],
+          options: [
+            i18next.t('common:cancel'),
+            i18next.t('chat:actions.viewProfile'),
+            i18next.t('chat:blockUser'),
+            i18next.t('chat:report'),
+          ],
           cancelButtonIndex: 0,
-          destructiveButtonIndex: 1,
+          destructiveButtonIndex: 2,
         },
         (idx) => {
-          if (idx === 1) handleBlockUser();
-          if (idx === 2) handleReportUser();
+          if (idx === 1) handleViewProfile();
+          if (idx === 2) handleBlockUser();
+          if (idx === 3) handleReportUser();
         },
       );
     } else {
       Alert.alert(i18next.t('chat:options'), '', [
         { text: i18next.t('common:cancel'), style: 'cancel' },
+        { text: i18next.t('chat:actions.viewProfile'), onPress: handleViewProfile },
         { text: i18next.t('chat:blockUser'), style: 'destructive', onPress: handleBlockUser },
         { text: i18next.t('chat:report'), onPress: handleReportUser },
       ]);

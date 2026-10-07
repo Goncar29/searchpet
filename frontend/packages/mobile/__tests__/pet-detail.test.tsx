@@ -231,6 +231,26 @@ describe('PetDetailScreen — menu del dueno', () => {
   });
 });
 
+// The public profile needs no session, so tapping the owner's name opens it
+// for anyone, logged in or not.
+describe('PetDetailScreen — perfil del dueno', () => {
+  it('tocar el nombre del dueno abre su perfil publico', () => {
+    mockUsePetByID.mockReturnValue({
+      data: {
+        ...mockPetBase,
+        status: 'lost',
+        owner: { id: 'owner-1', name: 'Ana', is_verified: false },
+      },
+      isLoading: false,
+    });
+
+    render(<PetDetailScreen />);
+    fireEvent.press(screen.getByText('Ana'));
+
+    expect(mockRouterPush).toHaveBeenCalledWith('/users/owner-1');
+  });
+});
+
 // T8 — marcar la mascota como encontrada pregunta quién ayudó. Mantiene el
 // empujón a contar la historia al terminar.
 describe('PetDetailScreen — confirmar quién ayudó', () => {

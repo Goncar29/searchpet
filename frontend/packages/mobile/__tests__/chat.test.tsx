@@ -1,16 +1,20 @@
 // Chat screen smoke test
 import React from 'react';
-import { render } from '@testing-library/react-native';
+import { fireEvent, render } from '@testing-library/react-native';
 import ChatScreen from '../app/chat/[userId]';
 import { COLORS } from '../constants';
 import { drawnIcons, emojiTexts, fillsOf } from './support/icons';
 
 // expo-router: this conversation is with userId 'user-2'.
-// useNavigation must expose setOptions — the screen calls it on mount.
+// useNavigation must expose setOptions — the screen calls it on mount, and the
+// ⋮ menu reaches the header through it (`headerRight`). Both functions are
+// shared so a test can read them back.
+const mockRouterPush = jest.fn();
+const mockSetOptions = jest.fn();
 jest.mock('expo-router', () => ({
-  useRouter: () => ({ push: jest.fn(), back: jest.fn(), replace: jest.fn(), navigate: jest.fn() }),
+  useRouter: () => ({ push: mockRouterPush, back: jest.fn(), replace: jest.fn(), navigate: jest.fn() }),
   useLocalSearchParams: () => ({ userId: 'user-2', userName: 'Alice' }),
-  useNavigation: () => ({ setOptions: jest.fn() }),
+  useNavigation: () => ({ setOptions: mockSetOptions }),
   Link: ({ children }: { children: React.ReactNode }) => children,
   Stack: { Screen: () => null },
 }));
@@ -66,6 +70,8 @@ const mockMessage = {
 beforeEach(() => {
   mockUseConversation.mockReturnValue({ data: undefined, isLoading: true });
   mockMarkAsReadMutate.mockClear();
+  mockRouterPush.mockClear();
+  mockSetOptions.mockClear();
   mockUser = { id: 'user-1', name: 'Me' };
 });
 
@@ -177,5 +183,43 @@ describe('ChatScreen', () => {
     mockUseConversation.mockReturnValue({ data: [mockMessage], isLoading: false });
     const full = render(<ChatScreen />);
     expect(drawnIcons(full)).not.toContain('chat-bubble');
+  });
+});
+
+// The other person's public profile needs no session; the ⋮ menu opens it, as
+// the conversation menu does on the web.
+describe('ChatScreen — ver perfil', () => {
+  it('"Ver perfil" en el menú ⋮ abre el perfil público del otro usuario', () => {
+    const { Alert, ActionSheetIOS } = require('react-native');
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    const sheetSpy = jest
+      .spyOn(ActionSheetIOS, 'showActionSheetWithOptions')
+      .mockImplementation(() => {});
+    // i18next is not initialised in this harness and `t` returns undefined, so
+    // every menu label would be the same. Echoing the key tells them apart.
+    const tSpy = jest.spyOn(require('i18next'), 't').mockImplementation((k: unknown) => k as string);
+    mockUseConversation.mockReturnValue({ data: [mockMessage], isLoading: false });
+
+    render(<ChatScreen />);
+    const withHeader = mockSetOptions.mock.calls.filter(([o]) => o.headerRight);
+    const HeaderRight = withHeader[withHeader.length - 1][0].headerRight as () => React.ReactElement;
+    const header = render(<HeaderRight />);
+    fireEvent.press(header.getByText('⋮'));
+
+    // iOS opens an action sheet and Android an Alert: pick "view profile" by
+    // its label in whichever one opened.
+    const label = 'chat:actions.viewProfile';
+    if (sheetSpy.mock.calls.length > 0) {
+      const [{ options }, onSelect] = sheetSpy.mock.calls[0] as [{ options: string[] }, (i: number) => void];
+      onSelect(options.indexOf(label));
+    } else {
+      const buttons = alertSpy.mock.calls[0][2] as { text: string; onPress?: () => void }[];
+      buttons.find((b) => b.text === label)?.onPress?.();
+    }
+
+    expect(mockRouterPush).toHaveBeenCalledWith('/users/user-2');
+    alertSpy.mockRestore();
+    sheetSpy.mockRestore();
+    tSpy.mockRestore();
   });
 });

@@ -333,6 +333,16 @@ describe('PetDetailPage — owner contact reveal-on-click', () => {
 
     expect(screen.getByText(/\+59899111222/)).toBeInTheDocument();
   });
+
+  // The public profile needs no session (router.go `public` group), so the
+  // link is there for a logged-out visitor too.
+  it("links the owner's name to their public profile", () => {
+    petResult = { data: lostPetWithOwner(), isLoading: false };
+
+    render(<PetDetailPage />, { wrapper });
+
+    expect(screen.getByRole('link', { name: 'Dueño' })).toHaveAttribute('href', '/users/owner-1');
+  });
 });
 
 describe('PetDetailPage — found story nudge', () => {
