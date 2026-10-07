@@ -594,7 +594,15 @@ export function PetDetailPage() {
                     <Icon name="person" className="text-2xl text-gray-500 dark:text-gray-400" />
                   </div>
                   <div>
-                    <p className="font-semibold text-gray-900 dark:text-gray-100">{pet.owner.name}</p>
+                    {/* The public profile needs no session, so the link is
+                        always there: it lets a stranger be checked (reviews,
+                        badges, other posts) before anyone gets in touch. */}
+                    <Link
+                      to={`/users/${pet.owner.id}`}
+                      className="font-semibold text-gray-900 dark:text-gray-100 hover:underline"
+                    >
+                      {pet.owner.name}
+                    </Link>
                     {pet.owner.is_verified && (
                       <p className="text-xs text-green-600 dark:text-green-400 font-semibold">{t('pets:detail.verified')}</p>
                     )}

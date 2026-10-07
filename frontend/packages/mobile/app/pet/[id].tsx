@@ -398,7 +398,15 @@ export default function PetDetailScreen() {
                 <Icon name="person" size={24} color={colors.textMuted} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.ownerName}>{pet.owner.name}</Text>
+                {/* The public profile needs no session, so this is always a
+                    link: it lets a stranger be checked (reviews, badges,
+                    other posts) before anyone gets in touch. */}
+                <TouchableOpacity
+                  onPress={() => pet.owner && router.push(`/users/${pet.owner.id}`)}
+                  accessibilityRole="link"
+                >
+                  <Text style={styles.ownerName}>{pet.owner.name}</Text>
+                </TouchableOpacity>
                 {pet.owner.is_verified && (
                   <Text style={styles.verifiedText}>{t('pet_detail:verified')}</Text>
                 )}
