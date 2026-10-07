@@ -49,6 +49,9 @@ vi.mock('@shared/hooks', () => ({
   useWebSocket: vi.fn(() => ({ connectionState: 'connected' as WsConnectionState, sendEnvelope: vi.fn() })),
   usePublicProfile: (...args: unknown[]) => usePublicProfileMock(...args),
   useBlockStatus: (...args: unknown[]) => useBlockStatusMock(...args),
+  // The real key: a missing export would reach invalidateQueries as
+  // `queryKey: undefined`, which invalidates EVERY query instead of the badge.
+  UNREAD_COUNT_KEY: ['messages', 'unread-count'] as const,
 }));
 
 // Stub that captures the props ChatPage passes to the menu, so tests can
@@ -645,5 +648,52 @@ describe('ChatPage', () => {
       capturedOnMessage?.({ type: 'typing_start', payload: { from: 'user-3', to: 'user-1' } });
     });
     expect(screen.getByText('chat:typing')).toBeTruthy();
+  });
+});
+
+// Opening a thread marks it read on the server (GET /api/messages/:userId), but
+// nothing told the list: its unread dot stayed until the 15s poll and the
+// navbar badge until its 30s one. When the list says this conversation had
+// unread messages, loading the thread refreshes the list and the badge.
+describe('ChatPage — abrir el hilo refresca el punto de no leído', () => {
+  function renderWithList(unreadCount: number) {
+    paramUserId.current = 'user-2';
+    usePublicProfileMock.mockReturnValue({ data: { id: 'user-2', name: 'Alice' } });
+    useBlockStatusMock.mockReturnValue({ isBlocked: false, isLoading: false });
+    vi.mocked(useConversation).mockReturnValue(
+      mockConversation(
+        [{ id: 'msg-1', sender_id: 'user-2', receiver_id: 'user-1', content: 'Hola', is_read: false, created_at: new Date().toISOString() }],
+        false,
+      ),
+    );
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    client.setQueryData(['messages'], [
+      { id: 'msg-1', sender_id: 'user-1', receiver_id: 'user-2', content: 'mi respuesta', is_read: true, created_at: new Date().toISOString(), unread_count: unreadCount },
+    ]);
+    const invalidate = vi.spyOn(client, 'invalidateQueries');
+    render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter>
+          <ChatPage />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    return invalidate;
+  }
+
+  it('si la conversación figuraba con no leídos, refresca la lista y el badge', () => {
+    const invalidate = renderWithList(1);
+
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['messages'], exact: true });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['messages', 'unread-count'] });
+  });
+
+  // Every open would otherwise cost a list query, and Neon bills awake time
+  // (rule #59): an already-read conversation has nothing to refresh.
+  it('si ya estaba leída, no refresca nada', () => {
+    const invalidate = renderWithList(0);
+
+    expect(invalidate).not.toHaveBeenCalledWith({ queryKey: ['messages'], exact: true });
+    expect(invalidate).not.toHaveBeenCalledWith({ queryKey: ['messages', 'unread-count'] });
   });
 });
