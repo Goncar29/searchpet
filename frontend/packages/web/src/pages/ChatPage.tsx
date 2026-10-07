@@ -8,9 +8,10 @@ import {
   useWebSocket,
   usePublicProfile,
   useBlockStatus,
+  UNREAD_COUNT_KEY,
 } from '@shared/hooks';
 import type { WsEnvelope, WsTypingEvent } from '@shared/hooks';
-import type { Message } from '@shared/types';
+import type { Conversation as ConversationSummary, Message } from '@shared/types';
 import { getErrorMessage } from '@shared/utils/apiErrors';
 import { useAuth } from '../context/AuthContext';
 import { Icon } from '../components/Icon';
@@ -153,6 +154,23 @@ function Conversation({ userId, otherName, sendEnvelope, remoteTyping }: Convers
 
   const { data: messages, isLoading, isError, refetch } = useConversation(userId);
   const sendMessageTo = useSendMessageTo();
+  const queryClient = useQueryClient();
+
+  // Loading the thread marks it read on the server (GET /api/messages/:userId),
+  // but nothing tells the list: the web never sends a WebSocket read_receipt,
+  // so the row's unread dot stayed until the list's 15s poll and the navbar
+  // badge until its 30s one. Refresh both once the thread is in — only when the
+  // list says this conversation had unread messages, so opening an already-read
+  // one costs no extra query (Neon bills awake time, rule #59). Invalidating
+  // the list does not refetch the thread, so this cannot loop.
+  useEffect(() => {
+    if (!messages) return;
+    const list = queryClient.getQueryData<ConversationSummary[]>(['messages']);
+    const row = list?.find((c) => c.sender_id === userId || c.receiver_id === userId);
+    if (!row || row.unread_count === 0) return;
+    queryClient.invalidateQueries({ queryKey: ['messages'], exact: true });
+    queryClient.invalidateQueries({ queryKey: UNREAD_COUNT_KEY });
+  }, [messages, userId, queryClient]);
   const { isBlocked, isLoading: isBlockStatusLoading } = useBlockStatus(userId);
 
   const [input, setInput] = useState('');
