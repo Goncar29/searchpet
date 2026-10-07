@@ -150,6 +150,44 @@ describe('MessagesScreen', () => {
     expect(queryByText(/unknownUser/)).toBeNull();
   });
 
+  // The unread dot comes from the conversation's unread_count, never from its
+  // latest message: "mark unread" un-reads the latest RECEIVED message, older
+  // than my own reply when I answered last.
+  describe('punto de no leído', () => {
+    function renderWith(conversation: Record<string, unknown>) {
+      mockUseConversations.mockReturnValue({
+        data: [conversation],
+        isLoading: false,
+        refetch: jest.fn(),
+        isRefetching: false,
+      });
+      return render(<MessagesScreen />);
+    }
+
+    it('aparece aunque el último mensaje sea mío, si la conversación tiene no leídos', () => {
+      const { queryByTestId } = renderWith({
+        ...mockConversation,
+        sender_id: 'user-1',
+        receiver_id: 'user-2',
+        is_read: true,
+        sender: { id: 'user-1', name: 'Me' },
+        receiver: { id: 'user-2', name: 'Alice' },
+        unread_count: 1,
+      });
+      expect(queryByTestId('unread-dot')).toBeTruthy();
+    });
+
+    it('no aparece si la conversación no tiene no leídos, diga lo que diga el último mensaje', () => {
+      const { queryByTestId } = renderWith({ ...mockConversation, is_read: false, unread_count: 0 });
+      expect(queryByTestId('unread-dot')).toBeNull();
+    });
+
+    it('aparece si el último mensaje es del otro y la conversación tiene no leídos', () => {
+      const { queryByTestId } = renderWith({ ...mockConversation, unread_count: 2 });
+      expect(queryByTestId('unread-dot')).toBeTruthy();
+    });
+  });
+
   it('draws the chat bubble for a signed-out visitor and the inbox for an empty list', () => {
     mockAuthState = { isAuthenticated: false, user: null };
     const out = render(<MessagesScreen />);

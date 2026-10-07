@@ -2,7 +2,7 @@ import { useMemo, useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { useConversations } from '@shared/hooks';
-import type { Message } from '@shared/types';
+import type { Conversation } from '@shared/types';
 import { useAuth } from '../../context/AuthContext';
 import { Icon } from '../Icon';
 import { ConversationActionsMenu } from '../ConversationActionsMenu';
@@ -51,7 +51,7 @@ export interface ConversationRow {
  * resto del panel es marcado.
  */
 export function deriveConversationRows(
-  conversations: Message[],
+  conversations: Conversation[],
   currentUserId: string | undefined,
   unknownName: string,
 ): ConversationRow[] {
@@ -63,9 +63,10 @@ export function deriveConversationRows(
       otherUserName: other?.name ?? unknownName,
       preview: msg.content,
       createdAt: msg.created_at,
-      // Sin leer sólo si soy YO el destinatario: un mensaje propio nunca está
-      // "sin leer" para quien lo escribió.
-      unread: !msg.is_read && msg.receiver_id === currentUserId,
+      // Sale del conteo de la conversación, NUNCA del último mensaje: si
+      // contesté último, el último mensaje es mío y jamás está "sin leer" para
+      // mí, aunque "marcar como no leída" haya desmarcado uno anterior suyo.
+      unread: msg.unread_count > 0,
       fromMe: iAmSender,
     };
   });

@@ -21,6 +21,9 @@ type MessageService interface {
 	GetMessageByID(ctx context.Context, messageID uuid.UUID) (*domain.Message, error)
 	MarkConversationRead(ctx context.Context, userID string, otherUserID string) error
 	CountUnread(ctx context.Context, userID string) (int64, error)
+	// CountUnreadBySender es CountUnread agrupado por remitente: cuántos
+	// mensajes de cada contraparte siguen sin leer para userID.
+	CountUnreadBySender(ctx context.Context, userID string) (map[uuid.UUID]int64, error)
 	// HideConversation oculta la conversación con otherUserID SOLO para userID.
 	HideConversation(ctx context.Context, userID string, otherUserID string) error
 	// MarkConversationUnread marca la conversación como no leída para userID.
@@ -200,6 +203,15 @@ func (s *messageService) CountUnread(ctx context.Context, userID string) (int64,
 		return 0, domain.ErrInvalidInput
 	}
 	return s.messageRepo.CountUnread(ctx, userUUID)
+}
+
+// CountUnreadBySender retorna, por remitente, los mensajes no leídos de userID.
+func (s *messageService) CountUnreadBySender(ctx context.Context, userID string) (map[uuid.UUID]int64, error) {
+	userUUID, err := uuid.Parse(userID)
+	if err != nil {
+		return nil, domain.ErrInvalidInput
+	}
+	return s.messageRepo.CountUnreadBySender(ctx, userUUID)
 }
 
 // HideConversation borra la conversación de userID con otherUserID SOLO para

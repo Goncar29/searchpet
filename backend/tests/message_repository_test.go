@@ -476,3 +476,69 @@ func TestMessageRepository_MarkConversationUnread_NoTocaLoAnteriorAlBorrado(t *t
 		t.Error("el mensaje anterior al borrado NO puede volver a 'sin leer': yo no puedo verlo, y la contraparte lo veria pasar de leido a no leido")
 	}
 }
+
+// The per-conversation unread count is what the list's unread dot reads. It
+// must count the received unread messages of the conversation, not look at the
+// latest message: "mark unread" un-reads the latest RECEIVED message, which is
+// older than the viewer's own reply when they answered last. Reading the latest
+// message left that conversation with no dot while the navbar badge counted it.
+func TestMessageRepository_CountUnreadBySender(t *testing.T) {
+	gormDB := testdb.SetupTestDB(t)
+	userRepo := repository.NewUserRepository(gormDB)
+	msgRepo := repository.NewMessageRepository(gormDB)
+	hideRepo := repository.NewConversationHideRepository(gormDB)
+	ctx := context.Background()
+
+	me := newTestUser(t, userRepo)
+	alice := newTestUser(t, userRepo)
+	bob := newTestUser(t, userRepo)
+	carol := newTestUser(t, userRepo)
+
+	// alice: I read her message, replied last, then marked the conversation
+	// unread — the reported case.
+	seedMessage(t, msgRepo, alice.ID, me.ID, "hola, vi a tu perro")
+	if err := msgRepo.MarkConversationRead(ctx, me.ID, alice.ID); err != nil {
+		t.Fatalf("MarkConversationRead: %v", err)
+	}
+	seedMessage(t, msgRepo, me.ID, alice.ID, "gracias, ¿dónde?")
+	if err := msgRepo.MarkConversationUnread(ctx, me.ID, alice.ID); err != nil {
+		t.Fatalf("MarkConversationUnread: %v", err)
+	}
+	// bob: two unread messages.
+	seedMessage(t, msgRepo, bob.ID, me.ID, "uno")
+	seedMessage(t, msgRepo, bob.ID, me.ID, "dos")
+	// carol: unread, but I deleted the conversation, so it is invisible to me.
+	seedMessage(t, msgRepo, carol.ID, me.ID, "oculto")
+	if err := hideRepo.Upsert(ctx, me.ID, carol.ID); err != nil {
+		t.Fatalf("Upsert: %v", err)
+	}
+	// A message I sent to bob is unread for bob, never for me.
+	seedMessage(t, msgRepo, me.ID, bob.ID, "mío")
+
+	counts, err := msgRepo.CountUnreadBySender(ctx, me.ID)
+	if err != nil {
+		t.Fatalf("CountUnreadBySender: %v", err)
+	}
+	if counts[alice.ID] != 1 {
+		t.Errorf("alice: want 1 (marked unread after my reply), got %d", counts[alice.ID])
+	}
+	if counts[bob.ID] != 2 {
+		t.Errorf("bob: want 2, got %d", counts[bob.ID])
+	}
+	if _, ok := counts[carol.ID]; ok {
+		t.Errorf("carol: a deleted conversation must not count, got %d", counts[carol.ID])
+	}
+
+	// The dot and the navbar badge must agree: they count the same messages.
+	total, err := msgRepo.CountUnread(ctx, me.ID)
+	if err != nil {
+		t.Fatalf("CountUnread: %v", err)
+	}
+	var sum int64
+	for _, n := range counts {
+		sum += n
+	}
+	if sum != total {
+		t.Errorf("per-conversation counts add up to %d, the badge says %d", sum, total)
+	}
+}

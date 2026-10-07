@@ -51,8 +51,11 @@ func (r *postgresMessageRepository) GetByID(ctx context.Context, id uuid.UUID) (
 //     borrado) y `MarkConversationRead` (tampoco puede marcarlo leído).
 //  2. `GetConversations` (la lista): correlaciona contra `latest.created_at` y
 //     resuelve la contraparte con un `CASE`, así que no puede usar esta const.
-//  3. `CountUnread` (el badge): abarca a TODOS los remitentes
-//     (`ch.other_user_id = m.sender_id`, no un `?`) y usa el alias `m`.
+//  3. `unreadVisibleClause`, que usan `CountUnread` (el badge) y
+//     `CountUnreadBySender` (el punto de cada fila de la lista): abarca a TODOS
+//     los remitentes (`ch.other_user_id = m.sender_id`, no un `?`) y usa el
+//     alias `m`. Las dos consultas comparten la const para que el punto y el
+//     badge no puedan contar cosas distintas.
 //
 // Las tres formas son distintas a propósito y no se pueden unificar; lo que sí
 // tienen que decir es lo mismo. Que la lista y el hilo discrepen es exactamente
@@ -224,22 +227,54 @@ func (r *postgresMessageRepository) MarkConversationUnread(ctx context.Context, 
 	).Error
 }
 
+// unreadVisibleClause selecciona, con alias `m`, los mensajes recibidos por un
+// usuario que siguen sin leer y que él todavía puede ver: excluye los de
+// conversaciones que borró (un mensaje posterior a hidden_at vuelve a contar).
+// Lleva el mismo id dos veces: (destinatario, quien borró), que son la misma
+// persona. Ver el inventario de la regla en `conversacionBorradaClause`.
+const unreadVisibleClause = `m.receiver_id = ? AND m.read_at IS NULL
+	AND NOT EXISTS (
+		SELECT 1 FROM conversation_hides ch
+		WHERE ch.user_id = ? AND ch.other_user_id = m.sender_id
+		  AND ch.hidden_at >= m.created_at
+	)`
+
 // CountUnread retorna la cantidad de mensajes recibidos por userID que aún no fueron
 // leídos, excluyendo los de conversaciones ocultas (el badge no debe contar lo que
 // el usuario no puede ver). Un mensaje posterior a hidden_at vuelve a contar.
 func (r *postgresMessageRepository) CountUnread(ctx context.Context, userID uuid.UUID) (int64, error) {
 	var count int64
 	err := r.db.WithContext(ctx).Raw(
-		`SELECT COUNT(*) FROM messages m
-		 WHERE m.receiver_id = ? AND m.read_at IS NULL
-		 AND NOT EXISTS (
-			SELECT 1 FROM conversation_hides ch
-			WHERE ch.user_id = ? AND ch.other_user_id = m.sender_id
-			  AND ch.hidden_at >= m.created_at
-		 )`,
+		`SELECT COUNT(*) FROM messages m WHERE `+unreadVisibleClause,
 		userID, userID,
 	).Scan(&count).Error
 	return count, err
+}
+
+// CountUnreadBySender es CountUnread agrupado por remitente: alimenta el punto
+// de no leído de cada fila de la lista. La fila NO puede derivarlo de su último
+// mensaje: "marcar como no leída" desmarca el último mensaje RECIBIDO, que es
+// anterior a la respuesta propia cuando el usuario contestó último, y la fila
+// quedaba sin punto mientras el badge sí lo contaba.
+func (r *postgresMessageRepository) CountUnreadBySender(ctx context.Context, userID uuid.UUID) (map[uuid.UUID]int64, error) {
+	var rows []struct {
+		SenderID uuid.UUID
+		Count    int64
+	}
+	err := r.db.WithContext(ctx).Raw(
+		`SELECT m.sender_id, COUNT(*) AS count FROM messages m
+		 WHERE `+unreadVisibleClause+`
+		 GROUP BY m.sender_id`,
+		userID, userID,
+	).Scan(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	counts := make(map[uuid.UUID]int64, len(rows))
+	for _, row := range rows {
+		counts[row.SenderID] = row.Count
+	}
+	return counts, nil
 }
 
 // Verificación estática: postgresMessageRepository satisface MessageRepository.
