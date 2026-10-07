@@ -200,10 +200,13 @@ pnpm start
 | DELETE | `/api/pets/:id/photos/:photoId` | Eliminar foto |
 | POST | `/api/reports` | Crear reporte |
 | POST | `/api/messages` | Enviar mensaje |
-| GET | `/api/messages` | Listar conversaciones |
-| GET | `/api/messages/:userId` | Conversación con usuario |
+| GET | `/api/messages` | Listar conversaciones: el último mensaje de cada una, con `unread_count` (cuántos mensajes recibidos siguen sin leer) |
+| GET | `/api/messages/unread-count` | Total de mensajes no leídos (el contador del navbar) |
+| GET | `/api/messages/:userId` | Conversación con usuario (la marca como leída) |
 | PATCH | `/api/messages/:id/read` | Marcar mensajes como leídos |
 | GET | `/api/messages/photo-url/:messageId` | URL firmada de foto en mensaje |
+| DELETE | `/api/conversations/:userId` | Borrar la conversación, sólo para quien la borra |
+| PATCH | `/api/conversations/:userId/unread` | Marcar la conversación como no leída |
 | POST | `/api/ws/ticket` | Obtener ticket WebSocket |
 | POST | `/api/share/generate/:petId` | Generar link compartible |
 | POST | `/api/devices/token` | Registrar token FCM |
