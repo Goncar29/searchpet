@@ -44,6 +44,7 @@ jest.mock('../store', () => ({
 const mockUseConversation = jest.fn();
 // One function for every render, like react-query's `mutate`.
 const mockMarkAsReadMutate = jest.fn();
+const mockBlockMutate = jest.fn();
 
 // The screen imports hooks via the relative '../../../shared/hooks'; from this
 // test that same module resolves through '../../shared/hooks'. Jest dedups by
@@ -52,7 +53,7 @@ jest.mock('../../shared/hooks', () => ({
   useConversation: (...args: unknown[]) => mockUseConversation(...args),
   useSendMessageTo: () => ({ mutate: jest.fn(), isPending: false }),
   useMarkAsRead: () => ({ mutate: mockMarkAsReadMutate }),
-  useBlockUser: () => ({ mutate: jest.fn(), isPending: false }),
+  useBlockUser: () => ({ mutate: mockBlockMutate, isPending: false }),
   useBlockStatus: () => ({ isBlocked: false }),
   useSubmitAbuseReport: () => ({ mutate: jest.fn(), isPending: false }),
   useWebSocket: () => ({ sendEnvelope: jest.fn() }),
@@ -71,6 +72,7 @@ beforeEach(() => {
   mockUseConversation.mockReturnValue({ data: undefined, isLoading: true });
   mockMarkAsReadMutate.mockClear();
   mockRouterPush.mockClear();
+  mockBlockMutate.mockClear();
   mockSetOptions.mockClear();
   mockUser = { id: 'user-1', name: 'Me' };
 });
@@ -186,14 +188,16 @@ describe('ChatScreen', () => {
   });
 });
 
-// The other person's public profile needs no session; the ⋮ menu opens it, as
-// the conversation menu does on the web. iOS shows an action sheet and Android
-// an Alert, and jest defaults to iOS, so each platform is pinned explicitly:
-// otherwise the Android branch (the one the distributed APK runs) goes unproved.
-describe('ChatScreen — ver perfil', () => {
-  const label = 'chat:actions.viewProfile';
-
-  function openMenu(os: 'ios' | 'android') {
+// The ⋮ menu: "view profile" opens the other person's public profile (it needs
+// no session), as the conversation menu does on the web, and "block" and
+// "report" keep doing their job. iOS shows an action sheet and Android an
+// Alert, and jest defaults to iOS, so each platform is pinned explicitly:
+// otherwise the Android branch (the one the distributed APK runs) goes
+// unproved. Options are picked by label, never by position, so a test still
+// means the same thing when an option is added or moved.
+describe.each(['ios', 'android'] as const)('ChatScreen — menú ⋮ en %s', (os) => {
+  // Opens the menu and presses the option with this label (an i18n key).
+  function choose(label: string) {
     const { Alert, ActionSheetIOS, Platform } = require('react-native');
     jest.replaceProperty(Platform, 'OS', os);
     const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
@@ -209,30 +213,51 @@ describe('ChatScreen — ver perfil', () => {
     const withHeader = mockSetOptions.mock.calls.filter(([o]) => o.headerRight);
     const HeaderRight = withHeader[withHeader.length - 1][0].headerRight as () => React.ReactElement;
     fireEvent.press(render(<HeaderRight />).getByText('⋮'));
-    return { alertSpy, sheetSpy };
+
+    if (os === 'ios') {
+      expect(alertSpy).not.toHaveBeenCalled();
+      const [config, onSelect] = sheetSpy.mock.calls[0] as [
+        { options: string[]; destructiveButtonIndex: number },
+        (i: number) => void,
+      ];
+      expect(config.options).toContain(label);
+      onSelect(config.options.indexOf(label));
+      return { alertSpy, config };
+    }
+    expect(sheetSpy).not.toHaveBeenCalled();
+    const buttons = alertSpy.mock.calls[0][2] as { text: string; style?: string; onPress?: () => void }[];
+    const button = buttons.find((b) => b.text === label);
+    expect(button).toBeDefined();
+    button?.onPress?.();
+    return { alertSpy, buttons };
   }
 
   afterEach(() => jest.restoreAllMocks());
 
-  it('en iOS, "Ver perfil" del action sheet abre el perfil público del otro usuario', () => {
-    const { alertSpy, sheetSpy } = openMenu('ios');
-
-    expect(alertSpy).not.toHaveBeenCalled();
-    const [{ options }, onSelect] = sheetSpy.mock.calls[0] as [{ options: string[] }, (i: number) => void];
-    onSelect(options.indexOf(label));
+  it('"Ver perfil" abre el perfil público del otro usuario', () => {
+    choose('chat:actions.viewProfile');
 
     expect(mockRouterPush).toHaveBeenCalledWith('/users/user-2');
   });
 
-  it('en Android, "Ver perfil" del Alert abre el perfil público del otro usuario', () => {
-    const { alertSpy, sheetSpy } = openMenu('android');
+  it('"Bloquear" bloquea al otro usuario, y es la opción marcada como destructiva', () => {
+    const result = choose('chat:blockUser');
 
-    expect(sheetSpy).not.toHaveBeenCalled();
-    const buttons = alertSpy.mock.calls[0][2] as { text: string; onPress?: () => void }[];
-    const viewProfile = buttons.find((b) => b.text === label);
-    expect(viewProfile).toBeDefined();
-    viewProfile?.onPress?.();
+    expect(mockBlockMutate).toHaveBeenCalledTimes(1);
+    expect(mockBlockMutate.mock.calls[0][0]).toEqual({ userId: 'user-2' });
+    expect(mockRouterPush).not.toHaveBeenCalled();
+    if (result.config) {
+      expect(result.config.options[result.config.destructiveButtonIndex]).toBe('chat:blockUser');
+    } else {
+      expect(result.buttons?.find((b) => b.text === 'chat:blockUser')).toMatchObject({ style: 'destructive' });
+    }
+  });
 
-    expect(mockRouterPush).toHaveBeenCalledWith('/users/user-2');
+  it('"Denunciar" abre la elección del motivo', () => {
+    const { alertSpy } = choose('chat:report');
+
+    expect(alertSpy).toHaveBeenLastCalledWith('chat:reportReason', '', expect.any(Array));
+    expect(mockBlockMutate).not.toHaveBeenCalled();
+    expect(mockRouterPush).not.toHaveBeenCalled();
   });
 });
