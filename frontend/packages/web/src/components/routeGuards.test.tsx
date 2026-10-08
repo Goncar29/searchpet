@@ -96,9 +96,11 @@ describe('AdminRoute', () => {
     expect(screen.queryByText('pagina-admin')).not.toBeInTheDocument();
   });
 
-  it('sin sesión manda al login', () => {
-    renderEn('/admin');
-    expect(screen.getByText(/^login/)).toBeInTheDocument();
+  it('sin sesión manda al login con el path y el query para volver', () => {
+    // Antes mandaba a /login a secas: un admin con la sesión vencida volvía a
+    // la home en vez de a la sección del panel que estaba abriendo.
+    renderEn('/admin?pagina=2&orden=fecha');
+    expect(screen.getByText('login returnUrl=/admin?pagina=2&orden=fecha')).toBeInTheDocument();
     expect(screen.queryByText('pagina-admin')).not.toBeInTheDocument();
   });
 
