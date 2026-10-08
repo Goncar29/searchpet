@@ -109,13 +109,36 @@ noche y el mes de 31 días deja ~50 h de margen. En esa ventana la app sigue
 andando; el primer request espera el arranque en frío (~50 s), y una caída
 no la avisa UptimeRobot.
 
-Acá el cron de GitHub sí sirve porque el job **reconcilia** en vez de
-disparar acciones sueltas: corre cada 10 minutos, calcula en qué estado tiene
-que estar el monitor a esa hora y lo deja así. Una corrida que GitHub atrasa o
-pierde la corrige una posterior. Antes corría cada hora, y el 2026-10-07 GitHub
-perdió 11 de 14 corridas: la reanudación de las 09:17 no llegó y el monitor
-quedó pausado hasta las 14:34. Más corridas por hora achican ese hueco, pero no
-lo garantizan: el cron de GitHub sigue siendo best-effort. Necesita el secret `UPTIMEROBOT_API_KEY` (la
+El job **reconcilia** en vez de disparar acciones sueltas: cada corrida
+calcula en qué estado tiene que estar el monitor a esa hora y lo deja así, así
+que una corrida perdida la corrige la siguiente y una de más no cambia nada.
+
+**Lo dispara cron-job.org, no el cron de GitHub.** El cron de GitHub es
+best-effort y acá falló dos veces seguidas: el 2026-10-07, corriendo cada hora,
+perdió 11 de 14 corridas y el monitor quedó pausado hasta las 14:34; el
+2026-10-08, corriendo cada 10 minutos, ejecutó 3 de ~100 y el monitor quedó
+pausado desde las 08:10 hasta que se lo reactivó a mano a las 15:15. El
+`schedule` del workflow queda como respaldo; por la reconciliación, que corran
+los dos a la vez no hace daño.
+
+El job de cron-job.org (gratis, cuenta del usuario):
+
+- **URL**: `https://api.github.com/repos/Goncar29/searchpet/actions/workflows/keepalive-window.yml/dispatches`
+- **Método**: `POST`, cuerpo `{"ref":"main"}`
+- **Headers**: `Authorization: Bearer <token>`, `Accept: application/vnd.github+json`,
+  `X-GitHub-Api-Version: 2022-11-28`, `Content-Type: application/json`
+- **Horario**: cada 10 minutos, zona horaria UTC
+- **Éxito**: GitHub contesta `204` sin cuerpo. Cualquier otro código es una falla:
+  activá el aviso por mail de fallas del job.
+- **Token**: fine-grained personal access token restringido al repo
+  `Goncar29/searchpet`, con el permiso **Actions: Read and write** y nada más.
+  Tiene vencimiento: anotá la fecha, porque cuando vence el job empieza a dar
+  `401` y sólo queda el respaldo de GitHub.
+
+Para comprobarlo: `gh run list --workflow keepalive-window.yml` tiene que
+mostrar corridas con evento `workflow_dispatch` cada ~10 minutos.
+
+Necesita el secret `UPTIMEROBOT_API_KEY` (la
 API key **principal** de la cuenta: las de solo lectura no pueden pausar) y
 falla en rojo si falta. Ojo: si pausás ese monitor a mano fuera de la
 ventana, el job lo vuelve a activar en la corrida siguiente.
