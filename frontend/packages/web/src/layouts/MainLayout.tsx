@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router';
 import { useTranslation, Trans } from 'react-i18next';
 import { cloudinaryThumb } from '@shared/utils/cloudinaryThumb';
@@ -7,6 +7,7 @@ import { useTheme } from '../context/ThemeContext';
 import { LanguageSwitcher } from '../components/LanguageSwitcher';
 import { Logo } from '../components/Logo';
 import { Icon } from '../components/Icon';
+import { RouteFallback } from '../components/RouteFallback';
 import { useQueryClient } from '@tanstack/react-query';
 import { useUnreadCount, useWebSocket, useMyShelter, UNREAD_COUNT_KEY } from '@shared/hooks';
 import type { WsEnvelope, WsBadgeUpdate } from '@shared/hooks';
@@ -450,7 +451,11 @@ export function MainLayout() {
 
       {/* Page content */}
       <main className="flex-1">
-        <Outlet />
+        {/* Pages are lazy chunks (App.tsx): the boundary sits here so the navbar
+            and footer stay on screen while one downloads. */}
+        <Suspense fallback={<RouteFallback />}>
+          <Outlet />
+        </Suspense>
       </main>
 
       {/* Footer */}
