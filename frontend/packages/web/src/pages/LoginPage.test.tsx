@@ -150,26 +150,15 @@ describe('LoginPage — returnUrl', () => {
   it('después del login vuelve al path del mismo origen que trae returnUrl', async () => {
     routerState.search = new URLSearchParams({ returnUrl: '/pets/123' });
     await submitLogin();
-    expect(routerState.navigate).toHaveBeenCalledWith('/pets/123');
+    expect(routerState.navigate).toHaveBeenCalledWith('/pets/123', { replace: true });
   });
 
   it('después del login ignora un returnUrl a otro origen y va a /', async () => {
     routerState.search = new URLSearchParams({ returnUrl: '//evil.example' });
     await submitLogin();
-    expect(routerState.navigate).toHaveBeenCalledWith('/');
-  });
-
-  it('con sesión ya iniciada vuelve al path del mismo origen que trae returnUrl', () => {
-    routerState.isAuthenticated = true;
-    routerState.search = new URLSearchParams({ returnUrl: '/messages' });
-    renderLoginPage();
-    expect(routerState.navigate).toHaveBeenCalledWith('/messages', { replace: true });
-  });
-
-  it('con sesión ya iniciada ignora un returnUrl a otro origen y va a /', () => {
-    routerState.isAuthenticated = true;
-    routerState.search = new URLSearchParams({ returnUrl: 'https://evil.example' });
-    renderLoginPage();
     expect(routerState.navigate).toHaveBeenCalledWith('/', { replace: true });
   });
+
+  // Los casos "con sesión ya iniciada" viven en authRedirect.test.tsx: necesitan
+  // el router real, que acá está mockeado.
 });

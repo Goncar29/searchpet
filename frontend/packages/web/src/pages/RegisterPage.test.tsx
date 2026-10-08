@@ -158,7 +158,8 @@ describe('RegisterPage — ciudad obligatoria y paso de ubicación', () => {
     await llenar(user, true);
 
     await waitFor(() => expect(screen.getByText('paso-de-ubicacion')).toBeInTheDocument());
-    // La prueba de que el guard NO disparó: nadie navegó a `/`.
-    expect(mockNavigate).not.toHaveBeenCalledWith('/', { replace: true });
+    // Que el guard NO redirigió se prueba en authRedirect.test.tsx, con el router
+    // real: el guard usa <Navigate>, que no pasa por este useNavigate mockeado,
+    // así que un `expect(mockNavigate).not...` acá daría verde redirigiendo.
   });
 });
