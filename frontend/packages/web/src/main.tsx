@@ -11,6 +11,7 @@ import { createQueryClient } from './lib/queryClient';
 import { apiClient } from '@shared/api/client';
 import App from './App';
 import 'leaflet/dist/leaflet.css';
+import './fonts.css';
 import './index.css';
 
 // Bootstrap the auth token synchronously BEFORE the first render. The apiClient

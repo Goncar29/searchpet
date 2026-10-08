@@ -474,9 +474,12 @@ export function MainLayout() {
               </p>
             </div>
             <div>
-              <h4 className="font-semibold text-gray-900 dark:text-gray-50 mb-3">
+              {/* h2, not h4: the footer is a top-level section of every page,
+                  and jumping from the page's last h2 straight to an h4 skips a
+                  level (Lighthouse heading-order). */}
+              <h2 className="text-base font-semibold text-gray-900 dark:text-gray-50 mb-3">
                 {t('footer:links')}
-              </h4>
+              </h2>
               <div className="flex flex-col gap-2">
                 <Link to="/map" className="text-sm text-gray-500 dark:text-gray-400 hover:text-primary dark:hover:text-primary-light transition-colors">
                   {t('map')}
@@ -487,9 +490,9 @@ export function MainLayout() {
               </div>
             </div>
             <div>
-              <h4 className="font-semibold text-gray-900 dark:text-gray-50 mb-3">
+              <h2 className="text-base font-semibold text-gray-900 dark:text-gray-50 mb-3">
                 {t('footer:contact')}
-              </h4>
+              </h2>
               <p className="text-sm text-gray-500 dark:text-gray-400">
                 {t('footer:contactText')}
               </p>

@@ -22,11 +22,14 @@ const DEFAULT_LNG = -56.1645;
 // CSP in vercel.json accepts besides Cloudinary, OSM tiles, GitHub raw, cdnjs
 // and lh3.googleusercontent. A remote placeholder here renders locally and is
 // blocked in production, silently, leaving an empty 520px box.
-// JPEG, not PNG: the source was a 590 KB PNG of a photograph, a format that
-// cannot compress one. Re-encoded at q82 it is 225 KB with no visible loss at
-// the 584x520 box this renders into. Worth keeping small because the column is
-// `hidden lg:block` and a phone still downloads it — see the note below.
-const HERO_IMAGE_SRC = '/hero.jpg';
+// WebP at q80 (127 KB, half the JPEG it replaced) at the source's 898x1091,
+// which still covers the 584x520 box at 1.5x density.
+const HERO_IMAGE_SRC = '/hero.webp';
+
+// What the <img> itself loads: a 1x1 transparent GIF, inline, so it costs no
+// request. The real photo only comes through the <source> below, whose media
+// query matches `lg:`; under it nothing is fetched. See the note at the photo.
+const HERO_PLACEHOLDER = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
 
 // Plain text on purpose: these render inside native <option> elements, and a
 // browser strips any markup there — an inline <svg> would not draw, and an
@@ -376,22 +379,28 @@ export function HomePage() {
                 the opposite of what this page is for.
 
                 `hidden` stops it being painted, NOT downloaded: a browser still
-                fetches an <img> inside a display:none container. Measured at
-                375px — the box is 0x0 while the element reports complete=true
-                and naturalWidth=921. So a phone pays for these bytes and sees
-                nothing, which is why the file is kept small. `loading="lazy"`
-                would skip the fetch here but this is the desktop LCP element,
-                so it would trade a phone's bytes for everyone else's paint. */}
+                fetches an <img> inside a display:none container (measured at
+                375px: a 0x0 box with complete=true). So the photo only comes
+                through a <source> whose media query is the same 64rem as `lg:`,
+                and the <img> falls back to an inline 1x1 GIF. A phone fetches
+                nothing; a desktop gets the photo, preloaded from index.html
+                with the same query. `loading="lazy"` would also skip the fetch,
+                but this is the desktop LCP element and it would delay the paint
+                for everyone who does see it. */}
             <div className="relative hidden lg:block">
               <div
                 aria-hidden="true"
                 className="absolute -top-12 -right-12 h-[420px] w-[420px] rounded-full bg-white/10"
               />
-              <img
-                src={HERO_IMAGE_SRC}
-                alt=""
-                className="relative z-10 h-[520px] w-full rounded-[40px] object-cover shadow-2xl"
-              />
+              <picture>
+                <source media="(min-width: 64rem)" srcSet={HERO_IMAGE_SRC} type="image/webp" />
+                <img
+                  src={HERO_PLACEHOLDER}
+                  alt=""
+                  fetchPriority="high"
+                  className="relative z-10 h-[520px] w-full rounded-[40px] object-cover shadow-2xl"
+                />
+              </picture>
               {/* The design floats a stat card over this photo ("85% success
                   rate" — an invented number). Deliberately not ported: every
                   real stat we have already appears in the band right below, so
