@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach, type MockInstance } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Routes, Route } from 'react-router';
+import { MemoryRouter, Routes, Route, useNavigate } from 'react-router';
 import { LoginPage } from './LoginPage';
 import { RegisterPage } from './RegisterPage';
 
@@ -30,10 +30,11 @@ vi.mock('react-i18next', () => ({
 
 const auth = vi.hoisted(() => ({ autenticado: false }));
 const mockRegister = vi.fn();
+const mockLogin = vi.fn();
 
 vi.mock('../context/AuthContext', () => ({
   useAuth: () => ({
-    login: vi.fn(),
+    login: mockLogin,
     register: mockRegister,
     loginWithGoogle: vi.fn(),
     get isAuthenticated() {
@@ -61,14 +62,26 @@ afterEach(() => {
   consoleError.mockRestore();
 });
 
-function renderEn(path: string) {
+/** Una página de destino con un botón "atrás" que usa el historial real. */
+function Destino({ texto }: { texto: string }) {
+  const navigate = useNavigate();
+  return (
+    <div>
+      {texto}
+      <button onClick={() => navigate(-1)}>atras</button>
+    </div>
+  );
+}
+
+function renderEn(path: string, previas: string[] = []) {
   return render(
-    <MemoryRouter initialEntries={[path]}>
+    <MemoryRouter initialEntries={[...previas, path]} initialIndex={previas.length}>
       <Routes>
+        <Route path="/map" element={<div>pagina-mapa</div>} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/" element={<div>pagina-home</div>} />
-        <Route path="/messages" element={<div>pagina-mensajes</div>} />
+        <Route path="/messages" element={<Destino texto="pagina-mensajes" />} />
       </Routes>
     </MemoryRouter>,
   );
@@ -99,6 +112,26 @@ describe('LoginPage con sesión ya iniciada', () => {
     renderEn('/login');
     await screen.findByText('pagina-home');
     expect(updatesEnRender()).toEqual([]);
+  });
+
+  it('después de iniciar sesión, "atrás" vuelve a la página anterior al login', async () => {
+    // El guard reemplaza /login por el destino en cuanto aparece la sesión, y
+    // handleSubmit navega al mismo destino. Si handleSubmit empujaba en vez de
+    // reemplazar, el destino quedaba dos veces en el historial y el primer
+    // "atrás" no hacía nada visible (medido en el navegador, 2026-10-08).
+    mockLogin.mockImplementation(async () => {
+      auth.autenticado = true;
+    });
+    const user = userEvent.setup();
+    renderEn('/login?returnUrl=%2Fmessages', ['/map']);
+
+    await user.type(screen.getByLabelText('auth:login.email'), 'ana@example.com');
+    await user.type(screen.getByLabelText('auth:login.password'), 'secreto1');
+    await user.click(screen.getByRole('button', { name: 'auth:login.submit' }));
+    await screen.findByText('pagina-mensajes');
+
+    await user.click(screen.getByRole('button', { name: 'atras' }));
+    expect(await screen.findByText('pagina-mapa')).toBeInTheDocument();
   });
 
   it('sin sesión se queda en el formulario', () => {

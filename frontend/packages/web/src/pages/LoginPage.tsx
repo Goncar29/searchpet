@@ -82,7 +82,10 @@ export function LoginPage() {
     try {
       await login(email, password);
       const returnUrl = safeReturnPath(searchParams.get('returnUrl'));
-      navigate(returnUrl);
+      // replace, like the guard above: once the session lands the guard has
+      // already swapped /login for this same page, and a push here would leave
+      // it twice in the history, so the first Back would go nowhere.
+      navigate(returnUrl, { replace: true });
     } catch (err) {
       setApiError(getErrorMessage(err, t));
     } finally {

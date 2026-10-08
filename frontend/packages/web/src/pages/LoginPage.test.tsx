@@ -150,13 +150,13 @@ describe('LoginPage — returnUrl', () => {
   it('después del login vuelve al path del mismo origen que trae returnUrl', async () => {
     routerState.search = new URLSearchParams({ returnUrl: '/pets/123' });
     await submitLogin();
-    expect(routerState.navigate).toHaveBeenCalledWith('/pets/123');
+    expect(routerState.navigate).toHaveBeenCalledWith('/pets/123', { replace: true });
   });
 
   it('después del login ignora un returnUrl a otro origen y va a /', async () => {
     routerState.search = new URLSearchParams({ returnUrl: '//evil.example' });
     await submitLogin();
-    expect(routerState.navigate).toHaveBeenCalledWith('/');
+    expect(routerState.navigate).toHaveBeenCalledWith('/', { replace: true });
   });
 
   // Los casos "con sesión ya iniciada" viven en authRedirect.test.tsx: necesitan
