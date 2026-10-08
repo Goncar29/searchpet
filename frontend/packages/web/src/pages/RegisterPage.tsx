@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { Link, Navigate, useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { getErrorMessage } from '@shared/utils/apiErrors';
@@ -71,8 +71,8 @@ export function RegisterPage() {
   // en false, y sin `!loading` el guard redirige ahí y el paso no se renderiza
   // nunca. Lo reprodujo el test "con la sesión ya abierta NO rebota a la app".
   if (!isLoading && isAuthenticated && !loading && !googleLoading && !showLocationStep && !showLocationAfterSignup) {
-    navigate('/', { replace: true });
-    return null;
+    // <Navigate> y no navigate(): ver el mismo guard en LoginPage.
+    return <Navigate to="/" replace />;
   }
 
   const validate = (): boolean => {

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useLocation, useNavigate, useSearchParams } from 'react-router';
+import { Link, Navigate, useLocation, useNavigate, useSearchParams } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { getErrorMessage } from '@shared/utils/apiErrors';
@@ -50,10 +50,14 @@ export function LoginPage() {
   // show onboarding. googleLoading covers that in-flight window; showLocationStep
   // covers the step itself. Without them this guard redirects away and the whole
   // new-user flow never renders.
+  //
+  // <Navigate>, never navigate() here: React Router ignores a navigate() made
+  // during the first render (it only warns), and this branch returns nothing
+  // else, so a signed-in user opening /login got a blank page. On a re-render it
+  // did navigate, but by updating the router while React was rendering this
+  // page ("Cannot update a component while rendering a different component").
   if (!isLoading && isAuthenticated && !googleLoading && !showLocationStep) {
-    const returnUrl = safeReturnPath(searchParams.get('returnUrl'));
-    navigate(returnUrl, { replace: true });
-    return null;
+    return <Navigate to={safeReturnPath(searchParams.get('returnUrl'))} replace />;
   }
 
   const validate = (): boolean => {
