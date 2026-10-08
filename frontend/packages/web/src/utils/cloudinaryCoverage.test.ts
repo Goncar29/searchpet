@@ -127,8 +127,8 @@ const EXENTOS: Array<{ archivo: string; expr: string; motivo: string }> = [
   },
   {
     archivo: '../pages/HomePage.tsx',
-    expr: 'HERO_IMAGE_SRC',
-    motivo: "Asset propio servido desde public/ ('/hero.jpg'). No pasa por Cloudinary.",
+    expr: 'HERO_PLACEHOLDER',
+    motivo: "GIF de 1x1 inline; la foto real ('/hero.webp', de public/) entra por un <source>. No pasa por Cloudinary.",
   },
 ];
 

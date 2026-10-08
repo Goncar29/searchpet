@@ -26,12 +26,12 @@
     <meta name="twitter:title" content="SearchPet - Encuentra mascotas perdidas" />
     <meta name="twitter:description" content="Plataforma gratuita para encontrar mascotas perdidas." />
     <meta name="twitter:image" content="https://searchpet.vercel.app/og/og-cover.png" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <!-- Families stay alphabetical: the css2 API requires it. Plus Jakarta Sans
-         is the display face for headings (Stitch design); Inter stays the body
-         face and Fredoka the brand wordmark. -->
-    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@600;700&display=swap" rel="stylesheet" />
+    <!-- The home hero photo is only shown from Tailwind's lg breakpoint up, and
+         React draws it late, after the JS runs. Preloading it under the same
+         media query lets a desktop start the download with the HTML, while a
+         phone never fetches it. Keep the query in rem: it must match `lg:`
+         exactly (CLAUDE.md rule #29). -->
+    <link rel="preload" as="image" href="/hero.webp" type="image/webp" media="(min-width: 64rem)" fetchpriority="high" />
     <title>SearchPet - Encuentra mascotas perdidas</title>
   </head>
   <body>
