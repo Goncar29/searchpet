@@ -78,7 +78,9 @@ de Brevo a propósito.
 ### Trigger de deploy (CI)
 
 El workflow `ci.yml` dispara el deploy hook de Render al pushear a `main`,
-**después** de que pasen los cuatro jobs de test.
+**después** de que pasen seis jobs: `backend-test`, `e2e-backend`,
+`backend-image`, `frontend-web`, `mobile-test` y `e2e-web`. El único que no
+frena el deploy es `mobile-audit`, a propósito.
 
 **El Auto-Deploy por commit del servicio está APAGADO a propósito**
 (`autoDeployTrigger: "off"`), y el sentido importa: se apaga el autoDeploy y se
@@ -177,18 +179,27 @@ pagado a conciencia: **detectar una base caída puede tardar hasta 6 horas.**
 3. Configurar:
    - **Framework Preset**: Vite
    - **Root Directory**: `frontend/packages/web`
-   - **Build Command**: `pnpm build`
+   - **Build Command**: lo fija `vercel.json` (`vite build`), y pisa lo que diga
+     el dashboard. El chequeo de tipos (`tsc`) lo hace el CI, no Vercel.
    - **Output Directory**: `dist`
 
 ### Variables de entorno en Vercel
 ```
 VITE_API_URL=https://tu-backend.onrender.com
+VITE_GOOGLE_CLIENT_ID=...              # Google Sign-In (mismo client que GOOGLE_CLIENT_ID del backend)
+VITE_FIREBASE_API_KEY=...              # Push en la web (Firebase Cloud Messaging)
+VITE_FIREBASE_AUTH_DOMAIN=...
+VITE_FIREBASE_PROJECT_ID=...
+VITE_FIREBASE_STORAGE_BUCKET=...
+VITE_FIREBASE_MESSAGING_SENDER_ID=...
+VITE_FIREBASE_APP_ID=...
+VITE_FIREBASE_VAPID_KEY=...
 ```
 
 ### Security headers (CSP)
 Los headers de seguridad (CSP, X-Frame-Options, nosniff, Referrer-Policy, Permissions-Policy) se sirven desde el bloque `headers` de `frontend/packages/web/vercel.json` — no hay nada que configurar en el dashboard de Vercel.
 
-**Importante:** el `connect-src` de la CSP tiene hardcodeado el host del backend. Si cambiás `VITE_API_URL`, actualizá también `vercel.json` (las entradas `https://` y `wss://` del backend) o los fetch y el WebSocket quedan bloqueados en prod. Ver regla #23 de `CLAUDE.md`.
+**Importante:** el `connect-src` de la CSP tiene hardcodeado el host del backend. Si cambiás `VITE_API_URL`, actualizá también `vercel.json` (las entradas `https://` y `wss://` del backend) o los fetch y el WebSocket quedan bloqueados en prod.
 
 ### Costo: $0 (plan Hobby gratuito)
 
@@ -245,8 +256,9 @@ queries: es reducir las horas en que la base está despierta.**
 ## 4. Imágenes (Cloudinary)
 
 1. Ir a [cloudinary.com](https://cloudinary.com) y crear cuenta
-2. Copiar la `CLOUDINARY_URL` del dashboard
-3. Agregar a variables de entorno del backend
+2. Copiar del dashboard el cloud name, la API key y el API secret
+3. Agregarlos a las variables de entorno del backend como
+   `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY` y `CLOUDINARY_API_SECRET`
 
 ### Costo: $0 (25 créditos/mes gratis)
 
@@ -260,25 +272,15 @@ queries: es reducir las horas en que la base está despierta.**
 4. Descargar `google-services.json` (Android) y `GoogleService-Info.plist` (iOS)
 5. Agregar `FIREBASE_KEY` a las variables del backend
 
-### Secretos de GitHub requeridos para builds móviles
+### Los archivos de Firebase de mobile van commiteados
 
-Los archivos de configuración de Firebase NO están commiteados al repo (están en `.gitignore`).
-El workflow de CI los inyecta desde secretos de GitHub en cada build.
-
-**Cómo agregar los secretos:**
-1. Ir a **GitHub repo → Settings → Secrets and variables → Actions → New repository secret**
-
-| Secret | Contenido | Cómo obtenerlo |
-|--------|-----------|----------------|
-| `GOOGLE_SERVICES_JSON` | Contenido completo del archivo `google-services.json` (Android) | Firebase Console → Project Settings → Your apps → Android app → Download google-services.json → copiar todo el contenido del archivo |
-| `GOOGLE_SERVICE_INFO_PLIST` | Contenido completo del archivo `GoogleService-Info.plist` (iOS) | Firebase Console → Project Settings → Your apps → iOS app → Download GoogleService-Info.plist → copiar todo el contenido del archivo |
-
-> **Nota**: `GOOGLE_SERVICE_INFO_PLIST` es para builds iOS vía EAS — está documentado aquí para cuando se agreguen builds de iOS al pipeline. El workflow actual (`build-apk.yml`) solo inyecta `GOOGLE_SERVICES_JSON`.
-
-**Si el secreto no está configurado**, el workflow falla con:
-```
-Error: GOOGLE_SERVICES_JSON secret is not set
-```
+`frontend/packages/mobile/google-services.json` (Android) y
+`GoogleService-Info.plist` (iOS) **están en el repo a propósito**: son la
+configuración cliente de Firebase, no secretos, y `build-apk.yml` y EAS los
+necesitan para empaquetar la app. No hace falta ningún secret de GitHub para
+ellos. Lo que protege la API key que traen es su restricción en Google Cloud
+Console: sólo la acepta el package `com.searchpet.app` firmado con nuestros
+certificados.
 
 ### Costo: $0 (FCM es gratuito)
 
@@ -457,7 +459,7 @@ a ~1.100 sesiones/día.
 make setup
 
 # Desarrollo local
-make dev        # Levantar PostgreSQL
+make dev        # Levantar en Docker: PostgreSQL (:5433), Redis y la API (:8080)
 make backend    # Iniciar Go API
 make web        # Iniciar React Web
 make mobile     # Iniciar Expo

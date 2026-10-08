@@ -14,7 +14,7 @@ help: ## Mostrar ayuda
 
 dev: ## Levantar todo el entorno de desarrollo
 	docker-compose up -d
-	@echo "PostgreSQL + PostGIS corriendo en localhost:5432"
+	@echo "PostgreSQL + PostGIS en localhost:5433, Redis en localhost:6379, API en localhost:8080"
 	@echo ""
 	@echo "Para iniciar el backend:  make backend"
 	@echo "Para iniciar la web:      make web"

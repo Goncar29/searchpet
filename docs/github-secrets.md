@@ -5,6 +5,7 @@ Configurar en: **GitHub repo → Settings → Secrets and variables → Actions 
 | Secret | Descripción |
 |--------|-------------|
 | `API_URL` | URL del backend en Render (ej: `https://searchpet.onrender.com`) |
+| `MAPTILER_KEY` | Key de MapTiler para los mapas de la app (`EXPO_PUBLIC_MAPTILER_KEY`). Restringida en MapTiler al User-Agent de la app |
 | `ANDROID_KEYSTORE_BASE64` | Keystore en base64 (ver paso de generación abajo) |
 | `ANDROID_KEYSTORE_PASSWORD` | Contraseña del keystore |
 | `ANDROID_KEY_ALIAS` | Alias de la signing key |
@@ -14,13 +15,15 @@ El pipeline principal (`ci.yml`) usa además:
 
 | Secret | Descripción |
 |--------|-------------|
-| `RENDER_DEPLOY_HOOK_URL` | Deploy hook de Render. Lo dispara `deploy-backend` en push a `main`, después de que pasen los cuatro jobs de test. El Auto-Deploy por commit del servicio está **apagado** a propósito: si estuviera prendido, cada push deployaría dos veces y el deploy automático no esperaría a los tests |
+| `RENDER_DEPLOY_HOOK_URL` | Deploy hook de Render. Lo dispara `deploy-backend` en push a `main`, después de que pasen los seis jobs de test y build. El Auto-Deploy por commit del servicio está **apagado** a propósito: si estuviera prendido, cada push deployaría dos veces y el deploy automático no esperaría a los tests |
+
+| `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID`, `VITE_FIREBASE_STORAGE_BUCKET`, `VITE_FIREBASE_MESSAGING_SENDER_ID`, `VITE_FIREBASE_APP_ID`, `VITE_FIREBASE_VAPID_KEY` | Config web de Firebase para el build de `frontend-web`. En producción la web la toma de las variables de entorno de Vercel, no de acá |
 
 `keepalive-window.yml` (la ventana nocturna de sueño del backend, ver DEPLOY.md) usa:
 
 | Secret | Descripción |
 |--------|-------------|
-| `UPTIMEROBOT_API_KEY` | API key **principal** de UptimeRobot (My Settings → API Settings → Main API Key). Hace falta la principal: las de solo lectura o por monitor no pueden pausar. Sin ella el job falla en rojo cada hora, a propósito |
+| `UPTIMEROBOT_API_KEY` | API key **principal** de UptimeRobot (My Settings → API Settings → Main API Key). Hace falta la principal: las de solo lectura o por monitor no pueden pausar. Sin ella el job falla en rojo en cada corrida (cada ~10 min), a propósito |
 
 ## Variables de entorno de Render (no son secrets de GitHub)
 

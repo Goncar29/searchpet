@@ -31,7 +31,7 @@ Aplicación de causa social para ayudar a encontrar mascotas perdidas.
 ```
 searchpet/
 ├── backend/
-│   ├── cmd/server/main.go           # Punto de entrada + DI
+│   ├── cmd/server/main.go           # Punto de entrada
 │   ├── config/                      # Variables de entorno
 │   ├── internal/
 │   │   ├── domain/                  # Modelos + errores de dominio
@@ -66,7 +66,8 @@ searchpet/
 │
 ├── .github/workflows/
 │   ├── ci.yml                       # CI: backend + web + mobile tests, e2e, deploy Render
-│   └── build-apk.yml               # APK build + GitHub Release (tags v*)
+│   ├── build-apk.yml               # APK build + GitHub Release (tags v*)
+│   └── keepalive-window.yml        # Pausa nocturna del monitor de /health (ver DEPLOY.md)
 │
 └── docker-compose.yml               # Dev environment (PostgreSQL + PostGIS)
 ```
@@ -83,7 +84,7 @@ Handler (HTTP/WS) → Service (Lógica) → Repository (BD) → Domain (Entidad)
 
 - **Clean Architecture** — separación por capas, dependencias hacia adentro
 - **Repository Pattern** — abstracción de datos con interfaces
-- **Dependency Injection** — desacoplamiento en `main.go`
+- **Dependency Injection** — el cableado vive en `internal/app/router.go` (`SetupRouter`)
 - **DTO Pattern** — modelos de BD separados de la API
 - **Observer / EventBus** — notificaciones y badges desacoplados
 - **WebSocket Hub** — canal broadcast con ticket de autenticación
@@ -176,6 +177,7 @@ pnpm start
 | GET | `/api/users/:id/pets` | Lo que esa persona publicó y no cerró (nunca `registered` ni `archived`) |
 | GET | `/api/leaderboard` | Leaderboard |
 | GET | `/api/users/:id/reviews` | Reseñas de usuario |
+| GET | `/api/stories` | Listar historias (con sesión, marca las que ya likeaste) |
 | GET | `/api/groups` | Listar grupos locales |
 | GET | `/api/groups/:id` | Detalle de grupo |
 | GET | `/api/groups/:id/members` | Miembros del grupo |
@@ -219,7 +221,6 @@ pnpm start
 | DELETE | `/api/users/:id/block` | Desbloquear usuario |
 | GET | `/api/users/blocked` | Usuarios bloqueados |
 | POST | `/api/stories` | Publicar historia de éxito |
-| GET | `/api/stories` | Listar historias |
 | POST | `/api/stories/:id/like` | Dar like a historia |
 | POST | `/api/groups/:id/join` | Unirse a grupo |
 | DELETE | `/api/groups/:id/leave` | Salir de grupo |
@@ -240,7 +241,8 @@ pnpm start
 | GET | `/api/abuse-reports` | Ver reportes de abuso |
 | PATCH | `/api/admin/abuse-reports/:id/resolve` | Resolver reporte de abuso |
 | PATCH | `/api/admin/reports/:id/verify` | Verificar reporte |
-| PATCH | `/api/admin/users/:id/ban` | Banear / desbanear usuario |
+| PATCH | `/api/admin/users/:id/ban` | Banear usuario |
+| PATCH | `/api/admin/users/:id/unban` | Desbanear usuario |
 | POST | `/api/admin/users/admin-role` | Otorgar o revocar admin por email (auditado) |
 | GET | `/api/admin/role-changes` | Historial de cambios de rol |
 | POST | `/api/admin/vets/import` | Reimportar veterinarias desde OpenStreetMap (síncrono, una corrida a la vez) |
@@ -253,18 +255,21 @@ pnpm start
 
 ---
 
-## Base de Datos (29 tablas)
+## Base de Datos (31 tablas)
 
 **Core:** `users`, `pets`, `reports`, `photos`, `messages`, `search_episodes`, `platform_events`  
 **Social:** `share_links`, `local_groups`, `group_members`, `success_stories`, `story_likes`, `user_reviews`  
 **Alerts:** `location_alerts`, `device_tokens`  
-**Gamification:** `badges`, `user_points`  
+**Gamification:** `badges`, `user_points`, `pet_helper_credits`, `pet_share_credits`  
 **Security:** `blocked_users`, `report_abuses`, `verification_tokens`, `admin_audit_logs`, `conversation_hides`  
 **Refugios y acogida:** `shelters`, `foster_homes`, `foster_home_photos`, `foster_home_moderation_logs`, `foster_home_change_logs`  
 **Infra:** `vets` (PostGIS, importadas de OpenStreetMap)  
 **IA:** `pet_embeddings` (pgvector, solo via migración SQL — no AutoMigrate)
 
-> La lista canónica de los 28 modelos que pasan por AutoMigrate es
+`ws_tickets` también existe (la crea la migración `000002`), pero ya no la usa
+nada: los tickets del WebSocket viven en memoria (`internal/websocket/ticket.go`).
+
+> La lista canónica de los 30 modelos que pasan por AutoMigrate es
 > `backend/pkg/database/postgres.go` → `var Models`. `pet_embeddings` es la
 > excepción deliberada: su tabla la crea sólo la migración `000009`. Un modelo
 > que falte en ese slice es una tabla que **nunca se crea en producción**.
@@ -276,11 +281,14 @@ pnpm start
 | Job | Trigger | Qué hace |
 |-----|---------|---------|
 | `backend-test` | push a main/develop, **todo PR** | `go test ./...` + `go build` con PostgreSQL real |
-| `frontend-web` | push a main/develop, **todo PR** | `pnpm audit` + `vitest` + `tsc && vite build` |
-| `mobile-test` | push a main/develop, **todo PR** | `jest` con `jest-expo` |
-| `e2e-web` | push a main, **todo PR** | Playwright + Go flow tests contra backend real |
-| `deploy-backend` | push a main | Trigger deploy en Render, tras los 4 jobs |
-| `build-apk` | tag `v*` | Gradle build → GitHub Release |
+| `e2e-backend` | push a main/develop, **todo PR** | Tests de flujo en Go (`-tags e2e`) contra PostgreSQL real |
+| `backend-image` | push a main/develop, **todo PR** | `docker build` de la imagen del backend |
+| `frontend-web` | push a main/develop, **todo PR** | `pnpm audit` + `vitest` + lint + `tsc && vite build` |
+| `mobile-test` | push a main/develop, **todo PR** | `jest` + lint + typecheck + tests de los scripts de release y keepalive |
+| `mobile-audit` | push a main/develop, **todo PR** | `pnpm audit` de mobile (no frena el deploy) |
+| `e2e-web` | push a main, **todo PR** | Playwright contra el backend real |
+| `deploy-backend` | push a main | Trigger deploy en Render, tras los 6 jobs de test y build |
+| `build-apk` | tag `v*` (otro workflow) | Gradle build → GitHub Release |
 
 **El trigger `pull_request` no filtra por rama base a propósito.** Con
 `branches: [main]`, un PR stackeado sobre otra rama no ejecutaba un solo job y
@@ -290,8 +298,8 @@ tampoco sirve: hay que acordarse por cada stack, y olvidarse falla en silencio.
 
 El deploy no corre riesgo por eso: `deploy-backend` exige
 `github.ref == 'refs/heads/main'`, y en un evento `pull_request` ese ref es
-`refs/pull/<n>/merge`. Además depende de los cuatro jobs de test, así que un
-rojo en cualquiera frena el deploy a producción.
+`refs/pull/<n>/merge`. Además depende de seis jobs (todos menos
+`mobile-audit`), así que un rojo en cualquiera frena el deploy a producción.
 
 ---
 
@@ -317,6 +325,7 @@ rojo en cualquiera frena el deploy a producción.
 - [x] Perfil público: lo que una persona publicó y no cerró (`GET /api/users/:id/pets`)
 - [x] Los avistamientos de callejeros caducan a los 90 días sin reportes
 - [x] Rediseño con el lenguaje visual de Stitch: autenticación, mapa, home, perfil, mensajes, detalle de mascota, alertas y el panel admin completo
+- [x] Rendimiento web: rutas que cargan bajo demanda, fuentes servidas desde el propio dominio y el hero que un celular ya no descarga. Lighthouse: 100 en las cuatro categorías en desktop; 96 de performance y 100 en el resto en mobile
 
 **El dashboard de impacto es admin-only a propósito, y no va a haber versión
 pública.** El diseño arrancó siendo público y durante la implementación se pivoteó
