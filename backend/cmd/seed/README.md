@@ -18,8 +18,9 @@ on port **5433**, and `JWT_SECRET` must be set (any value works locally).
 same one used in prod — a new key is not free). A normal `make seed` never calls
 Jina. Only `--with-embeddings` does, and only when `JINA_API_KEY` is set; it first
 ensures the `vector` extension and `pet_embeddings` table exist, then indexes the
-photos. The seed indexes just 2 photos, so the draw on the shared quota is
-negligible.
+photos. It indexes every eligible pet in the database, not only the seeded
+ones: on a database that holds just the seed data that is 2 photos, a
+negligible draw on the shared quota.
 
 ## Accounts
 
@@ -29,6 +30,10 @@ negligible.
 | User  | ana@searchpet.local     | user1234   |
 | User  | bruno@searchpet.local   | user1234   |
 | User  | caro@searchpet.local    | user1234   |
+
+Plus 8 foster-home owners, also with password `user1234`: `marta`, `pedro`,
+`lucia`, `diego`, `sofia`, `mateo`, `valentina` and `nicolas`, each
+`@searchpet.local`.
 
 `ana` blocks `bruno` (use it to test bidirectional block detection in chat).
 
