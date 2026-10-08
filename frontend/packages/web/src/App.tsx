@@ -1,53 +1,59 @@
+import { Suspense } from 'react';
 import { Routes, Route, Navigate, useParams } from 'react-router';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 import { Analytics } from '@vercel/analytics/react';
 import { MainLayout } from './layouts/MainLayout';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { AdminRoute } from './components/AdminRoute';
-import { AdminLayout } from './pages/admin/AdminLayout';
-import { AbuseReportsPage } from './pages/admin/AbuseReportsPage';
-import { StoriesAdminPage } from './pages/admin/StoriesAdminPage';
-import { GroupsAdminPage } from './pages/admin/GroupsAdminPage';
-import { AdminsPage } from './pages/admin/AdminsPage';
-import { SheltersAdminPage } from './pages/admin/SheltersAdminPage';
 import { HomePage } from './pages/HomePage';
-import { MapPage } from './pages/MapPage';
-import { PetDetailPage } from './pages/PetDetailPage';
-import { SharedPetPage } from './pages/SharedPetPage';
-import { SheltersPage } from './pages/SheltersPage';
-import { ImpactPage } from './pages/ImpactPage';
-import { AdoptPage } from './pages/AdoptPage';
-import { LoginPage } from './pages/LoginPage';
-import { RegisterPage } from './pages/RegisterPage';
-import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
-import { CreatePetPage } from './pages/CreatePetPage';
-import { EditPetPage } from './pages/EditPetPage';
-import { ProfilePage } from './pages/ProfilePage';
-import { MyPetsPage } from './pages/MyPetsPage';
 import { MY_PETS_ROUTE } from './routes';
-import { CreateReportPage } from './pages/CreateReportPage';
-import { CreateStoryPage } from './pages/CreateStoryPage';
-import { LeaderboardPage } from './pages/LeaderboardPage';
-import { UserProfilePage } from './pages/UserProfilePage';
 import { InstallPWA } from './components/InstallPWA';
-import { DownloadPage } from './pages/DownloadPage';
-import { StoriesPage } from './pages/StoriesPage';
-import { StoryDetailPage } from './pages/StoryDetailPage';
-import { GroupsPage } from './pages/GroupsPage';
-import { GroupDetailPage } from './pages/GroupDetailPage';
-import { BlockedUsersPage } from './pages/BlockedUsersPage';
-import { MessagesPage } from './pages/MessagesPage';
-import { ChatPage } from './pages/ChatPage';
-import { AlertsPage } from './pages/AlertsPage';
-import { PublishWizardPage } from './pages/PublishWizardPage';
-import { RegisterShelterPage } from './pages/RegisterShelterPage';
-import { MyShelterPage } from './pages/MyShelterPage';
-import { FosterHomesPage } from './pages/FosterHomesPage';
-import { FosterHomeDetailPage } from './pages/FosterHomeDetailPage';
-import { RegisterFosterHomePage } from './pages/RegisterFosterHomePage';
-import { MyFosterHomePage } from './pages/MyFosterHomePage';
-import { FosterHomesAdminPage } from './pages/admin/FosterHomesAdminPage';
-import { VetsAdminPage } from './pages/admin/VetsAdminPage';
+import { RouteFallback } from './components/RouteFallback';
+import { lazyPage } from './lazyPage';
+
+// Every page except the home is its own chunk; the home stays eager because it
+// is where most visits land and its <h1> is the LCP element.
+const AdminLayout = lazyPage(() => import('./pages/admin/AdminLayout'), 'AdminLayout');
+const AbuseReportsPage = lazyPage(() => import('./pages/admin/AbuseReportsPage'), 'AbuseReportsPage');
+const StoriesAdminPage = lazyPage(() => import('./pages/admin/StoriesAdminPage'), 'StoriesAdminPage');
+const GroupsAdminPage = lazyPage(() => import('./pages/admin/GroupsAdminPage'), 'GroupsAdminPage');
+const AdminsPage = lazyPage(() => import('./pages/admin/AdminsPage'), 'AdminsPage');
+const SheltersAdminPage = lazyPage(() => import('./pages/admin/SheltersAdminPage'), 'SheltersAdminPage');
+const MapPage = lazyPage(() => import('./pages/MapPage'), 'MapPage');
+const PetDetailPage = lazyPage(() => import('./pages/PetDetailPage'), 'PetDetailPage');
+const SharedPetPage = lazyPage(() => import('./pages/SharedPetPage'), 'SharedPetPage');
+const SheltersPage = lazyPage(() => import('./pages/SheltersPage'), 'SheltersPage');
+const ImpactPage = lazyPage(() => import('./pages/ImpactPage'), 'ImpactPage');
+const AdoptPage = lazyPage(() => import('./pages/AdoptPage'), 'AdoptPage');
+const LoginPage = lazyPage(() => import('./pages/LoginPage'), 'LoginPage');
+const RegisterPage = lazyPage(() => import('./pages/RegisterPage'), 'RegisterPage');
+const ForgotPasswordPage = lazyPage(() => import('./pages/ForgotPasswordPage'), 'ForgotPasswordPage');
+const CreatePetPage = lazyPage(() => import('./pages/CreatePetPage'), 'CreatePetPage');
+const EditPetPage = lazyPage(() => import('./pages/EditPetPage'), 'EditPetPage');
+const ProfilePage = lazyPage(() => import('./pages/ProfilePage'), 'ProfilePage');
+const MyPetsPage = lazyPage(() => import('./pages/MyPetsPage'), 'MyPetsPage');
+const CreateReportPage = lazyPage(() => import('./pages/CreateReportPage'), 'CreateReportPage');
+const CreateStoryPage = lazyPage(() => import('./pages/CreateStoryPage'), 'CreateStoryPage');
+const LeaderboardPage = lazyPage(() => import('./pages/LeaderboardPage'), 'LeaderboardPage');
+const UserProfilePage = lazyPage(() => import('./pages/UserProfilePage'), 'UserProfilePage');
+const DownloadPage = lazyPage(() => import('./pages/DownloadPage'), 'DownloadPage');
+const StoriesPage = lazyPage(() => import('./pages/StoriesPage'), 'StoriesPage');
+const StoryDetailPage = lazyPage(() => import('./pages/StoryDetailPage'), 'StoryDetailPage');
+const GroupsPage = lazyPage(() => import('./pages/GroupsPage'), 'GroupsPage');
+const GroupDetailPage = lazyPage(() => import('./pages/GroupDetailPage'), 'GroupDetailPage');
+const BlockedUsersPage = lazyPage(() => import('./pages/BlockedUsersPage'), 'BlockedUsersPage');
+const MessagesPage = lazyPage(() => import('./pages/MessagesPage'), 'MessagesPage');
+const ChatPage = lazyPage(() => import('./pages/ChatPage'), 'ChatPage');
+const AlertsPage = lazyPage(() => import('./pages/AlertsPage'), 'AlertsPage');
+const PublishWizardPage = lazyPage(() => import('./pages/PublishWizardPage'), 'PublishWizardPage');
+const RegisterShelterPage = lazyPage(() => import('./pages/RegisterShelterPage'), 'RegisterShelterPage');
+const MyShelterPage = lazyPage(() => import('./pages/MyShelterPage'), 'MyShelterPage');
+const FosterHomesPage = lazyPage(() => import('./pages/FosterHomesPage'), 'FosterHomesPage');
+const FosterHomeDetailPage = lazyPage(() => import('./pages/FosterHomeDetailPage'), 'FosterHomeDetailPage');
+const RegisterFosterHomePage = lazyPage(() => import('./pages/RegisterFosterHomePage'), 'RegisterFosterHomePage');
+const MyFosterHomePage = lazyPage(() => import('./pages/MyFosterHomePage'), 'MyFosterHomePage');
+const FosterHomesAdminPage = lazyPage(() => import('./pages/admin/FosterHomesAdminPage'), 'FosterHomesAdminPage');
+const VetsAdminPage = lazyPage(() => import('./pages/admin/VetsAdminPage'), 'VetsAdminPage');
 
 // Preserves the :id param when redirecting the legacy foster-home detail path.
 function FosterHomeLegacyRedirect() {
@@ -157,7 +163,14 @@ export default function App() {
         </Route>
 
         {/* Landing page compartida (sin layout) */}
-        <Route path="/pet/:token" element={<SharedPetPage />} />
+        <Route
+          path="/pet/:token"
+          element={
+            <Suspense fallback={<RouteFallback />}>
+              <SharedPetPage />
+            </Suspense>
+          }
+        />
         <Route path="/share/:token" element={<ShareLinkRedirect />} />
       </Routes>
       <InstallPWA />

@@ -1,7 +1,9 @@
+import { Suspense } from 'react';
 import { NavLink, Outlet } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { Icon } from '../../components/Icon';
 import type { IconName } from '../../components/Icon';
+import { RouteFallback } from '../../components/RouteFallback';
 
 /**
  * Shell del panel de administración, con el lenguaje visual de Stitch
@@ -86,7 +88,11 @@ export function AdminLayout() {
         </aside>
 
         <div className="flex-1 min-w-0">
-          <Outlet />
+          {/* Its own boundary, or MainLayout's would catch an admin page and
+              take the sidebar down with it while the chunk loads. */}
+          <Suspense fallback={<RouteFallback />}>
+            <Outlet />
+          </Suspense>
         </div>
       </div>
     </div>
