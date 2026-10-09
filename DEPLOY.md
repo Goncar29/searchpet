@@ -122,8 +122,16 @@ siguió durmiendo hasta que entró una persona, entre 2 y 6 h después de cerrar
 la ventana. Los chequeos fallaban (mails de DOWN) y el UP llegaba recién
 cuando otro lo despertaba. Por eso, fuera de la ventana, cada corrida manda
 además su propio `GET` a la URL del monitor; si el backend no contesta, el job
-falla en rojo y la corrida siguiente lo reintenta. Por qué UptimeRobot no lo
-despierta no está verificado.
+falla en rojo y la corrida siguiente lo reintenta.
+
+Lo que se sabe de la causa: a los chequeos de UptimeRobot Render les contesta
+`503` con el header `X-Render-Routing: hibernate-wake-error`, cada 5 minutos,
+sin arrancar la instancia (visto en el detalle de los incidentes). Un `curl`
+desde una IP residencial y otro desde un runner de GitHub (Azure) sí la
+despiertan: probado el 2026-10-09 con el backend dormido 22 minutos, la
+instancia arrancó a los 6 s del `GET` del job. Por qué Render distingue a
+UptimeRobot no está verificado. Si algún día el job falla con el mismo `503`,
+la causa es ésta.
 
 **Lo dispara cron-job.org, no el cron de GitHub.** El cron de GitHub es
 best-effort y acá falló dos veces seguidas: el 2026-10-07, corriendo cada hora,

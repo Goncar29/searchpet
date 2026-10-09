@@ -89,8 +89,10 @@ fi
 [[ "$WANT" == "active" ]] || exit 0
 
 # Wake the backend ourselves. Measured 2026-10-07 to 10-09: a resumed
-# UptimeRobot monitor never woke a sleeping Render instance, so the backend
-# slept until a person hit it, 2 to 6 hours after the window ended. Runs on
+# UptimeRobot monitor never woke a sleeping Render instance (Render answered
+# its checks with 503 and "X-Render-Routing: hibernate-wake-error"), so the
+# backend slept until a person hit it, 2 to 6 hours after the window ended.
+# A GET from a GitHub runner does wake it (tested 2026-10-09). Runs on
 # every run outside the window, not only on the resume, so a wake that fails
 # is retried 10 minutes later. A cold start takes ~15 s; the timeout leaves
 # room for a slow one.
