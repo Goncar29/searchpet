@@ -116,6 +116,22 @@ describe('LoginPage — validación de formulario', () => {
     expect(screen.getByRole('status')).toHaveTextContent('Contraseña actualizada');
   });
 
+  it('explica que la cuenta fue suspendida cuando llega con reason=banned', () => {
+    // AuthContext sends a banned user here when the API answers user_banned.
+    // Without this the session just vanishes with no explanation.
+    routerState.search = new URLSearchParams('reason=banned');
+    renderLoginPage();
+
+    expect(screen.getByRole('alert')).toHaveTextContent('errors:user_banned');
+  });
+
+  it('no muestra el aviso de suspensión por cualquier otro reason', () => {
+    routerState.search = new URLSearchParams('reason=whatever');
+    renderLoginPage();
+
+    expect(screen.queryByText('errors:user_banned')).not.toBeInTheDocument();
+  });
+
   it('no muestra ningún aviso cuando se entra a /login directamente', () => {
     renderLoginPage();
 

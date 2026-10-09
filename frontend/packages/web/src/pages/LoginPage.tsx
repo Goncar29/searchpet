@@ -20,7 +20,7 @@ interface FieldErrors {
 }
 
 export function LoginPage() {
-  const { t } = useTranslation(['auth', 'common']);
+  const { t } = useTranslation(['auth', 'common', 'errors']);
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
@@ -29,6 +29,9 @@ export function LoginPage() {
   // Set by ForgotPasswordPage after a successful reset. Without reading it the
   // user finishes the whole flow and lands on a bare form with no sign it worked.
   const notice = (location.state as { notice?: string } | null)?.notice;
+  // Set by AuthContext when the API answered user_banned: the session ended
+  // because an admin suspended the account, not because it expired.
+  const banned = searchParams.get('reason') === 'banned';
   const {
     googleError,
     setGoogleError,
@@ -112,6 +115,12 @@ export function LoginPage() {
                 className="bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-sm p-3 rounded-lg"
               >
                 {notice}
+              </div>
+            )}
+
+            {banned && (
+              <div role="alert" className="bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-sm p-3 rounded-lg">
+                {t('errors:user_banned')}
               </div>
             )}
 
