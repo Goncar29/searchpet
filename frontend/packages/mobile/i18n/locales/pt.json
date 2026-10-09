@@ -449,7 +449,8 @@
     "emptySubtitle": "Quando você entrar em contato sobre um pet, a conversa aparecerá aqui.",
     "loginSubtitle": "Entre para ver e enviar mensagens.",
     "loginButton": "Entrar",
-    "youPrefix": "Você: "
+    "youPrefix": "Você: ",
+    "unreadLabel": "Não lida"
   },
   "adoption": {
     "section": {

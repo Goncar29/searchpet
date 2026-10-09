@@ -449,7 +449,8 @@
     "emptySubtitle": "When you contact someone about a pet, the conversation will appear here.",
     "loginSubtitle": "Sign in to view and send messages.",
     "loginButton": "Sign In",
-    "youPrefix": "You: "
+    "youPrefix": "You: ",
+    "unreadLabel": "Unread"
   },
   "adoption": {
     "section": {

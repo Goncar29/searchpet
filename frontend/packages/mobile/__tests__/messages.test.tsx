@@ -187,6 +187,19 @@ describe('MessagesScreen', () => {
       expect(queryByTestId('unread-dot')).toBeNull();
     });
 
+    // The dot is a colored circle with no text: the row's accessible name is
+    // what tells a screen reader the conversation has unread messages.
+    it('la fila con no leídos lo dice en su nombre accesible', () => {
+      const { getByRole } = renderWith({ ...mockConversation, unread_count: 2 });
+      expect(getByRole('button', { name: /Alice.*messages:unreadLabel/ })).toBeTruthy();
+    });
+
+    it('la fila sin no leídos no lo dice', () => {
+      const { getByRole, queryByRole } = renderWith({ ...mockConversation, unread_count: 0 });
+      expect(getByRole('button', { name: /Alice/ })).toBeTruthy();
+      expect(queryByRole('button', { name: /messages:unreadLabel/ })).toBeNull();
+    });
+
     it('aparece si el último mensaje es del otro y la conversación tiene no leídos', () => {
       const { queryByTestId } = renderWith({ ...mockConversation, unread_count: 2 });
       expect(queryByTestId('unread-dot')).toBeTruthy();
