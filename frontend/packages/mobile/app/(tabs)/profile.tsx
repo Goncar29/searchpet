@@ -22,6 +22,7 @@ import { IMAGE_SIZES } from '../../constants/imageSizes';
 import { Icon } from '../../components/Icon';
 import { IconLabel } from '../../components/IconLabel';
 import { OptionPickerModal } from '../../components/OptionPickerModal';
+import { ActionMenuModal } from '../../components/ActionMenuModal';
 
 export default function ProfileScreen() {
   const styles = useThemedStyles(makeStyles);
@@ -46,7 +47,7 @@ export default function ProfileScreen() {
   const [otpError, setOtpError] = useState('');
   const [resendCountdown, setResendCountdown] = useState(0);
   // Which choice picker is open (Settings → theme, Language → language).
-  const [picker, setPicker] = useState<'theme' | 'language' | null>(null);
+  const [picker, setPicker] = useState<'theme' | 'language' | 'logout' | null>(null);
   const themePreference = useThemeStore((state) => state.preference);
 
   // Countdown timer for resend
@@ -163,13 +164,6 @@ export default function ProfileScreen() {
       </View>
     );
   }
-
-  const handleLogout = () => {
-    Alert.alert(i18next.t('profile:logoutConfirmTitle'), i18next.t('profile:logoutConfirmMsg'), [
-      { text: i18next.t('common:cancel'), style: 'cancel' },
-      { text: i18next.t('profile:logoutYes'), style: 'destructive', onPress: () => logout() },
-    ]);
-  };
 
   // Settings opens the theme choice and the Language row the language choice,
   // both in OptionPickerModal: Alert.alert on Android shows at most three
@@ -453,7 +447,7 @@ export default function ProfileScreen() {
       </View>
 
       {/* Logout */}
-      <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+      <TouchableOpacity style={styles.logoutButton} onPress={() => setPicker('logout')}>
         <Text style={styles.logoutText}>{t('logout')}</Text>
       </TouchableOpacity>
 
@@ -483,6 +477,18 @@ export default function ProfileScreen() {
         // Base code: 'en-US' marks English.
         selected={(i18next.language ?? '').slice(0, 2) as 'es' | 'en' | 'pt'}
         onSelect={chooseLanguage}
+        onClose={() => setPicker(null)}
+        closeLabel={t('common:close')}
+      />
+      {/* Same card as the pickers, not Alert.alert: closing it (X, outside,
+          back button) is the Cancel. */}
+      <ActionMenuModal
+        visible={picker === 'logout'}
+        title={i18next.t('profile:logoutConfirmTitle')}
+        message={i18next.t('profile:logoutConfirmMsg')}
+        actions={[
+          { key: 'logout', label: i18next.t('profile:logoutYes'), onPress: () => logout(), destructive: true },
+        ]}
         onClose={() => setPicker(null)}
         closeLabel={t('common:close')}
       />
