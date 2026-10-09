@@ -154,6 +154,18 @@ export default function MessagesScreen() {
               // answered last, the latest message is mine and never "unread" for
               // me, even after "mark unread" un-read an earlier one of theirs.
               const isUnread = item.unread_count > 0;
+              const preview = `${item.sender_id === user?.id ? t('messages:youPrefix') : ''}${item.content}`;
+              // Spelled out instead of left to the children: the dot is a
+              // colored circle with no text, so without "unread" here a
+              // screen reader could not tell this row from a read one.
+              const rowLabel = [
+                other.name,
+                isUnread ? t('messages:unreadLabel') : null,
+                preview,
+                getTimeAgo(item.created_at),
+              ]
+                .filter(Boolean)
+                .join(', ');
 
               return (
                 <View style={styles.conversationRow}>
@@ -161,6 +173,8 @@ export default function MessagesScreen() {
                     style={styles.conversationItem}
                     onPress={() => router.push(`/chat/${other.id}?userName=${encodeURIComponent(other.name)}` as `/${string}`)}
                     activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel={rowLabel}
                   >
                     {/* Avatar */}
                     <View style={styles.avatar}>
@@ -182,7 +196,7 @@ export default function MessagesScreen() {
                           style={[styles.lastMessage, isUnread && styles.lastMessageUnread]}
                           numberOfLines={1}
                         >
-                          {item.sender_id === user?.id ? t('messages:youPrefix') : ''}{item.content}
+                          {preview}
                         </Text>
                         {isUnread && <View testID="unread-dot" style={styles.unreadDot} />}
                       </View>

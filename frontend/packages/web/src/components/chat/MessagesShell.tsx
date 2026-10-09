@@ -356,8 +356,14 @@ export function MessagesShell({ selectedUserId, selectedUserName, children }: Me
                               {row.fromMe ? t('messages:youPrefix') : ''}
                               {row.preview}
                             </span>
+                            {/* The dot alone is a colored circle: the
+                                sr-only text is what tells a screen reader
+                                this conversation has unread messages. */}
                             {row.unread && (
-                              <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-primary" />
+                              <>
+                                <span aria-hidden="true" className="h-2.5 w-2.5 shrink-0 rounded-full bg-primary" />
+                                <span className="sr-only">{t('messages:unreadLabel')}</span>
+                              </>
                             )}
                           </span>
                         </span>

@@ -439,3 +439,38 @@ describe('MessagesPage', () => {
     expect(spy).toHaveBeenCalledWith({ queryKey: ['messages'] });
   });
 });
+
+// The unread dot is a colored circle with no text: a screen reader had no way
+// to tell an unread conversation from a read one. The row's link now carries a
+// visually hidden "unread" label, only on the rows that have unread messages.
+describe('MessagesPage — punto de no leído accesible', () => {
+  function renderWith(unreadCount: number) {
+    vi.mocked(useConversations).mockReturnValue({
+      data: [
+        {
+          id: 'msg-1',
+          sender_id: 'user-2',
+          receiver_id: 'user-1',
+          content: 'Hola',
+          is_read: unreadCount === 0,
+          unread_count: unreadCount,
+          created_at: new Date().toISOString(),
+          sender: { id: 'user-2', name: 'Juan' },
+        },
+      ],
+      isLoading: false,
+    } as unknown as ReturnType<typeof useConversations>);
+    render(<MessagesPage />, { wrapper });
+  }
+
+  it('la fila con no leídos lo dice en su nombre accesible', () => {
+    renderWith(2);
+    expect(screen.getByRole('link', { name: /Juan.*messages:unreadLabel/ })).toBeTruthy();
+  });
+
+  it('la fila sin no leídos no lo dice', () => {
+    renderWith(0);
+    expect(screen.getByRole('link', { name: /Juan/ })).toBeTruthy();
+    expect(screen.queryByRole('link', { name: /messages:unreadLabel/ })).toBeNull();
+  });
+});

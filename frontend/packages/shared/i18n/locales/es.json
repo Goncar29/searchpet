@@ -386,7 +386,8 @@
     "noResults": "Ninguna conversación coincide con «{{query}}»",
     "selectPrompt": "Elegí una conversación",
     "selectPromptSubtitle": "Seleccioná a alguien de la lista para ver los mensajes.",
-    "newConversation": "Conversación nueva"
+    "newConversation": "Conversación nueva",
+    "unreadLabel": "Sin leer"
   },
   "badges": {
     "title": "Mis Badges",

@@ -449,7 +449,8 @@
     "emptySubtitle": "Cuando contactes a alguien sobre una mascota, la conversación aparecerá aquí.",
     "loginSubtitle": "Iniciá sesión para ver y enviar mensajes.",
     "loginButton": "Iniciar sesión",
-    "youPrefix": "Vos: "
+    "youPrefix": "Vos: ",
+    "unreadLabel": "Sin leer"
   },
   "adoption": {
     "section": {
