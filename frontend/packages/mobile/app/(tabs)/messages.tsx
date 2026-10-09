@@ -10,14 +10,22 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
+  Alert,
 } from 'react-native';
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import i18next from 'i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '../../store';
-import { useConversations, useWebSocket } from '../../../shared/hooks';
+import {
+  useConversations,
+  useHideConversation,
+  useMarkConversationUnread,
+  useWebSocket,
+} from '../../../shared/hooks';
+import { getErrorMessage } from '@shared/utils/apiErrors';
+import { ActionMenuModal } from '../../components/ActionMenuModal';
 import type { WsEnvelope } from '../../../shared/hooks';
 import { ListState } from '../../components/list/ListState';
 import { SPACING, FONTS, RADIUS, type ThemeColors } from '../../constants';
@@ -34,6 +42,10 @@ export default function MessagesScreen() {
   const queryClient = useQueryClient();
   const conversationsQuery = useConversations();
   const { refetch, isRefetching } = conversationsQuery;
+  const markUnread = useMarkConversationUnread();
+  const hideConversation = useHideConversation();
+  // The row whose ⋮ is open, and whether it is asking to confirm the delete.
+  const [menu, setMenu] = useState<{ userId: string; step: 'menu' | 'confirmDelete' } | null>(null);
 
   // WS subscription: invalidate conversation list on badge_update or new chat_message.
   const handleWsMessage = useCallback((envelope: WsEnvelope) => {
@@ -62,6 +74,34 @@ export default function MessagesScreen() {
       </View>
     );
   }
+
+  const showError = (err: Error) =>
+    Alert.alert(i18next.t('common:error'), getErrorMessage(err, (key) => i18next.t(key)));
+
+  const menuActions =
+    menu?.step === 'confirmDelete'
+      ? [
+          {
+            key: 'confirm',
+            label: t('chat:actions.confirm'),
+            destructive: true,
+            onPress: () => hideConversation.mutate(menu.userId, { onError: showError }),
+          },
+        ]
+      : [
+          {
+            key: 'unread',
+            label: t('chat:actions.markUnread'),
+            onPress: () => menu && markUnread.mutate(menu.userId, { onError: showError }),
+          },
+          {
+            key: 'delete',
+            label: t('chat:actions.delete'),
+            destructive: true,
+            // Same card, next step: closing it (X, outside, back) is the Cancel.
+            onPress: () => menu && setMenu({ userId: menu.userId, step: 'confirmDelete' }),
+          },
+        ];
 
   const getOtherUser = (msg: Conversation) => {
     // El "otro" en la conversación es quien no soy yo
@@ -116,37 +156,51 @@ export default function MessagesScreen() {
               const isUnread = item.unread_count > 0;
 
               return (
-                <TouchableOpacity
-                  style={styles.conversationItem}
-                  onPress={() => router.push(`/chat/${other.id}?userName=${encodeURIComponent(other.name)}` as `/${string}`)}
-                  activeOpacity={0.7}
-                >
-                  {/* Avatar */}
-                  <View style={styles.avatar}>
-                    <Text style={styles.avatarText}>
-                      {other.name.charAt(0).toUpperCase()}
-                    </Text>
-                  </View>
+                <View style={styles.conversationRow}>
+                  <TouchableOpacity
+                    style={styles.conversationItem}
+                    onPress={() => router.push(`/chat/${other.id}?userName=${encodeURIComponent(other.name)}` as `/${string}`)}
+                    activeOpacity={0.7}
+                  >
+                    {/* Avatar */}
+                    <View style={styles.avatar}>
+                      <Text style={styles.avatarText}>
+                        {other.name.charAt(0).toUpperCase()}
+                      </Text>
+                    </View>
 
-                  {/* Info */}
-                  <View style={styles.conversationInfo}>
-                    <View style={styles.conversationHeader}>
-                      <Text style={[styles.userName, isUnread && styles.userNameUnread]}>
-                        {other.name}
-                      </Text>
-                      <Text style={styles.timeText}>{getTimeAgo(item.created_at)}</Text>
+                    {/* Info */}
+                    <View style={styles.conversationInfo}>
+                      <View style={styles.conversationHeader}>
+                        <Text style={[styles.userName, isUnread && styles.userNameUnread]}>
+                          {other.name}
+                        </Text>
+                        <Text style={styles.timeText}>{getTimeAgo(item.created_at)}</Text>
+                      </View>
+                      <View style={styles.messageRow}>
+                        <Text
+                          style={[styles.lastMessage, isUnread && styles.lastMessageUnread]}
+                          numberOfLines={1}
+                        >
+                          {item.sender_id === user?.id ? t('messages:youPrefix') : ''}{item.content}
+                        </Text>
+                        {isUnread && <View testID="unread-dot" style={styles.unreadDot} />}
+                      </View>
                     </View>
-                    <View style={styles.messageRow}>
-                      <Text
-                        style={[styles.lastMessage, isUnread && styles.lastMessageUnread]}
-                        numberOfLines={1}
-                      >
-                        {item.sender_id === user?.id ? t('messages:youPrefix') : ''}{item.content}
-                      </Text>
-                      {isUnread && <View testID="unread-dot" style={styles.unreadDot} />}
-                    </View>
-                  </View>
-                </TouchableOpacity>
+                  </TouchableOpacity>
+                  {/* A sibling of the row, not inside it: nested in the row's
+                      touchable, a screen reader would merge it into the row
+                      and never reach it on its own. */}
+                  <TouchableOpacity
+                    style={styles.menuButton}
+                    onPress={() => setMenu({ userId: other.id, step: 'menu' })}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('chat:actions.menuLabel', { name: other.name })}
+                    hitSlop={{ top: 8, bottom: 8, left: 4, right: 8 }}
+                  >
+                    <Text style={styles.menuButtonText}>⋮</Text>
+                  </TouchableOpacity>
+                </View>
               );
             }}
             refreshControl={
@@ -170,6 +224,15 @@ export default function MessagesScreen() {
           />
         )}
       </ListState>
+
+      <ActionMenuModal
+        visible={menu !== null}
+        title={t(menu?.step === 'confirmDelete' ? 'chat:actions.deleteConfirmTitle' : 'chat:options')}
+        message={menu?.step === 'confirmDelete' ? t('chat:actions.deleteConfirmBody') : undefined}
+        actions={menuActions}
+        onClose={() => setMenu(null)}
+        closeLabel={t('common:close')}
+      />
     </View>
   );
 }
@@ -205,12 +268,19 @@ const makeStyles = (c: ThemeColors) => StyleSheet.create({
     fontSize: FONTS.sizes.md,
     fontWeight: '700',
   },
+  conversationRow: { flexDirection: 'row', alignItems: 'center' },
   conversationItem: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: SPACING.lg,
+    paddingLeft: SPACING.lg,
     paddingVertical: SPACING.md,
   },
+  menuButton: {
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.md,
+  },
+  menuButtonText: { fontSize: 22, color: c.textSecondary },
   avatar: {
     width: 52,
     height: 52,
