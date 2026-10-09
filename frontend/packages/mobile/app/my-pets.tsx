@@ -29,6 +29,7 @@ import { useTheme, useThemedStyles } from '../hooks/useTheme';
 import { Icon, type IconName } from '../components/Icon';
 import { IconLabel } from '../components/IconLabel';
 import { HelperPickerModal } from '../components/HelperPickerModal';
+import { ActionMenuModal } from '../components/ActionMenuModal';
 import type { Pet } from '../../shared/types';
 import { cloudinaryThumb } from '@shared/utils/cloudinaryThumb';
 import { IMAGE_SIZES } from '../constants/imageSizes';
@@ -129,27 +130,10 @@ export default function MyPetsScreen() {
     }
   };
 
-  const handleReport = (pet: Pet) => {
-    Alert.alert(
-      i18next.t('my_pets:reportTitle', { name: pet.name }),
-      i18next.t('my_pets:reportQuestion'),
-      [
-        { text: i18next.t('common:cancel'), style: 'cancel' },
-        {
-          text: i18next.t('my_pets:reportLostOption'),
-          onPress: () => submitReport(pet.id, 'lost'),
-        },
-        {
-          text: i18next.t('my_pets:reportFoundOption'),
-          onPress: () => openFoundPicker(pet, 'report'),
-        },
-        {
-          text: i18next.t('my_pets:reportSightingOption'),
-          onPress: () => submitReport(pet.id, 'sighting'),
-        },
-      ]
-    );
-  };
+  // The pet whose report menu is open. A card, not Alert.alert: on Android
+  // an Alert shows at most three buttons, and Cancel + these three is four.
+  const [reportPet, setReportPet] = useState<Pet | null>(null);
+  const handleReport = (pet: Pet) => setReportPet(pet);
 
   // `helperIds` only travels on a `found` report: undefined = no candidates,
   // `[]` = the owner said nobody helped. Throws, so each caller decides where
@@ -449,6 +433,35 @@ export default function MyPetsScreen() {
           <Text style={styles.fabIcon}>+</Text>
         </TouchableOpacity>
       )}
+
+      <ActionMenuModal
+        visible={reportPet !== null}
+        title={reportPet ? t('my_pets:reportTitle', { name: reportPet.name }) : ''}
+        message={t('my_pets:reportQuestion')}
+        actions={
+          reportPet
+            ? [
+                {
+                  key: 'lost',
+                  label: t('my_pets:reportLostOption'),
+                  onPress: () => submitReport(reportPet.id, 'lost'),
+                },
+                {
+                  key: 'found',
+                  label: t('my_pets:reportFoundOption'),
+                  onPress: () => openFoundPicker(reportPet, 'report'),
+                },
+                {
+                  key: 'sighting',
+                  label: t('my_pets:reportSightingOption'),
+                  onPress: () => submitReport(reportPet.id, 'sighting'),
+                },
+              ]
+            : []
+        }
+        onClose={() => setReportPet(null)}
+        closeLabel={t('common:close')}
+      />
 
       {foundPicker && (
         <HelperPickerModal

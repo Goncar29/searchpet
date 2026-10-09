@@ -1,7 +1,7 @@
 // My Pets screen smoke test
 import React from 'react';
 import { Alert } from 'react-native';
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react-native';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
 import MyPetsScreen from '../app/my-pets';
 import { drawnIcons } from './support/icons';
 import { Text } from 'react-native';
@@ -332,8 +332,9 @@ describe('MyPetsScreen — confirmar quién ayudó', () => {
     });
   });
 
-  // `i18next.t()` sobre el singleton devuelve undefined en este arnés, así que
-  // los botones del Alert se eligen por posición: [cancel, lost, found, sighting].
+  // "Reportar" opens a card (ActionMenuModal), never an Alert: on Android an
+  // Alert shows at most three buttons, and Cancel + lost + found + sighting is
+  // four, so one report type was unreachable. Options are picked by label.
   //
   // El spy se restaura en `afterEach` y no al final de cada test: si un `expect`
   // falla antes, el spy queda vivo y el test siguiente lee las llamadas viejas,
@@ -343,14 +344,25 @@ describe('MyPetsScreen — confirmar quién ayudó', () => {
     alertSpy?.mockRestore();
     alertSpy = undefined;
   });
-  const pressReportOption = (index: number) => {
+  const REPORT_OPTIONS = [
+    'my_pets:reportLostOption',
+    'my_pets:reportFoundOption',
+    'my_pets:reportSightingOption',
+  ];
+  const pressReportOption = (label: string) => {
     alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
     fireEvent.press(screen.getByText('my_pets:reportButton'));
-    const buttons = alertSpy.mock.calls[0][2] as { onPress?: () => void }[];
-    act(() => {
-      buttons[index].onPress?.();
-    });
+    expect(alertSpy).not.toHaveBeenCalled();
+    fireEvent.press(screen.getByRole('button', { name: label }));
   };
+
+  it('"Reportar" muestra los tres tipos de reporte a la vez', () => {
+    render(<MyPetsScreen />);
+    fireEvent.press(screen.getByText('my_pets:reportButton'));
+    for (const label of REPORT_OPTIONS) {
+      expect(screen.getByRole('button', { name: label })).toBeTruthy();
+    }
+  });
 
   it('el botón Encontrada abre el selector en vez de marcar directo', () => {
     render(<MyPetsScreen />);
@@ -424,7 +436,7 @@ describe('MyPetsScreen — confirmar quién ayudó', () => {
 
   it('el reporte "encontrada" pasa por el selector y manda helper_ids en el reporte', async () => {
     render(<MyPetsScreen />);
-    pressReportOption(2);
+    pressReportOption('my_pets:reportFoundOption');
 
     expect(screen.getByText('pets:helpers.title')).toBeTruthy();
     expect(mockCreateReportMutateAsync).not.toHaveBeenCalled();
@@ -442,7 +454,7 @@ describe('MyPetsScreen — confirmar quién ayudó', () => {
   it('el reporte "encontrada" sin candidatos no manda helper_ids', async () => {
     mockUseHelperCandidates.mockReturnValue({ data: [], isError: false, refetch: jest.fn() });
     render(<MyPetsScreen />);
-    pressReportOption(2);
+    pressReportOption('my_pets:reportFoundOption');
     fireEvent.press(screen.getByText('common:confirm'));
 
     await waitFor(() => expect(mockCreateReportMutateAsync).toHaveBeenCalled());
@@ -453,7 +465,7 @@ describe('MyPetsScreen — confirmar quién ayudó', () => {
     const { ApiError } = require('../../shared/api/client');
     mockCreateReportMutateAsync.mockRejectedValue(new ApiError('helper_ids_required', 400, 'x'));
     render(<MyPetsScreen />);
-    pressReportOption(2);
+    pressReportOption('my_pets:reportFoundOption');
     fireEvent.press(screen.getByText('Ana'));
     fireEvent.press(screen.getByText('common:confirm'));
 
@@ -462,11 +474,11 @@ describe('MyPetsScreen — confirmar quién ayudó', () => {
   });
 
   it.each([
-    ['perdida', 1, 'lost'],
-    ['avistamiento', 3, 'sighting'],
-  ])('el reporte de %s no abre el selector ni manda helper_ids', async (_n, index, status) => {
+    ['perdida', 'my_pets:reportLostOption', 'lost'],
+    ['avistamiento', 'my_pets:reportSightingOption', 'sighting'],
+  ])('el reporte de %s no abre el selector ni manda helper_ids', async (_n, label, status) => {
     render(<MyPetsScreen />);
-    pressReportOption(index);
+    pressReportOption(label);
 
     expect(screen.queryByText('pets:helpers.title')).toBeNull();
     await waitFor(() => expect(mockCreateReportMutateAsync).toHaveBeenCalled());

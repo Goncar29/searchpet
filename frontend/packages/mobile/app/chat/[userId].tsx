@@ -14,7 +14,6 @@ import {
   Platform,
   ActivityIndicator,
   Alert,
-  ActionSheetIOS,
 } from 'react-native';
 import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
@@ -35,6 +34,7 @@ import { ListState } from '../../components/list/ListState';
 import { SPACING, FONTS, RADIUS, type ThemeColors } from '../../constants';
 import { useTheme, useThemedStyles } from '../../hooks/useTheme';
 import { Icon } from '../../components/Icon';
+import { ActionMenuModal, type MenuAction } from '../../components/ActionMenuModal';
 import type { Message } from '../../../shared/types';
 
 export default function ChatScreen() {
@@ -48,6 +48,8 @@ export default function ChatScreen() {
   const queryClient = useQueryClient();
   const [text, setText] = useState('');
   const [isTyping, setIsTyping] = useState(false); // other user is typing
+  // Which card is open: the ⋮ menu, or the report reasons it leads to.
+  const [sheet, setSheet] = useState<null | 'menu' | 'report'>(null);
   const flatListRef = useRef<FlatList>(null);
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -127,67 +129,33 @@ export default function ChatScreen() {
     );
   };
 
-  const handleReportUser = () => {
-    const reasons: { label: string; value: string }[] = [
-      { label: i18next.t('pet_detail:spam'), value: 'spam' },
-      { label: i18next.t('pet_detail:fake'), value: 'fake' },
-      { label: i18next.t('pet_detail:abuse'), value: 'abuse' },
-      { label: i18next.t('pet_detail:inappropriate'), value: 'inappropriate' },
-      { label: i18next.t('pet_detail:other'), value: 'other' },
-    ];
-    Alert.alert(
-      i18next.t('chat:reportReason'),
-      '',
-      [
-        ...reasons.map((r) => ({
-          text: r.label,
-          onPress: () => {
-            submitAbuseReport.mutate(
-              { target_user_id: userId, reason: r.value as 'spam' | 'fake' | 'abuse' | 'inappropriate' | 'other' },
-              {
-                onSuccess: () => Alert.alert(i18next.t('chat:reportSuccess'), i18next.t('chat:reportSuccessText')),
-                onError: () => Alert.alert(i18next.t('common:error'), i18next.t('chat:reportError')),
-              },
-            );
-          },
-        })),
-        { text: i18next.t('common:cancel'), style: 'cancel' },
-      ],
-    );
-  };
+  const reportReasons: MenuAction[] = (
+    ['spam', 'fake', 'abuse', 'inappropriate', 'other'] as const
+  ).map((reason) => ({
+    key: reason,
+    label: i18next.t(`pet_detail:${reason}`),
+    onPress: () =>
+      submitAbuseReport.mutate(
+        { target_user_id: userId, reason },
+        {
+          onSuccess: () => Alert.alert(i18next.t('chat:reportSuccess'), i18next.t('chat:reportSuccessText')),
+          onError: () => Alert.alert(i18next.t('common:error'), i18next.t('chat:reportError')),
+        },
+      ),
+  }));
 
   // The public profile needs no session: it lets the other person be checked
   // (reviews, badges, other posts), as the conversation menu does on the web.
   const handleViewProfile = () => router.push(`/users/${userId}`);
 
-  const showKebabSheet = () => {
-    if (Platform.OS === 'ios') {
-      ActionSheetIOS.showActionSheetWithOptions(
-        {
-          options: [
-            i18next.t('common:cancel'),
-            i18next.t('chat:actions.viewProfile'),
-            i18next.t('chat:blockUser'),
-            i18next.t('chat:report'),
-          ],
-          cancelButtonIndex: 0,
-          destructiveButtonIndex: 2,
-        },
-        (idx) => {
-          if (idx === 1) handleViewProfile();
-          if (idx === 2) handleBlockUser();
-          if (idx === 3) handleReportUser();
-        },
-      );
-    } else {
-      Alert.alert(i18next.t('chat:options'), '', [
-        { text: i18next.t('common:cancel'), style: 'cancel' },
-        { text: i18next.t('chat:actions.viewProfile'), onPress: handleViewProfile },
-        { text: i18next.t('chat:blockUser'), style: 'destructive', onPress: handleBlockUser },
-        { text: i18next.t('chat:report'), onPress: handleReportUser },
-      ]);
-    }
-  };
+  // A card, not Alert.alert or an action sheet: on Android an Alert shows at
+  // most three buttons, so Cancel + these three dropped Report. Report swaps
+  // the same card's content to the reasons instead of opening a second Modal.
+  const menuActions: MenuAction[] = [
+    { key: 'profile', label: i18next.t('chat:actions.viewProfile'), onPress: handleViewProfile },
+    { key: 'block', label: i18next.t('chat:blockUser'), onPress: handleBlockUser, destructive: true },
+    { key: 'report', label: i18next.t('chat:report'), onPress: () => setSheet('report') },
+  ];
 
   // Set header title immediately from route param (before messages load)
   useEffect(() => {
@@ -200,7 +168,11 @@ export default function ChatScreen() {
   // (fallback when userName param is not available)
   useEffect(() => {
     const headerRight = () => (
-      <TouchableOpacity onPress={showKebabSheet}>
+      <TouchableOpacity
+        onPress={() => setSheet('menu')}
+        accessibilityRole="button"
+        accessibilityLabel={i18next.t('chat:options')}
+      >
         <Text style={{ paddingRight: 16, fontSize: 22 }}>⋮</Text>
       </TouchableOpacity>
     );
@@ -216,12 +188,10 @@ export default function ChatScreen() {
     } else {
       navigation.setOptions({ headerRight });
     }
-    // `user?.id` picks which message names the other person. `userId` and
-    // `userName` are the route params showKebabSheet closes over: if the
-    // screen is reused for another conversation, the ⋮ menu must follow it.
-    // showKebabSheet itself is a plain function recreated every render;
-    // listing it would re-run this effect on every render. Everything else
-    // it reads (mutate functions, i18next.t) keeps its identity.
+    // `user?.id` picks which message names the other person, and `userName`
+    // is the route param the title comes from. headerRight only calls
+    // setSheet, which keeps its identity; the menu itself renders in this
+    // screen, so it always follows the current `userId`.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages, user?.id, userId, userName]);
 
@@ -376,6 +346,14 @@ export default function ChatScreen() {
           )}
         </TouchableOpacity>
       </View>
+
+      <ActionMenuModal
+        visible={sheet !== null}
+        title={i18next.t(sheet === 'report' ? 'chat:reportReason' : 'chat:options')}
+        actions={sheet === 'report' ? reportReasons : menuActions}
+        onClose={() => setSheet(null)}
+        closeLabel={i18next.t('common:close')}
+      />
     </KeyboardAvoidingView>
   );
 }
