@@ -19,8 +19,8 @@ Branch: one `fix/…`/`feat/…` branch per task off `origin/main`. Delivery: on
 | T1 | S1 | inline | done | #364 `4639fad4` |
 | T2 | S2 | inline | done (also My pets' report menu) | #365 `1ace1610` |
 | T3 | S3 | inline | done | #365 `1ace1610` |
-| T4 | S4 | inline | PR open | fix/unread-dot-accessible-text |
-| T5 | S5 | inline | pending | |
+| T4 | S4 | inline | done | #368 `004e188c` |
+| T5 | S5 | inline | done | #369 `281d9488` |
 | T6 | S6 | inline | done | #366 `d2b2ab55` |
 
 ## Log
@@ -32,3 +32,5 @@ Branch: one `fix/…`/`feat/…` branch per task off `origin/main`. Delivery: on
 - **L5** (2026-10-08, user, verbatim): "agrega si" → T6 (⋮ per conversation row with mark unread + delete).
 - **L6** /code-review of #365: one low finding, iOS only — ActionMenuModal closes with a fade while HelperPickerModal (Found) or a follow-up Alert opens; on iOS the second may not show. Android unaffected and the APK is Android-only, so left as is. Revisit if iOS ships.
 - **L7** Every PR started failing Backend Tests: govulncheck found GO-2026-6617/6613/6612 (x/net v0.59.0, go1.26.8). Fixed in #367 `bea89e95` (go1.26.9, x/net v0.60.0). Merged order: #367, #364, #365 (kept branch), #366 retargeted + rebased (identical patch), #363.
+- **L8** (2026-10-09) T4 merged as #368, T5 as #369 (mutation-checked: removing the "seen" guard, the version comparison or the Android filter each fails a named test; the "seen" mutation survived at first because the negative tests asserted before the AsyncStorage read finished).
+- **L9** (2026-10-09) Released **v1.3.0** (#370, `ed3b3d80`, versionCode 7): build-apk run 37872029384 green, `releases/latest/download/SearchPet.apk` identical by hash to `SearchPet-v1.3.0.apk`, GitHub API `releases/latest` = v1.3.0. Next: the user tests the APK (Report in the chat ⋮, ⋮ per conversation incl. #353, cards, dark guest tabs, TalkBack). The update notice will first show with the release after 1.3.0.
