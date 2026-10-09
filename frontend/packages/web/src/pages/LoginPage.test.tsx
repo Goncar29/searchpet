@@ -43,8 +43,28 @@ vi.mock('react-router', async (importOriginal) => {
   };
 });
 
+// The real GoogleAuthPanel renders nothing without VITE_GOOGLE_CLIENT_ID (as in
+// every other test here). This stand-in draws its error the same way, so a test
+// can see the Google error next to the page's own messages.
+vi.mock('../components/auth/GoogleAuthPanel', () => ({
+  GoogleAuthPanel: ({ error }: { error: string }) =>
+    error ? <div role="alert">{error}</div> : null,
+}));
+
+const googleState = { error: '' };
+vi.mock('../hooks/useGoogleSignIn', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../hooks/useGoogleSignIn')>();
+  return {
+    useGoogleSignIn: () => {
+      const real = actual.useGoogleSignIn();
+      return googleState.error ? { ...real, googleError: googleState.error } : real;
+    },
+  };
+});
+
 beforeEach(() => {
   vi.clearAllMocks();
+  googleState.error = '';
   routerState.search = new URLSearchParams();
   routerState.isAuthenticated = false;
 });
@@ -136,6 +156,14 @@ describe('LoginPage — validación de formulario', () => {
     await user.click(screen.getByRole('button', { name: 'auth:login.submit' }));
 
     await screen.findAllByRole('alert');
+    expect(screen.getAllByRole('alert')).toHaveLength(1);
+  });
+
+  it('si el baneado entra con Google, el motivo tampoco se muestra dos veces', () => {
+    routerState.search = new URLSearchParams('reason=banned');
+    googleState.error = 'errors:user_banned';
+    renderLoginPage();
+
     expect(screen.getAllByRole('alert')).toHaveLength(1);
   });
 
