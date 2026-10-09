@@ -22,6 +22,8 @@ import type { User } from '../../shared/types';
 import { apiClient } from '../../shared/api/client';
 import { isJwtExpired } from '../../shared/utils/jwt';
 import { registerPushToken } from '../utils/notifications';
+import i18next from 'i18next';
+import { showAlert } from '../components/appAlert';
 
 // ============================================================
 // AUTH STORE
@@ -211,13 +213,22 @@ const eventTarget = globalThis as unknown as {
 
 if (typeof eventTarget.addEventListener === 'function') {
   eventTarget.addEventListener('auth:session-expired', (event) => {
-    if (event.detail?.code !== 'session_expired') return;
+    const code = event.detail?.code;
+    // `user_banned`: an admin banned this account (backend middleware.Auth
+    // checks it on every request). Same cleanup, plus saying why, or the
+    // session just vanishes and signing in again fails with no explanation.
+    if (code !== 'session_expired' && code !== 'user_banned') return;
+    // Every request already sent with the token comes back with its own 401,
+    // so this runs once per response. Only the first finds a session to end;
+    // announcing on the others would queue one identical alert per request.
+    const hadSession = useAuthStore.getState().token !== null;
 
     SecureStore.deleteItemAsync('auth_token').catch(() => {});
     SecureStore.deleteItemAsync('user_data').catch(() => {});
     apiClient.setToken(null);
     useAuthStore.setState({ user: null, token: null, isAuthenticated: false });
     router.replace('/login');
+    if (code === 'user_banned' && hadSession) showAlert(i18next.t('errors:user_banned'));
   });
 } else {
   // Unreachable while the `../polyfills/domEvents` import at the top of this file

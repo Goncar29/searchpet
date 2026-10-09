@@ -276,6 +276,56 @@ describe('AuthContext', () => {
     location.restore();
   });
 
+  it('un baneo cierra la sesion y lleva al login con el motivo, sin returnUrl', async () => {
+    // A banned user cannot sign back in, so there is nowhere to return to; the
+    // login page reads reason=banned to say why the session ended.
+    const location = stubLocationAssign('/pets/123', '');
+    localStorage.setItem('token', 'banned-token');
+    localStorage.setItem('user', JSON.stringify({ id: '1', name: 'Carlos' }));
+
+    render(
+      <Providers>
+        <AuthConsumer />
+      </Providers>
+    );
+    await act(async () => {});
+
+    await act(async () => {
+      window.dispatchEvent(
+        new CustomEvent('auth:session-expired', { detail: { code: 'user_banned' } })
+      );
+    });
+
+    expect(localStorage.getItem('token')).toBeNull();
+    expect(localStorage.getItem('user')).toBeNull();
+    expect(screen.getByTestId('auth').textContent).toBe('false');
+    expect(location.assign).toHaveBeenCalledWith('/login?reason=banned');
+
+    location.restore();
+  });
+
+  it('un baneo estando ya en /login no recarga la pagina en un bucle', async () => {
+    const location = stubLocationAssign('/login', '?reason=banned');
+    localStorage.setItem('token', 'banned-token');
+
+    render(
+      <Providers>
+        <AuthConsumer />
+      </Providers>
+    );
+    await act(async () => {});
+
+    await act(async () => {
+      window.dispatchEvent(
+        new CustomEvent('auth:session-expired', { detail: { code: 'user_banned' } })
+      );
+    });
+
+    expect(location.assign).not.toHaveBeenCalled();
+
+    location.restore();
+  });
+
   it('NO fuerza navegacion para un 401 generico sin code session_expired', async () => {
     const location = stubLocationAssign();
     localStorage.setItem('token', 'stale-token');

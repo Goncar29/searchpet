@@ -223,6 +223,46 @@ describe('useAuthStore — session expired', () => {
     expect(router.replace).toHaveBeenCalledWith('/login');
   });
 
+  it('logs a banned user out, routes to login and says the account is suspended', () => {
+    const appAlert = require('../components/appAlert');
+    const alertSpy = jest.spyOn(appAlert, 'showAlert').mockImplementation(() => {});
+    jest.spyOn(require('i18next'), 't').mockImplementation((k: unknown) => k as string);
+
+    window.dispatchEvent(new CustomEvent('auth:session-expired', { detail: { code: 'user_banned' } }));
+
+    const state = useAuthStore.getState();
+    expect(state.isAuthenticated).toBe(false);
+    expect(state.token).toBeNull();
+    expect(mockSecureStore.deleteItemAsync).toHaveBeenCalledWith('auth_token');
+    expect(mockApiClient.setToken).toHaveBeenCalledWith(null);
+    expect(router.replace).toHaveBeenCalledWith('/login');
+    expect(alertSpy).toHaveBeenCalledWith('errors:user_banned');
+    jest.restoreAllMocks();
+  });
+
+  it('several 401 user_banned from requests in flight announce the suspension once', () => {
+    // Every request already sent with the token comes back user_banned and the
+    // shared client fires one event per response; showAlert queues, so without
+    // a guard the user had to close one identical alert per request.
+    const alertSpy = jest.spyOn(require('../components/appAlert'), 'showAlert').mockImplementation(() => {});
+
+    for (let i = 0; i < 3; i++) {
+      window.dispatchEvent(new CustomEvent('auth:session-expired', { detail: { code: 'user_banned' } }));
+    }
+
+    expect(alertSpy).toHaveBeenCalledTimes(1);
+    jest.restoreAllMocks();
+  });
+
+  it('an expired session is not announced as a suspension', () => {
+    const alertSpy = jest.spyOn(require('../components/appAlert'), 'showAlert').mockImplementation(() => {});
+
+    window.dispatchEvent(new CustomEvent('auth:session-expired', { detail: { code: 'session_expired' } }));
+
+    expect(alertSpy).not.toHaveBeenCalled();
+    jest.restoreAllMocks();
+  });
+
   it('leaves an active session untouched for a run-of-the-mill 401', () => {
     window.dispatchEvent(new CustomEvent('auth:session-expired', { detail: { code: 'unauthorized' } }));
 

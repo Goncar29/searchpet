@@ -162,6 +162,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // stale tab) and forcibly yanking the user off whatever page they are
       // on would be disruptive for no security reason.
       const code = (event as CustomEvent<{ code?: string }>).detail?.code;
+      // `user_banned`: an admin banned this account (backend middleware.Auth
+      // checks it on every request). Signing in again fails too, so there is no
+      // returnUrl; the login page reads reason=banned to say why.
+      if (code === 'user_banned') {
+        if (!window.location.pathname.startsWith('/login')) {
+          window.location.assign('/login?reason=banned');
+        }
+        return;
+      }
       if (code === 'session_expired') {
         // Carry where the user was: LoginPage reads `returnUrl` and navigates back
         // after a successful sign-in. Without it a forced logout always dumps them

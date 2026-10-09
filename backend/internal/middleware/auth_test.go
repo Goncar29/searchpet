@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -14,10 +13,10 @@ import (
 
 const testSecret = "test-secret-optional-auth"
 
-// noPasswordChange is a PasswordChangedAtFunc reporting "never changed", so
-// these tests only exercise OptionalAuth's original header-parsing contract.
-func noPasswordChange(_ context.Context, _ uuid.UUID) (time.Time, error) {
-	return time.Time{}, nil
+// noPasswordChange is a SessionStateFunc reporting "never changed, not banned",
+// so these tests only exercise OptionalAuth's original header-parsing contract.
+func noPasswordChange(_ context.Context, _ uuid.UUID) (SessionState, error) {
+	return SessionState{}, nil
 }
 
 // runOptionalAuth runs OptionalAuth with the given Authorization header and

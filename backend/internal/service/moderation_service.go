@@ -16,12 +16,19 @@ type ModerationService interface {
 }
 
 type moderationService struct {
-	userRepo repository.UserRepository
+	userRepo       repository.UserRepository
+	disconnectUser func(userID uuid.UUID)
 }
 
 // NewModerationService construye el ModerationService.
-func NewModerationService(userRepo repository.UserRepository) ModerationService {
-	return &moderationService{userRepo: userRepo}
+//
+// disconnectUser closes the user's open WebSockets. The middleware rejects a
+// banned user's next HTTP request, but a socket authenticates once, at the
+// upgrade, and nobody checks it again (CLAUDE.md rule #38), so without this a
+// banned user keeps receiving messages. It may be nil: the ban still works,
+// it just leaves live sockets up.
+func NewModerationService(userRepo repository.UserRepository, disconnectUser func(userID uuid.UUID)) ModerationService {
+	return &moderationService{userRepo: userRepo, disconnectUser: disconnectUser}
 }
 
 // BanUser marca al usuario como baneado (IsBanned + BanReason).
@@ -36,7 +43,15 @@ func (s *moderationService) BanUser(ctx context.Context, targetID uuid.UUID, rea
 	}
 	user.IsBanned = true
 	user.BanReason = reason
-	return s.userRepo.Update(ctx, user)
+	if err := s.userRepo.Update(ctx, user); err != nil {
+		return err
+	}
+	// Only after the ban is saved: cutting the sockets of a ban that failed
+	// would leave the user offline with nothing changed.
+	if s.disconnectUser != nil {
+		s.disconnectUser(targetID)
+	}
+	return nil
 }
 
 // UnbanUser limpia el baneo. Idempotente: desbanear a uno no baneado es no-op success.
