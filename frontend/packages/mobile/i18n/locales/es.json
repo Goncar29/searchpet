@@ -575,5 +575,10 @@
       "submitting": "Enviando...",
       "success": "Denuncia enviada. Gracias."
     }
+  },
+  "update": {
+    "title": "Hay una versión nueva",
+    "message": "Ya está disponible SearchPet {{version}}. Descargala e instalala para tener las últimas mejoras.",
+    "download": "Descargar"
   }
 }

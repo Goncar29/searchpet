@@ -575,5 +575,10 @@
       "submitting": "Submitting...",
       "success": "Report submitted. Thank you."
     }
+  },
+  "update": {
+    "title": "A new version is available",
+    "message": "SearchPet {{version}} is out. Download and install it to get the latest improvements.",
+    "download": "Download"
   }
 }

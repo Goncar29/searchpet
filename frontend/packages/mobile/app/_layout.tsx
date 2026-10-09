@@ -26,6 +26,7 @@ import { useAuthStore } from '../store';
 import { useTheme } from '../hooks/useTheme';
 import { THEME_HYDRATE_TIMEOUT_MS, useThemeStore } from '../store/theme';
 import { configureNotificationHandler } from '../utils/notifications';
+import { UpdateNotice } from '../components/UpdateNotice';
 
 // Configura cómo se muestran las notificaciones en foreground — una vez al arrancar
 configureNotificationHandler();
@@ -218,6 +219,7 @@ export default function RootLayout() {
           options={{ title: t('shelters:register.title') }}
         />
       </Stack>
+      <UpdateNotice />
     </QueryClientProvider>
   );
 }
