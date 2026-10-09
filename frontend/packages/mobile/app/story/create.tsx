@@ -9,7 +9,6 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  Alert,
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
@@ -23,6 +22,7 @@ import { getErrorMessage } from '../../../shared/utils/apiErrors';
 import { SPACING, FONTS, RADIUS, SHADOWS, type ThemeColors } from '../../constants';
 import { useTheme, useThemedStyles } from '../../hooks/useTheme';
 import { Icon } from '../../components/Icon';
+import { showAlert } from '../../components/appAlert';
 
 export default function CreateStoryScreen() {
   const styles = useThemedStyles(makeStyles);
@@ -51,7 +51,7 @@ export default function CreateStoryScreen() {
       },
       {
         onSuccess: () => {
-          Alert.alert(i18next.t('story:successTitle'), i18next.t('story:successText'));
+          showAlert(i18next.t('story:successTitle'), i18next.t('story:successText'));
           router.back();
         },
         onError: (err: any) => {

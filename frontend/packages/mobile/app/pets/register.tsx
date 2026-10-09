@@ -15,7 +15,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   Image,
-  Alert,
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
@@ -33,6 +32,7 @@ import { SPACING, FONTS, RADIUS, PET_TYPES, type ThemeColors } from '../../const
 import { useTheme, useThemedStyles } from '../../hooks/useTheme';
 import { Icon } from '../../components/Icon';
 import type { PetType } from '../../../shared/types';
+import { showAlert } from '../../components/appAlert';
 
 export default function RegisterPetScreen() {
   const styles = useThemedStyles(makeStyles);
@@ -96,7 +96,7 @@ export default function RegisterPetScreen() {
     if (atLimit) return;
     const permission = await ImagePicker.requestCameraPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert(i18next.t('post:cameraPermission'), i18next.t('post:cameraPermissionText'));
+      showAlert(i18next.t('post:cameraPermission'), i18next.t('post:cameraPermissionText'));
       return;
     }
 
@@ -118,7 +118,7 @@ export default function RegisterPetScreen() {
 
   const handleSubmit = async () => {
     if (!name.trim()) {
-      Alert.alert(i18next.t('common:error'), i18next.t('post:errorNameRequired'));
+      showAlert(i18next.t('common:error'), i18next.t('post:errorNameRequired'));
       return;
     }
 
@@ -167,7 +167,7 @@ export default function RegisterPetScreen() {
         alertMessage += i18next.t('post:photoPartialFail', { count: failCount });
       }
 
-      Alert.alert(
+      showAlert(
         i18next.t('post:successTitle'),
         alertMessage,
         [{ text: 'OK', onPress: () => router.push('/my-pets') }]
@@ -184,7 +184,7 @@ export default function RegisterPetScreen() {
       // factualmente falsa sobre otro animal.
       setIdentity({ gender: '', birth: { year: '', month: '', day: '' } });
     } catch (error) {
-      Alert.alert(i18next.t('common:error'), getErrorMessage(error, (key) => i18next.t(key)));
+      showAlert(i18next.t('common:error'), getErrorMessage(error, (key) => i18next.t(key)));
     } finally {
       setIsSubmitting(false);
     }

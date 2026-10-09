@@ -10,7 +10,6 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
-  Alert,
 } from 'react-native';
 import { useCallback, useState } from 'react';
 import { useRouter } from 'expo-router';
@@ -32,6 +31,7 @@ import { SPACING, FONTS, RADIUS, type ThemeColors } from '../../constants';
 import { useTheme, useThemedStyles } from '../../hooks/useTheme';
 import { Icon } from '../../components/Icon';
 import type { Conversation } from '../../../shared/types';
+import { showAlert } from '../../components/appAlert';
 
 export default function MessagesScreen() {
   const router = useRouter();
@@ -76,7 +76,7 @@ export default function MessagesScreen() {
   }
 
   const showError = (err: Error) =>
-    Alert.alert(i18next.t('common:error'), getErrorMessage(err, (key) => i18next.t(key)));
+    showAlert(i18next.t('common:error'), getErrorMessage(err, (key) => i18next.t(key)));
 
   const menuActions =
     menu?.step === 'confirmDelete'

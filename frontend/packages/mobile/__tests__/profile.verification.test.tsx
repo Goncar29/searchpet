@@ -1,6 +1,6 @@
 // Profile screen — email verification limits
 import React from 'react';
-import { Alert } from 'react-native';
+import * as appAlert from '../components/appAlert';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
 import { ApiError } from '../../shared/api/client';
 import ProfileScreen from '../app/(tabs)/profile';
@@ -78,7 +78,7 @@ describe('ProfileScreen — límites de verificación por email', () => {
   beforeEach(() => {
     mockSendEmailOTP.mutateAsync = jest.fn();
     mockSendEmailOTP.isPending = false;
-    jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    jest.spyOn(appAlert, 'showAlert').mockImplementation(() => {});
   });
 
   afterEach(() => {
@@ -103,7 +103,7 @@ describe('ProfileScreen — límites de verificación por email', () => {
     await waitFor(() => {
       expect(screen.getByText(/^resendIn:4\d$/)).toBeTruthy();
     });
-    expect(Alert.alert).toHaveBeenCalledWith('common:error', 'T(errors:otp_cooldown)');
+    expect(appAlert.showAlert).toHaveBeenCalledWith('common:error', 'T(errors:otp_cooldown)');
   });
 
   // El tope diario se cuenta en horas: un contador segundo a segundo durante 20
@@ -119,7 +119,7 @@ describe('ProfileScreen — límites de verificación por email', () => {
     fireEvent.press(screen.getByText('sendCode'));
 
     await waitFor(() => {
-      expect(Alert.alert).toHaveBeenCalledWith('common:error', 'T(errors:otp_daily_limit)');
+      expect(appAlert.showAlert).toHaveBeenCalledWith('common:error', 'T(errors:otp_daily_limit)');
     });
     expect(screen.queryByText(/^resendIn:/)).toBeNull();
   });

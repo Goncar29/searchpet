@@ -3,7 +3,7 @@
 // ============================================================
 
 import { useState } from 'react';
-import { View, ScrollView, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { View, ScrollView, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
 import { IntentStep } from '../../components/publish/IntentStep';
@@ -23,6 +23,7 @@ import { SPACING, FONTS, type ThemeColors } from '../../constants';
 import { useTheme, useThemedStyles } from '../../hooks/useTheme';
 import { IconLabel } from '../../components/IconLabel';
 import type { Pet, InitialReportRequest, PetType, StrayCandidate } from '../../../shared/types';
+import { showAlert } from '../../components/appAlert';
 
 export type PublishStep = 'intent' | 'lost-pet' | 'stray-form' | 'adoption-form' | 'location' | 'auth' | 'candidates' | 'success';
 export type PublishIntent = 'lost' | 'stray' | 'adoption';
@@ -273,7 +274,7 @@ export default function PostScreen() {
   // `status: 'sighting'` porque quien reporta no es el dueño.
   const handleSelectCandidate = (candidate: StrayCandidate) => {
     if (!wizard.location) return;
-    Alert.alert(
+    showAlert(
       t('publish:candidates.confirmTitle'),
       t('publish:candidates.confirmBody', { name: candidate.name }),
       [

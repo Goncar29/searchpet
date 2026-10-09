@@ -12,7 +12,6 @@ import {
   ActivityIndicator,
   Linking,
   Dimensions,
-  Alert,
   FlatList,
   ActionSheetIOS,
   Platform,
@@ -42,6 +41,7 @@ import type { Report } from '../../../shared/types';
 import { IMAGE_BOXES } from '../../constants/imageSizes';
 import { Icon } from '../../components/Icon';
 import { IconLabel } from '../../components/IconLabel';
+import { showAlert } from '../../components/appAlert';
 
 const { width } = Dimensions.get('window');
 
@@ -118,10 +118,10 @@ export default function PetDetailScreen() {
       { userId: ownerUserId },
       {
         onSuccess: () => {
-          Alert.alert(i18next.t('pet_detail:blockedSuccess'), i18next.t('pet_detail:blockedText'));
+          showAlert(i18next.t('pet_detail:blockedSuccess'), i18next.t('pet_detail:blockedText'));
         },
         onError: (err: unknown) => {
-          Alert.alert(i18next.t('common:error'), getErrorMessage(err, i18next.t));
+          showAlert(i18next.t('common:error'), getErrorMessage(err, i18next.t));
         },
       },
     );
@@ -135,7 +135,7 @@ export default function PetDetailScreen() {
       { label: i18next.t('pet_detail:inappropriate'), value: 'inappropriate' },
       { label: i18next.t('pet_detail:other'), value: 'other' },
     ];
-    Alert.alert(
+    showAlert(
       i18next.t('pet_detail:reportReason'),
       '',
       [
@@ -145,8 +145,8 @@ export default function PetDetailScreen() {
             submitAbuseReport.mutate(
               { target_user_id: ownerUserId, reason: r.value as 'spam' | 'fake' | 'abuse' | 'inappropriate' | 'other' },
               {
-                onSuccess: () => Alert.alert(i18next.t('pet_detail:reportSuccess'), ''),
-                onError: (err: unknown) => Alert.alert(i18next.t('common:error'), getErrorMessage(err, i18next.t)),
+                onSuccess: () => showAlert(i18next.t('pet_detail:reportSuccess'), ''),
+                onError: (err: unknown) => showAlert(i18next.t('common:error'), getErrorMessage(err, i18next.t)),
               },
             );
           },
@@ -170,7 +170,7 @@ export default function PetDetailScreen() {
         },
       );
     } else {
-      Alert.alert(i18next.t('pet_detail:moreOptions'), '', [
+      showAlert(i18next.t('pet_detail:moreOptions'), '', [
         { text: i18next.t('common:cancel'), style: 'cancel' },
         { text: i18next.t('pet_detail:blockUser'), style: 'destructive', onPress: () => handleBlock(ownerUserId) },
         { text: i18next.t('pet_detail:reportAbuse'), onPress: () => handleReport(ownerUserId, petId) },
@@ -201,7 +201,7 @@ export default function PetDetailScreen() {
       {
         onSuccess: () => {
           setPickerOpen(false);
-          Alert.alert(
+          showAlert(
             i18next.t('pet_detail:foundSuccess', { name: pet.name }),
             i18next.t('pets:detail.foundNudgeText'),
             [

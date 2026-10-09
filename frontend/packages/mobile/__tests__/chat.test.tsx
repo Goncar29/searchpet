@@ -202,9 +202,10 @@ describe.each(['ios', 'android'] as const)('ChatScreen — menú ⋮ en %s', (os
 
   // Renders the chat and presses ⋮. Returns the chat's render result.
   function openMenu() {
-    const { Alert, ActionSheetIOS, Platform } = require('react-native');
+    const { ActionSheetIOS, Platform } = require('react-native');
+    const appAlert = require('../components/appAlert');
     jest.replaceProperty(Platform, 'OS', os);
-    alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    alertSpy = jest.spyOn(appAlert, 'showAlert').mockImplementation(() => {});
     jest.spyOn(ActionSheetIOS, 'showActionSheetWithOptions').mockImplementation(() => {});
     // i18next is not initialised in this harness and `t` returns undefined, so
     // every menu label would be the same. Echoing the key tells them apart.

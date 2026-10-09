@@ -12,7 +12,6 @@ import {
   ActivityIndicator,
   Linking,
   Dimensions,
-  Alert,
   Modal,
   TextInput,
 } from 'react-native';
@@ -41,6 +40,7 @@ import { Icon } from '../../components/Icon';
 import { StaleDataNotice } from '../../components/list/ListState';
 import { cloudinaryThumb } from '@shared/utils/cloudinaryThumb';
 import { IMAGE_BOXES } from '../../constants/imageSizes';
+import { showAlert } from '../../components/appAlert';
 
 const { width } = Dimensions.get('window');
 
@@ -203,10 +203,10 @@ export default function FosterHomeDetailScreen() {
       {
         onSuccess: () => {
           setReportModalVisible(false);
-          Alert.alert(i18next.t('common:confirm'), i18next.t('fosterHomes:report.success'));
+          showAlert(i18next.t('common:confirm'), i18next.t('fosterHomes:report.success'));
         },
         onError: (err: unknown) => {
-          Alert.alert(i18next.t('common:error'), getErrorMessage(err, i18next.t));
+          showAlert(i18next.t('common:error'), getErrorMessage(err, i18next.t));
         },
       },
     );

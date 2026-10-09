@@ -3,12 +3,13 @@
 // ============================================================
 
 import { useEffect, useState } from 'react';
-import { Text, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import { Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 import { useTranslation } from 'react-i18next';
 import i18next from 'i18next';
 import { type ThemeColors, SPACING, FONTS, RADIUS } from '../constants';
 import { useTheme, useThemedStyles } from '../hooks/useTheme';
+import { showAlert } from './appAlert';
 
 interface Props {
   /**
@@ -55,7 +56,7 @@ export function GoogleSignInButton({ clientId, onToken }: Props) {
       if (!idToken) {
         // Un success sin token significa webClientId ausente o equivocado. No hay
         // nada que mandarle al backend, y mandarlo daría un 401 desorientador.
-        Alert.alert(i18next.t('common:error'), i18next.t('auth:google.failed'));
+        showAlert(i18next.t('common:error'), i18next.t('auth:google.failed'));
         return;
       }
 
@@ -63,14 +64,14 @@ export function GoogleSignInButton({ clientId, onToken }: Props) {
     } catch (error) {
       const code = (error as { code?: string })?.code;
       if (code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
-        Alert.alert(i18next.t('common:error'), i18next.t('auth:google.playServices'));
+        showAlert(i18next.t('common:error'), i18next.t('auth:google.playServices'));
       } else if (code === statusCodes.IN_PROGRESS) {
         // Segundo toque con el diálogo ya abierto. No hay nada que reportar.
       } else {
         // Acá cae DEVELOPER_ERROR (SHA-1 o client id mal configurados). El usuario
         // no puede hacer nada con eso: mensaje genérico y el detalle al log.
         console.warn('[GoogleSignInButton] sign-in failed:', error);
-        Alert.alert(i18next.t('common:error'), i18next.t('auth:google.failed'));
+        showAlert(i18next.t('common:error'), i18next.t('auth:google.failed'));
       }
     } finally {
       setIsLoading(false);

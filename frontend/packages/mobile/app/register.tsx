@@ -10,7 +10,6 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  Alert,
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
@@ -24,6 +23,7 @@ import { getErrorMessage } from '@shared/utils/apiErrors';
 import { GoogleSignInButton } from '../components/GoogleSignInButton';
 import { SPACING, FONTS, RADIUS, GOOGLE_WEB_CLIENT_ID, type ThemeColors } from '../constants';
 import { useTheme, useThemedStyles } from '../hooks/useTheme';
+import { showAlert } from '../components/appAlert';
 
 export default function RegisterScreen() {
   const styles = useThemedStyles(makeStyles);
@@ -44,7 +44,7 @@ export default function RegisterScreen() {
         router.back();
       }
     } catch (error) {
-      Alert.alert(i18next.t('common:error'), getErrorMessage(error, (key) => i18next.t(key)));
+      showAlert(i18next.t('common:error'), getErrorMessage(error, (key) => i18next.t(key)));
     }
   };
 
@@ -58,28 +58,28 @@ export default function RegisterScreen() {
 
   const handleRegister = async () => {
     if (!name.trim() || !email.trim() || !password || !city.trim()) {
-      Alert.alert(i18next.t('common:error'), i18next.t('auth:register.requiredFields'));
+      showAlert(i18next.t('common:error'), i18next.t('auth:register.requiredFields'));
       return;
     }
 
     if (password.length < 6) {
-      Alert.alert(i18next.t('common:error'), i18next.t('auth:register.passwordMin'));
+      showAlert(i18next.t('common:error'), i18next.t('auth:register.passwordMin'));
       return;
     }
 
     if (password !== confirmPassword) {
-      Alert.alert(i18next.t('common:error'), i18next.t('auth:register.passwordMismatch'));
+      showAlert(i18next.t('common:error'), i18next.t('auth:register.passwordMismatch'));
       return;
     }
 
     setIsLoading(true);
     try {
       await register(email.trim(), password, name.trim(), phone.trim() || undefined, city.trim());
-      Alert.alert(i18next.t('auth:register.createdTitle'), i18next.t('auth:register.createdMessage'), [
+      showAlert(i18next.t('auth:register.createdTitle'), i18next.t('auth:register.createdMessage'), [
         { text: 'OK', onPress: () => router.back() },
       ]);
     } catch (error) {
-      Alert.alert(i18next.t('common:error'), getErrorMessage(error, (key) => i18next.t(key)));
+      showAlert(i18next.t('common:error'), getErrorMessage(error, (key) => i18next.t(key)));
     } finally {
       setIsLoading(false);
     }

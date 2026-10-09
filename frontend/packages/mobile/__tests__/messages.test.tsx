@@ -1,7 +1,7 @@
 // Messages (conversation list) screen smoke test
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react-native';
-import { Alert } from 'react-native';
+import * as appAlert from '../components/appAlert';
 import MessagesScreen from '../app/(tabs)/messages';
 import { drawnIcons, emojiTexts } from './support/icons';
 
@@ -230,7 +230,7 @@ describe('MessagesScreen — menú ⋮ de cada conversación', () => {
   beforeEach(() => {
     mockMarkUnreadMutate.mockClear();
     mockHideMutate.mockClear();
-    alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    alertSpy = jest.spyOn(appAlert, 'showAlert').mockImplementation(() => {});
     mockUseConversations.mockReturnValue({
       data: [
         mockConversation,

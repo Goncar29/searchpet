@@ -2,7 +2,7 @@
 // SearchPet - Profile Screen
 // ============================================================
 
-import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView, Image, ActivityIndicator, Modal, TextInput, KeyboardAvoidingView, Platform, Linking } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, ActivityIndicator, Modal, TextInput, KeyboardAvoidingView, Platform, Linking } from 'react-native';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
@@ -23,6 +23,7 @@ import { Icon } from '../../components/Icon';
 import { IconLabel } from '../../components/IconLabel';
 import { OptionPickerModal } from '../../components/OptionPickerModal';
 import { ActionMenuModal } from '../../components/ActionMenuModal';
+import { showAlert } from '../../components/appAlert';
 
 export default function ProfileScreen() {
   const styles = useThemedStyles(makeStyles);
@@ -63,7 +64,7 @@ export default function ProfileScreen() {
   const pickAndUploadAvatar = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert(i18next.t('profile:permissionRequired'), i18next.t('profile:galleryPermission'));
+      showAlert(i18next.t('profile:permissionRequired'), i18next.t('profile:galleryPermission'));
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -76,7 +77,7 @@ export default function ProfileScreen() {
       try {
         await uploadProfilePhoto.mutateAsync(result.assets[0].uri);
       } catch (err) {
-        Alert.alert(i18next.t('common:error'), getErrorMessage(err, (key) => i18next.t(key)));
+        showAlert(i18next.t('common:error'), getErrorMessage(err, (key) => i18next.t(key)));
       }
     }
   };
@@ -122,7 +123,7 @@ export default function ProfileScreen() {
           setResendCountdown(err.retryAfter);
         }
       }
-      Alert.alert(i18next.t('common:error'), getErrorMessage(err, (key) => i18next.t(key)));
+      showAlert(i18next.t('common:error'), getErrorMessage(err, (key) => i18next.t(key)));
     }
   };
 

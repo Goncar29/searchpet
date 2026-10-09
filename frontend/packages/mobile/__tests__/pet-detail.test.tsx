@@ -197,8 +197,9 @@ describe('ultima vista', () => {
 // menu bloquea al dueno de la mascota, no a otro ni a nadie.
 describe('PetDetailScreen — menu del dueno', () => {
   it('bloquear desde el menu bloquea al dueno de la mascota', () => {
-    const { Alert, ActionSheetIOS } = require('react-native');
-    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    const { ActionSheetIOS } = require('react-native');
+    const appAlert = require('../components/appAlert');
+    const alertSpy = jest.spyOn(appAlert, 'showAlert').mockImplementation(() => {});
     const sheetSpy = jest
       .spyOn(ActionSheetIOS, 'showActionSheetWithOptions')
       .mockImplementation(() => {});
@@ -327,8 +328,8 @@ describe('PetDetailScreen — confirmar quién ayudó', () => {
   });
 
   it('al terminar cierra el modal y ofrece contar la historia', () => {
-    const { Alert } = require('react-native');
-    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    const appAlert = require('../components/appAlert');
+    const alertSpy = jest.spyOn(appAlert, 'showAlert').mockImplementation(() => {});
     mockMarkFoundMutate.mockImplementation((_arg, opts) => opts.onSuccess());
     render(<PetDetailScreen />);
     fireEvent.press(screen.getByText('pet_detail:markAsFound'));

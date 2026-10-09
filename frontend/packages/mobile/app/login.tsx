@@ -10,7 +10,6 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  Alert,
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
@@ -23,6 +22,7 @@ import { getErrorMessage } from '@shared/utils/apiErrors';
 import { GoogleSignInButton } from '../components/GoogleSignInButton';
 import { SPACING, FONTS, RADIUS, GOOGLE_WEB_CLIENT_ID, type ThemeColors } from '../constants';
 import { useTheme, useThemedStyles } from '../hooks/useTheme';
+import { showAlert } from '../components/appAlert';
 
 export default function LoginScreen() {
   const styles = useThemedStyles(makeStyles);
@@ -38,7 +38,7 @@ export default function LoginScreen() {
 
   const handleLogin = async () => {
     if (!email.trim() || !password) {
-      Alert.alert(i18next.t('common:error'), i18next.t('auth:login.fieldsRequired'));
+      showAlert(i18next.t('common:error'), i18next.t('auth:login.fieldsRequired'));
       return;
     }
 
@@ -47,7 +47,7 @@ export default function LoginScreen() {
       await login(email.trim(), password);
       router.back();
     } catch (error) {
-      Alert.alert(i18next.t('common:error'), getErrorMessage(error, (key) => i18next.t(key)));
+      showAlert(i18next.t('common:error'), getErrorMessage(error, (key) => i18next.t(key)));
     } finally {
       setIsLoading(false);
     }
@@ -64,7 +64,7 @@ export default function LoginScreen() {
         router.back();
       }
     } catch (error) {
-      Alert.alert(i18next.t('common:error'), getErrorMessage(error, (key) => i18next.t(key)));
+      showAlert(i18next.t('common:error'), getErrorMessage(error, (key) => i18next.t(key)));
     }
   };
 

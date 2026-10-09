@@ -11,7 +11,6 @@ import {
   TextInput,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
   StyleSheet,
 } from 'react-native';
 import { useEffect, useState } from 'react';
@@ -24,6 +23,7 @@ import type { AnimalKind, HousingType, RegisterFosterHomeRequest } from '@shared
 import { SPACING, FONTS, RADIUS, SHADOWS, type ThemeColors } from '../../constants';
 import { useTheme, useThemedStyles } from '../../hooks/useTheme';
 import { VerifiedEmailGate } from '../../components/VerifiedEmailGate';
+import { showAlert } from '../../components/appAlert';
 
 const HOUSING_TYPES: HousingType[] = ['house', 'apartment'];
 const ANIMAL_TYPES: AnimalKind[] = ['dog', 'cat', 'other'];
@@ -117,14 +117,14 @@ export default function RegisterFosterHomeScreen() {
 
     registerFosterHome.mutate(payload, {
       onSuccess: () => {
-        Alert.alert(
+        showAlert(
           i18next.t('fosterHomes:register.successTitle'),
           i18next.t('fosterHomes:register.successBody'),
         );
         router.replace('/foster-homes/mine');
       },
       onError: (err: unknown) => {
-        Alert.alert(i18next.t('common:error'), getErrorMessage(err, i18next.t));
+        showAlert(i18next.t('common:error'), getErrorMessage(err, i18next.t));
       },
     });
   };

@@ -9,7 +9,6 @@ import {
   StyleSheet,
   TextInput,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
   ScrollView,
   KeyboardAvoidingView,
@@ -23,6 +22,7 @@ import { useAuthStore } from '../store';
 import { useUpdateMe } from '../../shared/hooks';
 import { SPACING, FONTS, RADIUS, SHADOWS, type ThemeColors } from '../constants';
 import { useTheme, useThemedStyles } from '../hooks/useTheme';
+import { showAlert } from '../components/appAlert';
 
 export default function EditProfileScreen() {
   const styles = useThemedStyles(makeStyles);
@@ -49,7 +49,7 @@ export default function EditProfileScreen() {
       await setUser(updatedUser);
       router.back();
     } catch {
-      Alert.alert(t('editProfile.error'));
+      showAlert(t('editProfile.error'));
     }
   };
 

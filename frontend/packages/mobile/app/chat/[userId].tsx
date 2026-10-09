@@ -13,7 +13,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
 import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
@@ -36,6 +35,7 @@ import { useTheme, useThemedStyles } from '../../hooks/useTheme';
 import { Icon } from '../../components/Icon';
 import { ActionMenuModal, type MenuAction } from '../../components/ActionMenuModal';
 import type { Message } from '../../../shared/types';
+import { showAlert } from '../../components/appAlert';
 
 export default function ChatScreen() {
   const styles = useThemedStyles(makeStyles);
@@ -120,10 +120,10 @@ export default function ChatScreen() {
       { userId },
       {
         onSuccess: () => {
-          Alert.alert(i18next.t('pet_detail:blockedSuccess'), i18next.t('chat:blockedCannotMessage'));
+          showAlert(i18next.t('pet_detail:blockedSuccess'), i18next.t('chat:blockedCannotMessage'));
         },
         onError: () => {
-          Alert.alert(i18next.t('common:error'), i18next.t('pet_detail:blockError'));
+          showAlert(i18next.t('common:error'), i18next.t('pet_detail:blockError'));
         },
       },
     );
@@ -138,8 +138,8 @@ export default function ChatScreen() {
       submitAbuseReport.mutate(
         { target_user_id: userId, reason },
         {
-          onSuccess: () => Alert.alert(i18next.t('chat:reportSuccess'), i18next.t('chat:reportSuccessText')),
-          onError: () => Alert.alert(i18next.t('common:error'), i18next.t('chat:reportError')),
+          onSuccess: () => showAlert(i18next.t('chat:reportSuccess'), i18next.t('chat:reportSuccessText')),
+          onError: () => showAlert(i18next.t('common:error'), i18next.t('chat:reportError')),
         },
       ),
   }));

@@ -13,7 +13,6 @@ import {
   TouchableOpacity,
   Image,
   ActivityIndicator,
-  Alert,
   StyleSheet,
 } from 'react-native';
 import { useEffect, useState } from 'react';
@@ -41,6 +40,7 @@ import { Icon } from '../../components/Icon';
 import { StaleDataNotice } from '../../components/list/ListState';
 import { cloudinaryThumb } from '@shared/utils/cloudinaryThumb';
 import { IMAGE_SIZES } from '../../constants/imageSizes';
+import { showAlert } from '../../components/appAlert';
 
 const HOUSING_TYPES: HousingType[] = ['house', 'apartment'];
 const ANIMAL_TYPES: AnimalKind[] = ['dog', 'cat', 'other'];
@@ -218,10 +218,10 @@ export default function MyFosterHomeScreen() {
 
     updateFosterHome.mutate(payload, {
       onSuccess: () => {
-        Alert.alert(i18next.t('common:confirm'), i18next.t('fosterHomes:mine.saved'));
+        showAlert(i18next.t('common:confirm'), i18next.t('fosterHomes:mine.saved'));
       },
       onError: (err: unknown) => {
-        Alert.alert(i18next.t('common:error'), getErrorMessage(err, i18next.t));
+        showAlert(i18next.t('common:error'), getErrorMessage(err, i18next.t));
       },
     });
   };
