@@ -14,10 +14,10 @@ Branch: `feat/mobile-styled-alerts`. Delivery: ask-on-risk. Test runner: `pnpm t
 
 | ID | Specs | Route | Status | Commit |
 |----|-------|-------|--------|--------|
-| T1 | S1 | inline | pending | |
-| T2 | S2, S3 | inline | pending | |
-| T3 | S2 | inline | pending | |
-| T4 | S4 | inline | pending | |
+| T1 | S1 | inline | done | `27078d14` (RED: 2 failed, android+ios) |
+| T2 | S2, S3 | inline | done | `fccc7e12` (RED 7/8 on stubs; layout mutation red) |
+| T3 | S2 | inline | done | `04f093d7` |
+| T4 | S4 | inline | done | `af11ed5c` (mutation red on ShareButton) |
 
 - T1: chat header ⋮ touch target.
 - T2: `showAlert` (same signature as `Alert.alert`) + `AlertHost` mounted in the root layout, with tests.
@@ -30,3 +30,5 @@ Branch: `feat/mobile-styled-alerts`. Delivery: ask-on-risk. Test runner: `pnpm t
 - **L2** The 3 options are by design: `ActionMenuModal` has no Cancel row (X, backdrop and back close it). My checklist wrongly said 4. The report reasons in the chat are already a card (#365); the alert-looking dialog is the "report sent" / error notice after choosing a reason.
 - **L3** (2026-10-09, user) on scope "sólo los que tienen opciones o también los avisos de un botón": "ambos".
 - **L4** Measured: 96 `Alert.alert` calls in 28 files; 17 test files reference `Alert`. Design: a drop-in `showAlert` with `Alert.alert`'s signature so the migration is mechanical and the risk sits in one component.
+- **L5** T3: 96 calls in 26 files migrated by script; 0 `Alert.alert` left. 8 test files failed and were updated, but 3 more (e.g. `chat.test.tsx`'s `not.toHaveBeenCalled()` on `Alert.alert`) passed vacuously, so every test that spied on `Alert` was moved to `showAlert`, not only the failing ones.
+- **L6** Closing checks: mobile `pnpm test:run` 622/622, `pnpm typecheck` exit 0, `pnpm lint` exit 0. Not verified: the look on a device; it needs a new APK.
