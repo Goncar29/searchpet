@@ -25,6 +25,8 @@ import {
   useMarkAsRead,
   useBlockUser,
   useBlockStatus,
+  useBlockedUsers,
+  useUnblockUser,
   useSubmitAbuseReport,
   useWebSocket,
 } from '../../../shared/hooks';
@@ -36,6 +38,7 @@ import { Icon } from '../../components/Icon';
 import { ActionMenuModal, type MenuAction } from '../../components/ActionMenuModal';
 import type { Message } from '../../../shared/types';
 import { showAlert } from '../../components/appAlert';
+import { getErrorMessage } from '../../../shared/utils/apiErrors';
 
 export default function ChatScreen() {
   const styles = useThemedStyles(makeStyles);
@@ -129,6 +132,18 @@ export default function ChatScreen() {
     );
   };
 
+  // Whether *I* blocked them: block-status is bidirectional, and when they
+  // blocked me there is nothing of mine to undo here.
+  const { data: blockedByMe } = useBlockedUsers();
+  const iBlockedThem = blockedByMe?.some((b) => b.blocked_id === userId) ?? false;
+  const unblockUser = useUnblockUser();
+
+  const handleUnblockUser = () => {
+    unblockUser.mutate(userId, {
+      onError: (err) => showAlert(i18next.t('common:error'), getErrorMessage(err, i18next.t)),
+    });
+  };
+
   const reportReasons: MenuAction[] = (
     ['spam', 'fake', 'abuse', 'inappropriate', 'other'] as const
   ).map((reason) => ({
@@ -153,7 +168,11 @@ export default function ChatScreen() {
   // the same card's content to the reasons instead of opening a second Modal.
   const menuActions: MenuAction[] = [
     { key: 'profile', label: i18next.t('chat:actions.viewProfile'), onPress: handleViewProfile },
-    { key: 'block', label: i18next.t('chat:blockUser'), onPress: handleBlockUser, destructive: true },
+    // Unblock where you blocked: before, the only way back was Profile →
+    // Blocked users, and this menu kept offering Block.
+    iBlockedThem
+      ? { key: 'unblock', label: i18next.t('chat:actions.unblock'), onPress: handleUnblockUser }
+      : { key: 'block', label: i18next.t('chat:blockUser'), onPress: handleBlockUser, destructive: true },
     { key: 'report', label: i18next.t('chat:report'), onPress: () => setSheet('report') },
   ];
 
