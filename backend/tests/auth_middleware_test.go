@@ -18,14 +18,18 @@ import (
 
 const mwSecret = "middleware-test-secret"
 
-// lookup builds a PasswordChangedAtFunc returning a fixed instant.
-func lookup(at time.Time) middleware.PasswordChangedAtFunc {
-	return func(_ context.Context, _ uuid.UUID) (time.Time, error) { return at, nil }
+// lookup builds a SessionStateFunc whose password changed at a fixed instant.
+func lookup(at time.Time) middleware.SessionStateFunc {
+	return func(_ context.Context, _ uuid.UUID) (middleware.SessionState, error) {
+		return middleware.SessionState{PasswordChangedAt: at}, nil
+	}
 }
 
-// lookupErr builds a PasswordChangedAtFunc that always fails with err.
-func lookupErr(err error) middleware.PasswordChangedAtFunc {
-	return func(_ context.Context, _ uuid.UUID) (time.Time, error) { return time.Time{}, err }
+// lookupErr builds a SessionStateFunc that always fails with err.
+func lookupErr(err error) middleware.SessionStateFunc {
+	return func(_ context.Context, _ uuid.UUID) (middleware.SessionState, error) {
+		return middleware.SessionState{}, err
+	}
 }
 
 func requestWith(t *testing.T, h gin.HandlerFunc, token string) *httptest.ResponseRecorder {
@@ -167,5 +171,65 @@ func TestOptionalAuth_InfrastructureFailureDropsIdentityWithoutAborting(t *testi
 	}
 	if !strings.Contains(w.Body.String(), "anon") {
 		t.Fatalf("body = %s, want the request to proceed anonymously", w.Body.String())
+	}
+}
+
+// banned builds a SessionStateFunc for a banned user whose password never
+// changed, so only the ban can reject the token.
+func banned() middleware.SessionStateFunc {
+	return func(_ context.Context, _ uuid.UUID) (middleware.SessionState, error) {
+		return middleware.SessionState{Banned: true}, nil
+	}
+}
+
+// A ban must end a session that is already open. Before 2026-10-09 is_banned
+// was read only at login, so a banned user kept using the API for up to the
+// 72 h of the token.
+func TestAuth_BannedUserGetsUserBanned(t *testing.T) {
+	token, err := jwt.GenerateToken(uuid.New(), mwSecret)
+	if err != nil {
+		t.Fatalf("GenerateToken: %v", err)
+	}
+
+	w := requestWith(t, middleware.Auth(mwSecret, banned()), token)
+
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want 401", w.Code)
+	}
+	if !strings.Contains(w.Body.String(), `"code":"user_banned"`) {
+		t.Fatalf("body = %s, want code user_banned (not session_expired: the client must say why)", w.Body.String())
+	}
+}
+
+func TestAuth_BannedWinsOverStaleToken(t *testing.T) {
+	token, err := jwt.GenerateToken(uuid.New(), mwSecret)
+	if err != nil {
+		t.Fatalf("GenerateToken: %v", err)
+	}
+	both := func(_ context.Context, _ uuid.UUID) (middleware.SessionState, error) {
+		return middleware.SessionState{Banned: true, PasswordChangedAt: time.Now().Add(time.Minute)}, nil
+	}
+
+	w := requestWith(t, middleware.Auth(mwSecret, both), token)
+
+	if w.Code != http.StatusUnauthorized || !strings.Contains(w.Body.String(), `"code":"user_banned"`) {
+		t.Fatalf("status = %d body = %s, want 401 user_banned", w.Code, w.Body.String())
+	}
+}
+
+// Public reads stay public: a banned viewer reads them as anyone would.
+func TestOptionalAuth_BannedUserReadsAnonymously(t *testing.T) {
+	token, err := jwt.GenerateToken(uuid.New(), mwSecret)
+	if err != nil {
+		t.Fatalf("GenerateToken: %v", err)
+	}
+
+	w := requestWith(t, middleware.OptionalAuth(mwSecret, banned()), token)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 — OptionalAuth must never abort", w.Code)
+	}
+	if !strings.Contains(w.Body.String(), "anon") {
+		t.Fatalf("body = %s, want the banned user to proceed anonymously", w.Body.String())
 	}
 }

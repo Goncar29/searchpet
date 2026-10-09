@@ -91,16 +91,18 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 	userRepo := repository.NewUserRepository(db)
 
 	// One primary-key read per authenticated request. Accepted cost: it is what
-	// makes a password reset actually terminate the attacker's live session.
-	passwordChangedAt := func(ctx context.Context, userID uuid.UUID) (time.Time, error) {
+	// makes a password reset actually terminate the attacker's live session,
+	// and a ban end the banned user's.
+	sessionState := func(ctx context.Context, userID uuid.UUID) (middleware.SessionState, error) {
 		u, err := userRepo.GetByID(ctx, userID)
 		if err != nil {
-			return time.Time{}, err
+			return middleware.SessionState{}, err
 		}
-		if u.PasswordChangedAt == nil {
-			return time.Time{}, nil
+		state := middleware.SessionState{Banned: u.IsBanned}
+		if u.PasswordChangedAt != nil {
+			state.PasswordChangedAt = *u.PasswordChangedAt
 		}
-		return *u.PasswordChangedAt, nil
+		return state, nil
 	}
 
 	petRepo := repository.NewPetRepository(db)
@@ -419,7 +421,7 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 	// (anónimo lee igual; logueado recibe liked_by_me por viewer)
 	// ----------------------------------------
 	storiesPublic := router.Group("/api")
-	storiesPublic.Use(middleware.OptionalAuth(cfg.JWTSecret, passwordChangedAt))
+	storiesPublic.Use(middleware.OptionalAuth(cfg.JWTSecret, sessionState))
 	{
 		storiesPublic.GET("/stories", storyHandler.List)
 		storiesPublic.GET("/stories/pet/:petId", storyHandler.GetByPetID)
@@ -432,7 +434,7 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 	// (dto.ScrubOwnerPhoneForViewer, ver domain.ContactVisibleStatuses).
 	// ----------------------------------------
 	petDetailPublic := router.Group("/api")
-	petDetailPublic.Use(middleware.OptionalAuth(cfg.JWTSecret, passwordChangedAt))
+	petDetailPublic.Use(middleware.OptionalAuth(cfg.JWTSecret, sessionState))
 	{
 		petDetailPublic.GET("/pets/:id", petHandler.GetPet)
 	}
@@ -441,7 +443,7 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 	// RUTAS PROTEGIDAS
 	// ----------------------------------------
 	protected := router.Group("/api")
-	protected.Use(middleware.Auth(cfg.JWTSecret, passwordChangedAt))
+	protected.Use(middleware.Auth(cfg.JWTSecret, sessionState))
 	{
 		protected.GET("/auth/me", authHandler.GetMe)
 		protected.PUT("/auth/me", authHandler.UpdateMe)
@@ -554,7 +556,7 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 	// RUTAS ADMIN
 	// ----------------------------------------
 	admin := router.Group("/api")
-	admin.Use(middleware.Auth(cfg.JWTSecret, passwordChangedAt))
+	admin.Use(middleware.Auth(cfg.JWTSecret, sessionState))
 	admin.Use(middleware.RequireAdmin(userRepo))
 	{
 		admin.GET("/stats/impact", impactHandler.GetImpactStats)

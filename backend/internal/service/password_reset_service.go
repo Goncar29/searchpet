@@ -31,7 +31,7 @@ type passwordResetService struct {
 	// disconnectUser closes the user's live WebSocket connections. OPTIONAL (may
 	// be nil, and is nil in tests that do not care). A function rather than the
 	// Hub itself so this layer keeps knowing nothing about internal/websocket —
-	// same seam as middleware.Auth's PasswordChangedAtFunc.
+	// same seam as middleware.Auth's SessionStateFunc.
 	//
 	// Stamping password_changed_at is NOT enough on its own: sockets authenticate
 	// with a ticket once, at upgrade time, and are never re-checked afterwards.

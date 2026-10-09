@@ -13,11 +13,22 @@ import (
 	"lost-pets/pkg/jwt"
 )
 
-// PasswordChangedAtFunc reports when the user's credentials last changed.
-// A zero time means "never changed" and invalidates nothing. Kept as a narrow
-// function rather than a repository so the middleware does not depend on the
-// whole data layer.
-type PasswordChangedAtFunc func(ctx context.Context, userID uuid.UUID) (time.Time, error)
+// SessionState is what the middleware needs to know about a token's owner. It
+// comes from one primary-key read per request, so adding a field here costs no
+// extra query.
+type SessionState struct {
+	// PasswordChangedAt is when the credentials last changed. Zero means
+	// "never changed" and invalidates nothing.
+	PasswordChangedAt time.Time
+	// Banned is users.is_banned. Checked here, not only at login: a ban must
+	// end a session that is already open, not wait out the 72 h of the token.
+	Banned bool
+}
+
+// SessionStateFunc reads the SessionState of a user. Kept as a narrow function
+// rather than a repository so the middleware does not depend on the whole data
+// layer.
+type SessionStateFunc func(ctx context.Context, userID uuid.UUID) (SessionState, error)
 
 func abortUnauthorized(c *gin.Context) {
 	c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
@@ -35,6 +46,15 @@ func abortSessionExpired(c *gin.Context) {
 	})
 }
 
+// abortBanned is distinct from abortSessionExpired so the client can tell the
+// user why: both drop the stored token, but only this one means "suspended".
+func abortBanned(c *gin.Context) {
+	c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+		"code":    domain.CodeFor(domain.ErrUserBanned),
+		"message": domain.ErrUserBanned.Error(),
+	})
+}
+
 // abortInternal is used when the freshness lookup itself failed (infrastructure),
 // as opposed to the token genuinely being stale. It MUST stay distinct from
 // abortSessionExpired: both web and mobile clients delete their stored JWT on
@@ -47,7 +67,19 @@ func abortInternal(c *gin.Context) {
 	})
 }
 
-// checkFreshness reports whether the token is still valid for this user.
+// sessionVerdict is what checkSession concluded about a token.
+type sessionVerdict int
+
+const (
+	sessionOK sessionVerdict = iota
+	// sessionStale: the token predates a password change, or its user is gone.
+	sessionStale
+	// sessionBanned: the user is banned. Checked before staleness so the client
+	// is told the reason that will still hold after signing in again.
+	sessionBanned
+)
+
+// checkSession reports whether the token is still valid for this user.
 // A non-nil error means the check could not be performed — an infrastructure
 // failure, NOT evidence about the token. Callers must not translate it into
 // session_expired: clients delete their stored token on that code, so a brief
@@ -58,30 +90,34 @@ func abortInternal(c *gin.Context) {
 // make a token minted in the same second reject itself. The cost is that a token
 // issued within that same second survives the reset — an accepted one-second
 // window.
-func checkFreshness(ctx context.Context, changedAt PasswordChangedAtFunc, userID uuid.UUID, issuedAt time.Time) (fresh bool, err error) {
-	at, err := changedAt(ctx, userID)
+func checkSession(ctx context.Context, sessionState SessionStateFunc, userID uuid.UUID, issuedAt time.Time) (sessionVerdict, error) {
+	state, err := sessionState(ctx, userID)
 	if err != nil {
 		if errors.Is(err, domain.ErrUserNotFound) {
 			// A deleted user genuinely should stop transiting, and session_expired
 			// is the honest, non-infrastructure answer here.
-			return false, nil
+			return sessionStale, nil
 		}
 		// Infrastructure failure: not evidence the token is stale.
-		return false, err
+		return sessionOK, err
 	}
-	if at.IsZero() {
-		return true, nil
+	if state.Banned {
+		return sessionBanned, nil
 	}
-	return !issuedAt.Before(at.Truncate(time.Second)), nil
+	at := state.PasswordChangedAt
+	if !at.IsZero() && issuedAt.Before(at.Truncate(time.Second)) {
+		return sessionStale, nil
+	}
+	return sessionOK, nil
 }
 
 // Auth valida el JWT en el header Authorization y pone el userID en el contexto.
 //
-// changedAt must not be nil: a nil PasswordChangedAtFunc would silently disable
+// changedAt must not be nil: a nil SessionStateFunc would silently disable
 // session invalidation on password reset, the worst failure mode a security
 // control can have. Panicking at construction (boot time, called once in
 // SetupRouter) fails fast in every environment before serving a single request.
-func Auth(secretKey string, changedAt PasswordChangedAtFunc) gin.HandlerFunc {
+func Auth(secretKey string, changedAt SessionStateFunc) gin.HandlerFunc {
 	if changedAt == nil {
 		panic("middleware.Auth: changedAt must not be nil — it would silently disable session invalidation on password reset")
 	}
@@ -104,12 +140,16 @@ func Auth(secretKey string, changedAt PasswordChangedAtFunc) gin.HandlerFunc {
 			return
 		}
 
-		fresh, err := checkFreshness(c.Request.Context(), changedAt, userID, issuedAt)
+		verdict, err := checkSession(c.Request.Context(), changedAt, userID, issuedAt)
 		if err != nil {
 			abortInternal(c)
 			return
 		}
-		if !fresh {
+		switch verdict {
+		case sessionBanned:
+			abortBanned(c)
+			return
+		case sessionStale:
 			abortSessionExpired(c)
 			return
 		}
@@ -122,12 +162,12 @@ func Auth(secretKey string, changedAt PasswordChangedAtFunc) gin.HandlerFunc {
 // OptionalAuth parses the JWT if present and sets the userID, but never aborts.
 // Use it on public read endpoints that enrich their response for the viewer
 // (e.g. liked_by_me) yet must remain readable by anonymous users. A missing,
-// invalid or stale token — or a freshness lookup that failed — simply leaves no
-// userID in the context (getUserUUID → uuid.Nil).
+// invalid or stale token, a banned user, or a session lookup that failed simply
+// leaves no userID in the context (getUserUUID → uuid.Nil).
 //
 // changedAt must not be nil, for the same reason as in Auth: panicking at
 // construction beats silently disabling the defence.
-func OptionalAuth(secretKey string, changedAt PasswordChangedAtFunc) gin.HandlerFunc {
+func OptionalAuth(secretKey string, changedAt SessionStateFunc) gin.HandlerFunc {
 	if changedAt == nil {
 		panic("middleware.OptionalAuth: changedAt must not be nil — it would silently disable session invalidation on password reset")
 	}
@@ -146,7 +186,7 @@ func OptionalAuth(secretKey string, changedAt PasswordChangedAtFunc) gin.Handler
 
 		userID, issuedAt, err := jwt.ValidateToken(parts[1], secretKey)
 		if err == nil {
-			if fresh, ferr := checkFreshness(c.Request.Context(), changedAt, userID, issuedAt); ferr == nil && fresh {
+			if verdict, verr := checkSession(c.Request.Context(), changedAt, userID, issuedAt); verr == nil && verdict == sessionOK {
 				c.Set("userID", userID)
 			}
 		}
