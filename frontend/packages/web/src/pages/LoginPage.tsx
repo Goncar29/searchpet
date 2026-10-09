@@ -118,7 +118,10 @@ export function LoginPage() {
               </div>
             )}
 
-            {banned && (
+            {/* Hidden once a login attempt has its own error: a banned user who
+                tries again gets user_banned there, and the same red line twice
+                reads like two problems. */}
+            {banned && !apiError && (
               <div role="alert" className="bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-sm p-3 rounded-lg">
                 {t('errors:user_banned')}
               </div>

@@ -240,6 +240,20 @@ describe('useAuthStore — session expired', () => {
     jest.restoreAllMocks();
   });
 
+  it('several 401 user_banned from requests in flight announce the suspension once', () => {
+    // Every request already sent with the token comes back user_banned and the
+    // shared client fires one event per response; showAlert queues, so without
+    // a guard the user had to close one identical alert per request.
+    const alertSpy = jest.spyOn(require('../components/appAlert'), 'showAlert').mockImplementation(() => {});
+
+    for (let i = 0; i < 3; i++) {
+      window.dispatchEvent(new CustomEvent('auth:session-expired', { detail: { code: 'user_banned' } }));
+    }
+
+    expect(alertSpy).toHaveBeenCalledTimes(1);
+    jest.restoreAllMocks();
+  });
+
   it('an expired session is not announced as a suspension', () => {
     const alertSpy = jest.spyOn(require('../components/appAlert'), 'showAlert').mockImplementation(() => {});
 

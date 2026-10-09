@@ -125,6 +125,20 @@ describe('LoginPage — validación de formulario', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('errors:user_banned');
   });
 
+  it('si el baneado intenta entrar igual, el motivo no se muestra dos veces', async () => {
+    const user = userEvent.setup();
+    routerState.search = new URLSearchParams('reason=banned');
+    mockLogin.mockRejectedValue(new ApiError('user_banned', 403, 'usuario bloqueado'));
+    renderLoginPage();
+
+    await user.type(screen.getByLabelText('auth:login.email'), 'carlos@example.com');
+    await user.type(screen.getByLabelText('auth:login.password'), 'mi-password');
+    await user.click(screen.getByRole('button', { name: 'auth:login.submit' }));
+
+    await screen.findAllByRole('alert');
+    expect(screen.getAllByRole('alert')).toHaveLength(1);
+  });
+
   it('no muestra el aviso de suspensión por cualquier otro reason', () => {
     routerState.search = new URLSearchParams('reason=whatever');
     renderLoginPage();
