@@ -21,6 +21,7 @@
     },
     "unknownUser": "Unknown user",
     "close": "Close",
+    "ok": "OK",
     "loadErrorTitle": "We couldn't load this list",
     "loadErrorBody": "It's not that there's nothing here — we couldn't read it. Try again.",
     "retry": "Try again",
