@@ -58,3 +58,37 @@ func TestTicketStore_IssueDistinctIDs(t *testing.T) {
 		t.Fatal("Issue must return distinct IDs")
 	}
 }
+
+// A ban or a password reset cuts the user's sockets, but a ticket minted just
+// before (up to its 30 s TTL) could still open a new one: Connect only consumes
+// the ticket and never re-checks the session.
+func TestTicketStore_RevokeUserDropsOnlyThatUsersTickets(t *testing.T) {
+	ts := NewTicketStore()
+	a1 := ts.Issue("user-a")
+	a2 := ts.Issue("user-a")
+	b := ts.Issue("user-b")
+
+	ts.RevokeUser("user-a")
+
+	if _, ok := ts.Consume(a1); ok {
+		t.Fatal("user-a's first ticket still works after RevokeUser")
+	}
+	if _, ok := ts.Consume(a2); ok {
+		t.Fatal("user-a's second ticket still works after RevokeUser")
+	}
+	if got, ok := ts.Consume(b); !ok || got != "user-b" {
+		t.Fatalf("user-b's ticket: got (%q, %v), want (user-b, true)", got, ok)
+	}
+}
+
+func TestEndUserSessions_RevokesPendingTickets(t *testing.T) {
+	ts := NewTicketStore()
+	hub := NewHub(nil)
+	id := ts.Issue("user-a")
+
+	EndUserSessions(ts, hub, "user-a")
+
+	if _, ok := ts.Consume(id); ok {
+		t.Fatal("a ticket minted before EndUserSessions still opens a socket")
+	}
+}

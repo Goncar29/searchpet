@@ -222,7 +222,9 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 	// función y no el Hub para que la capa de servicio siga sin conocer
 	// internal/websocket. authService mantiene su dependencia de fosterHomeService,
 	// construido más arriba (ver el comentario en su bloque).
-	disconnectFromWS := func(userID uuid.UUID) { wsHub.DisconnectUser(userID.String()) }
+	// Tickets too, not only sockets: a ticket minted just before the cut would
+	// otherwise open a new socket for the rest of its 30 s TTL.
+	disconnectFromWS := func(userID uuid.UUID) { ws.EndUserSessions(wsTicketStore, wsHub, userID.String()) }
 
 	authService := service.NewAuthService(
 		userRepo, cfg.JWTSecret, photoStorage, fosterHomeService, googleVerifier,

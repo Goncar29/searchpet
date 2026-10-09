@@ -63,3 +63,26 @@ func (ts *TicketStore) CleanupLoop() {
 		ts.mu.Unlock()
 	}
 }
+
+// RevokeUser drops every pending ticket of userID. Called when the user's
+// sessions end (ban, password reset): Connect only consumes a ticket and never
+// re-checks the session, so a ticket minted just before would still open a
+// socket for the rest of its 30 s TTL.
+func (ts *TicketStore) RevokeUser(userID string) {
+	ts.mu.Lock()
+	defer ts.mu.Unlock()
+	for id, t := range ts.tickets {
+		if t.userID == userID {
+			delete(ts.tickets, id)
+		}
+	}
+}
+
+// EndUserSessions ends every WebSocket path of userID: pending tickets first,
+// then the open sockets. In that order, a socket opened with a ticket in
+// between is still closed by the second step, and no ticket is left to open
+// another (a new one needs the HTTP middleware, which rejects the user).
+func EndUserSessions(store *TicketStore, hub *Hub, userID string) {
+	store.RevokeUser(userID)
+	hub.DisconnectUser(userID)
+}
