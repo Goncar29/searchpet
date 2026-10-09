@@ -14,9 +14,12 @@
 # (its cron is best-effort) is corrected by a later one. A "pause at 4, resume at 6"
 # pair would leave the monitor paused for good if the resume run never came.
 #
-# Fails loudly when the API key is missing or the API does not answer "ok": a
-# job that skips quietly would look green while the backend never sleeps, or
-# never wakes its monitor again.
+# Outside the window it also sends its own GET to the monitored URL, because
+# resuming the monitor alone does not wake a sleeping instance (see below).
+#
+# Fails loudly when the API key is missing, the API does not answer "ok", or
+# the backend does not answer the wake request: a job that skips quietly would
+# look green while the backend never sleeps, or never wakes again.
 #
 # Usage: keepalive-window.sh
 # Env:   UPTIMEROBOT_API_KEY  main (read/write) API key, required
@@ -73,13 +76,28 @@ if [[ "$STATUS" == "0" ]]; then HAVE=paused; else HAVE=active; fi
 echo "Hour $HOUR UTC, window ${START}-${END}: monitor $MONITOR_ID ($URL) is $HAVE, should be $WANT"
 if [[ "$HAVE" == "$WANT" ]]; then
   echo "OK: nothing to change"
-  exit 0
+else
+  if [[ "$WANT" == "paused" ]]; then NEW=0; else NEW=1; fi
+  RESPONSE=$(api editMonitor --data "id=$MONITOR_ID" --data "status=$NEW")
+  if [[ "$(json_field stat <<< "$RESPONSE")" != "ok" ]]; then
+    echo "::error::editMonitor failed: $RESPONSE"
+    exit 1
+  fi
+  echo "OK: monitor $MONITOR_ID set to $WANT"
 fi
 
-if [[ "$WANT" == "paused" ]]; then NEW=0; else NEW=1; fi
-RESPONSE=$(api editMonitor --data "id=$MONITOR_ID" --data "status=$NEW")
-if [[ "$(json_field stat <<< "$RESPONSE")" != "ok" ]]; then
-  echo "::error::editMonitor failed: $RESPONSE"
+[[ "$WANT" == "active" ]] || exit 0
+
+# Wake the backend ourselves. Measured 2026-10-07 to 10-09: a resumed
+# UptimeRobot monitor never woke a sleeping Render instance (Render answered
+# its checks with 503 and "X-Render-Routing: hibernate-wake-error"), so the
+# backend slept until a person hit it, 2 to 6 hours after the window ended.
+# A GET from a GitHub runner does wake it (tested 2026-10-09). Runs on
+# every run outside the window, not only on the resume, so a wake that fails
+# is retried 10 minutes later. A cold start takes ~15 s; the timeout leaves
+# room for a slow one.
+if ! curl -sS --fail --connect-timeout 30 --max-time 120 -o /dev/null "$URL"; then
+  echo "::error::wake request to $URL failed: the backend did not answer"
   exit 1
 fi
-echo "OK: monitor $MONITOR_ID set to $WANT"
+echo "OK: backend awake ($URL)"

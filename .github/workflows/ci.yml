@@ -409,9 +409,10 @@ jobs:
         working-directory: .
         run: bash .github/scripts/release-scripts.test.sh
 
-      # keepalive-window.yml runs this script hourly against the real
-      # UptimeRobot account; a bug there pauses the /health monitor at the
-      # wrong hours or never resumes it. The test uses a fake API.
+      # keepalive-window.yml runs this script every 10 minutes against the
+      # real UptimeRobot account and backend; a bug there pauses the /health
+      # monitor at the wrong hours, never resumes it, or leaves the backend
+      # asleep. The test uses a fake API.
       - name: Keepalive window script
         working-directory: .
         run: bash .github/scripts/keepalive-window.test.sh
