@@ -1,6 +1,7 @@
 // Messages (conversation list) screen smoke test
 import React from 'react';
-import { render } from '@testing-library/react-native';
+import { fireEvent, render, screen } from '@testing-library/react-native';
+import { Alert } from 'react-native';
 import MessagesScreen from '../app/(tabs)/messages';
 import { drawnIcons, emojiTexts } from './support/icons';
 
@@ -25,9 +26,13 @@ jest.mock('../store', () => ({
 }));
 
 const mockUseConversations = jest.fn();
+const mockMarkUnreadMutate = jest.fn();
+const mockHideMutate = jest.fn();
 
 jest.mock('../../shared/hooks', () => ({
   useConversations: () => mockUseConversations(),
+  useMarkConversationUnread: () => ({ mutate: mockMarkUnreadMutate, isPending: false }),
+  useHideConversation: () => ({ mutate: mockHideMutate, isPending: false }),
   useWebSocket: () => ({ sendEnvelope: jest.fn() }),
 }));
 
@@ -200,5 +205,97 @@ describe('MessagesScreen', () => {
     const empty = render(<MessagesScreen />);
     expect(drawnIcons(empty)).toEqual(['inbox']);
     expect(emojiTexts(empty)).toEqual([]);
+  });
+});
+
+// Each row has a ⋮ with "mark as unread" and "delete conversation", as the web
+// list does. Before this the app had neither, so #353 (the unread dot from
+// unread_count) could only be exercised from the web.
+describe('MessagesScreen — menú ⋮ de cada conversación', () => {
+  let alertSpy: jest.SpyInstance;
+
+  beforeEach(() => {
+    mockMarkUnreadMutate.mockClear();
+    mockHideMutate.mockClear();
+    alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    mockUseConversations.mockReturnValue({
+      data: [
+        mockConversation,
+        {
+          ...mockConversation,
+          id: 'msg-2',
+          sender_id: 'user-1',
+          receiver_id: 'user-3',
+          sender: { id: 'user-1', name: 'Me' },
+          receiver: { id: 'user-3', name: 'Bruno' },
+        },
+      ],
+      isLoading: false,
+      refetch: jest.fn(),
+      isRefetching: false,
+    });
+  });
+
+  afterEach(() => alertSpy.mockRestore());
+
+  // Rows are in order: Alice (user-2), then Bruno (user-3).
+  function openMenu(row: number) {
+    render(<MessagesScreen />);
+    fireEvent.press(screen.getAllByRole('button', { name: 'chat:actions.menuLabel' })[row]);
+  }
+
+  it('cada fila tiene su botón ⋮', () => {
+    render(<MessagesScreen />);
+    expect(screen.getAllByRole('button', { name: 'chat:actions.menuLabel' })).toHaveLength(2);
+  });
+
+  it('el ⋮ ofrece marcar como no leída y borrar', () => {
+    openMenu(0);
+    expect(screen.getByRole('button', { name: 'chat:actions.markUnread' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'chat:actions.delete' })).toBeTruthy();
+    expect(mockMarkUnreadMutate).not.toHaveBeenCalled();
+    expect(mockHideMutate).not.toHaveBeenCalled();
+  });
+
+  it('"Marcar como no leída" marca la conversación de ESA fila', () => {
+    openMenu(1);
+    fireEvent.press(screen.getByRole('button', { name: 'chat:actions.markUnread' }));
+    expect(mockMarkUnreadMutate).toHaveBeenCalledTimes(1);
+    expect(mockMarkUnreadMutate.mock.calls[0][0]).toBe('user-3');
+  });
+
+  it('"Borrar" pide confirmación antes de borrar', () => {
+    openMenu(0);
+    fireEvent.press(screen.getByRole('button', { name: 'chat:actions.delete' }));
+
+    expect(screen.getByText('chat:actions.deleteConfirmTitle')).toBeTruthy();
+    expect(screen.getByText('chat:actions.deleteConfirmBody')).toBeTruthy();
+    expect(mockHideMutate).not.toHaveBeenCalled();
+
+    fireEvent.press(screen.getByRole('button', { name: 'chat:actions.confirm' }));
+    expect(mockHideMutate).toHaveBeenCalledTimes(1);
+    expect(mockHideMutate.mock.calls[0][0]).toBe('user-2');
+  });
+
+  it('cerrar la confirmación no borra nada', () => {
+    openMenu(0);
+    fireEvent.press(screen.getByRole('button', { name: 'chat:actions.delete' }));
+    fireEvent.press(screen.getByTestId('action-menu-backdrop'));
+    expect(mockHideMutate).not.toHaveBeenCalled();
+    expect(screen.queryByText('chat:actions.deleteConfirmTitle')).toBeNull();
+  });
+
+  it('si la API falla, lo avisa', () => {
+    openMenu(0);
+    fireEvent.press(screen.getByRole('button', { name: 'chat:actions.markUnread' }));
+    const { onError } = mockMarkUnreadMutate.mock.calls[0][1];
+    onError(new Error('boom'));
+    expect(alertSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('tocar la fila sigue abriendo la conversación, sin abrir el menú', () => {
+    render(<MessagesScreen />);
+    fireEvent.press(screen.getByText('Alice'));
+    expect(screen.queryByRole('button', { name: 'chat:actions.markUnread' })).toBeNull();
   });
 });
