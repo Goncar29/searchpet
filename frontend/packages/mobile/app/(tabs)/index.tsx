@@ -14,7 +14,6 @@ import {
   ActivityIndicator,
   TextInput,
   ScrollView,
-  Alert,
 } from 'react-native';
 import { PawPlaceholder } from '../../components/PawPlaceholder';
 import { useRouter } from 'expo-router';
@@ -34,6 +33,7 @@ import type { PetType, SuccessStory, ClassifyResult, ImageSearchResult } from '.
 import { ApiError } from '../../../shared/api/client';
 import { cloudinaryThumb } from '@shared/utils/cloudinaryThumb';
 import { IMAGE_SIZES } from '../../constants/imageSizes';
+import { showAlert } from '../../components/appAlert';
 
 const RADII = [5, 10, 25, 50] as const;
 
@@ -187,7 +187,7 @@ export default function HomeScreen() {
         // image_search_unavailable (503) falls back silently — any other error
         // (network, 4xx) also falls back to the local classifier without blocking the user.
         if (!(err instanceof ApiError && err.code === 'image_search_unavailable')) {
-          Alert.alert(i18next.t('common:error'), i18next.t('home:photoSearchError'));
+          showAlert(i18next.t('common:error'), i18next.t('home:photoSearchError'));
         }
       }
     }
@@ -196,7 +196,7 @@ export default function HomeScreen() {
   };
 
   const handleImageSearch = () => {
-    Alert.alert(i18next.t('home:searchByPhoto'), i18next.t('home:pickOption'), [
+    showAlert(i18next.t('home:searchByPhoto'), i18next.t('home:pickOption'), [
       { text: i18next.t('home:camera'), onPress: () => pickAndClassify(true) },
       { text: i18next.t('home:gallery'), onPress: () => pickAndClassify(false) },
       { text: i18next.t('common:cancel'), style: 'cancel' },

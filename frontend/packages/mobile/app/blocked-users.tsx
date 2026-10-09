@@ -9,7 +9,6 @@ import {
   StyleSheet,
   FlatList,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -21,6 +20,7 @@ import { SPACING, FONTS, RADIUS, SHADOWS, type ThemeColors } from '../constants'
 import { useTheme, useThemedStyles } from '../hooks/useTheme';
 import { Icon } from '../components/Icon';
 import type { BlockedUser } from '../../shared/types';
+import { showAlert } from '../components/appAlert';
 
 function BlockedUserItem({ item, onUnblock }: { item: BlockedUser; onUnblock: (id: string) => void }) {
   const styles = useThemedStyles(makeStyles);
@@ -28,7 +28,7 @@ function BlockedUserItem({ item, onUnblock }: { item: BlockedUser; onUnblock: (i
   const initial = item.name.trim().charAt(0).toUpperCase();
 
   const handleUnblock = () => {
-    Alert.alert(
+    showAlert(
       i18next.t('blocked_users:unblockConfirm'),
       item.name,
       [
@@ -66,7 +66,7 @@ export default function BlockedUsersScreen() {
   const handleUnblock = (userId: string) => {
     unblockUser.mutate(userId, {
       onError: (err: unknown) => {
-        Alert.alert(i18next.t('common:error'), getErrorMessage(err, i18next.t));
+        showAlert(i18next.t('common:error'), getErrorMessage(err, i18next.t));
       },
     });
   };

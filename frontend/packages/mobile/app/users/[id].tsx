@@ -13,7 +13,6 @@ import {
   TouchableOpacity,
   RefreshControl,
   TextInput,
-  Alert,
   Platform,
   ActionSheetIOS,
 } from 'react-native';
@@ -36,6 +35,7 @@ import { Icon } from '../../components/Icon';
 import { IconLabel } from '../../components/IconLabel';
 import { cloudinaryThumb } from '@shared/utils/cloudinaryThumb';
 import { IMAGE_SIZES } from '../../constants/imageSizes';
+import { showAlert } from '../../components/appAlert';
 
 // ============================================================
 // Helpers
@@ -241,7 +241,7 @@ export default function PublicProfileScreen() {
   const adoptionPets = petsQuery.data ? splitOwnedPets(petsQuery.data.data).adoption : [];
 
   const handleDeleteReview = () => {
-    Alert.alert(
+    showAlert(
       i18next.t('users:deleteReviewTitle'),
       i18next.t('users:deleteReviewConfirm'),
       [
@@ -251,8 +251,8 @@ export default function PublicProfileScreen() {
           style: 'destructive',
           onPress: () => {
             deleteReview.mutate(id ?? '', {
-              onSuccess: () => Alert.alert(i18next.t('users:deleteReviewSuccess')),
-              onError: (err) => Alert.alert(i18next.t('common:error'), getErrorMessage(err, (key) => i18next.t(key))),
+              onSuccess: () => showAlert(i18next.t('users:deleteReviewSuccess')),
+              onError: (err) => showAlert(i18next.t('common:error'), getErrorMessage(err, (key) => i18next.t(key))),
             });
           },
         },
@@ -265,10 +265,10 @@ export default function PublicProfileScreen() {
       { userId: id ?? '' },
       {
         onSuccess: () => {
-          Alert.alert(i18next.t('users:blockUserSuccess'), i18next.t('users:blockUserSuccessText'));
+          showAlert(i18next.t('users:blockUserSuccess'), i18next.t('users:blockUserSuccessText'));
         },
         onError: (err: unknown) => {
-          Alert.alert(i18next.t('common:error'), getErrorMessage(err, i18next.t));
+          showAlert(i18next.t('common:error'), getErrorMessage(err, i18next.t));
         },
       },
     );
@@ -282,7 +282,7 @@ export default function PublicProfileScreen() {
       { label: i18next.t('pet_detail:inappropriate'), value: 'inappropriate' },
       { label: i18next.t('pet_detail:other'), value: 'other' },
     ];
-    Alert.alert(
+    showAlert(
       i18next.t('users:reportReason'),
       '',
       [
@@ -292,8 +292,8 @@ export default function PublicProfileScreen() {
             submitAbuseReport.mutate(
               { target_user_id: id ?? '', reason: r.value as 'spam' | 'fake' | 'abuse' | 'inappropriate' | 'other' },
               {
-                onSuccess: () => Alert.alert(i18next.t('users:reportSuccess'), i18next.t('users:reportSuccessText')),
-                onError: (err: unknown) => Alert.alert(i18next.t('common:error'), getErrorMessage(err, i18next.t)),
+                onSuccess: () => showAlert(i18next.t('users:reportSuccess'), i18next.t('users:reportSuccessText')),
+                onError: (err: unknown) => showAlert(i18next.t('common:error'), getErrorMessage(err, i18next.t)),
               },
             );
           },
@@ -317,7 +317,7 @@ export default function PublicProfileScreen() {
         },
       );
     } else {
-      Alert.alert(i18next.t('users:options'), '', [
+      showAlert(i18next.t('users:options'), '', [
         { text: i18next.t('users:optionsCancel'), style: 'cancel' },
         { text: i18next.t('users:optionsBlock'), style: 'destructive', onPress: handleBlockUser },
         { text: i18next.t('users:optionsReport'), onPress: handleReportUser },
@@ -362,11 +362,11 @@ export default function PublicProfileScreen() {
 
   const handleSubmit = () => {
     if (formStars < 1 || formStars > 5) {
-      Alert.alert(i18next.t('common:error'), i18next.t('users:starError'));
+      showAlert(i18next.t('common:error'), i18next.t('users:starError'));
       return;
     }
     if (!formText.trim()) {
-      Alert.alert(i18next.t('common:error'), i18next.t('users:commentError'));
+      showAlert(i18next.t('common:error'), i18next.t('users:commentError'));
       return;
     }
 
@@ -380,7 +380,7 @@ export default function PublicProfileScreen() {
         setFormText('');
       },
       onError: (err) => {
-        Alert.alert(i18next.t('common:error'), getErrorMessage(err, (key) => i18next.t(key)));
+        showAlert(i18next.t('common:error'), getErrorMessage(err, (key) => i18next.t(key)));
       },
     });
   };

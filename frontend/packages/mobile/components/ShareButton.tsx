@@ -9,7 +9,6 @@ import {
   TouchableOpacity,
   StyleSheet,
   Share,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
 import * as Linking from 'expo-linking';
@@ -24,6 +23,7 @@ import { getErrorMessage } from '../../shared/utils/apiErrors';
 import { LIGHT_COLORS, type ThemeColors, SPACING, FONTS, RADIUS } from '../constants';
 import { useTheme, useThemedStyles } from '../hooks/useTheme';
 import { getDateLocale } from '../i18n/dateLocale';
+import { showAlert } from './appAlert';
 
 interface ShareButtonProps {
   petId: string;
@@ -77,7 +77,7 @@ export function ShareButton({ petId, petName, petType, status, pet }: ShareButto
       } else if (platform === 'twitter') {
         await Linking.openURL(`https://twitter.com/intent/tweet?text=${encodeURIComponent(message)}`);
       } else if (platform === 'instagram') {
-        Alert.alert(
+        showAlert(
           i18next.t('pets:share.instagramTitle'),
           i18next.t('pets:share.instagramBody'),
         );
@@ -85,7 +85,7 @@ export function ShareButton({ petId, petName, petType, status, pet }: ShareButto
         await Share.share({ message, url, title: `${petName} - ${statusText}` });
       }
     } catch (error: unknown) {
-      Alert.alert(i18next.t('common:error'), getErrorMessage(error, i18next.t));
+      showAlert(i18next.t('common:error'), getErrorMessage(error, i18next.t));
     } finally {
       setIsLoading(false);
     }
@@ -99,7 +99,7 @@ export function ShareButton({ petId, petName, petType, status, pet }: ShareButto
       const message = buildWhatsAppMessage(petForMessage, url);
       await Share.share({ message, url, title: `${petName} - ${statusText}` });
     } catch (error: unknown) {
-      Alert.alert(i18next.t('common:error'), getErrorMessage(error, i18next.t));
+      showAlert(i18next.t('common:error'), getErrorMessage(error, i18next.t));
     } finally {
       setIsLoading(false);
     }
@@ -111,7 +111,7 @@ export function ShareButton({ petId, petName, petType, status, pet }: ShareButto
       await getOrGenerateLink();
       setShowQR(true);
     } catch (err: unknown) {
-      Alert.alert(i18next.t('common:error'), getErrorMessage(err, i18next.t));
+      showAlert(i18next.t('common:error'), getErrorMessage(err, i18next.t));
     }
   };
 

@@ -10,7 +10,6 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  Alert,
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
@@ -22,6 +21,7 @@ import { apiClient } from '../../shared/api/client';
 import { getErrorMessage } from '@shared/utils/apiErrors';
 import { SPACING, FONTS, RADIUS, type ThemeColors } from '../constants';
 import { useTheme, useThemedStyles } from '../hooks/useTheme';
+import { showAlert } from '../components/appAlert';
 
 type Step = 'email' | 'code';
 
@@ -82,7 +82,7 @@ export default function ForgotPasswordScreen() {
       // would rebuild that same oracle in the client.
       setStep('code');
     } catch (error) {
-      Alert.alert(i18next.t('common:error'), getErrorMessage(error, (key) => i18next.t(key)));
+      showAlert(i18next.t('common:error'), getErrorMessage(error, (key) => i18next.t(key)));
     } finally {
       setIsLoading(false);
     }
@@ -94,18 +94,18 @@ export default function ForgotPasswordScreen() {
     // el usuario espera es "el código está mal", así que apunta al campo
     // equivocado. register.tsx ya valida igual.
     if (newPassword.length < MIN_PASSWORD_LENGTH) {
-      Alert.alert(i18next.t('common:error'), t('register.passwordMin'));
+      showAlert(i18next.t('common:error'), t('register.passwordMin'));
       return;
     }
 
     setIsLoading(true);
     try {
       await apiClient.resetPassword(email.trim(), code.trim(), newPassword);
-      Alert.alert(t('forgotPassword.title'), t('forgotPassword.success'), [
+      showAlert(t('forgotPassword.title'), t('forgotPassword.success'), [
         { text: 'OK', onPress: () => router.replace('/login') },
       ]);
     } catch (error) {
-      Alert.alert(i18next.t('common:error'), getErrorMessage(error, (key) => i18next.t(key)));
+      showAlert(i18next.t('common:error'), getErrorMessage(error, (key) => i18next.t(key)));
     } finally {
       setIsLoading(false);
     }

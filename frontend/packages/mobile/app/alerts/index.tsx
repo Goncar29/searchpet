@@ -12,7 +12,6 @@ import {
   TouchableOpacity,
   TextInput,
   Switch,
-  Alert,
   ActivityIndicator,
   ScrollView,
 } from 'react-native';
@@ -28,6 +27,7 @@ import { useTheme, useThemedStyles } from '../../hooks/useTheme';
 import { IconLabel } from '../../components/IconLabel';
 import { Icon } from '../../components/Icon';
 import type { LocationAlert, PetType } from '../../../shared/types';
+import { showAlert } from '../../components/appAlert';
 
 const RADIUS_OPTIONS = [1, 2, 5, 10, 25] as const;
 
@@ -57,14 +57,14 @@ export default function AlertsScreen() {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert(i18next.t('alerts:locationRequired'), i18next.t('alerts:locationPermission'));
+        showAlert(i18next.t('alerts:locationRequired'), i18next.t('alerts:locationPermission'));
         return;
       }
       const loc = await Location.getCurrentPositionAsync({});
       setFormLat(loc.coords.latitude);
       setFormLng(loc.coords.longitude);
     } catch (err: unknown) {
-      Alert.alert(i18next.t('common:error'), getErrorMessage(err, i18next.t));
+      showAlert(i18next.t('common:error'), getErrorMessage(err, i18next.t));
     } finally {
       setLocating(false);
     }
@@ -72,7 +72,7 @@ export default function AlertsScreen() {
 
   const handleCreate = async () => {
     if (!formLat || !formLng) {
-      Alert.alert(i18next.t('alerts:locationRequired'), i18next.t('alerts:locationRequiredText'));
+      showAlert(i18next.t('alerts:locationRequired'), i18next.t('alerts:locationRequiredText'));
       return;
     }
 
@@ -90,7 +90,7 @@ export default function AlertsScreen() {
       setRadiusKm(5);
       setPetType('');
     } catch (err: unknown) {
-      Alert.alert(i18next.t('common:error'), getErrorMessage(err, i18next.t));
+      showAlert(i18next.t('common:error'), getErrorMessage(err, i18next.t));
     }
   };
 
@@ -101,12 +101,12 @@ export default function AlertsScreen() {
         data: { is_active: !alert.is_active },
       });
     } catch (err: unknown) {
-      Alert.alert(i18next.t('common:error'), getErrorMessage(err, i18next.t));
+      showAlert(i18next.t('common:error'), getErrorMessage(err, i18next.t));
     }
   };
 
   const handleDelete = (alert: LocationAlert) => {
-    Alert.alert(
+    showAlert(
       i18next.t('alerts:deleteConfirm'),
       `"${alert.name || i18next.t('alerts:noName')}"?`,
       [
@@ -118,7 +118,7 @@ export default function AlertsScreen() {
             try {
               await deleteAlert.mutateAsync(alert.id);
             } catch (err: unknown) {
-              Alert.alert(i18next.t('common:error'), getErrorMessage(err, i18next.t));
+              showAlert(i18next.t('common:error'), getErrorMessage(err, i18next.t));
             }
           },
         },

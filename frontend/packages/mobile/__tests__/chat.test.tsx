@@ -202,9 +202,10 @@ describe.each(['ios', 'android'] as const)('ChatScreen — menú ⋮ en %s', (os
 
   // Renders the chat and presses ⋮. Returns the chat's render result.
   function openMenu() {
-    const { Alert, ActionSheetIOS, Platform } = require('react-native');
+    const { ActionSheetIOS, Platform } = require('react-native');
+    const appAlert = require('../components/appAlert');
     jest.replaceProperty(Platform, 'OS', os);
-    alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    alertSpy = jest.spyOn(appAlert, 'showAlert').mockImplementation(() => {});
     jest.spyOn(ActionSheetIOS, 'showActionSheetWithOptions').mockImplementation(() => {});
     // i18next is not initialised in this harness and `t` returns undefined, so
     // every menu label would be the same. Echoing the key tells them apart.
@@ -226,6 +227,24 @@ describe.each(['ios', 'android'] as const)('ChatScreen — menú ⋮ en %s', (os
   afterEach(() => {
     expect(alertSpy).not.toHaveBeenCalled();
     jest.restoreAllMocks();
+  });
+
+  it('el ⋮ del encabezado tiene un área de toque como el de la lista de conversaciones', () => {
+    openMenu();
+    const withHeader = mockSetOptions.mock.calls.filter(([o]) => o.headerRight);
+    const HeaderRight = withHeader[withHeader.length - 1][0].headerRight as () => React.ReactElement;
+    const { hitSlop, style } = HeaderRight().props as {
+      hitSlop?: { top: number; bottom: number; left: number; right: number };
+      style?: { paddingHorizontal?: number; paddingVertical?: number };
+    };
+    const { SPACING } = require('../constants');
+    // Reported on the 1.3.0 APK: the header ⋮ was only the glyph plus 16px on
+    // the right, hard to hit next to the list's ⋮ (padding md + hitSlop).
+    expect(style?.paddingHorizontal).toBeGreaterThanOrEqual(SPACING.md);
+    expect(style?.paddingVertical).toBeGreaterThanOrEqual(SPACING.sm);
+    for (const side of ['top', 'bottom', 'left', 'right'] as const) {
+      expect(hitSlop?.[side]).toBeGreaterThanOrEqual(8);
+    }
   });
 
   it('muestra las tres acciones a la vez, Denunciar incluida', () => {

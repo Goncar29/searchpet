@@ -21,6 +21,7 @@
     },
     "unknownUser": "Usuario",
     "close": "Cerrar",
+    "ok": "Aceptar",
     "loadErrorTitle": "No pudimos cargar esta lista",
     "loadErrorBody": "No es que no haya nada: no llegamos a leerla. Probá de nuevo.",
     "retry": "Reintentar",

@@ -1,6 +1,6 @@
 // My Pets screen smoke test
 import React from 'react';
-import { Alert } from 'react-native';
+import * as appAlert from '../components/appAlert';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
 import MyPetsScreen from '../app/my-pets';
 import { drawnIcons } from './support/icons';
@@ -264,7 +264,7 @@ describe('MyPetsScreen', () => {
     // i18next.t() is called on the bare singleton here (not via the react-i18next
     // hook), so without an initialized instance button labels resolve to `undefined`
     // in this test env — match by position (mirrors [cancel, confirm] order) instead.
-    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation((_title, _msg, buttons) => {
+    const alertSpy = jest.spyOn(appAlert, 'showAlert').mockImplementation((_title, _msg, buttons) => {
       buttons?.[1]?.onPress?.();
     });
 
@@ -350,7 +350,7 @@ describe('MyPetsScreen — confirmar quién ayudó', () => {
     'my_pets:reportSightingOption',
   ];
   const pressReportOption = (label: string) => {
-    alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    alertSpy = jest.spyOn(appAlert, 'showAlert').mockImplementation(() => {});
     fireEvent.press(screen.getByText('my_pets:reportButton'));
     expect(alertSpy).not.toHaveBeenCalled();
     fireEvent.press(screen.getByRole('button', { name: label }));

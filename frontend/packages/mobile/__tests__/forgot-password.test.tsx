@@ -1,5 +1,5 @@
 import React from 'react';
-import { Alert } from 'react-native';
+import * as appAlert from '../components/appAlert';
 import { render, fireEvent, waitFor, screen, act } from '@testing-library/react-native';
 import { apiClient } from '../../shared/api/client';
 import ForgotPasswordScreen from '../app/forgot-password';
@@ -16,7 +16,7 @@ jest.mock('react-i18next', () => ({
   initReactI18next: { type: '3rdParty', init: jest.fn() },
 }));
 
-jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+jest.spyOn(appAlert, 'showAlert').mockImplementation(() => {});
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -79,7 +79,7 @@ describe('ForgotPasswordScreen', () => {
     fireEvent.changeText(screen.getByPlaceholderText('forgotPassword.newPassword'), 'corta');
     fireEvent.press(screen.getByText('forgotPassword.submit'));
 
-    await waitFor(() => expect(Alert.alert).toHaveBeenCalled());
+    await waitFor(() => expect(appAlert.showAlert).toHaveBeenCalled());
     expect(apiClient.resetPassword).not.toHaveBeenCalled();
   });
 

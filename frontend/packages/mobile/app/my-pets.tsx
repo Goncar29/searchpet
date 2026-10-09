@@ -9,7 +9,6 @@ import {
   Image,
   StyleSheet,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
@@ -33,6 +32,7 @@ import { ActionMenuModal } from '../components/ActionMenuModal';
 import type { Pet } from '../../shared/types';
 import { cloudinaryThumb } from '@shared/utils/cloudinaryThumb';
 import { IMAGE_SIZES } from '../constants/imageSizes';
+import { showAlert } from '../components/appAlert';
 
 export default function MyPetsScreen() {
   const styles = useThemedStyles(makeStyles);
@@ -126,7 +126,7 @@ export default function MyPetsScreen() {
     try {
       await uploadPhoto.mutateAsync({ petId: pet.id, uri: result.assets[0].uri });
     } catch (err) {
-      Alert.alert(i18next.t('common:error'), getErrorMessage(err, (key) => i18next.t(key)));
+      showAlert(i18next.t('common:error'), getErrorMessage(err, (key) => i18next.t(key)));
     }
   };
 
@@ -164,9 +164,9 @@ export default function MyPetsScreen() {
   const submitReport = async (petId: string, status: 'lost' | 'sighting') => {
     try {
       await sendReport(petId, status);
-      Alert.alert(i18next.t('my_pets:reportCreated'), i18next.t('my_pets:reportCreatedText'));
+      showAlert(i18next.t('my_pets:reportCreated'), i18next.t('my_pets:reportCreatedText'));
     } catch (err) {
-      Alert.alert(i18next.t('common:error'), getErrorMessage(err, (key) => i18next.t(key)));
+      showAlert(i18next.t('common:error'), getErrorMessage(err, (key) => i18next.t(key)));
     }
   };
 
@@ -181,7 +181,7 @@ export default function MyPetsScreen() {
       }
       setFoundPicker(null);
       if (via === 'report') {
-        Alert.alert(i18next.t('my_pets:reportCreated'), i18next.t('my_pets:reportCreatedText'));
+        showAlert(i18next.t('my_pets:reportCreated'), i18next.t('my_pets:reportCreatedText'));
       }
     } catch (err: unknown) {
       // The picker stays open with the selection so the owner can fix it.
@@ -192,7 +192,7 @@ export default function MyPetsScreen() {
   const handleMarkAsFound = (pet: Pet) => openFoundPicker(pet, 'status');
 
   const handleMarkAdopted = (pet: Pet) => {
-    Alert.alert(
+    showAlert(
       i18next.t('adoption:profile.markAdopted'),
       i18next.t('adoption:profile.markAdoptedConfirm'),
       [
@@ -203,7 +203,7 @@ export default function MyPetsScreen() {
             try {
               await updatePet.mutateAsync({ id: pet.id, data: { status: 'adopted' } });
             } catch (err: unknown) {
-              Alert.alert(i18next.t('common:error'), getErrorMessage(err, (key) => i18next.t(key)));
+              showAlert(i18next.t('common:error'), getErrorMessage(err, (key) => i18next.t(key)));
             }
           },
         },
@@ -212,7 +212,7 @@ export default function MyPetsScreen() {
   };
 
   const handleDelete = (pet: Pet) => {
-    Alert.alert(
+    showAlert(
       i18next.t('my_pets:deleteTitle'),
       i18next.t('my_pets:deleteConfirmText', { name: pet.name }),
       [
@@ -224,7 +224,7 @@ export default function MyPetsScreen() {
             try {
               await deletePet.mutateAsync(pet.id);
             } catch (err: unknown) {
-              Alert.alert(i18next.t('common:error'), getErrorMessage(err, (key) => i18next.t(key)));
+              showAlert(i18next.t('common:error'), getErrorMessage(err, (key) => i18next.t(key)));
             }
           },
         },

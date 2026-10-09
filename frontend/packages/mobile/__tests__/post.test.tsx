@@ -1,6 +1,6 @@
 // Post (Publish wizard) screen smoke test
 import React from 'react';
-import { Alert } from 'react-native';
+import * as appAlert from '../components/appAlert';
 import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
 import * as ImagePicker from 'expo-image-picker';
 import PostScreen from '../app/(tabs)/post';
@@ -118,7 +118,7 @@ beforeEach(() => {
   mockCreateReportMutateAsync.mockReset();
   mockCreateReportMutateAsync.mockResolvedValue({ id: 'report-1' });
   mockPush.mockReset();
-  jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+  jest.spyOn(appAlert, 'showAlert').mockImplementation(() => {});
   mockPublishLostMutateAsync.mockReset();
   mockPublishLostMutateAsync.mockResolvedValue({ id: 'pet-1', status: 'lost' });
   mockCreatePetMutateAsync.mockReset();
@@ -345,7 +345,7 @@ describe('PostScreen — el paso de candidatos intercepta el alta', () => {
     fireEvent.press(getByText('publish:candidates.isThisOne'));
 
     // El Alert de confirmación: se dispara el botón de confirmar.
-    const [, , botones] = (Alert.alert as jest.Mock).mock.calls.at(-1);
+    const [, , botones] = (appAlert.showAlert as jest.Mock).mock.calls.at(-1);
     await act(async () => {
       await botones.find((b: { text: string }) => b.text === 'publish:candidates.confirmAction').onPress();
     });

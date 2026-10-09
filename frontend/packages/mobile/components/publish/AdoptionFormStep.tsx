@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Image, ScrollView, Alert, StyleSheet } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Image, ScrollView, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { PetIdentityFields } from '../PetIdentityFields';
 import { composeBirthDate } from '@shared/utils/petBirthDate';
@@ -8,6 +8,7 @@ import type { AdoptionFormState } from '../../app/(tabs)/post';
 import { type ThemeColors, SPACING, FONTS, RADIUS, PET_TYPES } from '../../constants';
 import { useTheme, useThemedStyles } from '../../hooks/useTheme';
 import { Icon } from '../Icon';
+import { showAlert } from '../appAlert';
 
 interface AdoptionFormStepProps {
   value: AdoptionFormState;
@@ -55,7 +56,7 @@ export function AdoptionFormStep({ value, onChange, onSubmit, isPending }: Adopt
     if (atLimit) return;
     const permission = await ImagePicker.requestCameraPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert(t('publish:strayForm.cameraPermission'), t('publish:strayForm.cameraPermissionText'));
+      showAlert(t('publish:strayForm.cameraPermission'), t('publish:strayForm.cameraPermissionText'));
       return;
     }
 

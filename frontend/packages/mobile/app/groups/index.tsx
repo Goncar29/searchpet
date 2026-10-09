@@ -10,7 +10,6 @@ import {
   TextInput,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
 import { useState } from 'react';
 import { useRouter } from 'expo-router';
@@ -24,6 +23,7 @@ import { SPACING, FONTS, RADIUS, SHADOWS, type ThemeColors } from '../../constan
 import { useTheme, useThemedStyles } from '../../hooks/useTheme';
 import { Icon } from '../../components/Icon';
 import type { LocalGroup } from '../../../shared/types';
+import { showAlert } from '../../components/appAlert';
 
 // ============================================================
 // Group Card — owns its own mutation hooks (one instance per card)
@@ -52,7 +52,7 @@ function GroupCard({ group, isAuthenticated, onPress, onUnauthenticated }: Group
     joinMutation.mutate(undefined, {
       onError: (err) => {
         if ((err as any).message?.includes('ya eres miembro')) return;
-        Alert.alert(i18next.t('common:error'), getErrorMessage(err, (key) => i18next.t(key)));
+        showAlert(i18next.t('common:error'), getErrorMessage(err, (key) => i18next.t(key)));
       },
     });
   };
@@ -64,7 +64,7 @@ function GroupCard({ group, isAuthenticated, onPress, onUnauthenticated }: Group
     }
     leaveMutation.mutate(undefined, {
       onError: (err) => {
-        Alert.alert(i18next.t('common:error'), getErrorMessage(err, (key) => i18next.t(key)));
+        showAlert(i18next.t('common:error'), getErrorMessage(err, (key) => i18next.t(key)));
       },
     });
   };

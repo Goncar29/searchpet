@@ -6,7 +6,7 @@
 // their own mutable auth state and their own image-picker/classify mocks, and
 // don't touch any of the ListState branches the main suite already covers.
 import React from 'react';
-import { Alert } from 'react-native';
+import * as appAlert from '../components/appAlert';
 import { render, screen, fireEvent } from '@testing-library/react-native';
 import * as ImagePicker from 'expo-image-picker';
 
@@ -86,7 +86,7 @@ jest.mock('react-i18next', () => {
 beforeEach(() => {
   mockClassify.mockReset();
   mockImageSearchMutateAsync.mockReset();
-  jest.spyOn(Alert, 'alert').mockImplementation((_title, _msg, buttons) => {
+  jest.spyOn(appAlert, 'showAlert').mockImplementation((_title, _msg, buttons) => {
     // "camera" | "gallery" | "cancel" — press "gallery".
     buttons?.[1]?.onPress?.();
   });

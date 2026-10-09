@@ -13,7 +13,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
 import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
@@ -36,6 +35,7 @@ import { useTheme, useThemedStyles } from '../../hooks/useTheme';
 import { Icon } from '../../components/Icon';
 import { ActionMenuModal, type MenuAction } from '../../components/ActionMenuModal';
 import type { Message } from '../../../shared/types';
+import { showAlert } from '../../components/appAlert';
 
 export default function ChatScreen() {
   const styles = useThemedStyles(makeStyles);
@@ -120,10 +120,10 @@ export default function ChatScreen() {
       { userId },
       {
         onSuccess: () => {
-          Alert.alert(i18next.t('pet_detail:blockedSuccess'), i18next.t('chat:blockedCannotMessage'));
+          showAlert(i18next.t('pet_detail:blockedSuccess'), i18next.t('chat:blockedCannotMessage'));
         },
         onError: () => {
-          Alert.alert(i18next.t('common:error'), i18next.t('pet_detail:blockError'));
+          showAlert(i18next.t('common:error'), i18next.t('pet_detail:blockError'));
         },
       },
     );
@@ -138,8 +138,8 @@ export default function ChatScreen() {
       submitAbuseReport.mutate(
         { target_user_id: userId, reason },
         {
-          onSuccess: () => Alert.alert(i18next.t('chat:reportSuccess'), i18next.t('chat:reportSuccessText')),
-          onError: () => Alert.alert(i18next.t('common:error'), i18next.t('chat:reportError')),
+          onSuccess: () => showAlert(i18next.t('chat:reportSuccess'), i18next.t('chat:reportSuccessText')),
+          onError: () => showAlert(i18next.t('common:error'), i18next.t('chat:reportError')),
         },
       ),
   }));
@@ -168,12 +168,16 @@ export default function ChatScreen() {
   // (fallback when userName param is not available)
   useEffect(() => {
     const headerRight = () => (
+      // Same touch area as the conversation list's ⋮: the glyph alone was
+      // hard to hit (reported on the 1.3.0 APK).
       <TouchableOpacity
         onPress={() => setSheet('menu')}
         accessibilityRole="button"
         accessibilityLabel={i18next.t('chat:options')}
+        style={{ paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm }}
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
       >
-        <Text style={{ paddingRight: 16, fontSize: 22 }}>⋮</Text>
+        <Text style={{ fontSize: 22, color: colors.textSecondary }}>⋮</Text>
       </TouchableOpacity>
     );
 
@@ -191,9 +195,10 @@ export default function ChatScreen() {
     // `user?.id` picks which message names the other person, and `userName`
     // is the route param the title comes from. headerRight only calls
     // setSheet, which keeps its identity; the menu itself renders in this
-    // screen, so it always follows the current `userId`.
+    // screen, so it always follows the current `userId`. `colors` repaints
+    // the ⋮ when the theme changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [messages, user?.id, userId, userName]);
+  }, [messages, user?.id, userId, userName, colors]);
 
   // Mark unread received messages as read when conversation loads.
   // Depends on the user's id, not the user object: a new object with the same

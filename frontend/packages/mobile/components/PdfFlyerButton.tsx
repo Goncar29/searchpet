@@ -12,7 +12,6 @@ import {
   Text,
   StyleSheet,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
@@ -28,6 +27,7 @@ import type { Pet, Report } from '../../shared/types';
 import { posterFraming } from '../utils/adoptionFraming';
 import { getDateLocale } from '../i18n/dateLocale';
 import { escapeHtml } from '../utils/escapeHtml';
+import { showAlert } from './appAlert';
 
 interface PdfFlyerButtonProps {
   pet: Pet;
@@ -160,7 +160,7 @@ export function PdfFlyerButton({ pet, reports = [] }: PdfFlyerButtonProps) {
       // 5. Compartir via native share sheet (imprimir, WhatsApp, Drive, etc.)
       const canShare = await Sharing.isAvailableAsync();
       if (!canShare) {
-        Alert.alert(
+        showAlert(
           i18next.t('pets:share.flyerUnavailableTitle'),
           i18next.t('pets:share.flyerUnavailableBody'),
         );
@@ -190,7 +190,7 @@ export function PdfFlyerButton({ pet, reports = [] }: PdfFlyerButtonProps) {
         ? getErrorMessage(err, (key) => i18next.t(key))
         : i18next.t('pets:share.flyerError');
 
-      Alert.alert(i18next.t('common:error'), mensaje);
+      showAlert(i18next.t('common:error'), mensaje);
     } finally {
       setIsGenerating(false);
     }

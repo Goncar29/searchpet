@@ -2,7 +2,7 @@
 // pickers (ActionMenuModal), not in an Alert.alert with no design.
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react-native';
-import { Alert } from 'react-native';
+import * as appAlert from '../components/appAlert';
 import ProfileScreen from '../app/(tabs)/profile';
 
 const mockLogout = jest.fn();
@@ -51,7 +51,7 @@ describe('ProfileScreen — cerrar sesión', () => {
 
   beforeEach(() => {
     mockLogout.mockClear();
-    alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    alertSpy = jest.spyOn(appAlert, 'showAlert').mockImplementation(() => {});
   });
 
   afterEach(() => {

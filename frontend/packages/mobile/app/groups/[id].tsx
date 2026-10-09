@@ -10,7 +10,6 @@ import {
   Image,
   ActivityIndicator,
   TouchableOpacity,
-  Alert,
 } from 'react-native';
 import { useEffect } from 'react';
 import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
@@ -28,6 +27,7 @@ import type { GroupMember } from '../../../shared/types';
 import { ListState } from '../../components/list/ListState';
 import { cloudinaryThumb } from '@shared/utils/cloudinaryThumb';
 import { IMAGE_SIZES } from '../../constants/imageSizes';
+import { showAlert } from '../../components/appAlert';
 
 // ============================================================
 // Helpers
@@ -101,7 +101,7 @@ export default function GroupDetailScreen() {
     joinMutation.mutate(undefined, {
       onError: (err) => {
         if ((err as any).message?.includes('ya eres miembro')) return;
-        Alert.alert(i18next.t('common:error'), getErrorMessage(err, (key) => i18next.t(key)));
+        showAlert(i18next.t('common:error'), getErrorMessage(err, (key) => i18next.t(key)));
       },
     });
   };
@@ -109,7 +109,7 @@ export default function GroupDetailScreen() {
   const handleLeave = () => {
     leaveMutation.mutate(undefined, {
       onError: (err) => {
-        Alert.alert(i18next.t('common:error'), getErrorMessage(err, (key) => i18next.t(key)));
+        showAlert(i18next.t('common:error'), getErrorMessage(err, (key) => i18next.t(key)));
       },
     });
   };

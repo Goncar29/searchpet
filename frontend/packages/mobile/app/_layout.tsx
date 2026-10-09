@@ -27,6 +27,7 @@ import { useTheme } from '../hooks/useTheme';
 import { THEME_HYDRATE_TIMEOUT_MS, useThemeStore } from '../store/theme';
 import { configureNotificationHandler } from '../utils/notifications';
 import { UpdateNotice } from '../components/UpdateNotice';
+import { AlertHost } from '../components/AlertHost';
 
 // Configura cómo se muestran las notificaciones en foreground — una vez al arrancar
 configureNotificationHandler();
@@ -220,6 +221,8 @@ export default function RootLayout() {
         />
       </Stack>
       <UpdateNotice />
+      {/* Draws every showAlert() of the app; after the screens so it sits on top. */}
+      <AlertHost />
     </QueryClientProvider>
   );
 }
