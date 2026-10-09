@@ -345,6 +345,18 @@ export function MainLayout() {
                   {link.label}
                 </Link>
               ))}
+              {/* The menu is what a phone shows, and a phone is what installs
+                  the APK: without this, /download was only reachable from a
+                  shared pet's landing page. */}
+              <Link
+                to="/download"
+                className={`text-sm font-medium py-2 px-3 rounded-md ${isActive('/download')
+                  ? 'text-primary dark:text-primary-light bg-orange-50 dark:bg-orange-950'
+                  : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+                  } transition-colors duration-150`}
+              >
+                {t('downloadApp')}
+              </Link>
 
               {isAuthenticated ? (
                 <>
@@ -486,6 +498,9 @@ export function MainLayout() {
                 </Link>
                 <Link to="/shelters" className="text-sm text-gray-500 dark:text-gray-400 hover:text-primary dark:hover:text-primary-light transition-colors">
                   {t('shelters')}
+                </Link>
+                <Link to="/download" className="text-sm text-gray-500 dark:text-gray-400 hover:text-primary dark:hover:text-primary-light transition-colors">
+                  {t('downloadApp')}
                 </Link>
               </div>
             </div>
