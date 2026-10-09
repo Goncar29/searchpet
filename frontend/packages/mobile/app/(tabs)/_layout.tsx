@@ -33,6 +33,10 @@ export default function TabsLayout() {
   return (
     <Tabs
       screenOptions={{
+        // The scene behind each tab. Logged-out Profile and Messages render a
+        // bare centered View with no background, so without this they show
+        // react-navigation's default white under dark-theme text.
+        sceneStyle: { backgroundColor: colors.background },
         tabBarShowLabel: false,
         tabBarStyle: {
           backgroundColor: colors.surface,

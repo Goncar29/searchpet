@@ -42,6 +42,15 @@ describe('TabsLayout follows the theme', () => {
     expect(mockTabOptions.headerTintColor).toBe(DARK_COLORS.textPrimary);
   });
 
+  // A logged-out Profile or Messages tab renders a bare centered View with no
+  // background of its own: the scene behind it must follow the theme, or a
+  // dark phone shows light text on react-navigation's default white.
+  it('System on a dark phone paints the tab scene dark', () => {
+    mockPhoneScheme = 'dark';
+    render(<TabsLayout />);
+    expect(mockTabOptions.sceneStyle.backgroundColor).toBe(DARK_COLORS.background);
+  });
+
   it('System on a light phone paints exactly as before', () => {
     mockPhoneScheme = 'light';
     render(<TabsLayout />);
