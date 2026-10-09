@@ -115,6 +115,16 @@ El job **reconcilia** en vez de disparar acciones sueltas: cada corrida
 calcula en qué estado tiene que estar el monitor a esa hora y lo deja así, así
 que una corrida perdida la corrige la siguiente y una de más no cambia nada.
 
+**Reactivar el monitor NO despierta al backend: lo despierta el job.** Medido
+del 2026-10-07 al 10-09 en los logs de Render: con el monitor ya reactivado,
+ningún chequeo de UptimeRobot llegó a una instancia dormida, y el backend
+siguió durmiendo hasta que entró una persona, entre 2 y 6 h después de cerrar
+la ventana. Los chequeos fallaban (mails de DOWN) y el UP llegaba recién
+cuando otro lo despertaba. Por eso, fuera de la ventana, cada corrida manda
+además su propio `GET` a la URL del monitor; si el backend no contesta, el job
+falla en rojo y la corrida siguiente lo reintenta. Por qué UptimeRobot no lo
+despierta no está verificado.
+
 **Lo dispara cron-job.org, no el cron de GitHub.** El cron de GitHub es
 best-effort y acá falló dos veces seguidas: el 2026-10-07, corriendo cada hora,
 perdió 11 de 14 corridas y el monitor quedó pausado hasta las 14:34; el
