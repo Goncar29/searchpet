@@ -46,6 +46,8 @@ const mockUseConversation = jest.fn();
 const mockMarkAsReadMutate = jest.fn();
 const mockBlockMutate = jest.fn();
 const mockReportMutate = jest.fn();
+const mockUnblockMutate = jest.fn();
+let mockBlockedByMe: { blocked_id: string }[] = [];
 
 // The screen imports hooks via the relative '../../../shared/hooks'; from this
 // test that same module resolves through '../../shared/hooks'. Jest dedups by
@@ -56,6 +58,8 @@ jest.mock('../../shared/hooks', () => ({
   useMarkAsRead: () => ({ mutate: mockMarkAsReadMutate }),
   useBlockUser: () => ({ mutate: mockBlockMutate, isPending: false }),
   useBlockStatus: () => ({ isBlocked: false }),
+  useBlockedUsers: () => ({ data: mockBlockedByMe }),
+  useUnblockUser: () => ({ mutate: mockUnblockMutate, isPending: false }),
   useSubmitAbuseReport: () => ({ mutate: mockReportMutate, isPending: false }),
   useWebSocket: () => ({ sendEnvelope: jest.fn() }),
 }));
@@ -268,6 +272,59 @@ describe.each(['ios', 'android'] as const)('ChatScreen — menú ⋮ en %s', (os
     expect(mockBlockMutate).toHaveBeenCalledTimes(1);
     expect(mockBlockMutate.mock.calls[0][0]).toEqual({ userId: 'user-2' });
     expect(mockRouterPush).not.toHaveBeenCalled();
+  });
+
+  describe('con el usuario bloqueado por mí', () => {
+    beforeEach(() => {
+      mockBlockedByMe = [{ blocked_id: 'user-2' }];
+      mockUnblockMutate.mockClear();
+      mockBlockMutate.mockClear();
+    });
+    afterEach(() => {
+      mockBlockedByMe = [];
+    });
+
+    // Reported on the 1.4.0 APK: after blocking someone from the chat, the
+    // only way back was Profile → Blocked users; the menu kept offering Block.
+    it('ofrece Desbloquear en vez de Bloquear', () => {
+      const ui = openMenu();
+      expect(ui.getByRole('button', { name: 'chat:actions.unblock' })).toBeTruthy();
+      expect(ui.queryByRole('button', { name: 'chat:blockUser' })).toBeNull();
+    });
+
+    it('"Desbloquear" desbloquea a ese usuario y no lo vuelve a bloquear', () => {
+      const ui = openMenu();
+      fireEvent.press(ui.getByRole('button', { name: 'chat:actions.unblock' }));
+
+      expect(mockUnblockMutate).toHaveBeenCalledTimes(1);
+      expect(mockUnblockMutate.mock.calls[0][0]).toBe('user-2');
+      expect(mockBlockMutate).not.toHaveBeenCalled();
+    });
+  });
+
+  it('si desbloquear falla, lo dice en vez de quedarse callado', () => {
+    mockBlockedByMe = [{ blocked_id: 'user-2' }];
+    mockUnblockMutate.mockImplementation((_id: string, opts: { onError: (e: Error) => void }) =>
+      opts.onError(new Error('boom')),
+    );
+    const ui = openMenu();
+    alertSpy.mockClear();
+    fireEvent.press(ui.getByRole('button', { name: 'chat:actions.unblock' }));
+
+    expect(alertSpy).toHaveBeenCalledTimes(1);
+    expect(alertSpy.mock.calls[0][0]).toBe('common:error');
+    // The menu's afterEach asserts no alert; this one is expected.
+    alertSpy.mockClear();
+    mockUnblockMutate.mockReset();
+    mockBlockedByMe = [];
+  });
+
+  it('si fui yo el bloqueado (no él), sigue ofreciendo Bloquear: no hay nada mío que deshacer', () => {
+    mockBlockedByMe = [{ blocked_id: 'someone-else' }];
+    const ui = openMenu();
+    expect(ui.getByRole('button', { name: 'chat:blockUser' })).toBeTruthy();
+    expect(ui.queryByRole('button', { name: 'chat:actions.unblock' })).toBeNull();
+    mockBlockedByMe = [];
   });
 
   it('"Denunciar" muestra los cinco motivos, y elegir uno envía la denuncia', () => {
