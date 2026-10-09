@@ -276,7 +276,8 @@
       "description": "Agregar a tu pantalla de inicio. Sin stores, gratis.",
       "dismiss": "Ahora no",
       "install": "Instalar"
-    }
+    },
+    "downloadApp": "Descargar la app"
   },
   "home": {
     "hero": {

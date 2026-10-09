@@ -276,7 +276,8 @@
       "description": "Adicione à sua tela de início. Sem lojas, grátis.",
       "dismiss": "Agora não",
       "install": "Instalar"
-    }
+    },
+    "downloadApp": "Baixar o app"
   },
   "home": {
     "hero": {

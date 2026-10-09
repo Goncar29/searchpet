@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { act, render, screen, fireEvent } from '@testing-library/react';
+import { act, render, screen, fireEvent, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MainLayout } from './MainLayout';
@@ -71,6 +71,33 @@ describe('MainLayout — pie de página', () => {
     renderLayout();
     const heart = screen.getByTestId('footer-heart');
     expect(heart.closest('p')?.textContent).toBe('footer:madeWith');
+  });
+});
+
+// /download used to be reachable only from a shared pet's landing, so anyone
+// who did not arrive through a shared link had no way to find the APK.
+describe('MainLayout — link a descargar la app', () => {
+  beforeEach(() => {
+    vi.mocked(useUnreadCount).mockReturnValue({ data: { count: 0 } } as unknown as ReturnType<
+      typeof useUnreadCount
+    >);
+  });
+
+  it('el pie de página enlaza a /download', () => {
+    renderLayout();
+    const footer = screen.getByRole('contentinfo');
+    const link = within(footer).getByRole('link', { name: 'downloadApp' });
+    expect(link.getAttribute('href')).toBe('/download');
+  });
+
+  it('el menú del celular enlaza a /download', () => {
+    renderLayout();
+    fireEvent.click(screen.getByRole('button', { name: 'openMenu' }));
+    const links = screen
+      .getAllByRole('link', { name: 'downloadApp' })
+      .filter((a) => !a.closest('footer'));
+    expect(links).toHaveLength(1);
+    expect(links[0].getAttribute('href')).toBe('/download');
   });
 });
 

@@ -276,7 +276,8 @@
       "description": "Add it to your home screen. No app store, free.",
       "dismiss": "Not now",
       "install": "Install"
-    }
+    },
+    "downloadApp": "Get the app"
   },
   "home": {
     "hero": {
