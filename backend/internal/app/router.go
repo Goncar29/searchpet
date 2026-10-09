@@ -172,7 +172,6 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 
 	abuseReportRepo := repository.NewAbuseReportRepository(db)
 	abuseReportService := service.NewAbuseReportService(abuseReportRepo, fosterHomeRepo)
-	moderationService := service.NewModerationService(userRepo)
 	adminRepo := repository.NewAdminRepository(db)
 	adminService := service.NewAdminService(userRepo, adminRepo)
 
@@ -233,6 +232,9 @@ func SetupRouter(cfg *config.Config, db *gorm.DB, log *zap.Logger) *gin.Engine {
 		verificationTokenRepo, userRepo, mailerClient,
 		disconnectFromWS,
 	)
+	// A ban rejects the next HTTP request in the middleware; the socket needs
+	// the same cut as a password reset.
+	moderationService := service.NewModerationService(userRepo, disconnectFromWS)
 
 	notificationService.SetPresence(wsHub)
 	notificationService.SetPusher(wsHub)
