@@ -134,6 +134,12 @@ levantado; si ese `GET` falla, quedan pausados hasta la corrida siguiente. El
 precio es el mismo que ya tenía la ventana: de 04:00 a 06:00 una base caída
 tampoco la avisa nadie.
 
+Si el backend queda caído **fuera** de la ventana, el `GET` falla en cada
+corrida y esos tres monitores siguen pausados mientras dure la caída. No es un
+punto ciego: el de `/health` se reactiva antes del `GET` y es el que avisa. Lo
+que sí se pierde en ese lapso es distinguir "el proceso no contesta" de "la
+base no contesta" (regla #48), porque `/health/ready` está pausado.
+
 Lo que se sabe de la causa: a los chequeos de UptimeRobot Render les contesta
 `503` con el header `X-Render-Routing: hibernate-wake-error`, cada 5 minutos,
 sin arrancar la instancia (visto en el detalle de los incidentes). Un `curl`
