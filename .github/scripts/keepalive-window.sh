@@ -17,6 +17,14 @@
 # Outside the window it also sends its own GET to the monitored URL, because
 # resuming the monitor alone does not wake a sleeping instance (see below).
 #
+# The monitors in QUIET_MONITOR_IDS (checks every 6 h of /health/ready and the
+# mail quota) follow the same window. Left running, any check that lands in the
+# window hits a sleeping Render, gets a 503 and opens a false "down" incident:
+# it happened on 2026-10-07, 08, 09 and 10, and a database alarm that cries
+# wolf every night stops being read. They are paused with the main monitor and
+# resumed only AFTER the wake succeeds, so their first check finds the backend
+# up. They are never used to wake anything.
+#
 # Fails loudly when the API key is missing, the API does not answer "ok", or
 # the backend does not answer the wake request: a job that skips quietly would
 # look green while the backend never sleeps, or never wakes again.
@@ -24,6 +32,7 @@
 # Usage: keepalive-window.sh
 # Env:   UPTIMEROBOT_API_KEY  main (read/write) API key, required
 #        MONITOR_ID           UptimeRobot monitor id, required
+#        QUIET_MONITOR_IDS    space-separated ids paused with it (optional)
 #        SLEEP_START_UTC      first hour of the window (default 7)
 #        SLEEP_END_UTC        first hour after the window (default 9)
 #        NOW_UTC_HOUR         override the current hour (tests)
@@ -59,34 +68,46 @@ json_field() {
 
 if (( HOUR >= START && HOUR < END )); then WANT=paused; else WANT=active; fi
 
-RESPONSE=$(api getMonitors --data "monitors=$MONITOR_ID")
-if [[ "$(json_field stat <<< "$RESPONSE")" != "ok" ]]; then
-  echo "::error::getMonitors failed: $RESPONSE"
-  exit 1
-fi
-STATUS=$(json_field monitors.0.status <<< "$RESPONSE")
-URL=$(json_field monitors.0.url <<< "$RESPONSE")
-if [[ -z "$STATUS" ]]; then
-  echo "::error::Monitor $MONITOR_ID not found in the account"
-  exit 1
-fi
-# UptimeRobot status 0 is "paused"; every other value is an active monitor.
-if [[ "$STATUS" == "0" ]]; then HAVE=paused; else HAVE=active; fi
-
-echo "Hour $HOUR UTC, window ${START}-${END}: monitor $MONITOR_ID ($URL) is $HAVE, should be $WANT"
-if [[ "$HAVE" == "$WANT" ]]; then
-  echo "OK: nothing to change"
-else
-  if [[ "$WANT" == "paused" ]]; then NEW=0; else NEW=1; fi
-  RESPONSE=$(api editMonitor --data "id=$MONITOR_ID" --data "status=$NEW")
-  if [[ "$(json_field stat <<< "$RESPONSE")" != "ok" ]]; then
-    echo "::error::editMonitor failed: $RESPONSE"
+# reconcile <id>: sets monitor <id> to $WANT and leaves its url in URL.
+reconcile() {
+  local id="$1" response status have new
+  response=$(api getMonitors --data "monitors=$id")
+  if [[ "$(json_field stat <<< "$response")" != "ok" ]]; then
+    echo "::error::getMonitors failed for $id: $response"
     exit 1
   fi
-  echo "OK: monitor $MONITOR_ID set to $WANT"
+  status=$(json_field monitors.0.status <<< "$response")
+  URL=$(json_field monitors.0.url <<< "$response")
+  if [[ -z "$status" ]]; then
+    echo "::error::Monitor $id not found in the account"
+    exit 1
+  fi
+  # UptimeRobot status 0 is "paused"; every other value is an active monitor.
+  if [[ "$status" == "0" ]]; then have=paused; else have=active; fi
+
+  echo "Hour $HOUR UTC, window ${START}-${END}: monitor $id ($URL) is $have, should be $WANT"
+  if [[ "$have" == "$WANT" ]]; then
+    echo "OK: monitor $id, nothing to change"
+    return
+  fi
+  if [[ "$WANT" == "paused" ]]; then new=0; else new=1; fi
+  response=$(api editMonitor --data "id=$id" --data "status=$new")
+  if [[ "$(json_field stat <<< "$response")" != "ok" ]]; then
+    echo "::error::editMonitor failed for $id: $response"
+    exit 1
+  fi
+  echo "OK: monitor $id set to $WANT"
+}
+
+QUIET="${QUIET_MONITOR_IDS:-}"
+
+if [[ "$WANT" == "paused" ]]; then
+  reconcile "$MONITOR_ID"
+  for id in $QUIET; do reconcile "$id"; done
+  exit 0
 fi
 
-[[ "$WANT" == "active" ]] || exit 0
+reconcile "$MONITOR_ID"
 
 # Wake the backend ourselves. Measured 2026-10-07 to 10-09: a resumed
 # UptimeRobot monitor never woke a sleeping Render instance (Render answered
@@ -101,3 +122,5 @@ if ! curl -sS --fail --connect-timeout 30 --max-time 120 -o /dev/null "$URL"; th
   exit 1
 fi
 echo "OK: backend awake ($URL)"
+
+for id in $QUIET; do reconcile "$id"; done

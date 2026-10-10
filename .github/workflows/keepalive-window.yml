@@ -43,4 +43,9 @@ jobs:
           # UptimeRobot monitor that pings searchpet.onrender.com/health every
           # 5 minutes (CLAUDE.md rule #57).
           MONITOR_ID: '803088073'
+          # Checks every 6 h that would hit the sleeping backend and open a
+          # false "down" incident: /health/ready (803655471) and the two mail
+          # quota alerts (803653159, 803653160). Paused with it, resumed after
+          # the wake.
+          QUIET_MONITOR_IDS: '803655471 803653159 803653160'
         run: bash .github/scripts/keepalive-window.sh

@@ -124,6 +124,16 @@ cuando otro lo despertaba. Por eso, fuera de la ventana, cada corrida manda
 además su propio `GET` a la URL del monitor; si el backend no contesta, el job
 falla en rojo y la corrida siguiente lo reintenta.
 
+**Los monitores de cada 6 h también duermen.** `/health/ready` y las dos
+alertas de cuota de mail (`QUIET_MONITOR_IDS` en el workflow) se pausan junto
+con el de `/health`. Si no, cuando alguno de sus chequeos caía en la ventana, se
+encontraba con el backend dormido y abría un incidente falso de "caído": pasó
+del 2026-10-07 al 10-10, uno por noche y por monitor. Se reactivan **después**
+del `GET` que despierta al backend, así su primer chequeo lo encuentra
+levantado; si ese `GET` falla, quedan pausados hasta la corrida siguiente. El
+precio es el mismo que ya tenía la ventana: de 04:00 a 06:00 una base caída
+tampoco la avisa nadie.
+
 Lo que se sabe de la causa: a los chequeos de UptimeRobot Render les contesta
 `503` con el header `X-Render-Routing: hibernate-wake-error`, cada 5 minutos,
 sin arrancar la instancia (visto en el detalle de los incidentes). Un `curl`
@@ -160,8 +170,9 @@ mostrar corridas con evento `workflow_dispatch` cada ~10 minutos.
 
 Necesita el secret `UPTIMEROBOT_API_KEY` (la
 API key **principal** de la cuenta: las de solo lectura no pueden pausar) y
-falla en rojo si falta. Ojo: si pausás ese monitor a mano fuera de la
-ventana, el job lo vuelve a activar en la corrida siguiente.
+falla en rojo si falta. Ojo: si pausás a mano cualquiera de esos cuatro
+monitores fuera de la ventana, el job lo vuelve a activar en la corrida
+siguiente.
 
 ---
 
