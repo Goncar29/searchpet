@@ -20,8 +20,9 @@ cat > "$WORK/bin/curl" <<'FAKE'
 # Fake UptimeRobot API. State: $FAKE_DIR/status.<id>. Log: $FAKE_DIR/calls.
 # Monitor 1 is the /health one; any other id is a quiet monitor.
 args="$*"
-# A GET to the monitored URL is the wake request, not an API call.
-if [[ "$args" == *example.test/health* ]]; then
+# Anything that is not the UptimeRobot API is a wake request, whatever URL it
+# targets: logging only /health would hide a wake sent to the wrong monitor.
+if [[ "$args" != *api.uptimerobot.com* ]]; then
   echo "wake $args" >> "$FAKE_DIR/calls"
   if [[ "${FAKE_WAKE_FAIL:-}" == "1" ]]; then
     echo "curl: (28) Operation timed out" >&2; exit 28
