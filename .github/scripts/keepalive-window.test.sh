@@ -17,10 +17,12 @@ trap 'rm -rf "$WORK"' EXIT
 mkdir -p "$WORK/bin"
 cat > "$WORK/bin/curl" <<'FAKE'
 #!/usr/bin/env bash
-# Fake UptimeRobot API. State: $FAKE_DIR/status. Log: $FAKE_DIR/calls.
+# Fake UptimeRobot API. State: $FAKE_DIR/status.<id>. Log: $FAKE_DIR/calls.
+# Monitor 1 is the /health one; any other id is a quiet monitor.
 args="$*"
-# A GET to the monitored URL is the wake request, not an API call.
-if [[ "$args" == *example.test/health* ]]; then
+# Anything that is not the UptimeRobot API is a wake request, whatever URL it
+# targets: logging only /health would hide a wake sent to the wrong monitor.
+if [[ "$args" != *api.uptimerobot.com* ]]; then
   echo "wake $args" >> "$FAKE_DIR/calls"
   if [[ "${FAKE_WAKE_FAIL:-}" == "1" ]]; then
     echo "curl: (28) Operation timed out" >&2; exit 28
@@ -34,12 +36,15 @@ if [[ "${FAKE_FAIL:-}" == "$method" ]]; then
 fi
 case "$method" in
   getMonitors)
-    if [[ "${FAKE_MISSING:-}" == "1" ]]; then echo '{"stat":"ok","monitors":[]}'; exit 0; fi
-    echo "{\"stat\":\"ok\",\"monitors\":[{\"id\":1,\"url\":\"https://example.test/health\",\"status\":$(cat "$FAKE_DIR/status")}]}" ;;
+    id=$(echo "$args" | grep -o 'monitors=[0-9]*' | cut -d= -f2)
+    if [[ "${FAKE_MISSING:-}" == "$id" ]]; then echo '{"stat":"ok","monitors":[]}'; exit 0; fi
+    if [[ "$id" == "1" ]]; then url=https://example.test/health; else url=https://example.test/quiet-$id; fi
+    echo "{\"stat\":\"ok\",\"monitors\":[{\"id\":$id,\"url\":\"$url\",\"status\":$(cat "$FAKE_DIR/status.$id")}]}" ;;
   editMonitor)
+    id=$(echo "$args" | grep -o 'id=[0-9]*' | head -1 | cut -d= -f2)
     new=$(echo "$args" | grep -o 'status=[01]' | cut -d= -f2)
-    if [[ "$new" == "0" ]]; then echo 0 > "$FAKE_DIR/status"; else echo 2 > "$FAKE_DIR/status"; fi
-    echo '{"stat":"ok","monitor":{"id":1}}' ;;
+    if [[ "$new" == "0" ]]; then echo 0 > "$FAKE_DIR/status.$id"; else echo 2 > "$FAKE_DIR/status.$id"; fi
+    echo "{\"stat\":\"ok\",\"monitor\":{\"id\":$id}}" ;;
 esac
 FAKE
 chmod +x "$WORK/bin/curl"
@@ -48,15 +53,21 @@ FAILED=0
 PASSED=0
 
 # run <hour> <initial status> [extra env...] ; sets OUT, CODE, CALLS, FINAL
+# Quiet monitors 5 and 6 start in QUIET_STATUS (default: same as monitor 1);
+# their final states land in FINAL5 and FINAL6.
 run() {
   local hour="$1" status="$2"; shift 2
   rm -f "$WORK/calls"; : > "$WORK/calls"
-  echo "$status" > "$WORK/status"
+  echo "$status" > "$WORK/status.1"
+  echo "${QUIET_STATUS:-$status}" > "$WORK/status.5"
+  echo "${QUIET_STATUS:-$status}" > "$WORK/status.6"
   OUT=$(env PATH="$WORK/bin:$PATH" FAKE_DIR="$WORK" UPTIMEROBOT_API_KEY=test-key \
         MONITOR_ID=1 NOW_UTC_HOUR="$hour" "$@" bash "$SCRIPT" 2>&1)
   CODE=$?
   CALLS=$(cat "$WORK/calls")
-  FINAL=$(cat "$WORK/status")
+  FINAL=$(cat "$WORK/status.1")
+  FINAL5=$(cat "$WORK/status.5")
+  FINAL6=$(cat "$WORK/status.6")
 }
 
 check() {
@@ -85,7 +96,7 @@ check "hour 08 with a leading zero is read as decimal" \
 
 run 8 0
 check "08 UTC, already paused: no edit call" \
-  "$(yes_if test "$CODE" = 0 -a "$FINAL" = 0 -a "${OUT##*OK: }" = "nothing to change")"
+  "$(yes_if test "$CODE" = 0 -a "$FINAL" = 0 -a "${OUT##*OK: }" = "monitor 1, nothing to change")"
 [[ "$CALLS" != *editMonitor* ]] && check "08 UTC sends no editMonitor" yes || check "08 UTC sends no editMonitor" no
 
 run 9 0
@@ -137,7 +148,45 @@ check "editMonitor not ok fails" \
 
 run 7 2 FAKE_MISSING=1
 check "unknown monitor id fails" \
-  "$(yes_if test "$CODE" = 1 -a "${OUT#*not found in the account}" != "$OUT")"
+  "$(yes_if test "$CODE" = 1 -a "${OUT#*Monitor 1 not found in the account}" != "$OUT")"
+
+# Quiet monitors (QUIET_MONITOR_IDS). Their 6-hourly checks opened a false
+# "down" incident whenever they landed in the window (2026-10-07 to 10-10).
+run 7 2 QUIET_MONITOR_IDS="5 6"
+check "07 UTC pauses the quiet monitors too" \
+  "$(yes_if test "$CODE" = 0 -a "$FINAL" = 0 -a "$FINAL5" = 0 -a "$FINAL6" = 0)"
+[[ "$OUT" == *"OK: monitor 5 set to paused"* && "$OUT" == *"OK: monitor 6 set to paused"* ]] \
+  && check "07 UTC reports each quiet monitor paused" yes \
+  || check "07 UTC reports each quiet monitor paused" no
+
+QUIET_STATUS=2 run 8 0 QUIET_MONITOR_IDS="5 6"
+check "08 UTC, a quiet monitor resumed by hand is paused again" \
+  "$(yes_if test "$CODE" = 0 -a "$FINAL5" = 0 -a "$FINAL6" = 0)"
+
+run 9 0 QUIET_MONITOR_IDS="5 6"
+check "09 UTC resumes the quiet monitors" \
+  "$(yes_if test "$CODE" = 0 -a "$FINAL" = 2 -a "$FINAL5" = 2 -a "$FINAL6" = 2)"
+# Resumed before the wake, their first check would hit a sleeping Render.
+wake_line=$(grep -n '^wake ' <<< "$CALLS" | head -1 | cut -d: -f1)
+quiet_line=$(grep -n '^editMonitor .*id=5' <<< "$CALLS" | head -1 | cut -d: -f1)
+[[ -n "$wake_line" && -n "$quiet_line" && "$wake_line" -lt "$quiet_line" ]] \
+  && check "09 UTC resumes the quiet monitors only after the wake" yes \
+  || check "09 UTC resumes the quiet monitors only after the wake" no
+[[ "$CALLS" != *"wake "*quiet-* ]] \
+  && check "a quiet monitor's url is never used to wake" yes \
+  || check "a quiet monitor's url is never used to wake" no
+
+run 9 0 QUIET_MONITOR_IDS="5 6" FAKE_WAKE_FAIL=1
+check "a failed wake leaves the quiet monitors paused" \
+  "$(yes_if test "$CODE" = 1 -a "$FINAL5" = 0 -a "$FINAL6" = 0)"
+
+run 7 2 QUIET_MONITOR_IDS="5 6" FAKE_MISSING=6
+check "an unknown quiet monitor id fails" \
+  "$(yes_if test "$CODE" = 1 -a "${OUT#*Monitor 6 not found in the account}" != "$OUT")"
+
+run 7 2
+check "no QUIET_MONITOR_IDS leaves the other monitors alone" \
+  "$(yes_if test "$CODE" = 0 -a "$FINAL5" = 2 -a "$FINAL6" = 2)"
 
 echo
 echo "$PASSED passed, $FAILED failed"
