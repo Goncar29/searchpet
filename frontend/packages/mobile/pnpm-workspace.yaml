@@ -38,6 +38,23 @@ allowBuilds:
 # ^1.7.4 and @react-native-community/cli-server-api ^1.7.1 for compression,
 # ^1.2.x for source-map-js, so 1.8.2 and 1.2.2 stay inside their ranges.
 #
+# 2026-11: floors raised and two keys added for a fresh batch of advisories.
+#  - undici@6 to >=6.29.1 (GHSA-xjj6-f33q-929c, GHSA-2m5v-pch6-74hx,
+#    GHSA-qrxm-fqhp-jwvm: TLS bypass/DoS), via the RN dev server. Still <7.
+#  - joi@17 to >=17.13.9 (GHSA-4528-x5fx-h6hg). Dev tooling. Still <18.
+#  - fast-uri@3 to >=3.1.9 (URI scheme spoofing/host confusion), via ajv in
+#    expo-build-properties and expo-router schema-utils (build time). Still <4.
+#  - node-forge@1 to >=1.4.1: NEW. 1.4.1 finally ships a patch for the whole
+#    node-forge advisory cluster (GHSA-7wch-p9px-956x, GHSA-jc66-7q78-782g,
+#    GHSA-8hrf-8g6f-7xwp, GHSA-hqq3-7jhf-c5jx, GHSA-5x38-2vff-x55p and the
+#    older GHSA-86w9-cpqp-85rv that used to be ignored). Pulled via
+#    selfsigned > @react-native/dev-middleware (the dev server); the installed
+#    selfsigned pins node-forge ^1.x, so 1.4.1 stays in range. Its ignore is
+#    removed below. Still <2.
+#  - zod@4 to >=4.6.6: NEW (GHSA-mrhx-c7xc-m3w5, email-parser ReDoS). Pulled
+#    SOLELY via eslint-plugin-react-hooks (dev); `pnpm why zod` confirms it.
+#    Still <5.
+#
 overrides:
   '@xmldom/xmldom@0.9': '>=0.9.12 <0.10'
   baseline-browser-mapping@2: '>=2.11.0 <3'
@@ -46,16 +63,18 @@ overrides:
   brace-expansion@5: '>=5.0.9 <6'
   browserslist@4: '>=4.28.7 <5'
   compression@1: '>=1.8.2 <2'
-  fast-uri@3: '>=3.1.6 <4'
+  fast-uri@3: '>=3.1.9 <4'
   form-data@3: '>=3.0.5 <4'
   form-data@4: '>=4.0.6 <5'
-  joi@17: '>=17.13.6 <18'
+  joi@17: '>=17.13.9 <18'
   js-yaml@3: '>=3.15.2 <4'
   js-yaml@4: '>=4.3.2 <5'
   nanoid@3: '>=3.3.18 <4'
+  node-forge@1: '>=1.4.1 <2'
   shell-quote@1: '>=1.11.0 <2'
   source-map-js@1: '>=1.2.2 <2'
-  undici@6: '>=6.28.0 <7'
+  undici@6: '>=6.29.1 <7'
+  zod@4: '>=4.6.6 <5'
 
 # Advisories with no fix inside the major line their parent accepts (S14,
 # part 2). Each group names who pulls the package and why the fix is out of
@@ -134,16 +153,32 @@ auditConfig:
     # 8 ms with zero calls into decode-uri-component. The fix (0.5.0) is
     # ESM-only and query-string 7 require()s it, so an override is not an
     # option anyway. Re-check if the app ever imports query-string or stops
-    # using expo-router's linking.
+    # using expo-router's linking. GHSA-qr28-fpjm-wq7f (a second DoS, quadratic
+    # replacement of percent-encoded runs, published later) rides the exact
+    # same path and the same unreachability; its fix (0.5.1) is still ESM-only
+    # and query-string 7 require()s it, so an override is still impossible.
     - GHSA-vcc3-ghjq-m6fr # DoS via exponential decoding
-    # node-forge 1.4.0, via @expo/cli and @react-native/dev-middleware (the dev
-    # server). braces 3.0.3, via micromatch (jest, fast-glob, Metro, Expo CLI).
-    # Neither advisory has a patched release: node-forge stops at 1.4.0 and
-    # braces at 3.0.3, both with first_patched_version null (checked
-    # 2026-10-04), so an override has nothing to point at. Measured that
-    # neither ships: the source map of `expo export --platform android` lists
-    # 1648 modules, with 0 from node-forge, braces, micromatch or selfsigned,
-    # against 114 from react-native-svg and 76 from expo-router as controls.
-    # Replace these with overrides as soon as a fixed version is published.
-    - GHSA-86w9-cpqp-85rv # node-forge: RSA PKCS#1 v1.5 signature malleability
+    - GHSA-qr28-fpjm-wq7f # DoS via quadratic percent-decoding; same unreachable path
+    # braces 3.0.3, via micromatch (jest, fast-glob, Metro, Expo CLI). The
+    # advisory still has no patched release: braces stops at 3.0.3 with
+    # first_patched_version null (checked 2026-11), so an override has nothing
+    # to point at. Measured that it does not ship: the source map of
+    # `expo export --platform android` lists 1648 modules, with 0 from braces,
+    # micromatch or selfsigned, against 114 from react-native-svg and 76 from
+    # expo-router as controls. Replace with an override once a fix publishes.
+    # (node-forge used to be ignored here too; 1.4.1 now patches it and it moved
+    # to an override above, so its ignore GHSA-86w9-cpqp-85rv was removed.)
     - GHSA-vfj7-8cjw-p6xm # braces: stack exhaustion on deeply nested patterns
+    # minimatch 9.0.9/10.2.5 and glob 10.x, via @expo/config and @react-native
+    # CLI plugins (build time). The only fixes are major bumps the parents do
+    # not accept: minimatch >=11.0.1 (parents pin 9.x/10.x) and glob >=14.0.2
+    # (parents pin 10.x). Both moderate, tooling only, never in the APK. No fix
+    # exists inside the accepted range, so they are ignored until Expo SDK moves
+    # the parents.
+    - GHSA-g3hv-75wg-m249 # minimatch moderate; only fix is major 11, parents pin 9/10
+    - GHSA-3g3m-2fjr-6pw4 # glob moderate; only fix is major 14, parents pin 10
+    # deepmerge 4.3.1, via @expo/cli > @expo/config (build time). The advisory
+    # names 4.3.2 as patched, but 4.3.2 was never published (latest is 4.3.1,
+    # checked 2026-11), so an override has nothing to point at. Low, tooling
+    # only. Replace with an override once 4.3.2 (or later 4.x) ships.
+    - GHSA-gcqx-w48m-w2h4 # deepmerge low; prototype poisoning, no published 4.x fix
