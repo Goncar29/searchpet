@@ -43,24 +43,30 @@ allowBuilds:
 # `pnpm audit --audit-level=high`, which blocks every PR.
 #
 overrides:
-  dompurify: '>=3.4.13 <4'
+  dompurify: '>=3.4.17 <4'
   form-data: '>=4.0.6'
   nanoid: '>=3.3.17 <4'
   postcss: '>=8.5.18'
   protobufjs: '>=7.6.5 <8'
   source-map-js: '>=1.2.2 <2'
-  undici: '>=7.29.1 <8'
+  undici: '>=7.30.1 <8'
+  zod: '>=4.6.6 <5'
   websocket-driver: '>=0.7.5'
 
 # dompurify y protobufjs llegan transitivos (jspdf y firebase/firestore), asi
 # que no hay version top-level que subir. Los dos se ARREGLAN en vez de
 # ignorarse: el parche entra en el rango que ya pide su padre.
 #
-# dompurify: jspdf pide ^3.3.1. Los cinco advisories (GHSA-c2j3-45gr-mqc4,
-# GHSA-cmwh-pvxp-8882, GHSA-vxr8-fq34-vvx9, GHSA-gvmj-g25r-r7wr,
-# GHSA-55q2-fjhq-7xh7) llegan como mucho a 3.4.12. La app nunca llama a
-# `.html()` de jsPDF, que es el unico camino que usa DOMPurify, pero arreglarlo
-# cuesta menos que sostener cinco ignores. Tope <4: el rango de jspdf.
+# dompurify: jspdf pide ^3.3.1. La app nunca llama a `.html()` de jsPDF, que es
+# el unico camino que usa DOMPurify, pero arreglarlo cuesta menos que sostener
+# los ignores. Tope <4: el rango de jspdf.
+#
+# Piso subido a >=3.4.17 el 2026-11: tres advisories nuevos afectan <=3.4.16 y
+# rompian `pnpm audit` (GHSA-cg2g-xh64-v4q7 critical y GHSA-mrv2-3pqr-j5jr high
+# -- mXSS por nesting profundo, incompleto fix de GHSA-p98j-92pf-mc4p -- mas
+# GHSA-c6gr-qvv4-5v3f low). Los tres se parchan en 3.4.17, dentro del ^3.3.1 de
+# jspdf. No hay jspdf nuevo que fije un dompurify parcheado: 4.2.1 sigue
+# pidiendo ^3.3.1, asi que el override es la via.
 #
 # protobufjs: @grpc/proto-loader pide ^7.5.5. GHSA-f38q-mgvj-vph7 se parcha en
 # 7.6.3 y GHSA-j3f2-48v5-ccww en 7.6.5, asi que el piso es 7.6.5. La web no
@@ -96,6 +102,30 @@ overrides:
 # pedido) afectan <7.29.1 y rompian `pnpm audit` en todas las ramas. Solo
 # llega via jsdom (tests), y el tope <8 sigue valiendo por el mismo motivo.
 #
+# Piso subido a 7.30.1 el 2026-11: ocho advisories nuevos afectan <7.30.1
+# (GHSA-xjj6-f33q-929c, GHSA-4w7w-5xrc-9h26, GHSA-2m5v-pch6-74hx,
+# GHSA-qrxm-fqhp-jwvm, GHSA-4qv8-2p9j-2685, GHSA-f72v-6w45-q472,
+# GHSA-9fm3-97px-rjf6, GHSA-55wc-3pg8-jfw6 -- TLS bypass/DoS en Agent y
+# renegociacion), todos parcheados en 7.30.1. Mismo camino jsdom (tests),
+# mismo tope <8.
+#
+# zod: llega SOLO via eslint-plugin-react-hooks (dev, por su validacion
+# interna); `pnpm why zod` lo confirma. GHSA-mrhx-c7xc-m3w5 (ReDoS en el parser
+# de email) afecta <4.6.6 y se parcha en 4.6.6. Tope <5: el parche entra en el
+# major 4 que ya resuelve el arbol; un override sin tope engancharia un major 5
+# futuro.
+#
+# minimatch: moderate (GHSA-g3hv-75wg-m249, DoS por patron de brace). El unico
+# parche es >=11.0.1, un MAJOR; los padres que lo traen (jspdf y tooling de
+# vite) piden la linea 10.x, asi que forzar 11 es romper rangos, no arreglar.
+# No hay fix en 10.x. Build/tooling, nunca en el browser. Se ignora.
+#
+# @grpc/grpc-js: low (GHSA-f596-whhp-79r4). Igual que GHSA-m9gg-hp2v-232j: solo
+# llega via firebase > @firebase/firestore > @grpc/grpc-js, que la web nunca
+# importa (el build de firestore para browser usa WebChannel, no grpc-js). El
+# parche (>=1.13.6) cae fuera del ~1.9.0 que firestore fija, asi que un override
+# forzaria cuatro minors sobre un padre que no los pidio. Se ignora.
+#
 # Also ignore the react-router RSC CSRF advisory. Its own text states: "This
 # only affects your application if you are using the unstable RSC APIs." The
 # web app is a declarative SPA — BrowserRouter + Routes/Route/Link/useNavigate,
@@ -119,3 +149,5 @@ auditConfig:
   ignoreGhsas:
     - GHSA-qwww-vcr4-c8h2 # react-router CSRF bypass in unstable RSC mode (unused)
     - GHSA-m9gg-hp2v-232j # grpc-js server-side getAuthContext; web runs no gRPC server
+    - GHSA-f596-whhp-79r4 # grpc-js low; firestore (unused in browser) pins ~1.9, fix is >=1.13.6
+    - GHSA-g3hv-75wg-m249 # minimatch moderate; only fix is major 11, parents pin 10.x; tooling only
