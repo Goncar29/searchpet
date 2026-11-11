@@ -655,13 +655,17 @@ recuperación, key de Jina, `/api/ops/quota`, `phone_verified`) NO entran acá.
 
 ## Next step
 
-Abiertos de este backlog: **G4b** (FCM `Token` → `Fid`, al subir
-`firebase-admin-go`) y **S16** (subir `x/crypto` y compañía; vulnerabilidades
-no alcanzables). Con fecha fija: la verificación del **4 de octubre** de la
-caducidad de avistamientos. Lo siguiente acordado con el usuario: **mobile**
-(retomar el **PR #74**, barrido de bugs) y después **un APK** para
-verificar todo junto en el teléfono (la lista de qué mirar está en Progress,
-2026-09-28).
+**Backlog cerrado entero** (actualizado 2026-10-13):
+
+- **S16**: hecho en el #303.
+- **G4b**: decidido el 2026-10-05, queda con `Token` (no se migra a `Fid`).
+- **S1, `remote_addr`**: leído el 2026-09-27; derivó en S1c (ver arriba).
+- **PR #74**: cerrado para siempre y rama borrada (2026-09-29); el feed se
+  rehízo en el #298. El barrido de mobile y los APK posteriores (hasta la
+  v1.5.0) cubrieron la verificación en el teléfono.
+- **Caducidad de avistamientos**: VERIFICADA en local (3/3 con control).
+  La verificación en prod sigue esperando a que haya mascotas publicadas;
+  no es de este backlog.
 
 **Aprendido**: no marcar el backlog en cada PR — los ítems contiguos chocan;
 se actualiza al cerrar, en un commit aparte.
